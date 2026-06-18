@@ -80,7 +80,8 @@ public class MercadoLibreListingAdminServiceTests
     private static async Task<(int ListingId, string ItemId)> SembrarListingAsync(
         TestDbContextFactory factory,
         string status = "active",
-        long[]? variaciones = null)
+        long[]? variaciones = null,
+        string? categoryId = null)
     {
         await using var ctx = factory.CreateDbContext();
 
@@ -104,6 +105,7 @@ public class MercadoLibreListingAdminServiceTests
             Precio = 1000m,
             AvailableQuantity = 5,
             Status = status,
+            CategoryId = categoryId,
             TieneVariaciones = variaciones?.Length > 0
         };
 
@@ -185,6 +187,82 @@ public class MercadoLibreListingAdminServiceTests
 
         Assert.True(ok);
         Assert.Contains("SIMULACIÓN", mensaje, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(api.UpdateItemCalls);
+    }
+
+    [Fact]
+    public async Task EditarCategoria_EnSimulacion_NoLlamaMl()
+    {
+        var (servicio, api, factory) = BuildServicio();
+        var (listingId, _) = await SembrarListingAsync(factory, categoryId: "MLA1000");
+        // ModoSimulacion=true (default) → no llama ML
+
+        var (ok, mensaje) = await servicio.EditarCategoriaAsync(
+            listingId, categoryId: "MLA416632", confirmarReal: true, usuario: "tester");
+
+        Assert.True(ok);
+        Assert.Contains("SIMULACIÓN", mensaje, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(api.UpdateItemCalls);
+
+        await using var ctx = factory.CreateDbContext();
+        var log = await ctx.MercadoLibreSyncLogs
+            .FirstOrDefaultAsync(l => l.Operacion == "EditarCategoria");
+        Assert.NotNull(log);
+        Assert.True(log!.Exito);
+        Assert.Contains("SIMULADO", log.Detalle!, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task EditarCategoria_ModoReal_EnviaCategoryIdEnPayload()
+    {
+        var (servicio, api, factory) = BuildServicio();
+        var (listingId, itemId) = await SembrarListingAsync(factory, categoryId: "MLA1000");
+        await ConfigurarModoAsync(factory, modoSimulacion: false);
+
+        api.UpdateItemRespuestas[itemId] = new MeliItemDto
+            { Id = itemId, CategoryId = "MLA416632", Status = "active" };
+
+        var (ok, _) = await servicio.EditarCategoriaAsync(
+            listingId, categoryId: "MLA416632", confirmarReal: true, usuario: "tester");
+
+        Assert.True(ok);
+        Assert.Single(api.UpdateItemCalls);
+        Assert.Equal(itemId, api.UpdateItemCalls[0].ItemId);
+
+        // El payload debe llevar category_id con la nueva categoría.
+        var payload = Assert.IsType<Dictionary<string, object>>(api.UpdateItemCalls[0].Payload);
+        Assert.Equal("MLA416632", Assert.Contains("category_id", payload));
+
+        // Persiste la nueva categoría localmente.
+        await using var ctx = factory.CreateDbContext();
+        var listing = await ctx.MercadoLibreListings.FirstAsync(l => l.Id == listingId);
+        Assert.Equal("MLA416632", listing.CategoryId);
+    }
+
+    [Fact]
+    public async Task EditarCategoria_MismaCategoria_RetornaFalse()
+    {
+        var (servicio, api, factory) = BuildServicio();
+        var (listingId, _) = await SembrarListingAsync(factory, categoryId: "MLA416632");
+
+        var (ok, mensaje) = await servicio.EditarCategoriaAsync(
+            listingId, categoryId: "MLA416632", confirmarReal: false, usuario: "tester");
+
+        Assert.False(ok);
+        Assert.Contains("misma", mensaje, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(api.UpdateItemCalls);
+    }
+
+    [Fact]
+    public async Task EditarCategoria_Vacia_RetornaFalse()
+    {
+        var (servicio, api, factory) = BuildServicio();
+        var (listingId, _) = await SembrarListingAsync(factory, categoryId: "MLA1000");
+
+        var (ok, _) = await servicio.EditarCategoriaAsync(
+            listingId, categoryId: "   ", confirmarReal: false, usuario: "tester");
+
+        Assert.False(ok);
         Assert.Empty(api.UpdateItemCalls);
     }
 

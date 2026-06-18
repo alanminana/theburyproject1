@@ -148,6 +148,11 @@ var mvcBuilder = builder.Services.AddControllersWithViews();
 if (builder.Environment.IsDevelopment())
     mvcBuilder.AddRazorRuntimeCompilation();
 
+// Rework visual Mercado Libre: el MercadoLibreController sirve las vistas de
+// /Views/MercadoLibre1/ (copia exacta del standalone) con fallback al folder original.
+mvcBuilder.AddRazorOptions(options =>
+    options.ViewLocationExpanders.Add(new TheBuryProject.Modules.MercadoLibre.MercadoLibre1ViewLocationExpander()));
+
 // 7. Razor Pages (Identity UI)
 builder.Services.AddRazorPages();
 

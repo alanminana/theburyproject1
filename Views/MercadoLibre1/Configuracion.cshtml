@@ -1,0 +1,219 @@
+@using TheBuryProject.Modules.MercadoLibre.Entities
+@model MercadoLibreConfiguracionViewModel
+@{
+    ViewData["Title"] = "Configuración Mercado Libre";
+    var clientes = ViewBag.Clientes as List<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem> ?? new();
+    var catalogo = ViewBag.CatalogoEstado as TheBuryProject.Modules.MercadoLibre.ViewModels.MercadoLibreCatalogoEstadoVm;
+
+    string Sw(bool on) => on ? "checked" : null;
+}
+
+<!-- ============ CONFIGURACIÓN ============ -->
+<form asp-action="Configuracion" method="post">
+    @Html.AntiForgeryToken()
+
+    <div class="phead">
+        <div>
+            <h1><span class="gi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"></path></svg></span>Configuración</h1>
+            <div class="sub">Impacta precios, stock, ventas automáticas y publicación real</div>
+        </div>
+        <div class="acts">
+            <button type="submit" class="btn primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"></path></svg>Guardar configuración</button>
+        </div>
+    </div>
+
+    <div class="confirmreal" data-ml-publish-card style="margin-bottom:16px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;flex:none"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path></svg>
+        <span>Publicación real: <b data-ml-publish-state>@(Model.PermitirPublicacionDesdeErp ? "Permitida" : "Bloqueada")</b> · cada borrador igual exige marcar «Publicación REAL» antes de enviarse a ML.</span>
+    </div>
+
+    <div class="subtabs" id="cfgTabs">
+        <button type="button" class="subtab active" data-cfg="cuenta">Cuenta</button>
+        <button type="button" class="subtab" data-cfg="precios">Precios y stock</button>
+        <button type="button" class="subtab" data-cfg="auto">Automatización</button>
+    </div>
+
+    <!-- Cuenta -->
+    <div data-cfg-panel="cuenta">
+        <div class="card"><div class="cardpad">
+            <div class="formgrid">
+                <div class="field">
+                    <label asp-for="AccountId">Cuenta Mercado Libre</label>
+                    <select asp-for="AccountId">
+                        <option value="">— Sin cuenta —</option>
+                        @foreach (var (id, nombre) in Model.CuentasDisponibles)
+                        {
+                            <option value="@id" selected="@(Model.AccountId == id ? "selected" : null)">@nombre</option>
+                        }
+                    </select>
+                    <span class="hint">Cuenta usada para sincronizar y procesar órdenes.</span>
+                </div>
+                <div class="field">
+                    <label asp-for="ListaPrecioId">Lista de precios para ML</label>
+                    <select asp-for="ListaPrecioId">
+                        <option value="">— Precio base del producto —</option>
+                        @foreach (var (id, nombre) in Model.ListasPreciosDisponibles)
+                        {
+                            <option value="@id" selected="@(Model.ListaPrecioId == id ? "selected" : null)">@nombre</option>
+                        }
+                    </select>
+                    <span class="hint">El precio ML parte de esta lista; sin lista usa el precio de venta base.</span>
+                </div>
+                <div class="field">
+                    <label asp-for="SucursalId">Sucursal / depósito de referencia</label>
+                    <select asp-for="SucursalId">
+                        <option value="">— Sin sucursal —</option>
+                        @foreach (var (id, nombre) in Model.SucursalesDisponibles)
+                        {
+                            <option value="@id" selected="@(Model.SucursalId == id ? "selected" : null)">@nombre</option>
+                        }
+                    </select>
+                    <span class="hint">Informativo: el stock del ERP es global, sin stock por depósito.</span>
+                </div>
+                <div class="field full">
+                    <label asp-for="ClienteMercadoLibreId">Cliente interno para ventas ML</label>
+                    <select asp-for="ClienteMercadoLibreId" asp-items="clientes">
+                        <option value="">— Seleccionar cliente —</option>
+                    </select>
+                    <span class="hint">Las ventas creadas desde órdenes ML se imputan a este cliente. Obligatorio para crear ventas.</span>
+                </div>
+            </div>
+        </div></div>
+    </div>
+
+    <!-- Precios y stock -->
+    <div data-cfg-panel="precios" class="hide">
+        <div class="card"><div class="cardpad">
+            <div class="formgrid">
+                <div class="field">
+                    <label asp-for="AjusteCanalPorcentaje">Ajuste de canal <span class="req">%</span></label>
+                    <div class="suffix"><input asp-for="AjusteCanalPorcentaje" type="number" step="0.01" /><span class="u">%</span></div>
+                    <span class="hint">Recargo aplicado sobre el precio ERP al publicar.</span>
+                    <span asp-validation-for="AjusteCanalPorcentaje" style="color:var(--red);font-size:11.5px"></span>
+                </div>
+                <div class="field">
+                    <label asp-for="ComisionEstimadaPorcentaje">Comisión ML estimada <span class="req">%</span></label>
+                    <div class="suffix"><input asp-for="ComisionEstimadaPorcentaje" type="number" step="0.01" /><span class="u">%</span></div>
+                    <span class="hint">Para calcular el neto estimado por orden.</span>
+                    <span asp-validation-for="ComisionEstimadaPorcentaje" style="color:var(--red);font-size:11.5px"></span>
+                </div>
+                <div class="field">
+                    <label asp-for="CostoEnvioEstimado">Costo de envío estimado</label>
+                    <div class="suffix"><input asp-for="CostoEnvioEstimado" type="number" step="0.01" /><span class="u">ARS</span></div>
+                    <span asp-validation-for="CostoEnvioEstimado" style="color:var(--red);font-size:11.5px"></span>
+                </div>
+                <div class="field">
+                    <label asp-for="MargenMinimoPorcentaje">Margen mínimo <span class="req">%</span></label>
+                    <div class="suffix"><input asp-for="MargenMinimoPorcentaje" type="number" step="0.01" /><span class="u">%</span></div>
+                    <span class="hint">Los push de precio advierten si quedan por debajo. Vacío = sin control.</span>
+                    <span asp-validation-for="MargenMinimoPorcentaje" style="color:var(--red);font-size:11.5px"></span>
+                </div>
+                <div class="field">
+                    <label asp-for="ReglaRedondeo">Regla de redondeo</label>
+                    <select asp-for="ReglaRedondeo">
+                        <option value="ninguno">Sin redondeo</option>
+                        <option value="decena">A la decena ($1.234 → $1.230)</option>
+                        <option value="centena">A la centena ($1.234 → $1.200)</option>
+                        <option value="mil">Al mil ($1.234 → $1.000)</option>
+                    </select>
+                </div>
+                <div class="field full">
+                    <label asp-for="OrigenStock">Origen del stock publicado</label>
+                    <select asp-for="OrigenStock">
+                        <option value="@MercadoLibreOrigenStock.StockLogicoProducto">Stock lógico del producto (StockActual)</option>
+                        <option value="@MercadoLibreOrigenStock.StockFisicoDisponible">Stock físico (unidades EnStock registradas)</option>
+                    </select>
+                    <span class="hint">Define cuánto stock empuja el sync a ML. Cada publicación puede sobreescribirlo en su detalle.</span>
+                </div>
+                <div class="field full">
+                    <label asp-for="PoliticaDevolucion">Política ante devoluciones</label>
+                    <select asp-for="PoliticaDevolucion">
+                        <option value="@MercadoLibrePoliticaDevolucion.PendienteRevision">Pendiente de revisión (recomendado)</option>
+                        <option value="@MercadoLibrePoliticaDevolucion.SugerirReingreso">Sugerir reingreso de stock</option>
+                        <option value="@MercadoLibrePoliticaDevolucion.SugerirNoReingreso">Sugerir no reingresar</option>
+                    </select>
+                    <span class="hint">El stock nunca se reingresa sin decisión manual.</span>
+                </div>
+            </div>
+        </div></div>
+    </div>
+
+    <!-- Automatización -->
+    <div data-cfg-panel="auto" class="hide">
+        <div class="card"><div style="padding:6px 20px 14px">
+            <label class="switchrow">
+                <div class="txt"><b>Permitir publicación desde el ERP</b><p>Habilita crear y publicar ítems en ML directamente desde el ERP. Apagado: los borradores solo se simulan.</p></div>
+                <span class="switch"><input type="checkbox" name="PermitirPublicacionDesdeErp" value="true" data-ml-permitir checked="@Sw(Model.PermitirPublicacionDesdeErp)"><span class="track"><span class="knob"></span></span></span>
+                <input type="hidden" name="PermitirPublicacionDesdeErp" value="false">
+            </label>
+            <label class="switchrow">
+                <div class="txt"><b>Importación automática de órdenes</b><p>Al recibir webhooks orders_v2 se importa la orden completa (sin crear venta).</p></div>
+                <span class="switch"><input type="checkbox" name="ImportacionAutomaticaOrdenes" value="true" checked="@Sw(Model.ImportacionAutomaticaOrdenes)"><span class="track"><span class="knob"></span></span></span>
+                <input type="hidden" name="ImportacionAutomaticaOrdenes" value="false">
+            </label>
+            <label class="switchrow">
+                <div class="txt"><b>Crear venta automática <span class="risk">REAL</span></b><p>Con la orden paga y todos los ítems vinculados, crea la Venta y descuenta stock. Requiere cliente ML configurado.</p></div>
+                <span class="switch"><input type="checkbox" name="CrearVentaAutomatica" value="true" checked="@Sw(Model.CrearVentaAutomatica)"><span class="track"><span class="knob"></span></span></span>
+                <input type="hidden" name="CrearVentaAutomatica" value="false">
+            </label>
+            <label class="switchrow">
+                <div class="txt"><b>Sync automática de stock</b><p>Empuja stock a ML cuando cambia en el ERP (publicaciones vinculadas).</p></div>
+                <span class="switch"><input type="checkbox" name="SyncAutomaticaStock" value="true" checked="@Sw(Model.SyncAutomaticaStock)"><span class="track"><span class="knob"></span></span></span>
+                <input type="hidden" name="SyncAutomaticaStock" value="false">
+            </label>
+            <label class="switchrow">
+                <div class="txt"><b>Sync automática de precio</b><p>Empuja el precio de canal calculado cuando cambia el precio ERP.</p></div>
+                <span class="switch"><input type="checkbox" name="SyncAutomaticaPrecio" value="true" checked="@Sw(Model.SyncAutomaticaPrecio)"><span class="track"><span class="knob"></span></span></span>
+                <input type="hidden" name="SyncAutomaticaPrecio" value="false">
+            </label>
+        </div></div>
+    </div>
+</form>
+
+<!-- Catálogo de categorías (local) -->
+<div class="card" style="margin-top:16px"><div class="cardpad">
+    <div class="subsec" style="cursor:default"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16M4 12h16M4 19h10"></path></svg>Catálogo de categorías de Mercado Libre (local)</div>
+    <p class="hint" style="margin-bottom:14px">Importado desde un archivo local grande (no se sube ni versiona). Habilita la detección de atributos obligatorios por categoría al publicar.</p>
+
+    @if (catalogo is { Importado: true })
+    {
+        <div class="tiles" style="margin-bottom:14px">
+            <div class="tile"><div class="tl">Última importación</div><div class="tv" style="font-size:14px">@(catalogo.UltimoExitoUtc?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "—")</div></div>
+            <div class="tile"><div class="tl">Categorías</div><div class="tv">@catalogo.Categorias.ToString("N0")</div></div>
+            <div class="tile"><div class="tl">Hojas / Publicables</div><div class="tv">@catalogo.Hojas.ToString("N0") / @catalogo.Publicables.ToString("N0")</div></div>
+            <div class="tile"><div class="tl">Atributos</div><div class="tv">@catalogo.Atributos.ToString("N0")</div></div>
+        </div>
+    }
+    else
+    {
+        <p class="hint" style="margin-bottom:14px">Catálogo todavía no importado. Importalo desde un archivo local para validar atributos obligatorios.</p>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(catalogo?.UltimoError))
+    {
+        <div class="tray warn" style="margin-bottom:14px"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 9v4M12 17h.01"></path><circle cx="12" cy="12" r="9"></circle></svg></span><b>Último error: @catalogo!.UltimoError</b></div>
+    }
+
+    <form asp-action="ImportarCatalogo" method="post">
+        <div class="field full">
+            <label for="rutaArchivo">Ruta local del archivo (.json o .json.gz)</label>
+            <input type="text" id="rutaArchivo" name="rutaArchivo" value="@catalogo?.RutaSugerida" placeholder="E:\theburyproject1\_ml-cache\mla_categories_with_attributes.json.gz" />
+            <span class="hint">Se lee por streaming desde el disco del servidor (no se sube por la web). Soporta .gz. Reemplaza el catálogo local existente.</span>
+        </div>
+        <div style="margin-top:14px"><button type="submit" class="btn primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"></path></svg>Importar catálogo</button></div>
+    </form>
+</div></div>
+
+@section Scripts {
+    <script>
+        (function () {
+            var toggle = document.querySelector('[data-ml-permitir]');
+            var card = document.querySelector('[data-ml-publish-card]');
+            if (!toggle || !card) return;
+            var state = card.querySelector('[data-ml-publish-state]');
+            function sync() { if (state) state.textContent = toggle.checked ? 'Permitida' : 'Bloqueada'; }
+            toggle.addEventListener('change', sync);
+            sync();
+        })();
+    </script>
+}

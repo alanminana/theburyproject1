@@ -23,9 +23,9 @@
     --venta-muted: #94a3b8;
     --venta-muted-2: #64748b;
 
-    --venta-primary: #135bec;
-    --venta-primary-hover: #1a6aff;
-    --venta-primary-soft: rgba(19, 91, 236, 0.16);
+    --venta-primary: #f5c518;
+    --venta-primary-hover: #ffd435;
+    --venta-primary-soft: rgba(245, 197, 24, 0.16);
 
     --venta-green: #22c55e;
     --venta-green-soft: rgba(34, 197, 94, 0.14);
@@ -275,8 +275,8 @@
 
 #venta-index-rework .btn-primary {
     background: var(--venta-primary);
-    border-color: rgba(59, 130, 246, 0.42);
-    color: #fff;
+    border-color: rgba(245, 197, 24, 0.42);
+    color: #15110a;
 }
 
 #venta-index-rework .btn-primary:hover {
@@ -285,13 +285,13 @@
 
 #venta-index-rework .btn-soft {
     background: var(--venta-primary-soft);
-    border-color: rgba(59, 130, 246, 0.28);
-    color: #bfdbfe;
+    border-color: rgba(245, 197, 24, 0.28);
+    color: #f5d97a;
 }
 
 #venta-index-rework .btn-soft:hover {
-    background: rgba(19, 91, 236, 0.24);
-    border-color: rgba(59, 130, 246, 0.42);
+    background: rgba(245, 197, 24, 0.24);
+    border-color: rgba(245, 197, 24, 0.42);
 }
 
 #venta-index-rework .btn-ghost {
@@ -373,8 +373,8 @@
 
 #venta-index-rework .chip-filter-active {
     background: var(--venta-primary-soft);
-    border-color: rgba(59, 130, 246, 0.32);
-    color: #bfdbfe;
+    border-color: rgba(245, 197, 24, 0.32);
+    color: #f5d97a;
 }
 
 #venta-index-rework .pill-slate {
@@ -385,8 +385,8 @@
 
 #venta-index-rework .pill-blue {
     background: var(--venta-primary-soft);
-    border-color: rgba(59, 130, 246, 0.32);
-    color: #bfdbfe;
+    border-color: rgba(245, 197, 24, 0.32);
+    color: #f5d97a;
 }
 
 #venta-index-rework .pill-cyan {
@@ -439,7 +439,7 @@
     inset: 0;
     pointer-events: none;
     background:
-        radial-gradient(circle at top left, rgba(59, 130, 246, 0.16), transparent 34%),
+        radial-gradient(circle at top left, rgba(245, 197, 24, 0.16), transparent 34%),
         radial-gradient(circle at bottom right, rgba(34, 197, 94, 0.08), transparent 36%);
 }
 
@@ -490,7 +490,7 @@
 }
 
 #venta-index-rework .venta-breadcrumb__link {
-    color: #93c5fd;
+    color: #f5c518;
     text-decoration: none;
 }
 
@@ -561,8 +561,8 @@
     align-items: center;
     justify-content: center;
     border-radius: 0.8rem;
-    background: rgba(59, 130, 246, 0.14);
-    color: #93c5fd;
+    background: rgba(245, 197, 24, 0.14);
+    color: #f5c518;
     font-size: 1.25rem;
 }
 
@@ -641,8 +641,8 @@
 #venta-index-rework .tab-btn.is-active,
 #venta-index-rework .tab-btn[aria-selected="true"] {
     background: var(--venta-primary-soft);
-    border-color: rgba(59, 130, 246, 0.38);
-    color: #bfdbfe;
+    border-color: rgba(245, 197, 24, 0.38);
+    color: #f5d97a;
 }
 
 #venta-index-rework .tab-btn .material-symbols-outlined {
@@ -774,8 +774,8 @@
 
 #venta-index-rework input:focus,
 #venta-index-rework select:focus {
-    border-color: rgba(59, 130, 246, 0.72);
-    box-shadow: 0 0 0 3px rgba(19, 91, 236, 0.18);
+    border-color: rgba(245, 197, 24, 0.72);
+    box-shadow: 0 0 0 3px rgba(245, 197, 24, 0.18);
     background-color: rgba(15, 23, 42, 0.96);
 }
 
@@ -801,7 +801,7 @@
     display: inline-flex;
     align-items: center;
     gap: 0.45rem;
-    color: #bfdbfe;
+    color: #f5d97a;
     font-size: 0.78rem;
     font-weight: 900;
     cursor: pointer;
@@ -912,7 +912,7 @@
 }
 
 #venta-index-rework .table-scroll:focus {
-    outline: 2px solid rgba(59, 130, 246, 0.55);
+    outline: 2px solid rgba(245, 197, 24, 0.55);
     outline-offset: -2px;
 }
 
@@ -956,7 +956,7 @@
 }
 
 #venta-index-rework .sale-number {
-    color: #93c5fd;
+    color: #f5c518;
     font-weight: 900;
     text-decoration: none;
     font-variant-numeric: tabular-nums;
@@ -1182,7 +1182,7 @@
 #venta-index-rework input:focus-visible,
 #venta-index-rework select:focus-visible,
 #venta-index-rework summary:focus-visible {
-    outline: 2px solid rgba(59, 130, 246, 0.7);
+    outline: 2px solid rgba(245, 197, 24, 0.7);
     outline-offset: 2px;
 }
 

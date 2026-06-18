@@ -923,6 +923,7 @@ a.ml-card:hover { border-color: rgba(251, 191, 36, 0.4); transform: translateY(-
 }
 
 .ml-img-thumb {
+    position: relative;
     display: inline-flex;
     width: 4.5rem;
     height: 4.5rem;
@@ -937,6 +938,28 @@ a.ml-card:hover { border-color: rgba(251, 191, 36, 0.4); transform: translateY(-
     height: 100%;
     object-fit: cover;
     display: block;
+}
+
+.ml-img-remove {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 1.25rem;
+    height: 1.25rem;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 9999px;
+    background: rgba(15, 23, 42, 0.85);
+    color: #f8fafc;
+    font-size: 0.95rem;
+    cursor: pointer;
+}
+
+.ml-img-remove:hover {
+    background: rgba(244, 63, 94, 0.9);
 }
 
 .ml-img-note {
@@ -959,4 +982,89 @@ a.ml-card:hover { border-color: rgba(251, 191, 36, 0.4); transform: translateY(-
     .ml-real-check { max-width: none; }
     .ml-publish-mode-card { flex-direction: row; }
     .ml-img-thumb { width: 3.75rem; height: 3.75rem; }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   Detalle de publicación · meta-chips legibles + layout en pestañas
+   Reutiliza .mlc-card/.mlc-tabs/.mlc-tab/.mlc-panel del módulo.
+   Reemplaza la línea técnica "MLA… · gold_special · new" por chips
+   con etiquetas humanas y agrupa el contenido en tabs compactos.
+   ════════════════════════════════════════════════════════════════ */
+.ml-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.5rem;
+}
+
+.ml-meta__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 9999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    border: 1px solid var(--ml-border);
+    background: rgba(15, 23, 42, 0.55);
+    color: #cbd5e1;
+}
+
+.ml-meta__chip .material-symbols-outlined { font-size: 0.95rem; }
+.ml-meta__chip--code { font-family: ui-monospace, "Cascadia Mono", monospace; color: #94a3b8; letter-spacing: 0.01em; }
+.ml-meta__chip--active { border-color: rgba(16, 185, 129, 0.4); background: rgba(16, 185, 129, 0.12); color: #6ee7b7; }
+.ml-meta__chip--paused { border-color: rgba(251, 191, 36, 0.4); background: rgba(251, 191, 36, 0.12); color: #fcd34d; }
+.ml-meta__chip--closed { border-color: rgba(148, 163, 184, 0.35); background: rgba(148, 163, 184, 0.1); color: #cbd5e1; }
+.ml-meta__chip--warn { border-color: rgba(251, 191, 36, 0.35); background: rgba(251, 191, 36, 0.1); color: #fcd34d; }
+
+/* Grupo de campos / info dentro de un panel (2 columnas en desktop) */
+.ml-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+    gap: 1rem 1.25rem;
+    align-items: start;
+}
+
+/* Bloque informativo simple (par etiqueta/valor) */
+.ml-kv {
+    padding: 0.6rem 0.75rem;
+    border-radius: 0.6rem;
+    border: 1px solid var(--ml-border);
+    background: rgba(15, 23, 42, 0.45);
+    min-width: 0;
+}
+
+.ml-kv__label {
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ml-muted);
+}
+
+.ml-kv__value {
+    margin-top: 0.2rem;
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: #f1f5f9;
+    overflow-wrap: anywhere;
+}
+
+/* Acciones agrupadas al pie de una sección del panel */
+.ml-panel-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.6rem;
+    margin-top: 0.9rem;
+}
+
+.ml-panel-actions--split { justify-content: space-between; }
+
+/* Zona de acción peligrosa (finalizar) separada visualmente */
+.ml-danger-zone {
+    margin-top: 1.1rem;
+    padding-top: 0.9rem;
+    border-top: 1px dashed rgba(244, 63, 94, 0.3);
 }

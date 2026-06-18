@@ -1,0 +1,141 @@
+@using TheBuryProject.Modules.MercadoLibre.Entities
+@model List<MercadoLibreBorradorListViewModel>
+@{
+    ViewData["Title"] = "Borradores de publicación";
+    var productosJson = ViewBag.ProductosPickerJson as string ?? "[]";
+    var permitirPublicacion = ViewBag.PermitirPublicacion as bool? ?? false;
+}
+
+<!-- ============ BORRADORES ============ -->
+<div class="phead">
+    <div>
+        <h1><span class="gi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"></path><path d="M13 3v6h6"></path></svg></span>Borradores</h1>
+        <div class="sub">Producto ERP → Borrador → Validación → Publicar · simula por defecto</div>
+    </div>
+</div>
+
+<div class="filters">
+    <span class="warnpill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1l-5-10V3"></path></svg>Por defecto se simulan: no llaman a Mercado Libre.</span>
+    <div class="fspacer"></div>
+    @if (permitirPublicacion)
+    {
+        <span class="okpill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M9 12l2 2 4-4"></path></svg>Publicación real disponible</span>
+    }
+    else
+    {
+        <span class="warnpill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>Real bloqueada — <a asp-action="Configuracion" style="color:inherit">Configuración</a></span>
+    }
+</div>
+
+@if (User.TienePermiso("mercadolibre", "sync"))
+{
+    <div class="card" style="margin-bottom:18px">
+        <div class="cardpad">
+            <form asp-action="BorradorCrear" method="post" id="ml-borrador-form" style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+                @Html.AntiForgeryToken()
+                <div class="field" style="flex:1;min-width:280px">
+                    <label for="ml-borrador-picker">Crear borrador desde producto ERP</label>
+                    <input type="text" list="ml-productos-datalist" id="ml-borrador-picker" placeholder="Código o nombre del producto..." aria-label="Buscar producto para publicar" />
+                    <input type="hidden" name="productoId" id="ml-borrador-producto-id" value="" />
+                </div>
+                <button type="submit" class="btn primary" id="ml-borrador-submit" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg>Crear borrador</button>
+            </form>
+            <datalist id="ml-productos-datalist"></datalist>
+        </div>
+    </div>
+}
+
+@if (Model.Count == 0)
+{
+    <div class="card">
+        <div class="empty">
+            <span class="eic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"></path><path d="M13 3v6h6"></path></svg></span>
+            <b>No hay borradores</b>
+            <p>Elegí un producto del ERP para preparar su publicación.</p>
+        </div>
+    </div>
+}
+else
+{
+    <div class="card">
+        <table class="tbl">
+            <thead><tr><th>Título</th><th>Producto</th><th class="num">Precio</th><th class="num">Stock</th><th>Categoría ML</th><th>Estado</th><th>Publicación</th><th style="text-align:right">Acciones</th></tr></thead>
+            <tbody>
+                @foreach (var borrador in Model)
+                {
+                    <tr>
+                        <td>
+                            <a class="pt" asp-action="Borrador" asp-route-id="@borrador.Id" style="text-decoration:none;color:inherit;font-weight:600" title="@borrador.Titulo">@borrador.Titulo</a>
+                        </td>
+                        <td>
+                            <div class="link">
+                                <span class="lc" style="color:var(--ink)">@borrador.ProductoCodigo</span>
+                                <span class="ld">@borrador.ProductoNombre</span>
+                            </div>
+                        </td>
+                        <td class="num">@borrador.Precio.ToString("N2") <small style="color:var(--faint)">ARS</small></td>
+                        <td class="num">@borrador.Stock</td>
+                        <td><span style="font-family:var(--mono);font-size:12px;color:var(--muted)">@(borrador.CategoryIdMl ?? "—")</span></td>
+                        <td>
+                            @switch (borrador.Estado)
+                            {
+                                case MercadoLibreBorradorEstado.Borrador:
+                                    <span class="stag inactive">borrador</span>
+                                    break;
+                                case MercadoLibreBorradorEstado.Validado:
+                                    <span class="stag paused">validado</span>
+                                    break;
+                                case MercadoLibreBorradorEstado.Publicado:
+                                    <span class="stag active">publicado@(borrador.PublicadoItemId is null ? "" : $" · {borrador.PublicadoItemId}")</span>
+                                    break;
+                                default:
+                                    <span class="stag inactive">@borrador.Estado</span>
+                                    break;
+                            }
+                        </td>
+                        <td>
+                            @if (borrador.Estado == MercadoLibreBorradorEstado.Publicado && !borrador.PublicadoEnSimulacion)
+                            {
+                                <span class="mode real"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v8"></path></svg>Real</span>
+                            }
+                            else
+                            {
+                                <span class="mode sim"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1l-5-10V3"></path></svg>Simulación</span>
+                            }
+                        </td>
+                        <td>
+                            <div class="rowacts">
+                                <a asp-action="Borrador" asp-route-id="@borrador.Id" class="iconbtn go" title="Abrir borrador"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3h7v7M21 3l-9 9M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"></path></svg></a>
+                                <a asp-action="Borrador" asp-route-id="@borrador.Id" class="iconbtn" title="Editar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path></svg></a>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@section Scripts {
+    <script>
+        (function () {
+            'use strict';
+            var productos = @Html.Raw(productosJson);
+            var datalist = document.getElementById('ml-productos-datalist');
+            var picker = document.getElementById('ml-borrador-picker');
+            var hidden = document.getElementById('ml-borrador-producto-id');
+            var submit = document.getElementById('ml-borrador-submit');
+            if (!datalist || !picker) return;
+            productos.forEach(function (p) {
+                var option = document.createElement('option');
+                option.value = p.codigo + ' - ' + p.nombre;
+                datalist.appendChild(option);
+            });
+            picker.addEventListener('input', function () {
+                var match = productos.find(function (p) { return (p.codigo + ' - ' + p.nombre) === picker.value; });
+                hidden.value = match ? match.id : '';
+                submit.disabled = !match;
+            });
+        })();
+    </script>
+}

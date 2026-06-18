@@ -1,0 +1,100 @@
+@using TheBuryProject.Models.Entities
+@using TheBuryProject.Modules.MercadoLibre.Entities
+@model MercadoLibrePriceBatchRequest
+@{
+    ViewData["Title"] = "Nuevo aumento masivo ML";
+    var categorias = ViewBag.Categorias as IEnumerable<Categoria> ?? Enumerable.Empty<Categoria>();
+    var marcas = ViewBag.Marcas as IEnumerable<Marca> ?? Enumerable.Empty<Marca>();
+}
+
+<!-- ============ AUMENTO NUEVO ============ -->
+<div class="crumb">
+    <a asp-action="Aumentos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"></path></svg>Aumentos</a>
+    <span class="sep">/</span><span class="cur">Nuevo aumento</span>
+</div>
+<div class="phead">
+    <div>
+        <h1><span class="gi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l6-6 4 4 8-8M21 7v5M21 7h-5"></path></svg></span>Nuevo aumento masivo</h1>
+        <div class="sub">El lote se crea como <b style="color:var(--blue)">simulación con preview</b>; nada se envía a ML en este paso.</div>
+    </div>
+</div>
+
+<form asp-action="AumentoSimular" method="post">
+    @Html.AntiForgeryToken()
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:start">
+        <div class="card"><div class="cardpad">
+            <div class="subsec" style="cursor:default"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg>Definición</div>
+            <div class="formgrid" style="grid-template-columns:1fr">
+                <div class="field full">
+                    <label asp-for="Nombre">Nombre del lote</label>
+                    <input asp-for="Nombre" placeholder="Ej: Aumento 10% electro junio" />
+                    <span asp-validation-for="Nombre" style="color:var(--red);font-size:11.5px"></span>
+                </div>
+                <div class="field full">
+                    <label asp-for="Origen">Origen del precio nuevo</label>
+                    <select asp-for="Origen">
+                        <option value="@MercadoLibrePriceBatchOrigen.PorcentajeSobrePrecioMl">Porcentaje sobre el precio ML actual</option>
+                        <option value="@MercadoLibrePriceBatchOrigen.DesdePrecioErp">Desde precio ERP + ajuste canal + ajuste extra</option>
+                    </select>
+                </div>
+                <div class="field full">
+                    <label asp-for="ValorAjustePorcentaje">Ajuste <span class="req">%</span></label>
+                    <div class="suffix"><input asp-for="ValorAjustePorcentaje" type="number" step="0.01" /><span class="u">%</span></div>
+                    <span asp-validation-for="ValorAjustePorcentaje" style="color:var(--red);font-size:11.5px"></span>
+                    <span class="hint">"% sobre precio ML": aumento directo. "Desde precio ERP": ajuste extra sobre el precio de canal.</span>
+                </div>
+            </div>
+        </div></div>
+
+        <div class="card"><div class="cardpad">
+            <div class="subsec" style="cursor:default"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16M7 12h10M10 19h4"></path></svg>Filtros</div>
+            <div class="formgrid">
+                <div class="field">
+                    <label asp-for="CategoriaId">Categoría</label>
+                    <select asp-for="CategoriaId">
+                        <option value="">Todas</option>
+                        @foreach (var categoria in categorias)
+                        {
+                            <option value="@categoria.Id">@categoria.Nombre</option>
+                        }
+                    </select>
+                </div>
+                <div class="field">
+                    <label asp-for="MarcaId">Marca</label>
+                    <select asp-for="MarcaId">
+                        <option value="">Todas</option>
+                        @foreach (var marca in marcas)
+                        {
+                            <option value="@marca.Id">@marca.Nombre</option>
+                        }
+                    </select>
+                </div>
+                <div class="field">
+                    <label asp-for="Estado">Estado en ML</label>
+                    <select asp-for="Estado">
+                        <option value="">Activas y pausadas</option>
+                        <option value="active">Solo activas</option>
+                        <option value="paused">Solo pausadas</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label>Rango de precio</label>
+                    <div style="display:flex;gap:8px">
+                        <input asp-for="PrecioDesde" type="number" step="0.01" placeholder="Desde" />
+                        <input asp-for="PrecioHasta" type="number" step="0.01" placeholder="Hasta" />
+                    </div>
+                </div>
+                <div class="field full">
+                    <label class="checkline" style="background:none;border:0;padding:0;cursor:pointer"><input asp-for="SoloVinculadas" class="cbx" type="checkbox"><span><b style="color:var(--ink)">Solo publicaciones vinculadas a producto</b><div class="cm">Las sin producto pueden previsualizarse, pero se omiten en envíos reales.</div></span></label>
+                    <label class="checkline" style="background:none;border:0;padding:0;cursor:pointer"><input asp-for="SoloConStock" class="cbx" type="checkbox"><span><b style="color:var(--ink)">Solo publicaciones con stock ML</b></span></label>
+                </div>
+            </div>
+        </div></div>
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;gap:9px;margin-top:18px">
+        <a asp-action="Aumentos" class="btn ghost">Cancelar</a>
+        <button type="submit" class="btn primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1l-5-10V3"></path></svg>Simular lote</button>
+    </div>
+</form>

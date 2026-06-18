@@ -154,16 +154,50 @@ namespace TheBuryProject.Modules.MercadoLibre.Services
                 });
             }
 
-            // Descripción on-demand (no se persiste: ML es la fuente).
+            // Datos on-demand desde ML (no se persisten: ML es la fuente): descripción,
+            // imágenes actuales y estado live (refleja transiciones under_review → active).
             try
             {
                 var token = await _authService.GetValidAccessTokenAsync(listing.AccountId, ct);
-                vm.Descripcion = await _apiClient.GetItemDescriptionAsync(token, listing.ItemId, ct);
-                vm.DescripcionConsultada = true;
+
+                try
+                {
+                    vm.Descripcion = await _apiClient.GetItemDescriptionAsync(token, listing.ItemId, ct);
+                    vm.DescripcionConsultada = true;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "No se pudo consultar la descripción de {ItemId}", listing.ItemId);
+                    vm.DescripcionConsultada = false;
+                }
+
+                try
+                {
+                    var items = await _apiClient.GetItemsAsync(token, new[] { listing.ItemId }, ct);
+                    var item = items.FirstOrDefault();
+                    if (item is not null)
+                    {
+                        vm.ImagenesActuales = item.Pictures
+                            .Select(p => p.UrlEfectiva)
+                            .Where(u => !string.IsNullOrWhiteSpace(u))
+                            .Select(u => u!)
+                            .ToList();
+                        vm.ImagenesConsultadas = true;
+
+                        if (!string.IsNullOrWhiteSpace(item.Status))
+                            vm.Status = item.Status!;
+                        if (item.SubStatus.Count > 0)
+                            vm.SubStatus = string.Join(", ", item.SubStatus);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "No se pudieron consultar imágenes/estado de {ItemId}", listing.ItemId);
+                }
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "No se pudo consultar la descripción de {ItemId}", listing.ItemId);
+                _logger.LogWarning(ex, "No se pudo obtener token para el detalle de {ItemId}", listing.ItemId);
                 vm.DescripcionConsultada = false;
             }
 
@@ -231,6 +265,56 @@ namespace TheBuryProject.Modules.MercadoLibre.Services
                 aplicarLocal: (listing, item) => listing.Status = item.Status ?? destino.Status,
                 mensajeExito: $"Publicación {destino.Verbo}.",
                 ct);
+        }
+
+        public async Task<(bool Ok, string Mensaje)> EditarImagenesAsync(
+            int listingId, IReadOnlyList<string> imagenesUrls, bool confirmarReal, string usuario,
+            CancellationToken ct = default)
+        {
+            var urls = (imagenesUrls ?? Array.Empty<string>())
+                .Select(u => u?.Trim())
+                .Where(u => !string.IsNullOrWhiteSpace(u))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (urls.Count == 0)
+                return (false, "Agregá al menos una URL de imagen.");
+
+            // Mercado Libre admite hasta 12 imágenes por publicación.
+            if (urls.Count > 12)
+                return (false, "Mercado Libre permite hasta 12 imágenes por publicación.");
+
+            if (urls.Any(u => !EsUrlImagenPublica(u!)))
+                return (false, "Hay URLs inválidas o no públicas. Usá direcciones http/https absolutas (no localhost): ML descarga la imagen desde la URL.");
+
+            var pictures = urls
+                .Select(u => (object)new Dictionary<string, object> { ["source"] = u! })
+                .ToList();
+
+            return await EjecutarAccionAsync(
+                listingId,
+                "EditarImagenes",
+                confirmarReal,
+                usuario,
+                descripcionCambio: $"imágenes → {urls.Count} foto(s)",
+                payload: new Dictionary<string, object> { ["pictures"] = pictures },
+                // ML rehospeda las imágenes en su CDN; no hay nada local que persistir.
+                aplicarLocal: (_, _) => { },
+                mensajeExito: $"Imágenes actualizadas ({urls.Count}).",
+                ct);
+        }
+
+        /// <summary>URL absoluta http/https que ML pueda descargar (no localhost/loopback).</summary>
+        private static bool EsUrlImagenPublica(string url)
+        {
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+                return false;
+
+            if (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps)
+                return false;
+
+            var host = uri.Host.ToLowerInvariant();
+            return host != "localhost" && host != "127.0.0.1" && host != "::1" && host != "[::1]";
         }
 
         public async Task<(bool Ok, string Mensaje)> EditarAsync(
@@ -418,6 +502,41 @@ namespace TheBuryProject.Modules.MercadoLibre.Services
 
                 return (false, $"Error actualizando la descripción: {ex.Message}");
             }
+        }
+
+        public async Task<(bool Ok, string Mensaje)> EditarCategoriaAsync(
+            int listingId, string? categoryId, bool confirmarReal, string usuario, CancellationToken ct = default)
+        {
+            var nueva = (categoryId ?? string.Empty).Trim();
+            if (nueva.Length == 0)
+                return (false, "Elegí una categoría.");
+
+            string? actual;
+            await using (var context = await _contextFactory.CreateDbContextAsync(ct))
+            {
+                var listing = await context.MercadoLibreListings
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(l => l.Id == listingId, ct);
+
+                if (listing is null)
+                    return (false, "Publicación no encontrada.");
+
+                actual = listing.CategoryId;
+            }
+
+            if (string.Equals(nueva, actual, StringComparison.OrdinalIgnoreCase))
+                return (false, "La categoría es la misma: no hay cambios para aplicar.");
+
+            return await EjecutarAccionAsync(
+                listingId,
+                "EditarCategoria",
+                confirmarReal,
+                usuario,
+                descripcionCambio: $"categoría {actual ?? "—"} → {nueva}",
+                payload: new Dictionary<string, object> { ["category_id"] = nueva },
+                aplicarLocal: (listing, item) => listing.CategoryId = item.CategoryId ?? nueva,
+                mensajeExito: $"Categoría actualizada a {nueva}.",
+                ct);
         }
 
         // ------------------------------------------------------------------

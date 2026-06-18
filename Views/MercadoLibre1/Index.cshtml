@@ -1,0 +1,118 @@
+@model MercadoLibreConexionViewModel
+@{
+    ViewData["Title"] = "Conexión Mercado Libre";
+}
+
+<!-- ============ CONEXIÓN ============ -->
+<div class="phead">
+    <div>
+        <h1><span class="gi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"></path>
+            <path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"></path>
+        </svg></span>Conexión</h1>
+        <div class="sub">Entrada técnica al canal · de acá salen las publicaciones importadas</div>
+    </div>
+</div>
+
+@if (!Model.ModuloConfigurado)
+{
+    <div class="tray warn" style="margin-bottom:18px">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z">
+            </path>
+        </svg></span>
+        <b>Módulo sin configurar</b>
+        <span>— faltan credenciales <span style="font-family:var(--mono)">MercadoLibre:ClientId / ClientSecret /
+            RedirectUri</span> en UserSecrets o variables de entorno.</span>
+        </div>
+    }
+
+    @if (!Model.HayCuentaConectada)
+    {
+        <div class="card">
+            <div class="empty">
+                <span class="eic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 17H7a5 5 0 0 1 0-10h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8M4 4l16 16"></path>
+                </svg></span>
+                <b>Sin cuenta conectada</b>
+                <p>Conectá tu cuenta de vendedor para importar publicaciones, sincronizar stock y precios.</p>
+                <form asp-action="Conectar" method="post" style="margin-top:6px">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn primary" disabled="@(Model.ModuloConfigurado ? null : "disabled")"><svg
+                        viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"></path>
+                        <path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"></path>
+                    </svg>Conectar Mercado Libre</button>
+                </form>
+            </div>
+        </div>
+    }
+
+    @foreach (var cuenta in Model.Cuentas.Where(c => c.Activa))
+    {
+        <div class="card" style="margin-bottom:16px">
+            <div class="card-h">
+                <span class="t"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="8" r="4"></circle>
+                    <path d="M4 21a8 8 0 0 1 16 0"></path>
+                </svg>@cuenta.Nickname</span>
+                @if (cuenta.UltimaPruebaConexionOk == true)
+                {
+                    <span class="chip ok"><span class="dot"></span>Conectada</span>
+                }
+                else if (cuenta.UltimaPruebaConexionOk == false)
+                {
+                    <span class="chip bad"><span class="dot"></span>Falló la última prueba</span>
+                }
+                else
+                {
+                    <span class="chip neutral"><span class="dot"></span>Sin probar</span>
+                }
+            </div>
+            <div style="padding:18px">
+                <div class="strip" style="margin:0">
+                    <div class="cell"><span class="lbl">Nickname</span><span class="val">@cuenta.Nickname</span></div>
+                    <div class="cell"><span class="lbl">User ID</span><span class="val mono">@cuenta.MeliUserId</span></div>
+                    <div class="cell"><span class="lbl">Site</span><span class="val mono">@cuenta.SiteId</span></div>
+                    <div class="cell"><span class="lbl">Token expira</span><span
+                        class="val">@cuenta.AccessTokenExpiresAtUtc.ToLocalTime().ToString("dd/MM HH:mm")</span></div>
+                        <div class="cell"><span class="lbl">Última prueba</span><span
+                            class="val muted">@(cuenta.UltimaPruebaConexionUtc?.ToLocalTime().ToString("dd/MM HH:mm") ??
+                                                                                                   "—")</span></div>
+                            <div class="cell"><span class="lbl">Última importación</span><span
+                                class="val muted">@(cuenta.UltimaImportacionListingsUtc?.ToLocalTime().ToString("dd/MM HH:mm") ??
+                                                                                                            "—")</span></div>
+                                <div class="cell"><span class="lbl">Refresh automático</span><span class="val"
+                                                                                                       style="color:var(--green)">Activo</span></div>
+                                </div>
+                                <div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap">
+                                    <form asp-action="ProbarConexion" method="post">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@cuenta.Id" />
+                                        <button type="submit" class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                                               stroke-width="2">
+                                            <path d="M3 12a9 9 0 1 0 9-9"></path>
+                                            <path d="M3 4v5h5"></path>
+                                        </svg>Probar conexión</button>
+                                    </form>
+                                    <form asp-controller="MercadoLibre" asp-action="ImportarListings" method="post">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="accountId" value="@cuenta.Id" />
+                                        <button type="submit" class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                                               stroke-width="2">
+                                            <path d="M12 3v12M7 10l5 5 5-5M5 21h14"></path>
+                                        </svg>Importar listings</button>
+                                    </form>
+                                    <form asp-action="Desconectar" method="post" style="margin-left:auto"
+                                          onsubmit="return confirm('¿Desconectar la cuenta @cuenta.Nickname? Se eliminarán los tokens guardados.');">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@cuenta.Id" />
+                                        <button type="submit" class="btn ghost" style="color:var(--red)"><svg viewBox="0 0 24 24" fill="none"
+                                                                                                              stroke="currentColor" stroke-width="2">
+                                            <path d="M18.4 5.6a9 9 0 1 1-12.8 0M12 2v8"></path>
+                                        </svg>Desconectar</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    }

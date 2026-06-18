@@ -1,0 +1,223 @@
+@using TheBuryProject.Modules.MercadoLibre.ViewModels
+@model MercadoLibreDashboardViewModel
+@{
+    ViewData["Title"] = "Mercado Libre · Panel operativo";
+    if (Model.Conexion.CuentaConectada)
+    {
+        ViewData["MlCuenta"] = Model.Conexion.Nickname;
+        ViewData["MlUserId"] = $"{Model.Conexion.MeliUserId} · {Model.Conexion.SiteId}";
+    }
+    ViewData["MlUltimoSync"] = Model.Conexion.UltimoSyncUtc.HasValue
+        ? "último sync " + Model.Conexion.UltimoSyncUtc.Value.ToLocalTime().ToString("HH:mm")
+        : "—";
+
+    // clases de énfasis numérico del standalone
+    string Z(int n) => n == 0 ? "zero" : "";
+    string W(int n) => n > 0 ? "warn" : "zero";
+    string B(int n) => n > 0 ? "bad" : "zero";
+    string G(int n) => n > 0 ? "good" : "zero";
+
+    var atTotal = Model.Preguntas.Total + Model.Mensajes.Total;
+    var atPend = Model.Preguntas.Pendientes + Model.Mensajes.RecibidosPendientes;
+    var atError = Model.Preguntas.ConError + Model.Mensajes.ConError;
+}
+
+<!-- ============ PANEL ============ -->
+<div class="phead">
+    <div>
+        <h1><span class="gi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l1-5h16l1 5M4 9v10a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9M3 9h18"></path></svg></span>Panel operativo</h1>
+        <div class="sub">Centro de operación del canal · Datos locales del ERP · generado @Model.GeneradoUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div>
+    </div>
+</div>
+
+<div class="strip">
+    <div class="cell">
+        <span class="lbl">Cuenta</span>
+        @if (Model.Conexion.CuentaConectada)
+        {
+            <span class="chip ok"><span class="dot"></span>@Model.Conexion.Nickname</span>
+        }
+        else
+        {
+            <span class="chip neutral"><span class="dot"></span>Sin cuenta</span>
+        }
+    </div>
+    <div class="cell"><span class="lbl">User ID · Site</span><span class="val mono">@(Model.Conexion.CuentaConectada ? $"{Model.Conexion.MeliUserId} · {Model.Conexion.SiteId}" : "—")</span></div>
+    <div class="cell">
+        <span class="lbl">Publicación real</span>
+        @if (Model.Conexion.PermitirPublicacionDesdeErp)
+        {
+            <span class="chip info"><span class="dot"></span>Disponible</span>
+        }
+        else
+        {
+            <span class="chip warn"><span class="dot"></span>Bloqueada</span>
+        }
+    </div>
+    <div class="cell">
+        <span class="lbl">Sync automáticas</span>
+        @if (Model.Conexion.ModoSimulacion)
+        {
+            <span class="chip warn"><span class="dot"></span>Simuladas</span>
+        }
+        else
+        {
+            <span class="chip ok"><span class="dot"></span>Activas</span>
+        }
+    </div>
+    <div class="cell"><span class="lbl">Última importación</span><span class="val muted">@(Model.Conexion.UltimaImportacionUtc?.ToLocalTime().ToString("dd/MM HH:mm") ?? "—")</span></div>
+    <div class="cell"><span class="lbl">Último sync</span><span class="val muted">@(Model.Conexion.UltimoSyncUtc?.ToLocalTime().ToString("dd/MM HH:mm") ?? "—")</span></div>
+    <div class="cell">
+        <span class="lbl">Último error API/sync</span>
+        @if (Model.Conexion.UltimoErrorUtc.HasValue)
+        {
+            <span class="val" style="color:var(--red)" title="@Model.Conexion.UltimoErrorDetalle">@Model.Conexion.UltimoErrorUtc.Value.ToLocalTime().ToString("dd/MM HH:mm")</span>
+        }
+        else
+        {
+            <span class="val" style="color:var(--green)">Sin errores</span>
+        }
+    </div>
+</div>
+
+<div class="seclbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"></path></svg>Bandeja de trabajo</div>
+
+@if (Model.TieneAlertas)
+{
+    foreach (var a in Model.Alertas)
+    {
+        var trayCls = a.Severidad == MercadoLibreAlertaSeveridad.Warning ? "tray warn" : "tray";
+        <div class="@trayCls">
+            <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 8v5M12 16h.01"></path><circle cx="12" cy="12" r="9"></circle></svg></span>
+            <b>@a.Titulo</b><span>— @a.Descripcion</span>
+            @if (!string.IsNullOrEmpty(a.LinkAccion))
+            {
+                <a asp-action="@a.LinkAccion" asp-route-filtro="@a.LinkFiltro" class="btn sm" style="margin-left:auto">@a.LinkTexto</a>
+            }
+        </div>
+    }
+}
+else
+{
+    <div class="tray">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"></path></svg></span>
+        <b>Todo al día</b><span>— no hay pendientes que requieran acción.</span>
+    </div>
+}
+
+<div class="kgrid">
+    <a class="kcard" asp-action="Listings" style="text-decoration:none;color:inherit">
+        <div class="top"><div class="ttl"><span class="ci pub"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M3 9h18M8 4v16"></path></svg></span>Publicaciones</div><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"></path></svg></div>
+        <div class="metrics">
+            <div class="metric"><span class="n @Z(Model.Publicaciones.Total)">@Model.Publicaciones.Total</span><span class="k">Total</span></div>
+            <div class="metric"><span class="n @G(Model.Publicaciones.Activas)">@Model.Publicaciones.Activas</span><span class="k">Activas</span></div>
+        </div>
+        <div class="foot">Sin vincular <span class="fn @W(Model.Publicaciones.SinVincular)">@Model.Publicaciones.SinVincular</span></div>
+    </a>
+
+    <a class="kcard" asp-action="Ordenes" style="text-decoration:none;color:inherit">
+        <div class="top"><div class="ttl"><span class="ci ord"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"></path><path d="M9 13h6M9 17h6"></path></svg></span>Órdenes</div><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"></path></svg></div>
+        <div class="metrics">
+            <div class="metric"><span class="n @Z(Model.Ordenes.Total)">@Model.Ordenes.Total</span><span class="k">Total</span></div>
+            <div class="metric"><span class="n @W(Model.Ordenes.Pendientes)">@Model.Ordenes.Pendientes</span><span class="k">Pendientes</span></div>
+        </div>
+        <div class="foot">Con error <span class="fn @B(Model.Ordenes.ConError)">@Model.Ordenes.ConError</span></div>
+    </a>
+
+    <a class="kcard" asp-action="Preguntas" style="text-decoration:none;color:inherit">
+        <div class="top"><div class="ttl"><span class="ci att"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4L3 21l1.1-3.6A8.4 8.4 0 1 1 21 11.5z"></path></svg></span>Atención</div><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"></path></svg></div>
+        <div class="metrics">
+            <div class="metric"><span class="n @Z(atTotal)">@atTotal</span><span class="k">Total</span></div>
+            <div class="metric"><span class="n @W(atPend)">@atPend</span><span class="k">Sin responder</span></div>
+        </div>
+        <div class="foot">Con error <span class="fn @B(atError)">@atError</span></div>
+    </a>
+
+    <a class="kcard" asp-action="Listings" asp-route-filtro="vinculadas" style="text-decoration:none;color:inherit">
+        <div class="top"><div class="ttl"><span class="ci stk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l4-4 4 4M7 3v8M21 17l-4 4-4-4M17 21v-8"></path></svg></span>Stock / precio</div><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"></path></svg></div>
+        <div class="metrics">
+            <div class="metric"><span class="n @G(Model.StockPrecio.PublicacionesVinculadas)">@Model.StockPrecio.PublicacionesVinculadas</span><span class="k">Vinculadas</span></div>
+            <div class="metric"><span class="n @W(Model.StockPrecio.ConDiferenciaStock)">@Model.StockPrecio.ConDiferenciaStock</span><span class="k">Dif. stock</span></div>
+        </div>
+        <div class="foot">Sync error <span class="fn @B(Model.StockPrecio.UltimosSyncFallidos)">@Model.StockPrecio.UltimosSyncFallidos</span></div>
+    </a>
+
+    <a class="kcard" asp-action="Ordenes" asp-route-filtro="venta-creada" style="text-decoration:none;color:inherit">
+        <div class="top"><div class="ttl"><span class="ci liq"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3 10h18M7 15h4"></path></svg></span>Liquidaciones</div><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"></path></svg></div>
+        <div class="metrics">
+            <div class="metric"><span class="n @W(Model.Liquidaciones.Pendientes)">@Model.Liquidaciones.Pendientes</span><span class="k">Pendientes</span></div>
+            <div class="metric"><span class="n @G(Model.Liquidaciones.Liquidadas)">@Model.Liquidaciones.Liquidadas</span><span class="k">Liquidadas</span></div>
+        </div>
+        <div class="foot">Neto estimado <span class="fn">@Model.Liquidaciones.NetoEstimadoPendiente.ToString("N0")</span></div>
+    </a>
+
+    <a class="kcard" asp-action="Ordenes" style="text-decoration:none;color:inherit">
+        <div class="top"><div class="ttl"><span class="ci env"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 7h13v9H1zM14 10h4l3 3v3h-7M5.5 19a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM17.5 19a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"></path></svg></span>Envíos</div><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"></path></svg></div>
+        <div class="metrics">
+            <div class="metric"><span class="n @Z(Model.Envios.Pendientes)">@Model.Envios.Pendientes</span><span class="k">Pendientes</span></div>
+            <div class="metric"><span class="n @W(Model.Envios.Demorados)">@Model.Envios.Demorados</span><span class="k">Demorados</span></div>
+        </div>
+        <div class="foot">Sin tracking <span class="fn @W(Model.Envios.SinTracking)">@Model.Envios.SinTracking</span></div>
+    </a>
+
+    <a class="kcard" asp-action="Ordenes" asp-route-filtro="devoluciones" style="text-decoration:none;color:inherit">
+        <div class="top"><div class="ttl"><span class="ci rec"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path></svg></span>Reclamos</div><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"></path></svg></div>
+        <div class="metrics">
+            <div class="metric"><span class="n @W(Model.Reclamos.Abiertos)">@Model.Reclamos.Abiertos</span><span class="k">Abiertos</span></div>
+            <div class="metric"><span class="n @W(Model.Reclamos.PendientesRevision)">@Model.Reclamos.PendientesRevision</span><span class="k">Pend. rev.</span></div>
+        </div>
+        <div class="foot">Resueltos <span class="fn @G(Model.Reclamos.Resueltos)">@Model.Reclamos.Resueltos</span></div>
+    </a>
+
+    <a class="kcard" asp-action="Aumentos" style="text-decoration:none;color:inherit">
+        <div class="top"><div class="ttl"><span class="ci aum"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l6-6 4 4 8-8M21 7v5M21 7h-5"></path></svg></span>Aumentos</div><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"></path></svg></div>
+        <div class="metrics">
+            <div class="metric"><span class="n @Z(Model.Aumentos.Total)">@Model.Aumentos.Total</span><span class="k">Lotes</span></div>
+            <div class="metric"><span class="n @G(Model.Aumentos.Aplicados)">@Model.Aumentos.Aplicados</span><span class="k">Aplicados</span></div>
+        </div>
+        <div class="foot">En preview <span class="fn @W(Model.Aumentos.Simulados)">@Model.Aumentos.Simulados</span></div>
+    </a>
+</div>
+
+<details class="diag-wrap" style="margin-top:16px">
+    <summary class="diag" style="list-style:none">
+        <svg class="l" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="6" x2="20" y2="6"></line><line x1="4" y1="12" x2="14" y2="12"></line><line x1="4" y1="18" x2="18" y2="18"></line><circle cx="17" cy="6" r="2" fill="currentColor"></circle><circle cx="11" cy="12" r="2" fill="currentColor"></circle><circle cx="15" cy="18" r="2" fill="currentColor"></circle></svg>
+        <b>Diagnóstico avanzado</b><span>· KPIs detallados, webhooks, sync e historiales</span>
+        <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"></path></svg>
+    </summary>
+
+    <div class="tiles" style="grid-template-columns:repeat(4,1fr);margin-top:16px">
+        <div class="tile"><div class="tl">Pubs · activas / pausadas</div><div class="tv">@Model.Publicaciones.Activas / @Model.Publicaciones.Pausadas</div></div>
+        <div class="tile"><div class="tl">Stock ML&gt;ERP / ERP&gt;ML</div><div class="tv amber">@Model.StockPrecio.StockMlMayorErp / @Model.StockPrecio.StockErpMayorMl</div></div>
+        <div class="tile"><div class="tl">Ventas 24h / 7d / 30d</div><div class="tv">@Model.Ordenes.Ventas24h / @Model.Ordenes.Ventas7d / @Model.Ordenes.Ventas30d</div></div>
+        <div class="tile"><div class="tl">Monto bruto vendido</div><div class="tv">@Model.Ordenes.MontoBrutoTotal.ToString("N0")</div></div>
+        <div class="tile"><div class="tl">Webhooks proc. / pend.</div><div class="tv">@Model.Webhooks.Procesados / @Model.Webhooks.Pendientes</div></div>
+        <div class="tile"><div class="tl">Webhooks con error</div><div class="tv @(Model.Webhooks.ConError > 0 ? "amber" : "")">@Model.Webhooks.ConError</div></div>
+        <div class="tile"><div class="tl">Neto real acreditado</div><div class="tv green">@Model.Liquidaciones.NetoRealAcreditado.ToString("N0")</div></div>
+        <div class="tile"><div class="tl">Dif. est. vs real</div><div class="tv @(Model.Liquidaciones.DiferenciaEstimadoVsReal < 0 ? "amber" : "green")">@Model.Liquidaciones.DiferenciaEstimadoVsReal.ToString("N0")</div></div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+        <div class="card-h"><div class="t"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"></path><path d="M7 14l4-4 3 3 5-6"></path></svg>Últimas sincronizaciones</div></div>
+        @if (Model.UltimosLogs.Count == 0)
+        {
+            <div class="empty"><b>Sin actividad registrada</b></div>
+        }
+        else
+        {
+            <table class="tbl">
+                <thead><tr><th>Operación</th><th>Resultado</th><th>Fecha</th></tr></thead>
+                <tbody>
+                    @foreach (var l in Model.UltimosLogs)
+                    {
+                        <tr>
+                            <td title="@l.Detalle">@l.Operacion</td>
+                            <td>@if (l.Exito){<span class="chip ok"><span class="dot"></span>ok</span>}else{<span class="chip bad"><span class="dot"></span>error</span>}</td>
+                            <td style="color:var(--muted)">@l.Fecha.ToLocalTime().ToString("dd/MM HH:mm")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</details>

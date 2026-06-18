@@ -129,7 +129,7 @@
   font-size: .73rem; font-weight: 500; border: 1px solid transparent; white-space: nowrap;
 }
 .kdx-page .kdx-chip-entrada { background: rgba(16,185,129,.10); color: #34d399; border-color: rgba(16,185,129,.28); }
-.kdx-page .kdx-chip-salida  { background: rgba(59,130,246,.10);  color: #60a5fa; border-color: rgba(59,130,246,.28); }
+.kdx-page .kdx-chip-salida  { background: rgba(245,197,24,.10);  color: #f5c518; border-color: rgba(245,197,24,.28); }
 .kdx-page .kdx-chip-ajuste  { background: rgba(245,158,11,.10);  color: #fbbf24; border-color: rgba(245,158,11,.28); }
 .kdx-page .kdx-chip-slate   { background: rgba(148,163,184,.10); color: #cbd5e1; border-color: rgba(148,163,184,.25); }
 
@@ -138,7 +138,7 @@
   background: #0f172a; border: 1px solid #243044; color: #e2e8f0;
   border-radius: 8px; padding: .5rem .75rem; width: 100%; font-size: .85rem; outline: none;
 }
-.kdx-page .kdx-field:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.2); }
+.kdx-page .kdx-field:focus { border-color: #f5c518; box-shadow: 0 0 0 3px rgba(245,197,24,.2); }
 .kdx-page .kdx-field::placeholder { color: #475569; }
 .kdx-page .kdx-label { display: block; font-size: .75rem; font-weight: 500; color: #94a3b8; margin-bottom: .3rem; }
 
@@ -150,8 +150,8 @@
   text-decoration: none; white-space: nowrap;
 }
 .kdx-page .kdx-btn:disabled { opacity: .5; cursor: not-allowed; }
-.kdx-page .kdx-btn-primary { background: #2563eb; color: #fff; border-color: #2563eb; }
-.kdx-page .kdx-btn-primary:hover:not(:disabled) { background: #1d4ed8; border-color: #1d4ed8; }
+.kdx-page .kdx-btn-primary { background: #f5c518; color: #15110a; border-color: #f5c518; }
+.kdx-page .kdx-btn-primary:hover:not(:disabled) { background: #e0b40f; border-color: #e0b40f; }
 .kdx-page .kdx-btn-ghost { background: transparent; color: #cbd5e1; border-color: #334155; }
 .kdx-page .kdx-btn-ghost:hover { background: #1e293b; color: #fff; }
 .kdx-page .kdx-btn-soft { background: #1e293b; color: #e2e8f0; border-color: #334155; }
@@ -168,7 +168,7 @@
   padding: .375rem .7rem; border-radius: 6px; font-size: .78rem;
   font-weight: 500; color: #94a3b8; transition: all .12s; cursor: pointer;
 }
-.kdx-page .kdx-seg button[aria-pressed="true"] { background: #2563eb; color: white; }
+.kdx-page .kdx-seg button[aria-pressed="true"] { background: #f5c518; color: #15110a; }
 
 /* KPI card */
 .kdx-page .kdx-kpi {
@@ -194,7 +194,7 @@
 .kdx-page .kdx-tbl tbody td {
   padding: .62rem .75rem; border-bottom: 1px solid #131e33; vertical-align: middle;
 }
-.kdx-page .kdx-tbl tbody tr:hover td { background: rgba(59,130,246,.04); }
+.kdx-page .kdx-tbl tbody tr:hover td { background: rgba(245,197,24,.04); }
 .kdx-page .kdx-tbl tfoot td {
   padding: .7rem .75rem; border-top: 2px solid #1e2a3d;
   background: #0d1526; font-weight: 600;
@@ -353,7 +353,7 @@
         <div class="kdx-kpi">
             <div class="flex items-center justify-between">
                 <span class="text-xs uppercase tracking-wide text-slate-500 font-medium">Saldo actual</span>
-                <span class="kdx-k-ico" style="background:rgba(59,130,246,.12);color:#60a5fa;">
+                <span class="kdx-k-ico" style="background:rgba(245,197,24,.12);color:#f5c518;">
                     <span class="material-symbols-outlined" style="font-size:18px">inventory</span>
                 </span>
             </div>
@@ -467,16 +467,16 @@
                 <svg viewBox="0 0 320 140" class="w-full mt-3" preserveAspectRatio="none" style="height:140px" aria-hidden="true">
                     <defs>
                         <linearGradient id="kdx-area-g" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.35" />
-                            <stop offset="100%" stop-color="#3b82f6" stop-opacity="0" />
+                            <stop offset="0%" stop-color="#f5c518" stop-opacity="0.35" />
+                            <stop offset="100%" stop-color="#f5c518" stop-opacity="0" />
                         </linearGradient>
                     </defs>
                     <line x1="0" y1="20" x2="320" y2="20" stroke="#1e2a3d" stroke-width="1" />
                     <line x1="0" y1="60" x2="320" y2="60" stroke="#1e2a3d" stroke-width="1" />
                     <line x1="0" y1="100" x2="320" y2="100" stroke="#1e2a3d" stroke-width="1" />
                     <path d="@areaSb.ToString()" fill="url(#kdx-area-g)" />
-                    <polyline points="@polyStr" fill="none" stroke="#60a5fa" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" />
-                    <circle cx="@chartLastX" cy="@chartLastY" r="4" fill="#60a5fa" stroke="#0b1220" stroke-width="2" />
+                    <polyline points="@polyStr" fill="none" stroke="#f5c518" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" />
+                    <circle cx="@chartLastX" cy="@chartLastY" r="4" fill="#f5c518" stroke="#0b1220" stroke-width="2" />
                 </svg>
                 <div class="mt-2 flex items-center justify-between text-xs text-slate-500">
                     <span>Mín <span class="font-mono text-slate-300">@chartMinStk.ToString("G29")</span></span>

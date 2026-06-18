@@ -36,6 +36,10 @@ namespace TheBuryProject.Modules.MercadoLibre.ViewModels
         public string? Descripcion { get; set; }
         public bool DescripcionConsultada { get; set; }
 
+        /// <summary>URLs de las imágenes actuales en ML (consultadas en vivo).</summary>
+        public List<string> ImagenesActuales { get; set; } = new();
+        public bool ImagenesConsultadas { get; set; }
+
         public bool ModoSimulacion { get; set; }
 
         // Origen de stock (Checkpoint 4)

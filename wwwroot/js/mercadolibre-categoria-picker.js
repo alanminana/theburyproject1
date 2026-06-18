@@ -97,7 +97,7 @@
             hidden.hoja.value = "true";
             pintarSeleccion();
             limpiarResultados();
-            setEstado("Categoría hoja seleccionada. Guardá el borrador para conservarla.", "ok");
+            setEstado("Categoría hoja seleccionada. Guardá los cambios para conservarla.", "ok");
 
             // Avisar al formulario dinámico de atributos que la categoría cambió.
             document.dispatchEvent(new CustomEvent("ml:categoria-cambiada", {

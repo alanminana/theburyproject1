@@ -24,8 +24,8 @@
 
 .catalogo-input:focus {
     outline: none;
-    border-color: #135bec;
-    box-shadow: 0 0 0 3px rgba(19, 91, 236, 0.18);
+    border-color: #f5c518;
+    box-shadow: 0 0 0 3px rgba(245, 197, 24, 0.18);
 }
 
 select.catalogo-input {
@@ -63,19 +63,19 @@ select.catalogo-input option {
 
 /* Botón Movimientos — operacional, no destructivo */
 #btn-movimientos-inventario {
-    border-color: rgba(19, 91, 236, 0.35);
-    background-color: rgba(19, 91, 236, 0.08);
-    color: #93b4f8;
+    border-color: rgba(245, 197, 24, 0.35);
+    background-color: rgba(245, 197, 24, 0.08);
+    color: #f5c518;
 }
 
 #btn-movimientos-inventario:hover {
-    border-color: rgba(19, 91, 236, 0.55);
-    background-color: rgba(19, 91, 236, 0.14);
-    color: #bfcffe;
+    border-color: rgba(245, 197, 24, 0.55);
+    background-color: rgba(245, 197, 24, 0.14);
+    color: #f5d97a;
 }
 
 #btn-movimientos-inventario:focus-visible {
-    outline: 2px solid #135bec;
+    outline: 2px solid #f5c518;
     outline-offset: 2px;
 }
 

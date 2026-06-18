@@ -1,0 +1,64 @@
+@using TheBuryProject.Modules.MercadoLibre.Entities
+@model MercadoLibreQuestion
+@{
+    ViewData["Title"] = "Responder pregunta";
+    var modoSimulacion = ViewBag.ModoSimulacion as bool? ?? true;
+    var puedeResponder = Model.Estado == MercadoLibreQuestionEstado.Pendiente;
+    var esSimulada = modoSimulacion || Model.EsSimulada;
+}
+
+<!-- ============ PREGUNTA (detalle/responder) ============ -->
+<div class="crumb">
+    <a asp-action="Preguntas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"></path></svg>Atención</a>
+    <span class="sep">/</span><span class="cur">Responder pregunta</span>
+</div>
+<div class="phead"><div><h1><span class="gi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4L3 21l1.1-3.6A8.4 8.4 0 1 1 21 11.5z"></path></svg></span>Responder pregunta</h1><div class="sub">Preventa · vinculada a la publicación y su producto ERP</div></div></div>
+
+<div class="crearwrap">
+    <div>
+        <div class="card"><div class="cardpad">
+            <div class="subsec" style="cursor:default"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 9h8M8 13h6M21 11.5a8.4 8.4 0 0 1-9 8.4L3 21l1.1-3.6A8.4 8.4 0 1 1 21 11.5z"></path></svg>Pregunta del comprador</div>
+            <div style="background:var(--bg);border:1px solid var(--line);border-radius:11px;padding:14px 16px;font-size:14.5px;white-space:pre-wrap">@Model.TextoPregunta</div>
+
+            @if (Model.Estado == MercadoLibreQuestionEstado.Respondida)
+            {
+                <div style="background:var(--green-soft);border:1px solid rgba(55,211,153,.25);border-radius:11px;padding:14px 16px;margin-top:14px">
+                    <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--green);margin-bottom:6px">Respuesta @(Model.EsSimulada ? "(simulada local)" : "(enviada a ML)")@(Model.FechaRespuestaUtc.HasValue ? " · " + Model.FechaRespuestaUtc.Value.ToLocalTime().ToString("dd/MM HH:mm") : "")</div>
+                    <div style="font-size:14px;white-space:pre-wrap">@Model.RespuestaTexto</div>
+                </div>
+            }
+            @if (Model.Estado == MercadoLibreQuestionEstado.Error && !string.IsNullOrEmpty(Model.ErrorProcesamiento))
+            {
+                <div class="tray warn" style="margin-top:14px"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 9v4M12 17h.01"></path><circle cx="12" cy="12" r="9"></circle></svg></span><b>@Model.ErrorProcesamiento</b></div>
+            }
+
+            @if (puedeResponder)
+            {
+                var onsubmitPregunta = esSimulada ? "" : "return confirm('Enviar esta respuesta REAL a Mercado Libre? Esta acción es visible para el comprador.');";
+                <form asp-action="PreguntaResponder" method="post" onsubmit="@onsubmitPregunta">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="id" value="@Model.Id" />
+                    <div class="field full" style="margin-top:16px">
+                        <label>Tu respuesta</label>
+                        <textarea name="respuesta" rows="5" maxlength="2000" required placeholder="Escribí la respuesta…"></textarea>
+                    </div>
+                    @if (!esSimulada)
+                    {
+                        <label class="checkline" style="margin-top:14px;width:fit-content"><input type="checkbox" class="cbx" name="confirmarReal" value="true"><span><b>Responder de forma real</b><div class="cm">Sin confirmar, la respuesta queda simulada.</div></span></label>
+                    }
+                    else
+                    {
+                        <div class="confirmreal" style="margin-top:14px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;flex:none"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4M12 16h.01"></path></svg>La respuesta se guardará localmente y no se enviará a Mercado Libre.</div>
+                    }
+                    <div style="display:flex;gap:9px;margin-top:16px"><button type="submit" class="btn primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17l-5-5 5-5M4 12h11a5 5 0 0 1 0 10h-1"></path></svg>@(esSimulada ? "Simular respuesta" : "Responder en ML")</button><a class="btn ghost" asp-action="Preguntas">Cancelar</a></div>
+                </form>
+            }
+        </div></div>
+    </div>
+    <div class="rail"><div class="railcard"><div class="rh">Contexto</div><div class="rb">
+        <div class="totrow"><span class="l">Publicación</span><span class="v" style="font-family:inherit;color:var(--blue)">@(Model.ItemId ?? "—")</span></div>
+        <div class="totrow"><span class="l">Producto ERP</span><span class="v">@(Model.ProductoId.HasValue ? "#" + Model.ProductoId : "—")</span></div>
+        <div class="totrow"><span class="l">Fecha</span><span class="v" style="font-family:inherit">@Model.FechaPreguntaUtc.ToLocalTime().ToString("dd/MM HH:mm")</span></div>
+        <div class="totrow"><span class="l">Estado</span><span class="v" style="font-family:inherit">@Model.Estado</span></div>
+    </div></div></div>
+</div>

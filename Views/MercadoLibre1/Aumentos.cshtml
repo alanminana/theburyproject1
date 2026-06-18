@@ -1,0 +1,79 @@
+@using TheBuryProject.Modules.MercadoLibre.Entities
+@model List<MercadoLibrePriceBatchListViewModel>
+@{
+    ViewData["Title"] = "Aumentos masivos Mercado Libre";
+}
+
+<!-- ============ AUMENTOS ============ -->
+<div class="phead">
+    <div>
+        <h1><span class="gi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l6-6 4 4 8-8M21 7v5M21 7h-5"></path></svg></span>Aumentos</h1>
+        <div class="sub">Lotes de precio masivos con preview, snapshot y rollback. No tocan precios internos del ERP.</div>
+    </div>
+    <div class="acts">
+        <span class="actlbl">Acciones</span>
+        <a class="btn primary" asp-action="AumentoNuevo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg>Nuevo lote</a>
+    </div>
+</div>
+
+@if (Model.Count == 0)
+{
+    <div class="card">
+        <div class="empty">
+            <span class="eic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l6-6 4 4 8-8M21 7v5M21 7h-5"></path></svg></span>
+            <b>Sin lotes de aumento</b>
+            <p>Creá un lote: siempre arranca como simulación con preview.</p>
+        </div>
+    </div>
+}
+else
+{
+    <div class="card">
+        <table class="tbl">
+            <thead><tr><th>Lote</th><th>Origen</th><th class="num">Ajuste</th><th class="num">Items</th><th>Estado</th><th style="text-align:right">Acciones</th></tr></thead>
+            <tbody>
+                @foreach (var batch in Model)
+                {
+                    <tr>
+                        <td><b>@batch.Nombre</b></td>
+                        <td style="color:var(--muted)">@(batch.Origen == MercadoLibrePriceBatchOrigen.DesdePrecioErp ? "Precio ERP" : "Precio ML")</td>
+                        <td class="num" style="color:var(--amber)">@batch.ValorAjustePorcentaje.ToString("+0.##;-0.##;0")%</td>
+                        <td class="num">@batch.CantidadItems</td>
+                        <td>
+                            @switch (batch.Estado)
+                            {
+                                case MercadoLibrePriceBatchEstado.Simulado:
+                                    <span class="chip violet"><span class="dot"></span>Preview</span>
+                                    break;
+                                case MercadoLibrePriceBatchEstado.Aplicado:
+                                    <span class="chip @(batch.AplicadoEnSimulacion ? "info" : "ok")"><span class="dot"></span>@(batch.AplicadoEnSimulacion ? "Aplicado (sim)" : "Aplicado")</span>
+                                    break;
+                                case MercadoLibrePriceBatchEstado.AplicadoParcial:
+                                    <span class="chip warn"><span class="dot"></span>Parcial</span>
+                                    break;
+                                case MercadoLibrePriceBatchEstado.Revertido:
+                                    <span class="chip neutral"><span class="dot"></span>Revertido</span>
+                                    break;
+                                default:
+                                    <span class="chip neutral"><span class="dot"></span>Cancelado</span>
+                                    break;
+                            }
+                        </td>
+                        <td>
+                            <div class="rowacts">
+                                <a asp-action="Aumento" asp-route-id="@batch.Id" class="iconbtn go" title="Abrir lote"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3h7v7M21 3l-9 9M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"></path></svg></a>
+                                @if (batch.Estado == MercadoLibrePriceBatchEstado.Simulado)
+                                {
+                                    <button type="button" class="iconbtn danger" title="Cancelar lote" onclick="this.closest('tr').querySelector('.ml-cancel-form').requestSubmit()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6M10 11v6M14 11v6"></path></svg></button>
+                                    <form asp-action="AumentoCancelar" asp-route-id="@batch.Id" method="post" class="ml-cancel-form" onsubmit="return confirm('¿Cancelar este lote simulado?');" style="display:none">
+                                        @Html.AntiForgeryToken()
+                                    </form>
+                                }
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}

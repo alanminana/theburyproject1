@@ -1,0 +1,203 @@
+@using TheBuryProject.Modules.MercadoLibre.Entities
+@model MercadoLibreOrderDetalleViewModel
+@{
+    ViewData["Title"] = $"Orden ML #{Model.MeliOrderId}";
+    var mensajes = ViewBag.Mensajes as List<TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibreMessage> ?? new();
+    var modoSimulacionMensajes = ViewBag.ModoSimulacionMensajes as bool? ?? true;
+    var ordenSimuladaLocal = Model.EsSimuladaQa || Model.EsSimuladaOperativa;
+    var mensajeEsSimulado = modoSimulacionMensajes || ordenSimuladaLocal;
+    var mlStag = Model.Status == "paid" ? "paused" : Model.Status == "cancelled" ? "inactive" : "review";
+}
+
+<!-- ============ ORDEN (detalle) ============ -->
+<div class="crumb">
+    <a asp-action="Ordenes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"></path></svg>Órdenes</a>
+    <span class="sep">/</span><span class="cur">#@Model.MeliOrderId</span>
+</div>
+<div class="phead">
+    <div>
+        <h1><span class="gi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"></path><path d="M9 13h6M9 17h6"></path></svg></span>Orden #@Model.MeliOrderId</h1>
+        <div class="sub" style="display:flex;gap:10px;align-items:center;margin-top:6px">@(Model.BuyerNickname ?? "—") · @Model.FechaCreacionUtc.ToLocalTime().ToString("dd/MM HH:mm") <span class="stag @mlStag">@Model.Status</span><span class="chip @(Model.VentaId.HasValue ? "ok" : "warn")"><span class="dot"></span>@Model.EstadoInterno</span></div>
+    </div>
+    <div class="acts">
+        @if (Model.PuedeCrearVenta)
+        {
+            <form asp-action="OrdenCrearVenta" method="post" onsubmit="return confirm('¿Crear la venta interna y descontar stock? Descuenta stock real del ERP.');">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" value="@Model.Id" />
+                <button type="submit" class="btn primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg>Crear venta</button>
+            </form>
+        }
+        @if (Model.EstadoInterno == MercadoLibreOrderEstadoInterno.Importada && Model.VentaId is null)
+        {
+            <form asp-action="OrdenIgnorar" method="post" onsubmit="return confirm('¿Marcar esta orden como ignorada?');">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" value="@Model.Id" />
+                <button type="submit" class="btn ghost"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M15 9l-6 6M9 9l6 6"></path></svg>Ignorar</button>
+            </form>
+        }
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.ErrorProcesamiento))
+{
+    <div class="tray warn" style="margin-bottom:18px"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 9v4M12 17h.01"></path><circle cx="12" cy="12" r="9"></circle></svg></span><b>Error de procesamiento</b><span>— @Model.ErrorProcesamiento</span></div>
+}
+
+<div class="crearwrap">
+    <div>
+        <div class="card">
+            <div class="card-h"><span class="t">Items de la orden (@Model.Items.Count)</span></div>
+            <table class="tbl">
+                <thead><tr><th>Producto</th><th class="num">Cant.</th><th class="num">Precio</th><th class="num">Subtotal</th><th>Producto ERP</th></tr></thead>
+                <tbody>
+                    @foreach (var item in Model.Items)
+                    {
+                        <tr>
+                            <td><div class="prod"><span class="pt" title="@item.Titulo">@item.Titulo</span><span class="pm">@item.ItemId@(item.VariationId.HasValue ? $" · var {item.VariationId}" : "")</span></div></td>
+                            <td class="num">@item.Cantidad</td>
+                            <td class="num">@item.PrecioUnitario.ToString("N2")</td>
+                            <td class="num">@((item.Cantidad * item.PrecioUnitario).ToString("N2"))</td>
+                            <td>
+                                @if (item.Vinculado)
+                                {
+                                    <span style="font-family:var(--mono);color:var(--blue)">@item.ProductoCodigo</span>
+                                }
+                                else
+                                {
+                                    <span class="warnpill">Sin vincular</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card"><div class="cardpad">
+            <div class="subsec" style="cursor:default"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 7h13v9H1zM14 10h4l3 3v3h-7"></path></svg>Envío</div>
+            <div class="strip" style="margin:0;border-radius:11px">
+                <div class="cell"><span class="lbl">Estado</span>
+                    @if (Model.ShipmentId.HasValue)
+                    {
+                        <span class="chip @(Model.EnvioRequiereAtencion ? "bad" : Model.EstadoEnvioInterno == MercadoLibreShipmentEstadoInterno.Entregado ? "ok" : "info")"><span class="dot"></span>@Model.EstadoEnvioInterno</span>
+                    }
+                    else
+                    {
+                        <span class="chip neutral"><span class="dot"></span>Sin envío</span>
+                    }
+                </div>
+                <div class="cell"><span class="lbl">Método</span><span class="val">@(Model.TrackingMethod ?? "—")</span></div>
+                <div class="cell"><span class="lbl">Tracking</span><span class="val muted">@(Model.TrackingNumber ?? "—")</span></div>
+                <div class="cell"><span class="lbl">Sub-estado</span><span class="val muted">@(Model.ShipmentSubStatus ?? "—")</span></div>
+            </div>
+            @if (Model.ShipmentId.HasValue)
+            {
+                <div style="display:flex;gap:9px;margin-top:14px">
+                    <form asp-action="OrdenActualizarEnvio" method="post">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="id" value="@Model.Id" />
+                        <button type="submit" class="btn sm">Actualizar envío</button>
+                    </form>
+                </div>
+            }
+        </div></div>
+
+        <div class="card"><div class="cardpad">
+            <div class="subsec" style="cursor:default"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4L3 21l1.1-3.6A8.4 8.4 0 1 1 21 11.5z"></path></svg>Mensajes</div>
+            @if (mensajes.Count == 0)
+            {
+                <p class="hint" style="margin-bottom:12px">Sin mensajes para esta orden.</p>
+            }
+            else
+            {
+                <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">
+                    @foreach (var m in mensajes)
+                    {
+                        var saliente = m.Direccion == MercadoLibreMessageDireccion.Saliente;
+                        <div style="background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;@(saliente ? "margin-left:30px" : "margin-right:30px")">
+                            <div style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--faint);margin-bottom:4px"><span style="font-weight:700;color:@(saliente ? "var(--green)" : "var(--blue)")">@(saliente ? "Vendedor" : "Comprador")</span><span>@m.FechaMensajeUtc.ToLocalTime().ToString("dd/MM HH:mm")@(m.EsSimulado ? " · simulado" : "")</span></div>
+                            <div style="font-size:13.5px;white-space:pre-wrap">@m.Texto</div>
+                        </div>
+                    }
+                </div>
+            }
+            @{
+                var onsubmitMensaje = mensajeEsSimulado ? "" : "return confirm('Enviar este mensaje REAL a Mercado Libre? Es visible para el comprador.');";
+            }
+            <form asp-action="MensajeResponder" method="post" onsubmit="@onsubmitMensaje">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="orderId" value="@Model.Id" />
+                @if (!mensajeEsSimulado)
+                {
+                    <input type="hidden" name="confirmarReal" value="true" />
+                }
+                <div class="field full"><textarea name="texto" rows="3" maxlength="2000" required placeholder="Escribí la respuesta para el comprador…"></textarea></div>
+                <div style="display:flex;justify-content:flex-end;margin-top:10px"><button type="submit" class="btn sm primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17l-5-5 5-5M4 12h11a5 5 0 0 1 0 10h-1"></path></svg>@(mensajeEsSimulado ? "Simular respuesta" : "Responder en ML")</button></div>
+            </form>
+        </div></div>
+    </div>
+
+    <div class="rail">
+        <div class="railcard"><div class="rh">Totales</div><div class="rb">
+            <div class="totrow"><span class="l">Total</span><span class="v">@Model.TotalAmount.ToString("N2")</span></div>
+            <div class="totrow"><span class="l">Comisión ML</span><span class="v red">@(Model.MontoComision.HasValue ? "−" + Model.MontoComision.Value.ToString("N2") : "—")</span></div>
+            <div class="totrow"><span class="l">Envío</span><span class="v red">@(Model.MontoEnvio.HasValue ? "−" + Model.MontoEnvio.Value.ToString("N2") : "—")</span></div>
+            <div class="totrow big"><span class="l">Neto estimado</span><span class="v green">@(Model.NetoEstimado?.ToString("N2") ?? "—")</span></div>
+        </div></div>
+
+        <div class="railcard"><div class="rh">Venta y caja</div><div class="rb">
+            @if (Model.VentaId.HasValue)
+            {
+                <div class="valist">
+                    <div class="valrow ok"><span class="vi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"></path></svg></span><div><b>Venta @Model.VentaNumero</b><div class="vm">Stock descontado.</div></div></div>
+                </div>
+                @if (Model.EstadoInterno == MercadoLibreOrderEstadoInterno.Liquidada)
+                {
+                    <div class="valrow ok" style="margin-top:9px"><span class="vi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"></path></svg></span><div><b>Liquidada</b><div class="vm">Neto real @Model.NetoReal?.ToString("N2")</div></div></div>
+                }
+                else if (Model.PuedeLiquidar)
+                {
+                    <form asp-action="OrdenLiquidar" method="post" style="margin-top:12px" onsubmit="return confirm('¿Registrar la liquidación como ingreso de caja? Requiere caja abierta.');">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="id" value="@Model.Id" />
+                        <div class="field"><label>Neto real acreditado</label><div class="suffix"><input type="number" step="0.01" min="0.01" name="netoReal" required value="@(Model.NetoEstimado?.ToString("0.##"))" /><span class="u">ARS</span></div></div>
+                        <button type="submit" class="btn sm primary" style="margin-top:10px;width:100%;justify-content:center">Registrar en caja</button>
+                    </form>
+                }
+            }
+            else
+            {
+                <div class="valist">
+                    <div class="valrow warn"><span class="vi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18h20.4z"></path></svg></span><div><b>Venta no generada</b><div class="vm">Creá la venta para descontar stock.</div></div></div>
+                    <div class="valrow warn"><span class="vi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18h20.4z"></path></svg></span><div><b>Sin liquidar</b><div class="vm">El neto impacta en caja al liquidar.</div></div></div>
+                </div>
+            }
+        </div></div>
+
+        <div class="railcard"><div class="rh">Reclamos @if (Model.DevolucionEstado == MercadoLibreDevolucionEstado.Ninguna && !Model.TieneClaimPendiente) {<span class="chip ok"><span class="dot"></span>Ninguno</span>} else {<span class="chip warn"><span class="dot"></span>Pendiente</span>}</div><div class="rb">
+            @if (Model.DevolucionEstado == MercadoLibreDevolucionEstado.PendienteRevision)
+            {
+                <form asp-action="OrdenDevolucion" method="post" onsubmit="return confirm('¿Confirmar la decisión sobre esta devolución?');">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="id" value="@Model.Id" />
+                    <div class="field"><label>Decisión de devolución</label>
+                        <select name="decision">
+                            <option value="@MercadoLibreDevolucionEstado.StockReingresado">Reingresar stock (producto OK)</option>
+                            <option value="@MercadoLibreDevolucionEstado.Danado">Producto dañado (no reingresa)</option>
+                            <option value="@MercadoLibreDevolucionEstado.Garantia">Pasa a garantía</option>
+                            <option value="@MercadoLibreDevolucionEstado.Merma">Merma</option>
+                            <option value="@MercadoLibreDevolucionEstado.NoReingresa">No reingresar</option>
+                        </select>
+                    </div>
+                    <input type="text" name="nota" maxlength="500" placeholder="Nota (opcional)" style="background:var(--bg);border:1px solid var(--line-3);border-radius:9px;padding:8px 10px;color:var(--ink);font-size:12.5px;width:100%;margin-top:9px" />
+                    <button type="submit" class="btn sm primary" style="margin-top:10px;width:100%;justify-content:center">Resolver</button>
+                </form>
+            }
+            else
+            {
+                <p class="hint">Sin reclamos ni devoluciones pendientes.</p>
+            }
+        </div></div>
+    </div>
+</div>

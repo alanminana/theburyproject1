@@ -1,0 +1,108 @@
+@using TheBuryProject.Modules.MercadoLibre.Entities
+@model List<MercadoLibreMessage>
+@{
+    ViewData["Title"] = "Atención · Mensajes";
+    var filtro = ViewBag.Filtro as string;
+    var modoSimulacion = ViewBag.ModoSimulacion as bool? ?? true;
+    string FChip(string f) => filtro == f || (string.IsNullOrEmpty(filtro) && f == "") ? "fchip on" : "fchip";
+    var recibidos = Model.Count(m => m.Direccion == MercadoLibreMessageDireccion.Entrante);
+    var enviados = Model.Count(m => m.Direccion == MercadoLibreMessageDireccion.Saliente);
+    var simulados = Model.Count(m => m.EsSimulado);
+    var conError = Model.Count(m => m.Estado == MercadoLibreMessageEstado.Error);
+}
+
+<!-- ============ ATENCIÓN · MENSAJES ============ -->
+<div class="phead">
+    <div>
+        <h1><span class="gi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4L3 21l1.1-3.6A8.4 8.4 0 1 1 21 11.5z"></path></svg></span>Atención</h1>
+        <div class="sub">@Model.Count mensajes · la respuesta es siempre manual.@(modoSimulacion ? " Modo simulación: los mensajes no se envían a ML." : "")</div>
+    </div>
+</div>
+
+<div class="subtabs">
+    <a class="subtab" asp-action="Preguntas" style="text-decoration:none">Preguntas</a>
+    <a class="subtab active" asp-action="Mensajes" style="text-decoration:none">Mensajes <span style="opacity:.6">· @Model.Count</span></a>
+</div>
+
+<div class="filters">
+    <a asp-action="Mensajes" class="@FChip("")">Todos <span class="cnt">@Model.Count</span></a>
+    <a asp-action="Mensajes" asp-route-filtro="recibidos" class="@FChip("recibidos")">Recibidos <span class="cnt">@recibidos</span></a>
+    <a asp-action="Mensajes" asp-route-filtro="enviados" class="@FChip("enviados")">Enviados <span class="cnt">@enviados</span></a>
+    <a asp-action="Mensajes" asp-route-filtro="simulados" class="@FChip("simulados")">Simulados <span class="cnt">@simulados</span></a>
+    <a asp-action="Mensajes" asp-route-filtro="con-error" class="fchip bad-f@(filtro == "con-error" ? " on" : "")">Con error <span class="cnt">@conError</span></a>
+    <a asp-action="Mensajes" asp-route-filtro="sin-vincular" class="@FChip("sin-vincular")">Sin orden</a>
+</div>
+
+@if (Model.Count == 0)
+{
+    <div class="card">
+        <div class="empty">
+            <span class="eic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4L3 21l1.1-3.6A8.4 8.4 0 1 1 21 11.5z"></path></svg></span>
+            <b>Sin mensajes</b>
+            <p>Los mensajes llegan por webhook. En modo simulación podés generar uno de prueba desde el detalle de una orden.</p>
+        </div>
+    </div>
+}
+else
+{
+    <div class="card">
+        <table class="tbl">
+            <thead><tr><th>Fecha</th><th>Dirección</th><th>Orden</th><th>Mensaje</th><th>Estado</th><th style="text-align:right">Acción</th></tr></thead>
+            <tbody>
+                @foreach (var m in Model)
+                {
+                    <tr>
+                        <td style="color:var(--muted);white-space:nowrap">@m.FechaMensajeUtc.ToLocalTime().ToString("dd/MM HH:mm")</td>
+                        <td>
+                            @if (m.Direccion == MercadoLibreMessageDireccion.Saliente)
+                            {
+                                <span class="chip ok"><span class="dot"></span>Saliente</span>
+                            }
+                            else
+                            {
+                                <span class="chip info"><span class="dot"></span>Entrante</span>
+                            }
+                        </td>
+                        <td>
+                            @if (m.OrderId.HasValue)
+                            {
+                                <a asp-action="Orden" asp-route-id="@m.OrderId" style="font-family:var(--mono);color:var(--blue);text-decoration:none">#@m.MeliOrderId</a>
+                            }
+                            else
+                            {
+                                <span class="stag review">sin orden</span>
+                            }
+                        </td>
+                        <td style="max-width:380px">@m.Texto</td>
+                        <td>
+                            @switch (m.Estado)
+                            {
+                                case MercadoLibreMessageEstado.Enviado:
+                                    <span class="chip ok"><span class="dot"></span>Enviado</span>
+                                    break;
+                                case MercadoLibreMessageEstado.Error:
+                                    <span class="chip bad" title="@m.ErrorProcesamiento"><span class="dot"></span>Error</span>
+                                    break;
+                                default:
+                                    <span class="chip info"><span class="dot"></span>Recibido</span>
+                                    break;
+                            }
+                            @if (m.EsSimulado)
+                            {
+                                <span class="chip info" style="margin-left:4px"><span class="dot"></span>simulado</span>
+                            }
+                        </td>
+                        <td>
+                            <div class="rowacts">
+                                @if (m.OrderId.HasValue)
+                                {
+                                    <a asp-action="Orden" asp-route-id="@m.OrderId" class="iconbtn go" title="Ver conversación en la orden"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3h7v7M21 3l-9 9M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"></path></svg></a>
+                                }
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Hosting;
 using TheBuryProject.Filters;
+using TheBuryProject.Helpers;
 using TheBuryProject.Modules.MercadoLibre.Exceptions;
 using TheBuryProject.Modules.MercadoLibre.Services.Interfaces;
 using TheBuryProject.Modules.MercadoLibre.ViewModels;
@@ -36,9 +37,14 @@ namespace TheBuryProject.Modules.MercadoLibre.Controllers
         private readonly IMercadoLibreMessageService _messageService;
         private readonly ICatalogLookupService _catalogLookupService;
         private readonly IClienteLookupService _clienteLookupService;
+        private readonly IFileStorageService _fileStorage;
         private readonly IMapper _mapper;
         private readonly IHostEnvironment _hostEnvironment;
         private readonly ILogger<MercadoLibreController> _logger;
+
+        /// <summary>Extensiones de imagen aceptadas para borradores ML (subconjunto validado con magic bytes).</summary>
+        private static readonly HashSet<string> ExtensionesImagenMl =
+            new(StringComparer.OrdinalIgnoreCase) { ".jpg", ".jpeg", ".png" };
 
         public MercadoLibreController(
             IMercadoLibreAuthService authService,
@@ -58,6 +64,7 @@ namespace TheBuryProject.Modules.MercadoLibre.Controllers
             IMercadoLibreMessageService messageService,
             ICatalogLookupService catalogLookupService,
             IClienteLookupService clienteLookupService,
+            IFileStorageService fileStorage,
             IMapper mapper,
             IHostEnvironment hostEnvironment,
             ILogger<MercadoLibreController> logger)
@@ -79,6 +86,7 @@ namespace TheBuryProject.Modules.MercadoLibre.Controllers
             _messageService = messageService;
             _catalogLookupService = catalogLookupService;
             _clienteLookupService = clienteLookupService;
+            _fileStorage = fileStorage;
             _mapper = mapper;
             _hostEnvironment = hostEnvironment;
             _logger = logger;
@@ -450,6 +458,19 @@ namespace TheBuryProject.Modules.MercadoLibre.Controllers
 
             var (ok, mensaje) = await _listingAdminService.EditarDescripcionAsync(
                 id, descripcion.Trim(), confirmarReal, User.Identity?.Name ?? "Sistema");
+
+            TempData[ok ? "Success" : "Error"] = mensaje;
+            return RedirectToAction(nameof(Listing), new { id });
+        }
+
+        // POST: /MercadoLibre/ListingEditarCategoria
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "mercadolibre", Accion = "sync")]
+        public async Task<IActionResult> ListingEditarCategoria(int id, string? categoryId, bool confirmarReal = false)
+        {
+            var (ok, mensaje) = await _listingAdminService.EditarCategoriaAsync(
+                id, categoryId, confirmarReal, User.Identity?.Name ?? "Sistema");
 
             TempData[ok ? "Success" : "Error"] = mensaje;
             return RedirectToAction(nameof(Listing), new { id });
@@ -1089,6 +1110,84 @@ namespace TheBuryProject.Modules.MercadoLibre.Controllers
             }
 
             return RedirectToAction(nameof(Borrador), new { id = viewModel.Id });
+        }
+
+        // POST: /MercadoLibre/BorradorSubirImagen — sube una imagen local del equipo
+        // y devuelve su URL para agregarla a la lista de imágenes del borrador.
+        // No persiste el borrador: solo guarda el archivo y devuelve la URL (el JS la
+        // agrega al campo de imágenes y se persiste al guardar el borrador).
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "mercadolibre", Accion = "sync")]
+        [RequestSizeLimit(6 * 1024 * 1024)]
+        public async Task<IActionResult> BorradorSubirImagen(int id, IFormFile? archivo)
+        {
+            var borrador = await _publicacionService.GetBorradorAsync(id);
+            if (borrador is null)
+                return Json(new { ok = false, error = "El borrador no existe." });
+            if (!borrador.PuedeEditar)
+                return Json(new { ok = false, error = "El borrador no se puede editar en su estado actual." });
+
+            var (ok, url, error) = await GuardarImagenMlAsync(archivo, $"borrador {id}");
+            return Json(ok ? new { ok = true, url } : new { ok = false, error });
+        }
+
+        // POST: /MercadoLibre/ListingSubirImagen — sube una imagen local y devuelve su URL
+        // pública para agregarla a la lista de imágenes de una publicación ya existente.
+        // ML descarga la imagen desde esa URL: debe ser pública (p. ej. detrás de un túnel),
+        // no localhost. No aplica nada en ML: solo guarda el archivo y devuelve la URL.
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "mercadolibre", Accion = "sync")]
+        [RequestSizeLimit(6 * 1024 * 1024)]
+        public async Task<IActionResult> ListingSubirImagen(IFormFile? archivo)
+        {
+            var (ok, url, error) = await GuardarImagenMlAsync(archivo, "listing");
+            return Json(ok ? new { ok = true, url } : new { ok = false, error });
+        }
+
+        // Guarda una imagen JPG/PNG validada en wwwroot/uploads/mercadolibre y devuelve
+        // su URL absoluta (construida con el host de la request, para que sea pública si
+        // se accede por un host público). Compartido por borradores y listings.
+        private async Task<(bool Ok, string? Url, string? Error)> GuardarImagenMlAsync(
+            IFormFile? archivo, string contexto)
+        {
+            var (valido, errorArchivo) = DocumentoValidationHelper.ValidateFile(archivo!);
+            if (!valido)
+                return (false, null, errorArchivo);
+
+            var ext = Path.GetExtension(archivo!.FileName).ToLowerInvariant();
+            if (!ExtensionesImagenMl.Contains(ext))
+                return (false, null, "Formato no permitido. Usá imágenes JPG o PNG.");
+
+            try
+            {
+                var rutaRelativa = await _fileStorage.SaveAsync(archivo, "uploads/mercadolibre");
+                var url = $"{Request.Scheme}://{Request.Host}/{rutaRelativa}";
+                return (true, url, null);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al subir imagen ({Contexto})", contexto);
+                return (false, null, "No se pudo guardar la imagen.");
+            }
+        }
+
+        // POST: /MercadoLibre/ListingEditarImagenes — reemplaza TODAS las imágenes de una
+        // publicación existente (PUT /items {pictures}). Respeta ModoSimulacion + confirmarReal.
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "mercadolibre", Accion = "sync")]
+        public async Task<IActionResult> ListingEditarImagenes(int id, string? imagenesUrls, bool confirmarReal = false)
+        {
+            var urls = (imagenesUrls ?? string.Empty)
+                .Split(new[] { '\n', '\r', ',' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            var (ok, mensaje) = await _listingAdminService.EditarImagenesAsync(
+                id, urls, confirmarReal, User.Identity?.Name ?? "Sistema");
+
+            TempData[ok ? "Success" : "Error"] = mensaje;
+            return RedirectToAction(nameof(Listing), new { id });
         }
 
         // POST: /MercadoLibre/BorradorValidar

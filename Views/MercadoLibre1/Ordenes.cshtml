@@ -1,0 +1,159 @@
+@using TheBuryProject.Modules.MercadoLibre.Entities
+@model List<MercadoLibreOrderViewModel>
+@{
+    ViewData["Title"] = "Órdenes Mercado Libre";
+    var filtro = ViewBag.Filtro as string;
+    var puedeGenerarOrdenSimulada = ViewBag.PuedeGenerarOrdenSimulada as bool? ?? false;
+    var puedeGenerarOrdenOperativaSimulada = ViewBag.PuedeGenerarOrdenOperativaSimulada as bool? ?? false;
+    string FChip(string f) => filtro == f || (string.IsNullOrEmpty(filtro) && f == "") ? "fchip on" : "fchip";
+
+    var pendientes = Model.Count(o => o.EstadoInterno == MercadoLibreOrderEstadoInterno.PendienteVinculacion || o.EstadoInterno == MercadoLibreOrderEstadoInterno.PendienteAsignarUnidad);
+    var conVenta = Model.Count(o => o.EstadoInterno == MercadoLibreOrderEstadoInterno.VentaCreada);
+    var liquidadas = Model.Count(o => o.EstadoInterno == MercadoLibreOrderEstadoInterno.Liquidada);
+    var devoluciones = Model.Count(o => o.DevolucionEstado != MercadoLibreDevolucionEstado.Ninguna);
+}
+
+<!-- ============ ÓRDENES ============ -->
+<div class="phead">
+    <div>
+        <h1><span class="gi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"></path><path d="M9 13h6M9 17h6"></path></svg></span>Órdenes</h1>
+        <div class="sub">@Model.Count órdenes · las ventas ML quedan pendientes de liquidación (no son efectivo directo)</div>
+    </div>
+    <div class="acts">
+        <span class="actlbl">Acciones</span>
+        <form asp-action="OrdenesImportarRecientes" method="post">
+            @Html.AntiForgeryToken()
+            <button type="submit" class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"></path></svg>Importar recientes</button>
+        </form>
+        @if (puedeGenerarOrdenSimulada)
+        {
+            <form asp-action="OrdenGenerarSimulada" method="post">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="btn ghost"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6L5 19a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1l-5-10V3"></path></svg>Generar QA</button>
+            </form>
+        }
+        @if (puedeGenerarOrdenOperativaSimulada)
+        {
+            <form asp-action="OrdenGenerarOperativaSimulada" method="post" onsubmit="return confirm('Generar una orden operativa simulada local? No llama a Mercado Libre, pero permite crear venta interna y descontar stock ERP.');">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="btn ghost"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M7 8h10M7 12h10M7 16h6"></path></svg>Operativa simulada</button>
+            </form>
+        }
+    </div>
+</div>
+
+<div class="filters">
+    <a asp-action="Ordenes" class="@FChip("")">Todas <span class="cnt">@Model.Count</span></a>
+    <a asp-action="Ordenes" asp-route-filtro="pendientes" class="@FChip("pendientes")">Pendientes <span class="cnt">@pendientes</span></a>
+    <a asp-action="Ordenes" asp-route-filtro="venta-creada" class="@FChip("venta-creada")">Con venta <span class="cnt">@conVenta</span></a>
+    <a asp-action="Ordenes" asp-route-filtro="liquidadas" class="@FChip("liquidadas")">Liquidadas <span class="cnt">@liquidadas</span></a>
+    <a asp-action="Ordenes" asp-route-filtro="devoluciones" class="@FChip("devoluciones")">Devoluciones <span class="cnt">@devoluciones</span></a>
+</div>
+
+@if (Model.Count == 0)
+{
+    <div class="card">
+        <div class="empty">
+            <span class="eic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"></path><path d="M9 13h6M9 17h6"></path></svg></span>
+            <b>Sin órdenes</b>
+            <p>Las órdenes llegan automáticamente por webhook, o podés traerlas con "Importar recientes".</p>
+        </div>
+    </div>
+}
+else
+{
+    <div class="card">
+        <table class="tbl">
+            <thead><tr>
+                <th>Orden</th><th>Fecha</th><th>Comprador</th><th class="num">Total</th><th class="num">Neto est.</th>
+                <th>Estado ML</th><th>Interno</th><th>Envío</th><th style="text-align:right">Acciones</th>
+            </tr></thead>
+            <tbody>
+                @foreach (var orden in Model)
+                {
+                    <tr>
+                        <td>
+                            <span style="font-family:var(--mono);font-weight:600;color:var(--blue)">#@orden.MeliOrderId</span>
+                            @if (orden.EsSimuladaQa)
+                            {
+                                <span class="stag paused" style="margin-left:6px">QA</span>
+                            }
+                            else if (orden.EsSimuladaOperativa)
+                            {
+                                <span class="stag active" style="margin-left:6px">Sim local</span>
+                            }
+                        </td>
+                        <td style="color:var(--muted)">@orden.FechaCreacionUtc.ToLocalTime().ToString("dd/MM HH:mm")</td>
+                        <td>@(orden.BuyerNickname ?? "—")</td>
+                        <td class="num">@orden.TotalAmount.ToString("N2") <small style="color:var(--faint)">ARS</small></td>
+                        <td class="num" style="color:var(--green)">@(orden.NetoEstimado?.ToString("N2") ?? "—")</td>
+                        <td>
+                            @{
+                                var mlStag = orden.Status == "paid" ? "active" : orden.Status == "cancelled" ? "inactive" : "paused";
+                            }
+                            <span class="stag @mlStag">@orden.Status</span>
+                            @if (orden.DevolucionEstado != MercadoLibreDevolucionEstado.Ninguna)
+                            {
+                                <div class="le" style="font-size:10px;color:var(--amber);margin-top:3px">devolución: @orden.DevolucionEstado</div>
+                            }
+                            @if (orden.TieneClaimPendiente)
+                            {
+                                <div class="le" style="font-size:10px;color:var(--red);margin-top:3px">claim pendiente (@orden.ClaimsPendientes)</div>
+                            }
+                        </td>
+                        <td>
+                            @switch (orden.EstadoInterno)
+                            {
+                                case MercadoLibreOrderEstadoInterno.VentaCreada:
+                                    <span class="chip ok"><span class="dot"></span>Venta creada</span>
+                                    break;
+                                case MercadoLibreOrderEstadoInterno.Liquidada:
+                                    <span class="chip info"><span class="dot"></span>Liquidada</span>
+                                    break;
+                                case MercadoLibreOrderEstadoInterno.PendienteVinculacion:
+                                    <span class="chip warn"><span class="dot"></span>Pend. venta</span>
+                                    break;
+                                case MercadoLibreOrderEstadoInterno.PendienteAsignarUnidad:
+                                    <span class="chip warn" title="@orden.ErrorProcesamiento"><span class="dot"></span>Pend. unidad</span>
+                                    break;
+                                case MercadoLibreOrderEstadoInterno.Error:
+                                    <span class="chip bad" title="@orden.ErrorProcesamiento"><span class="dot"></span>Error</span>
+                                    break;
+                                case MercadoLibreOrderEstadoInterno.Ignorada:
+                                    <span class="chip neutral"><span class="dot"></span>Ignorada</span>
+                                    break;
+                                default:
+                                    <span class="chip neutral"><span class="dot"></span>Importada</span>
+                                    break;
+                            }
+                        </td>
+                        <td>
+                            @if (orden.ShipmentId.HasValue)
+                            {
+                                var envCls = orden.EnvioRequiereAtencion ? "bad" : orden.EstadoEnvioInterno == MercadoLibreShipmentEstadoInterno.Entregado ? "ok" : "info";
+                                <span class="chip @envCls"><span class="dot"></span>@orden.EstadoEnvioInterno</span>
+                                @if (!string.IsNullOrEmpty(orden.TrackingNumber))
+                                {
+                                    <div class="le" style="font-family:var(--mono);font-size:10px;color:var(--faint);margin-top:3px;max-width:150px;overflow:hidden;text-overflow:ellipsis" title="@orden.TrackingNumber">@orden.TrackingNumber</div>
+                                }
+                            }
+                            else
+                            {
+                                <span class="chip neutral"><span class="dot"></span>Sin envío</span>
+                            }
+                        </td>
+                        <td>
+                            <div class="rowacts">
+                                <a asp-action="Orden" asp-route-id="@orden.Id" class="iconbtn go" title="Abrir orden"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3h7v7M21 3l-9 9M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"></path></svg></a>
+                                @if (orden.EstadoInterno == MercadoLibreOrderEstadoInterno.PendienteVinculacion)
+                                {
+                                    <a asp-action="Orden" asp-route-id="@orden.Id" class="iconbtn" title="Crear venta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path></svg></a>
+                                }
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}

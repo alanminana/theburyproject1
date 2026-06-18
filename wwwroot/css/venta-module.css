@@ -121,8 +121,8 @@
 .venta-input:focus,
 .venta-select:focus {
     outline: none;
-    border-color: #135bec;
-    box-shadow: 0 0 0 3px rgba(19, 91, 236, 0.18);
+    border-color: #f5c518;
+    box-shadow: 0 0 0 3px rgba(245, 197, 24, 0.18);
 }
 .venta-input::placeholder { color: #475569; }
 
@@ -224,7 +224,7 @@
    · labels con alto contraste y tamaño legible
    · áreas de click amplias (min-height 3rem)
    · focus ring grueso y llamativo
-   Paleta canónica ERP: bg #161c28, border #1e293b, primary #135bec
+   Paleta canónica ERP: bg #161c28, border #1e293b, primary #f5c518
    ══════════════════════════════════════════════════════════════ */
 
 /* Label ─────────────────────────────────────────────────────── */
@@ -267,8 +267,8 @@
 .vm-input:focus,
 .vm-textarea:focus {
     outline: none;
-    border-color: #135bec;
-    box-shadow: 0 0 0 3px rgba(19, 91, 236, 0.18);
+    border-color: #f5c518;
+    box-shadow: 0 0 0 3px rgba(245, 197, 24, 0.18);
     color: #f1f5f9;
 }
 .vm-input:read-only {
@@ -305,8 +305,8 @@
 }
 .vm-select:focus {
     outline: none;
-    border-color: #135bec;
-    box-shadow: 0 0 0 3px rgba(19, 91, 236, 0.18);
+    border-color: #f5c518;
+    box-shadow: 0 0 0 3px rgba(245, 197, 24, 0.18);
     color: #f1f5f9;
 }
 .vm-select option {
@@ -327,7 +327,7 @@
     transition: color 0.15s ease;
 }
 .vm-search-wrap:focus-within .vm-search-icon {
-    color: #135bec;
+    color: #f5c518;
 }
 .vm-search-wrap .vm-input {
     padding-left: 2.875rem;
@@ -469,23 +469,23 @@
     justify-content: center;
     gap: 0.5rem;
     border-radius: 0.5rem;
-    background-color: #135bec;
+    background-color: #f5c518;
     padding: 0.875rem 1.25rem;
     font-size: 0.9375rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: #ffffff;
+    color: #15110a;
     cursor: pointer;
     border: none;
     transition: background-color 0.15s ease, opacity 0.15s ease;
     min-height: 3.25rem;
 }
 .vm-btn-confirm:hover {
-    background-color: #1a6aff;
+    background-color: #ffd435;
 }
 .vm-btn-confirm:active {
-    background-color: #1050d4;
+    background-color: #e0b40f;
 }
 .vm-btn-confirm:disabled {
     opacity: 0.5;
@@ -540,7 +540,7 @@
 .vm-checkbox-label input[type="checkbox"] {
     width: 1.125rem;
     height: 1.125rem;
-    accent-color: #135bec;
+    accent-color: #f5c518;
     cursor: pointer;
 }
 .vm-checkbox-label span {
@@ -655,13 +655,13 @@
     gap: 0.375rem;
     flex-shrink: 0;
     border-radius: 0.375rem;
-    background-color: #135bec;
+    background-color: #f5c518;
     padding: 0.5rem 0.875rem;
     font-size: 0.75rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: #ffffff;
+    color: #15110a;
     cursor: pointer;
     border: none;
     white-space: nowrap;
@@ -669,5 +669,5 @@
     min-height: 2.25rem;
 }
 
-.vm-btn-confirm-sm:hover  { background-color: #1a6aff; }
-.vm-btn-confirm-sm:active { background-color: #1050d4; }
+.vm-btn-confirm-sm:hover  { background-color: #ffd435; }
+.vm-btn-confirm-sm:active { background-color: #e0b40f; }

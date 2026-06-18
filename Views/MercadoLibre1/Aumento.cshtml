@@ -1,0 +1,112 @@
+@using TheBuryProject.Modules.MercadoLibre.Entities
+@model MercadoLibrePriceBatchDetalleViewModel
+@{
+    ViewData["Title"] = $"Lote: {Model.Nombre}";
+    var estadoChip = Model.Estado switch
+    {
+        MercadoLibrePriceBatchEstado.Simulado => ("violet", "Preview"),
+        MercadoLibrePriceBatchEstado.Aplicado => (Model.AplicadoEnSimulacion ? "info" : "ok", Model.AplicadoEnSimulacion ? "Aplicado (sim)" : "Aplicado"),
+        MercadoLibrePriceBatchEstado.AplicadoParcial => ("warn", "Parcial"),
+        MercadoLibrePriceBatchEstado.Revertido => ("neutral", "Revertido"),
+        _ => ("neutral", "Cancelado")
+    };
+}
+
+<!-- ============ AUMENTO (detalle) ============ -->
+<div class="crumb">
+    <a asp-action="Aumentos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"></path></svg>Aumentos</a>
+    <span class="sep">/</span><span class="cur">@Model.Nombre</span>
+</div>
+<div class="phead">
+    <div>
+        <h1><span class="gi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l6-6 4 4 8-8M21 7v5M21 7h-5"></path></svg></span>@Model.Nombre</h1>
+        <div class="sub" style="display:flex;gap:10px;align-items:center;margin-top:6px">Origen: @(Model.Origen == MercadoLibrePriceBatchOrigen.DesdePrecioErp ? "Precio ERP" : "Precio ML") · Ajuste <b style="color:var(--amber)">@Model.ValorAjustePorcentaje.ToString("+0.##;-0.##;0")%</b><span class="chip @estadoChip.Item1"><span class="dot"></span>@estadoChip.Item2</span></div>
+    </div>
+    <div class="acts">
+        @if (Model.Estado == MercadoLibrePriceBatchEstado.Simulado)
+        {
+            <form asp-action="AumentoAplicar" method="post" style="display:flex;align-items:center;gap:9px" onsubmit="return confirm('¿Aplicar el lote de precios?');">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" value="@Model.Id" />
+                @if (!Model.ModoSimulacion)
+                {
+                    <label class="warnpill" style="cursor:pointer"><input type="checkbox" class="cbx" name="confirmarReal" value="true" style="width:16px;height:16px">Envío REAL</label>
+                }
+                <button type="submit" class="btn primary" disabled="@(Model.PuedeAplicar ? null : "disabled")"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"></path></svg>Aplicar</button>
+            </form>
+            <form asp-action="AumentoCancelar" method="post" onsubmit="return confirm('¿Cancelar el lote?');">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" value="@Model.Id" />
+                <button type="submit" class="btn ghost">Cancelar</button>
+            </form>
+        }
+        else if (Model.PuedeRevertir)
+        {
+            <form asp-action="AumentoRevertir" method="post" style="display:flex;align-items:center;gap:9px" onsubmit="return confirm('ROLLBACK: se re-publican los precios anteriores del snapshot. ¿Continuar?');">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" value="@Model.Id" />
+                <input type="text" name="motivo" maxlength="500" placeholder="Motivo del rollback" style="background:var(--bg);border:1px solid var(--line-3);border-radius:9px;padding:8px 10px;color:var(--ink);font-size:12.5px;width:180px" />
+                <label class="warnpill" style="cursor:pointer"><input type="checkbox" class="cbx" name="confirmarReal" value="true" style="width:16px;height:16px">REAL</label>
+                <button type="submit" class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9"></path><path d="M3 4v5h5"></path></svg>Revertir</button>
+            </form>
+        }
+    </div>
+</div>
+
+<div class="tiles">
+    <div class="tile"><div class="tl">Items</div><div class="tv">@Model.Items.Count</div></div>
+    <div class="tile"><div class="tl">Ajuste</div><div class="tv amber">@Model.ValorAjustePorcentaje.ToString("+0.##;-0.##;0")%</div></div>
+    <div class="tile"><div class="tl">Advertencias</div><div class="tv @(Model.ConAdvertencia > 0 ? "amber" : "")">@Model.ConAdvertencia</div></div>
+    <div class="tile"><div class="tl">Estado</div><div class="tv" style="font-size:15px">@estadoChip.Item2</div></div>
+</div>
+
+@if (Model.Estado == MercadoLibrePriceBatchEstado.Revertido)
+{
+    <div class="tray" style="margin-bottom:0"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 12a9 9 0 1 0 9-9"></path><path d="M3 4v5h5"></path></svg></span><b>Revertido</b><span>@(Model.FechaReversion?.ToLocalTime().ToString("dd/MM HH:mm")) por @Model.RevertidoPor@(string.IsNullOrEmpty(Model.MotivoReversion) ? "" : " · " + Model.MotivoReversion)</span></div>
+}
+
+@if (Model.Items.Count == 0)
+{
+    <div class="card">
+        <div class="empty"><span class="eic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l6-6 4 4 8-8"></path></svg></span><b>Sin publicaciones para previsualizar</b><p>Los filtros elegidos no encontraron publicaciones con cambios de precio aplicables.</p></div>
+    </div>
+}
+else
+{
+    <div class="card">
+        <table class="tbl">
+            <thead><tr><th>Publicación</th><th class="num">Precio anterior</th><th class="num">Precio nuevo</th><th class="num">Dif. %</th><th class="num">Margen</th><th>Advertencias</th></tr></thead>
+            <tbody>
+                @foreach (var item in Model.Items)
+                {
+                    <tr>
+                        <td>
+                            <div class="prod">
+                                <a class="pt" asp-action="Listing" asp-route-id="@item.ListingId" style="text-decoration:none;color:inherit" title="@item.Titulo">@item.Titulo</a>
+                                <span class="pm">@item.ItemId@(item.VariationId.HasValue ? $" · var {item.VariationId}" : "")</span>
+                            </div>
+                        </td>
+                        <td class="num" style="color:var(--faint)">@item.PrecioAnterior.ToString("N2")</td>
+                        <td class="num" style="color:var(--green)">@item.PrecioNuevo.ToString("N2")</td>
+                        <td class="num" style="color:var(--amber)">@item.DiferenciaPorcentaje.ToString("+0.##;-0.##;0")%</td>
+                        <td class="num">@(item.MargenEstimadoPorcentaje.HasValue ? item.MargenEstimadoPorcentaje.Value.ToString("0.##") + "%" : "—")</td>
+                        <td>
+                            @if (!string.IsNullOrEmpty(item.Error))
+                            {
+                                <div class="warnpill" style="color:var(--red)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M15 9l-6 6M9 9l6 6"></path></svg>@item.Error</div>
+                            }
+                            else if (item.TieneAdvertencia)
+                            {
+                                <div class="warnpill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18h20.4z"></path></svg>@item.MensajeAdvertencia</div>
+                            }
+                            else
+                            {
+                                <span class="okpill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"></path></svg>OK</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}

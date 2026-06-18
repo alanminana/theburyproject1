@@ -19,13 +19,13 @@
     --doc-text: #e2e8f0;
     --doc-muted: #94a3b8;
     --doc-muted-2: #64748b;
-    --doc-primary: #2563eb;
-    --doc-primary-soft: rgba(37, 99, 235, 0.14);
+    --doc-primary: #f5c518;
+    --doc-primary-soft: rgba(245, 197, 24, 0.14);
     --doc-radius: 0.875rem;
     --doc-table-min-flat: 69rem;
     --doc-table-min-grouped: 76rem;
     --doc-table-min-modal: 58rem;
-    --doc-focus: #60a5fa;
+    --doc-focus: #f5c518;
 }
 
 /* Base safety */

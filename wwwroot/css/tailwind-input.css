@@ -8,10 +8,10 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-    --color-primary: #135bec;
+    --color-primary: #f5c518;
     --color-background-light: #f6f6f8;
-    --color-background-dark: #101622;
-    --font-display: 'Inter', sans-serif;
+    --color-background-dark: #0b0e14;
+    --font-display: 'Hanken Grotesk', 'Inter', sans-serif;
 }
 
 @layer utilities {
@@ -89,9 +89,9 @@
         --erp-text:           #dde2f4;   /* texto principal */
         --erp-text-muted:     #94a3b8;   /* texto secundario */
         --erp-text-faint:     #475569;   /* texto terciario, placeholder */
-        --erp-primary:        #135bec;   /* azul acción */
-        --erp-primary-hover:  #0f4fd6;
-        --erp-primary-faint:  rgba(19, 91, 236, 0.1);
+        --erp-primary:        #f5c518;   /* oro acción (estética ML) */
+        --erp-primary-hover:  #ffd435;
+        --erp-primary-faint:  rgba(245, 197, 24, 0.1);
     }
 
     /* Links globales — no heredar el azul Bootstrap */

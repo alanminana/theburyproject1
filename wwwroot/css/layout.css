@@ -15,7 +15,7 @@
     --layout-sidebar-collapsed-width: 4.5rem;
     --layout-header-height: 4rem;
 
-    --layout-focus: #5b8dff;
+    --layout-focus: #f5c518;
     --layout-scrollbar: #334155;
     --layout-scrollbar-hover: #475569;
 
@@ -110,7 +110,7 @@ body.app-layout {
     padding: 0.5rem 1rem;
 
     background: var(--layout-focus);
-    color: #fff;
+    color: #15110a;
 
     font-size: 0.875rem;
     font-weight: 600;

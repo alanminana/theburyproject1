@@ -1,0 +1,106 @@
+@using TheBuryProject.Modules.MercadoLibre.Entities
+@model List<MercadoLibreQuestion>
+@{
+    ViewData["Title"] = "Atención · Preguntas";
+    var filtro = ViewBag.Filtro as string;
+    var modoSimulacion = ViewBag.ModoSimulacion as bool? ?? true;
+    string FChip(string f) => filtro == f || (string.IsNullOrEmpty(filtro) && f == "") ? "fchip on" : "fchip";
+    var pendientes = Model.Count(p => p.Estado == MercadoLibreQuestionEstado.Pendiente);
+    var respondidas = Model.Count(p => p.Estado == MercadoLibreQuestionEstado.Respondida);
+    var simuladas = Model.Count(p => p.EsSimulada);
+    var conError = Model.Count(p => p.Estado == MercadoLibreQuestionEstado.Error);
+    var sinPublicacion = Model.Count(p => !p.ListingId.HasValue);
+}
+
+<!-- ============ ATENCIÓN · PREGUNTAS ============ -->
+<div class="phead">
+    <div>
+        <h1><span class="gi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4L3 21l1.1-3.6A8.4 8.4 0 1 1 21 11.5z"></path></svg></span>Atención</h1>
+        <div class="sub">@Model.Count preguntas · la respuesta es siempre manual.@(modoSimulacion ? " Modo simulación: las respuestas no se envían a ML." : "")</div>
+    </div>
+</div>
+
+<div class="subtabs">
+    <a class="subtab active" asp-action="Preguntas" style="text-decoration:none">Preguntas <span style="opacity:.6">· @Model.Count</span></a>
+    <a class="subtab" asp-action="Mensajes" style="text-decoration:none">Mensajes</a>
+</div>
+
+<div class="filters">
+    <a asp-action="Preguntas" class="@FChip("")">Todas <span class="cnt">@Model.Count</span></a>
+    <a asp-action="Preguntas" asp-route-filtro="pendientes" class="@FChip("pendientes")">Pendientes <span class="cnt">@pendientes</span></a>
+    <a asp-action="Preguntas" asp-route-filtro="respondidas" class="@FChip("respondidas")">Respondidas <span class="cnt">@respondidas</span></a>
+    <a asp-action="Preguntas" asp-route-filtro="simuladas" class="@FChip("simuladas")">Simuladas <span class="cnt">@simuladas</span></a>
+    <a asp-action="Preguntas" asp-route-filtro="con-error" class="fchip bad-f@(filtro == "con-error" ? " on" : "")">Con error <span class="cnt">@conError</span></a>
+    <a asp-action="Preguntas" asp-route-filtro="sin-vincular" class="@FChip("sin-vincular")">Sin publicación <span class="cnt">@sinPublicacion</span></a>
+</div>
+
+@if (Model.Count == 0)
+{
+    <div class="card">
+        <div class="empty">
+            <span class="eic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4L3 21l1.1-3.6A8.4 8.4 0 1 1 21 11.5z"></path></svg></span>
+            <b>Sin preguntas</b>
+            <p>Las preguntas llegan por webhook. En modo simulación podés generar una de prueba desde el detalle de una publicación.</p>
+        </div>
+    </div>
+}
+else
+{
+    <div class="card">
+        <table class="tbl">
+            <thead><tr><th>Fecha</th><th>Publicación</th><th>Pregunta</th><th>Estado</th><th style="text-align:right">Acciones</th></tr></thead>
+            <tbody>
+                @foreach (var p in Model)
+                {
+                    <tr>
+                        <td style="color:var(--muted);white-space:nowrap">@p.FechaPreguntaUtc.ToLocalTime().ToString("dd/MM HH:mm")</td>
+                        <td>
+                            @if (p.ListingId.HasValue)
+                            {
+                                <a asp-action="Listing" asp-route-id="@p.ListingId" style="color:var(--blue);text-decoration:none">@p.ItemId</a>
+                            }
+                            else
+                            {
+                                <span class="stag review">sin publicación</span>
+                            }
+                        </td>
+                        <td style="max-width:420px">@p.TextoPregunta</td>
+                        <td>
+                            @switch (p.Estado)
+                            {
+                                case MercadoLibreQuestionEstado.Respondida:
+                                    <span class="chip ok"><span class="dot"></span>Respondida</span>
+                                    break;
+                                case MercadoLibreQuestionEstado.Error:
+                                    <span class="chip bad" title="@p.ErrorProcesamiento"><span class="dot"></span>Error</span>
+                                    break;
+                                case MercadoLibreQuestionEstado.Cerrada:
+                                    <span class="chip neutral"><span class="dot"></span>Cerrada</span>
+                                    break;
+                                default:
+                                    <span class="chip warn"><span class="dot"></span>Pendiente</span>
+                                    break;
+                            }
+                            @if (p.EsSimulada)
+                            {
+                                <span class="chip info" style="margin-left:4px"><span class="dot"></span>simulada</span>
+                            }
+                        </td>
+                        <td>
+                            <div class="rowacts">
+                                @if (p.Estado == MercadoLibreQuestionEstado.Pendiente)
+                                {
+                                    <a asp-action="Pregunta" asp-route-id="@p.Id" class="btn sm primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17l-5-5 5-5M4 12h11a5 5 0 0 1 0 10h-1"></path></svg>Responder</a>
+                                }
+                                else
+                                {
+                                    <a asp-action="Pregunta" asp-route-id="@p.Id" class="iconbtn go" title="Ver"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3h7v7M21 3l-9 9M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"></path></svg></a>
+                                }
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}

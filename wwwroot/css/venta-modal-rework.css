@@ -78,7 +78,7 @@
 }
 
 .vm-step-tab:focus-visible {
-    outline: 2px solid rgba(59, 130, 246, 0.6);
+    outline: 2px solid rgba(245, 197, 24, 0.6);
     outline-offset: 2px;
 }
 
@@ -114,19 +114,19 @@
 
 /* Estado: activo / paso actual ─────────────────────────────── */
 .vm-step-tab--active {
-    border-color: rgba(59, 130, 246, 0.6);
-    background-color: rgba(59, 130, 246, 0.15);
-    color: #93c5fd;
+    border-color: rgba(245, 197, 24, 0.6);
+    background-color: rgba(245, 197, 24, 0.15);
+    color: #f5c518;
 }
 
 .vm-step-tab--active .vm-step-tab__num {
-    background-color: #3b82f6;
-    color: #ffffff;
+    background-color: #f5c518;
+    color: #15110a;
 }
 
 .vm-step-tab--active .vm-step-tab__badge {
-    background-color: rgba(59, 130, 246, 0.3);
-    color: #93c5fd;
+    background-color: rgba(245, 197, 24, 0.3);
+    color: #f5c518;
 }
 
 

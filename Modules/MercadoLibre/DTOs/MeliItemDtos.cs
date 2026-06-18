@@ -93,6 +93,9 @@ namespace TheBuryProject.Modules.MercadoLibre.DTOs
         [JsonPropertyName("attributes")]
         public List<MeliAttributeDto> Attributes { get; set; } = new();
 
+        [JsonPropertyName("pictures")]
+        public List<MeliPictureDto> Pictures { get; set; } = new();
+
         [JsonPropertyName("variations")]
         public List<MeliVariationDto> Variations { get; set; } = new();
 
@@ -118,6 +121,21 @@ namespace TheBuryProject.Modules.MercadoLibre.DTOs
 
         [JsonPropertyName("value_name")]
         public string? ValueName { get; set; }
+    }
+
+    public class MeliPictureDto
+    {
+        [JsonPropertyName("id")]
+        public string? Id { get; set; }
+
+        [JsonPropertyName("url")]
+        public string? Url { get; set; }
+
+        [JsonPropertyName("secure_url")]
+        public string? SecureUrl { get; set; }
+
+        /// <summary>URL pública efectiva de la imagen (prefiere https).</summary>
+        public string? UrlEfectiva => SecureUrl ?? Url;
     }
 
     public class MeliVariationDto

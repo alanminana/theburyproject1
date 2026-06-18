@@ -224,7 +224,7 @@
                 <section class="card" style="overflow:hidden">
                     <div class="card-pad" style="padding-bottom:.75rem">
                         <div class="flex items-center justify-between gap-3">
-                            <h2 class="font-semibold text-white flex items-center gap-2"><span class="material-symbols-outlined" style="color:#60a5fa;font-size:20px">calendar_month</span>Plan de cuotas</h2>
+                            <h2 class="font-semibold text-white flex items-center gap-2"><span class="material-symbols-outlined" style="color:#f5c518;font-size:20px">calendar_month</span>Plan de cuotas</h2>
                             <div class="scroll-hint hide-mobile"><span class="material-symbols-outlined" style="font-size:15px">swipe</span>Deslizá</div>
                         </div>
                     </div>
@@ -420,7 +420,7 @@
                 </div>
 
                 <div class="card card-pad">
-                    <h3 class="font-semibold text-white mb-3 flex items-center gap-2"><span class="material-symbols-outlined" style="color:#60a5fa;font-size:20px">savings</span>Resumen financiero</h3>
+                    <h3 class="font-semibold text-white mb-3 flex items-center gap-2"><span class="material-symbols-outlined" style="color:#f5c518;font-size:20px">savings</span>Resumen financiero</h3>
                     <div class="result-card" style="padding:.85rem 1rem">
                         <div class="result-label">Total a cobrar (capital + interés)</div>
                         <div class="result-value" style="font-size:1.5rem">$ @cr.TotalAPagar.ToString("N2")</div>
@@ -438,7 +438,7 @@
                 @if (cr.FuenteRestriccionCuotasSnap != null || cr.CuotasMaximasPermitidas.HasValue || cr.MaxCuotasBaseSnap.HasValue)
                 {
                     <div class="card card-pad" data-credito-restriccion-cuotas>
-                        <h3 class="font-semibold text-white mb-3 flex items-center gap-2"><span class="material-symbols-outlined" style="color:#60a5fa;font-size:20px">rule</span>Restricción de cuotas</h3>
+                        <h3 class="font-semibold text-white mb-3 flex items-center gap-2"><span class="material-symbols-outlined" style="color:#f5c518;font-size:20px">rule</span>Restricción de cuotas</h3>
                         <div class="doc-row">
                             <div class="doc-ic"><span class="material-symbols-outlined">@(esRestriccionProducto ? "inventory_2" : "settings")</span></div>
                             <div class="flex-1 min-w-0">
@@ -513,7 +513,7 @@
                 @if (Model.CupoGlobalConError || Model.CupoGlobalDisponible.HasValue)
                 {
                     <div class="card card-pad">
-                        <h3 class="font-semibold text-white mb-3 flex items-center gap-2"><span class="material-symbols-outlined" style="color:#60a5fa;font-size:20px">account_balance_wallet</span>Cupo global</h3>
+                        <h3 class="font-semibold text-white mb-3 flex items-center gap-2"><span class="material-symbols-outlined" style="color:#f5c518;font-size:20px">account_balance_wallet</span>Cupo global</h3>
                         @if (Model.CupoGlobalConError)
                         {
                             <div class="alert alert-warn"><span class="material-symbols-outlined">warning</span><span>@(Model.CupoGlobalMensajeError ?? "No se pudo calcular el cupo")</span></div>

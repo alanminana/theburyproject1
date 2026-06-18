@@ -1,0 +1,102 @@
+/* ==========================================================================
+   theme-ml.css — Tema visual "Mercado Libre" aplicado a TODO el sistema.
+   --------------------------------------------------------------------------
+   Estrategia: CASCADA POR TOKENS (no se redefinen clases genéricas como
+   .btn/.card/.chip/.field/.tbl — ya existen en el CSS legacy de cada módulo
+   y colisionarían). Acá sólo se:
+     1. sobreescriben los tokens de tema (Tailwind --color-* y ERP --erp-*)
+        a la paleta del módulo Mercado Libre (oro + fondos casi-negros);
+     2. exponen los tokens ML (--ml-*) para normalización incremental por
+        módulo;
+     3. refuerzan 3 acentos sobre clases existentes (defensa por orden).
+   NOTA (jun-2026): la deuda de "azul cobalto hardcodeado como acento
+   primario" (#135bec / #2563eb / #1d4ed8 / #3b82f6 / #60a5fa / #93c5fd /
+   rgba 19,91,236 · 37,99,235 · 59,130,246) ya quedó normalizada a oro EN LA
+   FUENTE de cada módulo (venta/ventas-index/venta-modal/caja/catalogo/
+   plantillas/cliente/credito/documentocliente/shared-components/layout/
+   standalone-tokens) y en tailwind-input.css → tailwind.css regenerado. Por
+   eso los 3 overrides de abajo hoy son redundantes/refuerzo, no el único
+   origen del oro. Se conservan los colores semánticos no-cobalto: cian-info
+   (#38bdf8), verde-éxito (#22c55e), sky-glow del wizard de venta.
+   Debe cargarse DESPUÉS de tailwind/shared-components/layout/erp-responsive
+   para ganar por orden. NO romper Tailwind: las utilidades bg-primary,
+   text-primary, etc. referencian var(--color-primary) en Tailwind v4, así que
+   este override las reapunta a oro sin recompilar.
+   ========================================================================== */
+
+:root {
+    /* --- Acento: azul ML-anterior -> oro Mercado Libre --- */
+    --color-primary: #f5c518;
+
+    /* --- Fondo/superficies: paleta oscura refinada ML --- */
+    --color-background-dark: #0b0e14;
+
+    /* --- Remapeo de tokens ERP (consumidos por shared-components.css) --- */
+    --erp-bg:             #0b0e14;
+    --erp-surface:        #141821;
+    --erp-surface-raised: #1a1f2a;
+    --erp-surface-high:   #1e2533;
+    --erp-border:         rgba(255, 255, 255, 0.07);
+    --erp-border-muted:   rgba(255, 255, 255, 0.045);
+    --erp-text:           #eef1f6;
+    --erp-text-muted:     #a7b0c0;
+    --erp-text-faint:     #7e8799;
+    --erp-primary:        #f5c518;
+    --erp-primary-hover:  #ffd435;
+    --erp-primary-faint:  rgba(245, 197, 24, 0.13);
+
+    /* --- Tipografía ML --- */
+    --font-display: 'Hanken Grotesk', 'Inter', system-ui, sans-serif;
+
+    /* --- Tokens ML expuestos para normalización por módulo (.ml-*) --- */
+    --ml-bg:        #0b0e14;
+    --ml-panel:     #141821;
+    --ml-panel-2:   #1a1f2a;
+    --ml-elev:      #1e2533;
+    --ml-ink:       #eef1f6;
+    --ml-muted:     #a7b0c0;
+    --ml-faint:     #7e8799;
+    --ml-line:      rgba(255, 255, 255, 0.07);
+    --ml-line-2:    rgba(255, 255, 255, 0.045);
+    --ml-line-3:    rgba(255, 255, 255, 0.11);
+    --ml-gold:      #f5c518;
+    --ml-gold-soft: rgba(245, 197, 24, 0.13);
+    --ml-green:     #37d399;
+    --ml-amber:     #f1a93b;
+    --ml-red:       #f87171;
+    --ml-blue:      #5fa8ff;
+    --ml-mono:      'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+    --ml-radius:    13px;
+}
+
+/* Tipografía base ML en toda la app (las utilidades font-display también la usan vía var). */
+body {
+    font-family: var(--font-display);
+}
+
+/* --- Fixes puntuales de acento (clases existentes que hardcodean el azul) --- */
+
+/* Texto de acento sobre fondo oscuro: azul #5b8dff -> oro */
+.text-primary-on-dark {
+    color: #f5c518;
+}
+
+/* Barra de item de nav activo: azul -> oro */
+.nav-item-active {
+    box-shadow: inset 3px 0 0 rgba(245, 197, 24, 0.85);
+}
+
+/* Botón primario sólido (único acento sólido con texto claro):
+   azul + texto blanco -> oro + texto oscuro (contraste correcto, igual que .btn.primary de ML). */
+.btn-erp-primary {
+    background-color: #f5c518;
+    color: #15110a;
+    box-shadow: 0 4px 14px rgba(245, 197, 24, 0.22);
+}
+.btn-erp-primary:hover {
+    background-color: #ffd435;
+    color: #15110a;
+}
+.btn-erp-primary:focus-visible {
+    outline-color: #f5c518;
+}
