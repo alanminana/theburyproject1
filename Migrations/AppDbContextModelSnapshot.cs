@@ -7634,7 +7634,7 @@ namespace TheBuryProject.Migrations
                     b.ToTable("VentaDetalles", (string)null);
                 });
 
-            modelBuilder.Entity("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibreAccount", b =>
+            modelBuilder.Entity("TheBuryProject.Models.Entities.MercadoLibreAccount", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -7712,7 +7712,7 @@ namespace TheBuryProject.Migrations
                     b.ToTable("MercadoLibreAccounts", (string)null);
                 });
 
-            modelBuilder.Entity("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibreCategory", b =>
+            modelBuilder.Entity("TheBuryProject.Models.Entities.MercadoLibreCategory", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -7834,7 +7834,7 @@ namespace TheBuryProject.Migrations
                     b.ToTable("MercadoLibreCategories", (string)null);
                 });
 
-            modelBuilder.Entity("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibreCategoryAttribute", b =>
+            modelBuilder.Entity("TheBuryProject.Models.Entities.MercadoLibreCategoryAttribute", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -7956,7 +7956,7 @@ namespace TheBuryProject.Migrations
                     b.ToTable("MercadoLibreCategoryAttributes", (string)null);
                 });
 
-            modelBuilder.Entity("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibreCategorySyncState", b =>
+            modelBuilder.Entity("TheBuryProject.Models.Entities.MercadoLibreCategorySyncState", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -8016,7 +8016,7 @@ namespace TheBuryProject.Migrations
                     b.ToTable("MercadoLibreCategorySyncStates", (string)null);
                 });
 
-            modelBuilder.Entity("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibreClaim", b =>
+            modelBuilder.Entity("TheBuryProject.Models.Entities.MercadoLibreClaim", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -8119,7 +8119,7 @@ namespace TheBuryProject.Migrations
                     b.ToTable("MercadoLibreClaims", (string)null);
                 });
 
-            modelBuilder.Entity("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibreConfiguracion", b =>
+            modelBuilder.Entity("TheBuryProject.Models.Entities.MercadoLibreConfiguracion", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -8218,7 +8218,7 @@ namespace TheBuryProject.Migrations
                     b.ToTable("MercadoLibreConfiguraciones", (string)null);
                 });
 
-            modelBuilder.Entity("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibreListing", b =>
+            modelBuilder.Entity("TheBuryProject.Models.Entities.MercadoLibreListing", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -8341,7 +8341,7 @@ namespace TheBuryProject.Migrations
                     b.ToTable("MercadoLibreListings", (string)null);
                 });
 
-            modelBuilder.Entity("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibreListingVariation", b =>
+            modelBuilder.Entity("TheBuryProject.Models.Entities.MercadoLibreListingVariation", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -8417,7 +8417,7 @@ namespace TheBuryProject.Migrations
                     b.ToTable("MercadoLibreListingVariations", (string)null);
                 });
 
-            modelBuilder.Entity("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibreMessage", b =>
+            modelBuilder.Entity("TheBuryProject.Models.Entities.MercadoLibreMessage", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -8513,7 +8513,7 @@ namespace TheBuryProject.Migrations
                     b.ToTable("MercadoLibreMessages", (string)null);
                 });
 
-            modelBuilder.Entity("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibreOrder", b =>
+            modelBuilder.Entity("TheBuryProject.Models.Entities.MercadoLibreOrder", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -8686,7 +8686,7 @@ namespace TheBuryProject.Migrations
                     b.ToTable("MercadoLibreOrders", (string)null);
                 });
 
-            modelBuilder.Entity("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibreOrderItem", b =>
+            modelBuilder.Entity("TheBuryProject.Models.Entities.MercadoLibreOrderItem", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -8767,7 +8767,7 @@ namespace TheBuryProject.Migrations
                     b.ToTable("MercadoLibreOrderItems", (string)null);
                 });
 
-            modelBuilder.Entity("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibrePriceBatch", b =>
+            modelBuilder.Entity("TheBuryProject.Models.Entities.MercadoLibrePriceBatch", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -8859,7 +8859,7 @@ namespace TheBuryProject.Migrations
                     b.ToTable("MercadoLibrePriceBatches", (string)null);
                 });
 
-            modelBuilder.Entity("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibrePriceBatchItem", b =>
+            modelBuilder.Entity("TheBuryProject.Models.Entities.MercadoLibrePriceBatchItem", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -8948,7 +8948,7 @@ namespace TheBuryProject.Migrations
                     b.ToTable("MercadoLibrePriceBatchItems", (string)null);
                 });
 
-            modelBuilder.Entity("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibrePublicacionBorrador", b =>
+            modelBuilder.Entity("TheBuryProject.Models.Entities.MercadoLibrePublicacionBorrador", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -9070,7 +9070,7 @@ namespace TheBuryProject.Migrations
                     b.ToTable("MercadoLibrePublicacionBorradores", (string)null);
                 });
 
-            modelBuilder.Entity("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibreQuestion", b =>
+            modelBuilder.Entity("TheBuryProject.Models.Entities.MercadoLibreQuestion", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -9169,7 +9169,7 @@ namespace TheBuryProject.Migrations
                     b.ToTable("MercadoLibreQuestions", (string)null);
                 });
 
-            modelBuilder.Entity("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibreSyncLog", b =>
+            modelBuilder.Entity("TheBuryProject.Models.Entities.MercadoLibreSyncLog", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -9234,7 +9234,7 @@ namespace TheBuryProject.Migrations
                     b.ToTable("MercadoLibreSyncLogs", (string)null);
                 });
 
-            modelBuilder.Entity("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibreWebhookEvent", b =>
+            modelBuilder.Entity("TheBuryProject.Models.Entities.MercadoLibreWebhookEvent", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -10472,9 +10472,9 @@ namespace TheBuryProject.Migrations
                     b.Navigation("Venta");
                 });
 
-            modelBuilder.Entity("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibreCategoryAttribute", b =>
+            modelBuilder.Entity("TheBuryProject.Models.Entities.MercadoLibreCategoryAttribute", b =>
                 {
-                    b.HasOne("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibreCategory", "Category")
+                    b.HasOne("TheBuryProject.Models.Entities.MercadoLibreCategory", "Category")
                         .WithMany("Attributes")
                         .HasForeignKey("CategoryFk")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -10483,9 +10483,9 @@ namespace TheBuryProject.Migrations
                     b.Navigation("Category");
                 });
 
-            modelBuilder.Entity("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibreClaim", b =>
+            modelBuilder.Entity("TheBuryProject.Models.Entities.MercadoLibreClaim", b =>
                 {
-                    b.HasOne("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibreOrder", "Order")
+                    b.HasOne("TheBuryProject.Models.Entities.MercadoLibreOrder", "Order")
                         .WithMany("Claims")
                         .HasForeignKey("MercadoLibreOrderId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -10508,9 +10508,9 @@ namespace TheBuryProject.Migrations
                     b.Navigation("Order");
                 });
 
-            modelBuilder.Entity("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibreConfiguracion", b =>
+            modelBuilder.Entity("TheBuryProject.Models.Entities.MercadoLibreConfiguracion", b =>
                 {
-                    b.HasOne("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibreAccount", "Account")
+                    b.HasOne("TheBuryProject.Models.Entities.MercadoLibreAccount", "Account")
                         .WithMany()
                         .HasForeignKey("AccountId")
                         .OnDelete(DeleteBehavior.SetNull);
@@ -10539,9 +10539,9 @@ namespace TheBuryProject.Migrations
                     b.Navigation("Sucursal");
                 });
 
-            modelBuilder.Entity("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibreListing", b =>
+            modelBuilder.Entity("TheBuryProject.Models.Entities.MercadoLibreListing", b =>
                 {
-                    b.HasOne("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibreAccount", "Account")
+                    b.HasOne("TheBuryProject.Models.Entities.MercadoLibreAccount", "Account")
                         .WithMany("Listings")
                         .HasForeignKey("AccountId")
                         .OnDelete(DeleteBehavior.Restrict)
@@ -10564,9 +10564,9 @@ namespace TheBuryProject.Migrations
                     b.Navigation("ProductoUnidad");
                 });
 
-            modelBuilder.Entity("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibreListingVariation", b =>
+            modelBuilder.Entity("TheBuryProject.Models.Entities.MercadoLibreListingVariation", b =>
                 {
-                    b.HasOne("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibreListing", "Listing")
+                    b.HasOne("TheBuryProject.Models.Entities.MercadoLibreListing", "Listing")
                         .WithMany("Variaciones")
                         .HasForeignKey("ListingId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -10589,15 +10589,15 @@ namespace TheBuryProject.Migrations
                     b.Navigation("ProductoUnidad");
                 });
 
-            modelBuilder.Entity("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibreMessage", b =>
+            modelBuilder.Entity("TheBuryProject.Models.Entities.MercadoLibreMessage", b =>
                 {
-                    b.HasOne("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibreAccount", "Account")
+                    b.HasOne("TheBuryProject.Models.Entities.MercadoLibreAccount", "Account")
                         .WithMany()
                         .HasForeignKey("AccountId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibreOrder", "Order")
+                    b.HasOne("TheBuryProject.Models.Entities.MercadoLibreOrder", "Order")
                         .WithMany()
                         .HasForeignKey("OrderId")
                         .OnDelete(DeleteBehavior.SetNull);
@@ -10607,9 +10607,9 @@ namespace TheBuryProject.Migrations
                     b.Navigation("Order");
                 });
 
-            modelBuilder.Entity("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibreOrder", b =>
+            modelBuilder.Entity("TheBuryProject.Models.Entities.MercadoLibreOrder", b =>
                 {
-                    b.HasOne("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibreAccount", "Account")
+                    b.HasOne("TheBuryProject.Models.Entities.MercadoLibreAccount", "Account")
                         .WithMany("Orders")
                         .HasForeignKey("AccountId")
                         .OnDelete(DeleteBehavior.Restrict)
@@ -10632,9 +10632,9 @@ namespace TheBuryProject.Migrations
                     b.Navigation("Venta");
                 });
 
-            modelBuilder.Entity("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibreOrderItem", b =>
+            modelBuilder.Entity("TheBuryProject.Models.Entities.MercadoLibreOrderItem", b =>
                 {
-                    b.HasOne("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibreOrder", "Order")
+                    b.HasOne("TheBuryProject.Models.Entities.MercadoLibreOrder", "Order")
                         .WithMany("Items")
                         .HasForeignKey("OrderId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -10643,15 +10643,15 @@ namespace TheBuryProject.Migrations
                     b.Navigation("Order");
                 });
 
-            modelBuilder.Entity("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibrePriceBatchItem", b =>
+            modelBuilder.Entity("TheBuryProject.Models.Entities.MercadoLibrePriceBatchItem", b =>
                 {
-                    b.HasOne("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibrePriceBatch", "Batch")
+                    b.HasOne("TheBuryProject.Models.Entities.MercadoLibrePriceBatch", "Batch")
                         .WithMany("Items")
                         .HasForeignKey("BatchId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibreListing", "Listing")
+                    b.HasOne("TheBuryProject.Models.Entities.MercadoLibreListing", "Listing")
                         .WithMany()
                         .HasForeignKey("ListingId")
                         .OnDelete(DeleteBehavior.Restrict)
@@ -10662,7 +10662,7 @@ namespace TheBuryProject.Migrations
                     b.Navigation("Listing");
                 });
 
-            modelBuilder.Entity("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibrePublicacionBorrador", b =>
+            modelBuilder.Entity("TheBuryProject.Models.Entities.MercadoLibrePublicacionBorrador", b =>
                 {
                     b.HasOne("TheBuryProject.Models.Entities.Producto", "Producto")
                         .WithMany()
@@ -10673,15 +10673,15 @@ namespace TheBuryProject.Migrations
                     b.Navigation("Producto");
                 });
 
-            modelBuilder.Entity("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibreQuestion", b =>
+            modelBuilder.Entity("TheBuryProject.Models.Entities.MercadoLibreQuestion", b =>
                 {
-                    b.HasOne("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibreAccount", "Account")
+                    b.HasOne("TheBuryProject.Models.Entities.MercadoLibreAccount", "Account")
                         .WithMany()
                         .HasForeignKey("AccountId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibreListing", "Listing")
+                    b.HasOne("TheBuryProject.Models.Entities.MercadoLibreListing", "Listing")
                         .WithMany()
                         .HasForeignKey("ListingId")
                         .OnDelete(DeleteBehavior.SetNull);
@@ -10880,31 +10880,31 @@ namespace TheBuryProject.Migrations
                     b.Navigation("VentaCreditoCuotas");
                 });
 
-            modelBuilder.Entity("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibreAccount", b =>
+            modelBuilder.Entity("TheBuryProject.Models.Entities.MercadoLibreAccount", b =>
                 {
                     b.Navigation("Listings");
 
                     b.Navigation("Orders");
                 });
 
-            modelBuilder.Entity("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibreCategory", b =>
+            modelBuilder.Entity("TheBuryProject.Models.Entities.MercadoLibreCategory", b =>
                 {
                     b.Navigation("Attributes");
                 });
 
-            modelBuilder.Entity("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibreListing", b =>
+            modelBuilder.Entity("TheBuryProject.Models.Entities.MercadoLibreListing", b =>
                 {
                     b.Navigation("Variaciones");
                 });
 
-            modelBuilder.Entity("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibreOrder", b =>
+            modelBuilder.Entity("TheBuryProject.Models.Entities.MercadoLibreOrder", b =>
                 {
                     b.Navigation("Claims");
 
                     b.Navigation("Items");
                 });
 
-            modelBuilder.Entity("TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibrePriceBatch", b =>
+            modelBuilder.Entity("TheBuryProject.Models.Entities.MercadoLibrePriceBatch", b =>
                 {
                     b.Navigation("Items");
                 });

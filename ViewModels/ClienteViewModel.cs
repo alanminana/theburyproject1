@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using TheBuryProject.Models.Enums;
+using TheBuryProject.Validation;
 
 namespace TheBuryProject.ViewModels
 {
@@ -17,14 +18,17 @@ namespace TheBuryProject.ViewModels
 
         [Required(ErrorMessage = "El número de documento es requerido")]
         [StringLength(20)]
+        [DocumentoArgentino(nameof(TipoDocumento))]
         public string NumeroDocumento { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "El apellido es requerido")]
         [StringLength(100)]
+        [SoloLetras(MinLength = 2)]
         public string Apellido { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "El nombre es requerido")]
         [StringLength(100)]
+        [SoloLetras(MinLength = 2)]
         public string Nombre { get; set; } = string.Empty;
 
         public string? NombreCompleto { get; set; }
@@ -37,7 +41,8 @@ namespace TheBuryProject.ViewModels
 
         // CUIL/CUIT dedicado (para consultas BCRA)
         [StringLength(11)]
-        [RegularExpression(@"^\d{11}$", ErrorMessage = "El CUIL/CUIT debe tener exactamente 11 dígitos numéricos")]
+        [CuilCuitArgentino]
+        [CuilCoincideConDni(nameof(NumeroDocumento))]
         [Display(Name = "CUIL/CUIT")]
         public string? CuilCuit { get; set; }
 
@@ -50,15 +55,18 @@ namespace TheBuryProject.ViewModels
 
         // Datos de cónyuge (opcionales)
         [StringLength(200)]
+        [SoloLetras(MinLength = 2)]
         public string? ConyugeNombreCompleto { get; set; }
 
         [StringLength(20)]
         public string? ConyugeTipoDocumento { get; set; }
 
         [StringLength(20)]
+        [DocumentoArgentino(nameof(ConyugeTipoDocumento))]
         public string? ConyugeNumeroDocumento { get; set; }
 
         [StringLength(20)]
+        [TelefonoArgentino]
         public string? ConyugeTelefono { get; set; }
 
         [Range(0, 999999999.99)]
@@ -66,9 +74,11 @@ namespace TheBuryProject.ViewModels
 
         [Required(ErrorMessage = "El teléfono es requerido")]
         [StringLength(20)]
+        [TelefonoArgentino]
         public string Telefono { get; set; } = string.Empty;
 
         [StringLength(20)]
+        [TelefonoArgentino]
         public string? TelefonoAlternativo { get; set; }
 
         [EmailAddress(ErrorMessage = "Email inválido")]
@@ -86,6 +96,7 @@ namespace TheBuryProject.ViewModels
         public string? Provincia { get; set; }
 
         [StringLength(10)]
+        [CodigoPostalArgentino]
         public string? CodigoPostal { get; set; }
 
         // Datos laborales
@@ -99,6 +110,7 @@ namespace TheBuryProject.ViewModels
         public decimal? Sueldo { get; set; }
 
         [StringLength(20)]
+        [TelefonoArgentino]
         public string? TelefonoLaboral { get; set; }
 
         /// <summary>

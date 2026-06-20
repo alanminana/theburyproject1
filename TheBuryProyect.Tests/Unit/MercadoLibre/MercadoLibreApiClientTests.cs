@@ -1,9 +1,9 @@
 using System.Net;
 using System.Text;
 using Microsoft.Extensions.Logging.Abstractions;
-using TheBuryProject.Modules.MercadoLibre.Exceptions;
-using TheBuryProject.Modules.MercadoLibre.Options;
-using TheBuryProject.Modules.MercadoLibre.Services;
+using TheBuryProject.Services.Exceptions;
+using TheBuryProject.Helpers;
+using TheBuryProject.Services;
 
 namespace TheBuryProject.Tests.Unit.MercadoLibre;
 

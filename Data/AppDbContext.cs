@@ -4,8 +4,7 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Models.Base;
 using TheBuryProject.Models.Entities;
-using TheBuryProject.Modules.MercadoLibre.Data;
-using TheBuryProject.Modules.MercadoLibre.Entities;
+using TheBuryProject.Data;
 
 namespace TheBuryProject.Data
 {
@@ -2639,7 +2638,7 @@ namespace TheBuryProject.Data
                 new PuntajeCreditoLimite
                 {
                     Id = 1,
-                    Puntaje = Models.Enums.NivelRiesgoCredito.Rechazado,
+                    Puntaje = TheBuryProject.Models.Enums.NivelRiesgoCredito.Rechazado,
                     LimiteMonto = 0m,
                     Activo = true,
                     FechaActualizacion = seedUtc,
@@ -2648,7 +2647,7 @@ namespace TheBuryProject.Data
                 new PuntajeCreditoLimite
                 {
                     Id = 2,
-                    Puntaje = Models.Enums.NivelRiesgoCredito.RechazadoRevisar,
+                    Puntaje = TheBuryProject.Models.Enums.NivelRiesgoCredito.RechazadoRevisar,
                     LimiteMonto = 0m,
                     Activo = true,
                     FechaActualizacion = seedUtc,
@@ -2657,7 +2656,7 @@ namespace TheBuryProject.Data
                 new PuntajeCreditoLimite
                 {
                     Id = 3,
-                    Puntaje = Models.Enums.NivelRiesgoCredito.AprobadoCondicional,
+                    Puntaje = TheBuryProject.Models.Enums.NivelRiesgoCredito.AprobadoCondicional,
                     LimiteMonto = 0m,
                     Activo = true,
                     FechaActualizacion = seedUtc,
@@ -2666,7 +2665,7 @@ namespace TheBuryProject.Data
                 new PuntajeCreditoLimite
                 {
                     Id = 4,
-                    Puntaje = Models.Enums.NivelRiesgoCredito.AprobadoLimitado,
+                    Puntaje = TheBuryProject.Models.Enums.NivelRiesgoCredito.AprobadoLimitado,
                     LimiteMonto = 0m,
                     Activo = true,
                     FechaActualizacion = seedUtc,
@@ -2675,7 +2674,7 @@ namespace TheBuryProject.Data
                 new PuntajeCreditoLimite
                 {
                     Id = 5,
-                    Puntaje = Models.Enums.NivelRiesgoCredito.AprobadoTotal,
+                    Puntaje = TheBuryProject.Models.Enums.NivelRiesgoCredito.AprobadoTotal,
                     LimiteMonto = 0m,
                     Activo = true,
                     FechaActualizacion = seedUtc,

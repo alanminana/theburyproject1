@@ -52,6 +52,12 @@ namespace TheBuryProject.ViewModels
         public List<OrdenCompraPendienteDto> OrdenesCompraPendientes { get; set; } = new();
         public int OrdenesCompraPendientesCount { get; set; }
         public decimal MontoOrdenesCompraPendientes { get; set; }
+
+        // Panel "Alertas de stock" (productos por debajo del mínimo)
+        public List<StockAlertaDto> AlertasStockRecientes { get; set; } = new();
+
+        // Feed "Actividad reciente" (ventas, altas de cliente y alertas de stock)
+        public List<ActividadRecienteDto> ActividadReciente { get; set; } = new();
     }
 
     /// <summary>

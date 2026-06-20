@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using TheBuryProject.Validation;
 
 namespace TheBuryProject.ViewModels
 {
@@ -17,6 +18,7 @@ namespace TheBuryProject.ViewModels
 
         [Required(ErrorMessage = "El CUIT es obligatorio")]
         [StringLength(11, MinimumLength = 11, ErrorMessage = "El CUIT debe tener 11 dígitos")]
+        [CuilCuitArgentino]
         [Display(Name = "CUIT")]
         public string Cuit { get; set; } = string.Empty;
 
@@ -35,6 +37,7 @@ namespace TheBuryProject.ViewModels
         public string? Email { get; set; }
 
         [StringLength(50, ErrorMessage = "El teléfono no puede tener más de 50 caracteres")]
+        [TelefonoArgentino]
         [Display(Name = "Teléfono")]
         public string? Telefono { get; set; }
 
@@ -51,6 +54,7 @@ namespace TheBuryProject.ViewModels
         public string? Provincia { get; set; }
 
         [StringLength(10, ErrorMessage = "El código postal no puede tener más de 10 caracteres")]
+        [CodigoPostalArgentino]
         [Display(Name = "Código Postal")]
         public string? CodigoPostal { get; set; }
 

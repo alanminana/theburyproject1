@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      # El proyecto de tests referencia al principal: restaurar/compilar/testear
+      # desde el .csproj de tests cubre ambos. Los tests usan SQLite in-memory,
+      # por lo que no requieren SQL Server en el runner.
+      - name: Restore
+        run: dotnet restore TheBuryProyect.Tests/TheBuryProyect.Tests.csproj
+
+      - name: Build (Release)
+        run: dotnet build TheBuryProyect.Tests/TheBuryProyect.Tests.csproj -c Release --no-restore
+
+      - name: Test (Release)
+        run: dotnet test TheBuryProyect.Tests/TheBuryProyect.Tests.csproj -c Release --no-build --logger "trx;LogFileName=test-results.trx"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: '**/test-results.trx'

@@ -1,5 +1,5 @@
-using TheBuryProject.Modules.MercadoLibre.Entities;
-using TheBuryProject.Modules.MercadoLibre.ViewModels;
+using TheBuryProject.Models.Entities;
+using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Tests.Unit.MercadoLibre;
 

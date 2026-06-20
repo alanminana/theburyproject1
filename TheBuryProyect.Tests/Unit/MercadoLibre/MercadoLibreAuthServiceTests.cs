@@ -2,10 +2,10 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-using TheBuryProject.Modules.MercadoLibre.DTOs;
-using TheBuryProject.Modules.MercadoLibre.Entities;
-using TheBuryProject.Modules.MercadoLibre.Options;
-using TheBuryProject.Modules.MercadoLibre.Services;
+using TheBuryProject.Models.DTOs;
+using TheBuryProject.Models.Entities;
+using TheBuryProject.Helpers;
+using TheBuryProject.Services;
 
 namespace TheBuryProject.Tests.Unit.MercadoLibre;
 

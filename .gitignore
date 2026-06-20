@@ -10,6 +10,9 @@ appsettings.Development.json
 wwwroot/uploads/
 node_modules
 
+# Data Protection keys (generadas en runtime; nunca commitear)
+keys/
+
 # Unlighthouse
 .unlighthouse/
 .unlighthouse-session/

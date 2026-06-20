@@ -110,6 +110,8 @@ namespace TheBuryProject.Services
             var cuotasProximas  = await GetCuotasProximasVencerAsync();
             var cuotasVencLista = await GetCuotasVencidasListaAsync();
             var ordenes         = await GetOrdenesCompraPendientesAsync();
+            var alertasStock    = await GetAlertasStockRecientesAsync();
+            var actividad       = await GetActividadRecienteAsync();
 
             return new DashboardViewModel
             {
@@ -156,7 +158,10 @@ namespace TheBuryProject.Services
                 CuotasProximasVencerCount      = cuotasProximas.Count,
                 MontoCuotasProximasVencer       = cuotasProximas.Sum(c => c.Monto),
                 OrdenesCompraPendientesCount    = ordenes.Count,
-                MontoOrdenesCompraPendientes    = ordenes.Sum(o => o.Total)
+                MontoOrdenesCompraPendientes    = ordenes.Sum(o => o.Total),
+
+                AlertasStockRecientes  = alertasStock,
+                ActividadReciente      = actividad
             };
         }
 
@@ -517,6 +522,148 @@ namespace TheBuryProject.Services
                 .ToListAsync();
 
             return ordenes;
+        }
+
+        /// <summary>Factor sobre StockMinimo para clasificar stock como crítico (alineado con AlertaStockService).</summary>
+        private const decimal FactorStockCritico = 0.3m;
+
+        /// <summary>
+        /// Productos activos por debajo (o en) el mínimo, clasificados por severidad,
+        /// para el panel "Alertas de stock" del dashboard.
+        /// </summary>
+        private async Task<List<StockAlertaDto>> GetAlertasStockRecientesAsync()
+        {
+            // Filtro traducible en SQL; la clasificación por factor se hace en memoria.
+            var productosRaw = await _context.Productos
+                .AsNoTracking()
+                .Where(p => !p.IsDeleted && p.Activo && p.StockActual <= p.StockMinimo)
+                .Select(p => new { p.Id, p.Codigo, p.Nombre, p.StockActual, p.StockMinimo })
+                .ToListAsync();
+
+            return productosRaw
+                .Select(p =>
+                {
+                    string severidad;
+                    string severidadTexto;
+                    if (p.StockActual <= 0)
+                    {
+                        severidad = "agotado";
+                        severidadTexto = "Agotado";
+                    }
+                    else if (p.StockActual <= p.StockMinimo * FactorStockCritico)
+                    {
+                        severidad = "critico";
+                        severidadTexto = "Stock crítico";
+                    }
+                    else
+                    {
+                        severidad = "bajo";
+                        severidadTexto = "Reponer pronto";
+                    }
+
+                    var sugerida = (int)Math.Ceiling((p.StockMinimo * 3) - p.StockActual);
+                    if (sugerida < 1) sugerida = 1;
+
+                    return new StockAlertaDto
+                    {
+                        ProductoId = p.Id,
+                        Codigo = p.Codigo,
+                        Nombre = p.Nombre,
+                        StockActual = p.StockActual,
+                        StockMinimo = p.StockMinimo,
+                        Severidad = severidad,
+                        SeveridadTexto = severidadTexto,
+                        CantidadSugerida = sugerida
+                    };
+                })
+                .OrderBy(p => p.Severidad == "agotado" ? 0 : p.Severidad == "critico" ? 1 : 2)
+                .ThenBy(p => p.StockActual)
+                .Take(6)
+                .ToList();
+        }
+
+        /// <summary>
+        /// Feed de actividad reciente combinando últimas ventas, altas de cliente y alertas de stock pendientes.
+        /// </summary>
+        private async Task<List<ActividadRecienteDto>> GetActividadRecienteAsync()
+        {
+            var cultura = CultureInfo.GetCultureInfo("es-AR");
+
+            var ventas = await _context.Ventas
+                .AsNoTracking()
+                .Where(v => !v.IsDeleted)
+                .OrderByDescending(v => v.FechaVenta)
+                .Take(6)
+                .Select(v => new { v.Numero, v.Total, v.FechaVenta })
+                .ToListAsync();
+
+            var clientes = await _context.Clientes
+                .AsNoTracking()
+                .Where(c => !c.IsDeleted)
+                .OrderByDescending(c => c.CreatedAt)
+                .Take(6)
+                .Select(c => new { c.Apellido, c.Nombre, c.CreatedAt })
+                .ToListAsync();
+
+            var alertas = await _context.AlertasStock
+                .AsNoTracking()
+                .Where(a => !a.IsDeleted && a.Estado == EstadoAlerta.Pendiente &&
+                            a.Producto != null && !a.Producto.IsDeleted)
+                .OrderByDescending(a => a.FechaAlerta)
+                .Take(6)
+                .Select(a => new { a.Producto.Nombre, a.Producto.Codigo, a.FechaAlerta })
+                .ToListAsync();
+
+            var eventos = new List<ActividadRecienteDto>();
+
+            eventos.AddRange(ventas.Select(v => new ActividadRecienteDto
+            {
+                Tipo = "venta",
+                Titulo = "Venta registrada",
+                Detalle = $"#{v.Numero} por {v.Total.ToString("C", cultura)}",
+                Fecha = v.FechaVenta,
+                Color = "emerald"
+            }));
+
+            eventos.AddRange(clientes.Select(c => new ActividadRecienteDto
+            {
+                Tipo = "cliente",
+                Titulo = "Cliente nuevo",
+                Detalle = $"{c.Apellido}, {c.Nombre}".Trim(' ', ','),
+                Fecha = c.CreatedAt,
+                Color = "primary"
+            }));
+
+            eventos.AddRange(alertas.Select(a => new ActividadRecienteDto
+            {
+                Tipo = "stock",
+                Titulo = "Stock bajo",
+                Detalle = $"{a.Nombre} ({a.Codigo})",
+                Fecha = a.FechaAlerta,
+                Color = "orange"
+            }));
+
+            var ahora = DateTime.UtcNow;
+            return eventos
+                .OrderByDescending(e => e.Fecha)
+                .Take(6)
+                .Select(e =>
+                {
+                    e.TiempoRelativo = FormatHace(e.Fecha, ahora);
+                    return e;
+                })
+                .ToList();
+        }
+
+        /// <summary>Texto relativo en español a partir de una fecha UTC.</summary>
+        private static string FormatHace(DateTime fechaUtc, DateTime ahoraUtc)
+        {
+            var delta = ahoraUtc - fechaUtc;
+            if (delta.TotalSeconds < 60) return "Recién";
+            if (delta.TotalMinutes < 60) return $"Hace {(int)delta.TotalMinutes} min";
+            if (delta.TotalHours < 24) return $"Hace {(int)delta.TotalHours} h";
+            if (delta.TotalDays < 30) return $"Hace {(int)delta.TotalDays} d";
+            return fechaUtc.ToLocalTime().ToString("dd MMM", CultureInfo.GetCultureInfo("es-AR"));
         }
 
         #endregion

@@ -1,6 +1,8 @@
 using AutoMapper;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Data;
 using TheBuryProject.Extensions;
@@ -8,8 +10,6 @@ using TheBuryProject.Helpers;
 using TheBuryProject.Hubs;
 using TheBuryProject.Middleware;
 using TheBuryProject.Models.Entities;
-using TheBuryProject.Modules.MercadoLibre;
-using TheBuryProject.Modules.MercadoLibre.Mapping;
 using TheBuryProject.Services;
 using TheBuryProject.Services.Interfaces;
 
@@ -17,6 +17,24 @@ var builder = WebApplication.CreateBuilder(args);
 
 // 1. Infra
 builder.Services.AddHttpContextAccessor();
+
+// 1.1 Data Protection: persistir claves para que los tokens cifrados de Mercado Libre,
+// las cookies de autenticación y los tokens antiforgery sobrevivan a reinicios y se
+// compartan entre instancias. En contenedores, montar un volumen en DataProtection:KeysPath.
+var dataProtection = builder.Services.AddDataProtection()
+    .SetApplicationName("TheBuryProject");
+// En Testing se usa el almacén efímero por defecto (evita I/O y contención de
+// claves entre tests de integración en paralelo). En el resto, persistir a disco.
+if (!builder.Environment.IsEnvironment("Testing"))
+{
+    var dataProtectionKeysPath = builder.Configuration["DataProtection:KeysPath"];
+    if (string.IsNullOrWhiteSpace(dataProtectionKeysPath))
+    {
+        dataProtectionKeysPath = Path.Combine(builder.Environment.ContentRootPath, "keys");
+    }
+    Directory.CreateDirectory(dataProtectionKeysPath);
+    dataProtection.PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysPath));
+}
 
 // 2. EF Core (evitar mezclar AddDbContext + AddDbContextFactory)
 builder.Services.AddDbContextFactory<AppDbContext>(options =>
@@ -137,6 +155,22 @@ builder.Services.AddHttpClient<ISituacionCrediticiaBcraService, SituacionCrediti
 // 5.5 SignalR
 builder.Services.AddSignalR();
 
+// 5.7 Rate limiting: protege el webhook anónimo de Mercado Libre de floods que
+// inflen la tabla de eventos. Límite holgado para no afectar tráfico legítimo.
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddFixedWindowLimiter("mercadolibre-webhook", o =>
+    {
+        o.Window = TimeSpan.FromMinutes(1);
+        o.PermitLimit = 1000;
+        o.QueueLimit = 0;
+    });
+});
+
+// 5.8 Health checks (liveness para el orquestador)
+builder.Services.AddHealthChecks();
+
 // 5.6 Background services (están bien: crean scope por iteración)
 builder.Services.AddHostedService<MoraBackgroundService>();
 builder.Services.AddHostedService<AlertaStockBackgroundService>();
@@ -151,7 +185,7 @@ if (builder.Environment.IsDevelopment())
 // Rework visual Mercado Libre: el MercadoLibreController sirve las vistas de
 // /Views/MercadoLibre1/ (copia exacta del standalone) con fallback al folder original.
 mvcBuilder.AddRazorOptions(options =>
-    options.ViewLocationExpanders.Add(new TheBuryProject.Modules.MercadoLibre.MercadoLibre1ViewLocationExpander()));
+    options.ViewLocationExpanders.Add(new TheBuryProject.Extensions.MercadoLibre1ViewLocationExpander()));
 
 // 7. Razor Pages (Identity UI)
 builder.Services.AddRazorPages();
@@ -159,6 +193,18 @@ builder.Services.AddRazorPages();
 var app = builder.Build();
 
 // 8. Pipeline
+// Security headers (defensa básica). CSP se omite a propósito: requiere QA visual
+// porque las vistas usan estilos/scripts inline y SignalR; ver docs/despliegue-produccion.md.
+app.Use(async (context, next) =>
+{
+    var headers = context.Response.Headers;
+    headers["X-Content-Type-Options"] = "nosniff";
+    headers["X-Frame-Options"] = "SAMEORIGIN";
+    headers["Referrer-Policy"] = "no-referrer";
+    headers["X-Permitted-Cross-Domain-Policies"] = "none";
+    await next();
+});
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
@@ -177,6 +223,8 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
+app.UseRateLimiter();
+
 // 9. Auth
 app.UseAuthentication();
 app.UseMiddleware<AuditMiddleware>();
@@ -189,6 +237,7 @@ app.MapControllerRoute(
 
 app.MapRazorPages();
 app.MapHub<NotificacionesHub>("/hubs/notificaciones");
+app.MapHealthChecks("/health");
 
 // 13. Init DB
 if (!app.Environment.IsEnvironment("Testing"))

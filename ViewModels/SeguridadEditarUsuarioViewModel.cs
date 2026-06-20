@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using TheBuryProject.Validation;
 
 namespace TheBuryProject.ViewModels;
 
@@ -18,14 +19,16 @@ public class SeguridadEditarUsuarioViewModel
     public string Email { get; set; } = string.Empty;
 
     [StringLength(100)]
+    [SoloLetras(MinLength = 2)]
     [Display(Name = "Nombre")]
     public string? Nombre { get; set; }
 
     [StringLength(100)]
+    [SoloLetras(MinLength = 2)]
     [Display(Name = "Apellido")]
     public string? Apellido { get; set; }
 
-    [Phone(ErrorMessage = "Teléfono inválido")]
+    [TelefonoArgentino]
     [Display(Name = "Teléfono")]
     public string? Telefono { get; set; }
 

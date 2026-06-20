@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Data;
 using TheBuryProject.Models.Constants;
@@ -17,19 +18,35 @@ namespace TheBuryProject.Controllers
         private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly IConfiguration _configuration;
+        private readonly IWebHostEnvironment _environment;
 
         public DiagnosticoController(
             AppDbContext context,
             UserManager<ApplicationUser> userManager,
             SignInManager<ApplicationUser> signInManager,
             RoleManager<IdentityRole> roleManager,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            IWebHostEnvironment environment)
         {
             _context = context;
             _userManager = userManager;
             _signInManager = signInManager;
             _roleManager = roleManager;
             _configuration = configuration;
+            _environment = environment;
+        }
+
+        // Endpoints de diagnóstico (exponen connection string, reset de passwords, etc.):
+        // solo disponibles en Development. En cualquier otro entorno responden 404.
+        public override void OnActionExecuting(ActionExecutingContext context)
+        {
+            if (!_environment.IsDevelopment())
+            {
+                context.Result = NotFound();
+                return;
+            }
+
+            base.OnActionExecuting(context);
         }
 
         /// <summary>

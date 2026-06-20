@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using TheBuryProject.Models.Enums;
+using TheBuryProject.Validation;
 
 namespace TheBuryProject.ViewModels.Mora
 {
@@ -23,6 +24,7 @@ namespace TheBuryProject.ViewModels.Mora
         
         [Display(Name = "Teléfono Usado")]
         [StringLength(50)]
+        [TelefonoArgentino]
         public string? Telefono { get; set; }
         
         [Display(Name = "Email Usado")]

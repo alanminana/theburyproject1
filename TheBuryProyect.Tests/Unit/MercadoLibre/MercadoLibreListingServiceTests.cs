@@ -3,12 +3,10 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using TheBuryProject.Models.Entities;
-using TheBuryProject.Modules.MercadoLibre.DTOs;
-using TheBuryProject.Modules.MercadoLibre.Entities;
-using TheBuryProject.Modules.MercadoLibre.Mapping;
-using TheBuryProject.Modules.MercadoLibre.Options;
-using TheBuryProject.Modules.MercadoLibre.Services;
-using TheBuryProject.Modules.MercadoLibre.ViewModels;
+using TheBuryProject.Models.DTOs;
+using TheBuryProject.Helpers;
+using TheBuryProject.Services;
+using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Tests.Unit.MercadoLibre;
 

@@ -1,8 +1,8 @@
-@using TheBuryProject.Modules.MercadoLibre.Entities
+@using TheBuryProject.Models.Entities
 @model MercadoLibreOrderDetalleViewModel
 @{
     ViewData["Title"] = $"Orden ML #{Model.MeliOrderId}";
-    var mensajes = ViewBag.Mensajes as List<TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibreMessage> ?? new();
+    var mensajes = ViewBag.Mensajes as List<TheBuryProject.Models.Entities.MercadoLibreMessage> ?? new();
     var modoSimulacionMensajes = ViewBag.ModoSimulacionMensajes as bool? ?? true;
     var ordenSimuladaLocal = Model.EsSimuladaQa || Model.EsSimuladaOperativa;
     var mensajeEsSimulado = modoSimulacionMensajes || ordenSimuladaLocal;

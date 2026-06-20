@@ -1,5 +1,6 @@
 @model TheBuryProject.ViewModels.DashboardViewModel
 @using TheBuryProject.ViewModels
+@using TheBuryProject.Models.DTOs
 @{
     ViewData["Title"] = "Dashboard";
     ViewData["MetaDescription"] = "Panel de control principal del ERP TheBuryProject con métricas de ventas, créditos y alertas operativas.";
@@ -7,6 +8,8 @@
     var cuotasProximas = Model.CuotasProximasVencer ?? new List<CuotaProximaVencerDto>();
     var cuotasVencidasCount = cuotasVencidas.Count;
     var cuotasProximasCount = cuotasProximas.Count;
+    var alertasStock = Model.AlertasStockRecientes ?? new List<StockAlertaDto>();
+    var actividad = Model.ActividadReciente ?? new List<ActividadRecienteDto>();
 }
 
 @section Styles {
@@ -108,39 +111,37 @@
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-800">
-                                    <tr class="hover:bg-slate-800/30 transition-colors">
-                                        <td class="px-6 py-4 text-xs font-bold text-slate-500 uppercase">BP-1022</td>
-                                        <td class="px-6 py-4 text-sm font-bold">Cubierta 205/55 R16</td>
-                                        <td class="px-6 py-4 text-sm font-bold text-red-500">2</td>
-                                        <td class="px-6 py-4">
-                                            <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-red-500/10 text-red-500 border border-red-500/20">Stock crítico</span>
-                                        </td>
-                                        <td class="px-6 py-4 text-right">
-                                            <button class="btn-erp-ghost btn-erp-sm">Reponer</button>
-                                        </td>
-                                    </tr>
-                                    <tr class="hover:bg-slate-800/30 transition-colors">
-                                        <td class="px-6 py-4 text-xs font-bold text-slate-500 uppercase">BP-5044</td>
-                                        <td class="px-6 py-4 text-sm font-bold">Amortiguador Trasero</td>
-                                        <td class="px-6 py-4 text-sm font-bold text-orange-500">5</td>
-                                        <td class="px-6 py-4">
-                                            <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-orange-500/10 text-orange-500 border border-orange-500/20">Reponer pronto</span>
-                                        </td>
-                                        <td class="px-6 py-4 text-right">
-                                            <button class="btn-erp-ghost btn-erp-sm">Reponer</button>
-                                        </td>
-                                    </tr>
-                                    <tr class="hover:bg-slate-800/30 transition-colors">
-                                        <td class="px-6 py-4 text-xs font-bold text-slate-500 uppercase">BP-9012</td>
-                                        <td class="px-6 py-4 text-sm font-bold">Batería Moura 12V 75Ah</td>
-                                        <td class="px-6 py-4 text-sm font-bold text-orange-500">3</td>
-                                        <td class="px-6 py-4">
-                                            <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-orange-500/10 text-orange-500 border border-orange-500/20">Reponer pronto</span>
-                                        </td>
-                                        <td class="px-6 py-4 text-right">
-                                            <button class="btn-erp-ghost btn-erp-sm">Reponer</button>
-                                        </td>
-                                    </tr>
+                                    @if (alertasStock.Count == 0)
+                                    {
+                                        <tr>
+                                            <td colspan="5" class="px-6 py-8 text-center text-sm text-slate-400">
+                                                <span class="material-symbols-outlined text-2xl text-emerald-500/70 block mb-1">inventory_2</span>
+                                                No hay productos por debajo del stock mínimo.
+                                            </td>
+                                        </tr>
+                                    }
+                                    else
+                                    {
+                                        @foreach (var alerta in alertasStock)
+                                        {
+                                            var stockColor = alerta.Severidad == "bajo" ? "text-orange-500" : "text-red-500";
+                                            var badgeClass = alerta.Severidad == "bajo"
+                                                ? "bg-orange-500/10 text-orange-500 border border-orange-500/20"
+                                                : "bg-red-500/10 text-red-500 border border-red-500/20";
+                                            <tr class="hover:bg-slate-800/30 transition-colors">
+                                                <td class="px-6 py-4 text-xs font-bold text-slate-500 uppercase">@alerta.Codigo</td>
+                                                <td class="px-6 py-4 text-sm font-bold">@alerta.Nombre</td>
+                                                <td class="px-6 py-4 text-sm font-bold @stockColor">@alerta.StockActual.ToString("0.##")</td>
+                                                <td class="px-6 py-4">
+                                                    <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded @badgeClass">@alerta.SeveridadTexto</span>
+                                                </td>
+                                                <td class="px-6 py-4 text-right">
+                                                    <a asp-controller="OrdenCompra" asp-action="Create" asp-route-productoId="@alerta.ProductoId"
+                                                       class="btn-erp-ghost btn-erp-sm no-underline" title="Crear orden de compra para reponer">Reponer</a>
+                                                </td>
+                                            </tr>
+                                        }
+                                    }
                                 </tbody>
                             </table>
                         </div>
@@ -248,9 +249,10 @@
                                                 }
                                             </td>
                                             <td class="px-6 py-4 text-right">
-                                                <button type="button" class="row-action row-action--primary" aria-label="Ver detalle de cuota">
+                                                <a asp-controller="Credito" asp-action="Details" asp-route-id="@cuota.CreditoId"
+                                                   class="row-action row-action--primary no-underline" aria-label="Ver detalle del crédito">
                                                     <span class="material-symbols-outlined icon-erp-md">visibility</span>
-                                                </button>
+                                                </a>
                                             </td>
                                         </tr>
                                     }
@@ -315,27 +317,26 @@
                     </div>
                 </div>
                 <div class="space-y-3">
-                    <div class="flex gap-2.5">
-                        <div class="mt-1.5 size-1.5 shrink-0 rounded-full bg-emerald-500"></div>
-                        <div>
-                            <p class="text-xs text-slate-200"><span class="font-semibold">Venta registrada</span> #8821 por $12.500</p>
-                            <p class="text-[10px] text-slate-400">Hace 15 minutos</p>
-                        </div>
-                    </div>
-                    <div class="flex gap-2.5">
-                        <div class="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary"></div>
-                        <div>
-                            <p class="text-xs text-slate-200"><span class="font-semibold">Cliente nuevo</span> Marcos Solari</p>
-                            <p class="text-[10px] text-slate-400">Hace 2 horas</p>
-                        </div>
-                    </div>
-                    <div class="flex gap-2.5">
-                        <div class="mt-1.5 size-1.5 shrink-0 rounded-full bg-orange-500"></div>
-                        <div>
-                            <p class="text-xs text-slate-200"><span class="font-semibold">Stock bajo</span> Batería Moura SKU-9012</p>
-                            <p class="text-[10px] text-slate-400">Hace 4 horas</p>
-                        </div>
-                    </div>
+                    @if (actividad.Count == 0)
+                    {
+                        <p class="text-xs text-slate-400">Sin actividad reciente todavía.</p>
+                    }
+                    else
+                    {
+                        @foreach (var item in actividad)
+                        {
+                            var bulletColor = item.Color == "primary" ? "bg-primary"
+                                : item.Color == "orange" ? "bg-orange-500"
+                                : "bg-emerald-500";
+                            <div class="flex gap-2.5">
+                                <div class="mt-1.5 size-1.5 shrink-0 rounded-full @bulletColor"></div>
+                                <div>
+                                    <p class="text-xs text-slate-200"><span class="font-semibold">@item.Titulo</span> @item.Detalle</p>
+                                    <p class="text-[10px] text-slate-400">@item.TiempoRelativo</p>
+                                </div>
+                            </div>
+                        }
+                    }
                 </div>
             </section>
 

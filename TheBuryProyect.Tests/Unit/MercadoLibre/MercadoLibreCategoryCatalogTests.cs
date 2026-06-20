@@ -2,7 +2,7 @@ using System.IO.Compression;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
-using TheBuryProject.Modules.MercadoLibre.Services;
+using TheBuryProject.Services;
 
 namespace TheBuryProject.Tests.Unit.MercadoLibre;
 

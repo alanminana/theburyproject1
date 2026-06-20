@@ -2,10 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using TheBuryProject.Data;
 using TheBuryProject.Models.Entities;
-using TheBuryProject.Modules.MercadoLibre.DTOs;
-using TheBuryProject.Modules.MercadoLibre.Entities;
-using TheBuryProject.Modules.MercadoLibre.Services;
-using TheBuryProject.Modules.MercadoLibre.Services.Interfaces;
+using TheBuryProject.Models.DTOs;
 using TheBuryProject.Services;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.Services.Models;
@@ -82,9 +79,9 @@ public class MercadoLibreWebhookProcessorTests : IDisposable
         public Task<MercadoLibreOrderSimulationResult> SimularEnvioAsync(
             int orderId, string escenario, string usuario, bool permitirPorDevelopment = false, CancellationToken ct = default)
             => throw new NotSupportedException();
-        public Task<List<TheBuryProject.Modules.MercadoLibre.ViewModels.MercadoLibreOrderViewModel>> GetOrdenesAsync(string? filtro = null, CancellationToken ct = default)
+        public Task<List<TheBuryProject.ViewModels.MercadoLibreOrderViewModel>> GetOrdenesAsync(string? filtro = null, CancellationToken ct = default)
             => throw new NotSupportedException();
-        public Task<TheBuryProject.Modules.MercadoLibre.ViewModels.MercadoLibreOrderDetalleViewModel?> GetOrdenAsync(int orderId, CancellationToken ct = default)
+        public Task<TheBuryProject.ViewModels.MercadoLibreOrderDetalleViewModel?> GetOrdenAsync(int orderId, CancellationToken ct = default)
             => throw new NotSupportedException();
     }
 

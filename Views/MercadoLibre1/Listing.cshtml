@@ -1,9 +1,9 @@
-@using TheBuryProject.Modules.MercadoLibre.Entities
+@using TheBuryProject.Models.Entities
 @model MercadoLibreListingDetalleViewModel
 @{
     ViewData["Title"] = $"Publicación {Model.ItemId}";
     var productosJson = ViewBag.ProductosPickerJson as string ?? "[]";
-    var preguntas = ViewBag.Preguntas as List<TheBuryProject.Modules.MercadoLibre.Entities.MercadoLibreQuestion> ?? new();
+    var preguntas = ViewBag.Preguntas as List<TheBuryProject.Models.Entities.MercadoLibreQuestion> ?? new();
     var puedeSimularPregunta = ViewBag.PuedeSimularPregunta as bool? ?? false;
 
     string TipoAmigable(string? t) => t switch { "gold_pro" => "Premium", "gold_special" => "Clásica", "gold" => "Oro", "free" => "Gratuita", _ => t ?? "—" };

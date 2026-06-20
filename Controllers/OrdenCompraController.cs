@@ -106,7 +106,7 @@ namespace TheBuryProject.Controllers
 
         // GET: OrdenCompra/Create
         [PermisoRequerido(Modulo = ModuloCompras, Accion = AccionCrear)]
-        public async Task<IActionResult> Create()
+        public async Task<IActionResult> Create(int? productoId = null)
         {
             try
             {
@@ -121,6 +121,27 @@ namespace TheBuryProject.Controllers
                     FechaEmision = DateTime.Today,
                     Estado = EstadoOrdenCompra.Borrador
                 };
+
+                // Pre-cargar un detalle cuando se llega desde "Reponer" (dashboard / alertas de stock)
+                if (productoId.HasValue)
+                {
+                    var producto = await _productoService.GetByIdAsync(productoId.Value);
+                    if (producto != null)
+                    {
+                        var sugerida = (int)Math.Ceiling((producto.StockMinimo * 3) - producto.StockActual);
+                        if (sugerida < 1) sugerida = 1;
+
+                        viewModel.Detalles.Add(new OrdenCompraDetalleViewModel
+                        {
+                            ProductoId = producto.Id,
+                            ProductoNombre = producto.Nombre,
+                            ProductoCodigo = producto.Codigo,
+                            Cantidad = sugerida,
+                            PrecioUnitario = producto.PrecioCompra,
+                            Subtotal = sugerida * producto.PrecioCompra
+                        });
+                    }
+                }
 
                 return View("Create_tw", viewModel);
             }

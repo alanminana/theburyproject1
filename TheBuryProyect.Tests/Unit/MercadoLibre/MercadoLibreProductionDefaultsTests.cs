@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging.Abstractions;
-using TheBuryProject.Modules.MercadoLibre.Entities;
-using TheBuryProject.Modules.MercadoLibre.Options;
-using TheBuryProject.Modules.MercadoLibre.Services;
+using TheBuryProject.Models.Entities;
+using TheBuryProject.Helpers;
+using TheBuryProject.Services;
 
 namespace TheBuryProject.Tests.Unit.MercadoLibre;
 

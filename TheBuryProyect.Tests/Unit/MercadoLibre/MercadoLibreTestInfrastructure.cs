@@ -3,10 +3,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using TheBuryProject.Data;
 using TheBuryProject.Models.Entities;
-using TheBuryProject.Modules.MercadoLibre.DTOs;
-using TheBuryProject.Modules.MercadoLibre.Services.Interfaces;
-using TheBuryProject.Services;
+using TheBuryProject.Models.DTOs;
 using TheBuryProject.Services.Interfaces;
+using TheBuryProject.Services;
 using TheBuryProject.Services.Models;
 using TheBuryProject.ViewModels;
 
@@ -200,7 +199,7 @@ internal sealed class FakeMercadoLibreApiClient : IMercadoLibreApiClient
         UpdateItemCalls.Add((itemId, payload));
 
         if (UpdateItemFallan.Contains(itemId))
-            throw new TheBuryProject.Modules.MercadoLibre.Exceptions.MercadoLibreApiException(
+            throw new TheBuryProject.Services.Exceptions.MercadoLibreApiException(
                 $"Error simulado en PUT /items/{itemId}.", System.Net.HttpStatusCode.BadRequest);
 
         if (UpdateItemRespuestas.TryGetValue(itemId, out var respuesta))
@@ -217,7 +216,7 @@ internal sealed class FakeMercadoLibreApiClient : IMercadoLibreApiClient
         UpdateItemVariationCalls.Add((itemId, variationId, payload));
 
         if (UpdateItemVariationFallan.Contains((itemId, variationId)))
-            throw new TheBuryProject.Modules.MercadoLibre.Exceptions.MercadoLibreApiException(
+            throw new TheBuryProject.Services.Exceptions.MercadoLibreApiException(
                 $"Error simulado en PUT /items/{itemId}/variations/{variationId}.", System.Net.HttpStatusCode.BadRequest);
 
         if (UpdateItemVariationRespuestas.TryGetValue((itemId, variationId), out var respuesta))
@@ -247,7 +246,7 @@ internal sealed class FakeMercadoLibreApiClient : IMercadoLibreApiClient
         CreateItemCalls.Add(payload);
 
         if (CreateItemFalla)
-            throw new TheBuryProject.Modules.MercadoLibre.Exceptions.MercadoLibreApiException(
+            throw new TheBuryProject.Services.Exceptions.MercadoLibreApiException(
                 "Error simulado en POST /items.", System.Net.HttpStatusCode.BadRequest, CreateItemErrorExcerpt);
 
         return Task.FromResult(CreateItemRespuesta ?? new MeliItemDto { Id = "MLA900000001", Status = "active" });

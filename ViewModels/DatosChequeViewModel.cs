@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using TheBuryProject.Validation;
 
 namespace TheBuryProject.ViewModels
 {
@@ -25,6 +26,7 @@ namespace TheBuryProject.ViewModels
 
         [Display(Name = "CUIT")]
         [StringLength(20)]
+        [CuilCuitArgentino]
         public string? CUIT { get; set; }
 
         [Display(Name = "Fecha de Emisión")]

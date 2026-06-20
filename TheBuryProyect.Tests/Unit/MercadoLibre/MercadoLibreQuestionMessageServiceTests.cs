@@ -1,9 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using TheBuryProject.Data;
-using TheBuryProject.Modules.MercadoLibre.Entities;
-using TheBuryProject.Modules.MercadoLibre.Services;
-using TheBuryProject.Modules.MercadoLibre.Services.Interfaces;
+using TheBuryProject.Models.Entities;
+using TheBuryProject.Services;
+using TheBuryProject.Services.Interfaces;
 
 namespace TheBuryProject.Tests.Unit.MercadoLibre;
 

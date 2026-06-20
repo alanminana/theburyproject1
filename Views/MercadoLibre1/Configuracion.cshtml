@@ -1,11 +1,11 @@
-@using TheBuryProject.Modules.MercadoLibre.Entities
+@using TheBuryProject.Models.Entities
 @model MercadoLibreConfiguracionViewModel
 @{
     ViewData["Title"] = "Configuración Mercado Libre";
     var clientes = ViewBag.Clientes as List<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem> ?? new();
-    var catalogo = ViewBag.CatalogoEstado as TheBuryProject.Modules.MercadoLibre.ViewModels.MercadoLibreCatalogoEstadoVm;
+    var catalogo = ViewBag.CatalogoEstado as TheBuryProject.ViewModels.MercadoLibreCatalogoEstadoVm;
 
-    string Sw(bool on) => on ? "checked" : null;
+    string? Sw(bool on) => on ? "checked" : null;
 }
 
 <!-- ============ CONFIGURACIÓN ============ -->

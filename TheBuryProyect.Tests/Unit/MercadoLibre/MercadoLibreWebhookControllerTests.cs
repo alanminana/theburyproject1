@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
-using TheBuryProject.Modules.MercadoLibre.Controllers;
+using TheBuryProject.Controllers;
 
 namespace TheBuryProject.Tests.Unit.MercadoLibre;
 
