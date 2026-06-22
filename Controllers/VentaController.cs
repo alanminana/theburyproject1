@@ -158,6 +158,21 @@ namespace TheBuryProject.Controllers
 
                 ViewBag.PuedeOperarVentas = await UsuarioTieneCajaAbiertaAsync();
                 ViewBag.ContratoVentaCredito = await ObtenerContratoResumenPorVentaAsync(id);
+
+                // Datos para modal de facturación
+                var facturaViewModel = new FacturaViewModel
+                {
+                    VentaId = venta.Id,
+                    FechaEmision = DateTime.Today,
+                    Tipo = TipoFactura.B,
+                    Subtotal = venta.Subtotal,
+                    IVA = venta.IVA,
+                    Total = venta.Total,
+                    ResumenAlicuotas = FacturaAlicuotaResumenBuilder.Build(venta.Detalles)
+                };
+                ViewBag.TiposFactura = new SelectList(Enum.GetValues(typeof(TipoFactura)));
+                ViewBag.FacturaViewModel = facturaViewModel;
+
                 return View("Details_tw", venta);
             }
             catch (Exception ex)

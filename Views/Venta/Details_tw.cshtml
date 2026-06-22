@@ -770,10 +770,12 @@
                         @* Facturar *@
                         @if (puedeOperarVentas && Model.PuedeFacturar && puedeFacturarVentas)
                         {
-                            <a asp-action="Facturar" asp-route-id="@Model.Id"
-                               class="btn-erp-success btn-erp-block no-underline">
+                            <button type="button"
+                                    data-venta-modal-action="open"
+                                    data-venta-modal-target="facturar-modal"
+                                    class="btn-erp-success btn-erp-block">
                                 <span class="material-symbols-outlined text-sm">receipt</span> Facturar
-                            </a>
+                            </button>
                         }
 
                         @* Imprimir Factura *@
@@ -1015,6 +1017,162 @@
 
     </div>
 </div>
+
+@* Modal de Facturación *@
+@if (puedeOperarVentas && Model.PuedeFacturar && puedeFacturarVentas)
+{
+    var facturaViewModel = ViewBag.FacturaViewModel as FacturaViewModel ?? new FacturaViewModel();
+    var tiposFactura = ViewBag.TiposFactura as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
+
+    <div id="facturar-modal"
+         data-venta-modal="facturar-modal"
+         data-venta-modal-backdrop
+         aria-hidden="true"
+         class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 px-4 backdrop-blur-sm overflow-y-auto">
+        <div class="w-full max-w-2xl rounded-2xl bg-slate-900 my-8 shadow-2xl">
+            <form asp-action="Facturar" method="post" id="form-facturar" class="space-y-0">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="VentaId" value="@facturaViewModel.VentaId" />
+                <input type="hidden" name="Subtotal" value="@facturaViewModel.Subtotal" />
+                <input type="hidden" name="IVA" value="@facturaViewModel.IVA" />
+                <input type="hidden" name="Total" value="@facturaViewModel.Total" />
+
+                <!-- Header -->
+                <header class="border-b border-slate-800 bg-slate-950/95 px-6 py-5 flex items-start justify-between gap-4 rounded-t-2xl">
+                    <div class="min-w-0">
+                        <p class="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-400">Emisión de comprobante</p>
+                        <h3 class="mt-1 text-xl font-black tracking-tight text-white">Emitir factura</h3>
+                    </div>
+                    <button type="button"
+                            data-venta-modal-action="close"
+                            class="inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-800 hover:text-slate-200">
+                        <span class="material-symbols-outlined text-base">close</span>
+                    </button>
+                </header>
+
+                <!-- Body -->
+                <div class="min-h-0 max-h-[calc(100vh-200px)] overflow-y-auto px-6 py-6 space-y-5">
+                    <!-- Resumen de totales -->
+                    <section class="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+                        <div class="grid gap-3 sm:grid-cols-3">
+                            <div class="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                                <p class="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Subtotal</p>
+                                <p class="mt-2 text-base font-bold text-slate-100">@facturaViewModel.Subtotal.ToString("C2")</p>
+                            </div>
+                            <div class="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                                <p class="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">IVA</p>
+                                <p class="mt-2 text-base font-bold text-slate-100">@facturaViewModel.IVA.ToString("C2")</p>
+                            </div>
+                            <div class="rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-4">
+                                <p class="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-300">Total a facturar</p>
+                                <p class="mt-2 text-xl font-black text-emerald-300">@facturaViewModel.Total.ToString("C2")</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Resumen por alícuota si existe -->
+                    @if (facturaViewModel.ResumenAlicuotas.Any())
+                    {
+                        <section class="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+                            <div class="mb-4 flex items-center gap-3 border-b border-slate-800 pb-3">
+                                <span class="material-symbols-outlined text-primary text-sm">percent</span>
+                                <h4 class="text-sm font-black text-white">Resumen por alícuota</h4>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-xs">
+                                    <thead>
+                                        <tr class="border-b border-slate-800 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+                                            <th class="py-2 pr-3 text-left">Alícuota</th>
+                                            <th class="px-2 py-2 text-right">Base</th>
+                                            <th class="px-2 py-2 text-right">IVA</th>
+                                            <th class="py-2 pl-3 text-right">Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-800">
+                                        @foreach (var item in facturaViewModel.ResumenAlicuotas)
+                                        {
+                                            <tr class="text-slate-300">
+                                                <td class="py-2 pr-3">
+                                                    <p class="font-bold text-white">@item.AlicuotaIVANombre</p>
+                                                    <p class="text-[10px] text-slate-500">@item.PorcentajeIVA.ToString("0.##")%</p>
+                                                </td>
+                                                <td class="px-2 py-2 text-right font-semibold">@item.BaseImponible.ToString("C2")</td>
+                                                <td class="px-2 py-2 text-right font-semibold">@item.IVA.ToString("C2")</td>
+                                                <td class="py-2 pl-3 text-right font-black text-white">@item.Total.ToString("C2")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </section>
+                    }
+
+                    <!-- Datos de facturación -->
+                    <section class="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+                        <div class="mb-4 flex items-center gap-3 border-b border-slate-800 pb-3">
+                            <span class="material-symbols-outlined text-primary text-sm">edit_document</span>
+                            <h4 class="text-sm font-black text-white">Datos de facturación</h4>
+                        </div>
+                        <div class="grid gap-3 sm:grid-cols-2">
+                            <div>
+                                <label for="modal-tipo-factura" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+                                    Tipo de comprobante <span class="text-rose-400">*</span>
+                                </label>
+                                <select id="modal-tipo-factura" name="Tipo" asp-items="tiposFactura"
+                                        class="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-semibold text-slate-100 outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20">
+                                </select>
+                            </div>
+                            <div>
+                                <label for="modal-punto-venta" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+                                    Punto de venta
+                                </label>
+                                <input id="modal-punto-venta" name="PuntoVenta" type="text" maxlength="50"
+                                       class="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-semibold text-slate-100 outline-none transition-colors placeholder:text-slate-600 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                                       placeholder="Ej: 0001" />
+                            </div>
+                            <div>
+                                <label for="modal-fecha-emision" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+                                    Fecha de emisión <span class="text-rose-400">*</span>
+                                </label>
+                                <input id="modal-fecha-emision" name="FechaEmision" type="date" value="@facturaViewModel.FechaEmision.ToString("yyyy-MM-dd")"
+                                       class="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-semibold text-slate-100 outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20" />
+                            </div>
+                            <div>
+                                <label for="modal-cae" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+                                    CAE <span class="font-normal normal-case text-slate-500">(opcional)</span>
+                                </label>
+                                <input id="modal-cae" name="CAE" type="text" maxlength="100"
+                                       class="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-semibold text-slate-100 outline-none transition-colors placeholder:text-slate-600 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                                       placeholder="Código de autorización electrónica" />
+                            </div>
+                            <div class="sm:col-span-2">
+                                <label for="modal-cae-vencimiento" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+                                    Vencimiento CAE <span class="font-normal normal-case text-slate-500">(opcional)</span>
+                                </label>
+                                <input id="modal-cae-vencimiento" name="FechaVencimientoCAE" type="date"
+                                       class="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-semibold text-slate-100 outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20" />
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- Footer -->
+                <footer class="border-t border-slate-800 bg-slate-950/95 px-6 py-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end rounded-b-2xl">
+                    <button type="button"
+                            data-venta-modal-action="close"
+                            class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-5 py-2 text-sm font-bold text-slate-300 transition-colors hover:border-slate-600 hover:text-white sm:w-auto">
+                        Cancelar
+                    </button>
+                    <button type="submit"
+                            class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-5 py-2 text-sm font-black text-slate-950 shadow-lg shadow-emerald-500/20 transition-colors hover:bg-emerald-400 sm:w-auto">
+                        <span class="material-symbols-outlined text-[18px]">receipt</span>
+                        Emitir factura
+                    </button>
+                </footer>
+            </form>
+        </div>
+    </div>
+}
 
 @if (puedeOperarVentas && tieneFactura && facturaActiva != null && puedeFacturarVentas)
 {

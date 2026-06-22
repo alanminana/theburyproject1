@@ -24,6 +24,10 @@
     }
 
     if (typeof ventaModule.bindModal === 'function') {
+        ventaModule.bindModal('facturar-modal', {
+            displayClass: 'flex'
+        });
+
         ventaModule.bindModal('anular-factura', {
             displayClass: 'flex',
             beforeOpen: function (_modal, trigger) {
