@@ -79,6 +79,7 @@ namespace TheBuryProject.Data
         public DbSet<AlertaMora> AlertasMora { get; set; }
         public DbSet<ConfiguracionCredito> ConfiguracionesCredito { get; set; }
         public DbSet<ConfiguracionRentabilidad> ConfiguracionesRentabilidad { get; set; }
+        public DbSet<ConfiguracionScoringCliente> ConfiguracionesScoringCliente { get; set; }
         public DbSet<LogMora> LogsMora { get; set; }
         public DbSet<AlertaCobranza> AlertasCobranza { get; set; }
         public DbSet<HistorialContacto> HistorialContactos { get; set; }
@@ -815,6 +816,13 @@ namespace TheBuryProject.Data
 
                 entity.Property(e => e.PuntajeRiesgo).HasPrecision(5, 2);
 
+                // Scoring de comportamiento (independiente del riesgo crediticio).
+                // Default 1 para que todos los clientes existentes queden con puntaje base 1.
+                entity.Property(e => e.PuntajeCliente).IsRequired().HasDefaultValue(1);
+                entity.Property(e => e.AntiguedadDias).IsRequired().HasDefaultValue(0);
+                entity.Property(e => e.CreditosEnTermino).IsRequired().HasDefaultValue(0);
+                entity.Property(e => e.CreditosConAtraso).IsRequired().HasDefaultValue(0);
+
                 entity.Property(e => e.LimiteCredito).HasPrecision(18, 2);
 
                 // Configuración personalizada de crédito por cliente
@@ -840,6 +848,14 @@ namespace TheBuryProject.Data
                     .OnDelete(DeleteBehavior.Cascade);
 
                 // SIN: entity.HasQueryFilter(e => !e.IsDeleted);
+            });
+
+            // =======================
+            // ConfiguracionScoringCliente (config global de scoring de comportamiento)
+            // =======================
+            modelBuilder.Entity<ConfiguracionScoringCliente>(entity =>
+            {
+                entity.Property(e => e.SueldoUmbral).HasPrecision(18, 2);
             });
 
             // =======================

@@ -23,6 +23,7 @@ namespace TheBuryProject.Controllers
         private readonly ICreditoService _creditoService;
         private readonly ICreditoDisponibleService _creditoDisponibleService;
         private readonly IClienteAptitudService _aptitudService;
+        private readonly IClienteScoringService _scoringService;
         private readonly ISituacionCrediticiaBcraService _bcraService;
         private readonly IConfiguracionPagoService _configuracionPagoService;
         private readonly ICurrentUserService _currentUser;
@@ -35,6 +36,7 @@ namespace TheBuryProject.Controllers
             ICreditoService creditoService,
             ICreditoDisponibleService creditoDisponibleService,
             IClienteAptitudService aptitudService,
+            IClienteScoringService scoringService,
             ISituacionCrediticiaBcraService bcraService,
             IConfiguracionPagoService configuracionPagoService,
             ICurrentUserService currentUser,
@@ -46,6 +48,7 @@ namespace TheBuryProject.Controllers
             _creditoService = creditoService;
             _creditoDisponibleService = creditoDisponibleService;
             _aptitudService = aptitudService;
+            _scoringService = scoringService;
             _bcraService = bcraService;
             _configuracionPagoService = configuracionPagoService;
             _currentUser = currentUser;
@@ -461,6 +464,28 @@ namespace TheBuryProject.Controllers
             {
                 _logger.LogError(ex, "Error al recalcular aptitud del cliente {ClienteId}", clienteId);
                 TempData["Error"] = "Error al recalcular aptitud";
+                return RedirectToAction(nameof(Details), new { id = clienteId, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
+            }
+        }
+
+        /// <summary>
+        /// Recalcula el scoring de comportamiento del cliente (PuntajeCliente + snapshots).
+        /// </summary>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RecalcularPuntaje(int clienteId, string? returnUrl = null)
+        {
+            try
+            {
+                var resultado = await _scoringService.RecalcularAsync(clienteId);
+                TempData[resultado != null ? "Success" : "Error"] =
+                    resultado != null ? "Puntaje del cliente recalculado" : "No se pudo recalcular el puntaje";
+                return RedirectToAction(nameof(Details), new { id = clienteId, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al recalcular puntaje del cliente {ClienteId}", clienteId);
+                TempData["Error"] = "Error al recalcular puntaje";
                 return RedirectToAction(nameof(Details), new { id = clienteId, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
             }
         }

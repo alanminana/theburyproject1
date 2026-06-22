@@ -196,6 +196,47 @@ namespace TheBuryProject.Models.Entities
 
         public bool? SituacionCrediticiaConsultaOk { get; set; }
 
+        // ==========================
+        // Scoring de comportamiento del cliente
+        // (independiente del riesgo crediticio PuntajeRiesgo/NivelRiesgo)
+        // ==========================
+
+        /// <summary>
+        /// Puntaje base de comportamiento del cliente. Arranca en 1 para todos
+        /// y luego lo ajusta el servicio de scoring según antigüedad, pago en
+        /// término y actividad de compra. No reemplaza a PuntajeRiesgo.
+        /// </summary>
+        public int PuntajeCliente { get; set; } = 1;
+
+        /// <summary>
+        /// Antigüedad del cliente en días (snapshot recalculado por el servicio
+        /// de scoring). El ancla de cálculo es CreatedAt (fecha de alta).
+        /// </summary>
+        public int AntiguedadDias { get; set; } = 0;
+
+        /// <summary>
+        /// Fecha de la última venta registrada al cliente (cache denormalizado).
+        /// Null si nunca compró.
+        /// </summary>
+        public DateTime? UltimaVentaFecha { get; set; }
+
+        /// <summary>
+        /// Cantidad de créditos del cliente pagados en término (snapshot).
+        /// </summary>
+        public int CreditosEnTermino { get; set; } = 0;
+
+        /// <summary>
+        /// Cantidad de créditos del cliente con atraso de pago (snapshot).
+        /// </summary>
+        public int CreditosConAtraso { get; set; } = 0;
+
+        /// <summary>
+        /// Indica si el cliente está al día con todos sus créditos.
+        /// Derivado: true cuando no registra créditos con atraso. No se persiste.
+        /// </summary>
+        [NotMapped]
+        public bool PagaCreditosEnTermino => CreditosConAtraso == 0;
+
         // Estado
         public bool Activo { get; set; } = true;
 

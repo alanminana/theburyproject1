@@ -173,6 +173,16 @@ namespace TheBuryProject.ViewModels
         public int CuotasImpagas { get; set; }
         public decimal? MontoAdeudado { get; set; }
 
+        // Scoring de comportamiento (solo lectura, se rellena/recalcula desde el servicio)
+        public int PuntajeCliente { get; set; } = 1;
+        public int AntiguedadDias { get; set; }
+        public DateTime? UltimaVentaFecha { get; set; }
+        public int CreditosEnTermino { get; set; }
+        public int CreditosConAtraso { get; set; }
+
+        /// <summary>True si el cliente no registra créditos con atraso. Derivado, no se mapea.</summary>
+        public bool PagaCreditosEnTermino => CreditosConAtraso == 0;
+
         // ALIASES PARA COMPATIBILIDAD CON CREATE.CSHTML
         // (que usa LugarTrabajo, IngresoMensual, TelefonoTrabajo)
         public string? LugarTrabajo 

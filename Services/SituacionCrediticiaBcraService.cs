@@ -13,7 +13,7 @@ namespace TheBuryProject.Services
         private static readonly Dictionary<int, string> SituacionDescripcion = new()
         {
             { 1, "Normal" },
-            { 2, "En observación" },
+            { 2, "Con seguimiento especial / Riesgo bajo" },
             { 3, "Con problemas" },
             { 4, "Con alto riesgo de insolvencia" },
             { 5, "Irrecuperable" }
@@ -82,6 +82,20 @@ namespace TheBuryProject.Services
             {
                 var requestUri = new Uri(BaseUri, cuil);
                 var response = await _http.GetAsync(requestUri);
+
+                // La Central de Deudores devuelve 404 cuando la identificación no figura
+                // en el padrón de deudores del sistema financiero (no encontrado). No es un
+                // error: significa que no hay deudas informadas para ese CUIL/CUIT.
+                if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                {
+                    cliente.SituacionCrediticiaBcra = 0;
+                    cliente.SituacionCrediticiaDescripcion = "Sin registro en BCRA (no encontrado)";
+                    cliente.SituacionCrediticiaPeriodo = null;
+                    cliente.SituacionCrediticiaUltimaConsultaUtc = DateTime.UtcNow;
+                    cliente.SituacionCrediticiaConsultaOk = true;
+                    await context.SaveChangesAsync();
+                    return;
+                }
 
                 if (!response.IsSuccessStatusCode)
                 {

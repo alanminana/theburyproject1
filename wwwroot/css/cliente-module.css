@@ -421,6 +421,94 @@
 }
 
 /* ============================================================
+   KPI cards (Details) — alineado con credito/caja module
+   ============================================================ */
+
+.grid-kpi {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.7rem;
+}
+
+@media (min-width: 900px) {
+    .grid-kpi {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+.kpi {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 1rem 1.1rem;
+}
+
+.kpi-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted-2);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.kpi-value {
+    margin-top: 0.35rem;
+    font-size: 1.7rem;
+    font-weight: 600;
+    color: #fff;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+
+.kpi-foot {
+    font-size: 0.72rem;
+    color: var(--muted-2);
+    margin-top: 0.4rem;
+}
+
+.kpi--ok .kpi-value {
+    color: #34d399;
+}
+
+.kpi--warn {
+    border-color: rgba(245, 158, 11, 0.4);
+    background: rgba(245, 158, 11, 0.05);
+}
+
+.kpi--warn .kpi-label {
+    color: rgba(251, 191, 36, 0.85);
+}
+
+.kpi--warn .kpi-value {
+    color: #fbbf24;
+}
+
+.kpi--bad {
+    border-color: rgba(244, 63, 94, 0.4);
+    background: rgba(244, 63, 94, 0.05);
+}
+
+.kpi--bad .kpi-label {
+    color: rgba(251, 113, 133, 0.9);
+}
+
+.kpi--bad .kpi-value {
+    color: #fb7185;
+}
+
+.kpi--accent {
+    border-color: rgba(245, 197, 24, 0.4);
+    background: rgba(245, 197, 24, 0.06);
+}
+
+.kpi--accent .kpi-value {
+    color: #f5c518;
+}
+
+/* ============================================================
    Buttons
    ============================================================ */
 

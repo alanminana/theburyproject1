@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TheBuryProject.Data;
 
@@ -11,9 +12,11 @@ using TheBuryProject.Data;
 namespace TheBuryProject.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260622211826_AddPuntajeClienteScoring")]
+    partial class AddPuntajeClienteScoring
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -2522,86 +2525,6 @@ namespace TheBuryProject.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("ConfiguracionesRentabilidad", (string)null);
-                });
-
-            modelBuilder.Entity("TheBuryProject.Models.Entities.ConfiguracionScoringCliente", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<bool>("ActividadActiva")
-                        .HasColumnType("bit");
-
-                    b.Property<int>("ActividadMesesUmbral")
-                        .HasColumnType("int");
-
-                    b.Property<int>("ActividadPuntos")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("AntiguedadActiva")
-                        .HasColumnType("bit");
-
-                    b.Property<int>("AntiguedadMesesUmbral")
-                        .HasColumnType("int");
-
-                    b.Property<int>("AntiguedadPuntos")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<int>("PagoConAtrasoPuntos")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("PagoEnTerminoActivo")
-                        .HasColumnType("bit");
-
-                    b.Property<int>("PagoEnTerminoPuntos")
-                        .HasColumnType("int");
-
-                    b.Property<int>("PuntajeBase")
-                        .HasColumnType("int");
-
-                    b.Property<int>("PuntajeMaximo")
-                        .HasColumnType("int");
-
-                    b.Property<int>("PuntajeMinimo")
-                        .HasColumnType("int");
-
-                    b.Property<byte[]>("RowVersion")
-                        .IsConcurrencyToken()
-                        .IsRequired()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("rowversion");
-
-                    b.Property<bool>("SueldoActivo")
-                        .HasColumnType("bit");
-
-                    b.Property<int>("SueldoPuntos")
-                        .HasColumnType("int");
-
-                    b.Property<decimal>("SueldoUmbral")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("ConfiguracionesScoringCliente");
                 });
 
             modelBuilder.Entity("TheBuryProject.Models.Entities.ConfiguracionTarjeta", b =>

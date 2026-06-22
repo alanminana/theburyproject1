@@ -34,6 +34,9 @@ namespace TheBuryProject.Extensions
             // Servicio de validación unificada para ventas con crédito personal
             services.AddScoped<IValidacionVentaService, ValidacionVentaService>();
 
+            // Scoring de comportamiento del cliente (PuntajeCliente configurable)
+            services.AddScoped<IClienteScoringService, ClienteScoringService>();
+
             return services;
         }
 

@@ -312,6 +312,24 @@ public class SituacionCrediticiaBcraServiceTests : IDisposable
     // -------------------------------------------------------------------------
 
     [Fact]
+    public async Task ConsultarYActualizar_Http404_MarcaSinDeudas()
+    {
+        // La Central de Deudores responde 404 cuando la identificación no tiene
+        // registros: debe interpretarse como "sin deudas", no como error.
+        _fakeHttp.SetResponse(HttpStatusCode.NotFound, """{ "status": 404, "errorMessages": ["No existe registro"] }""");
+
+        var cliente = await SeedClienteAsync(cuil: "20123456789");
+
+        await _service.ConsultarYActualizarAsync(cliente.Id);
+
+        _context.ChangeTracker.Clear();
+        var bd = await _context.Clientes.FindAsync(cliente.Id);
+        Assert.True(bd!.SituacionCrediticiaConsultaOk);
+        Assert.Equal(0, bd.SituacionCrediticiaBcra);
+        Assert.Equal("Sin registro en BCRA (no encontrado)", bd.SituacionCrediticiaDescripcion);
+    }
+
+    [Fact]
     public async Task ConsultarYActualizar_ErrorHttp500_MarcaError()
     {
         _fakeHttp.SetResponse(HttpStatusCode.InternalServerError, "");

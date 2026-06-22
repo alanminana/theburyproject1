@@ -206,6 +206,55 @@ else
         </form>
     </div>
 
+    <section class="card card-pad" style="margin-top:1.25rem">
+        <div class="flex items-center justify-between gap-3 mb-4 flex-wrap">
+            <h2 class="font-semibold text-white flex items-center gap-2">
+                <span class="material-symbols-outlined" style="color:#f5c518;font-size:20px">stars</span>Scoring de comportamiento
+            </h2>
+            <form asp-action="RecalcularPuntaje" method="post" class="shrink-0">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="clienteId" value="@c.Id" />
+                @if (!string.IsNullOrWhiteSpace(returnUrl))
+                {
+                    <input type="hidden" name="returnUrl" value="@returnUrl" />
+                }
+                <button type="submit" class="btn btn-soft btn-sm"><span class="material-symbols-outlined">refresh</span>Recalcular puntaje</button>
+            </form>
+        </div>
+
+        <div class="flex items-center gap-3 flex-wrap mb-4">
+            <span class="pips">
+                @for (var i = 1; i <= 5; i++)
+                {
+                    <span class="pip @(i <= Math.Clamp(c.PuntajeCliente, 0, 5) ? "on-ok" : string.Empty)"></span>
+                }
+            </span>
+            <span class="text-sm text-white font-semibold">Puntaje @c.PuntajeCliente<span class="muted-2 font-normal"> / 5</span></span>
+            <span class="chip @(c.PagaCreditosEnTermino ? "chip-ok" : "chip-warn")">
+                <span class="material-symbols-outlined">@(c.PagaCreditosEnTermino ? "task_alt" : "report")</span>@(c.PagaCreditosEnTermino ? "Paga en termino" : "Con atraso")
+            </span>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:.6rem;padding:.7rem .8rem">
+                <div class="text-xs muted-2 flex items-center gap-1"><span class="material-symbols-outlined" style="font-size:14px">schedule</span>Antiguedad</div>
+                <div class="font-semibold text-white mt-1">@c.AntiguedadDias<span class="text-xs muted-2 font-normal"> dias</span></div>
+            </div>
+            <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:.6rem;padding:.7rem .8rem">
+                <div class="text-xs muted-2 flex items-center gap-1"><span class="material-symbols-outlined" style="font-size:14px">shopping_cart</span>Ultima venta</div>
+                <div class="font-semibold text-white mt-1">@(c.UltimaVentaFecha?.ToString("dd/MM/yyyy") ?? "Sin ventas")</div>
+            </div>
+            <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:.6rem;padding:.7rem .8rem">
+                <div class="text-xs muted-2 flex items-center gap-1"><span class="material-symbols-outlined" style="font-size:14px">verified</span>Creditos en termino</div>
+                <div class="font-semibold text-white mt-1">@c.CreditosEnTermino</div>
+            </div>
+            <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:.6rem;padding:.7rem .8rem">
+                <div class="text-xs muted-2 flex items-center gap-1"><span class="material-symbols-outlined" style="font-size:14px">warning</span>Creditos con atraso</div>
+                <div class="font-semibold mt-1" style="color:@(c.CreditosConAtraso > 0 ? "#f5b21a" : "#fff")">@c.CreditosConAtraso</div>
+            </div>
+        </div>
+    </section>
+
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4" style="margin-top:1.25rem">
         <div class="lg:col-span-2 space-y-4">
             <section class="card card-pad">
