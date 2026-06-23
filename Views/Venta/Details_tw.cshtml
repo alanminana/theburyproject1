@@ -80,7 +80,15 @@
         ? (Model.FechaFacturacion.HasValue
             ? $"Emitida el {Model.FechaFacturacion.Value:dd/MM/yyyy HH:mm}"
             : "Documento activo asociado")
-        : "Se habilita cuando la venta está lista para facturar.";
+        : Model.Estado switch
+        {
+            EstadoVenta.Cotizacion => "Prepará la venta y confirmala para habilitar facturación.",
+            EstadoVenta.Presupuesto => "Confirmá la venta para habilitar facturación.",
+            EstadoVenta.Confirmada => "Venta confirmada; ya podés emitir la factura desde Acciones.",
+            EstadoVenta.PendienteRequisitos => "Resolvé los requisitos y confirmá la venta para facturar.",
+            EstadoVenta.PendienteFinanciacion => "Configurá la financiación y confirmá la venta para facturar.",
+            _ => "Se habilita cuando la venta está lista para facturar."
+        };
 }
 
 <div class="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
@@ -754,6 +762,17 @@
                                class="btn-erp-secondary btn-erp-block no-underline">
                                 <span class="material-symbols-outlined text-sm">print</span> Ver / imprimir contrato
                             </a>
+                        }
+
+                        @* Preparar venta *@
+                        @if (puedeOperarVentas && Model.PuedePrepararVenta && puedeActualizarVentas)
+                        {
+                            <form asp-action="PrepararVenta" method="post" id="form-preparar-venta">
+                                <input type="hidden" name="id" value="@Model.Id" />
+                                <button type="submit" class="btn-erp-primary btn-erp-block">
+                                    <span class="material-symbols-outlined text-sm">assignment_turned_in</span> Preparar venta
+                                </button>
+                            </form>
                         }
 
                         @* Confirmar *@

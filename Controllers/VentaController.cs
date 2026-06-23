@@ -702,6 +702,47 @@ namespace TheBuryProject.Controllers
 
         #region Confirmar
 
+        // POST: Venta/PrepararVenta/5
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = ModuloVentas, Accion = AccionActualizar)]
+        public async Task<IActionResult> PrepararVenta(int id)
+        {
+            try
+            {
+                var cajaGuard = await RedirigirSiCajaCerradaAsync(
+                    "Debe abrir una caja antes de preparar una venta.",
+                    nameof(Details),
+                    new { id });
+                if (cajaGuard != null)
+                {
+                    return cajaGuard;
+                }
+
+                var resultado = await _ventaService.PrepararVentaDesdeCotizacionAsync(id);
+                if (resultado)
+                {
+                    TempData["Success"] = "Venta preparada. Ya puede confirmarla antes de facturar.";
+                    return RedirectToAction(nameof(Details), new { id });
+                }
+
+                TempData["Error"] = "Venta no encontrada";
+                return RedirectToAction(nameof(Index));
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "No se pudo preparar venta {Id}", id);
+                TempData["Error"] = ex.Message;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al preparar venta {Id}", id);
+                TempData["Error"] = "Error al preparar la venta: " + ex.Message;
+            }
+
+            return RedirectToAction(nameof(Details), new { id });
+        }
+
         // POST: Venta/Confirmar/5
         [HttpPost]
         [ValidateAntiForgeryToken]

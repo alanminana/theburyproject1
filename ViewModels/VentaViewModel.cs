@@ -307,6 +307,8 @@ namespace TheBuryProject.ViewModels
             CreditoId.HasValue &&
             (Estado == EstadoVenta.PendienteFinanciacion || CreditoPendienteConfiguracion);
 
+        public bool PuedePrepararVenta => Estado == EstadoVenta.Cotizacion;
+
         public bool PuedeFacturar =>
             Estado == EstadoVenta.Confirmada && (!RequiereAutorizacion || EstadoAutorizacion == EstadoAutorizacionVenta.Autorizada);
 

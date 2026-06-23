@@ -186,6 +186,40 @@ public class VentaServiceMiscTests : IDisposable
     // =========================================================================
 
     [Fact]
+    public async Task PrepararVentaDesdeCotizacion_Cotizacion_CambiaAPresupuesto()
+    {
+        var cliente = await SeedClienteAsync();
+        var venta = await SeedVentaAsync(cliente.Id, estado: EstadoVenta.Cotizacion);
+
+        var resultado = await _service.PrepararVentaDesdeCotizacionAsync(venta.Id);
+
+        Assert.True(resultado);
+
+        _context.ChangeTracker.Clear();
+        var ventaActualizada = await _context.Ventas.FindAsync(venta.Id);
+        Assert.NotNull(ventaActualizada);
+        Assert.Equal(EstadoVenta.Presupuesto, ventaActualizada!.Estado);
+    }
+
+    [Fact]
+    public async Task PrepararVentaDesdeCotizacion_Inexistente_RetornaFalse()
+    {
+        var resultado = await _service.PrepararVentaDesdeCotizacionAsync(99999);
+
+        Assert.False(resultado);
+    }
+
+    [Fact]
+    public async Task PrepararVentaDesdeCotizacion_NoCotizacion_LanzaExcepcion()
+    {
+        var cliente = await SeedClienteAsync();
+        var venta = await SeedVentaAsync(cliente.Id, estado: EstadoVenta.Presupuesto);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.PrepararVentaDesdeCotizacionAsync(venta.Id));
+    }
+
+    [Fact]
     public async Task AsociarCredito_VentaExistente_AsignaCreditoId()
     {
         var cliente = await SeedClienteAsync();

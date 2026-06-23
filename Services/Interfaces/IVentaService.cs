@@ -12,6 +12,10 @@ namespace TheBuryProject.Services.Interfaces
         Task<VentaViewModel> CreateAsync(VentaViewModel viewModel);
         Task<VentaViewModel?> UpdateAsync(int id, VentaViewModel viewModel);
         Task<bool> DeleteAsync(int id);
+        Task<bool> PrepararVentaDesdeCotizacionAsync(int id)
+        {
+            throw new NotImplementedException();
+        }
         Task<bool> ConfirmarVentaAsync(int id);
         /// <summary>
         /// Confirma una venta con crédito personal: genera cuotas, marca crédito como Generado

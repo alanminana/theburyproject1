@@ -1003,6 +1003,28 @@ namespace TheBuryProject.Services
             await _context.SaveChangesAsync();
         }
 
+        public async Task<bool> PrepararVentaDesdeCotizacionAsync(int id)
+        {
+            var venta = await _context.Ventas
+                .FirstOrDefaultAsync(v => v.Id == id && !v.IsDeleted);
+
+            if (venta == null)
+                return false;
+
+            if (venta.Estado != EstadoVenta.Cotizacion)
+            {
+                throw new InvalidOperationException(
+                    $"Solo se pueden preparar ventas en estado Cotización. Estado actual: {venta.Estado}");
+            }
+
+            venta.Estado = EstadoVenta.Presupuesto;
+            venta.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+            _logger.LogInformation("Venta {Id} preparada desde cotización", id);
+            return true;
+        }
+
         public async Task<bool> CancelarVentaAsync(int id, string motivo)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
