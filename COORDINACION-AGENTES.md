@@ -12,12 +12,13 @@
 
 ---
 
-## Lote ACTIVO — Calificación crediticia del cliente (NivelCreditoFinal + override manual)
+## Lote CERRADO — Calificación crediticia del cliente (NivelCreditoFinal + override manual)
 
-- **Estado:** Implementación COMPLETA y verde en build+tests. **Pendiente solo QA visual mobile y validación e2e en app/DB real.**
-- **Rama:** `chore/hardening-produccion-20260620`
-- **Sin commitear** (working tree). `main` intacto.
-- **Última actualización:** 2026-06-23 — Claude (retomando trabajo de Codex tras corte por límite de uso).
+- **Estado:** **CERRADO. Commiteado y mergeado a `main`.**
+- **Commit:** `6a604e6` feat(cliente): calificacion crediticia unificada (nivel final manual/automatico + BCRA->aptitud).
+- **Rama de trabajo:** `chore/hardening-produccion-20260620` (commiteado ahí; `main` fast-forward `beaa499..6a604e6`, sin merge commit).
+- **`main` local incluye además** `b45b739` (BCRA hardening) y `f82b7a3` (Preparar venta), que ya estaban en la rama. `origin/main` SIN pushear (decisión del usuario).
+- **Última actualización:** 2026-06-23 — Claude (cierre + merge a main).
 
 ### Objetivo del lote
 Ordenar el flujo confuso de "puntajes". Introducir un único **Nivel crediticio final** que manda sobre el cupo:
@@ -90,10 +91,14 @@ Bloqueo duro por Central de Deudores, **sin migración ni flag de config** (gate
 2. `CambiosPreciosAplicarRapidoTest.Post_AplicarRapido_SinListasExplicitas_UsaListaPredeterminada`: `TaskCanceledException` por `HttpClient.Timeout 100s`; tardó 4m17s en la suite pero **pasa aislado en 7s**. Flaky por timeout bajo carga (TestHost), ajeno al lote crédito/aptitud. No es defecto.
 Re-corrida aislada de ambos: **2/2 OK**. Efectivamente suite verde con el fix de alineación.
 
-### PENDIENTE (lo que falta para cerrar)
-1. Limpiar artefactos de build/test no versionados (`artifacts/`, `TheBuryProyect.Tests/artifacts/`, `*.jpeg` de QA en raíz) antes del commit — son salidas, no van al commit.
-2. Decidir commit (ver `git add` abajo).
-3. (Follow-up opcional) UI: exponer el detalle BCRA dentro del panel de aptitud además del estado (hoy el estado ya refleja el bloqueo; el desglose muestra la situación).
+### Cierre (2026-06-23, Claude)
+- Commit `6a604e6` con 28 archivos del lote (staging explícito, sin `git add -A`). `artifacts/` agregado a `.gitignore`.
+- Re-validación pre-merge: build principal Release 0/0, build tests Release 0/0, **EF sin drift** ("No changes since last migration"), tests focalizados **177/177**, suite completa **3487 verde + 1 flaky ambiental** (`CambiosPreciosAplicarRapido`, pasa aislado 11s). `git diff --check` limpio.
+- `main` fast-forward a `6a604e6`. Working tree limpio.
+
+### Follow-up opcional (fuera de este lote)
+- UI: exponer el detalle BCRA dentro del panel de aptitud además del estado (hoy el estado ya refleja el bloqueo; el desglose muestra la situación).
+- `origin/main` queda 3 commits atrás: pushear cuando el usuario lo autorice.
 
 ### Superficie bloqueada por este lote (no editar en paralelo sin avisar)
 ```
