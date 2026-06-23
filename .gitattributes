@@ -1,0 +1,33 @@
+# Normalización de fin de línea consistente entre máquinas/agentes.
+# Git auto-detecta archivos de texto y los almacena con LF en el repo,
+# entregándolos como CRLF en Windows en el checkout. Evita el ruido de
+# "LF will be replaced by CRLF" y diffs espurios por fin de línea.
+* text=auto
+
+# Forzar checkout CRLF en Windows para código y vistas (consistencia local).
+*.cs        text eol=crlf
+*.cshtml    text eol=crlf
+*.csproj    text eol=crlf
+*.sln       text eol=crlf
+*.json      text eol=crlf
+*.js        text eol=crlf
+*.css       text eol=crlf
+*.html      text eol=crlf
+*.config    text eol=crlf
+*.md        text eol=crlf
+
+# Binarios: nunca normalizar.
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.ico       binary
+*.woff      binary
+*.woff2     binary
+*.ttf       binary
+*.eot       binary
+*.otf       binary
+*.pdf       binary
+*.zip       binary
+*.dll       binary
+*.exe       binary
