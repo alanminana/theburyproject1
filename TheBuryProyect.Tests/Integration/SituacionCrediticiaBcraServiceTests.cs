@@ -345,6 +345,69 @@ public class SituacionCrediticiaBcraServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task ConsultarYActualizar_Http429_MarcaRateLimit()
+    {
+        _fakeHttp.SetResponse(HttpStatusCode.TooManyRequests, """{ "status": 429 }""");
+
+        var cliente = await SeedClienteAsync(cuil: "20123456789");
+
+        await _service.ConsultarYActualizarAsync(cliente.Id);
+
+        _context.ChangeTracker.Clear();
+        var bd = await _context.Clientes.FindAsync(cliente.Id);
+        Assert.False(bd!.SituacionCrediticiaConsultaOk);
+        Assert.Equal("BCRA limitó las consultas (429)", bd.SituacionCrediticiaDescripcion);
+        Assert.Equal(1, _fakeHttp.CallCount);
+    }
+
+    [Fact]
+    public async Task ConsultarYActualizar_ErrorRedTransitorio_ReintentaYActualiza()
+    {
+        _fakeHttp.EnqueueException(new HttpRequestException("connection reset"));
+        _fakeHttp.EnqueueResponse(HttpStatusCode.OK, BcraJson(2));
+
+        var cliente = await SeedClienteAsync(cuil: "20123456789");
+
+        await _service.ConsultarYActualizarAsync(cliente.Id);
+
+        _context.ChangeTracker.Clear();
+        var bd = await _context.Clientes.FindAsync(cliente.Id);
+        Assert.True(bd!.SituacionCrediticiaConsultaOk);
+        Assert.Equal(2, bd.SituacionCrediticiaBcra);
+        Assert.Equal(2, _fakeHttp.CallCount);
+    }
+
+    [Fact]
+    public async Task ConsultarYActualizar_ErrorTransitorioReciente_NoReconsulta()
+    {
+        var cliente = await SeedClienteAsync(
+            cuil: "20123456789",
+            descripcion: "Error de conexión con BCRA",
+            ultimaConsulta: DateTime.UtcNow.AddMinutes(-10),
+            consultaOk: false);
+
+        await _service.ConsultarYActualizarAsync(cliente.Id);
+
+        Assert.Equal(0, _fakeHttp.CallCount);
+    }
+
+    [Fact]
+    public async Task ForzarActualizacion_ErrorTransitorioReciente_IgualReconsulta()
+    {
+        _fakeHttp.SetResponse(HttpStatusCode.OK, BcraJson(1));
+
+        var cliente = await SeedClienteAsync(
+            cuil: "20123456789",
+            descripcion: "Error de conexión con BCRA",
+            ultimaConsulta: DateTime.UtcNow.AddMinutes(-10),
+            consultaOk: false);
+
+        await _service.ForzarActualizacionAsync(cliente.Id);
+
+        Assert.Equal(1, _fakeHttp.CallCount);
+    }
+
+    [Fact]
     public async Task ConsultarYActualizar_JsonInvalido_MarcaError()
     {
         _fakeHttp.SetResponse(HttpStatusCode.OK, "{ invalid json");
@@ -376,26 +439,55 @@ public class SituacionCrediticiaBcraServiceTests : IDisposable
 
 internal sealed class FakeHttpHandlerBcra : HttpMessageHandler
 {
+    private readonly Queue<object> _queue = new();
     private HttpStatusCode _statusCode = HttpStatusCode.OK;
     private string _content = "{}";
     public int CallCount { get; private set; }
 
     public void SetResponse(HttpStatusCode statusCode, string content)
     {
+        _queue.Clear();
         _statusCode = statusCode;
         _content = content;
+    }
+
+    public void EnqueueResponse(HttpStatusCode statusCode, string content)
+    {
+        _queue.Enqueue(new FakeBcraResponse(statusCode, content));
+    }
+
+    public void EnqueueException(Exception exception)
+    {
+        _queue.Enqueue(exception);
     }
 
     protected override Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request, CancellationToken cancellationToken)
     {
         CallCount++;
-        var response = new HttpResponseMessage(_statusCode)
+
+        if (_queue.Count > 0)
         {
-            Content = new StringContent(_content, Encoding.UTF8, "application/json")
-        };
-        return Task.FromResult(response);
+            var next = _queue.Dequeue();
+            if (next is Exception exception)
+                return Task.FromException<HttpResponseMessage>(exception);
+
+            var queued = (FakeBcraResponse)next;
+            return Task.FromResult(CreateResponse(queued.StatusCode, queued.Content));
+        }
+
+        return Task.FromResult(CreateResponse(_statusCode, _content));
     }
+
+    private static HttpResponseMessage CreateResponse(HttpStatusCode statusCode, string content)
+    {
+        return new HttpResponseMessage(statusCode)
+        {
+            Content = new StringContent(content, Encoding.UTF8, "application/json")
+        };
+    }
+
+    private readonly record struct FakeBcraResponse(HttpStatusCode StatusCode, string Content);
 }
 
 // ---------------------------------------------------------------------------

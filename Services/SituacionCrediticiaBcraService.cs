@@ -9,6 +9,18 @@ namespace TheBuryProject.Services
     public class SituacionCrediticiaBcraService : ISituacionCrediticiaBcraService
     {
         private static readonly Uri BaseUri = new("https://api.bcra.gob.ar/CentralDeDeudores/v1.0/Deudas/");
+        private static readonly TimeSpan ErrorRetryCooldown = TimeSpan.FromHours(1);
+        private static readonly TimeSpan NetworkRetryBaseDelay = TimeSpan.FromMilliseconds(250);
+        private const int MaxNetworkAttempts = 3;
+
+        private const string DescripcionCuilNoCargado = "CUIL/CUIT no cargado";
+        private const string DescripcionSinRegistro = "Sin registro en BCRA (no encontrado)";
+        private const string DescripcionSinDeudas = "Sin deudas registradas";
+        private const string DescripcionRespuestaSinResultados = "Respuesta sin resultados";
+        private const string DescripcionRateLimit = "BCRA limitó las consultas (429)";
+        private const string DescripcionTimeout = "Timeout al consultar BCRA";
+        private const string DescripcionErrorConexion = "Error de conexión con BCRA";
+        private const string DescripcionRespuestaInvalida = "Respuesta BCRA inválida";
 
         private static readonly Dictionary<int, string> SituacionDescripcion = new()
         {
@@ -42,9 +54,13 @@ namespace TheBuryProject.Services
             if (cliente is null) return;
 
             // Cache vigente: no reconsultar
-            if (cliente.SituacionCrediticiaUltimaConsultaUtc.HasValue
-                && cliente.SituacionCrediticiaConsultaOk == true
-                && (DateTime.UtcNow - cliente.SituacionCrediticiaUltimaConsultaUtc.Value).TotalDays < cacheDias)
+            if (TieneConsultaExitosaVigente(cliente, cacheDias))
+            {
+                return;
+            }
+
+            // Evitar martillar la API externa cuando hubo un error transitorio reciente.
+            if (TieneErrorTransitorioReciente(cliente))
             {
                 return;
             }
@@ -70,7 +86,7 @@ namespace TheBuryProject.Services
             {
                 // Sin CUIL válido: marcar como no consultable
                 cliente.SituacionCrediticiaBcra = null;
-                cliente.SituacionCrediticiaDescripcion = "CUIL/CUIT no cargado";
+                cliente.SituacionCrediticiaDescripcion = DescripcionCuilNoCargado;
                 cliente.SituacionCrediticiaPeriodo = null;
                 cliente.SituacionCrediticiaUltimaConsultaUtc = DateTime.UtcNow;
                 cliente.SituacionCrediticiaConsultaOk = false;
@@ -81,7 +97,7 @@ namespace TheBuryProject.Services
             try
             {
                 var requestUri = new Uri(BaseUri, cuil);
-                var response = await _http.GetAsync(requestUri);
+                using var response = await GetWithNetworkRetryAsync(requestUri);
 
                 // La Central de Deudores devuelve 404 cuando la identificación no figura
                 // en el padrón de deudores del sistema financiero (no encontrado). No es un
@@ -89,10 +105,18 @@ namespace TheBuryProject.Services
                 if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
                 {
                     cliente.SituacionCrediticiaBcra = 0;
-                    cliente.SituacionCrediticiaDescripcion = "Sin registro en BCRA (no encontrado)";
+                    cliente.SituacionCrediticiaDescripcion = DescripcionSinRegistro;
                     cliente.SituacionCrediticiaPeriodo = null;
                     cliente.SituacionCrediticiaUltimaConsultaUtc = DateTime.UtcNow;
                     cliente.SituacionCrediticiaConsultaOk = true;
+                    await context.SaveChangesAsync();
+                    return;
+                }
+
+                if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+                {
+                    _logger.LogWarning("BCRA API limitó las consultas para CUIL {Cuil}", cuil);
+                    MarcarError(cliente, DescripcionRateLimit);
                     await context.SaveChangesAsync();
                     return;
                 }
@@ -106,12 +130,12 @@ namespace TheBuryProject.Services
                 }
 
                 var json = await response.Content.ReadAsStringAsync();
-                var doc = JsonDocument.Parse(json);
+                using var doc = JsonDocument.Parse(json);
                 var root = doc.RootElement;
 
                 if (!root.TryGetProperty("results", out var results))
                 {
-                    MarcarError(cliente, "Respuesta sin resultados");
+                    MarcarError(cliente, DescripcionRespuestaSinResultados);
                     await context.SaveChangesAsync();
                     return;
                 }
@@ -120,7 +144,7 @@ namespace TheBuryProject.Services
                 {
                     // Sin deudas registradas
                     cliente.SituacionCrediticiaBcra = 0;
-                    cliente.SituacionCrediticiaDescripcion = "Sin deudas registradas";
+                    cliente.SituacionCrediticiaDescripcion = DescripcionSinDeudas;
                     cliente.SituacionCrediticiaPeriodo = null;
                     cliente.SituacionCrediticiaUltimaConsultaUtc = DateTime.UtcNow;
                     cliente.SituacionCrediticiaConsultaOk = true;
@@ -155,19 +179,19 @@ namespace TheBuryProject.Services
             catch (TaskCanceledException)
             {
                 _logger.LogWarning("Timeout consultando BCRA para CUIL {Cuil}", cuil);
-                MarcarError(cliente, "Timeout al consultar BCRA");
+                MarcarError(cliente, DescripcionTimeout);
                 await context.SaveChangesAsync();
             }
             catch (HttpRequestException ex)
             {
                 _logger.LogWarning(ex, "Error de red consultando BCRA para CUIL {Cuil}", cuil);
-                MarcarError(cliente, "Error de conexión con BCRA");
+                MarcarError(cliente, DescripcionErrorConexion);
                 await context.SaveChangesAsync();
             }
             catch (JsonException ex)
             {
                 _logger.LogWarning(ex, "Error parseando respuesta BCRA para CUIL {Cuil}", cuil);
-                MarcarError(cliente, "Respuesta BCRA inválida");
+                MarcarError(cliente, DescripcionRespuestaInvalida);
                 await context.SaveChangesAsync();
             }
         }
@@ -198,6 +222,51 @@ namespace TheBuryProject.Services
             cliente.SituacionCrediticiaPeriodo = null;
             cliente.SituacionCrediticiaUltimaConsultaUtc = DateTime.UtcNow;
             cliente.SituacionCrediticiaConsultaOk = false;
+        }
+
+        private async Task<HttpResponseMessage> GetWithNetworkRetryAsync(Uri requestUri)
+        {
+            for (var attempt = 1; ; attempt++)
+            {
+                try
+                {
+                    return await _http.GetAsync(requestUri);
+                }
+                catch (HttpRequestException) when (attempt < MaxNetworkAttempts)
+                {
+                    await Task.Delay(TimeSpan.FromMilliseconds(NetworkRetryBaseDelay.TotalMilliseconds * attempt));
+                }
+            }
+        }
+
+        private static bool TieneConsultaExitosaVigente(
+            TheBuryProject.Models.Entities.Cliente cliente,
+            int cacheDias)
+        {
+            return cliente.SituacionCrediticiaUltimaConsultaUtc.HasValue
+                && cliente.SituacionCrediticiaConsultaOk == true
+                && (DateTime.UtcNow - cliente.SituacionCrediticiaUltimaConsultaUtc.Value).TotalDays < cacheDias;
+        }
+
+        private static bool TieneErrorTransitorioReciente(TheBuryProject.Models.Entities.Cliente cliente)
+        {
+            return cliente.SituacionCrediticiaUltimaConsultaUtc.HasValue
+                && cliente.SituacionCrediticiaConsultaOk == false
+                && (DateTime.UtcNow - cliente.SituacionCrediticiaUltimaConsultaUtc.Value) < ErrorRetryCooldown
+                && EsErrorTransitorioCacheable(cliente.SituacionCrediticiaDescripcion);
+        }
+
+        private static bool EsErrorTransitorioCacheable(string? descripcion)
+        {
+            if (string.IsNullOrWhiteSpace(descripcion))
+                return false;
+
+            return descripcion == DescripcionRateLimit
+                || descripcion == DescripcionTimeout
+                || descripcion == DescripcionErrorConexion
+                || descripcion == DescripcionRespuestaInvalida
+                || descripcion == DescripcionRespuestaSinResultados
+                || descripcion.StartsWith("Error API (", StringComparison.Ordinal);
         }
     }
 }
