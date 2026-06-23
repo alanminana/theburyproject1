@@ -38,11 +38,18 @@
     var bcraDot = !tieneCuil || !bcraOk ? "bg-slate-400" : bcraVal is 0 or 1 ? "bg-green-500" : bcraVal == 2 ? "bg-amber-500" : "bg-red-500";
     var bcraColor = !tieneCuil || !bcraOk ? "text-slate-400" : bcraVal is 0 or 1 ? "text-green-500" : bcraVal == 2 ? "text-amber-500" : "text-red-500";
     var bcraEstadoResumen = string.IsNullOrWhiteSpace(c.CuilCuit) ? "Sin CUIL" : bcraDesc;
+    var nivelAutomatico = panel?.Valores?.NivelCreditoAutomatico ?? c.NivelRiesgo;
+    var nivelManual = panel?.Valores?.NivelCreditoManual;
+    var nivelFinal = panel?.Valores?.NivelCreditoFinal ?? nivelAutomatico;
+    var fuenteNivel = string.Equals(panel?.Valores?.FuenteNivelCredito, "Manual", StringComparison.OrdinalIgnoreCase) ? "Manual" : "Automatico";
+    var tieneNivelManual = nivelManual.HasValue;
+    var motivoNivelManual = panel?.Valores?.MotivoNivelCreditoManual;
+    var nivelesDisponibles = panel?.NivelesDisponibles ?? new List<ClienteNivelCreditoOpcionViewModel>();
     var clienteNombre = string.IsNullOrWhiteSpace(c.NombreCompleto)
         ? $"{c.Apellido}, {c.Nombre}".Trim(' ', ',')
         : c.NombreCompleto;
     var iniciales = $"{(string.IsNullOrWhiteSpace(c.Apellido) ? "?" : c.Apellido.Trim()[0])}{(string.IsNullOrWhiteSpace(c.Nombre) ? "?" : c.Nombre.Trim()[0])}".ToUpperInvariant();
-    var puntaje = Math.Clamp((int)(panel?.PuntajeActual ?? 0), 0, 5);
+    var puntaje = Math.Clamp((int)nivelFinal, 0, 5);
     var pipClass = esNoApto ? "on-bad" : esRequiereAut ? "on-warn" : "on-ok";
     var progressClass = ProgressWidthClass(Convert.ToDouble(porcentajeLibre));
     var returnToDetails = Url.Action("Details", "Cliente", new { id = c.Id });
@@ -144,7 +151,7 @@ else
             <div class="kpi-foot">@porcentajeLibre.ToString("N0")% libre de @limiteTotal.ToString("C0")</div>
         </div>
         <div class="kpi @(esApto ? "kpi--ok" : esNoApto ? "kpi--bad" : esRequiereAut ? "kpi--warn" : string.Empty)">
-            <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">verified_user</span>Aptitud</div>
+            <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">verified_user</span>Estado de aptitud</div>
             <div class="kpi-value" style="font-size:1.3rem;margin-top:.5rem">@aptitudLabel</div>
             <div class="mt-2 flex items-center gap-2">
                 <span class="pips">
@@ -153,7 +160,7 @@ else
                         <span class="pip @(i <= puntaje ? pipClass : string.Empty)"></span>
                     }
                 </span>
-                <span class="text-xs muted-2">Puntaje @puntaje · @c.NivelRiesgo</span>
+                <span class="text-xs muted-2">Nivel final @puntaje / 5 · @fuenteNivel</span>
             </div>
         </div>
         <div class="kpi">
@@ -218,7 +225,7 @@ else
                 {
                     <input type="hidden" name="returnUrl" value="@returnUrl" />
                 }
-                <button type="submit" class="btn btn-soft btn-sm"><span class="material-symbols-outlined">refresh</span>Recalcular puntaje</button>
+                <button type="submit" class="btn btn-soft btn-sm"><span class="material-symbols-outlined">refresh</span>Recalcular scoring</button>
             </form>
         </div>
 
@@ -229,7 +236,7 @@ else
                     <span class="pip @(i <= Math.Clamp(c.PuntajeCliente, 0, 5) ? "on-ok" : string.Empty)"></span>
                 }
             </span>
-            <span class="text-sm text-white font-semibold">Puntaje @c.PuntajeCliente<span class="muted-2 font-normal"> / 5</span></span>
+            <span class="text-sm text-white font-semibold">Scoring @c.PuntajeCliente<span class="muted-2 font-normal"> / 5</span></span>
             <span class="chip @(c.PagaCreditosEnTermino ? "chip-ok" : "chip-warn")">
                 <span class="material-symbols-outlined">@(c.PagaCreditosEnTermino ? "task_alt" : "report")</span>@(c.PagaCreditosEnTermino ? "Paga en termino" : "Con atraso")
             </span>
@@ -259,7 +266,7 @@ else
         <div class="lg:col-span-2 space-y-4">
             <section class="card card-pad">
                 <div class="flex items-center justify-between gap-3 mb-4">
-                    <h2 class="font-semibold text-white flex items-center gap-2"><span class="material-symbols-outlined" style="color:#f5c518;font-size:20px">credit_score</span>Panel de credito</h2>
+                    <h2 class="font-semibold text-white flex items-center gap-2"><span class="material-symbols-outlined" style="color:#f5c518;font-size:20px">credit_score</span>Calificacion crediticia</h2>
                     <span class="chip @moraChip">@moraLabel</span>
                 </div>
 
@@ -270,30 +277,39 @@ else
                 else
                 {
                     <div class="result-card @resultTone">
-                        <div class="result-label">Limite disponible</div>
+                        <div class="result-label">Credito disponible</div>
                         <div class="result-value">@limiteDisponible.ToString("C0")</div>
                         <div class="mt-3 bar"><div class="bar-fill @(esNoApto ? "is-bad" : esRequiereAut ? "is-warn" : "is-ok") @progressClass"></div></div>
-                        <div class="mt-2 flex items-center justify-between text-xs muted-2"><span>Usado @limiteUsado.ToString("C0")</span><span>Limite total @limiteTotal.ToString("C0")</span></div>
+                        <div class="mt-2 flex items-center justify-between text-xs muted-2"><span>Saldo usado @limiteUsado.ToString("C0")</span><span>Limite asignado @limiteTotal.ToString("C0")</span></div>
                     </div>
                 }
 
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-4">
-                    <div class="minimetric"><div class="mm-label">Creditos activos</div><div class="mm-value num">@c.CreditosActivos</div></div>
-                    <div class="minimetric"><div class="mm-label">Creditos totales</div><div class="mm-value num">@c.CreditosTotales</div></div>
-                    <div class="minimetric"><div class="mm-label">Cuotas impagas</div><div class="mm-value num" style="color:@(c.CuotasImpagas > 0 ? "#fbbf24" : "#34d399")">@c.CuotasImpagas</div></div>
-                    <div class="minimetric"><div class="mm-label">Monto adeudado</div><div class="mm-value num">@((c.MontoAdeudado ?? 0m).ToString("C0"))</div></div>
+                    <div class="minimetric"><div class="mm-label">Nivel final</div><div class="mm-value num">@((int)nivelFinal)<span class="text-xs muted-2 font-normal"> / 5</span></div></div>
+                    <div class="minimetric"><div class="mm-label">Nivel automatico</div><div class="mm-value num">@((int)nivelAutomatico)<span class="text-xs muted-2 font-normal"> / 5</span></div></div>
+                    <div class="minimetric"><div class="mm-label">Nivel manual</div><div class="mm-value num">@(nivelManual.HasValue ? ((int)nivelManual.Value).ToString() : "-")</div></div>
+                    <div class="minimetric"><div class="mm-label">Comportamiento</div><div class="mm-value num">@c.PuntajeCliente<span class="text-xs muted-2 font-normal"> / 5</span></div></div>
                 </div>
                 <dl class="kv mt-4">
+                    <div class="kv-row"><dt>Estado de aptitud</dt><dd><span class="chip @aptitudChip">@aptitudLabel</span></dd></div>
+                    <div class="kv-row"><dt>Fuente del nivel</dt><dd><span class="chip @(tieneNivelManual ? "chip-warn" : "chip-ok")">@fuenteNivel</span></dd></div>
                     <div class="kv-row"><dt>Origen del limite</dt><dd>@Dash(panel?.Valores?.OrigenLimite)</dd></div>
-                    <div class="kv-row"><dt>Aptitud crediticia</dt><dd><span class="chip @aptitudChip">@aptitudLabel</span></dd></div>
-                    <div class="kv-row"><dt>Estado de mora</dt><dd><span class="chip @moraChip">@moraLabel</span></dd></div>
+                    <div class="kv-row"><dt>Documentacion</dt><dd>@(apt?.Documentacion?.Completa == true ? "Completa" : "Incompleta")</dd></div>
+                    <div class="kv-row"><dt>BCRA</dt><dd>@bcraEstadoResumen</dd></div>
+                    <div class="kv-row"><dt>Mora</dt><dd><span class="chip @moraChip">@moraLabel</span></dd></div>
+                    <div class="kv-row"><dt>Override manual</dt><dd>@(tieneNivelManual ? "Si" : "No")</dd></div>
+                    @if (tieneNivelManual && !string.IsNullOrWhiteSpace(motivoNivelManual))
+                    {
+                        <div class="kv-row"><dt>Motivo manual</dt><dd>@motivoNivelManual</dd></div>
+                    }
                     @if (apt?.Mora != null && apt.Mora.TieneMora)
                     {
                         <div class="kv-row"><dt>Monto en mora</dt><dd>@apt.Mora.MontoTotalMora.ToString("C0")</dd></div>
                     }
                 </dl>
-                <div class="mt-4 flex justify-end">
-                    <button type="button" class="btn btn-ghost btn-sm" data-cliente-open-limites><span class="material-symbols-outlined">tune</span>Limites por puntaje</button>
+                <div class="mt-4 flex justify-end gap-2 flex-wrap">
+                    <button type="button" class="btn btn-soft btn-sm" data-cliente-open-nivel-manual><span class="material-symbols-outlined">rule_settings</span>Asignar nivel manual</button>
+                    <button type="button" class="btn btn-ghost btn-sm" data-cliente-open-limites><span class="material-symbols-outlined">tune</span>Limites por nivel crediticio</button>
                 </div>
             </section>
 
@@ -497,6 +513,96 @@ else
 </main>
 
 <div id="limitesModalContainer"></div>
+
+<div id="nivelManualModal"
+     class="overlay hidden"
+     aria-labelledby="nivelManualModalTitle" aria-modal="true" role="dialog">
+    <div class="modal">
+        <div class="modal-card card" style="max-width:620px">
+            <div class="drawer-head">
+                <div class="avatar avatar-sm avatar--slate"><span class="material-symbols-outlined" style="font-size:17px">rule_settings</span></div>
+                <div class="min-w-0 flex-1">
+                    <h2 id="nivelManualModalTitle" class="sec-title">Asignar nivel manual</h2>
+                    <p class="sec-sub">El nivel manual pisa el calculo automatico hasta que se limpie.</p>
+                </div>
+                <button type="button" data-cliente-close-nivel-manual class="btn btn-ghost btn-sm" aria-label="Cerrar"><span class="material-symbols-outlined">close</span></button>
+            </div>
+            <form id="nivelManualForm"
+                  asp-action="AsignarNivelCreditoManual"
+                  method="post"
+                  data-saldo-usado="@limiteUsado.ToString(System.Globalization.CultureInfo.InvariantCulture)">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="clienteId" value="@c.Id" />
+                @if (!string.IsNullOrWhiteSpace(returnUrl))
+                {
+                    <input type="hidden" name="returnUrl" value="@returnUrl" />
+                }
+                <div class="drawer-body">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div class="minimetric">
+                            <div class="mm-label">Nivel actual</div>
+                            <div class="mm-value num">@((int)nivelFinal)<span class="text-xs muted-2 font-normal"> / 5</span></div>
+                        </div>
+                        <div class="minimetric">
+                            <div class="mm-label">Limite actual</div>
+                            <div class="mm-value num">@limiteTotal.ToString("C0")</div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-4 mt-4">
+                        <div>
+                            <label for="nivelCreditoManual" class="label">Nivel crediticio manual <span class="req">*</span></label>
+                            <select id="nivelCreditoManual" name="nivelCreditoManual" class="field" required>
+                                @foreach (var opcion in nivelesDisponibles)
+                                {
+                                    <option value="@((int)opcion.Nivel)"
+                                            data-limit="@opcion.LimiteMonto.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                            selected="@(nivelManual == opcion.Nivel ? "selected" : null)">
+                                        @opcion.Texto - @opcion.LimiteMonto.ToString("C0")
+                                    </option>
+                                }
+                            </select>
+                        </div>
+                        <div>
+                            <label for="nivelManualMotivo" class="label">Motivo <span class="req">*</span></label>
+                            <textarea id="nivelManualMotivo" name="motivo" rows="3" maxlength="1000" class="field" required placeholder="Describi por que se asigna este nivel"></textarea>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div class="minimetric">
+                                <div class="mm-label">Nuevo limite</div>
+                                <div class="mm-value num" id="nivelManualNuevoLimite">-</div>
+                            </div>
+                            <div class="minimetric">
+                                <div class="mm-label">Disponible estimado</div>
+                                <div class="mm-value num" id="nivelManualNuevoDisponible">-</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="drawer-foot">
+                    <button type="button" data-cliente-close-nivel-manual class="btn btn-ghost">Cancelar</button>
+                    <button type="submit" class="btn btn-primary"><span class="material-symbols-outlined">save</span>Guardar nivel</button>
+                </div>
+            </form>
+            @if (tieneNivelManual)
+            {
+                <form asp-action="LimpiarNivelCreditoManual" method="post" class="drawer-foot" style="border-top:1px solid rgba(255,255,255,.08)">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="clienteId" value="@c.Id" />
+                    @if (!string.IsNullOrWhiteSpace(returnUrl))
+                    {
+                        <input type="hidden" name="returnUrl" value="@returnUrl" />
+                    }
+                    <label for="limpiarNivelManualMotivo" class="sr-only">Motivo para limpiar</label>
+                    <input id="limpiarNivelManualMotivo" name="motivo" class="field" required maxlength="1000" placeholder="Motivo para limpiar el override" />
+                    <button type="submit" class="btn btn-ghost" style="color:#fbbf24;border-color:rgba(251,191,36,.35)">
+                        <span class="material-symbols-outlined">restart_alt</span>Volver al automatico
+                    </button>
+                </form>
+            }
+        </div>
+    </div>
+</div>
 
 <div id="rejectDocModal"
      class="overlay hidden"

@@ -1679,6 +1679,20 @@ namespace TheBuryProject.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
+                    b.Property<string>("MotivoNivelCreditoManual")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int?>("NivelCreditoManual")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("NivelCreditoManualAsignadoEnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("NivelCreditoManualAsignadoPor")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<DateTime?>("OverrideAprobadoEnUtc")
                         .HasColumnType("datetime2");
 
@@ -1706,6 +1720,8 @@ namespace TheBuryProject.Migrations
                             t.HasCheckConstraint("CK_ClientesCreditoConfiguraciones_ExcepcionVigencia", "[ExcepcionDesde] IS NULL OR [ExcepcionHasta] IS NULL OR [ExcepcionDesde] <= [ExcepcionHasta]");
 
                             t.HasCheckConstraint("CK_ClientesCreditoConfiguraciones_MontosNoNegativos", "([LimiteOverride] IS NULL OR [LimiteOverride] >= 0) AND ([ExcepcionDelta] IS NULL OR [ExcepcionDelta] >= 0)");
+
+                            t.HasCheckConstraint("CK_ClientesCreditoConfiguraciones_NivelCreditoManual", "[NivelCreditoManual] IS NULL OR ([NivelCreditoManual] >= 1 AND [NivelCreditoManual] <= 5)");
                         });
                 });
 

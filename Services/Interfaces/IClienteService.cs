@@ -1,4 +1,5 @@
 using TheBuryProject.Models.Entities;
+using TheBuryProject.Models.Enums;
 
 namespace TheBuryProject.Services.Interfaces
 {
@@ -20,5 +21,11 @@ namespace TheBuryProject.Services.Interfaces
         Task<bool> ExisteDocumentoAsync(string tipoDocumento, string numeroDocumento, int? excludeId = null);
         Task<Cliente?> GetByDocumentoAsync(string tipoDocumento, string numeroDocumento);
         Task ActualizarPuntajeRiesgoAsync(int clienteId, decimal nuevoPuntaje, string motivo);
+        Task<bool> AsignarNivelCreditoManualAsync(
+            int clienteId,
+            NivelRiesgoCredito nivel,
+            string motivo,
+            string usuario);
+        Task<bool> LimpiarNivelCreditoManualAsync(int clienteId, string motivo, string usuario);
     }
 }

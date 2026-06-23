@@ -258,5 +258,106 @@ namespace TheBuryProject.Services
                 "Puntaje de riesgo actualizado - ClienteId {ClienteId} - De {PuntajeAnterior} a {NuevoPuntaje} - Por {Usuario}",
                 clienteId, puntajeAnterior, nuevoPuntaje, actualizadoPor);
         }
+
+        public async Task<bool> AsignarNivelCreditoManualAsync(
+            int clienteId,
+            NivelRiesgoCredito nivel,
+            string motivo,
+            string usuario)
+        {
+            var cliente = await _context.Clientes
+                .FirstOrDefaultAsync(c => c.Id == clienteId && !c.IsDeleted);
+
+            if (cliente == null)
+                return false;
+
+            if (string.IsNullOrWhiteSpace(motivo))
+                throw new InvalidOperationException("El motivo del nivel manual es obligatorio.");
+
+            var config = await _context.ClientesCreditoConfiguraciones
+                .FirstOrDefaultAsync(c => c.ClienteId == clienteId);
+
+            if (config == null)
+            {
+                config = new ClienteCreditoConfiguracion
+                {
+                    ClienteId = clienteId,
+                    CreatedAt = DateTime.UtcNow
+                };
+                _context.ClientesCreditoConfiguraciones.Add(config);
+            }
+
+            var nivelAnterior = config.NivelCreditoManual;
+            config.NivelCreditoManual = nivel;
+            config.MotivoNivelCreditoManual = motivo.Trim();
+            config.NivelCreditoManualAsignadoPor = usuario;
+            config.NivelCreditoManualAsignadoEnUtc = DateTime.UtcNow;
+            config.UpdatedAt = DateTime.UtcNow;
+
+            _context.ClientesPuntajeHistorial.Add(new ClientePuntajeHistorial
+            {
+                ClienteId = clienteId,
+                Puntaje = (int)nivel,
+                NivelRiesgo = nivel,
+                Fecha = DateTime.UtcNow,
+                Origen = "NivelCreditoManual",
+                Observacion = nivelAnterior.HasValue
+                    ? $"Nivel manual actualizado de {(int)nivelAnterior.Value} a {(int)nivel}. Motivo: {motivo.Trim()}"
+                    : $"Nivel manual asignado a {(int)nivel}. Motivo: {motivo.Trim()}",
+                RegistradoPor = usuario
+            });
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Nivel crediticio manual asignado - ClienteId {ClienteId} - Nivel {Nivel} - Usuario {Usuario}",
+                clienteId, nivel, usuario);
+
+            return true;
+        }
+
+        public async Task<bool> LimpiarNivelCreditoManualAsync(int clienteId, string motivo, string usuario)
+        {
+            var cliente = await _context.Clientes
+                .FirstOrDefaultAsync(c => c.Id == clienteId && !c.IsDeleted);
+
+            if (cliente == null)
+                return false;
+
+            if (string.IsNullOrWhiteSpace(motivo))
+                throw new InvalidOperationException("El motivo para limpiar el nivel manual es obligatorio.");
+
+            var config = await _context.ClientesCreditoConfiguraciones
+                .FirstOrDefaultAsync(c => c.ClienteId == clienteId);
+
+            if (config == null || !config.NivelCreditoManual.HasValue)
+                return true;
+
+            var nivelAnterior = config.NivelCreditoManual.Value;
+            config.NivelCreditoManual = null;
+            config.MotivoNivelCreditoManual = null;
+            config.NivelCreditoManualAsignadoPor = null;
+            config.NivelCreditoManualAsignadoEnUtc = null;
+            config.UpdatedAt = DateTime.UtcNow;
+
+            _context.ClientesPuntajeHistorial.Add(new ClientePuntajeHistorial
+            {
+                ClienteId = clienteId,
+                Puntaje = cliente.PuntajeRiesgo,
+                NivelRiesgo = cliente.NivelRiesgo,
+                Fecha = DateTime.UtcNow,
+                Origen = "NivelCreditoManualLimpio",
+                Observacion = $"Nivel manual {(int)nivelAnterior} limpiado. Motivo: {motivo.Trim()}",
+                RegistradoPor = usuario
+            });
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Nivel crediticio manual limpiado - ClienteId {ClienteId} - NivelAnterior {NivelAnterior} - Usuario {Usuario}",
+                clienteId, nivelAnterior, usuario);
+
+            return true;
+        }
     }
 }

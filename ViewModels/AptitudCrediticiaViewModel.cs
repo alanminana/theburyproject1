@@ -75,6 +75,7 @@ namespace TheBuryProject.ViewModels
         public AptitudDocumentacionDetalle Documentacion { get; set; } = new();
         public AptitudCupoDetalle Cupo { get; set; } = new();
         public AptitudMoraDetalle Mora { get; set; } = new();
+        public AptitudBcraDetalle Bcra { get; set; } = new();
     }
 
     /// <summary>
@@ -129,6 +130,23 @@ namespace TheBuryProject.ViewModels
         public int CuotasVencidas { get; set; }
         public bool RequiereAutorizacion { get; set; }
         public bool EsBloqueante { get; set; }
+        public string Mensaje { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// Detalle de evaluación de situación BCRA (Central de Deudores).
+    /// Sólo actúa como bloqueo/revisión cuando la consulta fue exitosa y hay situación informada.
+    /// Situación 0/1 = normal; 2 = requiere revisión; >= 3 = no apto.
+    /// </summary>
+    public class AptitudBcraDetalle
+    {
+        /// <summary>True sólo cuando hay consulta válida y situación informada.</summary>
+        public bool Evaluada { get; set; }
+        public bool ConsultaOk { get; set; }
+        public int? Situacion { get; set; }
+        public string? Descripcion { get; set; }
+        public bool EsBloqueante { get; set; }        // situación >= 3
+        public bool RequiereAutorizacion { get; set; } // situación == 2
         public string Mensaje { get; set; } = string.Empty;
     }
 

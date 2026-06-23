@@ -12,7 +12,7 @@
                     <span class="material-symbols-outlined" style="font-size:17px">tune</span>
                 </div>
                 <div class="min-w-0 flex-1">
-                    <h2 id="limitesModalTitle" class="sec-title">Limites por puntaje</h2>
+                    <h2 id="limitesModalTitle" class="sec-title">Limites por nivel crediticio</h2>
                     <p class="sec-sub">Configuracion de monto maximo para cada nivel de riesgo crediticio.</p>
                 </div>
                 <button type="button" data-cliente-close-limites-modal class="btn btn-ghost btn-sm" aria-label="Cerrar">
@@ -42,7 +42,7 @@
                                     <div class="flex items-center gap-3">
                                         <span class="avatar avatar-sm @(isHighlight ? string.Empty : "avatar--slate")">@score</span>
                                         <div>
-                                            <div class="text-sm font-semibold text-white">Puntaje @score</div>
+                                            <div class="text-sm font-semibold text-white">Nivel @score</div>
                                             <div class="text-xs muted-2">@item.Puntaje</div>
                                         </div>
                                     </div>

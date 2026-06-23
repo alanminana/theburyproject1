@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using TheBuryProject.Helpers;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Models;
 
@@ -35,11 +36,24 @@ namespace TheBuryProject.ViewModels
 
         public CreditoDisponibleResultado Valores { get; set; } = new();
 
+        public List<ClienteNivelCreditoOpcionViewModel> NivelesDisponibles { get; set; } = new();
+
         public decimal PorcentajeLibre { get; set; }
 
         public bool TieneErrorConfiguracion { get; set; }
 
         public string? MensajeError { get; set; }
+    }
+
+    public class ClienteNivelCreditoOpcionViewModel
+    {
+        public NivelRiesgoCredito Nivel { get; set; }
+
+        public decimal LimiteMonto { get; set; }
+
+        public bool Activo { get; set; }
+
+        public string Texto => $"{(int)Nivel} - {Nivel.GetDisplayName()}";
     }
 
     /// <summary>

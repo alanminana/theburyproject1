@@ -188,6 +188,68 @@
             });
         });
 
+        var nivelManualModal = document.getElementById('nivelManualModal');
+        var nivelManualForm = document.getElementById('nivelManualForm');
+        var nivelManualSelect = document.getElementById('nivelCreditoManual');
+        var nivelManualNuevoLimite = document.getElementById('nivelManualNuevoLimite');
+        var nivelManualNuevoDisponible = document.getElementById('nivelManualNuevoDisponible');
+
+        function formatMoney(value) {
+            var amount = Number.isFinite(value) ? value : 0;
+            return amount.toLocaleString('es-AR', {
+                style: 'currency',
+                currency: 'ARS',
+                maximumFractionDigits: 0
+            });
+        }
+
+        function updateNivelManualPreview() {
+            if (!nivelManualSelect) return;
+
+            var selected = nivelManualSelect.options[nivelManualSelect.selectedIndex];
+            var limite = selected ? parseFloat(selected.getAttribute('data-limit') || '0') : 0;
+            var saldoUsado = nivelManualForm
+                ? parseFloat(nivelManualForm.getAttribute('data-saldo-usado') || '0')
+                : 0;
+            var disponible = Math.max(0, (Number.isFinite(limite) ? limite : 0) - (Number.isFinite(saldoUsado) ? saldoUsado : 0));
+
+            if (nivelManualNuevoLimite) nivelManualNuevoLimite.textContent = formatMoney(limite);
+            if (nivelManualNuevoDisponible) nivelManualNuevoDisponible.textContent = formatMoney(disponible);
+        }
+
+        function openNivelManualModal() {
+            if (!nivelManualModal) return;
+            updateNivelManualPreview();
+            nivelManualModal.classList.remove('hidden');
+            nivelManualModal.classList.add('flex');
+            if (nivelManualSelect) nivelManualSelect.focus();
+        }
+
+        function closeNivelManualModal() {
+            if (!nivelManualModal) return;
+            nivelManualModal.classList.add('hidden');
+            nivelManualModal.classList.remove('flex');
+        }
+
+        document.querySelectorAll('[data-cliente-open-nivel-manual]').forEach(function (button) {
+            button.addEventListener('click', openNivelManualModal);
+        });
+
+        document.querySelectorAll('[data-cliente-close-nivel-manual]').forEach(function (button) {
+            button.addEventListener('click', closeNivelManualModal);
+        });
+
+        if (nivelManualSelect) {
+            nivelManualSelect.addEventListener('change', updateNivelManualPreview);
+            updateNivelManualPreview();
+        }
+
+        if (nivelManualModal) {
+            nivelManualModal.addEventListener('click', function (event) {
+                if (event.target === nivelManualModal) closeNivelManualModal();
+            });
+        }
+
         var bcraButton = document.querySelector('[data-cliente-bcra-refresh]');
         if (bcraButton) {
             bcraButton.addEventListener('click', function () {
@@ -266,6 +328,7 @@
             if (event.key === 'Escape') {
                 closeUploadModal();
                 closeRejectModal();
+                closeNivelManualModal();
             }
         });
 

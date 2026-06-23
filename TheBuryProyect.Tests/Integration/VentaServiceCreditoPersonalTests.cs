@@ -162,7 +162,9 @@ public class VentaServiceCreditoPersonalTests
         return apertura;
     }
 
-    private static async Task<Cliente> SeedClienteAsync(AppDbContext ctx)
+    private static async Task<Cliente> SeedClienteAsync(
+        AppDbContext ctx,
+        NivelRiesgoCredito nivel = NivelRiesgoCredito.AprobadoTotal)
     {
         var cliente = new Cliente
         {
@@ -172,7 +174,8 @@ public class VentaServiceCreditoPersonalTests
             NumeroDocumento = Guid.NewGuid().ToString("N")[..10],
             Telefono = "1234567890",
             Domicilio = "Calle test",
-            NivelRiesgo = NivelRiesgoCredito.AprobadoTotal,
+            NivelRiesgo = nivel,
+            PuntajeRiesgo = (int)nivel * 2m,
             IsDeleted = false
         };
 
@@ -382,6 +385,44 @@ public class VentaServiceCreditoPersonalTests
                 .FirstAsync(v => v.Id == resultado.Id);
             Assert.Equal(2_420m, venta.Total);
             Assert.Equal(2_420m, Assert.Single(venta.Detalles).SubtotalFinal);
+        }
+    }
+
+    [Fact]
+    public async Task CreateAsync_CreditoPersonalConNivelManual_CapturaSnapshotConNivelFinal()
+    {
+        var (ctx, conn) = CreateDb();
+        await using (ctx) using (conn)
+        {
+            var apertura = await SeedCajaAsync(ctx);
+            var cliente = await SeedClienteAsync(ctx, NivelRiesgoCredito.AprobadoTotal);
+            var producto = await SeedProductoAsync(ctx, precioVenta: 1_210m);
+
+            var presetManual = await ctx.PuntajesCreditoLimite
+                .FirstAsync(p => p.Puntaje == NivelRiesgoCredito.Rechazado);
+            presetManual.LimiteMonto = 2_000m;
+
+            ctx.ClientesCreditoConfiguraciones.Add(new ClienteCreditoConfiguracion
+            {
+                ClienteId = cliente.Id,
+                NivelCreditoManual = NivelRiesgoCredito.Rechazado,
+                MotivoNivelCreditoManual = "Control manual test"
+            });
+            await ctx.SaveChangesAsync();
+
+            var svc = BuildService(
+                ctx,
+                new StubCajaServiceCP(apertura),
+                new StubValidacionVentaService(new ValidacionVentaResult { NoViable = false }));
+
+            var resultado = await svc.CreateAsync(CreditoPersonalViewModelConProducto(cliente.Id, producto));
+
+            var venta = await ctx.Ventas.AsNoTracking().FirstAsync(v => v.Id == resultado.Id);
+            Assert.Equal(2m, venta.PuntajeAlMomento);
+            Assert.Equal(presetManual.Id, venta.PresetIdAlMomento);
+            Assert.Equal(2_000m, venta.LimiteAplicado);
+            Assert.Null(venta.OverrideAlMomento);
+            Assert.Null(venta.ExcepcionAlMomento);
         }
     }
 

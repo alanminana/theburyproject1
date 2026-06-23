@@ -35,7 +35,7 @@ public class CreditoDisponibleServiceTests
             excepcionDeltaVigente: 15_000m);
 
         Assert.Equal(65_000m, limite);
-        Assert.Contains("Excepción", origen);
+        Assert.Contains("Excepcion", origen);
     }
 
     [Fact]
@@ -71,12 +71,17 @@ public class CreditoDisponibleServiceTests
         return (ctx, conn);
     }
 
+    private static async Task SetLimite(AppDbContext ctx, NivelRiesgoCredito nivel, decimal monto)
+    {
+        var preset = await ctx.PuntajesCreditoLimite.FirstAsync(p => p.Puntaje == nivel);
+        preset.LimiteMonto = monto;
+        await ctx.SaveChangesAsync();
+    }
+
     // Id 5 = AprobadoTotal en el seed. Actualiza LimiteMonto para el test.
     private static async Task SetLimiteAprobadoTotal(AppDbContext ctx, decimal monto)
     {
-        var preset = await ctx.PuntajesCreditoLimite.FindAsync(5);
-        preset!.LimiteMonto = monto;
-        await ctx.SaveChangesAsync();
+        await SetLimite(ctx, NivelRiesgoCredito.AprobadoTotal, monto);
     }
 
     private static Cliente BaseCliente(int id, NivelRiesgoCredito nivel = NivelRiesgoCredito.AprobadoTotal) =>
@@ -108,7 +113,7 @@ public class CreditoDisponibleServiceTests
             Assert.Equal(100_000m, resultado.Limite);
             Assert.Equal(100_000m, resultado.Disponible);
             Assert.Equal(0m, resultado.SaldoVigente);
-            Assert.Equal("Puntaje", resultado.OrigenLimite);
+            Assert.Equal("Nivel crediticio", resultado.OrigenLimite);
         }
     }
 
@@ -210,7 +215,7 @@ public class CreditoDisponibleServiceTests
             var resultado = await service.CalcularDisponibleAsync(1);
 
             Assert.Equal(150_000m, resultado.Limite);
-            Assert.Contains("Excepción", resultado.OrigenLimite);
+            Assert.Contains("Excepcion", resultado.OrigenLimite);
         }
     }
 
@@ -241,6 +246,67 @@ public class CreditoDisponibleServiceTests
             Assert.Equal(100_000m, resultado.Limite);
             Assert.Equal(30_000m, resultado.SaldoVigente);
             Assert.Equal(70_000m, resultado.Disponible);
+        }
+    }
+
+    [Fact]
+    public async Task CalcularDisponibleAsync_ConNivelManual_UsaLimiteDelNivelManual()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            await SetLimite(ctx, NivelRiesgoCredito.Rechazado, 0m);
+            await SetLimite(ctx, NivelRiesgoCredito.AprobadoCondicional, 90_000m);
+
+            ctx.Clientes.Add(BaseCliente(1, NivelRiesgoCredito.AprobadoCondicional));
+            await ctx.SaveChangesAsync();
+
+            ctx.ClientesCreditoConfiguraciones.Add(new ClienteCreditoConfiguracion
+            {
+                ClienteId = 1,
+                NivelCreditoManual = NivelRiesgoCredito.Rechazado,
+                MotivoNivelCreditoManual = "Caso de prueba"
+            });
+            await ctx.SaveChangesAsync();
+
+            var service = new CreditoDisponibleService(ctx, Microsoft.Extensions.Logging.Abstractions.NullLogger<TheBuryProject.Services.CreditoDisponibleService>.Instance);
+            var resultado = await service.CalcularDisponibleAsync(1);
+
+            Assert.Equal(NivelRiesgoCredito.AprobadoCondicional, resultado.NivelCreditoAutomatico);
+            Assert.Equal(NivelRiesgoCredito.Rechazado, resultado.NivelCreditoManual);
+            Assert.Equal(NivelRiesgoCredito.Rechazado, resultado.NivelCreditoFinal);
+            Assert.Equal("Manual", resultado.FuenteNivelCredito);
+            Assert.Equal(0m, resultado.Limite);
+            Assert.Equal(0m, resultado.Disponible);
+        }
+    }
+
+    [Fact]
+    public async Task CalcularDisponibleAsync_SinNivelManual_UsaNivelAutomatico()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            await SetLimite(ctx, NivelRiesgoCredito.Rechazado, 0m);
+            await SetLimite(ctx, NivelRiesgoCredito.AprobadoCondicional, 90_000m);
+
+            ctx.Clientes.Add(BaseCliente(1, NivelRiesgoCredito.AprobadoCondicional));
+            await ctx.SaveChangesAsync();
+
+            ctx.ClientesCreditoConfiguraciones.Add(new ClienteCreditoConfiguracion
+            {
+                ClienteId = 1
+            });
+            await ctx.SaveChangesAsync();
+
+            var service = new CreditoDisponibleService(ctx, Microsoft.Extensions.Logging.Abstractions.NullLogger<TheBuryProject.Services.CreditoDisponibleService>.Instance);
+            var resultado = await service.CalcularDisponibleAsync(1);
+
+            Assert.Null(resultado.NivelCreditoManual);
+            Assert.Equal(NivelRiesgoCredito.AprobadoCondicional, resultado.NivelCreditoFinal);
+            Assert.Equal("Automatico", resultado.FuenteNivelCredito);
+            Assert.Equal(90_000m, resultado.Limite);
+            Assert.Equal(90_000m, resultado.Disponible);
         }
     }
 }

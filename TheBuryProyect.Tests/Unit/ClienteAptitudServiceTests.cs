@@ -353,6 +353,158 @@ public class ClienteAptitudServiceTests
     }
 
     // -----------------------------------------------------------------------
+    // D2. BCRA → aptitud (clasificador puro ConstruirBcraDetalle, sin DB)
+    // -----------------------------------------------------------------------
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    public void ConstruirBcraDetalle_SituacionNormal_NoBloqueaNiRequiere(int situacion)
+    {
+        var d = ClienteAptitudService.ConstruirBcraDetalle(situacion, consultaOk: true, descripcion: "Normal");
+
+        Assert.True(d.Evaluada);
+        Assert.False(d.EsBloqueante);
+        Assert.False(d.RequiereAutorizacion);
+    }
+
+    [Fact]
+    public void ConstruirBcraDetalle_Situacion2_RequiereAutorizacion()
+    {
+        var d = ClienteAptitudService.ConstruirBcraDetalle(2, consultaOk: true, descripcion: null);
+
+        Assert.True(d.Evaluada);
+        Assert.True(d.RequiereAutorizacion);
+        Assert.False(d.EsBloqueante);
+    }
+
+    [Theory]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    public void ConstruirBcraDetalle_SituacionAltoRiesgo_EsBloqueante(int situacion)
+    {
+        var d = ClienteAptitudService.ConstruirBcraDetalle(situacion, consultaOk: true, descripcion: null);
+
+        Assert.True(d.Evaluada);
+        Assert.True(d.EsBloqueante);
+        Assert.False(d.RequiereAutorizacion);
+    }
+
+    [Fact]
+    public void ConstruirBcraDetalle_SinSituacion_NoEvaluada()
+    {
+        var d = ClienteAptitudService.ConstruirBcraDetalle(situacion: null, consultaOk: true, descripcion: null);
+
+        Assert.False(d.Evaluada);
+        Assert.False(d.EsBloqueante);
+        Assert.False(d.RequiereAutorizacion);
+    }
+
+    [Fact]
+    public void ConstruirBcraDetalle_ConsultaFallida_NoEvaluadaAunqueSituacionAlta()
+    {
+        // Consulta no confiable => no bloquear aunque el cache tenga situación alta.
+        var d = ClienteAptitudService.ConstruirBcraDetalle(5, consultaOk: false, descripcion: null);
+
+        Assert.False(d.Evaluada);
+        Assert.False(d.EsBloqueante);
+    }
+
+    // -----------------------------------------------------------------------
+    // D3. BCRA → aptitud (integración con EvaluarAptitudSinGuardarAsync)
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task Aptitud_BcraSituacion3_EstadoNoApto()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            ctx.Set<ConfiguracionCredito>().Add(ConfigSinValidaciones()); // sólo BCRA actúa
+            var cliente = BaseCliente(1);
+            cliente.SituacionCrediticiaBcra = 3;
+            cliente.SituacionCrediticiaConsultaOk = true;
+            ctx.Clientes.Add(cliente);
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            var resultado = await service.EvaluarAptitudSinGuardarAsync(1);
+
+            Assert.Equal(EstadoCrediticioCliente.NoApto, resultado.Estado);
+            Assert.Single(resultado.Detalles);
+            Assert.Equal("BCRA", resultado.Detalles[0].Categoria);
+            Assert.True(resultado.Detalles[0].EsBloqueo);
+        }
+    }
+
+    [Fact]
+    public async Task Aptitud_BcraSituacion2_RequiereAutorizacion()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            ctx.Set<ConfiguracionCredito>().Add(ConfigSinValidaciones());
+            var cliente = BaseCliente(1);
+            cliente.SituacionCrediticiaBcra = 2;
+            cliente.SituacionCrediticiaConsultaOk = true;
+            ctx.Clientes.Add(cliente);
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            var resultado = await service.EvaluarAptitudSinGuardarAsync(1);
+
+            Assert.Equal(EstadoCrediticioCliente.RequiereAutorizacion, resultado.Estado);
+            Assert.Single(resultado.Detalles);
+            Assert.Equal("BCRA", resultado.Detalles[0].Categoria);
+            Assert.False(resultado.Detalles[0].EsBloqueo);
+        }
+    }
+
+    [Fact]
+    public async Task Aptitud_BcraSituacion1Normal_AptoSinDetalles()
+    {
+        // Regresión: BCRA normal no debe agregar ruido a los detalles ni cambiar el estado.
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            ctx.Set<ConfiguracionCredito>().Add(ConfigSinValidaciones());
+            var cliente = BaseCliente(1);
+            cliente.SituacionCrediticiaBcra = 1;
+            cliente.SituacionCrediticiaConsultaOk = true;
+            ctx.Clientes.Add(cliente);
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            var resultado = await service.EvaluarAptitudSinGuardarAsync(1);
+
+            Assert.Equal(EstadoCrediticioCliente.Apto, resultado.Estado);
+            Assert.Empty(resultado.Detalles);
+        }
+    }
+
+    [Fact]
+    public async Task Aptitud_BcraSituacionAltaPeroConsultaFallida_NoBloquea()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            ctx.Set<ConfiguracionCredito>().Add(ConfigSinValidaciones());
+            var cliente = BaseCliente(1);
+            cliente.SituacionCrediticiaBcra = 4;
+            cliente.SituacionCrediticiaConsultaOk = false; // no confiable
+            ctx.Clientes.Add(cliente);
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            var resultado = await service.EvaluarAptitudSinGuardarAsync(1);
+
+            Assert.Equal(EstadoCrediticioCliente.Apto, resultado.Estado);
+            Assert.Empty(resultado.Detalles);
+        }
+    }
+
+    // -----------------------------------------------------------------------
     // E. ValidarLimiteCredito — sin cupo asignado → NoApto
     // -----------------------------------------------------------------------
 

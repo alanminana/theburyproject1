@@ -447,6 +447,86 @@ namespace TheBuryProject.Controllers
             }
         }
 
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "clientes", Accion = "managecreditlimits")]
+        public async Task<IActionResult> AsignarNivelCreditoManual(
+            int clienteId,
+            NivelRiesgoCredito nivelCreditoManual,
+            string motivo,
+            string? returnUrl = null)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(motivo))
+                {
+                    TempData["Error"] = "El motivo para asignar nivel manual es obligatorio.";
+                    return RedirectToAction(nameof(Details), new { id = clienteId, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
+                }
+
+                var exito = await _clienteService.AsignarNivelCreditoManualAsync(
+                    clienteId,
+                    nivelCreditoManual,
+                    motivo,
+                    _currentUser.GetUsername());
+
+                if (!exito)
+                {
+                    TempData["Error"] = "No se pudo asignar el nivel manual.";
+                    return RedirectToAction(nameof(Details), new { id = clienteId, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
+                }
+
+                await _aptitudService.EvaluarAptitudAsync(clienteId, guardarResultado: true);
+                TempData["Success"] = $"Nivel crediticio manual asignado: {(int)nivelCreditoManual}.";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al asignar nivel crediticio manual al cliente {ClienteId}", clienteId);
+                TempData["Error"] = "Error al asignar el nivel manual.";
+            }
+
+            return RedirectToAction(nameof(Details), new { id = clienteId, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "clientes", Accion = "managecreditlimits")]
+        public async Task<IActionResult> LimpiarNivelCreditoManual(
+            int clienteId,
+            string motivo,
+            string? returnUrl = null)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(motivo))
+                {
+                    TempData["Error"] = "El motivo para limpiar el nivel manual es obligatorio.";
+                    return RedirectToAction(nameof(Details), new { id = clienteId, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
+                }
+
+                var exito = await _clienteService.LimpiarNivelCreditoManualAsync(
+                    clienteId,
+                    motivo,
+                    _currentUser.GetUsername());
+
+                if (!exito)
+                {
+                    TempData["Error"] = "No se pudo limpiar el nivel manual.";
+                    return RedirectToAction(nameof(Details), new { id = clienteId, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
+                }
+
+                await _aptitudService.EvaluarAptitudAsync(clienteId, guardarResultado: true);
+                TempData["Success"] = "Nivel manual limpiado. El cliente vuelve al calculo automatico.";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al limpiar nivel crediticio manual del cliente {ClienteId}", clienteId);
+                TempData["Error"] = "Error al limpiar el nivel manual.";
+            }
+
+            return RedirectToAction(nameof(Details), new { id = clienteId, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
+        }
+
         /// <summary>
         /// Recalcula la aptitud crediticia del cliente.
         /// </summary>
@@ -537,10 +617,12 @@ namespace TheBuryProject.Controllers
 
             // Panel de visibilidad del crédito disponible
             detalleViewModel.CreditoDisponiblePanel.PuntajeActual = cliente.NivelRiesgo;
+            detalleViewModel.CreditoDisponiblePanel.NivelesDisponibles = await ConstruirOpcionesNivelCreditoAsync();
             try
             {
                 var valores = await _creditoDisponibleService.CalcularDisponibleAsync(cliente.Id);
                 detalleViewModel.CreditoDisponiblePanel.Valores = valores;
+                detalleViewModel.CreditoDisponiblePanel.PuntajeActual = valores.NivelCreditoFinal;
                 detalleViewModel.CreditoDisponiblePanel.PorcentajeLibre =
                     valores.Limite > 0 ? Math.Round(valores.Disponible / valores.Limite * 100, 0) : 0m;
             }
@@ -621,6 +703,25 @@ namespace TheBuryProject.Controllers
             }
 
             return new ClienteCreditoLimitesViewModel { Items = items };
+        }
+
+        private async Task<List<ClienteNivelCreditoOpcionViewModel>> ConstruirOpcionesNivelCreditoAsync()
+        {
+            var dbItems = await _creditoDisponibleService.GetAllLimitesPorPuntajeAsync();
+
+            return Enum.GetValues<NivelRiesgoCredito>()
+                .OrderBy(x => (int)x)
+                .Select(nivel =>
+                {
+                    var existente = dbItems.FirstOrDefault(x => x.Puntaje == nivel);
+                    return new ClienteNivelCreditoOpcionViewModel
+                    {
+                        Nivel = nivel,
+                        LimiteMonto = existente?.LimiteMonto ?? 0m,
+                        Activo = existente?.Activo ?? false
+                    };
+                })
+                .ToList();
         }
 
         private static void AplicarSituacionBcra(ClienteViewModel vm, SituacionBcraResult resultado)

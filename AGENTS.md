@@ -3,6 +3,8 @@
 > Archivo compartido para Codex, Claude Code y otros agentes.
 > Debe mantenerse corto, estable y accionable.
 > El estado de fases, diagnosticos y checklists largos vive en `docs/`, handoffs o issues.
+>
+> **Coordinación entre agentes (lotes abiertos, no pisarse): leer `COORDINACION-AGENTES.md` antes de tocar código.**
 
 ## Rol
 

@@ -68,10 +68,11 @@ namespace TheBuryProject.Services
                 return resultado;
             }
 
-            // Ejecutar las tres evaluaciones
+            // Ejecutar las evaluaciones
             resultado.Documentacion = await EvaluarDocumentacionInternaAsync(clienteId, config);
             resultado.Cupo = await EvaluarCupoInternoAsync(clienteId, config);
             resultado.Mora = await EvaluarMoraInternaAsync(clienteId, config);
+            resultado.Bcra = await EvaluarBcraInternaAsync(clienteId);
 
             // Consolidar resultado
             DeterminarEstadoFinal(resultado, config);
@@ -185,6 +186,23 @@ namespace TheBuryProject.Services
                     requiereAutorizacion = true;
                     motivos.Add($"Tiene mora: {resultado.Mora.DiasMaximoMora} días");
                     detalles.Add(CrearDetalle("Mora", $"Cliente en mora ({resultado.Mora.DiasMaximoMora} días) - Requiere autorización de supervisor", false, "bi-clock-history", "warning"));
+                }
+            }
+
+            // Evaluar BCRA (Central de Deudores). Bloqueo duro independiente de los flags de config:
+            // sólo actúa cuando hay consulta válida con situación informada (sin dato => no bloquea).
+            if (resultado.Bcra.Evaluada)
+            {
+                if (resultado.Bcra.EsBloqueante)
+                {
+                    esNoApto = true;
+                    RegistrarHallazgo(detalles, motivos, $"BCRA situación {resultado.Bcra.Situacion}: riesgo alto", "BCRA", $"Situación BCRA {resultado.Bcra.Situacion} (riesgo alto / irrecuperable)", true, "bi-bank", "danger");
+                }
+                else if (resultado.Bcra.RequiereAutorizacion)
+                {
+                    requiereAutorizacion = true;
+                    motivos.Add($"BCRA situación {resultado.Bcra.Situacion}: requiere revisión");
+                    detalles.Add(CrearDetalle("BCRA", $"Situación BCRA {resultado.Bcra.Situacion} - Requiere revisión de supervisor", false, "bi-bank", "warning"));
                 }
             }
 
@@ -414,6 +432,59 @@ namespace TheBuryProject.Services
                 : $"Cupo insuficiente. Disponible: {resultado.CupoDisponible:C0}";
 
             return resultado;
+        }
+
+        private async Task<AptitudBcraDetalle> EvaluarBcraInternaAsync(int clienteId)
+        {
+            var cliente = await _context.Clientes
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.Id == clienteId && !c.IsDeleted);
+
+            return ConstruirBcraDetalle(
+                cliente?.SituacionCrediticiaBcra,
+                cliente?.SituacionCrediticiaConsultaOk,
+                cliente?.SituacionCrediticiaDescripcion);
+        }
+
+        /// <summary>
+        /// Clasifica la situación BCRA en aptitud. Lógica pura (sin DB) para test directo.
+        /// Sin consulta válida o sin situación informada => Evaluada=false (no bloquea).
+        /// Situación 0/1 normal; 2 requiere revisión; >= 3 no apto.
+        /// </summary>
+        internal static AptitudBcraDetalle ConstruirBcraDetalle(int? situacion, bool? consultaOk, string? descripcion)
+        {
+            var detalle = new AptitudBcraDetalle
+            {
+                ConsultaOk = consultaOk == true,
+                Situacion = situacion,
+                Descripcion = descripcion
+            };
+
+            if (consultaOk != true || !situacion.HasValue)
+            {
+                detalle.Evaluada = false;
+                detalle.Mensaje = "BCRA sin consultar o sin CUIL/CUIT disponible";
+                return detalle;
+            }
+
+            detalle.Evaluada = true;
+
+            if (situacion.Value <= 1)
+            {
+                detalle.Mensaje = $"Situación BCRA {situacion.Value}: normal";
+            }
+            else if (situacion.Value == 2)
+            {
+                detalle.RequiereAutorizacion = true;
+                detalle.Mensaje = $"Situación BCRA {situacion.Value}: requiere revisión";
+            }
+            else
+            {
+                detalle.EsBloqueante = true;
+                detalle.Mensaje = $"Situación BCRA {situacion.Value}: riesgo alto / no apto";
+            }
+
+            return detalle;
         }
 
         public async Task<AptitudMoraDetalle> EvaluarMoraAsync(int clienteId)

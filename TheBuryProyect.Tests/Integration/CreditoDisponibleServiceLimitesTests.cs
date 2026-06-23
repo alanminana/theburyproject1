@@ -121,7 +121,7 @@ public class CreditoDisponibleServiceLimitesTests : IDisposable
         var (ok, errores) = await _service.GuardarLimitesPorPuntajeAsync(items, "admin");
 
         Assert.False(ok);
-        Assert.Contains(errores, e => e.Contains("números enteros"));
+        Assert.Contains(errores, e => e.Contains("numeros enteros"));
     }
 
     // -------------------------------------------------------------------------

@@ -387,6 +387,79 @@ public class ClienteServiceTests : IDisposable
     }
 
     // -------------------------------------------------------------------------
+    // Nivel crediticio manual
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task AsignarNivelCreditoManual_ClienteExistente_PersisteYRegistraHistorial()
+    {
+        var cliente = await SeedClienteAsync(nivel: NivelRiesgoCredito.AprobadoCondicional);
+
+        var resultado = await _service.AsignarNivelCreditoManualAsync(
+            cliente.Id,
+            NivelRiesgoCredito.Rechazado,
+            "Control manual",
+            "supervisor");
+
+        Assert.True(resultado);
+
+        _context.ChangeTracker.Clear();
+        var config = await _context.ClientesCreditoConfiguraciones
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.ClienteId == cliente.Id);
+
+        Assert.NotNull(config);
+        Assert.Equal(NivelRiesgoCredito.Rechazado, config!.NivelCreditoManual);
+        Assert.Equal("Control manual", config.MotivoNivelCreditoManual);
+        Assert.Equal("supervisor", config.NivelCreditoManualAsignadoPor);
+        Assert.NotNull(config.NivelCreditoManualAsignadoEnUtc);
+
+        var historial = await _context.ClientesPuntajeHistorial
+            .AsNoTracking()
+            .FirstOrDefaultAsync(h => h.ClienteId == cliente.Id && h.Origen == "NivelCreditoManual");
+
+        Assert.NotNull(historial);
+        Assert.Equal(NivelRiesgoCredito.Rechazado, historial!.NivelRiesgo);
+        Assert.Equal("supervisor", historial.RegistradoPor);
+    }
+
+    [Fact]
+    public async Task LimpiarNivelCreditoManual_ClienteExistente_LimpiaOverrideYRegistraHistorial()
+    {
+        var cliente = await SeedClienteAsync(nivel: NivelRiesgoCredito.AprobadoCondicional);
+        await _service.AsignarNivelCreditoManualAsync(
+            cliente.Id,
+            NivelRiesgoCredito.Rechazado,
+            "Control manual",
+            "supervisor");
+
+        var resultado = await _service.LimpiarNivelCreditoManualAsync(
+            cliente.Id,
+            "Fin de excepcion",
+            "supervisor2");
+
+        Assert.True(resultado);
+
+        _context.ChangeTracker.Clear();
+        var config = await _context.ClientesCreditoConfiguraciones
+            .AsNoTracking()
+            .FirstAsync(c => c.ClienteId == cliente.Id);
+
+        Assert.Null(config.NivelCreditoManual);
+        Assert.Null(config.MotivoNivelCreditoManual);
+        Assert.Null(config.NivelCreditoManualAsignadoPor);
+        Assert.Null(config.NivelCreditoManualAsignadoEnUtc);
+
+        var historial = await _context.ClientesPuntajeHistorial
+            .AsNoTracking()
+            .FirstOrDefaultAsync(h => h.ClienteId == cliente.Id && h.Origen == "NivelCreditoManualLimpio");
+
+        Assert.NotNull(historial);
+        Assert.Equal(NivelRiesgoCredito.AprobadoCondicional, historial!.NivelRiesgo);
+        Assert.Equal("supervisor2", historial.RegistradoPor);
+    }
+
+    // -------------------------------------------------------------------------
     // SearchAsync
     // -------------------------------------------------------------------------
 

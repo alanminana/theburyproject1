@@ -340,29 +340,41 @@ namespace TheBuryProject.Services
                 return;
             }
 
-            venta.PuntajeAlMomento = cliente.PuntajeRiesgo;
-
             var config = await _context.ClientesCreditoConfiguraciones
                 .AsNoTracking()
                 .FirstOrDefaultAsync(c => c.ClienteId == cliente.Id);
 
-            PuntajeCreditoLimite? preset = null;
+            var nivelFinal = config?.NivelCreditoManual ?? cliente.NivelRiesgo;
+            venta.PuntajeAlMomento = (int)nivelFinal * 2m;
 
-            if (config?.CreditoPresetId.HasValue == true)
+            PuntajeCreditoLimite? preset = null;
+            decimal? limiteOverride = null;
+            decimal excepcionDelta = 0m;
+
+            if (config?.NivelCreditoManual.HasValue == true)
             {
                 preset = await _context.PuntajesCreditoLimite
                     .AsNoTracking()
-                    .FirstOrDefaultAsync(p => p.Id == config.CreditoPresetId.Value && p.Activo);
+                    .FirstOrDefaultAsync(p => p.Puntaje == config.NivelCreditoManual.Value && p.Activo);
+            }
+            else
+            {
+                if (config?.CreditoPresetId.HasValue == true)
+                {
+                    preset = await _context.PuntajesCreditoLimite
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(p => p.Id == config.CreditoPresetId.Value && p.Activo);
+                }
+
+                preset ??= await _context.PuntajesCreditoLimite
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(p => p.Puntaje == cliente.NivelRiesgo && p.Activo);
+
+                limiteOverride = config?.LimiteOverride ?? cliente.LimiteCredito;
+                excepcionDelta = ObtenerExcepcionDeltaVigente(config, DateTime.UtcNow);
             }
 
-            preset ??= await _context.PuntajesCreditoLimite
-                .AsNoTracking()
-                .FirstOrDefaultAsync(p => p.Puntaje == cliente.NivelRiesgo && p.Activo);
-
             var limiteBase = preset?.LimiteMonto ?? 0m;
-            var limiteOverride = config?.LimiteOverride ?? cliente.LimiteCredito;
-            var excepcionDelta = ObtenerExcepcionDeltaVigente(config, DateTime.UtcNow);
-
             var limiteEfectivo = CreditoDisponibleService
                 .CalcularLimiteEfectivo(limiteBase, limiteOverride, excepcionDelta)
                 .Limite;

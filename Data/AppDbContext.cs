@@ -870,6 +870,8 @@ namespace TheBuryProject.Data
                 entity.Property(e => e.LimiteOverride).HasPrecision(18, 2);
                 entity.Property(e => e.ExcepcionDelta).HasPrecision(18, 2);
 
+                entity.Property(e => e.MotivoNivelCreditoManual).HasMaxLength(1000);
+                entity.Property(e => e.NivelCreditoManualAsignadoPor).HasMaxLength(200);
                 entity.Property(e => e.MotivoExcepcion).HasMaxLength(1000);
                 entity.Property(e => e.MotivoOverride).HasMaxLength(1000);
                 entity.Property(e => e.AprobadoPor).HasMaxLength(200);
@@ -896,6 +898,10 @@ namespace TheBuryProject.Data
                     t.HasCheckConstraint(
                         "CK_ClientesCreditoConfiguraciones_MontosNoNegativos",
                         "([LimiteOverride] IS NULL OR [LimiteOverride] >= 0) AND ([ExcepcionDelta] IS NULL OR [ExcepcionDelta] >= 0)");
+
+                    t.HasCheckConstraint(
+                        "CK_ClientesCreditoConfiguraciones_NivelCreditoManual",
+                        "[NivelCreditoManual] IS NULL OR ([NivelCreditoManual] >= 1 AND [NivelCreditoManual] <= 5)");
                 });
             });
 

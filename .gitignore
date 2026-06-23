@@ -35,6 +35,7 @@ test-results/
 graphify-out/
 
 # Temporary build artifacts and local verification files
+artifacts/
 obj2/
 *_build_check/
 npm-verificacion-*.txt

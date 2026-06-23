@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using TheBuryProject.Models.Enums;
 
 namespace TheBuryProject.Models.Entities
 {
@@ -14,6 +15,16 @@ namespace TheBuryProject.Models.Entities
         public int? CreditoPresetId { get; set; }
 
         public decimal? LimiteOverride { get; set; }
+
+        public NivelRiesgoCredito? NivelCreditoManual { get; set; }
+
+        [StringLength(1000)]
+        public string? MotivoNivelCreditoManual { get; set; }
+
+        [StringLength(200)]
+        public string? NivelCreditoManualAsignadoPor { get; set; }
+
+        public DateTime? NivelCreditoManualAsignadoEnUtc { get; set; }
 
         public decimal? ExcepcionDelta { get; set; }
         public DateTime? ExcepcionDesde { get; set; }
