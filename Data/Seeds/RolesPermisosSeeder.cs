@@ -211,7 +211,10 @@ public static class RolesPermisosSeeder
                 ("Abrir", "open", 2),
                 ("Cerrar", "close", 3),
                 ("Movimientos", "movements", 4),
-                ("Ver Historial", "history", 5)
+                ("Ver Historial", "history", 5),
+                ("Crear", "create", 6),
+                ("Editar", "update", 7),
+                ("Eliminar", "delete", 8)
             }),
 
             // AUTORIZACIONES

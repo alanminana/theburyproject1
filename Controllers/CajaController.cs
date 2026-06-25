@@ -65,11 +65,13 @@ namespace TheBuryProject.Controllers
             return View("Index_tw", viewModel);
         }
 
+        [PermisoRequerido(Modulo = "caja", Accion = "create")]
         public IActionResult Create()
         {
             return View("Create_tw");
         }
 
+        [PermisoRequerido(Modulo = "caja", Accion = "create")]
         public IActionResult CreatePartial()
         {
             return PartialView("_CreateModal_tw", new CajaViewModel());
@@ -77,6 +79,7 @@ namespace TheBuryProject.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "caja", Accion = "create")]
         public async Task<IActionResult> Create(CajaViewModel model)
         {
             var isAjax = Request.Headers.XRequestedWith == "XMLHttpRequest";
@@ -106,6 +109,7 @@ namespace TheBuryProject.Controllers
             }
         }
 
+        [PermisoRequerido(Modulo = "caja", Accion = "update")]
         public async Task<IActionResult> Edit(int id)
         {
             var caja = await _cajaService.ObtenerCajaPorIdAsync(id);
@@ -121,6 +125,7 @@ namespace TheBuryProject.Controllers
             return View("Edit_tw", model);
         }
 
+        [PermisoRequerido(Modulo = "caja", Accion = "update")]
         public async Task<IActionResult> EditPartial(int id)
         {
             var caja = await _cajaService.ObtenerCajaPorIdAsync(id);
@@ -135,6 +140,7 @@ namespace TheBuryProject.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "caja", Accion = "update")]
         public async Task<IActionResult> Edit(int id, CajaViewModel model)
         {
             var isAjax = Request.Headers.XRequestedWith == "XMLHttpRequest";
@@ -191,6 +197,7 @@ namespace TheBuryProject.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "caja", Accion = "delete")]
         public async Task<IActionResult> Delete(int id, byte[]? rowVersion)
         {
             try
@@ -238,6 +245,7 @@ namespace TheBuryProject.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "caja", Accion = "open")]
         public async Task<IActionResult> Abrir(AbrirCajaViewModel model)
         {
             if (!ModelState.IsValid)
@@ -297,6 +305,7 @@ namespace TheBuryProject.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "caja", Accion = "movements")]
         public async Task<IActionResult> RegistrarMovimiento(MovimientoCajaViewModel model)
         {
             if (!ModelState.IsValid)
@@ -382,6 +391,7 @@ namespace TheBuryProject.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "caja", Accion = "close")]
         public async Task<IActionResult> Cerrar(CerrarCajaViewModel model, string? returnUrl = null)
         {
             if (!ModelState.IsValid)
@@ -475,14 +485,14 @@ namespace TheBuryProject.Controllers
 
         /// <summary>
         /// Capacidad de administracion de caja para la UI: roles administrativos
-        /// (SuperAdmin/Administrador) o cualquier usuario con permiso caja/edit.
+        /// (SuperAdmin/Administrador) o cualquier usuario con permiso caja/update.
         /// Refleja "el admin o el usuario que tenga los permisos" y se mantiene
-        /// alineada con la politica del servidor (el modulo ya exige caja/view).
+        /// alineada con el gating por accion de los POST de escritura (create/update/delete).
         /// </summary>
         private bool EsAdminCaja() =>
             _currentUser.IsInRole(Roles.SuperAdmin)
             || _currentUser.IsInRole(Roles.Administrador)
-            || _currentUser.HasPermission("caja", "edit");
+            || _currentUser.HasPermission("caja", "update");
 
         private async Task<List<Caja>> SetCajasActivasSelectListAsync(int? selectedId)
         {
