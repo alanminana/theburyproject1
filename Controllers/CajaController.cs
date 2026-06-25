@@ -19,17 +19,20 @@ namespace TheBuryProject.Controllers
     public class CajaController : Controller
     {
         private readonly ICajaService _cajaService;
+        private readonly ICajaVendedorService _cajaVendedorService;
         private readonly ICurrentUserService _currentUser;
         private readonly ILogger<CajaController> _logger;
         private readonly IMapper _mapper;
 
         public CajaController(
             ICajaService cajaService,
+            ICajaVendedorService cajaVendedorService,
             ICurrentUserService currentUser,
             ILogger<CajaController> logger,
             IMapper mapper)
         {
             _cajaService = cajaService;
+            _cajaVendedorService = cajaVendedorService;
             _currentUser = currentUser;
             _logger = logger;
             _mapper = mapper;
@@ -49,11 +52,15 @@ namespace TheBuryProject.Controllers
             {
                 CajasActivas = cajas.Where(c => c.Activa).ToList(),
                 CajasInactivas = cajas.Where(c => !c.Activa).ToList(),
-                AperturasAbiertas = aperturasAbiertas
+                AperturasAbiertas = aperturasAbiertas,
+                // Efectivo esperado calculado por el backend (misma logica que el detalle/cierre)
+                ResumenFisicoPorApertura = aperturasAbiertas.ToDictionary(
+                    a => a.Id,
+                    a => Services.CajaService.CalcularResumenFisico(a))
             };
 
             ViewBag.CurrentUser = _currentUser.GetUsername();
-            ViewBag.EsAdmin = _currentUser.IsInRole("SuperAdmin");
+            ViewBag.EsAdmin = EsAdminCaja();
 
             return View("Index_tw", viewModel);
         }
@@ -121,6 +128,8 @@ namespace TheBuryProject.Controllers
                 return NotFound();
 
             var model = _mapper.Map<CajaViewModel>(caja);
+            model.VendedoresDisponibles = await _cajaVendedorService.ObtenerVendedoresDisponiblesAsync();
+            model.VendedorIds = await _cajaVendedorService.ObtenerVendedorIdsAsignadosAsync(id);
             return PartialView("_EditModal_tw", model);
         }
 
@@ -158,6 +167,13 @@ namespace TheBuryProject.Controllers
             try
             {
                 await _cajaService.ActualizarCajaAsync(id, model);
+
+                // Padrón de vendedores: solo cuando el formulario lo gestionó (modal de edición).
+                if (model.VendedoresGestionados)
+                {
+                    await _cajaVendedorService.AsignarVendedoresAsync(id, model.VendedorIds ?? new List<string>(), _currentUser.GetUsername());
+                }
+
                 if (isAjax)
                     return Json(new { ok = true, entity = new { id = model.Id, codigo = model.Codigo, nombre = model.Nombre, sucursal = model.Sucursal, ubicacion = model.Ubicacion, activa = model.Activa } });
                 TempData["Success"] = "Caja actualizada exitosamente";
@@ -345,9 +361,9 @@ namespace TheBuryProject.Controllers
                 {
                     AperturaCajaId = aperturaId,
                     MontoInicialSistema = detalles.Apertura.MontoInicial,
-                    TotalIngresosSistema = detalles.TotalIngresos,
-                    TotalEgresosSistema = detalles.TotalEgresos,
-                    MontoEsperadoSistema = detalles.SaldoActual,
+                    TotalIngresosSistema = detalles.TotalIngresosFisicos,
+                    TotalEgresosSistema = detalles.TotalEgresosFisicos,
+                    MontoEsperadoSistema = detalles.CajaFisicaEsperada,
                     CajaNombre = detalles.Apertura.Caja.Nombre,
                     FechaApertura = detalles.Apertura.FechaApertura,
                     UsuarioApertura = detalles.Apertura.UsuarioApertura,
@@ -415,7 +431,7 @@ namespace TheBuryProject.Controllers
                 var detalles = await _cajaService.ObtenerDetallesAperturaAsync(id);
 
                 ViewBag.CurrentUser = _currentUser.GetUsername();
-                ViewBag.EsAdmin = _currentUser.IsInRole("SuperAdmin");
+                ViewBag.EsAdmin = EsAdminCaja();
 
                 return View("DetallesApertura_tw", detalles);
             }
@@ -457,6 +473,17 @@ namespace TheBuryProject.Controllers
 
         #region Helpers
 
+        /// <summary>
+        /// Capacidad de administracion de caja para la UI: roles administrativos
+        /// (SuperAdmin/Administrador) o cualquier usuario con permiso caja/edit.
+        /// Refleja "el admin o el usuario que tenga los permisos" y se mantiene
+        /// alineada con la politica del servidor (el modulo ya exige caja/view).
+        /// </summary>
+        private bool EsAdminCaja() =>
+            _currentUser.IsInRole(Roles.SuperAdmin)
+            || _currentUser.IsInRole(Roles.Administrador)
+            || _currentUser.HasPermission("caja", "edit");
+
         private async Task<List<Caja>> SetCajasActivasSelectListAsync(int? selectedId)
         {
             var cajas = await _cajaService.ObtenerTodasCajasAsync();
@@ -485,6 +512,10 @@ namespace TheBuryProject.Controllers
         private async Task TryPopulateCerrarModelAsync(CerrarCajaViewModel model)
         {
             var detalles = await _cajaService.ObtenerDetallesAperturaAsync(model.AperturaCajaId);
+            model.MontoInicialSistema = detalles.Apertura.MontoInicial;
+            model.TotalIngresosSistema = detalles.TotalIngresosFisicos;
+            model.TotalEgresosSistema = detalles.TotalEgresosFisicos;
+            model.MontoEsperadoSistema = detalles.CajaFisicaEsperada;
             model.CajaNombre = detalles.Apertura.Caja.Nombre;
             model.FechaApertura = detalles.Apertura.FechaApertura;
             model.UsuarioApertura = detalles.Apertura.UsuarioApertura;

@@ -51,6 +51,20 @@ public class CajaViewModel
 
     [Display(Name = "Estado")]
     public EstadoCaja Estado { get; set; }
+
+    // ── Padrón de vendedores (solo Edit; control/visibilidad, sin enforcement) ──
+
+    /// <summary>Ids de vendedores seleccionados para esta caja.</summary>
+    public List<string> VendedorIds { get; set; } = new();
+
+    /// <summary>Usuarios con rol Vendedor disponibles para asignar (para render del formulario).</summary>
+    public List<TheBuryProject.Services.Interfaces.UsuarioSelectItem> VendedoresDisponibles { get; set; } = new();
+
+    /// <summary>
+    /// Marca que el formulario gestionó el padrón de vendedores (lo envía el modal de edición).
+    /// Evita que flujos que no incluyen el campo borren las asignaciones existentes.
+    /// </summary>
+    public bool VendedoresGestionados { get; set; }
 }
 
 /// <summary>
@@ -173,6 +187,18 @@ public class CerrarCajaViewModel
 }
 
 /// <summary>
+/// Resumen de caja fisica (efectivo) de una apertura, calculado por el backend.
+/// Misma logica que CajaFisicaEsperada del detalle y del cierre: el frontend no recalcula.
+/// </summary>
+public class AperturaFisicoResumen
+{
+    public decimal IngresosFisicos { get; set; }
+    public decimal EgresosFisicos { get; set; }
+    /// <summary>Fondo inicial + ingresos efectivos - egresos efectivos.</summary>
+    public decimal CajaFisicaEsperada { get; set; }
+}
+
+/// <summary>
 /// ViewModel para lista de cajas
 /// </summary>
 public class CajasListViewModel
@@ -180,6 +206,13 @@ public class CajasListViewModel
     public IList<AperturaCaja> AperturasAbiertas { get; set; } = new List<AperturaCaja>();
     public IList<Caja> CajasActivas { get; set; } = new List<Caja>();
     public IList<Caja> CajasInactivas { get; set; } = new List<Caja>();
+
+    /// <summary>
+    /// Resumen de efectivo esperado por apertura (clave: AperturaCaja.Id), calculado por el service.
+    /// Index lo consume para mostrar el mismo valor que el detalle de apertura.
+    /// </summary>
+    public IDictionary<int, AperturaFisicoResumen> ResumenFisicoPorApertura { get; set; }
+        = new Dictionary<int, AperturaFisicoResumen>();
 }
 /// <summary>
 /// Resumen de totales agrupados por tipo de pago dentro de una apertura de caja.
@@ -227,6 +260,18 @@ public class DetallesAperturaViewModel
     public decimal SaldoPendienteAcreditacion { get; set; }
     public decimal TotalIngresos { get; set; }
     public decimal TotalEgresos { get; set; }
+    /// <summary>Total de ingresos que impactan la caja fisica (efectivo).</summary>
+    public decimal TotalIngresosFisicos { get; set; }
+    /// <summary>Total de egresos que impactan la caja fisica (efectivo).</summary>
+    public decimal TotalEgresosFisicos { get; set; }
+    /// <summary>Total de ingresos no fisicos: tarjeta, Mercado Pago, transferencia, cheque u otros medios digitales.</summary>
+    public decimal TotalIngresosDigitales { get; set; }
+    /// <summary>Total de egresos no fisicos.</summary>
+    public decimal TotalEgresosDigitales { get; set; }
+    /// <summary>Monto esperado en caja fisica: fondo inicial + ingresos efectivos - egresos efectivos.</summary>
+    public decimal CajaFisicaEsperada { get; set; }
+    /// <summary>Neto no fisico registrado en el turno.</summary>
+    public decimal TotalDigitalNeto => TotalIngresosDigitales - TotalEgresosDigitales;
     public decimal TotalRecargoDebito { get; set; }
     public int CantidadMovimientos { get; set; }
     /// <summary>

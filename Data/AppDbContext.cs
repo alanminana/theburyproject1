@@ -101,6 +101,7 @@ namespace TheBuryProject.Data
         public DbSet<AperturaCaja> AperturasCaja { get; set; }
         public DbSet<MovimientoCaja> MovimientosCaja { get; set; }
         public DbSet<CierreCaja> CierresCaja { get; set; }
+        public DbSet<CajaVendedor> CajaVendedores { get; set; }
 
         public DbSet<Notificacion> Notificaciones { get; set; }
 
@@ -2018,6 +2019,24 @@ namespace TheBuryProject.Data
                 entity.HasIndex(e => e.Codigo)
                     .IsUnique()
                     .HasFilter("IsDeleted = 0");
+            });
+
+            // =======================
+            // CajaVendedor (N:N Caja <-> Vendedor)
+            // =======================
+            modelBuilder.Entity<CajaVendedor>(entity =>
+            {
+                entity.HasOne(e => e.Caja)
+                    .WithMany(c => c.Vendedores)
+                    .HasForeignKey(e => e.CajaId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.Vendedor)
+                    .WithMany()
+                    .HasForeignKey(e => e.VendedorUserId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasIndex(e => new { e.CajaId, e.VendedorUserId }).IsUnique();
             });
 
             // =======================

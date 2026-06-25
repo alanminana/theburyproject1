@@ -26,6 +26,7 @@
     var esAdmin = (bool)(ViewBag.EsAdmin ?? false);
     var puedeOperar = esAdmin || apertura.UsuarioApertura == currentUser;
     var ultimoMovimiento = movimientos.OrderByDescending(m => m.FechaMovimiento).FirstOrDefault();
+    var totalVentasEfectivas = ventasEfectivas.Sum(v => v.Total);
 }
 
 @functions {
@@ -93,6 +94,34 @@
         };
     }
 
+    string MedioPagoKey(TipoPago tipoPago)
+    {
+        return tipoPago switch
+        {
+            TipoPago.Efectivo => "efectivo",
+            TipoPago.Tarjeta or TipoPago.TarjetaDebito or TipoPago.TarjetaCredito => "tarjeta",
+            TipoPago.MercadoPago => "mercadopago",
+            TipoPago.Transferencia => "transferencia",
+            TipoPago.Cheque => "cheque",
+            TipoPago.CreditoPersonal => "credito",
+            TipoPago.CuentaCorriente => "cuentacorriente",
+            _ => "otro"
+        };
+    }
+
+    string MedioPagoKey(string medioPago)
+    {
+        var medio = (medioPago ?? string.Empty).ToLowerInvariant();
+        if (medio.Contains("efectivo")) return "efectivo";
+        if (medio.Contains("tarjeta")) return "tarjeta";
+        if (medio.Contains("mercado")) return "mercadopago";
+        if (medio.Contains("transferencia")) return "transferencia";
+        if (medio.Contains("cheque")) return "cheque";
+        if (medio.Contains("credito") || medio.Contains("crédito")) return "credito";
+        if (medio.Contains("cuenta")) return "cuentacorriente";
+        return "otro";
+    }
+
     bool GeneraIngresoInmediato(TipoPago tipoPago)
     {
         return tipoPago != TipoPago.CreditoPersonal &&
@@ -142,391 +171,465 @@
             <p class="page-sub">
                 Abierta por <strong>@apertura.UsuarioApertura</strong> · @apertura.FechaApertura.ToString("dd/MM/yyyy HH:mm")
                 @if (!string.IsNullOrWhiteSpace(apertura.Caja?.Ubicacion) ||
-                !string.IsNullOrWhiteSpace(apertura.Caja?.Sucursal))
+                    !string.IsNullOrWhiteSpace(apertura.Caja?.Sucursal))
                 {
                     <text> · @apertura.Caja?.Ubicacion@(!string.IsNullOrWhiteSpace(apertura.Caja?.Ubicacion) &&
-                                            !string.IsNullOrWhiteSpace(apertura.Caja?.Sucursal) ? ", " : "")@apertura.Caja?.Sucursal</text>
-                    }
-                </p>
-            </div>
-            <div class="head-actions">
-                <button type="button" data-caja-print aria-label="Imprimir detalles de apertura" class="btn btn-ghost">
-                    <span class="material-symbols-outlined">print</span>Imprimir
-                </button>
-                @if (!apertura.Cerrada && puedeOperar)
-                {
-                    <a asp-action="RegistrarMovimiento" asp-route-aperturaId="@apertura.Id" class="btn btn-soft no-underline">
-                        <span class="material-symbols-outlined">add_card</span>Nuevo movimiento
-                    </a>
-                    <a asp-action="Cerrar" asp-route-aperturaId="@apertura.Id" class="btn btn-primary no-underline">
-                        <span class="material-symbols-outlined">lock</span>Cerrar caja
-                    </a>
+                        !string.IsNullOrWhiteSpace(apertura.Caja?.Sucursal) ? ", " : "")@apertura.Caja?.Sucursal</text>
                 }
+            </p>
+        </div>
+        <div class="head-actions">
+            <button type="button" data-caja-print aria-label="Imprimir detalles de apertura" class="btn btn-ghost">
+                <span class="material-symbols-outlined">print</span>Imprimir
+            </button>
+            @if (!apertura.Cerrada && puedeOperar)
+            {
+                <a asp-action="RegistrarMovimiento" asp-route-aperturaId="@apertura.Id" class="btn btn-soft no-underline">
+                    <span class="material-symbols-outlined">add_card</span>Nuevo movimiento
+                </a>
+                <a asp-action="Cerrar" asp-route-aperturaId="@apertura.Id" class="btn btn-primary no-underline">
+                    <span class="material-symbols-outlined">lock</span>Cerrar caja
+                </a>
+            }
+        </div>
+    </div>
+
+    @if (TempData["Error"] != null)
+    {
+        <div id="toast-error"
+             class="flex items-center gap-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 px-5 py-3 rounded-xl text-sm font-medium"
+             role="alert">
+            <span class="material-symbols-outlined text-lg">error</span>@TempData["Error"]
+        </div>
+    }
+    @if (TempData["Success"] != null)
+    {
+        <div id="toast-success"
+             class="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-5 py-3 rounded-xl text-sm font-medium"
+             role="status">
+            <span class="material-symbols-outlined text-lg">check_circle</span>@TempData["Success"]
+        </div>
+    }
+
+    <div class="grid-kpi">
+        <div class="kpi">
+            <div class="kpi-label">Fondo inicial</div>
+            <div class="kpi-value">$@apertura.MontoInicial.ToString("N2")</div>
+            <div class="kpi-foot">declarado en apertura</div>
+        </div>
+        <div class="kpi kpi--ok">
+            <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">payments</span>Ingresos efectivo</div>
+            <div class="kpi-value">+$@Model.TotalIngresosFisicos.ToString("N2")</div>
+            <div class="kpi-foot">solo caja fisica</div>
+        </div>
+        <div class="kpi kpi--bad">
+            <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">north_east</span>Egresos efectivo</div>
+            <div class="kpi-value">-$@Model.TotalEgresosFisicos.ToString("N2")</div>
+            <div class="kpi-foot">salida fisica de caja</div>
+        </div>
+        <div class="kpi kpi--warn">
+            <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">credit_card</span>Digital registrado</div>
+            <div class="kpi-value">+$@Model.TotalIngresosDigitales.ToString("N2")</div>
+            <div class="kpi-foot">tarjeta, MP, transferencia, cheque</div>
+        </div>
+        <div class="kpi kpi--accent">
+            <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">account_balance_wallet</span>Caja fisica esperada</div>
+            <div class="kpi-value">$@Model.CajaFisicaEsperada.ToString("N2")</div>
+            <div class="kpi-foot">fondo + efectivo - egresos fisicos</div>
+        </div>
+    </div>
+
+    <section class="card" style="overflow:hidden">
+        <div class="px-4 py-3 flex items-center justify-between gap-3 flex-wrap" style="border-bottom:1px solid var(--line)">
+            <div>
+                <h2 class="font-semibold text-white">Resumen por medio de pago</h2>
+                <p class="text-sm muted">Efectivo fisico separado de medios digitales.</p>
+            </div>
+            <span class="chip chip-neutral">Digital +$@Model.TotalIngresosDigitales.ToString("N2")</span>
+        </div>
+        @if (Model.ResumenRealPorMedioPago.Any())
+        {
+            <div class="tbl-wrap">
+                <table class="tbl">
+                    <thead>
+                        <tr>
+                            <th>Medio</th>
+                            <th style="text-align:right">Ingresos</th>
+                            <th style="text-align:right">Egresos</th>
+                            <th style="text-align:right">Neto</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var medio in Model.ResumenRealPorMedioPago)
+                        {
+                            var neto = medio.TotalIngresos - medio.TotalEgresos;
+                            var esEfectivo = MedioPagoKey(medio.MedioPago) == "efectivo";
+                            <tr data-payment-row data-payment-key="@MedioPagoKey(medio.MedioPago)">
+                                <td>
+                                    <div class="flex items-center gap-2">
+                                        <span class="chip @(esEfectivo ? "chip-ok" : "chip-info")">@(esEfectivo ? "Fisico" : "Digital")</span>
+                                        <span class="text-white">@medio.MedioPago</span>
+                                    </div>
+                                </td>
+                                <td style="text-align:right" class="num text-emerald-400">+$@medio.TotalIngresos.ToString("N2")</td>
+                                <td style="text-align:right" class="num text-rose-400">-$@medio.TotalEgresos.ToString("N2")</td>
+                                <td style="text-align:right" class="num font-semibold">$@neto.ToString("N2")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="px-4 py-6 text-sm muted-2">Todavia no hay movimientos para resumir.</div>
+        }
+    </section>
+
+    <section class="space-y-4">
+        <div class="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+                <h2 class="font-semibold text-white">Ventas del turno</h2>
+                <p class="text-sm muted">
+                    @ventasEfectivas.Count @(ventasEfectivas.Count == 1 ? "venta efectiva" : "ventas efectivas")
+                    &middot;
+                    @((ventasPendientes.Count + ventasAuditoria.Count)) sin impacto inmediato
+                </p>
             </div>
         </div>
 
-        @if (TempData["Error"] != null)
+        @if (ventasDelTurno.Any())
         {
-            <div id="toast-error"
-                 class="flex items-center gap-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 px-5 py-3 rounded-xl text-sm font-medium"
-                 role="alert">
-                <span class="material-symbols-outlined text-lg">error</span>@TempData["Error"]
-            </div>
-        }
-        @if (TempData["Success"] != null)
-        {
-            <div id="toast-success"
-                 class="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-5 py-3 rounded-xl text-sm font-medium"
-                 role="status">
-                <span class="material-symbols-outlined text-lg">check_circle</span>@TempData["Success"]
-            </div>
-        }
-
-        <div class="grid-kpi">
-            <div class="kpi">
-                <div class="kpi-label">Fondo inicial</div>
-                <div class="kpi-value">$@apertura.MontoInicial.ToString("N2")</div>
-                <div class="kpi-foot">declarado en apertura</div>
-            </div>
-            <div class="kpi kpi--ok">
-                <div class="kpi-label"><span class="material-symbols-outlined"
-                                                 style="font-size:15px">south_west</span>Ingresos</div>
-                    <div class="kpi-value">+$@Model.TotalIngresos.ToString("N2")</div>
-                    <div class="kpi-foot">@ingresos.Count @(ingresos.Count == 1 ? "movimiento" : "movimientos")</div>
+            <div class="card" style="overflow:hidden">
+                <div class="px-4 py-3 flex items-center justify-between gap-3 flex-wrap" style="border-bottom:1px solid var(--line)">
+                    <div>
+                        <h3 class="font-semibold text-white">Ventas efectivas</h3>
+                        <p class="text-xs muted-2">Operaciones confirmadas, facturadas o entregadas.</p>
+                    </div>
+                    <div class="caja-detalles-filter-tools flex flex-col gap-2">
+                        <label class="label mb-0" for="venta-medio-filter">Medio de pago</label>
+                        <div class="flex flex-col sm:flex-row gap-2 sm:items-center">
+                            <select id="venta-medio-filter" class="field caja-detalles-filter-select" data-sale-payment-filter>
+                                <option value="all">Todos</option>
+                                <option value="efectivo">Efectivo</option>
+                                <option value="tarjeta">Tarjeta</option>
+                                <option value="mercadopago">Mercado Pago</option>
+                                <option value="transferencia">Transferencia</option>
+                                <option value="cheque">Cheque</option>
+                                <option value="credito">Credito personal</option>
+                                <option value="cuentacorriente">Cuenta corriente</option>
+                            </select>
+                            <div class="card-2 px-3 py-2">
+                                <div class="text-[.65rem] uppercase tracking-wide muted-2 font-semibold">Total filtro</div>
+                                <div class="num text-white font-semibold"
+                                     data-sale-payment-total
+                                     data-all-total="@totalVentasEfectivas.ToString(System.Globalization.CultureInfo.InvariantCulture)">
+                                    $@totalVentasEfectivas.ToString("N2")
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="kpi kpi--bad">
-                    <div class="kpi-label"><span class="material-symbols-outlined"
-                                                     style="font-size:15px">north_east</span>Egresos</div>
-                        <div class="kpi-value">-$@Model.TotalEgresos.ToString("N2")</div>
-                        <div class="kpi-foot">@egresos.Count @(egresos.Count == 1 ? "movimiento" : "movimientos")</div>
-                    </div>
-                    <div class="kpi kpi--accent">
-                        <div class="kpi-label"><span class="material-symbols-outlined"
-                                                         style="font-size:15px">account_balance_wallet</span>Efectivo esperado</div>
-                            <div class="kpi-value">$@Model.SaldoActual.ToString("N2")</div>
-                            <div class="kpi-foot">fondo + ingresos - egresos</div>
+                @if (ventasEfectivas.Any())
+                {
+                    <div data-oc-scroll style="--oc-scroll-min-width: 760px;">
+                        <div data-oc-scroll-shell>
+                            <div data-oc-scroll-fade="left" hidden></div>
+                            <div data-oc-scroll-fade="right" hidden></div>
+                            <div data-oc-scroll-region tabindex="0" role="region" aria-label="Ventas efectivas del turno" class="tbl-wrap">
+                                <table data-oc-scroll-table class="tbl">
+                                    <thead>
+                                        <tr>
+                                            <th>Venta</th>
+                                            <th>Cliente</th>
+                                            <th>Estado</th>
+                                            <th>Pago</th>
+                                            <th>Destino</th>
+                                            <th style="text-align:right">Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody data-sales-body>
+                                        @foreach (var venta in ventasEfectivas)
+                                        {
+                                            var esVentaFisica = venta.TipoPago == TipoPago.Efectivo;
+                                            var medioKey = MedioPagoKey(venta.TipoPago);
+                                            <tr data-sale-row
+                                                data-sale-pay="@medioKey"
+                                                data-sale-total="@venta.Total.ToString(System.Globalization.CultureInfo.InvariantCulture)">
+                                                <td>
+                                                    <div class="mono text-white">@venta.Numero</div>
+                                                    <div class="text-xs muted-2">@venta.FechaVenta.ToString("dd/MM HH:mm")</div>
+                                                </td>
+                                                <td>@ClienteLabel(venta)</td>
+                                                <td><span class="@BadgeClaseEstado(venta.Estado)">@LabelEstado(venta.Estado)</span></td>
+                                                <td>
+                                                    <span class="chip @(esVentaFisica ? "chip-ok" : "chip-info")">@TipoPagoLabel(venta.TipoPago)</span>
+                                                </td>
+                                                <td>
+                                                    <span class="chip @(esVentaFisica ? "chip-ok" : "chip-neutral")">@(esVentaFisica ? "Caja fisica" : "Digital")</span>
+                                                </td>
+                                                <td style="text-align:right" class="num font-semibold @(esVentaFisica ? "text-emerald-400" : "text-sky-300")">
+                                                    $@venta.Total.ToString("N2")
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                                <div class="px-4 py-6 text-sm muted-2 hidden" data-sale-filter-empty>
+                                    No hay ventas para el medio seleccionado.
+                                </div>
+                            </div>
                         </div>
                     </div>
+                    @if (ventasEfectivas.Any(v => !GeneraIngresoInmediato(v.TipoPago)))
+                    {
+                        <div class="px-4 py-2.5 text-xs text-amber-200 bg-amber-500/10" style="border-top:1px solid var(--line)">
+                            Algunas ventas efectivas no generan ingreso inmediato por su condicion de pago.
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="px-4 py-6 text-sm muted-2">No hay ventas efectivas vinculadas a este turno.</div>
+                }
+            </div>
 
-                    <section class="space-y-4">
-                        <div class="flex items-center justify-between gap-3 flex-wrap">
-                            <div>
-                                <h2 class="font-semibold text-white">Ventas vinculadas al turno</h2>
-                                <p class="text-sm muted">
-                                    @ventasEfectivas.Count @(ventasEfectivas.Count == 1 ? "venta efectiva" : "ventas efectivas")
-                                    &middot;
-                                    @((ventasPendientes.Count + ventasAuditoria.Count)) sin impacto inmediato
-                                </p>
+            @if (ventasPendientes.Any())
+            {
+                <div class="card" style="overflow:hidden">
+                    <div class="px-4 py-3 flex items-center justify-between gap-3 flex-wrap" style="border-bottom:1px solid var(--line)">
+                        <div>
+                            <h3 class="font-semibold text-white">Operaciones pendientes</h3>
+                            <p class="text-xs muted-2">Requieren documentacion, autorizacion o financiacion antes de impactar en caja.</p>
+                        </div>
+                        <span class="chip chip-warn">@ventasPendientes.Count @(ventasPendientes.Count == 1 ? "operacion" : "operaciones")</span>
+                    </div>
+                    <div data-oc-scroll style="--oc-scroll-min-width: 820px;">
+                        <div data-oc-scroll-shell>
+                            <div data-oc-scroll-fade="left" hidden></div>
+                            <div data-oc-scroll-fade="right" hidden></div>
+                            <div data-oc-scroll-region tabindex="0" role="region" aria-label="Operaciones pendientes del turno" class="tbl-wrap">
+                                <table data-oc-scroll-table class="tbl">
+                                    <thead>
+                                        <tr>
+                                            <th>Operacion</th>
+                                            <th>Cliente</th>
+                                            <th>Estado</th>
+                                            <th>Pago</th>
+                                            <th>Impacto caja</th>
+                                            <th style="text-align:right">Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var venta in ventasPendientes)
+                                        {
+                                            <tr>
+                                                <td>
+                                                    <div class="mono text-white">@venta.Numero</div>
+                                                    <div class="text-xs muted-2">@venta.FechaVenta.ToString("dd/MM HH:mm")</div>
+                                                </td>
+                                                <td>@ClienteLabel(venta)</td>
+                                                <td><span class="@BadgeClaseEstado(venta.Estado)">@LabelEstado(venta.Estado)</span></td>
+                                                <td><span class="chip chip-neutral">@TipoPagoLabel(venta.TipoPago)</span></td>
+                                                <td><span class="chip chip-warn">Sin ingreso inmediato</span></td>
+                                                <td style="text-align:right" class="num font-semibold text-amber-300">$@venta.Total.ToString("N2")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
+                    </div>
+                </div>
+            }
 
-                        @if (ventasDelTurno.Any())
-                        {
-                            <div class="card" style="overflow:hidden">
-                                <div class="px-4 py-3 flex items-center justify-between gap-3 flex-wrap" style="border-bottom:1px solid var(--line)">
-                                    <div>
-                                        <h3 class="font-semibold text-white">Ventas efectivas</h3>
-                                        <p class="text-xs muted-2">Operaciones confirmadas, facturadas o entregadas.</p>
-                                    </div>
-                                    <span class="chip chip-ok">@ventasEfectivas.Count @(ventasEfectivas.Count == 1 ? "venta" : "ventas")</span>
-                                </div>
-                                @if (ventasEfectivas.Any())
-                                {
-                                    <div data-oc-scroll style="--oc-scroll-min-width: 760px;">
-                                        <div data-oc-scroll-shell>
-                                            <div data-oc-scroll-fade="left" hidden></div>
-                                            <div data-oc-scroll-fade="right" hidden></div>
-                                            <div data-oc-scroll-region tabindex="0" role="region" aria-label="Ventas efectivas del turno" class="tbl-wrap">
-                                                <table data-oc-scroll-table class="tbl">
-                                                    <thead>
-                                                        <tr>
-                                                            <th>Venta</th>
-                                                            <th>Cliente</th>
-                                                            <th>Estado</th>
-                                                            <th>Pago</th>
-                                                            <th style="text-align:right">Total</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        @foreach (var venta in ventasEfectivas)
-                                                        {
-                                                            var ingresoInmediato = GeneraIngresoInmediato(venta.TipoPago);
-                                                            <tr>
-                                                                <td>
-                                                                    <div class="mono text-white">@venta.Numero</div>
-                                                                    <div class="text-xs muted-2">@venta.FechaVenta.ToString("dd/MM HH:mm")</div>
-                                                                </td>
-                                                                <td>@ClienteLabel(venta)</td>
-                                                                <td><span class="@BadgeClaseEstado(venta.Estado)">@LabelEstado(venta.Estado)</span></td>
-                                                                <td>
-                                                                    <span class="chip @(ingresoInmediato ? "chip-ok" : "chip-warn")">@TipoPagoLabel(venta.TipoPago)</span>
-                                                                </td>
-                                                                <td style="text-align:right" class="num font-semibold @(ingresoInmediato ? "text-emerald-400" : "text-amber-300")">
-                                                                    $@venta.Total.ToString("N2")
-                                                                </td>
-                                                            </tr>
-                                                        }
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    @if (ventasEfectivas.Any(v => !GeneraIngresoInmediato(v.TipoPago)))
-                                    {
-                                        <div class="px-4 py-2.5 text-xs text-amber-200 bg-amber-500/10" style="border-top:1px solid var(--line)">
-                                            Algunas ventas efectivas no generan ingreso inmediato por su condicion de pago.
-                                        </div>
-                                    }
-                                }
-                                else
-                                {
-                                    <div class="px-4 py-6 text-sm muted-2">No hay ventas efectivas vinculadas a este turno.</div>
-                                }
+            @if (ventasAuditoria.Any())
+            {
+                <details class="card" style="overflow:hidden">
+                    <summary class="px-4 py-3 cursor-pointer">
+                        <span class="font-semibold text-white">Registros de auditoría</span>
+                        <span class="chip chip-neutral ml-2">@ventasAuditoria.Count @(ventasAuditoria.Count == 1 ? "registro" : "registros")</span>
+                    </summary>
+                    <div data-oc-scroll style="--oc-scroll-min-width: 860px;">
+                        <div data-oc-scroll-shell>
+                            <div data-oc-scroll-fade="left" hidden></div>
+                            <div data-oc-scroll-fade="right" hidden></div>
+                            <div data-oc-scroll-region tabindex="0" role="region" aria-label="Registros de auditoria del turno" class="tbl-wrap">
+                                <table data-oc-scroll-table class="tbl opacity-75">
+                                    <thead>
+                                        <tr>
+                                            <th>Registro</th>
+                                            <th>Cliente</th>
+                                            <th>Estado</th>
+                                            <th>Impacto caja</th>
+                                            <th style="text-align:right">Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var venta in ventasAuditoria)
+                                        {
+                                            var cancelada = venta.Estado == EstadoVenta.Cancelada;
+                                            <tr>
+                                                <td>
+                                                    <div class="mono text-white">@venta.Numero</div>
+                                                    <div class="text-xs muted-2">@venta.FechaVenta.ToString("dd/MM HH:mm")</div>
+                                                </td>
+                                                <td>@ClienteLabel(venta)</td>
+                                                <td><span class="@BadgeClaseEstado(venta.Estado)">@LabelEstado(venta.Estado)</span></td>
+                                                <td><span class="chip chip-neutral">Sin impacto en caja</span></td>
+                                                <td style="text-align:right" class="num @(cancelada ? "line-through text-rose-300" : "text-slate-300")">
+                                                    $@venta.Total.ToString("N2")
+                                                    @if (cancelada)
+                                                    {
+                                                        <span class="block text-xs text-rose-300">Anulada</span>
+                                                    }
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
                             </div>
+                        </div>
+                    </div>
+                    <div class="px-4 py-2.5 text-xs muted-2" style="border-top:1px solid var(--line)">
+                        Estos registros se muestran solo para auditoria operativa y no modifican el efectivo esperado.
+                    </div>
+                </details>
+            }
+        }
+        else
+        {
+            <div class="card card-pad text-sm muted-2">No hay ventas vinculadas a este turno.</div>
+        }
+    </section>
 
-                            @if (ventasPendientes.Any())
-                            {
-                                <div class="card" style="overflow:hidden">
-                                    <div class="px-4 py-3 flex items-center justify-between gap-3 flex-wrap" style="border-bottom:1px solid var(--line)">
-                                        <div>
-                                            <h3 class="font-semibold text-white">Operaciones pendientes</h3>
-                                            <p class="text-xs muted-2">Requieren documentacion, autorizacion o financiacion antes de impactar en caja.</p>
-                                        </div>
-                                        <span class="chip chip-warn">@ventasPendientes.Count @(ventasPendientes.Count == 1 ? "operacion" : "operaciones")</span>
-                                    </div>
-                                    <div data-oc-scroll style="--oc-scroll-min-width: 820px;">
-                                        <div data-oc-scroll-shell>
-                                            <div data-oc-scroll-fade="left" hidden></div>
-                                            <div data-oc-scroll-fade="right" hidden></div>
-                                            <div data-oc-scroll-region tabindex="0" role="region" aria-label="Operaciones pendientes del turno" class="tbl-wrap">
-                                                <table data-oc-scroll-table class="tbl">
-                                                    <thead>
-                                                        <tr>
-                                                            <th>Operacion</th>
-                                                            <th>Cliente</th>
-                                                            <th>Estado</th>
-                                                            <th>Pago</th>
-                                                            <th>Impacto caja</th>
-                                                            <th style="text-align:right">Total</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        @foreach (var venta in ventasPendientes)
-                                                        {
-                                                            <tr>
-                                                                <td>
-                                                                    <div class="mono text-white">@venta.Numero</div>
-                                                                    <div class="text-xs muted-2">@venta.FechaVenta.ToString("dd/MM HH:mm")</div>
-                                                                </td>
-                                                                <td>@ClienteLabel(venta)</td>
-                                                                <td><span class="@BadgeClaseEstado(venta.Estado)">@LabelEstado(venta.Estado)</span></td>
-                                                                <td><span class="chip chip-neutral">@TipoPagoLabel(venta.TipoPago)</span></td>
-                                                                <td><span class="chip chip-warn">Sin ingreso inmediato</span></td>
-                                                                <td style="text-align:right" class="num font-semibold text-amber-300">$@venta.Total.ToString("N2")</td>
-                                                            </tr>
-                                                        }
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            }
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <section class="lg:col-span-2 space-y-3">
+            <div class="flex items-center justify-between gap-3 flex-wrap">
+                <h2 class="font-semibold text-white">Movimientos de caja</h2>
+                <div class="flex gap-1.5" role="tablist" aria-label="Filtrar movimientos">
+                    <button type="button" class="btn btn-soft btn-sm mv-tab" data-mov-filter="all"
+                            aria-pressed="true">Todos</button>
+                    <button type="button" class="btn btn-ghost btn-sm mv-tab" data-mov-filter="in"
+                            aria-pressed="false">Ingresos</button>
+                    <button type="button" class="btn btn-ghost btn-sm mv-tab" data-mov-filter="out"
+                            aria-pressed="false">Egresos</button>
+                </div>
+            </div>
 
-                            @if (ventasAuditoria.Any())
-                            {
-                                <details class="card" style="overflow:hidden">
-                                    <summary class="px-4 py-3 cursor-pointer">
-                                        <span class="font-semibold text-white">Registros de auditoría</span>
-                                        <span class="chip chip-neutral ml-2">@ventasAuditoria.Count @(ventasAuditoria.Count == 1 ? "registro" : "registros")</span>
-                                    </summary>
-                                    <div data-oc-scroll style="--oc-scroll-min-width: 860px;">
-                                        <div data-oc-scroll-shell>
-                                            <div data-oc-scroll-fade="left" hidden></div>
-                                            <div data-oc-scroll-fade="right" hidden></div>
-                                            <div data-oc-scroll-region tabindex="0" role="region" aria-label="Registros de auditoria del turno" class="tbl-wrap">
-                                                <table data-oc-scroll-table class="tbl opacity-75">
-                                                    <thead>
-                                                        <tr>
-                                                            <th>Registro</th>
-                                                            <th>Cliente</th>
-                                                            <th>Estado</th>
-                                                            <th>Impacto caja</th>
-                                                            <th style="text-align:right">Total</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        @foreach (var venta in ventasAuditoria)
-                                                        {
-                                                            var cancelada = venta.Estado == EstadoVenta.Cancelada;
-                                                            <tr>
-                                                                <td>
-                                                                    <div class="mono text-white">@venta.Numero</div>
-                                                                    <div class="text-xs muted-2">@venta.FechaVenta.ToString("dd/MM HH:mm")</div>
-                                                                </td>
-                                                                <td>@ClienteLabel(venta)</td>
-                                                                <td><span class="@BadgeClaseEstado(venta.Estado)">@LabelEstado(venta.Estado)</span></td>
-                                                                <td><span class="chip chip-neutral">Sin impacto en caja</span></td>
-                                                                <td style="text-align:right" class="num @(cancelada ? "line-through text-rose-300" : "text-slate-300")">
-                                                                    $@venta.Total.ToString("N2")
-                                                                    @if (cancelada)
-                                                                    {
-                                                                        <span class="block text-xs text-rose-300">Anulada</span>
-                                                                    }
-                                                                </td>
-                                                            </tr>
-                                                        }
-                                                    </tbody>
-                                                </table>
+            @if (movimientos.Any())
+            {
+                <div class="card" style="overflow:hidden">
+                    <div class="tbl-wrap">
+                        <table class="tbl">
+                            <thead>
+                                <tr>
+                                    <th>Hora</th>
+                                    <th>Concepto</th>
+                                    <th>Referencia</th>
+                                    <th style="text-align:right">Monto</th>
+                                </tr>
+                            </thead>
+                            <tbody id="mov-body">
+                                @foreach (var movimiento in movimientos.OrderByDescending(m => m.FechaMovimiento))
+                                {
+                                    var esIngreso = movimiento.Tipo == TipoMovimientoCaja.Ingreso;
+                                    <tr data-t="@(esIngreso ? "in" : "out")">
+                                        <td class="mono muted">@movimiento.FechaMovimiento.ToString("HH:mm")</td>
+                                        <td>
+                                            <div class="flex items-center gap-2">
+                                                <span class="chip @(esIngreso ? "chip-ok" : "chip-bad")">
+                                                    <span class="material-symbols-outlined">@(esIngreso ? "south_west" : "north_east")</span>
+                                                    @(esIngreso ? "Ingreso" : "Egreso")
+                                                </span>
+                                                <span class="text-white">@FormatConcepto(movimiento.Concepto)</span>
                                             </div>
-                                        </div>
-                                    </div>
-                                    <div class="px-4 py-2.5 text-xs muted-2" style="border-top:1px solid var(--line)">
-                                        Estos registros se muestran solo para auditoria operativa y no modifican el efectivo esperado.
-                                    </div>
-                                </details>
-                            }
-                        }
-                        else
+                                        </td>
+                                        <td class="mono muted-2">@(string.IsNullOrWhiteSpace(movimiento.Referencia) ? "—" : movimiento.Referencia)</td>
+                                        <td style="text-align:right" class="num font-semibold @(esIngreso ? "text-emerald-400" : "text-rose-400")">
+                                            @(esIngreso ? "+" : "-") $@movimiento.Monto.ToString("N2")
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="px-4 py-2.5 text-xs muted-2 flex items-center justify-between"
+                         style="border-top:1px solid var(--line)">
+                        <span>@movimientos.Count @(movimientos.Count == 1 ? "movimiento registrado" : "movimientos registrados")</span>
+                        @if (!apertura.Cerrada && puedeOperar)
                         {
-                            <div class="card card-pad text-sm muted-2">No hay ventas vinculadas a este turno.</div>
+                            <a asp-action="RegistrarMovimiento" asp-route-aperturaId="@apertura.Id"
+                               class="text-blue-400 hover:text-blue-300 no-underline">+ Registrar movimiento</a>
                         }
-                    </section>
-
-                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                        <section class="lg:col-span-2 space-y-3">
-                            <div class="flex items-center justify-between gap-3 flex-wrap">
-                                <h2 class="font-semibold text-white">Movimientos del turno</h2>
-                                <div class="flex gap-1.5" role="tablist" aria-label="Filtrar movimientos">
-                                    <button type="button" class="btn btn-soft btn-sm mv-tab" data-mov-filter="all"
-                                            aria-pressed="true">Todos</button>
-                                    <button type="button" class="btn btn-ghost btn-sm mv-tab" data-mov-filter="in"
-                                            aria-pressed="false">Ingresos</button>
-                                    <button type="button" class="btn btn-ghost btn-sm mv-tab" data-mov-filter="out"
-                                            aria-pressed="false">Egresos</button>
-                                </div>
-                            </div>
-
-                            @if (movimientos.Any())
-                            {
-                                <div class="card" style="overflow:hidden">
-                                    <div class="tbl-wrap">
-                                        <table class="tbl">
-                                            <thead>
-                                                <tr>
-                                                    <th>Hora</th>
-                                                    <th>Concepto</th>
-                                                    <th>Referencia</th>
-                                                    <th style="text-align:right">Monto</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody id="mov-body">
-                                                @foreach (var movimiento in movimientos.OrderByDescending(m => m.FechaMovimiento))
-                                                {
-                                                    var esIngreso = movimiento.Tipo == TipoMovimientoCaja.Ingreso;
-                                                    <tr data-t="@(esIngreso ? "in" : "out")">
-                                                        <td class="mono muted">@movimiento.FechaMovimiento.ToString("HH:mm")</td>
-                                                        <td>
-                                                            <div class="flex items-center gap-2">
-                                                                <span class="chip @(esIngreso ? "chip-ok" : "chip-bad")">
-                                                                    <span class="material-symbols-outlined">@(esIngreso ? "south_west" :
-                                                                                                             "north_east")</span>
-                                                                        @(esIngreso ? "Ingreso" : "Egreso")
-                                                                    </span>
-                                                                    <span class="text-white">@FormatConcepto(movimiento.Concepto)</span>
-                                                                </div>
-                                                            </td>
-                                                            <td class="mono muted-2">@(string.IsNullOrWhiteSpace(movimiento.Referencia) ? "—" :
-                                                                                                    movimiento.Referencia)</td>
-                                                                <td style="text-align:right"
-                                                                    class="num font-semibold @(esIngreso ? "text-emerald-400" : "text-rose-400")">
-                                                                    @(esIngreso ? "+" : "-") $@movimiento.Monto.ToString("N2")
-                                                                </td>
-                                                            </tr>
-                                                        }
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                            <div class="px-4 py-2.5 text-xs muted-2 flex items-center justify-between"
-                                                 style="border-top:1px solid var(--line)">
-                                                <span>@movimientos.Count @(movimientos.Count == 1 ? "movimiento registrado" : "movimientos registrados")</span>
-                                                @if (!apertura.Cerrada && puedeOperar)
-                                                {
-                                                    <a asp-action="RegistrarMovimiento" asp-route-aperturaId="@apertura.Id"
-                                                       class="text-blue-400 hover:text-blue-300 no-underline">+ Registrar movimiento</a>
-                                                }
-                                            </div>
-                                        </div>
-                                    }
+                    </div>
+                </div>
+            }
             else
-                                    {
-                                        <div
-                                            class="flex flex-col items-center justify-center p-20 rounded-2xl bg-slate-900 border-2 border-dashed border-slate-800">
-                                            <div class="size-20 bg-slate-800 rounded-full flex items-center justify-center mb-6">
-                                                <span class="material-symbols-outlined text-slate-400 text-4xl">history</span>
-                                            </div>
-                                            <h3 class="text-xl font-bold text-white mb-2">No se han registrado movimientos</h3>
-                                            <p class="text-slate-400 text-center max-w-sm mb-8">Esta caja está vacía por ahora.</p>
-                                            @if (!apertura.Cerrada && puedeOperar)
-                                            {
-                                                <a asp-action="RegistrarMovimiento" asp-route-aperturaId="@apertura.Id"
-                                                   class="btn btn-primary no-underline">
-                                                    <span class="material-symbols-outlined">add</span>Registrar primer movimiento
-                                                </a>
-                                            }
-                                        </div>
-                                    }
-                                </section>
+            {
+                <div class="flex flex-col items-center justify-center p-20 rounded-2xl bg-slate-900 border-2 border-dashed border-slate-800">
+                    <div class="size-20 bg-slate-800 rounded-full flex items-center justify-center mb-6">
+                        <span class="material-symbols-outlined text-slate-400 text-4xl">history</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-2">No se han registrado movimientos</h3>
+                    <p class="text-slate-400 text-center max-w-sm mb-8">Esta caja está vacía por ahora.</p>
+                    @if (!apertura.Cerrada && puedeOperar)
+                    {
+                        <a asp-action="RegistrarMovimiento" asp-route-aperturaId="@apertura.Id"
+                           class="btn btn-primary no-underline">
+                            <span class="material-symbols-outlined">add</span>Registrar primer movimiento
+                        </a>
+                    }
+                </div>
+            }
+        </section>
 
-                                <aside class="space-y-4">
-                                    <div class="card card-pad">
-                                        <h3 class="font-semibold text-white mb-2">Información del turno</h3>
-                                        <dl>
-                                            <div class="defrow">
-                                                <dt>Apertura</dt>
-                                                <dd class="num">@apertura.FechaApertura.ToString("dd/MM · HH:mm")</dd>
-                                            </div>
-                                            <div class="defrow">
-                                                <dt>Responsable</dt>
-                                                <dd>@apertura.UsuarioApertura</dd>
-                                            </div>
-                                            <div class="defrow">
-                                                <dt>Ubicación</dt>
-                                                <dd>@(string.IsNullOrWhiteSpace(apertura.Caja?.Ubicacion) ? "—" : apertura.Caja.Ubicacion)</dd>
-                                            </div>
-                                            <div class="defrow">
-                                                <dt>Sucursal</dt>
-                                                <dd>@(string.IsNullOrWhiteSpace(apertura.Caja?.Sucursal) ? "—" : apertura.Caja.Sucursal)</dd>
-                                            </div>
-                                            <div class="defrow">
-                                                <dt>Última actividad</dt>
-                                                <dd class="num">@(ultimoMovimiento == null ? "Sin movimientos" :
-                                                                                ultimoMovimiento.FechaMovimiento.ToString("dd/MM · HH:mm"))</dd>
-                                                </div>
-                                            </dl>
-                                        </div>
+        <aside class="space-y-4">
+            <div class="card card-pad">
+                <h3 class="font-semibold text-white mb-2">Información del turno</h3>
+                <dl>
+                    <div class="defrow">
+                        <dt>Apertura</dt>
+                        <dd class="num">@apertura.FechaApertura.ToString("dd/MM · HH:mm")</dd>
+                    </div>
+                    <div class="defrow">
+                        <dt>Responsable</dt>
+                        <dd>@apertura.UsuarioApertura</dd>
+                    </div>
+                    <div class="defrow">
+                        <dt>Ubicación</dt>
+                        <dd>@(string.IsNullOrWhiteSpace(apertura.Caja?.Ubicacion) ? "—" : apertura.Caja.Ubicacion)</dd>
+                    </div>
+                    <div class="defrow">
+                        <dt>Sucursal</dt>
+                        <dd>@(string.IsNullOrWhiteSpace(apertura.Caja?.Sucursal) ? "—" : apertura.Caja.Sucursal)</dd>
+                    </div>
+                    <div class="defrow">
+                        <dt>Última actividad</dt>
+                        <dd class="num">@(ultimoMovimiento == null ? "Sin movimientos" : ultimoMovimiento.FechaMovimiento.ToString("dd/MM · HH:mm"))</dd>
+                    </div>
+                </dl>
+            </div>
 
-                                        <div class="card card-pad">
-                                            <h3 class="font-semibold text-white mb-1.5">Observaciones de apertura</h3>
-                                            @if (!string.IsNullOrWhiteSpace(apertura.ObservacionesApertura))
-                                            {
-                                                <p class="text-sm muted leading-relaxed">"@apertura.ObservacionesApertura"</p>
-                                            }
-                                            else
-                                            {
-                                                <p class="text-sm muted-2 italic">Sin observaciones registradas.</p>
-                                            }
-                                        </div>
+            <div class="card card-pad">
+                <h3 class="font-semibold text-white mb-1.5">Observaciones de apertura</h3>
+                @if (!string.IsNullOrWhiteSpace(apertura.ObservacionesApertura))
+                {
+                    <p class="text-sm muted leading-relaxed">"@apertura.ObservacionesApertura"</p>
+                }
+                else
+                {
+                    <p class="text-sm muted-2 italic">Sin observaciones registradas.</p>
+                }
+            </div>
+        </aside>
+    </div>
+</div>
 
-          
-                                    </aside>
-                                </div>
-                            </div>
+@section Styles {
+    <partial name="_CajaModuleStyles" />
+}
 
-                            @section Styles {
-                                <partial name="_CajaModuleStyles" />
-                            }
-
-                            @section Scripts {
-                                <script src="~/js/caja-detalles-apertura.js" asp-append-version="true"></script>
-                            }
+@section Scripts {
+    <script src="~/js/caja-detalles-apertura.js" asp-append-version="true"></script>
+}

@@ -19,14 +19,9 @@
     var cajasDisponibles = activas.Count(c => c.Estado != EstadoCaja.Abierta);
     var cajasEnUso = activas.Count(c => c.Estado == EstadoCaja.Abierta);
 
+    // Efectivo esperado lo calcula el backend (mismo criterio fisico que el detalle de apertura).
     var saldoTurnos = aperturasMostradas.Sum(a =>
-    {
-        var movs = a.Movimientos?.Where(m => !m.IsDeleted).ToList()
-            ?? new List<TheBuryProject.Models.Entities.MovimientoCaja>();
-        return a.MontoInicial
-            + movs.Where(m => m.Tipo == TipoMovimientoCaja.Ingreso).Sum(m => m.Monto)
-            - movs.Where(m => m.Tipo == TipoMovimientoCaja.Egreso).Sum(m => m.Monto);
-    });
+        Model.ResumenFisicoPorApertura.TryGetValue(a.Id, out var r) ? r.CajaFisicaEsperada : 0m);
 }
 
 <div class="caja-index-shell flex min-h-full items-start gap-0">
@@ -117,11 +112,9 @@
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
                     @foreach (var apertura in aperturasMostradas)
                     {
-                        var movs = apertura.Movimientos?.Where(m => !m.IsDeleted).ToList()
-                            ?? new List<TheBuryProject.Models.Entities.MovimientoCaja>();
-                        var totalIngresos = movs.Where(m => m.Tipo == TipoMovimientoCaja.Ingreso).Sum(m => m.Monto);
-                        var totalEgresos = movs.Where(m => m.Tipo == TipoMovimientoCaja.Egreso).Sum(m => m.Monto);
-                        var saldoActual = apertura.MontoInicial + totalIngresos - totalEgresos;
+                        var resumen = Model.ResumenFisicoPorApertura.TryGetValue(apertura.Id, out var r)
+                            ? r
+                            : new TheBuryProject.ViewModels.AperturaFisicoResumen { CajaFisicaEsperada = apertura.MontoInicial };
                         var esPropietario = apertura.UsuarioApertura == currentUser;
 
                         <article class="card card-pad">
@@ -147,12 +140,12 @@
                                     <div class="mt-0.5 text-sm font-semibold text-white num">$@apertura.MontoInicial.ToString("N2")</div>
                                 </div>
                                 <div class="card-2 p-2.5">
-                                    <div class="text-[.68rem] uppercase tracking-wide muted-2 font-semibold">Ingresos</div>
-                                    <div class="mt-0.5 text-sm font-semibold text-emerald-400 num">$@totalIngresos.ToString("N2")</div>
+                                    <div class="text-[.68rem] uppercase tracking-wide muted-2 font-semibold">Ingresos efectivo</div>
+                                    <div class="mt-0.5 text-sm font-semibold text-emerald-400 num">$@resumen.IngresosFisicos.ToString("N2")</div>
                                 </div>
                                 <div class="card-2 p-2.5">
-                                    <div class="text-[.68rem] uppercase tracking-wide muted-2 font-semibold">Esperado</div>
-                                    <div class="mt-0.5 text-sm font-semibold text-white num">$@saldoActual.ToString("N2")</div>
+                                    <div class="text-[.68rem] uppercase tracking-wide muted-2 font-semibold">Efectivo esperado</div>
+                                    <div class="mt-0.5 text-sm font-semibold text-white num">$@resumen.CajaFisicaEsperada.ToString("N2")</div>
                                 </div>
                             </div>
                             @if (esAdmin || esPropietario)

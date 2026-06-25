@@ -138,6 +138,7 @@ builder.Services.AddScoped<IReporteService, ReporteService>();
 builder.Services.AddScoped<IAutorizacionService, AutorizacionService>();
 builder.Services.AddScoped<IDevolucionService, DevolucionService>();
 builder.Services.AddScoped<ICajaService, CajaService>();
+builder.Services.AddScoped<ICajaVendedorService, CajaVendedorService>();
 builder.Services.AddScoped<INotificacionService, NotificacionService>();
 builder.Services.AddScoped<IDocumentacionService, DocumentacionService>();
 builder.Services.AddScoped<IClienteLookupService, ClienteLookupService>();

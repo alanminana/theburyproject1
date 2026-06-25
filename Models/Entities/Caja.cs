@@ -32,5 +32,8 @@ namespace TheBuryProject.Models.Entities
 
         // Navegaci�n
         public virtual ICollection<AperturaCaja> Aperturas { get; set; } = new List<AperturaCaja>();
+
+        /// <summary>Padr�n de vendedores asignados a esta caja (control/visibilidad, sin enforcement).</summary>
+        public virtual ICollection<CajaVendedor> Vendedores { get; set; } = new List<CajaVendedor>();
     }
 }

@@ -30,15 +30,15 @@
             <div class="kpi-value">$@Model.MontoInicialSistema.ToString("N2")</div>
         </div>
         <div class="kpi kpi--ok">
-            <div class="kpi-label">Ingresos</div>
+            <div class="kpi-label">Ingresos efectivo</div>
             <div class="kpi-value">$@Model.TotalIngresosSistema.ToString("N2")</div>
         </div>
         <div class="kpi kpi--bad">
-            <div class="kpi-label">Egresos</div>
+            <div class="kpi-label">Egresos efectivo</div>
             <div class="kpi-value">$@Model.TotalEgresosSistema.ToString("N2")</div>
         </div>
         <div class="kpi kpi--accent">
-            <div class="kpi-label">Esperado (sistema)</div>
+            <div class="kpi-label">Caja fisica esperada</div>
             <div class="kpi-value" id="monto-esperado" data-value="@Model.MontoEsperadoSistema.ToString(System.Globalization.CultureInfo.InvariantCulture)">$@Model.MontoEsperadoSistema.ToString("N2")</div>
         </div>
     </div>
@@ -70,7 +70,7 @@
                         <span asp-validation-for="EfectivoContado" class="text-rose-500 text-xs"></span>
                     </div>
                     <div class="card-2 p-3">
-                        <div class="text-[.68rem] uppercase tracking-wide muted-2 font-semibold">Esperado por sistema</div>
+                        <div class="text-[.68rem] uppercase tracking-wide muted-2 font-semibold">Caja fisica esperada</div>
                         <div class="text-lg font-semibold text-white num mt-0.5">$@Model.MontoEsperadoSistema.ToString("N2")</div>
                     </div>
                 </div>

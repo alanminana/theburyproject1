@@ -24,6 +24,23 @@ public class CajaDetallesAperturaContractTests
     }
 
     [Fact]
+    public void DetallesApertura_ContieneCajaFisicaYDashboardDigital()
+    {
+        var content = ReadView();
+        Assert.Contains("Caja fisica esperada", content);
+        Assert.Contains("Digital registrado", content);
+        Assert.Contains("Resumen por medio de pago", content);
+    }
+
+    [Fact]
+    public void DetallesApertura_ContieneFiltroPorMedioPago()
+    {
+        var content = ReadView();
+        Assert.Contains("data-sale-payment-filter", content);
+        Assert.Contains("data-sale-payment-total", content);
+    }
+
+    [Fact]
     public void DetallesApertura_ContieneTextoSinImpactoEnCaja()
     {
         Assert.Contains("Sin impacto en caja", ReadView());
@@ -62,8 +79,8 @@ public class CajaDetallesAperturaContractTests
     public void DetallesApertura_NoUsaHtmlRawEnSeccionVentas()
     {
         var content = ReadView();
-        var start = content.IndexOf("Ventas vinculadas al turno");
-        var end = content.IndexOf("Historial de movimientos");
+        var start = content.IndexOf("Ventas del turno");
+        var end = content.IndexOf("Movimientos de caja");
         if (start >= 0 && end > start)
         {
             var ventasSection = content.Substring(start, end - start);

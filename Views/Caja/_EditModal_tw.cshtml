@@ -106,6 +106,34 @@
                     </label>
                 </div>
 
+                <!-- Padrón de vendedores -->
+                <div class="card card-pad">
+                    <div class="flex items-center gap-2 mb-1">
+                        <span class="material-symbols-outlined" style="color:#f5c518;font-size:20px">badge</span>
+                        <h3 class="font-semibold text-white">Vendedores asignados</h3>
+                    </div>
+                    <p class="text-xs muted-2 mb-3">Controlá qué vendedores operan en esta caja.</p>
+                    <input type="hidden" name="VendedoresGestionados" value="true" />
+                    @if (Model.VendedoresDisponibles.Any())
+                    {
+                        <div class="caja-vendedores-list">
+                            @foreach (var v in Model.VendedoresDisponibles)
+                            {
+                                var asignado = Model.VendedorIds.Contains(v.Id);
+                                <label class="caja-vendedor-item">
+                                    <input type="checkbox" name="VendedorIds" value="@v.Id" class="caja-vendedor-check"
+                                           @(asignado ? "checked" : "") />
+                                    <span class="text-sm text-slate-200">@v.UserName</span>
+                                </label>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="text-sm muted-2 italic">No hay usuarios con rol Vendedor. Creá usuarios vendedores para poder asignarlos.</p>
+                    }
+                </div>
+
                 <div class="card card-pad">
                     <div class="flex items-center gap-2 mb-3">
                         <span class="material-symbols-outlined" style="color:#f5c518;font-size:20px">tips_and_updates</span>

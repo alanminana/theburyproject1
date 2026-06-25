@@ -488,6 +488,32 @@ public class CajaServiceTests : IDisposable
         Assert.Equal(0m, cierre.Diferencia);
     }
 
+    [Fact]
+    public async Task CerrarCaja_VentaDigital_NoExigeEfectivoFisico()
+    {
+        var caja = await SeedCajaAsync();
+        var apertura = await AbrirCajaAsync(caja, montoInicial: 1_000m);
+        var ventaEfectivo = await SeedVentaAsync(apertura, TipoPago.Efectivo, total: 500m);
+        var ventaTarjeta = await SeedVentaAsync(apertura, TipoPago.TarjetaCredito, total: 10_000m);
+
+        await _service.RegistrarMovimientoVentaAsync(
+            ventaEfectivo.Id, ventaEfectivo.Numero, ventaEfectivo.Total, ventaEfectivo.TipoPago, "cajero1");
+        await _service.RegistrarMovimientoVentaAsync(
+            ventaTarjeta.Id, ventaTarjeta.Numero, ventaTarjeta.Total, ventaTarjeta.TipoPago, "cajero1");
+
+        var cierre = await _service.CerrarCajaAsync(
+            new CerrarCajaViewModel
+            {
+                AperturaCajaId = apertura.Id,
+                EfectivoContado = 1_500m
+            },
+            "admin");
+
+        Assert.Equal(500m, cierre.TotalIngresosSistema);
+        Assert.Equal(1_500m, cierre.MontoEsperadoSistema);
+        Assert.Equal(0m, cierre.Diferencia);
+    }
+
     // -------------------------------------------------------------------------
     // ObtenerAperturaActivaAsync
     // -------------------------------------------------------------------------
@@ -622,6 +648,27 @@ public class CajaServiceTests : IDisposable
         var resumen = await _service.ObtenerDetallesAperturaAsync(apertura.Id);
         var tarjeta = Assert.Single(resumen.ResumenRealPorMedioPago, r => r.MedioPago == "Tarjeta");
         Assert.Equal(venta.Total, tarjeta.TotalIngresos);
+    }
+
+    [Fact]
+    public async Task ObtenerDetallesApertura_VentaDigital_NoIncrementaCajaFisica()
+    {
+        var caja = await SeedCajaAsync();
+        var apertura = await AbrirCajaAsync(caja, montoInicial: 1_000m);
+        var ventaEfectivo = await SeedVentaAsync(apertura, TipoPago.Efectivo, total: 1_800m);
+        var ventaTarjeta = await SeedVentaAsync(apertura, TipoPago.TarjetaCredito, total: 10_000m);
+
+        await _service.RegistrarMovimientoVentaAsync(
+            ventaEfectivo.Id, ventaEfectivo.Numero, ventaEfectivo.Total, ventaEfectivo.TipoPago, "cajero1");
+        await _service.RegistrarMovimientoVentaAsync(
+            ventaTarjeta.Id, ventaTarjeta.Numero, ventaTarjeta.Total, ventaTarjeta.TipoPago, "cajero1");
+
+        var resumen = await _service.ObtenerDetallesAperturaAsync(apertura.Id);
+
+        Assert.Equal(11_800m, resumen.TotalIngresos);
+        Assert.Equal(1_800m, resumen.TotalIngresosFisicos);
+        Assert.Equal(10_000m, resumen.TotalIngresosDigitales);
+        Assert.Equal(2_800m, resumen.CajaFisicaEsperada);
     }
 
     [Fact]

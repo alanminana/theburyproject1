@@ -15,6 +15,49 @@
         });
     });
 
+    var salePaymentFilter = document.querySelector('[data-sale-payment-filter]');
+    if (salePaymentFilter) {
+        var saleRows = Array.prototype.slice.call(document.querySelectorAll('[data-sale-row]'));
+        var saleTotal = document.querySelector('[data-sale-payment-total]');
+        var saleEmpty = document.querySelector('[data-sale-filter-empty]');
+        var moneyFormatter = new Intl.NumberFormat('es-AR', {
+            style: 'currency',
+            currency: 'ARS',
+            minimumFractionDigits: 2
+        });
+
+        function parseAmount(value) {
+            var parsed = Number.parseFloat(String(value || '0').replace(',', '.'));
+            return Number.isFinite(parsed) ? parsed : 0;
+        }
+
+        function applySalePaymentFilter() {
+            var filter = salePaymentFilter.value || 'all';
+            var total = 0;
+            var visible = 0;
+
+            saleRows.forEach(function (row) {
+                var matches = filter === 'all' || row.dataset.salePay === filter;
+                row.hidden = !matches;
+                if (matches) {
+                    total += parseAmount(row.dataset.saleTotal);
+                    visible += 1;
+                }
+            });
+
+            if (saleTotal) {
+                saleTotal.textContent = moneyFormatter.format(total);
+            }
+
+            if (saleEmpty) {
+                saleEmpty.classList.toggle('hidden', visible > 0);
+            }
+        }
+
+        salePaymentFilter.addEventListener('change', applySalePaymentFilter);
+        applySalePaymentFilter();
+    }
+
     document.querySelectorAll('[data-mov-filter]').forEach(function (button) {
         button.addEventListener('click', function () {
             var filter = button.getAttribute('data-mov-filter') || 'all';

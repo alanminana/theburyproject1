@@ -386,6 +386,26 @@ namespace TheBuryProject.Services
             }
         }
 
+        /// <summary>
+        /// Calcula el resumen de efectivo (caja fisica esperada) de una apertura a partir de
+        /// sus movimientos ya cargados. Misma logica que el detalle y el cierre, de modo que el
+        /// Index muestre el mismo valor que el detalle de apertura. Es un calculo puro (sin DB).
+        /// </summary>
+        public static AperturaFisicoResumen CalcularResumenFisico(AperturaCaja apertura)
+        {
+            var movimientos = (apertura.Movimientos ?? Enumerable.Empty<MovimientoCaja>())
+                .Where(m => !m.IsDeleted);
+
+            var (ingresos, egresos) = CalcularTotalesMovimientosFisicos(movimientos);
+
+            return new AperturaFisicoResumen
+            {
+                IngresosFisicos = ingresos,
+                EgresosFisicos = egresos,
+                CajaFisicaEsperada = apertura.MontoInicial + ingresos - egresos
+            };
+        }
+
         #endregion
 
         #region Movimientos de Caja
@@ -993,7 +1013,8 @@ namespace TheBuryProject.Services
                     throw new InvalidOperationException("La caja ya está cerrada");
                 }
 
-                var (ingresos, egresos) = await ObtenerTotalesMovimientosAsync(model.AperturaCajaId);
+                var movimientos = await ObtenerMovimientosDeAperturaAsync(model.AperturaCajaId);
+                var (ingresos, egresos) = CalcularTotalesMovimientosFisicos(movimientos);
                 var montoEsperado = apertura.MontoInicial + ingresos - egresos;
                 var montoReal = model.EfectivoContado + model.ChequesContados + model.ValesContados;
                 var diferencia = montoReal - montoEsperado;
@@ -1144,7 +1165,11 @@ public async Task<DetallesAperturaViewModel> ObtenerDetallesAperturaAsync(int ap
             .ToList();
 
         var (totalIngresos, totalEgresos) = CalcularTotalesMovimientos(movimientos);
+        var (totalIngresosFisicos, totalEgresosFisicos) = CalcularTotalesMovimientosFisicos(movimientos);
+        var totalIngresosDigitales = totalIngresos - totalIngresosFisicos;
+        var totalEgresosDigitales = totalEgresos - totalEgresosFisicos;
         var saldoActual = apertura.MontoInicial + totalIngresos - totalEgresos;
+        var cajaFisicaEsperada = apertura.MontoInicial + totalIngresosFisicos - totalEgresosFisicos;
         var saldoReal = await CalcularSaldoRealAsync(aperturaId);
         var ingresosAcreditados = movimientos
             .Where(m => m.Tipo == TipoMovimientoCaja.Ingreso
@@ -1213,6 +1238,11 @@ public async Task<DetallesAperturaViewModel> ObtenerDetallesAperturaAsync(int ap
             SaldoPendienteAcreditacion = saldoPendienteAcreditacion,
             TotalIngresos = totalIngresos,
             TotalEgresos = totalEgresos,
+            TotalIngresosFisicos = totalIngresosFisicos,
+            TotalEgresosFisicos = totalEgresosFisicos,
+            TotalIngresosDigitales = totalIngresosDigitales,
+            TotalEgresosDigitales = totalEgresosDigitales,
+            CajaFisicaEsperada = cajaFisicaEsperada,
             TotalRecargoDebito = ventasEfectivas.Sum(ResolverRecargoDebitoAplicado),
             CantidadMovimientos = movimientos.Count,
             TotalesPorTipoPago = totalesPorTipoPago,
@@ -1342,6 +1372,35 @@ public async Task<DetallesAperturaViewModel> ObtenerDetallesAperturaAsync(int ap
                 .Sum(m => m.Monto);
 
             return (ingresos, egresos);
+        }
+
+        private static (decimal Ingresos, decimal Egresos) CalcularTotalesMovimientosFisicos(IEnumerable<MovimientoCaja> movimientos)
+        {
+            var movimientosFisicos = movimientos.Where(EsMovimientoFisico);
+            var ingresos = movimientosFisicos
+                .Where(m => m.Tipo == TipoMovimientoCaja.Ingreso)
+                .Sum(m => m.Monto);
+
+            var egresos = movimientosFisicos
+                .Where(m => m.Tipo == TipoMovimientoCaja.Egreso)
+                .Sum(m => m.Monto);
+
+            return (ingresos, egresos);
+        }
+
+        private static bool EsMovimientoFisico(MovimientoCaja mov)
+        {
+            if (mov.TipoPago.HasValue)
+                return mov.TipoPago.Value == TipoPago.Efectivo;
+
+            if (ResolverMedioPagoMovimiento(mov).Equals("Efectivo", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            return mov.Concepto is ConceptoMovimientoCaja.GastoOperativo
+                or ConceptoMovimientoCaja.ExtraccionEfectivo
+                or ConceptoMovimientoCaja.DepositoEfectivo
+                or ConceptoMovimientoCaja.DevolucionCliente
+                or ConceptoMovimientoCaja.AjusteCaja;
         }
 
         private static decimal ResolverRecargoDebitoAplicado(Venta venta)
