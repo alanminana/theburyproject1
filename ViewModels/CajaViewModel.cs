@@ -240,6 +240,23 @@ public class ResumenMedioPagoCajaViewModel
 }
 
 /// <summary>
+/// Resumen de mercadería (productos) efectivamente movida en un turno.
+/// Agregado desde VentaDetalle de las ventas efectivas (Confirmada/Facturada/Entregada).
+/// </summary>
+public class MercaderiaMovidaViewModel
+{
+    public int ProductoId { get; set; }
+    public string ProductoNombre { get; set; } = string.Empty;
+    public string? ProductoCodigo { get; set; }
+    /// <summary>Unidades totales vendidas del producto en el turno.</summary>
+    public int CantidadTotal { get; set; }
+    /// <summary>Importe final total facturado del producto (SubtotalFinal sumado).</summary>
+    public decimal ImporteTotal { get; set; }
+    /// <summary>Cantidad de ventas distintas que incluyeron el producto.</summary>
+    public int CantidadVentas { get; set; }
+}
+
+/// <summary>
 /// ViewModel para detalles de apertura de caja
 /// </summary>
 public class DetallesAperturaViewModel
@@ -279,6 +296,21 @@ public class DetallesAperturaViewModel
     /// que no generan movimiento de caja inmediato pero deben quedar registradas como operaciones del turno.
     /// </summary>
     public List<TheBuryProject.Models.Entities.Venta> VentasDelTurno { get; set; } = new();
+    /// <summary>
+    /// Mercadería (productos) efectivamente movida en el turno, agregada desde las ventas efectivas.
+    /// </summary>
+    public List<MercaderiaMovidaViewModel> MercaderiaMovida { get; set; } = new();
+}
+
+/// <summary>
+/// ViewModel para el detalle de un cierre de caja: combina el registro de cierre
+/// (totales firmados, read-only) con el detalle operativo del turno (movimientos,
+/// ventas y mercadería) reutilizado de <see cref="DetallesAperturaViewModel"/>.
+/// </summary>
+public class DetallesCierreViewModel
+{
+    public CierreCaja Cierre { get; set; } = null!;
+    public DetallesAperturaViewModel Detalle { get; set; } = null!;
 }
 
 /// <summary>

@@ -58,6 +58,33 @@
         applySalePaymentFilter();
     }
 
+    var merchFilter = document.querySelector('[data-merch-filter]');
+    if (merchFilter) {
+        var merchRows = Array.prototype.slice.call(document.querySelectorAll('[data-merch-row]'));
+        var merchEmpty = document.querySelector('[data-merch-empty]');
+
+        function applyMerchFilter() {
+            var term = (merchFilter.value || '').trim().toLowerCase();
+            var visible = 0;
+
+            merchRows.forEach(function (row) {
+                var name = row.dataset.merchName || '';
+                var matches = term === '' || name.indexOf(term) !== -1;
+                row.hidden = !matches;
+                if (matches) {
+                    visible += 1;
+                }
+            });
+
+            if (merchEmpty) {
+                merchEmpty.classList.toggle('hidden', visible > 0);
+            }
+        }
+
+        merchFilter.addEventListener('input', applyMerchFilter);
+        applyMerchFilter();
+    }
+
     document.querySelectorAll('[data-mov-filter]').forEach(function (button) {
         button.addEventListener('click', function () {
             var filter = button.getAttribute('data-mov-filter') || 'all';

@@ -1153,6 +1153,8 @@ public async Task<DetallesAperturaViewModel> ObtenerDetallesAperturaAsync(int ap
             .AsNoTracking()
             .Include(v => v.Cliente)
             .Include(v => v.DatosTarjeta)
+            .Include(v => v.Detalles)
+                .ThenInclude(d => d.Producto)
             .Where(v => v.AperturaCajaId == aperturaId && !v.IsDeleted)
             .OrderByDescending(v => v.FechaVenta)
             .ToListAsync();
@@ -1246,7 +1248,8 @@ public async Task<DetallesAperturaViewModel> ObtenerDetallesAperturaAsync(int ap
             TotalRecargoDebito = ventasEfectivas.Sum(ResolverRecargoDebitoAplicado),
             CantidadMovimientos = movimientos.Count,
             TotalesPorTipoPago = totalesPorTipoPago,
-            ResumenRealPorMedioPago = resumenRealPorMedioPago
+            ResumenRealPorMedioPago = resumenRealPorMedioPago,
+            MercaderiaMovida = CalcularMercaderiaMovida(ventasEfectivas)
         };
     }
     catch (Exception ex)
@@ -1254,6 +1257,32 @@ public async Task<DetallesAperturaViewModel> ObtenerDetallesAperturaAsync(int ap
         _logger.LogError(ex, "Error al obtener detalles de apertura {AperturaId}", aperturaId);
         throw;
     }
+}
+
+/// <summary>
+/// Agrega la mercadería (productos) efectivamente movida en el turno a partir de los
+/// detalles de las ventas efectivas. Cálculo puro y testeable: agrupa por producto,
+/// suma unidades e importe final y cuenta ventas distintas.
+/// </summary>
+public static List<MercaderiaMovidaViewModel> CalcularMercaderiaMovida(IEnumerable<Venta> ventasEfectivas)
+{
+    return ventasEfectivas
+        .SelectMany(v => (v.Detalles ?? new List<VentaDetalle>())
+            .Where(d => !d.IsDeleted)
+            .Select(d => new { Venta = v, Detalle = d }))
+        .GroupBy(x => x.Detalle.ProductoId)
+        .Select(g => new MercaderiaMovidaViewModel
+        {
+            ProductoId = g.Key,
+            ProductoNombre = g.Select(x => x.Detalle.Producto?.Nombre).FirstOrDefault(n => !string.IsNullOrWhiteSpace(n))
+                             ?? $"Producto #{g.Key}",
+            ProductoCodigo = g.Select(x => x.Detalle.Producto?.Codigo).FirstOrDefault(c => !string.IsNullOrWhiteSpace(c)),
+            CantidadTotal = g.Sum(x => x.Detalle.Cantidad),
+            ImporteTotal = g.Sum(x => x.Detalle.SubtotalFinal),
+            CantidadVentas = g.Select(x => x.Venta.Id).Distinct().Count()
+        })
+        .OrderByDescending(m => m.ImporteTotal)
+        .ToList();
 }
         public async Task<ReporteCajaViewModel> GenerarReporteCajaAsync(
             DateTime fechaDesde,

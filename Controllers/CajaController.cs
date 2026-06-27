@@ -462,9 +462,17 @@ namespace TheBuryProject.Controllers
                 return RedirectToAction(nameof(Historial));
             }
 
+            // El detalle operativo del turno (movimientos, ventas y mercadería) se reutiliza
+            // del mismo cálculo que la apertura para que el cierre muestre la misma trazabilidad.
+            var detalle = await _cajaService.ObtenerDetallesAperturaAsync(cierre.AperturaCajaId);
+
             ViewBag.ReturnUrl = returnUrl;
 
-            return View("DetallesCierre_tw", cierre);
+            return View("DetallesCierre_tw", new DetallesCierreViewModel
+            {
+                Cierre = cierre,
+                Detalle = detalle
+            });
         }
 
         /// <summary>
