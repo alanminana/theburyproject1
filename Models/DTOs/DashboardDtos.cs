@@ -26,6 +26,19 @@ namespace TheBuryProject.Models.DTOs
         public decimal TotalVendido { get; set; }
     }
 
+    /// <summary>
+    /// Producto marcado como destacado (EsDestacado) para el panel del dashboard.
+    /// </summary>
+    public class ProductoDestacadoDto
+    {
+        public int ProductoId { get; set; }
+        public string Codigo { get; set; } = string.Empty;
+        public string Nombre { get; set; } = string.Empty;
+        public decimal PrecioVenta { get; set; }
+        public decimal StockActual { get; set; }
+        public decimal StockMinimo { get; set; }
+    }
+
     public class EstadoCreditoDto
     {
         public string Estado { get; set; } = string.Empty;

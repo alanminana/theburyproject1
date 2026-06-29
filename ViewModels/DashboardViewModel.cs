@@ -56,6 +56,9 @@ namespace TheBuryProject.ViewModels
         // Panel "Alertas de stock" (productos por debajo del mínimo)
         public List<StockAlertaDto> AlertasStockRecientes { get; set; } = new();
 
+        // Panel "Productos destacados" (productos con EsDestacado = true)
+        public List<ProductoDestacadoDto> ProductosDestacados { get; set; } = new();
+
         // Feed "Actividad reciente" (ventas, altas de cliente y alertas de stock)
         public List<ActividadRecienteDto> ActividadReciente { get; set; } = new();
     }
@@ -74,6 +77,7 @@ namespace TheBuryProject.ViewModels
         public DateTime FechaVencimiento { get; set; }
         public decimal Monto { get; set; }
         public int DiasParaVencer { get; set; }
+        public List<CreditoProductoAsociadoViewModel> ProductosAsociados { get; set; } = new();
     }
 
     /// <summary>
@@ -91,6 +95,7 @@ namespace TheBuryProject.ViewModels
         public decimal Monto { get; set; }
         public int DiasVencidos { get; set; }
         public decimal MontoPunitorio { get; set; }
+        public List<CreditoProductoAsociadoViewModel> ProductosAsociados { get; set; } = new();
     }
 
     /// <summary>

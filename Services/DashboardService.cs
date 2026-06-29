@@ -111,6 +111,7 @@ namespace TheBuryProject.Services
             var cuotasVencLista = await GetCuotasVencidasListaAsync();
             var ordenes         = await GetOrdenesCompraPendientesAsync();
             var alertasStock    = await GetAlertasStockRecientesAsync();
+            var destacados      = await GetProductosDestacadosAsync();
             var actividad       = await GetActividadRecienteAsync();
 
             return new DashboardViewModel
@@ -161,6 +162,7 @@ namespace TheBuryProject.Services
                 MontoOrdenesCompraPendientes    = ordenes.Sum(o => o.Total),
 
                 AlertasStockRecientes  = alertasStock,
+                ProductosDestacados    = destacados,
                 ActividadReciente      = actividad
             };
         }
@@ -417,7 +419,7 @@ namespace TheBuryProject.Services
                 .ToListAsync();
 
             // Calcular días en memoria
-            return cuotasDb.Select(c => new CuotaProximaVencerDto
+            var cuotas = cuotasDb.Select(c => new CuotaProximaVencerDto
             {
                 CuotaId = c.Id,
                 CreditoId = c.CreditoId,
@@ -429,6 +431,16 @@ namespace TheBuryProject.Services
                 Monto = c.Monto,
                 DiasParaVencer = (c.FechaVencimiento - hoy).Days
             }).ToList();
+
+            var productosPorCredito = await ObtenerProductosAsociadosPorCreditoAsync(cuotas.Select(c => c.CreditoId));
+            foreach (var cuota in cuotas)
+            {
+                cuota.ProductosAsociados = productosPorCredito.TryGetValue(cuota.CreditoId, out var productos)
+                    ? productos
+                    : new List<CreditoProductoAsociadoViewModel>();
+            }
+
+            return cuotas;
         }
 
         /// <summary>
@@ -467,7 +479,7 @@ namespace TheBuryProject.Services
                 .ToListAsync();
 
             // Calcular días en memoria
-            return cuotasDb.Select(c => new CuotaVencidaDto
+            var cuotas = cuotasDb.Select(c => new CuotaVencidaDto
             {
                 CuotaId = c.Id,
                 CreditoId = c.CreditoId,
@@ -480,6 +492,70 @@ namespace TheBuryProject.Services
                 DiasVencidos = (hoy - c.FechaVencimiento).Days,
                 MontoPunitorio = c.MontoPunitorio
             }).ToList();
+
+            var productosPorCredito = await ObtenerProductosAsociadosPorCreditoAsync(cuotas.Select(c => c.CreditoId));
+            foreach (var cuota in cuotas)
+            {
+                cuota.ProductosAsociados = productosPorCredito.TryGetValue(cuota.CreditoId, out var productos)
+                    ? productos
+                    : new List<CreditoProductoAsociadoViewModel>();
+            }
+
+            return cuotas;
+        }
+
+        private async Task<Dictionary<int, List<CreditoProductoAsociadoViewModel>>> ObtenerProductosAsociadosPorCreditoAsync(
+            IEnumerable<int> creditoIds)
+        {
+            var ids = creditoIds
+                .Where(id => id > 0)
+                .Distinct()
+                .ToList();
+
+            if (ids.Count == 0)
+                return new Dictionary<int, List<CreditoProductoAsociadoViewModel>>();
+
+            var detalles = await _context.Ventas
+                .AsNoTracking()
+                .Where(v => !v.IsDeleted &&
+                            v.CreditoId.HasValue &&
+                            ids.Contains(v.CreditoId.Value))
+                .SelectMany(
+                    v => v.Detalles.Where(d => !d.IsDeleted),
+                    (venta, detalle) => new
+                    {
+                        CreditoId = venta.CreditoId!.Value,
+                        detalle.ProductoId,
+                        ProductoNombre = detalle.Producto != null ? detalle.Producto.Nombre : null,
+                        ProductoCodigo = detalle.Producto != null ? detalle.Producto.Codigo : null,
+                        detalle.Cantidad,
+                        Total = detalle.SubtotalFinal != 0 ? detalle.SubtotalFinal : detalle.Subtotal
+                    })
+                .ToListAsync();
+
+            return detalles
+                .GroupBy(d => d.CreditoId)
+                .ToDictionary(
+                    grupo => grupo.Key,
+                    grupo => grupo
+                        .GroupBy(d => new
+                        {
+                            d.ProductoId,
+                            d.ProductoNombre,
+                            d.ProductoCodigo
+                        })
+                        .Select(producto => new CreditoProductoAsociadoViewModel
+                        {
+                            ProductoId = producto.Key.ProductoId,
+                            ProductoNombre = string.IsNullOrWhiteSpace(producto.Key.ProductoNombre)
+                                ? $"Producto #{producto.Key.ProductoId}"
+                                : producto.Key.ProductoNombre,
+                            ProductoCodigo = producto.Key.ProductoCodigo,
+                            Cantidad = producto.Sum(x => x.Cantidad),
+                            Total = producto.Sum(x => x.Total)
+                        })
+                        .OrderBy(p => p.ProductoNombre)
+                        .ToList());
         }
 
         /// <summary>
@@ -580,6 +656,29 @@ namespace TheBuryProject.Services
                 .ThenBy(p => p.StockActual)
                 .Take(6)
                 .ToList();
+        }
+
+        /// <summary>
+        /// Productos activos marcados como destacados (EsDestacado) para el panel
+        /// "Productos destacados" del dashboard.
+        /// </summary>
+        private async Task<List<ProductoDestacadoDto>> GetProductosDestacadosAsync()
+        {
+            return await _context.Productos
+                .AsNoTracking()
+                .Where(p => !p.IsDeleted && p.Activo && p.EsDestacado)
+                .OrderBy(p => p.Nombre)
+                .Take(6)
+                .Select(p => new ProductoDestacadoDto
+                {
+                    ProductoId = p.Id,
+                    Codigo = p.Codigo,
+                    Nombre = p.Nombre,
+                    PrecioVenta = p.PrecioVenta,
+                    StockActual = p.StockActual,
+                    StockMinimo = p.StockMinimo
+                })
+                .ToListAsync();
         }
 
         /// <summary>
