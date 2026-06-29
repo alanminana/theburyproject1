@@ -12,6 +12,75 @@
 
 ---
 
+## Lote CERRADO - Productos asociados en Credito y Dashboard
+
+- **Estado:** CERRADO, NO COMMITEADO. Codex, 27-jun.
+- **Foco:** mostrar productos asociados junto al numero de credito/cuota en `/Credito` y en la tabla "Cuotas y pagos" del Dashboard.
+- **Superficie:** `ViewModels/CreditoViewModel.cs`, `ViewModels/DashboardViewModel.cs`, `Helpers/AutoMapperProfile.cs`, `Services/CreditoService.cs`, `Services/DashboardService.cs`, `Views/Credito/_PanelClientePartial.cshtml`, `Views/Dashboard/Index.cshtml`, `wwwroot/css/credito-module.css`, `COORDINACION-AGENTES.md`.
+- **No tocar:** lote abierto Caja/Venta de Claude; no editar reglas de venta/caja ni tests por pedido del usuario.
+- **QA inicial:** Playwright local contra `http://localhost:5187/Credito` 1440x900: 1 cliente, 4 creditos, sin overflow horizontal, `productMarkers=0`.
+- **Validacion:** build inicial Credito OK 0/0. Build final `dotnet build TheBuryProyect.csproj --configuration Release --no-restore -p:BaseOutputPath=artifacts/build-dashboard-productos-2/ -p:UseAppHost=false /nr:false` OK 0/0. Sin tests por pedido del usuario. Playwright local contra `http://127.0.0.1:5213`: Dashboard en 1440x900, 1280x720, 1024x720, 900x720, 768x1024, 390x844, 360x800 sin overflow y tabs OK; la DB local no tenia filas de cuotas en Dashboard (`rows=0`). `/Credito` en la misma matriz OK: productos visibles en creditos asociados (`productMarkers=3`), clientes colapsables abren, cuotas abren, footer de pago presente. Capturas en `artifacts/qa-dashboard-credito-productos-final/`.
+- **Procesos:** instancias aisladas propias PID `10008` (`:5211`), `31176` (`:5212`) y `22952` (`:5213`) iniciadas para QA y cerradas. Build colgado PID `35260` cerrado tras timeout; procesos ajenos `dotnet run` PID `8064` y language server PID `31348` no tocados.
+- **git add exacto:** `git add ViewModels/CreditoViewModel.cs ViewModels/DashboardViewModel.cs Helpers/AutoMapperProfile.cs Services/CreditoService.cs Services/DashboardService.cs Views/Credito/_PanelClientePartial.cshtml Views/Dashboard/Index.cshtml wwwroot/css/credito-module.css COORDINACION-AGENTES.md`
+
+## Lote ABIERTO (working tree, sin commitear) - Enforcement "cada usuario sobre su propia caja"
+
+- **Estado:** IMPLEMENTADO + VALIDADO, NO COMMITEADO. Claude, 26-jun. Rama `feat/caja-vendedores-valor-ux-20260625`.
+- **Foco:** padrón caja↔usuario generalizado (vendedores que venden + cajeros que operan, UNA membresía; RBAC define el verbo). Enforcement AMBOS + rollout ESTRICTO (caja sin padrón ⇒ solo admin):
+  - **A (venta):** `VentaService.CreateAsync` valida que el vendedor pertenezca al padrón de la caja de la apertura (bypass SuperAdmin/Administrador).
+  - **B (operación):** `CajaController` Abrir/RegistrarMovimiento/Cerrar/Acreditar (POST+GET) gateados por membresía; dropdown de Abrir filtrado; botón Abrir oculto a no-miembros en Index.
+- **Sin migración:** reutiliza tabla `CajaVendedores`/col `VendedorUserId` (ahora guarda vendedor o cajero; nombre histórico conservado y documentado).
+- **MIS archivos:** `Services/Interfaces/ICajaVendedorService.cs`, `Services/CajaVendedorService.cs`, `Models/Entities/CajaVendedor.cs`, `Views/Caja/_EditModal_tw.cshtml`, `Controllers/CajaController.cs`, `Views/Caja/Index_tw.cshtml`, `TheBuryProyect.Tests/Integration/CajaVendedorServiceTests.cs`, `TheBuryProyect.Tests/Integration/VentaServiceCajaEnforcementTests.cs` (NUEVO). **PARCIALMENTE MÍOS (entangled):** `ViewModels/CajaViewModel.cs` (mi +CajerosDisponibles junto a `MercaderiaMovidaViewModel` de otro lote), `Services/VentaService.cs` (mi `ValidarVendedorHabilitadoEnCajaAsync` junto a la WIP "excepcion credito personal por cupo" de Codex).
+- **Validacion:** build main Release 0/0; `dotnet test ... --filter "FullyQualifiedName~VentaService|FullyQualifiedName~CajaVendedorService"` OK **416/416** (incl. test nuevo de enforcement A). QA Playwright live :5188 (DB aislada TheBuryProjectQA2, dropeada): modal "Usuarios habilitados" (grupos Cajeros/Vendedores) + persistencia, Abrir gateado (propia vs "Sin acceso"), enforcement B (abrir propia OK / POST crafteado a caja ajena bloqueado), 390px sin overflow + footer alcanzable.
+- **⚠️ COMMIT:** NO usar `git add <file>` en `ViewModels/CajaViewModel.cs` ni `Services/VentaService.cs` (arrastra WIP ajena: Mercadería movida / excepcion credito). Requiere staging por hunks (`git add -p`/patch). Los M en `VentaServiceConfirmarEfectivoTests`/`VentaServiceCreditoPersonalTests` NO son míos (mi edición fue net-zero, revertida).
+- **Procesos:** instancia QA PID propio en :5188 cerrada; DB TheBuryProjectQA2 dropeada. Dev ajena PID `28620` (:5187) NO tocada.
+
+## Lote CERRADO - Credito index como pagina de cartera por cliente
+
+- **Estado:** CERRADO, NO COMMITEADO. Codex, 26-jun.
+- **Foco:** `/Credito` deja de duplicar cartera en acordeon + drawer; el contenido del panel de cliente pasa a renderizarse inline como pagina principal.
+- **Superficie:** `Views/Credito/Index_tw.cshtml`, `Views/Credito/_PanelClientePartial.cshtml`, `wwwroot/js/credito-index.js`, `wwwroot/css/credito-module.css`, `COORDINACION-AGENTES.md`.
+- **No tocar:** lote abierto Caja/Venta de Claude; no editar controllers/services/reglas de negocio.
+- **Validacion:** build Release aislado OK 0/0; `CreditoUiQueryServiceTests` OK 14/14; Playwright local contra `http://localhost:5187/Credito` en 1440x900, 1280x720, 1024x720, 900x720, 768x1024, 390x844, 360x800 OK: sin overlay/drawer, sin cards redundantes, sin overflow horizontal global, tabs Cartera/Moras OK, expandir cuotas OK, seleccionar cuota habilita Registrar pago, footer alcanzable. Capturas en `artifacts/qa-credito-index-inline-final/`.
+- **Limitacion:** MCP Playwright estaba bloqueado por una instancia existente; se valido con Playwright local headless. `git diff --check` sigue fallando por whitespace preexistente en `Views/Cliente/Details_tw.cshtml:453`, fuera de este lote.
+- **git add exacto:** `git add Views/Credito/Index_tw.cshtml Views/Credito/_PanelClientePartial.cshtml wwwroot/js/credito-index.js wwwroot/css/credito-module.css COORDINACION-AGENTES.md`
+
+---
+
+## Lote CERRADO - Fix excepcion credito personal por cupo
+
+- **Estado:** CERRADO por Codex.
+- **Foco:** venta con credito personal puede avanzar con excepcion autorizada cuando el unico bloqueo es cupo disponible insuficiente reportado como `ClienteNoApto`.
+- **Archivos:** `Services/VentaService.cs`, `TheBuryProyect.Tests/Integration/VentaServiceCreditoPersonalTests.cs`.
+- **Validacion:** test rojo inicial reprodujo el error exacto. Luego `dotnet test TheBuryProyect.Tests\TheBuryProyect.Tests.csproj --configuration Release --no-restore --filter "FullyQualifiedName~VentaServiceCreditoPersonalTests.CreateAsync_CreditoPersonalExcedeCupoConExcepcionAutorizada" -p:BaseOutputPath=artifacts/test-excepcion-credito/ -p:UseAppHost=false --logger "trx;LogFileName=venta-credit-excepcion-green.trx" --blame-hang --blame-hang-timeout 120s` OK 1/1. `dotnet test ... --no-build --filter "FullyQualifiedName~VentaServiceCreditoPersonalTests"` OK 9/9. `dotnet build TheBuryProyect.csproj --configuration Release --no-restore -p:BaseOutputPath=artifacts/build-excepcion-credito/ -p:UseAppHost=false /nr:false` OK 0/0. `git diff --check` OK solo avisos LF/CRLF.
+- **Procesos:** no se iniciaron procesos persistentes. Vivos ajenos detectados y no tocados: PID `16624` VS MSBuildProjectTools language server, PID `8000` `dotnet run`.
+- **git add exacto:** `git add Services/VentaService.cs TheBuryProyect.Tests/Integration/VentaServiceCreditoPersonalTests.cs COORDINACION-AGENTES.md`
+
+---
+
+## Lote CERRADO - Caja fisica vs medios digitales
+
+- **Estado:** CERRADO por Codex.
+- **Foco:** Detalle/cierre de caja debe separar efectivo fisico de ventas digitales y exponer totales por medio de pago.
+- **Archivos:** `Controllers/CajaController.cs`, `Services/CajaService.cs`, `ViewModels/CajaViewModel.cs`, `Views/Caja/DetallesApertura_tw.cshtml`, `Views/Caja/Cerrar_tw.cshtml`, `wwwroot/js/caja-detalles-apertura.js`, `wwwroot/css/caja-module.css`, tests focalizados de Caja.
+- **Validacion:** `dotnet build TheBuryProyect.csproj --configuration Release --no-restore -p:BaseOutputPath=artifacts/build-caja-digital/ -p:UseAppHost=false /nr:false` OK 0/0. QA Playwright OK en `/Caja/DetallesApertura/2` y `/Caja/Cerrar?aperturaId=2`, puerto 5207.
+- **Tests:** se agregaron tests focalizados, pero `dotnet test ... --filter "FullyQualifiedName~VentaDigital_No"` excedio 180s sin TRX ni ensamblado de tests usable. No se relanzo otra vez.
+- **Proceso:** app aislada PID `24552` iniciada para QA y cerrada.
+- **git add exacto:** `git add Controllers/CajaController.cs Services/CajaService.cs ViewModels/CajaViewModel.cs Views/Caja/DetallesApertura_tw.cshtml Views/Caja/Cerrar_tw.cshtml wwwroot/js/caja-detalles-apertura.js wwwroot/css/caja-module.css TheBuryProyect.Tests/Integration/CajaServiceTests.cs TheBuryProyect.Tests/Unit/CajaDetallesAperturaContractTests.cs COORDINACION-AGENTES.md`
+
+---
+
+## Lote CERRADO - Fix validacion CUIT proveedor
+
+- **Estado:** CERRADO por Codex.
+- **Foco:** proveedor ahora valida CUIT como 11 digitos numericos sin exigir digito verificador AFIP.
+- **Archivos:** `ViewModels/ProveedorViewModel.cs`, `TheBuryProyect.Tests/Unit/ProveedorViewModelValidationTests.cs`.
+- **Validacion:** compilacion puntual con `csc` de `Validation/ArgentinaValidationAttributes.cs` + `ViewModels/ProveedorViewModel.cs` OK; `git diff --check` OK con avisos LF/CRLF.
+- **Limitacion:** `dotnet test` focalizado y `dotnet build` tests con salida aislada excedieron 150s; se cerraron los PIDs propios `29660`, `12760`, `31824`, `5008`.
+- **git add exacto:** `git add ViewModels/ProveedorViewModel.cs TheBuryProyect.Tests/Unit/ProveedorViewModelValidationTests.cs COORDINACION-AGENTES.md`
+
+---
+
 ## Lote CERRADO — Calificación crediticia del cliente (NivelCreditoFinal + override manual)
 
 - **Estado:** **CERRADO. Commiteado y mergeado a `main`.**

@@ -4,6 +4,10 @@
 @source "../../Views/**/*.cshtml";
 @source "../../Areas/**/*.cshtml";
 
+/* Cotización simulador: utilidades generadas por JS (cotizacion-simulador.js),
+   no visibles para el scanner de Razor. Safelist explícito. */
+@source inline("text-white text-slate-200 text-slate-300 text-slate-400 text-slate-500 text-slate-600 text-blue-400 text-emerald-400 text-amber-300 text-amber-200/80 text-red-300 hover:text-red-300 font-medium font-semibold font-mono text-sm text-xs text-[10px] text-[11px] uppercase tracking-wide min-w-0 flex flex-1 items-start items-center items-end justify-between gap-2 gap-1.5 mt-0.5 mt-1 w-full block text-right text-center grid grid-cols-3");
+
 /* Class-based dark mode (matches html.dark) */
 @custom-variant dark (&:where(.dark, .dark *));
 
