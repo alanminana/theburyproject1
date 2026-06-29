@@ -11,7 +11,10 @@
     ViewData["Title"] = $"Inventario — {Model.Nombre}";
 
     var tabQs = Context.Request.Query["tab"].ToString();
-    var tabInicial = (tabQs == "unidades" || tabQs == "movimientos")
+    // "fisicas" (alta de unidades físicas inline) solo aplica a productos no serializados.
+    var tabValido = tabQs == "unidades" || tabQs == "movimientos"
+                    || (tabQs == "fisicas" && !Model.RequiereNumeroSerie);
+    var tabInicial = tabValido
         ? tabQs
         : (Model.RequiereNumeroSerie ? "unidades" : "movimientos");
 
@@ -110,7 +113,17 @@
 .fi-page .fi-btn-ghost:hover { background: #1e293b; color: #fff; }
 .fi-page .fi-btn-soft { background: #1e293b; color: #e2e8f0; border-color: #334155; }
 .fi-page .fi-btn-soft:hover { background: #273549; }
+.fi-page .fi-btn-primary { background: #f5c518; color: #15110a; border-color: #f5c518; }
+.fi-page .fi-btn-primary:hover { background: #e0b40f; border-color: #e0b40f; }
 .fi-page .fi-btn-sm { padding: .375rem .65rem; font-size: .8rem; min-height: 34px; }
+/* Inputs del form inline de stock — paridad con MovimientoStock/Create */
+.fi-page .fi-input {
+  width: 100%; border-radius: 8px; border: 1px solid #334155; background: #1e293b;
+  color: #fff; padding: .5rem .75rem; font-size: .875rem; outline: none;
+}
+.fi-page .fi-input:focus { border-color: #f5c518; box-shadow: 0 0 0 1px #f5c518; }
+.fi-page select.fi-input { cursor: pointer; }
+.fi-page .fi-input::placeholder { color: #64748b; }
 /* Table */
 .fi-page .fi-tbl {
   width: 100%; border-collapse: separate; border-spacing: 0; font-size: .85rem;
@@ -202,11 +215,16 @@
             </div>
 
             <div class="flex flex-wrap gap-2 shrink-0">
-                <a asp-controller="Producto" asp-action="Unidades" asp-route-productoId="@Model.ProductoId"
-                   class="fi-btn fi-btn-ghost fi-btn-sm">
-                    <span class="material-symbols-outlined" style="font-size:16px">qr_code_2</span>
-                    Gestionar unidades
-                </a>
+                @* En no serializado, "Gestionar unidades" lo cubre la solapa "Unidades físicas"
+                   (con su link "Gestión completa"); se evita el botón duplicado en el header. *@
+                @if (Model.RequiereNumeroSerie)
+                {
+                    <a asp-controller="Producto" asp-action="Unidades" asp-route-productoId="@Model.ProductoId"
+                       class="fi-btn fi-btn-ghost fi-btn-sm">
+                        <span class="material-symbols-outlined" style="font-size:16px">qr_code_2</span>
+                        Gestionar unidades
+                    </a>
+                }
                 <a asp-controller="MovimientoStock" asp-action="Kardex" asp-route-id="@Model.ProductoId"
                    class="fi-btn fi-btn-ghost fi-btn-sm">
                     <span class="material-symbols-outlined" style="font-size:16px">receipt_long</span>
@@ -283,13 +301,26 @@
                     aria-controls="fi-panel-unidades"
                     aria-selected="@(tabInicial == "unidades" ? "true" : "false")"
                     class="fi-tab-btn">
-                <span class="material-symbols-outlined" style="font-size:16px">qr_code_2</span>
-                Unidades
+                <span class="material-symbols-outlined" style="font-size:16px">@(Model.RequiereNumeroSerie ? "qr_code_2" : "add_box")</span>
+                @(Model.RequiereNumeroSerie ? "Unidades" : "Stock")
                 @if (Model.RequiereNumeroSerie)
                 {
                     <span class="ml-1 text-xs text-slate-600">@conciliacion.TotalUnidadesRegistradas</span>
                 }
             </button>
+            @if (!Model.RequiereNumeroSerie)
+            {
+                <button type="button"
+                        data-fi-tab="fisicas"
+                        role="tab"
+                        aria-controls="fi-panel-fisicas"
+                        aria-selected="@(tabInicial == "fisicas" ? "true" : "false")"
+                        class="fi-tab-btn">
+                    <span class="material-symbols-outlined" style="font-size:16px">qr_code_2</span>
+                    Unidades físicas
+                    <span class="ml-1 text-xs text-slate-600">@conciliacion.TotalUnidadesRegistradas</span>
+                </button>
+            }
             <button type="button"
                     data-fi-tab="movimientos"
                     role="tab"
@@ -309,27 +340,69 @@
 
         @if (!Model.RequiereNumeroSerie)
         {
-            <div class="fi-card p-8 flex flex-col items-center text-center gap-4">
-                <span class="material-symbols-outlined text-5xl text-slate-700">inventory_2</span>
-                <div>
-                    <p class="text-sm font-semibold text-slate-300">Este producto no requiere trazabilidad por número de serie.</p>
-                    <p class="mt-1 text-xs text-slate-500">
-                        El stock se gestiona de forma agregada. Podés ver el historial de movimientos en la pestaña
-                        <strong class="text-slate-400">Movimientos</strong>, o activar la trazabilidad desde la gestión de unidades.
-                    </p>
+            @* Producto no serializado: el stock es por cantidad. Form inline para sumar/ajustar
+               stock sin salir de la ficha (reusa el endpoint canónico MovimientoStock/Create). *@
+            <div class="fi-card p-5 sm:p-6">
+                <div class="flex items-start gap-3">
+                    <span class="material-symbols-outlined text-amber-300 shrink-0" style="font-size:24px">add_box</span>
+                    <div class="min-w-0">
+                        <h3 class="text-base font-semibold text-white">Agregar stock</h3>
+                        <p class="mt-0.5 text-xs text-slate-400">
+                            Este producto no usa número de serie: el stock se gestiona por cantidad.
+                            Cargá el movimiento acá mismo, sin pasar por la gestión de unidades.
+                        </p>
+                    </div>
                 </div>
-                <div class="flex flex-wrap justify-center gap-3">
-                    <button type="button" data-fi-tab-goto="movimientos"
-                            class="fi-btn fi-btn-ghost fi-btn-sm">
-                        <span class="material-symbols-outlined" style="font-size:16px">swap_vert</span>
-                        Ver Movimientos
-                    </button>
-                    <a asp-controller="Producto" asp-action="Unidades" asp-route-productoId="@Model.ProductoId"
-                       class="fi-btn fi-btn-soft fi-btn-sm">
-                        <span class="material-symbols-outlined" style="font-size:16px">settings</span>
-                        Gestionar unidades
-                    </a>
-                </div>
+
+                <form method="post" asp-controller="MovimientoStock" asp-action="Create"
+                      class="mt-4 space-y-4">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="ProductoId" value="@Model.ProductoId" />
+                    <input type="hidden" name="ReturnUrl"
+                           value="@Url.Action("Inventario", "Producto", new { productoId = Model.ProductoId, tab = "movimientos" })" />
+
+                    <div class="grid gap-4 sm:grid-cols-3">
+                        <div>
+                            <label for="fi-stock-tipo" class="block text-xs font-semibold text-slate-300 mb-1.5">Tipo</label>
+                            <select id="fi-stock-tipo" name="Tipo" class="fi-input">
+                                <option value="@TipoMovimiento.Entrada" selected>Entrada (+ suma)</option>
+                                <option value="@TipoMovimiento.Salida">Salida (− resta)</option>
+                                <option value="@TipoMovimiento.Ajuste">Ajuste (stock exacto)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="fi-stock-cantidad" class="block text-xs font-semibold text-slate-300 mb-1.5">
+                                Cantidad <span class="text-red-400">*</span>
+                            </label>
+                            <input id="fi-stock-cantidad" name="Cantidad" type="number" min="0.01" step="0.01" required
+                                   class="fi-input" placeholder="0" />
+                        </div>
+                        <div>
+                            <label for="fi-stock-motivo" class="block text-xs font-semibold text-slate-300 mb-1.5">
+                                Motivo <span class="text-red-400">*</span>
+                            </label>
+                            <input id="fi-stock-motivo" name="Motivo" type="text" maxlength="500" required
+                                   class="fi-input" placeholder="Ej: Compra a proveedor, inventario físico…" />
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-1">
+                        <p class="text-xs text-slate-500">
+                            Stock actual: <strong class="text-slate-300 font-mono">@Model.StockActual.ToString("G29")</strong>.
+                            Queda registrado en el Kardex.
+                        </p>
+                        <div class="flex items-center gap-2">
+                            <button type="button" data-fi-tab-goto="movimientos" class="fi-btn fi-btn-ghost fi-btn-sm">
+                                <span class="material-symbols-outlined" style="font-size:16px">swap_vert</span>
+                                Ver movimientos
+                            </button>
+                            <button type="submit" class="fi-btn fi-btn-primary fi-btn-sm">
+                                <span class="material-symbols-outlined" style="font-size:16px">add</span>
+                                Agregar stock
+                            </button>
+                        </div>
+                    </div>
+                </form>
             </div>
         }
         else
@@ -447,6 +520,179 @@
             </div>
         }
     </section>
+
+    @* ── TAB: UNIDADES FÍSICAS (solo no serializado) ── *@
+    @if (!Model.RequiereNumeroSerie)
+    {
+        var difStock = conciliacion.DiferenciaStockVsUnidadesEnStock;
+        var faltanUnidades = difStock > 0 ? (int)Math.Floor(difStock) : 0;
+
+        <section id="fi-panel-fisicas" data-fi-panel="fisicas" role="tabpanel"
+                 class="space-y-4 @(tabInicial != "fisicas" ? "hidden" : "")">
+
+            @if (conciliacion.HayDiferencia)
+            {
+                <div class="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 flex items-start gap-3">
+                    <span class="material-symbols-outlined text-amber-400 shrink-0" style="font-size:20px">warning</span>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-semibold text-amber-300">Diferencia entre stock lógico y unidades físicas</p>
+                        <p class="mt-0.5 text-xs text-amber-200/70">
+                            Stock lógico: <strong>@Model.StockActual.ToString("G29")</strong> —
+                            Unidades físicas en stock: <strong>@conciliacion.UnidadesEnStock</strong> —
+                            Diferencia: <strong>@(difStock > 0 ? "+" : "")@difStock.ToString("G29")</strong>.
+                        </p>
+                        @if (faltanUnidades > 0)
+                        {
+                            @* Quick-fill explícito: setea la cantidad sugerida en el form, sin prellenarlo
+                               automáticamente (evita crear N unidades de un click accidental). *@
+                            <button type="button" data-fi-uf-fill="@faltanUnidades"
+                                    class="fi-btn fi-btn-sm mt-2" style="background:rgba(245,158,11,.15);color:#fbbf24;border-color:rgba(245,158,11,.4);">
+                                <span class="material-symbols-outlined" style="font-size:16px">balance</span>
+                                Conciliar: cargar @faltanUnidades unidad@(faltanUnidades != 1 ? "es" : "")
+                            </button>
+                        }
+                    </div>
+                </div>
+            }
+
+            @* Alta directa de unidades físicas sin serie (reusa CrearUnidadesAsync vía endpoint inline). *@
+            <div class="fi-card p-5 sm:p-6">
+                <div class="flex items-start gap-3">
+                    <span class="material-symbols-outlined text-amber-300 shrink-0" style="font-size:24px">qr_code_2</span>
+                    <div class="min-w-0">
+                        <h3 class="text-base font-semibold text-white">Agregar unidades físicas</h3>
+                        <p class="mt-0.5 text-xs text-slate-400">
+                            Crea unidades físicas individuales (sin número de serie) para trazar por unidad.
+                            Es independiente del stock por cantidad: <strong class="text-slate-300">no modifica el stock lógico</strong>.
+                        </p>
+                    </div>
+                </div>
+
+                <form method="post" asp-controller="Producto" asp-action="AgregarUnidadesFisicasInline"
+                      class="mt-4 space-y-4" onsubmit="return fiUfConfirm(this)">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="ProductoId" value="@Model.ProductoId" />
+                    <input type="hidden" name="ReturnUrl"
+                           value="@Url.Action("Inventario", "Producto", new { productoId = Model.ProductoId, tab = "fisicas" })" />
+
+                    <div class="grid gap-4 sm:grid-cols-3">
+                        <div>
+                            <label for="fi-uf-cantidad" class="block text-xs font-semibold text-slate-300 mb-1.5">
+                                Cantidad <span class="text-red-400">*</span>
+                            </label>
+                            <input id="fi-uf-cantidad" name="Cantidad" type="number" min="1" step="1" max="200" required
+                                   class="fi-input" placeholder="1" />
+                        </div>
+                        <div>
+                            <label for="fi-uf-ubicacion" class="block text-xs font-semibold text-slate-300 mb-1.5">Ubicación</label>
+                            <input id="fi-uf-ubicacion" name="UbicacionActual" type="text" maxlength="200"
+                                   class="fi-input" placeholder="Ej: Depósito, Estante A…" />
+                        </div>
+                        <div>
+                            <label for="fi-uf-obs" class="block text-xs font-semibold text-slate-300 mb-1.5">Observaciones</label>
+                            <input id="fi-uf-obs" name="Observaciones" type="text" maxlength="500"
+                                   class="fi-input" placeholder="Opcional" />
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-1">
+                        <p class="text-xs text-slate-500">
+                            Unidades físicas en stock: <strong class="text-slate-300 font-mono">@conciliacion.UnidadesEnStock</strong>.
+                            Cada unidad se numera automáticamente (código interno).
+                        </p>
+                        <div class="flex items-center gap-2">
+                            <a asp-controller="Producto" asp-action="Unidades" asp-route-productoId="@Model.ProductoId"
+                               class="fi-btn fi-btn-ghost fi-btn-sm">
+                                <span class="material-symbols-outlined" style="font-size:16px">open_in_new</span>
+                                Gestión completa
+                            </a>
+                            <button type="submit" class="fi-btn fi-btn-primary fi-btn-sm">
+                                <span class="material-symbols-outlined" style="font-size:16px">add</span>
+                                Agregar unidades
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            @* Listado de solo lectura de unidades físicas existentes. *@
+            <div class="fi-card overflow-hidden">
+                @if (!Model.Unidades.Any())
+                {
+                    <div class="flex flex-col items-center gap-3 px-5 py-10 text-center">
+                        <span class="material-symbols-outlined text-4xl text-slate-700">inbox</span>
+                        <p class="text-sm font-semibold text-slate-500">Todavía no hay unidades físicas registradas.</p>
+                        <p class="text-xs text-slate-600">Usá el formulario de arriba para crear las primeras.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="flex flex-wrap gap-2 px-5 pt-4">
+                        <span class="fi-chip fi-chip-neutral">
+                            Total: <strong class="ml-1">@Model.Unidades.Count</strong> @(Model.Unidades.Count != 1 ? "unidades" : "unidad")
+                        </span>
+                        @foreach (var r in Model.ResumenEstados)
+                        {
+                            <span class="@EstChipCss(r.Estado)">@EstChipLbl(r.Estado) <strong class="ml-1">@r.Cantidad</strong></span>
+                        }
+                    </div>
+                    @* Mobile: card list (< 640px) *@
+                    <ul class="divide-y divide-slate-800 fi-cards-mobile mt-3" aria-label="Unidades físicas registradas">
+                        @foreach (var u in Model.Unidades)
+                        {
+                            <li class="px-4 py-3 flex items-start justify-between gap-3">
+                                <div class="flex flex-col gap-1 min-w-0">
+                                    <div class="flex items-center gap-2">
+                                        <span class="@EstChipCss(u.Estado)">@EstChipLbl(u.Estado)</span>
+                                        <span class="font-mono text-xs text-slate-300 truncate">@u.CodigoInternoUnidad</span>
+                                    </div>
+                                    <span class="text-[11px] text-slate-500">@(u.UbicacionActual ?? "Sin ubicación") · @u.FechaIngreso.ToLocalTime().ToString("dd/MM/yyyy")</span>
+                                </div>
+                                <a asp-controller="Producto" asp-action="UnidadHistorial" asp-route-unidadId="@u.Id"
+                                   class="shrink-0 inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-bold text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+                                   title="Ver historial de esta unidad">
+                                    <span class="material-symbols-outlined text-sm">history</span>
+                                </a>
+                            </li>
+                        }
+                    </ul>
+                    @* Desktop: table (≥ 640px) *@
+                    <div class="overflow-x-auto fi-tbl-wrapper mt-3">
+                        <table class="fi-tbl">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Estado</th>
+                                    <th scope="col">Código interno</th>
+                                    <th scope="col">Ubicación</th>
+                                    <th scope="col">Ingreso</th>
+                                    <th scope="col" class="text-right">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var u in Model.Unidades)
+                                {
+                                    <tr>
+                                        <td><span class="@EstChipCss(u.Estado)">@EstChipLbl(u.Estado)</span></td>
+                                        <td class="font-mono text-xs text-slate-300">@u.CodigoInternoUnidad</td>
+                                        <td class="text-xs text-slate-400">@(u.UbicacionActual ?? "—")</td>
+                                        <td class="text-xs text-slate-400">@u.FechaIngreso.ToLocalTime().ToString("dd/MM/yyyy")</td>
+                                        <td class="text-right">
+                                            <a asp-controller="Producto" asp-action="UnidadHistorial" asp-route-unidadId="@u.Id"
+                                               class="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-bold text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+                                               title="Ver historial de esta unidad">
+                                                <span class="material-symbols-outlined text-sm">history</span>
+                                                Historial
+                                            </a>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </section>
+    }
 
     @* ── TAB: MOVIMIENTOS ── *@
     <section id="fi-panel-movimientos" data-fi-panel="movimientos" role="tabpanel"
@@ -620,6 +866,26 @@
             activateTab(el.getAttribute('data-fi-tab-goto'));
         });
     });
+
+    // Quick-fill de conciliación: setea la cantidad sugerida sin enviar el form.
+    document.querySelectorAll('[data-fi-uf-fill]').forEach(function (el) {
+        el.addEventListener('click', function () {
+            var input = document.getElementById('fi-uf-cantidad');
+            if (!input) return;
+            input.value = el.getAttribute('data-fi-uf-fill');
+            input.focus();
+            input.scrollIntoView({ block: 'center' });
+        });
+    });
 })();
+
+// Guard de creación en lote: confirmación solo cuando se crean 2+ unidades
+// (1 unidad = sin fricción). Las unidades no se borran en lote desde esta pantalla.
+function fiUfConfirm(form) {
+    var input = form.querySelector('#fi-uf-cantidad');
+    var n = parseInt(input && input.value, 10);
+    if (!n || n < 2) return true; // 1 unidad o inválido: deja actuar a la validación nativa/servidor
+    return window.confirm('Vas a crear ' + n + ' unidades físicas individuales. No se pueden borrar en lote desde esta pantalla. ¿Continuar?');
+}
 </script>
 }

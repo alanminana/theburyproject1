@@ -32,6 +32,10 @@ namespace TheBuryProject.ViewModels
         public string? ProductoCodigo { get; set; }
         public decimal StockActual { get; set; }
 
+        // Opcional: URL local a la que volver tras registrar (ej. form inline en ficha de inventario).
+        // Si no se setea, el POST mantiene su comportamiento por defecto (redirect a Kardex).
+        public string? ReturnUrl { get; set; }
+
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {
             if (Tipo == TipoMovimiento.Ajuste)

@@ -208,11 +208,24 @@ namespace TheBuryProject.Controllers
         [ValidateAntiForgeryToken] // protege el POST con anti-CSRF
         public async Task<IActionResult> Create(AjusteStockViewModel viewModel)
         {
+            // Si la vista origen pidió volver a una URL local (ej. form inline en ficha de
+            // inventario), respondemos con redirect + TempData en vez de re-renderizar Create_tw.
+            var volverInline = !string.IsNullOrEmpty(viewModel.ReturnUrl) && Url.IsLocalUrl(viewModel.ReturnUrl);
+
             try
             {
                 // Validación de modelo
                 if (!ModelState.IsValid)
                 {
+                    if (volverInline)
+                    {
+                        TempData["Error"] = string.Join(" ", ModelState.Values
+                            .SelectMany(v => v.Errors)
+                            .Select(e => e.ErrorMessage)
+                            .Where(m => !string.IsNullOrWhiteSpace(m)));
+                        return Redirect(viewModel.ReturnUrl!);
+                    }
+
                     var productosInvalid = await _productoService.GetAllAsync();
                     ViewBag.Productos = new SelectList(
                         productosInvalid.Where(p => p.Activo).OrderBy(p => p.Nombre),
@@ -251,11 +264,23 @@ namespace TheBuryProject.Controllers
                     viewModel.Motivo,
                     usuarioActual);  // ← NUEVO PARÁMETRO
 
+                if (volverInline)
+                {
+                    TempData["Success"] = "Stock actualizado correctamente.";
+                    return Redirect(viewModel.ReturnUrl!);
+                }
+
                 TempData["Success"] = "Ajuste de stock registrado exitosamente";
                 return RedirectToAction(nameof(Kardex), new { id = viewModel.ProductoId });
             }
             catch (InvalidOperationException ex)
             {
+                if (volverInline)
+                {
+                    TempData["Error"] = ex.Message;
+                    return Redirect(viewModel.ReturnUrl!);
+                }
+
                 ModelState.AddModelError("", ex.Message);
                 var productos = await _productoService.GetAllAsync();
                 ViewBag.Productos = new SelectList(
@@ -269,6 +294,13 @@ namespace TheBuryProject.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al registrar ajuste de stock");
+
+                if (volverInline)
+                {
+                    TempData["Error"] = "Error al registrar el movimiento de stock.";
+                    return Redirect(viewModel.ReturnUrl!);
+                }
+
                 ModelState.AddModelError("", "Error al registrar el ajuste de stock");
                 var productos = await _productoService.GetAllAsync();
                 ViewBag.Productos = new SelectList(

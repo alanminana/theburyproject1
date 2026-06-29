@@ -734,6 +734,64 @@ namespace TheBuryProject.Controllers
             }
         }
 
+        /// <summary>
+        /// Alta directa de N unidades fisicas sin numero de serie desde la ficha de Inventario.
+        /// Reusa la regla canonica CrearUnidadesAsync; a diferencia de CrearUnidadesMasivas no tiene
+        /// paso de preview/confirmacion y vuelve a la ficha (ReturnUrl local) con banner TempData.
+        /// No modifica el stock agregado (Producto.StockActual), igual que el resto del alta de unidades.
+        /// </summary>
+        [HttpPost("Producto/AgregarUnidadesFisicasInline")]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "productos", Accion = "edit")]
+        public async Task<IActionResult> AgregarUnidadesFisicasInline(
+            int productoId,
+            int cantidad,
+            string? ubicacionActual,
+            string? observaciones,
+            string? returnUrl)
+        {
+            var volverInline = !string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl);
+            IActionResult Volver() => volverInline
+                ? Redirect(returnUrl!)
+                : RedirectToAction(nameof(Unidades), new { productoId });
+
+            if (cantidad < 1 || cantidad > MaxUnidadesCargaMasiva)
+            {
+                TempData["Error"] = $"La cantidad debe estar entre 1 y {MaxUnidadesCargaMasiva}.";
+                return Volver();
+            }
+
+            try
+            {
+                var producto = await _productoService.GetByIdAsync(productoId);
+                if (producto == null)
+                    return NotFound();
+
+                await _productoUnidadService.CrearUnidadesAsync(
+                    productoId,
+                    Enumerable.Repeat<string?>(null, cantidad).ToList(),
+                    ubicacionActual,
+                    observaciones,
+                    User?.Identity?.Name);
+
+                TempData["Success"] = cantidad == 1
+                    ? "1 unidad fisica agregada. El stock agregado no fue modificado."
+                    : $"{cantidad} unidades fisicas agregadas. El stock agregado no fue modificado.";
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Error de validacion al agregar unidades fisicas inline para producto {ProductoId}", productoId);
+                TempData["Error"] = ex.Message;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al agregar unidades fisicas inline para producto {ProductoId}", productoId);
+                TempData["Error"] = "Error al agregar las unidades fisicas. Intenta nuevamente.";
+            }
+
+            return Volver();
+        }
+
         [HttpGet("Producto/UnidadHistorial/{unidadId:int}")]
         public async Task<IActionResult> UnidadHistorial(int unidadId)
         {
