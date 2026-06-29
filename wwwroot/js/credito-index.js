@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', function () {
     var clientePanel = document.querySelector('[data-credito-cliente-panel]');
     var clientePanelContent = document.querySelector('[data-credito-cliente-panel-content]');
     var lastClientePanelTrigger = null;
-    var selectedCuotas = new Map();
+    var selectedCuotasByCliente = new Map();
     var isPagoMultipleSubmitting = false;
     var isPagoMultipleLocked = false;
     var panelFetchController = null;
@@ -117,6 +117,27 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    function getScopeKey(scope) {
+        return scope ? (scope.getAttribute('data-credito-cliente-id') || '__default') : '__default';
+    }
+
+    function getSelectedCuotas(scope) {
+        var key = getScopeKey(scope);
+        if (!selectedCuotasByCliente.has(key)) {
+            selectedCuotasByCliente.set(key, new Map());
+        }
+
+        return selectedCuotasByCliente.get(key);
+    }
+
+    function clearAllCuotaSelections() {
+        selectedCuotasByCliente.clear();
+    }
+
+    function isInsideClienteSurface(target) {
+        return !!(target && target.closest('[data-credito-cliente-panel], [data-credito-cliente-panel-content]'));
+    }
+
     function getPanelScope(element) {
         return element ? element.closest('[data-credito-cliente-panel-content]') : clientePanelContent;
     }
@@ -181,7 +202,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
 
-            applyCuotaSelectedState(input, selectedCuotas.has(input.getAttribute('data-cuota-id')));
+            applyCuotaSelectedState(input, getSelectedCuotas(root).has(input.getAttribute('data-cuota-id')));
         });
     }
 
@@ -191,7 +212,7 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        var selectedItems = Array.from(selectedCuotas.values());
+        var selectedItems = Array.from(getSelectedCuotas(root).values());
         var creditos = new Set();
         var subtotal = 0;
         var mora = 0;
@@ -235,9 +256,9 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         if (input.checked) {
-            selectedCuotas.set(item.id, item);
+            getSelectedCuotas(scope).set(item.id, item);
         } else {
-            selectedCuotas.delete(item.id);
+            getSelectedCuotas(scope).delete(item.id);
         }
 
         applyCuotaSelectedState(input, input.checked);
@@ -263,7 +284,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         lastClientePanelTrigger = trigger || null;
-        selectedCuotas.clear();
+        clearAllCuotaSelections();
         isPagoMultipleSubmitting = false;
         isPagoMultipleLocked = false;
         clientePanel.removeAttribute('data-credito-panel-locked');
@@ -351,7 +372,7 @@ document.addEventListener('DOMContentLoaded', function () {
             clientePanelContent.removeAttribute('data-credito-cliente-id');
         }
 
-        selectedCuotas.clear();
+        clearAllCuotaSelections();
         isPagoMultipleSubmitting = false;
         isPagoMultipleLocked = false;
 
@@ -422,8 +443,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }, 0);
     }
 
-    function getSelectedCuotaIds() {
-        return Array.from(selectedCuotas.keys())
+    function getSelectedCuotaIds(scope) {
+        return Array.from(getSelectedCuotas(scope).keys())
             .map(function (id) { return Number.parseInt(id, 10); })
             .filter(function (id) { return Number.isInteger(id) && id > 0; });
     }
@@ -501,7 +522,7 @@ document.addEventListener('DOMContentLoaded', function () {
     function clearCuotaSelection(scope) {
         var root = scope || clientePanelContent;
         if (!root) {
-            selectedCuotas.clear();
+            clearAllCuotaSelections();
             return;
         }
 
@@ -509,7 +530,7 @@ document.addEventListener('DOMContentLoaded', function () {
             applyCuotaSelectedState(input, false);
         });
 
-        selectedCuotas.clear();
+        getSelectedCuotas(root).clear();
         updatePagoResumen(root);
     }
 
@@ -590,7 +611,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         var scope = getPanelScope(button);
         var clienteId = scope ? Number.parseInt(scope.getAttribute('data-credito-cliente-id'), 10) : 0;
-        var cuotaIds = getSelectedCuotaIds();
+        var cuotaIds = getSelectedCuotaIds(scope);
         var medioPago = getSelectedMedioPago(scope);
 
         if (!clienteId || cuotaIds.length === 0) {
@@ -644,7 +665,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             markPaidCuotas(scope, getResultCuotaIds(payload, cuotaIds));
-            selectedCuotas.clear();
+            getSelectedCuotas(scope).clear();
             updatePagoResumen(scope);
             setRegisterButtonResult(scope, 'Registrado', 'check_circle');
             setPanelLocked(scope, true);
@@ -678,7 +699,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     document.addEventListener('click', function (event) {
-        if (isPagoMultipleLocked && event.target.closest('[data-credito-cliente-panel]')) {
+        if (isPagoMultipleLocked && isInsideClienteSurface(event.target)) {
             event.preventDefault();
             event.stopPropagation();
             return;
@@ -695,6 +716,18 @@ document.addEventListener('DOMContentLoaded', function () {
         if (tabTargetTrigger) {
             event.preventDefault();
             activateTab(tabTargetTrigger.getAttribute('data-credito-tab-target'));
+            var scrollClienteId = tabTargetTrigger.getAttribute('data-credito-scroll-cliente');
+            if (scrollClienteId) {
+                window.requestAnimationFrame(function () {
+                    var target = document.getElementById('credito-cliente-' + scrollClienteId);
+                    if (target) {
+                        target.scrollIntoView({ block: 'start', behavior: 'smooth' });
+                        if (typeof target.focus === 'function') {
+                            target.focus({ preventScroll: true });
+                        }
+                    }
+                });
+            }
             return;
         }
 
@@ -734,7 +767,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     document.addEventListener('change', function (event) {
-        if (isPagoMultipleLocked && event.target.closest('[data-credito-cliente-panel]')) {
+        if (isPagoMultipleLocked && isInsideClienteSurface(event.target)) {
             event.preventDefault();
             event.stopPropagation();
             return;

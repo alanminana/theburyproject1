@@ -23,7 +23,7 @@
 <div class="drawer-head">
     <div class="avatar">@initials</div>
     <div class="min-w-0 flex-1">
-        <h2 class="font-semibold text-white" id="credito-cliente-panel-title">@clienteNombre</h2>
+        <h2 class="font-semibold text-white" id="credito-cliente-panel-title-@Model.Cliente.Id">@clienteNombre</h2>
         <p class="text-xs muted-2">@Model.Documento · @Model.CantidadCreditos crédito@(Model.CantidadCreditos == 1 ? "" : "s") · próximo @proximoVencimientoTexto</p>
     </div>
     <button type="button" class="btn btn-ghost btn-sm" data-credito-cliente-panel-close aria-label="Cerrar">
@@ -52,9 +52,15 @@
         @foreach (var credito in Model.Creditos)
         {
             var cuotasCredito = credito.Cuotas ?? new List<CuotaViewModel>();
+            var productosCredito = credito.ProductosAsociados ?? new List<CreditoProductoAsociadoViewModel>();
             var cantidadCuotasCredito = cuotasCredito.Any() ? cuotasCredito.Count : credito.CantidadCuotas;
             var numeroCredito = credito.Numero ?? $"CR-{credito.Id:D3}";
             var cuotasPagas = cuotasCredito.Count(c => c.Estado == EstadoCuota.Pagada);
+            var productosResumen = productosCredito
+                .Take(2)
+                .Select(p => $"{(string.IsNullOrWhiteSpace(p.ProductoCodigo) ? "" : p.ProductoCodigo + " - ")}{p.ProductoNombre}{(p.Cantidad > 1 ? $" x{p.Cantidad}" : "")}")
+                .ToList();
+            var productosRestantes = productosCredito.Count - productosResumen.Count;
             var porcentaje = cantidadCuotasCredito > 0
                 ? Math.Min(100, Math.Max(0, (int)Math.Round((decimal)cuotasPagas * 100 / cantidadCuotasCredito)))
                 : 0;
@@ -77,14 +83,26 @@
             <article class="credit-item" data-credito-cliente-credit>
                 <button class="credit-head" type="button" data-credito-credit-toggle data-credito-credit-expanded="false" aria-expanded="false">
                     <span class="material-symbols-outlined chev" data-credito-credit-toggle-icon>expand_more</span>
-                    <span class="credit-no">@numeroCredito</span>
+                    <span class="credit-main">
+                        <span class="credit-no">@numeroCredito</span>
+                        @if (productosResumen.Any())
+                        {
+                            <span class="credit-products" data-credito-productos>
+                                <span class="material-symbols-outlined" aria-hidden="true">inventory_2</span>
+                                <span class="credit-products__text">@string.Join(", ", productosResumen)</span>
+                                @if (productosRestantes > 0)
+                                {
+                                    <span class="credit-products__more">+@productosRestantes</span>
+                                }
+                            </span>
+                        }
+                    </span>
                     <span class="chip @estadoChipClass">@credito.Estado</span>
-                    <span style="flex:1"></span>
                     <div class="credit-prog hide-mobile">
                         <div class="bar"><div class="bar-fill @barClass" style="width:@porcentaje%"></div></div>
                         <span class="pl">@cuotasPagas/@cantidadCuotasCredito</span>
                     </div>
-                    <div style="text-align:right;min-width:96px">
+                    <div class="credit-panel-amount">
                         <div class="num" style="font-weight:600;color:#fff">@credito.SaldoPendiente.ToString("C0")</div>
                         <div class="text-xs muted-2">saldo</div>
                     </div>

@@ -49,10 +49,20 @@
         ? $"{c.Apellido}, {c.Nombre}".Trim(' ', ',')
         : c.NombreCompleto;
     var iniciales = $"{(string.IsNullOrWhiteSpace(c.Apellido) ? "?" : c.Apellido.Trim()[0])}{(string.IsNullOrWhiteSpace(c.Nombre) ? "?" : c.Nombre.Trim()[0])}".ToUpperInvariant();
-    var puntaje = Math.Clamp((int)nivelFinal, 0, 5);
-    var pipClass = esNoApto ? "on-bad" : esRequiereAut ? "on-warn" : "on-ok";
     var progressClass = ProgressWidthClass(Convert.ToDouble(porcentajeLibre));
     var returnToDetails = Url.Action("Details", "Cliente", new { id = c.Id });
+
+    var aptitudResumen = esApto ? "Puede operar a credito"
+        : esRequiereAut ? "Requiere autorizacion para operar"
+        : esNoApto ? "No puede operar a credito"
+        : "Aptitud sin evaluar";
+
+    // El banner de aptitud solo se muestra si hay algo que necesita atencion.
+    var docAtencion = (apt?.Documentacion?.Completa == false) || documentosPendientes > 0 || documentosFaltantes > 0;
+    var bcraAtencion = tieneCuil && (!bcraOk || (bcraVal.HasValue && bcraVal.Value >= 2));
+    var moraActiva = apt?.Mora != null && apt.Mora.TieneMora;
+    var sinLimite = (panel?.TieneErrorConfiguracion == true) || limiteTotal <= 0m;
+    var mostrarBanner = !esApto || docAtencion || bcraAtencion || moraActiva || sinLimite || tieneNivelManual;
 
     string ProgressWidthClass(double percentage)
     {
@@ -153,15 +163,7 @@ else
         <div class="kpi @(esApto ? "kpi--ok" : esNoApto ? "kpi--bad" : esRequiereAut ? "kpi--warn" : string.Empty)">
             <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">verified_user</span>Estado de aptitud</div>
             <div class="kpi-value" style="font-size:1.3rem;margin-top:.5rem">@aptitudLabel</div>
-            <div class="mt-2 flex items-center gap-2">
-                <span class="pips">
-                    @for (var i = 1; i <= 5; i++)
-                    {
-                        <span class="pip @(i <= puntaje ? pipClass : string.Empty)"></span>
-                    }
-                </span>
-                <span class="text-xs muted-2">Nivel final @puntaje / 5 · @fuenteNivel</span>
-            </div>
+            <div class="kpi-foot">@aptitudResumen</div>
         </div>
         <div class="kpi">
             <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">folder_shared</span>Documentos</div>
@@ -175,99 +177,60 @@ else
         </div>
     </div>
 
-    <div class="apt-card @aptitudCard" style="margin-top:1.25rem">
-        <div class="apt-ic"><span class="material-symbols-outlined">@aptitudIcon</span></div>
-        <div class="flex-1 min-w-0">
-            <div class="font-semibold text-white">@aptitudLabel para operar</div>
-            <p class="text-sm muted mt-0.5">
-                @if (!string.IsNullOrWhiteSpace(apt?.Motivo))
-                {
-                    @apt.Motivo
-                }
-                else if (esApto)
-                {
-                    <text>Cumple los requisitos de scoring, documentacion y situacion crediticia.</text>
-                }
-                else if (esRequiereAut)
-                {
-                    <text>Puede requerir autorizacion antes de emitir nuevas operaciones.</text>
-                }
-                else if (esNoApto)
-                {
-                    <text>Revisar documentacion, mora o configuracion antes de operar.</text>
-                }
-                else
-                {
-                    <text>La aptitud aun no fue evaluada.</text>
-                }
-            </p>
-        </div>
-        <form asp-action="RecalcularAptitud" method="post" class="shrink-0">
-            @Html.AntiForgeryToken()
-            <input type="hidden" name="clienteId" value="@c.Id" />
-            @if (!string.IsNullOrWhiteSpace(returnUrl))
-            {
-                <input type="hidden" name="returnUrl" value="@returnUrl" />
-            }
-            <button type="submit" class="btn btn-soft btn-sm"><span class="material-symbols-outlined">refresh</span>Recalcular aptitud</button>
-        </form>
-    </div>
-
-    <section class="card card-pad" style="margin-top:1.25rem">
-        <div class="flex items-center justify-between gap-3 mb-4 flex-wrap">
-            <h2 class="font-semibold text-white flex items-center gap-2">
-                <span class="material-symbols-outlined" style="color:#f5c518;font-size:20px">stars</span>Scoring de comportamiento
-            </h2>
-            <form asp-action="RecalcularPuntaje" method="post" class="shrink-0">
+    @if (mostrarBanner)
+    {
+        <div class="apt-card @aptitudCard" style="margin-top:1.25rem">
+            <div class="apt-ic"><span class="material-symbols-outlined">@aptitudIcon</span></div>
+            <div class="flex-1 min-w-0">
+                <div class="font-semibold text-white">@aptitudLabel para operar</div>
+                <p class="text-sm muted mt-0.5">
+                    @if (!string.IsNullOrWhiteSpace(apt?.Motivo))
+                    {
+                        @apt.Motivo
+                    }
+                    else if (esApto && tieneNivelManual)
+                    {
+                        <text>Apto con nivel crediticio asignado manualmente.</text>
+                    }
+                    else if (esApto)
+                    {
+                        <text>Revisar documentacion o situacion BCRA pendiente antes de operar.</text>
+                    }
+                    else if (esRequiereAut)
+                    {
+                        <text>Puede requerir autorizacion antes de emitir nuevas operaciones.</text>
+                    }
+                    else if (esNoApto)
+                    {
+                        <text>Revisar documentacion, mora o configuracion antes de operar.</text>
+                    }
+                    else
+                    {
+                        <text>La aptitud aun no fue evaluada.</text>
+                    }
+                </p>
+            </div>
+            <form asp-action="RecalcularAptitud" method="post" class="shrink-0">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="clienteId" value="@c.Id" />
                 @if (!string.IsNullOrWhiteSpace(returnUrl))
                 {
                     <input type="hidden" name="returnUrl" value="@returnUrl" />
                 }
-                <button type="submit" class="btn btn-soft btn-sm"><span class="material-symbols-outlined">refresh</span>Recalcular scoring</button>
+                <button type="submit" class="btn btn-soft btn-sm"><span class="material-symbols-outlined">refresh</span>Recalcular aptitud</button>
             </form>
         </div>
-
-        <div class="flex items-center gap-3 flex-wrap mb-4">
-            <span class="pips">
-                @for (var i = 1; i <= 5; i++)
-                {
-                    <span class="pip @(i <= Math.Clamp(c.PuntajeCliente, 0, 5) ? "on-ok" : string.Empty)"></span>
-                }
-            </span>
-            <span class="text-sm text-white font-semibold">Scoring @c.PuntajeCliente<span class="muted-2 font-normal"> / 5</span></span>
-            <span class="chip @(c.PagaCreditosEnTermino ? "chip-ok" : "chip-warn")">
-                <span class="material-symbols-outlined">@(c.PagaCreditosEnTermino ? "task_alt" : "report")</span>@(c.PagaCreditosEnTermino ? "Paga en termino" : "Con atraso")
-            </span>
-        </div>
-
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:.6rem;padding:.7rem .8rem">
-                <div class="text-xs muted-2 flex items-center gap-1"><span class="material-symbols-outlined" style="font-size:14px">schedule</span>Antiguedad</div>
-                <div class="font-semibold text-white mt-1">@c.AntiguedadDias<span class="text-xs muted-2 font-normal"> dias</span></div>
-            </div>
-            <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:.6rem;padding:.7rem .8rem">
-                <div class="text-xs muted-2 flex items-center gap-1"><span class="material-symbols-outlined" style="font-size:14px">shopping_cart</span>Ultima venta</div>
-                <div class="font-semibold text-white mt-1">@(c.UltimaVentaFecha?.ToString("dd/MM/yyyy") ?? "Sin ventas")</div>
-            </div>
-            <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:.6rem;padding:.7rem .8rem">
-                <div class="text-xs muted-2 flex items-center gap-1"><span class="material-symbols-outlined" style="font-size:14px">verified</span>Creditos en termino</div>
-                <div class="font-semibold text-white mt-1">@c.CreditosEnTermino</div>
-            </div>
-            <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:.6rem;padding:.7rem .8rem">
-                <div class="text-xs muted-2 flex items-center gap-1"><span class="material-symbols-outlined" style="font-size:14px">warning</span>Creditos con atraso</div>
-                <div class="font-semibold mt-1" style="color:@(c.CreditosConAtraso > 0 ? "#f5b21a" : "#fff")">@c.CreditosConAtraso</div>
-            </div>
-        </div>
-    </section>
+    }
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4" style="margin-top:1.25rem">
         <div class="lg:col-span-2 space-y-4">
             <section class="card card-pad">
-                <div class="flex items-center justify-between gap-3 mb-4">
+                <div class="flex items-start justify-between gap-3 mb-4 flex-wrap">
                     <h2 class="font-semibold text-white flex items-center gap-2"><span class="material-symbols-outlined" style="color:#f5c518;font-size:20px">credit_score</span>Calificacion crediticia</h2>
-                    <span class="chip @moraChip">@moraLabel</span>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <button type="button" class="btn btn-soft btn-sm" data-cliente-open-nivel-manual><span class="material-symbols-outlined">rule_settings</span>Asignar nivel manual</button>
+                        <button type="button" class="btn btn-ghost btn-sm" data-cliente-open-limites><span class="material-symbols-outlined">tune</span>Limites por nivel crediticio</button>
+                    </div>
                 </div>
 
                 @if (panel?.TieneErrorConfiguracion == true)
@@ -290,10 +253,10 @@ else
                     <div class="minimetric"><div class="mm-label">Nivel manual</div><div class="mm-value num">@(nivelManual.HasValue ? ((int)nivelManual.Value).ToString() : "-")</div></div>
                     <div class="minimetric"><div class="mm-label">Comportamiento</div><div class="mm-value num">@c.PuntajeCliente<span class="text-xs muted-2 font-normal"> / 5</span></div></div>
                 </div>
-                <dl class="kv mt-4">
-                    <div class="kv-row"><dt>Estado de aptitud</dt><dd><span class="chip @aptitudChip">@aptitudLabel</span></dd></div>
+
+                <div class="text-xs muted-2 font-semibold uppercase mt-4" style="letter-spacing:.04em">Desglose</div>
+                <dl class="kv mt-1">
                     <div class="kv-row"><dt>Fuente del nivel</dt><dd><span class="chip @(tieneNivelManual ? "chip-warn" : "chip-ok")">@fuenteNivel</span></dd></div>
-                    <div class="kv-row"><dt>Origen del limite</dt><dd>@Dash(panel?.Valores?.OrigenLimite)</dd></div>
                     <div class="kv-row"><dt>Documentacion</dt><dd>@(apt?.Documentacion?.Completa == true ? "Completa" : "Incompleta")</dd></div>
                     <div class="kv-row"><dt>BCRA</dt><dd>@bcraEstadoResumen</dd></div>
                     <div class="kv-row"><dt>Mora</dt><dd><span class="chip @moraChip">@moraLabel</span></dd></div>
@@ -307,9 +270,56 @@ else
                         <div class="kv-row"><dt>Monto en mora</dt><dd>@apt.Mora.MontoTotalMora.ToString("C0")</dd></div>
                     }
                 </dl>
-                <div class="mt-4 flex justify-end gap-2 flex-wrap">
-                    <button type="button" class="btn btn-soft btn-sm" data-cliente-open-nivel-manual><span class="material-symbols-outlined">rule_settings</span>Asignar nivel manual</button>
-                    <button type="button" class="btn btn-ghost btn-sm" data-cliente-open-limites><span class="material-symbols-outlined">tune</span>Limites por nivel crediticio</button>
+
+                <div class="mt-4 pt-4" style="border-top:1px solid rgba(255,255,255,.07)">
+                    <button type="button" class="flex items-center justify-between w-full" data-cliente-details-toggle="scoring" aria-expanded="false" style="background:none;border:none;cursor:pointer;padding:0;text-align:left">
+                        <span class="flex items-center gap-2 text-sm font-semibold text-white">
+                            <span class="material-symbols-outlined" style="color:#f5c518;font-size:18px">stars</span>
+                            Scoring de comportamiento
+                            <span class="muted-2 font-normal">@c.PuntajeCliente / 5</span>
+                        </span>
+                        <span class="material-symbols-outlined muted-2" id="chevron-scoring">expand_more</span>
+                    </button>
+                    <div id="content-scoring" class="hidden mt-3">
+                        <div class="flex items-center gap-3 flex-wrap mb-3">
+                            <span class="pips">
+                                @for (var i = 1; i <= 5; i++)
+                                {
+                                    <span class="pip @(i <= Math.Clamp(c.PuntajeCliente, 0, 5) ? "on-ok" : string.Empty)"></span>
+                                }
+                            </span>
+                            <span class="chip @(c.PagaCreditosEnTermino ? "chip-ok" : "chip-warn")">
+                                <span class="material-symbols-outlined">@(c.PagaCreditosEnTermino ? "task_alt" : "report")</span>@(c.PagaCreditosEnTermino ? "Paga en termino" : "Con atraso")
+                            </span>
+                        </div>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:.6rem;padding:.7rem .8rem">
+                                <div class="text-xs muted-2 flex items-center gap-1"><span class="material-symbols-outlined" style="font-size:14px">schedule</span>Antiguedad</div>
+                                <div class="font-semibold text-white mt-1">@c.AntiguedadDias<span class="text-xs muted-2 font-normal"> dias</span></div>
+                            </div>
+                            <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:.6rem;padding:.7rem .8rem">
+                                <div class="text-xs muted-2 flex items-center gap-1"><span class="material-symbols-outlined" style="font-size:14px">shopping_cart</span>Ultima venta</div>
+                                <div class="font-semibold text-white mt-1">@(c.UltimaVentaFecha?.ToString("dd/MM/yyyy") ?? "Sin ventas")</div>
+                            </div>
+                            <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:.6rem;padding:.7rem .8rem">
+                                <div class="text-xs muted-2 flex items-center gap-1"><span class="material-symbols-outlined" style="font-size:14px">verified</span>Creditos en termino</div>
+                                <div class="font-semibold text-white mt-1">@c.CreditosEnTermino</div>
+                            </div>
+                            <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:.6rem;padding:.7rem .8rem">
+                                <div class="text-xs muted-2 flex items-center gap-1"><span class="material-symbols-outlined" style="font-size:14px">warning</span>Creditos con atraso</div>
+                                <div class="font-semibold mt-1" style="color:@(c.CreditosConAtraso > 0 ? "#f5b21a" : "#fff")">@c.CreditosConAtraso</div>
+                            </div>
+                        </div>
+                        <form asp-action="RecalcularPuntaje" method="post" class="mt-3">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="clienteId" value="@c.Id" />
+                            @if (!string.IsNullOrWhiteSpace(returnUrl))
+                            {
+                                <input type="hidden" name="returnUrl" value="@returnUrl" />
+                            }
+                            <button type="submit" class="btn btn-soft btn-sm"><span class="material-symbols-outlined">refresh</span>Recalcular scoring</button>
+                        </form>
+                    </div>
                 </div>
             </section>
 
@@ -439,6 +449,8 @@ else
                         <span>Faltan: @string.Join(", ", apt.Documentacion.DocumentosFaltantes)</span>
                     </div>
                 }
+
+             
                 <div class="space-y-2">
                     @if (Model.Documentos != null && Model.Documentos.Any())
                     {
@@ -499,6 +511,28 @@ else
                             }
                         }
                     }
+                       <div class="doc-row" style="margin-bottom:.75rem">
+                    <div class="doc-ic"><span class="material-symbols-outlined">supervisor_account</span></div>
+                    <div class="flex-1 min-w-0">
+                        <label for="detalleTieneGarante" class="text-sm text-white" style="display:flex;align-items:center;gap:.5rem;cursor:pointer">
+                            <input type="checkbox"
+                                   id="detalleTieneGarante"
+                                   name="TieneGarante"
+                                   value="true" />
+                            ¿Tiene garante?
+                        </label>
+                        <div id="detalleGaranteClienteWrap" class="hidden" style="margin-top:.65rem">
+                            <label for="detalleGaranteCliente" class="label">Cliente garante</label>
+                            <input type="text"
+                                   id="detalleGaranteCliente"
+                                   name="GaranteCliente"
+                                   class="field"
+                                   value="Juan Pérez - DNI 12345678"
+                                   readonly />
+                        </div>
+                    </div>
+                </div>
+
                 </div>
                 <a asp-controller="DocumentoCliente" asp-action="Index" asp-route-clienteId="@c.Id" class="btn btn-ghost btn-sm btn-block" style="margin-top:.9rem">Ver toda la documentacion<span class="material-symbols-outlined">chevron_right</span></a>
             </div>
@@ -703,4 +737,20 @@ else
 @section Scripts {
     <script src="~/js/cliente-index.js" asp-append-version="true"></script>
     <script src="~/js/cliente-details.js" asp-append-version="true"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const tieneGarante = document.getElementById('detalleTieneGarante');
+            const garanteWrap = document.getElementById('detalleGaranteClienteWrap');
+
+            if (!tieneGarante || !garanteWrap) return;
+
+            function toggleGarante() {
+                garanteWrap.classList.toggle('hidden', !tieneGarante.checked);
+            }
+
+            tieneGarante.addEventListener('change', toggleGarante);
+            toggleGarante();
+        });
+    </script>
 }

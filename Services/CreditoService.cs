@@ -115,7 +115,10 @@ namespace TheBuryProject.Services
                     .OrderByDescending(c => c.CreatedAt)
                     .ToListAsync();
 
-                return _mapper.Map<List<CreditoViewModel>>(creditos);
+                var modelos = _mapper.Map<List<CreditoViewModel>>(creditos);
+                await CargarProductosAsociadosAsync(modelos);
+
+                return modelos;
             }
             catch (Exception ex)
             {
@@ -141,7 +144,10 @@ namespace TheBuryProject.Services
                 if (credito == null)
                     return null;
 
-                return _mapper.Map<CreditoViewModel>(credito);
+                var modelo = _mapper.Map<CreditoViewModel>(credito);
+                await CargarProductosAsociadosAsync(new[] { modelo });
+
+                return modelo;
             }
             catch (Exception ex)
             {
@@ -166,7 +172,10 @@ namespace TheBuryProject.Services
                     .OrderByDescending(c => c.FechaSolicitud)
                     .ToListAsync();
 
-                return _mapper.Map<List<CreditoViewModel>>(creditos);
+                var modelos = _mapper.Map<List<CreditoViewModel>>(creditos);
+                await CargarProductosAsociadosAsync(modelos);
+
+                return modelos;
             }
             catch (Exception ex)
             {
@@ -1003,6 +1012,70 @@ namespace TheBuryProject.Services
 
             throw new InvalidOperationException(
                 $"Medio de pago inválido. Valores permitidos: {string.Join(", ", MediosPagoPermitidos.Values)}.");
+        }
+
+        private async Task CargarProductosAsociadosAsync(IReadOnlyCollection<CreditoViewModel> creditos)
+        {
+            if (creditos.Count == 0)
+                return;
+
+            var creditoIds = creditos
+                .Select(c => c.Id)
+                .Where(id => id > 0)
+                .Distinct()
+                .ToList();
+
+            if (creditoIds.Count == 0)
+                return;
+
+            var detalles = await _context.Ventas
+                .AsNoTracking()
+                .Where(v => !v.IsDeleted &&
+                            v.CreditoId.HasValue &&
+                            creditoIds.Contains(v.CreditoId.Value))
+                .SelectMany(
+                    v => v.Detalles.Where(d => !d.IsDeleted),
+                    (venta, detalle) => new
+                    {
+                        CreditoId = venta.CreditoId!.Value,
+                        detalle.ProductoId,
+                        ProductoNombre = detalle.Producto != null ? detalle.Producto.Nombre : null,
+                        ProductoCodigo = detalle.Producto != null ? detalle.Producto.Codigo : null,
+                        detalle.Cantidad,
+                        Total = detalle.SubtotalFinal != 0 ? detalle.SubtotalFinal : detalle.Subtotal
+                    })
+                .ToListAsync();
+
+            var productosPorCredito = detalles
+                .GroupBy(d => d.CreditoId)
+                .ToDictionary(
+                    grupo => grupo.Key,
+                    grupo => grupo
+                        .GroupBy(d => new
+                        {
+                            d.ProductoId,
+                            d.ProductoNombre,
+                            d.ProductoCodigo
+                        })
+                        .Select(producto => new CreditoProductoAsociadoViewModel
+                        {
+                            ProductoId = producto.Key.ProductoId,
+                            ProductoNombre = string.IsNullOrWhiteSpace(producto.Key.ProductoNombre)
+                                ? $"Producto #{producto.Key.ProductoId}"
+                                : producto.Key.ProductoNombre,
+                            ProductoCodigo = producto.Key.ProductoCodigo,
+                            Cantidad = producto.Sum(x => x.Cantidad),
+                            Total = producto.Sum(x => x.Total)
+                        })
+                        .OrderBy(p => p.ProductoNombre)
+                        .ToList());
+
+            foreach (var credito in creditos)
+            {
+                credito.ProductosAsociados = productosPorCredito.TryGetValue(credito.Id, out var productos)
+                    ? productos
+                    : new List<CreditoProductoAsociadoViewModel>();
+            }
         }
 
         private static decimal CalcularPunitorioActualizado(Cuota cuota, DateTime ahora)

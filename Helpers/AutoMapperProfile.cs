@@ -191,7 +191,8 @@ namespace TheBuryProject.Helpers
             CreateMap<Credito, CreditoViewModel>()
                 .ForMember(d => d.Cliente, o => o.MapFrom(s => s.Cliente))
                 .ForMember(d => d.Garante, o => o.MapFrom(s => s.Garante))
-                .ForMember(d => d.Cuotas, o => o.MapFrom(s => s.Cuotas != null ? s.Cuotas.Where(cu => !cu.IsDeleted) : Enumerable.Empty<Cuota>()));
+                .ForMember(d => d.Cuotas, o => o.MapFrom(s => s.Cuotas != null ? s.Cuotas.Where(cu => !cu.IsDeleted) : Enumerable.Empty<Cuota>()))
+                .ForMember(d => d.ProductosAsociados, o => o.Ignore());
 
             CreateMap<CreditoViewModel, Credito>()
                 .ForMember(d => d.Cliente, o => o.Ignore())
