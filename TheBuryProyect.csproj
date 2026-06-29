@@ -7,6 +7,10 @@
     <UserSecretsId>9dfac035-0017-4232-8ffc-2586c63b4145</UserSecretsId>
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
     <DockerfileContext>.</DockerfileContext>
+    <!-- Evita runaway recursivo: el Web SDK globea **/*.json, **/*.cshtml, etc.
+         Excluir carpetas no-fuente (output, caches, tooling) de TODOS los default item globs.
+         MSBuild ignora .gitignore, por eso hay que excluirlas explicitamente aca. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);artifacts/**;node_modules/**;graphify-out/**;_ml-cache/**;e2e/**;obj2/**;theburyproject1_build_check/**;theburyproject1objbuild-check-fase8r/**</DefaultItemExcludes>
   </PropertyGroup>
 
   <!-- Expose internals to test project -->
