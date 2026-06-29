@@ -18,7 +18,7 @@ namespace TheBuryProject.ViewModels
 
         [Required(ErrorMessage = "El CUIT es obligatorio")]
         [StringLength(11, MinimumLength = 11, ErrorMessage = "El CUIT debe tener 11 dígitos")]
-        [CuilCuitArgentino]
+        [RegularExpression(@"^\d{11}$", ErrorMessage = "El CUIT debe tener 11 dígitos numéricos")]
         [Display(Name = "CUIT")]
         public string Cuit { get; set; } = string.Empty;
 
