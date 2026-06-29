@@ -422,8 +422,10 @@
 
         if (heroCliente && heroClienteDetalle) {
             if (clienteSeleccionado) {
-                heroCliente.textContent = `${clienteSeleccionado.nombre} ${clienteSeleccionado.apellido}`;
-                heroClienteDetalle.textContent = `${clienteSeleccionado.tipoDocumento}: ${clienteSeleccionado.numeroDocumento}`;
+                heroCliente.textContent = clienteSeleccionado.display
+                    || `${clienteSeleccionado.nombre} ${clienteSeleccionado.apellido}`.trim();
+                heroClienteDetalle.textContent = clienteSeleccionado.documentoTexto
+                    || `${clienteSeleccionado.tipoDocumento}: ${clienteSeleccionado.numeroDocumento}`;
             } else {
                 heroCliente.textContent = 'Sin seleccionar';
                 heroClienteDetalle.textContent = 'Buscá un cliente para iniciar la operación.';
@@ -2539,6 +2541,27 @@
     }
 
     // ── Init ──────────────────────────────────────────────────────────
+
+    // Seed del cliente existente en modo edición: hidrata el display a partir
+    // del modelo (la venta ya tiene ClienteId) para que no aparezca "Sin
+    // seleccionar" al editar/convertir una operación con cliente asignado.
+    if (window.ventaInicial && window.ventaInicial.cliente && window.ventaInicial.cliente.id) {
+        const ci = window.ventaInicial.cliente;
+        clienteSeleccionado = {
+            id: String(ci.id),
+            nombre: ci.nombre || '',
+            apellido: '',
+            tipoDocumento: '',
+            numeroDocumento: ci.documento || '',
+            display: ci.nombre || '',
+            documentoTexto: ci.documento || ''
+        };
+        if (hdnClienteId) hdnClienteId.value = clienteSeleccionado.id;
+        if (infoClienteNombre) infoClienteNombre.textContent = clienteSeleccionado.display;
+        if (infoClienteDoc) infoClienteDoc.textContent = clienteSeleccionado.documentoTexto;
+        show(infoCliente);
+        if (inputBuscarCliente) hide(inputBuscarCliente.parentElement);
+    }
 
     // Seed de detalles existentes en modo edición (Fase 8.2.S)
     if (window.ventaInicial && Array.isArray(window.ventaInicial.detalles)) {

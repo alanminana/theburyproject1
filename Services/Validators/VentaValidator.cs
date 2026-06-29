@@ -33,10 +33,12 @@ namespace TheBuryProject.Services.Validators
 
         public void ValidarEstadoParaConfirmacion(Venta venta)
         {
-            if (venta.Estado != EstadoVenta.Presupuesto && venta.Estado != EstadoVenta.PendienteRequisitos)
+            if (venta.Estado != EstadoVenta.Cotizacion &&
+                venta.Estado != EstadoVenta.Presupuesto &&
+                venta.Estado != EstadoVenta.PendienteRequisitos)
             {
                 throw new InvalidOperationException(
-                    $"Solo se pueden confirmar ventas en estado Presupuesto o Pendiente Requisitos. Estado actual: {venta.Estado}");
+                    $"Solo se pueden confirmar ventas en estado Cotización, Presupuesto o Pendiente Requisitos. Estado actual: {venta.Estado}");
             }
         }
 

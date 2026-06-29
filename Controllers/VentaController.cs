@@ -232,11 +232,8 @@ namespace TheBuryProject.Controllers
 
                 LimpiarModelStateSegunTipoPago(viewModel.TipoPago, viewModel);
 
-                var puedeDelegar = _currentUser.IsInRole(Roles.SuperAdmin) ||
-                                   _currentUser.IsInRole(Roles.Administrador) ||
-                                   _currentUser.IsInRole(Roles.Gerente);
-                if (puedeDelegar && string.IsNullOrWhiteSpace(viewModel.VendedorUserId))
-                    ModelState.AddModelError("VendedorUserId", "Debe seleccionar un vendedor.");
+                // El vendedor siempre es el usuario logueado: el backend lo resuelve
+                // (VentaService.ResolverVendedorAsync). No se delega ni se selecciona en la UI.
 
                 _logger.LogInformation(
                     "Create POST: TipoPago={TipoPago} AplicarExcepcion={Excepcion} Motivo={Motivo}",
@@ -335,11 +332,8 @@ namespace TheBuryProject.Controllers
 
                 LimpiarModelStateSegunTipoPago(viewModel.TipoPago, viewModel);
 
-                var puedeDelegar = _currentUser.IsInRole(Roles.SuperAdmin) ||
-                                   _currentUser.IsInRole(Roles.Administrador) ||
-                                   _currentUser.IsInRole(Roles.Gerente);
-                if (puedeDelegar && string.IsNullOrWhiteSpace(viewModel.VendedorUserId))
-                    ModelState.AddModelError("VendedorUserId", "Debe seleccionar un vendedor.");
+                // El vendedor siempre es el usuario logueado: el backend lo resuelve
+                // (VentaService.ResolverVendedorAsync). No se delega ni se selecciona en la UI.
 
                 if (!ModelState.IsValid || !ValidarDetalles(viewModel))
                 {
@@ -1312,6 +1306,89 @@ namespace TheBuryProject.Controllers
             }
 
             return RedirectToAction(nameof(Index));
+        }
+
+        // POST: Venta/ConfirmarYFacturar/5 — acción combinada (mostrador): confirma y factura en un paso.
+        // Solo para medios sin crédito personal; el crédito requiere contrato/configuración.
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = ModuloVentas, Accion = AccionFacturar)]
+        public async Task<IActionResult> ConfirmarYFacturar(int id, TipoFactura tipo = TipoFactura.B)
+        {
+            try
+            {
+                var cajaGuard = await RedirigirSiCajaCerradaAsync(
+                    "Debe abrir una caja antes de confirmar y facturar una venta.",
+                    nameof(Details),
+                    new { id });
+                if (cajaGuard != null)
+                {
+                    return cajaGuard;
+                }
+
+                var venta = await _ventaService.GetByIdAsync(id);
+                if (venta == null)
+                {
+                    TempData["Error"] = "Venta no encontrada";
+                    return RedirectToAction(nameof(Index));
+                }
+
+                if (venta.TipoPago == TipoPago.CreditoPersonal)
+                {
+                    TempData["Error"] = "Las ventas con crédito personal no se pueden facturar en un solo paso. Use el flujo de confirmación con contrato.";
+                    return RedirectToAction(nameof(Details), new { id });
+                }
+
+                _logger.LogInformation(
+                    "ConfirmarYFacturar(POST) venta {Id}. Estado:{Estado} TipoPago:{TipoPago} User:{User}",
+                    id,
+                    venta.Estado,
+                    venta.TipoPago,
+                    _currentUser.GetUsername());
+
+                var confirmada = await _ventaService.ConfirmarVentaAsync(id);
+                if (!confirmada)
+                {
+                    TempData["Error"] = "No se pudo confirmar la venta; no se generó la factura.";
+                    return RedirectToAction(nameof(Details), new { id });
+                }
+
+                var facturaViewModel = new FacturaViewModel
+                {
+                    VentaId = id,
+                    FechaEmision = DateTime.Today,
+                    Tipo = tipo
+                };
+
+                var facturada = await _ventaService.FacturarVentaAsync(id, facturaViewModel);
+                if (facturada)
+                {
+                    TempData["Success"] = "Venta confirmada y facturada en un solo paso. El stock fue descontado.";
+                }
+                else
+                {
+                    TempData["Warning"] = "La venta se confirmó pero no se pudo generar la factura. Reintente facturar.";
+                }
+
+                return RedirectToAction(nameof(Details), new { id });
+            }
+            catch (CondicionesPagoVentaException ex)
+            {
+                _logger.LogWarning(ex, "Venta {Id} rechazada por condiciones de pago en ConfirmarYFacturar", id);
+                TempData["Error"] = CrearMensajePresentacionCondicionesPago(ex.Message);
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "ConfirmarYFacturar venta {Id} bloqueada", id);
+                TempData["Error"] = ex.Message;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al confirmar y facturar venta {Id}", id);
+                TempData["Error"] = "Error al confirmar y facturar la venta: " + ex.Message;
+            }
+
+            return RedirectToAction(nameof(Details), new { id });
         }
 
         [HttpPost]

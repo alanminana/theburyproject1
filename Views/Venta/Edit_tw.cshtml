@@ -10,12 +10,18 @@
     var creditos = ViewBag.Creditos as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
     var categorias = ViewBag.CategoriasFiltro as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
     var marcas = ViewBag.MarcasFiltro as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
-    var vendedores = ViewBag.Vendedores as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
-    var puedeDelegarVendedor = (bool)(ViewBag.PuedeDelegarVendedor ?? false);
     var esCotizacion = Model.Estado == EstadoVenta.Cotizacion;
     var estadoOperacionLabel = esCotizacion ? "Cotización" : "Venta";
     var ventaInicialJson = System.Text.Json.JsonSerializer.Serialize(new
     {
+        cliente = Model.ClienteId > 0
+            ? new
+            {
+                id = Model.ClienteId,
+                nombre = Model.ClienteNombre,
+                documento = Model.ClienteDocumento
+            }
+            : null,
         detalles = Model.Detalles.Select(d => new
         {
             productoId = d.ProductoId,
@@ -763,31 +769,19 @@
                     <h2 class="mt-1 text-lg font-bold text-white">Vendedor y observaciones</h2>
                     <p class="mt-1 text-sm text-slate-400">Dejá trazabilidad interna de la operación y del responsable asignado.</p>
                 </div>
-                @if (puedeDelegarVendedor && vendedores != null)
-                {
-                    <div class="mb-4">
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Vendedor</label>
-                        <select asp-for="VendedorUserId" asp-items="vendedores"
-                                class="w-full text-sm bg-slate-800 border border-slate-700 rounded-lg">
-                            <option value="">Seleccione vendedor...</option>
-                        </select>
-                    </div>
-                }
-                else
-                {
-                    <div class="mb-4">
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Vendedor</label>
-                        <div class="flex items-center gap-3 p-3 bg-slate-800 rounded-lg">
-                            <div class="size-8 bg-primary/20 rounded-full flex items-center justify-center">
-                                <span class="material-symbols-outlined text-primary text-sm">person</span>
-                            </div>
-                            <div>
-                                <p class="text-sm font-bold">@(User.Identity?.Name ?? "Usuario")</p>
-                                <p class="text-[10px] text-slate-500 uppercase">Vendedor asignado</p>
-                            </div>
+                @* El vendedor queda fijado al asignado en la creación; editar no lo reasigna (read-only). *@
+                <div class="mb-4">
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Vendedor</label>
+                    <div class="flex items-center gap-3 p-3 bg-slate-800 rounded-lg">
+                        <div class="size-8 bg-primary/20 rounded-full flex items-center justify-center">
+                            <span class="material-symbols-outlined text-primary text-sm">person</span>
+                        </div>
+                        <div>
+                            <p class="text-sm font-bold">@(string.IsNullOrWhiteSpace(Model.VendedorNombre) ? (User.Identity?.Name ?? "Usuario") : Model.VendedorNombre)</p>
+                            <p class="text-[10px] text-slate-500 uppercase">Vendedor asignado</p>
                         </div>
                     </div>
-                }
+                </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Observaciones</label>
                     <textarea asp-for="Observaciones"

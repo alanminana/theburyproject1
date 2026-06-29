@@ -69,6 +69,7 @@ public class VentaValidatorTests
     // =========================================================================
 
     [Theory]
+    [InlineData(EstadoVenta.Cotizacion)]
     [InlineData(EstadoVenta.Presupuesto)]
     [InlineData(EstadoVenta.PendienteRequisitos)]
     public void ValidarEstadoParaConfirmacion_EstadoPermitido_NoLanzaExcepcion(EstadoVenta estado)
@@ -79,7 +80,6 @@ public class VentaValidatorTests
     }
 
     [Theory]
-    [InlineData(EstadoVenta.Cotizacion)]
     [InlineData(EstadoVenta.Confirmada)]
     [InlineData(EstadoVenta.Cancelada)]
     public void ValidarEstadoParaConfirmacion_EstadoNoPermitido_LanzaInvalidOperation(EstadoVenta estado)

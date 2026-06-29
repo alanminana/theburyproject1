@@ -201,6 +201,10 @@ namespace TheBuryProject.Services
                 venta.VendedorUserId = vendedorResuelto.UserId;
                 venta.VendedorNombre = vendedorResuelto.Nombre;
 
+                // Enforcement "vendedor vende en su caja": el vendedor debe pertenecer al padrón
+                // de la caja de la apertura activa (bypass admin; estricto: sin padrón ⇒ solo admin).
+                await ValidarVendedorHabilitadoEnCajaAsync(venta.VendedorUserId, aperturaActiva.CajaId);
+
                 venta.Numero = await _numberGenerator.GenerarNumeroAsync(viewModel.Estado);
 
                 AgregarDetalles(venta, viewModel.Detalles);
@@ -237,8 +241,7 @@ namespace TheBuryProject.Services
                             validacion.NoViable = false;
                             validacion.PendienteRequisitos = false;
                             validacion.RequisitosPendientes = validacion.RequisitosPendientes
-                                .Where(r => r.Tipo != TipoRequisitoPendiente.DocumentacionFaltante
-                                         && r.Tipo != TipoRequisitoPendiente.SinLimiteCredito)
+                                .Where(r => !EsRequisitoExcepcionableEnCreate(r))
                                 .ToList();
 
                             _logger.LogWarning(
@@ -500,33 +503,56 @@ namespace TheBuryProject.Services
             var tipos = validacion.RequisitosPendientes.Select(r => r.Tipo.ToString()).ToList();
             _logger.LogWarning("Excepción: RequisitosPendientes tipos=[{Tipos}]", string.Join(", ", tipos));
 
-            // Tipos bypassables: documentación faltante (cualquier usuario autorizado) y sin límite de crédito
-            // (solo ventas.authorize, ya que implica una decisión crediticia)
-            var tiposPermitidos = new HashSet<TipoRequisitoPendiente>
-            {
-                TipoRequisitoPendiente.DocumentacionFaltante,
-                TipoRequisitoPendiente.SinLimiteCredito
-            };
-
+            // Tipos excepcionables: documentacion faltante y decisiones crediticias
+            // autorizables (sin limite o exceso de cupo por puntaje).
             var todosPermitidos = validacion.RequisitosPendientes.Any()
-                                  && validacion.RequisitosPendientes.All(r => tiposPermitidos.Contains(r.Tipo));
+                                  && validacion.RequisitosPendientes.All(EsRequisitoExcepcionableEnCreate);
 
             _logger.LogWarning("Excepción: TodosPermitidos={Resultado}", todosPermitidos);
 
             if (!todosPermitidos)
                 return false;
 
-            // SinLimiteCredito es una decisión crediticia: requiere ventas.authorize
-            var tieneSinLimite = validacion.RequisitosPendientes.Any(r =>
-                r.Tipo == TipoRequisitoPendiente.SinLimiteCredito);
+            // Las decisiones crediticias requieren ventas.authorize.
+            var requiereAutorizarCredito = validacion.RequisitosPendientes.Any(EsRequisitoDecisionCrediticiaEnCreate);
 
-            if (tieneSinLimite && !tieneAutorizar)
+            if (requiereAutorizarCredito && !tieneAutorizar)
             {
-                _logger.LogWarning("Excepción: SinLimiteCredito requiere ventas.authorize — usuario no lo tiene");
+                _logger.LogWarning("Excepción: decision crediticia requiere ventas.authorize; usuario no lo tiene");
                 return false;
             }
 
             return true;
+        }
+
+        private static bool EsRequisitoExcepcionableEnCreate(RequisitoPendiente requisito)
+        {
+            return requisito.Tipo == TipoRequisitoPendiente.DocumentacionFaltante
+                   || requisito.Tipo == TipoRequisitoPendiente.SinLimiteCredito
+                   || EsClienteNoAptoPorCupoAutorizable(requisito);
+        }
+
+        private static bool EsRequisitoDecisionCrediticiaEnCreate(RequisitoPendiente requisito)
+        {
+            return requisito.Tipo == TipoRequisitoPendiente.SinLimiteCredito
+                   || EsClienteNoAptoPorCupoAutorizable(requisito);
+        }
+
+        private static bool EsClienteNoAptoPorCupoAutorizable(RequisitoPendiente requisito)
+        {
+            if (requisito.Tipo != TipoRequisitoPendiente.ClienteNoApto ||
+                string.IsNullOrWhiteSpace(requisito.Descripcion))
+            {
+                return false;
+            }
+
+            var descripcion = requisito.Descripcion.ToLower(CultureInfo.InvariantCulture);
+            var mencionaCreditoDisponible = descripcion.Contains("credito disponible") ||
+                                             descripcion.Contains("crédito disponible");
+            var mencionaCupo = descripcion.Contains("cupo");
+
+            return descripcion.Contains("excede") && (mencionaCreditoDisponible || mencionaCupo)
+                   || descripcion.Contains("cupo insuficiente");
         }
 
         private static void AplicarAuditoriaExcepcionDocumentalEnCreate(
@@ -2238,6 +2264,42 @@ namespace TheBuryProject.Services
                 : vendedor.Email ?? "Sin asignar";
 
             return (vendedor.Id, nombre);
+        }
+
+        /// <summary>
+        /// Enforcement "cada usuario sobre su propia caja" para ventas: el vendedor de la venta
+        /// debe estar asignado al padrón de la caja de la apertura. Los roles supervisores
+        /// (SuperAdmin/Administrador/Gerente) están exentos. Estricto: caja sin padrón ⇒ solo supervisor.
+        /// El padrón se gestiona desde la edición de caja (CajaVendedores).
+        /// </summary>
+        private async Task ValidarVendedorHabilitadoEnCajaAsync(string? vendedorUserId, int cajaId)
+        {
+            // El vendedor siempre es el usuario logueado. Los roles supervisores —los mismos que
+            // antes podían delegar vendedor— quedan exentos del padrón para no bloquearse a sí mismos.
+            if (_currentUserService.IsInRole(Roles.SuperAdmin)
+                || _currentUserService.IsInRole(Roles.Administrador)
+                || _currentUserService.IsInRole(Roles.Gerente))
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(vendedorUserId))
+            {
+                return;
+            }
+
+            var habilitado = await _context.CajaVendedores
+                .AsNoTracking()
+                .AnyAsync(cv => cv.CajaId == cajaId
+                                && cv.VendedorUserId == vendedorUserId
+                                && !cv.IsDeleted);
+
+            if (!habilitado)
+            {
+                throw new InvalidOperationException(
+                    "El vendedor no está habilitado para vender en esta caja. " +
+                    "Asigná el vendedor a la caja desde la edición de caja.");
+            }
         }
 
         private IQueryable<Venta> AplicarFiltros(IQueryable<Venta> query, VentaFilterViewModel? filter)

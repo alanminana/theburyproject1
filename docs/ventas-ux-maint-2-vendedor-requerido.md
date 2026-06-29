@@ -1,5 +1,10 @@
 # VENTAS-UX-MAINT-2 — Indicador visual de Vendedor requerido en Venta/Create
 
+> ⚠️ **SUPERSEDED (2026-06-27).** El selector/delegación de vendedor fue eliminado: el vendedor
+> ahora es SIEMPRE el usuario logueado (fijo, sin dropdown), resuelto por
+> `VentaService.ResolverVendedorAsync`. Ya no existe el campo requerido ni su indicador en
+> Create/Modal/Edit. Este documento queda como registro histórico.
+
 ## A. Objetivo
 
 Agregar indicador visual y accesible de que el campo Vendedor es requerido en el formulario

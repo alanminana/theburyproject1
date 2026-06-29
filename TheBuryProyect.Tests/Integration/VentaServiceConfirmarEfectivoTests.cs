@@ -689,14 +689,18 @@ public class VentaServiceConfirmarEfectivoTests : IDisposable
     }
 
     [Fact]
-    public async Task ConfirmarVenta_EstadoCotizacion_LanzaInvalidOperation()
+    public async Task ConfirmarVenta_EstadoCotizacion_Efectivo_TransicionaAConfirmada()
     {
+        // Nuevo flujo: una venta en Cotización (sin crédito) se confirma directo,
+        // sin pasar por el paso intermedio "Preparar venta" (Cotización→Presupuesto).
         var (venta, _) = await SeedVentaEfectivo(estado: EstadoVenta.Cotizacion);
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => _service.ConfirmarVentaAsync(venta.Id));
+        var result = await _service.ConfirmarVentaAsync(venta.Id);
 
-        Assert.Contains("Presupuesto", ex.Message);
+        Assert.True(result);
+        var ventaActualizada = await _context.Ventas.FindAsync(venta.Id);
+        Assert.Equal(EstadoVenta.Confirmada, ventaActualizada!.Estado);
+        Assert.NotNull(ventaActualizada.FechaConfirmacion);
     }
 
     [Fact]

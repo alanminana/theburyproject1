@@ -10,8 +10,6 @@
     var creditos      = ViewBag.Creditos   as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
     var categorias    = ViewBag.CategoriasFiltro as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
     var marcas        = ViewBag.MarcasFiltro     as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
-    var vendedores    = ViewBag.Vendedores as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
-    var puedeDelegarVendedor = (bool)(ViewBag.PuedeDelegarVendedor ?? false);
     var esCotizacion  = Model.Estado == EstadoVenta.Cotizacion;
     var estadoLabel   = esCotizacion ? "Cotización" : "Venta";
 }
@@ -131,16 +129,10 @@
                         <span class="vm-step-tab__num">3</span>
                         Pago
                     </button>
-                    <button type="button" id="step-btn-credito" role="tab"
-                            aria-selected="false" aria-controls="step-panel-credito" data-step="credito"
-                            class="vm-step-tab">
-                        <span class="vm-step-tab__num">4</span>
-                        Crédito
-                    </button>
                     <button type="button" id="step-btn-revision" role="tab"
                             aria-selected="false" aria-controls="step-panel-revision" data-step="revision"
                             class="vm-step-tab">
-                        <span class="vm-step-tab__num">5</span>
+                        <span class="vm-step-tab__num">4</span>
                         Revisión
                     </button>
                 </div>
@@ -462,7 +454,7 @@
                         <div class="flex items-center gap-3">
                             <span class="w-8 h-8 shrink-0 flex items-center justify-center rounded-full bg-primary/15 text-primary text-xs font-bold">3</span>
                             <div>
-                                <h2 class="text-lg font-bold text-white">Detalle de cobro</h2>
+                                <h2 class="text-lg font-bold text-white">Detalle de cobro y crédito</h2>
                                 <p class="text-sm text-slate-400">La pantalla adapta los campos requeridos según el tipo de pago principal elegido.</p>
                             </div>
                         </div>
@@ -646,14 +638,11 @@
 
                     </div>
                 </div>
-                </section>
-
-                @* ── Sección 4: Verificación crediticia ─────────────── *@
-                <section id="step-panel-credito" role="tabpanel" aria-labelledby="step-btn-credito" class="hidden">
+                @* Verificacion crediticia dentro del mismo paso de pago *@
                 <div id="panel-verificacion-crediticia" class="venta-section hidden">
                     <div class="mb-6 flex items-start justify-between gap-4">
                         <div class="flex items-center gap-3">
-                            <span class="w-8 h-8 shrink-0 flex items-center justify-center rounded-full bg-primary/15 text-primary text-xs font-bold">4</span>
+                            <span class="w-8 h-8 shrink-0 flex items-center justify-center rounded-full bg-primary/15 text-primary text-xs font-bold">3</span>
                             <div>
                                 <h2 class="text-lg font-bold text-white">Verificación crediticia</h2>
                                 <p class="text-sm text-slate-400">Chequeá cupo, mora y documentación antes de confirmar.</p>
@@ -815,22 +804,13 @@
                         }
                     </div>
                 </div>
-                <div id="panel-credito-no-requerido" class="venta-section">
-                    <div class="flex items-start gap-3">
-                        <span class="material-symbols-outlined text-primary">verified</span>
-                        <div>
-                            <h2 class="text-lg font-bold text-white">Crédito no requerido</h2>
-                            <p class="mt-1 text-sm text-slate-400">El medio de pago actual no requiere verificación crediticia. Si seleccionás crédito personal o cuenta corriente, este paso mostrará cupo, mora y documentación.</p>
-                        </div>
-                    </div>
-                </div>
                 </section>
 
                 <section id="step-panel-revision" role="tabpanel" aria-labelledby="step-btn-revision" class="hidden">
                 <div class="venta-section">
                     <div class="mb-6 flex items-start justify-between gap-4">
                         <div class="flex items-center gap-3">
-                            <span class="w-8 h-8 shrink-0 flex items-center justify-center rounded-full bg-primary/15 text-primary text-xs font-bold">5</span>
+                            <span class="w-8 h-8 shrink-0 flex items-center justify-center rounded-full bg-primary/15 text-primary text-xs font-bold">4</span>
                             <div>
                                 <h2 class="text-lg font-bold text-white">Revisión</h2>
                                 <p class="text-sm text-slate-400">Resumen final antes de confirmar la operación.</p>
@@ -892,33 +872,19 @@
                         </div>
                     </div>
 
-                    @if (puedeDelegarVendedor && vendedores != null)
-                    {
-                        <div class="mb-4">
-                            <label class="block text-xs font-bold text-slate-500 uppercase mb-2" for="VendedorUserId">
-                                Vendedor <span class="text-red-400" aria-hidden="true">*</span><span class="sr-only">obligatorio</span>
-                            </label>
-                            <select asp-for="VendedorUserId" asp-items="vendedores" id="VendedorUserId"
-                                    class="venta-input text-sm" aria-required="true">
-                                <option value="">Seleccione vendedor...</option>
-                            </select>
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="mb-4">
-                            <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Vendedor</label>
-                            <div class="flex items-center gap-3 p-3 bg-slate-800 rounded-lg">
-                                <div class="size-8 bg-primary/20 rounded-full flex items-center justify-center">
-                                    <span class="material-symbols-outlined text-primary text-sm">person</span>
-                                </div>
-                                <div>
-                                    <p class="text-sm font-bold text-white">@(User.Identity?.Name ?? "Usuario")</p>
-                                    <p class="text-[10px] text-slate-500 uppercase">Vendedor asignado</p>
-                                </div>
+                    @* El vendedor siempre es el usuario logueado; el backend lo resuelve (ResolverVendedorAsync). *@
+                    <div class="mb-4">
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Vendedor</label>
+                        <div class="flex items-center gap-3 p-3 bg-slate-800 rounded-lg">
+                            <div class="size-8 bg-primary/20 rounded-full flex items-center justify-center">
+                                <span class="material-symbols-outlined text-primary text-sm">person</span>
+                            </div>
+                            <div>
+                                <p class="text-sm font-bold text-white">@(User.Identity?.Name ?? "Usuario")</p>
+                                <p class="text-[10px] text-slate-500 uppercase">Vendedor asignado</p>
                             </div>
                         </div>
-                    }
+                    </div>
 
                     <div>
                         <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Observaciones</label>

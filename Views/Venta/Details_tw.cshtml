@@ -775,13 +775,29 @@
                             </form>
                         }
 
-                        @* Confirmar *@
+                        @{
+                            var expressDisponible = puedeOperarVentas && Model.PuedeConfirmarYFacturar
+                                && puedeFacturarVentas && puedeActualizarVentas;
+                        }
+
+                        @* Confirmar y facturar (un paso) — caso mostrador *@
+                        @if (expressDisponible)
+                        {
+                            <form asp-action="ConfirmarYFacturar" method="post" id="form-confirmar-facturar">
+                                <input type="hidden" name="id" value="@Model.Id" />
+                                <button type="submit" class="btn-erp-primary btn-erp-block">
+                                    <span class="material-symbols-outlined text-sm">receipt_long</span> Confirmar y facturar
+                                </button>
+                            </form>
+                        }
+
+                        @* Confirmar (solo confirma; queda pendiente de facturar) *@
                         @if (puedeOperarVentas && Model.PuedeConfirmar)
                         {
                             <form asp-action="Confirmar" method="post" id="form-confirmar">
                                 <input type="hidden" name="id" value="@Model.Id" />
-                                <button type="submit" class="btn-erp-primary btn-erp-block">
-                                    <span class="material-symbols-outlined text-sm">check_circle</span> Confirmar Venta
+                                <button type="submit" class="@(expressDisponible ? "btn-erp-secondary" : "btn-erp-primary") btn-erp-block">
+                                    <span class="material-symbols-outlined text-sm">check_circle</span> @(expressDisponible ? "Solo confirmar" : "Confirmar Venta")
                                 </button>
                             </form>
                         }

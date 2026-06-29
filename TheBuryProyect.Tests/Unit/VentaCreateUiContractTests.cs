@@ -1052,32 +1052,27 @@ public class VentaCreateUiContractTests
         Assert.Contains("asp-for=\"FechaVenta\"", view);
     }
 
-    // ── VENTAS-UX-MAINT-2 — indicador visual Vendedor requerido ─────────────
+    // ── Vendedor fijo = usuario logueado (sin delegación en la UI) ──────────
+    // Reemplaza a VENTAS-UX-MAINT-2: el vendedor ya no se selecciona; siempre
+    // es el usuario logueado y el backend lo resuelve (ResolverVendedorAsync).
 
     [Fact]
-    public void CreateView_LabelVendedorTieneFor()
+    public void CreateView_VendedorEsUsuarioLogueado_SinSelectorDeDelegacion()
     {
         var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
 
-        Assert.Contains("for=\"VendedorUserId\"", view);
-        Assert.Contains("asp-for=\"VendedorUserId\"", view);
+        Assert.DoesNotContain("asp-for=\"VendedorUserId\"", view);
+        Assert.DoesNotContain("id=\"VendedorUserId\"", view);
+        Assert.DoesNotContain("Seleccione vendedor", view);
     }
 
     [Fact]
-    public void CreateView_LabelVendedorTieneIndicadorRequerido()
+    public void CreateView_VendedorMuestraUsuarioLogueadoComoAsignado()
     {
         var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
 
-        Assert.Contains("aria-hidden=\"true\">*</span>", view);
-        Assert.Contains("sr-only", view);
-    }
-
-    [Fact]
-    public void CreateView_SelectVendedorTieneAriaRequired()
-    {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
-
-        Assert.Contains("aria-required=\"true\"", view);
+        Assert.Contains("Vendedor asignado", view);
+        Assert.Contains("User.Identity?.Name", view);
     }
 
     // ── KIRA-VENTAS-MODAL-REWORK-1C — contratos de venta-modal-rework.js ──────
@@ -1549,11 +1544,11 @@ public class VentaCreateUiContractTests
     }
 
     [Fact]
-    public void CreateView_WizardTieneCincoPasosYPaneles()
+    public void CreateView_WizardTieneCuatroPasosYPaneles()
     {
         var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
 
-        foreach (var step in new[] { "cliente", "productos", "pago", "credito", "revision" })
+        foreach (var step in new[] { "cliente", "productos", "pago", "revision" })
         {
             Assert.Contains($"id=\"step-btn-{step}\"", view);
             Assert.Contains($"id=\"step-panel-{step}\"", view);
@@ -1576,7 +1571,7 @@ public class VentaCreateUiContractTests
             "select-tipo-pago", "total-subtotal", "total-descuento", "total-iva",
             "total-final", "hdn-subtotal", "hdn-descuento", "hdn-iva", "hdn-total",
             "panel-alerta-mora", "panel-cupo-insuficiente", "panel-documentacion-faltante",
-            "VendedorUserId", "Observaciones"
+            "Observaciones"
         })
         {
             Assert.Contains($"id=\"{id}\"", view);
@@ -1659,6 +1654,25 @@ public class VentaCreateUiContractTests
 
         Assert.Contains("asp-for=\"AplicarExcepcionDocumental\"", view);
         Assert.Contains("asp-for=\"MotivoExcepcionDocumentalCreate\"", view);
+    }
+
+    [Fact]
+    public void CreateView_UnificaPagoYCreditoEnUnSoloPaso()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+
+        Assert.Contains("id=\"step-btn-pago\"", view);
+        Assert.Contains("id=\"step-panel-pago\"", view);
+        Assert.DoesNotContain("id=\"step-btn-credito\"", view);
+        Assert.DoesNotContain("id=\"step-panel-credito\"", view);
+
+        var panelPago = view.IndexOf("id=\"step-panel-pago\"", StringComparison.Ordinal);
+        var verificacionCredito = view.IndexOf("id=\"panel-verificacion-crediticia\"", StringComparison.Ordinal);
+        var panelRevision = view.IndexOf("id=\"step-panel-revision\"", StringComparison.Ordinal);
+
+        Assert.True(panelPago >= 0, "step-panel-pago debe existir.");
+        Assert.True(verificacionCredito > panelPago, "La verificacion crediticia debe vivir dentro del paso de pago.");
+        Assert.True(panelRevision > verificacionCredito, "Revision debe venir despues del bloque unificado de pago/credito.");
     }
 
     [Fact]

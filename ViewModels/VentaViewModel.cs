@@ -269,7 +269,10 @@ namespace TheBuryProject.ViewModels
         /// Para ventas con crédito personal:
         /// - PendienteFinanciacion: NO puede confirmar (debe configurar primero)
         /// - Con financiación configurada (FechaConfiguracionCredito): PUEDE confirmar
-        /// Para ventas sin crédito, usa la lógica original.
+        /// Para ventas sin crédito, usa la lógica original. Una venta en Cotización
+        /// (típicamente convertida desde el módulo Cotizacion) puede confirmarse en
+        /// forma directa: el paso intermedio "Preparar venta" (Cotización→Presupuesto)
+        /// no aporta lógica de negocio y se omite para los medios sin crédito.
         /// </summary>
         public bool PuedeConfirmar
         {
@@ -279,7 +282,9 @@ namespace TheBuryProject.ViewModels
                 if (Estado == EstadoVenta.PendienteFinanciacion)
                     return false;
 
-                var estadoValido = Estado == EstadoVenta.Presupuesto || Estado == EstadoVenta.PendienteRequisitos;
+                var estadoValido = Estado == EstadoVenta.Cotizacion
+                    || Estado == EstadoVenta.Presupuesto
+                    || Estado == EstadoVenta.PendienteRequisitos;
                 var autorizacionOk = !RequiereAutorizacion || EstadoAutorizacion == EstadoAutorizacionVenta.Autorizada;
 
                 if (TipoPago == TipoPago.CreditoPersonal)
@@ -307,10 +312,25 @@ namespace TheBuryProject.ViewModels
             CreditoId.HasValue &&
             (Estado == EstadoVenta.PendienteFinanciacion || CreditoPendienteConfiguracion);
 
-        public bool PuedePrepararVenta => Estado == EstadoVenta.Cotizacion;
+        /// <summary>
+        /// "Preparar venta" (Cotización→Presupuesto) solo sobrevive para crédito
+        /// personal, donde la venta convertida desde Cotización aún no tiene crédito
+        /// asociado y debe pasar por el flujo de configuración. Para el resto de los
+        /// medios de pago se confirma directamente desde Cotización.
+        /// </summary>
+        public bool PuedePrepararVenta =>
+            Estado == EstadoVenta.Cotizacion && TipoPago == TipoPago.CreditoPersonal;
 
         public bool PuedeFacturar =>
             Estado == EstadoVenta.Confirmada && (!RequiereAutorizacion || EstadoAutorizacion == EstadoAutorizacionVenta.Autorizada);
+
+        /// <summary>
+        /// Habilita la acción combinada "Confirmar y facturar" (un solo paso) para el
+        /// caso de mostrador: la venta puede confirmarse y no usa crédito personal
+        /// (el crédito requiere contrato/configuración y no es facturable en un click).
+        /// </summary>
+        public bool PuedeConfirmarYFacturar =>
+            PuedeConfirmar && TipoPago != TipoPago.CreditoPersonal;
 
         public bool PuedeCancelar => Estado != EstadoVenta.Cancelada;
 

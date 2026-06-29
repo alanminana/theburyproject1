@@ -81,12 +81,28 @@ file sealed class StubValidacionVentaService : IValidacionVentaService
 
 file sealed class StubCurrentUserServiceCP : ICurrentUserService
 {
+    private readonly bool _puedeCrearVenta;
+    private readonly bool _puedeAutorizarVenta;
+
+    public StubCurrentUserServiceCP(
+        bool puedeCrearVenta = false,
+        bool puedeAutorizarVenta = false)
+    {
+        _puedeCrearVenta = puedeCrearVenta;
+        _puedeAutorizarVenta = puedeAutorizarVenta;
+    }
+
     public string GetUsername() => "testuser";
     public string GetUserId() => "system";
     public bool IsAuthenticated() => true;
     public string? GetEmail() => "test@test.com";
     public bool IsInRole(string role) => false;
-    public bool HasPermission(string modulo, string accion) => false;
+    public bool HasPermission(string modulo, string accion)
+    {
+        return modulo == "ventas" &&
+               ((accion == "create" && _puedeCrearVenta) ||
+                (accion == "authorize" && _puedeAutorizarVenta));
+    }
     public string? GetIpAddress() => "127.0.0.1";
 }
 
@@ -234,7 +250,8 @@ public class VentaServiceCreditoPersonalTests
     private static VentaService BuildService(
         AppDbContext ctx,
         ICajaService cajaService,
-        IValidacionVentaService validacionVentaService)
+        IValidacionVentaService validacionVentaService,
+        ICurrentUserService? currentUserService = null)
     {
         var mapper = CreateMapper();
         var logger = NullLogger<VentaService>.Instance;
@@ -252,7 +269,7 @@ public class VentaServiceCreditoPersonalTests
             validator,
             numberGenerator,
             new PrecioVigenteResolver(ctx),
-            new StubCurrentUserServiceCP(),
+            currentUserService ?? new StubCurrentUserServiceCP(),
             validacionVentaService,
             cajaService,
             null!,                   // ICreditoDisponibleService
@@ -325,6 +342,52 @@ public class VentaServiceCreditoPersonalTests
 
             Assert.Contains("No es posible crear la venta con crédito personal", ex.Message);
             Assert.Contains("OPERACIÓN NO VIABLE", ex.Message);
+        }
+    }
+
+    [Fact]
+    public async Task CreateAsync_CreditoPersonalExcedeCupoConExcepcionAutorizada_CreaVentaPendienteFinanciacion()
+    {
+        var (ctx, conn) = CreateDb();
+        await using (ctx) using (conn)
+        {
+            var apertura = await SeedCajaAsync(ctx);
+            var cliente = await SeedClienteAsync(ctx);
+            var producto = await SeedProductoAsync(ctx, precioVenta: 2_000m);
+
+            var resultadoNoViable = new ValidacionVentaResult
+            {
+                NoViable = true,
+                PendienteRequisitos = true,
+                RequisitosPendientes = new List<RequisitoPendiente>
+                {
+                    new()
+                    {
+                        Tipo = TipoRequisitoPendiente.ClienteNoApto,
+                        Descripcion = "Excede el crédito disponible por puntaje. Disponible: $ 1.000,00. Ajuste el monto, cambie método de pago o actualice puntaje/límites."
+                    }
+                }
+            };
+
+            var model = CreditoPersonalViewModelConProducto(cliente.Id, producto);
+            model.AplicarExcepcionDocumental = true;
+            model.MotivoExcepcionDocumentalCreate = "Autorizado por responsable de ventas";
+
+            var svc = BuildService(
+                ctx,
+                new StubCajaServiceCP(apertura),
+                new StubValidacionVentaService(resultadoNoViable),
+                new StubCurrentUserServiceCP(puedeCrearVenta: true, puedeAutorizarVenta: true));
+
+            var resultado = await svc.CreateAsync(model);
+
+            Assert.Equal(EstadoVenta.PendienteFinanciacion, resultado.Estado);
+            Assert.NotNull(resultado.CreditoId);
+
+            var venta = await ctx.Ventas.AsNoTracking().FirstAsync(v => v.Id == resultado.Id);
+            Assert.Equal("testuser", venta.UsuarioAutoriza);
+            Assert.Contains("EXCEPCION_DOC|", venta.MotivoAutorizacion);
+            Assert.Contains("Autorizado por responsable de ventas", venta.MotivoAutorizacion);
         }
     }
 

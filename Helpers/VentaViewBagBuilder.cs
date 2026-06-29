@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Mvc.Rendering;
-using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
 
@@ -16,8 +15,6 @@ public class VentaViewBagBuilder
     private readonly IProductoService _productoService;
     private readonly ICreditoService _creditoService;
     private readonly IConfiguracionPagoService _configuracionPagoService;
-    private readonly IUsuarioService _usuarioService;
-    private readonly ICurrentUserService _currentUser;
     private readonly ILogger<VentaViewBagBuilder> _logger;
 
     public VentaViewBagBuilder(
@@ -25,16 +22,12 @@ public class VentaViewBagBuilder
         IProductoService productoService,
         ICreditoService creditoService,
         IConfiguracionPagoService configuracionPagoService,
-        IUsuarioService usuarioService,
-        ICurrentUserService currentUser,
         ILogger<VentaViewBagBuilder> logger)
     {
         _clienteLookup = clienteLookup;
         _productoService = productoService;
         _creditoService = creditoService;
         _configuracionPagoService = configuracionPagoService;
-        _usuarioService = usuarioService;
-        _currentUser = currentUser;
         _logger = logger;
     }
 
@@ -46,11 +39,12 @@ public class VentaViewBagBuilder
         dynamic viewBag,
         int? clienteIdSeleccionado = null,
         IEnumerable<int>? productoIdsIncluidos = null,
+        // Conservado por compatibilidad de call-sites; el vendedor ya no se delega
+        // (siempre es el usuario logueado, resuelto en VentaService.ResolverVendedorAsync).
         string? vendedorUserIdSeleccionado = null,
         TipoPago? tipoPagoSeleccionado = null)
     {
         var creditosCount = 0;
-        var vendedoresCount = 0;
 
         // Clientes
         var clientes = await _clienteLookup.GetClientesSelectListAsync(clienteIdSeleccionado);
@@ -131,28 +125,18 @@ public class VentaViewBagBuilder
             .ToList();
         viewBag.Tarjetas = new SelectList(tarjetasDisponibles, "Id", "Detalle");
 
-        // Vendedores (solo para roles con capacidad de delegar)
-        var puedeDelegarVendedor = _currentUser.IsInRole(Roles.SuperAdmin) ||
-                                   _currentUser.IsInRole(Roles.Administrador) ||
-                                   _currentUser.IsInRole(Roles.Gerente);
-        viewBag.PuedeDelegarVendedor = puedeDelegarVendedor;
-
-        if (puedeDelegarVendedor)
-        {
-            var vendedores = await _usuarioService.GetUsuariosPorRolAsync(Roles.Vendedor);
-            viewBag.Vendedores = new SelectList(vendedores, "Id", "UserName", vendedorUserIdSeleccionado);
-            vendedoresCount = vendedores.Count;
-        }
+        // El vendedor ya no se selecciona/delega en la UI: siempre es el usuario logueado.
+        // VentaService.ResolverVendedorAsync lo resuelve en el backend, por lo que aquí no se
+        // arma ningún SelectList de vendedores.
 
         _logger.LogDebug(
-            "VentaViewBagBuilder.CargarAsync ClienteId:{ClienteId} Clientes:{Clientes} ProductosTotal:{ProductosTotal} ProductosIncluidos:{ProductosIncluidos} Creditos:{Creditos} Tarjetas:{Tarjetas} Vendedores:{Vendedores}",
+            "VentaViewBagBuilder.CargarAsync ClienteId:{ClienteId} Clientes:{Clientes} ProductosTotal:{ProductosTotal} ProductosIncluidos:{ProductosIncluidos} Creditos:{Creditos} Tarjetas:{Tarjetas}",
             clienteIdSeleccionado,
             clientes.Count(),
             productos.Count(),
             productoIdsIncluidos?.Distinct().Count() ?? 0,
             creditosCount,
-            tarjetasDisponibles.Count,
-            vendedoresCount);
+            tarjetasDisponibles.Count);
     }
 
     private static IEnumerable<SelectListItem> CrearTiposPagoParaVenta(TipoPago? tipoPagoSeleccionado)
