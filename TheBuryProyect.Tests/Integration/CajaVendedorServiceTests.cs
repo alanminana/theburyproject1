@@ -2,6 +2,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using TheBuryProject.Data;
+using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Services;
 using TheBuryProject.Services.Interfaces;
@@ -11,15 +12,20 @@ using Xunit;
 namespace TheBuryProject.Tests.Integration;
 
 // ---------------------------------------------------------------------------
-// Stub de IUsuarioService — solo resuelve la lista de vendedores por rol.
+// Stub de IUsuarioService — resuelve vendedores y cajeros por rol.
 // ---------------------------------------------------------------------------
 file sealed class StubUsuarioServiceVend : IUsuarioService
 {
     private readonly List<UsuarioSelectItem> _vendedores;
-    public StubUsuarioServiceVend(List<UsuarioSelectItem> vendedores) => _vendedores = vendedores;
+    private readonly List<UsuarioSelectItem> _cajeros;
+    public StubUsuarioServiceVend(List<UsuarioSelectItem> vendedores, List<UsuarioSelectItem>? cajeros = null)
+    {
+        _vendedores = vendedores;
+        _cajeros = cajeros ?? new List<UsuarioSelectItem>();
+    }
 
     public Task<List<UsuarioSelectItem>> GetUsuariosPorRolAsync(string roleName)
-        => Task.FromResult(_vendedores);
+        => Task.FromResult(roleName == Roles.Cajero ? _cajeros : _vendedores);
 
     public Task<UsuarioUpdateResult> UpdateUsuarioAsync(UsuarioUpdateRequest request) => throw new NotImplementedException();
     public Task<UsuarioDashboardStats> GetDashboardStatsAsync() => throw new NotImplementedException();
@@ -65,6 +71,14 @@ public class CajaVendedorServiceTests : IDisposable
     {
         var stub = new StubUsuarioServiceVend(
             vendedoresValidos.Select(id => new UsuarioSelectItem(id, id)).ToList());
+        return new CajaVendedorService(_context, stub, NullLogger<CajaVendedorService>.Instance);
+    }
+
+    private CajaVendedorService CreateService(string[] vendedoresValidos, string[] cajerosValidos)
+    {
+        var stub = new StubUsuarioServiceVend(
+            vendedoresValidos.Select(id => new UsuarioSelectItem(id, id)).ToList(),
+            cajerosValidos.Select(id => new UsuarioSelectItem(id, id)).ToList());
         return new CajaVendedorService(_context, stub, NullLogger<CajaVendedorService>.Instance);
     }
 
@@ -172,5 +186,55 @@ public class CajaVendedorServiceTests : IDisposable
         await service.AsignarVendedoresAsync(caja.Id, new[] { "v1", "v1", "" }, "admin");
 
         Assert.Equal(new[] { "v1" }, await service.ObtenerVendedorIdsAsignadosAsync(caja.Id));
+    }
+
+    [Fact]
+    public async Task Asignar_AceptaVendedorYCajero()
+    {
+        var caja = await SeedCajaAsync();
+        await SeedUsersAsync("v1", "c1");
+        var service = CreateService(new[] { "v1" }, new[] { "c1" });
+
+        await service.AsignarVendedoresAsync(caja.Id, new[] { "v1", "c1" }, "admin");
+
+        var asignados = await service.ObtenerVendedorIdsAsignadosAsync(caja.Id);
+        Assert.Equal(new[] { "c1", "v1" }, asignados.OrderBy(x => x));
+    }
+
+    [Fact]
+    public async Task Asignar_UsuarioSinRolVendedorNiCajero_Lanza()
+    {
+        var caja = await SeedCajaAsync();
+        await SeedUsersAsync("v1", "c1", "intruso");
+        var service = CreateService(new[] { "v1" }, new[] { "c1" });
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => service.AsignarVendedoresAsync(caja.Id, new[] { "intruso" }, "admin"));
+    }
+
+    [Fact]
+    public async Task EsMiembro_TrueSoloParaAsignados()
+    {
+        var caja = await SeedCajaAsync();
+        await SeedUsersAsync("v1", "c1");
+        var service = CreateService(new[] { "v1" }, new[] { "c1" });
+
+        await service.AsignarVendedoresAsync(caja.Id, new[] { "v1", "c1" }, "admin");
+
+        Assert.True(await service.EsMiembroAsync(caja.Id, "v1"));
+        Assert.True(await service.EsMiembroAsync(caja.Id, "c1"));
+        Assert.False(await service.EsMiembroAsync(caja.Id, "otro"));
+        Assert.False(await service.EsMiembroAsync(caja.Id, ""));
+    }
+
+    [Fact]
+    public async Task EsMiembro_CajaSinPadron_DevuelveFalse()
+    {
+        var caja = await SeedCajaAsync();
+        await SeedUsersAsync("v1");
+        var service = CreateService("v1");
+
+        // Sin asignaciones: nadie es miembro (enforcement estricto = solo admin opera).
+        Assert.False(await service.EsMiembroAsync(caja.Id, "v1"));
     }
 }

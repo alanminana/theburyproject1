@@ -571,3 +571,70 @@ textarea.field.input-validation-error { border-color: rgb(244 63 94); box-shadow
 .caja-vendedor-item { display: flex; align-items: center; gap: .6rem; padding: .45rem .5rem; border-radius: 8px; cursor: pointer; transition: background .15s; }
 .caja-vendedor-item:hover { background: rgba(30, 41, 59, 0.5); }
 .caja-vendedor-check { width: 16px; height: 16px; accent-color: #f5c518; flex-shrink: 0; cursor: pointer; }
+
+/* ══════════════════════════════════════════════════════════════
+   DETALLE DE CAJA — Conciliación (tabs + cards + conteo)  [cc-*]
+   Compartido por DetallesApertura (live) y DetallesCierre (read-only).
+   ══════════════════════════════════════════════════════════════ */
+
+/* --line se usa inline en las vistas de detalle; definirla acá evita bordes ausentes. */
+.caja-page-shell { --line: #1f2937; }
+
+/* Cards principales: Caja esperada / Vendido / Cobrado / Pendiente / Diferencia */
+.cc-cards { display: grid; gap: .75rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 768px) { .cc-cards { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (min-width: 1280px) { .cc-cards { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); } }
+.cc-card-accent { border-color: rgba(245, 197, 24, .4); background: rgba(245, 197, 24, .06); }
+.cc-card-accent .result-value { color: #f5c518; }
+.cc-card-foot { font-size: .72rem; color: #64748b; margin-top: .45rem; line-height: 1.35; }
+
+/* Tabs */
+.cc-tabs { display: flex; gap: .25rem; overflow-x: auto; border-bottom: 1px solid #1f2937; margin-bottom: 1rem; scrollbar-width: none; }
+.cc-tabs::-webkit-scrollbar { display: none; }
+.cc-tab { display: inline-flex; align-items: center; gap: .4rem; padding: .7rem .95rem; border: 0; border-bottom: 2px solid transparent; background: transparent; color: #94a3b8; font-weight: 600; font-size: .9rem; white-space: nowrap; cursor: pointer; font-family: inherit; transition: color .15s, border-color .15s; }
+.cc-tab .material-symbols-outlined { font-size: 18px; }
+.cc-tab:hover { color: #e2e8f0; }
+.cc-tab:focus-visible { outline: 2px solid #f5c518; outline-offset: -2px; }
+.cc-tab.is-active { color: #fff; border-bottom-color: #f5c518; }
+.cc-tab-count { font-size: .7rem; font-weight: 700; background: #1e293b; color: #cbd5e1; border-radius: 999px; padding: .05rem .45rem; min-width: 1.4rem; text-align: center; }
+.cc-tab.is-active .cc-tab-count { background: rgba(245, 197, 24, .18); color: #f5c518; }
+
+.cc-panel.is-hidden { display: none; }
+
+/* Información del turno: 2 columnas en desktop */
+.cc-info-grid { display: grid; gap: 0 1.5rem; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 768px) { .cc-info-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Filtros internos por tab */
+.cc-filters { display: grid; gap: .75rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 1024px) { .cc-filters { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+/* Libro mayor: resaltar la fila de apertura */
+.cc-lm-apertura { background: rgba(245, 197, 24, .05); }
+.cc-libromayor tbody td { white-space: nowrap; }
+
+/* Conteo físico (calculadora) */
+.cc-conteo { display: grid; gap: 1rem; padding: 1rem; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 1024px) { .cc-conteo { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); align-items: start; } }
+.cc-conteo-resultado { background: #0f1623; border: 1px solid #1f2937; border-radius: 12px; padding: 1rem 1.1rem; }
+.cc-conteo-estado { margin-top: .75rem; }
+.cc-conteo-qty { text-align: center; }
+
+/* Pie de impresión (oculto en pantalla) */
+.cc-print-foot { display: none; }
+
+/* ── Impresión: cierre claro para revisar a mano ── */
+@media print {
+    .cc-noprint { display: none !important; }
+    .cc-tabs { display: none !important; }
+    .cc-panel.is-hidden { display: block !important; } /* expandir todos los tabs */
+    .cc-panel { break-inside: avoid; margin-bottom: 1rem; }
+    [data-oc-scroll-region] { overflow: visible !important; }
+    .cc-print-foot { display: block; margin-top: 1rem; padding-top: .5rem; border-top: 1px solid #475569; font-size: .75rem; color: #000; }
+
+    body, .cc-shell, .card, .result-card, .cc-conteo-resultado, .tbl thead th { background: #fff !important; color: #000 !important; }
+    .page-title, .result-value, .text-white, .defrow dd, .tbl tbody td { color: #000 !important; }
+    .muted, .muted-2, .page-sub, .cc-card-foot, .result-label { color: #334155 !important; }
+    .card, .result-card, .cc-conteo-resultado, .tbl tbody td, .tbl thead th { border-color: #cbd5e1 !important; }
+    .tbl { font-size: .72rem; }
+}

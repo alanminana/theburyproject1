@@ -1,0 +1,245 @@
+@model TheBuryProject.ViewModels.CajaConciliacionViewModel
+@{
+    var difClass = Model.DiferenciaCaja > 0 ? "text-amber-300" : (Model.DiferenciaCaja < 0 ? "text-rose-400" : "text-emerald-400");
+    var difSign = Model.DiferenciaCaja > 0 ? "+ " : (Model.DiferenciaCaja < 0 ? "− " : "");
+    // Denominaciones de billetes/monedas para el conteo físico (calculadora en vivo, sin persistir).
+    var denominaciones = new[] { 20000m, 10000m, 2000m, 1000m, 500m, 200m, 100m, 50m, 20m, 10m };
+}
+
+<div class="space-y-4">
+
+    <!-- 1) Resumen de conciliación -->
+    <section class="card card-pad">
+        <h2 class="font-semibold text-white mb-1">Resumen de conciliación</h2>
+        <p class="text-sm muted mb-3">Caja física esperada = Fondo inicial + Ingresos efectivo − Egresos efectivo.</p>
+        <dl>
+            <div class="defrow">
+                <dt>Fondo inicial</dt>
+                <dd class="num">$ @Model.FondoInicial.ToString("N2")</dd>
+            </div>
+            <div class="defrow">
+                <dt>Ingresos efectivo</dt>
+                <dd class="num text-emerald-400">+ $ @Model.IngresosEfectivo.ToString("N2")</dd>
+            </div>
+            <div class="defrow">
+                <dt>Egresos efectivo</dt>
+                <dd class="num text-rose-400">− $ @Model.EgresosEfectivo.ToString("N2")</dd>
+            </div>
+            <div class="defrow">
+                <dt class="font-medium" style="color:#e2e8f0">Caja física esperada</dt>
+                <dd class="num font-semibold" style="color:#e2e8f0">$ @Model.CajaFisicaEsperada.ToString("N2")</dd>
+            </div>
+            @if (Model.EstaCerrada)
+            {
+                <div class="defrow">
+                    <dt class="font-medium" style="color:#e2e8f0">Efectivo contado</dt>
+                    <dd class="num font-semibold" style="color:#e2e8f0">$ @Model.EfectivoContado.ToString("N2")</dd>
+                </div>
+                <div class="defrow">
+                    <dt class="font-medium">Diferencia</dt>
+                    <dd class="num font-semibold @difClass">@difSign$ @Math.Abs(Model.DiferenciaCaja).ToString("N2")</dd>
+                </div>
+            }
+        </dl>
+        @if (Model.EstaCerrada && !string.IsNullOrWhiteSpace(Model.JustificacionDiferencia))
+        {
+            <div class="alert alert-warn" style="margin-top:.75rem">
+                <span class="material-symbols-outlined">info</span>
+                <div><strong>Justificación:</strong> @Model.JustificacionDiferencia</div>
+            </div>
+        }
+    </section>
+
+    <!-- 2) Libro mayor de caja -->
+    <section class="card" style="overflow:hidden">
+        <div class="px-4 py-3 space-y-3" style="border-bottom:1px solid var(--line)">
+            <div>
+                <h2 class="font-semibold text-white">Libro mayor de caja</h2>
+                <p class="text-sm muted">Saldo esperado acumulado operación por operación. Solo las filas que impactan caja física cambian el saldo.</p>
+            </div>
+            <div class="flex flex-wrap items-end gap-3">
+                <div class="flex gap-1.5" role="group" aria-label="Filtrar libro mayor">
+                    <button type="button" class="btn btn-soft btn-sm" data-lm-tipo="all" aria-pressed="true">Todos</button>
+                    <button type="button" class="btn btn-ghost btn-sm" data-lm-tipo="si" aria-pressed="false">Impactan caja</button>
+                    <button type="button" class="btn btn-ghost btn-sm" data-lm-tipo="no" aria-pressed="false">No impactan</button>
+                </div>
+                <div>
+                    <label class="label mb-1" for="cc-lm-ref">Buscar referencia</label>
+                    <input id="cc-lm-ref" type="search" class="field" placeholder="N° venta, crédito, concepto" data-lm-filter="ref" />
+                </div>
+            </div>
+        </div>
+        <div data-oc-scroll style="--oc-scroll-min-width: 980px;">
+            <div data-oc-scroll-shell>
+                <div data-oc-scroll-fade="left" hidden></div>
+                <div data-oc-scroll-fade="right" hidden></div>
+                <div data-oc-scroll-region tabindex="0" role="region" aria-label="Libro mayor de caja" class="tbl-wrap">
+                    <table data-oc-scroll-table class="tbl cc-libromayor">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Hora</th>
+                                <th>Tipo</th>
+                                <th>Concepto</th>
+                                <th>Medio</th>
+                                <th>Referencia</th>
+                                <th style="text-align:right">Entra</th>
+                                <th style="text-align:right">Sale</th>
+                                <th style="text-align:right">Saldo esperado</th>
+                                <th style="text-align:center">Impacta</th>
+                            </tr>
+                        </thead>
+                        <tbody data-lm-body>
+                            @foreach (var f in Model.LibroMayor)
+                            {
+                                <tr data-lm-row
+                                    data-lm-impacta="@(f.ImpactaCajaFisica ? "si" : "no")"
+                                    data-lm-ref="@($"{f.Referencia} {f.Concepto}".ToLowerInvariant())"
+                                    class="@(f.EsApertura ? "cc-lm-apertura" : "")">
+                                    <td class="num muted-2">@f.Orden</td>
+                                    <td class="mono muted">@f.FechaHora.ToString("HH:mm")</td>
+                                    <td>
+                                        @if (f.EsApertura)
+                                        {
+                                            <span class="chip chip-info">Apertura</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="chip @(f.Entra > 0 ? "chip-ok" : "chip-bad")">@f.TipoLabel</span>
+                                        }
+                                    </td>
+                                    <td class="text-white">@f.Concepto</td>
+                                    <td><span class="chip @(f.ImpactaCajaFisica ? "chip-ok" : "chip-neutral")">@f.MedioPago</span></td>
+                                    <td class="mono muted-2">@(string.IsNullOrWhiteSpace(f.Referencia) ? "—" : f.Referencia)</td>
+                                    <td style="text-align:right" class="num text-emerald-400">@(f.Entra > 0 ? $"$ {f.Entra.ToString("N2")}" : "—")</td>
+                                    <td style="text-align:right" class="num text-rose-400">@(f.Sale > 0 ? $"$ {f.Sale.ToString("N2")}" : "—")</td>
+                                    <td style="text-align:right" class="num font-semibold @(f.ImpactaCajaFisica ? "text-white" : "muted-2")">$ @f.SaldoEsperado.ToString("N2")</td>
+                                    <td style="text-align:center">
+                                        <span class="chip @(f.ImpactaCajaFisica ? "chip-ok" : "chip-neutral")">@(f.ImpactaCajaFisica ? "Sí" : "No")</span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                    <div class="px-4 py-6 text-sm muted-2 hidden" data-lm-empty>No hay operaciones que coincidan con el filtro.</div>
+                </div>
+            </div>
+        </div>
+        <div class="px-4 py-2.5 text-xs muted-2 flex items-center justify-between gap-2" style="border-top:1px solid var(--line)">
+            <span>Saldo final esperado en caja física</span>
+            <span class="num font-semibold text-white">$ @Model.CajaFisicaEsperada.ToString("N2")</span>
+        </div>
+    </section>
+
+    <!-- 3) Ventas sin impacto en caja -->
+    @if (Model.VentasSinImpacto.Any())
+    {
+        <section class="card" style="overflow:hidden">
+            <div class="px-4 py-3" style="border-bottom:1px solid var(--line)">
+                <h2 class="font-semibold text-white">Ventas sin impacto en caja</h2>
+                <p class="text-sm muted">Generan deuda o cobranza no física. No deben buscarse como efectivo faltante en caja.</p>
+            </div>
+            <div data-oc-scroll style="--oc-scroll-min-width: 820px;">
+                <div data-oc-scroll-shell>
+                    <div data-oc-scroll-fade="left" hidden></div>
+                    <div data-oc-scroll-fade="right" hidden></div>
+                    <div data-oc-scroll-region tabindex="0" role="region" aria-label="Ventas sin impacto en caja" class="tbl-wrap">
+                        <table data-oc-scroll-table class="tbl">
+                            <thead>
+                                <tr>
+                                    <th>Venta</th>
+                                    <th>Cliente</th>
+                                    <th>Medio de pago</th>
+                                    <th style="text-align:right">Total venta</th>
+                                    <th style="text-align:right">Cobrado ahora</th>
+                                    <th style="text-align:right">Pendiente</th>
+                                    <th>Motivo</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var v in Model.VentasSinImpacto)
+                                {
+                                    <tr>
+                                        <td class="mono text-white">@v.Numero</td>
+                                        <td>@v.Cliente</td>
+                                        <td><span class="chip chip-info">@v.MedioPago</span></td>
+                                        <td style="text-align:right" class="num">$@v.TotalVenta.ToString("N2")</td>
+                                        <td style="text-align:right" class="num text-emerald-400">$@v.CobradoAhora.ToString("N2")</td>
+                                        <td style="text-align:right" class="num text-amber-300">$@v.Pendiente.ToString("N2")</td>
+                                        <td><span class="chip chip-warn">@v.MotivoNoImpacta</span></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+    }
+
+    <!-- 4) Conteo físico (calculadora en vivo) -->
+    <section class="card" style="overflow:hidden" data-conteo
+             data-conteo-esperada="@Model.CajaFisicaEsperada.ToString(System.Globalization.CultureInfo.InvariantCulture)">
+        <div class="px-4 py-3" style="border-bottom:1px solid var(--line)">
+            <h2 class="font-semibold text-white">Conteo físico de efectivo</h2>
+            <p class="text-sm muted">Cargá las cantidades para contar la caja a mano. Es una calculadora: no se guarda (se persiste en el cierre).</p>
+        </div>
+        <div class="cc-conteo">
+            <div class="cc-conteo-tabla">
+                <table class="tbl">
+                    <thead>
+                        <tr>
+                            <th>Denominación</th>
+                            <th style="text-align:center">Cantidad</th>
+                            <th style="text-align:right">Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var d in denominaciones)
+                        {
+                            <tr>
+                                <td class="num text-white">$ @d.ToString("N0")</td>
+                                <td style="text-align:center">
+                                    <input type="number" min="0" step="1" inputmode="numeric"
+                                           class="field cc-conteo-qty" style="max-width:7rem;margin:0 auto"
+                                           data-conteo-qty data-conteo-valor="@d.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                           aria-label="Cantidad de billetes de @d.ToString("N0")" />
+                                </td>
+                                <td style="text-align:right" class="num" data-conteo-subtotal>$ 0,00</td>
+                            </tr>
+                        }
+                        <tr>
+                            <td class="num text-white">Monedas / otros</td>
+                            <td style="text-align:center">
+                                <div class="field-money" style="max-width:9rem;margin:0 auto">
+                                    <span class="cur">$</span>
+                                    <input type="number" min="0" step="0.01" inputmode="decimal"
+                                           class="field cc-conteo-otros" data-conteo-otros
+                                           aria-label="Monto en monedas u otros" />
+                                </div>
+                            </td>
+                            <td style="text-align:right" class="num" data-conteo-otros-out>$ 0,00</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="cc-conteo-resultado">
+                <div class="defrow">
+                    <dt>Caja esperada</dt>
+                    <dd class="num">$ @Model.CajaFisicaEsperada.ToString("N2")</dd>
+                </div>
+                <div class="defrow">
+                    <dt>Caja contada</dt>
+                    <dd class="num font-semibold text-white" data-conteo-total>$ 0,00</dd>
+                </div>
+                <div class="defrow">
+                    <dt class="font-medium">Diferencia</dt>
+                    <dd class="num font-semibold" data-conteo-diferencia>$ 0,00</dd>
+                </div>
+                <div class="cc-conteo-estado" data-conteo-estado>
+                    <span class="chip chip-neutral">Cargá el conteo para ver la diferencia</span>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>

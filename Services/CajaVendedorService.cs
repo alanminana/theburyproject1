@@ -7,8 +7,10 @@ using TheBuryProject.Services.Interfaces;
 namespace TheBuryProject.Services
 {
     /// <summary>
-    /// Gestiona el padrón de vendedores por caja. Es un registro de control/visibilidad:
-    /// no restringe ventas (sin enforcement).
+    /// Gestiona el padrón de usuarios habilitados por caja (vendedores que venden en ella
+    /// y cajeros que la operan). Es la base del enforcement "cada usuario sobre su propia caja".
+    /// Nota: por estabilidad de migración la tabla/columna conservan el nombre histórico
+    /// (CajaVendedores / VendedorUserId) pero almacenan cualquier usuario habilitado.
     /// </summary>
     public class CajaVendedorService : ICajaVendedorService
     {
@@ -28,6 +30,36 @@ namespace TheBuryProject.Services
 
         public Task<List<UsuarioSelectItem>> ObtenerVendedoresDisponiblesAsync()
             => _usuarioService.GetUsuariosPorRolAsync(Roles.Vendedor);
+
+        public Task<List<UsuarioSelectItem>> ObtenerCajerosDisponiblesAsync()
+            => _usuarioService.GetUsuariosPorRolAsync(Roles.Cajero);
+
+        public async Task<bool> EsMiembroAsync(int cajaId, string userId)
+        {
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return false;
+            }
+
+            return await _context.CajaVendedores
+                .AsNoTracking()
+                .AnyAsync(cv => cv.CajaId == cajaId && cv.VendedorUserId == userId && !cv.IsDeleted);
+        }
+
+        public async Task<List<int>> ObtenerCajaIdsDeUsuarioAsync(string userId)
+        {
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return new List<int>();
+            }
+
+            return await _context.CajaVendedores
+                .AsNoTracking()
+                .Where(cv => cv.VendedorUserId == userId && !cv.IsDeleted)
+                .Select(cv => cv.CajaId)
+                .Distinct()
+                .ToListAsync();
+        }
 
         public async Task<List<string>> ObtenerVendedorIdsAsignadosAsync(int cajaId)
         {
@@ -64,16 +96,16 @@ namespace TheBuryProject.Services
                 .Distinct()
                 .ToList();
 
-            // Validar que cada usuario seleccionado tenga rol Vendedor.
+            // Validar que cada usuario seleccionado tenga rol Vendedor o Cajero (usuarios habilitables).
             if (seleccion.Count > 0)
             {
-                var vendedoresValidos = (await _usuarioService.GetUsuariosPorRolAsync(Roles.Vendedor))
-                    .Select(v => v.Id)
-                    .ToHashSet();
+                var vendedores = await _usuarioService.GetUsuariosPorRolAsync(Roles.Vendedor);
+                var cajeros = await _usuarioService.GetUsuariosPorRolAsync(Roles.Cajero);
+                var habilitables = vendedores.Concat(cajeros).Select(u => u.Id).ToHashSet();
 
-                if (seleccion.Any(id => !vendedoresValidos.Contains(id)))
+                if (seleccion.Any(id => !habilitables.Contains(id)))
                 {
-                    throw new InvalidOperationException("Uno o más usuarios seleccionados no tienen el rol de vendedor.");
+                    throw new InvalidOperationException("Uno o más usuarios seleccionados no tienen rol de vendedor ni cajero.");
                 }
             }
 

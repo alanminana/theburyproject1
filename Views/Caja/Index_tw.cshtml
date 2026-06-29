@@ -11,6 +11,7 @@
 
     var currentUser = ViewBag.CurrentUser as string ?? User.Identity?.Name ?? "";
     var esAdmin = (bool)(ViewBag.EsAdmin ?? false);
+    var cajasOperables = ViewBag.CajasOperables as HashSet<int> ?? new HashSet<int>();
 
     var aperturasMostradas = esAdmin
         ? abiertas
@@ -289,10 +290,17 @@
                                                 }
                                                 else
                                                 {
-                                                    <a asp-action="Abrir" asp-route-cajaId="@caja.Id"
-                                                       class="btn btn-primary btn-sm no-underline">
-                                                        <span class="material-symbols-outlined">lock_open</span>Abrir
-                                                    </a>
+                                                    @if (esAdmin || cajasOperables.Contains(caja.Id))
+                                                    {
+                                                        <a asp-action="Abrir" asp-route-cajaId="@caja.Id"
+                                                           class="btn btn-primary btn-sm no-underline">
+                                                            <span class="material-symbols-outlined">lock_open</span>Abrir
+                                                        </a>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="text-xs font-medium text-slate-500">Sin acceso</span>
+                                                    }
                                                     @if (esAdmin)
                                                     {
                                                         <button type="button" data-caja-open-edit data-caja-id="@caja.Id"
@@ -391,7 +399,7 @@
                                         <span class="material-symbols-outlined">visibility</span>Ver turno
                                     </a>
                                 }
-                                else if (!estaAbiertaM)
+                                else if (!estaAbiertaM && (esAdmin || cajasOperables.Contains(caja.Id)))
                                 {
                                     <a asp-action="Abrir" asp-route-cajaId="@caja.Id"
                                        class="btn btn-primary btn-sm btn-block no-underline">

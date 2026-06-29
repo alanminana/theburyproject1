@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using TheBuryProject.Filters;
 using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.Entities;
+using TheBuryProject.Services;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.ViewModels;
 
@@ -61,6 +62,8 @@ namespace TheBuryProject.Controllers
 
             ViewBag.CurrentUser = _currentUser.GetUsername();
             ViewBag.EsAdmin = EsAdminCaja();
+            // Cajas que el usuario puede operar (padrón): la vista oculta "Abrir" en las demás.
+            ViewBag.CajasOperables = (await _cajaVendedorService.ObtenerCajaIdsDeUsuarioAsync(_currentUser.GetUserId())).ToHashSet();
 
             return View("Index_tw", viewModel);
         }
@@ -134,6 +137,7 @@ namespace TheBuryProject.Controllers
 
             var model = _mapper.Map<CajaViewModel>(caja);
             model.VendedoresDisponibles = await _cajaVendedorService.ObtenerVendedoresDisponiblesAsync();
+            model.CajerosDisponibles = await _cajaVendedorService.ObtenerCajerosDisponiblesAsync();
             model.VendedorIds = await _cajaVendedorService.ObtenerVendedorIdsAsignadosAsync(id);
             return PartialView("_EditModal_tw", model);
         }
@@ -254,6 +258,12 @@ namespace TheBuryProject.Controllers
                 return View("Abrir_tw", model);
             }
 
+            if (!await PuedeOperarCajaAsync(model.CajaId))
+            {
+                TempData["Error"] = MensajeSinPermisoOperarCaja;
+                return RedirectToAction(nameof(Index));
+            }
+
             try
             {
                 var apertura = await _cajaService.AbrirCajaAsync(model, _currentUser.GetUsername());
@@ -291,6 +301,12 @@ namespace TheBuryProject.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
+            if (!await PuedeOperarCajaAsync(apertura.CajaId))
+            {
+                TempData["Error"] = MensajeSinPermisoOperarCaja;
+                return RedirectToAction(nameof(Index));
+            }
+
             var saldo = await _cajaService.CalcularSaldoActualAsync(aperturaId);
 
             var model = new MovimientoCajaViewModel
@@ -314,6 +330,12 @@ namespace TheBuryProject.Controllers
                 return View("RegistrarMovimiento_tw", model);
             }
 
+            if (!await PuedeOperarAperturaAsync(model.AperturaCajaId))
+            {
+                TempData["Error"] = MensajeSinPermisoOperarCaja;
+                return RedirectToAction(nameof(Index));
+            }
+
             try
             {
                 await _cajaService.RegistrarMovimientoAsync(model, _currentUser.GetUsername());
@@ -335,6 +357,12 @@ namespace TheBuryProject.Controllers
         [PermisoRequerido(Modulo = "caja", Accion = "edit")]
         public async Task<IActionResult> AcreditarMovimiento(int movimientoId, int aperturaId)
         {
+            if (!await PuedeOperarAperturaAsync(aperturaId))
+            {
+                TempData["Error"] = MensajeSinPermisoOperarCaja;
+                return RedirectToAction(nameof(DetallesApertura), new { id = aperturaId });
+            }
+
             try
             {
                 await _cajaService.AcreditarMovimientoAsync(movimientoId, _currentUser.GetUsername());
@@ -362,6 +390,12 @@ namespace TheBuryProject.Controllers
         {
             try
             {
+                if (!await PuedeOperarAperturaAsync(aperturaId))
+                {
+                    TempData["Error"] = MensajeSinPermisoOperarCaja;
+                    return RedirectToAction(nameof(Index));
+                }
+
                 var detalles = await _cajaService.ObtenerDetallesAperturaAsync(aperturaId);
 
                 ViewBag.ReturnUrl = returnUrl;
@@ -399,6 +433,12 @@ namespace TheBuryProject.Controllers
                 await TryPopulateCerrarModelAsync(model);
                 ViewBag.ReturnUrl = returnUrl;
                 return View("Cerrar_tw", model);
+            }
+
+            if (!await PuedeOperarAperturaAsync(model.AperturaCajaId))
+            {
+                TempData["Error"] = MensajeSinPermisoOperarCaja;
+                return RedirectToAction(nameof(Index));
             }
 
             try
@@ -439,11 +479,11 @@ namespace TheBuryProject.Controllers
             try
             {
                 var detalles = await _cajaService.ObtenerDetallesAperturaAsync(id);
+                var puedeOperar = await PuedeOperarAperturaAsync(id);
 
-                ViewBag.CurrentUser = _currentUser.GetUsername();
-                ViewBag.EsAdmin = EsAdminCaja();
+                var viewModel = CajaConciliacionBuilder.Build(detalles, detalles.Apertura.Cierre, puedeOperar);
 
-                return View("DetallesApertura_tw", detalles);
+                return View("DetallesApertura_tw", viewModel);
             }
             catch (Exception ex)
             {
@@ -468,11 +508,7 @@ namespace TheBuryProject.Controllers
 
             ViewBag.ReturnUrl = returnUrl;
 
-            return View("DetallesCierre_tw", new DetallesCierreViewModel
-            {
-                Cierre = cierre,
-                Detalle = detalle
-            });
+            return View("DetallesCierre_tw", CajaConciliacionBuilder.Build(detalle, cierre, puedeOperar: false));
         }
 
         /// <summary>
@@ -502,10 +538,57 @@ namespace TheBuryProject.Controllers
             || _currentUser.IsInRole(Roles.Administrador)
             || _currentUser.HasPermission("caja", "update");
 
+        /// <summary>
+        /// Supervisor de caja: roles administrativos que pueden operar cualquier caja sin estar
+        /// en el padrón ("a excepción del admin"). Es el bypass del enforcement de operación.
+        /// </summary>
+        private bool EsSupervisorCaja() =>
+            _currentUser.IsInRole(Roles.SuperAdmin)
+            || _currentUser.IsInRole(Roles.Administrador);
+
+        /// <summary>
+        /// Enforcement de operación: el usuario puede operar la caja si es supervisor (admin)
+        /// o si está asignado a su padrón. Estricto: caja sin padrón ⇒ solo admin.
+        /// </summary>
+        private async Task<bool> PuedeOperarCajaAsync(int cajaId)
+        {
+            if (EsSupervisorCaja())
+            {
+                return true;
+            }
+
+            return await _cajaVendedorService.EsMiembroAsync(cajaId, _currentUser.GetUserId());
+        }
+
+        /// <summary>Variante por apertura: resuelve la caja de la apertura y aplica <see cref="PuedeOperarCajaAsync"/>.</summary>
+        private async Task<bool> PuedeOperarAperturaAsync(int aperturaId)
+        {
+            var apertura = await _cajaService.ObtenerAperturaPorIdAsync(aperturaId);
+            if (apertura == null)
+            {
+                // Apertura inexistente: dejar que el flujo normal devuelva "no encontrada".
+                return true;
+            }
+
+            return await PuedeOperarCajaAsync(apertura.CajaId);
+        }
+
+        private const string MensajeSinPermisoOperarCaja =
+            "No estás habilitado para operar esta caja. Pedí al administrador que te asigne a ella.";
+
         private async Task<List<Caja>> SetCajasActivasSelectListAsync(int? selectedId)
         {
             var cajas = await _cajaService.ObtenerTodasCajasAsync();
-            ViewBag.Cajas = new SelectList(cajas.Where(c => c.Activa), "Id", "Nombre", selectedId);
+            var activas = cajas.Where(c => c.Activa).AsEnumerable();
+
+            // Enforcement: un usuario no supervisor solo puede abrir las cajas de su padrón.
+            if (!EsSupervisorCaja())
+            {
+                var cajasHabilitadas = (await _cajaVendedorService.ObtenerCajaIdsDeUsuarioAsync(_currentUser.GetUserId())).ToHashSet();
+                activas = activas.Where(c => cajasHabilitadas.Contains(c.Id));
+            }
+
+            ViewBag.Cajas = new SelectList(activas.ToList(), "Id", "Nombre", selectedId);
             return cajas;
         }
 

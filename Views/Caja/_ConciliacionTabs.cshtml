@@ -1,0 +1,39 @@
+@model TheBuryProject.ViewModels.CajaConciliacionViewModel
+
+<div class="cc-tabwrap" data-cc-tabs>
+    <div class="cc-tabs" role="tablist" aria-label="Secciones del detalle de caja">
+        <button type="button" class="cc-tab is-active" role="tab" data-cc-tab="resumen" aria-selected="true">
+            <span class="material-symbols-outlined">dashboard</span>Resumen
+        </button>
+        <button type="button" class="cc-tab" role="tab" data-cc-tab="ventas" aria-selected="false">
+            <span class="material-symbols-outlined">receipt_long</span>Ventas
+            <span class="cc-tab-count">@Model.Ventas.Count(v => v.Categoria != TheBuryProject.ViewModels.VentaTurnoCategoria.Registro)</span>
+        </button>
+        <button type="button" class="cc-tab" role="tab" data-cc-tab="movimientos" aria-selected="false">
+            <span class="material-symbols-outlined">swap_vert</span>Movimientos
+            <span class="cc-tab-count">@Model.CantidadMovimientos</span>
+        </button>
+        <button type="button" class="cc-tab" role="tab" data-cc-tab="conciliacion" aria-selected="false">
+            <span class="material-symbols-outlined">balance</span>Conciliación
+        </button>
+        <button type="button" class="cc-tab" role="tab" data-cc-tab="auditoria" aria-selected="false">
+            <span class="material-symbols-outlined">history</span>Auditoría
+        </button>
+    </div>
+
+    <div class="cc-panel" data-cc-panel="resumen">
+        <partial name="_ConciliacionResumenTab" model="Model" />
+    </div>
+    <div class="cc-panel is-hidden" data-cc-panel="ventas">
+        <partial name="_ConciliacionVentasTab" model="Model" />
+    </div>
+    <div class="cc-panel is-hidden" data-cc-panel="movimientos">
+        <partial name="_ConciliacionMovimientosTab" model="Model" />
+    </div>
+    <div class="cc-panel is-hidden" data-cc-panel="conciliacion">
+        <partial name="_ConciliacionConciliacionTab" model="Model" />
+    </div>
+    <div class="cc-panel is-hidden" data-cc-panel="auditoria">
+        <partial name="_ConciliacionAuditoriaTab" model="Model" />
+    </div>
+</div>

@@ -1,0 +1,36 @@
+@model TheBuryProject.ViewModels.CajaConciliacionViewModel
+@{
+    var difClass = Model.DiferenciaCaja > 0 ? "is-warn" : (Model.DiferenciaCaja < 0 ? "is-bad" : "is-ok");
+    var difLabel = Model.DiferenciaCaja > 0 ? "Sobra" : (Model.DiferenciaCaja < 0 ? "Falta" : "Exacto");
+    var difSign = Model.DiferenciaCaja > 0 ? "+ " : (Model.DiferenciaCaja < 0 ? "− " : "");
+}
+<div class="cc-cards" data-cc-cards>
+    <div class="result-card cc-card-accent">
+        <div class="result-label">Caja esperada</div>
+        <div class="result-value">$ @Model.CajaFisicaEsperada.ToString("N2")</div>
+        <div class="cc-card-foot">efectivo que debería haber en caja</div>
+    </div>
+    <div class="result-card">
+        <div class="result-label">Vendido</div>
+        <div class="result-value">$ @Model.TotalVendido.ToString("N2")</div>
+        <div class="cc-card-foot">facturado en el turno (incluye crédito)</div>
+    </div>
+    <div class="result-card">
+        <div class="result-label">Cobrado</div>
+        <div class="result-value">$ @Model.TotalCobrado.ToString("N2")</div>
+        <div class="cc-card-foot">efectivo $@Model.TotalCobradoEfectivo.ToString("N2") · digital $@Model.TotalCobradoDigital.ToString("N2")</div>
+    </div>
+    <div class="result-card @(Model.TotalPendiente > 0 ? "is-warn" : "")">
+        <div class="result-label">Pendiente</div>
+        <div class="result-value">$ @Model.TotalPendiente.ToString("N2")</div>
+        <div class="cc-card-foot">vendido todavía no cobrado</div>
+    </div>
+    @if (Model.EstaCerrada)
+    {
+        <div class="result-card @difClass">
+            <div class="result-label">Diferencia · @difLabel</div>
+            <div class="result-value">@difSign$ @Math.Abs(Model.DiferenciaCaja).ToString("N2")</div>
+            <div class="cc-card-foot">efectivo contado vs esperado</div>
+        </div>
+    }
+</div>

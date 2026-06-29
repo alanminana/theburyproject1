@@ -52,16 +52,21 @@ public class CajaViewModel
     [Display(Name = "Estado")]
     public EstadoCaja Estado { get; set; }
 
-    // ── Padrón de vendedores (solo Edit; control/visibilidad, sin enforcement) ──
+    // ── Padrón de usuarios habilitados (solo Edit) ──
+    // Base del enforcement "cada usuario sobre su propia caja": vendedores que venden contra
+    // la caja y cajeros que la operan. RBAC define el verbo; esta membresía define la caja.
 
-    /// <summary>Ids de vendedores seleccionados para esta caja.</summary>
+    /// <summary>Ids de usuarios habilitados (vendedores y cajeros) seleccionados para esta caja.</summary>
     public List<string> VendedorIds { get; set; } = new();
 
     /// <summary>Usuarios con rol Vendedor disponibles para asignar (para render del formulario).</summary>
     public List<TheBuryProject.Services.Interfaces.UsuarioSelectItem> VendedoresDisponibles { get; set; } = new();
 
+    /// <summary>Usuarios con rol Cajero disponibles para asignar (para render del formulario).</summary>
+    public List<TheBuryProject.Services.Interfaces.UsuarioSelectItem> CajerosDisponibles { get; set; } = new();
+
     /// <summary>
-    /// Marca que el formulario gestionó el padrón de vendedores (lo envía el modal de edición).
+    /// Marca que el formulario gestionó el padrón de usuarios (lo envía el modal de edición).
     /// Evita que flujos que no incluyen el campo borren las asignaciones existentes.
     /// </summary>
     public bool VendedoresGestionados { get; set; }

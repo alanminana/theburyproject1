@@ -106,14 +106,36 @@
                     </label>
                 </div>
 
-                <!-- Padrón de vendedores -->
+                <!-- Padrón de usuarios habilitados -->
                 <div class="card card-pad">
                     <div class="flex items-center gap-2 mb-1">
                         <span class="material-symbols-outlined" style="color:#f5c518;font-size:20px">badge</span>
-                        <h3 class="font-semibold text-white">Vendedores asignados</h3>
+                        <h3 class="font-semibold text-white">Usuarios habilitados</h3>
                     </div>
-                    <p class="text-xs muted-2 mb-3">Controlá qué vendedores operan en esta caja.</p>
+                    <p class="text-xs muted-2 mb-3">Definí quién opera y vende en esta caja. Solo los usuarios asignados (más el administrador) pueden operarla. Sin asignaciones, solo el administrador.</p>
                     <input type="hidden" name="VendedoresGestionados" value="true" />
+
+                    <div class="mb-1.5 text-xs font-semibold uppercase tracking-wide muted-2">Cajeros (operan la caja)</div>
+                    @if (Model.CajerosDisponibles.Any())
+                    {
+                        <div class="caja-vendedores-list mb-4">
+                            @foreach (var c in Model.CajerosDisponibles)
+                            {
+                                var asignado = Model.VendedorIds.Contains(c.Id);
+                                <label class="caja-vendedor-item">
+                                    <input type="checkbox" name="VendedorIds" value="@c.Id" class="caja-vendedor-check"
+                                           @(asignado ? "checked" : "") />
+                                    <span class="text-sm text-slate-200">@c.UserName</span>
+                                </label>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="text-sm muted-2 italic mb-4">No hay usuarios con rol Cajero.</p>
+                    }
+
+                    <div class="mb-1.5 text-xs font-semibold uppercase tracking-wide muted-2">Vendedores (venden contra la caja)</div>
                     @if (Model.VendedoresDisponibles.Any())
                     {
                         <div class="caja-vendedores-list">
@@ -130,7 +152,7 @@
                     }
                     else
                     {
-                        <p class="text-sm muted-2 italic">No hay usuarios con rol Vendedor. Creá usuarios vendedores para poder asignarlos.</p>
+                        <p class="text-sm muted-2 italic">No hay usuarios con rol Vendedor.</p>
                     }
                 </div>
 

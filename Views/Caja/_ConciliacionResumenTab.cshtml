@@ -1,0 +1,116 @@
+@model TheBuryProject.ViewModels.CajaConciliacionViewModel
+
+<div class="space-y-4">
+
+    <section class="card" style="overflow:hidden">
+        <div class="px-4 py-3" style="border-bottom:1px solid var(--line)">
+            <h2 class="font-semibold text-white">Resumen por medio de pago</h2>
+            <p class="text-sm muted">Qué se vendió, qué se cobró y qué queda pendiente por cada medio. Solo el efectivo impacta la caja física.</p>
+        </div>
+        @if (Model.ResumenPorMedio.Any())
+        {
+            <div data-oc-scroll style="--oc-scroll-min-width: 640px;">
+                <div data-oc-scroll-shell>
+                    <div data-oc-scroll-fade="left" hidden></div>
+                    <div data-oc-scroll-fade="right" hidden></div>
+                    <div data-oc-scroll-region tabindex="0" role="region" aria-label="Resumen por medio de pago" class="tbl-wrap">
+                        <table data-oc-scroll-table class="tbl">
+                            <thead>
+                                <tr>
+                                    <th>Medio</th>
+                                    <th style="text-align:right">Vendido</th>
+                                    <th style="text-align:right">Cobrado</th>
+                                    <th style="text-align:right">Pendiente</th>
+                                    <th style="text-align:center">Impacta caja física</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var medio in Model.ResumenPorMedio)
+                                {
+                                    <tr>
+                                        <td>
+                                            <div class="flex items-center gap-2">
+                                                <span class="chip @(medio.ImpactaCajaFisica ? "chip-ok" : "chip-neutral")">@(medio.ImpactaCajaFisica ? "Físico" : "No físico")</span>
+                                                <span class="text-white">@medio.MedioPago</span>
+                                            </div>
+                                        </td>
+                                        <td style="text-align:right" class="num">$@medio.TotalVendido.ToString("N2")</td>
+                                        <td style="text-align:right" class="num text-emerald-400">$@medio.TotalCobrado.ToString("N2")</td>
+                                        <td style="text-align:right" class="num @(medio.TotalPendiente > 0 ? "text-amber-300" : "muted-2")">$@medio.TotalPendiente.ToString("N2")</td>
+                                        <td style="text-align:center">
+                                            <span class="chip @(medio.ImpactaCajaFisica ? "chip-ok" : "chip-neutral")">@(medio.ImpactaCajaFisica ? "Sí" : "No")</span>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                            <tfoot>
+                                <tr style="border-top:2px solid var(--line)">
+                                    <td class="font-semibold text-white">Total</td>
+                                    <td style="text-align:right" class="num font-semibold text-white">$@Model.TotalVendido.ToString("N2")</td>
+                                    <td style="text-align:right" class="num font-semibold text-emerald-400">$@Model.TotalCobrado.ToString("N2")</td>
+                                    <td style="text-align:right" class="num font-semibold text-amber-300">$@Model.TotalPendiente.ToString("N2")</td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="px-4 py-6 text-sm muted-2">Todavía no hay ventas ni movimientos para resumir en este turno.</div>
+        }
+    </section>
+
+    <section class="card card-pad">
+        <h3 class="font-semibold text-white mb-2">Información del turno</h3>
+        <div class="cc-info-grid">
+            <dl>
+                <div class="defrow">
+                    <dt>Apertura</dt>
+                    <dd class="num">@Model.FechaApertura.ToString("dd/MM/yyyy · HH:mm")</dd>
+                </div>
+                <div class="defrow">
+                    <dt>Responsable</dt>
+                    <dd>@Model.Responsable</dd>
+                </div>
+                <div class="defrow">
+                    <dt>Ubicación / sucursal</dt>
+                    <dd>@(string.IsNullOrWhiteSpace(Model.Ubicacion) && string.IsNullOrWhiteSpace(Model.Sucursal) ? "—" : $"{Model.Ubicacion} {Model.Sucursal}".Trim())</dd>
+                </div>
+            </dl>
+            <dl>
+                <div class="defrow">
+                    <dt>Última actividad</dt>
+                    <dd class="num">@(Model.UltimaActividad?.ToString("dd/MM · HH:mm") ?? "Sin movimientos")</dd>
+                </div>
+                @if (Model.EstaCerrada)
+                {
+                    <div class="defrow">
+                        <dt>Cierre</dt>
+                        <dd class="num">@(Model.FechaCierre?.ToString("dd/MM · HH:mm") ?? "—") · @Model.UsuarioCierre</dd>
+                    </div>
+                    @if (Model.Duracion.HasValue)
+                    {
+                        <div class="defrow">
+                            <dt>Duración</dt>
+                            <dd class="num">@((int)Model.Duracion.Value.TotalHours) h @Model.Duracion.Value.Minutes min</dd>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="defrow">
+                        <dt>Estado</dt>
+                        <dd><span class="chip chip-live"><span class="dot"></span>Turno abierto</span></dd>
+                    </div>
+                }
+            </dl>
+        </div>
+        @if (!string.IsNullOrWhiteSpace(Model.ObservacionesApertura))
+        {
+            <p class="text-sm muted leading-relaxed" style="margin-top:.6rem">"@Model.ObservacionesApertura"</p>
+        }
+    </section>
+</div>

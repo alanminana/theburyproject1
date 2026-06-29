@@ -1,0 +1,53 @@
+@model TheBuryProject.ViewModels.CajaConciliacionViewModel
+
+<section class="card" style="overflow:hidden">
+    <div class="px-4 py-3 flex items-center justify-between gap-3 flex-wrap" style="border-bottom:1px solid var(--line)">
+        <div>
+            <h2 class="font-semibold text-white">Auditoría del turno</h2>
+            <p class="text-sm muted">Trazabilidad de eventos: apertura, movimientos, anulaciones y cierre. No modifica los totales.</p>
+        </div>
+        <span class="chip chip-neutral">@Model.Auditoria.Count @(Model.Auditoria.Count == 1 ? "evento" : "eventos")</span>
+    </div>
+    @if (Model.Auditoria.Any())
+    {
+        <div data-oc-scroll style="--oc-scroll-min-width: 900px;">
+            <div data-oc-scroll-shell>
+                <div data-oc-scroll-fade="left" hidden></div>
+                <div data-oc-scroll-fade="right" hidden></div>
+                <div data-oc-scroll-region tabindex="0" role="region" aria-label="Auditoría del turno" class="tbl-wrap">
+                    <table data-oc-scroll-table class="tbl">
+                        <thead>
+                            <tr>
+                                <th>Fecha / hora</th>
+                                <th>Usuario</th>
+                                <th>Acción</th>
+                                <th>Entidad</th>
+                                <th>Referencia</th>
+                                <th>Detalle</th>
+                                <th style="text-align:right">Monto</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var e in Model.Auditoria)
+                            {
+                                <tr>
+                                    <td class="mono muted">@e.FechaHora.ToString("dd/MM HH:mm")</td>
+                                    <td class="muted">@e.Usuario</td>
+                                    <td class="text-white">@e.Accion</td>
+                                    <td class="muted-2">@e.Entidad</td>
+                                    <td class="mono muted-2">@(string.IsNullOrWhiteSpace(e.Referencia) ? "—" : e.Referencia)</td>
+                                    <td class="muted">@(string.IsNullOrWhiteSpace(e.Detalle) ? "—" : e.Detalle)</td>
+                                    <td style="text-align:right" class="num">@(e.Monto.HasValue ? $"$ {e.Monto.Value.ToString("N2")}" : "—")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="px-4 py-6 text-sm muted-2">Sin eventos de auditoría en este turno.</div>
+    }
+</section>

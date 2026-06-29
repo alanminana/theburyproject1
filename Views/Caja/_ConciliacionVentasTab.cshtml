@@ -1,0 +1,118 @@
+@model TheBuryProject.ViewModels.CajaConciliacionViewModel
+@using System.Globalization
+@{
+    var ventas = Model.Ventas
+        .Where(v => v.Categoria != TheBuryProject.ViewModels.VentaTurnoCategoria.Registro)
+        .ToList();
+    var totalVentas = ventas.Sum(v => v.TotalVenta);
+    var estados = ventas.Select(v => v.EstadoLabel).Distinct().OrderBy(e => e).ToList();
+}
+
+<section class="card" style="overflow:hidden">
+    <div class="px-4 py-3 space-y-3" style="border-bottom:1px solid var(--line)">
+        <div>
+            <h2 class="font-semibold text-white">Ventas del turno</h2>
+            <p class="text-sm muted">Operaciones generadas en este turno. "Cobrado ahora" es lo recibido; "Pendiente" es lo que todavía no entró.</p>
+        </div>
+        <div class="cc-filters">
+            <div>
+                <label class="label mb-1" for="cc-venta-medio">Medio de pago</label>
+                <select id="cc-venta-medio" class="field" data-venta-filter="medio">
+                    <option value="all">Todos</option>
+                    <option value="efectivo">Efectivo</option>
+                    <option value="tarjeta">Tarjeta</option>
+                    <option value="mercadopago">Mercado Pago</option>
+                    <option value="transferencia">Transferencia</option>
+                    <option value="cheque">Cheque</option>
+                    <option value="credito">Crédito personal</option>
+                    <option value="cuentacorriente">Cuenta corriente</option>
+                </select>
+            </div>
+            <div>
+                <label class="label mb-1" for="cc-venta-estado">Estado</label>
+                <select id="cc-venta-estado" class="field" data-venta-filter="estado">
+                    <option value="all">Todos</option>
+                    @foreach (var e in estados)
+                    {
+                        <option value="@e.ToLowerInvariant()">@e</option>
+                    }
+                </select>
+            </div>
+            <div>
+                <label class="label mb-1" for="cc-venta-impacta">Impacta caja</label>
+                <select id="cc-venta-impacta" class="field" data-venta-filter="impacta">
+                    <option value="all">Todos</option>
+                    <option value="si">Sí</option>
+                    <option value="no">No</option>
+                </select>
+            </div>
+            <div>
+                <label class="label mb-1" for="cc-venta-cliente">Cliente</label>
+                <input id="cc-venta-cliente" type="search" class="field" placeholder="Nombre del cliente" data-venta-filter="cliente" />
+            </div>
+        </div>
+    </div>
+
+    @if (ventas.Any())
+    {
+        <div data-oc-scroll style="--oc-scroll-min-width: 880px;">
+            <div data-oc-scroll-shell>
+                <div data-oc-scroll-fade="left" hidden></div>
+                <div data-oc-scroll-fade="right" hidden></div>
+                <div data-oc-scroll-region tabindex="0" role="region" aria-label="Ventas del turno" class="tbl-wrap">
+                    <table data-oc-scroll-table class="tbl">
+                        <thead>
+                            <tr>
+                                <th>Venta</th>
+                                <th>Cliente</th>
+                                <th>Estado</th>
+                                <th>Medio de pago</th>
+                                <th style="text-align:right">Total</th>
+                                <th style="text-align:right">Cobrado ahora</th>
+                                <th style="text-align:right">Pendiente</th>
+                                <th style="text-align:center">Impacta caja</th>
+                            </tr>
+                        </thead>
+                        <tbody data-venta-body>
+                            @foreach (var v in ventas)
+                            {
+                                <tr data-venta-row
+                                    data-venta-medio="@v.MedioKey"
+                                    data-venta-estado="@v.EstadoLabel.ToLowerInvariant()"
+                                    data-venta-impacta="@(v.ImpactaCajaFisica ? "si" : "no")"
+                                    data-venta-cliente="@v.Cliente.ToLowerInvariant()"
+                                    data-venta-total="@v.TotalVenta.ToString(CultureInfo.InvariantCulture)">
+                                    <td>
+                                        <div class="mono text-white">@v.Numero</div>
+                                        <div class="text-xs muted-2">@v.Fecha.ToString("dd/MM HH:mm")</div>
+                                    </td>
+                                    <td>@v.Cliente</td>
+                                    <td><span class="@v.EstadoChipClass">@v.EstadoLabel</span></td>
+                                    <td><span class="chip @(v.ImpactaCajaFisica ? "chip-ok" : "chip-info")">@v.MedioPago</span></td>
+                                    <td style="text-align:right" class="num">$@v.TotalVenta.ToString("N2")</td>
+                                    <td style="text-align:right" class="num text-emerald-400">$@v.CobradoAhora.ToString("N2")</td>
+                                    <td style="text-align:right" class="num @(v.Pendiente > 0 ? "text-amber-300" : "muted-2")">$@v.Pendiente.ToString("N2")</td>
+                                    <td style="text-align:center">
+                                        <span class="chip @(v.ImpactaCajaFisica ? "chip-ok" : "chip-neutral")">@(v.ImpactaCajaFisica ? "Sí" : "No")</span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                    <div class="px-4 py-6 text-sm muted-2 hidden" data-venta-empty>No hay ventas que coincidan con los filtros.</div>
+                </div>
+            </div>
+        </div>
+        <div class="px-4 py-2.5 flex items-center justify-between gap-3 flex-wrap text-xs muted-2" style="border-top:1px solid var(--line)">
+            <span><span data-venta-count>@ventas.Count</span> de @ventas.Count ventas</span>
+            <span>Total filtrado:
+                <span class="num text-white font-semibold" data-venta-total-out
+                      data-venta-total-all="@totalVentas.ToString(CultureInfo.InvariantCulture)">$@totalVentas.ToString("N2")</span>
+            </span>
+        </div>
+    }
+    else
+    {
+        <div class="px-4 py-6 text-sm muted-2">No hay ventas vinculadas a este turno.</div>
+    }
+</section>

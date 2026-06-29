@@ -1,0 +1,121 @@
+@model TheBuryProject.ViewModels.CajaConciliacionViewModel
+@{
+    var movimientos = Model.Movimientos;
+    var usuarios = movimientos.Select(m => m.Usuario).Where(u => !string.IsNullOrWhiteSpace(u)).Distinct().OrderBy(u => u).ToList();
+}
+
+<section class="card" style="overflow:hidden">
+    <div class="px-4 py-3 space-y-3" style="border-bottom:1px solid var(--line)">
+        <div>
+            <h2 class="font-semibold text-white">Movimientos de caja</h2>
+            <p class="text-sm muted">Entradas y salidas reales de caja, con Entra y Sale en columnas separadas para revisar a mano.</p>
+        </div>
+        <div class="flex flex-wrap items-end gap-3">
+            <div class="flex gap-1.5" role="group" aria-label="Filtrar por tipo">
+                <button type="button" class="btn btn-soft btn-sm" data-mov-tipo="all" aria-pressed="true">Todos</button>
+                <button type="button" class="btn btn-ghost btn-sm" data-mov-tipo="in" aria-pressed="false">Ingresos</button>
+                <button type="button" class="btn btn-ghost btn-sm" data-mov-tipo="out" aria-pressed="false">Egresos</button>
+            </div>
+            <div>
+                <label class="label mb-1" for="cc-mov-medio">Medio</label>
+                <select id="cc-mov-medio" class="field" data-mov-filter="medio">
+                    <option value="all">Todos</option>
+                    <option value="efectivo">Efectivo</option>
+                    <option value="tarjeta">Tarjeta</option>
+                    <option value="mercadopago">Mercado Pago</option>
+                    <option value="transferencia">Transferencia</option>
+                    <option value="cheque">Cheque</option>
+                    <option value="otro">Otro / ajuste</option>
+                </select>
+            </div>
+            @if (usuarios.Count > 1)
+            {
+                <div>
+                    <label class="label mb-1" for="cc-mov-usuario">Usuario</label>
+                    <select id="cc-mov-usuario" class="field" data-mov-filter="usuario">
+                        <option value="all">Todos</option>
+                        @foreach (var u in usuarios)
+                        {
+                            <option value="@u.ToLowerInvariant()">@u</option>
+                        }
+                    </select>
+                </div>
+            }
+        </div>
+    </div>
+
+    @if (movimientos.Any())
+    {
+        <div data-oc-scroll style="--oc-scroll-min-width: 880px;">
+            <div data-oc-scroll-shell>
+                <div data-oc-scroll-fade="left" hidden></div>
+                <div data-oc-scroll-fade="right" hidden></div>
+                <div data-oc-scroll-region tabindex="0" role="region" aria-label="Movimientos de caja" class="tbl-wrap">
+                    <table data-oc-scroll-table class="tbl">
+                        <thead>
+                            <tr>
+                                <th>Hora</th>
+                                <th>Tipo</th>
+                                <th>Concepto</th>
+                                <th>Medio</th>
+                                <th>Referencia / en qué fue</th>
+                                <th style="text-align:right">Entra</th>
+                                <th style="text-align:right">Sale</th>
+                                <th>Usuario</th>
+                            </tr>
+                        </thead>
+                        <tbody data-mov-body>
+                            @foreach (var m in movimientos)
+                            {
+                                <tr data-mov-row
+                                    data-mov-t="@(m.EsIngreso ? "in" : "out")"
+                                    data-mov-medio="@m.MedioKey"
+                                    data-mov-usuario="@m.Usuario.ToLowerInvariant()">
+                                    <td class="mono muted">@m.FechaHora.ToString("HH:mm")</td>
+                                    <td>
+                                        <span class="chip @(m.EsIngreso ? "chip-ok" : "chip-bad")">
+                                            <span class="material-symbols-outlined">@(m.EsIngreso ? "south_west" : "north_east")</span>@m.TipoLabel
+                                        </span>
+                                    </td>
+                                    <td class="text-white">@m.Concepto</td>
+                                    <td>
+                                        <span class="chip @(m.ImpactaCajaFisica ? "chip-ok" : "chip-neutral")">@m.MedioPago</span>
+                                    </td>
+                                    <td>
+                                        @if (!string.IsNullOrWhiteSpace(m.Descripcion))
+                                        {
+                                            <div class="text-white">@m.Descripcion</div>
+                                        }
+                                        @if (!string.IsNullOrWhiteSpace(m.Referencia))
+                                        {
+                                            <div class="text-xs muted-2 mono">@m.Referencia</div>
+                                        }
+                                        @if (!string.IsNullOrWhiteSpace(m.Observacion))
+                                        {
+                                            <div class="text-xs muted-2">@m.Observacion</div>
+                                        }
+                                        @if (string.IsNullOrWhiteSpace(m.Descripcion) && string.IsNullOrWhiteSpace(m.Referencia) && string.IsNullOrWhiteSpace(m.Observacion))
+                                        {
+                                            <span class="muted-2">—</span>
+                                        }
+                                    </td>
+                                    <td style="text-align:right" class="num text-emerald-400">@(m.Entra > 0 ? $"$ {m.Entra.ToString("N2")}" : "—")</td>
+                                    <td style="text-align:right" class="num text-rose-400">@(m.Sale > 0 ? $"$ {m.Sale.ToString("N2")}" : "—")</td>
+                                    <td class="muted">@m.Usuario</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                    <div class="px-4 py-6 text-sm muted-2 hidden" data-mov-empty>No hay movimientos que coincidan con los filtros.</div>
+                </div>
+            </div>
+        </div>
+        <div class="px-4 py-2.5 text-xs muted-2" style="border-top:1px solid var(--line)">
+            @movimientos.Count @(movimientos.Count == 1 ? "movimiento registrado" : "movimientos registrados")
+        </div>
+    }
+    else
+    {
+        <div class="px-4 py-6 text-sm muted-2">No se registraron movimientos de caja en este turno.</div>
+    }
+</section>
