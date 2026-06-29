@@ -3,335 +3,445 @@
     ViewData["MetaDescription"] = "Simulador read-only de medios de pago para cotizaciones.";
 }
 
-<div class="mx-auto w-full max-w-7xl space-y-6"
+@section Styles {
+    <link rel="stylesheet" href="~/css/cotizacion-simulador.css" asp-append-version="true" />
+}
+
+<div class="cotz-app"
      data-cotizacion-simulador
      data-simular-url="@Url.Content("~/api/cotizacion/simular")"
      data-guardar-url="@Url.Content("~/api/cotizacion/guardar")"
      data-productos-url="@Url.Action("BuscarProductos", "Cotizacion")"
      data-producto-resumen-url="@Url.Action("ProductoResumen", "Cotizacion")"
-     data-clientes-url="@Url.Action("BuscarClientes", "Cotizacion")">
+     data-clientes-url="@Url.Action("BuscarClientes", "Cotizacion")"
+     data-convertir-base-url="@Url.Content("~/api/cotizacion")"
+     data-venta-edit-url="@Url.Content("~/Venta/Edit/")">
 
     @Html.AntiForgeryToken()
 
-    <section class="rounded-lg border border-slate-800 bg-slate-900/60 p-5">
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div class="space-y-2">
-                <div class="flex flex-wrap items-center gap-2 text-xs font-semibold">
-                    <span class="inline-flex items-center rounded-full bg-slate-800 px-3 py-1 text-slate-400">Ventas</span>
-                    <span class="text-slate-600">/</span>
-                    <span class="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-primary">Simulacion read-only</span>
-                </div>
-                <div>
-                    <h1 class="text-2xl font-black tracking-tight text-white sm:text-3xl">Cotizacion</h1>
-                    <p class="mt-2 max-w-2xl text-sm text-slate-400">
-                        Simula medios de pago sin crear una venta, sin registrar caja y sin modificar stock.
-                    </p>
-                </div>
+    <!-- Feedback toast -->
+    <div id="cotizacion-feedback" class="hidden fixed top-3 right-3 z-[60] max-w-sm" aria-live="polite"></div>
+
+    <!-- ============================ TOP BAR ============================ -->
+    <header class="cotz-topbar">
+        <div class="flex items-center gap-2.5 min-w-0">
+            <div class="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/30 flex items-center justify-center shrink-0">
+                <span class="material-symbols-outlined text-blue-400" style="font-size:20px">calculate</span>
             </div>
-            <div class="flex flex-wrap gap-2">
-                <span class="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-400">
-                    <span class="material-symbols-outlined text-sm">save</span>Persistencia minima
-                </span>
-                <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-800/80 px-3 py-1 text-xs font-bold text-slate-300">
-                    <span class="material-symbols-outlined text-sm">inventory_2</span>No toca stock
-                </span>
-                <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-800/80 px-3 py-1 text-xs font-bold text-slate-300">
-                    <span class="material-symbols-outlined text-sm">point_of_sale</span>No registra caja
-                </span>
-                <a href="@Url.Action("Listado", "Cotizacion")"
-                   class="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-800/80 px-3 py-1 text-xs font-bold text-slate-300 transition-colors hover:bg-slate-700">
-                    <span class="material-symbols-outlined text-sm">list_alt</span>Ver guardadas
-                </a>
+            <div class="min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <h1 class="text-base font-semibold text-white tracking-tight leading-none">Cotización</h1>
+                    <span id="estado-banner" class="pill pill-slate"><span class="material-symbols-outlined" style="font-size:13px">info</span> Sin simular</span>
+                </div>
+                <div class="text-[11px] text-slate-500 leading-none mt-1 flex items-center gap-1 min-w-0">
+                    <a href="@Url.Action("Index", "Venta")" class="hover:text-slate-300 shrink-0">Ventas</a>
+                    <span class="material-symbols-outlined shrink-0" style="font-size:12px">chevron_right</span>
+                    <span class="text-slate-400 truncate-1">Simula medios de pago — no crea venta, no toca stock, no registra caja.</span>
+                </div>
             </div>
         </div>
-    </section>
+        <div class="ml-auto flex items-center gap-1.5 shrink-0">
+            <span class="pill pill-slate topbar-flag"><span class="material-symbols-outlined" style="font-size:13px">block</span> No crea venta</span>
+            <span class="pill pill-slate topbar-flag"><span class="material-symbols-outlined" style="font-size:13px">inventory</span> No toca stock</span>
+            <span class="pill pill-slate topbar-flag"><span class="material-symbols-outlined" style="font-size:13px">point_of_sale</span> No registra caja</span>
+            <a href="@Url.Action("Listado", "Cotizacion")" class="btn btn-ghost btn-xs ml-1"><span class="material-symbols-outlined" style="font-size:16px">folder_open</span> Ver guardadas</a>
+        </div>
+    </header>
 
-    <div id="cotizacion-feedback" class="hidden" aria-live="polite"></div>
+    <!-- ============================ WORKSPACE ============================ -->
+    <div class="workspace">
 
-    <div class="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
-        <div class="space-y-6">
-            <section class="rounded-lg border border-slate-800 bg-slate-900/60">
-                <div class="border-b border-slate-800 px-5 py-4">
-                    <div class="flex items-center gap-3">
-                        <span class="flex size-8 items-center justify-center rounded-full bg-primary/15 text-xs font-black text-primary">1</span>
-                        <div>
-                            <h2 class="text-base font-bold text-white">Productos</h2>
-                            <p class="text-sm text-slate-400">Agrega productos y cantidades para calcular precios vigentes.</p>
-                        </div>
-                    </div>
+        <!-- =================== COL A · PRODUCTOS =================== -->
+        <div class="col">
+            <section class="panel flex-1">
+                <div class="panel-head">
+                    <span class="num">1</span>
+                    <h2 class="text-sm font-semibold text-white">Productos</h2>
+                    <span class="pill pill-slate ml-auto"><span id="header-prod-count">0</span> ítem · <span id="header-unit-count">0</span> u.</span>
                 </div>
-                <div class="space-y-4 p-5">
-                    <div class="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_8rem_auto] lg:items-end">
-                        <div>
-                            <label for="cotizacion-producto-buscar" class="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-400">Buscar producto</label>
-                            <div class="relative">
-                                <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-lg text-slate-400">search</span>
-                                <input id="cotizacion-producto-buscar"
-                                       type="text"
-                                       autocomplete="off"
-                                       aria-expanded="false"
-                                       aria-controls="cotizacion-productos-dropdown"
-                                       class="w-full rounded-lg border border-slate-700 bg-slate-800 py-2.5 pl-10 pr-4 text-sm text-white placeholder:text-slate-500 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-                                       placeholder="Nombre, codigo o ID..." />
-                                <div id="cotizacion-productos-dropdown"
-                                     class="absolute left-0 top-full z-30 mt-1 hidden max-h-72 w-full overflow-y-auto rounded-lg border border-slate-700 bg-slate-800 shadow-xl"></div>
-                            </div>
-                            <p id="cotizacion-producto-seleccionado" class="mt-2 min-h-5 text-xs text-slate-500">Sin producto seleccionado.</p>
+
+                <!-- Buscador (fijo) -->
+                <div class="px-3.5 pt-3 pb-2.5 border-b border-slate-800/70">
+                    <div class="relative">
+                        <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" style="font-size:17px">search</span>
+                        <input id="cotizacion-producto-buscar" type="text" class="field pl-8" placeholder="Buscar nombre, código o ID…" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="cotizacion-productos-dropdown">
+                        <div id="cotizacion-productos-dropdown" class="dropdown-list hidden absolute z-30 top-full left-0 right-0 mt-1" role="listbox"></div>
+                    </div>
+                    <div class="mt-2 flex items-center gap-2">
+                        <div class="qty-step">
+                            <button type="button" aria-label="Restar" onclick="stepQty('cotizacion-cantidad',-1)">−</button>
+                            <input id="cotizacion-cantidad" type="number" min="1" value="1" aria-label="Cantidad">
+                            <button type="button" aria-label="Sumar" onclick="stepQty('cotizacion-cantidad',1)">+</button>
                         </div>
-                        <div>
-                            <label for="cotizacion-cantidad" class="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-400">Cantidad</label>
-                            <input id="cotizacion-cantidad"
-                                   type="number"
-                                   min="1"
-                                   step="1"
-                                   value="1"
-                                   class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30" />
-                        </div>
-                        <button id="cotizacion-agregar-producto"
-                                type="button"
-                                class="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-bold text-white transition-colors hover:bg-primary/90">
-                            <span class="material-symbols-outlined text-lg">add</span>
-                            Agregar
+                        <button id="cotizacion-agregar-producto" type="button" class="btn btn-primary flex-1">
+                            <span class="material-symbols-outlined" style="font-size:18px">add</span> Agregar
                         </button>
                     </div>
-
-                    <details class="rounded-lg border border-slate-800 bg-slate-950/40">
-                        <summary class="flex cursor-pointer select-none items-center gap-2 px-4 py-3 text-xs font-bold text-slate-500 hover:text-slate-300">
-                            <span class="material-symbols-outlined text-sm">tag</span>
-                            Agregar por ID (avanzado / soporte)
+                    <div id="cotizacion-producto-seleccionado" class="mt-2 text-[11px] text-slate-500 italic flex items-center gap-1.5">
+                        <span class="material-symbols-outlined text-slate-600" style="font-size:14px">inventory_2</span> Sin producto seleccionado.
+                    </div>
+                    <details class="mt-1.5">
+                        <summary class="text-[11px] text-slate-400 hover:text-slate-200 flex items-center gap-1">
+                            <span class="material-symbols-outlined chev" style="font-size:14px">expand_more</span> Agregar por ID (avanzado)
                         </summary>
-                        <div class="grid grid-cols-1 gap-3 border-t border-slate-800 px-4 pb-4 pt-3 lg:grid-cols-[minmax(0,1fr)_8rem_auto] lg:items-end">
-                            <div>
-                                <label for="cotizacion-producto-id-manual" class="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-400">ProductoId manual</label>
-                                <input id="cotizacion-producto-id-manual"
-                                       type="number"
-                                       min="1"
-                                       step="1"
-                                       class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-                                       placeholder="Ej: 123" />
-                            </div>
-                            <div>
-                                <label for="cotizacion-cantidad-manual" class="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-400">Cantidad</label>
-                                <input id="cotizacion-cantidad-manual"
-                                       type="number"
-                                       min="1"
-                                       step="1"
-                                       value="1"
-                                       class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30" />
-                            </div>
-                            <button id="cotizacion-agregar-manual"
-                                    type="button"
-                                    class="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 text-sm font-bold text-slate-200 transition-colors hover:bg-slate-700">
-                                <span class="material-symbols-outlined text-lg">tag</span>
-                                Usar ID
-                            </button>
+                        <div class="mt-2 grid grid-cols-12 gap-1.5">
+                            <input id="cotizacion-producto-id-manual" type="text" class="field col-span-6" placeholder="ID">
+                            <input id="cotizacion-cantidad-manual" type="number" min="1" value="1" class="field col-span-3" aria-label="Cantidad manual">
+                            <button id="cotizacion-agregar-manual" type="button" class="btn btn-soft col-span-3 px-0">Usar</button>
                         </div>
                     </details>
+                </div>
 
-                    <div class="overflow-x-auto rounded-lg border border-slate-800">
-                        <table class="w-full min-w-[920px] text-left">
-                            <thead class="bg-slate-800/60">
-                                <tr>
-                                    <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Producto</th>
-                                    <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Codigo</th>
-                                    <th class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Cantidad</th>
-                                    <th class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Precio vigente</th>
-                                    <th class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Dto. %</th>
-                                    <th class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Dto. $</th>
-                                    <th class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Subtotal</th>
-                                    <th class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Accion</th>
-                                </tr>
-                            </thead>
-                            <tbody id="cotizacion-productos-tbody" class="divide-y divide-slate-800"></tbody>
-                        </table>
-                        <div id="cotizacion-productos-vacio" class="px-4 py-8 text-center text-sm text-slate-500">
-                            Todavia no hay productos en la cotizacion.
+                <!-- Carrito (scroll interno) -->
+                <div class="panel-body tight">
+                    <!-- vacío -->
+                    <div id="cotizacion-productos-vacio" class="h-full flex flex-col items-center justify-center text-center py-8">
+                        <div class="w-11 h-11 rounded-full bg-slate-800 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-slate-400">remove_shopping_cart</span>
                         </div>
+                        <p class="mt-2.5 text-sm text-white font-medium">Sin productos aún</p>
+                        <p class="text-xs text-slate-500">Buscá un producto para empezar.</p>
                     </div>
+
+                    <!-- filas reales (render backend) -->
+                    <div id="cotizacion-productos-tbody" class="space-y-2"></div>
                 </div>
             </section>
+        </div>
 
-            <section class="rounded-lg border border-slate-800 bg-slate-900/60">
-                <div class="border-b border-slate-800 px-5 py-4">
-                    <div class="flex items-center gap-3">
-                        <span class="flex size-8 items-center justify-center rounded-full bg-primary/15 text-xs font-black text-primary">2</span>
-                        <div>
-                            <h2 class="text-base font-bold text-white">Resultados</h2>
-                            <p class="text-sm text-slate-400">Comparativa de medios, planes, cuotas y estados.</p>
-                        </div>
+        <!-- =================== COL B · RESULTADOS =================== -->
+        <div class="col">
+            <section class="panel flex-1">
+                <div class="panel-head">
+                    <span class="num">2</span>
+                    <h2 class="text-sm font-semibold text-white">Resultados</h2>
+                    <span class="text-xs text-slate-500 hidden sm:inline">Comparativa de medios, planes y cuotas</span>
+                    <span class="pill pill-slate ml-auto" id="resultados-status-pill"><span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span> Sin simular</span>
+                </div>
+
+                <!-- Totales (fijo) -->
+                <div class="px-3.5 py-2.5 border-b border-slate-800/70 grid grid-cols-3 gap-2">
+                    <div class="seg px-3 py-2">
+                        <div class="text-[10px] uppercase tracking-wide text-slate-500">Subtotal</div>
+                        <div id="cotizacion-subtotal" class="text-base font-semibold text-white total-display">$0,00</div>
+                    </div>
+                    <div class="seg px-3 py-2">
+                        <div class="text-[10px] uppercase tracking-wide text-slate-500">Descuento</div>
+                        <div id="cotizacion-descuento" class="text-base font-semibold text-emerald-400 total-display">$0,00</div>
+                    </div>
+                    <div class="seg px-3 py-2" style="border-color:rgba(59,130,246,.4)">
+                        <div class="text-[10px] uppercase tracking-wide text-blue-300/80">Total base</div>
+                        <div id="cotizacion-total-base" class="text-base font-semibold text-white total-display">$0,00</div>
                     </div>
                 </div>
-                <div class="p-5">
-                    <div id="cotizacion-resultados-vacio" class="rounded-lg border border-dashed border-slate-700 px-4 py-10 text-center text-sm text-slate-500">
-                        Ejecuta una simulacion para ver opciones de pago.
-                    </div>
-                    <div id="cotizacion-resultados" class="hidden space-y-4">
-                        <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                            <div class="rounded-lg border border-slate-800 bg-slate-950/40 p-4">
-                                <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Subtotal</p>
-                                <p id="cotizacion-subtotal" class="mt-2 text-lg font-black text-white">$ 0,00</p>
-                            </div>
-                            <div class="rounded-lg border border-slate-800 bg-slate-950/40 p-4">
-                                <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Descuento</p>
-                                <p id="cotizacion-descuento" class="mt-2 text-lg font-black text-white">$ 0,00</p>
-                            </div>
-                            <div class="rounded-lg border border-slate-800 bg-slate-950/40 p-4">
-                                <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Total base</p>
-                                <p id="cotizacion-total-base" class="mt-2 text-lg font-black text-white">$ 0,00</p>
-                            </div>
-                        </div>
 
-                        <div id="cotizacion-resultados-tbody"
-                             class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                <!-- Filtros de medios (fijo) -->
+                <div class="px-3.5 py-2.5 border-b border-slate-800/70 flex flex-wrap items-center gap-1.5">
+                    <span class="text-[10px] uppercase tracking-wide text-slate-500 mr-1">Incluir</span>
+                    <label class="medio-chip"><input type="checkbox" data-cotizacion-medio="incluirEfectivo" checked><span class="dot"></span>Efectivo</label>
+                    <label class="medio-chip"><input type="checkbox" data-cotizacion-medio="incluirTransferencia" checked><span class="dot"></span>Transferencia</label>
+                    <label class="medio-chip"><input type="checkbox" data-cotizacion-medio="incluirTarjetaCredito" checked><span class="dot"></span>T. crédito</label>
+                    <label class="medio-chip"><input type="checkbox" data-cotizacion-medio="incluirTarjetaDebito" checked><span class="dot"></span>T. débito</label>
+                    <label class="medio-chip"><input type="checkbox" data-cotizacion-medio="incluirMercadoPago" checked><span class="dot"></span>MercadoPago</label>
+                    <label class="medio-chip"><input type="checkbox" data-cotizacion-medio="incluirCreditoPersonal"><span class="dot"></span>Crédito personal</label>
+                </div>
+
+                <!-- Resultados (scroll interno) -->
+                <div class="panel-body" style="padding:0">
+                    <!-- vacío -->
+                    <div id="cotizacion-resultados-vacio" class="h-full flex flex-col items-center justify-center text-center py-10">
+                        <div class="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-slate-400">payments</span>
                         </div>
+                        <p class="mt-3 text-sm text-white font-medium">Sin simulación todavía</p>
+                        <p class="text-xs text-slate-500">Agregá productos y simulá para ver las opciones.</p>
+                    </div>
+
+                    <!-- resultados -->
+                    <div id="cotizacion-resultados" class="hidden">
+                        <table class="rtable">
+                            <thead>
+                                <tr>
+                                    <th>Medio</th>
+                                    <th class="r">Total final</th>
+                                    <th>Plan</th>
+                                    <th class="r">Cuota</th>
+                                    <th class="r">Recargo</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="cotizacion-resultados-tbody"></tbody>
+                        </table>
                     </div>
                 </div>
             </section>
         </div>
 
-        <aside class="space-y-6">
-            <section class="rounded-lg border border-slate-800 bg-slate-900/60 p-5">
-                <div class="mb-4 flex items-center gap-3">
-                    <span class="flex size-8 items-center justify-center rounded-full bg-primary/15 text-xs font-black text-primary">3</span>
+        <!-- =================== COL C · CONFIG + ACCIONES =================== -->
+        <div class="col">
+            <section class="panel flex-1">
+                <div class="panel-body tight space-y-3.5">
+
+                    <!-- Cliente -->
                     <div>
-                        <h2 class="text-base font-bold text-white">Cliente opcional</h2>
-                        <p class="text-xs text-slate-400">Credito personal puede requerir cliente.</p>
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="num">3</span>
+                            <h3 class="text-sm font-semibold text-white">Cliente</h3>
+                            <span class="pill pill-slate ml-auto">Opcional</span>
+                        </div>
+                        <div class="relative">
+                            <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" style="font-size:17px">search</span>
+                            <input id="cotizacion-cliente-buscar" type="text" class="field pl-8" placeholder="Nombre, DNI o CUIT…" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="cotizacion-clientes-dropdown">
+                            <div id="cotizacion-clientes-dropdown" class="dropdown-list hidden absolute z-30 top-full left-0 right-0 mt-1" role="listbox"></div>
+                        </div>
+                        <input id="cotizacion-cliente-id" type="hidden" value="">
+                        <div class="mt-1.5 text-[11px] text-slate-500 italic" data-cliente-vacio>El crédito personal puede requerir cliente.</div>
+                        <div id="cotizacion-cliente-seleccionado" class="hidden mt-2 card-sub p-2.5 flex items-start justify-between gap-2">
+                            <div class="min-w-0">
+                                <div class="text-[10px] uppercase tracking-wide text-emerald-400 font-semibold">Cliente</div>
+                                <div id="cotizacion-cliente-nombre" class="text-sm font-medium text-white truncate-1">—</div>
+                                <div id="cotizacion-cliente-doc" class="text-[11px] text-slate-400 font-mono">—</div>
+                            </div>
+                            <button id="cotizacion-limpiar-cliente" type="button" class="icon-btn btn btn-ghost text-slate-400" aria-label="Quitar cliente">
+                                <span class="material-symbols-outlined" style="font-size:16px">close</span>
+                            </button>
+                        </div>
+                        <details class="mt-2">
+                            <summary class="text-[11px] text-slate-400 hover:text-slate-200 flex items-center gap-1">
+                                <span class="material-symbols-outlined chev" style="font-size:14px">expand_more</span> Datos de contacto libres
+                            </summary>
+                            <div class="mt-2 space-y-1.5">
+                                <input id="cotizacion-nombre-libre" type="text" class="field" placeholder="Nombre del cliente o empresa…" aria-label="Nombre libre" maxlength="200">
+                                <input id="cotizacion-telefono-libre" type="tel" class="field" placeholder="Teléfono / WhatsApp" aria-label="Teléfono libre" maxlength="30">
+                                <p class="text-[10px] text-slate-500">Se guarda si no hay cliente de sistema seleccionado.</p>
+                            </div>
+                        </details>
+                    </div>
+
+                    <hr class="hr">
+
+                    <!-- Descuentos generales -->
+                    <div>
+                        <h3 class="text-sm font-semibold text-white flex items-center gap-1.5">
+                            <span class="material-symbols-outlined text-slate-400" style="font-size:17px">sell</span> Descuentos generales
+                        </h3>
+                        <p class="text-[10px] text-slate-500 mt-0.5">Se aplican al total antes de calcular medios.</p>
+                        <div class="mt-2 grid grid-cols-2 gap-2">
+                            <div>
+                                <label for="cotizacion-descuento-gral-pct" class="label">% Porcentaje</label>
+                                <div class="relative">
+                                    <input id="cotizacion-descuento-gral-pct" type="number" min="0" max="100" step="0.01" value="0" class="field pr-6">
+                                    <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-sm">%</span>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="cotizacion-descuento-gral-importe" class="label">$ Importe</label>
+                                <div class="relative">
+                                    <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-sm">$</span>
+                                    <input id="cotizacion-descuento-gral-importe" type="number" min="0" step="0.01" value="0" class="field pl-6">
+                                </div>
+                            </div>
+                        </div>
+                        <div data-descuentos-ambos class="hidden mt-2 rounded-lg border border-amber-500/40 bg-amber-500/5 p-2 text-[11px] text-amber-100/90 flex gap-1.5">
+                            <span class="material-symbols-outlined text-amber-300 shrink-0" style="font-size:14px">warning</span>
+                            Se sumarán ambos descuentos.
+                        </div>
+                    </div>
+
+                    <hr class="hr">
+
+                    <!-- Vencimiento + observaciones -->
+                    <div>
+                        <h3 class="text-sm font-semibold text-white flex items-center gap-1.5">
+                            <span class="material-symbols-outlined text-slate-400" style="font-size:17px">event</span> Vencimiento y notas
+                        </h3>
+                        <div class="mt-2 space-y-2">
+                            <div>
+                                <label for="cotizacion-fecha-vencimiento" class="label">Válida hasta</label>
+                                <input id="cotizacion-fecha-vencimiento" type="date" class="field">
+                            </div>
+                            <div>
+                                <label for="cotizacion-observaciones" class="label">Observaciones</label>
+                                <textarea id="cotizacion-observaciones" rows="2" class="field" maxlength="1000" placeholder="Notas internas opcionales…"></textarea>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <label for="cotizacion-cliente-buscar" class="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-400">Buscar cliente</label>
-                <div class="relative">
-                    <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-lg text-slate-400">person_search</span>
-                    <input id="cotizacion-cliente-buscar"
-                           type="text"
-                           autocomplete="off"
-                           aria-expanded="false"
-                           aria-controls="cotizacion-clientes-dropdown"
-                           class="w-full rounded-lg border border-slate-700 bg-slate-800 py-2.5 pl-10 pr-4 text-sm text-white placeholder:text-slate-500 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-                           placeholder="Nombre, DNI o CUIT..." />
-                    <div id="cotizacion-clientes-dropdown"
-                         class="absolute left-0 top-full z-30 mt-1 hidden max-h-64 w-full overflow-y-auto rounded-lg border border-slate-700 bg-slate-800 shadow-xl"></div>
-                </div>
-                <input id="cotizacion-cliente-id" type="hidden" />
-                <div id="cotizacion-cliente-seleccionado" class="mt-3 hidden rounded-lg border border-primary/20 bg-primary/10 p-3">
-                    <p id="cotizacion-cliente-nombre" class="text-sm font-bold text-white"></p>
-                    <p id="cotizacion-cliente-doc" class="mt-1 text-xs text-slate-400"></p>
-                    <button id="cotizacion-limpiar-cliente" type="button" class="mt-3 text-xs font-bold text-red-400 hover:text-red-300">Quitar cliente</button>
-                </div>
-                <p class="mt-3 text-xs leading-5 text-slate-500">El credito personal puede requerir cliente para evaluacion. Si lo dejas vacio, la simulacion lo marcara como requiere cliente.</p>
-                <div class="mt-4 space-y-3 border-t border-slate-800 pt-4">
-                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Datos de contacto libres</p>
-                    <div>
-                        <label for="cotizacion-nombre-libre" class="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-400">Nombre</label>
-                        <input id="cotizacion-nombre-libre"
-                               type="text"
-                               maxlength="200"
-                               autocomplete="off"
-                               class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-                               placeholder="Nombre del cliente o empresa..." />
-                        <p class="mt-1 text-xs text-slate-500">Se guarda si no hay cliente de sistema seleccionado.</p>
+
+                <!-- Acciones (fijas) -->
+                <div class="panel-foot">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-[11px] text-slate-500">Total base</span>
+                        <span class="text-lg font-semibold text-white total-display" data-side-total>$0,00</span>
                     </div>
-                    <div>
-                        <label for="cotizacion-telefono-libre" class="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-400">Telefono</label>
-                        <input id="cotizacion-telefono-libre"
-                               type="tel"
-                               maxlength="30"
-                               autocomplete="off"
-                               class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-                               placeholder="Ej: 11 2345-6789" />
+                    <div id="cotizacion-acciones-pre" class="grid grid-cols-2 gap-2">
+                        <button id="cotizacion-simular" type="button" class="btn btn-primary">
+                            <span class="material-symbols-outlined" style="font-size:18px">calculate</span> Simular
+                        </button>
+                        <button id="cotizacion-guardar" type="button" class="btn btn-success" disabled onclick="openModal('modal-guardar')">
+                            <span class="material-symbols-outlined" style="font-size:18px">save</span> Guardar
+                        </button>
                     </div>
+                    <div id="cotizacion-acciones-post" class="hidden space-y-2">
+                        <button id="cotizacion-pasar-venta" type="button" class="btn btn-primary w-full">
+                            <span class="material-symbols-outlined" style="font-size:18px">point_of_sale</span> Pasar a venta
+                        </button>
+                        <div class="flex items-center justify-center gap-3 text-[11px]">
+                            <a id="cotizacion-ver-guardada" href="#" class="text-slate-400 hover:text-slate-200 inline-flex items-center gap-1 no-underline">
+                                <span class="material-symbols-outlined" style="font-size:13px">visibility</span> Ver cotización
+                            </a>
+                            <span class="text-slate-700">·</span>
+                            <button id="cotizacion-nueva" type="button" class="text-slate-400 hover:text-slate-200 inline-flex items-center gap-1">
+                                <span class="material-symbols-outlined" style="font-size:13px">add</span> Nueva
+                            </button>
+                        </div>
+                    </div>
+                    <p id="cotizacion-simular-estado" class="mt-1.5 text-[11px] text-slate-400 text-center flex items-center justify-center gap-1" aria-live="polite">
+                        <span class="material-symbols-outlined" style="font-size:13px">info</span> Listo para simular.
+                    </p>
                 </div>
             </section>
+        </div>
 
-            <section class="rounded-lg border border-slate-800 bg-slate-900/60 p-5">
-                <h2 class="text-base font-bold text-white">Medios a incluir</h2>
-                <div class="mt-4 space-y-3">
-                    <label class="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm text-slate-200">
-                        <span>Efectivo</span>
-                        <input type="checkbox" class="rounded border-slate-600 bg-slate-800 text-primary focus:ring-primary" data-cotizacion-medio="incluirEfectivo" checked />
-                    </label>
-                    <label class="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm text-slate-200">
-                        <span>Transferencia</span>
-                        <input type="checkbox" class="rounded border-slate-600 bg-slate-800 text-primary focus:ring-primary" data-cotizacion-medio="incluirTransferencia" checked />
-                    </label>
-                    <label class="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm text-slate-200">
-                        <span>Tarjeta credito</span>
-                        <input type="checkbox" class="rounded border-slate-600 bg-slate-800 text-primary focus:ring-primary" data-cotizacion-medio="incluirTarjetaCredito" checked />
-                    </label>
-                    <label class="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm text-slate-200">
-                        <span>Tarjeta debito</span>
-                        <input type="checkbox" class="rounded border-slate-600 bg-slate-800 text-primary focus:ring-primary" data-cotizacion-medio="incluirTarjetaDebito" checked />
-                    </label>
-                    <label class="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm text-slate-200">
-                        <span>MercadoPago</span>
-                        <input type="checkbox" class="rounded border-slate-600 bg-slate-800 text-primary focus:ring-primary" data-cotizacion-medio="incluirMercadoPago" checked />
-                    </label>
-                    <label class="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm text-slate-200">
-                        <span>Credito personal</span>
-                        <input type="checkbox" class="rounded border-slate-600 bg-slate-800 text-primary focus:ring-primary" data-cotizacion-medio="incluirCreditoPersonal" checked />
-                    </label>
+    </div>
+
+    <!-- ============================ MODAL: GUARDAR ============================ -->
+    <div id="modal-guardar" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm overflow-y-auto" onclick="if(event.target===this)closeModal('modal-guardar')" role="dialog" aria-modal="true" aria-labelledby="guardar-title">
+        <div class="min-h-full flex items-center justify-center p-4">
+            <div class="cotz-modal panel w-full max-w-lg">
+                <div class="panel-head">
+                    <h3 id="guardar-title" class="text-sm font-semibold text-white">Guardar cotización</h3>
+                    <button type="button" onclick="closeModal('modal-guardar')" aria-label="Cerrar" class="icon-btn btn btn-ghost ml-auto"><span class="material-symbols-outlined text-slate-400" style="font-size:18px">close</span></button>
                 </div>
-            </section>
-
-            <section class="rounded-lg border border-slate-800 bg-slate-900/60 p-5">
-                <h2 class="text-base font-bold text-white">Descuentos generales</h2>
-                <p class="mt-1 text-xs text-slate-400">Aplicados al total antes de calcular medios de pago.</p>
-                <div class="mt-4 grid grid-cols-2 gap-3">
-                    <div>
-                        <label for="cotizacion-descuento-gral-pct" class="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-400">% Porcentaje</label>
-                        <input id="cotizacion-descuento-gral-pct"
-                               type="number"
-                               min="0"
-                               max="100"
-                               step="0.01"
-                               class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-                               placeholder="0" />
+                <div class="p-4">
+                    <dl class="card-sub p-3 space-y-2 text-sm">
+                        <div class="flex justify-between"><dt class="text-slate-400">Cliente</dt><dd id="modal-guardar-cliente" class="text-white">—</dd></div>
+                        <div class="flex justify-between"><dt class="text-slate-400">Productos</dt><dd id="modal-guardar-productos" class="text-white">—</dd></div>
+                        <div class="flex justify-between"><dt class="text-slate-400">Total base</dt><dd id="modal-guardar-total" class="text-white font-semibold font-mono">$0,00</dd></div>
+                        <div class="flex justify-between"><dt class="text-slate-400">Mejor opción</dt><dd id="modal-guardar-mejor" class="text-emerald-400">—</dd></div>
+                    </dl>
+                    <div class="mt-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-2.5 text-xs text-amber-100/90 flex gap-2">
+                        <span class="material-symbols-outlined text-amber-300 shrink-0" style="font-size:16px">warning</span>
+                        Guardar no crea venta, no registra caja y no modifica stock.
                     </div>
-                    <div>
-                        <label for="cotizacion-descuento-gral-importe" class="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-400">$ Importe</label>
-                        <input id="cotizacion-descuento-gral-importe"
-                               type="number"
-                               min="0"
-                               step="0.01"
-                               class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-                               placeholder="0" />
+                    <div class="mt-4 flex justify-end gap-2">
+                        <button type="button" class="btn btn-ghost" onclick="closeModal('modal-guardar')">Cancelar</button>
+                        <button type="button" id="cotizacion-guardar-confirm" class="btn btn-success">
+                            <span class="material-symbols-outlined" style="font-size:18px">save</span> Guardar
+                        </button>
                     </div>
                 </div>
-                <p class="mt-2 text-xs text-slate-500">Completa solo los que correspondan. Si ambos tienen valor se suman.</p>
-            </section>
+            </div>
+        </div>
+    </div>
 
-            <section class="rounded-lg border border-slate-800 bg-slate-900/60 p-5">
-                <div class="mb-4">
-                    <label for="cotizacion-fecha-vencimiento" class="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-400">Vencimiento <span class="font-normal normal-case tracking-normal text-slate-600">(opcional)</span></label>
-                    <input id="cotizacion-fecha-vencimiento"
-                           type="date"
-                           class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30" />
-                    <p class="mt-1 text-xs text-slate-500">Fecha hasta la que es valida la cotizacion.</p>
+    <!-- ============================ MODAL: PLAN DETAIL (drawer) ============================ -->
+    <div id="modal-plan" class="hidden fixed inset-0 z-50" role="dialog" aria-modal="true" aria-labelledby="plan-title">
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeModal('modal-plan')"></div>
+        <aside class="absolute right-0 top-0 h-full w-full sm:w-[420px] bg-slate-950 border-l border-slate-800 shadow-2xl flex flex-col">
+            <header class="px-4 py-3.5 border-b border-slate-800 flex items-start justify-between gap-3">
+                <div>
+                    <div class="text-[11px] text-slate-500 uppercase tracking-wide">Detalle del plan</div>
+                    <h3 id="plan-title" class="text-base font-semibold text-white"><span id="plan-medio">—</span> · <span id="plan-cuotas">—</span></h3>
                 </div>
-                <label for="cotizacion-observaciones" class="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-400">Observaciones</label>
-                <textarea id="cotizacion-observaciones"
-                          rows="3"
-                          maxlength="1000"
-                          class="mb-4 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-                          placeholder="Notas internas opcionales para recuperar la cotizacion."></textarea>
-                <button id="cotizacion-simular"
-                        type="button"
-                        class="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-black text-white transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60">
-                    <span class="material-symbols-outlined text-lg">calculate</span>
-                    Simular cotizacion
+                <button type="button" onclick="closeModal('modal-plan')" aria-label="Cerrar" class="icon-btn btn btn-ghost"><span class="material-symbols-outlined text-slate-400" style="font-size:18px">close</span></button>
+            </header>
+            <div class="flex-1 overflow-y-auto p-4 space-y-3">
+                <div class="card-sub p-3.5">
+                    <div class="text-xs text-slate-500">Total final</div>
+                    <div id="plan-total" class="mt-1 text-3xl font-semibold text-white total-display">$0,00</div>
+                </div>
+                <dl class="space-y-2 text-sm">
+                    <div class="flex justify-between"><dt class="text-slate-400">Cantidad de cuotas</dt><dd id="plan-detalle-cuotas" class="text-white">—</dd></div>
+                    <div class="flex justify-between"><dt class="text-slate-400">Valor de cuota</dt><dd id="plan-valor-cuota" class="text-white font-mono">—</dd></div>
+                    <div class="flex justify-between"><dt class="text-slate-400">Recargo total</dt><dd id="plan-recargo" class="text-emerald-400 font-mono">0%</dd></div>
+                </dl>
+                <div class="card-sub p-3.5">
+                    <h4 class="text-sm font-medium text-white flex items-center gap-2"><span class="material-symbols-outlined text-slate-400" style="font-size:17px">rule</span> Condiciones</h4>
+                    <ul class="mt-2 text-xs text-slate-300 space-y-1 list-disc list-inside marker:text-slate-600">
+                        <li>Plan vigente a la fecha de simulación.</li>
+                        <li>Sujeto a aprobación del emisor.</li>
+                    </ul>
+                </div>
+            </div>
+            <footer class="px-4 py-3.5 border-t border-slate-800 flex gap-2 justify-end">
+                <button type="button" class="btn btn-ghost" onclick="closeModal('modal-plan')">Cerrar</button>
+                <button type="button" class="btn btn-primary" onclick="closeModal('modal-plan')">
+                    <span class="material-symbols-outlined" style="font-size:18px">star</span> Usar esta opción
                 </button>
-                <p id="cotizacion-simular-estado" class="mt-3 text-xs text-slate-500" aria-live="polite">Listo para simular.</p>
-                <button id="cotizacion-guardar"
-                        type="button"
-                        disabled
-                        class="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 text-sm font-black text-emerald-300 transition-colors hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50">
-                    <span class="material-symbols-outlined text-lg">save</span>
-                    Guardar cotizacion
-                </button>
-            </section>
+            </footer>
         </aside>
     </div>
+
+    <!-- ============================ MODAL: QUITAR PRODUCTO ============================ -->
+    <div id="modal-quitar-producto" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm overflow-y-auto" onclick="if(event.target===this)closeModal('modal-quitar-producto')" role="dialog" aria-modal="true" aria-labelledby="quitar-title">
+        <div class="min-h-full flex items-center justify-center p-4">
+            <div class="cotz-modal panel w-full max-w-md p-4">
+                <div class="flex items-start gap-3">
+                    <div class="w-9 h-9 rounded-lg bg-red-500/10 border border-red-500/30 flex items-center justify-center shrink-0">
+                        <span class="material-symbols-outlined text-red-400" style="font-size:20px">warning</span>
+                    </div>
+                    <div>
+                        <h3 id="quitar-title" class="text-base font-semibold text-white">Quitar producto</h3>
+                        <p class="text-sm text-slate-400 mt-0.5">Los resultados simulados quedarán desactualizados.</p>
+                    </div>
+                </div>
+                <div class="mt-4 flex justify-end gap-2">
+                    <button type="button" class="btn btn-ghost" onclick="closeModal('modal-quitar-producto')">Cancelar</button>
+                    <button type="button" id="cotizacion-quitar-confirm" class="btn btn-amber">
+                        <span class="material-symbols-outlined" style="font-size:18px">delete</span> Quitar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 @section Scripts {
+    <script>
+        // ---- Steppers ----
+        function stepQty(id, d) { const el = document.getElementById(id); if (!el) return; el.value = Math.max(1, (parseInt(el.value) || 1) + d); el.dispatchEvent(new Event('input', { bubbles: true })); }
+        function stepRow(btn, d) { const inp = btn.parentElement.querySelector('input'); if (!inp) return; inp.value = Math.max(1, (parseInt(inp.value) || 1) + d); inp.dispatchEvent(new Event('input', { bubbles: true })); }
+        window.stepQty = stepQty; window.stepRow = stepRow;
+
+        // ---- Modals ----
+        function openModal(id) { const el = document.getElementById(id); if (!el) return; el.classList.remove('hidden'); document.body.style.overflow = 'hidden'; }
+        function closeModal(id) { const el = document.getElementById(id); if (!el) return; el.classList.add('hidden'); document.body.style.overflow = ''; }
+        window.openModal = openModal; window.closeModal = closeModal;
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') { ['modal-guardar', 'modal-plan', 'modal-quitar-producto'].forEach(id => { const el = document.getElementById(id); if (el && !el.classList.contains('hidden')) closeModal(id); }); } });
+
+        // ---- Quote state pills (banner + resultados + hint) ----
+        function setQuoteState(state) {
+            const cfg = {
+                idle:      { pill: 'pill-slate', dot: 'bg-slate-500',   label: 'Sin simular',        hint: 'Listo para simular.',                  hintCls: 'text-slate-400',   icon: 'info',           banner: 'Sin simular' },
+                simulated: { pill: 'pill-green', dot: 'bg-emerald-400', label: 'Simulada',           hint: 'Simulación lista.',                    hintCls: 'text-emerald-400', icon: 'check_circle',   banner: 'Simulada correctamente' },
+                pending:   { pill: 'pill-amber', dot: 'bg-amber-400',   label: 'Cambios pendientes', hint: 'Cambios pendientes: volvé a simular.', hintCls: 'text-amber-300',   icon: 'warning',        banner: 'Cambios sin simular' },
+                error:     { pill: 'pill-red',   dot: 'bg-red-400',     label: 'Error',              hint: 'No se pudo simular.',                  hintCls: 'text-red-300',     icon: 'error',          banner: 'Error de simulación' },
+                saved:     { pill: 'pill-green', dot: 'bg-emerald-400', label: 'Guardada',           hint: 'Cotización guardada.',                 hintCls: 'text-emerald-400', icon: 'bookmark_added', banner: 'Cotización guardada' }
+            };
+            const s = cfg[state]; if (!s) return;
+            const resPill = document.getElementById('resultados-status-pill');
+            if (resPill) { resPill.className = 'pill ' + s.pill + ' ml-auto'; resPill.innerHTML = '<span class="w-1.5 h-1.5 rounded-full ' + s.dot + '"></span> ' + s.label; }
+            const banner = document.getElementById('estado-banner');
+            if (banner) { banner.className = 'pill ' + s.pill; banner.innerHTML = '<span class="material-symbols-outlined" style="font-size:13px">' + s.icon + '</span> ' + s.banner; }
+            const hint = document.getElementById('cotizacion-simular-estado');
+            if (hint) { hint.className = 'mt-1.5 text-[11px] text-center flex items-center justify-center gap-1 ' + s.hintCls; hint.innerHTML = '<span class="material-symbols-outlined" style="font-size:13px">' + s.icon + '</span> ' + s.hint; }
+        }
+        window.setQuoteState = setQuoteState;
+
+        // ---- Aviso de doble descuento ----
+        function watchDescuentos() {
+            const pct = parseFloat(document.getElementById('cotizacion-descuento-gral-pct')?.value) || 0;
+            const imp = parseFloat(document.getElementById('cotizacion-descuento-gral-importe')?.value) || 0;
+            const aviso = document.querySelector('[data-descuentos-ambos]');
+            if (aviso) aviso.classList.toggle('hidden', !(pct > 0 && imp > 0));
+        }
+        ['cotizacion-descuento-gral-pct', 'cotizacion-descuento-gral-importe'].forEach(id => {
+            const el = document.getElementById(id); if (el) el.addEventListener('input', watchDescuentos);
+        });
+
+        setQuoteState('idle');
+    </script>
     <script src="~/js/cotizacion-simulador.js" asp-append-version="true"></script>
 }

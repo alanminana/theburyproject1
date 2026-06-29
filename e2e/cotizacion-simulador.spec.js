@@ -1,31 +1,35 @@
 // @ts-check
 /**
- * COTIZ-QA — E2E Simulador de Cotización
+ * COTIZ-QA — E2E Simulador de Cotización (rework visual: layout 3 columnas)
  *
- * Valida el flujo del simulador post-COTIZ-3C:
+ * Valida el flujo del simulador con el diseño de tabla comparativa (rtable):
  *   T1. Carga del simulador — estructura inicial
- *   T2. Simulación genera cards .payment-option-card
- *   T3. Selección aplica .payment-option-card--selected y radio checked
- *   T4. Mobile 390px — sin scroll horizontal en resultados
- *   T5. Agrupación visual por medio de pago (COTIZ-3C)
+ *   T2. Simulación genera filas en la tabla de resultados
+ *   T3. Selección de fila aplica .selected y abre el drawer de detalle
+ *   T4. Mobile 390px — sin scroll horizontal de página
+ *   T5. Agrupación expandible por medio de pago (parent/detail)
+ *   T6. Descuento por producto
+ *   T7/T8. Guardar (modal de confirmación) habilita "Pasar a venta"
  *
  * Prerrequisitos:
  *   - App corriendo en E2E_BASE_URL (default: http://localhost:5187)
  *   - E2E_USER y E2E_PASS configurados (ver global-setup.js)
  *   - Al menos 1 producto en la DB
  *
- * Selectores usados (todos existentes en producción, sin data-testid adicionales):
- *   #cotizacion-producto-buscar    — input de búsqueda de producto
- *   #cotizacion-productos-dropdown — dropdown con botones de resultado
- *   #cotizacion-agregar-producto   — botón agregar
- *   #cotizacion-simular            — botón simular
- *   #cotizacion-resultados         — contenedor de resultados (hidden → visible)
- *   #cotizacion-resultados-vacio   — mensaje vacío
- *   #cotizacion-resultados-tbody   — grid de cards
- *   .payment-option-card           — cada card de medio de pago
- *   .payment-option-card--selected — card seleccionada
- *   .payment-status-chip           — chip de estado
- *   input[name="cotizacion-opcion-pago"] — radios de selección
+ * Selectores (contrato actual del simulador):
+ *   #cotizacion-producto-buscar        — input de búsqueda de producto
+ *   #cotizacion-productos-dropdown     — dropdown con botones de resultado
+ *   #cotizacion-agregar-producto       — botón agregar
+ *   #cotizacion-productos-tbody        — contenedor de productos (cards .cart-row)
+ *   #cotizacion-simular                — botón simular
+ *   #cotizacion-resultados             — contenedor de resultados (hidden → visible)
+ *   #cotizacion-resultados-vacio       — mensaje vacío
+ *   #cotizacion-resultados-tbody       — tbody de la tabla comparativa (rtable)
+ *   #cotizacion-resultados-tbody tr[data-cotizacion-opcion-key] — fila seleccionable
+ *   tr.selected                        — fila seleccionada
+ *   tr.parent / tr.detail              — grupo expandible (varios planes por medio)
+ *   #cotizacion-guardar                — abre el modal de confirmación
+ *   #cotizacion-guardar-confirm        — confirma el guardado (POST)
  */
 
 const { test, expect } = require('playwright/test');
@@ -57,7 +61,7 @@ async function gotoCotizacion(page) {
 
 /**
  * Busca y agrega el primer producto disponible al simulador.
- * Retorna true si se agrega al menos un producto a la tabla.
+ * Retorna true si se agrega al menos un producto (card .cart-row).
  * @param {import('playwright/test').Page} page
  * @returns {Promise<boolean>}
  */
@@ -81,20 +85,20 @@ async function agregarProductoSimulador(page) {
 
         // Esperar a que el campo de estado muestre el producto
         await expect(page.locator('#cotizacion-producto-seleccionado'))
-            .not.toHaveText('Sin producto seleccionado.', { timeout: 3_000 })
+            .not.toContainText('Sin producto seleccionado.', { timeout: 3_000 })
             .catch(() => null);
 
         await page.click('#cotizacion-agregar-producto');
         await page.waitForTimeout(300);
 
-        const rowCount = await tbody.locator('tr').count();
+        const rowCount = await tbody.locator('.cart-row').count();
         if (rowCount > 0) return true;
     }
     return false;
 }
 
 /**
- * Verifica ausencia de scroll horizontal con margen de 2px.
+ * Verifica ausencia de scroll horizontal de página con margen de 2px.
  * @param {import('playwright/test').Page} page
  * @returns {Promise<boolean>}
  */
@@ -121,60 +125,52 @@ test.describe('Cotización simulador — COTIZ-QA', () => {
         await page.setViewportSize(VIEWPORT_DESKTOP);
         await gotoCotizacion(page);
 
-        // Contenedor de cards existe en el DOM desde el inicio
+        // tbody de resultados existe en el DOM desde el inicio
         await expect(page.locator('#cotizacion-resultados-tbody')).toBeAttached();
 
         // Estado inicial: mensaje vacío visible, resultados ocultos
         await expect(page.locator('#cotizacion-resultados-vacio')).toBeVisible();
         await expect(page.locator('#cotizacion-resultados')).not.toBeVisible();
 
-        // Botón simular visible y habilitado
+        // Botón simular visible y habilitado; guardar deshabilitado
         await expect(page.locator('#cotizacion-simular')).toBeVisible();
         await expect(page.locator('#cotizacion-simular')).toBeEnabled();
+        await expect(page.locator('#cotizacion-guardar')).toBeDisabled();
 
-        // No hay tabla de resultados (COTIZ-3B eliminó la tabla de 8 columnas)
-        const tablesInResults = await page.locator('#cotizacion-resultados table').count();
-        expect(tablesInResults).toBe(0);
-
-        // No existe min-w-[980px] en el área de resultados
-        const narrowTable = await page.locator('#cotizacion-resultados [class*="min-w-"]').count();
-        expect(narrowTable).toBe(0);
+        // Sin scroll horizontal de página
+        expect(await noHorizontalOverflow(page)).toBeTruthy();
     });
 
-    // ─── T2: Cards de resultados ─────────────────────────────────────────────
+    // ─── T2: Filas de resultados ─────────────────────────────────────────────
 
-    test('T2: Simulación genera cards .payment-option-card', async ({ page }) => {
+    test('T2: Simulación genera filas en la tabla de resultados', async ({ page }) => {
         await page.setViewportSize(VIEWPORT_DESKTOP);
         await gotoCotizacion(page);
 
         const added = await agregarProductoSimulador(page);
         test.skip(!added, 'Sin productos disponibles en el entorno de prueba');
 
-        // Ejecutar simulación
         await page.click('#cotizacion-simular');
         await page.locator('#cotizacion-resultados').waitFor({ state: 'visible', timeout: 15_000 });
 
-        // Al menos una card visible
-        const cards = page.locator('.payment-option-card');
-        await expect(cards.first()).toBeVisible({ timeout: 5_000 });
-        const cardCount = await cards.count();
-        expect(cardCount).toBeGreaterThan(0);
+        // Al menos una fila de resultado
+        const rows = page.locator('#cotizacion-resultados-tbody tr');
+        await expect(rows.first()).toBeVisible({ timeout: 5_000 });
+        expect(await rows.count()).toBeGreaterThan(0);
 
-        // Al menos un status chip visible
-        await expect(page.locator('.payment-status-chip').first()).toBeVisible();
+        // Al menos un pill de estado visible
+        await expect(page.locator('#cotizacion-resultados-tbody .pill').first()).toBeVisible();
 
-        // El contenedor es el grid div, no una tabla
-        await expect(page.locator('#cotizacion-resultados-tbody')).toBeVisible();
-        const tablesInResults = await page.locator('#cotizacion-resultados table').count();
-        expect(tablesInResults).toBe(0);
+        // La tabla comparativa (rtable) está presente
+        await expect(page.locator('#cotizacion-resultados table.rtable')).toBeVisible();
 
-        // Mensaje vacío se ocultó
+        // Mensaje vacío oculto
         await expect(page.locator('#cotizacion-resultados-vacio')).not.toBeVisible();
     });
 
-    // ─── T3: Selección de card ───────────────────────────────────────────────
+    // ─── T3: Selección de fila ───────────────────────────────────────────────
 
-    test('T3: Selección aplica .payment-option-card--selected y radio checked', async ({ page }) => {
+    test('T3: Selección de fila aplica .selected y abre el drawer de detalle', async ({ page }) => {
         await page.setViewportSize(VIEWPORT_DESKTOP);
         await gotoCotizacion(page);
 
@@ -183,41 +179,36 @@ test.describe('Cotización simulador — COTIZ-QA', () => {
 
         await page.click('#cotizacion-simular');
         await page.locator('#cotizacion-resultados').waitFor({ state: 'visible', timeout: 15_000 });
-        await page.locator('.payment-option-card').first().waitFor({ state: 'visible', timeout: 5_000 });
 
-        const enabledRadios = page.locator('input[name="cotizacion-opcion-pago"]:not([disabled])');
-        const radioCount = await enabledRadios.count();
-        test.skip(radioCount === 0, 'Sin opciones de pago habilitadas (todos bloqueados)');
+        const selectable = page.locator('#cotizacion-resultados-tbody tr[data-cotizacion-opcion-key]');
+        const count = await selectable.count();
+        test.skip(count === 0, 'Sin opciones de pago con plan disponible');
 
-        // Buscar un radio no seleccionado actualmente para forzar un cambio de estado
-        let targetRadio = null;
-        for (let i = 0; i < radioCount; i++) {
-            const r = enabledRadios.nth(i);
-            const checked = await r.isChecked();
-            if (!checked) { targetRadio = r; break; }
+        // Tras simular, el recomendado/mejor queda auto-seleccionado
+        await expect(page.locator('#cotizacion-resultados-tbody tr.selected')).toHaveCount(1, { timeout: 3_000 });
+
+        // Elegir una fila distinta a la ya seleccionada (si existe)
+        const noSel = page.locator('#cotizacion-resultados-tbody tr[data-cotizacion-opcion-key]:not(.selected)');
+        if (await noSel.count() > 0) {
+            await noSel.first().click();
+            // queda exactamente una fila seleccionada
+            await expect(page.locator('#cotizacion-resultados-tbody tr.selected')).toHaveCount(1, { timeout: 3_000 });
+        } else {
+            await selectable.first().click();
         }
 
-        if (!targetRadio) {
-            // Auto-selección ocupó el único radio disponible — verificar que está aplicada
-            await expect(page.locator('.payment-option-card--selected')).toBeVisible({ timeout: 2_000 });
-            await expect(page.locator('input[name="cotizacion-opcion-pago"]:checked')).toHaveCount(1);
-            return;
-        }
+        // Click en fila abre el drawer de detalle del plan
+        await expect(page.locator('#modal-plan')).toBeVisible({ timeout: 3_000 });
+        await page.keyboard.press('Escape');
+        await expect(page.locator('#modal-plan')).not.toBeVisible({ timeout: 3_000 });
 
-        // Seleccionar el radio no chequeado
-        await targetRadio.click();
-
-        // Exactamente una card debe tener la clase selected
-        await expect(page.locator('.payment-option-card--selected')).toBeVisible({ timeout: 3_000 });
-        await expect(page.locator('.payment-option-card--selected')).toHaveCount(1);
-
-        // El radio target debe quedar chequeado
-        await expect(targetRadio).toBeChecked();
+        // La selección persiste tras cerrar el drawer
+        await expect(page.locator('#cotizacion-resultados-tbody tr.selected')).toHaveCount(1);
     });
 
-    // ─── T5: Agrupación visual por medio de pago (COTIZ-3C) ──────────────────
+    // ─── T5: Agrupación expandible por medio de pago ─────────────────────────
 
-    test('T5: Agrupación visual — grupos de medio de pago con cards', async ({ page }) => {
+    test('T5: Agrupación expandible — parent/detail togglean visibilidad', async ({ page }) => {
         await page.setViewportSize(VIEWPORT_DESKTOP);
         await gotoCotizacion(page);
 
@@ -226,21 +217,25 @@ test.describe('Cotización simulador — COTIZ-QA', () => {
 
         await page.click('#cotizacion-simular');
         await page.locator('#cotizacion-resultados').waitFor({ state: 'visible', timeout: 15_000 });
-        await page.locator('.payment-option-card').first().waitFor({ state: 'visible', timeout: 5_000 });
+        await page.locator('#cotizacion-resultados-tbody tr').first().waitFor({ state: 'visible', timeout: 5_000 });
 
-        // Existe al menos un grupo visual
-        const groups = page.locator('.payment-option-group');
-        const groupCount = await groups.count();
-        expect(groupCount, 'Debe haber al menos un grupo de medio de pago').toBeGreaterThan(0);
+        const parent = page.locator('#cotizacion-resultados-tbody tr.parent').first();
+        const hasParent = await parent.count() > 0;
+        test.skip(!hasParent, 'Ningún medio con múltiples planes en este entorno');
 
-        // Cada grupo contiene al menos una card
-        for (let i = 0; i < groupCount; i++) {
-            const cardsInGroup = await groups.nth(i).locator('.payment-option-card').count();
-            expect(cardsInGroup, `Grupo ${i} debe tener al menos una card`).toBeGreaterThan(0);
-        }
+        // Por defecto el grupo está expandido (detalles visibles)
+        const gkey = await parent.getAttribute('data-group');
+        const details = page.locator(`#cotizacion-resultados-tbody tr.detail[data-g="${gkey}"]`);
+        expect(await details.count()).toBeGreaterThan(0);
+        await expect(details.first()).toBeVisible();
 
-        // La auto-selección o selección manual sigue funcionando
-        await expect(page.locator('.payment-option-card--selected')).toBeVisible({ timeout: 3_000 });
+        // Colapsar: click en parent oculta los detalles
+        await parent.click();
+        await expect(details.first()).toBeHidden({ timeout: 2_000 });
+
+        // Expandir de nuevo
+        await parent.click();
+        await expect(details.first()).toBeVisible({ timeout: 2_000 });
     });
 
     // ─── T6: Descuento por producto (COTIZ-1B) ───────────────────────────────
@@ -252,96 +247,92 @@ test.describe('Cotización simulador — COTIZ-QA', () => {
         const added = await agregarProductoSimulador(page);
         test.skip(!added, 'Sin productos disponibles en el entorno de prueba');
 
-        // Los inputs de descuento por producto deben estar visibles en la primera fila
-        const descPctInput    = page.locator('[data-cotizacion-desc-pct-index="0"]');
+        // Inputs de descuento por producto en la primera card
+        const descPctInput     = page.locator('[data-cotizacion-desc-pct-index="0"]');
         const descImporteInput = page.locator('[data-cotizacion-desc-importe-index="0"]');
         await expect(descPctInput).toBeVisible({ timeout: 3_000 });
         await expect(descImporteInput).toBeVisible({ timeout: 3_000 });
 
-        // Cargar descuento porcentaje 10%
         await descPctInput.fill('10');
 
-        // Simular con descuento por producto cargado
         await page.click('#cotizacion-simular');
         await page.locator('#cotizacion-resultados').waitFor({ state: 'visible', timeout: 15_000 });
 
-        // Cards deben seguir apareciendo — el descuento por producto no rompe la simulacion
-        const cards = page.locator('.payment-option-card');
-        await expect(cards.first()).toBeVisible({ timeout: 5_000 });
-        expect(await cards.count()).toBeGreaterThan(0);
+        // Filas siguen apareciendo
+        const rows = page.locator('#cotizacion-resultados-tbody tr');
+        await expect(rows.first()).toBeVisible({ timeout: 5_000 });
+        expect(await rows.count()).toBeGreaterThan(0);
 
-        // El descuento total debe ser mayor a cero (el backend aplico el descuento)
+        // El descuento total aplicado por el backend es > 0
         const descuentoText = await page.locator('#cotizacion-descuento').textContent();
-        expect(descuentoText).not.toBe('$ 0,00');
+        expect(descuentoText).not.toMatch(/\$\s*0,00/);
     });
 
     // ─── T7: Guardar con descuento por producto (COTIZ-QA-2) ─────────────────
 
-    test('T7: Guardar cotización con descuento por producto — navega a detalles', async ({ page }) => {
+    test('T7: Guardar cotización (descuento por producto) — habilita Pasar a venta', async ({ page }) => {
         await page.setViewportSize(VIEWPORT_DESKTOP);
         await gotoCotizacion(page);
 
         const added = await agregarProductoSimulador(page);
         test.skip(!added, 'Sin productos disponibles en el entorno de prueba');
 
-        // Cargar 10% de descuento en el primer producto
         const descPctInput = page.locator('[data-cotizacion-desc-pct-index="0"]');
         await expect(descPctInput).toBeVisible({ timeout: 3_000 });
         await descPctInput.fill('10');
 
-        // Simular
         await page.click('#cotizacion-simular');
         await page.locator('#cotizacion-resultados').waitFor({ state: 'visible', timeout: 15_000 });
-        await page.locator('.payment-option-card').first().waitFor({ state: 'visible', timeout: 5_000 });
+        await page.locator('#cotizacion-resultados-tbody tr').first().waitFor({ state: 'visible', timeout: 5_000 });
 
-        // El botón guardar debe habilitarse después de simular
+        // Guardar: abre modal de confirmación, luego confirmar
         const guardarBtn = page.locator('#cotizacion-guardar');
         await expect(guardarBtn).toBeEnabled({ timeout: 5_000 });
+        await guardarBtn.click();
 
-        // Guardar y esperar navegación a página de detalles
-        await Promise.all([
-            page.waitForURL(/\/Cotizacion\/Detalles\/\d+/, { timeout: 20_000 }),
-            guardarBtn.click()
-        ]);
+        const guardarConfirm = page.locator('#cotizacion-guardar-confirm');
+        await expect(guardarConfirm).toBeVisible({ timeout: 5_000 });
+        await guardarConfirm.click();
 
-        expect(page.url()).toMatch(/\/Cotizacion\/Detalles\/\d+/);
+        // Tras guardar, la acción se transforma en "Pasar a venta"
+        await expect(page.locator('#cotizacion-pasar-venta')).toBeVisible({ timeout: 20_000 });
+        await expect(page.locator('#cotizacion-acciones-pre')).toBeHidden();
+        await expect(page.locator('#cotizacion-ver-guardada')).toHaveAttribute('href', /\/Cotizacion\/Detalles\/\d+/);
     });
 
     // ─── T8: Guardar con descuento general (COTIZ-QA-2) ──────────────────────
 
-    test('T8: Guardar cotización con descuento general — navega a detalles', async ({ page }) => {
+    test('T8: Guardar cotización (descuento general) — habilita Pasar a venta', async ({ page }) => {
         await page.setViewportSize(VIEWPORT_DESKTOP);
         await gotoCotizacion(page);
 
         const added = await agregarProductoSimulador(page);
         test.skip(!added, 'Sin productos disponibles en el entorno de prueba');
 
-        // Cargar 5% de descuento general
         const descGralPct = page.locator('#cotizacion-descuento-gral-pct');
         await expect(descGralPct).toBeVisible({ timeout: 3_000 });
         await descGralPct.fill('5');
 
-        // Simular
         await page.click('#cotizacion-simular');
         await page.locator('#cotizacion-resultados').waitFor({ state: 'visible', timeout: 15_000 });
-        await page.locator('.payment-option-card').first().waitFor({ state: 'visible', timeout: 5_000 });
+        await page.locator('#cotizacion-resultados-tbody tr').first().waitFor({ state: 'visible', timeout: 5_000 });
 
-        // El botón guardar debe habilitarse
         const guardarBtn = page.locator('#cotizacion-guardar');
         await expect(guardarBtn).toBeEnabled({ timeout: 5_000 });
+        await guardarBtn.click();
 
-        // Guardar y esperar navegación
-        await Promise.all([
-            page.waitForURL(/\/Cotizacion\/Detalles\/\d+/, { timeout: 20_000 }),
-            guardarBtn.click()
-        ]);
+        const guardarConfirm = page.locator('#cotizacion-guardar-confirm');
+        await expect(guardarConfirm).toBeVisible({ timeout: 5_000 });
+        await guardarConfirm.click();
 
-        expect(page.url()).toMatch(/\/Cotizacion\/Detalles\/\d+/);
+        // Tras guardar, la acción se transforma en "Pasar a venta"
+        await expect(page.locator('#cotizacion-pasar-venta')).toBeVisible({ timeout: 20_000 });
+        await expect(page.locator('#cotizacion-acciones-pre')).toBeHidden();
     });
 
-    // ─── T4: Mobile 390px sin scroll horizontal ──────────────────────────────
+    // ─── T4: Mobile 390px sin scroll horizontal de página ─────────────────────
 
-    test('T4: Mobile 390px — sin scroll horizontal en resultados', async ({ page }) => {
+    test('T4: Mobile 390px — sin scroll horizontal de página', async ({ page }) => {
         await page.setViewportSize(VIEWPORT_MOBILE);
         await gotoCotizacion(page);
 
@@ -351,13 +342,13 @@ test.describe('Cotización simulador — COTIZ-QA', () => {
             await page.click('#cotizacion-simular');
             await page.locator('#cotizacion-resultados').waitFor({ state: 'visible', timeout: 15_000 });
 
-            // Hay cards en mobile
-            const cardCount = await page.locator('.payment-option-card').count();
-            expect(cardCount).toBeGreaterThan(0);
+            // Hay filas en mobile (la tabla scrollea horizontal DENTRO del panel)
+            const rowCount = await page.locator('#cotizacion-resultados-tbody tr').count();
+            expect(rowCount).toBeGreaterThan(0);
         }
 
-        // Sin scroll horizontal con o sin resultados (COTIZ-3B eliminó min-w-[980px])
+        // Sin scroll horizontal a nivel de página (el scroll de la tabla es interno)
         const noOverflow = await noHorizontalOverflow(page);
-        expect(noOverflow, 'Scroll horizontal detectado en mobile 390px').toBeTruthy();
+        expect(noOverflow, 'Scroll horizontal de página detectado en mobile 390px').toBeTruthy();
     });
 });

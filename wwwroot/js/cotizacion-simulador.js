@@ -19,6 +19,9 @@
         clienteSeleccionado: null,
         ultimaSimulacion: null,
         opcionSeleccionada: null,
+        pendingDeleteIndex: null,
+        cotizacionGuardadaId: null,
+        cotizacionGuardadaClienteId: null,
         busy: false
     };
 
@@ -27,7 +30,9 @@
         guardar: root.dataset.guardarUrl || '/api/cotizacion/guardar',
         productos: root.dataset.productosUrl || '/Cotizacion/BuscarProductos',
         productoResumen: root.dataset.productoResumenUrl || '/Cotizacion/ProductoResumen',
-        clientes: root.dataset.clientesUrl || '/Cotizacion/BuscarClientes'
+        clientes: root.dataset.clientesUrl || '/Cotizacion/BuscarClientes',
+        convertirBase: root.dataset.convertirBaseUrl || '/api/cotizacion',
+        ventaEdit: root.dataset.ventaEditUrl || '/Venta/Edit/'
     };
 
     const $ = (selector) => root.querySelector(selector);
@@ -45,6 +50,9 @@
         agregarManual: $('#cotizacion-agregar-manual'),
         productosTbody: $('#cotizacion-productos-tbody'),
         productosVacio: $('#cotizacion-productos-vacio'),
+        headerProdCount: $('#header-prod-count'),
+        headerUnitCount: $('#header-unit-count'),
+        sideTotal: $('[data-side-total]'),
         clienteBuscar: $('#cotizacion-cliente-buscar'),
         clientesDropdown: $('#cotizacion-clientes-dropdown'),
         clienteId: $('#cotizacion-cliente-id'),
@@ -60,17 +68,37 @@
         observaciones: $('#cotizacion-observaciones'),
         simular: $('#cotizacion-simular'),
         guardar: $('#cotizacion-guardar'),
+        guardarConfirm: $('#cotizacion-guardar-confirm'),
+        accionesPre: $('#cotizacion-acciones-pre'),
+        accionesPost: $('#cotizacion-acciones-post'),
+        pasarVenta: $('#cotizacion-pasar-venta'),
+        verGuardada: $('#cotizacion-ver-guardada'),
+        nuevaCotizacion: $('#cotizacion-nueva'),
+        quitarConfirm: $('#cotizacion-quitar-confirm'),
         simularEstado: $('#cotizacion-simular-estado'),
         resultadosVacio: $('#cotizacion-resultados-vacio'),
         resultados: $('#cotizacion-resultados'),
         subtotal: $('#cotizacion-subtotal'),
         descuento: $('#cotizacion-descuento'),
         totalBase: $('#cotizacion-total-base'),
-        resultadosTbody: $('#cotizacion-resultados-tbody')
+        resultadosTbody: $('#cotizacion-resultados-tbody'),
+        // modal guardar summary
+        mgCliente: $('#modal-guardar-cliente'),
+        mgProductos: $('#modal-guardar-productos'),
+        mgTotal: $('#modal-guardar-total'),
+        mgMejor: $('#modal-guardar-mejor'),
+        // plan drawer
+        planMedio: $('#plan-medio'),
+        planCuotas: $('#plan-cuotas'),
+        planTotal: $('#plan-total'),
+        planDetalleCuotas: $('#plan-detalle-cuotas'),
+        planValorCuota: $('#plan-valor-cuota'),
+        planRecargo: $('#plan-recargo')
     };
 
     function show(el) { el?.classList.remove('hidden'); }
     function hide(el) { el?.classList.add('hidden'); }
+    function setState(s) { if (typeof window.setQuoteState === 'function') window.setQuoteState(s); }
 
     function esc(value) {
         return String(value ?? '')
@@ -123,28 +151,29 @@
         state.busy = value;
         if (els.simular) {
             els.simular.disabled = value;
-            els.simular.querySelector('.material-symbols-outlined').textContent = value ? 'progress_activity' : 'calculate';
+            const ico = els.simular.querySelector('.material-symbols-outlined');
+            if (ico) ico.textContent = value ? 'progress_activity' : 'calculate';
         }
         if (els.guardar) {
             els.guardar.disabled = value || !state.ultimaSimulacion?.exitoso;
-            els.guardar.querySelector('.material-symbols-outlined').textContent = value ? 'progress_activity' : 'save';
-        }
-        if (els.simularEstado) {
-            els.simularEstado.textContent = value ? 'Simulando...' : 'Listo para simular.';
+            const ico = els.guardar.querySelector('.material-symbols-outlined');
+            if (ico) ico.textContent = value ? 'progress_activity' : 'save';
         }
     }
 
     function showFeedback(message, tone) {
         if (!els.feedback || !message) return;
-        const palette = {
-            error: 'border-red-500/20 bg-red-500/10 text-red-400',
-            warning: 'border-amber-500/20 bg-amber-500/10 text-amber-400',
-            ok: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400',
-            info: 'border-primary/20 bg-primary/10 text-primary'
-        };
+        const variant = {
+            error: 'cotz-feedback--error',
+            warning: 'cotz-feedback--warning',
+            ok: 'cotz-feedback--ok',
+            info: 'cotz-feedback--info'
+        }[tone] || 'cotz-feedback--info';
         const icon = tone === 'error' ? 'error' : tone === 'warning' ? 'warning' : tone === 'ok' ? 'check_circle' : 'info';
-        els.feedback.className = `flex items-center gap-3 rounded-lg border p-4 text-sm font-semibold ${palette[tone] || palette.info}`;
-        els.feedback.innerHTML = `<span class="material-symbols-outlined text-lg">${icon}</span><p>${esc(message)}</p>`;
+        els.feedback.className = `cotz-feedback ${variant} fixed top-3 right-3 z-[60] max-w-sm`;
+        els.feedback.innerHTML = `<span class="material-symbols-outlined" style="font-size:18px">${icon}</span><span>${esc(message)}</span>`;
+        clearTimeout(showFeedback._t);
+        showFeedback._t = setTimeout(clearFeedback, 4000);
     }
 
     function clearFeedback() {
@@ -153,57 +182,73 @@
         els.feedback.replaceChildren();
     }
 
+    /* ---------------------------------------------------------------------
+       Productos (cart-rows)
+    --------------------------------------------------------------------- */
     function renderProductos() {
+        updateHeaderCounts();
         if (!els.productosTbody) return;
         els.productosTbody.replaceChildren();
 
         if (state.productos.length === 0) {
             show(els.productosVacio);
+            updateGuardarModal();
             return;
         }
 
         hide(els.productosVacio);
         state.productos.forEach((producto, index) => {
-            const tr = document.createElement('tr');
-            tr.className = 'hover:bg-white/5';
-            tr.innerHTML = `
-                <td class="px-4 py-3">
-                    <p class="text-sm font-bold text-white">${esc(producto.nombre || `Producto ${producto.productoId}`)}</p>
-                    <p class="text-xs text-slate-500">ID ${producto.productoId}</p>
-                </td>
-                <td class="px-4 py-3 text-sm font-mono text-slate-400">${esc(producto.codigo || '-')}</td>
-                <td class="px-4 py-3 text-right">
-                    <input type="number" min="1" step="1" value="${producto.cantidad}"
-                           data-cotizacion-cantidad-index="${index}"
-                           class="w-20 rounded border border-slate-700 bg-slate-800 px-2 py-1.5 text-right text-sm text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30" />
-                </td>
-                <td class="px-4 py-3 text-right text-sm font-semibold text-slate-200">${formatCurrency(producto.precioUnitario)}</td>
-                <td class="px-4 py-3 text-right">
-                    <input type="number" min="0" max="100" step="0.01"
-                           value="${producto.descuentoPorcentaje ?? ''}"
-                           data-cotizacion-desc-pct-index="${index}"
-                           aria-label="Descuento porcentaje producto"
-                           class="w-16 rounded border border-slate-700 bg-slate-800 px-1.5 py-1.5 text-right text-sm text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-                           placeholder="0" />
-                </td>
-                <td class="px-4 py-3 text-right">
-                    <input type="number" min="0" step="0.01"
-                           value="${producto.descuentoImporte ?? ''}"
-                           data-cotizacion-desc-importe-index="${index}"
-                           aria-label="Descuento importe producto"
-                           class="w-16 rounded border border-slate-700 bg-slate-800 px-1.5 py-1.5 text-right text-sm text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-                           placeholder="0" />
-                </td>
-                <td class="px-4 py-3 text-right text-sm font-bold text-white">${formatCurrency(producto.precioUnitario * producto.cantidad)}</td>
-                <td class="px-4 py-3 text-right">
-                    <button type="button" data-cotizacion-eliminar-index="${index}"
-                            class="inline-flex size-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-red-500/10 hover:text-red-400"
-                            title="Eliminar producto" aria-label="Eliminar producto">
-                        <span class="material-symbols-outlined text-lg">delete</span>
+            const subtotal = Number(producto.precioUnitario) * Number(producto.cantidad);
+            const article = document.createElement('article');
+            article.className = 'cart-row';
+            article.innerHTML = `
+                <div class="flex items-start gap-2">
+                    <div class="min-w-0 flex-1">
+                        <div class="text-sm font-medium text-white truncate-1">${esc(producto.nombre || `Producto ${producto.productoId}`)}</div>
+                        <div class="text-[11px] text-slate-500 font-mono">ID ${producto.productoId}${producto.codigo ? ' · ' + esc(producto.codigo) : ''}</div>
+                    </div>
+                    <button type="button" data-cotizacion-eliminar-index="${index}" class="icon-btn btn btn-ghost text-slate-500 hover:text-red-300" aria-label="Quitar">
+                        <span class="material-symbols-outlined" style="font-size:16px">close</span>
                     </button>
-                </td>`;
-            els.productosTbody.appendChild(tr);
+                </div>
+                <div class="flex items-center justify-between gap-2">
+                    <div class="qty-step">
+                        <button type="button" aria-label="Restar" onclick="stepRow(this,-1)">−</button>
+                        <input type="number" min="1" value="${producto.cantidad}" data-cotizacion-cantidad-index="${index}" aria-label="Cantidad">
+                        <button type="button" aria-label="Sumar" onclick="stepRow(this,1)">+</button>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-[10px] uppercase tracking-wide text-slate-500">Precio vig.</div>
+                        <div class="text-sm text-white total-display">${formatCurrency(producto.precioUnitario)}</div>
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-1.5 items-end">
+                    <label class="block"><span class="text-[10px] text-slate-500">Dto. %</span>
+                        <input type="number" value="${producto.descuentoPorcentaje ?? ''}" min="0" max="100" step="0.01" placeholder="0" data-cotizacion-desc-pct-index="${index}" aria-label="Descuento porcentaje producto" class="mini w-full mt-0.5"></label>
+                    <label class="block"><span class="text-[10px] text-slate-500">Dto. $</span>
+                        <input type="number" value="${producto.descuentoImporte ?? ''}" min="0" step="0.01" placeholder="0" data-cotizacion-desc-importe-index="${index}" aria-label="Descuento importe producto" class="mini w-full mt-0.5"></label>
+                    <div class="text-right">
+                        <div class="text-[10px] text-slate-500">Subtotal</div>
+                        <div class="text-sm font-semibold text-white total-display mt-0.5">${formatCurrency(subtotal)}</div>
+                    </div>
+                </div>`;
+            els.productosTbody.appendChild(article);
         });
+        updateGuardarModal();
+    }
+
+    function previewBase() {
+        return state.productos.reduce((acc, p) => acc + Number(p.precioUnitario) * Number(p.cantidad), 0);
+    }
+
+    function updateHeaderCounts() {
+        const items = state.productos.length;
+        const unidades = state.productos.reduce((acc, p) => acc + Number(p.cantidad), 0);
+        if (els.headerProdCount) els.headerProdCount.textContent = String(items);
+        if (els.headerUnitCount) els.headerUnitCount.textContent = String(unidades);
+        // total lateral: si hay simulación usamos la base real, si no, preview bruto
+        const base = state.ultimaSimulacion?.totalBase ?? previewBase();
+        if (els.sideTotal) els.sideTotal.textContent = formatCurrency(base);
     }
 
     function setProductoSeleccionado(producto) {
@@ -213,11 +258,41 @@
             els.productoBuscar.setAttribute('aria-expanded', 'false');
         }
         if (els.productoSeleccionado) {
-            els.productoSeleccionado.textContent = producto
-                ? `${producto.nombre} - ${formatCurrency(producto.precioVenta)} - Stock ${producto.stockActual ?? '-'}`
-                : 'Sin producto seleccionado.';
+            if (producto) {
+                els.productoSeleccionado.classList.remove('italic');
+                els.productoSeleccionado.innerHTML = `<span class="material-symbols-outlined text-blue-400" style="font-size:14px">check_circle</span> ${esc(producto.nombre)} · ${esc(formatCurrency(producto.precioVenta))} · Stock ${esc(producto.stockActual ?? '-')}`;
+            } else {
+                els.productoSeleccionado.classList.add('italic');
+                els.productoSeleccionado.innerHTML = `<span class="material-symbols-outlined text-slate-600" style="font-size:14px">inventory_2</span> Sin producto seleccionado.`;
+            }
         }
         hide(els.productosDropdown);
+    }
+
+    function invalidarSimulacion() {
+        const hadResults = !!state.ultimaSimulacion;
+        state.ultimaSimulacion = null;
+        state.opcionSeleccionada = null;
+        if (els.guardar) els.guardar.disabled = true;
+        resetGuardado();
+        if (hadResults) setState('pending');
+    }
+
+    // Vuelve a las acciones de pre-guardado (Simular/Guardar) y descarta el
+    // vínculo con la cotización persistida: tras editar, hay que re-simular y
+    // re-guardar para que "Pasar a venta" refleje los cambios.
+    function resetGuardado() {
+        if (state.cotizacionGuardadaId === null) return;
+        state.cotizacionGuardadaId = null;
+        state.cotizacionGuardadaClienteId = null;
+        hide(els.accionesPost);
+        show(els.accionesPre);
+    }
+
+    function mostrarAccionesPostGuardado(data) {
+        if (els.verGuardada && data?.detalleUrl) els.verGuardada.href = data.detalleUrl;
+        hide(els.accionesPre);
+        show(els.accionesPost);
     }
 
     async function agregarProducto(producto, cantidad) {
@@ -247,9 +322,7 @@
             });
         }
 
-        state.ultimaSimulacion = null;
-        state.opcionSeleccionada = null;
-        if (els.guardar) els.guardar.disabled = true;
+        invalidarSimulacion();
         setProductoSeleccionado(null);
         if (els.cantidad) els.cantidad.value = '1';
         clearFeedback();
@@ -301,7 +374,7 @@
 
         if (!productos.length) {
             const item = document.createElement('div');
-            item.className = 'px-4 py-3 text-sm text-slate-500';
+            item.className = 'dropdown-item text-sm text-slate-500';
             item.textContent = emptyMessage || 'Sin resultados.';
             els.productosDropdown.appendChild(item);
             show(els.productosDropdown);
@@ -314,13 +387,13 @@
             .forEach(producto => {
                 const button = document.createElement('button');
                 button.type = 'button';
-                button.className = 'flex w-full items-start justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-700';
+                button.className = 'dropdown-item flex w-full items-start justify-between gap-3 text-left';
                 button.innerHTML = `
-                    <span>
-                        <span class="block text-sm font-bold text-white">${esc(producto.nombre)}</span>
-                        <span class="block text-xs text-slate-500">${esc(producto.codigo || `ID ${producto.id}`)} · ${esc(producto.categoria || 'Sin categoria')}</span>
+                    <span class="min-w-0">
+                        <span class="block text-sm font-medium text-white truncate-1">${esc(producto.nombre)}</span>
+                        <span class="block text-[11px] text-slate-500">${esc(producto.codigo || `ID ${producto.id}`)} · ${esc(producto.categoria || 'Sin categoría')}</span>
                     </span>
-                    <span class="shrink-0 text-right text-xs font-bold text-slate-300">${formatCurrency(producto.precioVenta)}</span>`;
+                    <span class="shrink-0 text-right text-xs font-semibold text-slate-300 total-display">${formatCurrency(producto.precioVenta)}</span>`;
                 button.addEventListener('click', () => setProductoSeleccionado(producto));
                 els.productosDropdown.appendChild(button);
             });
@@ -340,12 +413,14 @@
 
         if (!cliente) {
             hide(els.clienteSeleccionado);
+            updateGuardarModal();
             return;
         }
 
         if (els.clienteNombre) els.clienteNombre.textContent = cliente.display || `${cliente.nombre} ${cliente.apellido}`;
         if (els.clienteDoc) els.clienteDoc.textContent = `${cliente.tipoDocumento || 'Doc'}: ${cliente.numeroDocumento || '-'}`;
         show(els.clienteSeleccionado);
+        updateGuardarModal();
     }
 
     async function buscarClientes() {
@@ -369,7 +444,7 @@
 
         if (!clientes.length) {
             const item = document.createElement('div');
-            item.className = 'px-4 py-3 text-sm text-slate-500';
+            item.className = 'dropdown-item text-sm text-slate-500';
             item.textContent = emptyMessage || 'Sin resultados.';
             els.clientesDropdown.appendChild(item);
             show(els.clientesDropdown);
@@ -380,10 +455,10 @@
         clientes.forEach(cliente => {
             const button = document.createElement('button');
             button.type = 'button';
-            button.className = 'block w-full px-4 py-3 text-left transition-colors hover:bg-slate-700';
+            button.className = 'dropdown-item block w-full text-left';
             button.innerHTML = `
-                <span class="block text-sm font-bold text-white">${esc(cliente.display || `${cliente.nombre} ${cliente.apellido}`)}</span>
-                <span class="block text-xs text-slate-500">${esc(cliente.tipoDocumento || 'Doc')}: ${esc(cliente.numeroDocumento || '-')}</span>`;
+                <span class="block text-sm font-medium text-white truncate-1">${esc(cliente.display || `${cliente.nombre} ${cliente.apellido}`)}</span>
+                <span class="block text-[11px] text-slate-500 font-mono">${esc(cliente.tipoDocumento || 'Doc')}: ${esc(cliente.numeroDocumento || '-')}</span>`;
             button.addEventListener('click', () => setCliente(cliente));
             els.clientesDropdown.appendChild(button);
         });
@@ -437,11 +512,14 @@
             state.opcionSeleccionada = null;
             renderResultado(data);
             if (data.exitoso === false) {
+                setState('error');
                 showFeedback('La simulacion devolvio observaciones que requieren revision.', 'warning');
             } else {
+                setState('simulated');
                 showFeedback('Cotizacion simulada correctamente.', 'ok');
             }
         } catch (error) {
+            setState('error');
             showFeedback(error.message || 'No se pudo simular la cotizacion.', 'error');
         } finally {
             setBusy(false);
@@ -475,10 +553,12 @@
                 body: JSON.stringify(payload)
             });
 
-            showFeedback(`Cotizacion ${data.numero} guardada correctamente.`, 'ok');
-            if (data.detalleUrl) {
-                window.location.assign(data.detalleUrl);
-            }
+            window.closeModal?.('modal-guardar');
+            state.cotizacionGuardadaId = data.id;
+            state.cotizacionGuardadaClienteId = state.clienteSeleccionado?.id || null;
+            setState('saved');
+            showFeedback(`Cotizacion ${data.numero} guardada. Ya podés pasarla a venta.`, 'ok');
+            mostrarAccionesPostGuardado(data);
         } catch (error) {
             showFeedback(error.message || 'No se pudo guardar la cotizacion.', 'error');
         } finally {
@@ -486,47 +566,65 @@
         }
     }
 
-    function renderResultado(data) {
-        if (!data || !els.resultadosTbody) return;
+    // Conversión directa (1 clic): la cotización recién guardada usa precios
+    // vigentes, así que se convierte con precio cotizado y auto-confirma avisos
+    // informativos (p. ej. unidades trazables se asignan luego en Venta/Edit).
+    async function pasarAVenta() {
+        if (!state.cotizacionGuardadaId) return;
 
-        els.subtotal.textContent = formatCurrency(data.subtotal);
-        els.descuento.textContent = formatCurrency(data.descuentoTotal);
-        els.totalBase.textContent = formatCurrency(data.totalBase);
+        if (!state.cotizacionGuardadaClienteId) {
+            showFeedback('Seleccioná un cliente del sistema para pasar a venta.', 'warning');
+            return;
+        }
 
-        els.resultadosTbody.replaceChildren();
-        const rows = flattenOpciones(data.opcionesPago || []);
+        const btn = els.pasarVenta;
+        if (btn) {
+            btn.disabled = true;
+            const ico = btn.querySelector('.material-symbols-outlined');
+            if (ico) ico.textContent = 'progress_activity';
+        }
 
-        if (!rows.length) {
-            const empty = document.createElement('div');
-            empty.className = 'col-span-full px-4 py-8 text-center text-sm text-slate-500';
-            empty.textContent = 'No hay medios disponibles para los filtros seleccionados.';
-            els.resultadosTbody.appendChild(empty);
-        } else {
-            const groups = groupByMedioPago(rows);
-            groups.forEach(group => els.resultadosTbody.appendChild(renderResultadoGroup(group)));
-            const recomendado = rows.find(row => row.plan?.recomendado) || rows.find(row => row.plan);
-            if (recomendado) {
-                state.opcionSeleccionada = toSeleccion(recomendado);
-                const radio = Array.from(els.resultadosTbody.querySelectorAll('[data-cotizacion-opcion-key]'))
-                    .find(input => input.dataset.cotizacionOpcionKey === optionKey(recomendado));
-                if (radio) radio.checked = true;
-                updateSelectedRowHighlight(optionKey(recomendado));
+        try {
+            const resp = await fetch(`${urls.convertirBase}/${state.cotizacionGuardadaId}/conversion/convertir`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+                },
+                body: JSON.stringify({
+                    usarPrecioCotizado: true,
+                    confirmarAdvertencias: true,
+                    clienteIdOverride: null,
+                    observacionesAdicionales: null
+                })
+            });
+
+            const data = await resp.json().catch(() => ({}));
+
+            if (resp.ok && data.exitoso && data.ventaId) {
+                showFeedback(`Venta ${data.numeroVenta || ''} creada. Abriendo…`, 'ok');
+                window.location.assign(`${urls.ventaEdit}${data.ventaId}`);
+                return;
             }
-        }
 
-        hide(els.resultadosVacio);
-        show(els.resultados);
-
-        const mensajes = [...(data.errores || []), ...(data.advertencias || [])];
-        if (mensajes.length) {
-            showFeedback(mensajes.join(' '), data.errores?.length ? 'error' : 'warning');
-        }
-
-        if (els.guardar) {
-            els.guardar.disabled = data.exitoso === false;
+            const mensaje = (data.errores && data.errores.length)
+                ? data.errores.join(' ')
+                : (data.error || 'No se pudo pasar la cotización a venta.');
+            showFeedback(mensaje, 'error');
+        } catch (error) {
+            showFeedback(error.message || 'No se pudo pasar la cotización a venta.', 'error');
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                const ico = btn.querySelector('.material-symbols-outlined');
+                if (ico) ico.textContent = 'point_of_sale';
+            }
         }
     }
 
+    /* ---------------------------------------------------------------------
+       Resultados (rtable: grupos por medio, expandibles por plan)
+    --------------------------------------------------------------------- */
     function flattenOpciones(opciones) {
         const rows = [];
         opciones.forEach(opcion => {
@@ -539,24 +637,17 @@
         return rows;
     }
 
-    function estadoBadge(estado) {
-        const label = estadoLabel(estado);
-        const modifier = {
-            Disponible: 'payment-status-chip--available',
-            RequiereCliente: 'payment-status-chip--requires-client',
-            RequiereEvaluacion: 'payment-status-chip--requires-client',
-            BloqueadoPorProducto: 'payment-status-chip--blocked',
-            PlanInactivo: 'payment-status-chip--blocked',
-            CuotaInactiva: 'payment-status-chip--blocked',
-            NoDisponible: 'payment-status-chip--blocked'
-        }[label] || 'payment-status-chip--blocked';
-        return `<span class="payment-status-chip ${modifier}">${esc(label)}</span>`;
+    function optionKey(row) {
+        return `${row.opcion.medioPago}|${row.plan?.plan || ''}|${row.plan?.cantidadCuotas || ''}`;
     }
 
-    function updateSelectedRowHighlight(selectedKey) {
-        Array.from(els.resultadosTbody?.querySelectorAll('[data-cotizacion-row-key]') || []).forEach(el => {
-            el.classList.toggle('payment-option-card--selected', el.dataset.cotizacionRowKey === selectedKey);
-        });
+    function toSeleccion(row) {
+        if (!row.plan) return null;
+        return {
+            medioPago: row.opcion.medioPago,
+            plan: row.plan.plan || null,
+            cantidadCuotas: row.plan.cantidadCuotas || null
+        };
     }
 
     function estadoLabel(estado) {
@@ -578,11 +669,44 @@
         return {
             0: 'Efectivo',
             1: 'Transferencia',
-            2: 'Tarjeta credito',
-            3: 'Tarjeta debito',
+            2: 'Tarjeta crédito',
+            3: 'Tarjeta débito',
             4: 'MercadoPago',
-            5: 'Credito personal'
+            5: 'Crédito personal'
         }[medio] || 'Medio';
+    }
+
+    function medioMeta(medio) {
+        const key = typeof medio === 'string' ? medio : {
+            0: 'Efectivo', 1: 'Transferencia', 2: 'Tarjeta crédito',
+            3: 'Tarjeta débito', 4: 'MercadoPago', 5: 'Crédito personal'
+        }[medio];
+        const map = {
+            'Efectivo': { icon: 'payments', tone: 'emerald' },
+            'Transferencia': { icon: 'account_balance', tone: 'blue' },
+            'Tarjeta crédito': { icon: 'credit_card', tone: 'purple' },
+            'Tarjeta débito': { icon: 'credit_card', tone: 'blue' },
+            'MercadoPago': { icon: 'qr_code_2', tone: 'cyan' },
+            'Crédito personal': { icon: 'handshake', tone: 'amber' }
+        };
+        return map[key] || { icon: 'payments', tone: 'slate' };
+    }
+
+    function recargoValor(plan) {
+        if (!plan) return 0;
+        return Math.max(Number(plan.recargoPorcentaje || 0), Number(plan.interesPorcentaje || 0), Number(plan.costoFinancieroTotal || 0));
+    }
+
+    function pct(n) {
+        return `${new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 }).format(n)}%`;
+    }
+
+    const ENT_COLORS = ['#3b82f6', '#22d3ee', '#f97316', '#a855f7', '#10b981', '#eab308', '#ec4899'];
+    function entColor(name) {
+        let h = 0;
+        const s = String(name || '');
+        for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+        return ENT_COLORS[h % ENT_COLORS.length];
     }
 
     function groupByMedioPago(rows) {
@@ -591,7 +715,7 @@
         rows.forEach(row => {
             const key = row.opcion.medioPago;
             if (!seen.has(key)) {
-                const group = { medioPago: key, label: medioLabel(key, row.opcion.nombreMedioPago), rows: [] };
+                const group = { medioPago: key, label: medioLabel(key, row.opcion.nombreMedioPago), opcion: row.opcion, rows: [] };
                 seen.set(key, group);
                 groups.push(group);
             }
@@ -600,195 +724,231 @@
         return groups;
     }
 
-    function renderResultadoCard(row) {
-        const opcion = row.opcion;
+    function estadoPill(estadoStr) {
+        if (estadoStr === 'RequiereCliente' || estadoStr === 'RequiereEvaluacion') {
+            return { cls: 'pill-amber', label: 'Req. cliente' };
+        }
+        return { cls: 'pill-red', label: 'Sin planes' };
+    }
+
+    function renderResultado(data) {
+        if (!data || !els.resultadosTbody) return;
+
+        if (els.subtotal) els.subtotal.textContent = formatCurrency(data.subtotal);
+        if (els.descuento) els.descuento.textContent = formatCurrency(data.descuentoTotal);
+        if (els.totalBase) els.totalBase.textContent = formatCurrency(data.totalBase);
+        updateHeaderCounts();
+
+        els.resultadosTbody.replaceChildren();
+        const rows = flattenOpciones(data.opcionesPago || []);
+
+        if (!rows.length) {
+            const tr = document.createElement('tr');
+            tr.className = 'off';
+            tr.innerHTML = `<td colspan="6" class="text-center text-sm text-slate-500" style="padding:1.5rem">No hay medios disponibles para los filtros seleccionados.</td>`;
+            els.resultadosTbody.appendChild(tr);
+        } else {
+            // mejor global: menor total con plan disponible
+            let bestKey = null, bestTotal = Infinity;
+            rows.forEach(r => {
+                if (r.plan && Number(r.plan.total) < bestTotal) { bestTotal = Number(r.plan.total); bestKey = optionKey(r); }
+            });
+
+            const groups = groupByMedioPago(rows);
+            const frag = document.createDocumentFragment();
+            groups.forEach(group => appendGroup(frag, group, bestKey));
+            els.resultadosTbody.appendChild(frag);
+
+            // auto-seleccionar recomendado (o el mejor) para habilitar guardar
+            const recomendado = rows.find(r => r.plan?.recomendado) || rows.find(r => r.plan && optionKey(r) === bestKey) || rows.find(r => r.plan);
+            if (recomendado) {
+                state.opcionSeleccionada = toSeleccion(recomendado);
+                updateSelectedRowHighlight(optionKey(recomendado));
+            }
+        }
+
+        hide(els.resultadosVacio);
+        show(els.resultados);
+        updateGuardarModal();
+
+        const mensajes = [...(data.errores || []), ...(data.advertencias || [])];
+        if (mensajes.length) {
+            showFeedback(mensajes.join(' '), data.errores?.length ? 'error' : 'warning');
+        }
+
+        if (els.guardar) els.guardar.disabled = data.exitoso === false;
+    }
+
+    function appendGroup(frag, group, bestKey) {
+        const meta = medioMeta(group.medioPago);
+        const planRows = group.rows.filter(r => r.plan);
+        const estadoStr = estadoLabel(group.opcion.estado);
+
+        // Sin planes disponibles -> fila off
+        if (!planRows.length) {
+            const tr = document.createElement('tr');
+            tr.className = 'off';
+            const pill = estadoPill(estadoStr);
+            const motivo = group.opcion.motivoNoDisponible
+                || (pill.label === 'Req. cliente' ? 'Seleccioná un cliente para evaluar el crédito.' : 'No hay planes activos para el medio solicitado.');
+            const motivoIcon = pill.label === 'Req. cliente' ? 'person_alert' : 'warning';
+            tr.innerHTML = `
+                <td><span class="rmedio"><span class="pay-ico pay-ico--slate"><span class="material-symbols-outlined" style="font-size:16px">${meta.icon}</span></span><span class="font-medium text-slate-300">${esc(group.label)}</span></span></td>
+                <td class="r text-slate-500">—</td>
+                <td colspan="3" class="text-xs text-amber-200/80"><span class="material-symbols-outlined text-amber-300" style="font-size:14px">${motivoIcon}</span> ${esc(motivo)}</td>
+                <td><span class="pill ${pill.cls}">${esc(pill.label)}</span></td>`;
+            frag.appendChild(tr);
+            return;
+        }
+
+        // Un solo plan -> fila simple
+        if (planRows.length === 1) {
+            frag.appendChild(buildSingleRow(planRows[0], meta, bestKey));
+            return;
+        }
+
+        // Varios planes -> parent + detail
+        const gkey = `g${typeof group.medioPago === 'string' ? group.medioPago : group.medioPago}`;
+        const totals = planRows.map(r => Number(r.plan.total));
+        const minTotal = Math.min(...totals);
+        const recargos = planRows.map(r => recargoValor(r.plan));
+        const minR = Math.min(...recargos), maxR = Math.max(...recargos);
+        const recargoTxt = minR === maxR ? (minR > 0 ? `+${pct(minR)}` : pct(minR)) : `+${pct(minR)} a +${pct(maxR)}`;
+
+        const parent = document.createElement('tr');
+        parent.className = 'parent';
+        parent.setAttribute('aria-expanded', 'true');
+        parent.dataset.group = gkey;
+        parent.innerHTML = `
+            <td><span class="rmedio"><span class="pay-ico pay-ico--${meta.tone}"><span class="material-symbols-outlined" style="font-size:16px">${meta.icon}</span></span><span class="font-medium text-white">${esc(group.label)}</span><span class="material-symbols-outlined twist">expand_more</span></span></td>
+            <td class="r"><span class="text-[10px] text-slate-500">desde </span><span class="total-display font-semibold text-white">${formatCurrency(minTotal)}</span></td>
+            <td class="text-slate-300">${planRows.length} planes</td>
+            <td class="r text-slate-500">—</td>
+            <td class="r ${maxR > 0 ? 'text-amber-300' : 'text-emerald-400'}">${recargoTxt}</td>
+            <td><span class="pill pill-slate">${planRows.length} opciones</span></td>`;
+        frag.appendChild(parent);
+
+        // detalle más barato
+        let cheapKey = null, cheapTotal = Infinity;
+        planRows.forEach(r => { if (Number(r.plan.total) < cheapTotal) { cheapTotal = Number(r.plan.total); cheapKey = optionKey(r); } });
+
+        planRows.forEach(row => {
+            frag.appendChild(buildDetailRow(row, gkey, bestKey, cheapKey));
+        });
+    }
+
+    function planLabelCuotas(plan) {
+        return Number(plan.cantidadCuotas) > 1 ? `${plan.cantidadCuotas} cuotas` : '1 pago';
+    }
+
+    function pillForRow(row, bestKey) {
+        const key = optionKey(row);
+        if (key === bestKey) return '<span class="pill pill-green"><span class="material-symbols-outlined" style="font-size:12px">star</span> Mejor</span>';
+        if (row.plan?.recomendado) return '<span class="pill pill-blue">Recomendado</span>';
+        return '<span class="pill pill-slate">Elegir</span>';
+    }
+
+    function buildSingleRow(row, meta, bestKey) {
         const plan = row.plan;
         const key = optionKey(row);
-        const estadoStr = estadoLabel(opcion.estado);
+        const r = recargoValor(plan);
+        const tr = document.createElement('tr');
+        tr.dataset.cotizacionRowKey = key;
+        tr.dataset.cotizacionOpcionKey = key;
+        if (key === bestKey) tr.className = 'best';
+        const cuotasTxt = Number(plan.cantidadCuotas) > 1 ? formatCurrency(plan.valorCuota) : '—';
+        tr.innerHTML = `
+            <td><span class="rmedio"><span class="pay-ico pay-ico--${meta.tone}"><span class="material-symbols-outlined" style="font-size:16px">${meta.icon}</span></span><span class="font-medium text-white">${esc(medioLabel(row.opcion.medioPago, row.opcion.nombreMedioPago))}</span></span></td>
+            <td class="r"><span class="total-display font-semibold text-white">${formatCurrency(plan.total)}</span></td>
+            <td class="text-slate-300">${planLabelCuotas(plan)}</td>
+            <td class="r ${Number(plan.cantidadCuotas) > 1 ? 'text-slate-300 total-display' : 'text-slate-400'}">${cuotasTxt}</td>
+            <td class="r ${r > 0 ? 'text-amber-300' : 'text-emerald-400'}">${r > 0 ? '+' : ''}${pct(r)}</td>
+            <td>${pillForRow(row, bestKey)}</td>`;
+        return tr;
+    }
 
-        const advertencias = [
-            opcion.motivoNoDisponible,
-            ...(plan?.advertencias || [])
-        ].filter(Boolean);
+    function buildDetailRow(row, gkey, bestKey, cheapKey) {
+        const plan = row.plan;
+        const key = optionKey(row);
+        const r = recargoValor(plan);
+        const tr = document.createElement('tr');
+        tr.className = 'detail' + (key === cheapKey ? ' cheap' : '');
+        tr.dataset.g = gkey;
+        tr.dataset.cotizacionRowKey = key;
+        tr.dataset.cotizacionOpcionKey = key;
+        const planName = plan.plan || medioLabel(row.opcion.medioPago, row.opcion.nombreMedioPago);
+        tr.innerHTML = `
+            <td><span class="plan-medio"><span class="ent-dot" style="background:${entColor(planName)}"></span><span class="text-slate-200 font-medium">${esc(planName)}</span></span></td>
+            <td class="r"><span class="total-display text-white">${formatCurrency(plan.total)}</span></td>
+            <td class="text-slate-300">${planLabelCuotas(plan)}</td>
+            <td class="r total-display text-slate-300">${Number(plan.cantidadCuotas) > 1 ? formatCurrency(plan.valorCuota) : '—'}</td>
+            <td class="r ${r > 0 ? 'text-amber-300' : 'text-emerald-400'}">${r > 0 ? '+' : ''}${pct(r)}</td>
+            <td>${pillForRow(row, bestKey)}</td>`;
+        return tr;
+    }
 
-        const recargo = plan
-            ? Math.max(Number(plan.recargoPorcentaje || 0), Number(plan.interesPorcentaje || 0), Number(plan.costoFinancieroTotal || 0))
-            : 0;
-        const recargoTexto = plan?.costoFinancieroTotal
-            ? formatCurrency(plan.costoFinancieroTotal)
-            : `${new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 }).format(recargo)}%`;
-
-        let cardModifier = '';
-        if (!plan) {
-            cardModifier = 'payment-option-card--blocked';
-        } else if (['RequiereCliente', 'RequiereEvaluacion'].includes(estadoStr) || advertencias.length) {
-            cardModifier = 'payment-option-card--warning';
-        }
-
-        const div = document.createElement('div');
-        div.className = `payment-option-card ${cardModifier}`.trim();
-        div.dataset.cotizacionRowKey = key;
-
-        // Header: radio+medio a la izquierda, total a la derecha
-        const header = document.createElement('div');
-        Object.assign(header.style, { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem', width: '100%' });
-
-        const leftCol = document.createElement('div');
-        Object.assign(leftCol.style, { display: 'flex', flexDirection: 'column', gap: '0.375rem', minWidth: '0' });
-
-        const radioLabel = document.createElement('label');
-        Object.assign(radioLabel.style, { display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: !plan ? 'not-allowed' : 'pointer' });
-
-        const radioInput = document.createElement('input');
-        radioInput.type = 'radio';
-        radioInput.name = 'cotizacion-opcion-pago';
-        radioInput.dataset.cotizacionOpcionKey = key;
-        radioInput.className = 'border-slate-600 bg-slate-800 text-primary focus:ring-primary';
-        if (!plan) radioInput.disabled = true;
-
-        const medioSpan = document.createElement('span');
-        Object.assign(medioSpan.style, { fontSize: '0.9375rem', fontWeight: '700' });
-        medioSpan.textContent = medioLabel(opcion.medioPago, opcion.nombreMedioPago);
-
-        radioLabel.appendChild(radioInput);
-        radioLabel.appendChild(medioSpan);
-
-        const chipModifier = {
-            Disponible: 'payment-status-chip--available',
-            RequiereCliente: 'payment-status-chip--requires-client',
-            RequiereEvaluacion: 'payment-status-chip--requires-client',
-            BloqueadoPorProducto: 'payment-status-chip--blocked',
-            PlanInactivo: 'payment-status-chip--blocked',
-            CuotaInactiva: 'payment-status-chip--blocked',
-            NoDisponible: 'payment-status-chip--blocked'
-        }[estadoStr] || 'payment-status-chip--blocked';
-
-        const estadoChip = document.createElement('span');
-        estadoChip.className = `payment-status-chip ${chipModifier}`;
-        estadoChip.textContent = estadoStr;
-
-        leftCol.appendChild(radioLabel);
-        leftCol.appendChild(estadoChip);
-
-        const rightCol = document.createElement('div');
-        Object.assign(rightCol.style, { textAlign: 'right', flexShrink: '0' });
-
-        if (plan?.recomendado) {
-            const recBadge = document.createElement('span');
-            recBadge.className = 'payment-status-chip payment-status-chip--selected';
-            recBadge.style.marginBottom = '0.25rem';
-            recBadge.textContent = 'Recomendado';
-            rightCol.appendChild(recBadge);
-        }
-
-        const totalEl = document.createElement('div');
-        Object.assign(totalEl.style, {
-            fontSize: plan ? '1.125rem' : '0.875rem',
-            fontWeight: plan ? '900' : '400',
-            marginTop: '0.25rem',
-            color: plan ? '' : '#475569'
+    function updateSelectedRowHighlight(selectedKey) {
+        $$('#cotizacion-resultados-tbody tr[data-cotizacion-row-key]').forEach(tr => {
+            tr.classList.toggle('selected', tr.dataset.cotizacionRowKey === selectedKey);
         });
-        totalEl.textContent = plan ? formatCurrency(plan.total) : 'Sin planes';
-        rightCol.appendChild(totalEl);
+    }
 
-        header.appendChild(leftCol);
-        header.appendChild(rightCol);
-        div.appendChild(header);
+    function findRowByKey(key) {
+        const rows = flattenOpciones(state.ultimaSimulacion?.opcionesPago || []);
+        return rows.find(r => optionKey(r) === key) || null;
+    }
 
-        if (plan) {
-            const divider = document.createElement('div');
-            Object.assign(divider.style, { width: '100%', height: '1px', background: '#1e293b', marginTop: '0.5rem' });
-            div.appendChild(divider);
-
-            const grid = document.createElement('div');
-            Object.assign(grid.style, { width: '100%', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.375rem 1rem', marginTop: '0.125rem' });
-
-            const addField = (labelText, valueText) => {
-                const item = document.createElement('div');
-                const lbl = document.createElement('div');
-                Object.assign(lbl.style, { fontSize: '0.6875rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b' });
-                lbl.textContent = labelText;
-                const val = document.createElement('div');
-                Object.assign(val.style, { fontSize: '0.8125rem', marginTop: '0.125rem' });
-                val.textContent = valueText;
-                item.appendChild(lbl);
-                item.appendChild(val);
-                grid.appendChild(item);
-            };
-
-            addField('Plan', plan.plan || '-');
-            const cuotasText = Number(plan.cantidadCuotas) > 1
-                ? `${plan.cantidadCuotas} x ${formatCurrency(plan.valorCuota)}`
-                : 'Pago único';
-            addField('Cuotas', cuotasText);
-            addField('Recargo / Interés', recargoTexto);
-
-            div.appendChild(grid);
+    function openPlanDrawer(row) {
+        if (!row?.plan) return;
+        const plan = row.plan;
+        const medio = medioLabel(row.opcion.medioPago, row.opcion.nombreMedioPago);
+        const planName = plan.plan && plan.plan !== medio ? `${medio} · ${plan.plan}` : medio;
+        const cuotasTxt = Number(plan.cantidadCuotas) > 1 ? `${plan.cantidadCuotas} cuotas` : 'Pago único';
+        const r = recargoValor(plan);
+        if (els.planMedio) els.planMedio.textContent = planName;
+        if (els.planCuotas) els.planCuotas.textContent = cuotasTxt;
+        if (els.planTotal) els.planTotal.textContent = formatCurrency(plan.total);
+        if (els.planDetalleCuotas) els.planDetalleCuotas.textContent = cuotasTxt;
+        if (els.planValorCuota) els.planValorCuota.textContent = Number(plan.cantidadCuotas) > 1 ? formatCurrency(plan.valorCuota) : '—';
+        if (els.planRecargo) {
+            els.planRecargo.textContent = `${r > 0 ? '+' : ''}${pct(r)}`;
+            els.planRecargo.className = (r > 0 ? 'text-amber-300' : 'text-emerald-400') + ' font-mono';
         }
+        window.openModal?.('modal-plan');
+    }
 
-        if (advertencias.length) {
-            const advRow = document.createElement('div');
-            Object.assign(advRow.style, { display: 'flex', alignItems: 'flex-start', gap: '0.375rem', marginTop: '0.5rem', padding: '0.5rem 0.625rem', borderRadius: '0.375rem', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', width: '100%', boxSizing: 'border-box' });
-
-            const warnIcon = document.createElement('span');
-            warnIcon.className = 'material-symbols-outlined';
-            Object.assign(warnIcon.style, { fontSize: '14px', color: '#fbbf24', flexShrink: '0', marginTop: '1px' });
-            warnIcon.textContent = 'warning';
-
-            const advMsg = document.createElement('span');
-            Object.assign(advMsg.style, { fontSize: '0.75rem', color: '#fbbf24', lineHeight: '1.4' });
-            advMsg.textContent = advertencias.join(' · ');
-
-            advRow.appendChild(warnIcon);
-            advRow.appendChild(advMsg);
-            div.appendChild(advRow);
+    function updateGuardarModal() {
+        if (els.mgCliente) {
+            els.mgCliente.textContent = state.clienteSeleccionado?.display
+                || (els.nombreLibre?.value?.trim() || '—');
         }
-
-        return div;
+        if (els.mgProductos) {
+            const items = state.productos.length;
+            const unidades = state.productos.reduce((acc, p) => acc + Number(p.cantidad), 0);
+            els.mgProductos.textContent = items
+                ? `${items} ${items === 1 ? 'ítem' : 'ítems'} · ${unidades} ${unidades === 1 ? 'unidad' : 'unidades'}`
+                : '—';
+        }
+        const base = state.ultimaSimulacion?.totalBase ?? previewBase();
+        if (els.mgTotal) els.mgTotal.textContent = formatCurrency(base);
+        if (els.mgMejor) {
+            const sel = state.opcionSeleccionada;
+            if (sel && state.ultimaSimulacion) {
+                const row = findRowByKey(`${sel.medioPago}|${sel.plan || ''}|${sel.cantidadCuotas || ''}`);
+                if (row?.plan) {
+                    els.mgMejor.textContent = `${medioLabel(row.opcion.medioPago, row.opcion.nombreMedioPago)} · ${formatCurrency(row.plan.total)}`;
+                } else {
+                    els.mgMejor.textContent = '—';
+                }
+            } else {
+                els.mgMejor.textContent = '—';
+            }
+        }
     }
 
-    function renderResultadoGroup(group) {
-        const section = document.createElement('div');
-        section.className = 'payment-option-group';
-        Object.assign(section.style, { gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', gap: '0.625rem' });
-
-        const hdr = document.createElement('div');
-        Object.assign(hdr.style, { display: 'flex', alignItems: 'center', gap: '0.625rem', paddingBottom: '0.375rem', borderBottom: '1px solid #1e293b' });
-
-        const title = document.createElement('span');
-        Object.assign(title.style, { fontSize: '0.8125rem', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#94a3b8' });
-        title.textContent = group.label || 'Sin medio informado';
-
-        const countBadge = document.createElement('span');
-        const n = group.rows.length;
-        Object.assign(countBadge.style, { fontSize: '0.75rem', fontWeight: '600', color: '#475569', background: '#0f172a', border: '1px solid #1e293b', borderRadius: '9999px', padding: '0.125rem 0.5rem' });
-        countBadge.textContent = `${n} ${n === 1 ? 'opción' : 'opciones'}`;
-
-        hdr.appendChild(title);
-        hdr.appendChild(countBadge);
-        section.appendChild(hdr);
-
-        const grid = document.createElement('div');
-        Object.assign(grid.style, { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '0.75rem' });
-        group.rows.forEach(row => grid.appendChild(renderResultadoCard(row)));
-        section.appendChild(grid);
-
-        return section;
-    }
-
-    function optionKey(row) {
-        return `${row.opcion.medioPago}|${row.plan?.plan || ''}|${row.plan?.cantidadCuotas || ''}`;
-    }
-
-    function toSeleccion(row) {
-        if (!row.plan) return null;
-        return {
-            medioPago: row.opcion.medioPago,
-            plan: row.plan.plan || null,
-            cantidadCuotas: row.plan.cantidadCuotas || null
-        };
-    }
-
+    /* ---------------------------------------------------------------------
+       Eventos
+    --------------------------------------------------------------------- */
     function bindEvents() {
         els.productoBuscar?.addEventListener('input', debounce(buscarProductos, 220));
         els.clienteBuscar?.addEventListener('input', debounce(buscarClientes, 220));
@@ -796,24 +956,44 @@
         els.agregarProducto?.addEventListener('click', () => agregarProducto(state.productoSeleccionado, els.cantidad?.value));
         els.agregarManual?.addEventListener('click', agregarProductoManual);
         els.simular?.addEventListener('click', simular);
-        els.guardar?.addEventListener('click', guardar);
+        els.guardarConfirm?.addEventListener('click', guardar);
+        els.pasarVenta?.addEventListener('click', pasarAVenta);
+        els.nuevaCotizacion?.addEventListener('click', () => window.location.reload());
 
         els.limpiarCliente?.addEventListener('click', () => {
             setCliente(null);
             if (els.clienteBuscar) els.clienteBuscar.value = '';
         });
 
+        // medios filter -> marca pendiente si ya había simulación
+        $$('[data-cotizacion-medio]').forEach(input => {
+            input.addEventListener('change', () => invalidarSimulacion());
+        });
+
+        // descuentos generales -> pendiente
+        [els.descuentoGralPct, els.descuentoGralImporte].forEach(el => {
+            el?.addEventListener('input', () => invalidarSimulacion());
+        });
+
+        // carrito: abrir confirmación de quitar
         els.productosTbody?.addEventListener('click', event => {
             const deleteButton = event.target.closest('[data-cotizacion-eliminar-index]');
             if (!deleteButton) return;
-            const index = Number(deleteButton.dataset.cotizacionEliminarIndex);
-            state.productos.splice(index, 1);
-            state.ultimaSimulacion = null;
-            state.opcionSeleccionada = null;
-            if (els.guardar) els.guardar.disabled = true;
-            renderProductos();
+            state.pendingDeleteIndex = Number(deleteButton.dataset.cotizacionEliminarIndex);
+            window.openModal?.('modal-quitar-producto');
         });
 
+        els.quitarConfirm?.addEventListener('click', () => {
+            if (state.pendingDeleteIndex !== null && state.pendingDeleteIndex >= 0) {
+                state.productos.splice(state.pendingDeleteIndex, 1);
+                state.pendingDeleteIndex = null;
+                invalidarSimulacion();
+                renderProductos();
+            }
+            window.closeModal?.('modal-quitar-producto');
+        });
+
+        // carrito: cantidad / descuentos por producto
         els.productosTbody?.addEventListener('input', event => {
             const cantInput = event.target.closest('[data-cotizacion-cantidad-index]');
             if (cantInput) {
@@ -821,9 +1001,7 @@
                 const qty = parsePositiveInt(cantInput.value) || 1;
                 state.productos[index].cantidad = qty;
                 cantInput.value = String(qty);
-                state.ultimaSimulacion = null;
-                state.opcionSeleccionada = null;
-                if (els.guardar) els.guardar.disabled = true;
+                invalidarSimulacion();
                 renderProductos();
                 return;
             }
@@ -832,9 +1010,7 @@
             if (descPctInput) {
                 const index = Number(descPctInput.dataset.cotizacionDescPctIndex);
                 state.productos[index].descuentoPorcentaje = parseNonNegativeDecimal(descPctInput.value);
-                state.ultimaSimulacion = null;
-                state.opcionSeleccionada = null;
-                if (els.guardar) els.guardar.disabled = true;
+                invalidarSimulacion();
                 return;
             }
 
@@ -842,20 +1018,30 @@
             if (descImporteInput) {
                 const index = Number(descImporteInput.dataset.cotizacionDescImporteIndex);
                 state.productos[index].descuentoImporte = parseNonNegativeDecimal(descImporteInput.value);
-                state.ultimaSimulacion = null;
-                state.opcionSeleccionada = null;
-                if (els.guardar) els.guardar.disabled = true;
+                invalidarSimulacion();
                 return;
             }
         });
 
-        els.resultadosTbody?.addEventListener('change', event => {
-            const input = event.target.closest('[data-cotizacion-opcion-key]');
-            if (!input) return;
-            const rows = flattenOpciones(state.ultimaSimulacion?.opcionesPago || []);
-            const row = rows.find(item => optionKey(item) === input.dataset.cotizacionOpcionKey);
-            state.opcionSeleccionada = row ? toSeleccion(row) : null;
-            updateSelectedRowHighlight(input.dataset.cotizacionOpcionKey || null);
+        // resultados: expandir grupos / seleccionar plan
+        els.resultadosTbody?.addEventListener('click', event => {
+            const parent = event.target.closest('tr.parent');
+            if (parent && els.resultadosTbody.contains(parent)) {
+                const open = parent.getAttribute('aria-expanded') === 'true';
+                parent.setAttribute('aria-expanded', open ? 'false' : 'true');
+                $$(`#cotizacion-resultados-tbody tr.detail[data-g="${parent.dataset.group}"]`).forEach(r => { r.hidden = open; });
+                return;
+            }
+
+            const selectable = event.target.closest('tr[data-cotizacion-opcion-key]');
+            if (selectable && els.resultadosTbody.contains(selectable)) {
+                const key = selectable.dataset.cotizacionOpcionKey;
+                const row = findRowByKey(key);
+                state.opcionSeleccionada = row ? toSeleccion(row) : null;
+                updateSelectedRowHighlight(key);
+                updateGuardarModal();
+                if (row) openPlanDrawer(row);
+            }
         });
 
         document.addEventListener('click', event => {

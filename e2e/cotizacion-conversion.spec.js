@@ -22,8 +22,9 @@
  *   #cotizacion-clientes-dropdown      — dropdown clientes
  *   #cotizacion-simular                — botón simular
  *   #cotizacion-resultados             — contenedor de resultados
- *   .payment-option-card               — card de opción de pago
- *   #cotizacion-guardar                — botón guardar cotización
+ *   #cotizacion-resultados-tbody tr    — fila de opción de pago (tabla rtable)
+ *   #cotizacion-guardar                — botón guardar (abre modal confirmación)
+ *   #cotizacion-guardar-confirm        — botón confirmar guardado en el modal
  *   #cotizacion-btn-convertir          — botón "Convertir a Venta" en Detalles
  *   #cotizacion-conversion-modal       — modal de conversión
  *   #cotizacion-conversion-loading     — panel de carga del preview
@@ -97,7 +98,7 @@ async function agregarProductoSimulador(page) {
         await page.click('#cotizacion-agregar-producto');
         await page.waitForTimeout(300);
 
-        const rowCount = await tbody.locator('tr').count();
+        const rowCount = await tbody.locator('.cart-row').count();
         if (rowCount > 0) return true;
     }
     return false;
@@ -159,14 +160,19 @@ async function crearCotizacionYNavegar(page, opts = {}) {
 
     await page.click('#cotizacion-simular');
     await page.locator('#cotizacion-resultados').waitFor({ state: 'visible', timeout: 15_000 });
-    await page.locator('.payment-option-card').first().waitFor({ state: 'visible', timeout: 5_000 });
+    await page.locator('#cotizacion-resultados-tbody tr').first().waitFor({ state: 'visible', timeout: 5_000 });
 
+    // Guardar: el botón abre el modal de confirmación; el confirm dispara el POST.
     const guardarBtn = page.locator('#cotizacion-guardar');
     await expect(guardarBtn).toBeEnabled({ timeout: 5_000 });
+    await guardarBtn.click();
+
+    const guardarConfirm = page.locator('#cotizacion-guardar-confirm');
+    await expect(guardarConfirm).toBeVisible({ timeout: 5_000 });
 
     await Promise.all([
         page.waitForURL(/\/Cotizacion\/Detalles\/\d+/, { timeout: 20_000 }),
-        guardarBtn.click()
+        guardarConfirm.click()
     ]);
     await page.waitForLoadState('domcontentloaded');
 

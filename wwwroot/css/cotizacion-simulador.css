@@ -1,0 +1,220 @@
+/* ============================================================================
+   Cotización · Simulador — design system (copia exacta del mockup objetivo)
+   Todo scopeado bajo .cotz-app para no filtrar al resto del ERP.
+   Se carga vía @section Styles (después de theme-ml.css) → gana en cascada.
+   ========================================================================== */
+
+/* ---------- Root / integración con el shell ERP ---------- */
+/* El área de contenido del _Layout (#main-content > div:last-child) ya es
+   flex-1 + overflow-y-auto; sólo le quitamos el padding para que la
+   cotización ocupe todo el alto (single-screen del mockup). En desktop
+   .cotz-app llena exacto y el scroll vive en los panel-body; al apilar
+   (mobile) la cotización crece y el wrapper hace scroll de página. */
+body:has(.cotz-app) #main-content > div:last-child {
+    padding: 0 !important;
+}
+
+.cotz-app {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: #0b1220;
+    color: #e2e8f0;
+    font-family: 'Inter', system-ui, sans-serif;
+}
+
+.cotz-app .font-mono,
+.cotz-app .total-display { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+
+.cotz-app .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    vertical-align: middle;
+    line-height: 1;
+}
+
+.cotz-app :focus-visible { outline: 2px solid #60a5fa; outline-offset: 1px; border-radius: 6px; }
+.cotz-app input[type="radio"],
+.cotz-app input[type="checkbox"] { accent-color: #3b82f6; }
+
+/* ---------- Top bar (sub-header contextual) ---------- */
+.cotz-app .cotz-topbar {
+    flex-shrink: 0;
+    border-bottom: 1px solid #1e293b;
+    background: rgba(2, 6, 23, .5);
+    padding: .55rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: .6rem 1rem;
+    flex-wrap: wrap;
+}
+
+/* Flags informativos del top-bar: ocultos en angosto, visibles en ancho.
+   (No usar `hidden xl:inline-flex` de Tailwind: .cotz-app .pill le gana en
+   especificidad y los dejaría siempre visibles.) */
+.cotz-app .pill.topbar-flag { display: none; }
+@media (min-width: 1280px) {
+    .cotz-app .pill.topbar-flag { display: inline-flex; }
+}
+
+/* ---------- Workspace grid ---------- */
+.cotz-app .workspace {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    /* mockup usa 340/366; dentro del shell ERP el sidebar resta 256px, así que
+       achicamos levemente las laterales para dar aire a la tabla de resultados */
+    grid-template-columns: 320px minmax(0, 1fr) 344px;
+    gap: 12px;
+    padding: 12px;
+}
+
+/* La tabla de resultados scrollea horizontal sin romper el panel cuando el
+   ancho de la columna central es ajustado (no clipea Estado/Recargo). */
+.cotz-app #cotizacion-resultados { overflow-x: auto; }
+/* min-width:0 deja que la columna se encoja por debajo del min-content de la
+   tabla de resultados; sin esto, al apilar, el track `1fr` (=minmax(auto,1fr))
+   se expande al min-content de la rtable y desborda el viewport recortando
+   columnas sin scroll. Con min-width:0 la rtable activa su overflow-x interno. */
+.cotz-app .col { min-height: 0; min-width: 0; display: flex; flex-direction: column; }
+
+/* Stack a 1 columna cuando no entran 3 columnas dentro del shell.
+   Sidebar expandido = 16rem (256px); las 3 cols (340 + min + 366) necesitan
+   ~1030px de contenido, por eso apilamos por debajo de ~1300px de viewport. */
+@media (max-width: 1300px) {
+    .cotz-app { height: auto; overflow: visible; min-height: 100%; }
+    .cotz-app .workspace { grid-template-columns: minmax(0, 1fr); height: auto; }
+    .cotz-app .panel { max-height: none; }
+    /* en apilado los panel-body no necesitan scroll interno: crece la página */
+    .cotz-app .panel-body { overflow-y: visible; }
+}
+
+/* ---------- Cards / panels ---------- */
+.cotz-app .panel { background: #111827; border: 1px solid #1f2937; border-radius: 14px; display: flex; flex-direction: column; min-height: 0; }
+.cotz-app .panel-head { padding: .7rem .85rem .55rem; border-bottom: 1px solid #1b2536; display: flex; align-items: center; gap: .55rem; }
+.cotz-app .panel-body { flex: 1; min-height: 0; overflow-y: auto; padding: .85rem; }
+.cotz-app .panel-body.tight { padding: .7rem .85rem; }
+.cotz-app .panel-foot { padding: .7rem .85rem; border-top: 1px solid #1b2536; }
+.cotz-app .card-sub { background: #0f172a; border: 1px solid #1e2a3d; border-radius: 10px; }
+.cotz-app .seg { background: #0d1626; border: 1px solid #1c2840; border-radius: 10px; }
+
+.cotz-app .num { width: 16px; height: 16px; border-radius: 5px; background: rgba(59,130,246,.16); color: #93c5fd; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+
+/* ---------- Fields ---------- */
+.cotz-app .field { background: #0f172a; border: 1px solid #243044; color: #e2e8f0; border-radius: 9px; padding: .5rem .65rem; width: 100%; font-size: .85rem; transition: border .15s, box-shadow .15s; }
+.cotz-app .field:focus { border-color: #3b82f6; outline: none; box-shadow: 0 0 0 3px rgba(59,130,246,.16); }
+.cotz-app .field:disabled { opacity: .5; }
+.cotz-app textarea.field { resize: none; }
+.cotz-app .label { display: block; font-size: .68rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: #7c8aa3; margin-bottom: .3rem; }
+
+/* ---------- Buttons ---------- */
+.cotz-app .btn { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; padding: .55rem .85rem; border-radius: 9px; font-size: .84rem; font-weight: 600; transition: all .15s; min-height: 38px; cursor: pointer; border: 1px solid transparent; white-space: nowrap; }
+.cotz-app .btn:disabled { opacity: .4; cursor: not-allowed; }
+.cotz-app .btn-primary { background: #2563eb; color: #fff; }
+.cotz-app .btn-primary:hover:not(:disabled) { background: #1d4ed8; }
+.cotz-app .btn-success { background: #15803d; color: #fff; }
+.cotz-app .btn-success:hover:not(:disabled) { background: #166534; }
+.cotz-app .btn-amber { background: #d97706; color: #fff; }
+.cotz-app .btn-amber:hover:not(:disabled) { background: #b45309; }
+.cotz-app .btn-ghost { background: transparent; color: #cbd5e1; border-color: #2b3a52; }
+.cotz-app .btn-ghost:hover { background: #1a2435; color: #fff; }
+.cotz-app .btn-soft { background: #18233a; color: #cbd5e1; border-color: #26344c; }
+.cotz-app .btn-soft:hover { background: #213050; color: #fff; }
+.cotz-app .btn-xs { padding: .3rem .55rem; min-height: 30px; font-size: .74rem; border-radius: 8px; }
+.cotz-app .icon-btn { width: 30px; height: 30px; min-height: 0; padding: 0; border-radius: 8px; }
+
+/* ---------- Pills / chips ---------- */
+.cotz-app .pill { display: inline-flex; align-items: center; gap: .28rem; padding: .15rem .5rem; border-radius: 999px; font-size: .68rem; font-weight: 600; border: 1px solid transparent; white-space: nowrap; }
+.cotz-app .pill-green { background: rgba(16,185,129,.12); color: #34d399; border-color: rgba(16,185,129,.3); }
+.cotz-app .pill-amber { background: rgba(245,158,11,.12); color: #fbbf24; border-color: rgba(245,158,11,.3); }
+.cotz-app .pill-red { background: rgba(239,68,68,.12); color: #f87171; border-color: rgba(239,68,68,.3); }
+.cotz-app .pill-blue { background: rgba(59,130,246,.12); color: #60a5fa; border-color: rgba(59,130,246,.3); }
+.cotz-app .pill-slate { background: rgba(148,163,184,.1); color: #cbd5e1; border-color: rgba(148,163,184,.22); }
+
+/* ---------- Medios filter chips (checkbox toggles) ---------- */
+.cotz-app .medio-chip { position: relative; display: inline-flex; align-items: center; gap: .35rem; padding: .35rem .6rem; border-radius: 999px; font-size: .76rem; font-weight: 500; cursor: pointer; border: 1px solid #26344c; background: #131e30; color: #93a2b8; transition: all .14s; user-select: none; }
+.cotz-app .medio-chip .dot { width: 7px; height: 7px; border-radius: 999px; background: #475569; transition: all .14s; }
+.cotz-app .medio-chip:has(input:checked) { background: rgba(59,130,246,.12); border-color: rgba(59,130,246,.45); color: #dbe7fb; }
+.cotz-app .medio-chip:has(input:checked) .dot { background: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.18); }
+.cotz-app .medio-chip input { position: absolute; opacity: 0; pointer-events: none; }
+
+/* ---------- Cart rows ---------- */
+.cotz-app .cart-row { border: 1px solid #1e2a3d; background: #0f172a; border-radius: 10px; padding: .55rem .6rem; display: flex; flex-direction: column; gap: .5rem; }
+.cotz-app .mini { background: #0b1220; border: 1px solid #243044; border-radius: 7px; color: #e2e8f0; font-size: .78rem; padding: .28rem .4rem; text-align: right; font-family: 'JetBrains Mono', monospace; }
+.cotz-app .mini:focus { outline: none; border-color: #3b82f6; }
+.cotz-app .qty-step { display: inline-flex; align-items: center; border: 1px solid #243044; border-radius: 8px; overflow: hidden; background: #0b1220; }
+.cotz-app .qty-step button { width: 26px; height: 28px; color: #94a3b8; font-size: 14px; display: flex; align-items: center; justify-content: center; background: transparent; border: 0; cursor: pointer; }
+.cotz-app .qty-step button:hover { background: #1a2435; color: #fff; }
+.cotz-app .qty-step input { width: 34px; text-align: center; background: transparent; border: 0; color: #fff; font-size: .8rem; font-family: 'JetBrains Mono', monospace; }
+.cotz-app .qty-step input:focus { outline: none; }
+
+/* ---------- Payment icons (badges por medio) ---------- */
+.cotz-app .pay-ico { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: 1px solid transparent; }
+.cotz-app .pay-ico--emerald { background: rgba(16,185,129,.12); border-color: rgba(16,185,129,.3); }
+.cotz-app .pay-ico--emerald .material-symbols-outlined { color: #34d399; }
+.cotz-app .pay-ico--blue { background: rgba(59,130,246,.12); border-color: rgba(59,130,246,.3); }
+.cotz-app .pay-ico--blue .material-symbols-outlined { color: #60a5fa; }
+.cotz-app .pay-ico--purple { background: rgba(168,85,247,.12); border-color: rgba(168,85,247,.3); }
+.cotz-app .pay-ico--purple .material-symbols-outlined { color: #d8b4fe; }
+.cotz-app .pay-ico--cyan { background: rgba(6,182,212,.12); border-color: rgba(6,182,212,.3); }
+.cotz-app .pay-ico--cyan .material-symbols-outlined { color: #67e8f9; }
+.cotz-app .pay-ico--amber { background: rgba(245,158,11,.12); border-color: rgba(245,158,11,.3); }
+.cotz-app .pay-ico--amber .material-symbols-outlined { color: #fcd34d; }
+.cotz-app .pay-ico--slate { background: rgba(51,65,85,.4); border-color: rgba(71,85,105,.4); }
+.cotz-app .pay-ico--slate .material-symbols-outlined { color: #94a3b8; }
+
+/* ---------- Results comparison table ---------- */
+.cotz-app .rtable { width: 100%; border-collapse: separate; border-spacing: 0; font-size: .82rem; }
+.cotz-app .rtable thead th { text-align: left; font-size: .62rem; text-transform: uppercase; letter-spacing: .05em; color: #64748b; font-weight: 600; padding: .45rem .6rem; position: sticky; top: 0; z-index: 1; background: #111827; border-bottom: 1px solid #1b2536; }
+.cotz-app .rtable thead th.r, .cotz-app .rtable td.r { text-align: right; }
+.cotz-app .rtable td { padding: .5rem .6rem; border-bottom: 1px solid #16202f; vertical-align: middle; }
+.cotz-app .rtable tbody tr { cursor: pointer; transition: background .12s; }
+.cotz-app .rtable tbody tr:hover td { background: #0f1a2b; }
+.cotz-app .rtable tr.best td { background: rgba(16,185,129,.06); }
+.cotz-app .rtable tr.best:hover td { background: rgba(16,185,129,.1); }
+.cotz-app .rtable tr.off { cursor: default; color: #64748b; }
+.cotz-app .rtable tr.off:hover td { background: transparent; }
+.cotz-app .rtable tr.selected td { background: rgba(59,130,246,.12); box-shadow: inset 3px 0 0 #3b82f6; }
+.cotz-app .rtable tr.selected:hover td { background: rgba(59,130,246,.16); }
+.cotz-app .rmedio { display: flex; align-items: center; gap: .5rem; }
+.cotz-app .rmedio .pay-ico { width: 26px; height: 26px; }
+.cotz-app .rtable tr.parent { cursor: pointer; }
+.cotz-app .rtable .twist { font-size: 16px; color: #64748b; transition: transform .2s; margin-left: .15rem; }
+.cotz-app .rtable tr.parent[aria-expanded="true"] .twist { transform: rotate(180deg); color: #93c5fd; }
+.cotz-app .rtable tr.parent[aria-expanded="true"] > td { background: #0f1a2b; }
+.cotz-app .rtable tr.detail > td { background: #0c1424; border-bottom: 1px solid #131f2e; padding-top: .4rem; padding-bottom: .4rem; }
+.cotz-app .rtable tr.detail:hover > td { background: #101b2d; }
+.cotz-app .rtable tr.detail.cheap > td { box-shadow: inset 3px 0 0 #10b981; }
+.cotz-app .plan-medio { display: flex; align-items: center; gap: .5rem; padding-left: 1.7rem; }
+.cotz-app .ent-dot { width: 7px; height: 7px; border-radius: 2px; flex: none; }
+
+.cotz-app .total-display { font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+
+/* ---------- Dropdowns (búsqueda producto / cliente) ---------- */
+.cotz-app .dropdown-list { background: #0f172a; border: 1px solid #243044; border-radius: 10px; box-shadow: 0 18px 50px rgba(0,0,0,.45); max-height: 260px; overflow-y: auto; }
+.cotz-app .dropdown-item { padding: .5rem .7rem; cursor: pointer; transition: background .12s; }
+.cotz-app .dropdown-item:hover, .cotz-app .dropdown-item.active { background: #1e293b; }
+
+/* ---------- Misc helpers ---------- */
+.cotz-app .truncate-1 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cotz-app details > summary { list-style: none; cursor: pointer; }
+.cotz-app details > summary::-webkit-details-marker { display: none; }
+.cotz-app details[open] .chev { transform: rotate(180deg); }
+.cotz-app .chev { transition: transform .2s; }
+.cotz-app .panel-body::-webkit-scrollbar, .cotz-app .dropdown-list::-webkit-scrollbar { width: 8px; }
+.cotz-app .panel-body::-webkit-scrollbar-thumb { background: #1e2a3d; border-radius: 8px; }
+.cotz-app .hr { height: 1px; background: #1b2536; border: 0; margin: .7rem 0; }
+
+/* ---------- Modales / drawer (fuera de .cotz-app, scopear con prefijo propio) ---------- */
+.cotz-modal { animation: cotzFade .18s ease; }
+@keyframes cotzFade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Modal/drawer comparten el design system; reexponer las clases mínimas que
+   viven dentro de los modales (que se montan dentro de .cotz-app). */
+
+/* ---------- Feedback toast ---------- */
+.cotz-feedback { display: flex; align-items: center; gap: .6rem; border: 1px solid; border-radius: 10px; padding: .7rem .9rem; font-size: .82rem; font-weight: 600; box-shadow: 0 18px 50px rgba(0,0,0,.45); }
+.cotz-feedback--ok { background: rgba(16,185,129,.12); border-color: rgba(16,185,129,.4); color: #6ee7b7; }
+.cotz-feedback--warning { background: rgba(245,158,11,.12); border-color: rgba(245,158,11,.4); color: #fcd34d; }
+.cotz-feedback--error { background: rgba(239,68,68,.12); border-color: rgba(239,68,68,.4); color: #fca5a5; }
+.cotz-feedback--info { background: rgba(59,130,246,.12); border-color: rgba(59,130,246,.4); color: #93c5fd; }
