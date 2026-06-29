@@ -92,6 +92,7 @@
         productoNombreFiltro = productoNombre;
         actualizarBannerProducto();
         modal.classList.remove('hidden');
+        modal.classList.add('flex');
         document.body.style.overflow = 'hidden';
         fetchMovimientos();
         setTimeout(function () {
@@ -116,6 +117,7 @@
         var trigger = _openTrigger;
         _openTrigger = null;
         modal.classList.add('hidden');
+        modal.classList.remove('flex');
         document.body.style.overflow = '';
         productoIdFiltro = null;
         productoNombreFiltro = null;
@@ -177,8 +179,10 @@
         if (count > 0) {
             filtrosBadge.textContent = count === 1 ? '1 filtro activo' : `${count} filtros activos`;
             filtrosBadge.classList.remove('hidden');
+            filtrosBadge.classList.add('inline-flex');
         } else {
             filtrosBadge.classList.add('hidden');
+            filtrosBadge.classList.remove('inline-flex');
         }
     }
 

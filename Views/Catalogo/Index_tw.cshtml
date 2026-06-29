@@ -101,7 +101,7 @@
         <form id="filterForm" method="get" asp-controller="Catalogo" asp-action="Index"
               class="border-b border-slate-800 bg-slate-900/30 p-4">
             <div class="flex flex-wrap items-end gap-4">
-                <div class="flex-1 min-w-[200px]">
+                <div class="flex-1 min-w-50">
                     <label class="text-slate-400 text-[10px] font-bold mb-1.5 block uppercase tracking-wider">Buscar Producto</label>
                     <div class="relative">
                         <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
@@ -189,8 +189,8 @@
                 Deslizá la tabla para ver stock, precios y acciones.
             </div>
             <div data-oc-scroll-shell class="relative">
-                <div data-oc-scroll-fade="left" hidden class="absolute inset-y-0 left-0 z-10 w-6 bg-gradient-to-r from-slate-900 via-slate-900/95 to-transparent"></div>
-                <div data-oc-scroll-fade="right" hidden class="absolute inset-y-0 right-0 z-10 w-6 bg-gradient-to-l from-slate-900 via-slate-900/95 to-transparent"></div>
+                <div data-oc-scroll-fade="left" hidden class="absolute inset-y-0 left-0 z-10 w-6 bg-linear-to-r from-slate-900 via-slate-900/95 to-transparent"></div>
+                <div data-oc-scroll-fade="right" hidden class="absolute inset-y-0 right-0 z-10 w-6 bg-linear-to-l from-slate-900 via-slate-900/95 to-transparent"></div>
                 <div data-oc-scroll-region class="overflow-x-auto scroll-smooth" tabindex="0" role="region" aria-label="Tabla de productos del catálogo">
             <table class="erp-table text-left" data-oc-scroll-table style="min-width: var(--oc-scroll-min-width);">
                 <thead>
@@ -271,14 +271,14 @@
                                 <td class="px-6 py-4 text-sm font-mono text-slate-400">@p.Codigo</td>
                                 <td class="px-6 py-4">
                                     <div class="flex items-center gap-3">
-                                        <div class="w-10 h-10 rounded bg-slate-800 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                        <div class="w-10 h-10 rounded bg-slate-800 flex items-center justify-center overflow-hidden shrink-0">
                                             <span class="material-symbols-outlined text-slate-400 text-lg">package_2</span>
                                         </div>
                                         <div>
                                             <span class="text-sm font-semibold text-white">@p.Nombre</span>
                                             @if (!string.IsNullOrEmpty(p.Descripcion))
                                             {
-                                                <p class="text-[10px] text-slate-400 truncate max-w-[200px]">@p.Descripcion</p>
+                                                <p class="text-[10px] text-slate-400 truncate max-w-50">@p.Descripcion</p>
                                             }
                                             @if (!p.Activo)
                                             {
@@ -315,7 +315,7 @@
                                             data-comision-producto-id="@p.ProductoId"
                                             data-comision-producto-nombre="@p.Nombre"
                                             data-comision-porcentaje="@p.ComisionPorcentaje.ToString(System.Globalization.CultureInfo.InvariantCulture)"
-                                            class="comision-edit-btn group inline-flex items-center gap-1.5 rounded-lg border border-slate-700/60 px-2.5 py-1.5 font-semibold transition-colors hover:border-primary/40 hover:bg-primary/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+                                            class="comision-edit-btn group inline-flex items-center gap-1.5 rounded-lg border border-slate-700/60 px-2.5 py-1.5 font-semibold transition-colors hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary"
                                             title="Editar comisión vendedor (@p.ComisionPorcentaje.ToString("N2")%)">
                                         @if (p.ComisionPorcentaje > 0)
                                         {
@@ -416,7 +416,7 @@
                 </div>
             </div>
             <div class="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-                <button type="button" data-catalogo-action="clear-selection" class="w-full px-4 py-2 text-xs font-bold text-slate-500 transition-colors hover:text-slate-400 hover:text-slate-200 sm:w-auto">
+                <button type="button" data-catalogo-action="clear-selection" class="w-full px-4 py-2 text-xs font-bold text-slate-500 transition-colors hover:text-slate-200 sm:w-auto">
                     Deseleccionar
                 </button>
                 <button type="button" data-catalogo-modal-open="precio-selection"
@@ -469,8 +469,8 @@
                 Deslizá la tabla para ver la jerarquía y las acciones.
             </div>
             <div data-oc-scroll-shell class="relative">
-                <div data-oc-scroll-fade="left" hidden class="absolute inset-y-0 left-0 z-10 w-6 bg-gradient-to-r from-slate-900 via-slate-900/95 to-transparent"></div>
-                <div data-oc-scroll-fade="right" hidden class="absolute inset-y-0 right-0 z-10 w-6 bg-gradient-to-l from-slate-900 via-slate-900/95 to-transparent"></div>
+                <div data-oc-scroll-fade="left" hidden class="absolute inset-y-0 left-0 z-10 w-6 bg-linear-to-r from-slate-900 via-slate-900/95 to-transparent"></div>
+                <div data-oc-scroll-fade="right" hidden class="absolute inset-y-0 right-0 z-10 w-6 bg-linear-to-l from-slate-900 via-slate-900/95 to-transparent"></div>
                 <div data-oc-scroll-region class="overflow-x-auto scroll-smooth" tabindex="0" role="region" aria-label="Tabla de categorías del catálogo">
             <table class="erp-table text-left" data-oc-scroll-table style="min-width: var(--oc-scroll-min-width);">
                 <thead>
@@ -491,14 +491,14 @@
                                 <td class="px-6 py-4 text-sm font-mono text-slate-400">@cat.Codigo</td>
                                 <td class="px-6 py-4">
                                     <div class="flex items-center gap-3">
-                                        <div class="w-10 h-10 rounded bg-slate-800 flex items-center justify-center flex-shrink-0">
+                                        <div class="w-10 h-10 rounded bg-slate-800 flex items-center justify-center shrink-0">
                                             <span class="material-symbols-outlined text-slate-400 text-lg">category</span>
                                         </div>
                                         <div>
                                             <span class="text-sm font-semibold text-white">@cat.Nombre</span>
                                             @if (!string.IsNullOrEmpty(cat.Descripcion))
                                             {
-                                                <p class="text-[10px] text-slate-400 truncate max-w-[250px]">@cat.Descripcion</p>
+                                                <p class="text-[10px] text-slate-400 truncate max-w-62.5">@cat.Descripcion</p>
                                             }
                                             @if (!cat.Activo)
                                             {
@@ -591,8 +591,8 @@
                 Deslizá la tabla para revisar origen, estado y acciones.
             </div>
             <div data-oc-scroll-shell class="relative">
-                <div data-oc-scroll-fade="left" hidden class="absolute inset-y-0 left-0 z-10 w-6 bg-gradient-to-r from-slate-900 via-slate-900/95 to-transparent"></div>
-                <div data-oc-scroll-fade="right" hidden class="absolute inset-y-0 right-0 z-10 w-6 bg-gradient-to-l from-slate-900 via-slate-900/95 to-transparent"></div>
+                <div data-oc-scroll-fade="left" hidden class="absolute inset-y-0 left-0 z-10 w-6 bg-linear-to-r from-slate-900 via-slate-900/95 to-transparent"></div>
+                <div data-oc-scroll-fade="right" hidden class="absolute inset-y-0 right-0 z-10 w-6 bg-linear-to-l from-slate-900 via-slate-900/95 to-transparent"></div>
                 <div data-oc-scroll-region class="overflow-x-auto scroll-smooth" tabindex="0" role="region" aria-label="Tabla de marcas del catálogo">
             <table class="erp-table text-left" data-oc-scroll-table style="min-width: var(--oc-scroll-min-width);">
                 <thead>
@@ -614,14 +614,14 @@
                                 <td class="px-6 py-4 text-sm font-mono text-slate-400">@marca.Codigo</td>
                                 <td class="px-6 py-4">
                                     <div class="flex items-center gap-3">
-                                        <div class="w-10 h-10 rounded bg-slate-800 flex items-center justify-center flex-shrink-0">
+                                        <div class="w-10 h-10 rounded bg-slate-800 flex items-center justify-center shrink-0">
                                             <span class="material-symbols-outlined text-slate-400 text-lg">branding_watermark</span>
                                         </div>
                                         <div>
                                             <span class="text-sm font-semibold text-white">@marca.Nombre</span>
                                             @if (!string.IsNullOrEmpty(marca.Descripcion))
                                             {
-                                                <p class="text-[10px] text-slate-400 truncate max-w-[250px]">@marca.Descripcion</p>
+                                                <p class="text-[10px] text-slate-400 truncate max-w-62.5">@marca.Descripcion</p>
                                             }
                                             @if (!marca.Activo)
                                             {
@@ -733,7 +733,7 @@
             <div class="flex-1 overflow-y-auto p-6 space-y-8">
 
                 <!-- Validation Summary -->
-                <div id="modal-validation-summary" role="alert" aria-live="assertive" aria-atomic="true" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex gap-3">
+                <div id="modal-validation-summary" role="alert" aria-live="assertive" aria-atomic="true" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 gap-3">
                     <span class="material-symbols-outlined text-red-500">error</span>
                     <div>
                         <h4 class="text-sm font-bold text-red-500">Errores de validación</h4>
@@ -1041,8 +1041,8 @@
                                 Deslizá para ver y editar las columnas.
                             </div>
                             <div data-oc-scroll-shell class="relative overflow-hidden rounded-lg border border-slate-800">
-                                <div data-oc-scroll-fade="left" class="pointer-events-none absolute inset-y-0 left-0 hidden w-8 bg-gradient-to-r from-[#111827] via-[#111827]/95 to-transparent"></div>
-                                <div data-oc-scroll-fade="right" class="pointer-events-none absolute inset-y-0 right-0 hidden w-8 bg-gradient-to-l from-[#111827] via-[#111827]/95 to-transparent"></div>
+                                <div data-oc-scroll-fade="left" class="pointer-events-none absolute inset-y-0 left-0 hidden w-8 bg-linear-to-r from-[#111827] via-[#111827]/95 to-transparent"></div>
+                                <div data-oc-scroll-fade="right" class="pointer-events-none absolute inset-y-0 right-0 hidden w-8 bg-linear-to-l from-[#111827] via-[#111827]/95 to-transparent"></div>
                                 <div data-oc-scroll-region tabindex="0" role="region" aria-label="Tabla de características del producto" class="overflow-x-auto">
                                     <table data-oc-scroll-table class="w-full border-collapse text-left text-sm" style="min-width: var(--oc-scroll-min-width);">
                                         <thead class="bg-slate-800/50">
@@ -1110,7 +1110,7 @@
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer">
                                 <input name="Activo" type="checkbox" value="true" checked class="sr-only peer" />
-                                <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-colors peer-checked:bg-primary"></div>
+                                <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:border-slate-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-colors peer-checked:bg-primary"></div>
                             </label>
                         </div>
                     </div>
@@ -1156,7 +1156,7 @@
             <div class="flex-1 overflow-y-auto p-6 space-y-8">
 
                 <!-- Validation Summary -->
-                <div id="prod-edit-validation-summary" role="alert" aria-live="assertive" aria-atomic="true" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex gap-3">
+                <div id="prod-edit-validation-summary" role="alert" aria-live="assertive" aria-atomic="true" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 gap-3">
                     <span class="material-symbols-outlined text-red-500">error</span>
                     <div>
                         <h4 class="text-sm font-bold text-red-500">Errores de validación</h4>
@@ -1477,7 +1477,7 @@
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer">
                                 <input id="prod-edit-activo" name="Activo" type="checkbox" value="true" class="sr-only peer" />
-                                <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-colors peer-checked:bg-primary"></div>
+                                <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:border-slate-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-colors peer-checked:bg-primary"></div>
                             </label>
                         </div>
                     </div>
@@ -1530,7 +1530,7 @@
             <div class="flex-1 overflow-y-auto p-6 space-y-6 modal-scroll-90-140">
 
                 <!-- Validation Summary -->
-                <div id="cat-modal-validation-summary" role="alert" aria-live="assertive" aria-atomic="true" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex gap-3">
+                <div id="cat-modal-validation-summary" role="alert" aria-live="assertive" aria-atomic="true" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 gap-3">
                     <span class="material-symbols-outlined text-red-500">error</span>
                     <div>
                         <h4 class="text-sm font-bold text-red-500">Errores de validación</h4>
@@ -1540,7 +1540,7 @@
 
                 <!-- Section: Datos de la categoría -->
                 <div class="bg-slate-900/50 rounded-xl border border-slate-800 p-6">
-                    <div class="flex items-center gap-2 mb-6 border-b border-slate-100 border-slate-800 pb-4">
+                    <div class="flex items-center gap-2 mb-6 border-b border-slate-800 pb-4">
                         <span class="material-symbols-outlined text-primary">inventory_2</span>
                         <h3 class="text-white text-xl font-bold">Datos de la categoría</h3>
                     </div>
@@ -1599,7 +1599,7 @@
 
                 <!-- Section: Opciones -->
                 <div class="bg-slate-900/50 rounded-xl border border-slate-800 p-6">
-                    <div class="flex items-center gap-2 mb-6 border-b border-slate-100 border-slate-800 pb-4">
+                    <div class="flex items-center gap-2 mb-6 border-b border-slate-800 pb-4">
                         <span class="material-symbols-outlined text-primary">settings</span>
                         <h3 class="text-white text-xl font-bold">Opciones</h3>
                     </div>
@@ -1611,7 +1611,7 @@
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer">
                                 <input name="ControlSerieDefault" type="checkbox" value="true" class="sr-only peer" />
-                                <div class="w-11 h-6 bg-slate-300 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-colors peer-checked:bg-primary"></div>
+                                <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:inset-s-0.5 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-colors peer-checked:bg-primary"></div>
                             </label>
                         </div>
                         <div class="flex items-start justify-between gap-4">
@@ -1621,7 +1621,7 @@
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer">
                                 <input name="Activo" type="checkbox" value="true" checked class="sr-only peer" />
-                                <div class="w-11 h-6 bg-slate-300 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-colors peer-checked:bg-primary"></div>
+                                <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:inset-s-0.5 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-colors peer-checked:bg-primary"></div>
                             </label>
                         </div>
                     </div>
@@ -1666,7 +1666,7 @@
             <input type="hidden" name="Id" id="cat-edit-id" />
             <input type="hidden" name="RowVersion" id="cat-edit-rowversion" />
             <div class="flex-1 overflow-y-auto p-6 space-y-6 modal-scroll-90-140">
-                <div id="cat-edit-validation-summary" role="alert" aria-live="assertive" aria-atomic="true" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex gap-3">
+                <div id="cat-edit-validation-summary" role="alert" aria-live="assertive" aria-atomic="true" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 gap-3">
                     <span class="material-symbols-outlined text-red-500">error</span>
                     <div>
                         <h4 class="text-sm font-bold text-red-500">Errores de validación</h4>
@@ -1720,7 +1720,7 @@
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer">
                                 <input name="ControlSerieDefault" id="cat-edit-controlSerie" type="checkbox" value="true" class="sr-only peer" />
-                                <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-colors peer-checked:bg-primary"></div>
+                                <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:border-slate-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-colors peer-checked:bg-primary"></div>
                             </label>
                         </div>
                         <div class="flex items-center justify-between p-4 bg-slate-800/30 rounded-lg border border-slate-800 md:col-span-2">
@@ -1730,7 +1730,7 @@
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer">
                                 <input name="Activo" id="cat-edit-activo" type="checkbox" value="true" class="sr-only peer" />
-                                <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-colors peer-checked:bg-primary"></div>
+                                <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:border-slate-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-colors peer-checked:bg-primary"></div>
                             </label>
                         </div>
                     </div>
@@ -1783,7 +1783,7 @@
             <div class="flex-1 overflow-y-auto p-6 space-y-6 modal-scroll-90-140">
 
                 <!-- Validation Summary -->
-                <div id="marca-modal-validation-summary" role="alert" aria-live="assertive" aria-atomic="true" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex gap-3">
+                <div id="marca-modal-validation-summary" role="alert" aria-live="assertive" aria-atomic="true" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 gap-3">
                     <span class="material-symbols-outlined text-red-500">error</span>
                     <div>
                         <h4 class="text-sm font-bold text-red-500">Errores de validación</h4>
@@ -1793,7 +1793,7 @@
 
                 <!-- Section: Datos de la marca -->
                 <div class="bg-slate-900/50 rounded-xl border border-slate-800 p-6">
-                    <div class="flex items-center gap-2 mb-6 border-b border-slate-100 border-slate-800 pb-4">
+                    <div class="flex items-center gap-2 mb-6 border-b border-slate-800 pb-4">
                         <span class="material-symbols-outlined text-primary">branding_watermark</span>
                         <h3 class="text-white text-xl font-bold">Datos de la marca</h3>
                     </div>
@@ -1869,7 +1869,7 @@
             <input type="hidden" name="Id" id="marca-edit-id" />
             <input type="hidden" name="RowVersion" id="marca-edit-rowversion" />
             <div class="flex-1 overflow-y-auto p-6 space-y-6 modal-scroll-90-140">
-                <div id="marca-edit-validation-summary" role="alert" aria-live="assertive" aria-atomic="true" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex gap-3">
+                <div id="marca-edit-validation-summary" role="alert" aria-live="assertive" aria-atomic="true" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 gap-3">
                     <span class="material-symbols-outlined text-red-500">error</span>
                     <div>
                         <h4 class="text-sm font-bold text-red-500">Errores de validación</h4>
@@ -1913,7 +1913,7 @@
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer">
                                 <input name="Activo" id="marca-edit-activo" type="checkbox" value="true" class="sr-only peer" />
-                                <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-colors peer-checked:bg-primary"></div>
+                                <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:border-slate-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-colors peer-checked:bg-primary"></div>
                             </label>
                         </div>
                     </div>
@@ -1960,11 +1960,11 @@
             <input type="hidden" id="comision-modal-productoId" name="productoId" value="" />
 
             <div class="p-6 space-y-4">
-                <div id="comision-modal-validation" role="alert" aria-live="assertive" aria-atomic="true" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex gap-3">
+                <div id="comision-modal-validation" role="alert" aria-live="assertive" aria-atomic="true" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 gap-3">
                     <span class="material-symbols-outlined text-red-500 shrink-0">error</span>
                     <p id="comision-modal-validation-text" class="text-xs text-red-400/80 self-center"></p>
                 </div>
-                <div id="comision-modal-success" aria-live="polite" aria-atomic="true" class="hidden bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-4 flex gap-3">
+                <div id="comision-modal-success" aria-live="polite" aria-atomic="true" class="hidden bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-4 gap-3">
                     <span class="material-symbols-outlined text-emerald-500 shrink-0">check_circle</span>
                     <p id="comision-modal-success-text" class="text-xs text-emerald-400/80 self-center"></p>
                 </div>
@@ -2031,7 +2031,7 @@
                     <p class="mt-1 text-sm text-slate-400">Revisá fecha, usuario, variación y, si corresponde, revertí el ajuste desde el mismo panel.</p>
                     <div class="mt-3 flex flex-wrap items-center gap-2">
                         <span id="historial-producto-nombre" class="text-sm font-medium text-slate-300"></span>
-                        <span id="historial-producto-codigo" class="rounded bg-slate-100 px-2 py-0.5 text-xs font-mono text-slate-500 bg-slate-800 text-slate-400"></span>
+                        <span id="historial-producto-codigo" class="rounded bg-slate-800 px-2 py-0.5 text-xs font-mono text-slate-400"></span>
                         <span id="historial-precio-count" class="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-primary">0 eventos</span>
                     </div>
                 </div>
@@ -2053,8 +2053,8 @@
                     Deslizá para ver todas las columnas del historial.
                 </div>
                 <div data-oc-scroll-shell class="relative overflow-hidden rounded-xl border border-slate-800">
-                    <div data-oc-scroll-fade="left" class="pointer-events-none absolute inset-y-0 left-0 hidden w-8 bg-gradient-to-r from-[#161d2c] via-[#161d2c]/95 to-transparent"></div>
-                    <div data-oc-scroll-fade="right" class="pointer-events-none absolute inset-y-0 right-0 hidden w-8 bg-gradient-to-l from-[#161d2c] via-[#161d2c]/95 to-transparent"></div>
+                    <div data-oc-scroll-fade="left" class="pointer-events-none absolute inset-y-0 left-0 hidden w-8 bg-linear-to-r from-[#161d2c] via-[#161d2c]/95 to-transparent"></div>
+                    <div data-oc-scroll-fade="right" class="pointer-events-none absolute inset-y-0 right-0 hidden w-8 bg-linear-to-l from-[#161d2c] via-[#161d2c]/95 to-transparent"></div>
                     <div data-oc-scroll-region tabindex="0" role="region" aria-label="Historial de cambios de precio" class="overflow-x-auto">
                         <table data-oc-scroll-table class="w-full border-collapse text-left" style="min-width: var(--oc-scroll-min-width);">
                             <thead>
@@ -2140,11 +2140,11 @@
             </div>
             <div id="step-ind-2" class="flex min-w-0 items-center justify-center gap-2">
                 <span class="w-7 h-7 rounded-full bg-slate-700 text-slate-400 text-xs font-bold flex items-center justify-center">2</span>
-                <span class="text-xs font-medium text-slate-400 text-slate-500">Configuración</span>
+                <span class="text-xs font-medium text-slate-500">Configuración</span>
             </div>
             <div id="step-ind-3" class="flex min-w-0 items-center justify-end gap-2">
                 <span class="w-7 h-7 rounded-full bg-slate-700 text-slate-400 text-xs font-bold flex items-center justify-center">3</span>
-                <span class="text-xs font-medium text-slate-400 text-slate-500">Vista previa</span>
+                <span class="text-xs font-medium text-slate-500">Vista previa</span>
             </div>
         </div>
 
@@ -2152,7 +2152,7 @@
         <div class="flex-1 overflow-y-auto p-6 modal-scroll-90-200">
 
             <!-- Validation Summary -->
-            <div id="precio-modal-validation-summary" role="alert" aria-live="assertive" aria-atomic="true" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex gap-3 mb-6">
+            <div id="precio-modal-validation-summary" role="alert" aria-live="assertive" aria-atomic="true" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 gap-3 mb-6">
                 <span class="material-symbols-outlined text-red-500">error</span>
                 <div>
                     <h4 class="text-sm font-bold text-red-500">Error</h4>
@@ -2284,7 +2284,7 @@
             <!-- ════ PASO 2: Configuración ════ -->
             <div id="precio-step-2" class="hidden space-y-6">
                 <div class="bg-slate-900/50 rounded-xl border border-slate-800 p-6 space-y-5">
-                    <div class="flex items-center gap-2 mb-2 border-b border-slate-100 border-slate-800 pb-4">
+                    <div class="flex items-center gap-2 mb-2 border-b border-slate-800 pb-4">
                         <span class="material-symbols-outlined text-primary">tune</span>
                         <h3 class="text-white text-base font-bold">Configuración del ajuste</h3>
                     </div>
@@ -2373,8 +2373,8 @@
                         Deslizá para ver toda la vista previa.
                     </div>
                     <div data-oc-scroll-shell class="relative overflow-hidden rounded-xl border border-slate-800 bg-slate-900/50">
-                        <div data-oc-scroll-fade="left" class="pointer-events-none absolute inset-y-0 left-0 hidden w-8 bg-gradient-to-r from-slate-900 via-slate-900/95 to-transparent"></div>
-                        <div data-oc-scroll-fade="right" class="pointer-events-none absolute inset-y-0 right-0 hidden w-8 bg-gradient-to-l from-slate-900 via-slate-900/95 to-transparent"></div>
+                        <div data-oc-scroll-fade="left" class="pointer-events-none absolute inset-y-0 left-0 hidden w-8 bg-linear-to-r from-slate-900 via-slate-900/95 to-transparent"></div>
+                        <div data-oc-scroll-fade="right" class="pointer-events-none absolute inset-y-0 right-0 hidden w-8 bg-linear-to-l from-slate-900 via-slate-900/95 to-transparent"></div>
                         <div data-oc-scroll-region tabindex="0" role="region" aria-label="Vista previa del ajuste de precios" class="overflow-x-auto">
                             <table data-oc-scroll-table class="w-full text-sm" style="min-width: var(--oc-scroll-min-width);">
                                 <thead>
@@ -2397,7 +2397,7 @@
                 </div>
 
                 <!-- Loading overlay for preview -->
-                <div id="precio-preview-loading" aria-live="polite" aria-atomic="true" class="hidden flex items-center justify-center py-12">
+                <div id="precio-preview-loading" aria-live="polite" aria-atomic="true" class="hidden items-center justify-center py-12">
                     <div class="flex flex-col items-center gap-3">
                         <div class="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin"></div>
                         <span class="text-sm text-slate-400">Calculando precios...</span>
@@ -2437,7 +2437,7 @@
 <!-- ══════════════════════════════════════════════════════════════════ -->
 <!-- Modal: Movimientos de Inventario                                 -->
 <!-- ══════════════════════════════════════════════════════════════════ -->
-<div id="modal-movimientos" role="dialog" aria-modal="true" aria-labelledby="modal-movimientos-title" class="hidden fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-black/50 backdrop-blur-sm p-4 md:p-8">
+<div id="modal-movimientos" role="dialog" aria-modal="true" aria-labelledby="modal-movimientos-title" class="hidden fixed inset-0 z-60 items-start justify-center overflow-y-auto bg-black/50 backdrop-blur-sm p-4 md:p-8">
     <div class="rounded-2xl w-full shadow-2xl border border-slate-800 animate-fade-in" style="background-color:#0f172a;max-width:1280px;">
 
         <!-- Modal Header -->
@@ -2454,7 +2454,7 @@
         </div>
 
         <!-- Banner: contexto de producto (visible solo al abrir desde fila) -->
-        <div id="mov-producto-contexto" class="hidden mx-6 mt-4 flex items-center justify-between gap-4 rounded-xl border border-primary/30 bg-primary/5 px-5 py-3">
+        <div id="mov-producto-contexto" class="hidden mx-6 mt-4 items-center justify-between gap-4 rounded-xl border border-primary/30 bg-primary/5 px-5 py-3">
             <div class="flex items-center gap-3">
                 <span class="material-symbols-outlined text-primary">inventory_2</span>
                 <div>
@@ -2505,7 +2505,7 @@
                 <h3 class="text-white text-lg font-bold mb-4 flex items-center gap-2">
                     <span class="material-symbols-outlined">filter_list</span>
                     Filtros de Búsqueda
-                    <span id="mov-filtros-badge" class="hidden inline-flex items-center rounded-full bg-primary px-2.5 py-0.5 text-xs font-bold text-white"></span>
+                    <span id="mov-filtros-badge" class="hidden items-center rounded-full bg-primary px-2.5 py-0.5 text-xs font-bold text-white"></span>
                 </h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                     <div class="flex flex-col gap-1.5">

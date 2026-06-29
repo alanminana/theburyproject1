@@ -114,7 +114,8 @@ const PrecioModal = (() => {
 
         // Reset preview
         document.getElementById('precio-preview-tbody').innerHTML = '';
-        document.getElementById('precio-preview-loading').classList.add('hidden');
+        var resetLoadingEl = document.getElementById('precio-preview-loading');
+        if (resetLoadingEl) { resetLoadingEl.classList.add('hidden'); resetLoadingEl.classList.remove('flex'); }
 
         var moreEl = document.getElementById('precio-preview-more');
         if (moreEl) moreEl.classList.add('hidden');
@@ -379,6 +380,7 @@ const PrecioModal = (() => {
 
         tbody.innerHTML = '';
         loadingEl.classList.remove('hidden');
+        loadingEl.classList.add('flex');
         if (moreEl) moreEl.classList.add('hidden');
         btnApply().disabled = true;
 
@@ -424,10 +426,12 @@ const PrecioModal = (() => {
             simulationResult = data;
             renderPreview(data);
             loadingEl.classList.add('hidden');
+            loadingEl.classList.remove('flex');
             btnApply().disabled = false;
         })
         .catch(function (err) {
             loadingEl.classList.add('hidden');
+            loadingEl.classList.remove('flex');
             showError(err.message || 'Error al simular el cambio de precios');
         });
     }

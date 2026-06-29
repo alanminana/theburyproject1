@@ -46,8 +46,8 @@
     function hideMessages() {
         var val = el('comision-modal-validation');
         var suc = el('comision-modal-success');
-        if (val) val.classList.add('hidden');
-        if (suc) suc.classList.add('hidden');
+        if (val) { val.classList.add('hidden'); val.classList.remove('flex'); }
+        if (suc) { suc.classList.add('hidden'); suc.classList.remove('flex'); }
     }
 
     function showError(msg) {
@@ -56,6 +56,7 @@
         if (!box || !txt) return;
         txt.textContent = msg;
         box.classList.remove('hidden');
+        box.classList.add('flex');
     }
 
     function showSuccess(msg) {
@@ -64,6 +65,7 @@
         if (!box || !txt) return;
         txt.textContent = msg;
         box.classList.remove('hidden');
+        box.classList.add('flex');
     }
 
     function setBtnLoading(btn, loading) {
