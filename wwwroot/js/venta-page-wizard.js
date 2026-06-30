@@ -104,4 +104,8 @@
         || tabButtons[0]?.getAttribute('data-step');
     setActiveStep(initialStep);
     refreshSummary();
+
+    // API pública para que venta-create.js pueda navegar al paso de un campo con error.
+    window.VentaWizard = window.VentaWizard || {};
+    window.VentaWizard.setActiveStep = setActiveStep;
 })();

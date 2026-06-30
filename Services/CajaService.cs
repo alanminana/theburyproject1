@@ -283,6 +283,26 @@ namespace TheBuryProject.Services
             }
         }
 
+        public async Task<decimal?> ObtenerUltimoEfectivoCierreAsync(int cajaId)
+        {
+            try
+            {
+                return await _context.CierresCaja
+                    .AsNoTracking()
+                    .Where(c => !c.IsDeleted
+                        && c.AperturaCaja.CajaId == cajaId
+                        && !c.AperturaCaja.IsDeleted)
+                    .OrderByDescending(c => c.FechaCierre)
+                    .Select(c => (decimal?)c.EfectivoContado)
+                    .FirstOrDefaultAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al obtener último efectivo de cierre para caja {CajaId}", cajaId);
+                throw;
+            }
+        }
+
         public async Task<AperturaCaja?> ObtenerAperturaActivaAsync(int cajaId)
         {
             try

@@ -1,0 +1,85 @@
+- generic [ref=e168]:
+  - generic [ref=e169]:
+    - generic [ref=e170]:
+      - heading "Nueva caja" [level=3] [ref=e171]
+      - paragraph [ref=e172]: Registre una nueva terminal de caja en el sistema.
+    - button "Cerrar" [ref=e173]:
+      - generic [ref=e174]: close
+  - generic [ref=e175]:
+    - generic [ref=e176]:
+      - generic [ref=e177]:
+        - generic [ref=e178]:
+          - generic [ref=e179]: Código
+          - generic [ref=e180]: —
+        - generic [ref=e181]:
+          - generic [ref=e182]: Nombre
+          - generic [ref=e183]: Sin nombre
+        - generic [ref=e184]:
+          - generic [ref=e185]: Estado inicial
+          - generic [ref=e186]: Activa
+        - generic [ref=e187]:
+          - generic [ref=e188]: Ubicación
+          - generic [ref=e189]: —
+      - generic [ref=e190]:
+        - generic [ref=e191]:
+          - generic [ref=e192]: Código *
+          - generic [ref=e193]:
+            - generic: tag
+            - textbox "Código *" [ref=e194]:
+              - /placeholder: "Ej: C01-HQ"
+              - text: QA-01
+        - generic [ref=e195]:
+          - generic [ref=e196]: Nombre *
+          - generic [ref=e197]:
+            - generic: point_of_sale
+            - textbox "Nombre *" [active] [ref=e198]:
+              - /placeholder: "Ej: Caja Principal 01"
+              - text: Caja QA Administrador
+      - generic [ref=e199]:
+        - generic [ref=e200]:
+          - generic [ref=e201]: Sucursal
+          - generic [ref=e202]:
+            - generic: store
+            - textbox "Sucursal" [ref=e203]:
+              - /placeholder: "Ej: Casa Central"
+        - generic [ref=e204]:
+          - generic [ref=e205]: Ubicación
+          - generic [ref=e206]:
+            - generic: location_on
+            - textbox "Ubicación" [ref=e207]:
+              - /placeholder: "Ej: Planta baja - Zona A"
+      - generic [ref=e208]:
+        - generic [ref=e209]: Descripción
+        - textbox "Descripción" [ref=e210]:
+          - /placeholder: Detalles adicionales sobre esta terminal de caja...
+      - generic [ref=e211]:
+        - generic [ref=e212]:
+          - generic [ref=e213]: Caja activa
+          - generic [ref=e214]: Disponible para apertura y operaciones
+        - generic [ref=e215] [cursor=pointer]:
+          - checkbox [checked]
+      - generic [ref=e216]:
+        - generic [ref=e217]:
+          - generic [ref=e218]: tips_and_updates
+          - heading "Buenas prácticas" [level=3] [ref=e219]
+        - list [ref=e220]:
+          - listitem [ref=e221]:
+            - generic [ref=e222]: tag
+            - text: "Usá un código corto y consistente: CAJA-01, CAJA-02."
+          - listitem [ref=e223]:
+            - generic [ref=e224]: store
+            - text: Asociá la caja a la sucursal donde opera físicamente.
+          - listitem [ref=e225]:
+            - generic [ref=e226]: archive
+            - text: Las cajas con historial se archivan, no se eliminan.
+      - generic [ref=e227]:
+        - generic [ref=e228]: info
+        - generic [ref=e229]:
+          - text: Crear una caja
+          - strong [ref=e230]: no abre un turno
+          - text: . Después podés abrirla desde el listado de cajas.
+    - generic [ref=e231]:
+      - button "Cancelar" [ref=e232] [cursor=pointer]
+      - button "add Crear caja" [ref=e233] [cursor=pointer]:
+        - generic [ref=e234]: add
+        - text: Crear caja

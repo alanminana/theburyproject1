@@ -242,9 +242,28 @@ namespace TheBuryProject.Controllers
                     model.CajaNombre = caja.Nombre;
                     model.CajaCodigo = caja.Codigo;
                 }
+
+                // Fondo inicial por defecto = último efectivo con el que cerró la caja (editable).
+                model.MontoInicial = await _cajaService.ObtenerUltimoEfectivoCierreAsync(cajaId.Value) ?? 0m;
             }
 
             return View("Abrir_tw", model);
+        }
+
+        /// <summary>
+        /// Devuelve el efectivo del último cierre de la caja para prellenar el fondo inicial
+        /// cuando el usuario elige la caja desde el selector.
+        /// </summary>
+        [HttpGet]
+        public async Task<IActionResult> UltimoEfectivoCierre(int cajaId)
+        {
+            if (cajaId <= 0)
+            {
+                return Json(new { monto = 0m });
+            }
+
+            var monto = await _cajaService.ObtenerUltimoEfectivoCierreAsync(cajaId) ?? 0m;
+            return Json(new { monto });
         }
 
         [HttpPost]

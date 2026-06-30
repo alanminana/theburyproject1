@@ -2296,6 +2296,143 @@
 
     // Guard on native form submit: if panel open but user bypasses via top submit button
     const ventaForm = document.getElementById('venta-form');
+
+    // ── Envío AJAX sin recarga (solo página completa de alta: Create_tw) ──
+    // El modal del Index resuelve su propio AJAX (VentaCrearModal) y la edición
+    // rehidrata vía window.ventaInicial, así que ambos conservan el submit nativo.
+    const esVentaCreatePage = !!ventaForm
+        && !ventaForm.closest('#modal-crear-venta')
+        && /\/Venta\/Create\/?$/i.test(ventaForm.getAttribute('action') || '');
+
+    const bannerErrores = $('#banner-errores');
+    const ORDEN_STEPS = ['cliente', 'productos', 'pago', 'revision'];
+
+    function toggleBannerErrores(visible) {
+        if (!bannerErrores) return;
+        // GOTCHA TW v4: `hidden` + `flex` juntos => visible. Togglear ambos.
+        bannerErrores.classList.toggle('hidden', !visible);
+        bannerErrores.classList.toggle('flex', visible);
+    }
+
+    function limpiarCampoError(el) {
+        if (!el) return;
+        el.classList.remove('border-red-500', 'ring-1', 'ring-red-500');
+        delete el.dataset.serverError;
+        const sib = el.nextElementSibling;
+        if (sib && sib.classList.contains('venta-server-field-error')) sib.remove();
+    }
+
+    function limpiarErroresServidor() {
+        toggleBannerErrores(false);
+        const list = $('#banner-errores-list');
+        if (list) list.replaceChildren();
+        ventaForm?.querySelectorAll('[data-server-error]').forEach(limpiarCampoError);
+        ventaForm?.querySelectorAll('.venta-server-field-error').forEach(p => p.remove());
+    }
+
+    // Mapea una clave de ModelState al control visible que debe marcarse.
+    function resolverCampoError(key) {
+        if (!key) return null;                                    // error de nivel modelo
+        if (key === 'ClienteId') return $('#input-buscar-cliente');
+        if (/^Detalles/i.test(key)) return $('#input-buscar-producto');
+        const el = ventaForm?.querySelector(`[name="${key}"]`);
+        if (!el || el.type === 'hidden') return null;             // totales/RowVersion: sin proxy visible
+        return el;
+    }
+
+    function stepDeElemento(el) {
+        const panel = el?.closest('[id^="step-panel-"]');
+        return panel ? panel.id.replace('step-panel-', '') : null;
+    }
+
+    function marcarCampoError(el, mensaje) {
+        if (!el) return;
+        el.classList.add('border-red-500', 'ring-1', 'ring-red-500');
+        el.dataset.serverError = '1';
+        let msgEl = el.nextElementSibling;
+        if (!(msgEl && msgEl.classList.contains('venta-server-field-error'))) {
+            msgEl = document.createElement('p');
+            msgEl.className = 'venta-server-field-error text-[11px] text-red-500 font-bold mt-1';
+            el.insertAdjacentElement('afterend', msgEl);
+        }
+        msgEl.textContent = mensaje;
+        const limpiar = () => limpiarCampoError(el);
+        el.addEventListener('input', limpiar, { once: true });
+        el.addEventListener('change', limpiar, { once: true });
+    }
+
+    // Rellena el banner, marca cada campo y navega al primer paso con error.
+    function renderErroresServidor(errors) {
+        const list = $('#banner-errores-list');
+        if (list) list.replaceChildren();
+
+        let primerStep = null;
+        let primerCampo = null;
+
+        for (const [key, msgs] of Object.entries(errors || {})) {
+            const arr = Array.isArray(msgs) ? msgs : [msgs];
+            arr.forEach(m => {
+                if (list && m) {
+                    const p = document.createElement('p');
+                    p.textContent = m;
+                    list.appendChild(p);
+                }
+            });
+
+            const el = resolverCampoError(key);
+            if (!el) continue;
+            marcarCampoError(el, arr.join(' '));
+
+            const step = stepDeElemento(el);
+            if (step) {
+                const idx = ORDEN_STEPS.indexOf(step);
+                const idxActual = primerStep ? ORDEN_STEPS.indexOf(primerStep) : Infinity;
+                if (idx > -1 && idx < idxActual) { primerStep = step; primerCampo = el; }
+            }
+            if (!primerCampo) primerCampo = el;
+        }
+
+        toggleBannerErrores(true);
+
+        if (primerStep && window.VentaWizard?.setActiveStep) {
+            window.VentaWizard.setActiveStep(primerStep);
+        }
+        (primerCampo || bannerErrores)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function setSubmitDisabled(disabled) {
+        ventaForm?.querySelectorAll('button[type="submit"]').forEach(btn => { btn.disabled = disabled; });
+    }
+
+    async function enviarVentaCreateAjax() {
+        limpiarErroresServidor();
+        setSubmitDisabled(true);
+
+        const params = new URLSearchParams();
+        for (const [k, v] of new FormData(ventaForm).entries()) params.append(k, v);
+
+        try {
+            const res = await fetch('/Venta/CreateAjax', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: params.toString()
+            });
+            const data = await res.json();
+            if (data.success && data.requiresRedirect) {
+                window.location.href = data.redirectUrl;
+                return;
+            }
+            renderErroresServidor(data.errors || { '': [data.message || 'No se pudo registrar la operación.'] });
+        } catch {
+            renderErroresServidor({ '': ['Error de conexión. Intentá nuevamente.'] });
+        } finally {
+            setSubmitDisabled(false);
+        }
+    }
+
+    // Botón "Cerrar" del banner de errores (antes era un no-op).
+    $('#btn-cerrar-banner-errores')?.addEventListener('click', limpiarErroresServidor);
+
     if (ventaForm) {
         ventaForm.addEventListener('submit', async function (e) {
             const trazableSinUnidad = detalles.find(d => d.requiereNumeroSerie && !d.productoUnidadId);
@@ -2352,26 +2489,35 @@
 
             const panelActivo = $('#panel-excepcion-activa');
             const panelVisible = panelActivo && !panelActivo.classList.contains('hidden');
-            if (!panelVisible) return;
 
-            // Panel open but hdn not yet set (user didn't click "Aplicar y continuar")
-            const hdnExcepcion = $('#hdn-aplicar-excepcion');
-            if (!hdnExcepcion || hdnExcepcion.value !== 'true') {
-                e.preventDefault();
-                const txtMotivo = $('#txt-excepcion-documental');
-                const motivo = txtMotivo ? txtMotivo.value.trim() : '';
-                if (!motivo) {
-                    txtMotivo?.classList.add('border-red-500');
-                    let errEl = document.getElementById('excepcion-motivo-error');
-                    if (!errEl) {
-                        errEl = document.createElement('p');
-                        errEl.id = 'excepcion-motivo-error';
-                        errEl.className = 'text-[11px] text-red-500 font-bold mt-1';
-                        errEl.textContent = 'Usá el botón "Aplicar y continuar" para confirmar la excepción.';
-                        txtMotivo?.insertAdjacentElement('afterend', errEl);
+            // Panel de excepción abierto sin confirmar: bloquear y pedir el motivo.
+            if (panelVisible) {
+                const hdnExcepcion = $('#hdn-aplicar-excepcion');
+                if (!hdnExcepcion || hdnExcepcion.value !== 'true') {
+                    e.preventDefault();
+                    const txtMotivo = $('#txt-excepcion-documental');
+                    const motivo = txtMotivo ? txtMotivo.value.trim() : '';
+                    if (!motivo) {
+                        txtMotivo?.classList.add('border-red-500');
+                        let errEl = document.getElementById('excepcion-motivo-error');
+                        if (!errEl) {
+                            errEl = document.createElement('p');
+                            errEl.id = 'excepcion-motivo-error';
+                            errEl.className = 'text-[11px] text-red-500 font-bold mt-1';
+                            errEl.textContent = 'Usá el botón "Aplicar y continuar" para confirmar la excepción.';
+                            txtMotivo?.insertAdjacentElement('afterend', errEl);
+                        }
+                        txtMotivo?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     }
-                    txtMotivo?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    return;
                 }
+            }
+
+            // Todas las guardas pasaron → en la página de alta enviamos por AJAX
+            // (sin recarga, marcando los campos). Modal/Edit usan submit nativo.
+            if (esVentaCreatePage) {
+                e.preventDefault();
+                enviarVentaCreateAjax();
             }
         });
     }

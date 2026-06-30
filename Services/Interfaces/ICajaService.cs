@@ -23,6 +23,13 @@ namespace TheBuryProject.Services.Interfaces
         #region Apertura de Caja
 
         Task<AperturaCaja> AbrirCajaAsync(AbrirCajaViewModel model, string usuario);
+
+        /// <summary>
+        /// Efectivo contado en el cierre más reciente de la caja, o null si nunca cerró.
+        /// Se usa como fondo inicial por defecto al abrir (editable por el usuario).
+        /// </summary>
+        Task<decimal?> ObtenerUltimoEfectivoCierreAsync(int cajaId);
+
         Task<AperturaCaja?> ObtenerAperturaActivaAsync(int cajaId);
         Task<AperturaCaja?> ObtenerAperturaPorIdAsync(int id);
         Task<List<AperturaCaja>> ObtenerAperturasAbiertasAsync();

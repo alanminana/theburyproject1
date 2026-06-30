@@ -31,3 +31,7 @@
 *.zip       binary
 *.dll       binary
 *.exe       binary
+
+# Artefactos grandes versionados mediante Git LFS.
+codebase-memory-mcp-ui-windows-amd64.zip filter=lfs diff=lfs merge=lfs -text
+codebase-memory-mcp-ui/codebase-memory-mcp.exe filter=lfs diff=lfs merge=lfs -text

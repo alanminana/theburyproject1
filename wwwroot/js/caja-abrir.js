@@ -29,7 +29,36 @@ document.addEventListener('DOMContentLoaded', () => {
         fondoLabel.textContent = TheBury.formatCurrency(Number.isFinite(value) ? value : 0);
     }
 
-    selectCaja?.addEventListener('change', updateCajaPreview);
+    const ultimoCierreUrl = selectCaja?.dataset.cajaUltimoCierreUrl;
+
+    async function aplicarUltimoCierreComoFondo() {
+        if (!selectCaja || !montoInput || !ultimoCierreUrl || !selectCaja.value) {
+            return;
+        }
+
+        try {
+            const resp = await fetch(`${ultimoCierreUrl}?cajaId=${encodeURIComponent(selectCaja.value)}`, {
+                headers: { 'Accept': 'application/json' }
+            });
+            if (!resp.ok) {
+                return;
+            }
+
+            const data = await resp.json();
+            const monto = Number(data?.monto);
+            if (Number.isFinite(monto)) {
+                montoInput.value = monto;
+                montoInput.dispatchEvent(new Event('input'));
+            }
+        } catch {
+            // Si falla la consulta, el usuario carga el fondo manualmente.
+        }
+    }
+
+    selectCaja?.addEventListener('change', () => {
+        updateCajaPreview();
+        aplicarUltimoCierreComoFondo();
+    });
     montoInput?.addEventListener('input', updateMontoPreview);
 
     updateCajaPreview();
