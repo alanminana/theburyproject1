@@ -32,6 +32,10 @@ public class ClienteAptitudServiceTests
         return (ctx, conn);
     }
 
+    // BCRA/Veraz obligatorio (FASE 4B): por default el cliente ya tiene consulta BCRA
+    // válida y normal, para no interferir con tests que evalúan otras dimensiones
+    // de aptitud (documentación, cupo, mora). Los tests de la sección BCRA sobrescriben
+    // estos campos según el escenario que quieren cubrir.
     private static Cliente BaseCliente(int id) => new()
     {
         Id = id,
@@ -41,7 +45,11 @@ public class ClienteAptitudServiceTests
         NumeroDocumento = $"1000000{id}",
         NivelRiesgo = NivelRiesgoCredito.AprobadoTotal,
         IsDeleted = false,
-        RowVersion = new byte[8]
+        RowVersion = new byte[8],
+        CuilCuit = "20123456786",
+        SituacionCrediticiaBcra = 1,
+        SituacionCrediticiaConsultaOk = true,
+        SituacionCrediticiaUltimaConsultaUtc = DateTime.UtcNow.AddDays(-1)
     };
 
     /// <summary>
@@ -354,15 +362,64 @@ public class ClienteAptitudServiceTests
     }
 
     // -----------------------------------------------------------------------
-    // D2. BCRA → aptitud (clasificador puro ConstruirBcraDetalle, sin DB)
+    // D2. BCRA/Veraz → aptitud (clasificador puro ConstruirBcraDetalle, sin DB)
+    // BCRA/Veraz es obligatorio: sin CUIL/CUIT o sin consulta => bloqueante.
     // -----------------------------------------------------------------------
+
+    private const string CuilValido = "20123456786";
+    private static readonly DateTime ConsultaReciente = DateTime.UtcNow.AddDays(-1);
+
+    [Fact]
+    public void ConstruirBcraDetalle_SinCuil_EsBloqueante()
+    {
+        var d = ClienteAptitudService.ConstruirBcraDetalle(
+            cuilCuit: null, situacion: null, consultaOk: null, descripcion: null, ultimaConsultaUtc: null);
+
+        Assert.True(d.Evaluada);
+        Assert.True(d.EsBloqueante);
+        Assert.False(d.RequiereAutorizacion);
+    }
+
+    [Fact]
+    public void ConstruirBcraDetalle_NuncaConsultado_EsBloqueante()
+    {
+        var d = ClienteAptitudService.ConstruirBcraDetalle(
+            cuilCuit: CuilValido, situacion: null, consultaOk: null, descripcion: null, ultimaConsultaUtc: null);
+
+        Assert.True(d.Evaluada);
+        Assert.True(d.EsBloqueante);
+        Assert.False(d.RequiereAutorizacion);
+    }
+
+    [Fact]
+    public void ConstruirBcraDetalle_ConsultaFallidaConIntento_RequiereAutorizacion()
+    {
+        var d = ClienteAptitudService.ConstruirBcraDetalle(
+            cuilCuit: CuilValido, situacion: 5, consultaOk: false, descripcion: null, ultimaConsultaUtc: ConsultaReciente);
+
+        Assert.True(d.Evaluada);
+        Assert.False(d.EsBloqueante);
+        Assert.True(d.RequiereAutorizacion);
+    }
+
+    [Fact]
+    public void ConstruirBcraDetalle_ConsultaOkSinSituacion_RequiereAutorizacion()
+    {
+        var d = ClienteAptitudService.ConstruirBcraDetalle(
+            cuilCuit: CuilValido, situacion: null, consultaOk: true, descripcion: null, ultimaConsultaUtc: ConsultaReciente);
+
+        Assert.True(d.Evaluada);
+        Assert.False(d.EsBloqueante);
+        Assert.True(d.RequiereAutorizacion);
+    }
 
     [Theory]
     [InlineData(0)]
     [InlineData(1)]
     public void ConstruirBcraDetalle_SituacionNormal_NoBloqueaNiRequiere(int situacion)
     {
-        var d = ClienteAptitudService.ConstruirBcraDetalle(situacion, consultaOk: true, descripcion: "Normal");
+        var d = ClienteAptitudService.ConstruirBcraDetalle(
+            cuilCuit: CuilValido, situacion: situacion, consultaOk: true, descripcion: "Normal", ultimaConsultaUtc: ConsultaReciente);
 
         Assert.True(d.Evaluada);
         Assert.False(d.EsBloqueante);
@@ -370,9 +427,21 @@ public class ClienteAptitudServiceTests
     }
 
     [Fact]
-    public void ConstruirBcraDetalle_Situacion2_RequiereAutorizacion()
+    public void ConstruirBcraDetalle_SituacionUno_Normal()
     {
-        var d = ClienteAptitudService.ConstruirBcraDetalle(2, consultaOk: true, descripcion: null);
+        var d = ClienteAptitudService.ConstruirBcraDetalle(
+            cuilCuit: CuilValido, situacion: 1, consultaOk: true, descripcion: null, ultimaConsultaUtc: ConsultaReciente);
+
+        Assert.True(d.Evaluada);
+        Assert.False(d.EsBloqueante);
+        Assert.False(d.RequiereAutorizacion);
+    }
+
+    [Fact]
+    public void ConstruirBcraDetalle_SituacionDos_RequiereAutorizacion()
+    {
+        var d = ClienteAptitudService.ConstruirBcraDetalle(
+            cuilCuit: CuilValido, situacion: 2, consultaOk: true, descripcion: null, ultimaConsultaUtc: ConsultaReciente);
 
         Assert.True(d.Evaluada);
         Assert.True(d.RequiereAutorizacion);
@@ -385,7 +454,8 @@ public class ClienteAptitudServiceTests
     [InlineData(5)]
     public void ConstruirBcraDetalle_SituacionAltoRiesgo_EsBloqueante(int situacion)
     {
-        var d = ClienteAptitudService.ConstruirBcraDetalle(situacion, consultaOk: true, descripcion: null);
+        var d = ClienteAptitudService.ConstruirBcraDetalle(
+            cuilCuit: CuilValido, situacion: situacion, consultaOk: true, descripcion: null, ultimaConsultaUtc: ConsultaReciente);
 
         Assert.True(d.Evaluada);
         Assert.True(d.EsBloqueante);
@@ -393,27 +463,18 @@ public class ClienteAptitudServiceTests
     }
 
     [Fact]
-    public void ConstruirBcraDetalle_SinSituacion_NoEvaluada()
+    public void ConstruirBcraDetalle_SituacionTres_EsBloqueante()
     {
-        var d = ClienteAptitudService.ConstruirBcraDetalle(situacion: null, consultaOk: true, descripcion: null);
+        var d = ClienteAptitudService.ConstruirBcraDetalle(
+            cuilCuit: CuilValido, situacion: 3, consultaOk: true, descripcion: null, ultimaConsultaUtc: ConsultaReciente);
 
-        Assert.False(d.Evaluada);
-        Assert.False(d.EsBloqueante);
+        Assert.True(d.Evaluada);
+        Assert.True(d.EsBloqueante);
         Assert.False(d.RequiereAutorizacion);
     }
 
-    [Fact]
-    public void ConstruirBcraDetalle_ConsultaFallida_NoEvaluadaAunqueSituacionAlta()
-    {
-        // Consulta no confiable => no bloquear aunque el cache tenga situación alta.
-        var d = ClienteAptitudService.ConstruirBcraDetalle(5, consultaOk: false, descripcion: null);
-
-        Assert.False(d.Evaluada);
-        Assert.False(d.EsBloqueante);
-    }
-
     // -----------------------------------------------------------------------
-    // D3. BCRA → aptitud (integración con EvaluarAptitudSinGuardarAsync)
+    // D3. BCRA/Veraz → aptitud (integración con EvaluarAptitudSinGuardarAsync)
     // -----------------------------------------------------------------------
 
     [Fact]
@@ -485,23 +546,73 @@ public class ClienteAptitudServiceTests
     }
 
     [Fact]
-    public async Task Aptitud_BcraSituacionAltaPeroConsultaFallida_NoBloquea()
+    public async Task Aptitud_BcraConsultaFallidaConIntento_RequiereAutorizacion()
     {
+        // Antes: consulta fallida => no evaluada (Apto). Ahora: consulta intentada
+        // pero fallida => requiere autorización (no bloquea duro, pero tampoco es Apto).
         var (ctx, conn) = CreateContext();
         await using (ctx) using (conn)
         {
             ctx.Set<ConfiguracionCredito>().Add(ConfigSinValidaciones());
             var cliente = BaseCliente(1);
             cliente.SituacionCrediticiaBcra = 4;
-            cliente.SituacionCrediticiaConsultaOk = false; // no confiable
+            cliente.SituacionCrediticiaConsultaOk = false; // no confiable, pero hubo intento (ultimaConsultaUtc del BaseCliente)
             ctx.Clientes.Add(cliente);
             await ctx.SaveChangesAsync();
 
             var service = BuildService(ctx);
             var resultado = await service.EvaluarAptitudSinGuardarAsync(1);
 
-            Assert.Equal(EstadoCrediticioCliente.Apto, resultado.Estado);
-            Assert.Empty(resultado.Detalles);
+            Assert.Equal(EstadoCrediticioCliente.RequiereAutorizacion, resultado.Estado);
+            Assert.Single(resultado.Detalles);
+            Assert.Equal("BCRA", resultado.Detalles[0].Categoria);
+            Assert.False(resultado.Detalles[0].EsBloqueo);
+        }
+    }
+
+    [Fact]
+    public async Task Aptitud_BcraNuncaConsultado_EstadoNoApto()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            ctx.Set<ConfiguracionCredito>().Add(ConfigSinValidaciones());
+            var cliente = BaseCliente(1);
+            cliente.SituacionCrediticiaBcra = null;
+            cliente.SituacionCrediticiaConsultaOk = null;
+            cliente.SituacionCrediticiaUltimaConsultaUtc = null;
+            ctx.Clientes.Add(cliente);
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            var resultado = await service.EvaluarAptitudSinGuardarAsync(1);
+
+            Assert.Equal(EstadoCrediticioCliente.NoApto, resultado.Estado);
+            Assert.Single(resultado.Detalles);
+            Assert.Equal("BCRA", resultado.Detalles[0].Categoria);
+            Assert.True(resultado.Detalles[0].EsBloqueo);
+        }
+    }
+
+    [Fact]
+    public async Task Aptitud_SinCuil_EstadoNoApto()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            ctx.Set<ConfiguracionCredito>().Add(ConfigSinValidaciones());
+            var cliente = BaseCliente(1);
+            cliente.CuilCuit = null;
+            ctx.Clientes.Add(cliente);
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            var resultado = await service.EvaluarAptitudSinGuardarAsync(1);
+
+            Assert.Equal(EstadoCrediticioCliente.NoApto, resultado.Estado);
+            Assert.Single(resultado.Detalles);
+            Assert.Equal("BCRA", resultado.Detalles[0].Categoria);
+            Assert.True(resultado.Detalles[0].EsBloqueo);
         }
     }
 

@@ -192,20 +192,20 @@ namespace TheBuryProject.Services
                 }
             }
 
-            // Evaluar BCRA (Central de Deudores). Bloqueo duro independiente de los flags de config:
-            // sólo actúa cuando hay consulta válida con situación informada (sin dato => no bloquea).
+            // Evaluar BCRA/Veraz (Central de Deudores). Bloqueo duro independiente de los flags de config:
+            // la consulta BCRA/Veraz es obligatoria (sin CUIL/CUIT o sin consulta => no apto).
             if (resultado.Bcra.Evaluada)
             {
                 if (resultado.Bcra.EsBloqueante)
                 {
                     esNoApto = true;
-                    RegistrarHallazgo(detalles, motivos, $"BCRA situación {resultado.Bcra.Situacion}: riesgo alto", "BCRA", $"Situación BCRA {resultado.Bcra.Situacion} (riesgo alto / irrecuperable)", true, "bi-bank", "danger");
+                    RegistrarHallazgo(detalles, motivos, resultado.Bcra.Mensaje, "BCRA", resultado.Bcra.Mensaje, true, "bi-bank", "danger");
                 }
                 else if (resultado.Bcra.RequiereAutorizacion)
                 {
                     requiereAutorizacion = true;
-                    motivos.Add($"BCRA situación {resultado.Bcra.Situacion}: requiere revisión");
-                    detalles.Add(CrearDetalle("BCRA", $"Situación BCRA {resultado.Bcra.Situacion} - Requiere revisión de supervisor", false, "bi-bank", "warning"));
+                    motivos.Add(resultado.Bcra.Mensaje);
+                    detalles.Add(CrearDetalle("BCRA", resultado.Bcra.Mensaje, false, "bi-bank", "warning"));
                 }
             }
 
@@ -459,17 +459,25 @@ namespace TheBuryProject.Services
                 .FirstOrDefaultAsync(c => c.Id == clienteId && !c.IsDeleted);
 
             return ConstruirBcraDetalle(
+                cliente?.CuilCuit,
                 cliente?.SituacionCrediticiaBcra,
                 cliente?.SituacionCrediticiaConsultaOk,
-                cliente?.SituacionCrediticiaDescripcion);
+                cliente?.SituacionCrediticiaDescripcion,
+                cliente?.SituacionCrediticiaUltimaConsultaUtc);
         }
 
         /// <summary>
-        /// Clasifica la situación BCRA en aptitud. Lógica pura (sin DB) para test directo.
-        /// Sin consulta válida o sin situación informada => Evaluada=false (no bloquea).
+        /// Clasifica la situación BCRA/Veraz en aptitud. Lógica pura (sin DB) para test directo.
+        /// La consulta BCRA/Veraz es obligatoria: sin CUIL/CUIT o sin consulta registrada => bloqueante (NoApto).
+        /// Consulta intentada pero fallida, o exitosa sin situación informada => requiere autorización.
         /// Situación 0/1 normal; 2 requiere revisión; >= 3 no apto.
         /// </summary>
-        internal static AptitudBcraDetalle ConstruirBcraDetalle(int? situacion, bool? consultaOk, string? descripcion)
+        internal static AptitudBcraDetalle ConstruirBcraDetalle(
+            string? cuilCuit,
+            int? situacion,
+            bool? consultaOk,
+            string? descripcion,
+            DateTime? ultimaConsultaUtc)
         {
             var detalle = new AptitudBcraDetalle
             {
@@ -478,10 +486,35 @@ namespace TheBuryProject.Services
                 Descripcion = descripcion
             };
 
-            if (consultaOk != true || !situacion.HasValue)
+            if (string.IsNullOrWhiteSpace(cuilCuit))
             {
-                detalle.Evaluada = false;
-                detalle.Mensaje = "BCRA sin consultar o sin CUIL/CUIT disponible";
+                detalle.Evaluada = true;
+                detalle.EsBloqueante = true;
+                detalle.Mensaje = "Falta CUIL/CUIT para consultar BCRA/Veraz";
+                return detalle;
+            }
+
+            if (!ultimaConsultaUtc.HasValue)
+            {
+                detalle.Evaluada = true;
+                detalle.EsBloqueante = true;
+                detalle.Mensaje = "Falta consulta BCRA/Veraz obligatoria";
+                return detalle;
+            }
+
+            if (consultaOk != true)
+            {
+                detalle.Evaluada = true;
+                detalle.RequiereAutorizacion = true;
+                detalle.Mensaje = "No se pudo validar BCRA/Veraz";
+                return detalle;
+            }
+
+            if (!situacion.HasValue)
+            {
+                detalle.Evaluada = true;
+                detalle.RequiereAutorizacion = true;
+                detalle.Mensaje = "Consulta BCRA/Veraz incompleta";
                 return detalle;
             }
 
