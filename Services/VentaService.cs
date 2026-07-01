@@ -1559,6 +1559,19 @@ namespace TheBuryProject.Services
                     cuotasExistentes.Count, venta.Id);
             }
 
+            // Cancelar el crédito asociado para liberar cupo (evita "créditos fantasma" vigentes)
+            if (venta.CreditoId.HasValue)
+            {
+                var credito = venta.Credito ?? await _context.Creditos
+                    .Include(c => c.Cuotas.Where(cu => !cu.IsDeleted))
+                    .FirstOrDefaultAsync(c => c.Id == venta.CreditoId.Value && !c.IsDeleted);
+
+                if (credito != null)
+                {
+                    CancelarCreditoAsociadoAVenta(credito, $"Cancelado por baja de venta {venta.Numero}");
+                }
+            }
+
             // Limpiar asociación con crédito
             venta.CreditoId = null;
 
@@ -3255,10 +3268,11 @@ namespace TheBuryProject.Services
 
         private async Task RestaurarCreditoPersonall(Venta venta)
         {
-            if (!venta.CreditoId.HasValue || !venta.VentaCreditoCuotas.Any())
+            if (!venta.CreditoId.HasValue)
                 return;
 
-            var credito = venta.Credito ?? await _context.Creditos
+            var credito = await _context.Creditos
+                .Include(c => c.Cuotas.Where(cu => !cu.IsDeleted))
                 .FirstOrDefaultAsync(c => c.Id == venta.CreditoId!.Value &&
                                           !c.IsDeleted &&
                                           c.Cliente != null &&
@@ -3266,15 +3280,38 @@ namespace TheBuryProject.Services
             if (credito == null)
                 return;
 
-            var montoFinanciado = venta.VentaCreditoCuotas.First().Saldo;
-            credito.SaldoPendiente += montoFinanciado;
-            _context.Creditos.Update(credito);
+            if (venta.VentaCreditoCuotas.Any())
+            {
+                _context.VentaCreditoCuotas.RemoveRange(venta.VentaCreditoCuotas);
+            }
 
-            _context.VentaCreditoCuotas.RemoveRange(venta.VentaCreditoCuotas);
+            CancelarCreditoAsociadoAVenta(credito, $"Cancelado por baja de venta {venta.Numero}");
 
             _logger.LogInformation(
-                "Crédito {CreditoId} restaurado por cancelación de venta {VentaId}. Monto: ${Monto}",
-                credito.Id, venta.Id, montoFinanciado);
+                "Crédito {CreditoId} cancelado por cancelación de venta {VentaId}.",
+                credito.Id, venta.Id);
+        }
+
+        /// <summary>
+        /// Cancela por completo el crédito asociado a una venta dada de baja (cancelada o rechazada),
+        /// dejándolo fuera de EstadosVigentes para que libere cupo (CreditoDisponibleService).
+        /// </summary>
+        private static void CancelarCreditoAsociadoAVenta(Credito credito, string motivo)
+        {
+            if (credito.Estado == EstadoCredito.Cancelado)
+                return;
+
+            credito.Estado = EstadoCredito.Cancelado;
+            credito.FechaFinalizacion = DateTime.UtcNow;
+            credito.SaldoPendiente = 0m;
+            credito.Observaciones = string.IsNullOrWhiteSpace(credito.Observaciones)
+                ? motivo
+                : $"{credito.Observaciones}\n{motivo}";
+
+            foreach (var cuota in credito.Cuotas.Where(c => c.Estado != EstadoCuota.Pagada && c.Estado != EstadoCuota.Cancelada))
+            {
+                cuota.Estado = EstadoCuota.Cancelada;
+            }
         }
 
         private async Task GenerarAlertasStockBajo(Venta venta)
