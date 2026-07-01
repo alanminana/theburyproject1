@@ -6,6 +6,7 @@ using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services;
 using TheBuryProject.Services.Interfaces;
+using TheBuryProject.Services.Models;
 using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Tests.Integration;
@@ -26,6 +27,7 @@ public class ValidacionVentaServiceTests : IDisposable
     private readonly SqliteConnection _connection;
     private readonly AppDbContext _context;
     private readonly StubClienteAptitudService _stubAptitud;
+    private readonly FakeSituacionCrediticiaBcraService _fakeBcra;
     private readonly ValidacionVentaService _service;
 
     public ValidacionVentaServiceTests()
@@ -41,8 +43,9 @@ public class ValidacionVentaServiceTests : IDisposable
         _context.Database.EnsureCreated();
 
         _stubAptitud = new StubClienteAptitudService();
+        _fakeBcra = new FakeSituacionCrediticiaBcraService();
         _service = new ValidacionVentaService(
-            _context, _stubAptitud, NullLogger<ValidacionVentaService>.Instance);
+            _context, _stubAptitud, _fakeBcra, NullLogger<ValidacionVentaService>.Instance);
     }
 
     public void Dispose()
@@ -503,6 +506,109 @@ public class ValidacionVentaServiceTests : IDisposable
         Assert.NotNull(resultado);
         Assert.NotNull(resultado.MensajeAdvertencia);
     }
+
+    // =========================================================================
+    // FASE 4C-B — Refresco de BCRA antes de evaluar aptitud crediticia
+    // =========================================================================
+
+    [Fact]
+    public async Task EvaluarCreditoUnificado_RefrescaBcraAntesDeEvaluarAptitud()
+    {
+        var callOrder = new List<string>();
+        _fakeBcra.OnConsultar = _ => callOrder.Add("Bcra");
+        _stubAptitud.OnEvaluar = () => callOrder.Add("Aptitud");
+        _stubAptitud.ResultadoAptitud = AptitudApto();
+        _stubAptitud.CupoDisponible = 10000m;
+
+        await _service.ValidarVentaCreditoPersonalAsync(1, montoVenta: 100m);
+
+        Assert.Equal(new[] { "Bcra", "Aptitud" }, callOrder);
+    }
+
+    [Fact]
+    public async Task ValidarVentaCreditoPersonal_ClienteNuncaConsultado_RefrescaBcraYUsaDatoFresco()
+    {
+        // Cliente con CUIL válido pero sin consulta previa: el refresco debe dispararse
+        // antes de evaluar y, con dato fresco de situación 1 (normal), la venta queda viable.
+        var cliente = await SeedClienteAsync();
+        cliente.CuilCuit = "20123456789";
+        await _context.SaveChangesAsync();
+
+        _fakeBcra.OnConsultar = id =>
+        {
+            var c = _context.Clientes.Find(id);
+            c!.SituacionCrediticiaBcra = 1;
+            c.SituacionCrediticiaConsultaOk = true;
+            c.SituacionCrediticiaUltimaConsultaUtc = DateTime.UtcNow;
+        };
+        _stubAptitud.ResultadoAptitud = AptitudApto(cupoDisponible: 10000m);
+        _stubAptitud.CupoDisponible = 10000m;
+
+        var result = await _service.ValidarVentaCreditoPersonalAsync(cliente.Id, montoVenta: 500m);
+
+        Assert.Equal(1, _fakeBcra.CallCount);
+        Assert.Contains(cliente.Id, _fakeBcra.ClienteIdsConsultados);
+        Assert.True(result.PuedeProceeder);
+    }
+
+    [Fact]
+    public async Task ValidarVentaCreditoPersonal_BcraFallaConIntento_RequiereAutorizacion()
+    {
+        // BCRA falla técnicamente (timeout/API) pero SituacionCrediticiaBcraService ya
+        // persiste el intento fallido sin relanzar. FASE 4B mapea eso a RequiereAutorizacion,
+        // nunca a una excepción que rompa la venta.
+        var cliente = await SeedClienteAsync();
+
+        _fakeBcra.OnConsultar = id =>
+        {
+            var c = _context.Clientes.Find(id);
+            c!.SituacionCrediticiaConsultaOk = false;
+            c.SituacionCrediticiaDescripcion = "Timeout al consultar BCRA";
+            c.SituacionCrediticiaUltimaConsultaUtc = DateTime.UtcNow;
+        };
+        _stubAptitud.ResultadoAptitud = AptitudRequiereAutorizacion();
+        _stubAptitud.CupoDisponible = 10000m;
+
+        var result = await _service.ValidarVentaCreditoPersonalAsync(cliente.Id, montoVenta: 100m);
+
+        Assert.Equal(1, _fakeBcra.CallCount);
+        Assert.True(result.RequiereAutorizacion);
+        Assert.False(result.NoViable);
+    }
+
+    [Fact]
+    public async Task ValidarVentaCreditoPersonal_ClienteSinCuil_NoApto()
+    {
+        // Cliente sin CUIL/CUIT: el refresco se intenta igual (idempotente, el servicio
+        // BCRA no llama a la API sin CUIL válido) y la aptitud queda NoApto por FASE 4B,
+        // sin recurrir a ForzarActualizacionAsync.
+        var cliente = await SeedClienteAsync();
+        _stubAptitud.ResultadoAptitud = AptitudNoApto();
+
+        var result = await _service.ValidarVentaCreditoPersonalAsync(cliente.Id, montoVenta: 100m);
+
+        Assert.Equal(1, _fakeBcra.CallCount);
+        Assert.Equal(0, _fakeBcra.ForzarCallCount);
+        Assert.True(result.NoViable);
+    }
+
+    [Fact]
+    public async Task CacheVigente_NoReconsultaApiExterna()
+    {
+        // La lógica de caché de 7 días vive en SituacionCrediticiaBcraService y ya está
+        // cubierta por SituacionCrediticiaBcraServiceTests.ConsultarYActualizar_CacheVigente_NoLlamaHttp.
+        // Acá se verifica que ValidacionVentaService delega el refresco una única vez por
+        // evaluación (ConsultarYActualizarAsync, nunca ForzarActualizacionAsync), dejando que
+        // sea el servicio BCRA quien decida si reconsulta o sirve del caché.
+        var cliente = await SeedClienteAsync();
+        _stubAptitud.ResultadoAptitud = AptitudApto();
+        _stubAptitud.CupoDisponible = 10000m;
+
+        await _service.ValidarVentaCreditoPersonalAsync(cliente.Id, montoVenta: 100m);
+
+        Assert.Equal(1, _fakeBcra.CallCount);
+        Assert.Equal(0, _fakeBcra.ForzarCallCount);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -519,8 +625,12 @@ internal sealed class StubClienteAptitudService : IClienteAptitudService
     public decimal CupoDisponible { get; set; } = 10000m;
     public bool LanzarExcepcion { get; set; } = false;
 
+    /// <summary>Hook para verificar orden de llamadas (FASE 4C-B: BCRA antes de aptitud).</summary>
+    public Action? OnEvaluar { get; set; }
+
     public Task<AptitudCrediticiaViewModel> EvaluarAptitudSinGuardarAsync(int clienteId)
     {
+        OnEvaluar?.Invoke();
         if (LanzarExcepcion) throw new InvalidOperationException("Error simulado");
         return Task.FromResult(ResultadoAptitud);
     }
@@ -573,4 +683,35 @@ internal sealed class StubClienteAptitudService : IClienteAptitudService
 
     public Task UpdateSemaforoFinancieroAsync(SemaforoFinancieroViewModel model)
         => Task.CompletedTask;
+}
+
+// ---------------------------------------------------------------------------
+// Fake configurable de ISituacionCrediticiaBcraService (FASE 4C-B)
+// ---------------------------------------------------------------------------
+
+internal sealed class FakeSituacionCrediticiaBcraService : ISituacionCrediticiaBcraService
+{
+    public int CallCount { get; private set; }
+    public int ForzarCallCount { get; private set; }
+    public List<int> ClienteIdsConsultados { get; } = new();
+
+    /// <summary>Hook ejecutado dentro de ConsultarYActualizarAsync, antes de devolver.</summary>
+    public Action<int>? OnConsultar { get; set; }
+
+    public Task ConsultarYActualizarAsync(int clienteId, int cacheDias = 7)
+    {
+        CallCount++;
+        ClienteIdsConsultados.Add(clienteId);
+        OnConsultar?.Invoke(clienteId);
+        return Task.CompletedTask;
+    }
+
+    public Task ForzarActualizacionAsync(int clienteId)
+    {
+        ForzarCallCount++;
+        return Task.CompletedTask;
+    }
+
+    public Task<SituacionBcraResult?> ConsultarYObtenerAsync(int clienteId, int cacheDias = 7)
+        => throw new NotImplementedException("No usado por ValidacionVentaService");
 }

@@ -15,15 +15,18 @@ namespace TheBuryProject.Services
     {
         private readonly AppDbContext _context;
         private readonly IClienteAptitudService _aptitudService;
+        private readonly ISituacionCrediticiaBcraService _bcraService;
         private readonly ILogger<ValidacionVentaService> _logger;
 
         public ValidacionVentaService(
             AppDbContext context,
             IClienteAptitudService aptitudService,
+            ISituacionCrediticiaBcraService bcraService,
             ILogger<ValidacionVentaService> logger)
         {
             _context = context;
             _aptitudService = aptitudService;
+            _bcraService = bcraService;
             _logger = logger;
         }
 
@@ -107,22 +110,39 @@ namespace TheBuryProject.Services
                 MontoSolicitado = monto
             };
 
-            // 1. Evaluar aptitud crediticia del cliente
+            // 1. Refrescar BCRA/Veraz (con caché) para que la aptitud evalúe con el
+            // dato más reciente disponible en esta misma operación.
+            await RefrescarBcraAntesDeEvaluarCreditoAsync(clienteId);
+
+            // 2. Evaluar aptitud crediticia del cliente
             var aptitud = await _aptitudService.EvaluarAptitudSinGuardarAsync(clienteId);
 
-            // 2. Poblar datos básicos
+            // 3. Poblar datos básicos
             PoblarDatosBasicos(evaluacion, aptitud);
 
-            // 3. Evaluar según estado de aptitud
+            // 4. Evaluar según estado de aptitud
             EvaluarSegunEstadoAptitud(evaluacion, aptitud);
 
-            // 4. Verificar cupo para el monto específico (si no es NoViable)
+            // 5. Verificar cupo para el monto específico (si no es NoViable)
             if (!evaluacion.EsNoViable)
             {
                 await VerificarCupoUnificado(evaluacion, clienteId, monto, creditoId);
             }
 
             return evaluacion;
+        }
+
+        /// <summary>
+        /// Refresca la situación BCRA/Veraz del cliente (con caché) antes de evaluar
+        /// aptitud, para que la clasificación (FASE 4B) use el dato más reciente
+        /// disponible en la misma operación de venta.
+        /// </summary>
+        private async Task RefrescarBcraAntesDeEvaluarCreditoAsync(int clienteId)
+        {
+            // ConsultarYActualizarAsync ya maneja internamente errores de red/timeout/
+            // parseo (los persiste como consulta fallida y no relanza), por eso no se
+            // envuelve en try/catch acá.
+            await _bcraService.ConsultarYActualizarAsync(clienteId);
         }
 
         private void PoblarDatosBasicos(
