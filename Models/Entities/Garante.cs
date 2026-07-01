@@ -37,6 +37,12 @@ namespace TheBuryProject.Models.Entities
         [StringLength(500)]
         public string? Observaciones { get; set; }
 
+        // Baja de la relación (soft-delete de la relación, independiente de IsDeleted)
+        public DateTime? FechaBaja { get; set; }
+
+        [StringLength(500)]
+        public string? MotivoBaja { get; set; }
+
         // Navigation Properties
         public virtual Cliente Cliente { get; set; } = null!;
         public virtual Cliente? GaranteCliente { get; set; }

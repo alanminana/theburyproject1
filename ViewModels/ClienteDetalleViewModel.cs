@@ -28,6 +28,11 @@ namespace TheBuryProject.ViewModels
         public ClienteCreditoDisponiblePanelViewModel CreditoDisponiblePanel { get; set; } = new();
 
         public string TabActivo { get; set; } = "informacion";
+
+    /// <summary>
+    /// Info del garante actual del cliente. Null si no tiene garante asignado.
+    /// </summary>
+    public GaranteInfoViewModel? GaranteInfo { get; set; }
     }
 
     public class ClienteCreditoDisponiblePanelViewModel

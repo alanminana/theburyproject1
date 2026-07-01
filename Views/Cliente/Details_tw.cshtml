@@ -518,24 +518,113 @@ else
                             }
                         }
                     }
-                       <div class="doc-row" style="margin-bottom:.75rem">
+                @{
+                    var garante = Model.GaranteInfo;
+                }
+                <div class="doc-row" style="margin-bottom:.75rem" id="garantePanel">
                     <div class="doc-ic"><span class="material-symbols-outlined">supervisor_account</span></div>
                     <div class="flex-1 min-w-0">
-                        <label for="detalleTieneGarante" class="text-sm text-white" style="display:flex;align-items:center;gap:.5rem;cursor:pointer">
-                            <input type="checkbox"
-                                   id="detalleTieneGarante"
-                                   name="TieneGarante"
-                                   value="true" />
-                            ¿Tiene garante?
-                        </label>
-                        <div id="detalleGaranteClienteWrap" class="hidden" style="margin-top:.65rem">
-                            <label for="detalleGaranteCliente" class="label">Cliente garante</label>
-                            <input type="text"
-                                   id="detalleGaranteCliente"
-                                   name="GaranteCliente"
-                                   class="field"
-                                   value="Juan Pérez - DNI 12345678"
-                                   readonly />
+                        <div class="text-sm text-white" style="font-weight:500;margin-bottom:.35rem">Garante</div>
+
+                        @if (garante != null)
+                        {
+                            <!-- Garante asignado: mostrar estado -->
+                            <div id="garanteAsignado">
+                                <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
+                                    <span class="text-sm text-white">@garante.NombreCompleto</span>
+                                    <span class="text-xs muted-2">DNI @garante.NumeroDocumento</span>
+                                    @if (garante.EsValido)
+                                    {
+                                        <span class="chip chip-ok" style="font-size:.7rem">Válido</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="chip chip-bad" style="font-size:.7rem">Inválido</span>
+                                    }
+                                </div>
+                                <div class="text-xs muted-2" style="margin-top:.2rem">
+                                    Puntaje @garante.PuntajeCliente/5 &bull; @garante.CantidadGarantiasActivas garantía(s) activa(s) &bull; Alta @garante.FechaAlta.ToString("dd/MM/yyyy")
+                                </div>
+                                @if (!garante.EsValido && garante.MotivosInvalidez.Any())
+                                {
+                                    <ul style="margin:.3rem 0 0 1rem;padding:0;list-style:disc" class="text-xs" aria-label="Motivos de invalidez">
+                                        @foreach (var motivo in garante.MotivosInvalidez)
+                                        {
+                                            <li style="color:#fb7185">@motivo</li>
+                                        }
+                                    </ul>
+                                }
+                                <div style="display:flex;gap:.4rem;margin-top:.5rem;flex-wrap:wrap">
+                                    <button type="button" class="btn btn-ghost btn-sm"
+                                            data-garante-cambiar
+                                            data-cliente-id="@c.Id"
+                                            title="Cambiar garante">
+                                        <span class="material-symbols-outlined" style="font-size:14px">swap_horiz</span> Cambiar
+                                    </button>
+                                    <button type="button" class="btn btn-ghost btn-sm"
+                                            data-garante-remover
+                                            data-cliente-id="@c.Id"
+                                            title="Quitar garante"
+                                            style="color:#fb7185">
+                                        <span class="material-symbols-outlined" style="font-size:14px">remove_circle_outline</span> Quitar
+                                    </button>
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <!-- Sin garante: botón para asignar -->
+                            <div id="garanteSinAsignar">
+                                <div class="text-xs muted-2">Sin garante asignado</div>
+                                <button type="button" class="btn btn-ghost btn-sm" style="margin-top:.4rem"
+                                        data-garante-asignar
+                                        data-cliente-id="@c.Id">
+                                    <span class="material-symbols-outlined" style="font-size:14px">person_add</span> Asignar garante
+                                </button>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <!-- Modal: Asignar / Cambiar garante -->
+                <div id="garanteModal" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="garanteModalTitle">
+                    <div class="modal">
+                        <div class="modal-card card" style="max-width:540px">
+                            <div class="drawer-head">
+                                <div class="avatar avatar-sm avatar--slate">
+                                    <span class="material-symbols-outlined" style="font-size:17px">supervisor_account</span>
+                                </div>
+                                <div class="min-w-0 flex-1">
+                                    <h2 id="garanteModalTitle" class="sec-title">Asignar garante</h2>
+                                    <p class="sec-sub">Buscá un cliente existente para asignar como garante.</p>
+                                </div>
+                                <button type="button" class="btn btn-ghost btn-sm" data-garante-modal-cerrar aria-label="Cerrar">
+                                    <span class="material-symbols-outlined">close</span>
+                                </button>
+                            </div>
+
+                            <div style="padding:1rem 1.25rem">
+                                <label class="label" for="garanteBuscador">Buscar cliente</label>
+                                <input type="text" id="garanteBuscador" class="field" placeholder="Apellido, nombre o DNI..." autocomplete="off" />
+                                <div id="garanteResultados" style="margin-top:.5rem;max-height:220px;overflow-y:auto"></div>
+
+                                <div id="garanteSeleccionado" class="hidden" style="margin-top:.75rem;padding:.6rem;background:rgba(255,255,255,.05);border-radius:6px">
+                                    <div class="text-sm text-white" id="garanteSelNombre"></div>
+                                    <div class="text-xs muted-2" id="garanteSelInfo"></div>
+                                </div>
+
+                                <div style="margin-top:.6rem">
+                                    <label class="label" for="garanteObservacion">Observación (opcional)</label>
+                                    <input type="text" id="garanteObservacion" class="field" placeholder="Motivo o nota..." maxlength="500" />
+                                </div>
+
+                                <div id="garanteError" class="hidden" style="margin-top:.5rem;color:#fb7185;font-size:.8rem"></div>
+                            </div>
+
+                            <div style="padding:.75rem 1.25rem 1rem;display:flex;gap:.5rem;justify-content:flex-end">
+                                <button type="button" class="btn btn-ghost btn-sm" data-garante-modal-cerrar>Cancelar</button>
+                                <button type="button" class="btn btn-primary btn-sm" id="garanteConfirmar" disabled>Confirmar</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -746,18 +835,161 @@ else
     <script src="~/js/cliente-details.js" asp-append-version="true"></script>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const tieneGarante = document.getElementById('detalleTieneGarante');
-            const garanteWrap = document.getElementById('detalleGaranteClienteWrap');
+    // ── Módulo garante ────────────────────────────────────────────────────────
+    (function () {
+        const modal       = document.getElementById('garanteModal');
+        const buscador    = document.getElementById('garanteBuscador');
+        const resultados  = document.getElementById('garanteResultados');
+        const selBox      = document.getElementById('garanteSeleccionado');
+        const selNombre   = document.getElementById('garanteSelNombre');
+        const selInfo     = document.getElementById('garanteSelInfo');
+        const obsInput    = document.getElementById('garanteObservacion');
+        const errBox      = document.getElementById('garanteError');
+        const btnConfirmar = document.getElementById('garanteConfirmar');
 
-            if (!tieneGarante || !garanteWrap) return;
+        if (!modal) return; // no está en el DOM (sin permiso o sin sección)
 
-            function toggleGarante() {
-                garanteWrap.classList.toggle('hidden', !tieneGarante.checked);
-            }
+        let selectedClienteId = null;
+        let activoClienteId   = null; // clienteId del titular
 
-            tieneGarante.addEventListener('change', toggleGarante);
-            toggleGarante();
+        function abrirModal(clienteId) {
+            activoClienteId   = clienteId;
+            selectedClienteId = null;
+            if (buscador)    buscador.value = '';
+            if (resultados)  resultados.innerHTML = '';
+            if (selBox)      selBox.classList.add('hidden');
+            if (obsInput)    obsInput.value = '';
+            if (errBox)      { errBox.textContent = ''; errBox.classList.add('hidden'); }
+            if (btnConfirmar) btnConfirmar.disabled = true;
+            modal.classList.remove('hidden');
+            buscador && buscador.focus();
+        }
+
+        function cerrarModal() {
+            modal.classList.add('hidden');
+        }
+
+        document.querySelectorAll('[data-garante-asignar],[data-garante-cambiar]').forEach(btn => {
+            btn.addEventListener('click', () => abrirModal(btn.dataset.clienteId ?? btn.dataset.garanteAsignar ?? btn.dataset.garanteCambiar));
         });
+
+        document.querySelectorAll('[data-garante-modal-cerrar]').forEach(btn => {
+            btn.addEventListener('click', cerrarModal);
+        });
+
+        modal.addEventListener('click', e => { if (e.target === modal) cerrarModal(); });
+
+        // ── Búsqueda AJAX ────────────────────────────────────────────────────
+        let debounce = null;
+        buscador && buscador.addEventListener('input', () => {
+            clearTimeout(debounce);
+            debounce = setTimeout(async () => {
+                const q = buscador.value.trim();
+                if (q.length < 2) { resultados.innerHTML = ''; return; }
+
+                resultados.innerHTML = '<div class="text-xs muted-2" style="padding:.4rem">Buscando...</div>';
+                try {
+                    const resp = await fetch(`/Cliente/BuscarPosiblesGarantes?q=${encodeURIComponent(q)}&clienteId=${activoClienteId}`);
+                    const data = await resp.json();
+
+                    if (!data.length) {
+                        resultados.innerHTML = '<div class="text-xs muted-2" style="padding:.4rem">Sin resultados.</div>';
+                        return;
+                    }
+
+                    resultados.innerHTML = data.map(d => `
+                        <div class="doc-row" style="cursor:pointer;padding:.4rem .5rem;border-radius:4px"
+                             data-garante-candidato
+                             data-id="${d.clienteId}"
+                             data-nombre="${d.nombreCompleto}"
+                             data-dni="${d.numeroDocumento}"
+                             data-puntaje="${d.puntajeCliente}"
+                             data-compras="${d.cantidadCompras}"
+                             data-garantias="${d.garantiasActivas}">
+                            <div class="flex-1 min-w-0">
+                                <div class="text-sm text-white">${d.nombreCompleto}</div>
+                                <div class="text-xs muted-2">DNI ${d.numeroDocumento} &bull; Puntaje ${d.puntajeCliente}/5 &bull; ${d.cantidadCompras} compra(s) &bull; ${d.garantiasActivas} garantia(s)</div>
+                            </div>
+                        </div>`).join('');
+
+                    resultados.querySelectorAll('[data-garante-candidato]').forEach(row => {
+                        row.addEventListener('click', () => seleccionarCandidato(row));
+                    });
+                } catch {
+                    resultados.innerHTML = '<div class="text-xs" style="color:#fb7185;padding:.4rem">Error al buscar.</div>';
+                }
+            }, 300);
+        });
+
+        function seleccionarCandidato(row) {
+            selectedClienteId = row.dataset.id;
+            selNombre.textContent = row.dataset.nombre;
+            selInfo.textContent   = `DNI ${row.dataset.dni} — Puntaje ${row.dataset.puntaje}/5 — ${row.dataset.compras} compra(s) — ${row.dataset.garantias} garantía(s) activa(s)`;
+            selBox.classList.remove('hidden');
+            resultados.innerHTML = '';
+            if (buscador) buscador.value = row.dataset.nombre;
+            btnConfirmar.disabled = false;
+            errBox.textContent = ''; errBox.classList.add('hidden');
+        }
+
+        // ── Confirmar asignación ─────────────────────────────────────────────
+        btnConfirmar && btnConfirmar.addEventListener('click', async () => {
+            if (!selectedClienteId) return;
+            btnConfirmar.disabled = true;
+
+            const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
+            try {
+                const resp = await fetch('/Cliente/AsignarGarante', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': token },
+                    body: JSON.stringify({
+                        clienteId: parseInt(activoClienteId),
+                        garanteClienteId: parseInt(selectedClienteId),
+                        observacion: obsInput ? obsInput.value.trim() : null
+                    })
+                });
+
+                if (resp.ok) {
+                    cerrarModal();
+                    window.location.reload();
+                } else {
+                    const data = await resp.json();
+                    errBox.textContent = data.error ?? 'Error al asignar garante.';
+                    errBox.classList.remove('hidden');
+                    btnConfirmar.disabled = false;
+                }
+            } catch {
+                errBox.textContent = 'Error de red. Intentá de nuevo.';
+                errBox.classList.remove('hidden');
+                btnConfirmar.disabled = false;
+            }
+        });
+
+        // ── Remover garante ──────────────────────────────────────────────────
+        document.querySelectorAll('[data-garante-remover]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                if (!confirm('¿Confirmás que querés quitar el garante de este cliente?')) return;
+
+                const clienteId = btn.dataset.clienteId;
+                const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
+                try {
+                    const resp = await fetch('/Cliente/RemoverGarante', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': token },
+                        body: JSON.stringify({ clienteId: parseInt(clienteId), motivo: 'Removido desde ficha de cliente.' })
+                    });
+
+                    if (resp.ok) {
+                        window.location.reload();
+                    } else {
+                        const data = await resp.json();
+                        alert(data.error ?? 'Error al quitar el garante.');
+                    }
+                } catch {
+                    alert('Error de red. Intentá de nuevo.');
+                }
+            });
+        });
+    })();
     </script>
 }

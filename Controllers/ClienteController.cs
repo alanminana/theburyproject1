@@ -26,6 +26,7 @@ namespace TheBuryProject.Controllers
         private readonly IClienteScoringService _scoringService;
         private readonly ISituacionCrediticiaBcraService _bcraService;
         private readonly IConfiguracionPagoService _configuracionPagoService;
+        private readonly IGaranteService _garanteService;
         private readonly ICurrentUserService _currentUser;
         private readonly IMapper _mapper;
         private readonly ILogger<ClienteController> _logger;
@@ -39,6 +40,7 @@ namespace TheBuryProject.Controllers
             IClienteScoringService scoringService,
             ISituacionCrediticiaBcraService bcraService,
             IConfiguracionPagoService configuracionPagoService,
+            IGaranteService garanteService,
             ICurrentUserService currentUser,
             IMapper mapper,
             ILogger<ClienteController> logger)
@@ -51,6 +53,7 @@ namespace TheBuryProject.Controllers
             _scoringService = scoringService;
             _bcraService = bcraService;
             _configuracionPagoService = configuracionPagoService;
+            _garanteService = garanteService;
             _currentUser = currentUser;
             _mapper = mapper;
             _logger = logger;
@@ -644,6 +647,16 @@ namespace TheBuryProject.Controllers
                 _logger.LogWarning(ex, "Error consultando BCRA para cliente {Id}", cliente.Id);
             }
 
+            // Garante actual del cliente
+            try
+            {
+                detalleViewModel.GaranteInfo = await _garanteService.ObtenerInfoGaranteAsync(cliente.Id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error obteniendo info de garante para cliente {Id}", cliente.Id);
+            }
+
             return detalleViewModel;
         }
 
@@ -730,6 +743,87 @@ namespace TheBuryProject.Controllers
             vm.SituacionCrediticiaPeriodo = resultado.SituacionCrediticiaPeriodo;
             vm.SituacionCrediticiaUltimaConsultaUtc = resultado.SituacionCrediticiaUltimaConsultaUtc;
             vm.SituacionCrediticiaConsultaOk = resultado.SituacionCrediticiaConsultaOk;
+        }
+
+        #endregion
+
+        #region Garante
+
+        /// <summary>
+        /// GET /Cliente/BuscarPosiblesGarantes?q=...&amp;clienteId=...
+        /// Devuelve candidatos a garante filtrados por nombre o documento.
+        /// </summary>
+        [HttpGet]
+        [PermisoRequerido(Modulo = "clientes", Accion = "view")]
+        public async Task<IActionResult> BuscarPosiblesGarantes(string? q, int clienteId)
+        {
+            if (string.IsNullOrWhiteSpace(q) || q.Length < 2)
+                return Json(new List<object>());
+
+            var candidatos = await _garanteService.BuscarCandidatosAsync(q, clienteId, maxResultados: 10);
+
+            var resultado = candidatos.Select(c => new
+            {
+                clienteId = c.ClienteId,
+                nombreCompleto = c.NombreCompleto,
+                numeroDocumento = c.NumeroDocumento,
+                puntajeCliente = c.PuntajeCliente,
+                activo = c.Activo,
+                cantidadCompras = c.CantidadCompras,
+                garantiasActivas = c.GarantiasActivas,
+                display = $"{c.NombreCompleto} — DNI {c.NumeroDocumento} — Puntaje {c.PuntajeCliente}"
+            });
+
+            return Json(resultado);
+        }
+
+        /// <summary>
+        /// POST /Cliente/AsignarGarante
+        /// Asigna un cliente como garante de otro. Valida todas las reglas antes de persistir.
+        /// </summary>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "clientes", Accion = "edit")]
+        public async Task<IActionResult> AsignarGarante([FromBody] AsignarGaranteRequest request)
+        {
+            if (request is null || request.ClienteId <= 0 || request.GaranteClienteId <= 0)
+                return BadRequest(new { ok = false, error = "Datos inválidos." });
+
+            var usuario = _currentUser.GetUsername();
+            var (ok, error) = await _garanteService.AsignarGaranteAsync(
+                request.ClienteId,
+                request.GaranteClienteId,
+                request.Observacion,
+                usuario);
+
+            if (!ok)
+                return BadRequest(new { ok = false, error });
+
+            var info = await _garanteService.ObtenerInfoGaranteAsync(request.ClienteId);
+            return Ok(new { ok = true, garante = info });
+        }
+
+        /// <summary>
+        /// POST /Cliente/RemoverGarante
+        /// Remueve el garante actual del cliente (baja suave).
+        /// </summary>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "clientes", Accion = "edit")]
+        public async Task<IActionResult> RemoverGarante([FromBody] RemoverGaranteRequest request)
+        {
+            if (request is null || request.ClienteId <= 0)
+                return BadRequest(new { ok = false, error = "Datos inválidos." });
+
+            var motivo = string.IsNullOrWhiteSpace(request.Motivo) ? "Removido manualmente." : request.Motivo;
+            var usuario = _currentUser.GetUsername();
+
+            var (ok, error) = await _garanteService.RemoverGaranteAsync(request.ClienteId, motivo, usuario);
+
+            if (!ok)
+                return BadRequest(new { ok = false, error });
+
+            return Ok(new { ok = true });
         }
 
         #endregion
