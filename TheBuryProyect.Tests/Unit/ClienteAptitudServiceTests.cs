@@ -58,7 +58,8 @@ public class ClienteAptitudServiceTests
     private static ClienteAptitudService BuildService(AppDbContext ctx)
     {
         var creditoDisponible = new CreditoDisponibleService(ctx, Microsoft.Extensions.Logging.Abstractions.NullLogger<TheBuryProject.Services.CreditoDisponibleService>.Instance);
-        return new ClienteAptitudService(ctx, NullLogger<ClienteAptitudService>.Instance, creditoDisponible);
+        var garanteService = new GaranteService(ctx, NullLogger<GaranteService>.Instance);
+        return new ClienteAptitudService(ctx, NullLogger<ClienteAptitudService>.Instance, creditoDisponible, garanteService);
     }
 
     // -----------------------------------------------------------------------
@@ -706,6 +707,186 @@ public class ClienteAptitudServiceTests
 
             Assert.Equal(EstadoCrediticioCliente.Apto, resultado.Estado);
             Assert.Empty(resultado.Detalles);
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // I2. FASE 4A — ReciboSueldo cumplido por documento OR garante válido
+    // -----------------------------------------------------------------------
+
+    private static async Task<Cliente> SeedGaranteCandidatoAsync(AppDbContext ctx, int id, bool valido)
+    {
+        var candidato = new Cliente
+        {
+            Id = id,
+            Nombre = "Garante",
+            Apellido = $"Candidato{id}",
+            TipoDocumento = "DNI",
+            NumeroDocumento = $"3000000{id}",
+            Activo = valido,
+            PuntajeCliente = valido ? 5 : 1,
+            CantidadComprasCliente = valido ? 3 : 0,
+            IsDeleted = false,
+            RowVersion = new byte[8]
+        };
+        ctx.Clientes.Add(candidato);
+        await ctx.SaveChangesAsync();
+        return candidato;
+    }
+
+    private static async Task AsignarGaranteDirectoAsync(AppDbContext ctx, int clienteId, int garanteClienteId)
+    {
+        var garante = new Garante
+        {
+            ClienteId = clienteId,
+            GaranteClienteId = garanteClienteId,
+            IsDeleted = false
+        };
+        ctx.Garantes.Add(garante);
+        await ctx.SaveChangesAsync();
+
+        var cliente = await ctx.Clientes.FindAsync(clienteId);
+        cliente!.GaranteId = garante.Id;
+        await ctx.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task ClienteConDniServicioYSueldo_AptoDocumentacion()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            var config = ConfigSinValidaciones();
+            config.ValidarDocumentacion = true;
+            ctx.Set<ConfiguracionCredito>().Add(config);
+            ctx.Clientes.Add(BaseCliente(1));
+            await ctx.SaveChangesAsync();
+
+            ctx.Set<DocumentoCliente>().AddRange(
+                new DocumentoCliente { ClienteId = 1, TipoDocumento = TipoDocumentoCliente.DNI, Estado = EstadoDocumento.Verificado, FechaVerificacion = DateTime.UtcNow.AddDays(-5) },
+                new DocumentoCliente { ClienteId = 1, TipoDocumento = TipoDocumentoCliente.ReciboSueldo, Estado = EstadoDocumento.Verificado, FechaVerificacion = DateTime.UtcNow.AddDays(-5) },
+                new DocumentoCliente { ClienteId = 1, TipoDocumento = TipoDocumentoCliente.Servicio, Estado = EstadoDocumento.Verificado, FechaVerificacion = DateTime.UtcNow.AddDays(-5) });
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            var resultado = await service.EvaluarDocumentacionAsync(1);
+
+            Assert.True(resultado.Completa);
+            Assert.Empty(resultado.DocumentosFaltantes);
+        }
+    }
+
+    [Fact]
+    public async Task ClienteConDniServicioSinSueldoSinGarante_NoAptoPorDocumentacion()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            var config = ConfigSinValidaciones();
+            config.ValidarDocumentacion = true;
+            ctx.Set<ConfiguracionCredito>().Add(config);
+            ctx.Clientes.Add(BaseCliente(1));
+            await ctx.SaveChangesAsync();
+
+            ctx.Set<DocumentoCliente>().AddRange(
+                new DocumentoCliente { ClienteId = 1, TipoDocumento = TipoDocumentoCliente.DNI, Estado = EstadoDocumento.Verificado, FechaVerificacion = DateTime.UtcNow.AddDays(-5) },
+                new DocumentoCliente { ClienteId = 1, TipoDocumento = TipoDocumentoCliente.Servicio, Estado = EstadoDocumento.Verificado, FechaVerificacion = DateTime.UtcNow.AddDays(-5) });
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            var resultado = await service.EvaluarDocumentacionAsync(1);
+
+            Assert.False(resultado.Completa);
+            Assert.Contains(TipoDocumentoCliente.ReciboSueldo.ToString(), resultado.DocumentosFaltantes);
+        }
+    }
+
+    [Fact]
+    public async Task ClienteConDniServicioSinSueldoConGaranteValido_AptoDocumentacion()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            var config = ConfigSinValidaciones();
+            config.ValidarDocumentacion = true;
+            ctx.Set<ConfiguracionCredito>().Add(config);
+            ctx.Clientes.Add(BaseCliente(1));
+            await ctx.SaveChangesAsync();
+
+            ctx.Set<DocumentoCliente>().AddRange(
+                new DocumentoCliente { ClienteId = 1, TipoDocumento = TipoDocumentoCliente.DNI, Estado = EstadoDocumento.Verificado, FechaVerificacion = DateTime.UtcNow.AddDays(-5) },
+                new DocumentoCliente { ClienteId = 1, TipoDocumento = TipoDocumentoCliente.Servicio, Estado = EstadoDocumento.Verificado, FechaVerificacion = DateTime.UtcNow.AddDays(-5) });
+            await ctx.SaveChangesAsync();
+
+            await SeedGaranteCandidatoAsync(ctx, 2, valido: true);
+            await AsignarGaranteDirectoAsync(ctx, clienteId: 1, garanteClienteId: 2);
+
+            var service = BuildService(ctx);
+            var resultado = await service.EvaluarDocumentacionAsync(1);
+
+            Assert.True(resultado.Completa);
+            Assert.Empty(resultado.DocumentosFaltantes);
+        }
+    }
+
+    [Fact]
+    public async Task ClienteConDniServicioSinSueldoConGaranteInvalido_NoAptoPorDocumentacion()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            var config = ConfigSinValidaciones();
+            config.ValidarDocumentacion = true;
+            ctx.Set<ConfiguracionCredito>().Add(config);
+            ctx.Clientes.Add(BaseCliente(1));
+            await ctx.SaveChangesAsync();
+
+            ctx.Set<DocumentoCliente>().AddRange(
+                new DocumentoCliente { ClienteId = 1, TipoDocumento = TipoDocumentoCliente.DNI, Estado = EstadoDocumento.Verificado, FechaVerificacion = DateTime.UtcNow.AddDays(-5) },
+                new DocumentoCliente { ClienteId = 1, TipoDocumento = TipoDocumentoCliente.Servicio, Estado = EstadoDocumento.Verificado, FechaVerificacion = DateTime.UtcNow.AddDays(-5) });
+            await ctx.SaveChangesAsync();
+
+            // Garante asignado pero inválido (sin compras, puntaje insuficiente) → no cubre el requisito
+            await SeedGaranteCandidatoAsync(ctx, 2, valido: false);
+            await AsignarGaranteDirectoAsync(ctx, clienteId: 1, garanteClienteId: 2);
+
+            var service = BuildService(ctx);
+            var resultado = await service.EvaluarDocumentacionAsync(1);
+
+            Assert.False(resultado.Completa);
+            Assert.Contains(TipoDocumentoCliente.ReciboSueldo.ToString(), resultado.DocumentosFaltantes);
+        }
+    }
+
+    [Fact]
+    public async Task ClienteConGaranteValido_NoAumentaCupo()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            var config = ConfigSinValidaciones();
+            config.ValidarLimiteCredito = true;
+            ctx.Set<ConfiguracionCredito>().Add(config);
+
+            var cliente = BaseCliente(1);
+            cliente.LimiteCredito = 10_000m;
+            ctx.Clientes.Add(cliente);
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            var antes = await service.EvaluarCupoAsync(1);
+
+            await SeedGaranteCandidatoAsync(ctx, 2, valido: true);
+            await AsignarGaranteDirectoAsync(ctx, clienteId: 1, garanteClienteId: 2);
+
+            var despues = await service.EvaluarCupoAsync(1);
+
+            // El garante válido cubre el requisito documental de ReciboSueldo,
+            // pero no debe alterar el límite/cupo calculado por puntaje (FASE 3, intacta):
+            // el resultado de cupo debe ser idéntico antes y después de asignar el garante.
+            Assert.Equal(antes.LimiteCredito, despues.LimiteCredito);
+            Assert.Equal(antes.CupoDisponible, despues.CupoDisponible);
+            Assert.Equal(antes.CupoSuficiente, despues.CupoSuficiente);
         }
     }
 

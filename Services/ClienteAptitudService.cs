@@ -19,15 +19,18 @@ namespace TheBuryProject.Services
         private readonly AppDbContext _context;
         private readonly ILogger<ClienteAptitudService> _logger;
         private readonly ICreditoDisponibleService _creditoDisponibleService;
+        private readonly IGaranteService _garanteService;
 
         public ClienteAptitudService(
             AppDbContext context,
             ILogger<ClienteAptitudService> logger,
-            ICreditoDisponibleService creditoDisponibleService)
+            ICreditoDisponibleService creditoDisponibleService,
+            IGaranteService garanteService)
         {
             _context = context;
             _logger = logger;
             _creditoDisponibleService = creditoDisponibleService;
+            _garanteService = garanteService;
         }
 
         #region Evaluación de Aptitud
@@ -316,6 +319,11 @@ namespace TheBuryProject.Services
 
                 if (doc == null)
                 {
+                    if (tipo == TipoDocumentoCliente.ReciboSueldo && await TieneGaranteValidoAsync(clienteId))
+                    {
+                        continue;
+                    }
+
                     faltantes.Add(tipo.ToString());
                 }
                 else if (config.ValidarVencimientoDocumentos && doc.FechaVencimiento.HasValue)
@@ -346,6 +354,16 @@ namespace TheBuryProject.Services
             }
 
             return resultado;
+        }
+
+        /// <summary>
+        /// Vía alternativa al recibo de sueldo: un garante actual válido (ObtenerInfoGaranteAsync.EsValido)
+        /// cubre el requisito documental de ingresos.
+        /// </summary>
+        private async Task<bool> TieneGaranteValidoAsync(int clienteId)
+        {
+            var infoGarante = await _garanteService.ObtenerInfoGaranteAsync(clienteId);
+            return infoGarante?.EsValido == true;
         }
 
         private List<TipoDocumentoCliente> ObtenerTiposDocumentoRequeridos(ConfiguracionCredito config)
