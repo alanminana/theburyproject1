@@ -499,9 +499,6 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
                 if (tarjeta.CantidadMaximaCuotas.HasValue && plan.CantidadCuotas > tarjeta.CantidadMaximaCuotas.Value)
                     continue;
 
-                if (!tarjeta.PermiteCuotas && plan.CantidadCuotas > 1)
-                    continue;
-
                 var calculo = ConfiguracionPagoGlobalRules.Calcular(new AjustePagoGlobalRequest
                 {
                     BaseVenta = totalBase,

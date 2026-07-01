@@ -234,6 +234,19 @@ public sealed class CotizacionPagoCalculatorContractTests
     }
 
     [Fact]
+    public async Task Simular_Tarjeta_UsaPlanesActivosAunquePermiteCuotasLegacyEsteApagado()
+    {
+        var resultado = await CreateCalculator(configuracion: ConfiguracionTarjetasConPlanesYFlagLegacyApagado())
+            .SimularAsync(DefaultRequest());
+
+        var tarjeta = Assert.Single(resultado.OpcionesPago, o => o.MedioPago == CotizacionMedioPagoTipo.TarjetaCredito);
+
+        Assert.True(tarjeta.Disponible);
+        Assert.Contains(tarjeta.Planes, p => p.Plan.Contains("Visa", StringComparison.OrdinalIgnoreCase) && p.CantidadCuotas == 6);
+        Assert.Contains(tarjeta.Planes, p => p.Plan.Contains("Master", StringComparison.OrdinalIgnoreCase) && p.CantidadCuotas == 12);
+    }
+
+    [Fact]
     public async Task Simular_Tarjeta_NoMuestraCuotasInactivas()
     {
         var configuracion = DefaultConfiguracion();
@@ -621,6 +634,49 @@ public sealed class CotizacionPagoCalculatorContractTests
 
         return new ConfiguracionPagoGlobalResultado { Medios = medios };
     }
+
+    private static ConfiguracionPagoGlobalResultado ConfiguracionTarjetasConPlanesYFlagLegacyApagado() =>
+        new()
+        {
+            Medios = new List<MedioPagoGlobalDto>
+            {
+                new()
+                {
+                    Id = 3,
+                    TipoPago = TipoPago.TarjetaCredito,
+                    NombreVisible = "Tarjeta credito",
+                    Activo = true,
+                    Tarjetas = new List<TarjetaPagoGlobalDto>
+                    {
+                        new()
+                        {
+                            Id = 10,
+                            ConfiguracionPagoId = 3,
+                            Nombre = "Visa",
+                            TipoTarjeta = TipoTarjeta.Credito,
+                            Activa = true,
+                            PermiteCuotas = false
+                        },
+                        new()
+                        {
+                            Id = 20,
+                            ConfiguracionPagoId = 3,
+                            Nombre = "Master",
+                            TipoTarjeta = TipoTarjeta.Credito,
+                            Activa = true,
+                            PermiteCuotas = false
+                        }
+                    },
+                    Planes = new List<PlanPagoGlobalConfiguradoDto>
+                    {
+                        Plan(10, 3, TipoPago.TarjetaCredito, cuotas: 1, ajuste: 0m, etiqueta: "1 pago", tarjetaId: 10),
+                        Plan(11, 3, TipoPago.TarjetaCredito, cuotas: 6, ajuste: 10m, etiqueta: "6 cuotas", tarjetaId: 10),
+                        Plan(20, 3, TipoPago.TarjetaCredito, cuotas: 1, ajuste: 0m, etiqueta: "1 pago", tarjetaId: 20),
+                        Plan(21, 3, TipoPago.TarjetaCredito, cuotas: 12, ajuste: 25m, etiqueta: "12 cuotas", tarjetaId: 20)
+                    }
+                }
+            }
+        };
 
     private static PlanPagoGlobalConfiguradoDto Plan(
         int id,
