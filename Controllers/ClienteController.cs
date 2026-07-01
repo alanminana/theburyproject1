@@ -539,6 +539,9 @@ namespace TheBuryProject.Controllers
         {
             try
             {
+                // Refrescar BCRA (con caché) antes de evaluar para que la aptitud
+                // considere el dato consultado en esta misma operación.
+                await _bcraService.ConsultarYActualizarAsync(clienteId);
                 await _aptitudService.EvaluarAptitudAsync(clienteId, guardarResultado: true);
                 TempData["Success"] = "Aptitud crediticia recalculada";
                 return RedirectToAction(nameof(Details), new { id = clienteId, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
@@ -615,6 +618,19 @@ namespace TheBuryProject.Controllers
             detalleViewModel.Documentos = await _documentoService.GetByClienteIdAsync(cliente.Id);
             detalleViewModel.CreditosActivos = await _creditoService.GetByClienteIdAsync(cliente.Id);
 
+            // Situación Crediticia BCRA (con caché de 7 días). Debe refrescarse antes de
+            // evaluar aptitud para que el semáforo use el dato de la misma operación.
+            try
+            {
+                var situacionBcra = await _bcraService.ConsultarYObtenerAsync(cliente.Id);
+                if (situacionBcra != null)
+                    AplicarSituacionBcra(detalleViewModel.Cliente, situacionBcra);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error consultando BCRA para cliente {Id}", cliente.Id);
+            }
+
             // Evaluar aptitud crediticia (semáforo)
             detalleViewModel.AptitudCrediticia = await _aptitudService.EvaluarAptitudSinGuardarAsync(cliente.Id);
 
@@ -633,18 +649,6 @@ namespace TheBuryProject.Controllers
             {
                 detalleViewModel.CreditoDisponiblePanel.TieneErrorConfiguracion = true;
                 detalleViewModel.CreditoDisponiblePanel.MensajeError = ex.Message;
-            }
-
-            // Situación Crediticia BCRA (con caché de 7 días)
-            try
-            {
-                var situacionBcra = await _bcraService.ConsultarYObtenerAsync(cliente.Id);
-                if (situacionBcra != null)
-                    AplicarSituacionBcra(detalleViewModel.Cliente, situacionBcra);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Error consultando BCRA para cliente {Id}", cliente.Id);
             }
 
             // Garante actual del cliente
