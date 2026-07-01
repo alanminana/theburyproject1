@@ -260,6 +260,7 @@ else
                 <div class="text-xs muted-2 font-semibold uppercase mt-4" style="letter-spacing:.04em">Desglose</div>
                 <dl class="kv mt-1">
                     <div class="kv-row"><dt>Fuente del puntaje</dt><dd><span class="chip @(tieneNivelManual ? "chip-warn" : "chip-ok")">@fuenteNivel</span></dd></div>
+                    <div class="kv-row"><dt>Origen del cupo</dt><dd>@Dash(panel?.Valores?.OrigenLimite)</dd></div>
                     <div class="kv-row"><dt>Documentacion</dt><dd>@(apt?.Documentacion?.Completa == true ? "Completa" : "Incompleta")</dd></div>
                     <div class="kv-row"><dt>BCRA</dt><dd>@bcraEstadoResumen</dd></div>
                     <div class="kv-row"><dt>Mora</dt><dd><span class="chip @moraChip">@moraLabel</span></dd></div>
@@ -525,6 +526,7 @@ else
                     <div class="doc-ic"><span class="material-symbols-outlined">supervisor_account</span></div>
                     <div class="flex-1 min-w-0">
                         <div class="text-sm text-white" style="font-weight:500;margin-bottom:.35rem">Garante</div>
+                        <p class="text-xs muted-2" style="margin-bottom:.5rem">El garante no aumenta el cupo asignado.</p>
 
                         @if (garante != null)
                         {
