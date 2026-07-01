@@ -8,6 +8,9 @@
     var productosJson = ViewBag.ProductosJson != null
         ? JsonSerializer.Serialize(ViewBag.ProductosJson, jsonOptions)
         : "[]";
+    var proveedoresJson = ViewBag.ProveedoresJson != null
+        ? JsonSerializer.Serialize(ViewBag.ProveedoresJson, jsonOptions)
+        : "[]";
     var detallesJson = Model?.Detalles != null && Model.Detalles.Any()
         ? JsonSerializer.Serialize(
             Model.Detalles.Select(d => new
@@ -283,6 +286,7 @@
 @section Scripts {
     <script src="~/js/horizontal-scroll-affordance.js" asp-append-version="true"></script>
     <script id="ordencompra-productos-data" type="application/json">@Html.Raw(productosJson)</script>
+    <script id="ordencompra-proveedores-data" type="application/json">@Html.Raw(proveedoresJson)</script>
     <script id="ordencompra-detalles-data" type="application/json">@Html.Raw(detallesJson)</script>
     <script src="~/js/ordencompra-form.js" asp-append-version="true"></script>
 }

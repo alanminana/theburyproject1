@@ -397,12 +397,25 @@ namespace TheBuryProject.Controllers
         // Helper: Cargar datos para los SelectLists
         private async Task CargarDatosSelectListsAsync(int? proveedorIdSeleccionado = null)
         {
-            var proveedores = await _proveedorService.SearchAsync(soloActivos: true);
+            var proveedores = (await _proveedorService.SearchAsync(soloActivos: true)).ToList();
             ViewBag.Proveedores = new SelectList(proveedores, "Id", "RazonSocial", proveedorIdSeleccionado);
 
-            var productos = await _productoService.SearchAsync(soloActivos: true);
+            var productos = (await _productoService.SearchAsync(soloActivos: true)).ToList();
             ViewBag.Productos = new SelectList(productos, "Id", "Nombre");
             ViewBag.ProductosJson = productos.Select(p => new { p.Id, p.Nombre, p.Codigo, p.PrecioCompra }).ToList();
+            var productoIdsActivos = productos.Select(p => p.Id).ToHashSet();
+            ViewBag.ProveedoresJson = proveedores
+                .Select(p => new
+                {
+                    p.Id,
+                    Nombre = p.RazonSocial,
+                    ProductoIds = (p.ProveedorProductos ?? new List<ProveedorProducto>())
+                        .Where(pp => !pp.IsDeleted && productoIdsActivos.Contains(pp.ProductoId))
+                        .Select(pp => pp.ProductoId)
+                        .Distinct()
+                        .ToList()
+                })
+                .ToList();
 
             ViewBag.Estados = new SelectList(Enum.GetValues(typeof(EstadoOrdenCompra)));
         }

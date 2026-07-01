@@ -17,6 +17,7 @@
     const inpPrecio = document.getElementById('inp-precio');
     const btnAgregar = document.getElementById('btn-agregar');
     const inpDescuento = document.getElementById('inp-descuento');
+    const selectProveedor = document.getElementById('ProveedorId');
 
     const lblSubtotal = document.getElementById('lbl-subtotal');
     const lblDescuento = document.getElementById('lbl-descuento');
@@ -43,6 +44,10 @@
 
     const productos = readJsonData('ordencompra-productos-data', window.__productosDisponibles || [])
         .map(mapProducto)
+        .filter(p => p.id > 0);
+
+    const proveedores = readJsonData('ordencompra-proveedores-data', [])
+        .map(mapProveedor)
         .filter(p => p.id > 0);
 
     let filas = readJsonData('ordencompra-detalles-data', [])
@@ -73,6 +78,18 @@
         };
     }
 
+    function mapProveedor(proveedor) {
+        const productoIds = proveedor?.productoIds ?? proveedor?.ProductoIds ?? [];
+
+        return {
+            id: parseInt(proveedor?.id ?? proveedor?.Id ?? 0, 10) || 0,
+            nombre: `${proveedor?.nombre ?? proveedor?.Nombre ?? ''}`,
+            productoIds: Array.isArray(productoIds)
+                ? productoIds.map(id => parseInt(id, 10) || 0).filter(id => id > 0)
+                : []
+        };
+    }
+
     function mapDetalle(detalle) {
         const cantidad = parseInt(detalle?.cantidad ?? detalle?.Cantidad ?? 0, 10) || 0;
         const precio = parseFloat(detalle?.precioUnitario ?? detalle?.PrecioUnitario ?? 0) || 0;
@@ -100,6 +117,106 @@
 
     function numForPost(value) {
         return num(value).replace('.', ',');
+    }
+
+    function getProveedorIdSeleccionado() {
+        return parseInt(selectProveedor?.value || '0', 10) || 0;
+    }
+
+    function getProveedorSeleccionado() {
+        const proveedorId = getProveedorIdSeleccionado();
+        return proveedores.find(proveedor => proveedor.id === proveedorId) || null;
+    }
+
+    function proveedorPermiteProducto(productoId) {
+        const proveedor = getProveedorSeleccionado();
+        if (!proveedor || !proveedor.productoIds.length) return true;
+
+        return proveedor.productoIds.includes(productoId);
+    }
+
+    function getProductosDisponibles() {
+        const proveedor = getProveedorSeleccionado();
+        if (!proveedor || !proveedor.productoIds.length) return productos;
+
+        const productoIdsPermitidos = new Set(proveedor.productoIds);
+        return productos.filter(producto => productoIdsPermitidos.has(producto.id));
+    }
+
+    function renderProveedorOptions(proveedoresPermitidos, selectedValue) {
+        if (!selectProveedor || !proveedores.length) return;
+
+        const selected = selectedValue != null ? `${selectedValue || ''}` : selectProveedor.value;
+        const permitidos = proveedoresPermitidos instanceof Set ? proveedoresPermitidos : null;
+        const options = ['<option value="">Seleccione un proveedor</option>'];
+
+        proveedores.forEach((proveedor) => {
+            if (permitidos && !permitidos.has(proveedor.id)) return;
+            options.push(`<option value="${proveedor.id}">${esc(proveedor.nombre)}</option>`);
+        });
+
+        selectProveedor.innerHTML = options.join('');
+
+        if (selected && Array.from(selectProveedor.options).some(option => option.value === selected)) {
+            selectProveedor.value = selected;
+        } else {
+            selectProveedor.value = '';
+        }
+    }
+
+    function getProductoIdsParaFiltrarProveedores() {
+        if (productoSeleccionado?.id > 0) return [productoSeleccionado.id];
+
+        return Array.from(new Set(
+            filas
+                .map(fila => fila.productoId)
+                .filter(productoId => productoId > 0)
+        ));
+    }
+
+    function actualizarProveedoresPorProductoContexto() {
+        if (!selectProveedor || !proveedores.length) return;
+
+        const proveedorId = getProveedorIdSeleccionado();
+        if (proveedorId > 0) {
+            renderProveedorOptions(null, proveedorId);
+            return;
+        }
+
+        const productoIds = getProductoIdsParaFiltrarProveedores();
+        if (!productoIds.length) {
+            renderProveedorOptions(null, '');
+            return;
+        }
+
+        const proveedoresPermitidos = new Set(
+            proveedores
+                .filter(proveedor => productoIds.every(productoId => proveedor.productoIds.includes(productoId)))
+                .map(proveedor => proveedor.id)
+        );
+
+        renderProveedorOptions(proveedoresPermitidos, '');
+
+        if (!proveedoresPermitidos.size) {
+            showFeedback('No hay proveedores asociados al producto seleccionado.', {
+                variant: 'warning',
+                title: 'Sin proveedores asociados'
+            });
+        }
+    }
+
+    function limpiarProductoSeleccionado() {
+        productoSeleccionado = null;
+        if (inpBuscar) inpBuscar.value = '';
+        if (inpPrecio) inpPrecio.value = '';
+        setDropdownVisible(false);
+    }
+
+    function getProductosNoPermitidosPorProveedor() {
+        const proveedor = getProveedorSeleccionado();
+        if (!proveedor || !proveedor.productoIds.length) return [];
+
+        return filas.filter(fila => !proveedor.productoIds.includes(fila.productoId));
     }
 
     function setDropdownVisible(visible) {
@@ -200,6 +317,7 @@
 
         hideFeedback();
         setDropdownVisible(false);
+        actualizarProveedoresPorProductoContexto();
     }
 
     function agregarProducto() {
@@ -208,6 +326,16 @@
                 variant: 'warning',
                 title: 'Falta elegir un producto'
             });
+            inpBuscar?.focus();
+            return;
+        }
+
+        if (!proveedorPermiteProducto(productoSeleccionado.id)) {
+            showFeedback('El producto seleccionado no esta asociado al proveedor elegido.', {
+                variant: 'error',
+                title: 'Producto no asociado'
+            });
+            limpiarProductoSeleccionado();
             inpBuscar?.focus();
             return;
         }
@@ -269,6 +397,7 @@
 
         renderTabla();
         calcularTotales();
+        actualizarProveedoresPorProductoContexto();
     }
 
     function crearEmptyState() {
@@ -360,18 +489,34 @@
 
     feedbackClose?.addEventListener('click', hideFeedback);
 
+    selectProveedor?.addEventListener('change', () => {
+        hideFeedback();
+
+        if (productoSeleccionado && !proveedorPermiteProducto(productoSeleccionado.id)) {
+            showFeedback('El producto seleccionado no esta asociado al proveedor elegido.', {
+                variant: 'warning',
+                title: 'Producto no asociado'
+            });
+            limpiarProductoSeleccionado();
+        }
+
+        actualizarProveedoresPorProductoContexto();
+        setDropdownVisible(false);
+    });
+
     if (inpBuscar) {
         inpBuscar.addEventListener('input', () => {
             hideFeedback();
+            productoSeleccionado = null;
+            actualizarProveedoresPorProductoContexto();
 
             const query = normalizeText(inpBuscar.value.trim());
             if (!query.length) {
-                productoSeleccionado = null;
                 setDropdownVisible(false);
                 return;
             }
 
-            const results = productos
+            const results = getProductosDisponibles()
                 .filter((producto) => normalizeText(producto.nombre).includes(query) || normalizeText(producto.codigo).includes(query))
                 .slice(0, 8);
 
@@ -425,6 +570,7 @@
         filas.splice(index, 1);
         renderTabla();
         calcularTotales();
+        actualizarProveedoresPorProductoContexto();
 
         if (removed) {
             showFeedback(`${removed.nombre} se quitó de la orden.`, {
@@ -434,8 +580,21 @@
         }
     });
 
+    form.addEventListener('submit', (event) => {
+        const noPermitidos = getProductosNoPermitidosPorProveedor();
+        if (!noPermitidos.length) return;
+
+        event.preventDefault();
+        const nombres = noPermitidos.map(fila => fila.nombre).join(', ');
+        showFeedback(`Estos productos no estan asociados al proveedor elegido: ${nombres}.`, {
+            variant: 'error',
+            title: 'Revisa proveedor y productos'
+        });
+    });
+
     inpDescuento?.addEventListener('input', calcularTotales);
     renderTabla();
     calcularTotales();
+    actualizarProveedoresPorProductoContexto();
     requestAnimationFrame(syncTableOverflow);
 })();
