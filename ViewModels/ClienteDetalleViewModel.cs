@@ -32,7 +32,7 @@ namespace TheBuryProject.ViewModels
 
     public class ClienteCreditoDisponiblePanelViewModel
     {
-        public NivelRiesgoCredito PuntajeActual { get; set; }
+        public int PuntajeActual { get; set; }
 
         public CreditoDisponibleResultado Valores { get; set; } = new();
 
@@ -47,13 +47,14 @@ namespace TheBuryProject.ViewModels
 
     public class ClienteNivelCreditoOpcionViewModel
     {
-        public NivelRiesgoCredito Nivel { get; set; }
+        /// <summary>Puntaje interno de comportamiento (0–5) al que aplica el límite.</summary>
+        public int Nivel { get; set; }
 
         public decimal LimiteMonto { get; set; }
 
         public bool Activo { get; set; }
 
-        public string Texto => $"{(int)Nivel} - {Nivel.GetDisplayName()}";
+        public string Texto => $"Puntaje {Nivel}";
     }
 
     /// <summary>

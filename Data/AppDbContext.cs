@@ -818,9 +818,11 @@ namespace TheBuryProject.Data
                 entity.Property(e => e.PuntajeRiesgo).HasPrecision(5, 2);
 
                 // Scoring de comportamiento (independiente del riesgo crediticio).
-                // Default 1 para que todos los clientes existentes queden con puntaje base 1.
-                entity.Property(e => e.PuntajeCliente).IsRequired().HasDefaultValue(1);
+                // Modelo 0–5: default 0 (cliente nuevo arranca en 0). ValueGeneratedNever para que
+                // EF persista el valor explícito, incluido 0 (evita que el store-generated default lo pise).
+                entity.Property(e => e.PuntajeCliente).IsRequired().HasDefaultValue(0).ValueGeneratedNever();
                 entity.Property(e => e.AntiguedadDias).IsRequired().HasDefaultValue(0);
+                entity.Property(e => e.CantidadComprasCliente).IsRequired().HasDefaultValue(0);
                 entity.Property(e => e.CreditosEnTermino).IsRequired().HasDefaultValue(0);
                 entity.Property(e => e.CreditosConAtraso).IsRequired().HasDefaultValue(0);
 
@@ -902,7 +904,7 @@ namespace TheBuryProject.Data
 
                     t.HasCheckConstraint(
                         "CK_ClientesCreditoConfiguraciones_NivelCreditoManual",
-                        "[NivelCreditoManual] IS NULL OR ([NivelCreditoManual] >= 1 AND [NivelCreditoManual] <= 5)");
+                        "[NivelCreditoManual] IS NULL OR ([NivelCreditoManual] >= 0 AND [NivelCreditoManual] <= 5)");
                 });
             });
 
@@ -935,7 +937,7 @@ namespace TheBuryProject.Data
             {
                 entity.ToTable("PuntajeCreditoLimites", t =>
                 {
-                    t.HasCheckConstraint("CK_PuntajeCreditoLimites_Puntaje", "[Puntaje] >= 1 AND [Puntaje] <= 5");
+                    t.HasCheckConstraint("CK_PuntajeCreditoLimites_Puntaje", "[Puntaje] >= 0 AND [Puntaje] <= 5");
                 });
 
                 entity.HasKey(e => e.Id);
@@ -2676,10 +2678,21 @@ namespace TheBuryProject.Data
             );
 
             modelBuilder.Entity<PuntajeCreditoLimite>().HasData(
+                // Puntaje 0 = cliente nuevo. Cupo máximo inicial $200.000 (parametrizable, editable por Javo).
+                new PuntajeCreditoLimite
+                {
+                    Id = 6,
+                    Puntaje = 0,
+                    LimiteMonto = 200000m,
+                    Activo = true,
+                    FechaActualizacion = seedUtc,
+                    UsuarioActualizacion = "System"
+                },
+                // Puntaje 1–5: cupo configurable por Javo (default 0 hasta configurar).
                 new PuntajeCreditoLimite
                 {
                     Id = 1,
-                    Puntaje = TheBuryProject.Models.Enums.NivelRiesgoCredito.Rechazado,
+                    Puntaje = 1,
                     LimiteMonto = 0m,
                     Activo = true,
                     FechaActualizacion = seedUtc,
@@ -2688,7 +2701,7 @@ namespace TheBuryProject.Data
                 new PuntajeCreditoLimite
                 {
                     Id = 2,
-                    Puntaje = TheBuryProject.Models.Enums.NivelRiesgoCredito.RechazadoRevisar,
+                    Puntaje = 2,
                     LimiteMonto = 0m,
                     Activo = true,
                     FechaActualizacion = seedUtc,
@@ -2697,7 +2710,7 @@ namespace TheBuryProject.Data
                 new PuntajeCreditoLimite
                 {
                     Id = 3,
-                    Puntaje = TheBuryProject.Models.Enums.NivelRiesgoCredito.AprobadoCondicional,
+                    Puntaje = 3,
                     LimiteMonto = 0m,
                     Activo = true,
                     FechaActualizacion = seedUtc,
@@ -2706,7 +2719,7 @@ namespace TheBuryProject.Data
                 new PuntajeCreditoLimite
                 {
                     Id = 4,
-                    Puntaje = TheBuryProject.Models.Enums.NivelRiesgoCredito.AprobadoLimitado,
+                    Puntaje = 4,
                     LimiteMonto = 0m,
                     Activo = true,
                     FechaActualizacion = seedUtc,
@@ -2715,7 +2728,7 @@ namespace TheBuryProject.Data
                 new PuntajeCreditoLimite
                 {
                     Id = 5,
-                    Puntaje = TheBuryProject.Models.Enums.NivelRiesgoCredito.AprobadoTotal,
+                    Puntaje = 5,
                     LimiteMonto = 0m,
                     Activo = true,
                     FechaActualizacion = seedUtc,

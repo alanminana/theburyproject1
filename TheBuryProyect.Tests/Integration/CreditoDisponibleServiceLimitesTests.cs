@@ -38,9 +38,9 @@ public class CreditoDisponibleServiceLimitesTests : IDisposable
     // Helpers
     // -------------------------------------------------------------------------
 
-    private static IReadOnlyList<(NivelRiesgoCredito Puntaje, decimal LimiteMonto, bool Activo)>
+    private static IReadOnlyList<(int Puntaje, decimal LimiteMonto, bool Activo)>
         ItemsCompletos(decimal monto = 10_000m) =>
-        Enum.GetValues<NivelRiesgoCredito>()
+        Enumerable.Range(0, 6)
             .Select(p => (p, monto, true))
             .ToList()
             .AsReadOnly();
@@ -60,7 +60,7 @@ public class CreditoDisponibleServiceLimitesTests : IDisposable
         Assert.Empty(errores);
 
         var guardados = await _context.PuntajesCreditoLimite.ToListAsync();
-        Assert.Equal(Enum.GetValues<NivelRiesgoCredito>().Length, guardados.Count);
+        Assert.Equal(6, guardados.Count);
         Assert.All(guardados, g => Assert.Equal(5_000m, g.LimiteMonto));
     }
 
@@ -71,7 +71,7 @@ public class CreditoDisponibleServiceLimitesTests : IDisposable
     [Fact]
     public async Task GuardarLimitesPorPuntaje_FaltaUnPuntaje_RetornaError()
     {
-        var todosLosPuntajes = Enum.GetValues<NivelRiesgoCredito>().ToList();
+        var todosLosPuntajes = Enumerable.Range(0, 6).ToList();
         // Omitir el primer puntaje
         var itemsIncompletos = todosLosPuntajes
             .Skip(1)
@@ -92,8 +92,8 @@ public class CreditoDisponibleServiceLimitesTests : IDisposable
     [Fact]
     public async Task GuardarLimitesPorPuntaje_PuntajesDuplicados_RetornaError()
     {
-        var puntajeRepetido = NivelRiesgoCredito.Rechazado;
-        var lista = Enum.GetValues<NivelRiesgoCredito>()
+        var puntajeRepetido = 1;
+        var lista = Enumerable.Range(0, 6)
             .Select(p => (p, 10_000m, true))
             .ToList();
         lista.Add((puntajeRepetido, 20_000m, true));  // duplicado explícito
@@ -113,7 +113,7 @@ public class CreditoDisponibleServiceLimitesTests : IDisposable
     [Fact]
     public async Task GuardarLimitesPorPuntaje_LimiteConDecimales_RetornaError()
     {
-        var items = Enum.GetValues<NivelRiesgoCredito>()
+        var items = Enumerable.Range(0, 6)
             .Select(p => (p, 10_000.50m, true))   // con decimales
             .ToList()
             .AsReadOnly();
@@ -138,7 +138,7 @@ public class CreditoDisponibleServiceLimitesTests : IDisposable
         await _service.GuardarLimitesPorPuntajeAsync(ItemsCompletos(15_000m), "admin");
 
         var guardados = await _context.PuntajesCreditoLimite.ToListAsync();
-        var cantEsperada = Enum.GetValues<NivelRiesgoCredito>().Length;
+        var cantEsperada = 6;
 
         Assert.Equal(cantEsperada, guardados.Count);  // sin duplicados
         Assert.All(guardados, g => Assert.Equal(15_000m, g.LimiteMonto));  // actualizados
@@ -183,7 +183,7 @@ public class CreditoDisponibleServiceLimitesTests : IDisposable
     {
         var countAntes = await _context.PuntajesCreditoLimite.CountAsync();
 
-        var items = Array.Empty<(NivelRiesgoCredito, decimal, bool)>()
+        var items = Array.Empty<(int, decimal, bool)>()
             .ToList().AsReadOnly();
 
         var (ok, errores) = await _service.GuardarLimitesPorPuntajeAsync(items, "admin");

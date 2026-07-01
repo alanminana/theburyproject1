@@ -20,6 +20,7 @@ namespace TheBuryProject.Tests.Integration;
 
 sealed class StubCajaServiceCiclo : ICajaService
 {
+    public Task<decimal?> ObtenerUltimoEfectivoCierreAsync(int cajaId) => Task.FromResult<decimal?>(null);
     public List<(int CuotaId, string CreditoNumero, int NumeroCuota, decimal Monto, string MedioPago, string Usuario)> MovimientosCuota { get; } = new();
     public AperturaCaja? AperturaActivaParaVenta { get; set; } = new() { Id = 1 };
 
@@ -67,10 +68,10 @@ sealed class StubCajaServiceCiclo : ICajaService
 
 file sealed class StubCreditoDisponibleServiceCiclo : ICreditoDisponibleService
 {
-    public Task<decimal> ObtenerLimitePorPuntajeAsync(NivelRiesgoCredito puntaje, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+    public Task<decimal> ObtenerLimitePorPuntajeAsync(int puntaje, CancellationToken cancellationToken = default) => throw new NotImplementedException();
     public Task<decimal> CalcularSaldoVigenteAsync(int clienteId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
     public Task<CreditoDisponibleResultado> CalcularDisponibleAsync(int clienteId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
-    public Task<(bool Ok, List<string> Errores)> GuardarLimitesPorPuntajeAsync(IReadOnlyList<(NivelRiesgoCredito Puntaje, decimal LimiteMonto, bool Activo)> items, string usuario) => throw new NotImplementedException();
+    public Task<(bool Ok, List<string> Errores)> GuardarLimitesPorPuntajeAsync(IReadOnlyList<(int Puntaje, decimal LimiteMonto, bool Activo)> items, string usuario) => throw new NotImplementedException();
     public Task<List<PuntajeCreditoLimite>> GetAllLimitesPorPuntajeAsync() => throw new NotImplementedException();
 }
 

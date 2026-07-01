@@ -202,11 +202,11 @@ namespace TheBuryProject.Models.Entities
         // ==========================
 
         /// <summary>
-        /// Puntaje base de comportamiento del cliente. Arranca en 1 para todos
-        /// y luego lo ajusta el servicio de scoring según antigüedad, pago en
-        /// término y actividad de compra. No reemplaza a PuntajeRiesgo.
+        /// Puntaje interno de comportamiento del cliente (modelo 0–5). Arranca en 0
+        /// para todo cliente nuevo y luego lo ajusta el servicio de scoring según
+        /// antigüedad, pago en término y actividad de compra. No reemplaza a PuntajeRiesgo.
         /// </summary>
-        public int PuntajeCliente { get; set; } = 1;
+        public int PuntajeCliente { get; set; } = 0;
 
         /// <summary>
         /// Antigüedad del cliente en días (snapshot recalculado por el servicio
@@ -221,6 +221,12 @@ namespace TheBuryProject.Models.Entities
         public DateTime? UltimaVentaFecha { get; set; }
 
         /// <summary>
+        /// Cantidad de ventas reales registradas al cliente (snapshot).
+        /// Cuenta ventas confirmadas, facturadas o entregadas.
+        /// </summary>
+        public int CantidadComprasCliente { get; set; } = 0;
+
+        /// <summary>
         /// Cantidad de créditos del cliente pagados en término (snapshot).
         /// </summary>
         public int CreditosEnTermino { get; set; } = 0;
@@ -232,10 +238,17 @@ namespace TheBuryProject.Models.Entities
 
         /// <summary>
         /// Indica si el cliente está al día con todos sus créditos.
-        /// Derivado: true cuando no registra créditos con atraso. No se persiste.
+        /// Derivado: true solo si tiene historial y no registra créditos con atraso. No se persiste.
         /// </summary>
         [NotMapped]
-        public bool PagaCreditosEnTermino => CreditosConAtraso == 0;
+        public bool PagaCreditosEnTermino => TieneHistorialCredito && CreditosConAtraso == 0;
+
+        /// <summary>
+        /// Indica si existe historial de repago para evaluar comportamiento crediticio.
+        /// No se persiste.
+        /// </summary>
+        [NotMapped]
+        public bool TieneHistorialCredito => CreditosEnTermino > 0 || CreditosConAtraso > 0;
 
         // Estado
         public bool Activo { get; set; } = true;

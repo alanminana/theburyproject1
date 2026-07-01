@@ -71,20 +71,21 @@ public class CreditoDisponibleServiceTests
         return (ctx, conn);
     }
 
-    private static async Task SetLimite(AppDbContext ctx, NivelRiesgoCredito nivel, decimal monto)
+    private static async Task SetLimite(AppDbContext ctx, int puntaje, decimal monto)
     {
-        var preset = await ctx.PuntajesCreditoLimite.FirstAsync(p => p.Puntaje == nivel);
+        var preset = await ctx.PuntajesCreditoLimite.FirstAsync(p => p.Puntaje == puntaje);
         preset.LimiteMonto = monto;
         await ctx.SaveChangesAsync();
     }
 
-    // Id 5 = AprobadoTotal en el seed. Actualiza LimiteMonto para el test.
+    // Puntaje 5 = tope. Actualiza LimiteMonto para el test.
     private static async Task SetLimiteAprobadoTotal(AppDbContext ctx, decimal monto)
     {
-        await SetLimite(ctx, NivelRiesgoCredito.AprobadoTotal, monto);
+        await SetLimite(ctx, 5, monto);
     }
 
-    private static Cliente BaseCliente(int id, NivelRiesgoCredito nivel = NivelRiesgoCredito.AprobadoTotal) =>
+    // El cupo lo gobierna PuntajeCliente (0–5); NivelRiesgo ya no es el driver.
+    private static Cliente BaseCliente(int id, int puntaje = 5) =>
         new()
         {
             Id = id,
@@ -92,7 +93,7 @@ public class CreditoDisponibleServiceTests
             Apellido = "Cliente",
             TipoDocumento = "DNI",
             NumeroDocumento = $"1000000{id}",
-            NivelRiesgo = nivel,
+            PuntajeCliente = puntaje,
             IsDeleted = false,
             RowVersion = new byte[8]
         };
@@ -104,7 +105,7 @@ public class CreditoDisponibleServiceTests
         await using (ctx) using (conn)
         {
             await SetLimiteAprobadoTotal(ctx, 100_000m);
-            ctx.Clientes.Add(BaseCliente(1, NivelRiesgoCredito.AprobadoTotal));
+            ctx.Clientes.Add(BaseCliente(1, 5));
             await ctx.SaveChangesAsync();
 
             var service = new CreditoDisponibleService(ctx, Microsoft.Extensions.Logging.Abstractions.NullLogger<TheBuryProject.Services.CreditoDisponibleService>.Instance);
@@ -113,7 +114,7 @@ public class CreditoDisponibleServiceTests
             Assert.Equal(100_000m, resultado.Limite);
             Assert.Equal(100_000m, resultado.Disponible);
             Assert.Equal(0m, resultado.SaldoVigente);
-            Assert.Equal("Nivel crediticio", resultado.OrigenLimite);
+            Assert.Equal("Puntaje crediticio", resultado.OrigenLimite);
         }
     }
 
@@ -129,7 +130,7 @@ public class CreditoDisponibleServiceTests
             preset!.Activo = false;
             await ctx.SaveChangesAsync();
 
-            ctx.Clientes.Add(BaseCliente(1, NivelRiesgoCredito.AprobadoTotal));
+            ctx.Clientes.Add(BaseCliente(1, 5));
             await ctx.SaveChangesAsync();
 
             var service = new CreditoDisponibleService(ctx, Microsoft.Extensions.Logging.Abstractions.NullLogger<TheBuryProject.Services.CreditoDisponibleService>.Instance);
@@ -255,16 +256,16 @@ public class CreditoDisponibleServiceTests
         var (ctx, conn) = CreateContext();
         await using (ctx) using (conn)
         {
-            await SetLimite(ctx, NivelRiesgoCredito.Rechazado, 0m);
-            await SetLimite(ctx, NivelRiesgoCredito.AprobadoCondicional, 90_000m);
+            await SetLimite(ctx, 1, 0m);
+            await SetLimite(ctx, 3, 90_000m);
 
-            ctx.Clientes.Add(BaseCliente(1, NivelRiesgoCredito.AprobadoCondicional));
+            ctx.Clientes.Add(BaseCliente(1, 3));
             await ctx.SaveChangesAsync();
 
             ctx.ClientesCreditoConfiguraciones.Add(new ClienteCreditoConfiguracion
             {
                 ClienteId = 1,
-                NivelCreditoManual = NivelRiesgoCredito.Rechazado,
+                NivelCreditoManual = 1,
                 MotivoNivelCreditoManual = "Caso de prueba"
             });
             await ctx.SaveChangesAsync();
@@ -272,9 +273,9 @@ public class CreditoDisponibleServiceTests
             var service = new CreditoDisponibleService(ctx, Microsoft.Extensions.Logging.Abstractions.NullLogger<TheBuryProject.Services.CreditoDisponibleService>.Instance);
             var resultado = await service.CalcularDisponibleAsync(1);
 
-            Assert.Equal(NivelRiesgoCredito.AprobadoCondicional, resultado.NivelCreditoAutomatico);
-            Assert.Equal(NivelRiesgoCredito.Rechazado, resultado.NivelCreditoManual);
-            Assert.Equal(NivelRiesgoCredito.Rechazado, resultado.NivelCreditoFinal);
+            Assert.Equal(3, resultado.NivelCreditoAutomatico);
+            Assert.Equal(1, resultado.NivelCreditoManual);
+            Assert.Equal(1, resultado.NivelCreditoFinal);
             Assert.Equal("Manual", resultado.FuenteNivelCredito);
             Assert.Equal(0m, resultado.Limite);
             Assert.Equal(0m, resultado.Disponible);
@@ -287,10 +288,10 @@ public class CreditoDisponibleServiceTests
         var (ctx, conn) = CreateContext();
         await using (ctx) using (conn)
         {
-            await SetLimite(ctx, NivelRiesgoCredito.Rechazado, 0m);
-            await SetLimite(ctx, NivelRiesgoCredito.AprobadoCondicional, 90_000m);
+            await SetLimite(ctx, 1, 0m);
+            await SetLimite(ctx, 3, 90_000m);
 
-            ctx.Clientes.Add(BaseCliente(1, NivelRiesgoCredito.AprobadoCondicional));
+            ctx.Clientes.Add(BaseCliente(1, 3));
             await ctx.SaveChangesAsync();
 
             ctx.ClientesCreditoConfiguraciones.Add(new ClienteCreditoConfiguracion
@@ -303,7 +304,7 @@ public class CreditoDisponibleServiceTests
             var resultado = await service.CalcularDisponibleAsync(1);
 
             Assert.Null(resultado.NivelCreditoManual);
-            Assert.Equal(NivelRiesgoCredito.AprobadoCondicional, resultado.NivelCreditoFinal);
+            Assert.Equal(3, resultado.NivelCreditoFinal);
             Assert.Equal("Automatico", resultado.FuenteNivelCredito);
             Assert.Equal(90_000m, resultado.Limite);
             Assert.Equal(90_000m, resultado.Disponible);

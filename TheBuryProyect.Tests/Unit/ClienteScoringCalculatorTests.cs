@@ -66,6 +66,7 @@ public sealed class ClienteScoringCalculatorTests
             Ahora.AddDays(-100), ventas, new List<Credito>(), Ahora);
 
         Assert.Equal(Ahora.AddDays(-10), snap.UltimaVentaFecha);
+        Assert.Equal(2, snap.CantidadComprasCliente);
     }
 
     [Fact]
@@ -81,6 +82,7 @@ public sealed class ClienteScoringCalculatorTests
             Ahora.AddDays(-100), ventas, new List<Credito>(), Ahora);
 
         Assert.Null(snap.UltimaVentaFecha);
+        Assert.Equal(0, snap.CantidadComprasCliente);
     }
 
     // ---------------------------------------------------------------------
@@ -97,6 +99,8 @@ public sealed class ClienteScoringCalculatorTests
 
         Assert.Equal(1, snap.CreditosConAtraso);
         Assert.Equal(0, snap.CreditosEnTermino);
+        Assert.True(snap.TieneHistorialCredito);
+        Assert.False(snap.PagaEnTermino);
     }
 
     [Fact]
@@ -134,6 +138,8 @@ public sealed class ClienteScoringCalculatorTests
 
         Assert.Equal(1, snap.CreditosEnTermino);
         Assert.Equal(0, snap.CreditosConAtraso);
+        Assert.True(snap.TieneHistorialCredito);
+        Assert.True(snap.PagaEnTermino);
     }
 
     [Fact]
@@ -148,6 +154,8 @@ public sealed class ClienteScoringCalculatorTests
 
         Assert.Equal(0, snap.CreditosEnTermino);
         Assert.Equal(0, snap.CreditosConAtraso);
+        Assert.False(snap.TieneHistorialCredito);
+        Assert.False(snap.PagaEnTermino);
     }
 
     [Fact]
@@ -182,24 +190,36 @@ public sealed class ClienteScoringCalculatorTests
     private static ClienteScoringSnapshot Snap(
         int antiguedadDias = 0,
         DateTime? ultimaVenta = null,
+        int compras = 0,
         int enTermino = 0,
         int conAtraso = 0) =>
         new()
         {
             AntiguedadDias = antiguedadDias,
             UltimaVentaFecha = ultimaVenta,
+            CantidadComprasCliente = compras,
             CreditosEnTermino = enTermino,
             CreditosConAtraso = conAtraso
         };
 
     [Fact]
-    public void Puntaje_ClienteNuevoSinHistorial_EsLaBase1()
+    public void Config_Default_EsModeloCeroACinco()
+    {
+        var config = ConfiguracionScoringCliente.CrearDefault();
+
+        Assert.Equal(0, config.PuntajeBase);
+        Assert.Equal(0, config.PuntajeMinimo);
+        Assert.Equal(5, config.PuntajeMaximo);
+    }
+
+    [Fact]
+    public void Puntaje_ClienteNuevoSinHistorial_EsCero()
     {
         var config = ConfiguracionScoringCliente.CrearDefault();
 
         var puntaje = ClienteScoringCalculator.CalcularPuntaje(Snap(), null, config, Ahora);
 
-        Assert.Equal(1, puntaje);
+        Assert.Equal(0, puntaje); // modelo 0–5: cliente nuevo arranca en 0
     }
 
     [Fact]
@@ -209,7 +229,7 @@ public sealed class ClienteScoringCalculatorTests
 
         var puntaje = ClienteScoringCalculator.CalcularPuntaje(Snap(antiguedadDias: 400), null, config, Ahora);
 
-        Assert.Equal(2, puntaje); // base 1 + antigüedad 1
+        Assert.Equal(1, puntaje); // base 0 + antigüedad 1
     }
 
     [Fact]
@@ -220,7 +240,7 @@ public sealed class ClienteScoringCalculatorTests
 
         var puntaje = ClienteScoringCalculator.CalcularPuntaje(Snap(antiguedadDias: 400), null, config, Ahora);
 
-        Assert.Equal(1, puntaje);
+        Assert.Equal(0, puntaje);
     }
 
     [Fact]
@@ -231,7 +251,7 @@ public sealed class ClienteScoringCalculatorTests
         var puntaje = ClienteScoringCalculator.CalcularPuntaje(
             Snap(ultimaVenta: Ahora.AddDays(-30)), null, config, Ahora);
 
-        Assert.Equal(2, puntaje); // base 1 + actividad 1
+        Assert.Equal(1, puntaje); // base 0 + actividad 1
     }
 
     [Fact]
@@ -242,7 +262,7 @@ public sealed class ClienteScoringCalculatorTests
         var puntaje = ClienteScoringCalculator.CalcularPuntaje(
             Snap(ultimaVenta: Ahora.AddDays(-365)), null, config, Ahora);
 
-        Assert.Equal(1, puntaje);
+        Assert.Equal(0, puntaje);
     }
 
     [Fact]
@@ -252,17 +272,17 @@ public sealed class ClienteScoringCalculatorTests
 
         var puntaje = ClienteScoringCalculator.CalcularPuntaje(Snap(enTermino: 2), null, config, Ahora);
 
-        Assert.Equal(3, puntaje); // base 1 + pago 2
+        Assert.Equal(2, puntaje); // base 0 + pago 2
     }
 
     [Fact]
     public void Puntaje_ConAtraso_PenalizaYAcotaAlMinimo()
     {
-        var config = ConfiguracionScoringCliente.CrearDefault(); // -2, min 1
+        var config = ConfiguracionScoringCliente.CrearDefault(); // -2, min 0
 
         var puntaje = ClienteScoringCalculator.CalcularPuntaje(Snap(conAtraso: 1), null, config, Ahora);
 
-        Assert.Equal(1, puntaje); // 1 - 2 = -1, clamp a min 1
+        Assert.Equal(0, puntaje); // 0 - 2 = -2, clamp a min 0
     }
 
     [Fact]
@@ -273,9 +293,9 @@ public sealed class ClienteScoringCalculatorTests
         config.SueldoUmbral = 500_000m;
         config.SueldoPuntos = 1;
 
-        Assert.Equal(2, ClienteScoringCalculator.CalcularPuntaje(Snap(), 600_000m, config, Ahora));
-        Assert.Equal(1, ClienteScoringCalculator.CalcularPuntaje(Snap(), 400_000m, config, Ahora));
-        Assert.Equal(1, ClienteScoringCalculator.CalcularPuntaje(Snap(), null, config, Ahora));
+        Assert.Equal(1, ClienteScoringCalculator.CalcularPuntaje(Snap(), 600_000m, config, Ahora));
+        Assert.Equal(0, ClienteScoringCalculator.CalcularPuntaje(Snap(), 400_000m, config, Ahora));
+        Assert.Equal(0, ClienteScoringCalculator.CalcularPuntaje(Snap(), null, config, Ahora));
     }
 
     [Fact]

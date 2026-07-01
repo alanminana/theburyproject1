@@ -6,14 +6,14 @@ namespace TheBuryProject.Services.Interfaces
 {
     public interface ICreditoDisponibleService
     {
-        Task<decimal> ObtenerLimitePorPuntajeAsync(NivelRiesgoCredito puntaje, CancellationToken cancellationToken = default);
+        Task<decimal> ObtenerLimitePorPuntajeAsync(int puntaje, CancellationToken cancellationToken = default);
 
         Task<decimal> CalcularSaldoVigenteAsync(int clienteId, CancellationToken cancellationToken = default);
 
         Task<CreditoDisponibleResultado> CalcularDisponibleAsync(int clienteId, CancellationToken cancellationToken = default);
 
         Task<(bool Ok, List<string> Errores)> GuardarLimitesPorPuntajeAsync(
-            IReadOnlyList<(NivelRiesgoCredito Puntaje, decimal LimiteMonto, bool Activo)> items,
+            IReadOnlyList<(int Puntaje, decimal LimiteMonto, bool Activo)> items,
             string usuario);
 
         /// <summary>

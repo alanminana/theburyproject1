@@ -109,15 +109,36 @@ public sealed class ClienteScoringServiceTests : IDisposable
         Assert.NotNull(resultado);
         Assert.Equal(1, resultado!.Snapshot.CreditosEnTermino);
         Assert.Equal(0, resultado.Snapshot.CreditosConAtraso);
-        // base 1 + antigüedad 1 + actividad 1 + buen pagador 2 = 5 (tope)
-        Assert.Equal(5, resultado.Puntaje);
+        Assert.Equal(1, resultado.Snapshot.CantidadComprasCliente);
+        // base 0 + antigüedad 1 + actividad 1 + buen pagador 2 = 4
+        Assert.Equal(4, resultado.Puntaje);
 
         var persistido = await _context.Clientes.AsNoTracking().FirstAsync(c => c.Id == cliente.Id);
-        Assert.Equal(5, persistido.PuntajeCliente);
+        Assert.Equal(4, persistido.PuntajeCliente);
+        Assert.Equal(1, persistido.CantidadComprasCliente);
         Assert.Equal(1, persistido.CreditosEnTermino);
         Assert.Equal(0, persistido.CreditosConAtraso);
         Assert.NotNull(persistido.UltimaVentaFecha);
         Assert.True(persistido.AntiguedadDias >= 399);
+    }
+
+    [Fact]
+    public async Task RecalcularAsync_ClienteNuevoSinHistorial_NoLoMarcaBuenPagador()
+    {
+        var ahora = DateTime.UtcNow;
+        var cliente = await SeedClienteAsync(ahora);
+
+        var resultado = await _service.RecalcularAsync(cliente.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(0, resultado!.Snapshot.CantidadComprasCliente);
+        Assert.False(resultado.Snapshot.TieneHistorialCredito);
+        Assert.False(resultado.Snapshot.PagaEnTermino);
+
+        var persistido = await _context.Clientes.AsNoTracking().FirstAsync(c => c.Id == cliente.Id);
+        Assert.Equal(0, persistido.CantidadComprasCliente);
+        Assert.False(persistido.TieneHistorialCredito);
+        Assert.False(persistido.PagaCreditosEnTermino);
     }
 
     [Fact]
@@ -147,7 +168,18 @@ public sealed class ClienteScoringServiceTests : IDisposable
 
         Assert.NotNull(resultado);
         Assert.Equal(1, resultado!.Snapshot.CreditosConAtraso);
-        Assert.Equal(1, resultado.Puntaje); // 1 - 2 = -1, clamp a 1
+        Assert.Equal(0, resultado.Puntaje); // 0 - 2 = -2, clamp a 0
+    }
+
+    [Fact]
+    public async Task ClienteNuevo_PersisteConPuntajeCero()
+    {
+        // Modelo 0–5: un cliente recién dado de alta (sin fijar PuntajeCliente)
+        // debe quedar persistido en 0, no en 1 (default de BD = 0 + ValueGeneratedNever).
+        var cliente = await SeedClienteAsync(DateTime.UtcNow);
+
+        var persistido = await _context.Clientes.AsNoTracking().FirstAsync(c => c.Id == cliente.Id);
+        Assert.Equal(0, persistido.PuntajeCliente);
     }
 
     [Fact]

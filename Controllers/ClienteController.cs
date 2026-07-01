@@ -452,7 +452,7 @@ namespace TheBuryProject.Controllers
         [PermisoRequerido(Modulo = "clientes", Accion = "managecreditlimits")]
         public async Task<IActionResult> AsignarNivelCreditoManual(
             int clienteId,
-            NivelRiesgoCredito nivelCreditoManual,
+            int nivelCreditoManual,
             string motivo,
             string? returnUrl = null)
         {
@@ -477,7 +477,7 @@ namespace TheBuryProject.Controllers
                 }
 
                 await _aptitudService.EvaluarAptitudAsync(clienteId, guardarResultado: true);
-                TempData["Success"] = $"Nivel crediticio manual asignado: {(int)nivelCreditoManual}.";
+                TempData["Success"] = $"Puntaje crediticio manual asignado: {nivelCreditoManual}.";
             }
             catch (Exception ex)
             {
@@ -616,7 +616,7 @@ namespace TheBuryProject.Controllers
             detalleViewModel.AptitudCrediticia = await _aptitudService.EvaluarAptitudSinGuardarAsync(cliente.Id);
 
             // Panel de visibilidad del crédito disponible
-            detalleViewModel.CreditoDisponiblePanel.PuntajeActual = cliente.NivelRiesgo;
+            detalleViewModel.CreditoDisponiblePanel.PuntajeActual = cliente.PuntajeCliente;
             detalleViewModel.CreditoDisponiblePanel.NivelesDisponibles = await ConstruirOpcionesNivelCreditoAsync();
             try
             {
@@ -676,7 +676,7 @@ namespace TheBuryProject.Controllers
 
             var items = new List<ClienteCreditoLimiteItemViewModel>();
 
-            foreach (var puntaje in Enum.GetValues<NivelRiesgoCredito>().OrderBy(x => (int)x))
+            foreach (var puntaje in Enumerable.Range(0, 6))
             {
                 var existente = dbItems.FirstOrDefault(x => x.Puntaje == puntaje);
                 if (existente != null)
@@ -709,8 +709,7 @@ namespace TheBuryProject.Controllers
         {
             var dbItems = await _creditoDisponibleService.GetAllLimitesPorPuntajeAsync();
 
-            return Enum.GetValues<NivelRiesgoCredito>()
-                .OrderBy(x => (int)x)
+            return Enumerable.Range(0, 6)
                 .Select(nivel =>
                 {
                     var existente = dbItems.FirstOrDefault(x => x.Puntaje == nivel);

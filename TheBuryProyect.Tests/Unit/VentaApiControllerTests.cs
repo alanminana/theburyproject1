@@ -1089,7 +1089,7 @@ public class VentaApiControllerTests
         public Task<bool> ExisteDocumentoAsync(string tipoDocumento, string numeroDocumento, int? excludeId = null) => throw new NotImplementedException();
         public Task<Cliente?> GetByDocumentoAsync(string tipoDocumento, string numeroDocumento) => throw new NotImplementedException();
         public Task ActualizarPuntajeRiesgoAsync(int clienteId, decimal nuevoPuntaje, string motivo) => throw new NotImplementedException();
-        public Task<bool> AsignarNivelCreditoManualAsync(int clienteId, NivelRiesgoCredito nivel, string motivo, string usuario) => throw new NotImplementedException();
+        public Task<bool> AsignarNivelCreditoManualAsync(int clienteId, int nivel, string motivo, string usuario) => throw new NotImplementedException();
         public Task<bool> LimpiarNivelCreditoManualAsync(int clienteId, string motivo, string usuario) => throw new NotImplementedException();
     }
 

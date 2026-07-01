@@ -15,11 +15,12 @@ namespace TheBuryProject.Models.Entities
         // Puntaje base y límites
         // ==========================
 
-        /// <summary>Puntaje con el que arranca todo cliente antes de aplicar factores.</summary>
-        public int PuntajeBase { get; set; } = 1;
+        /// <summary>Puntaje con el que arranca todo cliente antes de aplicar factores.
+        /// Base 0: todo cliente nuevo sin historial arranca en puntaje interno 0 (modelo 0–5).</summary>
+        public int PuntajeBase { get; set; } = 0;
 
-        /// <summary>Mínimo al que se acota el puntaje final.</summary>
-        public int PuntajeMinimo { get; set; } = 1;
+        /// <summary>Mínimo al que se acota el puntaje final. 0 en el modelo 0–5.</summary>
+        public int PuntajeMinimo { get; set; } = 0;
 
         /// <summary>Máximo al que se acota el puntaje final.</summary>
         public int PuntajeMaximo { get; set; } = 5;
@@ -71,9 +72,9 @@ namespace TheBuryProject.Models.Entities
         public int SueldoPuntos { get; set; } = 1;
 
         /// <summary>
-        /// Configuración por defecto (fórmula base): antigüedad ≥ 12 meses (+1),
+        /// Configuración por defecto (fórmula base, modelo 0–5): base 0, antigüedad ≥ 12 meses (+1),
         /// actividad ≤ 6 meses (+1), buen pagador (+2) / con atraso (-2), sueldo apagado.
-        /// Se usa cuando todavía no existe una fila persistida.
+        /// El puntaje final se acota a [0, 5]. Se usa cuando todavía no existe una fila persistida.
         /// </summary>
         public static ConfiguracionScoringCliente CrearDefault() => new();
     }

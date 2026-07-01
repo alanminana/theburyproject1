@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TheBuryProject.Data;
 
@@ -11,9 +12,11 @@ using TheBuryProject.Data;
 namespace TheBuryProject.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260701010417_AlterPuntajeClienteDefaultCero")]
+    partial class AlterPuntajeClienteDefaultCero
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1772,7 +1775,7 @@ namespace TheBuryProject.Migrations
 
                             t.HasCheckConstraint("CK_ClientesCreditoConfiguraciones_MontosNoNegativos", "([LimiteOverride] IS NULL OR [LimiteOverride] >= 0) AND ([ExcepcionDelta] IS NULL OR [ExcepcionDelta] >= 0)");
 
-                            t.HasCheckConstraint("CK_ClientesCreditoConfiguraciones_NivelCreditoManual", "[NivelCreditoManual] IS NULL OR ([NivelCreditoManual] >= 0 AND [NivelCreditoManual] <= 5)");
+                            t.HasCheckConstraint("CK_ClientesCreditoConfiguraciones_NivelCreditoManual", "[NivelCreditoManual] IS NULL OR ([NivelCreditoManual] >= 1 AND [NivelCreditoManual] <= 5)");
                         });
                 });
 
@@ -8335,19 +8338,10 @@ namespace TheBuryProject.Migrations
 
                     b.ToTable("PuntajeCreditoLimites", null, t =>
                         {
-                            t.HasCheckConstraint("CK_PuntajeCreditoLimites_Puntaje", "[Puntaje] >= 0 AND [Puntaje] <= 5");
+                            t.HasCheckConstraint("CK_PuntajeCreditoLimites_Puntaje", "[Puntaje] >= 1 AND [Puntaje] <= 5");
                         });
 
                     b.HasData(
-                        new
-                        {
-                            Id = 6,
-                            Activo = true,
-                            FechaActualizacion = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            LimiteMonto = 200000m,
-                            Puntaje = 0,
-                            UsuarioActualizacion = "System"
-                        },
                         new
                         {
                             Id = 1,

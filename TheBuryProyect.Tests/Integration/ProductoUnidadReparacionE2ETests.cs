@@ -21,6 +21,7 @@ namespace TheBuryProject.Tests.Integration;
 
 file sealed class StubCajaE2ERep : ICajaService
 {
+    public Task<decimal?> ObtenerUltimoEfectivoCierreAsync(int cajaId) => Task.FromResult<decimal?>(null);
     private readonly AperturaCaja _apertura;
     public StubCajaE2ERep(AperturaCaja apertura) => _apertura = apertura;
 
@@ -79,13 +80,13 @@ file sealed class StubAlertaStockE2ERep : IAlertaStockService
 
 file sealed class StubCreditoDisponibleE2ERep : ICreditoDisponibleService
 {
-    public Task<decimal> ObtenerLimitePorPuntajeAsync(NivelRiesgoCredito puntaje, CancellationToken cancellationToken = default)
+    public Task<decimal> ObtenerLimitePorPuntajeAsync(int puntaje, CancellationToken cancellationToken = default)
         => Task.FromResult(0m);
     public Task<decimal> CalcularSaldoVigenteAsync(int clienteId, CancellationToken cancellationToken = default)
         => Task.FromResult(0m);
     public Task<CreditoDisponibleResultado> CalcularDisponibleAsync(int clienteId, CancellationToken cancellationToken = default)
         => Task.FromResult(new CreditoDisponibleResultado { Limite = 0m, Disponible = 999_999m });
-    public Task<(bool Ok, List<string> Errores)> GuardarLimitesPorPuntajeAsync(IReadOnlyList<(NivelRiesgoCredito Puntaje, decimal LimiteMonto, bool Activo)> items, string usuario) => throw new NotImplementedException();
+    public Task<(bool Ok, List<string> Errores)> GuardarLimitesPorPuntajeAsync(IReadOnlyList<(int Puntaje, decimal LimiteMonto, bool Activo)> items, string usuario) => throw new NotImplementedException();
     public Task<List<PuntajeCreditoLimite>> GetAllLimitesPorPuntajeAsync() => throw new NotImplementedException();
 }
 

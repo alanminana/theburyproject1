@@ -88,10 +88,10 @@ file sealed class StubValidacionVentaCancelarCaja : IValidacionVentaService
 
 file sealed class StubCreditoDisponibleCancelarCaja : ICreditoDisponibleService
 {
-    public Task<decimal> ObtenerLimitePorPuntajeAsync(NivelRiesgoCredito puntaje, CancellationToken ct = default) => Task.FromResult(0m);
+    public Task<decimal> ObtenerLimitePorPuntajeAsync(int puntaje, CancellationToken ct = default) => Task.FromResult(0m);
     public Task<decimal> CalcularSaldoVigenteAsync(int clienteId, CancellationToken ct = default) => Task.FromResult(0m);
     public Task<CreditoDisponibleResultado> CalcularDisponibleAsync(int clienteId, CancellationToken ct = default) => Task.FromResult(new CreditoDisponibleResultado { Limite = 0m, Disponible = 999_999m });
-    public Task<(bool Ok, List<string> Errores)> GuardarLimitesPorPuntajeAsync(IReadOnlyList<(NivelRiesgoCredito Puntaje, decimal LimiteMonto, bool Activo)> items, string usuario) => throw new NotImplementedException();
+    public Task<(bool Ok, List<string> Errores)> GuardarLimitesPorPuntajeAsync(IReadOnlyList<(int Puntaje, decimal LimiteMonto, bool Activo)> items, string usuario) => throw new NotImplementedException();
     public Task<List<PuntajeCreditoLimite>> GetAllLimitesPorPuntajeAsync() => throw new NotImplementedException();
 }
 

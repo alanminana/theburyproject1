@@ -266,7 +266,7 @@ public sealed class CotizacionControllerPdfTests
         public Task<bool> ExisteDocumentoAsync(string tipoDocumento, string numeroDocumento, int? excludeId = null) => Task.FromResult(false);
         public Task<Cliente?> GetByDocumentoAsync(string tipoDocumento, string numeroDocumento) => Task.FromResult<Cliente?>(null);
         public Task ActualizarPuntajeRiesgoAsync(int clienteId, decimal nuevoPuntaje, string motivo) => Task.CompletedTask;
-        public Task<bool> AsignarNivelCreditoManualAsync(int clienteId, NivelRiesgoCredito nivel, string motivo, string usuario) => Task.FromResult(false);
+        public Task<bool> AsignarNivelCreditoManualAsync(int clienteId, int nivel, string motivo, string usuario) => Task.FromResult(false);
         public Task<bool> LimpiarNivelCreditoManualAsync(int clienteId, string motivo, string usuario) => Task.FromResult(false);
     }
 }

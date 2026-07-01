@@ -16,7 +16,9 @@ namespace TheBuryProject.Models.Entities
 
         public decimal? LimiteOverride { get; set; }
 
-        public NivelRiesgoCredito? NivelCreditoManual { get; set; }
+        /// <summary>Override manual del puntaje interno (0–5) que gobierna el cupo. Null = usar el automático.
+        /// (Se mantiene el nombre de columna NivelCreditoManual por compatibilidad; hoy representa un puntaje 0–5.)</summary>
+        public int? NivelCreditoManual { get; set; }
 
         [StringLength(1000)]
         public string? MotivoNivelCreditoManual { get; set; }

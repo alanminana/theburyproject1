@@ -1,14 +1,15 @@
-using TheBuryProject.Models.Enums;
-
 namespace TheBuryProject.Services.Models
 {
     public class CreditoDisponibleResultado
     {
-        public NivelRiesgoCredito NivelCreditoAutomatico { get; set; }
+        /// <summary>Puntaje interno automático (0–5) que gobierna el cupo.</summary>
+        public int NivelCreditoAutomatico { get; set; }
 
-        public NivelRiesgoCredito? NivelCreditoManual { get; set; }
+        /// <summary>Puntaje interno manual (0–5) si hay override. Null = usa el automático.</summary>
+        public int? NivelCreditoManual { get; set; }
 
-        public NivelRiesgoCredito NivelCreditoFinal { get; set; }
+        /// <summary>Puntaje interno final aplicado (manual ?? automático).</summary>
+        public int NivelCreditoFinal { get; set; }
 
         public string FuenteNivelCredito { get; set; } = "Automatico";
 

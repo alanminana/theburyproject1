@@ -12,8 +12,8 @@
                     <span class="material-symbols-outlined" style="font-size:17px">tune</span>
                 </div>
                 <div class="min-w-0 flex-1">
-                    <h2 id="limitesModalTitle" class="sec-title">Limites por nivel crediticio</h2>
-                    <p class="sec-sub">Configuracion de monto maximo para cada nivel crediticio.</p>
+                    <h2 id="limitesModalTitle" class="sec-title">Limites por puntaje</h2>
+                    <p class="sec-sub">Configuracion de monto maximo para cada puntaje interno (0 a 5).</p>
                 </div>
                 <button type="button" data-cliente-close-limites-modal class="btn btn-ghost btn-sm" aria-label="Cerrar">
                     <span class="material-symbols-outlined">close</span>
@@ -30,7 +30,7 @@
                         @for (int i = 0; i < Model.Items.Count; i++)
                         {
                             var item = Model.Items[i];
-                            var score = (int)item.Puntaje;
+                            var score = item.Puntaje;
                             var isHighlight = highlightScores.Contains(score);
 
                             <input type="hidden" name="Items[@i].Id" value="@item.Id" />
@@ -42,8 +42,8 @@
                                     <div class="flex items-center gap-3">
                                         <span class="avatar avatar-sm @(isHighlight ? string.Empty : "avatar--slate")">@score</span>
                                         <div>
-                                            <div class="text-sm font-semibold text-white">Nivel @score</div>
-                                            <div class="text-xs muted-2">@item.Puntaje</div>
+                                            <div class="text-sm font-semibold text-white">Puntaje @score</div>
+                                            <div class="text-xs muted-2">@(score == 0 ? "Cliente nuevo" : "Comportamiento")</div>
                                         </div>
                                     </div>
                                     <div class="field-money" style="width:9rem">

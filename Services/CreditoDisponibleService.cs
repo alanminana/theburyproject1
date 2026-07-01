@@ -30,10 +30,10 @@ namespace TheBuryProject.Services
         }
 
         public async Task<decimal> ObtenerLimitePorPuntajeAsync(
-            NivelRiesgoCredito puntaje,
+            int puntaje,
             CancellationToken cancellationToken = default)
         {
-            var limiteConfig = await ObtenerPresetPorNivelAsync(puntaje, cancellationToken);
+            var limiteConfig = await ObtenerPresetPorPuntajeAsync(puntaje, cancellationToken);
             return limiteConfig.LimiteMonto;
         }
 
@@ -70,7 +70,7 @@ namespace TheBuryProject.Services
                 .AsNoTracking()
                 .FirstOrDefaultAsync(c => c.ClienteId == clienteId, cancellationToken);
 
-            var nivelAutomatico = cliente.NivelRiesgo;
+            var nivelAutomatico = cliente.PuntajeCliente;
             var nivelManual = config?.NivelCreditoManual;
             var nivelFinal = nivelManual ?? nivelAutomatico;
 
@@ -80,10 +80,10 @@ namespace TheBuryProject.Services
 
             if (nivelManual.HasValue)
             {
-                var presetManual = await ObtenerPresetPorNivelAsync(nivelManual.Value, cancellationToken);
+                var presetManual = await ObtenerPresetPorPuntajeAsync(nivelManual.Value, cancellationToken);
                 limite = presetManual.LimiteMonto;
                 limitePresetId = presetManual.Id;
-                origenLimite = "Nivel crediticio manual";
+                origenLimite = "Puntaje crediticio manual";
             }
             else if (config is not null)
             {
@@ -98,10 +98,10 @@ namespace TheBuryProject.Services
             }
             else
             {
-                var presetAutomatico = await ObtenerPresetPorNivelAsync(nivelAutomatico, cancellationToken);
+                var presetAutomatico = await ObtenerPresetPorPuntajeAsync(nivelAutomatico, cancellationToken);
                 limite = presetAutomatico.LimiteMonto;
                 limitePresetId = presetAutomatico.Id;
-                origenLimite = "Nivel crediticio";
+                origenLimite = "Puntaje crediticio";
 
                 if (cliente.LimiteCredito.HasValue && cliente.LimiteCredito.Value > limite)
                 {
@@ -176,24 +176,24 @@ namespace TheBuryProject.Services
                 return (preset.LimiteMonto, preset.Id);
             }
 
-            var presetAutomatico = await ObtenerPresetPorNivelAsync(cliente.NivelRiesgo, cancellationToken);
+            var presetAutomatico = await ObtenerPresetPorPuntajeAsync(cliente.PuntajeCliente, cancellationToken);
             return (presetAutomatico.LimiteMonto, presetAutomatico.Id);
         }
 
-        private async Task<PuntajeCreditoLimite> ObtenerPresetPorNivelAsync(
-            NivelRiesgoCredito nivel,
+        private async Task<PuntajeCreditoLimite> ObtenerPresetPorPuntajeAsync(
+            int puntaje,
             CancellationToken cancellationToken)
         {
             var limiteConfig = await _context.PuntajesCreditoLimite
                 .AsNoTracking()
                 .FirstOrDefaultAsync(
-                    p => p.Puntaje == nivel && p.Activo,
+                    p => p.Puntaje == puntaje && p.Activo,
                     cancellationToken);
 
             if (limiteConfig == null)
             {
                 throw new CreditoDisponibleException(
-                    $"No existe limite de credito configurado para el nivel crediticio '{nivel}' ({(int)nivel}).");
+                    $"No existe limite de credito configurado para el puntaje interno {puntaje}.");
             }
 
             return limiteConfig;
@@ -222,7 +222,7 @@ namespace TheBuryProject.Services
         }
 
         public async Task<(bool Ok, List<string> Errores)> GuardarLimitesPorPuntajeAsync(
-            IReadOnlyList<(NivelRiesgoCredito Puntaje, decimal LimiteMonto, bool Activo)> items,
+            IReadOnlyList<(int Puntaje, decimal LimiteMonto, bool Activo)> items,
             string usuario)
         {
             var errores = new List<string>();
@@ -233,7 +233,7 @@ namespace TheBuryProject.Services
                 return (false, errores);
             }
 
-            var puntajesEsperados = Enum.GetValues<NivelRiesgoCredito>();
+            var puntajesEsperados = new[] { 0, 1, 2, 3, 4, 5 };
 
             if (items.Any(i => i.LimiteMonto != decimal.Truncate(i.LimiteMonto)))
                 errores.Add("Los limites por puntaje deben cargarse como numeros enteros.");
@@ -251,7 +251,7 @@ namespace TheBuryProject.Services
 
             if (puntajesRecibidos.Count != puntajesEsperados.Length
                 || puntajesEsperados.Except(puntajesRecibidos).Any())
-                errores.Add("La configuracion debe contener exactamente los puntajes del 1 al 5.");
+                errores.Add("La configuracion debe contener exactamente los puntajes del 0 al 5.");
 
             if (errores.Any())
                 return (false, errores);

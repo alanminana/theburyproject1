@@ -1,16 +1,18 @@
 using System.ComponentModel.DataAnnotations;
-using TheBuryProject.Models.Enums;
 
 namespace TheBuryProject.Models.Entities
 {
     /// <summary>
-    /// Configuración de límite de crédito por puntaje de cliente.
+    /// Configuración de límite de crédito por puntaje interno de comportamiento del cliente.
+    /// Puntaje 0–5 (0 = cliente nuevo). Es el eje único que gobierna el cupo.
     /// </summary>
     public class PuntajeCreditoLimite
     {
         public int Id { get; set; }
 
-        public NivelRiesgoCredito Puntaje { get; set; }
+        /// <summary>Puntaje interno de comportamiento (0–5) al que aplica este límite.</summary>
+        [Range(0, 5)]
+        public int Puntaje { get; set; }
 
         [Range(0, double.MaxValue)]
         public decimal LimiteMonto { get; set; }

@@ -20,6 +20,7 @@ namespace TheBuryProject.Tests.Integration;
 
 file sealed class StubCajaServiceConfirmar : ICajaService
 {
+    public Task<decimal?> ObtenerUltimoEfectivoCierreAsync(int cajaId) => Task.FromResult<decimal?>(null);
     private readonly AperturaCaja _apertura;
 
     public StubCajaServiceConfirmar(AperturaCaja apertura) => _apertura = apertura;
@@ -111,7 +112,7 @@ file sealed class StubAlertaStockService : IAlertaStockService
 /// </summary>
 file sealed class StubCreditoDisponibleServiceConfirmar : ICreditoDisponibleService
 {
-    public Task<decimal> ObtenerLimitePorPuntajeAsync(NivelRiesgoCredito puntaje, CancellationToken cancellationToken = default)
+    public Task<decimal> ObtenerLimitePorPuntajeAsync(int puntaje, CancellationToken cancellationToken = default)
         => Task.FromResult(999_999m);
 
     public Task<decimal> CalcularSaldoVigenteAsync(int clienteId, CancellationToken cancellationToken = default)
@@ -125,7 +126,7 @@ file sealed class StubCreditoDisponibleServiceConfirmar : ICreditoDisponibleServ
         });
 
     public Task<(bool Ok, List<string> Errores)> GuardarLimitesPorPuntajeAsync(
-        IReadOnlyList<(NivelRiesgoCredito Puntaje, decimal LimiteMonto, bool Activo)> items,
+        IReadOnlyList<(int Puntaje, decimal LimiteMonto, bool Activo)> items,
         string usuario)
         => throw new NotImplementedException();
 

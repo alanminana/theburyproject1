@@ -23,7 +23,7 @@ namespace TheBuryProject.Services.Interfaces
         Task ActualizarPuntajeRiesgoAsync(int clienteId, decimal nuevoPuntaje, string motivo);
         Task<bool> AsignarNivelCreditoManualAsync(
             int clienteId,
-            NivelRiesgoCredito nivel,
+            int nivel,
             string motivo,
             string usuario);
         Task<bool> LimpiarNivelCreditoManualAsync(int clienteId, string motivo, string usuario);

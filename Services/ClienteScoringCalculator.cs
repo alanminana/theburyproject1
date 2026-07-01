@@ -44,6 +44,9 @@ namespace TheBuryProject.Services
             var ventasReales = ventas
                 .Where(v => !v.IsDeleted && EstadosVentaReal.Contains(v.Estado))
                 .ToList();
+
+            snapshot.CantidadComprasCliente = ventasReales.Count;
+
             if (ventasReales.Count > 0)
                 snapshot.UltimaVentaFecha = ventasReales.Max(v => v.FechaVenta);
 

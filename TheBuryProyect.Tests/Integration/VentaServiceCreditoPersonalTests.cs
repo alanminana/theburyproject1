@@ -19,6 +19,7 @@ namespace TheBuryProject.Tests.Integration;
 
 file sealed class StubCajaServiceCP : ICajaService
 {
+    public Task<decimal?> ObtenerUltimoEfectivoCierreAsync(int cajaId) => Task.FromResult<decimal?>(null);
     private readonly AperturaCaja _apertura;
     public StubCajaServiceCP(AperturaCaja apertura) => _apertura = apertura;
 
@@ -462,13 +463,13 @@ public class VentaServiceCreditoPersonalTests
             var producto = await SeedProductoAsync(ctx, precioVenta: 1_210m);
 
             var presetManual = await ctx.PuntajesCreditoLimite
-                .FirstAsync(p => p.Puntaje == NivelRiesgoCredito.Rechazado);
+                .FirstAsync(p => p.Puntaje == 1);
             presetManual.LimiteMonto = 2_000m;
 
             ctx.ClientesCreditoConfiguraciones.Add(new ClienteCreditoConfiguracion
             {
                 ClienteId = cliente.Id,
-                NivelCreditoManual = NivelRiesgoCredito.Rechazado,
+                NivelCreditoManual = 1,
                 MotivoNivelCreditoManual = "Control manual test"
             });
             await ctx.SaveChangesAsync();
@@ -481,7 +482,7 @@ public class VentaServiceCreditoPersonalTests
             var resultado = await svc.CreateAsync(CreditoPersonalViewModelConProducto(cliente.Id, producto));
 
             var venta = await ctx.Ventas.AsNoTracking().FirstAsync(v => v.Id == resultado.Id);
-            Assert.Equal(2m, venta.PuntajeAlMomento);
+            Assert.Equal(1m, venta.PuntajeAlMomento);
             Assert.Equal(presetManual.Id, venta.PresetIdAlMomento);
             Assert.Equal(2_000m, venta.LimiteAplicado);
             Assert.Null(venta.OverrideAlMomento);

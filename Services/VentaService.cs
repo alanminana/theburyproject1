@@ -347,8 +347,10 @@ namespace TheBuryProject.Services
                 .AsNoTracking()
                 .FirstOrDefaultAsync(c => c.ClienteId == cliente.Id);
 
-            var nivelFinal = config?.NivelCreditoManual ?? cliente.NivelRiesgo;
-            venta.PuntajeAlMomento = (int)nivelFinal * 2m;
+            // Eje único: el cupo lo gobierna el puntaje interno de comportamiento (0–5),
+            // con override manual opcional. Snapshot del puntaje que definió el cupo al momento de la venta.
+            var nivelFinal = config?.NivelCreditoManual ?? cliente.PuntajeCliente;
+            venta.PuntajeAlMomento = nivelFinal;
 
             PuntajeCreditoLimite? preset = null;
             decimal? limiteOverride = null;
@@ -371,7 +373,7 @@ namespace TheBuryProject.Services
 
                 preset ??= await _context.PuntajesCreditoLimite
                     .AsNoTracking()
-                    .FirstOrDefaultAsync(p => p.Puntaje == cliente.NivelRiesgo && p.Activo);
+                    .FirstOrDefaultAsync(p => p.Puntaje == cliente.PuntajeCliente && p.Activo);
 
                 limiteOverride = config?.LimiteOverride ?? cliente.LimiteCredito;
                 excepcionDelta = ObtenerExcepcionDeltaVigente(config, DateTime.UtcNow);

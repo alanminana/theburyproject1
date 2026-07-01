@@ -13,7 +13,8 @@ namespace TheBuryProject.ViewModels
     {
         public int Id { get; set; }
 
-        public NivelRiesgoCredito Puntaje { get; set; }
+        /// <summary>Puntaje interno de comportamiento (0–5) al que aplica el límite.</summary>
+        public int Puntaje { get; set; }
 
         [Range(0, 999999999999.99, ErrorMessage = "El límite debe ser mayor o igual a 0")]
         [Display(Name = "Límite")]

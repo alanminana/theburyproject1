@@ -38,12 +38,15 @@
     var bcraDot = !tieneCuil || !bcraOk ? "bg-slate-400" : bcraVal is 0 or 1 ? "bg-green-500" : bcraVal == 2 ? "bg-amber-500" : "bg-red-500";
     var bcraColor = !tieneCuil || !bcraOk ? "text-slate-400" : bcraVal is 0 or 1 ? "text-green-500" : bcraVal == 2 ? "text-amber-500" : "text-red-500";
     var bcraEstadoResumen = string.IsNullOrWhiteSpace(c.CuilCuit) ? "Sin CUIL" : bcraDesc;
-    var nivelAutomatico = panel?.Valores?.NivelCreditoAutomatico ?? c.NivelRiesgo;
+    var nivelAutomatico = panel?.Valores?.NivelCreditoAutomatico ?? c.PuntajeCliente;
     var nivelManual = panel?.Valores?.NivelCreditoManual;
     var nivelFinal = panel?.Valores?.NivelCreditoFinal ?? nivelAutomatico;
     var fuenteNivel = string.Equals(panel?.Valores?.FuenteNivelCredito, "Manual", StringComparison.OrdinalIgnoreCase) ? "Manual" : "Automatico";
     var tieneNivelManual = nivelManual.HasValue;
     var motivoNivelManual = panel?.Valores?.MotivoNivelCreditoManual;
+    var pagoCreditoChip = !c.TieneHistorialCredito ? "chip-neutral" : c.PagaCreditosEnTermino ? "chip-ok" : "chip-warn";
+    var pagoCreditoIcon = !c.TieneHistorialCredito ? "hourglass_empty" : c.PagaCreditosEnTermino ? "task_alt" : "report";
+    var pagoCreditoLabel = !c.TieneHistorialCredito ? "Sin historial" : c.PagaCreditosEnTermino ? "Paga en termino" : "Con atraso";
     var nivelesDisponibles = panel?.NivelesDisponibles ?? new List<ClienteNivelCreditoOpcionViewModel>();
     var clienteNombre = string.IsNullOrWhiteSpace(c.NombreCompleto)
         ? $"{c.Apellido}, {c.Nombre}".Trim(' ', ',')
@@ -190,7 +193,7 @@ else
                     }
                     else if (esApto && tieneNivelManual)
                     {
-                        <text>Apto con nivel crediticio asignado manualmente.</text>
+                        <text>Apto con puntaje crediticio asignado manualmente.</text>
                     }
                     else if (esApto)
                     {
@@ -228,8 +231,8 @@ else
                 <div class="flex items-start justify-between gap-3 mb-4 flex-wrap">
                     <h2 class="font-semibold text-white flex items-center gap-2"><span class="material-symbols-outlined" style="color:#f5c518;font-size:20px">credit_score</span>Calificacion crediticia</h2>
                     <div class="flex items-center gap-2 flex-wrap">
-                        <button type="button" class="btn btn-soft btn-sm" data-cliente-open-nivel-manual><span class="material-symbols-outlined">rule_settings</span>Asignar nivel manual</button>
-                        <button type="button" class="btn btn-ghost btn-sm" data-cliente-open-limites><span class="material-symbols-outlined">tune</span>Limites por nivel crediticio</button>
+                        <button type="button" class="btn btn-soft btn-sm" data-cliente-open-nivel-manual><span class="material-symbols-outlined">rule_settings</span>Asignar puntaje manual</button>
+                        <button type="button" class="btn btn-ghost btn-sm" data-cliente-open-limites><span class="material-symbols-outlined">tune</span>Limites por puntaje</button>
                     </div>
                 </div>
 
@@ -248,15 +251,15 @@ else
                 }
 
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-4">
-                    <div class="minimetric"><div class="mm-label">Nivel final</div><div class="mm-value num">@((int)nivelFinal)<span class="text-xs muted-2 font-normal"> / 5</span></div></div>
-                    <div class="minimetric"><div class="mm-label">Nivel automatico</div><div class="mm-value num">@((int)nivelAutomatico)<span class="text-xs muted-2 font-normal"> / 5</span></div></div>
-                    <div class="minimetric"><div class="mm-label">Nivel manual</div><div class="mm-value num">@(nivelManual.HasValue ? ((int)nivelManual.Value).ToString() : "-")</div></div>
+                    <div class="minimetric"><div class="mm-label">Puntaje final</div><div class="mm-value num">@nivelFinal<span class="text-xs muted-2 font-normal"> / 5</span></div></div>
+                    <div class="minimetric"><div class="mm-label">Puntaje automatico</div><div class="mm-value num">@nivelAutomatico<span class="text-xs muted-2 font-normal"> / 5</span></div></div>
+                    <div class="minimetric"><div class="mm-label">Puntaje manual</div><div class="mm-value num">@(nivelManual.HasValue ? nivelManual.Value.ToString() : "-")</div></div>
                     <div class="minimetric"><div class="mm-label">Comportamiento</div><div class="mm-value num">@c.PuntajeCliente<span class="text-xs muted-2 font-normal"> / 5</span></div></div>
                 </div>
 
                 <div class="text-xs muted-2 font-semibold uppercase mt-4" style="letter-spacing:.04em">Desglose</div>
                 <dl class="kv mt-1">
-                    <div class="kv-row"><dt>Fuente del nivel</dt><dd><span class="chip @(tieneNivelManual ? "chip-warn" : "chip-ok")">@fuenteNivel</span></dd></div>
+                    <div class="kv-row"><dt>Fuente del puntaje</dt><dd><span class="chip @(tieneNivelManual ? "chip-warn" : "chip-ok")">@fuenteNivel</span></dd></div>
                     <div class="kv-row"><dt>Documentacion</dt><dd>@(apt?.Documentacion?.Completa == true ? "Completa" : "Incompleta")</dd></div>
                     <div class="kv-row"><dt>BCRA</dt><dd>@bcraEstadoResumen</dd></div>
                     <div class="kv-row"><dt>Mora</dt><dd><span class="chip @moraChip">@moraLabel</span></dd></div>
@@ -288,11 +291,11 @@ else
                                     <span class="pip @(i <= Math.Clamp(c.PuntajeCliente, 0, 5) ? "on-ok" : string.Empty)"></span>
                                 }
                             </span>
-                            <span class="chip @(c.PagaCreditosEnTermino ? "chip-ok" : "chip-warn")">
-                                <span class="material-symbols-outlined">@(c.PagaCreditosEnTermino ? "task_alt" : "report")</span>@(c.PagaCreditosEnTermino ? "Paga en termino" : "Con atraso")
+                            <span class="chip @pagoCreditoChip">
+                                <span class="material-symbols-outlined">@pagoCreditoIcon</span>@pagoCreditoLabel
                             </span>
                         </div>
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
                             <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:.6rem;padding:.7rem .8rem">
                                 <div class="text-xs muted-2 flex items-center gap-1"><span class="material-symbols-outlined" style="font-size:14px">schedule</span>Antiguedad</div>
                                 <div class="font-semibold text-white mt-1">@c.AntiguedadDias<span class="text-xs muted-2 font-normal"> dias</span></div>
@@ -300,6 +303,10 @@ else
                             <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:.6rem;padding:.7rem .8rem">
                                 <div class="text-xs muted-2 flex items-center gap-1"><span class="material-symbols-outlined" style="font-size:14px">shopping_cart</span>Ultima venta</div>
                                 <div class="font-semibold text-white mt-1">@(c.UltimaVentaFecha?.ToString("dd/MM/yyyy") ?? "Sin ventas")</div>
+                            </div>
+                            <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:.6rem;padding:.7rem .8rem">
+                                <div class="text-xs muted-2 flex items-center gap-1"><span class="material-symbols-outlined" style="font-size:14px">receipt_long</span>Compras</div>
+                                <div class="font-semibold text-white mt-1">@c.CantidadComprasCliente</div>
                             </div>
                             <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:.6rem;padding:.7rem .8rem">
                                 <div class="text-xs muted-2 flex items-center gap-1"><span class="material-symbols-outlined" style="font-size:14px">verified</span>Creditos en termino</div>
@@ -556,8 +563,8 @@ else
             <div class="drawer-head">
                 <div class="avatar avatar-sm avatar--slate"><span class="material-symbols-outlined" style="font-size:17px">rule_settings</span></div>
                 <div class="min-w-0 flex-1">
-                    <h2 id="nivelManualModalTitle" class="sec-title">Asignar nivel manual</h2>
-                    <p class="sec-sub">El nivel manual pisa el calculo automatico hasta que se limpie.</p>
+                    <h2 id="nivelManualModalTitle" class="sec-title">Asignar puntaje manual</h2>
+                    <p class="sec-sub">El puntaje manual pisa el calculo automatico hasta que se limpie.</p>
                 </div>
                 <button type="button" data-cliente-close-nivel-manual class="btn btn-ghost btn-sm" aria-label="Cerrar"><span class="material-symbols-outlined">close</span></button>
             </div>
@@ -574,8 +581,8 @@ else
                 <div class="drawer-body">
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div class="minimetric">
-                            <div class="mm-label">Nivel actual</div>
-                            <div class="mm-value num">@((int)nivelFinal)<span class="text-xs muted-2 font-normal"> / 5</span></div>
+                            <div class="mm-label">Puntaje actual</div>
+                            <div class="mm-value num">@nivelFinal<span class="text-xs muted-2 font-normal"> / 5</span></div>
                         </div>
                         <div class="minimetric">
                             <div class="mm-label">Limite actual</div>
@@ -585,11 +592,11 @@ else
 
                     <div class="grid grid-cols-1 gap-4 mt-4">
                         <div>
-                            <label for="nivelCreditoManual" class="label">Nivel crediticio manual <span class="req">*</span></label>
+                            <label for="nivelCreditoManual" class="label">Puntaje crediticio manual <span class="req">*</span></label>
                             <select id="nivelCreditoManual" name="nivelCreditoManual" class="field" required>
                                 @foreach (var opcion in nivelesDisponibles)
                                 {
-                                    <option value="@((int)opcion.Nivel)"
+                                    <option value="@opcion.Nivel"
                                             data-limit="@opcion.LimiteMonto.ToString(System.Globalization.CultureInfo.InvariantCulture)"
                                             selected="@(nivelManual == opcion.Nivel ? "selected" : null)">
                                         @opcion.Texto - @opcion.LimiteMonto.ToString("C0")
@@ -599,7 +606,7 @@ else
                         </div>
                         <div>
                             <label for="nivelManualMotivo" class="label">Motivo <span class="req">*</span></label>
-                            <textarea id="nivelManualMotivo" name="motivo" rows="3" maxlength="1000" class="field" required placeholder="Describi por que se asigna este nivel"></textarea>
+                            <textarea id="nivelManualMotivo" name="motivo" rows="3" maxlength="1000" class="field" required placeholder="Describi por que se asigna este puntaje"></textarea>
                         </div>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div class="minimetric">
@@ -615,7 +622,7 @@ else
                 </div>
                 <div class="drawer-foot">
                     <button type="button" data-cliente-close-nivel-manual class="btn btn-ghost">Cancelar</button>
-                    <button type="submit" class="btn btn-primary"><span class="material-symbols-outlined">save</span>Guardar nivel</button>
+                    <button type="submit" class="btn btn-primary"><span class="material-symbols-outlined">save</span>Guardar puntaje</button>
                 </div>
             </form>
             @if (tieneNivelManual)

@@ -177,11 +177,15 @@ namespace TheBuryProject.ViewModels
         public int PuntajeCliente { get; set; } = 1;
         public int AntiguedadDias { get; set; }
         public DateTime? UltimaVentaFecha { get; set; }
+        public int CantidadComprasCliente { get; set; }
         public int CreditosEnTermino { get; set; }
         public int CreditosConAtraso { get; set; }
 
-        /// <summary>True si el cliente no registra créditos con atraso. Derivado, no se mapea.</summary>
-        public bool PagaCreditosEnTermino => CreditosConAtraso == 0;
+        /// <summary>True si existe historial de repago evaluable. Derivado, no se mapea.</summary>
+        public bool TieneHistorialCredito => CreditosEnTermino > 0 || CreditosConAtraso > 0;
+
+        /// <summary>True si tiene historial y no registra créditos con atraso. Derivado, no se mapea.</summary>
+        public bool PagaCreditosEnTermino => TieneHistorialCredito && CreditosConAtraso == 0;
 
         // ALIASES PARA COMPATIBILIDAD CON CREATE.CSHTML
         // (que usa LugarTrabajo, IngresoMensual, TelefonoTrabajo)

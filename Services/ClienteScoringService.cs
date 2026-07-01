@@ -63,6 +63,7 @@ namespace TheBuryProject.Services
 
             cliente.AntiguedadDias = snapshot.AntiguedadDias;
             cliente.UltimaVentaFecha = snapshot.UltimaVentaFecha;
+            cliente.CantidadComprasCliente = snapshot.CantidadComprasCliente;
             cliente.CreditosEnTermino = snapshot.CreditosEnTermino;
             cliente.CreditosConAtraso = snapshot.CreditosConAtraso;
             cliente.PuntajeCliente = puntaje;

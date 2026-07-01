@@ -397,7 +397,7 @@ public class ClienteServiceTests : IDisposable
 
         var resultado = await _service.AsignarNivelCreditoManualAsync(
             cliente.Id,
-            NivelRiesgoCredito.Rechazado,
+            1,
             "Control manual",
             "supervisor");
 
@@ -409,17 +409,17 @@ public class ClienteServiceTests : IDisposable
             .FirstOrDefaultAsync(c => c.ClienteId == cliente.Id);
 
         Assert.NotNull(config);
-        Assert.Equal(NivelRiesgoCredito.Rechazado, config!.NivelCreditoManual);
+        Assert.Equal(1, config!.NivelCreditoManual);
         Assert.Equal("Control manual", config.MotivoNivelCreditoManual);
         Assert.Equal("supervisor", config.NivelCreditoManualAsignadoPor);
         Assert.NotNull(config.NivelCreditoManualAsignadoEnUtc);
 
         var historial = await _context.ClientesPuntajeHistorial
             .AsNoTracking()
-            .FirstOrDefaultAsync(h => h.ClienteId == cliente.Id && h.Origen == "NivelCreditoManual");
+            .FirstOrDefaultAsync(h => h.ClienteId == cliente.Id && h.Origen == "PuntajeCreditoManual");
 
         Assert.NotNull(historial);
-        Assert.Equal(NivelRiesgoCredito.Rechazado, historial!.NivelRiesgo);
+        Assert.Equal(1, historial!.Puntaje);
         Assert.Equal("supervisor", historial.RegistradoPor);
     }
 
@@ -429,7 +429,7 @@ public class ClienteServiceTests : IDisposable
         var cliente = await SeedClienteAsync(nivel: NivelRiesgoCredito.AprobadoCondicional);
         await _service.AsignarNivelCreditoManualAsync(
             cliente.Id,
-            NivelRiesgoCredito.Rechazado,
+            1,
             "Control manual",
             "supervisor");
 
@@ -452,7 +452,7 @@ public class ClienteServiceTests : IDisposable
 
         var historial = await _context.ClientesPuntajeHistorial
             .AsNoTracking()
-            .FirstOrDefaultAsync(h => h.ClienteId == cliente.Id && h.Origen == "NivelCreditoManualLimpio");
+            .FirstOrDefaultAsync(h => h.ClienteId == cliente.Id && h.Origen == "PuntajeCreditoManualLimpio");
 
         Assert.NotNull(historial);
         Assert.Equal(NivelRiesgoCredito.AprobadoCondicional, historial!.NivelRiesgo);

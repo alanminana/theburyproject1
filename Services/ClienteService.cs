@@ -261,7 +261,7 @@ namespace TheBuryProject.Services
 
         public async Task<bool> AsignarNivelCreditoManualAsync(
             int clienteId,
-            NivelRiesgoCredito nivel,
+            int nivel,
             string motivo,
             string usuario)
         {
@@ -297,13 +297,13 @@ namespace TheBuryProject.Services
             _context.ClientesPuntajeHistorial.Add(new ClientePuntajeHistorial
             {
                 ClienteId = clienteId,
-                Puntaje = (int)nivel,
-                NivelRiesgo = nivel,
+                Puntaje = nivel,
+                NivelRiesgo = cliente.NivelRiesgo,
                 Fecha = DateTime.UtcNow,
-                Origen = "NivelCreditoManual",
+                Origen = "PuntajeCreditoManual",
                 Observacion = nivelAnterior.HasValue
-                    ? $"Nivel manual actualizado de {(int)nivelAnterior.Value} a {(int)nivel}. Motivo: {motivo.Trim()}"
-                    : $"Nivel manual asignado a {(int)nivel}. Motivo: {motivo.Trim()}",
+                    ? $"Puntaje manual actualizado de {nivelAnterior.Value} a {nivel}. Motivo: {motivo.Trim()}"
+                    : $"Puntaje manual asignado a {nivel}. Motivo: {motivo.Trim()}",
                 RegistradoPor = usuario
             });
 
@@ -346,8 +346,8 @@ namespace TheBuryProject.Services
                 Puntaje = cliente.PuntajeRiesgo,
                 NivelRiesgo = cliente.NivelRiesgo,
                 Fecha = DateTime.UtcNow,
-                Origen = "NivelCreditoManualLimpio",
-                Observacion = $"Nivel manual {(int)nivelAnterior} limpiado. Motivo: {motivo.Trim()}",
+                Origen = "PuntajeCreditoManualLimpio",
+                Observacion = $"Puntaje manual {nivelAnterior} limpiado. Motivo: {motivo.Trim()}",
                 RegistradoPor = usuario
             });
 
