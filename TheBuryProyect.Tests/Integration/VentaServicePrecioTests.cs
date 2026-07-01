@@ -19,6 +19,7 @@ namespace TheBuryProject.Tests.Integration;
 
 file sealed class StubCajaService : ICajaService
 {
+    public Task<decimal?> ObtenerUltimoEfectivoCierreAsync(int cajaId) => Task.FromResult<decimal?>(null);
     private readonly AperturaCaja _apertura;
     public StubCajaService(AperturaCaja apertura) => _apertura = apertura;
 

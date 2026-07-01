@@ -228,6 +228,7 @@ public class VentaControllerCondicionesPagoErrorTests
 
     private sealed class StubCajaService : ICajaService
     {
+        public Task<decimal?> ObtenerUltimoEfectivoCierreAsync(int cajaId) => Task.FromResult<decimal?>(null);
         public Task<AperturaCaja?> ObtenerAperturaActivaParaUsuarioAsync(string usuario)
             => Task.FromResult<AperturaCaja?>(new AperturaCaja { Id = 1, UsuarioApertura = usuario });
 

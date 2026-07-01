@@ -322,6 +322,7 @@ file sealed class StubCurrentUserServicePagoGeneral : ICurrentUserService
 
 file sealed class StubCajaServicePagoGeneral : ICajaService
 {
+    public Task<decimal?> ObtenerUltimoEfectivoCierreAsync(int cajaId) => Task.FromResult<decimal?>(null);
     private readonly AperturaCaja _apertura;
 
     public StubCajaServicePagoGeneral(AperturaCaja apertura) => _apertura = apertura;

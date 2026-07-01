@@ -33,6 +33,7 @@ public class MercadoLibreOrderServiceTests : IDisposable
     /// </summary>
     private sealed class FakeCajaService : ICajaService
     {
+        public Task<decimal?> ObtenerUltimoEfectivoCierreAsync(int cajaId) => Task.FromResult<decimal?>(null);
         private readonly AppDbContext _context;
 
         public FakeCajaService(AppDbContext context) => _context = context;
