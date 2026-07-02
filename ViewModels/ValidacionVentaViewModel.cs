@@ -109,6 +109,19 @@ namespace TheBuryProject.ViewModels
         /// Valor límite configurado
         /// </summary>
         public decimal? ValorLimite { get; set; }
+
+        /// <summary>
+        /// Texto legible del tipo de razón para mostrar en pantallas de autorización.
+        /// </summary>
+        public string TipoDisplay => Tipo switch
+        {
+            TipoRazonAutorizacion.ExcedeCupo => "Excede cupo disponible",
+            TipoRazonAutorizacion.MoraActiva => "Mora activa",
+            TipoRazonAutorizacion.DocumentacionVencida => "Documentación vencida",
+            TipoRazonAutorizacion.ExcedeUmbralRol => "Excede umbral del rol",
+            TipoRazonAutorizacion.ClienteRequiereAutorizacion => "Cliente requiere autorización",
+            _ => Tipo.ToString()
+        };
     }
 
     /// <summary>

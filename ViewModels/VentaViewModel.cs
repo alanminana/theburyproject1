@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Globalization;
+using System.Text.Json;
 using TheBuryProject.Models.Enums;
 
 namespace TheBuryProject.ViewModels
@@ -72,6 +73,32 @@ namespace TheBuryProject.ViewModels
         public DateTime? FechaAutorizacion { get; set; }
         public string? MotivoAutorizacion { get; set; }
         public string? MotivoRechazo { get; set; }
+        public string? RazonesAutorizacionJson { get; set; }
+
+        /// <summary>
+        /// Deserializa RazonesAutorizacionJson de forma segura. Vacío si no hay datos
+        /// persistidos o el JSON está corrupto (ventas guardadas antes de esta trazabilidad).
+        /// </summary>
+        public IReadOnlyList<RazonAutorizacion> RazonesAutorizacion
+        {
+            get
+            {
+                if (string.IsNullOrWhiteSpace(RazonesAutorizacionJson))
+                {
+                    return Array.Empty<RazonAutorizacion>();
+                }
+
+                try
+                {
+                    var razones = JsonSerializer.Deserialize<List<RazonAutorizacion>>(RazonesAutorizacionJson);
+                    return razones ?? (IReadOnlyList<RazonAutorizacion>)Array.Empty<RazonAutorizacion>();
+                }
+                catch (JsonException)
+                {
+                    return Array.Empty<RazonAutorizacion>();
+                }
+            }
+        }
 
         [Display(Name = "Vendedor")]
         [StringLength(200)]

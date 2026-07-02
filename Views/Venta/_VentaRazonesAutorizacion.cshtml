@@ -1,0 +1,43 @@
+@model IReadOnlyList<TheBuryProject.ViewModels.RazonAutorizacion>
+
+<div class="border-t border-slate-800 px-6 py-5">
+    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Razones de autorización</h3>
+
+    @if (Model.Any())
+    {
+        <ul class="space-y-3">
+            @foreach (var razon in Model)
+            {
+                <li class="rounded-lg border border-amber-900/40 bg-amber-950/10 p-4">
+                    <div class="flex flex-wrap items-start justify-between gap-3">
+                        <div class="space-y-1">
+                            <p class="text-xs font-bold uppercase tracking-wide text-amber-400">@razon.TipoDisplay</p>
+                            <p class="text-sm text-slate-200">@razon.Descripcion</p>
+                            @if (!string.IsNullOrWhiteSpace(razon.DetalleAdicional))
+                            {
+                                <p class="text-xs text-slate-400">@razon.DetalleAdicional</p>
+                            }
+                        </div>
+                        @if (razon.ValorAsociado.HasValue || razon.ValorLimite.HasValue)
+                        {
+                            <div class="shrink-0 text-right text-xs text-slate-400">
+                                @if (razon.ValorAsociado.HasValue)
+                                {
+                                    <p>Monto: <span class="font-semibold text-white">@razon.ValorAsociado.Value.ToString("C2")</span></p>
+                                }
+                                @if (razon.ValorLimite.HasValue)
+                                {
+                                    <p>Límite: <span class="font-semibold text-white">@razon.ValorLimite.Value.ToString("C2")</span></p>
+                                }
+                            </div>
+                        }
+                    </div>
+                </li>
+            }
+        </ul>
+    }
+    else
+    {
+        <p class="text-sm text-slate-500">No hay detalle estructurado de las razones de autorización disponible para esta venta.</p>
+    }
+</div>
