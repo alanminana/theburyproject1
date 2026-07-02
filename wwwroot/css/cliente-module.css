@@ -1082,6 +1082,19 @@ select.field {
     white-space: nowrap;
 }
 
+/* Historial de puntaje: valores sin espacios (Origen, Registrado por) no deben
+   desbordar sobre la columna vecina bajo table-layout: fixed. */
+.puntaje-history-table {
+    table-layout: auto;
+}
+
+.puntaje-history-table th,
+.puntaje-history-table td {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    white-space: normal;
+}
+
 .cliente-credit-cell {
     display: flex;
     align-items: center;
