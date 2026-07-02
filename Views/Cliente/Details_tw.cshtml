@@ -225,6 +225,41 @@ else
         </div>
     }
 
+    @if (Model.VentasPendientesAutorizacion != null && Model.VentasPendientesAutorizacion.Any())
+    {
+        var puedeAutorizarVentas = User.TienePermiso("ventas", "authorize");
+        <div class="alert alert-warn" style="margin-top:1.25rem;align-items:flex-start">
+            <span class="material-symbols-outlined">gpp_maybe</span>
+            <div class="flex-1 min-w-0">
+                <div class="font-semibold text-white">Ventas pendientes de autorización</div>
+                <div class="mt-2 space-y-2">
+                    @foreach (var venta in Model.VentasPendientesAutorizacion)
+                    {
+                        <div class="flex items-center justify-between gap-2 flex-wrap">
+                            <div class="min-w-0 text-sm">
+                                <span class="mono">@venta.Numero</span>
+                                <span class="muted-2"> · </span>@venta.Fecha.ToString("dd/MM/yyyy")
+                                <span class="muted-2"> · </span>@venta.Total.ToString("C0")
+                                @if (!string.IsNullOrWhiteSpace(venta.Resumen))
+                                {
+                                    <div class="text-xs muted-2">@venta.Resumen</div>
+                                }
+                            </div>
+                            @if (puedeAutorizarVentas)
+                            {
+                                <a asp-controller="Venta" asp-action="Autorizar" asp-route-id="@venta.VentaId" class="btn btn-soft btn-sm shrink-0">Ver autorización</a>
+                            }
+                            else
+                            {
+                                <a asp-controller="Venta" asp-action="Details" asp-route-id="@venta.VentaId" class="btn btn-ghost btn-sm shrink-0">Ver venta</a>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4" style="margin-top:1.25rem">
         <div class="lg:col-span-2 space-y-4">
             <section class="card card-pad">

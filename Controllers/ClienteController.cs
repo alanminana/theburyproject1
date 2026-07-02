@@ -27,6 +27,7 @@ namespace TheBuryProject.Controllers
         private readonly ISituacionCrediticiaBcraService _bcraService;
         private readonly IConfiguracionPagoService _configuracionPagoService;
         private readonly IGaranteService _garanteService;
+        private readonly IVentaService _ventaService;
         private readonly ICurrentUserService _currentUser;
         private readonly IMapper _mapper;
         private readonly ILogger<ClienteController> _logger;
@@ -41,6 +42,7 @@ namespace TheBuryProject.Controllers
             ISituacionCrediticiaBcraService bcraService,
             IConfiguracionPagoService configuracionPagoService,
             IGaranteService garanteService,
+            IVentaService ventaService,
             ICurrentUserService currentUser,
             IMapper mapper,
             ILogger<ClienteController> logger)
@@ -54,6 +56,7 @@ namespace TheBuryProject.Controllers
             _bcraService = bcraService;
             _configuracionPagoService = configuracionPagoService;
             _garanteService = garanteService;
+            _ventaService = ventaService;
             _currentUser = currentUser;
             _mapper = mapper;
             _logger = logger;
@@ -669,6 +672,35 @@ namespace TheBuryProject.Controllers
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Error obteniendo historial de puntaje para cliente {Id}", cliente.Id);
+            }
+
+            // Ventas pendientes de autorización crediticia (solo lectura)
+            try
+            {
+                var ventasPendientes = await _ventaService.GetAllAsync(new VentaFilterViewModel
+                {
+                    ClienteId = cliente.Id,
+                    EstadoAutorizacion = EstadoAutorizacionVenta.PendienteAutorizacion
+                });
+
+                detalleViewModel.VentasPendientesAutorizacion = ventasPendientes
+                    .Where(v => v.RequiereAutorizacion)
+                    .Take(5)
+                    .Select(v => new VentaPendienteAutorizacionItemViewModel
+                    {
+                        VentaId = v.Id,
+                        Numero = v.Numero,
+                        Fecha = v.FechaVenta,
+                        Total = v.Total,
+                        Resumen = v.RazonesAutorizacion.Any()
+                            ? string.Join("; ", v.RazonesAutorizacion.Select(r => r.Descripcion))
+                            : null
+                    })
+                    .ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error obteniendo ventas pendientes de autorización para cliente {Id}", cliente.Id);
             }
 
             return detalleViewModel;

@@ -38,6 +38,27 @@ namespace TheBuryProject.ViewModels
     /// Últimos cambios auditados de PuntajeCliente (solo lectura).
     /// </summary>
     public List<ClientePuntajeHistorialItemViewModel> HistorialPuntaje { get; set; } = new();
+
+    /// <summary>
+    /// Últimas ventas del cliente pendientes de autorización crediticia (solo lectura).
+    /// </summary>
+    public List<VentaPendienteAutorizacionItemViewModel> VentasPendientesAutorizacion { get; set; } = new();
+    }
+
+    /// <summary>
+    /// Item de solo lectura para mostrar una venta pendiente de autorización en Cliente/Details.
+    /// </summary>
+    public class VentaPendienteAutorizacionItemViewModel
+    {
+        public int VentaId { get; set; }
+
+        public string Numero { get; set; } = string.Empty;
+
+        public DateTime Fecha { get; set; }
+
+        public decimal Total { get; set; }
+
+        public string? Resumen { get; set; }
     }
 
     /// <summary>
