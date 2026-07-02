@@ -500,6 +500,54 @@ public class VentaServiceAutorizacionTests : IDisposable
     }
 
     // -------------------------------------------------------------------------
+    // FASE 5F — bloqueo de auto-autorización en excepción documental
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task RegistrarExcepcionDocumental_MismoCreador_Bloquea()
+    {
+        var cliente = await SeedClienteAsync();
+        var venta = await SeedVentaAsync(cliente.Id, createdBy: "vendedor1");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.RegistrarExcepcionDocumentalAsync(venta.Id, "vendedor1", "Documento vencido"));
+
+        _context.ChangeTracker.Clear();
+        var ventaBd = await _context.Set<Venta>().FirstAsync(v => v.Id == venta.Id);
+        Assert.Null(ventaBd.UsuarioAutoriza);
+        Assert.Null(ventaBd.FechaAutorizacion);
+        Assert.DoesNotContain("EXCEPCION_DOC", ventaBd.MotivoAutorizacion ?? string.Empty);
+    }
+
+    [Fact]
+    public async Task RegistrarExcepcionDocumental_UsuarioDistinto_Permite()
+    {
+        var cliente = await SeedClienteAsync();
+        var venta = await SeedVentaAsync(cliente.Id, createdBy: "vendedor1");
+
+        var resultado = await _service.RegistrarExcepcionDocumentalAsync(
+            venta.Id, "javo", "Documento vencido presentado");
+
+        Assert.True(resultado);
+        _context.ChangeTracker.Clear();
+        var ventaBd = await _context.Set<Venta>().FirstAsync(v => v.Id == venta.Id);
+        Assert.Equal("javo", ventaBd.UsuarioAutoriza);
+        Assert.NotNull(ventaBd.FechaAutorizacion);
+        Assert.Contains("EXCEPCION_DOC", ventaBd.MotivoAutorizacion);
+        Assert.Contains("javo", ventaBd.MotivoAutorizacion);
+    }
+
+    [Fact]
+    public async Task RegistrarExcepcionDocumental_ComparacionCaseInsensitive_Bloquea()
+    {
+        var cliente = await SeedClienteAsync();
+        var venta = await SeedVentaAsync(cliente.Id, createdBy: "Vendedor1");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.RegistrarExcepcionDocumentalAsync(venta.Id, "vendedor1", "Documento vencido"));
+    }
+
+    // -------------------------------------------------------------------------
     // CancelarVentaAsync — estado Cotizacion (sin devolver stock)
     // -------------------------------------------------------------------------
 

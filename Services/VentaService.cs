@@ -1524,6 +1524,15 @@ namespace TheBuryProject.Services
                 return false;
             }
 
+            // FASE 5F: el usuario que creó la venta no puede registrar la excepción documental.
+            // Mismo criterio que AutorizarVentaAsync (CreatedBy es la fuente confiable del creador).
+            if (!string.IsNullOrWhiteSpace(venta.CreatedBy) &&
+                string.Equals(venta.CreatedBy, usuarioAutoriza, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    "La excepción documental debe ser registrada por un usuario distinto al que creó la venta.");
+            }
+
             var fechaUtc = DateTime.UtcNow;
             var motivoNormalizado = motivo.Trim();
             var traza = $"EXCEPCION_DOC|{fechaUtc:O}|{usuarioAutoriza}|{motivoNormalizado}";
