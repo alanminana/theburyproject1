@@ -1,5 +1,6 @@
 ﻿using AutoMapper;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using System.Data;
 using System.Threading;
 using TheBuryProject.Data;
@@ -35,6 +36,7 @@ namespace TheBuryProject.Services
         private readonly ICajaService _cajaService;
         private readonly ICreditoDisponibleService _creditoDisponibleService;
         private readonly ICurrentUserService _currentUserService;
+        private readonly IClienteScoringService _clienteScoringService;
 
         public CreditoService(
             AppDbContext context,
@@ -43,7 +45,8 @@ namespace TheBuryProject.Services
             IFinancialCalculationService financialService,
             ICajaService cajaService,
             ICreditoDisponibleService creditoDisponibleService,
-            ICurrentUserService currentUserService)
+            ICurrentUserService currentUserService,
+            IClienteScoringService? clienteScoringService = null)
         {
             _context = context;
             _mapper = mapper;
@@ -52,6 +55,7 @@ namespace TheBuryProject.Services
             _cajaService = cajaService;
             _creditoDisponibleService = creditoDisponibleService;
             _currentUserService = currentUserService;
+            _clienteScoringService = clienteScoringService ?? new ClienteScoringService(context, NullLogger<ClienteScoringService>.Instance);
         }
 
         #region CRUD Básico
@@ -542,6 +546,7 @@ namespace TheBuryProject.Services
                         throw new InvalidOperationException("Debe existir una caja abierta para registrar el pago.");
 
                     await RecalcularSaldoCreditoAsync(cuota.CreditoId);
+                    await RecalcularPuntajeClientePorPagoAsync(cuota.Credito.ClienteId);
                     await transaction.CommitAsync();
 
                     return true;
@@ -688,6 +693,8 @@ namespace TheBuryProject.Services
                 {
                     await RecalcularSaldoCreditoAsync(creditoId);
                 }
+
+                await RecalcularPuntajeClientePorPagoAsync(request.ClienteId, cancellationToken);
 
                 await transaction.CommitAsync(cancellationToken);
 
@@ -951,6 +958,40 @@ namespace TheBuryProject.Services
                 _logger.LogError(ex, "Error al recalcular saldo del crédito: {CreditoId}", creditoId);
                 throw;
             }
+        }
+
+        /// <summary>
+        /// Recalcula PuntajeCliente reusando ClienteScoringService y audita el cambio en
+        /// ClientePuntajeHistorial solo si el puntaje efectivamente cambió.
+        /// </summary>
+        private async Task RecalcularPuntajeClientePorPagoAsync(int clienteId, CancellationToken cancellationToken = default)
+        {
+            var clienteAntes = await _context.Clientes
+                .AsNoTracking()
+                .Where(c => c.Id == clienteId)
+                .Select(c => new { c.PuntajeCliente, c.NivelRiesgo })
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (clienteAntes == null)
+                return;
+
+            var resultado = await _clienteScoringService.RecalcularAsync(clienteId, cancellationToken);
+
+            if (resultado == null || resultado.Puntaje == clienteAntes.PuntajeCliente)
+                return;
+
+            _context.ClientesPuntajeHistorial.Add(new ClientePuntajeHistorial
+            {
+                ClienteId = clienteId,
+                Puntaje = resultado.Puntaje,
+                NivelRiesgo = clienteAntes.NivelRiesgo,
+                Fecha = DateTime.UtcNow,
+                Origen = "RecalculoAutomaticoPago",
+                Observacion = "Recalculo automático por pago de cuota",
+                RegistradoPor = _currentUserService.GetUsername()
+            });
+
+            await _context.SaveChangesAsync(cancellationToken);
         }
 
         #endregion

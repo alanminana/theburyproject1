@@ -101,10 +101,19 @@ public class CreditoServicePagoDisponibleTests : IDisposable
     // Helpers
     // -------------------------------------------------------------------------
 
+    /// <summary>
+    /// Fija el mismo límite para todos los puntajes (0-5). PagarCuotaAsync recalcula
+    /// PuntajeCliente en tiempo real (FASE 6C), así que el puntaje post-pago puede no ser
+    /// el mismo con el que se sembró el cliente. Estos tests validan la mecánica de
+    /// saldo/disponible, no el resultado del scoring, por eso el límite debe ser uniforme.
+    /// </summary>
     private async Task SetLimitePuntaje5Async(decimal monto)
     {
-        var preset = await _context.PuntajesCreditoLimite.FirstAsync(p => p.Puntaje == 5);
-        preset.LimiteMonto = monto;
+        var presets = await _context.PuntajesCreditoLimite.ToListAsync();
+        foreach (var preset in presets)
+        {
+            preset.LimiteMonto = monto;
+        }
         await _context.SaveChangesAsync();
     }
 
