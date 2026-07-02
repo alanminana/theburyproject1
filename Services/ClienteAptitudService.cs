@@ -582,7 +582,12 @@ namespace TheBuryProject.Services
 
         private async Task<AptitudMoraDetalle> EvaluarMoraInternaAsync(int clienteId, ConfiguracionCredito config)
         {
-            var resultado = new AptitudMoraDetalle { Evaluada = config.ValidarMora };
+            var resultado = new AptitudMoraDetalle
+            {
+                Evaluada = config.ValidarMora,
+                DiasParaRequerirAutorizacion = config.DiasParaRequerirAutorizacion,
+                DiasParaNoApto = config.DiasParaNoApto
+            };
 
             if (!config.ValidarMora)
             {

@@ -131,6 +131,44 @@ namespace TheBuryProject.ViewModels
         public bool RequiereAutorizacion { get; set; }
         public bool EsBloqueante { get; set; }
         public string Mensaje { get; set; } = string.Empty;
+
+        /// <summary>Umbral de días configurado para requerir autorización (ConfiguracionCredito.DiasParaRequerirAutorizacion).</summary>
+        public int? DiasParaRequerirAutorizacion { get; set; }
+
+        /// <summary>Umbral de días configurado para pasar a NoApto (ConfiguracionCredito.DiasParaNoApto).</summary>
+        public int? DiasParaNoApto { get; set; }
+
+        /// <summary>
+        /// Explica en texto el estado de los días de mora frente a los umbrales configurados.
+        /// Null si no hay mora activa (para no agregar ruido visual).
+        /// </summary>
+        public string? MensajeUmbralDias
+        {
+            get
+            {
+                if (!TieneMora)
+                {
+                    return null;
+                }
+
+                if (DiasParaNoApto.HasValue && DiasMaximoMora >= DiasParaNoApto.Value)
+                {
+                    return $"Mora activa: {DiasMaximoMora} días. Supera el umbral de NoApto de {DiasParaNoApto.Value} días.";
+                }
+
+                if (DiasParaRequerirAutorizacion.HasValue && DiasMaximoMora >= DiasParaRequerirAutorizacion.Value)
+                {
+                    return $"Mora activa: {DiasMaximoMora} días. Supera el umbral de autorización de {DiasParaRequerirAutorizacion.Value} días.";
+                }
+
+                if (DiasParaRequerirAutorizacion.HasValue)
+                {
+                    return $"Mora activa: {DiasMaximoMora} días. Todavía no supera el umbral de autorización de {DiasParaRequerirAutorizacion.Value} días.";
+                }
+
+                return $"Mora activa: {DiasMaximoMora} días.";
+            }
+        }
     }
 
     /// <summary>
