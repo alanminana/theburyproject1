@@ -617,6 +617,254 @@ public class ClienteAptitudServiceTests
     }
 
     // -----------------------------------------------------------------------
+    // D4. FASE 4D — Cliente antiguo buen pagador: excepción conservadora.
+    // BCRA >= 3 normalmente es bloqueante (NoApto). Si el cliente cumple TODAS
+    // las condiciones de buen comportamiento propio, se degrada a
+    // RequiereAutorizacion en lugar de NoApto. Nunca queda Apto automático.
+    // -----------------------------------------------------------------------
+
+    private static Cliente ClienteBuenPagador(int id, int bcraSituacion = 3)
+    {
+        var cliente = BaseCliente(id);
+        cliente.SituacionCrediticiaBcra = bcraSituacion;
+        cliente.SituacionCrediticiaConsultaOk = true;
+        cliente.PuntajeCliente = 4;
+        cliente.AntiguedadDias = 90;
+        cliente.CantidadComprasCliente = 3;
+        cliente.CreditosEnTermino = 1;
+        cliente.CreditosConAtraso = 0;
+        return cliente;
+    }
+
+    [Fact]
+    public async Task BcraAlto_ClienteBuenPagador_RequiereAutorizacion()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            ctx.Set<ConfiguracionCredito>().Add(ConfigSinValidaciones());
+            ctx.Clientes.Add(ClienteBuenPagador(1));
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            var resultado = await service.EvaluarAptitudSinGuardarAsync(1);
+
+            Assert.Equal(EstadoCrediticioCliente.RequiereAutorizacion, resultado.Estado);
+            Assert.Single(resultado.Detalles);
+            Assert.Equal("BCRA", resultado.Detalles[0].Categoria);
+            Assert.False(resultado.Detalles[0].EsBloqueo);
+            Assert.Contains("buen pagador", resultado.Motivo);
+        }
+    }
+
+    [Fact]
+    public async Task BcraAlto_ClienteBuenPagador_NuncaQuedaApto()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            ctx.Set<ConfiguracionCredito>().Add(ConfigSinValidaciones());
+            ctx.Clientes.Add(ClienteBuenPagador(1));
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            var resultado = await service.EvaluarAptitudSinGuardarAsync(1);
+
+            Assert.NotEqual(EstadoCrediticioCliente.Apto, resultado.Estado);
+        }
+    }
+
+    [Fact]
+    public async Task BcraAlto_PuntajeBajo_SigueNoApto()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            ctx.Set<ConfiguracionCredito>().Add(ConfigSinValidaciones());
+            var cliente = ClienteBuenPagador(1);
+            cliente.PuntajeCliente = 3; // insuficiente (< 4)
+            ctx.Clientes.Add(cliente);
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            var resultado = await service.EvaluarAptitudSinGuardarAsync(1);
+
+            Assert.Equal(EstadoCrediticioCliente.NoApto, resultado.Estado);
+        }
+    }
+
+    [Fact]
+    public async Task BcraAlto_AntiguedadInsuficiente_SigueNoApto()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            ctx.Set<ConfiguracionCredito>().Add(ConfigSinValidaciones());
+            var cliente = ClienteBuenPagador(1);
+            cliente.AntiguedadDias = 89; // insuficiente (< 90)
+            ctx.Clientes.Add(cliente);
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            var resultado = await service.EvaluarAptitudSinGuardarAsync(1);
+
+            Assert.Equal(EstadoCrediticioCliente.NoApto, resultado.Estado);
+        }
+    }
+
+    [Fact]
+    public async Task BcraAlto_SinCompras_SigueNoApto()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            ctx.Set<ConfiguracionCredito>().Add(ConfigSinValidaciones());
+            var cliente = ClienteBuenPagador(1);
+            cliente.CantidadComprasCliente = 0;
+            ctx.Clientes.Add(cliente);
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            var resultado = await service.EvaluarAptitudSinGuardarAsync(1);
+
+            Assert.Equal(EstadoCrediticioCliente.NoApto, resultado.Estado);
+        }
+    }
+
+    [Fact]
+    public async Task BcraAlto_SinCreditosEnTermino_SigueNoApto()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            ctx.Set<ConfiguracionCredito>().Add(ConfigSinValidaciones());
+            var cliente = ClienteBuenPagador(1);
+            cliente.CreditosEnTermino = 0;
+            ctx.Clientes.Add(cliente);
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            var resultado = await service.EvaluarAptitudSinGuardarAsync(1);
+
+            Assert.Equal(EstadoCrediticioCliente.NoApto, resultado.Estado);
+        }
+    }
+
+    [Fact]
+    public async Task BcraAlto_ConCreditosConAtraso_SigueNoApto()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            ctx.Set<ConfiguracionCredito>().Add(ConfigSinValidaciones());
+            var cliente = ClienteBuenPagador(1);
+            cliente.CreditosConAtraso = 1;
+            ctx.Clientes.Add(cliente);
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            var resultado = await service.EvaluarAptitudSinGuardarAsync(1);
+
+            Assert.Equal(EstadoCrediticioCliente.NoApto, resultado.Estado);
+        }
+    }
+
+    [Fact]
+    public async Task BcraAlto_ConMoraActiva_SigueNoApto()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            // ValidarMora sin umbrales configurados: TieneMora queda true por la cuota
+            // vencida, pero no genera por sí sola bloqueo/autorización — solo debe
+            // impedir que se aplique la excepción de buen pagador.
+            var config = ConfigSinValidaciones();
+            config.ValidarMora = true;
+            ctx.Set<ConfiguracionCredito>().Add(config);
+
+            var cliente = ClienteBuenPagador(1);
+            ctx.Clientes.Add(cliente);
+            await ctx.SaveChangesAsync();
+
+            var credito = new Credito
+            {
+                ClienteId = 1,
+                Estado = EstadoCredito.Activo,
+                IsDeleted = false,
+                SaldoPendiente = 5_000m,
+                RowVersion = new byte[8]
+            };
+            ctx.Creditos.Add(credito);
+            await ctx.SaveChangesAsync();
+
+            ctx.Cuotas.Add(new Cuota
+            {
+                CreditoId = credito.Id,
+                NumeroCuota = 1,
+                FechaVencimiento = DateTime.UtcNow.Date.AddDays(-2),
+                MontoCapital = 400m,
+                MontoInteres = 100m,
+                MontoTotal = 500m,
+                MontoPagado = 0m,
+                MontoPunitorio = 0m,
+                Estado = EstadoCuota.Pendiente
+            });
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            var resultado = await service.EvaluarAptitudSinGuardarAsync(1);
+
+            Assert.Equal(EstadoCrediticioCliente.NoApto, resultado.Estado);
+        }
+    }
+
+    [Fact]
+    public async Task BcraSituacionDos_NoCambiaComportamiento()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            ctx.Set<ConfiguracionCredito>().Add(ConfigSinValidaciones());
+            var cliente = ClienteBuenPagador(1, bcraSituacion: 2);
+            ctx.Clientes.Add(cliente);
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            var resultado = await service.EvaluarAptitudSinGuardarAsync(1);
+
+            // Situación 2 nunca es EsBloqueante: sigue RequiereAutorizacion por la
+            // regla original de BCRA, no por la excepción de buen pagador.
+            Assert.Equal(EstadoCrediticioCliente.RequiereAutorizacion, resultado.Estado);
+            Assert.Single(resultado.Detalles);
+            Assert.Contains("revisión", resultado.Detalles[0].Descripcion);
+            Assert.DoesNotContain("buen pagador", resultado.Detalles[0].Descripcion);
+        }
+    }
+
+    [Fact]
+    public async Task BcraSinConsulta_NoAplicaExcepcion()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            ctx.Set<ConfiguracionCredito>().Add(ConfigSinValidaciones());
+            var cliente = ClienteBuenPagador(1);
+            cliente.SituacionCrediticiaBcra = null;
+            cliente.SituacionCrediticiaConsultaOk = null;
+            cliente.SituacionCrediticiaUltimaConsultaUtc = null;
+            ctx.Clientes.Add(cliente);
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            var resultado = await service.EvaluarAptitudSinGuardarAsync(1);
+
+            // Bloqueo por falta de consulta obligatoria, no por situación >= 3:
+            // la excepción de buen pagador no aplica.
+            Assert.Equal(EstadoCrediticioCliente.NoApto, resultado.Estado);
+        }
+    }
+
+    // -----------------------------------------------------------------------
     // E. ValidarLimiteCredito — sin cupo asignado → NoApto
     // -----------------------------------------------------------------------
 

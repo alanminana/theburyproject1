@@ -77,8 +77,12 @@ namespace TheBuryProject.Services
             resultado.Mora = await EvaluarMoraInternaAsync(clienteId, config);
             resultado.Bcra = await EvaluarBcraInternaAsync(clienteId);
 
+            var cliente = await _context.Clientes
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.Id == clienteId && !c.IsDeleted);
+
             // Consolidar resultado
-            DeterminarEstadoFinal(resultado, config);
+            DeterminarEstadoFinal(resultado, config, cliente);
 
             return resultado;
         }
@@ -133,7 +137,22 @@ namespace TheBuryProject.Services
             }
         }
 
-        private void DeterminarEstadoFinal(AptitudCrediticiaViewModel resultado, ConfiguracionCredito config)
+        /// <summary>
+        /// FASE 4D: excepción conservadora para cliente antiguo con buen historial de pago.
+        /// No blanquea un mal BCRA, pero evita el bloqueo automático (NoApto) cuando el
+        /// comportamiento propio del cliente contradice el riesgo informado por BCRA/Veraz.
+        /// </summary>
+        private static bool EsClienteAntiguoBuenPagador(Cliente cliente, AptitudMoraDetalle mora)
+        {
+            return cliente.PuntajeCliente >= 4
+                && cliente.AntiguedadDias >= 90
+                && cliente.CantidadComprasCliente > 0
+                && cliente.CreditosEnTermino >= 1
+                && cliente.CreditosConAtraso == 0
+                && !mora.TieneMora;
+        }
+
+        private void DeterminarEstadoFinal(AptitudCrediticiaViewModel resultado, ConfiguracionCredito config, Cliente? cliente)
         {
             var detalles = new List<AptitudDetalleItem>();
             var esNoApto = false;
@@ -198,8 +217,25 @@ namespace TheBuryProject.Services
             {
                 if (resultado.Bcra.EsBloqueante)
                 {
-                    esNoApto = true;
-                    RegistrarHallazgo(detalles, motivos, resultado.Bcra.Mensaje, "BCRA", resultado.Bcra.Mensaje, true, "bi-bank", "danger");
+                    // Bloqueo por situación BCRA/Veraz >= 3 (no por falta de CUIL/consulta):
+                    // el cliente antiguo con buen comportamiento de pago no queda NoApto
+                    // automáticamente, sino que se degrada a RequiereAutorizacion.
+                    var bcraPorSituacionAlta = resultado.Bcra.ConsultaOk
+                        && resultado.Bcra.Situacion.HasValue
+                        && resultado.Bcra.Situacion.Value >= 3;
+
+                    if (bcraPorSituacionAlta && cliente != null && EsClienteAntiguoBuenPagador(cliente, resultado.Mora))
+                    {
+                        requiereAutorizacion = true;
+                        var motivoExcepcion = "BCRA/Veraz desfavorable, pero cliente antiguo buen pagador: requiere autorización manual.";
+                        motivos.Add(motivoExcepcion);
+                        detalles.Add(CrearDetalle("BCRA", motivoExcepcion, false, "bi-bank", "warning"));
+                    }
+                    else
+                    {
+                        esNoApto = true;
+                        RegistrarHallazgo(detalles, motivos, resultado.Bcra.Mensaje, "BCRA", resultado.Bcra.Mensaje, true, "bi-bank", "danger");
+                    }
                 }
                 else if (resultado.Bcra.RequiereAutorizacion)
                 {
