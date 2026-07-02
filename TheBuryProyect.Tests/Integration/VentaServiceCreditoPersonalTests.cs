@@ -504,7 +504,7 @@ public class VentaServiceCreditoPersonalTests
     }
 
     [Fact]
-    public async Task CreateAsync_CreditoPersonalExcedeCupoConExcepcionAutorizada_CreaVentaPendienteFinanciacion()
+    public async Task CreateAsync_CreditoPersonalExcedeCupoConExcepcionAutorizada_QuedaPendienteAutorizacion()
     {
         var (ctx, conn) = CreateDb();
         await using (ctx) using (conn)
@@ -542,10 +542,196 @@ public class VentaServiceCreditoPersonalTests
             Assert.Equal(EstadoVenta.PendienteFinanciacion, resultado.Estado);
             Assert.NotNull(resultado.CreditoId);
 
+            // FASE 5E: la excepción por cupo comparte el mecanismo de excepción documental
+            // en CreateAsync — ya no auto-aprueba en el acto, queda pendiente de autorización
+            // formal por otro usuario.
             var venta = await ctx.Ventas.AsNoTracking().FirstAsync(v => v.Id == resultado.Id);
-            Assert.Equal("testuser", venta.UsuarioAutoriza);
-            Assert.Contains("EXCEPCION_DOC|", venta.MotivoAutorizacion);
-            Assert.Contains("Autorizado por responsable de ventas", venta.MotivoAutorizacion);
+            Assert.Equal(EstadoAutorizacionVenta.PendienteAutorizacion, venta.EstadoAutorizacion);
+            Assert.True(venta.RequiereAutorizacion);
+            Assert.Null(venta.UsuarioAutoriza);
+            Assert.Null(venta.MotivoAutorizacion);
+            Assert.Contains("Autorizado por responsable de ventas", venta.RazonesAutorizacionJson);
+        }
+    }
+
+    // ---------------------------------------------------------------------------
+    // FASE 5E — la excepción documental por DocumentacionFaltante ya no acepta
+    // bypass con solo ventas.create; requiere ventas.authorize.
+    // ---------------------------------------------------------------------------
+
+    [Fact]
+    public async Task CreateAsync_ExcepcionDocumental_SoloCreate_DocumentacionFaltante_Rechaza()
+    {
+        var (ctx, conn) = CreateDb();
+        await using (ctx) using (conn)
+        {
+            var apertura = await SeedCajaAsync(ctx);
+            var cliente = await SeedClienteAsync(ctx);
+            var producto = await SeedProductoAsync(ctx, precioVenta: 2_000m);
+
+            var resultadoNoViable = new ValidacionVentaResult
+            {
+                NoViable = true,
+                PendienteRequisitos = true,
+                RequisitosPendientes = new List<RequisitoPendiente>
+                {
+                    new() { Tipo = TipoRequisitoPendiente.DocumentacionFaltante, Descripcion = "Falta DNI del cliente" }
+                }
+            };
+
+            var model = CreditoPersonalViewModelConProducto(cliente.Id, producto);
+            model.AplicarExcepcionDocumental = true;
+            model.MotivoExcepcionDocumentalCreate = "El cliente presentó el DNI en papel";
+
+            var svc = BuildService(
+                ctx,
+                new StubCajaServiceCP(apertura),
+                new StubValidacionVentaService(resultadoNoViable),
+                new StubCurrentUserServiceCP(puedeCrearVenta: true, puedeAutorizarVenta: false));
+
+            var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+                () => svc.CreateAsync(model));
+
+            Assert.Contains("No es posible crear la venta con crédito personal", ex.Message);
+            Assert.Equal(0, await ctx.Ventas.CountAsync());
+        }
+    }
+
+    [Fact]
+    public async Task CreateAsync_ExcepcionDocumental_ConAuthorize_DocumentacionFaltante_NoAutoExcepciona()
+    {
+        var (ctx, conn) = CreateDb();
+        await using (ctx) using (conn)
+        {
+            var apertura = await SeedCajaAsync(ctx);
+            var cliente = await SeedClienteAsync(ctx);
+            var producto = await SeedProductoAsync(ctx, precioVenta: 2_000m);
+
+            var resultadoNoViable = new ValidacionVentaResult
+            {
+                NoViable = true,
+                PendienteRequisitos = true,
+                RequisitosPendientes = new List<RequisitoPendiente>
+                {
+                    new() { Tipo = TipoRequisitoPendiente.DocumentacionFaltante, Descripcion = "Falta DNI del cliente" }
+                }
+            };
+
+            var model = CreditoPersonalViewModelConProducto(cliente.Id, producto);
+            model.AplicarExcepcionDocumental = true;
+            model.MotivoExcepcionDocumentalCreate = "Autorizado por responsable de ventas";
+
+            // El propio creador tiene ventas.authorize (además de ventas.create):
+            // no debe poder autoexcepcionarse en el mismo acto.
+            var svc = BuildService(
+                ctx,
+                new StubCajaServiceCP(apertura),
+                new StubValidacionVentaService(resultadoNoViable),
+                new StubCurrentUserServiceCP(puedeCrearVenta: true, puedeAutorizarVenta: true));
+
+            var resultado = await svc.CreateAsync(model);
+
+            Assert.Equal(EstadoVenta.PendienteFinanciacion, resultado.Estado);
+
+            var venta = await ctx.Ventas.AsNoTracking().FirstAsync(v => v.Id == resultado.Id);
+            Assert.Null(venta.UsuarioAutoriza);
+            Assert.Null(venta.FechaAutorizacion);
+            Assert.Null(venta.MotivoAutorizacion);
+            Assert.DoesNotContain("EXCEPCION_DOC|", venta.MotivoAutorizacion ?? string.Empty);
+        }
+    }
+
+    [Fact]
+    public async Task CreateAsync_DocumentacionFaltante_QuedaPendienteAutorizacion()
+    {
+        var (ctx, conn) = CreateDb();
+        await using (ctx) using (conn)
+        {
+            var apertura = await SeedCajaAsync(ctx);
+            var cliente = await SeedClienteAsync(ctx);
+            var producto = await SeedProductoAsync(ctx, precioVenta: 2_000m);
+
+            var resultadoNoViable = new ValidacionVentaResult
+            {
+                NoViable = true,
+                PendienteRequisitos = true,
+                RequisitosPendientes = new List<RequisitoPendiente>
+                {
+                    new() { Tipo = TipoRequisitoPendiente.DocumentacionFaltante, Descripcion = "Falta DNI del cliente" }
+                }
+            };
+
+            var model = CreditoPersonalViewModelConProducto(cliente.Id, producto);
+            model.AplicarExcepcionDocumental = true;
+            model.MotivoExcepcionDocumentalCreate = "El cliente presentó el DNI en papel";
+
+            var svc = BuildService(
+                ctx,
+                new StubCajaServiceCP(apertura),
+                new StubValidacionVentaService(resultadoNoViable),
+                new StubCurrentUserServiceCP(puedeCrearVenta: true, puedeAutorizarVenta: true));
+
+            var resultado = await svc.CreateAsync(model);
+
+            var venta = await ctx.Ventas.AsNoTracking().FirstAsync(v => v.Id == resultado.Id);
+            Assert.Equal(EstadoAutorizacionVenta.PendienteAutorizacion, venta.EstadoAutorizacion);
+            Assert.True(venta.RequiereAutorizacion);
+            Assert.NotNull(venta.RazonesAutorizacionJson);
+
+            var razones = System.Text.Json.JsonSerializer.Deserialize<List<RazonAutorizacion>>(venta.RazonesAutorizacionJson!)!;
+            Assert.Contains(razones, r => r.Descripcion == "Falta DNI del cliente");
+            Assert.Contains(razones, r => r.DetalleAdicional != null && r.DetalleAdicional.Contains("El cliente presentó el DNI en papel"));
+        }
+    }
+
+    [Fact]
+    public async Task AutorizarVenta_DocumentacionFaltante_UsuarioDistinto_Permite()
+    {
+        var (ctx, conn) = CreateDb();
+        await using (ctx) using (conn)
+        {
+            var apertura = await SeedCajaAsync(ctx);
+            var cliente = await SeedClienteAsync(ctx);
+            var producto = await SeedProductoAsync(ctx, precioVenta: 2_000m);
+
+            var resultadoNoViable = new ValidacionVentaResult
+            {
+                NoViable = true,
+                PendienteRequisitos = true,
+                RequisitosPendientes = new List<RequisitoPendiente>
+                {
+                    new() { Tipo = TipoRequisitoPendiente.DocumentacionFaltante, Descripcion = "Falta DNI del cliente" }
+                }
+            };
+
+            var model = CreditoPersonalViewModelConProducto(cliente.Id, producto);
+            model.AplicarExcepcionDocumental = true;
+            model.MotivoExcepcionDocumentalCreate = "Autorizado por responsable de ventas";
+
+            var svc = BuildService(
+                ctx,
+                new StubCajaServiceCP(apertura),
+                new StubValidacionVentaService(resultadoNoViable),
+                new StubCurrentUserServiceCP(puedeCrearVenta: true, puedeAutorizarVenta: true));
+
+            var resultado = await svc.CreateAsync(model);
+
+            // El creador (registrado como CreatedBy por el interceptor de auditoría)
+            // no puede autorizar; otro usuario con ventas.authorize sí puede resolverla.
+            var ventaCreada = await ctx.Ventas.AsNoTracking().FirstAsync(v => v.Id == resultado.Id);
+            var otroUsuario = string.Equals(ventaCreada.CreatedBy, "supervisor2", StringComparison.OrdinalIgnoreCase)
+                ? "supervisor3"
+                : "supervisor2";
+
+            var autorizado = await svc.AutorizarVentaAsync(resultado.Id, otroUsuario, "Documentación verificada posteriormente");
+
+            Assert.True(autorizado);
+
+            var venta = await ctx.Ventas.AsNoTracking().FirstAsync(v => v.Id == resultado.Id);
+            Assert.Equal(EstadoAutorizacionVenta.Autorizada, venta.EstadoAutorizacion);
+            Assert.Equal(otroUsuario, venta.UsuarioAutoriza);
+            Assert.Equal("Documentación verificada posteriormente", venta.MotivoAutorizacion);
+            Assert.NotNull(venta.FechaAutorizacion);
         }
     }
 

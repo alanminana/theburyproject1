@@ -236,17 +236,16 @@ namespace TheBuryProject.Services
                     {
                         if (PuedeAplicarExcepcionDocumentalCreate(viewModel, validacion))
                         {
+                            // FASE 5E: la excepción documental ya no autoexcepciona en el mismo
+                            // acto (el creador podía tener ventas.authorize y auto-aprobarse).
+                            // Se enruta como autorización formal pendiente: otro usuario con
+                            // ventas.authorize debe resolverla vía AutorizarVentaAsync, que ya
+                            // bloquea si usuarioAutoriza == CreatedBy.
                             var motivoExcepcion = viewModel.MotivoExcepcionDocumentalCreate!.Trim();
-                            AplicarAuditoriaExcepcionDocumentalEnCreate(venta, currentUserName, motivoExcepcion);
-
-                            validacion.NoViable = false;
-                            validacion.PendienteRequisitos = false;
-                            validacion.RequisitosPendientes = validacion.RequisitosPendientes
-                                .Where(r => !EsRequisitoExcepcionableEnCreate(r))
-                                .ToList();
+                            AplicarExcepcionDocumentalComoPendienteAutorizacion(validacion, motivoExcepcion);
 
                             _logger.LogWarning(
-                                "CreateAsync venta por excepción autorizada. Cliente:{ClienteId} Usuario:{Usuario}",
+                                "CreateAsync venta con excepción documental enviada a autorización formal. Cliente:{ClienteId} Usuario:{Usuario}",
                                 viewModel.ClienteId,
                                 currentUserName);
                         }
@@ -501,18 +500,18 @@ namespace TheBuryProject.Services
                 return false;
             }
 
-            // El acceso al botón en la view ya está gateado por ventas.authorize.
-            // Acá verificamos que el usuario tenga al menos ventas.create (su permiso mínimo
-            // para estar en este POST) o ventas.authorize si ya está en DB.
+            // FASE 5E: la excepción documental es una autorización puntual y requiere
+            // ventas.authorize. ventas.create (permiso mínimo para llegar a este POST)
+            // ya no habilita el bypass por sí solo — evita que el propio creador se
+            // autoexcepcione con el permiso mínimo de venta.
             var tieneAutorizar = _currentUserService.HasPermission("ventas", "authorize");
-            var tieneCreate    = _currentUserService.HasPermission("ventas", "create");
             _logger.LogWarning(
-                "Excepción documental: usuario={Usuario} ventas.authorize={Autorizar} ventas.create={Create}",
-                _currentUserService.GetUsername(), tieneAutorizar, tieneCreate);
+                "Excepción documental: usuario={Usuario} ventas.authorize={Autorizar}",
+                _currentUserService.GetUsername(), tieneAutorizar);
 
-            if (!tieneAutorizar && !tieneCreate)
+            if (!tieneAutorizar)
             {
-                _logger.LogWarning("Excepción documental: usuario sin permisos suficientes");
+                _logger.LogWarning("Excepción documental: usuario sin ventas.authorize");
                 return false;
             }
 
@@ -526,31 +525,13 @@ namespace TheBuryProject.Services
 
             _logger.LogWarning("Excepción: TodosPermitidos={Resultado}", todosPermitidos);
 
-            if (!todosPermitidos)
-                return false;
-
-            // Las decisiones crediticias requieren ventas.authorize.
-            var requiereAutorizarCredito = validacion.RequisitosPendientes.Any(EsRequisitoDecisionCrediticiaEnCreate);
-
-            if (requiereAutorizarCredito && !tieneAutorizar)
-            {
-                _logger.LogWarning("Excepción: decision crediticia requiere ventas.authorize; usuario no lo tiene");
-                return false;
-            }
-
-            return true;
+            return todosPermitidos;
         }
 
         private static bool EsRequisitoExcepcionableEnCreate(RequisitoPendiente requisito)
         {
             return requisito.Tipo == TipoRequisitoPendiente.DocumentacionFaltante
                    || requisito.Tipo == TipoRequisitoPendiente.SinLimiteCredito
-                   || EsClienteNoAptoPorCupoAutorizable(requisito);
-        }
-
-        private static bool EsRequisitoDecisionCrediticiaEnCreate(RequisitoPendiente requisito)
-        {
-            return requisito.Tipo == TipoRequisitoPendiente.SinLimiteCredito
                    || EsClienteNoAptoPorCupoAutorizable(requisito);
         }
 
@@ -571,30 +552,43 @@ namespace TheBuryProject.Services
                    || descripcion.Contains("cupo insuficiente");
         }
 
-        private static void AplicarAuditoriaExcepcionDocumentalEnCreate(
-            Venta venta,
-            string usuarioAutoriza,
-            string motivo)
+        /// <summary>
+        /// Convierte los requisitos excepcionados en CreateAsync en razones de autorización
+        /// formal (PendienteAutorizacion), en lugar de auto-aprobar la excepción en el acto.
+        /// </summary>
+        private static void AplicarExcepcionDocumentalComoPendienteAutorizacion(
+            ValidacionVentaResult validacion,
+            string motivoExcepcion)
         {
-            var fechaUtc = DateTime.UtcNow;
-            var traza = $"EXCEPCION_DOC|{fechaUtc:O}|{usuarioAutoriza}|{motivo}";
+            var requisitosExcepcionados = validacion.RequisitosPendientes
+                .Where(EsRequisitoExcepcionableEnCreate)
+                .ToList();
 
-            venta.UsuarioAutoriza = usuarioAutoriza;
-            venta.FechaAutorizacion = fechaUtc;
+            validacion.NoViable = false;
+            validacion.PendienteRequisitos = false;
+            validacion.RequiereAutorizacion = true;
+            validacion.RequisitosPendientes = validacion.RequisitosPendientes
+                .Where(r => !EsRequisitoExcepcionableEnCreate(r))
+                .ToList();
 
-            if (string.IsNullOrWhiteSpace(venta.MotivoAutorizacion))
+            foreach (var requisito in requisitosExcepcionados)
             {
-                venta.MotivoAutorizacion = traza;
+                validacion.RazonesAutorizacion.Add(new RazonAutorizacion
+                {
+                    Tipo = MapearTipoRazonExcepcionDocumentalCreate(requisito),
+                    Descripcion = requisito.Descripcion,
+                    DetalleAdicional = $"Excepción solicitada en creación: {motivoExcepcion}"
+                });
             }
-            else
+        }
+
+        private static TipoRazonAutorizacion MapearTipoRazonExcepcionDocumentalCreate(RequisitoPendiente requisito)
+        {
+            return requisito.Tipo switch
             {
-                var compuesto = $"{venta.MotivoAutorizacion}\n{traza}";
-                venta.MotivoAutorizacion = compuesto.Length <= MaxLongitudMotivoAutorizacion
-                    ? compuesto
-                    : traza.Length <= MaxLongitudMotivoAutorizacion
-                        ? traza
-                        : traza.Substring(0, MaxLongitudMotivoAutorizacion);
-            }
+                TipoRequisitoPendiente.DocumentacionFaltante => TipoRazonAutorizacion.DocumentacionVencida,
+                _ => TipoRazonAutorizacion.ExcedeCupo
+            };
         }
 
         /// <summary>
@@ -1467,6 +1461,16 @@ namespace TheBuryProject.Services
             var venta = await ObtenerVentaPendienteAutorizacionAsync(id);
             if (venta == null)
                 return false;
+
+            // FASE 5E: el usuario que creó la venta no puede autorizarla.
+            // CreatedBy (interceptor de auditoría) es la fuente confiable del creador;
+            // UsuarioSolicita queda null en el flujo real y no sirve para esta validación.
+            if (!string.IsNullOrWhiteSpace(venta.CreatedBy) &&
+                string.Equals(venta.CreatedBy, usuarioAutoriza, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    "La venta debe ser autorizada por un usuario distinto al que la creó.");
+            }
 
             // E3: Registrar auditoría completa
             venta.EstadoAutorizacion = EstadoAutorizacionVenta.Autorizada;

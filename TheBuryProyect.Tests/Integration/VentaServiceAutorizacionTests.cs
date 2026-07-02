@@ -124,7 +124,8 @@ public class VentaServiceAutorizacionTests : IDisposable
         EstadoAutorizacionVenta estadoAutorizacion = EstadoAutorizacionVenta.NoRequiere,
         bool requiereAutorizacion = false,
         string? razonesAutorizacionJson = null,
-        int? creditoId = null)
+        int? creditoId = null,
+        string? createdBy = null)
     {
         var venta = new Venta
         {
@@ -137,6 +138,7 @@ public class VentaServiceAutorizacionTests : IDisposable
             RequiereAutorizacion = requiereAutorizacion,
             RazonesAutorizacionJson = razonesAutorizacionJson,
             FechaVenta = DateTime.UtcNow,
+            CreatedBy = createdBy,
             Detalles = new List<VentaDetalle>()
         };
         _context.Set<Venta>().Add(venta);
@@ -345,6 +347,59 @@ public class VentaServiceAutorizacionTests : IDisposable
         var venta2Bd = await _context.Set<Venta>().FirstAsync(v => v.Id == venta2.Id);
         Assert.Equal(EstadoAutorizacionVenta.Autorizada, venta1Bd.EstadoAutorizacion);
         Assert.Equal(EstadoAutorizacionVenta.PendienteAutorizacion, venta2Bd.EstadoAutorizacion);
+    }
+
+    // -------------------------------------------------------------------------
+    // FASE 5E — bloqueo de auto-autorización (Venta.CreatedBy vs usuarioAutoriza)
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task AutorizarVenta_MismoUsuarioQueCreo_LanzaError()
+    {
+        var cliente = await SeedClienteAsync();
+        var venta = await SeedVentaAsync(cliente.Id,
+            estadoAutorizacion: EstadoAutorizacionVenta.PendienteAutorizacion,
+            requiereAutorizacion: true,
+            createdBy: "vendedor1");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.AutorizarVentaAsync(venta.Id, "vendedor1", "Aprobado por excepción"));
+
+        _context.ChangeTracker.Clear();
+        var ventaBd = await _context.Set<Venta>().FirstAsync(v => v.Id == venta.Id);
+        Assert.Equal(EstadoAutorizacionVenta.PendienteAutorizacion, ventaBd.EstadoAutorizacion);
+    }
+
+    [Fact]
+    public async Task AutorizarVenta_UsuarioDistinto_Permite()
+    {
+        var cliente = await SeedClienteAsync();
+        var venta = await SeedVentaAsync(cliente.Id,
+            estadoAutorizacion: EstadoAutorizacionVenta.PendienteAutorizacion,
+            requiereAutorizacion: true,
+            createdBy: "vendedor1");
+
+        var resultado = await _service.AutorizarVentaAsync(venta.Id, "javo", "Aprobado por excepción");
+
+        Assert.True(resultado);
+        _context.ChangeTracker.Clear();
+        var ventaBd = await _context.Set<Venta>().FirstAsync(v => v.Id == venta.Id);
+        Assert.Equal(EstadoAutorizacionVenta.Autorizada, ventaBd.EstadoAutorizacion);
+        Assert.Equal("javo", ventaBd.UsuarioAutoriza);
+        Assert.Equal("Aprobado por excepción", ventaBd.MotivoAutorizacion);
+    }
+
+    [Fact]
+    public async Task AutorizarVenta_ComparacionUsuario_CaseInsensitive()
+    {
+        var cliente = await SeedClienteAsync();
+        var venta = await SeedVentaAsync(cliente.Id,
+            estadoAutorizacion: EstadoAutorizacionVenta.PendienteAutorizacion,
+            requiereAutorizacion: true,
+            createdBy: "Vendedor1");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.AutorizarVentaAsync(venta.Id, "vendedor1", "Aprobado por excepción"));
     }
 
     [Fact]
