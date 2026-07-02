@@ -75,7 +75,7 @@ public class VentaServiceAutorizacionTests : IDisposable
     // Helpers
     // -------------------------------------------------------------------------
 
-    private async Task<Cliente> SeedClienteAsync()
+    private async Task<Cliente> SeedClienteAsync(int puntajeCliente = 0, decimal? limiteCredito = null)
     {
         var cliente = new Cliente
         {
@@ -83,7 +83,9 @@ public class VentaServiceAutorizacionTests : IDisposable
             Apellido = "Cliente",
             TipoDocumento = "DNI",
             NumeroDocumento = Guid.NewGuid().ToString("N")[..8],
-            Email = "test@test.com"
+            Email = "test@test.com",
+            PuntajeCliente = puntajeCliente,
+            LimiteCredito = limiteCredito
         };
         _context.Set<Cliente>().Add(cliente);
         await _context.SaveChangesAsync();
@@ -120,22 +122,46 @@ public class VentaServiceAutorizacionTests : IDisposable
         int clienteId,
         EstadoVenta estado = EstadoVenta.Cotizacion,
         EstadoAutorizacionVenta estadoAutorizacion = EstadoAutorizacionVenta.NoRequiere,
-        bool requiereAutorizacion = false)
+        bool requiereAutorizacion = false,
+        string? razonesAutorizacionJson = null,
+        int? creditoId = null)
     {
         var venta = new Venta
         {
             Numero = Guid.NewGuid().ToString("N")[..8],
             ClienteId = clienteId,
+            CreditoId = creditoId,
             Estado = estado,
-            TipoPago = TipoPago.Efectivo,
+            TipoPago = creditoId.HasValue ? TipoPago.CreditoPersonal : TipoPago.Efectivo,
             EstadoAutorizacion = estadoAutorizacion,
             RequiereAutorizacion = requiereAutorizacion,
+            RazonesAutorizacionJson = razonesAutorizacionJson,
             FechaVenta = DateTime.UtcNow,
             Detalles = new List<VentaDetalle>()
         };
         _context.Set<Venta>().Add(venta);
         await _context.SaveChangesAsync();
         return venta;
+    }
+
+    private async Task<Credito> SeedCreditoVigenteAsync(int clienteId, decimal saldoPendiente)
+    {
+        var credito = new Credito
+        {
+            ClienteId = clienteId,
+            Numero = Guid.NewGuid().ToString("N")[..8],
+            Estado = EstadoCredito.PendienteConfiguracion,
+            MontoSolicitado = saldoPendiente,
+            MontoAprobado = saldoPendiente,
+            SaldoPendiente = saldoPendiente,
+            TasaInteres = 0,
+            CantidadCuotas = 0,
+            FechaSolicitud = DateTime.UtcNow,
+            IsDeleted = false
+        };
+        _context.Set<Credito>().Add(credito);
+        await _context.SaveChangesAsync();
+        return credito;
     }
 
     private async Task<Venta> SeedVentaConDetalleAsync(
@@ -251,6 +277,93 @@ public class VentaServiceAutorizacionTests : IDisposable
         var resultado = await _service.AutorizarVentaAsync(
             99999, "gerente1", "Motivo");
         Assert.False(resultado);
+    }
+
+    [Fact]
+    public async Task AutorizarVenta_NoModificaPuntajeCliente()
+    {
+        var cliente = await SeedClienteAsync(puntajeCliente: 3);
+        var venta = await SeedVentaAsync(cliente.Id,
+            estadoAutorizacion: EstadoAutorizacionVenta.PendienteAutorizacion,
+            requiereAutorizacion: true);
+
+        var resultado = await _service.AutorizarVentaAsync(
+            venta.Id, "gerente1", "Aprobado por excepción");
+
+        Assert.True(resultado);
+        _context.ChangeTracker.Clear();
+        var clienteBd = await _context.Set<Cliente>().FirstAsync(c => c.Id == cliente.Id);
+        Assert.Equal(3, clienteBd.PuntajeCliente);
+    }
+
+    [Fact]
+    public async Task AutorizarVenta_NoModificaLimiteCreditoNiDisponible()
+    {
+        var cliente = await SeedClienteAsync(puntajeCliente: 5, limiteCredito: 80_000m);
+        var credito = await SeedCreditoVigenteAsync(cliente.Id, saldoPendiente: 15_000m);
+        var venta = await SeedVentaAsync(cliente.Id,
+            estadoAutorizacion: EstadoAutorizacionVenta.PendienteAutorizacion,
+            requiereAutorizacion: true,
+            creditoId: credito.Id);
+
+        var disponibleService = new CreditoDisponibleService(_context, NullLogger<CreditoDisponibleService>.Instance);
+        var antes = await disponibleService.CalcularDisponibleAsync(cliente.Id);
+
+        var resultado = await _service.AutorizarVentaAsync(
+            venta.Id, "gerente1", "Aprobado por excepción");
+
+        Assert.True(resultado);
+        _context.ChangeTracker.Clear();
+
+        var despues = await disponibleService.CalcularDisponibleAsync(cliente.Id);
+        Assert.Equal(antes.Limite, despues.Limite);
+        Assert.Equal(antes.SaldoVigente, despues.SaldoVigente);
+        Assert.Equal(antes.Disponible, despues.Disponible);
+
+        var clienteBd = await _context.Set<Cliente>().FirstAsync(c => c.Id == cliente.Id);
+        Assert.Equal(80_000m, clienteBd.LimiteCredito);
+    }
+
+    [Fact]
+    public async Task AutorizarVenta_EsPuntual_NoAutorizaOtraVenta()
+    {
+        var cliente = await SeedClienteAsync();
+        var venta1 = await SeedVentaAsync(cliente.Id,
+            estadoAutorizacion: EstadoAutorizacionVenta.PendienteAutorizacion,
+            requiereAutorizacion: true);
+        var venta2 = await SeedVentaAsync(cliente.Id,
+            estadoAutorizacion: EstadoAutorizacionVenta.PendienteAutorizacion,
+            requiereAutorizacion: true);
+
+        var resultado = await _service.AutorizarVentaAsync(
+            venta1.Id, "gerente1", "Aprobado por excepción");
+
+        Assert.True(resultado);
+        _context.ChangeTracker.Clear();
+
+        var venta1Bd = await _context.Set<Venta>().FirstAsync(v => v.Id == venta1.Id);
+        var venta2Bd = await _context.Set<Venta>().FirstAsync(v => v.Id == venta2.Id);
+        Assert.Equal(EstadoAutorizacionVenta.Autorizada, venta1Bd.EstadoAutorizacion);
+        Assert.Equal(EstadoAutorizacionVenta.PendienteAutorizacion, venta2Bd.EstadoAutorizacion);
+    }
+
+    [Fact]
+    public async Task VentaRequiereAutorizacion_ConRazonesJson_PreservaRazones()
+    {
+        const string razonesJson = "[{\"Codigo\":\"BCRA_ALTO\",\"Descripcion\":\"Cliente buen pagador con BCRA alto\"}]";
+        var cliente = await SeedClienteAsync();
+        var venta = await SeedVentaAsync(cliente.Id,
+            estadoAutorizacion: EstadoAutorizacionVenta.PendienteAutorizacion,
+            requiereAutorizacion: true,
+            razonesAutorizacionJson: razonesJson);
+
+        var resultado = await _service.AutorizarVentaAsync(
+            venta.Id, "gerente1", "Aprobado por excepción");
+
+        Assert.True(resultado);
+        _context.ChangeTracker.Clear();
+        var ventaBd = await _context.Set<Venta>().FirstAsync(v => v.Id == venta.Id);
+        Assert.Equal(razonesJson, ventaBd.RazonesAutorizacionJson);
     }
 
     // -------------------------------------------------------------------------
