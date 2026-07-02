@@ -250,11 +250,16 @@ else
                     </div>
                 }
 
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-4">
-                    <div class="minimetric"><div class="mm-label">Puntaje final</div><div class="mm-value num">@nivelFinal<span class="text-xs muted-2 font-normal"> / 5</span></div></div>
-                    <div class="minimetric"><div class="mm-label">Puntaje automatico</div><div class="mm-value num">@nivelAutomatico<span class="text-xs muted-2 font-normal"> / 5</span></div></div>
-                    <div class="minimetric"><div class="mm-label">Puntaje manual</div><div class="mm-value num">@(nivelManual.HasValue ? nivelManual.Value.ToString() : "-")</div></div>
-                    <div class="minimetric"><div class="mm-label">Comportamiento</div><div class="mm-value num">@c.PuntajeCliente<span class="text-xs muted-2 font-normal"> / 5</span></div></div>
+                <div class="minimetric mt-4">
+                    <div class="mm-label">Puntaje crediticio</div>
+                    <div class="flex items-center gap-2 flex-wrap" style="margin-top:.25rem">
+                        <div class="mm-value num" style="margin-top:0;font-size:1.4rem">@nivelFinal<span class="text-xs muted-2 font-normal"> / 5</span></div>
+                        <span class="chip @(tieneNivelManual ? "chip-warn" : "chip-ok")">@fuenteNivel</span>
+                    </div>
+                    @if (tieneNivelManual)
+                    {
+                        <div class="text-xs muted-2" style="margin-top:.4rem">Manual: @nivelManual/5 &bull; Automatico calculado: @nivelAutomatico/5</div>
+                    }
                 </div>
 
                 <div class="text-xs muted-2 font-semibold uppercase mt-4" style="letter-spacing:.04em">Desglose</div>
