@@ -405,6 +405,13 @@ namespace TheBuryProject.Controllers
             var venta = ventaId.HasValue
                 ? await _ventaService.GetByIdAsync(ventaId.Value)
                 : null;
+
+            if (venta != null && venta.RequiereAutorizacion && venta.EstadoAutorizacion != EstadoAutorizacionVenta.Autorizada)
+            {
+                TempData["Error"] = "La venta requiere autorización antes de configurar el crédito.";
+                return RedirectToAction("Details", "Venta", new { id = ventaId });
+            }
+
             var rangoGet = await ResolverRangoCreditoProductoAsync(venta, cuotasMinGet, cuotasMaxGet);
             if (rangoGet.Error is not null)
             {
@@ -476,6 +483,12 @@ namespace TheBuryProject.Controllers
             var venta = modelo.VentaId.HasValue
                 ? await _ventaService.GetByIdAsync(modelo.VentaId.Value)
                 : null;
+
+            if (venta != null && venta.RequiereAutorizacion && venta.EstadoAutorizacion != EstadoAutorizacionVenta.Autorizada)
+            {
+                TempData["Error"] = "La venta requiere autorización antes de configurar el crédito.";
+                return RedirectToAction("Details", "Venta", new { id = modelo.VentaId });
+            }
 
             var resultadoConfiguracion = await _creditoConfiguracionVentaService.ResolverAsync(modelo, venta);
             if (resultadoConfiguracion.RangoEfectivo is not null)

@@ -228,6 +228,67 @@ public class CreditoControllerConfigurarVentaTests
         Assert.Equal(6, creditoService.LastCommand.CuotasMaxPermitidas);
     }
 
+    [Fact]
+    public async Task ConfigurarVentaGet_BloqueaVentaPendienteAutorizacion()
+    {
+        var controller = CrearController(
+            new RecordingCreditoService(CreditoBase()),
+            ConfigService(tasaGlobal: 5m),
+            ventaService: new StubVentaService(venta: VentaConEstadoAutorizacion(EstadoAutorizacionVenta.PendienteAutorizacion)));
+
+        var result = await controller.ConfigurarVenta(id: 10, ventaId: 99);
+
+        AssertRedirectAVentaDetails(result, 99);
+        Assert.Equal("La venta requiere autorización antes de configurar el crédito.", controller.TempData["Error"]);
+    }
+
+    [Fact]
+    public async Task ConfigurarVentaPost_BloqueaVentaPendienteAutorizacionYNoConfiguraCredito()
+    {
+        var creditoService = new RecordingCreditoService(CreditoBase());
+        var controller = CrearController(
+            creditoService,
+            ConfigService(tasaGlobal: 5m),
+            ventaService: new StubVentaService(venta: VentaConEstadoAutorizacion(EstadoAutorizacionVenta.PendienteAutorizacion)));
+        var modelo = ModeloPost(FuenteConfiguracionCredito.Global, MetodoCalculoCredito.Global, ventaId: 99);
+
+        var result = await controller.ConfigurarVenta(modelo);
+
+        AssertRedirectAVentaDetails(result, 99);
+        Assert.Null(creditoService.LastCommand);
+        Assert.Equal("La venta requiere autorización antes de configurar el crédito.", controller.TempData["Error"]);
+    }
+
+    [Fact]
+    public async Task ConfigurarVentaPost_VentaAutorizadaPermiteConfigurarCredito()
+    {
+        var creditoService = new RecordingCreditoService(CreditoBase());
+        var controller = CrearController(
+            creditoService,
+            ConfigService(tasaGlobal: 5m),
+            ventaService: new StubVentaService(venta: VentaConEstadoAutorizacion(EstadoAutorizacionVenta.Autorizada)));
+        var modelo = ModeloPost(FuenteConfiguracionCredito.Global, MetodoCalculoCredito.Global, ventaId: 99);
+
+        var result = await controller.ConfigurarVenta(modelo);
+
+        Assert.IsType<RedirectToActionResult>(result);
+        Assert.NotNull(creditoService.LastCommand);
+    }
+
+    [Fact]
+    public async Task ConfigurarVentaGet_VentaRechazadaBloqueaConfiguracion()
+    {
+        var controller = CrearController(
+            new RecordingCreditoService(CreditoBase()),
+            ConfigService(tasaGlobal: 5m),
+            ventaService: new StubVentaService(venta: VentaConEstadoAutorizacion(EstadoAutorizacionVenta.Rechazada)));
+
+        var result = await controller.ConfigurarVenta(id: 10, ventaId: 99);
+
+        AssertRedirectAVentaDetails(result, 99);
+        Assert.Equal("La venta requiere autorización antes de configurar el crédito.", controller.TempData["Error"]);
+    }
+
     private static CreditoController CrearController(
         RecordingCreditoService creditoService,
         StubConfiguracionPagoService configuracionPagoService,
@@ -316,11 +377,28 @@ public class CreditoControllerConfigurarVentaTests
             }
         };
 
+    private static VentaViewModel VentaConEstadoAutorizacion(EstadoAutorizacionVenta estado, bool requiereAutorizacion = true) =>
+        new()
+        {
+            Id = 99,
+            Total = 10_000m,
+            RequiereAutorizacion = requiereAutorizacion,
+            EstadoAutorizacion = estado
+        };
+
     private static ConfiguracionCreditoVentaViewModel AssertViewModel(IActionResult result)
     {
         var view = Assert.IsType<ViewResult>(result);
         Assert.Equal("ConfigurarVenta_tw", view.ViewName);
         return Assert.IsType<ConfiguracionCreditoVentaViewModel>(view.Model);
+    }
+
+    private static void AssertRedirectAVentaDetails(IActionResult result, int ventaId)
+    {
+        var redirect = Assert.IsType<RedirectToActionResult>(result);
+        Assert.Equal("Details", redirect.ActionName);
+        Assert.Equal("Venta", redirect.ControllerName);
+        Assert.Equal(ventaId, redirect.RouteValues!["id"]);
     }
 
     private static void AssertViewWithModelError(
