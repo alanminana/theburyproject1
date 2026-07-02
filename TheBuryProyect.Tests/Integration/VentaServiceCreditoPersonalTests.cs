@@ -77,6 +77,79 @@ file sealed class StubValidacionVentaService : IValidacionVentaService
 }
 
 // ---------------------------------------------------------------------------
+// Stub de IValidacionVentaService — captura si hay transacción abierta en el
+// momento de la validación (FASE 4C-C: la validación/BCRA debe correr fuera
+// de la transacción de persistencia de la venta).
+// ---------------------------------------------------------------------------
+
+file sealed class CapturaTransaccionValidacionVentaService : IValidacionVentaService
+{
+    private readonly AppDbContext _ctx;
+    private readonly ValidacionVentaResult _resultado;
+
+    public CapturaTransaccionValidacionVentaService(AppDbContext ctx, ValidacionVentaResult resultado)
+    {
+        _ctx = ctx;
+        _resultado = resultado;
+    }
+
+    public bool Llamado { get; private set; }
+    public Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction? TransaccionCapturada { get; private set; }
+
+    public Task<ValidacionVentaResult> ValidarVentaCreditoPersonalAsync(
+        int clienteId, decimal montoVenta, int? creditoId = null)
+    {
+        Llamado = true;
+        TransaccionCapturada = _ctx.Database.CurrentTransaction;
+        return Task.FromResult(_resultado);
+    }
+
+    public Task<PrevalidacionResultViewModel> PrevalidarAsync(int clienteId, decimal monto) => throw new NotImplementedException();
+    public Task<ValidacionVentaResult> ValidarConfirmacionVentaAsync(int ventaId) => throw new NotImplementedException();
+    public Task<bool> ClientePuedeRecibirCreditoAsync(int clienteId, decimal montoSolicitado) => throw new NotImplementedException();
+    public Task<ResumenCrediticioClienteViewModel> ObtenerResumenCrediticioAsync(int clienteId) => throw new NotImplementedException();
+}
+
+// ---------------------------------------------------------------------------
+// AppDbContext que fuerza una colisión de número de venta en el primer
+// SaveChangesAsync ejecutado DENTRO de una transacción (simula DbUpdateException
+// de índice único ix_ventas_numero) y registra la transacción vigente en cada
+// intento. Los SaveChangesAsync de seed (fuera de transacción) no se ven afectados.
+// Prueba que el reintento de GuardarVentaConReintentoNumeroAsync permanece
+// dentro de la misma transacción movida en FASE 4C-C.
+// ---------------------------------------------------------------------------
+
+file sealed class ColisionNumeroVentaDbContext : AppDbContext
+{
+    private int _intentosDentroDeTransaccion;
+
+    public ColisionNumeroVentaDbContext(DbContextOptions<AppDbContext> options) : base(options)
+    {
+    }
+
+    public List<Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction?> TransaccionesPorIntento { get; } = new();
+
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        var transaccionActual = Database.CurrentTransaction;
+        if (transaccionActual != null)
+        {
+            _intentosDentroDeTransaccion++;
+            TransaccionesPorIntento.Add(transaccionActual);
+
+            if (_intentosDentroDeTransaccion == 1)
+            {
+                throw new DbUpdateException(
+                    "Error simulado de colisión",
+                    new Exception("duplicate key value violates unique constraint ix_ventas_numero"));
+            }
+        }
+
+        return base.SaveChangesAsync(cancellationToken);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Stub de ICurrentUserService
 // ---------------------------------------------------------------------------
 
@@ -137,6 +210,18 @@ public class VentaServiceCreditoPersonalTests
             .UseSqlite(conn)
             .Options;
         var ctx = new AppDbContext(options);
+        ctx.Database.EnsureCreated();
+        return (ctx, conn);
+    }
+
+    private static (AppDbContext ctx, SqliteConnection conn) CreateColisionDb()
+    {
+        var conn = new SqliteConnection("DataSource=:memory:");
+        conn.Open();
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseSqlite(conn)
+            .Options;
+        var ctx = new ColisionNumeroVentaDbContext(options);
         ctx.Database.EnsureCreated();
         return (ctx, conn);
     }
@@ -343,6 +428,78 @@ public class VentaServiceCreditoPersonalTests
 
             Assert.Contains("No es posible crear la venta con crédito personal", ex.Message);
             Assert.Contains("OPERACIÓN NO VIABLE", ex.Message);
+
+            // FASE 4C-C: NoViable debe rechazar antes de cualquier escritura de venta.
+            Assert.Equal(0, await ctx.Ventas.CountAsync());
+        }
+    }
+
+    // ---------------------------------------------------------------------------
+    // FASE 4C-C — la validación de crédito (BCRA/Veraz vía ValidacionVentaService)
+    // debe ejecutarse antes de abrir la transacción de persistencia de la venta.
+    // ---------------------------------------------------------------------------
+
+    /// <summary>
+    /// Verifica que CreateAsync invoca ValidarVentaCreditoPersonalAsync sin haber
+    /// abierto todavía la transacción de persistencia (Database.CurrentTransaction
+    /// debe ser null en ese momento). Esto evita que un refresh BCRA/Veraz (con
+    /// latencia de red) mantenga abierta una transacción de base de datos.
+    /// </summary>
+    [Fact]
+    public async Task CreateAsync_CreditoPersonal_ValidaCreditoAntesDeAbrirTransaccion()
+    {
+        var (ctx, conn) = CreateDb();
+        await using (ctx) using (conn)
+        {
+            var apertura = await SeedCajaAsync(ctx);
+            var cliente = await SeedClienteAsync(ctx);
+            var producto = await SeedProductoAsync(ctx, precioVenta: 1_210m);
+
+            var validacionStub = new CapturaTransaccionValidacionVentaService(
+                ctx, new ValidacionVentaResult { NoViable = false });
+
+            var svc = BuildService(ctx, new StubCajaServiceCP(apertura), validacionStub);
+
+            await svc.CreateAsync(CreditoPersonalViewModelConProducto(cliente.Id, producto));
+
+            Assert.True(validacionStub.Llamado);
+            Assert.Null(validacionStub.TransaccionCapturada);
+        }
+    }
+
+    /// <summary>
+    /// Verifica que, tras el movimiento de FASE 4C-C, el reintento de
+    /// GuardarVentaConReintentoNumeroAsync ante una colisión de número de venta
+    /// (DbUpdateException con índice único) sigue ocurriendo dentro de la misma
+    /// transacción de persistencia (no se abre ni se cierra una transacción por intento).
+    /// </summary>
+    [Fact]
+    public async Task CreateAsync_NumeroDuplicado_RetrySigueDentroDeTransaccion()
+    {
+        var (ctx, conn) = CreateColisionDb();
+        var colisionCtx = (ColisionNumeroVentaDbContext)ctx;
+        await using (ctx) using (conn)
+        {
+            var apertura = await SeedCajaAsync(ctx);
+            var cliente = await SeedClienteAsync(ctx);
+            var producto = await SeedProductoAsync(ctx, precioVenta: 1_210m);
+
+            var svc = BuildService(
+                ctx,
+                new StubCajaServiceCP(apertura),
+                new StubValidacionVentaService(new ValidacionVentaResult { NoViable = false }));
+
+            var resultado = await svc.CreateAsync(CreditoPersonalViewModelConProducto(cliente.Id, producto));
+
+            Assert.Equal(EstadoVenta.PendienteFinanciacion, resultado.Estado);
+            Assert.True(colisionCtx.TransaccionesPorIntento.Count >= 2, "Debe haber al menos un intento fallido y uno exitoso");
+
+            var primerIntento = colisionCtx.TransaccionesPorIntento[0];
+            var segundoIntento = colisionCtx.TransaccionesPorIntento[1];
+
+            Assert.NotNull(primerIntento);
+            Assert.NotNull(segundoIntento);
+            Assert.Same(primerIntento, segundoIntento);
         }
     }
 

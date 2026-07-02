@@ -1,6 +1,7 @@
 using AutoMapper;
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using TheBuryProject.Data;
 using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.Entities;
@@ -190,7 +191,7 @@ namespace TheBuryProject.Services
             var aperturaActiva = await AsegurarCajaAbiertaParaUsuarioActualAsync(
                 "No se puede registrar la venta: no hay una caja abierta para el usuario actual. Abra una caja antes de realizar ventas.");
 
-            using var transaction = await _context.Database.BeginTransactionAsync();
+            IDbContextTransaction? transaction = null;
 
             try
             {
@@ -263,6 +264,8 @@ namespace TheBuryProject.Services
                     await VerificarAutorizacionSiCorrespondeAsync(venta, viewModel);
                 }
 
+                transaction = await _context.Database.BeginTransactionAsync();
+
                 _context.Ventas.Add(venta);
                 await GuardarVentaConReintentoNumeroAsync(venta, viewModel.Estado);
 
@@ -292,9 +295,20 @@ namespace TheBuryProject.Services
             }
             catch (Exception ex)
             {
-                await transaction.RollbackAsync();
+                if (transaction != null)
+                {
+                    await transaction.RollbackAsync();
+                }
+
                 _logger.LogError(ex, "Error al crear venta");
                 throw;
+            }
+            finally
+            {
+                if (transaction != null)
+                {
+                    await transaction.DisposeAsync();
+                }
             }
         }
 
