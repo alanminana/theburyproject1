@@ -1091,6 +1091,7 @@ public class VentaApiControllerTests
         public Task ActualizarPuntajeRiesgoAsync(int clienteId, decimal nuevoPuntaje, string motivo) => throw new NotImplementedException();
         public Task<bool> AsignarNivelCreditoManualAsync(int clienteId, int nivel, string motivo, string usuario) => throw new NotImplementedException();
         public Task<bool> LimpiarNivelCreditoManualAsync(int clienteId, string motivo, string usuario) => throw new NotImplementedException();
+        public Task<List<ClientePuntajeHistorialItemViewModel>> GetHistorialPuntajeAsync(int clienteId, int top = 5) => throw new NotImplementedException();
     }
 
     private sealed class StubVentaService : IVentaService

@@ -661,6 +661,16 @@ namespace TheBuryProject.Controllers
                 _logger.LogWarning(ex, "Error obteniendo info de garante para cliente {Id}", cliente.Id);
             }
 
+            // Historial de PuntajeCliente (solo lectura)
+            try
+            {
+                detalleViewModel.HistorialPuntaje = await _clienteService.GetHistorialPuntajeAsync(cliente.Id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error obteniendo historial de puntaje para cliente {Id}", cliente.Id);
+            }
+
             return detalleViewModel;
         }
 

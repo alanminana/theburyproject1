@@ -1,5 +1,6 @@
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
+using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Services.Interfaces
 {
@@ -27,5 +28,6 @@ namespace TheBuryProject.Services.Interfaces
             string motivo,
             string usuario);
         Task<bool> LimpiarNivelCreditoManualAsync(int clienteId, string motivo, string usuario);
+        Task<List<ClientePuntajeHistorialItemViewModel>> GetHistorialPuntajeAsync(int clienteId, int top = 5);
     }
 }

@@ -329,6 +329,56 @@ else
                         </form>
                     </div>
                 </div>
+
+                <div class="mt-4 pt-4" style="border-top:1px solid rgba(255,255,255,.07)">
+                    <button type="button" class="flex items-center justify-between w-full" data-cliente-details-toggle="historial" aria-expanded="false" style="background:none;border:none;cursor:pointer;padding:0;text-align:left">
+                        <span class="flex items-center gap-2 text-sm font-semibold text-white">
+                            <span class="material-symbols-outlined" style="color:#f5c518;font-size:18px">history</span>
+                            Historial de puntaje
+                        </span>
+                        <span class="material-symbols-outlined muted-2" id="chevron-historial">expand_more</span>
+                    </button>
+                    <div id="content-historial" class="hidden mt-3">
+                        @if (Model.HistorialPuntaje != null && Model.HistorialPuntaje.Any())
+                        {
+                            <div class="tbl-wrap" data-oc-scroll>
+                                <table class="tbl">
+                                    <thead>
+                                        <tr>
+                                            <th>Fecha</th>
+                                            <th>Puntaje anterior</th>
+                                            <th>Puntaje nuevo</th>
+                                            <th>Origen</th>
+                                            <th>Registrado por</th>
+                                            <th>Observacion</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var h in Model.HistorialPuntaje)
+                                        {
+                                            <tr>
+                                                <td>@h.Fecha.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                                                <td>@(h.PuntajeAnterior.HasValue ? h.PuntajeAnterior.Value.ToString() : "-")</td>
+                                                <td>@h.PuntajeNuevo</td>
+                                                <td>@h.Origen</td>
+                                                <td>@Dash(h.RegistradoPor)</td>
+                                                <td>@Dash(h.Observacion)</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="ph">
+                                <span class="material-symbols-outlined">history</span>
+                                <div class="ph-label">historial de puntaje</div>
+                                <p class="text-xs muted-2" style="max-width:34ch">Todavia no hay cambios de puntaje registrados.</p>
+                            </div>
+                        }
+                    </div>
+                </div>
             </section>
 
             <section class="card card-pad">

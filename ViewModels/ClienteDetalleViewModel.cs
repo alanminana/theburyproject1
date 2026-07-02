@@ -33,6 +33,29 @@ namespace TheBuryProject.ViewModels
     /// Info del garante actual del cliente. Null si no tiene garante asignado.
     /// </summary>
     public GaranteInfoViewModel? GaranteInfo { get; set; }
+
+    /// <summary>
+    /// Últimos cambios auditados de PuntajeCliente (solo lectura).
+    /// </summary>
+    public List<ClientePuntajeHistorialItemViewModel> HistorialPuntaje { get; set; } = new();
+    }
+
+    /// <summary>
+    /// Item de solo lectura para mostrar un registro de ClientePuntajeHistorial.
+    /// </summary>
+    public class ClientePuntajeHistorialItemViewModel
+    {
+        public DateTime Fecha { get; set; }
+
+        public decimal? PuntajeAnterior { get; set; }
+
+        public decimal PuntajeNuevo { get; set; }
+
+        public string Origen { get; set; } = string.Empty;
+
+        public string? RegistradoPor { get; set; }
+
+        public string? Observacion { get; set; }
     }
 
     public class ClienteCreditoDisponiblePanelViewModel

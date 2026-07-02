@@ -4,6 +4,7 @@ using TheBuryProject.Data;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
+using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Services
 {
@@ -358,6 +359,38 @@ namespace TheBuryProject.Services
                 clienteId, nivelAnterior, usuario);
 
             return true;
+        }
+
+        /// <summary>
+        /// Últimos N registros de ClientePuntajeHistorial para un cliente, ordenados por fecha
+        /// descendente. PuntajeAnterior se deriva del registro cronológicamente previo (no es
+        /// una columna persistida).
+        /// </summary>
+        public async Task<List<ClientePuntajeHistorialItemViewModel>> GetHistorialPuntajeAsync(int clienteId, int top = 5)
+        {
+            var registros = await _context.ClientesPuntajeHistorial
+                .AsNoTracking()
+                .Where(h => h.ClienteId == clienteId)
+                .OrderByDescending(h => h.Fecha)
+                .ThenByDescending(h => h.Id)
+                .Take(top + 1)
+                .ToListAsync();
+
+            var resultado = new List<ClientePuntajeHistorialItemViewModel>();
+            for (int i = 0; i < registros.Count && i < top; i++)
+            {
+                resultado.Add(new ClientePuntajeHistorialItemViewModel
+                {
+                    Fecha = registros[i].Fecha,
+                    PuntajeNuevo = registros[i].Puntaje,
+                    PuntajeAnterior = i + 1 < registros.Count ? registros[i + 1].Puntaje : null,
+                    Origen = registros[i].Origen,
+                    RegistradoPor = registros[i].RegistradoPor,
+                    Observacion = registros[i].Observacion
+                });
+            }
+
+            return resultado;
         }
     }
 }
