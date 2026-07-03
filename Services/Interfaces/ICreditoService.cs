@@ -21,10 +21,6 @@ namespace TheBuryProject.Services.Interfaces
         Task<bool> AprobarCreditoAsync(int creditoId, string aprobadoPor);
         Task<bool> RechazarCreditoAsync(int creditoId, string motivo);
         Task<bool> CancelarCreditoAsync(int creditoId, string motivo);
-        Task<(bool Success, string? NumeroCredito, string? ErrorMessage)> SolicitarCreditoAsync(
-    SolicitudCreditoViewModel solicitud,
-    string usuarioSolicitante,
-    CancellationToken cancellationToken = default);
 
         // Operaciones de cuotas
         Task<List<CuotaViewModel>> GetCuotasByCreditoAsync(int creditoId);

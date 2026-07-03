@@ -440,7 +440,6 @@ public class CreditoControllerConfigurarVentaTests
         public Task<bool> AprobarCreditoAsync(int creditoId, string aprobadoPor) => throw new NotImplementedException();
         public Task<bool> RechazarCreditoAsync(int creditoId, string motivo) => throw new NotImplementedException();
         public Task<bool> CancelarCreditoAsync(int creditoId, string motivo) => throw new NotImplementedException();
-        public Task<(bool Success, string? NumeroCredito, string? ErrorMessage)> SolicitarCreditoAsync(SolicitudCreditoViewModel solicitud, string usuarioSolicitante, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<List<CuotaViewModel>> GetCuotasByCreditoAsync(int creditoId) => throw new NotImplementedException();
         public Task<CuotaViewModel?> GetCuotaByIdAsync(int cuotaId) => throw new NotImplementedException();
         public Task<bool> PagarCuotaAsync(PagarCuotaViewModel pago) => throw new NotImplementedException();

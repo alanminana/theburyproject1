@@ -106,46 +106,4 @@ namespace TheBuryProject.ViewModels
         public string Texto => $"Puntaje {Nivel}";
     }
 
-    /// <summary>
-    /// ViewModel para solicitar un crédito desde el cliente
-    /// </summary>
-    /// <remarks>
-    /// LEGACY: usado solo por CreditoService.SolicitarCreditoAsync (flujo no productivo).
-    /// No usar para nuevas validaciones. El flujo canonico es
-    /// VentaService/ValidacionVentaService/ClienteAptitudService.
-    /// </remarks>
-    public class SolicitudCreditoViewModel
-    {
-        public int ClienteId { get; set; }
-
-        [Required, Range(1, 100000000, ErrorMessage = "Monto inválido")]
-        public decimal MontoSolicitado { get; set; }
-
-        [Required, Range(1, 120, ErrorMessage = "Cantidad de cuotas inválida")]
-        public int CantidadCuotas { get; set; }
-
-        [Required, Range(0, 100, ErrorMessage = "Tasa inválida")]
-        public decimal TasaInteres { get; set; } = 5.0m;
-
-        public string? Observaciones { get; set; }
-
-        public int? GaranteId { get; set; }
-
-        [StringLength(100)]
-        public string? GaranteNombre { get; set; }
-
-        [StringLength(20)]
-        public string? GaranteDocumento { get; set; }
-
-        [StringLength(20)]
-        public string? GaranteTelefono { get; set; }
-
-        public bool AprobarConExcepcion { get; set; }
-
-        [StringLength(500)]
-        public string? MotivoExcepcion { get; set; }
-
-        [StringLength(200)]
-        public string? AutorizadoPor { get; set; }
-    }
 }
