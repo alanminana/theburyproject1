@@ -1179,6 +1179,12 @@ namespace TheBuryProject.Services
 
         #region Solicitud de Crédito
 
+        /// <remarks>
+        /// LEGACY: flujo no productivo, sin caller real fuera de tests.
+        /// No usar para nuevas validaciones. El flujo canonico es
+        /// VentaService/ValidacionVentaService/ClienteAptitudService.
+        /// TODO: evaluar eliminacion cuando se confirme que no queda ningun caller productivo.
+        /// </remarks>
         public async Task<(bool Success, string? NumeroCredito, string? ErrorMessage)> SolicitarCreditoAsync(
             SolicitudCreditoViewModel solicitud,
             string usuarioSolicitante,

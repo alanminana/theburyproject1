@@ -13,6 +13,11 @@ namespace TheBuryProject.Services
     /// Servicio centralizado para evaluación crediticia
     /// Implementa scoring automático, validaciones y cálculo de capacidad de pago
     /// </summary>
+    /// <remarks>
+    /// LEGACY: flujo no productivo. No usar para nuevas validaciones.
+    /// El flujo canonico es VentaService/ValidacionVentaService/ClienteAptitudService.
+    /// Se conserva por cobertura de tests existente; no ampliar su uso.
+    /// </remarks>
     public class EvaluacionCreditoService : IEvaluacionCreditoService
     {
         #region Constructor y dependencias
@@ -41,6 +46,11 @@ namespace TheBuryProject.Services
 
         #region Evaluación principal
 
+        /// <remarks>
+        /// LEGACY: no usar para nuevas validaciones. El flujo canonico es
+        /// VentaService/ValidacionVentaService/ClienteAptitudService.
+        /// TODO: evaluar eliminacion cuando se confirme que no queda ningun caller productivo.
+        /// </remarks>
         public async Task<EvaluacionCreditoViewModel> EvaluarSolicitudAsync(
             int clienteId,
             decimal montoSolicitado,

@@ -109,6 +109,11 @@ namespace TheBuryProject.ViewModels
     /// <summary>
     /// ViewModel para solicitar un crédito desde el cliente
     /// </summary>
+    /// <remarks>
+    /// LEGACY: usado solo por CreditoService.SolicitarCreditoAsync (flujo no productivo).
+    /// No usar para nuevas validaciones. El flujo canonico es
+    /// VentaService/ValidacionVentaService/ClienteAptitudService.
+    /// </remarks>
     public class SolicitudCreditoViewModel
     {
         public int ClienteId { get; set; }
