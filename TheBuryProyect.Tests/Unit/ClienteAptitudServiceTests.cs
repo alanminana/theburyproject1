@@ -878,9 +878,12 @@ public class ClienteAptitudServiceTests
             config.ValidarLimiteCredito = true;
             ctx.Set<ConfiguracionCredito>().Add(config);
 
-            // PuntajesCreditoLimite tienen LimiteMonto = 0 por seed
-            // Cliente sin LimiteCredito manual → límite efectivo = 0
-            ctx.Clientes.Add(BaseCliente(1));
+            // Puntaje 0 = cliente nuevo, cupo default 200.000 (seed). Puntaje 1-5 = sin
+            // configurar por Javo todavía → PuntajesCreditoLimite.LimiteMonto = 0.
+            // Usamos puntaje 1 para representar cupo real sin asignar.
+            var cliente = BaseCliente(1);
+            cliente.PuntajeCliente = 1;
+            ctx.Clientes.Add(cliente);
             await ctx.SaveChangesAsync();
 
             var service = BuildService(ctx);
@@ -907,8 +910,11 @@ public class ClienteAptitudServiceTests
             config.ValidarLimiteCredito = true;
             ctx.Set<ConfiguracionCredito>().Add(config);
 
-            // Asignar límite manual al cliente = 5000
+            // Puntaje 1 (sin preset configurado, LimiteMonto=0) para que el límite
+            // manual del cliente sea el que rige. Puntaje 0 default ya trae cupo
+            // 200.000 por seed y taparía el límite manual bajo.
             var cliente = BaseCliente(1);
+            cliente.PuntajeCliente = 1;
             cliente.LimiteCredito = 5_000m;
             ctx.Clientes.Add(cliente);
             await ctx.SaveChangesAsync();
@@ -1378,7 +1384,10 @@ public class ClienteAptitudServiceTests
             config.ValidarLimiteCredito = true;
             ctx.Set<ConfiguracionCredito>().Add(config);
 
+            // Puntaje 1 (sin preset configurado, LimiteMonto=0) para que el límite
+            // manual bajo del cliente sea el que rige, no el default 200.000 de puntaje 0.
             var cliente = BaseCliente(1);
+            cliente.PuntajeCliente = 1;
             cliente.LimiteCredito = 5_000m; // límite bajo
             ctx.Clientes.Add(cliente);
             await ctx.SaveChangesAsync();
@@ -1950,7 +1959,11 @@ public class ClienteAptitudServiceTests
             var (ctx, conn) = CreateContext();
             await using (ctx) using (conn)
             {
-                ctx.Clientes.Add(BaseCliente(30));
+                // Puntaje 0 default trae cupo 200.000 por seed; puntaje 1 (sin
+                // configurar por Javo) representa cupo real sin asignar (LimiteMonto=0).
+                var cliente = BaseCliente(30);
+                cliente.PuntajeCliente = 1;
+                ctx.Clientes.Add(cliente);
                 await ctx.SaveChangesAsync();
 
                 var service = BuildService(ctx);
