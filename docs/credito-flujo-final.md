@@ -1,7 +1,7 @@
-# Crédito — Flujo final consolidado (FASE 1-11D)
+# Crédito — Flujo final consolidado (FASE 1-12)
 
-> Estado: **FASE 11E — cierre documental de BCRA determinístico**. Consolida FASE 1 a FASE 11D. Sin push salvo confirmación explícita. Fecha documental: 2026-07-03.
-> Documentos hermanos: [`credito-fase-1-cierre.md`](credito-fase-1-cierre.md), [`credito-fase-2-garante.md`](credito-fase-2-garante.md), [`credito-fase-3-cuenta-disponible.md`](credito-fase-3-cuenta-disponible.md), [`credito-fase-4-evaluador-unificado.md`](credito-fase-4-evaluador-unificado.md), [`credito-fase-5-autorizacion-manual.md`](credito-fase-5-autorizacion-manual.md), [`credito-fase-6-mora-puntaje.md`](credito-fase-6-mora-puntaje.md), [`credito-fase-7-ui-perfil-crediticio.md`](credito-fase-7-ui-perfil-crediticio.md), [`credito-fase-9-limpieza-legacy.md`](credito-fase-9-limpieza-legacy.md), [`credito-fase-10-mora-scoring.md`](credito-fase-10-mora-scoring.md), [`credito-fase-11-bcra-deterministico.md`](credito-fase-11-bcra-deterministico.md).
+> Estado: **FASE 12C — cierre documental de configuración de mora (exposición UI de score por mora)**. Consolida FASE 1 a FASE 12B. Sin push salvo confirmación explícita. Fecha documental: 2026-07-03.
+> Documentos hermanos: [`credito-fase-1-cierre.md`](credito-fase-1-cierre.md), [`credito-fase-2-garante.md`](credito-fase-2-garante.md), [`credito-fase-3-cuenta-disponible.md`](credito-fase-3-cuenta-disponible.md), [`credito-fase-4-evaluador-unificado.md`](credito-fase-4-evaluador-unificado.md), [`credito-fase-5-autorizacion-manual.md`](credito-fase-5-autorizacion-manual.md), [`credito-fase-6-mora-puntaje.md`](credito-fase-6-mora-puntaje.md), [`credito-fase-7-ui-perfil-crediticio.md`](credito-fase-7-ui-perfil-crediticio.md), [`credito-fase-9-limpieza-legacy.md`](credito-fase-9-limpieza-legacy.md), [`credito-fase-10-mora-scoring.md`](credito-fase-10-mora-scoring.md), [`credito-fase-11-bcra-deterministico.md`](credito-fase-11-bcra-deterministico.md), [`credito-fase-12-configuracion-mora.md`](credito-fase-12-configuracion-mora.md).
 
 ## 1. Objetivo del documento
 
@@ -23,6 +23,7 @@ El eje único de aptitud/cupo es `PuntajeCliente` (0-5), gobernado por `ClienteS
 8. **Pago de cuotas** — `CreditoService.PagarCuotaAsync` (individual o múltiple) actualiza cuota/saldo/caja y dispara recálculo de puntaje en la misma transacción.
 9. **Recálculo de puntaje** — automático al pagar cuota (`ClienteScoringService.RecalcularYAuditarAsync`, origen `RecalculoAutomaticoPago`) o manual desde `Cliente/Details` (origen `RecalculoManual`, auditado desde FASE 8B1).
 10. **Mora/cobranza** — `MoraService`/`MoraBackgroundService` detectan cuotas vencidas por fecha y generan `AlertaCobranza`. Desde FASE 10C, el job diario también puede cambiar el estado de cuota (`CreditoService.ActualizarEstadoCuotasAsync`) y recalcular/auditar `PuntajeCliente` por mora (`ClienteScoringService.RecalcularYAuditarAsync`, origen `RecalculoAutomaticoMora`), siempre gobernado por los flags de `ConfiguracionMora` (ver sección 4).
+11. **Configuración de mora** — pantalla canónica Razor `MoraController.ConfiguracionExpandida` (GET) / `GuardarConfiguracionExpandida` (POST), vista `Views/Mora/ConfiguracionExpandida.cshtml`, ViewModel `ConfiguracionMoraExpandidaViewModel`, ambas acciones gobernadas por el permiso `mora:config`. Desde FASE 12B expone la región Score por Mora (`ImpactarScorePorMora` y los parámetros de puntos/recuperación), que antes solo se podía activar por datos/migración/seed. `ConfiguracionMoraController` (JSON) **no** es el camino de edición canónico (ver [`credito-fase-12-configuracion-mora.md`](credito-fase-12-configuracion-mora.md)).
 
 ## 4. Reglas finales
 
@@ -34,7 +35,7 @@ El eje único de aptitud/cupo es `PuntajeCliente` (0-5), gobernado por `ClienteS
 - La autorización manual es puntual por venta: no modifica cupo, puntaje ni límite futuro, y no autoriza otras ventas. Queda auditada con usuario, motivo y fecha.
 - Recálculo automático de `PuntajeCliente` ocurre al pagar cuota (dentro de la misma transacción del pago) y, desde FASE 10C, opcionalmente por mora diaria (ver regla siguiente).
 - Recálculo manual de puntaje desde `Cliente/Details` queda auditado en `ClientePuntajeHistorial` con origen `RecalculoManual` (FASE 8B1, antes no se auditaba).
-- Mora diaria (`MoraService`/`MoraBackgroundService`, FASE 10C, opción B): la mora **no** baja el puntaje inmediatamente al vencer la cuota. Dentro de `ConfiguracionMora.DiasGracia` no se impacta el puntaje; recién después de superar los días de gracia se puede recalcular. Todo queda gobernado por tres flags de `ConfiguracionMora`: `ActualizarMoraAutomaticamente` (master switch: si es `false`, el job no muta nada), `CambiarEstadoCuotaAuto` (habilita el llamado a `CreditoService.ActualizarEstadoCuotasAsync`) e `ImpactarScorePorMora` (habilita el recálculo/auditoría de `PuntajeCliente` por mora, origen `RecalculoAutomaticoMora`). Si el puntaje no cambia, `RecalcularYAuditarAsync` no duplica historial (mismo comportamiento que FASE 8B1).
+- Mora diaria (`MoraService`/`MoraBackgroundService`, FASE 10C, opción B): la mora **no** baja el puntaje inmediatamente al vencer la cuota. Dentro de `ConfiguracionMora.DiasGracia` no se impacta el puntaje; recién después de superar los días de gracia se puede recalcular. Todo queda gobernado por tres flags de `ConfiguracionMora`: `ActualizarMoraAutomaticamente` (master switch: si es `false`, el job no muta nada), `CambiarEstadoCuotaAuto` (habilita el llamado a `CreditoService.ActualizarEstadoCuotasAsync`) e `ImpactarScorePorMora` (habilita el recálculo/auditoría de `PuntajeCliente` por mora, origen `RecalculoAutomaticoMora`). Si el puntaje no cambia, `RecalcularYAuditarAsync` no duplica historial (mismo comportamiento que FASE 8B1). Desde FASE 12B, `ImpactarScorePorMora` y el resto de la región Score por Mora (`PuntosRestarPorCuotaVencida`, `PuntosRestarPorDiaMora`, `PuntosMaximosARestar`, `RecuperarScoreAlPagar`, `PorcentajeRecuperacionScore`) se configuran desde la pantalla canónica de mora (sección 3.11), no solo por datos/seed. Los inputs decimales de esa pantalla usan `step="any"` para no ser rechazados por la regla HTML5 `step` de jQuery Validate.
 - La aptitud (`ClienteAptitudService`) ya usaba umbrales de días de mora independientes del scoring: `ConfiguracionCredito.DiasParaRequerirAutorizacion` y `DiasParaNoApto`. FASE 10 no los modifica; conviven con `ConfiguracionMora.DiasGracia`, que aplica solo al impacto en `PuntajeCliente`.
 
 ## 5. Servicios canónicos
@@ -85,8 +86,10 @@ El flujo canónico para cualquier validación nueva sigue siendo `VentaService` 
 ## 9. Deuda pendiente
 
 - **Resuelto en FASE 10C**: `ActualizarEstadoCuotasAsync` ahora tiene caller productivo (`MoraService.ProcesarMoraAsync`, gated por `ConfiguracionMora.CambiarEstadoCuotaAuto`), y `ConfiguracionMora.CambiarEstadoCuotaAuto`/`ActualizarMoraAutomaticamente`/`ImpactarScorePorMora` ya tienen efecto real. Decisión de Javo (opción B) resuelta: la mora no baja el puntaje hasta superar `DiasGracia`. Detalle completo en [`credito-fase-10-mora-scoring.md`](credito-fase-10-mora-scoring.md).
-- `ImpactarScorePorMora` (`ConfiguracionMora`) todavía no tiene exposición en UI de configuración — solo se puede activar por datos/migración/seed, no desde una pantalla. Deuda de FASE 10.
+- **Resuelto en FASE 12B**: `ImpactarScorePorMora` (`ConfiguracionMora`) ya tiene exposición en UI de configuración. La pantalla canónica `MoraController.ConfiguracionExpandida` (vista `Views/Mora/ConfiguracionExpandida.cshtml`, ViewModel `ConfiguracionMoraExpandidaViewModel`, permiso `mora:config`) expone la región Score por Mora completa y persiste vía `MoraService.UpdateConfiguracionExpandidaAsync`. Fix asociado: inputs decimales con `step="any"` (jQuery Validate rechazaba `step="0.01"`). Detalle completo en [`credito-fase-12-configuracion-mora.md`](credito-fase-12-configuracion-mora.md).
 - **Resuelto en FASE 11C/11D**: BCRA/aptitud no determinístico. Un error transitorio ya no pisa la última situación BCRA válida conocida (separación último intento / último éxito, migración aditiva) y la UI de `Cliente/Details` sincroniza el mismo clasificador puro en carga inicial y refresh AJAX. Detalle completo en [`credito-fase-11-bcra-deterministico.md`](credito-fase-11-bcra-deterministico.md).
+- Permisos de rol para `mora:config`: al momento del QA de FASE 12B solo el SuperAdmin (`admin`) tiene el permiso sembrado; otros roles no ven el link ni acceden a la pantalla. Si Javo quiere habilitar la configuración de mora a más roles, hay que sembrar `mora:config`. Deuda de FASE 12.
+- Barra roja vacía del validation-summary: si el resumen de validación aparece vacío en algún form, queda como deuda global de UI (no específica de la pantalla de mora). Deuda global preexistente.
 - Modo simulación BCRA (para QA/desarrollo sin depender de la API pública real) queda pendiente si Javo lo pide en una fase futura. Deuda de FASE 11.
 - Entidad `EvaluacionCredito` y tabla `EvaluacionesCredito`: siguen existiendo; no se tocaron en FASE 9, FASE 10 ni FASE 11.
 - Migraciones históricas de `EvaluacionCredito`/`EvaluacionesCredito`: siguen existiendo; no se modificaron ni se creó una migración de drop.
@@ -122,8 +125,14 @@ El flujo canónico para cualquier validación nueva sigue siendo `VentaService` 
   - `dotnet build TheBuryProyect.csproj --no-restore`: OK, 0 errores / 0 advertencias.
   - `dotnet build TheBuryProyect.Tests/TheBuryProyect.Tests.csproj --no-restore`: OK, 0 errores / 0 advertencias.
   - Tests focalizados: no se repiten en FASE 11E porque el cambio es docs-only.
+- FASE 12B: build principal y build de tests OK, 0 errores / 0 advertencias. Tests focalizados **141/141 OK** (servicio + mapping + contrato de UI de configuración de mora). QA visual desktop 1440x900 / mobile 390x844 OK; guardado persistido en DB. Detalle en [`credito-fase-12-configuracion-mora.md`](credito-fase-12-configuracion-mora.md).
+- FASE 12C:
+  - `git diff --check`: OK.
+  - `dotnet build TheBuryProyect.csproj --no-restore`: OK, 0 errores / 0 advertencias.
+  - `dotnet build TheBuryProyect.Tests/TheBuryProyect.Tests.csproj --no-restore`: OK, 0 errores / 0 advertencias.
+  - Tests focalizados: no se repiten en FASE 12C porque el cambio es docs-only.
 
-## 11. Tabla de commits relevantes FASE 6-10
+## 11. Tabla de commits relevantes FASE 6-12
 
 | Fase | Commit | Descripción |
 |---|---|---|
@@ -152,10 +161,14 @@ El flujo canónico para cualquier validación nueva sigue siendo `VentaService` 
 | 11C | `ee3ea96` | Conservar último éxito BCRA ante errores (migración aditiva + `ConstruirBcraDetalle`) |
 | 11D | `c1a541c` | Sincronizar estado BCRA en detalle de cliente (chip + refresh AJAX) |
 | 11E | Este documento + `docs/credito-fase-11-bcra-deterministico.md` | Cierre documental de FASE 11 (BCRA determinístico) |
+| 12A | Sin commit propio | Diagnóstico: score por mora sin exposición UI; elección de camino canónico |
+| 12B | `cc0d802` | feat(credito): exponer configuracion de score por mora |
+| 12B-fix | `c6a6ddd` | fix(mora): permitir guardar configuracion con decimales (step any) |
+| 12C | Este documento + `docs/credito-fase-12-configuracion-mora.md` | Cierre documental de FASE 12 (configuración de mora) |
 
 ## 12. Próximo paso
 
-Decisión separada sobre la entidad/tabla `EvaluacionCredito`/`EvaluacionesCredito`: revisar datos históricos reales y decidir si se conserva o se elimina con migración futura. No forma parte de FASE 9E/10E/11E. Exposición UI de `ImpactarScorePorMora` y modo simulación BCRA quedan como deuda abierta para una fase futura si Javo las pide.
+Decisión separada sobre la entidad/tabla `EvaluacionCredito`/`EvaluacionesCredito`: revisar datos históricos reales y decidir si se conserva o se elimina con migración futura. No forma parte de FASE 9E/10E/11E/12C. Modo simulación BCRA y siembra del permiso `mora:config` para roles no SuperAdmin quedan como deuda abierta para una fase futura si Javo las pide. La exposición UI de `ImpactarScorePorMora` quedó resuelta en FASE 12B (sección 9).
 
 ---
 
@@ -165,9 +178,11 @@ Decisión separada sobre la entidad/tabla `EvaluacionCredito`/`EvaluacionesCredi
 - Archivo documental creado (FASE 9E): `docs/credito-fase-9-limpieza-legacy.md`.
 - Archivo documental creado (FASE 10E): `docs/credito-fase-10-mora-scoring.md`.
 - Archivo documental creado (FASE 11E): `docs/credito-fase-11-bcra-deterministico.md`.
+- Archivo documental creado (FASE 12C): `docs/credito-fase-12-configuracion-mora.md`.
 - No se modificó código productivo.
 - No se modificaron tests.
 - No se modificó UI.
+- No se crearon migraciones.
 - No se tocaron stashes.
 - No se hizo push sin confirmación.
-- No se avanzó a FASE 12.
+- No se avanzó a FASE 13.
