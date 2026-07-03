@@ -1,15 +1,15 @@
-# Crédito — Flujo final consolidado (FASE 1-8C)
+# Crédito — Flujo final consolidado (FASE 1-9D)
 
-> Estado: **FASE 8D — cierre documental**. Consolida FASE 1 a FASE 8C. `main` ahead 3 de `origin/main` (`23dc225`, `eaadfda`, `1ff4a4d`). Sin push. Fecha documental: 2026-07-03.
-> Documentos hermanos: [`credito-fase-1-cierre.md`](credito-fase-1-cierre.md), [`credito-fase-2-garante.md`](credito-fase-2-garante.md), [`credito-fase-3-cuenta-disponible.md`](credito-fase-3-cuenta-disponible.md), [`credito-fase-4-evaluador-unificado.md`](credito-fase-4-evaluador-unificado.md), [`credito-fase-5-autorizacion-manual.md`](credito-fase-5-autorizacion-manual.md), [`credito-fase-6-mora-puntaje.md`](credito-fase-6-mora-puntaje.md), [`credito-fase-7-ui-perfil-crediticio.md`](credito-fase-7-ui-perfil-crediticio.md).
+> Estado: **FASE 9E — cierre documental de limpieza legacy crédito**. Consolida FASE 1 a FASE 9D. Sin push. Fecha documental: 2026-07-03.
+> Documentos hermanos: [`credito-fase-1-cierre.md`](credito-fase-1-cierre.md), [`credito-fase-2-garante.md`](credito-fase-2-garante.md), [`credito-fase-3-cuenta-disponible.md`](credito-fase-3-cuenta-disponible.md), [`credito-fase-4-evaluador-unificado.md`](credito-fase-4-evaluador-unificado.md), [`credito-fase-5-autorizacion-manual.md`](credito-fase-5-autorizacion-manual.md), [`credito-fase-6-mora-puntaje.md`](credito-fase-6-mora-puntaje.md), [`credito-fase-7-ui-perfil-crediticio.md`](credito-fase-7-ui-perfil-crediticio.md), [`credito-fase-9-limpieza-legacy.md`](credito-fase-9-limpieza-legacy.md).
 
 ## 1. Objetivo del documento
 
-Dar una referencia única y actualizada del flujo de crédito tal como quedó después de FASE 1-8C, para que cualquier agente (o Javo) pueda entender el camino canónico sin recorrer los 7 documentos de fase previos. No reemplaza esos documentos — los consolida.
+Dar una referencia única y actualizada del flujo de crédito tal como quedó después de FASE 1-9D, para que cualquier agente (o Javo) pueda entender el camino canónico sin recorrer los documentos de fase previos. No reemplaza esos documentos — los consolida.
 
 ## 2. Estado final del flujo crédito
 
-El eje único de aptitud/cupo es `PuntajeCliente` (0-5), gobernado por `ClienteScoringService`/`ClienteScoringCalculator`, con override manual opcional por cliente. La aptitud para vender a crédito combina documentación, cupo, mora y BCRA/Veraz en `ClienteAptitudService`. La venta a crédito pasa siempre por `ValidacionVentaService` → `VentaService`, con autorización manual puntual cuando corresponde. El flujo legado (`EvaluacionCreditoService`, `SolicitarCreditoAsync`) está marcado como no productivo pero no eliminado.
+El eje único de aptitud/cupo es `PuntajeCliente` (0-5), gobernado por `ClienteScoringService`/`ClienteScoringCalculator`, con override manual opcional por cliente. La aptitud para vender a crédito combina documentación, cupo, mora y BCRA/Veraz en `ClienteAptitudService`. La venta a crédito pasa siempre por `ValidacionVentaService` → `VentaService`, con autorización manual puntual cuando corresponde. El flujo legado de servicio/solicitud (`EvaluacionCreditoService`, `IEvaluacionCreditoService`, `CreditoService.SolicitarCreditoAsync`, `SolicitudCreditoViewModel`) fue eliminado en FASE 9C/9D; solo queda pendiente una decisión separada sobre la entidad/tabla `EvaluacionCredito`/`EvaluacionesCredito` y migraciones históricas.
 
 ## 3. Mapa funcional
 
@@ -68,38 +68,47 @@ El eje único de aptitud/cupo es `PuntajeCliente` (0-5), gobernado por `ClienteS
 - **Origen `RecalculoManual`** — recálculo disparado desde `Cliente/Details` por un usuario; antes de FASE 8B1 no quedaba auditado, ahora usa el mismo `RecalcularYAuditarAsync` (FASE 8B1, commit `23dc225`).
 - **Autorización manual de venta** — `EstadoAutorizacionVenta` con `FechaSolicitudAutorizacion`, `FechaAutorizacion`, `MotivoAutorizacion` y usuario que autoriza; no modifica cupo ni puntaje (FASE 5).
 
-## 8. Legacy marcado
+## 8. Legacy eliminado
 
-Marcado explícitamente como no productivo en FASE 8B3 (commit `eaadfda`), conservado solo por cobertura de tests existente — no ampliar su uso:
+El flujo fue marcado explícitamente como no productivo en FASE 8B3 (commit `eaadfda`) y luego limpiado en FASE 9:
 
-- `EvaluacionCreditoService` / `IEvaluacionCreditoService`.
-- `EvaluacionCreditoService.EvaluarSolicitudAsync`.
-- `CreditoService.SolicitarCreditoAsync`.
-- `SolicitudCreditoViewModel`.
+- `EvaluacionCreditoService` eliminado en FASE 9C (commit `2c0030a`).
+- `IEvaluacionCreditoService` eliminado en FASE 9C (commit `2c0030a`).
+- `EvaluacionCreditoService.EvaluarSolicitudAsync` eliminado junto con el servicio en FASE 9C.
+- `CreditoService.SolicitarCreditoAsync` eliminado en FASE 9D (commit `c91fc0a`).
+- `SolicitudCreditoViewModel` eliminado en FASE 9D (commit `c91fc0a`).
+- Tests legacy asociados eliminados en FASE 9C/9D.
 
-El flujo canónico para cualquier validación nueva es `VentaService` / `ValidacionVentaService` / `ClienteAptitudService`.
+El flujo canónico para cualquier validación nueva sigue siendo `VentaService` / `ValidacionVentaService` / `ClienteAptitudService`.
 
 ## 9. Deuda pendiente
 
-- Sección "Evaluación" en `Credito/Details_tw.cshtml` (`Model.Evaluacion`) sigue mostrando datos del flujo legacy, huérfana del flujo canónico.
-- `EvaluacionCreditoService` sigue registrado en DI aunque no tiene caller productivo.
+- Entidad `EvaluacionCredito` y tabla `EvaluacionesCredito`: siguen existiendo; no se tocaron en FASE 9.
+- Migraciones históricas de `EvaluacionCredito`/`EvaluacionesCredito`: siguen existiendo; no se modificaron ni se creó una migración de drop.
+- Decisión futura: revisar datos históricos reales antes de decidir si conservar datos o dropear tabla en una fase separada.
 - `EstadoCuota.Vencida` / `CreditoService`-adyacente `ActualizarEstadoCuotasAsync` sin caller productivo (mora se detecta por fecha, no por este estado) — deuda de FASE 6D.
 - `ConfiguracionMora.CambiarEstadoCuotaAuto` / `ActualizarMoraAutomaticamente` existen pero no tienen efecto real hoy — deuda de FASE 6D.
 - Decisión pendiente de Javo: si `DiasGracia` debe aplicar al recálculo de puntaje por mora, o solo a cobranza — bloquea implementar `RecalculoAutomaticoMora` en `MoraService` (FASE 6D).
-- BCRA/aptitud no determinístico: diagnóstico aparte pendiente, no abordado en FASE 4-8C.
+- BCRA/aptitud no determinístico: diagnóstico aparte pendiente, no abordado en FASE 4-9D.
 - Optimización futura: la consulta de ventas pendientes de autorización en `ClienteController` trae y filtra en memoria (top 5) — sin impacto medido todavía.
 
-## 10. Validaciones finales realizadas (FASE 8D)
+## 10. Validaciones finales realizadas
 
-- Build: no se ejecutó en este lote (solo se corrieron tests focalizados con `--no-build` sobre binarios existentes).
-- Tests focalizados:
-  ```
-  dotnet test TheBuryProyect.Tests/TheBuryProyect.Tests.csproj --filter "FullyQualifiedName~ClienteAptitudServiceTests|FullyQualifiedName~ClienteScoringServiceTests|FullyQualifiedName~CreditoServicePuntajeClienteRecalculoTests|FullyQualifiedName~VentaServiceAutorizacionTests|FullyQualifiedName~VentaServiceCancelarCreditoLiberaCupoTests|FullyQualifiedName~GaranteServiceTests|FullyQualifiedName~CreditoDisponibleServiceLimitesTests" --no-build
-  ```
-  Resultado: **153/153 OK**, 0 fallos, 18s.
-- QA visual: no se repitió en FASE 8D; hereda el QA visual desktop/mobile de FASE 7F (sin overflow, sin errores de consola).
+- FASE 8D:
+  - Build: no se ejecutó en ese lote (solo se corrieron tests focalizados con `--no-build` sobre binarios existentes).
+  - Tests focalizados:
+    ```
+    dotnet test TheBuryProyect.Tests/TheBuryProyect.Tests.csproj --filter "FullyQualifiedName~ClienteAptitudServiceTests|FullyQualifiedName~ClienteScoringServiceTests|FullyQualifiedName~CreditoServicePuntajeClienteRecalculoTests|FullyQualifiedName~VentaServiceAutorizacionTests|FullyQualifiedName~VentaServiceCancelarCreditoLiberaCupoTests|FullyQualifiedName~GaranteServiceTests|FullyQualifiedName~CreditoDisponibleServiceLimitesTests" --no-build
+    ```
+    Resultado: **153/153 OK**, 0 fallos, 18s.
+- FASE 9E:
+  - `git diff --check`: OK.
+  - `dotnet build TheBuryProyect.csproj --no-restore`: OK, 0 errores / 0 advertencias.
+  - `dotnet build TheBuryProyect.Tests/TheBuryProyect.Tests.csproj --no-restore`: OK, 0 errores / 0 advertencias.
+  - Tests focalizados: no se repiten en FASE 9E porque el cambio es docs-only.
+- QA visual: no se repitió en FASE 9E; no hubo cambios UI.
 
-## 11. Tabla de commits relevantes FASE 6-8
+## 11. Tabla de commits relevantes FASE 6-9
 
 | Fase | Commit | Descripción |
 |---|---|---|
@@ -113,16 +122,21 @@ El flujo canónico para cualquier validación nueva es `VentaService` / `Validac
 | 8B3 | `eaadfda` | Marcar flujo legacy de evaluación crediticia (XML `<remarks>` en 4 archivos) |
 | 8B5 | `1ff4a4d` | Actualizar tests de aptitud por cupo de puntaje cero (drift `Puntaje 0 = 200000` resuelto) |
 | 8D | Este documento | Cierre documental del flujo consolidado FASE 1-8C |
+| 9B | `4873fb3` | Quitar evaluación legacy de `Credito/Details` |
+| 9C | `2c0030a` | Eliminar `EvaluacionCreditoService` / `IEvaluacionCreditoService` |
+| 9D | `c91fc0a` | Eliminar `CreditoService.SolicitarCreditoAsync` / `SolicitudCreditoViewModel` |
+| 9E | Este documento | Cierre documental de limpieza legacy de crédito |
 
 ## 12. Próximo paso
 
-**FASE 8E — Checklist final / push / cierre.**
+Decisión separada sobre la entidad/tabla `EvaluacionCredito`/`EvaluacionesCredito`: revisar datos históricos reales y decidir si se conserva o se elimina con migración futura. No forma parte de FASE 9E.
 
 ---
 
 ## Estado de cierre documental
 
-- Archivo documental creado: `docs/credito-flujo-final.md`.
+- Archivo documental actualizado: `docs/credito-flujo-final.md`.
+- Archivo documental creado: `docs/credito-fase-9-limpieza-legacy.md`.
 - No se modificó código productivo.
 - No se modificaron tests.
 - No se modificó UI.
