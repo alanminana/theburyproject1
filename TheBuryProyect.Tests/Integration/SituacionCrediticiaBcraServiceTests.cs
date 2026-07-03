@@ -60,7 +60,10 @@ public class SituacionCrediticiaBcraServiceTests : IDisposable
         int? situacionBcra = null,
         string? descripcion = null,
         DateTime? ultimaConsulta = null,
-        bool? consultaOk = null)
+        bool? consultaOk = null,
+        int? situacionUltimoExito = null,
+        string? descripcionUltimoExito = null,
+        DateTime? ultimoExitoUtc = null)
     {
         var doc = Guid.NewGuid().ToString("N")[..8];
         var cliente = new Cliente
@@ -72,7 +75,10 @@ public class SituacionCrediticiaBcraServiceTests : IDisposable
             SituacionCrediticiaBcra = situacionBcra,
             SituacionCrediticiaDescripcion = descripcion,
             SituacionCrediticiaUltimaConsultaUtc = ultimaConsulta,
-            SituacionCrediticiaConsultaOk = consultaOk
+            SituacionCrediticiaConsultaOk = consultaOk,
+            SituacionCrediticiaBcraUltimoExito = situacionUltimoExito,
+            SituacionCrediticiaDescripcionUltimoExito = descripcionUltimoExito,
+            SituacionCrediticiaUltimoExitoUtc = ultimoExitoUtc
         };
         _context.Clientes.Add(cliente);
         await _context.SaveChangesAsync();
@@ -420,6 +426,145 @@ public class SituacionCrediticiaBcraServiceTests : IDisposable
         var bd = await _context.Clientes.FindAsync(cliente.Id);
         Assert.False(bd!.SituacionCrediticiaConsultaOk);
         Assert.Equal("Respuesta BCRA inválida", bd.SituacionCrediticiaDescripcion);
+    }
+
+    // -------------------------------------------------------------------------
+    // FASE 11C — último intento vs. última consulta exitosa
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task ConsultarYActualizar_ConsultaExitosa_ActualizaUltimoIntentoYUltimoExito()
+    {
+        _fakeHttp.SetResponse(HttpStatusCode.OK, BcraJson(2));
+
+        var cliente = await SeedClienteAsync(cuil: "20123456789");
+
+        await _service.ConsultarYActualizarAsync(cliente.Id);
+
+        _context.ChangeTracker.Clear();
+        var bd = await _context.Clientes.FindAsync(cliente.Id);
+
+        Assert.True(bd!.SituacionCrediticiaConsultaOk);
+        Assert.Equal(2, bd.SituacionCrediticiaBcra);
+        Assert.NotNull(bd.SituacionCrediticiaUltimaConsultaUtc);
+
+        Assert.Equal(2, bd.SituacionCrediticiaBcraUltimoExito);
+        Assert.Equal(bd.SituacionCrediticiaDescripcion, bd.SituacionCrediticiaDescripcionUltimoExito);
+        Assert.Equal(bd.SituacionCrediticiaPeriodo, bd.SituacionCrediticiaPeriodoUltimoExito);
+        Assert.Equal(bd.SituacionCrediticiaUltimaConsultaUtc, bd.SituacionCrediticiaUltimoExitoUtc);
+    }
+
+    [Fact]
+    public async Task ConsultarYActualizar_ErrorHttp500ConUltimoExitoPrevio_NoBorraUltimoExito()
+    {
+        _fakeHttp.SetResponse(HttpStatusCode.InternalServerError, "");
+
+        var cliente = await SeedClienteAsync(
+            cuil: "20123456789",
+            situacionBcra: 1,
+            descripcion: "Normal",
+            consultaOk: true,
+            ultimaConsulta: DateTime.UtcNow.AddDays(-10), // cache vencido: fuerza reconsulta
+            situacionUltimoExito: 1,
+            descripcionUltimoExito: "Normal",
+            ultimoExitoUtc: DateTime.UtcNow.AddDays(-10));
+
+        await _service.ConsultarYActualizarAsync(cliente.Id);
+
+        _context.ChangeTracker.Clear();
+        var bd = await _context.Clientes.FindAsync(cliente.Id);
+
+        Assert.False(bd!.SituacionCrediticiaConsultaOk); // último intento: falló
+        Assert.Equal(1, bd.SituacionCrediticiaBcraUltimoExito); // último éxito: intacto
+        Assert.Equal("Normal", bd.SituacionCrediticiaDescripcionUltimoExito);
+    }
+
+    [Fact]
+    public async Task ConsultarYActualizar_Http429ConUltimoExitoPrevio_NoBorraUltimoExito()
+    {
+        _fakeHttp.SetResponse(HttpStatusCode.TooManyRequests, """{ "status": 429 }""");
+
+        var cliente = await SeedClienteAsync(
+            cuil: "20123456789",
+            situacionBcra: 3,
+            descripcion: "Con problemas",
+            consultaOk: true,
+            ultimaConsulta: DateTime.UtcNow.AddDays(-10),
+            situacionUltimoExito: 3,
+            descripcionUltimoExito: "Con problemas",
+            ultimoExitoUtc: DateTime.UtcNow.AddDays(-10));
+
+        await _service.ConsultarYActualizarAsync(cliente.Id);
+
+        _context.ChangeTracker.Clear();
+        var bd = await _context.Clientes.FindAsync(cliente.Id);
+
+        Assert.False(bd!.SituacionCrediticiaConsultaOk);
+        Assert.Equal(3, bd.SituacionCrediticiaBcraUltimoExito);
+        Assert.Equal("Con problemas", bd.SituacionCrediticiaDescripcionUltimoExito);
+    }
+
+    [Fact]
+    public async Task ConsultarYActualizar_JsonInvalidoConUltimoExitoPrevio_NoBorraUltimoExito()
+    {
+        _fakeHttp.SetResponse(HttpStatusCode.OK, "{ invalid json");
+
+        var cliente = await SeedClienteAsync(
+            cuil: "20123456789",
+            situacionBcra: 0,
+            descripcion: "Sin deudas registradas",
+            consultaOk: true,
+            ultimaConsulta: DateTime.UtcNow.AddDays(-10),
+            situacionUltimoExito: 0,
+            descripcionUltimoExito: "Sin deudas registradas",
+            ultimoExitoUtc: DateTime.UtcNow.AddDays(-10));
+
+        await _service.ConsultarYActualizarAsync(cliente.Id);
+
+        _context.ChangeTracker.Clear();
+        var bd = await _context.Clientes.FindAsync(cliente.Id);
+
+        Assert.False(bd!.SituacionCrediticiaConsultaOk);
+        Assert.Equal(0, bd.SituacionCrediticiaBcraUltimoExito);
+        Assert.Equal("Sin deudas registradas", bd.SituacionCrediticiaDescripcionUltimoExito);
+    }
+
+    [Fact]
+    public async Task ConsultarYActualizar_Timeout_ReintentaUnaVezYActualiza()
+    {
+        // 1 timeout + 1 éxito: el retry único debe recuperar la consulta.
+        _fakeHttp.EnqueueException(new TaskCanceledException());
+        _fakeHttp.EnqueueResponse(HttpStatusCode.OK, BcraJson(1));
+
+        var cliente = await SeedClienteAsync(cuil: "20123456789");
+
+        await _service.ConsultarYActualizarAsync(cliente.Id);
+
+        _context.ChangeTracker.Clear();
+        var bd = await _context.Clientes.FindAsync(cliente.Id);
+
+        Assert.True(bd!.SituacionCrediticiaConsultaOk);
+        Assert.Equal(1, bd.SituacionCrediticiaBcra);
+        Assert.Equal(2, _fakeHttp.CallCount);
+    }
+
+    [Fact]
+    public async Task ConsultarYActualizar_TimeoutPersistente_MaximoDosIntentosYMarcaError()
+    {
+        // 2 timeouts consecutivos: máximo 2 intentos totales (1 retry), luego marca error.
+        _fakeHttp.EnqueueException(new TaskCanceledException());
+        _fakeHttp.EnqueueException(new TaskCanceledException());
+
+        var cliente = await SeedClienteAsync(cuil: "20123456789");
+
+        await _service.ConsultarYActualizarAsync(cliente.Id);
+
+        _context.ChangeTracker.Clear();
+        var bd = await _context.Clientes.FindAsync(cliente.Id);
+
+        Assert.False(bd!.SituacionCrediticiaConsultaOk);
+        Assert.Equal("Timeout al consultar BCRA", bd.SituacionCrediticiaDescripcion);
+        Assert.Equal(2, _fakeHttp.CallCount);
     }
 
     // -------------------------------------------------------------------------

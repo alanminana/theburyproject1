@@ -474,6 +474,131 @@ public class ClienteAptitudServiceTests
     }
 
     // -----------------------------------------------------------------------
+    // D2b. FASE 11C — último intento vs. última consulta exitosa.
+    // Un error transitorio en el último intento no debe borrar la clasificación
+    // basada en la última consulta BCRA exitosa conocida.
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void ConstruirBcraDetalle_IntentoFallidoConUltimoExitoNormal_NoBloqueaYAdvierte()
+    {
+        var d = ClienteAptitudService.ConstruirBcraDetalle(
+            cuilCuit: CuilValido,
+            situacion: null,
+            consultaOk: false,
+            descripcion: "Timeout al consultar BCRA",
+            ultimaConsultaUtc: ConsultaReciente,
+            situacionUltimoExito: 1,
+            descripcionUltimoExito: "Normal",
+            ultimoExitoUtc: ConsultaReciente.AddDays(-2));
+
+        Assert.True(d.Evaluada);
+        Assert.False(d.EsBloqueante);
+        Assert.False(d.RequiereAutorizacion);
+        Assert.Equal(1, d.Situacion);
+        Assert.Contains("Último intento BCRA falló", d.Mensaje);
+    }
+
+    [Fact]
+    public void ConstruirBcraDetalle_IntentoFallidoConUltimoExitoSituacionTres_SigueBloqueante()
+    {
+        // Regla FASE 11C: si la última consulta exitosa fue situación 3/4/5, se
+        // mantiene NoApto hasta obtener una nueva consulta exitosa mejor, aunque
+        // el último intento haya fallado.
+        var d = ClienteAptitudService.ConstruirBcraDetalle(
+            cuilCuit: CuilValido,
+            situacion: null,
+            consultaOk: false,
+            descripcion: "Error de conexión con BCRA",
+            ultimaConsultaUtc: ConsultaReciente,
+            situacionUltimoExito: 3,
+            descripcionUltimoExito: "Con problemas",
+            ultimoExitoUtc: ConsultaReciente.AddDays(-2));
+
+        Assert.True(d.Evaluada);
+        Assert.True(d.EsBloqueante);
+        Assert.False(d.RequiereAutorizacion);
+        Assert.Contains("Último intento BCRA falló", d.Mensaje);
+    }
+
+    [Fact]
+    public void ConstruirBcraDetalle_IntentoFallidoConUltimoExitoSituacionDos_RequiereAutorizacionSinAdvertenciaDuplicada()
+    {
+        var d = ClienteAptitudService.ConstruirBcraDetalle(
+            cuilCuit: CuilValido,
+            situacion: null,
+            consultaOk: false,
+            descripcion: "BCRA limitó las consultas (429)",
+            ultimaConsultaUtc: ConsultaReciente,
+            situacionUltimoExito: 2,
+            descripcionUltimoExito: "Con seguimiento especial / Riesgo bajo",
+            ultimoExitoUtc: ConsultaReciente.AddDays(-2));
+
+        Assert.True(d.Evaluada);
+        Assert.False(d.EsBloqueante);
+        Assert.True(d.RequiereAutorizacion);
+    }
+
+    [Fact]
+    public void ConstruirBcraDetalle_IntentoExitosoConUltimoExitoIgual_SinAdvertencia()
+    {
+        // Cuando el último intento fue el propio éxito, no debe agregarse advertencia.
+        var d = ClienteAptitudService.ConstruirBcraDetalle(
+            cuilCuit: CuilValido,
+            situacion: 1,
+            consultaOk: true,
+            descripcion: "Normal",
+            ultimaConsultaUtc: ConsultaReciente,
+            situacionUltimoExito: 1,
+            descripcionUltimoExito: "Normal",
+            ultimoExitoUtc: ConsultaReciente);
+
+        Assert.True(d.Evaluada);
+        Assert.False(d.EsBloqueante);
+        Assert.False(d.RequiereAutorizacion);
+        Assert.DoesNotContain("Último intento BCRA falló", d.Mensaje);
+    }
+
+    [Fact]
+    public void ConstruirBcraDetalle_SinUltimoExitoYSinCuil_SigueBloqueante()
+    {
+        // CUIL/CUIT faltante bloquea siempre, incluso si hubiera último éxito.
+        var d = ClienteAptitudService.ConstruirBcraDetalle(
+            cuilCuit: null,
+            situacion: null,
+            consultaOk: false,
+            descripcion: null,
+            ultimaConsultaUtc: ConsultaReciente,
+            situacionUltimoExito: 1,
+            descripcionUltimoExito: "Normal",
+            ultimoExitoUtc: ConsultaReciente.AddDays(-2));
+
+        Assert.True(d.Evaluada);
+        Assert.True(d.EsBloqueante);
+        Assert.False(d.RequiereAutorizacion);
+    }
+
+    [Fact]
+    public void ConstruirBcraDetalle_NuncaConsultadoPeroConUltimoExito_UsaUltimoExito()
+    {
+        // Caso defensivo: sin fecha de último intento pero con último éxito presente
+        // (no debería ocurrir en la práctica, pero la clasificación debe ser consistente).
+        var d = ClienteAptitudService.ConstruirBcraDetalle(
+            cuilCuit: CuilValido,
+            situacion: null,
+            consultaOk: null,
+            descripcion: null,
+            ultimaConsultaUtc: null,
+            situacionUltimoExito: 0,
+            descripcionUltimoExito: "Sin deudas registradas",
+            ultimoExitoUtc: ConsultaReciente.AddDays(-2));
+
+        Assert.True(d.Evaluada);
+        Assert.False(d.EsBloqueante);
+        Assert.False(d.RequiereAutorizacion);
+    }
+
+    // -----------------------------------------------------------------------
     // D3. BCRA/Veraz → aptitud (integración con EvaluarAptitudSinGuardarAsync)
     // -----------------------------------------------------------------------
 
@@ -603,6 +728,67 @@ public class ClienteAptitudServiceTests
             ctx.Set<ConfiguracionCredito>().Add(ConfigSinValidaciones());
             var cliente = BaseCliente(1);
             cliente.CuilCuit = null;
+            ctx.Clientes.Add(cliente);
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            var resultado = await service.EvaluarAptitudSinGuardarAsync(1);
+
+            Assert.Equal(EstadoCrediticioCliente.NoApto, resultado.Estado);
+            Assert.Single(resultado.Detalles);
+            Assert.Equal("BCRA", resultado.Detalles[0].Categoria);
+            Assert.True(resultado.Detalles[0].EsBloqueo);
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // D3b. FASE 11C — integración: último intento fallido no borra la aptitud
+    // basada en la última consulta BCRA exitosa persistida en el cliente.
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task Aptitud_UltimoIntentoFallidoConUltimoExitoNormal_EstadoApto()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            ctx.Set<ConfiguracionCredito>().Add(ConfigSinValidaciones());
+            var cliente = BaseCliente(1);
+            // Último intento: falló hace instantes.
+            cliente.SituacionCrediticiaBcra = null;
+            cliente.SituacionCrediticiaConsultaOk = false;
+            cliente.SituacionCrediticiaDescripcion = "Timeout al consultar BCRA";
+            cliente.SituacionCrediticiaUltimaConsultaUtc = DateTime.UtcNow;
+            // Último éxito: consulta válida previa, situación normal.
+            cliente.SituacionCrediticiaBcraUltimoExito = 1;
+            cliente.SituacionCrediticiaDescripcionUltimoExito = "Normal";
+            cliente.SituacionCrediticiaUltimoExitoUtc = DateTime.UtcNow.AddDays(-2);
+            ctx.Clientes.Add(cliente);
+            await ctx.SaveChangesAsync();
+
+            var service = BuildService(ctx);
+            var resultado = await service.EvaluarAptitudSinGuardarAsync(1);
+
+            Assert.Equal(EstadoCrediticioCliente.Apto, resultado.Estado);
+            Assert.Empty(resultado.Detalles);
+        }
+    }
+
+    [Fact]
+    public async Task Aptitud_UltimoIntentoFallidoConUltimoExitoSituacionTres_SigueNoApto()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            ctx.Set<ConfiguracionCredito>().Add(ConfigSinValidaciones());
+            var cliente = BaseCliente(1);
+            cliente.SituacionCrediticiaBcra = null;
+            cliente.SituacionCrediticiaConsultaOk = false;
+            cliente.SituacionCrediticiaDescripcion = "Error de conexión con BCRA";
+            cliente.SituacionCrediticiaUltimaConsultaUtc = DateTime.UtcNow;
+            cliente.SituacionCrediticiaBcraUltimoExito = 3;
+            cliente.SituacionCrediticiaDescripcionUltimoExito = "Con problemas";
+            cliente.SituacionCrediticiaUltimoExitoUtc = DateTime.UtcNow.AddDays(-2);
             ctx.Clientes.Add(cliente);
             await ctx.SaveChangesAsync();
 

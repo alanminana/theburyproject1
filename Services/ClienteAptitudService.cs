@@ -499,21 +499,31 @@ namespace TheBuryProject.Services
                 cliente?.SituacionCrediticiaBcra,
                 cliente?.SituacionCrediticiaConsultaOk,
                 cliente?.SituacionCrediticiaDescripcion,
-                cliente?.SituacionCrediticiaUltimaConsultaUtc);
+                cliente?.SituacionCrediticiaUltimaConsultaUtc,
+                cliente?.SituacionCrediticiaBcraUltimoExito,
+                cliente?.SituacionCrediticiaDescripcionUltimoExito,
+                cliente?.SituacionCrediticiaUltimoExitoUtc);
         }
 
         /// <summary>
         /// Clasifica la situación BCRA/Veraz en aptitud. Lógica pura (sin DB) para test directo.
         /// La consulta BCRA/Veraz es obligatoria: sin CUIL/CUIT o sin consulta registrada => bloqueante (NoApto).
-        /// Consulta intentada pero fallida, o exitosa sin situación informada => requiere autorización.
-        /// Situación 0/1 normal; 2 requiere revisión; >= 3 no apto.
+        /// Si existe última consulta EXITOSA (situacionUltimoExito/ultimoExitoUtc), la clasificación
+        /// se basa en ella aunque el último intento haya fallado (FASE 11C): un error transitorio
+        /// no debe hacer perder la última situación BCRA válida conocida. Si el último intento falló
+        /// pero hay último éxito, se agrega una advertencia al mensaje sin cambiar la clasificación.
+        /// Sin último éxito: consulta intentada pero fallida, o exitosa sin situación informada =>
+        /// requiere autorización. Situación 0/1 normal; 2 requiere revisión; >= 3 no apto.
         /// </summary>
         internal static AptitudBcraDetalle ConstruirBcraDetalle(
             string? cuilCuit,
             int? situacion,
             bool? consultaOk,
             string? descripcion,
-            DateTime? ultimaConsultaUtc)
+            DateTime? ultimaConsultaUtc,
+            int? situacionUltimoExito = null,
+            string? descripcionUltimoExito = null,
+            DateTime? ultimoExitoUtc = null)
         {
             var detalle = new AptitudBcraDetalle
             {
@@ -530,11 +540,43 @@ namespace TheBuryProject.Services
                 return detalle;
             }
 
-            if (!ultimaConsultaUtc.HasValue)
+            var tieneUltimoExito = ultimoExitoUtc.HasValue && situacionUltimoExito.HasValue;
+
+            if (!ultimaConsultaUtc.HasValue && !tieneUltimoExito)
             {
                 detalle.Evaluada = true;
                 detalle.EsBloqueante = true;
                 detalle.Mensaje = "Falta consulta BCRA/Veraz obligatoria";
+                return detalle;
+            }
+
+            if (tieneUltimoExito)
+            {
+                detalle.Evaluada = true;
+                detalle.Situacion = situacionUltimoExito;
+                detalle.Descripcion = descripcionUltimoExito;
+
+                var situacionValue = situacionUltimoExito!.Value;
+                string mensajeBase;
+                if (situacionValue <= 1)
+                {
+                    mensajeBase = $"Situación BCRA {situacionValue}: normal";
+                }
+                else if (situacionValue == 2)
+                {
+                    detalle.RequiereAutorizacion = true;
+                    mensajeBase = $"Situación BCRA {situacionValue}: requiere revisión";
+                }
+                else
+                {
+                    detalle.EsBloqueante = true;
+                    mensajeBase = $"Situación BCRA {situacionValue}: riesgo alto / no apto";
+                }
+
+                detalle.Mensaje = consultaOk != true
+                    ? $"{mensajeBase}. Último intento BCRA falló. Se usa última consulta válida."
+                    : mensajeBase;
+
                 return detalle;
             }
 

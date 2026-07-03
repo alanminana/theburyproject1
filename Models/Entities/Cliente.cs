@@ -196,6 +196,19 @@ namespace TheBuryProject.Models.Entities
 
         public bool? SituacionCrediticiaConsultaOk { get; set; }
 
+        // Última consulta BCRA EXITOSA (separada del último intento, que puede haber
+        // fallado por un error transitorio). La aptitud crediticia usa estos campos
+        // cuando existen, para no perder la última situación válida conocida.
+        public int? SituacionCrediticiaBcraUltimoExito { get; set; }
+
+        [StringLength(100)]
+        public string? SituacionCrediticiaDescripcionUltimoExito { get; set; }
+
+        [StringLength(10)]
+        public string? SituacionCrediticiaPeriodoUltimoExito { get; set; }
+
+        public DateTime? SituacionCrediticiaUltimoExitoUtc { get; set; }
+
         // ==========================
         // Scoring de comportamiento del cliente
         // (independiente del riesgo crediticio PuntajeRiesgo/NivelRiesgo)

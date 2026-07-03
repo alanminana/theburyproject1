@@ -10,8 +10,10 @@ namespace TheBuryProject.Services
     {
         private static readonly Uri BaseUri = new("https://api.bcra.gob.ar/CentralDeDeudores/v1.0/Deudas/");
         private static readonly TimeSpan ErrorRetryCooldown = TimeSpan.FromHours(1);
-        private static readonly TimeSpan NetworkRetryBaseDelay = TimeSpan.FromMilliseconds(250);
-        private const int MaxNetworkAttempts = 3;
+        private static readonly TimeSpan NetworkRetryBaseDelay = TimeSpan.FromMilliseconds(200);
+
+        // Máximo 2 intentos totales (1 retry) tanto para errores de red como para timeout.
+        private const int MaxNetworkAttempts = 2;
 
         private const string DescripcionCuilNoCargado = "CUIL/CUIT no cargado";
         private const string DescripcionSinRegistro = "Sin registro en BCRA (no encontrado)";
@@ -104,11 +106,7 @@ namespace TheBuryProject.Services
                 // error: significa que no hay deudas informadas para ese CUIL/CUIT.
                 if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
                 {
-                    cliente.SituacionCrediticiaBcra = 0;
-                    cliente.SituacionCrediticiaDescripcion = DescripcionSinRegistro;
-                    cliente.SituacionCrediticiaPeriodo = null;
-                    cliente.SituacionCrediticiaUltimaConsultaUtc = DateTime.UtcNow;
-                    cliente.SituacionCrediticiaConsultaOk = true;
+                    MarcarExito(cliente, 0, DescripcionSinRegistro, null);
                     await context.SaveChangesAsync();
                     return;
                 }
@@ -143,11 +141,7 @@ namespace TheBuryProject.Services
                 if (!results.TryGetProperty("periodos", out var periodos) || periodos.GetArrayLength() == 0)
                 {
                     // Sin deudas registradas
-                    cliente.SituacionCrediticiaBcra = 0;
-                    cliente.SituacionCrediticiaDescripcion = DescripcionSinDeudas;
-                    cliente.SituacionCrediticiaPeriodo = null;
-                    cliente.SituacionCrediticiaUltimaConsultaUtc = DateTime.UtcNow;
-                    cliente.SituacionCrediticiaConsultaOk = true;
+                    MarcarExito(cliente, 0, DescripcionSinDeudas, null);
                     await context.SaveChangesAsync();
                     return;
                 }
@@ -169,11 +163,7 @@ namespace TheBuryProject.Services
                     }
                 }
 
-                cliente.SituacionCrediticiaBcra = peorSituacion;
-                cliente.SituacionCrediticiaDescripcion = SituacionDescripcion.GetValueOrDefault(peorSituacion, $"Situación {peorSituacion}");
-                cliente.SituacionCrediticiaPeriodo = periodoStr;
-                cliente.SituacionCrediticiaUltimaConsultaUtc = DateTime.UtcNow;
-                cliente.SituacionCrediticiaConsultaOk = true;
+                MarcarExito(cliente, peorSituacion, SituacionDescripcion.GetValueOrDefault(peorSituacion, $"Situación {peorSituacion}"), periodoStr);
                 await context.SaveChangesAsync();
             }
             catch (TaskCanceledException)
@@ -217,11 +207,29 @@ namespace TheBuryProject.Services
 
         private static void MarcarError(TheBuryProject.Models.Entities.Cliente cliente, string descripcion)
         {
+            // Solo actualiza el último intento. El último éxito (si existe) se preserva:
+            // un error transitorio no debe borrar la última situación BCRA válida conocida.
             cliente.SituacionCrediticiaBcra = null;
             cliente.SituacionCrediticiaDescripcion = descripcion;
             cliente.SituacionCrediticiaPeriodo = null;
             cliente.SituacionCrediticiaUltimaConsultaUtc = DateTime.UtcNow;
             cliente.SituacionCrediticiaConsultaOk = false;
+        }
+
+        private static void MarcarExito(TheBuryProject.Models.Entities.Cliente cliente, int situacion, string descripcion, string? periodo)
+        {
+            var ahora = DateTime.UtcNow;
+
+            cliente.SituacionCrediticiaBcra = situacion;
+            cliente.SituacionCrediticiaDescripcion = descripcion;
+            cliente.SituacionCrediticiaPeriodo = periodo;
+            cliente.SituacionCrediticiaUltimaConsultaUtc = ahora;
+            cliente.SituacionCrediticiaConsultaOk = true;
+
+            cliente.SituacionCrediticiaBcraUltimoExito = situacion;
+            cliente.SituacionCrediticiaDescripcionUltimoExito = descripcion;
+            cliente.SituacionCrediticiaPeriodoUltimoExito = periodo;
+            cliente.SituacionCrediticiaUltimoExitoUtc = ahora;
         }
 
         private async Task<HttpResponseMessage> GetWithNetworkRetryAsync(Uri requestUri)
@@ -234,7 +242,11 @@ namespace TheBuryProject.Services
                 }
                 catch (HttpRequestException) when (attempt < MaxNetworkAttempts)
                 {
-                    await Task.Delay(TimeSpan.FromMilliseconds(NetworkRetryBaseDelay.TotalMilliseconds * attempt));
+                    await Task.Delay(NetworkRetryBaseDelay);
+                }
+                catch (TaskCanceledException) when (attempt < MaxNetworkAttempts)
+                {
+                    await Task.Delay(NetworkRetryBaseDelay);
                 }
             }
         }
