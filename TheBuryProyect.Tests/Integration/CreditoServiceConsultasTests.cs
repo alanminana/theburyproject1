@@ -467,6 +467,21 @@ public class CreditoServiceConsultasTests : IDisposable
         Assert.Equal(EstadoCuota.Parcial, noTocada!.Estado);
     }
 
+    [Fact]
+    public async Task ActualizarEstados_PagadaVencida_NoSeCambia()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        // Cuota pagada aunque su fecha de vencimiento ya pasó: no debe tocarse.
+        var cuota = await SeedCuotaAsync(credito.Id, 1, EstadoCuota.Pagada, diasAtrasado: 5);
+
+        await _service.ActualizarEstadoCuotasAsync();
+
+        _context.ChangeTracker.Clear();
+        var noTocada = await _context.Cuotas.FindAsync(cuota.Id);
+        Assert.Equal(EstadoCuota.Pagada, noTocada!.Estado);
+    }
+
     // =========================================================================
     // GetCuotasVencidasAsync
     // =========================================================================

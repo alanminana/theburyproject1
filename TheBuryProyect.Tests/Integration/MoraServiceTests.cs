@@ -4,11 +4,15 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using TheBuryProject.Data;
 using TheBuryProject.Helpers;
+using TheBuryProject.Models.DTOs;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services;
+using TheBuryProject.Services.Interfaces;
+using TheBuryProject.Services.Models;
 using TheBuryProject.ViewModels;
 using TheBuryProject.ViewModels.Mora;
+using TheBuryProject.ViewModels.Requests;
 
 namespace TheBuryProject.Tests.Integration;
 
@@ -24,6 +28,8 @@ public class MoraServiceTests : IDisposable
     private readonly SqliteConnection _connection;
     private readonly AppDbContext _context;
     private readonly MoraService _service;
+    private readonly RecordingCreditoService _creditoServiceFake;
+    private readonly ClienteScoringService _clienteScoringService;
 
     public MoraServiceTests()
     {
@@ -42,7 +48,9 @@ public class MoraServiceTests : IDisposable
                 NullLoggerFactory.Instance)
             .CreateMapper();
 
-        _service = new MoraService(_context, mapper, NullLogger<MoraService>.Instance);
+        _creditoServiceFake = new RecordingCreditoService();
+        _clienteScoringService = new ClienteScoringService(_context, NullLogger<ClienteScoringService>.Instance);
+        _service = new MoraService(_context, mapper, NullLogger<MoraService>.Instance, _creditoServiceFake, _clienteScoringService);
     }
 
     public void Dispose()
@@ -680,6 +688,218 @@ public class MoraServiceTests : IDisposable
     }
 
     // =========================================================================
+    // ProcesarMoraAsync — FASE 10C: días de gracia (opción B)
+    // =========================================================================
+
+    [Fact]
+    public async Task ProcesarMora_ActualizarMoraAutomaticaYCambiarEstadoActivos_LlamaActualizarEstadoCuotas()
+    {
+        var config = new ConfiguracionMora
+        {
+            DiasGracia = 0,
+            ProcesoAutomaticoActivo = true,
+            HoraEjecucionDiaria = new TimeSpan(8, 0, 0),
+            ActualizarMoraAutomaticamente = true,
+            CambiarEstadoCuotaAuto = true
+        };
+        _context.Set<ConfiguracionMora>().Add(config);
+        await _context.SaveChangesAsync();
+
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaVencidaAsync(credito.Id, diasVencido: 10);
+
+        await _service.ProcesarMoraAsync();
+
+        Assert.Equal(1, _creditoServiceFake.ActualizarEstadoCuotasAsyncCallCount);
+    }
+
+    [Fact]
+    public async Task ProcesarMora_CambiarEstadoCuotaAutoFalse_NoLlamaActualizarEstadoCuotas()
+    {
+        var config = new ConfiguracionMora
+        {
+            DiasGracia = 0,
+            ProcesoAutomaticoActivo = true,
+            HoraEjecucionDiaria = new TimeSpan(8, 0, 0),
+            ActualizarMoraAutomaticamente = true,
+            CambiarEstadoCuotaAuto = false
+        };
+        _context.Set<ConfiguracionMora>().Add(config);
+        await _context.SaveChangesAsync();
+
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaVencidaAsync(credito.Id, diasVencido: 10);
+
+        await _service.ProcesarMoraAsync();
+
+        Assert.Equal(0, _creditoServiceFake.ActualizarEstadoCuotasAsyncCallCount);
+    }
+
+    [Fact]
+    public async Task ProcesarMora_ActualizarMoraAutomaticaFalse_NoModificaDatosDeMora()
+    {
+        // Aunque CambiarEstadoCuotaAuto/ImpactarScorePorMora estén en true, el master switch
+        // ActualizarMoraAutomaticamente=false debe impedir cualquier mutación.
+        var config = new ConfiguracionMora
+        {
+            DiasGracia = 0,
+            ProcesoAutomaticoActivo = true,
+            HoraEjecucionDiaria = new TimeSpan(8, 0, 0),
+            ActualizarMoraAutomaticamente = false,
+            CambiarEstadoCuotaAuto = true,
+            ImpactarScorePorMora = true
+        };
+        _context.Set<ConfiguracionMora>().Add(config);
+        await _context.SaveChangesAsync();
+
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaVencidaAsync(credito.Id, diasVencido: 10);
+
+        await _service.ProcesarMoraAsync();
+
+        Assert.Equal(0, _creditoServiceFake.ActualizarEstadoCuotasAsyncCallCount);
+        var historial = await _context.ClientesPuntajeHistorial
+            .Where(h => h.ClienteId == cliente.Id && h.Origen == "RecalculoAutomaticoMora")
+            .ToListAsync();
+        Assert.Empty(historial);
+    }
+
+    [Fact]
+    public async Task ProcesarMora_ImpactarScoreDentroDeGracia_NoAuditaPuntaje()
+    {
+        var config = new ConfiguracionMora
+        {
+            DiasGracia = 15,
+            ProcesoAutomaticoActivo = true,
+            HoraEjecucionDiaria = new TimeSpan(8, 0, 0),
+            ActualizarMoraAutomaticamente = true,
+            ImpactarScorePorMora = true
+        };
+        _context.Set<ConfiguracionMora>().Add(config);
+        await _context.SaveChangesAsync();
+
+        var cliente = await SeedClienteAsync();
+        cliente.PuntajeCliente = 3;
+        await _context.SaveChangesAsync();
+
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaVencidaAsync(credito.Id, diasVencido: 5); // dentro del período de gracia (15)
+
+        await _service.ProcesarMoraAsync();
+
+        var historial = await _context.ClientesPuntajeHistorial
+            .Where(h => h.ClienteId == cliente.Id && h.Origen == "RecalculoAutomaticoMora")
+            .ToListAsync();
+        Assert.Empty(historial);
+
+        _context.ChangeTracker.Clear();
+        var clienteNoTocado = await _context.Clientes.FindAsync(cliente.Id);
+        Assert.Equal(3, clienteNoTocado!.PuntajeCliente); // dentro de gracia: no se recalcula
+    }
+
+    [Fact]
+    public async Task ProcesarMora_ImpactarScoreFueraDeGracia_AuditaPuntajeConOrigenMora()
+    {
+        var config = new ConfiguracionMora
+        {
+            DiasGracia = 3,
+            ProcesoAutomaticoActivo = true,
+            HoraEjecucionDiaria = new TimeSpan(8, 0, 0),
+            ActualizarMoraAutomaticamente = true,
+            ImpactarScorePorMora = true
+        };
+        _context.Set<ConfiguracionMora>().Add(config);
+        await _context.SaveChangesAsync();
+
+        var cliente = await SeedClienteAsync();
+        // Puntaje previo simulado > 0 para que el recalculo por mora (que clampea a 0
+        // con la config de scoring por defecto) produzca un cambio observable.
+        cliente.PuntajeCliente = 3;
+        await _context.SaveChangesAsync();
+
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaVencidaAsync(credito.Id, diasVencido: 10); // fuera del período de gracia (3)
+
+        await _service.ProcesarMoraAsync();
+
+        var historial = await _context.ClientesPuntajeHistorial
+            .Where(h => h.ClienteId == cliente.Id && h.Origen == "RecalculoAutomaticoMora")
+            .ToListAsync();
+        Assert.Single(historial);
+        Assert.Equal(0, historial[0].Puntaje); // base 0 + atraso (-2) clampeado a mínimo 0
+
+        _context.ChangeTracker.Clear();
+        var clienteActualizado = await _context.Clientes.FindAsync(cliente.Id);
+        Assert.Equal(0, clienteActualizado!.PuntajeCliente);
+    }
+
+    [Fact]
+    public async Task ProcesarMora_ImpactarScorePorMoraFalse_NoAuditaPuntajeAunFueraDeGracia()
+    {
+        var config = new ConfiguracionMora
+        {
+            DiasGracia = 3,
+            ProcesoAutomaticoActivo = true,
+            HoraEjecucionDiaria = new TimeSpan(8, 0, 0),
+            ActualizarMoraAutomaticamente = true,
+            ImpactarScorePorMora = false
+        };
+        _context.Set<ConfiguracionMora>().Add(config);
+        await _context.SaveChangesAsync();
+
+        var cliente = await SeedClienteAsync();
+        cliente.PuntajeCliente = 3;
+        await _context.SaveChangesAsync();
+
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaVencidaAsync(credito.Id, diasVencido: 10);
+
+        await _service.ProcesarMoraAsync();
+
+        var historial = await _context.ClientesPuntajeHistorial
+            .Where(h => h.ClienteId == cliente.Id && h.Origen == "RecalculoAutomaticoMora")
+            .ToListAsync();
+        Assert.Empty(historial);
+
+        _context.ChangeTracker.Clear();
+        var clienteNoTocado = await _context.Clientes.FindAsync(cliente.Id);
+        Assert.Equal(3, clienteNoTocado!.PuntajeCliente); // sin recalculo, queda igual
+    }
+
+    [Fact]
+    public async Task ProcesarMora_EjecucionRepetidaSinCambioDePuntaje_NoDuplicaHistorial()
+    {
+        var config = new ConfiguracionMora
+        {
+            DiasGracia = 3,
+            ProcesoAutomaticoActivo = true,
+            HoraEjecucionDiaria = new TimeSpan(8, 0, 0),
+            ActualizarMoraAutomaticamente = true,
+            ImpactarScorePorMora = true
+        };
+        _context.Set<ConfiguracionMora>().Add(config);
+        await _context.SaveChangesAsync();
+
+        var cliente = await SeedClienteAsync();
+        cliente.PuntajeCliente = 3;
+        await _context.SaveChangesAsync();
+
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaVencidaAsync(credito.Id, diasVencido: 10);
+
+        await _service.ProcesarMoraAsync();
+        await _service.ProcesarMoraAsync(); // misma mora, el puntaje ya no cambia (queda en 0)
+
+        var historial = await _context.ClientesPuntajeHistorial
+            .Where(h => h.ClienteId == cliente.Id && h.Origen == "RecalculoAutomaticoMora")
+            .ToListAsync();
+        Assert.Single(historial);
+    }
+
+    // =========================================================================
     // GetConfiguracionAsync
     // =========================================================================
 
@@ -1137,4 +1357,41 @@ public class MoraServiceTests : IDisposable
 
     // GetDashboardKPIsAsync — excluded: uses SumAsync on decimal? columns,
     // which SQLite cannot translate (same limitation as other SumAsync-based methods).
+
+    /// <summary>
+    /// Fake de ICreditoService que solo registra si ActualizarEstadoCuotasAsync fue invocado,
+    /// para validar el wiring de MoraService sin depender del grafo completo de CreditoService.
+    /// </summary>
+    private sealed class RecordingCreditoService : ICreditoService
+    {
+        public int ActualizarEstadoCuotasAsyncCallCount { get; private set; }
+
+        public Task ActualizarEstadoCuotasAsync()
+        {
+            ActualizarEstadoCuotasAsyncCallCount++;
+            return Task.CompletedTask;
+        }
+
+        public Task<List<CreditoViewModel>> GetAllAsync(CreditoFilterViewModel? filter = null) => throw new NotImplementedException();
+        public Task<CreditoViewModel?> GetByIdAsync(int id) => throw new NotImplementedException();
+        public Task<List<CreditoViewModel>> GetByClienteIdAsync(int clienteId) => throw new NotImplementedException();
+        public Task<CreditoViewModel> CreateAsync(CreditoViewModel viewModel) => throw new NotImplementedException();
+        public Task<CreditoViewModel> CreatePendienteConfiguracionAsync(int clienteId, decimal montoTotal) => throw new NotImplementedException();
+        public Task<bool> UpdateAsync(CreditoViewModel viewModel) => throw new NotImplementedException();
+        public Task<bool> DeleteAsync(int id) => throw new NotImplementedException();
+        public Task<SimularCreditoViewModel> SimularCreditoAsync(SimularCreditoViewModel modelo) => throw new NotImplementedException();
+        public Task<bool> AprobarCreditoAsync(int creditoId, string aprobadoPor) => throw new NotImplementedException();
+        public Task<bool> RechazarCreditoAsync(int creditoId, string motivo) => throw new NotImplementedException();
+        public Task<bool> CancelarCreditoAsync(int creditoId, string motivo) => throw new NotImplementedException();
+        public Task<List<CuotaViewModel>> GetCuotasByCreditoAsync(int creditoId) => throw new NotImplementedException();
+        public Task<CuotaViewModel?> GetCuotaByIdAsync(int cuotaId) => throw new NotImplementedException();
+        public Task<bool> PagarCuotaAsync(PagarCuotaViewModel pago) => throw new NotImplementedException();
+        public Task<PagoMultipleCuotasResult> PagarCuotasAsync(PagoMultipleCuotasRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<bool> AdelantarCuotaAsync(PagarCuotaViewModel pago) => throw new NotImplementedException();
+        public Task<CuotaViewModel?> GetPrimeraCuotaPendienteAsync(int creditoId) => throw new NotImplementedException();
+        public Task<CuotaViewModel?> GetUltimaCuotaPendienteAsync(int creditoId) => throw new NotImplementedException();
+        public Task<List<CuotaViewModel>> GetCuotasVencidasAsync() => throw new NotImplementedException();
+        public Task<bool> RecalcularSaldoCreditoAsync(int creditoId) => throw new NotImplementedException();
+        public Task ConfigurarCreditoAsync(ConfiguracionCreditoComando comando) => throw new NotImplementedException();
+    }
 }

@@ -41,14 +41,21 @@ namespace TheBuryProject.Services
 
         private ConfiguracionMora? _configuracion;
 
+        private readonly ICreditoService _creditoService;
+        private readonly IClienteScoringService _clienteScoringService;
+
         public MoraService(
             AppDbContext context,
             IMapper mapper,
-            ILogger<MoraService> logger)
+            ILogger<MoraService> logger,
+            ICreditoService creditoService,
+            IClienteScoringService clienteScoringService)
         {
             _context = context;
             _mapper = mapper;
             _logger = logger;
+            _creditoService = creditoService;
+            _clienteScoringService = clienteScoringService;
         }
 
         #region Configuración
@@ -234,6 +241,21 @@ namespace TheBuryProject.Services
                 // Generar alertas de próximos vencimientos
                 await GenerarAlertasProximosVencimientosAsync(config, ct);
 
+                // Cambio de estado de cuota y ajuste de score por mora: solo si el job de
+                // actualización automática está activo (ConfiguracionMora.ActualizarMoraAutomaticamente).
+                if (config.ActualizarMoraAutomaticamente)
+                {
+                    if (config.CambiarEstadoCuotaAuto)
+                    {
+                        await _creditoService.ActualizarEstadoCuotasAsync();
+                    }
+
+                    if (config.ImpactarScorePorMora)
+                    {
+                        await ImpactarScorePorMoraAsync(fechaLimite, ct);
+                    }
+                }
+
                 // Actualizar configuración
                 config.UltimaEjecucion = DateTime.UtcNow;
                 log.AlertasGeneradas = alertasCreadas;
@@ -342,6 +364,35 @@ namespace TheBuryProject.Services
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Error al generar alertas de próximos vencimientos");
+            }
+        }
+
+        /// <summary>
+        /// Recalcula y audita el PuntajeCliente de los clientes cuya mora ya superó
+        /// ConfiguracionMora.DiasGracia (fechaLimite). Dentro de los días de gracia no se
+        /// invoca el recalculo, por lo que el puntaje no se ve afectado todavía.
+        /// </summary>
+        private async Task ImpactarScorePorMoraAsync(DateTime fechaLimite, CancellationToken ct)
+        {
+            var clienteIds = await _context.Cuotas
+                .Where(c => !c.IsDeleted &&
+                       !c.Credito!.IsDeleted &&
+                       !c.Credito!.Cliente!.IsDeleted &&
+                       c.Estado != EstadoCuota.Pagada &&
+                       c.Estado != EstadoCuota.Cancelada &&
+                       c.FechaVencimiento < fechaLimite)
+                .Select(c => c.Credito!.ClienteId)
+                .Distinct()
+                .ToListAsync(ct);
+
+            foreach (var clienteId in clienteIds)
+            {
+                await _clienteScoringService.RecalcularYAuditarAsync(
+                    clienteId,
+                    origen: "RecalculoAutomaticoMora",
+                    observacion: "Recalculo automático por mora",
+                    registradoPor: "Sistema",
+                    ct: ct);
             }
         }
 
