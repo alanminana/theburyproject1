@@ -4,6 +4,7 @@ using TheBuryProject.Helpers;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.ViewModels;
+using TheBuryProject.ViewModels.Mora;
 
 namespace TheBuryProject.Tests.Unit;
 
@@ -314,6 +315,32 @@ public class MappingProfileTests
 
         Assert.Equal(5, vm.DiasGracia);
         Assert.Equal(5, vm.DiasGraciaMora);
+    }
+
+    // FASE 12B: el ViewModel expandido debe cargar el flag y los campos de score
+    // por mora desde la entidad (lectura del GET ConfiguracionExpandida).
+    [Fact]
+    public void Map_ConfiguracionMora_ExpandidaCargaScorePorMora()
+    {
+        var entity = new ConfiguracionMora
+        {
+            Id = 1,
+            ImpactarScorePorMora = true,
+            PuntosRestarPorCuotaVencida = 7,
+            PuntosRestarPorDiaMora = 1.5m,
+            PuntosMaximosARestar = 40,
+            RecuperarScoreAlPagar = true,
+            PorcentajeRecuperacionScore = 30m
+        };
+
+        var vm = _mapper.Map<ConfiguracionMoraExpandidaViewModel>(entity);
+
+        Assert.True(vm.ImpactarScorePorMora);
+        Assert.Equal(7, vm.PuntosRestarPorCuotaVencida);
+        Assert.Equal(1.5m, vm.PuntosRestarPorDiaMora);
+        Assert.Equal(40, vm.PuntosMaximosARestar);
+        Assert.True(vm.RecuperarScoreAlPagar);
+        Assert.Equal(30m, vm.PorcentajeRecuperacionScore);
     }
 
     [Fact]

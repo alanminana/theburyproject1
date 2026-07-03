@@ -192,6 +192,32 @@ namespace TheBuryProject.ViewModels.Mora
 
         #endregion
 
+        #region Score por Mora
+
+        [Display(Name = "Impactar puntaje por mora después de días de gracia")]
+        public bool ImpactarScorePorMora { get; set; }
+
+        [Display(Name = "Puntos a Restar por Cuota Vencida")]
+        [Range(0, 1000, ErrorMessage = "Los puntos deben estar entre 0 y 1000")]
+        public int? PuntosRestarPorCuotaVencida { get; set; }
+
+        [Display(Name = "Puntos a Restar por Día de Mora")]
+        [Range(0, 1000, ErrorMessage = "Los puntos deben estar entre 0 y 1000")]
+        public decimal? PuntosRestarPorDiaMora { get; set; }
+
+        [Display(Name = "Puntos Máximos a Restar")]
+        [Range(0, 1000, ErrorMessage = "Los puntos deben estar entre 0 y 1000")]
+        public int? PuntosMaximosARestar { get; set; }
+
+        [Display(Name = "Recuperar Puntaje al Pagar")]
+        public bool RecuperarScoreAlPagar { get; set; }
+
+        [Display(Name = "Porcentaje de Recuperación de Puntaje (%)")]
+        [Range(0, 100, ErrorMessage = "El porcentaje debe estar entre 0 y 100")]
+        public decimal? PorcentajeRecuperacionScore { get; set; }
+
+        #endregion
+
         #region Tramos de Cobranza
 
         [Display(Name = "Tramos de Cobranza Activos")]

@@ -1319,6 +1319,37 @@ public class MoraServiceTests : IDisposable
             () => _service.UpdateConfiguracionExpandidaAsync(vm));
     }
 
+    // FASE 12B: el flag de score por mora se persiste y es independiente de
+    // CambiarEstadoCuotaAuto.
+    [Fact]
+    public async Task UpdateConfiguracionExpandida_ConScorePorMora_PersisteCamposScore()
+    {
+        var config = await _service.GetConfiguracionAsync();
+
+        var vm = new ConfiguracionMoraExpandidaViewModel
+        {
+            Id = config.Id,
+            ImpactarScorePorMora = true,
+            PuntosRestarPorCuotaVencida = 5,
+            PuntosRestarPorDiaMora = 0.5m,
+            PuntosMaximosARestar = 50,
+            RecuperarScoreAlPagar = true,
+            PorcentajeRecuperacionScore = 25m,
+            CambiarEstadoCuotaAuto = false
+        };
+
+        var resultado = await _service.UpdateConfiguracionExpandidaAsync(vm);
+
+        Assert.True(resultado.ImpactarScorePorMora);
+        Assert.Equal(5, resultado.PuntosRestarPorCuotaVencida);
+        Assert.Equal(0.5m, resultado.PuntosRestarPorDiaMora);
+        Assert.Equal(50, resultado.PuntosMaximosARestar);
+        Assert.True(resultado.RecuperarScoreAlPagar);
+        Assert.Equal(25m, resultado.PorcentajeRecuperacionScore);
+        // El flag de score no se mezcla con el cambio de estado de cuota.
+        Assert.False(resultado.CambiarEstadoCuotaAuto);
+    }
+
     // =========================================================================
     // GetFichaClienteAsync
     // =========================================================================

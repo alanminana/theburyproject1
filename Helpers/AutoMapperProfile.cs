@@ -2,6 +2,7 @@ using AutoMapper;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.ViewModels;
+using TheBuryProject.ViewModels.Mora;
 using TheBuryProject.ViewModels.Requests;
 
 namespace TheBuryProject.Helpers
@@ -434,7 +435,11 @@ namespace TheBuryProject.Helpers
                 .ForMember(d => d.PuntosMaximosARestar,          o => o.Ignore())
                 .ForMember(d => d.RecuperarScoreAlPagar,         o => o.Ignore())
                 .ForMember(d => d.PorcentajeRecuperacionScore,   o => o.Ignore());
-            
+
+            // ConfiguracionExpandida (lectura): la entidad completa hacia el ViewModel
+            // expandido. Los campos de Tramos no existen en la entidad y quedan en default.
+            CreateMap<ConfiguracionMora, ConfiguracionMoraExpandidaViewModel>();
+
             // Mapeo para AlertaMora
             CreateMap<AlertaMora, AlertaMoraViewModel>().ReverseMap();
             

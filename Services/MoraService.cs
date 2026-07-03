@@ -635,6 +635,15 @@ namespace TheBuryProject.Services
                 config.MaximoCuotasAcuerdo = viewModel.MaximoCuotasAcuerdo;
                 config.PorcentajeMinimoEntrega = viewModel.PorcentajeMinimoEntrega;
                 config.PermitirCondonacionMora = viewModel.PermitirCondonacionMora;
+                // Score por mora (FASE 12B): el flag controla si el proceso automático
+                // recalcula PuntajeCliente tras los días de gracia; no se mezcla con
+                // CambiarEstadoCuotaAuto.
+                config.ImpactarScorePorMora = viewModel.ImpactarScorePorMora;
+                config.PuntosRestarPorCuotaVencida = viewModel.PuntosRestarPorCuotaVencida;
+                config.PuntosRestarPorDiaMora = viewModel.PuntosRestarPorDiaMora;
+                config.PuntosMaximosARestar = viewModel.PuntosMaximosARestar;
+                config.RecuperarScoreAlPagar = viewModel.RecuperarScoreAlPagar;
+                config.PorcentajeRecuperacionScore = viewModel.PorcentajeRecuperacionScore;
                 config.UpdatedAt = DateTime.UtcNow;
 
                 await _context.SaveChangesAsync();
