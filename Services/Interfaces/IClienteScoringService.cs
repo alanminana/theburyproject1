@@ -20,5 +20,16 @@ namespace TheBuryProject.Services.Interfaces
         /// Devuelve null si el cliente no existe o está eliminado.
         /// </summary>
         Task<ClienteScoringResultado?> RecalcularAsync(int clienteId, CancellationToken ct = default);
+
+        /// <summary>
+        /// Recalcula el puntaje del cliente y audita el cambio en ClientePuntajeHistorial
+        /// solo si el puntaje efectivamente cambió respecto del valor previo.
+        /// </summary>
+        Task<ClienteScoringResultado?> RecalcularYAuditarAsync(
+            int clienteId,
+            string origen,
+            string? observacion = null,
+            string? registradoPor = null,
+            CancellationToken ct = default);
     }
 }

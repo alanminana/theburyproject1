@@ -210,4 +210,88 @@ public sealed class ClienteScoringServiceTests : IDisposable
         Assert.NotNull(resultado);
         Assert.Equal(1, resultado!.Puntaje);
     }
+
+    [Fact]
+    public async Task RecalcularYAuditarAsync_ClienteInexistente_DevuelveNull()
+    {
+        var resultado = await _service.RecalcularYAuditarAsync(99999, origen: "RecalculoManual");
+
+        Assert.Null(resultado);
+    }
+
+    [Fact]
+    public async Task RecalcularYAuditarAsync_PuntajeCambia_RegistraHistorialConOrigenManual()
+    {
+        var ahora = DateTime.UtcNow;
+        var cliente = await SeedClienteAsync(ahora.AddDays(-400)); // > 12 meses, PuntajeCliente inicial = 0
+
+        _context.Ventas.Add(new Venta
+        {
+            Numero = "V-MAN-1",
+            ClienteId = cliente.Id,
+            Estado = EstadoVenta.Facturada,
+            FechaVenta = ahora.AddDays(-10)
+        });
+
+        _context.Creditos.Add(new Credito
+        {
+            ClienteId = cliente.Id,
+            Numero = "C-MAN-1",
+            Estado = EstadoCredito.Activo,
+            Cuotas = new List<Cuota>
+            {
+                new()
+                {
+                    Estado = EstadoCuota.Pagada,
+                    FechaVencimiento = ahora.AddDays(-40),
+                    FechaPago = ahora.AddDays(-45),
+                    MontoPagado = 100m,
+                    MontoTotal = 100m
+                }
+            }
+        });
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.RecalcularYAuditarAsync(
+            cliente.Id,
+            origen: "RecalculoManual",
+            observacion: "Recálculo manual desde ficha de cliente",
+            registradoPor: "admin");
+
+        Assert.NotNull(resultado);
+        Assert.NotEqual(0, resultado!.Puntaje); // precondición: debe haber cambio real de puntaje
+
+        var historial = await _context.ClientesPuntajeHistorial
+            .AsNoTracking()
+            .Where(h => h.ClienteId == cliente.Id)
+            .ToListAsync();
+
+        var registro = Assert.Single(historial);
+        Assert.Equal(resultado.Puntaje, registro.Puntaje);
+        Assert.Equal("RecalculoManual", registro.Origen);
+        Assert.Equal("admin", registro.RegistradoPor);
+        Assert.Equal("Recálculo manual desde ficha de cliente", registro.Observacion);
+    }
+
+    [Fact]
+    public async Task RecalcularYAuditarAsync_PuntajeNoCambia_NoRegistraHistorial()
+    {
+        // Cliente recién creado sin ventas ni créditos: recalcular mantiene PuntajeCliente en 0.
+        var cliente = await SeedClienteAsync(DateTime.UtcNow);
+
+        var resultado = await _service.RecalcularYAuditarAsync(
+            cliente.Id,
+            origen: "RecalculoManual",
+            registradoPor: "admin");
+
+        Assert.NotNull(resultado);
+        Assert.Equal(0, resultado!.Puntaje);
+
+        var historial = await _context.ClientesPuntajeHistorial
+            .AsNoTracking()
+            .Where(h => h.ClienteId == cliente.Id)
+            .ToListAsync();
+
+        Assert.Empty(historial);
+    }
 }

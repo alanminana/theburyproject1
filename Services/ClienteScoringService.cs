@@ -77,5 +77,42 @@ namespace TheBuryProject.Services
                 Snapshot = snapshot
             };
         }
+
+        public async Task<ClienteScoringResultado?> RecalcularYAuditarAsync(
+            int clienteId,
+            string origen,
+            string? observacion = null,
+            string? registradoPor = null,
+            CancellationToken ct = default)
+        {
+            var clienteAntes = await _context.Clientes
+                .AsNoTracking()
+                .Where(c => c.Id == clienteId)
+                .Select(c => new { c.PuntajeCliente, c.NivelRiesgo })
+                .FirstOrDefaultAsync(ct);
+
+            if (clienteAntes == null)
+                return null;
+
+            var resultado = await RecalcularAsync(clienteId, ct);
+
+            if (resultado == null || resultado.Puntaje == clienteAntes.PuntajeCliente)
+                return resultado;
+
+            _context.ClientesPuntajeHistorial.Add(new ClientePuntajeHistorial
+            {
+                ClienteId = clienteId,
+                Puntaje = resultado.Puntaje,
+                NivelRiesgo = clienteAntes.NivelRiesgo,
+                Fecha = DateTime.UtcNow,
+                Origen = origen,
+                Observacion = observacion,
+                RegistradoPor = registradoPor
+            });
+
+            await _context.SaveChangesAsync(ct);
+
+            return resultado;
+        }
     }
 }

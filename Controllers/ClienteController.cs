@@ -566,7 +566,11 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                var resultado = await _scoringService.RecalcularAsync(clienteId);
+                var resultado = await _scoringService.RecalcularYAuditarAsync(
+                    clienteId,
+                    origen: "RecalculoManual",
+                    observacion: "Recálculo manual desde ficha de cliente",
+                    registradoPor: _currentUser.GetUsername());
                 TempData[resultado != null ? "Success" : "Error"] =
                     resultado != null ? "Puntaje del cliente recalculado" : "No se pudo recalcular el puntaje";
                 return RedirectToAction(nameof(Details), new { id = clienteId, returnUrl = Url.GetSafeReturnUrl(returnUrl) });

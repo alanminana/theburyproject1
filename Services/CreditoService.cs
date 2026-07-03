@@ -966,32 +966,12 @@ namespace TheBuryProject.Services
         /// </summary>
         private async Task RecalcularPuntajeClientePorPagoAsync(int clienteId, CancellationToken cancellationToken = default)
         {
-            var clienteAntes = await _context.Clientes
-                .AsNoTracking()
-                .Where(c => c.Id == clienteId)
-                .Select(c => new { c.PuntajeCliente, c.NivelRiesgo })
-                .FirstOrDefaultAsync(cancellationToken);
-
-            if (clienteAntes == null)
-                return;
-
-            var resultado = await _clienteScoringService.RecalcularAsync(clienteId, cancellationToken);
-
-            if (resultado == null || resultado.Puntaje == clienteAntes.PuntajeCliente)
-                return;
-
-            _context.ClientesPuntajeHistorial.Add(new ClientePuntajeHistorial
-            {
-                ClienteId = clienteId,
-                Puntaje = resultado.Puntaje,
-                NivelRiesgo = clienteAntes.NivelRiesgo,
-                Fecha = DateTime.UtcNow,
-                Origen = "RecalculoAutomaticoPago",
-                Observacion = "Recalculo automático por pago de cuota",
-                RegistradoPor = _currentUserService.GetUsername()
-            });
-
-            await _context.SaveChangesAsync(cancellationToken);
+            await _clienteScoringService.RecalcularYAuditarAsync(
+                clienteId,
+                origen: "RecalculoAutomaticoPago",
+                observacion: "Recalculo automático por pago de cuota",
+                registradoPor: _currentUserService.GetUsername(),
+                ct: cancellationToken);
         }
 
         #endregion
