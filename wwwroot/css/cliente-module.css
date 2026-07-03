@@ -1095,6 +1095,19 @@ select.field {
     white-space: normal;
 }
 
+/* Creditos del cliente: mismo problema de solapamiento (fecha/acciones) bajo
+   table-layout: fixed en viewports angostos. */
+.creditos-cliente-table {
+    table-layout: auto;
+}
+
+.creditos-cliente-table th,
+.creditos-cliente-table td {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    white-space: normal;
+}
+
 .cliente-credit-cell {
     display: flex;
     align-items: center;
