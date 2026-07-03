@@ -228,6 +228,9 @@
                                                 }
                                             }
                                         </select>
+                                        <p class="mt-1 text-xs text-slate-400">
+                                            Selecciona el medio principal de cobro para toda la venta.
+                                        </p>
                                         <p id="configuracion-pagos-global-estado" class="mt-1 text-xs text-slate-500"
                                            aria-live="polite">
                                             Cargando configuracion global de pagos...
@@ -392,10 +395,9 @@
                                                                  class="hidden mt-2 rounded border border-amber-600/30 bg-amber-900/20 px-3 py-2 text-[11px] text-amber-300">
                                                                 Cargá una unidad física desde
                                                                 <a id="link-gestionar-unidades" href="#"
-                                                                   class="font-bold underline hover:opacity-75" target="_blank">Gestionar
-                                                                    unidades</a>
-                                                                    antes de vender.
-                                                                </div>
+                                                                   class="font-bold underline hover:opacity-75" target="_blank">Gestionar unidades</a>
+                                                                antes de vender.
+                                                            </div>
                                                             </div>
                                                             <div id="advertencia-stock-sin-identificar"
                                                                  class="hidden col-span-2 md:col-span-5 flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-400">
@@ -737,8 +739,8 @@
                                                                                                                     Cupo suficiente para esta operación
                                                                                                                 </p>
                                                                                                             </div>
-                                                                                                            <div id="panel-cupo-insuficiente"
-                                                                                                                 class="p-3 rounded-lg bg-red-500/10 border border-red-500/20 hidden" role="alert">
+                                                                                                            <div id="panel-cupo-insuficiente" role="alert"
+                                                                                                                 class="p-3 rounded-lg bg-red-500/10 border border-red-500/20 hidden">
                                                                                                                 <p class="text-xs font-bold text-red-500 flex items-center gap-2">
                                                                                                                     <span class="material-symbols-outlined text-sm">block</span>
                                                                                                                     Cupo insuficiente — operación bloqueada
@@ -1008,12 +1010,7 @@
                                                                                                             @* ── Recordatorio pre-confirmación (VENTAS-UX-1G) ── *@
                                                                                                             @if (!esCotizacion)
                                                                                                             {
-                                                                                                                <div class="mb-4 flex items-start gap-2 rounded-lg border border-white/20 bg-white/10 p-3 text-xs text-white/80"
-                                                                                                                     role="note" aria-label="Revisá antes de confirmar">
-                                                                                                                    <span class="material-symbols-outlined text-sm shrink-0 mt-0.5 text-white/60"
-                                                                                                                          aria-hidden="true">checklist</span>
-                                                                                                                    <span>
-                                                                                                                        Verificá cliente, tipo de pago y total. Si hay alertas activas de mora, cupo o
+                                                                                                                <div class="mb-4 flex items-start gap-2 rounded-lg border border-white/20 bg-white/10 p-3 text-xs text-white/80" role="note" aria-label="Revisá antes de confirmar"><span class="material-symbols-outlined text-sm shrink-0 mt-0.5 text-white/60" aria-hidden="true">checklist</span> <span>Verificá cliente, tipo de pago y total. Si hay alertas activas de mora, cupo o
                                                                                                                         documentación, revisalas antes de continuar.
                                                                                                                         <span class="mt-2 block text-white/90">
                                                                                                                             <span data-conf-cliente>Cliente sin seleccionar</span> ·
