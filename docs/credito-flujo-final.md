@@ -1,7 +1,7 @@
-# Crédito — Flujo final consolidado (FASE 1-10D)
+# Crédito — Flujo final consolidado (FASE 1-11D)
 
-> Estado: **FASE 10E — cierre documental de mora con días de gracia y contratos UI**. Consolida FASE 1 a FASE 10D. Sin push salvo confirmación explícita. Fecha documental: 2026-07-03.
-> Documentos hermanos: [`credito-fase-1-cierre.md`](credito-fase-1-cierre.md), [`credito-fase-2-garante.md`](credito-fase-2-garante.md), [`credito-fase-3-cuenta-disponible.md`](credito-fase-3-cuenta-disponible.md), [`credito-fase-4-evaluador-unificado.md`](credito-fase-4-evaluador-unificado.md), [`credito-fase-5-autorizacion-manual.md`](credito-fase-5-autorizacion-manual.md), [`credito-fase-6-mora-puntaje.md`](credito-fase-6-mora-puntaje.md), [`credito-fase-7-ui-perfil-crediticio.md`](credito-fase-7-ui-perfil-crediticio.md), [`credito-fase-9-limpieza-legacy.md`](credito-fase-9-limpieza-legacy.md), [`credito-fase-10-mora-scoring.md`](credito-fase-10-mora-scoring.md).
+> Estado: **FASE 11E — cierre documental de BCRA determinístico**. Consolida FASE 1 a FASE 11D. Sin push salvo confirmación explícita. Fecha documental: 2026-07-03.
+> Documentos hermanos: [`credito-fase-1-cierre.md`](credito-fase-1-cierre.md), [`credito-fase-2-garante.md`](credito-fase-2-garante.md), [`credito-fase-3-cuenta-disponible.md`](credito-fase-3-cuenta-disponible.md), [`credito-fase-4-evaluador-unificado.md`](credito-fase-4-evaluador-unificado.md), [`credito-fase-5-autorizacion-manual.md`](credito-fase-5-autorizacion-manual.md), [`credito-fase-6-mora-puntaje.md`](credito-fase-6-mora-puntaje.md), [`credito-fase-7-ui-perfil-crediticio.md`](credito-fase-7-ui-perfil-crediticio.md), [`credito-fase-9-limpieza-legacy.md`](credito-fase-9-limpieza-legacy.md), [`credito-fase-10-mora-scoring.md`](credito-fase-10-mora-scoring.md), [`credito-fase-11-bcra-deterministico.md`](credito-fase-11-bcra-deterministico.md).
 
 ## 1. Objetivo del documento
 
@@ -29,7 +29,7 @@ El eje único de aptitud/cupo es `PuntajeCliente` (0-5), gobernado por `ClienteS
 - `PuntajeCliente` (0-5) es el eje único que gobierna cupo; no hay un segundo scoring paralelo.
 - Puntaje 0 (cliente nuevo) tiene cupo default **200.000** (seed `PuntajesCreditoLimite`, editable por Javo). Puntajes 1-5 quedan en 0 hasta que Javo los configure.
 - Garante real validado: no puede ser el mismo cliente, debe existir y estar activo, tener al menos 1 compra propia, puntaje ≥ 4, y no garantizar más de 3 clientes a la vez (`GaranteService.ValidarGaranteAsync`). Un garante válido puede sustituir el recibo de sueldo como requisito documental.
-- BCRA/Veraz es obligatorio: sin CUIL/CUIT o sin consulta registrada, el cliente queda `NoApto`. Consulta fallida o sin situación informada → `RequiereAutorizacion`. Situación 0-1 normal, 2 requiere revisión, ≥3 bloquea.
+- BCRA/Veraz es obligatorio: sin CUIL/CUIT o sin ninguna consulta registrada, el cliente queda `NoApto`. Desde FASE 11C, la aptitud distingue **último intento** de **última consulta exitosa**: si existe una consulta exitosa previa, la clasificación se basa en ella aunque el último intento haya fallado por un error transitorio (timeout, 429, 5xx, JSON inválido) — así una situación bloqueante (3/4/5) previa se mantiene `NoApto`, y una situación normal previa no degrada a `RequiereAutorizacion` solo porque el último intento falló. Último intento fallido **sin** ninguna consulta exitosa previa → `RequiereAutorizacion`. Situación 0-1 normal, 2 requiere revisión, ≥3 bloquea. El timeout de red reintenta 1 vez (2 intentos totales), igual que el error de red. Detalle en [`credito-fase-11-bcra-deterministico.md`](credito-fase-11-bcra-deterministico.md).
 - Buen pagador antiguo (puntaje ≥4, antigüedad ≥90 días, ≥1 compra, créditos en término ≥1, sin atrasos, sin mora activa) con BCRA situación ≥3 no queda `NoApto` automático: degrada a `RequiereAutorizacion` (FASE 4D).
 - La autorización manual es puntual por venta: no modifica cupo, puntaje ni límite futuro, y no autoriza otras ventas. Queda auditada con usuario, motivo y fecha.
 - Recálculo automático de `PuntajeCliente` ocurre al pagar cuota (dentro de la misma transacción del pago) y, desde FASE 10C, opcionalmente por mora diaria (ver regla siguiente).
@@ -57,7 +57,7 @@ El eje único de aptitud/cupo es `PuntajeCliente` (0-5), gobernado por `ClienteS
 - **Mora y umbrales** — chip de estado + monto en mora + mensaje contextual de umbral (autorización/NoApto) cuando hay mora activa (FASE 7D).
 - **Historial de puntaje** — sección colapsable con tabla de cambios auditados (`ClientePuntajeHistorial`): fecha, puntaje anterior/nuevo, origen, registrado por, observación (FASE 7B).
 - **Autorizaciones pendientes** — banner de alerta con últimas 5 ventas `PendienteAutorizacion` del cliente, con acceso condicionado al permiso `ventas.authorize` (FASE 7E).
-- **BCRA** — panel lateral: situación crediticia, período informado, última consulta, botón actualizar.
+- **BCRA** — panel lateral: situación crediticia, período informado, última consulta, botón actualizar. Desde FASE 11D, el chip de cabecera (`id="bcra-chip"`) distingue 4 estados (`Sin CUIL` / `Sin consultar` / `Consulta OK` / `Usando ultima consulta valida`, más `Error BCRA` sin último éxito) en vez de colapsar todo error en "Pendiente"; cuando se usa la última consulta válida se muestra un aviso explícito. El refresh AJAX (`cliente-details.js`) sincroniza el mismo chip y reusa el clasificador puro `ClienteAptitudService.ConstruirBcraDetalle` vía el endpoint del controller, sin duplicar reglas.
 - **Documentación** — panel lateral: completa/incompleta, pendientes.
 - **Garante** — panel lateral: asignado/sin asignar, validez, modal de asignación.
 - **Créditos del cliente** — tabla de créditos del cliente, overflow corregido en FASE 7F.
@@ -86,8 +86,9 @@ El flujo canónico para cualquier validación nueva sigue siendo `VentaService` 
 
 - **Resuelto en FASE 10C**: `ActualizarEstadoCuotasAsync` ahora tiene caller productivo (`MoraService.ProcesarMoraAsync`, gated por `ConfiguracionMora.CambiarEstadoCuotaAuto`), y `ConfiguracionMora.CambiarEstadoCuotaAuto`/`ActualizarMoraAutomaticamente`/`ImpactarScorePorMora` ya tienen efecto real. Decisión de Javo (opción B) resuelta: la mora no baja el puntaje hasta superar `DiasGracia`. Detalle completo en [`credito-fase-10-mora-scoring.md`](credito-fase-10-mora-scoring.md).
 - `ImpactarScorePorMora` (`ConfiguracionMora`) todavía no tiene exposición en UI de configuración — solo se puede activar por datos/migración/seed, no desde una pantalla. Deuda de FASE 10.
-- BCRA/aptitud no determinístico: diagnóstico aparte pendiente, no abordado en FASE 4-10D.
-- Entidad `EvaluacionCredito` y tabla `EvaluacionesCredito`: siguen existiendo; no se tocaron en FASE 9 ni FASE 10.
+- **Resuelto en FASE 11C/11D**: BCRA/aptitud no determinístico. Un error transitorio ya no pisa la última situación BCRA válida conocida (separación último intento / último éxito, migración aditiva) y la UI de `Cliente/Details` sincroniza el mismo clasificador puro en carga inicial y refresh AJAX. Detalle completo en [`credito-fase-11-bcra-deterministico.md`](credito-fase-11-bcra-deterministico.md).
+- Modo simulación BCRA (para QA/desarrollo sin depender de la API pública real) queda pendiente si Javo lo pide en una fase futura. Deuda de FASE 11.
+- Entidad `EvaluacionCredito` y tabla `EvaluacionesCredito`: siguen existiendo; no se tocaron en FASE 9, FASE 10 ni FASE 11.
 - Migraciones históricas de `EvaluacionCredito`/`EvaluacionesCredito`: siguen existiendo; no se modificaron ni se creó una migración de drop.
 - Decisión futura: revisar datos históricos reales antes de decidir si conservar datos o dropear tabla en una fase separada.
 - Optimización futura: la consulta de ventas pendientes de autorización en `ClienteController` trae y filtra en memoria (top 5) — sin impacto medido todavía.
@@ -114,6 +115,13 @@ El flujo canónico para cualquier validación nueva sigue siendo `VentaService` 
   - `dotnet build TheBuryProyect.csproj --no-restore`: OK, 0 errores / 0 advertencias.
   - `dotnet build TheBuryProyect.Tests/TheBuryProyect.Tests.csproj --no-restore`: OK, 0 errores / 0 advertencias.
   - Tests focalizados: no se repiten en FASE 10E porque el cambio es docs-only.
+- FASE 11C: build principal y build de tests OK, 0 errores / 0 advertencias. Tests focalizados **119/119 OK** (`ClienteAptitudServiceTests` + `SituacionCrediticiaBcraServiceTests`). Detalle en [`credito-fase-11-bcra-deterministico.md`](credito-fase-11-bcra-deterministico.md).
+- FASE 11D: build principal y build de tests OK, 0 errores / 0 advertencias. Tests focalizados **400/400 OK** (incluye `ClienteDetailsBcraUiContractTests` nuevo).
+- FASE 11E:
+  - `git diff --check`: OK.
+  - `dotnet build TheBuryProyect.csproj --no-restore`: OK, 0 errores / 0 advertencias.
+  - `dotnet build TheBuryProyect.Tests/TheBuryProyect.Tests.csproj --no-restore`: OK, 0 errores / 0 advertencias.
+  - Tests focalizados: no se repiten en FASE 11E porque el cambio es docs-only.
 
 ## 11. Tabla de commits relevantes FASE 6-10
 
@@ -139,10 +147,15 @@ El flujo canónico para cualquier validación nueva sigue siendo `VentaService` 
 | 10C-FIX | `ee4ed20` | Agregar rol alert a alerta de mora en venta |
 | 10D | `4b4382c` | Cerrar contratos de creación de venta (`VentaCreateUiContractTests`) |
 | 10E | Este documento + `docs/credito-fase-10-mora-scoring.md` | Cierre documental de FASE 10 (mora, scoring, contratos UI) |
+| 11A | Sin commit propio | Diagnóstico BCRA no determinístico |
+| 11B | Sin commit propio | Decisión: conservar último éxito ante error transitorio |
+| 11C | `ee3ea96` | Conservar último éxito BCRA ante errores (migración aditiva + `ConstruirBcraDetalle`) |
+| 11D | `c1a541c` | Sincronizar estado BCRA en detalle de cliente (chip + refresh AJAX) |
+| 11E | Este documento + `docs/credito-fase-11-bcra-deterministico.md` | Cierre documental de FASE 11 (BCRA determinístico) |
 
 ## 12. Próximo paso
 
-Decisión separada sobre la entidad/tabla `EvaluacionCredito`/`EvaluacionesCredito`: revisar datos históricos reales y decidir si se conserva o se elimina con migración futura. No forma parte de FASE 9E/10E. Exposición UI de `ImpactarScorePorMora` queda como deuda abierta para una fase futura si Javo la pide.
+Decisión separada sobre la entidad/tabla `EvaluacionCredito`/`EvaluacionesCredito`: revisar datos históricos reales y decidir si se conserva o se elimina con migración futura. No forma parte de FASE 9E/10E/11E. Exposición UI de `ImpactarScorePorMora` y modo simulación BCRA quedan como deuda abierta para una fase futura si Javo las pide.
 
 ---
 
@@ -151,9 +164,10 @@ Decisión separada sobre la entidad/tabla `EvaluacionCredito`/`EvaluacionesCredi
 - Archivo documental actualizado: `docs/credito-flujo-final.md`.
 - Archivo documental creado (FASE 9E): `docs/credito-fase-9-limpieza-legacy.md`.
 - Archivo documental creado (FASE 10E): `docs/credito-fase-10-mora-scoring.md`.
+- Archivo documental creado (FASE 11E): `docs/credito-fase-11-bcra-deterministico.md`.
 - No se modificó código productivo.
 - No se modificaron tests.
 - No se modificó UI.
 - No se tocaron stashes.
 - No se hizo push sin confirmación.
-- No se avanzó a FASE 11.
+- No se avanzó a FASE 12.
