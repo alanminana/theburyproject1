@@ -7,5 +7,11 @@ namespace TheBuryProject.Services.Models
         public string? SituacionCrediticiaPeriodo { get; init; }
         public DateTime? SituacionCrediticiaUltimaConsultaUtc { get; init; }
         public bool? SituacionCrediticiaConsultaOk { get; init; }
+
+        // Última consulta BCRA exitosa (FASE 11C), separada del último intento.
+        public int? SituacionCrediticiaBcraUltimoExito { get; init; }
+        public string? SituacionCrediticiaDescripcionUltimoExito { get; init; }
+        public string? SituacionCrediticiaPeriodoUltimoExito { get; init; }
+        public DateTime? SituacionCrediticiaUltimoExitoUtc { get; init; }
     }
 }

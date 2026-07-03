@@ -7,6 +7,7 @@ using TheBuryProject.Helpers;
 using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
+using TheBuryProject.Services;
 using TheBuryProject.Services.Exceptions;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.Services.Models;
@@ -594,13 +595,36 @@ namespace TheBuryProject.Controllers
                 if (cliente == null)
                     return NotFound();
 
+                // Clasificador puro de FASE 11C: resuelve situación/descripción efectivas
+                // (último éxito cuando el último intento falló) sin duplicar la regla acá.
+                var detalle = ClienteAptitudService.ConstruirBcraDetalle(
+                    cliente.CuilCuit,
+                    cliente.SituacionCrediticiaBcra,
+                    cliente.SituacionCrediticiaConsultaOk,
+                    cliente.SituacionCrediticiaDescripcion,
+                    cliente.SituacionCrediticiaUltimaConsultaUtc,
+                    cliente.SituacionCrediticiaBcraUltimoExito,
+                    cliente.SituacionCrediticiaDescripcionUltimoExito,
+                    cliente.SituacionCrediticiaUltimoExitoUtc);
+
+                var tieneCuil = !string.IsNullOrWhiteSpace(cliente.CuilCuit);
+                var ultimoIntentoOk = cliente.SituacionCrediticiaConsultaOk == true;
+                var tieneUltimoExito = cliente.SituacionCrediticiaUltimoExitoUtc.HasValue
+                    && cliente.SituacionCrediticiaBcraUltimoExito.HasValue;
+                var usandoUltimoExito = tieneCuil && !ultimoIntentoOk && tieneUltimoExito;
+                var nuncaConsultado = tieneCuil && !cliente.SituacionCrediticiaUltimaConsultaUtc.HasValue && !tieneUltimoExito;
+
                 return Json(new
                 {
-                    ok = cliente.SituacionCrediticiaConsultaOk ?? false,
-                    situacion = cliente.SituacionCrediticiaBcra,
-                    descripcion = cliente.SituacionCrediticiaDescripcion,
-                    periodo = cliente.SituacionCrediticiaPeriodo,
-                    ultimaConsulta = cliente.SituacionCrediticiaUltimaConsultaUtc?.ToString("dd/MM/yyyy HH:mm")
+                    ok = ultimoIntentoOk,
+                    tieneCuil,
+                    nuncaConsultado,
+                    usandoUltimoExito,
+                    situacion = detalle.Situacion,
+                    descripcion = tieneCuil ? detalle.Descripcion : "CUIL/CUIT no cargado",
+                    periodo = usandoUltimoExito ? cliente.SituacionCrediticiaPeriodoUltimoExito : cliente.SituacionCrediticiaPeriodo,
+                    ultimaConsulta = cliente.SituacionCrediticiaUltimaConsultaUtc?.ToString("dd/MM/yyyy HH:mm"),
+                    mensaje = detalle.Mensaje
                 });
             }
             catch (Exception ex)
@@ -793,6 +817,10 @@ namespace TheBuryProject.Controllers
             vm.SituacionCrediticiaPeriodo = resultado.SituacionCrediticiaPeriodo;
             vm.SituacionCrediticiaUltimaConsultaUtc = resultado.SituacionCrediticiaUltimaConsultaUtc;
             vm.SituacionCrediticiaConsultaOk = resultado.SituacionCrediticiaConsultaOk;
+            vm.SituacionCrediticiaBcraUltimoExito = resultado.SituacionCrediticiaBcraUltimoExito;
+            vm.SituacionCrediticiaDescripcionUltimoExito = resultado.SituacionCrediticiaDescripcionUltimoExito;
+            vm.SituacionCrediticiaPeriodoUltimoExito = resultado.SituacionCrediticiaPeriodoUltimoExito;
+            vm.SituacionCrediticiaUltimoExitoUtc = resultado.SituacionCrediticiaUltimoExitoUtc;
         }
 
         #endregion

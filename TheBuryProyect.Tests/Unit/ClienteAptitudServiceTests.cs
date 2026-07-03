@@ -500,6 +500,24 @@ public class ClienteAptitudServiceTests
     }
 
     [Fact]
+    public void ConstruirBcraDetalle_IntentoFallidoConUltimoExito_MensajeLiteralParaUiFase11D()
+    {
+        // FASE 11D: la UI (chip/aviso de Cliente/Details) renderiza este mensaje
+        // literal cuando el ultimo intento fallo pero hay ultima consulta valida.
+        var d = ClienteAptitudService.ConstruirBcraDetalle(
+            cuilCuit: CuilValido,
+            situacion: null,
+            consultaOk: false,
+            descripcion: "Timeout al consultar BCRA",
+            ultimaConsultaUtc: ConsultaReciente,
+            situacionUltimoExito: 1,
+            descripcionUltimoExito: "Normal",
+            ultimoExitoUtc: ConsultaReciente.AddDays(-2));
+
+        Assert.Contains("Último intento BCRA falló. Se usa última consulta válida.", d.Mensaje);
+    }
+
+    [Fact]
     public void ConstruirBcraDetalle_IntentoFallidoConUltimoExitoSituacionTres_SigueBloqueante()
     {
         // Regla FASE 11C: si la última consulta exitosa fue situación 3/4/5, se

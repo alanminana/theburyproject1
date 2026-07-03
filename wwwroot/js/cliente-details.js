@@ -106,6 +106,10 @@
         var descEl = document.getElementById('bcra-desc');
         var dotEl = document.getElementById('bcra-dot');
         var metaEl = document.getElementById('bcra-meta');
+        var chipEl = document.getElementById('bcra-chip');
+        var chipIconEl = document.getElementById('bcra-chip-icon');
+        var chipLabelEl = document.getElementById('bcra-chip-label');
+        var avisoEl = document.getElementById('bcra-aviso');
 
         if (!btn || !descEl) return;
 
@@ -129,15 +133,15 @@
                 var color;
                 var dotColor;
 
-                if (!data.ok) {
-                    color = 'text-slate-400';
-                    dotColor = 'bg-slate-400';
-                } else if (data.situacion === 0 || data.situacion === 1) {
+                if (data.situacion === 0 || data.situacion === 1) {
                     color = 'text-green-500';
                     dotColor = 'bg-green-500';
                 } else if (data.situacion === 2) {
                     color = 'text-amber-500';
                     dotColor = 'bg-amber-500';
+                } else if (data.situacion === null || data.situacion === undefined) {
+                    color = 'text-slate-400';
+                    dotColor = 'bg-slate-400';
                 } else {
                     color = 'text-red-500';
                     dotColor = 'bg-red-500';
@@ -149,6 +153,36 @@
                     var text = data.ultimaConsulta ? 'Consulta: ' + data.ultimaConsulta : '';
                     if (data.periodo) text += ' · Período: ' + data.periodo;
                     metaEl.textContent = text || 'Actualizado';
+                }
+
+                // Chip de cabecera: sincroniza el mismo estado que Details_tw.cshtml
+                // (nunca consultado / consulta OK / usando ultima consulta valida / error).
+                if (chipEl) {
+                    var chipClass, chipIcon, chipLabel;
+                    if (!data.tieneCuil) {
+                        chipClass = 'chip-neutral'; chipIcon = 'remove'; chipLabel = 'Sin CUIL';
+                    } else if (data.nuncaConsultado) {
+                        chipClass = 'chip-neutral'; chipIcon = 'schedule'; chipLabel = 'Sin consultar';
+                    } else if (data.ok) {
+                        chipClass = 'chip-ok'; chipIcon = 'check'; chipLabel = 'Consulta OK';
+                    } else if (data.usandoUltimoExito) {
+                        chipClass = 'chip-warn'; chipIcon = 'history'; chipLabel = 'Usando ultima consulta valida';
+                    } else {
+                        chipClass = 'chip-bad'; chipIcon = 'priority_high'; chipLabel = 'Error BCRA';
+                    }
+                    chipEl.className = 'chip ' + chipClass;
+                    if (chipIconEl) chipIconEl.textContent = chipIcon;
+                    if (chipLabelEl) chipLabelEl.textContent = chipLabel;
+                }
+
+                if (avisoEl) {
+                    if (data.usandoUltimoExito && data.mensaje) {
+                        avisoEl.textContent = data.mensaje;
+                        avisoEl.classList.remove('hidden');
+                    } else {
+                        avisoEl.textContent = '';
+                        avisoEl.classList.add('hidden');
+                    }
                 }
             })
             .catch(function () {

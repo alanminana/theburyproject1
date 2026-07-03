@@ -200,7 +200,11 @@ namespace TheBuryProject.Services
                     SituacionCrediticiaDescripcion = c.SituacionCrediticiaDescripcion,
                     SituacionCrediticiaPeriodo = c.SituacionCrediticiaPeriodo,
                     SituacionCrediticiaUltimaConsultaUtc = c.SituacionCrediticiaUltimaConsultaUtc,
-                    SituacionCrediticiaConsultaOk = c.SituacionCrediticiaConsultaOk
+                    SituacionCrediticiaConsultaOk = c.SituacionCrediticiaConsultaOk,
+                    SituacionCrediticiaBcraUltimoExito = c.SituacionCrediticiaBcraUltimoExito,
+                    SituacionCrediticiaDescripcionUltimoExito = c.SituacionCrediticiaDescripcionUltimoExito,
+                    SituacionCrediticiaPeriodoUltimoExito = c.SituacionCrediticiaPeriodoUltimoExito,
+                    SituacionCrediticiaUltimoExitoUtc = c.SituacionCrediticiaUltimoExitoUtc
                 })
                 .FirstOrDefaultAsync();
         }

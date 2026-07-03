@@ -25,19 +25,48 @@
     var resultTone = esNoApto ? "is-bad" : esRequiereAut ? "is-warn" : "is-ok";
     var moraLabel = apt?.Mora != null && apt.Mora.TieneMora ? $"{apt.Mora.DiasMaximoMora} dias" : "Al dia";
     var moraChip = apt?.Mora != null && apt.Mora.TieneMora ? "chip-warn" : "chip-ok";
-    var bcraOk = c.SituacionCrediticiaConsultaOk == true;
-    var bcraVal = c.SituacionCrediticiaBcra;
-    var bcraDesc = string.IsNullOrWhiteSpace(c.CuilCuit)
-        ? "CUIL/CUIT no cargado"
-        : (c.SituacionCrediticiaDescripcion ?? "Sin consultar");
-    var bcraPeriodo = c.SituacionCrediticiaPeriodo;
-    var bcraFecha = c.SituacionCrediticiaUltimaConsultaUtc;
+    // FASE 11D: el chip/panel BCRA distingue nunca-consultado / consulta OK /
+    // error sin ultimo exito / error usando ultima consulta valida (FASE 11C),
+    // en vez de colapsar todo error en "Pendiente". apt.Bcra ya resuelve la
+    // situacion/descripcion efectiva (ultimo exito cuando el ultimo intento
+    // fallo) via el mismo clasificador puro que usa la aptitud crediticia.
     var tieneCuil = !string.IsNullOrWhiteSpace(c.CuilCuit);
-    var bcraTone = !tieneCuil || !bcraOk ? "is-warn" : bcraVal is 0 or 1 ? "is-ok" : bcraVal == 2 ? "is-warn" : "is-bad";
-    var bcraChip = !tieneCuil || !bcraOk ? "chip-neutral" : bcraVal is 0 or 1 ? "chip-ok" : bcraVal == 2 ? "chip-warn" : "chip-bad";
-    var bcraDot = !tieneCuil || !bcraOk ? "bg-slate-400" : bcraVal is 0 or 1 ? "bg-green-500" : bcraVal == 2 ? "bg-amber-500" : "bg-red-500";
-    var bcraColor = !tieneCuil || !bcraOk ? "text-slate-400" : bcraVal is 0 or 1 ? "text-green-500" : bcraVal == 2 ? "text-amber-500" : "text-red-500";
-    var bcraEstadoResumen = string.IsNullOrWhiteSpace(c.CuilCuit) ? "Sin CUIL" : bcraDesc;
+    var bcraOk = c.SituacionCrediticiaConsultaOk == true;
+    var bcraTieneUltimoExito = c.SituacionCrediticiaUltimoExitoUtc.HasValue && c.SituacionCrediticiaBcraUltimoExito.HasValue;
+    var bcraNuncaConsultado = tieneCuil && !c.SituacionCrediticiaUltimaConsultaUtc.HasValue && !bcraTieneUltimoExito;
+    var bcraUsandoUltimoExito = tieneCuil && !bcraOk && bcraTieneUltimoExito;
+    var bcraMensaje = apt?.Bcra?.Mensaje;
+    var bcraVal = apt?.Bcra?.Situacion;
+    var bcraDesc = !tieneCuil
+        ? "CUIL/CUIT no cargado"
+        : (apt?.Bcra?.Descripcion ?? "Sin consultar");
+    var bcraPeriodo = bcraUsandoUltimoExito ? c.SituacionCrediticiaPeriodoUltimoExito : c.SituacionCrediticiaPeriodo;
+    var bcraFecha = c.SituacionCrediticiaUltimaConsultaUtc;
+    var bcraTone = bcraVal is 0 or 1 ? "is-ok" : bcraVal == 2 ? "is-warn" : bcraVal.HasValue ? "is-bad" : "is-warn";
+    var bcraDot = bcraVal is 0 or 1 ? "bg-green-500" : bcraVal == 2 ? "bg-amber-500" : bcraVal.HasValue ? "bg-red-500" : "bg-slate-400";
+    var bcraColor = bcraVal is 0 or 1 ? "text-green-500" : bcraVal == 2 ? "text-amber-500" : bcraVal.HasValue ? "text-red-500" : "text-slate-400";
+    var bcraEstadoResumen = !tieneCuil ? "Sin CUIL" : bcraDesc;
+    string bcraChipLabel, bcraChipIcon, bcraChip;
+    if (!tieneCuil)
+    {
+        bcraChipLabel = "Sin CUIL"; bcraChipIcon = "remove"; bcraChip = "chip-neutral";
+    }
+    else if (bcraNuncaConsultado)
+    {
+        bcraChipLabel = "Sin consultar"; bcraChipIcon = "schedule"; bcraChip = "chip-neutral";
+    }
+    else if (bcraOk)
+    {
+        bcraChipLabel = "Consulta OK"; bcraChipIcon = "check"; bcraChip = "chip-ok";
+    }
+    else if (bcraUsandoUltimoExito)
+    {
+        bcraChipLabel = "Usando ultima consulta valida"; bcraChipIcon = "history"; bcraChip = "chip-warn";
+    }
+    else
+    {
+        bcraChipLabel = "Error BCRA"; bcraChipIcon = "priority_high"; bcraChip = "chip-bad";
+    }
     var nivelAutomatico = panel?.Valores?.NivelCreditoAutomatico ?? c.PuntajeCliente;
     var nivelManual = panel?.Valores?.NivelCreditoManual;
     var nivelFinal = panel?.Valores?.NivelCreditoFinal ?? nivelAutomatico;
@@ -511,7 +540,7 @@ else
             <div class="card card-pad" id="bcra-panel">
                 <div class="flex items-center justify-between gap-2 mb-3">
                     <h3 class="font-semibold text-white flex items-center gap-2"><span class="material-symbols-outlined" style="color:#f5c518;font-size:20px">account_balance</span>Situacion BCRA</h3>
-                    <span class="chip @bcraChip"><span class="material-symbols-outlined">@(bcraOk ? "check" : "remove")</span>@(bcraOk ? "Consulta OK" : "Pendiente")</span>
+                    <span class="chip @bcraChip" id="bcra-chip"><span class="material-symbols-outlined" id="bcra-chip-icon">@bcraChipIcon</span><span id="bcra-chip-label">@bcraChipLabel</span></span>
                 </div>
                 <div class="result-card @bcraTone" style="padding:.85rem 1rem">
                     <div class="flex items-center justify-between">
@@ -523,6 +552,14 @@ else
                         <span class="font-bold @bcraColor" id="bcra-desc">@bcraDesc</span>
                     </div>
                 </div>
+                @if (bcraUsandoUltimoExito)
+                {
+                    <p class="text-xs muted mt-2" id="bcra-aviso" role="status">@bcraMensaje</p>
+                }
+                else
+                {
+                    <p class="text-xs muted mt-2 hidden" id="bcra-aviso" role="status"></p>
+                }
                 <dl class="kv mt-3">
                     <div class="kv-row"><dt>CUIL / CUIT</dt><dd class="mono">@Dash(c.CuilCuit)</dd></div>
                     <div class="kv-row"><dt>Periodo informado</dt><dd>@Dash(bcraPeriodo)</dd></div>
