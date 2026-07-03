@@ -338,14 +338,6 @@ namespace TheBuryProject.Helpers
                 .ForMember(d => d.Venta, o => o.Ignore())
                 .ForMember(d => d.Credito, o => o.Ignore());
 
-            // Evaluación Crédito
-            CreateMap<EvaluacionCredito, EvaluacionCreditoViewModel>()
-                .ForMember(dest => dest.ClienteNombre, opt => opt.MapFrom(src =>
-                    src.Cliente != null ? src.Cliente.ToDisplayName() : null))
-                .ForMember(dest => dest.Reglas, opt => opt.Ignore()) // Reglas se construyen en el servicio, no se mapean desde la entidad
-                .ReverseMap()
-                .ForMember(dest => dest.Cliente, opt => opt.Ignore())
-                .ForMember(dest => dest.Credito, opt => opt.Ignore());
             // =======================
             // DocumentoCliente
             // =======================
