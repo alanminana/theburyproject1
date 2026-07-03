@@ -63,6 +63,8 @@ namespace TheBuryProject.Services
             if (await ExisteDocumentoAsync(cliente.TipoDocumento, cliente.NumeroDocumento))
                 throw new InvalidOperationException("Ya existe un cliente con ese tipo y número de documento.");
 
+            cliente.CuilCuit = NormalizeOptionalDigits(cliente.CuilCuit);
+
             // Calcular PuntajeRiesgo basado en NivelRiesgo (1-5 → 2-10)
             cliente.PuntajeRiesgo = (int)cliente.NivelRiesgo * 2m;
 
@@ -91,6 +93,7 @@ namespace TheBuryProject.Services
             clienteExistente.Apellido = cliente.Apellido;
             clienteExistente.TipoDocumento = cliente.TipoDocumento;
             clienteExistente.NumeroDocumento = cliente.NumeroDocumento;
+            clienteExistente.CuilCuit = NormalizeOptionalDigits(cliente.CuilCuit);
             clienteExistente.FechaNacimiento = cliente.FechaNacimiento;
             clienteExistente.EstadoCivil = cliente.EstadoCivil;
 
@@ -142,6 +145,15 @@ namespace TheBuryProject.Services
             _logger.LogInformation("Cliente actualizado - Id {ClienteId}", clienteExistente.Id);
 
             return clienteExistente;
+        }
+
+        private static string? NormalizeOptionalDigits(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return null;
+
+            var digits = new string(value.Where(char.IsDigit).ToArray());
+            return string.IsNullOrWhiteSpace(digits) ? null : digits;
         }
 
         public async Task<bool> DeleteAsync(int id)

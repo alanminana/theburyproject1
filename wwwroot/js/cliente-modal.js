@@ -125,6 +125,9 @@
             .then(function (html) {
                 contentEl.innerHTML = html;
                 showContent();
+                if (window.ClienteCuilAutocomplete) {
+                    window.ClienteCuilAutocomplete.init(contentEl);
+                }
                 initFormHandlers();
             })
             .catch(function (err) {

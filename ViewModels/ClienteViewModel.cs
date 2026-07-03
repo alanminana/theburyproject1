@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.Linq;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Validation;
 
@@ -11,6 +12,8 @@ namespace TheBuryProject.ViewModels
     /// </summary>
     public class ClienteViewModel
     {
+        private string? _cuilCuit;
+
         public int Id { get; set; }
 
         [Required(ErrorMessage = "El tipo de documento es requerido")]
@@ -44,7 +47,11 @@ namespace TheBuryProject.ViewModels
         [CuilCuitArgentino]
         [CuilCoincideConDni(nameof(NumeroDocumento))]
         [Display(Name = "CUIL/CUIT")]
-        public string? CuilCuit { get; set; }
+        public string? CuilCuit
+        {
+            get => _cuilCuit;
+            set => _cuilCuit = NormalizeDigitsOrNull(value);
+        }
 
         // Campos BCRA (solo lectura, se rellenan desde el servicio)
         public int? SituacionCrediticiaBcra { get; set; }
@@ -212,5 +219,14 @@ namespace TheBuryProject.ViewModels
 
         [Timestamp]
         public byte[]? RowVersion { get; set; }
+
+        private static string? NormalizeDigitsOrNull(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return null;
+
+            var digits = new string(value.Where(char.IsDigit).ToArray());
+            return string.IsNullOrWhiteSpace(digits) ? null : digits;
+        }
     }
 }

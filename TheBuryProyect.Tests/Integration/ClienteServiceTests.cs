@@ -101,6 +101,20 @@ public class ClienteServiceTests : IDisposable
         Assert.Equal(10m, cliente.PuntajeRiesgo);
     }
 
+    [Fact]
+    public async Task Create_CuilCuitConGuiones_NormalizaAntesDePersistir()
+    {
+        var cliente = BuildCliente("12345678");
+        cliente.CuilCuit = "20-12345678-6";
+
+        await _service.CreateAsync(cliente);
+
+        Assert.Equal("20123456786", cliente.CuilCuit);
+
+        var bd = await _context.Clientes.AsNoTracking().FirstAsync(c => c.Id == cliente.Id);
+        Assert.Equal("20123456786", bd.CuilCuit);
+    }
+
     [Theory]
     [InlineData(NivelRiesgoCredito.Rechazado, 2)]
     [InlineData(NivelRiesgoCredito.RechazadoRevisar, 4)]
@@ -152,6 +166,62 @@ public class ClienteServiceTests : IDisposable
 
         Assert.Equal("NuevoNombre", resultado.Nombre);
         Assert.Equal(10m, resultado.PuntajeRiesgo); // AprobadoTotal * 2
+    }
+
+    [Fact]
+    public async Task Update_ClienteExistente_ActualizaCuilCuit()
+    {
+        var cliente = await SeedClienteAsync("12345678");
+
+        var actualizado = new Cliente
+        {
+            Id = cliente.Id,
+            Nombre = cliente.Nombre,
+            Apellido = cliente.Apellido,
+            TipoDocumento = cliente.TipoDocumento,
+            NumeroDocumento = cliente.NumeroDocumento,
+            CuilCuit = "20-12345678-6",
+            Email = cliente.Email,
+            NivelRiesgo = cliente.NivelRiesgo,
+            Activo = true
+        };
+
+        var resultado = await _service.UpdateAsync(actualizado);
+
+        Assert.Equal("20123456786", resultado.CuilCuit);
+
+        _context.ChangeTracker.Clear();
+        var bd = await _context.Clientes.AsNoTracking().FirstAsync(c => c.Id == cliente.Id);
+        Assert.Equal("20123456786", bd.CuilCuit);
+    }
+
+    [Fact]
+    public async Task Update_ClienteExistente_PermiteLimpiarCuilCuit()
+    {
+        var cliente = await SeedClienteAsync("12345678");
+        cliente.CuilCuit = "20123456786";
+        await _context.SaveChangesAsync();
+
+        var actualizado = new Cliente
+        {
+            Id = cliente.Id,
+            Nombre = cliente.Nombre,
+            Apellido = cliente.Apellido,
+            TipoDocumento = cliente.TipoDocumento,
+            NumeroDocumento = cliente.NumeroDocumento,
+            CuilCuit = "",
+            Email = cliente.Email,
+            NivelRiesgo = cliente.NivelRiesgo,
+            Activo = true
+        };
+
+        var resultado = await _service.UpdateAsync(actualizado);
+
+        Assert.Null(resultado.CuilCuit);
+
+        _context.ChangeTracker.Clear();
+        var bd = await _context.Clientes.AsNoTracking().FirstAsync(c => c.Id == cliente.Id);
+        Assert.Null(bd.CuilCuit);
     }
 
     [Fact]
