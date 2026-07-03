@@ -4,7 +4,6 @@
     ViewData["Title"] = "Detalle de Crédito";
 
     var cr = Model.Credito;
-    var ev = Model.Evaluacion;
     var cuotas = cr.Cuotas ?? new List<CuotaViewModel>();
     var returnUrl = ViewData["ReturnUrl"] as string;
     var contratoVentaCredito = ViewBag.ContratoVentaCredito as ContratoVentaCreditoResumenViewModel;
@@ -63,30 +62,6 @@
             break;
     }
 
-    string evalCardClass = "is-aut";
-    string evalIcon = "rule";
-    string evalPipClass = "on-warn";
-    if (ev != null)
-    {
-        switch (ev.ColorSemaforo)
-        {
-            case "success":
-                evalCardClass = "is-apto";
-                evalIcon = "verified";
-                evalPipClass = "on-ok";
-                break;
-            case "danger":
-                evalCardClass = "is-no";
-                evalIcon = "block";
-                evalPipClass = "on-bad";
-                break;
-            default:
-                evalCardClass = "is-aut";
-                evalIcon = "warning";
-                evalPipClass = "on-warn";
-                break;
-        }
-    }
 
     string Iniciales(string? nombre)
     {
@@ -311,79 +286,6 @@
                         </div>
                     }
                 </section>
-
-                @if (ev != null)
-                {
-                    <section class="card card-pad">
-                        <h2 class="font-semibold text-white mb-3 flex items-center gap-2"><span class="material-symbols-outlined" style="color:#94a3b8;font-size:20px">fact_check</span>Evaluación crediticia</h2>
-                        <div class="apt-card @evalCardClass">
-                            <div class="apt-ic"><span class="material-symbols-outlined">@evalIcon</span></div>
-                            <div class="flex-1 min-w-0">
-                                <div class="font-semibold text-white">@ev.ResultadoTexto · puntaje @ev.PuntajeFinal.ToString("N0")</div>
-                                <p class="text-sm muted mt-0.5">
-                                    Evaluado el @ev.FechaEvaluacion.ToString("dd/MM/yyyy HH:mm")
-                                    @if (ev.RelacionCuotaIngreso.HasValue)
-                                    {
-                                        <text> · relación cuota/ingreso @ev.RelacionCuotaIngreso.Value.ToString("N1")%</text>
-                                    }
-                                </p>
-                            </div>
-                            <span class="pips">
-                                @for (var i = 1; i <= 5; i++)
-                                {
-                                    <span class="pip @(i <= Math.Ceiling(ev.PuntajeFinal / 20m) ? evalPipClass : "")"></span>
-                                }
-                            </span>
-                        </div>
-                        <dl class="kv mt-4">
-                            <div class="kv-row"><dt>Documentación</dt><dd><span class="chip @(ev.TieneDocumentacionCompleta ? "chip-ok" : "chip-bad")">@(ev.TieneDocumentacionCompleta ? "Completa" : "Pendiente")</span></dd></div>
-                            <div class="kv-row"><dt>Ingresos</dt><dd><span class="chip @(ev.TieneIngresosSuficientes ? "chip-ok" : "chip-bad")">@(ev.TieneIngresosSuficientes ? "Suficientes" : "Insuficientes")</span></dd></div>
-                            <div class="kv-row"><dt>Historial</dt><dd><span class="chip @(ev.TieneBuenHistorial ? "chip-ok" : "chip-bad")">@(ev.TieneBuenHistorial ? "Bueno" : "Revisar")</span></dd></div>
-                            <div class="kv-row"><dt>Garante</dt><dd>@(ev.TieneGarante ? "Informado" : "No requiere / sin garante")</dd></div>
-                            @if (ev.SueldoCliente.HasValue)
-                            {
-                                <div class="kv-row"><dt>Ingreso declarado</dt><dd class="num">$ @ev.SueldoCliente.Value.ToString("N2") / mes</dd></div>
-                            }
-                            <div class="kv-row"><dt>Riesgo cliente</dt><dd>@ev.PuntajeRiesgoCliente.ToString("N0") pts</dd></div>
-                            <div class="kv-row"><dt>Monto evaluado</dt><dd class="num">$ @ev.MontoSolicitado.ToString("N2")</dd></div>
-                        </dl>
-                        @if (ev.Reglas.Any())
-                        {
-                            <div style="border-top:1px solid var(--line);margin-top:1rem;padding-top:1rem">
-                                <div class="text-xs muted-2 font-semibold" style="margin-bottom:.6rem">Reglas evaluadas</div>
-                                <div class="space-y-2">
-                                    @foreach (var regla in ev.Reglas)
-                                    {
-                                        <div class="doc-row">
-                                            <div class="doc-ic"><span class="material-symbols-outlined">@(regla.Cumple ? "check_circle" : regla.EsCritica ? "cancel" : "warning")</span></div>
-                                            <div class="flex-1 min-w-0">
-                                                <div class="text-sm text-white">@regla.Nombre</div>
-                                                @if (!string.IsNullOrEmpty(regla.Detalle))
-                                                {
-                                                    <div class="text-xs muted-2">@regla.Detalle</div>
-                                                }
-                                            </div>
-                                            <span class="chip @(regla.Cumple ? "chip-ok" : regla.EsCritica ? "chip-bad" : "chip-warn")">@((regla.Peso > 0 ? "+" : "") + regla.Peso.ToString("N0")) pts</span>
-                                        </div>
-                                    }
-                                </div>
-                            </div>
-                        }
-                        @if (!string.IsNullOrEmpty(ev.Motivo) || !string.IsNullOrEmpty(ev.Observaciones))
-                        {
-                            <dl class="kv mt-4">
-                                @if (!string.IsNullOrEmpty(ev.Motivo))
-                                {
-                                    <div class="kv-row"><dt>Motivo</dt><dd>@ev.Motivo</dd></div>
-                                }
-                                @if (!string.IsNullOrEmpty(ev.Observaciones))
-                                {
-                                    <div class="kv-row"><dt>Observaciones</dt><dd>@ev.Observaciones</dd></div>
-                                }
-                            </dl>
-                        }
-                    </section>
-                }
             </div>
 
             <aside class="space-y-4">
@@ -394,7 +296,7 @@
                         <div class="min-w-0">
                             <div class="font-medium text-white">@cliente.NombreCompleto</div>
                             <div class="text-xs muted-2 mono">DNI @cliente.NumeroDocumento</div>
-                            <span class="chip @(ev?.ColorSemaforo == "danger" ? "chip-bad" : "chip-ok")" style="margin-top:.4rem"><span class="material-symbols-outlined">verified</span>@(ev?.ResultadoTexto ?? "Sin evaluación")</span>
+                            <span class="chip chip-ok" style="margin-top:.4rem"><span class="material-symbols-outlined">verified</span>Cliente</span>
                         </div>
                     </div>
                     <dl class="kv mt-3">

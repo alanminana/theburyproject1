@@ -24,7 +24,6 @@ public class CreditoControllerSimularPlanVentaTests
 
         var controller = new CreditoController(
             creditoService: null!,
-            evaluacionService: null!,
             financialService: financial,
             configuracionPagoService: null!,
             configuracionMoraService: null!,
@@ -61,7 +60,6 @@ public class CreditoControllerSimularPlanVentaTests
     {
         var controller = new CreditoController(
             creditoService: null!,
-            evaluacionService: null!,
             financialService: new RecordingFinancialCalculationService(),
             configuracionPagoService: new TasaCreditoPersonalConfigService(null),
             configuracionMoraService: null!,
@@ -94,7 +92,6 @@ public class CreditoControllerSimularPlanVentaTests
     {
         var controller = new CreditoController(
             creditoService: null!,
-            evaluacionService: null!,
             financialService: new RecordingFinancialCalculationService(),
             configuracionPagoService: null!,
             configuracionMoraService: null!,
@@ -139,7 +136,6 @@ public class CreditoControllerSimularPlanVentaTests
         var antes = DateTime.Today.AddMonths(1).Date;
         var controller = new CreditoController(
             creditoService: null!,
-            evaluacionService: null!,
             financialService: financial,
             configuracionPagoService: null!,
             configuracionMoraService: null!,
@@ -173,7 +169,6 @@ public class CreditoControllerSimularPlanVentaTests
     {
         var controller = new CreditoController(
             creditoService: null!,
-            evaluacionService: null!,
             financialService: new RecordingFinancialCalculationService(),
             configuracionPagoService: null!,
             configuracionMoraService: null!,
@@ -204,7 +199,6 @@ public class CreditoControllerSimularPlanVentaTests
         var financial = new RecordingFinancialCalculationService();
         var controller = new CreditoController(
             creditoService: null!,
-            evaluacionService: null!,
             financialService: financial,
             configuracionPagoService: new TasaCreditoPersonalConfigService(9m),
             configuracionMoraService: null!,
@@ -234,7 +228,6 @@ public class CreditoControllerSimularPlanVentaTests
         var financial = new RecordingFinancialCalculationService();
         var controller = new CreditoController(
             creditoService: null!,
-            evaluacionService: null!,
             financialService: financial,
             configuracionPagoService: new TasaCreditoPersonalConfigService(8m),
             configuracionMoraService: null!,

@@ -139,7 +139,6 @@ public class CreditoUiQueryServiceTests
         var uiService = new RecordingCreditoUiQueryService();
         var controller = new CreditoController(
             creditoService: creditoService,
-            evaluacionService: null!,
             financialService: null!,
             configuracionPagoService: null!,
             configuracionMoraService: null!,
@@ -172,7 +171,6 @@ public class CreditoUiQueryServiceTests
         credito.Numero = "CR-1";
         var controller = new CreditoController(
             creditoService: new RecordingCreditoService(new List<CreditoViewModel> { credito }),
-            evaluacionService: null!,
             financialService: null!,
             configuracionPagoService: null!,
             configuracionMoraService: null!,

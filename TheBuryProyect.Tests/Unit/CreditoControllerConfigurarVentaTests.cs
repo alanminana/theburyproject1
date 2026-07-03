@@ -298,7 +298,6 @@ public class CreditoControllerConfigurarVentaTests
     {
         var controller = new CreditoController(
             creditoService: creditoService,
-            evaluacionService: null!,
             financialService: null!,
             configuracionPagoService: configuracionPagoService,
             configuracionMoraService: null!,

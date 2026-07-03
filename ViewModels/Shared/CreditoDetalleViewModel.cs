@@ -7,8 +7,6 @@ namespace TheBuryProject.ViewModels
     {
         public CreditoViewModel Credito { get; set; } = new();
 
-        public EvaluacionCreditoViewModel? Evaluacion { get; set; }
-
         public decimal? CupoGlobalDisponible { get; set; }
 
         public string? CupoGlobalOrigenLimite { get; set; }

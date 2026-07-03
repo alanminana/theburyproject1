@@ -131,7 +131,6 @@ builder.Services.AddScoped<IPrecioVigenteResolver, PrecioVigenteResolver>();
 builder.Services.AddScoped<IChequeService, ChequeService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<IMoraService, MoraService>();
-builder.Services.AddScoped<IEvaluacionCreditoService, EvaluacionCreditoService>();
 builder.Services.AddScoped<IDocumentoClienteService, DocumentoClienteService>();
 builder.Services.AddScoped<IAlertaStockService, AlertaStockService>();
 builder.Services.AddScoped<IConfiguracionRentabilidadService, ConfiguracionRentabilidadService>();

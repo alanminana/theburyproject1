@@ -19,7 +19,6 @@ namespace TheBuryProject.Controllers
     public class CreditoController : Controller
     {
         private readonly ICreditoService _creditoService;
-        private readonly IEvaluacionCreditoService _evaluacionService;
         private readonly IConfiguracionPagoService _configuracionPagoService;
         private readonly IConfiguracionMoraService _configuracionMoraService;
         private readonly IVentaService _ventaService;
@@ -44,7 +43,6 @@ namespace TheBuryProject.Controllers
 
         public CreditoController(
             ICreditoService creditoService,
-            IEvaluacionCreditoService evaluacionService,
             IFinancialCalculationService financialService,
             IConfiguracionPagoService configuracionPagoService,
             IConfiguracionMoraService configuracionMoraService,
@@ -62,7 +60,6 @@ namespace TheBuryProject.Controllers
             ICreditoUiQueryService? creditoUiQueryService = null)
         {
             _creditoService = creditoService;
-            _evaluacionService = evaluacionService;
             _configuracionPagoService = configuracionPagoService;
             _configuracionMoraService = configuracionMoraService;
             _ventaService = ventaService;
@@ -165,12 +162,9 @@ namespace TheBuryProject.Controllers
                     return RedirectToAction(nameof(Index));
                 }
 
-                var evaluacion = await _evaluacionService.GetEvaluacionByCreditoIdAsync(id);
-
                 var detalle = new CreditoDetalleViewModel
                 {
-                    Credito = credito,
-                    Evaluacion = evaluacion
+                    Credito = credito
                 };
 
                 try
