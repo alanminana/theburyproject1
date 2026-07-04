@@ -175,7 +175,7 @@
                     </div>
                 </div>
 
-                <div class="flex w-full flex-col gap-3 sm:flex-row xl:w-auto xl:min-w-[15rem] xl:flex-col">
+                <div class="flex w-full flex-col gap-3 sm:flex-row xl:w-auto xl:min-w-60 xl:flex-col">
                     <a asp-action="Index" class="btn-erp-ghost xl:w-full no-underline">
                         Volver a Ventas
                     </a>
@@ -710,7 +710,21 @@
                                 {
                                     <p class="text-[11px] text-slate-400">@Model.UsuarioAutoriza · @Model.FechaAutorizacion?.ToString("dd/MM/yyyy HH:mm")</p>
                                 }
-                                @if (!string.IsNullOrEmpty(Model.MotivoAutorizacion))
+                                @if (Model.TieneExcepcionDocumentalRegistrada)
+                                {
+                                    <div class="mt-2 rounded-md border border-orange-500/30 bg-orange-500/10 p-2">
+                                        <p class="text-[10px] font-bold uppercase tracking-wide text-orange-400 flex items-center gap-1">
+                                            <span class="material-symbols-outlined text-xs">shield_question</span>
+                                            Excepción documental
+                                        </p>
+                                        <p class="text-[11px] text-slate-300 mt-1">@Model.MotivoExcepcionDocumental</p>
+                                        @if (!string.IsNullOrEmpty(Model.UsuarioExcepcionDocumental))
+                                        {
+                                            <p class="text-[10px] text-slate-500 mt-1">@Model.UsuarioExcepcionDocumental@(Model.FechaExcepcionDocumental.HasValue ? $" · {Model.FechaExcepcionDocumental.Value:dd/MM/yyyy HH:mm}" : "")</p>
+                                        }
+                                    </div>
+                                }
+                                else if (!string.IsNullOrEmpty(Model.MotivoAutorizacion))
                                 {
                                     <p class="text-[11px] text-slate-500 mt-1">@Model.MotivoAutorizacion</p>
                                 }
@@ -720,6 +734,10 @@
                                 }
                             </div>
                         </div>
+                        @if (Model.RazonesAutorizacion.Any())
+                        {
+                            <partial name="_VentaRazonesAutorizacion" model="Model.RazonesAutorizacion" />
+                        }
                     </section>
                 }
             </div>
@@ -903,10 +921,10 @@
                         <span class="material-symbols-outlined text-primary">timeline</span>
                         <h2 class="text-white text-xl font-bold">Historial</h2>
                     </div>
-                    <div class="relative pl-6 space-y-6 before:absolute before:left-[9px] before:top-1 before:bottom-1 before:w-px before:bg-slate-700">
+                    <div class="relative pl-6 space-y-6 before:absolute before:left-2.25 before:top-1 before:bottom-1 before:w-px before:bg-slate-700">
                         @* Created *@
                         <div class="relative flex items-start gap-3">
-                            <div class="absolute -left-6 top-0.5 size-[18px] rounded-full bg-primary border-2 border-slate-900 z-10"></div>
+                            <div class="absolute -left-6 top-0.5 size-4.5 rounded-full bg-primary border-2 border-slate-900 z-10"></div>
                             <div>
                                 <p class="text-xs font-bold text-white">Venta creada</p>
                                 <p class="text-[11px] text-slate-400">@Model.CreatedAt.ToString("dd/MM/yyyy HH:mm")</p>
@@ -917,7 +935,7 @@
                         @if (Model.FechaConfirmacion.HasValue)
                         {
                             <div class="relative flex items-start gap-3">
-                                <div class="absolute -left-6 top-0.5 size-[18px] rounded-full bg-primary border-2 border-slate-900 z-10"></div>
+                                <div class="absolute -left-6 top-0.5 size-4.5 rounded-full bg-primary border-2 border-slate-900 z-10"></div>
                                 <div>
                                     <p class="text-xs font-bold text-white">Venta confirmada</p>
                                     <p class="text-[11px] text-slate-400">@Model.FechaConfirmacion.Value.ToString("dd/MM/yyyy HH:mm")</p>
@@ -929,7 +947,7 @@
                         @if (Model.FechaConfiguracionCredito.HasValue)
                         {
                             <div class="relative flex items-start gap-3">
-                                <div class="absolute -left-6 top-0.5 size-[18px] rounded-full bg-blue-500 border-2 border-slate-900 z-10"></div>
+                                <div class="absolute -left-6 top-0.5 size-4.5 rounded-full bg-blue-500 border-2 border-slate-900 z-10"></div>
                                 <div>
                                     <p class="text-xs font-bold text-white">Crédito configurado</p>
                                     <p class="text-[11px] text-slate-400">@Model.FechaConfiguracionCredito.Value.ToString("dd/MM/yyyy HH:mm")</p>
@@ -941,7 +959,7 @@
                         @if (Model.FechaFacturacion.HasValue)
                         {
                             <div class="relative flex items-start gap-3">
-                                <div class="absolute -left-6 top-0.5 size-[18px] rounded-full bg-green-500 border-2 border-slate-900 z-10"></div>
+                                <div class="absolute -left-6 top-0.5 size-4.5 rounded-full bg-green-500 border-2 border-slate-900 z-10"></div>
                                 <div>
                                     <p class="text-xs font-bold text-white">Facturada</p>
                                     <p class="text-[11px] text-slate-400">@Model.FechaFacturacion.Value.ToString("dd/MM/yyyy HH:mm")</p>
@@ -957,7 +975,7 @@
                         @if (Model.FechaEntrega.HasValue)
                         {
                             <div class="relative flex items-start gap-3">
-                                <div class="absolute -left-6 top-0.5 size-[18px] rounded-full bg-emerald-500 border-2 border-slate-900 z-10"></div>
+                                <div class="absolute -left-6 top-0.5 size-4.5 rounded-full bg-emerald-500 border-2 border-slate-900 z-10"></div>
                                 <div>
                                     <p class="text-xs font-bold text-white">Entregada</p>
                                     <p class="text-[11px] text-slate-400">@Model.FechaEntrega.Value.ToString("dd/MM/yyyy HH:mm")</p>
@@ -969,7 +987,7 @@
                         @if (Model.FechaCancelacion.HasValue)
                         {
                             <div class="relative flex items-start gap-3">
-                                <div class="absolute -left-6 top-0.5 size-[18px] rounded-full bg-red-500 border-2 border-slate-900 z-10"></div>
+                                <div class="absolute -left-6 top-0.5 size-4.5 rounded-full bg-red-500 border-2 border-slate-900 z-10"></div>
                                 <div>
                                     <p class="text-xs font-bold text-red-500">Cancelada</p>
                                     <p class="text-[11px] text-slate-400">@Model.FechaCancelacion.Value.ToString("dd/MM/yyyy HH:mm")</p>
@@ -985,7 +1003,7 @@
                         @if (Model.Estado != EstadoVenta.Cancelada && Model.Estado != EstadoVenta.Entregada)
                         {
                             <div class="relative flex items-start gap-3">
-                                <div class="absolute -left-6 top-0.5 size-[18px] rounded-full bg-slate-700 border-2 border-slate-900 z-10 animate-pulse"></div>
+                                <div class="absolute -left-6 top-0.5 size-4.5 rounded-full bg-slate-700 border-2 border-slate-900 z-10 animate-pulse"></div>
                                 <div>
                                     <p class="text-xs text-slate-400 italic">
                                         @(Model.Estado switch

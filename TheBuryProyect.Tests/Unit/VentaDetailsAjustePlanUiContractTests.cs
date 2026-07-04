@@ -553,6 +553,42 @@ public class VentaDetailsAjustePlanUiContractTests
         Assert.Contains(vm.GruposPagoPorItem, g => g.TipoPagoLabel == "Tarjeta Débito"  && g.AjusteMonto == -10m);
     }
 
+    // ── Excepción documental: trazabilidad en Details ──────────────────
+
+    [Fact]
+    public void DetailsView_MuestraJustificacionExcepcionDocumental_ConPropiedadesParseadas()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Details_tw.cshtml"));
+
+        // La justificación de la excepción documental se muestra desde las propiedades
+        // ya parseadas del ViewModel, no imprimiendo la traza cruda EXCEPCION_DOC|...
+        Assert.Contains("Model.TieneExcepcionDocumentalRegistrada", view);
+        Assert.Contains("Model.MotivoExcepcionDocumental", view);
+        Assert.Contains("Model.UsuarioExcepcionDocumental", view);
+        Assert.Contains("Excepción documental", view);
+    }
+
+    [Fact]
+    public void DetailsView_RenderizaRazonesAutorizacionEstructuradas()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Details_tw.cshtml"));
+
+        // La justificación ingresada al crear la venta (RazonAutorizacion.DetalleAdicional,
+        // persistida en RazonesAutorizacionJson) se refleja vía el partial compartido.
+        Assert.Contains("_VentaRazonesAutorizacion", view);
+        Assert.Contains("Model.RazonesAutorizacion", view);
+    }
+
+    [Fact]
+    public void DetailsView_NoImprimeTrazaCrudaCuandoHayExcepcion()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Details_tw.cshtml"));
+
+        // El MotivoAutorizacion crudo solo se imprime en la rama else (sin excepción
+        // registrada), evitando exponer la traza EXCEPCION_DOC|fecha|usuario|motivo.
+        Assert.Contains("else if (!string.IsNullOrEmpty(Model.MotivoAutorizacion))", view);
+    }
+
     // ── Helpers ─────────────────────────────────────────────────────────
 
     private static Factura BuildFacturaConDetallesPorItem(
