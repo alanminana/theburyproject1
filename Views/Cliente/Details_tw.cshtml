@@ -104,6 +104,17 @@
 
     string Dash(string? value) => string.IsNullOrWhiteSpace(value) ? "-" : value;
 
+    // Los AptitudDetalleItem traen iconos Bootstrap (bi-*) que esta vista _tw no usa;
+    // se mapea la categoria a un icono material-symbols equivalente.
+    string MotivoIcon(string categoria) => categoria switch
+    {
+        "Documentación" => "folder_off",
+        "Cupo" => "account_balance_wallet",
+        "Mora" => "schedule",
+        "BCRA" => "account_balance",
+        _ => "info"
+    };
+
     string DocumentoChip(DocumentoClienteViewModel doc) => doc.Estado switch
     {
         EstadoDocumento.Verificado => "chip-ok",
@@ -346,6 +357,39 @@ else
                 @if (apt?.Mora?.MensajeUmbralDias != null)
                 {
                     <div class="text-xs muted-2 mt-2">@apt.Mora.MensajeUmbralDias</div>
+                }
+
+                @if (apt?.Detalles != null && apt.Detalles.Any())
+                {
+                    <div class="mt-4 pt-4" style="border-top:1px solid rgba(255,255,255,.07)">
+                        <div class="text-xs muted-2 font-semibold uppercase" style="letter-spacing:.04em">Motivos de aptitud crediticia</div>
+                        <ul class="mt-2 space-y-2">
+                            @foreach (var d in apt.Detalles)
+                            {
+                                var esBloq = d.EsBloqueo;
+                                <li class="flex items-start gap-2">
+                                    <span class="material-symbols-outlined shrink-0" style="font-size:18px;color:@(esBloq ? "#f87171" : "#f5b21a")">@MotivoIcon(d.Categoria)</span>
+                                    <div class="min-w-0 flex-1">
+                                        <div class="flex items-center gap-2 flex-wrap">
+                                            <span class="text-sm text-white break-words">@d.Descripcion</span>
+                                            <span class="chip @(esBloq ? "chip-bad" : "chip-warn") shrink-0">@(esBloq ? "Bloqueante" : "Requiere autorizacion")</span>
+                                        </div>
+                                        <div class="text-xs muted-2">@d.Categoria</div>
+                                    </div>
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                }
+                else if (esApto)
+                {
+                    <div class="mt-4 pt-4" style="border-top:1px solid rgba(255,255,255,.07)">
+                        <div class="text-xs muted-2 font-semibold uppercase" style="letter-spacing:.04em">Motivos de aptitud crediticia</div>
+                        <div class="flex items-center gap-2 mt-2 text-sm muted">
+                            <span class="material-symbols-outlined shrink-0" style="font-size:18px;color:#34d399">check_circle</span>
+                            <span>Sin observaciones. Cliente apto para operar a credito@(tieneNivelManual ? " (puntaje asignado manualmente)" : "").</span>
+                        </div>
+                    </div>
                 }
 
                 <div class="mt-4 pt-4" style="border-top:1px solid rgba(255,255,255,.07)">
