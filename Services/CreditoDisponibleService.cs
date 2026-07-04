@@ -72,7 +72,7 @@ namespace TheBuryProject.Services
 
             var nivelAutomatico = cliente.PuntajeCliente;
             var nivelManual = config?.NivelCreditoManual;
-            var nivelFinal = nivelManual ?? nivelAutomatico;
+            var nivelFinal = PuntajeCreditoEfectivo.Resolver(nivelAutomatico, nivelManual);
 
             decimal limite;
             string origenLimite;
@@ -124,7 +124,7 @@ namespace TheBuryProject.Services
                 NivelCreditoAutomatico = nivelAutomatico,
                 NivelCreditoManual = nivelManual,
                 NivelCreditoFinal = nivelFinal,
-                FuenteNivelCredito = nivelManual.HasValue ? "Manual" : "Automatico",
+                FuenteNivelCredito = PuntajeCreditoEfectivo.Fuente(nivelManual),
                 MotivoNivelCreditoManual = config?.MotivoNivelCreditoManual,
                 NivelCreditoManualAsignadoPor = config?.NivelCreditoManualAsignadoPor,
                 NivelCreditoManualAsignadoEnUtc = config?.NivelCreditoManualAsignadoEnUtc,

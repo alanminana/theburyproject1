@@ -1,3 +1,5 @@
+using TheBuryProject.Services;
+
 namespace TheBuryProject.ViewModels
 {
     /// <summary>
@@ -9,7 +11,13 @@ namespace TheBuryProject.ViewModels
         public int GaranteClienteId { get; set; }
         public string NombreCompleto { get; set; } = string.Empty;
         public string NumeroDocumento { get; set; } = string.Empty;
+
+        /// <summary>Puntaje EFECTIVO del garante (manual si hay override, si no el automático). Es el que decide la validez.</summary>
         public int PuntajeCliente { get; set; }
+
+        /// <summary>Origen del puntaje efectivo: "Manual" o "Automatico".</summary>
+        public string FuentePuntaje { get; set; } = PuntajeCreditoEfectivo.FuenteAutomatico;
+
         public bool ClienteActivo { get; set; }
         public bool TieneCompras { get; set; }
         public int CantidadGarantiasActivas { get; set; }

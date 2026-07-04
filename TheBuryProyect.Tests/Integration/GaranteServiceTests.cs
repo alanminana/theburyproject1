@@ -87,6 +87,18 @@ public class GaranteServiceTests : IDisposable
         await _context.SaveChangesAsync();
     }
 
+    /// <summary>Asigna un override manual de puntaje interno (0–5) al cliente.</summary>
+    private async Task SeedNivelManualAsync(int clienteId, int nivel)
+    {
+        _context.ClientesCreditoConfiguraciones.Add(new ClienteCreditoConfiguracion
+        {
+            ClienteId = clienteId,
+            NivelCreditoManual = nivel,
+            MotivoNivelCreditoManual = "Override manual de prueba"
+        });
+        await _context.SaveChangesAsync();
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // Test 1 — Garante no puede ser el mismo cliente
     // ─────────────────────────────────────────────────────────────────────────
@@ -268,5 +280,101 @@ public class GaranteServiceTests : IDisposable
         // El cliente apunta al registro
         var clienteDb = await _context.Clientes.FindAsync(cliente.Id);
         Assert.Equal(registro.Id, clienteDb!.GaranteId);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Test 11 — Puntaje EFECTIVO: automático bajo pero override manual suficiente ⇒ válido
+    // (Criterio de aceptación 1: automático 1 + manual 4 debe evaluarse como 4)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Validar_GaranteAutomaticoBajoPeroManualSuficiente_EsValido()
+    {
+        var cliente = await SeedClienteAsync();
+        var garante = await SeedClienteAsync(activo: true, puntaje: 1, compras: 2);
+        await SeedNivelManualAsync(garante.Id, 4);
+
+        var (ok, errores) = await _service.ValidarGaranteAsync(cliente.Id, garante.Id);
+
+        Assert.True(ok, string.Join(" ", errores));
+        Assert.Empty(errores);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Test 12 — Puntaje EFECTIVO: el override manual también manda hacia abajo
+    // (automático alto pero manual insuficiente ⇒ rechazado)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Validar_GaranteAutomaticoAltoPeroManualInsuficiente_RetornaError()
+    {
+        var cliente = await SeedClienteAsync();
+        var garante = await SeedClienteAsync(activo: true, puntaje: 5, compras: 2);
+        await SeedNivelManualAsync(garante.Id, 2);
+
+        var (ok, errores) = await _service.ValidarGaranteAsync(cliente.Id, garante.Id);
+
+        Assert.False(ok);
+        Assert.Contains(errores, e => e.Contains("puntaje 2", StringComparison.OrdinalIgnoreCase));
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Test 13 — ObtenerInfoGarante usa el puntaje efectivo y expone la fuente
+    // ─────────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task ObtenerInfoGarante_ConManualSuficiente_EsValidoYFuenteManual()
+    {
+        var cliente = await SeedClienteAsync();
+        var garante = await SeedClienteAsync(activo: true, puntaje: 1, compras: 2);
+        await SeedNivelManualAsync(garante.Id, 4);
+
+        var (ok, error) = await _service.AsignarGaranteAsync(cliente.Id, garante.Id, null, "testuser");
+        Assert.True(ok, error);
+
+        var info = await _service.ObtenerInfoGaranteAsync(cliente.Id);
+
+        Assert.NotNull(info);
+        Assert.True(info!.EsValido);
+        Assert.Equal(4, info.PuntajeCliente);
+        Assert.Equal("Manual", info.FuentePuntaje);
+        Assert.Empty(info.MotivosInvalidez);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Test 14 — BuscarCandidatos devuelve el puntaje efectivo (manual) y su fuente
+    // ─────────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task BuscarCandidatos_ConManual_DevuelvePuntajeEfectivoYFuente()
+    {
+        var cliente = await SeedClienteAsync();
+        var candidato = await SeedClienteAsync(activo: true, puntaje: 1, compras: 2);
+        await SeedNivelManualAsync(candidato.Id, 4);
+
+        var candidatos = await _service.BuscarCandidatosAsync("Cliente", cliente.Id);
+        var dto = candidatos.FirstOrDefault(x => x.ClienteId == candidato.Id);
+
+        Assert.NotNull(dto);
+        Assert.Equal(4, dto!.PuntajeCliente);
+        Assert.Equal("Manual", dto.FuentePuntaje);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Test 15 — BuscarCandidatos sin override: puntaje automático y fuente Automatico
+    // ─────────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task BuscarCandidatos_SinManual_DevuelveAutomatico()
+    {
+        var cliente = await SeedClienteAsync();
+        var candidato = await SeedClienteAsync(activo: true, puntaje: 3, compras: 2);
+
+        var candidatos = await _service.BuscarCandidatosAsync("Cliente", cliente.Id);
+        var dto = candidatos.FirstOrDefault(x => x.ClienteId == candidato.Id);
+
+        Assert.NotNull(dto);
+        Assert.Equal(3, dto!.PuntajeCliente);
+        Assert.Equal("Automatico", dto.FuentePuntaje);
     }
 }

@@ -51,8 +51,12 @@ namespace TheBuryProject.Services
             if (garante.CantidadComprasCliente == 0)
                 errores.Add("El garante nunca realizó compras en el sistema.");
 
-            if (garante.PuntajeCliente < PuntajeMinimoGarante)
-                errores.Add($"El garante tiene puntaje {garante.PuntajeCliente} (mínimo requerido: {PuntajeMinimoGarante}).");
+            // La elegibilidad se decide por el puntaje EFECTIVO (manual si hay override, si no el automático).
+            var nivelManual = await ObtenerNivelCreditoManualAsync(garanteClienteId);
+            var puntajeEfectivo = PuntajeCreditoEfectivo.Resolver(garante.PuntajeCliente, nivelManual);
+
+            if (puntajeEfectivo < PuntajeMinimoGarante)
+                errores.Add($"El garante tiene puntaje {puntajeEfectivo} (mínimo requerido: {PuntajeMinimoGarante}).");
 
             var garantiasActivas = await _context.Garantes
                 .CountAsync(g => g.GaranteClienteId == garanteClienteId && !g.IsDeleted);
@@ -182,6 +186,10 @@ namespace TheBuryProject.Services
                 .AsNoTracking()
                 .CountAsync(r => r.GaranteClienteId == gc.Id && !r.IsDeleted);
 
+            // Puntaje EFECTIVO del garante (manual si hay override, si no el automático).
+            var nivelManual = await ObtenerNivelCreditoManualAsync(gc.Id);
+            var puntajeEfectivo = PuntajeCreditoEfectivo.Resolver(gc.PuntajeCliente, nivelManual);
+
             var motivosInvalidez = new List<string>();
 
             if (!gc.Activo)
@@ -190,8 +198,8 @@ namespace TheBuryProject.Services
             if (gc.CantidadComprasCliente == 0)
                 motivosInvalidez.Add("Sin compras previas.");
 
-            if (gc.PuntajeCliente < PuntajeMinimoGarante)
-                motivosInvalidez.Add($"Puntaje insuficiente ({gc.PuntajeCliente}/{PuntajeMinimoGarante}).");
+            if (puntajeEfectivo < PuntajeMinimoGarante)
+                motivosInvalidez.Add($"Puntaje insuficiente ({puntajeEfectivo}/{PuntajeMinimoGarante}).");
 
             if (garantiasActivas > MaxGarantiasActivas)
                 motivosInvalidez.Add($"Garantiza {garantiasActivas} clientes (máx. {MaxGarantiasActivas}).");
@@ -206,7 +214,8 @@ namespace TheBuryProject.Services
                 GaranteClienteId = gc.Id,
                 NombreCompleto = nombre,
                 NumeroDocumento = gc.NumeroDocumento,
-                PuntajeCliente = gc.PuntajeCliente,
+                PuntajeCliente = puntajeEfectivo,
+                FuentePuntaje = PuntajeCreditoEfectivo.Fuente(nivelManual),
                 ClienteActivo = gc.Activo,
                 TieneCompras = gc.CantidadComprasCliente > 0,
                 CantidadGarantiasActivas = garantiasActivas,
@@ -215,6 +224,19 @@ namespace TheBuryProject.Services
                 EsValido = motivosInvalidez.Count == 0,
                 MotivosInvalidez = motivosInvalidez
             };
+        }
+
+        // ─────────────────────────────────────────────────────────────────────
+        // Puntaje efectivo (override manual del puntaje interno, si existe)
+        // ─────────────────────────────────────────────────────────────────────
+
+        private async Task<int?> ObtenerNivelCreditoManualAsync(int clienteId)
+        {
+            return await _context.ClientesCreditoConfiguraciones
+                .AsNoTracking()
+                .Where(cfg => cfg.ClienteId == clienteId)
+                .Select(cfg => cfg.NivelCreditoManual)
+                .FirstOrDefaultAsync();
         }
 
         // ─────────────────────────────────────────────────────────────────────
@@ -268,20 +290,31 @@ namespace TheBuryProject.Services
                 .Select(grp => new { ClienteId = grp.Key, Count = grp.Count() })
                 .ToDictionaryAsync(x => x.ClienteId, x => x.Count);
 
+            // Override manual de puntaje por cliente en batch (para el puntaje efectivo).
+            var nivelesManuales = await _context.ClientesCreditoConfiguraciones
+                .AsNoTracking()
+                .Where(cfg => ids.Contains(cfg.ClienteId) && cfg.NivelCreditoManual != null)
+                .Select(cfg => new { cfg.ClienteId, cfg.NivelCreditoManual })
+                .ToListAsync();
+            var nivelManualPorCliente = nivelesManuales.ToDictionary(x => x.ClienteId, x => x.NivelCreditoManual);
+
             return clientes.Select(c =>
             {
                 var nombre = !string.IsNullOrWhiteSpace(c.NombreCompleto)
                     ? c.NombreCompleto
                     : $"{c.Apellido}, {c.Nombre}";
                 garantiasPorCliente.TryGetValue(c.Id, out var garantias);
+                var nivelManual = nivelManualPorCliente.TryGetValue(c.Id, out var nm) ? nm : null;
+                var puntajeEfectivo = PuntajeCreditoEfectivo.Resolver(c.PuntajeCliente, nivelManual);
                 return new GaranteCandidatoDto(
                     c.Id,
                     nombre,
                     c.NumeroDocumento,
-                    c.PuntajeCliente,
+                    puntajeEfectivo,
                     c.Activo,
                     c.CantidadComprasCliente,
-                    garantias);
+                    garantias,
+                    PuntajeCreditoEfectivo.Fuente(nivelManual));
             }).ToList();
         }
     }

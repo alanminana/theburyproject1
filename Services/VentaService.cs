@@ -362,7 +362,7 @@ namespace TheBuryProject.Services
 
             // Eje único: el cupo lo gobierna el puntaje interno de comportamiento (0–5),
             // con override manual opcional. Snapshot del puntaje que definió el cupo al momento de la venta.
-            var nivelFinal = config?.NivelCreditoManual ?? cliente.PuntajeCliente;
+            var nivelFinal = PuntajeCreditoEfectivo.Resolver(cliente.PuntajeCliente, config?.NivelCreditoManual);
             venta.PuntajeAlMomento = nivelFinal;
 
             PuntajeCreditoLimite? preset = null;

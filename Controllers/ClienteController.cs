@@ -846,6 +846,7 @@ namespace TheBuryProject.Controllers
                 nombreCompleto = c.NombreCompleto,
                 numeroDocumento = c.NumeroDocumento,
                 puntajeCliente = c.PuntajeCliente,
+                fuentePuntaje = c.FuentePuntaje,
                 activo = c.Activo,
                 cantidadCompras = c.CantidadCompras,
                 garantiasActivas = c.GarantiasActivas,

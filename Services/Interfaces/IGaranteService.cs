@@ -37,6 +37,10 @@ namespace TheBuryProject.Services.Interfaces
         Task<List<GaranteCandidatoDto>> BuscarCandidatosAsync(string query, int clienteIdExcluir, int maxResultados = 10);
     }
 
+    /// <summary>
+    /// Candidato a garante. <see cref="PuntajeCliente"/> es el puntaje EFECTIVO
+    /// (manual si hay override, si no el automático), que es el que gobierna la elegibilidad.
+    /// </summary>
     public record GaranteCandidatoDto(
         int ClienteId,
         string NombreCompleto,
@@ -44,5 +48,6 @@ namespace TheBuryProject.Services.Interfaces
         int PuntajeCliente,
         bool Activo,
         int CantidadCompras,
-        int GarantiasActivas);
+        int GarantiasActivas,
+        string FuentePuntaje);
 }
