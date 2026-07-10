@@ -11,6 +11,7 @@ public class CreditoPersonalConfigViewModel
     public List<PerfilCreditoViewModel>? Perfiles { get; set; }
     public ScoringThresholdsViewModel? ScoringThresholds { get; set; }
     public SemaforoFinancieroViewModel? SemaforoFinanciero { get; set; }
+    public List<ClienteCreditoLimiteItemViewModel> LimitesPorPuntaje { get; set; } = new();
     public List<MontoPorPuntajeCreditoViewModel> MontosPorPuntaje { get; set; } = new();
 }
 

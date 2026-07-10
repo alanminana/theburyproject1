@@ -4,30 +4,6 @@ using TheBuryProject.Models.Enums;
 namespace TheBuryProject.ViewModels;
 
 /// <summary>
-/// ViewModel para lista de precios
-/// </summary>
-public class ListaPrecioViewModel
-{
-    public int Id { get; set; }
-    public byte[]? RowVersion { get; set; }
-    public string Nombre { get; set; } = string.Empty;
-    public string Codigo { get; set; } = string.Empty;
-    public TipoListaPrecio Tipo { get; set; }
-    public string TipoDisplay { get; set; } = string.Empty;
-    public string? Descripcion { get; set; }
-    public decimal? MargenPorcentaje { get; set; }
-    public decimal? RecargoPorcentaje { get; set; }
-    public decimal? MargenMinimoPorcentaje { get; set; }
-    public int? CantidadCuotas { get; set; }
-    public string? ReglaRedondeo { get; set; }
-    public string? ReglasJson { get; set; }
-    public string? Notas { get; set; }
-    public bool Activa { get; set; }
-    public bool EsPredeterminada { get; set; }
-    public int CantidadProductos { get; set; }
-}
-
-/// <summary>
 /// ViewModel para crear lista de precios
 /// </summary>
 public class CrearListaPrecioViewModel
@@ -82,37 +58,6 @@ public class CrearListaPrecioViewModel
 
     [Display(Name = "Predeterminada")]
     public bool EsPredeterminada { get; set; } = false;
-}
-
-/// <summary>
-/// ViewModel para editar lista de precios
-/// </summary>
-public class EditarListaPrecioViewModel : CrearListaPrecioViewModel
-{
-    [Required]
-    public int Id { get; set; }
-
-    [Required]
-    public byte[] RowVersion { get; set; } = default!;
-}
-
-/// <summary>
-/// ViewModel para mostrar precio de un producto
-/// </summary>
-public class ProductoPrecioViewModel
-{
-    public int ProductoId { get; set; }
-    public string ProductoCodigo { get; set; } = string.Empty;
-    public string ProductoNombre { get; set; } = string.Empty;
-    public string ListaNombre { get; set; } = string.Empty;
-    public decimal Costo { get; set; }
-    public decimal Precio { get; set; }
-    public decimal MargenPorcentaje { get; set; }
-    public decimal MargenValor { get; set; }
-    public DateTime VigenciaDesde { get; set; }
-    public DateTime? VigenciaHasta { get; set; }
-    public bool EsVigente { get; set; }
-    public bool EsManual { get; set; }
 }
 
 /// <summary>

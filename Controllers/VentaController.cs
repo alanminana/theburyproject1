@@ -857,6 +857,9 @@ namespace TheBuryProject.Controllers
                     var puedeAplicarExcepcionDocumental = usuarioActual.TienePermiso(ModuloVentas, AccionAutorizar);
                     var excepcionDocumentalRegistrada = !string.IsNullOrWhiteSpace(venta.MotivoAutorizacion)
                         && venta.MotivoAutorizacion.Contains("EXCEPCION_DOC|", StringComparison.Ordinal);
+                    var autorizacionFormalDocumental = venta.RequiereAutorizacion
+                        && venta.EstadoAutorizacion == EstadoAutorizacionVenta.Autorizada
+                        && venta.RazonesAutorizacion.Any(r => r.Tipo == TipoRazonAutorizacion.DocumentacionVencida);
                     var soloDocumentacionFaltante = validacionConfirmacion.RequisitosPendientes.Any()
                         && validacionConfirmacion.RequisitosPendientes.All(r =>
                             r.Tipo == TipoRequisitoPendiente.DocumentacionFaltante);
@@ -893,14 +896,14 @@ namespace TheBuryProject.Controllers
                             usuarioAutoriza,
                             motivoNormalizado);
                     }
-                    else if (excepcionDocumentalRegistrada && soloDocumentacionFaltante)
+                    else if ((excepcionDocumentalRegistrada || autorizacionFormalDocumental) && soloDocumentacionFaltante)
                     {
                         validacionConfirmacion.NoViable = false;
                         validacionConfirmacion.PendienteRequisitos = false;
                         excepcionDocumentalAplicada = true;
 
                         _logger.LogInformation(
-                            "Confirmar(POST) venta {Id}: se reutiliza excepción documental registrada previamente.",
+                            "Confirmar(POST) venta {Id}: se reutiliza excepción documental ya autorizada (traza de confirmación o autorización formal de creación).",
                             id);
                     }
 

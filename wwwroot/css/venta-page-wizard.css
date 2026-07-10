@@ -6,21 +6,30 @@
     --venta-wizard-border-strong: rgba(56, 189, 248, 0.34);
     --venta-wizard-text: #f8fafc;
     --venta-wizard-muted: #94a3b8;
-    --venta-wizard-accent: #22c55e;
+    --venta-wizard-accent: #f5c518;
+    --venta-wizard-accent-hover: #ffd435;
+    --venta-wizard-accent-active: #e0b40f;
     --venta-wizard-accent-2: #38bdf8;
+    --venta-wizard-success: #22c55e;
 }
+
+/* ══════════════════════════════════════════════════════════════
+   CREATE / EDIT — shell
+   ══════════════════════════════════════════════════════════════ */
 
 #venta-create-page,
 #venta-edit-page {
     max-width: 1400px;
+    margin-inline: auto;
     color: var(--venta-wizard-text);
 }
 
+/* ══════════════════════════════════════════════════════════════
+   HERO
+   ══════════════════════════════════════════════════════════════ */
+
 #venta-create-page .hero-erp,
 #venta-edit-page .venta-hero-section {
-    position: sticky;
-    top: 0;
-    z-index: 30;
     border: 1px solid var(--venta-wizard-border);
     border-radius: 20px;
     background:
@@ -28,7 +37,15 @@
         radial-gradient(circle at top left, rgba(56, 189, 248, 0.12), transparent 38%);
     box-shadow: 0 20px 55px rgba(0, 0, 0, 0.28);
     backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     padding: 1rem;
+    overflow: visible;
+}
+
+#venta-edit-page .venta-hero-section {
+    position: sticky;
+    top: 0;
+    z-index: 30;
 }
 
 #venta-create-page .hero-erp {
@@ -37,63 +54,82 @@
     z-index: auto;
 }
 
-.venta-hero-section {
+#venta-create-page .venta-hero-section,
+#venta-edit-page .venta-hero-section {
     margin-bottom: 1.25rem;
 }
 
-.venta-hero-metrics,
-.venta-edit-hero-metrics {
+/* ══════════════════════════════════════════════════════════════
+   HERO METRICS
+   ══════════════════════════════════════════════════════════════ */
+
+#venta-create-page .venta-hero-metrics,
+#venta-edit-page .venta-hero-metrics,
+#venta-create-page .venta-edit-hero-metrics,
+#venta-edit-page .venta-edit-hero-metrics {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 0.75rem;
 }
 
-.venta-hero-metric,
-.card,
-.card-sub,
-.venta-section,
-#venta-edit-page .lg\:col-span-2 > section:not(.vm-totals),
+#venta-create-page .venta-hero-metric,
+#venta-edit-page .venta-hero-metric,
+#venta-create-page .venta-edit-hero-metrics>*,
+#venta-edit-page .venta-edit-hero-metrics>* {
+    border: 1px solid var(--venta-wizard-border);
+    border-radius: 18px;
+    background: var(--venta-wizard-card);
+    box-shadow: 0 16px 44px rgba(0, 0, 0, 0.18);
+    padding: 0.95rem;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   CARDS / SECTIONS
+   ══════════════════════════════════════════════════════════════ */
+
+#venta-create-page .card,
+#venta-edit-page .card,
+#venta-create-page .card-sub,
+#venta-edit-page .card-sub,
+#venta-create-page .venta-section,
+#venta-edit-page .venta-section,
+#venta-edit-page .lg\:col-span-2>section:not(.vm-totals),
 #venta-edit-page #seccion-detalle-cobro,
 #venta-edit-page #seccion-verificacion-crediticia {
     border: 1px solid var(--venta-wizard-border);
     border-radius: 18px;
     background: var(--venta-wizard-card);
     box-shadow: 0 16px 44px rgba(0, 0, 0, 0.18);
+    overflow: visible;
 }
 
-.venta-hero-metric,
-.card-sub {
+#venta-create-page .card-sub,
+#venta-edit-page .card-sub {
     padding: 0.95rem;
 }
 
-.venta-section,
-#venta-edit-page .lg\:col-span-2 > section:not(.vm-totals),
+#venta-create-page .venta-section,
+#venta-edit-page .venta-section,
+#venta-edit-page .lg\:col-span-2>section:not(.vm-totals),
 #venta-edit-page #seccion-detalle-cobro,
 #venta-edit-page #seccion-verificacion-crediticia {
     padding: 1.25rem;
 }
 
-.field,
-.venta-input,
-.venta-select,
-#venta-create-page input[type="text"],
-#venta-create-page input[type="number"],
-#venta-create-page input[type="date"],
-#venta-create-page select,
-#venta-create-page textarea,
-#venta-edit-page input[type="text"],
-#venta-edit-page input[type="number"],
-#venta-edit-page input[type="date"],
-#venta-edit-page select,
-#venta-edit-page textarea {
-    min-height: 2.65rem;
-    border-color: rgba(148, 163, 184, 0.22);
-    background-color: rgba(15, 23, 42, 0.82);
-    color: #f8fafc;
+/* ══════════════════════════════════════════════════════════════
+   FIELDS
+   ══════════════════════════════════════════════════════════════ */
+
+#venta-create-page .field,
+#venta-edit-page .field {
+    display: grid;
+    gap: 0.4rem;
 }
 
-.label,
-.venta-label {
+#venta-create-page .label,
+#venta-edit-page .label,
+#venta-create-page .venta-label,
+#venta-edit-page .venta-label {
     display: block;
     margin-bottom: 0.45rem;
     color: #aab7c8;
@@ -103,25 +139,133 @@
     text-transform: uppercase;
 }
 
-.btn,
-.btn-erp-ghost,
-.vm-btn-confirm-sm,
-.step-btn,
-.vm-step-tab {
-    min-height: 2.55rem;
+#venta-create-page .venta-input,
+#venta-edit-page .venta-input,
+#venta-create-page .venta-select,
+#venta-edit-page .venta-select,
+#venta-create-page input[type="text"],
+#venta-create-page input[type="number"],
+#venta-create-page input[type="date"],
+#venta-create-page input[type="email"],
+#venta-create-page input[type="tel"],
+#venta-create-page select,
+#venta-create-page textarea,
+#venta-edit-page input[type="text"],
+#venta-edit-page input[type="number"],
+#venta-edit-page input[type="date"],
+#venta-edit-page input[type="email"],
+#venta-edit-page input[type="tel"],
+#venta-edit-page select,
+#venta-edit-page textarea {
+    width: 100%;
+    min-height: 2.65rem;
+    border: 1px solid rgba(148, 163, 184, 0.22);
     border-radius: 12px;
-    transition: transform 160ms ease, border-color 160ms ease, background 160ms ease, color 160ms ease;
+    background-color: rgba(15, 23, 42, 0.82);
+    color: #f8fafc;
+    padding: 0.6rem 0.8rem;
+    font-size: 0.9rem;
+    transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
 }
 
-.btn:active,
-.btn-erp-ghost:active,
-.vm-btn-confirm-sm:active,
-.step-btn:active,
-.vm-step-tab:active {
+#venta-create-page input::placeholder,
+#venta-create-page textarea::placeholder,
+#venta-edit-page input::placeholder,
+#venta-edit-page textarea::placeholder {
+    color: #64748b;
+}
+
+#venta-create-page input:hover,
+#venta-create-page select:hover,
+#venta-create-page textarea:hover,
+#venta-edit-page input:hover,
+#venta-edit-page select:hover,
+#venta-edit-page textarea:hover {
+    border-color: rgba(56, 189, 248, 0.32);
+}
+
+#venta-create-page input:focus,
+#venta-create-page select:focus,
+#venta-create-page textarea:focus,
+#venta-edit-page input:focus,
+#venta-edit-page select:focus,
+#venta-edit-page textarea:focus {
+    border-color: var(--venta-wizard-accent-2);
+    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+    outline: none;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   BUTTONS / STEPS
+   ══════════════════════════════════════════════════════════════ */
+
+#venta-create-page .btn,
+#venta-edit-page .btn,
+#venta-create-page .btn-erp-ghost,
+#venta-edit-page .btn-erp-ghost,
+#venta-create-page .vm-btn-confirm-sm,
+#venta-edit-page .vm-btn-confirm-sm,
+#venta-create-page .step-btn,
+#venta-edit-page .step-btn,
+#venta-create-page .vm-step-tab,
+#venta-edit-page .vm-step-tab {
+    min-height: 2.55rem;
+    border-radius: 12px;
+    cursor: pointer;
+    transition:
+        transform 160ms ease,
+        border-color 160ms ease,
+        background 160ms ease,
+        color 160ms ease,
+        box-shadow 160ms ease;
+}
+
+#venta-create-page .btn:active,
+#venta-edit-page .btn:active,
+#venta-create-page .btn-erp-ghost:active,
+#venta-edit-page .btn-erp-ghost:active,
+#venta-create-page .vm-btn-confirm-sm:active,
+#venta-edit-page .vm-btn-confirm-sm:active,
+#venta-create-page .step-btn:active,
+#venta-edit-page .step-btn:active,
+#venta-create-page .vm-step-tab:active,
+#venta-edit-page .vm-step-tab:active {
     transform: translateY(1px);
 }
 
-.vm-step-tab {
+#venta-create-page .btn:focus-visible,
+#venta-edit-page .btn:focus-visible,
+#venta-create-page .btn-erp-ghost:focus-visible,
+#venta-edit-page .btn-erp-ghost:focus-visible,
+#venta-create-page .vm-btn-confirm-sm:focus-visible,
+#venta-edit-page .vm-btn-confirm-sm:focus-visible,
+#venta-create-page .step-btn:focus-visible,
+#venta-edit-page .step-btn:focus-visible,
+#venta-create-page .vm-step-tab:focus-visible,
+#venta-edit-page .vm-step-tab:focus-visible {
+    outline: 3px solid rgba(245, 197, 24, 0.55);
+    outline-offset: 2px;
+}
+
+#venta-create-page .btn:disabled,
+#venta-edit-page .btn:disabled,
+#venta-create-page .btn-erp-ghost:disabled,
+#venta-edit-page .btn-erp-ghost:disabled,
+#venta-create-page .vm-btn-confirm-sm:disabled,
+#venta-edit-page .vm-btn-confirm-sm:disabled,
+#venta-create-page .step-btn:disabled,
+#venta-edit-page .step-btn:disabled,
+#venta-create-page .vm-step-tab:disabled,
+#venta-edit-page .vm-step-tab:disabled,
+#venta-create-page [aria-disabled="true"],
+#venta-edit-page [aria-disabled="true"] {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+#venta-create-page .vm-step-tab,
+#venta-edit-page .vm-step-tab {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
@@ -134,23 +278,28 @@
     font-weight: 800;
 }
 
-.vm-step-tab:hover,
-.vm-step-tab:focus-visible {
+#venta-create-page .vm-step-tab:hover,
+#venta-edit-page .vm-step-tab:hover,
+#venta-create-page .vm-step-tab:focus-visible,
+#venta-edit-page .vm-step-tab:focus-visible {
     border-color: var(--venta-wizard-border-strong);
     background: rgba(14, 165, 233, 0.13);
     color: #f8fafc;
-    outline: none;
 }
 
-.vm-step-tab--active,
-.vm-step-tab.is-active {
-    border-color: rgba(34, 197, 94, 0.46);
-    background: rgba(34, 197, 94, 0.15);
-    color: #dcfce7;
+#venta-create-page .vm-step-tab--active,
+#venta-edit-page .vm-step-tab--active,
+#venta-create-page .vm-step-tab.is-active,
+#venta-edit-page .vm-step-tab.is-active {
+    border-color: rgba(245, 197, 24, 0.5);
+    background: rgba(245, 197, 24, 0.14);
+    color: #fef3c7;
 }
 
-.vm-step-tab__num,
-.step-num {
+#venta-create-page .vm-step-tab__num,
+#venta-edit-page .vm-step-tab__num,
+#venta-create-page .step-num,
+#venta-edit-page .step-num {
     display: inline-grid;
     width: 1.45rem;
     height: 1.45rem;
@@ -161,8 +310,10 @@
     font-size: 0.72rem;
 }
 
-.vm-step-tab__badge,
-.pill {
+#venta-create-page .vm-step-tab__badge,
+#venta-edit-page .vm-step-tab__badge,
+#venta-create-page .pill,
+#venta-edit-page .pill {
     display: inline-flex;
     align-items: center;
     min-width: 1.25rem;
@@ -175,65 +326,105 @@
     font-weight: 800;
 }
 
-.dropdown-list,
-#dropdown-clientes,
-#dropdown-productos {
+/* ══════════════════════════════════════════════════════════════
+   DROPDOWNS
+   ══════════════════════════════════════════════════════════════ */
+
+#venta-create-page .dropdown-list,
+#venta-edit-page .dropdown-list,
+#venta-create-page #dropdown-clientes,
+#venta-edit-page #dropdown-clientes,
+#venta-create-page #dropdown-productos,
+#venta-edit-page #dropdown-productos {
     border: 1px solid var(--venta-wizard-border);
     background: #111827;
     box-shadow: 0 18px 45px rgba(0, 0, 0, 0.32);
+    z-index: 60;
 }
 
-.dropdown-item,
-#dropdown-clientes > *,
-#dropdown-productos > * {
+#venta-create-page .dropdown-item,
+#venta-edit-page .dropdown-item,
+#venta-create-page #dropdown-clientes>*,
+#venta-edit-page #dropdown-clientes>*,
+#venta-create-page #dropdown-productos>*,
+#venta-edit-page #dropdown-productos>* {
     border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+    cursor: pointer;
 }
 
-.dot {
+#venta-create-page .dropdown-item:hover,
+#venta-edit-page .dropdown-item:hover,
+#venta-create-page #dropdown-clientes>*:hover,
+#venta-edit-page #dropdown-clientes>*:hover,
+#venta-create-page #dropdown-productos>*:hover,
+#venta-edit-page #dropdown-productos>*:hover {
+    background: rgba(245, 197, 24, 0.1);
+    color: #f8fafc;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   DOTS / STATUS
+   ══════════════════════════════════════════════════════════════ */
+
+#venta-create-page .dot,
+#venta-edit-page .dot {
     display: inline-block;
     width: 0.5rem;
     height: 0.5rem;
     border-radius: 999px;
-    background: var(--venta-wizard-accent);
+    background: var(--venta-wizard-success);
 }
 
-.vm-sidebar {
+/* ══════════════════════════════════════════════════════════════
+   SIDEBAR / TOTALS
+   ══════════════════════════════════════════════════════════════ */
+
+#venta-create-page .vm-sidebar,
+#venta-edit-page .vm-sidebar {
     position: sticky;
     top: 9.25rem;
+    align-self: start;
 }
 
-#venta-create-page .vm-sidebar {
-    position: static;
-    top: auto;
-}
-
-.vm-totals,
-#venta-edit-page .lg\:col-span-2 > section.overflow-hidden,
-.total-display {
+#venta-create-page .vm-totals,
+#venta-edit-page .vm-totals,
+#venta-create-page .total-display,
+#venta-edit-page .total-display,
+#venta-edit-page .lg\:col-span-2>section.overflow-hidden {
     border-radius: 20px;
+    border: 1px solid rgba(245, 197, 24, 0.35);
     background:
-        linear-gradient(135deg, rgba(22, 163, 74, 0.98), rgba(14, 116, 144, 0.96));
+        linear-gradient(135deg, rgba(245, 197, 24, 0.12), rgba(56, 189, 248, 0.08)),
+        rgba(15, 23, 42, 0.92);
     color: #fff;
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.3);
 }
 
-.vm-mobile-summary-bar {
+/* ══════════════════════════════════════════════════════════════
+   MOBILE SUMMARY BAR
+   ══════════════════════════════════════════════════════════════ */
+
+#venta-create-page .vm-mobile-summary-bar,
+#venta-edit-page .vm-mobile-summary-bar {
     position: sticky;
-    top: 0.5rem;
+    top: var(--vm-mobile-summary-top, 0.5rem);
     z-index: 35;
     display: none;
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
     margin-bottom: 0.75rem;
-    border: 1px solid rgba(34, 197, 94, 0.32);
+    border: 1px solid rgba(245, 197, 24, 0.32);
     border-radius: 16px;
     background: rgba(12, 18, 28, 0.94);
     padding: 0.65rem;
     box-shadow: 0 18px 40px rgba(0, 0, 0, 0.32);
     backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
 }
 
-.vm-mobile-summary-bar__info {
+#venta-create-page .vm-mobile-summary-bar__info,
+#venta-edit-page .vm-mobile-summary-bar__info {
     display: inline-flex;
     min-width: 0;
     align-items: center;
@@ -241,68 +432,105 @@
     color: #e2e8f0;
     font-size: 0.82rem;
     font-weight: 800;
+    overflow: hidden;
+    white-space: nowrap;
 }
 
-.vm-mobile-summary-bar__icon {
+#venta-create-page .vm-mobile-summary-bar__icon,
+#venta-edit-page .vm-mobile-summary-bar__icon {
     flex-shrink: 0;
     font-size: 15px;
 }
 
-.vm-btn-confirm-sm {
+#venta-create-page .vm-btn-confirm-sm,
+#venta-edit-page .vm-btn-confirm-sm {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 0.35rem;
     border: 0;
-    background: #22c55e;
-    color: #04130a;
+    background: var(--venta-wizard-accent);
+    color: #15110a;
     padding: 0.52rem 0.7rem;
     font-size: 0.72rem;
     font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+    box-shadow: 0 10px 24px rgba(245, 197, 24, 0.18);
 }
 
-.vm-btn-confirm-sm__icon {
+#venta-create-page .vm-btn-confirm-sm:hover,
+#venta-edit-page .vm-btn-confirm-sm:hover {
+    background: var(--venta-wizard-accent-hover);
+    box-shadow: 0 14px 30px rgba(245, 197, 24, 0.24);
+}
+
+#venta-create-page .vm-btn-confirm-sm:active,
+#venta-edit-page .vm-btn-confirm-sm:active {
+    background: var(--venta-wizard-accent-active);
+}
+
+#venta-create-page .vm-btn-confirm-sm__icon,
+#venta-edit-page .vm-btn-confirm-sm__icon {
     font-size: 14px;
 }
 
-.venta-wizard-tab-panel[hidden] {
+/* ══════════════════════════════════════════════════════════════
+   TAB PANELS / SCROLL HELPERS
+   ══════════════════════════════════════════════════════════════ */
+
+#venta-create-page .venta-wizard-tab-panel[hidden],
+#venta-edit-page .venta-wizard-tab-panel[hidden] {
     display: none !important;
 }
 
-[data-oc-scroll][data-scroll-min-width="46rem"] {
+#venta-create-page [data-oc-scroll][data-scroll-min-width="46rem"],
+#venta-edit-page [data-oc-scroll][data-scroll-min-width="46rem"] {
     --oc-scroll-min-width: 46rem;
 }
 
+/* ══════════════════════════════════════════════════════════════
+   RESPONSIVE
+   ══════════════════════════════════════════════════════════════ */
+
 @media (max-width: 1023px) {
+
     #venta-create-page .hero-erp,
     #venta-edit-page .venta-hero-section {
         position: relative;
         top: auto;
     }
 
-    .vm-sidebar {
+    #venta-create-page .vm-sidebar,
+    #venta-edit-page .vm-sidebar {
         position: static;
     }
 
-    .venta-hero-metrics,
-    .venta-edit-hero-metrics {
+    #venta-create-page .venta-hero-metrics,
+    #venta-edit-page .venta-hero-metrics,
+    #venta-create-page .venta-edit-hero-metrics,
+    #venta-edit-page .venta-edit-hero-metrics {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 
 @media (min-width: 1024px) {
-    #venta-create-page #venta-form > .grid,
-    #venta-edit-page #venta-form > .grid {
+
+    #venta-create-page #venta-form>.grid,
+    #venta-edit-page #venta-form>.grid {
         display: grid;
         grid-template-columns: minmax(0, 2fr) minmax(20rem, 1fr);
+        gap: 1.25rem;
     }
 
-    #venta-create-page #venta-form > .grid > *,
-    #venta-edit-page #venta-form > .grid > * {
+    #venta-create-page #venta-form>.grid>*,
+    #venta-edit-page #venta-form>.grid>* {
         grid-column: auto;
     }
 
-    #venta-edit-page #venta-form > .grid > :last-child {
+    #venta-create-page #venta-form>.grid> :last-child,
+    #venta-edit-page #venta-form>.grid> :last-child {
         position: sticky;
         top: 9.25rem;
         align-self: start;
@@ -310,62 +538,65 @@
 }
 
 @media (max-width: 767px) {
+
     #venta-create-page,
     #venta-edit-page {
         padding-left: 0.75rem;
         padding-right: 0.75rem;
+        padding-bottom: 5.5rem;
     }
 
-    #venta-create-page #venta-form {
+    #venta-create-page #venta-form,
+    #venta-edit-page #venta-form {
         padding-bottom: 1rem;
     }
 
-    .vm-mobile-summary-bar {
+    #venta-create-page .vm-mobile-summary-bar,
+    #venta-edit-page .vm-mobile-summary-bar {
         display: flex;
-    }
-
-    #venta-create-page .vm-mobile-summary-bar {
-        position: static;
-        inset: auto;
-        z-index: auto;
-        margin-bottom: 0.75rem;
-        box-shadow: 0 14px 34px rgba(0, 0, 0, 0.26);
     }
 
     #venta-create-page .hero-erp,
     #venta-edit-page .venta-hero-section {
-        overflow-x: hidden;
         padding: 0.875rem;
         border-radius: 16px;
+        overflow: visible;
     }
 
-    #venta-create-page .hero-erp > .flex,
-    #venta-edit-page .venta-hero-section > .flex {
+    #venta-create-page .hero-erp>.flex,
+    #venta-edit-page .venta-hero-section>.flex {
         gap: 1rem;
     }
 
-    .venta-hero-metrics,
-    .venta-edit-hero-metrics {
+    #venta-create-page .venta-hero-metrics,
+    #venta-edit-page .venta-hero-metrics,
+    #venta-create-page .venta-edit-hero-metrics,
+    #venta-edit-page .venta-edit-hero-metrics {
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 0.5rem;
     }
 
-    .venta-hero-metric,
-    .venta-edit-hero-metrics > * {
+    #venta-create-page .venta-hero-metric,
+    #venta-edit-page .venta-hero-metric,
+    #venta-create-page .venta-edit-hero-metrics>*,
+    #venta-edit-page .venta-edit-hero-metrics>* {
         padding: 0.75rem;
     }
 
-    .venta-hero-metric p:last-child,
-    .venta-edit-hero-metrics > * p:last-child {
+    #venta-create-page .venta-hero-metric p:last-child,
+    #venta-edit-page .venta-hero-metric p:last-child,
+    #venta-create-page .venta-edit-hero-metrics>* p:last-child,
+    #venta-edit-page .venta-edit-hero-metrics>* p:last-child {
         display: none;
     }
 
-    .vm-step-tab {
+    #venta-create-page .vm-step-tab,
+    #venta-edit-page .vm-step-tab {
         padding-inline: 0.65rem;
     }
 
-    #venta-create-page .venta-section > .mb-6.flex,
-    #venta-edit-page .venta-section > .mb-6.flex {
+    #venta-create-page .venta-section>.mb-6.flex,
+    #venta-edit-page .venta-section>.mb-6.flex {
         flex-wrap: wrap;
     }
 
@@ -373,5 +604,27 @@
     #venta-edit-page .venta-section .badge-erp {
         max-width: 100%;
         white-space: normal;
+    }
+}
+
+@media (max-width: 560px) {
+
+    #venta-create-page .vm-mobile-summary-bar,
+    #venta-edit-page .vm-mobile-summary-bar {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    #venta-create-page .vm-btn-confirm-sm,
+    #venta-edit-page .vm-btn-confirm-sm {
+        width: 100%;
+        min-height: 2.75rem;
+    }
+
+    #venta-create-page .venta-hero-metrics,
+    #venta-edit-page .venta-hero-metrics,
+    #venta-create-page .venta-edit-hero-metrics,
+    #venta-edit-page .venta-edit-hero-metrics {
+        grid-template-columns: 1fr;
     }
 }

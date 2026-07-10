@@ -514,26 +514,6 @@ namespace TheBuryProject.Helpers
             // =======================
             // Devoluciones y Garantías
             // =======================
-            CreateMap<Devolucion, CrearDevolucionViewModel>()
-                .ForMember(dest => dest.Productos, opt => opt.Ignore());
-
-            CreateMap<CrearDevolucionViewModel, Devolucion>()
-                .ForMember(dest => dest.Venta, opt => opt.Ignore())
-                .ForMember(dest => dest.Cliente, opt => opt.Ignore())
-                .ForMember(dest => dest.Detalles, opt => opt.Ignore())
-                .ForMember(dest => dest.NotaCredito, opt => opt.Ignore())
-                .ForMember(dest => dest.RMA, opt => opt.Ignore());
-
-            CreateMap<DevolucionDetalle, ProductoDevolucionViewModel>()
-                .ForMember(dest => dest.ProductoNombre, opt => opt.MapFrom(src => src.Producto != null ? src.Producto.Nombre : string.Empty))
-                .ForMember(dest => dest.CantidadComprada, opt => opt.Ignore())
-                .ForMember(dest => dest.CantidadDevolver, opt => opt.MapFrom(src => src.Cantidad));
-
-            CreateMap<ProductoDevolucionViewModel, DevolucionDetalle>()
-                .ForMember(dest => dest.Cantidad, opt => opt.MapFrom(src => src.CantidadDevolver))
-                .ForMember(dest => dest.Producto, opt => opt.Ignore())
-                .ForMember(dest => dest.Devolucion, opt => opt.Ignore());
-
             CreateMap<Garantia, CrearGarantiaViewModel>();
 
             CreateMap<CrearGarantiaViewModel, Garantia>()

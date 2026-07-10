@@ -241,13 +241,21 @@ public class DevolucionService : IDevolucionService
                 // Aplicar ProductoUnidadId efectivo (explícito o auto-inferido)
                 detalle.ProductoUnidadId = unidadIdPorDetalle[detalle];
 
-                // Relación
+                // Relación: el detalle debe quedar en la colección del padre para que
+                // EF lo descubra al hacer Add(devolucion); la referencia inversa sola
+                // no lo trackea y el detalle no se persiste.
                 detalle.Devolucion = devolucion;
+                devolucion.Detalles.Add(detalle);
             }
 
             devolucion.TotalDevolucion = total;
 
             _context.Devoluciones.Add(devolucion);
+            await _context.SaveChangesAsync();
+
+            // Número definitivo derivado del Id real: el MAX(Id)+1 provisorio puede
+            // colisionar entre creaciones concurrentes y no hay índice único que lo frene.
+            devolucion.NumeroDevolucion = FormatearNumero("DEV", devolucion.Id);
             await _context.SaveChangesAsync();
 
             if (transaction != null)
@@ -322,9 +330,10 @@ public class DevolucionService : IDevolucionService
             devolucion.FechaAprobacion = DateTime.UtcNow;
             devolucion.UpdatedAt = DateTime.UtcNow;
 
+            NotaCredito? notaCredito = null;
             if (devolucion.TipoResolucion == TipoResolucionDevolucion.NotaCredito)
             {
-                var notaCredito = new NotaCredito
+                notaCredito = new NotaCredito
                 {
                     DevolucionId = devolucion.Id,
                     ClienteId = devolucion.ClienteId,
@@ -344,6 +353,16 @@ public class DevolucionService : IDevolucionService
             }
 
             await _context.SaveChangesAsync();
+
+            if (notaCredito != null)
+            {
+                // Número definitivo desde el Id real (ver FormatearNumero) y columna
+                // denormalizada: la FK del vínculo vive en NotaCredito.DevolucionId,
+                // por lo que NotaCreditoId no se completa solo.
+                notaCredito.NumeroNotaCredito = FormatearNumero("NC", notaCredito.Id);
+                devolucion.NotaCreditoId = notaCredito.Id;
+                await _context.SaveChangesAsync();
+            }
 
             if (transaction != null)
                 await transaction.CommitAsync();
@@ -384,6 +403,20 @@ public class DevolucionService : IDevolucionService
 
         _context.Entry(devolucion).Property(d => d.RowVersion).OriginalValue = rowVersion;
 
+        // Si la devolución ya se aprobó con nota de crédito, el rechazo debe anularla;
+        // con usos registrados no hay vuelta atrás (quedaría plata entregada sin respaldo).
+        var notaCredito = await _context.NotasCredito
+            .FirstOrDefaultAsync(nc => nc.DevolucionId == devolucion.Id && !nc.IsDeleted);
+        if (notaCredito != null)
+        {
+            if (notaCredito.MontoUtilizado > 0)
+                throw new InvalidOperationException(
+                    $"No se puede rechazar: la nota de crédito {notaCredito.NumeroNotaCredito} ya registra usos por {notaCredito.MontoUtilizado:C2}.");
+
+            notaCredito.Estado = EstadoNotaCredito.Cancelada;
+            notaCredito.UpdatedAt = DateTime.UtcNow;
+        }
+
         devolucion.Estado = EstadoDevolucion.Rechazada;
         devolucion.ObservacionesInternas = motivo;
         devolucion.UpdatedAt = DateTime.UtcNow;
@@ -393,7 +426,45 @@ public class DevolucionService : IDevolucionService
             await _context.SaveChangesAsync();
 
             _logger.LogInformation(
-                "Devolución rechazada - Numero {Numero} - Motivo {Motivo}",
+                "Devolución rechazada - Numero {Numero} - Motivo {Motivo} - NotaCreditoAnulada {NotaCredito}",
+                devolucion.NumeroDevolucion, motivo, notaCredito?.NumeroNotaCredito ?? "-");
+
+            return devolucion;
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new InvalidOperationException("La devolución fue modificada por otro usuario. Recargá los datos e intentá nuevamente.");
+        }
+    }
+
+    public async Task<Devolucion> CancelarDevolucionAsync(int id, string motivo, byte[] rowVersion)
+    {
+        var devolucion = await ObtenerDevolucionAsync(id);
+        if (devolucion == null)
+        {
+            throw new KeyNotFoundException($"Devolución con ID {id} no encontrada");
+        }
+
+        // Cancelar = anular una devolución cargada por error, antes de que genere
+        // efectos (la NC nace al aprobar y el stock/caja se mueven al completar).
+        if (devolucion.Estado != EstadoDevolucion.Pendiente && devolucion.Estado != EstadoDevolucion.EnRevision)
+            throw new InvalidOperationException($"Solo se puede cancelar una devolución pendiente o en revisión (estado actual: {devolucion.Estado})");
+
+        if (rowVersion is null || rowVersion.Length == 0)
+            throw new InvalidOperationException("Falta información de concurrencia (RowVersion). Recargá la devolución e intentá nuevamente.");
+
+        _context.Entry(devolucion).Property(d => d.RowVersion).OriginalValue = rowVersion;
+
+        devolucion.Estado = EstadoDevolucion.Cancelada;
+        devolucion.ObservacionesInternas = motivo;
+        devolucion.UpdatedAt = DateTime.UtcNow;
+
+        try
+        {
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Devolución cancelada - Numero {Numero} - Motivo {Motivo}",
                 devolucion.NumeroDevolucion, motivo);
 
             return devolucion;
@@ -581,8 +652,14 @@ public class DevolucionService : IDevolucionService
             .FirstOrDefaultAsync();
 
         int siguiente = (ultimaDevolucion?.Id ?? 0) + 1;
-        return $"DEV-{DateTime.UtcNow:yyyyMM}-{siguiente:D6}";
+        return FormatearNumero("DEV", siguiente);
     }
+
+    // Los números definitivos se derivan del Id real después del insert; los
+    // generadores MAX(Id)+1 solo dan un valor provisorio (dos creaciones
+    // concurrentes leen el mismo MAX y no hay índice único que lo frene).
+    private static string FormatearNumero(string prefijo, int id) =>
+        $"{prefijo}-{DateTime.UtcNow:yyyyMM}-{id:D6}";
 
     public async Task<bool> PuedeDevolverVentaAsync(int ventaId)
     {
@@ -836,6 +913,9 @@ public class DevolucionService : IDevolucionService
 
         _context.Garantias.Add(garantia);
         await _context.SaveChangesAsync();
+
+        garantia.NumeroGarantia = FormatearNumero("GAR", garantia.Id);
+        await _context.SaveChangesAsync();
         return garantia;
     }
 
@@ -1016,9 +1096,13 @@ public class DevolucionService : IDevolucionService
             _context.RMAs.Add(rma);
 
             devolucion.RequiereRMA = true;
-            devolucion.RMAId = rma.Id;
             devolucion.UpdatedAt = DateTime.UtcNow;
 
+            await _context.SaveChangesAsync();
+
+            // El Id del RMA recién existe tras el insert; asignarlo antes dejaba RMAId=0.
+            rma.NumeroRMA = FormatearNumero("RMA", rma.Id);
+            devolucion.RMAId = rma.Id;
             await _context.SaveChangesAsync();
 
             if (transaction != null)
@@ -1199,9 +1283,12 @@ public class DevolucionService : IDevolucionService
                         !nc.IsDeleted &&
                         nc.Cliente != null &&
                         !nc.Cliente.IsDeleted &&
-                        nc.MontoDisponible > 0 &&
+                        // MontoDisponible es propiedad computada no mapeada: usarla acá
+                        // no traduce a SQL y la query explota en runtime.
+                        (nc.MontoTotal - nc.MontoUtilizado) > 0 &&
                         (nc.FechaVencimiento == null || nc.FechaVencimiento >= hoy) &&
-                        nc.Estado == EstadoNotaCredito.Vigente)
+                        (nc.Estado == EstadoNotaCredito.Vigente ||
+                         nc.Estado == EstadoNotaCredito.UtilizadaParcialmente))
             .OrderBy(nc => nc.FechaEmision)
             .ToListAsync();
     }
@@ -1240,6 +1327,9 @@ public class DevolucionService : IDevolucionService
         _context.NotasCredito.Add(notaCredito);
         await _context.SaveChangesAsync();
 
+        notaCredito.NumeroNotaCredito = FormatearNumero("NC", notaCredito.Id);
+        await _context.SaveChangesAsync();
+
         _logger.LogInformation(
             "Nota de crédito creada - Numero {Numero} - Cliente {ClienteId} - Monto {Monto}",
             notaCredito.NumeroNotaCredito, notaCredito.ClienteId, notaCredito.MontoTotal);
@@ -1247,13 +1337,23 @@ public class DevolucionService : IDevolucionService
         return notaCredito;
     }
 
-    public async Task<NotaCredito> UtilizarNotaCreditoAsync(int notaCreditoId, decimal monto)
+    public async Task<NotaCredito> UtilizarNotaCreditoAsync(int notaCreditoId, decimal monto, string? referencia = null)
     {
         var notaCredito = await ObtenerNotaCreditoAsync(notaCreditoId);
         if (notaCredito == null)
         {
             throw new KeyNotFoundException($"Nota de crédito con ID {notaCreditoId} no encontrada");
         }
+
+        if (monto <= 0)
+            throw new InvalidOperationException("El monto a utilizar debe ser mayor a cero");
+
+        if (notaCredito.Estado != EstadoNotaCredito.Vigente &&
+            notaCredito.Estado != EstadoNotaCredito.UtilizadaParcialmente)
+            throw new InvalidOperationException($"La nota de crédito no admite usos en estado {notaCredito.Estado.GetDisplayName()}");
+
+        if (notaCredito.FechaVencimiento.HasValue && notaCredito.FechaVencimiento.Value < DateTime.UtcNow)
+            throw new InvalidOperationException($"La nota de crédito venció el {notaCredito.FechaVencimiento.Value:dd/MM/yyyy}");
 
         if (notaCredito.MontoDisponible < monto)
         {
@@ -1271,12 +1371,22 @@ public class DevolucionService : IDevolucionService
             notaCredito.Estado = EstadoNotaCredito.UtilizadaParcialmente;
         }
 
+        if (!string.IsNullOrWhiteSpace(referencia))
+        {
+            var linea = $"[{DateTime.UtcNow:dd/MM/yyyy}] Uso {monto:C2} — {referencia.Trim()}";
+            var obs = string.IsNullOrWhiteSpace(notaCredito.Observaciones)
+                ? linea
+                : $"{notaCredito.Observaciones}\n{linea}";
+            // StringLength(500): ante desborde se conservan los usos más recientes
+            notaCredito.Observaciones = obs.Length <= 500 ? obs : obs[^500..];
+        }
+
         notaCredito.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
 
         _logger.LogInformation(
-            "Nota de crédito utilizada - Id {NotaCreditoId} - MontoUtilizado {Monto} - EstadoResultante {Estado}",
-            notaCreditoId, monto, notaCredito.Estado);
+            "Nota de crédito utilizada - Id {NotaCreditoId} - MontoUtilizado {Monto} - EstadoResultante {Estado} - Referencia {Referencia}",
+            notaCreditoId, monto, notaCredito.Estado, referencia ?? "-");
 
         return notaCredito;
     }

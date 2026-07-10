@@ -1,18 +1,9 @@
-/* cliente-cuil.js - Autocompleta CUIL/CUIT desde DNI sin hacerlo obligatorio. */
+/* cliente-cuil.js - CUIL editable por partes: XX-DNI-X.
+   El DNI central no se edita (se refleja desde el número de documento) y el prefijo (2) y
+   el verificador (1) son los únicos campos editables. Vacíos se guardan como 0 en el backend.
+   Este script solo previsualiza/sincroniza; la autoridad del valor guardado es el servidor. */
 (function () {
     'use strict';
-
-    var DEFAULT_PREFIX = '20';
-    var VALID_PREFIXES = {
-        '20': true,
-        '23': true,
-        '24': true,
-        '27': true,
-        '30': true,
-        '33': true,
-        '34': true
-    };
-    var MULTIPLIERS = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
 
     function onlyDigits(value, maxLength) {
         var digits = String(value || '').replace(/\D/g, '');
@@ -24,136 +15,48 @@
         return tipo === '' || tipo === 'DNI';
     }
 
-    function calculateVerifier(firstTenDigits) {
-        if (!/^\d{10}$/.test(firstTenDigits)) return '';
-
-        var sum = 0;
-        for (var i = 0; i < MULTIPLIERS.length; i += 1) {
-            sum += Number(firstTenDigits.charAt(i)) * MULTIPLIERS[i];
-        }
-
-        var verifier = 11 - (sum % 11);
-        if (verifier === 11) return '0';
-        if (verifier === 10) return '9';
-        return String(verifier);
-    }
-
-    function getSafePrefix(prefix) {
-        return VALID_PREFIXES[prefix] ? prefix : DEFAULT_PREFIX;
-    }
-
-    function buildCuil(prefix, dniDigits) {
-        if (!/^\d{8}$/.test(dniDigits)) return '';
-
-        var base = getSafePrefix(prefix) + dniDigits;
-        return base + calculateVerifier(base);
-    }
-
-    function dispatchFieldEvents(input) {
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-        input.dispatchEvent(new Event('change', { bubbles: true }));
-    }
-
-    function setInputValue(input, value) {
-        if (!input || input.value === value) return;
-
-        input.value = value;
-        dispatchFieldEvents(input);
-    }
-
-    function syncCuilFromDni(form, force) {
-        var tipoInput = form.querySelector('#TipoDocumento');
-        var dniInput = form.querySelector('#NumeroDocumento');
-        var cuilInput = form.querySelector('#CuilCuit');
-
-        if (!dniInput || !cuilInput || !isDniType(tipoInput)) return;
-
-        var dniDigits = onlyDigits(dniInput.value, 8);
-        if (dniInput.value !== dniDigits) {
-            dniInput.value = dniDigits;
-        }
-
-        if (dniDigits.length !== 8) return;
-
-        var currentCuil = onlyDigits(cuilInput.value, 11);
-        var previousDni = cuilInput.dataset.clienteCuilDni || '';
-        var currentMiddle = currentCuil.length >= 10 ? currentCuil.slice(2, 10) : '';
-        var canReplace = force
-            || currentCuil === ''
-            || currentCuil.length < 11
-            || currentMiddle === previousDni
-            || currentMiddle === dniDigits;
-
-        if (!canReplace) return;
-
-        var prefix = currentCuil.length >= 2 ? currentCuil.slice(0, 2) : DEFAULT_PREFIX;
-        var nextCuil = buildCuil(prefix, dniDigits);
-        cuilInput.dataset.clienteCuilDni = dniDigits;
-
-        if (nextCuil) {
-            setInputValue(cuilInput, nextCuil);
-        }
-    }
-
-    function normalizeManualCuil(form) {
-        var dniInput = form.querySelector('#NumeroDocumento');
-        var cuilInput = form.querySelector('#CuilCuit');
-        if (!dniInput || !cuilInput) return;
-
-        var cuilDigits = onlyDigits(cuilInput.value, 11);
-        if (cuilInput.value !== cuilDigits) {
-            cuilInput.value = cuilDigits;
-        }
-
-        var dniDigits = onlyDigits(dniInput.value, 8);
-        if (dniDigits.length !== 8 || cuilDigits.length < 2) return;
-
-        var prefix = cuilDigits.slice(0, 2);
-        if (!VALID_PREFIXES[prefix]) return;
-
-        var nextCuil = buildCuil(prefix, dniDigits);
-        if (nextCuil && (cuilDigits.length < 11 || cuilDigits.slice(2, 10) === dniDigits)) {
-            setInputValue(cuilInput, nextCuil);
-        }
-    }
-
     function initForm(form) {
         if (!form || form.dataset.clienteCuilAutocomplete === 'true') return;
 
-        var tipoInput = form.querySelector('#TipoDocumento');
+        var group = form.querySelector('[data-cuil-group]');
+        var prefijoInput = form.querySelector('#CuilPrefijo');
+        var verifInput = form.querySelector('#CuilVerificador');
+        var dniMirror = form.querySelector('[data-cuil-dni]');
         var dniInput = form.querySelector('#NumeroDocumento');
-        var cuilInput = form.querySelector('#CuilCuit');
-        if (!dniInput || !cuilInput) return;
+        var tipoInput = form.querySelector('#TipoDocumento');
+        var hint = form.querySelector('[data-cuil-hint]');
+
+        if (!group || !prefijoInput || !verifInput || !dniInput) return;
 
         form.dataset.clienteCuilAutocomplete = 'true';
-        dniInput.setAttribute('inputmode', 'numeric');
-        cuilInput.setAttribute('inputmode', 'numeric');
 
-        dniInput.addEventListener('input', function () {
-            syncCuilFromDni(form, true);
-        });
-        dniInput.addEventListener('change', function () {
-            syncCuilFromDni(form, true);
-        });
-
-        if (tipoInput) {
-            tipoInput.addEventListener('change', function () {
-                syncCuilFromDni(form, true);
-            });
+        function restrict(input, maxLength) {
+            var clean = onlyDigits(input.value, maxLength);
+            if (input.value !== clean) input.value = clean;
         }
 
-        cuilInput.addEventListener('input', function () {
-            normalizeManualCuil(form);
-        });
+        function syncDni() {
+            var dniDigits = onlyDigits(dniInput.value, 8);
+            if (dniMirror) dniMirror.value = dniDigits;
 
+            var faltaDni = isDniType(tipoInput) && dniDigits.length !== 8;
+            if (hint) hint.hidden = !faltaDni;
+            group.classList.toggle('cuil-group--sin-dni', faltaDni);
+        }
+
+        prefijoInput.addEventListener('input', function () { restrict(prefijoInput, 2); });
+        verifInput.addEventListener('input', function () { restrict(verifInput, 1); });
+        dniInput.addEventListener('input', syncDni);
+        dniInput.addEventListener('change', syncDni);
+        if (tipoInput) tipoInput.addEventListener('change', syncDni);
+
+        // Defensa al enviar; el backend igual completa con 0 lo que falte.
         form.addEventListener('submit', function () {
-            if (isDniType(tipoInput)) {
-                dniInput.value = onlyDigits(dniInput.value, 8);
-            }
-            cuilInput.value = onlyDigits(cuilInput.value, 11);
+            restrict(prefijoInput, 2);
+            restrict(verifInput, 1);
         });
 
-        syncCuilFromDni(form, false);
+        syncDni();
     }
 
     function init(root) {
@@ -173,10 +76,7 @@
         forms.forEach(initForm);
     }
 
-    window.ClienteCuilAutocomplete = {
-        init: init,
-        buildCuil: buildCuil
-    };
+    window.ClienteCuilAutocomplete = { init: init };
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function () {

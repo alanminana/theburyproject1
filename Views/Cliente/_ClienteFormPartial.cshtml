@@ -105,8 +105,17 @@
                                 <input asp-for="NumeroDocumento" class="field mono" placeholder="00.000.000" />
                             </div>
                             <div class="sm:col-span-2">
-                                <label asp-for="CuilCuit" class="label">CUIL / CUIT</label>
-                                <input asp-for="CuilCuit" class="field mono" placeholder="00-00000000-0" maxlength="13" inputmode="numeric" />
+                                <label asp-for="CuilPrefijo" class="label">CUIL / CUIT</label>
+                                <div class="cuil-group" data-cuil-group>
+                                    <input asp-for="CuilPrefijo" class="field mono cuil-part cuil-part-edge" maxlength="2" inputmode="numeric" pattern="\d*" autocomplete="off" placeholder="__" aria-label="Prefijo del CUIL (2 dígitos)" />
+                                    <span class="cuil-sep" aria-hidden="true">-</span>
+                                    <input type="text" class="field mono cuil-part cuil-part-dni" value="@Model.NumeroDocumento" data-cuil-dni readonly tabindex="-1" placeholder="DNI" aria-label="DNI del cliente (no editable desde el CUIL)" />
+                                    <span class="cuil-sep" aria-hidden="true">-</span>
+                                    <input asp-for="CuilVerificador" class="field mono cuil-part cuil-part-edge" maxlength="1" inputmode="numeric" pattern="\d*" autocomplete="off" placeholder="_" aria-label="Dígito verificador del CUIL (1 dígito)" />
+                                </div>
+                                <p class="hint" data-cuil-hint hidden>Cargá primero el DNI (8 dígitos) para completar el CUIL. El prefijo y el verificador vacíos se guardan como 0.</p>
+                                <span asp-validation-for="CuilPrefijo" class="err-text"></span>
+                                <span asp-validation-for="CuilVerificador" class="err-text"></span>
                             </div>
                             <div>
                                 <label asp-for="Apellido" class="label">Apellido <span class="req">*</span></label>

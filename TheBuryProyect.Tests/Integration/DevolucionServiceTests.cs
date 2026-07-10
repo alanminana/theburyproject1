@@ -6,6 +6,7 @@ using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services;
 using TheBuryProject.Services.Interfaces;
+using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Tests.Integration;
 
@@ -295,10 +296,22 @@ public class DevolucionServiceTests : IDisposable
 
         Assert.True(resultado.Id > 0);
         Assert.Equal(EstadoDevolucion.Pendiente, resultado.Estado);
-        Assert.StartsWith("DEV-", resultado.NumeroDevolucion);
+        // El número definitivo se deriva del Id real (race-free); mismo formato histórico
+        Assert.Equal($"DEV-{DateTime.UtcNow:yyyyMM}-{resultado.Id:D6}", resultado.NumeroDevolucion);
         // 2 unidades × ($200 / 4) = 2 × $50 = $100
         Assert.Equal(100m, resultado.TotalDevolucion);
         Assert.Equal(50m, detalles[0].PrecioUnitario);
+
+        // Los detalles deben quedar PERSISTIDOS (no solo en memoria): de esto dependen
+        // el reintegro de stock al completar y la validación de "ya devuelto".
+        _context.ChangeTracker.Clear();
+        var detallePersistido = await _context.DevolucionDetalles
+            .AsNoTracking()
+            .SingleAsync(d => d.DevolucionId == resultado.Id);
+        Assert.Equal(producto.Id, detallePersistido.ProductoId);
+        Assert.Equal(2, detallePersistido.Cantidad);
+        Assert.Equal(50m, detallePersistido.PrecioUnitario);
+        Assert.Equal(100m, detallePersistido.Subtotal);
     }
 
     // -------------------------------------------------------------------------
@@ -335,6 +348,10 @@ public class DevolucionServiceTests : IDisposable
         var nc = await _context.NotasCredito.FirstOrDefaultAsync(n => n.DevolucionId == dev.Id);
         Assert.NotNull(nc);
         Assert.Equal(EstadoNotaCredito.Vigente, nc!.Estado);
+        // Número derivado del Id real y columna denormalizada poblada
+        Assert.Equal($"NC-{DateTime.UtcNow:yyyyMM}-{nc.Id:D6}", nc.NumeroNotaCredito);
+        var devPersistida = await _context.Devoluciones.AsNoTracking().SingleAsync(d => d.Id == dev.Id);
+        Assert.Equal(nc.Id, devPersistida.NotaCreditoId);
     }
 
     [Fact]
@@ -409,6 +426,87 @@ public class DevolucionServiceTests : IDisposable
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.RechazarDevolucionAsync(dev.Id, "Motivo", Array.Empty<byte>()));
+    }
+
+    [Fact]
+    public async Task Rechazar_AprobadaConNotaCredito_AnulaLaNotaCredito()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id,
+            tipoResolucion: TipoResolucionDevolucion.NotaCredito);
+
+        var aprobada = await _service.AprobarDevolucionAsync(dev.Id, "gerente1", dev.RowVersion);
+
+        await _service.RechazarDevolucionAsync(dev.Id, "Aprobada por error", aprobada.RowVersion);
+
+        // Sin este comportamiento quedaba una NC Vigente de una devolución rechazada
+        var nc = await _context.NotasCredito.SingleAsync(n => n.DevolucionId == dev.Id);
+        Assert.Equal(EstadoNotaCredito.Cancelada, nc.Estado);
+    }
+
+    [Fact]
+    public async Task Rechazar_NotaCreditoConUsos_LanzaYNoRechaza()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id,
+            tipoResolucion: TipoResolucionDevolucion.NotaCredito);
+
+        var aprobada = await _service.AprobarDevolucionAsync(dev.Id, "gerente1", dev.RowVersion);
+        var nc = await _context.NotasCredito.SingleAsync(n => n.DevolucionId == dev.Id);
+        await _service.UtilizarNotaCreditoAsync(nc.Id, 10m);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.RechazarDevolucionAsync(dev.Id, "Motivo", aprobada.RowVersion));
+
+        var devPersistida = await _context.Devoluciones.AsNoTracking().SingleAsync(d => d.Id == dev.Id);
+        Assert.Equal(EstadoDevolucion.Aprobada, devPersistida.Estado);
+    }
+
+    // -------------------------------------------------------------------------
+    // CancelarDevolucionAsync
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Cancelar_Pendiente_MarcaCancelada()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id);
+
+        var resultado = await _service.CancelarDevolucionAsync(
+            dev.Id, "Cargada por error", dev.RowVersion);
+
+        Assert.Equal(EstadoDevolucion.Cancelada, resultado.Estado);
+        Assert.Equal("Cargada por error", resultado.ObservacionesInternas);
+    }
+
+    [Fact]
+    public async Task Cancelar_Aprobada_LanzaExcepcion()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id, estado: EstadoDevolucion.Aprobada);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.CancelarDevolucionAsync(dev.Id, "Motivo", dev.RowVersion));
+    }
+
+    [Fact]
+    public async Task Cancelar_SinRowVersion_LanzaExcepcion()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.CancelarDevolucionAsync(dev.Id, "Motivo", Array.Empty<byte>()));
     }
 
     // -------------------------------------------------------------------------
@@ -890,7 +988,8 @@ public class DevolucionServiceTests : IDisposable
     // -------------------------------------------------------------------------
 
     private async Task<NotaCredito> SeedNotaCreditoAsync(int clienteId, int? devolucionId = null,
-        EstadoNotaCredito estado = EstadoNotaCredito.Vigente, decimal monto = 100m)
+        EstadoNotaCredito estado = EstadoNotaCredito.Vigente, decimal monto = 100m,
+        decimal utilizado = 0m, DateTime? vencimiento = null)
     {
         var nc = new NotaCredito
         {
@@ -899,8 +998,9 @@ public class DevolucionServiceTests : IDisposable
             DevolucionId = devolucionId ?? 0,
             FechaEmision = DateTime.UtcNow,
             MontoTotal = monto,
+            MontoUtilizado = utilizado,
             Estado = estado,
-            FechaVencimiento = DateTime.UtcNow.AddYears(1)
+            FechaVencimiento = vencimiento ?? DateTime.UtcNow.AddYears(1)
         };
         _context.NotasCredito.Add(nc);
         await _context.SaveChangesAsync();
@@ -1005,9 +1105,171 @@ public class DevolucionServiceTests : IDisposable
         var resultado = await _service.CrearNotaCreditoAsync(nc);
 
         Assert.True(resultado.Id > 0);
-        Assert.StartsWith("NC-", resultado.NumeroNotaCredito);
+        Assert.Equal($"NC-{DateTime.UtcNow:yyyyMM}-{resultado.Id:D6}", resultado.NumeroNotaCredito);
         Assert.Equal(EstadoNotaCredito.Vigente, resultado.Estado);
         Assert.Equal(0m, resultado.MontoUtilizado);
+    }
+
+    // -------------------------------------------------------------------------
+    // UtilizarNotaCreditoAsync
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Utilizar_Parcial_DescuentaSaldoYRegistraReferencia()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id);
+        var nc = await SeedNotaCreditoAsync(cliente.Id, dev.Id, monto: 100m);
+
+        var resultado = await _service.UtilizarNotaCreditoAsync(nc.Id, 40m, "aplicada en venta V-000123");
+
+        Assert.Equal(40m, resultado.MontoUtilizado);
+        Assert.Equal(60m, resultado.MontoDisponible);
+        Assert.Equal(EstadoNotaCredito.UtilizadaParcialmente, resultado.Estado);
+        Assert.Contains("V-000123", resultado.Observaciones);
+    }
+
+    [Fact]
+    public async Task Utilizar_TotalDelSaldo_MarcaUtilizadaTotalmente()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id);
+        var nc = await SeedNotaCreditoAsync(cliente.Id, dev.Id, monto: 100m);
+
+        var resultado = await _service.UtilizarNotaCreditoAsync(nc.Id, 100m);
+
+        Assert.Equal(0m, resultado.MontoDisponible);
+        Assert.Equal(EstadoNotaCredito.UtilizadaTotalmente, resultado.Estado);
+    }
+
+    [Fact]
+    public async Task Utilizar_MontoCeroONegativo_LanzaExcepcion()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id);
+        var nc = await SeedNotaCreditoAsync(cliente.Id, dev.Id);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.UtilizarNotaCreditoAsync(nc.Id, 0m));
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.UtilizarNotaCreditoAsync(nc.Id, -5m));
+    }
+
+    [Fact]
+    public async Task Utilizar_SaldoInsuficiente_LanzaExcepcion()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id);
+        var nc = await SeedNotaCreditoAsync(cliente.Id, dev.Id, monto: 100m);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.UtilizarNotaCreditoAsync(nc.Id, 150m));
+    }
+
+    [Fact]
+    public async Task Utilizar_Vencida_LanzaExcepcion()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id);
+        var nc = await SeedNotaCreditoAsync(cliente.Id, dev.Id,
+            vencimiento: DateTime.UtcNow.AddDays(-1));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.UtilizarNotaCreditoAsync(nc.Id, 10m));
+    }
+
+    [Fact]
+    public async Task Utilizar_EstadoCancelada_LanzaExcepcion()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id);
+        var nc = await SeedNotaCreditoAsync(cliente.Id, dev.Id,
+            estado: EstadoNotaCredito.Cancelada);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.UtilizarNotaCreditoAsync(nc.Id, 10m));
+    }
+
+    // -------------------------------------------------------------------------
+    // ObtenerNotasCreditoVigentesAsync / ObtenerCreditoDisponibleClienteAsync
+    // (regresión: la query usaba MontoDisponible no mapeado y no traducía a SQL)
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task ObtenerNotasCreditoVigentes_IncluyeParcialesYExcluyeAgotadasVencidasCanceladas()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
+
+        var devVigente = await SeedDevolucionAsync(venta.Id, cliente.Id);
+        var devParcial = await SeedDevolucionAsync(venta.Id, cliente.Id);
+        var devAgotada = await SeedDevolucionAsync(venta.Id, cliente.Id);
+        var devVencida = await SeedDevolucionAsync(venta.Id, cliente.Id);
+        var devCancelada = await SeedDevolucionAsync(venta.Id, cliente.Id);
+
+        var ncVigente = await SeedNotaCreditoAsync(cliente.Id, devVigente.Id, monto: 100m);
+        var ncParcial = await SeedNotaCreditoAsync(cliente.Id, devParcial.Id, monto: 100m,
+            utilizado: 50m, estado: EstadoNotaCredito.UtilizadaParcialmente);
+        await SeedNotaCreditoAsync(cliente.Id, devAgotada.Id, monto: 100m,
+            utilizado: 100m, estado: EstadoNotaCredito.UtilizadaTotalmente);
+        await SeedNotaCreditoAsync(cliente.Id, devVencida.Id, monto: 100m,
+            vencimiento: DateTime.UtcNow.AddDays(-1));
+        await SeedNotaCreditoAsync(cliente.Id, devCancelada.Id, monto: 100m,
+            estado: EstadoNotaCredito.Cancelada);
+
+        var vigentes = await _service.ObtenerNotasCreditoVigentesAsync(cliente.Id);
+        var disponible = await _service.ObtenerCreditoDisponibleClienteAsync(cliente.Id);
+
+        Assert.Equal(2, vigentes.Count);
+        Assert.Contains(vigentes, nc => nc.Id == ncVigente.Id);
+        Assert.Contains(vigentes, nc => nc.Id == ncParcial.Id);
+        Assert.Equal(150m, disponible); // 100 vigente + 50 restante de la parcial
+    }
+
+    // -------------------------------------------------------------------------
+    // CrearRMAAsync — RMAId real (regresión: quedaba en 0 por asignarse pre-insert)
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task CrearRMA_PersisteRMAIdRealYNumeroDerivadoDelId()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id, estado: EstadoDevolucion.Aprobada);
+
+        var proveedor = new Proveedor { Cuit = "20123456789", RazonSocial = "Proveedor Test" };
+        _context.Proveedores.Add(proveedor);
+        await _context.SaveChangesAsync();
+
+        var rma = new RMA
+        {
+            DevolucionId = dev.Id,
+            ProveedorId = proveedor.Id,
+            MotivoSolicitud = "Producto defectuoso"
+        };
+
+        var resultado = await _service.CrearRMAAsync(rma, dev.RowVersion);
+
+        Assert.True(resultado.Id > 0);
+        Assert.Equal($"RMA-{DateTime.UtcNow:yyyyMM}-{resultado.Id:D6}", resultado.NumeroRMA);
+
+        var devPersistida = await _context.Devoluciones.AsNoTracking().SingleAsync(d => d.Id == dev.Id);
+        Assert.Equal(resultado.Id, devPersistida.RMAId);
+        Assert.True(devPersistida.RequiereRMA);
     }
 
     // -------------------------------------------------------------------------
@@ -2059,6 +2321,145 @@ public class DevolucionServiceTests : IDisposable
         Assert.Equal(unidad.CodigoInternoUnidad, detalle.ProductoUnidad.CodigoInternoUnidad);
         Assert.Equal(EstadoUnidad.Vendida, detalle.ProductoUnidad.Estado);
     }
+
+    // -------------------------------------------------------------------------
+    // CompletarDevolucionAsync — egreso de caja por reembolso
+    // -------------------------------------------------------------------------
+
+    private DevolucionService CrearServiceConCaja(ICajaService cajaService) => new(
+        _context,
+        new MovimientoStockService(_context, NullLogger<MovimientoStockService>.Instance),
+        new StubCurrentUserServiceDev(),
+        NullLogger<DevolucionService>.Instance,
+        cajaService);
+
+    [Fact]
+    public async Task Completar_ReembolsoConEgresoCaja_RegistraEgresoConDatosDeLaDevolucion()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync(stockActual: 10m);
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id, estado: EstadoDevolucion.Aprobada,
+            tipoResolucion: TipoResolucionDevolucion.ReembolsoDinero);
+        dev.RegistrarEgresoCaja = true;
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var caja = new StubCajaServiceDevolucion();
+        var service = CrearServiceConCaja(caja);
+        var rowVersion = (await _context.Devoluciones.AsNoTracking().FirstAsync(d => d.Id == dev.Id)).RowVersion;
+
+        var resultado = await service.CompletarDevolucionAsync(dev.Id, rowVersion);
+
+        Assert.Equal(EstadoDevolucion.Completada, resultado.Estado);
+        var reembolso = Assert.Single(caja.Reembolsos);
+        Assert.Equal(dev.Id, reembolso.DevolucionId);
+        Assert.Equal(venta.Id, reembolso.VentaId);
+        Assert.Equal(venta.Numero, reembolso.VentaNumero);
+        Assert.Equal(dev.NumeroDevolucion, reembolso.DevolucionNumero);
+        Assert.Equal(50m, reembolso.Monto);
+        Assert.Equal("testuser", reembolso.Usuario);
+    }
+
+    [Fact]
+    public async Task Completar_ReembolsoSinEgresoCaja_NoTocaCaja()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id, estado: EstadoDevolucion.Aprobada,
+            tipoResolucion: TipoResolucionDevolucion.ReembolsoDinero);
+        _context.ChangeTracker.Clear();
+
+        var caja = new StubCajaServiceDevolucion();
+        var service = CrearServiceConCaja(caja);
+
+        var resultado = await service.CompletarDevolucionAsync(dev.Id, dev.RowVersion);
+
+        Assert.Equal(EstadoDevolucion.Completada, resultado.Estado);
+        Assert.Empty(caja.Reembolsos);
+    }
+
+    [Fact]
+    public async Task Completar_ResolucionNotaCredito_NoTocaCaja()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id, estado: EstadoDevolucion.Aprobada,
+            tipoResolucion: TipoResolucionDevolucion.NotaCredito);
+        _context.ChangeTracker.Clear();
+
+        var caja = new StubCajaServiceDevolucion();
+        var service = CrearServiceConCaja(caja);
+
+        var resultado = await service.CompletarDevolucionAsync(dev.Id, dev.RowVersion);
+
+        Assert.Equal(EstadoDevolucion.Completada, resultado.Estado);
+        Assert.Empty(caja.Reembolsos);
+    }
+
+    [Fact]
+    public async Task Completar_ReembolsoConEgresoCaja_SinCajaService_LanzaYNoCompleta()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id, estado: EstadoDevolucion.Aprobada,
+            tipoResolucion: TipoResolucionDevolucion.ReembolsoDinero);
+        dev.RegistrarEgresoCaja = true;
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var rowVersion = (await _context.Devoluciones.AsNoTracking().FirstAsync(d => d.Id == dev.Id)).RowVersion;
+
+        // _service fue construido sin ICajaService (escenario de configuración incompleta)
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.CompletarDevolucionAsync(dev.Id, rowVersion));
+
+        _context.ChangeTracker.Clear();
+        var devDb = await _context.Devoluciones.AsNoTracking().FirstAsync(d => d.Id == dev.Id);
+        Assert.Equal(EstadoDevolucion.Aprobada, devDb.Estado);
+    }
+
+    [Fact]
+    public async Task Completar_CajaFalla_RevierteEstadoYStock()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync(stockActual: 10m);
+        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, 5);
+        var dev = await SeedDevolucionAsync(venta.Id, cliente.Id, estado: EstadoDevolucion.Aprobada,
+            tipoResolucion: TipoResolucionDevolucion.ReembolsoDinero);
+        dev.RegistrarEgresoCaja = true;
+        _context.DevolucionDetalles.Add(new DevolucionDetalle
+        {
+            DevolucionId = dev.Id,
+            ProductoId = producto.Id,
+            Cantidad = 2,
+            PrecioUnitario = 50m,
+            Subtotal = 100m,
+            AccionRecomendada = AccionProducto.ReintegrarStock
+        });
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var caja = new StubCajaServiceDevolucion
+        {
+            ExcepcionAlRegistrar = new InvalidOperationException("No hay una caja abierta para registrar el reembolso.")
+        };
+        var service = CrearServiceConCaja(caja);
+        var rowVersion = (await _context.Devoluciones.AsNoTracking().FirstAsync(d => d.Id == dev.Id)).RowVersion;
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.CompletarDevolucionAsync(dev.Id, rowVersion));
+
+        _context.ChangeTracker.Clear();
+        var devDb = await _context.Devoluciones.AsNoTracking().FirstAsync(d => d.Id == dev.Id);
+        Assert.Equal(EstadoDevolucion.Aprobada, devDb.Estado);
+
+        var productoDb = await _context.Productos.AsNoTracking().FirstAsync(p => p.Id == producto.Id);
+        Assert.Equal(10m, productoDb.StockActual);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -2073,4 +2474,54 @@ file sealed class StubCurrentUserServiceDev : ICurrentUserService
     public bool IsInRole(string role) => false;
     public bool HasPermission(string modulo, string accion) => true;
     public string GetIpAddress() => "127.0.0.1";
+}
+
+// ---------------------------------------------------------------------------
+// Stub de ICajaService: registra las llamadas a RegistrarMovimientoDevolucionAsync.
+// El resto de los miembros no los usa DevolucionService.
+// ---------------------------------------------------------------------------
+file sealed class StubCajaServiceDevolucion : ICajaService
+{
+    public List<(int DevolucionId, int VentaId, string VentaNumero, string DevolucionNumero, decimal Monto, string Usuario)> Reembolsos { get; } = new();
+    public Exception? ExcepcionAlRegistrar { get; set; }
+
+    public Task<MovimientoCaja> RegistrarMovimientoDevolucionAsync(int devolucionId, int ventaId, string ventaNumero, string devolucionNumero, decimal monto, string usuario)
+    {
+        if (ExcepcionAlRegistrar != null)
+            throw ExcepcionAlRegistrar;
+
+        Reembolsos.Add((devolucionId, ventaId, ventaNumero, devolucionNumero, monto, usuario));
+        return Task.FromResult(new MovimientoCaja { Monto = monto });
+    }
+
+    public Task<List<Caja>> ObtenerTodasCajasAsync() => throw new NotSupportedException();
+    public Task<Caja?> ObtenerCajaPorIdAsync(int id) => throw new NotSupportedException();
+    public Task<Caja> CrearCajaAsync(CajaViewModel model) => throw new NotSupportedException();
+    public Task<Caja> ActualizarCajaAsync(int id, CajaViewModel model) => throw new NotSupportedException();
+    public Task EliminarCajaAsync(int id, byte[]? rowVersion = null) => throw new NotSupportedException();
+    public Task<bool> ExisteCodigoCajaAsync(string codigo, int? cajaIdExcluir = null) => throw new NotSupportedException();
+    public Task<AperturaCaja> AbrirCajaAsync(AbrirCajaViewModel model, string usuario) => throw new NotSupportedException();
+    public Task<decimal?> ObtenerUltimoEfectivoCierreAsync(int cajaId) => throw new NotSupportedException();
+    public Task<AperturaCaja?> ObtenerAperturaActivaAsync(int cajaId) => throw new NotSupportedException();
+    public Task<AperturaCaja?> ObtenerAperturaPorIdAsync(int id) => throw new NotSupportedException();
+    public Task<List<AperturaCaja>> ObtenerAperturasAbiertasAsync() => throw new NotSupportedException();
+    public Task<bool> TieneCajaAbiertaAsync(int cajaId) => throw new NotSupportedException();
+    public Task<AperturaCaja?> ObtenerAperturaActivaParaUsuarioAsync(string usuario) => throw new NotSupportedException();
+    public Task<bool> ExisteAlgunaCajaAbiertaAsync() => throw new NotSupportedException();
+    public Task<MovimientoCaja> RegistrarMovimientoAsync(MovimientoCajaViewModel model, string usuario) => throw new NotSupportedException();
+    public Task<List<MovimientoCaja>> ObtenerMovimientosDeAperturaAsync(int aperturaId) => throw new NotSupportedException();
+    public Task<decimal> CalcularSaldoActualAsync(int aperturaId) => throw new NotSupportedException();
+    public Task<decimal> CalcularSaldoRealAsync(int aperturaId) => throw new NotSupportedException();
+    public Task<MovimientoCaja> AcreditarMovimientoAsync(int movimientoId, string usuario) => throw new NotSupportedException();
+    public Task<MovimientoCaja?> RegistrarMovimientoVentaAsync(int ventaId, string ventaNumero, decimal monto, TipoPago tipoPago, string usuario) => throw new NotSupportedException();
+    public Task<AperturaCaja?> ObtenerAperturaActivaParaVentaAsync() => throw new NotSupportedException();
+    public Task<MovimientoCaja?> RegistrarMovimientoCuotaAsync(int cuotaId, string creditoNumero, int numeroCuota, decimal monto, string medioPago, string usuario) => throw new NotSupportedException();
+    public Task<MovimientoCaja?> RegistrarMovimientoAnticipoAsync(int creditoId, string creditoNumero, decimal montoAnticipo, string usuario) => throw new NotSupportedException();
+    public Task<MovimientoCaja?> RegistrarContramovimientoVentaAsync(int ventaId, string ventaNumero, string motivo, string usuario) => throw new NotSupportedException();
+    public Task<CierreCaja> CerrarCajaAsync(CerrarCajaViewModel model, string usuario) => throw new NotSupportedException();
+    public Task<CierreCaja?> ObtenerCierrePorIdAsync(int id) => throw new NotSupportedException();
+    public Task<List<CierreCaja>> ObtenerHistorialCierresAsync(int? cajaId = null, DateTime? fechaDesde = null, DateTime? fechaHasta = null) => throw new NotSupportedException();
+    public Task<DetallesAperturaViewModel> ObtenerDetallesAperturaAsync(int aperturaId) => throw new NotSupportedException();
+    public Task<ReporteCajaViewModel> GenerarReporteCajaAsync(DateTime fechaDesde, DateTime fechaHasta, int? cajaId = null) => throw new NotSupportedException();
+    public Task<HistorialCierresViewModel> ObtenerEstadisticasCierresAsync(int? cajaId = null, DateTime? fechaDesde = null, DateTime? fechaHasta = null) => throw new NotSupportedException();
 }

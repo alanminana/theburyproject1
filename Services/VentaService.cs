@@ -919,8 +919,12 @@ namespace TheBuryProject.Services
 
                 await AsegurarSnapshotLimiteCreditoAsync(venta);
 
-                var montoOperacion = credito.MontoAprobado > 0m ? credito.MontoAprobado : venta.Total;
-                await ValidarCupoDisponibleEnConfirmacionAsync(venta, montoOperacion);
+                // No se revalida cupo acá: el cupo se reserva y se autoriza (si excede el límite)
+                // desde la creación de la venta a crédito, y el crédito ya cuenta como "vigente"
+                // desde entonces (docs/credito-fase-3-cuenta-disponible.md, sección F). Volver a
+                // bloquear por cupo en este punto duplica -y contradice- el gate canónico de
+                // ValidacionVentaService.ValidarConfirmacionVentaAsync, que explícitamente excluye
+                // la categoría "Cupo" al confirmar (ValidarSinCupoAsync).
 
                 // Permitir confirmar si el crédito está Configurado O si la venta tiene el flag
                 if (credito.Estado != EstadoCredito.Configurado && !venta.FechaConfiguracionCredito.HasValue)
@@ -3536,12 +3540,33 @@ namespace TheBuryProject.Services
                     return;
                 }
 
-                if (montoOperacion > disponible.Disponible)
+                // El crédito propio de esta venta ya cuenta como "vigente" dentro de SaldoVigente
+                // (CalcularDisponibleAsync suma todos los créditos no finalizados/rechazados/cancelados
+                // del cliente, y ese crédito ya existe en PendienteConfiguracion/Configurado antes de
+                // confirmar). Hay que recalcular el disponible excluyendo su propio saldo del total
+                // vigente y volver a aplicar el mismo clamp a 0 -no simplemente sumarle el saldo propio
+                // al Disponible ya clampeado, porque eso perdería el exceso cuando OTRA deuda ya supera
+                // el límite por sí sola-. Sin esto, el crédito se descuenta dos veces (una como saldo
+                // vigente, otra como monto requerido de esta misma operación) y el cupo aparece en $0
+                // aunque el cliente no tenga ninguna otra deuda.
+                var saldoVigenteExcluyendoPropio = disponible.SaldoVigente;
+                var creditoPropio = venta.Credito;
+
+                if (creditoPropio != null
+                    && creditoPropio.SaldoPendiente > 0m
+                    && creditoPropio.Estado is not (EstadoCredito.Finalizado or EstadoCredito.Rechazado or EstadoCredito.Cancelado))
+                {
+                    saldoVigenteExcluyendoPropio -= creditoPropio.SaldoPendiente;
+                }
+
+                var disponibleParaEstaOperacion = Math.Max(0m, disponible.Limite - saldoVigenteExcluyendoPropio);
+
+                if (montoOperacion > disponibleParaEstaOperacion)
                 {
                     throw new InvalidOperationException(
                         $"Cupo de crédito insuficiente para confirmar la venta. " +
-                        $"Disponible actual: ${disponible.Disponible:N2}, requerido: ${montoOperacion:N2}. " +
-                        $"Fórmula aplicada: Disponible = LímiteEfectivo - SaldoPendienteVigente (saldo de créditos vigentes; no suma cuotas futuras por separado ni mora adicional)."
+                        $"Disponible actual: ${disponibleParaEstaOperacion:N2}, requerido: ${montoOperacion:N2}. " +
+                        $"Fórmula aplicada: Disponible = LímiteEfectivo - SaldoPendienteVigente (excluyendo el crédito propio de esta venta; no suma cuotas futuras por separado ni mora adicional)."
                     );
                 }
             }

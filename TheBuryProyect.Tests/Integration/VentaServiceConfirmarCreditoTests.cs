@@ -202,7 +202,9 @@ public class VentaServiceConfirmarCreditoTests : IDisposable
         _service = CreateService(existeContratoGenerado: true);
     }
 
-    private VentaService CreateService(bool existeContratoGenerado)
+    private VentaService CreateService(
+        bool existeContratoGenerado,
+        ICreditoDisponibleService? creditoDisponibleService = null)
     {
         var mapper = new MapperConfiguration(
                 cfg => { cfg.AddProfile<MappingProfile>(); },
@@ -222,7 +224,7 @@ public class VentaServiceConfirmarCreditoTests : IDisposable
             new StubCurrentUserServiceConfirmar(),
             new StubValidacionVentaServiceConfirmar(),
             new StubCajaServiceConfirmar(_apertura),
-            new StubCreditoDisponibleServiceConfirmar(),
+            creditoDisponibleService ?? new StubCreditoDisponibleServiceConfirmar(),
             new StubContratoVentaCreditoService(existeContratoGenerado),
             new StubConfiguracionPagoServiceVenta());
     }
@@ -854,5 +856,68 @@ public class VentaServiceConfirmarCreditoTests : IDisposable
         Assert.Equal(creditoActualizado.TotalAPagar, totalCuotas);
         Assert.True(totalCuotas > montoAprobado,   "Las cuotas incluyen interés sobre 720");
         Assert.True(totalCuotas < subtotalBruto,   "Las cuotas NO se calcularon sobre el subtotal bruto 1.000");
+    }
+
+    // -------------------------------------------------------------------------
+    // Tests — ConfirmarVentaCreditoAsync con CreditoDisponibleService real (no un stub
+    // de cupo ilimitado): el cupo se reserva/autoriza desde la CREACIÓN de la venta a
+    // crédito (docs/credito-fase-3-cuenta-disponible.md, sección F) y no se vuelve a
+    // revalidar al confirmar (mismo criterio que ValidacionVentaService.ValidarSinCupoAsync).
+    // Estos tests cubren que ConfirmarVentaCreditoAsync nunca bloquea por cupo, ni por el
+    // propio crédito de la venta ni por otra deuda vigente del cliente.
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task ConfirmarVentaCredito_CupoExactamenteConsumidoPorElPropioCredito_NoBloquea()
+    {
+        var preset = await _context.PuntajesCreditoLimite.FirstAsync(p => p.Puntaje == 0);
+        preset.LimiteMonto = 8_000m;
+        await _context.SaveChangesAsync();
+
+        var (venta, _) = await SeedVentaConfirmable(total: 8_000m, montoAprobado: 8_000m);
+
+        var servicioConCupoReal = CreateService(
+            existeContratoGenerado: true,
+            creditoDisponibleService: new CreditoDisponibleService(_context, NullLogger<CreditoDisponibleService>.Instance));
+
+        var result = await servicioConCupoReal.ConfirmarVentaCreditoAsync(venta.Id);
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public async Task ConfirmarVentaCredito_OtraDeudaVigenteSuperaElLimite_NoBloqueaPorqueCupoNoSeRevalidaAlConfirmar()
+    {
+        // El cliente tiene OTRO crédito vigente que por sí solo ya excede el límite.
+        // Aun así, ConfirmarVentaCreditoAsync no debe bloquear: si esa otra deuda
+        // hubiera hecho que ESTA venta excediera cupo, eso se debió resolver (autorizar
+        // o rechazar) al crear la venta, no al confirmarla.
+        var preset = await _context.PuntajesCreditoLimite.FirstAsync(p => p.Puntaje == 0);
+        preset.LimiteMonto = 8_000m;
+        await _context.SaveChangesAsync();
+
+        var (venta, _) = await SeedVentaConfirmable(total: 8_000m, montoAprobado: 8_000m);
+
+        _context.Creditos.Add(new Credito
+        {
+            ClienteId = venta.ClienteId,
+            Numero = "CRED-OTRO-VIGENTE",
+            Estado = EstadoCredito.Activo,
+            TasaInteres = 3m,
+            MontoSolicitado = 3_000m,
+            MontoAprobado = 3_000m,
+            SaldoPendiente = 3_000m,
+            CantidadCuotas = 6,
+            IsDeleted = false
+        });
+        await _context.SaveChangesAsync();
+
+        var servicioConCupoReal = CreateService(
+            existeContratoGenerado: true,
+            creditoDisponibleService: new CreditoDisponibleService(_context, NullLogger<CreditoDisponibleService>.Instance));
+
+        var result = await servicioConCupoReal.ConfirmarVentaCreditoAsync(venta.Id);
+
+        Assert.True(result);
     }
 }

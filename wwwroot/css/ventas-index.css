@@ -340,8 +340,7 @@
    Pills / Chips
 ───────────────────────────────────────────── */
 
-#venta-index-rework .pill,
-#venta-index-rework .chip-filter {
+#venta-index-rework .pill {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -357,24 +356,6 @@
 
 #venta-index-rework .pill {
     padding: 0.28rem 0.55rem;
-}
-
-#venta-index-rework .chip-filter {
-    min-height: 2rem;
-    padding: 0.4rem 0.75rem;
-    background: rgba(148, 163, 184, 0.08);
-    border-color: rgba(148, 163, 184, 0.14);
-    color: var(--venta-muted);
-}
-
-#venta-index-rework .chip-filter .material-symbols-outlined {
-    font-size: 1rem;
-}
-
-#venta-index-rework .chip-filter-active {
-    background: var(--venta-primary-soft);
-    border-color: rgba(245, 197, 24, 0.32);
-    color: #f5d97a;
 }
 
 #venta-index-rework .pill-slate {
@@ -1385,11 +1366,6 @@
     #venta-index-rework .tab-btn {
         padding-inline: 0.7rem;
         font-size: 0.74rem;
-    }
-
-    #venta-index-rework .chip-filter {
-        width: 100%;
-        justify-content: flex-start;
     }
 }
 

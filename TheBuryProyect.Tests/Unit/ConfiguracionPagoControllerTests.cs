@@ -162,6 +162,22 @@ public sealed class ConfiguracionPagoControllerTests
     }
 
     [Fact]
+    public async Task CreditoPersonal_Get_CargaLimitesCanonicosPorPuntaje()
+    {
+        var controller = CrearController(new FakeConfiguracionPagoGlobalAdminService());
+
+        var result = await controller.CreditoPersonal();
+
+        var view = Assert.IsType<ViewResult>(result);
+        Assert.Equal("CreditoPersonal_tw", view.ViewName);
+        var model = Assert.IsType<CreditoPersonalConfigViewModel>(view.Model);
+        Assert.Equal(Enumerable.Range(0, 6), model.LimitesPorPuntaje.Select(l => l.Puntaje));
+        Assert.Equal(200_000m, model.LimitesPorPuntaje.Single(l => l.Puntaje == 0).LimiteMonto);
+        Assert.Empty(model.MontosPorPuntaje);
+        Assert.Null(model.ScoringThresholds);
+    }
+
+    [Fact]
     public void PlanPagoGlobalCommandViewModel_AjustePorcentaje_UsaDecimalModelBinder()
     {
         var property = typeof(PlanPagoGlobalCommandViewModel).GetProperty(nameof(PlanPagoGlobalCommandViewModel.AjustePorcentaje));
@@ -217,6 +233,7 @@ public sealed class ConfiguracionPagoControllerTests
             new FakeConfiguracionPagoService(),
             adminService,
             new FakeClienteAptitudService(),
+            new FakeCreditoDisponibleService(),
             NullLogger<ConfiguracionPagoController>.Instance)
         {
             ControllerContext = new ControllerContext { HttpContext = httpContext },
@@ -335,6 +352,26 @@ public sealed class ConfiguracionPagoControllerTests
         public Task<bool> AsignarLimiteCreditoAsync(int clienteId, decimal limite, string? motivo = null) => throw new NotImplementedException();
         public Task<decimal> GetCupoDisponibleAsync(int clienteId) => throw new NotImplementedException();
         public Task<decimal> GetCreditoUtilizadoAsync(int clienteId) => throw new NotImplementedException();
+    }
+
+    private sealed class FakeCreditoDisponibleService : ICreditoDisponibleService
+    {
+        public Task<decimal> ObtenerLimitePorPuntajeAsync(int puntaje, CancellationToken cancellationToken = default) => Task.FromResult(0m);
+        public Task<decimal> CalcularSaldoVigenteAsync(int clienteId, CancellationToken cancellationToken = default) => Task.FromResult(0m);
+        public Task<CreditoDisponibleResultado> CalcularDisponibleAsync(int clienteId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<(bool Ok, List<string> Errores)> GuardarLimitesPorPuntajeAsync(IReadOnlyList<(int Puntaje, decimal LimiteMonto, bool Activo)> items, string usuario)
+            => Task.FromResult((true, new List<string>()));
+
+        public Task<List<PuntajeCreditoLimite>> GetAllLimitesPorPuntajeAsync()
+            => Task.FromResult(Enumerable.Range(0, 6)
+                .Select(p => new PuntajeCreditoLimite
+                {
+                    Id = p + 1,
+                    Puntaje = p,
+                    LimiteMonto = p == 0 ? 200_000m : p * 100_000m,
+                    Activo = true
+                })
+                .ToList());
     }
 
     private sealed class TestTempDataProvider : ITempDataProvider

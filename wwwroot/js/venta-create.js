@@ -431,6 +431,8 @@
                 heroClienteDetalle.textContent = 'Buscá un cliente para iniciar la operación.';
             }
         }
+
+        window.VentaWizard?.refreshStepGating?.();
     }
 
     function debounce(fn, ms) {
@@ -1453,6 +1455,7 @@
         // Update credit availability notice
         actualizarAvisoCredito();
         programarDiagnosticoCondicionesPago();
+        verificarElegibilidadAuto();
     }
 
     function aplicarLimiteCuotasSinInteres(maxEfectivo, limitadoPorProducto) {
@@ -1567,6 +1570,7 @@
         actualizarResumenOperacion(parseFloat(hdnTotal?.value) || 0);
         renderDetalles();
         programarDiagnosticoCondicionesPago();
+        verificarElegibilidadAuto();
     }
 
     // ── 7. Card Payment ───────────────────────────────────────────────
@@ -1909,6 +1913,7 @@
     // State for credit verification
     let ultimaPrevalidacion = null;
     let excepcionActiva = false;
+    let verificacionAutoKey = null;
 
     const RESULTADO_PREVAL = { Aprobable: 0, RequiereAutorizacion: 1, NoViable: 2 };
     const TIPO_DOC_CLIENTE = { DNI: 1, ReciboSueldo: 2, Servicio: 3, ConstanciaCUIL: 6, Veraz: 8, Otro: 99 };
@@ -1939,15 +1944,13 @@
 
     function invalidarVerificacionCrediticia() {
         creditoCupoDisponible = null;
+        verificacionAutoKey = null;
         resetVerificacion();
         resetExcepcionCrediticia();
         hide($('#panel-credito-cupo'));
         hide(panelAvisoCredito);
         clearFeedback();
     }
-
-    document.addEventListener('venta-crear-modal:open', invalidarVerificacionCrediticia);
-    document.addEventListener('venta-crear-modal:close', invalidarVerificacionCrediticia);
 
     function resetExcepcionCrediticia() {
         excepcionActiva = false;
@@ -2138,31 +2141,41 @@
         }
     }
 
-    $('#btn-verificar-elegibilidad')?.addEventListener('click', async function () {
-        if (!esTipoPagoCredito(selectTipoPago?.value)) {
-            return;
+    // La verificación de elegibilidad se dispara sola (sin botón) cuando el
+    // tipo de pago es crédito/cta. cte. y ya hay cliente + total > 0. Memoiza
+    // por clienteId+total para no repetir el fetch si nada relevante cambió.
+    function mostrarEstadoVerificandoCrediticia(verificando) {
+        const icon = $('#verificacion-crediticia-auto-icon');
+        const texto = $('#verificacion-crediticia-auto-texto');
+        if (icon) {
+            icon.textContent = verificando ? 'progress_activity' : 'analytics';
+            icon.classList.toggle('animate-spin', verificando);
         }
+        if (texto) {
+            texto.textContent = verificando
+                ? 'Verificando elegibilidad crediticia...'
+                : 'La elegibilidad se verifica automáticamente al completar cliente, productos y crédito personal.';
+        }
+    }
+
+    async function verificarElegibilidadAuto() {
+        if (!esTipoPagoCredito(selectTipoPago?.value)) return;
 
         const clienteId = parseInt(hdnClienteId?.value);
         const total = parseFloat(hdnTotal?.value) || 0;
+        if (!clienteId || total <= 0) return;
+
+        const clave = `${clienteId}:${total.toFixed(2)}`;
+        if (clave === verificacionAutoKey) return;
+
         clearFeedback();
-
-        if (!clienteId) {
-            showFeedback('Seleccione un cliente primero.', 'warning');
-            return;
-        }
-        if (total <= 0) {
-            showFeedback('Agregue productos para verificar elegibilidad.', 'warning');
-            return;
-        }
-
-        this.disabled = true;
-        this.innerHTML = '<span class="material-symbols-outlined animate-spin">progress_activity</span> Verificando...';
         resetVerificacion();
         resetExcepcionCrediticia();
+        mostrarEstadoVerificandoCrediticia(true);
 
         try {
             const data = await fetchJson(`/api/ventas/PrevalidarCredito?clienteId=${clienteId}&monto=${total}`);
+            verificacionAutoKey = clave;
             ultimaPrevalidacion = data;
 
             mostrarResultadoVerificacion(data);
@@ -2174,10 +2187,9 @@
         } catch (err) {
             showFeedback('Error al verificar elegibilidad: ' + err.message, 'error');
         } finally {
-            this.disabled = false;
-            this.innerHTML = '<span class="material-symbols-outlined">analytics</span> Verificar Elegibilidad';
+            mostrarEstadoVerificandoCrediticia(false);
         }
-    });
+    }
 
     // ── 10. Exception Workflow ────────────────────────────────────────
     // excepcionActiva = true means the panel is open AND the user confirmed with motivo.
@@ -2298,10 +2310,8 @@
     const ventaForm = document.getElementById('venta-form');
 
     // ── Envío AJAX sin recarga (solo página completa de alta: Create_tw) ──
-    // El modal del Index resuelve su propio AJAX (VentaCrearModal) y la edición
-    // rehidrata vía window.ventaInicial, así que ambos conservan el submit nativo.
+    // La edición rehidrata vía window.ventaInicial y conserva el submit nativo.
     const esVentaCreatePage = !!ventaForm
-        && !ventaForm.closest('#modal-crear-venta')
         && /\/Venta\/Create\/?$/i.test(ventaForm.getAttribute('action') || '');
 
     const bannerErrores = $('#banner-errores');

@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering;
 using TheBuryProject.Filters;
 using TheBuryProject.Helpers;
 using TheBuryProject.Models.Constants;
@@ -21,7 +20,6 @@ public class DevolucionController : Controller
     private readonly IDevolucionService _devolucionService;
     private readonly IClienteService _clienteService;
     private readonly IVentaService _ventaService;
-    private readonly IProveedorService _proveedorService;
     private readonly ICurrentUserService _currentUser;
     private readonly ILogger<DevolucionController> _logger;
 
@@ -29,14 +27,12 @@ public class DevolucionController : Controller
         IDevolucionService devolucionService,
         IClienteService clienteService,
         IVentaService ventaService,
-        IProveedorService proveedorService,
         ICurrentUserService currentUser,
         ILogger<DevolucionController> logger)
     {
         _devolucionService = devolucionService;
         _clienteService = clienteService;
         _ventaService = ventaService;
-        _proveedorService = proveedorService;
         _currentUser = currentUser;
         _logger = logger;
     }
@@ -147,100 +143,14 @@ public class DevolucionController : Controller
     }
 
     /// <summary>
-    /// Formulario para crear nueva devolución
+    /// Formulario para crear nueva devolución.
+    /// La creación se hace desde la venta (QuickCreate); esta ruta solo redirige.
     /// </summary>
     [HttpGet]
     public IActionResult Create(int? ventaId)
     {
         TempData["Info"] = "La creación de devoluciones se inicia desde una venta mientras esta superficie se estabiliza.";
         return RedirectToAction(nameof(Index));
-    }
-
-    /// <summary>
-    /// Procesar creación de devolución
-    /// </summary>
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Create(CrearDevolucionViewModel model)
-    {
-        if (!ModelState.IsValid)
-        {
-            await CargarListasAsync();
-            return View(model);
-        }
-
-        try
-        {
-            // Validar que la venta existe y obtener el cliente correcto
-            var venta = await _ventaService.GetByIdAsync(model.VentaId);
-            if (venta == null)
-            {
-                ModelState.AddModelError("", "La venta especificada no existe");
-                await CargarListasAsync();
-                return View(model);
-            }
-
-            // Validar que el cliente de la devolución coincide con el cliente de la venta
-            if (model.ClienteId != venta.ClienteId)
-            {
-                ModelState.AddModelError("", "El cliente de la devolución no coincide con el cliente de la venta");
-                await CargarListasAsync();
-                return View(model);
-            }
-
-            // Validar que puede devolver
-            if (!await _devolucionService.PuedeDevolverVentaAsync(model.VentaId))
-            {
-                ModelState.AddModelError("", "Ha excedido el plazo para devolver esta venta (30 días)");
-                await CargarListasAsync();
-                return View(model);
-            }
-
-            // Crear devolución (el ClienteId ya está validado que coincide con la venta)
-            var devolucion = new Devolucion
-            {
-                VentaId = model.VentaId,
-                ClienteId = model.ClienteId,
-                Motivo = model.Motivo,
-                Descripcion = model.Descripcion,
-                FechaDevolucion = DateTime.UtcNow
-            };
-
-            // Crear detalles
-            var detalles = model.Productos
-                .Where(p => p.CantidadDevolver > 0)
-                .Select(p => new DevolucionDetalle
-                {
-                    ProductoId = p.ProductoId,
-                    Cantidad = p.CantidadDevolver,
-                    PrecioUnitario = p.PrecioUnitario,
-                    EstadoProducto = p.EstadoProducto,
-                    AccesoriosCompletos = p.AccesoriosCompletos,
-                    AccesoriosFaltantes = p.AccesoriosFaltantes,
-                    TieneGarantia = p.TieneGarantia,
-                    ObservacionesTecnicas = p.ObservacionesTecnicas,
-                    AccionRecomendada = _devolucionService.DeterminarAccionRecomendada(p.EstadoProducto)
-                })
-                .ToList();
-
-            if (!detalles.Any())
-            {
-                ModelState.AddModelError("", "Debe seleccionar al menos un producto para devolver");
-                await CargarListasAsync();
-                return View(model);
-            }
-
-            await _devolucionService.CrearDevolucionAsync(devolucion, detalles);
-
-            TempData["Success"] = $"Devolución {devolucion.NumeroDevolucion} creada exitosamente. Aguarde aprobación.";
-            return RedirectToAction(nameof(Index));
-        }
-        catch (Exception ex)
-        {
-            ModelState.AddModelError("", $"Error al crear devolución: {ex.Message}");
-            await CargarListasAsync();
-            return View(model);
-        }
     }
 
     [HttpGet]
@@ -421,6 +331,7 @@ public class DevolucionController : Controller
     /// </summary>
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [PermisoRequerido(Modulo = "devoluciones", Accion = "approve")]
     public async Task<IActionResult> Aprobar(int id, byte[]? rowVersion)
     {
         try
@@ -462,6 +373,7 @@ public class DevolucionController : Controller
     /// </summary>
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [PermisoRequerido(Modulo = "devoluciones", Accion = "reject")]
     public async Task<IActionResult> Rechazar(int id, string motivo, byte[]? rowVersion)
     {
         if (string.IsNullOrWhiteSpace(motivo))
@@ -490,10 +402,46 @@ public class DevolucionController : Controller
     }
 
     /// <summary>
+    /// Cancelar devolución (anular una carga por error, antes de aprobar)
+    /// </summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    // El catálogo de devoluciones no define acción "cancel"; se gatea con "reject"
+    // porque ambas terminan la devolución sin efectos de stock/caja.
+    [PermisoRequerido(Modulo = "devoluciones", Accion = "reject")]
+    public async Task<IActionResult> Cancelar(int id, string motivo, byte[]? rowVersion)
+    {
+        if (string.IsNullOrWhiteSpace(motivo))
+        {
+            TempData["Error"] = "Debe proporcionar un motivo para cancelar la devolución";
+            return RedirectToAction(nameof(Detalles), new { id });
+        }
+
+        if (rowVersion is null || rowVersion.Length == 0)
+        {
+            TempData["Error"] = "Falta información de concurrencia (RowVersion). Recargá la página e intentá nuevamente.";
+            return RedirectToAction(nameof(Detalles), new { id });
+        }
+
+        try
+        {
+            await _devolucionService.CancelarDevolucionAsync(id, motivo, rowVersion);
+            TempData["Success"] = "Devolución cancelada";
+        }
+        catch (Exception ex)
+        {
+            TempData["Error"] = $"Error al cancelar devolución: {ex.Message}";
+        }
+
+        return RedirectToAction(nameof(Detalles), new { id });
+    }
+
+    /// <summary>
     /// Completar devolución (procesar stock)
     /// </summary>
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [PermisoRequerido(Modulo = "devoluciones", Accion = "complete")]
     public async Task<IActionResult> Completar(int id, byte[]? rowVersion)
     {
         try
@@ -545,6 +493,7 @@ public class DevolucionController : Controller
     /// </summary>
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [PermisoRequerido(Modulo = "rmas", Accion = "create")]
     public async Task<IActionResult> CrearRMA(int devolucionId, int proveedorId, string motivoSolicitud, byte[]? devolucionRowVersion)
     {
         try
@@ -580,6 +529,7 @@ public class DevolucionController : Controller
     /// <summary>
     /// Ver notas de crédito de un cliente
     /// </summary>
+    [PermisoRequerido(Modulo = "notascredito", Accion = "view")]
     public async Task<IActionResult> NotasCredito(int clienteId)
     {
         var cliente = await _clienteService.GetByIdAsync(clienteId);
@@ -592,16 +542,45 @@ public class DevolucionController : Controller
         var todasNotas = await _devolucionService.ObtenerNotasCreditoPorClienteAsync(clienteId);
         var creditoDisponible = await _devolucionService.ObtenerCreditoDisponibleClienteAsync(clienteId);
 
+        // Con saldo usable = vigentes o parcialmente usadas; el resto (agotadas,
+        // vencidas, canceladas) va al historial.
+        var notasConSaldo = todasNotas
+            .Where(nc => nc.MontoDisponible > 0 &&
+                         (nc.Estado == EstadoNotaCredito.Vigente ||
+                          nc.Estado == EstadoNotaCredito.UtilizadaParcialmente))
+            .ToList();
+
         var viewModel = new NotasCreditoClienteViewModel
         {
             ClienteId = clienteId,
             ClienteNombre = cliente.ToDisplayName(),
-            NotasVigentes = todasNotas.Where(nc => nc.MontoDisponible > 0 && nc.Estado == EstadoNotaCredito.Vigente).ToList(),
-            NotasUtilizadas = todasNotas.Where(nc => nc.MontoDisponible == 0 || nc.Estado == EstadoNotaCredito.UtilizadaTotalmente).ToList(),
+            NotasVigentes = notasConSaldo,
+            NotasUtilizadas = todasNotas.Except(notasConSaldo).ToList(),
             CreditoTotalDisponible = creditoDisponible
         };
 
         return View(viewModel);
+    }
+
+    /// <summary>
+    /// Registrar un uso (aplicación) de una nota de crédito
+    /// </summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [PermisoRequerido(Modulo = "notascredito", Accion = "apply")]
+    public async Task<IActionResult> UtilizarNotaCredito(int id, int clienteId, decimal monto, string? referencia)
+    {
+        try
+        {
+            var notaCredito = await _devolucionService.UtilizarNotaCreditoAsync(id, monto, referencia);
+            TempData["Success"] = $"Uso registrado por {monto:C2} en {notaCredito.NumeroNotaCredito}. Saldo disponible: {notaCredito.MontoDisponible:C2}";
+        }
+        catch (Exception ex)
+        {
+            TempData["Error"] = $"Error al registrar el uso: {ex.Message}";
+        }
+
+        return RedirectToAction(nameof(NotasCredito), new { clienteId });
     }
 
     #endregion
@@ -620,13 +599,6 @@ public class DevolucionController : Controller
     #endregion
 
     #region Métodos Privados
-
-    private async Task CargarListasAsync()
-    {
-        var clientes = await _clienteService.GetAllAsync();
-        ViewBag.Clientes = new SelectList(clientes.Select(c => new { c.Id, Nombre = c.ToDisplayName() }), "Id", "Nombre");
-        ViewBag.Proveedores = new SelectList(await _proveedorService.GetAllAsync(), "Id", "RazonSocial");
-    }
 
     private string ObtenerPrimerErrorModelState()
     {

@@ -94,16 +94,6 @@ public class DuplicarRolViewModel
 }
 
 /// <summary>
-/// ViewModel para eliminar un rol
-/// </summary>
-public class EliminarRolViewModel
-{
-    public string Id { get; set; } = string.Empty;
-    public string Nombre { get; set; } = string.Empty;
-    public int CantidadUsuarios { get; set; }
-}
-
-/// <summary>
 /// ViewModel para un permiso
 /// </summary>
 public class PermisoViewModel
@@ -128,46 +118,3 @@ public class UsuarioBasicoViewModel
     public bool Activo { get; set; } = true;
 }
 
-/// <summary>
-/// ViewModel para asignar permisos a un rol
-/// </summary>
-public class AsignarPermisosViewModel
-{
-    public string RoleId { get; set; } = string.Empty;
-    public string RoleName { get; set; } = string.Empty;
-    public List<ModuloConAccionesViewModel> Modulos { get; set; } = new();
-}
-
-/// <summary>
-/// ViewModel para un módulo con sus acciones
-/// </summary>
-public class ModuloConAccionesViewModel
-{
-    public int ModuloId { get; set; }
-    public string ModuloNombre { get; set; } = string.Empty;
-    public string ModuloClave { get; set; } = string.Empty;
-    public string Categoria { get; set; } = string.Empty;
-    public string Icono { get; set; } = string.Empty;
-    public List<AccionConEstadoViewModel> Acciones { get; set; } = new();
-}
-
-/// <summary>
-/// ViewModel para una acción con estado de selección
-/// </summary>
-public class AccionConEstadoViewModel
-{
-    public int AccionId { get; set; }
-    public string AccionNombre { get; set; } = string.Empty;
-    public string AccionClave { get; set; } = string.Empty;
-    public bool Seleccionada { get; set; }
-}
-
-/// <summary>
-/// ViewModel para mostrar usuarios en un rol
-/// </summary>
-public class UsuariosEnRolViewModel
-{
-    public string RoleId { get; set; } = string.Empty;
-    public string RoleName { get; set; } = string.Empty;
-    public List<UsuarioBasicoViewModel> Usuarios { get; set; } = new();
-}

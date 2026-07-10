@@ -50,7 +50,7 @@ public class CreditoConfiguracionHelperTests
             MetodoCalculoCredito.UsarPerfil, null, null);
 
         Assert.Equal(1, min);
-        Assert.Equal(120, max);
+        Assert.Equal(24, max);
     }
 
     // =========================================================================
@@ -133,6 +133,21 @@ public class CreditoConfiguracionHelperTests
 
         Assert.Equal(1, min);
         Assert.Equal(24, max);
+        Assert.Equal("Global", desc);
+    }
+
+    [Fact]
+    public void ResolverRango_Global_RespetaDefaultsConfigurados()
+    {
+        var (min, max, desc) = CreditoConfiguracionHelper.ResolverRangoCuotasPermitidos(
+            MetodoCalculoCredito.Global,
+            null,
+            null,
+            globalMinCuotas: 2,
+            globalMaxCuotas: 36);
+
+        Assert.Equal(2, min);
+        Assert.Equal(36, max);
         Assert.Equal("Global", desc);
     }
 

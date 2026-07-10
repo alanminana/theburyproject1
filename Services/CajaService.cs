@@ -989,6 +989,8 @@ namespace TheBuryProject.Services
                     FechaMovimiento = DateTime.UtcNow,
                     Tipo = TipoMovimientoCaja.Egreso,
                     Concepto = ConceptoMovimientoCaja.DevolucionCliente,
+                    // El reembolso sale como efectivo físico de la caja (no hay reversa por el medio original)
+                    TipoPago = TipoPago.Efectivo,
                     Monto = monto,
                     Descripcion = $"Reembolso devolución {devolucionNumero}",
                     Referencia = devolucionNumero,

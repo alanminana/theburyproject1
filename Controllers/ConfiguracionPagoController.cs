@@ -16,17 +16,20 @@ namespace TheBuryProject.Controllers
         private readonly IConfiguracionPagoService _configuracionPagoService;
         private readonly IConfiguracionPagoGlobalAdminService _configuracionPagoGlobalAdminService;
         private readonly IClienteAptitudService _aptitudService;
+        private readonly ICreditoDisponibleService _creditoDisponibleService;
         private readonly ILogger<ConfiguracionPagoController> _logger;
 
         public ConfiguracionPagoController(
             IConfiguracionPagoService configuracionPagoService,
             IConfiguracionPagoGlobalAdminService configuracionPagoGlobalAdminService,
             IClienteAptitudService aptitudService,
+            ICreditoDisponibleService creditoDisponibleService,
             ILogger<ConfiguracionPagoController> logger)
         {
             _configuracionPagoService = configuracionPagoService;
             _configuracionPagoGlobalAdminService = configuracionPagoGlobalAdminService;
             _aptitudService = aptitudService;
+            _creditoDisponibleService = creditoDisponibleService;
             _logger = logger;
         }
 
@@ -656,6 +659,8 @@ namespace TheBuryProject.Controllers
             string? returnUrl = null)
         {
             ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
+            config.ScoringThresholds = null;
+            config.MontosPorPuntaje = new List<MontoPorPuntajeCreditoViewModel>();
 
             if (config.DefaultsGlobales == null)
             {
@@ -745,6 +750,8 @@ namespace TheBuryProject.Controllers
                 });
             }
 
+            ValidarLimitesPorPuntaje(config);
+
             // Validar tabla montos por puntaje
             if (config.MontosPorPuntaje != null && config.MontosPorPuntaje.Count > 0)
             {
@@ -763,8 +770,7 @@ namespace TheBuryProject.Controllers
 
             if (!ModelState.IsValid)
             {
-                if (config.MontosPorPuntaje == null || config.MontosPorPuntaje.Count == 0)
-                    config.MontosPorPuntaje = await _configuracionPagoService.GetMontosPorPuntajeAsync();
+                await PrepararCreditoPersonalConfigParaVistaAsync(config);
                 return View("CreditoPersonal_tw", config);
             }
 
@@ -781,15 +787,33 @@ namespace TheBuryProject.Controllers
                 {
                     foreach (var err in erroresMontos)
                         ModelState.AddModelError(nameof(config.MontosPorPuntaje), err);
-                    config.MontosPorPuntaje = await _configuracionPagoService.GetMontosPorPuntajeAsync();
+                    await PrepararCreditoPersonalConfigParaVistaAsync(config);
                     return View("CreditoPersonal_tw", config);
                 }
             }
 
-            TempData["Success"] = "Configuración de crédito personal guardada correctamente.";
+            if (config.LimitesPorPuntaje.Count > 0)
+            {
+                var usuario = User.Identity?.Name ?? "sistema";
+                var items = config.LimitesPorPuntaje
+                    .Select(i => (i.Puntaje, i.LimiteMonto, i.Activo))
+                    .ToList()
+                    .AsReadOnly();
+
+                var (ok, erroresLimites) = await _creditoDisponibleService.GuardarLimitesPorPuntajeAsync(items, usuario);
+                if (!ok)
+                {
+                    foreach (var err in erroresLimites)
+                        ModelState.AddModelError(nameof(config.LimitesPorPuntaje), err);
+                    await PrepararCreditoPersonalConfigParaVistaAsync(config);
+                    return View("CreditoPersonal_tw", config);
+                }
+            }
 
             if (config.SemaforoFinanciero != null)
                 await _aptitudService.UpdateSemaforoFinancieroAsync(config.SemaforoFinanciero);
+
+            TempData["Success"] = "Configuración de crédito personal guardada correctamente.";
 
             var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl);
             if (!string.IsNullOrWhiteSpace(safeReturnUrl))
@@ -843,10 +867,9 @@ namespace TheBuryProject.Controllers
             var creditoPersonal = configuraciones
                 .FirstOrDefault(c => c.TipoPago == TipoPago.CreditoPersonal);
 
-            var perfiles       = await _configuracionPagoService.GetPerfilesCreditoAsync();
-            var scoring        = await _aptitudService.GetScoringThresholdsAsync();
-            var semaforo       = await _aptitudService.GetSemaforoFinancieroAsync();
-            var montosPuntaje  = await _configuracionPagoService.GetMontosPorPuntajeAsync();
+            var perfiles = await _configuracionPagoService.GetPerfilesCreditoAsync();
+            var semaforo = await _aptitudService.GetSemaforoFinancieroAsync();
+            var limites = await ConstruirLimitesPorPuntajeAsync();
 
             return new CreditoPersonalConfigViewModel
             {
@@ -858,10 +881,66 @@ namespace TheBuryProject.Controllers
                     MaxCuotas = creditoPersonal?.MaxCuotasDefaultCreditoPersonal ?? 24
                 },
                 Perfiles = perfiles,
-                ScoringThresholds = scoring,
                 SemaforoFinanciero = semaforo,
-                MontosPorPuntaje = montosPuntaje
+                LimitesPorPuntaje = limites
             };
+        }
+
+        private async Task PrepararCreditoPersonalConfigParaVistaAsync(CreditoPersonalConfigViewModel config)
+        {
+            config.Perfiles ??= await _configuracionPagoService.GetPerfilesCreditoAsync();
+            config.SemaforoFinanciero ??= await _aptitudService.GetSemaforoFinancieroAsync();
+
+            if (config.LimitesPorPuntaje.Count == 0)
+                config.LimitesPorPuntaje = await ConstruirLimitesPorPuntajeAsync();
+        }
+
+        private async Task<List<ClienteCreditoLimiteItemViewModel>> ConstruirLimitesPorPuntajeAsync()
+        {
+            var dbItems = await _creditoDisponibleService.GetAllLimitesPorPuntajeAsync();
+
+            return Enumerable.Range(0, 6)
+                .Select(puntaje =>
+                {
+                    var existente = dbItems.FirstOrDefault(x => x.Puntaje == puntaje);
+                    return new ClienteCreditoLimiteItemViewModel
+                    {
+                        Id = existente?.Id ?? 0,
+                        Puntaje = puntaje,
+                        LimiteMonto = existente?.LimiteMonto ?? 0m,
+                        Activo = existente?.Activo ?? true,
+                        FechaActualizacion = existente?.FechaActualizacion,
+                        UsuarioActualizacion = existente?.UsuarioActualizacion
+                    };
+                })
+                .ToList();
+        }
+
+        private void ValidarLimitesPorPuntaje(CreditoPersonalConfigViewModel config)
+        {
+            if (config.LimitesPorPuntaje.Count == 0)
+                return;
+
+            var puntajesEsperados = Enumerable.Range(0, 6).ToArray();
+            var puntajes = config.LimitesPorPuntaje.Select(i => i.Puntaje).ToList();
+
+            var duplicados = puntajes
+                .GroupBy(p => p)
+                .Where(g => g.Count() > 1)
+                .Select(g => g.Key)
+                .ToList();
+
+            if (duplicados.Any())
+                ModelState.AddModelError(nameof(config.LimitesPorPuntaje), $"Puntajes duplicados: {string.Join(", ", duplicados)}.");
+
+            if (puntajes.Count != puntajesEsperados.Length || puntajesEsperados.Except(puntajes).Any())
+                ModelState.AddModelError(nameof(config.LimitesPorPuntaje), "La configuracion debe contener exactamente los puntajes del 0 al 5.");
+
+            if (config.LimitesPorPuntaje.Any(i => i.LimiteMonto < 0))
+                ModelState.AddModelError(nameof(config.LimitesPorPuntaje), "Los limites no pueden ser negativos.");
+
+            if (config.LimitesPorPuntaje.Any(i => i.LimiteMonto != decimal.Truncate(i.LimiteMonto)))
+                ModelState.AddModelError(nameof(config.LimitesPorPuntaje), "Los limites por puntaje deben cargarse como numeros enteros.");
         }
 
         #endregion

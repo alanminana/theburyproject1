@@ -560,8 +560,9 @@ public static class RolesPermisosSeeder
             return;
         }
 
-        // revive + normalize
-        permiso.IsDeleted = false;
+        // Ya existe: no forzar revive. Si el permiso fue destildado explícitamente
+        // desde Seguridad > Permisos de Rol (IsDeleted=true), respetar esa decisión;
+        // el seeder solo crea el permiso la primera vez que aparece para el rol.
         permiso.ClaimValue = claimValue;
     }
 

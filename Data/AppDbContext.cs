@@ -53,7 +53,6 @@ namespace TheBuryProject.Data
         public DbSet<Cuota> Cuotas { get; set; }
         public DbSet<Garante> Garantes { get; set; }
         public DbSet<DocumentoCliente> DocumentosCliente { get; set; }
-        public DbSet<EvaluacionCredito> EvaluacionesCredito { get; set; } = null!;
 
         public DbSet<Venta> Ventas { get; set; }
         public DbSet<VentaDetalle> VentaDetalles { get; set; }
@@ -608,41 +607,6 @@ namespace TheBuryProject.Data
                 entity.HasIndex(e => e.ProductoId);
                 entity.HasIndex(e => e.FechaCambio);
                 entity.HasIndex(e => e.UsuarioModificacion);
-            });
-
-            // =======================
-            // EvaluacionCredito
-            // =======================
-            modelBuilder.Entity<EvaluacionCredito>(entity =>
-            {
-                entity.ToTable("EvaluacionesCredito");
-
-                entity.Property(e => e.MontoSolicitado).HasPrecision(18, 2);
-                entity.Property(e => e.PuntajeRiesgoCliente).HasPrecision(18, 2);
-                entity.Property(e => e.RelacionCuotaIngreso).HasPrecision(18, 4);
-                entity.Property(e => e.PuntajeFinal).HasPrecision(18, 2);
-
-                // Fix de warnings de precisión
-                entity.Property(e => e.SueldoCliente).HasPrecision(18, 2);
-
-                entity.Property(e => e.Motivo).HasMaxLength(1000);
-                entity.Property(e => e.Observaciones).HasMaxLength(2000);
-
-                entity.HasIndex(e => e.ClienteId);
-                entity.HasIndex(e => e.CreditoId);
-                entity.HasIndex(e => e.FechaEvaluacion);
-                entity.HasIndex(e => e.Resultado);
-
-                entity.HasOne(e => e.Cliente)
-                    .WithMany()
-                    .HasForeignKey(e => e.ClienteId)
-                    .OnDelete(DeleteBehavior.Restrict);
-
-                entity.HasOne(e => e.Credito)
-                    .WithMany()
-                    .HasForeignKey(e => e.CreditoId)
-                    .IsRequired(false)
-                    .OnDelete(DeleteBehavior.Restrict);
             });
 
             // =======================

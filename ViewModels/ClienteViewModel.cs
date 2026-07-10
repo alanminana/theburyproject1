@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Linq;
+using TheBuryProject.Helpers;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Validation;
 
@@ -12,7 +13,8 @@ namespace TheBuryProject.ViewModels
     /// </summary>
     public class ClienteViewModel
     {
-        private string? _cuilCuit;
+        private string? _cuilPrefijo;
+        private string? _cuilVerificador;
 
         public int Id { get; set; }
 
@@ -42,15 +44,43 @@ namespace TheBuryProject.ViewModels
 
         public string? EstadoCivil { get; set; }
 
-        // CUIL/CUIT dedicado (para consultas BCRA)
-        [StringLength(11)]
-        [CuilCuitArgentino]
-        [CuilCoincideConDni(nameof(NumeroDocumento))]
+        // CUIL/CUIT editable por partes: XX-DNI-X.
+        // El DNI central no se edita desde acá (es NumeroDocumento, la autoridad); solo el
+        // prefijo (2) y el verificador (1) son editables. Vacíos se guardan como 0. Ver CuilCuit.
+
+        /// <summary>
+        /// Prefijo del CUIL (2 dígitos). Editable. Vacío o incompleto se completa con 0 al armar el CUIL.
+        /// </summary>
+        [Display(Name = "Prefijo CUIL")]
+        [RegularExpression(@"^\d{0,2}$", ErrorMessage = "El prefijo del CUIL admite hasta 2 dígitos numéricos.")]
+        public string? CuilPrefijo
+        {
+            get => _cuilPrefijo;
+            set => _cuilPrefijo = NormalizeDigitsOrNull(value);
+        }
+
+        /// <summary>
+        /// Dígito verificador del CUIL (1 dígito). Editable. Vacío se completa con 0 al armar el CUIL.
+        /// </summary>
+        [Display(Name = "Dígito verificador CUIL")]
+        [RegularExpression(@"^\d?$", ErrorMessage = "El dígito verificador del CUIL admite un solo dígito numérico.")]
+        public string? CuilVerificador
+        {
+            get => _cuilVerificador;
+            set => _cuilVerificador = NormalizeDigitsOrNull(value);
+        }
+
+        /// <summary>
+        /// CUIL/CUIT completo (11 dígitos) que se persiste y se usa para BCRA. No se edita
+        /// directamente: se arma a partir del prefijo, el DNI (NumeroDocumento) y el verificador,
+        /// completando con 0 lo que falte. Al asignarlo (carga desde la entidad) se descompone
+        /// en sus partes editables para compatibilidad con clientes existentes.
+        /// </summary>
         [Display(Name = "CUIL/CUIT")]
         public string? CuilCuit
         {
-            get => _cuilCuit;
-            set => _cuilCuit = NormalizeDigitsOrNull(value);
+            get => CuilHelper.Componer(_cuilPrefijo, NumeroDocumento, _cuilVerificador);
+            set => (_cuilPrefijo, _cuilVerificador) = CuilHelper.Descomponer(value);
         }
 
         // Campos BCRA (solo lectura, se rellenan desde el servicio)

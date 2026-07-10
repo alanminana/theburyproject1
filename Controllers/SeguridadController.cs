@@ -26,7 +26,10 @@ public class SeguridadController : Controller
         new("assign", "Assign", false, ["assignpermissions", "assignroles", "assign"]),
         new("revoke", "Revoke", false, ["revoke"]),
         new("block", "Block", false, ["block"]),
-        new("resetpass", "ResetPass", false, ["resetpassword", "resetpass"])
+        new("resetpass", "ResetPass", false, ["resetpassword", "resetpass"]),
+        new("open", "Open", false, ["open"]),
+        new("close", "Close", false, ["close"]),
+        new("movements", "Movements", false, ["movements"])
     ];
 
     // Ordered list of tabs with the minimum permission required to view each one.

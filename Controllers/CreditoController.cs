@@ -376,7 +376,7 @@ namespace TheBuryProject.Controllers
                 ClienteNombre = credito.ClienteNombre ?? string.Empty,
                 NumeroCredito = credito.Numero,
                 FuenteConfiguracion = parametrosCliente.Fuente,
-                MetodoCalculo = MetodoCalculoCredito.AutomaticoPorCliente,
+                MetodoCalculo = MetodoCalculoCredito.Global,
                 PerfilCreditoSeleccionadoId = parametrosCliente.PerfilPreferidoId,
                 Monto = montoVenta,
                 Anticipo = 0,

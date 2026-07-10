@@ -21,6 +21,7 @@ public interface IDevolucionService
     Task<Devolucion> ActualizarDevolucionAsync(Devolucion devolucion);
     Task<Devolucion> AprobarDevolucionAsync(int id, string aprobadoPor, byte[] rowVersion);
     Task<Devolucion> RechazarDevolucionAsync(int id, string motivo, byte[] rowVersion);
+    Task<Devolucion> CancelarDevolucionAsync(int id, string motivo, byte[] rowVersion);
     Task<Devolucion> CompletarDevolucionAsync(int id, byte[] rowVersion);
     Task<string> GenerarNumeroDevolucionAsync();
     Task<bool> PuedeDevolverVentaAsync(int ventaId);
@@ -77,7 +78,7 @@ public interface IDevolucionService
     Task<NotaCredito?> ObtenerNotaCreditoAsync(int id);
     Task<NotaCredito?> ObtenerNotaCreditoPorNumeroAsync(string numeroNotaCredito);
     Task<NotaCredito> CrearNotaCreditoAsync(NotaCredito notaCredito);
-    Task<NotaCredito> UtilizarNotaCreditoAsync(int notaCreditoId, decimal monto);
+    Task<NotaCredito> UtilizarNotaCreditoAsync(int notaCreditoId, decimal monto, string? referencia = null);
     Task<decimal> ObtenerCreditoDisponibleClienteAsync(int clienteId);
     Task<string> GenerarNumeroNotaCreditoAsync();
 

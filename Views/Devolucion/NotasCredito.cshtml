@@ -1,0 +1,209 @@
+@using TheBuryProject.Models.Entities
+@using TheBuryProject.Helpers
+@model TheBuryProject.ViewModels.NotasCreditoClienteViewModel
+@{
+    ViewData["Title"] = $"Notas de crédito — {Model.ClienteNombre}";
+
+    var indexUrl = Url.Action("Index", "Devolucion");
+    var puedeAplicar = User.TienePermiso("notascredito", "apply");
+
+    string EstadoNCClass(EstadoNotaCredito e) => e switch
+    {
+        EstadoNotaCredito.Vigente               => "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
+        EstadoNotaCredito.UtilizadaParcialmente => "border-amber-500/30 bg-amber-500/10 text-amber-300",
+        EstadoNotaCredito.UtilizadaTotalmente   => "border-slate-600/30 bg-slate-600/10 text-slate-400",
+        EstadoNotaCredito.Vencida               => "border-rose-500/30 bg-rose-500/10 text-rose-300",
+        EstadoNotaCredito.Cancelada             => "border-slate-600/30 bg-slate-600/10 text-slate-400",
+        _                                       => "border-slate-600/30 bg-slate-600/10 text-slate-400"
+    };
+}
+
+<div class="space-y-3">
+
+    @* Barra superior: breadcrumb + título *@
+    <section class="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60 px-4 py-3 shadow-sm sm:px-5">
+        <div class="flex flex-wrap items-center gap-3 lg:flex-nowrap lg:justify-between">
+            <div class="flex min-w-0 items-center gap-2.5">
+                <a href="@indexUrl" class="inline-flex items-center gap-1 text-slate-400 no-underline hover:text-white transition-colors">
+                    <span class="material-symbols-outlined text-[18px]">assignment_return</span>
+                    <span class="text-xs font-bold">Devoluciones</span>
+                </a>
+                <span class="text-slate-700">/</span>
+                <div class="min-w-0">
+                    <h1 class="text-base font-black leading-tight text-white lg:text-lg">Notas de crédito</h1>
+                    <p class="text-[11px] font-medium text-slate-500">@Model.ClienteNombre</p>
+                </div>
+            </div>
+            <div class="flex shrink-0 items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-1.5">
+                <span class="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">Crédito disponible</span>
+                <span class="text-sm font-black tabular-nums text-emerald-300">@Model.CreditoTotalDisponible.ToString("C2")</span>
+            </div>
+        </div>
+    </section>
+
+    @* Alertas *@
+    @if (TempData["Success"] != null)
+    {
+        <div class="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5 text-sm font-semibold text-emerald-300 shadow-sm">
+            @TempData["Success"]
+        </div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-2.5 text-sm font-semibold text-rose-300 shadow-sm">
+            @TempData["Error"]
+        </div>
+    }
+
+    @* Notas con saldo disponible *@
+    <section class="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60 shadow-sm">
+        <div class="border-b border-slate-800 px-4 py-3 sm:px-5">
+            <p class="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Con saldo disponible</p>
+        </div>
+
+        @if (!Model.NotasVigentes.Any())
+        {
+            <p class="px-4 py-6 text-center text-xs text-slate-500 sm:px-5">El cliente no tiene notas de crédito con saldo disponible.</p>
+        }
+        else
+        {
+            <div class="overflow-x-auto overscroll-x-contain">
+                <table class="min-w-[52rem] w-full text-left">
+                    <thead class="text-[11px] uppercase tracking-[0.18em] bg-slate-900/60 text-slate-400">
+                        <tr>
+                            <th class="px-4 py-2.5 sm:px-5">Número</th>
+                            <th class="px-4 py-2.5 sm:px-5">Emisión</th>
+                            <th class="px-4 py-2.5 sm:px-5">Vence</th>
+                            <th class="px-4 py-2.5 sm:px-5">Devolución</th>
+                            <th class="px-4 py-2.5 text-right sm:px-5">Monto</th>
+                            <th class="px-4 py-2.5 text-right sm:px-5">Disponible</th>
+                            <th class="px-4 py-2.5 sm:px-5">Estado</th>
+                            @if (puedeAplicar)
+                            {
+                                <th class="px-4 py-2.5 text-right sm:px-5">Acciones</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800">
+                        @foreach (var nc in Model.NotasVigentes)
+                        {
+                            <tr class="transition-colors hover:bg-slate-900/40">
+                                <td class="px-4 py-3 text-sm font-black tabular-nums text-white sm:px-5">@nc.NumeroNotaCredito</td>
+                                <td class="px-4 py-3 text-xs text-slate-300 sm:px-5">@nc.FechaEmision.ToString("dd/MM/yyyy")</td>
+                                <td class="px-4 py-3 text-xs text-slate-300 sm:px-5">@(nc.FechaVencimiento?.ToString("dd/MM/yyyy") ?? "—")</td>
+                                <td class="px-4 py-3 sm:px-5">
+                                    <a href="@Url.Action("Detalles", "Devolucion", new { id = nc.DevolucionId })"
+                                       class="text-xs font-bold text-primary no-underline hover:underline">
+                                        @(nc.Devolucion?.NumeroDevolucion ?? $"#{nc.DevolucionId}")
+                                    </a>
+                                </td>
+                                <td class="px-4 py-3 text-right text-sm tabular-nums text-slate-200 sm:px-5">@nc.MontoTotal.ToString("C2")</td>
+                                <td class="px-4 py-3 text-right text-sm font-black tabular-nums text-emerald-300 sm:px-5">@nc.MontoDisponible.ToString("C2")</td>
+                                <td class="px-4 py-3 sm:px-5">
+                                    <span class="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.14em] @EstadoNCClass(nc.Estado)">
+                                        @nc.Estado.GetDisplayName()
+                                    </span>
+                                </td>
+                                @if (puedeAplicar)
+                                {
+                                    <td class="px-4 py-3 text-right sm:px-5">
+                                        <button type="button"
+                                                onclick="document.getElementById('uso-nc-@nc.Id').classList.toggle('hidden')"
+                                                class="inline-flex items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-300 transition-colors hover:bg-amber-500/20">
+                                            <span class="material-symbols-outlined text-[14px]">price_check</span>
+                                            Registrar uso
+                                        </button>
+                                    </td>
+                                }
+                            </tr>
+                            @if (puedeAplicar)
+                            {
+                                <tr id="uso-nc-@nc.Id" class="hidden bg-slate-950/40">
+                                    <td colspan="8" class="px-4 py-3 sm:px-5">
+                                        <form asp-action="UtilizarNotaCredito" method="post" class="flex flex-wrap items-end gap-2">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="id" value="@nc.Id" />
+                                            <input type="hidden" name="clienteId" value="@Model.ClienteId" />
+                                            <div>
+                                                <label class="mb-1 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Monto a aplicar</label>
+                                                <input type="number" name="monto" required step="0.01" min="0.01" max="@nc.MontoDisponible.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                                       placeholder="0,00"
+                                                       class="w-36 rounded-xl border px-3 py-2 text-xs placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 border-slate-700 bg-slate-950 text-white" />
+                                            </div>
+                                            <div class="flex-1 min-w-[14rem]">
+                                                <label class="mb-1 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Referencia (venta, comprobante...)</label>
+                                                <input type="text" name="referencia"
+                                                       placeholder="Ej: aplicada en venta V-000123"
+                                                       class="w-full rounded-xl border px-3 py-2 text-xs placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 border-slate-700 bg-slate-950 text-white" />
+                                            </div>
+                                            <button type="submit"
+                                                    class="inline-flex items-center gap-1.5 rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-white transition-colors hover:bg-amber-500">
+                                                Confirmar uso
+                                            </button>
+                                        </form>
+                                        <p class="mt-2 text-[11px] text-slate-500">
+                                            El uso descuenta saldo de la nota de crédito y queda auditado en sus observaciones.
+                                            El descuento en la venta se aplica por el circuito habitual.
+                                        </p>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+
+    @* Historial: agotadas, vencidas o canceladas *@
+    <section class="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60 shadow-sm">
+        <div class="border-b border-slate-800 px-4 py-3 sm:px-5">
+            <p class="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Historial (sin saldo, vencidas o canceladas)</p>
+        </div>
+
+        @if (!Model.NotasUtilizadas.Any())
+        {
+            <p class="px-4 py-6 text-center text-xs text-slate-500 sm:px-5">Sin notas de crédito históricas.</p>
+        }
+        else
+        {
+            <div class="overflow-x-auto overscroll-x-contain">
+                <table class="min-w-[44rem] w-full text-left">
+                    <thead class="text-[11px] uppercase tracking-[0.18em] bg-slate-900/60 text-slate-400">
+                        <tr>
+                            <th class="px-4 py-2.5 sm:px-5">Número</th>
+                            <th class="px-4 py-2.5 sm:px-5">Emisión</th>
+                            <th class="px-4 py-2.5 sm:px-5">Devolución</th>
+                            <th class="px-4 py-2.5 text-right sm:px-5">Monto</th>
+                            <th class="px-4 py-2.5 text-right sm:px-5">Utilizado</th>
+                            <th class="px-4 py-2.5 sm:px-5">Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800">
+                        @foreach (var nc in Model.NotasUtilizadas)
+                        {
+                            <tr class="transition-colors hover:bg-slate-900/40">
+                                <td class="px-4 py-3 text-sm font-bold tabular-nums text-slate-300 sm:px-5">@nc.NumeroNotaCredito</td>
+                                <td class="px-4 py-3 text-xs text-slate-400 sm:px-5">@nc.FechaEmision.ToString("dd/MM/yyyy")</td>
+                                <td class="px-4 py-3 sm:px-5">
+                                    <a href="@Url.Action("Detalles", "Devolucion", new { id = nc.DevolucionId })"
+                                       class="text-xs font-bold text-primary no-underline hover:underline">
+                                        @(nc.Devolucion?.NumeroDevolucion ?? $"#{nc.DevolucionId}")
+                                    </a>
+                                </td>
+                                <td class="px-4 py-3 text-right text-sm tabular-nums text-slate-400 sm:px-5">@nc.MontoTotal.ToString("C2")</td>
+                                <td class="px-4 py-3 text-right text-sm tabular-nums text-slate-400 sm:px-5">@nc.MontoUtilizado.ToString("C2")</td>
+                                <td class="px-4 py-3 sm:px-5">
+                                    <span class="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.14em] @EstadoNCClass(nc.Estado)">
+                                        @nc.Estado.GetDisplayName()
+                                    </span>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+
+</div>

@@ -109,16 +109,3 @@ public class SolicitudesListViewModel
     public int TotalAprobadas { get; set; }
     public int TotalRechazadas { get; set; }
 }
-
-/// <summary>
-/// ViewModel para resultado de validación
-/// </summary>
-public class ResultadoValidacionViewModel
-{
-    public bool Permitido { get; set; }
-    public decimal ValorPermitido { get; set; }
-    public decimal ValorSolicitado { get; set; }
-    public string Mensaje { get; set; } = string.Empty;
-    public TipoUmbral TipoUmbral { get; set; }
-    public bool RequiereSolicitud => !Permitido;
-}

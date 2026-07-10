@@ -52,6 +52,34 @@
         });
     }
 
+    // Pestañas grisadas hasta completar el paso previo: Cliente siempre habilitado,
+    // Productos requiere cliente, y el resto (Pago/Crédito/Revisión) requiere
+    // además al menos un producto cargado.
+    // Nota: se lee del hidden de cliente y de las filas de la tabla de detalle
+    // (no de #hero-cliente/#hero-detalles-count, que no existen en el DOM actual).
+    function refreshStepGating() {
+        const clienteListo = (parseInt(document.getElementById('hdn-cliente-id')?.value, 10) || 0) > 0;
+        const productosListo = (document.getElementById('tbody-detalles')?.children.length || 0) > 0;
+
+        const requisitos = {
+            cliente: () => true,
+            productos: () => clienteListo
+        };
+
+        tabButtons.forEach((button) => {
+            const step = button.getAttribute('data-step');
+            const habilitado = (requisitos[step] || (() => clienteListo && productosListo))();
+            button.disabled = !habilitado;
+            button.setAttribute('aria-disabled', habilitado ? 'false' : 'true');
+        });
+
+        const activo = tabButtons.find((button) => button.getAttribute('aria-selected') === 'true');
+        if (activo?.disabled) {
+            const disponible = [...tabButtons].reverse().find((button) => !button.disabled);
+            setActiveStep(disponible?.getAttribute('data-step') || tabButtons[0]?.getAttribute('data-step'));
+        }
+    }
+
     function refreshSummary() {
         const cliente = getText('hero-cliente', 'Sin seleccionar');
         const items = getText('hero-detalles-count', '0 productos');
@@ -79,10 +107,13 @@
             estado.textContent = completo ? 'Lista para revisar' : 'Incompleta';
             estado.classList.toggle('text-emerald-300', completo);
         }
+
+        refreshStepGating();
     }
 
     tabButtons.forEach((button) => {
         button.addEventListener('click', () => {
+            if (button.disabled) return;
             setActiveStep(button.getAttribute('data-step'));
         });
     });
@@ -105,7 +136,9 @@
     setActiveStep(initialStep);
     refreshSummary();
 
-    // API pública para que venta-create.js pueda navegar al paso de un campo con error.
+    // API pública para que venta-create.js pueda navegar al paso de un campo con error
+    // y refrescar el grisado de pestañas cuando cambian cliente/productos/pago.
     window.VentaWizard = window.VentaWizard || {};
     window.VentaWizard.setActiveStep = setActiveStep;
+    window.VentaWizard.refreshStepGating = refreshStepGating;
 })();

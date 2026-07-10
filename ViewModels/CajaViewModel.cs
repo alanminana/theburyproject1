@@ -308,17 +308,6 @@ public class DetallesAperturaViewModel
 }
 
 /// <summary>
-/// ViewModel para el detalle de un cierre de caja: combina el registro de cierre
-/// (totales firmados, read-only) con el detalle operativo del turno (movimientos,
-/// ventas y mercadería) reutilizado de <see cref="DetallesAperturaViewModel"/>.
-/// </summary>
-public class DetallesCierreViewModel
-{
-    public CierreCaja Cierre { get; set; } = null!;
-    public DetallesAperturaViewModel Detalle { get; set; } = null!;
-}
-
-/// <summary>
 /// ViewModel para historial de cierres
 /// </summary>
 public class HistorialCierresViewModel

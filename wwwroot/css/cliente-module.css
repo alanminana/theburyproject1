@@ -716,6 +716,47 @@ select.field {
     font-variant-numeric: tabular-nums;
 }
 
+/* CUIL editable por partes: XX-DNI-X. Prefijo y verificador angostos; DNI central
+   flexible y no editable. En pantallas chicas no debe desbordar (no-wrap + min-width:0). */
+.cuil-group {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: nowrap;
+}
+
+.cuil-part {
+    text-align: center;
+    letter-spacing: 0.04em;
+}
+
+.cuil-part-edge {
+    flex: 0 0 auto;
+    width: 3.75rem;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+}
+
+.cuil-part-dni {
+    flex: 1 1 auto;
+    min-width: 0;
+    background: rgba(15, 23, 42, 0.55);
+    color: var(--muted);
+    cursor: not-allowed;
+}
+
+.cuil-sep {
+    flex: 0 0 auto;
+    color: var(--muted-2);
+    font-weight: 700;
+}
+
+/* Falta el DNI: el DNI central queda tenue para indicar que hay que cargarlo antes. */
+.cuil-group--sin-dni .cuil-part-dni {
+    border-color: rgba(148, 163, 184, 0.35);
+    color: var(--muted-2);
+}
+
 .hint {
     margin-top: 0.4rem;
     color: var(--muted-2);

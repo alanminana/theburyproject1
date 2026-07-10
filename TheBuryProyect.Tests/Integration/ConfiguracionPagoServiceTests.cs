@@ -221,6 +221,23 @@ public class ConfiguracionPagoServiceTests : IDisposable
         Assert.Equal(1, result.CuotasMinimas);
     }
 
+    [Fact]
+    public async Task ObtenerParametros_SinPersonalizacion_UsaDefaultsGlobalesConfigurados()
+    {
+        var config = await SeedConfigPago(TipoPago.CreditoPersonal);
+        config.GastosAdministrativosDefaultCreditoPersonal = 350m;
+        config.MinCuotasDefaultCreditoPersonal = 2;
+        config.MaxCuotasDefaultCreditoPersonal = 36;
+        await _context.SaveChangesAsync();
+        var cliente = await SeedCliente();
+
+        var result = await _service.ObtenerParametrosCreditoClienteAsync(cliente.Id, tasaGlobal: 2m);
+
+        Assert.Equal(350m, result.GastosAdministrativos);
+        Assert.Equal(2, result.CuotasMinimas);
+        Assert.Equal(36, result.CuotasMaximas);
+    }
+
     // -------------------------------------------------------------------------
     // 3. Cliente con tasa personalizada → usa tasa personalizada, fuente PorCliente
     // -------------------------------------------------------------------------
@@ -274,7 +291,7 @@ public class ConfiguracionPagoServiceTests : IDisposable
     // -------------------------------------------------------------------------
 
     [Fact]
-    public async Task ObtenerParametros_ConPerfil_SinPersonalizacion_UsaTasaGlobal()
+    public async Task ObtenerParametros_ConPerfil_SinPersonalizacion_UsaPerfilPreferido()
     {
         // Un perfil no activa la ruta "personalizado" — la prioridad personalizado
         // requiere campos propios del cliente
@@ -285,9 +302,11 @@ public class ConfiguracionPagoServiceTests : IDisposable
 
         // Sin configuración personalizada → fuente Global, tasa global
         Assert.Equal(FuenteConfiguracionCredito.Global, result.Fuente);
-        Assert.Equal(3m, result.TasaMensual);
+        Assert.Equal(6m, result.TasaMensual);
         // Pero cuotas mínimas vienen del perfil
         Assert.Equal(3, result.CuotasMinimas);
+        Assert.Equal(18, result.CuotasMaximas);
+        Assert.Equal(100m, result.GastosAdministrativos);
         Assert.Equal(perfil.Id, result.PerfilPreferidoId);
         Assert.Equal("TestPerfil", result.PerfilPreferidoNombre);
     }
@@ -1080,6 +1099,23 @@ public class ConfiguracionPagoServiceTests : IDisposable
 
         Assert.Equal(1, min);
         Assert.Equal(24, max);
+        Assert.Equal("Global", desc);
+        Assert.Null(nombre);
+    }
+
+    [Fact]
+    public async Task ResolverRangoCuotas_Global_UsaDefaultsGlobalesConfigurados()
+    {
+        var config = await SeedConfigPago(TipoPago.CreditoPersonal);
+        config.MinCuotasDefaultCreditoPersonal = 2;
+        config.MaxCuotasDefaultCreditoPersonal = 36;
+        await _context.SaveChangesAsync();
+
+        var (min, max, desc, nombre) = await _service.ResolverRangoCuotasAsync(
+            MetodoCalculoCredito.Global, null, null);
+
+        Assert.Equal(2, min);
+        Assert.Equal(36, max);
         Assert.Equal("Global", desc);
         Assert.Null(nombre);
     }

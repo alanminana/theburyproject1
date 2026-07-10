@@ -17,8 +17,13 @@ namespace TheBuryProject.Services
         public static (int Min, int Max, string Descripcion) ResolverRangoCuotasPermitidos(
             MetodoCalculoCredito metodo,
             PerfilCredito? perfil,
-            Cliente? cliente)
+            Cliente? cliente,
+            int globalMinCuotas = 1,
+            int globalMaxCuotas = 24)
         {
+            var minGlobal = Math.Max(1, globalMinCuotas);
+            var maxGlobal = Math.Max(minGlobal, globalMaxCuotas);
+
             switch (metodo)
             {
                 case MetodoCalculoCredito.Manual:
@@ -29,17 +34,17 @@ namespace TheBuryProject.Services
                     if (perfil != null)
                         return (perfil.MinCuotas, perfil.MaxCuotas, $"Perfil '{perfil.Nombre}'");
                     // perfil no cargado: caer en rango global por defecto
-                    return (1, 120, "");
+                    return (minGlobal, maxGlobal, "Global");
 
                 case MetodoCalculoCredito.UsarCliente:
                     if (cliente?.CuotasMaximasPersonalizadas.HasValue == true)
                         return (1, cliente.CuotasMaximasPersonalizadas.Value, "Cliente");
-                    return (1, 24, "Cliente (sin config)");
+                    return (minGlobal, maxGlobal, "Cliente (sin config)");
 
                 case MetodoCalculoCredito.Global:
                 case MetodoCalculoCredito.AutomaticoPorCliente:
                 default:
-                    return (1, 24, "Global");
+                    return (minGlobal, maxGlobal, "Global");
             }
         }
 

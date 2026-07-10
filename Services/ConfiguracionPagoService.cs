@@ -963,16 +963,16 @@ namespace TheBuryProject.Services
 
         public async Task<ParametrosCreditoCliente> ObtenerParametrosCreditoClienteAsync(int clienteId, decimal tasaGlobal)
         {
-            // Valores globales por defecto
-            const int CuotasMaximasGlobal = 24;
-            const int CuotasMinimas = 1;
+            var defaults = await ObtenerDefaultsCreditoPersonalAsync();
 
             var cliente = await _context.Clientes
                 .AsNoTracking()
                 .Include(c => c.PerfilCreditoPreferido)
                 .FirstOrDefaultAsync(c => c.Id == clienteId && !c.IsDeleted);
 
-            var perfil = cliente?.PerfilCreditoPreferido;
+            var perfil = cliente?.PerfilCreditoPreferido?.Activo == true
+                ? cliente.PerfilCreditoPreferido
+                : null;
 
             var tieneConfigPersonalizada = cliente != null &&
                 (cliente.TasaInteresMensualPersonalizada.HasValue ||
@@ -986,17 +986,17 @@ namespace TheBuryProject.Services
             // Cadena de prioridad: personalizado > perfil preferido > global
             var tasaMensual = tieneConfigPersonalizada
                 ? (cliente!.TasaInteresMensualPersonalizada ?? perfil?.TasaMensual ?? tasaGlobal)
-                : tasaGlobal;
+                : (perfil?.TasaMensual ?? tasaGlobal);
 
             var gastos = tieneConfigPersonalizada
-                ? (cliente!.GastosAdministrativosPersonalizados ?? perfil?.GastosAdministrativos ?? 0m)
-                : 0m;
+                ? (cliente!.GastosAdministrativosPersonalizados ?? perfil?.GastosAdministrativos ?? defaults.GastosAdministrativos)
+                : (perfil?.GastosAdministrativos ?? defaults.GastosAdministrativos);
 
             var cuotasMaximas = tieneConfigPersonalizada
-                ? (cliente!.CuotasMaximasPersonalizadas ?? perfil?.MaxCuotas ?? CuotasMaximasGlobal)
-                : CuotasMaximasGlobal;
+                ? (cliente!.CuotasMaximasPersonalizadas ?? perfil?.MaxCuotas ?? defaults.MaxCuotas)
+                : (perfil?.MaxCuotas ?? defaults.MaxCuotas);
 
-            var cuotasMinimas = perfil?.MinCuotas ?? CuotasMinimas;
+            var cuotasMinimas = perfil?.MinCuotas ?? defaults.MinCuotas;
 
             return new ParametrosCreditoCliente
             {
@@ -1021,6 +1021,7 @@ namespace TheBuryProject.Services
             int? perfilId,
             int? clienteId)
         {
+            var defaults = await ObtenerDefaultsCreditoPersonalAsync();
             PerfilCredito? perfil = null;
             if (perfilId.HasValue &&
                 (metodo == MetodoCalculoCredito.UsarPerfil ||
@@ -1039,8 +1040,26 @@ namespace TheBuryProject.Services
                     .FirstOrDefaultAsync(c => c.Id == clienteId.Value && !c.IsDeleted);
             }
 
-            var (min, max, desc) = CreditoConfiguracionHelper.ResolverRangoCuotasPermitidos(metodo, perfil, cliente);
+            var (min, max, desc) = CreditoConfiguracionHelper.ResolverRangoCuotasPermitidos(
+                metodo,
+                perfil,
+                cliente,
+                defaults.MinCuotas,
+                defaults.MaxCuotas);
             return (min, max, desc, perfil?.Nombre);
+        }
+
+        private async Task<(decimal GastosAdministrativos, int MinCuotas, int MaxCuotas)> ObtenerDefaultsCreditoPersonalAsync()
+        {
+            var configuracion = await _context.ConfiguracionesPago
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.TipoPago == TipoPago.CreditoPersonal && !c.IsDeleted);
+
+            var minCuotas = Math.Max(1, configuracion?.MinCuotasDefaultCreditoPersonal ?? 1);
+            var maxCuotas = Math.Max(minCuotas, configuracion?.MaxCuotasDefaultCreditoPersonal ?? 24);
+            var gastos = configuracion?.GastosAdministrativosDefaultCreditoPersonal ?? 0m;
+
+            return (gastos, minCuotas, maxCuotas);
         }
 
         public async Task<MaxCuotasSinInteresResultado?> ObtenerMaxCuotasSinInteresEfectivoAsync(

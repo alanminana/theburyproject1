@@ -594,8 +594,8 @@
                         <div class="flex items-start gap-3 p-4 rounded-lg bg-primary/5 border border-primary/20 text-sm">
                             <span class="material-symbols-outlined text-primary text-lg mt-0.5 shrink-0">info</span>
                             <p class="text-slate-300">
-                                El sistema evaluará el cupo crediticio del cliente y generará el crédito automáticamente.
-                                Usá el botón <strong>Verificar Elegibilidad</strong> para consultar el cupo disponible antes de confirmar.
+                                El sistema evalúa el cupo crediticio del cliente automáticamente al elegir Crédito
+                                Personal con cliente y productos cargados, y genera el crédito al confirmar.
                             </p>
                         </div>
                         <div id="panel-credito-cupo" class="mt-4 grid grid-cols-2 gap-3 hidden">
@@ -632,11 +632,13 @@
                     </span>
                 </div>
                 <div class="flex flex-col gap-5">
-                    <!-- Verify Button -->
-                    <button type="button" id="btn-verificar-elegibilidad"
-                            class="w-full py-4 bg-primary/10 text-primary rounded-xl font-bold hover:bg-primary/20 transition-all flex items-center justify-center gap-2">
-                        <span class="material-symbols-outlined">analytics</span> Verificar Elegibilidad
-                    </button>
+                    <!-- Verificación automática (sin botón) -->
+                    <div id="panel-verificacion-crediticia-auto"
+                         class="w-full py-3 px-4 bg-primary/5 border border-primary/20 text-primary rounded-xl font-bold flex items-center justify-center gap-2 text-sm"
+                         aria-live="polite">
+                        <span id="verificacion-crediticia-auto-icon" class="material-symbols-outlined">analytics</span>
+                        <span id="verificacion-crediticia-auto-texto">La elegibilidad se verifica automáticamente al completar cliente, productos y crédito personal.</span>
+                    </div>
 
                     <div id="venta-create-feedback-slot" class="hidden" aria-live="polite"></div>
 

@@ -74,8 +74,6 @@
 
         var canCreateTicket = User.TienePermiso("tickets", "create");
         var canViewTickets = User.TienePermiso("tickets", "view");
-        var canViewConfiguracion = User.TienePermiso("configuracion", "view");
-        var canConfigMora = User.TienePermiso("mora", "config");
 
         var isDashboardActive = IsActive("Home") || IsActive("Dashboard");
 
@@ -83,7 +81,7 @@
         var showLogistica = canViewInventario || canViewProveedores || canViewCaja;
         var showReportes = canViewReportes;
         var showIntegraciones = canViewMercadoLibre;
-        var showSistemas = canViewSeguridad || canViewTickets || canViewConfiguracion || canConfigMora;
+        var showSistemas = canViewSeguridad || canViewTickets;
     }
 
     <div class="flex h-screen overflow-hidden">
@@ -278,28 +276,6 @@
                                     <p class="@NavFont(active) sidebar-label">Tickets</p>
                                 </a>
                             }
-
-                            @if (canViewConfiguracion)
-                            {
-                                var active = IsActive("PlantillaContratoCredito");
-
-                                <a class="@NavClass(active)" aria-current="@NavCurrent(active)"
-                                   asp-controller="PlantillaContratoCredito" asp-action="Index" title="Plantillas contrato">
-                                    <span class="material-symbols-outlined text-lg shrink-0" aria-hidden="true">contract</span>
-                                    <p class="@NavFont(active) sidebar-label">Plantillas contrato</p>
-                                </a>
-                            }
-
-                            @if (canConfigMora)
-                            {
-                                var active = IsActive("Mora");
-
-                                <a class="@NavClass(active)" aria-current="@NavCurrent(active)"
-                                   asp-controller="Mora" asp-action="ConfiguracionExpandida" title="Configuración de mora">
-                                    <span class="material-symbols-outlined text-lg shrink-0" aria-hidden="true">tune</span>
-                                    <p class="@NavFont(active) sidebar-label">Configuración de mora</p>
-                                </a>
-                            }
                         </div>
                     </div>
                 }
@@ -412,7 +388,7 @@
                                 class="p-2 text-slate-400 hover:text-white transition-colors relative">
                             <span class="material-symbols-outlined icon-erp-lg" aria-hidden="true">notifications</span>
                             <span
-                            class="absolute top-2 right-2 size-2 bg-red-500 rounded-full border-2 border-white border-background-dark"
+                            class="absolute top-2 right-2 size-2 bg-red-500 rounded-full border-2 border-white"
                             aria-hidden="true"></span>
                         </button>
                     }
