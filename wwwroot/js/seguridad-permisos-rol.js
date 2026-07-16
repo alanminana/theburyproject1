@@ -13,7 +13,12 @@
     const groupFilter = $('permissionGroupFilter');
     const clearFiltersButton = $('clearPermissionFilters');
     const roleSelect = $('permissionRoleSelect');
-    const rows = Array.from(document.querySelectorAll('.permission-row'));
+    const expandAllButton = $('permissionsExpandAll');
+    const collapseAllButton = $('permissionsCollapseAll');
+
+    const groups = Array.from(document.querySelectorAll('.permission-group'));
+    const modules = Array.from(document.querySelectorAll('.permission-module'));
+
     const visibleCount = $('permissionsVisibleCount');
     const selectedCount = $('permissionsSelectedCount');
     const visiblePill = $('permissionsVisiblePill');
@@ -22,46 +27,53 @@
     const emptyFilterState = $('permissionsEmptyFilterState');
     const copyPermissionsContainer = $('copyPermissionsContainer');
 
-    function initPermissionsScrollAffordance() {
-        seguridad.initScrollAffordance(state, { boundAttr: 'seguridadPermisosScrollBound' });
-    }
-
-    function refreshPermissionsScrollAffordance() {
-        seguridad.refreshScrollAffordance(state);
-    }
-
     seguridad.bindEscapeToState(state);
 
-    function getVisibleRows() {
-        const search = normalize(searchInput?.value);
-        const group = normalize(groupFilter?.value);
+    // ── Contadores ────────────────────────────────────────────────
+    function updateSelectedCount() {
+        const total = document.querySelectorAll('.permission-checkbox:checked').length.toString();
+        if (selectedCount) selectedCount.textContent = total;
+        if (selectedHeader) selectedHeader.textContent = total;
+        if (selectedPill) selectedPill.textContent = total;
 
-        return rows.filter(row => {
-            const matchSearch = !search || normalize(row.dataset.search).includes(search);
-            const matchGroup = !group || normalize(row.dataset.group) === group;
-            return matchSearch && matchGroup;
+        groups.forEach(group => {
+            const selected = group.querySelectorAll('.permission-checkbox:checked').length;
+            const badge = group.querySelector('.permission-group-selected');
+            if (badge) badge.textContent = selected;
         });
     }
 
-    function updateSelectedCount() {
-        const value = document.querySelectorAll('.permission-checkbox:checked').length.toString();
-        if (selectedCount) selectedCount.textContent = value;
-        if (selectedHeader) selectedHeader.textContent = value;
-        if (selectedPill) selectedPill.textContent = value;
-    }
-
+    // ── Filtros (búsqueda + grupo) ────────────────────────────────
     function applyFilters() {
-        if (!rows.length) return;
+        if (!modules.length) return;
 
-        const visibleRows = getVisibleRows();
-        rows.forEach(row => { row.style.display = 'none'; });
-        visibleRows.forEach(row => { row.style.display = ''; });
+        const search = normalize(searchInput?.value);
+        const group = normalize(groupFilter?.value);
+        const hasFilter = Boolean(search || group);
 
-        const visibleRowsCount = visibleRows.length.toString();
-        if (visibleCount) visibleCount.textContent = visibleRowsCount;
-        if (visiblePill) visiblePill.textContent = visibleRowsCount;
-        emptyFilterState?.classList.toggle('hidden', visibleRows.length > 0);
-        refreshPermissionsScrollAffordance();
+        let visibleModules = 0;
+        modules.forEach(card => {
+            const matchSearch = !search || normalize(card.dataset.search).includes(search);
+            const matchGroup = !group || normalize(card.dataset.group) === group;
+            const show = matchSearch && matchGroup;
+            card.style.display = show ? '' : 'none';
+            if (show) visibleModules++;
+        });
+
+        groups.forEach(section => {
+            const anyVisible = Array.from(section.querySelectorAll('.permission-module'))
+                .some(card => card.style.display !== 'none');
+            section.style.display = anyVisible ? '' : 'none';
+            // Al filtrar, expandir las secciones con resultados para no ocultar matches.
+            if (hasFilter && anyVisible) {
+                section.setAttribute('data-collapsed', 'false');
+            }
+        });
+
+        const visibleText = visibleModules.toString();
+        if (visibleCount) visibleCount.textContent = visibleText;
+        if (visiblePill) visiblePill.textContent = visibleText;
+        emptyFilterState?.classList.toggle('hidden', visibleModules > 0);
     }
 
     function clearFilters() {
@@ -70,6 +82,16 @@
         applyFilters();
     }
 
+    // ── Acordeón por categoría ────────────────────────────────────
+    function setCollapsed(section, collapsed) {
+        section.setAttribute('data-collapsed', collapsed ? 'true' : 'false');
+    }
+
+    function setAllCollapsed(collapsed) {
+        groups.forEach(section => setCollapsed(section, collapsed));
+    }
+
+    // ── Copiar permisos (modal) ───────────────────────────────────
     function applyRoleActionLayout() {
         const wrapper = $('permissionsRoleActions');
         const buttons = Array.from(document.querySelectorAll('.permissions-role-action'));
@@ -203,7 +225,6 @@
             cardId: 'copyPermissionsCard',
             closeButtonId: 'closeCopyPermissions',
             cancelButtonId: 'cancelCopyPermissions',
-            onClosed: refreshPermissionsScrollAffordance,
             onOpen: modal => {
                 enhanceCopyPermissionsModalLayout();
                 bindCopyPermissionsModal(modal);
@@ -211,6 +232,7 @@
         });
     }
 
+    // ── Bindings ──────────────────────────────────────────────────
     searchInput?.addEventListener('input', applyFilters);
     groupFilter?.addEventListener('change', applyFilters);
     clearFiltersButton?.addEventListener('click', clearFilters);
@@ -223,31 +245,33 @@
         checkbox.addEventListener('change', updateSelectedCount);
     });
 
-    document.querySelectorAll('.btn-select-row').forEach(button => {
+    document.querySelectorAll('.permission-group__header').forEach(header => {
+        header.addEventListener('click', () => {
+            const section = header.closest('.permission-group');
+            if (!section) return;
+            const collapsed = section.getAttribute('data-collapsed') === 'true';
+            setCollapsed(section, !collapsed);
+        });
+    });
+
+    expandAllButton?.addEventListener('click', () => setAllCollapsed(false));
+    collapseAllButton?.addEventListener('click', () => setAllCollapsed(true));
+
+    document.querySelectorAll('.btn-select-module').forEach(button => {
         button.addEventListener('click', () => {
-            const rowId = button.dataset.rowId;
-            document.querySelectorAll(`.permission-checkbox[data-row-id="${rowId}"]`).forEach(checkbox => {
+            const moduleId = button.dataset.module;
+            document.querySelectorAll(`.permission-checkbox[data-module="${moduleId}"]`).forEach(checkbox => {
                 checkbox.checked = true;
             });
             updateSelectedCount();
         });
     });
 
-    document.querySelectorAll('.btn-clear-row').forEach(button => {
+    document.querySelectorAll('.btn-clear-module').forEach(button => {
         button.addEventListener('click', () => {
-            const rowId = button.dataset.rowId;
-            document.querySelectorAll(`.permission-checkbox[data-row-id="${rowId}"]`).forEach(checkbox => {
+            const moduleId = button.dataset.module;
+            document.querySelectorAll(`.permission-checkbox[data-module="${moduleId}"]`).forEach(checkbox => {
                 checkbox.checked = false;
-            });
-            updateSelectedCount();
-        });
-    });
-
-    document.querySelectorAll('.btn-select-column').forEach(button => {
-        button.addEventListener('click', () => {
-            const columnKey = button.dataset.columnKey;
-            document.querySelectorAll(`.permission-checkbox[data-column-key="${columnKey}"]`).forEach(checkbox => {
-                checkbox.checked = true;
             });
             updateSelectedCount();
         });
@@ -258,8 +282,6 @@
     });
 
     applyRoleActionLayout();
-    initPermissionsScrollAffordance();
     applyFilters();
     updateSelectedCount();
-    refreshPermissionsScrollAffordance();
 })();

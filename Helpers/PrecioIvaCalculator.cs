@@ -7,5 +7,12 @@ namespace TheBuryProject.Helpers
 
         public static decimal QuitarIVA(decimal precio, decimal porcentajeIVA)
             => porcentajeIVA > 0 ? Math.Round(precio / (1 + porcentajeIVA / 100m), 2) : precio;
+
+        /// <summary>
+        /// IVA contenido en un precio final con IVA incluido. Se calcula como diferencia
+        /// (total − neto redondeado) para garantizar que neto + IVA = total.
+        /// </summary>
+        public static decimal CalcularIvaIncluido(decimal precioFinalConIva, decimal porcentajeIVA)
+            => precioFinalConIva - QuitarIVA(precioFinalConIva, porcentajeIVA);
     }
 }

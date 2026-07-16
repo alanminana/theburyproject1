@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TheBuryProject.Data;
 
@@ -11,9 +12,11 @@ using TheBuryProject.Data;
 namespace TheBuryProject.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260711050449_AgregarIvaCompraPorLineaYCostosCompraProducto")]
+    partial class AgregarIvaCompraPorLineaYCostosCompraProducto
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -2152,53 +2155,6 @@ namespace TheBuryProject.Migrations
                             Puntaje = 10,
                             RequiereAnalisis = false,
                             UsuarioActualizacion = "System"
-                        });
-                });
-
-            modelBuilder.Entity("TheBuryProject.Models.Entities.ConfiguracionCreditoPersonalCuota", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<bool>("Activo")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(true);
-
-                    b.Property<int>("CantidadCuotas")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("FechaActualizacion")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<int>("Orden")
-                        .HasColumnType("int");
-
-                    b.Property<decimal>("TasaMensual")
-                        .ValueGeneratedOnAdd()
-                        .HasPrecision(8, 4)
-                        .HasColumnType("decimal(8,4)")
-                        .HasDefaultValue(0m);
-
-                    b.Property<string>("UsuarioActualizacion")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CantidadCuotas")
-                        .IsUnique();
-
-                    b.ToTable("ConfiguracionCreditoPersonalCuotas", null, t =>
-                        {
-                            t.HasCheckConstraint("CK_ConfCreditoPersonalCuota_Cuotas", "[CantidadCuotas] >= 1 AND [CantidadCuotas] <= 120");
-
-                            t.HasCheckConstraint("CK_ConfCreditoPersonalCuota_Tasa", "[TasaMensual] >= 0");
                         });
                 });
 

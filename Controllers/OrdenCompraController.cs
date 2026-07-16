@@ -402,7 +402,18 @@ namespace TheBuryProject.Controllers
 
             var productos = (await _productoService.SearchAsync(soloActivos: true)).ToList();
             ViewBag.Productos = new SelectList(productos, "Id", "Nombre");
-            ViewBag.ProductosJson = productos.Select(p => new { p.Id, p.Nombre, p.Codigo, p.PrecioCompra }).ToList();
+            // PorcentajeIva alimenta la vista previa del desglose de IVA incluido en el
+            // formulario; el cálculo autoritativo lo hace el servicio al guardar.
+            ViewBag.ProductosJson = productos
+                .Select(p => new
+                {
+                    p.Id,
+                    p.Nombre,
+                    p.Codigo,
+                    p.PrecioCompra,
+                    PorcentajeIva = Services.ProductoIvaResolver.ResolverPorcentajeIVAProducto(p)
+                })
+                .ToList();
             var productoIdsActivos = productos.Select(p => p.Id).ToHashSet();
             ViewBag.ProveedoresJson = proveedores
                 .Select(p => new

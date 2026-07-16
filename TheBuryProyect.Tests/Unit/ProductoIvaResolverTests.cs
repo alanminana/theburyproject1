@@ -26,6 +26,21 @@ public class ProductoIvaResolverTests
         IsDeleted = false
     };
 
+    // ─── Configurar (alícuota general desde configuración) ──────────────────
+    // Solo se testean valores inválidos: un valor válido mutaría el estado
+    // estático compartido y correría en paralelo con el resto de la suite.
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(-1.0)]
+    [InlineData(100.01)]
+    public void Configurar_ValorInvalido_ConservaAlicuotaVigente(double? porcentaje)
+    {
+        ProductoIvaResolver.Configurar(porcentaje.HasValue ? (decimal)porcentaje.Value : null);
+
+        Assert.Equal(21m, ProductoIvaResolver.PorcentajeDefault);
+    }
+
     // ─── Prioridad 1: AlicuotaIVA del producto activa ───────────────────────
 
     [Fact]

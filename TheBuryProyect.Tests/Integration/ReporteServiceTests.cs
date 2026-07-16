@@ -1504,4 +1504,255 @@ public class ReporteServiceTests : IDisposable
         Assert.Equal(0x25, resultado[0]);
         Assert.Equal(0x50, resultado[1]);
     }
+
+    // =========================================================================
+    // GenerarReporteIvaAsync
+    // =========================================================================
+
+    private async Task<Venta> SeedVentaConSnapshotIvaAsync(
+        int clienteId,
+        int productoId,
+        decimal subtotalFinal,
+        decimal subtotalFinalNeto,
+        decimal subtotalFinalIva,
+        decimal porcentajeIva = 21m,
+        EstadoVenta estado = EstadoVenta.Confirmada,
+        DateTime? fecha = null)
+    {
+        var venta = new Venta
+        {
+            Numero = Guid.NewGuid().ToString("N")[..8],
+            ClienteId = clienteId,
+            Estado = estado,
+            TipoPago = TipoPago.Efectivo,
+            FechaVenta = fecha ?? DateTime.UtcNow,
+            Subtotal = subtotalFinal,
+            Total = subtotalFinal,
+            Detalles = new List<VentaDetalle>
+            {
+                new()
+                {
+                    ProductoId = productoId,
+                    Cantidad = 1,
+                    PrecioUnitario = subtotalFinal,
+                    Subtotal = subtotalFinal,
+                    PorcentajeIVA = porcentajeIva,
+                    SubtotalNeto = subtotalFinalNeto,
+                    SubtotalIVA = subtotalFinalIva,
+                    SubtotalFinal = subtotalFinal,
+                    SubtotalFinalNeto = subtotalFinalNeto,
+                    SubtotalFinalIVA = subtotalFinalIva
+                }
+            }
+        };
+        _context.Ventas.Add(venta);
+        await _context.SaveChangesAsync();
+        return venta;
+    }
+
+    private async Task<OrdenCompra> SeedOrdenCompraAsync(
+        decimal subtotal,
+        decimal iva,
+        decimal total,
+        EstadoOrdenCompra estado = EstadoOrdenCompra.Confirmada,
+        DateTime? fechaEmision = null)
+    {
+        var proveedor = new Proveedor
+        {
+            Cuit = Guid.NewGuid().ToString("N")[..11],
+            RazonSocial = "Proveedor Test",
+            Activo = true
+        };
+        _context.Proveedores.Add(proveedor);
+        await _context.SaveChangesAsync();
+
+        var orden = new OrdenCompra
+        {
+            Numero = "OC-" + Guid.NewGuid().ToString("N")[..8],
+            ProveedorId = proveedor.Id,
+            FechaEmision = fechaEmision ?? DateTime.UtcNow,
+            Estado = estado,
+            Subtotal = subtotal,
+            Descuento = 0m,
+            Iva = iva,
+            Total = total
+        };
+        _context.OrdenesCompra.Add(orden);
+        await _context.SaveChangesAsync();
+        return orden;
+    }
+
+    private async Task<OrdenCompra> SeedOrdenCompraConDetallesAsync(
+        int productoId,
+        params (decimal Subtotal, decimal PorcentajeIva, decimal IvaImporte)[] lineas)
+    {
+        var proveedor = new Proveedor
+        {
+            Cuit = Guid.NewGuid().ToString("N")[..11],
+            RazonSocial = "Proveedor Test",
+            Activo = true
+        };
+        _context.Proveedores.Add(proveedor);
+        await _context.SaveChangesAsync();
+
+        var subtotal = lineas.Sum(l => l.Subtotal);
+        var orden = new OrdenCompra
+        {
+            Numero = "OC-" + Guid.NewGuid().ToString("N")[..8],
+            ProveedorId = proveedor.Id,
+            FechaEmision = DateTime.UtcNow,
+            Estado = EstadoOrdenCompra.Confirmada,
+            Subtotal = subtotal,
+            Descuento = 0m,
+            Iva = lineas.Sum(l => l.IvaImporte),
+            Total = subtotal,
+            Detalles = lineas.Select(l => new OrdenCompraDetalle
+            {
+                ProductoId = productoId,
+                Cantidad = 1,
+                PrecioUnitario = l.Subtotal,
+                Subtotal = l.Subtotal,
+                PorcentajeIVA = l.PorcentajeIva,
+                IvaImporte = l.IvaImporte
+            }).ToList()
+        };
+        _context.OrdenesCompra.Add(orden);
+        await _context.SaveChangesAsync();
+        return orden;
+    }
+
+    [Fact]
+    public async Task GenerarReporteIva_ConVentaConfirmada_UsaSnapshotYDesglosaPorAlicuota()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        // Precio final con IVA $104.041,60 → neto $85.984,79 + IVA $18.056,81 (criterio de aceptación)
+        await SeedVentaConSnapshotIvaAsync(cliente.Id, producto.Id,
+            subtotalFinal: 104_041.60m, subtotalFinalNeto: 85_984.79m, subtotalFinalIva: 18_056.81m);
+
+        var resultado = await _service.GenerarReporteIvaAsync(new ReporteIvaFiltroViewModel { Tipo = "ventas" });
+
+        Assert.Equal(1, resultado.VentasCantidad);
+        Assert.Equal(85_984.79m, resultado.VentasNeto);
+        Assert.Equal(18_056.81m, resultado.VentasIva);
+        Assert.Equal(104_041.60m, resultado.VentasTotal);
+        var alicuota = Assert.Single(resultado.VentasPorAlicuota);
+        Assert.Equal(21m, alicuota.Porcentaje);
+        Assert.Equal(104_041.60m, alicuota.Neto + alicuota.Iva);
+    }
+
+    [Fact]
+    public async Task GenerarReporteIva_ExcluyeVentasCanceladasYCotizaciones()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        await SeedVentaConSnapshotIvaAsync(cliente.Id, producto.Id, 121m, 100m, 21m, estado: EstadoVenta.Confirmada);
+        await SeedVentaConSnapshotIvaAsync(cliente.Id, producto.Id, 242m, 200m, 42m, estado: EstadoVenta.Cancelada);
+        await SeedVentaConSnapshotIvaAsync(cliente.Id, producto.Id, 363m, 300m, 63m, estado: EstadoVenta.Cotizacion);
+
+        var resultado = await _service.GenerarReporteIvaAsync(new ReporteIvaFiltroViewModel { Tipo = "ventas" });
+
+        Assert.Equal(1, resultado.VentasCantidad);
+        Assert.Equal(21m, resultado.VentasIva);
+        Assert.Equal(121m, resultado.VentasTotal);
+    }
+
+    [Fact]
+    public async Task GenerarReporteIva_ConComprasYVentas_CalculaDiferenciaDeIva()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        await SeedVentaConSnapshotIvaAsync(cliente.Id, producto.Id, 121m, 100m, 21m);
+        await SeedOrdenCompraAsync(subtotal: 50m, iva: 10.50m, total: 60.50m, estado: EstadoOrdenCompra.Recibida);
+        await SeedOrdenCompraAsync(subtotal: 999m, iva: 209.79m, total: 1_208.79m, estado: EstadoOrdenCompra.Cancelada);
+        await SeedOrdenCompraAsync(subtotal: 999m, iva: 209.79m, total: 1_208.79m, estado: EstadoOrdenCompra.Borrador);
+
+        var resultado = await _service.GenerarReporteIvaAsync(new ReporteIvaFiltroViewModel { Tipo = "ambas" });
+
+        Assert.Equal(1, resultado.ComprasCantidad);
+        Assert.Equal(50m, resultado.ComprasNeto);
+        Assert.Equal(10.50m, resultado.ComprasIva);
+        Assert.Equal(60.50m, resultado.ComprasTotal);
+        Assert.Equal(21m - 10.50m, resultado.DiferenciaIva);
+        // Orden legacy sin desglose por línea: se informa y se agrupa al 21% de cabecera.
+        Assert.Equal(1, resultado.ComprasSinDesglosePorLinea);
+        var bucket = Assert.Single(resultado.ComprasPorAlicuota);
+        Assert.Equal(21m, bucket.Porcentaje);
+    }
+
+    [Fact]
+    public async Task GenerarReporteIva_ComprasConDesglosePorLinea_AgrupaYFiltraPorAlicuota()
+    {
+        var producto = await SeedProductoAsync();
+        // Dos líneas con IVA incluido: $121 al 21% (IVA 21) y $110,50 al 10,5% (IVA 10,50)
+        await SeedOrdenCompraConDetallesAsync(
+            producto.Id,
+            (121m, 21m, 21m),
+            (110.50m, 10.5m, 10.50m));
+
+        var resultado = await _service.GenerarReporteIvaAsync(new ReporteIvaFiltroViewModel { Tipo = "compras" });
+
+        Assert.Equal(1, resultado.ComprasCantidad);
+        Assert.Equal(0, resultado.ComprasSinDesglosePorLinea);
+        Assert.Equal(2, resultado.ComprasPorAlicuota.Count);
+        Assert.Equal(31.50m, resultado.ComprasIva);
+        Assert.Equal(231.50m, resultado.ComprasTotal);
+        Assert.Equal(200m, resultado.ComprasNeto);
+
+        var filtrado = await _service.GenerarReporteIvaAsync(new ReporteIvaFiltroViewModel
+        {
+            Tipo = "compras",
+            Alicuota = 10.5m
+        });
+
+        var bucket = Assert.Single(filtrado.ComprasPorAlicuota);
+        Assert.Equal(10.5m, bucket.Porcentaje);
+        Assert.Equal(10.50m, filtrado.ComprasIva);
+        Assert.Equal(110.50m, filtrado.ComprasTotal);
+        Assert.Equal(100m, filtrado.ComprasNeto);
+    }
+
+    [Fact]
+    public async Task GenerarReporteIva_VentaLegacySinDesglose_SeInformaYNoSumaTotales()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        await SeedVentaConSnapshotIvaAsync(cliente.Id, producto.Id, 121m, 100m, 21m);
+        // Exenta legítima: 0% con neto = total → integra los buckets.
+        await SeedVentaConSnapshotIvaAsync(cliente.Id, producto.Id, 100m, 100m, 0m, porcentajeIva: 0m);
+        // Legacy sin snapshot: importe facturado con neto e IVA en cero → se informa aparte.
+        await SeedVentaConSnapshotIvaAsync(cliente.Id, producto.Id, 500m, 0m, 0m, porcentajeIva: 0m);
+
+        var resultado = await _service.GenerarReporteIvaAsync(new ReporteIvaFiltroViewModel { Tipo = "ventas" });
+
+        Assert.Equal(2, resultado.VentasCantidad);
+        Assert.Equal(221m, resultado.VentasTotal);
+        Assert.Equal(21m, resultado.VentasIva);
+        Assert.Equal(2, resultado.VentasPorAlicuota.Count);
+        Assert.Equal(1, resultado.VentasSinDesglose);
+        Assert.Equal(500m, resultado.VentasSinDesgloseTotal);
+    }
+
+    [Fact]
+    public async Task GenerarReporteIva_FiltraPorFechaYAlicuota()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var hoy = DateTime.UtcNow.Date.AddHours(12);
+        await SeedVentaConSnapshotIvaAsync(cliente.Id, producto.Id, 121m, 100m, 21m, porcentajeIva: 21m, fecha: hoy);
+        await SeedVentaConSnapshotIvaAsync(cliente.Id, producto.Id, 110.50m, 100m, 10.50m, porcentajeIva: 10.5m, fecha: hoy);
+        await SeedVentaConSnapshotIvaAsync(cliente.Id, producto.Id, 242m, 200m, 42m, porcentajeIva: 21m, fecha: hoy.AddDays(-40));
+
+        var resultado = await _service.GenerarReporteIvaAsync(new ReporteIvaFiltroViewModel
+        {
+            Tipo = "ventas",
+            FechaDesde = hoy.Date.AddDays(-1),
+            FechaHasta = hoy.Date,
+            Alicuota = 21m
+        });
+
+        Assert.Equal(1, resultado.VentasCantidad);
+        Assert.Equal(21m, resultado.VentasIva);
+        Assert.Equal(121m, resultado.VentasTotal);
+    }
 }

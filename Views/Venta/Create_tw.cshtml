@@ -806,7 +806,7 @@
                                                                                                             </div>
 
                                                                                                             @* Excepción documental (solo para usuarios con permiso) *@
-                                                                                                            @if (User.TienePermiso("ventas", "authorize") || User.TienePermiso("ventas", "create"))
+                                                                                                            @if (User.TienePermiso("ventas", "authorize") || User.TienePermiso("ventas", "requestexception"))
                                                                                                             {
                                                                                                                 <div id="panel-excepcion-crediticia" class="hidden pt-4 border-t border-slate-800">
                                                                                                                     <input type="hidden" asp-for="AplicarExcepcionDocumental" id="hdn-aplicar-excepcion" />

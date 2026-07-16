@@ -349,8 +349,9 @@ public sealed class CotizacionPagoCalculatorContractTests
         };
 
         var resultado = await CreateCalculator(
-            configuracion: DefaultConfiguracion(includeCreditoPersonal: true),
-            creditoService: creditoService).SimularAsync(DefaultRequest(clienteId: 44));
+            creditoService: creditoService,
+            configuracionPagoService: ConfiguracionCreditoPersonalDisponible(cuotasMaximas: 3))
+            .SimularAsync(DefaultRequest(clienteId: 44));
 
         var credito = Assert.Single(resultado.OpcionesPago, o => o.MedioPago == CotizacionMedioPagoTipo.CreditoPersonal);
         Assert.False(credito.Disponible);
@@ -365,8 +366,9 @@ public sealed class CotizacionPagoCalculatorContractTests
         var creditoService = new FakeCreditoSimulacionVentaService();
 
         var resultado = await CreateCalculator(
-            configuracion: DefaultConfiguracion(includeCreditoPersonal: true),
-            creditoService: creditoService).SimularAsync(DefaultRequest(clienteId: 44, cuotas: new[] { 6 }));
+            creditoService: creditoService,
+            configuracionPagoService: ConfiguracionCreditoPersonalDisponible())
+            .SimularAsync(DefaultRequest(clienteId: 44, cuotas: new[] { 6 }));
 
         var credito = Assert.Single(resultado.OpcionesPago, o => o.MedioPago == CotizacionMedioPagoTipo.CreditoPersonal);
         Assert.True(credito.Disponible);
@@ -379,13 +381,38 @@ public sealed class CotizacionPagoCalculatorContractTests
     }
 
     [Fact]
+    public async Task Simular_CreditoPersonal_ConTablaPorCuotas_UsaSoloCuotasActivasYTasaPropia()
+    {
+        var creditoService = new FakeCreditoSimulacionVentaService();
+
+        var resultado = await CreateCalculator(
+            creditoService: creditoService,
+            configuracionPagoService: ConfiguracionCreditoPersonalDisponible(
+                cuotasPorCantidad: new List<CuotaCreditoPersonalViewModel>
+                {
+                    new() { CantidadCuotas = 1, TasaMensual = 1m, Activo = true },
+                    new() { CantidadCuotas = 5, TasaMensual = 10m, Activo = true },
+                    new() { CantidadCuotas = 9, TasaMensual = 20m, Activo = false }
+                }))
+            .SimularAsync(DefaultRequest(clienteId: 44));
+
+        var credito = Assert.Single(resultado.OpcionesPago, o => o.MedioPago == CotizacionMedioPagoTipo.CreditoPersonal);
+        Assert.True(credito.Disponible);
+        Assert.Equal(2, credito.Planes.Count);
+        Assert.DoesNotContain(credito.Planes, p => p.CantidadCuotas == 9);
+
+        Assert.Contains(creditoService.Requests, r => r.Cuotas == 1 && r.TasaMensual == 1m);
+        Assert.Contains(creditoService.Requests, r => r.Cuotas == 5 && r.TasaMensual == 10m);
+    }
+
+    [Fact]
     public async Task Simular_CreditoPersonal_ProductoBloqueado_DevuelveBloqueadoPorProducto()
     {
         var creditoService = new FakeCreditoSimulacionVentaService();
 
         var resultado = await CreateCalculator(
-            configuracion: DefaultConfiguracion(includeCreditoPersonal: true),
             creditoService: creditoService,
+            configuracionPagoService: ConfiguracionCreditoPersonalDisponible(),
             restriccionService: new FakeProductoCreditoRestriccionService
             {
                 Resultado = new ProductoCreditoRestriccionResultado
@@ -405,7 +432,7 @@ public sealed class CotizacionPagoCalculatorContractTests
     public async Task Simular_CreditoPersonal_RespetaMaxCuotasProducto()
     {
         var resultado = await CreateCalculator(
-            configuracion: DefaultConfiguracion(includeCreditoPersonal: true),
+            configuracionPagoService: ConfiguracionCreditoPersonalDisponible(),
             restriccionService: new FakeProductoCreditoRestriccionService
             {
                 Resultado = new ProductoCreditoRestriccionResultado
@@ -439,7 +466,7 @@ public sealed class CotizacionPagoCalculatorContractTests
 
         var resultado = await CreateCalculator(
             precios: precios,
-            configuracion: DefaultConfiguracion(includeCreditoPersonal: true),
+            configuracionPagoService: ConfiguracionCreditoPersonalDisponible(),
             restriccionService: new FakeProductoCreditoRestriccionService
             {
                 Resultado = new ProductoCreditoRestriccionResultado
@@ -466,7 +493,8 @@ public sealed class CotizacionPagoCalculatorContractTests
             productoService,
             configuracionService,
             creditoService,
-            restriccionService);
+            restriccionService,
+            new FakeConfiguracionPagoService());
 
         var resultado = await calculator.SimularAsync(DefaultRequest());
 
@@ -481,12 +509,31 @@ public sealed class CotizacionPagoCalculatorContractTests
         Dictionary<int, ProductoPrecioVentaResultado?>? precios = null,
         ConfiguracionPagoGlobalResultado? configuracion = null,
         FakeCreditoSimulacionVentaService? creditoService = null,
-        FakeProductoCreditoRestriccionService? restriccionService = null) =>
+        FakeProductoCreditoRestriccionService? restriccionService = null,
+        FakeConfiguracionPagoService? configuracionPagoService = null) =>
         new(
             new FakeProductoService(precios ?? DefaultPrecios()),
             new FakeConfiguracionPagoGlobalQueryService(configuracion ?? DefaultConfiguracion()),
             creditoService ?? new FakeCreditoSimulacionVentaService(),
-            restriccionService ?? new FakeProductoCreditoRestriccionService());
+            restriccionService ?? new FakeProductoCreditoRestriccionService(),
+            configuracionPagoService ?? new FakeConfiguracionPagoService());
+
+    private static FakeConfiguracionPagoService ConfiguracionCreditoPersonalDisponible(
+        int cuotasMinimas = 1,
+        int cuotasMaximas = 12,
+        List<CuotaCreditoPersonalViewModel>? cuotasPorCantidad = null) =>
+        new()
+        {
+            TasaGlobal = 5m,
+            Parametros = new ParametrosCreditoCliente
+            {
+                TasaMensual = 5m,
+                GastosAdministrativos = 0m,
+                CuotasMinimas = cuotasMinimas,
+                CuotasMaximas = cuotasMaximas
+            },
+            CuotasCreditoPersonal = cuotasPorCantidad ?? new List<CuotaCreditoPersonalViewModel>()
+        };
 
     private static CotizacionSimulacionRequest DefaultRequest(
         int cantidad = 2,
@@ -744,8 +791,7 @@ public sealed class CotizacionPagoCalculatorContractTests
         public Task<Producto> CreateAsync(Producto producto) => throw new NotSupportedException();
         public Task<Producto> UpdateAsync(Producto producto) => throw new NotSupportedException();
         public Task<bool> DeleteAsync(int id) => throw new NotSupportedException();
-        public Task PrepararPrecioVentaConIvaAsync(Producto producto) => throw new NotSupportedException();
-        public decimal ObtenerPrecioVentaSinIva(decimal precioVentaConIva, decimal porcentajeIVA) => throw new NotSupportedException();
+        public Task ResolverIvaVentaAsync(Producto producto) => throw new NotSupportedException();
         public Task<IEnumerable<Producto>> SearchAsync(string? searchTerm = null, int? categoriaId = null, int? marcaId = null, bool stockBajo = false, bool soloActivos = false, string? orderBy = null, string? orderDirection = "asc") => throw new NotSupportedException();
         public Task<List<int>> SearchIdsAsync(string? searchTerm = null, int? categoriaId = null, int? marcaId = null, bool stockBajo = false, bool soloActivos = false) => throw new NotSupportedException();
         public Task<IEnumerable<ProductoVentaDto>> BuscarParaVentaAsync(string term, int take = 20, int? categoriaId = null, int? marcaId = null, bool soloConStock = true, decimal? precioMin = null, decimal? precioMax = null) => throw new NotSupportedException();
@@ -800,6 +846,59 @@ public sealed class CotizacionPagoCalculatorContractTests
             Requests.Add(productoIds.ToArray());
             return Task.FromResult(Resultado);
         }
+    }
+
+    private sealed class FakeConfiguracionPagoService : IConfiguracionPagoService
+    {
+        public decimal? TasaGlobal { get; init; }
+        public ParametrosCreditoCliente Parametros { get; init; } = new()
+        {
+            TasaMensual = 5m,
+            GastosAdministrativos = 0m,
+            CuotasMinimas = 1,
+            CuotasMaximas = 12
+        };
+
+        public Task<decimal?> ObtenerTasaInteresMensualCreditoPersonalAsync() => Task.FromResult(TasaGlobal);
+
+        public Task<ParametrosCreditoCliente> ObtenerParametrosCreditoClienteAsync(int clienteId, decimal tasaGlobal) =>
+            Task.FromResult(Parametros);
+
+        public Task<List<ConfiguracionPagoViewModel>> GetAllAsync() => throw new NotSupportedException();
+        public Task<ConfiguracionPagoViewModel?> GetByIdAsync(int id) => throw new NotSupportedException();
+        public Task<ConfiguracionPagoViewModel?> GetByTipoPagoAsync(TipoPago tipoPago) => throw new NotSupportedException();
+        public Task<ConfiguracionPagoViewModel> CreateAsync(ConfiguracionPagoViewModel viewModel) => throw new NotSupportedException();
+        public Task<ConfiguracionPagoViewModel?> UpdateAsync(int id, ConfiguracionPagoViewModel viewModel) => throw new NotSupportedException();
+        public Task<bool> DeleteAsync(int id) => throw new NotSupportedException();
+        public Task<List<ConfiguracionTarjetaViewModel>> GetTarjetasActivasAsync() => throw new NotSupportedException();
+        public Task<List<TarjetaActivaVentaResultado>> GetTarjetasActivasParaVentaAsync() => throw new NotSupportedException();
+        public Task<ConfiguracionTarjetaViewModel?> GetTarjetaByIdAsync(int id) => throw new NotSupportedException();
+        public Task<bool> ValidarDescuento(TipoPago tipoPago, decimal descuento) => throw new NotSupportedException();
+        public Task<decimal> CalcularRecargo(TipoPago tipoPago, decimal monto) => throw new NotSupportedException();
+        public Task<List<PerfilCreditoViewModel>> GetPerfilesCreditoAsync() => throw new NotSupportedException();
+        public Task<List<PerfilCreditoViewModel>> GetPerfilesCreditoActivosAsync() => throw new NotSupportedException();
+        public Task GuardarCreditoPersonalAsync(CreditoPersonalConfigViewModel config) => throw new NotSupportedException();
+
+        public Task<(int Min, int Max, string Descripcion, string? PerfilNombre)> ResolverRangoCuotasAsync(
+            MetodoCalculoCredito metodo, int? perfilId, int? clienteId) => throw new NotSupportedException();
+
+        public Task<MaxCuotasSinInteresResultado?> ObtenerMaxCuotasSinInteresEfectivoAsync(
+            int tarjetaId, IEnumerable<int> productoIds) => throw new NotSupportedException();
+
+        public Task<List<MontoPorPuntajeCreditoViewModel>> GetMontosPorPuntajeAsync() => throw new NotSupportedException();
+
+        public Task<(bool Ok, List<string> Errores)> GuardarMontosPorPuntajeAsync(
+            List<MontoPorPuntajeCreditoViewModel> items, string usuario) => throw new NotSupportedException();
+
+        public List<CuotaCreditoPersonalViewModel> CuotasCreditoPersonal { get; init; } = new();
+
+        public Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalAsync() => Task.FromResult(CuotasCreditoPersonal);
+
+        public Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalActivasAsync() =>
+            Task.FromResult(CuotasCreditoPersonal.Where(c => c.Activo).ToList());
+
+        public Task<(bool Ok, List<string> Errores)> GuardarCuotasCreditoPersonalAsync(
+            List<CuotaCreditoPersonalViewModel> items, string usuario) => throw new NotSupportedException();
     }
 }
 

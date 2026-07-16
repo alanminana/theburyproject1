@@ -339,19 +339,12 @@ namespace TheBuryProject.Services
             }
         }
 
-        public async Task PrepararPrecioVentaConIvaAsync(Producto producto)
+        public async Task ResolverIvaVentaAsync(Producto producto)
         {
             producto.PorcentajeIVA = await ResolverPorcentajeIVAFormularioAsync(
                 producto.AlicuotaIVAId,
                 producto.PorcentajeIVA);
-
-            producto.PrecioVenta = PrecioIvaCalculator.AplicarIVA(
-                producto.PrecioVenta,
-                producto.PorcentajeIVA);
         }
-
-        public decimal ObtenerPrecioVentaSinIva(decimal precioVentaConIva, decimal porcentajeIVA)
-            => PrecioIvaCalculator.QuitarIVA(precioVentaConIva, porcentajeIVA);
 
         public async Task<Producto> UpdateAsync(Producto producto)
         {
@@ -407,6 +400,9 @@ namespace TheBuryProject.Services
                 existing.CategoriaId = producto.CategoriaId;
                 existing.MarcaId = producto.MarcaId;
                 existing.PrecioCompra = producto.PrecioCompra;
+                existing.CostoEnvio = producto.CostoEnvio;
+                existing.PercepcionesCompra = producto.PercepcionesCompra;
+                existing.OtrosCostosCompra = producto.OtrosCostosCompra;
                 existing.PrecioVenta = producto.PrecioVenta;
                 existing.PorcentajeIVA = producto.PorcentajeIVA;
                 existing.AlicuotaIVAId = producto.AlicuotaIVAId;

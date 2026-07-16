@@ -293,34 +293,9 @@ const ProductoModal = (() => {
         });
     }
 
-    // ── Cálculo IVA ─────────────────────────────────────────
-    function initPrecioCalc() {
-        const precioVenta  = el('modal-precioVenta');
-        const alicuotaSel  = el('modal-alicuotaIVAId');
-        const ivaSelect    = el('modal-porcentajeIVA');
-
-        const calc = () => {
-            const venta = parseFloat(precioVenta?.value) || 0;
-            const iva = parseFloat(ivaSelect?.value) || 0;
-            const final_ = venta * (1 + iva / 100);
-            const precioFinal = el('modal-precioFinal');
-            if (precioFinal) precioFinal.value = final_.toFixed(2);
-        };
-
-        if (alicuotaSel) {
-            alicuotaSel.addEventListener('change', function () {
-                if (this.value) {
-                    const opt = this.options[this.selectedIndex];
-                    const pct = opt && opt.getAttribute('data-porcentaje');
-                    if (pct !== null && pct !== '' && ivaSelect) ivaSelect.value = String(pct);
-                }
-                calc();
-            });
-        }
-
-        if (precioVenta) precioVenta.addEventListener('input', calc);
-        if (ivaSelect) ivaSelect.addEventListener('change', calc);
-    }
+    // El cálculo de precios (costo real + ganancia = precio final con IVA, desglose)
+    // vive en el script inline de Catalogo/Index_tw (bindPrecioProducto). Acá no se
+    // duplican listeners de precio.
 
     // ── Características dinámicas ────────────────────────────
     function addCaracteristica() {
@@ -717,7 +692,6 @@ const ProductoModal = (() => {
     // ── Init ────────────────────────────────────────────────
     function init() {
         initCascadingDropdowns();
-        initPrecioCalc();
         initSubmit();
         initEscKey();
         updateCaracteristicasUi();

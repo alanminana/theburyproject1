@@ -13,6 +13,26 @@ public class CreditoPersonalConfigViewModel
     public SemaforoFinancieroViewModel? SemaforoFinanciero { get; set; }
     public List<ClienteCreditoLimiteItemViewModel> LimitesPorPuntaje { get; set; } = new();
     public List<MontoPorPuntajeCreditoViewModel> MontosPorPuntaje { get; set; } = new();
+    public List<CuotaCreditoPersonalViewModel> CuotasCreditoPersonal { get; set; } = new();
+}
+
+/// <summary>
+/// Tasa mensual y disponibilidad de Crédito Personal (fuente Global) por cantidad de cuotas.
+/// Si la lista queda vacía, el cálculo global usa la tasa/rango únicos de DefaultsGlobales (compatibilidad).
+/// </summary>
+public class CuotaCreditoPersonalViewModel
+{
+    public int Id { get; set; }
+
+    [Range(1, 120, ErrorMessage = "La cantidad de cuotas debe estar entre 1 y 120.")]
+    public int CantidadCuotas { get; set; }
+
+    [Range(0, 100, ErrorMessage = "La tasa mensual debe estar entre 0 y 100.")]
+    public decimal TasaMensual { get; set; }
+
+    public bool Activo { get; set; } = true;
+
+    public int Orden { get; set; }
 }
 
 public class MontoPorPuntajeCreditoViewModel

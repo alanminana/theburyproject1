@@ -33,6 +33,19 @@ namespace TheBuryProject.Models.Entities
         public decimal Subtotal { get; set; }
 
         /// <summary>
+        /// Alícuota de IVA del producto al momento de la operación (snapshot histórico).
+        /// 0 en órdenes anteriores a la incorporación del desglose por línea.
+        /// </summary>
+        public decimal PorcentajeIVA { get; set; }
+
+        /// <summary>
+        /// IVA incluido en el subtotal de la línea (neto descuento proporcional),
+        /// calculado por diferencia al momento de la operación. No se reconstruye
+        /// desde la alícuota actual del producto.
+        /// </summary>
+        public decimal IvaImporte { get; set; }
+
+        /// <summary>
         /// Cantidad recibida
         /// </summary>
         public int CantidadRecibida { get; set; }

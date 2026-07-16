@@ -13,6 +13,12 @@ namespace TheBuryProject.Services.Interfaces
         Task<ReporteVentasResultadoViewModel> GenerarReporteVentasAsync(ReporteVentasFiltroViewModel filtro);
 
         /// <summary>
+        /// Genera el reporte de IVA de compras y ventas por período, usando los importes
+        /// históricos persistidos (snapshot de VentaDetalle y totales de OrdenCompra).
+        /// </summary>
+        Task<ReporteIvaResultadoViewModel> GenerarReporteIvaAsync(ReporteIvaFiltroViewModel filtro);
+
+        /// <summary>
         /// Genera reporte de margenes de productos.
         /// </summary>
         Task<ReporteMargenesViewModel> GenerarReporteMargenesAsync(int? categoriaId = null, int? marcaId = null);

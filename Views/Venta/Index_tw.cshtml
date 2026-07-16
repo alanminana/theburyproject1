@@ -11,6 +11,7 @@
     var puedeOperarVentas = (bool?)ViewBag.PuedeOperarVentas ?? false;
     var puedeVerDevoluciones = User.TienePermiso("devoluciones", "view");
     var puedeCrearDevoluciones = User.TienePermiso("devoluciones", "create");
+    var puedeCancelarVentas = User.TienePermiso("ventas", "cancel");
     var puedeConfigurarPagos = User.TienePermiso("configuraciones", "update");
     var pendientesAutorizacion = ventas.Count(v => v.EstadoAutorizacion == EstadoAutorizacionVenta.PendienteAutorizacion);
     var filtroActivo = filter.Numero != null || filter.FechaDesde != null || filter.FechaHasta != null
@@ -364,7 +365,7 @@
                                                                         var esCancelada = v.Estado == EstadoVenta.Cancelada;
                                                                         var puedeDevolver = puedeOperarVentas && puedeCrearDevoluciones &&
                                                                 v.PuedeCrearDevolucion && !esCancelada;
-                                                                        var puedeCancelarVenta = puedeOperarVentas && v.PuedeCancelar && !esCancelada;
+                                                                        var puedeCancelarVenta = puedeCancelarVentas && puedeOperarVentas && v.PuedeCancelar && !esCancelada;
 
                                                                         <tr>
                                                                             <td>
@@ -438,7 +439,7 @@
                                                                 var esCancelada = v.Estado == EstadoVenta.Cancelada;
                                                                 var puedeDevolver = puedeOperarVentas && puedeCrearDevoluciones && v.PuedeCrearDevolucion &&
                                                         !esCancelada;
-                                                                var puedeCancelarVenta = puedeOperarVentas && v.PuedeCancelar && !esCancelada;
+                                                                var puedeCancelarVenta = puedeCancelarVentas && puedeOperarVentas && v.PuedeCancelar && !esCancelada;
 
                                                                 <article class="card card-sub sale-card">
                                                                     <div class="sale-card__top">

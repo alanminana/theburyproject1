@@ -1,9 +1,67 @@
 @model SeguridadPermisosRolViewModel
 @{
     var currentUrl = Context.Request.Path + Context.Request.QueryString;
-    var totalModules = Model.Filas.Count;
-    var totalSelectedPermissions = Model.Filas.SelectMany(f => f.Celdas).Count(c => c.Seleccionado);
+    var totalModules = Model.TotalModulos;
+    var totalSelectedPermissions = Model.TotalAccionesSeleccionadas;
 }
+
+<style>
+    /* Chip de acción: un <label> que envuelve un checkbox nativo.
+       El estado activo se resuelve con :has() (soporte moderno). */
+    .permission-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0.5rem 0.85rem;
+        border-radius: 9999px;
+        border: 1px solid #334155; /* slate-700 */
+        background-color: #1e293b; /* slate-800 */
+        color: #cbd5e1; /* slate-300 */
+        font-size: 0.8125rem;
+        font-weight: 600;
+        line-height: 1.1;
+        cursor: pointer;
+        user-select: none;
+        transition: border-color .15s ease, background-color .15s ease, color .15s ease;
+    }
+
+    .permission-chip:hover {
+        border-color: rgba(245, 197, 24, 0.55);
+        color: #f8fafc;
+    }
+
+    .permission-chip:focus-within {
+        outline: 2px solid rgba(245, 197, 24, 0.55);
+        outline-offset: 2px;
+    }
+
+    .permission-chip:has(input:checked) {
+        border-color: var(--color-primary, #f5c518);
+        background-color: rgba(245, 197, 24, 0.14);
+        color: var(--color-primary, #f5c518);
+    }
+
+    .permission-chip input[type="checkbox"] {
+        width: 0.95rem;
+        height: 0.95rem;
+        flex: 0 0 auto;
+        accent-color: var(--color-primary, #f5c518);
+        cursor: pointer;
+    }
+
+    /* Acordeón por categoría */
+    .permission-group__chevron {
+        transition: transform .2s ease;
+    }
+
+    .permission-group[data-collapsed="true"] .permission-group__chevron {
+        transform: rotate(-90deg);
+    }
+
+    .permission-group[data-collapsed="true"] .permission-group__body {
+        display: none;
+    }
+</style>
 
 <div class="max-w-7xl mx-auto space-y-6">
     @if (TempData["Success"] != null)
@@ -150,115 +208,103 @@
                 <div class="border-b border-slate-800 px-6 py-5 bg-slate-900/40">
                     <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                         <div class="space-y-1">
-                            <p class="text-sm font-semibold text-white">Matriz editable de permisos</p>
-                            <p class="text-xs text-slate-400">Ajustá accesos por módulo y acción. Usá los atajos de fila o columna para acelerar cambios masivos.</p>
+                            <p class="text-sm font-semibold text-white">Permisos por módulo</p>
+                            <p class="text-xs text-slate-400">Activá accesos por módulo y acción. Cada módulo muestra solo las acciones que realmente tiene.</p>
                         </div>
-                        <div class="flex flex-wrap gap-2 text-xs font-medium text-slate-400">
+                        <div class="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-400">
                             <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-3 py-1 border border-slate-700">
-                                <span class="material-symbols-outlined text-sm">table_rows</span>
-                                <span id="permissionsVisiblePill">@Model.Filas.Count</span> módulos visibles
+                                <span class="material-symbols-outlined text-sm">view_module</span>
+                                <span id="permissionsVisiblePill">@totalModules</span> módulos visibles
                             </span>
                             <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-3 py-1 border border-slate-700">
                                 <span class="material-symbols-outlined text-sm">verified</span>
                                 <span id="permissionsSelectedHeader">@totalSelectedPermissions</span> permisos seleccionados
                             </span>
+                            <button type="button" id="permissionsExpandAll"
+                                    class="inline-flex items-center gap-1.5 rounded-full bg-slate-800 px-3 py-1 font-semibold text-slate-300 hover:bg-primary/10 hover:text-primary transition-colors">
+                                <span class="material-symbols-outlined text-sm">unfold_more</span>
+                                Expandir todo
+                            </button>
+                            <button type="button" id="permissionsCollapseAll"
+                                    class="inline-flex items-center gap-1.5 rounded-full bg-slate-800 px-3 py-1 font-semibold text-slate-300 hover:bg-primary/10 hover:text-primary transition-colors">
+                                <span class="material-symbols-outlined text-sm">unfold_less</span>
+                                Colapsar todo
+                            </button>
                         </div>
                     </div>
                 </div>
-                <div data-oc-scroll class="relative" style="--oc-scroll-min-width: 1200px;">
-                    <div data-oc-scroll-hint hidden class="px-4 pt-4 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400 lg:hidden">
-                        Deslizá para ver toda la matriz
-                    </div>
-                    <div data-oc-scroll-shell class="relative">
-                        <div data-oc-scroll-fade="left" hidden class="absolute inset-y-0 left-0 z-10 w-6 bg-gradient-to-r from-slate-900 via-slate-900/95 to-transparent"></div>
-                        <div data-oc-scroll-fade="right" hidden class="absolute inset-y-0 right-0 z-10 w-6 bg-gradient-to-l from-slate-900 via-slate-900/95 to-transparent"></div>
-                        <div data-oc-scroll-region class="overflow-x-auto scroll-smooth" tabindex="0" role="region" aria-label="Matriz de permisos del rol seleccionado">
-                    <table data-oc-scroll-table class="w-full text-left border-collapse" style="min-width: var(--oc-scroll-min-width);">
-                        <thead class="bg-slate-800/50 border-b border-slate-800">
-                            <tr>
-                                <th class="px-4 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Módulo / Submódulo</th>
-                                @foreach (var columna in Model.Columnas)
-                                {
-                                    <th class="px-3 py-4 text-center text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                                        <div class="space-y-2">
-                                            <p>@columna.Label</p>
-                                            <button type="button"
-                                                    data-column-key="@columna.Key"
-                                                    class="btn-select-column inline-flex items-center justify-center px-2 py-1 rounded-md text-[10px] font-semibold bg-slate-800 text-slate-300 hover:bg-primary/10 hover:text-primary transition-colors">
-                                                Todo
-                                            </button>
-                                        </div>
-                                    </th>
-                                }
-                            </tr>
-                        </thead>
-                        <tbody id="permissionsMatrixBody" class="divide-y divide-slate-800">
-                            @foreach (var fila in Model.Filas)
-                            {
-                                var rowId = $"perm-row-{fila.ModuloId}";
-                                var searchText = $"{fila.ModuloNombre} {fila.ModuloClave} {fila.Descripcion} {fila.Grupo}";
 
-                                <tr class="permission-row hover:/50 hover:bg-slate-800/30 transition-colors"
-                                    data-group="@fila.Grupo"
-                                    data-search="@searchText">
-                                    <td class="px-4 py-4 align-top">
-                                        <div class="space-y-3">
-                                            <div>
-                                                <p class="text-sm font-semibold text-white">@fila.ModuloNombre</p>
-                                                <div class="flex flex-wrap items-center gap-2 mt-2">
-                                                    <span class="inline-flex px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-800 text-slate-300">@fila.Grupo</span>
-                                                    <span class="inline-flex px-2.5 py-1 rounded-full text-[11px] font-semibold bg-primary/10 text-primary">@fila.ModuloClave</span>
+                <div id="permissionsGroups" class="p-4 sm:p-6 space-y-4">
+                    @foreach (var grupo in Model.GruposModulos)
+                    {
+                        <section class="permission-group rounded-xl border border-slate-800 bg-slate-900/40 overflow-hidden" data-group-name="@grupo.Nombre">
+                            <button type="button"
+                                    class="permission-group__header w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-white/5 transition-colors">
+                                <span class="flex items-center gap-2 min-w-0">
+                                    <span class="material-symbols-outlined text-lg text-slate-400 permission-group__chevron">expand_more</span>
+                                    <span class="text-sm font-bold text-white truncate">@grupo.Nombre</span>
+                                    <span class="inline-flex items-center rounded-full bg-slate-800 px-2 py-0.5 text-[11px] font-semibold text-slate-300">@grupo.Modulos.Count</span>
+                                </span>
+                                <span class="shrink-0 text-[11px] font-semibold text-slate-500">
+                                    <span class="permission-group-selected">@grupo.TotalSeleccionadas</span>/@grupo.TotalAcciones permisos
+                                </span>
+                            </button>
+
+                            <div class="permission-group__body border-t border-slate-800 divide-y divide-slate-800/70">
+                                @foreach (var modulo in grupo.Modulos)
+                                {
+                                    var searchText = $"{modulo.ModuloNombre} {modulo.ModuloClave} {modulo.Descripcion} {modulo.Grupo}";
+
+                                    <div class="permission-module px-4 py-4"
+                                         data-module="@modulo.ModuloId"
+                                         data-group="@modulo.Grupo"
+                                         data-search="@searchText">
+                                        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                            <div class="min-w-0">
+                                                <div class="flex flex-wrap items-center gap-2">
+                                                    <p class="text-sm font-semibold text-white">@modulo.ModuloNombre</p>
+                                                    <span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary">@modulo.ModuloClave</span>
                                                 </div>
-                                                @if (!string.IsNullOrWhiteSpace(fila.Descripcion))
+                                                @if (!string.IsNullOrWhiteSpace(modulo.Descripcion))
                                                 {
-                                                    <p class="text-xs text-slate-400 mt-2 max-w-md">@fila.Descripcion</p>
+                                                    <p class="text-xs text-slate-400 mt-1.5 max-w-2xl">@modulo.Descripcion</p>
                                                 }
                                             </div>
-                                            <div class="flex flex-wrap gap-2">
+                                            <div class="flex shrink-0 gap-2">
                                                 <button type="button"
-                                                        data-row-id="@rowId"
-                                                        class="btn-select-row inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-slate-800 text-slate-300 hover:bg-primary/10 hover:text-primary transition-colors">
+                                                        data-module="@modulo.ModuloId"
+                                                        class="btn-select-module inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-slate-800 text-slate-300 hover:bg-primary/10 hover:text-primary transition-colors">
                                                     <span class="material-symbols-outlined text-sm">done_all</span>
-                                                    Toda fila
+                                                    Todo
                                                 </button>
                                                 <button type="button"
-                                                        data-row-id="@rowId"
-                                                        class="btn-clear-row inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-slate-800 text-slate-300 hover:bg-rose-50 hover:text-rose-500 transition-colors">
-                                                    <span class="material-symbols-outlined text-sm">cleaning_services</span>
-                                                    Limpiar fila
+                                                        data-module="@modulo.ModuloId"
+                                                        class="btn-clear-module inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-slate-800 text-slate-300 hover:bg-rose-500/10 hover:text-rose-400 transition-colors">
+                                                    <span class="material-symbols-outlined text-sm">remove_done</span>
+                                                    Ninguno
                                                 </button>
                                             </div>
                                         </div>
-                                    </td>
 
-                                    @foreach (var celda in fila.Celdas)
-                                    {
-                                        <td class="px-3 py-4 text-center" data-row-id="@rowId">
-                                            @if (celda.Disponible && celda.AccionId.HasValue)
+                                        <div class="mt-3 flex flex-wrap gap-2">
+                                            @foreach (var accion in modulo.Acciones)
                                             {
-                                                <label class="inline-flex items-center justify-center size-10 rounded-lg border border-slate-700 bg-slate-800 hover:border-primary/40 transition-colors cursor-pointer"
-                                                       title="@celda.AccionNombre">
+                                                <label class="permission-chip" title="Clave: @accion.AccionClave">
                                                     <input type="checkbox"
                                                            name="accionIds"
-                                                           value="@celda.AccionId"
-                                                           data-row-id="@rowId"
-                                                           data-column-key="@celda.ColumnKey"
-                                                           class="permission-checkbox size-4 rounded border-slate-600 text-primary focus:ring-primary/50 bg-transparent"
-                                                           checked="@celda.Seleccionado" />
+                                                           value="@accion.AccionId"
+                                                           data-module="@modulo.ModuloId"
+                                                           class="permission-checkbox"
+                                                           checked="@accion.Seleccionado" />
+                                                    <span>@accion.AccionNombre</span>
                                                 </label>
                                             }
-                                            else
-                                            {
-                                                <span class="text-slate-300 text-slate-600">-</span>
-                                            }
-                                        </td>
-                                    }
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                        </div>
-                    </div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </section>
+                    }
                 </div>
 
                 <div id="permissionsEmptyFilterState" class="hidden px-6 py-16 text-center border-t border-slate-800">
@@ -268,10 +314,10 @@
 
                 <div class="px-6 py-4 bg-slate-800/30 flex flex-col gap-2 border-t border-slate-800 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left">
                     <p class="text-xs text-slate-500">
-                        <span id="permissionsVisibleCount">@Model.Filas.Count</span> de @Model.Filas.Count módulos visibles
+                        <span id="permissionsVisibleCount">@totalModules</span> de @totalModules módulos visibles
                     </p>
                     <p class="text-xs text-slate-500">
-                        <span id="permissionsSelectedCount">@Model.Filas.SelectMany(f => f.Celdas).Count(c => c.Seleccionado)</span> permisos seleccionados
+                        <span id="permissionsSelectedCount">@totalSelectedPermissions</span> permisos seleccionados
                     </p>
                 </div>
             </div>

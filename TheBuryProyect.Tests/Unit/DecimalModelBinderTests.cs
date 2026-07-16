@@ -61,6 +61,71 @@ public class DecimalModelBinderTests
         Assert.True(bindingContext.ModelState.ContainsKey(nameof(ProductoComisionModel.ComisionPorcentaje)));
     }
 
+    // decimal? preserva la semántica de opcional: vacío bindea null, no 0.
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task BindModelAsync_NullableVacio_BindeaNull(string raw)
+    {
+        var bindingContext = CreateBindingContext(
+            raw,
+            nameof(FiltroModel.MontoMinimo),
+            typeof(FiltroModel),
+            nameof(FiltroModel.MontoMinimo),
+            CultureInfo.GetCultureInfo("es-AR"));
+        var binder = new DecimalModelBinder();
+
+        await binder.BindModelAsync(bindingContext);
+
+        Assert.True(bindingContext.Result.IsModelSet);
+        Assert.Null(bindingContext.Result.Model);
+    }
+
+    [Theory]
+    [InlineData("104041.60", 104041.60)]
+    [InlineData("104041,60", 104041.60)]
+    public async Task BindModelAsync_NullableConValor_BindeaDecimalFlexible(string raw, double esperado)
+    {
+        var bindingContext = CreateBindingContext(
+            raw,
+            nameof(FiltroModel.MontoMinimo),
+            typeof(FiltroModel),
+            nameof(FiltroModel.MontoMinimo),
+            CultureInfo.GetCultureInfo("es-AR"));
+        var binder = new DecimalModelBinder();
+
+        await binder.BindModelAsync(bindingContext);
+
+        Assert.True(bindingContext.Result.IsModelSet);
+        Assert.Equal(Convert.ToDecimal(esperado), bindingContext.Result.Model);
+    }
+
+    // El provider aplica el binder a todo decimal/decimal? del pipeline MVC
+    // (registrado en Program.cs); otros tipos siguen con el binder por defecto.
+
+    [Theory]
+    [InlineData(typeof(decimal), true)]
+    [InlineData(typeof(decimal?), true)]
+    [InlineData(typeof(int), false)]
+    [InlineData(typeof(double), false)]
+    [InlineData(typeof(string), false)]
+    public void Provider_SoloDevuelveBinderParaDecimales(Type modelType, bool esperaBinder)
+    {
+        var provider = new DecimalModelBinderProvider();
+
+        var binder = provider.GetBinder(new TestModelBinderProviderContext(modelType));
+
+        if (esperaBinder)
+        {
+            Assert.IsType<DecimalModelBinder>(binder);
+        }
+        else
+        {
+            Assert.Null(binder);
+        }
+    }
+
     private static DefaultModelBindingContext CreateBindingContext(string raw)
         => CreateBindingContext(
             raw,
@@ -99,6 +164,27 @@ public class DecimalModelBinderTests
     private sealed class PlanPagoGlobalModel
     {
         public decimal AjustePorcentaje { get; set; }
+    }
+
+    private sealed class FiltroModel
+    {
+        public decimal? MontoMinimo { get; set; }
+    }
+
+    private sealed class TestModelBinderProviderContext : ModelBinderProviderContext
+    {
+        private static readonly EmptyModelMetadataProvider Provider = new();
+        private readonly ModelMetadata _metadata;
+
+        public TestModelBinderProviderContext(Type modelType)
+            => _metadata = Provider.GetMetadataForType(modelType);
+
+        public override Microsoft.AspNetCore.Mvc.ModelBinding.BindingInfo BindingInfo { get; } = new();
+        public override ModelMetadata Metadata => _metadata;
+        public override IModelMetadataProvider MetadataProvider => Provider;
+
+        public override IModelBinder CreateBinder(ModelMetadata metadata)
+            => throw new NotSupportedException();
     }
 
     private sealed class SingleValueProvider : IValueProvider

@@ -301,7 +301,7 @@
         const checks = { length: password.length >= policy.requiredLength };
         if (policy.requireUppercase) checks.uppercase = /[A-Z]/.test(password);
         if (policy.requireLowercase) checks.lowercase = /[a-z]/.test(password);
-        if (policy.requireDigit) checks.digit = /\\d/.test(password);
+        if (policy.requireDigit) checks.digit = /\d/.test(password);
         if (policy.requireSymbol) checks.symbol = /[^A-Za-z0-9]/.test(password);
         return checks;
     }

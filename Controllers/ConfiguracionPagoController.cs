@@ -656,6 +656,10 @@ namespace TheBuryProject.Controllers
             int? nuevoPerfilMaxCuotas,
             bool nuevoPerfilActivo = true,
             int? nuevoPerfilOrden = null,
+            int? nuevaCuotaCantidad = null,
+            decimal? nuevaCuotaTasaMensual = null,
+            bool nuevaCuotaActivo = true,
+            int? nuevaCuotaOrden = null,
             string? returnUrl = null)
         {
             ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
@@ -750,6 +754,36 @@ namespace TheBuryProject.Controllers
                 });
             }
 
+            config.CuotasCreditoPersonal = (config.CuotasCreditoPersonal ?? new List<CuotaCreditoPersonalViewModel>())
+                .Where(c => c.Id > 0 || c.CantidadCuotas > 0)
+                .ToList();
+
+            if (nuevaCuotaCantidad.HasValue && nuevaCuotaCantidad.Value > 0)
+            {
+                config.CuotasCreditoPersonal.Add(new CuotaCreditoPersonalViewModel
+                {
+                    CantidadCuotas = nuevaCuotaCantidad.Value,
+                    TasaMensual = nuevaCuotaTasaMensual ?? 0m,
+                    Activo = nuevaCuotaActivo,
+                    Orden = nuevaCuotaOrden ?? nuevaCuotaCantidad.Value
+                });
+            }
+
+            if (config.CuotasCreditoPersonal.Count > 0)
+            {
+                var cuotasEnviadas = config.CuotasCreditoPersonal.Select(c => c.CantidadCuotas).ToList();
+                var duplicadasCuotas = cuotasEnviadas.GroupBy(c => c).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
+                if (duplicadasCuotas.Any())
+                    ModelState.AddModelError(nameof(config.CuotasCreditoPersonal), $"Cantidades de cuotas duplicadas: {string.Join(", ", duplicadasCuotas)}.");
+
+                var fueraDeRangoCuotas = cuotasEnviadas.Where(c => c < 1 || c > 120).ToList();
+                if (fueraDeRangoCuotas.Any())
+                    ModelState.AddModelError(nameof(config.CuotasCreditoPersonal), $"Cantidades de cuotas fuera de rango 1–120: {string.Join(", ", fueraDeRangoCuotas)}.");
+
+                if (config.CuotasCreditoPersonal.Any(c => c.TasaMensual < 0))
+                    ModelState.AddModelError(nameof(config.CuotasCreditoPersonal), "Las tasas mensuales por cuota no pueden ser negativas.");
+            }
+
             ValidarLimitesPorPuntaje(config);
 
             // Validar tabla montos por puntaje
@@ -787,6 +821,18 @@ namespace TheBuryProject.Controllers
                 {
                     foreach (var err in erroresMontos)
                         ModelState.AddModelError(nameof(config.MontosPorPuntaje), err);
+                    await PrepararCreditoPersonalConfigParaVistaAsync(config);
+                    return View("CreditoPersonal_tw", config);
+                }
+            }
+
+            {
+                var usuario = User.Identity?.Name ?? "sistema";
+                var (ok, erroresCuotas) = await _configuracionPagoService.GuardarCuotasCreditoPersonalAsync(config.CuotasCreditoPersonal, usuario);
+                if (!ok)
+                {
+                    foreach (var err in erroresCuotas)
+                        ModelState.AddModelError(nameof(config.CuotasCreditoPersonal), err);
                     await PrepararCreditoPersonalConfigParaVistaAsync(config);
                     return View("CreditoPersonal_tw", config);
                 }
@@ -870,6 +916,7 @@ namespace TheBuryProject.Controllers
             var perfiles = await _configuracionPagoService.GetPerfilesCreditoAsync();
             var semaforo = await _aptitudService.GetSemaforoFinancieroAsync();
             var limites = await ConstruirLimitesPorPuntajeAsync();
+            var cuotas = await _configuracionPagoService.GetCuotasCreditoPersonalAsync();
 
             return new CreditoPersonalConfigViewModel
             {
@@ -882,7 +929,8 @@ namespace TheBuryProject.Controllers
                 },
                 Perfiles = perfiles,
                 SemaforoFinanciero = semaforo,
-                LimitesPorPuntaje = limites
+                LimitesPorPuntaje = limites,
+                CuotasCreditoPersonal = cuotas
             };
         }
 
@@ -890,6 +938,7 @@ namespace TheBuryProject.Controllers
         {
             config.Perfiles ??= await _configuracionPagoService.GetPerfilesCreditoAsync();
             config.SemaforoFinanciero ??= await _aptitudService.GetSemaforoFinancieroAsync();
+            config.CuotasCreditoPersonal ??= await _configuracionPagoService.GetCuotasCreditoPersonalAsync();
 
             if (config.LimitesPorPuntaje.Count == 0)
                 config.LimitesPorPuntaje = await ConstruirLimitesPorPuntajeAsync();

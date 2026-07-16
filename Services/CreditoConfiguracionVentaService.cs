@@ -96,7 +96,25 @@ public sealed class CreditoConfiguracionVentaService : ICreditoConfiguracionVent
             }
             else
             {
-                tasaMensual = tasaGlobal.Value;
+                // Tabla de cuotas por cantidad (activar/desactivar + tasa propia). VacÃ­a = compatibilidad con tasa unica.
+                var cuotasConfiguradas = await _configuracionPagoService.GetCuotasCreditoPersonalActivasAsync();
+                if (cuotasConfiguradas.Count > 0)
+                {
+                    var cuotaConfigurada = cuotasConfiguradas.FirstOrDefault(c => c.CantidadCuotas == modelo.CantidadCuotas);
+                    if (cuotaConfigurada == null)
+                    {
+                        return CreditoConfiguracionVentaResultado.Invalido(
+                            nameof(modelo.CantidadCuotas),
+                            $"La cantidad de cuotas {modelo.CantidadCuotas} no estÃ¡ habilitada para CrÃ©dito personal.");
+                    }
+
+                    tasaMensual = cuotaConfigurada.TasaMensual;
+                }
+                else
+                {
+                    tasaMensual = tasaGlobal.Value;
+                }
+
                 gastosAdministrativos = modelo.GastosAdministrativos ?? 0m;
                 _logger.LogInformation(
                     "CrÃ©dito {CreditoId}: Usando configuraciÃ³n global - Tasa: {Tasa}%",

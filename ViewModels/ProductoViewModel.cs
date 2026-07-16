@@ -53,18 +53,33 @@ namespace TheBuryProject.ViewModels
 
         [Required(ErrorMessage = "El precio de costo es obligatorio")]
         [Display(Name = "precio de costo")]
+        [ModelBinder(typeof(DecimalModelBinder))]
         [Range(0, double.MaxValue, ErrorMessage = "El precio de costo debe ser mayor o igual a 0")]
         [DisplayFormat(DataFormatString = "{0:C2}", ApplyFormatInEditMode = false)]
         public decimal PrecioCompra { get; set; }
 
+        [Display(Name = "Envío")]
+        [Range(0, double.MaxValue, ErrorMessage = "El costo de envío debe ser mayor o igual a 0")]
+        public decimal CostoEnvio { get; set; }
+
+        [Display(Name = "Percepciones")]
+        [Range(0, double.MaxValue, ErrorMessage = "Las percepciones deben ser mayores o iguales a 0")]
+        public decimal PercepcionesCompra { get; set; }
+
+        [Display(Name = "Otros gastos")]
+        [Range(0, double.MaxValue, ErrorMessage = "Los otros gastos deben ser mayores o iguales a 0")]
+        public decimal OtrosCostosCompra { get; set; }
+
         [Required(ErrorMessage = "El precio de venta es obligatorio")]
         [Display(Name = "Precio de Venta")]
+        [ModelBinder(typeof(DecimalModelBinder))]
         [Range(0, double.MaxValue, ErrorMessage = "El precio de venta debe ser mayor o igual a 0")]
         [DisplayFormat(DataFormatString = "{0:C2}", ApplyFormatInEditMode = false)]
         public decimal PrecioVenta { get; set; }
 
         [Required(ErrorMessage = "El porcentaje de IVA es obligatorio")]
         [Display(Name = "IVA (%)")]
+        [ModelBinder(typeof(DecimalModelBinder))]
         [Range(0, 100, ErrorMessage = "El IVA debe estar entre 0 y 100")]
         public decimal PorcentajeIVA { get; set; } = 21m;
 

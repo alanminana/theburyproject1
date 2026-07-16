@@ -49,6 +49,7 @@ namespace TheBuryProject.Data
         public DbSet<ClientePuntajeHistorial> ClientesPuntajeHistorial { get; set; }
         public DbSet<PuntajeCreditoLimite> PuntajesCreditoLimite { get; set; }
         public DbSet<ConfiguracionCreditoMontoPorPuntaje> ConfiguracionCreditoMontosPorPuntaje { get; set; }
+        public DbSet<ConfiguracionCreditoPersonalCuota> ConfiguracionCreditoPersonalCuotas { get; set; }
         public DbSet<Credito> Creditos { get; set; }
         public DbSet<Cuota> Cuotas { get; set; }
         public DbSet<Garante> Garantes { get; set; }
@@ -359,6 +360,9 @@ namespace TheBuryProject.Data
                     .OnDelete(DeleteBehavior.Restrict);
 
                 entity.Property(e => e.PrecioCompra).HasPrecision(18, 2);
+                entity.Property(e => e.CostoEnvio).HasPrecision(18, 2).HasDefaultValue(0m);
+                entity.Property(e => e.PercepcionesCompra).HasPrecision(18, 2).HasDefaultValue(0m);
+                entity.Property(e => e.OtrosCostosCompra).HasPrecision(18, 2).HasDefaultValue(0m);
                 entity.Property(e => e.PrecioVenta).HasPrecision(18, 2);
                 entity.Property(e => e.PorcentajeIVA).HasPrecision(5, 2);
                 entity.Property(e => e.ComisionPorcentaje)
@@ -712,6 +716,8 @@ namespace TheBuryProject.Data
 
                 entity.Property(e => e.PrecioUnitario).HasPrecision(18, 2);
                 entity.Property(e => e.Subtotal).HasPrecision(18, 2);
+                entity.Property(e => e.PorcentajeIVA).HasPrecision(5, 2);
+                entity.Property(e => e.IvaImporte).HasPrecision(18, 2);
             });
 
             // =======================
@@ -957,6 +963,39 @@ namespace TheBuryProject.Data
                     .HasMaxLength(100);
 
                 entity.HasIndex(e => e.Puntaje)
+                    .IsUnique();
+            });
+
+            // =======================
+            // ConfiguracionCreditoPersonalCuota
+            // =======================
+            modelBuilder.Entity<ConfiguracionCreditoPersonalCuota>(entity =>
+            {
+                entity.ToTable("ConfiguracionCreditoPersonalCuotas", t =>
+                {
+                    t.HasCheckConstraint("CK_ConfCreditoPersonalCuota_Cuotas", "[CantidadCuotas] >= 1 AND [CantidadCuotas] <= 120");
+                    t.HasCheckConstraint("CK_ConfCreditoPersonalCuota_Tasa", "[TasaMensual] >= 0");
+                });
+
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.CantidadCuotas)
+                    .IsRequired();
+
+                entity.Property(e => e.TasaMensual)
+                    .HasPrecision(8, 4)
+                    .HasDefaultValue(0m);
+
+                entity.Property(e => e.Activo)
+                    .HasDefaultValue(true);
+
+                entity.Property(e => e.FechaActualizacion)
+                    .HasDefaultValueSql("GETUTCDATE()");
+
+                entity.Property(e => e.UsuarioActualizacion)
+                    .HasMaxLength(100);
+
+                entity.HasIndex(e => e.CantidadCuotas)
                     .IsUnique();
             });
 

@@ -54,6 +54,7 @@
     var puedeAutorizarVentas = User.TienePermiso("ventas", "authorize");
     var puedeRechazarVentas = User.TienePermiso("ventas", "reject");
     var puedeFacturarVentas = User.TienePermiso("ventas", "invoice");
+    var puedeCancelarVentas = User.TienePermiso("ventas", "cancel");
     var puedeOperarVentas = (bool?)ViewBag.PuedeOperarVentas ?? false;
     var cantidadUnidades = detalles.Sum(d => d.Cantidad);
     var recargoDebitoAplicado = Model.RecargoDebitoAplicado;
@@ -844,7 +845,7 @@
                         }
 
                         @* Autorizar *@
-                        @if (puedeOperarVentas && Model.PuedeAutorizar && (puedeAutorizarVentas || puedeRechazarVentas))
+                        @if (Model.PuedeAutorizar && (puedeAutorizarVentas || puedeRechazarVentas))
                         {
                             <div class="flex flex-col gap-2 sm:flex-row">
                                 @if (puedeAutorizarVentas)
@@ -890,7 +891,7 @@
 
                         <div class="border-t border-slate-800 pt-3 mt-1">
                             @* Cancelar *@
-                            @if (puedeOperarVentas && Model.PuedeCancelar && Model.Estado != EstadoVenta.Facturada && Model.Estado != EstadoVenta.Entregada)
+                            @if (puedeCancelarVentas && puedeOperarVentas && Model.PuedeCancelar && Model.Estado != EstadoVenta.Facturada && Model.Estado != EstadoVenta.Entregada)
                             {
                                 <a asp-action="Cancelar" asp-route-id="@Model.Id"
                                    class="btn-erp-danger btn-erp-block no-underline">

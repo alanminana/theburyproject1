@@ -725,8 +725,11 @@
     }
 
     function estadoPill(estadoStr) {
-        if (estadoStr === 'RequiereCliente' || estadoStr === 'RequiereEvaluacion') {
+        if (estadoStr === 'RequiereCliente') {
             return { cls: 'pill-amber', label: 'Req. cliente' };
+        }
+        if (estadoStr === 'RequiereEvaluacion') {
+            return { cls: 'pill-amber', label: 'Sin planes' };
         }
         return { cls: 'pill-red', label: 'Sin planes' };
     }

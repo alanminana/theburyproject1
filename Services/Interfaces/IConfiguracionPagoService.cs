@@ -79,5 +79,24 @@ namespace TheBuryProject.Services.Interfaces
         Task<(bool Ok, List<string> Errores)> GuardarMontosPorPuntajeAsync(
             List<MontoPorPuntajeCreditoViewModel> items,
             string usuario);
+
+        /// <summary>
+        /// Carga todas las cuotas de Crédito Personal configuradas (activas e inactivas), para administración.
+        /// </summary>
+        Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalAsync();
+
+        /// <summary>
+        /// Carga solo las cuotas de Crédito Personal activas, ordenadas por cantidad de cuotas.
+        /// Lista vacía significa que no hay tabla configurada: los llamadores deben usar la tasa/rango global únicos.
+        /// </summary>
+        Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalActivasAsync();
+
+        /// <summary>
+        /// Guarda la tabla de cuotas de Crédito Personal (cantidad + tasa mensual + activo).
+        /// Actualiza filas existentes; crea las faltantes. No borra físico.
+        /// </summary>
+        Task<(bool Ok, List<string> Errores)> GuardarCuotasCreditoPersonalAsync(
+            List<CuotaCreditoPersonalViewModel> items,
+            string usuario);
     }
 }

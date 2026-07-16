@@ -970,7 +970,7 @@ public class ProductoServiceTests : IDisposable
     // =========================================================================
 
     [Fact]
-    public async Task PrepararPrecioVentaConIvaAsync_CreateConAlicuotaIVAId_ResuelveYAplicaPorcentajeAlicuota()
+    public async Task ResolverIvaVentaAsync_CreateConAlicuotaIVAId_ResuelvePorcentajeSinModificarPrecio()
     {
         var (cat, marca) = await SeedCategoriaMarcaAsync();
         var alicuota = await SeedAlicuotaIVAAsync(10.5m);
@@ -979,17 +979,17 @@ public class ProductoServiceTests : IDisposable
         producto.PorcentajeIVA = 21m;
         producto.AlicuotaIVAId = alicuota.Id;
 
-        await _service.PrepararPrecioVentaConIvaAsync(producto);
+        await _service.ResolverIvaVentaAsync(producto);
         await _service.CreateAsync(producto);
 
         _context.ChangeTracker.Clear();
         var bd = await _context.Productos.FirstAsync(p => p.Id == producto.Id);
         Assert.Equal(10.5m, bd.PorcentajeIVA);
-        Assert.Equal(110.50m, bd.PrecioVenta);
+        Assert.Equal(100m, bd.PrecioVenta);
     }
 
     [Fact]
-    public async Task PrepararPrecioVentaConIvaAsync_CreateSinAlicuotaIVAId_UsaPorcentajeManual()
+    public async Task ResolverIvaVentaAsync_CreateSinAlicuotaIVAId_UsaPorcentajeManualSinModificarPrecio()
     {
         var (cat, marca) = await SeedCategoriaMarcaAsync();
         var producto = BuildProducto(cat.Id, marca.Id);
@@ -997,17 +997,17 @@ public class ProductoServiceTests : IDisposable
         producto.PorcentajeIVA = 27m;
         producto.AlicuotaIVAId = null;
 
-        await _service.PrepararPrecioVentaConIvaAsync(producto);
+        await _service.ResolverIvaVentaAsync(producto);
         await _service.CreateAsync(producto);
 
         _context.ChangeTracker.Clear();
         var bd = await _context.Productos.FirstAsync(p => p.Id == producto.Id);
         Assert.Equal(27m, bd.PorcentajeIVA);
-        Assert.Equal(127m, bd.PrecioVenta);
+        Assert.Equal(100m, bd.PrecioVenta);
     }
 
     [Fact]
-    public async Task PrepararPrecioVentaConIvaAsync_EditConAlicuotaIVAId_ResuelveYAplicaPorcentajeAlicuota()
+    public async Task ResolverIvaVentaAsync_EditConAlicuotaIVAId_ResuelvePorcentajeSinModificarPrecio()
     {
         var producto = await SeedProductoAsync(precioCompra: 60m, precioVenta: 121m);
         var alicuota = await SeedAlicuotaIVAAsync(10.5m);
@@ -1029,17 +1029,17 @@ public class ProductoServiceTests : IDisposable
             RowVersion = producto.RowVersion
         };
 
-        await _service.PrepararPrecioVentaConIvaAsync(update);
+        await _service.ResolverIvaVentaAsync(update);
         await _service.UpdateAsync(update);
 
         _context.ChangeTracker.Clear();
         var bd = await _context.Productos.FirstAsync(p => p.Id == producto.Id);
         Assert.Equal(10.5m, bd.PorcentajeIVA);
-        Assert.Equal(110.50m, bd.PrecioVenta);
+        Assert.Equal(100m, bd.PrecioVenta);
     }
 
     [Fact]
-    public async Task PrepararPrecioVentaConIvaAsync_EditSinAlicuotaIVAId_UsaPorcentajeManual()
+    public async Task ResolverIvaVentaAsync_EditSinAlicuotaIVAId_UsaPorcentajeManualSinModificarPrecio()
     {
         var producto = await SeedProductoAsync(precioCompra: 60m, precioVenta: 121m);
 
@@ -1060,21 +1060,13 @@ public class ProductoServiceTests : IDisposable
             RowVersion = producto.RowVersion
         };
 
-        await _service.PrepararPrecioVentaConIvaAsync(update);
+        await _service.ResolverIvaVentaAsync(update);
         await _service.UpdateAsync(update);
 
         _context.ChangeTracker.Clear();
         var bd = await _context.Productos.FirstAsync(p => p.Id == producto.Id);
         Assert.Equal(27m, bd.PorcentajeIVA);
-        Assert.Equal(127m, bd.PrecioVenta);
-    }
-
-    [Fact]
-    public void ObtenerPrecioVentaSinIva_ConPorcentajeIva_ConservaCalculoDePresentacion()
-    {
-        var precioSinIva = _service.ObtenerPrecioVentaSinIva(110.50m, 10.5m);
-
-        Assert.Equal(100m, precioSinIva);
+        Assert.Equal(100m, bd.PrecioVenta);
     }
 
     [Fact]

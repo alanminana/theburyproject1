@@ -268,8 +268,7 @@ public sealed class CotizacionControllerUiTests
         public Task<Producto> CreateAsync(Producto producto) => Task.FromResult(producto);
         public Task<Producto> UpdateAsync(Producto producto) => Task.FromResult(producto);
         public Task<bool> DeleteAsync(int id) => Task.FromResult(false);
-        public Task PrepararPrecioVentaConIvaAsync(Producto producto) => Task.CompletedTask;
-        public decimal ObtenerPrecioVentaSinIva(decimal precioVentaConIva, decimal porcentajeIVA) => precioVentaConIva;
+        public Task ResolverIvaVentaAsync(Producto producto) => Task.CompletedTask;
         public Task<IEnumerable<Producto>> SearchAsync(string? searchTerm = null, int? categoriaId = null, int? marcaId = null, bool stockBajo = false, bool soloActivos = false, string? orderBy = null, string? orderDirection = "asc") => Task.FromResult<IEnumerable<Producto>>(Array.Empty<Producto>());
         public Task<List<int>> SearchIdsAsync(string? searchTerm = null, int? categoriaId = null, int? marcaId = null, bool stockBajo = false, bool soloActivos = false) => Task.FromResult(new List<int>());
         public Task<IEnumerable<ProductoVentaDto>> BuscarParaVentaAsync(string term, int take = 20, int? categoriaId = null, int? marcaId = null, bool soloConStock = true, decimal? precioMin = null, decimal? precioMax = null) => Task.FromResult<IEnumerable<ProductoVentaDto>>(Array.Empty<ProductoVentaDto>());

@@ -119,19 +119,48 @@
                         <input asp-for="PrecioCompra" type="number" step="0.01" min="0" class="catalogo-input" style="padding-left: 1.75rem" />
                     </div>
                     <span asp-validation-for="PrecioCompra" class="text-xs text-red-400"></span>
+                    <p class="text-xs text-slate-400">Costo real final: compra con IVA + gastos.</p>
                 </div>
                 <div class="space-y-1">
-                    <label asp-for="PrecioVenta" class="text-sm font-semibold text-slate-300">Precio base sin IVA</label>
+                    <label asp-for="CostoEnvio" class="text-sm font-semibold text-slate-300"></label>
                     <div class="relative">
                         <span class="absolute left-3 top-2 text-slate-500">$</span>
-                        <input asp-for="PrecioVenta" id="edit-precioVenta" type="number" step="0.01" min="0" class="catalogo-input" style="padding-left: 1.75rem" />
+                        <input asp-for="CostoEnvio" type="number" step="0.01" min="0" class="catalogo-input" style="padding-left: 1.75rem" />
                     </div>
-                    <span asp-validation-for="PrecioVenta" class="text-xs text-red-400"></span>
+                    <span asp-validation-for="CostoEnvio" class="text-xs text-red-400"></span>
+                    <p class="text-xs text-slate-400">Informativo: ya incluido en el precio de costo.</p>
                 </div>
                 <div class="space-y-1">
-                    <label asp-for="AlicuotaIVAId" class="text-sm font-semibold text-slate-300">Alícuota IVA</label>
+                    <label asp-for="PercepcionesCompra" class="text-sm font-semibold text-slate-300"></label>
+                    <div class="relative">
+                        <span class="absolute left-3 top-2 text-slate-500">$</span>
+                        <input asp-for="PercepcionesCompra" type="number" step="0.01" min="0" class="catalogo-input" style="padding-left: 1.75rem" />
+                    </div>
+                    <span asp-validation-for="PercepcionesCompra" class="text-xs text-red-400"></span>
+                    <p class="text-xs text-slate-400">Informativo: ya incluido en el precio de costo.</p>
+                </div>
+                <div class="space-y-1">
+                    <label asp-for="OtrosCostosCompra" class="text-sm font-semibold text-slate-300"></label>
+                    <div class="relative">
+                        <span class="absolute left-3 top-2 text-slate-500">$</span>
+                        <input asp-for="OtrosCostosCompra" type="number" step="0.01" min="0" class="catalogo-input" style="padding-left: 1.75rem" />
+                    </div>
+                    <span asp-validation-for="OtrosCostosCompra" class="text-xs text-red-400"></span>
+                    <p class="text-xs text-slate-400">Informativo: ya incluido en el precio de costo.</p>
+                </div>
+                <div class="space-y-1">
+                    <label asp-for="PrecioVenta" class="text-sm font-semibold text-slate-300">Precio final de venta con IVA</label>
+                    <div class="relative">
+                        <span class="absolute left-3 top-2 text-primary font-bold">$</span>
+                        <input asp-for="PrecioVenta" id="edit-precioFinal" type="number" step="0.01" min="0" class="catalogo-input" style="padding-left: 1.75rem" />
+                    </div>
+                    <span asp-validation-for="PrecioVenta" class="text-xs text-red-400"></span>
+                    <p class="text-xs text-slate-400">El IVA ya está incluido; abajo se muestra el desglose.</p>
+                </div>
+                <div class="space-y-1">
+                    <label asp-for="AlicuotaIVAId" class="text-sm font-semibold text-slate-300">Alícuota utilizada para el desglose</label>
                     <select asp-for="AlicuotaIVAId" id="edit-alicuotaIVAId" class="catalogo-input">
-                        <option value="">— Sin alícuota (usar % manual) —</option>
+                        <option value="">— Alícuota general (21%) —</option>
                         @if (ViewBag.AlicuotasIVADatos != null)
                         {
                             foreach (var a in ViewBag.AlicuotasIVADatos)
@@ -140,15 +169,8 @@
                             }
                         }
                     </select>
-                </div>
-                <div class="space-y-1">
-                    <label asp-for="PorcentajeIVA" class="text-sm font-semibold text-slate-300">% IVA (fallback)</label>
-                    <select asp-for="PorcentajeIVA" id="edit-porcentajeIVA" class="catalogo-input">
-                        <option value="21">21%</option>
-                        <option value="10.5">10.5%</option>
-                        <option value="27">27%</option>
-                        <option value="0">0%</option>
-                    </select>
+                    <input asp-for="PorcentajeIVA" type="hidden" id="edit-porcentajeIVA" />
+                    <p class="text-xs text-slate-400">Cambiarla solo recalcula el desglose; no modifica el precio final.</p>
                 </div>
                 <div class="space-y-1">
                     <label asp-for="ComisionPorcentaje" class="text-sm font-semibold text-slate-300">Comisión vendedor (%)</label>
@@ -157,10 +179,17 @@
                     <span asp-validation-for="ComisionPorcentaje" class="text-xs text-red-400"></span>
                 </div>
                 <div class="space-y-1">
-                    <label class="text-sm font-semibold text-slate-300">Precio base final con IVA</label>
+                    <label class="text-sm font-semibold text-slate-300">Venta sin IVA</label>
                     <div class="relative">
-                        <span class="absolute left-3 top-2 text-primary font-bold">$</span>
-                        <input id="edit-precioFinal" type="text" readonly class="w-full bg-primary/5 border border-primary/30 text-primary font-bold rounded-lg pl-7 pr-4 py-2 outline-none" />
+                        <span class="absolute left-3 top-2 text-slate-500">$</span>
+                        <input id="edit-ventaSinIva" type="text" readonly class="w-full bg-slate-950/60 border border-slate-800 text-slate-300 rounded-lg pl-7 pr-4 py-2 outline-none" />
+                    </div>
+                </div>
+                <div class="space-y-1">
+                    <label class="text-sm font-semibold text-slate-300">IVA incluido en la venta</label>
+                    <div class="relative">
+                        <span class="absolute left-3 top-2 text-slate-500">$</span>
+                        <input id="edit-ivaVentaImporte" type="text" readonly class="w-full bg-slate-950/60 border border-slate-800 text-slate-300 rounded-lg pl-7 pr-4 py-2 outline-none" />
                     </div>
                 </div>
             </div>

@@ -55,8 +55,18 @@
         el('prod-edit-codigo').value      = data.codigo || '';
         el('prod-edit-nombre').value      = data.nombre || '';
         el('prod-edit-descripcion').value = data.descripcion || '';
-        el('prod-edit-precioCompra').value = data.precioCompra || 0;
-        el('prod-edit-precioVenta').value  = data.precioVenta || 0;
+        // PrecioCompra persiste el costo real final (compra con IVA + gastos); acá se
+        // descompone para precargar compra y gastos por separado.
+        var costoEnvio    = Number(data.costoEnvio) || 0;
+        var percepciones  = Number(data.percepcionesCompra) || 0;
+        var otrosCostos   = Number(data.otrosCostosCompra) || 0;
+        var compraConIva  = Math.max(0, (Number(data.precioCompra) || 0) - costoEnvio - percepciones - otrosCostos);
+        el('prod-edit-costoEnvio').value          = costoEnvio;
+        el('prod-edit-percepcionesCompra').value  = percepciones;
+        el('prod-edit-otrosCostosCompra').value   = otrosCostos;
+        el('prod-edit-precioCompra').value = compraConIva.toFixed(2);
+        // precioVenta ya es el precio final de venta con IVA incluido.
+        el('prod-edit-precioFinal').value  = data.precioVenta || 0;
         el('prod-edit-comisionPorcentaje').value = data.comisionPorcentaje || 0;
         var maxCuotasEl = el('prod-edit-maxCuotasSinInteres');
         if (maxCuotasEl) maxCuotasEl.value = data.maxCuotasSinInteresPermitidas != null ? String(data.maxCuotasSinInteresPermitidas) : '';
@@ -64,16 +74,15 @@
         el('prod-edit-stockMinimo').value  = data.stockMinimo || 0;
         el('prod-edit-activo').checked     = !!data.activo;
 
-        // IVA: alícuota primero, luego fallback a porcentajeIVA
+        // IVA: alícuota primero, luego fallback interno (hidden PorcentajeIVA)
         var alicuotaSel = el('prod-edit-alicuotaIVAId');
-        var ivaSelect   = el('prod-edit-porcentajeIVA');
+        var ivaHidden   = el('prod-edit-porcentajeIVA');
         if (alicuotaSel) alicuotaSel.value = data.alicuotaIVAId != null ? String(data.alicuotaIVAId) : '';
         if (alicuotaSel && alicuotaSel.value) {
-            syncAlicuotaToIVA(alicuotaSel, ivaSelect);
-        } else if (ivaSelect) {
-            ivaSelect.value = String(data.porcentajeIVA ?? 21);
+            syncAlicuotaToIVA(alicuotaSel, ivaHidden);
+        } else if (ivaHidden) {
+            ivaHidden.value = String(data.porcentajeIVA ?? 21);
         }
-        calcularPrecioFinal();
 
         // Categoría
         populateCategoriaSelect(data.categoriaId, data.subcategoriaId, data.subcategoriaNombre);
@@ -228,14 +237,8 @@
         if (tbody && count) count.textContent = tbody.querySelectorAll('tr').length + ' cargadas';
     }
 
-    // ── Precio final en tiempo real ─────────────────────────────
-
-    function calcularPrecioFinal() {
-        var pv  = parseFloat((el('prod-edit-precioVenta') || {}).value) || 0;
-        var iva = parseFloat((el('prod-edit-porcentajeIVA') || {}).value) || 0;
-        var fin = el('prod-edit-precioFinal');
-        if (fin) fin.value = (pv * (1 + iva / 100)).toFixed(2).replace('.', ',');
-    }
+    // El cálculo/desglose de precios vive en el script inline de Catalogo/Index_tw
+    // (bindPrecioProducto); acá no se duplican listeners de precio.
 
     // ── Contexto de precio vigente ──────────────────────────────
 
@@ -520,21 +523,6 @@
                 loadSubmarcas(this.value, null, null);
             });
         }
-
-        // Alícuota IVA → sincroniza porcentajeIVA y recalcula
-        var alicuotaSel = el('prod-edit-alicuotaIVAId');
-        if (alicuotaSel) {
-            alicuotaSel.addEventListener('change', function () {
-                syncAlicuotaToIVA(this, el('prod-edit-porcentajeIVA'));
-                calcularPrecioFinal();
-            });
-        }
-
-        // Cálculo precio en tiempo real
-        var pv  = el('prod-edit-precioVenta');
-        var iva = el('prod-edit-porcentajeIVA');
-        if (pv)  pv.addEventListener('input', calcularPrecioFinal);
-        if (iva) iva.addEventListener('change', calcularPrecioFinal);
 
         document.addEventListener('keydown', function (e) {
             var modal = el(MODAL_ID);

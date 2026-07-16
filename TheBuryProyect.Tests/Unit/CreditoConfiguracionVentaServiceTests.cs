@@ -97,6 +97,47 @@ public sealed class CreditoConfiguracionVentaServiceTests
     }
 
     [Fact]
+    public async Task Resolver_UsaTasaPorCantidadDeCuotasCuandoHayTablaConfigurada()
+    {
+        var service = CrearService(ConfigService(
+            tasaGlobal: 5m,
+            rango: (1, 24, "Global", null),
+            cuotas: new List<CuotaCreditoPersonalViewModel>
+            {
+                new() { CantidadCuotas = 1, TasaMensual = 1m, Activo = true },
+                new() { CantidadCuotas = 6, TasaMensual = 10m, Activo = true }
+            }));
+        var modelo = Modelo(FuenteConfiguracionCredito.Global, MetodoCalculoCredito.Global);
+        modelo.CantidadCuotas = 6;
+
+        var result = await service.ResolverAsync(modelo, venta: null);
+
+        AssertComandoValido(result);
+        Assert.Equal(10m, result.Comando!.TasaMensual);
+    }
+
+    [Fact]
+    public async Task Resolver_RechazaCuotaNoHabilitadaEnTablaPorCantidad()
+    {
+        var service = CrearService(ConfigService(
+            tasaGlobal: 5m,
+            rango: (1, 24, "Global", null),
+            cuotas: new List<CuotaCreditoPersonalViewModel>
+            {
+                new() { CantidadCuotas = 1, TasaMensual = 1m, Activo = true },
+                new() { CantidadCuotas = 12, TasaMensual = 15m, Activo = true }
+            }));
+        var modelo = Modelo(FuenteConfiguracionCredito.Global, MetodoCalculoCredito.Global);
+        modelo.CantidadCuotas = 6;
+
+        var result = await service.ResolverAsync(modelo, venta: null);
+
+        Assert.False(result.EsValido);
+        Assert.Equal(nameof(modelo.CantidadCuotas), result.ErrorKey);
+        Assert.Contains("no est", result.ErrorMessage!, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task Resolver_ArmaComandoValidoParaFuenteManual()
     {
         var service = CrearService(ConfigService(tasaGlobal: 5m, rango: (1, 120, "Manual", null)));
@@ -163,7 +204,8 @@ public sealed class CreditoConfiguracionVentaServiceTests
     private static StubConfiguracionPagoService ConfigService(
         decimal? tasaGlobal,
         ParametrosCreditoCliente? parametros = null,
-        (int Min, int Max, string Descripcion, string? PerfilNombre)? rango = null) =>
+        (int Min, int Max, string Descripcion, string? PerfilNombre)? rango = null,
+        List<CuotaCreditoPersonalViewModel>? cuotas = null) =>
         new()
         {
             TasaGlobal = tasaGlobal,
@@ -173,7 +215,8 @@ public sealed class CreditoConfiguracionVentaServiceTests
                 TasaMensual = tasaGlobal ?? 0m,
                 GastosAdministrativos = 0m
             },
-            Rango = rango ?? (1, 120, "Manual", null)
+            Rango = rango ?? (1, 120, "Manual", null),
+            CuotasCreditoPersonal = cuotas ?? new List<CuotaCreditoPersonalViewModel>()
         };
 
     private static ConfiguracionCreditoVentaViewModel Modelo(
@@ -238,6 +281,7 @@ public sealed class CreditoConfiguracionVentaServiceTests
         public decimal? TasaGlobal { get; init; }
         public ParametrosCreditoCliente Parametros { get; init; } = new();
         public (int Min, int Max, string Descripcion, string? PerfilNombre) Rango { get; init; } = (1, 120, "Manual", null);
+        public List<CuotaCreditoPersonalViewModel> CuotasCreditoPersonal { get; init; } = new();
 
         public Task<decimal?> ObtenerTasaInteresMensualCreditoPersonalAsync() => Task.FromResult(TasaGlobal);
         public Task<ParametrosCreditoCliente> ObtenerParametrosCreditoClienteAsync(int clienteId, decimal tasaGlobal) => Task.FromResult(Parametros);
@@ -260,5 +304,8 @@ public sealed class CreditoConfiguracionVentaServiceTests
         public Task<MaxCuotasSinInteresResultado?> ObtenerMaxCuotasSinInteresEfectivoAsync(int tarjetaId, IEnumerable<int> productoIds) => throw new NotImplementedException();
         public Task<List<MontoPorPuntajeCreditoViewModel>> GetMontosPorPuntajeAsync() => Task.FromResult(new List<MontoPorPuntajeCreditoViewModel>());
         public Task<(bool Ok, List<string> Errores)> GuardarMontosPorPuntajeAsync(List<MontoPorPuntajeCreditoViewModel> items, string usuario) => Task.FromResult((true, new List<string>()));
+        public Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalAsync() => Task.FromResult(CuotasCreditoPersonal);
+        public Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalActivasAsync() => Task.FromResult(CuotasCreditoPersonal.Where(c => c.Activo).ToList());
+        public Task<(bool Ok, List<string> Errores)> GuardarCuotasCreditoPersonalAsync(List<CuotaCreditoPersonalViewModel> items, string usuario) => Task.FromResult((true, new List<string>()));
     }
 }

@@ -28,6 +28,7 @@ namespace TheBuryProject.Controllers
         private const string AccionAutorizar = "authorize";
         private const string AccionRechazar = "reject";
         private const string AccionFacturar = "invoice";
+        private const string AccionCancelar = "cancel";
         private readonly IVentaService _ventaService;
         private readonly ILogger<VentaController> _logger;
         private readonly IFinancialCalculationService _financialCalculationService;
@@ -484,6 +485,8 @@ namespace TheBuryProject.Controllers
                     return cajaGuard;
                 }
 
+                var ventaAntes = await _ventaService.GetByIdAsync(id);
+
                 _logger.LogDebug(
                     "Edit(POST) venta {Id} received. ModelStateValid:{ModelStateValid} Detalles:{Detalles} TipoPago:{TipoPago} RowVersion:{RowVersionLength}",
                     id,
@@ -531,27 +534,37 @@ namespace TheBuryProject.Controllers
 
                 if (resultado.TipoPago == TipoPago.CreditoPersonal)
                 {
-                    var documentacion = await _documentacionService.ProcesarDocumentacionVentaAsync(resultado.Id);
-
                     var returnToVentaDetailsUrl = Url.Action(nameof(Details), new { id = resultado.Id });
 
-                    if (!documentacion.DocumentacionCompleta)
+                    // Si la venta ya tenía crédito asociado antes de este edit, se conserva el
+                    // recheck de documentación existente. Si no tenía (p.ej. venta convertida
+                    // desde cotización), UpdateAsync ya corrió la validación de aptitud +
+                    // excepción documental (misma que CreateAsync) y creó el crédito pendiente,
+                    // o lanzó una excepción si quedó NoViable sin excepción aplicada.
+                    if (ventaAntes?.CreditoId.HasValue == true)
                     {
-                        TempData["Warning"] =
-                            $"Falta documentación obligatoria para otorgar crédito: {documentacion.MensajeFaltantes}";
+                        var documentacion = await _documentacionService.ProcesarDocumentacionVentaAsync(resultado.Id);
 
-                        return RedirectToAction(
-                            "Index",
-                            "DocumentoCliente",
-                            new { clienteId = resultado.ClienteId, returnToVentaId = resultado.Id, returnUrl = returnToVentaDetailsUrl });
+                        if (!documentacion.DocumentacionCompleta)
+                        {
+                            TempData["Warning"] =
+                                $"Falta documentación obligatoria para otorgar crédito: {documentacion.MensajeFaltantes}";
+
+                            return RedirectToAction(
+                                "Index",
+                                "DocumentoCliente",
+                                new { clienteId = resultado.ClienteId, returnToVentaId = resultado.Id, returnUrl = returnToVentaDetailsUrl });
+                        }
                     }
 
-                    TempData["Success"] = "Venta actualizada. Crédito listo para configurar.";
+                    TempData["Success"] = resultado.RequiereAutorizacion
+                        ? "Venta actualizada. Requiere autorización antes de configurar el crédito."
+                        : "Venta actualizada. Crédito listo para configurar.";
 
                     return RedirectToAction(
                         "ConfigurarVenta",
                         "Credito",
-                        new { id = documentacion.CreditoId, ventaId = resultado.Id, returnUrl = returnToVentaDetailsUrl });
+                        new { id = resultado.CreditoId, ventaId = resultado.Id, returnUrl = returnToVentaDetailsUrl });
                 }
 
                 TempData["Success"] = "Venta actualizada exitosamente";
@@ -965,6 +978,7 @@ namespace TheBuryProject.Controllers
         #region Cancelar
 
         // GET: Venta/Cancelar/5
+        [PermisoRequerido(Modulo = ModuloVentas, Accion = AccionCancelar)]
         public async Task<IActionResult> Cancelar(int id)
         {
             try
@@ -998,6 +1012,7 @@ namespace TheBuryProject.Controllers
         // POST: Venta/Cancelar/5
         [HttpPost, ActionName("Cancelar")]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = ModuloVentas, Accion = AccionCancelar)]
         public async Task<IActionResult> CancelarConfirmed(int id, string motivo)
         {
             try
@@ -1046,15 +1061,6 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                var cajaGuard = await RedirigirSiCajaCerradaAsync(
-                    "Debe abrir una caja antes de operar sobre ventas.",
-                    nameof(Details),
-                    new { id });
-                if (cajaGuard != null)
-                {
-                    return cajaGuard;
-                }
-
                 var venta = await _ventaService.GetByIdAsync(id);
                 if (venta == null)
                 {
@@ -1086,15 +1092,6 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                var cajaGuard = await RedirigirSiCajaCerradaAsync(
-                    "Debe abrir una caja antes de operar sobre ventas.",
-                    nameof(Details),
-                    new { id });
-                if (cajaGuard != null)
-                {
-                    return cajaGuard;
-                }
-
                 if (string.IsNullOrWhiteSpace(motivo))
                 {
                     TempData["Error"] = "Debe indicar el motivo de la autorización";
@@ -1128,15 +1125,6 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                var cajaGuard = await RedirigirSiCajaCerradaAsync(
-                    "Debe abrir una caja antes de operar sobre ventas.",
-                    nameof(Details),
-                    new { id });
-                if (cajaGuard != null)
-                {
-                    return cajaGuard;
-                }
-
                 var venta = await _ventaService.GetByIdAsync(id);
                 if (venta == null)
                 {
@@ -1168,15 +1156,6 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                var cajaGuard = await RedirigirSiCajaCerradaAsync(
-                    "Debe abrir una caja antes de operar sobre ventas.",
-                    nameof(Details),
-                    new { id });
-                if (cajaGuard != null)
-                {
-                    return cajaGuard;
-                }
-
                 if (string.IsNullOrWhiteSpace(motivo))
                 {
                     TempData["Error"] = "Debe indicar el motivo del rechazo";

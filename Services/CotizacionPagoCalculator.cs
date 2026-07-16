@@ -1,6 +1,7 @@
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.Services.Models;
 using TheBuryProject.Models.Enums;
+using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Services;
 
@@ -10,17 +11,20 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
     private readonly IConfiguracionPagoGlobalQueryService _configuracionPagoGlobalQueryService;
     private readonly ICreditoSimulacionVentaService _creditoSimulacionVentaService;
     private readonly IProductoCreditoRestriccionService _productoCreditoRestriccionService;
+    private readonly IConfiguracionPagoService _configuracionPagoService;
 
     public CotizacionPagoCalculator(
         IProductoService productoService,
         IConfiguracionPagoGlobalQueryService configuracionPagoGlobalQueryService,
         ICreditoSimulacionVentaService creditoSimulacionVentaService,
-        IProductoCreditoRestriccionService productoCreditoRestriccionService)
+        IProductoCreditoRestriccionService productoCreditoRestriccionService,
+        IConfiguracionPagoService configuracionPagoService)
     {
         _productoService = productoService;
         _configuracionPagoGlobalQueryService = configuracionPagoGlobalQueryService;
         _creditoSimulacionVentaService = creditoSimulacionVentaService;
         _productoCreditoRestriccionService = productoCreditoRestriccionService;
+        _configuracionPagoService = configuracionPagoService;
     }
 
     public async Task<CotizacionSimulacionResultado> SimularAsync(
@@ -109,7 +113,6 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
             AgregarMercadoPago(request, configuracion, totalBase, opciones, advertencias);
             await AgregarCreditoPersonalAsync(
                 request,
-                configuracion,
                 fechaCalculo,
                 totalBase,
                 opciones,
@@ -292,7 +295,6 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
 
     private async Task AgregarCreditoPersonalAsync(
         CotizacionSimulacionRequest request,
-        ConfiguracionPagoGlobalResultado configuracion,
         DateTime fechaCalculo,
         decimal totalBase,
         List<CotizacionMedioPagoResultado> opciones,
@@ -339,32 +341,58 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
             return;
         }
 
-        var medio = BuscarMedio(configuracion, TipoPago.CreditoPersonal);
-        if (medio == null)
+        var tasaGlobal = await _configuracionPagoService.ObtenerTasaInteresMensualCreditoPersonalAsync();
+        if (tasaGlobal == null)
         {
-            const string motivo = "No hay configuracion activa para credito personal.";
+            const string motivo = "La tasa de interes de Credito personal no esta configurada.";
             advertencias.Add(motivo);
             opciones.Add(CrearCreditoRequiereEvaluacion(motivo));
             return;
         }
 
+        var parametros = await _configuracionPagoService.ObtenerParametrosCreditoClienteAsync(
+            request.ClienteId.Value,
+            tasaGlobal.Value);
+
+        var cuotasMax = restricciones.MaxCuotasCredito.HasValue
+            ? Math.Min(parametros.CuotasMaximas, restricciones.MaxCuotasCredito.Value)
+            : parametros.CuotasMaximas;
+
         var cuotasSolicitadas = request.CuotasSolicitadas?
             .Where(c => c > 0)
             .ToHashSet();
 
-        var planesConfigurados = medio.Planes
-            .Where(p => p.EsPlanGeneral)
-            .Where(p => cuotasSolicitadas == null || cuotasSolicitadas.Contains(p.CantidadCuotas))
-            .Where(p => !restricciones.MaxCuotasCredito.HasValue || p.CantidadCuotas <= restricciones.MaxCuotasCredito.Value)
-            .OrderBy(p => p.Orden)
-            .ThenBy(p => p.CantidadCuotas)
+        // Tabla de cuotas por cantidad solo aplica cuando no hay perfil preferido ni config
+        // personalizada del cliente: esos caminos mantienen su propia tasa/rango unicos.
+        var esGlobalPuro = parametros.Fuente == FuenteConfiguracionCredito.Global && parametros.PerfilPreferidoId == null;
+        var cuotasConfiguradas = esGlobalPuro
+            ? await _configuracionPagoService.GetCuotasCreditoPersonalActivasAsync()
+            : new List<CuotaCreditoPersonalViewModel>();
+
+        List<int> cuotasBase;
+        if (cuotasConfiguradas.Count > 0)
+        {
+            cuotasBase = cuotasConfiguradas
+                .Select(c => c.CantidadCuotas)
+                .Where(c => !restricciones.MaxCuotasCredito.HasValue || c <= restricciones.MaxCuotasCredito.Value)
+                .ToList();
+        }
+        else
+        {
+            cuotasBase = parametros.CuotasMinimas > cuotasMax
+                ? new List<int>()
+                : Enumerable.Range(parametros.CuotasMinimas, cuotasMax - parametros.CuotasMinimas + 1).ToList();
+        }
+
+        var cuotasCandidatas = cuotasBase
+            .Where(c => cuotasSolicitadas == null || cuotasSolicitadas.Contains(c))
             .ToList();
 
-        if (planesConfigurados.Count == 0)
+        if (cuotasCandidatas.Count == 0)
         {
             var motivo = restricciones.MaxCuotasCredito.HasValue
-                ? $"No hay planes activos de credito personal dentro del limite por producto de {restricciones.MaxCuotasCredito.Value} cuotas."
-                : "No hay planes activos de credito personal para simular.";
+                ? $"No hay cuotas de credito personal disponibles dentro del limite por producto de {restricciones.MaxCuotasCredito.Value} cuotas."
+                : "No hay cuotas de credito personal configuradas para simular.";
             advertencias.Add(motivo);
             opciones.Add(CrearCreditoRequiereEvaluacion(motivo));
             return;
@@ -373,15 +401,20 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
         var planes = new List<CotizacionPlanPagoResultado>();
         var fechaPrimeraCuota = fechaCalculo.AddMonths(1).ToString("yyyy-MM-dd");
 
-        foreach (var planConfigurado in planesConfigurados)
+        foreach (var cuotas in cuotasCandidatas)
         {
+            var tasaCuota = cuotasConfiguradas.Count > 0
+                ? cuotasConfiguradas.First(c => c.CantidadCuotas == cuotas).TasaMensual
+                : parametros.TasaMensual;
+
             var simulacion = await _creditoSimulacionVentaService.SimularAsync(
                 new CreditoSimulacionVentaRequest
                 {
                     TotalVenta = totalBase,
                     Anticipo = 0m,
-                    Cuotas = planConfigurado.CantidadCuotas,
-                    GastosAdministrativos = 0m,
+                    Cuotas = cuotas,
+                    TasaMensual = tasaCuota,
+                    GastosAdministrativos = parametros.GastosAdministrativos,
                     FechaPrimeraCuota = fechaPrimeraCuota
                 },
                 cancellationToken);
@@ -392,7 +425,7 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
                 continue;
             }
 
-            planes.Add(CrearPlanCreditoPersonal(planConfigurado, simulacion.Plan, restricciones));
+            planes.Add(CrearPlanCreditoPersonal(cuotas, simulacion.Plan, restricciones));
         }
 
         if (planes.Count == 0)
@@ -410,7 +443,7 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
         opciones.Add(new CotizacionMedioPagoResultado
         {
             MedioPago = CotizacionMedioPagoTipo.CreditoPersonal,
-            NombreMedioPago = medio.NombreVisible,
+            NombreMedioPago = "Credito personal",
             Disponible = true,
             Estado = CotizacionOpcionPagoEstado.Disponible,
             Planes = planes
@@ -573,7 +606,7 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
         };
 
     private static CotizacionPlanPagoResultado CrearPlanCreditoPersonal(
-        PlanPagoGlobalConfiguradoDto planConfigurado,
+        int cuotas,
         CreditoSimulacionVentaJson plan,
         ProductoCreditoRestriccionResultado restricciones)
     {
@@ -585,10 +618,8 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
 
         return new CotizacionPlanPagoResultado
         {
-            Plan = string.IsNullOrWhiteSpace(planConfigurado.Etiqueta)
-                ? $"{planConfigurado.CantidadCuotas} cuota(s)"
-                : planConfigurado.Etiqueta!,
-            CantidadCuotas = planConfigurado.CantidadCuotas,
+            Plan = $"{cuotas} cuota(s)",
+            CantidadCuotas = cuotas,
             TasaMensual = plan.tasaAplicada,
             InteresPorcentaje = plan.tasaAplicada,
             CostoFinancieroTotal = plan.interesTotal,

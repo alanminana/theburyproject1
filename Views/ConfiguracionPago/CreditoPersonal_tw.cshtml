@@ -291,6 +291,68 @@
                         </div>
                     </div>
                 </div>
+
+                <div class="mt-6 pt-5 border-t border-slate-800">
+                    <div class="flex items-start justify-between gap-3 flex-wrap mb-3">
+                        <div class="min-w-0">
+                            <h3 class="text-sm font-semibold text-white">Recargo por cantidad de cuotas</h3>
+                            <p class="text-xs text-slate-400 mt-0.5">
+                                Activa las cuotas disponibles y asigna una tasa mensual propia a cada una (ej. cuota 1 = 1%, cuota 5 = 10%).
+                                Si no hay cuotas configuradas aca, se usa la tasa mensual unica de arriba para todo el rango.
+                            </p>
+                        </div>
+                        @if (puedeEditar)
+                        {
+                            <button type="button" data-open-modal="m-cuota" class="btn-erp-secondary shrink-0 text-sm py-2">
+                                <span class="material-symbols-outlined text-[15px]">add</span> Agregar cuota
+                            </button>
+                        }
+                    </div>
+
+                    <span asp-validation-for="CuotasCreditoPersonal" class="block mb-3 text-xs text-red-400"></span>
+
+                    @{ var cuotasCredito = Model.CuotasCreditoPersonal ?? new List<CuotaCreditoPersonalViewModel>(); }
+
+                    @if (cuotasCredito.Count > 0)
+                    {
+                        <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
+                            @for (var i = 0; i < cuotasCredito.Count; i++)
+                            {
+                                var cuota = cuotasCredito[i];
+                                <div class="cp-card">
+                                    <input type="hidden" asp-for="CuotasCreditoPersonal[i].Id" />
+                                    <input type="hidden" asp-for="CuotasCreditoPersonal[i].CantidadCuotas" />
+                                    <input type="hidden" asp-for="CuotasCreditoPersonal[i].Orden" />
+
+                                    <div class="flex items-center justify-between gap-2">
+                                        <div class="flex items-center gap-2 min-w-0">
+                                            <span class="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/25 text-cyan-200 font-bold text-xs flex items-center justify-center shrink-0">@cuota.CantidadCuotas</span>
+                                            <p class="text-sm font-semibold text-white truncate">@cuota.CantidadCuotas cuota@(cuota.CantidadCuotas != 1 ? "s" : "")</p>
+                                        </div>
+                                        <label class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-300 shrink-0">
+                                            <input asp-for="CuotasCreditoPersonal[i].Activo" disabled="@(!puedeEditar)" class="rounded border-slate-600 bg-slate-900 text-primary focus:ring-primary" />
+                                            Activa
+                                        </label>
+                                    </div>
+
+                                    <div class="mt-3">
+                                        <label asp-for="CuotasCreditoPersonal[i].TasaMensual" class="cp-label">Tasa mensual (%)</label>
+                                        <input asp-for="CuotasCreditoPersonal[i].TasaMensual" type="number" step="0.01" min="0" max="100"
+                                               readonly="@(!puedeEditar)" class="cp-field font-mono" />
+                                        <span asp-validation-for="CuotasCreditoPersonal[i].TasaMensual" class="text-xs text-red-400"></span>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="rounded-xl border border-dashed border-slate-700 bg-slate-950/30 p-6 text-center">
+                            <span class="material-symbols-outlined text-slate-600 text-[28px]">view_timeline</span>
+                            <p class="mt-2 text-sm text-slate-500">No hay cuotas configuradas. Se usa la tasa y el rango unicos de arriba.</p>
+                        </div>
+                    }
+                </div>
             </section>
 
             <section id="s3" class="cp-section">
@@ -558,6 +620,44 @@
                     <button type="button" data-close-modal="m-perfil" class="btn-erp-ghost">Cancelar</button>
                     <button type="submit" class="btn-erp-primary">
                         <span class="material-symbols-outlined text-[15px]">add</span> Crear perfil
+                    </button>
+                </footer>
+            </div>
+        </div>
+
+        <div id="m-cuota" class="hidden fixed inset-0 z-50 cp-modal-bg flex items-center justify-center p-4" data-modal-backdrop>
+            <div class="cp-modal-card w-full max-w-sm p-6" role="dialog" aria-modal="true" aria-labelledby="nuevaCuotaTitulo">
+                <header class="flex items-start justify-between gap-3 mb-5">
+                    <div>
+                        <h3 id="nuevaCuotaTitulo" class="text-lg font-semibold text-white">Nueva cuota de credito personal</h3>
+                        <p class="text-xs text-slate-500 mt-0.5">Cantidad de cuotas y su tasa mensual propia.</p>
+                    </div>
+                    <button type="button" data-close-modal="m-cuota" class="rounded-lg border border-slate-700 bg-slate-800 p-1.5 text-slate-400 hover:text-white" aria-label="Cerrar">
+                        <span class="material-symbols-outlined text-[17px]">close</span>
+                    </button>
+                </header>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
+                    <div>
+                        <label for="nuevaCuotaCantidad" class="cp-label">Cantidad de cuotas</label>
+                        <input id="nuevaCuotaCantidad" name="nuevaCuotaCantidad" type="number" min="1" max="120" value="1" class="cp-field font-mono" />
+                    </div>
+                    <div>
+                        <label for="nuevaCuotaTasaMensual" class="cp-label">Tasa mensual (%)</label>
+                        <input id="nuevaCuotaTasaMensual" name="nuevaCuotaTasaMensual" type="number" step="0.01" min="0" max="100" value="0" class="cp-field font-mono" />
+                    </div>
+                    <div class="sm:col-span-2 flex items-end">
+                        <label class="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm font-semibold text-slate-300 cursor-pointer w-full h-[42px]">
+                            <input id="nuevaCuotaActivo" name="nuevaCuotaActivo" type="checkbox" value="true" checked class="rounded border-slate-600 bg-slate-900 text-primary focus:ring-primary" />
+                            Activa
+                        </label>
+                    </div>
+                </div>
+
+                <footer class="mt-5 flex justify-end gap-2">
+                    <button type="button" data-close-modal="m-cuota" class="btn-erp-ghost">Cancelar</button>
+                    <button type="submit" class="btn-erp-primary">
+                        <span class="material-symbols-outlined text-[15px]">add</span> Agregar cuota
                     </button>
                 </footer>
             </div>

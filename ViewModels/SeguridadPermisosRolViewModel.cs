@@ -10,10 +10,19 @@ public class SeguridadPermisosRolViewModel
     public string? GrupoSeleccionado { get; set; }
     public List<SeguridadRolSelectorItemViewModel> Roles { get; set; } = new();
     public List<string> Grupos { get; set; } = new();
-    public List<SeguridadPermisosRolColumnViewModel> Columnas { get; set; } = new();
-    public List<SeguridadPermisosRolRowViewModel> Filas { get; set; } = new();
+
+    /// <summary>
+    /// Permisos agrupados por categoría; cada módulo expone únicamente las
+    /// acciones que realmente posee (con su nombre en español).
+    /// </summary>
+    public List<SeguridadPermisosRolGrupoViewModel> GruposModulos { get; set; } = new();
 
     public bool TieneRolSeleccionado => !string.IsNullOrWhiteSpace(RolSeleccionadoId);
+
+    public int TotalModulos => GruposModulos.Sum(g => g.Modulos.Count);
+
+    public int TotalAccionesSeleccionadas =>
+        GruposModulos.Sum(g => g.Modulos.Sum(m => m.Acciones.Count(a => a.Seleccionado)));
 }
 
 public class SeguridadRolSelectorItemViewModel
@@ -23,30 +32,31 @@ public class SeguridadRolSelectorItemViewModel
     public bool Activo { get; set; } = true;
 }
 
-public class SeguridadPermisosRolColumnViewModel
+public class SeguridadPermisosRolGrupoViewModel
 {
-    public string Key { get; set; } = string.Empty;
-    public string Label { get; set; } = string.Empty;
-    public bool Required { get; set; }
+    public string Nombre { get; set; } = string.Empty;
+    public List<SeguridadPermisosRolModuloViewModel> Modulos { get; set; } = new();
+
+    public int TotalAcciones => Modulos.Sum(m => m.Acciones.Count);
+
+    public int TotalSeleccionadas => Modulos.Sum(m => m.Acciones.Count(a => a.Seleccionado));
 }
 
-public class SeguridadPermisosRolRowViewModel
+public class SeguridadPermisosRolModuloViewModel
 {
     public int ModuloId { get; set; }
     public string ModuloNombre { get; set; } = string.Empty;
     public string ModuloClave { get; set; } = string.Empty;
     public string Grupo { get; set; } = string.Empty;
     public string? Descripcion { get; set; }
-    public List<SeguridadPermisosRolCellViewModel> Celdas { get; set; } = new();
+    public List<SeguridadPermisosRolAccionViewModel> Acciones { get; set; } = new();
 }
 
-public class SeguridadPermisosRolCellViewModel
+public class SeguridadPermisosRolAccionViewModel
 {
-    public string ColumnKey { get; set; } = string.Empty;
-    public int? AccionId { get; set; }
+    public int AccionId { get; set; }
     public string AccionClave { get; set; } = string.Empty;
     public string AccionNombre { get; set; } = string.Empty;
-    public bool Disponible { get; set; }
     public bool Seleccionado { get; set; }
 }
 

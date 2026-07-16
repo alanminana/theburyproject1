@@ -249,10 +249,6 @@ namespace TheBuryProject.Controllers
 
                 var viewModel = _mapper.Map<ProductoViewModel>(producto);
 
-                viewModel.PrecioVenta = _productoService.ObtenerPrecioVentaSinIva(
-                    viewModel.PrecioVenta,
-                    viewModel.PorcentajeIVA);
-
                 await CargarDropdownsAsync(viewModel.CategoriaId, viewModel.MarcaId);
                 await CargarAlicuotasIVAAsync(viewModel.AlicuotaIVAId);
                 return View("Edit_tw", viewModel);
@@ -372,9 +368,6 @@ namespace TheBuryProject.Controllers
                 if (producto == null) return NotFound();
 
                 var vm = _mapper.Map<ProductoViewModel>(producto);
-                var precioSinIVA = _productoService.ObtenerPrecioVentaSinIva(
-                    vm.PrecioVenta,
-                    vm.PorcentajeIVA);
                 var fila = await _catalogoService.ObtenerFilaAsync(id);
 
                 return Json(new
@@ -393,7 +386,10 @@ namespace TheBuryProject.Controllers
                     submarcaId = vm.SubmarcaId,
                     submarcaNombre = vm.SubmarcaNombre,
                     precioCompra = vm.PrecioCompra,
-                    precioVenta = precioSinIVA,
+                    costoEnvio = vm.CostoEnvio,
+                    percepcionesCompra = vm.PercepcionesCompra,
+                    otrosCostosCompra = vm.OtrosCostosCompra,
+                    precioVenta = vm.PrecioVenta,
                     porcentajeIVA = vm.PorcentajeIVA,
                     alicuotaIVAId = vm.AlicuotaIVAId,
                     comisionPorcentaje = vm.ComisionPorcentaje,
@@ -535,10 +531,9 @@ namespace TheBuryProject.Controllers
         private async Task<Producto> MapearProductoParaPersistenciaAsync(ProductoViewModel viewModel)
         {
             var producto = _mapper.Map<Producto>(viewModel);
-            await _productoService.PrepararPrecioVentaConIvaAsync(producto);
+            await _productoService.ResolverIvaVentaAsync(producto);
 
             viewModel.PorcentajeIVA = producto.PorcentajeIVA;
-            viewModel.PrecioVenta = producto.PrecioVenta;
 
             return producto;
         }

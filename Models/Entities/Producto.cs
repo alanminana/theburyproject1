@@ -53,11 +53,32 @@ namespace TheBuryProject.Models.Entities
         public int? SubmarcaId { get; set; }
 
         /// <summary>
-        /// precio de costo del producto
+        /// precio de costo del producto (costo real final: compra con IVA + gastos)
         /// </summary>
         [Required(ErrorMessage = "El precio de costo es obligatorio")]
         [Range(0, double.MaxValue, ErrorMessage = "El precio de costo debe ser mayor o igual a 0")]
         public decimal PrecioCompra { get; set; }
+
+        /// <summary>
+        /// Costo de envío de la última compra. Componente informativo del costo real:
+        /// PrecioCompra ya lo incluye.
+        /// </summary>
+        [Range(0, double.MaxValue, ErrorMessage = "El costo de envío debe ser mayor o igual a 0")]
+        public decimal CostoEnvio { get; set; }
+
+        /// <summary>
+        /// Percepciones de la última compra. Componente informativo del costo real:
+        /// PrecioCompra ya lo incluye.
+        /// </summary>
+        [Range(0, double.MaxValue, ErrorMessage = "Las percepciones deben ser mayores o iguales a 0")]
+        public decimal PercepcionesCompra { get; set; }
+
+        /// <summary>
+        /// Otros gastos de la última compra. Componente informativo del costo real:
+        /// PrecioCompra ya lo incluye.
+        /// </summary>
+        [Range(0, double.MaxValue, ErrorMessage = "Los otros gastos deben ser mayores o iguales a 0")]
+        public decimal OtrosCostosCompra { get; set; }
 
         /// <summary>
         /// Precio de venta del producto

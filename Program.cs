@@ -15,6 +15,10 @@ using TheBuryProject.Services.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// 0. Alícuota general de IVA (fallback interno, no visible en UI). Configurable por
+// appsettings "Iva:PorcentajeDefault"; si no está definida se mantiene 21.
+ProductoIvaResolver.Configurar(builder.Configuration.GetValue<decimal?>("Iva:PorcentajeDefault"));
+
 // 1. Infra
 builder.Services.AddHttpContextAccessor();
 
@@ -179,7 +183,10 @@ builder.Services.AddHostedService<DocumentoVencidoBackgroundService>();
 builder.Services.AddHostedService<CotizacionVencimientoBackgroundService>();
 
 // 6. MVC
-var mvcBuilder = builder.Services.AddControllersWithViews();
+// Binder decimal invariante-flexible global: los inputs type="number" postean con punto
+// y el binding por cultura del servidor (es-AR) multiplicaba x100. Ver DecimalModelBinderProvider.
+var mvcBuilder = builder.Services.AddControllersWithViews(options =>
+    options.ModelBinderProviders.Insert(0, new DecimalModelBinderProvider()));
 if (builder.Environment.IsDevelopment())
     mvcBuilder.AddRazorRuntimeCompilation();
 

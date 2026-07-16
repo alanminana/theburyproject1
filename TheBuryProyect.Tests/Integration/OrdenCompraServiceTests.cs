@@ -205,10 +205,69 @@ public class OrdenCompraServiceTests : IDisposable
 
         Assert.True(resultado.Id > 0);
         Assert.Equal("OC-TEST-0001", resultado.Numero);
-        // Totales calculados: Subtotal=100, Descuento=0, IVA=21, Total=121
+        // Precios con IVA incluido: Subtotal=100, Total=100 (el IVA no se vuelve a sumar),
+        // IVA incluido = 100 − 100/1.21 = 17.36 (desglose por diferencia).
         Assert.Equal(100m, resultado.Subtotal);
-        Assert.Equal(21m, resultado.Iva);
-        Assert.Equal(121m, resultado.Total);
+        Assert.Equal(17.36m, resultado.Iva);
+        Assert.Equal(100m, resultado.Total);
+
+        var detalle = Assert.Single(resultado.Detalles);
+        Assert.Equal(21m, detalle.PorcentajeIVA);
+        Assert.Equal(17.36m, detalle.IvaImporte);
+    }
+
+    [Fact]
+    public async Task Create_ConDescuento_ProrrateaDescuentoEnDesgloseSinModificarTotal()
+    {
+        var proveedor = await SeedProveedorAsync();
+        var producto = await SeedProductoAsync();
+
+        // 5 x $20 = $100 con IVA; descuento $10 → Total=90; IVA incluido = 90 − 90/1.21 = 15.62
+        var resultado = await _service.CreateAsync(new OrdenCompra
+        {
+            Numero = "OC-DESC-0001",
+            ProveedorId = proveedor.Id,
+            Estado = EstadoOrdenCompra.Borrador,
+            FechaEmision = DateTime.UtcNow,
+            Descuento = 10m,
+            Detalles = new List<OrdenCompraDetalle>
+            {
+                new() { ProductoId = producto.Id, Cantidad = 5, PrecioUnitario = 20m }
+            }
+        });
+
+        Assert.Equal(100m, resultado.Subtotal);
+        Assert.Equal(90m, resultado.Total);
+        Assert.Equal(15.62m, resultado.Iva);
+        Assert.Equal(resultado.Total, (resultado.Total - resultado.Iva) + resultado.Iva);
+    }
+
+    [Fact]
+    public async Task Create_ProductoConAlicuotaReducida_DesglosaConAlicuotaDelProducto()
+    {
+        var proveedor = await SeedProveedorAsync();
+        var producto = await SeedProductoAsync();
+        producto.PorcentajeIVA = 10.5m;
+        await _context.SaveChangesAsync();
+
+        // $100 con IVA 10.5% → IVA incluido = 100 − 100/1.105 = 100 − 90.50 = 9.50
+        var resultado = await _service.CreateAsync(new OrdenCompra
+        {
+            Numero = "OC-ALIC-0001",
+            ProveedorId = proveedor.Id,
+            Estado = EstadoOrdenCompra.Borrador,
+            FechaEmision = DateTime.UtcNow,
+            Detalles = new List<OrdenCompraDetalle>
+            {
+                new() { ProductoId = producto.Id, Cantidad = 5, PrecioUnitario = 20m }
+            }
+        });
+
+        var detalle = Assert.Single(resultado.Detalles);
+        Assert.Equal(10.5m, detalle.PorcentajeIVA);
+        Assert.Equal(9.50m, detalle.IvaImporte);
+        Assert.Equal(9.50m, resultado.Iva);
+        Assert.Equal(100m, resultado.Total);
     }
 
     [Fact]
@@ -333,7 +392,7 @@ public class OrdenCompraServiceTests : IDisposable
         var producto = await SeedProductoAsync();
 
         // Crear via service para que CalcularTotales se ejecute
-        // 5 unidades x $20 = $100; IVA 21% = $21; Total = $121
+        // 5 unidades x $20 = $100 con IVA incluido; Total = $100 (no se suma IVA)
         var orden = await _service.CreateAsync(new OrdenCompra
         {
             Numero = "OC-CALC-0001",
@@ -347,13 +406,13 @@ public class OrdenCompraServiceTests : IDisposable
         });
 
         // CalcularTotalOrdenAsync retorna orden.Total — el valor persiste en CreateAsync
-        Assert.Equal(121m, orden.Total);
+        Assert.Equal(100m, orden.Total);
 
         // Verificar también via el método público (re-lee de BD)
         // Detach para forzar lectura real desde BD
         _context.ChangeTracker.Clear();
         var total = await _service.CalcularTotalOrdenAsync(orden.Id);
-        Assert.Equal(121m, total);
+        Assert.Equal(100m, total);
     }
 
     [Fact]

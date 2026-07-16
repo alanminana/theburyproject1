@@ -86,6 +86,25 @@ namespace TheBuryProject.Controllers
             }
         }
 
+        // GET: Reporte/Iva
+        public async Task<IActionResult> Iva([FromQuery] ReporteIvaFiltroViewModel filtro)
+        {
+            try
+            {
+                filtro.FechaDesde ??= DateTime.Today.AddMonths(-1);
+                filtro.FechaHasta ??= DateTime.Today;
+
+                var resultado = await _reporteService.GenerarReporteIvaAsync(filtro);
+                return View("Iva_tw", resultado);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al generar reporte de IVA");
+                TempData["Error"] = "Error al generar el reporte de IVA";
+                return RedirectToAction(nameof(Index));
+            }
+        }
+
         // GET: Reporte/Margenes
         public async Task<IActionResult> Margenes(int? categoriaId, int? marcaId)
         {

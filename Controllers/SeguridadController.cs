@@ -13,25 +13,6 @@ namespace TheBuryProject.Controllers;
 [Authorize]
 public class SeguridadController : Controller
 {
-    private static readonly PermissionMatrixColumnDefinition[] PermissionMatrixColumns =
-    [
-        new("view", "View", true, ["view"]),
-        new("create", "Create", true, ["create"]),
-        new("edit", "Edit", true, ["update", "edit"]),
-        new("delete", "Delete", true, ["delete"]),
-        new("approve", "Approve", true, ["approve", "authorize"]),
-        new("export", "Export", false, ["export"]),
-        new("print", "Print", false, ["print"]),
-        new("duplicate", "Duplicate", false, ["duplicate"]),
-        new("assign", "Assign", false, ["assignpermissions", "assignroles", "assign"]),
-        new("revoke", "Revoke", false, ["revoke"]),
-        new("block", "Block", false, ["block"]),
-        new("resetpass", "ResetPass", false, ["resetpassword", "resetpass"]),
-        new("open", "Open", false, ["open"]),
-        new("close", "Close", false, ["close"]),
-        new("movements", "Movements", false, ["movements"])
-    ];
-
     // Ordered list of tabs with the minimum permission required to view each one.
     private static readonly (string Tab, string Modulo, string Accion)[] TabPermissions =
     [
@@ -868,16 +849,6 @@ public class SeguridadController : Controller
         var metadataLookup = roleMetadata ?? await _rolService.GetAllRoleMetadataAsync();
 
         var modulos = await _rolService.GetAllModulosAsync();
-        var columns = PermissionMatrixColumns
-            .Where(column => column.Required || modulos.Any(modulo =>
-                modulo.Acciones.Any(accion => column.Aliases.Contains(Canon(accion.Clave), StringComparer.OrdinalIgnoreCase))))
-            .Select(column => new SeguridadPermisosRolColumnViewModel
-            {
-                Key = column.Key,
-                Label = column.Label,
-                Required = column.Required
-            })
-            .ToList();
 
         var selectedRole = !string.IsNullOrWhiteSpace(roleId)
             ? roleList.FirstOrDefault(role => role.Id == roleId)
@@ -890,18 +861,34 @@ public class SeguridadController : Controller
             .Select(p => p.AccionId)
             .ToHashSet();
 
-        var filas = modulos
+        // Un módulo expone solo sus propias acciones (nombre real en español);
+        // luego se agrupan por categoría para el layout de acordeón.
+        var gruposModulos = modulos
             .OrderBy(m => m.Categoria)
             .ThenBy(m => m.Orden)
-            .Select(modulo => new SeguridadPermisosRolRowViewModel
+            .GroupBy(m => string.IsNullOrWhiteSpace(m.Categoria) ? "General" : m.Categoria)
+            .Select(grupoModulos => new SeguridadPermisosRolGrupoViewModel
             {
-                ModuloId = modulo.Id,
-                ModuloNombre = modulo.Nombre,
-                ModuloClave = modulo.Clave,
-                Grupo = modulo.Categoria ?? "General",
-                Descripcion = modulo.Descripcion,
-                Celdas = columns
-                    .Select(column => BuildPermisoRolCell(modulo, column.Key, accionesSeleccionadas))
+                Nombre = grupoModulos.Key,
+                Modulos = grupoModulos
+                    .Select(modulo => new SeguridadPermisosRolModuloViewModel
+                    {
+                        ModuloId = modulo.Id,
+                        ModuloNombre = modulo.Nombre,
+                        ModuloClave = modulo.Clave,
+                        Grupo = grupoModulos.Key,
+                        Descripcion = modulo.Descripcion,
+                        Acciones = modulo.Acciones
+                            .OrderBy(a => a.Orden)
+                            .Select(accion => new SeguridadPermisosRolAccionViewModel
+                            {
+                                AccionId = accion.Id,
+                                AccionClave = accion.Clave,
+                                AccionNombre = accion.Nombre,
+                                Seleccionado = accionesSeleccionadas.Contains(accion.Id)
+                            })
+                            .ToList()
+                    })
                     .ToList()
             })
             .ToList();
@@ -913,13 +900,12 @@ public class SeguridadController : Controller
             BuscarModulo = buscarModulo,
             GrupoSeleccionado = grupo,
             Roles = MapRoleSelectorItems(roleList, metadataLookup),
-            Grupos = filas
-                .Select(f => f.Grupo)
+            Grupos = gruposModulos
+                .Select(g => g.Nombre)
                 .Distinct()
                 .OrderBy(g => g)
                 .ToList(),
-            Columnas = columns,
-            Filas = filas
+            GruposModulos = gruposModulos
         };
     }
 
@@ -1016,39 +1002,6 @@ public class SeguridadController : Controller
     private static string? NormalizeNullable(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-    private static string Canon(string? value)
-        => (value ?? string.Empty).Trim().ToLowerInvariant();
-
-    private SeguridadPermisosRolCellViewModel BuildPermisoRolCell(
-        ModuloSistema modulo,
-        string columnKey,
-        HashSet<int> accionesSeleccionadas)
-    {
-        var definition = PermissionMatrixColumns.First(column => column.Key == columnKey);
-        var accion = modulo.Acciones
-            .OrderBy(a => a.Orden)
-            .FirstOrDefault(a => definition.Aliases.Contains(Canon(a.Clave), StringComparer.OrdinalIgnoreCase));
-
-        if (accion == null)
-        {
-            return new SeguridadPermisosRolCellViewModel
-            {
-                ColumnKey = columnKey,
-                Disponible = false
-            };
-        }
-
-        return new SeguridadPermisosRolCellViewModel
-        {
-            ColumnKey = columnKey,
-            AccionId = accion.Id,
-            AccionClave = accion.Clave,
-            AccionNombre = accion.Nombre,
-            Disponible = true,
-            Seleccionado = accionesSeleccionadas.Contains(accion.Id)
-        };
-    }
-
     private async Task<List<SeguridadRolSelectorItemViewModel>> GetRoleSelectorItemsAsync()
     {
         var roles = await _rolService.GetAllRolesAsync();
@@ -1099,12 +1052,6 @@ public class SeguridadController : Controller
 
         return candidate;
     }
-
-    private sealed record PermissionMatrixColumnDefinition(
-        string Key,
-        string Label,
-        bool Required,
-        string[] Aliases);
 
     #endregion
 }

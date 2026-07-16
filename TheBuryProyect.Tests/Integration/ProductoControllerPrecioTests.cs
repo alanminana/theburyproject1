@@ -153,7 +153,7 @@ public class ProductoControllerPrecioTests : IDisposable
             CategoriaId = productoActualizado.CategoriaId,
             MarcaId = productoActualizado.MarcaId,
             PrecioCompra = 60m,
-            PrecioVenta = 80m,   // sin IVA → almacenará 96.80 con 21%
+            PrecioVenta = 80m,   // precio final con IVA incluido: se persiste tal cual
             PorcentajeIVA = 21m,
             StockActual = productoActualizado.StockActual,
             StockMinimo = productoActualizado.StockMinimo,
@@ -168,7 +168,7 @@ public class ProductoControllerPrecioTests : IDisposable
         Assert.True(doc.RootElement.GetProperty("success").GetBoolean());
         var entity = doc.RootElement.GetProperty("entity");
         Assert.Equal(150m, entity.GetProperty("precioActual").GetDecimal());
-        Assert.Equal(96.8m, entity.GetProperty("precioBase").GetDecimal());
+        Assert.Equal(80m, entity.GetProperty("precioBase").GetDecimal());
         Assert.True(entity.GetProperty("tienePrecioLista").GetBoolean());
         Assert.Equal("Mayorista", entity.GetProperty("listaPrecioActualNombre").GetString());
     }
@@ -187,7 +187,7 @@ public class ProductoControllerPrecioTests : IDisposable
             CategoriaId = productoActualizado.CategoriaId,
             MarcaId = productoActualizado.MarcaId,
             PrecioCompra = 60m,
-            PrecioVenta = 90m,   // sin IVA → almacenará 108.90 con 21%
+            PrecioVenta = 90m,   // precio final con IVA incluido: se persiste tal cual
             PorcentajeIVA = 21m,
             StockActual = productoActualizado.StockActual,
             StockMinimo = productoActualizado.StockMinimo,
@@ -201,8 +201,8 @@ public class ProductoControllerPrecioTests : IDisposable
         var doc = ParseJson(result!.Value);
         Assert.True(doc.RootElement.GetProperty("success").GetBoolean());
         var entity = doc.RootElement.GetProperty("entity");
-        Assert.Equal(108.9m, entity.GetProperty("precioActual").GetDecimal());
-        Assert.Equal(108.9m, entity.GetProperty("precioBase").GetDecimal());
+        Assert.Equal(90m, entity.GetProperty("precioActual").GetDecimal());
+        Assert.Equal(90m, entity.GetProperty("precioBase").GetDecimal());
         Assert.False(entity.GetProperty("tienePrecioLista").GetBoolean());
         Assert.Equal(JsonValueKind.Null, entity.GetProperty("listaPrecioActualNombre").ValueKind);
     }
@@ -221,7 +221,7 @@ public class ProductoControllerPrecioTests : IDisposable
             CategoriaId = productoActualizado.CategoriaId,
             MarcaId = productoActualizado.MarcaId,
             PrecioCompra = 50m,
-            PrecioVenta = 90m,   // sin IVA → 108.90 con 21%
+            PrecioVenta = 90m,   // precio final con IVA incluido: se persiste tal cual
             PorcentajeIVA = 21m,
             StockActual = productoActualizado.StockActual,
             StockMinimo = productoActualizado.StockMinimo,
@@ -235,8 +235,38 @@ public class ProductoControllerPrecioTests : IDisposable
         var doc = ParseJson(result!.Value);
         Assert.True(doc.RootElement.GetProperty("success").GetBoolean());
         var entity = doc.RootElement.GetProperty("entity");
-        // (108.9 - 50) / 50 * 100 = 117.80
-        Assert.Equal(117.8m, entity.GetProperty("margenPorcentaje").GetDecimal());
+        // (90 - 50) / 50 * 100 = 80
+        Assert.Equal(80m, entity.GetProperty("margenPorcentaje").GetDecimal());
+    }
+
+    [Fact]
+    public async Task EditAjax_ConGastosDeCompra_PersisteComponentesDelCostoReal()
+    {
+        var producto = await SeedProductoAsync(precioVenta: 121m);
+        var productoActualizado = await _context.Productos.FindAsync(producto.Id);
+        var vm = CrearProductoViewModelParaEditar(productoActualizado!);
+        vm.PrecioCompra = 100_040m; // costo real: compra 100.000 + gastos 40
+        vm.CostoEnvio = 15m;
+        vm.PercepcionesCompra = 10m;
+        vm.OtrosCostosCompra = 15m;
+
+        var result = await _controller.EditAjax(producto.Id, vm) as JsonResult;
+
+        Assert.NotNull(result);
+        var doc = ParseJson(result!.Value);
+        Assert.True(doc.RootElement.GetProperty("success").GetBoolean());
+
+        var enBd = await _context.Productos.AsNoTracking().SingleAsync(p => p.Id == producto.Id);
+        Assert.Equal(100_040m, enBd.PrecioCompra);
+        Assert.Equal(15m, enBd.CostoEnvio);
+        Assert.Equal(10m, enBd.PercepcionesCompra);
+        Assert.Equal(15m, enBd.OtrosCostosCompra);
+
+        var json = await _controller.GetJson(producto.Id) as JsonResult;
+        var getDoc = ParseJson(json!.Value);
+        Assert.Equal(15m, getDoc.RootElement.GetProperty("costoEnvio").GetDecimal());
+        Assert.Equal(10m, getDoc.RootElement.GetProperty("percepcionesCompra").GetDecimal());
+        Assert.Equal(15m, getDoc.RootElement.GetProperty("otrosCostosCompra").GetDecimal());
     }
 
     [Theory]
@@ -416,15 +446,15 @@ public class ProductoControllerPrecioTests : IDisposable
         var entity = doc.RootElement.GetProperty("entity");
         Assert.Equal(codigo, entity.GetProperty("codigo").GetString());
         Assert.Equal("Producto ajax valido", entity.GetProperty("nombre").GetString());
-        Assert.Equal(121m, entity.GetProperty("precioVenta").GetDecimal());
+        Assert.Equal(100m, entity.GetProperty("precioVenta").GetDecimal());
 
         var creado = await _context.Productos.AsNoTracking().SingleAsync(p => p.Codigo == codigo);
-        Assert.Equal(121m, creado.PrecioVenta);
+        Assert.Equal(100m, creado.PrecioVenta);
         Assert.Equal(6, creado.MaxCuotasSinInteresPermitidas);
     }
 
     [Fact]
-    public async Task CreateAjax_ConAlicuotaIVAId_PersistePrecioFinalConPorcentajeDeAlicuota()
+    public async Task CreateAjax_ConAlicuotaIVAId_ResuelvePorcentajeYPersistePrecioFinalSinModificar()
     {
         var (categoria, marca) = await SeedCategoriaYMarcaAsync();
         var alicuota = await SeedAlicuotaIVAAsync(10.5m);
@@ -450,11 +480,11 @@ public class ProductoControllerPrecioTests : IDisposable
         var doc = ParseJson(result!.Value);
         Assert.True(doc.RootElement.GetProperty("success").GetBoolean());
         var entity = doc.RootElement.GetProperty("entity");
-        Assert.Equal(110.50m, entity.GetProperty("precioVenta").GetDecimal());
+        Assert.Equal(100m, entity.GetProperty("precioVenta").GetDecimal());
 
         var creado = await _context.Productos.AsNoTracking().SingleAsync(p => p.Codigo == codigo);
         Assert.Equal(10.5m, creado.PorcentajeIVA);
-        Assert.Equal(110.50m, creado.PrecioVenta);
+        Assert.Equal(100m, creado.PrecioVenta);
         Assert.Equal(alicuota.Id, creado.AlicuotaIVAId);
     }
 
@@ -1692,7 +1722,7 @@ public class ProductoControllerPrecioTests : IDisposable
     }
 
     [Fact]
-    public async Task EditAjax_ConAlicuotaIVAId_PersistePrecioFinalConPorcentajeDeAlicuota()
+    public async Task EditAjax_ConAlicuotaIVAId_ResuelvePorcentajeYPersistePrecioFinalSinModificar()
     {
         var producto = await SeedProductoAsync(precioVenta: 121m);
         var alicuota = await SeedAlicuotaIVAAsync(10.5m);
@@ -1720,11 +1750,11 @@ public class ProductoControllerPrecioTests : IDisposable
         var doc = ParseJson(result!.Value);
         Assert.True(doc.RootElement.GetProperty("success").GetBoolean());
         var entity = doc.RootElement.GetProperty("entity");
-        Assert.Equal(110.50m, entity.GetProperty("precioBase").GetDecimal());
+        Assert.Equal(100m, entity.GetProperty("precioBase").GetDecimal());
 
         var actualizado = await _context.Productos.AsNoTracking().SingleAsync(x => x.Id == producto.Id);
         Assert.Equal(10.5m, actualizado.PorcentajeIVA);
-        Assert.Equal(110.50m, actualizado.PrecioVenta);
+        Assert.Equal(100m, actualizado.PrecioVenta);
         Assert.Equal(alicuota.Id, actualizado.AlicuotaIVAId);
     }
 
@@ -1744,7 +1774,7 @@ public class ProductoControllerPrecioTests : IDisposable
             CategoriaId = productoActualizado.CategoriaId,
             MarcaId = productoActualizado.MarcaId,
             PrecioCompra = 60m,
-            PrecioVenta = 80m,   // sin IVA → 96.80 con 21%
+            PrecioVenta = 80m,   // precio final con IVA incluido: se persiste tal cual
             PorcentajeIVA = 21m,
             StockActual = productoActualizado.StockActual,
             StockMinimo = productoActualizado.StockMinimo,

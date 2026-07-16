@@ -1235,5 +1235,119 @@ namespace TheBuryProject.Services
 
             return (true, errores);
         }
+
+        public async Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalAsync()
+        {
+            var existentes = await _context.ConfiguracionCreditoPersonalCuotas
+                .AsNoTracking()
+                .OrderBy(x => x.Orden)
+                .ThenBy(x => x.CantidadCuotas)
+                .ToListAsync();
+
+            return existentes.Select(e => new CuotaCreditoPersonalViewModel
+            {
+                Id = e.Id,
+                CantidadCuotas = e.CantidadCuotas,
+                TasaMensual = e.TasaMensual,
+                Activo = e.Activo,
+                Orden = e.Orden
+            }).ToList();
+        }
+
+        public async Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalActivasAsync()
+        {
+            var activas = await _context.ConfiguracionCreditoPersonalCuotas
+                .AsNoTracking()
+                .Where(x => x.Activo)
+                .OrderBy(x => x.CantidadCuotas)
+                .ToListAsync();
+
+            return activas.Select(e => new CuotaCreditoPersonalViewModel
+            {
+                Id = e.Id,
+                CantidadCuotas = e.CantidadCuotas,
+                TasaMensual = e.TasaMensual,
+                Activo = e.Activo,
+                Orden = e.Orden
+            }).ToList();
+        }
+
+        public async Task<(bool Ok, List<string> Errores)> GuardarCuotasCreditoPersonalAsync(
+            List<CuotaCreditoPersonalViewModel> items,
+            string usuario)
+        {
+            var errores = new List<string>();
+
+            items ??= new List<CuotaCreditoPersonalViewModel>();
+
+            var cuotasRecibidas = items.Select(i => i.CantidadCuotas).ToList();
+
+            var repetidas = cuotasRecibidas.GroupBy(c => c).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
+            if (repetidas.Any())
+                errores.Add($"Cantidades de cuotas duplicadas: {string.Join(", ", repetidas)}.");
+
+            var fueraDeRango = cuotasRecibidas.Where(c => c < 1 || c > 120).ToList();
+            if (fueraDeRango.Any())
+                errores.Add($"Cantidades de cuotas fuera de rango 1–120: {string.Join(", ", fueraDeRango)}.");
+
+            if (items.Any(i => i.TasaMensual < 0))
+                errores.Add("Las tasas mensuales no pueden ser negativas.");
+
+            if (errores.Any())
+                return (false, errores);
+
+            var ids = items.Where(i => i.Id > 0).Select(i => i.Id).ToList();
+            var existentesPorId = ids.Count > 0
+                ? await _context.ConfiguracionCreditoPersonalCuotas
+                    .Where(e => ids.Contains(e.Id))
+                    .ToDictionaryAsync(e => e.Id)
+                : new Dictionary<int, ConfiguracionCreditoPersonalCuota>();
+
+            var existentesPorCuota = await _context.ConfiguracionCreditoPersonalCuotas
+                .Where(e => cuotasRecibidas.Contains(e.CantidadCuotas))
+                .ToDictionaryAsync(e => e.CantidadCuotas);
+
+            var fecha = DateTime.UtcNow;
+
+            foreach (var item in items)
+            {
+                ConfiguracionCreditoPersonalCuota? entidad = null;
+
+                if (item.Id > 0 && existentesPorId.TryGetValue(item.Id, out var porId))
+                    entidad = porId;
+                else if (existentesPorCuota.TryGetValue(item.CantidadCuotas, out var porCuota))
+                    entidad = porCuota;
+
+                if (entidad != null)
+                {
+                    entidad.CantidadCuotas = item.CantidadCuotas;
+                    entidad.TasaMensual = item.TasaMensual;
+                    entidad.Activo = item.Activo;
+                    entidad.Orden = item.Orden;
+                    entidad.FechaActualizacion = fecha;
+                    entidad.UsuarioActualizacion = usuario;
+                }
+                else
+                {
+                    _context.ConfiguracionCreditoPersonalCuotas.Add(new ConfiguracionCreditoPersonalCuota
+                    {
+                        CantidadCuotas = item.CantidadCuotas,
+                        TasaMensual = item.TasaMensual,
+                        Activo = item.Activo,
+                        Orden = item.Orden,
+                        FechaActualizacion = fecha,
+                        UsuarioActualizacion = usuario
+                    });
+                }
+            }
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Cuotas de Credito Personal guardadas — {Count} registros — Usuario {Usuario}",
+                items.Count, usuario);
+
+            return (true, errores);
+        }
     }
 }

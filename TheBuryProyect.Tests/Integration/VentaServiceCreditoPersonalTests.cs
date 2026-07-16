@@ -8,6 +8,7 @@ using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services;
 using TheBuryProject.Services.Interfaces;
+using TheBuryProject.Services.Models;
 using TheBuryProject.Services.Validators;
 using TheBuryProject.ViewModels;
 
@@ -157,13 +158,16 @@ file sealed class StubCurrentUserServiceCP : ICurrentUserService
 {
     private readonly bool _puedeCrearVenta;
     private readonly bool _puedeAutorizarVenta;
+    private readonly bool _puedeSolicitarExcepcion;
 
     public StubCurrentUserServiceCP(
         bool puedeCrearVenta = false,
-        bool puedeAutorizarVenta = false)
+        bool puedeAutorizarVenta = false,
+        bool puedeSolicitarExcepcion = false)
     {
         _puedeCrearVenta = puedeCrearVenta;
         _puedeAutorizarVenta = puedeAutorizarVenta;
+        _puedeSolicitarExcepcion = puedeSolicitarExcepcion;
     }
 
     public string GetUsername() => "testuser";
@@ -175,7 +179,8 @@ file sealed class StubCurrentUserServiceCP : ICurrentUserService
     {
         return modulo == "ventas" &&
                ((accion == "create" && _puedeCrearVenta) ||
-                (accion == "authorize" && _puedeAutorizarVenta));
+                (accion == "authorize" && _puedeAutorizarVenta) ||
+                (accion == "requestexception" && _puedeSolicitarExcepcion));
     }
     public string? GetIpAddress() => "127.0.0.1";
 }
@@ -642,6 +647,52 @@ public class VentaServiceCreditoPersonalTests
     }
 
     [Fact]
+    public async Task CreateAsync_ExcepcionDocumental_ConRequestExceptionSinAuthorize_DocumentacionFaltante_QuedaPendienteAutorizacion()
+    {
+        var (ctx, conn) = CreateDb();
+        await using (ctx) using (conn)
+        {
+            var apertura = await SeedCajaAsync(ctx);
+            var cliente = await SeedClienteAsync(ctx);
+            var producto = await SeedProductoAsync(ctx, precioVenta: 2_000m);
+
+            var resultadoNoViable = new ValidacionVentaResult
+            {
+                NoViable = true,
+                PendienteRequisitos = true,
+                RequisitosPendientes = new List<RequisitoPendiente>
+                {
+                    new() { Tipo = TipoRequisitoPendiente.DocumentacionFaltante, Descripcion = "Falta DNI del cliente" }
+                }
+            };
+
+            var model = CreditoPersonalViewModelConProducto(cliente.Id, producto);
+            model.AplicarExcepcionDocumental = true;
+            model.MotivoExcepcionDocumentalCreate = "Autorizado por responsable de ventas";
+
+            // Vendedor sin ventas.authorize pero con ventas.requestexception: puede
+            // solicitar la excepción (queda pendiente de autorización formal por otro
+            // usuario con ventas.authorize), pero no puede auto-aprobarla.
+            var svc = BuildService(
+                ctx,
+                new StubCajaServiceCP(apertura),
+                new StubValidacionVentaService(resultadoNoViable),
+                new StubCurrentUserServiceCP(puedeCrearVenta: true, puedeAutorizarVenta: false, puedeSolicitarExcepcion: true));
+
+            var resultado = await svc.CreateAsync(model);
+
+            Assert.Equal(EstadoVenta.PendienteFinanciacion, resultado.Estado);
+
+            var venta = await ctx.Ventas.AsNoTracking().FirstAsync(v => v.Id == resultado.Id);
+            Assert.Equal(EstadoAutorizacionVenta.PendienteAutorizacion, venta.EstadoAutorizacion);
+            Assert.True(venta.RequiereAutorizacion);
+            Assert.Null(venta.UsuarioAutoriza);
+            Assert.Null(venta.MotivoAutorizacion);
+            Assert.Contains("Autorizado por responsable de ventas", venta.RazonesAutorizacionJson);
+        }
+    }
+
+    [Fact]
     public async Task CreateAsync_DocumentacionFaltante_QuedaPendienteAutorizacion()
     {
         var (ctx, conn) = CreateDb();
@@ -974,6 +1025,214 @@ public class VentaServiceCreditoPersonalTests
 
             Assert.Equal(EstadoVenta.PendienteFinanciacion, resultado.Estado);
             Assert.Equal(TipoPago.CreditoPersonal, resultado.TipoPago);
+        }
+    }
+
+    // ---------------------------------------------------------------------------
+    // UpdateAsync — venta sin crédito asociado (p.ej. convertida desde cotización):
+    // debe correr la misma validación de aptitud + excepción documental que
+    // CreateAsync, en vez de dejar pasar el edit sin evaluar y recién bloquear
+    // más tarde con un redirect a DocumentoCliente que el vendedor no puede abrir.
+    // ---------------------------------------------------------------------------
+
+    private static async Task<Venta> SeedVentaCreditoPersonalSinCreditoAsync(
+        AppDbContext ctx, int clienteId, Producto producto)
+    {
+        var venta = new Venta
+        {
+            Numero = $"VTA-CP-{Guid.NewGuid():N}"[..15],
+            ClienteId = clienteId,
+            Estado = EstadoVenta.Cotizacion,
+            TipoPago = TipoPago.CreditoPersonal,
+            FechaVenta = DateTime.UtcNow,
+            Total = producto.PrecioVenta
+        };
+        venta.Detalles.Add(new VentaDetalle
+        {
+            ProductoId = producto.Id,
+            Cantidad = 1,
+            PrecioUnitario = producto.PrecioVenta,
+            Subtotal = producto.PrecioVenta
+        });
+        ctx.Ventas.Add(venta);
+        await ctx.SaveChangesAsync();
+        return venta;
+    }
+
+    private static VentaViewModel UpdateViewModelCreditoPersonal(Venta venta, int clienteId, int productoId) => new()
+    {
+        Id = venta.Id,
+        ClienteId = clienteId,
+        FechaVenta = venta.FechaVenta,
+        Estado = venta.Estado,
+        TipoPago = TipoPago.CreditoPersonal,
+        RowVersion = venta.RowVersion,
+        AplicarExcepcionDocumental = false,
+        Detalles = new List<VentaDetalleViewModel>
+        {
+            new()
+            {
+                ProductoId = productoId,
+                Cantidad = 1,
+                PrecioUnitario = 1_000m,
+                Subtotal = 1_000m
+            }
+        }
+    };
+
+    [Fact]
+    public async Task UpdateAsync_CreditoPersonalSinCreditoAsociado_Viable_CreaCreditoPendienteYQuedaPendienteFinanciacion()
+    {
+        var (ctx, conn) = CreateDb();
+        await using (ctx) using (conn)
+        {
+            var apertura = await SeedCajaAsync(ctx);
+            var cliente = await SeedClienteAsync(ctx);
+            var producto = await SeedProductoAsync(ctx, precioVenta: 1_000m);
+            var venta = await SeedVentaCreditoPersonalSinCreditoAsync(ctx, cliente.Id, producto);
+
+            var svc = BuildService(
+                ctx,
+                new StubCajaServiceCP(apertura),
+                new StubValidacionVentaService(new ValidacionVentaResult { NoViable = false }));
+
+            var vm = UpdateViewModelCreditoPersonal(venta, cliente.Id, producto.Id);
+
+            var resultado = await svc.UpdateAsync(venta.Id, vm);
+
+            Assert.NotNull(resultado);
+            Assert.Equal(EstadoVenta.PendienteFinanciacion, resultado!.Estado);
+            Assert.NotNull(resultado.CreditoId);
+
+            var ventaPersistida = await ctx.Ventas.AsNoTracking().FirstAsync(v => v.Id == venta.Id);
+            Assert.NotNull(ventaPersistida.CreditoId);
+            var credito = await ctx.Creditos.AsNoTracking().FirstAsync(c => c.Id == ventaPersistida.CreditoId!.Value);
+            Assert.Equal(EstadoCredito.PendienteConfiguracion, credito.Estado);
+        }
+    }
+
+    [Fact]
+    public async Task UpdateAsync_VentaConvertidaDesdeCotizacionConCuotasElegidas_PrecargaCantidadCuotasEnCredito()
+    {
+        var (ctx, conn) = CreateDb();
+        await using (ctx) using (conn)
+        {
+            var apertura = await SeedCajaAsync(ctx);
+            var cliente = await SeedClienteAsync(ctx);
+            var producto = await SeedProductoAsync(ctx, precioVenta: 1_000m);
+
+            var cotizacion = new Cotizacion
+            {
+                Numero = $"COT-{Guid.NewGuid():N}"[..15],
+                Fecha = DateTime.UtcNow,
+                Estado = EstadoCotizacion.ConvertidaAVenta,
+                ClienteId = cliente.Id,
+                TotalBase = producto.PrecioVenta,
+                MedioPagoSeleccionado = CotizacionMedioPagoTipo.CreditoPersonal,
+                CantidadCuotasSeleccionada = 2
+            };
+            ctx.Cotizaciones.Add(cotizacion);
+            await ctx.SaveChangesAsync();
+
+            var venta = await SeedVentaCreditoPersonalSinCreditoAsync(ctx, cliente.Id, producto);
+            venta.CotizacionOrigenId = cotizacion.Id;
+            await ctx.SaveChangesAsync();
+
+            var svc = BuildService(
+                ctx,
+                new StubCajaServiceCP(apertura),
+                new StubValidacionVentaService(new ValidacionVentaResult { NoViable = false }));
+
+            var vm = UpdateViewModelCreditoPersonal(venta, cliente.Id, producto.Id);
+
+            var resultado = await svc.UpdateAsync(venta.Id, vm);
+
+            Assert.NotNull(resultado);
+            Assert.NotNull(resultado!.CreditoId);
+
+            var credito = await ctx.Creditos.AsNoTracking().FirstAsync(c => c.Id == resultado.CreditoId!.Value);
+            Assert.Equal(2, credito.CantidadCuotas);
+        }
+    }
+
+    [Fact]
+    public async Task UpdateAsync_CreditoPersonalSinCreditoAsociado_NoViableSinExcepcion_LanzaInvalidOperationException()
+    {
+        var (ctx, conn) = CreateDb();
+        await using (ctx) using (conn)
+        {
+            var apertura = await SeedCajaAsync(ctx);
+            var cliente = await SeedClienteAsync(ctx);
+            var producto = await SeedProductoAsync(ctx, precioVenta: 1_000m);
+            var venta = await SeedVentaCreditoPersonalSinCreditoAsync(ctx, cliente.Id, producto);
+
+            var resultadoNoViable = new ValidacionVentaResult
+            {
+                NoViable = true,
+                RequisitosPendientes = new List<RequisitoPendiente>
+                {
+                    new() { Tipo = TipoRequisitoPendiente.DocumentacionFaltante, Descripcion = "Falta DNI del cliente" }
+                }
+            };
+
+            var svc = BuildService(
+                ctx,
+                new StubCajaServiceCP(apertura),
+                new StubValidacionVentaService(resultadoNoViable));
+
+            var vm = UpdateViewModelCreditoPersonal(venta, cliente.Id, producto.Id);
+
+            var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+                () => svc.UpdateAsync(venta.Id, vm));
+
+            Assert.Contains("No es posible actualizar la venta con crédito personal", ex.Message);
+
+            var ventaPersistida = await ctx.Ventas.AsNoTracking().FirstAsync(v => v.Id == venta.Id);
+            Assert.Null(ventaPersistida.CreditoId);
+        }
+    }
+
+    [Fact]
+    public async Task UpdateAsync_CreditoPersonalSinCreditoAsociado_NoViableConExcepcionAutorizada_QuedaPendienteAutorizacionYCreaCredito()
+    {
+        var (ctx, conn) = CreateDb();
+        await using (ctx) using (conn)
+        {
+            var apertura = await SeedCajaAsync(ctx);
+            var cliente = await SeedClienteAsync(ctx);
+            var producto = await SeedProductoAsync(ctx, precioVenta: 1_000m);
+            var venta = await SeedVentaCreditoPersonalSinCreditoAsync(ctx, cliente.Id, producto);
+
+            var resultadoNoViable = new ValidacionVentaResult
+            {
+                NoViable = true,
+                PendienteRequisitos = true,
+                RequisitosPendientes = new List<RequisitoPendiente>
+                {
+                    new() { Tipo = TipoRequisitoPendiente.DocumentacionFaltante, Descripcion = "Falta DNI del cliente" }
+                }
+            };
+
+            var svc = BuildService(
+                ctx,
+                new StubCajaServiceCP(apertura),
+                new StubValidacionVentaService(resultadoNoViable),
+                new StubCurrentUserServiceCP(puedeCrearVenta: true, puedeAutorizarVenta: true));
+
+            var vm = UpdateViewModelCreditoPersonal(venta, cliente.Id, producto.Id);
+            vm.AplicarExcepcionDocumental = true;
+            vm.MotivoExcepcionDocumentalCreate = "Cliente presento documentacion en papel, pendiente de escanear";
+
+            var resultado = await svc.UpdateAsync(venta.Id, vm);
+
+            Assert.NotNull(resultado);
+            Assert.Equal(EstadoVenta.PendienteFinanciacion, resultado!.Estado);
+            Assert.NotNull(resultado.CreditoId);
+
+            var ventaPersistida = await ctx.Ventas.AsNoTracking().FirstAsync(v => v.Id == venta.Id);
+            Assert.True(ventaPersistida.RequiereAutorizacion);
+            Assert.Equal(EstadoAutorizacionVenta.PendienteAutorizacion, ventaPersistida.EstadoAutorizacion);
+            Assert.Contains("Cliente presento documentacion en papel", ventaPersistida.RazonesAutorizacionJson);
         }
     }
 }

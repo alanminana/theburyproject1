@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Data;
+using TheBuryProject.Helpers;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
@@ -10,9 +11,6 @@ namespace TheBuryProject.Services
     public class OrdenCompraService : IOrdenCompraService
     {
         #region Constructor y dependencias
-
-        /// <summary>Alícuota de IVA general (21%).</summary>
-        private const decimal AlicuotaIva = 0.21m;
 
         private readonly AppDbContext _context;
         private readonly ILogger<OrdenCompraService> _logger;
@@ -121,7 +119,7 @@ namespace TheBuryProject.Services
                 }
             }
 
-            CalcularTotales(ordenCompra);
+            await CalcularTotalesAsync(ordenCompra);
             _context.OrdenesCompra.Add(ordenCompra);
             await _context.SaveChangesAsync();
 
@@ -148,7 +146,7 @@ namespace TheBuryProject.Services
                 throw new InvalidOperationException($"Ya existe otra orden con el número {ordenCompra.Numero}");
             }
 
-            CalcularTotales(ordenCompra);
+            await CalcularTotalesAsync(ordenCompra);
 
             ordenExistente.Numero = ordenCompra.Numero;
             ordenExistente.ProveedorId = ordenCompra.ProveedorId;
@@ -182,6 +180,8 @@ namespace TheBuryProject.Services
                     detalleExistente.Cantidad = detalleNuevo.Cantidad;
                     detalleExistente.PrecioUnitario = detalleNuevo.PrecioUnitario;
                     detalleExistente.Subtotal = detalleNuevo.Subtotal;
+                    detalleExistente.PorcentajeIVA = detalleNuevo.PorcentajeIVA;
+                    detalleExistente.IvaImporte = detalleNuevo.IvaImporte;
                     detalleExistente.CantidadRecibida = detalleNuevo.CantidadRecibida;
                 }
                 else
@@ -451,17 +451,52 @@ namespace TheBuryProject.Services
             return orden?.Total ?? 0;
         }
 
-        private void CalcularTotales(OrdenCompra ordenCompra)
+        /// <summary>
+        /// Los precios unitarios de compra se ingresan CON IVA incluido. El total es
+        /// Subtotal - Descuento (el IVA nunca se vuelve a sumar) y el IVA se desglosa
+        /// por línea con la alícuota vigente de cada producto (snapshot histórico),
+        /// calculado por diferencia para que neto + IVA = total.
+        /// </summary>
+        private async Task CalcularTotalesAsync(OrdenCompra ordenCompra)
         {
-            foreach (var detalle in ordenCompra.Detalles)
+            var detalles = ordenCompra.Detalles ?? new List<OrdenCompraDetalle>();
+
+            foreach (var detalle in detalles)
             {
                 detalle.Subtotal = detalle.Cantidad * detalle.PrecioUnitario;
             }
 
-            ordenCompra.Subtotal = ordenCompra.Detalles.Sum(d => d.Subtotal);
-            var subtotalConDescuento = ordenCompra.Subtotal - ordenCompra.Descuento;
-            ordenCompra.Iva = subtotalConDescuento * AlicuotaIva;
-            ordenCompra.Total = subtotalConDescuento + ordenCompra.Iva;
+            ordenCompra.Subtotal = detalles.Sum(d => d.Subtotal);
+            var total = Math.Max(0m, ordenCompra.Subtotal - ordenCompra.Descuento);
+            ordenCompra.Total = total;
+
+            var productoIds = detalles.Select(d => d.ProductoId).Distinct().ToList();
+            var productos = await _context.Productos
+                .AsNoTracking()
+                .Include(p => p.AlicuotaIVA)
+                .Include(p => p.Categoria)
+                    .ThenInclude(c => c.AlicuotaIVA)
+                .Where(p => productoIds.Contains(p.Id))
+                .ToListAsync();
+
+            var porcentajePorProducto = productos.ToDictionary(
+                p => p.Id,
+                ProductoIvaResolver.ResolverPorcentajeIVAProducto);
+
+            // El descuento de cabecera se prorratea entre líneas para el desglose.
+            var factorDescuento = ordenCompra.Subtotal > 0 ? total / ordenCompra.Subtotal : 0m;
+
+            foreach (var detalle in detalles)
+            {
+                detalle.PorcentajeIVA = porcentajePorProducto.TryGetValue(detalle.ProductoId, out var porcentaje)
+                    ? porcentaje
+                    : ProductoIvaResolver.PorcentajeDefault;
+
+                var subtotalConDescuento = Math.Round(detalle.Subtotal * factorDescuento, 2, MidpointRounding.AwayFromZero);
+                detalle.IvaImporte = PrecioIvaCalculator.CalcularIvaIncluido(subtotalConDescuento, detalle.PorcentajeIVA);
+            }
+
+            ordenCompra.Iva = detalles.Sum(d => d.IvaImporte);
         }
 
         #endregion

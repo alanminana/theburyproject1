@@ -74,8 +74,14 @@
             id: parseInt(producto?.id ?? producto?.Id ?? 0, 10) || 0,
             nombre: `${producto?.nombre ?? producto?.Nombre ?? ''}`,
             codigo: `${producto?.codigo ?? producto?.Codigo ?? ''}`,
-            precioCompra: parseFloat(producto?.precioCompra ?? producto?.PrecioCompra ?? 0) || 0
+            precioCompra: parseFloat(producto?.precioCompra ?? producto?.PrecioCompra ?? 0) || 0,
+            porcentajeIva: parseFloat(producto?.porcentajeIva ?? producto?.PorcentajeIva ?? 0) || 0
         };
+    }
+
+    function porcentajeIvaDeProducto(productoId) {
+        const producto = productos.find(p => p.id === productoId);
+        return producto ? producto.porcentajeIva : 0;
     }
 
     function mapProveedor(proveedor) {
@@ -94,14 +100,16 @@
         const cantidad = parseInt(detalle?.cantidad ?? detalle?.Cantidad ?? 0, 10) || 0;
         const precio = parseFloat(detalle?.precioUnitario ?? detalle?.PrecioUnitario ?? 0) || 0;
         const subtotal = parseFloat(detalle?.subtotal ?? detalle?.Subtotal ?? 0) || (cantidad * precio);
+        const productoId = parseInt(detalle?.productoId ?? detalle?.ProductoId ?? 0, 10) || 0;
 
         return {
-            productoId: parseInt(detalle?.productoId ?? detalle?.ProductoId ?? 0, 10) || 0,
+            productoId,
             nombre: `${detalle?.productoNombre ?? detalle?.ProductoNombre ?? ''}`,
             codigo: `${detalle?.productoCodigo ?? detalle?.ProductoCodigo ?? ''}`,
             cantidad,
             precio,
-            subtotal
+            subtotal,
+            porcentajeIva: porcentajeIvaDeProducto(productoId)
         };
     }
 
@@ -243,7 +251,8 @@
                     data-id="${producto.id}"
                     data-nombre="${esc(producto.nombre)}"
                     data-codigo="${esc(producto.codigo)}"
-                    data-precio="${producto.precioCompra}">
+                    data-precio="${producto.precioCompra}"
+                    data-porcentaje-iva="${producto.porcentajeIva}">
                 <span class="min-w-0">
                     <span class="block text-sm font-bold text-slate-900 dark:text-white truncate">${esc(producto.nombre)}</span>
                     <span class="block text-xs text-slate-500 truncate">${esc(producto.codigo)}</span>
@@ -309,7 +318,8 @@
             id: parseInt(item.dataset.id, 10),
             nombre: item.dataset.nombre || '',
             codigo: item.dataset.codigo || '',
-            precio: parseFloat(item.dataset.precio) || 0
+            precio: parseFloat(item.dataset.precio) || 0,
+            porcentajeIva: parseFloat(item.dataset.porcentajeIva) || 0
         };
 
         if (inpBuscar) inpBuscar.value = productoSeleccionado.nombre;
@@ -367,6 +377,7 @@
             existente.cantidad += cantidad;
             existente.precio = precio;
             existente.subtotal = existente.cantidad * existente.precio;
+            existente.porcentajeIva = productoSeleccionado.porcentajeIva;
 
             showFeedback(`Se actualizó ${productoSeleccionado.nombre} en la orden existente.`, {
                 variant: 'success',
@@ -379,7 +390,8 @@
                 codigo: productoSeleccionado.codigo,
                 cantidad,
                 precio,
-                subtotal: cantidad * precio
+                subtotal: cantidad * precio,
+                porcentajeIva: productoSeleccionado.porcentajeIva
             });
 
             hideFeedback();
@@ -461,12 +473,20 @@
         requestAnimationFrame(syncTableOverflow);
     }
 
+    // Los precios unitarios ya incluyen IVA: el total es subtotal - descuento y el IVA
+    // solo se desglosa por línea (alícuota del producto), nunca se suma al total.
+    // Vista previa: el cálculo autoritativo lo hace el backend al guardar.
     function calcularTotales() {
         const subtotal = filas.reduce((sum, fila) => sum + fila.subtotal, 0);
         const descuento = Math.max(0, parseFloat(inpDescuento?.value || '0') || 0);
-        const base = Math.max(0, subtotal - descuento);
-        const iva = base * 0.21;
-        const total = base + iva;
+        const total = Math.max(0, subtotal - descuento);
+        const factorDescuento = subtotal > 0 ? total / subtotal : 0;
+        const iva = filas.reduce((sum, fila) => {
+            const pct = fila.porcentajeIva || 0;
+            if (pct <= 0) return sum;
+            const base = fila.subtotal * factorDescuento;
+            return sum + (base - base / (1 + pct / 100));
+        }, 0);
 
         if (lblSubtotal) lblSubtotal.textContent = `$${num(subtotal)}`;
         if (lblDescuento) lblDescuento.textContent = `-$${num(descuento)}`;

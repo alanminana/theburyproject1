@@ -108,7 +108,8 @@ public static class RolesPermisosSeeder
                 ("Rechazar", "reject", 6),
                 ("Facturar", "invoice", 7),
                 ("Cancelar", "cancel", 8),
-                ("Exportar", "export", 9)
+                ("Exportar", "export", 9),
+                ("Solicitar Excepción", "requestexception", 10)
             }),
             ("Cotizaciones", "cotizaciones", "Ventas", "bi-file-text", 21, new List<(string, string, int)>
             {
@@ -438,10 +439,10 @@ public static class RolesPermisosSeeder
         {
             await AsignarPermisosEspecificosAsync(context, vendedorRole.Id, modulos, new Dictionary<string, string[]>
             {
-                { "ventas", new[] { "view", "create", "authorize" } },
+                { "ventas", new[] { "view", "create", "requestexception", "invoice" } },
                 { "creditos", new[] { "view", "viewinstallments" } },
                 { "cotizaciones", new[] { "view", "create", "update", "convert" } },
-                { "clientes", new[] { "view", "create", "update" } },
+                { "clientes", new[] { "view", "create", "update", "viewdocs", "uploaddocs" } },
                 { "productos", new[] { "view" } },
                 { "categorias", new[] { "view" } },
                 { "marcas", new[] { "view" } },

@@ -194,6 +194,175 @@ namespace TheBuryProject.Services
             }
         }
 
+        public async Task<ReporteIvaResultadoViewModel> GenerarReporteIvaAsync(ReporteIvaFiltroViewModel filtro)
+        {
+            try
+            {
+                var resultado = new ReporteIvaResultadoViewModel { Filtro = filtro };
+
+                DateTime? desde = filtro.FechaDesde?.Date;
+                DateTime? hastaExclusivo = filtro.FechaHasta?.Date.AddDays(1);
+
+                if (filtro.IncluyeVentas)
+                {
+                    // Fuente: snapshot histórico de VentaDetalle (alícuota, neto e IVA al momento
+                    // de la operación). Una venta genera un solo registro de IVA aunque se cobre
+                    // en varios movimientos de Caja. Se excluyen borradores/cotizaciones y canceladas.
+                    var ventasQuery = _context.VentaDetalles
+                        .AsNoTracking()
+                        .Where(d =>
+                            !d.IsDeleted &&
+                            !d.Venta.IsDeleted &&
+                            (d.Venta.Estado == EstadoVenta.Confirmada ||
+                             d.Venta.Estado == EstadoVenta.Facturada ||
+                             d.Venta.Estado == EstadoVenta.Entregada));
+
+                    if (desde.HasValue)
+                        ventasQuery = ventasQuery.Where(d => d.Venta.FechaVenta >= desde.Value);
+                    if (hastaExclusivo.HasValue)
+                        ventasQuery = ventasQuery.Where(d => d.Venta.FechaVenta < hastaExclusivo.Value);
+                    if (filtro.Alicuota.HasValue)
+                        ventasQuery = ventasQuery.Where(d => d.PorcentajeIVA == filtro.Alicuota.Value);
+
+                    // Agregación en memoria: SQLite (tests) no traduce Sum de decimal en el servidor.
+                    var ventaRows = await ventasQuery
+                        .Select(d => new
+                        {
+                            d.VentaId,
+                            d.PorcentajeIVA,
+                            d.SubtotalFinalNeto,
+                            d.SubtotalFinalIVA,
+                            d.SubtotalFinal
+                        })
+                        .ToListAsync();
+
+                    // Líneas legacy sin snapshot de desglose (neto e IVA en cero con importe
+                    // facturado): se excluyen de los buckets y se informan aparte. Una línea
+                    // exenta legítima (0%) tiene neto = total, por lo que no cae acá.
+                    var ventasSinDesglose = ventaRows
+                        .Where(d => d.SubtotalFinalNeto == 0m && d.SubtotalFinalIVA == 0m && d.SubtotalFinal > 0m)
+                        .ToList();
+                    var ventasConDesglose = ventaRows
+                        .Where(d => !(d.SubtotalFinalNeto == 0m && d.SubtotalFinalIVA == 0m && d.SubtotalFinal > 0m))
+                        .ToList();
+
+                    resultado.VentasSinDesglose = ventasSinDesglose.Select(d => d.VentaId).Distinct().Count();
+                    resultado.VentasSinDesgloseTotal = ventasSinDesglose.Sum(d => d.SubtotalFinal);
+
+                    resultado.VentasPorAlicuota = ventasConDesglose
+                        .GroupBy(d => d.PorcentajeIVA)
+                        .Select(g => new ReporteIvaAlicuotaItemViewModel
+                        {
+                            Porcentaje = g.Key,
+                            Operaciones = g.Select(d => d.VentaId).Distinct().Count(),
+                            Neto = g.Sum(d => d.SubtotalFinalNeto),
+                            Iva = g.Sum(d => d.SubtotalFinalIVA),
+                            Total = g.Sum(d => d.SubtotalFinal)
+                        })
+                        .OrderByDescending(x => x.Total)
+                        .ToList();
+
+                    resultado.VentasNeto = resultado.VentasPorAlicuota.Sum(x => x.Neto);
+                    resultado.VentasIva = resultado.VentasPorAlicuota.Sum(x => x.Iva);
+                    resultado.VentasTotal = resultado.VentasPorAlicuota.Sum(x => x.Total);
+                    resultado.VentasCantidad = ventasConDesglose.Select(r => r.VentaId).Distinct().Count();
+                }
+
+                if (filtro.IncluyeCompras)
+                {
+                    // Fuente: snapshot por línea de OrdenCompraDetalle (alícuota e IVA incluido al
+                    // momento de la operación). Órdenes legacy sin desglose por línea se agrupan a
+                    // la alícuota general de cabecera (21%, la única aplicada en ese momento).
+                    var comprasQuery = _context.OrdenesCompra
+                        .AsNoTracking()
+                        .Where(o =>
+                            !o.IsDeleted &&
+                            (o.Estado == EstadoOrdenCompra.Confirmada ||
+                             o.Estado == EstadoOrdenCompra.EnTransito ||
+                             o.Estado == EstadoOrdenCompra.Recibida));
+
+                    if (desde.HasValue)
+                        comprasQuery = comprasQuery.Where(o => o.FechaEmision >= desde.Value);
+                    if (hastaExclusivo.HasValue)
+                        comprasQuery = comprasQuery.Where(o => o.FechaEmision < hastaExclusivo.Value);
+
+                    // Agregación en memoria: SQLite (tests) no traduce Sum de decimal en el servidor.
+                    var compraRows = await comprasQuery
+                        .Select(o => new
+                        {
+                            o.Id,
+                            o.Iva,
+                            o.Total,
+                            Detalles = o.Detalles
+                                .Where(d => !d.IsDeleted)
+                                .Select(d => new { d.Subtotal, d.PorcentajeIVA, d.IvaImporte })
+                                .ToList()
+                        })
+                        .ToListAsync();
+
+                    var buckets = new List<(decimal Porcentaje, int OrdenId, decimal Neto, decimal Iva, decimal Total)>();
+
+                    foreach (var orden in compraRows)
+                    {
+                        var tieneDesglosePorLinea = orden.Detalles.Any(d => d.PorcentajeIVA > 0m || d.IvaImporte > 0m);
+
+                        if (tieneDesglosePorLinea)
+                        {
+                            var subtotalLineas = orden.Detalles.Sum(d => d.Subtotal);
+                            var factorDescuento = subtotalLineas > 0 ? orden.Total / subtotalLineas : 0m;
+
+                            foreach (var grupo in orden.Detalles.GroupBy(d => d.PorcentajeIVA))
+                            {
+                                var total = Math.Round(grupo.Sum(d => d.Subtotal) * factorDescuento, 2, MidpointRounding.AwayFromZero);
+                                var iva = grupo.Sum(d => d.IvaImporte);
+                                buckets.Add((grupo.Key, orden.Id, total - iva, iva, total));
+                            }
+                        }
+                        else if (orden.Iva > 0m)
+                        {
+                            // Legacy: IVA de cabecera registrado a la alícuota general (21%)
+                            // al momento de la operación. No se reconstruye por producto.
+                            resultado.ComprasSinDesglosePorLinea++;
+                            buckets.Add((21m, orden.Id, orden.Total - orden.Iva, orden.Iva, orden.Total));
+                        }
+                        else
+                        {
+                            // Sin IVA registrado: exenta o legacy en cero.
+                            buckets.Add((0m, orden.Id, orden.Total, 0m, orden.Total));
+                        }
+                    }
+
+                    if (filtro.Alicuota.HasValue)
+                        buckets = buckets.Where(b => b.Porcentaje == filtro.Alicuota.Value).ToList();
+
+                    resultado.ComprasPorAlicuota = buckets
+                        .GroupBy(b => b.Porcentaje)
+                        .Select(g => new ReporteIvaAlicuotaItemViewModel
+                        {
+                            Porcentaje = g.Key,
+                            Operaciones = g.Select(b => b.OrdenId).Distinct().Count(),
+                            Neto = g.Sum(b => b.Neto),
+                            Iva = g.Sum(b => b.Iva),
+                            Total = g.Sum(b => b.Total)
+                        })
+                        .OrderByDescending(x => x.Total)
+                        .ToList();
+
+                    resultado.ComprasNeto = resultado.ComprasPorAlicuota.Sum(x => x.Neto);
+                    resultado.ComprasIva = resultado.ComprasPorAlicuota.Sum(x => x.Iva);
+                    resultado.ComprasTotal = resultado.ComprasPorAlicuota.Sum(x => x.Total);
+                    resultado.ComprasCantidad = buckets.Select(b => b.OrdenId).Distinct().Count();
+                }
+
+                return resultado;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al generar reporte de IVA");
+                throw;
+            }
+        }
+
         public async Task<ReporteMargenesViewModel> GenerarReporteMargenesAsync(int? categoriaId = null, int? marcaId = null)
         {
             try

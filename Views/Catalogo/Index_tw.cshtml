@@ -348,6 +348,14 @@
                                             <span class="material-symbols-outlined">inventory_2</span>
                                             <span class="row-action__label">Ver inventario</span>
                                         </a>
+                                        @if (User.TienePermiso("ordenescompra", "create"))
+                                        {
+                                            <a asp-controller="OrdenCompra" asp-action="Create" asp-route-productoId="@p.ProductoId"
+                                               class="row-action row-action--primary" title="Generar orden de compra con @p.Nombre">
+                                                <span class="material-symbols-outlined">shopping_cart</span>
+                                                <span class="row-action__label">Compra</span>
+                                            </a>
+                                        }
                                         @if (User.TienePermiso("mercadolibre", "sync"))
                                         {
                                             <form asp-controller="MercadoLibre" asp-action="BorradorCrear" method="post" class="contents">
@@ -706,7 +714,7 @@
                 </div>
                 <div class="space-y-1">
                     <h2 id="modal-nuevo-producto-title" class="text-xl font-bold text-white sm:text-2xl">Nuevo Producto</h2>
-                    <p class="max-w-2xl text-sm text-slate-400">Completá la fichdsdssdsa principal, validá precios y dejá listo el stock inicial sin salir del índice.</p>
+                    <p class="max-w-2xl text-sm text-slate-400">Completá la ficha principal, validá precios y dejá listo el stock inicial sin salir del índice.</p>
                 </div>
                 <div class="flex flex-wrap gap-2">
                     <span class="inline-flex items-center gap-2 rounded-full bg-slate-800 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-300">
@@ -715,7 +723,7 @@
                     </span>
                     <span class="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-[11px] font-semibold text-primary">
                         <span class="material-symbols-outlined text-sm">percent</span>
-                        IVA calculado automáticamente
+                        IVA desglosado automáticamente
                     </span>
                 </div>
             </div>
@@ -828,7 +836,7 @@
                     <div class="bg-primary/10 border border-primary/20 rounded-lg p-3 flex gap-3 mb-6">
                         <span class="material-symbols-outlined text-primary">info</span>
                         <p class="text-xs text-slate-300">
-                            Cargá primero la compra real: precio total con IVA incluido, envío, percepciones y gastos extra. El sistema calcula el costo real, suma la ganancia y obtiene el precio final con IVA de venta.
+                            Ingresá el precio total informado por el proveedor, con IVA incluido. El sistema desglosa el IVA de compra, suma los costos adicionales y aplica la ganancia para obtener el precio final de venta. El IVA de venta se muestra desglosado y no se vuelve a sumar.
                         </p>
                     </div>
 
@@ -917,7 +925,7 @@
                             </div>
 
                             <div class="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
-                                <label class="text-xs font-bold uppercase tracking-wider text-amber-400">Costo real final</label>
+                                <label class="text-xs font-bold uppercase tracking-wider text-amber-400">Costo real final con gastos incluidos</label>
                                 <div class="relative mt-1">
                                     <span class="absolute left-3 top-2 text-amber-400 font-bold">$</span>
                                     <input id="modal-costoRealFinal" type="text" readonly value="0.00"
@@ -932,7 +940,7 @@
                         <div class="rounded-xl border border-slate-800 bg-slate-900/30 p-4 space-y-4">
                             <div>
                                 <h4 class="text-sm font-bold text-white">3. Venta</h4>
-                                <p class="text-xs text-slate-400">Ganancia + IVA de venta.</p>
+                                <p class="text-xs text-slate-400">La ganancia se aplica sobre el costo real. El precio final ya incluye IVA.</p>
                             </div>
 
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -945,68 +953,58 @@
                                     </div>
                                 </div>
                                 <div class="space-y-1">
-                                    <label class="text-sm font-medium text-slate-300">Monto ganancia</label>
+                                    <label class="text-sm font-medium text-slate-300">Ganancia en pesos</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
-                                        <input id="modal-montoGanancia" type="text" readonly value="0.00"
-                                               class="w-full bg-slate-950/60 border border-slate-800 text-slate-300 rounded-lg pl-7 pr-4 py-2 outline-none" />
+                                        <input id="modal-montoGanancia" type="number" step="0.01" value="0"
+                                               class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-7 pr-4 py-2 focus:ring-2 focus:ring-primary outline-none" />
                                     </div>
                                 </div>
                             </div>
 
                             <div class="space-y-1">
-                                <label class="text-sm font-medium text-slate-300">Precio venta sin IVA</label>
+                                <label class="text-sm font-medium text-slate-300">Precio final de venta con IVA</label>
                                 <div class="relative">
-                                    <span class="absolute left-3 top-2 text-slate-500">$</span>
-                                    <input name="PrecioVenta" id="modal-precioVenta" type="number" step="0.01" min="0"
-                                           class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-7 pr-4 py-2 focus:ring-2 focus:ring-primary outline-none" />
+                                    <span class="absolute left-3 top-2 text-primary font-bold">$</span>
+                                    <input name="PrecioVenta" id="modal-precioFinal" type="number" step="0.01" min="0"
+                                           class="w-full bg-primary/5 border border-primary/30 text-primary font-bold rounded-lg pl-7 pr-4 py-2 focus:ring-2 focus:ring-primary outline-none" />
                                 </div>
                                 <span data-valmsg-for="PrecioVenta" class="text-xs text-red-500 hidden"></span>
-                                <p class="text-[11px] text-slate-500">Se calcula por ganancia, pero podés ajustarlo manualmente.</p>
+                                <p class="text-[11px] text-slate-500">Se calcula con la ganancia; si lo ajustás a mano, la ganancia se recalcula.</p>
                             </div>
 
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div class="space-y-1">
-                                    <label class="text-sm font-medium text-slate-300">Alícuota IVA venta</label>
-                                    <select name="AlicuotaIVAId" id="modal-alicuotaIVAId"
-                                            class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none">
-                                        <option value="">— Sin alícuota —</option>
-                                        @if (ViewBag.AlicuotasIVADatos != null)
+                            <div class="space-y-1">
+                                <label class="text-sm font-medium text-slate-300">Alícuota utilizada para el desglose</label>
+                                <select name="AlicuotaIVAId" id="modal-alicuotaIVAId"
+                                        class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none">
+                                    <option value="">— Alícuota general (21%) —</option>
+                                    @if (ViewBag.AlicuotasIVADatos != null)
+                                    {
+                                        foreach (var a in ViewBag.AlicuotasIVADatos)
                                         {
-                                            foreach (var a in ViewBag.AlicuotasIVADatos)
-                                            {
-                                                <option value="@a.Id" data-porcentaje="@a.Porcentaje">@a.Texto</option>
-                                            }
+                                            <option value="@a.Id" data-porcentaje="@a.Porcentaje">@a.Texto</option>
                                         }
-                                    </select>
-                                </div>
-                                <div class="space-y-1">
-                                    <label class="text-sm font-medium text-slate-300">% IVA venta fallback</label>
-                                    <select name="PorcentajeIVA" id="modal-porcentajeIVA"
-                                            class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none">
-                                        <option value="21" selected>21%</option>
-                                        <option value="10.5">10.5%</option>
-                                        <option value="27">27%</option>
-                                        <option value="0">0%</option>
-                                    </select>
-                                </div>
+                                    }
+                                </select>
+                                <input type="hidden" name="PorcentajeIVA" id="modal-porcentajeIVA" value="21" />
+                                <p class="text-[11px] text-slate-500">Cambiarla solo recalcula el desglose; no modifica el precio final.</p>
                             </div>
 
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div class="space-y-1">
-                                    <label class="text-sm font-medium text-slate-300">IVA venta</label>
+                                    <label class="text-xs font-bold uppercase tracking-wider text-slate-400">Venta sin IVA</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
-                                        <input id="modal-ivaVentaImporte" type="text" readonly value="0.00"
+                                        <input id="modal-ventaSinIva" type="text" readonly value="0.00"
                                                class="w-full bg-slate-950/60 border border-slate-800 text-slate-300 rounded-lg pl-7 pr-4 py-2 outline-none" />
                                     </div>
                                 </div>
                                 <div class="space-y-1">
-                                    <label class="text-sm font-medium text-slate-300">Precio final con IVA</label>
+                                    <label class="text-xs font-bold uppercase tracking-wider text-slate-400">IVA incluido en la venta</label>
                                     <div class="relative">
-                                        <span class="absolute left-3 top-2 text-primary font-bold">$</span>
-                                        <input id="modal-precioFinal" type="text" readonly value="0.00"
-                                               class="w-full bg-primary/5 border border-primary/30 text-primary font-bold rounded-lg pl-7 pr-4 py-2 outline-none" />
+                                        <span class="absolute left-3 top-2 text-slate-500">$</span>
+                                        <input id="modal-ivaVentaImporte" type="text" readonly value="0.00"
+                                               class="w-full bg-slate-950/60 border border-slate-800 text-slate-300 rounded-lg pl-7 pr-4 py-2 outline-none" />
                                     </div>
                                 </div>
                             </div>
@@ -1221,7 +1219,7 @@
                     <div id="prod-edit-precio-contexto" class="bg-primary/10 border border-primary/20 rounded-lg p-3 flex gap-3 mb-4">
                         <span class="material-symbols-outlined text-primary">info</span>
                         <p id="prod-edit-precio-contexto-texto" class="text-xs text-slate-300">
-                            Editá la compra, los costos adicionales y la ganancia. El sistema recalcula el costo real, la venta sin IVA y el precio final con IVA.
+                            Editá la compra, los costos adicionales y la ganancia. El precio final de venta ya incluye IVA: el sistema solo desglosa el neto y el IVA, sin volver a sumarlo.
                         </p>
                     </div>
 
@@ -1309,7 +1307,7 @@
                             </div>
 
                             <div class="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
-                                <label class="text-xs font-bold uppercase tracking-wider text-amber-400">Costo real final</label>
+                                <label class="text-xs font-bold uppercase tracking-wider text-amber-400">Costo real final con gastos incluidos</label>
                                 <div class="relative mt-1">
                                     <span class="absolute left-3 top-2 text-amber-400 font-bold">$</span>
                                     <input id="prod-edit-costoRealFinal" type="text" readonly
@@ -1324,7 +1322,7 @@
                         <div class="rounded-xl border border-slate-800 bg-slate-900/30 p-4 space-y-4">
                             <div>
                                 <h4 class="text-sm font-bold text-white">3. Venta</h4>
-                                <p class="text-xs text-slate-400">Ganancia + IVA de venta.</p>
+                                <p class="text-xs text-slate-400">La ganancia se aplica sobre el costo real. El precio final ya incluye IVA.</p>
                             </div>
 
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1337,68 +1335,59 @@
                                     </div>
                                 </div>
                                 <div class="space-y-1">
-                                    <label class="text-sm font-medium text-slate-300">Monto ganancia</label>
+                                    <label class="text-sm font-medium text-slate-300">Ganancia en pesos</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
-                                        <input id="prod-edit-montoGanancia" type="text" readonly
-                                               class="w-full bg-slate-950/60 border border-slate-800 text-slate-300 rounded-lg pl-7 pr-4 py-2 outline-none" />
+                                        <input id="prod-edit-montoGanancia" type="number" step="0.01" value="0"
+                                               class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-7 pr-4 py-2 focus:ring-2 focus:ring-primary outline-none text-white" />
                                     </div>
                                 </div>
                             </div>
 
                             <div class="space-y-1">
-                                <label class="text-sm font-medium text-slate-300">Precio venta sin IVA</label>
+                                <label class="text-sm font-medium text-slate-300">Precio final de venta con IVA</label>
                                 <div class="relative">
-                                    <span class="absolute left-3 top-2 text-slate-500">$</span>
-                                    <input id="prod-edit-precioVenta" name="PrecioVenta" type="number" step="0.01" min="0"
-                                           class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-7 pr-4 py-2 focus:ring-2 focus:ring-primary outline-none text-white" />
+                                    <span class="absolute left-3 top-2 text-primary font-bold">$</span>
+                                    <input id="prod-edit-precioFinal" name="PrecioVenta" type="number" step="0.01" min="0"
+                                           class="w-full bg-primary/5 border border-primary/30 text-primary font-bold rounded-lg pl-7 pr-4 py-2 focus:ring-2 focus:ring-primary outline-none" />
                                 </div>
                                 <span data-valmsg-for="PrecioVenta" class="text-xs text-red-500 hidden"></span>
-                                <p class="text-[11px] text-slate-500">Se calcula por ganancia, pero podés ajustarlo manualmente.</p>
+                                <p class="text-[11px] text-slate-500">Se calcula con la ganancia; si lo ajustás a mano, la ganancia se recalcula.</p>
                             </div>
 
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div class="space-y-1">
-                                    <label class="text-sm font-medium text-slate-300">Alícuota IVA venta</label>
-                                    <select id="prod-edit-alicuotaIVAId" name="AlicuotaIVAId" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none text-white">
-                                        <option value="">— Sin alícuota —</option>
-                                        @if (ViewBag.AlicuotasIVADatos != null)
+                            <div class="space-y-1">
+                                <label class="text-sm font-medium text-slate-300">Alícuota utilizada para el desglose</label>
+                                <select id="prod-edit-alicuotaIVAId" name="AlicuotaIVAId" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none text-white">
+                                    <option value="">— Alícuota general (21%) —</option>
+                                    @if (ViewBag.AlicuotasIVADatos != null)
+                                    {
+                                        foreach (var a in ViewBag.AlicuotasIVADatos)
                                         {
-                                            foreach (var a in ViewBag.AlicuotasIVADatos)
-                                            {
-                                                <option value="@a.Id" data-porcentaje="@a.Porcentaje">@a.Texto</option>
-                                            }
+                                            <option value="@a.Id" data-porcentaje="@a.Porcentaje">@a.Texto</option>
                                         }
-                                    </select>
-                                </div>
-                                <div class="space-y-1">
-                                    <label class="text-sm font-medium text-slate-300">% IVA venta fallback</label>
-                                    <select id="prod-edit-porcentajeIVA" name="PorcentajeIVA" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none text-white">
-                                        <option value="21">21%</option>
-                                        <option value="10.5">10.5%</option>
-                                        <option value="27">27%</option>
-                                        <option value="0">0%</option>
-                                    </select>
-                                </div>
+                                    }
+                                </select>
+                                <input type="hidden" id="prod-edit-porcentajeIVA" name="PorcentajeIVA" value="21" />
+                                <p class="text-[11px] text-slate-500">Cambiarla solo recalcula el desglose; no modifica el precio final.</p>
                             </div>
 
                             <input type="hidden" id="prod-edit-comisionPorcentaje" name="ComisionPorcentaje" value="0" />
 
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div class="space-y-1">
-                                    <label class="text-sm font-medium text-slate-300">IVA venta</label>
+                                    <label class="text-xs font-bold uppercase tracking-wider text-slate-400">Venta sin IVA</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
-                                        <input id="prod-edit-ivaVentaImporte" type="text" readonly
+                                        <input id="prod-edit-ventaSinIva" type="text" readonly
                                                class="w-full bg-slate-950/60 border border-slate-800 text-slate-300 rounded-lg pl-7 pr-4 py-2 outline-none" />
                                     </div>
                                 </div>
                                 <div class="space-y-1">
-                                    <label class="text-sm font-medium text-slate-300">Precio final con IVA</label>
+                                    <label class="text-xs font-bold uppercase tracking-wider text-slate-400">IVA incluido en la venta</label>
                                     <div class="relative">
-                                        <span class="absolute left-3 top-2 text-primary font-bold">$</span>
-                                        <input id="prod-edit-precioFinal" type="text" readonly
-                                               class="w-full bg-primary/5 border border-primary/30 text-primary font-bold rounded-lg pl-7 pr-4 py-2 outline-none" />
+                                        <span class="absolute left-3 top-2 text-slate-500">$</span>
+                                        <input id="prod-edit-ivaVentaImporte" type="text" readonly
+                                               class="w-full bg-slate-950/60 border border-slate-800 text-slate-300 rounded-lg pl-7 pr-4 py-2 outline-none" />
                                     </div>
                                 </div>
                             </div>
@@ -2685,14 +2674,9 @@
                 if (el) el.value = (Number.isFinite(value) ? value : 0).toFixed(2);
             }
 
-            function getIvaVentaPercent(alicuotaId, fallbackId) {
-                var alicuota = document.getElementById(alicuotaId);
-                var selected = alicuota?.selectedOptions?.[0];
-                var fromAlicuota = selected ? parseFloat(String(selected.dataset.porcentaje || '').replace(',', '.')) : NaN;
-                if (Number.isFinite(fromAlicuota)) return fromAlicuota;
-                return toNumber(document.getElementById(fallbackId));
-            }
-
+            // Regla comercial: costo real (compra con IVA + gastos) + ganancia = precio final
+            // de venta con IVA incluido. El IVA de venta solo se desglosa (neto = final / factor,
+            // IVA = final - neto); nunca se vuelve a sumar al precio final.
             function bindPrecioProducto(cfg) {
                 var compraConIva = document.getElementById(cfg.compraConIva);
                 var ivaCompraPct = document.getElementById(cfg.ivaCompraPct);
@@ -2700,77 +2684,128 @@
                 var percepciones = document.getElementById(cfg.percepciones);
                 var otros = document.getElementById(cfg.otros);
                 var margenPct = document.getElementById(cfg.margenPct);
-                var precioVenta = document.getElementById(cfg.precioVenta);
+                var montoGanancia = document.getElementById(cfg.montoGanancia);
+                var precioFinal = document.getElementById(cfg.precioFinal);
                 var alicuotaVenta = document.getElementById(cfg.alicuotaVenta);
-                var ivaVentaPct = document.getElementById(cfg.ivaVentaPct);
+                var ivaVentaHidden = document.getElementById(cfg.ivaVentaHidden);
 
-                if (!compraConIva || !precioVenta) return;
+                if (!compraConIva || !precioFinal) return;
 
-                function calcular(origen) {
+                // Alícuota general del sistema: valor inicial del hidden (fallback interno).
+                var ivaGeneral = toNumber(ivaVentaHidden) || 21;
+
+                function ivaVentaPercent() {
+                    var selected = alicuotaVenta?.selectedOptions?.[0];
+                    var pct = selected ? parseFloat(String(selected.dataset.porcentaje || '').replace(',', '.')) : NaN;
+                    return Number.isFinite(pct) ? pct : ivaGeneral;
+                }
+
+                function syncIvaHidden() {
+                    if (ivaVentaHidden) ivaVentaHidden.value = String(ivaVentaPercent());
+                }
+
+                function renderCompraYCosto() {
                     var compraTotal = toNumber(compraConIva);
                     var ivaCompra = toNumber(ivaCompraPct);
                     var divisorCompra = ivaCompra > 0 ? (1 + ivaCompra / 100) : 1;
                     var compraSinIva = compraTotal / divisorCompra;
-                    var ivaCompraImporte = compraTotal - compraSinIva;
+
+                    setMoney(cfg.compraSinIvaOut, compraSinIva);
+                    setMoney(cfg.ivaCompraOut, compraTotal - compraSinIva);
 
                     var costoReal = compraTotal + toNumber(envio) + toNumber(percepciones) + toNumber(otros);
-                    setMoney(cfg.compraSinIvaOut, compraSinIva);
-                    setMoney(cfg.ivaCompraOut, ivaCompraImporte);
                     setMoney(cfg.costoRealOut, costoReal);
                     setHidden(cfg.costoRealHidden, costoReal);
+                    return costoReal;
+                }
 
-                    if (origen !== 'precioVenta') {
-                        var gananciaCalculada = costoReal * (toNumber(margenPct) / 100);
-                        if (precioVenta) precioVenta.value = (costoReal + gananciaCalculada).toFixed(2);
-                        setMoney(cfg.montoGananciaOut, gananciaCalculada);
-                    } else {
-                        var gananciaManual = toNumber(precioVenta) - costoReal;
-                        setMoney(cfg.montoGananciaOut, gananciaManual);
-                        if (margenPct && costoReal > 0) {
-                            margenPct.value = ((gananciaManual / costoReal) * 100).toFixed(2);
-                        }
+                function renderDesgloseVenta() {
+                    var final_ = toNumber(precioFinal);
+                    var pct = ivaVentaPercent();
+                    var neto = pct > 0 ? final_ / (1 + pct / 100) : final_;
+                    setMoney(cfg.ventaSinIvaOut, neto);
+                    setMoney(cfg.ivaVentaOut, final_ - neto);
+                }
+
+                // origen: qué campo disparó el cambio, para evitar cálculos circulares.
+                // 'costo'       → ganancia % manda: recalcula ganancia $ y precio final.
+                // 'ganancia'    → ganancia $ manda: recalcula % y precio final.
+                // 'precioFinal' → precio manual manda: recalcula ganancia real ($ y %).
+                // 'alicuota'    → solo desglose: el precio final no cambia.
+                function calcular(origen) {
+                    var costoReal = renderCompraYCosto();
+
+                    if (origen === 'precioFinal') {
+                        var gananciaReal = toNumber(precioFinal) - costoReal;
+                        if (montoGanancia) montoGanancia.value = gananciaReal.toFixed(2);
+                        if (margenPct) margenPct.value = costoReal > 0 ? ((gananciaReal / costoReal) * 100).toFixed(2) : '0.00';
+                    } else if (origen === 'ganancia') {
+                        var gananciaPesos = toNumber(montoGanancia);
+                        precioFinal.value = (costoReal + gananciaPesos).toFixed(2);
+                        if (margenPct) margenPct.value = costoReal > 0 ? ((gananciaPesos / costoReal) * 100).toFixed(2) : '0.00';
+                    } else if (origen !== 'alicuota') {
+                        var ganancia = costoReal * (toNumber(margenPct) / 100);
+                        if (montoGanancia) montoGanancia.value = ganancia.toFixed(2);
+                        precioFinal.value = (costoReal + ganancia).toFixed(2);
                     }
 
-                    var ventaSinIva = toNumber(precioVenta);
-                    var ivaVenta = getIvaVentaPercent(cfg.alicuotaVenta, cfg.ivaVentaPct);
-                    var ivaVentaImporte = ventaSinIva * (ivaVenta / 100);
-                    setMoney(cfg.ivaVentaOut, ivaVentaImporte);
-                    setMoney(cfg.precioFinalOut, ventaSinIva + ivaVentaImporte);
+                    renderDesgloseVenta();
                 }
 
-                [compraConIva, ivaCompraPct, envio, percepciones, otros, margenPct, alicuotaVenta, ivaVentaPct].forEach(function (el) {
-                    if (el) el.addEventListener('input', function () { calcular('auto'); });
-                    if (el) el.addEventListener('change', function () { calcular('auto'); });
+                [compraConIva, ivaCompraPct, envio, percepciones, otros, margenPct].forEach(function (el) {
+                    if (el) el.addEventListener('input', function () { calcular('costo'); });
+                    if (el) el.addEventListener('change', function () { calcular('costo'); });
                 });
 
-                if (precioVenta) {
-                    precioVenta.addEventListener('input', function () { calcular('precioVenta'); });
-                    precioVenta.addEventListener('change', function () { calcular('precioVenta'); });
+                if (montoGanancia) {
+                    montoGanancia.addEventListener('input', function () { calcular('ganancia'); });
+                    montoGanancia.addEventListener('change', function () { calcular('ganancia'); });
                 }
 
-                calcular('auto');
+                precioFinal.addEventListener('input', function () { calcular('precioFinal'); });
+                precioFinal.addEventListener('change', function () { calcular('precioFinal'); });
 
-                // En edición, el JS externo puede cargar los valores después de abrir el modal.
+                if (alicuotaVenta) {
+                    alicuotaVenta.addEventListener('change', function () {
+                        syncIvaHidden();
+                        calcular('alicuota');
+                    });
+                }
+
+                calcular(cfg.initOrigen || 'costo');
+
+                // En edición, el JS externo carga los valores después de abrir el modal.
                 // Recalcula varias veces sin bloquear la UI para tomar esos datos.
+                // Usa initOrigen ('precioFinal') para derivar la ganancia real desde el
+                // precio cargado sin pisarlo.
                 if (cfg.modalId) {
                     var modal = document.getElementById(cfg.modalId);
                     if (modal) {
+                        // Solo al pasar de oculto a visible: si se re-disparara con el modal ya
+                        // abierto, recalcular desde el margen redondeado pisaría un precio manual.
+                        var estabaOculto = modal.classList.contains('hidden');
                         new MutationObserver(function () {
-                            if (!modal.classList.contains('hidden')) {
+                            var ocultoAhora = modal.classList.contains('hidden');
+                            if (estabaOculto && !ocultoAhora) {
                                 var attempts = 0;
                                 var timer = window.setInterval(function () {
-                                    calcular('auto');
+                                    syncIvaHidden();
+                                    calcular(cfg.initOrigen || 'costo');
                                     attempts += 1;
                                     if (attempts >= 8) window.clearInterval(timer);
                                 }, 150);
                             }
+                            estabaOculto = ocultoAhora;
                         }).observe(modal, { attributes: true, attributeFilter: ['class'] });
                     }
                 }
             }
 
+            // Sin modalId: el reintento de recálculo post-apertura solo aplica al modal de
+            // edición (carga valores async). En el alta pisaría un precio final tipeado
+            // rápido, porque el origen 'costo' re-deriva el precio desde el margen.
             bindPrecioProducto({
-                modalId: 'modal-nuevo-producto',
+                initOrigen: 'costo',
                 compraConIva: 'modal-precioCompra',
                 ivaCompraPct: 'modal-porcentajeIVACompra',
                 compraSinIvaOut: 'modal-precioCompraSinIva',
@@ -2781,16 +2816,17 @@
                 costoRealOut: 'modal-costoRealFinal',
                 costoRealHidden: 'modal-precioCompraRealFinal',
                 margenPct: 'modal-margenPorcentaje',
-                montoGananciaOut: 'modal-montoGanancia',
-                precioVenta: 'modal-precioVenta',
+                montoGanancia: 'modal-montoGanancia',
+                precioFinal: 'modal-precioFinal',
                 alicuotaVenta: 'modal-alicuotaIVAId',
-                ivaVentaPct: 'modal-porcentajeIVA',
-                ivaVentaOut: 'modal-ivaVentaImporte',
-                precioFinalOut: 'modal-precioFinal'
+                ivaVentaHidden: 'modal-porcentajeIVA',
+                ventaSinIvaOut: 'modal-ventaSinIva',
+                ivaVentaOut: 'modal-ivaVentaImporte'
             });
 
             bindPrecioProducto({
                 modalId: 'modal-editar-producto',
+                initOrigen: 'precioFinal',
                 compraConIva: 'prod-edit-precioCompra',
                 ivaCompraPct: 'prod-edit-porcentajeIVACompra',
                 compraSinIvaOut: 'prod-edit-precioCompraSinIva',
@@ -2801,12 +2837,12 @@
                 costoRealOut: 'prod-edit-costoRealFinal',
                 costoRealHidden: 'prod-edit-precioCompraRealFinal',
                 margenPct: 'prod-edit-margenPorcentaje',
-                montoGananciaOut: 'prod-edit-montoGanancia',
-                precioVenta: 'prod-edit-precioVenta',
+                montoGanancia: 'prod-edit-montoGanancia',
+                precioFinal: 'prod-edit-precioFinal',
                 alicuotaVenta: 'prod-edit-alicuotaIVAId',
-                ivaVentaPct: 'prod-edit-porcentajeIVA',
-                ivaVentaOut: 'prod-edit-ivaVentaImporte',
-                precioFinalOut: 'prod-edit-precioFinal'
+                ivaVentaHidden: 'prod-edit-porcentajeIVA',
+                ventaSinIvaOut: 'prod-edit-ventaSinIva',
+                ivaVentaOut: 'prod-edit-ivaVentaImporte'
             });
         }());
     </script>

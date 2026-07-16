@@ -2497,6 +2497,19 @@
 
             reintentandoSubmitConDatosTarjeta = false;
 
+            // Crédito/cta. cte. con resultado NoViable y sin excepción confirmada: no dejar
+            // pasar el submit a ciegas (p.ej. el usuario nunca visitó la solapa "Credito").
+            // Se lo lleva a esa solapa para que vea el motivo y pueda aplicar la excepción.
+            if (esTipoPagoCredito(selectTipoPago?.value) &&
+                ultimaPrevalidacion?.resultado === RESULTADO_PREVAL.NoViable &&
+                !excepcionActiva) {
+                e.preventDefault();
+                window.VentaWizard?.setActiveStep?.('credito');
+                showFeedback('Revisá la verificación crediticia antes de continuar.', 'warning');
+                document.getElementById('step-panel-credito')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                return;
+            }
+
             const panelActivo = $('#panel-excepcion-activa');
             const panelVisible = panelActivo && !panelActivo.classList.contains('hidden');
 

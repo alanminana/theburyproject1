@@ -501,17 +501,22 @@ namespace TheBuryProject.Services
             }
 
             // FASE 5E: la excepción documental es una autorización puntual y requiere
-            // ventas.authorize. ventas.create (permiso mínimo para llegar a este POST)
-            // ya no habilita el bypass por sí solo — evita que el propio creador se
-            // autoexcepcione con el permiso mínimo de venta.
+            // ventas.authorize o ventas.requestexception. ventas.create (permiso mínimo
+            // para llegar a este POST) ya no habilita el bypass por sí solo — evita que
+            // el propio creador se autoexcepcione con el permiso mínimo de venta.
+            // ventas.requestexception permite solicitar la excepción (queda pendiente de
+            // autorización formal, nunca auto-aprueba); ventas.authorize sigue siendo el
+            // único permiso que aprueba/autoriza esa solicitud vía AutorizarVentaAsync.
             var tieneAutorizar = _currentUserService.HasPermission("ventas", "authorize");
+            var tieneSolicitarExcepcion = _currentUserService.HasPermission("ventas", "requestexception");
+            var puedeSolicitarExcepcion = tieneAutorizar || tieneSolicitarExcepcion;
             _logger.LogWarning(
-                "Excepción documental: usuario={Usuario} ventas.authorize={Autorizar}",
-                _currentUserService.GetUsername(), tieneAutorizar);
+                "Excepción documental: usuario={Usuario} ventas.authorize={Autorizar} ventas.requestexception={Solicitar}",
+                _currentUserService.GetUsername(), tieneAutorizar, tieneSolicitarExcepcion);
 
-            if (!tieneAutorizar)
+            if (!puedeSolicitarExcepcion)
             {
-                _logger.LogWarning("Excepción documental: usuario sin ventas.authorize");
+                _logger.LogWarning("Excepción documental: usuario sin ventas.authorize ni ventas.requestexception");
                 return false;
             }
 
@@ -607,6 +612,16 @@ namespace TheBuryProject.Services
             var cliente = await _context.Clientes.FindAsync(venta.ClienteId);
             var puntajeRiesgo = cliente?.PuntajeRiesgo ?? 0;
 
+            // Si la venta viene de una cotización donde ya se había elegido una cantidad
+            // de cuotas, precargarla acá para no perderla al llegar a ConfigurarVenta
+            // (CreditoController.ConfigurarVenta ya usa credito.CantidadCuotas como default).
+            int? cuotasPreseleccionadas = venta.CotizacionOrigenId.HasValue
+                ? await _context.Cotizaciones
+                    .Where(c => c.Id == venta.CotizacionOrigenId.Value)
+                    .Select(c => c.CantidadCuotasSeleccionada)
+                    .FirstOrDefaultAsync()
+                : null;
+
             var credito = new Credito
             {
                 ClienteId = venta.ClienteId,
@@ -615,7 +630,7 @@ namespace TheBuryProject.Services
                 MontoAprobado = venta.Total,
                 SaldoPendiente = venta.Total,
                 TasaInteres = 0, // Se configurará después
-                CantidadCuotas = 0, // Se configurará después
+                CantidadCuotas = cuotasPreseleccionadas.GetValueOrDefault(), // 0 si no viene de cotización
                 Estado = EstadoCredito.PendienteConfiguracion,
                 FechaSolicitud = DateTime.UtcNow,
                 PuntajeRiesgoInicial = puntajeRiesgo
@@ -629,8 +644,8 @@ namespace TheBuryProject.Services
             await _context.SaveChangesAsync();
 
             _logger.LogInformation(
-                "Crédito {NumeroCredito} (PendienteConfiguracion) creado y asociado a venta {VentaId}",
-                numeroCredito, venta.Id);
+                "Crédito {NumeroCredito} (PendienteConfiguracion) creado y asociado a venta {VentaId}. CuotasPreseleccionadas:{Cuotas}",
+                numeroCredito, venta.Id, cuotasPreseleccionadas);
         }
 
         public async Task<VentaViewModel?> UpdateAsync(int id, VentaViewModel viewModel)
@@ -682,7 +697,43 @@ namespace TheBuryProject.Services
             await SincronizarDatosTarjetaEdicionAsync(venta, viewModel);
             await CalcularComisionesAsync(venta);
 
-            await VerificarAutorizacionSiCorrespondeAsync(venta, viewModel);
+            // Venta sin crédito asociado todavía (p.ej. convertida desde cotización): este
+            // edit es la primera vez que se establece el crédito, así que corre la misma
+            // validación de aptitud + excepción documental que CreateAsync, en vez del guard
+            // genérico de VerificarAutorizacionSiCorrespondeAsync (que asume crédito ya evaluado).
+            if (viewModel.TipoPago == TipoPago.CreditoPersonal && !venta.CreditoId.HasValue)
+            {
+                await CapturarSnapshotLimiteCreditoAsync(venta);
+
+                var validacion = await _validacionVentaService.ValidarVentaCreditoPersonalAsync(
+                    venta.ClienteId, venta.Total, venta.CreditoId);
+
+                if (validacion.NoViable)
+                {
+                    if (PuedeAplicarExcepcionDocumentalCreate(viewModel, validacion))
+                    {
+                        var motivoExcepcion = viewModel.MotivoExcepcionDocumentalCreate!.Trim();
+                        AplicarExcepcionDocumentalComoPendienteAutorizacion(validacion, motivoExcepcion);
+
+                        _logger.LogWarning(
+                            "UpdateAsync venta {Id} con excepción documental enviada a autorización formal. Cliente:{ClienteId} Usuario:{Usuario}",
+                            id,
+                            venta.ClienteId,
+                            _currentUserService.GetUsername());
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException(
+                            $"No es posible actualizar la venta con crédito personal. {validacion.MensajeResumen}");
+                    }
+                }
+
+                await AplicarResultadoValidacionAsync(venta, validacion);
+            }
+            else
+            {
+                await VerificarAutorizacionSiCorrespondeAsync(venta, viewModel);
+            }
 
             try
             {
@@ -707,6 +758,14 @@ namespace TheBuryProject.Services
             }
 
             _logger.LogInformation("Venta {Id} actualizada exitosamente", id);
+
+            if (viewModel.TipoPago == TipoPago.CreditoPersonal &&
+                venta.Estado == EstadoVenta.PendienteFinanciacion &&
+                !venta.CreditoId.HasValue)
+            {
+                await CrearCreditoPendienteParaVentaAsync(venta);
+            }
+
             return _mapper.Map<VentaViewModel>(venta);
         }
 

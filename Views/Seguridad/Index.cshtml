@@ -4,7 +4,7 @@
     ViewData["MetaDescription"] = "Gestión de usuarios, roles y permisos del sistema ERP TheBuryProject.";
 }
 
-@if (Model.ActiveTab == "usuarios" || Model.ActiveTab == "roles" || Model.ActiveTab == "permisos-rol" || Model.ActiveTab == "auditoria")
+@if (Model.ActiveTab == "usuarios" || Model.ActiveTab == "roles" || Model.ActiveTab == "auditoria")
 {
     <link rel="stylesheet" href="~/css/horizontal-scroll-affordance.css" asp-append-version="true" />
 }
@@ -65,7 +65,6 @@
     else if (Model.ActiveTab == "permisos-rol")
     {
         <script src="~/js/seguridad-module.js" asp-append-version="true"></script>
-        <script src="~/js/horizontal-scroll-affordance.js" asp-append-version="true"></script>
         <script src="~/js/seguridad-permisos-rol.js" asp-append-version="true"></script>
     }
     else if (Model.ActiveTab == "auditoria")

@@ -6,7 +6,9 @@ namespace TheBuryProject.Helpers;
 /// <summary>
 /// Model binder que acepta decimales con coma o punto como separador,
 /// independientemente de la cultura del servidor.
-/// Registrar con [ModelBinder(typeof(DecimalModelBinder))] en el ViewModel.
+/// Se aplica globalmente vía <see cref="DecimalModelBinderProvider"/>; también puede
+/// declararse con [ModelBinder(typeof(DecimalModelBinder))] en el ViewModel.
+/// Vacío bindea 0 en decimal y null en decimal? (preserva la semántica de opcional).
 /// </summary>
 public class DecimalModelBinder : IModelBinder
 {
@@ -21,7 +23,8 @@ public class DecimalModelBinder : IModelBinder
         var raw = valueResult.FirstValue;
         if (string.IsNullOrWhiteSpace(raw))
         {
-            bindingContext.Result = ModelBindingResult.Success(0m);
+            var esNullable = bindingContext.ModelMetadata.ModelType == typeof(decimal?);
+            bindingContext.Result = ModelBindingResult.Success(esNullable ? null : 0m);
             return Task.CompletedTask;
         }
 

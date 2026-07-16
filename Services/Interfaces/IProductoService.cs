@@ -26,16 +26,13 @@ namespace TheBuryProject.Services.Interfaces
         Task<bool> DeleteAsync(int id);
 
         /// <summary>
-        /// Resuelve el porcentaje de IVA aplicable al producto y convierte PrecioVenta
-        /// ingresado sin IVA al precio final persistible con IVA.
+        /// Resuelve el porcentaje de IVA efectivo del producto (alícuota configurada o
+        /// porcentaje general). No modifica PrecioVenta: el precio ingresado ya es el
+        /// precio final de venta con IVA incluido y el IVA solo se desglosa para mostrar.
         /// </summary>
-        Task PrepararPrecioVentaConIvaAsync(Producto producto);
+        Task ResolverIvaVentaAsync(Producto producto);
 
-        /// <summary>
-        /// Convierte un precio final con IVA a precio base sin IVA para formularios.
-        /// </summary>
-        decimal ObtenerPrecioVentaSinIva(decimal precioVentaConIva, decimal porcentajeIVA);
-        
+
         // Búsqueda y filtrado
         Task<IEnumerable<Producto>> SearchAsync(
             string? searchTerm = null,

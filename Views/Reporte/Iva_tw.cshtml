@@ -1,0 +1,223 @@
+@model TheBuryProject.ViewModels.ReporteIvaResultadoViewModel
+@{
+    ViewData["Title"] = "IVA de compras y ventas";
+    var filtro = Model?.Filtro ?? new TheBuryProject.ViewModels.ReporteIvaFiltroViewModel();
+    string tipo = (filtro.Tipo ?? "ambas").ToLowerInvariant();
+}
+
+<div class="max-w-7xl mx-auto space-y-6">
+
+    <div class="flex items-center gap-3">
+        <a asp-action="Index" class="text-slate-400 hover:text-slate-300 transition-colors">
+            <span class="material-symbols-outlined text-xl">arrow_back</span>
+        </a>
+        <div>
+            <h1 class="text-2xl font-bold text-slate-100">IVA de compras y ventas</h1>
+            <p class="text-sm text-slate-400">Neto, IVA y total por período, según los importes históricos de cada operación.</p>
+        </div>
+    </div>
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="rounded-xl border border-red-800 bg-red-900/20 px-4 py-3 text-sm text-red-400">
+            <span class="material-symbols-outlined text-base align-middle mr-1">error</span>@TempData["Error"]
+        </div>
+    }
+
+    <section class="card-erp-panel">
+        <div class="px-6 py-4 border-b border-slate-800 bg-slate-800/30">
+            <h2 class="font-semibold text-slate-100 flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary text-xl">filter_list</span>
+                Filtros
+            </h2>
+        </div>
+        <div class="px-6 py-5">
+            <form asp-action="Iva" method="get">
+                <div class="flex flex-wrap gap-4 items-end">
+                    <div class="space-y-1 w-44">
+                        <label class="text-xs font-medium text-slate-400">Fecha desde</label>
+                        <input type="date" name="FechaDesde" value="@(filtro.FechaDesde?.ToString("yyyy-MM-dd"))"
+                               class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                    </div>
+                    <div class="space-y-1 w-44">
+                        <label class="text-xs font-medium text-slate-400">Fecha hasta</label>
+                        <input type="date" name="FechaHasta" value="@(filtro.FechaHasta?.ToString("yyyy-MM-dd"))"
+                               class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                    </div>
+                    <div class="space-y-1 w-44">
+                        <label class="text-xs font-medium text-slate-400">Tipo de operación</label>
+                        <select name="Tipo"
+                                class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            <option value="ambas" selected="@(tipo == "ambas" ? "selected" : null)">Compras y ventas</option>
+                            <option value="compras" selected="@(tipo == "compras" ? "selected" : null)">Solo compras</option>
+                            <option value="ventas" selected="@(tipo == "ventas" ? "selected" : null)">Solo ventas</option>
+                        </select>
+                    </div>
+                    <div class="space-y-1 w-36">
+                        <label class="text-xs font-medium text-slate-400">Alícuota (%)</label>
+                        <input type="number" name="Alicuota" step="0.01" min="0" placeholder="Todas"
+                               value="@(filtro.Alicuota?.ToString(System.Globalization.CultureInfo.InvariantCulture))"
+                               class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                    </div>
+                    <button type="submit" class="btn-erp-primary">
+                        <span class="material-symbols-outlined text-base">search</span>
+                        Filtrar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    @if (Model != null)
+    {
+        <div class="grid gap-4 md:grid-cols-3">
+            @if (filtro.IncluyeCompras)
+            {
+                <section class="card-erp-panel p-6 space-y-3">
+                    <h2 class="font-semibold text-slate-100 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary text-xl">shopping_cart</span>
+                        Compras
+                        <span class="ml-auto text-xs font-normal text-slate-400">@Model.ComprasCantidad operaciones</span>
+                    </h2>
+                    <dl class="space-y-2 text-sm">
+                        <div class="flex justify-between"><dt class="text-slate-400">Total neto comprado</dt><dd class="text-slate-100 font-medium">$ @Model.ComprasNeto.ToString("N2")</dd></div>
+                        <div class="flex justify-between"><dt class="text-slate-400">Total de IVA de compra</dt><dd class="text-slate-100 font-medium">$ @Model.ComprasIva.ToString("N2")</dd></div>
+                        <div class="flex justify-between border-t border-slate-800 pt-2"><dt class="text-slate-300 font-semibold">Total comprado con IVA</dt><dd class="text-white font-bold">$ @Model.ComprasTotal.ToString("N2")</dd></div>
+                    </dl>
+                    <p class="text-[11px] text-slate-500">Órdenes de compra confirmadas, en tránsito o recibidas, por fecha de emisión.</p>
+                </section>
+            }
+
+            @if (filtro.IncluyeVentas)
+            {
+                <section class="card-erp-panel p-6 space-y-3">
+                    <h2 class="font-semibold text-slate-100 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary text-xl">point_of_sale</span>
+                        Ventas
+                        <span class="ml-auto text-xs font-normal text-slate-400">@Model.VentasCantidad operaciones</span>
+                    </h2>
+                    <dl class="space-y-2 text-sm">
+                        <div class="flex justify-between"><dt class="text-slate-400">Total neto vendido</dt><dd class="text-slate-100 font-medium">$ @Model.VentasNeto.ToString("N2")</dd></div>
+                        <div class="flex justify-between"><dt class="text-slate-400">Total de IVA de venta</dt><dd class="text-slate-100 font-medium">$ @Model.VentasIva.ToString("N2")</dd></div>
+                        <div class="flex justify-between border-t border-slate-800 pt-2"><dt class="text-slate-300 font-semibold">Total vendido con IVA</dt><dd class="text-white font-bold">$ @Model.VentasTotal.ToString("N2")</dd></div>
+                    </dl>
+                    <p class="text-[11px] text-slate-500">Ventas confirmadas, facturadas o entregadas. Una venta cuenta una sola vez aunque tenga varios cobros en Caja.</p>
+                </section>
+            }
+
+            @if (filtro.IncluyeCompras && filtro.IncluyeVentas)
+            {
+                <section class="card-erp-panel p-6 space-y-3 border-primary/30">
+                    <h2 class="font-semibold text-slate-100 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary text-xl">balance</span>
+                        Resumen general
+                    </h2>
+                    <dl class="space-y-2 text-sm">
+                        <div class="flex justify-between"><dt class="text-slate-400">IVA de ventas</dt><dd class="text-slate-100 font-medium">$ @Model.VentasIva.ToString("N2")</dd></div>
+                        <div class="flex justify-between"><dt class="text-slate-400">IVA de compras</dt><dd class="text-slate-100 font-medium">− $ @Model.ComprasIva.ToString("N2")</dd></div>
+                        <div class="flex justify-between border-t border-slate-800 pt-2">
+                            <dt class="text-slate-300 font-semibold">Diferencia de IVA</dt>
+                            <dd class="font-bold @(Model.DiferenciaIva >= 0 ? "text-amber-400" : "text-emerald-400")">$ @Model.DiferenciaIva.ToString("N2")</dd>
+                        </div>
+                    </dl>
+                    <p class="text-[11px] text-slate-500">No es "IVA a pagar": no contempla percepciones, retenciones, saldos anteriores ni notas de crédito.</p>
+                </section>
+            }
+        </div>
+
+        @if (filtro.IncluyeCompras && Model.ComprasPorAlicuota.Count > 0)
+        {
+            <section class="card-erp-panel">
+                <div class="px-6 py-4 border-b border-slate-800 bg-slate-800/30">
+                    <h2 class="font-semibold text-slate-100 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary text-xl">percent</span>
+                        Compras por alícuota
+                    </h2>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-slate-800 text-left text-xs uppercase tracking-wider text-slate-400">
+                                <th class="px-6 py-3">Alícuota</th>
+                                <th class="px-6 py-3 text-right">Operaciones</th>
+                                <th class="px-6 py-3 text-right">Neto</th>
+                                <th class="px-6 py-3 text-right">IVA</th>
+                                <th class="px-6 py-3 text-right">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in Model.ComprasPorAlicuota)
+                            {
+                                <tr class="border-b border-slate-800/60 hover:bg-white/5 transition-colors">
+                                    <td class="px-6 py-3 text-slate-100 font-medium">@item.Porcentaje.ToString("0.##") %</td>
+                                    <td class="px-6 py-3 text-right text-slate-300">@item.Operaciones</td>
+                                    <td class="px-6 py-3 text-right text-slate-300">$ @item.Neto.ToString("N2")</td>
+                                    <td class="px-6 py-3 text-right text-slate-300">$ @item.Iva.ToString("N2")</td>
+                                    <td class="px-6 py-3 text-right text-slate-100 font-medium">$ @item.Total.ToString("N2")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        }
+
+        @if (filtro.IncluyeVentas && Model.VentasPorAlicuota.Count > 0)
+        {
+            <section class="card-erp-panel">
+                <div class="px-6 py-4 border-b border-slate-800 bg-slate-800/30">
+                    <h2 class="font-semibold text-slate-100 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary text-xl">percent</span>
+                        Ventas por alícuota
+                    </h2>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-slate-800 text-left text-xs uppercase tracking-wider text-slate-400">
+                                <th class="px-6 py-3">Alícuota</th>
+                                <th class="px-6 py-3 text-right">Operaciones</th>
+                                <th class="px-6 py-3 text-right">Neto</th>
+                                <th class="px-6 py-3 text-right">IVA</th>
+                                <th class="px-6 py-3 text-right">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in Model.VentasPorAlicuota)
+                            {
+                                <tr class="border-b border-slate-800/60 hover:bg-white/5 transition-colors">
+                                    <td class="px-6 py-3 text-slate-100 font-medium">@item.Porcentaje.ToString("0.##") %</td>
+                                    <td class="px-6 py-3 text-right text-slate-300">@item.Operaciones</td>
+                                    <td class="px-6 py-3 text-right text-slate-300">$ @item.Neto.ToString("N2")</td>
+                                    <td class="px-6 py-3 text-right text-slate-300">$ @item.Iva.ToString("N2")</td>
+                                    <td class="px-6 py-3 text-right text-slate-100 font-medium">$ @item.Total.ToString("N2")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        }
+
+        @if (Model.VentasSinDesglose > 0)
+        {
+            <div class="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-400">
+                <span class="material-symbols-outlined text-sm align-middle mr-1">warning</span>
+                @Model.VentasSinDesglose venta(s) por $ @Model.VentasSinDesgloseTotal.ToString("N2") no informan desglose histórico de IVA y quedaron fuera de los totales de ventas. El IVA histórico no se reconstruye desde la alícuota actual del producto.
+            </div>
+        }
+
+        @if (Model.ComprasSinDesglosePorLinea > 0)
+        {
+            <div class="rounded-xl border border-slate-700 bg-slate-900/40 px-4 py-3 text-xs text-slate-400">
+                <span class="material-symbols-outlined text-sm align-middle mr-1">info</span>
+                @Model.ComprasSinDesglosePorLinea orden(es) de compra anteriores al desglose por línea se agrupan a la alícuota general de cabecera (21%).
+            </div>
+        }
+
+        <div class="rounded-xl border border-slate-800 bg-slate-900/40 px-4 py-3 text-xs text-slate-400">
+            <span class="material-symbols-outlined text-sm align-middle mr-1">info</span>
+            Neto, IVA y alícuota provienen del snapshot histórico de cada operación (líneas de venta y de orden de compra). Solo se incluyen operaciones confirmadas.
+        </div>
+    }
+</div>
