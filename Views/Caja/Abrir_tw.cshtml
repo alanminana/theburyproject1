@@ -8,13 +8,13 @@
     var terminalCodigo = !string.IsNullOrWhiteSpace(Model.CajaCodigo) ? Model.CajaCodigo : "Sin código cargado";
 }
 
-<div class="caja-page-shell" style="padding-bottom:3rem">
+<div class="caja-page-shell" style="padding-bottom:1.5rem">
 
     <a asp-action="Index" class="inline-flex items-center gap-1.5 text-sm muted hover:text-white transition" style="text-decoration:none">
         <span class="material-symbols-outlined" style="font-size:18px">arrow_back</span>Volver a cajas
     </a>
 
-    <div class="page-head" style="margin-top:.85rem">
+    <div class="page-head" style="margin-top:.6rem">
         <div class="min-w-0">
             <h1 class="page-title">Abrir caja</h1>
             <p class="page-sub">Iniciá un turno declarando el fondo inicial. A partir de la apertura quedan registrados todos los movimientos hasta el cierre.</p>
@@ -29,7 +29,7 @@
         </div>
     }
 
-    <div class="grid-kpi" style="margin-top:1.5rem">
+    <div class="grid-kpi" style="margin-top:1rem">
         <div class="kpi">
             <div class="kpi-label">Terminal</div>
             <div data-caja-abrir-terminal-label class="kpi-value">@terminalTexto</div>
@@ -52,7 +52,7 @@
         </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4" style="margin-top:1.5rem">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4" style="margin-top:1rem">
 
         <form asp-action="Abrir" method="post" class="lg:col-span-2 card card-pad">
             @Html.AntiForgeryToken()

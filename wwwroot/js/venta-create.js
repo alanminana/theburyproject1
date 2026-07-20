@@ -1101,7 +1101,9 @@
                 return;
             }
 
-            dropdownProductos.innerHTML = data.map(p => `
+            dropdownProductos.innerHTML = data.map(p => {
+                const marcaTexto = [p.marca, p.submarca].filter(Boolean).join(' ');
+                return `
                 <div class="px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer border-b border-slate-100 dark:border-slate-700 last:border-0"
                      data-id="${p.id}" data-codigo="${esc(p.codigo)}" data-nombre="${esc(p.nombre)}" data-precio="${p.precioVenta}" data-stock="${p.stockActual}" data-requiere-numero-serie="${p.requiereNumeroSerie ? 'true' : 'false'}" data-unidades-en-stock="${p.unidadesEnStock ?? 0}" data-stock-sin-identificar="${p.stockSinIdentificar ?? 0}">
                     <div class="flex items-center justify-between">
@@ -1111,10 +1113,12 @@
                             <span class="text-xs font-bold text-primary">${formatCurrency(p.precioVenta)}</span>
                         </div>
                     </div>
-                    <p class="text-xs text-slate-500">${esc(p.codigo)} ${p.marca ? '- ' + esc(p.marca) : ''} ${p.categoria ? '- ' + esc(p.categoria) : ''} - ${renderStockInfo(p)}</p>
-                    ${p.caracteristicasResumen ? `<p class="text-[10px] text-slate-400 mt-0.5">${esc(p.caracteristicasResumen)}</p>` : ''}
+                    <p class="text-xs text-slate-500">${esc(p.codigo)} ${marcaTexto ? '- ' + esc(marcaTexto) : ''} ${p.categoria ? '- ' + esc(p.categoria) : ''} - ${renderStockInfo(p)}</p>
+                    ${p.descripcion ? `<p class="text-[10px] text-slate-400 mt-0.5 truncate">${esc(p.descripcion)}</p>` : ''}
+                    ${p.caracteristicasResumen ? `<p class="text-[10px] text-slate-400 mt-0.5 truncate">${esc(p.caracteristicasResumen)}</p>` : ''}
                 </div>
-            `).join('');
+            `;
+            }).join('');
             show(dropdownProductos);
         } catch { hide(dropdownProductos); }
     }, 300));

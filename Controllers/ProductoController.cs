@@ -72,32 +72,6 @@ namespace TheBuryProject.Controllers
             });
         }
 
-        // GET: Producto/Details/5
-        public async Task<IActionResult> Details(int? id)
-        {
-            if (id == null)
-            {
-                return NotFound();
-            }
-
-            try
-            {
-                var producto = await _productoService.GetByIdAsync(id.Value);
-                if (producto == null)
-                {
-                    return NotFound();
-                }
-
-                var viewModel = _mapper.Map<ProductoViewModel>(producto);
-                return View("Details_tw", viewModel);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al obtener detalles del producto {Id}", id);
-                TempData["Error"] = "Error al cargar los detalles del producto. Intentá nuevamente.";
-                return RedirectToAction(nameof(Index));
-            }
-        }
         /// <summary>
         /// Carga los dropdowns de Categorías y Marcas para los formularios y filtros
         /// </summary>
@@ -141,44 +115,6 @@ namespace TheBuryProject.Controllers
             var alicuotas = await _catalogLookupService.ObtenerAlicuotasIVAParaFormAsync();
             ViewBag.AlicuotasIVA = new SelectList(alicuotas, "Id", "Texto", alicuotaSeleccionada);
             ViewBag.AlicuotasIVADatos = alicuotas;
-        }
-        // GET: Producto/Create
-        public async Task<IActionResult> Create()
-        {
-            await CargarDropdownsAsync();
-            return View("Create_tw");
-        }
-
-        // POST: Producto/Create
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create(ProductoViewModel viewModel)
-        {
-            if (ModelState.IsValid)
-            {
-                try
-                {
-                    var producto = await MapearProductoParaPersistenciaAsync(viewModel);
-                    await _productoService.CreateAsync(producto);
-
-                    TempData["Success"] = "Producto creado exitosamente";
-                    return RedirectToAction(nameof(Index));
-                }
-                catch (InvalidOperationException ex)
-                {
-                    _logger.LogWarning(ex, "Error de validación al crear producto");
-                    ModelState.AddModelError("", ex.Message);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error al crear producto");
-                    ModelState.AddModelError("", "Error al crear el producto. Intentá nuevamente.");
-                }
-            }
-
-            await CargarDropdownsAsync(viewModel.CategoriaId, viewModel.MarcaId);
-            await CargarAlicuotasIVAAsync(viewModel.AlicuotaIVAId);
-            return View("Create_tw", viewModel);
         }
 
         /// <summary>
@@ -297,29 +233,6 @@ namespace TheBuryProject.Controllers
             await CargarDropdownsAsync(viewModel.CategoriaId, viewModel.MarcaId);
             await CargarAlicuotasIVAAsync(viewModel.AlicuotaIVAId);
             return View("Edit_tw", viewModel);
-        }
-
-        // GET: Producto/Delete/5
-        public async Task<IActionResult> Delete(int? id)
-        {
-            if (id == null)
-                return NotFound();
-
-            try
-            {
-                var producto = await _productoService.GetByIdAsync(id.Value);
-                if (producto == null)
-                    return NotFound();
-
-                var viewModel = _mapper.Map<ProductoViewModel>(producto);
-                return View("Delete_tw", viewModel);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al cargar producto para eliminar {Id}", id);
-                TempData["Error"] = "Error al cargar el producto";
-                return RedirectToAction(nameof(Index));
-            }
         }
 
         // POST: Producto/Delete/5

@@ -92,8 +92,8 @@
         };
 }
 
-<div class="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-    <div class="space-y-8">
+<div id="venta-details-page" class="mx-auto w-full max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+    <div class="space-y-4">
 
         <!-- TempData Messages -->
         @if (TempData["Success"] != null)
@@ -143,8 +143,8 @@
         }
 
         <section class="hero-erp sm:p-8">
-            <div class="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
-                <div class="space-y-4">
+            <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                <div class="space-y-3">
                     <div class="flex flex-wrap items-center gap-2 text-xs font-semibold">
                         <span class="inline-flex items-center rounded-full bg-slate-800 px-3 py-1 text-slate-300">Ventas</span>
                         <span class="text-slate-600">/</span>
@@ -152,7 +152,7 @@
                     </div>
                     <div class="space-y-2">
                         <div class="flex flex-wrap items-center gap-3">
-                            <h1 class="text-3xl font-black tracking-tight text-white sm:text-4xl">@Model.Numero</h1>
+                            <h1 class="text-2xl font-black tracking-tight text-white sm:text-3xl">@Model.Numero</h1>
                             <span class="inline-flex items-center rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-widest @estadoBg">@Model.EstadoDisplay</span>
                         </div>
                         <p class="max-w-3xl text-sm text-slate-400 sm:text-base">@heroDescripcion</p>
@@ -189,7 +189,7 @@
                 </div>
             </div>
 
-            <div class="mt-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
+            <div class="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
                 <article class="card-erp-metric">
                     <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Cliente</p>
                     <p class="mt-3 text-sm font-bold text-white">@Model.ClienteNombre</p>
@@ -214,10 +214,10 @@
         </section>
 
         <!-- Main Grid -->
-        <div class="grid grid-cols-1 gap-8 lg:grid-cols-3 lg:items-start">
+        <div class="grid grid-cols-1 gap-5 lg:grid-cols-3 lg:items-start">
 
             <!-- Left Column: Details -->
-            <div class="lg:col-span-2 space-y-8">
+            <div class="lg:col-span-2 space-y-4">
 
                 <!-- Sale Info Card -->
                 <section class="card-erp-panel-padded">
@@ -235,7 +235,7 @@
                             @tipoPagoDisplay
                         </span>
                     </div>
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div>
                             <p class="text-[10px] font-bold text-slate-500 uppercase mb-1">Cliente</p>
                             <p class="text-sm font-bold text-white">@Model.ClienteNombre</p>
@@ -744,7 +744,7 @@
             </div>
 
             <!-- Right Column: Actions & Timeline -->
-            <div class="space-y-8">
+            <div class="space-y-4">
 
                 <!-- Actions Card -->
                 <section class="card-erp-panel-padded">
@@ -922,7 +922,7 @@
                         <span class="material-symbols-outlined text-primary">timeline</span>
                         <h2 class="text-white text-xl font-bold">Historial</h2>
                     </div>
-                    <div class="relative pl-6 space-y-6 before:absolute before:left-2.25 before:top-1 before:bottom-1 before:w-px before:bg-slate-700">
+                    <div class="relative pl-6 space-y-4 before:absolute before:left-2.25 before:top-1 before:bottom-1 before:w-px before:bg-slate-700">
                         @* Created *@
                         <div class="relative flex items-start gap-3">
                             <div class="absolute -left-6 top-0.5 size-4.5 rounded-full bg-primary border-2 border-slate-900 z-10"></div>

@@ -56,7 +56,7 @@
 
 #venta-create-page .venta-hero-section,
 #venta-edit-page .venta-hero-section {
-    margin-bottom: 1.25rem;
+    margin-bottom: 0.85rem;
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -80,7 +80,7 @@
     border-radius: 18px;
     background: var(--venta-wizard-card);
     box-shadow: 0 16px 44px rgba(0, 0, 0, 0.18);
-    padding: 0.95rem;
+    padding: 0.7rem 0.85rem;
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -105,7 +105,7 @@
 
 #venta-create-page .card-sub,
 #venta-edit-page .card-sub {
-    padding: 0.95rem;
+    padding: 0.75rem;
 }
 
 #venta-create-page .venta-section,
@@ -113,7 +113,21 @@
 #venta-edit-page .lg\:col-span-2>section:not(.vm-totals),
 #venta-edit-page #seccion-detalle-cobro,
 #venta-edit-page #seccion-verificacion-crediticia {
-    padding: 1.25rem;
+    padding: 1rem;
+}
+
+/* Paneles de paso (Cliente/Productos/Pago/Credito/Revision).
+   El markup usa .p-6; el id (1,1,0) gana a la utility (0,1,0) y densifica
+   los 5 pasos a la vez sin editar cada vista. */
+#venta-create-page .venta-wizard-tab-panel,
+#venta-edit-page .venta-wizard-tab-panel {
+    padding: 1rem 1.15rem;
+}
+
+/* Header interno de cada paso (label + título + descripción). */
+#venta-create-page .venta-wizard-tab-panel>.mb-6,
+#venta-edit-page .venta-wizard-tab-panel>.mb-6 {
+    margin-bottom: 0.85rem;
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -158,12 +172,12 @@
 #venta-edit-page select,
 #venta-edit-page textarea {
     width: 100%;
-    min-height: 2.65rem;
+    min-height: 2.4rem;
     border: 1px solid rgba(148, 163, 184, 0.22);
     border-radius: 12px;
     background-color: rgba(15, 23, 42, 0.82);
     color: #f8fafc;
-    padding: 0.6rem 0.8rem;
+    padding: 0.5rem 0.75rem;
     font-size: 0.9rem;
     transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
 }

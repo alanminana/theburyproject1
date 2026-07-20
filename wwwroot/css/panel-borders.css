@@ -1,0 +1,15 @@
+/* ══════════════════════════════════════════════════════════════
+   DELIMITADOR VISUAL DE PANELES — reborde rojo tenue global
+   Aplica a cualquier elemento cuya clase contenga "card" o "panel"
+   (sistema canónico .card-erp*, .hero-erp, .filter-panel-erp, y
+   variantes legacy por módulo: .card, .panel, .cp-card, etc.)
+   Se carga último en _Layout.cshtml para ganar la cascada sobre
+   el CSS propio de cada módulo sin tener que tocar archivo por archivo.
+   ══════════════════════════════════════════════════════════════ */
+
+@media screen {
+    [class*="card"],
+    [class*="panel"] {
+        border: 1px solid rgba(239, 68, 68, 0.45) !important;
+    }
+}

@@ -111,6 +111,7 @@ namespace TheBuryProject.Data
         public DbSet<SeguridadEventoAuditoria> SeguridadEventosAuditoria { get; set; }
         public DbSet<ModuloSistema> ModulosSistema { get; set; }
         public DbSet<AccionModulo> AccionesModulo { get; set; }
+        public DbSet<TerminoCondicionAceptacion> TerminosCondicionesAceptaciones { get; set; }
 
         public DbSet<ListaPrecio> ListasPrecios { get; set; }
         public DbSet<ProductoPrecioLista> ProductosPrecios { get; set; }
@@ -208,6 +209,16 @@ namespace TheBuryProject.Data
                     .WithMany(s => s.Usuarios)
                     .HasForeignKey(u => u.SucursalId)
                     .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<TerminoCondicionAceptacion>(entity =>
+            {
+                entity.HasOne(t => t.Usuario)
+                    .WithMany()
+                    .HasForeignKey(t => t.UsuarioId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasIndex(t => new { t.UsuarioId, t.VersionTerminos });
             });
 
             modelBuilder.Entity<Sucursal>(entity =>

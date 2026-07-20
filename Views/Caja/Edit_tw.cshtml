@@ -11,13 +11,13 @@
     var ubicacionResumen = string.Join(" • ", new[] { sucursalActual, ubicacionActual }.Where(v => !string.IsNullOrWhiteSpace(v)));
 }
 
-<div class="caja-page-shell" style="padding-bottom:3rem">
+<div class="caja-page-shell" style="padding-bottom:1.5rem">
 
     <a asp-action="Index" class="inline-flex items-center gap-1.5 text-sm muted hover:text-white transition" style="text-decoration:none">
         <span class="material-symbols-outlined" style="font-size:18px">arrow_back</span>Volver a cajas
     </a>
 
-    <div class="page-head" style="margin-top:.85rem">
+    <div class="page-head" style="margin-top:.6rem">
         <div class="min-w-0">
             <h1 class="page-title">Editar caja</h1>
             <p class="page-sub">Ajustá los datos de la terminal. Los cambios impactan la configuración visible sin alterar el historial operativo.</p>
@@ -32,7 +32,7 @@
         </div>
     }
 
-    <div class="grid-kpi" style="margin-top:1.5rem">
+    <div class="grid-kpi" style="margin-top:1rem">
         <div class="kpi">
             <div class="kpi-label">Código</div>
             <div data-caja-preview-code class="kpi-value mono">@(string.IsNullOrWhiteSpace(codigoActual) ? "Pendiente" : codigoActual)</div>
@@ -57,7 +57,7 @@
         </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4" style="margin-top:1.5rem">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4" style="margin-top:1rem">
 
         <form asp-action="Edit" asp-route-id="@cajaId" method="post" class="lg:col-span-2 card card-pad">
             @Html.AntiForgeryToken()

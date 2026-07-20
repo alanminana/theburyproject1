@@ -24,6 +24,7 @@ public class VentaServiceAutorizacionTests : IDisposable
     private readonly SqliteConnection _connection;
     private readonly AppDbContext _context;
     private readonly VentaService _service;
+    private readonly ICurrentUserService _currentUserStub = new StubCurrentUserServiceVenta();
 
     public VentaServiceAutorizacionTests()
     {
@@ -57,7 +58,7 @@ public class VentaServiceAutorizacionTests : IDisposable
             validator,
             numberGenerator,
             new PrecioVigenteResolver(_context),
-            new StubCurrentUserServiceVenta(),
+            _currentUserStub,
             null!,   // IValidacionVentaService
             null!,   // ICajaService
             null!,   // ICreditoDisponibleService
@@ -350,11 +351,12 @@ public class VentaServiceAutorizacionTests : IDisposable
     }
 
     // -------------------------------------------------------------------------
-    // FASE 5E — bloqueo de auto-autorización (Venta.CreatedBy vs usuarioAutoriza)
+    // FASE 5E/5G — bloqueo de auto-autorización (Venta.CreatedBy vs usuarioAutoriza),
+    // salvo que el usuario tenga el permiso ventas.authorize.
     // -------------------------------------------------------------------------
 
     [Fact]
-    public async Task AutorizarVenta_MismoUsuarioQueCreo_LanzaError()
+    public async Task AutorizarVenta_MismoUsuarioQueCreoSinPermiso_LanzaError()
     {
         var cliente = await SeedClienteAsync();
         var venta = await SeedVentaAsync(cliente.Id,
@@ -362,12 +364,34 @@ public class VentaServiceAutorizacionTests : IDisposable
             requiereAutorizacion: true,
             createdBy: "vendedor1");
 
+        ((StubCurrentUserServiceVenta)_currentUserStub).PuedeAutorizarPropia = false;
+
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.AutorizarVentaAsync(venta.Id, "vendedor1", "Aprobado por excepción"));
 
         _context.ChangeTracker.Clear();
         var ventaBd = await _context.Set<Venta>().FirstAsync(v => v.Id == venta.Id);
         Assert.Equal(EstadoAutorizacionVenta.PendienteAutorizacion, ventaBd.EstadoAutorizacion);
+    }
+
+    [Fact]
+    public async Task AutorizarVenta_MismoUsuarioQueCreoConPermisoAutorizar_Permite()
+    {
+        var cliente = await SeedClienteAsync();
+        var venta = await SeedVentaAsync(cliente.Id,
+            estadoAutorizacion: EstadoAutorizacionVenta.PendienteAutorizacion,
+            requiereAutorizacion: true,
+            createdBy: "vendedor1");
+
+        ((StubCurrentUserServiceVenta)_currentUserStub).PuedeAutorizarPropia = true;
+
+        var resultado = await _service.AutorizarVentaAsync(venta.Id, "vendedor1", "Aprobado por excepción");
+
+        Assert.True(resultado);
+        _context.ChangeTracker.Clear();
+        var ventaBd = await _context.Set<Venta>().FirstAsync(v => v.Id == venta.Id);
+        Assert.Equal(EstadoAutorizacionVenta.Autorizada, ventaBd.EstadoAutorizacion);
+        Assert.Equal("vendedor1", ventaBd.UsuarioAutoriza);
     }
 
     [Fact]
@@ -500,14 +524,17 @@ public class VentaServiceAutorizacionTests : IDisposable
     }
 
     // -------------------------------------------------------------------------
-    // FASE 5F — bloqueo de auto-autorización en excepción documental
+    // FASE 5F/5G — bloqueo de auto-autorización en excepción documental,
+    // salvo que el usuario tenga el permiso ventas.authorize.
     // -------------------------------------------------------------------------
 
     [Fact]
-    public async Task RegistrarExcepcionDocumental_MismoCreador_Bloquea()
+    public async Task RegistrarExcepcionDocumental_MismoCreadorSinPermiso_Bloquea()
     {
         var cliente = await SeedClienteAsync();
         var venta = await SeedVentaAsync(cliente.Id, createdBy: "vendedor1");
+
+        ((StubCurrentUserServiceVenta)_currentUserStub).PuedeAutorizarPropia = false;
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.RegistrarExcepcionDocumentalAsync(venta.Id, "vendedor1", "Documento vencido"));
@@ -517,6 +544,25 @@ public class VentaServiceAutorizacionTests : IDisposable
         Assert.Null(ventaBd.UsuarioAutoriza);
         Assert.Null(ventaBd.FechaAutorizacion);
         Assert.DoesNotContain("EXCEPCION_DOC", ventaBd.MotivoAutorizacion ?? string.Empty);
+    }
+
+    [Fact]
+    public async Task RegistrarExcepcionDocumental_MismoCreadorConPermisoAutorizar_Permite()
+    {
+        var cliente = await SeedClienteAsync();
+        var venta = await SeedVentaAsync(cliente.Id, createdBy: "vendedor1");
+
+        ((StubCurrentUserServiceVenta)_currentUserStub).PuedeAutorizarPropia = true;
+
+        var resultado = await _service.RegistrarExcepcionDocumentalAsync(
+            venta.Id, "vendedor1", "Documento vencido");
+
+        Assert.True(resultado);
+        _context.ChangeTracker.Clear();
+        var ventaBd = await _context.Set<Venta>().FirstAsync(v => v.Id == venta.Id);
+        Assert.Equal("vendedor1", ventaBd.UsuarioAutoriza);
+        Assert.NotNull(ventaBd.FechaAutorizacion);
+        Assert.Contains("EXCEPCION_DOC", ventaBd.MotivoAutorizacion);
     }
 
     [Fact]
@@ -709,11 +755,15 @@ public class VentaServiceAutorizacionTests : IDisposable
 // ---------------------------------------------------------------------------
 file sealed class StubCurrentUserServiceVenta : ICurrentUserService
 {
+    /// <summary>Controla ventas.authorize; false por defecto para no alterar los tests de bloqueo existentes.</summary>
+    public bool PuedeAutorizarPropia { get; set; }
+
     public string GetUsername() => "testuser";
     public string GetUserId() => "user-test";
     public string GetEmail() => "test@test.com";
     public bool IsAuthenticated() => true;
     public bool IsInRole(string role) => false;
-    public bool HasPermission(string modulo, string accion) => true;
+    public bool HasPermission(string modulo, string accion) =>
+        modulo == "ventas" && accion == "authorize" ? PuedeAutorizarPropia : true;
     public string GetIpAddress() => "127.0.0.1";
 }

@@ -49,5 +49,10 @@ namespace TheBuryProject.Services
         {
             return _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString();
         }
+
+        public string? GetUserAgent()
+        {
+            return _httpContextAccessor.HttpContext?.Request.Headers.UserAgent.ToString();
+        }
     }
 }

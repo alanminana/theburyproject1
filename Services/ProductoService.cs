@@ -788,6 +788,11 @@ namespace TheBuryProject.Services
             var limite = Math.Clamp(take, 1, 50);
             var termino = term.Trim();
 
+            bool CaracteristicaCoincideConTermino(ProductoCaracteristica c) =>
+                !string.IsNullOrEmpty(termino) &&
+                (c.Nombre.Contains(termino, StringComparison.OrdinalIgnoreCase) ||
+                 c.Valor.Contains(termino, StringComparison.OrdinalIgnoreCase));
+
             var productos = (await SearchAsync(
                     searchTerm: termino,
                     categoriaId: categoriaId,
@@ -817,8 +822,9 @@ namespace TheBuryProject.Services
 
                 var caracteristicasResumen = producto.Caracteristicas?
                     .Where(c => !c.IsDeleted)
+                    .OrderByDescending(CaracteristicaCoincideConTermino)
                     .Take(3)
-                    .Select(c => c.Valor)
+                    .Select(c => $"{c.Nombre}: {c.Valor}")
                     .ToList() ?? new List<string>();
 
                 resultado.Add(new ProductoVentaDto

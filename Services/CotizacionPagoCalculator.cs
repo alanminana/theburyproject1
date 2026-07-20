@@ -446,8 +446,20 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
             NombreMedioPago = "Credito personal",
             Disponible = true,
             Estado = CotizacionOpcionPagoEstado.Disponible,
+            FuenteTasaDescripcion = ResolverFuenteTasaDescripcion(parametros),
             Planes = planes
         });
+    }
+
+    private static string ResolverFuenteTasaDescripcion(ParametrosCreditoCliente parametros)
+    {
+        if (parametros.TieneConfiguracionPersonalizada)
+            return "Configuracion personalizada del cliente";
+
+        if (parametros.PerfilPreferidoId.HasValue)
+            return $"Perfil de credito: {parametros.PerfilPreferidoNombre}";
+
+        return "Configuracion global";
     }
 
     private static CotizacionMedioPagoResultado CrearOpcionUnPago(

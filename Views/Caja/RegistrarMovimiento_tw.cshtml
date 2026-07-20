@@ -7,7 +7,7 @@
     var saldoActual = Model.SaldoActual.HasValue ? $"$ {Model.SaldoActual.Value:N2}" : "No disponible";
 }
 
-<div class="caja-page-shell space-y-8">
+<div class="caja-page-shell space-y-4">
     <a asp-action="DetallesApertura" asp-route-id="@Model.AperturaCajaId" class="inline-flex items-center gap-1.5 text-sm muted hover:text-white transition no-underline">
         <span class="material-symbols-outlined" style="font-size:18px">arrow_back</span>Volver al turno
     </a>
@@ -72,7 +72,7 @@
 
             <div style="margin-top:1rem">
                 <label asp-for="Descripcion" class="label">Descripción <span class="muted-2 font-normal">(opcional)</span></label>
-                <textarea asp-for="Descripcion" rows="4" required placeholder="Detalle del movimiento para la trazabilidad del turno." class="field"></textarea>
+                <textarea asp-for="Descripcion" rows="2" required placeholder="Detalle del movimiento para la trazabilidad del turno." class="field"></textarea>
                 <span asp-validation-for="Descripcion" class="text-rose-500 text-xs"></span>
             </div>
 
@@ -113,11 +113,12 @@
                 <div>Transacción segura. El movimiento queda firmado con tu usuario y la hora exacta.</div>
             </div>
 
-            <span id="tipo-card-label" class="hidden">@(esEgreso ? "Egreso" : "Ingreso")</span>
-            <span id="tipo-card-copy" class="hidden"></span>
-            <span id="tipo-panel-badge" class="hidden">@(esEgreso ? "Egreso" : "Ingreso")</span>
-            <span id="tipo-panel-title" class="hidden"></span>
-            <span id="tipo-panel-copy" class="hidden"></span>
+            @* hidden como atributo: caja-registrar-movimiento.js reescribe className y borraría la clase "hidden". *@
+            <span id="tipo-card-label" hidden>@(esEgreso ? "Egreso" : "Ingreso")</span>
+            <span id="tipo-card-copy" hidden></span>
+            <span id="tipo-panel-badge" hidden>@(esEgreso ? "Egreso" : "Ingreso")</span>
+            <span id="tipo-panel-title" hidden></span>
+            <span id="tipo-panel-copy" hidden></span>
         </aside>
     </div>
 </div>

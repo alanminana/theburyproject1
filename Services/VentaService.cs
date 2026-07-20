@@ -1525,11 +1525,13 @@ namespace TheBuryProject.Services
             if (venta == null)
                 return false;
 
-            // FASE 5E: el usuario que creó la venta no puede autorizarla.
+            // FASE 5E/5G: el usuario que creó la venta no puede autorizarla,
+            // salvo que además tenga el permiso ventas.authorize (segundo control ya cubierto por el permiso).
             // CreatedBy (interceptor de auditoría) es la fuente confiable del creador;
             // UsuarioSolicita queda null en el flujo real y no sirve para esta validación.
             if (!string.IsNullOrWhiteSpace(venta.CreatedBy) &&
-                string.Equals(venta.CreatedBy, usuarioAutoriza, StringComparison.OrdinalIgnoreCase))
+                string.Equals(venta.CreatedBy, usuarioAutoriza, StringComparison.OrdinalIgnoreCase) &&
+                !_currentUserService.HasPermission("ventas", "authorize"))
             {
                 throw new InvalidOperationException(
                     "La venta debe ser autorizada por un usuario distinto al que la creó.");
@@ -1587,10 +1589,12 @@ namespace TheBuryProject.Services
                 return false;
             }
 
-            // FASE 5F: el usuario que creó la venta no puede registrar la excepción documental.
+            // FASE 5F/5G: el usuario que creó la venta no puede registrar la excepción documental,
+            // salvo que además tenga el permiso ventas.authorize.
             // Mismo criterio que AutorizarVentaAsync (CreatedBy es la fuente confiable del creador).
             if (!string.IsNullOrWhiteSpace(venta.CreatedBy) &&
-                string.Equals(venta.CreatedBy, usuarioAutoriza, StringComparison.OrdinalIgnoreCase))
+                string.Equals(venta.CreatedBy, usuarioAutoriza, StringComparison.OrdinalIgnoreCase) &&
+                !_currentUserService.HasPermission("ventas", "authorize"))
             {
                 throw new InvalidOperationException(
                     "La excepción documental debe ser registrada por un usuario distinto al que creó la venta.");

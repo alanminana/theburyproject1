@@ -5,7 +5,7 @@
     var movimientosCount = Model.Movimientos?.Count ?? 0;
 }
 
-<div class="caja-page-shell space-y-8">
+<div class="caja-page-shell space-y-4">
     <a asp-action="DetallesApertura" asp-route-id="@Model.AperturaCajaId" class="inline-flex items-center gap-1.5 text-sm muted hover:text-white transition no-underline">
         <span class="material-symbols-outlined" style="font-size:18px">arrow_back</span>Volver al turno
     </a>
@@ -60,7 +60,8 @@
                 <h2 class="font-semibold text-white">Arqueo de cierre</h2>
                 <p class="text-sm muted mt-0.5 mb-4">Ingresá el efectivo real contado. La diferencia se calcula automáticamente.</p>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
+                @* El monto esperado ya se muestra en el KPI "Caja fisica esperada" de arriba. *@
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <label asp-for="EfectivoContado" class="label">Efectivo real contado <span class="req">*</span></label>
                         <div class="field-money">
@@ -69,49 +70,44 @@
                         </div>
                         <span asp-validation-for="EfectivoContado" class="text-rose-500 text-xs"></span>
                     </div>
-                    <div class="card-2 p-3">
-                        <div class="text-[.68rem] uppercase tracking-wide muted-2 font-semibold">Caja fisica esperada</div>
-                        <div class="text-lg font-semibold text-white num mt-0.5">$@Model.MontoEsperadoSistema.ToString("N2")</div>
-                    </div>
-                </div>
-
-                <div class="result-card mt-4" id="result">
-                    <div class="flex items-center justify-between gap-3">
-                        <div>
+                    <div class="result-card" id="result">
+                        <div class="flex items-center justify-between gap-3">
                             <div class="result-label">Diferencia</div>
-                            <div class="result-value" id="diferencia-valor">$0,00</div>
+                            <span id="diferencia-status" class="chip" style="visibility:hidden">Exacto</span>
                         </div>
-                        <span id="diferencia-status" class="chip" style="visibility:hidden">Exacto</span>
+                        <div class="result-value" id="diferencia-valor">$0,00</div>
+                        <p class="text-xs mt-1 mb-0" id="diferencia-help" style="color:var(--muted)">Ingresá el efectivo contado para ver la diferencia.</p>
+                        <span class="material-symbols-outlined hidden" id="diferencia-icon">check_circle</span>
+                        <span class="hidden" id="total-real">$0,00</span>
                     </div>
-                    <p class="text-sm mt-2" id="diferencia-help" style="color:var(--muted)">Ingresá el efectivo contado para ver la diferencia.</p>
-                    <span class="material-symbols-outlined hidden" id="diferencia-icon">check_circle</span>
-                    <span class="hidden" id="total-real">$0,00</span>
                 </div>
 
-                <div data-caja-justificacion class="hidden" style="margin-top:1.25rem">
+                <div data-caja-justificacion class="hidden" style="margin-top:1rem">
                     <label asp-for="JustificacionDiferencia" class="label">Justificación de la diferencia <span class="req">*</span></label>
-                    <textarea asp-for="JustificacionDiferencia" id="justificacion" rows="3" disabled placeholder="Explicá el origen del sobrante o faltante." class="field"></textarea>
+                    <textarea asp-for="JustificacionDiferencia" id="justificacion" rows="2" disabled placeholder="Explicá el origen del sobrante o faltante." class="field"></textarea>
                     <span asp-validation-for="JustificacionDiferencia" class="text-rose-500 text-xs"></span>
                 </div>
 
-                <div style="margin-top:1.25rem">
-                    <label asp-for="DetalleArqueo" class="label">Detalle del arqueo <span class="muted-2 font-normal">(desglose de billetes, opcional)</span></label>
-                    <textarea asp-for="DetalleArqueo" rows="3" placeholder="Ej. 10 x $1000, 5 x $500..." class="field"></textarea>
+                <div class="caja-cerrar-notes-grid" style="margin-top:1rem">
+                    <div>
+                        <label asp-for="DetalleArqueo" class="label">Detalle del arqueo <span class="muted-2 font-normal">(desglose de billetes, opcional)</span></label>
+                        <textarea asp-for="DetalleArqueo" rows="2" placeholder="Ej. 10 x $1000, 5 x $500..." class="field"></textarea>
+                    </div>
+                    <div>
+                        <label asp-for="ObservacionesCierre" class="label">Observaciones del cierre <span class="muted-2 font-normal">(opcional)</span></label>
+                        <textarea asp-for="ObservacionesCierre" rows="2" placeholder="Novedades del turno para el responsable del próximo." class="field"></textarea>
+                    </div>
                 </div>
 
-                <div style="margin-top:1rem">
-                    <label asp-for="ObservacionesCierre" class="label">Observaciones del cierre <span class="muted-2 font-normal">(opcional)</span></label>
-                    <textarea asp-for="ObservacionesCierre" rows="3" placeholder="Novedades del turno para el responsable del próximo." class="field"></textarea>
-                </div>
-
-                <div class="alert alert-bad" style="margin-top:1.25rem">
-                    <span class="material-symbols-outlined">warning</span>
-                    <div><strong>El cierre es irreversible.</strong> Una vez cerrado el turno no se pueden agregar ni editar movimientos. La caja vuelve a estado Disponible.</div>
-                </div>
-
-                <div class="mt-5 pt-4 flex flex-col-reverse sm:flex-row justify-end gap-2" style="border-top:1px solid var(--line)">
-                    <a asp-action="DetallesApertura" asp-route-id="@Model.AperturaCajaId" class="btn btn-ghost no-underline">Cancelar</a>
-                    <button type="submit" class="btn btn-primary"><span class="material-symbols-outlined">lock</span>Cerrar caja</button>
+                <div class="mt-4 pt-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between" style="border-top:1px solid var(--line)">
+                    <div class="alert alert-bad lg:flex-1" style="margin:0">
+                        <span class="material-symbols-outlined">warning</span>
+                        <div><strong>El cierre es irreversible:</strong> no se podrán agregar ni editar movimientos.</div>
+                    </div>
+                    <div class="flex flex-col-reverse sm:flex-row justify-end gap-2 shrink-0">
+                        <a asp-action="DetallesApertura" asp-route-id="@Model.AperturaCajaId" class="btn btn-ghost no-underline">Cancelar</a>
+                        <button type="submit" class="btn btn-primary"><span class="material-symbols-outlined">lock</span>Cerrar caja</button>
+                    </div>
                 </div>
             </section>
 

@@ -260,7 +260,8 @@
         if (els.productoSeleccionado) {
             if (producto) {
                 els.productoSeleccionado.classList.remove('italic');
-                els.productoSeleccionado.innerHTML = `<span class="material-symbols-outlined text-blue-400" style="font-size:14px">check_circle</span> ${esc(producto.nombre)} · ${esc(formatCurrency(producto.precioVenta))} · Stock ${esc(producto.stockActual ?? '-')}`;
+                const marcaSel = [producto.marca, producto.submarca].filter(Boolean).join(' ');
+                els.productoSeleccionado.innerHTML = `<span class="material-symbols-outlined text-blue-400" style="font-size:14px">check_circle</span> ${esc(producto.nombre)}${marcaSel ? ' · ' + esc(marcaSel) : ''} · ${esc(formatCurrency(producto.precioVenta))} · Stock ${esc(producto.stockActual ?? '-')}`;
             } else {
                 els.productoSeleccionado.classList.add('italic');
                 els.productoSeleccionado.innerHTML = `<span class="material-symbols-outlined text-slate-600" style="font-size:14px">inventory_2</span> Sin producto seleccionado.`;
@@ -385,13 +386,16 @@
         productos
             .sort((a, b) => Number(b.codigoExacto) - Number(a.codigoExacto) || normalize(a.nombre).localeCompare(normalize(b.nombre)))
             .forEach(producto => {
+                const marcaTexto = [producto.marca, producto.submarca].filter(Boolean).join(' ');
                 const button = document.createElement('button');
                 button.type = 'button';
                 button.className = 'dropdown-item flex w-full items-start justify-between gap-3 text-left';
                 button.innerHTML = `
                     <span class="min-w-0">
                         <span class="block text-sm font-medium text-white truncate-1">${esc(producto.nombre)}</span>
-                        <span class="block text-[11px] text-slate-500">${esc(producto.codigo || `ID ${producto.id}`)} · ${esc(producto.categoria || 'Sin categoría')}</span>
+                        <span class="block text-[11px] text-slate-500">${esc(producto.codigo || `ID ${producto.id}`)} · ${esc(marcaTexto || 'Sin marca')} · ${esc(producto.categoria || 'Sin categoría')}</span>
+                        ${producto.descripcion ? `<span class="block text-[11px] text-slate-400 truncate-1">${esc(producto.descripcion)}</span>` : ''}
+                        ${producto.caracteristicasResumen ? `<span class="block text-[11px] text-slate-500 truncate-1">${esc(producto.caracteristicasResumen)}</span>` : ''}
                     </span>
                     <span class="shrink-0 text-right text-xs font-semibold text-slate-300 total-display">${formatCurrency(producto.precioVenta)}</span>`;
                 button.addEventListener('click', () => setProductoSeleccionado(producto));
@@ -818,12 +822,16 @@
         const minR = Math.min(...recargos), maxR = Math.max(...recargos);
         const recargoTxt = minR === maxR ? (minR > 0 ? `+${pct(minR)}` : pct(minR)) : `+${pct(minR)} a +${pct(maxR)}`;
 
+        const fuenteTxt = group.opcion.fuenteTasaDescripcion
+            ? `<div class="text-[10px] text-slate-500">${esc(group.opcion.fuenteTasaDescripcion)}</div>`
+            : '';
+
         const parent = document.createElement('tr');
         parent.className = 'parent';
         parent.setAttribute('aria-expanded', 'true');
         parent.dataset.group = gkey;
         parent.innerHTML = `
-            <td><span class="rmedio"><span class="pay-ico pay-ico--${meta.tone}"><span class="material-symbols-outlined" style="font-size:16px">${meta.icon}</span></span><span class="font-medium text-white">${esc(group.label)}</span><span class="material-symbols-outlined twist">expand_more</span></span></td>
+            <td><span class="rmedio"><span class="pay-ico pay-ico--${meta.tone}"><span class="material-symbols-outlined" style="font-size:16px">${meta.icon}</span></span><span><span class="font-medium text-white">${esc(group.label)}</span>${fuenteTxt}</span><span class="material-symbols-outlined twist">expand_more</span></span></td>
             <td class="r"><span class="text-[10px] text-slate-500">desde </span><span class="total-display font-semibold text-white">${formatCurrency(minTotal)}</span></td>
             <td class="text-slate-300">${planRows.length} planes</td>
             <td class="r text-slate-500">—</td>
@@ -860,8 +868,11 @@
         tr.dataset.cotizacionOpcionKey = key;
         if (key === bestKey) tr.className = 'best';
         const cuotasTxt = Number(plan.cantidadCuotas) > 1 ? formatCurrency(plan.valorCuota) : '—';
+        const fuenteTxt = row.opcion.fuenteTasaDescripcion
+            ? `<div class="text-[10px] text-slate-500">${esc(row.opcion.fuenteTasaDescripcion)}</div>`
+            : '';
         tr.innerHTML = `
-            <td><span class="rmedio"><span class="pay-ico pay-ico--${meta.tone}"><span class="material-symbols-outlined" style="font-size:16px">${meta.icon}</span></span><span class="font-medium text-white">${esc(medioLabel(row.opcion.medioPago, row.opcion.nombreMedioPago))}</span></span></td>
+            <td><span class="rmedio"><span class="pay-ico pay-ico--${meta.tone}"><span class="material-symbols-outlined" style="font-size:16px">${meta.icon}</span></span><span><span class="font-medium text-white">${esc(medioLabel(row.opcion.medioPago, row.opcion.nombreMedioPago))}</span>${fuenteTxt}</span></span></td>
             <td class="r"><span class="total-display font-semibold text-white">${formatCurrency(plan.total)}</span></td>
             <td class="text-slate-300">${planLabelCuotas(plan)}</td>
             <td class="r ${Number(plan.cantidadCuotas) > 1 ? 'text-slate-300 total-display' : 'text-slate-400'}">${cuotasTxt}</td>

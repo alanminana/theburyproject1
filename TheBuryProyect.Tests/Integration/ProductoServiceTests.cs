@@ -937,6 +937,26 @@ public class ProductoServiceTests : IDisposable
         Assert.Equal(77m, dto.PrecioVenta);
     }
 
+    [Fact]
+    public async Task BuscarParaVentaAsync_MatchPorCaracteristica_LaPriorizaEnElResumen()
+    {
+        // El producto no coincide por nombre/código/marca; sólo por el valor de
+        // una característica ("Blanco"), que además no es la primera cargada.
+        var producto = await SeedProductoAsync();
+        _context.ProductosCaracteristicas.AddRange(
+            new ProductoCaracteristica { ProductoId = producto.Id, Nombre = "Tamaño", Valor = "1L" },
+            new ProductoCaracteristica { ProductoId = producto.Id, Nombre = "Material", Valor = "Acero" },
+            new ProductoCaracteristica { ProductoId = producto.Id, Nombre = "Color", Valor = "Blanco" });
+        await _context.SaveChangesAsync();
+        var service = BuildServiceConResolver();
+
+        var resultado = await service.BuscarParaVentaAsync("blanco", soloConStock: false);
+
+        var dto = Assert.Single(resultado);
+        Assert.Equal(producto.Id, dto.Id);
+        Assert.Equal("Color: Blanco · Tamaño: 1L · Material: Acero", dto.CaracteristicasResumen);
+    }
+
     // =========================================================================
     // SearchIdsAsync
     // =========================================================================

@@ -378,6 +378,60 @@ public sealed class CotizacionPagoCalculatorContractTests
         Assert.Equal(5m, plan.TasaMensual);
         Assert.Equal("CreditoPersonalReadOnly", plan.TipoCalculo);
         Assert.Equal(1, creditoService.CallCount);
+        Assert.Equal("Configuracion global", credito.FuenteTasaDescripcion);
+    }
+
+    [Fact]
+    public async Task Simular_CreditoPersonalConCliente_ConPerfilPreferido_ExponeFuentePerfil()
+    {
+        var configuracionPagoService = new FakeConfiguracionPagoService
+        {
+            TasaGlobal = 5m,
+            Parametros = new ParametrosCreditoCliente
+            {
+                TasaMensual = 5m,
+                GastosAdministrativos = 0m,
+                CuotasMinimas = 1,
+                CuotasMaximas = 12,
+                PerfilPreferidoId = 9,
+                PerfilPreferidoNombre = "Preferencial"
+            }
+        };
+
+        var resultado = await CreateCalculator(
+            creditoService: new FakeCreditoSimulacionVentaService(),
+            configuracionPagoService: configuracionPagoService)
+            .SimularAsync(DefaultRequest(clienteId: 44, cuotas: new[] { 6 }));
+
+        var credito = Assert.Single(resultado.OpcionesPago, o => o.MedioPago == CotizacionMedioPagoTipo.CreditoPersonal);
+        Assert.Equal("Perfil de credito: Preferencial", credito.FuenteTasaDescripcion);
+    }
+
+    [Fact]
+    public async Task Simular_CreditoPersonalConCliente_ConConfiguracionPersonalizada_ExponeFuenteCliente()
+    {
+        var configuracionPagoService = new FakeConfiguracionPagoService
+        {
+            TasaGlobal = 5m,
+            Parametros = new ParametrosCreditoCliente
+            {
+                TasaMensual = 5m,
+                GastosAdministrativos = 0m,
+                CuotasMinimas = 1,
+                CuotasMaximas = 12,
+                TieneConfiguracionPersonalizada = true,
+                PerfilPreferidoId = 9,
+                PerfilPreferidoNombre = "Preferencial"
+            }
+        };
+
+        var resultado = await CreateCalculator(
+            creditoService: new FakeCreditoSimulacionVentaService(),
+            configuracionPagoService: configuracionPagoService)
+            .SimularAsync(DefaultRequest(clienteId: 44, cuotas: new[] { 6 }));
+
+        var credito = Assert.Single(resultado.OpcionesPago, o => o.MedioPago == CotizacionMedioPagoTipo.CreditoPersonal);
+        Assert.Equal("Configuracion personalizada del cliente", credito.FuenteTasaDescripcion);
     }
 
     [Fact]

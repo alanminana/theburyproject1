@@ -30,210 +30,288 @@
 <!-- Alerts -->
 @if (TempData["Success"] is string successMsg)
 {
-    <div id="toast-success" role="status" aria-live="polite" class="flex items-center gap-3 p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 mb-2">
+    <div id="toast-success" role="status" aria-live="polite" class="flex items-center gap-3 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 mb-3">
         <span class="material-symbols-outlined">check_circle</span>
         <p class="text-sm font-medium">@successMsg</p>
     </div>
 }
 @if (TempData["Error"] is string errorMsg)
 {
-    <div id="toast-error" role="alert" class="flex items-center gap-3 p-4 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 mb-2">
+    <div id="toast-error" role="alert" class="flex items-center gap-3 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 mb-3">
         <span class="material-symbols-outlined">error</span>
         <p class="text-sm font-medium">@errorMsg</p>
     </div>
 }
 
-<!-- Hero -->
-<section class="hero-erp mb-6 sm:p-8">
-    <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-        <div class="flex flex-col gap-3">
-            <div class="flex items-center gap-2 text-slate-400 text-xs font-medium uppercase tracking-wider">
+<!-- Header compacto: breadcrumb + título + estado + acciones + meta + stats -->
+<section class="card-erp-panel p-4 mb-4">
+    <div class="oc-head">
+        <div class="oc-head__title">
+            <nav class="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-slate-400">
                 <a asp-action="Index" class="hover:text-primary no-underline transition-colors">Ordenes de Compra</a>
-                <span class="material-symbols-outlined text-xs">chevron_right</span>
+                <span class="material-symbols-outlined text-xs" aria-hidden="true">chevron_right</span>
                 <span class="text-primary">@Model.Numero</span>
-            </div>
-            <div class="flex flex-col gap-2">
-                <h1 class="text-slate-100 text-3xl font-black tracking-tight">Detalle de Orden de Compra</h1>
-                <p class="max-w-3xl text-sm text-slate-400">
-                    Seguimiento completo de la orden, su estado operativo y el avance de recepción de los productos asociados.
-                </p>
+            </nav>
+            <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+                <h1 class="text-lg font-bold tracking-tight text-white">Orden @Model.Numero</h1>
+                <span class="@estadoBadgeClass">@estadoNombre</span>
             </div>
         </div>
-
-        <div class="ocd-header-actions">
-            <a asp-action="Index" class="ocd-header-action btn-erp-ghost no-underline">
-                <span class="material-symbols-outlined text-sm">arrow_back</span>
+        <div class="oc-head__actions">
+            <a asp-action="Index" class="btn-erp-ghost btn-sm no-underline">
+                <span class="material-symbols-outlined text-sm" aria-hidden="true">arrow_back</span>
                 Volver
             </a>
-            <span class="ocd-header-action btn-erp-ghost"
+            <span class="btn-erp-ghost btn-sm opacity-60 cursor-not-allowed"
                   aria-disabled="true"
                   title="La edición de órdenes de compra todavía no está disponible">
-                <span class="material-symbols-outlined text-sm">edit</span>
+                <span class="material-symbols-outlined text-sm" aria-hidden="true">edit</span>
                 Editar
             </span>
+            <button type="button" id="btn-imprimir-orden" class="btn-erp-ghost btn-sm">
+                <span class="material-symbols-outlined text-sm" aria-hidden="true">print</span>
+                Imprimir
+            </button>
             @if (puedeRecepcionar)
             {
                 <a asp-action="Recepcionar" asp-route-id="@Model.Id"
-                   class="ocd-header-action btn-erp-primary no-underline">
-                    <span class="material-symbols-outlined text-sm">inventory_2</span>
+                   class="btn-erp-primary btn-sm no-underline">
+                    <span class="material-symbols-outlined text-sm" aria-hidden="true">inventory_2</span>
                     Recepcionar
                 </a>
             }
         </div>
     </div>
 
-    <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <article class="ocd-stat-card">
-            <span class="ocd-stat-label">Estado actual</span>
-            <div class="mt-2">
-                <span class="@estadoBadgeClass">@estadoNombre</span>
-            </div>
-        </article>
-        <article class="ocd-stat-card">
-            <span class="ocd-stat-label">Productos</span>
-            <p class="mt-2 text-2xl font-black leading-none text-white">@Model.Detalles.Count</p>
-            <p class="mt-1 text-xs text-slate-400">@totalUnidades unidad(es) solicitada(s)</p>
-        </article>
-        <article class="ocd-stat-card">
-            <span class="ocd-stat-label">Recepción</span>
-            <p class="mt-2 text-2xl font-black leading-none text-white">@porcentajeRecepcion%</p>
-            <p class="mt-1 text-xs text-slate-400">@totalPendientes unidad(es) pendiente(s)</p>
-        </article>
-        <article class="ocd-stat-card ocd-stat-card--accent">
-            <span class="ocd-stat-label">Total ordenado</span>
-            <p class="mt-2 text-2xl font-black leading-none text-primary">$ @Model.Total.ToString("N2")</p>
-            <p class="mt-1 text-xs text-slate-400">Incluye impuestos y descuentos aplicados</p>
-        </article>
+    <dl class="oc-meta mt-3">
+        <div>
+            <dt>Proveedor</dt>
+            <dd>@(Model.ProveedorNombre ?? "—")</dd>
+        </div>
+        <div>
+            <dt>Fecha de Emisión</dt>
+            <dd>@Model.FechaEmision.ToString("dd/MM/yyyy")</dd>
+        </div>
+        <div>
+            <dt>Entrega Estimada</dt>
+            <dd>@(Model.FechaEntregaEstimada?.ToString("dd/MM/yyyy") ?? "No definida")</dd>
+        </div>
+        <div>
+            <dt>Fecha de Recepción</dt>
+            @if (Model.FechaRecepcion.HasValue)
+            {
+                <dd class="text-emerald-400">@Model.FechaRecepcion.Value.ToString("dd/MM/yyyy")</dd>
+            }
+            else
+            {
+                <dd class="text-slate-400 italic">Pendiente</dd>
+            }
+        </div>
+    </dl>
+
+    @if (!string.IsNullOrWhiteSpace(Model.Observaciones))
+    {
+        <p class="mt-2 text-xs text-slate-400">
+            <span class="font-bold uppercase tracking-wider">Observaciones:</span>
+            <span class="text-slate-300">@Model.Observaciones</span>
+        </p>
+    }
+
+    <div class="oc-stat-strip mt-3" style="--oc-stats: 4;">
+        <div class="oc-stat">
+            <span class="oc-stat__label">Productos</span>
+            <p class="oc-stat__value">@Model.Detalles.Count</p>
+            <p class="oc-stat__sub">@totalUnidades unidad(es) solicitada(s)</p>
+        </div>
+        <div class="oc-stat">
+            <span class="oc-stat__label">Recepción</span>
+            <p class="oc-stat__value">@porcentajeRecepcion%</p>
+            <p class="oc-stat__sub">@totalRecibidas de @totalUnidades recepcionadas</p>
+        </div>
+        <div class="oc-stat">
+            <span class="oc-stat__label">Pendientes</span>
+            <p class="oc-stat__value">@totalPendientes</p>
+            <p class="oc-stat__sub">unidad(es) por ingresar</p>
+        </div>
+        <div class="oc-stat">
+            <span class="oc-stat__label">Total ordenado</span>
+            <p class="oc-stat__value oc-stat__value--accent">$ @Model.Total.ToString("N2")</p>
+            <p class="oc-stat__sub">impuestos y descuentos incluidos</p>
+        </div>
     </div>
 </section>
 
-<!-- Info Grid -->
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-    <!-- General Info Card -->
-    <div class="lg:col-span-2 flex flex-col card-erp-panel">
-        <div class="border-b p-6 border-slate-800">
-            <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div class="flex items-center gap-3">
-                    <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                        <span class="material-symbols-outlined">info</span>
-                    </div>
-                    <div>
-                        <h2 class="text-lg font-bold text-white">Información General</h2>
-                        <p class="text-sm text-slate-400">Datos clave de identificación, proveedor y fechas operativas.</p>
-                    </div>
-                </div>
-                <span class="@estadoBadgeClass">@estadoNombre</span>
+<div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+    <!-- Products Table Section -->
+    <section class="lg:col-span-2 card-erp-panel flex flex-col"
+             data-oc-scroll
+             style="--oc-scroll-min-width: 40rem; --oc-scroll-fade-light: rgba(248, 250, 252, 0.98); --oc-scroll-fade-dark: rgba(15, 23, 42, 0.95);">
+        <div class="px-4 py-3 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary" aria-hidden="true">list_alt</span>
+                <h2 class="text-base font-bold text-white">Productos en la Orden</h2>
             </div>
-        </div>
-        <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
-            <div class="space-y-1">
-                <p class="text-slate-400 text-xs font-semibold uppercase">Número de Orden</p>
-                <p class="text-slate-100 font-mono font-bold text-lg">@Model.Numero</p>
-            </div>
-            <div class="space-y-1">
-                <p class="text-slate-400 text-xs font-semibold uppercase">Proveedor</p>
-                <p class="text-slate-100 font-bold">@(Model.ProveedorNombre ?? "—")</p>
-            </div>
-            <div class="space-y-1">
-                <p class="text-slate-400 text-xs font-semibold uppercase">Fecha de Emisión</p>
-                <div class="flex items-center gap-2">
-                    <span class="material-symbols-outlined text-sm text-slate-400">calendar_today</span>
-                    <p class="text-slate-100 font-medium">@Model.FechaEmision.ToString("dd/MM/yyyy")</p>
-                </div>
-            </div>
-            <div class="space-y-1">
-                <p class="text-slate-400 text-xs font-semibold uppercase">Entrega Estimada</p>
-                @if (Model.FechaEntregaEstimada.HasValue)
+            <div class="flex flex-wrap items-center gap-2">
+                <span class="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-bold uppercase tracking-wide border-slate-700 bg-slate-800 text-slate-300">
+                    @Model.Detalles.Count producto(s)
+                </span>
+                @if (hayPendientes)
                 {
-                    <div class="flex items-center gap-2">
-                        <span class="material-symbols-outlined text-sm text-primary">local_shipping</span>
-                        <p class="text-slate-100 font-medium">@Model.FechaEntregaEstimada.Value.ToString("dd/MM/yyyy")</p>
-                    </div>
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary/10 text-primary border border-primary/20 text-xs font-bold uppercase">
+                        @totalPendientes pendiente(s)
+                    </span>
                 }
-                else
+                else if (Model.Detalles.Any())
                 {
-                    <p class="text-slate-400 italic">No definida</p>
-                }
-            </div>
-            <div class="space-y-1">
-                <p class="text-slate-400 text-xs font-semibold uppercase">Fecha de Recepción</p>
-                @if (Model.FechaRecepcion.HasValue)
-                {
-                    <div class="flex items-center gap-2">
-                        <span class="material-symbols-outlined text-sm text-emerald-500">check_circle</span>
-                        <p class="text-emerald-400 font-medium">@Model.FechaRecepcion.Value.ToString("dd/MM/yyyy")</p>
-                    </div>
-                }
-                else
-                {
-                    <p class="text-slate-400 italic">Pendiente</p>
-                }
-            </div>
-            <div class="space-y-1">
-                <p class="text-slate-400 text-xs font-semibold uppercase">Observaciones</p>
-                @if (!string.IsNullOrWhiteSpace(Model.Observaciones))
-                {
-                    <p class="text-slate-300 text-sm">@Model.Observaciones</p>
-                }
-                else
-                {
-                    <p class="text-slate-400 italic text-sm">Sin observaciones</p>
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-bold uppercase">
+                        Recepción completa
+                    </span>
                 }
             </div>
         </div>
-    </div>
+        <div data-oc-scroll-hint
+             class="mx-4 mt-3 flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-xs border-slate-700 bg-slate-800/60 text-slate-300 lg:hidden"
+             hidden>
+            <div class="flex items-center gap-2 font-semibold">
+                <span class="material-symbols-outlined text-base text-primary" aria-hidden="true">swipe</span>
+                <span id="ordencompra-details-scroll-hint">Deslizá la tabla para ver todos los importes</span>
+            </div>
+            <span class="rounded-full px-2 py-1 text-[11px] font-bold uppercase tracking-wide bg-slate-900/80 text-slate-400">
+                Scroll horizontal
+            </span>
+        </div>
+        <div class="relative" data-oc-scroll-shell>
+            <div data-oc-scroll-fade="left"
+                 class="pointer-events-none absolute inset-y-0 left-0 z-10 w-5"
+                 hidden></div>
+            <div data-oc-scroll-fade="right"
+                 class="pointer-events-none absolute inset-y-0 right-0 z-10 w-8"
+                 hidden></div>
+            <div data-oc-scroll-region
+                 class="overflow-x-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 dark:focus-visible:ring-offset-background-dark"
+                 role="region"
+                 aria-label="Detalle de productos de la orden"
+                 aria-describedby="ordencompra-details-scroll-hint"
+                 tabindex="0">
+                <table data-oc-scroll-table class="ocd-products-table w-full text-left border-collapse">
+                    <caption class="oc-visually-hidden">Productos incluidos en la orden de compra y estado de recepción.</caption>
+                    <thead>
+                        <tr class="bg-slate-800/50">
+                            <th scope="col" class="text-xs font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-800">Producto</th>
+                            <th scope="col" class="text-xs font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-800 text-center">Cantidad</th>
+                            <th scope="col" class="text-xs font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-800 text-center">Recibida</th>
+                            <th scope="col" class="text-xs font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-800 text-right">Precio Unitario</th>
+                            <th scope="col" class="text-xs font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-800 text-right">Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800">
+                        @if (Model.Detalles.Any())
+                        {
+                            @foreach (var d in Model.Detalles)
+                            {
+                                <tr class="hover:bg-slate-800/30 transition-colors">
+                                    <td>
+                                        <p class="text-sm font-bold text-slate-100">@d.ProductoNombre</p>
+                                        @if (!string.IsNullOrEmpty(d.ProductoCodigo))
+                                        {
+                                            <p class="text-xs text-primary font-mono">SKU: @d.ProductoCodigo</p>
+                                        }
+                                    </td>
+                                    <td class="text-center text-sm font-medium text-white">@d.Cantidad</td>
+                                    <td class="text-center">
+                                        @if (d.CantidadRecibida >= d.Cantidad && d.Cantidad > 0)
+                                        {
+                                            <span class="px-2 py-0.5 rounded bg-emerald-900/30 text-emerald-400 text-xs font-bold">@d.CantidadRecibida</span>
+                                        }
+                                        else if (d.CantidadRecibida > 0)
+                                        {
+                                            <span class="px-2 py-0.5 rounded bg-amber-900/30 text-amber-400 text-xs font-bold">@d.CantidadRecibida</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="px-2 py-0.5 rounded bg-slate-800 text-slate-400 text-xs font-bold">@d.CantidadRecibida</span>
+                                        }
+                                    </td>
+                                    <td class="text-right text-sm font-medium text-slate-300">$ @d.PrecioUnitario.ToString("N2")</td>
+                                    <td class="text-right text-sm font-bold text-white">$ @d.Subtotal.ToString("N2")</td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="5" class="px-6 py-10 text-center">
+                                    <div class="flex flex-col items-center gap-2 text-slate-400">
+                                        <span class="material-symbols-outlined text-3xl" aria-hidden="true">inbox</span>
+                                        <p class="text-sm font-medium">No hay productos en esta orden</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        @if (Model.Detalles.Any())
+        {
+            <div class="mt-auto border-t border-slate-800 bg-slate-800/20 px-4 py-3">
+                <div class="flex flex-wrap items-center justify-end gap-x-6 gap-y-1 text-sm">
+                    <span class="text-slate-400">Subtotal <span class="ml-1 font-bold text-white">$ @Model.Subtotal.ToString("N2")</span></span>
+                    @if (Model.Descuento > 0)
+                    {
+                        <span class="text-slate-400">Descuento <span class="ml-1 font-bold text-rose-400">- $ @Model.Descuento.ToString("N2")</span></span>
+                    }
+                    @if (Model.Iva > 0)
+                    {
+                        <span class="text-slate-400">IVA incluido <span class="ml-1 font-bold text-white">$ @Model.Iva.ToString("N2")</span></span>
+                    }
+                    <span class="text-slate-400">Total <span class="ml-1 text-lg font-black text-primary">$ @Model.Total.ToString("N2")</span></span>
+                </div>
+            </div>
+        }
+    </section>
 
     <!-- Status Update Panel -->
-    <aside class="flex h-fit flex-col card-erp-panel-padded gap-6 lg:sticky lg:top-24">
-        <div class="flex items-center gap-3">
-            <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                <span class="material-symbols-outlined">sync</span>
-            </div>
-            <div>
-                <h2 class="text-lg font-bold text-white">Cambiar Estado</h2>
-                <p class="text-sm text-slate-400">Actualizá el ciclo operativo de la orden con confirmación previa.</p>
-            </div>
+    <aside class="card-erp-panel p-4 flex h-fit flex-col gap-3 lg:sticky lg:top-4">
+        <div>
+            <h2 class="text-base font-bold text-white flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary text-[20px]" aria-hidden="true">sync</span>
+                Cambiar Estado
+            </h2>
         </div>
         @if (puedeCambiarEstado)
         {
-            <form asp-action="CambiarEstado" method="post" id="form-cambiar-estado" class="flex flex-col gap-4">
+            <form asp-action="CambiarEstado" method="post" id="form-cambiar-estado" class="flex flex-col gap-3">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="id" value="@Model.Id" />
-                <div class="flex flex-col gap-2">
+                <div class="flex flex-col gap-1.5">
                     <label for="select-estado" class="text-xs font-semibold text-slate-400 uppercase">Seleccionar Nuevo Estado</label>
                     <div class="relative">
                         <select name="nuevoEstado" id="select-estado"
                                 aria-describedby="estado-ayuda"
-                                class="w-full bg-slate-800 border border-slate-700 rounded-lg h-11 text-sm appearance-none px-4 focus:ring-primary focus:border-primary text-white">
+                                class="w-full bg-slate-800 border border-slate-700 rounded-lg h-10 text-sm appearance-none px-3 focus:ring-primary focus:border-primary text-white">
                             @foreach (var opt in estadoOptions)
                             {
                                 <option value="@((int)opt.Item1)" selected="@(opt.Item1 == Model.Estado)">@opt.Item2</option>
                             }
                         </select>
-                        <span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">expand_more</span>
+                        <span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400" aria-hidden="true">expand_more</span>
                     </div>
                 </div>
                 <button type="submit" id="btn-cambiar-estado"
-                        class="inline-flex w-full items-center justify-center gap-2 bg-primary/10 text-primary border border-primary/20 font-bold h-11 rounded-lg hover:bg-primary hover:text-white transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white focus-visible:ring-offset-slate-900">
-                    <span class="material-symbols-outlined text-sm">published_with_changes</span>
+                        class="inline-flex w-full items-center justify-center gap-2 bg-primary/10 text-primary border border-primary/20 font-bold h-10 rounded-lg hover:bg-primary hover:text-white transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900">
+                    <span class="material-symbols-outlined text-sm" aria-hidden="true">published_with_changes</span>
                     Actualizar Estado
                 </button>
                 <p id="estado-ayuda" class="text-xs text-slate-400">
-                    Antes de enviar, el sistema te va a pedir confirmación de este cambio.
+                    El sistema pide confirmación antes de aplicar el cambio y notifica al proveedor @(Model.ProveedorNombre ?? "").
                 </p>
-                <hr class="border-slate-800" />
-                <div class="flex items-start gap-3 p-3 rounded-lg bg-blue-500/5 border border-blue-500/10">
-                    <span class="material-symbols-outlined text-blue-500">help</span>
-                    <p class="text-xs text-slate-400 leading-relaxed">
-                        El cambio de estado notificará automáticamente al proveedor @(Model.ProveedorNombre ?? "").
-                    </p>
-                </div>
             </form>
         }
         else
         {
-            <div class="flex items-center gap-3 p-4 rounded-lg bg-slate-800 border border-slate-700">
-                <span class="material-symbols-outlined text-slate-400">lock</span>
+            <div class="flex items-center gap-3 p-3 rounded-lg bg-slate-800 border border-slate-700">
+                <span class="material-symbols-outlined text-slate-400" aria-hidden="true">lock</span>
                 <p class="text-sm text-slate-400">
                     Esta orden está <strong>@estadoNombre</strong> y no permite cambios de estado.
                 </p>
@@ -241,179 +319,6 @@
         }
     </aside>
 </div>
-
-<!-- Products Table Section -->
-<section class="card-erp-panel mb-6 flex flex-col"
-         data-oc-scroll
-         style="--oc-scroll-min-width: 44rem; --oc-scroll-fade-light: rgba(248, 250, 252, 0.98); --oc-scroll-fade-dark: rgba(15, 23, 42, 0.95);">
-    <div class="p-6 border-b border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div class="flex items-center gap-3">
-            <span class="material-symbols-outlined text-primary">list_alt</span>
-            <h3 class="text-lg font-bold text-white">Productos en la Orden</h3>
-        </div>
-        <div class="flex flex-wrap items-center gap-2">
-            <span class="inline-flex items-center gap-2 rounded-lg border bg-slate-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-slate-600 border-slate-700 bg-slate-800 text-slate-300">
-                <span class="material-symbols-outlined text-sm">inventory</span>
-                @Model.Detalles.Count producto(s)
-            </span>
-            @if (hayPendientes)
-            {
-                <div class="flex items-center gap-2 px-3 py-1 rounded-lg bg-primary/10 text-primary border border-primary/20">
-                    <span class="material-symbols-outlined text-sm">pending_actions</span>
-                    <span class="text-xs font-bold uppercase">@totalPendientes unidad(es) pendiente(s)</span>
-                </div>
-            }
-            else if (Model.Detalles.Any())
-            {
-                <div class="flex items-center gap-2 px-3 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                    <span class="material-symbols-outlined text-sm">check_circle</span>
-                    <span class="text-xs font-bold uppercase">Recepción Completa</span>
-                </div>
-            }
-        </div>
-    </div>
-    <div data-oc-scroll-hint
-         class="mx-6 mt-4 flex items-center justify-between gap-3 rounded-lg border bg-slate-100/80 px-3 py-2 text-xs text-slate-600 border-slate-700 bg-slate-800/60 text-slate-300 lg:hidden"
-         hidden>
-        <div class="flex items-center gap-2 font-semibold">
-            <span class="material-symbols-outlined text-base text-primary" aria-hidden="true">swipe</span>
-            <span id="ordencompra-details-scroll-hint">Deslizá la tabla para ver todos los importes</span>
-        </div>
-        <span class="rounded-full px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-slate-500 bg-slate-900/80 text-slate-400">
-            Scroll horizontal
-        </span>
-    </div>
-    <div class="relative px-0 pb-0 pt-4 sm:pt-5" data-oc-scroll-shell>
-        <div data-oc-scroll-fade="left"
-             class="pointer-events-none absolute inset-y-4 left-0 z-10 w-5"
-             hidden></div>
-        <div data-oc-scroll-fade="right"
-             class="pointer-events-none absolute inset-y-4 right-0 z-10 w-8"
-             hidden></div>
-        <div data-oc-scroll-region
-             class="overflow-x-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 dark:focus-visible:ring-offset-background-dark"
-             role="region"
-             aria-label="Detalle de productos de la orden"
-             aria-describedby="ordencompra-details-scroll-hint"
-             tabindex="0">
-            <table data-oc-scroll-table class="ocd-products-table w-full text-left border-collapse">
-                <caption class="ocd-visually-hidden">Productos incluidos en la orden de compra y estado de recepción.</caption>
-                <thead>
-                    <tr class="bg-slate-800/50">
-                        <th scope="col" class="text-xs font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-800">Producto</th>
-                        <th scope="col" class="text-xs font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-800 text-center">Cantidad</th>
-                        <th scope="col" class="text-xs font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-800 text-center">Recibida</th>
-                        <th scope="col" class="text-xs font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-800 text-right">Precio Unitario</th>
-                        <th scope="col" class="text-xs font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-800 text-right">Subtotal</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-800">
-                    @if (Model.Detalles.Any())
-                    {
-                        @foreach (var d in Model.Detalles)
-                        {
-                            <tr class="hover:/50 hover:bg-slate-800/30 transition-colors">
-                                <td>
-                                    <div class="flex items-center gap-3">
-                                        <div class="size-10 rounded-lg bg-slate-800 flex items-center justify-center text-slate-400 shrink-0">
-                                            <span class="material-symbols-outlined">image</span>
-                                        </div>
-                                        <div>
-                                            <p class="font-bold text-slate-100">@d.ProductoNombre</p>
-                                            @if (!string.IsNullOrEmpty(d.ProductoCodigo))
-                                            {
-                                                <p class="text-xs text-primary font-mono">SKU: @d.ProductoCodigo</p>
-                                            }
-                                        </div>
-                                    </div>
-                                </td>
-                                <td class="text-center font-medium text-white">@d.Cantidad</td>
-                                <td class="text-center">
-                                    @if (d.CantidadRecibida >= d.Cantidad && d.Cantidad > 0)
-                                    {
-                                        <span class="px-2 py-1 rounded bg-emerald-900/30 text-emerald-400 text-xs font-bold">@d.CantidadRecibida</span>
-                                    }
-                                    else if (d.CantidadRecibida > 0)
-                                    {
-                                        <span class="px-2 py-1 rounded bg-amber-900/30 text-amber-400 text-xs font-bold">@d.CantidadRecibida</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="px-2 py-1 rounded bg-slate-800 text-slate-400 text-xs font-bold">@d.CantidadRecibida</span>
-                                    }
-                                </td>
-                                <td class="text-right font-medium text-slate-300">$ @d.PrecioUnitario.ToString("N2")</td>
-                                <td class="text-right font-bold text-white">$ @d.Subtotal.ToString("N2")</td>
-                            </tr>
-                        }
-                    }
-                    else
-                    {
-                        <tr>
-                            <td colspan="5" class="px-6 py-16 text-center">
-                                <div class="flex flex-col items-center gap-2 text-slate-400">
-                                    <span class="material-symbols-outlined text-3xl">inbox</span>
-                                    <p class="text-sm font-medium">No hay productos en esta orden</p>
-                                </div>
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-    </div>
-    @if (Model.Detalles.Any())
-    {
-        <div class="border-t border-slate-800 bg-slate-800/20 p-4 sm:p-6">
-            <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <div class="ocd-total-card">
-                    <span class="ocd-total-label">Subtotal</span>
-                    <p class="ocd-total-value">$ @Model.Subtotal.ToString("N2")</p>
-                </div>
-                @if (Model.Descuento > 0)
-                {
-                    <div class="ocd-total-card">
-                        <span class="ocd-total-label">Descuento</span>
-                        <p class="text-lg font-black text-rose-500">- $ @Model.Descuento.ToString("N2")</p>
-                    </div>
-                }
-                @if (Model.Iva > 0)
-                {
-                    <div class="ocd-total-card">
-                        <span class="ocd-total-label">IVA incluido</span>
-                        <p class="ocd-total-value">$ @Model.Iva.ToString("N2")</p>
-                    </div>
-                }
-                <div class="ocd-total-card ocd-total-card--accent">
-                    <span class="ocd-total-label">Total final</span>
-                    <p class="text-2xl font-black leading-none text-primary">$ @Model.Total.ToString("N2")</p>
-                </div>
-            </div>
-        </div>
-    }
-</section>
-
-<!-- Audit Trail / Footer Info -->
-<footer class="card-erp p-4 sm:p-5">
-    <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-            <div class="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2 text-xs text-slate-400">
-                <span class="material-symbols-outlined text-sm">history</span>
-                <span>Orden emitida el @Model.FechaEmision.ToString("dd/MM/yyyy")</span>
-            </div>
-            <div class="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2 text-xs text-slate-400">
-                <span class="material-symbols-outlined text-sm">monitoring</span>
-                <span>@totalRecibidas de @totalUnidades unidad(es) recepcionadas</span>
-            </div>
-        </div>
-        <button type="button"
-                id="btn-imprimir-orden"
-                class="btn-erp-ghost">
-            <span class="material-symbols-outlined text-base">print</span>
-            Imprimir orden
-        </button>
-    </div>
-</footer>
 
 @section Styles {
     <partial name="_OrdenCompraModuleStyles" />

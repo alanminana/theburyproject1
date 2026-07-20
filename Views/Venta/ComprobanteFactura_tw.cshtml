@@ -215,6 +215,15 @@
             .invoice-box {
                 min-width: 0;
             }
+
+            /* Tablas anchas (8 columnas) scrollean dentro de su caja en pantallas
+               chicas, evitando overflow horizontal de la página. Print ignora
+               overflow y muestra la tabla completa. */
+            table {
+                display: block;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
         }
 
         @@media print {

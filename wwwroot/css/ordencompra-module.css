@@ -2,6 +2,8 @@
    ordencompra-module.css
    Styles for the OrdenCompra module views:
      Index_tw, Create_tw, Details_tw, Recepcionar_tw
+   Rediseño compacto: headers de una línea, stat-strips densos,
+   tablas con celdas reducidas. Objetivo: 1 pantalla sin scroll.
    ───────────────────────────────────────────────────────────── */
 
 
@@ -10,6 +12,120 @@
     [data-oc-scroll-hint] {
         display: none !important;
     }
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   PATRONES COMPARTIDOS DEL MÓDULO (prefix: oc-)
+   ══════════════════════════════════════════════════════════════ */
+
+/* Header compacto de página: breadcrumb + título + acciones en 1-2 líneas */
+.oc-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+}
+
+.oc-head__title {
+    min-width: 0;
+}
+
+.oc-head__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Meta inline: pares label/valor sin cajas */
+.oc-meta {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem 1.25rem;
+}
+
+@media (min-width: 640px) {
+    .oc-meta {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+
+.oc-meta dt {
+    font-size: 0.65rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgb(148 163 184);
+}
+
+.oc-meta dd {
+    margin-top: 0.125rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: rgb(248 250 252);
+}
+
+/* Tira de stats densa: celdas divididas por gap de 1px */
+.oc-stat-strip {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1px;
+    overflow: hidden;
+    border: 1px solid rgb(30 41 59);
+    border-radius: 0.75rem;
+    background: rgb(30 41 59);
+}
+
+@media (min-width: 768px) {
+    .oc-stat-strip {
+        grid-template-columns: repeat(var(--oc-stats, 4), minmax(0, 1fr));
+    }
+}
+
+.oc-stat {
+    padding: 0.5rem 0.875rem;
+    background: rgb(15 23 42 / 0.92);
+}
+
+.oc-stat__label {
+    display: block;
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgb(148 163 184);
+}
+
+.oc-stat__value {
+    margin-top: 0.2rem;
+    font-size: 1.05rem;
+    font-weight: 900;
+    line-height: 1.1;
+    color: rgb(248 250 252);
+}
+
+.oc-stat__value--accent {
+    color: #f5c518;
+}
+
+.oc-stat__sub {
+    margin-top: 0.1rem;
+    font-size: 0.68rem;
+    color: rgb(148 163 184);
+}
+
+.oc-visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
 }
 
 
@@ -32,10 +148,10 @@
     display: flex;
     align-items: flex-start;
     gap: 0.75rem;
-    margin-bottom: 1.25rem;
-    padding: 1rem;
+    margin-bottom: 1rem;
+    padding: 0.75rem 1rem;
     border: 1px solid transparent;
-    border-radius: 1rem;
+    border-radius: 0.75rem;
     transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
@@ -101,11 +217,11 @@ html.dark .ordencompra-feedback__dismiss:focus-visible {
 .ordencompra-product-toolbar {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-    padding: 1rem;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    padding: 0.75rem;
     border: 1px solid rgb(226 232 240);
-    border-radius: 1rem;
+    border-radius: 0.75rem;
     background: rgb(248 250 252);
 }
 
@@ -124,7 +240,7 @@ html.dark .ordencompra-product-toolbar {
 
 .ordencompra-add-button {
     width: 100%;
-    min-height: 2.75rem;
+    min-height: 2.5rem;
     padding-inline: 1rem;
     gap: 0.5rem;
 }
@@ -132,7 +248,7 @@ html.dark .ordencompra-product-toolbar {
 /* Product table */
 .ordencompra-product-table-shell {
     border: 1px solid rgb(226 232 240);
-    border-radius: 1rem;
+    border-radius: 0.75rem;
     background: rgb(248 250 252 / 0.6);
     overflow: hidden;
 }
@@ -146,7 +262,7 @@ html.dark .ordencompra-product-table-shell {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    padding: 0.875rem 1rem;
+    padding: 0.625rem 0.875rem;
     border-bottom: 1px solid rgb(226 232 240);
     color: rgb(71 85 105);
     background: rgb(241 245 249);
@@ -164,16 +280,27 @@ html.dark .ordencompra-scroll-hint {
     padding-bottom: 0.5rem;
 }
 
+/* Celdas densas: cubre thead del Razor y filas generadas por JS
+   (mayor especificidad que las utilities py-4/px-2 del markup) */
+.ordencompra-product-scroll th,
+.ordencompra-product-scroll td {
+    padding: 0.625rem 0.625rem;
+}
+
+#empty-state td {
+    padding: 1.75rem 0.625rem;
+}
+
 /* Summary card */
 .ordencompra-summary-card {
     position: static;
 }
 
 .ordencompra-summary-meta {
-    margin-bottom: 1.25rem;
+    margin-bottom: 0.75rem;
     color: rgb(100 116 139);
-    font-size: 0.875rem;
-    line-height: 1.5;
+    font-size: 0.78rem;
+    line-height: 1.45;
 }
 
 html.dark .ordencompra-summary-meta {
@@ -182,8 +309,8 @@ html.dark .ordencompra-summary-meta {
 
 .ordencompra-summary-totals {
     border: 1px solid rgb(226 232 240);
-    border-radius: 1rem;
-    padding: 1rem;
+    border-radius: 0.75rem;
+    padding: 0.875rem;
     background: rgb(248 250 252 / 0.75);
 }
 
@@ -193,21 +320,21 @@ html.dark .ordencompra-summary-totals {
 }
 
 .ordencompra-summary-actions {
-    margin-top: 1.5rem;
+    margin-top: 1rem;
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 0.5rem;
 }
 
 @media (min-width: 768px) {
     .ordencompra-product-toolbar {
-        grid-template-columns: minmax(0, 1fr) minmax(6rem, 7rem) minmax(8rem, 9rem) auto;
+        grid-template-columns: minmax(0, 1fr) minmax(5.5rem, 6.5rem) minmax(7rem, 8rem) auto;
         align-items: end;
     }
 
     .ordencompra-add-button {
         width: auto;
-        min-width: 12rem;
+        min-width: 10rem;
         justify-content: center;
     }
 }
@@ -215,7 +342,7 @@ html.dark .ordencompra-summary-totals {
 @media (min-width: 1280px) {
     .ordencompra-summary-card {
         position: sticky;
-        top: 1.5rem;
+        top: 1rem;
     }
 }
 
@@ -224,115 +351,15 @@ html.dark .ordencompra-summary-totals {
    DETAILS  (prefix: ocd = orden-compra-details)
    ══════════════════════════════════════════════════════════════ */
 
-.ocd-header-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-    width: 100%;
-}
-
-.ocd-header-action {
-    flex: 1 1 10rem;
-    min-height: 2.75rem;
-    padding: 0.75rem 1rem;
-}
-
-.ocd-stat-card {
-    border: 1px solid rgb(226 232 240 / 1);
-    border-radius: 1rem;
-    background: rgb(248 250 252 / 0.86);
-    padding: 1rem;
-}
-
-.dark .ocd-stat-card {
-    border-color: rgb(30 41 59 / 1);
-    background: rgb(15 23 42 / 0.55);
-}
-
-.ocd-stat-card--accent {
-    background: linear-gradient(135deg, rgb(239 246 255 / 0.95), rgb(248 250 252 / 0.96));
-}
-
-.dark .ocd-stat-card--accent {
-    background: linear-gradient(135deg, rgb(15 23 42 / 0.92), rgb(30 41 59 / 0.82));
-}
-
-.ocd-stat-label,
-.ocd-total-label {
-    font-size: 0.72rem;
-    font-weight: 800;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: rgb(100 116 139 / 1);
-}
-
-.dark .ocd-stat-label,
-.dark .ocd-total-label {
-    color: rgb(148 163 184 / 1);
-}
-
 .ocd-products-table th,
 .ocd-products-table td {
-    padding: 1rem;
-}
-
-.ocd-total-card {
-    border: 1px solid rgb(226 232 240 / 1);
-    border-radius: 0.875rem;
-    background: rgb(255 255 255 / 0.88);
-    padding: 1rem;
-}
-
-.dark .ocd-total-card {
-    border-color: rgb(30 41 59 / 1);
-    background: rgb(15 23 42 / 0.5);
-}
-
-.ocd-total-card--accent {
-    background: linear-gradient(135deg, rgb(239 246 255 / 0.95), rgb(248 250 252 / 0.96));
-}
-
-.dark .ocd-total-card--accent {
-    background: linear-gradient(135deg, rgb(15 23 42 / 0.92), rgb(30 41 59 / 0.82));
-}
-
-.ocd-total-value {
-    margin-top: 0.5rem;
-    font-size: 1.125rem;
-    font-weight: 900;
-    line-height: 1.1;
-    color: rgb(15 23 42 / 1);
-}
-
-.dark .ocd-total-value {
-    color: rgb(248 250 252 / 1);
-}
-
-.ocd-visually-hidden {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
+    padding: 0.625rem 1rem;
 }
 
 @media (min-width: 768px) {
-    .ocd-header-actions {
-        width: auto;
-        justify-content: flex-end;
-    }
-
-    .ocd-header-action {
-        flex: 0 0 auto;
-    }
-
     .ocd-products-table th,
     .ocd-products-table td {
-        padding: 1.25rem 1.5rem;
+        padding: 0.7rem 1.25rem;
     }
 }
 
@@ -341,70 +368,16 @@ html.dark .ordencompra-summary-totals {
    RECEPCIONAR  (prefix: ocr = orden-compra-recepcionar)
    ══════════════════════════════════════════════════════════════ */
 
-.ocr-header-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-    width: 100%;
-}
-
-.ocr-header-action {
-    flex: 1 1 11rem;
-    min-height: 2.75rem;
-    padding: 0.75rem 1rem;
-}
-
-.ocr-stat-card,
-.ocr-summary-card {
-    border: 1px solid rgb(226 232 240 / 1);
-    border-radius: 1rem;
-    background: rgb(248 250 252 / 0.86);
-    padding: 1rem;
-}
-
-.dark .ocr-stat-card,
-.dark .ocr-summary-card {
-    border-color: rgb(30 41 59 / 1);
-    background: rgb(15 23 42 / 0.55);
-}
-
-.ocr-stat-card--accent {
-    background: linear-gradient(135deg, rgb(239 246 255 / 0.95), rgb(248 250 252 / 0.96));
-}
-
-.dark .ocr-stat-card--accent {
-    background: linear-gradient(135deg, rgb(15 23 42 / 0.92), rgb(30 41 59 / 0.82));
-}
-
-.ocr-stat-label,
-.ocr-summary-label {
-    font-size: 0.72rem;
-    font-weight: 800;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: rgb(100 116 139 / 1);
-}
-
-.dark .ocr-stat-label,
-.dark .ocr-summary-label {
-    color: rgb(148 163 184 / 1);
-}
-
 .ocr-products-table th,
 .ocr-products-table td {
-    padding: 1rem;
+    padding: 0.625rem 1rem;
 }
 
-.ocr-visually-hidden {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
+@media (min-width: 768px) {
+    .ocr-products-table th,
+    .ocr-products-table td {
+        padding: 0.7rem 1.25rem;
+    }
 }
 
 /* Recepcionar feedback variants */
@@ -430,20 +403,4 @@ html.dark .ordencompra-summary-totals {
 .dark #recepcionar-feedback[data-variant="info"] {
     background: rgb(15 23 42 / 0.7);
     color: rgb(96 165 250 / 1);
-}
-
-@media (min-width: 768px) {
-    .ocr-header-actions {
-        width: auto;
-        justify-content: flex-end;
-    }
-
-    .ocr-header-action {
-        flex: 0 0 auto;
-    }
-
-    .ocr-products-table th,
-    .ocr-products-table td {
-        padding: 1.25rem 1.5rem;
-    }
 }

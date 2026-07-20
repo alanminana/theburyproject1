@@ -128,6 +128,7 @@ builder.Services.AddScoped<IConfiguracionMoraService, ConfiguracionMoraService>(
 builder.Services.AddScoped<IRolService, RolService>();
 builder.Services.AddScoped<IUsuarioService, UsuarioService>();
 builder.Services.AddScoped<ISeguridadAuditoriaService, SeguridadAuditoriaService>();
+builder.Services.AddScoped<ITerminosCondicionesService, TerminosCondicionesService>();
 
 builder.Services.AddScoped<IPrecioService, PrecioService>();
 builder.Services.AddScoped<IPrecioVigenteResolver, PrecioVigenteResolver>();
@@ -235,6 +236,7 @@ app.UseRateLimiter();
 
 // 9. Auth
 app.UseAuthentication();
+app.UseMiddleware<TerminosCondicionesMiddleware>();
 app.UseMiddleware<AuditMiddleware>();
 app.UseAuthorization();
 

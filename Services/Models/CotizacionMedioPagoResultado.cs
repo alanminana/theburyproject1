@@ -7,5 +7,6 @@ public sealed class CotizacionMedioPagoResultado
     public CotizacionOpcionPagoEstado Estado { get; init; } = CotizacionOpcionPagoEstado.Disponible;
     public bool Disponible { get; init; }
     public string? MotivoNoDisponible { get; init; }
+    public string? FuenteTasaDescripcion { get; init; }
     public List<CotizacionPlanPagoResultado> Planes { get; init; } = new();
 }

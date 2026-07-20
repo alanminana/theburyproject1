@@ -721,6 +721,64 @@
 }
 
 /* ══════════════════════════════════════════════════════════════
+   DETAILS — densificación scoped
+   Details usa clases globales (.hero-erp, .card-erp-*, .card-erp-panel-padded)
+   de shared-components.css. Para no afectar otros módulos, se densifica solo
+   dentro de #venta-details-page: el id (1,1,0) gana a las utilities (0,1,0)
+   y a las clases globales (0,1,0).
+   ══════════════════════════════════════════════════════════════ */
+
+#venta-details-page .hero-erp {
+    padding: 1.1rem 1.25rem;
+}
+
+@media (min-width: 640px) {
+    #venta-details-page .hero-erp {
+        padding: 1.25rem 1.5rem;
+    }
+}
+
+#venta-details-page .card-erp-panel-padded {
+    padding: 1rem 1.15rem;
+}
+
+#venta-details-page .card-erp-metric,
+#venta-details-page .card-erp-metric-info,
+#venta-details-page .card-erp-metric-success,
+#venta-details-page .card-erp-metric-warning,
+#venta-details-page .card-erp-metric-danger {
+    padding: 0.7rem 0.85rem;
+}
+
+/* Márgenes internos de los headers de cada panel (borde inferior + título). */
+#venta-details-page .card-erp-panel-padded>.mb-6 {
+    margin-bottom: 0.85rem;
+    padding-bottom: 0.65rem;
+}
+
+/* Cards de métrica: reducir el respiro entre label / valor / detalle. */
+#venta-details-page .card-erp-metric .mt-3,
+#venta-details-page .card-erp-metric-info .mt-3,
+#venta-details-page .card-erp-metric-success .mt-3 {
+    margin-top: 0.35rem;
+}
+
+/* Panel de detalle de productos (.card-erp-panel): header y filas de tabla. */
+#venta-details-page .card-erp-panel>.border-b {
+    padding: 0.85rem 1.15rem;
+}
+
+#venta-details-page table[data-oc-scroll-table] th {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+}
+
+#venta-details-page table[data-oc-scroll-table] td {
+    padding-top: 0.55rem;
+    padding-bottom: 0.55rem;
+}
+
+/* ══════════════════════════════════════════════════════════════
    DETAILS — modal footer actions
    ══════════════════════════════════════════════════════════════ */
 
