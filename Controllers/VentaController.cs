@@ -13,6 +13,7 @@ using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Exceptions;
 using TheBuryProject.Services.Interfaces;
+using TheBuryProject.Services.Models;
 using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Controllers
@@ -772,7 +773,12 @@ namespace TheBuryProject.Controllers
         // POST: Venta/Confirmar/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Confirmar(int id, bool aplicarExcepcionDocumental = false, string? motivoExcepcionDocumental = null)
+        public async Task<IActionResult> Confirmar(
+            int id,
+            bool aplicarExcepcionDocumental = false,
+            string? motivoExcepcionDocumental = null,
+            bool cobrarPrimeraCuota = false,
+            string? medioPagoPrimeraCuota = null)
         {
             try
             {
@@ -952,9 +958,45 @@ namespace TheBuryProject.Controllers
                         resultadoCredito);
                     if (resultadoCredito)
                     {
-                        TempData[excepcionDocumentalAplicada ? "Warning" : "Success"] = excepcionDocumentalAplicada
+                        var tempDataKey = excepcionDocumentalAplicada ? "Warning" : "Success";
+                        var mensajeConfirmacion = excepcionDocumentalAplicada
                             ? "Venta confirmada por excepción documental autorizada. Crédito generado con cuotas."
                             : "Venta confirmada. Crédito generado con cuotas.";
+
+                        // Spec 2.4: si se pidió cobrar la 1ª cuota el mismo día, cobrarla ahora
+                        // reutilizando el flujo de PagarCuota (aplica recargo del medio de pago e
+                        // impacta en caja). Un fallo del cobro NO revierte la venta/crédito confirmados.
+                        if (cobrarPrimeraCuota && venta.CreditoId.HasValue)
+                        {
+                            try
+                            {
+                                var cobro = await _creditoService.CobrarPrimeraCuotaAlGenerarAsync(
+                                    venta.CreditoId.Value,
+                                    medioPagoPrimeraCuota ?? "Efectivo");
+
+                                switch (cobro.Estado)
+                                {
+                                    case EstadoCobroPrimeraCuota.Cobrada:
+                                        mensajeConfirmacion += $" Se cobró la 1ª cuota: {cobro.Total:C2} ({cobro.MedioPago}).";
+                                        break;
+                                    case EstadoCobroPrimeraCuota.Error:
+                                        mensajeConfirmacion += " No se pudo cobrar la 1ª cuota; podés cobrarla desde el detalle.";
+                                        tempDataKey = "Warning";
+                                        break;
+                                    default:
+                                        mensajeConfirmacion += " La 1ª cuota no se cobró: " + (cobro.Mensaje ?? "no corresponde.");
+                                        break;
+                                }
+                            }
+                            catch (Exception exCobro)
+                            {
+                                _logger.LogError(exCobro, "Error al cobrar 1ª cuota al confirmar venta {Id}", id);
+                                mensajeConfirmacion += " No se pudo cobrar la 1ª cuota: " + exCobro.Message;
+                                tempDataKey = "Warning";
+                            }
+                        }
+
+                        TempData[tempDataKey] = mensajeConfirmacion;
                     }
                     else
                     {

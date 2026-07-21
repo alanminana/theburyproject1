@@ -121,6 +121,62 @@ public class VentaControllerConfirmarCreditoPersonalTests
         Assert.Contains("Faltan documentos", error);
     }
 
+    [Fact]
+    public async Task Confirmar_CobrarPrimeraCuotaSolicitado_InvocaCobroYReportaEnMensaje()
+    {
+        var venta = CreateVentaCreditoPersonalBase();
+        venta.RequiereAutorizacion = false;
+        venta.EstadoAutorizacion = EstadoAutorizacionVenta.NoRequiere;
+
+        var ventaService = new StubVentaService { VentaById = venta, ConfirmarCreditoResult = true };
+        var validacionService = new StubValidacionVentaService { Resultado = new ValidacionVentaResult() };
+        var creditoService = new StubCreditoService
+        {
+            CobroResultado = new CobroPrimeraCuotaResultado
+            {
+                Estado = EstadoCobroPrimeraCuota.Cobrada,
+                MontoBase = 100_000m,
+                RecargoMedioPago = 3_000m,
+                MedioPago = "Transferencia",
+                NumeroCuota = 1
+            }
+        };
+        var controller = CreateController(ventaService, validacionService, creditoService);
+
+        var result = await controller.Confirmar(
+            venta.Id, cobrarPrimeraCuota: true, medioPagoPrimeraCuota: "Transferencia");
+
+        Assert.IsType<RedirectToActionResult>(result);
+        Assert.Equal(1, ventaService.ConfirmarVentaCreditoCallCount);
+        Assert.Equal(1, creditoService.CobrarPrimeraCuotaCallCount);
+        Assert.Equal(venta.CreditoId, creditoService.UltimoCreditoIdCobro);
+        Assert.Equal("Transferencia", creditoService.UltimoMedioPagoCobro);
+        var mensaje = Assert.IsType<string>(controller.TempData["Success"]);
+        Assert.Contains("Se cobró la 1ª cuota", mensaje);
+    }
+
+    [Fact]
+    public async Task Confirmar_SinCobrarPrimeraCuota_NoInvocaCobro()
+    {
+        var venta = CreateVentaCreditoPersonalBase();
+        venta.RequiereAutorizacion = false;
+        venta.EstadoAutorizacion = EstadoAutorizacionVenta.NoRequiere;
+
+        var ventaService = new StubVentaService { VentaById = venta, ConfirmarCreditoResult = true };
+        var validacionService = new StubValidacionVentaService { Resultado = new ValidacionVentaResult() };
+        var creditoService = new StubCreditoService();
+        var controller = CreateController(ventaService, validacionService, creditoService);
+
+        var result = await controller.Confirmar(venta.Id);
+
+        Assert.IsType<RedirectToActionResult>(result);
+        Assert.Equal(1, ventaService.ConfirmarVentaCreditoCallCount);
+        Assert.Equal(0, creditoService.CobrarPrimeraCuotaCallCount);
+        Assert.Equal(
+            "Venta confirmada. Crédito generado con cuotas.",
+            controller.TempData["Success"]);
+    }
+
     private static VentaViewModel CreateVentaCreditoPersonalBase() => new()
     {
         Id = 1017,
@@ -152,7 +208,8 @@ public class VentaControllerConfirmarCreditoPersonalTests
 
     private static VentaController CreateController(
         StubVentaService ventaService,
-        StubValidacionVentaService validacionVentaService)
+        StubValidacionVentaService validacionVentaService,
+        StubCreditoService? creditoService = null)
     {
         var httpContext = new DefaultHttpContext();
         var controller = new VentaController(
@@ -160,7 +217,7 @@ public class VentaControllerConfirmarCreditoPersonalTests
             NullLogger<VentaController>.Instance,
             null!,
             null!,
-            new StubCreditoService(),
+            creditoService ?? new StubCreditoService(),
             null!,
             null!,
             validacionVentaService,
@@ -231,8 +288,23 @@ public class VentaControllerConfirmarCreditoPersonalTests
 
     private sealed class StubCreditoService : ICreditoService
     {
+        public int CobrarPrimeraCuotaCallCount { get; private set; }
+        public int? UltimoCreditoIdCobro { get; private set; }
+        public string? UltimoMedioPagoCobro { get; private set; }
+        public CobroPrimeraCuotaResultado CobroResultado { get; set; } =
+            CobroPrimeraCuotaResultado.NoAplica("La primera cuota no vence hoy.");
+
         public Task<CreditoViewModel?> GetByIdAsync(int id) => Task.FromResult<CreditoViewModel?>(
             new CreditoViewModel { Id = id, Estado = EstadoCredito.Configurado });
+
+        public Task<CobroPrimeraCuotaResultado> CobrarPrimeraCuotaAlGenerarAsync(
+            int creditoId, string medioPago, string? comprobante = null, string? observaciones = null)
+        {
+            CobrarPrimeraCuotaCallCount++;
+            UltimoCreditoIdCobro = creditoId;
+            UltimoMedioPagoCobro = medioPago;
+            return Task.FromResult(CobroResultado);
+        }
 
         public Task<List<CreditoViewModel>> GetAllAsync(CreditoFilterViewModel? filter = null) => throw new NotImplementedException();
         public Task<List<CreditoViewModel>> GetByClienteIdAsync(int clienteId) => throw new NotImplementedException();

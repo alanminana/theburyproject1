@@ -1418,6 +1418,7 @@ public class MoraServiceTests : IDisposable
         public Task<CuotaViewModel?> GetCuotaByIdAsync(int cuotaId) => throw new NotImplementedException();
         public Task<bool> PagarCuotaAsync(PagarCuotaViewModel pago) => throw new NotImplementedException();
         public Task<PagoMultipleCuotasResult> PagarCuotasAsync(PagoMultipleCuotasRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<TheBuryProject.Services.Models.CobroPrimeraCuotaResultado> CobrarPrimeraCuotaAlGenerarAsync(int creditoId, string medioPago, string? comprobante = null, string? observaciones = null) => throw new NotImplementedException();
         public Task<bool> AdelantarCuotaAsync(PagarCuotaViewModel pago) => throw new NotImplementedException();
         public Task<CuotaViewModel?> GetPrimeraCuotaPendienteAsync(int creditoId) => throw new NotImplementedException();
         public Task<CuotaViewModel?> GetUltimaCuotaPendienteAsync(int creditoId) => throw new NotImplementedException();

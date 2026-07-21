@@ -615,6 +615,82 @@ namespace TheBuryProject.Services
             }
         }
 
+        /// <inheritdoc />
+        public async Task<CobroPrimeraCuotaResultado> CobrarPrimeraCuotaAlGenerarAsync(
+            int creditoId,
+            string medioPago,
+            string? comprobante = null,
+            string? observaciones = null)
+        {
+            var medioNormalizado = NormalizarMedioPago(medioPago);
+
+            var credito = await _context.Creditos
+                .Include(c => c.Cuotas.Where(cu => !cu.IsDeleted))
+                .FirstOrDefaultAsync(c => c.Id == creditoId && !c.IsDeleted);
+
+            if (credito == null)
+                return CobroPrimeraCuotaResultado.NoAplica("El crédito no existe.");
+
+            var primeraCuota = credito.Cuotas
+                .OrderBy(c => c.NumeroCuota)
+                .FirstOrDefault();
+
+            if (primeraCuota == null)
+                return CobroPrimeraCuotaResultado.NoAplica("El crédito no tiene cuotas generadas.");
+
+            if (primeraCuota.Estado != EstadoCuota.Pendiente)
+                return CobroPrimeraCuotaResultado.NoAplica("La primera cuota no está pendiente de cobro.");
+
+            if (primeraCuota.FechaVencimiento.Date != DateTime.Today)
+                return CobroPrimeraCuotaResultado.NoAplica("La primera cuota no vence hoy.");
+
+            // El importe base a cobrar es el saldo pendiente de la cuota. En el mismo día de
+            // generación no hay punitorio; PagarCuotaAsync lo recalcula y saldará la cuota.
+            var montoACobrar = primeraCuota.MontoTotal - primeraCuota.MontoPagado;
+            if (montoACobrar <= 0m)
+                return CobroPrimeraCuotaResultado.NoAplica("La primera cuota no tiene saldo por cobrar.");
+
+            // Recargo del medio de pago (mismo cálculo que PagarCuotaAsync) solo para reportarlo
+            // en el resultado; PagarCuotaAsync es la autoridad que lo persiste como concepto separado.
+            var (porcentaje, _) = await ObtenerAjusteMedioPagoAsync(medioNormalizado);
+            var recargo = CalcularRecargoMedioPago(montoACobrar, porcentaje);
+
+            var pago = new PagarCuotaViewModel
+            {
+                CreditoId = credito.Id,
+                CuotaId = primeraCuota.Id,
+                NumeroCuota = primeraCuota.NumeroCuota,
+                MontoPagado = montoACobrar,
+                FechaPago = DateTime.UtcNow,
+                MedioPago = medioNormalizado,
+                ComprobantePago = comprobante,
+                Observaciones = observaciones
+            };
+
+            var cobrada = await PagarCuotaAsync(pago);
+            if (!cobrada)
+            {
+                return new CobroPrimeraCuotaResultado
+                {
+                    Estado = EstadoCobroPrimeraCuota.Error,
+                    CuotaId = primeraCuota.Id,
+                    NumeroCuota = primeraCuota.NumeroCuota,
+                    MedioPago = medioNormalizado,
+                    Mensaje = "No se pudo registrar el cobro de la primera cuota."
+                };
+            }
+
+            return new CobroPrimeraCuotaResultado
+            {
+                Estado = EstadoCobroPrimeraCuota.Cobrada,
+                CuotaId = primeraCuota.Id,
+                NumeroCuota = primeraCuota.NumeroCuota,
+                MontoBase = montoACobrar,
+                RecargoMedioPago = recargo,
+                MedioPago = medioNormalizado
+            };
+        }
+
         public async Task<PagoMultipleCuotasResult> PagarCuotasAsync(
             PagoMultipleCuotasRequest request,
             CancellationToken cancellationToken = default)

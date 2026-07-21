@@ -29,7 +29,20 @@ namespace TheBuryProject.Services.Interfaces
         Task<PagoMultipleCuotasResult> PagarCuotasAsync(
             PagoMultipleCuotasRequest request,
             CancellationToken cancellationToken = default);
-        
+
+        /// <summary>
+        /// Cobra la primera cuota del crédito recién generado si vence hoy y está pendiente
+        /// (spec 2.4). Reutiliza <see cref="PagarCuotaAsync"/>, por lo que aplica el recargo
+        /// del medio de pago como concepto separado e impacta en caja. Si la cuota no vence
+        /// hoy o no está pendiente devuelve <see cref="EstadoCobroPrimeraCuota.NoAplica"/>
+        /// sin cobrar. Requiere una caja abierta.
+        /// </summary>
+        Task<CobroPrimeraCuotaResultado> CobrarPrimeraCuotaAlGenerarAsync(
+            int creditoId,
+            string medioPago,
+            string? comprobante = null,
+            string? observaciones = null);
+
         /// <summary>
         /// Adelanta el pago de una cuota (paga la última cuota pendiente para reducir el plazo).
         /// </summary>
