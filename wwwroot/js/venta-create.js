@@ -2319,7 +2319,15 @@
         && /\/Venta\/Create\/?$/i.test(ventaForm.getAttribute('action') || '');
 
     const bannerErrores = $('#banner-errores');
-    const ORDEN_STEPS = ['cliente', 'productos', 'pago', 'revision'];
+    // Orden real de pasos derivado del DOM (misma fuente que venta-page-wizard.js).
+    // Create expone 4 pasos y Edit 5 (incluye 'credito'); derivarlo evita que la
+    // navegación al primer paso con error de servidor ignore pasos no hardcodeados.
+    const ORDEN_STEPS = (() => {
+        const pasos = Array.from(document.querySelectorAll('.vm-step-tab[data-step]'))
+            .map(b => b.getAttribute('data-step'))
+            .filter((s, i, arr) => s && arr.indexOf(s) === i);
+        return pasos.length ? pasos : ['cliente', 'productos', 'pago', 'revision'];
+    })();
 
     function toggleBannerErrores(visible) {
         if (!bannerErrores) return;

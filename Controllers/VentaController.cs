@@ -160,6 +160,25 @@ namespace TheBuryProject.Controllers
                 ViewBag.PuedeOperarVentas = await UsuarioTieneCajaAbiertaAsync();
                 ViewBag.ContratoVentaCredito = await ObtenerContratoResumenPorVentaAsync(id);
 
+                // Fase 2.4: si la primera cuota del crédito vence hoy y está pendiente,
+                // ofrecer cobrarla en el momento (el cobro usa el flujo PagarCuota existente).
+                if (venta.TipoPago == TipoPago.CreditoPersonal &&
+                    venta.CreditoId.HasValue &&
+                    venta.Estado == EstadoVenta.Confirmada)
+                {
+                    var creditoDetalle = await _creditoService.GetByIdAsync(venta.CreditoId.Value);
+                    var primeraCuota = creditoDetalle?.Cuotas?
+                        .OrderBy(c => c.NumeroCuota)
+                        .FirstOrDefault();
+                    if (primeraCuota != null &&
+                        primeraCuota.Estado == EstadoCuota.Pendiente &&
+                        primeraCuota.FechaVencimiento.Date == DateTime.Today)
+                    {
+                        ViewBag.PrimeraCuotaHoyCreditoId = venta.CreditoId.Value;
+                        ViewBag.PrimeraCuotaHoyCuotaId = primeraCuota.Id;
+                    }
+                }
+
                 // Datos para modal de facturación
                 var facturaViewModel = new FacturaViewModel
                 {

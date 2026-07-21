@@ -213,6 +213,14 @@
                                 <dt>Monto ingresado</dt>
                                 <dd class="num" id="r-sub" data-credito-cuota-field="monto-preview">@Model.MontoPagado.ToString("C")</dd>
                             </div>
+                            <div class="kv-row hidden" id="row-recargo-medio" data-recargo-medio-row>
+                                <dt>Recargo medio de pago <span id="recargo-medio-pct" class="mono"></span></dt>
+                                <dd class="num" id="r-recargo-medio" data-recargo-medio-valor>$ 0,00</dd>
+                            </div>
+                            <div class="kv-row hidden" id="row-total-con-recargo" data-total-con-recargo-row>
+                                <dt><strong>Total a cobrar</strong></dt>
+                                <dd class="num" id="r-total-con-recargo" data-total-con-recargo-valor><strong>$ 0,00</strong></dd>
+                            </div>
                             <div class="kv-row">
                                 <dt>Vencimiento</dt>
                                 <dd class="num" id="r-mora" data-credito-cuota-field="vencimiento-metric">@Model.FechaVencimiento.ToString("dd/MM")</dd>
@@ -232,9 +240,57 @@
 </div>
 
 <script id="credito-cuotas-data" data-credito-json="cuotas" type="application/json">@Html.Raw(cuotasJson)</script>
+<script id="credito-recargos-medio-data" type="application/json">@Html.Raw(Model.RecargosPorMedioJson)</script>
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
     <script src="~/js/credito-module.js" asp-append-version="true"></script>
     <script src="~/js/credito-pagar-cuota.js" asp-append-version="true"></script>
+    <script>
+        // Previsualización del recargo del medio de pago sobre el monto ingresado.
+        // Solo informativo: el backend recalcula y es la autoridad al confirmar el cobro.
+        (function () {
+            'use strict';
+            var recargos = {};
+            try {
+                recargos = JSON.parse(document.getElementById('credito-recargos-medio-data').textContent) || {};
+            } catch (e) { recargos = {}; }
+
+            var selMedio = document.querySelector('[data-credito-cuota-field="medio"]');
+            var inputMonto = document.querySelector('[data-credito-monto-input]');
+            var rowRecargo = document.querySelector('[data-recargo-medio-row]');
+            var pctSpan = document.getElementById('recargo-medio-pct');
+            var valRecargo = document.querySelector('[data-recargo-medio-valor]');
+            var rowTotal = document.querySelector('[data-total-con-recargo-row]');
+            var valTotal = document.querySelector('[data-total-con-recargo-valor]');
+
+            function parseMonto(v) {
+                if (!v) return 0;
+                var n = parseFloat(String(v).replace(/\./g, '').replace(',', '.'));
+                return isNaN(n) ? 0 : n;
+            }
+            function fmt(n) {
+                return '$ ' + n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+            function actualizar() {
+                if (!selMedio || !inputMonto) return;
+                var pct = recargos[selMedio.value] || 0;
+                var base = parseMonto(inputMonto.value);
+                var recargo = pct === 0 ? 0 : Math.round(base * pct) / 100;
+                if (pct !== 0 && base > 0) {
+                    if (pctSpan) pctSpan.textContent = '(' + pct.toFixed(2).replace('.', ',') + '%)';
+                    if (valRecargo) valRecargo.textContent = fmt(recargo);
+                    if (valTotal) valTotal.innerHTML = '<strong>' + fmt(base + recargo) + '</strong>';
+                    if (rowRecargo) rowRecargo.classList.remove('hidden');
+                    if (rowTotal) rowTotal.classList.remove('hidden');
+                } else {
+                    if (rowRecargo) rowRecargo.classList.add('hidden');
+                    if (rowTotal) rowTotal.classList.add('hidden');
+                }
+            }
+            selMedio && selMedio.addEventListener('change', actualizar);
+            inputMonto && inputMonto.addEventListener('input', actualizar);
+            actualizar();
+        })();
+    </script>
 }

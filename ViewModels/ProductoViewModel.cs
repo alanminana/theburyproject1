@@ -97,6 +97,12 @@ namespace TheBuryProject.ViewModels
         [Range(1, 60, ErrorMessage = "El máximo de cuotas debe estar entre 1 y 60")]
         public int? MaxCuotasSinInteresPermitidas { get; set; }
 
+        /// <summary>
+        /// Configuración de Crédito Personal específica del producto (sección "Crédito personal").
+        /// Se administra desde Producto/Edit y sobrescribe la configuración global.
+        /// </summary>
+        public ProductoCreditoPersonalConfigViewModel CreditoPersonal { get; set; } = new();
+
         [Display(Name = "Stock Mínimo")]
         [Range(0, double.MaxValue, ErrorMessage = "El stock mínimo debe ser mayor o igual a 0")]
         public decimal StockMinimo { get; set; } = 0;

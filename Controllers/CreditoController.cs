@@ -445,7 +445,9 @@ namespace TheBuryProject.Controllers
                 RestriccionCreditoProductoDescripcion = modelo.RestriccionCreditoProductoDescripcion,
                 MaxCuotasBase = modelo.MaxCuotasBase,
                 ProductoIdRestrictivo = modelo.ProductoIdRestrictivo,
-                ProductoRestrictivoNombre = modelo.ProductoRestrictivoNombre
+                ProductoRestrictivoNombre = modelo.ProductoRestrictivoNombre,
+                CuotasHabilitadas = await _configuracionPagoService.GetCuotasCreditoPersonalEfectivasAsync(
+                    venta?.Detalles?.Select(d => d.ProductoId) ?? Enumerable.Empty<int>())
             };
 
             modelo.PerfilesActivos = perfilesActivos
@@ -567,13 +569,18 @@ namespace TheBuryProject.Controllers
                     MaxCuotas = p.MaxCuotas
                 })
                 .ToList();
+            var ventaCuotas = modelo.VentaId.HasValue
+                ? await _ventaService.GetByIdAsync(modelo.VentaId.Value)
+                : null;
             modelo.ClienteConfigPersonalizada = new ClienteConfigCreditoVentaViewModel
             {
                 MaxCuotasCreditoProducto = modelo.MaxCuotasCreditoProducto,
                 RestriccionCreditoProductoDescripcion = modelo.RestriccionCreditoProductoDescripcion,
                 MaxCuotasBase = modelo.MaxCuotasBase,
                 ProductoIdRestrictivo = modelo.ProductoIdRestrictivo,
-                ProductoRestrictivoNombre = modelo.ProductoRestrictivoNombre
+                ProductoRestrictivoNombre = modelo.ProductoRestrictivoNombre,
+                CuotasHabilitadas = await _configuracionPagoService.GetCuotasCreditoPersonalEfectivasAsync(
+                    ventaCuotas?.Detalles?.Select(d => d.ProductoId) ?? Enumerable.Empty<int>())
             };
             return View("ConfigurarVenta_tw", modelo);
         }
@@ -608,10 +615,35 @@ namespace TheBuryProject.Controllers
             modelo.RestriccionCreditoProductoDescripcion = rango.DescripcionProducto;
         }
 
-        private void CargarCuotasPago(PagarCuotaViewModel modelo, IReadOnlyCollection<CuotaViewModel> cuotas)
+        private async Task CargarCuotasPago(PagarCuotaViewModel modelo, IReadOnlyCollection<CuotaViewModel> cuotas)
         {
             modelo.Cuotas = _creditoUiQueryService.ProyectarCuotasPendientes(cuotas);
             modelo.CuotasJson = _creditoUiQueryService.BuildCuotasJson(cuotas);
+            modelo.RecargosPorMedioJson = await BuildRecargosPorMedioJsonAsync();
+        }
+
+        // Porcentaje de recargo/descuento vigente por medio de pago, para previsualizar el
+        // total en el formulario. El backend sigue siendo la autoridad al confirmar el cobro.
+        private static readonly (string Etiqueta, TipoPago Tipo)[] MediosPagoCobroCuota =
+        {
+            ("Efectivo", TipoPago.Efectivo),
+            ("Transferencia", TipoPago.Transferencia),
+            ("Tarjeta Débito", TipoPago.TarjetaDebito),
+            ("Tarjeta Crédito", TipoPago.TarjetaCredito),
+            ("Cheque", TipoPago.Cheque)
+        };
+
+        private async Task<string> BuildRecargosPorMedioJsonAsync()
+        {
+            if (_configuracionPagoService is null)
+                return "{}";
+
+            var mapa = new Dictionary<string, decimal>();
+            foreach (var (etiqueta, tipo) in MediosPagoCobroCuota)
+            {
+                mapa[etiqueta] = await _configuracionPagoService.ObtenerPorcentajeAjusteUnPagoAsync(tipo);
+            }
+            return System.Text.Json.JsonSerializer.Serialize(mapa);
         }
 
         #endregion
@@ -848,7 +880,7 @@ namespace TheBuryProject.Controllers
                     DiasAtraso = diasAtraso,
                     FechaPago = DateTime.UtcNow
                 };
-                CargarCuotasPago(modelo, cuotasDisponibles);
+                await CargarCuotasPago(modelo, cuotasDisponibles);
 
                 return View("PagarCuota_tw", modelo);
             }
@@ -879,7 +911,7 @@ namespace TheBuryProject.Controllers
                     }
 
                     var cuotasPendientes = _creditoUiQueryService.ObtenerCuotasPendientes(credito.Cuotas);
-                    CargarCuotasPago(modelo, cuotasPendientes);
+                    await CargarCuotasPago(modelo, cuotasPendientes);
 
                     return View("PagarCuota_tw", modelo);
                 }
@@ -906,7 +938,7 @@ namespace TheBuryProject.Controllers
             {
                 var credito = await _creditoService.GetByIdAsync(modelo.CreditoId);
                 var cuotasPendientes = _creditoUiQueryService.ObtenerCuotasPendientes(credito?.Cuotas);
-                CargarCuotasPago(modelo, cuotasPendientes);
+                await CargarCuotasPago(modelo, cuotasPendientes);
             }
             catch
             {

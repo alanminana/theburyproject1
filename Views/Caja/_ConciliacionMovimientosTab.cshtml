@@ -99,7 +99,23 @@
                                             <span class="muted-2">—</span>
                                         }
                                     </td>
-                                    <td style="text-align:right" class="num text-emerald-400">@(m.Entra > 0 ? $"$ {m.Entra.ToString("N2")}" : "—")</td>
+                                    <td style="text-align:right" class="num text-emerald-400">
+                                        @(m.Entra > 0 ? $"$ {m.Entra.ToString("N2")}" : "—")
+                                        @if (m.Entra > 0 && m.TieneAjusteMedioPago && m.ImporteBase.HasValue)
+                                        {
+                                            <div class="text-xs muted-2" style="font-weight:400">
+                                                Base $ @m.ImporteBase.Value.ToString("N2")
+                                                @if ((m.RecargoMedioPago ?? 0m) != 0m)
+                                                {
+                                                    <text> + recargo $ @m.RecargoMedioPago!.Value.ToString("N2")</text>
+                                                }
+                                                @if ((m.DescuentoMedioPago ?? 0m) != 0m)
+                                                {
+                                                    <text> − desc. $ @m.DescuentoMedioPago!.Value.ToString("N2")</text>
+                                                }
+                                            </div>
+                                        }
+                                    </td>
                                     <td style="text-align:right" class="num text-rose-400">@(m.Sale > 0 ? $"$ {m.Sale.ToString("N2")}" : "—")</td>
                                     <td class="muted">@m.Usuario</td>
                                 </tr>

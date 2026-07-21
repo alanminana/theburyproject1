@@ -124,6 +124,24 @@
                 @TempData["Info"]
             </div>
         }
+        @if (ViewBag.PrimeraCuotaHoyCuotaId != null)
+        {
+            <div class="flex flex-col gap-3 rounded-xl border border-sky-500/20 bg-sky-500/10 p-4 text-sm font-semibold text-sky-300 sm:flex-row sm:items-center sm:justify-between" role="status" data-venta-primera-cuota-hoy>
+                <div class="flex items-center gap-3">
+                    <span class="material-symbols-outlined">payments</span>
+                    <span>La primera cuota del crédito vence hoy. Podés cobrarla en este momento.</span>
+                </div>
+                <a asp-controller="Credito"
+                   asp-action="PagarCuota"
+                   asp-route-id="@ViewBag.PrimeraCuotaHoyCreditoId"
+                   asp-route-cuotaId="@ViewBag.PrimeraCuotaHoyCuotaId"
+                   asp-route-returnUrl="@Url.Action("Details", "Venta", new { id = Model.Id })"
+                   class="inline-flex items-center gap-2 rounded-lg bg-sky-500/20 border border-sky-500/40 px-4 py-2 text-sky-200 hover:bg-sky-500/30 shrink-0">
+                    <span class="material-symbols-outlined text-[18px]">point_of_sale</span>
+                    Cobrar primera cuota
+                </a>
+            </div>
+        }
         @if (!puedeOperarVentas)
         {
             <div class="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-sm font-bold flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

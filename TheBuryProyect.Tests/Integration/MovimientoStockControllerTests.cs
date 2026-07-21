@@ -65,7 +65,8 @@ public class MovimientoStockControllerTests : IDisposable
             _productoService,
             mapper,
             NullLogger<MovimientoStockController>.Instance,
-            currentUser);
+            currentUser,
+            new MovimientoStockReferenciaResolver(_context));
 
         _controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() };
         _controller.TempData = new StubTempDataMovCtrl();

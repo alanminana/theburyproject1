@@ -196,7 +196,14 @@
                            min="@Model.CuotasMinPermitidas"
                            max="@Model.CuotasMaxPermitidas"
                            class="field"
+                           list="cuotas-habilitadas-list"
                            id="txt-cuotas" />
+                    <datalist id="cuotas-habilitadas-list">
+                        @foreach (var plan in Model.ClienteConfigPersonalizada.CuotasHabilitadas)
+                        {
+                            <option value="@plan.CantidadCuotas">@plan.CantidadCuotas cuotas - @plan.TasaMensual.ToString("N2")% mensual</option>
+                        }
+                    </datalist>
                     <span asp-validation-for="CantidadCuotas" class="err-text"></span>
                 </section>
 
@@ -238,7 +245,7 @@
                                 <label asp-for="TasaMensual" class="label">Tasa mensual aplicada</label>
                                 <span id="badge-tasa-fuente" class="chip chip-info hidden"></span>
                             </div>
-                            <input asp-for="TasaMensual" type="number" step="0.01" min="0.01" max="100" class="field" id="txt-tasa" />
+                            <input asp-for="TasaMensual" type="number" step="0.01" min="0" max="100" class="field" id="txt-tasa" />
                             <span asp-validation-for="TasaMensual" class="err-text"></span>
                         </div>
                         <div>

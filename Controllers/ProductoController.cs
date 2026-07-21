@@ -22,6 +22,7 @@ namespace TheBuryProject.Controllers
         private readonly IMovimientoStockService _movimientoStockService;
         private readonly ICatalogLookupService _catalogLookupService;
         private readonly ICatalogoService _catalogoService;
+        private readonly IProductoCreditoPersonalConfigService _productoCreditoPersonalConfigService;
         private readonly ILogger<ProductoController> _logger;
         private readonly IMapper _mapper;
         private const int MaxUnidadesCargaMasiva = 200;
@@ -32,6 +33,7 @@ namespace TheBuryProject.Controllers
             IMovimientoStockService movimientoStockService,
             ICatalogLookupService catalogLookupService,
             ICatalogoService catalogoService,
+            IProductoCreditoPersonalConfigService productoCreditoPersonalConfigService,
             ILogger<ProductoController> logger,
             IMapper mapper)
         {
@@ -40,6 +42,7 @@ namespace TheBuryProject.Controllers
             _movimientoStockService = movimientoStockService;
             _catalogLookupService = catalogLookupService;
             _catalogoService = catalogoService;
+            _productoCreditoPersonalConfigService = productoCreditoPersonalConfigService;
             _logger = logger;
             _mapper = mapper;
         }
@@ -184,6 +187,7 @@ namespace TheBuryProject.Controllers
                     return NotFound();
 
                 var viewModel = _mapper.Map<ProductoViewModel>(producto);
+                viewModel.CreditoPersonal = await _productoCreditoPersonalConfigService.ObtenerAsync(id.Value);
 
                 await CargarDropdownsAsync(viewModel.CategoriaId, viewModel.MarcaId);
                 await CargarAlicuotasIVAAsync(viewModel.AlicuotaIVAId);
@@ -214,6 +218,10 @@ namespace TheBuryProject.Controllers
                     var producto = await MapearProductoParaPersistenciaAsync(viewModel);
                     producto.RowVersion = viewModel.RowVersion!;
                     await _productoService.UpdateAsync(producto);
+                    await _productoCreditoPersonalConfigService.GuardarAsync(
+                        id,
+                        viewModel.CreditoPersonal,
+                        User.Identity?.Name ?? "sistema");
 
                     TempData["Success"] = "Producto actualizado exitosamente";
                     return RedirectToAction(nameof(Index));

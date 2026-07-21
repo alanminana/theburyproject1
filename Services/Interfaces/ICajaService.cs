@@ -105,6 +105,28 @@ namespace TheBuryProject.Services.Interfaces
             string usuario);
 
         /// <summary>
+        /// Registra el movimiento de caja del cobro de una cuota separando importe base y
+        /// recargo/descuento del medio de pago. El monto del movimiento es base + recargo.
+        /// Implementación default: delega en la sobrecarga simple (compatibilidad con stubs).
+        /// </summary>
+        Task<MovimientoCaja?> RegistrarMovimientoCuotaAsync(
+            int cuotaId,
+            string creditoNumero,
+            int numeroCuota,
+            decimal montoBase,
+            decimal recargoMedioPago,
+            TipoPago? tipoPago,
+            string medioPago,
+            string usuario)
+            => RegistrarMovimientoCuotaAsync(
+                cuotaId,
+                creditoNumero,
+                numeroCuota,
+                montoBase + recargoMedioPago,
+                medioPago,
+                usuario);
+
+        /// <summary>
         /// Registra automáticamente el movimiento de caja para un anticipo de crédito.
         /// El anticipo es un pago inicial que reduce el monto a financiar.
         /// </summary>

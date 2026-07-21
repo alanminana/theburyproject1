@@ -32,6 +32,12 @@ namespace TheBuryProject.Models.Entities
 
         public decimal MontoPunitorio { get; set; } = 0;
 
+        /// <summary>
+        /// Recargo (o descuento, si es negativo) del medio de pago aplicado al cobrar.
+        /// Concepto separado del valor original de la cuota: no modifica MontoTotal.
+        /// </summary>
+        public decimal RecargoMedioPago { get; set; } = 0;
+
         public EstadoCuota Estado { get; set; } = EstadoCuota.Pendiente;
 
         [StringLength(500)]

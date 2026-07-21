@@ -133,15 +133,30 @@ public class CreditoControllerConfigurarVentaTests
     }
 
     [Fact]
-    public async Task ConfigurarVentaPost_RechazaTasaManualInvalida()
+    public async Task ConfigurarVentaPost_RechazaTasaManualNegativa()
     {
         var controller = CrearController(new RecordingCreditoService(CreditoBase()), ConfigService(tasaGlobal: 5m));
+        var modelo = ModeloPost(FuenteConfiguracionCredito.Manual, MetodoCalculoCredito.Manual);
+        modelo.TasaMensual = -1m;
+
+        var result = await controller.ConfigurarVenta(modelo);
+
+        AssertViewWithModelError(result, controller, nameof(modelo.TasaMensual), "negativa");
+    }
+
+    [Fact]
+    public async Task ConfigurarVentaPost_AceptaTasaManualCero()
+    {
+        var creditoService = new RecordingCreditoService(CreditoBase());
+        var controller = CrearController(creditoService, ConfigService(tasaGlobal: 5m));
         var modelo = ModeloPost(FuenteConfiguracionCredito.Manual, MetodoCalculoCredito.Manual);
         modelo.TasaMensual = 0m;
 
         var result = await controller.ConfigurarVenta(modelo);
 
-        AssertViewWithModelError(result, controller, nameof(modelo.TasaMensual), "mayor a 0");
+        Assert.IsType<RedirectToActionResult>(result);
+        Assert.NotNull(creditoService.LastCommand);
+        Assert.Equal(0m, creditoService.LastCommand!.TasaMensual);
     }
 
     [Fact]
@@ -482,6 +497,7 @@ public class CreditoControllerConfigurarVentaTests
         public Task<(bool Ok, List<string> Errores)> GuardarMontosPorPuntajeAsync(List<MontoPorPuntajeCreditoViewModel> items, string usuario) => Task.FromResult((true, new List<string>()));
         public Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalAsync() => Task.FromResult(new List<CuotaCreditoPersonalViewModel>());
         public Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalActivasAsync() => Task.FromResult(new List<CuotaCreditoPersonalViewModel>());
+        public Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalEfectivasAsync(IEnumerable<int> productoIds) => GetCuotasCreditoPersonalActivasAsync();
         public Task<(bool Ok, List<string> Errores)> GuardarCuotasCreditoPersonalAsync(List<CuotaCreditoPersonalViewModel> items, string usuario) => Task.FromResult((true, new List<string>()));
     }
 

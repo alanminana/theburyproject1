@@ -19,19 +19,22 @@ namespace TheBuryProject.Controllers
         private readonly IMapper _mapper;
         private readonly ILogger<MovimientoStockController> _logger;
         private readonly ICurrentUserService _currentUser;
+        private readonly IMovimientoStockReferenciaResolver _referenciaResolver;
 
         public MovimientoStockController(
             IMovimientoStockService movimientoStockService,
             IProductoService productoService,
             IMapper mapper,
             ILogger<MovimientoStockController> logger,
-            ICurrentUserService currentUser)
+            ICurrentUserService currentUser,
+            IMovimientoStockReferenciaResolver referenciaResolver)
         {
             _movimientoStockService = movimientoStockService;
             _productoService = productoService;
             _mapper = mapper;
             _logger = logger;
             _currentUser = currentUser;
+            _referenciaResolver = referenciaResolver;
         }
 
         #region Vistas — Index / Kardex / Crear ajuste
@@ -49,10 +52,11 @@ namespace TheBuryProject.Controllers
                     orderBy: filter.OrderBy,
                     orderDirection: filter.OrderDirection);
 
-                var viewModels = _mapper.Map<IEnumerable<MovimientoStockViewModel>>(movimientos);
+                var viewModels = _mapper.Map<IEnumerable<MovimientoStockViewModel>>(movimientos).ToList();
+                await _referenciaResolver.EnriquecerAsync(viewModels);
 
                 filter.Movimientos = viewModels;
-                filter.TotalResultados = viewModels.Count();
+                filter.TotalResultados = viewModels.Count;
 
                 var productos = await _productoService.GetAllAsync();
                 ViewBag.Productos = new SelectList(productos.OrderBy(p => p.Nombre), "Id", "Nombre", filter.ProductoId);

@@ -136,6 +136,15 @@ public class MovimientoCajaLineaViewModel
     public string Usuario { get; set; } = string.Empty;
     public string? Observacion { get; set; }
     public bool ImpactaCajaFisica { get; set; }
+
+    /// <summary>Importe base del movimiento, antes de recargo/descuento del medio de pago.</summary>
+    public decimal? ImporteBase { get; set; }
+    /// <summary>Recargo del medio de pago aplicado (concepto separado del importe base).</summary>
+    public decimal? RecargoMedioPago { get; set; }
+    /// <summary>Descuento del medio de pago aplicado (concepto separado del importe base).</summary>
+    public decimal? DescuentoMedioPago { get; set; }
+    /// <summary>True si el movimiento tiene un recargo o descuento del medio a desglosar.</summary>
+    public bool TieneAjusteMedioPago => (RecargoMedioPago ?? 0m) != 0m || (DescuentoMedioPago ?? 0m) != 0m;
 }
 
 /// <summary>Fila del libro mayor de caja: saldo esperado acumulado fila por fila.</summary>

@@ -97,7 +97,9 @@ public sealed class CreditoConfiguracionVentaService : ICreditoConfiguracionVent
             else
             {
                 // Tabla de cuotas por cantidad (activar/desactivar + tasa propia). VacÃ­a = compatibilidad con tasa unica.
-                var cuotasConfiguradas = await _configuracionPagoService.GetCuotasCreditoPersonalActivasAsync();
+                // Prioridad: planes especificos del producto -> planes globales -> tasa global unica.
+                var productoIdsVenta = venta?.Detalles?.Select(d => d.ProductoId) ?? Enumerable.Empty<int>();
+                var cuotasConfiguradas = await _configuracionPagoService.GetCuotasCreditoPersonalEfectivasAsync(productoIdsVenta);
                 if (cuotasConfiguradas.Count > 0)
                 {
                     var cuotaConfigurada = cuotasConfiguradas.FirstOrDefault(c => c.CantidadCuotas == modelo.CantidadCuotas);
@@ -124,11 +126,11 @@ public sealed class CreditoConfiguracionVentaService : ICreditoConfiguracionVent
         else
         {
             if (modelo.MetodoCalculo == MetodoCalculoCredito.Manual &&
-                (!tasaMensual.HasValue || tasaMensual.Value <= 0))
+                (!tasaMensual.HasValue || tasaMensual.Value < 0))
             {
                 return CreditoConfiguracionVentaResultado.Invalido(
                     nameof(modelo.TasaMensual),
-                    "La tasa de interÃ©s debe ser mayor a 0% en modo Manual.");
+                    "La tasa de interÃ©s no puede ser negativa en modo Manual.");
             }
 
             _logger.LogInformation(

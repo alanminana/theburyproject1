@@ -366,7 +366,8 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
         // personalizada del cliente: esos caminos mantienen su propia tasa/rango unicos.
         var esGlobalPuro = parametros.Fuente == FuenteConfiguracionCredito.Global && parametros.PerfilPreferidoId == null;
         var cuotasConfiguradas = esGlobalPuro
-            ? await _configuracionPagoService.GetCuotasCreditoPersonalActivasAsync()
+            ? await _configuracionPagoService.GetCuotasCreditoPersonalEfectivasAsync(
+                request.Productos.Select(p => p.ProductoId))
             : new List<CuotaCreditoPersonalViewModel>();
 
         List<int> cuotasBase;

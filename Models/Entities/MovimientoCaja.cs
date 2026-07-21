@@ -44,6 +44,25 @@ namespace TheBuryProject.Models.Entities
         [Column(TypeName = "decimal(18,2)")]
         public decimal? RecargoDebitoAplicado { get; set; }
 
+        /// <summary>
+        /// Importe base de la operación, antes de recargos o descuentos del medio de pago.
+        /// Monto = ImporteBase + RecargoMedioPago - DescuentoMedioPago cuando estos aplican.
+        /// </summary>
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal? ImporteBase { get; set; }
+
+        /// <summary>
+        /// Recargo del medio de pago aplicado en este movimiento (concepto separado).
+        /// </summary>
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal? RecargoMedioPago { get; set; }
+
+        /// <summary>
+        /// Descuento del medio de pago aplicado en este movimiento (concepto separado).
+        /// </summary>
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal? DescuentoMedioPago { get; set; }
+
         [StringLength(500)]
         public string? MedioPagoDetalle { get; set; }
 

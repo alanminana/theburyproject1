@@ -87,6 +87,35 @@ public class CajaConciliacionBuilderTests
     }
 
     [Fact]
+    public void Movimiento_ConRecargoMedioPago_MapeaDesgloseBaseYRecargo()
+    {
+        var detalle = BuildDetalleStandard();
+        detalle.Movimientos.Add(new MovimientoCaja
+        {
+            Id = 99,
+            Tipo = TipoMovimientoCaja.Ingreso,
+            Concepto = ConceptoMovimientoCaja.CobroCuota,
+            Monto = 103_000m,
+            ImporteBase = 100_000m,
+            RecargoMedioPago = 3_000m,
+            TipoPago = TipoPago.Transferencia,
+            MedioPagoDetalle = "Transferencia",
+            FechaMovimiento = Base.AddMinutes(7),
+            Referencia = "CRE-C9",
+            Usuario = "admin"
+        });
+        detalle.Apertura.Movimientos = detalle.Movimientos;
+
+        var vm = CajaConciliacionBuilder.Build(detalle, cierre: null, puedeOperar: true);
+        var linea = vm.Movimientos.Single(m => m.MovimientoId == 99);
+
+        Assert.Equal(103_000m, linea.Entra);
+        Assert.Equal(100_000m, linea.ImporteBase);
+        Assert.Equal(3_000m, linea.RecargoMedioPago);
+        Assert.True(linea.TieneAjusteMedioPago);
+    }
+
+    [Fact]
     public void VentaCreditoPersonal_EsVendidoYPendiente_SinImpactarCajaFisica()
     {
         var vm = CajaConciliacionBuilder.Build(BuildDetalleStandard(), cierre: null, puedeOperar: true);

@@ -238,7 +238,57 @@
                                 </span>
                             </td>
                             <td class="px-4 py-3">
-                                <span class="text-sm text-slate-400">@(m.Referencia ?? "—")</span>
+                                @if (m.ReferenciaTipo == "OrdenCompra" && m.OrdenCompraId.HasValue)
+                                {
+                                    <div class="flex flex-col gap-0.5">
+                                        <a asp-controller="OrdenCompra" asp-action="Details" asp-route-id="@m.OrdenCompraId"
+                                           class="text-sm font-semibold text-primary hover:underline underline-offset-2">
+                                            Compra @(m.OrdenCompraNumero ?? $"#{m.OrdenCompraId}")
+                                        </a>
+                                        @if (!string.IsNullOrWhiteSpace(m.ProveedorNombre))
+                                        {
+                                            @if (m.ProveedorId.HasValue)
+                                            {
+                                                <a asp-controller="Proveedor" asp-action="Details" asp-route-id="@m.ProveedorId"
+                                                   class="text-xs text-slate-400 hover:text-slate-200 hover:underline underline-offset-2">
+                                                    Proveedor: @m.ProveedorNombre
+                                                </a>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-xs text-slate-400">Proveedor: @m.ProveedorNombre</span>
+                                            }
+                                        }
+                                    </div>
+                                }
+                                else if (m.ReferenciaTipo == "Venta" && m.VentaId.HasValue)
+                                {
+                                    <div class="flex flex-col gap-0.5">
+                                        <a asp-controller="Venta" asp-action="Details" asp-route-id="@m.VentaId"
+                                           class="text-sm font-semibold text-primary hover:underline underline-offset-2">
+                                            Venta @m.VentaNumero
+                                        </a>
+                                        <span class="text-xs text-slate-400">
+                                            @if (m.ClienteId.HasValue && !string.IsNullOrWhiteSpace(m.ClienteNombre))
+                                            {
+                                                <a asp-controller="Cliente" asp-action="Details" asp-route-id="@m.ClienteId"
+                                                   class="hover:text-slate-200 hover:underline underline-offset-2">@m.ClienteNombre</a>
+                                            }
+                                            else
+                                            {
+                                                <text>Consumidor final</text>
+                                            }
+                                            @if (!string.IsNullOrWhiteSpace(m.MedioPagoTexto))
+                                            {
+                                                <text> · @m.MedioPagoTexto</text>
+                                            }
+                                        </span>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <span class="text-sm text-slate-400">@(m.ReferenciaTexto ?? m.Referencia ?? "—")</span>
+                                }
                             </td>
                             <td class="px-4 py-3">
                                 <span class="text-sm font-bold text-slate-200">@m.StockNuevo.ToString("N0") uds</span>

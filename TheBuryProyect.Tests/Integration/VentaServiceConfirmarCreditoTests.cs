@@ -677,7 +677,7 @@ public class VentaServiceConfirmarCreditoTests : IDisposable
         decimal totalFinal,
         decimal montoAprobado,
         int cantidadCuotas,
-        decimal tasaInteres = 3m)  // > 0 requerido por el guard de ConfirmarVentaCreditoAsync
+        decimal tasaInteres = 3m)  // >= 0 requerido por el guard de ConfirmarVentaCreditoAsync (0% es válido)
     {
         var suffix = Interlocked.Increment(ref _counter).ToString();
 

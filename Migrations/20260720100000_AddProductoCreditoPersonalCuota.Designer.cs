@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TheBuryProject.Data;
 
@@ -11,9 +12,11 @@ using TheBuryProject.Data;
 namespace TheBuryProject.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260720100000_AddProductoCreditoPersonalCuota")]
+    partial class AddProductoCreditoPersonalCuota
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -3414,10 +3417,6 @@ namespace TheBuryProject.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
-                    b.Property<decimal>("RecargoMedioPago")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
                         .IsRequired()
@@ -6323,17 +6322,11 @@ namespace TheBuryProject.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
-                    b.Property<decimal?>("DescuentoMedioPago")
-                        .HasColumnType("decimal(18,2)");
-
                     b.Property<int?>("EstadoAcreditacion")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("FechaMovimiento")
                         .HasColumnType("datetime2");
-
-                    b.Property<decimal?>("ImporteBase")
-                        .HasColumnType("decimal(18,2)");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
@@ -6350,9 +6343,6 @@ namespace TheBuryProject.Migrations
                         .HasColumnType("nvarchar(500)");
 
                     b.Property<decimal?>("RecargoDebitoAplicado")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal?>("RecargoMedioPago")
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("Referencia")

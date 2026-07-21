@@ -57,5 +57,11 @@ namespace TheBuryProject.ViewModels
         public int DiasAtraso { get; set; }
         public List<SelectListItem> Cuotas { get; set; } = new();
         public string CuotasJson { get; set; } = "{}";
+
+        /// <summary>
+        /// Mapa medio de pago → porcentaje de recargo/descuento vigente, para previsualizar
+        /// en el formulario el total con recargo antes de confirmar el cobro (backend es la autoridad).
+        /// </summary>
+        public string RecargosPorMedioJson { get; set; } = "{}";
     }
 }

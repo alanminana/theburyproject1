@@ -13,7 +13,7 @@ namespace TheBuryProject.ViewModels
         [Display(Name = "Producto")]
         public string? ProductoNombre { get; set; }
 
-        [Display(Name = "C�digo")]
+        [Display(Name = "C�digo")]
         public string? ProductoCodigo { get; set; }
 
         [Display(Name = "Tipo de Movimiento")]
@@ -60,5 +60,27 @@ namespace TheBuryProject.ViewModels
 
         [Display(Name = "Creado por")]
         public string? CreatedBy { get; set; }
+
+        // ── Referencia contextual (Fase 6) ──────────────────────────────
+        // Enriquecida por IMovimientoStockReferenciaResolver a partir de Referencia/OrdenCompraId.
+
+        /// <summary>Tipo de origen del movimiento: "OrdenCompra", "Venta", "Devolucion", "Ajuste", "Otro".</summary>
+        public string ReferenciaTipo { get; set; } = "Otro";
+
+        /// <summary>Texto contextual de la referencia (ej. "Compra OC-2026-0001 — Proveedor: Frávega").</summary>
+        public string? ReferenciaTexto { get; set; }
+
+        /// <summary>Venta relacionada (salida por venta), si se pudo resolver.</summary>
+        public int? VentaId { get; set; }
+        public string? VentaNumero { get; set; }
+
+        public int? ClienteId { get; set; }
+        public string? ClienteNombre { get; set; }
+
+        public int? ProveedorId { get; set; }
+        public string? ProveedorNombre { get; set; }
+
+        /// <summary>Modalidad / medio de pago de la venta que originó la salida.</summary>
+        public string? MedioPagoTexto { get; set; }
     }
 }

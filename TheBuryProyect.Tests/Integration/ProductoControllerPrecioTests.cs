@@ -70,12 +70,21 @@ public class ProductoControllerPrecioTests : IDisposable
             cfg => cfg.AddProfile<MappingProfile>(),
             NullLoggerFactory.Instance).CreateMapper();
 
+        var configuracionPagoService = new ConfiguracionPagoService(
+            _context,
+            mapper,
+            NullLogger<ConfiguracionPagoService>.Instance);
+        var productoCreditoPersonalConfigService = new ProductoCreditoPersonalConfigService(
+            _context,
+            configuracionPagoService);
+
         _controller = new ProductoController(
             productoService,
             productoUnidadService,
             movimientoStockService,
             catalogLookup,
             catalogoService,
+            productoCreditoPersonalConfigService,
             NullLogger<ProductoController>.Instance,
             mapper);
 

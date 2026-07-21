@@ -48,7 +48,7 @@ namespace TheBuryProject.ViewModels
         /// Tasa mensual en %. Si vacío, se usa la tasa default del sistema.
         /// </summary>
         [Display(Name = "Tasa mensual (%)")]
-        [Range(0.01, 100, ErrorMessage = "La tasa debe ser mayor a 0 y no superar el 100%")]
+        [Range(0, 100, ErrorMessage = "La tasa no puede ser negativa ni superar el 100%")]
         public decimal? TasaMensual { get; set; }
 
         /// <summary>
@@ -114,6 +114,12 @@ namespace TheBuryProject.ViewModels
         public int MaxCuotasBase { get; set; } = 120;
         public int? ProductoIdRestrictivo { get; set; }
         public string? ProductoRestrictivoNombre { get; set; }
+
+        /// <summary>
+        /// Planes de cuotas activos de crédito personal. Cuando hay planes, las cuotas
+        /// seleccionables del camino global surgen de esta lista (cantidad + tasa propia).
+        /// </summary>
+        public List<CuotaCreditoPersonalViewModel> CuotasHabilitadas { get; set; } = new();
     }
 
     public class PerfilCreditoActivoViewModel

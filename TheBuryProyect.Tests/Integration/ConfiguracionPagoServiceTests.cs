@@ -187,6 +187,48 @@ public class ConfiguracionPagoServiceTests : IDisposable
     }
 
     // =========================================================================
+    // ObtenerPorcentajeAjusteUnPagoAsync (recargo del medio para cobros en un pago)
+    // =========================================================================
+
+    [Fact]
+    public async Task AjusteUnPago_ConPlanGeneralUnaCuota_UsaAjusteDelPlan()
+    {
+        var medio = await SeedConfigPago(TipoPago.Transferencia, tieneRecargo: true, porcentajeRecargo: 1m);
+        _context.ConfiguracionPagoPlanes.Add(new ConfiguracionPagoPlan
+        {
+            ConfiguracionPagoId = medio.Id,
+            TipoPago = TipoPago.Transferencia,
+            CantidadCuotas = 1,
+            Activo = true,
+            AjustePorcentaje = 3m,
+            Orden = 1
+        });
+        await _context.SaveChangesAsync();
+
+        var ajuste = await _service.ObtenerPorcentajeAjusteUnPagoAsync(TipoPago.Transferencia);
+
+        Assert.Equal(3m, ajuste);
+    }
+
+    [Fact]
+    public async Task AjusteUnPago_SinPlan_CaeAlRecargoGlobalDelMedio()
+    {
+        await SeedConfigPago(TipoPago.Transferencia, tieneRecargo: true, porcentajeRecargo: 2.5m);
+
+        var ajuste = await _service.ObtenerPorcentajeAjusteUnPagoAsync(TipoPago.Transferencia);
+
+        Assert.Equal(2.5m, ajuste);
+    }
+
+    [Fact]
+    public async Task AjusteUnPago_SinConfiguracion_RetornaCero()
+    {
+        var ajuste = await _service.ObtenerPorcentajeAjusteUnPagoAsync(TipoPago.Efectivo);
+
+        Assert.Equal(0m, ajuste);
+    }
+
+    // =========================================================================
     // ObtenerParametrosCreditoClienteAsync — cadena de prioridad
     // =========================================================================
 
@@ -1118,6 +1160,117 @@ public class ConfiguracionPagoServiceTests : IDisposable
         Assert.Equal(36, max);
         Assert.Equal("Global", desc);
         Assert.Null(nombre);
+    }
+
+    [Fact]
+    public async Task ResolverRangoCuotas_Global_ConPlanesActivos_DerivaRangoDePlanes()
+    {
+        _context.ConfiguracionCreditoPersonalCuotas.AddRange(
+            new ConfiguracionCreditoPersonalCuota { CantidadCuotas = 4, TasaMensual = 8m, Activo = true },
+            new ConfiguracionCreditoPersonalCuota { CantidadCuotas = 6, TasaMensual = 10m, Activo = true },
+            new ConfiguracionCreditoPersonalCuota { CantidadCuotas = 12, TasaMensual = 15m, Activo = false });
+        await _context.SaveChangesAsync();
+
+        var (min, max, desc, nombre) = await _service.ResolverRangoCuotasAsync(
+            MetodoCalculoCredito.Global, null, null);
+
+        Assert.Equal(4, min);
+        Assert.Equal(6, max);
+        Assert.Equal("Planes de cuotas", desc);
+        Assert.Null(nombre);
+    }
+
+    // =========================================================================
+    // GetCuotasCreditoPersonalEfectivasAsync (planes por producto)
+    // =========================================================================
+
+    private async Task<Producto> SeedProductoSimple()
+    {
+        var producto = new Producto
+        {
+            Codigo = Guid.NewGuid().ToString("N")[..10],
+            Nombre = "Producto test",
+            Categoria = new Categoria { Nombre = $"Cat {Guid.NewGuid():N}", Codigo = Guid.NewGuid().ToString("N")[..10] },
+            Marca = new Marca { Nombre = $"Marca {Guid.NewGuid():N}", Codigo = Guid.NewGuid().ToString("N")[..10] },
+            PrecioCompra = 0m,
+            PrecioVenta = 100m,
+            PorcentajeIVA = 21m
+        };
+        _context.Productos.Add(producto);
+        await _context.SaveChangesAsync();
+        return producto;
+    }
+
+    private async Task SeedCuotasGlobales(params (int Cuotas, decimal Tasa)[] planes)
+    {
+        foreach (var (cuotas, tasa) in planes)
+        {
+            _context.ConfiguracionCreditoPersonalCuotas.Add(new ConfiguracionCreditoPersonalCuota
+            {
+                CantidadCuotas = cuotas,
+                TasaMensual = tasa,
+                Activo = true
+            });
+        }
+        await _context.SaveChangesAsync();
+    }
+
+    private async Task SeedCuotasProducto(int productoId, params (int Cuotas, decimal Tasa)[] planes)
+    {
+        foreach (var (cuotas, tasa) in planes)
+        {
+            _context.ProductoCreditoPersonalCuotas.Add(new ProductoCreditoPersonalCuota
+            {
+                ProductoId = productoId,
+                CantidadCuotas = cuotas,
+                TasaMensual = tasa,
+                Activo = true
+            });
+        }
+        await _context.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task CuotasEfectivas_SinPlanesDeProducto_DevuelveGlobal()
+    {
+        await SeedCuotasGlobales((1, 5m), (6, 10m));
+        var producto = await SeedProductoSimple();
+
+        var efectivas = await _service.GetCuotasCreditoPersonalEfectivasAsync(new[] { producto.Id });
+
+        Assert.Equal(new[] { 1, 6 }, efectivas.Select(c => c.CantidadCuotas).ToArray());
+        Assert.Equal(5m, efectivas.First(c => c.CantidadCuotas == 1).TasaMensual);
+    }
+
+    [Fact]
+    public async Task CuotasEfectivas_ProductoConPlanes_SobrescribeGlobal()
+    {
+        await SeedCuotasGlobales((1, 5m), (4, 8m), (6, 10m));
+        var producto = await SeedProductoSimple();
+        await SeedCuotasProducto(producto.Id, (1, 0m), (3, 10m));
+
+        var efectivas = await _service.GetCuotasCreditoPersonalEfectivasAsync(new[] { producto.Id });
+
+        Assert.Equal(new[] { 1, 3 }, efectivas.Select(c => c.CantidadCuotas).ToArray());
+        Assert.Equal(0m, efectivas.First(c => c.CantidadCuotas == 1).TasaMensual);
+        Assert.Equal(10m, efectivas.First(c => c.CantidadCuotas == 3).TasaMensual);
+    }
+
+    [Fact]
+    public async Task CuotasEfectivas_Multiproducto_IntersecaYAplicaTasaMasAlta()
+    {
+        await SeedCuotasGlobales((1, 5m), (6, 12m));
+        var conPlanes = await SeedProductoSimple();
+        var sinPlanes = await SeedProductoSimple();
+        await SeedCuotasProducto(conPlanes.Id, (1, 2m), (3, 7m), (6, 9m));
+
+        var efectivas = await _service.GetCuotasCreditoPersonalEfectivasAsync(
+            new[] { conPlanes.Id, sinPlanes.Id });
+
+        // 3 cuotas queda afuera: el producto sin planes hereda global y global no la habilita.
+        Assert.Equal(new[] { 1, 6 }, efectivas.Select(c => c.CantidadCuotas).ToArray());
+        Assert.Equal(5m, efectivas.First(c => c.CantidadCuotas == 1).TasaMensual);
+        Assert.Equal(12m, efectivas.First(c => c.CantidadCuotas == 6).TasaMensual);
     }
 
     [Fact]

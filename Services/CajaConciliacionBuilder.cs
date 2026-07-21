@@ -196,7 +196,10 @@ public static class CajaConciliacionBuilder
             Sale = esIngreso ? 0m : m.Monto,
             Usuario = m.Usuario,
             Observacion = m.Observaciones,
-            ImpactaCajaFisica = EsMovimientoFisico(m)
+            ImpactaCajaFisica = EsMovimientoFisico(m),
+            ImporteBase = m.ImporteBase,
+            RecargoMedioPago = m.RecargoMedioPago,
+            DescuentoMedioPago = m.DescuentoMedioPago
         };
     }
 

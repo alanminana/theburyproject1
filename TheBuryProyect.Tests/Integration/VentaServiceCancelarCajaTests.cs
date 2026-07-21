@@ -131,6 +131,7 @@ file sealed class StubConfiguracionPagoCancelarCaja : IConfiguracionPagoService
     public Task<(bool Ok, List<string> Errores)> GuardarMontosPorPuntajeAsync(List<MontoPorPuntajeCreditoViewModel> items, string usuario) => Task.FromResult((true, new List<string>()));
     public Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalAsync() => Task.FromResult(new List<CuotaCreditoPersonalViewModel>());
     public Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalActivasAsync() => Task.FromResult(new List<CuotaCreditoPersonalViewModel>());
+    public Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalEfectivasAsync(IEnumerable<int> productoIds) => GetCuotasCreditoPersonalActivasAsync();
     public Task<(bool Ok, List<string> Errores)> GuardarCuotasCreditoPersonalAsync(List<CuotaCreditoPersonalViewModel> items, string usuario) => Task.FromResult((true, new List<string>()));
 }
 

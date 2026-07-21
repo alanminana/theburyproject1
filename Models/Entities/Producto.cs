@@ -189,6 +189,13 @@ namespace TheBuryProject.Models.Entities
             new List<ProductoCreditoRestriccion>();
 
         /// <summary>
+        /// Planes de cuotas de credito personal especificos de este producto (cantidad + tasa).
+        /// Vacio = hereda la configuracion global de credito personal.
+        /// </summary>
+        public virtual ICollection<ProductoCreditoPersonalCuota> CreditoPersonalCuotas { get; set; } =
+            new List<ProductoCreditoPersonalCuota>();
+
+        /// <summary>
         /// Unidades físicas individuales de este producto (trazabilidad individual).
         /// Solo aplica cuando RequiereNumeroSerie = true o se gestiona trazabilidad por unidad.
         /// </summary>

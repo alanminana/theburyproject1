@@ -951,6 +951,9 @@ public sealed class CotizacionPagoCalculatorContractTests
         public Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalActivasAsync() =>
             Task.FromResult(CuotasCreditoPersonal.Where(c => c.Activo).ToList());
 
+        public Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalEfectivasAsync(IEnumerable<int> productoIds) =>
+            GetCuotasCreditoPersonalActivasAsync();
+
         public Task<(bool Ok, List<string> Errores)> GuardarCuotasCreditoPersonalAsync(
             List<CuotaCreditoPersonalViewModel> items, string usuario) => throw new NotSupportedException();
     }

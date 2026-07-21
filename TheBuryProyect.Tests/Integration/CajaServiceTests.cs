@@ -584,6 +584,43 @@ public class CajaServiceTests : IDisposable
         Assert.Equal(TipoMovimientoCaja.Ingreso, resultado!.Tipo);
     }
 
+    [Fact]
+    public async Task RegistrarMovimientoCuota_ConRecargo_SeparaBaseYRecargoEnMovimiento()
+    {
+        var caja = await SeedCajaAsync();
+        await AbrirCajaAsync(caja);
+
+        var resultado = await _service.RegistrarMovimientoCuotaAsync(
+            cuotaId: 42, creditoNumero: "CRED-010", numeroCuota: 1,
+            montoBase: 100_000m, recargoMedioPago: 3_000m,
+            tipoPago: TipoPago.Transferencia, medioPago: "Transferencia", usuario: "cajero1");
+
+        Assert.NotNull(resultado);
+        Assert.Equal(103_000m, resultado!.Monto);
+        Assert.Equal(100_000m, resultado.ImporteBase);
+        Assert.Equal(3_000m, resultado.RecargoMedioPago);
+        Assert.Null(resultado.DescuentoMedioPago);
+        Assert.Equal(TipoPago.Transferencia, resultado.TipoPago);
+    }
+
+    [Fact]
+    public async Task RegistrarMovimientoCuota_ConDescuento_RegistraDescuentoNoRecargo()
+    {
+        var caja = await SeedCajaAsync();
+        await AbrirCajaAsync(caja);
+
+        var resultado = await _service.RegistrarMovimientoCuotaAsync(
+            cuotaId: 43, creditoNumero: "CRED-011", numeroCuota: 1,
+            montoBase: 100_000m, recargoMedioPago: -5_000m,
+            tipoPago: TipoPago.Efectivo, medioPago: "Efectivo", usuario: "cajero1");
+
+        Assert.NotNull(resultado);
+        Assert.Equal(95_000m, resultado!.Monto);
+        Assert.Equal(100_000m, resultado.ImporteBase);
+        Assert.Null(resultado.RecargoMedioPago);
+        Assert.Equal(5_000m, resultado.DescuentoMedioPago);
+    }
+
     // -------------------------------------------------------------------------
     // RegistrarMovimientoVentaAsync — crédito personal y cuenta corriente → null
     // -------------------------------------------------------------------------

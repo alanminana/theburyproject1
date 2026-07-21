@@ -29,6 +29,16 @@ namespace TheBuryProject.Services
                 ["Cheque"] = "Cheque"
             };
 
+        private static readonly IReadOnlyDictionary<string, TipoPago> MediosPagoTipoPago =
+            new Dictionary<string, TipoPago>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["Efectivo"] = TipoPago.Efectivo,
+                ["Transferencia"] = TipoPago.Transferencia,
+                ["Tarjeta Débito"] = TipoPago.TarjetaDebito,
+                ["Tarjeta Crédito"] = TipoPago.TarjetaCredito,
+                ["Cheque"] = TipoPago.Cheque
+            };
+
         private readonly AppDbContext _context;
         private readonly IMapper _mapper;
         private readonly ILogger<CreditoService> _logger;
@@ -37,6 +47,7 @@ namespace TheBuryProject.Services
         private readonly ICreditoDisponibleService _creditoDisponibleService;
         private readonly ICurrentUserService _currentUserService;
         private readonly IClienteScoringService _clienteScoringService;
+        private readonly IConfiguracionPagoService? _configuracionPagoService;
 
         public CreditoService(
             AppDbContext context,
@@ -46,7 +57,8 @@ namespace TheBuryProject.Services
             ICajaService cajaService,
             ICreditoDisponibleService creditoDisponibleService,
             ICurrentUserService currentUserService,
-            IClienteScoringService? clienteScoringService = null)
+            IClienteScoringService? clienteScoringService = null,
+            IConfiguracionPagoService? configuracionPagoService = null)
         {
             _context = context;
             _mapper = mapper;
@@ -56,7 +68,26 @@ namespace TheBuryProject.Services
             _creditoDisponibleService = creditoDisponibleService;
             _currentUserService = currentUserService;
             _clienteScoringService = clienteScoringService ?? new ClienteScoringService(context, NullLogger<ClienteScoringService>.Instance);
+            _configuracionPagoService = configuracionPagoService;
         }
+
+        /// <summary>
+        /// Resuelve el porcentaje de ajuste vigente del medio de pago (recargo positivo /
+        /// descuento negativo) para cobros en un pago, y el TipoPago estructurado del medio.
+        /// </summary>
+        private async Task<(decimal Porcentaje, TipoPago? TipoPago)> ObtenerAjusteMedioPagoAsync(string medioPago)
+        {
+            if (_configuracionPagoService == null || !MediosPagoTipoPago.TryGetValue(medioPago, out var tipoPago))
+                return (0m, null);
+
+            var porcentaje = await _configuracionPagoService.ObtenerPorcentajeAjusteUnPagoAsync(tipoPago);
+            return (porcentaje, tipoPago);
+        }
+
+        private static decimal CalcularRecargoMedioPago(decimal montoBase, decimal porcentaje) =>
+            montoBase <= 0m || porcentaje == 0m
+                ? 0m
+                : Math.Round(montoBase * porcentaje / 100m, 2, MidpointRounding.AwayFromZero);
 
         #region CRUD Básico
 
@@ -113,6 +144,18 @@ namespace TheBuryProject.Services
                             !cu.IsDeleted &&
                             (cu.Estado == EstadoCuota.Vencida ||
                              (cu.Estado == EstadoCuota.Pendiente && cu.FechaVencimiento < DateTime.UtcNow))));
+                }
+
+                // El listado principal muestra solo creditos generados correctamente.
+                // Operaciones en curso (solicitud, configuracion pendiente, plan configurado
+                // sin confirmar) o rechazadas aparecen unicamente al filtrar por ese estado.
+                if (filter?.Estado == null)
+                {
+                    query = query.Where(c =>
+                        c.Estado != EstadoCredito.Solicitado &&
+                        c.Estado != EstadoCredito.PendienteConfiguracion &&
+                        c.Estado != EstadoCredito.Configurado &&
+                        c.Estado != EstadoCredito.Rechazado);
                 }
 
                 var creditos = await query
@@ -520,7 +563,13 @@ namespace TheBuryProject.Services
                 {
                     cuota.MontoPunitorio = CalcularPunitorioActualizado(cuota, DateTime.UtcNow);
 
+                    // Recargo/descuento del medio de pago: concepto separado del valor de la
+                    // cuota. No modifica MontoTotal ni MontoPagado (que saldan la cuota).
+                    var (ajustePorcentaje, tipoPagoMedio) = await ObtenerAjusteMedioPagoAsync(medioPago);
+                    var recargoMedioPago = CalcularRecargoMedioPago(pago.MontoPagado, ajustePorcentaje);
+
                     cuota.MontoPagado += pago.MontoPagado;
+                    cuota.RecargoMedioPago += recargoMedioPago;
                     cuota.FechaPago = pago.FechaPago;
                     cuota.MedioPago = medioPago;
                     cuota.ComprobantePago = pago.ComprobantePago;
@@ -539,6 +588,8 @@ namespace TheBuryProject.Services
                         cuota.Credito.Numero,
                         cuota.NumeroCuota,
                         pago.MontoPagado,
+                        recargoMedioPago,
+                        tipoPagoMedio,
                         medioPago,
                         _currentUserService.GetUsername());
 
@@ -590,6 +641,7 @@ namespace TheBuryProject.Services
             var observaciones = request.Observaciones?.Trim();
             var fechaPago = DateTime.UtcNow;
             var usuario = _currentUserService.GetUsername();
+            var (ajustePorcentajeMedio, tipoPagoMedio) = await ObtenerAjusteMedioPagoAsync(medioPago);
 
             var cajaActiva = await _cajaService.ObtenerAperturaActivaParaVentaAsync();
             if (cajaActiva == null)
@@ -653,6 +705,7 @@ namespace TheBuryProject.Services
                 {
                     pago.Cuota.MontoPunitorio = pago.Punitorio;
                     pago.Cuota.MontoPagado += pago.Total;
+                    pago.Cuota.RecargoMedioPago += CalcularRecargoMedioPago(pago.Total, ajustePorcentajeMedio);
                     pago.Cuota.FechaPago = fechaPago;
                     pago.Cuota.MedioPago = medioPago;
 
@@ -677,6 +730,8 @@ namespace TheBuryProject.Services
                         pago.Cuota.Credito.Numero,
                         pago.Cuota.NumeroCuota,
                         pago.Total,
+                        CalcularRecargoMedioPago(pago.Total, ajustePorcentajeMedio),
+                        tipoPagoMedio,
                         medioPago,
                         usuario);
 
@@ -782,8 +837,12 @@ namespace TheBuryProject.Services
 
                 var ahora = DateTime.UtcNow;
 
+                var (ajusteAdelanto, tipoPagoAdelanto) = await ObtenerAjusteMedioPagoAsync(pago.MedioPago ?? string.Empty);
+                var recargoAdelanto = CalcularRecargoMedioPago(pago.MontoPagado, ajusteAdelanto);
+
                 // En adelanto no hay punitorio (se paga antes de vencer)
                 ultimaCuotaPendiente.MontoPagado += pago.MontoPagado;
+                ultimaCuotaPendiente.RecargoMedioPago += recargoAdelanto;
                 ultimaCuotaPendiente.FechaPago = pago.FechaPago;
                 ultimaCuotaPendiente.MedioPago = pago.MedioPago;
                 ultimaCuotaPendiente.ComprobantePago = pago.ComprobantePago;
@@ -805,7 +864,9 @@ namespace TheBuryProject.Services
                     ultimaCuotaPendiente.Credito.Numero,
                     ultimaCuotaPendiente.NumeroCuota,
                     pago.MontoPagado,
-                    pago.MedioPago,
+                    recargoAdelanto,
+                    tipoPagoAdelanto,
+                    pago.MedioPago ?? string.Empty,
                     _currentUserService.GetUsername());
 
                 await RecalcularSaldoCreditoAsync(ultimaCuotaPendiente.CreditoId);

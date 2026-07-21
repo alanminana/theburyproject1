@@ -182,7 +182,7 @@
                 } else {
                     txtTasa.value = clienteConfig.tasaGlobal ?? '';
                     txtGastos.value = clienteConfig.gastosGlobales ?? 0;
-                    actualizarRangoCuotas(1, 24);
+                    if (!aplicarCuotasHabilitadas()) actualizarRangoCuotas(1, 24);
                 }
                 break;
 
@@ -199,7 +199,7 @@
             case METODO.Global:
                 txtTasa.value = clienteConfig.tasaGlobal ?? '';
                 txtGastos.value = clienteConfig.gastosGlobales ?? 0;
-                actualizarRangoCuotas(1, 24);
+                if (!aplicarCuotasHabilitadas()) actualizarRangoCuotas(1, 24);
                 break;
 
             case METODO.Manual:
@@ -257,6 +257,55 @@
         if (heroCuotas) heroCuotas.textContent = txtCuotas.value || '0';
     }
 
+    // ── Planes de cuotas (fuente Global) ───────────────────────────────
+    // Cuando hay planes activos configurados, las cuotas seleccionables surgen
+    // de esos planes (cantidad + tasa propia), no del rango min/max default.
+
+    function cuotasHabilitadasGlobal() {
+        const lista = Array.isArray(clienteConfig.cuotasHabilitadas) ? clienteConfig.cuotasHabilitadas : [];
+        const maxProducto = parseInt(clienteConfig.maxCuotasCreditoProducto) || null;
+        return lista
+            .filter(c => !maxProducto || c.cantidadCuotas <= maxProducto)
+            .sort((a, b) => a.cantidadCuotas - b.cantidadCuotas);
+    }
+
+    function esFuenteGlobalPura() {
+        const val = selectMetodo?.value;
+        return val === METODO.Global ||
+            (val === METODO.AutomaticoPorCliente &&
+                !clienteConfig.tieneConfiguracionCliente &&
+                !clienteConfig.tienePerfilPreferido);
+    }
+
+    function aplicarCuotasHabilitadas() {
+        const planes = cuotasHabilitadasGlobal();
+        if (!planes.length) return false;
+
+        const cantidades = planes.map(c => c.cantidadCuotas);
+        txtCuotas.min = cantidades[0];
+        txtCuotas.max = cantidades[cantidades.length - 1];
+        cuotasRangoInfo.textContent = `Cuotas disponibles según planes configurados: ${cantidades.join(', ')}.`;
+
+        ajustarCuotaAPlanHabilitado();
+        return true;
+    }
+
+    function ajustarCuotaAPlanHabilitado() {
+        const planes = cuotasHabilitadasGlobal();
+        if (!planes.length || !esFuenteGlobalPura()) return;
+
+        const cantidades = planes.map(c => c.cantidadCuotas);
+        const actual = parseInt(txtCuotas.value) || 0;
+        if (!cantidades.includes(actual)) {
+            const cercana = cantidades.reduce((p, c) => Math.abs(c - actual) < Math.abs(p - actual) ? c : p);
+            txtCuotas.value = cercana;
+        }
+
+        const plan = planes.find(c => c.cantidadCuotas === (parseInt(txtCuotas.value) || 0));
+        if (plan) txtTasa.value = plan.tasaMensual;
+        if (heroCuotas) heroCuotas.textContent = txtCuotas.value || '0';
+    }
+
     selectMetodo?.addEventListener('change', onMetodoChange);
 
     // ── 3. Perfil de Crédito ───────────────────────────────────────────
@@ -309,7 +358,7 @@
                 gastosAdministrativos: gastos.toString(),
                 fechaPrimeraCuota: fecha
             });
-            if (!isNaN(tasa) && tasa > 0) {
+            if (!isNaN(tasa) && tasa >= 0) {
                 params.set('tasaMensual', tasa.toString());
             }
 
@@ -429,6 +478,10 @@
     txtCuotas?.addEventListener('input', programarSimulacion);
     txtCuotas?.addEventListener('input', function () {
         if (heroCuotas) heroCuotas.textContent = txtCuotas.value || '0';
+    });
+    txtCuotas?.addEventListener('change', function () {
+        ajustarCuotaAPlanHabilitado();
+        programarSimulacion();
     });
     txtTasa?.addEventListener('input', programarSimulacion);
     txtGastos?.addEventListener('input', programarSimulacion);

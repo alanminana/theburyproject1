@@ -70,6 +70,7 @@ namespace TheBuryProject.Data
         public DbSet<ProductoCondicionPagoTarjeta> ProductoCondicionesPagoTarjeta { get; set; }
         public DbSet<ProductoCondicionPagoPlan> ProductoCondicionPagoPlanes { get; set; }
         public DbSet<ProductoCreditoRestriccion> ProductoCreditoRestricciones { get; set; }
+        public DbSet<ProductoCreditoPersonalCuota> ProductoCreditoPersonalCuotas { get; set; }
         public DbSet<PerfilCredito> PerfilesCredito { get; set; }
         public DbSet<DatosTarjeta> DatosTarjeta { get; set; }
         public DbSet<DatosCheque> DatosCheque { get; set; }
@@ -1011,6 +1012,45 @@ namespace TheBuryProject.Data
             });
 
             // =======================
+            // ProductoCreditoPersonalCuota
+            // =======================
+            modelBuilder.Entity<ProductoCreditoPersonalCuota>(entity =>
+            {
+                entity.ToTable("ProductoCreditoPersonalCuotas", t =>
+                {
+                    t.HasCheckConstraint("CK_ProductoCreditoPersonalCuota_Cuotas", "[CantidadCuotas] >= 1 AND [CantidadCuotas] <= 120");
+                    t.HasCheckConstraint("CK_ProductoCreditoPersonalCuota_Tasa", "[TasaMensual] >= 0");
+                });
+
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.CantidadCuotas)
+                    .IsRequired();
+
+                entity.Property(e => e.TasaMensual)
+                    .HasPrecision(8, 4)
+                    .HasDefaultValue(0m);
+
+                entity.Property(e => e.Activo)
+                    .HasDefaultValue(true);
+
+                entity.Property(e => e.FechaActualizacion)
+                    .HasDefaultValueSql("GETUTCDATE()");
+
+                entity.Property(e => e.UsuarioActualizacion)
+                    .HasMaxLength(100);
+
+                entity.HasOne(e => e.Producto)
+                    .WithMany(p => p.CreditoPersonalCuotas)
+                    .HasForeignKey(e => e.ProductoId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasIndex(e => new { e.ProductoId, e.CantidadCuotas })
+                    .IsUnique()
+                    .HasDatabaseName("UX_ProductoCreditoPersonalCuotas_ProductoCuotas");
+            });
+
+            // =======================
             // Credito (IMPORTANTE: sin QueryFilter para evitar warnings con VentaCreditoCuota)
             // =======================
             modelBuilder.Entity<Credito>(entity =>
@@ -1100,6 +1140,7 @@ namespace TheBuryProject.Data
                 entity.Property(e => e.MontoTotal).HasPrecision(18, 2);
                 entity.Property(e => e.MontoPagado).HasPrecision(18, 2);
                 entity.Property(e => e.MontoPunitorio).HasPrecision(18, 2);
+                entity.Property(e => e.RecargoMedioPago).HasPrecision(18, 2);
             });
 
             // =======================

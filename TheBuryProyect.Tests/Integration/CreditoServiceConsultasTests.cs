@@ -743,6 +743,40 @@ public class CreditoServiceConsultasTests : IDisposable
     }
 
     [Fact]
+    public async Task GetAll_SinFiltroEstado_ExcluyeOperacionesEnCursoORechazadas()
+    {
+        var cliente = await SeedClienteAsync();
+
+        var generado = await SeedCreditoAsync(cliente.Id);
+        generado.Estado = EstadoCredito.Generado;
+
+        var pendiente = await SeedCreditoAsync(cliente.Id);
+        pendiente.Estado = EstadoCredito.PendienteConfiguracion;
+
+        var configurado = await SeedCreditoAsync(cliente.Id);
+        configurado.Estado = EstadoCredito.Configurado;
+
+        var rechazado = await SeedCreditoAsync(cliente.Id);
+        rechazado.Estado = EstadoCredito.Rechazado;
+
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.GetAllAsync();
+
+        Assert.Contains(resultado, c => c.Id == generado.Id);
+        Assert.DoesNotContain(resultado, c => c.Id == pendiente.Id);
+        Assert.DoesNotContain(resultado, c => c.Id == configurado.Id);
+        Assert.DoesNotContain(resultado, c => c.Id == rechazado.Id);
+
+        // Con filtro explicito el estado en curso sigue siendo consultable.
+        var pendientes = await _service.GetAllAsync(new CreditoFilterViewModel
+        {
+            Estado = EstadoCredito.PendienteConfiguracion
+        });
+        Assert.Contains(pendientes, c => c.Id == pendiente.Id);
+    }
+
+    [Fact]
     public async Task GetAll_FiltroEstado_RetornaSoloEseEstado()
     {
         var cliente = await SeedClienteAsync();

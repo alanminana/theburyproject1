@@ -750,11 +750,30 @@ namespace TheBuryProject.Services
         }
 
         /// <inheritdoc/>
-        public async Task<MovimientoCaja?> RegistrarMovimientoCuotaAsync(
+        public Task<MovimientoCaja?> RegistrarMovimientoCuotaAsync(
             int cuotaId,
             string creditoNumero,
             int numeroCuota,
             decimal monto,
+            string medioPago,
+            string usuario)
+            => RegistrarMovimientoCuotaAsync(
+                cuotaId,
+                creditoNumero,
+                numeroCuota,
+                montoBase: monto,
+                recargoMedioPago: 0m,
+                tipoPago: null,
+                medioPago,
+                usuario);
+
+        public async Task<MovimientoCaja?> RegistrarMovimientoCuotaAsync(
+            int cuotaId,
+            string creditoNumero,
+            int numeroCuota,
+            decimal montoBase,
+            decimal recargoMedioPago,
+            TipoPago? tipoPago,
             string medioPago,
             string usuario)
         {
@@ -776,7 +795,12 @@ namespace TheBuryProject.Services
                     FechaMovimiento = DateTime.UtcNow,
                     Tipo = TipoMovimientoCaja.Ingreso,
                     Concepto = ConceptoMovimientoCaja.CobroCuota,
-                    Monto = monto,
+                    Monto = montoBase + recargoMedioPago,
+                    ImporteBase = montoBase,
+                    RecargoMedioPago = recargoMedioPago > 0 ? recargoMedioPago : null,
+                    DescuentoMedioPago = recargoMedioPago < 0 ? -recargoMedioPago : null,
+                    TipoPago = tipoPago,
+                    MedioPagoDetalle = medioPago,
                     Descripcion = $"Cobro cuota #{numeroCuota} - Crédito {creditoNumero}",
                     Referencia = $"{creditoNumero}-C{numeroCuota}",
                     ReferenciaId = cuotaId,
@@ -789,8 +813,8 @@ namespace TheBuryProject.Services
                 await _context.SaveChangesAsync();
 
                 _logger.LogInformation(
-                    "Movimiento de caja registrado para cuota #{NumeroCuota} de crédito {CreditoNumero}: ${Monto:N2}",
-                    numeroCuota, creditoNumero, monto);
+                    "Movimiento de caja registrado para cuota #{NumeroCuota} de crédito {CreditoNumero}: ${Monto:N2} (base ${Base:N2}, ajuste medio ${Ajuste:N2})",
+                    numeroCuota, creditoNumero, movimiento.Monto, montoBase, recargoMedioPago);
 
                 return movimiento;
             }

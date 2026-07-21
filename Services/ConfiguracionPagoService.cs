@@ -871,6 +871,30 @@ namespace TheBuryProject.Services
             return monto * (config.PorcentajeRecargo.Value / 100);
         }
 
+        public async Task<decimal> ObtenerPorcentajeAjusteUnPagoAsync(TipoPago tipoPago)
+        {
+            // Regla vigente del medio: plan general de 1 cuota (ajuste % positivo = recargo,
+            // negativo = descuento). Fallback: recargo global legacy del medio.
+            var ajustePlan = await _context.ConfiguracionPagoPlanes
+                .AsNoTracking()
+                .Where(p => !p.IsDeleted && p.Activo &&
+                            p.TipoPago == tipoPago &&
+                            p.ConfiguracionTarjetaId == null &&
+                            p.CantidadCuotas == 1)
+                .OrderBy(p => p.Orden)
+                .Select(p => (decimal?)p.AjustePorcentaje)
+                .FirstOrDefaultAsync();
+
+            if (ajustePlan.HasValue)
+                return ajustePlan.Value;
+
+            var config = await GetByTipoPagoAsync(tipoPago);
+            if (config?.TieneRecargo == true && config.PorcentajeRecargo.HasValue)
+                return config.PorcentajeRecargo.Value;
+
+            return 0m;
+        }
+
         public async Task<List<PerfilCreditoViewModel>> GetPerfilesCreditoAsync()
         {
             var perfiles = await _context.PerfilesCredito
@@ -1046,6 +1070,21 @@ namespace TheBuryProject.Services
                 cliente,
                 defaults.MinCuotas,
                 defaults.MaxCuotas);
+
+            // Consolidacion: cuando hay planes de cuotas activos, las cuotas del camino
+            // global surgen de esos planes y no del rango min/max default (evita ofrecer
+            // cantidades sin plan valido).
+            if (desc == "Global")
+            {
+                var cuotasActivas = await GetCuotasCreditoPersonalActivasAsync();
+                if (cuotasActivas.Count > 0)
+                {
+                    min = cuotasActivas.Min(c => c.CantidadCuotas);
+                    max = cuotasActivas.Max(c => c.CantidadCuotas);
+                    desc = "Planes de cuotas";
+                }
+            }
+
             return (min, max, desc, perfil?.Nombre);
         }
 
@@ -1270,6 +1309,75 @@ namespace TheBuryProject.Services
                 Activo = e.Activo,
                 Orden = e.Orden
             }).ToList();
+        }
+
+        public async Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalEfectivasAsync(IEnumerable<int> productoIds)
+        {
+            var ids = productoIds?.Where(id => id > 0).Distinct().ToArray() ?? Array.Empty<int>();
+            var globales = await GetCuotasCreditoPersonalActivasAsync();
+
+            if (ids.Length == 0)
+                return globales;
+
+            var planesProducto = await _context.ProductoCreditoPersonalCuotas
+                .AsNoTracking()
+                .Where(p => ids.Contains(p.ProductoId) && p.Activo && !p.Producto.IsDeleted)
+                .Select(p => new { p.ProductoId, p.CantidadCuotas, p.TasaMensual })
+                .ToListAsync();
+
+            if (planesProducto.Count == 0)
+                return globales;
+
+            var porProducto = planesProducto
+                .GroupBy(p => p.ProductoId)
+                .ToDictionary(g => g.Key, g => g.Select(p => p.CantidadCuotas).ToHashSet());
+
+            var hayProductoSinPlanes = ids.Any(id => !porProducto.ContainsKey(id));
+
+            // Cantidades efectivas: interseccion de los sets de cada producto con planes propios.
+            // Los productos sin planes heredan la configuracion global (si existe tabla global,
+            // tambien restringe; si no, no restringen cantidades).
+            HashSet<int>? cantidades = null;
+            foreach (var set in porProducto.Values)
+            {
+                cantidades = cantidades == null
+                    ? new HashSet<int>(set)
+                    : new HashSet<int>(cantidades.Intersect(set));
+            }
+
+            if (hayProductoSinPlanes && globales.Count > 0)
+                cantidades!.IntersectWith(globales.Select(g => g.CantidadCuotas));
+
+            decimal? tasaGlobalUnica = null;
+            if (hayProductoSinPlanes && globales.Count == 0)
+                tasaGlobalUnica = await ObtenerTasaInteresMensualCreditoPersonalAsync();
+
+            var resultado = new List<CuotaCreditoPersonalViewModel>();
+            foreach (var cantidad in cantidades!.OrderBy(c => c))
+            {
+                var tasas = planesProducto
+                    .Where(p => p.CantidadCuotas == cantidad)
+                    .Select(p => p.TasaMensual)
+                    .ToList();
+
+                if (hayProductoSinPlanes)
+                {
+                    var tasaGlobalPlan = globales.FirstOrDefault(g => g.CantidadCuotas == cantidad)?.TasaMensual
+                        ?? tasaGlobalUnica;
+                    if (tasaGlobalPlan.HasValue)
+                        tasas.Add(tasaGlobalPlan.Value);
+                }
+
+                resultado.Add(new CuotaCreditoPersonalViewModel
+                {
+                    CantidadCuotas = cantidad,
+                    TasaMensual = tasas.Max(),
+                    Activo = true,
+                    Orden = cantidad
+                });
+            }
+
+            return resultado;
         }
 
         public async Task<(bool Ok, List<string> Errores)> GuardarCuotasCreditoPersonalAsync(

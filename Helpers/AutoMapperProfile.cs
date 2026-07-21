@@ -30,7 +30,8 @@ namespace TheBuryProject.Helpers
             CreateMap<Producto, ProductoViewModel>()
                 .ForMember(d => d.CategoriaNombre, o => o.MapFrom(s => s.Categoria != null ? s.Categoria.Nombre : null))
                 .ForMember(d => d.MarcaNombre, o => o.MapFrom(s => s.Marca != null ? s.Marca.Nombre : null))
-                .ForMember(d => d.AlicuotaIVANombre, o => o.MapFrom(s => s.AlicuotaIVA != null && !s.AlicuotaIVA.IsDeleted ? s.AlicuotaIVA.Nombre : null));
+                .ForMember(d => d.AlicuotaIVANombre, o => o.MapFrom(s => s.AlicuotaIVA != null && !s.AlicuotaIVA.IsDeleted ? s.AlicuotaIVA.Nombre : null))
+                .ForMember(d => d.CreditoPersonal, o => o.Ignore());
 
             CreateMap<ProductoViewModel, Producto>()
                 .ForMember(d => d.Categoria, o => o.Ignore())
@@ -38,7 +39,8 @@ namespace TheBuryProject.Helpers
                 .ForMember(d => d.Marca, o => o.Ignore())
                 .ForMember(d => d.CreatedAt, o => o.Ignore())
                 .ForMember(d => d.CreatedBy, o => o.Ignore())
-                .ForMember(d => d.IsDeleted, o => o.Ignore());
+                .ForMember(d => d.IsDeleted, o => o.Ignore())
+                .ForMember(d => d.CreditoPersonalCuotas, o => o.Ignore());
 
             CreateMap<ProductoCaracteristica, ProductoCaracteristicaViewModel>();
 

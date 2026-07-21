@@ -999,9 +999,9 @@ namespace TheBuryProject.Services
                     credito.Estado = EstadoCredito.Configurado;
                 }
 
-                if (credito.TasaInteres <= 0m)
+                if (credito.TasaInteres < 0m)
                     throw new InvalidOperationException(
-                        "La tasa de interés de Crédito Personal no está configurada. " +
+                        "La tasa de interés de Crédito Personal es negativa. " +
                         "Configure el valor en Administración → Tipos de Pago antes de confirmar la venta.");
 
                 await ValidarCuotasCreditoPersonalPorProductoAsync(venta, credito);

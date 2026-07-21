@@ -100,10 +100,39 @@ public class ContratoVentaCreditoServiceTests : IDisposable
         Assert.Equal(500m, productos[0].GetProperty("Subtotal").GetDecimal());
     }
 
+    [Fact]
+    public async Task GenerarAsync_TasaCero_GeneraContrato()
+    {
+        var venta = await SeedVentaCreditoAsync(new[]
+        {
+            DetalleSeed("P1", "Producto 1", subtotal: 1_210m, subtotalFinal: 1_210m)
+        }, total: 1_210m, tasaInteres: 0m);
+
+        var contrato = await _service.GenerarAsync(venta.Id, "tester");
+
+        Assert.NotNull(contrato);
+        Assert.False(string.IsNullOrWhiteSpace(contrato.NumeroContrato));
+    }
+
+    [Fact]
+    public async Task ValidarDatosParaGenerarAsync_TasaNegativa_DevuelveError()
+    {
+        var venta = await SeedVentaCreditoAsync(new[]
+        {
+            DetalleSeed("P1", "Producto 1", subtotal: 1_210m, subtotalFinal: 1_210m)
+        }, total: 1_210m, tasaInteres: -1m);
+
+        var resultado = await _service.ValidarDatosParaGenerarAsync(venta.Id);
+
+        Assert.False(resultado.EsValido);
+        Assert.Contains(resultado.Errores, e => e.Contains("negativa", StringComparison.OrdinalIgnoreCase));
+    }
+
     private async Task<Venta> SeedVentaCreditoAsync(
         IEnumerable<DetalleSeedData> detalles,
         decimal total,
-        decimal descuento = 0m)
+        decimal descuento = 0m,
+        decimal tasaInteres = 5m)
     {
         var cliente = new Cliente
         {
@@ -123,7 +152,7 @@ public class ContratoVentaCreditoServiceTests : IDisposable
             MontoSolicitado = total,
             MontoAprobado = total,
             SaldoPendiente = total,
-            TasaInteres = 5m,
+            TasaInteres = tasaInteres,
             CantidadCuotas = 1,
             MontoCuota = total,
             TotalAPagar = total,

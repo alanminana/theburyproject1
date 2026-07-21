@@ -57,6 +57,9 @@ internal class StubConfiguracionPagoServiceVenta : IConfiguracionPagoService
     public Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalActivasAsync()
         => Task.FromResult(new List<CuotaCreditoPersonalViewModel>());
 
+    public Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalEfectivasAsync(IEnumerable<int> productoIds)
+        => GetCuotasCreditoPersonalActivasAsync();
+
     public Task<(bool Ok, List<string> Errores)> GuardarCuotasCreditoPersonalAsync(
         List<CuotaCreditoPersonalViewModel> items, string usuario)
         => Task.FromResult((true, new List<string>()));

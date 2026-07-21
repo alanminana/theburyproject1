@@ -92,6 +92,21 @@ namespace TheBuryProject.Services.Interfaces
         Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalActivasAsync();
 
         /// <summary>
+        /// Porcentaje de ajuste del medio de pago para operaciones en un pago
+        /// (positivo = recargo, negativo = descuento). Usa el plan general de 1 cuota del
+        /// medio; si no existe, cae al recargo global del medio. Default 0 para stubs.
+        /// </summary>
+        Task<decimal> ObtenerPorcentajeAjusteUnPagoAsync(TipoPago tipoPago) => Task.FromResult(0m);
+
+        /// <summary>
+        /// Resuelve las cuotas efectivas de Crédito Personal para un conjunto de productos.
+        /// Prioridad: planes específicos del producto → planes globales → tasa global única.
+        /// Un producto sin planes propios hereda la configuración global; con varios productos
+        /// la cantidad debe estar habilitada para todos y se aplica la tasa más alta (conservadora).
+        /// </summary>
+        Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalEfectivasAsync(IEnumerable<int> productoIds);
+
+        /// <summary>
         /// Guarda la tabla de cuotas de Crédito Personal (cantidad + tasa mensual + activo).
         /// Actualiza filas existentes; crea las faltantes. No borra físico.
         /// </summary>
