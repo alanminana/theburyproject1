@@ -161,22 +161,32 @@ namespace TheBuryProject.Controllers
                 ViewBag.PuedeOperarVentas = await UsuarioTieneCajaAbiertaAsync();
                 ViewBag.ContratoVentaCredito = await ObtenerContratoResumenPorVentaAsync(id);
 
-                // Fase 2.4: si la primera cuota del crédito vence hoy y está pendiente,
-                // ofrecer cobrarla en el momento (el cobro usa el flujo PagarCuota existente).
-                if (venta.TipoPago == TipoPago.CreditoPersonal &&
-                    venta.CreditoId.HasValue &&
-                    venta.Estado == EstadoVenta.Confirmada)
+                // Fase 2.4: cobro de la primera cuota el mismo día.
+                if (venta.TipoPago == TipoPago.CreditoPersonal && venta.CreditoId.HasValue)
                 {
                     var creditoDetalle = await _creditoService.GetByIdAsync(venta.CreditoId.Value);
-                    var primeraCuota = creditoDetalle?.Cuotas?
-                        .OrderBy(c => c.NumeroCuota)
-                        .FirstOrDefault();
-                    if (primeraCuota != null &&
-                        primeraCuota.Estado == EstadoCuota.Pendiente &&
-                        primeraCuota.FechaVencimiento.Date == DateTime.Today)
+
+                    if (venta.Estado == EstadoVenta.Confirmada)
                     {
-                        ViewBag.PrimeraCuotaHoyCreditoId = venta.CreditoId.Value;
-                        ViewBag.PrimeraCuotaHoyCuotaId = primeraCuota.Id;
+                        // Post-confirmación: la 1ª cuota ya existe, está pendiente y vence hoy → banner
+                        // con link al cobro (flujo PagarCuota). Fallback si no se cobró al confirmar.
+                        var primeraCuota = creditoDetalle?.Cuotas?
+                            .OrderBy(c => c.NumeroCuota)
+                            .FirstOrDefault();
+                        if (primeraCuota != null &&
+                            primeraCuota.Estado == EstadoCuota.Pendiente &&
+                            primeraCuota.FechaVencimiento.Date == DateTime.Today)
+                        {
+                            ViewBag.PrimeraCuotaHoyCreditoId = venta.CreditoId.Value;
+                            ViewBag.PrimeraCuotaHoyCuotaId = primeraCuota.Id;
+                        }
+                    }
+                    else if (venta.PuedeConfirmar &&
+                             creditoDetalle?.FechaPrimeraCuota?.Date == DateTime.Today)
+                    {
+                        // Pre-confirmación: la 1ª cuota se generará con vencimiento hoy → ofrecer
+                        // cobrarla en el mismo acto de confirmar (se envía a Confirmar).
+                        ViewBag.OfrecerCobrarPrimeraCuota = true;
                     }
                 }
 

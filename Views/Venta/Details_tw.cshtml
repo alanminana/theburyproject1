@@ -833,6 +833,28 @@
                         {
                             <form asp-action="Confirmar" method="post" id="form-confirmar">
                                 <input type="hidden" name="id" value="@Model.Id" />
+                                @if (ViewBag.OfrecerCobrarPrimeraCuota == true)
+                                {
+                                    <div class="mb-3 flex flex-col gap-2 rounded-xl border border-sky-500/20 bg-sky-500/10 p-3 text-sm text-sky-200">
+                                        <label class="flex cursor-pointer items-center gap-2 font-semibold">
+                                            <input type="checkbox" name="cobrarPrimeraCuota" value="true"
+                                                   class="h-4 w-4 accent-sky-500" />
+                                            <span>Cobrar la 1ª cuota ahora (vence hoy)</span>
+                                        </label>
+                                        <div class="flex flex-col gap-1">
+                                            <label for="medio-primera-cuota" class="text-xs text-sky-300/80">Medio de pago del cobro</label>
+                                            <select id="medio-primera-cuota" name="medioPagoPrimeraCuota"
+                                                    class="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-semibold text-slate-100 outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20">
+                                                <option value="Efectivo">Efectivo</option>
+                                                <option value="Transferencia">Transferencia</option>
+                                                <option value="Tarjeta Débito">Tarjeta Débito</option>
+                                                <option value="Tarjeta Crédito">Tarjeta Crédito</option>
+                                                <option value="Cheque">Cheque</option>
+                                            </select>
+                                        </div>
+                                        <p class="text-xs text-sky-300/70">El recargo del medio de pago se aplica al cobrar e impacta en caja.</p>
+                                    </div>
+                                }
                                 <button type="submit" class="@(expressDisponible ? "btn-erp-secondary" : "btn-erp-primary") btn-erp-block">
                                     <span class="material-symbols-outlined text-sm">check_circle</span> @(expressDisponible ? "Solo confirmar" : "Confirmar Venta")
                                 </button>

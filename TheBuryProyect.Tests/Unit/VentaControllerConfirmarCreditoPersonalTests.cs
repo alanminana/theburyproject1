@@ -177,6 +177,41 @@ public class VentaControllerConfirmarCreditoPersonalTests
             controller.TempData["Success"]);
     }
 
+    [Fact]
+    public async Task Details_CreditoPersonalPrimeraCuotaVenceHoy_OfreceCobroEnConfirmacion()
+    {
+        var venta = CreateVentaCreditoPersonalBase();
+        venta.RequiereAutorizacion = false;
+        venta.EstadoAutorizacion = EstadoAutorizacionVenta.NoRequiere;
+        // Base ya setea FechaConfiguracionCredito=Today → FinanciamientoConfigurado → PuedeConfirmar.
+
+        var ventaService = new StubVentaService { VentaById = venta };
+        var creditoService = new StubCreditoService { FechaPrimeraCuotaStub = DateTime.Today };
+        var controller = CreateController(ventaService, new StubValidacionVentaService(), creditoService);
+
+        var result = await controller.Details(venta.Id);
+
+        Assert.IsType<ViewResult>(result);
+        Assert.True((bool)controller.ViewBag.OfrecerCobrarPrimeraCuota);
+    }
+
+    [Fact]
+    public async Task Details_CreditoPersonalPrimeraCuotaVenceOtroDia_NoOfreceCobro()
+    {
+        var venta = CreateVentaCreditoPersonalBase();
+        venta.RequiereAutorizacion = false;
+        venta.EstadoAutorizacion = EstadoAutorizacionVenta.NoRequiere;
+
+        var ventaService = new StubVentaService { VentaById = venta };
+        var creditoService = new StubCreditoService { FechaPrimeraCuotaStub = DateTime.Today.AddDays(1) };
+        var controller = CreateController(ventaService, new StubValidacionVentaService(), creditoService);
+
+        var result = await controller.Details(venta.Id);
+
+        Assert.IsType<ViewResult>(result);
+        Assert.Null((object?)controller.ViewBag.OfrecerCobrarPrimeraCuota);
+    }
+
     private static VentaViewModel CreateVentaCreditoPersonalBase() => new()
     {
         Id = 1017,
@@ -293,9 +328,10 @@ public class VentaControllerConfirmarCreditoPersonalTests
         public string? UltimoMedioPagoCobro { get; private set; }
         public CobroPrimeraCuotaResultado CobroResultado { get; set; } =
             CobroPrimeraCuotaResultado.NoAplica("La primera cuota no vence hoy.");
+        public DateTime? FechaPrimeraCuotaStub { get; set; }
 
         public Task<CreditoViewModel?> GetByIdAsync(int id) => Task.FromResult<CreditoViewModel?>(
-            new CreditoViewModel { Id = id, Estado = EstadoCredito.Configurado });
+            new CreditoViewModel { Id = id, Estado = EstadoCredito.Configurado, FechaPrimeraCuota = FechaPrimeraCuotaStub });
 
         public Task<CobroPrimeraCuotaResultado> CobrarPrimeraCuotaAlGenerarAsync(
             int creditoId, string medioPago, string? comprobante = null, string? observaciones = null)
@@ -332,13 +368,13 @@ public class VentaControllerConfirmarCreditoPersonalTests
     private sealed class StubContratoVentaCreditoService : IContratoVentaCreditoService
     {
         public Task<bool> ExisteContratoGeneradoAsync(int ventaId) => Task.FromResult(true);
+        public Task<ContratoVentaCredito?> ObtenerContratoPorVentaAsync(int ventaId) => Task.FromResult<ContratoVentaCredito?>(null);
 
         public Task<ContratoVentaCreditoValidacionResult> ValidarDatosParaGenerarAsync(int ventaId) => throw new NotImplementedException();
         public Task<ContratoVentaCredito> GenerarAsync(int ventaId, string usuario) => throw new NotImplementedException();
         public Task<ContratoVentaCredito> GenerarPdfAsync(int ventaId, string usuario) => throw new NotImplementedException();
         public Task<ContratoVentaCreditoPdfArchivo?> ObtenerPdfAsync(int ventaId) => throw new NotImplementedException();
         public Task<bool> ExistePlantillaActivaAsync() => throw new NotImplementedException();
-        public Task<ContratoVentaCredito?> ObtenerContratoPorVentaAsync(int ventaId) => throw new NotImplementedException();
         public Task<ContratoVentaCredito?> ObtenerContratoPorCreditoAsync(int creditoId) => throw new NotImplementedException();
     }
 
