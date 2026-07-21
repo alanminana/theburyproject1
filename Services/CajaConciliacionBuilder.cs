@@ -199,7 +199,27 @@ public static class CajaConciliacionBuilder
             ImpactaCajaFisica = EsMovimientoFisico(m),
             ImporteBase = m.ImporteBase,
             RecargoMedioPago = m.RecargoMedioPago,
-            DescuentoMedioPago = m.DescuentoMedioPago
+            DescuentoMedioPago = m.DescuentoMedioPago,
+            CategoriaImpacto = CategoriaImpactoMovimiento(m, medio)
+        };
+    }
+
+    /// <summary>
+    /// Clasifica el impacto financiero del movimiento por medio de pago (spec 5.2), sin cambiar
+    /// reglas de negocio: solo separa dinero real, saldo bancario, valores a acreditar y
+    /// operaciones sin ingreso inmediato. Consistente con <see cref="EsMovimientoFisico"/>.
+    /// </summary>
+    private static CategoriaImpactoCaja CategoriaImpactoMovimiento(MovimientoCaja m, string medioLabel)
+    {
+        var key = m.TipoPago.HasValue ? MedioKey(m.TipoPago.Value) : MedioKey(medioLabel);
+        return key switch
+        {
+            "efectivo" => CategoriaImpactoCaja.CajaFisica,
+            "transferencia" or "mercadopago" => CategoriaImpactoCaja.CuentaBancaria,
+            "tarjeta" or "cheque" => CategoriaImpactoCaja.AAcreditar,
+            "credito" or "cuentacorriente" => CategoriaImpactoCaja.SinIngresoInmediato,
+            // Ajustes/gastos/extracciones/depósitos de efectivo caen en "otro" pero mueven caja física.
+            _ => EsMovimientoFisico(m) ? CategoriaImpactoCaja.CajaFisica : CategoriaImpactoCaja.SinIngresoInmediato
         };
     }
 

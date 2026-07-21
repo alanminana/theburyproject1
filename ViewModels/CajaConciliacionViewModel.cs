@@ -86,6 +86,23 @@ public enum VentaTurnoCategoria
     Registro
 }
 
+/// <summary>
+/// Impacto financiero de un movimiento de caja según el medio de pago (spec 5.2): el recargo
+/// y la naturaleza del dinero no deben quedar ocultos. Diferencia dinero real en caja, saldo en
+/// bancos/billeteras, valores con liquidación posterior y operaciones sin ingreso inmediato.
+/// </summary>
+public enum CategoriaImpactoCaja
+{
+    /// <summary>Efectivo: ingreso/egreso real de caja física.</summary>
+    CajaFisica,
+    /// <summary>Transferencia, Mercado Pago, depósito bancario: saldo en cuentas o billeteras.</summary>
+    CuentaBancaria,
+    /// <summary>Tarjeta y cheque: valores con acreditación / liquidación posterior.</summary>
+    AAcreditar,
+    /// <summary>Crédito personal, cuenta corriente: no genera ingreso inmediato en caja.</summary>
+    SinIngresoInmediato
+}
+
 /// <summary>Fila del resumen por medio de pago: Vendido / Cobrado / Pendiente / impacta caja física.</summary>
 public class ResumenMedioConciliacionViewModel
 {
@@ -145,6 +162,29 @@ public class MovimientoCajaLineaViewModel
     public decimal? DescuentoMedioPago { get; set; }
     /// <summary>True si el movimiento tiene un recargo o descuento del medio a desglosar.</summary>
     public bool TieneAjusteMedioPago => (RecargoMedioPago ?? 0m) != 0m || (DescuentoMedioPago ?? 0m) != 0m;
+
+    /// <summary>Impacto financiero del movimiento según el medio de pago (lo resuelve el builder).</summary>
+    public CategoriaImpactoCaja CategoriaImpacto { get; set; } = CategoriaImpactoCaja.CajaFisica;
+
+    /// <summary>Etiqueta corta de la categoría de impacto, para el chip de la vista.</summary>
+    public string CategoriaImpactoLabel => CategoriaImpacto switch
+    {
+        CategoriaImpactoCaja.CajaFisica => "Caja física",
+        CategoriaImpactoCaja.CuentaBancaria => "Banco / billetera",
+        CategoriaImpactoCaja.AAcreditar => "A acreditar",
+        CategoriaImpactoCaja.SinIngresoInmediato => "Sin ingreso inmediato",
+        _ => "Caja física"
+    };
+
+    /// <summary>Clase de chip asociada a la categoría de impacto.</summary>
+    public string CategoriaImpactoChipClass => CategoriaImpacto switch
+    {
+        CategoriaImpactoCaja.CajaFisica => "chip-ok",
+        CategoriaImpactoCaja.CuentaBancaria => "chip-violet",
+        CategoriaImpactoCaja.AAcreditar => "chip-warn",
+        CategoriaImpactoCaja.SinIngresoInmediato => "chip-neutral",
+        _ => "chip-neutral"
+    };
 }
 
 /// <summary>Fila del libro mayor de caja: saldo esperado acumulado fila por fila.</summary>

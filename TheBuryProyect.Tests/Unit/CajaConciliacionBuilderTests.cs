@@ -116,6 +116,35 @@ public class CajaConciliacionBuilderTests
     }
 
     [Fact]
+    public void Movimientos_ClasificanImpactoFinancieroPorMedio()
+    {
+        var detalle = BuildDetalleStandard();
+        // Transferencia → cuenta bancaria; crédito personal → sin ingreso inmediato.
+        detalle.Movimientos.Add(new MovimientoCaja
+        {
+            Id = 21, Tipo = TipoMovimientoCaja.Ingreso, Concepto = ConceptoMovimientoCaja.CobroCuota,
+            Monto = 5000m, TipoPago = TipoPago.Transferencia, FechaMovimiento = Base.AddMinutes(8), Usuario = "admin"
+        });
+        detalle.Movimientos.Add(new MovimientoCaja
+        {
+            Id = 22, Tipo = TipoMovimientoCaja.Ingreso, Concepto = ConceptoMovimientoCaja.AnticipoCredito,
+            Monto = 1000m, TipoPago = TipoPago.CreditoPersonal, FechaMovimiento = Base.AddMinutes(9), Usuario = "admin"
+        });
+        detalle.Apertura.Movimientos = detalle.Movimientos;
+
+        var vm = CajaConciliacionBuilder.Build(detalle, cierre: null, puedeOperar: true);
+
+        Assert.Equal(CategoriaImpactoCaja.CajaFisica, vm.Movimientos.Single(m => m.MovimientoId == 13).CategoriaImpacto);      // efectivo
+        Assert.Equal(CategoriaImpactoCaja.AAcreditar, vm.Movimientos.Single(m => m.MovimientoId == 14).CategoriaImpacto);      // tarjeta crédito
+        Assert.Equal(CategoriaImpactoCaja.CajaFisica, vm.Movimientos.Single(m => m.MovimientoId == 15).CategoriaImpacto);      // gasto operativo (efectivo)
+        Assert.Equal(CategoriaImpactoCaja.CuentaBancaria, vm.Movimientos.Single(m => m.MovimientoId == 21).CategoriaImpacto);  // transferencia
+        Assert.Equal(CategoriaImpactoCaja.SinIngresoInmediato, vm.Movimientos.Single(m => m.MovimientoId == 22).CategoriaImpacto); // crédito personal
+
+        // El chip de "sin ingreso inmediato" no debe pintarse como caja física.
+        Assert.Equal("chip-neutral", vm.Movimientos.Single(m => m.MovimientoId == 22).CategoriaImpactoChipClass);
+    }
+
+    [Fact]
     public void VentaCreditoPersonal_EsVendidoYPendiente_SinImpactarCajaFisica()
     {
         var vm = CajaConciliacionBuilder.Build(BuildDetalleStandard(), cierre: null, puedeOperar: true);

@@ -8,7 +8,7 @@
     <div class="px-4 py-3 space-y-3" style="border-bottom:1px solid var(--line)">
         <div>
             <h2 class="font-semibold text-white">Movimientos de caja</h2>
-            <p class="text-sm muted">Entradas y salidas reales de caja, con Entra y Sale en columnas separadas para revisar a mano.</p>
+            <p class="text-sm muted">Entradas y salidas reales de caja, con Entra y Sale en columnas separadas para revisar a mano. Cada movimiento indica su impacto financiero: caja física, banco / billetera, a acreditar o sin ingreso inmediato.</p>
         </div>
         <div class="flex flex-wrap items-end gap-3">
             <div class="flex gap-1.5" role="group" aria-label="Filtrar por tipo">
@@ -79,7 +79,8 @@
                                     </td>
                                     <td class="text-white">@m.Concepto</td>
                                     <td>
-                                        <span class="chip @(m.ImpactaCajaFisica ? "chip-ok" : "chip-neutral")">@m.MedioPago</span>
+                                        <span class="chip @m.CategoriaImpactoChipClass">@m.MedioPago</span>
+                                        <div class="text-xs muted-2 mt-0.5">@m.CategoriaImpactoLabel</div>
                                     </td>
                                     <td>
                                         @if (!string.IsNullOrWhiteSpace(m.Descripcion))
