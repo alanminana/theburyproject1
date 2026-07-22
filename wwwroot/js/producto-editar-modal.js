@@ -21,6 +21,7 @@
         modal.classList.remove('hidden');
         modal.classList.add('flex');
         document.body.style.overflow = 'hidden';
+        activateTab('datos');
         setTimeout(function () {
             var firstInput = el('prod-edit-codigo');
             if (firstInput) firstInput.focus();
@@ -92,6 +93,9 @@
 
         // Características
         renderCaracteristicas(data.caracteristicas || []);
+
+        // Crédito personal (planes propios del producto)
+        renderCreditoPersonal(data.creditoPersonal);
 
         var form = el(FORM_ID);
         if (form) form.action = '/Producto/EditAjax/' + data.id;
@@ -235,6 +239,68 @@
         var tbody = el('prod-edit-caracteristicas-body');
         var count = el('prod-edit-caracteristicas-count');
         if (tbody && count) count.textContent = tbody.querySelectorAll('tr').length + ' cargadas';
+    }
+
+    // ── Crédito personal ────────────────────────────────────────
+
+    function renderCreditoPersonal(cp) {
+        cp = cp || {};
+        var admite = el('prod-edit-credito-admite');
+        if (admite) admite.checked = cp.admiteCreditoPersonal !== false;
+        var maxc = el('prod-edit-credito-maxcuotas');
+        if (maxc) maxc.value = (cp.maxCuotasCredito != null) ? String(cp.maxCuotasCredito) : '';
+
+        var cont = el('prod-edit-credito-cards');
+        if (!cont) return;
+        cont.innerHTML = '';
+        var cuotas = cp.cuotas || [];
+        if (!cuotas.length) {
+            var vacio = document.createElement('p');
+            vacio.className = 'text-xs text-slate-500 sm:col-span-2 lg:col-span-3';
+            vacio.textContent = 'No hay planes de cuota configurados. El producto hereda la configuración global.';
+            cont.appendChild(vacio);
+            return;
+        }
+        cuotas.forEach(function (c, i) {
+            var n = Number(c.cantidadCuotas) || 0;
+            var tasa = (c.tasaMensual != null) ? c.tasaMensual : 0;
+            var orden = (c.orden != null) ? c.orden : n;
+            var card = document.createElement('div');
+            card.className = 'rounded-xl border border-slate-800 bg-slate-950/40 p-3 space-y-2';
+            card.innerHTML =
+                '<input type="hidden" name="CreditoPersonal.Cuotas[' + i + '].Id" value="' + (c.id || 0) + '" />' +
+                '<input type="hidden" name="CreditoPersonal.Cuotas[' + i + '].CantidadCuotas" value="' + n + '" />' +
+                '<input type="hidden" name="CreditoPersonal.Cuotas[' + i + '].Orden" value="' + orden + '" />' +
+                '<div class="flex items-center justify-between gap-2">' +
+                    '<span class="text-sm font-semibold text-white">' + n + ' cuota' + (n !== 1 ? 's' : '') + '</span>' +
+                    '<label class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-300">' +
+                        '<input type="checkbox" name="CreditoPersonal.Cuotas[' + i + '].Activo" value="true" class="rounded border-slate-600 bg-slate-900 text-primary focus:ring-primary"' + (c.activo ? ' checked' : '') + ' />' +
+                        '<input type="hidden" name="CreditoPersonal.Cuotas[' + i + '].Activo" value="false" />' +
+                        'Activa' +
+                    '</label>' +
+                '</div>' +
+                '<div class="space-y-1">' +
+                    '<label class="text-xs text-slate-400">Tasa mensual (%)</label>' +
+                    '<input name="CreditoPersonal.Cuotas[' + i + '].TasaMensual" type="number" step="0.01" min="0" max="100" value="' + tasa + '" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 font-mono text-white focus:ring-2 focus:ring-primary outline-none" />' +
+                '</div>';
+            cont.appendChild(card);
+        });
+    }
+
+    // ── Solapas ─────────────────────────────────────────────────
+
+    function activateTab(name) {
+        document.querySelectorAll('#' + FORM_ID + ' [data-prod-edit-tab]').forEach(function (btn) {
+            var active = btn.getAttribute('data-prod-edit-tab') === name;
+            btn.setAttribute('aria-selected', active ? 'true' : 'false');
+            btn.classList.toggle('border-primary', active);
+            btn.classList.toggle('text-white', active);
+            btn.classList.toggle('border-transparent', !active);
+            btn.classList.toggle('text-slate-400', !active);
+        });
+        document.querySelectorAll('#' + FORM_ID + ' [data-prod-edit-panel]').forEach(function (panel) {
+            panel.classList.toggle('hidden', panel.getAttribute('data-prod-edit-panel') !== name);
+        });
     }
 
     // El cálculo/desglose de precios vive en el script inline de Catalogo/Index_tw
@@ -469,6 +535,13 @@
 
     function initDelegatedEvents() {
         document.addEventListener('click', async function (e) {
+            // Cambiar de solapa
+            var tabBtn = e.target.closest('[data-prod-edit-tab]');
+            if (tabBtn && el(FORM_ID) && el(FORM_ID).contains(tabBtn)) {
+                activateTab(tabBtn.getAttribute('data-prod-edit-tab'));
+                return;
+            }
+
             // Abrir modal edit
             var editBtn = e.target.closest('[data-prod-edit-id]');
             if (editBtn) {

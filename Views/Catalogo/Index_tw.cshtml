@@ -1151,21 +1151,34 @@
             <input type="hidden" id="prod-edit-id" name="Id" value="" />
             <input type="hidden" id="prod-edit-rowversion" name="RowVersion" value="" />
 
-            <div class="flex-1 overflow-y-auto p-6 space-y-8">
-
-                <!-- Validation Summary -->
-                <div id="prod-edit-validation-summary" role="alert" aria-live="assertive" aria-atomic="true" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 gap-3">
-                    <span class="material-symbols-outlined text-red-500">error</span>
-                    <div>
-                        <h4 class="text-sm font-bold text-red-500">Errores de validación</h4>
-                        <p id="prod-edit-validation-text" class="text-xs text-red-400/80 mt-1"></p>
-                    </div>
+            <!-- Validation Summary (siempre visible sobre las solapas) -->
+            <div id="prod-edit-validation-summary" role="alert" aria-live="assertive" aria-atomic="true" class="hidden mx-6 mt-4 bg-red-500/10 border border-red-500/20 rounded-lg p-4 gap-3">
+                <span class="material-symbols-outlined text-red-500">error</span>
+                <div>
+                    <h4 class="text-sm font-bold text-red-500">Errores de validación</h4>
+                    <p id="prod-edit-validation-text" class="text-xs text-red-400/80 mt-1"></p>
                 </div>
+            </div>
 
+            <!-- Solapas -->
+            <div class="border-b border-slate-800 px-6 pt-3 overflow-x-auto" role="tablist" aria-label="Secciones del producto">
+                <nav class="flex flex-nowrap gap-1 -mb-px min-w-max">
+                    <button type="button" role="tab" data-prod-edit-tab="datos" aria-selected="true" class="prod-edit-tab whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors hover:text-white border-primary text-white">Datos</button>
+                    <button type="button" role="tab" data-prod-edit-tab="precios" aria-selected="false" class="prod-edit-tab whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors hover:text-white border-transparent text-slate-400">Precios</button>
+                    <button type="button" role="tab" data-prod-edit-tab="credito" aria-selected="false" class="prod-edit-tab whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors hover:text-white border-transparent text-slate-400">Crédito personal</button>
+                    <button type="button" role="tab" data-prod-edit-tab="caracteristicas" aria-selected="false" class="prod-edit-tab whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors hover:text-white border-transparent text-slate-400">Características</button>
+                    <button type="button" role="tab" data-prod-edit-tab="stock" aria-selected="false" class="prod-edit-tab whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors hover:text-white border-transparent text-slate-400">Stock</button>
+                </nav>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-6">
+
+                <!-- Panel: Datos -->
+                <div data-prod-edit-panel="datos" role="tabpanel">
                 <!-- Información Básica -->
                 <section>
                     <div class="flex items-center gap-2 mb-4 border-l-4 border-primary pl-3">
-                        <h3 class="text-lg font-semibold text-white">Infdfdsormación Básica</h3>
+                        <h3 class="text-lg font-semibold text-white">Información Básica</h3>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div class="space-y-1">
@@ -1210,7 +1223,10 @@
                         </div>
                     </div>
                 </section>
+                </div>
 
+                <!-- Panel: Precios -->
+                <div data-prod-edit-panel="precios" role="tabpanel" class="hidden">
                 <!-- Precios -->
                 <section>
                     <div class="flex items-center gap-2 mb-4 border-l-4 border-primary pl-3">
@@ -1405,7 +1421,49 @@
                         </div>
                     </div>
                 </section>
+                </div>
 
+                <!-- Panel: Crédito personal -->
+                <div data-prod-edit-panel="credito" role="tabpanel" class="hidden">
+                <section>
+                    <div class="flex items-center gap-2 mb-2 border-l-4 border-primary pl-3">
+                        <h3 class="text-lg font-semibold text-white">Crédito personal</h3>
+                    </div>
+                    <p class="text-xs text-slate-400 mb-4">
+                        Configuración específica de este producto. Si no se activan planes propios,
+                        el producto hereda la configuración global de Crédito Personal.
+                    </p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="flex items-center gap-3">
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input id="prod-edit-credito-admite" name="CreditoPersonal.AdmiteCreditoPersonal" type="checkbox" value="true" class="sr-only peer" />
+                                <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:border-slate-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-colors peer-checked:bg-primary"></div>
+                            </label>
+                            <input type="hidden" name="CreditoPersonal.AdmiteCreditoPersonal" value="false" />
+                            <span class="text-sm font-semibold text-slate-300">Admite crédito personal</span>
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-sm font-medium text-slate-300">Máx. cuotas crédito personal</label>
+                            <input id="prod-edit-credito-maxcuotas" name="CreditoPersonal.MaxCuotasCredito" type="number" min="1" max="120" step="1"
+                                   class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none text-white"
+                                   placeholder="Sin restricción" />
+                            <span data-valmsg-for="CreditoPersonal.MaxCuotasCredito" class="text-xs text-red-500 hidden"></span>
+                            <p class="text-xs text-slate-500">Vacío = sin límite propio; aplica el rango global o del plan.</p>
+                        </div>
+                    </div>
+                    <div class="mt-6 space-y-2">
+                        <p class="text-sm font-semibold text-slate-300">Planes de cuotas propios</p>
+                        <p class="text-xs text-slate-400">
+                            Activá las cantidades permitidas para este producto y definí la tasa mensual de cada una
+                            (0% = sin interés). Las filas inactivas no se aplican; si no activás ninguna, hereda la global.
+                        </p>
+                        <div id="prod-edit-credito-cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-2"></div>
+                    </div>
+                </section>
+                </div>
+
+                <!-- Panel: Características -->
+                <div data-prod-edit-panel="caracteristicas" role="tabpanel" class="hidden">
                 <!-- Características -->
                 <section>
                     <div class="flex items-center justify-between mb-4">
@@ -1442,7 +1500,10 @@
                         </table>
                     </div>
                 </section>
+                </div>
 
+                <!-- Panel: Stock -->
+                <div data-prod-edit-panel="stock" role="tabpanel" class="hidden">
                 <!-- Stock & Estado -->
                 <section>
                     <div class="flex items-center gap-2 mb-4 border-l-4 border-primary pl-3">
@@ -1471,6 +1532,7 @@
                         </div>
                     </div>
                 </section>
+                </div>
 
             </div>
 

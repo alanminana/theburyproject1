@@ -60,6 +60,27 @@
         .cp-field[readonly], .cp-field:disabled { opacity: .62; cursor: default; }
         .cp-label { display:block; margin-bottom:.35rem; color:#94a3b8; font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
         .cp-hint { margin-top:.28rem; color:#64748b; font-size:.72rem; line-height:1.4; }
+        .cp-rango { transition: opacity .15s; }
+        .cp-rango.is-overridden { opacity: .45; }
+        .cp-tag-off {
+            font-size:.58rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em;
+            color:#fcd34d; border:1px solid rgba(245,158,11,.32); background:rgba(245,158,11,.12);
+            border-radius:999px; padding:.05rem .45rem; line-height:1.4;
+        }
+        .cp-modo {
+            display:flex; gap:.6rem; align-items:flex-start;
+            border-radius:10px; padding:.7rem .9rem; border:1px solid #1e293b; background:#0f172a;
+        }
+        .cp-modo.is-especifico { border-color:rgba(34,197,94,.3); background:rgba(34,197,94,.07); }
+        .cp-modo.is-especifico #cp-modo-icon { color:#86efac; }
+        .cp-modo.is-rango #cp-modo-icon { color:#67e8f9; }
+        .cp-chips { display:flex; flex-wrap:wrap; gap:.3rem; }
+        .cp-chip {
+            display:inline-flex; align-items:center; justify-content:center;
+            min-width:1.6rem; height:1.5rem; padding:0 .45rem; border-radius:7px;
+            font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.72rem; font-weight:700;
+            background:rgba(6,182,212,.12); border:1px solid rgba(6,182,212,.28); color:#a5f3fc;
+        }
         .cp-pill {
             display:inline-flex; align-items:center; gap:.25rem; border-radius:999px; padding:.15rem .5rem;
             font-size:.66rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em;
@@ -229,6 +250,11 @@
             </section>
 
             <section id="s2" class="cp-section">
+                @{
+                    var cuotasCredito = Model.CuotasCreditoPersonal ?? new List<CuotaCreditoPersonalViewModel>();
+                    var cuotasActivas = cuotasCredito.Where(c => c.Activo).Select(c => c.CantidadCuotas).Distinct().OrderBy(c => c).ToList();
+                    var hayEspecificas = cuotasActivas.Count > 0;
+                }
                 <div class="cp-head">
                     <div class="cp-icon" style="background:rgba(245,197,24,.12);color:#f5c518;">
                         <span class="material-symbols-outlined">calculate</span>
@@ -250,8 +276,11 @@
                             <span asp-validation-for="DefaultsGlobales.TasaMensual" class="text-xs text-red-500"></span>
                         </div>
 
-                        <div>
-                            <label class="cp-label">Cuotas permitidas</label>
+                        <div id="cp-rango-block" class="cp-rango @(hayEspecificas ? "is-overridden" : "")">
+                            <label class="cp-label flex items-center gap-2">
+                                Cuotas permitidas
+                                <span id="cp-rango-tag" class="cp-tag-off @(hayEspecificas ? "" : "hidden")">sin efecto</span>
+                            </label>
                             <div class="grid grid-cols-[1fr_auto_1fr] items-end gap-2">
                                 <div>
                                     <span class="text-[10px] text-slate-500 mb-1 block">Desde</span>
@@ -267,7 +296,7 @@
                                     <span asp-validation-for="DefaultsGlobales.MaxCuotas" class="text-xs text-red-500"></span>
                                 </div>
                             </div>
-                            <p class="cp-hint">Los perfiles pueden reemplazar este rango para clientes o ventas puntuales.</p>
+                            <p class="cp-hint">Rige solo cuando no hay cuotas especificas activas abajo. Los perfiles pueden reemplazarlo para clientes o ventas puntuales.</p>
                         </div>
                     </div>
 
@@ -295,11 +324,8 @@
                 <div class="mt-6 pt-5 border-t border-slate-800">
                     <div class="flex items-start justify-between gap-3 flex-wrap mb-3">
                         <div class="min-w-0">
-                            <h3 class="text-sm font-semibold text-white">Recargo por cantidad de cuotas</h3>
-                            <p class="text-xs text-slate-400 mt-0.5">
-                                Activa las cuotas disponibles y asigna una tasa mensual propia a cada una (ej. cuota 1 = 1%, cuota 5 = 10%).
-                                Si no hay cuotas configuradas aca, se usa la tasa mensual unica de arriba para todo el rango.
-                            </p>
+                            <h3 class="text-sm font-semibold text-white">Tasa por cantidad de cuotas</h3>
+                            <p class="text-xs text-slate-400 mt-0.5">Asigna una tasa mensual propia a cantidades de cuota puntuales.</p>
                         </div>
                         @if (puedeEditar)
                         {
@@ -309,9 +335,29 @@
                         }
                     </div>
 
-                    <span asp-validation-for="CuotasCreditoPersonal" class="block mb-3 text-xs text-red-400"></span>
+                    <div id="cp-modo" class="cp-modo mb-4 @(hayEspecificas ? "is-especifico" : "is-rango")">
+                        <span id="cp-modo-icon" class="material-symbols-outlined text-[17px] shrink-0">@(hayEspecificas ? "check_circle" : "info")</span>
+                        <div class="min-w-0">
+                            <p id="cp-modo-title" class="text-sm text-slate-200 font-medium leading-snug">
+                                @if (hayEspecificas)
+                                {
+                                    <text>Cuotas especificas activas: solo se habilitan estas cantidades. El rango de arriba no se usa.</text>
+                                }
+                                else
+                                {
+                                    <text>Modo rango unico: se habilita todo el rango de arriba con la tasa unica. Activa cuotas para habilitar cantidades y tasas puntuales.</text>
+                                }
+                            </p>
+                            <div id="cp-modo-chips" class="cp-chips mt-1.5">
+                                @foreach (var n in cuotasActivas)
+                                {
+                                    <span class="cp-chip">@n</span>
+                                }
+                            </div>
+                        </div>
+                    </div>
 
-                    @{ var cuotasCredito = Model.CuotasCreditoPersonal ?? new List<CuotaCreditoPersonalViewModel>(); }
+                    <span asp-validation-for="CuotasCreditoPersonal" class="block mb-3 text-xs text-red-400"></span>
 
                     @if (cuotasCredito.Count > 0)
                     {
@@ -319,7 +365,7 @@
                             @for (var i = 0; i < cuotasCredito.Count; i++)
                             {
                                 var cuota = cuotasCredito[i];
-                                <div class="cp-card">
+                                <div class="cp-card" data-cuota-card>
                                     <input type="hidden" asp-for="CuotasCreditoPersonal[i].Id" />
                                     <input type="hidden" asp-for="CuotasCreditoPersonal[i].CantidadCuotas" />
                                     <input type="hidden" asp-for="CuotasCreditoPersonal[i].Orden" />
@@ -349,7 +395,7 @@
                     {
                         <div class="rounded-xl border border-dashed border-slate-700 bg-slate-950/30 p-6 text-center">
                             <span class="material-symbols-outlined text-slate-600 text-[28px]">view_timeline</span>
-                            <p class="mt-2 text-sm text-slate-500">No hay cuotas configuradas. Se usa la tasa y el rango unicos de arriba.</p>
+                            <p class="mt-2 text-sm text-slate-500">Todavia no agregaste cuotas especificas. Rige el rango unico de arriba.</p>
                         </div>
                     }
                 </div>
@@ -733,6 +779,59 @@
             hint.textContent = 'TEA aprox. ' + tea.toFixed(2) + '%';
         }
 
+        // Refleja en vivo el modo real que resuelve el backend: si hay al menos una cuota
+        // especifica activa, solo esas cantidades quedan habilitadas y el rango se ignora.
+        function updateCuotasMode() {
+            var modo = document.getElementById('cp-modo');
+            if (!modo) return;
+
+            var title = document.getElementById('cp-modo-title');
+            var icon = document.getElementById('cp-modo-icon');
+            var chips = document.getElementById('cp-modo-chips');
+            var rango = document.getElementById('cp-rango-block');
+            var rangoTag = document.getElementById('cp-rango-tag');
+
+            var activas = [];
+            document.querySelectorAll('[data-cuota-card]').forEach(function (card) {
+                var check = card.querySelector('input[type="checkbox"]');
+                var cant = card.querySelector('input[name$=".CantidadCuotas"]');
+                if (check && check.checked && cant) {
+                    var n = parseInt(cant.value, 10);
+                    if (!isNaN(n) && activas.indexOf(n) === -1) activas.push(n);
+                }
+            });
+            activas.sort(function (a, b) { return a - b; });
+
+            if (activas.length > 0) {
+                modo.classList.add('is-especifico');
+                modo.classList.remove('is-rango');
+                if (icon) icon.textContent = 'check_circle';
+                if (title) title.textContent = 'Cuotas especificas activas: solo se habilitan estas cantidades. El rango de arriba no se usa.';
+                if (chips) {
+                    chips.innerHTML = '';
+                    activas.forEach(function (n) {
+                        var c = document.createElement('span');
+                        c.className = 'cp-chip';
+                        c.textContent = n;
+                        chips.appendChild(c);
+                    });
+                }
+                if (rango) rango.classList.add('is-overridden');
+                if (rangoTag) rangoTag.classList.remove('hidden');
+            } else {
+                modo.classList.add('is-rango');
+                modo.classList.remove('is-especifico');
+                if (icon) icon.textContent = 'info';
+                var minC = document.querySelector('[data-summary="min-cuotas"]');
+                var maxC = document.querySelector('[data-summary="max-cuotas"]');
+                var rangoStr = (minC && maxC) ? (minC.value || '?') + ' a ' + (maxC.value || '?') : 'el rango de arriba';
+                if (title) title.textContent = 'Modo rango unico: se habilita de ' + rangoStr + ' cuotas con la tasa unica. Activa cuotas para habilitar cantidades y tasas puntuales.';
+                if (chips) chips.innerHTML = '';
+                if (rango) rango.classList.remove('is-overridden');
+                if (rangoTag) rangoTag.classList.add('hidden');
+            }
+        }
+
         function showSection(id) {
             if (CREDIT_SECTIONS.indexOf(id) === -1) id = 's1';
 
@@ -800,12 +899,18 @@
             input.addEventListener('input', function () {
                 updateSummary();
                 updateTea();
+                updateCuotasMode();
             });
+        });
+
+        document.querySelectorAll('[data-cuota-card] input[type="checkbox"]').forEach(function (chk) {
+            chk.addEventListener('change', updateCuotasMode);
         });
 
         var initHash = window.location.hash.replace('#', '');
         showSection(CREDIT_SECTIONS.indexOf(initHash) !== -1 ? initHash : 's1');
         updateTea();
+        updateCuotasMode();
     })();
     </script>
 }

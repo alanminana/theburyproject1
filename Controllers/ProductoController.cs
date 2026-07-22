@@ -290,6 +290,7 @@ namespace TheBuryProject.Controllers
 
                 var vm = _mapper.Map<ProductoViewModel>(producto);
                 var fila = await _catalogoService.ObtenerFilaAsync(id);
+                var creditoConfig = await _productoCreditoPersonalConfigService.ObtenerAsync(id);
 
                 return Json(new
                 {
@@ -322,7 +323,20 @@ namespace TheBuryProject.Controllers
                     precioActual = fila?.PrecioActual ?? vm.PrecioVenta,
                     precioBase = fila?.PrecioBase ?? vm.PrecioVenta,
                     tienePrecioLista = fila?.TienePrecioLista ?? false,
-                    listaPrecioActualNombre = fila?.ListaPrecioActualNombre
+                    listaPrecioActualNombre = fila?.ListaPrecioActualNombre,
+                    creditoPersonal = new
+                    {
+                        admiteCreditoPersonal = creditoConfig.AdmiteCreditoPersonal,
+                        maxCuotasCredito = creditoConfig.MaxCuotasCredito,
+                        cuotas = creditoConfig.Cuotas.Select(c => new
+                        {
+                            id = c.Id,
+                            cantidadCuotas = c.CantidadCuotas,
+                            tasaMensual = c.TasaMensual,
+                            activo = c.Activo,
+                            orden = c.Orden
+                        })
+                    }
                 });
             }
             catch (Exception ex)
@@ -352,6 +366,10 @@ namespace TheBuryProject.Controllers
                 var producto = await MapearProductoParaPersistenciaAsync(viewModel);
                 producto.RowVersion = viewModel.RowVersion!;
                 await _productoService.UpdateAsync(producto);
+                await _productoCreditoPersonalConfigService.GuardarAsync(
+                    id,
+                    viewModel.CreditoPersonal,
+                    User.Identity?.Name ?? "sistema");
 
                 var fila = await _catalogoService.ObtenerFilaAsync(id);
 
