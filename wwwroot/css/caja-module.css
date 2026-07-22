@@ -633,6 +633,10 @@ textarea.field.input-validation-error { border-color: rgb(244 63 94); box-shadow
 .cc-lm-apertura { background: rgba(245, 197, 24, .05); }
 .cc-libromayor tbody td { white-space: nowrap; }
 
+/* Referencias navegables (venta / crédito) en movimientos y libro mayor */
+.cc-ref-link { color: var(--caja-text); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: var(--caja-text-soft); transition: color .15s, text-decoration-color .15s; }
+.cc-ref-link:hover, .cc-ref-link:focus-visible { color: var(--caja-primary); text-decoration-color: var(--caja-primary); }
+
 /* Conteo físico (calculadora) */
 .cc-conteo { display: grid; gap: .75rem; padding: .75rem; grid-template-columns: minmax(0, 1fr); }
 @media (min-width: 1024px) { .cc-conteo { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); align-items: start; } }

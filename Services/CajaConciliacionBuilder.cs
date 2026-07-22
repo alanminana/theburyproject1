@@ -23,7 +23,8 @@ public static class CajaConciliacionBuilder
     public static CajaConciliacionViewModel Build(
         DetallesAperturaViewModel detalle,
         CierreCaja? cierre,
-        bool puedeOperar)
+        bool puedeOperar,
+        IReadOnlyDictionary<int, int>? cuotaToCreditoId = null)
     {
         ArgumentNullException.ThrowIfNull(detalle);
         var apertura = detalle.Apertura;
@@ -86,9 +87,9 @@ public static class CajaConciliacionBuilder
             Ventas = lineasVenta,
             Movimientos = movimientos
                 .OrderByDescending(m => m.FechaMovimiento)
-                .Select(MapMovimiento)
+                .Select(m => MapMovimiento(m, cuotaToCreditoId))
                 .ToList(),
-            LibroMayor = BuildLibroMayor(apertura.MontoInicial, movimientos),
+            LibroMayor = BuildLibroMayor(apertura.MontoInicial, movimientos, cuotaToCreditoId),
             ResumenPorMedio = BuildResumenPorMedio(ventasEfectivas, detalle.ResumenRealPorMedioPago),
             Auditoria = BuildAuditoria(apertura, movimientos, cierre, lineasVenta),
         };
@@ -180,7 +181,7 @@ public static class CajaConciliacionBuilder
     // Movimientos
     // ──────────────────────────────────────────────────────────────────────
 
-    private static MovimientoCajaLineaViewModel MapMovimiento(MovimientoCaja m)
+    private static MovimientoCajaLineaViewModel MapMovimiento(MovimientoCaja m, IReadOnlyDictionary<int, int>? cuotaToCreditoId)
     {
         var esIngreso = m.Tipo == TipoMovimientoCaja.Ingreso;
         var medio = MedioLabelMovimiento(m);
@@ -194,6 +195,7 @@ public static class CajaConciliacionBuilder
             MedioPago = medio,
             MedioKey = MedioKey(medio),
             Referencia = m.Referencia,
+            ReferenciaUrl = ResolverReferenciaUrl(m, cuotaToCreditoId),
             Descripcion = m.Descripcion,
             Entra = esIngreso ? m.Monto : 0m,
             Sale = esIngreso ? 0m : m.Monto,
@@ -206,6 +208,40 @@ public static class CajaConciliacionBuilder
             CategoriaImpacto = CategoriaImpactoMovimiento(m, medio),
             EstadoAcreditacion = m.EstadoAcreditacion
         };
+    }
+
+    /// <summary>
+    /// URL de navegación de la referencia del movimiento según su concepto: los cobros/reversiones
+    /// de venta apuntan al detalle de la venta; anticipos y cuotas, al detalle del crédito. Para
+    /// cobros de cuota la <c>ReferenciaId</c> es el id de la cuota, así que se resuelve al crédito
+    /// con el mapa precargado por el controller (cuotaId ⇒ creditoId). Devuelve null si no navega.
+    /// </summary>
+    private static string? ResolverReferenciaUrl(MovimientoCaja m, IReadOnlyDictionary<int, int>? cuotaToCreditoId)
+    {
+        switch (m.Concepto)
+        {
+            case ConceptoMovimientoCaja.VentaEfectivo:
+            case ConceptoMovimientoCaja.VentaTarjeta:
+            case ConceptoMovimientoCaja.VentaCheque:
+            case ConceptoMovimientoCaja.VentaTransferencia:
+            case ConceptoMovimientoCaja.VentaMercadoPago:
+            case ConceptoMovimientoCaja.LiquidacionMercadoLibre:
+            case ConceptoMovimientoCaja.ReversionVenta:
+                var ventaId = m.VentaId ?? m.ReferenciaId;
+                return ventaId.HasValue ? $"/Venta/Details/{ventaId.Value}" : null;
+
+            case ConceptoMovimientoCaja.AnticipoCredito:
+                return m.ReferenciaId.HasValue ? $"/Credito/Details/{m.ReferenciaId.Value}" : null;
+
+            case ConceptoMovimientoCaja.CobroCuota:
+                if (m.ReferenciaId.HasValue && cuotaToCreditoId != null
+                    && cuotaToCreditoId.TryGetValue(m.ReferenciaId.Value, out var creditoId))
+                    return $"/Credito/Details/{creditoId}";
+                return null;
+
+            default:
+                return null;
+        }
     }
 
     /// <summary>
@@ -233,7 +269,10 @@ public static class CajaConciliacionBuilder
     // modifican el saldo; las que no, quedan marcadas y mantienen el saldo.
     // ──────────────────────────────────────────────────────────────────────
 
-    private static List<ConciliacionLineaViewModel> BuildLibroMayor(decimal fondoInicial, List<MovimientoCaja> movimientos)
+    private static List<ConciliacionLineaViewModel> BuildLibroMayor(
+        decimal fondoInicial,
+        List<MovimientoCaja> movimientos,
+        IReadOnlyDictionary<int, int>? cuotaToCreditoId)
     {
         var filas = new List<ConciliacionLineaViewModel>();
         var saldo = fondoInicial;
@@ -280,7 +319,11 @@ public static class CajaConciliacionBuilder
                 Sale = sale,
                 SaldoEsperado = saldo,
                 ImpactaCajaFisica = fisico,
-                EsApertura = false
+                EsApertura = false,
+                ImporteBase = m.ImporteBase,
+                RecargoMedioPago = m.RecargoMedioPago,
+                DescuentoMedioPago = m.DescuentoMedioPago,
+                ReferenciaUrl = ResolverReferenciaUrl(m, cuotaToCreditoId)
             });
         }
 

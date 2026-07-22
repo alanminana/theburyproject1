@@ -93,7 +93,14 @@
                                         }
                                         @if (!string.IsNullOrWhiteSpace(m.Referencia))
                                         {
-                                            <div class="text-xs muted-2 mono">@m.Referencia</div>
+                                            @if (!string.IsNullOrEmpty(m.ReferenciaUrl))
+                                            {
+                                                <div class="text-xs mono"><a href="@m.ReferenciaUrl" class="cc-ref-link">@m.Referencia</a></div>
+                                            }
+                                            else
+                                            {
+                                                <div class="text-xs muted-2 mono">@m.Referencia</div>
+                                            }
                                         }
                                         @if (!string.IsNullOrWhiteSpace(m.Observacion))
                                         {

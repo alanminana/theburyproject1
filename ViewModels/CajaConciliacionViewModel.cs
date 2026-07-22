@@ -147,6 +147,8 @@ public class MovimientoCajaLineaViewModel
     public string MedioPago { get; set; } = string.Empty;
     public string MedioKey { get; set; } = "otro";
     public string? Referencia { get; set; }
+    /// <summary>URL de navegación de la referencia (venta / crédito), o null si no es navegable.</summary>
+    public string? ReferenciaUrl { get; set; }
     public string? Descripcion { get; set; }
     public decimal Entra { get; set; }
     public decimal Sale { get; set; }
@@ -228,12 +230,23 @@ public class ConciliacionLineaViewModel
     public string Concepto { get; set; } = string.Empty;
     public string MedioPago { get; set; } = string.Empty;
     public string? Referencia { get; set; }
+    /// <summary>URL de navegación de la referencia (venta / crédito), o null si no es navegable.</summary>
+    public string? ReferenciaUrl { get; set; }
     public decimal Entra { get; set; }
     public decimal Sale { get; set; }
     /// <summary>Saldo de caja física esperado tras aplicar esta operación (solo cambia si impacta caja).</summary>
     public decimal SaldoEsperado { get; set; }
     public bool ImpactaCajaFisica { get; set; }
     public bool EsApertura { get; set; }
+
+    /// <summary>Importe base del movimiento, antes de recargo/descuento del medio de pago.</summary>
+    public decimal? ImporteBase { get; set; }
+    /// <summary>Recargo del medio de pago aplicado (concepto separado del importe base).</summary>
+    public decimal? RecargoMedioPago { get; set; }
+    /// <summary>Descuento del medio de pago aplicado (concepto separado del importe base).</summary>
+    public decimal? DescuentoMedioPago { get; set; }
+    /// <summary>True si la fila tiene un recargo o descuento del medio a desglosar.</summary>
+    public bool TieneAjusteMedioPago => (RecargoMedioPago ?? 0m) != 0m || (DescuentoMedioPago ?? 0m) != 0m;
 }
 
 /// <summary>Evento de auditoría del turno (apertura, movimientos, cierre, anulaciones).</summary>

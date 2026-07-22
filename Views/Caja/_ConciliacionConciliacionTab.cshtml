@@ -110,8 +110,37 @@
                                     </td>
                                     <td class="text-white">@f.Concepto</td>
                                     <td><span class="chip @(f.ImpactaCajaFisica ? "chip-ok" : "chip-neutral")">@f.MedioPago</span></td>
-                                    <td class="mono muted-2">@(string.IsNullOrWhiteSpace(f.Referencia) ? "—" : f.Referencia)</td>
-                                    <td style="text-align:right" class="num text-emerald-400">@(f.Entra > 0 ? $"$ {f.Entra.ToString("N2")}" : "—")</td>
+                                    <td class="mono muted-2">
+                                        @if (string.IsNullOrWhiteSpace(f.Referencia))
+                                        {
+                                            <text>—</text>
+                                        }
+                                        else if (!string.IsNullOrEmpty(f.ReferenciaUrl))
+                                        {
+                                            <a href="@f.ReferenciaUrl" class="cc-ref-link">@f.Referencia</a>
+                                        }
+                                        else
+                                        {
+                                            @f.Referencia
+                                        }
+                                    </td>
+                                    <td style="text-align:right" class="num text-emerald-400">
+                                        @(f.Entra > 0 ? $"$ {f.Entra.ToString("N2")}" : "—")
+                                        @if (f.Entra > 0 && f.TieneAjusteMedioPago && f.ImporteBase.HasValue)
+                                        {
+                                            <div class="text-xs muted-2" style="font-weight:400">
+                                                Base $ @f.ImporteBase.Value.ToString("N2")
+                                                @if ((f.RecargoMedioPago ?? 0m) != 0m)
+                                                {
+                                                    <text> + recargo $ @f.RecargoMedioPago!.Value.ToString("N2")</text>
+                                                }
+                                                @if ((f.DescuentoMedioPago ?? 0m) != 0m)
+                                                {
+                                                    <text> − desc. $ @f.DescuentoMedioPago!.Value.ToString("N2")</text>
+                                                }
+                                            </div>
+                                        }
+                                    </td>
                                     <td style="text-align:right" class="num text-rose-400">@(f.Sale > 0 ? $"$ {f.Sale.ToString("N2")}" : "—")</td>
                                     <td style="text-align:right" class="num font-semibold @(f.ImpactaCajaFisica ? "text-white" : "muted-2")">$ @f.SaldoEsperado.ToString("N2")</td>
                                     <td style="text-align:center">

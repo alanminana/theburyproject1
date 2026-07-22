@@ -3,9 +3,12 @@ using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.EntityFrameworkCore;
+using TheBuryProject.Data;
 using TheBuryProject.Filters;
 using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.Entities;
+using TheBuryProject.Models.Enums;
 using TheBuryProject.Services;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.ViewModels;
@@ -24,19 +27,22 @@ namespace TheBuryProject.Controllers
         private readonly ICurrentUserService _currentUser;
         private readonly ILogger<CajaController> _logger;
         private readonly IMapper _mapper;
+        private readonly AppDbContext _context;
 
         public CajaController(
             ICajaService cajaService,
             ICajaVendedorService cajaVendedorService,
             ICurrentUserService currentUser,
             ILogger<CajaController> logger,
-            IMapper mapper)
+            IMapper mapper,
+            AppDbContext context)
         {
             _cajaService = cajaService;
             _cajaVendedorService = cajaVendedorService;
             _currentUser = currentUser;
             _logger = logger;
             _mapper = mapper;
+            _context = context;
         }
 
         #region CRUD de Cajas
@@ -499,8 +505,9 @@ namespace TheBuryProject.Controllers
             {
                 var detalles = await _cajaService.ObtenerDetallesAperturaAsync(id);
                 var puedeOperar = await PuedeOperarAperturaAsync(id);
+                var cuotaCreditoMap = await ObtenerMapaCuotaCreditoAsync(detalles.Movimientos);
 
-                var viewModel = CajaConciliacionBuilder.Build(detalles, detalles.Apertura.Cierre, puedeOperar);
+                var viewModel = CajaConciliacionBuilder.Build(detalles, detalles.Apertura.Cierre, puedeOperar, cuotaCreditoMap);
 
                 return View("DetallesApertura_tw", viewModel);
             }
@@ -527,7 +534,33 @@ namespace TheBuryProject.Controllers
 
             ViewBag.ReturnUrl = returnUrl;
 
-            return View("DetallesCierre_tw", CajaConciliacionBuilder.Build(detalle, cierre, puedeOperar: false));
+            var cuotaCreditoMap = await ObtenerMapaCuotaCreditoAsync(detalle.Movimientos);
+
+            return View("DetallesCierre_tw", CajaConciliacionBuilder.Build(detalle, cierre, puedeOperar: false, cuotaCreditoMap));
+        }
+
+        /// <summary>
+        /// Mapa cuotaId ⇒ creditoId para los cobros de cuota del turno: el builder lo usa para
+        /// linkear esas referencias (que guardan el id de la cuota) al detalle del crédito.
+        /// </summary>
+        private async Task<IReadOnlyDictionary<int, int>> ObtenerMapaCuotaCreditoAsync(
+            IEnumerable<MovimientoCaja>? movimientos)
+        {
+            var cuotaIds = (movimientos ?? Enumerable.Empty<MovimientoCaja>())
+                .Where(m => m.Concepto == ConceptoMovimientoCaja.CobroCuota
+                         && m.ReferenciaId.HasValue
+                         && !m.IsDeleted)
+                .Select(m => m.ReferenciaId!.Value)
+                .Distinct()
+                .ToList();
+
+            if (cuotaIds.Count == 0)
+                return new Dictionary<int, int>();
+
+            return await _context.Cuotas
+                .AsNoTracking()
+                .Where(c => cuotaIds.Contains(c.Id))
+                .ToDictionaryAsync(c => c.Id, c => c.CreditoId);
         }
 
         /// <summary>

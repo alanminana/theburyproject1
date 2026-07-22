@@ -83,7 +83,14 @@
                                     data-venta-cliente="@v.Cliente.ToLowerInvariant()"
                                     data-venta-total="@v.TotalVenta.ToString(CultureInfo.InvariantCulture)">
                                     <td>
-                                        <div class="mono text-white">@v.Numero</div>
+                                        @if (v.VentaId > 0)
+                                        {
+                                            <div class="mono"><a href="/Venta/Details/@v.VentaId" class="cc-ref-link">@v.Numero</a></div>
+                                        }
+                                        else
+                                        {
+                                            <div class="mono text-white">@v.Numero</div>
+                                        }
                                         <div class="text-xs muted-2">@v.Fecha.ToString("dd/MM HH:mm")</div>
                                     </td>
                                     <td>@v.Cliente</td>
