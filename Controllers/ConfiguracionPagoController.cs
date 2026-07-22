@@ -36,19 +36,12 @@ namespace TheBuryProject.Controllers
         #region CRUD — Index / Detalle / Crear / Editar / Eliminar
 
         // GET: ConfiguracionPago
-        public async Task<IActionResult> Index()
+        // La vista lista "Index_tw" fue retirada en el rework; el landing canónico de este
+        // controller es MediosPago (así lo enlaza el menú y así redirigen todas las demás acciones).
+        // Redirigir evita el HTTP 500 por vista inexistente al entrar a /ConfiguracionPago.
+        public IActionResult Index()
         {
-            try
-            {
-                var configuraciones = await _configuracionPagoService.GetAllAsync();
-                return View("Index_tw", configuraciones);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al obtener configuraciones de pago");
-                TempData["Error"] = "Error al cargar las configuraciones de pago";
-                return View("Index_tw", new List<ConfiguracionPagoViewModel>());
-            }
+            return RedirectToAction(nameof(MediosPago));
         }
 
         // GET: ConfiguracionPago/MediosPago

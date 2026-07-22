@@ -640,7 +640,10 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
                     <div>
                         <label for="nuevaCuotaCantidad" class="cp-label">Cantidad de cuotas</label>
-                        <input id="nuevaCuotaCantidad" name="nuevaCuotaCantidad" type="number" min="1" max="120" value="1" class="cp-field font-mono" />
+                        @* value vacío por defecto: el modal "Agregar cuota" comparte el form de configuración; con un
+                           valor por defecto (p.ej. 1) el botón "Guardar configuración" posteaba esa cuota como nueva y
+                           chocaba con un plan ya existente ("Cantidades de cuotas duplicadas"). Vacío ⇒ Guardar no agrega. *@
+                        <input id="nuevaCuotaCantidad" name="nuevaCuotaCantidad" type="number" min="1" max="120" value="" class="cp-field font-mono" />
                     </div>
                     <div>
                         <label for="nuevaCuotaTasaMensual" class="cp-label">Tasa mensual (%)</label>
