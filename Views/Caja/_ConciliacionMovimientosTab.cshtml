@@ -81,6 +81,10 @@
                                     <td>
                                         <span class="chip @m.CategoriaImpactoChipClass">@m.MedioPago</span>
                                         <div class="text-xs muted-2 mt-0.5">@m.CategoriaImpactoLabel</div>
+                                        @if (m.MuestraAcreditacion)
+                                        {
+                                            <div class="mt-1"><span class="chip @m.AcreditacionChipClass">@m.AcreditacionLabel</span></div>
+                                        }
                                     </td>
                                     <td>
                                         @if (!string.IsNullOrWhiteSpace(m.Descripcion))

@@ -145,6 +145,37 @@ public class CajaConciliacionBuilderTests
     }
 
     [Fact]
+    public void Movimientos_SuperficianEstadoDeAcreditacion()
+    {
+        var detalle = BuildDetalleStandard();
+        // Transferencia pendiente de acreditar → chip visible; efectivo acreditado → sin chip.
+        detalle.Movimientos.Add(new MovimientoCaja
+        {
+            Id = 31, Tipo = TipoMovimientoCaja.Ingreso, Concepto = ConceptoMovimientoCaja.VentaTransferencia,
+            Monto = 5000m, TipoPago = TipoPago.Transferencia, EstadoAcreditacion = EstadoAcreditacionMovimientoCaja.Pendiente,
+            FechaMovimiento = Base.AddMinutes(8), Usuario = "admin"
+        });
+        detalle.Movimientos.Add(new MovimientoCaja
+        {
+            Id = 32, Tipo = TipoMovimientoCaja.Ingreso, Concepto = ConceptoMovimientoCaja.VentaEfectivo,
+            Monto = 2000m, TipoPago = TipoPago.Efectivo, EstadoAcreditacion = EstadoAcreditacionMovimientoCaja.Acreditado,
+            FechaMovimiento = Base.AddMinutes(9), VentaId = 2, Usuario = "admin"
+        });
+        detalle.Apertura.Movimientos = detalle.Movimientos;
+
+        var vm = CajaConciliacionBuilder.Build(detalle, cierre: null, puedeOperar: true);
+
+        var pendiente = vm.Movimientos.Single(m => m.MovimientoId == 31);
+        Assert.True(pendiente.MuestraAcreditacion);
+        Assert.Equal("Pendiente de acreditación", pendiente.AcreditacionLabel);
+        Assert.Equal("chip-warn", pendiente.AcreditacionChipClass);
+
+        // Acreditado y sin estado (null) son el camino normal ⇒ no muestran chip.
+        Assert.False(vm.Movimientos.Single(m => m.MovimientoId == 32).MuestraAcreditacion);
+        Assert.False(vm.Movimientos.Single(m => m.MovimientoId == 13).MuestraAcreditacion);
+    }
+
+    [Fact]
     public void VentaCreditoPersonal_EsVendidoYPendiente_SinImpactarCajaFisica()
     {
         var vm = CajaConciliacionBuilder.Build(BuildDetalleStandard(), cierre: null, puedeOperar: true);
@@ -154,7 +185,7 @@ public class CajaConciliacionBuilderTests
         Assert.Equal(0m, credito.CobradoAhora);
         Assert.Equal(20000m, credito.Pendiente);
         Assert.False(credito.ImpactaCajaFisica);
-        Assert.Equal("Venta financiada", credito.MotivoNoImpacta);
+        Assert.Equal("Crédito personal pendiente de cobro", credito.MotivoNoImpacta);
         Assert.Contains(vm.VentasSinImpacto, v => v.VentaId == 1);
     }
 

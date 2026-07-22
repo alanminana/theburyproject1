@@ -185,6 +185,38 @@ public class MovimientoCajaLineaViewModel
         CategoriaImpactoCaja.SinIngresoInmediato => "chip-neutral",
         _ => "chip-neutral"
     };
+
+    /// <summary>Estado de acreditación bancaria del movimiento (lo copia el builder desde la entidad).</summary>
+    public EstadoAcreditacionMovimientoCaja? EstadoAcreditacion { get; set; }
+
+    /// <summary>
+    /// True solo para estados que el operador necesita ver: dinero todavía no confirmado o
+    /// rechazado/revertido. Acreditado y NoAplica/null son el camino normal ⇒ no se muestra chip.
+    /// </summary>
+    public bool MuestraAcreditacion => EstadoAcreditacion is
+        EstadoAcreditacionMovimientoCaja.Pendiente
+        or EstadoAcreditacionMovimientoCaja.Rechazado
+        or EstadoAcreditacionMovimientoCaja.Revertido
+        or EstadoAcreditacionMovimientoCaja.Anulado;
+
+    /// <summary>Etiqueta clara del estado de acreditación, para el chip de la vista (spec 5.3).</summary>
+    public string AcreditacionLabel => EstadoAcreditacion switch
+    {
+        EstadoAcreditacionMovimientoCaja.Pendiente => "Pendiente de acreditación",
+        EstadoAcreditacionMovimientoCaja.Acreditado => "Acreditado",
+        EstadoAcreditacionMovimientoCaja.Rechazado => "Acreditación rechazada",
+        EstadoAcreditacionMovimientoCaja.Revertido => "Revertido",
+        EstadoAcreditacionMovimientoCaja.Anulado => "Anulado",
+        _ => string.Empty
+    };
+
+    /// <summary>Clase de chip asociada al estado de acreditación.</summary>
+    public string AcreditacionChipClass => EstadoAcreditacion switch
+    {
+        EstadoAcreditacionMovimientoCaja.Pendiente => "chip-warn",
+        EstadoAcreditacionMovimientoCaja.Rechazado => "chip-bad",
+        _ => "chip-neutral"
+    };
 }
 
 /// <summary>Fila del libro mayor de caja: saldo esperado acumulado fila por fila.</summary>

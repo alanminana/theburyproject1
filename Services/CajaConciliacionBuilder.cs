@@ -140,9 +140,12 @@ public static class CajaConciliacionBuilder
         string? motivo = null;
         if (!impacta && categoria != VentaTurnoCategoria.Registro)
         {
-            motivo = v.TipoPago is TipoPago.CreditoPersonal or TipoPago.CuentaCorriente
-                ? "Venta financiada"
-                : "Cobro digital (no es efectivo en caja)";
+            motivo = v.TipoPago switch
+            {
+                TipoPago.CreditoPersonal => "Crédito personal pendiente de cobro",
+                TipoPago.CuentaCorriente => "Cuenta corriente pendiente de cobro",
+                _ => "Cobro digital (no es efectivo en caja)"
+            };
         }
 
         return new VentaTurnoLineaViewModel
@@ -200,7 +203,8 @@ public static class CajaConciliacionBuilder
             ImporteBase = m.ImporteBase,
             RecargoMedioPago = m.RecargoMedioPago,
             DescuentoMedioPago = m.DescuentoMedioPago,
-            CategoriaImpacto = CategoriaImpactoMovimiento(m, medio)
+            CategoriaImpacto = CategoriaImpactoMovimiento(m, medio),
+            EstadoAcreditacion = m.EstadoAcreditacion
         };
     }
 
