@@ -303,6 +303,32 @@ public class MappingProfileTests
     }
 
     // =========================================================================
+    // Cuota → CuotaViewModel (datos de cobro / trazabilidad histórica)
+    // =========================================================================
+
+    [Fact]
+    public void Map_Cuota_IncluyeMedioPagoYRecargoMedioPago()
+    {
+        var entity = new Cuota
+        {
+            NumeroCuota = 1,
+            MontoTotal = 10_000m,
+            MontoPagado = 10_000m,
+            FechaPago = new DateTime(2026, 7, 21),
+            MedioPago = "Tarjeta Crédito",
+            RecargoMedioPago = 1_500m,
+            ComprobantePago = "MP-123"
+        };
+
+        var vm = _mapper.Map<CuotaViewModel>(entity);
+
+        Assert.Equal("Tarjeta Crédito", vm.MedioPago);
+        Assert.Equal(1_500m, vm.RecargoMedioPago);
+        Assert.Equal(10_000m, vm.MontoPagado);
+        Assert.Equal(new DateTime(2026, 7, 21), vm.FechaPago);
+    }
+
+    // =========================================================================
     // ConfiguracionMora (DiasGraciaMora vs DiasGracia)
     // =========================================================================
 

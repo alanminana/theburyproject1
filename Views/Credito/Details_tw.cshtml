@@ -249,6 +249,14 @@
                                                         {
                                                             <span class="block text-xs muted-2">@cuota.FechaPago.Value.ToString("dd/MM/yyyy")</span>
                                                         }
+                                                        @if (!string.IsNullOrWhiteSpace(cuota.MedioPago))
+                                                        {
+                                                            <span class="block text-xs muted-2">@cuota.MedioPago</span>
+                                                        }
+                                                        @if (cuota.RecargoMedioPago != 0)
+                                                        {
+                                                            <span class="block text-xs" style="color:#fbbf24;font-weight:400">@(cuota.RecargoMedioPago > 0 ? "+ recargo" : "− desc.") $ @Math.Abs(cuota.RecargoMedioPago).ToString("N2")</span>
+                                                        }
                                                     </td>
                                                     <td><span class="chip @CuotaChip(cuota.Estado, estaVencida)">@(estaVencida && cuota.Estado == EstadoCuota.Pendiente ? "Vencida" : cuota.EstadoTexto)</span></td>
                                                     <td style="text-align:right">

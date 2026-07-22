@@ -53,6 +53,10 @@ namespace TheBuryProject.ViewModels
         [Display(Name = "Medio de Pago")]
         public string? MedioPago { get; set; }
 
+        [Display(Name = "Recargo medio de pago")]
+        [DisplayFormat(DataFormatString = "{0:C2}")]
+        public decimal RecargoMedioPago { get; set; }
+
         [Display(Name = "Comprobante")]
         public string? ComprobantePago { get; set; }
 
