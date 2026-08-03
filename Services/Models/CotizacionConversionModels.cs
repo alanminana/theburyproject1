@@ -15,6 +15,7 @@ public sealed class CotizacionConversionPreviewResultado
     public bool HayCambiosDePrecios { get; init; }
     public bool HayProductosTrazables { get; init; }
     public decimal TotalCotizado { get; init; }
+    public decimal AnticipoCotizado { get; init; }
     public List<CotizacionConversionDetallePreview> Detalles { get; init; } = new();
 }
 

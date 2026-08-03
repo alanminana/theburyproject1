@@ -14,11 +14,17 @@ namespace TheBuryProject.Services
 
         private readonly AppDbContext _context;
         private readonly ILogger<DashboardService> _logger;
+        private readonly IRelojComercial _reloj;
 
-        public DashboardService(AppDbContext context, ILogger<DashboardService> logger)
+        public DashboardService(AppDbContext context, ILogger<DashboardService> logger, IRelojComercial? reloj = null)
         {
             _context = context;
             _logger = logger;
+            // PUN-ML7: fuente única de "hoy" para vencimiento/cobranza. La inyección obligatoria sería
+            // preferible, pero DashboardServiceTests (fuera del alcance de esta corrección) construye
+            // este servicio sin pasar reloj — el fallback es inerte en producción (Program.cs registra
+            // IRelojComercial como Singleton; DI siempre lo resuelve) y solo se alcanza ahí.
+            _reloj = reloj ?? RelojComercial.Sistema;
         }
 
         #endregion
@@ -27,7 +33,9 @@ namespace TheBuryProject.Services
 
         public async Task<DashboardViewModel> GetDashboardDataAsync()
         {
-            var hoy = DateTime.Today;
+            // PUN-ML7: fecha comercial única (antes DateTime.Today) para todo el dashboard —
+            // vencimiento de cuotas y ventanas "hoy/mes/año" de ventas y cobranza.
+            var hoy = _reloj.InicioDiaComercial;
             var manana = hoy.AddDays(1);
             var inicioMes = new DateTime(hoy.Year, hoy.Month, 1);
             var inicioAnio = new DateTime(hoy.Year, 1, 1);
@@ -173,7 +181,8 @@ namespace TheBuryProject.Services
 
         private async Task<decimal> CalcularTicketPromedioAsync()
         {
-            var inicioMes = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+            var hoy = _reloj.InicioDiaComercial;
+            var inicioMes = new DateTime(hoy.Year, hoy.Month, 1);
             var agregados = await _context.Ventas
                 .AsNoTracking()
                 .Where(v => !v.IsDeleted && v.FechaVenta >= inicioMes)
@@ -205,14 +214,14 @@ namespace TheBuryProject.Services
                            c.Credito.Cliente != null &&
                            !c.Credito.Cliente.IsDeleted &&
                            c.Estado == EstadoCuota.Pendiente &&
-                           c.FechaVencimiento < DateTime.Today);
+                           c.FechaVencimiento < _reloj.InicioDiaComercial);
 
             return ((decimal)cuotasVencidas / totalCuotas) * 100;
         }
 
         private async Task<decimal> CalcularEfectividadCobranzaAsync()
         {
-            var hoy = DateTime.Today;
+            var hoy = _reloj.InicioDiaComercial;
             var inicioMes = new DateTime(hoy.Year, hoy.Month, 1);
 
             var cuotasRaw = await _context.Cuotas
@@ -244,7 +253,7 @@ namespace TheBuryProject.Services
 
         private async Task<List<VentasPorDiaDto>> GetVentasUltimos7DiasAsync()
         {
-            var hoy = DateTime.Today;
+            var hoy = _reloj.InicioDiaComercial;
             var hace7Dias = hoy.AddDays(-7);
 
             var raw = await _context.Ventas
@@ -274,7 +283,7 @@ namespace TheBuryProject.Services
 
         private async Task<List<VentasPorMesDto>> GetVentasUltimos12MesesAsync()
         {
-            var hace12Meses = DateTime.Today.AddMonths(-12);
+            var hace12Meses = _reloj.InicioDiaComercial.AddMonths(-12);
             var cultura = CultureInfo.GetCultureInfo("es-AR");
 
             var raw = await _context.Ventas
@@ -298,7 +307,8 @@ namespace TheBuryProject.Services
 
         private async Task<List<ProductoMasVendidoDto>> GetProductosMasVendidosAsync()
         {
-            var inicioMes = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+            var hoy = _reloj.InicioDiaComercial;
+            var inicioMes = new DateTime(hoy.Year, hoy.Month, 1);
 
             var raw = await _context.VentaDetalles
                 .Where(vd => !vd.IsDeleted &&
@@ -344,7 +354,7 @@ namespace TheBuryProject.Services
 
         private async Task<List<CobranzaPorMesDto>> GetCobranzaUltimos6MesesAsync()
         {
-            var hace6Meses = DateTime.Today.AddMonths(-6);
+            var hace6Meses = _reloj.InicioDiaComercial.AddMonths(-6);
             var inicioMes = new DateTime(hace6Meses.Year, hace6Meses.Month, 1);
             var cultura = CultureInfo.GetCultureInfo("es-AR");
 
@@ -387,7 +397,7 @@ namespace TheBuryProject.Services
         /// </summary>
         private async Task<List<CuotaProximaVencerDto>> GetCuotasProximasVencerAsync()
         {
-            var hoy = DateTime.Today;
+            var hoy = _reloj.InicioDiaComercial;
             var en7Dias = hoy.AddDays(7);
 
             // Consulta a la base de datos sin cálculos de fechas complejos
@@ -448,7 +458,7 @@ namespace TheBuryProject.Services
         /// </summary>
         private async Task<List<CuotaVencidaDto>> GetCuotasVencidasListaAsync()
         {
-            var hoy = DateTime.Today;
+            var hoy = _reloj.InicioDiaComercial;
 
             // Consulta a la base de datos sin cálculos de fechas complejos
             var cuotasDb = await _context.Cuotas

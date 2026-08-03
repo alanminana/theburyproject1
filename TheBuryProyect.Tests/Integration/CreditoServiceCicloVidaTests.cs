@@ -7,6 +7,7 @@ using TheBuryProject.Helpers;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services;
+using TheBuryProject.Services.Exceptions;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.Services.Models;
 using TheBuryProject.ViewModels;
@@ -20,19 +21,40 @@ namespace TheBuryProject.Tests.Integration;
 
 sealed class StubCajaServiceCiclo : ICajaService
 {
+    // PUN-ML2: persiste de verdad (igual que CajaService real) porque PagoCuota.MovimientoCajaId
+    // es una FK real. La Caja/AperturaCaja (Id=1) la siembra el test antes de instanciar el stub.
+    private readonly AppDbContext _context;
+
+    public StubCajaServiceCiclo(AppDbContext context) => _context = context;
+
     public Task<decimal?> ObtenerUltimoEfectivoCierreAsync(int cajaId) => Task.FromResult<decimal?>(null);
     public List<(int CuotaId, string CreditoNumero, int NumeroCuota, decimal Monto, string MedioPago, string Usuario)> MovimientosCuota { get; } = new();
     public AperturaCaja? AperturaActivaParaVenta { get; set; } = new() { Id = 1 };
 
-    public Task<MovimientoCaja?> RegistrarMovimientoCuotaAsync(
+    public async Task<MovimientoCaja?> RegistrarMovimientoCuotaAsync(
         int cuotaId, string creditoNumero, int numeroCuota,
         decimal monto, string medioPago, string usuario)
     {
         if (AperturaActivaParaVenta == null)
-            return Task.FromResult<MovimientoCaja?>(null);
+            return null;
 
         MovimientosCuota.Add((cuotaId, creditoNumero, numeroCuota, monto, medioPago, usuario));
-        return Task.FromResult<MovimientoCaja?>(new MovimientoCaja());
+
+        var movimiento = new MovimientoCaja
+        {
+            AperturaCajaId = AperturaActivaParaVenta.Id,
+            Tipo = TipoMovimientoCaja.Ingreso,
+            Concepto = ConceptoMovimientoCaja.CobroCuota,
+            Monto = monto,
+            ImporteBase = monto,
+            Descripcion = $"Cobro cuota #{numeroCuota} - Crédito {creditoNumero}",
+            ReferenciaId = cuotaId,
+            MedioPagoDetalle = medioPago,
+            Usuario = usuario
+        };
+        _context.MovimientosCaja.Add(movimiento);
+        await _context.SaveChangesAsync();
+        return movimiento;
     }
 
     public Task<AperturaCaja?> ObtenerAperturaActivaParaUsuarioAsync(string usuario) => throw new NotImplementedException();
@@ -110,13 +132,19 @@ public class CreditoServiceCicloVidaTests : IDisposable
 
         _context = new AppDbContext(options);
         _context.Database.EnsureCreated();
+        _context.Cajas.Add(new Caja { Id = 1, Codigo = "C1", Nombre = "Caja test", IsDeleted = false });
+        _context.AperturasCaja.Add(new AperturaCaja
+        {
+            Id = 1, CajaId = 1, MontoInicial = 0m, UsuarioApertura = "TestUser", Cerrada = false, IsDeleted = false
+        });
+        _context.SaveChanges();
 
         var mapper = new MapperConfiguration(
                 cfg => cfg.AddProfile<MappingProfile>(),
                 NullLoggerFactory.Instance)
             .CreateMapper();
 
-        _cajaService = new StubCajaServiceCiclo();
+        _cajaService = new StubCajaServiceCiclo(_context);
 
         _service = new CreditoService(
             _context,
@@ -312,6 +340,7 @@ public class CreditoServiceCicloVidaTests : IDisposable
 
         var pago = new PagarCuotaViewModel
         {
+            CreditoId = cuota.CreditoId,
             CuotaId = cuota.Id,
             MontoPagado = 1_000m,
             FechaPago = DateTime.UtcNow,
@@ -337,6 +366,7 @@ public class CreditoServiceCicloVidaTests : IDisposable
 
         var pago = new PagarCuotaViewModel
         {
+            CreditoId = cuota.CreditoId,
             CuotaId = cuota.Id,
             MontoPagado = 500m, // pago parcial
             FechaPago = DateTime.UtcNow,
@@ -359,14 +389,17 @@ public class CreditoServiceCicloVidaTests : IDisposable
 
         var pago = new PagarCuotaViewModel
         {
+            CreditoId = cuota.CreditoId,
             CuotaId = cuota.Id,
             MontoPagado = 1_000m,
             FechaPago = DateTime.UtcNow,
             MedioPago = "Efectivo"
         };
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        var ex = await Assert.ThrowsAsync<PagoCuotaRechazadoException>(() =>
             _service.PagarCuotaAsync(pago));
+
+        Assert.Equal(MotivoRechazoPagoCuota.Conflicto, ex.Motivo);
     }
 
     [Fact]
@@ -374,6 +407,7 @@ public class CreditoServiceCicloVidaTests : IDisposable
     {
         var pago = new PagarCuotaViewModel
         {
+            CreditoId = 99999,
             CuotaId = 99999,
             MontoPagado = 500m,
             FechaPago = DateTime.UtcNow,
@@ -392,9 +426,10 @@ public class CreditoServiceCicloVidaTests : IDisposable
         var cuota = await SeedCuotaAsync(credito.Id, montoTotal: 1_000m, montoCapital: 800m);
         _cajaService.AperturaActivaParaVenta = null;
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        await Assert.ThrowsAsync<PagoCuotaRechazadoException>(() =>
             _service.PagarCuotaAsync(new PagarCuotaViewModel
             {
+                CreditoId = cuota.CreditoId,
                 CuotaId = cuota.Id,
                 MontoPagado = 1_000m,
                 FechaPago = DateTime.UtcNow,
@@ -418,6 +453,7 @@ public class CreditoServiceCicloVidaTests : IDisposable
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.PagarCuotaAsync(new PagarCuotaViewModel
             {
+                CreditoId = cuota.CreditoId,
                 CuotaId = cuota.Id,
                 MontoPagado = 1_000m,
                 FechaPago = DateTime.UtcNow,
@@ -677,8 +713,10 @@ public class CreditoServiceCicloVidaTests : IDisposable
     }
 
     [Fact]
-    public async Task PagarCuotas_CuotaVencida_RecalculaPunitorioEnServidor()
+    public async Task PagarCuotas_CuotaVencida_SinAplicacion_NoCobraPunitorio()
     {
+        // PUN-ML6: PagarCuotasAsync ya no recalcula ningún punitorio por sí solo. Una cuota vencida
+        // sin una PunitorioAplicado explícita cobra únicamente su saldo de cuota.
         var cliente = await SeedClienteAsync();
         var credito = await SeedCreditoAsync(cliente.Id, EstadoCredito.Aprobado, tasaInteres: 12m);
         var cuota = await SeedCuotaAsync(
@@ -700,10 +738,63 @@ public class CreditoServiceCicloVidaTests : IDisposable
         _context.ChangeTracker.Clear();
         var cuotaBd = await _context.Set<Cuota>().FirstAsync(c => c.Id == cuota.Id);
 
-        Assert.True(cuotaBd.MontoPunitorio > 0m);
-        Assert.True(resultado.MoraTotal > 0m);
+        Assert.Equal(0m, cuotaBd.MontoPunitorio);
+        Assert.Equal(0m, resultado.MoraTotal);
         Assert.Equal(resultado.TotalPagado, resultado.Subtotal + resultado.MoraTotal);
-        Assert.Equal(cuotaBd.MontoTotal + cuotaBd.MontoPunitorio, cuotaBd.MontoPagado);
+        Assert.Equal(EstadoCuota.Pagada, cuotaBd.Estado);
+        Assert.Equal(cuotaBd.MontoTotal, cuotaBd.MontoPagado);
+    }
+
+    [Fact]
+    public async Task PagarCuotas_CuotaVencida_ConAplicacionActiva_CobraElImporteAplicadoConPrioridad()
+    {
+        // Con una aplicación activa (PUN-ML5, sembrada directamente), PagarCuotasAsync la cobra
+        // con prioridad sobre el saldo de cuota, atribuyéndola en el ledger.
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id, EstadoCredito.Aprobado, tasaInteres: 12m);
+        var cuota = await SeedCuotaAsync(
+            credito.Id,
+            numero: 1,
+            montoTotal: 1_000m,
+            montoCapital: 800m,
+            montoInteres: 200m,
+            diasAtraso: 60,
+            montoPunitorio: 0m);
+
+        var aplicado = new PunitorioAplicado
+        {
+            CuotaId = cuota.Id,
+            FechaCalculo = DateOnly.FromDateTime(DateTime.UtcNow),
+            SaldoBase = 1_000m,
+            DiasComputados = 60,
+            Importe = 80m,
+            Estado = EstadoPunitorioAplicado.Aplicado,
+            FechaAplicacion = DateTime.UtcNow,
+            MotivoAplicacion = "Seed de test",
+            UsuarioAplicacion = "TestUser"
+        };
+        _context.Set<PunitorioAplicado>().Add(aplicado);
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.PagarCuotasAsync(new PagoMultipleCuotasRequest
+        {
+            ClienteId = cliente.Id,
+            CuotaIds = new List<int> { cuota.Id },
+            MedioPago = "Efectivo"
+        });
+
+        _context.ChangeTracker.Clear();
+        var cuotaBd = await _context.Set<Cuota>().FirstAsync(c => c.Id == cuota.Id);
+
+        Assert.Equal(80m, resultado.MoraTotal);
+        Assert.Equal(1_000m, resultado.Subtotal);
+        Assert.Equal(1_080m, resultado.TotalPagado);
+        Assert.Equal(EstadoCuota.Pagada, cuotaBd.Estado);
+        Assert.Equal(1_000m, cuotaBd.MontoPagado); // sólo el componente de cuota mueve MontoPagado
+
+        var aplicadoBd = await _context.Set<PunitorioAplicado>()
+            .AsNoTracking().SingleAsync(p => p.Id == aplicado.Id);
+        Assert.Equal(EstadoPunitorioAplicado.Pagado, aplicadoBd.Estado);
     }
 
     // -------------------------------------------------------------------------

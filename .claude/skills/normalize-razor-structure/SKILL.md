@@ -1,4 +1,8 @@
-# normalize-razor-structure
+---
+name: normalize-razor-structure
+description: Normalización estructural de vistas Razor en TheBuryProject (HTML, jerarquía y parciales consistentes por módulo y tipo de vista), sin rediseñar la interfaz ni reescribir clases visuales.
+---
+
 
 Propósito:
 Normalizar vistas Razor de un frontend ERP modular en ASP.NET MVC únicamente a nivel estructural.

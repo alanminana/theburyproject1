@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using TheBuryProject.ViewModels.Punitorio;
 
 namespace TheBuryProject.ViewModels;
 
@@ -14,11 +15,22 @@ public class CreditoPersonalConfigViewModel
     public List<ClienteCreditoLimiteItemViewModel> LimitesPorPuntaje { get; set; } = new();
     public List<MontoPorPuntajeCreditoViewModel> MontosPorPuntaje { get; set; } = new();
     public List<CuotaCreditoPersonalViewModel> CuotasCreditoPersonal { get; set; } = new();
+
+    /// <summary>
+    /// PUN-ML8: estado vigente/próximo/historial de <c>ConfiguracionPunitorio</c> y el form de
+    /// alta de nueva versión. Nunca se postea junto con el resto de este ViewModel — la pestaña
+    /// "Punitorios por mora" tiene su propio <c>&lt;form&gt;</c> y su propia acción de POST
+    /// (<c>CrearVersionPunitorio</c>), con permisos distintos de <c>configuracion.update</c>.
+    /// </summary>
+    public ConfiguracionPunitorioPageViewModel? Punitorios { get; set; }
 }
 
 /// <summary>
-/// Tasa mensual y disponibilidad de Crédito Personal (fuente Global) por cantidad de cuotas.
-/// Si la lista queda vacía, el cálculo global usa la tasa/rango únicos de DefaultsGlobales (compatibilidad).
+/// Recargo TOTAL (no tasa mensual) y disponibilidad de Crédito Personal (fuente Global) por
+/// cantidad de cuotas. El nombre de la propiedad (<c>TasaMensual</c>) es legacy y se conserva
+/// por compatibilidad de binding; representa un porcentaje aplicado una sola vez sobre el
+/// saldo financiado, nunca mensual ni compuesto. Si la lista queda vacía, Crédito Personal no
+/// ofrece cuotas (sin fallback a rango).
 /// </summary>
 public class CuotaCreditoPersonalViewModel
 {
@@ -27,8 +39,12 @@ public class CuotaCreditoPersonalViewModel
     [Range(1, 120, ErrorMessage = "La cantidad de cuotas debe estar entre 1 y 120.")]
     public int CantidadCuotas { get; set; }
 
-    [Range(0, 100, ErrorMessage = "La tasa mensual debe estar entre 0 y 100.")]
-    public decimal TasaMensual { get; set; }
+    /// <summary>
+    /// Porcentaje de recargo TOTAL propio de esta cantidad de cuotas.
+    /// null = hereda el recargo único global; 0 = sin recargo (0 % explícito, válido); X = recargo propio.
+    /// </summary>
+    [Range(0, 100, ErrorMessage = "El recargo debe estar entre 0 y 100.")]
+    public decimal? TasaMensual { get; set; }
 
     public bool Activo { get; set; } = true;
 
@@ -54,6 +70,12 @@ public class MontoPorPuntajeCreditoViewModel
 
 public class DefaultsGlobalesViewModel
 {
+    /// <summary>
+    /// Porcentaje de recargo TOTAL único global (no tasa mensual): fallback usado únicamente
+    /// cuando un plan activo (<see cref="CuotaCreditoPersonalViewModel"/>) no define su propio
+    /// recargo. El nombre de la propiedad es legacy y se conserva por compatibilidad de binding.
+    /// </summary>
+    [Range(0, 100, ErrorMessage = "El recargo debe estar entre 0 y 100.")]
     public decimal TasaMensual { get; set; }
     public decimal GastosAdministrativos { get; set; }
     public int MinCuotas { get; set; }

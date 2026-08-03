@@ -1,3 +1,4 @@
+using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.Services.Models;
 using TheBuryProject.ViewModels;
@@ -7,21 +8,27 @@ namespace TheBuryProject.Services;
 public sealed class CreditoSimulacionVentaService : ICreditoSimulacionVentaService
 {
     private const string TasaGlobalNoConfigurada =
-        "La tasa de inter\u00e9s de Cr\u00e9dito Personal no est\u00e1 configurada. " +
-        "Configure el valor en Administraci\u00f3n \u2192 Tipos de Pago.";
+        "La tasa de interés de Crédito Personal no está configurada. " +
+        "Configure el valor en Administración → Tipos de Pago.";
 
     private readonly IFinancialCalculationService _financialService;
     private readonly IConfiguracionPagoService? _configuracionPagoService;
     private readonly IClienteAptitudService? _aptitudService;
+    private readonly IVentaService? _ventaService;
+    private readonly ICreditoRangoProductoService? _creditoRangoProductoService;
 
     public CreditoSimulacionVentaService(
         IFinancialCalculationService financialService,
         IConfiguracionPagoService? configuracionPagoService,
-        IClienteAptitudService? aptitudService = null)
+        IClienteAptitudService? aptitudService = null,
+        IVentaService? ventaService = null,
+        ICreditoRangoProductoService? creditoRangoProductoService = null)
     {
         _financialService = financialService;
         _configuracionPagoService = configuracionPagoService;
         _aptitudService = aptitudService;
+        _ventaService = ventaService;
+        _creditoRangoProductoService = creditoRangoProductoService;
     }
 
     public async Task<CreditoSimulacionVentaResultado> SimularAsync(
@@ -31,10 +38,140 @@ public sealed class CreditoSimulacionVentaService : ICreditoSimulacionVentaServi
         var anticipoVal = request.Anticipo ?? 0m;
         var gastosVal = request.GastosAdministrativos ?? 0m;
 
+        // Validaciones baratas primero: no dependen de la venta ni de config (evita resolver
+        // la tasa/plan solo para descartar el resultado por un dato de entrada inválido).
+        if (anticipoVal < 0)
+            return CreditoSimulacionVentaResultado.Invalido("El anticipo no puede ser negativo.");
+        if (request.Cuotas <= 0)
+            return CreditoSimulacionVentaResultado.Invalido("Ingresá una cantidad de cuotas mayor a cero.");
+        if (gastosVal < 0)
+            return CreditoSimulacionVentaResultado.Invalido("Los gastos administrativos no pueden ser negativos.");
+
+        // Autoridad del monto: con VentaId, el total real de la venta manda siempre sobre
+        // cualquier totalVenta que haya mandado el navegador (hidden manipulado, DevTools, etc.).
+        // Sin VentaId se preserva el único escenario legítimo demostrado hoy: el total lo manda
+        // el caller directamente (no hay venta contra la que verificarlo).
+        VentaViewModel? venta = null;
+        decimal totalVentaVal;
+        if (request.VentaId.HasValue)
+        {
+            venta = _ventaService is null ? null : await _ventaService.GetByIdAsync(request.VentaId.Value);
+            if (venta is null)
+                return CreditoSimulacionVentaResultado.Invalido("No se encontró la venta indicada.");
+
+            totalVentaVal = venta.Total;
+        }
+        else
+        {
+            totalVentaVal = request.TotalVenta;
+        }
+
+        // Resolución de planes sin venta persistida (p. ej. Cotización): mismos productos/cliente
+        // que usaría una venta real, para no reconstruir la precedencia plan/cliente/global en un
+        // calculator paralelo. Solo aplica cuando el caller no tiene aún una venta contra la cual
+        // resolver (con VentaId, venta.Detalles/venta.ClienteId ya cubren este rol).
+        var productoIdsEfectivos = venta is not null
+            ? venta.Detalles?.Select(d => d.ProductoId) ?? Enumerable.Empty<int>()
+            : request.ProductoIds ?? Enumerable.Empty<int>();
+        var productoIdsLista = productoIdsEfectivos as IReadOnlyCollection<int> ?? productoIdsEfectivos.ToList();
+        var clienteIdEfectivo = venta?.ClienteId ?? request.ClienteId;
+        var hayContextoDeProductos = venta is not null || productoIdsLista.Count > 0;
+
+        if (totalVentaVal <= 0)
+            return CreditoSimulacionVentaResultado.Invalido("El monto total de la venta debe ser mayor a cero.");
+        if (anticipoVal > totalVentaVal)
+            return CreditoSimulacionVentaResultado.Invalido("El anticipo no puede superar el total de la venta.");
+
+        // Autoridad del porcentaje: la fuente Manual solo es legítima con el método Manual (misma
+        // regla que CreditoConfiguracionVentaService.ResolverAsync usa para persistir). Cualquier
+        // otra combinación ignora la tasa que haya mandado el navegador y la resuelve el servidor
+        // a partir del plan efectivo de la venta (o de la tabla global sin venta asociada).
+        var fuenteManualValida = request.FuenteConfiguracion == FuenteConfiguracionCredito.Manual &&
+                                  request.MetodoCalculo == MetodoCalculoCredito.Manual;
+
         decimal tasaVal;
-        if (request.TasaMensual.HasValue)
+        string fuentePorcentaje;
+
+        if (fuenteManualValida && request.TasaMensual.HasValue)
         {
             tasaVal = request.TasaMensual.Value;
+            fuentePorcentaje = "Manual";
+        }
+        else if (hayContextoDeProductos)
+        {
+            if (_configuracionPagoService is null)
+                return CreditoSimulacionVentaResultado.Invalido(TasaGlobalNoConfigurada);
+
+            var planesVenta = await _configuracionPagoService.ResolverPlanesCreditoPersonalAsync(productoIdsLista);
+
+            if (!planesVenta.EsValido)
+            {
+                return CreditoSimulacionVentaResultado.Invalido(
+                    planesVenta.MensajeRechazo ??
+                    "No hay planes de Crédito Personal disponibles para los productos de esta venta.");
+            }
+
+            if (!planesVenta.RigeConfiguracionUnicaGlobal && planesVenta.BuscarPlan(request.Cuotas) is null)
+            {
+                return CreditoSimulacionVentaResultado.Invalido(
+                    $"La cantidad de cuotas {request.Cuotas} no está habilitada para Crédito personal " +
+                    "con los productos de esta venta.");
+            }
+
+            // El rango por cantidad de unidades pedidas solo aplica cuando hay una venta real
+            // (usa VentaDetalle.Cantidad). Sin venta (p. ej. Cotización) el propio caller ya validó
+            // el producto bloqueante/tope de cuotas contra IProductoCreditoRestriccionService.
+            if (venta is not null && _creditoRangoProductoService is not null)
+            {
+                var rango = await _creditoRangoProductoService.ResolverAsync(
+                    venta, TipoPago.CreditoPersonal, 1, 120, cancellationToken);
+                if (rango.Error is not null)
+                    return CreditoSimulacionVentaResultado.Invalido(rango.Error);
+            }
+
+            if (request.MetodoCalculo == MetodoCalculoCredito.UsarCliente ||
+                request.FuenteConfiguracion == FuenteConfiguracionCredito.PorCliente)
+            {
+                if (!clienteIdEfectivo.HasValue)
+                    return CreditoSimulacionVentaResultado.Invalido(
+                        "Se requiere un cliente para resolver la configuración de Crédito personal por cliente.");
+
+                var tasaGlobalCliente = await _configuracionPagoService.ObtenerTasaInteresMensualCreditoPersonalAsync();
+                if (tasaGlobalCliente is null)
+                    return CreditoSimulacionVentaResultado.Invalido(TasaGlobalNoConfigurada);
+
+                var parametrosCliente = await _configuracionPagoService.ObtenerParametrosCreditoClienteAsync(
+                    clienteIdEfectivo.Value, tasaGlobalCliente.Value);
+                tasaVal = parametrosCliente.TasaMensual;
+                fuentePorcentaje = "Cliente";
+            }
+            else if (planesVenta.Origen == OrigenPlanesCredito.Producto || planesVenta.Origen == OrigenPlanesCredito.Mixto)
+            {
+                // Al menos un producto de la venta aporta configuración propia. BuscarPlan ya
+                // resolvió, para esta cantidad de cuotas puntual, el máximo conservador entre las
+                // tasas de los productos con plan propio (ConfiguracionPagoService.
+                // ResolverPlanesCreditoPersonalAsync); el ?? solo cubre el caso extremo de tasa
+                // única global sin configurar dentro de ese cálculo.
+                var tasaGlobal = await _configuracionPagoService.ObtenerTasaInteresMensualCreditoPersonalAsync();
+                if (tasaGlobal is null)
+                    return CreditoSimulacionVentaResultado.Invalido(TasaGlobalNoConfigurada);
+
+                tasaVal = planesVenta.BuscarPlan(request.Cuotas)?.TasaMensual ?? tasaGlobal.Value;
+                fuentePorcentaje = "Producto";
+            }
+            else
+            {
+                // Ningún producto de la venta tiene configuración propia (Origen.Global, o el legado
+                // RigeConfiguracionUnicaGlobal que solo emiten dobles de test): rige la tabla global,
+                // que puede tener tasa distinta por cantidad de cuotas. BuscarPlan resuelve esa tasa
+                // específica; el ?? cubre no tener tabla de planes en absoluto.
+                var tasaGlobal = await _configuracionPagoService.ObtenerTasaInteresMensualCreditoPersonalAsync();
+                if (tasaGlobal is null)
+                    return CreditoSimulacionVentaResultado.Invalido(TasaGlobalNoConfigurada);
+
+                tasaVal = planesVenta.BuscarPlan(request.Cuotas)?.TasaMensual ?? tasaGlobal.Value;
+                fuentePorcentaje = "Global";
+            }
         }
         else
         {
@@ -42,22 +179,15 @@ public sealed class CreditoSimulacionVentaService : ICreditoSimulacionVentaServi
                 ? null
                 : await _configuracionPagoService.ObtenerTasaInteresMensualCreditoPersonalAsync();
 
-            if (tasaConfig == null)
+            if (tasaConfig is null)
                 return CreditoSimulacionVentaResultado.Invalido(TasaGlobalNoConfigurada);
 
             tasaVal = tasaConfig.Value;
+            fuentePorcentaje = "Global";
         }
 
-        if (request.TotalVenta <= 0)
-            return CreditoSimulacionVentaResultado.Invalido("El monto total de la venta debe ser mayor a cero.");
-        if (anticipoVal < 0)
-            return CreditoSimulacionVentaResultado.Invalido("El anticipo no puede ser negativo.");
-        if (request.Cuotas <= 0)
-            return CreditoSimulacionVentaResultado.Invalido("Ingres\u00e1 una cantidad de cuotas mayor a cero.");
         if (tasaVal < 0)
             return CreditoSimulacionVentaResultado.Invalido("La tasa mensual no puede ser negativa.");
-        if (gastosVal < 0)
-            return CreditoSimulacionVentaResultado.Invalido("Los gastos administrativos no pueden ser negativos.");
 
         var fecha = DateTime.TryParse(request.FechaPrimeraCuota, out var parsed)
             ? parsed
@@ -70,7 +200,7 @@ public sealed class CreditoSimulacionVentaService : ICreditoSimulacionVentaServi
             : new SemaforoFinancieroViewModel();
 
         var plan = _financialService.SimularPlanCredito(
-            request.TotalVenta,
+            totalVentaVal,
             anticipoVal,
             request.Cuotas,
             tasaVal,
@@ -81,6 +211,8 @@ public sealed class CreditoSimulacionVentaService : ICreditoSimulacionVentaServi
 
         return CreditoSimulacionVentaResultado.Valido(new CreditoSimulacionVentaJson
         {
+            totalVenta            = totalVentaVal,
+            anticipo              = anticipoVal,
             montoFinanciado       = plan.MontoFinanciado,
             cuotaEstimada         = plan.CuotaEstimada,
             tasaAplicada          = plan.TasaAplicada,
@@ -89,6 +221,14 @@ public sealed class CreditoSimulacionVentaService : ICreditoSimulacionVentaServi
             gastosAdministrativos = plan.GastosAdministrativos,
             totalPlan             = plan.TotalPlan,
             fechaPrimerPago       = plan.FechaPrimerPago.ToString("yyyy-MM-dd"),
+            fuentePorcentaje      = fuentePorcentaje,
+            cuotas                = plan.Cuotas.Select(c => new CreditoSimulacionCuotaJson
+            {
+                numeroCuota = c.NumeroCuota,
+                capital     = c.Capital,
+                interes     = c.Interes,
+                total       = c.Total
+            }).ToArray(),
             semaforoEstado        = plan.SemaforoEstado,
             semaforoMensaje       = plan.SemaforoMensaje,
             mostrarMsgIngreso     = plan.MostrarMsgIngreso,

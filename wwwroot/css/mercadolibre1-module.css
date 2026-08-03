@@ -71,7 +71,7 @@
   background:var(--panel);color:var(--muted)}
 .iconbtn svg{width:15px;height:15px}
 .iconbtn:hover{background:var(--panel-2);color:var(--ink);border-color:var(--line-3)}
-.iconbtn.danger:hover{background:var(--red-soft);color:var(--red);border-color:rgba(248,113,113,.4)}
+.iconbtn.danger:hover{background:var(--red-soft);color:var(--red);border-color:transparent}
 .iconbtn.go:hover{background:var(--blue-soft);color:var(--blue);border-color:rgba(95,168,255,.4)}
 
 /* ---- chips / status ---- */
@@ -169,7 +169,7 @@
 .fchip:hover{color:var(--ink);border-color:var(--line-3)}
 .fchip.on{background:var(--gold);border-color:var(--gold);color:#15110a}
 .fchip.on .cnt{background:rgba(0,0,0,.15);color:#15110a}
-.fchip.bad-f.on{background:var(--red);border-color:var(--red);color:#fff}
+.fchip.bad-f.on{background:var(--red);border-color:transparent;color:#fff}
 .fspacer{flex:1}
 .select{display:inline-flex;align-items:center;gap:9px;padding:8px 13px;border-radius:9px;border:1px solid var(--line);
   background:var(--panel);color:var(--ink);font-weight:600;font-size:13px}

@@ -7,7 +7,7 @@ public class VentaEditUiContractTests
     [Fact]
     public void EditView_TienePanelSelectorUnidad()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Edit_tw.cshtml"));
+        var view = ReadComposedView("Edit_tw.cshtml");
 
         Assert.Contains("id=\"panel-selector-unidad\"", view);
         Assert.Contains("id=\"select-producto-unidad\"", view);
@@ -16,7 +16,7 @@ public class VentaEditUiContractTests
     [Fact]
     public void EditView_TieneAvisoSinUnidades()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Edit_tw.cshtml"));
+        var view = ReadComposedView("Edit_tw.cshtml");
 
         Assert.Contains("id=\"aviso-sin-unidades\"", view);
     }
@@ -24,7 +24,7 @@ public class VentaEditUiContractTests
     [Fact]
     public void EditView_TieneLinkGestionarUnidades()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Edit_tw.cshtml"));
+        var view = ReadComposedView("Edit_tw.cshtml");
 
         Assert.Contains("id=\"link-gestionar-unidades\"", view);
     }
@@ -32,7 +32,7 @@ public class VentaEditUiContractTests
     [Fact]
     public void EditView_TieneScriptSeedVentaInicial()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Edit_tw.cshtml"));
+        var view = ReadComposedView("Edit_tw.cshtml");
 
         Assert.Contains("window.ventaInicial", view);
         Assert.Contains("ventaInicialJson", view);
@@ -41,7 +41,7 @@ public class VentaEditUiContractTests
     [Fact]
     public void EditView_TieneContenedorDetallesHiddenInputs()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Edit_tw.cshtml"));
+        var view = ReadComposedView("Edit_tw.cshtml");
 
         Assert.Contains("id=\"detalles-hidden-inputs\"", view);
     }
@@ -76,7 +76,7 @@ public class VentaEditUiContractTests
     [Fact]
     public void EditView_TieneHiddenInputsParaDatosTarjetaGlobal()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Edit_tw.cshtml"));
+        var view = ReadComposedView("Edit_tw.cshtml");
 
         Assert.Contains("name=\"DatosTarjeta.ConfiguracionTarjetaId\"", view);
         Assert.Contains("name=\"DatosTarjeta.NombreTarjeta\"", view);
@@ -90,7 +90,7 @@ public class VentaEditUiContractTests
     [Fact]
     public void EditView_MercadoPagoPuedeRenderizarSelectorDePlanesGlobales()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Edit_tw.cshtml"));
+        var view = ReadComposedView("Edit_tw.cshtml");
 
         Assert.Contains("id=\"configuracion-pagos-global-estado\"", view);
         Assert.Contains("id=\"panel-planes-pago\"", view);
@@ -103,7 +103,7 @@ public class VentaEditUiContractTests
     [Fact]
     public void EditView_ReutilizaVentaCreateJs()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Edit_tw.cshtml"));
+        var view = ReadComposedView("Edit_tw.cshtml");
 
         Assert.Contains("<script src=\"~/js/venta-create.js\"", view);
     }
@@ -131,5 +131,16 @@ public class VentaEditUiContractTests
         }
 
         throw new DirectoryNotFoundException("No se encontro la raiz del repositorio.");
+    }
+
+    // Micro-lote 7 (paridad): el cuerpo del wizard vive en el parcial compartido
+    // _VentaWizardForm.cshtml, reutilizado por Create_tw y Edit_tw.
+    private static string ReadComposedView(string viewFile)
+    {
+        var root = FindRepoRoot();
+        var view = File.ReadAllText(Path.Combine(root, "Views", "Venta", viewFile));
+        Assert.Contains("<partial name=\"_VentaWizardForm\" model=\"Model\" />", view);
+        var partial = File.ReadAllText(Path.Combine(root, "Views", "Venta", "_VentaWizardForm.cshtml"));
+        return view + "\n" + partial;
     }
 }

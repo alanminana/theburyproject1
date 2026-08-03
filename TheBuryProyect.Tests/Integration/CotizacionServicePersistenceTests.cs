@@ -126,6 +126,44 @@ public sealed class CotizacionServicePersistenceTests : IDisposable
     }
 
     [Fact]
+    public async Task CrearCotizacion_ConCreditoPersonalSeleccionado_PersisteAnticipoComoIntencion()
+    {
+        var calculator = new StubCotizacionPagoCalculatorCreditoPersonal(_producto.Id, anticipo: 20m);
+        var service = new CotizacionService(_context, calculator, NullLogger<CotizacionService>.Instance);
+        var request = new CotizacionCrearRequest
+        {
+            Simulacion = new CotizacionSimulacionRequest
+            {
+                ClienteId = _cliente.Id,
+                Anticipo = 20m,
+                Productos = { new CotizacionProductoRequest { ProductoId = _producto.Id, Cantidad = 1 } }
+            },
+            OpcionSeleccionada = new CotizacionOpcionPagoSeleccionadaRequest
+            {
+                MedioPago = CotizacionMedioPagoTipo.CreditoPersonal,
+                Plan = "3 cuota(s)",
+                CantidadCuotas = 3
+            }
+        };
+
+        var resultado = await service.CrearAsync(request, "carlos");
+
+        Assert.Equal(20m, resultado.Anticipo);
+        var entity = await _context.Cotizaciones.SingleAsync(c => c.Id == resultado.Id);
+        Assert.Equal(20m, entity.Anticipo);
+    }
+
+    [Fact]
+    public async Task CrearCotizacion_SinCreditoPersonalSeleccionado_AnticipoQuedaEnCero()
+    {
+        // El anticipo solo tiene sentido para Credito personal: si se selecciona otro medio
+        // (Efectivo en el stub por defecto), no debe persistirse ningun valor.
+        var resultado = await _service.CrearAsync(Request(clienteId: _cliente.Id), "carlos");
+
+        Assert.Equal(0m, resultado.Anticipo);
+    }
+
+    [Fact]
     public async Task CrearCotizacion_NoCreaVentaNiTocaStockCaja()
     {
         var stockAntes = _producto.StockActual;
@@ -419,6 +457,69 @@ public sealed class CotizacionServicePersistenceTests : IDisposable
                                 Total = 110m,
                                 ValorCuota = 110m,
                                 Recomendado = true
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    private sealed class StubCotizacionPagoCalculatorCreditoPersonal : ICotizacionPagoCalculator
+    {
+        private readonly int _productoId;
+        private readonly decimal _anticipo;
+
+        public StubCotizacionPagoCalculatorCreditoPersonal(int productoId, decimal anticipo)
+        {
+            _productoId = productoId;
+            _anticipo = anticipo;
+        }
+
+        public Task<CotizacionSimulacionResultado> SimularAsync(
+            CotizacionSimulacionRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(new CotizacionSimulacionResultado
+            {
+                Exitoso = true,
+                FechaCalculo = DateTime.Today,
+                Subtotal = 100m,
+                DescuentoTotal = 0m,
+                TotalBase = 100m,
+                Productos =
+                {
+                    new CotizacionProductoResultado
+                    {
+                        ProductoId = _productoId,
+                        Codigo = "P-COT",
+                        Nombre = "Producto cotizado",
+                        Cantidad = 1,
+                        PrecioUnitario = 100m,
+                        Subtotal = 100m
+                    }
+                },
+                OpcionesPago =
+                {
+                    new CotizacionMedioPagoResultado
+                    {
+                        MedioPago = CotizacionMedioPagoTipo.CreditoPersonal,
+                        NombreMedioPago = "Credito personal",
+                        Disponible = true,
+                        Estado = CotizacionOpcionPagoEstado.Disponible,
+                        Planes =
+                        {
+                            new CotizacionPlanPagoResultado
+                            {
+                                Plan = "3 cuota(s)",
+                                CantidadCuotas = 3,
+                                TasaMensual = 10m,
+                                Total = 99m, // saldo (100 - anticipo) + recargo, redondo p/test
+                                ValorCuota = 33m,
+                                Anticipo = _anticipo,
+                                SaldoAFinanciar = 100m - _anticipo,
+                                TotalFinanciado = 99m,
+                                FuentePorcentaje = "Global"
                             }
                         }
                     }

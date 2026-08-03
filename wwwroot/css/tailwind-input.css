@@ -103,3 +103,8 @@
         color: inherit;
     }
 }
+
+/* Los estados de error conservan su texto y fondo, pero no usan borde rojo. */
+:where([class*="border-red-"]) {
+    border-color: transparent !important;
+}

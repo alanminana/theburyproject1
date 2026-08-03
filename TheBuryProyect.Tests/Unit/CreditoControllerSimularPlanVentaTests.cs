@@ -7,6 +7,8 @@ using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.Services.Models;
 using TheBuryProject.ViewModels;
+using TheBuryProject.ViewModels.Requests;
+using TheBuryProject.ViewModels.Responses;
 
 namespace TheBuryProject.Tests.Unit;
 
@@ -41,7 +43,9 @@ public class CreditoControllerSimularPlanVentaTests
             cuotas: 10,
             gastosAdministrativos: 0m,
             fechaPrimeraCuota: "2026-01-01",
-            tasaMensual: 0m);
+            tasaMensual: 0m,
+            metodoCalculo: MetodoCalculoCredito.Manual,
+            fuenteConfiguracion: FuenteConfiguracionCredito.Manual);
 
         var json = Assert.IsType<JsonResult>(result);
         var value = json.Value;
@@ -109,7 +113,9 @@ public class CreditoControllerSimularPlanVentaTests
             cuotas: 6,
             gastosAdministrativos: 250m,
             fechaPrimeraCuota: "2026-07-15",
-            tasaMensual: 4.25m);
+            tasaMensual: 4.25m,
+            metodoCalculo: MetodoCalculoCredito.Manual,
+            fuenteConfiguracion: FuenteConfiguracionCredito.Manual);
 
         var json = Assert.IsType<JsonResult>(result);
         Assert.NotNull(json.Value);
@@ -127,6 +133,12 @@ public class CreditoControllerSimularPlanVentaTests
         Assert.NotNull(value.GetType().GetProperty("semaforoMensaje"));
         Assert.NotNull(value.GetType().GetProperty("mostrarMsgIngreso"));
         Assert.NotNull(value.GetType().GetProperty("mostrarMsgAntiguedad"));
+
+        // ML4: campos nuevos, aditivos (test obligatorio #10 — no se quitó ningún nombre existente).
+        Assert.NotNull(value.GetType().GetProperty("totalVenta"));
+        Assert.NotNull(value.GetType().GetProperty("anticipo"));
+        Assert.NotNull(value.GetType().GetProperty("fuentePorcentaje"));
+        Assert.NotNull(value.GetType().GetProperty("cuotas"));
     }
 
     [Fact]
@@ -153,7 +165,9 @@ public class CreditoControllerSimularPlanVentaTests
             cuotas: 6,
             gastosAdministrativos: 0m,
             fechaPrimeraCuota: "fecha-invalida",
-            tasaMensual: 5m);
+            tasaMensual: 5m,
+            metodoCalculo: MetodoCalculoCredito.Manual,
+            fuenteConfiguracion: FuenteConfiguracionCredito.Manual);
         var despues = DateTime.Today.AddMonths(1).Date;
 
         Assert.IsType<JsonResult>(result);
@@ -186,7 +200,9 @@ public class CreditoControllerSimularPlanVentaTests
             cuotas: 6,
             gastosAdministrativos: gastos,
             fechaPrimeraCuota: "2026-07-15",
-            tasaMensual: tasa);
+            tasaMensual: tasa,
+            metodoCalculo: MetodoCalculoCredito.Manual,
+            fuenteConfiguracion: FuenteConfiguracionCredito.Manual);
 
         var badRequest = Assert.IsType<BadRequestObjectResult>(result);
         var error = badRequest.Value!.GetType().GetProperty("error")?.GetValue(badRequest.Value)?.ToString();
@@ -194,8 +210,10 @@ public class CreditoControllerSimularPlanVentaTests
     }
 
     [Fact]
-    public async Task SimularPlanVenta_TasaRequestTienePrioridadSobreTasaGlobal()
+    public async Task SimularPlanVenta_TasaRequestSinFuenteManualValida_EsIgnoradaYUsaTasaGlobal()
     {
+        // I6/ML4: sin FuenteConfiguracion + MetodoCalculo ambos Manual, una tasa mandada por el
+        // navegador (ej. DevTools) ya no tiene prioridad — el servidor resuelve la global.
         var financial = new RecordingFinancialCalculationService();
         var controller = new CreditoController(
             creditoService: null!,
@@ -217,6 +235,38 @@ public class CreditoControllerSimularPlanVentaTests
             gastosAdministrativos: 0m,
             fechaPrimeraCuota: "2026-07-15",
             tasaMensual: 3.5m);
+
+        Assert.IsType<JsonResult>(result);
+        Assert.Equal(9m, financial.ReceivedTasaMensual);
+    }
+
+    [Fact]
+    public async Task SimularPlanVenta_TasaManualConFuenteYMetodoManual_SeHonra()
+    {
+        // Test obligatorio #9.
+        var financial = new RecordingFinancialCalculationService();
+        var controller = new CreditoController(
+            creditoService: null!,
+            financialService: financial,
+            configuracionPagoService: new TasaCreditoPersonalConfigService(9m),
+            configuracionMoraService: null!,
+            ventaService: null!,
+            logger: NullLogger<CreditoController>.Instance,
+            creditoDisponibleService: null!,
+            currentUser: null!,
+            viewBagBuilder: null!,
+            contratoVentaCreditoService: null!,
+            aptitudService: null);
+
+        var result = await controller.SimularPlanVenta(
+            totalVenta: 10_000m,
+            anticipo: 0m,
+            cuotas: 6,
+            gastosAdministrativos: 0m,
+            fechaPrimeraCuota: "2026-07-15",
+            tasaMensual: 3.5m,
+            metodoCalculo: MetodoCalculoCredito.Manual,
+            fuenteConfiguracion: FuenteConfiguracionCredito.Manual);
 
         Assert.IsType<JsonResult>(result);
         Assert.Equal(3.5m, financial.ReceivedTasaMensual);
@@ -249,6 +299,83 @@ public class CreditoControllerSimularPlanVentaTests
 
         Assert.IsType<JsonResult>(result);
         Assert.Equal(8m, financial.ReceivedTasaMensual);
+    }
+
+    [Fact]
+    public async Task SimularPlanVenta_ConVentaId_IgnoraTotalVentaManipuladoYUsaElTotalReal()
+    {
+        // Tests obligatorios #1/#2/#4 a través del endpoint HTTP completo.
+        var financial = new RecordingFinancialCalculationService();
+        var venta = new VentaViewModel
+        {
+            Id = 77,
+            ClienteId = 5,
+            Total = 20_000m,
+            Detalles = new List<VentaDetalleViewModel>()
+        };
+        var controller = new CreditoController(
+            creditoService: null!,
+            financialService: financial,
+            configuracionPagoService: new TasaCreditoPersonalConfigService(6m),
+            configuracionMoraService: null!,
+            ventaService: new StubVentaService(venta),
+            logger: NullLogger<CreditoController>.Instance,
+            creditoDisponibleService: null!,
+            currentUser: null!,
+            viewBagBuilder: null!,
+            contratoVentaCreditoService: null!,
+            aptitudService: null);
+
+        var result = await controller.SimularPlanVenta(
+            totalVenta: 999_999m,
+            anticipo: 0m,
+            cuotas: 6,
+            gastosAdministrativos: 0m,
+            fechaPrimeraCuota: "2026-07-15",
+            tasaMensual: null,
+            ventaId: 77);
+
+        var json = Assert.IsType<JsonResult>(result);
+        var value = json.Value!;
+        Assert.Equal(20_000m, value.GetType().GetProperty("totalVenta")!.GetValue(value));
+        Assert.Equal(6m, financial.ReceivedTasaMensual);
+    }
+
+    private sealed class StubVentaService : IVentaService
+    {
+        private readonly VentaViewModel? _venta;
+
+        public StubVentaService(VentaViewModel? venta)
+        {
+            _venta = venta;
+        }
+
+        public Task<VentaViewModel?> GetByIdAsync(int id) => Task.FromResult(_venta);
+
+        public Task<decimal?> GetTotalVentaAsync(int ventaId) => throw new NotImplementedException();
+        public Task<List<VentaViewModel>> GetAllAsync(VentaFilterViewModel? filter = null) => throw new NotImplementedException();
+        public Task<VentaViewModel> CreateAsync(VentaViewModel viewModel) => throw new NotImplementedException();
+        public Task<VentaViewModel?> UpdateAsync(int id, VentaViewModel viewModel) => throw new NotImplementedException();
+        public Task<bool> DeleteAsync(int id) => throw new NotImplementedException();
+        public Task<bool> ConfirmarVentaAsync(int id) => throw new NotImplementedException();
+        public Task<bool> ConfirmarVentaCreditoAsync(int id) => throw new NotImplementedException();
+        public Task<bool> CancelarVentaAsync(int id, string motivo) => throw new NotImplementedException();
+        public Task AsociarCreditoAVentaAsync(int ventaId, int creditoId) => throw new NotImplementedException();
+        public Task<bool> FacturarVentaAsync(int id, FacturaViewModel facturaViewModel) => throw new NotImplementedException();
+        public Task<int?> AnularFacturaAsync(int facturaId, string motivo) => throw new NotImplementedException();
+        public Task<bool> ValidarStockAsync(int ventaId) => throw new NotImplementedException();
+        public Task<bool> SolicitarAutorizacionAsync(int id, string usuarioSolicita, string motivo) => throw new NotImplementedException();
+        public Task<bool> AutorizarVentaAsync(int id, string usuarioAutoriza, string motivo) => throw new NotImplementedException();
+        public Task<bool> RechazarVentaAsync(int id, string usuarioAutoriza, string motivo) => throw new NotImplementedException();
+        public Task<bool> RegistrarExcepcionDocumentalAsync(int id, string usuarioAutoriza, string motivo) => throw new NotImplementedException();
+        public Task<bool> RequiereAutorizacionAsync(VentaViewModel viewModel) => throw new NotImplementedException();
+        public Task<bool> GuardarDatosTarjetaAsync(int ventaId, DatosTarjetaViewModel datosTarjeta) => throw new NotImplementedException();
+        public Task<bool> GuardarDatosChequeAsync(int ventaId, DatosChequeViewModel datosCheque) => throw new NotImplementedException();
+        public Task<DatosTarjetaViewModel> CalcularCuotasTarjetaAsync(int tarjetaId, decimal monto, int cuotas) => throw new NotImplementedException();
+        public Task<DatosCreditoPersonallViewModel?> ObtenerDatosCreditoVentaAsync(int ventaId) => throw new NotImplementedException();
+        public Task<bool> ValidarDisponibilidadCreditoAsync(int creditoId, decimal monto) => throw new NotImplementedException();
+        public CalculoTotalesVentaResponse CalcularTotalesPreview(List<DetalleCalculoVentaRequest> detalles, decimal descuentoGeneral, bool descuentoEsPorcentaje) => throw new NotImplementedException();
+        public Task<CalculoTotalesVentaResponse> CalcularTotalesPreviewAsync(List<DetalleCalculoVentaRequest> detalles, decimal descuentoGeneral, bool descuentoEsPorcentaje) => throw new NotImplementedException();
     }
 
     private sealed class RecordingFinancialCalculationService : IFinancialCalculationService
@@ -362,9 +489,17 @@ public class CreditoControllerSimularPlanVentaTests
             IEnumerable<int> productoIds) => throw new NotImplementedException();
         public Task<List<MontoPorPuntajeCreditoViewModel>> GetMontosPorPuntajeAsync() => Task.FromResult(new List<MontoPorPuntajeCreditoViewModel>());
         public Task<(bool Ok, List<string> Errores)> GuardarMontosPorPuntajeAsync(List<MontoPorPuntajeCreditoViewModel> items, string usuario) => Task.FromResult((true, new List<string>()));
-        public Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalAsync() => Task.FromResult(new List<CuotaCreditoPersonalViewModel>());
-        public Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalActivasAsync() => Task.FromResult(new List<CuotaCreditoPersonalViewModel>());
-        public Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalEfectivasAsync(IEnumerable<int> productoIds) => GetCuotasCreditoPersonalActivasAsync();
+        // ML4: planes globales 1..24 (tasa null = heredar la unica) por defecto, para que la
+        // resolucion de planes de un test con VentaId no se rechace por "sin planes activos"
+        // cuando lo que el test ejercita es otra cosa (autoridad del monto, por ejemplo).
+        public Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalAsync() => Task.FromResult(PlanesGlobalesPorDefecto);
+        public Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalActivasAsync() => Task.FromResult(PlanesGlobalesPorDefecto);
+        public async Task<PlanesCreditoPersonalResultado> ResolverPlanesCreditoPersonalAsync(IEnumerable<int> productoIds) => PlanesCreditoPersonalStub.DesdeGlobales(await GetCuotasCreditoPersonalActivasAsync());
+
+        private static readonly List<CuotaCreditoPersonalViewModel> PlanesGlobalesPorDefecto =
+            Enumerable.Range(1, 24)
+                .Select(n => new CuotaCreditoPersonalViewModel { CantidadCuotas = n, TasaMensual = null, Activo = true })
+                .ToList();
         public Task<(bool Ok, List<string> Errores)> GuardarCuotasCreditoPersonalAsync(List<CuotaCreditoPersonalViewModel> items, string usuario) => Task.FromResult((true, new List<string>()));
     }
 }

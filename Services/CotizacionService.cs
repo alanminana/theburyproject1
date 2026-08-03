@@ -72,6 +72,9 @@ public sealed class CotizacionService : ICotizacionService
             CantidadCuotasSeleccionada = seleccion?.Plan?.CantidadCuotas,
             TotalSeleccionado = seleccion?.Plan?.Total,
             ValorCuotaSeleccionada = seleccion?.Plan?.ValorCuota,
+            // Solo los planes de Credito personal traen Anticipo (el resto de los medios no
+            // financian en cuotas con recargo): si se seleccionó otro medio, no hay anticipo.
+            Anticipo = seleccion?.Plan?.Anticipo ?? 0m,
             FechaVencimiento = request.FechaVencimiento,
             CreatedBy = string.IsNullOrWhiteSpace(usuario) ? "System" : usuario.Trim()
         };
@@ -455,6 +458,7 @@ public sealed class CotizacionService : ICotizacionService
             CantidadCuotasSeleccionada = cotizacion.CantidadCuotasSeleccionada,
             TotalSeleccionado = cotizacion.TotalSeleccionado,
             ValorCuotaSeleccionada = cotizacion.ValorCuotaSeleccionada,
+            Anticipo = cotizacion.Anticipo,
             FechaVencimiento = cotizacion.FechaVencimiento,
             MotivoCancelacion = cotizacion.MotivoCancelacion,
             VentaConvertidaId = ventaConvertidaId,

@@ -1056,10 +1056,6 @@ public class VentaServiceDeleteUpdateTests : IDisposable
         Assert.False(resultado);
     }
 
-    // =========================================================================
-    // CalcularCreditoPersonallAsync
-    // =========================================================================
-
     private async Task<Credito> SeedCreditoActivoAsync(int clienteId, decimal saldo = 10_000m)
     {
         var credito = new Credito
@@ -1077,50 +1073,6 @@ public class VentaServiceDeleteUpdateTests : IDisposable
         _context.Set<Credito>().Add(credito);
         await _context.SaveChangesAsync();
         return credito;
-    }
-
-    [Fact]
-    public async Task CalcularCreditoPersonall_CreditoActivo_RetornaCuotasCalculadas()
-    {
-        var cliente = await SeedClienteAsync();
-        var credito = await SeedCreditoActivoAsync(cliente.Id, 10_000m);
-
-        var resultado = await _service.CalcularCreditoPersonallAsync(
-            credito.Id, 3_000m, 3, DateTime.Today.AddMonths(1));
-
-        Assert.NotNull(resultado);
-        Assert.Equal(credito.Id, resultado.CreditoId);
-        Assert.Equal(3, resultado.CantidadCuotas);
-        Assert.True(resultado.MontoCuota > 0);
-    }
-
-    [Fact]
-    public async Task CalcularCreditoPersonall_MontoSuperiorAlSaldo_LanzaExcepcion()
-    {
-        var cliente = await SeedClienteAsync();
-        var credito = await SeedCreditoActivoAsync(cliente.Id, 1_000m);
-
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            _service.CalcularCreditoPersonallAsync(
-                credito.Id, 5_000m, 3, DateTime.Today.AddMonths(1)));
-    }
-
-    [Fact]
-    public async Task CalcularCreditoPersonall_CreditoInexistente_LanzaExcepcion()
-    {
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            _service.CalcularCreditoPersonallAsync(99999, 1_000m, 3, DateTime.Today));
-    }
-
-    [Fact]
-    public async Task CalcularCreditoPersonall_CreditoCancelado_LanzaExcepcion()
-    {
-        var cliente = await SeedClienteAsync();
-        var credito = await SeedCreditoAsync(cliente.Id, saldo: 5_000m, estado: EstadoCredito.Cancelado);
-
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            _service.CalcularCreditoPersonallAsync(
-                credito.Id, 1_000m, 3, DateTime.Today.AddMonths(1)));
     }
 
     // =========================================================================

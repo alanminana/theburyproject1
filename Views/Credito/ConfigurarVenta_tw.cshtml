@@ -97,7 +97,7 @@
     <form asp-action="ConfigurarVenta" asp-controller="Credito" method="post" id="form-configurar-credito" data-credito-config-form>
         @Html.AntiForgeryToken()
         <input type="hidden" asp-for="CreditoId" />
-        <input type="hidden" asp-for="VentaId" />
+        <input type="hidden" asp-for="VentaId" id="hdn-venta-id" />
         <input type="hidden" asp-for="ClienteId" />
         <input type="hidden" asp-for="Monto" id="hdn-monto-venta" />
         <input type="hidden" asp-for="MontoFinanciado" id="hdn-monto-financiado" />
@@ -163,10 +163,17 @@
                         <div>
                             <div class="sec-title">Cantidad de cuotas</div>
                             <div class="sec-sub" id="cuotas-rango-info">
-                                Rango permitido: @Model.CuotasMinPermitidas a @Model.CuotasMaxPermitidas cuotas.
-                                @if (!string.IsNullOrWhiteSpace(Model.RestriccionCreditoProductoDescripcion))
+                                @if (Model.SinPlanesCompatibles)
                                 {
-                                    <span>@Model.RestriccionCreditoProductoDescripcion</span>
+                                    <text>Sin cuotas disponibles para esta combinacion de productos.</text>
+                                }
+                                else
+                                {
+                                    <text>Rango permitido: @Model.CuotasMinPermitidas a @Model.CuotasMaxPermitidas cuotas.</text>
+                                    @if (!string.IsNullOrWhiteSpace(Model.RestriccionCreditoProductoDescripcion))
+                                    {
+                                        <span>@Model.RestriccionCreditoProductoDescripcion</span>
+                                    }
                                 }
                             </div>
                         </div>
@@ -190,6 +197,13 @@
                             </span>
                         </div>
                     }
+                    @if (Model.SinPlanesCompatibles)
+                    {
+                        <div class="alert alert-bad" style="margin-bottom:1rem" data-credito-sin-planes-compatibles>
+                            <span class="material-symbols-outlined">block</span>
+                            <span>@Model.ClienteConfigPersonalizada.MotivoSinPlanes</span>
+                        </div>
+                    }
                     <label asp-for="CantidadCuotas" class="label">Cantidad de cuotas</label>
                     <input asp-for="CantidadCuotas"
                            type="number"
@@ -197,11 +211,12 @@
                            max="@Model.CuotasMaxPermitidas"
                            class="field"
                            list="cuotas-habilitadas-list"
-                           id="txt-cuotas" />
+                           id="txt-cuotas"
+                           disabled="@Model.SinPlanesCompatibles" />
                     <datalist id="cuotas-habilitadas-list">
                         @foreach (var plan in Model.ClienteConfigPersonalizada.CuotasHabilitadas)
                         {
-                            <option value="@plan.CantidadCuotas">@plan.CantidadCuotas cuotas - @plan.TasaMensual.ToString("N2")% mensual</option>
+                            <option value="@plan.CantidadCuotas">@plan.CantidadCuotas cuotas - @(plan.TasaMensual.HasValue ? $"{plan.TasaMensual.Value:N2}% mensual" : "tasa global")</option>
                         }
                     </datalist>
                     <span asp-validation-for="CantidadCuotas" class="err-text"></span>
@@ -226,7 +241,7 @@
                             <input class="field mono" readonly value="@numeroCreditoTexto" />
                         </div>
                         <div>
-                            <label class="label">Monto total de venta</label>
+                            <label class="label">Precio final de venta</label>
                             <div class="field-money">
                                 <span class="cur">$</span>
                                 <input class="field" readonly value="@Model.Monto.ToString("N2")" id="txt-monto-venta-display" />
@@ -242,11 +257,12 @@
                         </div>
                         <div>
                             <div class="flex items-center justify-between">
-                                <label asp-for="TasaMensual" class="label">Tasa mensual aplicada</label>
+                                <label asp-for="TasaMensual" class="label">Porcentaje de recargo total del plan</label>
                                 <span id="badge-tasa-fuente" class="chip chip-info hidden"></span>
                             </div>
                             <input asp-for="TasaMensual" type="number" step="0.01" min="0" max="100" class="field" id="txt-tasa" />
                             <span asp-validation-for="TasaMensual" class="err-text"></span>
+                            <p class="hint" style="margin-top:.35rem">El porcentaje se agrega una sola vez sobre el saldo restante después del anticipo. No es una tasa mensual ni interés compuesto.</p>
                         </div>
                         <div>
                             <label asp-for="GastosAdministrativos" class="label">Gastos administrativos</label>
@@ -255,6 +271,7 @@
                                 <input asp-for="GastosAdministrativos" type="number" step="0.01" min="0" class="field" id="txt-gastos" />
                             </div>
                             <span asp-validation-for="GastosAdministrativos" class="err-text"></span>
+                            <p class="hint" style="margin-top:.35rem">Concepto informativo aparte: no se distribuye en las cuotas ni forma parte del saldo a financiar.</p>
                         </div>
                         <div>
                             <label asp-for="FechaPrimeraCuota" class="label">Primera fecha de vencimiento</label>
@@ -262,9 +279,56 @@
                             <span asp-validation-for="FechaPrimeraCuota" class="err-text"></span>
                         </div>
                         <div>
-                            <label class="label">Monto financiado</label>
+                            <label class="label">Saldo a financiar</label>
                             <div class="result-card is-ok" style="padding:.85rem 1rem">
                                 <div class="result-value" id="txt-monto-financiado" style="font-size:1.35rem">$ @Model.MontoFinanciado.ToString("N2")</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="plan-simulando" class="hint hidden" style="margin-top:.75rem" aria-live="polite" data-plan-simulando>
+                        <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">progress_activity</span>
+                        Calculando el plan con los valores actuales…
+                    </div>
+                    <div id="plan-error" class="alert alert-bad hidden" style="margin-top:.75rem" role="alert" aria-live="assertive" tabindex="-1" data-plan-error></div>
+
+                    @* ── Primera cuota (F2, Micro-lote 6) ─────────────────────────────
+                       Cobro inmediato de la 1ª cuota al confirmar la venta. Solo se habilita
+                       cuando la primera cuota vence en la fecha comercial actual. El servidor
+                       revalida y ejecuta el cobro al confirmar (autoridad final). *@
+                    <div class="mt-4 rounded-xl border border-slate-700 bg-slate-900/40 p-4"
+                         id="primera-cuota-panel" data-primera-cuota-panel>
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="material-symbols-outlined" style="color:#f5c518;font-size:20px">payments</span>
+                            <h3 class="font-semibold text-white">Primera cuota</h3>
+                        </div>
+
+                        <p class="muted text-sm mb-3" id="primera-cuota-no-aplica" data-primera-cuota-no-aplica>
+                            El cobro inmediato solo está disponible cuando la primera cuota vence hoy.
+                        </p>
+
+                        <div id="primera-cuota-aplica" data-primera-cuota-aplica class="hidden space-y-3">
+                            <label class="flex cursor-pointer items-center gap-2 font-semibold text-slate-100">
+                                <input asp-for="CobrarPrimeraCuota" type="checkbox" value="true"
+                                       class="h-4 w-4 accent-sky-500"
+                                       id="chk-cobrar-primera-cuota" data-primera-cuota-cobrar />
+                                <span>Cobrar la primera cuota al confirmar la venta</span>
+                            </label>
+
+                            <div id="primera-cuota-medio-container" data-primera-cuota-medio-container class="hidden">
+                                <label asp-for="MedioPagoPrimeraCuota" class="label">Medio de pago</label>
+                                <select asp-for="MedioPagoPrimeraCuota" class="field"
+                                        id="select-medio-primera-cuota" data-primera-cuota-medio>
+                                    <option value="Efectivo">Efectivo</option>
+                                    <option value="Transferencia">Transferencia</option>
+                                    <option value="Tarjeta Débito">Tarjeta Débito</option>
+                                    <option value="Tarjeta Crédito">Tarjeta Crédito</option>
+                                    <option value="Cheque">Cheque</option>
+                                </select>
+                                <p class="muted text-xs mt-1">
+                                    El recargo o descuento del medio de pago se aplica al cobrar e impacta en caja.
+                                    El movimiento se registra al confirmar la venta.
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -286,16 +350,18 @@
                     <div id="plan-resumen" class="space-y-3">
                         <div id="plan-resumen-contenido">
                         <div class="result-card is-ok">
-                            <div class="result-label">Cuota mensual</div>
+                            <div class="result-label" id="plan-cuota-detalle">Cuota</div>
                             <div class="result-value" id="plan-cuota-estimada">$ 0,00</div>
                         </div>
                         <dl class="kv mt-3">
-                            <div class="kv-row"><dt>Monto a financiar</dt><dd class="num" id="plan-capital">$ @Model.MontoFinanciado.ToString("N2")</dd></div>
-                            <div class="kv-row"><dt>Tasa mensual</dt><dd id="plan-tasa">0% Mensual</dd></div>
+                            <div class="kv-row"><dt>Precio final de venta</dt><dd class="num" id="plan-precio-final">$ @Model.Monto.ToString("N2")</dd></div>
+                            <div class="kv-row"><dt>Anticipo</dt><dd class="num" id="plan-anticipo">$ 0,00</dd></div>
+                            <div class="kv-row"><dt>Saldo a financiar</dt><dd class="num" id="plan-capital">$ @Model.MontoFinanciado.ToString("N2")</dd></div>
+                            <div class="kv-row"><dt>% de recargo total</dt><dd id="plan-tasa">0%</dd></div>
+                            <div class="kv-row"><dt>Importe del recargo</dt><dd class="num" id="plan-interes">$ 0,00</dd></div>
+                            <div class="kv-row"><dt>Total financiado</dt><dd class="num" id="plan-total" style="color:#34d399;font-weight:600">$ 0,00</dd></div>
                             <div class="kv-row"><dt>Gastos administrativos</dt><dd class="num" id="plan-gastos">$ 0,00</dd></div>
                             <div class="kv-row"><dt>Cantidad de cuotas</dt><dd id="plan-cuotas-label">@Model.CantidadCuotas</dd></div>
-                            <div class="kv-row"><dt>Interes total</dt><dd class="num" id="plan-interes">$ 0,00</dd></div>
-                            <div class="kv-row"><dt>Total a pagar</dt><dd class="num" id="plan-total" style="color:#34d399;font-weight:600">$ 0,00</dd></div>
                         </dl>
                         <div id="plan-fecha-container" class="alert alert-info hidden" style="margin-top:.8rem">
                             <span class="material-symbols-outlined">event_upcoming</span>
@@ -389,7 +455,10 @@
                         }
                         else
                         {
-                            <button type="submit" class="btn btn-success btn-block" id="btn-confirmar-credito">
+                            <button type="submit"
+                                    class="btn btn-success btn-block"
+                                    id="btn-confirmar-credito"
+                                    disabled="@Model.SinPlanesCompatibles">
                                 <span class="material-symbols-outlined">check_circle</span>
                                 Confirmar credito
                             </button>

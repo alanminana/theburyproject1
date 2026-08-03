@@ -15,15 +15,26 @@ public sealed class CreditoConfiguracionVentaService : ICreditoConfiguracionVent
     private readonly IConfiguracionPagoService _configuracionPagoService;
     private readonly ICreditoRangoProductoService? _creditoRangoProductoService;
     private readonly ILogger<CreditoConfiguracionVentaService> _logger;
+    private readonly IRelojComercial _reloj;
+
+    // Medios de pago válidos para el cobro inmediato de la primera cuota (idénticos a los que
+    // acepta CreditoService.NormalizarMedioPago). Se validan acá para no persistir un medio inválido.
+    private static readonly HashSet<string> MediosPagoPrimeraCuota =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            "Efectivo", "Transferencia", "Tarjeta Débito", "Tarjeta Crédito", "Cheque"
+        };
 
     public CreditoConfiguracionVentaService(
         IConfiguracionPagoService configuracionPagoService,
         ILogger<CreditoConfiguracionVentaService> logger,
-        ICreditoRangoProductoService? creditoRangoProductoService = null)
+        ICreditoRangoProductoService? creditoRangoProductoService = null,
+        IRelojComercial? reloj = null)
     {
         _configuracionPagoService = configuracionPagoService;
         _logger = logger;
         _creditoRangoProductoService = creditoRangoProductoService;
+        _reloj = reloj ?? RelojComercial.Sistema;
     }
 
     public async Task<CreditoConfiguracionVentaResultado> ResolverAsync(
@@ -71,7 +82,39 @@ public sealed class CreditoConfiguracionVentaService : ICreditoConfiguracionVent
         var gastosAdministrativos = modelo.GastosAdministrativos ?? 0m;
         var tasaMensual = modelo.TasaMensual;
 
-        if (!tasaMensual.HasValue || modelo.FuenteConfiguracion != FuenteConfiguracionCredito.Manual)
+        // Autoridad del monto: con venta asociada, su total real (leído de BD por el controller)
+        // manda siempre sobre modelo.Monto, que llega desde un hidden manipulable en el navegador.
+        // Sin venta (crédito standalone) se preserva el único escenario legítimo demostrado hoy:
+        // el monto lo define el formulario.
+        var montoAutoritativo = venta is not null ? venta.Total : modelo.Monto;
+
+        if (anticipo > montoAutoritativo)
+        {
+            return CreditoConfiguracionVentaResultado.Invalido(
+                nameof(modelo.Anticipo),
+                "El anticipo no puede superar el total real de la venta.");
+        }
+
+        // Planes de la venta: resolucion canonica unica (personalizada del producto reemplaza a
+        // la global; con varios productos rige la interseccion). Se resuelve para TODOS los
+        // metodos de calculo porque la restriccion es del producto, no del origen de la tasa.
+        var planesVenta = await _configuracionPagoService.ResolverPlanesCreditoPersonalAsync(
+            venta?.Detalles?.Select(d => d.ProductoId) ?? Enumerable.Empty<int>());
+
+        if (!planesVenta.EsValido)
+        {
+            return CreditoConfiguracionVentaResultado.Invalido(
+                nameof(modelo.CantidadCuotas),
+                planesVenta.MensajeRechazo!,
+                motivo: MotivoRechazoConfiguracionCredito.Conflicto);
+        }
+
+        // La fuente Manual solo es legitima con el metodo Manual: de lo contrario un POST podria
+        // declarar Manual para que se acepte la tasa que envia el navegador.
+        var fuenteManualValida = modelo.FuenteConfiguracion == FuenteConfiguracionCredito.Manual &&
+                                 modelo.MetodoCalculo == MetodoCalculoCredito.Manual;
+
+        if (!tasaMensual.HasValue || !fuenteManualValida)
         {
             if (tasaGlobal == null)
             {
@@ -96,25 +139,16 @@ public sealed class CreditoConfiguracionVentaService : ICreditoConfiguracionVent
             }
             else
             {
-                // Tabla de cuotas por cantidad (activar/desactivar + tasa propia). VacÃ­a = compatibilidad con tasa unica.
-                // Prioridad: planes especificos del producto -> planes globales -> tasa global unica.
-                var productoIdsVenta = venta?.Detalles?.Select(d => d.ProductoId) ?? Enumerable.Empty<int>();
-                var cuotasConfiguradas = await _configuracionPagoService.GetCuotasCreditoPersonalEfectivasAsync(productoIdsVenta);
-                if (cuotasConfiguradas.Count > 0)
+                // Sin tabla de planes rige la tasa unica global (compatibilidad). Con planes, la
+                // tasa la decide el servidor a partir del plan resuelto: nunca el navegador.
+                if (planesVenta.RigeConfiguracionUnicaGlobal)
                 {
-                    var cuotaConfigurada = cuotasConfiguradas.FirstOrDefault(c => c.CantidadCuotas == modelo.CantidadCuotas);
-                    if (cuotaConfigurada == null)
-                    {
-                        return CreditoConfiguracionVentaResultado.Invalido(
-                            nameof(modelo.CantidadCuotas),
-                            $"La cantidad de cuotas {modelo.CantidadCuotas} no estÃ¡ habilitada para CrÃ©dito personal.");
-                    }
-
-                    tasaMensual = cuotaConfigurada.TasaMensual;
+                    tasaMensual = tasaGlobal.Value;
                 }
                 else
                 {
-                    tasaMensual = tasaGlobal.Value;
+                    // Tasa null en el plan = "heredar": cae a la tasa global unica.
+                    tasaMensual = planesVenta.BuscarPlan(modelo.CantidadCuotas)?.TasaMensual ?? tasaGlobal.Value;
                 }
 
                 gastosAdministrativos = modelo.GastosAdministrativos ?? 0m;
@@ -155,26 +189,53 @@ public sealed class CreditoConfiguracionVentaService : ICreditoConfiguracionVent
             return CreditoConfiguracionVentaResultado.Invalido(
                 nameof(modelo.CantidadCuotas),
                 rangoEfectivo.Error,
-                rangoEfectivo);
+                rangoEfectivo,
+                MotivoRechazoConfiguracionCredito.Conflicto);
         }
 
         cuotasMinPermitidas = rangoEfectivo.Min;
         cuotasMaxPermitidas = rangoEfectivo.Max;
 
+        // Gate de planes: la cantidad debe pertenecer a la interseccion real de los productos.
+        // Se aplica a todos los metodos de calculo, incluido el Manual, y ANTES del rango min/max:
+        // cuando rige una tabla de planes el conjunto discreto manda sobre el intervalo continuo,
+        // y el rechazo es siempre "cuota no disponible para estos productos" (conflicto).
+        if (!planesVenta.RigeConfiguracionUnicaGlobal &&
+            planesVenta.BuscarPlan(modelo.CantidadCuotas) is null)
+        {
+            var habilitadas = string.Join(", ", planesVenta.Planes.Select(p => p.CantidadCuotas));
+            return CreditoConfiguracionVentaResultado.Invalido(
+                nameof(modelo.CantidadCuotas),
+                $"La cantidad de cuotas {modelo.CantidadCuotas} no esta habilitada para Credito personal " +
+                $"con los productos de esta venta. Cantidades disponibles: {habilitadas}.",
+                rangoEfectivo,
+                MotivoRechazoConfiguracionCredito.Conflicto);
+        }
+
         if (modelo.CantidadCuotas < cuotasMinPermitidas || modelo.CantidadCuotas > cuotasMaxPermitidas)
         {
+            // Si el tope lo impuso un producto es un conflicto con la venta; si es el rango propio
+            // del metodo de calculo, es un dato mal elegido en el formulario.
             return CreditoConfiguracionVentaResultado.Invalido(
                 nameof(modelo.CantidadCuotas),
                 $"La cantidad de cuotas debe estar entre {cuotasMinPermitidas} y {cuotasMaxPermitidas} " +
                 $"segÃºn el mÃ©todo '{descripcionMetodo}'.",
-                rangoEfectivo);
+                rangoEfectivo,
+                rangoEfectivo.ProductoIdRestrictivo.HasValue
+                    ? MotivoRechazoConfiguracionCredito.Conflicto
+                    : MotivoRechazoConfiguracionCredito.SolicitudInvalida);
         }
+
+        // F2: la decisión de cobrar la primera cuota solo es legítima si la 1ª cuota vence en la
+        // fecha comercial actual (Argentina) y el medio es válido. El servidor NO confía en el
+        // payload: si no vence hoy o el medio es inválido, la opción se descarta (no se persiste).
+        var (cobrarPrimeraCuota, medioPrimeraCuota) = ResolverDecisionPrimeraCuota(modelo);
 
         var comando = new ConfiguracionCreditoComando
         {
             CreditoId                   = modelo.CreditoId,
             VentaId                     = modelo.VentaId,
-            Monto                       = modelo.Monto,
+            Monto                       = montoAutoritativo,
             Anticipo                    = anticipo,
             CantidadCuotas              = modelo.CantidadCuotas,
             TasaMensual                 = tasaMensual ?? 0,
@@ -188,10 +249,35 @@ public sealed class CreditoConfiguracionVentaService : ICreditoConfiguracionVent
             CuotasMaxPermitidas         = cuotasMaxPermitidas,
             FuenteRestriccionCuotasSnap = rangoEfectivo.ProductoIdRestrictivo.HasValue ? "Producto" : "Global",
             ProductoIdRestrictivoSnap   = rangoEfectivo.ProductoIdRestrictivo,
-            MaxCuotasBaseSnap           = rangoEfectivo.MaxBase
+            MaxCuotasBaseSnap           = rangoEfectivo.MaxBase,
+            CobrarPrimeraCuota          = cobrarPrimeraCuota,
+            MedioPagoPrimeraCuota       = medioPrimeraCuota
         };
 
         return CreditoConfiguracionVentaResultado.Valido(comando, rangoEfectivo);
+    }
+
+    /// <summary>
+    /// Valida la decisión de cobro inmediato de la primera cuota contra la fecha comercial actual
+    /// (Argentina) y la lista de medios permitidos. Server-authoritative: el payload no puede forzar
+    /// la opción si la primera cuota no vence hoy o el medio no es válido.
+    /// </summary>
+    private (bool Cobrar, string? Medio) ResolverDecisionPrimeraCuota(ConfiguracionCreditoVentaViewModel modelo)
+    {
+        if (!modelo.CobrarPrimeraCuota)
+            return (false, null);
+
+        if (!modelo.FechaPrimeraCuota.HasValue ||
+            DateOnly.FromDateTime(modelo.FechaPrimeraCuota.Value) != _reloj.HoyComercial)
+            return (false, null);
+
+        var medio = modelo.MedioPagoPrimeraCuota?.Trim();
+        if (string.IsNullOrWhiteSpace(medio) || !MediosPagoPrimeraCuota.Contains(medio))
+            return (false, null);
+
+        // Normaliza a la forma canónica del diccionario (respeta acentos/mayúsculas esperados).
+        var canonico = MediosPagoPrimeraCuota.First(m => string.Equals(m, medio, StringComparison.OrdinalIgnoreCase));
+        return (true, canonico);
     }
 
     private async Task<CreditoRangoProductoResultado> ResolverRangoCreditoProductoAsync(

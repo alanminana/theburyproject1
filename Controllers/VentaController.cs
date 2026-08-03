@@ -11,6 +11,7 @@ using TheBuryProject.Helpers;
 using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
+using TheBuryProject.Services;
 using TheBuryProject.Services.Exceptions;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.Services.Models;
@@ -43,6 +44,7 @@ namespace TheBuryProject.Controllers
         private readonly VentaViewBagBuilder _viewBagBuilder;
         private readonly IContratoVentaCreditoService _contratoVentaCreditoService;
         private readonly AppDbContext _context;
+        private readonly IRelojComercial _reloj;
 
         #region Helpers de caja
 
@@ -82,7 +84,8 @@ namespace TheBuryProject.Controllers
             ICajaService cajaService,
             VentaViewBagBuilder viewBagBuilder,
             IContratoVentaCreditoService contratoVentaCreditoService,
-            AppDbContext context)
+            AppDbContext context,
+            IRelojComercial reloj)
         {
             _ventaService = ventaService;
             _logger = logger;
@@ -97,6 +100,7 @@ namespace TheBuryProject.Controllers
             _viewBagBuilder = viewBagBuilder;
             _contratoVentaCreditoService = contratoVentaCreditoService;
             _context = context;
+            _reloj = reloj;
         }
 
         #endregion
@@ -161,10 +165,13 @@ namespace TheBuryProject.Controllers
                 ViewBag.PuedeOperarVentas = await UsuarioTieneCajaAbiertaAsync();
                 ViewBag.ContratoVentaCredito = await ObtenerContratoResumenPorVentaAsync(id);
 
-                // Fase 2.4: cobro de la primera cuota el mismo día.
+                // Cobro de la primera cuota el mismo día (fecha comercial de Argentina, no la zona
+                // del proceso). Micro-lote 6: la DECISIÓN se toma en la configuración del crédito;
+                // esta pantalla solo la muestra (no la vuelve a pedir).
                 if (venta.TipoPago == TipoPago.CreditoPersonal && venta.CreditoId.HasValue)
                 {
                     var creditoDetalle = await _creditoService.GetByIdAsync(venta.CreditoId.Value);
+                    var hoy = _reloj.HoyComercial;
 
                     if (venta.Estado == EstadoVenta.Confirmada)
                     {
@@ -175,18 +182,21 @@ namespace TheBuryProject.Controllers
                             .FirstOrDefault();
                         if (primeraCuota != null &&
                             primeraCuota.Estado == EstadoCuota.Pendiente &&
-                            primeraCuota.FechaVencimiento.Date == DateTime.Today)
+                            DateOnly.FromDateTime(primeraCuota.FechaVencimiento) == hoy)
                         {
                             ViewBag.PrimeraCuotaHoyCreditoId = venta.CreditoId.Value;
                             ViewBag.PrimeraCuotaHoyCuotaId = primeraCuota.Id;
                         }
                     }
                     else if (venta.PuedeConfirmar &&
-                             creditoDetalle?.FechaPrimeraCuota?.Date == DateTime.Today)
+                             creditoDetalle?.FechaPrimeraCuota.HasValue == true &&
+                             DateOnly.FromDateTime(creditoDetalle.FechaPrimeraCuota.Value) == hoy)
                     {
-                        // Pre-confirmación: la 1ª cuota se generará con vencimiento hoy → ofrecer
-                        // cobrarla en el mismo acto de confirmar (se envía a Confirmar).
-                        ViewBag.OfrecerCobrarPrimeraCuota = true;
+                        // Pre-confirmación: la 1ª cuota vence hoy. Se muestra el resumen de la decisión
+                        // tomada en la configuración (cobrar o no + medio); no se re-pregunta.
+                        ViewBag.PrimeraCuotaVenceHoy = true;
+                        ViewBag.PrimeraCuotaDecisionCobrar = creditoDetalle.CobrarPrimeraCuotaSolicitada;
+                        ViewBag.PrimeraCuotaDecisionMedio = creditoDetalle.MedioPagoPrimeraCuota;
                     }
                 }
 
@@ -242,7 +252,7 @@ namespace TheBuryProject.Controllers
         [HttpGet]
         public IActionResult Cotizar()
         {
-            return RedirectToAction("Index", "Cotizacion");
+            return RedirectToAction(nameof(Create));
         }
 
         // POST: Venta/Create
@@ -279,20 +289,11 @@ namespace TheBuryProject.Controllers
 
                 var venta = await _ventaService.CreateAsync(viewModel);
 
-                // Para CréditoPersonal: SIEMPRE redirigir a ConfigurarVenta
+                // La configuración final necesita el crédito persistido.
                 if (venta.TipoPago == TipoPago.CreditoPersonal && venta.CreditoId.HasValue)
                 {
                     var returnToVentaDetailsUrl = Url.Action(nameof(Details), new { id = venta.Id });
-                    
-                    if (venta.RequiereAutorizacion)
-                    {
-                        TempData["Warning"] = $"Venta {venta.Numero} creada. Requiere autorización. Configure el plan de pago.";
-                    }
-                    else
-                    {
-                        TempData["Success"] = $"Venta {venta.Numero} creada. Configure el plan de financiamiento.";
-                    }
-                    
+                    TempData["Success"] = $"Venta {venta.Numero} creada. Configure el plan de financiamiento.";
                     return RedirectToAction(
                         "ConfigurarVenta",
                         "Credito",
@@ -312,15 +313,20 @@ namespace TheBuryProject.Controllers
                 var mensaje = CrearMensajePresentacionCondicionesPago(ex.Message);
                 _logger.LogWarning(ex, "Venta rechazada por condiciones de pago en Create");
                 ModelState.AddModelError("", mensaje);
-                await CargarViewBags(viewModel.ClienteId, vendedorUserIdSeleccionado: viewModel.VendedorUserId);
-                return View("Create_tw", viewModel);
+                return await RetornarVistaConDatos(viewModel);
+            }
+            catch (InvalidOperationException ex)
+            {
+                // Regla de negocio con mensaje ya redactado para el operador (ver Edit POST).
+                _logger.LogWarning(ex, "Venta rechazada por regla de negocio en Create");
+                ModelState.AddModelError("", ex.Message);
+                return await RetornarVistaConDatos(viewModel);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al crear venta");
                 ModelState.AddModelError("", "Error al crear la venta: " + ex.Message);
-                await CargarViewBags(viewModel.ClienteId, vendedorUserIdSeleccionado: viewModel.VendedorUserId);
-                return View("Create_tw", viewModel);
+                return await RetornarVistaConDatos(viewModel);
             }
         }
 
@@ -383,13 +389,13 @@ namespace TheBuryProject.Controllers
                     var returnToVentaDetailsUrl = Url.Action(nameof(Details), new { id = venta.Id });
                     var redirectUrl = Url.Action(
                         "ConfigurarVenta", "Credito",
-                        new { id = venta.CreditoId, ventaId = venta.Id, returnUrl = returnToVentaDetailsUrl });
+                        new { id = venta.CreditoId, ventaId = venta.Id, embedded = true });
+                    var msg = $"Venta {venta.Numero} creada. Configure el plan de financiamiento.";
 
-                    var msg = venta.RequiereAutorizacion
-                        ? $"Venta {venta.Numero} creada. Requiere autorización. Configure el plan de pago."
-                        : $"Venta {venta.Numero} creada. Configure el plan de financiamiento.";
-
-                    return Json(new { success = true, requiresRedirect = true, redirectUrl, message = msg });
+                    // El wizard conserva este identificador (y el RowVersion) para confirmar
+                    // el mismo borrador luego de configurar el crédito por Edit, sin crear
+                    // una segunda venta.
+                    return Json(new { success = true, requiresRedirect = true, redirectUrl, ventaId = venta.Id, creditoId = venta.CreditoId, rowVersion = venta.RowVersion, message = msg });
                 }
 
                 var detailsUrl = Url.Action(nameof(Details), new { id = venta.Id });
@@ -461,13 +467,16 @@ namespace TheBuryProject.Controllers
                     return RedirectToAction(nameof(Index));
                 }
 
-                if (venta.Estado != EstadoVenta.Cotizacion && venta.Estado != EstadoVenta.Presupuesto)
+                if (venta.Estado != EstadoVenta.Cotizacion &&
+                    venta.Estado != EstadoVenta.Presupuesto &&
+                    venta.Estado != EstadoVenta.PendienteRequisitos &&
+                    venta.Estado != EstadoVenta.PendienteFinanciacion)
                 {
                     _logger.LogWarning(
                         "Edit(GET) venta {Id} estado no editable. Estado:{Estado}",
                         id,
                         venta.Estado);
-                    TempData["Error"] = "Solo se pueden editar ventas en estado Cotización o Presupuesto";
+                    TempData["Error"] = "Solo se pueden editar ventas en estado Cotización, Presupuesto, Pendiente Requisitos o Pendiente Financiación";
                     return RedirectToAction(nameof(Details), new { id });
                 }
 
@@ -545,12 +554,7 @@ namespace TheBuryProject.Controllers
                         "Edit(POST) venta {Id} ModelState invalid. Errors:{Errors}",
                         id,
                         errorsJson);
-                    await CargarViewBags(
-                        viewModel.ClienteId,
-                        viewModel.Detalles?.Select(d => d.ProductoId).Distinct(),
-                        viewModel.VendedorUserId,
-                        viewModel.TipoPago);
-                    return View("Edit_tw", viewModel);
+                    return await RetornarVistaEdicionConDatos(viewModel);
                 }
 
                 var resultado = await _ventaService.UpdateAsync(id, viewModel);
@@ -587,10 +591,17 @@ namespace TheBuryProject.Controllers
                         }
                     }
 
-                    TempData["Success"] = resultado.RequiereAutorizacion
-                        ? "Venta actualizada. Requiere autorización antes de configurar el crédito."
-                        : "Venta actualizada. Crédito listo para configurar.";
+                    // Si el crédito ya fue configurado (p.ej. por el configurador embebido del
+                    // wizard, antes de este guardado), no reenviar a ConfigurarVenta: seguiría
+                    // rebotando al operador ahí en cada guardado posterior. Sólo faltan
+                    // configurar los créditos que siguen PendienteConfiguracion.
+                    if (resultado.CreditoConfigurado)
+                    {
+                        TempData["Success"] = "Venta actualizada exitosamente";
+                        return RedirectToAction(nameof(Details), new { id });
+                    }
 
+                    TempData["Success"] = "Venta actualizada. Crédito listo para configurar.";
                     return RedirectToAction(
                         "ConfigurarVenta",
                         "Credito",
@@ -600,48 +611,142 @@ namespace TheBuryProject.Controllers
                 TempData["Success"] = "Venta actualizada exitosamente";
                 return RedirectToAction(nameof(Details), new { id });
             }
+            catch (CondicionesPagoVentaException ex)
+            {
+                var mensaje = CrearMensajePresentacionCondicionesPago(ex.Message);
+                _logger.LogWarning(ex, "Edit(POST) venta {Id} rechazada por condiciones de pago", id);
+                ModelState.AddModelError("", mensaje);
+                return await RetornarVistaEdicionConDatos(viewModel);
+            }
+            catch (InvalidOperationException ex)
+            {
+                // Regla de negocio (trazabilidad, estado, concurrencia, crédito): el mensaje ya
+                // viene redactado para el operador, así que se muestra tal cual y se registra
+                // como warning. No es una falla del sistema.
+                _logger.LogWarning(ex, "Edit(POST) venta {Id} rechazada por regla de negocio", id);
+                ModelState.AddModelError("", ex.Message);
+                return await RetornarVistaEdicionConDatos(viewModel);
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al actualizar venta: {Id}", id);
                 ModelState.AddModelError("", "Error al actualizar la venta: " + ex.Message);
-                await CargarViewBags(
-                    viewModel.ClienteId,
-                    vendedorUserIdSeleccionado: viewModel.VendedorUserId,
-                    tipoPagoSeleccionado: viewModel.TipoPago);
-                return View("Edit_tw", viewModel);
+                return await RetornarVistaEdicionConDatos(viewModel);
             }
         }
 
+        // POST: Venta/EditAjax/5 — versión AJAX para el configurador de crédito embebido
+        // del wizard. Existe porque una venta en edición puede llegar al paso "Crédito"
+        // todavía sin CreditoId (p.ej. el operador recién cambia el medio de pago a
+        // Crédito Personal en este mismo edit, o la venta nunca llegó a tener un crédito
+        // pendiente creado). CreateAjax no sirve acá: la venta YA existe, y usarlo
+        // duplicaría la venta (crea una segunda fila) en vez de actualizar ésta.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult CalcularFinanciamiento([FromBody] CalculoFinanciamientoViewModel request)
+        [PermisoRequerido(Modulo = ModuloVentas, Accion = AccionActualizar)]
+        public async Task<IActionResult> EditAjax(int id, VentaViewModel viewModel)
         {
-            if (request == null)
-            {
-                return BadRequest(new { error = "Solicitud inválida" });
-            }
-
             try
             {
-                var montoFinanciado = _financialCalculationService.ComputeFinancedAmount(request.Total, request.Anticipo);
-                var cuota = _financialCalculationService.ComputePmt(request.TasaMensual, request.Cuotas, montoFinanciado);
-
-                var prequalification = _prequalificationService.Evaluate(
-                    cuota,
-                    request.IngresoNeto,
-                    request.OtrasDeudas,
-                    request.AntiguedadLaboralMeses);
-
-                return Ok(new
+                if (!await UsuarioTieneCajaAbiertaAsync())
                 {
-                    financedAmount = montoFinanciado,
-                    installment = cuota,
-                    prequalification
+                    return Json(new
+                    {
+                        success = false,
+                        errors = new Dictionary<string, string[]>
+                        {
+                            { "", new[] { "Debe abrir una caja antes de editar ventas." } }
+                        }
+                    });
+                }
+
+                LimpiarModelStateSegunTipoPago(viewModel.TipoPago, viewModel);
+
+                if (!ModelState.IsValid || !ValidarDetalles(viewModel))
+                {
+                    var errors = ModelState
+                        .Where(k => k.Value?.Errors.Any() == true)
+                        .ToDictionary(
+                            k => k.Key,
+                            k => k.Value!.Errors.Select(e => e.ErrorMessage).ToArray());
+                    return Json(new { success = false, errors });
+                }
+
+                var resultado = await _ventaService.UpdateAsync(id, viewModel);
+                if (resultado == null)
+                {
+                    return Json(new { success = false, message = "Venta no encontrada." });
+                }
+
+                // El wizard sólo llama a EditAjax para (a) crear el crédito pendiente la
+                // primera vez que hace falta, o (b) resincronizar el borrador porque el
+                // configurador embebido detectó un cambio invalidante (cliente, productos o
+                // pago) después de que el crédito ya estaba Configurado. En el caso (b), el
+                // crédito quedó con un saldo/tasa calculados sobre un total que ya no es el
+                // vigente: GenerarCuotasCreditoAsync usa credito.MontoAprobado tal cual, sin
+                // re-derivarlo de venta.Total, así que confirmar con el estado Configurado
+                // stale generaría cuotas sobre el importe viejo. Se revierte a
+                // PendienteConfiguracion para forzar una reconfiguración real antes de poder
+                // confirmar; no toca TasaInteres/MontoAprobado (se sobrescriben enteros la
+                // próxima vez que se configure).
+                if (resultado.CreditoId.HasValue)
+                {
+                    var creditoActual = await _context.Creditos
+                        .FirstOrDefaultAsync(c => c.Id == resultado.CreditoId.Value && !c.IsDeleted);
+                    if (creditoActual != null && creditoActual.Estado == EstadoCredito.Configurado)
+                    {
+                        creditoActual.Estado = EstadoCredito.PendienteConfiguracion;
+                        var ventaEntidad = await _context.Ventas.FindAsync(resultado.Id);
+                        if (ventaEntidad != null)
+                        {
+                            ventaEntidad.FechaConfiguracionCredito = null;
+                        }
+                        await _context.SaveChangesAsync();
+                        resultado.RowVersion = ventaEntidad?.RowVersion ?? resultado.RowVersion;
+                    }
+                }
+
+                return Json(new
+                {
+                    success = true,
+                    ventaId = resultado.Id,
+                    creditoId = resultado.CreditoId,
+                    rowVersion = resultado.RowVersion,
+                    message = "Venta actualizada."
                 });
             }
-            catch (ArgumentException ex)
+            catch (CondicionesPagoVentaException ex)
             {
-                return BadRequest(new { error = ex.Message });
+                var mensaje = CrearMensajePresentacionCondicionesPago(ex.Message);
+                _logger.LogWarning(ex, "Venta rechazada por condiciones de pago en EditAjax {Id}", id);
+                return Json(new
+                {
+                    success = false,
+                    message = mensaje,
+                    errors = new Dictionary<string, string[]> { { "", new[] { mensaje } } }
+                });
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Venta rechazada por regla de negocio en EditAjax {Id}", id);
+                return Json(new
+                {
+                    success = false,
+                    message = ex.Message,
+                    errors = new Dictionary<string, string[]> { { "", new[] { ex.Message } } }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al actualizar venta via AJAX {Id}", id);
+                return Json(new
+                {
+                    success = false,
+                    errors = new Dictionary<string, string[]>
+                    {
+                        { "", new[] { "Error al actualizar la venta: " + ex.Message } }
+                    }
+                });
             }
         }
 
@@ -786,9 +891,7 @@ namespace TheBuryProject.Controllers
         public async Task<IActionResult> Confirmar(
             int id,
             bool aplicarExcepcionDocumental = false,
-            string? motivoExcepcionDocumental = null,
-            bool cobrarPrimeraCuota = false,
-            string? medioPagoPrimeraCuota = null)
+            string? motivoExcepcionDocumental = null)
         {
             try
             {
@@ -973,16 +1076,22 @@ namespace TheBuryProject.Controllers
                             ? "Venta confirmada por excepción documental autorizada. Crédito generado con cuotas."
                             : "Venta confirmada. Crédito generado con cuotas.";
 
-                        // Spec 2.4: si se pidió cobrar la 1ª cuota el mismo día, cobrarla ahora
-                        // reutilizando el flujo de PagarCuota (aplica recargo del medio de pago e
-                        // impacta en caja). Un fallo del cobro NO revierte la venta/crédito confirmados.
-                        if (cobrarPrimeraCuota && venta.CreditoId.HasValue)
+                        // F2 (Micro-lote 6): la decisión de cobrar la 1ª cuota se tomó y persistió en
+                        // la configuración del crédito. Acá se lee de la base (server-authoritative,
+                        // no del payload) y se ejecuta reutilizando PagarCuota (aplica recargo del
+                        // medio e impacta en caja). El servidor revalida vence-hoy, saldo, medio y
+                        // caja. Un fallo del cobro NO revierte la venta/crédito ya confirmados.
+                        var decisionCredito = venta.CreditoId.HasValue
+                            ? await _creditoService.GetByIdAsync(venta.CreditoId.Value)
+                            : null;
+
+                        if (decisionCredito?.CobrarPrimeraCuotaSolicitada == true && venta.CreditoId.HasValue)
                         {
                             try
                             {
                                 var cobro = await _creditoService.CobrarPrimeraCuotaAlGenerarAsync(
                                     venta.CreditoId.Value,
-                                    medioPagoPrimeraCuota ?? "Efectivo");
+                                    decisionCredito.MedioPagoPrimeraCuota);
 
                                 switch (cobro.Estado)
                                 {
@@ -1599,12 +1708,99 @@ namespace TheBuryProject.Controllers
 
         private async Task<IActionResult> RetornarVistaConDatos(VentaViewModel viewModel)
         {
+            await PrepararVistaFormularioAsync(viewModel);
+            return View("Create_tw", viewModel);
+        }
+
+        private async Task<IActionResult> RetornarVistaEdicionConDatos(VentaViewModel viewModel)
+        {
+            await PrepararVistaFormularioAsync(viewModel);
+            return View("Edit_tw", viewModel);
+        }
+
+        private async Task PrepararVistaFormularioAsync(VentaViewModel viewModel)
+        {
+            await RehidratarCamposDeVistaAsync(viewModel);
             await CargarViewBags(
                 viewModel.ClienteId,
-                viewModel.Detalles.Select(d => d.ProductoId).Distinct(),
+                viewModel.Detalles?.Select(d => d.ProductoId).Distinct(),
                 viewModel.VendedorUserId,
                 viewModel.TipoPago);
-            return View("Create_tw", viewModel);
+        }
+
+        /// <summary>
+        /// Repone los campos de sólo lectura que el formulario no postea (nombre y documento del
+        /// cliente, código/nombre/stock del producto, código de la unidad física). Sin esto, al
+        /// volver a la vista por un error el wizard se re-hidrata con esos campos vacíos y el
+        /// operador ve el cliente y el detalle "borrados" aunque los datos sigan en el POST.
+        /// </summary>
+        private async Task RehidratarCamposDeVistaAsync(VentaViewModel viewModel)
+        {
+            if (viewModel.ClienteId > 0 && string.IsNullOrWhiteSpace(viewModel.ClienteNombre))
+            {
+                var cliente = await _context.Clientes
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(c => c.Id == viewModel.ClienteId && !c.IsDeleted);
+
+                if (cliente != null)
+                {
+                    viewModel.ClienteNombre = cliente.ToDisplayName();
+                    viewModel.ClienteDocumento = cliente.NumeroDocumento;
+                }
+            }
+
+            var detalles = viewModel.Detalles;
+            if (detalles == null || detalles.Count == 0)
+            {
+                return;
+            }
+
+            var productoIds = detalles.Select(d => d.ProductoId).Distinct().ToList();
+            var productos = await _context.Productos
+                .AsNoTracking()
+                .Where(p => productoIds.Contains(p.Id))
+                .Select(p => new { p.Id, p.Codigo, p.Nombre, p.StockActual, p.RequiereNumeroSerie })
+                .ToListAsync();
+
+            var unidadIds = detalles
+                .Where(d => d.ProductoUnidadId.HasValue)
+                .Select(d => d.ProductoUnidadId!.Value)
+                .Distinct()
+                .ToList();
+
+            var unidades = unidadIds.Count == 0
+                ? new Dictionary<int, string>()
+                : await _context.ProductoUnidades
+                    .AsNoTracking()
+                    .Where(u => unidadIds.Contains(u.Id))
+                    .ToDictionaryAsync(u => u.Id, u => u.CodigoInternoUnidad);
+
+            foreach (var detalle in detalles)
+            {
+                var producto = productos.FirstOrDefault(p => p.Id == detalle.ProductoId);
+                if (producto != null)
+                {
+                    if (string.IsNullOrWhiteSpace(detalle.ProductoCodigo))
+                    {
+                        detalle.ProductoCodigo = producto.Codigo;
+                    }
+
+                    if (string.IsNullOrWhiteSpace(detalle.ProductoNombre))
+                    {
+                        detalle.ProductoNombre = producto.Nombre;
+                    }
+
+                    detalle.StockDisponible = (int)producto.StockActual;
+                    detalle.RequiereNumeroSerie = producto.RequiereNumeroSerie;
+                }
+
+                if (detalle.ProductoUnidadId.HasValue &&
+                    string.IsNullOrWhiteSpace(detalle.ProductoUnidadCodigoInterno) &&
+                    unidades.TryGetValue(detalle.ProductoUnidadId.Value, out var codigoUnidad))
+                {
+                    detalle.ProductoUnidadCodigoInterno = codigoUnidad;
+                }
+            }
         }
 
         #endregion

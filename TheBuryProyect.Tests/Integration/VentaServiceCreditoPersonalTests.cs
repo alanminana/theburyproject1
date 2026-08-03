@@ -472,6 +472,31 @@ public class VentaServiceCreditoPersonalTests
         }
     }
 
+    [Fact]
+    public async Task CreateAsync_IgnoraIdResidualDelFormularioYNoReutilizaLaVentaRastreada()
+    {
+        var (ctx, conn) = CreateDb();
+        await using (ctx) using (conn)
+        {
+            var apertura = await SeedCajaAsync(ctx);
+            var cliente = await SeedClienteAsync(ctx);
+            var producto = await SeedProductoAsync(ctx, precioVenta: 1_210m);
+            var svc = BuildService(
+                ctx,
+                new StubCajaServiceCP(apertura),
+                new StubValidacionVentaService(new ValidacionVentaResult { NoViable = false }));
+
+            var primera = await svc.CreateAsync(CreditoPersonalViewModelConProducto(cliente.Id, producto));
+            var reintentoConIdResidual = CreditoPersonalViewModelConProducto(cliente.Id, producto);
+            reintentoConIdResidual.Id = primera.Id;
+
+            var segunda = await svc.CreateAsync(reintentoConIdResidual);
+
+            Assert.NotEqual(primera.Id, segunda.Id);
+            Assert.Equal(2, await ctx.Ventas.CountAsync());
+        }
+    }
+
     /// <summary>
     /// Verifica que, tras el movimiento de FASE 4C-C, el reintento de
     /// GuardarVentaConReintentoNumeroAsync ante una colisión de número de venta
@@ -509,7 +534,7 @@ public class VentaServiceCreditoPersonalTests
     }
 
     [Fact]
-    public async Task CreateAsync_CreditoPersonalExcedeCupoConExcepcionAutorizada_QuedaPendienteAutorizacion()
+    public async Task CreateAsync_CreditoPersonalExcedeCupoConExcepcionAutorizada_QuedaAutorizada()
     {
         var (ctx, conn) = CreateDb();
         await using (ctx) using (conn)
@@ -547,14 +572,11 @@ public class VentaServiceCreditoPersonalTests
             Assert.Equal(EstadoVenta.PendienteFinanciacion, resultado.Estado);
             Assert.NotNull(resultado.CreditoId);
 
-            // FASE 5E: la excepción por cupo comparte el mecanismo de excepción documental
-            // en CreateAsync — ya no auto-aprueba en el acto, queda pendiente de autorización
-            // formal por otro usuario.
             var venta = await ctx.Ventas.AsNoTracking().FirstAsync(v => v.Id == resultado.Id);
-            Assert.Equal(EstadoAutorizacionVenta.PendienteAutorizacion, venta.EstadoAutorizacion);
+            Assert.Equal(EstadoAutorizacionVenta.Autorizada, venta.EstadoAutorizacion);
             Assert.True(venta.RequiereAutorizacion);
-            Assert.Null(venta.UsuarioAutoriza);
-            Assert.Null(venta.MotivoAutorizacion);
+            Assert.Equal("testuser", venta.UsuarioAutoriza);
+            Assert.StartsWith("EXCEPCION_DOC|", venta.MotivoAutorizacion);
             Assert.Contains("Autorizado por responsable de ventas", venta.RazonesAutorizacionJson);
         }
     }
@@ -603,7 +625,7 @@ public class VentaServiceCreditoPersonalTests
     }
 
     [Fact]
-    public async Task CreateAsync_ExcepcionDocumental_ConAuthorize_DocumentacionFaltante_NoAutoExcepciona()
+    public async Task CreateAsync_ExcepcionDocumental_ConAuthorize_DocumentacionFaltante_AutorizaEnElMismoActo()
     {
         var (ctx, conn) = CreateDb();
         await using (ctx) using (conn)
@@ -626,8 +648,6 @@ public class VentaServiceCreditoPersonalTests
             model.AplicarExcepcionDocumental = true;
             model.MotivoExcepcionDocumentalCreate = "Autorizado por responsable de ventas";
 
-            // El propio creador tiene ventas.authorize (además de ventas.create):
-            // no debe poder autoexcepcionarse en el mismo acto.
             var svc = BuildService(
                 ctx,
                 new StubCajaServiceCP(apertura),
@@ -639,15 +659,15 @@ public class VentaServiceCreditoPersonalTests
             Assert.Equal(EstadoVenta.PendienteFinanciacion, resultado.Estado);
 
             var venta = await ctx.Ventas.AsNoTracking().FirstAsync(v => v.Id == resultado.Id);
-            Assert.Null(venta.UsuarioAutoriza);
-            Assert.Null(venta.FechaAutorizacion);
-            Assert.Null(venta.MotivoAutorizacion);
-            Assert.DoesNotContain("EXCEPCION_DOC|", venta.MotivoAutorizacion ?? string.Empty);
+            Assert.Equal(EstadoAutorizacionVenta.Autorizada, venta.EstadoAutorizacion);
+            Assert.Equal("testuser", venta.UsuarioAutoriza);
+            Assert.NotNull(venta.FechaAutorizacion);
+            Assert.StartsWith("EXCEPCION_DOC|", venta.MotivoAutorizacion);
         }
     }
 
     [Fact]
-    public async Task CreateAsync_ExcepcionDocumental_ConRequestExceptionSinAuthorize_DocumentacionFaltante_QuedaPendienteAutorizacion()
+    public async Task CreateAsync_ExcepcionDocumental_ConRequestExceptionSinAuthorize_DocumentacionFaltante_Rechaza()
     {
         var (ctx, conn) = CreateDb();
         await using (ctx) using (conn)
@@ -670,30 +690,19 @@ public class VentaServiceCreditoPersonalTests
             model.AplicarExcepcionDocumental = true;
             model.MotivoExcepcionDocumentalCreate = "Autorizado por responsable de ventas";
 
-            // Vendedor sin ventas.authorize pero con ventas.requestexception: puede
-            // solicitar la excepción (queda pendiente de autorización formal por otro
-            // usuario con ventas.authorize), pero no puede auto-aprobarla.
             var svc = BuildService(
                 ctx,
                 new StubCajaServiceCP(apertura),
                 new StubValidacionVentaService(resultadoNoViable),
                 new StubCurrentUserServiceCP(puedeCrearVenta: true, puedeAutorizarVenta: false, puedeSolicitarExcepcion: true));
 
-            var resultado = await svc.CreateAsync(model);
-
-            Assert.Equal(EstadoVenta.PendienteFinanciacion, resultado.Estado);
-
-            var venta = await ctx.Ventas.AsNoTracking().FirstAsync(v => v.Id == resultado.Id);
-            Assert.Equal(EstadoAutorizacionVenta.PendienteAutorizacion, venta.EstadoAutorizacion);
-            Assert.True(venta.RequiereAutorizacion);
-            Assert.Null(venta.UsuarioAutoriza);
-            Assert.Null(venta.MotivoAutorizacion);
-            Assert.Contains("Autorizado por responsable de ventas", venta.RazonesAutorizacionJson);
+            await Assert.ThrowsAsync<InvalidOperationException>(() => svc.CreateAsync(model));
+            Assert.Equal(0, await ctx.Ventas.CountAsync());
         }
     }
 
     [Fact]
-    public async Task CreateAsync_DocumentacionFaltante_QuedaPendienteAutorizacion()
+    public async Task CreateAsync_DocumentacionFaltante_ConExcepcionAutorizada_QuedaAutorizada()
     {
         var (ctx, conn) = CreateDb();
         await using (ctx) using (conn)
@@ -725,8 +734,10 @@ public class VentaServiceCreditoPersonalTests
             var resultado = await svc.CreateAsync(model);
 
             var venta = await ctx.Ventas.AsNoTracking().FirstAsync(v => v.Id == resultado.Id);
-            Assert.Equal(EstadoAutorizacionVenta.PendienteAutorizacion, venta.EstadoAutorizacion);
+            Assert.Equal(EstadoAutorizacionVenta.Autorizada, venta.EstadoAutorizacion);
             Assert.True(venta.RequiereAutorizacion);
+            Assert.Equal("testuser", venta.UsuarioAutoriza);
+            Assert.StartsWith("EXCEPCION_DOC|", venta.MotivoAutorizacion);
             Assert.NotNull(venta.RazonesAutorizacionJson);
 
             var razones = System.Text.Json.JsonSerializer.Deserialize<List<RazonAutorizacion>>(venta.RazonesAutorizacionJson!)!;
@@ -736,7 +747,7 @@ public class VentaServiceCreditoPersonalTests
     }
 
     [Fact]
-    public async Task AutorizarVenta_DocumentacionFaltante_UsuarioDistinto_Permite()
+    public async Task CreateAsync_ExcepcionDocumental_NoRequiereSegundaAutorizacion()
     {
         var (ctx, conn) = CreateDb();
         await using (ctx) using (conn)
@@ -767,21 +778,10 @@ public class VentaServiceCreditoPersonalTests
 
             var resultado = await svc.CreateAsync(model);
 
-            // El creador (registrado como CreatedBy por el interceptor de auditoría)
-            // no puede autorizar; otro usuario con ventas.authorize sí puede resolverla.
-            var ventaCreada = await ctx.Ventas.AsNoTracking().FirstAsync(v => v.Id == resultado.Id);
-            var otroUsuario = string.Equals(ventaCreada.CreatedBy, "supervisor2", StringComparison.OrdinalIgnoreCase)
-                ? "supervisor3"
-                : "supervisor2";
-
-            var autorizado = await svc.AutorizarVentaAsync(resultado.Id, otroUsuario, "Documentación verificada posteriormente");
-
-            Assert.True(autorizado);
-
             var venta = await ctx.Ventas.AsNoTracking().FirstAsync(v => v.Id == resultado.Id);
             Assert.Equal(EstadoAutorizacionVenta.Autorizada, venta.EstadoAutorizacion);
-            Assert.Equal(otroUsuario, venta.UsuarioAutoriza);
-            Assert.Equal("Documentación verificada posteriormente", venta.MotivoAutorizacion);
+            Assert.Equal("testuser", venta.UsuarioAutoriza);
+            Assert.StartsWith("EXCEPCION_DOC|", venta.MotivoAutorizacion);
             Assert.NotNull(venta.FechaAutorizacion);
         }
     }
@@ -1156,6 +1156,79 @@ public class VentaServiceCreditoPersonalTests
     }
 
     [Fact]
+    public async Task UpdateAsync_VentaConvertidaDesdeCotizacionConAnticipo_PrecargaAnticipoEnCredito()
+    {
+        // ML8: mismo patron que la precarga de CantidadCuotas (test anterior), para el anticipo
+        // simulado en la cotizacion. Es intencion, no autoridad: Configurar Venta la usa solo
+        // como default inicial del formulario.
+        var (ctx, conn) = CreateDb();
+        await using (ctx) using (conn)
+        {
+            var apertura = await SeedCajaAsync(ctx);
+            var cliente = await SeedClienteAsync(ctx);
+            var producto = await SeedProductoAsync(ctx, precioVenta: 1_000m);
+
+            var cotizacion = new Cotizacion
+            {
+                Numero = $"COT-{Guid.NewGuid():N}"[..15],
+                Fecha = DateTime.UtcNow,
+                Estado = EstadoCotizacion.ConvertidaAVenta,
+                ClienteId = cliente.Id,
+                TotalBase = producto.PrecioVenta,
+                MedioPagoSeleccionado = CotizacionMedioPagoTipo.CreditoPersonal,
+                CantidadCuotasSeleccionada = 3,
+                Anticipo = 200m
+            };
+            ctx.Cotizaciones.Add(cotizacion);
+            await ctx.SaveChangesAsync();
+
+            var venta = await SeedVentaCreditoPersonalSinCreditoAsync(ctx, cliente.Id, producto);
+            venta.CotizacionOrigenId = cotizacion.Id;
+            await ctx.SaveChangesAsync();
+
+            var svc = BuildService(
+                ctx,
+                new StubCajaServiceCP(apertura),
+                new StubValidacionVentaService(new ValidacionVentaResult { NoViable = false }));
+
+            var vm = UpdateViewModelCreditoPersonal(venta, cliente.Id, producto.Id);
+
+            var resultado = await svc.UpdateAsync(venta.Id, vm);
+
+            Assert.NotNull(resultado);
+            Assert.NotNull(resultado!.CreditoId);
+
+            var credito = await ctx.Creditos.AsNoTracking().FirstAsync(c => c.Id == resultado.CreditoId!.Value);
+            Assert.Equal(3, credito.CantidadCuotas);
+            Assert.Equal(200m, credito.AnticipoPreseleccionado);
+        }
+    }
+
+    [Fact]
+    public async Task UpdateAsync_VentaSinCotizacionOrigen_AnticipoPreseleccionadoQuedaEnCero()
+    {
+        var (ctx, conn) = CreateDb();
+        await using (ctx) using (conn)
+        {
+            var apertura = await SeedCajaAsync(ctx);
+            var cliente = await SeedClienteAsync(ctx);
+            var producto = await SeedProductoAsync(ctx, precioVenta: 1_000m);
+            var venta = await SeedVentaCreditoPersonalSinCreditoAsync(ctx, cliente.Id, producto);
+
+            var svc = BuildService(
+                ctx,
+                new StubCajaServiceCP(apertura),
+                new StubValidacionVentaService(new ValidacionVentaResult { NoViable = false }));
+
+            var vm = UpdateViewModelCreditoPersonal(venta, cliente.Id, producto.Id);
+            var resultado = await svc.UpdateAsync(venta.Id, vm);
+
+            var credito = await ctx.Creditos.AsNoTracking().FirstAsync(c => c.Id == resultado!.CreditoId!.Value);
+            Assert.Equal(0m, credito.AnticipoPreseleccionado);
+        }
+    }
+
+    [Fact]
     public async Task UpdateAsync_CreditoPersonalSinCreditoAsociado_NoViableSinExcepcion_LanzaInvalidOperationException()
     {
         var (ctx, conn) = CreateDb();
@@ -1193,7 +1266,7 @@ public class VentaServiceCreditoPersonalTests
     }
 
     [Fact]
-    public async Task UpdateAsync_CreditoPersonalSinCreditoAsociado_NoViableConExcepcionAutorizada_QuedaPendienteAutorizacionYCreaCredito()
+    public async Task UpdateAsync_CreditoPersonalSinCreditoAsociado_NoViableConExcepcionAutorizada_QuedaAutorizadaYCreaCredito()
     {
         var (ctx, conn) = CreateDb();
         await using (ctx) using (conn)
@@ -1231,7 +1304,8 @@ public class VentaServiceCreditoPersonalTests
 
             var ventaPersistida = await ctx.Ventas.AsNoTracking().FirstAsync(v => v.Id == venta.Id);
             Assert.True(ventaPersistida.RequiereAutorizacion);
-            Assert.Equal(EstadoAutorizacionVenta.PendienteAutorizacion, ventaPersistida.EstadoAutorizacion);
+            Assert.Equal(EstadoAutorizacionVenta.Autorizada, ventaPersistida.EstadoAutorizacion);
+            Assert.Equal("testuser", ventaPersistida.UsuarioAutoriza);
             Assert.Contains("Cliente presento documentacion en papel", ventaPersistida.RazonesAutorizacionJson);
         }
     }

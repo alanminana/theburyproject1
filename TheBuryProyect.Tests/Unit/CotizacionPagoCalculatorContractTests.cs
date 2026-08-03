@@ -435,8 +435,12 @@ public sealed class CotizacionPagoCalculatorContractTests
     }
 
     [Fact]
-    public async Task Simular_CreditoPersonal_ConTablaPorCuotas_UsaSoloCuotasActivasYTasaPropia()
+    public async Task Simular_CreditoPersonal_ConTablaPorCuotas_UsaSoloCuotasActivasYDelegaResolucionAlServicioCanonico()
     {
+        // ML8: el calculator ya no resuelve ninguna tasa por su cuenta (esGlobalPuro eliminado).
+        // Sigue filtrando qué cantidades ofrecer desde los planes activos (UI-only), pero delega
+        // 100% la resolución de tasa/fuente a CreditoSimulacionVentaService via ProductoIds/
+        // ClienteId — la misma precedencia que usa Configurar Venta.
         var creditoService = new FakeCreditoSimulacionVentaService();
 
         var resultado = await CreateCalculator(
@@ -455,8 +459,111 @@ public sealed class CotizacionPagoCalculatorContractTests
         Assert.Equal(2, credito.Planes.Count);
         Assert.DoesNotContain(credito.Planes, p => p.CantidadCuotas == 9);
 
-        Assert.Contains(creditoService.Requests, r => r.Cuotas == 1 && r.TasaMensual == 1m);
-        Assert.Contains(creditoService.Requests, r => r.Cuotas == 5 && r.TasaMensual == 10m);
+        Assert.Contains(creditoService.Requests, r => r.Cuotas == 1 && r.TasaMensual == null && r.ClienteId == 44 && r.ProductoIds!.Contains(1));
+        Assert.Contains(creditoService.Requests, r => r.Cuotas == 5 && r.TasaMensual == null && r.ClienteId == 44 && r.ProductoIds!.Contains(1));
+    }
+
+    [Fact]
+    public async Task Simular_CreditoPersonal_AnticipoCero_EsValido()
+    {
+        var resultado = await CreateCalculator(
+            creditoService: new FakeCreditoSimulacionVentaService(),
+            configuracionPagoService: ConfiguracionCreditoPersonalDisponible())
+            .SimularAsync(DefaultRequest(clienteId: 44, cuotas: new[] { 6 }, anticipo: 0m));
+
+        var credito = Assert.Single(resultado.OpcionesPago, o => o.MedioPago == CotizacionMedioPagoTipo.CreditoPersonal);
+        Assert.True(credito.Disponible);
+    }
+
+    [Fact]
+    public async Task Simular_CreditoPersonal_AnticipoIgualAlTotal_EsValido()
+    {
+        var creditoService = new FakeCreditoSimulacionVentaService();
+
+        var resultado = await CreateCalculator(
+            creditoService: creditoService,
+            configuracionPagoService: ConfiguracionCreditoPersonalDisponible())
+            .SimularAsync(DefaultRequest(clienteId: 44, cuotas: new[] { 6 }, anticipo: 200_000m)); // 2 x 100_000
+
+        var credito = Assert.Single(resultado.OpcionesPago, o => o.MedioPago == CotizacionMedioPagoTipo.CreditoPersonal);
+        Assert.True(credito.Disponible);
+        Assert.Contains(creditoService.Requests, r => r.Anticipo == 200_000m);
+    }
+
+    [Fact]
+    public async Task Simular_CreditoPersonal_AnticipoMayorAlTotal_DevuelveAnticipoInvalido()
+    {
+        var creditoService = new FakeCreditoSimulacionVentaService();
+
+        var resultado = await CreateCalculator(
+            creditoService: creditoService,
+            configuracionPagoService: ConfiguracionCreditoPersonalDisponible())
+            .SimularAsync(DefaultRequest(clienteId: 44, cuotas: new[] { 6 }, anticipo: 200_000.01m));
+
+        var credito = Assert.Single(resultado.OpcionesPago, o => o.MedioPago == CotizacionMedioPagoTipo.CreditoPersonal);
+        Assert.False(credito.Disponible);
+        Assert.Equal(CotizacionOpcionPagoEstado.AnticipoInvalido, credito.Estado);
+        Assert.Contains("no puede superar", credito.MotivoNoDisponible, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, creditoService.CallCount);
+    }
+
+    [Fact]
+    public async Task Simular_CreditoPersonal_AnticipoNegativo_DevuelveAnticipoInvalido()
+    {
+        var resultado = await CreateCalculator(
+            configuracionPagoService: ConfiguracionCreditoPersonalDisponible())
+            .SimularAsync(DefaultRequest(clienteId: 44, cuotas: new[] { 6 }, anticipo: -1m));
+
+        var credito = Assert.Single(resultado.OpcionesPago, o => o.MedioPago == CotizacionMedioPagoTipo.CreditoPersonal);
+        Assert.False(credito.Disponible);
+        Assert.Equal(CotizacionOpcionPagoEstado.AnticipoInvalido, credito.Estado);
+    }
+
+    [Fact]
+    public async Task Simular_CreditoPersonal_ExponeDesgloseCompletoDelPlanCanonico()
+    {
+        // El calculator no calcula nada: expone tal cual lo que devuelve el servicio canonico
+        // (saldo, recargo, total financiado, vector de cuotas, fuente), sin reconstruirlo.
+        var plan = new CreditoSimulacionVentaJson
+        {
+            totalVenta = 200_000m,
+            anticipo = 20_000m,
+            montoFinanciado = 180_000m,
+            cuotaEstimada = 19_800m,
+            tasaAplicada = 10m,
+            interesTotal = 18_000m,
+            totalAPagar = 198_000m,
+            gastosAdministrativos = 0m,
+            totalPlan = 198_000m,
+            fechaPrimerPago = "2026-08-15",
+            fuentePorcentaje = "Producto",
+            cuotas = new[]
+            {
+                new CreditoSimulacionCuotaJson { numeroCuota = 1, capital = 90_000m, interes = 9_000m, total = 99_000m },
+                new CreditoSimulacionCuotaJson { numeroCuota = 2, capital = 90_000m, interes = 9_000m, total = 99_000m }
+            }
+        };
+        var creditoService = new FakeCreditoSimulacionVentaService
+        {
+            Resultado = CreditoSimulacionVentaResultado.Valido(plan)
+        };
+
+        var resultado = await CreateCalculator(
+            creditoService: creditoService,
+            configuracionPagoService: ConfiguracionCreditoPersonalDisponible())
+            .SimularAsync(DefaultRequest(clienteId: 44, cuotas: new[] { 6 }, anticipo: 20_000m));
+
+        var credito = Assert.Single(resultado.OpcionesPago, o => o.MedioPago == CotizacionMedioPagoTipo.CreditoPersonal);
+        var planResultado = Assert.Single(credito.Planes);
+
+        Assert.Equal(20_000m, planResultado.Anticipo);
+        Assert.Equal(180_000m, planResultado.SaldoAFinanciar);
+        Assert.Equal(198_000m, planResultado.TotalFinanciado);
+        Assert.Equal(198_000m, planResultado.Total); // totalAPagar, NO totalPlan (bug ML7 corregido acá tambien)
+        Assert.Equal("Producto", planResultado.FuentePorcentaje);
+        Assert.Equal(2, planResultado.Cuotas.Count);
+        Assert.Equal(99_000m, planResultado.UltimaCuota);
+        Assert.Equal(planResultado.TotalFinanciado, planResultado.Cuotas.Sum(c => c.Total));
     }
 
     [Fact]
@@ -572,6 +679,14 @@ public sealed class CotizacionPagoCalculatorContractTests
             restriccionService ?? new FakeProductoCreditoRestriccionService(),
             configuracionPagoService ?? new FakeConfiguracionPagoService());
 
+    // Micro-lote 4: la disponibilidad de cantidades sale SOLO de los planes globales activos. En
+    // produccion la configuracion siempre los tiene; el default cubre 1..12 (tasa null = heredar la
+    // global) para que los casos que ejercen tasa/cap/perfil tengan cuotas y no sean rechazados.
+    private static List<CuotaCreditoPersonalViewModel> PlanesGlobalesPorDefecto() =>
+        Enumerable.Range(1, 12)
+            .Select(n => new CuotaCreditoPersonalViewModel { CantidadCuotas = n, TasaMensual = null, Activo = true })
+            .ToList();
+
     private static FakeConfiguracionPagoService ConfiguracionCreditoPersonalDisponible(
         int cuotasMinimas = 1,
         int cuotasMaximas = 12,
@@ -586,19 +701,21 @@ public sealed class CotizacionPagoCalculatorContractTests
                 CuotasMinimas = cuotasMinimas,
                 CuotasMaximas = cuotasMaximas
             },
-            CuotasCreditoPersonal = cuotasPorCantidad ?? new List<CuotaCreditoPersonalViewModel>()
+            CuotasCreditoPersonal = cuotasPorCantidad ?? PlanesGlobalesPorDefecto()
         };
 
     private static CotizacionSimulacionRequest DefaultRequest(
         int cantidad = 2,
         int? clienteId = null,
         int? tarjetaId = null,
-        int[]? cuotas = null) =>
+        int[]? cuotas = null,
+        decimal? anticipo = null) =>
         new()
         {
             ClienteId = clienteId,
             ConfiguracionTarjetaId = tarjetaId,
             CuotasSolicitadas = cuotas,
+            Anticipo = anticipo,
             Productos =
             {
                 new CotizacionProductoRequest
@@ -944,15 +1061,17 @@ public sealed class CotizacionPagoCalculatorContractTests
         public Task<(bool Ok, List<string> Errores)> GuardarMontosPorPuntajeAsync(
             List<MontoPorPuntajeCreditoViewModel> items, string usuario) => throw new NotSupportedException();
 
-        public List<CuotaCreditoPersonalViewModel> CuotasCreditoPersonal { get; init; } = new();
+        // Micro-lote 4: por defecto hay planes globales activos (1..12). Los tests que necesitan
+        // "sin planes" o un set puntual lo sobrescriben.
+        public List<CuotaCreditoPersonalViewModel> CuotasCreditoPersonal { get; init; } = PlanesGlobalesPorDefecto();
 
         public Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalAsync() => Task.FromResult(CuotasCreditoPersonal);
 
         public Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalActivasAsync() =>
             Task.FromResult(CuotasCreditoPersonal.Where(c => c.Activo).ToList());
 
-        public Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalEfectivasAsync(IEnumerable<int> productoIds) =>
-            GetCuotasCreditoPersonalActivasAsync();
+        public async Task<PlanesCreditoPersonalResultado> ResolverPlanesCreditoPersonalAsync(IEnumerable<int> productoIds) =>
+            PlanesCreditoPersonalStub.DesdeGlobales(await GetCuotasCreditoPersonalActivasAsync(), TasaGlobal);
 
         public Task<(bool Ok, List<string> Errores)> GuardarCuotasCreditoPersonalAsync(
             List<CuotaCreditoPersonalViewModel> items, string usuario) => throw new NotSupportedException();

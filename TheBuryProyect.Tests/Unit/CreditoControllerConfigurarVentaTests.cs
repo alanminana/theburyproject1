@@ -214,6 +214,41 @@ public class CreditoControllerConfigurarVentaTests
         var result = await controller.ConfigurarVenta(modelo);
 
         AssertViewWithModelError(result, controller, nameof(modelo.CantidadCuotas), "bloquea el medio de pago");
+        // Los productos impiden la operación: es conflicto, no un formulario mal completado.
+        Assert.Equal(StatusCodes.Status409Conflict, controller.Response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ConfigurarVentaPost_RechazoPorDatosDelFormulario_Devuelve400()
+    {
+        var controller = CrearController(new RecordingCreditoService(CreditoBase()), ConfigService(tasaGlobal: 5m));
+        var modelo = ModeloPost(FuenteConfiguracionCredito.Global, metodo: null);
+
+        await controller.ConfigurarVenta(modelo);
+
+        Assert.Equal(StatusCodes.Status400BadRequest, controller.Response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ConfigurarVentaPost_CuotasFueraDelRangoPorProducto_Devuelve409()
+    {
+        var controller = CrearController(
+            new RecordingCreditoService(CreditoBase()),
+            ConfigService(tasaGlobal: 5m, rango: (1, 24, "Global", null)),
+            ventaService: new StubVentaService(venta: VentaConProducto()),
+            productoCreditoRestriccionService: new StubProductoCreditoRestriccionService(new ProductoCreditoRestriccionResultado
+            {
+                Permitido = true,
+                MaxCuotasCredito = 6,
+                ProductoIdsRestrictivos = new[] { 7 }
+            }));
+        var modelo = ModeloPost(FuenteConfiguracionCredito.Global, MetodoCalculoCredito.Global, ventaId: 99);
+        modelo.CantidadCuotas = 7;
+
+        await controller.ConfigurarVenta(modelo);
+
+        // El rango lo reduce el producto, no el método: la respuesta es conflicto.
+        Assert.Equal(StatusCodes.Status409Conflict, controller.Response.StatusCode);
     }
 
     [Fact]
@@ -241,6 +276,41 @@ public class CreditoControllerConfigurarVentaTests
         Assert.Equal(7, creditoService.LastCommand.ProductoIdRestrictivoSnap);
         Assert.Equal(24, creditoService.LastCommand.MaxCuotasBaseSnap);
         Assert.Equal(6, creditoService.LastCommand.CuotasMaxPermitidas);
+    }
+
+    [Fact]
+    public async Task ConfigurarVentaPost_MontoManipuladoEnHidden_UsaTotalRealDeLaVenta()
+    {
+        // Tests obligatorios #1/#2: modelo.Monto llega desde el hidden #hdn-monto-venta, editable
+        // en DevTools. Con venta asociada el crédito debe configurarse con el total real.
+        var creditoService = new RecordingCreditoService(CreditoBase());
+        var controller = CrearController(
+            creditoService,
+            ConfigService(tasaGlobal: 5m, rango: (1, 24, "Global", null)),
+            ventaService: new StubVentaService(venta: VentaConProducto()));
+        var modelo = ModeloPost(FuenteConfiguracionCredito.Global, MetodoCalculoCredito.Global, ventaId: 99);
+        modelo.Monto = 999_999m;
+
+        var result = await controller.ConfigurarVenta(modelo);
+
+        Assert.IsType<RedirectToActionResult>(result);
+        Assert.NotNull(creditoService.LastCommand);
+        Assert.Equal(10_000m, creditoService.LastCommand!.Monto);
+    }
+
+    [Fact]
+    public async Task ConfigurarVentaPost_AnticipoSuperaTotalRealDeLaVenta_Rechaza()
+    {
+        var controller = CrearController(
+            new RecordingCreditoService(CreditoBase()),
+            ConfigService(tasaGlobal: 5m, rango: (1, 24, "Global", null)),
+            ventaService: new StubVentaService(venta: VentaConProducto()));
+        var modelo = ModeloPost(FuenteConfiguracionCredito.Global, MetodoCalculoCredito.Global, ventaId: 99);
+        modelo.Anticipo = 10_001m;
+
+        var result = await controller.ConfigurarVenta(modelo);
+
+        AssertViewWithModelError(result, controller, nameof(modelo.Anticipo), "anticipo no puede superar");
     }
 
     [Fact]
@@ -324,7 +394,10 @@ public class CreditoControllerConfigurarVentaTests
             contratoVentaCreditoService: contratoService ?? new StubContratoVentaCreditoService(),
             aptitudService: null,
             productoCreditoRestriccionService: productoCreditoRestriccionService);
-        controller.TempData = new TempDataDictionary(new DefaultHttpContext(), new InMemoryTempDataProvider());
+        // ConfigurarVenta fija Response.StatusCode al rechazar: el controller necesita HttpContext.
+        var httpContext = new DefaultHttpContext();
+        controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
+        controller.TempData = new TempDataDictionary(httpContext, new InMemoryTempDataProvider());
         return controller;
     }
 
@@ -451,7 +524,6 @@ public class CreditoControllerConfigurarVentaTests
         public Task<CreditoViewModel> CreatePendienteConfiguracionAsync(int clienteId, decimal montoTotal) => throw new NotImplementedException();
         public Task<bool> UpdateAsync(CreditoViewModel viewModel) => throw new NotImplementedException();
         public Task<bool> DeleteAsync(int id) => throw new NotImplementedException();
-        public Task<SimularCreditoViewModel> SimularCreditoAsync(SimularCreditoViewModel modelo) => throw new NotImplementedException();
         public Task<bool> AprobarCreditoAsync(int creditoId, string aprobadoPor) => throw new NotImplementedException();
         public Task<bool> RechazarCreditoAsync(int creditoId, string motivo) => throw new NotImplementedException();
         public Task<bool> CancelarCreditoAsync(int creditoId, string motivo) => throw new NotImplementedException();
@@ -475,6 +547,14 @@ public class CreditoControllerConfigurarVentaTests
         public List<PerfilCreditoViewModel> Perfiles { get; init; } = new();
         public (int Min, int Max, string Descripcion, string? PerfilNombre) Rango { get; init; } = (1, 120, "Manual", null);
 
+        // Micro-lote 4: los planes globales activos son la unica fuente de cantidades. En produccion
+        // siempre existen; el stub ofrece 1..24 (tasa null = heredar la global) salvo que el test
+        // seedee otra cosa, para que la configuracion no sea rechazada por "sin planes globales".
+        public List<CuotaCreditoPersonalViewModel> CuotasCreditoPersonal { get; init; } =
+            Enumerable.Range(1, 24)
+                .Select(n => new CuotaCreditoPersonalViewModel { CantidadCuotas = n, TasaMensual = null, Activo = true })
+                .ToList();
+
         public Task<decimal?> ObtenerTasaInteresMensualCreditoPersonalAsync() => Task.FromResult(TasaGlobal);
         public Task<List<PerfilCreditoViewModel>> GetPerfilesCreditoActivosAsync() => Task.FromResult(Perfiles);
         public Task<ParametrosCreditoCliente> ObtenerParametrosCreditoClienteAsync(int clienteId, decimal tasaGlobal) => Task.FromResult(Parametros);
@@ -496,9 +576,9 @@ public class CreditoControllerConfigurarVentaTests
         public Task<MaxCuotasSinInteresResultado?> ObtenerMaxCuotasSinInteresEfectivoAsync(int tarjetaId, IEnumerable<int> productoIds) => throw new NotImplementedException();
         public Task<List<MontoPorPuntajeCreditoViewModel>> GetMontosPorPuntajeAsync() => Task.FromResult(new List<MontoPorPuntajeCreditoViewModel>());
         public Task<(bool Ok, List<string> Errores)> GuardarMontosPorPuntajeAsync(List<MontoPorPuntajeCreditoViewModel> items, string usuario) => Task.FromResult((true, new List<string>()));
-        public Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalAsync() => Task.FromResult(new List<CuotaCreditoPersonalViewModel>());
-        public Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalActivasAsync() => Task.FromResult(new List<CuotaCreditoPersonalViewModel>());
-        public Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalEfectivasAsync(IEnumerable<int> productoIds) => GetCuotasCreditoPersonalActivasAsync();
+        public Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalAsync() => Task.FromResult(CuotasCreditoPersonal);
+        public Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalActivasAsync() => Task.FromResult(CuotasCreditoPersonal.Where(c => c.Activo).ToList());
+        public async Task<PlanesCreditoPersonalResultado> ResolverPlanesCreditoPersonalAsync(IEnumerable<int> productoIds) => PlanesCreditoPersonalStub.DesdeGlobales(await GetCuotasCreditoPersonalActivasAsync());
         public Task<(bool Ok, List<string> Errores)> GuardarCuotasCreditoPersonalAsync(List<CuotaCreditoPersonalViewModel> items, string usuario) => Task.FromResult((true, new List<string>()));
     }
 
@@ -535,7 +615,6 @@ public class CreditoControllerConfigurarVentaTests
         public Task<bool> GuardarDatosTarjetaAsync(int ventaId, DatosTarjetaViewModel datosTarjeta) => throw new NotImplementedException();
         public Task<bool> GuardarDatosChequeAsync(int ventaId, DatosChequeViewModel datosCheque) => throw new NotImplementedException();
         public Task<DatosTarjetaViewModel> CalcularCuotasTarjetaAsync(int tarjetaId, decimal monto, int cuotas) => throw new NotImplementedException();
-        public Task<DatosCreditoPersonallViewModel> CalcularCreditoPersonallAsync(int creditoId, decimal montoAFinanciar, int cuotas, DateTime fechaPrimeraCuota) => throw new NotImplementedException();
         public Task<DatosCreditoPersonallViewModel?> ObtenerDatosCreditoVentaAsync(int ventaId) => throw new NotImplementedException();
         public Task<bool> ValidarDisponibilidadCreditoAsync(int creditoId, decimal monto) => throw new NotImplementedException();
         public CalculoTotalesVentaResponse CalcularTotalesPreview(List<DetalleCalculoVentaRequest> detalles, decimal descuentoGeneral, bool descuentoEsPorcentaje) => throw new NotImplementedException();

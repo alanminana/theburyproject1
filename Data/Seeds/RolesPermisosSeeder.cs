@@ -134,7 +134,8 @@ public static class RolesPermisosSeeder
                 ("Pagar Cuota", "payinstallment", 2),
                 ("Ver Moras", "viewarrears", 3),
                 ("Aplicar Punitorio", "applyfine", 4),
-                ("Ver Alertas", "viewalerts", 5)
+                ("Ver Alertas", "viewalerts", 5),
+                ("Anular Punitorio", "revertfine", 6)
             }),
 
             // COMPRAS
@@ -266,7 +267,10 @@ public static class RolesPermisosSeeder
             ("Configuración", "configuracion", "Configuración", "bi-gear", 92, new List<(string, string, int)>
             {
                 ("Ver", "view", 1),
-                ("Editar", "update", 2)
+                ("Editar", "update", 2),
+                ("Ver Punitorios", "viewpunitorio", 3),
+                ("Gestionar Punitorios", "managepunitorio", 4),
+                ("Vigencia Retroactiva de Punitorios", "retroactivepunitorio", 5)
             }),
             ("Usuarios", "usuarios", "Configuración", "bi-person", 93, new List<(string, string, int)>
             {
@@ -418,7 +422,15 @@ public static class RolesPermisosSeeder
 
         var adminRole = roles.FirstOrDefault(r => r.Name == Models.Constants.Roles.Administrador);
         if (adminRole != null)
-            await AsignarTodosLosPermisosAsync(context, adminRole.Id, modulos, exceptoAcciones: new[] { "usuarios.delete", "roles.delete", "configuracion.update" });
+            await AsignarTodosLosPermisosAsync(context, adminRole.Id, modulos, exceptoAcciones: new[]
+            {
+                "usuarios.delete", "roles.delete", "configuracion.update",
+                // PUN-ML8: crear/versionar la configuración de punitorios es una operación
+                // administrativa distinta de "configuracion.update" (que ya excluye a Admin en
+                // este mismo seeder) — mismo trato restrictivo, solo SuperAdmin. Admin conserva
+                // "configuracion.viewpunitorio" (no está en esta lista, igual que "configuracion.view").
+                "configuracion.managepunitorio", "configuracion.retroactivepunitorio"
+            });
 
         var gerenteRole = roles.FirstOrDefault(r => r.Name == Models.Constants.Roles.Gerente);
         if (gerenteRole != null)

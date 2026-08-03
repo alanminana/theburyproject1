@@ -1,23 +1,32 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
-    "allow": [
-      "Bash(*)",
-      "Read(*)",
-      "Write(*)",
-      "CreateFile(*)",
-      "DeleteFile(*)",
-      "MoveFile(*)"
-    ],
-    "deny": []
+    "defaultMode": "bypassPermissions"
+  },
+  "skipDangerousModePermissionPrompt": true,
+  "skillOverrides": {
+    "design-taste-frontend": "user-invocable-only",
+    "emil-design-eng": "user-invocable-only",
+    "full-output-enforcement": "user-invocable-only",
+    "gpt-taste": "user-invocable-only",
+    "high-end-visual-design": "user-invocable-only",
+    "image-to-code": "user-invocable-only",
+    "imagegen-frontend-mobile": "user-invocable-only",
+    "imagegen-frontend-web": "user-invocable-only",
+    "industrial-brutalist-ui": "user-invocable-only",
+    "minimalist-ui": "user-invocable-only",
+    "redesign-existing-projects": "user-invocable-only",
+    "stitch-design-taste": "user-invocable-only",
+    "ui-ux-pro-max": "user-invocable-only"
   },
   "enabledPlugins": {
-    "frontend-design@claude-plugins-official": true,
-    "context7@claude-plugins-official": true,
-    "code-simplifier@claude-plugins-official": true,
-    "playwright@claude-plugins-official": true,
-    "skill-creator@claude-plugins-official": true,
-    "security-guidance@claude-plugins-official": true,
-    "vercel@claude-plugins-official": true
+    "claude-mem@thedotmack": false,
+    "frontend-design@claude-plugins-official": false,
+    "context7@claude-plugins-official": false,
+    "code-simplifier@claude-plugins-official": false,
+    "playwright@claude-plugins-official": false,
+    "skill-creator@claude-plugins-official": false,
+    "security-guidance@claude-plugins-official": false,
+    "vercel@claude-plugins-official": false
   }
 }

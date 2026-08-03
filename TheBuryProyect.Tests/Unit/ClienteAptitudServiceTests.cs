@@ -5,6 +5,7 @@ using TheBuryProject.Data;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services;
+using TheBuryProject.Tests.Helpers;
 using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Tests.Unit;
@@ -63,11 +64,11 @@ public class ClienteAptitudServiceTests
         ValidarMora = false
     };
 
-    private static ClienteAptitudService BuildService(AppDbContext ctx)
+    private static ClienteAptitudService BuildService(AppDbContext ctx, IRelojComercial? reloj = null)
     {
         var creditoDisponible = new CreditoDisponibleService(ctx, Microsoft.Extensions.Logging.Abstractions.NullLogger<TheBuryProject.Services.CreditoDisponibleService>.Instance);
         var garanteService = new GaranteService(ctx, NullLogger<GaranteService>.Instance);
-        return new ClienteAptitudService(ctx, NullLogger<ClienteAptitudService>.Instance, creditoDisponible, garanteService);
+        return new ClienteAptitudService(ctx, NullLogger<ClienteAptitudService>.Instance, creditoDisponible, garanteService, reloj);
     }
 
     // -----------------------------------------------------------------------
@@ -162,6 +163,61 @@ public class ClienteAptitudServiceTests
             Assert.False(detalle.EsBloqueo);           // RequiereAutorizacion, no bloqueo
             Assert.Equal("bi-clock-history", detalle.Icono);
             Assert.Equal("warning", detalle.Color);
+        }
+    }
+
+    /// <summary>
+    /// PUN-ML7: antes de este fix, EvaluarMoraInternaAsync usaba <c>DateTime.UtcNow.Date</c> — entre
+    /// las 21:00 y las 23:59 hora Argentina (UTC-3), el día UTC ya avanzó al día siguiente mientras
+    /// localmente sigue siendo "hoy", adelantando la mora un día. Ancla el reloj a un instante UTC
+    /// real (2026-06-16 01:00 UTC = 2026-06-15 22:00 ART) para ejercer la conversión de zona
+    /// horaria de verdad, no un reloj fake que la esquiva.
+    /// </summary>
+    [Fact]
+    public async Task EvaluarMora_CuotaVenceHoyEnArgentina_NoEsMora_AunqueUtcYaAvanzoAlDiaSiguiente()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            var config = ConfigSinValidaciones();
+            config.ValidarMora = true;
+            ctx.Set<ConfiguracionCredito>().Add(config);
+
+            ctx.Clientes.Add(BaseCliente(1));
+            await ctx.SaveChangesAsync();
+
+            var credito = new Credito
+            {
+                ClienteId = 1,
+                Estado = EstadoCredito.Activo,
+                IsDeleted = false,
+                SaldoPendiente = 1_000m,
+                RowVersion = new byte[8]
+            };
+            ctx.Creditos.Add(credito);
+            await ctx.SaveChangesAsync();
+
+            // Vence "hoy" en fecha comercial Argentina (2026-06-15) al instante de la prueba.
+            ctx.Cuotas.Add(new Cuota
+            {
+                CreditoId = credito.Id,
+                NumeroCuota = 1,
+                FechaVencimiento = new DateTime(2026, 6, 15),
+                MontoCapital = 800m,
+                MontoInteres = 200m,
+                MontoTotal = 1_000m,
+                MontoPagado = 0m,
+                MontoPunitorio = 0m,
+                Estado = EstadoCuota.Pendiente
+            });
+            await ctx.SaveChangesAsync();
+
+            var reloj = RelojComercialFijo.EnUtc(new DateTimeOffset(2026, 6, 16, 1, 0, 0, TimeSpan.Zero));
+            var service = BuildService(ctx, reloj);
+
+            var resultado = await service.EvaluarMoraAsync(1);
+
+            Assert.False(resultado.TieneMora);
         }
     }
 

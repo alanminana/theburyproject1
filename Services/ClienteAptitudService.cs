@@ -20,17 +20,24 @@ namespace TheBuryProject.Services
         private readonly ILogger<ClienteAptitudService> _logger;
         private readonly ICreditoDisponibleService _creditoDisponibleService;
         private readonly IGaranteService _garanteService;
+        private readonly IRelojComercial _reloj;
 
         public ClienteAptitudService(
             AppDbContext context,
             ILogger<ClienteAptitudService> logger,
             ICreditoDisponibleService creditoDisponibleService,
-            IGaranteService garanteService)
+            IGaranteService garanteService,
+            IRelojComercial? reloj = null)
         {
             _context = context;
             _logger = logger;
             _creditoDisponibleService = creditoDisponibleService;
             _garanteService = garanteService;
+            // PUN-ML7: fuente única de "hoy" para decidir mora. La inyección obligatoria sería
+            // preferible, pero varios tests fuera del alcance de esta corrección construyen este
+            // servicio sin pasar reloj — el fallback es inerte en producción (Program.cs registra
+            // IRelojComercial como Singleton; DI siempre lo resuelve) y solo se alcanza ahí.
+            _reloj = reloj ?? RelojComercial.Sistema;
         }
 
         #region Evaluación de Aptitud
@@ -638,7 +645,10 @@ namespace TheBuryProject.Services
                 return resultado;
             }
 
-            var hoy = DateTime.UtcNow.Date;
+            // PUN-ML7: fecha comercial única (antes DateTime.UtcNow.Date — adelantaba mora hasta 3hs
+            // por el cruce de día UTC/Argentina, ver IRelojComercial). InicioDiaComercial es la cota
+            // ya diseñada para comparar contra Cuota.FechaVencimiento (DateTime a medianoche).
+            var hoy = _reloj.InicioDiaComercial;
 
             // Buscar cuotas vencidas del cliente
             var cuotasVencidas = await _context.Cuotas

@@ -243,48 +243,35 @@
 
     // ── Crédito personal ────────────────────────────────────────
 
+    var CP_PREVIEW_URL = '/Producto/PreviewRecargoCreditoPersonal';
+
+    function creditoPersonalElementos() {
+        return {
+            admiteHidden: el('prod-edit-credito-admite'),
+            cardsWrap: document.querySelector('#' + FORM_ID + ' [data-cp-cards-wrap]'),
+            cardsCont: el('prod-edit-credito-cards'),
+            maxCuotasWrap: document.querySelector('#' + FORM_ID + ' [data-cp-maxcuotas-wrap]')
+        };
+    }
+
     function renderCreditoPersonal(cp) {
         cp = cp || {};
-        var admite = el('prod-edit-credito-admite');
-        if (admite) admite.checked = cp.admiteCreditoPersonal !== false;
         var maxc = el('prod-edit-credito-maxcuotas');
         if (maxc) maxc.value = (cp.maxCuotasCredito != null) ? String(cp.maxCuotasCredito) : '';
 
-        var cont = el('prod-edit-credito-cards');
-        if (!cont) return;
-        cont.innerHTML = '';
-        var cuotas = cp.cuotas || [];
-        if (!cuotas.length) {
-            var vacio = document.createElement('p');
-            vacio.className = 'text-xs text-slate-500 sm:col-span-2 lg:col-span-3';
-            vacio.textContent = 'No hay planes de cuota configurados. El producto hereda la configuración global.';
-            cont.appendChild(vacio);
-            return;
-        }
-        cuotas.forEach(function (c, i) {
-            var n = Number(c.cantidadCuotas) || 0;
-            var tasa = (c.tasaMensual != null) ? c.tasaMensual : 0;
-            var orden = (c.orden != null) ? c.orden : n;
-            var card = document.createElement('div');
-            card.className = 'rounded-xl border border-slate-800 bg-slate-950/40 p-3 space-y-2';
-            card.innerHTML =
-                '<input type="hidden" name="CreditoPersonal.Cuotas[' + i + '].Id" value="' + (c.id || 0) + '" />' +
-                '<input type="hidden" name="CreditoPersonal.Cuotas[' + i + '].CantidadCuotas" value="' + n + '" />' +
-                '<input type="hidden" name="CreditoPersonal.Cuotas[' + i + '].Orden" value="' + orden + '" />' +
-                '<div class="flex items-center justify-between gap-2">' +
-                    '<span class="text-sm font-semibold text-white">' + n + ' cuota' + (n !== 1 ? 's' : '') + '</span>' +
-                    '<label class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-300">' +
-                        '<input type="checkbox" name="CreditoPersonal.Cuotas[' + i + '].Activo" value="true" class="rounded border-slate-600 bg-slate-900 text-primary focus:ring-primary"' + (c.activo ? ' checked' : '') + ' />' +
-                        '<input type="hidden" name="CreditoPersonal.Cuotas[' + i + '].Activo" value="false" />' +
-                        'Activa' +
-                    '</label>' +
-                '</div>' +
-                '<div class="space-y-1">' +
-                    '<label class="text-xs text-slate-400">Tasa mensual (%)</label>' +
-                    '<input name="CreditoPersonal.Cuotas[' + i + '].TasaMensual" type="number" step="0.01" min="0" max="100" value="' + tasa + '" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 font-mono text-white focus:ring-2 focus:ring-primary outline-none" />' +
-                '</div>';
-            cont.appendChild(card);
+        var modo = cp.modo || 'HeredaGlobal';
+        document.querySelectorAll('#' + FORM_ID + ' [data-cp-modo]').forEach(function (r) {
+            r.checked = (r.value === modo);
         });
+
+        var cont = el('prod-edit-credito-cards');
+        window.ProductoCreditoPersonalUI.renderCards(cont, cp.cuotas || [], 'CreditoPersonal.Cuotas', CP_PREVIEW_URL);
+        window.ProductoCreditoPersonalUI.aplicarModo(modo, creditoPersonalElementos());
+    }
+
+    function initCreditoPersonalModo() {
+        var radios = document.querySelectorAll('#' + FORM_ID + ' [data-cp-modo]');
+        if (radios.length) window.ProductoCreditoPersonalUI.wireModo(radios, creditoPersonalElementos());
     }
 
     // ── Solapas ─────────────────────────────────────────────────
@@ -608,5 +595,6 @@
     document.addEventListener('DOMContentLoaded', function () {
         initSubmit();
         initDelegatedEvents();
+        initCreditoPersonalModo();
     });
 })();

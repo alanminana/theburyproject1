@@ -304,6 +304,28 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
         if (!request.IncluirCreditoPersonal)
             return;
 
+        // Autoridad del anticipo: se valida acá (server-side, contra el totalBase ya resuelto de
+        // precios reales) antes de tocar cliente/planes. Se aplica antes del recargo dentro de
+        // FinancialCalculationService.SimularPlanCredito (via CreditoSimulacionVentaService):
+        // este calculator nunca resta el anticipo por su cuenta.
+        var anticipoVal = request.Anticipo ?? 0m;
+        if (anticipoVal < 0m || anticipoVal > totalBase)
+        {
+            var motivoAnticipo = anticipoVal < 0m
+                ? "El anticipo no puede ser negativo."
+                : "El anticipo no puede superar el total cotizado.";
+            advertencias.Add(motivoAnticipo);
+            opciones.Add(new CotizacionMedioPagoResultado
+            {
+                MedioPago = CotizacionMedioPagoTipo.CreditoPersonal,
+                NombreMedioPago = "Credito personal",
+                Disponible = false,
+                Estado = CotizacionOpcionPagoEstado.AnticipoInvalido,
+                MotivoNoDisponible = motivoAnticipo
+            });
+            return;
+        }
+
         if (!request.ClienteId.HasValue)
         {
             const string advertenciaSinCliente = "Credito personal requiere cliente y evaluacion antes de confirmar.";
@@ -362,28 +384,33 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
             .Where(c => c > 0)
             .ToHashSet();
 
-        // Tabla de cuotas por cantidad solo aplica cuando no hay perfil preferido ni config
-        // personalizada del cliente: esos caminos mantienen su propia tasa/rango unicos.
-        var esGlobalPuro = parametros.Fuente == FuenteConfiguracionCredito.Global && parametros.PerfilPreferidoId == null;
-        var cuotasConfiguradas = esGlobalPuro
-            ? await _configuracionPagoService.GetCuotasCreditoPersonalEfectivasAsync(
-                request.Productos.Select(p => p.ProductoId))
-            : new List<CuotaCreditoPersonalViewModel>();
+        // Disponibilidad de cantidades: SIEMPRE desde los planes activos (resolucion canonica unica).
+        // Sin planes no hay cuotas: no existe fallback a un rango.
+        var planesVenta = await _configuracionPagoService.ResolverPlanesCreditoPersonalAsync(
+            request.Productos.Select(p => p.ProductoId));
 
-        List<int> cuotasBase;
-        if (cuotasConfiguradas.Count > 0)
+        // Sin planes globales activos o interseccion vacia entre productos: no financiable. No se
+        // simula con un rango, que ofreceria cuotas que ningun plan habilita.
+        if (!planesVenta.EsValido)
         {
-            cuotasBase = cuotasConfiguradas
-                .Select(c => c.CantidadCuotas)
-                .Where(c => !restricciones.MaxCuotasCredito.HasValue || c <= restricciones.MaxCuotasCredito.Value)
-                .ToList();
+            advertencias.Add(planesVenta.MensajeRechazo!);
+            opciones.Add(new CotizacionMedioPagoResultado
+            {
+                MedioPago = CotizacionMedioPagoTipo.CreditoPersonal,
+                NombreMedioPago = "Credito personal",
+                Disponible = false,
+                Estado = CotizacionOpcionPagoEstado.BloqueadoPorProducto,
+                MotivoNoDisponible = planesVenta.MensajeRechazo
+            });
+            return;
         }
-        else
-        {
-            cuotasBase = parametros.CuotasMinimas > cuotasMax
-                ? new List<int>()
-                : Enumerable.Range(parametros.CuotasMinimas, cuotasMax - parametros.CuotasMinimas + 1).ToList();
-        }
+
+        // El cliente/perfil/producto solo REDUCEN (cap maximo, ya consolidado en cuotasMax): nunca
+        // crean cantidades. Las cantidades ofrecidas son un subconjunto de los planes activos.
+        var cuotasBase = planesVenta.Planes
+            .Select(c => c.CantidadCuotas)
+            .Where(c => c <= cuotasMax)
+            .ToList();
 
         var cuotasCandidatas = cuotasBase
             .Where(c => cuotasSolicitadas == null || cuotasSolicitadas.Contains(c))
@@ -401,20 +428,24 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
 
         var planes = new List<CotizacionPlanPagoResultado>();
         var fechaPrimeraCuota = fechaCalculo.AddMonths(1).ToString("yyyy-MM-dd");
+        var productoIdsVenta = request.Productos.Select(p => p.ProductoId).ToList();
 
         foreach (var cuotas in cuotasCandidatas)
         {
-            var tasaCuota = cuotasConfiguradas.Count > 0
-                ? cuotasConfiguradas.First(c => c.CantidadCuotas == cuotas).TasaMensual
-                : parametros.TasaMensual;
-
+            // Resolución de tasa/plan 100% delegada a CreditoSimulacionVentaService (misma
+            // precedencia plan/cliente/global que usa Configurar Venta): este calculator no decide
+            // ninguna tasa por su cuenta, solo pasa ProductoIds/ClienteId y la Fuente ya resuelta
+            // para el cliente (mismo default que usa el GET de ConfigurarVenta).
             var simulacion = await _creditoSimulacionVentaService.SimularAsync(
                 new CreditoSimulacionVentaRequest
                 {
                     TotalVenta = totalBase,
-                    Anticipo = 0m,
+                    Anticipo = anticipoVal,
                     Cuotas = cuotas,
-                    TasaMensual = tasaCuota,
+                    ClienteId = request.ClienteId,
+                    ProductoIds = productoIdsVenta,
+                    MetodoCalculo = MetodoCalculoCredito.AutomaticoPorCliente,
+                    FuenteConfiguracion = parametros.Fuente,
                     GastosAdministrativos = parametros.GastosAdministrativos,
                     FechaPrimeraCuota = fechaPrimeraCuota
                 },
@@ -629,6 +660,16 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
             advertencias.Add($"Limite por producto: hasta {restricciones.MaxCuotasCredito.Value} cuotas.");
         }
 
+        var vector = plan.cuotas
+            .Select(c => new CotizacionPlanCuotaResultado
+            {
+                NumeroCuota = c.numeroCuota,
+                Capital = c.capital,
+                Interes = c.interes,
+                Total = c.total
+            })
+            .ToList();
+
         return new CotizacionPlanPagoResultado
         {
             Plan = $"{cuotas} cuota(s)",
@@ -637,8 +678,16 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
             InteresPorcentaje = plan.tasaAplicada,
             CostoFinancieroTotal = plan.interesTotal,
             TipoCalculo = "CreditoPersonalReadOnly",
-            Total = RedondearMoneda(plan.totalPlan),
+            // Total a pagar en cuotas (sin gastos administrativos, que no se financian en cuotas):
+            // totalAPagar, no totalPlan. Debe cerrar exacto contra la suma del vector de cuotas.
+            Total = RedondearMoneda(plan.totalAPagar),
             ValorCuota = RedondearMoneda(plan.cuotaEstimada),
+            Anticipo = plan.anticipo,
+            SaldoAFinanciar = plan.montoFinanciado,
+            TotalFinanciado = plan.totalAPagar,
+            UltimaCuota = vector.Count > 0 ? vector[^1].Total : null,
+            FuentePorcentaje = plan.fuentePorcentaje,
+            Cuotas = vector,
             Advertencias = advertencias
         };
     }

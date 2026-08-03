@@ -299,38 +299,59 @@ namespace TheBuryProject.Services
 
                 var usuario = _currentUserService.GetUsername();
 
-                // Si viene stock inicial > 0, dejamos trazabilidad en MovimientosStock.
-                using var tx = await _context.Database.BeginTransactionAsync();
+                // Si el llamador ya abrió una transacción ambiente sobre este mismo DbContext
+                // (p. ej. ProductoController coordinando Producto + Crédito Personal como una
+                // única unidad de trabajo), participamos de ella en lugar de abrir una anidada:
+                // EF Core no admite transacciones anidadas sobre la misma conexión/contexto.
+                // Si no hay ninguna, seguimos abriendo y confirmando la propia (comportamiento
+                // preexistente para cualquier otro llamador).
+                var hasAmbientTransaction = _context.Database.CurrentTransaction != null;
+                var tx = hasAmbientTransaction ? null : await _context.Database.BeginTransactionAsync();
 
-                _context.Productos.Add(producto);
-                await _context.SaveChangesAsync();
-
-                if (producto.StockActual > 0)
+                try
                 {
-                    var movimientoInicial = new MovimientoStock
-                    {
-                        ProductoId = producto.Id,
-                        Tipo = TipoMovimiento.Entrada,
-                        Cantidad = producto.StockActual,
-                        StockAnterior = 0,
-                        StockNuevo = producto.StockActual,
-                        CostoUnitarioAlMomento = Math.Round(producto.PrecioCompra, 2, MidpointRounding.AwayFromZero),
-                        CostoTotalAlMomento = Math.Round(producto.PrecioCompra * Math.Abs(producto.StockActual), 2, MidpointRounding.AwayFromZero),
-                        FuenteCosto = "ProductoActual",
-                        Referencia = "Stock inicial",
-                        Motivo = "Stock inicial al crear producto",
-                        CreatedAt = DateTime.UtcNow,
-                        CreatedBy = usuario
-                    };
-
-                    _context.MovimientosStock.Add(movimientoInicial);
+                    _context.Productos.Add(producto);
                     await _context.SaveChangesAsync();
+
+                    if (producto.StockActual > 0)
+                    {
+                        var movimientoInicial = new MovimientoStock
+                        {
+                            ProductoId = producto.Id,
+                            Tipo = TipoMovimiento.Entrada,
+                            Cantidad = producto.StockActual,
+                            StockAnterior = 0,
+                            StockNuevo = producto.StockActual,
+                            CostoUnitarioAlMomento = Math.Round(producto.PrecioCompra, 2, MidpointRounding.AwayFromZero),
+                            CostoTotalAlMomento = Math.Round(producto.PrecioCompra * Math.Abs(producto.StockActual), 2, MidpointRounding.AwayFromZero),
+                            FuenteCosto = "ProductoActual",
+                            Referencia = "Stock inicial",
+                            Motivo = "Stock inicial al crear producto",
+                            CreatedAt = DateTime.UtcNow,
+                            CreatedBy = usuario
+                        };
+
+                        _context.MovimientosStock.Add(movimientoInicial);
+                        await _context.SaveChangesAsync();
+                    }
+
+                    if (tx != null)
+                        await tx.CommitAsync();
+
+                    _logger.LogInformation("Producto creado: {Codigo} - {Nombre}", producto.Codigo, producto.Nombre);
+                    return producto;
                 }
-
-                await tx.CommitAsync();
-
-                _logger.LogInformation("Producto creado: {Codigo} - {Nombre}", producto.Codigo, producto.Nombre);
-                return producto;
+                catch
+                {
+                    if (tx != null)
+                        await tx.RollbackAsync();
+                    throw;
+                }
+                finally
+                {
+                    if (tx != null)
+                        await tx.DisposeAsync();
+                }
             }
             catch (Exception ex)
             {
@@ -838,6 +859,7 @@ namespace TheBuryProject.Services
                     Subcategoria          = producto.Subcategoria?.Nombre,
                     Descripcion           = producto.Descripcion,
                     StockActual           = producto.StockActual,
+                    StockMinimo           = producto.StockMinimo,
                     PrecioVenta           = precioVenta,
                     RequiereNumeroSerie   = producto.RequiereNumeroSerie,
                     Caracteristicas       = caracteristicas,

@@ -69,23 +69,73 @@ namespace TheBuryProject.Services
                 {
                     Id = 0,
                     CantidadCuotas = cantidad,
-                    TasaMensual = 0m,
+                    TasaMensual = null, // heredar la tasa global por defecto al activar la plantilla
                     Activo = false,
                     Orden = cantidad
                 });
             }
 
+            var modo = restriccion?.Permitido == false
+                ? ModoCreditoPersonalProducto.NoDisponible
+                : propias.Any(c => c.Activo)
+                    ? ModoCreditoPersonalProducto.ConfiguracionPropia
+                    : ModoCreditoPersonalProducto.HeredaGlobal;
+
             return new ProductoCreditoPersonalConfigViewModel
             {
+                Modo = modo,
                 AdmiteCreditoPersonal = restriccion?.Permitido ?? true,
                 MaxCuotasCredito = restriccion?.MaxCuotasCredito,
                 Cuotas = cuotas.OrderBy(c => c.CantidadCuotas).ToList()
             };
         }
 
-        public async Task GuardarAsync(int productoId, ProductoCreditoPersonalConfigViewModel config, string usuario)
+        public List<string> Validar(ProductoCreditoPersonalConfigViewModel config)
         {
             ArgumentNullException.ThrowIfNull(config);
+
+            var errores = new List<string>();
+            var entrantes = config.Cuotas ?? new List<CuotaCreditoPersonalViewModel>();
+
+            // El modo declarado (radio de la UI) es una señal explícita e independiente de
+            // AdmiteCreditoPersonal/Cuotas: un payload manipulado que los contradiga se rechaza
+            // acá, antes de tocar la base de datos.
+            var bloqueadoPorFlag = !config.AdmiteCreditoPersonal;
+            var bloqueadoPorModo = config.Modo == ModoCreditoPersonalProducto.NoDisponible;
+            if (bloqueadoPorFlag != bloqueadoPorModo)
+                errores.Add("El modo declarado de Crédito Personal no coincide con 'Admite crédito personal'.");
+
+            var hayActivosEntrantes = entrantes.Any(c => c.Activo);
+            if (bloqueadoPorFlag && hayActivosEntrantes)
+                errores.Add("No se puede bloquear Crédito Personal y mantener planes propios activos a la vez.");
+            if (config.Modo == ModoCreditoPersonalProducto.HeredaGlobal && hayActivosEntrantes)
+                errores.Add("El modo 'Hereda configuración global' no admite planes propios activos.");
+
+            var cantidades = entrantes.Select(c => c.CantidadCuotas).ToList();
+            var repetidas = cantidades.GroupBy(c => c).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
+            if (repetidas.Count > 0)
+                errores.Add($"Cantidades de cuotas duplicadas: {string.Join(", ", repetidas)}.");
+
+            var fueraDeRango = cantidades.Where(c => c < 1 || c > 120).ToList();
+            if (fueraDeRango.Count > 0)
+                errores.Add($"Cantidades de cuotas fuera de rango 1–120: {string.Join(", ", fueraDeRango)}.");
+
+            if (entrantes.Any(c => c.TasaMensual < 0))
+                errores.Add("El recargo no puede ser negativo.");
+
+            if (config.MaxCuotasCredito is < 1 or > 120)
+                errores.Add("El máximo de cuotas debe estar entre 1 y 120.");
+
+            return errores;
+        }
+
+        public async Task<(bool Ok, List<string> Errores)> GuardarAsync(int productoId, ProductoCreditoPersonalConfigViewModel config, string usuario)
+        {
+            ArgumentNullException.ThrowIfNull(config);
+
+            var errores = Validar(config);
+            if (errores.Count > 0)
+                return (false, errores);
 
             var restriccion = await _context.ProductoCreditoRestricciones
                 .FirstOrDefaultAsync(r => r.ProductoId == productoId && r.Activo && !r.IsDeleted);
@@ -112,11 +162,7 @@ namespace TheBuryProject.Services
                 .Where(c => c.ProductoId == productoId)
                 .ToListAsync();
 
-            var entrantes = (config.Cuotas ?? new List<CuotaCreditoPersonalViewModel>())
-                .Where(c => c.CantidadCuotas >= 1 && c.CantidadCuotas <= 120 && c.TasaMensual >= 0 && c.TasaMensual <= 100)
-                .GroupBy(c => c.CantidadCuotas)
-                .Select(g => g.First())
-                .ToList();
+            var entrantes = config.Cuotas ?? new List<CuotaCreditoPersonalViewModel>();
 
             foreach (var entrante in entrantes)
             {
@@ -147,6 +193,8 @@ namespace TheBuryProject.Services
             }
 
             await _context.SaveChangesAsync();
+
+            return (true, errores);
         }
     }
 }

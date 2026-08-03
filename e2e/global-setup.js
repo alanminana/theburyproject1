@@ -40,6 +40,18 @@ setup('autenticar usuario E2E', async ({ page }) => {
     await page.fill(passSelector, pass);
     await page.click('button[type="submit"]');
 
+    // Primer login de un usuario recien sembrado (BD nueva/descartable): interstitial de
+    // Terminos y Condiciones (TerminosCondicionesMiddleware) en la misma URL de login.
+    // Contra la BD compartida habitual esto no aparece porque el usuario E2E ya lo acepto
+    // una vez, por eso no se habia manejado aca.
+    const nombreCompleto = page.locator('input[placeholder="Nombre y apellido"]');
+    const tieneTerminos = await nombreCompleto.isVisible({ timeout: 5_000 }).catch(() => false);
+    if (tieneTerminos) {
+        await nombreCompleto.fill(`E2E ${user}`);
+        await page.getByRole('checkbox', { name: /Declaro que le.* y acepto/i }).setChecked(true);
+        await page.getByRole('button', { name: 'Aceptar y continuar' }).click();
+    }
+
     // Esperar redirección fuera del login
     await page.waitForURL(
         url => !url.toString().toLowerCase().includes('/login'),

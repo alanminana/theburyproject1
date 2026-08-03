@@ -38,6 +38,14 @@ public class Cotizacion : AuditableEntity
     public int? CantidadCuotasSeleccionada { get; set; }
     public decimal? TotalSeleccionado { get; set; }
     public decimal? ValorCuotaSeleccionada { get; set; }
+
+    /// <summary>
+    /// Anticipo simulado para Credito personal (intencion, no snapshot calculado): se aplica antes
+    /// del recargo. 0 cuando no se cotizo Credito personal o no se ingreso anticipo. Se conserva al
+    /// convertir a venta para precargar Configurar Venta (Credito.AnticipoPreseleccionado).
+    /// </summary>
+    public decimal Anticipo { get; set; }
+
     public DateTime? FechaVencimiento { get; set; }
 
     [StringLength(500)]

@@ -32,6 +32,7 @@ namespace TheBuryProject.Controllers
 
         private readonly ICurrentUserService _currentUser;
         private readonly CreditoViewBagBuilder _viewBagBuilder;
+        private readonly IRelojComercial _reloj;
 
         private IActionResult RedirectToReturnUrlOrDetails(string? returnUrl, int creditoId)
         {
@@ -57,9 +58,17 @@ namespace TheBuryProject.Controllers
             ICreditoRangoProductoService? creditoRangoProductoService = null,
             ICreditoConfiguracionVentaService? creditoConfiguracionVentaService = null,
             ICreditoSimulacionVentaService? creditoSimulacionVentaService = null,
-            ICreditoUiQueryService? creditoUiQueryService = null)
+            ICreditoUiQueryService? creditoUiQueryService = null,
+            IRelojComercial? reloj = null)
         {
             _creditoService = creditoService;
+            // PUN-ML7: fuente única de "hoy" para vencimiento. La inyección obligatoria sería
+            // preferible, pero este controller ya sigue la convención (todo el resto de sus
+            // colaboradores opcionales) de aceptar null por los múltiples tests que lo construyen
+            // pasando solo un subconjunto de parámetros nombrados — fuera del alcance de esta
+            // corrección. El fallback es inerte en producción (Program.cs registra IRelojComercial
+            // como Singleton; DI siempre lo resuelve) y solo se alcanza en esos tests.
+            _reloj = reloj ?? RelojComercial.Sistema;
             _configuracionPagoService = configuracionPagoService;
             _configuracionMoraService = configuracionMoraService;
             _ventaService = ventaService;
@@ -81,7 +90,9 @@ namespace TheBuryProject.Controllers
                 ?? new CreditoSimulacionVentaService(
                     financialService,
                     configuracionPagoService,
-                    aptitudService);
+                    aptitudService,
+                    _ventaService,
+                    _creditoRangoProductoService);
             _creditoUiQueryService = creditoUiQueryService ?? new CreditoUiQueryService();
         }
 
@@ -113,39 +124,17 @@ namespace TheBuryProject.Controllers
             }
         }
 
-        // GET: Credito/Simular
+        // GET: Credito/Simular — retirada (ML10): usaba sistema francés con tasa como
+        // fracción, sin anticipo, para una "línea de crédito" manual sin relación con
+        // Crédito Personal (ese producto nunca genera cuotas persistidas en la app real:
+        // el único generador de Cuota vivo es VentaService.GenerarCuotasCreditoAsync,
+        // exclusivo del flujo Cotización/Venta). Redirige en vez de 404 por si quedan
+        // enlaces o favoritos antiguos.
         [HttpGet]
         public IActionResult Simular(string? returnUrl = null)
         {
-            ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
-            return View("Simular_tw", new SimularCreditoViewModel
-            {
-                CantidadCuotas = 12,
-                TasaInteresMensual = 0.05m
-            });
-        }
-
-        // POST: Credito/Simular
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Simular(SimularCreditoViewModel modelo, string? returnUrl = null)
-        {
-            ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
-
-            if (!ModelState.IsValid)
-                return View("Simular_tw", modelo);
-
-            try
-            {
-                var resultado = await _creditoService.SimularCreditoAsync(modelo);
-                return View("Simular_tw", resultado);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al simular crédito");
-                TempData["Error"] = "Error al simular el crédito: " + ex.Message;
-                return View("Simular_tw", modelo);
-            }
+            TempData["Info"] = "El simulador independiente fue retirado. Usá la simulación integrada en Configurar Venta o Cotización.";
+            return RedirectToAction(nameof(Index));
         }
 
         // GET: Credito/Details/5
@@ -310,33 +299,34 @@ namespace TheBuryProject.Controllers
 
         #region Configurar venta
 
-        public async Task<IActionResult> ConfigurarVenta(int id, int? ventaId, string? returnUrl = null)
+        public async Task<IActionResult> ConfigurarVenta(int id, int? ventaId, string? returnUrl = null, bool embedded = false)
         {
             ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
             var credito = await _creditoService.GetByIdAsync(id);
             if (credito == null)
             {
+                if (embedded)
+                    return ErrorConfigurarVenta(true, StatusCodes.Status404NotFound, "Crédito no encontrado.", returnUrl, ventaId);
+
                 TempData["Error"] = "Crédito no encontrado";
                 return RedirectToAction(nameof(Index));
             }
 
             // Validar que el crédito esté en estado que permita configuración
-            if (credito.Estado != EstadoCredito.PendienteConfiguracion &&
-                credito.Estado != EstadoCredito.Solicitado &&
-                credito.Estado != EstadoCredito.Configurado)
+            if (!EsConfigurable(credito.Estado))
             {
                 // Si ya está Generado o más avanzado, no permitir reconfigurar
-                if (credito.Estado == EstadoCredito.Generado ||
+                var mensajeEstado = credito.Estado == EstadoCredito.Generado ||
                          credito.Estado == EstadoCredito.Activo ||
-                         credito.Estado == EstadoCredito.Finalizado)
-                {
-                    TempData["Warning"] = "El crédito ya fue generado y no puede reconfigurarse.";
-                }
-                else
-                {
-                    TempData["Error"] = $"El crédito no puede configurarse en estado {credito.Estado}.";
-                }
+                         credito.Estado == EstadoCredito.Finalizado
+                    ? "El crédito ya fue generado y no puede reconfigurarse."
+                    : $"El crédito no puede configurarse en estado {credito.Estado}.";
+
+                if (embedded)
+                    return ErrorConfigurarVenta(true, StatusCodes.Status409Conflict, mensajeEstado, returnUrl, ventaId);
+
+                TempData[credito.Estado is EstadoCredito.Generado or EstadoCredito.Activo or EstadoCredito.Finalizado ? "Warning" : "Error"] = mensajeEstado;
 
                 if (ventaId.HasValue)
                     return RedirectToAction("Details", "Venta", new { id = ventaId });
@@ -348,8 +338,13 @@ namespace TheBuryProject.Controllers
             var tasaMensualConfig = await _configuracionPagoService.ObtenerTasaInteresMensualCreditoPersonalAsync();
             if (tasaMensualConfig == null)
             {
-                TempData["Error"] = "La tasa de interés de Crédito Personal no está configurada. " +
+                var mensajeSinTasa = "La tasa de interés de Crédito Personal no está configurada. " +
                     "Configure el valor en Administración → Tipos de Pago antes de continuar.";
+
+                if (embedded)
+                    return ErrorConfigurarVenta(true, StatusCodes.Status409Conflict, mensajeSinTasa, returnUrl, ventaId);
+
+                TempData["Error"] = mensajeSinTasa;
                 if (ventaId.HasValue)
                     return RedirectToAction("Details", "Venta", new { id = ventaId });
                 return RedirectToAction("Details", new { id });
@@ -379,12 +374,18 @@ namespace TheBuryProject.Controllers
                 MetodoCalculo = MetodoCalculoCredito.Global,
                 PerfilCreditoSeleccionadoId = parametrosCliente.PerfilPreferidoId,
                 Monto = montoVenta,
-                Anticipo = 0,
+                // Intención conservada de una cotización convertida (mismo patrón que
+                // CantidadCuotas abajo). No es autoridad: el operador puede modificarla y el
+                // servidor revalida contra el total real al confirmar.
+                Anticipo = credito.AnticipoPreseleccionado,
                 MontoFinanciado = montoVenta,
                 CantidadCuotas = credito.CantidadCuotas > 0 ? credito.CantidadCuotas : 0,
                 TasaMensual = parametrosCliente.TasaMensual,
                 GastosAdministrativos = parametrosCliente.GastosAdministrativos,
                 FechaPrimeraCuota = credito.FechaPrimeraCuota,
+                // F2: reabrir la configuración muestra la decisión ya persistida.
+                CobrarPrimeraCuota = credito.CobrarPrimeraCuotaSolicitada,
+                MedioPagoPrimeraCuota = credito.MedioPagoPrimeraCuota,
                 CreditoEstaConfigurado = credito.Estado == EstadoCredito.Configurado,
                 ContratoGenerado = ventaId.HasValue &&
                     await _contratoVentaCreditoService.ExisteContratoGeneradoAsync(ventaId.Value),
@@ -400,8 +401,16 @@ namespace TheBuryProject.Controllers
                 ? await _ventaService.GetByIdAsync(ventaId.Value)
                 : null;
 
+            if (venta?.RowVersion is { Length: > 0 })
+            {
+                modelo.VentaRowVersionBase64 = Convert.ToBase64String(venta.RowVersion);
+            }
+
             if (venta != null && venta.RequiereAutorizacion && venta.EstadoAutorizacion != EstadoAutorizacionVenta.Autorizada)
             {
+                if (embedded)
+                    return ErrorConfigurarVenta(true, StatusCodes.Status409Conflict, "La venta requiere autorización antes de configurar el crédito.", returnUrl, ventaId);
+
                 TempData["Error"] = "La venta requiere autorización antes de configurar el crédito.";
                 return RedirectToAction("Details", "Venta", new { id = ventaId });
             }
@@ -409,6 +418,9 @@ namespace TheBuryProject.Controllers
             var rangoGet = await ResolverRangoCreditoProductoAsync(venta, cuotasMinGet, cuotasMaxGet);
             if (rangoGet.Error is not null)
             {
+                if (embedded)
+                    return ErrorConfigurarVenta(true, StatusCodes.Status409Conflict, rangoGet.Error, returnUrl, ventaId);
+
                 TempData["Error"] = rangoGet.Error;
                 if (ventaId.HasValue)
                     return RedirectToAction("Details", "Venta", new { id = ventaId });
@@ -416,6 +428,8 @@ namespace TheBuryProject.Controllers
             }
 
             AplicarRangoEfectivoAlModelo(modelo, rangoGet);
+
+            var planesGet = await ResolverPlanesVentaAsync(venta);
 
             // Pasar datos del cliente a la vista para JS
             var perfilPreferido = parametrosCliente.PerfilPreferidoId.HasValue
@@ -446,8 +460,9 @@ namespace TheBuryProject.Controllers
                 MaxCuotasBase = modelo.MaxCuotasBase,
                 ProductoIdRestrictivo = modelo.ProductoIdRestrictivo,
                 ProductoRestrictivoNombre = modelo.ProductoRestrictivoNombre,
-                CuotasHabilitadas = await _configuracionPagoService.GetCuotasCreditoPersonalEfectivasAsync(
-                    venta?.Detalles?.Select(d => d.ProductoId) ?? Enumerable.Empty<int>())
+                CuotasHabilitadas = planesGet.Planes,
+                SinPlanesCompatibles = !planesGet.EsValido,
+                MotivoSinPlanes = planesGet.MensajeRechazo
             };
 
             modelo.PerfilesActivos = perfilesActivos
@@ -463,25 +478,103 @@ namespace TheBuryProject.Controllers
                 })
                 .ToList();
 
+            // El wizard de Venta pide este mismo GET con embedded=true para inyectar el
+            // configurador dentro del paso "Crédito" (fetch + innerHTML), sin el layout de
+            // página completa (breadcrumb, header, navegación). Mismo modelo, misma
+            // resolución server-authoritative; sólo cambia el fragmento HTML devuelto.
+            if (embedded)
+            {
+                return PartialView("_ConfigurarVentaEmbebida", modelo);
+            }
+
             return View("ConfigurarVenta_tw", modelo);
+        }
+
+        // Errores del POST fuera del ModelState (crédito/venta inexistente, estado no
+        // configurable, autorización pendiente): en modo embebido el wizard espera JSON
+        // (fetch), nunca un redirect ni un fragmento HTML de la vista de página completa.
+        private IActionResult ErrorConfigurarVenta(bool embedded, int statusCode, string mensaje, string? returnUrl, int? ventaId)
+        {
+            if (embedded)
+            {
+                Response.StatusCode = statusCode;
+                return Json(new { success = false, message = mensaje });
+            }
+
+            Response.StatusCode = statusCode;
+            TempData["Error"] = mensaje;
+            return ventaId.HasValue
+                ? RedirectToAction("Details", "Venta", new { id = ventaId })
+                : RedirectToAction(nameof(Index));
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> ConfigurarVenta(ConfiguracionCreditoVentaViewModel modelo, string? returnUrl = null)
+        public async Task<IActionResult> ConfigurarVenta(ConfiguracionCreditoVentaViewModel modelo, string? returnUrl = null, bool embedded = false)
         {
             if (!ModelState.IsValid)
             {
+                if (embedded)
+                {
+                    var erroresModelo = ModelState
+                        .Where(kvp => kvp.Value?.Errors.Count > 0)
+                        .ToDictionary(kvp => kvp.Key, kvp => kvp.Value!.Errors.Select(e => e.ErrorMessage).ToArray());
+                    Response.StatusCode = StatusCodes.Status400BadRequest;
+                    return Json(new { success = false, errors = erroresModelo });
+                }
+
+                Response.StatusCode = StatusCodes.Status400BadRequest;
                 ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
                 return View("ConfigurarVenta_tw", modelo);
+            }
+
+            // El crédito debe existir y admitir configuración. Sin esta verificación el POST
+            // reconfiguraba créditos ya generados que el GET sí rechaza, y un id inexistente
+            // llegaba hasta el service y salía como 500.
+            var creditoPost = await _creditoService.GetByIdAsync(modelo.CreditoId);
+            if (creditoPost == null)
+            {
+                if (embedded)
+                    return ErrorConfigurarVenta(true, StatusCodes.Status404NotFound, "No se encontró el crédito indicado.", returnUrl, modelo.VentaId);
+
+                Response.StatusCode = StatusCodes.Status404NotFound;
+                ModelState.AddModelError(string.Empty, "No se encontró el crédito indicado.");
+                ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
+                return await RetornarVistaConPerfilesAsync(modelo);
+            }
+
+            if (!EsConfigurable(creditoPost.Estado))
+            {
+                if (embedded)
+                    return ErrorConfigurarVenta(true, StatusCodes.Status409Conflict, $"El crédito no puede configurarse en estado {creditoPost.Estado}.", returnUrl, modelo.VentaId);
+
+                Response.StatusCode = StatusCodes.Status409Conflict;
+                ModelState.AddModelError(string.Empty,
+                    $"El crédito no puede configurarse en estado {creditoPost.Estado}.");
+                ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
+                return await RetornarVistaConPerfilesAsync(modelo);
             }
 
             var venta = modelo.VentaId.HasValue
                 ? await _ventaService.GetByIdAsync(modelo.VentaId.Value)
                 : null;
 
+            if (modelo.VentaId.HasValue && venta == null)
+            {
+                if (embedded)
+                    return ErrorConfigurarVenta(true, StatusCodes.Status404NotFound, "No se encontró la venta indicada.", returnUrl, modelo.VentaId);
+
+                Response.StatusCode = StatusCodes.Status404NotFound;
+                ModelState.AddModelError(string.Empty, "No se encontró la venta indicada.");
+                ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
+                return await RetornarVistaConPerfilesAsync(modelo);
+            }
+
             if (venta != null && venta.RequiereAutorizacion && venta.EstadoAutorizacion != EstadoAutorizacionVenta.Autorizada)
             {
+                if (embedded)
+                    return ErrorConfigurarVenta(true, StatusCodes.Status409Conflict, "La venta requiere autorización antes de configurar el crédito.", returnUrl, modelo.VentaId);
+
                 TempData["Error"] = "La venta requiere autorización antes de configurar el crédito.";
                 return RedirectToAction("Details", "Venta", new { id = modelo.VentaId });
             }
@@ -494,12 +587,38 @@ namespace TheBuryProject.Controllers
 
             if (!resultadoConfiguracion.EsValido)
             {
+                // Conflicto = la combinación de productos no admite lo enviado (bloqueo, intersección
+                // vacía o cantidad fuera de los planes). El resto son datos inválidos del formulario.
+                var statusConflicto = resultadoConfiguracion.Motivo == MotivoRechazoConfiguracionCredito.Conflicto
+                    ? StatusCodes.Status409Conflict
+                    : StatusCodes.Status400BadRequest;
+
+                if (embedded)
+                {
+                    Response.StatusCode = statusConflicto;
+                    return Json(new
+                    {
+                        success = false,
+                        errorKey = resultadoConfiguracion.ErrorKey,
+                        message = resultadoConfiguracion.ErrorMessage
+                    });
+                }
+
+                Response.StatusCode = statusConflicto;
                 ModelState.AddModelError(resultadoConfiguracion.ErrorKey ?? string.Empty, resultadoConfiguracion.ErrorMessage ?? string.Empty);
                 ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
                 return await RetornarVistaConPerfilesAsync(modelo);
             }
 
             await _creditoService.ConfigurarCreditoAsync(resultadoConfiguracion.Comando!);
+
+            // El wizard crea una venta pendiente y reutiliza esta misma validación y
+            // configuración canónica. Configurar no confirma ni factura: sólo deja el
+            // crédito listo para que el paso Revisión continúe por Confirmar.
+            if (embedded)
+            {
+                return Json(new { success = true, ventaId = modelo.VentaId, creditoId = modelo.CreditoId });
+            }
 
             if (modelo.VentaId.HasValue)
             {
@@ -513,6 +632,10 @@ namespace TheBuryProject.Controllers
 
         /// <summary>
         /// Simula el plan de cuotas para una venta. Los parámetros opcionales se normalizan a 0 si vienen vacíos.
+        /// Server-authoritative cuando se envía <paramref name="ventaId"/>: el total real de la venta
+        /// reemplaza a <paramref name="totalVenta"/> y el porcentaje lo resuelve el servidor a partir del
+        /// plan efectivo, ignorando <paramref name="tasaMensual"/> salvo que <paramref name="fuenteConfiguracion"/>
+        /// y <paramref name="metodoCalculo"/> sean ambos Manual (ver CreditoSimulacionVentaService.SimularAsync).
         /// </summary>
         [HttpGet]
         public async Task<IActionResult> SimularPlanVenta(
@@ -521,7 +644,10 @@ namespace TheBuryProject.Controllers
             int cuotas,
             decimal? gastosAdministrativos,
             string? fechaPrimeraCuota,
-            decimal? tasaMensual)
+            decimal? tasaMensual,
+            int? ventaId = null,
+            MetodoCalculoCredito? metodoCalculo = null,
+            FuenteConfiguracionCredito? fuenteConfiguracion = null)
         {
             try
             {
@@ -532,7 +658,10 @@ namespace TheBuryProject.Controllers
                     Cuotas = cuotas,
                     GastosAdministrativos = gastosAdministrativos,
                     FechaPrimeraCuota = fechaPrimeraCuota,
-                    TasaMensual = tasaMensual
+                    TasaMensual = tasaMensual,
+                    VentaId = ventaId,
+                    MetodoCalculo = metodoCalculo,
+                    FuenteConfiguracion = fuenteConfiguracion
                 });
 
                 if (!resultado.EsValido)
@@ -572,6 +701,7 @@ namespace TheBuryProject.Controllers
             var ventaCuotas = modelo.VentaId.HasValue
                 ? await _ventaService.GetByIdAsync(modelo.VentaId.Value)
                 : null;
+            var planes = await ResolverPlanesVentaAsync(ventaCuotas);
             modelo.ClienteConfigPersonalizada = new ClienteConfigCreditoVentaViewModel
             {
                 MaxCuotasCreditoProducto = modelo.MaxCuotasCreditoProducto,
@@ -579,11 +709,29 @@ namespace TheBuryProject.Controllers
                 MaxCuotasBase = modelo.MaxCuotasBase,
                 ProductoIdRestrictivo = modelo.ProductoIdRestrictivo,
                 ProductoRestrictivoNombre = modelo.ProductoRestrictivoNombre,
-                CuotasHabilitadas = await _configuracionPagoService.GetCuotasCreditoPersonalEfectivasAsync(
-                    ventaCuotas?.Detalles?.Select(d => d.ProductoId) ?? Enumerable.Empty<int>())
+                CuotasHabilitadas = planes.Planes,
+                SinPlanesCompatibles = !planes.EsValido,
+                MotivoSinPlanes = planes.MensajeRechazo
             };
             return View("ConfigurarVenta_tw", modelo);
         }
+
+        /// <summary>
+        /// Planes efectivos de Crédito Personal de la venta. Misma resolución canónica que usa
+        /// <see cref="ICreditoConfiguracionVentaService"/> al validar el POST.
+        /// </summary>
+        private Task<PlanesCreditoPersonalResultado> ResolverPlanesVentaAsync(VentaViewModel? venta) =>
+            _configuracionPagoService.ResolverPlanesCreditoPersonalAsync(
+                venta?.Detalles?.Select(d => d.ProductoId) ?? Enumerable.Empty<int>());
+
+        /// <summary>
+        /// Estados en los que el plan de un crédito todavía puede definirse. Una vez generado
+        /// existen cuotas, contrato y movimientos que dependen de él: reconfigurarlo los rompería.
+        /// </summary>
+        private static bool EsConfigurable(EstadoCredito estado) =>
+            estado is EstadoCredito.PendienteConfiguracion
+                   or EstadoCredito.Solicitado
+                   or EstadoCredito.Configurado;
 
         private async Task<CreditoRangoProductoResultado> ResolverRangoCreditoProductoAsync(
             VentaViewModel? venta,
@@ -648,131 +796,51 @@ namespace TheBuryProject.Controllers
 
         #endregion
 
-        #region Crear / Editar
+        #region Crear / Editar — retirado (ML11)
 
-        // GET: Credito/Create
-        public async Task<IActionResult> Create(string? returnUrl = null)
+        // GET/POST: Credito/Create, Credito/Edit — retirados (ML11): auditoría de
+        // consumidores confirmó que esta "línea de crédito" manual es un producto
+        // separado de Crédito Personal (comparte la tabla Creditos pero nunca genera
+        // cuotas persistidas: el único generador real es VentaService.GenerarCuotasCreditoAsync,
+        // exclusivo del flujo Cotización/Venta). Sólo tenía dos puntos de entrada de
+        // navegación (Credito/Index "Nueva línea" y Cliente/Details "Nuevo credito"),
+        // ambos ya retirados, y el GET de alta seguía sembrando TasaInteres como fracción
+        // (0.05m = 5%) mientras el resto del sistema usa porcentaje de recargo total
+        // (10 = 10%) desde ML9/ML10 — la colisión de unidades que motivó esta auditoría.
+        // Edit sólo aplica a créditos en estado Solicitado, un estado que Create ya no
+        // puede producir; en esta base no existe ningún crédito en ese estado (verificado
+        // por consulta directa), así que no hay historial que preservar todavía, pero se
+        // redirige en vez de eliminar la acción por si algún entorno sí tuviera datos
+        // legacy — el mismo criterio usado para retirar Credito/Simular en ML10.
+        // Details/Index/Delete NO se tocan: siguen sirviendo para consulta histórica.
+        [HttpGet]
+        public IActionResult Create(string? returnUrl = null)
         {
-            ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
-            await CargarViewBags();
-            return View("Create_tw", new CreditoViewModel
-            {
-                FechaSolicitud = DateTime.UtcNow,
-                TasaInteres = 0.05m,
-                CantidadCuotas = 12
-            });
+            TempData["Info"] = "El alta manual de línea de crédito fue retirada. Los créditos personales se generan desde la Venta.";
+            return RedirectToAction(nameof(Index));
         }
 
-        // POST: Credito/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create(CreditoViewModel viewModel, string? returnUrl = null)
+        public IActionResult Create(CreditoViewModel viewModel, string? returnUrl = null)
         {
-            _logger.LogInformation("=== INICIANDO CREACIÓN DE LÍNEA DE CRÉDITO ===");
-            _logger.LogInformation("ClienteId: {ClienteId}", viewModel.ClienteId);
-            _logger.LogInformation("MontoSolicitado: {Monto}", viewModel.MontoSolicitado);
-            _logger.LogInformation("TasaInteres: {Tasa}", viewModel.TasaInteres);
-            _logger.LogInformation("RequiereGarante: {RequiereGarante}", viewModel.RequiereGarante);
-
-            try
-            {
-                if (!ModelState.IsValid)
-                {
-                    _logger.LogWarning("ModelState inválido al crear crédito");
-                    ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
-                    await CargarViewBags(viewModel.ClienteId, viewModel.GaranteId);
-                    return View("Create_tw", viewModel);
-                }
-
-                var credito = await _creditoService.CreateAsync(viewModel);
-
-                TempData["Success"] = $"Línea de Crédito {credito.Numero} creada exitosamente";
-                return RedirectToAction(nameof(Details), new { id = credito.Id, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
-            }
-            catch (CreditoDisponibleException ex)
-            {
-                _logger.LogWarning(ex, "Alta de crédito bloqueada por disponible insuficiente para cliente {ClienteId}", viewModel.ClienteId);
-                ModelState.AddModelError("", ex.Message);
-                ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
-                await CargarViewBags(viewModel.ClienteId, viewModel.GaranteId);
-                return View("Create_tw", viewModel);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al crear línea de crédito");
-                ModelState.AddModelError("", "Error al crear la línea de crédito: " + ex.Message);
-                ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
-                await CargarViewBags(viewModel.ClienteId, viewModel.GaranteId);
-                return View("Create_tw", viewModel);
-            }
+            TempData["Info"] = "El alta manual de línea de crédito fue retirada. Los créditos personales se generan desde la Venta.";
+            return RedirectToAction(nameof(Index));
         }
 
-        // GET: Credito/Edit/5
-        public async Task<IActionResult> Edit(int id, string? returnUrl = null)
+        [HttpGet]
+        public IActionResult Edit(int id, string? returnUrl = null)
         {
-            try
-            {
-                ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
-
-                var credito = await _creditoService.GetByIdAsync(id);
-                if (credito == null)
-                {
-                    TempData["Error"] = "Crédito no encontrado";
-                    return RedirectToAction(nameof(Index));
-                }
-
-                if (credito.Estado != EstadoCredito.Solicitado)
-                {
-                    TempData["Error"] = "Solo se pueden editar créditos en estado Solicitado";
-                    return RedirectToAction(nameof(Details), new { id, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
-                }
-
-                await CargarViewBags(credito.ClienteId, credito.GaranteId);
-                return View("Edit_tw", credito);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al cargar crédito para editar: {Id}", id);
-                TempData["Error"] = "Error al cargar el crédito";
-                return RedirectToAction(nameof(Index));
-            }
+            TempData["Info"] = "La edición manual de línea de crédito fue retirada.";
+            return RedirectToAction(nameof(Details), new { id, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
         }
 
-        // POST: Credito/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, CreditoViewModel viewModel, string? returnUrl = null)
+        public IActionResult Edit(int id, CreditoViewModel viewModel, string? returnUrl = null)
         {
-            if (id != viewModel.Id)
-                return RedirectToAction(nameof(Index));
-
-            try
-            {
-                if (!ModelState.IsValid)
-                {
-                    ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
-                    await CargarViewBags(viewModel.ClienteId, viewModel.GaranteId);
-                    return View("Edit_tw", viewModel);
-                }
-
-                var resultado = await _creditoService.UpdateAsync(viewModel);
-                if (resultado)
-                {
-                    TempData["Success"] = "Crédito actualizado exitosamente";
-                    return RedirectToAction(nameof(Details), new { id, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
-                }
-
-                TempData["Error"] = "No se pudo actualizar el crédito";
-                return RedirectToAction(nameof(Index));
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al actualizar crédito: {Id}", id);
-                ModelState.AddModelError("", "Error al actualizar el crédito: " + ex.Message);
-                ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
-                await CargarViewBags(viewModel.ClienteId, viewModel.GaranteId);
-                return View("Edit_tw", viewModel);
-            }
+            TempData["Info"] = "La edición manual de línea de crédito fue retirada.";
+            return RedirectToAction(nameof(Details), new { id, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
         }
 
         #endregion
@@ -861,8 +929,12 @@ namespace TheBuryProject.Controllers
                     return RedirectToAction(nameof(Details), new { id, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
                 }
 
-                var estaVencida = cuotaSeleccionada.FechaVencimiento.Date < DateTime.Today;
-                var diasAtraso = estaVencida ? (DateTime.Today - cuotaSeleccionada.FechaVencimiento.Date).Days : 0;
+                // PUN-ML7: fecha comercial única (antes DateTime.Today) para decidir "vencida" en la
+                // pantalla de cobro.
+                var hoyComercial = _reloj.HoyComercial;
+                var estaVencida = EstadoCuotaResolver.EsVencidaPorFecha(cuotaSeleccionada.FechaVencimiento, hoyComercial);
+                var diasAtraso = EstadoCuotaResolver.DiasAtrasoDerivado(
+                    cuotaSeleccionada.Estado, cuotaSeleccionada.FechaVencimiento, hoyComercial);
 
                 var modelo = new PagarCuotaViewModel
                 {
@@ -878,7 +950,7 @@ namespace TheBuryProject.Controllers
                     FechaVencimiento = cuotaSeleccionada.FechaVencimiento,
                     EstaVencida = estaVencida,
                     DiasAtraso = diasAtraso,
-                    FechaPago = DateTime.UtcNow
+                    FechaPago = _reloj.AhoraUtc
                 };
                 await CargarCuotasPago(modelo, cuotasDisponibles);
 
@@ -913,6 +985,7 @@ namespace TheBuryProject.Controllers
                     var cuotasPendientes = _creditoUiQueryService.ObtenerCuotasPendientes(credito.Cuotas);
                     await CargarCuotasPago(modelo, cuotasPendientes);
 
+                    Response.StatusCode = StatusCodes.Status400BadRequest;
                     return View("PagarCuota_tw", modelo);
                 }
 
@@ -924,12 +997,29 @@ namespace TheBuryProject.Controllers
                     return RedirectToReturnUrlOrDetails(returnUrl, modelo.CreditoId);
                 }
 
-                ModelState.AddModelError(string.Empty, "No se pudo registrar el pago");
+                // El servicio no distingue el motivo para no revelar la existencia de
+                // cuotas o créditos ajenos: crédito inexistente, cuota inexistente o
+                // cuota de otro crédito devuelven lo mismo.
+                Response.StatusCode = StatusCodes.Status404NotFound;
+                ModelState.AddModelError(string.Empty, "No se encontró la cuota indicada para este crédito.");
+            }
+            catch (PagoCuotaRechazadoException ex)
+            {
+                Response.StatusCode = ex.Motivo == MotivoRechazoPagoCuota.Conflicto
+                    ? StatusCodes.Status409Conflict
+                    : StatusCodes.Status400BadRequest;
+                ModelState.AddModelError(string.Empty, ex.Message);
+            }
+            catch (InvalidOperationException ex)
+            {
+                Response.StatusCode = StatusCodes.Status400BadRequest;
+                ModelState.AddModelError(string.Empty, ex.Message);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al pagar cuota");
-                ModelState.AddModelError("", "Error al registrar el pago: " + ex.Message);
+                Response.StatusCode = StatusCodes.Status500InternalServerError;
+                ModelState.AddModelError(string.Empty, "No se pudo registrar el pago. Intentá nuevamente.");
             }
 
             ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
@@ -1004,21 +1094,25 @@ namespace TheBuryProject.Controllers
                     return RedirectToAction(nameof(Details), new { id, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
                 }
 
+                // El adelanto cancela el SALDO de la cuota: si ya tuvo un pago parcial, el total
+                // de la cuota sería un sobrepago y el servidor lo rechazaría.
+                var saldoAdelanto = ultimaCuota.SaldoPendiente;
+
                 var modelo = new PagarCuotaViewModel
                 {
                     CreditoId = credito.Id,
                     CuotaId = ultimaCuota.Id,
                     NumeroCuota = ultimaCuota.NumeroCuota,
                     MontoCuota = ultimaCuota.MontoTotal,
-                    MontoPunitorio = 0, // No hay punitorio en adelanto
-                    TotalAPagar = ultimaCuota.MontoTotal,
-                    MontoPagado = ultimaCuota.MontoTotal,
+                    MontoPunitorio = ultimaCuota.MontoPunitorio,
+                    TotalAPagar = saldoAdelanto,
+                    MontoPagado = saldoAdelanto,
                     ClienteNombre = credito.ClienteNombre,
                     NumeroCreditoTexto = credito.Numero,
                     FechaVencimiento = ultimaCuota.FechaVencimiento,
                     EstaVencida = false,
                     DiasAtraso = 0,
-                    FechaPago = DateTime.UtcNow
+                    FechaPago = _reloj.AhoraUtc
                 };
 
                 return View("AdelantarCuota_tw", modelo);
@@ -1041,6 +1135,7 @@ namespace TheBuryProject.Controllers
                 if (!ModelState.IsValid)
                 {
                     ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
+                    Response.StatusCode = StatusCodes.Status400BadRequest;
                     return View("AdelantarCuota_tw", modelo);
                 }
 
@@ -1052,12 +1147,28 @@ namespace TheBuryProject.Controllers
                     return RedirectToReturnUrlOrDetails(returnUrl, modelo.CreditoId);
                 }
 
-                ModelState.AddModelError(string.Empty, "No se pudo registrar el adelanto");
+                // Igual que en el pago normal, el servicio no distingue el motivo: crédito
+                // inexistente, cuota de otro crédito o crédito sin cuotas adelantables.
+                Response.StatusCode = StatusCodes.Status404NotFound;
+                ModelState.AddModelError(string.Empty, "No se encontró una cuota adelantable para este crédito.");
+            }
+            catch (PagoCuotaRechazadoException ex)
+            {
+                Response.StatusCode = ex.Motivo == MotivoRechazoPagoCuota.Conflicto
+                    ? StatusCodes.Status409Conflict
+                    : StatusCodes.Status400BadRequest;
+                ModelState.AddModelError(string.Empty, ex.Message);
+            }
+            catch (InvalidOperationException ex)
+            {
+                Response.StatusCode = StatusCodes.Status400BadRequest;
+                ModelState.AddModelError(string.Empty, ex.Message);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al adelantar cuota");
-                ModelState.AddModelError("", "Error al registrar el adelanto: " + ex.Message);
+                Response.StatusCode = StatusCodes.Status500InternalServerError;
+                ModelState.AddModelError(string.Empty, "No se pudo registrar el adelanto. Intentá nuevamente.");
             }
 
             ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);

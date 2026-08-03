@@ -52,6 +52,9 @@ namespace TheBuryProject.Data
         public DbSet<ConfiguracionCreditoPersonalCuota> ConfiguracionCreditoPersonalCuotas { get; set; }
         public DbSet<Credito> Creditos { get; set; }
         public DbSet<Cuota> Cuotas { get; set; }
+        public DbSet<PagoCuota> PagosCuota { get; set; }
+        public DbSet<ConfiguracionPunitorio> ConfiguracionesPunitorio { get; set; }
+        public DbSet<PunitorioAplicado> PunitoriosAplicados { get; set; }
         public DbSet<Garante> Garantes { get; set; }
         public DbSet<DocumentoCliente> DocumentosCliente { get; set; }
 
@@ -994,9 +997,10 @@ namespace TheBuryProject.Data
                 entity.Property(e => e.CantidadCuotas)
                     .IsRequired();
 
+                // Nullable: null = hereda la tasa global. Sin HasDefaultValue para que un
+                // insert con null persista NULL (heredar) y no el default 0 (0 % explícito).
                 entity.Property(e => e.TasaMensual)
-                    .HasPrecision(8, 4)
-                    .HasDefaultValue(0m);
+                    .HasPrecision(8, 4);
 
                 entity.Property(e => e.Activo)
                     .HasDefaultValue(true);
@@ -1027,9 +1031,10 @@ namespace TheBuryProject.Data
                 entity.Property(e => e.CantidadCuotas)
                     .IsRequired();
 
+                // Nullable: null = hereda la tasa global. Sin HasDefaultValue para que un
+                // insert con null persista NULL (heredar) y no el default 0 (0 % explícito).
                 entity.Property(e => e.TasaMensual)
-                    .HasPrecision(8, 4)
-                    .HasDefaultValue(0m);
+                    .HasPrecision(8, 4);
 
                 entity.Property(e => e.Activo)
                     .HasDefaultValue(true);
@@ -1081,6 +1086,7 @@ namespace TheBuryProject.Data
 
                 entity.Property(e => e.GastosAdministrativos).HasPrecision(18, 2);
                 entity.Property(e => e.TasaInteresAplicada).HasPrecision(8, 4);
+                entity.Property(e => e.AnticipoPreseleccionado).HasPrecision(18, 2);
 
                 entity.HasOne(e => e.Garante)
                     .WithMany()
@@ -1141,6 +1147,104 @@ namespace TheBuryProject.Data
                 entity.Property(e => e.MontoPagado).HasPrecision(18, 2);
                 entity.Property(e => e.MontoPunitorio).HasPrecision(18, 2);
                 entity.Property(e => e.RecargoMedioPago).HasPrecision(18, 2);
+            });
+
+            // =======================
+            // PagoCuota (ledger de pagos por cuota, PUN-ML2)
+            // =======================
+            modelBuilder.Entity<PagoCuota>(entity =>
+            {
+                entity.ToTable("PagosCuota");
+
+                entity.HasOne(e => e.Cuota)
+                    .WithMany(c => c.Pagos)
+                    .HasForeignKey(e => e.CuotaId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.MovimientoCaja)
+                    .WithMany()
+                    .HasForeignKey(e => e.MovimientoCajaId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.PagoCuotaOrigen)
+                    .WithMany()
+                    .HasForeignKey(e => e.PagoCuotaOrigenId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                // PUN-ML6: vínculo entre el pago y la aplicación de punitorio que cobró (si cobró
+                // alguna). Restrict, igual que el resto de las FK de este ledger: nunca se borra en
+                // cascada un PunitorioAplicado con pagos atribuidos.
+                entity.HasOne(e => e.PunitorioAplicado)
+                    .WithMany()
+                    .HasForeignKey(e => e.PunitorioAplicadoId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasIndex(e => e.PunitorioAplicadoId);
+
+                entity.Property(e => e.ImporteTotal).HasPrecision(18, 2);
+                entity.Property(e => e.ImporteAplicadoCuota).HasPrecision(18, 2);
+                entity.Property(e => e.ImporteAplicadoPunitorio).HasPrecision(18, 2);
+
+                entity.HasIndex(e => e.CuotaId);
+                entity.HasIndex(e => e.FechaPagoComercial);
+
+                // Garantía persistente contra duplicados: cada MovimientoCaja se liga como máximo
+                // a una fila del ledger, tanto para pagos nuevos como para el backfill (evita
+                // reimportar el mismo movimiento dos veces sin depender solo de un AnyAsync previo).
+                entity.HasIndex(e => e.MovimientoCajaId)
+                    .IsUnique()
+                    .HasFilter("[MovimientoCajaId] IS NOT NULL");
+            });
+
+            // =======================
+            // ConfiguracionPunitorio (configuración versionada de punitorios, PUN-ML3)
+            // =======================
+            modelBuilder.Entity<ConfiguracionPunitorio>(entity =>
+            {
+                entity.ToTable("ConfiguracionesPunitorio");
+
+                entity.Property(e => e.Porcentaje).HasPrecision(8, 4);
+
+                // Append-only: como máximo una versión por fecha de vigencia. La comprobación de
+                // "vigencia estrictamente posterior a la última existente" vive en el servicio
+                // (ConfiguracionPunitorioService); este índice es la garantía de última línea
+                // contra una carrera concurrente entre dos altas simultáneas.
+                entity.HasIndex(e => e.VigenteDesde)
+                    .IsUnique()
+                    .HasFilter("IsDeleted = 0");
+
+                // Soporte para ObtenerVigenteAsync: última fila con VigenteDesde <= fecha.
+                entity.HasIndex(e => new { e.VigenteDesde, e.Activa });
+            });
+
+            // =======================
+            // PunitorioAplicado (aplicación autorizada y auditable de punitorio, PUN-ML5)
+            // =======================
+            modelBuilder.Entity<PunitorioAplicado>(entity =>
+            {
+                entity.ToTable("PunitoriosAplicados");
+
+                entity.HasOne(e => e.Cuota)
+                    .WithMany()
+                    .HasForeignKey(e => e.CuotaId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.ConfiguracionPunitorio)
+                    .WithMany()
+                    .HasForeignKey(e => e.ConfiguracionPunitorioId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.Property(e => e.SaldoBase).HasPrecision(18, 2);
+                entity.Property(e => e.Importe).HasPrecision(18, 2);
+                entity.Property(e => e.Porcentaje).HasPrecision(8, 4);
+
+                // Modelo A: como máximo una aplicación activa (Estado = Aplicado = 1) por cuota.
+                // Garantía de última línea contra una carrera concurrente entre dos aplicaciones
+                // simultáneas; la verificación previa vive en PunitorioService.AplicarAsync.
+                entity.HasIndex(e => e.CuotaId)
+                    .IsUnique()
+                    .HasFilter("[Estado] = 1")
+                    .HasDatabaseName("IX_PunitoriosAplicados_CuotaId_UnaActivaPorCuota");
             });
 
             // =======================
@@ -1356,6 +1460,7 @@ namespace TheBuryProject.Data
                 entity.Property(e => e.TotalBase).HasPrecision(18, 2);
                 entity.Property(e => e.TotalSeleccionado).HasPrecision(18, 2);
                 entity.Property(e => e.ValorCuotaSeleccionada).HasPrecision(18, 2);
+                entity.Property(e => e.Anticipo).HasPrecision(18, 2);
 
                 entity.HasIndex(e => e.Numero)
                     .IsUnique()

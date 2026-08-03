@@ -32,5 +32,14 @@ namespace TheBuryProject.Models.DTOs
 
         /// <summary>Máximo de cuotas global antes de aplicar restricción por producto.</summary>
         public int? MaxCuotasBaseSnap { get; init; }
+
+        /// <summary>
+        /// Micro-lote 6 (F2): el operador decidió cobrar la primera cuota al confirmar la venta.
+        /// Ya validado por el servidor (solo puede ser true si la 1ª cuota vence hoy y el medio es válido).
+        /// </summary>
+        public bool CobrarPrimeraCuota { get; init; }
+
+        /// <summary>Medio de pago del cobro inmediato de la primera cuota (null si no se cobra).</summary>
+        public string? MedioPagoPrimeraCuota { get; init; }
     }
 }

@@ -173,6 +173,11 @@ namespace TheBuryProject.ViewModels
         public string? Subcategoria { get; set; }
         public string? Descripcion { get; set; }
         public decimal StockActual { get; set; }
+        /// <summary>
+        /// Umbral de reposición del producto. El buscador de la venta lo usa para
+        /// marcar "stock bajo" con el mismo criterio que Dashboard y AlertaStock.
+        /// </summary>
+        public decimal StockMinimo { get; set; }
         public int UnidadesEnStock { get; set; }
         public decimal StockSinIdentificar { get; set; }
         public decimal PrecioVenta { get; set; }

@@ -25,17 +25,25 @@ namespace TheBuryProject.Services
         private readonly AppDbContext _context;
         private readonly ILogger<ReporteService> _logger;
         private readonly IConfiguracionRentabilidadService? _configuracionRentabilidadService;
+        private readonly IRelojComercial _reloj;
         private static readonly object QuestPdfSettingsLock = new();
         private static bool questPdfSettingsConfigured;
 
         public ReporteService(
             AppDbContext context,
             ILogger<ReporteService> logger,
-            IConfiguracionRentabilidadService? configuracionRentabilidadService = null)
+            IConfiguracionRentabilidadService? configuracionRentabilidadService = null,
+            IRelojComercial? reloj = null)
         {
             _context = context;
             _logger = logger;
             _configuracionRentabilidadService = configuracionRentabilidadService;
+            // PUN-ML7: fuente única de "hoy" para vencimiento de cuotas. La inyección obligatoria
+            // sería preferible, pero ReporteServiceTests/ReporteMorosidadTests (fuera del alcance de
+            // esta corrección) construyen este servicio sin pasar reloj — el fallback es inerte en
+            // producción (Program.cs registra IRelojComercial como Singleton; DI siempre lo resuelve)
+            // y solo se alcanza ahí.
+            _reloj = reloj ?? RelojComercial.Sistema;
         }
 
         #endregion
@@ -457,7 +465,9 @@ namespace TheBuryProject.Services
         {
             try
             {
-                var hoy = DateTime.UtcNow.Date;
+                // PUN-ML7: fecha comercial única (antes DateTime.UtcNow.Date — adelantaba
+                // vencimiento hasta 3hs por el cruce de día UTC/Argentina, ver IRelojComercial).
+                var hoy = _reloj.InicioDiaComercial;
 
                 // Obtener todas las cuotas vencidas con sus créditos y clientes
                 var cuotasVencidas = await _context.Cuotas

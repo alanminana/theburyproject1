@@ -5,6 +5,7 @@ using TheBuryProject.Data;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services;
+using TheBuryProject.Tests.Helpers;
 
 namespace TheBuryProject.Tests.Integration;
 
@@ -21,11 +22,16 @@ public class ReporteMorosidadTests : IDisposable
     private readonly AppDbContext _context;
     private readonly ReporteService _service;
 
-    // Fechas relativas para tests deterministas independientes de la fecha real.
-    // El service usa DateTime.UtcNow.Date para determinar vencimiento.
-    private static readonly DateTime Ayer = DateTime.UtcNow.Date.AddDays(-1);
-    private static readonly DateTime Hoy = DateTime.UtcNow.Date;
-    private static readonly DateTime Manana = DateTime.UtcNow.Date.AddDays(1);
+    // PUN-ML7 inyectó IRelojComercial en ReporteService (antes DateTime.UtcNow.Date). El fallback
+    // sin reloj explícito (RelojComercial.Sistema) convierte a fecha comercial Argentina (UTC-3),
+    // que difiere de DateTime.UtcNow.Date durante 00:00-03:00 UTC (21:00-00:00 ART) — fijamos un
+    // reloj de test para que "hoy" del servicio y las fechas sembradas sean siempre el mismo día,
+    // sin importar la hora real de ejecución (mismo patrón que MoraServiceTests/RelojComercialFijo).
+    private static readonly RelojComercial Reloj =
+        RelojComercialFijo.EnUtc(new DateTimeOffset(2026, 1, 15, 15, 0, 0, TimeSpan.Zero));
+    private static readonly DateTime Ayer = Reloj.InicioDiaComercial.AddDays(-1);
+    private static readonly DateTime Hoy = Reloj.InicioDiaComercial;
+    private static readonly DateTime Manana = Reloj.InicioDiaComercial.AddDays(1);
 
     public ReporteMorosidadTests()
     {
@@ -39,7 +45,7 @@ public class ReporteMorosidadTests : IDisposable
         _context = new AppDbContext(options);
         _context.Database.EnsureCreated();
 
-        _service = new ReporteService(_context, NullLogger<ReporteService>.Instance);
+        _service = new ReporteService(_context, NullLogger<ReporteService>.Instance, reloj: Reloj);
     }
 
     public void Dispose()

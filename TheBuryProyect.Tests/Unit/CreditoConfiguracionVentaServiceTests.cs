@@ -130,6 +130,26 @@ public sealed class CreditoConfiguracionVentaServiceTests
     }
 
     [Fact]
+    public async Task Resolver_CuotaConTasaNull_HeredaTasaGlobal()
+    {
+        var service = CrearService(ConfigService(
+            tasaGlobal: 5m,
+            rango: (1, 24, "Global", null),
+            cuotas: new List<CuotaCreditoPersonalViewModel>
+            {
+                new() { CantidadCuotas = 1, TasaMensual = 1m, Activo = true },
+                new() { CantidadCuotas = 6, TasaMensual = null, Activo = true } // null = heredar la global
+            }));
+        var modelo = Modelo(FuenteConfiguracionCredito.Global, MetodoCalculoCredito.Global);
+        modelo.CantidadCuotas = 6;
+
+        var result = await service.ResolverAsync(modelo, venta: null);
+
+        AssertComandoValido(result);
+        Assert.Equal(5m, result.Comando!.TasaMensual); // hereda la tasa global (5 %), no 0
+    }
+
+    [Fact]
     public async Task Resolver_RechazaCuotaNoHabilitadaEnTablaPorCantidad()
     {
         var service = CrearService(ConfigService(
@@ -206,13 +226,169 @@ public sealed class CreditoConfiguracionVentaServiceTests
         Assert.Equal(6, result.Comando.CuotasMaxPermitidas);
     }
 
+    // ── ML4: autoridad del monto ────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Resolver_ConVenta_MontoManipuladoEnModelo_UsaTotalRealDeLaVenta()
+    {
+        // Tests obligatorios #1/#2: modelo.Monto llega desde un hidden manipulable; con venta
+        // asociada el comando debe usar venta.Total, nunca el valor del formulario.
+        var service = CrearService(ConfigService(tasaGlobal: 5m, rango: (1, 24, "Global", null)));
+        var modelo = Modelo(FuenteConfiguracionCredito.Global, MetodoCalculoCredito.Global, ventaId: 99);
+        modelo.Monto = 999_999m;
+        var venta = new VentaViewModel { Id = 99, Total = 10_000m, Detalles = new List<VentaDetalleViewModel>() };
+
+        var result = await service.ResolverAsync(modelo, venta);
+
+        Assert.True(result.EsValido);
+        Assert.Equal(10_000m, result.Comando!.Monto);
+        Assert.NotEqual(modelo.Monto, result.Comando.Monto);
+    }
+
+    [Fact]
+    public async Task Resolver_ConVenta_AnticipoSuperaTotalReal_Rechaza()
+    {
+        var service = CrearService(ConfigService(tasaGlobal: 5m, rango: (1, 24, "Global", null)));
+        var modelo = Modelo(FuenteConfiguracionCredito.Global, MetodoCalculoCredito.Global, ventaId: 99);
+        modelo.Anticipo = 10_001m;
+        var venta = new VentaViewModel { Id = 99, Total = 10_000m, Detalles = new List<VentaDetalleViewModel>() };
+
+        var result = await service.ResolverAsync(modelo, venta);
+
+        Assert.False(result.EsValido);
+        Assert.Equal(nameof(modelo.Anticipo), result.ErrorKey);
+        Assert.Contains("anticipo no puede superar", result.ErrorMessage!, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Resolver_ConVenta_AnticipoIgualAlTotalReal_GeneraComandoValidoConSaldoCero()
+    {
+        // Test obligatorio #6: la regla congelada (ver el equivalente en
+        // CreditoSimulacionVentaServiceTests) es que anticipo == total no se rechaza acá tampoco;
+        // el comando resultante financia $0 (saldo cero), no un error de validación.
+        var service = CrearService(ConfigService(tasaGlobal: 5m, rango: (1, 24, "Global", null)));
+        var modelo = Modelo(FuenteConfiguracionCredito.Global, MetodoCalculoCredito.Global, ventaId: 99);
+        modelo.Anticipo = 10_000m;
+        var venta = new VentaViewModel { Id = 99, Total = 10_000m, Detalles = new List<VentaDetalleViewModel>() };
+
+        var result = await service.ResolverAsync(modelo, venta);
+
+        Assert.True(result.EsValido);
+        Assert.Equal(10_000m, result.Comando!.Monto);
+        Assert.Equal(10_000m, result.Comando.Anticipo);
+    }
+
+    [Fact]
+    public async Task Resolver_SinVenta_UsaMontoDelModelo()
+    {
+        // Escenario legítimo sin VentaId (crédito standalone): el monto lo define el formulario,
+        // no hay total de venta contra el cual verificarlo.
+        var service = CrearService(ConfigService(tasaGlobal: 5m, rango: (1, 24, "Global", null)));
+        var modelo = Modelo(FuenteConfiguracionCredito.Global, MetodoCalculoCredito.Global);
+        modelo.Monto = 7_777m;
+
+        var result = await service.ResolverAsync(modelo, venta: null);
+
+        Assert.True(result.EsValido);
+        Assert.Equal(7_777m, result.Comando!.Monto);
+    }
+
     private static CreditoConfiguracionVentaService CrearService(
         StubConfiguracionPagoService configuracionPagoService,
-        ICreditoRangoProductoService? rangoProductoService = null) =>
+        ICreditoRangoProductoService? rangoProductoService = null,
+        IRelojComercial? reloj = null) =>
         new(
             configuracionPagoService,
             NullLogger<CreditoConfiguracionVentaService>.Instance,
-            rangoProductoService);
+            rangoProductoService,
+            reloj);
+
+    // ── F2 (Micro-lote 6): decisión de cobro de la 1ª cuota, server-authoritative ──────
+    // El servidor solo persiste la intención de cobro cuando la 1ª cuota vence en la fecha
+    // comercial actual y el medio es válido; el payload no puede forzarla en ningún otro caso.
+
+    private static readonly DateOnly HoyFijo = new(2026, 6, 7);
+
+    [Fact]
+    public async Task Resolver_CobrarPrimeraCuota_VenceHoyMedioValido_PersisteDecision()
+    {
+        var service = CrearService(
+            ConfigService(tasaGlobal: 5m, rango: (1, 120, "Manual", null)),
+            reloj: new TheBuryProject.Tests.Helpers.RelojComercialFake(HoyFijo));
+        var modelo = Modelo(FuenteConfiguracionCredito.Manual, MetodoCalculoCredito.Manual);
+        modelo.FechaPrimeraCuota = HoyFijo.ToDateTime(TimeOnly.MinValue);
+        modelo.CobrarPrimeraCuota = true;
+        modelo.MedioPagoPrimeraCuota = "Transferencia";
+
+        var result = await service.ResolverAsync(modelo, venta: null);
+
+        AssertComandoValido(result);
+        Assert.True(result.Comando!.CobrarPrimeraCuota);
+        Assert.Equal("Transferencia", result.Comando.MedioPagoPrimeraCuota);
+    }
+
+    [Fact]
+    public async Task Resolver_CobrarPrimeraCuota_VenceManana_NoPersisteAunConPayload()
+    {
+        var service = CrearService(
+            ConfigService(tasaGlobal: 5m, rango: (1, 120, "Manual", null)),
+            reloj: new TheBuryProject.Tests.Helpers.RelojComercialFake(HoyFijo));
+        var modelo = Modelo(FuenteConfiguracionCredito.Manual, MetodoCalculoCredito.Manual);
+        modelo.FechaPrimeraCuota = HoyFijo.AddDays(1).ToDateTime(TimeOnly.MinValue); // mañana
+        modelo.CobrarPrimeraCuota = true;
+        modelo.MedioPagoPrimeraCuota = "Efectivo";
+
+        var result = await service.ResolverAsync(modelo, venta: null);
+
+        AssertComandoValido(result);
+        Assert.False(result.Comando!.CobrarPrimeraCuota);
+        Assert.Null(result.Comando.MedioPagoPrimeraCuota);
+    }
+
+    [Fact]
+    public async Task Resolver_CobrarPrimeraCuota_MedioInvalido_NoPersiste()
+    {
+        var service = CrearService(
+            ConfigService(tasaGlobal: 5m, rango: (1, 120, "Manual", null)),
+            reloj: new TheBuryProject.Tests.Helpers.RelojComercialFake(HoyFijo));
+        var modelo = Modelo(FuenteConfiguracionCredito.Manual, MetodoCalculoCredito.Manual);
+        modelo.FechaPrimeraCuota = HoyFijo.ToDateTime(TimeOnly.MinValue);
+        modelo.CobrarPrimeraCuota = true;
+        modelo.MedioPagoPrimeraCuota = "Bitcoin"; // no habilitado
+
+        var result = await service.ResolverAsync(modelo, venta: null);
+
+        AssertComandoValido(result);
+        Assert.False(result.Comando!.CobrarPrimeraCuota);
+        Assert.Null(result.Comando.MedioPagoPrimeraCuota);
+    }
+
+    [Fact]
+    public async Task Resolver_CobrarPrimeraCuota_SinMarcar_NoPersiste()
+    {
+        var service = CrearService(
+            ConfigService(tasaGlobal: 5m, rango: (1, 120, "Manual", null)),
+            reloj: new TheBuryProject.Tests.Helpers.RelojComercialFake(HoyFijo));
+        var modelo = Modelo(FuenteConfiguracionCredito.Manual, MetodoCalculoCredito.Manual);
+        modelo.FechaPrimeraCuota = HoyFijo.ToDateTime(TimeOnly.MinValue);
+        modelo.CobrarPrimeraCuota = false;
+        modelo.MedioPagoPrimeraCuota = "Transferencia";
+
+        var result = await service.ResolverAsync(modelo, venta: null);
+
+        AssertComandoValido(result);
+        Assert.False(result.Comando!.CobrarPrimeraCuota);
+        Assert.Null(result.Comando.MedioPagoPrimeraCuota);
+    }
+
+    // Micro-lote 4: las cantidades disponibles salen SOLO de los planes globales activos. En
+    // produccion la configuracion siempre tiene planes; por eso el stub, cuando el test no seedea
+    // cuotas propias, ofrece planes 1..24 (tasa null = heredar la global) para que los casos que
+    // ejercen tasa/rango/snapshots tengan cuotas disponibles y no sean rechazados por "sin planes".
+    private static readonly List<CuotaCreditoPersonalViewModel> PlanesGlobalesPorDefecto =
+        Enumerable.Range(1, 24)
+            .Select(n => new CuotaCreditoPersonalViewModel { CantidadCuotas = n, TasaMensual = null, Activo = true })
+            .ToList();
 
     private static StubConfiguracionPagoService ConfigService(
         decimal? tasaGlobal,
@@ -229,7 +405,7 @@ public sealed class CreditoConfiguracionVentaServiceTests
                 GastosAdministrativos = 0m
             },
             Rango = rango ?? (1, 120, "Manual", null),
-            CuotasCreditoPersonal = cuotas ?? new List<CuotaCreditoPersonalViewModel>()
+            CuotasCreditoPersonal = cuotas ?? PlanesGlobalesPorDefecto
         };
 
     private static ConfiguracionCreditoVentaViewModel Modelo(
@@ -319,7 +495,7 @@ public sealed class CreditoConfiguracionVentaServiceTests
         public Task<(bool Ok, List<string> Errores)> GuardarMontosPorPuntajeAsync(List<MontoPorPuntajeCreditoViewModel> items, string usuario) => Task.FromResult((true, new List<string>()));
         public Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalAsync() => Task.FromResult(CuotasCreditoPersonal);
         public Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalActivasAsync() => Task.FromResult(CuotasCreditoPersonal.Where(c => c.Activo).ToList());
-        public Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalEfectivasAsync(IEnumerable<int> productoIds) => GetCuotasCreditoPersonalActivasAsync();
+        public async Task<PlanesCreditoPersonalResultado> ResolverPlanesCreditoPersonalAsync(IEnumerable<int> productoIds) => PlanesCreditoPersonalStub.DesdeGlobales(await GetCuotasCreditoPersonalActivasAsync());
         public Task<(bool Ok, List<string> Errores)> GuardarCuotasCreditoPersonalAsync(List<CuotaCreditoPersonalViewModel> items, string usuario) => Task.FromResult((true, new List<string>()));
     }
 }

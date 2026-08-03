@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Data;
 using TheBuryProject.Models.Entities;
@@ -14,6 +14,16 @@ namespace TheBuryProject.Services
         private readonly AppDbContext _context;
         private readonly IMapper _mapper;
         private readonly ILogger<ConfiguracionPagoService> _logger;
+
+        // Tope tecnico de cantidad de cuotas. NO es una fuente de disponibilidad: las cantidades
+        // salen siempre de los planes activos. Solo evita caps abiertos cuando ni cliente ni perfil
+        // fijan un maximo. Coincide con el rango de validacion de GuardarCuotasCreditoPersonalAsync.
+        private const int MinCuotasTecnico = 1;
+        private const int MaxCuotasTecnico = 120;
+
+        private const string SinPlanesGlobalesMensaje =
+            "No hay planes de Credito Personal globales activos, por lo que no puede financiarse con " +
+            "este medio de pago. Configure al menos un plan activo en Administracion -> Credito Personal.";
 
         public ConfiguracionPagoService(
             AppDbContext context,
@@ -652,6 +662,15 @@ namespace TheBuryProject.Services
             return configuracion == null ? null : _mapper.Map<ConfiguracionPagoViewModel>(configuracion);
         }
 
+        /// <summary>
+        /// Fuente canónica del porcentaje de recargo TOTAL único global de Crédito Personal
+        /// (no es una tasa mensual ni compuesta: ver <see cref="ConfiguracionPago.TasaInteresMensualCreditoPersonal"/>).
+        /// Es el valor que heredan los planes de <see cref="ConfiguracionCreditoPersonalCuota"/>
+        /// cuya <c>TasaMensual</c> propia es <c>null</c>. Devuelve <c>null</c> únicamente cuando
+        /// no existe configuración persistida o cuando el valor nunca fue definido — NUNCA cuando
+        /// el valor configurado es exactamente 0: un recargo de 0 % es un plan válido (sin
+        /// recargo) y debe distinguirse de "no configurado".
+        /// </summary>
         public async Task<decimal?> ObtenerTasaInteresMensualCreditoPersonalAsync()
         {
             var configuracion = await _context.ConfiguracionesPago
@@ -661,20 +680,19 @@ namespace TheBuryProject.Services
             {
                 _logger.LogWarning(
                     "No existe ConfiguracionPago para CreditoPersonal. " +
-                    "Configure la tasa en Administración → Tipos de Pago.");
+                    "Configure el recargo en Administración → Tipos de Pago.");
                 return null;
             }
 
-            if (!configuracion.TasaInteresMensualCreditoPersonal.HasValue ||
-                configuracion.TasaInteresMensualCreditoPersonal.Value == 0m)
+            if (!configuracion.TasaInteresMensualCreditoPersonal.HasValue)
             {
                 _logger.LogWarning(
-                    "ConfiguracionPago CreditoPersonal tiene tasa {Tasa}. " +
-                    "Configure un valor mayor a 0 en Administración → Tipos de Pago.",
-                    configuracion.TasaInteresMensualCreditoPersonal);
+                    "ConfiguracionPago CreditoPersonal no tiene un recargo definido. " +
+                    "Configure un valor (0 o mayor) en Administración → Tipos de Pago.");
                 return null;
             }
 
+            // 0 % es un recargo valido y explicito: no se reinterpreta como "no configurado".
             return configuracion.TasaInteresMensualCreditoPersonal.Value;
         }
 
@@ -941,8 +959,8 @@ namespace TheBuryProject.Services
             {
                 configCreditoPersonal.TasaInteresMensualCreditoPersonal = config.DefaultsGlobales.TasaMensual;
                 configCreditoPersonal.GastosAdministrativosDefaultCreditoPersonal = config.DefaultsGlobales.GastosAdministrativos;
-                configCreditoPersonal.MinCuotasDefaultCreditoPersonal = config.DefaultsGlobales.MinCuotas;
-                configCreditoPersonal.MaxCuotasDefaultCreditoPersonal = config.DefaultsGlobales.MaxCuotas;
+                // Min/MaxCuotasDefaultCreditoPersonal quedaron como columnas legacy inertes (Micro-lote 4):
+                // la disponibilidad de cuotas sale solo de los planes activos. No se escriben.
                 configCreditoPersonal.UpdatedAt = DateTime.UtcNow;
             }
 
@@ -1094,11 +1112,12 @@ namespace TheBuryProject.Services
                 .AsNoTracking()
                 .FirstOrDefaultAsync(c => c.TipoPago == TipoPago.CreditoPersonal && !c.IsDeleted);
 
-            var minCuotas = Math.Max(1, configuracion?.MinCuotasDefaultCreditoPersonal ?? 1);
-            var maxCuotas = Math.Max(minCuotas, configuracion?.MaxCuotasDefaultCreditoPersonal ?? 24);
+            // Las cantidades de cuotas NO salen del rango legacy Min/MaxCuotasDefaultCreditoPersonal
+            // (columnas inertes): la unica fuente son los planes activos. Aqui solo se devuelve el
+            // tope tecnico, que actua como cap abierto cuando ni cliente ni perfil fijan un maximo.
             var gastos = configuracion?.GastosAdministrativosDefaultCreditoPersonal ?? 0m;
 
-            return (gastos, minCuotas, maxCuotas);
+            return (gastos, MinCuotasTecnico, MaxCuotasTecnico);
         }
 
         public async Task<MaxCuotasSinInteresResultado?> ObtenerMaxCuotasSinInteresEfectivoAsync(
@@ -1311,13 +1330,19 @@ namespace TheBuryProject.Services
             }).ToList();
         }
 
-        public async Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalEfectivasAsync(IEnumerable<int> productoIds)
+        public async Task<PlanesCreditoPersonalResultado> ResolverPlanesCreditoPersonalAsync(IEnumerable<int> productoIds)
         {
-            var ids = productoIds?.Where(id => id > 0).Distinct().ToArray() ?? Array.Empty<int>();
+            var ids = productoIds?.Where(id => id > 0).Distinct().OrderBy(id => id).ToArray() ?? Array.Empty<int>();
             var globales = await GetCuotasCreditoPersonalActivasAsync();
 
+            // Sin productos financiados solo puede regir la tabla global. Sin planes activos no hay
+            // cuotas disponibles: rechazo explicito, nunca fallback a un rango.
             if (ids.Length == 0)
-                return globales;
+                return globales.Count == 0
+                    ? PlanesCreditoPersonalResultado.SinPlanesGlobales(SinPlanesGlobalesMensaje)
+                    : PlanesCreditoPersonalResultado.Resuelto(
+                        await ConstruirPlanesSoloGlobalesAsync(globales),
+                        OrigenPlanesCredito.Global);
 
             var planesProducto = await _context.ProductoCreditoPersonalCuotas
                 .AsNoTracking()
@@ -1325,18 +1350,25 @@ namespace TheBuryProject.Services
                 .Select(p => new { p.ProductoId, p.CantidadCuotas, p.TasaMensual })
                 .ToListAsync();
 
-            if (planesProducto.Count == 0)
-                return globales;
-
             var porProducto = planesProducto
                 .GroupBy(p => p.ProductoId)
                 .ToDictionary(g => g.Key, g => g.Select(p => p.CantidadCuotas).ToHashSet());
 
-            var hayProductoSinPlanes = ids.Any(id => !porProducto.ContainsKey(id));
+            var productosSinPlanPropio = ids.Where(id => !porProducto.ContainsKey(id)).ToArray();
+            var hayProductoSinPlanes = productosSinPlanPropio.Length > 0;
+
+            // Ningun producto tiene configuracion personalizada: rige la global tal cual. Sin planes
+            // globales activos no hay cuotas disponibles: rechazo, nunca fallback a un rango.
+            if (porProducto.Count == 0)
+                return globales.Count == 0
+                    ? PlanesCreditoPersonalResultado.SinPlanesGlobales(SinPlanesGlobalesMensaje)
+                    : PlanesCreditoPersonalResultado.Resuelto(
+                        await ConstruirPlanesSoloGlobalesAsync(globales),
+                        OrigenPlanesCredito.Global);
 
             // Cantidades efectivas: interseccion de los sets de cada producto con planes propios.
-            // Los productos sin planes heredan la configuracion global (si existe tabla global,
-            // tambien restringe; si no, no restringen cantidades).
+            // La configuracion personalizada REEMPLAZA a la global para ese producto: no incorpora
+            // cantidades que solo existan globalmente.
             HashSet<int>? cantidades = null;
             foreach (var set in porProducto.Values)
             {
@@ -1345,39 +1377,111 @@ namespace TheBuryProject.Services
                     : new HashSet<int>(cantidades.Intersect(set));
             }
 
-            if (hayProductoSinPlanes && globales.Count > 0)
+            var cantidadesPorProducto = ConstruirCantidadesPorProducto(ids, porProducto, globales);
+
+            // Un producto sin planes propios depende de la tabla global. Sin planes globales activos
+            // ese producto no tiene cuotas disponibles: la venta no es financiable. No hay fallback
+            // a un rango que ofreceria cantidades que ningun plan habilita.
+            if (hayProductoSinPlanes && globales.Count == 0)
+                return PlanesCreditoPersonalResultado.SinPlanesGlobales(
+                    SinPlanesGlobalesMensaje, cantidadesPorProducto);
+
+            // Producto sin planes propios hereda la global: interseca con las cantidades globales.
+            if (hayProductoSinPlanes)
                 cantidades!.IntersectWith(globales.Select(g => g.CantidadCuotas));
 
-            decimal? tasaGlobalUnica = null;
-            if (hayProductoSinPlanes && globales.Count == 0)
-                tasaGlobalUnica = await ObtenerTasaInteresMensualCreditoPersonalAsync();
+            // Interseccion vacia: la venta NO es financiable. No se cae al rango ni a la tasa
+            // global; ese fallback permitia financiar combinaciones que ningun producto admite.
+            if (cantidades!.Count == 0)
+                return PlanesCreditoPersonalResultado.SinInterseccion(
+                    ComponerMensajeSinInterseccion(cantidadesPorProducto),
+                    cantidadesPorProducto);
 
-            var resultado = new List<CuotaCreditoPersonalViewModel>();
-            foreach (var cantidad in cantidades!.OrderBy(c => c))
+            // Tasa unica global (nivel 1). Ultimo eslabon de la herencia cuando una cuota
+            // (de producto o global) tiene TasaMensual null = "heredar". Puede ser null si no
+            // esta configurada. Se resuelve siempre porque cualquier plan puede venir en null.
+            var tasaGlobalUnica = await ObtenerTasaInteresMensualCreditoPersonalAsync();
+
+            var resultado = new List<PlanCuotaCreditoPersonal>();
+            foreach (var cantidad in cantidades.OrderBy(c => c))
             {
+                // Herencia para esta cantidad: cuota-global.tasa ?? tasa-unica-global.
+                var tasaGlobalCuota = globales.FirstOrDefault(g => g.CantidadCuotas == cantidad)?.TasaMensual;
+                var tasaGlobalEfectiva = tasaGlobalCuota ?? tasaGlobalUnica;
+
+                // Cada plan de producto aporta su tasa propia; null = heredar la efectiva global.
+                // Una tasa 0 explicita es un valor valido y no se reemplaza por la global.
                 var tasas = planesProducto
                     .Where(p => p.CantidadCuotas == cantidad)
-                    .Select(p => p.TasaMensual)
+                    .Select(p => p.TasaMensual ?? tasaGlobalEfectiva)
+                    .Where(t => t.HasValue)
+                    .Select(t => t!.Value)
                     .ToList();
 
-                if (hayProductoSinPlanes)
-                {
-                    var tasaGlobalPlan = globales.FirstOrDefault(g => g.CantidadCuotas == cantidad)?.TasaMensual
-                        ?? tasaGlobalUnica;
-                    if (tasaGlobalPlan.HasValue)
-                        tasas.Add(tasaGlobalPlan.Value);
-                }
+                if (hayProductoSinPlanes && tasaGlobalEfectiva.HasValue)
+                    tasas.Add(tasaGlobalEfectiva.Value);
 
-                resultado.Add(new CuotaCreditoPersonalViewModel
-                {
-                    CantidadCuotas = cantidad,
-                    TasaMensual = tasas.Max(),
-                    Activo = true,
-                    Orden = cantidad
-                });
+                resultado.Add(new PlanCuotaCreditoPersonal(
+                    cantidad,
+                    // Max = criterio conservador entre productos de la misma venta. null solo si
+                    // ninguna tasa es resoluble (tasa unica global sin configurar); el consumidor
+                    // final la resuelve contra la tasa global.
+                    tasas.Count > 0 ? tasas.Max() : (decimal?)null,
+                    planesProducto
+                        .Where(p => p.CantidadCuotas == cantidad)
+                        .Select(p => p.ProductoId)
+                        .Distinct()
+                        .OrderBy(id => id)
+                        .ToArray(),
+                    hayProductoSinPlanes));
             }
 
-            return resultado;
+            return PlanesCreditoPersonalResultado.Resuelto(
+                resultado,
+                hayProductoSinPlanes ? OrigenPlanesCredito.Mixto : OrigenPlanesCredito.Producto,
+                cantidadesPorProducto);
+        }
+
+        private async Task<IReadOnlyList<PlanCuotaCreditoPersonal>> ConstruirPlanesSoloGlobalesAsync(
+            List<CuotaCreditoPersonalViewModel> globales)
+        {
+            var tasaGlobalUnica = await ObtenerTasaInteresMensualCreditoPersonalAsync();
+
+            return globales
+                .OrderBy(g => g.CantidadCuotas)
+                .Select(g => new PlanCuotaCreditoPersonal(
+                    g.CantidadCuotas,
+                    g.TasaMensual ?? tasaGlobalUnica,
+                    Array.Empty<int>(),
+                    true))
+                .ToArray();
+        }
+
+        private static Dictionary<int, IReadOnlyList<int>> ConstruirCantidadesPorProducto(
+            IReadOnlyList<int> ids,
+            IReadOnlyDictionary<int, HashSet<int>> porProducto,
+            List<CuotaCreditoPersonalViewModel> globales)
+        {
+            var cantidadesGlobales = globales.Select(g => g.CantidadCuotas).OrderBy(c => c).ToArray();
+
+            return ids.ToDictionary(
+                id => id,
+                id => porProducto.TryGetValue(id, out var propias)
+                    ? (IReadOnlyList<int>)propias.OrderBy(c => c).ToArray()
+                    : cantidadesGlobales);
+        }
+
+        private static string ComponerMensajeSinInterseccion(
+            IReadOnlyDictionary<int, IReadOnlyList<int>> cantidadesPorProducto)
+        {
+            var detalle = string.Join("; ", cantidadesPorProducto
+                .OrderBy(par => par.Key)
+                .Select(par => par.Value.Count == 0
+                    ? $"producto #{par.Key}: sin cuotas habilitadas"
+                    : $"producto #{par.Key}: {string.Join(", ", par.Value)}"));
+
+            return "Los productos de esta venta no comparten ninguna cantidad de cuotas de Credito " +
+                   $"Personal, por lo que no puede financiarse con este medio de pago ({detalle}).";
         }
 
         public async Task<(bool Ok, List<string> Errores)> GuardarCuotasCreditoPersonalAsync(

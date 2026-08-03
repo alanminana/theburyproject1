@@ -876,7 +876,7 @@ a.ml-card:hover { border-color: rgba(251, 191, 36, 0.4); transform: translateY(-
     gap: 0.4rem;
     max-width: 14rem;
     padding: 0.35rem 0.5rem;
-    border: 1px solid rgba(244, 63, 94, 0.3);
+    border: 1px solid transparent;
     border-radius: 0.5rem;
     background: rgba(244, 63, 94, 0.06);
     cursor: pointer;
@@ -891,7 +891,7 @@ a.ml-card:hover { border-color: rgba(251, 191, 36, 0.4); transform: translateY(-
     font-size: 0.76rem;
     color: #fca5a5;
     padding: 0.45rem 0.65rem;
-    border: 1px solid rgba(244, 63, 94, 0.35);
+    border: 1px solid transparent;
     border-radius: 0.5rem;
     background: rgba(244, 63, 94, 0.08);
 }
@@ -906,7 +906,7 @@ a.ml-card:hover { border-color: rgba(251, 191, 36, 0.4); transform: translateY(-
 .ml-field-error .input-erp,
 .ml-field-error .select-erp,
 .ml-field-error [data-rol="seleccion"] {
-    border-color: #f43f5e !important;
+    border-color: transparent !important;
     box-shadow: 0 0 0 1px rgba(244, 63, 94, 0.35);
 }
 .ml-field-error > label::after {
@@ -970,7 +970,7 @@ a.ml-card:hover { border-color: rgba(251, 191, 36, 0.4); transform: translateY(-
     line-height: 1.4;
     color: #fca5a5;
     padding: 0.45rem 0.65rem;
-    border: 1px solid rgba(244, 63, 94, 0.35);
+    border: 1px solid transparent;
     border-radius: 0.5rem;
     background: rgba(244, 63, 94, 0.08);
 }
@@ -1066,5 +1066,5 @@ a.ml-card:hover { border-color: rgba(251, 191, 36, 0.4); transform: translateY(-
 .ml-danger-zone {
     margin-top: 1.1rem;
     padding-top: 0.9rem;
-    border-top: 1px dashed rgba(244, 63, 94, 0.3);
+    border-top: 1px dashed transparent;
 }

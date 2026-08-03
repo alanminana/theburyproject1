@@ -134,6 +134,35 @@ public class CreditoDetailsUiContractTests
         Assert.Equal(114_000, vm.SaldoPendiente);
     }
 
+    // ── CFTEA de presentación (no confiar en el 0 histórico) ─────────────────
+
+    [Fact]
+    public void DetailsView_UsaCfteaPresentacionYMuestraNoCalculadoCuandoEsNull()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Credito", "Details_tw.cshtml"));
+
+        Assert.Contains("cr.CfteaPresentacion.HasValue", view);
+        Assert.Contains("No calculado", view);
+    }
+
+    [Fact]
+    public void DetailsView_NoImprimeElSnapshotCFTEACrudo()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Credito", "Details_tw.cshtml"));
+
+        // El snapshot cr.CFTEA no debe imprimirse directo: en créditos históricos
+        // vale 0 sin que eso signifique 0% real (nunca se calculó).
+        Assert.DoesNotContain("cr.CFTEA.ToString", view);
+    }
+
+    [Fact]
+    public void CreditoViewModel_CfteaPresentacion_DefaultNull()
+    {
+        var vm = new CreditoViewModel();
+
+        Assert.Null(vm.CfteaPresentacion);
+    }
+
     private static string FindRepoRoot()
     {
         var current = new DirectoryInfo(Directory.GetCurrentDirectory());

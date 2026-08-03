@@ -20,6 +20,14 @@ namespace TheBuryProject.Models.Entities
         public int CantidadCuotas { get; set; }
         public decimal MontoCuota { get; set; }
 
+        /// <summary>
+        /// Anticipo propuesto por una cotización convertida (Cotizacion.Anticipo), precargado acá
+        /// para no perderlo al llegar a ConfigurarVenta (mismo patrón que CantidadCuotas). Es una
+        /// intención, no autoridad: ConfigurarVenta la usa solo como valor inicial del formulario;
+        /// el anticipo real se valida y aplica server-side recién al confirmar el crédito.
+        /// </summary>
+        public decimal AnticipoPreseleccionado { get; set; }
+
         public decimal CFTEA { get; set; } // Costo Financiero Total Efectivo Anual
         public decimal TotalAPagar { get; set; }
         public decimal SaldoPendiente { get; set; }
@@ -89,6 +97,20 @@ namespace TheBuryProject.Models.Entities
         public DateTime? FechaPrimeraCuota { get; set; }
 
         public decimal PuntajeRiesgoInicial { get; set; }
+
+        /// <summary>
+        /// Micro-lote 6 (F2): decisión tomada en la configuración del crédito de cobrar la primera
+        /// cuota al confirmar la venta. Se persiste acá (no en la UI ni en el payload de confirmación)
+        /// y el servidor la revalida contra la base al momento de confirmar.
+        /// </summary>
+        public bool CobrarPrimeraCuotaSolicitada { get; set; }
+
+        /// <summary>
+        /// Medio de pago elegido para el cobro inmediato de la primera cuota (snapshot de la decisión).
+        /// Nulo si no se solicitó el cobro. Se valida como habilitado en la ejecución.
+        /// </summary>
+        [StringLength(30)]
+        public string? MedioPagoPrimeraCuota { get; set; }
 
         // Garante (opcional)
         public int? GaranteId { get; set; }

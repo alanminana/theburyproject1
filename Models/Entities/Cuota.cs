@@ -52,5 +52,10 @@ namespace TheBuryProject.Models.Entities
 
         // Navigation Properties
         public virtual Credito Credito { get; set; } = null!;
+
+        /// <summary>
+        /// Ledger de pagos por cuota (PUN-ML2). Fuente histórica canónica; ver <see cref="PagoCuota"/>.
+        /// </summary>
+        public virtual ICollection<PagoCuota> Pagos { get; set; } = new List<PagoCuota>();
     }
 }

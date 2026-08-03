@@ -66,7 +66,7 @@
 .caja-select[aria-invalid="true"],
 .caja-input.input-validation-error,
 .caja-select.input-validation-error {
-    border-color: rgb(244 63 94);
+    border-color: transparent;
     box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.16);
 }
 
@@ -416,7 +416,7 @@ textarea.caja-input {
 .kpi--warn { border-color: rgba(245,158,11,.4); background: rgba(245,158,11,.05); }
 .kpi--warn .kpi-label { color: rgba(251,191,36,.85); }
 .kpi--warn .kpi-value { color: #fbbf24; }
-.kpi--bad { border-color: rgba(244,63,94,.4); background: rgba(244,63,94,.05); }
+.kpi--bad { border-color: transparent; background: rgba(244,63,94,.05); }
 .kpi--bad .kpi-label { color: rgba(251,113,133,.9); }
 .kpi--bad .kpi-value { color: #fb7185; }
 .kpi--accent { border-color: rgba(245,197,24,.4); background: rgba(245,197,24,.06); }
@@ -469,7 +469,7 @@ select.field { appearance: none; background-image: url("data:image/svg+xml;utf8,
 .chip-ok { background: rgba(16,185,129,.1); color: #34d399; border-color: rgba(16,185,129,.25); }
 .chip-info { background: rgba(245,197,24,.1); color: #f5c518; border-color: rgba(245,197,24,.25); }
 .chip-warn { background: rgba(245,158,11,.1); color: #fbbf24; border-color: rgba(245,158,11,.25); }
-.chip-bad { background: rgba(244,63,94,.1); color: #fb7185; border-color: rgba(244,63,94,.25); }
+.chip-bad { background: rgba(244,63,94,.1); color: #fb7185; border-color: transparent; }
 .chip-neutral { background: rgba(148,163,184,.1); color: #94a3b8; border-color: rgba(148,163,184,.25); }
 .chip-violet { background: rgba(168,85,247,.1); color: #c084fc; border-color: rgba(168,85,247,.25); }
 .chip-live { background: rgba(16,185,129,.12); color: #34d399; border-color: rgba(16,185,129,.3); }
@@ -485,7 +485,7 @@ select.field { appearance: none; background-image: url("data:image/svg+xml;utf8,
 .alert-ok .material-symbols-outlined { color: #34d399; }
 .alert-warn { background: rgba(245,158,11,.07); border-color: rgba(245,158,11,.35); color: #fde68a; }
 .alert-warn .material-symbols-outlined { color: #fbbf24; }
-.alert-bad { background: rgba(244,63,94,.07); border-color: rgba(244,63,94,.35); color: #fecdd3; }
+.alert-bad { background: rgba(244,63,94,.07); border-color: transparent; color: #fecdd3; }
 .alert-bad .material-symbols-outlined { color: #fb7185; }
 
 /* --- Tables --- */
@@ -506,7 +506,7 @@ select.field { appearance: none; background-image: url("data:image/svg+xml;utf8,
 .result-card { border-radius: 12px; padding: .65rem .9rem; border: 1px solid #1f2937; background: #0f1623; }
 .result-card.is-ok { border-color: rgba(16,185,129,.4); background: rgba(16,185,129,.06); }
 .result-card.is-warn { border-color: rgba(245,158,11,.45); background: rgba(245,158,11,.06); }
-.result-card.is-bad { border-color: rgba(244,63,94,.45); background: rgba(244,63,94,.06); }
+.result-card.is-bad { border-color: transparent; background: rgba(244,63,94,.06); }
 .result-label { font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; color: #64748b; font-weight: 600; }
 .result-value { font-size: 1.35rem; font-weight: 700; line-height: 1.1; margin-top: .25rem; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
 .is-ok .result-value { color: #34d399; }
@@ -524,7 +524,7 @@ select.field { appearance: none; background-image: url("data:image/svg+xml;utf8,
 .segment button .material-symbols-outlined { font-size: 19px; }
 .segment button:hover { color: #e2e8f0; }
 .segment button[aria-pressed="true"][data-tone="in"] { background: rgba(16,185,129,.14); color: #34d399; border-color: rgba(16,185,129,.4); }
-.segment button[aria-pressed="true"][data-tone="out"] { background: rgba(244,63,94,.14); color: #fb7185; border-color: rgba(244,63,94,.4); }
+.segment button[aria-pressed="true"][data-tone="out"] { background: rgba(244,63,94,.14); color: #fb7185; border-color: transparent; }
 .segment button[aria-pressed="true"][data-tone="neutral"] { background: #1e293b; color: #fff; border-color: #334155; }
 
 /* --- Empty state --- */
@@ -584,7 +584,7 @@ select.field { appearance: none; background-image: url("data:image/svg+xml;utf8,
 
 /* --- .field validation state --- */
 .field.input-validation-error,
-textarea.field.input-validation-error { border-color: rgb(244 63 94); box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.16); }
+textarea.field.input-validation-error { border-color: transparent; box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.16); }
 
 /* --- Padron de vendedores (modal Editar caja) --- */
 .caja-vendedores-list { display: flex; flex-direction: column; gap: .15rem; max-height: 12rem; overflow-y: auto; }

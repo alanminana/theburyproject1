@@ -384,23 +384,10 @@
                 </div>
 
                 <div class="flex items-center gap-4 shrink-0">
-                    <!-- Notifications -->
-                    @if (canViewNotifications)
-                    {
-                        <button type="button" aria-label="Notificaciones"
-                                class="p-2 text-slate-400 hover:text-white transition-colors relative">
-                            <span class="material-symbols-outlined icon-erp-lg" aria-hidden="true">notifications</span>
-                            <span
-                            class="absolute top-2 right-2 size-2 bg-red-500 rounded-full border-2 border-white"
-                            aria-hidden="true"></span>
-                        </button>
-                    }
 
-                    <!-- Search -->
-                    <button type="button" aria-label="Buscar"
-                            class="p-2 text-slate-400 hover:text-white transition-colors">
-                        <span class="material-symbols-outlined icon-erp-lg" aria-hidden="true">search</span>
-                    </button>
+
+
+
 
                     <!-- Ticket panel -->
                     @if (canViewTickets)

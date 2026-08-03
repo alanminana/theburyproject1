@@ -157,7 +157,7 @@
 
 .ordencompra-feedback[data-variant="error"] {
     background: rgb(239 68 68 / 0.10);
-    border-color: rgb(239 68 68 / 0.25);
+    border-color: transparent;
     color: rgb(185 28 28);
 }
 

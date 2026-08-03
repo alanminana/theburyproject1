@@ -129,6 +129,8 @@ public sealed class CotizacionController : Controller
                 submarca = p.Submarca,
                 caracteristicasResumen = p.CaracteristicasResumen,
                 stockActual = p.StockActual,
+                stockMinimo = p.StockMinimo,
+                unidadesEnStock = p.UnidadesEnStock,
                 precioVenta = p.PrecioVenta,
                 requiereNumeroSerie = p.RequiereNumeroSerie,
                 codigoExacto = p.CodigoExacto

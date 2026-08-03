@@ -236,6 +236,10 @@
             <p class="text-[11px] font-bold uppercase tracking-wider text-emerald-400">Opcion seleccionada</p>
             <p class="mt-2 text-lg font-black text-white">@(Model.TotalSeleccionado?.ToString("C") ?? "-")</p>
             <p class="mt-1 text-xs text-emerald-300">@Model.MedioPagoSeleccionado @Model.PlanSeleccionado</p>
+            @if (Model.Anticipo > 0)
+            {
+                <p class="mt-1 text-xs text-slate-400">Anticipo: @Model.Anticipo.ToString("C")</p>
+            }
         </div>
     </section>
 

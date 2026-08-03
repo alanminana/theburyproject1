@@ -69,3 +69,19 @@ theburyproject1obj*/
 smoke_*.jpeg
 /*.jpeg
 /test-playwright.js
+
+# Playwright
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
+
+/.claude/settings.local.json
+
+*.bak-doctor
+
+# Agent tooling local files
+/test-results/
+/CLAUDE.local.md
+/.agent-local.md
+/.agent-config-backup-*/

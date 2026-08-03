@@ -40,11 +40,26 @@ namespace TheBuryProject.ViewModels
         // Ya no es requerido - las cuotas se definen al momento de la venta
         public int CantidadCuotas { get; set; }
 
+        /// <summary>
+        /// Anticipo propuesto por una cotización convertida (intención, no autoridad). Precarga el
+        /// formulario de Configurar Venta; ver Credito.AnticipoPreseleccionado.
+        /// </summary>
+        public decimal AnticipoPreseleccionado { get; set; }
+
         [Display(Name = "Monto por Cuota")]
         public decimal MontoCuota { get; set; }
 
         [Display(Name = "CFTEA (%)")]
         public decimal CFTEA { get; set; }
+
+        /// <summary>
+        /// CFTEA para presentación en Details, recalculado desde los importes reales del
+        /// crédito (nunca desde <see cref="CFTEA"/> a secas: en créditos históricos ese
+        /// snapshot quedó en 0 por no haberse calculado nunca, indistinguible de un 0%
+        /// real). Null cuando no hay datos suficientes para calcularlo. Solo lo llena
+        /// <c>CreditoService.GetByIdAsync</c>.
+        /// </summary>
+        public decimal? CfteaPresentacion { get; set; }
 
         [Display(Name = "Total a Pagar")]
         public decimal TotalAPagar { get; set; }
@@ -73,6 +88,12 @@ namespace TheBuryProject.ViewModels
         [Display(Name = "Fecha Primera Cuota")]
         [DataType(DataType.Date)]
         public DateTime? FechaPrimeraCuota { get; set; }
+
+        /// <summary>F2: el crédito tiene solicitado el cobro de la 1ª cuota al confirmar la venta.</summary>
+        public bool CobrarPrimeraCuotaSolicitada { get; set; }
+
+        /// <summary>Medio de pago elegido para el cobro inmediato de la 1ª cuota (si se solicitó).</summary>
+        public string? MedioPagoPrimeraCuota { get; set; }
 
         [Display(Name = "Puntaje de Riesgo Inicial")]
         public decimal PuntajeRiesgoInicial { get; set; }

@@ -86,7 +86,8 @@ public class ProductoControllerPrecioTests : IDisposable
             catalogoService,
             productoCreditoPersonalConfigService,
             NullLogger<ProductoController>.Instance,
-            mapper);
+            mapper,
+            _context);
 
         _controller.ControllerContext = new ControllerContext
         {

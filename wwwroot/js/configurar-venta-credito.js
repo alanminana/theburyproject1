@@ -1,537 +1,682 @@
 /**
  * configurar-venta-credito.js
- * Lógica de la vista ConfigurarVenta_tw de Crédito:
- *  - Cálculo de monto financiado (monto - anticipo)
- *  - Cambio de método de cálculo → precarga de valores
- *  - Selección de perfil de crédito → aplica tasa/gastos/rango cuotas
- *  - Simulación en tiempo real del plan (AJAX → /Credito/SimularPlanVenta)
- *  - Semáforo de evaluación preliminar
+ * Lógica de la vista ConfigurarVenta_tw de Crédito. No calcula saldo, recargo, total
+ * financiado ni cuotas: eso es exclusivo del servidor (FinancialCalculationService vía
+ * /Credito/SimularPlanVenta, server-authoritative con ventaId). Este script solo:
+ *  - Cambia el método de cálculo → precarga de valores (tasa/gastos) desde datos ya
+ *    resueltos por el servidor en el GET, sujeto siempre a revalidación server-side.
+ *  - Selección de perfil de crédito → aplica tasa/gastos/rango cuotas.
+ *  - Dispara la simulación en tiempo real del plan (AJAX → /Credito/SimularPlanVenta,
+ *    con ventaId/metodoCalculo/fuenteConfiguracion) y pinta la respuesta tal cual.
+ *  - Semáforo de evaluación preliminar.
+ *
+ * Se usa tanto en la página standalone (ConfigurarVenta_tw, auto-init sobre document)
+ * como embebido dentro del wizard de Venta (venta-credito-embebido.js inyecta el
+ * fragmento _ConfigurarVentaEmbebida y llama a initConfigurarVentaCredito(root, opts)
+ * explícitamente). Por eso todas las búsquedas de nodos están scopeadas a `root` en vez
+ * de a `document`: permite reinicializar sobre un fragmento reinyectado sin tocar ni
+ * duplicar listeners de una instancia anterior (el fragmento viejo se descarta entero
+ * vía innerHTML, así que sus listeners mueren con él).
  */
 (function () {
     'use strict';
 
-    const creditoModule = window.TheBury && window.TheBury.CreditoModule;
+    function initConfigurarVentaCredito(root, opts) {
+        root = root || document;
+        opts = opts || {};
+        const embebido = Boolean(opts.embedded);
 
-    // ── DOM ────────────────────────────────────────────────────────────
-    const $ = (sel) => document.querySelector(sel);
+        const creditoModule = window.TheBury && window.TheBury.CreditoModule;
 
-    const hdnMontoVenta    = $('#hdn-monto-venta');
-    const hdnMontoFin      = $('#hdn-monto-financiado');
-    const hdnFuente        = $('#hdn-fuente-configuracion');
-    const txtAnticipo      = $('#txt-anticipo');
-    const txtMontoFin      = $('#txt-monto-financiado');
+        // ── DOM ────────────────────────────────────────────────────────────
+        const $ = (sel) => root.querySelector(sel);
 
-    const selectMetodo     = $('#select-metodo-calculo');
-    const selectPerfil     = $('#select-perfil-credito');
-    const panelPerfil      = $('#panel-perfil-credito');
-    const txtCuotas        = $('#txt-cuotas');
-    const txtTasa          = $('#txt-tasa');
-    const txtGastos        = $('#txt-gastos');
-    const txtFecha         = $('#txt-fecha-primera-cuota');
+        const hdnMontoVenta    = $('#hdn-monto-venta');
+        const hdnMontoFin      = $('#hdn-monto-financiado');
+        const hdnFuente        = $('#hdn-fuente-configuracion');
+        const hdnVentaId       = $('#hdn-venta-id');
+        const txtAnticipo      = $('#txt-anticipo');
+        const txtMontoFin      = $('#txt-monto-financiado');
 
-    const metodoInfo       = $('#metodo-info');
-    const metodoInfoTexto  = $('#metodo-info-texto');
-    const cuotasRangoInfo  = $('#cuotas-rango-info');
-    const badgeTasaFuente  = $('#badge-tasa-fuente');
-    const heroMontoFin     = $('#hero-monto-financiado');
-    const heroCuotas       = $('#hero-cuotas');
-    const heroMetodo       = $('#hero-metodo');
-    const btnCancelar      = $('#btn-cancelar-credito');
-    const btnGenerarContrato = $('#btn-generar-contrato');
+        const selectMetodo     = $('#select-metodo-calculo');
+        const selectPerfil     = $('#select-perfil-credito');
+        const panelPerfil      = $('#panel-perfil-credito');
+        const txtCuotas        = $('#txt-cuotas');
+        const txtTasa          = $('#txt-tasa');
+        const txtGastos        = $('#txt-gastos');
+        const txtFecha         = $('#txt-fecha-primera-cuota');
 
-    // Plan summary
-    const planCuotasLabel  = $('#plan-cuotas-label');
-    const planCuotaEstimada = $('#plan-cuota-estimada');
-    const planTasa         = $('#plan-tasa');
-    const planInteres      = $('#plan-interes');
-    const planCapital      = $('#plan-capital');
-    const planGastos       = $('#plan-gastos');
-    const planTotal        = $('#plan-total');
-    const planFechaContainer = $('#plan-fecha-container');
-    const planFechaPago    = $('#plan-fecha-pago');
+        const metodoInfo       = $('#metodo-info');
+        const metodoInfoTexto  = $('#metodo-info-texto');
+        const cuotasRangoInfo  = $('#cuotas-rango-info');
+        const badgeTasaFuente  = $('#badge-tasa-fuente');
+        const btnCancelar      = $('#btn-cancelar-credito');
+        const btnGenerarContrato = $('#btn-generar-contrato');
+        const btnConfirmar     = $('#btn-confirmar-credito');
 
-    // Semáforo
-    const semaforoPanel    = $('#semaforo-panel');
-    const semaforoVacio    = $('#semaforo-vacio');
-    const semaforoBadge    = $('#semaforo-badge');
-    const semaforoDot      = $('#semaforo-dot');
-    const semaforoLabel    = $('#semaforo-label');
-    const semaforoTag      = $('#semaforo-tag');
-    const semaforoMensaje  = $('#semaforo-mensaje');
-    const semaforoAlertas  = $('#semaforo-alertas');
+        // Plan summary
+        const planCuotaDetalle = $('#plan-cuota-detalle');
+        const planCuotasLabel  = $('#plan-cuotas-label');
+        const planCuotaEstimada = $('#plan-cuota-estimada');
+        const planPrecioFinal  = $('#plan-precio-final');
+        const planAnticipo     = $('#plan-anticipo');
+        const planTasa         = $('#plan-tasa');
+        const planInteres      = $('#plan-interes');
+        const planCapital      = $('#plan-capital');
+        const planGastos       = $('#plan-gastos');
+        const planTotal        = $('#plan-total');
+        const planFechaContainer = $('#plan-fecha-container');
+        const planFechaPago    = $('#plan-fecha-pago');
+        const planSimulando    = $('#plan-simulando');
+        const planError        = $('#plan-error');
 
-    // ── Config from server ─────────────────────────────────────────────
-    let clienteConfig = creditoModule && typeof creditoModule.parseJsonScript === 'function'
-        ? creditoModule.parseJsonScript('[data-credito-json="cliente-config"]', {})
-        : {};
-    clienteConfig = clienteConfig || {};
+        // Semáforo
+        const semaforoPanel    = $('#semaforo-panel');
+        const semaforoVacio    = $('#semaforo-vacio');
+        const semaforoBadge    = $('#semaforo-badge');
+        const semaforoDot      = $('#semaforo-dot');
+        const semaforoLabel    = $('#semaforo-label');
+        const semaforoTag      = $('#semaforo-tag');
+        const semaforoMensaje  = $('#semaforo-mensaje');
+        const semaforoAlertas  = $('#semaforo-alertas');
 
-    const METODO = { AutomaticoPorCliente: '0', UsarPerfil: '1', UsarCliente: '2', Global: '3', Manual: '4' };
+        // ── Config from server ─────────────────────────────────────────────
+        let clienteConfig = creditoModule && typeof creditoModule.parseJsonScript === 'function'
+            ? creditoModule.parseJsonScript('[data-credito-json="cliente-config"]', {})
+            : {};
+        clienteConfig = clienteConfig || {};
 
-    // ── Helpers ────────────────────────────────────────────────────────
-    const formatCurrency = TheBury.formatCurrency;
+        const METODO = { AutomaticoPorCliente: '0', UsarPerfil: '1', UsarCliente: '2', Global: '3', Manual: '4' };
 
-    function show(el) { el?.classList.remove('hidden'); }
-    function hide(el) { el?.classList.add('hidden'); }
+        // ── Helpers ────────────────────────────────────────────────────────
+        const formatCurrency = TheBury.formatCurrency;
 
-    let simulacionTimer = null;
+        function show(el) { el?.classList.remove('hidden'); }
+        function hide(el) { el?.classList.add('hidden'); }
 
-    function formatDateDisplay(dateStr) {
-        if (!dateStr) return '-';
-        const d = new Date(dateStr + 'T00:00:00');
-        if (isNaN(d)) return dateStr;
-        const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-            'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-        return `${String(d.getDate()).padStart(2, '0')} de ${meses[d.getMonth()]}, ${d.getFullYear()}`;
-    }
+        let simulacionTimer = null;
 
-    // ── 1. Monto Financiado ────────────────────────────────────────────
-    function recalcularMontoFinanciado() {
-        const monto = parseFloat(hdnMontoVenta?.value) || 0;
-        const anticipo = parseFloat(txtAnticipo?.value) || 0;
-        const financiado = Math.max(0, monto - anticipo);
-
-        if (hdnMontoFin) hdnMontoFin.value = financiado.toFixed(2);
-        if (txtMontoFin) txtMontoFin.textContent = formatCurrency(financiado);
-        if (heroMontoFin) heroMontoFin.textContent = formatCurrency(financiado);
-
-        programarSimulacion();
-    }
-
-    txtAnticipo?.addEventListener('input', recalcularMontoFinanciado);
-
-    // ── 2. Método de Cálculo ───────────────────────────────────────────
-    const metodoDescripciones = {
-        [METODO.AutomaticoPorCliente]: 'Usa la mejor configuración disponible del cliente, perfil preferido o sistema.',
-        [METODO.UsarPerfil]: 'Aplica los valores de un perfil de crédito predefinido.',
-        [METODO.UsarCliente]: 'Usa la configuración personalizada del cliente.',
-        [METODO.Global]: 'Utiliza los valores globales del sistema.',
-        [METODO.Manual]: 'Permite edición libre de todos los campos.'
-    };
-
-    function onMetodoChange() {
-        const val = selectMetodo?.value;
-
-        // Info text
-        if (val && metodoDescripciones[val]) {
-            metodoInfoTexto.textContent = metodoDescripciones[val];
-            show(metodoInfo);
-        } else {
-            hide(metodoInfo);
+        function formatDateDisplay(dateStr) {
+            if (!dateStr) return '-';
+            const d = new Date(dateStr + 'T00:00:00');
+            if (isNaN(d)) return dateStr;
+            const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+                'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+            return `${String(d.getDate()).padStart(2, '0')} de ${meses[d.getMonth()]}, ${d.getFullYear()}`;
         }
 
-        // Show/hide perfil selector
-        if (val === METODO.UsarPerfil) {
-            show(panelPerfil);
-        } else {
-            hide(panelPerfil);
+        // ── 1. Saldo a financiar ──────────────────────────────────────────
+        // El saldo, el recargo y el total financiado los calcula exclusivamente el
+        // servidor (FinancialCalculationService.SimularPlanCredito). Mientras se espera
+        // la respuesta de /Credito/SimularPlanVenta se muestra un estado "calculando",
+        // nunca un valor derivado en el navegador.
+        function marcarSimulacionPendiente() {
+            if (txtMontoFin) txtMontoFin.textContent = 'Calculando…';
+            programarSimulacion();
         }
 
-        // Apply values based on method
-        aplicarValoresMetodo(val);
+        txtAnticipo?.addEventListener('input', marcarSimulacionPendiente);
 
-        // Field editability
-        const esManual = val === METODO.Manual;
-        const esReadonly = !esManual && val !== '';
-        txtTasa.readOnly = esReadonly;
-        txtGastos.readOnly = esReadonly;
+        // ── 2. Método de Cálculo ───────────────────────────────────────────
+        const metodoDescripciones = {
+            [METODO.AutomaticoPorCliente]: 'Usa la mejor configuración disponible del cliente, perfil preferido o sistema.',
+            [METODO.UsarPerfil]: 'Aplica los valores de un perfil de crédito predefinido.',
+            [METODO.UsarCliente]: 'Usa la configuración personalizada del cliente.',
+            [METODO.Global]: 'Utiliza los valores globales del sistema.',
+            [METODO.Manual]: 'Permite edición libre de todos los campos.'
+        };
 
-        if (esReadonly) {
-            txtTasa.classList.add('bg-slate-100', 'dark:bg-slate-800/50', 'cursor-not-allowed');
-            txtTasa.classList.remove('bg-slate-50', 'dark:bg-slate-800');
-            txtGastos.classList.add('bg-slate-100', 'dark:bg-slate-800/50', 'cursor-not-allowed');
-            txtGastos.classList.remove('bg-slate-50', 'dark:bg-slate-800');
-        } else {
-            txtTasa.classList.remove('bg-slate-100', 'dark:bg-slate-800/50', 'cursor-not-allowed');
-            txtTasa.classList.add('bg-slate-50', 'dark:bg-slate-800');
-            txtGastos.classList.remove('bg-slate-100', 'dark:bg-slate-800/50', 'cursor-not-allowed');
-            txtGastos.classList.add('bg-slate-50', 'dark:bg-slate-800');
+        function onMetodoChange() {
+            const val = selectMetodo?.value;
+
+            // Info text
+            if (val && metodoDescripciones[val]) {
+                metodoInfoTexto.textContent = metodoDescripciones[val];
+                show(metodoInfo);
+            } else {
+                hide(metodoInfo);
+            }
+
+            // Show/hide perfil selector
+            if (val === METODO.UsarPerfil) {
+                show(panelPerfil);
+            } else {
+                hide(panelPerfil);
+            }
+
+            // Apply values based on method
+            aplicarValoresMetodo(val);
+
+            // Field editability
+            const esManual = val === METODO.Manual;
+            const esReadonly = !esManual && val !== '';
+            txtTasa.readOnly = esReadonly;
+            txtGastos.readOnly = esReadonly;
+
+            if (esReadonly) {
+                txtTasa.classList.add('bg-slate-100', 'dark:bg-slate-800/50', 'cursor-not-allowed');
+                txtTasa.classList.remove('bg-slate-50', 'dark:bg-slate-800');
+                txtGastos.classList.add('bg-slate-100', 'dark:bg-slate-800/50', 'cursor-not-allowed');
+                txtGastos.classList.remove('bg-slate-50', 'dark:bg-slate-800');
+            } else {
+                txtTasa.classList.remove('bg-slate-100', 'dark:bg-slate-800/50', 'cursor-not-allowed');
+                txtTasa.classList.add('bg-slate-50', 'dark:bg-slate-800');
+                txtGastos.classList.remove('bg-slate-100', 'dark:bg-slate-800/50', 'cursor-not-allowed');
+                txtGastos.classList.add('bg-slate-50', 'dark:bg-slate-800');
+            }
+
+            // Update fuente hidden
+            if (val === METODO.Manual) {
+                if (hdnFuente) hdnFuente.value = '2'; // Manual
+            } else if (val === METODO.UsarCliente) {
+                if (hdnFuente) hdnFuente.value = '1'; // PorCliente
+            } else {
+                if (hdnFuente) hdnFuente.value = '0'; // Global
+            }
+
+            // Badge
+            actualizarBadgeTasa(val);
+
+            programarSimulacion();
         }
 
-        // Update fuente hidden
-        if (val === METODO.Manual) {
-            if (hdnFuente) hdnFuente.value = '2'; // Manual
-        } else if (val === METODO.UsarCliente) {
-            if (hdnFuente) hdnFuente.value = '1'; // PorCliente
-        } else {
-            if (hdnFuente) hdnFuente.value = '0'; // Global
-        }
+        function aplicarValoresMetodo(metodo) {
+            switch (metodo) {
+                case METODO.AutomaticoPorCliente:
+                    // Priority: client custom > preferred profile > global
+                    if (clienteConfig.tieneConfiguracionCliente) {
+                        txtTasa.value = clienteConfig.tasaPersonalizada ?? clienteConfig.perfilTasa ?? clienteConfig.tasaGlobal ?? '';
+                        txtGastos.value = clienteConfig.gastosPersonalizados ?? clienteConfig.perfilGastos ?? clienteConfig.gastosGlobales ?? 0;
+                        actualizarRangoCuotas(
+                            clienteConfig.perfilMinCuotas ?? 1,
+                            clienteConfig.cuotasMaximas ?? clienteConfig.perfilMaxCuotas ?? 24
+                        );
+                    } else if (clienteConfig.tienePerfilPreferido) {
+                        txtTasa.value = clienteConfig.perfilTasa ?? clienteConfig.tasaGlobal ?? '';
+                        txtGastos.value = clienteConfig.perfilGastos ?? clienteConfig.gastosGlobales ?? 0;
+                        actualizarRangoCuotas(clienteConfig.perfilMinCuotas ?? 1, clienteConfig.perfilMaxCuotas ?? 24);
+                    } else {
+                        txtTasa.value = clienteConfig.tasaGlobal ?? '';
+                        txtGastos.value = clienteConfig.gastosGlobales ?? 0;
+                        if (!aplicarCuotasHabilitadas()) actualizarRangoCuotas(1, 24);
+                    }
+                    break;
 
-        // Badge
-        actualizarBadgeTasa(val);
-        actualizarHeroMetodo(val);
+                case METODO.UsarPerfil:
+                    onPerfilChange();
+                    break;
 
-        programarSimulacion();
-    }
+                case METODO.UsarCliente:
+                    txtTasa.value = clienteConfig.tasaPersonalizada ?? clienteConfig.tasaGlobal ?? '';
+                    txtGastos.value = clienteConfig.gastosPersonalizados ?? 0;
+                    actualizarRangoCuotas(1, clienteConfig.cuotasMaximas ?? 24);
+                    break;
 
-    function aplicarValoresMetodo(metodo) {
-        switch (metodo) {
-            case METODO.AutomaticoPorCliente:
-                // Priority: client custom > preferred profile > global
-                if (clienteConfig.tieneConfiguracionCliente) {
-                    txtTasa.value = clienteConfig.tasaPersonalizada ?? clienteConfig.perfilTasa ?? clienteConfig.tasaGlobal ?? '';
-                    txtGastos.value = clienteConfig.gastosPersonalizados ?? clienteConfig.perfilGastos ?? clienteConfig.gastosGlobales ?? 0;
-                    actualizarRangoCuotas(
-                        clienteConfig.perfilMinCuotas ?? 1,
-                        clienteConfig.cuotasMaximas ?? clienteConfig.perfilMaxCuotas ?? 24
-                    );
-                } else if (clienteConfig.tienePerfilPreferido) {
-                    txtTasa.value = clienteConfig.perfilTasa ?? clienteConfig.tasaGlobal ?? '';
-                    txtGastos.value = clienteConfig.perfilGastos ?? clienteConfig.gastosGlobales ?? 0;
-                    actualizarRangoCuotas(clienteConfig.perfilMinCuotas ?? 1, clienteConfig.perfilMaxCuotas ?? 24);
-                } else {
+                case METODO.Global:
                     txtTasa.value = clienteConfig.tasaGlobal ?? '';
                     txtGastos.value = clienteConfig.gastosGlobales ?? 0;
                     if (!aplicarCuotasHabilitadas()) actualizarRangoCuotas(1, 24);
-                }
-                break;
+                    break;
 
-            case METODO.UsarPerfil:
-                onPerfilChange();
-                break;
-
-            case METODO.UsarCliente:
-                txtTasa.value = clienteConfig.tasaPersonalizada ?? clienteConfig.tasaGlobal ?? '';
-                txtGastos.value = clienteConfig.gastosPersonalizados ?? 0;
-                actualizarRangoCuotas(1, clienteConfig.cuotasMaximas ?? 24);
-                break;
-
-            case METODO.Global:
-                txtTasa.value = clienteConfig.tasaGlobal ?? '';
-                txtGastos.value = clienteConfig.gastosGlobales ?? 0;
-                if (!aplicarCuotasHabilitadas()) actualizarRangoCuotas(1, 24);
-                break;
-
-            case METODO.Manual:
-                // Don't change values, let user edit freely
-                actualizarRangoCuotas(1, 120);
-                break;
-        }
-    }
-
-    function actualizarBadgeTasa(metodo) {
-        if (!metodo || metodo === '') {
-            hide(badgeTasaFuente);
-            return;
-        }
-        const labels = {
-            [METODO.AutomaticoPorCliente]: 'Auto',
-            [METODO.UsarPerfil]: 'Perfil',
-            [METODO.UsarCliente]: 'Cliente',
-            [METODO.Global]: 'Global',
-            [METODO.Manual]: 'Manual'
-        };
-        badgeTasaFuente.textContent = labels[metodo] || '';
-        show(badgeTasaFuente);
-    }
-
-    function actualizarHeroMetodo(metodo) {
-        if (!heroMetodo) return;
-
-        const labels = {
-            [METODO.AutomaticoPorCliente]: 'Automático',
-            [METODO.UsarPerfil]: 'Perfil',
-            [METODO.UsarCliente]: 'Cliente',
-            [METODO.Global]: 'Global',
-            [METODO.Manual]: 'Manual'
-        };
-
-        heroMetodo.textContent = labels[metodo] || '—';
-    }
-
-    function actualizarRangoCuotas(min, max) {
-        const maxProducto = parseInt(clienteConfig.maxCuotasCreditoProducto) || null;
-        const maxEfectivo = maxProducto ? Math.min(max, maxProducto) : max;
-
-        txtCuotas.min = min;
-        txtCuotas.max = maxEfectivo;
-        cuotasRangoInfo.textContent = `Rango permitido: ${min} a ${maxEfectivo} cuotas.`;
-        if (maxProducto) {
-            cuotasRangoInfo.textContent += ` ${clienteConfig.restriccionCreditoProductoDescripcion || `Límite por producto: hasta ${maxProducto} cuotas.`}`;
+                case METODO.Manual:
+                    // Don't change values, let user edit freely
+                    actualizarRangoCuotas(1, 120);
+                    break;
+            }
         }
 
-        // Clamp current value
-        const current = parseInt(txtCuotas.value) || 0;
-        if (current < min) txtCuotas.value = min;
-        if (current > maxEfectivo) txtCuotas.value = maxEfectivo;
-        if (heroCuotas) heroCuotas.textContent = txtCuotas.value || '0';
-    }
-
-    // ── Planes de cuotas (fuente Global) ───────────────────────────────
-    // Cuando hay planes activos configurados, las cuotas seleccionables surgen
-    // de esos planes (cantidad + tasa propia), no del rango min/max default.
-
-    function cuotasHabilitadasGlobal() {
-        const lista = Array.isArray(clienteConfig.cuotasHabilitadas) ? clienteConfig.cuotasHabilitadas : [];
-        const maxProducto = parseInt(clienteConfig.maxCuotasCreditoProducto) || null;
-        return lista
-            .filter(c => !maxProducto || c.cantidadCuotas <= maxProducto)
-            .sort((a, b) => a.cantidadCuotas - b.cantidadCuotas);
-    }
-
-    function esFuenteGlobalPura() {
-        const val = selectMetodo?.value;
-        return val === METODO.Global ||
-            (val === METODO.AutomaticoPorCliente &&
-                !clienteConfig.tieneConfiguracionCliente &&
-                !clienteConfig.tienePerfilPreferido);
-    }
-
-    function aplicarCuotasHabilitadas() {
-        const planes = cuotasHabilitadasGlobal();
-        if (!planes.length) return false;
-
-        const cantidades = planes.map(c => c.cantidadCuotas);
-        txtCuotas.min = cantidades[0];
-        txtCuotas.max = cantidades[cantidades.length - 1];
-        cuotasRangoInfo.textContent = `Cuotas disponibles según planes configurados: ${cantidades.join(', ')}.`;
-
-        ajustarCuotaAPlanHabilitado();
-        return true;
-    }
-
-    function ajustarCuotaAPlanHabilitado() {
-        const planes = cuotasHabilitadasGlobal();
-        if (!planes.length || !esFuenteGlobalPura()) return;
-
-        const cantidades = planes.map(c => c.cantidadCuotas);
-        const actual = parseInt(txtCuotas.value) || 0;
-        if (!cantidades.includes(actual)) {
-            const cercana = cantidades.reduce((p, c) => Math.abs(c - actual) < Math.abs(p - actual) ? c : p);
-            txtCuotas.value = cercana;
+        function actualizarBadgeTasa(metodo) {
+            if (!metodo || metodo === '') {
+                hide(badgeTasaFuente);
+                return;
+            }
+            const labels = {
+                [METODO.AutomaticoPorCliente]: 'Auto',
+                [METODO.UsarPerfil]: 'Perfil',
+                [METODO.UsarCliente]: 'Cliente',
+                [METODO.Global]: 'Global',
+                [METODO.Manual]: 'Manual'
+            };
+            badgeTasaFuente.textContent = labels[metodo] || '';
+            show(badgeTasaFuente);
         }
 
-        const plan = planes.find(c => c.cantidadCuotas === (parseInt(txtCuotas.value) || 0));
-        if (plan) txtTasa.value = plan.tasaMensual;
-        if (heroCuotas) heroCuotas.textContent = txtCuotas.value || '0';
-    }
+        function actualizarRangoCuotas(min, max) {
+            // Sin planes compatibles no hay rango que ofrecer: el servidor rechaza cualquier cantidad.
+            // Sobrescribir el mensaje del servidor con un rango contradiria el motivo del bloqueo.
+            if (clienteConfig.sinPlanesCompatibles) return;
 
-    selectMetodo?.addEventListener('change', onMetodoChange);
+            const maxProducto = parseInt(clienteConfig.maxCuotasCreditoProducto) || null;
+            const maxEfectivo = maxProducto ? Math.min(max, maxProducto) : max;
 
-    // ── 3. Perfil de Crédito ───────────────────────────────────────────
-    function onPerfilChange() {
-        const opt = selectPerfil?.selectedOptions[0];
-        if (!opt || !opt.value) return;
-
-        const tasa = opt.dataset.tasa;
-        const gastos = opt.dataset.gastos;
-        const minCuotas = parseInt(opt.dataset.minCuotas) || 1;
-        const maxCuotas = parseInt(opt.dataset.maxCuotas) || 24;
-
-        if (tasa) txtTasa.value = tasa;
-        if (gastos) txtGastos.value = gastos;
-        actualizarRangoCuotas(minCuotas, maxCuotas);
-
-        programarSimulacion();
-    }
-
-    selectPerfil?.addEventListener('change', function () {
-        onPerfilChange();
-        programarSimulacion();
-    });
-
-    // ── 4. Simulación de Plan (AJAX) ──────────────────────────────────
-    function programarSimulacion() {
-        clearTimeout(simulacionTimer);
-        simulacionTimer = setTimeout(simularPlan, 400);
-    }
-
-    async function simularPlan() {
-        const montoFinanciado = parseFloat(hdnMontoFin?.value) || 0;
-        const totalVenta = parseFloat(hdnMontoVenta?.value) || 0;
-        const anticipo = parseFloat(txtAnticipo?.value) || 0;
-        const cuotas = parseInt(txtCuotas?.value) || 0;
-        const tasa = parseFloat(txtTasa?.value);
-        const gastos = parseFloat(txtGastos?.value) || 0;
-        const fecha = txtFecha?.value || '';
-
-        if (totalVenta <= 0 || cuotas <= 0) {
-            resetPlanResumen();
-            return;
-        }
-
-        try {
-            const params = new URLSearchParams({
-                totalVenta: totalVenta.toString(),
-                anticipo: anticipo.toString(),
-                cuotas: cuotas.toString(),
-                gastosAdministrativos: gastos.toString(),
-                fechaPrimeraCuota: fecha
-            });
-            if (!isNaN(tasa) && tasa >= 0) {
-                params.set('tasaMensual', tasa.toString());
+            txtCuotas.min = min;
+            txtCuotas.max = maxEfectivo;
+            cuotasRangoInfo.textContent = `Rango permitido: ${min} a ${maxEfectivo} cuotas.`;
+            if (maxProducto) {
+                cuotasRangoInfo.textContent += ` ${clienteConfig.restriccionCreditoProductoDescripcion || `Límite por producto: hasta ${maxProducto} cuotas.`}`;
             }
 
-            const resp = await fetch(`/Credito/SimularPlanVenta?${params}`);
-            if (!resp.ok) {
-                await resp.json().catch(() => null);
+            // Clamp current value
+            const current = parseInt(txtCuotas.value) || 0;
+            if (current < min) txtCuotas.value = min;
+            if (current > maxEfectivo) txtCuotas.value = maxEfectivo;
+        }
+
+        // ── Planes de cuotas (fuente Global) ───────────────────────────────
+        // Cuando hay planes activos configurados, las cuotas seleccionables surgen
+        // de esos planes (cantidad + tasa propia), no del rango min/max default.
+
+        function cuotasHabilitadasGlobal() {
+            const lista = Array.isArray(clienteConfig.cuotasHabilitadas) ? clienteConfig.cuotasHabilitadas : [];
+            const maxProducto = parseInt(clienteConfig.maxCuotasCreditoProducto) || null;
+            return lista
+                .filter(c => !maxProducto || c.cantidadCuotas <= maxProducto)
+                .sort((a, b) => a.cantidadCuotas - b.cantidadCuotas);
+        }
+
+        function esFuenteGlobalPura() {
+            const val = selectMetodo?.value;
+            return val === METODO.Global ||
+                (val === METODO.AutomaticoPorCliente &&
+                    !clienteConfig.tieneConfiguracionCliente &&
+                    !clienteConfig.tienePerfilPreferido);
+        }
+
+        function aplicarCuotasHabilitadas() {
+            const planes = cuotasHabilitadasGlobal();
+            if (!planes.length) return false;
+
+            const cantidades = planes.map(c => c.cantidadCuotas);
+            txtCuotas.min = cantidades[0];
+            txtCuotas.max = cantidades[cantidades.length - 1];
+            cuotasRangoInfo.textContent = `Cuotas disponibles según planes configurados: ${cantidades.join(', ')}.`;
+
+            ajustarCuotaAPlanHabilitado();
+            return true;
+        }
+
+        function ajustarCuotaAPlanHabilitado() {
+            const planes = cuotasHabilitadasGlobal();
+            if (!planes.length || !esFuenteGlobalPura()) return;
+
+            const cantidades = planes.map(c => c.cantidadCuotas);
+            const actual = parseInt(txtCuotas.value) || 0;
+            if (!cantidades.includes(actual)) {
+                const cercana = cantidades.reduce((p, c) => Math.abs(c - actual) < Math.abs(p - actual) ? c : p);
+                txtCuotas.value = cercana;
+            }
+
+            const plan = planes.find(c => c.cantidadCuotas === (parseInt(txtCuotas.value) || 0));
+            if (plan) txtTasa.value = plan.tasaMensual;
+        }
+
+        selectMetodo?.addEventListener('change', onMetodoChange);
+
+        // ── 3. Perfil de Crédito ───────────────────────────────────────────
+        function onPerfilChange() {
+            const opt = selectPerfil?.selectedOptions[0];
+            if (!opt || !opt.value) return;
+
+            const tasa = opt.dataset.tasa;
+            const gastos = opt.dataset.gastos;
+            const minCuotas = parseInt(opt.dataset.minCuotas) || 1;
+            const maxCuotas = parseInt(opt.dataset.maxCuotas) || 24;
+
+            if (tasa) txtTasa.value = tasa;
+            if (gastos) txtGastos.value = gastos;
+            actualizarRangoCuotas(minCuotas, maxCuotas);
+
+            programarSimulacion();
+        }
+
+        selectPerfil?.addEventListener('change', function () {
+            onPerfilChange();
+            programarSimulacion();
+        });
+
+        // ── 4. Simulación de Plan (AJAX) ──────────────────────────────────
+        function programarSimulacion() {
+            // Ningún cambio de entrada deja el botón de confirmar habilitado con un plan
+            // desactualizado: se deshabilita apenas se agenda una nueva simulación.
+            deshabilitarConfirmar(true);
+            opts.onCambioPlan?.();
+            clearTimeout(simulacionTimer);
+            simulacionTimer = setTimeout(simularPlan, 400);
+        }
+
+        // Token de la simulación en curso: si llega una respuesta tardía de una simulación
+        // ya superada por una más nueva, se descarta (evita pintar un plan desactualizado).
+        let simulacionToken = 0;
+
+        async function simularPlan() {
+            const totalVenta = parseFloat(hdnMontoVenta?.value) || 0;
+            const anticipo = parseFloat(txtAnticipo?.value) || 0;
+            const cuotas = parseInt(txtCuotas?.value) || 0;
+            const tasa = parseFloat(txtTasa?.value);
+            const gastos = parseFloat(txtGastos?.value) || 0;
+            const fecha = txtFecha?.value || '';
+            const ventaId = hdnVentaId?.value || '';
+            const metodoCalculo = selectMetodo?.value || '';
+            const fuenteConfiguracion = hdnFuente?.value || '';
+
+            if (totalVenta <= 0 || cuotas <= 0) {
+                resetPlanResumen();
                 return;
             }
 
-            const data = await resp.json();
-            actualizarPlanResumen(data, cuotas);
-            actualizarSemaforo(data);
+            const token = ++simulacionToken;
+            hide(planError);
+            show(planSimulando);
+            deshabilitarConfirmar(true);
 
-        } catch {
-            // simulación falló silenciosamente
-        }
-    }
+            try {
+                const params = new URLSearchParams({
+                    totalVenta: totalVenta.toString(),
+                    anticipo: anticipo.toString(),
+                    cuotas: cuotas.toString(),
+                    gastosAdministrativos: gastos.toString(),
+                    fechaPrimeraCuota: fecha
+                });
+                // Server-authoritative: con ventaId el backend ignora totalVenta/tasaMensual
+                // salvo que fuenteConfiguracion y metodoCalculo sean ambos Manual, y resuelve
+                // el porcentaje/planes efectivos de los productos de la venta.
+                if (ventaId) params.set('ventaId', ventaId);
+                if (metodoCalculo !== '') params.set('metodoCalculo', metodoCalculo);
+                if (fuenteConfiguracion !== '') params.set('fuenteConfiguracion', fuenteConfiguracion);
+                if (!isNaN(tasa) && tasa >= 0) {
+                    params.set('tasaMensual', tasa.toString());
+                }
 
-    function actualizarPlanResumen(data, cuotas) {
-        planCuotasLabel.textContent = cuotas;
-        planCuotaEstimada.textContent = formatCurrency(data.cuotaEstimada);
-        planTasa.textContent = `${data.tasaAplicada?.toFixed(2) ?? '0'}% Mensual`;
-        planInteres.textContent = formatCurrency(data.interesTotal);
-        planCapital.textContent = formatCurrency(data.montoFinanciado);
-        planGastos.textContent = formatCurrency(data.gastosAdministrativos);
-        planTotal.textContent = formatCurrency(data.totalPlan);
+                const resp = await fetch(`/Credito/SimularPlanVenta?${params}`);
+                if (token !== simulacionToken) return; // superada por una simulación más nueva
 
-        if (data.fechaPrimerPago) {
-            planFechaPago.textContent = formatDateDisplay(data.fechaPrimerPago);
-            show(planFechaContainer);
-        } else {
-            hide(planFechaContainer);
-        }
-    }
+                if (!resp.ok) {
+                    const body = await resp.json().catch(() => null);
+                    mostrarErrorPlan(body?.error || 'No se pudo calcular el plan. Revisá los valores ingresados.');
+                    return;
+                }
 
-    function resetPlanResumen() {
-        planCuotasLabel.textContent = '0';
-        planCuotaEstimada.textContent = '$ 0,00';
-        planTasa.textContent = '0% Mensual';
-        planInteres.textContent = '$ 0,00';
-        planCapital.textContent = '$ 0,00';
-        planGastos.textContent = '$ 0,00';
-        planTotal.textContent = '$ 0,00';
-        hide(planFechaContainer);
-    }
+                const data = await resp.json();
+                if (token !== simulacionToken) return;
+                actualizarPlanResumen(data, cuotas);
+                actualizarSemaforo(data);
+                deshabilitarConfirmar(false);
 
-    // ── 5. Semáforo de Evaluación ─────────────────────────────────────
-    function actualizarSemaforo(data) {
-        const estado = data.semaforoEstado;
-        const mensaje = data.semaforoMensaje;
-
-        if (!estado || estado === 'sinDatos') {
-            hide(semaforoPanel);
-            show(semaforoVacio);
-            return;
-        }
-
-        hide(semaforoVacio);
-        show(semaforoPanel);
-
-        const estados = {
-            verde: {
-                dotClass: 'bg-green-500',
-                badgeClass: 'bg-green-500/10 border border-green-500/20',
-                labelClass: 'text-green-700 dark:text-green-400',
-                tagClass: 'text-green-600 dark:text-green-500',
-                label: 'Riesgo Bajo',
-                tag: 'Approved'
-            },
-            amarillo: {
-                dotClass: 'bg-yellow-500',
-                badgeClass: 'bg-yellow-500/10 border border-yellow-500/20',
-                labelClass: 'text-yellow-700 dark:text-yellow-400',
-                tagClass: 'text-yellow-600 dark:text-yellow-500',
-                label: 'Riesgo Moderado',
-                tag: 'Caution'
-            },
-            rojo: {
-                dotClass: 'bg-red-500',
-                badgeClass: 'bg-red-500/10 border border-red-500/20',
-                labelClass: 'text-red-700 dark:text-red-400',
-                tagClass: 'text-red-600 dark:text-red-500',
-                label: 'Riesgo Alto',
-                tag: 'Rejected'
+            } catch {
+                if (token !== simulacionToken) return;
+                mostrarErrorPlan('No se pudo contactar al servidor para calcular el plan. Reintentá.');
+            } finally {
+                if (token === simulacionToken) hide(planSimulando);
             }
-        };
+        }
 
-        const config = estados[estado] || estados.amarillo;
+        function mostrarErrorPlan(mensaje) {
+            if (!planError) return;
+            planError.textContent = mensaje;
+            show(planError);
+            planError.focus();
+            deshabilitarConfirmar(true);
+        }
 
-        semaforoDot.className = `size-4 rounded-full animate-pulse ${config.dotClass}`;
-        semaforoBadge.className = `flex items-center justify-between p-3 rounded-lg ${config.badgeClass}`;
-        semaforoLabel.className = `font-bold ${config.labelClass}`;
-        semaforoLabel.textContent = config.label;
-        semaforoTag.className = `text-[10px] uppercase font-black ${config.tagClass}`;
-        semaforoTag.textContent = config.tag;
-        semaforoMensaje.textContent = `"${mensaje}"`;
+        function deshabilitarConfirmar(deshabilitado) {
+            if (!btnConfirmar) return;
+            // Sin planes compatibles el botón ya viene deshabilitado desde el servidor
+            // (Model.SinPlanesCompatibles); no reactivarlo aunque la simulación se resuelva.
+            if (clienteConfig.sinPlanesCompatibles) return;
+            btnConfirmar.disabled = deshabilitado;
+        }
 
-        // Alertas
-        semaforoAlertas.innerHTML = '';
-        if (data.mostrarMsgIngreso) {
-            semaforoAlertas.innerHTML += `
+        // Formatea el vector de cuotas devuelto por el servidor (ML3) como el negocio lo pide:
+        // cuotas iguales → "N cuotas de $X"; con residuo → "N-1 cuotas de $X / Última cuota: $Y".
+        function formatearDetalleCuotas(cuotas, cantidad) {
+            if (!Array.isArray(cuotas) || cuotas.length === 0) return `${cantidad} cuotas`;
+
+            const primera = cuotas[0].total;
+            const ultima = cuotas[cuotas.length - 1].total;
+
+            if (cuotas.length === 1) return `1 cuota de ${formatCurrency(primera)}`;
+
+            if (Math.abs(ultima - primera) < 0.005) {
+                return `${cuotas.length} cuotas de ${formatCurrency(primera)}`;
+            }
+
+            return `${cuotas.length - 1} cuotas de ${formatCurrency(primera)} + última cuota de ${formatCurrency(ultima)}`;
+        }
+
+        function actualizarPlanResumen(data, cuotas) {
+            planCuotasLabel.textContent = cuotas;
+            planCuotaEstimada.textContent = formatCurrency(data.cuotaEstimada);
+            if (planCuotaDetalle) planCuotaDetalle.textContent = formatearDetalleCuotas(data.cuotas, cuotas);
+            planTasa.textContent = `${data.tasaAplicada?.toFixed(2) ?? '0'}%`;
+            planInteres.textContent = formatCurrency(data.interesTotal);
+            if (planPrecioFinal) planPrecioFinal.textContent = formatCurrency(data.totalVenta ?? 0);
+            if (planAnticipo) planAnticipo.textContent = formatCurrency(data.anticipo ?? 0);
+            planCapital.textContent = formatCurrency(data.montoFinanciado);
+            if (txtMontoFin) txtMontoFin.textContent = formatCurrency(data.montoFinanciado);
+            if (hdnMontoFin) hdnMontoFin.value = (data.montoFinanciado ?? 0).toFixed(2);
+            planGastos.textContent = formatCurrency(data.gastosAdministrativos);
+            // Total financiado = saldo a financiar + recargo (totalAPagar). Los gastos
+            // administrativos son informativos aparte, nunca se suman a este total.
+            planTotal.textContent = formatCurrency(data.totalAPagar);
+
+            if (data.fechaPrimerPago) {
+                planFechaPago.textContent = formatDateDisplay(data.fechaPrimerPago);
+                show(planFechaContainer);
+            } else {
+                hide(planFechaContainer);
+            }
+
+            // El badge junto al campo de porcentaje pasa a reflejar de dónde salió el %
+            // realmente aplicado según el servidor (Manual/Cliente/Producto/Global), no solo
+            // el método de cálculo elegido: con método Global un producto propio puede pisar
+            // la tasa única (fuentePorcentaje="Producto"), y el badge debe decir eso, no "Global".
+            if (badgeTasaFuente && data.fuentePorcentaje) {
+                badgeTasaFuente.textContent = data.fuentePorcentaje;
+                show(badgeTasaFuente);
+            }
+        }
+
+        function resetPlanResumen() {
+            planCuotasLabel.textContent = '0';
+            planCuotaEstimada.textContent = '$ 0,00';
+            if (planCuotaDetalle) planCuotaDetalle.textContent = 'Cuota';
+            planTasa.textContent = '0%';
+            planInteres.textContent = '$ 0,00';
+            if (planPrecioFinal) planPrecioFinal.textContent = '$ 0,00';
+            if (planAnticipo) planAnticipo.textContent = '$ 0,00';
+            planCapital.textContent = '$ 0,00';
+            if (txtMontoFin) txtMontoFin.textContent = '$ 0,00';
+            planGastos.textContent = '$ 0,00';
+            planTotal.textContent = '$ 0,00';
+            hide(planFechaContainer);
+            hide(planSimulando);
+            hide(planError);
+            deshabilitarConfirmar(true);
+        }
+
+        // ── 5. Semáforo de Evaluación ─────────────────────────────────────
+        function actualizarSemaforo(data) {
+            const estado = data.semaforoEstado;
+            const mensaje = data.semaforoMensaje;
+
+            if (!estado || estado === 'sinDatos') {
+                hide(semaforoPanel);
+                show(semaforoVacio);
+                return;
+            }
+
+            hide(semaforoVacio);
+            show(semaforoPanel);
+
+            const estados = {
+                verde: {
+                    dotClass: 'bg-green-500',
+                    badgeClass: 'bg-green-500/10 border border-green-500/20',
+                    labelClass: 'text-green-700 dark:text-green-400',
+                    tagClass: 'text-green-600 dark:text-green-500',
+                    label: 'Riesgo Bajo',
+                    tag: 'Approved'
+                },
+                amarillo: {
+                    dotClass: 'bg-yellow-500',
+                    badgeClass: 'bg-yellow-500/10 border border-yellow-500/20',
+                    labelClass: 'text-yellow-700 dark:text-yellow-400',
+                    tagClass: 'text-yellow-600 dark:text-yellow-500',
+                    label: 'Riesgo Moderado',
+                    tag: 'Caution'
+                },
+                rojo: {
+                    dotClass: 'bg-red-500',
+                    badgeClass: 'bg-red-500/10 border border-red-500/20',
+                    labelClass: 'text-red-700 dark:text-red-400',
+                    tagClass: 'text-red-600 dark:text-red-500',
+                    label: 'Riesgo Alto',
+                    tag: 'Rejected'
+                }
+            };
+
+            const config = estados[estado] || estados.amarillo;
+
+            semaforoDot.className = `size-4 rounded-full animate-pulse ${config.dotClass}`;
+            semaforoBadge.className = `flex items-center justify-between p-3 rounded-lg ${config.badgeClass}`;
+            semaforoLabel.className = `font-bold ${config.labelClass}`;
+            semaforoLabel.textContent = config.label;
+            semaforoTag.className = `text-[10px] uppercase font-black ${config.tagClass}`;
+            semaforoTag.textContent = config.tag;
+            semaforoMensaje.textContent = `"${mensaje}"`;
+
+            // Alertas
+            semaforoAlertas.innerHTML = '';
+            if (data.mostrarMsgIngreso) {
+                semaforoAlertas.innerHTML += `
                 <div class="flex items-start gap-2 text-yellow-600 dark:text-yellow-500 text-sm">
                     <span class="material-symbols-outlined text-[18px]">warning</span>
                     <span>Verificar ingresos declarados del cliente.</span>
                 </div>`;
-        }
-        if (data.mostrarMsgAntiguedad) {
-            semaforoAlertas.innerHTML += `
+            }
+            if (data.mostrarMsgAntiguedad) {
+                semaforoAlertas.innerHTML += `
                 <div class="flex items-start gap-2 text-red-500 dark:text-red-400 text-sm">
                     <span class="material-symbols-outlined text-[18px]">error</span>
                     <span>Antigüedad laboral insuficiente.</span>
                 </div>`;
-        }
-    }
-
-    // ── 6. Event Listeners ────────────────────────────────────────────
-    txtCuotas?.addEventListener('input', programarSimulacion);
-    txtCuotas?.addEventListener('input', function () {
-        if (heroCuotas) heroCuotas.textContent = txtCuotas.value || '0';
-    });
-    txtCuotas?.addEventListener('change', function () {
-        ajustarCuotaAPlanHabilitado();
-        programarSimulacion();
-    });
-    txtTasa?.addEventListener('input', programarSimulacion);
-    txtGastos?.addEventListener('input', programarSimulacion);
-    txtFecha?.addEventListener('change', programarSimulacion);
-
-    if (btnCancelar) {
-        btnCancelar.addEventListener('click', function () {
-            const cancelUrl = btnCancelar.getAttribute('data-credito-cancel-url') || '/Credito';
-            const message = '¿Desea cancelar la configuración del crédito? Se perderán los cambios no guardados.';
-
-            if (window.TheBury && typeof window.TheBury.confirmAction === 'function') {
-                window.TheBury.confirmAction(message, function () {
-                    window.location.href = cancelUrl;
-                });
-            } else {
-                window.location.href = cancelUrl;
             }
+        }
+
+        // ── 6. Event Listeners ────────────────────────────────────────────
+        txtCuotas?.addEventListener('input', programarSimulacion);
+        txtCuotas?.addEventListener('change', function () {
+            ajustarCuotaAPlanHabilitado();
+            programarSimulacion();
         });
+        txtTasa?.addEventListener('input', programarSimulacion);
+        txtGastos?.addEventListener('input', programarSimulacion);
+        txtFecha?.addEventListener('change', programarSimulacion);
+
+        if (btnCancelar) {
+            btnCancelar.addEventListener('click', function () {
+                const cancelUrl = btnCancelar.getAttribute('data-credito-cancel-url') || '/Credito';
+                const message = '¿Desea cancelar la configuración del crédito? Se perderán los cambios no guardados.';
+
+                if (window.TheBury && typeof window.TheBury.confirmAction === 'function') {
+                    window.TheBury.confirmAction(message, function () {
+                        window.location.href = cancelUrl;
+                    });
+                } else {
+                    window.location.href = cancelUrl;
+                }
+            });
+        }
+
+        // En la página standalone, generar el contrato es un submit de página completa
+        // (formtarget=_blank + reload). Embebido en el wizard, venta-credito-embebido.js
+        // ata su propio listener a este mismo botón (fetch + recarga del fragmento), así
+        // que acá no hay que hacer nada más.
+        if (btnGenerarContrato && !embebido) {
+            btnGenerarContrato.addEventListener('click', function () {
+                window.setTimeout(function () {
+                    window.location.reload();
+                }, 2500);
+            });
+        }
+
+        // ── 7. Primera cuota: cobro inmediato (F2, Micro-lote 6) ──────────
+        // El cobro de la 1ª cuota al confirmar solo se ofrece cuando la primera cuota
+        // vence HOY. La autoridad final es el servidor; esto es únicamente UX.
+        const pcAplica       = $('[data-primera-cuota-aplica]');
+        const pcNoAplica     = $('[data-primera-cuota-no-aplica]');
+        const pcCobrar       = $('[data-primera-cuota-cobrar]');
+        const pcMedioBox     = $('[data-primera-cuota-medio-container]');
+
+        function fechaEsHoy(valor) {
+            if (!valor) return false;
+            const hoy = new Date();
+            const hoyIso = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+            return valor === hoyIso;
+        }
+
+        function actualizarMedioVisibilidad() {
+            if (pcCobrar && pcCobrar.checked) {
+                show(pcMedioBox);
+            } else {
+                hide(pcMedioBox);
+            }
+        }
+
+        function actualizarPrimeraCuota() {
+            const venceHoy = fechaEsHoy(txtFecha?.value);
+            if (venceHoy) {
+                show(pcAplica);
+                hide(pcNoAplica);
+            } else {
+                hide(pcAplica);
+                show(pcNoAplica);
+                // Fuera de "vence hoy" no puede quedar marcada la opción (el server también lo rechaza).
+                if (pcCobrar) pcCobrar.checked = false;
+            }
+            actualizarMedioVisibilidad();
+        }
+
+        pcCobrar?.addEventListener('change', actualizarMedioVisibilidad);
+        txtFecha?.addEventListener('change', actualizarPrimeraCuota);
+        txtFecha?.addEventListener('input', actualizarPrimeraCuota);
+
+        if (creditoModule && typeof creditoModule.initSharedUi === 'function') {
+            creditoModule.initSharedUi();
+        }
+
+        // ── Init ──────────────────────────────────────────────────────────
+        // Set default date if empty
+        if (txtFecha && !txtFecha.value) {
+            const d = new Date();
+            d.setMonth(d.getMonth() + 1);
+            txtFecha.value = d.toISOString().split('T')[0];
+        }
+
+        // Si no hay cuotas definidas aún, usar 12 como valor inicial para mostrar la simulación
+        if (txtCuotas && (parseInt(txtCuotas.value) || 0) <= 0) {
+            txtCuotas.value = 12;
+        }
+
+        // Initial state
+        onMetodoChange();
+        marcarSimulacionPendiente();
+        actualizarPrimeraCuota();
+
+        return {
+            root,
+            getBtnConfirmar: () => btnConfirmar,
+            getBtnGenerarContrato: () => btnGenerarContrato
+        };
     }
 
-    if (btnGenerarContrato) {
-        btnGenerarContrato.addEventListener('click', function () {
-            window.setTimeout(function () {
-                window.location.reload();
-            }, 2500);
-        });
-    }
+    window.TheBury = window.TheBury || {};
+    window.TheBury.initConfigurarVentaCredito = initConfigurarVentaCredito;
 
-    if (creditoModule && typeof creditoModule.initSharedUi === 'function') {
-        creditoModule.initSharedUi();
+    // Auto-init para la página standalone (ConfigurarVenta_tw). El fragmento embebido
+    // en el wizard de Venta se inicializa explícitamente desde venta-credito-embebido.js
+    // después de inyectar el HTML, así que no debe auto-ejecutarse acá.
+    if (document.querySelector('[data-credito-config]') && !document.querySelector('[data-credito-config-embedded]')) {
+        initConfigurarVentaCredito(document, { embedded: false });
     }
-
-    // ── Init ──────────────────────────────────────────────────────────
-    // Set default date if empty
-    if (txtFecha && !txtFecha.value) {
-        const d = new Date();
-        d.setMonth(d.getMonth() + 1);
-        txtFecha.value = d.toISOString().split('T')[0];
-    }
-
-    // Si no hay cuotas definidas aún, usar 12 como valor inicial para mostrar la simulación
-    if (txtCuotas && (parseInt(txtCuotas.value) || 0) <= 0) {
-        txtCuotas.value = 12;
-    }
-    if (heroCuotas) {
-        heroCuotas.textContent = txtCuotas?.value || '0';
-    }
-
-    // Initial state
-    onMetodoChange();
-    recalcularMontoFinanciado();
-
 })();

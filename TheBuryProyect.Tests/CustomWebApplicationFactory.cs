@@ -155,14 +155,24 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
     public const string ExpirePermsUserId = "test-expire-perms-id";
 
     /// <summary>
+    /// HttpClient.Timeout por defecto (100s) es insuficiente en suite completa: bajo contención de CPU
+    /// del proceso de test (colecciones xUnit en paralelo) el round-trip in-process contra TestServer
+    /// puede superarlo aunque el request esté procesándose correctamente (ver docs/fase-kira-fix-testhost-flakiness.md).
+    /// No es un límite de negocio — es un default heredado de HttpClient sin relación con este dominio.
+    /// </summary>
+    private static readonly TimeSpan HttpTestClientTimeout = TimeSpan.FromMinutes(5);
+
+    /// <summary>
     /// Crea un HttpClient con el usuario de test autenticado (SuperAdmin).
     /// </summary>
     public HttpClient CreateAuthenticatedClient()
     {
-        return CreateClient(new WebApplicationFactoryClientOptions
+        var client = CreateClient(new WebApplicationFactoryClientOptions
         {
             AllowAutoRedirect = false
         });
+        client.Timeout = HttpTestClientTimeout;
+        return client;
     }
 
     /// <summary>
@@ -175,6 +185,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         {
             AllowAutoRedirect = false
         });
+        client.Timeout = HttpTestClientTimeout;
         client.DefaultRequestHeaders.Add(TestAuthHandler.UserIdHeader, userId);
         return client;
     }
@@ -432,6 +443,149 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             ModuloId = testModuloId,
             AccionId = testAccionId - 1,
             ClaimValue = "cotizaciones.view",
+            IsDeleted = false,
+            RowVersion = new byte[8]
+        });
+        await context.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// User ID para tests PUN-ML8 que necesitan un usuario con acceso completo a la pestaña de
+    /// punitorios (configuracion.view + viewpunitorio + managepunitorio + retroactivepunitorio),
+    /// sin SuperAdmin. Seedear con <see cref="SeedUserWithPunitorioManagePermissionAsync"/>.
+    /// </summary>
+    public const string PunitorioManagePermsUserId = "test-punitorio-manage-perms-id";
+
+    /// <summary>
+    /// User ID para tests PUN-ML8 que necesitan un usuario que puede ver la página de crédito
+    /// personal (configuracion.view) pero NO tiene ningún permiso específico de punitorios.
+    /// Seedear con <see cref="SeedUserWithConfiguracionViewOnlyPermissionAsync"/>.
+    /// </summary>
+    public const string PunitorioNoAccessUserId = "test-punitorio-no-access-id";
+
+    /// <summary>
+    /// Siembra en la BD de test un usuario con configuracion.view + viewpunitorio + managepunitorio +
+    /// retroactivepunitorio (sin SuperAdmin). Módulo/acciones de test — no colisionan con el seed de
+    /// producción real (que no corre en el entorno "Testing", ver Program.cs). Idempotente.
+    /// </summary>
+    public async Task SeedUserWithPunitorioManagePermissionAsync()
+    {
+        using var scope = Services.CreateScope();
+        var contextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
+        await using var context = await contextFactory.CreateDbContextAsync();
+
+        if (await context.Users.AnyAsync(u => u.Id == PunitorioManagePermsUserId))
+            return;
+
+        const string roleId = "test-punitorio-manage-role-id";
+        const int testModuloId = 9993;
+        const int accionManage = 9993;
+        const int accionView = 9992;
+        const int accionRetro = 9991;
+        const int accionConfigView = 9990;
+
+        context.Roles.Add(new IdentityRole { Id = roleId, Name = "TestPunitorioManageRole", NormalizedName = "TESTPUNITORIOMANAGEROLE" });
+        context.Users.Add(new ApplicationUser
+        {
+            Id = PunitorioManagePermsUserId,
+            UserName = "testuser-punitorio-manage",
+            NormalizedUserName = "TESTUSER-PUNITORIO-MANAGE",
+            Email = "testpunitoriomanage@test.com",
+            NormalizedEmail = "TESTPUNITORIOMANAGE@TEST.COM",
+            Activo = true,
+            RowVersion = new byte[8]
+        });
+        await context.SaveChangesAsync();
+
+        context.UserRoles.Add(new IdentityUserRole<string> { UserId = PunitorioManagePermsUserId, RoleId = roleId });
+        await context.SaveChangesAsync();
+
+        context.ModulosSistema.Add(new ModuloSistema
+        {
+            Id = testModuloId,
+            Nombre = "Test Configuracion Punitorio",
+            Clave = "configuracion-punitorio-test",
+            Orden = 0,
+            RowVersion = new byte[8]
+        });
+        await context.SaveChangesAsync();
+
+        context.AccionesModulo.AddRange(
+            new AccionModulo { Id = accionManage, ModuloId = testModuloId, Nombre = "Test Manage Punitorio", Clave = "managepunitorio-test", Orden = 0, RowVersion = new byte[8] },
+            new AccionModulo { Id = accionView, ModuloId = testModuloId, Nombre = "Test View Punitorio", Clave = "viewpunitorio-test", Orden = 1, RowVersion = new byte[8] },
+            new AccionModulo { Id = accionRetro, ModuloId = testModuloId, Nombre = "Test Retroactive Punitorio", Clave = "retroactivepunitorio-test", Orden = 2, RowVersion = new byte[8] },
+            new AccionModulo { Id = accionConfigView, ModuloId = testModuloId, Nombre = "Test Configuracion View", Clave = "view-configuracion-test", Orden = 3, RowVersion = new byte[8] });
+        await context.SaveChangesAsync();
+
+        context.RolPermisos.AddRange(
+            new RolPermiso { RoleId = roleId, ModuloId = testModuloId, AccionId = accionManage, ClaimValue = "configuracion.managepunitorio", IsDeleted = false, RowVersion = new byte[8] },
+            new RolPermiso { RoleId = roleId, ModuloId = testModuloId, AccionId = accionView, ClaimValue = "configuracion.viewpunitorio", IsDeleted = false, RowVersion = new byte[8] },
+            new RolPermiso { RoleId = roleId, ModuloId = testModuloId, AccionId = accionRetro, ClaimValue = "configuracion.retroactivepunitorio", IsDeleted = false, RowVersion = new byte[8] },
+            new RolPermiso { RoleId = roleId, ModuloId = testModuloId, AccionId = accionConfigView, ClaimValue = "configuracion.view", IsDeleted = false, RowVersion = new byte[8] });
+        await context.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Siembra en la BD de test un usuario con únicamente configuracion.view (sin ningún permiso
+    /// de punitorios, sin SuperAdmin) — simula un usuario que puede abrir /ConfiguracionPago/CreditoPersonal
+    /// pero no tiene acceso a la pestaña "Punitorios por mora". Idempotente.
+    /// </summary>
+    public async Task SeedUserWithConfiguracionViewOnlyPermissionAsync()
+    {
+        using var scope = Services.CreateScope();
+        var contextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
+        await using var context = await contextFactory.CreateDbContextAsync();
+
+        if (await context.Users.AnyAsync(u => u.Id == PunitorioNoAccessUserId))
+            return;
+
+        const string roleId = "test-punitorio-no-access-role-id";
+        const int testModuloId = 9989;
+        const int accionConfigView = 9989;
+
+        context.Roles.Add(new IdentityRole { Id = roleId, Name = "TestPunitorioNoAccessRole", NormalizedName = "TESTPUNITORIONOACCESSROLE" });
+        context.Users.Add(new ApplicationUser
+        {
+            Id = PunitorioNoAccessUserId,
+            UserName = "testuser-punitorio-noaccess",
+            NormalizedUserName = "TESTUSER-PUNITORIO-NOACCESS",
+            Email = "testpunitorionoaccess@test.com",
+            NormalizedEmail = "TESTPUNITORIONOACCESS@TEST.COM",
+            Activo = true,
+            RowVersion = new byte[8]
+        });
+        await context.SaveChangesAsync();
+
+        context.UserRoles.Add(new IdentityUserRole<string> { UserId = PunitorioNoAccessUserId, RoleId = roleId });
+        await context.SaveChangesAsync();
+
+        context.ModulosSistema.Add(new ModuloSistema
+        {
+            Id = testModuloId,
+            Nombre = "Test Configuracion View Only",
+            Clave = "configuracion-view-only-test",
+            Orden = 0,
+            RowVersion = new byte[8]
+        });
+        await context.SaveChangesAsync();
+
+        context.AccionesModulo.Add(new AccionModulo
+        {
+            Id = accionConfigView,
+            ModuloId = testModuloId,
+            Nombre = "Test Configuracion View",
+            Clave = "view-test",
+            Orden = 0,
+            RowVersion = new byte[8]
+        });
+        await context.SaveChangesAsync();
+
+        context.RolPermisos.Add(new RolPermiso
+        {
+            RoleId = roleId,
+            ModuloId = testModuloId,
+            AccionId = accionConfigView,
+            ClaimValue = "configuracion.view",
             IsDeleted = false,
             RowVersion = new byte[8]
         });

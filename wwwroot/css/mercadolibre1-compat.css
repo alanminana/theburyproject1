@@ -58,7 +58,7 @@
 .ml-canvas .hidden { display: none !important; }
 
 /* marca de campo con error de validación ML */
-.ml-field-error input, .ml-field-error select, .ml-field-error textarea { border-color: var(--red) !important; box-shadow: 0 0 0 3px var(--red-soft); }
+.ml-field-error input, .ml-field-error select, .ml-field-error textarea { border-color: transparent !important; box-shadow: 0 0 0 3px var(--red-soft); }
 .ml-field-error-msg { color: var(--red); font-size: 12px; }
 
 /* checkbox "Publicación REAL" */

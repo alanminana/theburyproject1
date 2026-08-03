@@ -96,12 +96,85 @@ public class ConfigurarVentaUiContractTests
         Assert.Contains("data.interesTotal", js);
         Assert.Contains("data.montoFinanciado", js);
         Assert.Contains("data.gastosAdministrativos", js);
-        Assert.Contains("data.totalPlan", js);
         Assert.Contains("data.fechaPrimerPago", js);
         Assert.Contains("data.semaforoEstado", js);
         Assert.Contains("data.semaforoMensaje", js);
         Assert.Contains("data.mostrarMsgIngreso", js);
         Assert.Contains("data.mostrarMsgAntiguedad", js);
+    }
+
+    // ── ML7: server-authoritative real (VentaId siempre viaja a la simulación) ─────
+
+    [Fact]
+    public void ConfigurarVentaJs_EnviaVentaIdMetodoYFuenteALaSimulacion()
+    {
+        // Bug central de ML7: la pantalla nunca mandaba ventaId al endpoint de
+        // simulación, así que el preview ignoraba planes por producto y el % efectivo
+        // multiproducto (siempre resolvía la tasa global lisa). Sin este parámetro,
+        // CreditoSimulacionVentaService.SimularAsync no puede ser server-authoritative
+        // para esta pantalla: cae siempre a la rama "sin venta".
+        var js = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "configurar-venta-credito.js"));
+
+        Assert.Contains("hdn-venta-id", js);
+        Assert.Contains("params.set('ventaId'", js);
+        Assert.Contains("params.set('metodoCalculo'", js);
+        Assert.Contains("params.set('fuenteConfiguracion'", js);
+    }
+
+    [Fact]
+    public void ConfigurarVentaJs_ConsumeVectorDeCuotasYTotalFinanciadoAutoritativos()
+    {
+        var js = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "configurar-venta-credito.js"));
+
+        Assert.Contains("data.cuotas", js);
+        Assert.Contains("data.totalAPagar", js);
+        Assert.Contains("data.anticipo", js);
+        Assert.Contains("data.totalVenta", js);
+        Assert.Contains("data.fuentePorcentaje", js);
+    }
+
+    [Fact]
+    public void ConfigurarVentaJs_NoCalculaSaldoEnElNavegador()
+    {
+        // El saldo a financiar se muestra como "Calculando…" hasta que llega la
+        // respuesta del servidor; el JS no debe restar anticipo de monto por su cuenta.
+        var js = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "configurar-venta-credito.js"));
+
+        Assert.DoesNotContain("recalcularMontoFinanciado", js);
+        Assert.Contains("Calculando", js);
+        Assert.DoesNotContain("monto - anticipo", js);
+    }
+
+    [Fact]
+    public void ConfigurarVentaJs_TieneEstadosDeSimulandoYError()
+    {
+        var js = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "configurar-venta-credito.js"));
+
+        Assert.Contains("planSimulando", js);
+        Assert.Contains("mostrarErrorPlan", js);
+        Assert.Contains("deshabilitarConfirmar", js);
+    }
+
+    [Fact]
+    public void ConfigurarVentaView_TieneContenedoresDeEstadoSimulandoYError()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Credito", "ConfigurarVenta_tw.cshtml"));
+
+        Assert.Contains("data-plan-simulando", view);
+        Assert.Contains("data-plan-error", view);
+        Assert.Contains("id=\"hdn-venta-id\"", view);
+    }
+
+    [Fact]
+    public void ConfigurarVentaView_UsaVocabularioDeRecargoTotalNoDeTasaMensual()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Credito", "ConfigurarVenta_tw.cshtml"));
+
+        Assert.Contains("Saldo a financiar", view);
+        Assert.Contains("Porcentaje de recargo total del plan", view);
+        Assert.Contains("Total financiado", view);
+        Assert.Contains("Importe del recargo", view);
+        Assert.DoesNotContain("Tasa mensual aplicada", view);
     }
 
     // ── Tests de contrato del ViewModel ─────────────────────────────────────

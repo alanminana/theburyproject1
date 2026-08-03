@@ -1,7 +1,7 @@
 :root {
     --venta-wizard-bg: #0b111a;
-    --venta-wizard-card: rgba(15, 23, 42, 0.78);
-    --venta-wizard-card-strong: rgba(17, 24, 39, 0.94);
+    --venta-wizard-card: #111827;
+    --venta-wizard-card-strong: #182130;
     --venta-wizard-border: rgba(148, 163, 184, 0.18);
     --venta-wizard-border-strong: rgba(56, 189, 248, 0.34);
     --venta-wizard-text: #f8fafc;
@@ -11,6 +11,19 @@
     --venta-wizard-accent-active: #e0b40f;
     --venta-wizard-accent-2: #38bdf8;
     --venta-wizard-success: #22c55e;
+    --venta-header-offset: 0rem;
+    --venta-hero-offset: var(--venta-header-offset);
+    --venta-tabs-offset: calc(var(--venta-hero-offset) + 3.75rem);
+    --venta-sidebar-offset: calc(var(--venta-tabs-offset) + 1.5rem);
+    --venta-mobile-bar-height: 4.5rem;
+    --venta-z-content: 0;
+    --venta-z-hero: 10;
+    --venta-z-sidebar: 15;
+    --venta-z-tabs: 20;
+    --venta-z-dropdown: 30;
+    --venta-z-backdrop: 50;
+    --venta-z-modal: 60;
+    --venta-z-toast: 70;
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -35,17 +48,15 @@
     background:
         linear-gradient(135deg, rgba(15, 23, 42, 0.97), rgba(12, 18, 28, 0.94)),
         radial-gradient(circle at top left, rgba(56, 189, 248, 0.12), transparent 38%);
-    box-shadow: 0 20px 55px rgba(0, 0, 0, 0.28);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
     padding: 1rem;
     overflow: visible;
 }
 
 #venta-edit-page .venta-hero-section {
     position: sticky;
-    top: 0;
-    z-index: 30;
+    top: var(--venta-hero-offset);
+    z-index: var(--venta-z-hero);
 }
 
 #venta-create-page .hero-erp {
@@ -79,7 +90,7 @@
     border: 1px solid var(--venta-wizard-border);
     border-radius: 18px;
     background: var(--venta-wizard-card);
-    box-shadow: 0 16px 44px rgba(0, 0, 0, 0.18);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
     padding: 0.7rem 0.85rem;
 }
 
@@ -324,10 +335,15 @@
     font-size: 0.72rem;
 }
 
+/* `.pill` es una clase genérica: el cotizador embebido en el paso Cotizar trae la
+   suya (.pill-green/.pill-amber/.pill-red para el estado de la simulación, y
+   .topbar-flag que se oculta por debajo de 1280px). Este selector con id le ganaba
+   por especificidad y le rompía el semáforo y el responsive del topbar, así que se
+   excluye su subárbol. */
 #venta-create-page .vm-step-tab__badge,
 #venta-edit-page .vm-step-tab__badge,
-#venta-create-page .pill,
-#venta-edit-page .pill {
+#venta-create-page .pill:not(.cotz-app *),
+#venta-edit-page .pill:not(.cotz-app *) {
     display: inline-flex;
     align-items: center;
     min-width: 1.25rem;
@@ -353,7 +369,7 @@
     border: 1px solid var(--venta-wizard-border);
     background: #111827;
     box-shadow: 0 18px 45px rgba(0, 0, 0, 0.32);
-    z-index: 60;
+    z-index: var(--venta-z-dropdown);
 }
 
 #venta-create-page .dropdown-item,
@@ -396,7 +412,8 @@
 #venta-create-page .vm-sidebar,
 #venta-edit-page .vm-sidebar {
     position: sticky;
-    top: 9.25rem;
+    top: var(--venta-sidebar-offset);
+    z-index: var(--venta-z-sidebar);
     align-self: start;
 }
 
@@ -422,7 +439,7 @@
 #venta-edit-page .vm-mobile-summary-bar {
     position: sticky;
     top: var(--vm-mobile-summary-top, 0.5rem);
-    z-index: 35;
+    z-index: var(--venta-z-tabs);
     display: none;
     align-items: center;
     justify-content: space-between;
@@ -444,7 +461,7 @@
     align-items: center;
     gap: 0.45rem;
     color: #e2e8f0;
-    font-size: 0.82rem;
+    font-size: 0.875rem;
     font-weight: 800;
     overflow: hidden;
     white-space: nowrap;
@@ -466,7 +483,7 @@
     background: var(--venta-wizard-accent);
     color: #15110a;
     padding: 0.52rem 0.7rem;
-    font-size: 0.72rem;
+    font-size: 0.8125rem;
     font-weight: 900;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -499,9 +516,240 @@
     display: none !important;
 }
 
+/* Control compartido de cantidad: compacto, táctil y visible al navegar con teclado. */
+#venta-create-page .venta-quantity-control,
+#venta-edit-page .venta-quantity-control {
+    display: inline-grid;
+    grid-template-columns: 2.75rem minmax(3rem, 4rem) 2.75rem;
+    align-items: stretch;
+}
+
+#venta-create-page .venta-quantity-input,
+#venta-edit-page .venta-quantity-input {
+    min-height: 2.75rem;
+    border-radius: 0;
+    padding-inline: 0.35rem;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+#venta-create-page .venta-quantity-button,
+#venta-edit-page .venta-quantity-button {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    background: #182130;
+    color: #f8fafc;
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+#venta-create-page .venta-quantity-button:first-child,
+#venta-edit-page .venta-quantity-button:first-child { border-radius: 0.65rem 0 0 0.65rem; }
+#venta-create-page .venta-quantity-button:last-child,
+#venta-edit-page .venta-quantity-button:last-child { border-radius: 0 0.65rem 0.65rem 0; }
+#venta-create-page .venta-quantity-button:focus-visible,
+#venta-edit-page .venta-quantity-button:focus-visible { outline: 3px solid rgba(245, 197, 24, 0.55); outline-offset: 2px; }
+#venta-create-page .venta-quantity-error,
+#venta-edit-page .venta-quantity-error { max-width: 10rem; margin-top: 0.35rem; color: #fda4af; font-size: 0.75rem; line-height: 1.25; text-align: left; }
+
+/* Capas del flujo: dropdowns no deben superar un modal ni los toasts. */
+#venta-create-page #modal-documentacion,
+#venta-edit-page #modal-documentacion {
+    z-index: var(--venta-z-modal);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+#venta-create-page #modal-documentacion > .relative,
+#venta-edit-page #modal-documentacion > .relative {
+    min-height: 100%;
+    padding-block: max(1rem, env(safe-area-inset-top));
+}
+
+#venta-create-page #modal-documentacion > .relative > .relative,
+#venta-edit-page #modal-documentacion > .relative > .relative {
+    max-height: calc(100dvh - 2rem);
+    overflow-y: auto;
+}
+
+#venta-create-page .toast-msg,
+#venta-edit-page .toast-msg {
+    position: relative;
+    z-index: var(--venta-z-toast);
+}
+
+/* Información operativa legible aun en el tema oscuro. */
+#venta-create-page .venta-section .text-xs,
+#venta-edit-page .venta-section .text-xs {
+    font-size: 0.8125rem;
+}
+
 #venta-create-page [data-oc-scroll][data-scroll-min-width="46rem"],
 #venta-edit-page [data-oc-scroll][data-scroll-min-width="46rem"] {
     --oc-scroll-min-width: 46rem;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   BUSCADOR DE PRODUCTOS — semáforo de stock
+   Las clases las aplica venta-create.js. Van escritas a mano porque el
+   build de Tailwind sólo escanea las vistas Razor y no genera las
+   utilidades que viven dentro de plantillas JavaScript.
+   ══════════════════════════════════════════════════════════════ */
+
+#venta-create-page .venta-producto-opcion,
+#venta-edit-page .venta-producto-opcion {
+    border-left: 4px solid transparent;
+}
+
+#venta-create-page .venta-producto-opcion__badge,
+#venta-edit-page .venta-producto-opcion__badge {
+    border-radius: 0.25rem;
+    padding: 0.125rem 0.5rem;
+    font-size: 0.625rem;
+    font-weight: 700;
+    line-height: 1.2;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+#venta-create-page .venta-producto-opcion[data-estado-stock="sin-stock"],
+#venta-edit-page .venta-producto-opcion[data-estado-stock="sin-stock"] {
+    border-left-color: #ef4444;
+    background-color: rgba(239, 68, 68, 0.1);
+}
+
+#venta-create-page .venta-producto-opcion[data-estado-stock="sin-stock"]:hover,
+#venta-edit-page .venta-producto-opcion[data-estado-stock="sin-stock"]:hover {
+    background-color: rgba(239, 68, 68, 0.18);
+}
+
+#venta-create-page .venta-producto-opcion[data-estado-stock="sin-stock"] .venta-producto-opcion__badge,
+#venta-edit-page .venta-producto-opcion[data-estado-stock="sin-stock"] .venta-producto-opcion__badge {
+    background-color: rgba(239, 68, 68, 0.18);
+    color: #fca5a5;
+}
+
+#venta-create-page .venta-producto-opcion[data-estado-stock="sin-stock"] .venta-producto-opcion__stock,
+#venta-edit-page .venta-producto-opcion[data-estado-stock="sin-stock"] .venta-producto-opcion__stock {
+    color: #fca5a5;
+    font-weight: 600;
+}
+
+#venta-create-page .venta-producto-opcion[data-estado-stock="stock-bajo"],
+#venta-edit-page .venta-producto-opcion[data-estado-stock="stock-bajo"] {
+    border-left-color: #f59e0b;
+    background-color: rgba(245, 158, 11, 0.1);
+}
+
+#venta-create-page .venta-producto-opcion[data-estado-stock="stock-bajo"]:hover,
+#venta-edit-page .venta-producto-opcion[data-estado-stock="stock-bajo"]:hover {
+    background-color: rgba(245, 158, 11, 0.18);
+}
+
+#venta-create-page .venta-producto-opcion[data-estado-stock="stock-bajo"] .venta-producto-opcion__badge,
+#venta-edit-page .venta-producto-opcion[data-estado-stock="stock-bajo"] .venta-producto-opcion__badge {
+    background-color: rgba(245, 158, 11, 0.18);
+    color: #fcd34d;
+}
+
+#venta-create-page .venta-producto-opcion[data-estado-stock="stock-bajo"] .venta-producto-opcion__stock,
+#venta-edit-page .venta-producto-opcion[data-estado-stock="stock-bajo"] .venta-producto-opcion__stock {
+    color: #fcd34d;
+    font-weight: 600;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   DETALLE — unidad física por línea
+   ══════════════════════════════════════════════════════════════ */
+
+#venta-create-page .venta-linea-unidad,
+#venta-edit-page .venta-linea-unidad {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.35rem;
+    font-size: 0.6875rem;
+    line-height: 1.3;
+}
+
+#venta-create-page .venta-linea-unidad__label,
+#venta-edit-page .venta-linea-unidad__label {
+    font-weight: 600;
+    color: #fbbf24;
+}
+
+#venta-create-page .venta-linea-unidad__alerta,
+#venta-edit-page .venta-linea-unidad__alerta {
+    border-radius: 0.25rem;
+    background-color: rgba(239, 68, 68, 0.15);
+    padding: 0.125rem 0.4rem;
+    font-weight: 700;
+    color: #fca5a5;
+}
+
+#venta-create-page .venta-linea-unidad__accion,
+#venta-edit-page .venta-linea-unidad__accion {
+    min-height: 2rem;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    border-radius: 0.4rem;
+    background: transparent;
+    padding: 0.2rem 0.6rem;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    color: #cbd5e1;
+    cursor: pointer;
+}
+
+#venta-create-page .venta-linea-unidad__accion:hover,
+#venta-edit-page .venta-linea-unidad__accion:hover {
+    border-color: var(--vm-primary, #f5c518);
+    color: #f8fafc;
+}
+
+#venta-create-page .venta-linea-unidad__accion:focus-visible,
+#venta-edit-page .venta-linea-unidad__accion:focus-visible {
+    outline: 3px solid rgba(245, 197, 24, 0.55);
+    outline-offset: 2px;
+}
+
+#venta-create-page .venta-linea-unidad__accion--primaria,
+#venta-edit-page .venta-linea-unidad__accion--primaria {
+    border-color: var(--vm-primary, #f5c518);
+    background-color: rgba(245, 197, 24, 0.15);
+    color: #fde68a;
+}
+
+#venta-create-page .venta-linea-unidad__editor,
+#venta-edit-page .venta-linea-unidad__editor {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.35rem;
+}
+
+#venta-create-page .venta-linea-unidad__select,
+#venta-edit-page .venta-linea-unidad__select {
+    min-width: 12rem;
+    max-width: 100%;
+    min-height: 2.25rem;
+    border: 1px solid var(--vm-border-strong, #334155);
+    border-radius: 0.4rem;
+    background-color: var(--vm-panel-strong, #1a202c);
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    color: var(--vm-text, #e2e8f0);
+}
+
+#venta-create-page .venta-linea-unidad__error,
+#venta-edit-page .venta-linea-unidad__error {
+    margin-top: 0.35rem;
+    max-width: 22rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: #fda4af;
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -546,7 +794,7 @@
     #venta-create-page #venta-form>.grid> :last-child,
     #venta-edit-page #venta-form>.grid> :last-child {
         position: sticky;
-        top: 9.25rem;
+        top: var(--venta-sidebar-offset);
         align-self: start;
     }
 }
@@ -640,5 +888,86 @@
     #venta-create-page .venta-edit-hero-metrics,
     #venta-edit-page .venta-edit-hero-metrics {
         grid-template-columns: 1fr;
+    }
+}
+
+@media (min-width: 768px) and (max-height: 760px) {
+    #venta-create-page .hero-erp,
+    #venta-edit-page .venta-hero-section {
+        padding: 0.75rem;
+        margin-bottom: 0.5rem;
+    }
+
+    #venta-create-page .hero-erp>.flex,
+    #venta-edit-page .venta-hero-section>.flex {
+        gap: 0.75rem;
+    }
+
+    #venta-create-page .hero-erp p,
+    #venta-edit-page .venta-hero-section p {
+        margin-top: 0.25rem;
+    }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   PASO COTIZAR — cotizador embebido (sólo Venta/Create)
+   El simulador (_CotizadorForm) fue diseñado como pantalla completa.
+   Dentro del wizard ocupa el ancho del paso y crece con el contenido:
+   el scroll lo hace la página, no los panel-body.
+   ══════════════════════════════════════════════════════════════ */
+
+/* Mientras Cotizar es el paso activo, la grilla de la venta y la barra móvil
+   se ocultan: sus paneles ya están cerrados y sus totales/CTA no aplican.
+   La variante con `#venta-form >` existe por especificidad: hay que ganarle a
+   `#venta-create-page #venta-form>.grid { display: grid }` (2 ids) del bloque
+   >=1024px y a `#venta-create-page .vm-mobile-summary-bar { display: flex }`. */
+#venta-create-page[data-paso-activo="cotizar"] [data-venta-workspace],
+#venta-create-page[data-paso-activo="cotizar"] #venta-form>[data-venta-workspace] {
+    display: none;
+}
+
+#venta-create-page .venta-cotizar-panel {
+    margin-bottom: 1.25rem;
+}
+
+#venta-create-page .venta-cotizar-panel .cotz-app {
+    height: auto;
+    overflow: visible;
+    background: transparent;
+    border: 1px solid var(--venta-wizard-border, rgba(148, 163, 184, 0.18));
+    border-radius: 18px;
+}
+
+#venta-create-page .venta-cotizar-panel .cotz-app .panel-body {
+    overflow-y: visible;
+}
+
+/* El shell de la venta ya aporta el padding lateral de página. */
+#venta-create-page .venta-cotizar-panel .cotz-app .workspace {
+    padding: 0.75rem;
+}
+
+/* Embebido, el cotizador pierde el ancho que el host de pantalla completa gana
+   comiéndose el padding del shell. Se achican las columnas laterales para que la
+   tabla de resultados no quede en scroll horizontal permanente.
+   Va dentro de min-width para no pisar el apilado a 1 columna de
+   cotizacion-simulador.css (@media max-width: 1300px), que tiene menos
+   especificidad que este selector. */
+@media (min-width: 1301px) {
+    #venta-create-page .venta-cotizar-panel .cotz-app .workspace {
+        grid-template-columns: minmax(0, 17rem) minmax(0, 1fr) minmax(0, 19rem);
+    }
+}
+
+/* El topbar del cotizador redondea contra el borde del panel. */
+#venta-create-page .venta-cotizar-panel .cotz-app .cotz-topbar {
+    border-radius: 18px 18px 0 0;
+}
+
+/* Por debajo del breakpoint de apilado el simulador ya crece en vertical;
+   sólo hace falta asegurar que ningún panel imponga alto fijo. */
+@media (max-width: 1300px) {
+    #venta-create-page .venta-cotizar-panel .cotz-app .panel {
+        max-height: none;
     }
 }

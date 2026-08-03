@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using TheBuryProject.Models.Enums;
+using TheBuryProject.Services;
 
 namespace TheBuryProject.ViewModels
 {
@@ -66,8 +67,20 @@ namespace TheBuryProject.ViewModels
 
         // Propiedades calculadas
         public string EstadoTexto => Estado.ToString();
-        public bool EstaVencida => Estado == EstadoCuota.Vencida || (Estado == EstadoCuota.Pendiente && FechaVencimiento < DateTime.UtcNow);
-        public int DiasAtraso => EstaVencida ? (DateTime.UtcNow - FechaVencimiento).Days : 0;
+
+        /// <summary>
+        /// PUN-ML7: "en mora hoy", derivado con <see cref="EstadoCuotaResolver.EstaVencidaDerivado"/>
+        /// contra la fecha comercial de Argentina (antes: <c>DateTime.UtcNow</c> directo — cruzaba de
+        /// día hasta 3hs antes de la medianoche real, y solo consideraba <see cref="EstadoCuota.Pendiente"/>,
+        /// dejando afuera una cuota <see cref="EstadoCuota.Parcial"/> vencida, a diferencia del resto
+        /// del sistema — ver <c>ClienteScoringCalculator</c>/<c>MoraService</c>/<c>ClienteAptitudService</c>).
+        /// Un ViewModel no recibe DI: usa <see cref="RelojComercial.Sistema"/>, el mismo reloj de
+        /// producción por defecto que ya usan los servicios cuando no se les inyecta uno de test.
+        /// </summary>
+        public bool EstaVencida =>
+            EstadoCuotaResolver.EstaVencidaDerivado(Estado, FechaVencimiento, RelojComercial.Sistema.HoyComercial);
+        public int DiasAtraso =>
+            EstadoCuotaResolver.DiasAtrasoDerivado(Estado, FechaVencimiento, RelojComercial.Sistema.HoyComercial);
         public decimal SaldoPendiente => MontoTotal + MontoPunitorio - MontoPagado;
 
         // Propiedades de alerta visual

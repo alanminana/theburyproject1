@@ -38,10 +38,46 @@ const ProductoModal = (() => {
         modal.classList.add('flex');
         document.body.style.overflow = 'hidden';
         updateCaracteristicasUi();
+        cargarCreditoPersonalCandidatos();
         setTimeout(function () {
             var firstInput = document.querySelector('#form-nuevo-producto input[name="Codigo"]');
             if (firstInput) firstInput.focus();
         }, 50);
+    }
+
+    // ── Crédito personal ─────────────────────────────────────
+    var CP_PREVIEW_URL = '/Producto/PreviewRecargoCreditoPersonal';
+
+    function creditoPersonalElementos() {
+        return {
+            admiteHidden: document.querySelector('#form-nuevo-producto [data-cp-admite-hidden]'),
+            cardsWrap: document.querySelector('#form-nuevo-producto [data-cp-cards-wrap]'),
+            cardsCont: el('modal-credito-cards'),
+            maxCuotasWrap: document.querySelector('#form-nuevo-producto [data-cp-maxcuotas-wrap]')
+        };
+    }
+
+    function initCreditoPersonalModo() {
+        var radios = document.querySelectorAll('#form-nuevo-producto [data-cp-modo]');
+        if (radios.length && window.ProductoCreditoPersonalUI) window.ProductoCreditoPersonalUI.wireModo(radios, creditoPersonalElementos());
+    }
+
+    function resetCreditoPersonalModo() {
+        var radios = document.querySelectorAll('#form-nuevo-producto [data-cp-modo]');
+        radios.forEach(function (r) { r.checked = (r.value === 'HeredaGlobal'); });
+        if (window.ProductoCreditoPersonalUI) window.ProductoCreditoPersonalUI.aplicarModo('HeredaGlobal', creditoPersonalElementos());
+    }
+
+    function cargarCreditoPersonalCandidatos() {
+        var cont = el('modal-credito-cards');
+        if (!cont || !window.ProductoCreditoPersonalUI) return;
+        resetCreditoPersonalModo();
+        fetch('/Producto/CreditoPersonalCandidatosJson', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (r) { return r.ok ? r.json() : { cuotas: [] }; })
+            .then(function (data) {
+                window.ProductoCreditoPersonalUI.renderCards(cont, data.cuotas || [], 'CreditoPersonal.Cuotas', CP_PREVIEW_URL);
+            })
+            .catch(function () { window.ProductoCreditoPersonalUI.renderCards(cont, [], 'CreditoPersonal.Cuotas', CP_PREVIEW_URL); });
     }
 
     function close() {
@@ -83,6 +119,8 @@ const ProductoModal = (() => {
         // Restablecer precio final
         const precioFinal = el('modal-precioFinal');
         if (precioFinal) precioFinal.value = '0.00';
+
+        resetCreditoPersonalModo();
 
         // Ocultar errores
         hideValidation();
@@ -694,6 +732,7 @@ const ProductoModal = (() => {
         initCascadingDropdowns();
         initSubmit();
         initEscKey();
+        initCreditoPersonalModo();
         updateCaracteristicasUi();
         const tbody = el('modal-caracteristicas-body');
         if (tbody) {

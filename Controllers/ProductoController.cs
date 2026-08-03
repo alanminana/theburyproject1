@@ -2,11 +2,14 @@ using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.EntityFrameworkCore;
+using TheBuryProject.Data;
 using TheBuryProject.Filters;
 using TheBuryProject.Helpers;
 using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
+using TheBuryProject.Services;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.Services.Models;
 using TheBuryProject.ViewModels;
@@ -25,6 +28,8 @@ namespace TheBuryProject.Controllers
         private readonly IProductoCreditoPersonalConfigService _productoCreditoPersonalConfigService;
         private readonly ILogger<ProductoController> _logger;
         private readonly IMapper _mapper;
+        private readonly AppDbContext _context;
+        private readonly IFinancialCalculationService _financialService;
         private const int MaxUnidadesCargaMasiva = 200;
 
         public ProductoController(
@@ -35,7 +40,9 @@ namespace TheBuryProject.Controllers
             ICatalogoService catalogoService,
             IProductoCreditoPersonalConfigService productoCreditoPersonalConfigService,
             ILogger<ProductoController> logger,
-            IMapper mapper)
+            IMapper mapper,
+            AppDbContext context,
+            IFinancialCalculationService? financialService = null)
         {
             _productoService = productoService;
             _productoUnidadService = productoUnidadService;
@@ -45,6 +52,8 @@ namespace TheBuryProject.Controllers
             _productoCreditoPersonalConfigService = productoCreditoPersonalConfigService;
             _logger = logger;
             _mapper = mapper;
+            _context = context;
+            _financialService = financialService ?? new FinancialCalculationService();
         }
 
         #region CRUD
@@ -138,10 +147,46 @@ namespace TheBuryProject.Controllers
                 return Json(new { success = false, errors });
             }
 
+            // Se valida Crédito Personal antes de crear el producto: si el payload es
+            // inconsistente (modo manipulado, duplicados, etc.) no debe quedar un producto
+            // creado sin su configuración de crédito. Validar() es puro (no toca la base), así
+            // que este rechazo ocurre sin abrir ninguna transacción.
+            var erroresCredito = _productoCreditoPersonalConfigService.Validar(viewModel.CreditoPersonal);
+            if (erroresCredito.Count > 0)
+            {
+                return Json(new
+                {
+                    success = false,
+                    errors = new Dictionary<string, string[]> { { nameof(viewModel.CreditoPersonal), erroresCredito.ToArray() } }
+                });
+            }
+
+            // Producto general y Crédito Personal se persisten como una única unidad de trabajo
+            // sobre el mismo AppDbContext scoped (ProductoService y ProductoCreditoPersonalConfigService
+            // inyectan la misma instancia dentro del scope de este request): si cualquiera de los dos
+            // falla — validación tardía o excepción — ninguno queda parcialmente guardado.
+            await using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
                 var producto = await MapearProductoParaPersistenciaAsync(viewModel);
                 await _productoService.CreateAsync(producto);
+
+                var (creditoOk, erroresCreditoPersist) = await _productoCreditoPersonalConfigService.GuardarAsync(
+                    producto.Id,
+                    viewModel.CreditoPersonal,
+                    User.Identity?.Name ?? "sistema");
+
+                if (!creditoOk)
+                {
+                    await transaction.RollbackAsync();
+                    return Json(new
+                    {
+                        success = false,
+                        errors = new Dictionary<string, string[]> { { nameof(viewModel.CreditoPersonal), erroresCreditoPersist.ToArray() } }
+                    });
+                }
+
+                await transaction.CommitAsync();
 
                 var productoCreado = await _productoService.GetByIdAsync(producto.Id);
 
@@ -164,11 +209,13 @@ namespace TheBuryProject.Controllers
             }
             catch (InvalidOperationException ex)
             {
+                await transaction.RollbackAsync();
                 _logger.LogWarning(ex, "Error de validación al crear producto vía AJAX");
                 return Json(new { success = false, errors = new Dictionary<string, string[]> { { "", new[] { ex.Message } } } });
             }
             catch (Exception ex)
             {
+                await transaction.RollbackAsync();
                 _logger.LogError(ex, "Error al crear producto vía AJAX");
                 return Json(new { success = false, errors = new Dictionary<string, string[]> { { "", new[] { "Error al crear el producto. Intentá nuevamente." } } } });
             }
@@ -213,26 +260,45 @@ namespace TheBuryProject.Controllers
 
             if (ModelState.IsValid)
             {
+                // Crédito Personal y los campos generales del producto se persisten como una
+                // única unidad de trabajo sobre el mismo AppDbContext scoped: si cualquiera de
+                // los dos falla — validación o excepción (incluida concurrencia por RowVersion) —
+                // ninguno de los dos queda parcialmente guardado.
+                await using var transaction = await _context.Database.BeginTransactionAsync();
                 try
                 {
-                    var producto = await MapearProductoParaPersistenciaAsync(viewModel);
-                    producto.RowVersion = viewModel.RowVersion!;
-                    await _productoService.UpdateAsync(producto);
-                    await _productoCreditoPersonalConfigService.GuardarAsync(
+                    var (creditoOk, erroresCredito) = await _productoCreditoPersonalConfigService.GuardarAsync(
                         id,
                         viewModel.CreditoPersonal,
                         User.Identity?.Name ?? "sistema");
 
-                    TempData["Success"] = "Producto actualizado exitosamente";
-                    return RedirectToAction(nameof(Index));
+                    if (!creditoOk)
+                    {
+                        await transaction.RollbackAsync();
+                        foreach (var err in erroresCredito)
+                            ModelState.AddModelError(nameof(viewModel.CreditoPersonal), err);
+                    }
+                    else
+                    {
+                        var producto = await MapearProductoParaPersistenciaAsync(viewModel);
+                        producto.RowVersion = viewModel.RowVersion!;
+                        await _productoService.UpdateAsync(producto);
+
+                        await transaction.CommitAsync();
+
+                        TempData["Success"] = "Producto actualizado exitosamente";
+                        return RedirectToAction(nameof(Index));
+                    }
                 }
                 catch (InvalidOperationException ex)
                 {
+                    await transaction.RollbackAsync();
                     _logger.LogWarning(ex, "Error de validación al actualizar producto {Id}", id);
                     ModelState.AddModelError("", ex.Message);
                 }
                 catch (Exception ex)
                 {
+                    await transaction.RollbackAsync();
                     _logger.LogError(ex, "Error al actualizar producto {Id}", id);
                     ModelState.AddModelError("", "Error al actualizar el producto. Intentá nuevamente.");
                 }
@@ -326,6 +392,7 @@ namespace TheBuryProject.Controllers
                     listaPrecioActualNombre = fila?.ListaPrecioActualNombre,
                     creditoPersonal = new
                     {
+                        modo = creditoConfig.Modo.ToString(),
                         admiteCreditoPersonal = creditoConfig.AdmiteCreditoPersonal,
                         maxCuotasCredito = creditoConfig.MaxCuotasCredito,
                         cuotas = creditoConfig.Cuotas.Select(c => new
@@ -361,15 +428,32 @@ namespace TheBuryProject.Controllers
                 return Json(new { success = false, errors });
             }
 
+            // Crédito Personal y los campos generales del producto se persisten como una única
+            // unidad de trabajo sobre el mismo AppDbContext scoped: ver comentario equivalente en
+            // Edit (POST) y CreateAjax.
+            await using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                var producto = await MapearProductoParaPersistenciaAsync(viewModel);
-                producto.RowVersion = viewModel.RowVersion!;
-                await _productoService.UpdateAsync(producto);
-                await _productoCreditoPersonalConfigService.GuardarAsync(
+                var (creditoOk, erroresCredito) = await _productoCreditoPersonalConfigService.GuardarAsync(
                     id,
                     viewModel.CreditoPersonal,
                     User.Identity?.Name ?? "sistema");
+
+                if (!creditoOk)
+                {
+                    await transaction.RollbackAsync();
+                    return Json(new
+                    {
+                        success = false,
+                        errors = new Dictionary<string, string[]> { { nameof(viewModel.CreditoPersonal), erroresCredito.ToArray() } }
+                    });
+                }
+
+                var producto = await MapearProductoParaPersistenciaAsync(viewModel);
+                producto.RowVersion = viewModel.RowVersion!;
+                await _productoService.UpdateAsync(producto);
+
+                await transaction.CommitAsync();
 
                 var fila = await _catalogoService.ObtenerFilaAsync(id);
 
@@ -398,10 +482,12 @@ namespace TheBuryProject.Controllers
             }
             catch (InvalidOperationException ex)
             {
+                await transaction.RollbackAsync();
                 return Json(new { success = false, errors = new Dictionary<string, string[]> { { "", new[] { ex.Message } } } });
             }
             catch (Exception ex)
             {
+                await transaction.RollbackAsync();
                 _logger.LogError(ex, "Error al actualizar producto {Id} vía AJAX", id);
                 return Json(new { success = false, errors = new Dictionary<string, string[]> { { "", new[] { "Error al actualizar el producto. Intentá nuevamente." } } } });
             }
@@ -465,6 +551,65 @@ namespace TheBuryProject.Controllers
                 _logger.LogError(ex, "Error al obtener submarcas para marca {MarcaId}", marcaId);
                 return Json(new List<object>());
             }
+        }
+
+        /// <summary>
+        /// Plantillas candidatas de Crédito Personal (cantidades + recargo heredado de la
+        /// configuración global) para el modal de alta, donde todavía no existe un ProductoId.
+        /// Reutiliza <see cref="IProductoCreditoPersonalConfigService.ObtenerAsync"/> con 0: no
+        /// hay ninguna restricción ni plan propio que pueda matchear ese id, así que devuelve
+        /// solo las plantillas — el mismo camino que ya usa Editar para las cantidades no
+        /// configuradas todavía.
+        /// </summary>
+        [HttpGet]
+        public async Task<IActionResult> CreditoPersonalCandidatosJson()
+        {
+            var candidatos = await _productoCreditoPersonalConfigService.ObtenerAsync(0);
+            return Json(new
+            {
+                cuotas = candidatos.Cuotas.Select(c => new
+                {
+                    cantidadCuotas = c.CantidadCuotas,
+                    tasaMensual = c.TasaMensual,
+                    orden = c.Orden
+                })
+            });
+        }
+
+        /// <summary>
+        /// Vista previa de recargo TOTAL de Crédito Personal para la sección del producto, sobre
+        /// un monto de referencia ilustrativo. Reutiliza el mismo cálculo canónico que la
+        /// persistencia (<see cref="IFinancialCalculationService.SimularPlanCredito"/>): no
+        /// implementa una fórmula independiente y no persiste nada. Vive bajo el permiso de
+        /// "productos" (no "configuracion") para que cualquiera que edite el producto pueda verla.
+        /// </summary>
+        [HttpGet]
+        public IActionResult PreviewRecargoCreditoPersonal(int cuotas, decimal porcentajeRecargoTotal)
+        {
+            const decimal montoReferencia = 100_000m;
+
+            if (cuotas < 1)
+                return BadRequest(new { error = "La cantidad de cuotas debe ser al menos 1." });
+
+            if (porcentajeRecargoTotal < 0)
+                return BadRequest(new { error = "El porcentaje de recargo no puede ser negativo." });
+
+            var resultado = _financialService.SimularPlanCredito(
+                montoReferencia, 0m, cuotas, porcentajeRecargoTotal, 0m, DateTime.Today.AddMonths(1));
+
+            return Json(new
+            {
+                montoReferencia,
+                saldoAFinanciar = resultado.MontoFinanciado,
+                recargoTotal = resultado.InteresTotal,
+                totalFinanciado = resultado.TotalAPagar,
+                cuotaEstimada = resultado.CuotaEstimada,
+                // Vector exacto de cuotas (misma fuente que persiste el guardado real): el
+                // front no debe reconstruir la ultima cuota multiplicando cuotaEstimada por
+                // la cantidad, porque esa multiplicacion no cierra contra totalFinanciado
+                // cuando el residuo de redondeo no es exactamente divisible entre cuotas.
+                cuotas = resultado.Cuotas.Select(c => new { numero = c.NumeroCuota, total = c.Total }).ToList()
+            });
         }
 
         private async Task<Producto> MapearProductoParaPersistenciaAsync(ProductoViewModel viewModel)

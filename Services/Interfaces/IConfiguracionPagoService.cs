@@ -10,9 +10,11 @@ namespace TheBuryProject.Services.Interfaces
         Task<ConfiguracionPagoViewModel?> GetByIdAsync(int id);
         Task<ConfiguracionPagoViewModel?> GetByTipoPagoAsync(TipoPago tipoPago);
         /// <summary>
-        /// Retorna la tasa mensual de crédito personal configurada.
-        /// Retorna null si no existe configuración o si la tasa es 0 o no está definida:
-        /// en esos casos la operación debe bloquearse en el caller.
+        /// Fuente canónica del porcentaje de recargo TOTAL único global de Crédito Personal
+        /// (no una tasa mensual ni compuesta). Es el valor que heredan los planes de cuota
+        /// cuando su tasa propia es null. Retorna null solo si no existe configuración
+        /// persistida o si nunca fue definida: en esos casos la operación debe bloquearse en
+        /// el caller. Un valor configurado de 0 (recargo cero, válido) NO retorna null.
         /// </summary>
         Task<decimal?> ObtenerTasaInteresMensualCreditoPersonalAsync();
         Task<ConfiguracionPagoViewModel> CreateAsync(ConfiguracionPagoViewModel viewModel);
@@ -99,12 +101,17 @@ namespace TheBuryProject.Services.Interfaces
         Task<decimal> ObtenerPorcentajeAjusteUnPagoAsync(TipoPago tipoPago) => Task.FromResult(0m);
 
         /// <summary>
-        /// Resuelve las cuotas efectivas de Crédito Personal para un conjunto de productos.
-        /// Prioridad: planes específicos del producto → planes globales → tasa global única.
-        /// Un producto sin planes propios hereda la configuración global; con varios productos
-        /// la cantidad debe estar habilitada para todos y se aplica la tasa más alta (conservadora).
+        /// Resolución canónica de los planes de Crédito Personal de una venta.
+        /// Prioridad: configuración personalizada del producto → configuración global. La
+        /// personalizada REEMPLAZA a la global para ese producto. Con varios productos la
+        /// cantidad debe estar habilitada para todos (intersección) y se aplica la tasa más alta.
         /// </summary>
-        Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalEfectivasAsync(IEnumerable<int> productoIds);
+        /// <remarks>
+        /// El resultado distingue explícitamente "no hay tabla de planes" (rige la configuración
+        /// única global) de "la intersección es vacía" (la venta no es financiable). Nunca
+        /// interpretar una lista de planes vacía como permiso para usar el rango o la tasa global.
+        /// </remarks>
+        Task<PlanesCreditoPersonalResultado> ResolverPlanesCreditoPersonalAsync(IEnumerable<int> productoIds);
 
         /// <summary>
         /// Guarda la tabla de cuotas de Crédito Personal (cantidad + tasa mensual + activo).

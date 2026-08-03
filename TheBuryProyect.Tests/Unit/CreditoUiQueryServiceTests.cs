@@ -265,7 +265,6 @@ public class CreditoUiQueryServiceTests
         public Task<CreditoViewModel> CreatePendienteConfiguracionAsync(int clienteId, decimal montoTotal) => throw new NotImplementedException();
         public Task<bool> UpdateAsync(CreditoViewModel viewModel) => throw new NotImplementedException();
         public Task<bool> DeleteAsync(int id) => throw new NotImplementedException();
-        public Task<SimularCreditoViewModel> SimularCreditoAsync(SimularCreditoViewModel modelo) => throw new NotImplementedException();
         public Task<bool> AprobarCreditoAsync(int creditoId, string aprobadoPor) => throw new NotImplementedException();
         public Task<bool> RechazarCreditoAsync(int creditoId, string motivo) => throw new NotImplementedException();
         public Task<bool> CancelarCreditoAsync(int creditoId, string motivo) => throw new NotImplementedException();

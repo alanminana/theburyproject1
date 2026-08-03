@@ -69,13 +69,19 @@ public class CreditoServicePagoDisponibleTests : IDisposable
 
         _context = new AppDbContext(options);
         _context.Database.EnsureCreated();
+        _context.Cajas.Add(new Caja { Id = 1, Codigo = "C1", Nombre = "Caja test", IsDeleted = false });
+        _context.AperturasCaja.Add(new AperturaCaja
+        {
+            Id = 1, CajaId = 1, MontoInicial = 0m, UsuarioApertura = "TestUser", Cerrada = false, IsDeleted = false
+        });
+        _context.SaveChanges();
 
         var mapper = new MapperConfiguration(
                 cfg => cfg.AddProfile<MappingProfile>(),
                 NullLoggerFactory.Instance)
             .CreateMapper();
 
-        _cajaStub = new StubCajaServiceCiclo();
+        _cajaStub = new StubCajaServiceCiclo(_context);
 
         _creditoService = new CreditoService(
             _context,
@@ -198,6 +204,7 @@ public class CreditoServicePagoDisponibleTests : IDisposable
         // Act — pago parcial de 500 sobre 1000 total
         var resultado = await _creditoService.PagarCuotaAsync(new PagarCuotaViewModel
         {
+            CreditoId = cuota.CreditoId,
             CuotaId = cuota.Id,
             MontoPagado = 500m,
             FechaPago = DateTime.UtcNow,
@@ -242,6 +249,7 @@ public class CreditoServicePagoDisponibleTests : IDisposable
         // Act — pago total
         var resultado = await _creditoService.PagarCuotaAsync(new PagarCuotaViewModel
         {
+            CreditoId = cuota.CreditoId,
             CuotaId = cuota.Id,
             MontoPagado = 1_000m,
             FechaPago = DateTime.UtcNow,
@@ -301,6 +309,7 @@ public class CreditoServicePagoDisponibleTests : IDisposable
         // Act — pagar solo el crédito A completo
         await _creditoService.PagarCuotaAsync(new PagarCuotaViewModel
         {
+            CreditoId = cuotaA.CreditoId,
             CuotaId = cuotaA.Id,
             MontoPagado = 1_000m,
             FechaPago = DateTime.UtcNow,

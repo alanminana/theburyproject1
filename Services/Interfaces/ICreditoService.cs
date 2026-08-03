@@ -17,7 +17,6 @@ namespace TheBuryProject.Services.Interfaces
         Task<bool> DeleteAsync(int id);
 
         // Operaciones de cr�dito
-        Task<SimularCreditoViewModel> SimularCreditoAsync(SimularCreditoViewModel modelo);
         Task<bool> AprobarCreditoAsync(int creditoId, string aprobadoPor);
         Task<bool> RechazarCreditoAsync(int creditoId, string motivo);
         Task<bool> CancelarCreditoAsync(int creditoId, string motivo);
@@ -31,15 +30,19 @@ namespace TheBuryProject.Services.Interfaces
             CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Cobra la primera cuota del crédito recién generado si vence hoy y está pendiente
-        /// (spec 2.4). Reutiliza <see cref="PagarCuotaAsync"/>, por lo que aplica el recargo
-        /// del medio de pago como concepto separado e impacta en caja. Si la cuota no vence
-        /// hoy o no está pendiente devuelve <see cref="EstadoCobroPrimeraCuota.NoAplica"/>
+        /// Cobra la primera cuota del crédito recién generado si vence hoy (fecha comercial de
+        /// Argentina) y está pendiente. Reutiliza <see cref="PagarCuotaAsync"/>, por lo que aplica
+        /// el recargo del medio de pago como concepto separado e impacta en caja. Si la cuota no
+        /// vence hoy o no está pendiente devuelve <see cref="EstadoCobroPrimeraCuota.NoAplica"/>
         /// sin cobrar. Requiere una caja abierta.
         /// </summary>
+        /// <param name="medioPago">
+        /// Medio de pago. Si es null/vacío, se toma el medio persistido en la decisión de
+        /// configuración del crédito (F2, server-authoritative).
+        /// </param>
         Task<CobroPrimeraCuotaResultado> CobrarPrimeraCuotaAlGenerarAsync(
             int creditoId,
-            string medioPago,
+            string? medioPago = null,
             string? comprobante = null,
             string? observaciones = null);
 

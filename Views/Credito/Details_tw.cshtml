@@ -339,7 +339,17 @@
                         <div class="kv-row"><dt>Monto solicitado</dt><dd class="num">$ @cr.MontoSolicitado.ToString("N2")</dd></div>
                         <div class="kv-row"><dt>Monto aprobado</dt><dd class="num">$ @cr.MontoAprobado.ToString("N2")</dd></div>
                         <div class="kv-row"><dt>Tasa mensual</dt><dd>@cr.TasaInteres.ToString("N2")%</dd></div>
-                        <div class="kv-row"><dt>CFTEA</dt><dd>@cr.CFTEA.ToString("N2")%</dd></div>
+                        <div class="kv-row">
+                            <dt>CFTEA</dt>
+                            @if (cr.CfteaPresentacion.HasValue)
+                            {
+                                <dd>@cr.CfteaPresentacion.Value.ToString("N2")%</dd>
+                            }
+                            else
+                            {
+                                <dd class="muted-2">No calculado</dd>
+                            }
+                        </div>
                         <div class="kv-row"><dt>Monto por cuota</dt><dd class="num">$ @cr.MontoCuota.ToString("N2")</dd></div>
                         <div class="kv-row"><dt>Saldo pendiente</dt><dd class="num">$ @cr.SaldoPendiente.ToString("N2")</dd></div>
                     </dl>

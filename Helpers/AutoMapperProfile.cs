@@ -230,6 +230,11 @@ namespace TheBuryProject.Helpers
                         : 0m));
 
             CreateMap<VentaViewModel, Venta>()
+                // Un alta nunca puede adoptar la clave que el navegador conserve de
+                // una operación anterior. UpdateAsync carga la entidad canónica por
+                // ruta y aplica sus campos explícitamente, por lo que tampoco debe
+                // cambiar la PK por AutoMapper.
+                .ForMember(dest => dest.Id, opt => opt.Ignore())
                 .ForMember(dest => dest.Cliente, opt => opt.Ignore())
                 .ForMember(dest => dest.Credito, opt => opt.Ignore())
                 .ForMember(dest => dest.Detalles, opt => opt.Ignore())
@@ -238,8 +243,10 @@ namespace TheBuryProject.Helpers
                 .ForMember(dest => dest.DatosTarjeta, opt => opt.Ignore());
 
             CreateMap<VentaDetalle, VentaDetalleViewModel>()
-                .ForMember(dest => dest.ProductoNombre, opt => opt.MapFrom(src => src.Producto != null ? src.Producto.Nombre : string.Empty))
-                .ForMember(dest => dest.ProductoCodigo, opt => opt.MapFrom(src => src.Producto != null ? src.Producto.Codigo : string.Empty))
+                // Identidad histórica: snapshot al momento de la venta → relación viva sólo para filas
+                // legacy sin snapshot → "Producto #<id>". Micro-lote 5.
+                .ForMember(dest => dest.ProductoNombre, opt => opt.MapFrom(src => VentaDetalleProductoSnapshot.ResolverNombre(src)))
+                .ForMember(dest => dest.ProductoCodigo, opt => opt.MapFrom(src => VentaDetalleProductoSnapshot.ResolverCodigo(src)))
                 .ForMember(dest => dest.StockDisponible, opt => opt.MapFrom(src => src.Producto != null ? src.Producto.StockActual : 0))
                 .ForMember(dest => dest.RequiereNumeroSerie, opt => opt.MapFrom(src => src.Producto != null && src.Producto.RequiereNumeroSerie))
                 .ForMember(dest => dest.ProductoUnidadCodigoInterno, opt => opt.MapFrom(src => src.ProductoUnidad != null ? src.ProductoUnidad.CodigoInternoUnidad : null))
@@ -256,6 +263,10 @@ namespace TheBuryProject.Helpers
                 .ForMember(dest => dest.IsDeleted, opt => opt.Ignore())
                 .ForMember(dest => dest.RowVersion, opt => opt.Ignore())
                 .ForMember(dest => dest.Producto, opt => opt.Ignore())
+                // Snapshot histórico: se captura SIEMPRE server-side (VentaDetalleProductoSnapshot),
+                // nunca desde el payload del cliente. Micro-lote 5.
+                .ForMember(dest => dest.ProductoNombreAlMomento, opt => opt.Ignore())
+                .ForMember(dest => dest.ProductoCodigoAlMomento, opt => opt.Ignore())
                 .ForMember(dest => dest.Venta, opt => opt.Ignore())
                 .ForMember(dest => dest.ComisionPorcentajeAplicada, opt => opt.Ignore())
                 .ForMember(dest => dest.ComisionMonto, opt => opt.Ignore())

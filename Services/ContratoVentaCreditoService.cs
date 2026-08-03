@@ -364,7 +364,9 @@ namespace TheBuryProject.Services
             Credito credito,
             ContratoVentaCreditoValidacionResult result)
         {
-            if (credito.Cuotas.Any())
+            // Las cuotas eliminadas pertenecen a una configuración anterior y no deben
+            // impedir que el contrato proyecte el plan vigente recién configurado.
+            if (credito.Cuotas.Any(c => !c.IsDeleted))
             {
                 var cuotasPersistidas = credito.Cuotas
                     .Where(c => !c.IsDeleted)
@@ -388,25 +390,27 @@ namespace TheBuryProject.Services
             if (credito.CantidadCuotas <= 0 || credito.MontoAprobado <= 0 || !credito.FechaPrimeraCuota.HasValue)
                 return new List<CuotaContratoSnapshot>();
 
-            var montoFinanciado = credito.MontoAprobado;
-            var tasaDecimal = credito.TasaInteres / 100m;
-            var montoCuota = _financialService.ComputePmt(tasaDecimal, credito.CantidadCuotas, montoFinanciado);
-            var totalAPagar = montoCuota * credito.CantidadCuotas;
-            var interesTotal = totalAPagar - montoFinanciado;
-            var capitalPorCuota = Math.Round(montoFinanciado / credito.CantidadCuotas, 2, MidpointRounding.AwayFromZero);
-            var interesPorCuota = Math.Round(interesTotal / credito.CantidadCuotas, 2, MidpointRounding.AwayFromZero);
-
+            // Proyección del plan aún no persistido: mismo cálculo canónico que
+            // VentaService.GenerarCuotasCreditoAsync (recargo total, no PMT/francés), para
+            // que el contrato nunca muestre un importe distinto al que luego se persiste.
             var fecha = credito.FechaPrimeraCuota.Value.Date;
-            var plan = new List<CuotaContratoSnapshot>();
+            var simulacion = _financialService.SimularPlanCredito(
+                credito.MontoAprobado,
+                0m,
+                credito.CantidadCuotas,
+                credito.TasaInteres,
+                0m,
+                fecha);
 
-            for (var i = 1; i <= credito.CantidadCuotas; i++)
+            var plan = new List<CuotaContratoSnapshot>();
+            foreach (var item in simulacion.Cuotas)
             {
                 plan.Add(new CuotaContratoSnapshot
                 {
-                    NumeroCuota = i,
-                    MontoCapital = capitalPorCuota,
-                    MontoInteres = interesPorCuota,
-                    MontoTotal = montoCuota,
+                    NumeroCuota = item.NumeroCuota,
+                    MontoCapital = item.Capital,
+                    MontoInteres = item.Interes,
+                    MontoTotal = item.Total,
                     FechaVencimiento = fecha
                 });
                 fecha = fecha.AddMonths(1);
@@ -470,8 +474,9 @@ namespace TheBuryProject.Services
                         .OrderBy(d => d.Id)
                         .Select(d => new ProductoVentaSnapshot
                         {
-                            Codigo = d.Producto?.Codigo ?? string.Empty,
-                            Nombre = d.Producto?.Nombre ?? string.Empty,
+                            // Identidad histórica del producto (snapshot → relación viva legacy → Producto #id). Micro-lote 5.
+                            Codigo = VentaDetalleProductoSnapshot.ResolverCodigo(d) ?? string.Empty,
+                            Nombre = VentaDetalleProductoSnapshot.ResolverNombre(d),
                             Cantidad = d.Cantidad,
                             PrecioUnitario = d.PrecioUnitario,
                             Descuento = d.Descuento,

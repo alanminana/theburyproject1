@@ -67,6 +67,30 @@ public sealed class CreditoPersonalCuotaConfigTests
     }
 
     [Fact]
+    public async Task GuardarCuotasCreditoPersonal_TasaNull_PersisteHeredarDistintoDeCero()
+    {
+        var (ctx, conn) = CreateContext();
+        using (conn)
+        {
+            var service = CreateService(ctx);
+
+            var (ok, errores) = await service.GuardarCuotasCreditoPersonalAsync(
+                new List<CuotaCreditoPersonalViewModel>
+                {
+                    new() { CantidadCuotas = 2, TasaMensual = null, Activo = true, Orden = 2 }, // heredar global
+                    new() { CantidadCuotas = 3, TasaMensual = 0m, Activo = true, Orden = 3 }    // 0 % explicito
+                },
+                "test");
+
+            Assert.True(ok, string.Join("; ", errores));
+
+            var activas = await service.GetCuotasCreditoPersonalActivasAsync();
+            Assert.Null(activas.First(c => c.CantidadCuotas == 2).TasaMensual);    // null = hereda la global
+            Assert.Equal(0m, activas.First(c => c.CantidadCuotas == 3).TasaMensual); // 0 = sin interes
+        }
+    }
+
+    [Fact]
     public async Task GuardarCuotasCreditoPersonal_ActualizaExistenteEnLugarDeDuplicar()
     {
         var (ctx, conn) = CreateContext();
@@ -165,6 +189,77 @@ public sealed class CreditoPersonalCuotaConfigTests
 
             Assert.Single(activas);
             Assert.Equal(1, activas[0].CantidadCuotas);
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Micro-lote 5: 0 % es un recargo válido y distinguible de "inexistente"/"inactivo".
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetCuotasCreditoPersonal_PlanActivoDe3CuotasConCeroPorciento_EsRecuperable()
+    {
+        var (ctx, conn) = CreateContext();
+        using (conn)
+        {
+            var service = CreateService(ctx);
+            await service.GuardarCuotasCreditoPersonalAsync(
+                new List<CuotaCreditoPersonalViewModel>
+                {
+                    new() { CantidadCuotas = 3, TasaMensual = 0m, Activo = true, Orden = 3 }
+                },
+                "test");
+
+            var activas = await service.GetCuotasCreditoPersonalActivasAsync();
+            var plan3 = activas.SingleOrDefault(c => c.CantidadCuotas == 3);
+
+            Assert.NotNull(plan3);
+            Assert.True(plan3!.Activo);
+            Assert.Equal(0m, plan3.TasaMensual);
+        }
+    }
+
+    [Fact]
+    public async Task GetCuotasCreditoPersonal_PlanInactivo_NoApareceEnActivasPeroSiEnListaCompleta()
+    {
+        var (ctx, conn) = CreateContext();
+        using (conn)
+        {
+            var service = CreateService(ctx);
+            await service.GuardarCuotasCreditoPersonalAsync(
+                new List<CuotaCreditoPersonalViewModel>
+                {
+                    new() { CantidadCuotas = 6, TasaMensual = 5m, Activo = false }
+                },
+                "test");
+
+            var activas = await service.GetCuotasCreditoPersonalActivasAsync();
+            var todas = await service.GetCuotasCreditoPersonalAsync();
+
+            Assert.DoesNotContain(activas, c => c.CantidadCuotas == 6);
+            Assert.Contains(todas, c => c.CantidadCuotas == 6 && !c.Activo);
+        }
+    }
+
+    [Fact]
+    public async Task GuardarCuotasCreditoPersonal_TasaNegativa_Rechaza()
+    {
+        var (ctx, conn) = CreateContext();
+        using (conn)
+        {
+            var service = CreateService(ctx);
+            var items = new List<CuotaCreditoPersonalViewModel>
+            {
+                new() { CantidadCuotas = 4, TasaMensual = -1m, Activo = true }
+            };
+
+            var (ok, errores) = await service.GuardarCuotasCreditoPersonalAsync(items, "test");
+
+            Assert.False(ok);
+            Assert.Contains(errores, e => e.Contains("negativ", StringComparison.OrdinalIgnoreCase));
+
+            var enDb = await ctx.ConfiguracionCreditoPersonalCuotas.ToListAsync();
+            Assert.Empty(enDb);
         }
     }
 }

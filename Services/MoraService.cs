@@ -43,19 +43,25 @@ namespace TheBuryProject.Services
 
         private readonly ICreditoService _creditoService;
         private readonly IClienteScoringService _clienteScoringService;
+        private readonly IRelojComercial _reloj;
 
         public MoraService(
             AppDbContext context,
             IMapper mapper,
             ILogger<MoraService> logger,
             ICreditoService creditoService,
-            IClienteScoringService clienteScoringService)
+            IClienteScoringService clienteScoringService,
+            IRelojComercial reloj)
         {
             _context = context;
             _mapper = mapper;
             _logger = logger;
             _creditoService = creditoService;
             _clienteScoringService = clienteScoringService;
+            // PUN-ML7 (auditoría DI): fuente única de "hoy" para vencimiento/mora, inyección
+            // obligatoria — el único constructor directo fuera de Program.cs es MoraServiceTests, ya
+            // ajustado a pasarlo explícitamente. Program.cs registra IRelojComercial como Singleton.
+            _reloj = reloj;
         }
 
         #region Configuración
@@ -147,17 +153,37 @@ namespace TheBuryProject.Services
                 _logger.LogInformation("=== INICIANDO PROCESAMIENTO DE MORA ===");
 
                 var config = await GetConfiguracionAsync();
-                var hoy = DateTime.Today;
+                // PUN-ML7: fecha comercial única (antes DateTime.Today — dependía de la zona del
+                // proceso, no de Argentina). InicioDiaComercial es la cota diseñada para comparar
+                // contra Cuota.FechaVencimiento (DateTime a medianoche).
+                var hoy = _reloj.InicioDiaComercial;
                 var fechaLimite = hoy.AddDays(-(config.DiasGracia ?? 0));
+                // PUN-ML7 (cierre): DateOnly equivalente de "hoy", requerido por
+                // EstadoCuotaResolver.DiasAtrasoDerivado (autoridad canónica para AlertaCobranza.DiasAtraso).
+                var fechaComercial = _reloj.HoyComercial;
 
-                // Obtener cuotas vencidas en un solo query (sin N+1)
+                // Obtener cuotas vencidas en un solo query (sin N+1).
+                // PUN-ML7 (corrección): antes filtraba solo Estado==Pendiente. Como
+                // ActualizarEstadoCuotasAsync (más abajo, y también disparado por este mismo método
+                // en corridas previas) transiciona Pendiente→Vencida, esa condición hacía que una
+                // cuota vencida desapareciera de este query en la corrida SIGUIENTE a la que cruzó la
+                // frontera — quedaba invisible para generación de alertas mientras seguía en mora. El
+                // filtro correcto no depende del enum puntual sino de la condición de negocio: no
+                // terminal (ni Pagada ni Cancelada), con saldo de capital pendiente (una cuota cuyo
+                // capital está saldado pero retiene solo un punitorio aplicado pendiente NO es
+                // candidata acá — ese caso lo cubre el score de mora vía ImpactarScorePorMoraAsync,
+                // no la cola de cobranza) y efectivamente vencida. Cubre Pendiente vencida, Vencida y
+                // Parcial vencida por igual (Parcial nunca es Vencida en EstadoCuotaResolver.Resolver,
+                // pero con saldo de capital y fecha vencida sigue siendo mora real).
                 var cuotasVencidas = await _context.Cuotas
                     .Include(c => c.Credito)
                         .ThenInclude(cr => cr!.Cliente)
                     .Where(c => !c.IsDeleted &&
                            !c.Credito!.IsDeleted &&
                            !c.Credito!.Cliente!.IsDeleted &&
-                           c.Estado == EstadoCuota.Pendiente &&
+                           c.Estado != EstadoCuota.Pagada &&
+                           c.Estado != EstadoCuota.Cancelada &&
+                           c.MontoPagado < c.MontoTotal &&
                            c.FechaVencimiento < fechaLimite)
                     .ToListAsync(ct);
 
@@ -167,17 +193,18 @@ namespace TheBuryProject.Services
                 var cuotasPorCredito = cuotasVencidas.GroupBy(c => c.CreditoId).ToList();
                 int alertasCreadas = 0;
 
-                // Pre-cargar en batch los créditos que ya tienen alerta activa para evitar N+1
+                // Pre-cargar en batch las alertas activas existentes por crédito, para evitar N+1.
+                // Trackeadas (sin AsNoTracking) porque, a diferencia de antes, un reproceso puede
+                // actualizar AlertaCobranza.DiasAtraso sobre la misma fila en vez de solo saltarla.
                 var creditoIds = cuotasPorCredito.Select(g => g.Key).ToList();
-                var creditosConAlertaActiva = await _context.AlertasCobranza
-                    .AsNoTracking()
+                var alertasActivasPorCredito = (await _context.AlertasCobranza
                     .Where(a => creditoIds.Contains(a.CreditoId) &&
                                 !a.Resuelta &&
                                 a.Tipo == TipoAlertaCobranza.CuotaVencida &&
                                 !a.IsDeleted)
-                    .Select(a => a.CreditoId)
-                    .ToListAsync(ct);
-                var creditosConAlertaActivaSet = creditosConAlertaActiva.ToHashSet();
+                    .ToListAsync(ct))
+                    .GroupBy(a => a.CreditoId)
+                    .ToDictionary(g => g.Key, g => g.First());
 
                 foreach (var grupo in cuotasPorCredito)
                 {
@@ -195,12 +222,26 @@ namespace TheBuryProject.Services
                             continue;
                         }
 
-                        // Verificar si ya existe alerta activa (en memoria, sin query adicional)
-                        if (creditosConAlertaActivaSet.Contains(creditoId))
+                        // Días de atraso "actuales" (AlertaCobranza.DiasAtraso los documenta como
+                        // tales, no como snapshot histórico de creación): la peor cuota del grupo,
+                        // vía la autoridad canónica de fecha comercial — nunca resta manual sobre
+                        // DateTime.Today/UtcNow.
+                        var diasMora = cuotasDelCredito.Max(c =>
+                            EstadoCuotaResolver.DiasAtrasoDerivado(c.Estado, c.FechaVencimiento, fechaComercial));
+
+                        // Si ya existe una alerta activa para este crédito: reprocesarla (actualizar
+                        // DiasAtraso a la fecha comercial actual) en vez de crear una duplicada.
+                        // Idempotente para la misma fecha comercial (mismo valor => sin cambio real) y
+                        // no toca ningún otro campo — ni datos manuales de gestión (Observaciones,
+                        // EstadoGestion, promesas, resolución) ni UpdatedAt (del que depende
+                        // AlertaCobranza.Leida; tocarlo marcaría como "leída" una alerta que nadie vio).
+                        if (alertasActivasPorCredito.TryGetValue(creditoId, out var alertaExistente))
+                        {
+                            alertaExistente.DiasAtraso = diasMora;
                             continue;
+                        }
 
                         // Calcular datos de mora
-                        var diasMora = (hoy - cuotasDelCredito.Min(c => c.FechaVencimiento)).Days;
                         var montoVencido = cuotasDelCredito.Sum(c => c.MontoTotal - c.MontoPagado);
                         var moraCalculada = CalcularMora(montoVencido, diasMora, config);
                         var prioridad = DeterminarPrioridad(diasMora, montoVencido, config);
@@ -215,6 +256,7 @@ namespace TheBuryProject.Services
                             Mensaje = GenerarMensajeAlerta(cliente, montoVencido, cuotasDelCredito.Count, diasMora),
                             MontoVencido = montoVencido,
                             CuotasVencidas = cuotasDelCredito.Count,
+                            DiasAtraso = diasMora,
                             FechaAlerta = DateTime.UtcNow,
                             Resuelta = false,
                             CreatedAt = DateTime.UtcNow
@@ -294,7 +336,8 @@ namespace TheBuryProject.Services
         {
             try
             {
-                var hoy = DateTime.Today;
+                // PUN-ML7: fecha comercial única (antes DateTime.Today).
+                var hoy = _reloj.InicioDiaComercial;
                 var diasAntesAlerta = config.DiasAntesAlertaPreventiva ?? DiasAnticipacionAlerta;
                 var proximosDias = hoy.AddDays(diasAntesAlerta);
                 var now = DateTime.UtcNow;
@@ -371,6 +414,12 @@ namespace TheBuryProject.Services
         /// Recalcula y audita el PuntajeCliente de los clientes cuya mora ya superó
         /// ConfiguracionMora.DiasGracia (fechaLimite). Dentro de los días de gracia no se
         /// invoca el recalculo, por lo que el puntaje no se ve afectado todavía.
+        /// PUN-ML7 (auditoría, lote 2): agregada la condición de saldo de capital pendiente
+        /// (MontoPagado &lt; MontoTotal) — antes la faltaba y una cuota con capital ya saldado pero
+        /// Estado=Parcial únicamente por un punitorio aplicado pendiente (ver
+        /// EstadoCuotaResolver.Resolver) impactaba el puntaje del cliente como si todavía debiera
+        /// capital. Misma condición que EstadoCuotaResolver.EstaEnMoraCapitalDerivado y que el query
+        /// de selección de cuotas vencidas de ProcesarMoraAsync, arriba.
         /// </summary>
         private async Task ImpactarScorePorMoraAsync(DateTime fechaLimite, CancellationToken ct)
         {
@@ -380,6 +429,7 @@ namespace TheBuryProject.Services
                        !c.Credito!.Cliente!.IsDeleted &&
                        c.Estado != EstadoCuota.Pagada &&
                        c.Estado != EstadoCuota.Cancelada &&
+                       c.MontoPagado < c.MontoTotal &&
                        c.FechaVencimiento < fechaLimite)
                 .Select(c => c.Credito!.ClienteId)
                 .Distinct()
@@ -667,7 +717,10 @@ namespace TheBuryProject.Services
         {
             try
             {
-                var hoy = DateTime.Today;
+                // PUN-ML7 (auditoría, lote 2): antes DateTime.Today. No decide "mora de capital" acá
+                // (eso ya lo resolvió ProcesarMoraAsync al generar AlertaCobranza con el predicado
+                // canónico) — esta fecha solo decide vigencia de promesas/próximo contacto.
+                var hoy = _reloj.InicioDiaComercial;
 
                 // Base query: clientes con alertas activas
                 var queryBase = _context.AlertasCobranza
@@ -840,7 +893,9 @@ namespace TheBuryProject.Services
                 if (cliente == null)
                     return null;
 
-                var hoy = DateTime.Today;
+                // PUN-ML7 (auditoría, lote 2): antes DateTime.Today. InicioDiaComercial es DateTime
+                // a medianoche, comparable directamente contra HistorialContacto.ProximoContacto.
+                var fechaComercial = _reloj.InicioDiaComercial;
 
                 // Obtener alertas activas
                 var alertas = await GetAlertasPorClienteAsync(clienteId);
@@ -874,7 +929,7 @@ namespace TheBuryProject.Services
                         : EstadoGestionCobranza.Pendiente,
                     ContactosRealizados = historial.Count,
                     UltimoContacto = historial.OrderByDescending(h => h.FechaContacto).FirstOrDefault()?.FechaContacto,
-                    ProximoContacto = historial.Where(h => h.ProximoContacto >= hoy).OrderBy(h => h.ProximoContacto).FirstOrDefault()?.ProximoContacto,
+                    ProximoContacto = historial.Where(h => h.ProximoContacto >= fechaComercial).OrderBy(h => h.ProximoContacto).FirstOrDefault()?.ProximoContacto,
                     PromesaActiva = promesas.Any(),
                     AcuerdoActivo = acuerdos.Any(a => a.Estado == EstadoAcuerdo.Activo)
                 };
@@ -907,7 +962,13 @@ namespace TheBuryProject.Services
         {
             try
             {
-                var hoy = DateTime.Today;
+                // PUN-ML7 (auditoría, lote 2): antes filtraba solo Estado==Pendiente, perdiendo
+                // cuotas Vencida/Parcial con saldo de capital. Ahora usa el predicado canónico
+                // (EstadoCuotaResolver.EstaEnMoraCapitalDerivado), que además excluye correctamente
+                // una cuota con capital saldado y solo punitorio aplicado pendiente (Estado=Parcial
+                // por Resolver, pero MontoPagado>=MontoTotal). credito.Cuotas ya está materializado en
+                // memoria por el Include de abajo, así que este Where es LINQ-to-Objects, no EF.
+                var fechaComercial = _reloj.HoyComercial;
                 var creditos = await _context.Creditos
                     .AsNoTracking()
                     .Include(c => c.Cuotas)
@@ -919,7 +980,8 @@ namespace TheBuryProject.Services
                 foreach (var credito in creditos)
                 {
                     var cuotasVencidas = credito.Cuotas?
-                        .Where(c => !c.IsDeleted && c.Estado == EstadoCuota.Pendiente && c.FechaVencimiento < hoy)
+                        .Where(c => !c.IsDeleted && EstadoCuotaResolver.EstaEnMoraCapitalDerivado(
+                            c.Estado, c.MontoPagado, c.MontoTotal, c.FechaVencimiento, fechaComercial))
                         .ToList() ?? new List<Cuota>();
 
                     if (!cuotasVencidas.Any())
@@ -934,8 +996,10 @@ namespace TheBuryProject.Services
                         MontoInteres = c.MontoInteres,
                         MontoTotal = c.MontoTotal,
                         MontoPagado = c.MontoPagado,
+                        // MontoMora: valor legacy (Cuota.MontoPunitorio), congelado desde PUN-ML6 —
+                        // fuera de alcance de esta corrección (no se toca fórmula de punitorios).
                         MontoMora = c.MontoPunitorio,
-                        DiasAtraso = (hoy - c.FechaVencimiento).Days
+                        DiasAtraso = EstadoCuotaResolver.DiasAtrasoDerivado(c.Estado, c.FechaVencimiento, fechaComercial)
                     }).ToList();
 
                     var cuotasPagadas = credito.Cuotas?.Count(c => c.Estado == EstadoCuota.Pagada) ?? 0;
@@ -949,7 +1013,7 @@ namespace TheBuryProject.Services
                         TotalCuotas = credito.CantidadCuotas,
                         CuotasPagadas = cuotasPagadas,
                         CuotasVencidas = cuotasVencidas.Count,
-                        DiasAtraso = cuotasVencidas.Max(c => (hoy - c.FechaVencimiento).Days),
+                        DiasAtraso = cuotasVencidas.Max(c => EstadoCuotaResolver.DiasAtrasoDerivado(c.Estado, c.FechaVencimiento, fechaComercial)),
                         MontoCuotasVencidas = cuotasVencidas.Sum(c => c.MontoTotal - c.MontoPagado),
                         MontoMora = cuotasVencidas.Sum(c => c.MontoPunitorio),
                         CuotasDetalle = cuotasDetalle
@@ -1105,13 +1169,20 @@ namespace TheBuryProject.Services
         {
             try
             {
-                var hoy = DateTime.Today;
+                // PUN-ML7 (auditoría, lote 2): este método no decide mora ni vencimiento de deuda,
+                // solo vigencia de la promesa ("activa" = todavía no pasó su fecha). Antes "hoy" se
+                // declaraba con DateTime.Today pero nunca se conectaba al query (variable muerta) —
+                // devolvía cualquier promesa no resuelta, incluida una incumplida hace meses sin
+                // marcar Cumplida/Incumplida. Se cablea con el mismo criterio de vigencia que ya usa
+                // GetClientesEnMoraAsync (TienePromesaActiva/FechaPromesa: FechaPromesaPago >= hoy).
+                var hoy = _reloj.InicioDiaComercial;
                 var alertasConPromesa = await _context.AlertasCobranza
                     .AsNoTracking()
                     .Where(a => a.ClienteId == clienteId &&
                            !a.IsDeleted &&
                            !a.Resuelta &&
-                           a.FechaPromesaPago != null)
+                           a.FechaPromesaPago != null &&
+                           a.FechaPromesaPago >= hoy)
                     .ToListAsync();
 
                 return alertasConPromesa.Select(a => new PromesaPagoViewModel
@@ -1256,7 +1327,10 @@ namespace TheBuryProject.Services
                     .OrderByDescending(a => a.FechaCreacion)
                     .ToListAsync();
 
-                var hoy = DateTime.Today;
+                // PUN-ML7 (cierre): antes DateTime.Today. Solo decide qué cuota del acuerdo es "la
+                // próxima" (primera no pagada con vencimiento >= hoy) — no hay clasificación dinámica
+                // de "acuerdo vencido"/cumplimiento acá, EstadoAcuerdo se lee tal cual está persistido.
+                var hoy = _reloj.InicioDiaComercial;
                 return acuerdos.Select(a =>
                 {
                     var cuotasPagadas = a.Cuotas?.Count(c => c.Estado == EstadoCuotaAcuerdo.Pagada) ?? 0;
@@ -1314,7 +1388,9 @@ namespace TheBuryProject.Services
         {
             try
             {
-                var hoy = DateTime.Today;
+                // PUN-ML7 (cierre): antes DateTime.Today — dependía de la zona del proceso, no de
+                // Argentina, e inconsistente con el resto de las lecturas de mora ya corregidas.
+                var hoy = _reloj.InicioDiaComercial;
                 var inicioSemana = hoy.AddDays(-(int)hoy.DayOfWeek);
                 var inicioMes = new DateTime(hoy.Year, hoy.Month, 1);
                 var config = await GetConfiguracionAsync();
@@ -1377,10 +1453,15 @@ namespace TheBuryProject.Services
                 var cantidadCobrosHoy = cuotasPagadasHoy.Count;
                 var montoCobradoHoy = cuotasPagadasHoy.Sum(c => c.MontoPagado);
 
-                // Tasa de recupero del mes (monto cobrado / monto vencido al inicio del mes)
-                var cobrosMes = await _context.Cuotas
+                // Tasa de recupero del mes (monto cobrado / monto vencido al inicio del mes).
+                // SumAsync sobre decimal no traduce a SQL bajo el proveedor Sqlite (usado en tests);
+                // mismo patrón ya establecido en el resto del código para este límite del proveedor:
+                // traer las filas y sumar en cliente.
+                var cobrosMes = (await _context.Cuotas
                     .Where(c => c.FechaPago.HasValue && c.FechaPago.Value >= inicioMes && !c.IsDeleted)
-                    .SumAsync(c => c.MontoPagado);
+                    .Select(c => c.MontoPagado)
+                    .ToListAsync())
+                    .Sum();
                 var montoVencidoMes = alertas.Sum(a => a.MontoVencido);
                 var tasaRecuperoMes = montoVencidoMes > 0 ? (cobrosMes / montoVencidoMes) * 100 : 0;
 

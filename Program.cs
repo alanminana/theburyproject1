@@ -90,6 +90,11 @@ builder.Services.AddSingleton<IMapper>(sp =>
     return config.CreateMapper();
 });
 
+// Fuente temporal única para reglas de negocio (Micro-lote 6). TimeProvider.System en producción;
+// RelojComercial resuelve la fecha comercial de Argentina de forma portable.
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<IRelojComercial, RelojComercial>();
+
 // 5. Servicios (DI)
 builder.Services.AddCoreServices();
 builder.Services.AddVentaServices();
@@ -116,6 +121,10 @@ builder.Services.AddScoped<IMovimientoStockReferenciaResolver, MovimientoStockRe
 builder.Services.AddScoped<IClienteService, ClienteService>();
 builder.Services.AddScoped<IGaranteService, GaranteService>();
 builder.Services.AddScoped<ICreditoService, CreditoService>();
+builder.Services.AddScoped<IPagoCuotaBackfillService, PagoCuotaBackfillService>();
+builder.Services.AddScoped<IConfiguracionPunitorioService, ConfiguracionPunitorioService>();
+builder.Services.AddScoped<IPunitorioCalculator, PunitorioCalculator>();
+builder.Services.AddScoped<IPunitorioService, PunitorioService>();
 builder.Services.AddScoped<IVentaService, VentaService>();
 builder.Services.AddScoped<IConfiguracionPagoService, ConfiguracionPagoService>();
 builder.Services.AddScoped<IConfiguracionPagoGlobalAdminService, ConfiguracionPagoService>();
@@ -189,7 +198,12 @@ builder.Services.AddHostedService<CotizacionVencimientoBackgroundService>();
 // Binder decimal invariante-flexible global: los inputs type="number" postean con punto
 // y el binding por cultura del servidor (es-AR) multiplicaba x100. Ver DecimalModelBinderProvider.
 var mvcBuilder = builder.Services.AddControllersWithViews(options =>
-    options.ModelBinderProviders.Insert(0, new DecimalModelBinderProvider()));
+{
+    options.ModelBinderProviders.Insert(0, new DecimalModelBinderProvider());
+    // Mismo problema que el decimal de arriba pero para <input type="date">: siempre
+    // postea ISO 8601 sin importar la cultura del navegador (ver DateOnlyModelBinder).
+    options.ModelBinderProviders.Insert(0, new DateOnlyModelBinderProvider());
+});
 if (builder.Environment.IsDevelopment())
     mvcBuilder.AddRazorRuntimeCompilation();
 

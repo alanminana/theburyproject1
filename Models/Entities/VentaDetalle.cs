@@ -13,6 +13,17 @@ namespace TheBuryProject.Models.Entities
         [Required]
         public int ProductoId { get; set; }
 
+        // Snapshot histórico de la identidad del producto al momento de la operación (Micro-lote 5).
+        // Se capturan server-side desde el Producto de BD; nunca desde el payload del cliente.
+        // Nullable sólo por compatibilidad con filas anteriores a la migración (backfill/fallback).
+        // Renombrar o eliminar el producto no debe alterar la venta histórica: las pantallas leen
+        // estos campos (con fallback a la relación viva sólo para filas legacy) vía VentaDetalleProductoSnapshot.
+        [StringLength(200)]
+        public string? ProductoNombreAlMomento { get; set; }
+
+        [StringLength(50)]
+        public string? ProductoCodigoAlMomento { get; set; }
+
         [Required]
         public int Cantidad { get; set; }
 

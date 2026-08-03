@@ -1,0 +1,331 @@
+@model ConfiguracionCreditoVentaViewModel
+@using TheBuryProject.Models.Enums
+@{
+    // Fragmento embebido del configurador canónico de Crédito Personal, reutilizado
+    // dentro del paso "Crédito" del wizard de Venta (Crear/Editar). Comparte modelo,
+    // ids y JS (configurar-venta-credito.js) con la vista standalone ConfigurarVenta_tw:
+    // ver ese archivo para la versión de página completa. No incluye <form> propio
+    // (vive dentro de #venta-form) ni las acciones de navegación de página completa
+    // (volver/cancelar/editar cliente): esas quedan en el wizard.
+    var clienteConfig = Model.ClienteConfigPersonalizada;
+    var perfilesActivos = Model.PerfilesActivos;
+}
+
+<div data-credito-config-embedded data-credito-config>
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="CreditoId" />
+    <input type="hidden" asp-for="VentaId" id="hdn-venta-id" />
+    <input type="hidden" asp-for="ClienteId" />
+    <input type="hidden" asp-for="Monto" id="hdn-monto-venta" />
+    <input type="hidden" asp-for="MontoFinanciado" id="hdn-monto-financiado" />
+    <input type="hidden" asp-for="FuenteConfiguracion" id="hdn-fuente-configuracion" />
+    <input type="hidden" id="hdn-venta-row-version" value="@Model.VentaRowVersionBase64" />
+
+    @if (Model.CreditoEstaConfigurado)
+    {
+        <div class="alert alert-ok" style="margin-bottom:1rem" data-credito-embebido-ya-configurado>
+            <span class="material-symbols-outlined">check_circle</span>
+            <span>Crédito configurado. Podés revisar los valores abajo o continuar.</span>
+        </div>
+    }
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div class="lg:col-span-2 space-y-4">
+            <section class="card card-pad">
+                <div class="sec-head">
+                    <div class="sec-num">1</div>
+                    <div>
+                        <div class="sec-title">Metodo de calculo</div>
+                        <div class="sec-sub">Define de donde salen la tasa y los gastos.</div>
+                    </div>
+                </div>
+                <label asp-for="MetodoCalculo" class="label">Metodo de calculo</label>
+                <select asp-for="MetodoCalculo"
+                        asp-items="Html.GetEnumSelectList<MetodoCalculoCredito>()"
+                        class="field"
+                        id="select-metodo-calculo">
+                    <option value="">Seleccione metodo...</option>
+                </select>
+                <div class="alert alert-info hidden" id="metodo-info" style="margin-top:.85rem">
+                    <span class="material-symbols-outlined">info</span>
+                    <span id="metodo-info-texto"></span>
+                </div>
+            </section>
+
+            <section class="card card-pad" id="panel-perfil-credito">
+                <div class="sec-head">
+                    <div class="sec-num">2</div>
+                    <div>
+                        <div class="sec-title">Perfil de credito</div>
+                        <div class="sec-sub">Cada perfil define tasa, gastos y rango de cuotas.</div>
+                    </div>
+                </div>
+                <label asp-for="PerfilCreditoSeleccionadoId" class="label">Perfil de credito</label>
+                <select asp-for="PerfilCreditoSeleccionadoId" class="field" id="select-perfil-credito">
+                    <option value="">Seleccione perfil...</option>
+                    @foreach (var p in perfilesActivos)
+                    {
+                        <option value="@p.Id"
+                                data-tasa="@p.TasaMensual"
+                                data-gastos="@p.GastosAdministrativos"
+                                data-min-cuotas="@p.MinCuotas"
+                                data-max-cuotas="@p.MaxCuotas"
+                                selected="@(Model.PerfilCreditoSeleccionadoId == p.Id)">
+                            @p.Nombre @(p.Descripcion != null ? $"-- {p.Descripcion}" : "") - @p.TasaMensual.ToString("N2")% - gastos $@p.GastosAdministrativos.ToString("N2") - @p.MinCuotas a @p.MaxCuotas cuotas
+                        </option>
+                    }
+                </select>
+            </section>
+
+            <section class="card card-pad">
+                <div class="sec-head">
+                    <div class="sec-num">3</div>
+                    <div>
+                        <div class="sec-title">Cantidad de cuotas</div>
+                        <div class="sec-sub" id="cuotas-rango-info">
+                            @if (Model.SinPlanesCompatibles)
+                            {
+                                <text>Sin cuotas disponibles para esta combinacion de productos.</text>
+                            }
+                            else
+                            {
+                                <text>Rango permitido: @Model.CuotasMinPermitidas a @Model.CuotasMaxPermitidas cuotas.</text>
+                                @if (!string.IsNullOrWhiteSpace(Model.RestriccionCreditoProductoDescripcion))
+                                {
+                                    <span>@Model.RestriccionCreditoProductoDescripcion</span>
+                                }
+                            }
+                        </div>
+                    </div>
+                </div>
+                @if (Model.MaxCuotasBase > Model.CuotasMaxPermitidas && Model.MaxCuotasCreditoProducto.HasValue)
+                {
+                    <div class="alert alert-warn" style="margin-bottom:1rem" data-credito-restriccion-cuotas-producto>
+                        <span class="material-symbols-outlined">info</span>
+                        <span>
+                            Maximo de cuotas reducido por condiciones del producto. El rango base permitia hasta
+                            <strong>@Model.MaxCuotasBase cuotas</strong>, pero la configuracion de un producto limita el credito personal a
+                            <strong>@Model.MaxCuotasCreditoProducto!.Value cuotas</strong>.
+                        </span>
+                    </div>
+                }
+                @if (Model.SinPlanesCompatibles)
+                {
+                    <div class="alert alert-bad" style="margin-bottom:1rem" data-credito-sin-planes-compatibles>
+                        <span class="material-symbols-outlined">block</span>
+                        <span>@Model.ClienteConfigPersonalizada.MotivoSinPlanes</span>
+                    </div>
+                }
+                <label asp-for="CantidadCuotas" class="label">Cantidad de cuotas</label>
+                <input asp-for="CantidadCuotas"
+                       type="number"
+                       min="@Model.CuotasMinPermitidas"
+                       max="@Model.CuotasMaxPermitidas"
+                       class="field"
+                       list="cuotas-habilitadas-list"
+                       id="txt-cuotas"
+                       disabled="@Model.SinPlanesCompatibles" />
+                <datalist id="cuotas-habilitadas-list">
+                    @foreach (var plan in Model.ClienteConfigPersonalizada.CuotasHabilitadas)
+                    {
+                        <option value="@plan.CantidadCuotas">@plan.CantidadCuotas cuotas - @(plan.TasaMensual.HasValue ? $"{plan.TasaMensual.Value:N2}% recargo" : "tasa global")</option>
+                    }
+                </datalist>
+            </section>
+
+            <section class="card card-pad">
+                <div class="sec-head">
+                    <div class="sec-num">4</div>
+                    <div>
+                        <div class="sec-title">Valores del credito</div>
+                        <div class="sec-sub">El backend valida los importes finales; esta pantalla solo previsualiza.</div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="label">Precio final de venta</label>
+                        <div class="field-money">
+                            <span class="cur">$</span>
+                            <input class="field" readonly value="@Model.Monto.ToString("N2")" id="txt-monto-venta-display" />
+                        </div>
+                    </div>
+                    <div>
+                        <label asp-for="Anticipo" class="label">Anticipo</label>
+                        <div class="field-money">
+                            <span class="cur">$</span>
+                            <input asp-for="Anticipo" type="number" step="0.01" min="0" class="field" id="txt-anticipo" />
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex items-center justify-between">
+                            <label asp-for="TasaMensual" class="label">Porcentaje de recargo total del plan</label>
+                            <span id="badge-tasa-fuente" class="chip chip-info hidden"></span>
+                        </div>
+                        <input asp-for="TasaMensual" type="number" step="0.01" min="0" max="100" class="field" id="txt-tasa" />
+                        <p class="hint" style="margin-top:.35rem">El porcentaje se agrega una sola vez sobre el saldo restante después del anticipo. No es una tasa mensual ni interés compuesto.</p>
+                    </div>
+                    <div>
+                        <label asp-for="GastosAdministrativos" class="label">Gastos administrativos</label>
+                        <div class="field-money">
+                            <span class="cur">$</span>
+                            <input asp-for="GastosAdministrativos" type="number" step="0.01" min="0" class="field" id="txt-gastos" />
+                        </div>
+                        <p class="hint" style="margin-top:.35rem">Concepto informativo aparte: no se distribuye en las cuotas ni forma parte del saldo a financiar.</p>
+                    </div>
+                    <div>
+                        <label asp-for="FechaPrimeraCuota" class="label">Primera fecha de vencimiento</label>
+                        <input asp-for="FechaPrimeraCuota" type="date" class="field" id="txt-fecha-primera-cuota" />
+                    </div>
+                    <div>
+                        <label class="label">Saldo a financiar</label>
+                        <div class="result-card is-ok" style="padding:.85rem 1rem">
+                            <div class="result-value" id="txt-monto-financiado" style="font-size:1.35rem">$ @Model.MontoFinanciado.ToString("N2")</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="plan-simulando" class="hint hidden" style="margin-top:.75rem" aria-live="polite" data-plan-simulando>
+                    <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">progress_activity</span>
+                    Calculando el plan con los valores actuales…
+                </div>
+                <div id="plan-error" class="alert alert-bad hidden" style="margin-top:.75rem" role="alert" aria-live="assertive" tabindex="-1" data-plan-error></div>
+
+                <div class="mt-4 rounded-xl border border-slate-700 bg-slate-900/40 p-4"
+                     id="primera-cuota-panel" data-primera-cuota-panel>
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="material-symbols-outlined" style="color:#f5c518;font-size:20px">payments</span>
+                        <h3 class="font-semibold text-white">Primera cuota</h3>
+                    </div>
+
+                    <p class="muted text-sm mb-3" id="primera-cuota-no-aplica" data-primera-cuota-no-aplica>
+                        El cobro inmediato solo está disponible cuando la primera cuota vence hoy.
+                    </p>
+
+                    <div id="primera-cuota-aplica" data-primera-cuota-aplica class="hidden space-y-3">
+                        <label class="flex cursor-pointer items-center gap-2 font-semibold text-slate-100">
+                            <input asp-for="CobrarPrimeraCuota" type="checkbox" value="true"
+                                   class="h-4 w-4 accent-sky-500"
+                                   id="chk-cobrar-primera-cuota" data-primera-cuota-cobrar />
+                            <span>Cobrar la primera cuota al confirmar la venta</span>
+                        </label>
+
+                        <div id="primera-cuota-medio-container" data-primera-cuota-medio-container class="hidden">
+                            <label asp-for="MedioPagoPrimeraCuota" class="label">Medio de pago</label>
+                            <select asp-for="MedioPagoPrimeraCuota" class="field"
+                                    id="select-medio-primera-cuota" data-primera-cuota-medio>
+                                <option value="Efectivo">Efectivo</option>
+                                <option value="Transferencia">Transferencia</option>
+                                <option value="Tarjeta Débito">Tarjeta Débito</option>
+                                <option value="Tarjeta Crédito">Tarjeta Crédito</option>
+                                <option value="Cheque">Cheque</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <aside>
+            <div class="card card-pad">
+                <h3 class="font-semibold text-white mb-3 flex items-center gap-2">
+                    <span class="material-symbols-outlined" style="color:#f5c518;font-size:20px">summarize</span>
+                    Resumen del plan
+                </h3>
+
+                <div id="plan-resumen" class="space-y-3">
+                    <div id="plan-resumen-contenido">
+                        <div class="result-card is-ok">
+                            <div class="result-label" id="plan-cuota-detalle">Cuota</div>
+                            <div class="result-value" id="plan-cuota-estimada">$ 0,00</div>
+                        </div>
+                        <dl class="kv mt-3">
+                            <div class="kv-row"><dt>Precio final de venta</dt><dd class="num" id="plan-precio-final">$ @Model.Monto.ToString("N2")</dd></div>
+                            <div class="kv-row"><dt>Anticipo</dt><dd class="num" id="plan-anticipo">$ 0,00</dd></div>
+                            <div class="kv-row"><dt>Saldo a financiar</dt><dd class="num" id="plan-capital">$ @Model.MontoFinanciado.ToString("N2")</dd></div>
+                            <div class="kv-row"><dt>% de recargo total</dt><dd id="plan-tasa">0%</dd></div>
+                            <div class="kv-row"><dt>Importe del recargo</dt><dd class="num" id="plan-interes">$ 0,00</dd></div>
+                            <div class="kv-row"><dt>Total financiado</dt><dd class="num" id="plan-total" style="color:#34d399;font-weight:600">$ 0,00</dd></div>
+                            <div class="kv-row"><dt>Gastos administrativos</dt><dd class="num" id="plan-gastos">$ 0,00</dd></div>
+                            <div class="kv-row"><dt>Cantidad de cuotas</dt><dd id="plan-cuotas-label">@Model.CantidadCuotas</dd></div>
+                        </dl>
+                        <div id="plan-fecha-container" class="alert alert-info hidden" style="margin-top:.8rem">
+                            <span class="material-symbols-outlined">event_upcoming</span>
+                            <span>Primer vencimiento: <strong id="plan-fecha-pago">-</strong></span>
+                        </div>
+                    </div>
+                </div>
+
+                <section class="card-2" style="margin-top:1rem;padding:1rem" aria-labelledby="semaforo-title">
+                    <div class="sec-title" id="semaforo-title">Evaluacion preliminar</div>
+                    <div id="semaforo-panel" class="hidden" style="margin-top:.8rem">
+                        <div id="semaforo-badge" class="flex items-center justify-between p-3 rounded-lg">
+                            <div class="flex items-center gap-3">
+                                <div id="semaforo-dot" class="size-4 rounded-full animate-pulse"></div>
+                                <span id="semaforo-label" class="font-bold"></span>
+                            </div>
+                            <span id="semaforo-tag" class="text-[10px] uppercase font-black"></span>
+                        </div>
+                        <p id="semaforo-mensaje" class="muted text-sm italic mt-3"></p>
+                        <div id="semaforo-alertas" class="space-y-3 mt-3"></div>
+                    </div>
+                    <div id="semaforo-vacio" class="ph" style="margin-top:.8rem;padding:1.25rem">
+                        <span class="material-symbols-outlined">query_stats</span>
+                        <div class="ph-label">completa condiciones para evaluar</div>
+                    </div>
+                </section>
+
+                <div class="flex flex-col gap-2" style="margin-top:1.1rem">
+                    <button type="button"
+                            class="btn btn-success btn-block"
+                            id="btn-confirmar-credito"
+                            data-credito-embebido-confirmar
+                            disabled="@Model.SinPlanesCompatibles">
+                        <span class="material-symbols-outlined">check_circle</span>
+                        Confirmar crédito
+                    </button>
+                    <p id="credito-embebido-confirmar-feedback" class="hint hidden" role="status"></p>
+                </div>
+
+                <section class="card-2" style="margin-top:1rem;padding:1rem" data-credito-embebido-contrato-seccion>
+                    <div class="sec-title">Documentacion contractual</div>
+                    @if (Model.ContratoGenerado)
+                    {
+                        <p class="hint" data-credito-embebido-contrato-estado>Contrato generado.</p>
+                        <a asp-controller="ContratoVentaCredito" asp-action="Ver" asp-route-ventaId="@Model.VentaId"
+                           target="_blank" rel="noopener" class="btn btn-success btn-block btn-sm" style="margin-top:.75rem">
+                            <span class="material-symbols-outlined">print</span>
+                            Ver / imprimir contrato
+                        </a>
+                    }
+                    else if (!Model.PlantillaActivaDisponible)
+                    {
+                        <div class="alert alert-bad" style="margin-top:.75rem" data-credito-embebido-contrato-estado>
+                            <span class="material-symbols-outlined">error</span>
+                            <span>No hay ninguna plantilla de contrato activa y vigente.</span>
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="hint" data-credito-embebido-contrato-estado>
+                            @(Model.CreditoEstaConfigurado ? "Generá el contrato para poder confirmar la venta." : "Confirmá el crédito para habilitar el contrato.")
+                        </p>
+                        <button type="button"
+                                id="btn-generar-contrato"
+                                data-credito-embebido-generar-contrato
+                                class="btn btn-amber btn-block btn-sm"
+                                style="margin-top:.75rem"
+                                disabled="@(!Model.CreditoEstaConfigurado)">
+                            <span class="material-symbols-outlined">picture_as_pdf</span>
+                            Generar contrato de venta
+                        </button>
+                    }
+                </section>
+            </div>
+        </aside>
+    </div>
+</div>
+
+<script id="cliente-config-data" data-credito-json="cliente-config" type="application/json">
+    @Html.Raw(System.Text.Json.JsonSerializer.Serialize(clienteConfig, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase }))
+</script>

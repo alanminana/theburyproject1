@@ -55,15 +55,22 @@ public sealed class CotizacionControllerUiTests
     [Fact]
     public void View_ConsumeApiCotizacionYScriptPropio()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Cotizacion", "Index_tw.cshtml"));
+        // El markup del cotizador vive en el parcial reutilizable (lo comparten la
+        // vista de pantalla completa y la pestaña Cotizar de Venta/Create); la vista
+        // sólo aporta layout, antiforgery y assets.
+        var root = FindRepoRoot();
+        var partial = File.ReadAllText(Path.Combine(root, "Views", "Cotizacion", "_CotizadorForm.cshtml"));
+        var view = File.ReadAllText(Path.Combine(root, "Views", "Cotizacion", "Index_tw.cshtml"));
 
-        Assert.Contains("data-simular-url=\"@Url.Content(\"~/api/cotizacion/simular\")\"", view);
-        Assert.Contains("data-guardar-url=\"@Url.Content(\"~/api/cotizacion/guardar\")\"", view);
+        Assert.Contains("data-simular-url=\"@Url.Content(\"~/api/cotizacion/simular\")\"", partial);
+        Assert.Contains("data-guardar-url=\"@Url.Content(\"~/api/cotizacion/guardar\")\"", partial);
+        Assert.Contains("data-productos-url=\"@Url.Action(\"BuscarProductos\", \"Cotizacion\")\"", partial);
+        Assert.Contains("data-clientes-url=\"@Url.Action(\"BuscarClientes\", \"Cotizacion\")\"", partial);
         Assert.Contains("~/js/cotizacion-simulador.js", view);
-        Assert.Contains("data-productos-url=\"@Url.Action(\"BuscarProductos\", \"Cotizacion\")\"", view);
-        Assert.Contains("data-clientes-url=\"@Url.Action(\"BuscarClientes\", \"Cotizacion\")\"", view);
-        Assert.DoesNotContain("venta-create.js", view);
-        Assert.DoesNotContain("asp-controller=\"Venta\"", view);
+
+        var compuesta = view + "\n" + partial;
+        Assert.DoesNotContain("venta-create.js", compuesta);
+        Assert.DoesNotContain("asp-controller=\"Venta\"", compuesta);
     }
 
     [Fact]
@@ -80,6 +87,24 @@ public sealed class CotizacionControllerUiTests
         Assert.DoesNotContain("venta-create", script, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("/api/ventas/BuscarProductos", script);
         Assert.DoesNotContain("/api/ventas/BuscarClientes", script);
+    }
+
+    [Fact]
+    public void Script_EnviaAnticipoYNoMezclaImportePesosConPorcentajeDeRecargo()
+    {
+        // ML8: costoFinancieroTotal es un importe en pesos (informativo, usado aparte en el
+        // desglose de Credito personal); mezclarlo en el Math.max de recargoValor infla el %
+        // mostrado en la comparativa a miles de "%" para cualquier plan de Credito personal.
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "cotizacion-simulador.js"));
+
+        Assert.Contains("anticipo:", script);
+        Assert.Contains("els.anticipo", script);
+        Assert.Contains("function recargoValor(plan)", script);
+        Assert.DoesNotContain("plan.costoFinancieroTotal || 0));", script);
+        Assert.Contains("formatearVectorCuotas", script);
+        Assert.Contains("plan.saldoAFinanciar", script);
+        Assert.Contains("plan.totalFinanciado", script);
+        Assert.Contains("plan.fuentePorcentaje", script);
     }
 
     [Fact]

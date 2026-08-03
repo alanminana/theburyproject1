@@ -36,6 +36,14 @@ namespace TheBuryProject.ViewModels
         public List<RazonAutorizacion> RazonesAutorizacion { get; set; } = new();
 
         /// <summary>
+        /// La excepción documental fue autorizada al registrarse. Evita crear una
+        /// segunda autorización pendiente para la misma venta.
+        /// </summary>
+        public bool ExcepcionDocumentalAutorizada { get; set; }
+
+        public string? MotivoExcepcionDocumentalAutorizada { get; set; }
+
+        /// <summary>
         /// Lista de requisitos pendientes que bloquean la venta
         /// </summary>
         public List<RequisitoPendiente> RequisitosPendientes { get; set; } = new();

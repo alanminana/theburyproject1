@@ -1,0 +1,440 @@
+@*
+    Cuerpo reutilizable del simulador de cotización.
+
+    Hosts:
+      · Views/Venta/Create_tw.cshtml → dentro de #step-panel-cotizar (pestaña Cotizar).
+      · Views/Cotizacion/Index_tw.cshtml → pantalla completa.
+
+    Contratos que el host debe cumplir:
+      · CSS  ~/css/cotizacion-simulador.css (sección Styles).
+      · JS   ~/js/cotizacion-simulador-ui.js + ~/js/cotizacion-simulador.js (sección Scripts).
+      · Un input __RequestVerificationToken en la página (el parcial NO lo emite para
+        no duplicarlo dentro de #venta-form, que ya lo tiene; cotizacion-simulador.js
+        lo resuelve con document.querySelector).
+
+    El parcial no abre un elemento de formulario propio: el simulador postea por fetch
+    a /api/cotizacion/*. Ningún input lleva `name`, así que embeberlo dentro de
+    #venta-form no altera el POST de la venta.
+*@
+<div class="cotz-app"
+     data-cotizacion-simulador
+     data-simular-url="@Url.Content("~/api/cotizacion/simular")"
+     data-guardar-url="@Url.Content("~/api/cotizacion/guardar")"
+     data-productos-url="@Url.Action("BuscarProductos", "Cotizacion")"
+     data-producto-resumen-url="@Url.Action("ProductoResumen", "Cotizacion")"
+     data-clientes-url="@Url.Action("BuscarClientes", "Cotizacion")"
+     data-convertir-base-url="@Url.Content("~/api/cotizacion")"
+     data-venta-edit-url="@Url.Content("~/Venta/Edit/")">
+
+    <!-- Feedback toast -->
+    <div id="cotizacion-feedback" class="hidden fixed top-3 right-3 z-[60] max-w-sm" aria-live="polite"></div>
+
+    <!-- ============================ TOP BAR ============================ -->
+    <header class="cotz-topbar">
+        <div class="flex items-center gap-2.5 min-w-0">
+            <div class="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/30 flex items-center justify-center shrink-0">
+                <span class="material-symbols-outlined text-blue-400" style="font-size:20px">calculate</span>
+            </div>
+            <div class="min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                    @* h2: el parcial se embebe bajo el h1 de Venta/Create ("Nueva Venta"). *@
+                    <h2 class="text-base font-semibold text-white tracking-tight leading-none">Cotización</h2>
+                    <span id="estado-banner" class="pill pill-slate"><span class="material-symbols-outlined" style="font-size:13px">info</span> Sin simular</span>
+                </div>
+                <div class="text-[11px] text-slate-500 leading-none mt-1 flex items-center gap-1 min-w-0">
+                    <a href="@Url.Action("Index", "Venta")" class="hover:text-slate-300 shrink-0">Ventas</a>
+                    <span class="material-symbols-outlined shrink-0" style="font-size:12px">chevron_right</span>
+                    <span class="text-slate-400 truncate-1">Simula medios de pago — no crea venta, no toca stock, no registra caja.</span>
+                </div>
+            </div>
+        </div>
+        <div class="ml-auto flex items-center gap-1.5 shrink-0">
+            <span class="pill pill-slate topbar-flag"><span class="material-symbols-outlined" style="font-size:13px">block</span> No crea venta</span>
+            <span class="pill pill-slate topbar-flag"><span class="material-symbols-outlined" style="font-size:13px">inventory</span> No toca stock</span>
+            <span class="pill pill-slate topbar-flag"><span class="material-symbols-outlined" style="font-size:13px">point_of_sale</span> No registra caja</span>
+            <a href="@Url.Action("Listado", "Cotizacion")" class="btn btn-ghost btn-xs ml-1"><span class="material-symbols-outlined" style="font-size:16px">folder_open</span> Ver guardadas</a>
+        </div>
+    </header>
+
+    <!-- ============================ WORKSPACE ============================ -->
+    <div class="workspace">
+
+        <!-- =================== COL A · PRODUCTOS =================== -->
+        <div class="col">
+            <section class="panel flex-1">
+                <div class="panel-head">
+                    <span class="num">1</span>
+                    <h2 class="text-sm font-semibold text-white">Productos</h2>
+                    <span class="pill pill-slate ml-auto"><span id="header-prod-count">0</span> ítem · <span id="header-unit-count">0</span> u.</span>
+                </div>
+
+                <!-- Buscador (fijo) -->
+                <div class="px-3.5 pt-3 pb-2.5 border-b border-slate-800/70">
+                    <div class="relative">
+                        <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" style="font-size:17px">search</span>
+                        <input id="cotizacion-producto-buscar" type="text" class="field pl-8" placeholder="Buscar nombre, código o ID…" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="cotizacion-productos-dropdown">
+                        <div id="cotizacion-productos-dropdown" class="dropdown-list hidden absolute z-30 top-full left-0 right-0 mt-1" role="listbox"></div>
+                    </div>
+                    <div class="mt-2 flex items-center gap-2">
+                        <div class="qty-step">
+                            <button type="button" aria-label="Restar" onclick="stepQty('cotizacion-cantidad',-1)">−</button>
+                            <input id="cotizacion-cantidad" type="number" min="1" value="1" aria-label="Cantidad">
+                            <button type="button" aria-label="Sumar" onclick="stepQty('cotizacion-cantidad',1)">+</button>
+                        </div>
+                        <button id="cotizacion-agregar-producto" type="button" class="btn btn-primary flex-1">
+                            <span class="material-symbols-outlined" style="font-size:18px">add</span> Agregar
+                        </button>
+                    </div>
+                    <div id="cotizacion-producto-seleccionado" class="mt-2 text-[11px] text-slate-500 italic flex items-center gap-1.5">
+                        <span class="material-symbols-outlined text-slate-600" style="font-size:14px">inventory_2</span> Sin producto seleccionado.
+                    </div>
+                    <details class="mt-1.5">
+                        <summary class="text-[11px] text-slate-400 hover:text-slate-200 flex items-center gap-1">
+                            <span class="material-symbols-outlined chev" style="font-size:14px">expand_more</span> Agregar por ID (avanzado)
+                        </summary>
+                        <div class="mt-2 grid grid-cols-12 gap-1.5">
+                            <input id="cotizacion-producto-id-manual" type="text" class="field col-span-6" placeholder="ID">
+                            <input id="cotizacion-cantidad-manual" type="number" min="1" value="1" class="field col-span-3" aria-label="Cantidad manual">
+                            <button id="cotizacion-agregar-manual" type="button" class="btn btn-soft col-span-3 px-0">Usar</button>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- Carrito (scroll interno) -->
+                <div class="panel-body tight">
+                    <!-- vacío -->
+                    <div id="cotizacion-productos-vacio" class="h-full flex flex-col items-center justify-center text-center py-8">
+                        <div class="w-11 h-11 rounded-full bg-slate-800 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-slate-400">remove_shopping_cart</span>
+                        </div>
+                        <p class="mt-2.5 text-sm text-white font-medium">Sin productos aún</p>
+                        <p class="text-xs text-slate-500">Buscá un producto para empezar.</p>
+                    </div>
+
+                    <!-- filas reales (render backend) -->
+                    <div id="cotizacion-productos-tbody" class="space-y-2"></div>
+                </div>
+            </section>
+        </div>
+
+        <!-- =================== COL B · RESULTADOS =================== -->
+        <div class="col">
+            <section class="panel flex-1">
+                <div class="panel-head">
+                    <span class="num">2</span>
+                    <h2 class="text-sm font-semibold text-white">Resultados</h2>
+                    <span class="text-xs text-slate-500 hidden sm:inline">Comparativa de medios, planes y cuotas</span>
+                    <span class="pill pill-slate ml-auto" id="resultados-status-pill"><span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span> Sin simular</span>
+                </div>
+
+                <!-- Totales (fijo) -->
+                <div class="px-3.5 py-2.5 border-b border-slate-800/70 grid grid-cols-3 gap-2">
+                    <div class="seg px-3 py-2">
+                        <div class="text-[10px] uppercase tracking-wide text-slate-500">Subtotal</div>
+                        <div id="cotizacion-subtotal" class="text-base font-semibold text-white total-display">$0,00</div>
+                    </div>
+                    <div class="seg px-3 py-2">
+                        <div class="text-[10px] uppercase tracking-wide text-slate-500">Descuento</div>
+                        <div id="cotizacion-descuento" class="text-base font-semibold text-emerald-400 total-display">$0,00</div>
+                    </div>
+                    <div class="seg px-3 py-2" style="border-color:rgba(59,130,246,.4)">
+                        <div class="text-[10px] uppercase tracking-wide text-blue-300/80">Total base</div>
+                        <div id="cotizacion-total-base" class="text-base font-semibold text-white total-display">$0,00</div>
+                    </div>
+                </div>
+
+                <!-- Filtros de medios (fijo) -->
+                <div class="px-3.5 py-2.5 border-b border-slate-800/70 flex flex-wrap items-center gap-1.5">
+                    <span class="text-[10px] uppercase tracking-wide text-slate-500 mr-1">Incluir</span>
+                    <label class="medio-chip"><input type="checkbox" data-cotizacion-medio="incluirEfectivo" checked><span class="dot"></span>Efectivo</label>
+                    <label class="medio-chip"><input type="checkbox" data-cotizacion-medio="incluirTransferencia" checked><span class="dot"></span>Transferencia</label>
+                    <label class="medio-chip"><input type="checkbox" data-cotizacion-medio="incluirTarjetaCredito" checked><span class="dot"></span>T. crédito</label>
+                    <label class="medio-chip"><input type="checkbox" data-cotizacion-medio="incluirTarjetaDebito" checked><span class="dot"></span>T. débito</label>
+                    <label class="medio-chip"><input type="checkbox" data-cotizacion-medio="incluirMercadoPago" checked><span class="dot"></span>MercadoPago</label>
+                    <label class="medio-chip"><input type="checkbox" data-cotizacion-medio="incluirCreditoPersonal" checked><span class="dot"></span>Crédito personal</label>
+                </div>
+
+                <!-- Resultados (scroll interno) -->
+                <div class="panel-body" style="padding:0">
+                    <!-- vacío -->
+                    <div id="cotizacion-resultados-vacio" class="h-full flex flex-col items-center justify-center text-center py-10">
+                        <div class="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-slate-400">payments</span>
+                        </div>
+                        <p class="mt-3 text-sm text-white font-medium">Sin simulación todavía</p>
+                        <p class="text-xs text-slate-500">Agregá productos y simulá para ver las opciones.</p>
+                    </div>
+
+                    <!-- resultados -->
+                    <div id="cotizacion-resultados" class="hidden">
+                        <table class="rtable">
+                            <thead>
+                                <tr>
+                                    <th>Medio</th>
+                                    <th class="r">Total final</th>
+                                    <th>Plan</th>
+                                    <th class="r">Cuota</th>
+                                    <th class="r">Recargo</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="cotizacion-resultados-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- =================== COL C · CONFIG + ACCIONES =================== -->
+        <div class="col">
+            <section class="panel flex-1">
+                <div class="panel-body tight space-y-3.5">
+
+                    <!-- Cliente -->
+                    <div>
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="num">3</span>
+                            <h3 class="text-sm font-semibold text-white">Cliente</h3>
+                            <span class="pill pill-slate ml-auto">Opcional</span>
+                        </div>
+                        <div class="relative">
+                            <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" style="font-size:17px">search</span>
+                            <input id="cotizacion-cliente-buscar" type="text" class="field pl-8" placeholder="Nombre, DNI o CUIT…" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="cotizacion-clientes-dropdown">
+                            <div id="cotizacion-clientes-dropdown" class="dropdown-list hidden absolute z-30 top-full left-0 right-0 mt-1" role="listbox"></div>
+                        </div>
+                        <input id="cotizacion-cliente-id" type="hidden" value="">
+                        <div class="mt-1.5 text-[11px] text-slate-500 italic" data-cliente-vacio>El crédito personal puede requerir cliente.</div>
+                        <div id="cotizacion-cliente-seleccionado" class="hidden mt-2 card-sub p-2.5 flex items-start justify-between gap-2">
+                            <div class="min-w-0">
+                                <div class="text-[10px] uppercase tracking-wide text-emerald-400 font-semibold">Cliente</div>
+                                <div id="cotizacion-cliente-nombre" class="text-sm font-medium text-white truncate-1">—</div>
+                                <div id="cotizacion-cliente-doc" class="text-[11px] text-slate-400 font-mono">—</div>
+                            </div>
+                            <button id="cotizacion-limpiar-cliente" type="button" class="icon-btn btn btn-ghost text-slate-400" aria-label="Quitar cliente">
+                                <span class="material-symbols-outlined" style="font-size:16px">close</span>
+                            </button>
+                        </div>
+                        <details class="mt-2">
+                            <summary class="text-[11px] text-slate-400 hover:text-slate-200 flex items-center gap-1">
+                                <span class="material-symbols-outlined chev" style="font-size:14px">expand_more</span> Datos de contacto libres
+                            </summary>
+                            <div class="mt-2 space-y-1.5">
+                                <input id="cotizacion-nombre-libre" type="text" class="field" placeholder="Nombre del cliente o empresa…" aria-label="Nombre libre" maxlength="200">
+                                <input id="cotizacion-telefono-libre" type="tel" class="field" placeholder="Teléfono / WhatsApp" aria-label="Teléfono libre" maxlength="30">
+                                <p class="text-[10px] text-slate-500">Se guarda si no hay cliente de sistema seleccionado.</p>
+                            </div>
+                        </details>
+                    </div>
+
+                    <hr class="hr">
+
+                    <!-- Anticipo (Credito personal) -->
+                    <div>
+                        <h3 class="text-sm font-semibold text-white flex items-center gap-1.5">
+                            <span class="material-symbols-outlined text-slate-400" style="font-size:17px">handshake</span> Anticipo (Crédito personal)
+                        </h3>
+                        <p class="text-[10px] text-slate-500 mt-0.5">
+                            Se resta del total antes del recargo. El porcentaje se agrega una sola vez sobre el saldo restante después del anticipo.
+                        </p>
+                        <div class="mt-2 relative">
+                            <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-sm">$</span>
+                            <input id="cotizacion-anticipo" type="number" min="0" step="0.01" value="0" class="field pl-6" aria-label="Anticipo para credito personal">
+                        </div>
+                    </div>
+
+                    <hr class="hr">
+
+                    <!-- Descuentos generales -->
+                    <div>
+                        <h3 class="text-sm font-semibold text-white flex items-center gap-1.5">
+                            <span class="material-symbols-outlined text-slate-400" style="font-size:17px">sell</span> Descuentos generales
+                        </h3>
+                        <p class="text-[10px] text-slate-500 mt-0.5">Se aplican al total antes de calcular medios.</p>
+                        <div class="mt-2 grid grid-cols-2 gap-2">
+                            <div>
+                                <label for="cotizacion-descuento-gral-pct" class="label">% Porcentaje</label>
+                                <div class="relative">
+                                    <input id="cotizacion-descuento-gral-pct" type="number" min="0" max="100" step="0.01" value="0" class="field pr-6">
+                                    <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-sm">%</span>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="cotizacion-descuento-gral-importe" class="label">$ Importe</label>
+                                <div class="relative">
+                                    <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-sm">$</span>
+                                    <input id="cotizacion-descuento-gral-importe" type="number" min="0" step="0.01" value="0" class="field pl-6">
+                                </div>
+                            </div>
+                        </div>
+                        <div data-descuentos-ambos class="hidden mt-2 rounded-lg border border-amber-500/40 bg-amber-500/5 p-2 text-[11px] text-amber-100/90 flex gap-1.5">
+                            <span class="material-symbols-outlined text-amber-300 shrink-0" style="font-size:14px">warning</span>
+                            Se sumarán ambos descuentos.
+                        </div>
+                    </div>
+
+                    <hr class="hr">
+
+                    <!-- Vencimiento + observaciones -->
+                    <div>
+                        <h3 class="text-sm font-semibold text-white flex items-center gap-1.5">
+                            <span class="material-symbols-outlined text-slate-400" style="font-size:17px">event</span> Vencimiento y notas
+                        </h3>
+                        <div class="mt-2 space-y-2">
+                            <div>
+                                <label for="cotizacion-fecha-vencimiento" class="label">Válida hasta</label>
+                                <input id="cotizacion-fecha-vencimiento" type="date" class="field">
+                            </div>
+                            <div>
+                                <label for="cotizacion-observaciones" class="label">Observaciones</label>
+                                <textarea id="cotizacion-observaciones" rows="2" class="field" maxlength="1000" placeholder="Notas internas opcionales…"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Acciones (fijas) -->
+                <div class="panel-foot">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-[11px] text-slate-500">Total base</span>
+                        <span class="text-lg font-semibold text-white total-display" data-side-total>$0,00</span>
+                    </div>
+                    <div id="cotizacion-acciones-pre" class="grid grid-cols-2 gap-2">
+                        <button id="cotizacion-simular" type="button" class="btn btn-primary">
+                            <span class="material-symbols-outlined" style="font-size:18px">calculate</span> Simular
+                        </button>
+                        <button id="cotizacion-guardar" type="button" class="btn btn-success" disabled onclick="openModal('modal-guardar')">
+                            <span class="material-symbols-outlined" style="font-size:18px">save</span> Guardar
+                        </button>
+                    </div>
+                    <div id="cotizacion-acciones-post" class="hidden space-y-2">
+                        <button id="cotizacion-pasar-venta" type="button" class="btn btn-primary w-full">
+                            <span class="material-symbols-outlined" style="font-size:18px">point_of_sale</span> Pasar a venta
+                        </button>
+                        <div class="flex items-center justify-center gap-3 text-[11px]">
+                            <a id="cotizacion-ver-guardada" href="#" class="text-slate-400 hover:text-slate-200 inline-flex items-center gap-1 no-underline">
+                                <span class="material-symbols-outlined" style="font-size:13px">visibility</span> Ver cotización
+                            </a>
+                            <span class="text-slate-700">·</span>
+                            <button id="cotizacion-nueva" type="button" class="text-slate-400 hover:text-slate-200 inline-flex items-center gap-1">
+                                <span class="material-symbols-outlined" style="font-size:13px">add</span> Nueva
+                            </button>
+                        </div>
+                    </div>
+                    <p id="cotizacion-simular-estado" class="mt-1.5 text-[11px] text-slate-400 text-center flex items-center justify-center gap-1" aria-live="polite">
+                        <span class="material-symbols-outlined" style="font-size:13px">info</span> Listo para simular.
+                    </p>
+                </div>
+            </section>
+        </div>
+
+    </div>
+
+    <!-- ============================ MODAL: GUARDAR ============================ -->
+    <div id="modal-guardar" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm overflow-y-auto" onclick="if(event.target===this)closeModal('modal-guardar')" role="dialog" aria-modal="true" aria-labelledby="guardar-title">
+        <div class="min-h-full flex items-center justify-center p-4">
+            <div class="cotz-modal panel w-full max-w-lg">
+                <div class="panel-head">
+                    <h3 id="guardar-title" class="text-sm font-semibold text-white">Guardar cotización</h3>
+                    <button type="button" onclick="closeModal('modal-guardar')" aria-label="Cerrar" class="icon-btn btn btn-ghost ml-auto"><span class="material-symbols-outlined text-slate-400" style="font-size:18px">close</span></button>
+                </div>
+                <div class="p-4">
+                    <dl class="card-sub p-3 space-y-2 text-sm">
+                        <div class="flex justify-between"><dt class="text-slate-400">Cliente</dt><dd id="modal-guardar-cliente" class="text-white">—</dd></div>
+                        <div class="flex justify-between"><dt class="text-slate-400">Productos</dt><dd id="modal-guardar-productos" class="text-white">—</dd></div>
+                        <div class="flex justify-between"><dt class="text-slate-400">Total base</dt><dd id="modal-guardar-total" class="text-white font-semibold font-mono">$0,00</dd></div>
+                        <div class="flex justify-between"><dt class="text-slate-400">Mejor opción</dt><dd id="modal-guardar-mejor" class="text-emerald-400">—</dd></div>
+                    </dl>
+                    <div class="mt-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-2.5 text-xs text-amber-100/90 flex gap-2">
+                        <span class="material-symbols-outlined text-amber-300 shrink-0" style="font-size:16px">warning</span>
+                        Guardar no crea venta, no registra caja y no modifica stock.
+                    </div>
+                    <div class="mt-4 flex justify-end gap-2">
+                        <button type="button" class="btn btn-ghost" onclick="closeModal('modal-guardar')">Cancelar</button>
+                        <button type="button" id="cotizacion-guardar-confirm" class="btn btn-success">
+                            <span class="material-symbols-outlined" style="font-size:18px">save</span> Guardar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================ MODAL: PLAN DETAIL (drawer) ============================ -->
+    <div id="modal-plan" class="hidden fixed inset-0 z-50" role="dialog" aria-modal="true" aria-labelledby="plan-title">
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeModal('modal-plan')"></div>
+        <aside class="absolute right-0 top-0 h-full w-full sm:w-[420px] bg-slate-950 border-l border-slate-800 shadow-2xl flex flex-col">
+            <header class="px-4 py-3.5 border-b border-slate-800 flex items-start justify-between gap-3">
+                <div>
+                    <div class="text-[11px] text-slate-500 uppercase tracking-wide">Detalle del plan</div>
+                    <h3 id="plan-title" class="text-base font-semibold text-white"><span id="plan-medio">—</span> · <span id="plan-cuotas">—</span></h3>
+                </div>
+                <button type="button" onclick="closeModal('modal-plan')" aria-label="Cerrar" class="icon-btn btn btn-ghost"><span class="material-symbols-outlined text-slate-400" style="font-size:18px">close</span></button>
+            </header>
+            <div class="flex-1 overflow-y-auto p-4 space-y-3">
+                <div class="card-sub p-3.5">
+                    <div class="text-xs text-slate-500">Total final</div>
+                    <div id="plan-total" class="mt-1 text-3xl font-semibold text-white total-display">$0,00</div>
+                </div>
+                <dl class="space-y-2 text-sm">
+                    <div class="flex justify-between"><dt class="text-slate-400">Cantidad de cuotas</dt><dd id="plan-detalle-cuotas" class="text-white">—</dd></div>
+                    <div class="flex justify-between"><dt class="text-slate-400">Valor de cuota</dt><dd id="plan-valor-cuota" class="text-white font-mono">—</dd></div>
+                    <div class="flex justify-between"><dt class="text-slate-400">Recargo total</dt><dd id="plan-recargo" class="text-emerald-400 font-mono">0%</dd></div>
+                </dl>
+                <!-- Desglose exclusivo de Credito personal (ML8): oculto salvo que el plan traiga
+                     saldoAFinanciar/totalFinanciado/vector de cuotas (server-authoritative). -->
+                <div id="plan-credito-desglose" class="hidden card-sub p-3.5">
+                    <h4 class="text-sm font-medium text-white flex items-center gap-2">
+                        <span class="material-symbols-outlined text-slate-400" style="font-size:17px">calculate</span> Desglose del recargo total
+                        <span id="plan-credito-fuente" class="ml-auto text-[10px] uppercase tracking-wide text-slate-500">—</span>
+                    </h4>
+                    <p class="mt-1 text-[10px] text-slate-500">El porcentaje se agrega una sola vez sobre el saldo restante después del anticipo.</p>
+                    <dl class="mt-2 space-y-1.5 text-sm">
+                        <div class="flex justify-between"><dt class="text-slate-400">Precio final cotizado</dt><dd id="plan-credito-precio" class="text-white font-mono">—</dd></div>
+                        <div class="flex justify-between"><dt class="text-slate-400">Anticipo</dt><dd id="plan-credito-anticipo" class="text-white font-mono">—</dd></div>
+                        <div class="flex justify-between"><dt class="text-slate-400">Saldo a financiar</dt><dd id="plan-credito-saldo" class="text-white font-mono">—</dd></div>
+                        <div class="flex justify-between"><dt class="text-slate-400">Importe del recargo</dt><dd id="plan-credito-importe-recargo" class="text-amber-300 font-mono">—</dd></div>
+                        <div class="flex justify-between border-t border-slate-800 pt-1.5"><dt class="text-slate-300 font-medium">Total financiado</dt><dd id="plan-credito-total-financiado" class="text-white font-mono font-semibold">—</dd></div>
+                    </dl>
+                    <p id="plan-credito-vector" class="mt-2 text-xs text-slate-300"></p>
+                </div>
+                <div class="card-sub p-3.5">
+                    <h4 class="text-sm font-medium text-white flex items-center gap-2"><span class="material-symbols-outlined text-slate-400" style="font-size:17px">rule</span> Condiciones</h4>
+                    <ul class="mt-2 text-xs text-slate-300 space-y-1 list-disc list-inside marker:text-slate-600">
+                        <li>Plan vigente a la fecha de simulación.</li>
+                        <li>Sujeto a aprobación del emisor.</li>
+                    </ul>
+                </div>
+            </div>
+            <footer class="px-4 py-3.5 border-t border-slate-800 flex gap-2 justify-end">
+                <button type="button" class="btn btn-ghost" onclick="closeModal('modal-plan')">Cerrar</button>
+                <button type="button" class="btn btn-primary" onclick="closeModal('modal-plan')">
+                    <span class="material-symbols-outlined" style="font-size:18px">star</span> Usar esta opción
+                </button>
+            </footer>
+        </aside>
+    </div>
+
+    <!-- ============================ MODAL: QUITAR PRODUCTO ============================ -->
+    <div id="modal-quitar-producto" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm overflow-y-auto" onclick="if(event.target===this)closeModal('modal-quitar-producto')" role="dialog" aria-modal="true" aria-labelledby="quitar-title">
+        <div class="min-h-full flex items-center justify-center p-4">
+            <div class="cotz-modal panel w-full max-w-md p-4">
+                <div class="flex items-start gap-3">
+                    <div class="w-9 h-9 rounded-lg bg-red-500/10 border border-red-500/30 flex items-center justify-center shrink-0">
+                        <span class="material-symbols-outlined text-red-400" style="font-size:20px">warning</span>
+                    </div>
+                    <div>
+                        <h3 id="quitar-title" class="text-base font-semibold text-white">Quitar producto</h3>
+                        <p class="text-sm text-slate-400 mt-0.5">Los resultados simulados quedarán desactualizados.</p>
+                    </div>
+                </div>
+                <div class="mt-4 flex justify-end gap-2">
+                    <button type="button" class="btn btn-ghost" onclick="closeModal('modal-quitar-producto')">Cancelar</button>
+                    <button type="button" id="cotizacion-quitar-confirm" class="btn btn-amber">
+                        <span class="material-symbols-outlined" style="font-size:18px">delete</span> Quitar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>

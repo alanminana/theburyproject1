@@ -49,6 +49,10 @@ public sealed class CotizacionResultado
     public int? CantidadCuotasSeleccionada { get; init; }
     public decimal? TotalSeleccionado { get; init; }
     public decimal? ValorCuotaSeleccionada { get; init; }
+
+    /// <summary>Anticipo simulado para Credito personal (0 si no aplica). Intencion, no snapshot.</summary>
+    public decimal Anticipo { get; init; }
+
     public DateTime? FechaVencimiento { get; init; }
     public IReadOnlyList<CotizacionDetalleResultado> Detalles { get; init; } = Array.Empty<CotizacionDetalleResultado>();
     public IReadOnlyList<CotizacionPagoSimuladoResultado> OpcionesPago { get; init; } = Array.Empty<CotizacionPagoSimuladoResultado>();

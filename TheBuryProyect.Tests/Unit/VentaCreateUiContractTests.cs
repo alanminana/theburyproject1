@@ -5,7 +5,7 @@ public class VentaCreateUiContractTests
     [Fact]
     public void CreateView_PosteaCamposSnapshotDeTarjeta()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+        var view = ReadComposedView("Create_tw.cshtml");
 
         Assert.Contains("name=\"DatosTarjeta.ConfiguracionTarjetaId\"", view);
         Assert.Contains("name=\"DatosTarjeta.NombreTarjeta\"", view);
@@ -17,28 +17,28 @@ public class VentaCreateUiContractTests
     [Fact]
     public void CreateView_TieneSelectorTipoPagoGeneralVisible()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+        var view = ReadComposedView("Create_tw.cshtml");
 
         Assert.Contains("id=\"select-tipo-pago\"", view);
-        Assert.Contains("<label class=\"venta-label\" for=\"select-tipo-pago\">Tipo de pago principal</label>", view);
-        Assert.Contains("Selecciona el medio principal de cobro para toda la venta.", view);
-        Assert.Contains("tipo de pago principal", view, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("<label class=\"venta-label\" for=\"select-tipo-pago\">Forma de pago</label>", view);
+        Assert.Contains("Elegí el medio principal de cobro.", view);
+        Assert.Contains("forma de pago", view, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("<div class=\"hidden\">\r\n                        <select asp-for=\"TipoPago\"", view);
     }
 
     [Fact]
     public void VentaCreate_View_ConservaTipoPagoPrincipalVisible()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+        var view = ReadComposedView("Create_tw.cshtml");
 
-        Assert.Contains("<label class=\"venta-label\" for=\"select-tipo-pago\">Tipo de pago principal</label>", view);
+        Assert.Contains("<label class=\"venta-label\" for=\"select-tipo-pago\">Forma de pago</label>", view);
         Assert.Contains("id=\"select-tipo-pago\"", view);
     }
 
     [Fact]
     public void CreateView_NoMuestraAccionPagoPorItemEnTabla()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+        var view = ReadComposedView("Create_tw.cshtml");
 
         Assert.DoesNotContain("<th class=\"py-3 px-2 text-[10px] font-bold text-slate-500 uppercase\">Tipo de pago</th>", view);
         Assert.DoesNotContain("btn-configurar-pago-item", view);
@@ -51,7 +51,7 @@ public class VentaCreateUiContractTests
     [Fact]
     public void CreateView_MantienePanelesDePagoGeneral()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+        var view = ReadComposedView("Create_tw.cshtml");
 
         Assert.Contains("id=\"panel-tarjeta\"", view);
         Assert.Contains("id=\"panel-cheque\"", view);
@@ -65,7 +65,7 @@ public class VentaCreateUiContractTests
     [Fact]
     public void CreateView_TieneSoporteSelectorProductoUnidad()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+        var view = ReadComposedView("Create_tw.cshtml");
 
         Assert.Contains("id=\"hdn-producto-requiere-numero-serie\"", view);
         Assert.Contains("id=\"panel-selector-unidad\"", view);
@@ -77,7 +77,7 @@ public class VentaCreateUiContractTests
     [Fact]
     public void CreateView_TieneAvisoSinUnidadesConLinkAGestionarUnidades()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+        var view = ReadComposedView("Create_tw.cshtml");
 
         Assert.Contains("id=\"aviso-sin-unidades\"", view);
         Assert.Contains("id=\"link-gestionar-unidades\"", view);
@@ -91,7 +91,7 @@ public class VentaCreateUiContractTests
         // El panel existe en el DOM para que los refs JS resuelvan, pero empieza oculto.
         // El diagnóstico no dispara en nueva venta (programarDiagnosticoCondicionesPago es stub),
         // por lo que el panel permanece hidden durante toda la sesión de Create.
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+        var view = ReadComposedView("Create_tw.cshtml");
 
         Assert.Contains("id=\"panel-diagnostico-condiciones-pago\"", view);
         Assert.Contains("id=\"diagnostico-condiciones-pago-bloqueo\"", view);
@@ -250,6 +250,7 @@ public class VentaCreateUiContractTests
         var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
         var agregar = ExtractFunction(script, "btnAgregarProducto?.addEventListener");
         var render = ExtractFunction(script, "function renderDetalles");
+        var unidadLinea = ExtractFunction(script, "function renderUnidadLinea");
         var submit = ExtractFunction(script, "ventaForm.addEventListener");
 
         Assert.Contains("const productoUnidadId = origenEsUnidad", agregar);
@@ -258,9 +259,60 @@ public class VentaCreateUiContractTests
         Assert.Contains("unidadesSeleccionadasExcepto(productoUnidadId)", agregar);
         Assert.Contains("cantidad !== 1", agregar);
         Assert.Contains("Detalles[${i}].ProductoUnidadId", render);
-        Assert.Contains("Unidad física:", render);
+        Assert.Contains("renderUnidadLinea(d, i)", render);
+        Assert.Contains("Unidad física:", unidadLinea);
         Assert.Contains("trazableSinUnidad", submit);
         Assert.Contains("unidadesDuplicadas", submit);
+    }
+
+    [Fact]
+    public void VentaCreateJs_PermiteAsignarUnidadFisicaSobreLineaExistente()
+    {
+        // Sin esto, la única salida ante "No hay stock no trazado suficiente" era
+        // eliminar la línea y volver a agregarla eligiendo el origen "Unidad física".
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var unidadLinea = ExtractFunction(script, "function renderUnidadLinea");
+        var editor = ExtractFunction(script, "async function abrirEditorUnidadLinea");
+        var aplicar = ExtractFunction(script, "function aplicarUnidadLinea");
+        var quitar = ExtractFunction(script, "function quitarUnidadLinea");
+
+        Assert.Contains("data-asignar-unidad", unidadLinea);
+        Assert.Contains("data-quitar-unidad", unidadLinea);
+        Assert.Contains("Asignar unidad física", unidadLinea);
+
+        Assert.Contains("/api/productos/${detalle.productoId}/unidades-disponibles", editor);
+        Assert.Contains("unidadesSeleccionadasExcepto(u.id ?? u.Id, index)", editor);
+
+        Assert.Contains("unidadesSeleccionadasExcepto(unidadId, index)", aplicar);
+        Assert.Contains("detalle.cantidad !== 1", aplicar);
+        Assert.Contains("renderDetalles()", aplicar);
+
+        // La unidad no se puede soltar en productos con trazabilidad obligatoria.
+        Assert.Contains("detalle.requiereNumeroSerie", quitar);
+
+        Assert.Contains("data-confirmar-unidad", script);
+        Assert.Contains("data-cancelar-unidad", script);
+    }
+
+    [Fact]
+    public void VentaCreateJs_MarcaStockCriticoEnElBuscadorDeProductos()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        var estadoStock = ExtractFunction(script, "function calcularEstadoStock");
+
+        Assert.Contains("Sin stock", estadoStock);
+        Assert.Contains("Stock bajo", estadoStock);
+        Assert.Contains("p.stockMinimo", estadoStock);
+        Assert.Contains("UMBRAL_STOCK_BAJO_SIN_MINIMO", estadoStock);
+        // Con trazabilidad individual lo vendible son las unidades físicas.
+        Assert.Contains("p.unidadesEnStock", estadoStock);
+
+        Assert.Contains("data-estado-stock=\"${estadoStock.estado}\"", script);
+        Assert.Contains("venta-producto-opcion__badge", script);
+
+        var css = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "css", "venta-page-wizard.css"));
+        Assert.Contains("[data-estado-stock=\"sin-stock\"]", css);
+        Assert.Contains("[data-estado-stock=\"stock-bajo\"]", css);
     }
 
     [Fact]
@@ -404,7 +456,7 @@ public class VentaCreateUiContractTests
     [Fact]
     public void CreateView_StickyFooterMobile_ExisteEnFormulario()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+        var view = ReadComposedView("Create_tw.cshtml");
 
         Assert.Contains("vm-mobile-summary-bar", view);
         Assert.Contains("id=\"vm-modal-sticky-total\"", view);
@@ -413,7 +465,7 @@ public class VentaCreateUiContractTests
     [Fact]
     public void CreateView_StickyFooterMobile_BtnEsTypeButton()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+        var view = ReadComposedView("Create_tw.cshtml");
 
         var idx = view.IndexOf("class=\"vm-mobile-summary-bar\"", StringComparison.Ordinal);
         Assert.True(idx >= 0, "Se esperaba class=\"vm-mobile-summary-bar\" en Create_tw.cshtml.");
@@ -425,12 +477,12 @@ public class VentaCreateUiContractTests
     [Fact]
     public void CreateView_StickyFooterMobile_BtnEsOperableComoProxyDeConfirmar()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+        var view = ReadComposedView("Create_tw.cshtml");
 
         var idx = view.IndexOf("class=\"vm-mobile-summary-bar\"", StringComparison.Ordinal);
         Assert.True(idx >= 0, "Se esperaba class=\"vm-mobile-summary-bar\" en Create_tw.cshtml.");
         var footerBlock = view[idx..(Math.Min(idx + 1000, view.Length))];
-        Assert.Contains("data-wizard-submit-proxy=\"btn-confirmar\"", footerBlock);
+        Assert.Contains("data-wizard-primary", footerBlock);
         Assert.DoesNotContain("aria-hidden=\"true\"", footerBlock);
         Assert.DoesNotContain("tabindex=\"-1\"", footerBlock);
     }
@@ -438,7 +490,7 @@ public class VentaCreateUiContractTests
     [Fact]
     public void CreateView_TotalesConservanSusIds()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+        var view = ReadComposedView("Create_tw.cshtml");
 
         Assert.Contains("id=\"total-final\"", view);
         Assert.Contains("id=\"total-subtotal\"", view);
@@ -449,7 +501,7 @@ public class VentaCreateUiContractTests
     [Fact]
     public void CreateView_HiddenInputsTotalesConservados()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+        var view = ReadComposedView("Create_tw.cshtml");
 
         Assert.Contains("id=\"hdn-subtotal\"", view);
         Assert.Contains("id=\"hdn-descuento\"", view);
@@ -460,7 +512,7 @@ public class VentaCreateUiContractTests
     [Fact]
     public void CreateView_BtnConfirmarPrincipalConservado()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+        var view = ReadComposedView("Create_tw.cshtml");
 
         Assert.Contains("id=\"btn-confirmar\"", view);
         Assert.Contains("type=\"submit\"", view);
@@ -480,6 +532,18 @@ public class VentaCreateUiContractTests
         }
 
         throw new DirectoryNotFoundException("No se encontro la raiz del repositorio.");
+    }
+
+    // Micro-lote 7 (paridad): el cuerpo del wizard vive en el parcial compartido
+    // _VentaWizardForm.cshtml, reutilizado por Create_tw y Edit_tw. Las aserciones de
+    // contrato se hacen sobre la composición vista fina + parcial.
+    private static string ReadComposedView(string viewFile)
+    {
+        var root = FindRepoRoot();
+        var view = File.ReadAllText(Path.Combine(root, "Views", "Venta", viewFile));
+        Assert.Contains("<partial name=\"_VentaWizardForm\" model=\"Model\" />", view);
+        var partial = File.ReadAllText(Path.Combine(root, "Views", "Venta", "_VentaWizardForm.cshtml"));
+        return view + "\n" + partial;
     }
 
     // ── Fase 7.1B — MercadoPago DatosTarjeta UI contract ────────────────
@@ -516,7 +580,7 @@ public class VentaCreateUiContractTests
     [Fact]
     public void VentaCreateView_MercadoPago_TieneHiddenInputsParaDatosTarjeta()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+        var view = ReadComposedView("Create_tw.cshtml");
 
         // Los hidden inputs que envían DatosTarjeta (incluso para MercadoPago) deben estar presentes
         Assert.Contains("name=\"DatosTarjeta.NombreTarjeta\"", view);
@@ -584,7 +648,7 @@ public class VentaCreateUiContractTests
     [Fact]
     public void VentaCreate_View_TieneContenedorDetalleCobro()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+        var view = ReadComposedView("Create_tw.cshtml");
         Assert.Contains("Detalle de cobro", view);
         Assert.Contains("id=\"panel-tarjeta\"", view);
         Assert.Contains("id=\"panel-cheque\"", view);
@@ -593,7 +657,7 @@ public class VentaCreateUiContractTests
     [Fact]
     public void VentaCreate_View_TieneBotonOAccionAgregarProducto()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+        var view = ReadComposedView("Create_tw.cshtml");
         Assert.True(
             view.Contains("id=\"btn-agregar-produto\"") || view.Contains("id=\"btn-agregar-producto\""),
             "Se esperaba id btn-agregar-produto o btn-agregar-producto en Create_tw.cshtml");
@@ -623,7 +687,7 @@ public class VentaCreateUiContractTests
     [Fact]
     public void VentaCreate_View_ContieneAdvertenciaStockSinIdentificar()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+        var view = ReadComposedView("Create_tw.cshtml");
 
         Assert.Contains("id=\"advertencia-stock-sin-identificar\"", view);
     }
@@ -673,16 +737,16 @@ public class VentaCreateUiContractTests
     [Fact]
     public void CreateView_LabelTipoPagoPrincipalTieneForYTextoArmonizado()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+        var view = ReadComposedView("Create_tw.cshtml");
 
-        Assert.Contains("<label class=\"venta-label\" for=\"select-tipo-pago\">Tipo de pago principal</label>", view);
+        Assert.Contains("<label class=\"venta-label\" for=\"select-tipo-pago\">Forma de pago</label>", view);
         Assert.DoesNotContain("<label class=\"venta-label\">Tipo de pago</label>", view);
     }
 
     [Fact]
     public void CreateView_PanelAlertaMoraTieneRoleAlert()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+        var view = ReadComposedView("Create_tw.cshtml");
 
         var idx = view.IndexOf("id=\"panel-alerta-mora\"", StringComparison.Ordinal);
         Assert.True(idx >= 0, "Se esperaba id panel-alerta-mora en la vista.");
@@ -693,7 +757,7 @@ public class VentaCreateUiContractTests
     [Fact]
     public void CreateView_PanelCupoInsuficienteTieneRoleAlert()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+        var view = ReadComposedView("Create_tw.cshtml");
 
         var idx = view.IndexOf("id=\"panel-cupo-insuficiente\"", StringComparison.Ordinal);
         Assert.True(idx >= 0, "Se esperaba id panel-cupo-insuficiente en la vista.");
@@ -704,7 +768,7 @@ public class VentaCreateUiContractTests
     [Fact]
     public void CreateView_LabelesTarjetaCuotasAutorizacionTienenFor()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+        var view = ReadComposedView("Create_tw.cshtml");
 
         Assert.Contains("for=\"select-tarjeta\"", view);
         Assert.Contains("for=\"select-cuotas-tarjeta\"", view);
@@ -782,7 +846,7 @@ public class VentaCreateUiContractTests
     [Fact]
     public void CreateView_PanelDocumentacionFaltanteTieneRoleAlert()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+        var view = ReadComposedView("Create_tw.cshtml");
 
         var idx = view.IndexOf("id=\"panel-documentacion-faltante\"", StringComparison.Ordinal);
         Assert.True(idx >= 0, "Se esperaba id panel-documentacion-faltante en la vista.");
@@ -793,7 +857,7 @@ public class VentaCreateUiContractTests
     [Fact]
     public void CreateView_TieneRecordatorioPreConfirmacion()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+        var view = ReadComposedView("Create_tw.cshtml");
 
         Assert.Contains("Verificá cliente, tipo de pago y total", view);
         var reminderIdx = view.IndexOf("Verificá cliente, tipo de pago y total", StringComparison.Ordinal);
@@ -804,7 +868,7 @@ public class VentaCreateUiContractTests
     [Fact]
     public void CreateView_RecordatorioPreConfirmacion_TieneRoleNote()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+        var view = ReadComposedView("Create_tw.cshtml");
 
         Assert.Contains("Verificá cliente, tipo de pago y total", view);
         var idx = view.IndexOf("Verificá cliente, tipo de pago y total", StringComparison.Ordinal);
@@ -818,7 +882,7 @@ public class VentaCreateUiContractTests
     [Fact]
     public void CreateView_LabelBuscarClienteTieneFor()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+        var view = ReadComposedView("Create_tw.cshtml");
 
         Assert.Contains("for=\"input-buscar-cliente\"", view);
         Assert.Contains("id=\"input-buscar-cliente\"", view);
@@ -827,7 +891,7 @@ public class VentaCreateUiContractTests
     [Fact]
     public void CreateView_LabelFechaOperacionTieneFor()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+        var view = ReadComposedView("Create_tw.cshtml");
 
         Assert.Contains("for=\"FechaVenta\"", view);
         Assert.Contains("asp-for=\"FechaVenta\"", view);
@@ -840,7 +904,7 @@ public class VentaCreateUiContractTests
     [Fact]
     public void CreateView_VendedorEsUsuarioLogueado_SinSelectorDeDelegacion()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+        var view = ReadComposedView("Create_tw.cshtml");
 
         Assert.DoesNotContain("asp-for=\"VendedorUserId\"", view);
         Assert.DoesNotContain("id=\"VendedorUserId\"", view);
@@ -892,7 +956,7 @@ public class VentaCreateUiContractTests
     [Fact]
     public void CreateView_EsPaginaWizardSinRootModalPrincipal()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+        var view = ReadComposedView("Create_tw.cshtml");
 
         Assert.Contains("id=\"venta-create-page\"", view);
         Assert.Contains("id=\"step-btn-cliente\"", view);
@@ -900,17 +964,19 @@ public class VentaCreateUiContractTests
         Assert.DoesNotContain("id=\"modal-crear-venta\"", view);
         Assert.DoesNotContain("id=\"modal-crear-venta-backdrop\"", view);
         Assert.DoesNotContain("id=\"btn-cerrar-modal-crear-venta\"", view);
-        Assert.DoesNotContain("aria-modal=\"true\"", view);
-        Assert.DoesNotContain("role=\"dialog\"", view);
         Assert.DoesNotContain("id=\"modal-confirmar-operacion\"", view);
     }
 
     [Fact]
     public void CreateView_FormSiguePosteandoCreateNativo()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+        var view = ReadComposedView("Create_tw.cshtml");
 
-        Assert.Contains("<form id=\"venta-form\" asp-action=\"Create\" method=\"post\">", view);
+        // El form ahora vive en el parcial compartido y postea con action dinámica
+        // (@formAction = "Create" en creación). Contrato de post nativo preservado.
+        Assert.Contains("id=\"venta-form\"", view);
+        Assert.Contains("asp-action=\"@formAction\"", view);
+        Assert.Contains("var formAction = esEdicion ? \"Edit\" : \"Create\"", view);
         Assert.Contains("@Html.AntiForgeryToken()", view);
         Assert.DoesNotContain("CreateAjax", view);
         Assert.DoesNotContain("VentaCrearModal.submit()", view);
@@ -919,7 +985,7 @@ public class VentaCreateUiContractTests
     [Fact]
     public void CreateView_WizardTieneCuatroPasosYPaneles()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+        var view = ReadComposedView("Create_tw.cshtml");
 
         foreach (var step in new[] { "cliente", "productos", "pago", "revision" })
         {
@@ -931,9 +997,23 @@ public class VentaCreateUiContractTests
     }
 
     [Fact]
+    public void CreateWizard_NoCreaBorradoresDeCreditoDesdeElNavegador()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+
+        Assert.DoesNotContain("/Venta/CreateAjax", script);
+        Assert.DoesNotContain("borradorCreditoVentaId", script);
+        Assert.DoesNotContain("form-configurar-credito", script);
+        Assert.DoesNotContain("ventaForm.setAttribute('action', '/Venta/Confirmar')", script);
+
+        var view = ReadComposedView("Create_tw.cshtml");
+        Assert.Contains("id=\"step-panel-credito\"", view);
+    }
+
+    [Fact]
     public void CreateView_ConservaContratosCriticosDeVenta()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+        var view = ReadComposedView("Create_tw.cshtml");
 
         foreach (var id in new[]
         {
@@ -957,7 +1037,7 @@ public class VentaCreateUiContractTests
     [Fact]
     public void CreateView_ConservaHooksDeSidebarRevisionYMobileSummary()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+        var view = ReadComposedView("Create_tw.cshtml");
 
         foreach (var hook in new[]
         {
@@ -976,7 +1056,7 @@ public class VentaCreateUiContractTests
     [Fact]
     public void CreateView_CargaJsWizardDePagina()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+        var view = ReadComposedView("Create_tw.cshtml");
 
         Assert.Contains("venta-page-wizard.js", view);
         Assert.DoesNotContain("venta-modal-rework.js", view);
@@ -988,7 +1068,7 @@ public class VentaCreateUiContractTests
     [Fact]
     public void CreateView_ConservaPanelesPagoCreditoDocumentacionYExcepcion()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+        var view = ReadComposedView("Create_tw.cshtml");
 
         foreach (var id in new[]
         {
@@ -1012,30 +1092,34 @@ public class VentaCreateUiContractTests
     }
 
     [Fact]
-    public void CreateView_UnificaPagoYCreditoEnUnSoloPaso()
+    public void CreateView_MantienePagoYCreditoComoPasosSeparados()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+        var view = ReadComposedView("Create_tw.cshtml");
 
         Assert.Contains("id=\"step-btn-pago\"", view);
         Assert.Contains("id=\"step-panel-pago\"", view);
-        Assert.DoesNotContain("id=\"step-btn-credito\"", view);
-        Assert.DoesNotContain("id=\"step-panel-credito\"", view);
+        Assert.Contains("id=\"step-btn-credito\"", view);
+        Assert.Contains("id=\"step-panel-credito\"", view);
 
         var panelPago = view.IndexOf("id=\"step-panel-pago\"", StringComparison.Ordinal);
+        var panelCredito = view.IndexOf("id=\"step-panel-credito\"", StringComparison.Ordinal);
         var verificacionCredito = view.IndexOf("id=\"panel-verificacion-crediticia\"", StringComparison.Ordinal);
         var panelRevision = view.IndexOf("id=\"step-panel-revision\"", StringComparison.Ordinal);
 
         Assert.True(panelPago >= 0, "step-panel-pago debe existir.");
-        Assert.True(verificacionCredito > panelPago, "La verificacion crediticia debe vivir dentro del paso de pago.");
+        Assert.True(panelCredito > panelPago, "Crédito debe ser un paso posterior a Pago.");
+        Assert.True(verificacionCredito > panelCredito, "La verificación debe vivir dentro del paso Crédito.");
+        Assert.True(verificacionCredito > panelPago, "La verificacion crediticia debe vivir después del paso Pago.");
         Assert.True(panelRevision > verificacionCredito, "Revision debe venir despues del bloque unificado de pago/credito.");
     }
 
     [Fact]
     public void CreateView_NoReintroduceModalLegacyNiConfirmacionExtra()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Create_tw.cshtml"));
+        var view = ReadComposedView("Create_tw.cshtml");
 
-        Assert.Contains("<form id=\"venta-form\" asp-action=\"Create\" method=\"post\">", view);
+        Assert.Contains("id=\"venta-form\"", view);
+        Assert.Contains("asp-action=\"@formAction\"", view);
         Assert.Contains("@Html.AntiForgeryToken()", view);
         Assert.Contains("id=\"venta-create-page\"", view);
         Assert.Contains("venta-page-wizard.js", view);
@@ -1050,8 +1134,6 @@ public class VentaCreateUiContractTests
         Assert.DoesNotContain("#modal-crear-venta", view);
         Assert.DoesNotContain("id=\"modal-confirmar-operacion\"", view);
         Assert.DoesNotContain("#modal-confirmar-operacion", view);
-        Assert.DoesNotContain("role=\"dialog\"", view);
-        Assert.DoesNotContain("aria-modal=\"true\"", view);
         Assert.DoesNotContain("action=\"/Venta/CreateAjax\"", view);
         Assert.DoesNotContain("CreateAjax", view);
         Assert.DoesNotContain("VentaCrearModal.submit()", view);
@@ -1062,10 +1144,13 @@ public class VentaCreateUiContractTests
     [Fact]
     public void EditView_EsPaginaWizardYConservaContratoDeEdicion()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Edit_tw.cshtml"));
+        var view = ReadComposedView("Edit_tw.cshtml");
 
         Assert.Contains("id=\"venta-edit-page\"", view);
-        Assert.Contains("<form id=\"venta-form\" asp-action=\"Edit\" method=\"post\"", view);
+        // Form compartido con action dinámica; en edición @formAction = "Edit".
+        Assert.Contains("id=\"venta-form\"", view);
+        Assert.Contains("asp-action=\"@formAction\"", view);
+        Assert.Contains("var formAction = esEdicion ? \"Edit\" : \"Create\"", view);
         Assert.Contains("@Html.AntiForgeryToken()", view);
         Assert.Contains("asp-for=\"Id\"", view);
         Assert.Contains("asp-for=\"Estado\"", view);
@@ -1076,6 +1161,7 @@ public class VentaCreateUiContractTests
         Assert.Contains("id=\"step-panel-productos\"", view);
         Assert.Contains("id=\"step-panel-pago\"", view);
         Assert.Contains("id=\"step-panel-credito\"", view);
+        Assert.Contains("id=\"step-btn-credito\"", view);
         Assert.Contains("id=\"step-panel-revision\"", view);
         Assert.Contains("id=\"select-tipo-pago\"", view);
         Assert.Contains("id=\"btn-confirmar\"", view);

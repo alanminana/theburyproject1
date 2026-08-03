@@ -16,8 +16,12 @@ namespace TheBuryProject.Models.Entities
         [Range(1, 120)]
         public int CantidadCuotas { get; set; }
 
+        /// <summary>
+        /// Tasa mensual propia del producto para esta cantidad de cuotas.
+        /// null = hereda la tasa global (cuota global → tasa única); 0 = sin interés (0 % explícito); X = tasa propia.
+        /// </summary>
         [Range(0, 100)]
-        public decimal TasaMensual { get; set; }
+        public decimal? TasaMensual { get; set; }
 
         public bool Activo { get; set; } = true;
 

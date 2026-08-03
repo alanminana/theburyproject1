@@ -14,6 +14,12 @@ namespace TheBuryProject.Models.DTOs
         public decimal TotalPlan { get; init; }
         public DateTime FechaPrimerPago { get; init; }
 
+        /// <summary>
+        /// Vector exacto de cuotas (capital, interés y total por cuota), en orden. La
+        /// última cuota absorbe el residuo de redondeo. Ver <see cref="CuotaPlanCreditoDto"/>.
+        /// </summary>
+        public IReadOnlyList<CuotaPlanCreditoDto> Cuotas { get; init; } = Array.Empty<CuotaPlanCreditoDto>();
+
         // Semáforo de precalificación
         public string SemaforoEstado { get; init; } = "sinDatos";
         public string SemaforoMensaje { get; init; } = string.Empty;

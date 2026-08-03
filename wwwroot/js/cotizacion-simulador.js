@@ -64,6 +64,7 @@
         telefonoLibre: $('#cotizacion-telefono-libre'),
         descuentoGralPct: $('#cotizacion-descuento-gral-pct'),
         descuentoGralImporte: $('#cotizacion-descuento-gral-importe'),
+        anticipo: $('#cotizacion-anticipo'),
         fechaVencimiento: $('#cotizacion-fecha-vencimiento'),
         observaciones: $('#cotizacion-observaciones'),
         simular: $('#cotizacion-simular'),
@@ -93,7 +94,16 @@
         planTotal: $('#plan-total'),
         planDetalleCuotas: $('#plan-detalle-cuotas'),
         planValorCuota: $('#plan-valor-cuota'),
-        planRecargo: $('#plan-recargo')
+        planRecargo: $('#plan-recargo'),
+        // desglose exclusivo de credito personal
+        planCreditoDesglose: $('#plan-credito-desglose'),
+        planCreditoFuente: $('#plan-credito-fuente'),
+        planCreditoPrecio: $('#plan-credito-precio'),
+        planCreditoAnticipo: $('#plan-credito-anticipo'),
+        planCreditoSaldo: $('#plan-credito-saldo'),
+        planCreditoImporteRecargo: $('#plan-credito-importe-recargo'),
+        planCreditoTotalFinanciado: $('#plan-credito-total-financiado'),
+        planCreditoVector: $('#plan-credito-vector')
     };
 
     function show(el) { el?.classList.remove('hidden'); }
@@ -369,6 +379,25 @@
         }
     }
 
+    // Semáforo de stock del buscador: mismo criterio que la venta y que Dashboard
+    // (sin stock en rojo, en o por debajo del mínimo en ámbar). Acá importa más que
+    // en la venta porque el cotizador lista también productos sin stock.
+    const UMBRAL_STOCK_BAJO_SIN_MINIMO = 3;
+
+    function calcularEstadoStock(producto) {
+        const disponible = producto.requiereNumeroSerie
+            ? Number(producto.unidadesEnStock ?? 0)
+            : Number(producto.stockActual ?? 0);
+
+        if (!(disponible > 0)) return { estado: 'sin-stock', etiqueta: 'Sin stock' };
+
+        const minimo = Number(producto.stockMinimo ?? 0);
+        const umbral = minimo > 0 ? minimo : UMBRAL_STOCK_BAJO_SIN_MINIMO;
+        if (disponible <= umbral) return { estado: 'stock-bajo', etiqueta: `Stock bajo (${disponible})` };
+
+        return { estado: 'ok', etiqueta: '' };
+    }
+
     function renderDropdownProductos(productos, emptyMessage) {
         if (!els.productosDropdown) return;
         els.productosDropdown.replaceChildren();
@@ -387,13 +416,16 @@
             .sort((a, b) => Number(b.codigoExacto) - Number(a.codigoExacto) || normalize(a.nombre).localeCompare(normalize(b.nombre)))
             .forEach(producto => {
                 const marcaTexto = [producto.marca, producto.submarca].filter(Boolean).join(' ');
+                const estadoStock = calcularEstadoStock(producto);
                 const button = document.createElement('button');
                 button.type = 'button';
-                button.className = 'dropdown-item flex w-full items-start justify-between gap-3 text-left';
+                button.className = 'dropdown-item cotz-producto-opcion flex w-full items-start justify-between gap-3 text-left';
+                button.dataset.estadoStock = estadoStock.estado;
                 button.innerHTML = `
                     <span class="min-w-0">
                         <span class="block text-sm font-medium text-white truncate-1">${esc(producto.nombre)}</span>
                         <span class="block text-[11px] text-slate-500">${esc(producto.codigo || `ID ${producto.id}`)} · ${esc(marcaTexto || 'Sin marca')} · ${esc(producto.categoria || 'Sin categoría')}</span>
+                        ${estadoStock.etiqueta ? `<span class="cotz-producto-opcion__badge">${esc(estadoStock.etiqueta)}</span>` : ''}
                         ${producto.descripcion ? `<span class="block text-[11px] text-slate-400 truncate-1">${esc(producto.descripcion)}</span>` : ''}
                         ${producto.caracteristicasResumen ? `<span class="block text-[11px] text-slate-500 truncate-1">${esc(producto.caracteristicasResumen)}</span>` : ''}
                     </span>
@@ -475,11 +507,16 @@
         const descPct = parseNonNegativeDecimal(els.descuentoGralPct?.value);
         const descImporte = parseNonNegativeDecimal(els.descuentoGralImporte?.value);
 
+        const anticipo = parseNonNegativeDecimal(els.anticipo?.value);
+
         const request = {
             clienteId: state.clienteSeleccionado?.id || null,
             nombreClienteLibre: els.nombreLibre?.value?.trim() || null,
             descuentoGeneralPorcentaje: descPct !== null && descPct > 0 ? descPct : null,
             descuentoGeneralImporte: descImporte !== null && descImporte > 0 ? descImporte : null,
+            // Solo Credito personal lo consume (saldo = total - anticipo, antes del recargo).
+            // El servidor vuelve a validar 0 <= anticipo <= total: nunca se calcula acá.
+            anticipo: anticipo !== null ? anticipo : 0,
             productos: state.productos.map(p => ({
                 productoId: p.productoId,
                 cantidad: p.cantidad,
@@ -663,7 +700,8 @@
             3: 'RequiereEvaluacion',
             4: 'BloqueadoPorProducto',
             5: 'PlanInactivo',
-            6: 'CuotaInactiva'
+            6: 'CuotaInactiva',
+            7: 'AnticipoInvalido'
         }[estado] || 'NoDisponible';
     }
 
@@ -696,9 +734,12 @@
         return map[key] || { icon: 'payments', tone: 'slate' };
     }
 
+    // % a mostrar en la columna "Recargo" de la comparativa. Ojo: costoFinancieroTotal es un
+    // IMPORTE en pesos (informativo, se usa aparte en el desglose de Credito personal), no un
+    // porcentaje — mezclarlo acá en el Math.max inflaba el recargo mostrado a miles de "%".
     function recargoValor(plan) {
         if (!plan) return 0;
-        return Math.max(Number(plan.recargoPorcentaje || 0), Number(plan.interesPorcentaje || 0), Number(plan.costoFinancieroTotal || 0));
+        return Math.max(Number(plan.recargoPorcentaje || 0), Number(plan.interesPorcentaje || 0));
     }
 
     function pct(n) {
@@ -734,6 +775,9 @@
         }
         if (estadoStr === 'RequiereEvaluacion') {
             return { cls: 'pill-amber', label: 'Sin planes' };
+        }
+        if (estadoStr === 'AnticipoInvalido') {
+            return { cls: 'pill-red', label: 'Anticipo inválido' };
         }
         return { cls: 'pill-red', label: 'Sin planes' };
     }
@@ -912,6 +956,24 @@
         return rows.find(r => optionKey(r) === key) || null;
     }
 
+    // Vector exacto de cuotas tal cual lo devuelve el servidor (FinancialCalculationService via
+    // CreditoSimulacionVentaService): "N cuotas de $X" cuando son iguales, o "N-1 cuotas de $X +
+    // última cuota de $Y" cuando la última absorbe el residuo. Nunca se recalcula acá.
+    function formatearVectorCuotas(cuotas) {
+        if (!Array.isArray(cuotas) || cuotas.length === 0) return '';
+        if (cuotas.length === 1) {
+            return `1 cuota de ${formatCurrency(cuotas[0].total)}`;
+        }
+        const regulares = cuotas.slice(0, -1);
+        const ultima = cuotas[cuotas.length - 1];
+        const mismoValor = regulares.every(c => Math.abs(Number(c.total) - Number(regulares[0].total)) < 0.005)
+            && Math.abs(Number(ultima.total) - Number(regulares[0].total)) < 0.005;
+        if (mismoValor) {
+            return `${cuotas.length} cuotas de ${formatCurrency(regulares[0].total)}`;
+        }
+        return `${regulares.length} cuotas de ${formatCurrency(regulares[0].total)} + última cuota de ${formatCurrency(ultima.total)}`;
+    }
+
     function openPlanDrawer(row) {
         if (!row?.plan) return;
         const plan = row.plan;
@@ -928,6 +990,24 @@
             els.planRecargo.textContent = `${r > 0 ? '+' : ''}${pct(r)}`;
             els.planRecargo.className = (r > 0 ? 'text-amber-300' : 'text-emerald-400') + ' font-mono';
         }
+
+        // Desglose de Credito personal: solo estos planes traen saldoAFinanciar/totalFinanciado
+        // (server-authoritative, via CreditoSimulacionVentaService). El resto de los medios no
+        // financian en cuotas con recargo total y no muestran este bloque.
+        const esCreditoPersonal = plan.saldoAFinanciar !== undefined && plan.saldoAFinanciar !== null;
+        if (esCreditoPersonal) {
+            if (els.planCreditoFuente) els.planCreditoFuente.textContent = plan.fuentePorcentaje || '—';
+            if (els.planCreditoPrecio) els.planCreditoPrecio.textContent = formatCurrency(Number(plan.saldoAFinanciar) + Number(plan.anticipo || 0));
+            if (els.planCreditoAnticipo) els.planCreditoAnticipo.textContent = formatCurrency(plan.anticipo || 0);
+            if (els.planCreditoSaldo) els.planCreditoSaldo.textContent = formatCurrency(plan.saldoAFinanciar);
+            if (els.planCreditoImporteRecargo) els.planCreditoImporteRecargo.textContent = formatCurrency(plan.costoFinancieroTotal || 0);
+            if (els.planCreditoTotalFinanciado) els.planCreditoTotalFinanciado.textContent = formatCurrency(plan.totalFinanciado);
+            if (els.planCreditoVector) els.planCreditoVector.textContent = formatearVectorCuotas(plan.cuotas);
+            show(els.planCreditoDesglose);
+        } else {
+            hide(els.planCreditoDesglose);
+        }
+
         window.openModal?.('modal-plan');
     }
 
@@ -984,8 +1064,8 @@
             input.addEventListener('change', () => invalidarSimulacion());
         });
 
-        // descuentos generales -> pendiente
-        [els.descuentoGralPct, els.descuentoGralImporte].forEach(el => {
+        // descuentos generales + anticipo -> pendiente
+        [els.descuentoGralPct, els.descuentoGralImporte, els.anticipo].forEach(el => {
             el?.addEventListener('input', () => invalidarSimulacion());
         });
 

@@ -1,4 +1,5 @@
 @model CreditoPersonalConfigViewModel
+@using TheBuryProject.ViewModels.Punitorio
 @{
     ViewData["Title"] = "Configuracion de Credito Personal";
     var returnUrl = ViewData["ReturnUrl"] as string;
@@ -13,6 +14,15 @@
     var puedeConfigMora = User.TienePermiso("mora", "config");
     var dg = Model.DefaultsGlobales ?? new DefaultsGlobalesViewModel();
     var sf = Model.SemaforoFinanciero ?? new SemaforoFinancieroViewModel();
+    // Micro-lote 4: la disponibilidad de cuotas sale SOLO de los planes activos. No hay rango.
+    var planesActivosResumen = (Model.CuotasCreditoPersonal ?? new List<CuotaCreditoPersonalViewModel>())
+        .Where(c => c.Activo).Select(c => c.CantidadCuotas).Distinct().OrderBy(c => c).ToList();
+
+    // PUN-ML8 — Punitorios por mora.
+    var puedeVerPunitorio = User.TienePermiso("configuracion", "viewpunitorio");
+    var puedeGestionarPunitorio = User.TienePermiso("configuracion", "managepunitorio");
+    var pun = Model.Punitorios ?? new ConfiguracionPunitorioPageViewModel();
+    var activeSection = ViewData["ActiveSection"] as string;
 }
 
 @section Styles {
@@ -73,7 +83,8 @@
         }
         .cp-modo.is-especifico { border-color:rgba(34,197,94,.3); background:rgba(34,197,94,.07); }
         .cp-modo.is-especifico #cp-modo-icon { color:#86efac; }
-        .cp-modo.is-rango #cp-modo-icon { color:#67e8f9; }
+        .cp-modo.is-sinplanes { border-color:rgba(245,158,11,.35); background:rgba(245,158,11,.08); }
+        .cp-modo.is-sinplanes #cp-modo-icon { color:#fcd34d; }
         .cp-chips { display:flex; flex-wrap:wrap; gap:.3rem; }
         .cp-chip {
             display:inline-flex; align-items:center; justify-content:center;
@@ -158,44 +169,62 @@
     </div>
 }
 
-<form asp-action="CreditoPersonal" asp-controller="ConfiguracionPago" method="post" id="credito-config-form">
-    @Html.AntiForgeryToken()
-    @if (!string.IsNullOrWhiteSpace(returnUrl))
-    {
-        <input type="hidden" name="returnUrl" value="@returnUrl" />
-    }
+@if (TempData["Error"] != null)
+{
+    <div class="mb-4 flex items-center gap-3 rounded-xl border border-rose-500/20 bg-rose-500/10 p-4 text-sm font-semibold text-rose-400" role="alert">
+        <span class="material-symbols-outlined">error</span>
+        @TempData["Error"]
+    </div>
+}
 
-    <div asp-validation-summary="ModelOnly" class="mb-4 rounded-xl border border-rose-500/20 bg-rose-500/10 p-4 text-sm font-semibold text-rose-400"></div>
-
-    <div class="cp-shell">
-        <aside class="cp-nav">
-            <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-2.5">
-                <p class="text-[10px] uppercase tracking-wider text-slate-500 font-semibold px-2 pt-1 pb-2">Secciones</p>
-                <nav id="sec-nav" class="space-y-0.5">
-                    <button type="button" class="cp-nav-link is-active" data-target="s1"><span class="cp-num">1</span> Resumen operativo</button>
-                    <button type="button" class="cp-nav-link" data-target="s2"><span class="cp-num">2</span> Config financiera</button>
-                    <button type="button" class="cp-nav-link" data-target="s3"><span class="cp-num">3</span> Limites por puntaje</button>
-                    <button type="button" class="cp-nav-link" data-target="s4"><span class="cp-num">4</span> Perfiles de credito</button>
+<div class="cp-shell">
+    <aside class="cp-nav">
+        <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-2.5">
+            <p class="text-[10px] uppercase tracking-wider text-slate-500 font-semibold px-2 pt-1 pb-2">Secciones</p>
+            <nav id="sec-nav" class="space-y-0.5">
+                <button type="button" class="cp-nav-link is-active" data-target="s1"><span class="cp-num">1</span> Resumen operativo</button>
+                <button type="button" class="cp-nav-link" data-target="s2"><span class="cp-num">2</span> Config financiera</button>
+                <button type="button" class="cp-nav-link" data-target="s3"><span class="cp-num">3</span> Limites por puntaje</button>
+                <button type="button" class="cp-nav-link" data-target="s4"><span class="cp-num">4</span> Perfiles de credito</button>
+                <div class="cp-divider"></div>
+                <p class="text-[9px] uppercase tracking-wider text-slate-600 font-semibold px-2 pb-1">Soporte</p>
+                <button type="button" class="cp-nav-link" data-target="s5"><span class="cp-num">5</span> Semaforo visual</button>
+                <button type="button" class="cp-nav-link" data-target="s6"><span class="cp-num">6</span> Reglas canonicas</button>
+                @if (puedeVerPunitorio)
+                {
                     <div class="cp-divider"></div>
-                    <p class="text-[9px] uppercase tracking-wider text-slate-600 font-semibold px-2 pb-1">Soporte</p>
-                    <button type="button" class="cp-nav-link" data-target="s5"><span class="cp-num">5</span> Semaforo visual</button>
-                    <button type="button" class="cp-nav-link" data-target="s6"><span class="cp-num">6</span> Reglas canonicas</button>
-                </nav>
-            </div>
-        </aside>
+                    <p class="text-[9px] uppercase tracking-wider text-slate-600 font-semibold px-2 pb-1">Cobranzas</p>
+                    <button type="button" class="cp-nav-link" data-target="s7"><span class="cp-num">7</span> Punitorios por mora</button>
+                }
+            </nav>
+        </div>
+    </aside>
 
-        <main class="space-y-5 min-w-0">
-            <div class="lg:hidden">
-                <label class="cp-label" for="msel">Seccion</label>
-                <select id="msel" class="cp-field">
-                    <option value="s1">1 - Resumen operativo</option>
-                    <option value="s2">2 - Config financiera</option>
-                    <option value="s3">3 - Limites por puntaje</option>
-                    <option value="s4">4 - Perfiles de credito</option>
-                    <option value="s5">5 - Semaforo visual</option>
-                    <option value="s6">6 - Reglas canonicas</option>
-                </select>
-            </div>
+    <main class="space-y-5 min-w-0">
+        <div class="lg:hidden">
+            <label class="cp-label" for="msel">Seccion</label>
+            <select id="msel" class="cp-field">
+                <option value="s1">1 - Resumen operativo</option>
+                <option value="s2">2 - Config financiera</option>
+                <option value="s3">3 - Limites por puntaje</option>
+                <option value="s4">4 - Perfiles de credito</option>
+                <option value="s5">5 - Semaforo visual</option>
+                <option value="s6">6 - Reglas canonicas</option>
+                @if (puedeVerPunitorio)
+                {
+                    <option value="s7">7 - Punitorios por mora</option>
+                }
+            </select>
+        </div>
+
+        <form asp-action="CreditoPersonal" asp-controller="ConfiguracionPago" method="post" id="credito-config-form">
+            @Html.AntiForgeryToken()
+            @if (!string.IsNullOrWhiteSpace(returnUrl))
+            {
+                <input type="hidden" name="returnUrl" value="@returnUrl" />
+            }
+
+            <div asp-validation-summary="ModelOnly" class="mb-4 rounded-xl border border-rose-500/20 bg-rose-500/10 p-4 text-sm font-semibold text-rose-400"></div>
 
             <section id="s1" class="cp-section is-active">
                 <div class="cp-head">
@@ -210,15 +239,22 @@
                 <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
                     <div class="cp-card">
                         <div class="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-slate-500">
-                            <span class="material-symbols-outlined text-blue-400 text-[13px]">percent</span> Tasa mensual
+                            <span class="material-symbols-outlined text-blue-400 text-[13px]">percent</span> Recargo total
                         </div>
                         <div class="mt-1.5 text-xl font-semibold text-white font-mono" id="r-tasa">@dg.TasaMensual.ToString("0.00") %</div>
                     </div>
                     <div class="cp-card">
                         <div class="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-slate-500">
-                            <span class="material-symbols-outlined text-cyan-300 text-[13px]">view_timeline</span> Cuotas base
+                            <span class="material-symbols-outlined text-cyan-300 text-[13px]">view_timeline</span> Planes activos
                         </div>
-                        <div class="mt-1.5 text-xl font-semibold text-white font-mono" id="r-cuotas">@dg.MinCuotas - @dg.MaxCuotas</div>
+                        @if (planesActivosResumen.Count == 0)
+                        {
+                            <div class="mt-1.5 text-sm font-semibold text-amber-300 font-mono" id="r-cuotas">Sin planes activos</div>
+                        }
+                        else
+                        {
+                            <div class="mt-1.5 text-xl font-semibold text-white font-mono" id="r-cuotas">@string.Join(", ", planesActivosResumen)</div>
+                        }
                     </div>
                     <div class="cp-card">
                         <div class="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-slate-500">
@@ -269,34 +305,26 @@
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div class="space-y-4">
                         <div>
-                            <label asp-for="DefaultsGlobales.TasaMensual" class="cp-label">Tasa mensual (%)</label>
+                            <label asp-for="DefaultsGlobales.TasaMensual" class="cp-label">Recargo total predeterminado para planes sin recargo propio (%)</label>
                             <input asp-for="DefaultsGlobales.TasaMensual" type="number" step="0.01" min="0" max="100"
-                                   readonly="@(!puedeEditar)" class="cp-field" data-summary="tasa" />
-                            <p class="cp-hint">Tasa nominal mensual aplicada al capital financiado. <span id="s2-tea-hint" class="text-cyan-400/80 font-mono"></span></p>
+                                   readonly="@(!puedeEditar)" class="cp-field" data-summary="tasa"
+                                   data-preview-porcentaje data-preview-cuotas="1" data-preview-target="s2-recargo-hint" />
+                            <p class="cp-hint">Se aplica <strong class="text-slate-300">una sola vez</strong> sobre el saldo financiado (no es mensual ni se compone). Se utiliza <strong class="text-slate-300">únicamente</strong> cuando un plan activo no tiene un recargo específico propio. Un recargo de 0 % configurado en el plan no hereda este valor. <span id="s2-recargo-hint" class="text-cyan-400/80 font-mono" data-preview-out></span></p>
                             <span asp-validation-for="DefaultsGlobales.TasaMensual" class="text-xs text-red-500"></span>
                         </div>
 
-                        <div id="cp-rango-block" class="cp-rango @(hayEspecificas ? "is-overridden" : "")">
-                            <label class="cp-label flex items-center gap-2">
-                                Cuotas permitidas
-                                <span id="cp-rango-tag" class="cp-tag-off @(hayEspecificas ? "" : "hidden")">sin efecto</span>
-                            </label>
-                            <div class="grid grid-cols-[1fr_auto_1fr] items-end gap-2">
-                                <div>
-                                    <span class="text-[10px] text-slate-500 mb-1 block">Desde</span>
-                                    <input asp-for="DefaultsGlobales.MinCuotas" type="number" min="1" max="120"
-                                           readonly="@(!puedeEditar)" class="cp-field font-mono" data-summary="min-cuotas" />
-                                    <span asp-validation-for="DefaultsGlobales.MinCuotas" class="text-xs text-red-500"></span>
-                                </div>
-                                <span class="material-symbols-outlined text-slate-500 mb-2.5 shrink-0 text-[18px]">arrow_forward</span>
-                                <div>
-                                    <span class="text-[10px] text-slate-500 mb-1 block">Hasta</span>
-                                    <input asp-for="DefaultsGlobales.MaxCuotas" type="number" min="1" max="120"
-                                           readonly="@(!puedeEditar)" class="cp-field font-mono" data-summary="max-cuotas" />
-                                    <span asp-validation-for="DefaultsGlobales.MaxCuotas" class="text-xs text-red-500"></span>
-                                </div>
+                        <div class="cp-notice">
+                            <span class="material-symbols-outlined text-cyan-300 shrink-0 mt-0.5 text-[16px]">view_timeline</span>
+                            <div class="text-sm text-slate-300">
+                                @if (planesActivosResumen.Count == 0)
+                                {
+                                    <text><strong class="text-amber-300">Sin planes globales activos.</strong> Crédito Personal no ofrece cuotas hasta que agregues al menos un plan activo abajo.</text>
+                                }
+                                else
+                                {
+                                    <text><strong class="text-cyan-200">Planes activos:</strong> @string.Join(", ", planesActivosResumen) cuotas. Las cantidades disponibles salen exclusivamente de estos planes; no hay un rango mínimo/máximo.</text>
+                                }
                             </div>
-                            <p class="cp-hint">Rige solo cuando no hay cuotas especificas activas abajo. Los perfiles pueden reemplazarlo para clientes o ventas puntuales.</p>
                         </div>
                     </div>
 
@@ -324,8 +352,8 @@
                 <div class="mt-6 pt-5 border-t border-slate-800">
                     <div class="flex items-start justify-between gap-3 flex-wrap mb-3">
                         <div class="min-w-0">
-                            <h3 class="text-sm font-semibold text-white">Tasa por cantidad de cuotas</h3>
-                            <p class="text-xs text-slate-400 mt-0.5">Asigna una tasa mensual propia a cantidades de cuota puntuales.</p>
+                            <h3 class="text-sm font-semibold text-white">Recargo por cantidad de cuotas</h3>
+                            <p class="text-xs text-slate-400 mt-0.5">Asigna un recargo total propio (aplicado una sola vez) a cantidades de cuota puntuales.</p>
                         </div>
                         @if (puedeEditar)
                         {
@@ -335,17 +363,17 @@
                         }
                     </div>
 
-                    <div id="cp-modo" class="cp-modo mb-4 @(hayEspecificas ? "is-especifico" : "is-rango")">
-                        <span id="cp-modo-icon" class="material-symbols-outlined text-[17px] shrink-0">@(hayEspecificas ? "check_circle" : "info")</span>
+                    <div id="cp-modo" class="cp-modo mb-4 @(hayEspecificas ? "is-especifico" : "is-sinplanes")">
+                        <span id="cp-modo-icon" class="material-symbols-outlined text-[17px] shrink-0">@(hayEspecificas ? "check_circle" : "warning")</span>
                         <div class="min-w-0">
                             <p id="cp-modo-title" class="text-sm text-slate-200 font-medium leading-snug">
                                 @if (hayEspecificas)
                                 {
-                                    <text>Cuotas especificas activas: solo se habilitan estas cantidades. El rango de arriba no se usa.</text>
+                                    <text>Estos planes activos son la única fuente de cantidades disponibles. Solo se habilitan estas cantidades de cuota.</text>
                                 }
                                 else
                                 {
-                                    <text>Modo rango unico: se habilita todo el rango de arriba con la tasa unica. Activa cuotas para habilitar cantidades y tasas puntuales.</text>
+                                    <text>Sin planes globales activos: Crédito Personal no ofrece cuotas. Agregá al menos un plan activo para habilitar cantidades.</text>
                                 }
                             </p>
                             <div id="cp-modo-chips" class="cp-chips mt-1.5">
@@ -358,6 +386,13 @@
                     </div>
 
                     <span asp-validation-for="CuotasCreditoPersonal" class="block mb-3 text-xs text-red-400"></span>
+
+                    <p class="cp-hint mb-3">
+                        <span class="font-semibold text-cyan-300">Recargo vacío</span> = hereda el recargo global
+                        (@dg.TasaMensual.ToString("0.##")%). <span class="font-semibold text-cyan-300">0</span> = sin recargo.
+                        El porcentaje se aplica <strong class="text-slate-300">una única vez</strong> sobre el saldo
+                        financiado (ej: 6 cuotas al 10 % sobre $100.000 → recargo $10.000, total financiado $110.000). No se aplica mes a mes ni se compone.
+                    </p>
 
                     @if (cuotasCredito.Count > 0)
                     {
@@ -382,10 +417,12 @@
                                     </div>
 
                                     <div class="mt-3">
-                                        <label asp-for="CuotasCreditoPersonal[i].TasaMensual" class="cp-label">Tasa mensual (%)</label>
+                                        <label asp-for="CuotasCreditoPersonal[i].TasaMensual" class="cp-label">Recargo total (%)</label>
                                         <input asp-for="CuotasCreditoPersonal[i].TasaMensual" type="number" step="0.01" min="0" max="100"
-                                               readonly="@(!puedeEditar)" class="cp-field font-mono" />
+                                               readonly="@(!puedeEditar)" placeholder="Global (@dg.TasaMensual.ToString("0.##")%)" class="cp-field font-mono"
+                                               data-preview-porcentaje data-preview-cuotas="@cuota.CantidadCuotas" data-preview-target="preview-cuota-@i" />
                                         <span asp-validation-for="CuotasCreditoPersonal[i].TasaMensual" class="text-xs text-red-400"></span>
+                                        <p class="cp-hint" id="preview-cuota-@i" data-preview-out>Ejemplo sobre $100.000: —</p>
                                     </div>
                                 </div>
                             }
@@ -394,8 +431,8 @@
                     else
                     {
                         <div class="rounded-xl border border-dashed border-slate-700 bg-slate-950/30 p-6 text-center">
-                            <span class="material-symbols-outlined text-slate-600 text-[28px]">view_timeline</span>
-                            <p class="mt-2 text-sm text-slate-500">Todavia no agregaste cuotas especificas. Rige el rango unico de arriba.</p>
+                            <span class="material-symbols-outlined text-amber-500/70 text-[28px]">warning</span>
+                            <p class="mt-2 text-sm text-slate-500">No hay planes de cuotas activos. Sin planes, Crédito Personal no ofrece cuotas: agregá al menos un plan.</p>
                         </div>
                     }
                 </div>
@@ -608,7 +645,261 @@
                     </div>
                 </div>
             </section>
-        </main>
+        </form>
+
+        @if (puedeVerPunitorio)
+        {
+            <section id="s7" class="cp-section">
+                <div class="cp-head">
+                    <div class="cp-icon" style="background:rgba(244,63,94,.12);color:#fda4af;">
+                        <span class="material-symbols-outlined">gavel</span>
+                    </div>
+                    <div class="min-w-0">
+                        <div class="cp-tag">Seccion 7</div>
+                        <h2 class="text-lg font-semibold text-white">Punitorios por mora</h2>
+                        <p class="text-sm text-slate-400 mt-0.5">Configuracion versionada del punitorio aplicado sobre cuotas vencidas. Cada cambio crea una version nueva; ninguna version existente se edita ni se elimina.</p>
+                    </div>
+                </div>
+
+                <div class="cp-card mb-4">
+                    <div class="flex flex-wrap items-center gap-2 mb-3">
+                        <span class="cp-pill @(pun.Actual.EsActiva ? "cp-pill-green" : pun.Actual.EsInactiva ? "cp-pill-amber" : "")">
+                            <span class="material-symbols-outlined text-sm">@(pun.Actual.EsActiva ? "check_circle" : pun.Actual.EsInactiva ? "pause_circle" : pun.Actual.EsCero ? "info" : "block")</span>
+                            @pun.Actual.EstadoTexto
+                        </span>
+                        @if (pun.Actual.VigenteDesde.HasValue)
+                        {
+                            <span class="text-xs text-slate-500">vigente desde @pun.Actual.VigenteDesde.Value.ToString("dd/MM/yyyy")</span>
+                        }
+                    </div>
+
+                    @if (pun.Actual.TieneConfiguracion)
+                    {
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+                            <div>
+                                <p class="cp-label mb-1!">Porcentaje</p>
+                                <p class="text-lg font-semibold text-white font-mono">@pun.Actual.Porcentaje?.ToString("0.##")%</p>
+                            </div>
+                            <div>
+                                <p class="cp-label mb-1!">Periodo</p>
+                                <p class="text-lg font-semibold text-white font-mono">@pun.Actual.PeriodoDias dias</p>
+                            </div>
+                            <div>
+                                <p class="cp-label mb-1!">Gracia</p>
+                                <p class="text-lg font-semibold text-white font-mono">@pun.Actual.DiasGracia dias</p>
+                            </div>
+                            <div>
+                                <p class="cp-label mb-1!">Prorrateo diario</p>
+                                <p class="text-lg font-semibold text-emerald-400">Si</p>
+                            </div>
+                        </div>
+                    }
+
+                    <p class="cp-hint">@pun.Actual.ReglaTexto</p>
+                </div>
+
+                @if (pun.Actual.ProximaVersion != null)
+                {
+                    var prox = pun.Actual.ProximaVersion;
+                    <div class="cp-notice mb-4">
+                        <span class="material-symbols-outlined text-cyan-300">upcoming</span>
+                        <div class="min-w-0">
+                            <p class="text-sm font-semibold text-white">Proximo cambio programado: @prox.VigenteDesde.ToString("dd/MM/yyyy")</p>
+                            <p class="text-xs text-slate-400 mt-0.5">
+                                @(prox.Activa
+                                    ? $"Pasara a {prox.Porcentaje.ToString("0.##")}% cada {prox.PeriodoDias} dia(s), con {prox.DiasGracia} dia(s) de gracia."
+                                    : "Pasara a inactiva: no se cobraran nuevos punitorios desde esa fecha.")
+                            </p>
+                            @if (!string.IsNullOrWhiteSpace(prox.MotivoCambio))
+                            {
+                                <p class="text-xs text-slate-500 mt-1">Motivo: @prox.MotivoCambio</p>
+                            }
+                            <p class="text-xs text-slate-500 mt-1">Por el versionado append-only, esta version no se puede editar ni cancelar: una nueva version siempre debe tener vigencia posterior a todas las existentes.</p>
+                        </div>
+                    </div>
+                }
+
+                @if (puedeGestionarPunitorio)
+                {
+                    <div class="cp-card mb-4">
+                        <h3 class="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-[18px] text-cyan-300">add_circle</span>
+                            Crear nueva version
+                        </h3>
+
+                        <form id="punitorio-form" asp-action="CrearVersionPunitorio" asp-controller="ConfiguracionPago" method="post">
+                            @Html.AntiForgeryToken()
+                            @if (!string.IsNullOrWhiteSpace(returnUrl))
+                            {
+                                <input type="hidden" name="returnUrl" value="@returnUrl" />
+                            }
+                            <input type="hidden" id="pun-hoy-comercial" value="@pun.HoyComercial.ToString("yyyy-MM-dd")" />
+
+                            <div asp-validation-summary="ModelOnly" class="mb-3 rounded-xl border border-rose-500/20 bg-rose-500/10 p-3 text-xs font-semibold text-rose-400 empty:hidden"></div>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
+                                <div>
+                                    <label asp-for="Punitorios!.CrearForm.VigenteDesde" class="cp-label"></label>
+                                    <input asp-for="Punitorios!.CrearForm.VigenteDesde" type="date" id="pun-vigente-desde" class="cp-field font-mono" />
+                                    <span asp-validation-for="Punitorios!.CrearForm.VigenteDesde" class="block mt-1 text-xs text-red-400"></span>
+                                </div>
+                                <div class="flex items-end">
+                                    <label class="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm font-semibold text-slate-300 cursor-pointer w-full h-[42px]">
+                                        <input asp-for="Punitorios!.CrearForm.Activa" type="checkbox" class="rounded border-slate-600 bg-slate-900 text-primary focus:ring-primary" />
+                                        Activa
+                                    </label>
+                                </div>
+                                <div>
+                                    <label asp-for="Punitorios!.CrearForm.Porcentaje" class="cp-label"></label>
+                                    <input asp-for="Punitorios!.CrearForm.Porcentaje" type="number" step="0.01" min="0" id="pun-porcentaje" class="cp-field font-mono"
+                                           data-preview-punitorio data-preview-target="pun-preview-out" />
+                                    <span asp-validation-for="Punitorios!.CrearForm.Porcentaje" class="block mt-1 text-xs text-red-400"></span>
+                                </div>
+                                <div>
+                                    <label asp-for="Punitorios!.CrearForm.PeriodoDias" class="cp-label"></label>
+                                    <input asp-for="Punitorios!.CrearForm.PeriodoDias" type="number" min="1" id="pun-periodo" class="cp-field font-mono"
+                                           data-preview-punitorio data-preview-target="pun-preview-out" />
+                                    <span asp-validation-for="Punitorios!.CrearForm.PeriodoDias" class="block mt-1 text-xs text-red-400"></span>
+                                </div>
+                                <div>
+                                    <label asp-for="Punitorios!.CrearForm.DiasGracia" class="cp-label"></label>
+                                    <input asp-for="Punitorios!.CrearForm.DiasGracia" type="number" min="0" id="pun-gracia" class="cp-field font-mono"
+                                           data-preview-punitorio data-preview-target="pun-preview-out" />
+                                    <span asp-validation-for="Punitorios!.CrearForm.DiasGracia" class="block mt-1 text-xs text-red-400"></span>
+                                </div>
+                                <div>
+                                    <p class="cp-label">Prorrateo diario</p>
+                                    <p class="cp-field flex items-center text-slate-400">Si (regla fija del sistema)</p>
+                                </div>
+                                <div class="sm:col-span-2">
+                                    <label asp-for="Punitorios!.CrearForm.MotivoCambio" class="cp-label"></label>
+                                    <textarea asp-for="Punitorios!.CrearForm.MotivoCambio" id="pun-motivo" rows="2" class="cp-field h-auto! py-2" placeholder="Motivo del cambio (obligatorio si la vigencia es retroactiva)"></textarea>
+                                    <span asp-validation-for="Punitorios!.CrearForm.MotivoCambio" class="block mt-1 text-xs text-red-400"></span>
+                                </div>
+                                <div class="sm:col-span-2">
+                                    <p class="cp-hint" id="pun-preview-out" data-preview-out>Ejemplo sobre $100.000: completa porcentaje, periodo y gracia para ver la vista previa.</p>
+                                </div>
+                            </div>
+
+                            <p class="cp-hint mt-3">Por el versionado append-only, la nueva vigencia debe ser posterior a todas las versiones existentes.</p>
+
+                            <div class="flex justify-end mt-4">
+                                <button type="submit" class="btn-erp-primary py-2 text-sm">
+                                    <span class="material-symbols-outlined text-[16px]">add</span>
+                                    Crear nueva version
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div id="m-punitorio-retro" class="hidden fixed inset-0 z-50 cp-modal-bg flex items-center justify-center p-4" data-punitorio-modal-backdrop>
+                        <div class="cp-modal-card w-full max-w-md p-6" role="dialog" aria-modal="true" aria-labelledby="punRetroTitulo" aria-describedby="punRetroDesc">
+                            <header class="flex items-start justify-between gap-3 mb-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-9 h-9 rounded-lg flex items-center justify-center bg-amber-500/10 text-amber-300 shrink-0">
+                                        <span class="material-symbols-outlined">warning</span>
+                                    </div>
+                                    <h3 id="punRetroTitulo" class="text-lg font-semibold text-white">Vigencia retroactiva</h3>
+                                </div>
+                                <button type="button" data-punitorio-modal-close class="rounded-lg border border-slate-700 bg-slate-800 p-1.5 text-slate-400 hover:text-white" aria-label="Cerrar">
+                                    <span class="material-symbols-outlined text-[17px]">close</span>
+                                </button>
+                            </header>
+                            <p id="punRetroDesc" class="text-sm text-slate-300 leading-relaxed mb-2">
+                                La fecha de vigencia elegida es anterior a hoy. Esta version se aplicara retroactivamente
+                                y quedara registrada como tal en el historial, junto con el motivo indicado.
+                            </p>
+                            <p class="text-xs text-slate-500 mb-5">Confirma para continuar con la creacion de esta version retroactiva.</p>
+                            <footer class="flex justify-end gap-2">
+                                <button type="button" data-punitorio-modal-close class="btn-erp-ghost">Cancelar</button>
+                                <button type="button" id="pun-confirmar-retro" class="btn-erp-primary">
+                                    <span class="material-symbols-outlined text-[15px]">check</span> Confirmar y crear
+                                </button>
+                            </footer>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="cp-notice cp-notice-warn mb-4">
+                        <span class="material-symbols-outlined text-amber-300">lock</span>
+                        <p class="text-sm text-slate-300">No tenes permiso para crear nuevas versiones de punitorios. Contacta a un administrador.</p>
+                    </div>
+                }
+
+                <div>
+                    <h3 class="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-[18px] text-slate-400">history</span>
+                        Historial de versiones
+                        <span class="ml-auto text-xs font-normal text-slate-500">@pun.Historial.Count registro(s)</span>
+                    </h3>
+
+                    @if (pun.Historial.Count > 0)
+                    {
+                        <div class="overflow-x-auto rounded-xl border border-slate-800">
+                            <table class="w-full text-sm">
+                                <thead>
+                                    <tr class="border-b border-slate-800 bg-slate-800/50">
+                                        <th class="px-3 py-2 text-left font-medium text-slate-400">Vigente desde</th>
+                                        <th class="px-3 py-2 text-center font-medium text-slate-400">Estado</th>
+                                        <th class="px-3 py-2 text-right font-medium text-slate-400">Porcentaje</th>
+                                        <th class="px-3 py-2 text-right font-medium text-slate-400">Periodo</th>
+                                        <th class="px-3 py-2 text-right font-medium text-slate-400">Gracia</th>
+                                        <th class="px-3 py-2 text-left font-medium text-slate-400">Motivo</th>
+                                        <th class="px-3 py-2 text-left font-medium text-slate-400">Creada por</th>
+                                        <th class="px-3 py-2 text-left font-medium text-slate-400">Fecha creacion</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-800">
+                                    @foreach (var v in pun.Historial)
+                                    {
+                                        <tr class="hover:bg-slate-800/50 transition-colors @(v.EsVigenteHoy ? "bg-emerald-900/10" : "")">
+                                            <td class="px-3 py-2 text-slate-300 font-mono text-xs">@v.VigenteDesde.ToString("dd/MM/yyyy")</td>
+                                            <td class="px-3 py-2 text-center">
+                                                @if (v.EsVigenteHoy)
+                                                {
+                                                    <span class="badge-erp badge-erp-success">vigente</span>
+                                                }
+                                                else if (v.EsFutura)
+                                                {
+                                                    <span class="badge-erp badge-erp-info">futura</span>
+                                                }
+                                                else if (!v.Activa)
+                                                {
+                                                    <span class="badge-erp badge-erp-warning">inactiva</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge-erp">historica</span>
+                                                }
+                                                @if (v.EsRetroactiva)
+                                                {
+                                                    <span class="badge-erp badge-erp-danger ml-1">retroactiva</span>
+                                                }
+                                            </td>
+                                            <td class="px-3 py-2 text-right font-mono text-slate-100">@v.Porcentaje.ToString("0.##")%</td>
+                                            <td class="px-3 py-2 text-right text-slate-400">@v.PeriodoDias d</td>
+                                            <td class="px-3 py-2 text-right text-slate-400">@v.DiasGracia d</td>
+                                            <td class="px-3 py-2 text-slate-400 max-w-55 truncate" title="@v.MotivoCambio">@(string.IsNullOrWhiteSpace(v.MotivoCambio) ? "—" : v.MotivoCambio)</td>
+                                            <td class="px-3 py-2 text-slate-400">@(v.CreatedBy ?? "—")</td>
+                                            <td class="px-3 py-2 text-slate-400 text-xs">@v.CreatedAt.ToString("dd/MM/yyyy HH:mm")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="px-6 py-10 text-center text-sm text-slate-400 rounded-xl border border-slate-800">
+                            <span class="material-symbols-outlined text-3xl block mb-2">history</span>
+                            No hay versiones de punitorios registradas.
+                        </div>
+                    }
+                </div>
+            </section>
+        }
+    </main>
     </div>
 
     @if (puedeEditar)
@@ -664,7 +955,7 @@
 
                 <footer class="mt-5 flex justify-end gap-2">
                     <button type="button" data-close-modal="m-perfil" class="btn-erp-ghost">Cancelar</button>
-                    <button type="submit" class="btn-erp-primary">
+                    <button type="submit" form="credito-config-form" class="btn-erp-primary">
                         <span class="material-symbols-outlined text-[15px]">add</span> Crear perfil
                     </button>
                 </footer>
@@ -676,7 +967,7 @@
                 <header class="flex items-start justify-between gap-3 mb-5">
                     <div>
                         <h3 id="nuevaCuotaTitulo" class="text-lg font-semibold text-white">Nueva cuota de credito personal</h3>
-                        <p class="text-xs text-slate-500 mt-0.5">Cantidad de cuotas y su tasa mensual propia.</p>
+                        <p class="text-xs text-slate-500 mt-0.5">Cantidad de cuotas y su recargo total propio (aplicado una sola vez).</p>
                     </div>
                     <button type="button" data-close-modal="m-cuota" class="rounded-lg border border-slate-700 bg-slate-800 p-1.5 text-slate-400 hover:text-white" aria-label="Cerrar">
                         <span class="material-symbols-outlined text-[17px]">close</span>
@@ -692,8 +983,12 @@
                         <input id="nuevaCuotaCantidad" name="nuevaCuotaCantidad" type="number" min="1" max="120" value="" class="cp-field font-mono" />
                     </div>
                     <div>
-                        <label for="nuevaCuotaTasaMensual" class="cp-label">Tasa mensual (%)</label>
-                        <input id="nuevaCuotaTasaMensual" name="nuevaCuotaTasaMensual" type="number" step="0.01" min="0" max="100" value="0" class="cp-field font-mono" />
+                        <label for="nuevaCuotaTasaMensual" class="cp-label">Recargo total (%)</label>
+                        <input id="nuevaCuotaTasaMensual" name="nuevaCuotaTasaMensual" type="number" step="0.01" min="0" max="100" value="" placeholder="Vacío = hereda global" class="cp-field font-mono"
+                               data-preview-porcentaje data-preview-cuotas-input="nuevaCuotaCantidad" data-preview-target="preview-nueva-cuota" />
+                    </div>
+                    <div class="sm:col-span-2">
+                        <p class="cp-hint" id="preview-nueva-cuota" data-preview-out>Ejemplo sobre $100.000: —</p>
                     </div>
                     <div class="sm:col-span-2 flex items-end">
                         <label class="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm font-semibold text-slate-300 cursor-pointer w-full h-[42px]">
@@ -705,7 +1000,7 @@
 
                 <footer class="mt-5 flex justify-end gap-2">
                     <button type="button" data-close-modal="m-cuota" class="btn-erp-ghost">Cancelar</button>
-                    <button type="submit" class="btn-erp-primary">
+                    <button type="submit" form="credito-config-form" class="btn-erp-primary">
                         <span class="material-symbols-outlined text-[15px]">add</span> Agregar cuota
                     </button>
                 </footer>
@@ -713,7 +1008,7 @@
         </div>
     }
 
-    <div class="cp-savebar mt-6 py-3 px-4 flex items-center justify-between gap-3 flex-wrap rounded-b-xl">
+    <div id="cp-savebar" class="cp-savebar mt-6 py-3 px-4 flex items-center justify-between gap-3 flex-wrap rounded-b-xl">
         @if (puedeEditar)
         {
             <p class="text-xs text-slate-500 flex items-center gap-1.5">
@@ -722,7 +1017,7 @@
             </p>
             <div class="flex gap-2">
                 <a href="@volverHref" class="btn-erp-ghost py-2 text-sm no-underline">Descartar</a>
-                <button type="submit" class="btn-erp-primary py-2 text-sm">
+                <button type="submit" form="credito-config-form" class="btn-erp-primary py-2 text-sm">
                     <span class="material-symbols-outlined text-[16px]">save</span>
                     Guardar configuracion
                 </button>
@@ -737,13 +1032,12 @@
             <a href="@volverHref" class="btn-erp-ghost py-2 text-sm no-underline">Volver</a>
         }
     </div>
-</form>
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
     <script>
     (function () {
-        var CREDIT_SECTIONS = ['s1', 's2', 's3', 's4', 's5', 's6'];
+        var CREDIT_SECTIONS = ['s1', 's2', 's3', 's4', 's5', 's6', 's7'];
 
         function money(value) {
             var number = parseFloat(value || '0');
@@ -752,35 +1046,120 @@
 
         function updateSummary() {
             var tasa = document.querySelector('[data-summary="tasa"]');
-            var minC = document.querySelector('[data-summary="min-cuotas"]');
-            var maxC = document.querySelector('[data-summary="max-cuotas"]');
             var gastos = document.querySelector('[data-summary="gastos"]');
             var rTasa = document.getElementById('r-tasa');
-            var rCuotas = document.getElementById('r-cuotas');
             var rGastos = document.getElementById('r-gastos');
 
             if (tasa && rTasa) rTasa.textContent = parseFloat(tasa.value || '0').toFixed(2) + ' %';
-            if (minC && maxC && rCuotas) rCuotas.textContent = (minC.value || '?') + ' - ' + (maxC.value || '?');
             if (gastos && rGastos) rGastos.textContent = money(gastos.value);
+            // El resumen de planes activos (r-cuotas) lo mantiene updateCuotasMode: sale de los
+            // planes, no de un rango.
         }
 
-        function updateTea() {
-            var tasaEl = document.querySelector('[data-summary="tasa"]');
-            var hint = document.getElementById('s2-tea-hint');
-            if (!tasaEl || !hint) return;
+        // Previsualizacion de recargo TOTAL (no mensual, no compuesta): pega al mismo endpoint
+        // que reutiliza FinancialCalculationService.SimularPlanCredito, la unica formula
+        // canonica. El JS no calcula nada financiero por su cuenta; solo pinta la respuesta.
+        // Es previsualizacion visual, best-effort: nunca es autoridad para guardar (el POST de
+        // guardado vuelve a validar el porcentaje server-side, sin depender de este fetch).
+        var PREVIEW_URL = '@Url.Action("PreviewRecargoCreditoPersonal", "ConfiguracionPago")';
+        var previewTimers = new Map();
 
-            var tasa = parseFloat(tasaEl.value || '0');
-            if (tasa <= 0) {
-                hint.textContent = '';
+        function moneyPreview(value) {
+            var n = Number(value) || 0;
+            return '$ ' + n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function resolverCuotasPreview(input) {
+            if (input.hasAttribute('data-preview-cuotas')) {
+                var fijo = parseInt(input.getAttribute('data-preview-cuotas'), 10);
+                return isNaN(fijo) ? null : fijo;
+            }
+            var inputId = input.getAttribute('data-preview-cuotas-input');
+            var origen = inputId ? document.getElementById(inputId) : null;
+            var n = origen ? parseInt(origen.value, 10) : NaN;
+            return (isNaN(n) || n < 1) ? null : n;
+        }
+
+        function ejecutarPreview(input) {
+            var out = document.getElementById(input.getAttribute('data-preview-target') || '');
+            var cuotas = resolverCuotasPreview(input);
+            var porcentajeRaw = input.value;
+            var hereda = false;
+
+            if (!out) return;
+
+            // Recargo propio vacio = hereda el recargo global (misma regla que persiste el
+            // guardado): la previsualizacion debe reflejar el valor efectivo, no quedar en blanco.
+            if (porcentajeRaw === '') {
+                var globalInput = document.querySelector('[data-summary="tasa"]');
+                if (globalInput && globalInput !== input && globalInput.value !== '') {
+                    porcentajeRaw = globalInput.value;
+                    hereda = true;
+                }
+            }
+
+            if (porcentajeRaw === '' || cuotas === null) {
+                out.textContent = '';
                 return;
             }
 
-            var tea = (Math.pow(1 + tasa / 100, 12) - 1) * 100;
-            hint.textContent = 'TEA aprox. ' + tea.toFixed(2) + '%';
+            var porcentaje = parseFloat(porcentajeRaw);
+            if (isNaN(porcentaje) || porcentaje < 0) {
+                out.textContent = '';
+                return;
+            }
+
+            var url = PREVIEW_URL + '?cuotas=' + encodeURIComponent(cuotas) +
+                '&porcentajeRecargoTotal=' + encodeURIComponent(porcentaje);
+
+            fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .then(function (data) {
+                    if (!data) { out.textContent = ''; return; }
+                    var prefijo = hereda ? '(hereda global, ' + porcentaje + ' %) ' : '';
+                    if (cuotas <= 1) {
+                        out.textContent = prefijo + 'Recargo ' + moneyPreview(data.recargoTotal) +
+                            ' · Total financiado ' + moneyPreview(data.totalFinanciado);
+                        return;
+                    }
+                    // El vector de cuotas viene ya resuelto del servidor (misma fuente que
+                    // persiste el guardado real): solo se lee, nunca se recalcula ni se
+                    // reconstruye por multiplicacion (eso podria no cerrar contra
+                    // totalFinanciado cuando el residuo de redondeo cae en la ultima cuota).
+                    var vector = data.cuotas;
+                    var regular = vector[0].total;
+                    var ultima = vector[vector.length - 1].total;
+                    var textoCuotas = (regular === ultima)
+                        ? (cuotas + ' cuotas de ' + moneyPreview(regular))
+                        : ((cuotas - 1) + ' cuotas de ' + moneyPreview(regular) +
+                            ' · última cuota ' + moneyPreview(ultima));
+                    out.textContent = prefijo + 'Ejemplo sobre $100.000: recargo ' + moneyPreview(data.recargoTotal) +
+                        ' · total financiado ' + moneyPreview(data.totalFinanciado) +
+                        ' · ' + textoCuotas;
+                })
+                .catch(function () { /* previsualizacion best-effort: sin bloquear la edicion */ });
         }
 
-        // Refleja en vivo el modo real que resuelve el backend: si hay al menos una cuota
-        // especifica activa, solo esas cantidades quedan habilitadas y el rango se ignora.
+        function programarPreview(input) {
+            if (previewTimers.has(input)) clearTimeout(previewTimers.get(input));
+            previewTimers.set(input, setTimeout(function () { ejecutarPreview(input); }, 250));
+        }
+
+        function inicializarPreviews() {
+            document.querySelectorAll('[data-preview-porcentaje]').forEach(function (input) {
+                input.addEventListener('input', function () { programarPreview(input); });
+                ejecutarPreview(input);
+            });
+
+            var nuevaCuotaCantidadEl = document.getElementById('nuevaCuotaCantidad');
+            var nuevaCuotaTasaEl = document.getElementById('nuevaCuotaTasaMensual');
+            if (nuevaCuotaCantidadEl && nuevaCuotaTasaEl) {
+                nuevaCuotaCantidadEl.addEventListener('input', function () { programarPreview(nuevaCuotaTasaEl); });
+            }
+        }
+
+        // Refleja en vivo la unica fuente de cantidades: los planes activos. Sin planes activos,
+        // Credito Personal no ofrece cuotas (no hay rango de respaldo).
         function updateCuotasMode() {
             var modo = document.getElementById('cp-modo');
             if (!modo) return;
@@ -788,8 +1167,7 @@
             var title = document.getElementById('cp-modo-title');
             var icon = document.getElementById('cp-modo-icon');
             var chips = document.getElementById('cp-modo-chips');
-            var rango = document.getElementById('cp-rango-block');
-            var rangoTag = document.getElementById('cp-rango-tag');
+            var rCuotas = document.getElementById('r-cuotas');
 
             var activas = [];
             document.querySelectorAll('[data-cuota-card]').forEach(function (card) {
@@ -804,9 +1182,9 @@
 
             if (activas.length > 0) {
                 modo.classList.add('is-especifico');
-                modo.classList.remove('is-rango');
+                modo.classList.remove('is-sinplanes');
                 if (icon) icon.textContent = 'check_circle';
-                if (title) title.textContent = 'Cuotas especificas activas: solo se habilitan estas cantidades. El rango de arriba no se usa.';
+                if (title) title.textContent = 'Estos planes activos son la unica fuente de cantidades disponibles. Solo se habilitan estas cantidades de cuota.';
                 if (chips) {
                     chips.innerHTML = '';
                     activas.forEach(function (n) {
@@ -816,19 +1194,20 @@
                         chips.appendChild(c);
                     });
                 }
-                if (rango) rango.classList.add('is-overridden');
-                if (rangoTag) rangoTag.classList.remove('hidden');
+                if (rCuotas) {
+                    rCuotas.textContent = activas.join(', ');
+                    rCuotas.className = 'mt-1.5 text-xl font-semibold text-white font-mono';
+                }
             } else {
-                modo.classList.add('is-rango');
+                modo.classList.add('is-sinplanes');
                 modo.classList.remove('is-especifico');
-                if (icon) icon.textContent = 'info';
-                var minC = document.querySelector('[data-summary="min-cuotas"]');
-                var maxC = document.querySelector('[data-summary="max-cuotas"]');
-                var rangoStr = (minC && maxC) ? (minC.value || '?') + ' a ' + (maxC.value || '?') : 'el rango de arriba';
-                if (title) title.textContent = 'Modo rango unico: se habilita de ' + rangoStr + ' cuotas con la tasa unica. Activa cuotas para habilitar cantidades y tasas puntuales.';
+                if (icon) icon.textContent = 'warning';
+                if (title) title.textContent = 'Sin planes globales activos: Credito Personal no ofrece cuotas. Agrega al menos un plan activo para habilitar cantidades.';
                 if (chips) chips.innerHTML = '';
-                if (rango) rango.classList.remove('is-overridden');
-                if (rangoTag) rangoTag.classList.add('hidden');
+                if (rCuotas) {
+                    rCuotas.textContent = 'Sin planes activos';
+                    rCuotas.className = 'mt-1.5 text-sm font-semibold text-amber-300 font-mono';
+                }
             }
         }
 
@@ -847,6 +1226,11 @@
             var select = document.getElementById('msel');
             if (select) select.value = id;
 
+            // s7 (Punitorios) tiene su propio form/boton de guardado: la barra sticky de
+            // "Guardar configuracion" (ligada a credito-config-form) no aplica ahi.
+            var savebar = document.getElementById('cp-savebar');
+            if (savebar) savebar.classList.toggle('hidden', id === 's7');
+
             try { history.replaceState(null, '', '#' + id); } catch (e) { }
         }
 
@@ -862,6 +1246,184 @@
             if (!el) return;
             el.classList.add('hidden');
             document.body.style.overflow = '';
+        }
+
+        // ── PUN-ML8: preview de punitorios (calculador server-side, nunca recalculado en JS) ──
+        var PUNITORIO_PREVIEW_URL = '@Url.Action("PreviewPunitorio", "ConfiguracionPago")';
+        var punitorioPreviewTimer = null;
+
+        function punitorioEstadoSufijo(estado) {
+            switch (estado) {
+                case 'DentroDeGracia': return ' (dentro de gracia)';
+                case 'ConfiguracionInactiva': return ' (config. inactiva)';
+                case 'SinConfiguracion': return ' (sin config.)';
+                default: return '';
+            }
+        }
+
+        function ejecutarPreviewPunitorio() {
+            var out = document.getElementById('pun-preview-out');
+            var porcentajeEl = document.getElementById('pun-porcentaje');
+            var periodoEl = document.getElementById('pun-periodo');
+            var graciaEl = document.getElementById('pun-gracia');
+            if (!out || !porcentajeEl || !periodoEl || !graciaEl) return;
+
+            var porcentaje = parseFloat(porcentajeEl.value);
+            var periodo = parseInt(periodoEl.value, 10);
+            var gracia = parseInt(graciaEl.value, 10);
+
+            if (isNaN(porcentaje) || porcentaje < 0 || isNaN(periodo) || periodo < 1 || isNaN(gracia) || gracia < 0) {
+                out.textContent = 'Completá porcentaje, período y gracia para ver la vista previa.';
+                return;
+            }
+
+            var url = PUNITORIO_PREVIEW_URL + '?porcentaje=' + encodeURIComponent(porcentaje) +
+                '&periodoDias=' + encodeURIComponent(periodo) + '&diasGracia=' + encodeURIComponent(gracia);
+
+            fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .then(function (data) {
+                    if (!data || !data.puntos) { out.textContent = ''; return; }
+                    // El texto se arma acá; los importes vienen del calculador server-side
+                    // (IPunitorioCalculator) — nunca se recalcula la fórmula en el cliente.
+                    var partes = data.puntos.map(function (p) {
+                        var importe = (p.importe === null || typeof p.importe === 'undefined')
+                            ? '—'
+                            : moneyPreview(p.importe);
+                        return p.etiqueta + ': ' + importe + punitorioEstadoSufijo(p.estado);
+                    });
+                    out.textContent = 'Ejemplo sobre $100.000: ' + partes.join(' · ');
+                })
+                .catch(function () { /* previsualizacion best-effort: sin bloquear la edicion */ });
+        }
+
+        function programarPreviewPunitorio() {
+            if (punitorioPreviewTimer) clearTimeout(punitorioPreviewTimer);
+            punitorioPreviewTimer = setTimeout(ejecutarPreviewPunitorio, 250);
+        }
+
+        function inicializarPreviewPunitorio() {
+            var inputs = document.querySelectorAll('[data-preview-punitorio]');
+            if (inputs.length === 0) return;
+            inputs.forEach(function (input) {
+                input.addEventListener('input', programarPreviewPunitorio);
+            });
+            ejecutarPreviewPunitorio();
+        }
+
+        // ── PUN-ML8: modal de confirmacion retroactiva, con foco atrapado y retorno de foco ──
+        var punitorioFocusReturnEl = null;
+        var punitorioFocusTrapHandler = null;
+
+        function punitorioFocusablesEnModal(modal) {
+            return Array.prototype.slice
+                .call(modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'))
+                .filter(function (el) { return !el.disabled && el.offsetParent !== null; });
+        }
+
+        function abrirModalPunitorioRetro() {
+            var modal = document.getElementById('m-punitorio-retro');
+            if (!modal) return;
+
+            punitorioFocusReturnEl = document.activeElement;
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+
+            var focusables = punitorioFocusablesEnModal(modal);
+            if (focusables.length > 0) focusables[0].focus();
+
+            punitorioFocusTrapHandler = function (event) {
+                if (event.key === 'Escape') {
+                    event.preventDefault();
+                    cerrarModalPunitorioRetro();
+                    return;
+                }
+                if (event.key !== 'Tab') return;
+
+                var items = punitorioFocusablesEnModal(modal);
+                if (items.length === 0) return;
+
+                var first = items[0];
+                var last = items[items.length - 1];
+
+                if (event.shiftKey && document.activeElement === first) {
+                    event.preventDefault();
+                    last.focus();
+                } else if (!event.shiftKey && document.activeElement === last) {
+                    event.preventDefault();
+                    first.focus();
+                }
+            };
+            document.addEventListener('keydown', punitorioFocusTrapHandler);
+        }
+
+        function cerrarModalPunitorioRetro() {
+            var modal = document.getElementById('m-punitorio-retro');
+            if (!modal) return;
+
+            modal.classList.add('hidden');
+            document.body.style.overflow = '';
+
+            if (punitorioFocusTrapHandler) {
+                document.removeEventListener('keydown', punitorioFocusTrapHandler);
+                punitorioFocusTrapHandler = null;
+            }
+            if (punitorioFocusReturnEl && typeof punitorioFocusReturnEl.focus === 'function') {
+                punitorioFocusReturnEl.focus();
+            }
+            punitorioFocusReturnEl = null;
+        }
+
+        function inicializarConfirmacionRetroactivaPunitorio() {
+            var form = document.getElementById('punitorio-form');
+            var modal = document.getElementById('m-punitorio-retro');
+            if (!form || !modal) return;
+
+            var hoyInput = document.getElementById('pun-hoy-comercial');
+            var vigenteDesdeInput = document.getElementById('pun-vigente-desde');
+            var motivoInput = document.getElementById('pun-motivo');
+            var confirmado = false;
+
+            form.addEventListener('submit', function (event) {
+                if (confirmado) return; // ya se confirmo en el modal: dejar pasar el submit real.
+                if (!hoyInput || !vigenteDesdeInput || !vigenteDesdeInput.value) return;
+
+                var esRetroactiva = vigenteDesdeInput.value < hoyInput.value;
+                if (!esRetroactiva) return;
+
+                event.preventDefault();
+
+                if (!motivoInput || motivoInput.value.trim() === '') {
+                    if (motivoInput) motivoInput.focus();
+                    return;
+                }
+
+                abrirModalPunitorioRetro();
+            });
+
+            modal.querySelectorAll('[data-punitorio-modal-close]').forEach(function (btn) {
+                btn.addEventListener('click', cerrarModalPunitorioRetro);
+            });
+
+            modal.querySelectorAll('[data-punitorio-modal-backdrop]').forEach(function (backdrop) {
+                backdrop.addEventListener('click', function (event) {
+                    if (event.target === backdrop) cerrarModalPunitorioRetro();
+                });
+            });
+            if (modal.hasAttribute('data-punitorio-modal-backdrop')) {
+                modal.addEventListener('click', function (event) {
+                    if (event.target === modal) cerrarModalPunitorioRetro();
+                });
+            }
+
+            var confirmarBtn = document.getElementById('pun-confirmar-retro');
+            if (confirmarBtn) {
+                confirmarBtn.addEventListener('click', function () {
+                    confirmado = true;
+                    cerrarModalPunitorioRetro();
+                    form.submit();
+                });
+            }
         }
 
         document.querySelectorAll('[data-open-modal]').forEach(function (btn) {
@@ -898,7 +1460,6 @@
         document.querySelectorAll('[data-summary]').forEach(function (input) {
             input.addEventListener('input', function () {
                 updateSummary();
-                updateTea();
                 updateCuotasMode();
             });
         });
@@ -907,10 +1468,16 @@
             chk.addEventListener('change', updateCuotasMode);
         });
 
+        // Tras un error de validacion en "Crear nueva version" (PUN-ML8) el controller
+        // re-renderiza esta misma vista y pide activar s7 explicitamente via ViewData —
+        // sin eso, el hash de la URL (que no cambia en un POST fallido) seguiria mandando.
+        var initSection = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(activeSection));
         var initHash = window.location.hash.replace('#', '');
-        showSection(CREDIT_SECTIONS.indexOf(initHash) !== -1 ? initHash : 's1');
-        updateTea();
+        showSection(initSection || (CREDIT_SECTIONS.indexOf(initHash) !== -1 ? initHash : 's1'));
         updateCuotasMode();
+        inicializarPreviews();
+        inicializarPreviewPunitorio();
+        inicializarConfirmacionRetroactivaPunitorio();
     })();
     </script>
 }

@@ -686,7 +686,7 @@
     align-items: flex-start;
     gap: 0.875rem;
     border-radius: 0.5rem;
-    border: 1px solid rgba(239, 68, 68, 0.3);
+    border: 1px solid transparent;
     background-color: rgba(239, 68, 68, 0.08);
     padding: 1rem 1.25rem;
     margin: 1rem 1.5rem 0;

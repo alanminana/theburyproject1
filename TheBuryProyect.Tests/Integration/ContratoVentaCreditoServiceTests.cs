@@ -128,6 +128,22 @@ public class ContratoVentaCreditoServiceTests : IDisposable
         Assert.Contains(resultado.Errores, e => e.Contains("negativa", StringComparison.OrdinalIgnoreCase));
     }
 
+    [Fact]
+    public async Task ValidarDatosParaGenerarAsync_CuotasEliminadas_ProyectaPlanVigente()
+    {
+        var venta = await SeedVentaCreditoAsync(new[]
+        {
+            DetalleSeed("P1", "Producto 1", subtotal: 1_210m, subtotalFinal: 1_210m)
+        }, total: 1_210m);
+        venta.Credito!.Cuotas.Single().IsDeleted = true;
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.ValidarDatosParaGenerarAsync(venta.Id);
+
+        Assert.True(resultado.EsValido);
+        Assert.DoesNotContain(resultado.Errores, e => e.Contains("plan de cuotas", StringComparison.OrdinalIgnoreCase));
+    }
+
     private async Task<Venta> SeedVentaCreditoAsync(
         IEnumerable<DetalleSeedData> detalles,
         decimal total,
@@ -249,8 +265,17 @@ public class ContratoVentaCreditoServiceTests : IDisposable
 
     private sealed record DetalleSeedData(string Codigo, string Nombre, decimal Subtotal, decimal SubtotalFinal);
 
+    /// <summary>
+    /// ML3: <see cref="ContratoVentaCreditoService.ConstruirPlanCuotas"/> ahora delega en
+    /// <see cref="IFinancialCalculationService.SimularPlanCredito"/> para el plan aún no
+    /// persistido (recargo total, no PMT). En vez de reimplementar la fórmula acá, se
+    /// delega a la implementación real — sigue siendo un "stub" en el sentido de que los
+    /// demás métodos (no usados por ContratoVentaCreditoService) permanecen simplificados.
+    /// </summary>
     private sealed class StubFinancialCalculationService : IFinancialCalculationService
     {
+        private readonly FinancialCalculationService _real = new();
+
         public decimal CalcularCuotaSistemaFrances(decimal monto, decimal tasaMensual, int cuotas)
             => cuotas > 0 ? Math.Round(monto / cuotas, 2, MidpointRounding.AwayFromZero) : 0m;
 
@@ -276,7 +301,9 @@ public class ContratoVentaCreditoServiceTests : IDisposable
             DateTime fechaPrimeraCuota,
             decimal semaforoRatioVerdeMax = 0.08m,
             decimal semaforoRatioAmarilloMax = 0.15m)
-            => throw new NotImplementedException();
+            => _real.SimularPlanCredito(
+                totalVenta, anticipo, cuotas, tasaMensual, gastosAdministrativos, fechaPrimeraCuota,
+                semaforoRatioVerdeMax, semaforoRatioAmarilloMax);
     }
 
     private sealed class StubWebHostEnvironment : IWebHostEnvironment

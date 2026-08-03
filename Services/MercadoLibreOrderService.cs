@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Data;
+using TheBuryProject.Helpers;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Models.DTOs;
@@ -576,6 +577,9 @@ namespace TheBuryProject.Services
                                                     (item.VariationId is null ? "" : $" var {item.VariationId}"), 200),
                             CreatedBy = usuario
                         };
+
+                        // Snapshot histórico de identidad del producto (Micro-lote 5), server-side.
+                        VentaDetalleProductoSnapshot.Capturar(detalle, producto);
 
                         venta.Detalles.Add(detalle);
 

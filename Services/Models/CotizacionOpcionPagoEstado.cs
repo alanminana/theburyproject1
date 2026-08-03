@@ -8,5 +8,6 @@ public enum CotizacionOpcionPagoEstado
     RequiereEvaluacion = 3,
     BloqueadoPorProducto = 4,
     PlanInactivo = 5,
-    CuotaInactiva = 6
+    CuotaInactiva = 6,
+    AnticipoInvalido = 7
 }

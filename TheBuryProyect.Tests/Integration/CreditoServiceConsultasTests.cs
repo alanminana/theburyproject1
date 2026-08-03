@@ -9,6 +9,7 @@ using TheBuryProject.Models.Enums;
 using TheBuryProject.Services;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.Services.Models;
+using TheBuryProject.Tests.Helpers;
 using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Tests.Integration;
@@ -19,11 +20,33 @@ namespace TheBuryProject.Tests.Integration;
 
 file sealed class StubCajaServiceConsultas : ICajaService
 {
+    // PUN-ML2: persiste de verdad (igual que CajaService real) porque PagoCuota.MovimientoCajaId
+    // es una FK real. La Caja/AperturaCaja (Id=1) la siembra el test antes de instanciar el stub.
+    private readonly AppDbContext _context;
+
+    public StubCajaServiceConsultas(AppDbContext context) => _context = context;
+
     public Task<decimal?> ObtenerUltimoEfectivoCierreAsync(int cajaId) => Task.FromResult<decimal?>(null);
-    public Task<MovimientoCaja?> RegistrarMovimientoCuotaAsync(
+    public async Task<MovimientoCaja?> RegistrarMovimientoCuotaAsync(
         int cuotaId, string creditoNumero, int numeroCuota,
         decimal monto, string medioPago, string usuario)
-        => Task.FromResult<MovimientoCaja?>(new MovimientoCaja());
+    {
+        var movimiento = new MovimientoCaja
+        {
+            AperturaCajaId = 1,
+            Tipo = TipoMovimientoCaja.Ingreso,
+            Concepto = ConceptoMovimientoCaja.CobroCuota,
+            Monto = monto,
+            ImporteBase = monto,
+            Descripcion = $"Cobro cuota #{numeroCuota} - Crédito {creditoNumero}",
+            ReferenciaId = cuotaId,
+            MedioPagoDetalle = medioPago,
+            Usuario = usuario
+        };
+        _context.MovimientosCaja.Add(movimiento);
+        await _context.SaveChangesAsync();
+        return movimiento;
+    }
 
     public Task<AperturaCaja?> ObtenerAperturaActivaParaUsuarioAsync(string usuario) => throw new NotImplementedException();
     public Task<List<Caja>> ObtenerTodasCajasAsync() => throw new NotImplementedException();
@@ -44,7 +67,8 @@ file sealed class StubCajaServiceConsultas : ICajaService
     public Task<decimal> CalcularSaldoRealAsync(int aperturaId) => throw new NotImplementedException();
     public Task<MovimientoCaja> AcreditarMovimientoAsync(int movimientoId, string usuario) => throw new NotImplementedException();
     public Task<MovimientoCaja?> RegistrarMovimientoVentaAsync(int ventaId, string ventaNumero, decimal monto, TipoPago tipoPago, string usuario) => throw new NotImplementedException();
-    public Task<AperturaCaja?> ObtenerAperturaActivaParaVentaAsync() => throw new NotImplementedException();
+    // El cobro y el adelanto de cuotas exigen caja abierta.
+    public Task<AperturaCaja?> ObtenerAperturaActivaParaVentaAsync() => Task.FromResult<AperturaCaja?>(new AperturaCaja { Id = 1 });
     public Task<MovimientoCaja?> RegistrarMovimientoAnticipoAsync(int creditoId, string creditoNumero, decimal montoAnticipo, string usuario) => throw new NotImplementedException();
     public Task<MovimientoCaja> RegistrarMovimientoDevolucionAsync(int devolucionId, int ventaId, string ventaNumero, string devolucionNumero, decimal monto, string usuario) => throw new NotImplementedException();
     public Task<MovimientoCaja?> RegistrarContramovimientoVentaAsync(int ventaId, string ventaNumero, string motivo, string usuario) => throw new NotImplementedException();
@@ -83,15 +107,6 @@ file sealed class StubCurrentUserServiceConsultas : ICurrentUserService
 /// <summary>
 /// Tests para CreditoService — métodos sin cobertura previa:
 ///
-/// SimularCreditoAsync (pure, sin DB):
-/// - Tasa cero → cuota = monto / cuotas
-/// - Tasa positiva → cuota > monto/cuotas
-/// - TotalAPagar = MontoCuota * CantidadCuotas
-/// - TotalIntereses = TotalAPagar - MontoSolicitado (tasa cero → 0)
-/// - PlanPagos tiene la cantidad exacta de entradas
-/// - Primera cuota del plan: SaldoCapital < MontoSolicitado
-/// - Última cuota del plan: SaldoCapital ≈ 0
-///
 /// AdelantarCuotaAsync (con DB):
 /// - Sin cuotas pendientes → retorna false
 /// - Paga la ÚLTIMA cuota pendiente, no la primera
@@ -128,6 +143,12 @@ public class CreditoServiceConsultasTests : IDisposable
 
         _context = new AppDbContext(options);
         _context.Database.EnsureCreated();
+        _context.Cajas.Add(new Caja { Id = 1, Codigo = "C1", Nombre = "Caja test", IsDeleted = false });
+        _context.AperturasCaja.Add(new AperturaCaja
+        {
+            Id = 1, CajaId = 1, MontoInicial = 0m, UsuarioApertura = "TestUser", Cerrada = false, IsDeleted = false
+        });
+        _context.SaveChanges();
 
         var mapper = new MapperConfiguration(
                 cfg => cfg.AddProfile<MappingProfile>(),
@@ -139,7 +160,7 @@ public class CreditoServiceConsultasTests : IDisposable
             mapper,
             NullLogger<CreditoService>.Instance,
             new FinancialCalculationService(),
-            new StubCajaServiceConsultas(),
+            new StubCajaServiceConsultas(_context),
             new StubCreditoDisponibleServiceConsultas(),
             new StubCurrentUserServiceConsultas());
     }
@@ -215,119 +236,6 @@ public class CreditoServiceConsultasTests : IDisposable
         _context.Cuotas.Add(cuota);
         await _context.SaveChangesAsync();
         return cuota;
-    }
-
-    // =========================================================================
-    // SimularCreditoAsync — pure (no DB)
-    // =========================================================================
-
-    [Fact]
-    public async Task Simular_TasaCero_CuotaEsMontoSobreCuotas()
-    {
-        var modelo = new SimularCreditoViewModel
-        {
-            MontoSolicitado = 12_000m,
-            TasaInteresMensual = 0m,
-            CantidadCuotas = 3
-        };
-
-        var resultado = await _service.SimularCreditoAsync(modelo);
-
-        Assert.Equal(4_000m, resultado.MontoCuota);
-    }
-
-    [Fact]
-    public async Task Simular_TasaCero_TotalInteresesEsCero()
-    {
-        var modelo = new SimularCreditoViewModel
-        {
-            MontoSolicitado = 12_000m,
-            TasaInteresMensual = 0m,
-            CantidadCuotas = 3
-        };
-
-        var resultado = await _service.SimularCreditoAsync(modelo);
-
-        Assert.Equal(0m, resultado.TotalIntereses);
-    }
-
-    [Fact]
-    public async Task Simular_TasaPositiva_CuotaMayorQueSinInteres()
-    {
-        var modelo = new SimularCreditoViewModel
-        {
-            MontoSolicitado = 12_000m,
-            TasaInteresMensual = 0.05m,
-            CantidadCuotas = 3
-        };
-
-        var resultado = await _service.SimularCreditoAsync(modelo);
-
-        Assert.True(resultado.MontoCuota > 12_000m / 3);
-    }
-
-    [Fact]
-    public async Task Simular_TotalAPagarEsCuotaTimesCuotas()
-    {
-        var modelo = new SimularCreditoViewModel
-        {
-            MontoSolicitado = 10_000m,
-            TasaInteresMensual = 0.03m,
-            CantidadCuotas = 6
-        };
-
-        var resultado = await _service.SimularCreditoAsync(modelo);
-
-        Assert.Equal(resultado.MontoCuota * resultado.CantidadCuotas, resultado.TotalAPagar);
-    }
-
-    [Fact]
-    public async Task Simular_PlanPagos_TieneCantidadCorrecta()
-    {
-        var modelo = new SimularCreditoViewModel
-        {
-            MontoSolicitado = 6_000m,
-            TasaInteresMensual = 0.02m,
-            CantidadCuotas = 6
-        };
-
-        var resultado = await _service.SimularCreditoAsync(modelo);
-
-        Assert.NotNull(resultado.PlanPagos);
-        Assert.Equal(6, resultado.PlanPagos!.Count);
-    }
-
-    [Fact]
-    public async Task Simular_PlanPagos_PrimeraCuotaReduceSaldo()
-    {
-        var modelo = new SimularCreditoViewModel
-        {
-            MontoSolicitado = 10_000m,
-            TasaInteresMensual = 0.03m,
-            CantidadCuotas = 3
-        };
-
-        var resultado = await _service.SimularCreditoAsync(modelo);
-
-        Assert.NotNull(resultado.PlanPagos);
-        Assert.True(resultado.PlanPagos[0].SaldoCapital < modelo.MontoSolicitado);
-    }
-
-    [Fact]
-    public async Task Simular_PlanPagos_UltimaCuotaSaldoCero()
-    {
-        var modelo = new SimularCreditoViewModel
-        {
-            MontoSolicitado = 10_000m,
-            TasaInteresMensual = 0.03m,
-            CantidadCuotas = 3
-        };
-
-        var resultado = await _service.SimularCreditoAsync(modelo);
-
-        Assert.NotNull(resultado.PlanPagos);
-        var ultimaCuota = resultado.PlanPagos.Last();
-        Assert.Equal(0m, ultimaCuota.SaldoCapital);
     }
 
     // =========================================================================
@@ -695,6 +603,85 @@ public class CreditoServiceConsultasTests : IDisposable
         Assert.Equal(1, resultado.Cuotas[0].NumeroCuota);
         Assert.Equal(2, resultado.Cuotas[1].NumeroCuota);
         Assert.Equal(3, resultado.Cuotas[2].NumeroCuota);
+    }
+
+    // =========================================================================
+    // CfteaPresentacion (GetByIdAsync) — no confiar en el 0 histórico
+    // =========================================================================
+
+    [Fact]
+    public async Task GetById_ConCuotasPersistidas_CalculaCfteaDesdeElTotalRealDeLasCuotas()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id, tasaInteres: 3m, estado: EstadoCredito.Generado);
+        credito.MontoAprobado = 132_000m;
+        credito.CantidadCuotas = 1;
+        credito.TotalAPagar = 135_960m;
+        credito.CFTEA = 42.58m; // snapshot ya calculado en ConfigurarCreditoAsync (ML11)
+        await _context.SaveChangesAsync();
+        await SeedCuotaAsync(credito.Id, 1, EstadoCuota.Pendiente, montoTotal: 135_960m);
+
+        var resultado = await _service.GetByIdAsync(credito.Id);
+
+        Assert.NotNull(resultado);
+        Assert.NotNull(resultado!.CfteaPresentacion);
+        Assert.Equal(42.58m, Math.Round(resultado.CfteaPresentacion!.Value, 2));
+    }
+
+    [Fact]
+    public async Task GetById_HistoricoConCFTEACeroPeroDatosSuficientes_SeRecalculaYNoQuedaEnCero()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id, tasaInteres: 10m, estado: EstadoCredito.Generado);
+        credito.MontoAprobado = 100_000m;
+        credito.CantidadCuotas = 12;
+        credito.TotalAPagar = 110_000m;
+        credito.CFTEA = 0m; // histórico: ConfigurarCreditoAsync nunca lo calculó antes de ML11
+        await _context.SaveChangesAsync();
+        // Sin cuotas persistidas: el resolver debe caer al fallback de TotalAPagar.
+
+        var resultado = await _service.GetByIdAsync(credito.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(0m, resultado!.CFTEA); // el snapshot histórico sigue en 0, intacto
+        Assert.NotNull(resultado.CfteaPresentacion);
+        Assert.Equal(10m, Math.Round(resultado.CfteaPresentacion!.Value, 2));
+    }
+
+    [Fact]
+    public async Task GetById_RecargoRealCero_MuestraCeroPorcientoNoNull()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id, tasaInteres: 0m, estado: EstadoCredito.Generado);
+        credito.MontoAprobado = 100_000m;
+        credito.CantidadCuotas = 3;
+        credito.TotalAPagar = 100_000m; // mismo importe que el saldo: recargo real 0%
+        credito.CFTEA = 0m;
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.GetByIdAsync(credito.Id);
+
+        Assert.NotNull(resultado);
+        Assert.True(resultado!.CfteaPresentacion.HasValue);
+        Assert.Equal(0m, resultado.CfteaPresentacion!.Value);
+    }
+
+    [Fact]
+    public async Task GetById_SinDatosSuficientes_CfteaPresentacionEsNull()
+    {
+        var cliente = await SeedClienteAsync();
+        // Configurado pero aún no confirmado: sin cuotas persistidas y TotalAPagar nunca seteado.
+        var credito = await SeedCreditoAsync(cliente.Id, tasaInteres: 10m, estado: EstadoCredito.Configurado);
+        credito.MontoAprobado = 100_000m;
+        credito.CantidadCuotas = 12;
+        credito.TotalAPagar = 0m;
+        credito.CFTEA = 0m;
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.GetByIdAsync(credito.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Null(resultado!.CfteaPresentacion);
     }
 
     // =========================================================================
@@ -1144,5 +1131,255 @@ public class CreditoServiceConsultasTests : IDisposable
         var resultado = await _service.GetCuotaByIdAsync(99999);
 
         Assert.Null(resultado);
+    }
+
+    // =========================================================================
+    // PUN-ML7 — frontera exacta de ActualizarEstadoCuotasAsync e idempotencia
+    // =========================================================================
+
+    private CreditoService CrearServicioConReloj(IRelojComercial reloj) =>
+        new(
+            _context,
+            new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>(), NullLoggerFactory.Instance).CreateMapper(),
+            NullLogger<CreditoService>.Instance,
+            new FinancialCalculationService(),
+            new StubCajaServiceConsultas(_context),
+            new StubCreditoDisponibleServiceConsultas(),
+            new StubCurrentUserServiceConsultas(),
+            reloj: reloj);
+
+    [Fact]
+    public async Task ActualizarEstados_FronteraExacta_DiaDelVencimiento_NoEsVencida()
+    {
+        var reloj = new RelojComercialFake(new DateOnly(2026, 6, 15));
+        var servicio = CrearServicioConReloj(reloj);
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        var cuota = new Cuota
+        {
+            CreditoId = credito.Id,
+            NumeroCuota = 1,
+            MontoCapital = 800m,
+            MontoInteres = 200m,
+            MontoTotal = 1_000m,
+            Estado = EstadoCuota.Pendiente,
+            FechaVencimiento = reloj.HoyComercial.ToDateTime(TimeOnly.MinValue) // vence hoy
+        };
+        _context.Cuotas.Add(cuota);
+        await _context.SaveChangesAsync();
+
+        await servicio.ActualizarEstadoCuotasAsync();
+
+        _context.ChangeTracker.Clear();
+        var actualizada = await _context.Cuotas.FindAsync(cuota.Id);
+        Assert.Equal(EstadoCuota.Pendiente, actualizada!.Estado);
+    }
+
+    [Fact]
+    public async Task ActualizarEstados_FronteraExacta_DiaSiguienteAlVencimiento_EsVencida()
+    {
+        var reloj = new RelojComercialFake(new DateOnly(2026, 6, 16));
+        var servicio = CrearServicioConReloj(reloj);
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        var cuota = new Cuota
+        {
+            CreditoId = credito.Id,
+            NumeroCuota = 1,
+            MontoCapital = 800m,
+            MontoInteres = 200m,
+            MontoTotal = 1_000m,
+            Estado = EstadoCuota.Pendiente,
+            FechaVencimiento = new DateOnly(2026, 6, 15).ToDateTime(TimeOnly.MinValue) // venció ayer
+        };
+        _context.Cuotas.Add(cuota);
+        await _context.SaveChangesAsync();
+
+        await servicio.ActualizarEstadoCuotasAsync();
+
+        _context.ChangeTracker.Clear();
+        var actualizada = await _context.Cuotas.FindAsync(cuota.Id);
+        Assert.Equal(EstadoCuota.Vencida, actualizada!.Estado);
+    }
+
+    [Fact]
+    public async Task ActualizarEstados_RepetidoElMismoDia_NoCambiaNada()
+    {
+        var reloj = new RelojComercialFake(new DateOnly(2026, 6, 16));
+        var servicio = CrearServicioConReloj(reloj);
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        var cuota = new Cuota
+        {
+            CreditoId = credito.Id,
+            NumeroCuota = 1,
+            MontoCapital = 800m,
+            MontoInteres = 200m,
+            MontoTotal = 1_000m,
+            Estado = EstadoCuota.Pendiente,
+            FechaVencimiento = new DateOnly(2026, 6, 15).ToDateTime(TimeOnly.MinValue)
+        };
+        _context.Cuotas.Add(cuota);
+        await _context.SaveChangesAsync();
+
+        await servicio.ActualizarEstadoCuotasAsync();
+        _context.ChangeTracker.Clear();
+        var trasPrimeraCorrida = await _context.Cuotas.AsNoTracking().SingleAsync(c => c.Id == cuota.Id);
+        Assert.Equal(EstadoCuota.Vencida, trasPrimeraCorrida.Estado);
+        var updatedAtTrasPrimera = trasPrimeraCorrida.UpdatedAt;
+
+        // Repetir la sincronización el mismo día no debe volver a tocar la fila.
+        await servicio.ActualizarEstadoCuotasAsync();
+
+        _context.ChangeTracker.Clear();
+        var trasSegundaCorrida = await _context.Cuotas.AsNoTracking().SingleAsync(c => c.Id == cuota.Id);
+        Assert.Equal(EstadoCuota.Vencida, trasSegundaCorrida.Estado);
+        Assert.Equal(updatedAtTrasPrimera, trasSegundaCorrida.UpdatedAt);
+    }
+
+    // =========================================================================
+    // PUN-ML7 — ResolverEstadoCuotaHistoricoAsync (consulta histórica derivada, no persiste)
+    // =========================================================================
+
+    [Fact]
+    public async Task ResolverEstadoCuotaHistorico_IgnoraPagosPosteriores()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        var cuota = new Cuota
+        {
+            CreditoId = credito.Id,
+            NumeroCuota = 1,
+            MontoCapital = 1_000m,
+            MontoInteres = 0m,
+            MontoTotal = 1_000m,
+            MontoPagado = 1_000m,
+            Estado = EstadoCuota.Pagada, // estado ACTUAL: totalmente pagada
+            FechaVencimiento = new DateOnly(2026, 6, 1).ToDateTime(TimeOnly.MinValue)
+        };
+        _context.Cuotas.Add(cuota);
+        await _context.SaveChangesAsync();
+
+        _context.PagosCuota.Add(new PagoCuota
+        {
+            CuotaId = cuota.Id,
+            FechaPagoComercial = new DateOnly(2026, 6, 5),
+            ImporteTotal = 400m,
+            ImporteAplicadoCuota = 400m,
+            Origen = OrigenPagoCuota.RegistradoPorSistema,
+            Estado = EstadoPagoCuota.Aplicado,
+            HistorialCompleto = true
+        });
+        _context.PagosCuota.Add(new PagoCuota
+        {
+            CuotaId = cuota.Id,
+            FechaPagoComercial = new DateOnly(2026, 6, 20), // posterior a la fecha consultada
+            ImporteTotal = 600m,
+            ImporteAplicadoCuota = 600m,
+            Origen = OrigenPagoCuota.RegistradoPorSistema,
+            Estado = EstadoPagoCuota.Aplicado,
+            HistorialCompleto = true
+        });
+        await _context.SaveChangesAsync();
+
+        // Al 2026-06-10 solo existía el primer pago (400 de 1000): la cuota estaba Parcial, no Pagada.
+        var estadoHistorico = await _service.ResolverEstadoCuotaHistoricoAsync(cuota.Id, new DateOnly(2026, 6, 10));
+
+        Assert.Equal(EstadoCuota.Parcial, estadoHistorico);
+    }
+
+    [Fact]
+    public async Task ResolverEstadoCuotaHistorico_NoPersisteNiModificaLaCuota()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        var cuota = new Cuota
+        {
+            CreditoId = credito.Id,
+            NumeroCuota = 1,
+            MontoCapital = 1_000m,
+            MontoInteres = 0m,
+            MontoTotal = 1_000m,
+            MontoPagado = 0m,
+            Estado = EstadoCuota.Pendiente,
+            FechaVencimiento = new DateOnly(2026, 6, 1).ToDateTime(TimeOnly.MinValue)
+        };
+        _context.Cuotas.Add(cuota);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var estadoHistorico = await _service.ResolverEstadoCuotaHistoricoAsync(cuota.Id, new DateOnly(2026, 7, 1));
+
+        Assert.Equal(EstadoCuota.Vencida, estadoHistorico); // resultado derivado correcto...
+        Assert.Empty(_context.ChangeTracker.Entries()); // ...pero AsNoTracking, nada quedó sucio
+
+        var cuotaBd = await _context.Cuotas.AsNoTracking().SingleAsync(c => c.Id == cuota.Id);
+        Assert.Equal(EstadoCuota.Pendiente, cuotaBd.Estado); // el estado persistido no se tocó
+    }
+
+    [Fact]
+    public async Task ResolverEstadoCuotaHistorico_EventoFuturoNoCambiaElResultadoHistorico()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        var cuota = new Cuota
+        {
+            CreditoId = credito.Id,
+            NumeroCuota = 1,
+            MontoCapital = 1_000m,
+            MontoInteres = 0m,
+            MontoTotal = 1_000m,
+            MontoPagado = 0m,
+            Estado = EstadoCuota.Vencida,
+            FechaVencimiento = new DateOnly(2026, 6, 1).ToDateTime(TimeOnly.MinValue)
+        };
+        _context.Cuotas.Add(cuota);
+        await _context.SaveChangesAsync();
+
+        var fechaConsulta = new DateOnly(2026, 6, 10);
+        var antes = await _service.ResolverEstadoCuotaHistoricoAsync(cuota.Id, fechaConsulta);
+
+        // Se agrega un evento posterior a la fecha consultada (aplicación de punitorio del 2026-06-20).
+        _context.PunitoriosAplicados.Add(new PunitorioAplicado
+        {
+            CuotaId = cuota.Id,
+            FechaCalculo = new DateOnly(2026, 6, 20),
+            SaldoBase = 1_000m,
+            DiasComputados = 19,
+            Importe = 50m,
+            Estado = EstadoPunitorioAplicado.Aplicado,
+            FechaAplicacion = new DateOnly(2026, 6, 20).ToDateTime(TimeOnly.MinValue),
+            MotivoAplicacion = "Evento futuro",
+            UsuarioAplicacion = "TestUser"
+        });
+        await _context.SaveChangesAsync();
+
+        var despues = await _service.ResolverEstadoCuotaHistoricoAsync(cuota.Id, fechaConsulta);
+
+        Assert.Equal(antes, despues);
+    }
+
+    [Fact]
+    public async Task ResolverEstadoCuotaHistorico_Cancelada_SiempreDevuelveCancelada()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        var cuota = new Cuota
+        {
+            CreditoId = credito.Id,
+            NumeroCuota = 1,
+            MontoCapital = 1_000m,
+            MontoInteres = 0m,
+            MontoTotal = 1_000m,
+            MontoPagado = 0m,
+            Estado = EstadoCuota.Cancelada,
+            FechaVencimiento = new DateOnly(2026, 6, 1).ToDateTime(TimeOnly.MinValue)
+        };
+        _context.Cuotas.Add(cuota);
+        await _context.SaveChangesAsync();
+
+        var estadoHistorico = await _service.ResolverEstadoCuotaHistoricoAsync(cuota.Id, new DateOnly(2025, 1, 1));
+
+        Assert.Equal(EstadoCuota.Cancelada, estadoHistorico);
     }
 }

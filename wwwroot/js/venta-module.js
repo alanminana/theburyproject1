@@ -65,6 +65,12 @@
         const config = options || {};
         const displayClass = config.displayClass || '';
         const bodyLock = createBodyLockController();
+        const focusableSelector = [
+            'a[href]', 'button:not([disabled])', 'input:not([disabled])',
+            'select:not([disabled])', 'textarea:not([disabled])',
+            '[tabindex]:not([tabindex="-1"])'
+        ].join(', ');
+        let triggerElement = null;
 
         function isOpen() {
             return !modal.classList.contains('hidden');
@@ -75,6 +81,7 @@
                 config.beforeOpen(modal, trigger);
             }
 
+            triggerElement = trigger instanceof HTMLElement ? trigger : document.activeElement;
             modal.classList.remove('hidden');
             if (displayClass) {
                 modal.classList.add(displayClass);
@@ -85,6 +92,11 @@
             if (typeof config.afterOpen === 'function') {
                 config.afterOpen(modal, trigger);
             }
+
+            const initialFocus = modal.querySelector('[data-modal-initial-focus]')
+                || modal.querySelector(focusableSelector)
+                || modal;
+            requestAnimationFrame(() => initialFocus.focus());
         }
 
         function close() {
@@ -102,6 +114,11 @@
             if (typeof config.afterClose === 'function') {
                 config.afterClose(modal);
             }
+
+            if (triggerElement instanceof HTMLElement && document.contains(triggerElement)) {
+                triggerElement.focus();
+            }
+            triggerElement = null;
         }
 
         document.addEventListener('click', function (event) {
@@ -129,6 +146,29 @@
         document.addEventListener('keydown', function (event) {
             if (event.key === 'Escape' && isOpen()) {
                 close();
+                return;
+            }
+
+            if (event.key !== 'Tab' || !isOpen()) {
+                return;
+            }
+
+            const focusable = Array.from(modal.querySelectorAll(focusableSelector))
+                .filter((element) => !element.hasAttribute('hidden'));
+            if (focusable.length === 0) {
+                event.preventDefault();
+                modal.focus();
+                return;
+            }
+
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
             }
         });
 

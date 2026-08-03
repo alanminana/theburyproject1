@@ -130,8 +130,11 @@ public class VentaControllerConfirmarCreditoPersonalTests
 
         var ventaService = new StubVentaService { VentaById = venta, ConfirmarCreditoResult = true };
         var validacionService = new StubValidacionVentaService { Resultado = new ValidacionVentaResult() };
+        // F2: la decisión de cobro se lee de la base (crédito), no del payload de confirmación.
         var creditoService = new StubCreditoService
         {
+            CobrarPrimeraCuotaSolicitadaStub = true,
+            MedioPagoPrimeraCuotaStub = "Transferencia",
             CobroResultado = new CobroPrimeraCuotaResultado
             {
                 Estado = EstadoCobroPrimeraCuota.Cobrada,
@@ -143,8 +146,7 @@ public class VentaControllerConfirmarCreditoPersonalTests
         };
         var controller = CreateController(ventaService, validacionService, creditoService);
 
-        var result = await controller.Confirmar(
-            venta.Id, cobrarPrimeraCuota: true, medioPagoPrimeraCuota: "Transferencia");
+        var result = await controller.Confirmar(venta.Id);
 
         Assert.IsType<RedirectToActionResult>(result);
         Assert.Equal(1, ventaService.ConfirmarVentaCreditoCallCount);
@@ -192,7 +194,7 @@ public class VentaControllerConfirmarCreditoPersonalTests
         var result = await controller.Details(venta.Id);
 
         Assert.IsType<ViewResult>(result);
-        Assert.True((bool)controller.ViewBag.OfrecerCobrarPrimeraCuota);
+        Assert.True((bool)controller.ViewBag.PrimeraCuotaVenceHoy);
     }
 
     [Fact]
@@ -209,7 +211,7 @@ public class VentaControllerConfirmarCreditoPersonalTests
         var result = await controller.Details(venta.Id);
 
         Assert.IsType<ViewResult>(result);
-        Assert.Null((object?)controller.ViewBag.OfrecerCobrarPrimeraCuota);
+        Assert.Null((object?)controller.ViewBag.PrimeraCuotaVenceHoy);
     }
 
     private static VentaViewModel CreateVentaCreditoPersonalBase() => new()
@@ -260,7 +262,10 @@ public class VentaControllerConfirmarCreditoPersonalTests
             new StubCajaService(),
             null!,
             new StubContratoVentaCreditoService(),
-            null!);
+            null!,
+            // Fecha comercial anclada al "hoy" del proceso: los stubs siembran FechaPrimeraCuota
+            // con DateTime.Today, de modo que el banner "vence hoy" queda determinista.
+            new TheBuryProject.Tests.Helpers.RelojComercialFake(DateOnly.FromDateTime(DateTime.Today)));
 
         controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
         controller.TempData = new TempDataDictionary(httpContext, new StubTempDataProvider());
@@ -300,7 +305,6 @@ public class VentaControllerConfirmarCreditoPersonalTests
         public Task<bool> GuardarDatosTarjetaAsync(int ventaId, DatosTarjetaViewModel datosTarjeta) => throw new NotImplementedException();
         public Task<bool> GuardarDatosChequeAsync(int ventaId, DatosChequeViewModel datosCheque) => throw new NotImplementedException();
         public Task<DatosTarjetaViewModel> CalcularCuotasTarjetaAsync(int tarjetaId, decimal monto, int cuotas) => throw new NotImplementedException();
-        public Task<DatosCreditoPersonallViewModel> CalcularCreditoPersonallAsync(int creditoId, decimal montoAFinanciar, int cuotas, DateTime fechaPrimeraCuota) => throw new NotImplementedException();
         public Task<DatosCreditoPersonallViewModel?> ObtenerDatosCreditoVentaAsync(int ventaId) => throw new NotImplementedException();
         public Task<bool> ValidarDisponibilidadCreditoAsync(int creditoId, decimal monto) => throw new NotImplementedException();
         public CalculoTotalesVentaResponse CalcularTotalesPreview(List<DetalleCalculoVentaRequest> detalles, decimal descuentoGeneral, bool descuentoEsPorcentaje) => throw new NotImplementedException();
@@ -329,12 +333,21 @@ public class VentaControllerConfirmarCreditoPersonalTests
         public CobroPrimeraCuotaResultado CobroResultado { get; set; } =
             CobroPrimeraCuotaResultado.NoAplica("La primera cuota no vence hoy.");
         public DateTime? FechaPrimeraCuotaStub { get; set; }
+        public bool CobrarPrimeraCuotaSolicitadaStub { get; set; }
+        public string? MedioPagoPrimeraCuotaStub { get; set; }
 
         public Task<CreditoViewModel?> GetByIdAsync(int id) => Task.FromResult<CreditoViewModel?>(
-            new CreditoViewModel { Id = id, Estado = EstadoCredito.Configurado, FechaPrimeraCuota = FechaPrimeraCuotaStub });
+            new CreditoViewModel
+            {
+                Id = id,
+                Estado = EstadoCredito.Configurado,
+                FechaPrimeraCuota = FechaPrimeraCuotaStub,
+                CobrarPrimeraCuotaSolicitada = CobrarPrimeraCuotaSolicitadaStub,
+                MedioPagoPrimeraCuota = MedioPagoPrimeraCuotaStub
+            });
 
         public Task<CobroPrimeraCuotaResultado> CobrarPrimeraCuotaAlGenerarAsync(
-            int creditoId, string medioPago, string? comprobante = null, string? observaciones = null)
+            int creditoId, string? medioPago = null, string? comprobante = null, string? observaciones = null)
         {
             CobrarPrimeraCuotaCallCount++;
             UltimoCreditoIdCobro = creditoId;
@@ -348,7 +361,6 @@ public class VentaControllerConfirmarCreditoPersonalTests
         public Task<CreditoViewModel> CreatePendienteConfiguracionAsync(int clienteId, decimal montoTotal) => throw new NotImplementedException();
         public Task<bool> UpdateAsync(CreditoViewModel viewModel) => throw new NotImplementedException();
         public Task<bool> DeleteAsync(int id) => throw new NotImplementedException();
-        public Task<SimularCreditoViewModel> SimularCreditoAsync(SimularCreditoViewModel modelo) => throw new NotImplementedException();
         public Task<bool> AprobarCreditoAsync(int creditoId, string aprobadoPor) => throw new NotImplementedException();
         public Task<bool> RechazarCreditoAsync(int creditoId, string motivo) => throw new NotImplementedException();
         public Task<bool> CancelarCreditoAsync(int creditoId, string motivo) => throw new NotImplementedException();

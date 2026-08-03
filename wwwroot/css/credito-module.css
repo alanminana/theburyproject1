@@ -232,7 +232,7 @@ header.topbar input[type="checkbox"],
 }
 
 .kpi--bad {
-  border-color: rgba(244, 63, 94, .4);
+  border-color: transparent;
   background: rgba(244, 63, 94, .05);
 }
 
@@ -506,7 +506,7 @@ select.field {
 .chip-bad {
   background: rgba(244, 63, 94, .1);
   color: #fb7185;
-  border-color: rgba(244, 63, 94, .25);
+  border-color: transparent;
 }
 
 .chip-neutral {
@@ -597,7 +597,7 @@ select.field {
 
 .alert-bad {
   background: rgba(244, 63, 94, .07);
-  border-color: rgba(244, 63, 94, .35);
+  border-color: transparent;
   color: #fecdd3;
 }
 
@@ -735,7 +735,7 @@ select.field {
 .segment button[aria-pressed="true"][data-tone="out"] {
   background: rgba(244, 63, 94, .14);
   color: #fb7185;
-  border-color: rgba(244, 63, 94, .4);
+  border-color: transparent;
 }
 
 .segment button[aria-pressed="true"][data-tone="neutral"] {
@@ -789,7 +789,7 @@ select.field {
 }
 
 .result-card.is-bad {
-  border-color: rgba(244, 63, 94, .45);
+  border-color: transparent;
   background: rgba(244, 63, 94, .06);
 }
 
@@ -1262,7 +1262,7 @@ select.field {
 }
 
 .apt-card.is-no {
-  border-color: rgba(244, 63, 94, .45);
+  border-color: transparent;
   background: rgba(244, 63, 94, .06);
 }
 
@@ -1746,7 +1746,7 @@ select.field {
   gap: 1rem;
   padding: 1rem 1.25rem;
   border-radius: 14px;
-  border: 1px solid rgba(244, 63, 94, .4);
+  border: 1px solid transparent;
   background: linear-gradient(100deg, rgba(244, 63, 94, .12), rgba(244, 63, 94, .05) 60%, transparent);
 }
 
@@ -1830,7 +1830,7 @@ select.field {
 }
 
 .cli-card.has-mora {
-  border-color: rgba(244, 63, 94, .35);
+  border-color: transparent;
 }
 
 .cli-card.is-open {
@@ -2454,7 +2454,7 @@ select.field {
 }
 
 .mora-row.is-critica {
-  border-color: rgba(244, 63, 94, .4);
+  border-color: transparent;
   background: rgba(244, 63, 94, .04);
 }
 
@@ -2662,7 +2662,7 @@ select.field {
 }
 
 .credito-user-collapsible.cli-card.has-mora {
-  border-color: rgba(244, 63, 94, .35);
+  border-color: transparent;
 }
 
 .credito-user-collapsible.cli-card.is-open {

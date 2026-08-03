@@ -409,12 +409,12 @@
     font-size: 0.875rem;
     font-weight: 700;
     text-decoration: none;
-    border: 1px solid rgba(239, 68, 68, 0.25);
+    border: 1px solid transparent;
     cursor: pointer;
     transition: background-color 0.15s ease;
 }
 .btn-erp-danger:hover { background-color: rgba(239, 68, 68, 0.2); }
-.btn-erp-danger:focus-visible { outline: 2px solid #ef4444; outline-offset: 2px; }
+.btn-erp-danger:focus-visible { outline: 2px solid #38bdf8; outline-offset: 2px; }
 .btn-erp-danger:disabled,
 .btn-erp-danger[aria-disabled="true"] {
     background-color: transparent;
@@ -485,7 +485,7 @@
 }
 .card-erp-metric-danger {
     border-radius: 0.875rem;
-    border: 1px solid rgba(239, 68, 68, 0.2);
+    border: 1px solid transparent;
     background-color: rgba(239, 68, 68, 0.06);
     padding: 1rem;
 }
@@ -601,7 +601,7 @@
 .badge-erp-neutral  { background-color: #1e293b; color: #94a3b8; border: 1px solid #334155; }
 .badge-erp-success  { background-color: rgba(16, 185, 129, 0.1); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2); }
 .badge-erp-warning  { background-color: rgba(245, 158, 11, 0.1); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.2); }
-.badge-erp-danger   { background-color: rgba(239, 68, 68, 0.1);  color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); }
+.badge-erp-danger   { background-color: rgba(239, 68, 68, 0.1);  color: #f87171; border: 1px solid transparent; }
 .badge-erp-info     { background-color: rgba(14, 165, 233, 0.1); color: #38bdf8; border: 1px solid rgba(14, 165, 233, 0.2); }
 
 /* ══════════════════════════════════════════════════════════════
@@ -900,7 +900,7 @@ select:not(.filter-select-erp):not(.caja-select):not(.credito-select):not(.credi
 .alert-erp-error {
     background-color: rgba(239, 68, 68, 0.1);
     color: #f87171;
-    border-color: rgba(239, 68, 68, 0.2);
+    border-color: transparent;
 }
 
 .alert-erp-warning {
@@ -944,7 +944,7 @@ select:not(.filter-select-erp):not(.caja-select):not(.credito-select):not(.credi
 /* Variantes semánticas de chip */
 .chip-erp-success { background-color: rgba(16, 185, 129, 0.1); color: #34d399; border-color: rgba(16, 185, 129, 0.2); }
 .chip-erp-warning { background-color: rgba(245, 158, 11, 0.1); color: #fbbf24; border-color: rgba(245, 158, 11, 0.2); }
-.chip-erp-danger  { background-color: rgba(239, 68, 68, 0.1);  color: #f87171; border-color: rgba(239, 68, 68, 0.2); }
+.chip-erp-danger  { background-color: rgba(239, 68, 68, 0.1);  color: #f87171; border-color: transparent; }
 .chip-erp-primary { background-color: rgba(245, 197, 24, 0.1);  color: #f5c518; border-color: rgba(245, 197, 24, 0.2); }
 
 /* ══════════════════════════════════════════════════════════════
@@ -1002,7 +1002,7 @@ select:not(.filter-select-erp):not(.caja-select):not(.credito-select):not(.credi
 /* Variante danger del icon button */
 .btn-erp-icon--danger:hover {
     background-color: rgba(239, 68, 68, 0.1);
-    border-color: rgba(239, 68, 68, 0.25);
+    border-color: transparent;
     color: #f87171;
 }
 
@@ -1128,7 +1128,7 @@ select:not(.filter-select-erp):not(.caja-select):not(.credito-select):not(.credi
 .payment-status-chip--blocked {
     background-color: rgba(239, 68, 68, 0.1);
     color: #f87171;
-    border-color: rgba(239, 68, 68, 0.2);
+    border-color: transparent;
 }
 
 .payment-status-chip--requires-client {
@@ -1243,7 +1243,7 @@ select:not(.filter-select-erp):not(.caja-select):not(.credito-select):not(.credi
 .quote-state-badge--cancelada {
     background-color: rgba(239, 68, 68, 0.1);
     color: #f87171;
-    border-color: rgba(239, 68, 68, 0.2);
+    border-color: transparent;
 }
 
 .quote-state-badge--vencida {

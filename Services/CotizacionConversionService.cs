@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Data;
+using TheBuryProject.Helpers;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
@@ -149,6 +150,7 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
             HayCambiosDePrecios = hayCambiosDePrecios,
             HayProductosTrazables = hayProductosTrazables,
             TotalCotizado = cotizacion.TotalSeleccionado ?? cotizacion.TotalBase,
+            AnticipoCotizado = cotizacion.Anticipo,
             Detalles = detallesPreview
         };
     }
@@ -348,6 +350,8 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
             var cuotaInfo = $"Plan cotizado: {cotizacion.CantidadCuotasSeleccionada} cuota(s)";
             if (cotizacion.ValorCuotaSeleccionada.HasValue)
                 cuotaInfo += $" de {cotizacion.ValorCuotaSeleccionada:C}";
+            if (cotizacion.Anticipo > 0m)
+                cuotaInfo += $", anticipo {cotizacion.Anticipo:C}";
             partes.Add(cuotaInfo + " (referencial — revisar antes de confirmar).");
         }
 
@@ -421,7 +425,7 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
                 subtotalIva = 0m;
             }
 
-            detalles.Add(new VentaDetalle
+            var nuevoDetalle = new VentaDetalle
             {
                 ProductoId = detalle.ProductoId,
                 Cantidad = cantidad,
@@ -441,7 +445,14 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
                 SubtotalFinal = subtotal,
                 CostoUnitarioAlMomento = 0m,
                 CostoTotalAlMomento = 0m
-            });
+            };
+
+            // Snapshot histórico de identidad (Micro-lote 5): del Producto de BD al momento de convertir;
+            // si ya no existe, cae al snapshot que la propia cotización conservó.
+            VentaDetalleProductoSnapshot.Capturar(
+                nuevoDetalle, producto, detalle.NombreProductoSnapshot, detalle.CodigoProductoSnapshot);
+
+            detalles.Add(nuevoDetalle);
         }
 
         return detalles;

@@ -534,7 +534,9 @@
             setEstadoConfiguracionPagosGlobal('No se pudo cargar la configuracion global. Se conserva el selector actual.', 'warning');
         }
 
-        onTipoPagoChange();
+        // Se llama únicamente desde el init (cargarConfiguracionPagosGlobal sólo se invoca
+        // una vez, al cargar la página): no es un cambio del operador.
+        onTipoPagoChange(true);
     }
 
     function aplicarMediosGlobalesAlSelector(medios) {
@@ -1061,6 +1063,28 @@
     });
 
     // ── 2. Product Search ─────────────────────────────────────────────
+    // Semáforo de stock del buscador. Mismo criterio que Dashboard y AlertaStock:
+    // sin stock en rojo, en o por debajo del mínimo del producto en ámbar. Para
+    // productos con trazabilidad individual lo vendible son las unidades físicas
+    // registradas, no el stock agregado.
+    // Las clases son propias (venta-page-wizard.css) porque el build de Tailwind
+    // sólo escanea las vistas Razor: las utilidades que viven en JS no se generan.
+    const UMBRAL_STOCK_BAJO_SIN_MINIMO = 3;
+
+    function calcularEstadoStock(p) {
+        const disponible = p.requiereNumeroSerie
+            ? Number(p.unidadesEnStock ?? 0)
+            : Number(p.stockActual ?? 0);
+
+        if (!(disponible > 0)) return { estado: 'sin-stock', etiqueta: 'Sin stock' };
+
+        const minimo = Number(p.stockMinimo ?? 0);
+        const umbral = minimo > 0 ? minimo : UMBRAL_STOCK_BAJO_SIN_MINIMO;
+        if (disponible <= umbral) return { estado: 'stock-bajo', etiqueta: 'Stock bajo' };
+
+        return { estado: 'ok', etiqueta: '' };
+    }
+
     function renderStockInfo(p) {
         if (p.unidadesEnStock <= 0) return `Stock: ${p.stockActual}`;
         const advertenciaConc = p.stockSinIdentificar < 0
@@ -1103,17 +1127,20 @@
 
             dropdownProductos.innerHTML = data.map(p => {
                 const marcaTexto = [p.marca, p.submarca].filter(Boolean).join(' ');
+                const estadoStock = calcularEstadoStock(p);
                 return `
-                <div class="px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer border-b border-slate-100 dark:border-slate-700 last:border-0"
+                <div class="venta-producto-opcion px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer border-b border-slate-100 dark:border-slate-700 last:border-0"
+                     data-estado-stock="${estadoStock.estado}"
                      data-id="${p.id}" data-codigo="${esc(p.codigo)}" data-nombre="${esc(p.nombre)}" data-precio="${p.precioVenta}" data-stock="${p.stockActual}" data-requiere-numero-serie="${p.requiereNumeroSerie ? 'true' : 'false'}" data-unidades-en-stock="${p.unidadesEnStock ?? 0}" data-stock-sin-identificar="${p.stockSinIdentificar ?? 0}">
                     <div class="flex items-center justify-between">
                         <p class="text-sm font-medium text-slate-900 dark:text-white">${esc(p.nombre)}</p>
                         <div class="flex items-center gap-2">
+                            ${estadoStock.etiqueta ? `<span class="venta-producto-opcion__badge">${estadoStock.etiqueta}</span>` : ''}
                             ${p.requiereNumeroSerie ? '<span class="rounded bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-500">Unidad</span>' : ''}
                             <span class="text-xs font-bold text-primary">${formatCurrency(p.precioVenta)}</span>
                         </div>
                     </div>
-                    <p class="text-xs text-slate-500">${esc(p.codigo)} ${marcaTexto ? '- ' + esc(marcaTexto) : ''} ${p.categoria ? '- ' + esc(p.categoria) : ''} - ${renderStockInfo(p)}</p>
+                    <p class="text-xs text-slate-500">${esc(p.codigo)} ${marcaTexto ? '- ' + esc(marcaTexto) : ''} ${p.categoria ? '- ' + esc(p.categoria) : ''} - <span class="venta-producto-opcion__stock">${renderStockInfo(p)}</span></p>
                     ${p.descripcion ? `<p class="text-[10px] text-slate-400 mt-0.5 truncate">${esc(p.descripcion)}</p>` : ''}
                     ${p.caracteristicasResumen ? `<p class="text-[10px] text-slate-400 mt-0.5 truncate">${esc(p.caracteristicasResumen)}</p>` : ''}
                 </div>
@@ -1322,6 +1349,8 @@
                 descuento: descuentoPct,
                 subtotal,
                 stock,
+                stockConocido: hdnProductoStock?.value !== '',
+                cantidadInicial: 0,
                 requiereNumeroSerie,
                 productoUnidadId,
                 productoUnidadLabel
@@ -1354,7 +1383,139 @@
         return bruto - (bruto * descPct / 100);
     }
 
+    function obtenerMaximoCantidadEditable(detalle) {
+        if (!detalle.stockConocido) return null;
+
+        // Al editar, la cantidad ya incluida en la venta se puede conservar o
+        // disminuir. Sólo el incremento consume el stock disponible actual.
+        return (detalle.cantidadInicial || 0) + detalle.stock;
+    }
+
     // ── 4. Render Details Table ───────────────────────────────────────
+    // Unidad física por línea (Fase 8.2.S). Permite vincular, cambiar o quitar la
+    // unidad sin eliminar la línea: ese ciclo "borrar y volver a agregar" era la
+    // única salida cuando el guardado fallaba con "No hay stock no trazado
+    // suficiente" en una línea ya cargada (p. ej. al editar una cotización).
+    function renderUnidadLinea(d, i) {
+        if (d.productoUnidadId) {
+            const quitar = d.requiereNumeroSerie
+                ? ''
+                : `<button type="button" class="venta-linea-unidad__accion" data-quitar-unidad="${i}">Quitar</button>`;
+            return `
+            <div class="venta-linea-unidad" data-linea-unidad="${i}">
+                <span class="venta-linea-unidad__label">Unidad física: ${esc(d.productoUnidadLabel || d.productoUnidadId)}</span>
+                <button type="button" class="venta-linea-unidad__accion" data-asignar-unidad="${i}">Cambiar</button>
+                ${quitar}
+            </div>`;
+        }
+        const alerta = d.requiereNumeroSerie
+            ? '<span class="venta-linea-unidad__alerta">Falta unidad física</span>'
+            : '';
+        return `
+        <div class="venta-linea-unidad venta-linea-unidad--pendiente" data-linea-unidad="${i}">
+            ${alerta}
+            <button type="button" class="venta-linea-unidad__accion" data-asignar-unidad="${i}">Asignar unidad física</button>
+        </div>`;
+    }
+
+    function mostrarErrorUnidadLinea(index, mensaje) {
+        const error = tbodyDetalles?.querySelector(`[data-error-unidad="${index}"]`);
+        if (!error) { showFeedback(mensaje, 'error'); return; }
+        error.textContent = mensaje;
+        error.classList.remove('hidden');
+    }
+
+    async function abrirEditorUnidadLinea(index) {
+        const detalle = detalles[index];
+        const contenedor = tbodyDetalles?.querySelector(`[data-linea-unidad="${index}"]`);
+        if (!detalle || !contenedor) return;
+
+        contenedor.innerHTML = `
+            <div class="venta-linea-unidad__editor">
+                <label class="sr-only" for="detalle-unidad-${index}">Unidad física para ${esc(detalle.nombre)}</label>
+                <select id="detalle-unidad-${index}" class="venta-linea-unidad__select" data-select-unidad="${index}" disabled>
+                    <option value="">Cargando unidades disponibles...</option>
+                </select>
+                <button type="button" class="venta-linea-unidad__accion venta-linea-unidad__accion--primaria" data-confirmar-unidad="${index}">Aplicar</button>
+                <button type="button" class="venta-linea-unidad__accion" data-cancelar-unidad="${index}">Cancelar</button>
+            </div>
+            <p class="venta-linea-unidad__error hidden" data-error-unidad="${index}" role="alert"></p>`;
+
+        const select = contenedor.querySelector(`[data-select-unidad="${index}"]`);
+        if (!select) return;
+
+        try {
+            const unidades = await fetchJson(`/api/productos/${detalle.productoId}/unidades-disponibles`);
+            select.replaceChildren(new Option('Seleccione una unidad disponible...', ''));
+
+            (unidades || [])
+                .filter(u => !unidadesSeleccionadasExcepto(u.id ?? u.Id, index))
+                .forEach(unidad => {
+                    const label = formatearUnidadDisponible(unidad);
+                    const option = new Option(label, unidad.id ?? unidad.Id);
+                    option.dataset.label = label;
+                    select.appendChild(option);
+                });
+
+            // La unidad ya vinculada puede no figurar entre las disponibles: se agrega
+            // para no perderla al abrir el selector sólo para revisarla.
+            const unidadActual = detalle.productoUnidadId;
+            if (unidadActual && !Array.from(select.options).some(o => o.value === String(unidadActual))) {
+                const option = new Option(detalle.productoUnidadLabel || `Unidad ${unidadActual}`, unidadActual);
+                option.dataset.label = detalle.productoUnidadLabel || '';
+                select.appendChild(option);
+            }
+
+            if (select.options.length <= 1) {
+                select.disabled = true;
+                mostrarErrorUnidadLinea(index, 'No hay unidades físicas disponibles para este producto. Registralas desde Producto → Unidades.');
+                return;
+            }
+
+            select.disabled = false;
+            if (unidadActual) select.value = String(unidadActual);
+            select.focus();
+        } catch {
+            select.replaceChildren(new Option('No se pudieron cargar unidades', ''));
+            select.disabled = true;
+            mostrarErrorUnidadLinea(index, 'No se pudieron cargar las unidades disponibles. Intentá nuevamente.');
+        }
+    }
+
+    function aplicarUnidadLinea(index) {
+        const detalle = detalles[index];
+        const select = tbodyDetalles?.querySelector(`[data-select-unidad="${index}"]`);
+        if (!detalle || !select) return;
+
+        const unidadId = parseInt(select.value) || null;
+        if (!unidadId) {
+            mostrarErrorUnidadLinea(index, 'Seleccioná una unidad física de la lista.');
+            return;
+        }
+        if (unidadesSeleccionadasExcepto(unidadId, index)) {
+            mostrarErrorUnidadLinea(index, 'Esa unidad ya está asignada a otra línea.');
+            return;
+        }
+        // Misma regla que el alta y que el backend: una unidad física = un artículo.
+        if (detalle.cantidad !== 1) {
+            mostrarErrorUnidadLinea(index, 'Una unidad física sólo puede venderse con cantidad 1. Bajá la cantidad a 1 o cargá una línea por unidad.');
+            return;
+        }
+
+        const opcion = select.selectedOptions[0];
+        detalle.productoUnidadId = unidadId;
+        detalle.productoUnidadLabel = opcion?.dataset?.label || opcion?.textContent?.trim() || '';
+        renderDetalles();
+    }
+
+    function quitarUnidadLinea(index) {
+        const detalle = detalles[index];
+        if (!detalle || detalle.requiereNumeroSerie) return;
+        detalle.productoUnidadId = null;
+        detalle.productoUnidadLabel = '';
+        renderDetalles();
+    }
+
     function renderDetalles() {
         if (detalles.length === 0) {
             tbodyDetalles.innerHTML = '';
@@ -1367,24 +1528,38 @@
 
         hide(detallesVacio);
 
-        tbodyDetalles.innerHTML = detalles.map((d, i) => `
+        tbodyDetalles.innerHTML = detalles.map((d, i) => {
+            const maximoCantidad = obtenerMaximoCantidadEditable(d);
+            const atributoMaximo = maximoCantidad !== null && maximoCantidad >= 1
+                ? `max="${maximoCantidad}"`
+                : '';
+            return `
             <tr>
                 <td class="py-4 px-2 text-xs font-mono">${esc(d.codigo)}</td>
                 <td class="py-4 px-2 text-sm font-medium">
                     <div>${esc(d.nombre)}</div>
-                    ${d.productoUnidadId ? `<div class="mt-1 text-[11px] font-semibold text-amber-500">Unidad física: ${esc(d.productoUnidadLabel)}</div>` : ''}
+                    ${renderUnidadLinea(d, i)}
                 </td>
-                <td class="py-4 px-2 text-sm text-center">${d.cantidad}</td>
+                <td class="py-4 px-2 text-sm text-center">
+                    <div class="venta-quantity-control" data-quantity-control>
+                        <button type="button" class="venta-quantity-button" data-quantity-change="-1" data-index="${i}" aria-label="Disminuir cantidad de ${esc(d.nombre)}">−</button>
+                        <label class="sr-only" for="detalle-cantidad-${i}">Cantidad de ${esc(d.nombre)}</label>
+                        <input id="detalle-cantidad-${i}" class="venta-quantity-input" data-quantity-input data-index="${i}" type="number" min="1" ${atributoMaximo} step="1" inputmode="numeric" value="${d.cantidad}" aria-invalid="false" aria-describedby="detalle-cantidad-error-${i}">
+                        <button type="button" class="venta-quantity-button" data-quantity-change="1" data-index="${i}" aria-label="Aumentar cantidad de ${esc(d.nombre)}">+</button>
+                    </div>
+                    <p id="detalle-cantidad-error-${i}" class="venta-quantity-error" aria-live="polite"></p>
+                </td>
                 <td class="py-4 px-2 text-sm text-right">${formatCurrency(d.precioUnitario)}</td>
                 <td class="py-4 px-2 text-sm text-right">${d.descuento}%</td>
-                <td class="py-4 px-2 text-sm font-bold text-right">${formatCurrency(d.subtotal)}</td>
+                <td class="py-4 px-2 text-sm font-bold text-right" data-line-subtotal="${i}">${formatCurrency(d.subtotal)}</td>
                 <td class="py-4 px-2 text-right">
                     <button type="button" class="btn-eliminar-detalle text-slate-400 hover:text-red-500 transition-colors" data-index="${i}" aria-label="Eliminar ${esc(d.nombre)}">
                         <span class="material-symbols-outlined text-lg">delete</span>
                     </button>
                 </td>
             </tr>
-        `).join('');
+        `;
+        }).join('');
 
         // Hidden inputs for form posting
         detallesHiddenInputs.innerHTML = '';
@@ -1411,6 +1586,37 @@
 
     // Delete detail row
     tbodyDetalles?.addEventListener('click', function (e) {
+        const quantityButton = e.target.closest('[data-quantity-change]');
+        if (quantityButton) {
+            const index = parseInt(quantityButton.dataset.index, 10);
+            const detail = detalles[index];
+            if (!detail) return;
+            actualizarCantidadDetalle(index, detail.cantidad + parseInt(quantityButton.dataset.quantityChange, 10));
+            return;
+        }
+
+        // Unidad física de la línea: asignar / cambiar / quitar sin borrar la línea.
+        const btnAsignarUnidad = e.target.closest('[data-asignar-unidad]');
+        if (btnAsignarUnidad) {
+            abrirEditorUnidadLinea(parseInt(btnAsignarUnidad.dataset.asignarUnidad, 10));
+            return;
+        }
+        const btnConfirmarUnidad = e.target.closest('[data-confirmar-unidad]');
+        if (btnConfirmarUnidad) {
+            aplicarUnidadLinea(parseInt(btnConfirmarUnidad.dataset.confirmarUnidad, 10));
+            return;
+        }
+        const btnCancelarUnidad = e.target.closest('[data-cancelar-unidad]');
+        if (btnCancelarUnidad) {
+            renderDetalles();
+            return;
+        }
+        const btnQuitarUnidad = e.target.closest('[data-quitar-unidad]');
+        if (btnQuitarUnidad) {
+            quitarUnidadLinea(parseInt(btnQuitarUnidad.dataset.quitarUnidad, 10));
+            return;
+        }
+
         const btn = e.target.closest('.btn-eliminar-detalle');
         if (!btn) return;
         const idx = parseInt(btn.dataset.index);
@@ -1529,8 +1735,18 @@
                tipoPago === TIPO_PAGO.CuentaCorriente;
     }
 
-    function onTipoPagoChange() {
-        invalidarVerificacionCrediticia();
+    function onTipoPagoChange(esInicializacion) {
+        // Al cargar la página (edición o re-render tras error) este handler se llama para
+        // sincronizar los paneles con el TipoPago ya guardado, no porque el operador haya
+        // cambiado nada. Invalidar acá pisaba la semilla real del servidor
+        // (Model.CreditoConfigurado / venta-form[data-credito-configurado]) apenas
+        // cargaba la página, dejando Revisión bloqueada aunque el crédito ya estuviera
+        // configurado. Sólo se invalida en un cambio genuino del selector.
+        // Comparación estricta: el listener nativo ('change', onTipoPagoChange) invoca
+        // esta función con el Event como primer argumento, que es truthy pero no === true.
+        if (esInicializacion !== true) {
+            invalidarVerificacionCrediticia();
+        }
 
         const val = selectTipoPago.value;
 
@@ -1954,6 +2170,9 @@
         hide($('#panel-credito-cupo'));
         hide(panelAvisoCredito);
         clearFeedback();
+        document.dispatchEvent(new CustomEvent('venta:credito-validado', {
+            detail: { aprobado: false, configurado: false }
+        }));
     }
 
     function resetExcepcionCrediticia() {
@@ -2029,6 +2248,10 @@
             else barra.className = 'h-full bg-primary w-0 transition-all duration-500';
             barra.style.width = `${pct}%`;
         }
+
+        document.dispatchEvent(new CustomEvent('venta:credito-validado', {
+            detail: { aprobado: data.resultado === RESULTADO_PREVAL.Aprobable }
+        }));
 
         // Sufficiency check
         const panelSuficiente = $('#panel-cupo-suficiente');
@@ -2162,7 +2385,7 @@
         }
     }
 
-    async function verificarElegibilidadAuto() {
+    async function verificarElegibilidadAuto({ forzar = false } = {}) {
         if (!esTipoPagoCredito(selectTipoPago?.value)) return;
 
         const clienteId = parseInt(hdnClienteId?.value);
@@ -2170,7 +2393,7 @@
         if (!clienteId || total <= 0) return;
 
         const clave = `${clienteId}:${total.toFixed(2)}`;
-        if (clave === verificacionAutoKey) return;
+        if (!forzar && clave === verificacionAutoKey) return;
 
         clearFeedback();
         resetVerificacion();
@@ -2194,6 +2417,10 @@
             mostrarEstadoVerificandoCrediticia(false);
         }
     }
+
+    document.addEventListener('venta:solicitar-verificacion-credito', () => {
+        verificarElegibilidadAuto({ forzar: true });
+    });
 
     // ── 10. Exception Workflow ────────────────────────────────────────
     // excepcionActiva = true means the panel is open AND the user confirmed with motivo.
@@ -2274,7 +2501,8 @@
             return;
         }
 
-        // Motivo válido — activar excepción sin submitear; el usuario continúa con "Confirmar Transacción"
+        // Motivo válido: la excepción viaja en el submit MVC canónico. No confirma
+        // ni factura desde el navegador.
         excepcionActiva = true;
         const hdnExcepcion = $('#hdn-aplicar-excepcion');
         if (hdnExcepcion) hdnExcepcion.value = 'true';
@@ -2297,10 +2525,63 @@
                 badge = document.createElement('div');
                 badge.id = 'excepcion-aplicada-badge';
                 badge.className = 'flex items-center gap-2 mt-3 text-green-400 text-sm font-semibold';
-                badge.innerHTML = '<span class="material-symbols-outlined text-base">check_circle</span> Excepción aplicada. Podés continuar con "Confirmar Transacción".';
+                badge.innerHTML = '<span class="material-symbols-outlined text-base">check_circle</span> Excepción aplicada. Podés continuar con la revisión.';
                 panelActivo.appendChild(badge);
             }
         }
+
+        document.dispatchEvent(new CustomEvent('venta:credito-validado', {
+            detail: { aprobado: true, configurado: false }
+        }));
+    });
+
+    function actualizarCantidadDetalle(index, value) {
+        const detalle = detalles[index];
+        if (!detalle) return;
+        const input = tbodyDetalles?.querySelector(`[data-quantity-input][data-index="${index}"]`);
+        const error = tbodyDetalles?.querySelector(`#detalle-cantidad-error-${index}`);
+        const cantidad = Number(value);
+        let mensaje = '';
+
+        if (!Number.isInteger(cantidad) || cantidad < 1) mensaje = 'Ingresá una cantidad entera mayor que cero.';
+        else if (detalle.productoUnidadId && cantidad !== 1) mensaje = 'La unidad física solo admite cantidad 1.';
+        else {
+            const maximoCantidad = obtenerMaximoCantidadEditable(detalle);
+            if (maximoCantidad !== null && cantidad > maximoCantidad) {
+                mensaje = detalle.cantidadInicial > 0 && detalle.stock === 0
+                    ? 'No hay stock adicional disponible. Podés conservar o disminuir la cantidad actual.'
+                    : `Stock insuficiente. Máximo disponible: ${maximoCantidad}.`;
+            }
+        }
+
+        if (mensaje) {
+            if (input) input.value = String(detalle.cantidad);
+            if (error) error.textContent = mensaje;
+            input?.setAttribute('aria-invalid', 'true');
+            return;
+        }
+
+        detalle.cantidad = cantidad;
+        detalle.subtotal = calcularSubtotalLinea(detalle.precioUnitario, cantidad, detalle.descuento);
+        if (input) {
+            input.value = String(cantidad);
+            input.setAttribute('aria-invalid', 'false');
+        }
+        if (error) error.textContent = '';
+        const subtotal = tbodyDetalles?.querySelector(`[data-line-subtotal="${index}"]`);
+        if (subtotal) subtotal.textContent = formatCurrency(detalle.subtotal);
+        const cantidadOculta = detallesHiddenInputs?.querySelector(`[name="Detalles[${index}].Cantidad"]`);
+        const subtotalOculto = detallesHiddenInputs?.querySelector(`[name="Detalles[${index}].Subtotal"]`);
+        if (cantidadOculta) cantidadOculta.value = String(cantidad);
+        if (subtotalOculto) subtotalOculto.value = String(detalle.subtotal);
+        invalidarVerificacionCrediticia();
+        recalcularTotales();
+    }
+
+    tbodyDetalles?.addEventListener('change', function (e) {
+        const input = e.target.closest('[data-quantity-input]');
+        if (!input) return;
+        actualizarCantidadDetalle(parseInt(input.dataset.index, 10), input.value);
     });
 
     // Clear inline error when typing in motivo
@@ -2312,11 +2593,6 @@
 
     // Guard on native form submit: if panel open but user bypasses via top submit button
     const ventaForm = document.getElementById('venta-form');
-
-    // ── Envío AJAX sin recarga (solo página completa de alta: Create_tw) ──
-    // La edición rehidrata vía window.ventaInicial y conserva el submit nativo.
-    const esVentaCreatePage = !!ventaForm
-        && /\/Venta\/Create\/?$/i.test(ventaForm.getAttribute('action') || '');
 
     const bannerErrores = $('#banner-errores');
     // Orden real de pasos derivado del DOM (misma fuente que venta-page-wizard.js).
@@ -2426,32 +2702,6 @@
         ventaForm?.querySelectorAll('button[type="submit"]').forEach(btn => { btn.disabled = disabled; });
     }
 
-    async function enviarVentaCreateAjax() {
-        limpiarErroresServidor();
-        setSubmitDisabled(true);
-
-        const params = new URLSearchParams();
-        for (const [k, v] of new FormData(ventaForm).entries()) params.append(k, v);
-
-        try {
-            const res = await fetch('/Venta/CreateAjax', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: params.toString()
-            });
-            const data = await res.json();
-            if (data.success && data.requiresRedirect) {
-                window.location.href = data.redirectUrl;
-                return;
-            }
-            renderErroresServidor(data.errors || { '': [data.message || 'No se pudo registrar la operación.'] });
-        } catch {
-            renderErroresServidor({ '': ['Error de conexión. Intentá nuevamente.'] });
-        } finally {
-            setSubmitDisabled(false);
-        }
-    }
-
     // Botón "Cerrar" del banner de errores (antes era un no-op).
     $('#btn-cerrar-banner-errores')?.addEventListener('click', limpiarErroresServidor);
 
@@ -2460,8 +2710,12 @@
             const trazableSinUnidad = detalles.find(d => d.requiereNumeroSerie && !d.productoUnidadId);
             if (trazableSinUnidad) {
                 e.preventDefault();
-                showFeedback('Este producto requiere unidad física. Seleccioná una unidad registrada para venderlo.', 'error');
-                panelAgregarProducto?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                showFeedback('Este producto requiere unidad física. Asignala con "Asignar unidad física" en la línea del detalle.', 'error');
+                // La línea ya existe: se lleva al operador al botón que la resuelve,
+                // no al panel de alta.
+                const accionUnidad = tbodyDetalles?.querySelector(
+                    `[data-asignar-unidad="${detalles.indexOf(trazableSinUnidad)}"]`);
+                (accionUnidad || panelAgregarProducto)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 return;
             }
 
@@ -2548,12 +2802,9 @@
                 }
             }
 
-            // Todas las guardas pasaron → en la página de alta enviamos por AJAX
-            // (sin recarga, marcando los campos). Modal/Edit usan submit nativo.
-            if (esVentaCreatePage) {
-                e.preventDefault();
-                enviarVentaCreateAjax();
-            }
+            // Todas las guardas pasaron: Create y Edit continúan por sus actions
+            // MVC canónicas. El controlador decide la redirección a crédito luego de
+            // persistir, por lo que no se crean borradores desde el navegador.
         });
     }
 
@@ -2755,7 +3006,9 @@
                 precioUnitario: parseFloat(d.precioUnitario) || 0,
                 descuento: parseFloat(d.descuento) || 0,
                 subtotal: parseFloat(d.subtotal) || 0,
-                stock: d.stock || 0,
+                stock: d.stock ?? 0,
+                stockConocido: d.stock !== null && d.stock !== undefined,
+                cantidadInicial: d.cantidad || 1,
                 requiereNumeroSerie: !!d.requiereNumeroSerie,
                 productoUnidadId: d.productoUnidadId || null,
                 productoUnidadLabel: d.productoUnidadLabel || (d.productoUnidadId ? String(d.productoUnidadId) : '')
@@ -2764,7 +3017,7 @@
     }
 
     cargarConfiguracionPagosGlobal();
-    onTipoPagoChange();
+    onTipoPagoChange(true);
     renderDetalles();
     recalcularTotales();
     actualizarResumenOperacion(parseFloat(hdnTotal?.value) || 0);

@@ -94,6 +94,19 @@ public sealed class CotizacionConversionServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Preview_CotizacionConAnticipo_ExponeAnticipoCotizadoComoIntencion()
+    {
+        var cotizacion = CotizacionEmitida(conCliente: true);
+        cotizacion.Anticipo = 15m;
+        _context.Cotizaciones.Add(cotizacion);
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.PreviewConversionAsync(cotizacion.Id);
+
+        Assert.Equal(15m, resultado.AnticipoCotizado);
+    }
+
+    [Fact]
     public async Task Preview_CotizacionConvertida_DevuelveError()
     {
         var cotizacion = CotizacionEmitida(conCliente: true);

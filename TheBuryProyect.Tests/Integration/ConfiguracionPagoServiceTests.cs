@@ -249,35 +249,39 @@ public class ConfiguracionPagoServiceTests : IDisposable
     }
 
     // -------------------------------------------------------------------------
-    // 2. Cliente sin personalización → cuotas máximas = 24 (hardcoded global)
+    // 2. Cliente sin personalización → el cap de cuotas es el tope técnico.
+    //    Micro-lote 4: la disponibilidad la deciden los planes activos, no un rango default.
     // -------------------------------------------------------------------------
 
     [Fact]
-    public async Task ObtenerParametros_SinPersonalizacion_CuotasMaximas24()
+    public async Task ObtenerParametros_SinPersonalizacion_UsaTopeTecnico()
     {
         var cliente = await SeedCliente();
 
         var result = await _service.ObtenerParametrosCreditoClienteAsync(cliente.Id, tasaGlobal: 2m);
 
-        Assert.Equal(24, result.CuotasMaximas);
+        // Sin cliente/perfil que fijen un máximo propio, el cap es el tope técnico (120), no un
+        // rango legacy: las cantidades disponibles las deciden los planes globales activos.
+        Assert.Equal(120, result.CuotasMaximas);
         Assert.Equal(1, result.CuotasMinimas);
     }
 
     [Fact]
-    public async Task ObtenerParametros_SinPersonalizacion_UsaDefaultsGlobalesConfigurados()
+    public async Task ObtenerParametros_RangoLegacyNoAfectaCuotas_SoloGastos()
     {
         var config = await SeedConfigPago(TipoPago.CreditoPersonal);
         config.GastosAdministrativosDefaultCreditoPersonal = 350m;
-        config.MinCuotasDefaultCreditoPersonal = 2;
-        config.MaxCuotasDefaultCreditoPersonal = 36;
+        config.MinCuotasDefaultCreditoPersonal = 2;   // columnas legacy inertes (Micro-lote 4):
+        config.MaxCuotasDefaultCreditoPersonal = 36;  // ya no alimentan la disponibilidad de cuotas.
         await _context.SaveChangesAsync();
         var cliente = await SeedCliente();
 
         var result = await _service.ObtenerParametrosCreditoClienteAsync(cliente.Id, tasaGlobal: 2m);
 
+        // Gastos SÍ se siguen leyendo del default; el rango legacy NO cambia el cap resuelto.
         Assert.Equal(350m, result.GastosAdministrativos);
-        Assert.Equal(2, result.CuotasMinimas);
-        Assert.Equal(36, result.CuotasMaximas);
+        Assert.Equal(1, result.CuotasMinimas);
+        Assert.Equal(120, result.CuotasMaximas);
     }
 
     // -------------------------------------------------------------------------
@@ -397,7 +401,8 @@ public class ConfiguracionPagoServiceTests : IDisposable
         Assert.Equal(4m, result.TasaMensual);
         Assert.Equal(FuenteConfiguracionCredito.Global, result.Fuente);
         Assert.False(result.TieneConfiguracionPersonalizada);
-        Assert.Equal(24, result.CuotasMaximas);
+        // Micro-lote 4: sin cliente/perfil el cap es el tope técnico (120), no el rango legacy.
+        Assert.Equal(120, result.CuotasMaximas);
         Assert.Equal(1, result.CuotasMinimas);
     }
 
@@ -541,11 +546,12 @@ public class ConfiguracionPagoServiceTests : IDisposable
     }
 
     // -------------------------------------------------------------------------
-    // 19. Con configuración con tasa 0 → retorna null
+    // 19. Con configuración con recargo 0 % explícito → retorna 0, NO null (Micro-lote 5:
+    // un recargo total de 0 % es un valor configurado y válido, distinto de "no configurado").
     // -------------------------------------------------------------------------
 
     [Fact]
-    public async Task ObtenerTasa_TasaCero_RetornaNull()
+    public async Task ObtenerTasa_RecargoCeroExplicito_RetornaCero()
     {
         _context.ConfiguracionesPago.Add(new ConfiguracionPago
         {
@@ -558,7 +564,8 @@ public class ConfiguracionPagoServiceTests : IDisposable
 
         var result = await _service.ObtenerTasaInteresMensualCreditoPersonalAsync();
 
-        Assert.Null(result);
+        Assert.NotNull(result);
+        Assert.Equal(0m, result);
     }
 
     // -------------------------------------------------------------------------
@@ -619,8 +626,10 @@ public class ConfiguracionPagoServiceTests : IDisposable
             .FirstAsync(c => c.TipoPago == TipoPago.CreditoPersonal);
         Assert.Equal(6m, enDb.TasaInteresMensualCreditoPersonal);
         Assert.Equal(200m, enDb.GastosAdministrativosDefaultCreditoPersonal);
-        Assert.Equal(2, enDb.MinCuotasDefaultCreditoPersonal);
-        Assert.Equal(36, enDb.MaxCuotasDefaultCreditoPersonal);
+        // Micro-lote 4: el rango legacy Min/MaxCuotasDefaultCreditoPersonal ya NO se escribe.
+        // Aunque el VM traiga MinCuotas=2/MaxCuotas=36, las columnas quedan como estaban (null).
+        Assert.Null(enDb.MinCuotasDefaultCreditoPersonal);
+        Assert.Null(enDb.MaxCuotasDefaultCreditoPersonal);
     }
 
     // -------------------------------------------------------------------------
@@ -1139,25 +1148,28 @@ public class ConfiguracionPagoServiceTests : IDisposable
         var (min, max, desc, nombre) = await _service.ResolverRangoCuotasAsync(
             MetodoCalculoCredito.Global, null, null);
 
+        // Micro-lote 4: sin planes activos el "rango" Global es el tope técnico (1..120), que solo
+        // actúa como cap; la disponibilidad real la deciden los planes.
         Assert.Equal(1, min);
-        Assert.Equal(24, max);
+        Assert.Equal(120, max);
         Assert.Equal("Global", desc);
         Assert.Null(nombre);
     }
 
     [Fact]
-    public async Task ResolverRangoCuotas_Global_UsaDefaultsGlobalesConfigurados()
+    public async Task ResolverRangoCuotas_Global_RangoLegacyNoAfectaResultado()
     {
         var config = await SeedConfigPago(TipoPago.CreditoPersonal);
-        config.MinCuotasDefaultCreditoPersonal = 2;
-        config.MaxCuotasDefaultCreditoPersonal = 36;
+        config.MinCuotasDefaultCreditoPersonal = 2;   // columnas legacy inertes (Micro-lote 4):
+        config.MaxCuotasDefaultCreditoPersonal = 36;  // no cambian el rango resuelto.
         await _context.SaveChangesAsync();
 
         var (min, max, desc, nombre) = await _service.ResolverRangoCuotasAsync(
             MetodoCalculoCredito.Global, null, null);
 
-        Assert.Equal(2, min);
-        Assert.Equal(36, max);
+        // El rango legacy ya no se lee: el resultado es el tope técnico, no (2, 36).
+        Assert.Equal(1, min);
+        Assert.Equal(120, max);
         Assert.Equal("Global", desc);
         Assert.Null(nombre);
     }
@@ -1181,7 +1193,7 @@ public class ConfiguracionPagoServiceTests : IDisposable
     }
 
     // =========================================================================
-    // GetCuotasCreditoPersonalEfectivasAsync (planes por producto)
+    // ResolverPlanesCreditoPersonalAsync (planes por producto)
     // =========================================================================
 
     private async Task<Producto> SeedProductoSimple()
@@ -1236,7 +1248,7 @@ public class ConfiguracionPagoServiceTests : IDisposable
         await SeedCuotasGlobales((1, 5m), (6, 10m));
         var producto = await SeedProductoSimple();
 
-        var efectivas = await _service.GetCuotasCreditoPersonalEfectivasAsync(new[] { producto.Id });
+        var efectivas = (await _service.ResolverPlanesCreditoPersonalAsync(new[] { producto.Id })).Planes;
 
         Assert.Equal(new[] { 1, 6 }, efectivas.Select(c => c.CantidadCuotas).ToArray());
         Assert.Equal(5m, efectivas.First(c => c.CantidadCuotas == 1).TasaMensual);
@@ -1249,11 +1261,31 @@ public class ConfiguracionPagoServiceTests : IDisposable
         var producto = await SeedProductoSimple();
         await SeedCuotasProducto(producto.Id, (1, 0m), (3, 10m));
 
-        var efectivas = await _service.GetCuotasCreditoPersonalEfectivasAsync(new[] { producto.Id });
+        var efectivas = (await _service.ResolverPlanesCreditoPersonalAsync(new[] { producto.Id })).Planes;
 
         Assert.Equal(new[] { 1, 3 }, efectivas.Select(c => c.CantidadCuotas).ToArray());
         Assert.Equal(0m, efectivas.First(c => c.CantidadCuotas == 1).TasaMensual);
         Assert.Equal(10m, efectivas.First(c => c.CantidadCuotas == 3).TasaMensual);
+    }
+
+    [Fact]
+    public async Task CuotasEfectivas_ProductoConTasaNull_HeredaTasaGlobalDeLaCuota()
+    {
+        await SeedCuotasGlobales((6, 12m));
+        var producto = await SeedProductoSimple();
+        _context.ProductoCreditoPersonalCuotas.Add(new ProductoCreditoPersonalCuota
+        {
+            ProductoId = producto.Id,
+            CantidadCuotas = 6,
+            TasaMensual = null, // heredar la tasa global
+            Activo = true
+        });
+        await _context.SaveChangesAsync();
+
+        var efectivas = (await _service.ResolverPlanesCreditoPersonalAsync(new[] { producto.Id })).Planes;
+
+        // El plan del producto en null hereda la tasa de la cuota global (12 %), no cae a 0.
+        Assert.Equal(12m, efectivas.First(c => c.CantidadCuotas == 6).TasaMensual);
     }
 
     [Fact]
@@ -1264,8 +1296,8 @@ public class ConfiguracionPagoServiceTests : IDisposable
         var sinPlanes = await SeedProductoSimple();
         await SeedCuotasProducto(conPlanes.Id, (1, 2m), (3, 7m), (6, 9m));
 
-        var efectivas = await _service.GetCuotasCreditoPersonalEfectivasAsync(
-            new[] { conPlanes.Id, sinPlanes.Id });
+        var efectivas = (await _service.ResolverPlanesCreditoPersonalAsync(
+            new[] { conPlanes.Id, sinPlanes.Id })).Planes;
 
         // 3 cuotas queda afuera: el producto sin planes hereda global y global no la habilita.
         Assert.Equal(new[] { 1, 6 }, efectivas.Select(c => c.CantidadCuotas).ToArray());

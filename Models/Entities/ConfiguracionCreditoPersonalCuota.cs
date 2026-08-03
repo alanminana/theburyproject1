@@ -3,8 +3,11 @@ using System.ComponentModel.DataAnnotations;
 namespace TheBuryProject.Models.Entities
 {
     /// <summary>
-    /// Tasa mensual y disponibilidad de Crédito Personal por cantidad de cuotas.
-    /// Si no hay registros activos, el cálculo global usa la tasa/rango únicos de ConfiguracionPago (compatibilidad).
+    /// Recargo TOTAL del plan (no tasa mensual ni compuesta) y disponibilidad de Crédito
+    /// Personal por cantidad de cuotas. El nombre de la propiedad (<c>TasaMensual</c>) es
+    /// legacy y se conserva por compatibilidad de columna/binding; el valor representa un
+    /// porcentaje de recargo único aplicado una sola vez sobre el saldo financiado.
+    /// Si no hay registros activos, Crédito Personal no ofrece cuotas (sin fallback a rango).
     /// </summary>
     public class ConfiguracionCreditoPersonalCuota
     {
@@ -13,8 +16,13 @@ namespace TheBuryProject.Models.Entities
         [Range(1, 120)]
         public int CantidadCuotas { get; set; }
 
+        /// <summary>
+        /// Porcentaje de recargo TOTAL propio de esta cantidad de cuotas (no mensual, no
+        /// compuesto). null = hereda el recargo único global de ConfiguracionPago; 0 = sin
+        /// recargo (0 % explícito, válido y distinto de "no configurado"); X = recargo propio.
+        /// </summary>
         [Range(0, 100)]
-        public decimal TasaMensual { get; set; }
+        public decimal? TasaMensual { get; set; }
 
         public bool Activo { get; set; } = true;
 

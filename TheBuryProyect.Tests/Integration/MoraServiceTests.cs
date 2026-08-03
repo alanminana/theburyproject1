@@ -10,6 +10,7 @@ using TheBuryProject.Models.Enums;
 using TheBuryProject.Services;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.Services.Models;
+using TheBuryProject.Tests.Helpers;
 using TheBuryProject.ViewModels;
 using TheBuryProject.ViewModels.Mora;
 using TheBuryProject.ViewModels.Requests;
@@ -27,6 +28,7 @@ public class MoraServiceTests : IDisposable
 {
     private readonly SqliteConnection _connection;
     private readonly AppDbContext _context;
+    private readonly IMapper _mapper;
     private readonly MoraService _service;
     private readonly RecordingCreditoService _creditoServiceFake;
     private readonly ClienteScoringService _clienteScoringService;
@@ -43,15 +45,23 @@ public class MoraServiceTests : IDisposable
         _context = new AppDbContext(options);
         _context.Database.EnsureCreated();
 
-        var mapper = new MapperConfiguration(
+        _mapper = new MapperConfiguration(
                 cfg => cfg.AddProfile<MappingProfile>(),
                 NullLoggerFactory.Instance)
             .CreateMapper();
 
         _creditoServiceFake = new RecordingCreditoService();
         _clienteScoringService = new ClienteScoringService(_context, NullLogger<ClienteScoringService>.Instance);
-        _service = new MoraService(_context, mapper, NullLogger<MoraService>.Instance, _creditoServiceFake, _clienteScoringService);
+        _service = new MoraService(_context, _mapper, NullLogger<MoraService>.Instance, _creditoServiceFake, _clienteScoringService, RelojComercial.Sistema);
     }
+
+    /// <summary>
+    /// PUN-ML7 (corrección): instancia alternativa con un <see cref="IRelojComercial"/> inyectado
+    /// explícitamente, para probar que la frontera de vencimiento de <c>ProcesarMoraAsync</c> depende
+    /// de él y no de <see cref="DateTime.UtcNow"/>/<see cref="DateTime.Today"/>.
+    /// </summary>
+    private MoraService CrearServicioConReloj(IRelojComercial reloj) =>
+        new(_context, _mapper, NullLogger<MoraService>.Instance, _creditoServiceFake, _clienteScoringService, reloj);
 
     public void Dispose()
     {
@@ -532,6 +542,35 @@ public class MoraServiceTests : IDisposable
         return cuota;
     }
 
+    /// <summary>
+    /// PUN-ML7 (corrección): helper genérico para los escenarios de selección de mora que
+    /// <see cref="SeedCuotaVencidaAsync"/>/<see cref="SeedCuotaPorVencerAsync"/> no cubren — Estado y
+    /// MontoPagado explícitos, para poblar cuotas Vencida/Parcial/Pagada/Cancelada directamente
+    /// (simulando el resultado de ActualizarEstadoCuotasAsync o de un pago parcial previo).
+    /// </summary>
+    private async Task<Cuota> SeedCuotaConEstadoAsync(
+        int creditoId,
+        EstadoCuota estado,
+        int diasVencido,
+        decimal montoTotal = 1_000m,
+        decimal montoPagado = 0m)
+    {
+        var cuota = new Cuota
+        {
+            CreditoId = creditoId,
+            NumeroCuota = Interlocked.Increment(ref _cuotaCounter),
+            MontoCapital = montoTotal * 0.8m,
+            MontoInteres = montoTotal * 0.2m,
+            MontoTotal = montoTotal,
+            MontoPagado = montoPagado,
+            Estado = estado,
+            FechaVencimiento = DateTime.Today.AddDays(-diasVencido)
+        };
+        _context.Set<Cuota>().Add(cuota);
+        await _context.SaveChangesAsync();
+        return cuota;
+    }
+
     [Fact]
     public async Task ProcesarMora_SinCuotasVencidas_GeneraLogExitosoSinAlertas()
     {
@@ -870,6 +909,43 @@ public class MoraServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task ProcesarMora_ImpactarScore_CapitalSaldadoSoloConPunitorioPendiente_NoImpacta()
+    {
+        // PUN-ML7 (auditoría, lote 2): ImpactarScorePorMoraAsync no chequeaba MontoPagado<MontoTotal
+        // — una cuota con capital saldado y Estado=Parcial únicamente por un punitorio aplicado
+        // pendiente (ver EstadoCuotaResolver.Resolver) impactaba el puntaje como si debiera capital.
+        var config = new ConfiguracionMora
+        {
+            DiasGracia = 3,
+            ProcesoAutomaticoActivo = true,
+            HoraEjecucionDiaria = new TimeSpan(8, 0, 0),
+            ActualizarMoraAutomaticamente = true,
+            ImpactarScorePorMora = true
+        };
+        _context.Set<ConfiguracionMora>().Add(config);
+        await _context.SaveChangesAsync();
+
+        var cliente = await SeedClienteAsync();
+        cliente.PuntajeCliente = 3;
+        await _context.SaveChangesAsync();
+
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaConEstadoAsync(credito.Id, EstadoCuota.Parcial, diasVencido: 10,
+            montoTotal: 1_000m, montoPagado: 1_000m); // capital saldado, solo punitorio pendiente
+
+        await _service.ProcesarMoraAsync();
+
+        var historial = await _context.ClientesPuntajeHistorial
+            .Where(h => h.ClienteId == cliente.Id && h.Origen == "RecalculoAutomaticoMora")
+            .ToListAsync();
+        Assert.Empty(historial);
+
+        _context.ChangeTracker.Clear();
+        var clienteNoTocado = await _context.Clientes.FindAsync(cliente.Id);
+        Assert.Equal(3, clienteNoTocado!.PuntajeCliente); // sin recalculo, queda igual
+    }
+
+    [Fact]
     public async Task ProcesarMora_EjecucionRepetidaSinCambioDePuntaje_NoDuplicaHistorial()
     {
         var config = new ConfiguracionMora
@@ -897,6 +973,306 @@ public class MoraServiceTests : IDisposable
             .Where(h => h.ClienteId == cliente.Id && h.Origen == "RecalculoAutomaticoMora")
             .ToListAsync();
         Assert.Single(historial);
+    }
+
+    // =========================================================================
+    // ProcesarMoraAsync — corrección PUN-ML7: selección de cuotas en mora
+    //
+    // Antes filtraba solo Estado==Pendiente. Con ActualizarEstadoCuotasAsync transicionando
+    // Pendiente→Vencida (bulk, corrida previa o el mismo config.CambiarEstadoCuotaAuto de esta
+    // corrida), esa condición hacía que una cuota vencida se volviera invisible para la generación
+    // de alertas apenas cambiaba de estado — aunque siguiera en mora real. Esta sección prueba que
+    // la selección ahora depende de la condición de negocio (no terminal, saldo de capital
+    // pendiente, vencida) y no del valor puntual del enum.
+    // =========================================================================
+
+    private async Task<AlertaCobranza?> AlertaVencidaDelCreditoAsync(int creditoId) =>
+        await _context.AlertasCobranza
+            .Where(a => a.CreditoId == creditoId && a.Tipo == TipoAlertaCobranza.CuotaVencida)
+            .FirstOrDefaultAsync();
+
+    [Fact]
+    public async Task ProcesarMora_CuotaVencidaEstado_ConSaldo_Entra()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaConEstadoAsync(credito.Id, EstadoCuota.Vencida, diasVencido: 10);
+
+        await _service.ProcesarMoraAsync();
+
+        Assert.NotNull(await AlertaVencidaDelCreditoAsync(credito.Id));
+    }
+
+    [Fact]
+    public async Task ProcesarMora_CuotaParcialVencida_ConSaldoDeCapital_Entra()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaConEstadoAsync(credito.Id, EstadoCuota.Parcial, diasVencido: 10,
+            montoTotal: 1_000m, montoPagado: 400m);
+
+        await _service.ProcesarMoraAsync();
+
+        Assert.NotNull(await AlertaVencidaDelCreditoAsync(credito.Id));
+    }
+
+    [Fact]
+    public async Task ProcesarMora_CuotaParcialNoVencida_NoEntra()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        // diasVencido: -3 → FechaVencimiento en el futuro (todavía no vence).
+        await SeedCuotaConEstadoAsync(credito.Id, EstadoCuota.Parcial, diasVencido: -3,
+            montoTotal: 1_000m, montoPagado: 400m);
+
+        await _service.ProcesarMoraAsync();
+
+        Assert.Null(await AlertaVencidaDelCreditoAsync(credito.Id));
+    }
+
+    [Fact]
+    public async Task ProcesarMora_CuotaPagada_NoEntra()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaConEstadoAsync(credito.Id, EstadoCuota.Pagada, diasVencido: 10,
+            montoTotal: 1_000m, montoPagado: 1_000m);
+
+        await _service.ProcesarMoraAsync();
+
+        Assert.Null(await AlertaVencidaDelCreditoAsync(credito.Id));
+    }
+
+    [Fact]
+    public async Task ProcesarMora_CuotaCancelada_NoEntra()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaConEstadoAsync(credito.Id, EstadoCuota.Cancelada, diasVencido: 10);
+
+        await _service.ProcesarMoraAsync();
+
+        Assert.Null(await AlertaVencidaDelCreditoAsync(credito.Id));
+    }
+
+    [Fact]
+    public async Task ProcesarMora_CapitalTotalmentePagado_SoloConservaPunitorio_NoEntra()
+    {
+        // Estado Parcial porque EstadoCuotaResolver la retiene ahí mientras haya un punitorio
+        // aplicado pendiente (capital saldado no implica Pagada) — pero sin saldo de CAPITAL, no es
+        // candidata a la cola de mora de capital: ese seguimiento es responsabilidad exclusiva de
+        // PunitorioService/AlertaVencida no debe duplicar esa cobranza.
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaConEstadoAsync(credito.Id, EstadoCuota.Parcial, diasVencido: 10,
+            montoTotal: 1_000m, montoPagado: 1_000m);
+
+        await _service.ProcesarMoraAsync();
+
+        Assert.Null(await AlertaVencidaDelCreditoAsync(credito.Id));
+    }
+
+    [Fact]
+    public async Task ProcesarMora_TransicionPendienteAVencidaEntreCorridas_NoDesaparece()
+    {
+        // Simula el orden real: una corrida previa (o ActualizarEstadoCuotasAsync disparado por
+        // config.CambiarEstadoCuotaAuto en esta misma corrida) ya dejó la cuota en Vencida antes de
+        // que ProcesarMoraAsync vuelva a ejecutarse. Con el filtro viejo (Estado==Pendiente) la cuota
+        // desaparecía del query y jamás volvía a alertar; con el filtro corregido, sigue entrando
+        // mientras conserve saldo de capital y esté vencida.
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        var cuota = await SeedCuotaVencidaAsync(credito.Id, diasVencido: 10);
+        cuota.Estado = EstadoCuota.Vencida; // efecto ya aplicado de ActualizarEstadoCuotasAsync
+        await _context.SaveChangesAsync();
+
+        await _service.ProcesarMoraAsync();
+
+        var alerta = await AlertaVencidaDelCreditoAsync(credito.Id);
+        Assert.NotNull(alerta);
+        Assert.Equal(1, alerta!.CuotasVencidas);
+    }
+
+    [Fact]
+    public async Task ProcesarMora_EjecutadoDosVecesElMismoDia_NoDuplicaAlertas()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaVencidaAsync(credito.Id, diasVencido: 10);
+
+        await _service.ProcesarMoraAsync();
+        await _service.ProcesarMoraAsync();
+
+        var alertas = await _context.AlertasCobranza
+            .Where(a => a.CreditoId == credito.Id && a.Tipo == TipoAlertaCobranza.CuotaVencida)
+            .ToListAsync();
+        Assert.Single(alertas);
+    }
+
+    [Fact]
+    public async Task ProcesarMora_DiaDelVencimiento_NoEntra_DiaSiguienteSiEntra()
+    {
+        var config = new ConfiguracionMora
+        {
+            DiasGracia = 0,
+            ProcesoAutomaticoActivo = true,
+            HoraEjecucionDiaria = new TimeSpan(8, 0, 0)
+        };
+        _context.Set<ConfiguracionMora>().Add(config);
+        await _context.SaveChangesAsync();
+
+        var clienteHoy = await SeedClienteAsync();
+        var creditoHoy = await SeedCreditoAsync(clienteHoy.Id);
+        await SeedCuotaVencidaAsync(creditoHoy.Id, diasVencido: 0); // vence hoy, todavía no vencida
+
+        var clienteAyer = await SeedClienteAsync();
+        var creditoAyer = await SeedCreditoAsync(clienteAyer.Id);
+        await SeedCuotaVencidaAsync(creditoAyer.Id, diasVencido: 1); // venció ayer
+
+        await _service.ProcesarMoraAsync();
+
+        Assert.Null(await AlertaVencidaDelCreditoAsync(creditoHoy.Id));
+        var alertaAyer = await AlertaVencidaDelCreditoAsync(creditoAyer.Id);
+        Assert.NotNull(alertaAyer);
+        Assert.Equal(1, alertaAyer!.DiasAtraso);
+    }
+
+    [Fact]
+    public async Task ProcesarMora_FronteraUsaRelojComercial_NoUtcNiToday()
+    {
+        // 2026-06-16 01:00 UTC = 2026-06-15 22:00 ART (UTC-3): HoyComercial es 15/06, un día antes
+        // que DateTime.UtcNow.Date/DateTime.Today (16/06). La cuota vence exactamente hoy en
+        // Argentina (15/06) — con la fecha comercial correcta NO está vencida (frontera estricta);
+        // si el servicio usara UTC/Today en su lugar, la trataría como vencida desde ayer.
+        var reloj = RelojComercialFijo.EnUtc(new DateTimeOffset(2026, 6, 16, 1, 0, 0, TimeSpan.Zero));
+        var servicio = CrearServicioConReloj(reloj);
+
+        // DiasGracia=0 explícito: el default (3) enmascararía la frontera de un día que este test
+        // necesita observar.
+        var config = new ConfiguracionMora
+        {
+            DiasGracia = 0,
+            ProcesoAutomaticoActivo = true,
+            HoraEjecucionDiaria = new TimeSpan(8, 0, 0)
+        };
+        _context.Set<ConfiguracionMora>().Add(config);
+        await _context.SaveChangesAsync();
+
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        var cuota = await SeedCuotaVencidaAsync(credito.Id, diasVencido: 0);
+        cuota.FechaVencimiento = reloj.HoyComercial.ToDateTime(TimeOnly.MinValue);
+        await _context.SaveChangesAsync();
+
+        await servicio.ProcesarMoraAsync();
+
+        Assert.Null(await AlertaVencidaDelCreditoAsync(credito.Id));
+    }
+
+    // =========================================================================
+    // ProcesarMoraAsync — cierre PUN-ML7: AlertaCobranza.DiasAtraso
+    //
+    // Antes nunca se asignaba (quedaba en 0 pese a documentarse como "días de atraso actuales"),
+    // rompiendo GetClientesEnMoraAsync/GetDashboardKPIsAsync (DiasMaxAtraso/DiasPromedioAtraso
+    // reales inútiles). Corregido: se calcula con EstadoCuotaResolver.DiasAtrasoDerivado (autoridad
+    // canónica, misma que usa GetCreditosEnMoraAsync) tanto al crear la alerta como al reprocesar una
+    // ya activa, sin duplicarla ni tocar datos de gestión manual.
+    // =========================================================================
+
+    [Fact]
+    public async Task ProcesarMora_NuevaAlerta_GuardaDiasAtrasoReales()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaVencidaAsync(credito.Id, diasVencido: 10);
+
+        await _service.ProcesarMoraAsync();
+
+        var alerta = await AlertaVencidaDelCreditoAsync(credito.Id);
+        Assert.NotNull(alerta);
+        Assert.Equal(10, alerta!.DiasAtraso);
+    }
+
+    [Fact]
+    public async Task ProcesarMora_AlertaActivaExistente_ActualizaDiasAtrasoEnCorridaPosterior()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+
+        var relojDia1 = RelojComercialFijo.EnUtc(new DateTimeOffset(2026, 6, 20, 15, 0, 0, TimeSpan.Zero)); // 12:00 ART
+        var servicioDia1 = CrearServicioConReloj(relojDia1);
+        var cuota = await SeedCuotaVencidaAsync(credito.Id, diasVencido: 10);
+        cuota.FechaVencimiento = relojDia1.HoyComercial.AddDays(-10).ToDateTime(TimeOnly.MinValue);
+        await _context.SaveChangesAsync();
+
+        await servicioDia1.ProcesarMoraAsync();
+
+        var alertaDia1 = await AlertaVencidaDelCreditoAsync(credito.Id);
+        Assert.NotNull(alertaDia1);
+        Assert.Equal(10, alertaDia1!.DiasAtraso);
+
+        // 5 días comerciales después, misma alerta activa se reprocesa (no se crea otra).
+        var relojDia2 = RelojComercialFijo.EnUtc(new DateTimeOffset(2026, 6, 25, 15, 0, 0, TimeSpan.Zero));
+        var servicioDia2 = CrearServicioConReloj(relojDia2);
+
+        await servicioDia2.ProcesarMoraAsync();
+
+        var alertasCredito = await _context.AlertasCobranza
+            .Where(a => a.CreditoId == credito.Id && a.Tipo == TipoAlertaCobranza.CuotaVencida)
+            .ToListAsync();
+        Assert.Single(alertasCredito); // no duplicó
+        Assert.Equal(alertaDia1.Id, alertasCredito[0].Id); // misma identidad
+        Assert.Equal(15, alertasCredito[0].DiasAtraso); // 10 + 5 días transcurridos
+    }
+
+    [Fact]
+    public async Task ProcesarMora_EjecucionRepetidaMismoDia_NoAlteraDatosManualesYMantieneDiasAtraso()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaVencidaAsync(credito.Id, diasVencido: 10);
+
+        await _service.ProcesarMoraAsync();
+
+        var alerta = await AlertaVencidaDelCreditoAsync(credito.Id);
+        Assert.NotNull(alerta);
+
+        // Simular gestión manual sobre la alerta ya creada.
+        alerta!.Observaciones = "Cliente contactado, pidió prórroga";
+        alerta.EstadoGestion = EstadoGestionCobranza.EnGestion;
+        await _context.SaveChangesAsync();
+        var updatedAtAntes = alerta.UpdatedAt;
+        var idAntes = alerta.Id;
+
+        await _service.ProcesarMoraAsync(); // misma fecha comercial, segunda corrida
+
+        _context.ChangeTracker.Clear();
+        var alertas = await _context.AlertasCobranza
+            .Where(a => a.CreditoId == credito.Id && a.Tipo == TipoAlertaCobranza.CuotaVencida)
+            .ToListAsync();
+        Assert.Single(alertas); // no duplicó
+        Assert.Equal(idAntes, alertas[0].Id); // misma identidad
+        Assert.Equal(10, alertas[0].DiasAtraso); // mismo valor, idempotente para la misma fecha
+        Assert.Equal("Cliente contactado, pidió prórroga", alertas[0].Observaciones); // dato manual intacto
+        Assert.Equal(EstadoGestionCobranza.EnGestion, alertas[0].EstadoGestion); // dato manual intacto
+        // Sin cambio real en DiasAtraso, el reproceso no debe tocar UpdatedAt (del que depende
+        // AlertaCobranza.Leida) — de lo contrario una alerta que nadie leyó aparecería como "leída".
+        Assert.Equal(updatedAtAntes, alertas[0].UpdatedAt);
+    }
+
+    [Fact]
+    public async Task ProcesarMora_TrasCorrida_GetClientesEnMoraAsync_MuestraDiasAtrasoActualizado()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaVencidaAsync(credito.Id, diasVencido: 12);
+
+        await _service.ProcesarMoraAsync();
+
+        var bandeja = await _service.GetClientesEnMoraAsync(new FiltrosBandejaClientes());
+
+        Assert.Single(bandeja.Clientes);
+        Assert.Equal(12, bandeja.Clientes[0].DiasMaxAtraso);
     }
 
     // =========================================================================
@@ -1155,6 +1531,155 @@ public class MoraServiceTests : IDisposable
         Assert.Equal(1, resultado[0].CuotasVencidas);
     }
 
+    // -------------------------------------------------------------------------
+    // GetCreditosEnMoraAsync — corrección PUN-ML7 (auditoría, lote 2): predicado canónico de
+    // mora de capital (antes filtraba solo Estado==Pendiente, perdiendo Vencida/Parcial con saldo).
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetCreditosEnMora_CuotaVencidaEstado_ConSaldo_Entra()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaConEstadoAsync(credito.Id, EstadoCuota.Vencida, diasVencido: 10);
+
+        var resultado = await _service.GetCreditosEnMoraAsync(cliente.Id);
+
+        Assert.Single(resultado);
+        Assert.Equal(1, resultado[0].CuotasVencidas);
+    }
+
+    [Fact]
+    public async Task GetCreditosEnMora_CuotaParcialVencida_ConSaldoDeCapital_Entra()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaConEstadoAsync(credito.Id, EstadoCuota.Parcial, diasVencido: 10,
+            montoTotal: 1_000m, montoPagado: 400m);
+
+        var resultado = await _service.GetCreditosEnMoraAsync(cliente.Id);
+
+        Assert.Single(resultado);
+        Assert.Equal(600m, resultado[0].MontoCuotasVencidas);
+    }
+
+    [Fact]
+    public async Task GetCreditosEnMora_CuotaParcialNoVencida_NoEntra()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaConEstadoAsync(credito.Id, EstadoCuota.Parcial, diasVencido: -3,
+            montoTotal: 1_000m, montoPagado: 400m);
+
+        var resultado = await _service.GetCreditosEnMoraAsync(cliente.Id);
+
+        Assert.Empty(resultado);
+    }
+
+    [Fact]
+    public async Task GetCreditosEnMora_CuotaPagada_NoEntra()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaConEstadoAsync(credito.Id, EstadoCuota.Pagada, diasVencido: 10,
+            montoTotal: 1_000m, montoPagado: 1_000m);
+
+        var resultado = await _service.GetCreditosEnMoraAsync(cliente.Id);
+
+        Assert.Empty(resultado);
+    }
+
+    [Fact]
+    public async Task GetCreditosEnMora_CuotaCancelada_NoEntra()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaConEstadoAsync(credito.Id, EstadoCuota.Cancelada, diasVencido: 10);
+
+        var resultado = await _service.GetCreditosEnMoraAsync(cliente.Id);
+
+        Assert.Empty(resultado);
+    }
+
+    [Fact]
+    public async Task GetCreditosEnMora_CapitalTotalmentePagado_SoloConservaPunitorio_NoEntra()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaConEstadoAsync(credito.Id, EstadoCuota.Parcial, diasVencido: 10,
+            montoTotal: 1_000m, montoPagado: 1_000m);
+
+        var resultado = await _service.GetCreditosEnMoraAsync(cliente.Id);
+
+        Assert.Empty(resultado);
+    }
+
+    [Fact]
+    public async Task GetCreditosEnMora_DiaDelVencimiento_NoEntra_DiaSiguienteSiEntra()
+    {
+        var clienteHoy = await SeedClienteAsync();
+        var creditoHoy = await SeedCreditoAsync(clienteHoy.Id);
+        await SeedCuotaVencidaAsync(creditoHoy.Id, diasVencido: 0); // vence hoy, todavía no vencida
+
+        var clienteAyer = await SeedClienteAsync();
+        var creditoAyer = await SeedCreditoAsync(clienteAyer.Id);
+        await SeedCuotaVencidaAsync(creditoAyer.Id, diasVencido: 1); // venció ayer
+
+        Assert.Empty(await _service.GetCreditosEnMoraAsync(clienteHoy.Id));
+        Assert.Single(await _service.GetCreditosEnMoraAsync(clienteAyer.Id));
+    }
+
+    [Fact]
+    public async Task GetCreditosEnMora_FronteraUsaRelojComercial_NoUtcNiToday()
+    {
+        // Mismo escenario que ProcesarMora_FronteraUsaRelojComercial_NoUtcNiToday: 01:00 UTC del
+        // 16/06 es 22:00 ART del 15/06 (UTC-3). La cuota vence exactamente "hoy" en Argentina y no
+        // debe verse como vencida si el servicio usa IRelojComercial en vez de UTC/Today.
+        var reloj = RelojComercialFijo.EnUtc(new DateTimeOffset(2026, 6, 16, 1, 0, 0, TimeSpan.Zero));
+        var servicio = CrearServicioConReloj(reloj);
+
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        var cuota = await SeedCuotaVencidaAsync(credito.Id, diasVencido: 0);
+        cuota.FechaVencimiento = reloj.HoyComercial.ToDateTime(TimeOnly.MinValue);
+        await _context.SaveChangesAsync();
+
+        var resultado = await servicio.GetCreditosEnMoraAsync(cliente.Id);
+
+        Assert.Empty(resultado);
+    }
+
+    [Fact]
+    public async Task GetCreditosEnMora_CuotaFuturaEnElMismoCredito_NoAfectaElResultado()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaVencidaAsync(credito.Id, diasVencido: 10, montoTotal: 1_000m);
+        await SeedCuotaPorVencerAsync(credito.Id, diasHastaVencimiento: 15, montoTotal: 1_000m);
+
+        var resultado = await _service.GetCreditosEnMoraAsync(cliente.Id);
+
+        Assert.Single(resultado);
+        Assert.Equal(1, resultado[0].CuotasVencidas);
+        Assert.Equal(1_000m, resultado[0].MontoCuotasVencidas);
+    }
+
+    [Fact]
+    public async Task GetCreditosEnMora_LecturaRepetida_NoModificaEstadosNiPersiste()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        var cuota = await SeedCuotaVencidaAsync(credito.Id, diasVencido: 10);
+
+        await _service.GetCreditosEnMoraAsync(cliente.Id);
+        await _service.GetCreditosEnMoraAsync(cliente.Id);
+
+        _context.ChangeTracker.Clear();
+        var cuotaBd = await _context.Cuotas.FindAsync(cuota.Id);
+        Assert.Equal(EstadoCuota.Pendiente, cuotaBd!.Estado);
+        Assert.Equal(0m, cuotaBd.MontoPagado);
+    }
+
     // =========================================================================
     // GetHistorialContactosAsync
     // =========================================================================
@@ -1230,6 +1755,54 @@ public class MoraServiceTests : IDisposable
         Assert.Equal(1_000m, resultado[0].MontoPrometido);
     }
 
+    [Fact]
+    public async Task GetPromesasActivas_PromesaConFechaYaPasada_NoSeIncluye()
+    {
+        // PUN-ML7 (auditoría, lote 2): "activa" exige vigencia real (fecha comercial), no solo
+        // "no resuelta". Antes el filtro de vigencia estaba declarado pero desconectado del query.
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        var alerta = await SeedAlertaAsync(cliente.Id, credito.Id);
+
+        var promesaVm = new RegistrarPromesaViewModel
+        {
+            AlertaId = alerta.Id,
+            ClienteId = cliente.Id,
+            FechaPromesa = DateTime.Today.AddDays(-5), // ya pasó, nadie la marcó cumplida/incumplida
+            MontoPromesa = 1_000m
+        };
+        await _service.RegistrarPromesaPagoAsync(promesaVm, gestorId: "gestor1");
+
+        var resultado = await _service.GetPromesasActivasAsync(cliente.Id);
+
+        Assert.Empty(resultado);
+    }
+
+    [Fact]
+    public async Task GetPromesasActivas_FronteraUsaRelojComercial_NoUtcNiToday()
+    {
+        var reloj = RelojComercialFijo.EnUtc(new DateTimeOffset(2026, 6, 16, 1, 0, 0, TimeSpan.Zero));
+        var servicio = CrearServicioConReloj(reloj);
+
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        var alerta = await SeedAlertaAsync(cliente.Id, credito.Id);
+
+        var promesaVm = new RegistrarPromesaViewModel
+        {
+            AlertaId = alerta.Id,
+            ClienteId = cliente.Id,
+            FechaPromesa = reloj.HoyComercial.ToDateTime(TimeOnly.MinValue), // "hoy" en Argentina
+            MontoPromesa = 1_000m
+        };
+        await servicio.RegistrarPromesaPagoAsync(promesaVm, gestorId: "gestor1");
+
+        // Con la fecha comercial correcta la promesa de "hoy" sigue vigente (>=), no vencida.
+        var resultado = await servicio.GetPromesasActivasAsync(cliente.Id);
+
+        Assert.Single(resultado);
+    }
+
     // =========================================================================
     // GetAcuerdosPagoAsync
     // =========================================================================
@@ -1242,6 +1815,84 @@ public class MoraServiceTests : IDisposable
         var resultado = await _service.GetAcuerdosPagoAsync(cliente.Id);
 
         Assert.Empty(resultado);
+    }
+
+    // -------------------------------------------------------------------------
+    // GetAcuerdosPagoAsync — cierre PUN-ML7: la próxima cuota vigente ("ProximaFechaVencimiento")
+    // usaba DateTime.Today. Corregido a IRelojComercial.InicioDiaComercial — no cambia la regla de
+    // negocio (misma comparación FechaVencimiento >= hoy), solo la fuente de "hoy".
+    // -------------------------------------------------------------------------
+
+    private async Task<(int AcuerdoId, CuotaAcuerdo Cuota)> SeedAcuerdoConUnaCuotaAsync(
+        int clienteId, int creditoId, int alertaId, DateTime fechaVencimientoCuota)
+    {
+        var acuerdoId = await _service.CrearAcuerdoPagoAsync(new CrearAcuerdoViewModel
+        {
+            AlertaId = alertaId,
+            ClienteId = clienteId,
+            CreditoId = creditoId,
+            MontoDeudaOriginal = 3_000m,
+            MontoMoraOriginal = 0m,
+            MontoCondonar = 0m,
+            MontoEntregaInicial = 0m,
+            CantidadCuotas = 1,
+            FechaPrimeraCuota = fechaVencimientoCuota
+        }, "gestor1");
+
+        var cuotaAcuerdo = new CuotaAcuerdo
+        {
+            AcuerdoPagoId = acuerdoId,
+            NumeroCuota = 1,
+            MontoCapital = 3_000m,
+            MontoMora = 0m,
+            MontoTotal = 3_000m,
+            FechaVencimiento = fechaVencimientoCuota,
+            Estado = EstadoCuotaAcuerdo.Pendiente
+        };
+        _context.Set<CuotaAcuerdo>().Add(cuotaAcuerdo);
+        await _context.SaveChangesAsync();
+
+        return (acuerdoId, cuotaAcuerdo);
+    }
+
+    [Fact]
+    public async Task GetAcuerdosPago_CuotaVenceHoy_SeConsideraProximaFecha_FronteraUsaRelojComercial()
+    {
+        // 01:00 UTC del 16/06 = 22:00 ART del 15/06 (UTC-3): "hoy" en Argentina es 15/06, un día antes
+        // que DateTime.UtcNow.Date/DateTime.Today (16/06). La cuota vence exactamente "hoy" en
+        // Argentina; con la fecha comercial correcta sigue siendo la próxima cuota vigente. Si el
+        // servicio usara UTC/Today, la trataría como vencida desde ayer y la excluiría (quedaría null).
+        var reloj = RelojComercialFijo.EnUtc(new DateTimeOffset(2026, 6, 16, 1, 0, 0, TimeSpan.Zero));
+        var servicio = CrearServicioConReloj(reloj);
+
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        var alerta = await SeedAlertaAsync(cliente.Id, credito.Id);
+        var fechaVencimiento = reloj.HoyComercial.ToDateTime(TimeOnly.MinValue);
+        await SeedAcuerdoConUnaCuotaAsync(cliente.Id, credito.Id, alerta.Id, fechaVencimiento);
+
+        var resumen = await servicio.GetAcuerdosPagoAsync(cliente.Id);
+
+        Assert.Single(resumen);
+        Assert.Equal(fechaVencimiento, resumen[0].ProximaFechaVencimiento);
+    }
+
+    [Fact]
+    public async Task GetAcuerdosPago_CuotaVencioAyer_NoSeConsideraProximaFecha()
+    {
+        var reloj = RelojComercialFijo.EnUtc(new DateTimeOffset(2026, 6, 16, 1, 0, 0, TimeSpan.Zero)); // "hoy" ART = 15/06
+        var servicio = CrearServicioConReloj(reloj);
+
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        var alerta = await SeedAlertaAsync(cliente.Id, credito.Id);
+        var fechaVencimiento = reloj.HoyComercial.AddDays(-1).ToDateTime(TimeOnly.MinValue); // venció ayer
+        await SeedAcuerdoConUnaCuotaAsync(cliente.Id, credito.Id, alerta.Id, fechaVencimiento);
+
+        var resumen = await servicio.GetAcuerdosPagoAsync(cliente.Id);
+
+        Assert.Single(resumen);
+        Assert.Null(resumen[0].ProximaFechaVencimiento); // ninguna cuota pendiente vigente
     }
 
     // =========================================================================
@@ -1282,6 +1933,43 @@ public class MoraServiceTests : IDisposable
         Assert.NotNull(resultado);
         Assert.Single(resultado.Clientes);
         Assert.Equal(cliente.Id, resultado.Clientes[0].ClienteId);
+    }
+
+    [Fact]
+    public async Task GetClientesEnMora_MismoUniversoQueGetCreditosEnMora()
+    {
+        // PUN-ML7 (auditoría, lote 2): "mismo cliente + mismos datos + misma fecha comercial debe
+        // producir la misma clasificación". GetClientesEnMoraAsync deriva de AlertaCobranza (generada
+        // por ProcesarMoraAsync con el predicado canónico); con DiasGracia=0 y sin resolución manual
+        // de alertas, su universo coincide con el de GetCreditosEnMoraAsync (lectura directa sobre
+        // Cuotas). Un DiasGracia>0 retrasa deliberadamente la alerta de cobranza — no es la misma
+        // pregunta que "¿está vencida hoy?" — riesgo documentado en el cierre.
+        var config = new ConfiguracionMora
+        {
+            DiasGracia = 0,
+            ProcesoAutomaticoActivo = true,
+            HoraEjecucionDiaria = new TimeSpan(8, 0, 0)
+        };
+        _context.Set<ConfiguracionMora>().Add(config);
+        await _context.SaveChangesAsync();
+
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaConEstadoAsync(credito.Id, EstadoCuota.Parcial, diasVencido: 10,
+            montoTotal: 1_000m, montoPagado: 400m);
+
+        await _service.ProcesarMoraAsync();
+
+        var bandeja = await _service.GetClientesEnMoraAsync(new FiltrosBandejaClientes());
+        var creditosEnMora = await _service.GetCreditosEnMoraAsync(cliente.Id);
+
+        Assert.Single(bandeja.Clientes);
+        Assert.Equal(cliente.Id, bandeja.Clientes[0].ClienteId);
+        Assert.Single(creditosEnMora);
+        Assert.Equal(bandeja.Clientes[0].MontoVencido, creditosEnMora[0].MontoCuotasVencidas);
+        // PUN-ML7 (cierre): AlertaCobranza.DiasAtraso ya se asigna en ProcesarMoraAsync (antes
+        // quedaba siempre en 0) — ambas lecturas ahora coinciden también en días de atraso.
+        Assert.Equal(bandeja.Clientes[0].DiasMaxAtraso, creditosEnMora[0].DiasAtraso);
     }
 
     // =========================================================================
@@ -1386,8 +2074,182 @@ public class MoraServiceTests : IDisposable
         Assert.Equal(PrioridadAlerta.Alta, resultado!.Resumen.PrioridadMaxima);
     }
 
-    // GetDashboardKPIsAsync — excluded: uses SumAsync on decimal? columns,
-    // which SQLite cannot translate (same limitation as other SumAsync-based methods).
+    [Fact]
+    public async Task GetFichaCliente_UsaMismoTotalYMismasCuotasQueGetCreditosEnMora()
+    {
+        // PUN-ML7 (auditoría, lote 2): "no mezclar una lista basada en Vencida/Parcial con totales
+        // basados solo en Pendiente". El resumen de la ficha se arma sumando el resultado de
+        // GetCreditosEnMoraAsync (ya corregido) — cuota Vencida + cuota Parcial con saldo, ambas
+        // deben aparecer y con el mismo dato en ambos lados.
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaConEstadoAsync(credito.Id, EstadoCuota.Vencida, diasVencido: 20,
+            montoTotal: 1_000m, montoPagado: 0m);
+        await SeedCuotaConEstadoAsync(credito.Id, EstadoCuota.Parcial, diasVencido: 10,
+            montoTotal: 1_000m, montoPagado: 300m);
+
+        var ficha = await _service.GetFichaClienteAsync(cliente.Id);
+        var creditos = await _service.GetCreditosEnMoraAsync(cliente.Id);
+
+        Assert.NotNull(ficha);
+        Assert.Equal(creditos.Sum(c => c.CuotasVencidas), ficha!.Resumen.TotalCuotasVencidas);
+        Assert.Equal(2, ficha.Resumen.TotalCuotasVencidas); // Vencida + Parcial con saldo, no solo Pendiente
+        Assert.Equal(creditos.Sum(c => c.MontoCuotasVencidas), ficha.Resumen.MontoCapitalVencido);
+        Assert.Equal(creditos.Max(c => c.DiasAtraso), ficha.Resumen.DiasMaxAtraso);
+    }
+
+    // =========================================================================
+    // GetDashboardKPIsAsync — cierre PUN-ML7
+    //
+    // Antes usaba DateTime.Today para "hoy" (inconsistente con el resto de MoraService, ya corregido)
+    // y la agregación de cobrosMes usaba SumAsync sobre decimal, que el proveedor Sqlite (usado en
+    // estos tests) no traduce a SQL (NotSupportedException) — mismo límite documentado para otros
+    // SumAsync de la base. Se corrigió a traer las filas y sumar en cliente (sin cambiar la regla de
+    // negocio), lo que habilita cubrir este método con tests de integración por primera vez.
+    // =========================================================================
+
+    [Fact]
+    public async Task GetDashboardKPIs_SinDatos_RetornaCeros()
+    {
+        var kpis = await _service.GetDashboardKPIsAsync();
+
+        Assert.Equal(0, kpis.TotalClientesMora);
+        Assert.Equal(0, kpis.AlertasActivas);
+        Assert.Equal(0m, kpis.DiasPromedioAtraso);
+    }
+
+    [Fact]
+    public async Task GetDashboardKPIs_TrasProcesarMora_CoincideConBandejaYDiasAtrasoReal()
+    {
+        var config = new ConfiguracionMora
+        {
+            DiasGracia = 0,
+            ProcesoAutomaticoActivo = true,
+            HoraEjecucionDiaria = new TimeSpan(8, 0, 0)
+        };
+        _context.Set<ConfiguracionMora>().Add(config);
+        await _context.SaveChangesAsync();
+
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaVencidaAsync(credito.Id, diasVencido: 20);
+
+        await _service.ProcesarMoraAsync();
+
+        var kpis = await _service.GetDashboardKPIsAsync();
+        var bandeja = await _service.GetClientesEnMoraAsync(new FiltrosBandejaClientes());
+
+        Assert.Equal(bandeja.TotalClientes, kpis.TotalClientesMora);
+        Assert.Equal(1, kpis.AlertasActivas);
+        // Gracias al fix de AlertaCobranza.DiasAtraso (antes siempre 0), el promedio ya es real.
+        Assert.Equal(20m, kpis.DiasPromedioAtraso);
+    }
+
+    [Fact]
+    public async Task GetDashboardKPIs_IncluyeCuotaVencidaYParcialConSaldo()
+    {
+        var config = new ConfiguracionMora
+        {
+            DiasGracia = 0,
+            ProcesoAutomaticoActivo = true,
+            HoraEjecucionDiaria = new TimeSpan(8, 0, 0)
+        };
+        _context.Set<ConfiguracionMora>().Add(config);
+        await _context.SaveChangesAsync();
+
+        var clienteVencida = await SeedClienteAsync();
+        var creditoVencida = await SeedCreditoAsync(clienteVencida.Id);
+        await SeedCuotaConEstadoAsync(creditoVencida.Id, EstadoCuota.Vencida, diasVencido: 10);
+
+        var clienteParcial = await SeedClienteAsync();
+        var creditoParcial = await SeedCreditoAsync(clienteParcial.Id);
+        await SeedCuotaConEstadoAsync(creditoParcial.Id, EstadoCuota.Parcial, diasVencido: 10,
+            montoTotal: 1_000m, montoPagado: 400m);
+
+        await _service.ProcesarMoraAsync();
+
+        var kpis = await _service.GetDashboardKPIsAsync();
+
+        Assert.Equal(2, kpis.TotalClientesMora);
+    }
+
+    [Fact]
+    public async Task GetDashboardKPIs_ExcluyeCapitalSaldadoConSoloPunitorioPendiente()
+    {
+        var config = new ConfiguracionMora
+        {
+            DiasGracia = 0,
+            ProcesoAutomaticoActivo = true,
+            HoraEjecucionDiaria = new TimeSpan(8, 0, 0)
+        };
+        _context.Set<ConfiguracionMora>().Add(config);
+        await _context.SaveChangesAsync();
+
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        // Capital saldado, Estado=Parcial únicamente por un punitorio aplicado pendiente.
+        await SeedCuotaConEstadoAsync(credito.Id, EstadoCuota.Parcial, diasVencido: 10,
+            montoTotal: 1_000m, montoPagado: 1_000m);
+
+        await _service.ProcesarMoraAsync();
+
+        var kpis = await _service.GetDashboardKPIsAsync();
+
+        Assert.Equal(0, kpis.TotalClientesMora);
+    }
+
+    [Fact]
+    public async Task GetDashboardKPIs_PromesaVenceHoy_ClasificaConFechaComercial_NoUtcNiToday()
+    {
+        // 01:00 UTC del 16/06 = 22:00 ART del 15/06 (UTC-3): "hoy" en Argentina es 15/06. Si el
+        // servicio usara DateTime.Today/UtcNow.Date (16/06) en vez de IRelojComercial, la promesa
+        // de "hoy" en Argentina aparecería vencida un día antes de tiempo.
+        var reloj = RelojComercialFijo.EnUtc(new DateTimeOffset(2026, 6, 16, 1, 0, 0, TimeSpan.Zero));
+        var servicio = CrearServicioConReloj(reloj);
+
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        var alerta = await SeedAlertaAsync(cliente.Id, credito.Id);
+        alerta.FechaPromesaPago = reloj.HoyComercial.ToDateTime(TimeOnly.MinValue); // "hoy" en Argentina
+        await _context.SaveChangesAsync();
+
+        var kpis = await servicio.GetDashboardKPIsAsync();
+
+        Assert.Equal(1, kpis.PromesasVencenHoy);
+        Assert.Equal(1, kpis.PromesasActivas);
+        Assert.Equal(0, kpis.PromesasVencidas);
+    }
+
+    [Fact]
+    public async Task GetDashboardKPIs_AgregarCuotaFutura_NoAlteraKPIsDeHoy()
+    {
+        // "Agregar eventos futuros no cambia una consulta histórica": una cuota del mismo crédito que
+        // recién vence dentro de 30 días no debe sumarse a la mora actual ni mover el promedio de
+        // días de atraso ya calculado.
+        var config = new ConfiguracionMora
+        {
+            DiasGracia = 0,
+            ProcesoAutomaticoActivo = true,
+            HoraEjecucionDiaria = new TimeSpan(8, 0, 0)
+        };
+        _context.Set<ConfiguracionMora>().Add(config);
+        await _context.SaveChangesAsync();
+
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaVencidaAsync(credito.Id, diasVencido: 10);
+
+        await _service.ProcesarMoraAsync();
+        var kpisAntes = await _service.GetDashboardKPIsAsync();
+
+        await SeedCuotaPorVencerAsync(credito.Id, diasHastaVencimiento: 30);
+        await _service.ProcesarMoraAsync(); // reprocesa; la cuota futura no debería afectar la mora actual
+
+        var kpisDespues = await _service.GetDashboardKPIsAsync();
+
+        Assert.Equal(kpisAntes.TotalClientesMora, kpisDespues.TotalClientesMora);
+        Assert.Equal(kpisAntes.DiasPromedioAtraso, kpisDespues.DiasPromedioAtraso);
+    }
 
     /// <summary>
     /// Fake de ICreditoService que solo registra si ActualizarEstadoCuotasAsync fue invocado,
@@ -1410,7 +2272,6 @@ public class MoraServiceTests : IDisposable
         public Task<CreditoViewModel> CreatePendienteConfiguracionAsync(int clienteId, decimal montoTotal) => throw new NotImplementedException();
         public Task<bool> UpdateAsync(CreditoViewModel viewModel) => throw new NotImplementedException();
         public Task<bool> DeleteAsync(int id) => throw new NotImplementedException();
-        public Task<SimularCreditoViewModel> SimularCreditoAsync(SimularCreditoViewModel modelo) => throw new NotImplementedException();
         public Task<bool> AprobarCreditoAsync(int creditoId, string aprobadoPor) => throw new NotImplementedException();
         public Task<bool> RechazarCreditoAsync(int creditoId, string motivo) => throw new NotImplementedException();
         public Task<bool> CancelarCreditoAsync(int creditoId, string motivo) => throw new NotImplementedException();

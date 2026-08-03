@@ -39,13 +39,22 @@ namespace TheBuryProject.Services.Interfaces
         decimal CalcularCFTEADesdeTasa(decimal tasaMensual);
 
         /// <summary>
-        /// Simula un plan de crédito completo: calcula monto financiado, cuota, interés,
-        /// totales y el semáforo de precalificación.
+        /// Simula un plan de crédito personal: recargo TOTAL del plan (no interés compuesto
+        /// mensual) sobre el saldo posterior al anticipo, en cuotas iguales donde la última
+        /// absorbe el residuo de redondeo.
+        /// SaldoAFinanciar = totalVenta - anticipo
+        /// RecargoTotal    = round2(SaldoAFinanciar * porcentajeRecargo / 100)
+        /// TotalFinanciado = SaldoAFinanciar + RecargoTotal
+        /// CuotaEstimada   = round2(TotalFinanciado / cuotas)
+        /// El DTO también incluye el vector exacto de cuotas (capital/interés/total por
+        /// cuota, construido por división entera de centavos con el resto completo en la
+        /// última cuota, sin valores negativos ni siquiera con importes muy chicos frente
+        /// a la cantidad de cuotas) en <see cref="SimulacionPlanCreditoDto.Cuotas"/>.
         /// </summary>
         /// <param name="totalVenta">Total de la venta.</param>
         /// <param name="anticipo">Anticipo (0 si no aplica).</param>
         /// <param name="cuotas">Cantidad de cuotas.</param>
-        /// <param name="tasaMensual">Tasa mensual en porcentaje (ej: 5 = 5%).</param>
+        /// <param name="porcentajeRecargo">Recargo TOTAL del plan en porcentaje (ej: 10 = 10% sobre el saldo financiado, no mensual).</param>
         /// <param name="gastosAdministrativos">Gastos adicionales (0 si no aplica).</param>
         /// <param name="fechaPrimeraCuota">Fecha del primer pago.</param>
         /// <returns>DTO con todos los resultados de la simulación.</returns>
@@ -53,7 +62,7 @@ namespace TheBuryProject.Services.Interfaces
             decimal totalVenta,
             decimal anticipo,
             int cuotas,
-            decimal tasaMensual,
+            decimal porcentajeRecargo,
             decimal gastosAdministrativos,
             DateTime fechaPrimeraCuota,
             decimal semaforoRatioVerdeMax = 0.08m,

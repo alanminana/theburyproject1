@@ -33,8 +33,13 @@ namespace TheBuryProject.Models.Entities
         // Crédito personal - defaults globales
         
         /// <summary>
-        /// Tasa de interés mensual default para crédito personal (%)
-        /// Este valor se usa como fallback cuando no hay perfil seleccionado
+        /// Porcentaje de recargo TOTAL único global de Crédito Personal (no una tasa mensual
+        /// ni compuesta: se aplica una sola vez sobre el saldo financiado). El nombre de la
+        /// propiedad es legacy y se conserva por compatibilidad de columna; ver
+        /// <see cref="Services.Interfaces.IConfiguracionPagoService.ObtenerTasaInteresMensualCreditoPersonalAsync"/>
+        /// para la fuente canónica de lectura. Se usa como fallback cuando un plan de
+        /// <see cref="ConfiguracionCreditoPersonalCuota"/> no define su propio recargo (null).
+        /// null = nunca configurado; 0 = recargo cero explícito y válido.
         /// </summary>
         [Column(TypeName = "decimal(8,4)")]
         public decimal? TasaInteresMensualCreditoPersonal { get; set; }
@@ -46,12 +51,18 @@ namespace TheBuryProject.Models.Entities
         public decimal? GastosAdministrativosDefaultCreditoPersonal { get; set; }
 
         /// <summary>
-        /// Mínimo de cuotas default para crédito personal
+        /// LEGACY INERTE (Micro-lote 4). Antiguo rango mínimo de cuotas default de crédito personal.
+        /// La disponibilidad de cuotas surge exclusivamente de los planes activos
+        /// (<see cref="ConfiguracionCreditoPersonalCuota"/>): esta columna ya no se lee ni se escribe.
+        /// Se conserva físicamente para no aplicar una migración destructiva sobre la base viva.
         /// </summary>
         public int? MinCuotasDefaultCreditoPersonal { get; set; }
 
         /// <summary>
-        /// Máximo de cuotas default para crédito personal
+        /// LEGACY INERTE (Micro-lote 4). Antiguo rango máximo de cuotas default de crédito personal.
+        /// La disponibilidad de cuotas surge exclusivamente de los planes activos
+        /// (<see cref="ConfiguracionCreditoPersonalCuota"/>): esta columna ya no se lee ni se escribe.
+        /// Se conserva físicamente para no aplicar una migración destructiva sobre la base viva.
         /// </summary>
         public int? MaxCuotasDefaultCreditoPersonal { get; set; }
 

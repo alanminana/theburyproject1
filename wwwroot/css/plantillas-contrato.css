@@ -51,7 +51,7 @@
   background: var(--pl-card);
 }
 .pl-banner.is-ok  { border-color: rgba(16,185,129,0.35); background: rgba(16,185,129,0.07); }
-.pl-banner.is-bad { border-color: rgba(244,63,94,0.35);  background: rgba(244,63,94,0.07); }
+.pl-banner.is-bad { border-color: transparent;  background: rgba(244,63,94,0.07); }
 .pl-banner-ic {
   width: 38px; height: 38px; border-radius: 10px;
   display: grid; place-items: center; flex-shrink: 0;
@@ -380,7 +380,7 @@
 }
 .pl-alert .material-symbols-outlined { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
 .pl-alert-ok  { color: #6ee7b7; background: rgba(16,185,129,0.1); border-color: rgba(16,185,129,0.3); }
-.pl-alert-bad { color: #fda4af; background: rgba(244,63,94,0.1);  border-color: rgba(244,63,94,0.3); }
+.pl-alert-bad { color: #fda4af; background: rgba(244,63,94,0.1);  border-color: transparent; }
 .pl-alert-bad ul { margin: 0.3rem 0 0; padding-left: 1.1rem; list-style: disc; font-size: 0.8rem; }
 
 /* toast (copiar variable) */

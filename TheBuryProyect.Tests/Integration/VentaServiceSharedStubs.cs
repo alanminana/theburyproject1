@@ -51,14 +51,22 @@ internal class StubConfiguracionPagoServiceVenta : IConfiguracionPagoService
         List<MontoPorPuntajeCreditoViewModel> items, string usuario)
         => Task.FromResult((true, new List<string>()));
 
+    // Micro-lote 4: los planes globales activos son la unica fuente de cantidades. En produccion
+    // siempre existen; el stub ofrece 1..24 (tasa null = heredar la global) para que confirmar un
+    // credito personal no sea rechazado por "sin planes globales". Sobrescribible por test.
+    public virtual List<CuotaCreditoPersonalViewModel> CuotasCreditoPersonal { get; set; } =
+        Enumerable.Range(1, 24)
+            .Select(n => new CuotaCreditoPersonalViewModel { CantidadCuotas = n, TasaMensual = null, Activo = true })
+            .ToList();
+
     public Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalAsync()
-        => Task.FromResult(new List<CuotaCreditoPersonalViewModel>());
+        => Task.FromResult(CuotasCreditoPersonal);
 
     public Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalActivasAsync()
-        => Task.FromResult(new List<CuotaCreditoPersonalViewModel>());
+        => Task.FromResult(CuotasCreditoPersonal.Where(c => c.Activo).ToList());
 
-    public Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalEfectivasAsync(IEnumerable<int> productoIds)
-        => GetCuotasCreditoPersonalActivasAsync();
+    public async Task<PlanesCreditoPersonalResultado> ResolverPlanesCreditoPersonalAsync(IEnumerable<int> productoIds)
+        => PlanesCreditoPersonalStub.DesdeGlobales(await GetCuotasCreditoPersonalActivasAsync());
 
     public Task<(bool Ok, List<string> Errores)> GuardarCuotasCreditoPersonalAsync(
         List<CuotaCreditoPersonalViewModel> items, string usuario)

@@ -3,6 +3,7 @@ using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using TheBuryProject.Data;
+using TheBuryProject.Helpers;
 using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
@@ -38,6 +39,7 @@ namespace TheBuryProject.Services
         private readonly IConfiguracionPagoService _configuracionPagoService;
         private readonly IProductoCreditoRestriccionService _productoCreditoRestriccionService;
         private readonly IProductoUnidadService? _productoUnidadService;
+        private readonly IRelojComercial _reloj;
 
         public VentaService(
             AppDbContext context,
@@ -56,7 +58,8 @@ namespace TheBuryProject.Services
             IContratoVentaCreditoService contratoVentaCreditoService,
             IConfiguracionPagoService configuracionPagoService,
             IProductoCreditoRestriccionService? productoCreditoRestriccionService = null,
-            IProductoUnidadService? productoUnidadService = null)
+            IProductoUnidadService? productoUnidadService = null,
+            IRelojComercial? reloj = null)
         {
             _context = context;
             _mapper = mapper;
@@ -76,6 +79,13 @@ namespace TheBuryProject.Services
             _productoCreditoRestriccionService =
                 productoCreditoRestriccionService ?? new ProductoCreditoRestriccionService(context);
             _productoUnidadService = productoUnidadService;
+            // PUN-ML7: fuente única de "hoy" para el vencimiento de la 1ª cuota cuando no hay
+            // Credito.FechaPrimeraCuota configurada. La inyección obligatoria sería preferible, pero
+            // ~18 archivos de test de VentaService (muy fuera del alcance de esta corrección)
+            // construyen este servicio sin pasar reloj — el fallback es inerte en producción
+            // (Program.cs registra IRelojComercial como Singleton; DI siempre lo resuelve) y solo se
+            // alcanza ahí.
+            _reloj = reloj ?? RelojComercial.Sistema;
         }
 
         #region Consultas
@@ -236,16 +246,11 @@ namespace TheBuryProject.Services
                     {
                         if (PuedeAplicarExcepcionDocumentalCreate(viewModel, validacion))
                         {
-                            // FASE 5E: la excepción documental ya no autoexcepciona en el mismo
-                            // acto (el creador podía tener ventas.authorize y auto-aprobarse).
-                            // Se enruta como autorización formal pendiente: otro usuario con
-                            // ventas.authorize debe resolverla vía AutorizarVentaAsync, que ya
-                            // bloquea si usuarioAutoriza == CreatedBy.
                             var motivoExcepcion = viewModel.MotivoExcepcionDocumentalCreate!.Trim();
-                            AplicarExcepcionDocumentalComoPendienteAutorizacion(validacion, motivoExcepcion);
+                            AplicarExcepcionDocumentalComoAutorizada(validacion, motivoExcepcion);
 
                             _logger.LogWarning(
-                                "CreateAsync venta con excepción documental enviada a autorización formal. Cliente:{ClienteId} Usuario:{Usuario}",
+                                "CreateAsync venta autorizada por excepción documental. Cliente:{ClienteId} Usuario:{Usuario}",
                                 viewModel.ClienteId,
                                 currentUserName);
                         }
@@ -256,7 +261,7 @@ namespace TheBuryProject.Services
                         }
                     }
 
-                    await AplicarResultadoValidacionAsync(venta, validacion);
+                    await AplicarResultadoValidacionAsync(venta, validacion, currentUserName);
                 }
                 else
                 {
@@ -446,7 +451,10 @@ namespace TheBuryProject.Services
         /// - Crea el crédito en estado PendienteConfiguracion
         /// - Pone la venta en estado PendienteFinanciacion
         /// </summary>
-        private async Task AplicarResultadoValidacionAsync(Venta venta, ValidacionVentaResult validacion)
+        private async Task AplicarResultadoValidacionAsync(
+            Venta venta,
+            ValidacionVentaResult validacion,
+            string usuarioActual)
         {
             // Seguridad: NoViable nunca debería llegar aquí, pero por si acaso
             if (validacion.NoViable)
@@ -455,7 +463,25 @@ namespace TheBuryProject.Services
                     $"Error interno: Se intentó aplicar validación NoViable. {validacion.MensajeResumen}");
             }
 
-            if (validacion.RequiereAutorizacion)
+            if (validacion.ExcepcionDocumentalAutorizada)
+            {
+                var fechaAutorizacion = DateTime.UtcNow;
+                venta.RequiereAutorizacion = true;
+                venta.Estado = EstadoVenta.PendienteFinanciacion;
+                venta.EstadoAutorizacion = EstadoAutorizacionVenta.Autorizada;
+                venta.UsuarioAutoriza = usuarioActual;
+                venta.FechaAutorizacion = fechaAutorizacion;
+                venta.MotivoAutorizacion =
+                    $"EXCEPCION_DOC|{fechaAutorizacion:O}|{usuarioActual}|{validacion.MotivoExcepcionDocumentalAutorizada}";
+                venta.RazonesAutorizacionJson = System.Text.Json.JsonSerializer.Serialize(
+                    validacion.RazonesAutorizacion.Select(r => new { r.Tipo, r.Descripcion, r.DetalleAdicional }));
+
+                _logger.LogWarning(
+                    "Venta autorizada al registrar excepción documental. Usuario:{Usuario} Razones:{Razones}",
+                    usuarioActual,
+                    validacion.MensajeResumen);
+            }
+            else if (validacion.RequiereAutorizacion)
             {
                 // E2: Guardar venta en estado PendienteAutorizacion con razones persistidas
                 venta.RequiereAutorizacion = true;
@@ -500,23 +526,16 @@ namespace TheBuryProject.Services
                 return false;
             }
 
-            // FASE 5E: la excepción documental es una autorización puntual y requiere
-            // ventas.authorize o ventas.requestexception. ventas.create (permiso mínimo
-            // para llegar a este POST) ya no habilita el bypass por sí solo — evita que
-            // el propio creador se autoexcepcione con el permiso mínimo de venta.
-            // ventas.requestexception permite solicitar la excepción (queda pendiente de
-            // autorización formal, nunca auto-aprueba); ventas.authorize sigue siendo el
-            // único permiso que aprueba/autoriza esa solicitud vía AutorizarVentaAsync.
+            // La excepción es una autorización definitiva, por lo que requiere el mismo
+            // permiso que autorizar una venta. El permiso requestexception ya no alcanza.
             var tieneAutorizar = _currentUserService.HasPermission("ventas", "authorize");
-            var tieneSolicitarExcepcion = _currentUserService.HasPermission("ventas", "requestexception");
-            var puedeSolicitarExcepcion = tieneAutorizar || tieneSolicitarExcepcion;
             _logger.LogWarning(
-                "Excepción documental: usuario={Usuario} ventas.authorize={Autorizar} ventas.requestexception={Solicitar}",
-                _currentUserService.GetUsername(), tieneAutorizar, tieneSolicitarExcepcion);
+                "Excepción documental: usuario={Usuario} ventas.authorize={Autorizar}",
+                _currentUserService.GetUsername(), tieneAutorizar);
 
-            if (!puedeSolicitarExcepcion)
+            if (!tieneAutorizar)
             {
-                _logger.LogWarning("Excepción documental: usuario sin ventas.authorize ni ventas.requestexception");
+                _logger.LogWarning("Excepción documental: usuario sin ventas.authorize");
                 return false;
             }
 
@@ -558,10 +577,10 @@ namespace TheBuryProject.Services
         }
 
         /// <summary>
-        /// Convierte los requisitos excepcionados en CreateAsync en razones de autorización
-        /// formal (PendienteAutorizacion), en lugar de auto-aprobar la excepción en el acto.
+        /// Convierte los requisitos excepcionados en una autorización registrada en el
+        /// mismo acto. No debe volver a pedirse aprobación desde el detalle de la venta.
         /// </summary>
-        private static void AplicarExcepcionDocumentalComoPendienteAutorizacion(
+        private static void AplicarExcepcionDocumentalComoAutorizada(
             ValidacionVentaResult validacion,
             string motivoExcepcion)
         {
@@ -571,7 +590,9 @@ namespace TheBuryProject.Services
 
             validacion.NoViable = false;
             validacion.PendienteRequisitos = false;
-            validacion.RequiereAutorizacion = true;
+            validacion.RequiereAutorizacion = false;
+            validacion.ExcepcionDocumentalAutorizada = true;
+            validacion.MotivoExcepcionDocumentalAutorizada = motivoExcepcion;
             validacion.RequisitosPendientes = validacion.RequisitosPendientes
                 .Where(r => !EsRequisitoExcepcionableEnCreate(r))
                 .ToList();
@@ -613,12 +634,14 @@ namespace TheBuryProject.Services
             var puntajeRiesgo = cliente?.PuntajeRiesgo ?? 0;
 
             // Si la venta viene de una cotización donde ya se había elegido una cantidad
-            // de cuotas, precargarla acá para no perderla al llegar a ConfigurarVenta
-            // (CreditoController.ConfigurarVenta ya usa credito.CantidadCuotas como default).
-            int? cuotasPreseleccionadas = venta.CotizacionOrigenId.HasValue
+            // de cuotas y/o un anticipo, precargarlos acá para no perderlos al llegar a
+            // ConfigurarVenta (CreditoController.ConfigurarVenta ya usa credito.CantidadCuotas y
+            // credito.AnticipoPreseleccionado como defaults). Es intención, no autoridad: se
+            // recalcula todo server-side al confirmar el crédito.
+            var intencionCotizacion = venta.CotizacionOrigenId.HasValue
                 ? await _context.Cotizaciones
                     .Where(c => c.Id == venta.CotizacionOrigenId.Value)
-                    .Select(c => c.CantidadCuotasSeleccionada)
+                    .Select(c => new { c.CantidadCuotasSeleccionada, c.Anticipo })
                     .FirstOrDefaultAsync()
                 : null;
 
@@ -630,7 +653,8 @@ namespace TheBuryProject.Services
                 MontoAprobado = venta.Total,
                 SaldoPendiente = venta.Total,
                 TasaInteres = 0, // Se configurará después
-                CantidadCuotas = cuotasPreseleccionadas.GetValueOrDefault(), // 0 si no viene de cotización
+                CantidadCuotas = intencionCotizacion?.CantidadCuotasSeleccionada.GetValueOrDefault() ?? 0, // 0 si no viene de cotización
+                AnticipoPreseleccionado = intencionCotizacion?.Anticipo ?? 0m,
                 Estado = EstadoCredito.PendienteConfiguracion,
                 FechaSolicitud = DateTime.UtcNow,
                 PuntajeRiesgoInicial = puntajeRiesgo
@@ -644,8 +668,8 @@ namespace TheBuryProject.Services
             await _context.SaveChangesAsync();
 
             _logger.LogInformation(
-                "Crédito {NumeroCredito} (PendienteConfiguracion) creado y asociado a venta {VentaId}. CuotasPreseleccionadas:{Cuotas}",
-                numeroCredito, venta.Id, cuotasPreseleccionadas);
+                "Crédito {NumeroCredito} (PendienteConfiguracion) creado y asociado a venta {VentaId}. CuotasPreseleccionadas:{Cuotas} AnticipoPreseleccionado:{Anticipo}",
+                numeroCredito, venta.Id, credito.CantidadCuotas, credito.AnticipoPreseleccionado);
         }
 
         public async Task<VentaViewModel?> UpdateAsync(int id, VentaViewModel viewModel)
@@ -713,10 +737,10 @@ namespace TheBuryProject.Services
                     if (PuedeAplicarExcepcionDocumentalCreate(viewModel, validacion))
                     {
                         var motivoExcepcion = viewModel.MotivoExcepcionDocumentalCreate!.Trim();
-                        AplicarExcepcionDocumentalComoPendienteAutorizacion(validacion, motivoExcepcion);
+                        AplicarExcepcionDocumentalComoAutorizada(validacion, motivoExcepcion);
 
                         _logger.LogWarning(
-                            "UpdateAsync venta {Id} con excepción documental enviada a autorización formal. Cliente:{ClienteId} Usuario:{Usuario}",
+                            "UpdateAsync venta {Id} autorizada por excepción documental. Cliente:{ClienteId} Usuario:{Usuario}",
                             id,
                             venta.ClienteId,
                             _currentUserService.GetUsername());
@@ -728,7 +752,7 @@ namespace TheBuryProject.Services
                     }
                 }
 
-                await AplicarResultadoValidacionAsync(venta, validacion);
+                await AplicarResultadoValidacionAsync(venta, validacion, _currentUserService.GetUsername());
             }
             else
             {
@@ -1064,35 +1088,41 @@ namespace TheBuryProject.Services
         }
 
         /// <summary>
-        /// Genera las cuotas del crédito según la configuración del plan
+        /// Genera las cuotas del crédito según la configuración del plan: recargo TOTAL
+        /// (no interés compuesto mensual) sobre el monto financiado, vía el cálculo
+        /// canónico de <see cref="IFinancialCalculationService.SimularPlanCredito"/>. El
+        /// monto financiado ya es neto de anticipo (<see cref="Credito.MontoAprobado"/>),
+        /// así que se simula con anticipo 0 — SaldoAFinanciar da igual al monto financiado.
         /// </summary>
         private async Task GenerarCuotasCreditoAsync(Credito credito, decimal montoVenta)
         {
-            // Calcular cuota usando el servicio financiero
             var montoFinanciado = credito.MontoAprobado > 0 ? credito.MontoAprobado : montoVenta;
-            var tasaDecimal = credito.TasaInteres / 100m;
-            var cuotaMensual = _financialService.ComputePmt(tasaDecimal, credito.CantidadCuotas, montoFinanciado);
+            // PUN-ML7: fecha comercial única (antes DateTime.Today) para el fallback sin
+            // Credito.FechaPrimeraCuota configurada.
+            var fechaCuota = credito.FechaPrimeraCuota ?? _reloj.InicioDiaComercial.AddMonths(1);
 
-            // Calcular componentes de la cuota (sistema francés simplificado)
-            var interesTotal = (cuotaMensual * credito.CantidadCuotas) - montoFinanciado;
-            var capitalPorCuota = montoFinanciado / credito.CantidadCuotas;
-            var interesPorCuota = interesTotal / credito.CantidadCuotas;
+            var plan = _financialService.SimularPlanCredito(
+                montoFinanciado,
+                0m,
+                credito.CantidadCuotas,
+                credito.TasaInteres,
+                0m,
+                fechaCuota);
 
-            credito.MontoCuota = cuotaMensual;
-            credito.TotalAPagar = cuotaMensual * credito.CantidadCuotas;
-            credito.SaldoPendiente = montoFinanciado;
+            credito.MontoCuota = plan.CuotaEstimada;
+            credito.TotalAPagar = plan.TotalAPagar;
+            credito.SaldoPendiente = plan.MontoFinanciado;
 
-            // Crear las cuotas
-            var fechaCuota = credito.FechaPrimeraCuota ?? DateTime.Today.AddMonths(1);
-            for (int i = 1; i <= credito.CantidadCuotas; i++)
+            // Crear las cuotas a partir del vector exacto del plan (última absorbe el residuo)
+            foreach (var item in plan.Cuotas)
             {
                 var cuota = new Cuota
                 {
                     CreditoId = credito.Id,
-                    NumeroCuota = i,
-                    MontoCapital = capitalPorCuota,
-                    MontoInteres = interesPorCuota,
-                    MontoTotal = cuotaMensual,
+                    NumeroCuota = item.NumeroCuota,
+                    MontoCapital = item.Capital,
+                    MontoInteres = item.Interes,
+                    MontoTotal = item.Total,
                     FechaVencimiento = fechaCuota,
                     Estado = EstadoCuota.Pendiente
                 };
@@ -1383,6 +1413,27 @@ namespace TheBuryProject.Services
                     $"No se puede confirmar la venta con CréditoPersonal. " +
                     $"La cantidad de cuotas configurada ({credito.CantidadCuotas}) debe estar entre {minBase} y {maxEfectivo} " +
                     $"según el método '{descripcionMetodo}' y las restricciones por producto.");
+            }
+
+            // Gate final antes de generar el crédito: la cantidad debe pertenecer a la
+            // intersección real de los productos. El rango min/max no alcanza porque describe un
+            // intervalo continuo y los planes son un conjunto discreto de cantidades.
+            var planesVenta = await _configuracionPagoService.ResolverPlanesCreditoPersonalAsync(productoIds);
+
+            if (!planesVenta.EsValido)
+            {
+                throw new CondicionesPagoVentaException(
+                    $"No se puede confirmar la venta con CréditoPersonal. {planesVenta.MensajeRechazo}");
+            }
+
+            if (!planesVenta.RigeConfiguracionUnicaGlobal &&
+                planesVenta.BuscarPlan(credito.CantidadCuotas) is null)
+            {
+                var habilitadas = string.Join(", ", planesVenta.Planes.Select(p => p.CantidadCuotas));
+                throw new CondicionesPagoVentaException(
+                    $"No se puede confirmar la venta con CréditoPersonal. " +
+                    $"La cantidad de cuotas configurada ({credito.CantidadCuotas}) no está habilitada para los " +
+                    $"productos de esta venta. Cantidades disponibles: {habilitadas}.");
             }
         }
 
@@ -2119,45 +2170,6 @@ namespace TheBuryProject.Services
 
         #region Métodos de Cálculo - Crédito Personal
 
-        public async Task<DatosCreditoPersonallViewModel> CalcularCreditoPersonallAsync(
-            int creditoId,
-            decimal montoAFinanciar,
-            int cuotas,
-            DateTime fechaPrimeraCuota)
-        {
-            var credito = await _context.Creditos
-                .AsNoTracking()
-                .Include(c => c.Cuotas)
-                .FirstOrDefaultAsync(c => c.Id == creditoId &&
-                                          !c.IsDeleted &&
-                                          c.Cliente != null &&
-                                          !c.Cliente.IsDeleted);
-
-            if (credito == null)
-                throw new InvalidOperationException(VentaConstants.ErrorMessages.CREDITO_NO_ENCONTRADO);
-
-            if (credito.Estado != EstadoCredito.Activo && credito.Estado != EstadoCredito.Aprobado)
-                throw new InvalidOperationException("El crédito debe estar en estado Activo o Aprobado");
-
-            var creditoDisponible = credito.SaldoPendiente;
-
-            if (montoAFinanciar > creditoDisponible)
-                throw new InvalidOperationException(
-                    string.Format(VentaConstants.ErrorMessages.CREDITO_INSUFICIENTE,
-                        montoAFinanciar, creditoDisponible));
-
-            var tasaDecimal = credito.TasaInteres / 100;
-
-            var montoCuota = _financialService.CalcularCuotaSistemaFrances(
-                montoAFinanciar, tasaDecimal, cuotas);
-            var totalAPagar = _financialService.CalcularTotalConInteres(
-                montoAFinanciar, tasaDecimal, cuotas);
-
-            return GenerarDatosCreditoPersonall(
-                credito, montoAFinanciar, cuotas, montoCuota,
-                totalAPagar, fechaPrimeraCuota);
-        }
-
         public async Task<DatosCreditoPersonallViewModel?> ObtenerDatosCreditoVentaAsync(int ventaId)
         {
             var venta = await _context.Ventas
@@ -2596,8 +2608,12 @@ namespace TheBuryProject.Services
         #region Trazabilidad individual (Fase 8.2.E)
 
         // Valida trazabilidad desde el viewmodel antes de persistir (usado en UpdateAsync). Fase 8.2.S.
+        // Acumula todos los motivos y lanza una sola excepción: el operador ve de una vez todas
+        // las líneas a corregir en lugar de descubrirlas de a una, guardado por guardado.
         private async Task ValidarTrazabilidadDetallesVMAsync(List<VentaDetalleViewModel> detallesVM)
         {
+            var motivos = new List<string>();
+
             var unidadIds = detallesVM
                 .Where(d => d.ProductoUnidadId.HasValue)
                 .Select(d => d.ProductoUnidadId!.Value)
@@ -2610,7 +2626,7 @@ namespace TheBuryProject.Services
                 .ToList();
 
             if (duplicadas.Any())
-                throw new InvalidOperationException(
+                motivos.Add(
                     $"La venta contiene unidades duplicadas en distintas líneas: {string.Join(", ", duplicadas)}.");
 
             foreach (var detalleVM in detallesVM)
@@ -2620,50 +2636,71 @@ namespace TheBuryProject.Services
                 if (producto == null)
                     continue;
 
-                if (detalleVM.ProductoUnidadId.HasValue)
-                {
-                    // Venta con unidad física: válida tanto para RequiereNumeroSerie=true como false
-                    var unidad = await _context.ProductoUnidades
-                        .FirstOrDefaultAsync(u => u.Id == detalleVM.ProductoUnidadId.Value && !u.IsDeleted);
-
-                    if (unidad == null)
-                        throw new InvalidOperationException(
-                            $"La unidad seleccionada no está disponible para la venta.");
-
-                    if (unidad.ProductoId != detalleVM.ProductoId)
-                        throw new InvalidOperationException(
-                            $"La unidad '{unidad.CodigoInternoUnidad}' no pertenece al producto '{producto.Nombre}'.");
-
-                    if (unidad.Estado != EstadoUnidad.EnStock)
-                        throw new InvalidOperationException(
-                            $"La unidad '{unidad.CodigoInternoUnidad}' no está disponible (estado: {unidad.Estado}).");
-
-                    if (detalleVM.Cantidad != 1)
-                        throw new InvalidOperationException(
-                            $"Una unidad física seleccionada solo puede venderse con cantidad 1. Producto: '{producto.Nombre}'.");
-                }
-                else if (producto.RequiereNumeroSerie)
-                {
-                    // Modo estricto: exige unidad física siempre
-                    throw new InvalidOperationException(
-                        $"Este producto requiere unidad física. Seleccioná una unidad registrada para venderlo. Producto: '{producto.Nombre}'.");
-                }
-                else
-                {
-                    // Modo flexible sin unidad física: validar stock no trazado
-                    var unidadesEnStock = await _context.ProductoUnidades
-                        .CountAsync(u => u.ProductoId == detalleVM.ProductoId
-                                      && u.Estado == EstadoUnidad.EnStock
-                                      && !u.IsDeleted);
-
-                    var stockNoTrazado = producto.StockActual - unidadesEnStock;
-
-                    if (stockNoTrazado < detalleVM.Cantidad)
-                        throw new InvalidOperationException(
-                            $"No hay stock no trazado suficiente. Seleccioná una unidad física registrada o ajustá el origen de stock. " +
-                            $"Producto: '{producto.Nombre}' (stock no trazado: {stockNoTrazado}, solicitado: {detalleVM.Cantidad}).");
-                }
+                var motivo = await ObtenerMotivoTrazabilidadInvalidaAsync(detalleVM, producto);
+                if (motivo != null)
+                    motivos.Add(motivo);
             }
+
+            if (motivos.Count > 0)
+                throw new InvalidOperationException(string.Join(" ", motivos));
+        }
+
+        /// <summary>
+        /// Devuelve el motivo por el que una línea incumple las reglas de trazabilidad, o null si
+        /// es válida. Los mensajes están redactados para el operador: dicen qué falla y cómo
+        /// resolverlo desde la pantalla de venta.
+        /// </summary>
+        private async Task<string?> ObtenerMotivoTrazabilidadInvalidaAsync(
+            VentaDetalleViewModel detalleVM,
+            Producto producto)
+        {
+            if (detalleVM.ProductoUnidadId.HasValue)
+            {
+                // Venta con unidad física: válida tanto para RequiereNumeroSerie=true como false
+                var unidad = await _context.ProductoUnidades
+                    .FirstOrDefaultAsync(u => u.Id == detalleVM.ProductoUnidadId.Value && !u.IsDeleted);
+
+                if (unidad == null)
+                    return "La unidad seleccionada no está disponible para la venta.";
+
+                if (unidad.ProductoId != detalleVM.ProductoId)
+                    return $"La unidad '{unidad.CodigoInternoUnidad}' no pertenece al producto '{producto.Nombre}'.";
+
+                if (unidad.Estado != EstadoUnidad.EnStock)
+                    return $"La unidad '{unidad.CodigoInternoUnidad}' no está disponible (estado: {unidad.Estado}).";
+
+                if (detalleVM.Cantidad != 1)
+                    return $"Una unidad física seleccionada solo puede venderse con cantidad 1. Producto: '{producto.Nombre}'.";
+
+                return null;
+            }
+
+            if (producto.RequiereNumeroSerie)
+            {
+                // Modo estricto: exige unidad física siempre
+                return $"Este producto requiere unidad física. Seleccioná una unidad registrada para venderlo. Producto: '{producto.Nombre}'.";
+            }
+
+            // Modo flexible sin unidad física: validar stock no trazado
+            var unidadesEnStock = await _context.ProductoUnidades
+                .CountAsync(u => u.ProductoId == detalleVM.ProductoId
+                              && u.Estado == EstadoUnidad.EnStock
+                              && !u.IsDeleted);
+
+            var stockNoTrazado = producto.StockActual - unidadesEnStock;
+
+            if (stockNoTrazado >= detalleVM.Cantidad)
+                return null;
+
+            var contexto =
+                $"Producto: '{producto.Nombre}' (stock sin identificar: {stockNoTrazado:0.##}, " +
+                $"solicitado: {detalleVM.Cantidad}, unidades físicas en stock: {unidadesEnStock}).";
+
+            // Con unidades físicas registradas el operador sí tiene salida desde la pantalla:
+            // quitar la línea y volver a agregarla eligiendo el origen "Unidad física".
+            return unidadesEnStock > 0
+                ? $"No hay stock no trazado suficiente. {contexto} Quitá la línea y volvé a agregar el producto eligiendo el origen 'Unidad física'."
+                : $"No hay stock no trazado suficiente. {contexto} Registrá el ingreso de stock del producto antes de guardar.";
         }
 
         private async Task ValidarUnidadesTrazablesAsync(Venta venta)
@@ -3187,7 +3224,14 @@ namespace TheBuryProject.Services
             venta.TipoPago = viewModel.TipoPago;
             venta.Descuento = viewModel.Descuento;
             venta.Observaciones = viewModel.Observaciones;
-            venta.CreditoId = viewModel.CreditoId;
+            // CreditoId NO se copia del viewModel: es una asociación de sistema, gestionada
+            // exclusivamente por CrearCreditoPendienteParaVentaAsync/ConfigurarCreditoAsync/
+            // la cancelación de crédito, nunca por un campo de formulario. El wizard de Venta
+            // no renderiza ningún <input> para CreditoId (no es editable por el operador), así
+            // que viewModel.CreditoId siempre llega null en un submit real. Copiarlo acá pisaba
+            // el CreditoId ya persistido en cada guardado, generando un crédito huérfano
+            // PendienteConfiguracion nuevo en cada edición de una venta que ya tenía uno
+            // configurado (bug real, no sólo del configurador embebido).
         }
 
         private void ActualizarDetalles(Venta venta, List<VentaDetalleViewModel> detallesVM)
@@ -3199,6 +3243,16 @@ namespace TheBuryProject.Services
                 existentes,
                 detallesVM.Count);
 
+            // Snapshot histórico de identidad de las líneas actuales, para conservarlo al recrear
+            // (patrón soft-delete + recreate). Se conserva sólo si la línea entrante corresponde a la
+            // misma línea (Id) y al mismo producto; si el producto se reemplaza, se recaptura en
+            // AplicarPrecioVigenteADetallesAsync. Micro-lote 5.
+            var snapshotIdentidadPrevio = venta.Detalles
+                .Where(d => !d.IsDeleted && d.Id != 0)
+                .ToDictionary(
+                    d => d.Id,
+                    d => (d.ProductoId, d.ProductoNombreAlMomento, d.ProductoCodigoAlMomento));
+
             foreach (var existente in venta.Detalles.Where(d => !d.IsDeleted))
             {
                 existente.IsDeleted = true;
@@ -3209,6 +3263,15 @@ namespace TheBuryProject.Services
                 var detalle = _mapper.Map<VentaDetalle>(detalleVM);
                 NormalizarPagoPorItemLegacy(detalle);
                 detalle.VentaId = venta.Id;
+
+                if (detalleVM.Id != 0 &&
+                    snapshotIdentidadPrevio.TryGetValue(detalleVM.Id, out var previo) &&
+                    previo.ProductoId == detalle.ProductoId)
+                {
+                    detalle.ProductoNombreAlMomento = previo.ProductoNombreAlMomento;
+                    detalle.ProductoCodigoAlMomento = previo.ProductoCodigoAlMomento;
+                }
+
                 venta.Detalles.Add(detalle);
             }
         }
@@ -3341,6 +3404,12 @@ namespace TheBuryProject.Services
                 var costoUnitario = RedondearMoneda(productoCosto?.PrecioCompra ?? 0m);
                 detalle.CostoUnitarioAlMomento = costoUnitario;
                 detalle.CostoTotalAlMomento = RedondearMoneda(costoUnitario * detalle.Cantidad);
+
+                // Snapshot histórico de la identidad del producto (Micro-lote 5). Pegajoso: sólo se
+                // captura si la línea aún no lo tiene (línea nueva o producto reemplazado). Las líneas
+                // conservadas al editar ya traen su snapshot desde ActualizarDetalles.
+                if (VentaDetalleProductoSnapshot.NecesitaCaptura(detalle))
+                    VentaDetalleProductoSnapshot.Capturar(detalle, productoCosto);
             }
         }
 
@@ -3640,52 +3709,6 @@ namespace TheBuryProject.Services
                     "No se pudo calcular cupo disponible para validar venta {VentaId}. Se mantiene validación legacy por saldo de crédito asociado.",
                     venta.Id);
             }
-        }
-
-        private DatosCreditoPersonallViewModel GenerarDatosCreditoPersonall(
-            Credito credito,
-            decimal montoAFinanciar,
-            int cuotas,
-            decimal montoCuota,
-            decimal totalAPagar,
-            DateTime fechaPrimeraCuota)
-        {
-            var resultado = new DatosCreditoPersonallViewModel
-            {
-                CreditoId = credito.Id,
-                CreditoNumero = credito.Numero,
-                CreditoTotalAsignado = credito.MontoAprobado,
-                CreditoDisponible = credito.SaldoPendiente,
-                MontoAFinanciar = montoAFinanciar,
-                CantidadCuotas = cuotas,
-                MontoCuota = montoCuota,
-                FechaPrimeraCuota = fechaPrimeraCuota,
-                TasaInteresMensual = credito.TasaInteres,
-                TotalAPagar = totalAPagar,
-                InteresTotal = totalAPagar - montoAFinanciar,
-                SaldoRestante = credito.SaldoPendiente - montoAFinanciar,
-                Cuotas = new List<VentaCreditoCuotaViewModel>()
-            };
-
-            decimal saldoRestante = totalAPagar;
-            DateTime fechaVencimiento = fechaPrimeraCuota;
-
-            for (int i = 1; i <= cuotas; i++)
-            {
-                resultado.Cuotas.Add(new VentaCreditoCuotaViewModel
-                {
-                    NumeroCuota = i,
-                    FechaVencimiento = fechaVencimiento,
-                    Monto = montoCuota,
-                    Saldo = saldoRestante,
-                    Pagada = false
-                });
-
-                saldoRestante -= montoCuota;
-                fechaVencimiento = fechaVencimiento.AddMonths(1);
-            }
-
-            return resultado;
         }
 
         #endregion

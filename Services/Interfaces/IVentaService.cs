@@ -38,7 +38,6 @@ namespace TheBuryProject.Services.Interfaces
         Task<bool> GuardarDatosTarjetaAsync(int ventaId, DatosTarjetaViewModel datosTarjeta);
         Task<bool> GuardarDatosChequeAsync(int ventaId, DatosChequeViewModel datosCheque);
         Task<DatosTarjetaViewModel> CalcularCuotasTarjetaAsync(int tarjetaId, decimal monto, int cuotas);
-        Task<DatosCreditoPersonallViewModel> CalcularCreditoPersonallAsync(int creditoId, decimal montoAFinanciar, int cuotas, DateTime fechaPrimeraCuota);
         Task<DatosCreditoPersonallViewModel?> ObtenerDatosCreditoVentaAsync(int ventaId);
         Task<bool> ValidarDisponibilidadCreditoAsync(int creditoId, decimal monto);
 

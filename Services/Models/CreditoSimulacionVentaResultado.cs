@@ -27,6 +27,9 @@ public sealed class CreditoSimulacionVentaError
 
 public sealed class CreditoSimulacionVentaJson
 {
+    /// <summary>Total real de la venta resuelto en servidor (venta.Total cuando hay VentaId).</summary>
+    public decimal totalVenta { get; init; }
+    public decimal anticipo { get; init; }
     public decimal montoFinanciado { get; init; }
     public decimal cuotaEstimada { get; init; }
     public decimal tasaAplicada { get; init; }
@@ -35,8 +38,23 @@ public sealed class CreditoSimulacionVentaJson
     public decimal gastosAdministrativos { get; init; }
     public decimal totalPlan { get; init; }
     public string fechaPrimerPago { get; init; } = string.Empty;
+
+    /// <summary>De dónde salió <see cref="tasaAplicada"/>: "Manual", "Cliente", "Producto" o "Global".</summary>
+    public string fuentePorcentaje { get; init; } = string.Empty;
+
+    /// <summary>Vector exacto de cuotas de FinancialCalculationService.SimularPlanCredito (ML3).</summary>
+    public IReadOnlyList<CreditoSimulacionCuotaJson> cuotas { get; init; } = Array.Empty<CreditoSimulacionCuotaJson>();
+
     public string semaforoEstado { get; init; } = string.Empty;
     public string semaforoMensaje { get; init; } = string.Empty;
     public bool mostrarMsgIngreso { get; init; }
     public bool mostrarMsgAntiguedad { get; init; }
+}
+
+public sealed class CreditoSimulacionCuotaJson
+{
+    public int numeroCuota { get; init; }
+    public decimal capital { get; init; }
+    public decimal interes { get; init; }
+    public decimal total { get; init; }
 }

@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using TheBuryProject.Models.Enums;
+using TheBuryProject.Services.Models;
 
 namespace TheBuryProject.ViewModels
 {
@@ -9,6 +10,16 @@ namespace TheBuryProject.ViewModels
         public int CreditoId { get; set; }
 
         public int? VentaId { get; set; }
+
+        /// <summary>
+        /// RowVersion vigente de la venta (base64), sólo para el fragmento embebido del
+        /// wizard: le permite mantener sincronizado el RowVersion del formulario externo
+        /// (#venta-form) cada vez que este configurador modifica la venta (crédito
+        /// configurado, contrato generado), evitando un 409 de concurrencia falso en el
+        /// guardado final por un RowVersion desactualizado. No participa del POST de
+        /// configuración de crédito.
+        /// </summary>
+        public string? VentaRowVersionBase64 { get; set; }
 
         [Display(Name = "Cliente")]
         public string ClienteNombre { get; set; } = string.Empty;
@@ -65,6 +76,18 @@ namespace TheBuryProject.ViewModels
 
         public bool CreditoEstaConfigurado { get; set; }
 
+        /// <summary>
+        /// F2 (Micro-lote 6): el operador decide en la configuración cobrar la primera cuota al
+        /// confirmar la venta. Solo aplica cuando la primera cuota vence en la fecha comercial actual.
+        /// </summary>
+        [Display(Name = "Cobrar la primera cuota al confirmar la venta")]
+        public bool CobrarPrimeraCuota { get; set; }
+
+        /// <summary>Medio de pago del cobro inmediato de la primera cuota.</summary>
+        [Display(Name = "Medio de pago de la primera cuota")]
+        [StringLength(30)]
+        public string? MedioPagoPrimeraCuota { get; set; }
+
         public bool ContratoGenerado { get; set; }
 
         public bool PlantillaActivaDisponible { get; set; }
@@ -84,6 +107,11 @@ namespace TheBuryProject.ViewModels
         public string? ProductoRestrictivoNombre { get; set; }
 
         public ClienteConfigCreditoVentaViewModel ClienteConfigPersonalizada { get; set; } = new();
+
+        /// <summary>
+        /// Atajo de vista: los productos de la venta no comparten ninguna cantidad de cuotas.
+        /// </summary>
+        public bool SinPlanesCompatibles => ClienteConfigPersonalizada.SinPlanesCompatibles;
 
         public List<PerfilCreditoActivoViewModel> PerfilesActivos { get; set; } = new();
 
@@ -116,10 +144,22 @@ namespace TheBuryProject.ViewModels
         public string? ProductoRestrictivoNombre { get; set; }
 
         /// <summary>
-        /// Planes de cuotas activos de crédito personal. Cuando hay planes, las cuotas
-        /// seleccionables del camino global surgen de esta lista (cantidad + tasa propia).
+        /// Planes de cuotas efectivos de la venta: intersección de los productos financiados.
+        /// Cuando hay planes, las cuotas seleccionables del camino global surgen de esta lista.
+        /// Vacía significa "no rige tabla de planes", NO "sin planes compatibles": para eso está
+        /// <see cref="SinPlanesCompatibles"/>.
         /// </summary>
-        public List<CuotaCreditoPersonalViewModel> CuotasHabilitadas { get; set; } = new();
+        public IReadOnlyList<PlanCuotaCreditoPersonal> CuotasHabilitadas { get; set; } =
+            Array.Empty<PlanCuotaCreditoPersonal>();
+
+        /// <summary>
+        /// Los productos de la venta no comparten ninguna cantidad de cuotas: la venta no puede
+        /// financiarse con Crédito Personal y el formulario debe bloquear el avance.
+        /// </summary>
+        public bool SinPlanesCompatibles { get; set; }
+
+        /// <summary>Mensaje funcional que explica por qué no hay planes compatibles.</summary>
+        public string? MotivoSinPlanes { get; set; }
     }
 
     public class PerfilCreditoActivoViewModel

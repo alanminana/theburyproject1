@@ -1,76 +1,61 @@
+using System.Linq;
+using System.Reflection;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services;
 
 namespace TheBuryProject.Tests.Unit;
 
 /// <summary>
-/// Tests unitarios para CreditoService.ResolverEstadoCuota.
+/// Guardia estructural de autoridad única de estado (corrección PUN-ML7).
 ///
-/// Documenta el contrato de transición de estado extraído de
-/// PagarCuotaAsync y AdelantarCuotaAsync.
+/// Hasta esta corrección, <c>CreditoService</c> declaraba un resolver privado de 3 argumentos
+/// (<c>ResolverEstadoCuota(decimal montoPagado, decimal totalCuota, decimal punitorioPendiente)</c>)
+/// que decidía Pagada/Parcial/Pendiente sin conocer la fecha de vencimiento ni el estado terminal —
+/// una segunda autoridad en paralelo a <see cref="EstadoCuotaResolver.Resolver"/>. Fue eliminado: los
+/// tests de comportamiento que antes vivían acá (monto vs. total, gate de punitorio pendiente) ahora
+/// están cubiertos, con el contrato completo, en <c>EstadoCuotaResolverTests</c>; la prueba de que los
+/// caminos productivos realmente delegan en él está en <c>CreditoServicePagarCuotaSeguridadTests</c>
+/// (pago individual/primera cuota/adelanto, todos comparten <c>RegistrarPagoCuotaAsync</c>) y en
+/// <c>PunitorioServiceTests</c> (aplicar/anular).
 ///
-/// No requiere DB ni infraestructura — función pura.
+/// Este archivo se queda solo con la guardia estructural: falla si <c>CreditoService</c> vuelve a
+/// declarar, con cualquier nombre, un método con la forma de un resolver de estado independiente.
 /// </summary>
 public class CreditoServiceEstadoCuotaTests
 {
-    // ---------------------------------------------------------------------------
-    // monto >= total → Pagada
-    // ---------------------------------------------------------------------------
-
     [Fact]
-    public void MontoIgualATotal_DevuelvePagada()
+    public void CreditoService_NoDeclaraUnResolverDeEstadoIndependiente()
     {
-        var estado = CreditoService.ResolverEstadoCuota(montoPagado: 100m, totalACobrar: 100m);
+        // Cualquier método declarado directamente en CreditoService (público o no, estático o de
+        // instancia) que reciba solo decimals y devuelva EstadoCuota tiene exactamente la forma del
+        // resolver eliminado — sin importar el nombre que se le ponga. La firma real de la única
+        // autoridad (EstadoCuotaResolver.Resolver) es distinta a propósito: exige estado actual,
+        // vencimiento y fecha comercial, así que nunca matchea este patrón por delegación legítima.
+        var candidatos = typeof(CreditoService)
+            .GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static |
+                        BindingFlags.Instance | BindingFlags.DeclaredOnly)
+            .Where(m => m.ReturnType == typeof(EstadoCuota) &&
+                        m.GetParameters().Length > 0 &&
+                        m.GetParameters().All(p => p.ParameterType == typeof(decimal)))
+            .Select(m => m.Name)
+            .ToList();
 
-        Assert.Equal(EstadoCuota.Pagada, estado);
+        Assert.True(candidatos.Count == 0,
+            "CreditoService declara un método con forma de resolver de estado independiente: " +
+            string.Join(", ", candidatos) +
+            ". El estado de una cuota debe resolverse exclusivamente vía EstadoCuotaResolver.Resolver.");
     }
 
     [Fact]
-    public void MontoMayorQueTotal_DevuelvePagada()
+    public void CreditoService_YaNoExponeElMetodoResolverEstadoCuotaLegacy()
     {
-        var estado = CreditoService.ResolverEstadoCuota(montoPagado: 110m, totalACobrar: 100m);
+        // Guardia adicional, específica del nombre histórico del resolver eliminado — más fácil de
+        // leer que la anterior como señal directa de qué se rompió si alguien lo reintroduce igual.
+        var metodo = typeof(CreditoService)
+            .GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static |
+                        BindingFlags.Instance | BindingFlags.DeclaredOnly)
+            .FirstOrDefault(m => m.Name == "ResolverEstadoCuota");
 
-        Assert.Equal(EstadoCuota.Pagada, estado);
-    }
-
-    // ---------------------------------------------------------------------------
-    // monto > 0 y < total → Parcial
-    // ---------------------------------------------------------------------------
-
-    [Fact]
-    public void MontoParcial_DevuelveParcial()
-    {
-        var estado = CreditoService.ResolverEstadoCuota(montoPagado: 50m, totalACobrar: 100m);
-
-        Assert.Equal(EstadoCuota.Parcial, estado);
-    }
-
-    // ---------------------------------------------------------------------------
-    // monto = 0 → Pendiente
-    // ---------------------------------------------------------------------------
-
-    [Fact]
-    public void MontoCero_DevuelvePendiente()
-    {
-        var estado = CreditoService.ResolverEstadoCuota(montoPagado: 0m, totalACobrar: 100m);
-
-        Assert.Equal(EstadoCuota.Pendiente, estado);
-    }
-
-    // ---------------------------------------------------------------------------
-    // monto = total exacto (con punitorio) → Pagada
-    // ---------------------------------------------------------------------------
-
-    [Fact]
-    public void MontoExactoConPunitorio_DevuelvePagada()
-    {
-        // Simula el caso de PagarCuotaAsync donde totalACobrar = MontoTotal + MontoPunitorio
-        const decimal montoTotal = 500m;
-        const decimal punitorio = 10m;
-        var totalACobrar = montoTotal + punitorio;
-
-        var estado = CreditoService.ResolverEstadoCuota(montoPagado: totalACobrar, totalACobrar: totalACobrar);
-
-        Assert.Equal(EstadoCuota.Pagada, estado);
+        Assert.Null(metodo);
     }
 }

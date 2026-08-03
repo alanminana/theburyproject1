@@ -3,9 +3,15 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using TheBuryProject.Filters;
 using TheBuryProject.Helpers;
+using TheBuryProject.Models.DTOs;
 using TheBuryProject.Models.Enums;
+using TheBuryProject.Services;
+using TheBuryProject.Services.Exceptions;
 using TheBuryProject.Services.Interfaces;
+using TheBuryProject.Services.Models;
 using TheBuryProject.ViewModels;
+using TheBuryProject.ViewModels.Punitorio;
+using PunitorioEntity = TheBuryProject.Models.Entities.ConfiguracionPunitorio;
 
 namespace TheBuryProject.Controllers
 {
@@ -17,6 +23,10 @@ namespace TheBuryProject.Controllers
         private readonly IConfiguracionPagoGlobalAdminService _configuracionPagoGlobalAdminService;
         private readonly IClienteAptitudService _aptitudService;
         private readonly ICreditoDisponibleService _creditoDisponibleService;
+        private readonly IFinancialCalculationService _financialService;
+        private readonly IConfiguracionPunitorioService _configuracionPunitorioService;
+        private readonly IPunitorioCalculator _punitorioCalculator;
+        private readonly IRelojComercial _reloj;
         private readonly ILogger<ConfiguracionPagoController> _logger;
 
         public ConfiguracionPagoController(
@@ -24,13 +34,21 @@ namespace TheBuryProject.Controllers
             IConfiguracionPagoGlobalAdminService configuracionPagoGlobalAdminService,
             IClienteAptitudService aptitudService,
             ICreditoDisponibleService creditoDisponibleService,
-            ILogger<ConfiguracionPagoController> logger)
+            IConfiguracionPunitorioService configuracionPunitorioService,
+            IPunitorioCalculator punitorioCalculator,
+            IRelojComercial reloj,
+            ILogger<ConfiguracionPagoController> logger,
+            IFinancialCalculationService? financialService = null)
         {
             _configuracionPagoService = configuracionPagoService;
             _configuracionPagoGlobalAdminService = configuracionPagoGlobalAdminService;
             _aptitudService = aptitudService;
             _creditoDisponibleService = creditoDisponibleService;
+            _configuracionPunitorioService = configuracionPunitorioService;
+            _punitorioCalculator = punitorioCalculator;
+            _reloj = reloj;
             _logger = logger;
+            _financialService = financialService ?? new FinancialCalculationService();
         }
 
         #region CRUD — Index / Detalle / Crear / Editar / Eliminar
@@ -756,7 +774,7 @@ namespace TheBuryProject.Controllers
                 config.CuotasCreditoPersonal.Add(new CuotaCreditoPersonalViewModel
                 {
                     CantidadCuotas = nuevaCuotaCantidad.Value,
-                    TasaMensual = nuevaCuotaTasaMensual ?? 0m,
+                    TasaMensual = nuevaCuotaTasaMensual, // vacio = null = heredar la tasa global
                     Activo = nuevaCuotaActivo,
                     Orden = nuevaCuotaOrden ?? nuevaCuotaCantidad.Value
                 });
@@ -862,43 +880,272 @@ namespace TheBuryProject.Controllers
         }
 
         /// <summary>
-        /// Obtiene todos los perfiles de crédito.
+        /// Vista previa de recargo TOTAL para la sección "Config financiera base" (#s2), sobre
+        /// un monto de referencia ilustrativo. Reutiliza el mismo cálculo canónico que la
+        /// persistencia (<see cref="IFinancialCalculationService.SimularPlanCredito"/>): no
+        /// implementa una fórmula independiente, no persiste nada y no es autoridad para
+        /// guardar (el guardado real vuelve a validar el porcentaje server-side).
         /// </summary>
         [HttpGet]
-        [AllowAnonymous]
-        public async Task<IActionResult> GetPerfilesCredito()
+        public IActionResult PreviewRecargoCreditoPersonal(int cuotas, decimal porcentajeRecargoTotal)
         {
-            try
+            const decimal montoReferencia = 100_000m;
+
+            if (cuotas < 1)
+                return BadRequest(new { error = "La cantidad de cuotas debe ser al menos 1." });
+
+            if (porcentajeRecargoTotal < 0)
+                return BadRequest(new { error = "El porcentaje de recargo no puede ser negativo." });
+
+            var resultado = _financialService.SimularPlanCredito(
+                montoReferencia, 0m, cuotas, porcentajeRecargoTotal, 0m, DateTime.Today.AddMonths(1));
+
+            return Json(new
             {
-                var viewModels = await _configuracionPagoService.GetPerfilesCreditoAsync();
-                return Json(new { success = true, data = viewModels });
-            }
-            catch (Exception ex)
+                montoReferencia,
+                saldoAFinanciar = resultado.MontoFinanciado,
+                recargoTotal = resultado.InteresTotal,
+                totalFinanciado = resultado.TotalAPagar,
+                cuotaEstimada = resultado.CuotaEstimada,
+                // Vector exacto de cuotas (misma fuente que persiste el guardado real): el
+                // front no debe reconstruir la ultima cuota multiplicando cuotaEstimada por
+                // la cantidad, porque esa multiplicacion no cierra contra totalFinanciado
+                // cuando el residuo de redondeo no es exactamente divisible entre cuotas.
+                cuotas = resultado.Cuotas.Select(c => new { numero = c.NumeroCuota, total = c.Total }).ToList()
+            });
+        }
+
+        #region Punitorios por mora — PUN-ML8
+
+        /// <summary>
+        /// Crea una nueva versión de <see cref="PunitorioEntity"/> (append-only, PUN-ML3). Acción y
+        /// permiso distintos de <see cref="CreditoPersonal(CreditoPersonalConfigViewModel, string?, string?, decimal?, decimal?, int?, int?, bool, int?, int?, decimal?, bool, int?, string?)"/>:
+        /// gestionar punitorios no implica poder editar el resto de la configuración de crédito
+        /// personal. <see cref="ConfiguracionPunitorioComando.ProrrateoDiario"/>,
+        /// <see cref="ConfiguracionPunitorioComando.AplicacionRetroactiva"/> y
+        /// <see cref="ConfiguracionPunitorioComando.AutorizadoParaRetroactivo"/> nunca se leen del
+        /// formulario: se derivan/resuelven acá, server-side.
+        /// </summary>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "configuracion", Accion = "managepunitorio")]
+        // Gestionar implica poder ver: sin "viewpunitorio" la pestaña s7 no se renderiza en el
+        // re-render tras un error de validación, y el usuario perdería el mensaje de error.
+        [PermisoRequerido(Modulo = "configuracion", Accion = "viewpunitorio")]
+        // La vista arma los name="" de los inputs relativos al modelo de PAGINA completo
+        // (Punitorios.CrearForm.*, vía asp-for="Punitorios!.CrearForm.X" en CreditoPersonal_tw),
+        // no al nombre de este parámetro. Sin este prefijo explícito, el binder nunca encuentra
+        // ninguna clave coincidente y "form" queda con los valores por defecto del tipo — la
+        // creación de versiones fallaba en silencio (sin fila persistida, sin error visible)
+        // para toda request real del navegador, aunque los tests unitarios/HTTP que construyen
+        // el ViewModel en código o postean con claves sin prefijo pasaban igual.
+        public async Task<IActionResult> CrearVersionPunitorio(
+            [Bind(Prefix = "Punitorios.CrearForm")] CrearConfiguracionPunitorioViewModel form,
+            string? returnUrl)
+        {
+            ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
+
+            var hoy = _reloj.HoyComercial;
+            var esRetroactiva = form.VigenteDesde.HasValue && form.VigenteDesde.Value < hoy;
+            var autorizadoRetroactivo = User.TienePermiso("configuracion", "retroactivepunitorio");
+
+            if (esRetroactiva)
             {
-                _logger.LogError(ex, "Error al obtener perfiles de crédito");
-                return Json(new { success = false, message = "Error al obtener perfiles de crédito" });
+                if (string.IsNullOrWhiteSpace(form.MotivoCambio))
+                    ModelState.AddModelError(nameof(form.MotivoCambio), "Una vigencia retroactiva requiere motivo.");
+
+                if (!autorizadoRetroactivo)
+                    ModelState.AddModelError(nameof(form.VigenteDesde), "La fecha elegida es retroactiva y requiere permiso administrativo específico.");
             }
+
+            if (ModelState.IsValid)
+            {
+                try
+                {
+                    var comando = new ConfiguracionPunitorioComando
+                    {
+                        Porcentaje = form.Porcentaje,
+                        PeriodoDias = form.PeriodoDias,
+                        DiasGracia = form.DiasGracia,
+                        ProrrateoDiario = true,
+                        AplicacionRetroactiva = esRetroactiva,
+                        VigenteDesde = form.VigenteDesde!.Value,
+                        Activa = form.Activa,
+                        MotivoCambio = string.IsNullOrWhiteSpace(form.MotivoCambio) ? null : form.MotivoCambio.Trim(),
+                        AutorizadoParaRetroactivo = esRetroactiva && autorizadoRetroactivo
+                    };
+
+                    await _configuracionPunitorioService.CrearNuevaVersionAsync(comando);
+
+                    TempData["Success"] = "Nueva versión de punitorios creada correctamente.";
+
+                    var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl);
+                    var destino = string.IsNullOrWhiteSpace(safeReturnUrl)
+                        ? Url.Action(nameof(CreditoPersonal))
+                        : safeReturnUrl;
+
+                    return Redirect($"{destino}#s7");
+                }
+                catch (ConfiguracionPunitorioRechazadaException ex)
+                {
+                    ModelState.AddModelError(string.Empty, ex.Message);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error al crear una nueva versión de punitorios");
+                    ModelState.AddModelError(string.Empty, "Error inesperado al crear la nueva versión. Intentá nuevamente.");
+                }
+            }
+
+            var config = await ConstruirCreditoPersonalConfigAsync();
+            config.Punitorios!.CrearForm = form;
+            ViewData["ActiveSection"] = "s7";
+            return View("CreditoPersonal_tw", config);
         }
 
         /// <summary>
-        /// Guarda perfiles de crédito y defaults globales desde el modal.
+        /// Vista previa NO autoritativa del punitorio sobre una deuda de referencia, reutilizando el
+        /// mismo <see cref="IPunitorioCalculator"/> puro que usa la persistencia real (PUN-ML4/ML5).
+        /// No persiste nada, no depende de <c>Credito.TasaInteres</c>, no reimplementa la fórmula.
         /// </summary>
-        [HttpPost]
-        [IgnoreAntiforgeryToken]
-        public async Task<IActionResult> GuardarCreditoPersonalModal(
-            [FromBody] CreditoPersonalConfigViewModel config)
+        [HttpGet]
+        [PermisoRequerido(Modulo = "configuracion", Accion = "viewpunitorio")]
+        public IActionResult PreviewPunitorio(decimal porcentaje, int periodoDias, int diasGracia)
         {
-            try
+            if (periodoDias < 1)
+                return BadRequest(new { error = "El período debe ser de al menos 1 día." });
+            if (porcentaje < 0)
+                return BadRequest(new { error = "El porcentaje no puede ser negativo." });
+            if (diasGracia < 0)
+                return BadRequest(new { error = "Los días de gracia no pueden ser negativos." });
+
+            const decimal montoReferencia = 100_000m;
+            var vencimiento = _reloj.HoyComercial;
+
+            var configuracion = new ConfiguracionPunitorioEntrada
             {
-                await _configuracionPagoService.GuardarCreditoPersonalAsync(config);
-                return Json(new { success = true, message = "Configuración de crédito personal guardada exitosamente" });
-            }
-            catch (Exception ex)
+                Id = 0,
+                VigenteDesde = vencimiento,
+                Porcentaje = porcentaje,
+                PeriodoDias = periodoDias,
+                DiasGracia = diasGracia,
+                ProrrateoDiario = true,
+                Activa = true
+            };
+
+            PunitorioPreviewPuntoViewModel Punto(string etiqueta, int dias)
             {
-                _logger.LogError(ex, "Error al guardar configuración de crédito personal");
-                return Json(new { success = false, message = "Error al guardar: " + ex.Message });
+                var resultado = _punitorioCalculator.Calcular(new PunitorioCalculoEntrada
+                {
+                    MontoOriginalCuota = montoReferencia,
+                    FechaVencimiento = vencimiento,
+                    FechaCalculo = vencimiento.AddDays(dias),
+                    Configuraciones = new[] { configuracion }
+                });
+
+                return new PunitorioPreviewPuntoViewModel
+                {
+                    Etiqueta = etiqueta,
+                    Dias = dias,
+                    Estado = resultado.EstadoResultado.ToString(),
+                    Importe = resultado.PunitorioRedondeado
+                };
             }
+
+            var puntos = new List<PunitorioPreviewPuntoViewModel>
+            {
+                Punto($"A los {diasGracia} día(s) (dentro de gracia)", diasGracia),
+                Punto("Primer día posterior a la gracia", diasGracia + 1),
+                Punto($"A los {periodoDias} día(s)", periodoDias),
+                Punto($"A los {periodoDias * 2} día(s)", periodoDias * 2)
+            };
+
+            return Json(new PunitorioPreviewViewModel { MontoReferencia = montoReferencia, Puntos = puntos });
         }
+
+        private async Task<ConfiguracionPunitorioPageViewModel> ConstruirPunitorioPageAsync()
+        {
+            var hoy = _reloj.HoyComercial;
+            var vigente = await _configuracionPunitorioService.ObtenerVigenteAsync(hoy);
+            var historialEntidades = await _configuracionPunitorioService.ListarHistorialAsync();
+            var vigenteId = vigente.Configuracion?.Id;
+
+            var historial = historialEntidades
+                .Select(c => ConstruirVersionViewModel(c, hoy, vigenteId))
+                .ToList();
+
+            var proxima = historial
+                .Where(v => v.EsFutura)
+                .OrderBy(v => v.VigenteDesde)
+                .FirstOrDefault();
+
+            var actual = new ConfiguracionPunitorioActualViewModel
+            {
+                TieneConfiguracion = vigente.Estado != EstadoConfiguracionPunitorio.Ausente,
+                EsActiva = vigente.Estado == EstadoConfiguracionPunitorio.Activa && vigente.Configuracion!.Porcentaje > 0m,
+                EsInactiva = vigente.Estado == EstadoConfiguracionPunitorio.Inactiva,
+                EsCero = vigente.Estado == EstadoConfiguracionPunitorio.Activa && vigente.Configuracion?.Porcentaje == 0m,
+                VigenteDesde = vigente.Configuracion?.VigenteDesde,
+                Porcentaje = vigente.Configuracion?.Porcentaje,
+                PeriodoDias = vigente.Configuracion?.PeriodoDias,
+                DiasGracia = vigente.Configuracion?.DiasGracia,
+                ProximaVersion = proxima,
+                ReglaTexto = ConstruirReglaTexto(vigente)
+            };
+
+            (actual.EstadoTexto, actual.EstadoBadgeClass) = vigente.Estado switch
+            {
+                EstadoConfiguracionPunitorio.Inactiva => ("Inactivo", "badge-erp badge-erp-warning"),
+                EstadoConfiguracionPunitorio.Activa when vigente.Configuracion!.Porcentaje == 0m => ("Activo al 0%", "badge-erp badge-erp-info"),
+                EstadoConfiguracionPunitorio.Activa => ("Activo", "badge-erp badge-erp-success"),
+                _ => ("Sin configuración", "badge-erp")
+            };
+
+            return new ConfiguracionPunitorioPageViewModel
+            {
+                Actual = actual,
+                Historial = historial,
+                CrearForm = new CrearConfiguracionPunitorioViewModel(),
+                HoyComercial = hoy
+            };
+        }
+
+        private static ConfiguracionPunitorioVersionViewModel ConstruirVersionViewModel(
+            PunitorioEntity c, DateOnly hoy, int? vigenteId) => new()
+        {
+            Id = c.Id,
+            VigenteDesde = c.VigenteDesde,
+            Activa = c.Activa,
+            Porcentaje = c.Porcentaje,
+            PeriodoDias = c.PeriodoDias,
+            DiasGracia = c.DiasGracia,
+            MotivoCambio = c.MotivoCambio,
+            EsRetroactiva = c.AplicacionRetroactiva,
+            CreatedBy = c.CreatedBy,
+            CreatedAt = c.CreatedAt,
+            EsVigenteHoy = vigenteId.HasValue && c.Id == vigenteId.Value,
+            EsFutura = c.VigenteDesde > hoy
+        };
+
+        private static string ConstruirReglaTexto(ConfiguracionPunitorioVigente vigente)
+        {
+            if (vigente.Estado == EstadoConfiguracionPunitorio.Ausente || vigente.Configuracion is null)
+                return "No existe una regla de punitorios aplicable para hoy. No se pueden aplicar nuevos punitorios.";
+
+            var c = vigente.Configuracion;
+
+            if (vigente.Estado == EstadoConfiguracionPunitorio.Inactiva)
+                return $"La configuración existe, pero el cobro de nuevos punitorios está desactivado desde {c.VigenteDesde:dd/MM/yyyy}.";
+
+            if (c.Porcentaje == 0m)
+                return "La regla está activa con una tasa de 0%. El cálculo es válido, pero no genera importe.";
+
+            return $"Se aplica un {c.Porcentaje.ToString("0.##")}% cada {c.PeriodoDias} día(s), prorrateado diariamente. " +
+                   $"Durante los primeros {c.DiasGracia} día(s) posteriores al vencimiento no se cobra. " +
+                   "Al superar la gracia, el cálculo se realiza desde la fecha de vencimiento.";
+        }
+
+        #endregion
 
         private async Task<CreditoPersonalConfigViewModel> ConstruirCreditoPersonalConfigAsync()
         {
@@ -923,7 +1170,8 @@ namespace TheBuryProject.Controllers
                 Perfiles = perfiles,
                 SemaforoFinanciero = semaforo,
                 LimitesPorPuntaje = limites,
-                CuotasCreditoPersonal = cuotas
+                CuotasCreditoPersonal = cuotas,
+                Punitorios = await ConstruirPunitorioPageAsync()
             };
         }
 
@@ -932,6 +1180,7 @@ namespace TheBuryProject.Controllers
             config.Perfiles ??= await _configuracionPagoService.GetPerfilesCreditoAsync();
             config.SemaforoFinanciero ??= await _aptitudService.GetSemaforoFinancieroAsync();
             config.CuotasCreditoPersonal ??= await _configuracionPagoService.GetCuotasCreditoPersonalAsync();
+            config.Punitorios ??= await ConstruirPunitorioPageAsync();
 
             if (config.LimitesPorPuntaje.Count == 0)
                 config.LimitesPorPuntaje = await ConstruirLimitesPorPuntajeAsync();

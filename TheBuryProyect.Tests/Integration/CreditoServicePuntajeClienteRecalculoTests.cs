@@ -21,13 +21,38 @@ namespace TheBuryProject.Tests.Integration;
 
 file sealed class StubCajaServicePuntaje : ICajaService
 {
+    // PUN-ML2: persiste de verdad (igual que CajaService real) porque PagoCuota.MovimientoCajaId
+    // es una FK real. La Caja/AperturaCaja (Id=1) la siembra el test antes de instanciar el stub.
+    private readonly AppDbContext _context;
+
+    public StubCajaServicePuntaje(AppDbContext context) => _context = context;
+
     public Task<decimal?> ObtenerUltimoEfectivoCierreAsync(int cajaId) => Task.FromResult<decimal?>(null);
     public AperturaCaja? AperturaActivaParaVenta { get; set; } = new() { Id = 1 };
 
-    public Task<MovimientoCaja?> RegistrarMovimientoCuotaAsync(
+    public async Task<MovimientoCaja?> RegistrarMovimientoCuotaAsync(
         int cuotaId, string creditoNumero, int numeroCuota,
         decimal monto, string medioPago, string usuario)
-        => Task.FromResult<MovimientoCaja?>(new MovimientoCaja());
+    {
+        if (AperturaActivaParaVenta == null)
+            return null;
+
+        var movimiento = new MovimientoCaja
+        {
+            AperturaCajaId = AperturaActivaParaVenta.Id,
+            Tipo = TipoMovimientoCaja.Ingreso,
+            Concepto = ConceptoMovimientoCaja.CobroCuota,
+            Monto = monto,
+            ImporteBase = monto,
+            Descripcion = $"Cobro cuota #{numeroCuota} - Crédito {creditoNumero}",
+            ReferenciaId = cuotaId,
+            MedioPagoDetalle = medioPago,
+            Usuario = usuario
+        };
+        _context.MovimientosCaja.Add(movimiento);
+        await _context.SaveChangesAsync();
+        return movimiento;
+    }
 
     public Task<AperturaCaja?> ObtenerAperturaActivaParaUsuarioAsync(string usuario) => throw new NotImplementedException();
     public Task<List<Caja>> ObtenerTodasCajasAsync() => throw new NotImplementedException();
@@ -128,6 +153,12 @@ public sealed class CreditoServicePuntajeClienteRecalculoTests : IDisposable
 
         _context = new AppDbContext(options);
         _context.Database.EnsureCreated();
+        _context.Cajas.Add(new Caja { Id = 1, Codigo = "C1", Nombre = "Caja test", IsDeleted = false });
+        _context.AperturasCaja.Add(new AperturaCaja
+        {
+            Id = 1, CajaId = 1, MontoInicial = 0m, UsuarioApertura = "TestUser", Cerrada = false, IsDeleted = false
+        });
+        _context.SaveChanges();
 
         var mapper = new MapperConfiguration(
                 cfg => { cfg.AddProfile<MappingProfile>(); },
@@ -139,7 +170,7 @@ public sealed class CreditoServicePuntajeClienteRecalculoTests : IDisposable
             mapper,
             NullLogger<CreditoService>.Instance,
             new StubFinancialServicePuntaje(),
-            new StubCajaServicePuntaje(),
+            new StubCajaServicePuntaje(_context),
             new StubCreditoDisponibleServicePuntaje(),
             new StubCurrentUserServicePuntaje());
     }
@@ -254,6 +285,7 @@ public sealed class CreditoServicePuntajeClienteRecalculoTests : IDisposable
 
         var pago = new PagarCuotaViewModel
         {
+            CreditoId = cuota.CreditoId,
             CuotaId = cuota.Id,
             MontoPagado = 1000m,
             FechaPago = ahora,
@@ -279,6 +311,7 @@ public sealed class CreditoServicePuntajeClienteRecalculoTests : IDisposable
 
         var pago = new PagarCuotaViewModel
         {
+            CreditoId = cuota.CreditoId,
             CuotaId = cuota.Id,
             MontoPagado = 500m,
             FechaPago = ahora,
@@ -304,6 +337,7 @@ public sealed class CreditoServicePuntajeClienteRecalculoTests : IDisposable
 
         var pago = new PagarCuotaViewModel
         {
+            CreditoId = cuota.CreditoId,
             CuotaId = cuota.Id,
             MontoPagado = 1000m,
             FechaPago = ahora,
@@ -337,6 +371,7 @@ public sealed class CreditoServicePuntajeClienteRecalculoTests : IDisposable
 
         var pago = new PagarCuotaViewModel
         {
+            CreditoId = cuota.CreditoId,
             CuotaId = cuota.Id,
             MontoPagado = 500m,
             FechaPago = ahora,
@@ -377,6 +412,7 @@ public sealed class CreditoServicePuntajeClienteRecalculoTests : IDisposable
 
         var pago = new PagarCuotaViewModel
         {
+            CreditoId = cuota.CreditoId,
             CuotaId = cuota.Id,
             MontoPagado = 1000m,
             FechaPago = ahora,

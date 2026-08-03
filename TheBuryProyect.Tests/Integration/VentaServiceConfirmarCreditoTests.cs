@@ -451,6 +451,41 @@ public class VentaServiceConfirmarCreditoTests : IDisposable
     }
 
     // -------------------------------------------------------------------------
+    // ML1 (auditoría Crédito Personal, 2026-07-29) — invariante de negocio:
+    // la suma de las cuotas debe cerrar EXACTO contra el monto financiado, con el
+    // residuo de redondeo absorbido por la última cuota. Caso 4 del pedido: 100.000
+    // en 3 cuotas → 33.333,33 / 33.333,33 / 33.333,34. Se usa tasa 0% para aislar el
+    // problema de redondeo (I3) de la fórmula de recargo (I1, cubierta en
+    // CreditoRecargoTotalTests): GenerarCuotasCreditoAsync asigna hoy el mismo
+    // MontoTotal (33.333,33) a las 3 cuotas sin ajustar la última → Σ = 99.999,99.
+    // RED hasta ML3.
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task ConfirmarVentaCredito_Caso4DelPedido_UltimaCuotaAbsorbeElResiduoDeRedondeo()
+    {
+        // Arrange: 100.000 / sin anticipo / 3 cuotas / 0% recargo (caso 4 del pedido)
+        var (venta, credito) = await SeedVentaConfirmable(
+            total: 100_000m,
+            montoAprobado: 100_000m,
+            cantidadCuotas: 3,
+            tasaInteres: 0m);
+
+        // Act
+        await _service.ConfirmarVentaCreditoAsync(venta.Id);
+
+        // Assert
+        var montos = await _context.Cuotas
+            .Where(c => c.CreditoId == credito.Id)
+            .OrderBy(c => c.NumeroCuota)
+            .Select(c => c.MontoTotal)
+            .ToListAsync();
+
+        Assert.Equal(new[] { 33_333.33m, 33_333.33m, 33_333.34m }, montos);
+        Assert.Equal(100_000m, montos.Sum());
+    }
+
+    // -------------------------------------------------------------------------
     // Tests — guards de estado
     // -------------------------------------------------------------------------
 

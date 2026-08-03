@@ -92,8 +92,9 @@ namespace TheBuryProject.Helpers
                 Id = detalle.Id,
                 VentaId = detalle.VentaId,
                 ProductoId = detalle.ProductoId,
-                ProductoCodigo = detalle.Producto?.Codigo ?? string.Empty,
-                ProductoNombre = detalle.Producto?.Nombre ?? string.Empty,
+                // Identidad histórica del producto (snapshot → relación viva legacy → Producto #id). Micro-lote 5.
+                ProductoCodigo = VentaDetalleProductoSnapshot.ResolverCodigo(detalle) ?? string.Empty,
+                ProductoNombre = VentaDetalleProductoSnapshot.ResolverNombre(detalle),
                 Cantidad = detalle.Cantidad,
                 PrecioUnitario = detalle.PrecioUnitario,
                 Descuento = detalle.Descuento,

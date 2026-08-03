@@ -833,27 +833,28 @@
                         {
                             <form asp-action="Confirmar" method="post" id="form-confirmar">
                                 <input type="hidden" name="id" value="@Model.Id" />
-                                @if (ViewBag.OfrecerCobrarPrimeraCuota == true)
+                                @* Micro-lote 6 (F2): la decisión de cobrar la 1ª cuota se tomó en la
+                                   configuración del crédito. Acá solo se muestra el resumen; el servidor
+                                   la revalida y ejecuta al confirmar (no hay input manipulable). *@
+                                @if (ViewBag.PrimeraCuotaVenceHoy == true)
                                 {
-                                    <div class="mb-3 flex flex-col gap-2 rounded-xl border border-sky-500/20 bg-sky-500/10 p-3 text-sm text-sky-200">
-                                        <label class="flex cursor-pointer items-center gap-2 font-semibold">
-                                            <input type="checkbox" name="cobrarPrimeraCuota" value="true"
-                                                   class="h-4 w-4 accent-sky-500" />
-                                            <span>Cobrar la 1ª cuota ahora (vence hoy)</span>
-                                        </label>
-                                        <div class="flex flex-col gap-1">
-                                            <label for="medio-primera-cuota" class="text-xs text-sky-300/80">Medio de pago del cobro</label>
-                                            <select id="medio-primera-cuota" name="medioPagoPrimeraCuota"
-                                                    class="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-semibold text-slate-100 outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20">
-                                                <option value="Efectivo">Efectivo</option>
-                                                <option value="Transferencia">Transferencia</option>
-                                                <option value="Tarjeta Débito">Tarjeta Débito</option>
-                                                <option value="Tarjeta Crédito">Tarjeta Crédito</option>
-                                                <option value="Cheque">Cheque</option>
-                                            </select>
+                                    if (ViewBag.PrimeraCuotaDecisionCobrar == true)
+                                    {
+                                        <div class="mb-3 flex flex-col gap-1 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-sm text-emerald-200">
+                                            <span class="flex items-center gap-2 font-semibold">
+                                                <span class="material-symbols-outlined text-base">payments</span>
+                                                Se cobrará la 1ª cuota al confirmar (vence hoy)
+                                            </span>
+                                            <span class="text-xs text-emerald-300/80">Medio de pago: <strong>@ViewBag.PrimeraCuotaDecisionMedio</strong>. El recargo del medio se aplica al cobrar e impacta en caja.</span>
                                         </div>
-                                        <p class="text-xs text-sky-300/70">El recargo del medio de pago se aplica al cobrar e impacta en caja.</p>
-                                    </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="mb-3 flex flex-col gap-1 rounded-xl border border-slate-600/40 bg-slate-800/40 p-3 text-sm text-slate-300">
+                                            <span class="font-semibold">La 1ª cuota vence hoy y no se cobrará al confirmar.</span>
+                                            <span class="text-xs text-slate-400">Para cobrarla en el alta, activá la opción en la configuración del crédito.</span>
+                                        </div>
+                                    }
                                 }
                                 <button type="submit" class="@(expressDisponible ? "btn-erp-secondary" : "btn-erp-primary") btn-erp-block">
                                     <span class="material-symbols-outlined text-sm">check_circle</span> @(expressDisponible ? "Solo confirmar" : "Confirmar Venta")
