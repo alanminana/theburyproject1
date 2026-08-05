@@ -2646,6 +2646,472 @@ select.field {
 }
 
 /* ============================================================
+   Detalle read-only de punitorios por cuota (PUN-ML9-B2)
+   ============================================================ */
+[data-credito-details] .punitorio-toggle {
+  min-width: 8.5rem;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+[data-credito-details] .punitorio-toggle__chevron {
+  margin-left: .1rem;
+}
+
+[data-credito-details] [data-punitorio-panel] {
+  min-width: 0;
+  padding: .75rem 1rem 1rem;
+  border-top: 1px solid var(--line);
+}
+
+[data-credito-details] .punitorio-detail {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid var(--line-2);
+  border-radius: 12px;
+  background: var(--card-2);
+}
+
+[data-credito-details] .punitorio-detail__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+[data-credito-details] .punitorio-detail__title {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  margin: 0;
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+[data-credito-details] .punitorio-detail__title .material-symbols-outlined {
+  color: var(--primary);
+  font-size: 20px;
+}
+
+[data-credito-details] .punitorio-detail__meta {
+  margin: .25rem 0 0;
+  color: var(--muted);
+  font-size: .78rem;
+}
+
+[data-credito-details] .punitorio-history-warning {
+  align-items: flex-start;
+  margin-top: .9rem;
+}
+
+[data-credito-details] .punitorio-history-warning strong {
+  display: block;
+  color: #fde68a;
+}
+
+[data-credito-details] .punitorio-history-warning p,
+[data-credito-details] .punitorio-load-error p {
+  margin: .2rem 0 0;
+}
+
+[data-credito-details] .punitorio-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: .65rem;
+  margin-top: 1rem;
+}
+
+[data-credito-details] .punitorio-summary__item {
+  min-width: 0;
+  padding: .8rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, .58);
+}
+
+[data-credito-details] .punitorio-summary__item.is-total {
+  border-color: rgba(245, 197, 24, .35);
+  background: rgba(245, 197, 24, .06);
+}
+
+[data-credito-details] .punitorio-summary__label,
+[data-credito-details] .punitorio-summary__hint {
+  display: block;
+  color: var(--muted);
+  font-size: .69rem;
+  line-height: 1.35;
+}
+
+[data-credito-details] .punitorio-summary__label {
+  min-height: 1.9em;
+  text-transform: uppercase;
+  letter-spacing: .045em;
+  font-weight: 600;
+}
+
+[data-credito-details] .punitorio-summary__value {
+  display: block;
+  margin-top: .3rem;
+  color: #fff;
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+[data-credito-details] .punitorio-summary__value.is-unknown {
+  color: #fde68a;
+  font-size: .82rem;
+  line-height: 1.35;
+}
+
+[data-credito-details] .punitorio-summary__hint {
+  margin-top: .3rem;
+}
+
+[data-credito-details] .punitorio-statuses {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .45rem;
+  margin-top: .8rem;
+}
+
+[data-credito-details] .punitorio-statuses__label {
+  color: var(--muted-2);
+  font-size: .72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+[data-credito-details] .punitorio-statuses__label:not(:first-child) {
+  margin-left: .35rem;
+}
+
+[data-credito-details] .punitorio-history-grid {
+  display: grid;
+  gap: .9rem;
+  margin-top: 1rem;
+}
+
+[data-credito-details] .punitorio-history {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+[data-credito-details] .punitorio-history__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  padding: .7rem .8rem;
+  background: rgba(15, 23, 42, .55);
+}
+
+[data-credito-details] .punitorio-history__heading h4 {
+  margin: 0;
+  color: var(--text);
+  font-size: .85rem;
+  font-weight: 650;
+}
+
+[data-credito-details] .punitorio-history__empty {
+  margin: 0;
+  padding: 1rem;
+  color: var(--muted);
+  font-size: .82rem;
+}
+
+[data-credito-details] .punitorio-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+}
+
+[data-credito-details] .punitorio-table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--text);
+  font-size: .76rem;
+}
+
+[data-credito-details] .punitorio-table--applications {
+  min-width: 76rem;
+}
+
+[data-credito-details] .punitorio-table--payments {
+  min-width: 62rem;
+}
+
+[data-credito-details] .punitorio-table th {
+  padding: .6rem .7rem;
+  color: var(--muted);
+  background: rgba(15, 23, 42, .35);
+  font-size: .64rem;
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: .045em;
+  white-space: nowrap;
+}
+
+[data-credito-details] .punitorio-table td {
+  padding: .68rem .7rem;
+  border-top: 1px solid var(--line);
+  vertical-align: top;
+}
+
+[data-credito-details] .punitorio-table tr.is-incomplete {
+  background: rgba(245, 158, 11, .05);
+}
+
+[data-credito-details] .punitorio-cell-note {
+  display: block;
+  margin-top: .2rem;
+  color: var(--muted-2);
+  font-size: .68rem;
+  line-height: 1.35;
+}
+
+[data-credito-details] .punitorio-cell-note.is-warning {
+  color: #fde68a;
+  font-weight: 600;
+}
+
+[data-credito-details] .punitorio-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .55rem;
+  min-height: 6rem;
+  color: var(--muted);
+  font-size: .84rem;
+}
+
+[data-credito-details] .punitorio-loading__icon {
+  color: var(--primary);
+}
+
+[data-credito-details] .punitorio-load-error {
+  margin: 0;
+  align-items: flex-start;
+}
+
+[data-credito-details] .punitorio-load-error .btn {
+  margin-top: .65rem;
+}
+
+[data-credito-details] .punitorio-operation {
+  min-width: 0;
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, .42);
+}
+
+[data-credito-details] .punitorio-operation--danger {
+  border-color: rgba(244, 63, 94, .28);
+  background: rgba(244, 63, 94, .035);
+}
+
+[data-credito-details] .punitorio-operation__heading h4 {
+  margin: 0;
+  color: var(--text);
+  font-size: .92rem;
+  font-weight: 650;
+}
+
+[data-credito-details] .punitorio-operation__heading p {
+  margin: .2rem 0 0;
+  color: var(--muted);
+  font-size: .76rem;
+  line-height: 1.45;
+}
+
+[data-credito-details] .punitorio-confirmation {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: .6rem;
+  margin-top: .85rem;
+}
+
+[data-credito-details] .punitorio-confirmation--anular {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+[data-credito-details] .punitorio-confirmation > div {
+  min-width: 0;
+  padding: .7rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, .55);
+}
+
+[data-credito-details] .punitorio-confirmation span,
+[data-credito-details] .punitorio-confirmation strong {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+[data-credito-details] .punitorio-confirmation span {
+  color: var(--muted);
+  font-size: .68rem;
+  line-height: 1.35;
+}
+
+[data-credito-details] .punitorio-confirmation strong {
+  margin-top: .25rem;
+  color: var(--text);
+  font-size: .82rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+}
+
+[data-credito-details] .punitorio-operation__field {
+  margin-top: .9rem;
+}
+
+[data-credito-details] .punitorio-operation__field label {
+  display: block;
+  margin-bottom: .35rem;
+  color: var(--text);
+  font-size: .78rem;
+  font-weight: 600;
+}
+
+[data-credito-details] .punitorio-operation__field textarea {
+  width: 100%;
+  min-height: 5.5rem;
+  resize: vertical;
+  padding: .65rem .72rem;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  color: var(--text);
+  background: rgba(15, 23, 42, .75);
+  line-height: 1.45;
+}
+
+[data-credito-details] .punitorio-operation__field textarea:focus-visible {
+  outline: 2px solid #f5c518;
+  outline-offset: 2px;
+  border-color: #f5c518;
+}
+
+[data-credito-details] .punitorio-operation .field-hint,
+[data-credito-details] .punitorio-operation .field-error {
+  display: block;
+  margin-top: .3rem;
+  font-size: .7rem;
+  line-height: 1.4;
+}
+
+[data-credito-details] .punitorio-operation .field-hint {
+  color: var(--muted-2);
+}
+
+[data-credito-details] .punitorio-operation .field-error {
+  color: #fda4af;
+  font-weight: 600;
+}
+
+[data-credito-details] .punitorio-operation__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: .8rem;
+}
+
+[data-credito-details] .punitorio-operation__blocked {
+  margin: .85rem 0 0;
+  align-items: flex-start;
+}
+
+[data-credito-details] .punitorio-operation__blocked p {
+  margin: .2rem 0 0;
+}
+
+[data-credito-details] .punitorio-operation-feedback {
+  margin-top: .85rem;
+  padding: .7rem .8rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  background: rgba(15, 23, 42, .68);
+  font-size: .78rem;
+  line-height: 1.45;
+}
+
+[data-credito-details] .punitorio-operation-feedback.is-success {
+  border-color: rgba(52, 211, 153, .4);
+  color: #a7f3d0;
+}
+
+[data-credito-details] .punitorio-operation-feedback.is-error {
+  border-color: rgba(244, 63, 94, .42);
+  color: #fecdd3;
+}
+
+@media(max-width:900px) {
+  [data-credito-details] .punitorio-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media(max-width:560px) {
+  [data-credito-details] [data-punitorio-panel] {
+    padding: .55rem;
+  }
+
+  [data-credito-details] .punitorio-detail {
+    padding: .8rem;
+  }
+
+  [data-credito-details] .punitorio-detail__header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  [data-credito-details] .punitorio-detail__header .btn {
+    width: 100%;
+  }
+
+  [data-credito-details] .punitorio-summary {
+    grid-template-columns: 1fr;
+  }
+
+  [data-credito-details] .punitorio-confirmation,
+  [data-credito-details] .punitorio-confirmation--anular {
+    grid-template-columns: 1fr;
+  }
+
+  [data-credito-details] .punitorio-summary__label {
+    min-height: auto;
+  }
+
+  [data-credito-details] .punitorio-statuses {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  [data-credito-details] .punitorio-statuses__label:not(:first-child) {
+    margin-left: 0;
+    margin-top: .25rem;
+  }
+
+  [data-credito-details] .punitorio-operation {
+    padding: .8rem;
+  }
+
+  [data-credito-details] .punitorio-operation__actions,
+  [data-credito-details] .punitorio-operation__actions .btn {
+    width: 100%;
+  }
+}
+
+/* ============================================================
    Acordeón por usuario en Cartera de créditos
    ============================================================ */
 .credito-client-page.credito-user-collapsible {

@@ -1,0 +1,407 @@
+@model TheBuryProject.ViewModels.Punitorio.CuotaPunitorioDetalleViewModel
+
+<section class="punitorio-detail" data-punitorio-detail aria-labelledby="punitorio-title-@Model.CuotaId">
+    <header class="punitorio-detail__header">
+        <div>
+            <h3 id="punitorio-title-@Model.CuotaId" class="punitorio-detail__title" tabindex="-1">
+                <span class="material-symbols-outlined" aria-hidden="true">receipt_long</span>
+                Punitorios de la cuota @Model.NumeroCuota
+            </h3>
+            <p class="punitorio-detail__meta">
+                Vencimiento @Model.FechaVencimiento.ToString("dd/MM/yyyy") ·
+                fecha comercial del cálculo @Model.FechaCalculoComercial.ToString("dd/MM/yyyy")
+            </p>
+        </div>
+        <button type="button" class="btn btn-ghost btn-sm" data-punitorio-reload>
+            <span class="material-symbols-outlined" aria-hidden="true">refresh</span>
+            Actualizar
+        </button>
+    </header>
+
+    @if (!Model.HistorialCompleto)
+    {
+        <div class="alert alert-warn punitorio-history-warning" role="status">
+            <span class="material-symbols-outlined" aria-hidden="true">warning</span>
+            <div>
+                <strong>Historial incompleto</strong>
+                <p>
+                    Parte de la composición histórica no pudo reconstruirse. Los importes desconocidos
+                    no representan cero; las aplicaciones y pagos válidos siguen disponibles.
+                    @if (!string.IsNullOrWhiteSpace(Model.MotivoHistorialIncompleto))
+                    {
+                        <span class="block">@Model.MotivoHistorialIncompleto</span>
+                    }
+                </p>
+            </div>
+        </div>
+    }
+
+    <div class="punitorio-summary" aria-label="Resumen actual de punitorios">
+        <div class="punitorio-summary__item">
+            <span class="punitorio-summary__label">Capital pendiente</span>
+            <strong class="punitorio-summary__value">$ @Model.Resumen.CapitalPendiente.ToString("N2")</strong>
+        </div>
+        <div class="punitorio-summary__item">
+            <span class="punitorio-summary__label">Punitorio calculado hoy</span>
+            @if (Model.Resumen.PunitorioCalculadoHoy.HasValue)
+            {
+                <strong class="punitorio-summary__value">$ @Model.Resumen.PunitorioCalculadoHoy.Value.ToString("N2")</strong>
+            }
+            else
+            {
+                <strong class="punitorio-summary__value is-unknown">No calculable</strong>
+            }
+            <span class="punitorio-summary__hint">Informativo; no se suma hasta estar aplicado.</span>
+        </div>
+        <div class="punitorio-summary__item">
+            <span class="punitorio-summary__label">Punitorio aplicado pendiente</span>
+            @if (Model.Resumen.PunitorioAplicadoPendiente.HasValue)
+            {
+                <strong class="punitorio-summary__value">$ @Model.Resumen.PunitorioAplicadoPendiente.Value.ToString("N2")</strong>
+            }
+            else
+            {
+                <strong class="punitorio-summary__value is-unknown">Sin información suficiente</strong>
+            }
+        </div>
+        <div class="punitorio-summary__item is-total">
+            <span class="punitorio-summary__label">Total cobrable actual</span>
+            @if (Model.Resumen.TotalCobrableActual.HasValue)
+            {
+                <strong class="punitorio-summary__value">$ @Model.Resumen.TotalCobrableActual.Value.ToString("N2")</strong>
+            }
+            else
+            {
+                <strong class="punitorio-summary__value is-unknown">No reconstruible</strong>
+            }
+            <span class="punitorio-summary__hint">Capital más punitorio ya aplicado pendiente.</span>
+        </div>
+    </div>
+
+    <div class="punitorio-statuses" aria-label="Estados de punitorios">
+        <span class="punitorio-statuses__label">Cálculo</span>
+        <span class="chip @Model.Resumen.EstadoCalculo.CssClass">
+            <span class="material-symbols-outlined" aria-hidden="true">@Model.Resumen.EstadoCalculo.Icono</span>
+            @Model.Resumen.EstadoCalculo.Texto
+        </span>
+        <span class="punitorio-statuses__label">Aplicación</span>
+        <span class="chip @Model.Resumen.EstadoAplicacion.CssClass">
+            <span class="material-symbols-outlined" aria-hidden="true">@Model.Resumen.EstadoAplicacion.Icono</span>
+            @Model.Resumen.EstadoAplicacion.Texto
+        </span>
+    </div>
+
+    <div class="punitorio-operation-feedback"
+         data-punitorio-feedback
+         role="status"
+         aria-live="polite"
+         tabindex="-1"
+         hidden></div>
+
+    @if (Model.Acciones.TienePermisoAplicar)
+    {
+        <section class="punitorio-operation" aria-labelledby="punitorio-aplicar-title-@Model.CuotaId">
+            <div class="punitorio-operation__heading">
+                <div>
+                    <h4 id="punitorio-aplicar-title-@Model.CuotaId">Aplicar punitorio</h4>
+                    <p>El importe mostrado es informativo. El servidor vuelve a calcularlo al confirmar.</p>
+                </div>
+            </div>
+
+            @if (Model.Acciones.PuedeAplicar)
+            {
+                <form asp-controller="Credito"
+                      asp-action="AplicarPunitorioCuota"
+                      asp-route-creditoId="@Model.CreditoId"
+                      asp-route-cuotaId="@Model.CuotaId"
+                      method="post"
+                      asp-antiforgery="false"
+                      data-punitorio-operation-form
+                      data-punitorio-operation="aplicar">
+                    @Html.AntiForgeryToken()
+                    <input asp-for="Acciones.Aplicar.CuotaRowVersionBase64" type="hidden" />
+
+                    <div class="punitorio-confirmation" aria-label="Confirmacion de aplicacion">
+                        <div>
+                            <span>Punitorio calculado al dia</span>
+                            <strong>$ @Model.Resumen.PunitorioCalculadoHoy!.Value.ToString("N2")</strong>
+                        </div>
+                        <div>
+                            <span>Punitorio ya aplicado</span>
+                            <strong>$ @Model.Acciones.ImportePreviamenteAplicado.ToString("N2")</strong>
+                        </div>
+                        <div>
+                            <span>Diferencial estimado</span>
+                            <strong>$ @Model.Acciones.DiferencialEstimado!.Value.ToString("N2")</strong>
+                        </div>
+                    </div>
+
+                    <div class="punitorio-operation__field">
+                        <label asp-for="Acciones.Aplicar.Motivo">Motivo de la aplicacion</label>
+                        <textarea asp-for="Acciones.Aplicar.Motivo"
+                                  rows="3"
+                                  required
+                                  autocomplete="off"
+                                  aria-describedby="punitorio-aplicar-hint-@Model.CuotaId punitorio-aplicar-error-@Model.CuotaId"></textarea>
+                        <span id="punitorio-aplicar-hint-@Model.CuotaId" class="field-hint">
+                            Explica por que corresponde aplicar el punitorio.
+                        </span>
+                        <span asp-validation-for="Acciones.Aplicar.Motivo"
+                              id="punitorio-aplicar-error-@Model.CuotaId"
+                              class="field-error"
+                              data-punitorio-field-error></span>
+                    </div>
+
+                    <div class="punitorio-operation__actions">
+                        <button type="submit" class="btn btn-primary" data-punitorio-submit>
+                            <span class="material-symbols-outlined" aria-hidden="true">gavel</span>
+                            Confirmar aplicacion
+                        </button>
+                    </div>
+                </form>
+            }
+            else
+            {
+                <div class="alert alert-warn punitorio-operation__blocked" role="status">
+                    <span class="material-symbols-outlined" aria-hidden="true">block</span>
+                    <div>
+                        <strong>No se puede aplicar</strong>
+                        <p>@Model.Acciones.MotivoBloqueoAplicar</p>
+                    </div>
+                </div>
+            }
+        </section>
+    }
+
+    @if (Model.Acciones.TienePermisoAnular && Model.Acciones.Anulacion is not null)
+    {
+        var anulacion = Model.Acciones.Anulacion;
+        <section class="punitorio-operation punitorio-operation--danger"
+                 aria-labelledby="punitorio-anular-title-@Model.CuotaId">
+            <div class="punitorio-operation__heading">
+                <div>
+                    <h4 id="punitorio-anular-title-@Model.CuotaId">Anular aplicacion</h4>
+                    <p>La fila historica se conserva. Solo cambia su estado y se registra este motivo.</p>
+                </div>
+            </div>
+
+            <div class="punitorio-confirmation punitorio-confirmation--anular" aria-label="Datos de la aplicacion a anular">
+                <div>
+                    <span>Importe aplicado</span>
+                    <strong>$ @anulacion.ImporteAplicado.ToString("N2")</strong>
+                </div>
+                <div>
+                    <span>Importe pagado</span>
+                    <strong>@(anulacion.ImportePagado.HasValue ? $"$ {anulacion.ImportePagado.Value:N2}" : "No reconstruible")</strong>
+                </div>
+                <div>
+                    <span>Importe pendiente</span>
+                    <strong>@(anulacion.ImportePendiente.HasValue ? $"$ {anulacion.ImportePendiente.Value:N2}" : "No reconstruible")</strong>
+                </div>
+                <div>
+                    <span>Fecha</span>
+                    <strong>@anulacion.FechaAplicacion.ToString("dd/MM/yyyy HH:mm")</strong>
+                </div>
+                <div>
+                    <span>Motivo original</span>
+                    <strong>@anulacion.MotivoOriginal</strong>
+                </div>
+                <div>
+                    <span>Usuario original</span>
+                    <strong>@anulacion.UsuarioOriginal</strong>
+                </div>
+            </div>
+
+            @if (anulacion.PuedeAnular)
+            {
+                <form asp-controller="Credito"
+                      asp-action="AnularPunitorioCuota"
+                      asp-route-creditoId="@Model.CreditoId"
+                      asp-route-cuotaId="@Model.CuotaId"
+                      asp-route-punitorioAplicadoId="@anulacion.PunitorioAplicadoId"
+                      method="post"
+                      asp-antiforgery="false"
+                      data-punitorio-operation-form
+                      data-punitorio-operation="anular">
+                    @Html.AntiForgeryToken()
+                    <input asp-for="Acciones.Anulacion.Form.PunitorioAplicadoRowVersionBase64" type="hidden" />
+
+                    <div class="punitorio-operation__field">
+                        <label asp-for="Acciones.Anulacion.Form.Motivo">Motivo de la anulacion</label>
+                        <textarea asp-for="Acciones.Anulacion.Form.Motivo"
+                                  rows="3"
+                                  required
+                                  autocomplete="off"
+                                  aria-describedby="punitorio-anular-hint-@Model.CuotaId punitorio-anular-error-@Model.CuotaId"></textarea>
+                        <span id="punitorio-anular-hint-@Model.CuotaId" class="field-hint">
+                            Explica por que debe anularse esta aplicacion.
+                        </span>
+                        <span asp-validation-for="Acciones.Anulacion.Form.Motivo"
+                              id="punitorio-anular-error-@Model.CuotaId"
+                              class="field-error"
+                              data-punitorio-field-error></span>
+                    </div>
+
+                    <div class="punitorio-operation__actions">
+                        <button type="submit" class="btn btn-danger" data-punitorio-submit>
+                            <span class="material-symbols-outlined" aria-hidden="true">undo</span>
+                            Confirmar anulacion
+                        </button>
+                    </div>
+                </form>
+            }
+            else
+            {
+                <div class="alert alert-warn punitorio-operation__blocked" role="status">
+                    <span class="material-symbols-outlined" aria-hidden="true">block</span>
+                    <div>
+                        <strong>No se puede anular</strong>
+                        <p>@anulacion.MotivoBloqueo</p>
+                    </div>
+                </div>
+            }
+        </section>
+    }
+
+    <div class="punitorio-history-grid">
+        <section class="punitorio-history" aria-labelledby="punitorio-aplicaciones-@Model.CuotaId">
+            <div class="punitorio-history__heading">
+                <h4 id="punitorio-aplicaciones-@Model.CuotaId">Aplicaciones</h4>
+                <span class="chip chip-neutral">@Model.Aplicaciones.Count</span>
+            </div>
+            @if (Model.Aplicaciones.Count == 0)
+            {
+                <p class="punitorio-history__empty">No hay aplicaciones registradas para esta cuota.</p>
+            }
+            else
+            {
+                <div class="punitorio-table-wrap" tabindex="0" role="region" aria-label="Historial de aplicaciones de la cuota @Model.NumeroCuota">
+                    <table class="punitorio-table punitorio-table--applications">
+                        <caption class="sr-only">Aplicaciones de punitorio, de la más reciente a la más antigua</caption>
+                        <thead>
+                            <tr>
+                                <th scope="col">Fecha de aplicación</th>
+                                <th scope="col">Estado</th>
+                                <th scope="col">Importe teórico</th>
+                                <th scope="col">Importe previo</th>
+                                <th scope="col">Importe nuevo</th>
+                                <th scope="col">Pagado</th>
+                                <th scope="col">Pendiente</th>
+                                <th scope="col">Motivo</th>
+                                <th scope="col">Usuario</th>
+                                <th scope="col">Anulación</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var aplicacion in Model.Aplicaciones)
+                            {
+                                <tr>
+                                    <td>
+                                        <time datetime="@aplicacion.FechaAplicacion.ToString("O")">@aplicacion.FechaAplicacion.ToString("dd/MM/yyyy HH:mm")</time>
+                                        <span class="punitorio-cell-note">Cálculo @aplicacion.FechaCalculo.ToString("dd/MM/yyyy")</span>
+                                    </td>
+                                    <td>
+                                        <span class="chip @aplicacion.Estado.CssClass">
+                                            <span class="material-symbols-outlined" aria-hidden="true">@aplicacion.Estado.Icono</span>
+                                            @aplicacion.Estado.Texto
+                                        </span>
+                                    </td>
+                                    <td class="num">
+                                        @(aplicacion.ImporteTeorico.HasValue ? $"$ {aplicacion.ImporteTeorico.Value:N2}" : "No reconstruible")
+                                    </td>
+                                    <td class="num">
+                                        @(aplicacion.ImportePreviamenteAplicado.HasValue ? $"$ {aplicacion.ImportePreviamenteAplicado.Value:N2}" : "No reconstruible")
+                                    </td>
+                                    <td class="num">$ @aplicacion.ImporteNuevoAplicado.ToString("N2")</td>
+                                    <td class="num">
+                                        @(aplicacion.ImportePagado.HasValue ? $"$ {aplicacion.ImportePagado.Value:N2}" : "Sin información suficiente")
+                                    </td>
+                                    <td class="num">
+                                        @(aplicacion.ImportePendiente.HasValue ? $"$ {aplicacion.ImportePendiente.Value:N2}" : "Sin información suficiente")
+                                    </td>
+                                    <td>@aplicacion.MotivoAplicacion</td>
+                                    <td>@aplicacion.UsuarioAplicacion</td>
+                                    <td>
+                                        @if (aplicacion.FechaAnulacion.HasValue || !string.IsNullOrWhiteSpace(aplicacion.MotivoAnulacion))
+                                        {
+                                            <span>@(aplicacion.FechaAnulacion?.ToString("dd/MM/yyyy HH:mm") ?? "Fecha no disponible")</span>
+                                            <span class="punitorio-cell-note">@(aplicacion.MotivoAnulacion ?? "Motivo no disponible")</span>
+                                            @if (!string.IsNullOrWhiteSpace(aplicacion.UsuarioAnulacion))
+                                            {
+                                                <span class="punitorio-cell-note">@aplicacion.UsuarioAnulacion</span>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <span class="muted-2">Sin anulación</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+
+        <section class="punitorio-history" aria-labelledby="punitorio-pagos-@Model.CuotaId">
+            <div class="punitorio-history__heading">
+                <h4 id="punitorio-pagos-@Model.CuotaId">Pagos</h4>
+                <span class="chip chip-neutral">@Model.Pagos.Count</span>
+            </div>
+            @if (Model.Pagos.Count == 0)
+            {
+                <p class="punitorio-history__empty">No hay pagos registrados para esta cuota.</p>
+            }
+            else
+            {
+                <div class="punitorio-table-wrap" tabindex="0" role="region" aria-label="Historial de pagos de la cuota @Model.NumeroCuota">
+                    <table class="punitorio-table punitorio-table--payments">
+                        <caption class="sr-only">Pagos de la cuota, del más reciente al más antiguo</caption>
+                        <thead>
+                            <tr>
+                                <th scope="col">Fecha comercial</th>
+                                <th scope="col">Importe total</th>
+                                <th scope="col">Aplicado a punitorio</th>
+                                <th scope="col">Aplicado a capital</th>
+                                <th scope="col">Medio</th>
+                                <th scope="col">Estado</th>
+                                <th scope="col">Origen</th>
+                                <th scope="col">Movimiento de caja</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var pago in Model.Pagos)
+                            {
+                                <tr class="@(!pago.HistorialCompleto ? "is-incomplete" : null)">
+                                    <td>@pago.FechaPagoComercial.ToString("dd/MM/yyyy")</td>
+                                    <td class="num">$ @pago.ImporteTotal.ToString("N2")</td>
+                                    <td class="num">
+                                        @(pago.ImporteAplicadoPunitorio.HasValue ? $"$ {pago.ImporteAplicadoPunitorio.Value:N2}" : "No reconstruible")
+                                    </td>
+                                    <td class="num">
+                                        @(pago.ImporteAplicadoCapital.HasValue ? $"$ {pago.ImporteAplicadoCapital.Value:N2}" : "No reconstruible")
+                                    </td>
+                                    <td>@(string.IsNullOrWhiteSpace(pago.MedioPago) ? "Sin información suficiente" : pago.MedioPago)</td>
+                                    <td>@pago.EstadoTexto</td>
+                                    <td>
+                                        @pago.OrigenTexto
+                                        @if (!pago.HistorialCompleto)
+                                        {
+                                            <span class="punitorio-cell-note is-warning">Composición histórica incompleta</span>
+                                            @if (!string.IsNullOrWhiteSpace(pago.MotivoHistorialIncompleto))
+                                            {
+                                                <span class="punitorio-cell-note">@pago.MotivoHistorialIncompleto</span>
+                                            }
+                                        }
+                                    </td>
+                                    <td>@(pago.MovimientoCajaId.HasValue ? $"#{pago.MovimientoCajaId.Value}" : "Sin movimiento asociado")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+    </div>
+</section>

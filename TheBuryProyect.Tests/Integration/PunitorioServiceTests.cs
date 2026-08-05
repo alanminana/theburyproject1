@@ -147,24 +147,36 @@ public sealed class PunitorioServiceTests : IDisposable
         _context.ChangeTracker.Clear();
     }
 
-    private async Task SeedPagoAsync(
+    private async Task<PagoCuota> SeedPagoAsync(
         int cuotaId, DateOnly fechaPagoComercial, decimal importeTotal,
         decimal? importeAplicadoCuota = null, bool historialCompleto = true,
-        EstadoPagoCuota estado = EstadoPagoCuota.Aplicado)
+        EstadoPagoCuota estado = EstadoPagoCuota.Aplicado,
+        decimal? importeAplicadoPunitorio = null,
+        int? punitorioAplicadoId = null,
+        string? medioPago = null,
+        OrigenPagoCuota origen = OrigenPagoCuota.RegistradoPorSistema,
+        string? motivoIncompleto = null,
+        int? pagoCuotaOrigenId = null)
     {
-        _context.PagosCuota.Add(new PagoCuota
+        var pago = new PagoCuota
         {
             CuotaId = cuotaId,
             FechaPagoComercial = fechaPagoComercial,
             ImporteTotal = importeTotal,
             ImporteAplicadoCuota = historialCompleto ? (importeAplicadoCuota ?? importeTotal) : importeAplicadoCuota,
-            ImporteAplicadoPunitorio = 0m,
-            Origen = OrigenPagoCuota.RegistradoPorSistema,
+            ImporteAplicadoPunitorio = historialCompleto ? (importeAplicadoPunitorio ?? 0m) : importeAplicadoPunitorio,
+            PunitorioAplicadoId = punitorioAplicadoId,
+            MedioPago = medioPago,
+            Origen = origen,
             Estado = estado,
-            HistorialCompleto = historialCompleto
-        });
+            HistorialCompleto = historialCompleto,
+            MotivoIncompleto = motivoIncompleto,
+            PagoCuotaOrigenId = pagoCuotaOrigenId
+        };
+        _context.PagosCuota.Add(pago);
         await _context.SaveChangesAsync();
         _context.ChangeTracker.Clear();
+        return pago;
     }
 
     private static PunitorioAplicarComando Comando(string motivo = "Mora confirmada por el operador", byte[]? rowVersion = null) =>
@@ -286,6 +298,477 @@ public sealed class PunitorioServiceTests : IDisposable
         var resultado = await _service.CalcularCuotaAsync(cuota.Id);
 
         Assert.Equal(300.00m, resultado.PunitorioAplicadoPendiente);
+    }
+
+    // ===========================================================================================
+    // PUN-ML9-B1 — Detalle read-only autoritativo por cuota
+    // ===========================================================================================
+
+    [Fact]
+    public async Task ObtenerDetalleCuotaAsync_CuotaInexistente_SigueElContratoTipadoExistente()
+    {
+        await Assert.ThrowsAsync<KeyNotFoundException>(
+            () => _service.ObtenerDetalleCuotaAsync(999_999));
+    }
+
+    [Fact]
+    public async Task ObtenerDetalleCuotaAsync_ProyectaIdentificacionSaldoYTokenSinTrackear()
+    {
+        var cuota = await SeedCuotaAsync(1_000m, _reloj.HoyComercial.AddDays(-10).ToDateTime(TimeOnly.MinValue));
+        var tracked = await _context.Cuotas.SingleAsync(c => c.Id == cuota.Id);
+        tracked.NumeroCuota = 3;
+        tracked.MontoPagado = 250m;
+        tracked.Estado = EstadoCuota.Parcial;
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var detalle = await _service.ObtenerDetalleCuotaAsync(cuota.Id);
+
+        Assert.Equal(cuota.Id, detalle.CuotaId);
+        Assert.Equal(cuota.CreditoId, detalle.CreditoId);
+        Assert.Equal(3, detalle.NumeroCuota);
+        Assert.Equal(1_000m, detalle.MontoTotalCuota);
+        Assert.Equal(250m, detalle.MontoPagadoCapital);
+        Assert.Equal(750m, detalle.CapitalPendiente);
+        Assert.Equal(EstadoCuota.Parcial, detalle.EstadoCuota);
+        Assert.Equal(Convert.ToBase64String(cuota.RowVersion), detalle.CuotaRowVersionBase64);
+        Assert.Empty(_context.ChangeTracker.Entries());
+    }
+
+    [Fact]
+    public async Task ObtenerDetalleCuotaAsync_NoPersisteNiModificaEstadoTimestampsOTokens()
+    {
+        var cuota = await SeedCuotaAsync(1_000m, _reloj.HoyComercial.AddDays(-30).ToDateTime(TimeOnly.MinValue));
+        await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
+        var fechaActualizacion = new DateTime(2026, 7, 31, 12, 0, 0, DateTimeKind.Utc);
+        var tracked = await _context.Cuotas.SingleAsync(c => c.Id == cuota.Id);
+        tracked.Estado = EstadoCuota.Pendiente;
+        tracked.UpdatedAt = fechaActualizacion;
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var antes = await _context.Cuotas.AsNoTracking()
+            .Where(c => c.Id == cuota.Id)
+            .Select(c => new { c.Estado, c.UpdatedAt, c.RowVersion })
+            .SingleAsync();
+
+        await _service.ObtenerDetalleCuotaAsync(cuota.Id);
+
+        var despues = await _context.Cuotas.AsNoTracking()
+            .Where(c => c.Id == cuota.Id)
+            .Select(c => new { c.Estado, c.UpdatedAt, c.RowVersion })
+            .SingleAsync();
+        Assert.Equal(antes.Estado, despues.Estado);
+        Assert.Equal(antes.UpdatedAt, despues.UpdatedAt);
+        Assert.Equal(antes.RowVersion, despues.RowVersion);
+        Assert.Equal(0, await _context.PunitoriosAplicados.CountAsync());
+        Assert.Empty(_context.ChangeTracker.Entries());
+    }
+
+    [Fact]
+    public async Task ObtenerDetalleCuotaAsync_SinConfiguracion_QuedaDistinguible()
+    {
+        var cuota = await SeedCuotaAsync(1_000m, _reloj.HoyComercial.AddDays(-30).ToDateTime(TimeOnly.MinValue));
+
+        var detalle = await _service.ObtenerDetalleCuotaAsync(cuota.Id);
+
+        Assert.Equal(EstadoCalculoPunitorioDetalle.SinConfiguracion, detalle.CalculoActual.Estado);
+        Assert.Null(detalle.CalculoActual.ImporteCalculado);
+        Assert.NotNull(detalle.CalculoActual.MotivoNoCalculo);
+    }
+
+    [Fact]
+    public async Task ObtenerDetalleCuotaAsync_ConfiguracionInactiva_QuedaDistinguible()
+    {
+        var cuota = await SeedCuotaAsync(1_000m, _reloj.HoyComercial.AddDays(-30).ToDateTime(TimeOnly.MinValue));
+        await SeedConfiguracionAsync(
+            10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1), activa: false);
+
+        var detalle = await _service.ObtenerDetalleCuotaAsync(cuota.Id);
+
+        Assert.Equal(EstadoCalculoPunitorioDetalle.ConfiguracionInactiva, detalle.CalculoActual.Estado);
+        Assert.Equal(0m, detalle.CalculoActual.ImporteCalculado);
+        Assert.NotNull(detalle.CalculoActual.MotivoNoCalculo);
+    }
+
+    [Fact]
+    public async Task ObtenerDetalleCuotaAsync_DentroDeGracia_DevuelveEstadoCorrectoYCero()
+    {
+        var cuota = await SeedCuotaAsync(1_000m, _reloj.HoyComercial.AddDays(-5).ToDateTime(TimeOnly.MinValue));
+        await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
+
+        var detalle = await _service.ObtenerDetalleCuotaAsync(cuota.Id);
+
+        Assert.Equal(EstadoCalculoPunitorioDetalle.DentroDeGracia, detalle.CalculoActual.Estado);
+        Assert.Equal(0m, detalle.CalculoActual.ImporteCalculado);
+    }
+
+    [Fact]
+    public async Task ObtenerDetalleCuotaAsync_ConfiguracionActivaAlCero_SeDistingueDeAusencia()
+    {
+        var cuota = await SeedCuotaAsync(1_000m, _reloj.HoyComercial.AddDays(-30).ToDateTime(TimeOnly.MinValue));
+        await SeedConfiguracionAsync(0m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
+
+        var detalle = await _service.ObtenerDetalleCuotaAsync(cuota.Id);
+
+        Assert.Equal(EstadoCalculoPunitorioDetalle.TasaCero, detalle.CalculoActual.Estado);
+        Assert.Equal(0m, detalle.CalculoActual.ImporteCalculado);
+        Assert.Null(detalle.CalculoActual.MotivoNoCalculo);
+        Assert.Single(detalle.CalculoActual.ConfiguracionesUtilizadas);
+    }
+
+    [Fact]
+    public async Task ObtenerDetalleCuotaAsync_SinSaldo_QuedaDistinguible()
+    {
+        var vencimiento = _reloj.HoyComercial.AddDays(-30);
+        var cuota = await SeedCuotaAsync(1_000m, vencimiento.ToDateTime(TimeOnly.MinValue));
+        await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
+        await SeedPagoAsync(cuota.Id, vencimiento.AddDays(-1), 1_000m);
+
+        var detalle = await _service.ObtenerDetalleCuotaAsync(cuota.Id);
+
+        Assert.Equal(EstadoCalculoPunitorioDetalle.SinSaldo, detalle.CalculoActual.Estado);
+        Assert.Equal(0m, detalle.CalculoActual.ImporteCalculado);
+    }
+
+    [Fact]
+    public async Task ObtenerDetalleCuotaAsync_VencidaSinAplicacion_MuestraCalculoInformativoYPendienteRealCero()
+    {
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
+
+        var detalle = await _service.ObtenerDetalleCuotaAsync(cuota.Id);
+
+        Assert.Equal(EstadoCalculoPunitorioDetalle.Calculado, detalle.CalculoActual.Estado);
+        Assert.Equal(300m, detalle.CalculoActual.ImporteCalculado);
+        Assert.Equal(0m, detalle.CalculoActual.PunitorioAplicadoPendienteReal);
+        Assert.Null(detalle.AplicacionActiva);
+        Assert.Null(detalle.PunitorioAplicadoRowVersionBase64);
+    }
+
+    [Fact]
+    public async Task ObtenerDetalleCuotaAsync_AplicacionActivaSinPagos_MuestraPendienteCompletoYSnapshotTipado()
+    {
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
+        var aplicada = await _service.AplicarAsync(cuota.Id, Comando());
+        _context.ChangeTracker.Clear();
+
+        var detalle = await _service.ObtenerDetalleCuotaAsync(cuota.Id);
+
+        var activa = Assert.IsType<PunitorioAplicacionDetalle>(detalle.AplicacionActiva);
+        Assert.Equal(aplicada.Id, activa.PunitorioAplicadoId);
+        Assert.Equal(EstadoPunitorioAplicado.Aplicado, activa.Estado);
+        Assert.Equal(300m, activa.ImporteTeorico);
+        Assert.Equal(0m, activa.ImportePreviamenteAplicado);
+        Assert.Equal(300m, activa.ImporteNuevoAplicado);
+        Assert.Equal(0m, activa.ImportePagado);
+        Assert.Equal(300m, activa.ImportePendiente);
+        Assert.Equal(activa.RowVersionBase64, detalle.PunitorioAplicadoRowVersionBase64);
+        Assert.Equal(300m, detalle.CalculoActual.PunitorioAplicadoPendienteReal);
+    }
+
+    [Fact]
+    public async Task ObtenerDetalleCuotaAsync_AplicacionParcialmentePagada_DerivaProgresoCorrecto()
+    {
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
+        var aplicada = await _service.AplicarAsync(cuota.Id, Comando());
+        await SeedPagoAsync(
+            cuota.Id, _reloj.HoyComercial, 100m,
+            importeAplicadoCuota: 0m,
+            importeAplicadoPunitorio: 100m,
+            punitorioAplicadoId: aplicada.Id);
+
+        var detalle = await _service.ObtenerDetalleCuotaAsync(cuota.Id);
+
+        var activa = Assert.IsType<PunitorioAplicacionDetalle>(detalle.AplicacionActiva);
+        Assert.Equal(100m, activa.ImportePagado);
+        Assert.Equal(200m, activa.ImportePendiente);
+        Assert.Equal(200m, detalle.CalculoActual.PunitorioAplicadoPendienteReal);
+    }
+
+    [Fact]
+    public async Task ObtenerDetalleCuotaAsync_AplicacionTotalmentePagada_DerivaPagadoYPendienteCero()
+    {
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
+        var aplicada = await _service.AplicarAsync(cuota.Id, Comando());
+        await SeedPagoAsync(
+            cuota.Id, _reloj.HoyComercial, aplicada.Importe,
+            importeAplicadoCuota: 0m,
+            importeAplicadoPunitorio: aplicada.Importe,
+            punitorioAplicadoId: aplicada.Id);
+
+        var detalle = await _service.ObtenerDetalleCuotaAsync(cuota.Id);
+
+        Assert.Null(detalle.AplicacionActiva);
+        var historica = Assert.Single(detalle.AplicacionesHistoricas);
+        Assert.Equal(EstadoPunitorioAplicado.Pagado, historica.Estado);
+        Assert.Equal(aplicada.Importe, historica.ImportePagado);
+        Assert.Equal(0m, historica.ImportePendiente);
+        Assert.Equal(0m, detalle.CalculoActual.PunitorioAplicadoPendienteReal);
+    }
+
+    [Fact]
+    public async Task ObtenerDetalleCuotaAsync_AplicacionAnulada_QuedaEnHistorialYNoApareceActiva()
+    {
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
+        var aplicada = await _service.AplicarAsync(cuota.Id, Comando());
+        await _service.AnularAsync(aplicada.Id, new PunitorioAnularComando { Motivo = "Error verificado" });
+        _context.ChangeTracker.Clear();
+
+        var detalle = await _service.ObtenerDetalleCuotaAsync(cuota.Id);
+
+        Assert.Null(detalle.AplicacionActiva);
+        var historica = Assert.Single(detalle.AplicacionesHistoricas);
+        Assert.Equal(EstadoPunitorioAplicado.Anulado, historica.Estado);
+        Assert.Equal(0m, historica.ImportePendiente);
+        Assert.Equal("Error verificado", historica.MotivoAnulacion);
+        Assert.Equal("operador1", historica.UsuarioAnulacion);
+        Assert.Equal(_reloj.AhoraUtc, historica.FechaAnulacion);
+    }
+
+    [Fact]
+    public async Task ObtenerDetalleCuotaAsync_MultiplesAplicaciones_OrdenaPorFechaYLuegoIdDescendente()
+    {
+        var cuota = await SeedCuotaAsync(1_000m, _reloj.HoyComercial.AddDays(-30).ToDateTime(TimeOnly.MinValue));
+        var fechaAnterior = _reloj.AhoraUtc.AddDays(-1);
+        var fechaEmpatada = _reloj.AhoraUtc;
+        var aplicaciones = new[]
+        {
+            new PunitorioAplicado
+            {
+                CuotaId = cuota.Id, FechaCalculo = _reloj.HoyComercial, SaldoBase = 1_000m,
+                DiasComputados = 10, Importe = 10m, Estado = EstadoPunitorioAplicado.Pagado,
+                FechaAplicacion = fechaAnterior, MotivoAplicacion = "Primera", UsuarioAplicacion = "u1"
+            },
+            new PunitorioAplicado
+            {
+                CuotaId = cuota.Id, FechaCalculo = _reloj.HoyComercial, SaldoBase = 1_000m,
+                DiasComputados = 20, Importe = 20m, Estado = EstadoPunitorioAplicado.Anulado,
+                FechaAplicacion = fechaEmpatada, MotivoAplicacion = "Segunda", UsuarioAplicacion = "u2"
+            },
+            new PunitorioAplicado
+            {
+                CuotaId = cuota.Id, FechaCalculo = _reloj.HoyComercial, SaldoBase = 1_000m,
+                DiasComputados = 30, Importe = 30m, Estado = EstadoPunitorioAplicado.Revertido,
+                FechaAplicacion = fechaEmpatada, MotivoAplicacion = "Tercera", UsuarioAplicacion = "u3"
+            }
+        };
+        _context.PunitoriosAplicados.AddRange(aplicaciones);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var detalle = await _service.ObtenerDetalleCuotaAsync(cuota.Id);
+
+        Assert.Equal(
+            new[] { aplicaciones[2].Id, aplicaciones[1].Id, aplicaciones[0].Id },
+            detalle.AplicacionesHistoricas.Select(a => a.PunitorioAplicadoId));
+    }
+
+    [Fact]
+    public async Task ObtenerDetalleCuotaAsync_PagosProyectanComposicionVinculoYOrdenEstable()
+    {
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
+        var aplicada = await _service.AplicarAsync(cuota.Id, Comando());
+        var fechaAnterior = _reloj.HoyComercial.AddDays(-1);
+        var primero = await SeedPagoAsync(
+            cuota.Id, fechaAnterior, 50m, importeAplicadoCuota: 50m, medioPago: "Efectivo");
+        var segundo = await SeedPagoAsync(
+            cuota.Id, _reloj.HoyComercial, 100m, importeAplicadoCuota: 25m,
+            importeAplicadoPunitorio: 75m, punitorioAplicadoId: aplicada.Id, medioPago: "Débito");
+        var tercero = await SeedPagoAsync(
+            cuota.Id, _reloj.HoyComercial, 10m, importeAplicadoCuota: 10m,
+            origen: OrigenPagoCuota.Reversion, pagoCuotaOrigenId: primero.Id);
+
+        var detalle = await _service.ObtenerDetalleCuotaAsync(cuota.Id);
+
+        Assert.Equal(new[] { tercero.Id, segundo.Id, primero.Id }, detalle.Pagos.Select(p => p.PagoCuotaId));
+        var pagoMixto = detalle.Pagos.Single(p => p.PagoCuotaId == segundo.Id);
+        Assert.Equal(100m, pagoMixto.ImporteTotal);
+        Assert.Equal(75m, pagoMixto.ImporteAplicadoPunitorio);
+        Assert.Equal(25m, pagoMixto.ImporteAplicadoCuota);
+        Assert.Equal("Débito", pagoMixto.MedioPago);
+        Assert.Equal(aplicada.Id, pagoMixto.PunitorioAplicadoId);
+        var reversion = detalle.Pagos.Single(p => p.PagoCuotaId == tercero.Id);
+        Assert.True(reversion.EsReversion);
+        Assert.Equal(primero.Id, reversion.ReversionDePagoCuotaId);
+    }
+
+    [Fact]
+    public async Task ObtenerDetalleCuotaAsync_PagoSoloAPunitorio_DejaCapitalIntacto()
+    {
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
+        var aplicada = await _service.AplicarAsync(cuota.Id, Comando());
+        await SeedPagoAsync(
+            cuota.Id, _reloj.HoyComercial, 100m,
+            importeAplicadoCuota: 0m,
+            importeAplicadoPunitorio: 100m,
+            punitorioAplicadoId: aplicada.Id);
+
+        var detalle = await _service.ObtenerDetalleCuotaAsync(cuota.Id);
+
+        Assert.Equal(0m, detalle.MontoPagadoCapital);
+        Assert.Equal(10_000m, detalle.CapitalPendiente);
+        var pago = Assert.Single(detalle.Pagos);
+        Assert.Equal(0m, pago.ImporteAplicadoCuota);
+        Assert.Equal(100m, pago.ImporteAplicadoPunitorio);
+    }
+
+    [Fact]
+    public async Task ObtenerDetalleCuotaAsync_PagoMixto_MuestraComposicionExacta()
+    {
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
+        var aplicada = await _service.AplicarAsync(cuota.Id, Comando());
+        var tracked = await _context.Cuotas.SingleAsync(c => c.Id == cuota.Id);
+        tracked.MontoPagado = 50m;
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+        await SeedPagoAsync(
+            cuota.Id, _reloj.HoyComercial, 150m,
+            importeAplicadoCuota: 50m,
+            importeAplicadoPunitorio: 100m,
+            punitorioAplicadoId: aplicada.Id);
+
+        var detalle = await _service.ObtenerDetalleCuotaAsync(cuota.Id);
+
+        Assert.Equal(50m, detalle.MontoPagadoCapital);
+        Assert.Equal(9_950m, detalle.CapitalPendiente);
+        var pago = Assert.Single(detalle.Pagos);
+        Assert.Equal(150m, pago.ImporteTotal);
+        Assert.Equal(50m, pago.ImporteAplicadoCuota);
+        Assert.Equal(100m, pago.ImporteAplicadoPunitorio);
+    }
+
+    [Fact]
+    public async Task ObtenerDetalleCuotaAsync_HistorialIncompleto_NoInventaComposicionNiProgreso()
+    {
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
+        var aplicada = await _service.AplicarAsync(cuota.Id, Comando());
+        await SeedPagoAsync(
+            cuota.Id, _reloj.HoyComercial, 100m,
+            importeAplicadoCuota: null,
+            historialCompleto: false,
+            importeAplicadoPunitorio: null,
+            punitorioAplicadoId: aplicada.Id,
+            origen: OrigenPagoCuota.BackfillIncompleto,
+            motivoIncompleto: "Caja histórica sin composición confiable");
+
+        var detalle = await _service.ObtenerDetalleCuotaAsync(cuota.Id);
+
+        Assert.False(detalle.HistorialCompleto);
+        Assert.Equal("Caja histórica sin composición confiable", detalle.MotivoHistorialIncompleto);
+        Assert.Equal(EstadoCalculoPunitorioDetalle.HistorialIncompleto, detalle.CalculoActual.Estado);
+        var pago = Assert.Single(detalle.Pagos);
+        Assert.False(pago.HistorialCompleto);
+        Assert.Null(pago.ImporteAplicadoCuota);
+        Assert.Null(pago.ImporteAplicadoPunitorio);
+        var activa = Assert.IsType<PunitorioAplicacionDetalle>(detalle.AplicacionActiva);
+        Assert.Null(activa.ImportePagado);
+        Assert.Null(activa.ImportePendiente);
+        Assert.Null(detalle.CalculoActual.PunitorioAplicadoPendienteReal);
+    }
+
+    [Fact]
+    public async Task ObtenerDetalleCuotaAsync_MontoPunitorioLegacy_NoAlteraElContrato()
+    {
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
+        var baseLine = await _service.ObtenerDetalleCuotaAsync(cuota.Id);
+
+        var cuotaTracked = await _context.Cuotas.SingleAsync(c => c.Id == cuota.Id);
+        cuotaTracked.MontoPunitorio = 999_999m;
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var detalle = await _service.ObtenerDetalleCuotaAsync(cuota.Id);
+
+        Assert.Equal(baseLine.CalculoActual.Estado, detalle.CalculoActual.Estado);
+        Assert.Equal(baseLine.CalculoActual.ImporteCalculado, detalle.CalculoActual.ImporteCalculado);
+        Assert.Equal(baseLine.CapitalPendiente, detalle.CapitalPendiente);
+    }
+
+    [Fact]
+    public async Task ObtenerDetalleCuotaAsync_CreditoTasaInteres_NoAlteraElPunitorio()
+    {
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
+        var baseLine = await _service.ObtenerDetalleCuotaAsync(cuota.Id);
+
+        var creditoTracked = await _context.Creditos.SingleAsync(c => c.Id == cuota.CreditoId);
+        creditoTracked.TasaInteres = 999m;
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var detalle = await _service.ObtenerDetalleCuotaAsync(cuota.Id);
+
+        Assert.Equal(baseLine.CalculoActual.Estado, detalle.CalculoActual.Estado);
+        Assert.Equal(baseLine.CalculoActual.ImporteCalculado, detalle.CalculoActual.ImporteCalculado);
+    }
+
+    [Fact]
+    public async Task ObtenerDetalleCuotaAsync_Repetida_ProduceMismoResultadoYCeroEscrituras()
+    {
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
+        _context.ChangeTracker.Clear();
+
+        var primera = await _service.ObtenerDetalleCuotaAsync(cuota.Id);
+        var segunda = await _service.ObtenerDetalleCuotaAsync(cuota.Id);
+
+        Assert.Equal(JsonSerializer.Serialize(primera), JsonSerializer.Serialize(segunda));
+        Assert.Empty(_context.ChangeTracker.Entries());
+        Assert.Equal(0, await _context.PunitoriosAplicados.CountAsync());
+    }
+
+    [Fact]
+    public async Task ObtenerDetalleCuotaAsync_FronteraComercial_UsaIRelojComercial()
+    {
+        var vencimiento = new DateOnly(2026, 8, 1);
+        var cuota = await SeedCuotaAsync(1_000m, vencimiento.ToDateTime(TimeOnly.MinValue));
+        await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
+        _reloj.HoyComercial = new DateOnly(2026, 8, 6);
+
+        var detalle = await _service.ObtenerDetalleCuotaAsync(cuota.Id);
+
+        Assert.Equal(_reloj.HoyComercial, detalle.FechaCalculoComercial);
+        Assert.Equal(EstadoCalculoPunitorioDetalle.DentroDeGracia, detalle.CalculoActual.Estado);
+    }
+
+    [Fact]
+    public async Task ObtenerDetalleCuotaAsync_CancellationTokenCancelado_SePropaga()
+    {
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => _service.ObtenerDetalleCuotaAsync(1, cancellation.Token));
+    }
+
+    [Fact]
+    public void PunitorioCuotaDetalleResultado_NoExponeEntidadesEfByteArraysOSnapshotCrudo()
+    {
+        var tipos = new[]
+        {
+            typeof(PunitorioCuotaDetalleResultado),
+            typeof(PunitorioCalculoActualDetalle),
+            typeof(PunitorioConfiguracionUsadaDetalle),
+            typeof(PunitorioAplicacionDetalle),
+            typeof(PagoCuotaDetalle)
+        };
+
+        foreach (var propiedad in tipos.SelectMany(t => t.GetProperties()))
+        {
+            Assert.NotEqual(typeof(byte[]), propiedad.PropertyType);
+            Assert.False(typeof(TheBuryProject.Models.Base.AuditableEntity).IsAssignableFrom(propiedad.PropertyType));
+            Assert.DoesNotContain("SnapshotJson", propiedad.Name, StringComparison.OrdinalIgnoreCase);
+        }
     }
 
     // ===========================================================================================

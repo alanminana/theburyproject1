@@ -2278,9 +2278,16 @@ public class MoraServiceTests : IDisposable
         public Task<List<CuotaViewModel>> GetCuotasByCreditoAsync(int creditoId) => throw new NotImplementedException();
         public Task<CuotaViewModel?> GetCuotaByIdAsync(int cuotaId) => throw new NotImplementedException();
         public Task<bool> PagarCuotaAsync(PagarCuotaViewModel pago) => throw new NotImplementedException();
+        public Task<PagoCuotaContextoResultado?> ObtenerContextoPagoCuotaAsync(int cuotaId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<PagoCuotaPreviewResultado?> PrevisualizarPagoCuotaAsync(PagoCuotaIndividualComando comando, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<PagoCuotaResultado?> RegistrarPagoCuotaIndividualAsync(PagoCuotaIndividualComando comando, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<PagoMultipleCuotasResult> PagarCuotasAsync(PagoMultipleCuotasRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<TheBuryProject.Services.Models.CobroPrimeraCuotaResultado> CobrarPrimeraCuotaAlGenerarAsync(int creditoId, string medioPago, string? comprobante = null, string? observaciones = null) => throw new NotImplementedException();
         public Task<bool> AdelantarCuotaAsync(PagarCuotaViewModel pago) => throw new NotImplementedException();
+        public Task<PagoCuotaContextoResultado?> ObtenerContextoAdelantoAsync(int creditoId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<PagoCuotaPreviewResultado?> PrevisualizarAdelantoAsync(AdelantoCuotaComando comando, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<PagoCuotaResultado?> RegistrarAdelantoAsync(AdelantoCuotaComando comando, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<PagoMultiplePreviewResultado> PrevisualizarPagoMultipleAsync(int clienteId, List<int> cuotaIds, string medioPago, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<CuotaViewModel?> GetPrimeraCuotaPendienteAsync(int creditoId) => throw new NotImplementedException();
         public Task<CuotaViewModel?> GetUltimaCuotaPendienteAsync(int creditoId) => throw new NotImplementedException();
         public Task<List<CuotaViewModel>> GetCuotasVencidasAsync() => throw new NotImplementedException();

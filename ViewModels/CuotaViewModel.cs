@@ -65,6 +65,12 @@ namespace TheBuryProject.ViewModels
         [DataType(DataType.MultilineText)]
         public string? Observaciones { get; set; }
 
+        /// <summary>
+        /// PUN-ML9-E: RowVersion (Base64) de la cuota al momento de la lectura, para que el pago
+        /// múltiple pueda enviarlo de vuelta al confirmar y el servidor detecte concurrencia.
+        /// </summary>
+        public string CuotaRowVersionBase64 { get; set; } = string.Empty;
+
         // Propiedades calculadas
         public string EstadoTexto => Estado.ToString();
 

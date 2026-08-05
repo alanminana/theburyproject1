@@ -215,6 +215,14 @@ mvcBuilder.AddRazorOptions(options =>
 // 7. Razor Pages (Identity UI)
 builder.Services.AddRazorPages();
 
+// PUN-ML9-E: el JS de pago múltiple (fetch con body JSON) manda el antiforgery token en el
+// header "RequestVerificationToken" — sin HeaderName configurado, [ValidateAntiForgeryToken]
+// sólo mira Request.Form (inexistente en un POST application/json) y rechaza cualquier envío con
+// 400, sin importar qué token se mande. Bug real preexistente (nunca funcionó en un navegador
+// real), no introducido por esta superficie: se corrige acá, globalmente, porque es la única
+// forma correcta de que un fetch JSON pase antiforgery en ASP.NET Core.
+builder.Services.AddAntiforgery(options => options.HeaderName = "RequestVerificationToken");
+
 var app = builder.Build();
 
 // 8. Pipeline

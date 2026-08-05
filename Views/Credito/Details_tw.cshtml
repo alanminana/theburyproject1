@@ -17,14 +17,19 @@
     var volverHref = !string.IsNullOrWhiteSpace(returnUrl)
         ? returnUrl
         : Url.Action("Index", "Credito") ?? "/Credito";
-    var puedeCobrar = cr.Estado == EstadoCredito.Activo || cr.Estado == EstadoCredito.Generado;
+    // Origen para "Volver al crédito" en la pantalla de pago de cuota: esta misma página.
+    var pagoCuotaReturnUrl = Url.Action("Details", "Credito", new { id = cr.Id });
+    var creditoAdmiteCobro = cr.Estado == EstadoCredito.Activo || cr.Estado == EstadoCredito.Generado;
+    var puedePagarCuota = creditoAdmiteCobro && User.TienePermiso("cobranzas", "payinstallment");
     var puedeCancelar = cr.Estado != EstadoCredito.Cancelado && cr.Estado != EstadoCredito.Finalizado && cr.Estado != EstadoCredito.Rechazado;
-    var montoEnMora = cuotasVencidas.Sum(c => c.SaldoPendiente);
-    var punitoriosEnMora = cuotasVencidas.Sum(c => c.MontoPunitorio);
-    var saldoPendienteCuotas = cuotas
+    var primeraCuotaCobrable = cuotas
         .Where(c => c.Estado == EstadoCuota.Pendiente || c.Estado == EstadoCuota.Vencida || c.Estado == EstadoCuota.Parcial)
-        .Sum(c => c.SaldoPendiente);
-    var primeraMora = cuotasVencidas.OrderByDescending(c => c.DiasAtraso).FirstOrDefault();
+        .OrderBy(c => c.NumeroCuota)
+        .FirstOrDefault();
+    var primeraMora = cuotasVencidas
+        .Where(c => c.Estado == EstadoCuota.Pendiente || c.Estado == EstadoCuota.Vencida || c.Estado == EstadoCuota.Parcial)
+        .OrderByDescending(c => c.DiasAtraso)
+        .FirstOrDefault();
     var montoOtorgado = cr.MontoAprobado > 0 ? cr.MontoAprobado : cr.MontoSolicitado;
     var cliente = Model.Cliente;
     var fuenteRestriccionCuotas = cr.FuenteRestriccionCuotasSnap;
@@ -127,10 +132,13 @@
                     <button type="button" id="btn-aprobar" class="btn btn-success" data-credito-modal-action="open" data-credito-modal-target="aprobar"><span class="material-symbols-outlined">check_circle</span>Aprobar</button>
                     <button type="button" id="btn-rechazar" class="btn btn-danger" data-credito-modal-action="open" data-credito-modal-target="rechazar"><span class="material-symbols-outlined">block</span>Rechazar</button>
                 }
-                @if (puedeCobrar)
+                @if (puedePagarCuota)
                 {
                     <a asp-action="AdelantarCuota" asp-route-id="@cr.Id" class="btn btn-soft"><span class="material-symbols-outlined">fast_forward</span>Adelantar</a>
-                    <a asp-action="PagarCuota" asp-route-id="@cr.Id" class="btn btn-primary"><span class="material-symbols-outlined">payments</span>Pagar cuota</a>
+                }
+                @if (puedePagarCuota && primeraCuotaCobrable is not null)
+                {
+                    <a asp-action="PagarCuota" asp-route-id="@primeraCuotaCobrable.Id" asp-route-returnUrl="@pagoCuotaReturnUrl" class="btn btn-primary"><span class="material-symbols-outlined">payments</span>Pagar cuota</a>
                 }
             </div>
         </div>
@@ -167,8 +175,8 @@
             </div>
             <div class="kpi @(cuotasVencidas.Any() ? "kpi--bad" : "kpi--ok")">
                 <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">event_busy</span>En mora</div>
-                <div class="kpi-value">$ @montoEnMora.ToString("N0")</div>
-                <div class="kpi-foot">@(primeraMora != null ? $"cuota {primeraMora.NumeroCuota} · {primeraMora.DiasAtraso} días de atraso" : "sin mora activa")</div>
+                <div class="kpi-value">@cuotasVencidas.Count</div>
+                <div class="kpi-foot">@(primeraMora != null ? $"cuota {primeraMora.NumeroCuota} · {primeraMora.DiasAtraso} días de atraso" : "sin cuotas vencidas")</div>
             </div>
         </div>
 
@@ -179,17 +187,13 @@
                 <div class="flex-1 min-w-0">
                     <div class="font-semibold text-white">@cuotasVencidas.Count cuota@(cuotasVencidas.Count == 1 ? "" : "s") en mora</div>
                     <p class="text-sm muted mt-0.5">
-                        Deuda vencida $ @montoEnMora.ToString("N2")
-                        @if (punitoriosEnMora > 0)
-                        {
-                            <text> · punitorios $ @punitoriosEnMora.ToString("N2")</text>
-                        }
-                        . Registrá el pago para regularizar el crédito.
+                        Consultá el cálculo y el importe aplicado pendiente en el detalle de cada cuota.
+                        Las acciones de pago existentes conservan su comportamiento.
                     </p>
                 </div>
-                @if (puedeCobrar)
+                @if (puedePagarCuota && primeraMora is not null)
                 {
-                    <a asp-action="PagarCuota" asp-route-id="@cr.Id" class="btn btn-danger btn-sm shrink-0"><span class="material-symbols-outlined">payments</span>Pagar cuota vencida</a>
+                    <a asp-action="PagarCuota" asp-route-id="@primeraMora.Id" asp-route-returnUrl="@pagoCuotaReturnUrl" class="btn btn-danger btn-sm shrink-0"><span class="material-symbols-outlined">payments</span>Pagar cuota vencida</a>
                 }
             </div>
         }
@@ -219,7 +223,7 @@
                                                 <th style="text-align:right">Capital</th>
                                                 <th style="text-align:right">Interés</th>
                                                 <th style="text-align:right">Total</th>
-                                                <th style="text-align:right">Mora</th>
+                                                <th>Punitorios</th>
                                                 <th style="text-align:right">Pagado</th>
                                                 <th>Estado</th>
                                                 <th style="text-align:right">Acción</th>
@@ -242,7 +246,19 @@
                                                     <td class="num" style="text-align:right">$ @cuota.MontoCapital.ToString("N2")</td>
                                                     <td class="num" style="text-align:right">$ @cuota.MontoInteres.ToString("N2")</td>
                                                     <td class="num" style="text-align:right;font-weight:600;color:#fff">$ @cuota.MontoTotal.ToString("N2")</td>
-                                                    <td class="num @(cuota.MontoPunitorio > 0 ? "" : "dash")" style="text-align:right;@(cuota.MontoPunitorio > 0 ? "color:#fbbf24" : "")">@(cuota.MontoPunitorio > 0 ? $"$ {cuota.MontoPunitorio:N2}" : "—")</td>
+                                                    <td>
+                                                        <button type="button"
+                                                                class="btn btn-ghost btn-sm punitorio-toggle"
+                                                                data-punitorio-toggle
+                                                                data-punitorio-url="@Url.Action("DetallePunitorioCuota", "Credito", new { creditoId = cr.Id, cuotaId = cuota.Id })"
+                                                                aria-expanded="false"
+                                                                aria-controls="punitorio-panel-@cuota.Id"
+                                                                aria-label="Consultar punitorios de la cuota @cuota.NumeroCuota">
+                                                            <span class="material-symbols-outlined" aria-hidden="true">receipt_long</span>
+                                                            <span>Consultar</span>
+                                                            <span class="material-symbols-outlined punitorio-toggle__chevron" data-punitorio-chevron aria-hidden="true">expand_more</span>
+                                                        </button>
+                                                    </td>
                                                     <td class="num @(cuota.MontoPagado > 0 ? "" : "dash")" style="text-align:right;@(cuota.MontoPagado > 0 ? "color:#34d399" : "")">
                                                         @(cuota.MontoPagado > 0 ? $"$ {cuota.MontoPagado:N2}" : "—")
                                                         @if (cuota.FechaPago.HasValue)
@@ -260,9 +276,9 @@
                                                     </td>
                                                     <td><span class="chip @CuotaChip(cuota.Estado, estaVencida)">@(estaVencida && cuota.Estado == EstadoCuota.Pendiente ? "Vencida" : cuota.EstadoTexto)</span></td>
                                                     <td style="text-align:right">
-                                                        @if (cuota.Estado == EstadoCuota.Pendiente || cuota.Estado == EstadoCuota.Vencida || cuota.Estado == EstadoCuota.Parcial)
+                                                        @if (puedePagarCuota && (cuota.Estado == EstadoCuota.Pendiente || cuota.Estado == EstadoCuota.Vencida || cuota.Estado == EstadoCuota.Parcial))
                                                         {
-                                                            <a asp-action="PagarCuota" asp-route-id="@cr.Id" asp-route-cuotaId="@cuota.Id" class="btn @(estaVencida ? "btn-danger" : "btn-soft") btn-sm">Pagar</a>
+                                                            <a asp-action="PagarCuota" asp-route-id="@cuota.Id" asp-route-returnUrl="@pagoCuotaReturnUrl" class="btn @(estaVencida ? "btn-danger" : "btn-soft") btn-sm">Pagar</a>
                                                         }
                                                         else if (cuota.Estado == EstadoCuota.Pagada && !string.IsNullOrEmpty(cuota.ComprobantePago))
                                                         {
@@ -274,15 +290,27 @@
                                         </tbody>
                                         <tfoot>
                                             <tr style="background:rgba(15,23,42,.5)">
-                                                <td colspan="4" style="padding:.7rem 1rem;font-weight:600;color:var(--muted)">Saldo pendiente (@cuotasPendientes cuota@(cuotasPendientes == 1 ? "" : "s"))</td>
-                                                <td class="num" style="text-align:right;padding:.7rem 1rem;font-weight:600;color:#fff">$ @saldoPendienteCuotas.ToString("N2")</td>
-                                                <td class="num" style="text-align:right;color:#fbbf24">$ @punitoriosEnMora.ToString("N2")</td>
-                                                <td colspan="3"></td>
+                                                <td colspan="9" style="padding:.7rem 1rem;color:var(--muted)">
+                                                    Abrí el detalle de cada cuota para consultar el cálculo al día, el importe aplicado pendiente y su historial.
+                                                </td>
                                             </tr>
                                         </tfoot>
                                     </table>
                                 </div>
                             </div>
+                        </div>
+                        <div class="punitorio-panels">
+                            @foreach (var cuota in cuotas.OrderBy(c => c.NumeroCuota))
+                            {
+                                <div id="punitorio-panel-@cuota.Id"
+                                     data-punitorio-panel
+                                     aria-live="polite"
+                                     aria-busy="false"
+                                     tabindex="-1"
+                                     hidden>
+                                    <p class="punitorio-loading">El detalle se cargará al abrir este panel.</p>
+                                </div>
+                            }
                         </div>
                     }
                     else
@@ -520,7 +548,7 @@
         <div class="modal-card card card-pad" style="max-width:460px">
             <div class="flex items-start gap-3">
                 <div class="w-10 h-10 rounded-lg grid place-items-center shrink-0" style="background:rgba(244,63,94,.12);border:1px solid rgba(244,63,94,.3)"><span class="material-symbols-outlined" style="color:#fb7185">cancel</span></div>
-                <div class="flex-1"><h3 id="modal-cancelar-title" class="font-semibold text-white">Cancelar crédito @creditoNumero</h3><p class="text-sm muted mt-0.5">Se anularán las cuotas pendientes ($ @saldoPendienteCuotas.ToString("N2")). El historial se conserva.</p></div>
+                <div class="flex-1"><h3 id="modal-cancelar-title" class="font-semibold text-white">Cancelar crédito @creditoNumero</h3><p class="text-sm muted mt-0.5">Se anularán las cuotas pendientes. El historial se conserva.</p></div>
                 <button type="button" class="btn btn-ghost btn-sm" data-credito-modal-action="close" aria-label="Cerrar"><span class="material-symbols-outlined">close</span></button>
             </div>
             <form asp-action="Cancelar" method="post" style="margin-top:1rem">

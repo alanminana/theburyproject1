@@ -24,6 +24,23 @@ namespace TheBuryProject.Services.Interfaces
         // Operaciones de cuotas
         Task<List<CuotaViewModel>> GetCuotasByCreditoAsync(int creditoId);
         Task<CuotaViewModel?> GetCuotaByIdAsync(int cuotaId);
+
+        /// <summary>Obtiene el contexto autoritativo del pago individual por Id de cuota.</summary>
+        Task<PagoCuotaContextoResultado?> ObtenerContextoPagoCuotaAsync(
+            int cuotaId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>Calcula un preview read-only con las mismas reglas que la confirmación.</summary>
+        Task<PagoCuotaPreviewResultado?> PrevisualizarPagoCuotaAsync(
+            PagoCuotaIndividualComando comando,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>Confirma el pago individual y devuelve el resultado persistido real.</summary>
+        Task<PagoCuotaResultado?> RegistrarPagoCuotaIndividualAsync(
+            PagoCuotaIndividualComando comando,
+            CancellationToken cancellationToken = default);
+
+        // Contrato legacy conservado para primera cuota, adelanto y consumidores existentes.
         Task<bool> PagarCuotaAsync(PagarCuotaViewModel pago);
         Task<PagoMultipleCuotasResult> PagarCuotasAsync(
             PagoMultipleCuotasRequest request,
@@ -48,9 +65,33 @@ namespace TheBuryProject.Services.Interfaces
 
         /// <summary>
         /// Adelanta el pago de una cuota (paga la última cuota pendiente para reducir el plazo).
+        /// Contrato legacy conservado: sigue tomando el importe del formulario clásico. La UI de
+        /// adelanto (PUN-ML9-E) usa el contrato comando-based de abajo.
         /// </summary>
         Task<bool> AdelantarCuotaAsync(PagarCuotaViewModel pago);
-        
+
+        /// <summary>PUN-ML9-E: contexto autoritativo de la última cuota adelantable del crédito.</summary>
+        Task<PagoCuotaContextoResultado?> ObtenerContextoAdelantoAsync(
+            int creditoId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>PUN-ML9-E: preview read-only del adelanto, misma autoridad que la confirmación.</summary>
+        Task<PagoCuotaPreviewResultado?> PrevisualizarAdelantoAsync(
+            AdelantoCuotaComando comando,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>PUN-ML9-E: confirma el adelanto y devuelve el resultado persistido real.</summary>
+        Task<PagoCuotaResultado?> RegistrarAdelantoAsync(
+            AdelantoCuotaComando comando,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>PUN-ML9-E: preview read-only del pago múltiple, misma autoridad que la confirmación.</summary>
+        Task<PagoMultiplePreviewResultado> PrevisualizarPagoMultipleAsync(
+            int clienteId,
+            List<int> cuotaIds,
+            string medioPago,
+            CancellationToken cancellationToken = default);
+
         /// <summary>
         /// Obtiene la primera cuota pendiente (para pago normal en orden).
         /// </summary>

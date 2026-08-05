@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Tests.Unit;
@@ -161,6 +162,139 @@ public class CreditoDetailsUiContractTests
         var vm = new CreditoViewModel();
 
         Assert.Null(vm.CfteaPresentacion);
+    }
+
+    // ── PUN-ML9-B2: detalle read-only por cuota ────────────────────────────
+
+    [Fact]
+    public void DetailsView_CargaPunitoriosBajoDemanda_SinMontoPunitorioLegacy()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Credito", "Details_tw.cshtml"));
+
+        Assert.Contains("data-punitorio-toggle", view);
+        Assert.Contains("DetallePunitorioCuota", view);
+        Assert.Contains("aria-expanded=\"false\"", view);
+        Assert.Contains("aria-controls=\"punitorio-panel-@cuota.Id\"", view);
+        Assert.Contains("id=\"punitorio-panel-@cuota.Id\"", view);
+        Assert.DoesNotContain("MontoPunitorio", view);
+        Assert.DoesNotContain("cuota.SaldoPendiente", view);
+    }
+
+    [Fact]
+    public void Partial_DistingueCalculadoAplicadoYTotalCobrable()
+    {
+        var partial = File.ReadAllText(Path.Combine(
+            FindRepoRoot(), "Views", "Credito", "_PunitorioCuotaDetallePartial.cshtml"));
+
+        Assert.Contains("Capital pendiente", partial);
+        Assert.Contains("Punitorio calculado hoy", partial);
+        Assert.Contains("Informativo; no se suma hasta estar aplicado", partial);
+        Assert.Contains("Punitorio aplicado pendiente", partial);
+        Assert.Contains("Total cobrable actual", partial);
+        Assert.Contains("FechaCalculoComercial", partial);
+    }
+
+    [Fact]
+    public void Partial_SeparaAplicacionesYPagos_YProtegeHistorialIncompleto()
+    {
+        var partial = File.ReadAllText(Path.Combine(
+            FindRepoRoot(), "Views", "Credito", "_PunitorioCuotaDetallePartial.cshtml"));
+
+        Assert.Contains("Aplicaciones", partial);
+        Assert.Contains("Pagos", partial);
+        Assert.Contains("Historial incompleto", partial);
+        Assert.Contains("No reconstruible", partial);
+        Assert.Contains("Sin información suficiente", partial);
+        Assert.DoesNotContain("SnapshotJson", partial);
+    }
+
+    [Fact]
+    public void Partial_FormsUsanNombresRazorReales_YNoExponenCamposFinancieros()
+    {
+        var partial = File.ReadAllText(Path.Combine(
+            FindRepoRoot(), "Views", "Credito", "_PunitorioCuotaDetallePartial.cshtml"));
+
+        Assert.Contains("asp-for=\"Acciones.Aplicar.Motivo\"", partial);
+        Assert.Contains("asp-for=\"Acciones.Aplicar.CuotaRowVersionBase64\"", partial);
+        Assert.Contains("asp-for=\"Acciones.Anulacion.Form.Motivo\"", partial);
+        Assert.Contains("asp-for=\"Acciones.Anulacion.Form.PunitorioAplicadoRowVersionBase64\"", partial);
+        Assert.Contains("data-punitorio-operation-form", partial);
+        Assert.Contains("@Html.AntiForgeryToken()", partial);
+        Assert.DoesNotContain("asp-for=\"Acciones.Aplicar.Importe", partial);
+        Assert.DoesNotContain("asp-for=\"Acciones.Aplicar.Usuario", partial);
+        Assert.DoesNotContain("asp-for=\"Acciones.Aplicar.Autorizado", partial);
+        Assert.DoesNotContain("asp-for=\"Acciones.Aplicar.Estado", partial);
+        Assert.DoesNotContain("asp-for=\"Acciones.Anulacion.Form.Importe", partial);
+    }
+
+    [Fact]
+    public void PunitorioActions_CssIncluyeFocoErroresYLayoutMobile()
+    {
+        var css = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "css", "credito-module.css"));
+
+        Assert.Contains(".punitorio-operation", css);
+        Assert.Contains(".punitorio-operation__field textarea:focus-visible", css);
+        Assert.Contains(".punitorio-operation .field-error", css);
+        Assert.Contains(".punitorio-confirmation", css);
+        Assert.Contains("@media(max-width:560px)", css);
+    }
+
+    [Fact]
+    public void Partial_ExponeTablasResponsivasConEncabezadosYRegionesAccesibles()
+    {
+        var partial = File.ReadAllText(Path.Combine(
+            FindRepoRoot(), "Views", "Credito", "_PunitorioCuotaDetallePartial.cshtml"));
+
+        Assert.Contains("punitorio-table-wrap", partial);
+        Assert.Contains("role=\"region\"", partial);
+        Assert.Contains("tabindex=\"0\"", partial);
+        Assert.Contains("scope=\"col\"", partial);
+        Assert.Contains("aria-labelledby=\"punitorio-title-@Model.CuotaId\"", partial);
+    }
+
+    [Fact]
+    public void DetailsJavaScript_CacheaEvitaDuplicadosYPermiteRetry_SinFormulaFinanciera()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "credito-details.js"));
+
+        Assert.Contains("dataset.loaded", script);
+        Assert.Contains("dataset.loading", script);
+        Assert.Contains("data-punitorio-retry", script);
+        Assert.Contains("data-punitorio-reload", script);
+        Assert.Contains("aria-busy", script);
+        Assert.Contains("container.addEventListener('click'", script);
+        Assert.DoesNotContain("MontoPunitorio", script);
+        Assert.DoesNotContain(".sort(", script);
+        Assert.DoesNotContain("Intl.NumberFormat", script);
+    }
+
+    [Fact]
+    public void DetailsJavaScript_PostEvitaDobleEnvio_InvalidaCache_YPreserva400()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "credito-details.js"));
+
+        Assert.Contains("container.addEventListener('submit'", script);
+        Assert.Contains("data-punitorio-operation-form", script);
+        Assert.Contains("dataset.inFlight", script);
+        Assert.Contains("new FormData(form)", script);
+        Assert.Contains("delete panel.dataset.loaded", script);
+        Assert.Contains("response.status === 409", script);
+        Assert.Contains("loadPanel(toggle, panel, true)", script);
+        Assert.Contains("focusFirstFieldError", script);
+        Assert.DoesNotContain("PunitorioCalculado", script);
+        Assert.DoesNotContain("Porcentaje", script);
+    }
+
+    // ── PUN-ML9-D.1 (riesgo 3): los 3 enlaces a PagarCuota conservan returnUrl ─
+
+    [Fact]
+    public void DetailsView_EnlacesAPagarCuota_PropaganReturnUrlDeVuelta()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Credito", "Details_tw.cshtml"));
+
+        Assert.Contains("var pagoCuotaReturnUrl = Url.Action(\"Details\", \"Credito\", new { id = cr.Id });", view);
+        // Los 3 puntos de entrada a "Pagar cuota" (primera cobrable, primera en mora, fila de cuota).
+        Assert.Equal(3, Regex.Matches(view, "asp-action=\"PagarCuota\"[^>]*asp-route-returnUrl=\"@pagoCuotaReturnUrl\"").Count);
     }
 
     private static string FindRepoRoot()

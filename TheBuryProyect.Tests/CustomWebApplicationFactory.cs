@@ -54,8 +54,11 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
             // Registrar SQLite en memoria para todos los paths de resolución.
             // Se reutiliza la misma SqliteConnection para que todos los scopes compartan la BD.
+            // AddInterceptors: ver SqliteRowVersionRotationInterceptor — SQL Server regenera
+            // rowversion en cada UPDATE, SQLite no; sin esto los tests de concurrencia HTTP
+            // (mismo token en dos requests) no podrían detectar la segunda escritura como stale.
             void SqliteOptions(DbContextOptionsBuilder options) =>
-                options.UseSqlite(_connection);
+                options.UseSqlite(_connection).AddInterceptors(new SqliteRowVersionRotationInterceptor());
 
             services.AddDbContext<AppDbContext>(SqliteOptions);
             services.AddDbContextFactory<AppDbContext>(SqliteOptions, ServiceLifetime.Scoped);
@@ -589,6 +592,274 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             IsDeleted = false,
             RowVersion = new byte[8]
         });
+        await context.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Usuario de integración PUN-ML9-B2 con el permiso exacto creditos.view y sin bypass
+    /// SuperAdmin. Permite verificar el endpoint read-only con la autorización real.
+    /// </summary>
+    public const string CreditoViewPermsUserId = "test-credito-view-perms-id";
+
+    public async Task SeedUserWithCreditoViewPermissionAsync()
+    {
+        using var scope = Services.CreateScope();
+        var contextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
+        await using var context = await contextFactory.CreateDbContextAsync();
+
+        if (await context.Users.AnyAsync(u => u.Id == CreditoViewPermsUserId))
+            return;
+
+        const string roleId = "test-credito-view-role-id";
+        const int testModuloId = 9988;
+        const int accionCreditoView = 9988;
+
+        context.Roles.Add(new IdentityRole
+        {
+            Id = roleId,
+            Name = "TestCreditoViewRole",
+            NormalizedName = "TESTCREDITOVIEWROLE"
+        });
+        context.Users.Add(new ApplicationUser
+        {
+            Id = CreditoViewPermsUserId,
+            UserName = "testuser-credito-view",
+            NormalizedUserName = "TESTUSER-CREDITO-VIEW",
+            Email = "testcreditoview@test.com",
+            NormalizedEmail = "TESTCREDITOVIEW@TEST.COM",
+            Activo = true,
+            RowVersion = new byte[8]
+        });
+        await context.SaveChangesAsync();
+
+        context.UserRoles.Add(new IdentityUserRole<string>
+        {
+            UserId = CreditoViewPermsUserId,
+            RoleId = roleId
+        });
+        context.ModulosSistema.Add(new ModuloSistema
+        {
+            Id = testModuloId,
+            Nombre = "Test Crédito View",
+            Clave = "credito-view-test",
+            Orden = 0,
+            RowVersion = new byte[8]
+        });
+        context.AccionesModulo.Add(new AccionModulo
+        {
+            Id = accionCreditoView,
+            ModuloId = testModuloId,
+            Nombre = "Test Crédito View",
+            Clave = "view-test",
+            Orden = 0,
+            RowVersion = new byte[8]
+        });
+        context.RolPermisos.Add(new RolPermiso
+        {
+            RoleId = roleId,
+            ModuloId = testModuloId,
+            AccionId = accionCreditoView,
+            ClaimValue = "creditos.view",
+            IsDeleted = false,
+            RowVersion = new byte[8]
+        });
+        await context.SaveChangesAsync();
+    }
+
+    public const string CreditoPunitorioBothPermsUserId = "test-credito-punitorio-both-perms-id";
+
+    /// <summary>
+    /// Usuario HTTP PUN-ML9-C con creditos.view, cobranzas.applyfine y
+    /// cobranzas.revertfine, sin bypass SuperAdmin.
+    /// </summary>
+    public async Task SeedUserWithCreditoPunitorioBothPermissionsAsync()
+    {
+        using var scope = Services.CreateScope();
+        var contextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
+        await using var context = await contextFactory.CreateDbContextAsync();
+
+        if (await context.Users.AnyAsync(u => u.Id == CreditoPunitorioBothPermsUserId))
+            return;
+
+        const string roleId = "test-credito-punitorio-both-role-id";
+        const int testModuloId = 9987;
+        const int accionCreditoView = 9987;
+        const int accionApplyFine = 9986;
+        const int accionRevertFine = 9985;
+
+        context.Roles.Add(new IdentityRole
+        {
+            Id = roleId,
+            Name = "TestCreditoPunitorioBothRole",
+            NormalizedName = "TESTCREDITOPUNITORIOBOTHROLE"
+        });
+        context.Users.Add(new ApplicationUser
+        {
+            Id = CreditoPunitorioBothPermsUserId,
+            UserName = "testuser-credito-punitorio-both",
+            NormalizedUserName = "TESTUSER-CREDITO-PUNITORIO-BOTH",
+            Email = "testcreditopunitorioboth@test.com",
+            NormalizedEmail = "TESTCREDITOPUNITORIOBOTH@TEST.COM",
+            Activo = true,
+            RowVersion = new byte[8]
+        });
+        await context.SaveChangesAsync();
+
+        context.UserRoles.Add(new IdentityUserRole<string>
+        {
+            UserId = CreditoPunitorioBothPermsUserId,
+            RoleId = roleId
+        });
+        context.ModulosSistema.Add(new ModuloSistema
+        {
+            Id = testModuloId,
+            Nombre = "Test Credito Punitorio",
+            Clave = "credito-punitorio-test",
+            Orden = 0,
+            RowVersion = new byte[8]
+        });
+        context.AccionesModulo.AddRange(
+            new AccionModulo
+            {
+                Id = accionCreditoView,
+                ModuloId = testModuloId,
+                Nombre = "Test Credito View",
+                Clave = "view-test",
+                Orden = 0,
+                RowVersion = new byte[8]
+            },
+            new AccionModulo
+            {
+                Id = accionApplyFine,
+                ModuloId = testModuloId,
+                Nombre = "Test Apply Fine",
+                Clave = "applyfine-test",
+                Orden = 1,
+                RowVersion = new byte[8]
+            },
+            new AccionModulo
+            {
+                Id = accionRevertFine,
+                ModuloId = testModuloId,
+                Nombre = "Test Revert Fine",
+                Clave = "revertfine-test",
+                Orden = 2,
+                RowVersion = new byte[8]
+            });
+        context.RolPermisos.AddRange(
+            new RolPermiso
+            {
+                RoleId = roleId,
+                ModuloId = testModuloId,
+                AccionId = accionCreditoView,
+                ClaimValue = "creditos.view",
+                IsDeleted = false,
+                RowVersion = new byte[8]
+            },
+            new RolPermiso
+            {
+                RoleId = roleId,
+                ModuloId = testModuloId,
+                AccionId = accionApplyFine,
+                ClaimValue = "cobranzas.applyfine",
+                IsDeleted = false,
+                RowVersion = new byte[8]
+            },
+            new RolPermiso
+            {
+                RoleId = roleId,
+                ModuloId = testModuloId,
+                AccionId = accionRevertFine,
+                ClaimValue = "cobranzas.revertfine",
+                IsDeleted = false,
+                RowVersion = new byte[8]
+            });
+        await context.SaveChangesAsync();
+    }
+
+    public const string CreditoPayBothPermsUserId = "test-credito-pay-both-perms-id";
+    public const string CreditoPayOnlyPermsUserId = "test-credito-pay-only-perms-id";
+
+    public Task SeedUserWithCreditoPayBothPermissionsAsync() =>
+        SeedPermissionUserAsync(
+            CreditoPayBothPermsUserId,
+            "test-credito-pay-both-role-id",
+            "TestCreditoPayBothRole",
+            9984,
+            "creditos.view",
+            "cobranzas.payinstallment");
+
+    public Task SeedUserWithCreditoPayOnlyPermissionAsync() =>
+        SeedPermissionUserAsync(
+            CreditoPayOnlyPermsUserId,
+            "test-credito-pay-only-role-id",
+            "TestCreditoPayOnlyRole",
+            9982,
+            "cobranzas.payinstallment");
+
+    private async Task SeedPermissionUserAsync(
+        string userId,
+        string roleId,
+        string roleName,
+        int moduloId,
+        params string[] claims)
+    {
+        using var scope = Services.CreateScope();
+        var contextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
+        await using var context = await contextFactory.CreateDbContextAsync();
+
+        if (await context.Users.AnyAsync(u => u.Id == userId))
+            return;
+
+        context.Roles.Add(new IdentityRole
+        {
+            Id = roleId,
+            Name = roleName,
+            NormalizedName = roleName.ToUpperInvariant()
+        });
+        context.Users.Add(new ApplicationUser
+        {
+            Id = userId,
+            UserName = userId,
+            NormalizedUserName = userId.ToUpperInvariant(),
+            Email = $"{userId}@test.local",
+            NormalizedEmail = $"{userId}@test.local".ToUpperInvariant(),
+            Activo = true,
+            RowVersion = new byte[8]
+        });
+        context.UserRoles.Add(new IdentityUserRole<string> { UserId = userId, RoleId = roleId });
+        context.ModulosSistema.Add(new ModuloSistema
+        {
+            Id = moduloId,
+            Nombre = roleName,
+            Clave = $"{roleName.ToLowerInvariant()}-test",
+            Orden = 0,
+            RowVersion = new byte[8]
+        });
+
+        for (var index = 0; index < claims.Length; index++)
+        {
+            var accionId = moduloId - index;
+            context.AccionesModulo.Add(new AccionModulo
+            {
+                Id = accionId,
+                ModuloId = moduloId,
+                Nombre = claims[index],
+                Clave = $"permission-{index}",
+                Orden = index,
+                RowVersion = new byte[8]
+            });
+            context.RolPermisos.Add(new RolPermiso
+            {
+                RoleId = roleId,
+                ModuloId = moduloId,
+                AccionId = accionId,
+                ClaimValue = claims[index],
+                IsDeleted = false,
+                RowVersion = new byte[8]
+            });
+        }
+
         await context.SaveChangesAsync();
     }
 

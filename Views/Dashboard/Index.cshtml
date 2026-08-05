@@ -11,6 +11,8 @@
     var alertasStock = Model.AlertasStockRecientes ?? new List<StockAlertaDto>();
     var destacados = Model.ProductosDestacados ?? new List<ProductoDestacadoDto>();
     var actividad = Model.ActividadReciente ?? new List<ActividadRecienteDto>();
+    // Origen para "Volver" desde la pantalla de pago de cuota abierta desde este dashboard.
+    var pagoCuotaReturnUrl = Url.Action("Index", "Dashboard");
 }
 
 @section Styles {
@@ -257,12 +259,16 @@
                                                             </div>
                                                         </td>
                                                         <td class="px-6 py-4 text-right">
-                                                            <a asp-controller="Credito" asp-action="PagarCuota"
-                                                               asp-route-id="@cuota.CreditoId" asp-route-cuotaId="@cuota.CuotaId"
-                                                               class="row-action row-action--primary no-underline"
-                                                               aria-label="Registrar pago">
-                                                                <span class="material-symbols-outlined icon-erp-md">send_money</span>
-                                                            </a>
+                                                            @if (User.TienePermiso("cobranzas", "payinstallment"))
+                                                            {
+                                                                <a asp-controller="Credito" asp-action="PagarCuota"
+                                                                   asp-route-id="@cuota.CuotaId"
+                                                                   asp-route-returnUrl="@pagoCuotaReturnUrl"
+                                                                   class="row-action row-action--primary no-underline"
+                                                                   aria-label="Registrar pago">
+                                                                    <span class="material-symbols-outlined icon-erp-md">send_money</span>
+                                                                </a>
+                                                            }
                                                         </td>
                                                     </tr>
                                                 }

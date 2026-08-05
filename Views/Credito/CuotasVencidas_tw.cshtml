@@ -18,6 +18,7 @@
     var volverHref = !string.IsNullOrWhiteSpace(returnUrl)
         ? returnUrl
         : Url.Action("Index", "Credito") ?? "/Credito";
+    var puedePagarCuota = User.TienePermiso("cobranzas", "payinstallment");
 }
 
 @functions {
@@ -171,13 +172,15 @@
                                         <td class="num" style="text-align:right;color:#fbbf24">@(cuota.MontoPunitorio > 0 ? cuota.MontoPunitorio.ToString("C0") : "—")</td>
                                         <td class="num" style="text-align:right;font-weight:600;color:#fff">@cuota.SaldoPendiente.ToString("C0")</td>
                                         <td style="text-align:right">
-                                            <a asp-action="PagarCuota"
-                                               asp-route-id="@cuota.CreditoId"
-                                               asp-route-cuotaId="@cuota.Id"
-                                               asp-route-returnUrl="@returnUrl"
-                                               class="btn @(esCritica ? "btn-danger" : "btn-soft") btn-sm">
-                                                Cobrar
-                                            </a>
+                                            @if (puedePagarCuota)
+                                            {
+                                                <a asp-action="PagarCuota"
+                                                   asp-route-id="@cuota.Id"
+                                                   asp-route-returnUrl="@returnUrl"
+                                                   class="btn @(esCritica ? "btn-danger" : "btn-soft") btn-sm">
+                                                    Cobrar
+                                                </a>
+                                            }
                                         </td>
                                     </tr>
                                 }

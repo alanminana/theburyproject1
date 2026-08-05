@@ -389,6 +389,11 @@ public class PagoCuotaLedgerTests : IDisposable
         {
             ClienteId = creditoA.ClienteId,
             CuotaIds = new List<int> { cuotaA.Id, cuotaB.Id },
+            RowVersionsPorCuota = new Dictionary<int, string>
+            {
+                [cuotaA.Id] = Convert.ToBase64String(cuotaA.RowVersion),
+                [cuotaB.Id] = Convert.ToBase64String(cuotaB.RowVersion)
+            },
             MedioPago = "Efectivo"
         };
 

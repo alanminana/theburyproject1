@@ -563,9 +563,333 @@ namespace TheBuryProject.Services
             }
         }
 
+        public async Task<PagoCuotaContextoResultado?> ObtenerContextoPagoCuotaAsync(
+            int cuotaId,
+            CancellationToken cancellationToken = default)
+        {
+            if (cuotaId <= 0)
+                return null;
+
+            var cuota = await _context.Cuotas
+                .AsNoTracking()
+                .Include(c => c.Credito)
+                    .ThenInclude(c => c.Cliente)
+                .FirstOrDefaultAsync(c => c.Id == cuotaId &&
+                                          !c.IsDeleted &&
+                                          !c.Credito.IsDeleted &&
+                                          !c.Credito.Cliente.IsDeleted,
+                    cancellationToken);
+
+            if (cuota is null)
+                return null;
+
+            PunitorioCuotaDetalleResultado detalle;
+            try
+            {
+                detalle = await _punitorioService.ObtenerDetalleCuotaAsync(cuotaId, cancellationToken);
+            }
+            catch (KeyNotFoundException)
+            {
+                return null;
+            }
+
+            if (detalle.CreditoId != cuota.CreditoId)
+                return null;
+
+            var punitorioAplicadoPendiente = detalle.CalculoActual.PunitorioAplicadoPendienteReal;
+            decimal? totalCobrable = punitorioAplicadoPendiente.HasValue
+                ? RedondearImporte(detalle.CapitalPendiente + punitorioAplicadoPendiente.Value)
+                : null;
+            var clienteNombre = string.Join(' ', new[]
+            {
+                cuota.Credito.Cliente.Nombre,
+                cuota.Credito.Cliente.Apellido
+            }.Where(valor => !string.IsNullOrWhiteSpace(valor)));
+
+            return new PagoCuotaContextoResultado(
+                cuota.Id,
+                cuota.CreditoId,
+                cuota.NumeroCuota,
+                cuota.Credito.Numero,
+                clienteNombre,
+                DateOnly.FromDateTime(cuota.FechaVencimiento),
+                _reloj.HoyComercial,
+                cuota.Estado,
+                EstadoCuotaResolver.DiasAtrasoDerivado(
+                    cuota.Estado, cuota.FechaVencimiento, _reloj.HoyComercial),
+                detalle.CapitalPendiente,
+                detalle.CalculoActual.ImporteCalculado,
+                detalle.CalculoActual.Estado,
+                detalle.CalculoActual.MotivoNoCalculo,
+                punitorioAplicadoPendiente,
+                totalCobrable,
+                detalle.HistorialCompleto,
+                detalle.MotivoHistorialIncompleto,
+                detalle.CuotaRowVersionBase64);
+        }
+
+        public async Task<PagoCuotaPreviewResultado?> PrevisualizarPagoCuotaAsync(
+            PagoCuotaIndividualComando comando,
+            CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(comando);
+            ValidarRowVersionEsperada(comando.CuotaRowVersionEsperada);
+
+            var contexto = await ObtenerContextoPagoCuotaAsync(comando.CuotaId, cancellationToken);
+            if (contexto is null)
+                return null;
+
+            var cuota = await _context.Cuotas
+                .AsNoTracking()
+                .Include(c => c.Credito)
+                .FirstOrDefaultAsync(c => c.Id == comando.CuotaId &&
+                                          !c.IsDeleted &&
+                                          !c.Credito.IsDeleted,
+                    cancellationToken);
+            if (cuota is null)
+                return null;
+
+            VerificarRowVersion(cuota.RowVersion, comando.CuotaRowVersionEsperada);
+
+            if (!contexto.PunitorioAplicadoPendiente.HasValue)
+                throw new PagoCuotaRechazadoException(
+                    MotivoRechazoPagoCuota.Conflicto,
+                    "No puede determinarse el punitorio aplicado pendiente porque el historial es incompleto.");
+
+            var medioPago = NormalizarMedioPago(comando.MedioPago);
+            await ValidarMedioPagoHabilitadoAsync(medioPago);
+            var cobro = await ResolverCobroCuotaAsync(
+                cuota,
+                contexto.PunitorioAplicadoPendiente.Value,
+                comando.MontoIngresado,
+                medioPago,
+                ModoCobroCuota.PagoManual);
+
+            var punitorioRestante = Math.Max(
+                0m,
+                contexto.PunitorioAplicadoPendiente.Value - cobro.AplicadoPunitorio);
+            var capitalRestante = Math.Max(
+                0m,
+                contexto.CapitalPendiente - cobro.AplicadoCuota);
+            var estadoEstimado = EstadoCuotaResolver.Resolver(
+                cuota.Estado,
+                cuota.FechaVencimiento,
+                _reloj.HoyComercial,
+                cuota.MontoPagado + cobro.AplicadoCuota,
+                cuota.MontoTotal,
+                punitorioRestante);
+
+            return new PagoCuotaPreviewResultado(
+                cuota.Id,
+                cobro.MontoBase,
+                cobro.AplicadoPunitorio,
+                cobro.AplicadoCuota,
+                cobro.Excedente,
+                cobro.RecargoMedioPago,
+                cobro.MontoBase + cobro.RecargoMedioPago,
+                punitorioRestante,
+                capitalRestante,
+                estadoEstimado,
+                _reloj.HoyComercial,
+                Convert.ToBase64String(cuota.RowVersion));
+        }
+
+        public async Task<PagoCuotaResultado?> RegistrarPagoCuotaIndividualAsync(
+            PagoCuotaIndividualComando comando,
+            CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(comando);
+            ValidarRowVersionEsperada(comando.CuotaRowVersionEsperada);
+
+            // Solo se usa para resolver la relación autoritativa cuota→crédito. La confirmación
+            // vuelve a cargar y recalcular todo dentro de la transacción serializable.
+            var contexto = await ObtenerContextoPagoCuotaAsync(comando.CuotaId, cancellationToken);
+            if (contexto is null)
+                return null;
+
+            var aplicado = await RegistrarPagoCuotaAsync(
+                new PagarCuotaViewModel
+                {
+                    CreditoId = contexto.CreditoId,
+                    CuotaId = comando.CuotaId,
+                    MontoPagado = comando.MontoIngresado,
+                    MedioPago = comando.MedioPago,
+                    ComprobantePago = comando.Comprobante,
+                    Observaciones = comando.Observaciones
+                },
+                ModoCobroCuota.PagoManual,
+                comando.CuotaRowVersionEsperada,
+                exigirPendienteAplicadoAutoritativo: true);
+
+            if (aplicado is null)
+                return null;
+
+            return new PagoCuotaResultado(
+                aplicado.CuotaId,
+                aplicado.CreditoId,
+                aplicado.NumeroCuota,
+                aplicado.MontoBase,
+                aplicado.AplicadoPunitorio,
+                aplicado.AplicadoCuota,
+                aplicado.RecargoMedioPago,
+                aplicado.MontoBase + aplicado.RecargoMedioPago,
+                aplicado.PunitorioRestante,
+                aplicado.CapitalRestante,
+                aplicado.Estado,
+                aplicado.FechaComercial,
+                aplicado.MovimientoCajaId,
+                aplicado.PagoCuotaId,
+                aplicado.MedioPago,
+                aplicado.CuotaRowVersionBase64);
+        }
+
         public async Task<bool> PagarCuotaAsync(PagarCuotaViewModel pago)
         {
             return await RegistrarPagoCuotaAsync(pago) != null;
+        }
+
+        /// <inheritdoc/>
+        public async Task<PagoCuotaContextoResultado?> ObtenerContextoAdelantoAsync(
+            int creditoId,
+            CancellationToken cancellationToken = default)
+        {
+            if (creditoId <= 0)
+                return null;
+
+            // Misma resolución de "última cuota pendiente" que usa la confirmación
+            // (ResolverCuotaAdelantableAsync, cuotaIdSolicitada=0 nunca dispara el rechazo por
+            // "no es la última pendiente"): read-only, sin abrir transacción.
+            var adelantable = await ResolverCuotaAdelantableAsync(creditoId, 0);
+            if (adelantable is null)
+                return null;
+
+            return await ObtenerContextoPagoCuotaAsync(adelantable.Id, cancellationToken);
+        }
+
+        /// <inheritdoc/>
+        public async Task<PagoCuotaPreviewResultado?> PrevisualizarAdelantoAsync(
+            AdelantoCuotaComando comando,
+            CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(comando);
+            ValidarRowVersionEsperada(comando.CuotaRowVersionEsperada);
+
+            var contexto = await ObtenerContextoAdelantoAsync(comando.CreditoId, cancellationToken);
+            if (contexto is null)
+                return null;
+
+            var cuota = await _context.Cuotas
+                .AsNoTracking()
+                .Include(c => c.Credito)
+                .FirstOrDefaultAsync(c => c.Id == contexto.CuotaId &&
+                                          !c.IsDeleted &&
+                                          !c.Credito.IsDeleted,
+                    cancellationToken);
+            if (cuota is null)
+                return null;
+
+            VerificarRowVersion(cuota.RowVersion, comando.CuotaRowVersionEsperada);
+
+            if (!contexto.PunitorioAplicadoPendiente.HasValue)
+                throw new PagoCuotaRechazadoException(
+                    MotivoRechazoPagoCuota.Conflicto,
+                    "No puede determinarse el punitorio aplicado pendiente porque el historial es incompleto.");
+
+            if (contexto.TotalCobrableActual is not > 0m)
+                throw new PagoCuotaRechazadoException(
+                    MotivoRechazoPagoCuota.Conflicto,
+                    "La cuota no tiene saldo pendiente.");
+
+            var medioPago = NormalizarMedioPago(comando.MedioPago);
+            await ValidarMedioPagoHabilitadoAsync(medioPago);
+
+            // El adelanto no negocia importe: el "monto solicitado" que valida ResolverCobroCuotaAsync
+            // lo fija el servidor (total autoritativo), nunca el navegador.
+            var cobro = await ResolverCobroCuotaAsync(
+                cuota,
+                contexto.PunitorioAplicadoPendiente.Value,
+                contexto.TotalCobrableActual.Value,
+                medioPago,
+                ModoCobroCuota.AdelantoUltimaCuota);
+
+            var punitorioRestante = Math.Max(
+                0m,
+                contexto.PunitorioAplicadoPendiente.Value - cobro.AplicadoPunitorio);
+            var capitalRestante = Math.Max(
+                0m,
+                contexto.CapitalPendiente - cobro.AplicadoCuota);
+            var estadoEstimado = EstadoCuotaResolver.Resolver(
+                cuota.Estado,
+                cuota.FechaVencimiento,
+                _reloj.HoyComercial,
+                cuota.MontoPagado + cobro.AplicadoCuota,
+                cuota.MontoTotal,
+                punitorioRestante);
+
+            return new PagoCuotaPreviewResultado(
+                cuota.Id,
+                cobro.MontoBase,
+                cobro.AplicadoPunitorio,
+                cobro.AplicadoCuota,
+                cobro.Excedente,
+                cobro.RecargoMedioPago,
+                cobro.MontoBase + cobro.RecargoMedioPago,
+                punitorioRestante,
+                capitalRestante,
+                estadoEstimado,
+                _reloj.HoyComercial,
+                Convert.ToBase64String(cuota.RowVersion));
+        }
+
+        /// <inheritdoc/>
+        public async Task<PagoCuotaResultado?> RegistrarAdelantoAsync(
+            AdelantoCuotaComando comando,
+            CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(comando);
+            ValidarRowVersionEsperada(comando.CuotaRowVersionEsperada);
+
+            // Sólo se usa para fijar cuál es la cuota adelantable y su total autoritativo "de
+            // referencia". La confirmación vuelve a resolver y recalcular todo dentro de la
+            // transacción serializable — este valor no es lo que finalmente se cobra si cambió.
+            var contexto = await ObtenerContextoAdelantoAsync(comando.CreditoId, cancellationToken);
+            if (contexto is null || contexto.TotalCobrableActual is not > 0m)
+                return null;
+
+            var aplicado = await RegistrarPagoCuotaAsync(
+                new PagarCuotaViewModel
+                {
+                    CreditoId = comando.CreditoId,
+                    CuotaId = contexto.CuotaId,
+                    MontoPagado = contexto.TotalCobrableActual.Value,
+                    MedioPago = comando.MedioPago,
+                    ComprobantePago = comando.Comprobante,
+                    Observaciones = comando.Observaciones
+                },
+                ModoCobroCuota.AdelantoUltimaCuota,
+                comando.CuotaRowVersionEsperada,
+                exigirPendienteAplicadoAutoritativo: true);
+
+            if (aplicado is null)
+                return null;
+
+            return new PagoCuotaResultado(
+                aplicado.CuotaId,
+                aplicado.CreditoId,
+                aplicado.NumeroCuota,
+                aplicado.MontoBase,
+                aplicado.AplicadoPunitorio,
+                aplicado.AplicadoCuota,
+                aplicado.RecargoMedioPago,
+                aplicado.MontoBase + aplicado.RecargoMedioPago,
+                aplicado.PunitorioRestante,
+                aplicado.CapitalRestante,
+                aplicado.Estado,
+                aplicado.FechaComercial,
+                aplicado.MovimientoCajaId,
+                aplicado.PagoCuotaId,
+                aplicado.MedioPago,
+                aplicado.CuotaRowVersionBase64);
         }
 
         /// <summary>
@@ -586,7 +910,9 @@ namespace TheBuryProject.Services
         /// <returns><c>null</c> si el crédito o la cuota no existen o la cuota no pertenece al crédito.</returns>
         private async Task<PagoCuotaAplicado?> RegistrarPagoCuotaAsync(
             PagarCuotaViewModel pago,
-            ModoCobroCuota modo = ModoCobroCuota.PagoManual)
+            ModoCobroCuota modo = ModoCobroCuota.PagoManual,
+            byte[]? cuotaRowVersionEsperada = null,
+            bool exigirPendienteAplicadoAutoritativo = false)
         {
             if (pago == null)
                 throw new ArgumentNullException(nameof(pago));
@@ -622,6 +948,9 @@ namespace TheBuryProject.Services
                     return null;
                 }
 
+                if (cuotaRowVersionEsperada is not null)
+                    VerificarRowVersion(cuota.RowVersion, cuotaRowVersionEsperada);
+
                 // PUN-ML6: el punitorio pendiente a cobrar viene EXCLUSIVAMENTE de una aplicación
                 // autorizada previa (PunitorioAplicado), nunca de una fórmula recalculada acá. Sin
                 // aplicación activa esto es 0 en los tres modos por igual — incluido el adelanto, que
@@ -630,6 +959,27 @@ namespace TheBuryProject.Services
                 // la misma regla canónica).
                 var infoPunitorio = await _punitorioService.ObtenerAplicacionActivaConProgresoAsync(cuota.Id);
                 var punitorioPendiente = infoPunitorio?.MontoPendiente ?? 0m;
+
+                if (exigirPendienteAplicadoAutoritativo)
+                {
+                    var detalle = await _punitorioService.ObtenerDetalleCuotaAsync(cuota.Id);
+                    var pendienteReal = detalle.CalculoActual.PunitorioAplicadoPendienteReal;
+                    if (!pendienteReal.HasValue)
+                    {
+                        throw new PagoCuotaRechazadoException(
+                            MotivoRechazoPagoCuota.Conflicto,
+                            "No puede determinarse el punitorio aplicado pendiente porque el historial es incompleto.");
+                    }
+
+                    if (Math.Abs(pendienteReal.Value - punitorioPendiente) > ToleranciaImportePago)
+                    {
+                        throw new PagoCuotaRechazadoException(
+                            MotivoRechazoPagoCuota.Conflicto,
+                            "El punitorio aplicado cambió desde la consulta. Recargá la cuota e intentá nuevamente.");
+                    }
+
+                    punitorioPendiente = pendienteReal.Value;
+                }
 
                 var cobro = await ResolverCobroCuotaAsync(cuota, punitorioPendiente, pago.MontoPagado, medioPago, modo);
 
@@ -685,7 +1035,7 @@ namespace TheBuryProject.Services
 
                 var aplicacionCobrada = cobro.AplicadoPunitorio > 0m ? infoPunitorio!.Aplicacion : null;
 
-                _context.PagosCuota.Add(new PagoCuota
+                var pagoCuota = new PagoCuota
                 {
                     CuotaId = cuota.Id,
                     FechaPagoComercial = _reloj.HoyComercial,
@@ -701,7 +1051,8 @@ namespace TheBuryProject.Services
                     // nuevo siempre es evidencia exacta: ya no existe el caso ambiguo de PUN-ML2.
                     HistorialCompleto = true,
                     MotivoIncompleto = null
-                });
+                };
+                _context.PagosCuota.Add(pagoCuota);
                 await _context.SaveChangesAsync();
 
                 if (aplicacionCobrada != null)
@@ -716,13 +1067,24 @@ namespace TheBuryProject.Services
                 await RecalcularPuntajeClientePorPagoAsync(cuota.Credito.ClienteId);
                 await transaction.CommitAsync();
 
+                var capitalRestante = Math.Max(0m, cuota.MontoTotal - cuota.MontoPagado);
+
                 return new PagoCuotaAplicado(
                     cuota.Id,
+                    cuota.CreditoId,
                     cuota.NumeroCuota,
                     cobro.MontoBase,
+                    cobro.AplicadoPunitorio,
+                    cobro.AplicadoCuota,
                     cobro.RecargoMedioPago,
                     medioPago,
-                    cuota.Estado);
+                    cuota.Estado,
+                    punitorioPendienteDespues,
+                    capitalRestante,
+                    _reloj.HoyComercial,
+                    movimientoCaja.Id,
+                    pagoCuota.Id,
+                    Convert.ToBase64String(cuota.RowVersion));
             }
             catch (PagoCuotaRechazadoException ex)
             {
@@ -823,12 +1185,19 @@ namespace TheBuryProject.Services
             if (creditoId <= 0)
                 return null;
 
+            // PUN-ML9-E (fix): Vencida es un estado cobrable como cualquier otro (mismo criterio
+            // que el gate de "Pagar" individual en Details_tw y que PlanificarPagoMultipleAsync,
+            // que sólo rechaza Pagada/Cancelada) — omitirla acá dejaba una cuota recién vencida
+            // (p.ej. por el efecto colateral de EstadoCuotaResolver al aplicar un punitorio)
+            // invisible para "última cuota pendiente", saltando en silencio a una cuota anterior.
             var adelantable = await _context.Cuotas
                 .Include(c => c.Credito)
                 .Where(c => c.CreditoId == creditoId &&
                             !c.IsDeleted &&
                             !c.Credito.IsDeleted &&
-                            (c.Estado == EstadoCuota.Pendiente || c.Estado == EstadoCuota.Parcial))
+                            (c.Estado == EstadoCuota.Pendiente ||
+                             c.Estado == EstadoCuota.Vencida ||
+                             c.Estado == EstadoCuota.Parcial))
                 .OrderByDescending(c => c.NumeroCuota)
                 .FirstOrDefaultAsync();
 
@@ -913,12 +1282,19 @@ namespace TheBuryProject.Services
                 montoBase = totalACobrar - solicitado <= ToleranciaImportePago ? totalACobrar : solicitado;
             }
 
-            var (aplicadoPunitorio, aplicadoCuota, _) = DistribuirPago(montoBase, punitorioPendiente, saldoCuota);
+            var (aplicadoPunitorio, aplicadoCuota, excedente) =
+                DistribuirPago(montoBase, punitorioPendiente, saldoCuota);
 
             var (ajustePorcentaje, tipoPagoMedio) = await ObtenerAjusteMedioPagoAsync(medioPago);
             var recargoMedioPago = CalcularRecargoMedioPago(montoBase, ajustePorcentaje);
 
-            return new CobroCuotaCalculado(montoBase, aplicadoPunitorio, aplicadoCuota, recargoMedioPago, tipoPagoMedio);
+            return new CobroCuotaCalculado(
+                montoBase,
+                aplicadoPunitorio,
+                aplicadoCuota,
+                excedente,
+                recargoMedioPago,
+                tipoPagoMedio);
         }
 
         /// <summary>
@@ -961,6 +1337,27 @@ namespace TheBuryProject.Services
 
         private static decimal RedondearImporte(decimal valor) =>
             Math.Round(valor, 2, MidpointRounding.AwayFromZero);
+
+        private static void ValidarRowVersionEsperada(byte[]? rowVersion)
+        {
+            if (rowVersion is not { Length: > 0 })
+            {
+                throw new PagoCuotaRechazadoException(
+                    MotivoRechazoPagoCuota.SolicitudInvalida,
+                    "La versión de la cuota es inválida. Recargá la pantalla.");
+            }
+        }
+
+        private static void VerificarRowVersion(byte[] actual, byte[] esperada)
+        {
+            ValidarRowVersionEsperada(esperada);
+            if (actual is null || !actual.AsSpan().SequenceEqual(esperada))
+            {
+                throw new PagoCuotaRechazadoException(
+                    MotivoRechazoPagoCuota.Conflicto,
+                    "La cuota cambió desde que fue consultada. Recargá e intentá nuevamente.");
+            }
+        }
 
         /// <summary>
         /// Fecha comercial actual expresada como <see cref="DateTime"/> a medianoche, para
@@ -1009,17 +1406,27 @@ namespace TheBuryProject.Services
             decimal MontoBase,
             decimal AplicadoPunitorio,
             decimal AplicadoCuota,
+            decimal Excedente,
             decimal RecargoMedioPago,
             TipoPago? TipoPago);
 
         /// <summary>Resultado de un cobro efectivamente aplicado y confirmado.</summary>
         private sealed record PagoCuotaAplicado(
             int CuotaId,
+            int CreditoId,
             int NumeroCuota,
             decimal MontoBase,
+            decimal AplicadoPunitorio,
+            decimal AplicadoCuota,
             decimal RecargoMedioPago,
             string MedioPago,
-            EstadoCuota Estado);
+            EstadoCuota Estado,
+            decimal PunitorioRestante,
+            decimal CapitalRestante,
+            DateOnly FechaComercial,
+            int MovimientoCajaId,
+            int PagoCuotaId,
+            string CuotaRowVersionBase64);
 
         /// <inheritdoc />
         public async Task<CobroPrimeraCuotaResultado> CobrarPrimeraCuotaAlGenerarAsync(
@@ -1128,6 +1535,8 @@ namespace TheBuryProject.Services
             if (cuotaIds.Count != cuotaIdsRequest.Count)
                 throw new InvalidOperationException("La selección contiene cuotas duplicadas o inválidas.");
 
+            var rowVersionsEsperadas = DecodificarRowVersionsPorCuota(request.RowVersionsPorCuota);
+
             var medioPago = NormalizarMedioPago(request.MedioPago);
             var observaciones = request.Observaciones?.Trim();
             var fechaPago = _reloj.AhoraUtc;
@@ -1146,58 +1555,10 @@ namespace TheBuryProject.Services
 
             try
             {
-                var cuotas = await _context.Cuotas
-                    .Include(c => c.Credito)
-                        .ThenInclude(c => c.Cliente)
-                    .Where(c => cuotaIds.Contains(c.Id) &&
-                                !c.IsDeleted &&
-                                !c.Credito.IsDeleted &&
-                                c.Credito.Cliente != null &&
-                                !c.Credito.Cliente.IsDeleted)
-                    .ToListAsync(cancellationToken);
-
-                var cuotasEncontradas = cuotas.Select(c => c.Id).ToHashSet();
-                var cuotasFaltantes = cuotaIds
-                    .Where(id => !cuotasEncontradas.Contains(id))
-                    .ToList();
-
-                if (cuotasFaltantes.Any())
-                    throw new InvalidOperationException($"No se encontraron cuotas seleccionadas: {string.Join(", ", cuotasFaltantes)}.");
-
-                var clienteIds = cuotas
-                    .Select(c => c.Credito.ClienteId)
-                    .Distinct()
-                    .ToList();
-
-                if (clienteIds.Count != 1 || clienteIds[0] != request.ClienteId)
-                    throw new InvalidOperationException("Todas las cuotas seleccionadas deben pertenecer al cliente indicado.");
-
-                var pagosPlanificados = new List<(Cuota Cuota, PunitorioAplicadoProgreso? InfoPunitorio, decimal Subtotal, decimal Mora, decimal Total)>();
-
-                foreach (var cuota in cuotas.OrderBy(c => c.CreditoId).ThenBy(c => c.NumeroCuota))
-                {
-                    if (cuota.Estado == EstadoCuota.Pagada)
-                        throw new InvalidOperationException($"La cuota #{cuota.NumeroCuota} del crédito {cuota.Credito.Numero} ya está pagada.");
-
-                    if (cuota.Estado == EstadoCuota.Cancelada)
-                        throw new InvalidOperationException($"La cuota #{cuota.NumeroCuota} del crédito {cuota.Credito.Numero} está cancelada.");
-
-                    // PUN-ML6: punitorio pendiente exclusivamente desde una aplicación autorizada
-                    // previa — nunca recalculado acá. PagarCuotasAsync siempre cancela el saldo
-                    // completo de cada cuota (no admite imputación parcial), así que el importe
-                    // disponible para el distribuidor es directamente el total de esa cuota.
-                    var infoPunitorio = await _punitorioService.ObtenerAplicacionActivaConProgresoAsync(cuota.Id, cancellationToken);
-                    var punitorioPendiente = infoPunitorio?.MontoPendiente ?? 0m;
-                    var saldoCuota = CalcularSaldoPendienteCuota(cuota);
-                    var total = RedondearImporte(saldoCuota + punitorioPendiente);
-
-                    if (total <= 0)
-                        throw new InvalidOperationException($"La cuota #{cuota.NumeroCuota} del crédito {cuota.Credito.Numero} no tiene saldo pendiente.");
-
-                    var (mora, subtotal, _) = DistribuirPago(total, punitorioPendiente, saldoCuota);
-
-                    pagosPlanificados.Add((cuota, infoPunitorio, subtotal, mora, total));
-                }
+                // Una sola pasada de lectura+validación (incluye RowVersion) ANTES de tocar nada:
+                // si una sola cuota falla acá, no se mutó ninguna todavía (rollback total real).
+                var pagosPlanificados = await PlanificarPagoMultipleAsync(
+                    request.ClienteId, cuotaIds, rowVersionsEsperadas, cancellationToken);
 
                 foreach (var pago in pagosPlanificados)
                 {
@@ -1230,14 +1591,20 @@ namespace TheBuryProject.Services
 
                 await _context.SaveChangesAsync(cancellationToken);
 
+                var pagosCuotaPorCuotaId = new Dictionary<int, PagoCuota>();
+                var recargoPorCuotaId = new Dictionary<int, decimal>();
+
                 foreach (var pago in pagosPlanificados)
                 {
+                    var recargoCuota = CalcularRecargoMedioPago(pago.Total, ajustePorcentajeMedio);
+                    recargoPorCuotaId[pago.Cuota.Id] = recargoCuota;
+
                     var movimientoCaja = await _cajaService.RegistrarMovimientoCuotaAsync(
                         pago.Cuota.Id,
                         pago.Cuota.Credito.Numero,
                         pago.Cuota.NumeroCuota,
                         pago.Total,
-                        CalcularRecargoMedioPago(pago.Total, ajustePorcentajeMedio),
+                        recargoCuota,
                         tipoPagoMedio,
                         medioPago,
                         usuario);
@@ -1250,7 +1617,7 @@ namespace TheBuryProject.Services
                     // PagarCuotasAsync siempre cancela el saldo completo de cada cuota (no admite
                     // imputación parcial): a diferencia del pago manual, acá la composición
                     // cuota/punitorio es siempre evidencia directa, nunca ambigua.
-                    _context.PagosCuota.Add(new PagoCuota
+                    var pagoCuota = new PagoCuota
                     {
                         CuotaId = pago.Cuota.Id,
                         FechaPagoComercial = hoyComercial,
@@ -1264,7 +1631,9 @@ namespace TheBuryProject.Services
                         Estado = EstadoPagoCuota.Aplicado,
                         HistorialCompleto = true,
                         MotivoIncompleto = null
-                    });
+                    };
+                    _context.PagosCuota.Add(pagoCuota);
+                    pagosCuotaPorCuotaId[pago.Cuota.Id] = pagoCuota;
                 }
 
                 await _context.SaveChangesAsync(cancellationToken);
@@ -1293,6 +1662,8 @@ namespace TheBuryProject.Services
 
                 await transaction.CommitAsync(cancellationToken);
 
+                var recargoTotal = recargoPorCuotaId.Values.Sum();
+
                 var result = new PagoMultipleCuotasResult
                 {
                     ClienteId = request.ClienteId,
@@ -1303,6 +1674,8 @@ namespace TheBuryProject.Services
                     Subtotal = pagosPlanificados.Sum(p => p.Subtotal),
                     MoraTotal = pagosPlanificados.Sum(p => p.Mora),
                     TotalPagado = pagosPlanificados.Sum(p => p.Total),
+                    RecargoTotal = recargoTotal,
+                    TotalCaja = pagosPlanificados.Sum(p => p.Total) + recargoTotal,
                     FechaPago = fechaPago,
                     Cuotas = pagosPlanificados
                         .Select(p => new PagoMultipleCuotaResult
@@ -1314,7 +1687,10 @@ namespace TheBuryProject.Services
                             Subtotal = p.Subtotal,
                             Mora = p.Mora,
                             TotalPagado = p.Total,
-                            Estado = p.Cuota.Estado.ToString()
+                            Estado = p.Cuota.Estado.ToString(),
+                            PagoCuotaId = pagosCuotaPorCuotaId[p.Cuota.Id].Id,
+                            RecargoMedioPago = recargoPorCuotaId[p.Cuota.Id],
+                            TotalCaja = p.Total + recargoPorCuotaId[p.Cuota.Id]
                         })
                         .ToList()
                 };
@@ -1328,6 +1704,19 @@ namespace TheBuryProject.Services
 
                 return result;
             }
+            catch (PagoCuotaRechazadoException ex)
+            {
+                // RowVersion faltante/desactualizada (409) o dato inválido (400) de alguna de las
+                // cuotas: nada se persistió todavía (el rechazo ocurre en PlanificarPagoMultipleAsync,
+                // antes de la primera escritura), así que el rollback no revierte nada además de la
+                // propia transacción vacía — cero pagos parciales, cero movimientos, cero cupo liberado.
+                await transaction.RollbackAsync(CancellationToken.None);
+                _logger.LogWarning(
+                    "Pago múltiple rechazado para cliente {ClienteId}: {Motivo}",
+                    request.ClienteId,
+                    ex.Message);
+                throw;
+            }
             catch (DbUpdateConcurrencyException ex)
             {
                 await transaction.RollbackAsync(CancellationToken.None);
@@ -1337,6 +1726,18 @@ namespace TheBuryProject.Services
                     request.ClienteId,
                     string.Join(", ", cuotaIds));
                 throw new InvalidOperationException("Una o más cuotas fueron modificadas por otro usuario. Recargá la cartera e intentá nuevamente.", ex);
+            }
+            catch (Exception ex) when (EsConflictoTransitorioDeBase(ex))
+            {
+                // Dos pagos múltiples simultáneos sobre alguna cuota compartida: la transacción
+                // serializable que pierde es rechazo por concurrencia, no un error interno.
+                await transaction.RollbackAsync(CancellationToken.None);
+                _logger.LogWarning(
+                    ex,
+                    "Conflicto de concurrencia en base al registrar pago múltiple para cliente {ClienteId}. Cuotas: {CuotaIds}",
+                    request.ClienteId,
+                    string.Join(", ", cuotaIds));
+                throw new InvalidOperationException("El pago se cruzó con otra operación sobre alguna de las cuotas. Recargá la cartera e intentá nuevamente.", ex);
             }
             catch (Exception ex)
             {
@@ -1349,6 +1750,186 @@ namespace TheBuryProject.Services
                 throw;
             }
         }
+
+        /// <inheritdoc/>
+        public async Task<PagoMultiplePreviewResultado> PrevisualizarPagoMultipleAsync(
+            int clienteId,
+            List<int> cuotaIds,
+            string medioPago,
+            CancellationToken cancellationToken = default)
+        {
+            if (clienteId <= 0)
+                throw new InvalidOperationException("El cliente es requerido.");
+
+            var cuotaIdsFiltrados = (cuotaIds ?? new List<int>())
+                .Where(id => id > 0)
+                .Distinct()
+                .ToList();
+
+            if (!cuotaIdsFiltrados.Any())
+                throw new InvalidOperationException("Debe seleccionar al menos una cuota.");
+
+            var medioNormalizado = NormalizarMedioPago(medioPago);
+            await ValidarMedioPagoHabilitadoAsync(medioNormalizado);
+            var (ajustePorcentajeMedio, _) = await ObtenerAjusteMedioPagoAsync(medioNormalizado);
+
+            // Read-only: mismo cálculo que la confirmación (misma autoridad), sin RowVersion (el
+            // preview no exige haber leído antes) y sin abrir transacción — no muta nada.
+            var planificados = await PlanificarPagoMultipleAsync(
+                clienteId, cuotaIdsFiltrados, rowVersionsEsperadas: null, cancellationToken);
+
+            var cuotasPreview = planificados
+                .Select(p =>
+                {
+                    var recargo = CalcularRecargoMedioPago(p.Total, ajustePorcentajeMedio);
+                    return new PagoMultiplePreviewCuotaResultado(
+                        p.Cuota.Id,
+                        p.Cuota.CreditoId,
+                        p.Cuota.Credito.Numero,
+                        p.Cuota.NumeroCuota,
+                        p.Subtotal,
+                        p.Mora,
+                        p.Total,
+                        recargo,
+                        p.Total + recargo,
+                        Convert.ToBase64String(p.Cuota.RowVersion));
+                })
+                .ToList();
+
+            return new PagoMultiplePreviewResultado(
+                clienteId,
+                cuotasPreview,
+                cuotasPreview.Sum(c => c.CapitalPendiente),
+                cuotasPreview.Sum(c => c.PunitorioAplicadoPendiente),
+                cuotasPreview.Sum(c => c.RecargoMedioPago),
+                cuotasPreview.Sum(c => c.TotalCaja),
+                _reloj.HoyComercial);
+        }
+
+        /// <summary>
+        /// Camino canónico único de lectura y validación del pago múltiple: resuelve las cuotas,
+        /// valida pertenencia/estado/RowVersion y calcula la composición punitorio→capital de cada
+        /// una (mismo <see cref="DistribuirPago"/> que el resto de los caminos de cobro). Usado por
+        /// <see cref="PagarCuotasAsync"/> (dentro de la transacción) y por
+        /// <see cref="PrevisualizarPagoMultipleAsync"/> (read-only, sin transacción) — cero
+        /// duplicación de la regla de negocio entre preview y confirmación.
+        /// </summary>
+        /// <param name="rowVersionsEsperadas">
+        /// <c>null</c> en el preview (no exige haber leído antes). En la confirmación, obligatorio
+        /// para cada cuota: falta una entrada o no coincide con el valor real → rechazo total, sin
+        /// mutar nada (esta validación corre antes de la primera escritura).
+        /// </param>
+        private async Task<List<PagoMultiplePlanItem>> PlanificarPagoMultipleAsync(
+            int clienteId,
+            List<int> cuotaIds,
+            IReadOnlyDictionary<int, byte[]>? rowVersionsEsperadas,
+            CancellationToken cancellationToken)
+        {
+            var cuotas = await _context.Cuotas
+                .Include(c => c.Credito)
+                    .ThenInclude(c => c.Cliente)
+                .Where(c => cuotaIds.Contains(c.Id) &&
+                            !c.IsDeleted &&
+                            !c.Credito.IsDeleted &&
+                            c.Credito.Cliente != null &&
+                            !c.Credito.Cliente.IsDeleted)
+                .ToListAsync(cancellationToken);
+
+            var cuotasEncontradas = cuotas.Select(c => c.Id).ToHashSet();
+            var cuotasFaltantes = cuotaIds
+                .Where(id => !cuotasEncontradas.Contains(id))
+                .ToList();
+
+            if (cuotasFaltantes.Any())
+                throw new InvalidOperationException($"No se encontraron cuotas seleccionadas: {string.Join(", ", cuotasFaltantes)}.");
+
+            var clienteIds = cuotas
+                .Select(c => c.Credito.ClienteId)
+                .Distinct()
+                .ToList();
+
+            if (clienteIds.Count != 1 || clienteIds[0] != clienteId)
+                throw new InvalidOperationException("Todas las cuotas seleccionadas deben pertenecer al cliente indicado.");
+
+            var pagosPlanificados = new List<PagoMultiplePlanItem>();
+
+            foreach (var cuota in cuotas.OrderBy(c => c.CreditoId).ThenBy(c => c.NumeroCuota))
+            {
+                if (rowVersionsEsperadas is not null)
+                {
+                    if (!rowVersionsEsperadas.TryGetValue(cuota.Id, out var esperado))
+                        throw new PagoCuotaRechazadoException(
+                            MotivoRechazoPagoCuota.SolicitudInvalida,
+                            $"Falta la versión de la cuota #{cuota.NumeroCuota} del crédito {cuota.Credito.Numero}. Recargá la cartera e intentá nuevamente.");
+
+                    VerificarRowVersion(cuota.RowVersion, esperado);
+                }
+
+                if (cuota.Estado == EstadoCuota.Pagada)
+                    throw new InvalidOperationException($"La cuota #{cuota.NumeroCuota} del crédito {cuota.Credito.Numero} ya está pagada.");
+
+                if (cuota.Estado == EstadoCuota.Cancelada)
+                    throw new InvalidOperationException($"La cuota #{cuota.NumeroCuota} del crédito {cuota.Credito.Numero} está cancelada.");
+
+                // PUN-ML6: punitorio pendiente exclusivamente desde una aplicación autorizada
+                // previa — nunca recalculado acá. PagarCuotasAsync siempre cancela el saldo
+                // completo de cada cuota (no admite imputación parcial), así que el importe
+                // disponible para el distribuidor es directamente el total de esa cuota.
+                var infoPunitorio = await _punitorioService.ObtenerAplicacionActivaConProgresoAsync(cuota.Id, cancellationToken);
+                var punitorioPendiente = infoPunitorio?.MontoPendiente ?? 0m;
+                var saldoCuota = CalcularSaldoPendienteCuota(cuota);
+                var total = RedondearImporte(saldoCuota + punitorioPendiente);
+
+                if (total <= 0)
+                    throw new InvalidOperationException($"La cuota #{cuota.NumeroCuota} del crédito {cuota.Credito.Numero} no tiene saldo pendiente.");
+
+                var (mora, subtotal, _) = DistribuirPago(total, punitorioPendiente, saldoCuota);
+
+                pagosPlanificados.Add(new PagoMultiplePlanItem(cuota, infoPunitorio, subtotal, mora, total));
+            }
+
+            return pagosPlanificados;
+        }
+
+        /// <summary>
+        /// Decodifica y valida el mapa RowVersion del pago múltiple. Una entrada con Base64
+        /// malformado se trata como versión inválida (mismo criterio que
+        /// <see cref="ValidarRowVersionEsperada"/> en el pago individual/adelanto) — se detecta acá,
+        /// antes de abrir la transacción, para no depender de que el mensaje de error identifique la
+        /// cuota exacta más adelante.
+        /// </summary>
+        private static Dictionary<int, byte[]> DecodificarRowVersionsPorCuota(
+            IReadOnlyDictionary<int, string>? rowVersionsPorCuota)
+        {
+            var resultado = new Dictionary<int, byte[]>();
+            foreach (var (cuotaId, base64) in rowVersionsPorCuota ?? new Dictionary<int, string>())
+            {
+                if (string.IsNullOrWhiteSpace(base64))
+                    continue;
+
+                try
+                {
+                    var bytes = Convert.FromBase64String(base64);
+                    if (bytes.Length == 8)
+                        resultado[cuotaId] = bytes;
+                }
+                catch (FormatException)
+                {
+                    // Queda sin entrada válida: PlanificarPagoMultipleAsync lo rechaza como
+                    // "falta la versión de la cuota" al no encontrarla en el diccionario.
+                }
+            }
+
+            return resultado;
+        }
+
+        /// <summary>Cuota planificada dentro de un pago múltiple, con su composición punitorio→capital ya resuelta.</summary>
+        private sealed record PagoMultiplePlanItem(
+            Cuota Cuota,
+            PunitorioAplicadoProgreso? InfoPunitorio,
+            decimal Subtotal,
+            decimal Mora,
+            decimal Total);
 
         /// <inheritdoc/>
         public async Task<bool> AdelantarCuotaAsync(PagarCuotaViewModel pago)

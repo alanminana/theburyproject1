@@ -9,9 +9,14 @@ document.addEventListener('DOMContentLoaded', function () {
     var clientePanelContent = document.querySelector('[data-credito-cliente-panel-content]');
     var lastClientePanelTrigger = null;
     var selectedCuotasByCliente = new Map();
+    // PUN-ML9-E: composición real (capital/punitorio aplicado/recargo/total) — nunca se calcula en
+    // JS ni se lee de Cuota.MontoPunitorio; siempre viene de POST /Credito/PreviewPagoMultiple.
+    var previewStateByCliente = new Map();
     var isPagoMultipleSubmitting = false;
     var isPagoMultipleLocked = false;
     var panelFetchController = null;
+    var previewFetchController = null;
+    var previewDebounceTimer = null;
     var panelClienteUrl = clientePanel
         ? (clientePanel.getAttribute('data-credito-panel-cliente-url') || '/Credito/PanelCliente')
         : '/Credito/PanelCliente';
@@ -97,11 +102,6 @@ document.addEventListener('DOMContentLoaded', function () {
         return document.querySelector('template[data-credito-cliente-panel-template="' + clienteId + '"]');
     }
 
-    function parseAmount(value) {
-        var parsed = Number.parseFloat(value || '0');
-        return Number.isFinite(parsed) ? parsed : 0;
-    }
-
     function formatCurrency(value) {
         return currencyFormatter.format(value || 0);
     }
@@ -132,6 +132,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function clearAllCuotaSelections() {
         selectedCuotasByCliente.clear();
+        previewStateByCliente.clear();
     }
 
     function isInsideClienteSurface(target) {
@@ -176,9 +177,9 @@ document.addEventListener('DOMContentLoaded', function () {
         return {
             id: input.getAttribute('data-cuota-id'),
             creditoId: input.getAttribute('data-credito-id'),
-            subtotal: parseAmount(input.getAttribute('data-cuota-subtotal')),
-            mora: parseAmount(input.getAttribute('data-cuota-mora')),
-            total: parseAmount(input.getAttribute('data-cuota-total'))
+            // RowVersion capturado en el listado; se refresca con cada preview exitoso (más
+            // reciente) para que la confirmación siempre envíe el valor más actualizado que se vio.
+            rowVersion: input.getAttribute('data-cuota-rowversion') || ''
         };
     }
 
@@ -206,6 +207,60 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    function getPreviewState(scope) {
+        var key = getScopeKey(scope);
+        if (!previewStateByCliente.has(key)) {
+            previewStateByCliente.set(key, { signature: null, data: null, status: 'idle' });
+        }
+
+        return previewStateByCliente.get(key);
+    }
+
+    function buildSelectionSignature(scope) {
+        var ids = getSelectedCuotaIds(scope).slice().sort(function (a, b) { return a - b; });
+        return JSON.stringify({ ids: ids, medioPago: getSelectedMedioPago(scope) });
+    }
+
+    function placeholderPunitorioCell(cell) {
+        cell.textContent = '';
+        var span = document.createElement('span');
+        span.className = 'muted-2';
+        span.textContent = 'Al seleccionar';
+        cell.appendChild(span);
+    }
+
+    function limpiarCeldasPunitorio(root) {
+        root.querySelectorAll('[data-credito-cuota-punitorio-cell]').forEach(placeholderPunitorioCell);
+    }
+
+    // PUN-ML9-E: única fuente de "punitorio aplicado pendiente" por cuota — nunca
+    // Cuota.MontoPunitorio. También refresca el RowVersion trackeado de cada cuota seleccionada
+    // con el valor más reciente visto por el servidor, para que la confirmación no envíe uno
+    // desactualizado.
+    function aplicarDatosPreview(root, data) {
+        var cuotasPorId = {};
+        (data.cuotas || []).forEach(function (c) {
+            cuotasPorId[String(c.cuotaId)] = c;
+        });
+
+        root.querySelectorAll('[data-credito-cuota-punitorio-cell]').forEach(function (cell) {
+            var item = cuotasPorId[cell.getAttribute('data-cuota-id')];
+            if (item) {
+                cell.textContent = formatCurrency(item.punitorioAplicadoPendiente);
+            } else {
+                placeholderPunitorioCell(cell);
+            }
+        });
+
+        var seleccionadas = getSelectedCuotas(root);
+        (data.cuotas || []).forEach(function (c) {
+            var seleccionada = seleccionadas.get(String(c.cuotaId));
+            if (seleccionada && c.cuotaRowVersionBase64) {
+                seleccionada.rowVersion = c.cuotaRowVersionBase64;
+            }
+        });
+    }
+
     function updatePagoResumen(scope) {
         var root = scope || clientePanelContent;
         if (!root) {
@@ -214,33 +269,140 @@ document.addEventListener('DOMContentLoaded', function () {
 
         var selectedItems = Array.from(getSelectedCuotas(root).values());
         var creditos = new Set();
-        var subtotal = 0;
-        var mora = 0;
-        var total = 0;
-
         selectedItems.forEach(function (item) {
             if (item.creditoId) {
                 creditos.add(item.creditoId);
             }
-
-            subtotal += item.subtotal;
-            mora += item.mora;
-            total += item.total;
         });
 
         setText(root, '[data-credito-resumen-cuotas]', String(selectedItems.length));
         setText(root, '[data-credito-resumen-creditos]', String(creditos.size));
-        setText(root, '[data-credito-resumen-subtotal]', formatCurrency(subtotal));
-        setText(root, '[data-credito-resumen-mora]', formatCurrency(mora));
-        setText(root, '[data-credito-resumen-total]', formatCurrency(total));
+
+        var preview = getPreviewState(root);
+        var signature = buildSelectionSignature(root);
+        var previewVigente = selectedItems.length > 0 && preview.status === 'valid' && preview.signature === signature;
+
+        if (previewVigente && preview.data) {
+            setText(root, '[data-credito-resumen-subtotal]', formatCurrency(preview.data.capitalTotal));
+            setText(root, '[data-credito-resumen-mora]', formatCurrency(preview.data.punitorioTotal));
+            setText(root, '[data-credito-resumen-recargo]', formatCurrency(preview.data.recargoTotal));
+            setText(root, '[data-credito-resumen-total]', formatCurrency(preview.data.totalCaja));
+            aplicarDatosPreview(root, preview.data);
+        } else if (selectedItems.length === 0) {
+            setText(root, '[data-credito-resumen-subtotal]', formatCurrency(0));
+            setText(root, '[data-credito-resumen-mora]', formatCurrency(0));
+            setText(root, '[data-credito-resumen-recargo]', formatCurrency(0));
+            setText(root, '[data-credito-resumen-total]', formatCurrency(0));
+            limpiarCeldasPunitorio(root);
+        }
 
         var registerButton = root.querySelector('[data-credito-registrar-pago-multiple]');
         if (registerButton) {
-            registerButton.disabled = isPagoMultipleSubmitting || isPagoMultipleLocked || selectedItems.length === 0;
+            registerButton.disabled = isPagoMultipleSubmitting || isPagoMultipleLocked ||
+                selectedItems.length === 0 || !previewVigente;
         }
 
         if (selectedItems.length === 0) {
             setPagoPendienteVisible(root, false);
+        }
+    }
+
+    function invalidatePreview(scope) {
+        var state = getPreviewState(scope);
+        state.status = getSelectedCuotaIds(scope).length === 0 ? 'idle' : 'loading';
+        state.signature = null;
+    }
+
+    function programarPreviewMultiple(scope) {
+        var root = scope || clientePanelContent;
+        window.clearTimeout(previewDebounceTimer);
+        if (!root || getSelectedCuotaIds(root).length === 0) {
+            return;
+        }
+
+        previewDebounceTimer = window.setTimeout(function () {
+            solicitarPreviewMultiple(root);
+        }, 300);
+    }
+
+    async function solicitarPreviewMultiple(scope) {
+        var root = scope || clientePanelContent;
+        if (!root) {
+            return;
+        }
+
+        var clienteId = Number.parseInt(root.getAttribute('data-credito-cliente-id'), 10);
+        var cuotaIds = getSelectedCuotaIds(root);
+        var medioPago = getSelectedMedioPago(root);
+        var button = root.querySelector('[data-credito-registrar-pago-multiple]');
+        var endpoint = button ? button.getAttribute('data-credito-preview-url') : null;
+
+        if (!clienteId || cuotaIds.length === 0 || !medioPago || !endpoint) {
+            return;
+        }
+
+        var signature = buildSelectionSignature(root);
+        var state = getPreviewState(root);
+        state.status = 'loading';
+        state.signature = null;
+        updatePagoResumen(root);
+        setPagoStatus(root, 'warning', 'Calculando el total real (capital + punitorio aplicado)…');
+
+        if (previewFetchController) {
+            previewFetchController.abort();
+        }
+        previewFetchController = new AbortController();
+
+        try {
+            var response = await fetch(endpoint, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': getAntiForgeryToken()
+                },
+                body: JSON.stringify({ clienteId: clienteId, cuotaIds: cuotaIds, medioPago: medioPago }),
+                signal: previewFetchController.signal
+            });
+
+            var payload = null;
+            try {
+                payload = await response.json();
+            } catch (_) {
+                payload = null;
+            }
+
+            // La selección o el medio pudieron cambiar mientras esperábamos: una respuesta que ya
+            // no corresponde a la selección actual se descarta en vez de aplicarse.
+            if (buildSelectionSignature(root) !== signature) {
+                return;
+            }
+
+            if (!response.ok || !payload || payload.success === false) {
+                state.status = 'error';
+                state.signature = null;
+                setPagoStatus(root, 'error', getResponseErrors(payload).join(' '));
+                updatePagoResumen(root);
+                return;
+            }
+
+            state.status = 'valid';
+            state.signature = signature;
+            state.data = payload.data;
+            setPagoStatus(root, '', '');
+            updatePagoResumen(root);
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                return;
+            }
+
+            state.status = 'error';
+            state.signature = null;
+            setPagoStatus(root, 'error', 'No se pudo calcular el total. Intentá nuevamente.');
+            updatePagoResumen(root);
+        } finally {
+            previewFetchController = null;
         }
     }
 
@@ -263,7 +425,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
         applyCuotaSelectedState(input, input.checked);
         setPagoPendienteVisible(scope, false);
+        invalidatePreview(scope);
         updatePagoResumen(scope);
+        programarPreviewMultiple(scope);
+    }
+
+    function handleMedioPagoChange(scope) {
+        invalidatePreview(scope);
+        updatePagoResumen(scope);
+        programarPreviewMultiple(scope);
     }
 
     function applyTemplateContent(container, clienteId) {
@@ -531,6 +701,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         getSelectedCuotas(root).clear();
+        previewStateByCliente.delete(getScopeKey(root));
         updatePagoResumen(root);
     }
 
@@ -601,7 +772,24 @@ document.addEventListener('DOMContentLoaded', function () {
             || normalized.indexOf('no se encontraron cuotas') >= 0
             || normalized.indexOf('no tiene saldo pendiente') >= 0
             || normalized.indexOf('está cancelada') >= 0
-            || normalized.indexOf('esta cancelada') >= 0;
+            || normalized.indexOf('esta cancelada') >= 0
+            || normalized.indexOf('versión de la cuota') >= 0
+            || normalized.indexOf('version de la cuota') >= 0
+            || normalized.indexOf('cambió desde') >= 0
+            || normalized.indexOf('cambio desde') >= 0;
+    }
+
+    function buildRowVersionsPorCuota(scope, cuotaIds) {
+        var seleccionadas = getSelectedCuotas(scope);
+        var mapa = {};
+        cuotaIds.forEach(function (id) {
+            var item = seleccionadas.get(String(id));
+            if (item && item.rowVersion) {
+                mapa[id] = item.rowVersion;
+            }
+        });
+
+        return mapa;
     }
 
     async function submitPagoMultiple(button) {
@@ -622,6 +810,21 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (!medioPago) {
             setPagoStatus(scope, 'error', 'Seleccioná un medio de pago válido.');
+            return;
+        }
+
+        // El botón ya se deshabilita sin preview vigente (ver updatePagoResumen), pero se
+        // revalida acá por si el estado cambió entre el render y el click.
+        var preview = getPreviewState(scope);
+        var signature = buildSelectionSignature(scope);
+        if (preview.status !== 'valid' || preview.signature !== signature) {
+            setPagoStatus(scope, 'error', 'Esperá a que se calcule el total antes de confirmar.');
+            return;
+        }
+
+        var rowVersionsPorCuota = buildRowVersionsPorCuota(scope, cuotaIds);
+        if (Object.keys(rowVersionsPorCuota).length !== cuotaIds.length) {
+            setPagoStatus(scope, 'error', 'Falta la versión de alguna cuota. Recargá la cartera e intentá nuevamente.');
             return;
         }
 
@@ -648,6 +851,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 body: JSON.stringify({
                     clienteId: clienteId,
                     cuotaIds: cuotaIds,
+                    rowVersionsPorCuota: rowVersionsPorCuota,
                     medioPago: medioPago,
                     observaciones: null
                 })
@@ -776,6 +980,12 @@ document.addEventListener('DOMContentLoaded', function () {
         var cuotaSelector = event.target.closest('[data-credito-cuota-selector]');
         if (cuotaSelector) {
             handleCuotaSelection(cuotaSelector);
+            return;
+        }
+
+        var medioPagoSelector = event.target.closest('[data-credito-medio-pago]');
+        if (medioPagoSelector) {
+            handleMedioPagoChange(getPanelScope(medioPagoSelector));
         }
     });
 

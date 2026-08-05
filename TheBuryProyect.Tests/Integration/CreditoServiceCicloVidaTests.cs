@@ -204,6 +204,10 @@ public class CreditoServiceCicloVidaTests : IDisposable
         return credito;
     }
 
+    /// <summary>PUN-ML9-E: RowVersion (Base64) esperado por cuota, como lo exige PagarCuotasAsync.</summary>
+    private static Dictionary<int, string> RowVersionesDe(params Cuota[] cuotas) =>
+        cuotas.ToDictionary(c => c.Id, c => Convert.ToBase64String(c.RowVersion));
+
     private async Task<Cuota> SeedCuotaAsync(
         int creditoId,
         int numero = 1,
@@ -485,6 +489,7 @@ public class CreditoServiceCicloVidaTests : IDisposable
         {
             ClienteId = cliente.Id,
             CuotaIds = new List<int> { cuota1.Id, cuota2.Id },
+            RowVersionsPorCuota = RowVersionesDe(cuota1, cuota2),
             MedioPago = "Efectivo",
             Observaciones = "Pago múltiple test"
         });
@@ -548,6 +553,7 @@ public class CreditoServiceCicloVidaTests : IDisposable
             {
                 ClienteId = cliente.Id,
                 CuotaIds = new List<int> { cuotaPendiente.Id, cuotaPagada.Id },
+                RowVersionsPorCuota = RowVersionesDe(cuotaPendiente, cuotaPagada),
                 MedioPago = "Efectivo"
             }));
 
@@ -634,6 +640,7 @@ public class CreditoServiceCicloVidaTests : IDisposable
             {
                 ClienteId = cliente.Id,
                 CuotaIds = new List<int> { cuota.Id },
+                RowVersionsPorCuota = RowVersionesDe(cuota),
                 MedioPago = "Efectivo"
             }));
 
@@ -658,6 +665,7 @@ public class CreditoServiceCicloVidaTests : IDisposable
             {
                 ClienteId = cliente.Id,
                 CuotaIds = new List<int> { cuota.Id },
+                RowVersionsPorCuota = RowVersionesDe(cuota),
                 MedioPago = "Efectivo"
             }));
 
@@ -697,6 +705,10 @@ public class CreditoServiceCicloVidaTests : IDisposable
         {
             ClienteId = cliente.Id,
             CuotaIds = new List<int> { cuota.Id },
+            // Bajo Sqlite RowVersion no se regenera en UPDATE (nota técnica documentada en el
+            // proyecto): el mismo valor capturado antes del primer cobro sigue siendo válido para
+            // el segundo intento, que debe rechazarse por "ya está pagada", no por RowVersion.
+            RowVersionsPorCuota = RowVersionesDe(cuota),
             MedioPago = "Efectivo"
         };
 
@@ -732,6 +744,7 @@ public class CreditoServiceCicloVidaTests : IDisposable
         {
             ClienteId = cliente.Id,
             CuotaIds = new List<int> { cuota.Id },
+            RowVersionsPorCuota = RowVersionesDe(cuota),
             MedioPago = "Efectivo"
         });
 
@@ -780,6 +793,7 @@ public class CreditoServiceCicloVidaTests : IDisposable
         {
             ClienteId = cliente.Id,
             CuotaIds = new List<int> { cuota.Id },
+            RowVersionsPorCuota = RowVersionesDe(cuota),
             MedioPago = "Efectivo"
         });
 

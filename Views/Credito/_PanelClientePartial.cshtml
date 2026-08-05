@@ -2,6 +2,11 @@
 @model TheBuryProject.ViewModels.CreditoClienteIndexViewModel
 
 @{
+    // PUN-ML9-E: consultar la cartera del cliente sólo exige creditos.view (Vendedor incluido);
+    // seleccionar cuotas y cobrar exige además cobranzas.payinstallment — sin este chequeo el
+    // panel ofrecía casillas y el botón "Registrar pago" a cualquiera con acceso al panel, aunque
+    // el servidor ya rechazara el POST (mismo hallazgo que el botón "Adelantar" de Details_tw).
+    var puedeCobrar = User.TienePermiso("cobranzas", "payinstallment");
     var clienteNombre = Model.Cliente.NombreCompleto;
     if (string.IsNullOrWhiteSpace(clienteNombre))
     {
@@ -118,11 +123,14 @@
                             <table class="cuota-tbl">
                                 <thead>
                                     <tr>
-                                        <th class="c" style="width:36px"><span class="sr-only">Seleccionar</span></th>
+                                        @if (puedeCobrar)
+                                        {
+                                            <th class="c" style="width:36px"><span class="sr-only">Seleccionar</span></th>
+                                        }
                                         <th>Cuota</th>
                                         <th>Vencimiento</th>
-                                        <th class="r">Saldo</th>
-                                        <th class="r">Mora</th>
+                                        <th class="r">Capital pendiente</th>
+                                        <th class="r">Punitorio aplicado</th>
                                         <th class="c">Estado</th>
                                     </tr>
                                 </thead>
@@ -137,32 +145,37 @@
                                             EstadoCuota.Cancelada => "chip-neutral",
                                             _ => "chip-neutral"
                                         };
-                                        var cuotaSaldoPendiente = cuota.SaldoPendiente;
-                                        var cuotaMora = cuota.MontoPunitorio > 0 ? cuota.MontoPunitorio : 0;
-                                        var cuotaSubtotal = cuotaSaldoPendiente - cuotaMora;
-                                        if (cuotaSubtotal < 0)
+                                        // PUN-ML9-E: Cuota.MontoPunitorio es legacy (congelado, sin escritor
+                                        // productivo desde ML6) y ya no se lee acá. El capital pendiente es
+                                        // dato directo de la cuota; el punitorio aplicado pendiente real sólo
+                                        // se conoce con una consulta autoritativa — se pide al servidor
+                                        // (preview) recién cuando la cuota se selecciona, en vez de cargar una
+                                        // consulta por fila en cada apertura del panel.
+                                        var cuotaCapitalPendiente = cuota.MontoTotal - cuota.MontoPagado;
+                                        if (cuotaCapitalPendiente < 0)
                                         {
-                                            cuotaSubtotal = 0;
+                                            cuotaCapitalPendiente = 0;
                                         }
 
                                         var cuotaPagable = cuota.Estado != EstadoCuota.Pagada
                                             && cuota.Estado != EstadoCuota.Cancelada
-                                            && cuotaSaldoPendiente > 0;
+                                            && cuotaCapitalPendiente > 0;
                                         var cuotaRowClass = cuota.EstaVencida ? "is-venc" : "";
 
                                         <tr class="@cuotaRowClass" data-credito-cliente-cuota>
-                                            <td class="c">
-                                                <input type="checkbox"
-                                                       class="chk"
-                                                       data-credito-cuota-selector
-                                                       data-credito-id="@credito.Id"
-                                                       data-cuota-id="@cuota.Id"
-                                                       data-cuota-subtotal="@cuotaSubtotal.ToString(System.Globalization.CultureInfo.InvariantCulture)"
-                                                       data-cuota-mora="@cuotaMora.ToString(System.Globalization.CultureInfo.InvariantCulture)"
-                                                       data-cuota-total="@cuotaSaldoPendiente.ToString(System.Globalization.CultureInfo.InvariantCulture)"
-                                                       aria-label="Seleccionar cuota #@cuota.NumeroCuota de @numeroCredito"
-                                                       disabled="@(!cuotaPagable)" />
-                                            </td>
+                                            @if (puedeCobrar)
+                                            {
+                                                <td class="c">
+                                                    <input type="checkbox"
+                                                           class="chk"
+                                                           data-credito-cuota-selector
+                                                           data-credito-id="@credito.Id"
+                                                           data-cuota-id="@cuota.Id"
+                                                           data-cuota-rowversion="@cuota.CuotaRowVersionBase64"
+                                                           aria-label="Seleccionar cuota #@cuota.NumeroCuota de @numeroCredito"
+                                                           disabled="@(!cuotaPagable)" />
+                                                </td>
+                                            }
                                             <td><span class="cuota-n @(cuota.EstaVencida ? "venc" : "")">@cuota.NumeroCuota</span></td>
                                             <td>
                                                 @cuota.FechaVencimiento.ToString("dd/MM/yyyy")
@@ -171,8 +184,10 @@
                                                     <span class="chip @(cuota.DiasAtraso >= 10 ? "chip-bad" : "chip-warn")" style="margin-left:.4rem">+@cuota.DiasAtraso d</span>
                                                 }
                                             </td>
-                                            <td class="r num">@cuotaSaldoPendiente.ToString("C2")</td>
-                                            <td class="r num" style="@(cuotaMora > 0 ? "color:#fbbf24" : "")">@(cuotaMora > 0 ? cuotaMora.ToString("C2") : "-")</td>
+                                            <td class="r num">@cuotaCapitalPendiente.ToString("C2")</td>
+                                            <td class="r num" data-credito-cuota-punitorio-cell data-cuota-id="@cuota.Id">
+                                                <span class="muted-2">Al seleccionar</span>
+                                            </td>
                                             <td class="c"><span class="chip @estadoCuotaClass">@cuota.Estado</span></td>
                                         </tr>
                                     }
@@ -190,6 +205,8 @@
     </div>
 </div>
 
+@if (puedeCobrar)
+{
 <footer class="pay-foot" data-credito-pago-resumen>
     <div class="pay-grid">
         <div class="pay-resumen">
@@ -202,12 +219,16 @@
                 <div class="v" data-credito-resumen-creditos>0</div>
             </div>
             <div class="pr">
-                <div class="l">Subtotal</div>
+                <div class="l">Capital</div>
                 <div class="v" data-credito-resumen-subtotal>$ 0,00</div>
             </div>
             <div class="pr">
-                <div class="l">Mora</div>
+                <div class="l">Punitorio aplicado</div>
                 <div class="v mora" data-credito-resumen-mora>$ 0,00</div>
+            </div>
+            <div class="pr">
+                <div class="l">Recargo</div>
+                <div class="v" data-credito-resumen-recargo>$ 0,00</div>
             </div>
             <div class="pr">
                 <div class="l">Total a pagar</div>
@@ -229,6 +250,7 @@
                     class="btn btn-success"
                     data-credito-registrar-pago-multiple
                     data-credito-pago-url="@Url.Action("RegistrarPagoMultiple", "Credito")"
+                    data-credito-preview-url="@Url.Action("PreviewPagoMultiple", "Credito")"
                     disabled>
                 <span class="material-symbols-outlined" data-credito-registrar-pago-icon>payments</span>
                 <span data-credito-registrar-pago-label>Registrar pago</span>
@@ -237,3 +259,4 @@
     </div>
     <p class="hint" role="status" aria-live="polite" data-credito-pago-status data-credito-pago-pendiente>Seleccioná una o más cuotas para registrar el pago.</p>
 </footer>
+}

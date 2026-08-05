@@ -1,25 +1,24 @@
-/* credito-pagar-cuota.js — La aritmética del cobro pertenece al servidor. */
+/* credito-adelanto.js — La aritmética del adelanto pertenece al servidor.
+   El adelanto no tiene importe editable: siempre cancela el total autoritativo
+   (capital pendiente + punitorio aplicado pendiente) que calcula el servidor. */
 
 document.addEventListener('DOMContentLoaded', function () {
     'use strict';
 
-    var root = document.querySelector('[data-credito-pago]');
+    var root = document.querySelector('[data-credito-adelanto]');
     if (!root) return;
 
-    var form = root.querySelector('[data-credito-pago-form]');
-    var monto = root.querySelector('[data-pago-monto]');
-    var medio = root.querySelector('[data-pago-medio]');
-    var pagarTotal = root.querySelector('[data-pago-total]');
-    var confirmar = root.querySelector('[data-pago-confirmar]');
-    var estado = root.querySelector('[data-pago-preview-status]');
-    var rowVersion = root.querySelector('[data-pago-rowversion]');
-    if (!form || !monto || !medio || !confirmar || !estado) return;
+    var form = root.querySelector('[data-credito-adelanto-form]');
+    var medio = root.querySelector('[data-adelanto-medio]');
+    var confirmar = root.querySelector('[data-adelanto-confirmar]');
+    var estado = root.querySelector('[data-adelanto-preview-status]');
+    var rowVersion = root.querySelector('[data-adelanto-rowversion]');
+    if (!form || !medio || !confirmar || !estado) return;
 
-    var endpoint = form.getAttribute('data-pago-preview-url');
+    var endpoint = form.getAttribute('data-adelanto-preview-url');
     var previewValida = form.getAttribute('data-preview-valid') === 'true';
     var resultadoPresente = form.getAttribute('data-result-present') === 'true';
     var solicitudActual = null;
-    var temporizador = null;
     var enviando = false;
     var dinero = new Intl.NumberFormat('es-AR', {
         style: 'currency',
@@ -60,14 +59,10 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function aplicarPreview(payload) {
-        escribirCampo('importeIngresado', payload.importeIngresado, true);
-        escribirCampo('aplicadoPunitorio', payload.aplicadoPunitorio, true);
         escribirCampo('aplicadoCapital', payload.aplicadoCapital, true);
-        escribirCampo('excedente', payload.excedente, true);
+        escribirCampo('aplicadoPunitorio', payload.aplicadoPunitorio, true);
         escribirCampo('recargoMedioPago', payload.recargoMedioPago, true);
         escribirCampo('totalCaja', payload.totalCaja, true);
-        escribirCampo('punitorioRestante', payload.punitorioRestante, true);
-        escribirCampo('capitalRestante', payload.capitalRestante, true);
         escribirCampo('estadoEstimadoTexto', payload.estadoEstimadoTexto, false);
         escribirCampo('fechaComercial', formatearFechaIso(payload.fechaComercial), false);
 
@@ -82,8 +77,8 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     async function solicitarPreview() {
-        if (!endpoint || !monto.value.trim() || !medio.value) {
-            invalidarPreview('Completá el importe y el medio de pago.');
+        if (!endpoint || !medio.value) {
+            invalidarPreview('Seleccioná un medio de pago.');
             return;
         }
 
@@ -117,42 +112,30 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    function programarPreview() {
-        invalidarPreview('Previsualización pendiente…');
-        window.clearTimeout(temporizador);
-        temporizador = window.setTimeout(solicitarPreview, 350);
-    }
-
-    monto.addEventListener('input', programarPreview);
-    monto.addEventListener('blur', function () {
-        window.clearTimeout(temporizador);
-        solicitarPreview();
-    });
     medio.addEventListener('change', solicitarPreview);
-
-    if (pagarTotal) {
-        pagarTotal.addEventListener('click', function () {
-            monto.value = pagarTotal.getAttribute('data-total-cobrable') || '';
-            monto.focus();
-            solicitarPreview();
-        });
-    }
 
     form.addEventListener('submit', function (event) {
         if (enviando || !previewValida) {
             event.preventDefault();
             estado.textContent = enviando
-                ? 'El pago ya se está enviando.'
+                ? 'El adelanto ya se está enviando.'
                 : 'Esperá una previsualización válida antes de confirmar.';
             return;
         }
         enviando = true;
         confirmar.disabled = true;
         confirmar.setAttribute('aria-disabled', 'true');
-        estado.textContent = 'Registrando pago…';
+        estado.textContent = 'Registrando adelanto…';
     });
 
     actualizarConfirmacion();
+
+    // El resultado ya viene calculado por el servidor en el GET inicial (mismo patrón que
+    // credito-pagar-cuota.js): sólo se refetch al cambiar el medio de pago. Si no hay resultado
+    // previo ni preview server-side, se pide una automáticamente al cargar la pantalla.
+    if (!resultadoPresente && !previewValida) {
+        solicitarPreview();
+    }
 
     var primerError = root.querySelector('.field-validation-error, .validation-summary-errors');
     if (primerError) primerError.focus({ preventScroll: false });

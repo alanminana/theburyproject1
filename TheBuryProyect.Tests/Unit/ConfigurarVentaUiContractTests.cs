@@ -200,16 +200,24 @@ public class ConfigurarVentaUiContractTests
         Assert.Contains("JsonSerializer.Serialize(clienteConfig", view);
     }
 
+    /// <summary>
+    /// PUN-ML9-D reemplazó el selector multi-cuota (<c>Model.Cuotas</c>/<c>Model.CuotasJson</c>,
+    /// que serializaba importes al navegador) por una pantalla de una sola cuota alimentada por
+    /// un ViewModel tipado y una preview calculada por el servidor. El contrato que importa hoy
+    /// es que la vista siga leyendo del modelo y nunca del ViewBag ni de un JSON de importes.
+    /// </summary>
     [Fact]
-    public void PagarCuotaView_LeeCuotasYJsonDesdeViewModelTipado()
+    public void PagarCuotaView_LeeContextoTipadoYNoSerializaImportesAlNavegador()
     {
         var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Credito", "PagarCuota_tw.cshtml"));
 
-        Assert.Contains("Model.CuotasJson", view);
-        Assert.Contains("Model.Cuotas", view);
+        Assert.Contains("@model PagarCuotaPageViewModel", view);
+        Assert.Contains("Model.Contexto", view);
+        Assert.Contains("Model.Preview", view);
         Assert.DoesNotContain("ViewBag.CuotasJson", view);
         Assert.DoesNotContain("ViewBag.Cuotas", view);
-        Assert.Contains("data-credito-json=\"cuotas\"", view);
+        Assert.DoesNotContain("data-credito-json=\"cuotas\"", view);
+        Assert.DoesNotContain("CuotasJson", view);
     }
 
     [Fact]

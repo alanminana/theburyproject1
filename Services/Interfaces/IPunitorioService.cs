@@ -27,6 +27,16 @@ namespace TheBuryProject.Services.Interfaces
             int cuotaId, DateOnly? fechaCalculo = null, CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// Devuelve en un único contrato read-only la identificación y saldo actual de la cuota,
+        /// el cálculo informativo al día, la aplicación activa con su progreso real, el historial
+        /// completo de aplicaciones y el ledger de pagos. No persiste, no actualiza estados ni
+        /// expone entidades EF.
+        /// </summary>
+        /// <exception cref="KeyNotFoundException">No existe una cuota no eliminada con ese Id.</exception>
+        Task<PunitorioCuotaDetalleResultado> ObtenerDetalleCuotaAsync(
+            int cuotaId, CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Punitorio aplicado pendiente de cobro de la cuota (PUN-ML6): <c>Importe</c> de la
         /// aplicación activa (Modelo A: a lo sumo una) neto de los pagos efectivos ya atribuidos a
         /// ella (<c>PagoCuota.ImporteAplicadoPunitorio</c> con <c>PunitorioAplicadoId</c> igual y

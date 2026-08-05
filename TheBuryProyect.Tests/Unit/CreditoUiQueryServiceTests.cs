@@ -8,6 +8,7 @@ using TheBuryProject.Services;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.Services.Models;
 using TheBuryProject.ViewModels;
+using TheBuryProject.ViewModels.PagoCuota;
 using TheBuryProject.ViewModels.Requests;
 
 namespace TheBuryProject.Tests.Unit;
@@ -163,14 +164,23 @@ public class CreditoUiQueryServiceTests
     }
 
     [Fact]
-    public async Task PagarCuota_ConservaCuotasYJsonEnViewModelTipado()
+    public async Task PagarCuota_UsaIdDeCuotaYContextoAutoritativoTipado()
     {
         var cliente = Cliente(1, "Ana Lopez", "301");
         var cuota = Cuota(9, 4, EstadoCuota.Pendiente, new DateTime(2026, 7, 20), 2500m);
         var credito = Credito(1, cliente, EstadoCredito.Activo, 2500m, DateTime.Today, cuota);
         credito.Numero = "CR-1";
+        var contexto = new PagoCuotaContextoResultado(
+            cuota.Id, credito.Id, cuota.NumeroCuota, credito.Numero, cliente.NombreCompleto,
+            new DateOnly(2026, 7, 20), new DateOnly(2026, 8, 3), cuota.Estado, 14,
+            2500m, 300m, EstadoCalculoPunitorioDetalle.Calculado, null,
+            0m, 2500m, true, null, Convert.ToBase64String(new byte[8]));
+        var preview = new PagoCuotaPreviewResultado(
+            cuota.Id, 2500m, 0m, 2500m, 0m, 0m, 2500m, 0m, 0m,
+            EstadoCuota.Pagada, new DateOnly(2026, 8, 3), contexto.CuotaRowVersionBase64);
+        var creditoService = new RecordingCreditoService(new List<CreditoViewModel> { credito }, contexto, preview);
         var controller = new CreditoController(
-            creditoService: new RecordingCreditoService(new List<CreditoViewModel> { credito }),
+            creditoService: creditoService,
             financialService: null!,
             configuracionPagoService: null!,
             configuracionMoraService: null!,
@@ -182,16 +192,17 @@ public class CreditoUiQueryServiceTests
             contratoVentaCreditoService: null!,
             creditoUiQueryService: new CreditoUiQueryService());
 
-        var result = await controller.PagarCuota(credito.Id, cuota.Id);
+        var result = await controller.PagarCuota(cuota.Id);
 
         var view = Assert.IsType<ViewResult>(result);
         Assert.Equal("PagarCuota_tw", view.ViewName);
-        var model = Assert.IsType<PagarCuotaViewModel>(view.Model);
-        var item = Assert.Single(model.Cuotas);
-        Assert.Equal("9", item.Value);
-        using var json = JsonDocument.Parse(model.CuotasJson);
-        Assert.True(json.RootElement.TryGetProperty("9", out var cuotaJson));
-        Assert.Equal(4, cuotaJson.GetProperty("numeroCuota").GetInt32());
+        var model = Assert.IsType<PagarCuotaPageViewModel>(view.Model);
+        Assert.Equal(cuota.Id, model.Contexto.CuotaId);
+        Assert.Equal(credito.Id, model.Contexto.CreditoId);
+        Assert.Equal(2500m, model.Contexto.CapitalPendiente);
+        Assert.Equal(300m, model.Contexto.PunitorioCalculadoInformativo);
+        Assert.Equal(2500m, model.Input.MontoIngresado);
+        Assert.NotNull(model.Preview);
     }
 
     private static ClienteResumenViewModel Cliente(int id, string nombre, string documento) =>
@@ -252,10 +263,17 @@ public class CreditoUiQueryServiceTests
     private sealed class RecordingCreditoService : ICreditoService
     {
         private readonly List<CreditoViewModel> _creditos;
+        private readonly PagoCuotaContextoResultado? _contextoPago;
+        private readonly PagoCuotaPreviewResultado? _previewPago;
 
-        public RecordingCreditoService(List<CreditoViewModel> creditos)
+        public RecordingCreditoService(
+            List<CreditoViewModel> creditos,
+            PagoCuotaContextoResultado? contextoPago = null,
+            PagoCuotaPreviewResultado? previewPago = null)
         {
             _creditos = creditos;
+            _contextoPago = contextoPago;
+            _previewPago = previewPago;
         }
 
         public Task<List<CreditoViewModel>> GetAllAsync(CreditoFilterViewModel? filter = null) => Task.FromResult(_creditos);
@@ -271,9 +289,18 @@ public class CreditoUiQueryServiceTests
         public Task<List<CuotaViewModel>> GetCuotasByCreditoAsync(int creditoId) => throw new NotImplementedException();
         public Task<CuotaViewModel?> GetCuotaByIdAsync(int cuotaId) => throw new NotImplementedException();
         public Task<bool> PagarCuotaAsync(PagarCuotaViewModel pago) => throw new NotImplementedException();
+        public Task<PagoCuotaContextoResultado?> ObtenerContextoPagoCuotaAsync(int cuotaId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(_contextoPago?.CuotaId == cuotaId ? _contextoPago : null);
+        public Task<PagoCuotaPreviewResultado?> PrevisualizarPagoCuotaAsync(PagoCuotaIndividualComando comando, CancellationToken cancellationToken = default) =>
+            Task.FromResult(_previewPago?.CuotaId == comando.CuotaId ? _previewPago : null);
+        public Task<PagoCuotaResultado?> RegistrarPagoCuotaIndividualAsync(PagoCuotaIndividualComando comando, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<PagoMultipleCuotasResult> PagarCuotasAsync(PagoMultipleCuotasRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<TheBuryProject.Services.Models.CobroPrimeraCuotaResultado> CobrarPrimeraCuotaAlGenerarAsync(int creditoId, string medioPago, string? comprobante = null, string? observaciones = null) => throw new NotImplementedException();
         public Task<bool> AdelantarCuotaAsync(PagarCuotaViewModel pago) => throw new NotImplementedException();
+        public Task<PagoCuotaContextoResultado?> ObtenerContextoAdelantoAsync(int creditoId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<PagoCuotaPreviewResultado?> PrevisualizarAdelantoAsync(AdelantoCuotaComando comando, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<PagoCuotaResultado?> RegistrarAdelantoAsync(AdelantoCuotaComando comando, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<PagoMultiplePreviewResultado> PrevisualizarPagoMultipleAsync(int clienteId, List<int> cuotaIds, string medioPago, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<CuotaViewModel?> GetPrimeraCuotaPendienteAsync(int creditoId) => throw new NotImplementedException();
         public Task<CuotaViewModel?> GetUltimaCuotaPendienteAsync(int creditoId) => throw new NotImplementedException();
         public Task<List<CuotaViewModel>> GetCuotasVencidasAsync() => throw new NotImplementedException();

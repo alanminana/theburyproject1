@@ -1,151 +1,195 @@
-@model PagarCuotaViewModel
+@using TheBuryProject.ViewModels.PagoCuota
+@model AdelantarCuotaPageViewModel
 @{
-    ViewData["Title"] = "Adelantar Cuota";
+    ViewData["Title"] = "Adelantar cuota";
+    var contexto = Model.Contexto;
+    var preview = Model.Preview;
+    var resultado = Model.Resultado;
     var returnUrl = ViewData["ReturnUrl"] as string;
-    var montoPagadoInvariant = Model.MontoPagado.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
     var volverHref = !string.IsNullOrWhiteSpace(returnUrl)
         ? returnUrl
-        : Url.Action("Details", "Credito", new { id = Model.CreditoId }) ?? $"/Credito/Details/{Model.CreditoId}";
+        : Url.Action("Details", "Credito", new { id = contexto.CreditoId }) ?? $"/Credito/Details/{contexto.CreditoId}";
+    string Dinero(decimal value) => value.ToString("C2");
+    string DineroOpcional(decimal? value) => value.HasValue ? Dinero(value.Value) : "No disponible";
 }
 
 @section Styles {
     <partial name="_CreditoModuleStyles" />
 }
 
-<main class="shell" style="padding-top:1.5rem;padding-bottom:3rem;max-width:680px">
-    <a href="@volverHref" class="inline-flex items-center gap-1.5 text-sm muted hover:text-white transition" style="text-decoration:none">
-        <span class="material-symbols-outlined" style="font-size:18px">arrow_back</span>
-        Volver al crédito
-    </a>
+<div data-credito-adelanto>
+    <main class="shell" style="padding-top:1.5rem;padding-bottom:3rem;max-width:1080px">
+        <a href="@volverHref" class="inline-flex items-center gap-1.5 text-sm muted hover:text-white transition" style="text-decoration:none">
+            <span class="material-symbols-outlined" aria-hidden="true" style="font-size:18px">arrow_back</span>
+            Volver al crédito
+        </a>
 
-    <div class="page-head" style="margin-top:.95rem">
-        <div class="min-w-0">
-            <h1 class="page-title" style="font-size:1.4rem">Adelantar cuota</h1>
-            <p class="page-sub" style="margin-top:.3rem">
-                Crédito <span class="mono">@Model.NumeroCreditoTexto</span> · @Model.ClienteNombre
-            </p>
+        <div class="page-head" style="margin-top:.95rem">
+            <div class="min-w-0">
+                <h1 class="page-title" style="font-size:1.4rem">Adelantar cuota</h1>
+                <p class="page-sub" style="margin-top:.3rem">
+                    Crédito <span class="mono">@contexto.NumeroCredito</span> · @contexto.ClienteNombre · Cuota @contexto.NumeroCuota
+                </p>
+            </div>
         </div>
-    </div>
 
-    <div class="alert alert-info" style="margin-top:1.25rem">
-        <span class="material-symbols-outlined">info</span>
-        <div>
-            Se adelanta la <strong>última cuota pendiente</strong> del plan (cuota @Model.NumeroCuota).
-            El capital se descuenta del saldo y el plazo total del crédito se reduce.
+        <div class="alert alert-info" style="margin-top:1.25rem">
+            <span class="material-symbols-outlined" aria-hidden="true">info</span>
+            <div>
+                Se adelanta la <strong>última cuota pendiente</strong> del plan (cuota @contexto.NumeroCuota).
+                El adelanto cancela capital + punitorio aplicado pendiente y reduce el plazo del crédito.
+            </div>
         </div>
-    </div>
 
-    <form id="adelanto-form"
-          asp-action="AdelantarCuota"
-          method="post"
-          class="card card-pad"
-          style="margin-top:1.25rem">
-        @Html.AntiForgeryToken()
-
-        <div asp-validation-summary="ModelOnly"
-             class="alert alert-bad empty:hidden"
-             style="margin-bottom:1rem"
-             role="alert"></div>
-
-        <input type="hidden" asp-for="CreditoId" />
-        <input type="hidden" asp-for="CuotaId" />
-        <input type="hidden" asp-for="NumeroCuota" />
-        <input type="hidden" asp-for="MontoCuota" />
-        <input type="hidden" asp-for="MontoPunitorio" />
-        <input type="hidden" asp-for="TotalAPagar" />
-        <input type="hidden" asp-for="MontoPagado" value="@montoPagadoInvariant" />
-        <input type="hidden" asp-for="ClienteNombre" />
-        <input type="hidden" asp-for="NumeroCreditoTexto" />
-        <input type="hidden" asp-for="FechaVencimiento" />
-        <input type="hidden" asp-for="EstaVencida" />
-        <input type="hidden" asp-for="DiasAtraso" />
-        @if (returnUrl != null)
+        @if (resultado is not null)
         {
-            <input type="hidden" name="returnUrl" value="@returnUrl" />
+            <section class="card card-pad" style="margin-top:1.25rem" role="status" aria-labelledby="adelanto-resultado-titulo">
+                <div class="sec-head">
+                    <div class="sec-num" aria-hidden="true">✓</div>
+                    <div>
+                        <h2 id="adelanto-resultado-titulo" class="sec-title">Adelanto registrado</h2>
+                        <p class="sec-sub">Éste es el resultado persistido de la operación.</p>
+                    </div>
+                </div>
+                <dl class="kv" data-adelanto-resultado>
+                    <div class="kv-row"><dt>Capital cancelado</dt><dd class="num">@Dinero(resultado.AplicadoCapital)</dd></div>
+                    <div class="kv-row"><dt>Punitorio aplicado cancelado</dt><dd class="num">@Dinero(resultado.AplicadoPunitorio)</dd></div>
+                    <div class="kv-row"><dt>Recargo del medio</dt><dd class="num">@Dinero(resultado.RecargoMedioPago)</dd></div>
+                    <div class="kv-row"><dt>Total ingresado en caja</dt><dd class="num">@Dinero(resultado.TotalCaja)</dd></div>
+                    <div class="kv-row"><dt>Estado final</dt><dd>@resultado.EstadoFinalTexto</dd></div>
+                    <div class="kv-row"><dt>Fecha comercial</dt><dd>@resultado.FechaComercial.ToString("dd/MM/yyyy")</dd></div>
+                    <div class="kv-row"><dt>Medio de pago</dt><dd>@resultado.MedioPago</dd></div>
+                    <div class="kv-row"><dt>Identificadores</dt><dd class="mono">Pago #@resultado.PagoCuotaId · Caja #@resultado.MovimientoCajaId</dd></div>
+                </dl>
+            </section>
         }
 
-        <div class="result-card is-ok">
-            <div class="flex items-center justify-between">
-                <div>
-                    <div class="result-label">Cuota a adelantar</div>
-                    <div class="result-value" style="font-size:1.6rem">@Model.TotalAPagar.ToString("C")</div>
-                </div>
-                <div class="text-right">
-                    <div class="chip chip-info">Cuota @Model.NumeroCuota</div>
-                    <div class="text-xs muted-2 mt-1.5">Vence @Model.FechaVencimiento.ToString("dd/MM/yyyy")</div>
-                </div>
-            </div>
-        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4" style="margin-top:1.25rem">
+            <div class="lg:col-span-2 space-y-4">
+                <section class="card card-pad" aria-labelledby="cuota-contexto-titulo">
+                    <div class="sec-head">
+                        <div class="sec-num" aria-hidden="true">1</div>
+                        <div>
+                            <h2 id="cuota-contexto-titulo" class="sec-title">Contexto autoritativo</h2>
+                            <p class="sec-sub">El total se recalcula en el servidor al confirmar.</p>
+                        </div>
+                    </div>
 
-        <dl class="kv mt-4">
-            <div class="kv-row">
-                <dt>Monto de la cuota</dt>
-                <dd class="num">@Model.MontoCuota.ToString("C")</dd>
-            </div>
-            <div class="kv-row">
-                <dt>Punitorio</dt>
-                <dd class="num">@Model.MontoPunitorio.ToString("C")</dd>
-            </div>
-            <div class="kv-row">
-                <dt>Efecto del adelanto</dt>
-                <dd>Reduce plazo</dd>
-            </div>
-        </dl>
+                    <dl class="kv">
+                        <div class="kv-row"><dt>Vencimiento</dt><dd>@contexto.FechaVencimiento.ToString("dd/MM/yyyy")</dd></div>
+                        <div class="kv-row"><dt>Fecha comercial</dt><dd>@contexto.FechaComercial.ToString("dd/MM/yyyy") (automática)</dd></div>
+                        <div class="kv-row"><dt>Estado</dt><dd>@contexto.Estado · @contexto.DiasAtraso días de atraso</dd></div>
+                        <div class="kv-row"><dt>Capital pendiente</dt><dd class="num">@Dinero(contexto.CapitalPendiente)</dd></div>
+                        <div class="kv-row">
+                            <dt>Punitorio calculado <span class="muted-2">(informativo)</span></dt>
+                            <dd class="num">@DineroOpcional(contexto.PunitorioCalculadoInformativo)</dd>
+                        </div>
+                        <div class="kv-row"><dt>Estado del cálculo</dt><dd>@contexto.EstadoCalculoPunitorio</dd></div>
+                        @if (!string.IsNullOrWhiteSpace(contexto.MotivoNoCalculoPunitorio))
+                        {
+                            <div class="kv-row"><dt>Detalle del cálculo</dt><dd>@contexto.MotivoNoCalculoPunitorio</dd></div>
+                        }
+                        <div class="kv-row"><dt>Punitorio aplicado a cancelar</dt><dd class="num">@DineroOpcional(contexto.PunitorioAplicadoPendiente)</dd></div>
+                        <div class="kv-row"><dt>Total a cancelar</dt><dd class="num"><strong>@DineroOpcional(contexto.TotalCobrableActual)</strong></dd></div>
+                    </dl>
 
-        <div class="sec-head" style="margin-top:1.5rem">
-            <div class="sec-num">$</div>
-            <div>
-                <div class="sec-title">Datos del pago</div>
-                <div class="sec-sub">Cómo se registra el adelanto.</div>
-            </div>
-        </div>
+                    @if (!contexto.HistorialCompleto || !contexto.PunitorioAplicadoPendiente.HasValue)
+                    {
+                        <div class="alert alert-warn" style="margin-top:1rem" role="alert">
+                            El historial necesario para adelantar no está completo. @(contexto.MotivoHistorialIncompleto ?? "Revisá la aplicación de punitorios antes de continuar.")
+                        </div>
+                    }
+                </section>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-                <label asp-for="FechaPago" class="label">Fecha de pago <span class="req">*</span></label>
-                <input asp-for="FechaPago"
-                       type="date"
-                       class="field" />
-                <span asp-validation-for="FechaPago" class="err-text"></span>
-            </div>
-            <div>
-                <label asp-for="MedioPago" class="label">Medio de pago <span class="req">*</span></label>
-                <select asp-for="MedioPago" class="field">
-                    <option value="Efectivo">Efectivo</option>
-                    <option value="Transferencia">Transferencia</option>
-                    <option value="Tarjeta Débito">Tarjeta Débito</option>
-                    <option value="Tarjeta Crédito">Tarjeta Crédito</option>
-                    <option value="Cheque">Cheque</option>
-                </select>
-                <span asp-validation-for="MedioPago" class="err-text"></span>
-            </div>
-            <div>
-                <label asp-for="ComprobantePago" class="label">N° de comprobante</label>
-                <input asp-for="ComprobantePago"
-                       class="field mono"
-                       placeholder="Ej. 0001-00045822" />
-                <span asp-validation-for="ComprobantePago" class="err-text"></span>
-            </div>
-            <div class="sm:col-span-2">
-                <label asp-for="Observaciones" class="label">Observaciones</label>
-                <textarea asp-for="Observaciones"
-                          class="field"
-                          placeholder="Comentario interno (opcional)..."></textarea>
-                <span asp-validation-for="Observaciones" class="err-text"></span>
-            </div>
-        </div>
+                <form id="adelanto-form-proxy"
+                      data-credito-adelanto-form
+                      data-adelanto-preview-url="@Url.Action("PrevisualizarAdelanto", "Credito", new { id = contexto.CreditoId })"
+                      data-preview-valid="@(preview is not null ? "true" : "false")"
+                      data-result-present="@(resultado is not null ? "true" : "false")"
+                      asp-action="AdelantarCuota"
+                      asp-route-id="@contexto.CreditoId"
+                      method="post"
+                      novalidate>
+                    @Html.AntiForgeryToken()
+                    @if (returnUrl != null)
+                    {
+                        <input type="hidden" name="returnUrl" value="@returnUrl" />
+                    }
+                    <input asp-for="Input.CuotaRowVersionBase64" type="hidden" data-adelanto-rowversion />
 
-        <div class="flex flex-col-reverse sm:flex-row justify-end gap-2 mt-5 pt-5" style="border-top:1px solid var(--line)" data-credito-adelanto-footer-actions>
-            <a href="@volverHref" class="btn btn-ghost">Cancelar</a>
-            <button type="submit" class="btn btn-success">
-                <span class="material-symbols-outlined">fast_forward</span>
-                Registrar adelanto
-            </button>
+                    <div asp-validation-summary="ModelOnly" class="alert alert-bad empty:hidden" role="alert"></div>
+
+                    <section class="card card-pad" aria-labelledby="datos-adelanto-titulo">
+                        <div class="sec-head">
+                            <div class="sec-num" aria-hidden="true">2</div>
+                            <div>
+                                <h2 id="datos-adelanto-titulo" class="sec-title">Datos del pago</h2>
+                                <p class="sec-sub">El adelanto cancela el total mostrado a la derecha; elegí el medio de pago.</p>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label asp-for="Input.MedioPago" class="label">Medio de pago <span class="req">*</span></label>
+                                <select asp-for="Input.MedioPago" class="field" data-adelanto-medio>
+                                    <option value="Efectivo">Efectivo</option>
+                                    <option value="Transferencia">Transferencia</option>
+                                    <option value="Tarjeta Débito">Tarjeta Débito</option>
+                                    <option value="Tarjeta Crédito">Tarjeta Crédito</option>
+                                    <option value="Cheque">Cheque</option>
+                                </select>
+                                <span asp-validation-for="Input.MedioPago" class="err-text"></span>
+                            </div>
+                            <div>
+                                <label asp-for="Input.Comprobante" class="label">Número de comprobante</label>
+                                <input asp-for="Input.Comprobante" class="field mono" autocomplete="off" />
+                                <span asp-validation-for="Input.Comprobante" class="err-text"></span>
+                            </div>
+                            <div class="sm:col-span-2">
+                                <label asp-for="Input.Observaciones" class="label">Observaciones</label>
+                                <textarea asp-for="Input.Observaciones" class="field" rows="3"></textarea>
+                                <span asp-validation-for="Input.Observaciones" class="err-text"></span>
+                            </div>
+                        </div>
+                    </section>
+                </form>
+            </div>
+
+            <aside>
+                <section class="card card-pad" style="position:sticky;top:76px" aria-labelledby="preview-titulo">
+                    <h2 id="preview-titulo" class="font-semibold text-white mb-3 flex items-center gap-2">
+                        <span class="material-symbols-outlined" aria-hidden="true" style="color:#f5c518;font-size:20px">receipt</span>
+                        Previsualización del adelanto
+                    </h2>
+                    <div data-adelanto-preview-status class="hint" role="status" aria-live="polite">
+                        @(preview is null ? "Calculando previsualización…" : "Previsualización calculada por el servidor.")
+                    </div>
+                    <dl class="kv mt-3" data-adelanto-preview>
+                        <div class="kv-row"><dt>Capital a cancelar</dt><dd class="num" data-preview-field="aplicadoCapital">@(preview is null ? "—" : Dinero(preview.AplicadoCapital))</dd></div>
+                        <div class="kv-row"><dt>Punitorio aplicado a cancelar</dt><dd class="num" data-preview-field="aplicadoPunitorio">@(preview is null ? "—" : Dinero(preview.AplicadoPunitorio))</dd></div>
+                        <div class="kv-row"><dt>Recargo del medio</dt><dd class="num" data-preview-field="recargoMedioPago">@(preview is null ? "—" : Dinero(preview.RecargoMedioPago))</dd></div>
+                        <div class="kv-row"><dt>Total a caja</dt><dd class="num" data-preview-field="totalCaja">@(preview is null ? "—" : Dinero(preview.TotalCaja))</dd></div>
+                        <div class="kv-row"><dt>Estado final esperado</dt><dd data-preview-field="estadoEstimadoTexto">@(preview?.EstadoEstimadoTexto ?? "—")</dd></div>
+                        <div class="kv-row"><dt>Fecha comercial</dt><dd data-preview-field="fechaComercial">@(preview?.FechaComercial.ToString("dd/MM/yyyy") ?? "—")</dd></div>
+                    </dl>
+                    <button type="submit"
+                            form="adelanto-form-proxy"
+                            class="btn btn-success btn-block btn-lg"
+                            style="margin-top:1.1rem"
+                            data-adelanto-confirmar
+                            disabled="@(preview is null || resultado is not null)">
+                        <span class="material-symbols-outlined" aria-hidden="true">fast_forward</span>
+                        Registrar adelanto
+                    </button>
+                    <a href="@volverHref" class="btn btn-ghost btn-block btn-sm" style="margin-top:.5rem">Cancelar</a>
+                </section>
+            </aside>
         </div>
-    </form>
-</main>
+    </main>
+</div>
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
-    <script src="~/js/shared-ui.js" asp-append-version="true"></script>
+    <script src="~/js/credito-module.js" asp-append-version="true"></script>
+    <script src="~/js/credito-adelanto.js" asp-append-version="true"></script>
 }

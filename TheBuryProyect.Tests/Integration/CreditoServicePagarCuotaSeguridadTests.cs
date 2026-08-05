@@ -176,9 +176,13 @@ public class CreditoServicePagarCuotaSeguridadTests : IDisposable
     // Infraestructura
     // -------------------------------------------------------------------------
 
+    // AddInterceptors: SQL Server regenera RowVersion en cada UPDATE; SQLite no (ver
+    // SqliteRowVersionRotationInterceptor). Sin esto, el token de concurrencia de un segundo
+    // envío con el mismo comando nunca quedaría stale bajo SQLite.
     private AppDbContext CrearContexto() =>
         new(new DbContextOptionsBuilder<AppDbContext>()
             .UseSqlite($"DataSource={_dataSource};Mode=Memory;Cache=Shared")
+            .AddInterceptors(new TheBuryProject.Tests.Infrastructure.SqliteRowVersionRotationInterceptor())
             .Options);
 
     private static CreditoService CrearService(
@@ -280,6 +284,32 @@ public class CreditoServicePagarCuotaSeguridadTests : IDisposable
         return await _context.Cuotas.AsNoTracking().FirstAsync(c => c.Id == cuotaId);
     }
 
+    private static PagoCuotaIndividualComando Comando(
+        Cuota cuota,
+        decimal monto,
+        string medio = "Efectivo") =>
+        new(cuota.Id, monto, medio, "COMP-TEST", "Pago individual", cuota.RowVersion.ToArray());
+
+    private async Task<PunitorioAplicado> SeedPunitorioAplicadoAsync(Cuota cuota, decimal importe)
+    {
+        var aplicado = new PunitorioAplicado
+        {
+            CuotaId = cuota.Id,
+            FechaCalculo = _reloj.HoyComercial,
+            SaldoBase = cuota.MontoTotal - cuota.MontoPagado,
+            DiasComputados = 1,
+            Importe = importe,
+            Estado = EstadoPunitorioAplicado.Aplicado,
+            FechaAplicacion = _reloj.AhoraUtc,
+            MotivoAplicacion = "Seed pago individual",
+            UsuarioAplicacion = "TestUser"
+        };
+        _context.PunitoriosAplicados.Add(aplicado);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+        return aplicado;
+    }
+
     /// <summary>Confirma que un rechazo no dejó rastro: ni cuota tocada ni movimiento de caja.</summary>
     private async Task AssertSinEfectosAsync(Cuota cuotaOriginal)
     {
@@ -296,6 +326,145 @@ public class CreditoServicePagarCuotaSeguridadTests : IDisposable
     // =========================================================================
     // Casos válidos
     // =========================================================================
+
+    [Fact]
+    public async Task ContextoPagoIndividual_SeparaCalculadoInformativoDeAplicadoYCobrable()
+    {
+        var (_, cuota) = await SeedEscenarioAsync("CTX");
+        var tracked = await _context.Cuotas.SingleAsync(c => c.Id == cuota.Id);
+        tracked.FechaVencimiento = _reloj.HoyComercial.AddDays(-10).ToDateTime(TimeOnly.MinValue);
+        tracked.Estado = EstadoCuota.Vencida;
+        tracked.MontoPunitorio = 777m;
+        _context.ConfiguracionesPunitorio.Add(new ConfiguracionPunitorio
+        {
+            Porcentaje = 10m,
+            PeriodoDias = 30,
+            DiasGracia = 0,
+            ProrrateoDiario = true,
+            VigenteDesde = _reloj.HoyComercial.AddYears(-1),
+            Activa = true
+        });
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var contexto = Assert.IsType<PagoCuotaContextoResultado>(
+            await _service.ObtenerContextoPagoCuotaAsync(cuota.Id));
+
+        Assert.Equal(MontoCuota, contexto.CapitalPendiente);
+        Assert.True(contexto.PunitorioCalculadoInformativo > 0m);
+        Assert.Equal(0m, contexto.PunitorioAplicadoPendiente);
+        Assert.Equal(MontoCuota, contexto.TotalCobrableActual);
+        Assert.NotEqual(777m, contexto.PunitorioCalculadoInformativo);
+    }
+
+    [Fact]
+    public async Task PreviewPagoIndividual_SinAplicacion_ImputaCapitalYNoEscribe()
+    {
+        var (_, cuotaSeed) = await SeedEscenarioAsync("PRE");
+        var cuota = await RecargarCuotaAsync(cuotaSeed.Id);
+
+        var primera = Assert.IsType<PagoCuotaPreviewResultado>(
+            await _service.PrevisualizarPagoCuotaAsync(Comando(cuota, 125m)));
+        var segunda = Assert.IsType<PagoCuotaPreviewResultado>(
+            await _service.PrevisualizarPagoCuotaAsync(Comando(cuota, 125m)));
+
+        Assert.Equal(0m, primera.AplicadoPunitorio);
+        Assert.Equal(125m, primera.AplicadoCapital);
+        Assert.Equal(0m, primera.Excedente);
+        Assert.Equal(primera, segunda);
+        Assert.Empty(_caja.Movimientos);
+        Assert.Empty(await _context.PagosCuota.AsNoTracking().ToListAsync());
+        Assert.Equal(0m, (await RecargarCuotaAsync(cuota.Id)).MontoPagado);
+    }
+
+    [Theory]
+    [InlineData(40, 40, 0)]
+    [InlineData(100, 100, 0)]
+    [InlineData(150, 100, 50)]
+    public async Task PreviewPagoIndividual_RespetaPrioridadPunitorioLuegoCapital(
+        decimal monto,
+        decimal esperadoPunitorio,
+        decimal esperadoCapital)
+    {
+        var (_, cuotaSeed) = await SeedEscenarioAsync($"DIST{monto}");
+        await SeedPunitorioAplicadoAsync(cuotaSeed, 100m);
+        var cuota = await RecargarCuotaAsync(cuotaSeed.Id);
+
+        var preview = Assert.IsType<PagoCuotaPreviewResultado>(
+            await _service.PrevisualizarPagoCuotaAsync(Comando(cuota, monto)));
+
+        Assert.Equal(esperadoPunitorio, preview.AplicadoPunitorio);
+        Assert.Equal(esperadoCapital, preview.AplicadoCapital);
+        Assert.Equal(100m - esperadoPunitorio, preview.PunitorioRestante);
+        Assert.Equal(MontoCuota - esperadoCapital, preview.CapitalRestante);
+        Assert.Empty(_caja.Movimientos);
+        Assert.Empty(await _context.PagosCuota.AsNoTracking().ToListAsync());
+    }
+
+    [Fact]
+    public async Task PreviewPagoIndividual_RecargoSeCalculaSeparadoSinPersistir()
+    {
+        _configuracionPago.AjustePorcentaje = 3m;
+        var (_, cuotaSeed) = await SeedEscenarioAsync("RECPRE");
+        var cuota = await RecargarCuotaAsync(cuotaSeed.Id);
+
+        var preview = Assert.IsType<PagoCuotaPreviewResultado>(
+            await _service.PrevisualizarPagoCuotaAsync(Comando(cuota, 100m, "Transferencia")));
+
+        Assert.Equal(100m, preview.ImporteIngresado);
+        Assert.Equal(3m, preview.RecargoMedioPago);
+        Assert.Equal(103m, preview.TotalCaja);
+        Assert.Empty(_caja.Movimientos);
+        Assert.Empty(await _context.PagosCuota.AsNoTracking().ToListAsync());
+    }
+
+    [Fact]
+    public async Task ConfirmarPagoIndividual_DevuelveResultadoRealYLiberaSoloCapital()
+    {
+        _configuracionPago.AjustePorcentaje = 4m;
+        var (credito, cuotaSeed) = await SeedEscenarioAsync("CONF");
+        await SeedPunitorioAplicadoAsync(cuotaSeed, 50m);
+        var cuota = await RecargarCuotaAsync(cuotaSeed.Id);
+
+        var resultado = Assert.IsType<PagoCuotaResultado>(
+            await _service.RegistrarPagoCuotaIndividualAsync(Comando(cuota, 75m, "Transferencia")));
+
+        Assert.Equal(75m, resultado.ImporteRecibido);
+        Assert.Equal(50m, resultado.AplicadoPunitorio);
+        Assert.Equal(25m, resultado.AplicadoCapital);
+        Assert.Equal(3m, resultado.RecargoMedioPago);
+        Assert.Equal(78m, resultado.TotalCaja);
+        Assert.True(resultado.PagoCuotaId > 0);
+        Assert.True(resultado.MovimientoCajaId > 0);
+        Assert.NotEqual(Convert.ToBase64String(cuota.RowVersion), resultado.CuotaRowVersionBase64);
+
+        var cuotaBd = await RecargarCuotaAsync(cuota.Id);
+        Assert.Equal(25m, cuotaBd.MontoPagado);
+        var creditoBd = await _context.Creditos.AsNoTracking().SingleAsync(c => c.Id == credito.Id);
+        Assert.Equal(MontoCuota - 25m, creditoBd.SaldoPendiente);
+        var ledger = await _context.PagosCuota.AsNoTracking().SingleAsync();
+        Assert.Equal(50m, ledger.ImporteAplicadoPunitorio);
+        Assert.Equal(25m, ledger.ImporteAplicadoCuota);
+    }
+
+    [Fact]
+    public async Task ConfirmarPagoIndividual_DoblePostParcialConMismoToken_SoloPersisteUno()
+    {
+        var (_, cuotaSeed) = await SeedEscenarioAsync("TOKEN");
+        var cuota = await RecargarCuotaAsync(cuotaSeed.Id);
+        var comando = Comando(cuota, 100m);
+
+        var primero = Assert.IsType<PagoCuotaResultado>(
+            await _service.RegistrarPagoCuotaIndividualAsync(comando));
+        var ex = await Assert.ThrowsAsync<PagoCuotaRechazadoException>(() =>
+            _service.RegistrarPagoCuotaIndividualAsync(comando));
+
+        Assert.Equal(MotivoRechazoPagoCuota.Conflicto, ex.Motivo);
+        Assert.NotEqual(Convert.ToBase64String(cuota.RowVersion), primero.CuotaRowVersionBase64);
+        Assert.Single(_caja.Movimientos);
+        Assert.Single(await _context.PagosCuota.AsNoTracking().ToListAsync());
+        Assert.Equal(100m, (await RecargarCuotaAsync(cuota.Id)).MontoPagado);
+    }
 
     [Fact]
     public async Task PagarCuota_SaldoCompleto_MarcaPagadaYRegistraCaja()

@@ -207,7 +207,8 @@ namespace TheBuryProject.Helpers
             // =======================
             CreateMap<Cuota, CuotaViewModel>()
                 .ForMember(d => d.CreditoNumero, o => o.MapFrom(s => s.Credito != null ? s.Credito.Numero : string.Empty))
-                .ForMember(d => d.ClienteNombre, o => o.MapFrom(s => s.Credito != null && s.Credito.Cliente != null ? s.Credito.Cliente.ToDisplayName() : string.Empty));
+                .ForMember(d => d.ClienteNombre, o => o.MapFrom(s => s.Credito != null && s.Credito.Cliente != null ? s.Credito.Cliente.ToDisplayName() : string.Empty))
+                .ForMember(d => d.CuotaRowVersionBase64, o => o.MapFrom(s => Convert.ToBase64String(s.RowVersion ?? Array.Empty<byte>())));
 
             CreateMap<CuotaViewModel, Cuota>()
                 .ForMember(d => d.Credito, o => o.Ignore());

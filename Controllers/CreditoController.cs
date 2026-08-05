@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Text.Json;
 using TheBuryProject.Filters;
 using TheBuryProject.Helpers;
 using TheBuryProject.Models.DTOs;
@@ -10,6 +11,8 @@ using TheBuryProject.Services.Exceptions;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.Services.Models;
 using TheBuryProject.ViewModels;
+using TheBuryProject.ViewModels.PagoCuota;
+using TheBuryProject.ViewModels.Punitorio;
 using TheBuryProject.ViewModels.Requests;
 
 namespace TheBuryProject.Controllers
@@ -29,6 +32,7 @@ namespace TheBuryProject.Controllers
         private readonly ICreditoConfiguracionVentaService _creditoConfiguracionVentaService;
         private readonly ICreditoSimulacionVentaService _creditoSimulacionVentaService;
         private readonly ICreditoUiQueryService _creditoUiQueryService;
+        private readonly IPunitorioService? _punitorioService;
 
         private readonly ICurrentUserService _currentUser;
         private readonly CreditoViewBagBuilder _viewBagBuilder;
@@ -59,7 +63,8 @@ namespace TheBuryProject.Controllers
             ICreditoConfiguracionVentaService? creditoConfiguracionVentaService = null,
             ICreditoSimulacionVentaService? creditoSimulacionVentaService = null,
             ICreditoUiQueryService? creditoUiQueryService = null,
-            IRelojComercial? reloj = null)
+            IRelojComercial? reloj = null,
+            IPunitorioService? punitorioService = null)
         {
             _creditoService = creditoService;
             // PUN-ML7: fuente única de "hoy" para vencimiento. La inyección obligatoria sería
@@ -94,6 +99,7 @@ namespace TheBuryProject.Controllers
                     _ventaService,
                     _creditoRangoProductoService);
             _creditoUiQueryService = creditoUiQueryService ?? new CreditoUiQueryService();
+            _punitorioService = punitorioService;
         }
 
         #region Index / Detalle / Simular
@@ -177,6 +183,307 @@ namespace TheBuryProject.Controllers
                 _logger.LogError(ex, "Error al obtener crédito {Id}", id);
                 TempData["Error"] = "Error al cargar el crédito";
                 return RedirectToAction(nameof(Index));
+            }
+        }
+
+        // GET: /Credito/{creditoId}/Cuotas/{cuotaId}/Punitorio
+        // PUN-ML9-B2: consulta read-only y bajo demanda. La ruta incluye el crédito para impedir
+        // que un panel de Details cargue accidentalmente una cuota perteneciente a otro crédito.
+        [HttpGet("/Credito/{creditoId:int}/Cuotas/{cuotaId:int}/Punitorio")]
+        public async Task<IActionResult> DetallePunitorioCuota(
+            int creditoId,
+            int cuotaId,
+            CancellationToken cancellationToken)
+        {
+            if (creditoId <= 0 || cuotaId <= 0)
+                return NotFound();
+
+            if (_punitorioService is null)
+            {
+                _logger.LogError(
+                    "IPunitorioService no está disponible al consultar la cuota {CuotaId} del crédito {CreditoId}",
+                    cuotaId,
+                    creditoId);
+                return Problem(
+                    title: "No se pudo cargar el detalle de punitorios.",
+                    statusCode: StatusCodes.Status500InternalServerError);
+            }
+
+            try
+            {
+                var detalle = await _punitorioService.ObtenerDetalleCuotaAsync(cuotaId, cancellationToken);
+                if (detalle.CreditoId != creditoId)
+                    return NotFound();
+
+                return PartialView(
+                    "_PunitorioCuotaDetallePartial",
+                    CuotaPunitorioDetalleViewModel.Desde(
+                        detalle,
+                        User.TienePermiso("cobranzas", "applyfine"),
+                        User.TienePermiso("cobranzas", "revertfine")));
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound();
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Error al consultar punitorios de la cuota {CuotaId} del crédito {CreditoId}",
+                    cuotaId,
+                    creditoId);
+                return Problem(
+                    title: "No se pudo cargar el detalle de punitorios.",
+                    statusCode: StatusCodes.Status500InternalServerError);
+            }
+        }
+
+        [HttpPost("/Credito/{creditoId:int}/Cuotas/{cuotaId:int}/Punitorio/Aplicar")]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "cobranzas", Accion = "applyfine")]
+        public async Task<IActionResult> AplicarPunitorioCuota(
+            int creditoId,
+            int cuotaId,
+            [Bind(Prefix = "Acciones.Aplicar")] AplicarPunitorioHttpViewModel form,
+            CancellationToken cancellationToken)
+        {
+            if (creditoId <= 0 || cuotaId <= 0)
+                return PunitorioOperacionError(
+                    StatusCodes.Status404NotFound,
+                    "El credito o la cuota no existen.");
+
+            if (_punitorioService is null)
+                return PunitorioOperacionError(
+                    StatusCodes.Status500InternalServerError,
+                    "No se pudo aplicar el punitorio. Intentá nuevamente.");
+
+            if (string.IsNullOrWhiteSpace(form.Motivo))
+                ModelState.AddModelError("Acciones.Aplicar.Motivo", "El motivo es obligatorio.");
+
+            if (!TryDecodeRowVersion(form.CuotaRowVersionBase64, out var cuotaRowVersion))
+            {
+                ModelState.AddModelError(
+                    "Acciones.Aplicar.CuotaRowVersionBase64",
+                    "El panel está desactualizado. Recargalo e intentá nuevamente.");
+            }
+
+            if (!ModelState.IsValid)
+                return PunitorioValidationError();
+
+            try
+            {
+                var detalle = await _punitorioService.ObtenerDetalleCuotaAsync(cuotaId, cancellationToken);
+                if (detalle.CreditoId != creditoId)
+                    return PunitorioOperacionError(
+                        StatusCodes.Status404NotFound,
+                        "La cuota no pertenece al credito indicado.");
+
+                var aplicado = await _punitorioService.AplicarAsync(
+                    cuotaId,
+                    new PunitorioAplicarComando
+                    {
+                        Motivo = form.Motivo!,
+                        CuotaRowVersionEsperada = cuotaRowVersion
+                    },
+                    cancellationToken);
+
+                return Json(new PunitorioOperacionResponseViewModel
+                {
+                    Success = true,
+                    ReloadPanel = true,
+                    ImporteAplicadoReal = aplicado.Importe,
+                    Message = $"Punitorio aplicado por $ {aplicado.Importe:N2}. El importe fue recalculado por el servidor."
+                });
+            }
+            catch (KeyNotFoundException)
+            {
+                return PunitorioOperacionError(
+                    StatusCodes.Status404NotFound,
+                    "El credito o la cuota no existen.");
+            }
+            catch (PunitorioAplicadoRechazadoException ex)
+            {
+                return PunitorioRechazado(ex, "aplicar");
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Error al aplicar punitorio de la cuota {CuotaId} del crédito {CreditoId}",
+                    cuotaId,
+                    creditoId);
+                return PunitorioOperacionError(
+                    StatusCodes.Status500InternalServerError,
+                    "No se pudo aplicar el punitorio. Intentá nuevamente.");
+            }
+        }
+
+        [HttpPost("/Credito/{creditoId:int}/Cuotas/{cuotaId:int}/Punitorio/{punitorioAplicadoId:int}/Anular")]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "cobranzas", Accion = "revertfine")]
+        public async Task<IActionResult> AnularPunitorioCuota(
+            int creditoId,
+            int cuotaId,
+            int punitorioAplicadoId,
+            [Bind(Prefix = "Acciones.Anulacion.Form")] AnularPunitorioHttpViewModel form,
+            CancellationToken cancellationToken)
+        {
+            if (creditoId <= 0 || cuotaId <= 0 || punitorioAplicadoId <= 0)
+                return PunitorioOperacionError(
+                    StatusCodes.Status404NotFound,
+                    "El crédito, la cuota o la aplicación no existen.");
+
+            if (_punitorioService is null)
+                return PunitorioOperacionError(
+                    StatusCodes.Status500InternalServerError,
+                    "No se pudo anular el punitorio. Intentá nuevamente.");
+
+            if (string.IsNullOrWhiteSpace(form.Motivo))
+                ModelState.AddModelError("Acciones.Anulacion.Form.Motivo", "El motivo es obligatorio.");
+
+            if (!TryDecodeRowVersion(form.PunitorioAplicadoRowVersionBase64, out var aplicacionRowVersion))
+            {
+                ModelState.AddModelError(
+                    "Acciones.Anulacion.Form.PunitorioAplicadoRowVersionBase64",
+                    "El panel está desactualizado. Recargalo e intentá nuevamente.");
+            }
+
+            if (!ModelState.IsValid)
+                return PunitorioValidationError();
+
+            try
+            {
+                var detalle = await _punitorioService.ObtenerDetalleCuotaAsync(cuotaId, cancellationToken);
+                if (detalle.CreditoId != creditoId ||
+                    !detalle.AplicacionesHistoricas.Any(a => a.PunitorioAplicadoId == punitorioAplicadoId))
+                {
+                    return PunitorioOperacionError(
+                        StatusCodes.Status404NotFound,
+                        "La aplicación no pertenece a la cuota y al crédito indicados.");
+                }
+
+                await _punitorioService.AnularAsync(
+                    punitorioAplicadoId,
+                    new PunitorioAnularComando
+                    {
+                        Motivo = form.Motivo!,
+                        RowVersionEsperado = aplicacionRowVersion
+                    },
+                    cancellationToken);
+
+                return Json(new PunitorioOperacionResponseViewModel
+                {
+                    Success = true,
+                    ReloadPanel = true,
+                    Message = "La aplicación de punitorio fue anulada. El historial se conserva."
+                });
+            }
+            catch (KeyNotFoundException)
+            {
+                return PunitorioOperacionError(
+                    StatusCodes.Status404NotFound,
+                    "El crédito, la cuota o la aplicación no existen.");
+            }
+            catch (PunitorioAplicadoRechazadoException ex)
+            {
+                return PunitorioRechazado(ex, "anular");
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Error al anular punitorio {PunitorioAplicadoId} de la cuota {CuotaId} del crédito {CreditoId}",
+                    punitorioAplicadoId,
+                    cuotaId,
+                    creditoId);
+                return PunitorioOperacionError(
+                    StatusCodes.Status500InternalServerError,
+                    "No se pudo anular el punitorio. Intentá nuevamente.");
+            }
+        }
+
+        private IActionResult PunitorioRechazado(PunitorioAplicadoRechazadoException ex, string operacion)
+        {
+            var statusCode = ex.Motivo switch
+            {
+                MotivoRechazoPunitorioAplicado.NoAutorizado => StatusCodes.Status403Forbidden,
+                MotivoRechazoPunitorioAplicado.SolicitudInvalida => StatusCodes.Status400BadRequest,
+                MotivoRechazoPunitorioAplicado.NoAplicable => StatusCodes.Status409Conflict,
+                MotivoRechazoPunitorioAplicado.Conflicto => StatusCodes.Status409Conflict,
+                _ => StatusCodes.Status400BadRequest
+            };
+
+            var message = string.IsNullOrWhiteSpace(ex.Message)
+                ? $"No se pudo {operacion} el punitorio."
+                : ex.Message;
+
+            return PunitorioOperacionError(
+                statusCode,
+                message,
+                reloadPanel: statusCode == StatusCodes.Status409Conflict);
+        }
+
+        private IActionResult PunitorioValidationError()
+        {
+            var errors = ModelState
+                .Where(entry => entry.Value?.Errors.Count > 0)
+                .ToDictionary(
+                    entry => entry.Key,
+                    entry => entry.Value!.Errors
+                        .Select(error => string.IsNullOrWhiteSpace(error.ErrorMessage)
+                            ? "El valor ingresado no es válido."
+                            : error.ErrorMessage)
+                        .Distinct(StringComparer.Ordinal)
+                        .ToArray(),
+                    StringComparer.Ordinal);
+
+            return PunitorioOperacionError(
+                StatusCodes.Status400BadRequest,
+                "Revisá los datos del formulario.",
+                errors: errors);
+        }
+
+        private IActionResult PunitorioOperacionError(
+            int statusCode,
+            string message,
+            bool reloadPanel = false,
+            IReadOnlyDictionary<string, string[]>? errors = null) =>
+            StatusCode(statusCode, new PunitorioOperacionResponseViewModel
+            {
+                Success = false,
+                Message = message,
+                ReloadPanel = reloadPanel,
+                Errors = errors
+            });
+
+        private static bool TryDecodeRowVersion(string? base64, out byte[] rowVersion)
+        {
+            rowVersion = Array.Empty<byte>();
+            if (string.IsNullOrWhiteSpace(base64))
+                return false;
+
+            try
+            {
+                rowVersion = Convert.FromBase64String(base64);
+                return rowVersion.Length == 8;
+            }
+            catch (FormatException)
+            {
+                rowVersion = Array.Empty<byte>();
+                return false;
             }
         }
 
@@ -763,37 +1070,6 @@ namespace TheBuryProject.Controllers
             modelo.RestriccionCreditoProductoDescripcion = rango.DescripcionProducto;
         }
 
-        private async Task CargarCuotasPago(PagarCuotaViewModel modelo, IReadOnlyCollection<CuotaViewModel> cuotas)
-        {
-            modelo.Cuotas = _creditoUiQueryService.ProyectarCuotasPendientes(cuotas);
-            modelo.CuotasJson = _creditoUiQueryService.BuildCuotasJson(cuotas);
-            modelo.RecargosPorMedioJson = await BuildRecargosPorMedioJsonAsync();
-        }
-
-        // Porcentaje de recargo/descuento vigente por medio de pago, para previsualizar el
-        // total en el formulario. El backend sigue siendo la autoridad al confirmar el cobro.
-        private static readonly (string Etiqueta, TipoPago Tipo)[] MediosPagoCobroCuota =
-        {
-            ("Efectivo", TipoPago.Efectivo),
-            ("Transferencia", TipoPago.Transferencia),
-            ("Tarjeta Débito", TipoPago.TarjetaDebito),
-            ("Tarjeta Crédito", TipoPago.TarjetaCredito),
-            ("Cheque", TipoPago.Cheque)
-        };
-
-        private async Task<string> BuildRecargosPorMedioJsonAsync()
-        {
-            if (_configuracionPagoService is null)
-                return "{}";
-
-            var mapa = new Dictionary<string, decimal>();
-            foreach (var (etiqueta, tipo) in MediosPagoCobroCuota)
-            {
-                mapa[etiqueta] = await _configuracionPagoService.ObtenerPorcentajeAjusteUnPagoAsync(tipo);
-            }
-            return System.Text.Json.JsonSerializer.Serialize(mapa);
-        }
-
         #endregion
 
         #region Crear / Editar — retirado (ML11)
@@ -897,149 +1173,261 @@ namespace TheBuryProject.Controllers
 
         #region Pagar / Adelantar cuota
 
-        // GET: Credito/PagarCuota/5
-        public async Task<IActionResult> PagarCuota(int id, int? cuotaId = null, string? returnUrl = null)
+        private const string PagoCuotaResultadoTempDataKey = "PagoCuotaResultado";
+
+        // El Id de ruta es el Id de la cuota. El crédito y el cliente se derivan server-side.
+        [HttpGet("/Credito/PagarCuota/{id:int}")]
+        [PermisoRequerido(Modulo = "cobranzas", Accion = "payinstallment")]
+        public async Task<IActionResult> PagarCuota(int id, string? returnUrl = null)
         {
-            try
+            ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
+
+            var contexto = await _creditoService.ObtenerContextoPagoCuotaAsync(id);
+            if (contexto is null)
+                return NotFound();
+
+            PagoCuotaResultadoViewModel? resultado = null;
+            if (TempData is not null && TempData[PagoCuotaResultadoTempDataKey] is string resultadoJson)
             {
-                ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
-
-                var credito = await _creditoService.GetByIdAsync(id);
-                if (credito == null)
+                try
                 {
-                    TempData["Error"] = "Crédito no encontrado";
-                    return RedirectToAction(nameof(Index));
+                    resultado = JsonSerializer.Deserialize<PagoCuotaResultadoViewModel>(resultadoJson);
                 }
-
-                var cuotasDisponibles = _creditoUiQueryService.ObtenerCuotasPendientes(credito.Cuotas);
-
-                if (!cuotasDisponibles.Any())
+                catch (JsonException ex)
                 {
-                    TempData["Warning"] = "No hay cuotas pendientes o vencidas para registrar pago.";
-                    return RedirectToAction(nameof(Details), new { id, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
+                    _logger.LogWarning(ex, "No se pudo leer el resultado temporal del pago de cuota {CuotaId}.", id);
                 }
-
-                var cuotaSeleccionada = cuotaId.HasValue
-                    ? cuotasDisponibles.FirstOrDefault(c => c.Id == cuotaId.Value)
-                    : cuotasDisponibles.FirstOrDefault();
-
-                if (cuotaSeleccionada == null)
-                {
-                    TempData["Error"] = "Cuota no encontrada.";
-                    return RedirectToAction(nameof(Details), new { id, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
-                }
-
-                // PUN-ML7: fecha comercial única (antes DateTime.Today) para decidir "vencida" en la
-                // pantalla de cobro.
-                var hoyComercial = _reloj.HoyComercial;
-                var estaVencida = EstadoCuotaResolver.EsVencidaPorFecha(cuotaSeleccionada.FechaVencimiento, hoyComercial);
-                var diasAtraso = EstadoCuotaResolver.DiasAtrasoDerivado(
-                    cuotaSeleccionada.Estado, cuotaSeleccionada.FechaVencimiento, hoyComercial);
-
-                var modelo = new PagarCuotaViewModel
-                {
-                    CreditoId = credito.Id,
-                    CuotaId = cuotaSeleccionada.Id,
-                    NumeroCuota = cuotaSeleccionada.NumeroCuota,
-                    MontoCuota = cuotaSeleccionada.MontoTotal,
-                    MontoPunitorio = cuotaSeleccionada.MontoPunitorio,
-                    TotalAPagar = cuotaSeleccionada.SaldoPendiente,
-                    MontoPagado = cuotaSeleccionada.SaldoPendiente,
-                    ClienteNombre = credito.ClienteNombre,
-                    NumeroCreditoTexto = credito.Numero,
-                    FechaVencimiento = cuotaSeleccionada.FechaVencimiento,
-                    EstaVencida = estaVencida,
-                    DiasAtraso = diasAtraso,
-                    FechaPago = _reloj.AhoraUtc
-                };
-                await CargarCuotasPago(modelo, cuotasDisponibles);
-
-                return View("PagarCuota_tw", modelo);
             }
-            catch (Exception ex)
+
+            var input = new PagarCuotaInputModel
             {
-                _logger.LogError(ex, "Error al cargar pago de cuota: {Id}", id);
-                TempData["Error"] = "Error al cargar el formulario";
-                return RedirectToAction(nameof(Index));
-            }
+                MontoIngresado = contexto.TotalCobrableActual ?? 0m,
+                MedioPago = "Efectivo",
+                CuotaRowVersionBase64 = contexto.CuotaRowVersionBase64
+            };
+
+            var page = await ConstruirPaginaPagoCuotaAsync(contexto, input, resultado, incluirPreview: resultado is null);
+            return View("PagarCuota_tw", page);
         }
 
-        // POST: Credito/PagarCuota
-        [HttpPost]
+        [HttpPost("/Credito/PagarCuota/{id:int}/Preview")]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> PagarCuota(PagarCuotaViewModel modelo, string? returnUrl = null)
+        [PermisoRequerido(Modulo = "cobranzas", Accion = "payinstallment")]
+        public async Task<IActionResult> PrevisualizarPagoCuota(
+            int id,
+            [Bind(Prefix = "Input")] PagarCuotaInputModel input)
         {
+            if (!TryDecodeRowVersion(input.CuotaRowVersionBase64, out var rowVersion))
+                ModelState.AddModelError("Input.CuotaRowVersionBase64", "La versión de la cuota es inválida.");
+
+            if (!ModelState.IsValid)
+                return ValidationProblem(ModelState);
+
             try
             {
-                if (!ModelState.IsValid)
-                {
-                    ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
-
-                    var credito = await _creditoService.GetByIdAsync(modelo.CreditoId);
-                    if (credito == null)
-                    {
-                        TempData["Error"] = "Crédito no encontrado";
-                        return RedirectToAction(nameof(Index));
-                    }
-
-                    var cuotasPendientes = _creditoUiQueryService.ObtenerCuotasPendientes(credito.Cuotas);
-                    await CargarCuotasPago(modelo, cuotasPendientes);
-
-                    Response.StatusCode = StatusCodes.Status400BadRequest;
-                    return View("PagarCuota_tw", modelo);
-                }
-
-                var resultado = await _creditoService.PagarCuotaAsync(modelo);
-
-                if (resultado)
-                {
-                    TempData["Success"] = "Pago registrado exitosamente";
-                    return RedirectToReturnUrlOrDetails(returnUrl, modelo.CreditoId);
-                }
-
-                // El servicio no distingue el motivo para no revelar la existencia de
-                // cuotas o créditos ajenos: crédito inexistente, cuota inexistente o
-                // cuota de otro crédito devuelven lo mismo.
-                Response.StatusCode = StatusCodes.Status404NotFound;
-                ModelState.AddModelError(string.Empty, "No se encontró la cuota indicada para este crédito.");
+                var preview = await _creditoService.PrevisualizarPagoCuotaAsync(
+                    CrearComandoPago(id, input, rowVersion));
+                return preview is null ? NotFound() : Ok(MapPreview(preview));
             }
             catch (PagoCuotaRechazadoException ex)
             {
-                Response.StatusCode = ex.Motivo == MotivoRechazoPagoCuota.Conflicto
+                var status = ex.Motivo == MotivoRechazoPagoCuota.Conflicto
                     ? StatusCodes.Status409Conflict
                     : StatusCodes.Status400BadRequest;
-                ModelState.AddModelError(string.Empty, ex.Message);
+                return StatusCode(status, new { message = ex.Message });
             }
             catch (InvalidOperationException ex)
             {
-                Response.StatusCode = StatusCodes.Status400BadRequest;
-                ModelState.AddModelError(string.Empty, ex.Message);
+                return BadRequest(new { message = ex.Message });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error al pagar cuota");
-                Response.StatusCode = StatusCodes.Status500InternalServerError;
-                ModelState.AddModelError(string.Empty, "No se pudo registrar el pago. Intentá nuevamente.");
+                _logger.LogError(ex, "Error al previsualizar el pago de cuota {CuotaId}.", id);
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    new { message = "No se pudo previsualizar el pago. Intentá nuevamente." });
             }
+        }
 
-            ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
+        [HttpPost("/Credito/PagarCuota/{id:int}")]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "cobranzas", Accion = "payinstallment")]
+        public async Task<IActionResult> PagarCuota(
+            int id,
+            [Bind(Prefix = "Input")] PagarCuotaInputModel input,
+            string? returnUrl = null)
+        {
+            if (!TryDecodeRowVersion(input.CuotaRowVersionBase64, out var rowVersion))
+                ModelState.AddModelError("Input.CuotaRowVersionBase64", "La versión de la cuota es inválida.");
+
+            if (!ModelState.IsValid)
+                return await RenderPagoCuotaErrorAsync(id, input, StatusCodes.Status400BadRequest, returnUrl);
 
             try
             {
-                var credito = await _creditoService.GetByIdAsync(modelo.CreditoId);
-                var cuotasPendientes = _creditoUiQueryService.ObtenerCuotasPendientes(credito?.Cuotas);
-                await CargarCuotasPago(modelo, cuotasPendientes);
-            }
-            catch
-            {
-                // si falla, igual mostramos la vista con errores
-            }
+                var resultado = await _creditoService.RegistrarPagoCuotaIndividualAsync(
+                    CrearComandoPago(id, input, rowVersion));
+                if (resultado is null)
+                    return NotFound();
 
-            return View("PagarCuota_tw", modelo);
+                TempData[PagoCuotaResultadoTempDataKey] = JsonSerializer.Serialize(MapResultado(resultado));
+                // returnUrl solo gobierna a dónde vuelve el operador (link "Volver al crédito" en la
+                // página de recibo) — nunca la operación financiera, que ya quedó persistida arriba.
+                return RedirectToAction(nameof(PagarCuota), new { id, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
+            }
+            catch (PagoCuotaRechazadoException ex)
+            {
+                ModelState.AddModelError(string.Empty, ex.Message);
+                var status = ex.Motivo == MotivoRechazoPagoCuota.Conflicto
+                    ? StatusCodes.Status409Conflict
+                    : StatusCodes.Status400BadRequest;
+                return await RenderPagoCuotaErrorAsync(id, input, status, returnUrl);
+            }
+            catch (InvalidOperationException ex)
+            {
+                ModelState.AddModelError(string.Empty, ex.Message);
+                return await RenderPagoCuotaErrorAsync(id, input, StatusCodes.Status400BadRequest, returnUrl);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al pagar la cuota {CuotaId}.", id);
+                ModelState.AddModelError(string.Empty, "No se pudo registrar el pago. Intentá nuevamente.");
+                return await RenderPagoCuotaErrorAsync(id, input, StatusCodes.Status500InternalServerError, returnUrl);
+            }
         }
 
+        private async Task<IActionResult> RenderPagoCuotaErrorAsync(
+            int cuotaId,
+            PagarCuotaInputModel input,
+            int statusCode,
+            string? returnUrl)
+        {
+            var contexto = await _creditoService.ObtenerContextoPagoCuotaAsync(cuotaId);
+            if (contexto is null)
+                return NotFound();
+
+            ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
+            Response.StatusCode = statusCode;
+            var page = await ConstruirPaginaPagoCuotaAsync(
+                contexto,
+                input,
+                resultado: null,
+                incluirPreview: statusCode == StatusCodes.Status400BadRequest && ModelState.IsValid);
+            return View("PagarCuota_tw", page);
+        }
+
+        private async Task<PagarCuotaPageViewModel> ConstruirPaginaPagoCuotaAsync(
+            PagoCuotaContextoResultado contexto,
+            PagarCuotaInputModel input,
+            PagoCuotaResultadoViewModel? resultado,
+            bool incluirPreview)
+        {
+            PagoCuotaPreviewViewModel? preview = null;
+            if (incluirPreview &&
+                contexto.TotalCobrableActual is > 0m &&
+                TryDecodeRowVersion(input.CuotaRowVersionBase64, out var rowVersion))
+            {
+                try
+                {
+                    var calculada = await _creditoService.PrevisualizarPagoCuotaAsync(
+                        CrearComandoPago(contexto.CuotaId, input, rowVersion));
+                    if (calculada is not null)
+                        preview = MapPreview(calculada);
+                }
+                catch (PagoCuotaRechazadoException)
+                {
+                    // El error explícito del POST prevalece. En GET, la ausencia de preview deja
+                    // deshabilitada la confirmación y el navegador puede volver a solicitarla.
+                }
+                catch (InvalidOperationException)
+                {
+                    // Mismo criterio: no ocultar ni reemplazar ModelState con un error derivado.
+                }
+            }
+
+            return new PagarCuotaPageViewModel
+            {
+                Contexto = MapContexto(contexto),
+                Input = input,
+                Preview = preview,
+                Resultado = resultado
+            };
+        }
+
+        private static PagoCuotaIndividualComando CrearComandoPago(
+            int cuotaId,
+            PagarCuotaInputModel input,
+            byte[] rowVersion) =>
+            new(
+                cuotaId,
+                input.MontoIngresado,
+                input.MedioPago,
+                input.Comprobante,
+                input.Observaciones,
+                rowVersion);
+
+        private static PagoCuotaContextoViewModel MapContexto(PagoCuotaContextoResultado source) => new()
+        {
+            CuotaId = source.CuotaId,
+            CreditoId = source.CreditoId,
+            NumeroCuota = source.NumeroCuota,
+            NumeroCredito = source.NumeroCredito,
+            ClienteNombre = source.ClienteNombre,
+            FechaVencimiento = source.FechaVencimiento,
+            FechaComercial = source.FechaComercial,
+            Estado = source.Estado,
+            DiasAtraso = source.DiasAtraso,
+            CapitalPendiente = source.CapitalPendiente,
+            PunitorioCalculadoInformativo = source.PunitorioCalculadoInformativo,
+            EstadoCalculoPunitorio = source.EstadoCalculoPunitorio,
+            MotivoNoCalculoPunitorio = source.MotivoNoCalculoPunitorio,
+            PunitorioAplicadoPendiente = source.PunitorioAplicadoPendiente,
+            TotalCobrableActual = source.TotalCobrableActual,
+            HistorialCompleto = source.HistorialCompleto,
+            MotivoHistorialIncompleto = source.MotivoHistorialIncompleto,
+            CuotaRowVersionBase64 = source.CuotaRowVersionBase64
+        };
+
+        private static PagoCuotaPreviewViewModel MapPreview(PagoCuotaPreviewResultado source) => new()
+        {
+            ImporteIngresado = source.ImporteIngresado,
+            AplicadoPunitorio = source.AplicadoPunitorio,
+            AplicadoCapital = source.AplicadoCapital,
+            Excedente = source.Excedente,
+            RecargoMedioPago = source.RecargoMedioPago,
+            TotalCaja = source.TotalCaja,
+            PunitorioRestante = source.PunitorioRestante,
+            CapitalRestante = source.CapitalRestante,
+            EstadoEstimado = source.EstadoEstimado,
+            EstadoEstimadoTexto = source.EstadoEstimado.ToString(),
+            FechaComercial = source.FechaComercial,
+            CuotaRowVersionBase64 = source.CuotaRowVersionBase64
+        };
+
+        private static PagoCuotaResultadoViewModel MapResultado(PagoCuotaResultado source) => new()
+        {
+            CuotaId = source.CuotaId,
+            ImporteRecibido = source.ImporteRecibido,
+            AplicadoPunitorio = source.AplicadoPunitorio,
+            AplicadoCapital = source.AplicadoCapital,
+            RecargoMedioPago = source.RecargoMedioPago,
+            TotalCaja = source.TotalCaja,
+            PunitorioRestante = source.PunitorioRestante,
+            CapitalRestante = source.CapitalRestante,
+            EstadoFinal = source.EstadoFinal,
+            EstadoFinalTexto = source.EstadoFinal.ToString(),
+            FechaComercial = source.FechaComercial,
+            MovimientoCajaId = source.MovimientoCajaId,
+            PagoCuotaId = source.PagoCuotaId,
+            MedioPago = source.MedioPago
+        };
+
+        // PUN-ML9-E: el request sólo trae intención (cliente + cuotas + medio); el servidor
+        // recalcula capital y punitorio aplicado pendiente de cada una. Cobrar requiere el mismo
+        // permiso que el pago individual y el adelanto — antes sólo exigía creditos.view (heredado
+        // del controller), lo que permitía a un Vendedor cobrar con un POST directo.
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "cobranzas", Accion = "payinstallment")]
         public async Task<IActionResult> RegistrarPagoMultiple([FromBody] PagoMultipleCuotasRequest? request)
         {
             if (request == null)
@@ -1061,6 +1449,16 @@ namespace TheBuryProject.Controllers
                 var resultado = await _creditoService.PagarCuotasAsync(request);
                 return Ok(new { success = true, data = resultado });
             }
+            catch (PagoCuotaRechazadoException ex)
+            {
+                // Conflicto = RowVersion vencida (alguna cuota cambió desde el preview/listado);
+                // el resto son datos inválidos del request. Ambos casos: rollback total ya ocurrió
+                // en el servicio, cero pagos/movimientos/cupo parciales.
+                var status = ex.Motivo == MotivoRechazoPagoCuota.Conflicto
+                    ? StatusCodes.Status409Conflict
+                    : StatusCodes.Status400BadRequest;
+                return StatusCode(status, new { success = false, errors = new[] { ex.Message } });
+            }
             catch (InvalidOperationException ex)
             {
                 return BadRequest(new { success = false, errors = new[] { ex.Message } });
@@ -1072,108 +1470,301 @@ namespace TheBuryProject.Controllers
             }
         }
 
-        // GET: Credito/AdelantarCuota/5
-        public async Task<IActionResult> AdelantarCuota(int id, string? returnUrl = null)
-        {
-            try
-            {
-                ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
-
-                var credito = await _creditoService.GetByIdAsync(id);
-                if (credito == null)
-                {
-                    TempData["Error"] = "Crédito no encontrado";
-                    return RedirectToAction(nameof(Index));
-                }
-
-                // Obtener la ÚLTIMA cuota pendiente (la que se cancela al adelantar)
-                var ultimaCuota = await _creditoService.GetUltimaCuotaPendienteAsync(id);
-                if (ultimaCuota == null)
-                {
-                    TempData["Warning"] = "No hay cuotas pendientes para adelantar.";
-                    return RedirectToAction(nameof(Details), new { id, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
-                }
-
-                // El adelanto cancela el SALDO de la cuota: si ya tuvo un pago parcial, el total
-                // de la cuota sería un sobrepago y el servidor lo rechazaría.
-                var saldoAdelanto = ultimaCuota.SaldoPendiente;
-
-                var modelo = new PagarCuotaViewModel
-                {
-                    CreditoId = credito.Id,
-                    CuotaId = ultimaCuota.Id,
-                    NumeroCuota = ultimaCuota.NumeroCuota,
-                    MontoCuota = ultimaCuota.MontoTotal,
-                    MontoPunitorio = ultimaCuota.MontoPunitorio,
-                    TotalAPagar = saldoAdelanto,
-                    MontoPagado = saldoAdelanto,
-                    ClienteNombre = credito.ClienteNombre,
-                    NumeroCreditoTexto = credito.Numero,
-                    FechaVencimiento = ultimaCuota.FechaVencimiento,
-                    EstaVencida = false,
-                    DiasAtraso = 0,
-                    FechaPago = _reloj.AhoraUtc
-                };
-
-                return View("AdelantarCuota_tw", modelo);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al cargar adelanto de cuota: {Id}", id);
-                TempData["Error"] = "Error al cargar el formulario";
-                return RedirectToAction(nameof(Index));
-            }
-        }
-
-        // POST: Credito/AdelantarCuota
+        // PUN-ML9-E: preview read-only del pago múltiple — misma autoridad (DistribuirPago) que la
+        // confirmación, no persiste nada. Requiere el mismo permiso que cobrar: aunque no muta datos,
+        // expone el punitorio aplicado pendiente real de cada cuota.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> AdelantarCuota(PagarCuotaViewModel modelo, string? returnUrl = null)
+        [PermisoRequerido(Modulo = "cobranzas", Accion = "payinstallment")]
+        public async Task<IActionResult> PreviewPagoMultiple([FromBody] PagoMultiplePreviewRequestViewModel? request)
         {
+            if (request == null)
+                return BadRequest(new { success = false, errors = new[] { "Solicitud inválida." } });
+
+            if (!ModelState.IsValid)
+            {
+                var errores = ModelState.Values
+                    .SelectMany(v => v.Errors)
+                    .Select(e => e.ErrorMessage)
+                    .Where(e => !string.IsNullOrWhiteSpace(e))
+                    .ToArray();
+
+                return BadRequest(new { success = false, errors = errores });
+            }
+
             try
             {
-                if (!ModelState.IsValid)
-                {
-                    ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
-                    Response.StatusCode = StatusCodes.Status400BadRequest;
-                    return View("AdelantarCuota_tw", modelo);
-                }
+                var preview = await _creditoService.PrevisualizarPagoMultipleAsync(
+                    request.ClienteId, request.CuotaIds, request.MedioPago);
 
-                var resultado = await _creditoService.AdelantarCuotaAsync(modelo);
-
-                if (resultado)
-                {
-                    TempData["Success"] = $"Cuota #{modelo.NumeroCuota} adelantada exitosamente. Se ha reducido el plazo del crédito.";
-                    return RedirectToReturnUrlOrDetails(returnUrl, modelo.CreditoId);
-                }
-
-                // Igual que en el pago normal, el servicio no distingue el motivo: crédito
-                // inexistente, cuota de otro crédito o crédito sin cuotas adelantables.
-                Response.StatusCode = StatusCodes.Status404NotFound;
-                ModelState.AddModelError(string.Empty, "No se encontró una cuota adelantable para este crédito.");
-            }
-            catch (PagoCuotaRechazadoException ex)
-            {
-                Response.StatusCode = ex.Motivo == MotivoRechazoPagoCuota.Conflicto
-                    ? StatusCodes.Status409Conflict
-                    : StatusCodes.Status400BadRequest;
-                ModelState.AddModelError(string.Empty, ex.Message);
+                return Ok(new { success = true, data = MapPreviewMultiple(preview) });
             }
             catch (InvalidOperationException ex)
             {
-                Response.StatusCode = StatusCodes.Status400BadRequest;
-                ModelState.AddModelError(string.Empty, ex.Message);
+                return BadRequest(new { success = false, errors = new[] { ex.Message } });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error al adelantar cuota");
-                Response.StatusCode = StatusCodes.Status500InternalServerError;
+                _logger.LogError(ex, "Error al previsualizar el pago múltiple para cliente {ClienteId}", request.ClienteId);
+                return StatusCode(500, new { success = false, errors = new[] { "No se pudo previsualizar el pago. Intentá nuevamente." } });
+            }
+        }
+
+        private static PagoMultiplePreviewViewModel MapPreviewMultiple(PagoMultiplePreviewResultado source) => new()
+        {
+            ClienteId = source.ClienteId,
+            Cuotas = source.Cuotas
+                .Select(c => new PagoMultiplePreviewCuotaViewModel
+                {
+                    CuotaId = c.CuotaId,
+                    CreditoId = c.CreditoId,
+                    CreditoNumero = c.CreditoNumero,
+                    NumeroCuota = c.NumeroCuota,
+                    CapitalPendiente = c.CapitalPendiente,
+                    PunitorioAplicadoPendiente = c.PunitorioAplicadoPendiente,
+                    Total = c.Total,
+                    RecargoMedioPago = c.RecargoMedioPago,
+                    TotalCaja = c.TotalCaja,
+                    CuotaRowVersionBase64 = c.CuotaRowVersionBase64
+                })
+                .ToList(),
+            CapitalTotal = source.CapitalTotal,
+            PunitorioTotal = source.PunitorioTotal,
+            RecargoTotal = source.RecargoTotal,
+            TotalCaja = source.TotalCaja,
+            FechaComercial = source.FechaComercial
+        };
+
+        private const string AdelantoResultadoTempDataKey = "AdelantoResultado";
+
+        // El Id de ruta es el Id del crédito: el adelanto siempre opera sobre "la última cuota
+        // pendiente del plan", que el servidor resuelve — nunca una cuota que elija el navegador.
+        [HttpGet("/Credito/AdelantarCuota/{id:int}")]
+        [PermisoRequerido(Modulo = "cobranzas", Accion = "payinstallment")]
+        public async Task<IActionResult> AdelantarCuota(int id, string? returnUrl = null)
+        {
+            ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
+
+            var credito = await _creditoService.GetByIdAsync(id);
+            if (credito == null)
+            {
+                TempData["Error"] = "Crédito no encontrado";
+                return RedirectToAction(nameof(Index));
+            }
+
+            PagoCuotaResultadoViewModel? resultado = null;
+            if (TempData[AdelantoResultadoTempDataKey] is string resultadoJson)
+            {
+                try
+                {
+                    resultado = JsonSerializer.Deserialize<PagoCuotaResultadoViewModel>(resultadoJson);
+                }
+                catch (JsonException ex)
+                {
+                    _logger.LogWarning(ex, "No se pudo leer el resultado temporal del adelanto del crédito {CreditoId}.", id);
+                }
+            }
+
+            var contexto = await _creditoService.ObtenerContextoAdelantoAsync(id);
+            if (contexto is null)
+            {
+                // Adelantar la ÚLTIMA cuota pendiente del plan deja el crédito sin ninguna cuota
+                // adelantable — este mismo GET (al que redirige el POST exitoso) no puede resolver
+                // "la próxima". Sin este fallback, el resultado recién persistido (con su desglose
+                // capital/punitorio/PagoCuotaId) nunca llegaba a mostrarse: la pantalla rebotaba
+                // directo a Details con el mensaje de "no hay cuotas" pisando al de éxito.
+                if (resultado is not null)
+                {
+                    var contextoPagado = await _creditoService.ObtenerContextoPagoCuotaAsync(resultado.CuotaId);
+                    if (contextoPagado is not null)
+                    {
+                        var pagePagado = new AdelantarCuotaPageViewModel
+                        {
+                            Contexto = MapContexto(contextoPagado),
+                            Input = new AdelantoCuotaInputModel
+                            {
+                                MedioPago = "Efectivo",
+                                CuotaRowVersionBase64 = contextoPagado.CuotaRowVersionBase64
+                            },
+                            Preview = null,
+                            Resultado = resultado
+                        };
+                        return View("AdelantarCuota_tw", pagePagado);
+                    }
+                }
+
+                TempData["Warning"] = "No hay cuotas pendientes para adelantar.";
+                return RedirectToAction(nameof(Details), new { id, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
+            }
+
+            var input = new AdelantoCuotaInputModel
+            {
+                MedioPago = "Efectivo",
+                CuotaRowVersionBase64 = contexto.CuotaRowVersionBase64
+            };
+
+            var page = await ConstruirPaginaAdelantoAsync(id, contexto, input, resultado, incluirPreview: resultado is null);
+            return View("AdelantarCuota_tw", page);
+        }
+
+        [HttpPost("/Credito/AdelantarCuota/{id:int}/Preview")]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "cobranzas", Accion = "payinstallment")]
+        public async Task<IActionResult> PrevisualizarAdelanto(
+            int id,
+            [Bind(Prefix = "Input")] AdelantoCuotaInputModel input)
+        {
+            if (!TryDecodeRowVersion(input.CuotaRowVersionBase64, out var rowVersion))
+                ModelState.AddModelError("Input.CuotaRowVersionBase64", "La versión de la cuota es inválida.");
+
+            if (!ModelState.IsValid)
+                return ValidationProblem(ModelState);
+
+            try
+            {
+                var preview = await _creditoService.PrevisualizarAdelantoAsync(
+                    CrearComandoAdelanto(id, input, rowVersion));
+                return preview is null ? NotFound() : Ok(MapPreview(preview));
+            }
+            catch (PagoCuotaRechazadoException ex)
+            {
+                var status = ex.Motivo == MotivoRechazoPagoCuota.Conflicto
+                    ? StatusCodes.Status409Conflict
+                    : StatusCodes.Status400BadRequest;
+                return StatusCode(status, new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al previsualizar el adelanto del crédito {CreditoId}.", id);
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    new { message = "No se pudo previsualizar el adelanto. Intentá nuevamente." });
+            }
+        }
+
+        [HttpPost("/Credito/AdelantarCuota/{id:int}")]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "cobranzas", Accion = "payinstallment")]
+        public async Task<IActionResult> AdelantarCuota(
+            int id,
+            [Bind(Prefix = "Input")] AdelantoCuotaInputModel input,
+            string? returnUrl = null)
+        {
+            if (!TryDecodeRowVersion(input.CuotaRowVersionBase64, out var rowVersion))
+                ModelState.AddModelError("Input.CuotaRowVersionBase64", "La versión de la cuota es inválida.");
+
+            if (!ModelState.IsValid)
+                return await RenderAdelantoErrorAsync(id, input, StatusCodes.Status400BadRequest, returnUrl);
+
+            try
+            {
+                var resultado = await _creditoService.RegistrarAdelantoAsync(
+                    CrearComandoAdelanto(id, input, rowVersion));
+
+                if (resultado is null)
+                {
+                    TempData["Warning"] = "No se encontró una cuota adelantable para este crédito.";
+                    return RedirectToReturnUrlOrDetails(returnUrl, id);
+                }
+
+                TempData[AdelantoResultadoTempDataKey] = JsonSerializer.Serialize(MapResultado(resultado));
+                TempData["Success"] = $"Cuota #{resultado.NumeroCuota} adelantada exitosamente. Se ha reducido el plazo del crédito.";
+                // returnUrl sólo gobierna a dónde vuelve el operador — nunca la operación
+                // financiera, que ya quedó persistida arriba.
+                return RedirectToAction(nameof(AdelantarCuota), new { id, returnUrl = Url.GetSafeReturnUrl(returnUrl) });
+            }
+            catch (PagoCuotaRechazadoException ex)
+            {
+                var status = ex.Motivo == MotivoRechazoPagoCuota.Conflicto
+                    ? StatusCodes.Status409Conflict
+                    : StatusCodes.Status400BadRequest;
+                ModelState.AddModelError(string.Empty, ex.Message);
+                return await RenderAdelantoErrorAsync(id, input, status, returnUrl);
+            }
+            catch (InvalidOperationException ex)
+            {
+                ModelState.AddModelError(string.Empty, ex.Message);
+                return await RenderAdelantoErrorAsync(id, input, StatusCodes.Status400BadRequest, returnUrl);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al adelantar la cuota del crédito {CreditoId}.", id);
                 ModelState.AddModelError(string.Empty, "No se pudo registrar el adelanto. Intentá nuevamente.");
+                return await RenderAdelantoErrorAsync(id, input, StatusCodes.Status500InternalServerError, returnUrl);
+            }
+        }
+
+        private async Task<IActionResult> RenderAdelantoErrorAsync(
+            int creditoId,
+            AdelantoCuotaInputModel input,
+            int statusCode,
+            string? returnUrl)
+        {
+            var contexto = await _creditoService.ObtenerContextoAdelantoAsync(creditoId);
+            if (contexto is null)
+            {
+                TempData["Warning"] = "No se encontró una cuota adelantable para este crédito.";
+                return RedirectToReturnUrlOrDetails(returnUrl, creditoId);
             }
 
             ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
-            return View("AdelantarCuota_tw", modelo);
+            Response.StatusCode = statusCode;
+            var page = await ConstruirPaginaAdelantoAsync(
+                creditoId,
+                contexto,
+                input,
+                resultado: null,
+                incluirPreview: statusCode == StatusCodes.Status400BadRequest && ModelState.IsValid);
+            return View("AdelantarCuota_tw", page);
         }
+
+        private async Task<AdelantarCuotaPageViewModel> ConstruirPaginaAdelantoAsync(
+            int creditoId,
+            PagoCuotaContextoResultado contexto,
+            AdelantoCuotaInputModel input,
+            PagoCuotaResultadoViewModel? resultado,
+            bool incluirPreview)
+        {
+            PagoCuotaPreviewViewModel? preview = null;
+            if (incluirPreview &&
+                contexto.TotalCobrableActual is > 0m &&
+                TryDecodeRowVersion(input.CuotaRowVersionBase64, out var rowVersion))
+            {
+                try
+                {
+                    var calculada = await _creditoService.PrevisualizarAdelantoAsync(
+                        CrearComandoAdelanto(creditoId, input, rowVersion));
+                    if (calculada is not null)
+                        preview = MapPreview(calculada);
+                }
+                catch (PagoCuotaRechazadoException)
+                {
+                    // El error explícito del POST prevalece. En GET, la ausencia de preview deja
+                    // deshabilitada la confirmación y el navegador puede volver a solicitarla.
+                }
+                catch (InvalidOperationException)
+                {
+                    // Mismo criterio: no ocultar ni reemplazar ModelState con un error derivado.
+                }
+            }
+
+            return new AdelantarCuotaPageViewModel
+            {
+                Contexto = MapContexto(contexto),
+                Input = input,
+                Preview = preview,
+                Resultado = resultado
+            };
+        }
+
+        private static AdelantoCuotaComando CrearComandoAdelanto(
+            int creditoId,
+            AdelantoCuotaInputModel input,
+            byte[] rowVersion) =>
+            new(creditoId, input.MedioPago, input.Comprobante, input.Observaciones, rowVersion);
 
         #endregion
 

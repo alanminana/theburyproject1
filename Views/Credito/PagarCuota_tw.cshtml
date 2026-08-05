@@ -1,19 +1,18 @@
-@model PagarCuotaViewModel
+@using System.Globalization
+@using TheBuryProject.ViewModels.PagoCuota
+@model PagarCuotaPageViewModel
 @{
-    ViewData["Title"] = "Registrar Pago de Cuota";
+    ViewData["Title"] = "Registrar pago de cuota";
+    var contexto = Model.Contexto;
+    var preview = Model.Preview;
+    var resultado = Model.Resultado;
     var returnUrl = ViewData["ReturnUrl"] as string;
-    var cuotasJson = Model.CuotasJson;
-    var montoPagadoInvariant = Model.MontoPagado.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
-    var totalAPagarInvariant = Model.TotalAPagar.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
     var volverHref = !string.IsNullOrWhiteSpace(returnUrl)
         ? returnUrl
-        : Url.Action("Details", "Credito", new { id = Model.CreditoId }) ?? $"/Credito/Details/{Model.CreditoId}";
-    var estadoBadgeClasses = Model.EstaVencida
-        ? "chip chip-bad"
-        : "chip chip-ok";
-    var estadoTexto = Model.EstaVencida
-        ? $"Vencida · {Model.DiasAtraso} días"
-        : "Vigente";
+        : Url.Action("Details", "Credito", new { id = contexto.CreditoId }) ?? $"/Credito/Details/{contexto.CreditoId}";
+    var totalCobrableInvariant = contexto.TotalCobrableActual?.ToString("0.00", CultureInfo.InvariantCulture) ?? string.Empty;
+    string Dinero(decimal value) => value.ToString("C2");
+    string DineroOpcional(decimal? value) => value.HasValue ? Dinero(value.Value) : "No disponible";
 }
 
 @section Styles {
@@ -21,9 +20,9 @@
 }
 
 <div data-credito-pago>
-    <main class="shell" style="padding-top:1.5rem;padding-bottom:3rem;max-width:1000px">
+    <main class="shell" style="padding-top:1.5rem;padding-bottom:3rem;max-width:1080px">
         <a href="@volverHref" class="inline-flex items-center gap-1.5 text-sm muted hover:text-white transition" style="text-decoration:none">
-            <span class="material-symbols-outlined" style="font-size:18px">arrow_back</span>
+            <span class="material-symbols-outlined" aria-hidden="true" style="font-size:18px">arrow_back</span>
             Volver al crédito
         </a>
 
@@ -31,266 +30,190 @@
             <div class="min-w-0">
                 <h1 class="page-title" style="font-size:1.4rem">Registrar pago de cuota</h1>
                 <p class="page-sub" style="margin-top:.3rem">
-                    Crédito <span class="mono">@Model.NumeroCreditoTexto</span> · @Model.ClienteNombre · Total seleccionado
-                    <span class="mono" data-credito-cuota-field="total-metric">@Model.TotalAPagar.ToString("C")</span>
+                    Crédito <span class="mono">@contexto.NumeroCredito</span> · @contexto.ClienteNombre · Cuota @contexto.NumeroCuota
                 </p>
             </div>
         </div>
 
-        <form id="pago-form"
-              data-credito-pago-form
-              asp-action="PagarCuota"
-              method="post">
-            @Html.AntiForgeryToken()
+        @if (resultado is not null)
+        {
+            <section class="card card-pad" style="margin-top:1.25rem" role="status" aria-labelledby="pago-resultado-titulo">
+                <div class="sec-head">
+                    <div class="sec-num" aria-hidden="true">✓</div>
+                    <div>
+                        <h2 id="pago-resultado-titulo" class="sec-title">Pago registrado</h2>
+                        <p class="sec-sub">Éste es el resultado persistido de la operación.</p>
+                    </div>
+                </div>
+                <dl class="kv" data-pago-resultado>
+                    <div class="kv-row"><dt>Importe recibido</dt><dd class="num">@Dinero(resultado.ImporteRecibido)</dd></div>
+                    <div class="kv-row"><dt>Aplicado a punitorio</dt><dd class="num">@Dinero(resultado.AplicadoPunitorio)</dd></div>
+                    <div class="kv-row"><dt>Aplicado a capital</dt><dd class="num">@Dinero(resultado.AplicadoCapital)</dd></div>
+                    <div class="kv-row"><dt>Recargo del medio</dt><dd class="num">@Dinero(resultado.RecargoMedioPago)</dd></div>
+                    <div class="kv-row"><dt>Total ingresado en caja</dt><dd class="num">@Dinero(resultado.TotalCaja)</dd></div>
+                    <div class="kv-row"><dt>Punitorio pendiente</dt><dd class="num">@Dinero(resultado.PunitorioRestante)</dd></div>
+                    <div class="kv-row"><dt>Capital pendiente</dt><dd class="num">@Dinero(resultado.CapitalRestante)</dd></div>
+                    <div class="kv-row"><dt>Estado final</dt><dd>@resultado.EstadoFinalTexto</dd></div>
+                    <div class="kv-row"><dt>Fecha comercial</dt><dd>@resultado.FechaComercial.ToString("dd/MM/yyyy")</dd></div>
+                    <div class="kv-row"><dt>Medio de pago</dt><dd>@resultado.MedioPago</dd></div>
+                    <div class="kv-row"><dt>Identificadores</dt><dd class="mono">Pago #@resultado.PagoCuotaId · Caja #@resultado.MovimientoCajaId</dd></div>
+                </dl>
+                @if (contexto.PuedeConfirmar)
+                {
+                    <a asp-action="PagarCuota" asp-route-id="@contexto.CuotaId" asp-route-returnUrl="@returnUrl" class="btn btn-soft btn-sm" style="margin-top:1rem">Registrar otro pago</a>
+                }
+            </section>
+        }
 
-            <div asp-validation-summary="ModelOnly"
-                 class="alert alert-bad empty:hidden"
-                 style="margin-top:1.25rem"
-                 role="alert"></div>
-
-            <input type="hidden" asp-for="CreditoId" />
-            <input type="hidden" asp-for="CuotaId" id="hdn-cuota-id" />
-            <input type="hidden" asp-for="NumeroCuota" id="hdn-numero-cuota" />
-            <input type="hidden" asp-for="MontoCuota" id="hdn-monto-cuota" />
-            <input type="hidden" asp-for="MontoPunitorio" id="hdn-punitorio" />
-            <input type="hidden" asp-for="TotalAPagar" id="hdn-total" />
-            <input type="hidden" asp-for="ClienteNombre" />
-            <input type="hidden" asp-for="NumeroCreditoTexto" />
-            <input type="hidden" asp-for="FechaVencimiento" id="hdn-fecha-vto" />
-            <input type="hidden" asp-for="EstaVencida" id="hdn-esta-vencida" />
-            <input type="hidden" asp-for="DiasAtraso" id="hdn-dias-atraso" />
-            @if (returnUrl != null)
-            {
-                <input type="hidden" name="returnUrl" value="@returnUrl" />
-            }
-
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4" style="margin-top:1.25rem">
-                <div class="lg:col-span-2 space-y-4">
-                    <section class="card card-pad">
-                        <div class="sec-head">
-                            <div class="sec-num">1</div>
-                            <div>
-                                <div class="sec-title">Cuota a pagar</div>
-                                <div class="sec-sub">Seleccioná la cuota pendiente y confirmá los importes calculados.</div>
-                            </div>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4" style="margin-top:1.25rem">
+            <div class="lg:col-span-2 space-y-4">
+                <section class="card card-pad" aria-labelledby="cuota-contexto-titulo">
+                    <div class="sec-head">
+                        <div class="sec-num" aria-hidden="true">1</div>
+                        <div>
+                            <h2 id="cuota-contexto-titulo" class="sec-title">Contexto autoritativo</h2>
+                            <p class="sec-sub">La fecha y los importes se recalculan en el servidor al confirmar.</p>
                         </div>
+                    </div>
 
-                        <label class="radio-card is-sel" for="select-cuota">
-                            <span class="rc-dot"></span>
-                            <span class="flex-1 min-w-0">
-                                <span class="flex items-center justify-between gap-2">
-                                    <span class="rc-title">
-                                        Cuota <span data-credito-cuota-field="numero">@Model.NumeroCuota</span>
-                                        <span class="text-xs muted-2 font-normal">
-                                            · vence <span data-credito-cuota-field="vencimiento">@Model.FechaVencimiento.ToString("dd/MM/yyyy")</span>
-                                        </span>
-                                    </span>
-                                    <span class="num font-semibold text-white" data-credito-cuota-field="total">@Model.TotalAPagar.ToString("C")</span>
-                                </span>
-                                <span class="rc-sub">
-                                    <span data-credito-cuota-field="estado-badge" class="@estadoBadgeClasses">
-                                        <span data-credito-cuota-field="estado">@estadoTexto</span>
-                                    </span>
-                                </span>
-                            </span>
-                        </label>
-
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" style="margin-top:1rem">
-                            <div>
-                                <label asp-for="CuotaId" class="label">Cuota seleccionada</label>
-                                <select id="select-cuota"
-                                        data-credito-cuota-select
-                                        class="field">
-                                    @foreach (var item in Model.Cuotas)
-                                    {
-                                        <option value="@item.Value" selected="@(item.Value == Model.CuotaId.ToString() ? "selected" : null)">@item.Text</option>
-                                    }
-                                </select>
-                            </div>
-                            <div>
-                                <label asp-for="FechaPago" class="label">Fecha de pago <span class="req">*</span></label>
-                                <input asp-for="FechaPago"
-                                       type="date"
-                                       class="field" />
-                                <span asp-validation-for="FechaPago" class="err-text"></span>
-                            </div>
+                    <dl class="kv">
+                        <div class="kv-row"><dt>Vencimiento</dt><dd>@contexto.FechaVencimiento.ToString("dd/MM/yyyy")</dd></div>
+                        <div class="kv-row"><dt>Fecha comercial</dt><dd>@contexto.FechaComercial.ToString("dd/MM/yyyy") (automática)</dd></div>
+                        <div class="kv-row"><dt>Estado</dt><dd>@contexto.Estado · @contexto.DiasAtraso días de atraso</dd></div>
+                        <div class="kv-row"><dt>Capital pendiente</dt><dd class="num">@Dinero(contexto.CapitalPendiente)</dd></div>
+                        <div class="kv-row">
+                            <dt>Punitorio calculado <span class="muted-2">(informativo)</span></dt>
+                            <dd class="num">@DineroOpcional(contexto.PunitorioCalculadoInformativo)</dd>
                         </div>
+                        <div class="kv-row"><dt>Estado del cálculo</dt><dd>@contexto.EstadoCalculoPunitorio</dd></div>
+                        @if (!string.IsNullOrWhiteSpace(contexto.MotivoNoCalculoPunitorio))
+                        {
+                            <div class="kv-row"><dt>Detalle del cálculo</dt><dd>@contexto.MotivoNoCalculoPunitorio</dd></div>
+                        }
+                        <div class="kv-row"><dt>Punitorio aplicado pendiente</dt><dd class="num">@DineroOpcional(contexto.PunitorioAplicadoPendiente)</dd></div>
+                        <div class="kv-row"><dt>Total cobrable actual</dt><dd class="num"><strong>@DineroOpcional(contexto.TotalCobrableActual)</strong></dd></div>
+                    </dl>
 
-                        <dl class="kv mt-3">
-                            <div class="kv-row">
-                                <dt>Monto cuota</dt>
-                                <dd class="num" data-credito-cuota-field="monto-cuota">@Model.MontoCuota.ToString("C")</dd>
-                            </div>
-                            <div class="kv-row">
-                                <dt>Punitorios / mora</dt>
-                                <dd class="num" data-credito-cuota-field="punitorio" style="color:#fbbf24">@Model.MontoPunitorio.ToString("C")</dd>
-                            </div>
-                            <div class="kv-row">
-                                <dt>Detalle de estado</dt>
-                                <dd>
-                                    <span data-credito-cuota-field="estado-summary">@(Model.EstaVencida ? "Vencida" : "Vigente")</span>
-                                    · <span data-credito-cuota-field="estado-detail">@(Model.EstaVencida ? $"{Model.DiasAtraso} días de atraso" : "sin mora activa")</span>
-                                </dd>
-                            </div>
-                        </dl>
-                    </section>
+                    @if (!contexto.HistorialCompleto || !contexto.PunitorioAplicadoPendiente.HasValue)
+                    {
+                        <div class="alert alert-warn" style="margin-top:1rem" role="alert">
+                            El historial necesario para cobrar no está completo. @(contexto.MotivoHistorialIncompleto ?? "Revisá la aplicación de punitorios antes de continuar.")
+                        </div>
+                    }
+                </section>
 
-                    <section class="card card-pad">
+                <form id="pago-cuota-form-proxy"
+                      data-credito-pago-form
+                      data-pago-preview-url="@Url.Action("PrevisualizarPagoCuota", "Credito", new { id = contexto.CuotaId })"
+                      data-preview-valid="@(preview is not null ? "true" : "false")"
+                      data-result-present="@(resultado is not null ? "true" : "false")"
+                      asp-action="PagarCuota"
+                      asp-route-id="@contexto.CuotaId"
+                      method="post"
+                      novalidate>
+                    @Html.AntiForgeryToken()
+                    @if (returnUrl != null)
+                    {
+                        <input type="hidden" name="returnUrl" value="@returnUrl" />
+                    }
+                    <input asp-for="Input.CuotaRowVersionBase64" type="hidden" data-pago-rowversion />
+
+                    <div asp-validation-summary="ModelOnly" class="alert alert-bad empty:hidden" role="alert"></div>
+
+                    <section class="card card-pad" aria-labelledby="datos-pago-titulo">
                         <div class="sec-head">
-                            <div class="sec-num">2</div>
+                            <div class="sec-num" aria-hidden="true">2</div>
                             <div>
-                                <div class="sec-title">Datos del pago</div>
-                                <div class="sec-sub">Medio, comprobante y observaciones.</div>
+                                <h2 id="datos-pago-titulo" class="sec-title">Datos del pago</h2>
+                                <p class="sec-sub">Ingresá el importe y solicitá una previsualización antes de confirmar.</p>
                             </div>
                         </div>
 
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
-                                <label asp-for="MedioPago" class="label">Medio de pago <span class="req">*</span></label>
-                                <select asp-for="MedioPago"
-                                        class="field"
-                                        data-credito-cuota-field="medio">
+                                <label asp-for="Input.MontoIngresado" class="label">Monto ingresado <span class="req">*</span></label>
+                                <div class="field-money">
+                                    <span class="cur" aria-hidden="true">$</span>
+                                    <input asp-for="Input.MontoIngresado"
+                                           type="text"
+                                           inputmode="decimal"
+                                           autocomplete="off"
+                                           class="field mono"
+                                           data-pago-monto
+                                           aria-describedby="monto-ayuda" />
+                                </div>
+                                <p id="monto-ayuda" class="hint">Podés realizar un pago parcial o usar el total cobrable actual.</p>
+                                <span asp-validation-for="Input.MontoIngresado" class="err-text"></span>
+                                @if (contexto.TotalCobrableActual.HasValue)
+                                {
+                                    <button type="button" class="btn btn-ghost btn-sm" style="margin-top:.5rem" data-pago-total data-total-cobrable="@totalCobrableInvariant">Pagar total</button>
+                                }
+                            </div>
+                            <div>
+                                <label asp-for="Input.MedioPago" class="label">Medio de pago <span class="req">*</span></label>
+                                <select asp-for="Input.MedioPago" class="field" data-pago-medio>
                                     <option value="Efectivo">Efectivo</option>
                                     <option value="Transferencia">Transferencia</option>
                                     <option value="Tarjeta Débito">Tarjeta Débito</option>
                                     <option value="Tarjeta Crédito">Tarjeta Crédito</option>
                                     <option value="Cheque">Cheque</option>
                                 </select>
-                                <span asp-validation-for="MedioPago" class="err-text"></span>
-                            </div>
-                            <div>
-                                <label asp-for="ComprobantePago" class="label">N° de comprobante</label>
-                                <input asp-for="ComprobantePago"
-                                       class="field mono"
-                                       placeholder="Ej. 0001-00045821" />
-                                <span asp-validation-for="ComprobantePago" class="err-text"></span>
-                            </div>
-                            <div>
-                                <label asp-for="MontoPagado" class="label">Monto a pagar <span class="req">*</span></label>
-                                <div class="field-money">
-                                    <span class="cur">$</span>
-                                    <input id="input-monto"
-                                           data-credito-monto-input
-                                           name="MontoPagado"
-                                           type="text"
-                                           inputmode="decimal"
-                                           autocomplete="off"
-                                           value="@montoPagadoInvariant"
-                                           data-max="@totalAPagarInvariant"
-                                           class="field mono"
-                                           placeholder="0,00" />
-                                </div>
-                                <p id="monto-error" data-credito-monto-error class="hint hidden" style="color:#fb7185"></p>
-                                <span asp-validation-for="MontoPagado" class="err-text"></span>
+                                <span asp-validation-for="Input.MedioPago" class="err-text"></span>
                             </div>
                             <div class="sm:col-span-2">
-                                <label asp-for="Observaciones" class="label">Observaciones</label>
-                                <textarea asp-for="Observaciones"
-                                          class="field"
-                                          placeholder="Comentario interno del pago (opcional)..."></textarea>
-                                <span asp-validation-for="Observaciones" class="err-text"></span>
+                                <label asp-for="Input.Comprobante" class="label">Número de comprobante</label>
+                                <input asp-for="Input.Comprobante" class="field mono" autocomplete="off" />
+                                <span asp-validation-for="Input.Comprobante" class="err-text"></span>
+                            </div>
+                            <div class="sm:col-span-2">
+                                <label asp-for="Input.Observaciones" class="label">Observaciones</label>
+                                <textarea asp-for="Input.Observaciones" class="field" rows="3"></textarea>
+                                <span asp-validation-for="Input.Observaciones" class="err-text"></span>
                             </div>
                         </div>
                     </section>
-                </div>
-
-                <aside>
-                    <div class="card card-pad" style="position:sticky;top:76px">
-                        <h3 class="font-semibold text-white mb-3 flex items-center gap-2">
-                            <span class="material-symbols-outlined" style="color:#f5c518;font-size:20px">receipt</span>
-                            Resumen del pago
-                        </h3>
-                        <div class="result-card is-ok">
-                            <div class="result-label">Total a pagar</div>
-                            <div class="result-value" id="r-total" data-credito-cuota-field="total-preview">@Model.TotalAPagar.ToString("C")</div>
-                        </div>
-                        <dl class="kv mt-3">
-                            <div class="kv-row">
-                                <dt>Cuota seleccionada</dt>
-                                <dd id="r-count">#<span data-credito-cuota-field="numero-card">@Model.NumeroCuota</span></dd>
-                            </div>
-                            <div class="kv-row">
-                                <dt>Monto ingresado</dt>
-                                <dd class="num" id="r-sub" data-credito-cuota-field="monto-preview">@Model.MontoPagado.ToString("C")</dd>
-                            </div>
-                            <div class="kv-row hidden" id="row-recargo-medio" data-recargo-medio-row>
-                                <dt>Recargo medio de pago <span id="recargo-medio-pct" class="mono"></span></dt>
-                                <dd class="num" id="r-recargo-medio" data-recargo-medio-valor>$ 0,00</dd>
-                            </div>
-                            <div class="kv-row hidden" id="row-total-con-recargo" data-total-con-recargo-row>
-                                <dt><strong>Total a cobrar</strong></dt>
-                                <dd class="num" id="r-total-con-recargo" data-total-con-recargo-valor><strong>$ 0,00</strong></dd>
-                            </div>
-                            <div class="kv-row">
-                                <dt>Vencimiento</dt>
-                                <dd class="num" id="r-mora" data-credito-cuota-field="vencimiento-metric">@Model.FechaVencimiento.ToString("dd/MM")</dd>
-                            </div>
-                        </dl>
-                        <button type="submit" class="btn btn-success btn-block btn-lg" id="btn-pagar" style="margin-top:1.1rem">
-                            <span class="material-symbols-outlined">payments</span>
-                            Registrar pago
-                        </button>
-                        <a href="@volverHref" class="btn btn-ghost btn-block btn-sm" style="margin-top:.5rem">Cancelar</a>
-                        <p class="hint" style="text-align:center;margin-top:.6rem">El pago se imputa según vencimiento. La mora se calcula al día de hoy.</p>
-                    </div>
-                </aside>
+                </form>
             </div>
-        </form>
+
+            <aside>
+                <section class="card card-pad" style="position:sticky;top:76px" aria-labelledby="preview-titulo">
+                    <h2 id="preview-titulo" class="font-semibold text-white mb-3 flex items-center gap-2">
+                        <span class="material-symbols-outlined" aria-hidden="true" style="color:#f5c518;font-size:20px">receipt</span>
+                        Previsualización del pago
+                    </h2>
+                    <div data-pago-preview-status class="hint" role="status" aria-live="polite">
+                        @(preview is null ? "Modificá el importe o el medio para solicitar una previsualización." : "Previsualización calculada por el servidor.")
+                    </div>
+                    <dl class="kv mt-3" data-pago-preview>
+                        <div class="kv-row"><dt>Importe ingresado</dt><dd class="num" data-preview-field="importeIngresado">@(preview is null ? "—" : Dinero(preview.ImporteIngresado))</dd></div>
+                        <div class="kv-row"><dt>Aplicado a punitorio</dt><dd class="num" data-preview-field="aplicadoPunitorio">@(preview is null ? "—" : Dinero(preview.AplicadoPunitorio))</dd></div>
+                        <div class="kv-row"><dt>Aplicado a capital</dt><dd class="num" data-preview-field="aplicadoCapital">@(preview is null ? "—" : Dinero(preview.AplicadoCapital))</dd></div>
+                        <div class="kv-row"><dt>Excedente</dt><dd class="num" data-preview-field="excedente">@(preview is null ? "—" : Dinero(preview.Excedente))</dd></div>
+                        <div class="kv-row"><dt>Recargo del medio</dt><dd class="num" data-preview-field="recargoMedioPago">@(preview is null ? "—" : Dinero(preview.RecargoMedioPago))</dd></div>
+                        <div class="kv-row"><dt>Total a caja</dt><dd class="num" data-preview-field="totalCaja">@(preview is null ? "—" : Dinero(preview.TotalCaja))</dd></div>
+                        <div class="kv-row"><dt>Punitorio restante</dt><dd class="num" data-preview-field="punitorioRestante">@(preview is null ? "—" : Dinero(preview.PunitorioRestante))</dd></div>
+                        <div class="kv-row"><dt>Capital restante</dt><dd class="num" data-preview-field="capitalRestante">@(preview is null ? "—" : Dinero(preview.CapitalRestante))</dd></div>
+                        <div class="kv-row"><dt>Estado estimado</dt><dd data-preview-field="estadoEstimadoTexto">@(preview?.EstadoEstimadoTexto ?? "—")</dd></div>
+                        <div class="kv-row"><dt>Fecha comercial</dt><dd data-preview-field="fechaComercial">@(preview?.FechaComercial.ToString("dd/MM/yyyy") ?? "—")</dd></div>
+                    </dl>
+                    <button type="submit"
+                            form="pago-cuota-form-proxy"
+                            class="btn btn-success btn-block btn-lg"
+                            style="margin-top:1.1rem"
+                            data-pago-confirmar
+                            disabled="@(preview is null || resultado is not null || !contexto.PuedeConfirmar)">
+                        <span class="material-symbols-outlined" aria-hidden="true">payments</span>
+                        Confirmar pago
+                    </button>
+                    <a href="@volverHref" class="btn btn-ghost btn-block btn-sm" style="margin-top:.5rem">Cancelar</a>
+                </section>
+            </aside>
+        </div>
     </main>
 </div>
-
-<script id="credito-cuotas-data" data-credito-json="cuotas" type="application/json">@Html.Raw(cuotasJson)</script>
-<script id="credito-recargos-medio-data" type="application/json">@Html.Raw(Model.RecargosPorMedioJson)</script>
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
     <script src="~/js/credito-module.js" asp-append-version="true"></script>
     <script src="~/js/credito-pagar-cuota.js" asp-append-version="true"></script>
-    <script>
-        // Previsualización del recargo del medio de pago sobre el monto ingresado.
-        // Solo informativo: el backend recalcula y es la autoridad al confirmar el cobro.
-        (function () {
-            'use strict';
-            var recargos = {};
-            try {
-                recargos = JSON.parse(document.getElementById('credito-recargos-medio-data').textContent) || {};
-            } catch (e) { recargos = {}; }
-
-            var selMedio = document.querySelector('[data-credito-cuota-field="medio"]');
-            var inputMonto = document.querySelector('[data-credito-monto-input]');
-            var rowRecargo = document.querySelector('[data-recargo-medio-row]');
-            var pctSpan = document.getElementById('recargo-medio-pct');
-            var valRecargo = document.querySelector('[data-recargo-medio-valor]');
-            var rowTotal = document.querySelector('[data-total-con-recargo-row]');
-            var valTotal = document.querySelector('[data-total-con-recargo-valor]');
-
-            function parseMonto(v) {
-                if (!v) return 0;
-                var n = parseFloat(String(v).replace(/\./g, '').replace(',', '.'));
-                return isNaN(n) ? 0 : n;
-            }
-            function fmt(n) {
-                return '$ ' + n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            }
-            function actualizar() {
-                if (!selMedio || !inputMonto) return;
-                var pct = recargos[selMedio.value] || 0;
-                var base = parseMonto(inputMonto.value);
-                var recargo = pct === 0 ? 0 : Math.round(base * pct) / 100;
-                if (pct !== 0 && base > 0) {
-                    if (pctSpan) pctSpan.textContent = '(' + pct.toFixed(2).replace('.', ',') + '%)';
-                    if (valRecargo) valRecargo.textContent = fmt(recargo);
-                    if (valTotal) valTotal.innerHTML = '<strong>' + fmt(base + recargo) + '</strong>';
-                    if (rowRecargo) rowRecargo.classList.remove('hidden');
-                    if (rowTotal) rowTotal.classList.remove('hidden');
-                } else {
-                    if (rowRecargo) rowRecargo.classList.add('hidden');
-                    if (rowTotal) rowTotal.classList.add('hidden');
-                }
-            }
-            selMedio && selMedio.addEventListener('change', actualizar);
-            inputMonto && inputMonto.addEventListener('input', actualizar);
-            actualizar();
-        })();
-    </script>
 }

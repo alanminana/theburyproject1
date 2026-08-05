@@ -102,6 +102,112 @@ namespace TheBuryProject.Services
             };
         }
 
+        public async Task<PunitorioCuotaDetalleResultado> ObtenerDetalleCuotaAsync(
+            int cuotaId, CancellationToken cancellationToken = default)
+        {
+            var cuota = await _context.Cuotas
+                .AsNoTracking()
+                .Include(c => c.Pagos)
+                .FirstOrDefaultAsync(c => c.Id == cuotaId && !c.IsDeleted, cancellationToken)
+                ?? throw new KeyNotFoundException($"Cuota #{cuotaId} no encontrada.");
+
+            var configuraciones = await _context.ConfiguracionesPunitorio
+                .AsNoTracking()
+                .Where(c => !c.IsDeleted)
+                .ToListAsync(cancellationToken);
+
+            var aplicaciones = await _context.PunitoriosAplicados
+                .AsNoTracking()
+                .Where(p => p.CuotaId == cuotaId)
+                .OrderByDescending(p => p.FechaAplicacion)
+                .ThenByDescending(p => p.Id)
+                .ToListAsync(cancellationToken);
+
+            var fechaCalculo = _reloj.HoyComercial;
+            var resultadoCalculo = _calculator.Calcular(ConstruirEntrada(cuota, configuraciones, fechaCalculo));
+
+            var pagosOrdenados = cuota.Pagos
+                .OrderByDescending(p => p.FechaPagoComercial)
+                .ThenByDescending(p => p.Id)
+                .ToList();
+
+            var aplicacionesProyectadas = aplicaciones
+                .Select(a => ProyectarAplicacion(a, pagosOrdenados))
+                .ToList();
+            var aplicacionActiva = aplicacionesProyectadas.FirstOrDefault(a => a.EsActiva);
+
+            var pagosIncompletos = pagosOrdenados
+                .Where(p => !p.HistorialCompleto ||
+                            p.ImporteAplicadoCuota is null ||
+                            p.ImporteAplicadoPunitorio is null)
+                .ToList();
+            var historialCompleto = pagosIncompletos.Count == 0;
+
+            return new PunitorioCuotaDetalleResultado
+            {
+                CuotaId = cuota.Id,
+                CreditoId = cuota.CreditoId,
+                NumeroCuota = cuota.NumeroCuota,
+                FechaVencimiento = DateOnly.FromDateTime(cuota.FechaVencimiento),
+                FechaCalculoComercial = fechaCalculo,
+                EstadoCuota = cuota.Estado,
+                MontoTotalCuota = cuota.MontoTotal,
+                MontoPagadoCapital = cuota.MontoPagado,
+                CapitalPendiente = Math.Max(0m, cuota.MontoTotal - cuota.MontoPagado),
+                HistorialCompleto = historialCompleto,
+                MotivoHistorialIncompleto = MotivoHistorialIncompleto(pagosIncompletos),
+                CuotaRowVersionBase64 = RowVersionBase64(cuota.RowVersion),
+                PunitorioAplicadoRowVersionBase64 = aplicacionActiva?.RowVersionBase64,
+                CalculoActual = new PunitorioCalculoActualDetalle
+                {
+                    Estado = ResolverEstadoDetalle(resultadoCalculo),
+                    SaldoCapitalSegunLedger = resultadoCalculo.SaldoFinal,
+                    ImporteCalculado = resultadoCalculo.PunitorioRedondeado,
+                    MotivoNoCalculo = resultadoCalculo.EstadoResultado == EstadoResultadoPunitorio.Calculado
+                        ? null
+                        : resultadoCalculo.Motivo,
+                    PunitorioAplicadoPendienteReal = aplicacionActiva is null
+                        ? 0m
+                        : aplicacionActiva.ImportePendiente,
+                    Segmentos = resultadoCalculo.Segmentos,
+                    ConfiguracionesUtilizadas = ConfiguracionesUsadasEnSegmentos(resultadoCalculo, configuraciones)
+                        .Select(c => new PunitorioConfiguracionUsadaDetalle
+                        {
+                            Id = c.Id,
+                            VigenteDesde = c.VigenteDesde,
+                            Porcentaje = c.Porcentaje,
+                            PeriodoDias = c.PeriodoDias,
+                            DiasGracia = c.DiasGracia,
+                            Activa = c.Activa
+                        })
+                        .ToList()
+                },
+                AplicacionActiva = aplicacionActiva,
+                AplicacionesHistoricas = aplicacionesProyectadas,
+                Pagos = pagosOrdenados
+                    .Select(p => new PagoCuotaDetalle
+                    {
+                        PagoCuotaId = p.Id,
+                        FechaPagoComercial = p.FechaPagoComercial,
+                        ImporteTotal = p.ImporteTotal,
+                        ImporteAplicadoPunitorio = p.ImporteAplicadoPunitorio,
+                        ImporteAplicadoCuota = p.ImporteAplicadoCuota,
+                        MedioPago = p.MedioPago,
+                        Estado = p.Estado,
+                        Origen = p.Origen,
+                        MovimientoCajaId = p.MovimientoCajaId,
+                        PunitorioAplicadoId = p.PunitorioAplicadoId,
+                        EsReversion = p.Origen == OrigenPagoCuota.Reversion,
+                        ReversionDePagoCuotaId = p.PagoCuotaOrigenId,
+                        HistorialCompleto = p.HistorialCompleto &&
+                            p.ImporteAplicadoCuota is not null &&
+                            p.ImporteAplicadoPunitorio is not null,
+                        MotivoHistorialIncompleto = p.MotivoIncompleto
+                    })
+                    .ToList()
+            };
+        }
+
         public async Task<decimal> ObtenerPunitorioAplicadoPendienteAsync(
             int cuotaId, CancellationToken cancellationToken = default)
         {
@@ -152,13 +258,15 @@ namespace TheBuryProject.Services
             int punitorioAplicadoId, CancellationToken cancellationToken)
         {
             // Suma en cliente: el proveedor Sqlite (tests) no traduce Sum sobre decimal a SQL.
-            var importes = await _context.PagosCuota
+            var pagos = await _context.PagosCuota
                 .AsNoTracking()
                 .Where(p => p.PunitorioAplicadoId == punitorioAplicadoId && p.Estado == EstadoPagoCuota.Aplicado)
-                .Select(p => p.ImporteAplicadoPunitorio)
                 .ToListAsync(cancellationToken);
 
-            return importes.Sum(i => i ?? 0m);
+            // Los productores vigentes siempre guardan composición completa. El fallback a cero
+            // conserva el contrato histórico de este helper si apareciera una fila antigua ambigua;
+            // el read model de PUN-ML9-B1, en cambio, expone null para no inventar ese progreso.
+            return ResolverMontoPagadoAplicacion(pagos, punitorioAplicadoId) ?? 0m;
         }
 
         /// <summary>
@@ -490,6 +598,142 @@ namespace TheBuryProject.Services
 
             return usuario;
         }
+
+        private static PunitorioAplicacionDetalle ProyectarAplicacion(
+            PunitorioAplicado aplicacion, IReadOnlyList<PagoCuota> pagos)
+        {
+            var importePagado = ResolverMontoPagadoAplicacion(pagos, aplicacion.Id);
+
+            var estado = importePagado.HasValue &&
+                         aplicacion.Estado is EstadoPunitorioAplicado.Aplicado or EstadoPunitorioAplicado.Pagado
+                ? ResolverEstadoAplicado(aplicacion.Importe, importePagado.Value)
+                : aplicacion.Estado;
+
+            decimal? importePendiente = estado is EstadoPunitorioAplicado.Anulado or EstadoPunitorioAplicado.Revertido
+                ? 0m
+                : importePagado.HasValue
+                    ? Math.Max(0m, aplicacion.Importe - importePagado.Value)
+                    : null;
+
+            var importesSnapshot = LeerImportesSnapshot(aplicacion.DesgloseSnapshotJson);
+
+            return new PunitorioAplicacionDetalle
+            {
+                PunitorioAplicadoId = aplicacion.Id,
+                Estado = estado,
+                ImporteTeorico = importesSnapshot.ImporteTeorico,
+                ImportePreviamenteAplicado = importesSnapshot.ImportePreviamenteAplicado,
+                ImporteNuevoAplicado = aplicacion.Importe,
+                ImporteAplicado = aplicacion.Importe,
+                ImportePagado = importePagado,
+                ImportePendiente = importePendiente,
+                FechaCalculo = aplicacion.FechaCalculo,
+                FechaAplicacion = aplicacion.FechaAplicacion,
+                MotivoAplicacion = aplicacion.MotivoAplicacion,
+                UsuarioAplicacion = aplicacion.UsuarioAplicacion,
+                FechaAnulacion = aplicacion.FechaAnulacion,
+                MotivoAnulacion = aplicacion.MotivoAnulacion,
+                UsuarioAnulacion = aplicacion.UsuarioAnulacion,
+                EsActiva = estado == EstadoPunitorioAplicado.Aplicado,
+                RowVersionBase64 = RowVersionBase64(aplicacion.RowVersion)
+            };
+        }
+
+        private static decimal? ResolverMontoPagadoAplicacion(
+            IEnumerable<PagoCuota> pagos, int punitorioAplicadoId)
+        {
+            var pagosEfectivos = pagos
+                .Where(p => p.PunitorioAplicadoId == punitorioAplicadoId &&
+                            p.Estado == EstadoPagoCuota.Aplicado)
+                .ToList();
+
+            if (pagosEfectivos.Any(p =>
+                    !p.HistorialCompleto || p.ImporteAplicadoPunitorio is null))
+                return null;
+
+            return pagosEfectivos.Sum(p => p.ImporteAplicadoPunitorio!.Value);
+        }
+
+        private static EstadoCalculoPunitorioDetalle ResolverEstadoDetalle(PunitorioCalculoResultado resultado)
+        {
+            if (resultado.EstadoResultado == EstadoResultadoPunitorio.Calculado)
+            {
+                var segmentosConConfiguracion = resultado.Segmentos
+                    .Where(s => s.ConfiguracionPunitorioId.HasValue && s.Porcentaje.HasValue)
+                    .ToList();
+                if (segmentosConConfiguracion.Count > 0 && segmentosConConfiguracion.All(s => s.Porcentaje == 0m))
+                    return EstadoCalculoPunitorioDetalle.TasaCero;
+            }
+
+            return resultado.EstadoResultado switch
+            {
+                EstadoResultadoPunitorio.Calculado => EstadoCalculoPunitorioDetalle.Calculado,
+                EstadoResultadoPunitorio.SinConfiguracion => EstadoCalculoPunitorioDetalle.SinConfiguracion,
+                EstadoResultadoPunitorio.ConfiguracionInactiva => EstadoCalculoPunitorioDetalle.ConfiguracionInactiva,
+                EstadoResultadoPunitorio.DentroDeGracia => EstadoCalculoPunitorioDetalle.DentroDeGracia,
+                EstadoResultadoPunitorio.HistorialIncompleto => EstadoCalculoPunitorioDetalle.HistorialIncompleto,
+                EstadoResultadoPunitorio.SinSaldo => EstadoCalculoPunitorioDetalle.SinSaldo,
+                _ => EstadoCalculoPunitorioDetalle.EntradaInvalida
+            };
+        }
+
+        private static string? MotivoHistorialIncompleto(IReadOnlyList<PagoCuota> pagosIncompletos)
+        {
+            if (pagosIncompletos.Count == 0)
+                return null;
+
+            var motivos = pagosIncompletos
+                .Select(p => p.MotivoIncompleto)
+                .Where(m => !string.IsNullOrWhiteSpace(m))
+                .Select(m => m!.Trim())
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+
+            return motivos.Count > 0
+                ? string.Join(" | ", motivos)
+                : "Existe al menos un pago cuya composición histórica no es reconstruible.";
+        }
+
+        private static string RowVersionBase64(byte[]? rowVersion) =>
+            rowVersion is { Length: > 0 } ? Convert.ToBase64String(rowVersion) : string.Empty;
+
+        private static ImportesSnapshotAplicacion LeerImportesSnapshot(string snapshotJson)
+        {
+            if (string.IsNullOrWhiteSpace(snapshotJson))
+                return default;
+
+            try
+            {
+                using var document = JsonDocument.Parse(snapshotJson);
+                var snapshot = JsonSerializer.Deserialize<PunitorioAplicadoSnapshot>(snapshotJson, SnapshotJsonOptions);
+                if (snapshot is null)
+                    return default;
+
+                return new ImportesSnapshotAplicacion(
+                    TienePropiedad(document.RootElement, nameof(PunitorioAplicadoSnapshot.PunitorioTeoricoAcumulado))
+                        ? snapshot.PunitorioTeoricoAcumulado
+                        : null,
+                    TienePropiedad(document.RootElement, nameof(PunitorioAplicadoSnapshot.ImportePreviamenteAplicado))
+                        ? snapshot.ImportePreviamenteAplicado
+                        : null);
+            }
+            catch (JsonException)
+            {
+                return default;
+            }
+            catch (NotSupportedException)
+            {
+                return default;
+            }
+        }
+
+        private static bool TienePropiedad(JsonElement elemento, string nombre) =>
+            elemento.ValueKind == JsonValueKind.Object &&
+            elemento.EnumerateObject().Any(p => string.Equals(p.Name, nombre, StringComparison.OrdinalIgnoreCase));
+
+        private readonly record struct ImportesSnapshotAplicacion(
+            decimal? ImporteTeorico,
+            decimal? ImportePreviamenteAplicado);
 
         private static PunitorioCalculoEntrada ConstruirEntrada(
             Cuota cuota, IReadOnlyList<ConfiguracionPunitorio> configuraciones, DateOnly fechaCalculo) => new()
