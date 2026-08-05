@@ -25,6 +25,15 @@ public class CreditoUiQueryService : ICreditoUiQueryService
 
                 var cuotasVencidas = cuotas.Count(c => c.EstaVencida);
 
+                // PUN-ML10-G: mora de CAPITAL únicamente — predicado canónico único (EstadoCuotaResolver,
+                // PUN-ML7), nunca Cuota.MontoPunitorio ni CuotaViewModel.SaldoPendiente (que lo mezcla).
+                // Reutiliza los datos ya cargados en memoria, sin consulta adicional.
+                var hoyComercial = RelojComercial.Sistema.HoyComercial;
+                var montoMoraCapital = cuotas
+                    .Where(c => EstadoCuotaResolver.EstaEnMoraCapitalDerivado(
+                        c.Estado, c.MontoPagado, c.MontoTotal, c.FechaVencimiento, hoyComercial))
+                    .Sum(c => Math.Max(0m, c.MontoTotal - c.MontoPagado));
+
                 return new CreditoClienteIndexViewModel
                 {
                     Cliente = cliente,
@@ -34,6 +43,7 @@ public class CreditoUiQueryService : ICreditoUiQueryService
                     CantidadCreditos = creditosCliente.Count,
                     SaldoPendienteTotal = creditosCliente.Sum(c => c.SaldoPendiente),
                     CuotasVencidas = cuotasVencidas,
+                    MontoMoraCapital = montoMoraCapital,
                     ProximoVencimiento = ObtenerProximoVencimiento(cuotas),
                     EstadoConsolidado = ResolverEstadoConsolidado(creditosCliente, cuotasVencidas),
                     Creditos = creditosCliente

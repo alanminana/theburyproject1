@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
 using TheBuryProject.Controllers;
 using TheBuryProject.Models.DTOs;
+using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services;
 using TheBuryProject.Services.Interfaces;
@@ -38,6 +39,53 @@ public class CreditoUiQueryServiceTests
         Assert.Equal(500m, grupos[0].SaldoPendienteTotal);
         Assert.Equal(proximoA, grupos[0].ProximoVencimiento);
         Assert.Equal(new[] { 12, 11 }, grupos[0].Creditos.Select(c => c.Id));
+    }
+
+    [Fact]
+    public void AgruparCreditosPorCliente_MontoMoraCapital_ExcluyeCapitalSaldadoConSoloPunitorioPendiente()
+    {
+        // PUN-ML10-G: cuota con capital 100% saldado (MontoPagado==MontoTotal) que quedó Parcial
+        // únicamente por un punitorio aplicado pendiente (contrato EstadoCuotaResolver.Resolver) NO
+        // debe contar en MontoMoraCapital — ese es el mismo hueco ya corregido en
+        // ClienteScoringCalculator/ClienteAptitudService/MoraService, ahora también acá.
+        var service = new CreditoUiQueryService();
+        var cliente = Cliente(1, "Ana Lopez", "301");
+        var cuotaCapitalSaldado = Cuota(200, 1, EstadoCuota.Parcial, DateTime.Today.AddDays(-10), montoTotal: 1000m, montoPagado: 1000m);
+        var credito = Credito(20, cliente, EstadoCredito.Activo, 0m, DateTime.Today.AddDays(-30), cuotaCapitalSaldado);
+
+        var grupos = service.AgruparCreditosPorCliente(new[] { credito });
+
+        Assert.Equal(0m, Assert.Single(grupos).MontoMoraCapital);
+    }
+
+    [Fact]
+    public void AgruparCreditosPorCliente_MontoMoraCapital_IncluyeCapitalRealmenteVencido()
+    {
+        var service = new CreditoUiQueryService();
+        var cliente = Cliente(1, "Ana Lopez", "301");
+        var cuotaVencida = Cuota(201, 1, EstadoCuota.Vencida, DateTime.Today.AddDays(-10), montoTotal: 1000m, montoPagado: 300m);
+        var cuotaAlDia = Cuota(202, 2, EstadoCuota.Pendiente, DateTime.Today.AddDays(10), montoTotal: 500m);
+        var credito = Credito(21, cliente, EstadoCredito.Activo, 0m, DateTime.Today.AddDays(-30), cuotaVencida, cuotaAlDia);
+
+        var grupos = service.AgruparCreditosPorCliente(new[] { credito });
+
+        Assert.Equal(700m, Assert.Single(grupos).MontoMoraCapital);
+    }
+
+    [Fact]
+    public void AgruparCreditosPorCliente_PunitorioAplicadoPendiente_QuedaEnCeroPorDefecto()
+    {
+        // Sólo CreditoController.Index/PanelCliente lo pueblan vía la consulta batch autoritativa
+        // (PoblarPunitorioAplicadoPendienteAsync); el servicio de agrupación puro nunca tiene acceso a DB.
+        var service = new CreditoUiQueryService();
+        var cliente = Cliente(1, "Ana Lopez", "301");
+        var credito = Credito(22, cliente, EstadoCredito.Activo, 0m, DateTime.Today, Cuota(203, 1, EstadoCuota.Pendiente, DateTime.Today.AddDays(5), 100m));
+
+        var grupo = Assert.Single(service.AgruparCreditosPorCliente(new[] { credito }));
+
+        Assert.Equal(0m, grupo.MontoPunitorioAplicadoPendiente);
+        Assert.Equal(0, grupo.CuotasConPunitorioAplicadoPendiente);
+        Assert.False(grupo.TienePunitorioAplicadoPendiente);
     }
 
     [Theory]
@@ -145,6 +193,160 @@ public class CreditoUiQueryServiceTests
         Assert.NotNull(model.Preview);
     }
 
+    [Fact]
+    public async Task Index_PueblaPunitorioAplicadoPendienteDeTodosLosClientesConUnaSolaConsultaBatch()
+    {
+        // PUN-ML10-G: regresión del bug real encontrado — Index_tw.cshtml renderiza
+        // _PanelClientePartial INLINE para cada tarjeta (camino real de la UI, sin ningún caller JS
+        // hacia PanelCliente); poblar el punitorio pendiente sólo en la acción PanelCliente (nunca
+        // invocada por el navegador real) dejaba el panel real siempre en $0,00/sin bloque.
+        var clienteA = Cliente(1, "Ana Lopez", "301");
+        var clienteB = Cliente(2, "Bruno Diaz", "302");
+        var cuotaA = Cuota(400, 1, EstadoCuota.Pendiente, DateTime.Today.AddDays(5), 1000m);
+        var cuotaB = Cuota(401, 1, EstadoCuota.Pendiente, DateTime.Today.AddDays(5), 1000m);
+        var creditoA = Credito(40, clienteA, EstadoCredito.Activo, 0m, DateTime.Today, cuotaA);
+        var creditoB = Credito(41, clienteB, EstadoCredito.Activo, 0m, DateTime.Today, cuotaB);
+        var creditoService = new RecordingCreditoService(new List<CreditoViewModel> { creditoA, creditoB });
+        var punitorioService = new RecordingPunitorioServicePendientePorCuotas(
+            new Dictionary<int, decimal> { [400] = 150m, [401] = 0m });
+        var controller = new CreditoController(
+            creditoService: creditoService,
+            financialService: null!,
+            configuracionPagoService: null!,
+            configuracionMoraService: null!,
+            ventaService: null!,
+            logger: NullLogger<CreditoController>.Instance,
+            creditoDisponibleService: null!,
+            currentUser: null!,
+            viewBagBuilder: null!,
+            contratoVentaCreditoService: null!,
+            creditoUiQueryService: new CreditoUiQueryService(),
+            punitorioService: punitorioService);
+
+        var result = await controller.Index(new CreditoFilterViewModel());
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<CreditoIndexViewModel>(view.Model);
+        var grupoA = model.Clientes.Single(g => g.Cliente.Id == 1);
+        var grupoB = model.Clientes.Single(g => g.Cliente.Id == 2);
+        Assert.Equal(150m, grupoA.MontoPunitorioAplicadoPendiente);
+        Assert.True(grupoA.TienePunitorioAplicadoPendiente);
+        Assert.Equal(0m, grupoB.MontoPunitorioAplicadoPendiente);
+        Assert.False(grupoB.TienePunitorioAplicadoPendiente);
+        Assert.Equal(1, punitorioService.Calls); // una sola consulta batch para los 2 clientes, no 2
+    }
+
+    [Fact]
+    public async Task PanelCliente_PueblaPunitorioAplicadoPendienteConUnaSolaConsultaBatch()
+    {
+        // PUN-ML10-G
+        var cliente = Cliente(1, "Ana Lopez", "301");
+        var cuotaConPunitorio = Cuota(300, 1, EstadoCuota.Pendiente, DateTime.Today.AddDays(5), 1000m);
+        var cuotaSinPunitorio = Cuota(301, 2, EstadoCuota.Pendiente, DateTime.Today.AddDays(35), 1000m);
+        var credito = Credito(30, cliente, EstadoCredito.Activo, 0m, DateTime.Today, cuotaConPunitorio, cuotaSinPunitorio);
+        var creditoService = new RecordingCreditoService(new List<CreditoViewModel> { credito });
+        var punitorioService = new RecordingPunitorioServicePendientePorCuotas(
+            new Dictionary<int, decimal> { [300] = 250m, [301] = 0m });
+        var controller = new CreditoController(
+            creditoService: creditoService,
+            financialService: null!,
+            configuracionPagoService: null!,
+            configuracionMoraService: null!,
+            ventaService: null!,
+            logger: NullLogger<CreditoController>.Instance,
+            creditoDisponibleService: null!,
+            currentUser: null!,
+            viewBagBuilder: null!,
+            contratoVentaCreditoService: null!,
+            creditoUiQueryService: new CreditoUiQueryService(),
+            punitorioService: punitorioService);
+
+        var result = await controller.PanelCliente(cliente.Id);
+
+        var partial = Assert.IsType<PartialViewResult>(result);
+        var model = Assert.IsType<CreditoClienteIndexViewModel>(partial.Model);
+        Assert.Equal(250m, model.MontoPunitorioAplicadoPendiente);
+        Assert.Equal(1, model.CuotasConPunitorioAplicadoPendiente);
+        Assert.True(model.TienePunitorioAplicadoPendiente);
+        Assert.Equal(1, punitorioService.Calls);
+        Assert.Equal(new[] { 300, 301 }, punitorioService.LastCuotaIds.OrderBy(x => x));
+    }
+
+    [Fact]
+    public async Task PanelCliente_SinPunitorioService_RenderizaConPunitorioEnCero()
+    {
+        // Degradacion segura: el panel no debe romper si IPunitorioService no esta disponible —
+        // la mora de capital (lo esencial) igual se renderiza correcta.
+        var cliente = Cliente(1, "Ana Lopez", "301");
+        var cuota = Cuota(310, 1, EstadoCuota.Vencida, DateTime.Today.AddDays(-5), montoTotal: 1000m, montoPagado: 200m);
+        var credito = Credito(31, cliente, EstadoCredito.Activo, 0m, DateTime.Today, cuota);
+        var creditoService = new RecordingCreditoService(new List<CreditoViewModel> { credito });
+        var controller = new CreditoController(
+            creditoService: creditoService,
+            financialService: null!,
+            configuracionPagoService: null!,
+            configuracionMoraService: null!,
+            ventaService: null!,
+            logger: NullLogger<CreditoController>.Instance,
+            creditoDisponibleService: null!,
+            currentUser: null!,
+            viewBagBuilder: null!,
+            contratoVentaCreditoService: null!,
+            creditoUiQueryService: new CreditoUiQueryService(),
+            punitorioService: null);
+
+        var result = await controller.PanelCliente(cliente.Id);
+
+        var partial = Assert.IsType<PartialViewResult>(result);
+        var model = Assert.IsType<CreditoClienteIndexViewModel>(partial.Model);
+        Assert.Equal(0m, model.MontoPunitorioAplicadoPendiente);
+        Assert.False(model.TienePunitorioAplicadoPendiente);
+        Assert.Equal(800m, model.MontoMoraCapital);
+    }
+
+    private sealed class RecordingPunitorioServicePendientePorCuotas : IPunitorioService
+    {
+        private readonly IReadOnlyDictionary<int, decimal> _resultado;
+
+        public RecordingPunitorioServicePendientePorCuotas(IReadOnlyDictionary<int, decimal> resultado) => _resultado = resultado;
+
+        public int Calls { get; private set; }
+        public IReadOnlyCollection<int> LastCuotaIds { get; private set; } = Array.Empty<int>();
+
+        public Task<IReadOnlyDictionary<int, decimal>> ObtenerPunitorioAplicadoPendientePorCuotasAsync(
+            IEnumerable<int> cuotaIds,
+            CancellationToken cancellationToken = default)
+        {
+            Calls++;
+            LastCuotaIds = cuotaIds.ToList();
+            return Task.FromResult(_resultado);
+        }
+
+        public Task<PunitorioConsultaResultado> CalcularCuotaAsync(
+            int cuotaId, DateOnly? fechaCalculo = null, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<PunitorioCuotaDetalleResultado> ObtenerDetalleCuotaAsync(
+            int cuotaId, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<decimal> ObtenerPunitorioAplicadoPendienteAsync(
+            int cuotaId, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<PunitorioAplicadoProgreso?> ObtenerAplicacionActivaConProgresoAsync(
+            int cuotaId, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<PunitorioAplicado> AplicarAsync(
+            int cuotaId, PunitorioAplicarComando comando, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+
+        public Task<PunitorioAplicado> AnularAsync(
+            int punitorioAplicadoId, PunitorioAnularComando comando, CancellationToken cancellationToken = default) =>
+            throw new NotImplementedException();
+    }
+
     private static ClienteResumenViewModel Cliente(int id, string nombre, string documento) =>
         new()
         {
@@ -218,7 +420,8 @@ public class CreditoUiQueryServiceTests
 
         public Task<List<CreditoViewModel>> GetAllAsync(CreditoFilterViewModel? filter = null) => Task.FromResult(_creditos);
         public Task<CreditoViewModel?> GetByIdAsync(int id) => Task.FromResult(_creditos.FirstOrDefault(c => c.Id == id));
-        public Task<List<CreditoViewModel>> GetByClienteIdAsync(int clienteId) => throw new NotImplementedException();
+        public Task<List<CreditoViewModel>> GetByClienteIdAsync(int clienteId) =>
+            Task.FromResult(_creditos.Where(c => c.Cliente.Id == clienteId).ToList());
         public Task<CreditoViewModel> CreateAsync(CreditoViewModel viewModel) => throw new NotImplementedException();
         public Task<CreditoViewModel> CreatePendienteConfiguracionAsync(int clienteId, decimal montoTotal) => throw new NotImplementedException();
         public Task<bool> UpdateAsync(CreditoViewModel viewModel) => throw new NotImplementedException();

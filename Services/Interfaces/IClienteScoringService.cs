@@ -31,5 +31,16 @@ namespace TheBuryProject.Services.Interfaces
             string? observacion = null,
             string? registradoPor = null,
             CancellationToken ct = default);
+
+        /// <summary>
+        /// PUN-ML10-G: recalcula (y audita, salvo modo preview) el scoring de todos los clientes
+        /// activos elegibles, en lotes, reutilizando <see cref="RecalcularYAuditarAsync"/> — nunca
+        /// reimplementa la fórmula ni la ejecuta por SQL. Pensado para corregir scores persistidos
+        /// contaminados por un cambio de regla ya desplegado (ver PUN-ML10-E). No se dispara
+        /// automáticamente: requiere invocación explícita (comando/acción administrativa).
+        /// </summary>
+        Task<RecalculoGlobalScoringResultado> RecalcularTodosAsync(
+            RecalculoGlobalScoringOpciones opciones,
+            CancellationToken ct = default);
     }
 }

@@ -105,12 +105,18 @@ namespace TheBuryProject.Controllers
         #region Index / Detalle / Simular
 
         // GET: Credito
-        public async Task<IActionResult> Index(CreditoFilterViewModel filter)
+        public async Task<IActionResult> Index(CreditoFilterViewModel filter, CancellationToken cancellationToken = default)
         {
             try
             {
                 var creditos = await _creditoService.GetAllAsync(filter);
                 var clientes = _creditoUiQueryService.AgruparCreditosPorCliente(creditos);
+
+                // PUN-ML10-G: _PanelClientePartial se renderiza acá, inline, para cada tarjeta de
+                // cliente (Index_tw.cshtml) — este es el camino real de la UI (PanelCliente/id, más
+                // abajo, no tiene ningún caller JS, confirmado por grep). Una sola consulta batch
+                // sobre TODAS las cuotas de TODOS los clientes listados, sin importar cuántos sean.
+                await PoblarPunitorioAplicadoPendienteAsync(clientes, cancellationToken);
 
                 return View("Index_tw", new CreditoIndexViewModel
                 {
@@ -127,6 +133,57 @@ namespace TheBuryProject.Controllers
                     Filter = filter,
                     Clientes = new List<CreditoClienteIndexViewModel>()
                 });
+            }
+        }
+
+        /// <summary>
+        /// PUN-ML10-G: puebla <see cref="CreditoClienteIndexViewModel.MontoPunitorioAplicadoPendiente"/>/
+        /// <see cref="CreditoClienteIndexViewModel.CuotasConPunitorioAplicadoPendiente"/> de todos los
+        /// grupos recibidos con una única consulta batch autoritativa
+        /// (<see cref="IPunitorioService.ObtenerPunitorioAplicadoPendientePorCuotasAsync"/>), nunca
+        /// una consulta por cliente/cuota. Si el servicio no está disponible, no rompe la pantalla —
+        /// el punitorio pendiente queda en 0 (default) y sólo se registra un warning.
+        /// </summary>
+        private async Task PoblarPunitorioAplicadoPendienteAsync(
+            IReadOnlyCollection<CreditoClienteIndexViewModel> grupos, CancellationToken cancellationToken)
+        {
+            if (_punitorioService is null)
+            {
+                if (grupos.Count > 0)
+                {
+                    _logger.LogWarning(
+                        "IPunitorioService no está disponible al listar créditos; punitorio pendiente se muestra en 0 para {Cantidad} cliente(s).",
+                        grupos.Count);
+                }
+                return;
+            }
+
+            var cuotaIds = grupos
+                .SelectMany(g => g.Creditos)
+                .SelectMany(c => c.Cuotas ?? Enumerable.Empty<CuotaViewModel>())
+                .Select(c => c.Id)
+                .Distinct()
+                .ToList();
+
+            if (cuotaIds.Count == 0)
+                return;
+
+            var pendientePorCuota = await _punitorioService.ObtenerPunitorioAplicadoPendientePorCuotasAsync(
+                cuotaIds, cancellationToken);
+
+            foreach (var grupo in grupos)
+            {
+                var idsDelGrupo = grupo.Creditos
+                    .SelectMany(c => c.Cuotas ?? Enumerable.Empty<CuotaViewModel>())
+                    .Select(c => c.Id);
+
+                var pendientesDelGrupo = idsDelGrupo
+                    .Where(id => pendientePorCuota.TryGetValue(id, out var monto) && monto > 0m)
+                    .Select(id => pendientePorCuota[id])
+                    .ToList();
+
+                grupo.MontoPunitorioAplicadoPendiente = pendientesDelGrupo.Sum();
+                grupo.CuotasConPunitorioAplicadoPendiente = pendientesDelGrupo.Count;
             }
         }
 
@@ -509,7 +566,7 @@ namespace TheBuryProject.Controllers
 
         // GET: Credito/PanelCliente/5
         [HttpGet]
-        public async Task<IActionResult> PanelCliente(int id)
+        public async Task<IActionResult> PanelCliente(int id, CancellationToken cancellationToken = default)
         {
             if (id <= 0)
                 return BadRequest();
@@ -519,6 +576,9 @@ namespace TheBuryProject.Controllers
 
             if (grupo == null)
                 return NotFound();
+
+            // PUN-ML10-G: mismo helper que Index (batch autoritativo, nunca Cuota.MontoPunitorio).
+            await PoblarPunitorioAplicadoPendienteAsync(new[] { grupo }, cancellationToken);
 
             return PartialView("_PanelClientePartial", grupo);
         }

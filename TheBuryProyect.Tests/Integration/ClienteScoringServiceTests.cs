@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -9,6 +10,7 @@ using TheBuryProject.Data;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services;
+using TheBuryProject.Services.Models;
 
 namespace TheBuryProject.Tests.Integration;
 
@@ -378,5 +380,259 @@ public sealed class ClienteScoringServiceTests : IDisposable
             .ToListAsync();
 
         Assert.Single(historial); // sólo el cambio inicial (puntaje base -> penalizado), no 2.
+    }
+
+    // -----------------------------------------------------------------------
+    // PUN-ML10-G: recálculo global de scoring (mecanismo de mantenimiento).
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task RecalcularTodosAsync_CeroClientes_DevuelveResumenVacio()
+    {
+        var resultado = await _service.RecalcularTodosAsync(new RecalculoGlobalScoringOpciones { Origen = "Test" });
+
+        Assert.Equal(0, resultado.Examinados);
+        Assert.Equal(0, resultado.Recalculados);
+        Assert.Equal(0, resultado.SinCambios);
+        Assert.Equal(0, resultado.Fallidos);
+        Assert.Empty(resultado.IdsFallidos);
+        Assert.False(resultado.Preview);
+        Assert.False(resultado.Interrumpido);
+    }
+
+    [Fact]
+    public async Task RecalcularTodosAsync_UnCliente_LoRecalculaYAuditaConElOrigenIndicado()
+    {
+        var ahora = DateTime.UtcNow;
+        var cliente = await SeedClienteAsync(ahora.AddDays(-400));
+        _context.Creditos.Add(new Credito
+        {
+            ClienteId = cliente.Id,
+            Numero = "C-G1",
+            Estado = EstadoCredito.Activo,
+            Cuotas = new List<Cuota>
+            {
+                new()
+                {
+                    Estado = EstadoCuota.Pagada,
+                    FechaVencimiento = ahora.AddDays(-40),
+                    FechaPago = ahora.AddDays(-45),
+                    MontoPagado = 100m,
+                    MontoTotal = 100m
+                }
+            }
+        });
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.RecalcularTodosAsync(new RecalculoGlobalScoringOpciones { Origen = "RecalculoGlobalTest" });
+
+        Assert.Equal(1, resultado.Examinados);
+        Assert.Equal(1, resultado.Recalculados);
+        Assert.Equal(0, resultado.SinCambios);
+        Assert.Equal(0, resultado.Fallidos);
+
+        var historial = await _context.ClientesPuntajeHistorial
+            .AsNoTracking().Where(h => h.ClienteId == cliente.Id).ToListAsync();
+        var registro = Assert.Single(historial);
+        Assert.Equal("RecalculoGlobalTest", registro.Origen);
+    }
+
+    [Fact]
+    public async Task RecalcularTodosAsync_VariosClientes_ExaminaATodosLosElegibles()
+    {
+        await SeedClienteAsync(DateTime.UtcNow);
+        await SeedClienteAsync(DateTime.UtcNow);
+        await SeedClienteAsync(DateTime.UtcNow);
+
+        var resultado = await _service.RecalcularTodosAsync(new RecalculoGlobalScoringOpciones { Origen = "Test" });
+
+        Assert.Equal(3, resultado.Examinados);
+        Assert.Equal(0, resultado.Fallidos);
+    }
+
+    [Fact]
+    public async Task RecalcularTodosAsync_ProcesaEnLotes_SegunBatchSizeSinPerderClientes()
+    {
+        for (var i = 0; i < 5; i++)
+            await SeedClienteAsync(DateTime.UtcNow);
+
+        var resultado = await _service.RecalcularTodosAsync(
+            new RecalculoGlobalScoringOpciones { Origen = "Test", BatchSize = 2 });
+
+        Assert.Equal(5, resultado.Examinados);
+        Assert.False(resultado.Interrumpido);
+    }
+
+    [Fact]
+    public async Task RecalcularTodosAsync_SoloClientesActivosNoEliminados()
+    {
+        await SeedClienteAsync(DateTime.UtcNow); // activo, elegible
+
+        var inactivo = await SeedClienteAsync(DateTime.UtcNow);
+        inactivo.Activo = false;
+
+        var eliminado = await SeedClienteAsync(DateTime.UtcNow);
+        eliminado.IsDeleted = true;
+
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.RecalcularTodosAsync(new RecalculoGlobalScoringOpciones { Origen = "Test" });
+
+        Assert.Equal(1, resultado.Examinados);
+    }
+
+    [Fact]
+    public async Task RecalcularTodosAsync_TokenYaCancelado_NoProcesaNadaYQuedaInterrumpido()
+    {
+        for (var i = 0; i < 5; i++)
+            await SeedClienteAsync(DateTime.UtcNow);
+
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        var resultado = await _service.RecalcularTodosAsync(
+            new RecalculoGlobalScoringOpciones { Origen = "Test" }, cts.Token);
+
+        Assert.True(resultado.Interrumpido);
+        Assert.Equal(0, resultado.Examinados);
+    }
+
+    [Fact]
+    public async Task RecalcularTodosAsync_UnClienteFalla_ContinuaConElRestoYLoReportaEnIdsFallidos()
+    {
+        await SeedClienteAsync(DateTime.UtcNow);
+        await SeedClienteAsync(DateTime.UtcNow);
+        var servicio = new ClienteScoringServiceConIdFantasma(_context, idFantasma: 999_999);
+
+        var resultado = await servicio.RecalcularTodosAsync(new RecalculoGlobalScoringOpciones { Origen = "Test" });
+
+        Assert.Equal(3, resultado.Examinados); // 2 reales + 1 fantasma
+        Assert.Equal(1, resultado.Fallidos);
+        Assert.Equal(2, resultado.Recalculados + resultado.SinCambios);
+        Assert.Contains(999_999, resultado.IdsFallidos);
+        Assert.False(resultado.Interrumpido); // política default: continúa
+    }
+
+    [Fact]
+    public async Task RecalcularTodosAsync_PoliticaDetenerEnPrimerFallo_InterrumpeAntesDeExaminarElResto()
+    {
+        await SeedClienteAsync(DateTime.UtcNow);
+        await SeedClienteAsync(DateTime.UtcNow);
+        var servicio = new ClienteScoringServiceConIdFantasma(_context, idFantasma: 999_999, alPrincipio: true);
+
+        var resultado = await servicio.RecalcularTodosAsync(new RecalculoGlobalScoringOpciones
+        {
+            Origen = "Test",
+            PoliticaErrores = PoliticaErroresRecalculoGlobal.DetenerEnPrimerFallo
+        });
+
+        Assert.True(resultado.Interrumpido);
+        Assert.Equal(1, resultado.Fallidos);
+        Assert.Equal(1, resultado.Examinados); // sólo el fantasma; los 2 reales nunca se examinaron
+    }
+
+    [Fact]
+    public async Task RecalcularTodosAsync_ModoPreview_NoPersisteNiAuditaHistorial()
+    {
+        var ahora = DateTime.UtcNow;
+        var cliente = await SeedClienteAsync(ahora.AddDays(-400));
+        _context.Creditos.Add(new Credito
+        {
+            ClienteId = cliente.Id,
+            Numero = "C-PREV-1",
+            Estado = EstadoCredito.Activo,
+            Cuotas = new List<Cuota>
+            {
+                new()
+                {
+                    Estado = EstadoCuota.Pagada,
+                    FechaVencimiento = ahora.AddDays(-40),
+                    FechaPago = ahora.AddDays(-45),
+                    MontoPagado = 100m,
+                    MontoTotal = 100m
+                }
+            }
+        });
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.RecalcularTodosAsync(
+            new RecalculoGlobalScoringOpciones { Origen = "Test", Preview = true });
+
+        Assert.True(resultado.Preview);
+        Assert.Equal(1, resultado.Recalculados); // hubiera cambiado
+
+        var persistido = await _context.Clientes.AsNoTracking().FirstAsync(c => c.Id == cliente.Id);
+        Assert.Equal(0, persistido.PuntajeCliente); // nada se persistió
+
+        var historial = await _context.ClientesPuntajeHistorial
+            .AsNoTracking().Where(h => h.ClienteId == cliente.Id).ToListAsync();
+        Assert.Empty(historial);
+    }
+
+    [Fact]
+    public async Task RecalcularTodosAsync_ScoreContaminado_SeCorrigeYSegundaCorridaNoDuplicaHistorial()
+    {
+        var ahora = DateTime.UtcNow;
+        var cliente = await SeedClienteAsync(ahora.AddDays(-10));
+        cliente.PuntajeCliente = 5; // score contaminado / stale respecto de la regla vigente
+        await _context.SaveChangesAsync();
+
+        _context.Creditos.Add(new Credito
+        {
+            ClienteId = cliente.Id,
+            Numero = "C-CONT-1",
+            Estado = EstadoCredito.Activo,
+            Cuotas = new List<Cuota>
+            {
+                new()
+                {
+                    Estado = EstadoCuota.Vencida,
+                    FechaVencimiento = ahora.AddDays(-5),
+                    MontoPagado = 0m,
+                    MontoTotal = 100m
+                }
+            }
+        });
+        await _context.SaveChangesAsync();
+
+        var primera = await _service.RecalcularTodosAsync(new RecalculoGlobalScoringOpciones { Origen = "RecalculoGlobalTest" });
+        Assert.Equal(1, primera.Recalculados);
+        Assert.Equal(0, primera.SinCambios);
+
+        var segunda = await _service.RecalcularTodosAsync(new RecalculoGlobalScoringOpciones { Origen = "RecalculoGlobalTest" });
+        Assert.Equal(0, segunda.Recalculados);
+        Assert.Equal(1, segunda.SinCambios);
+
+        var historial = await _context.ClientesPuntajeHistorial
+            .AsNoTracking().Where(h => h.ClienteId == cliente.Id).ToListAsync();
+        Assert.Single(historial); // sólo la primera corrida produjo un cambio real
+    }
+
+    /// <summary>
+    /// Subclase de test: inyecta un id inexistente en la lista de elegibles (al principio o al
+    /// final) para simular de forma determinística un fallo individual dentro del lote, sin
+    /// depender de fragilidad de base de datos real (borrado concurrente, etc.).
+    /// </summary>
+    private sealed class ClienteScoringServiceConIdFantasma : ClienteScoringService
+    {
+        private readonly int _idFantasma;
+        private readonly bool _alPrincipio;
+
+        public ClienteScoringServiceConIdFantasma(AppDbContext context, int idFantasma, bool alPrincipio = false)
+            : base(context, NullLogger<ClienteScoringService>.Instance)
+        {
+            _idFantasma = idFantasma;
+            _alPrincipio = alPrincipio;
+        }
+
+        protected internal override async Task<List<int>> ObtenerClienteIdsElegiblesAsync(CancellationToken ct)
+        {
+            var ids = await base.ObtenerClienteIdsElegiblesAsync(ct);
+            if (_alPrincipio)
+                ids.Insert(0, _idFantasma);
+            else
+                ids.Add(_idFantasma);
+            return ids;
+        }
     }
 }

@@ -270,7 +270,11 @@ public static class RolesPermisosSeeder
                 ("Editar", "update", 2),
                 ("Ver Punitorios", "viewpunitorio", 3),
                 ("Gestionar Punitorios", "managepunitorio", 4),
-                ("Vigencia Retroactiva de Punitorios", "retroactivepunitorio", 5)
+                ("Vigencia Retroactiva de Punitorios", "retroactivepunitorio", 5),
+                // PUN-ML10-G: recálculo masivo de scoring de TODOS los clientes — operación de
+                // mantenimiento de máximo privilegio (mismo trato que managepunitorio/
+                // retroactivepunitorio: excluida del grant en bloque de Admin más abajo).
+                ("Recalcular Scoring Global", "recalcularscoringglobal", 6)
             }),
             ("Usuarios", "usuarios", "Configuración", "bi-person", 93, new List<(string, string, int)>
             {
@@ -429,7 +433,10 @@ public static class RolesPermisosSeeder
                 // administrativa distinta de "configuracion.update" (que ya excluye a Admin en
                 // este mismo seeder) — mismo trato restrictivo, solo SuperAdmin. Admin conserva
                 // "configuracion.viewpunitorio" (no está en esta lista, igual que "configuracion.view").
-                "configuracion.managepunitorio", "configuracion.retroactivepunitorio"
+                "configuracion.managepunitorio", "configuracion.retroactivepunitorio",
+                // PUN-ML10-G: recálculo global de scoring — máximo privilegio, solo SuperAdmin
+                // (mismo criterio que las dos líneas de arriba).
+                "configuracion.recalcularscoringglobal"
             });
 
         var gerenteRole = roles.FirstOrDefault(r => r.Name == Models.Constants.Roles.Gerente);

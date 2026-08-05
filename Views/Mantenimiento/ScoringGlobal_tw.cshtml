@@ -1,0 +1,74 @@
+@{
+    ViewData["Title"] = "Recalculo global de scoring";
+    ViewData["MetaDescription"] = "Recalcula el scoring de comportamiento de todos los clientes activos, en lotes, con vista previa opcional.";
+    var idsFallidos = TempData["RecalculoGlobalIdsFallidos"] as string;
+}
+
+@if (TempData["Error"] != null)
+{
+    <div id="toast-error" class="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3 rounded-lg bg-red-600 text-white shadow-xl text-sm font-semibold animate-fade-in">
+        <span class="material-symbols-outlined text-lg">error</span>
+        @TempData["Error"]
+    </div>
+}
+@if (TempData["Success"] != null)
+{
+    <div id="toast-success" class="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3 rounded-lg bg-emerald-600 text-white shadow-xl text-sm font-semibold animate-fade-in">
+        <span class="material-symbols-outlined text-lg">check_circle</span>
+        @TempData["Success"]
+    </div>
+}
+
+<div class="max-w-3xl mx-auto p-4 md:p-6">
+    <nav class="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-slate-400 mb-3">
+        <span>Mantenimiento</span>
+        <span class="material-symbols-outlined text-xs" aria-hidden="true">chevron_right</span>
+        <span class="text-primary">Recalculo global de scoring</span>
+    </nav>
+
+    <section class="card-erp-panel p-4 md:p-6">
+        <div class="flex items-center gap-2 mb-2">
+            <span class="material-symbols-outlined text-primary" aria-hidden="true">sync</span>
+            <h1 class="text-lg font-bold text-white">Recalculo global de scoring</h1>
+        </div>
+        <p class="text-sm text-slate-400 mb-4">
+            Recalcula el puntaje de comportamiento (<code>PuntajeCliente</code>) de todos los clientes
+            activos, en lotes, reutilizando el mismo servicio y la misma fórmula que el recálculo
+            individual de la ficha de cliente. Pensado para corregir puntajes persistidos que quedaron
+            desactualizados tras un cambio de regla de scoring ya desplegado. No se ejecuta
+            automáticamente: sólo corre cuando se dispara explícitamente desde acá.
+        </p>
+        <ul class="text-xs text-slate-400 list-disc pl-5 mb-4 space-y-1">
+            <li>La <strong>vista previa</strong> calcula sin persistir ningún cambio ni escribir historial.</li>
+            <li>La <strong>ejecución</strong> persiste y sólo audita en el historial a los clientes cuyo puntaje efectivamente cambió.</li>
+            <li>Si un cliente falla, el lote continúa con el resto; los ids fallidos quedan listados abajo.</li>
+        </ul>
+
+        @if (!string.IsNullOrWhiteSpace(idsFallidos))
+        {
+            <div class="mb-4 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs">
+                Ids de clientes fallidos en la última corrida: <span class="font-mono">@idsFallidos</span>
+            </div>
+        }
+
+        <div class="flex flex-wrap gap-3">
+            <form asp-action="RecalcularScoringGlobal" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="preview" value="true" />
+                <button type="submit" class="btn-erp-secondary">
+                    <span class="material-symbols-outlined text-base">visibility</span>
+                    Vista previa (no persiste nada)
+                </button>
+            </form>
+            <form asp-action="RecalcularScoringGlobal" method="post"
+                  onsubmit="return confirm('Esto va a recalcular y persistir el scoring de TODOS los clientes activos. Continuar?');">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="preview" value="false" />
+                <button type="submit" class="btn-erp-success">
+                    <span class="material-symbols-outlined text-base">play_arrow</span>
+                    Ejecutar recalculo global
+                </button>
+            </form>
+        </div>
+    </section>
+</div>
