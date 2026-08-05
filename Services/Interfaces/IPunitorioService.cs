@@ -45,6 +45,24 @@ namespace TheBuryProject.Services.Interfaces
         Task<decimal> ObtenerPunitorioAplicadoPendienteAsync(int cuotaId, CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// Equivalente en batch de <see cref="ObtenerPunitorioAplicadoPendienteAsync"/> para varias
+        /// cuotas a la vez, sin N+1: ejecuta una cantidad fija y acotada de queries (a lo sumo dos)
+        /// sin importar cuántos <paramref name="cuotaIds"/> se pidan.
+        /// </summary>
+        /// <param name="cuotaIds">
+        /// Cero, una o varias cuotas. Se deduplican internamente. No es necesario que existan como
+        /// <c>Cuota</c>: igual que la operación individual, una cuota sin aplicación activa (exista
+        /// o no) resuelve a <c>0m</c> — no se valida existencia ni se rechaza.
+        /// </param>
+        /// <returns>
+        /// Diccionario con exactamente una entrada por cada id único de <paramref name="cuotaIds"/>
+        /// (<c>0m</c> si no hay deuda de punitorio aplicado pendiente). Nunca negativo. Solo lectura:
+        /// no persiste, no inicia transacción de escritura, <c>AsNoTracking</c>.
+        /// </returns>
+        Task<IReadOnlyDictionary<int, decimal>> ObtenerPunitorioAplicadoPendientePorCuotasAsync(
+            IEnumerable<int> cuotaIds, CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Aplicación activa de la cuota (Modelo A: a lo sumo una) junto con su progreso de cobro
         /// (PUN-ML6), como entidad <b>tracked</b> del <c>AppDbContext</c> del caller — pensado para que
         /// el cobro (<c>CreditoService</c>, mismo <c>AppDbContext</c> por alcance de request) pueda

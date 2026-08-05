@@ -225,6 +225,57 @@ namespace TheBuryProject.Services
             return Math.Max(0m, activa.Importe - pagado);
         }
 
+        public async Task<IReadOnlyDictionary<int, decimal>> ObtenerPunitorioAplicadoPendientePorCuotasAsync(
+            IEnumerable<int> cuotaIds, CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(cuotaIds);
+
+            var idsUnicos = cuotaIds.Distinct().ToList();
+
+            if (idsUnicos.Count == 0)
+                return new Dictionary<int, decimal>();
+
+            // Modelo A: a lo sumo una fila Estado=Aplicado por cuota (índice único filtrado) — misma
+            // autoridad que ObtenerPunitorioAplicadoPendienteAsync, ejecutada en batch: una query trae
+            // las aplicaciones activas de todas las cuotas pedidas, una segunda trae únicamente los
+            // pagos atribuidos a esas aplicaciones. Nunca N+1, sin importar cuántas cuotas se pidan.
+            var activas = await _context.PunitoriosAplicados
+                .AsNoTracking()
+                .Where(p => idsUnicos.Contains(p.CuotaId) && p.Estado == EstadoPunitorioAplicado.Aplicado)
+                .Select(p => new { p.Id, p.CuotaId, p.Importe })
+                .ToListAsync(cancellationToken);
+
+            var idsAplicacionesActivas = activas.Select(a => a.Id).ToList();
+
+            var pagos = idsAplicacionesActivas.Count == 0
+                ? new List<PagoCuota>()
+                : await _context.PagosCuota
+                    .AsNoTracking()
+                    .Where(p => p.PunitorioAplicadoId != null &&
+                                idsAplicacionesActivas.Contains(p.PunitorioAplicadoId.Value) &&
+                                p.Estado == EstadoPagoCuota.Aplicado)
+                    .ToListAsync(cancellationToken);
+
+            var resultado = new Dictionary<int, decimal>(idsUnicos.Count);
+            foreach (var cuotaId in idsUnicos)
+            {
+                var activa = activas.FirstOrDefault(a => a.CuotaId == cuotaId);
+                if (activa is null)
+                {
+                    resultado[cuotaId] = 0m;
+                    continue;
+                }
+
+                // Mismo fallback a cero que ObtenerMontoPagadoAplicacionAsync: los productores
+                // vigentes siempre guardan composición completa; una fila histórica ambigua no debe
+                // convertir el pendiente en una excepción ni en un valor negativo.
+                var pagado = ResolverMontoPagadoAplicacion(pagos, activa.Id) ?? 0m;
+                resultado[cuotaId] = Math.Max(0m, activa.Importe - pagado);
+            }
+
+            return resultado;
+        }
+
         public async Task<PunitorioAplicadoProgreso?> ObtenerAplicacionActivaConProgresoAsync(
             int cuotaId, CancellationToken cancellationToken = default)
         {

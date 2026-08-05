@@ -252,6 +252,10 @@ public class CreditoPunitorioDetalleControllerTests
             int cuotaId,
             CancellationToken cancellationToken = default) => throw new NotImplementedException();
 
+        public Task<IReadOnlyDictionary<int, decimal>> ObtenerPunitorioAplicadoPendientePorCuotasAsync(
+            IEnumerable<int> cuotaIds,
+            CancellationToken cancellationToken = default) => throw new NotImplementedException();
+
         public Task<PunitorioAplicadoProgreso?> ObtenerAplicacionActivaConProgresoAsync(
             int cuotaId,
             CancellationToken cancellationToken = default) => throw new NotImplementedException();
