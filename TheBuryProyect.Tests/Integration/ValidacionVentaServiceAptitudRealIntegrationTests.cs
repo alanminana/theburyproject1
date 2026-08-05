@@ -157,4 +157,155 @@ public class ValidacionVentaServiceAptitudRealIntegrationTests
             Assert.NotEmpty(result.RequisitosPendientes);
         }
     }
+
+    // -----------------------------------------------------------------------
+    // PUN-ML10-C: mora de capital vs. punitorio aplicado pendiente, de punta a punta a través de
+    // ValidacionVentaService (ClienteAptitudService real, no stubeado).
+    // -----------------------------------------------------------------------
+
+    private static async Task<Cuota> SeedCuotaCapitalSaldadaAsync(AppDbContext ctx, int clienteId, decimal montoTotal)
+    {
+        var credito = new Credito
+        {
+            ClienteId = clienteId,
+            Numero = $"PUNML10C-VVS-{clienteId}",
+            Estado = EstadoCredito.Activo,
+            IsDeleted = false,
+            SaldoPendiente = 0m
+        };
+        ctx.Creditos.Add(credito);
+        await ctx.SaveChangesAsync();
+
+        var cuota = new Cuota
+        {
+            CreditoId = credito.Id,
+            NumeroCuota = 1,
+            FechaVencimiento = DateTime.UtcNow.Date.AddDays(-30),
+            MontoCapital = montoTotal,
+            MontoInteres = 0m,
+            MontoTotal = montoTotal,
+            MontoPagado = montoTotal, // capital 100% saldado
+            MontoPunitorio = 0m,
+            // Estado real que deja EstadoCuotaResolver.Resolver cuando el capital está saldado pero
+            // queda un punitorio aplicado pendiente: Parcial, nunca Pagada (PUN-ML7).
+            Estado = EstadoCuota.Parcial
+        };
+        ctx.Cuotas.Add(cuota);
+        await ctx.SaveChangesAsync();
+        return cuota;
+    }
+
+    private static async Task SeedPunitorioAplicadoAsync(AppDbContext ctx, int cuotaId, decimal importe)
+    {
+        ctx.PunitoriosAplicados.Add(new PunitorioAplicado
+        {
+            CuotaId = cuotaId,
+            FechaCalculo = DateOnly.FromDateTime(DateTime.UtcNow),
+            SaldoBase = importe,
+            DiasComputados = 10,
+            Importe = importe,
+            Estado = EstadoPunitorioAplicado.Aplicado,
+            DesgloseSnapshotJson = "{}",
+            MotivoAplicacion = "PUN-ML10-C test",
+            UsuarioAplicacion = "tester",
+            FechaAplicacion = DateTime.UtcNow
+        });
+        await ctx.SaveChangesAsync();
+    }
+
+    private static ConfiguracionCredito ConfigSoloMora(int? diasParaRequerirAutorizacion = 1) => new()
+    {
+        ValidarDocumentacion = false,
+        ValidarLimiteCredito = false,
+        ValidarMora = true,
+        DiasParaRequerirAutorizacion = diasParaRequerirAutorizacion
+    };
+
+    [Fact]
+    public async Task ValidacionCredito_CapitalSaldadoConPunitorioPendiente_NoBloqueaComoMora_RequiereAutorizacionPorPunitorio()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            ctx.Set<ConfiguracionCredito>().Add(ConfigSoloMora());
+
+            // PuntajeCreditoLimite sólo admite Puntaje 1..5 (check constraint); BaseCliente no fija
+            // PuntajeCliente (default 0), así que se ajusta a 1 para poder resolver un preset válido.
+            var preset = await ctx.PuntajesCreditoLimite.FindAsync(1);
+            preset!.LimiteMonto = 100_000m;
+
+            var cliente = BaseCliente(1);
+            cliente.PuntajeCliente = 1;
+            ctx.Clientes.Add(cliente);
+            await ctx.SaveChangesAsync();
+
+            var cuota = await SeedCuotaCapitalSaldadaAsync(ctx, 1, 1_000m);
+            await SeedPunitorioAplicadoAsync(ctx, cuota.Id, 75m);
+
+            var fakeBcra = new FakeSituacionCrediticiaBcraService();
+            var service = BuildService(ctx, fakeBcra);
+
+            var result = await service.ValidarVentaCreditoPersonalAsync(1, montoVenta: 500m);
+
+            // No bloquea como mora de capital: el capital está saldado.
+            Assert.Equal(EstadoCrediticioCliente.RequiereAutorizacion, result.EstadoAptitud);
+            Assert.False(result.NoViable);
+            Assert.True(result.RequiereAutorizacion);
+            Assert.Contains(result.RazonesAutorizacion, r => r.Descripcion.Contains("Punitorio"));
+        }
+    }
+
+    [Fact]
+    public async Task ValidacionCredito_CapitalSaldadoSinPunitorioAplicado_NoBloqueaNiRequiereAutorizacionPorPunitorio()
+    {
+        var (ctx, conn) = CreateContext();
+        await using (ctx) using (conn)
+        {
+            ctx.Set<ConfiguracionCredito>().Add(ConfigSoloMora());
+
+            var preset = await ctx.PuntajesCreditoLimite.FindAsync(1);
+            preset!.LimiteMonto = 100_000m;
+
+            var cliente = BaseCliente(1);
+            cliente.PuntajeCliente = 1;
+            ctx.Clientes.Add(cliente);
+            await ctx.SaveChangesAsync();
+
+            // Capital saldado y vencida hace tiempo, pero SIN ninguna fila PunitorioAplicado — es el
+            // equivalente a "punitorio calculado pero nunca aplicado": no hay nada que leer.
+            var credito = new Credito
+            {
+                ClienteId = 1,
+                Numero = "PUNML10C-VVS-SINAPLICAR",
+                Estado = EstadoCredito.Activo,
+                IsDeleted = false,
+                SaldoPendiente = 0m
+            };
+            ctx.Creditos.Add(credito);
+            await ctx.SaveChangesAsync();
+            ctx.Cuotas.Add(new Cuota
+            {
+                CreditoId = credito.Id,
+                NumeroCuota = 1,
+                FechaVencimiento = DateTime.UtcNow.Date.AddDays(-30),
+                MontoCapital = 1_000m,
+                MontoInteres = 0m,
+                MontoTotal = 1_000m,
+                MontoPagado = 1_000m,
+                MontoPunitorio = 0m,
+                Estado = EstadoCuota.Pagada
+            });
+            await ctx.SaveChangesAsync();
+
+            var fakeBcra = new FakeSituacionCrediticiaBcraService();
+            var service = BuildService(ctx, fakeBcra);
+
+            var result = await service.ValidarVentaCreditoPersonalAsync(1, montoVenta: 500m);
+
+            Assert.Equal(EstadoCrediticioCliente.Apto, result.EstadoAptitud);
+            Assert.False(result.NoViable);
+            Assert.False(result.RequiereAutorizacion);
+            Assert.True(result.PuedeProceeder);
+        }
+    }
 }

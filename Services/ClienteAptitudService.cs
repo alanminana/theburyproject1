@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using System.Text.Json;
 using TheBuryProject.Data;
 using TheBuryProject.Helpers;
@@ -21,13 +22,35 @@ namespace TheBuryProject.Services
         private readonly ICreditoDisponibleService _creditoDisponibleService;
         private readonly IGaranteService _garanteService;
         private readonly IRelojComercial _reloj;
+        private readonly IPunitorioService _punitorioService;
+
+        /// <summary>
+        /// Implementación inerte de <see cref="ICurrentUserService"/> usada exclusivamente para el
+        /// fallback de <see cref="_punitorioService"/> cuando nadie lo inyecta (mismos tests
+        /// preexistentes de <see cref="ClienteAptitudService"/> que tampoco inyectan
+        /// <c>IRelojComercial</c>). Segura porque el único método de <c>IPunitorioService</c> que
+        /// este servicio invoca — <c>ObtenerPunitorioAplicadoPendientePorCuotasAsync</c> — es de solo
+        /// lectura y nunca resuelve actor/permiso (a diferencia de AplicarAsync/AnularAsync).
+        /// </summary>
+        private sealed class NullCurrentUserService : ICurrentUserService
+        {
+            public static readonly NullCurrentUserService Instance = new();
+            public string GetUsername() => "Sistema";
+            public string GetUserId() => "system";
+            public bool IsAuthenticated() => false;
+            public string? GetEmail() => null;
+            public bool IsInRole(string role) => false;
+            public bool HasPermission(string modulo, string accion) => false;
+            public string? GetIpAddress() => null;
+        }
 
         public ClienteAptitudService(
             AppDbContext context,
             ILogger<ClienteAptitudService> logger,
             ICreditoDisponibleService creditoDisponibleService,
             IGaranteService garanteService,
-            IRelojComercial? reloj = null)
+            IRelojComercial? reloj = null,
+            IPunitorioService? punitorioService = null)
         {
             _context = context;
             _logger = logger;
@@ -38,6 +61,11 @@ namespace TheBuryProject.Services
             // servicio sin pasar reloj — el fallback es inerte en producción (Program.cs registra
             // IRelojComercial como Singleton; DI siempre lo resuelve) y solo se alcanza ahí.
             _reloj = reloj ?? RelojComercial.Sistema;
+            // PUN-ML10-C: fuente única del punitorio APLICADO pendiente (deuda distinta de la mora de
+            // capital). Mismo patrón de fallback que CreditoService — evita romper los constructores
+            // de test preexistentes que no lo inyectan; en producción DI siempre resuelve el real.
+            _punitorioService = punitorioService ?? new PunitorioService(
+                context, new PunitorioCalculator(), _reloj, NullCurrentUserService.Instance, NullLogger<PunitorioService>.Instance);
         }
 
         #region Evaluación de Aptitud
@@ -202,7 +230,7 @@ namespace TheBuryProject.Services
                 }
             }
 
-            // Evaluar mora
+            // Evaluar mora de CAPITAL (predicado canónico, PUN-ML10-C: nunca incluye punitorio)
             if (config.ValidarMora && resultado.Mora.Evaluada && resultado.Mora.TieneMora)
             {
                 if (resultado.Mora.EsBloqueante)
@@ -216,6 +244,24 @@ namespace TheBuryProject.Services
                     motivos.Add($"Tiene mora: {resultado.Mora.DiasMaximoMora} días");
                     detalles.Add(CrearDetalle("Mora", $"Cliente en mora ({resultado.Mora.DiasMaximoMora} días) - Requiere autorización de supervisor", false, "bi-clock-history", "warning"));
                 }
+            }
+
+            // PUN-ML10-C: punitorio APLICADO pendiente es deuda separada de la mora de capital
+            // (regla 1/2/6). Nunca por sí solo produce NoApto (regla 4); si ya hay NoApto por
+            // cualquier otra causa (documentación, cupo, mora de capital, BCRA) no lo rebaja ni
+            // duplica bloqueo/autorización (regla 5/9) — sólo agrega el motivo informativo. Categoría
+            // "Punitorio" (nunca "Mora", regla 10) para que la UI no lo etiquete como mora de capital.
+            if (config.ValidarMora && resultado.Mora.Evaluada && resultado.Mora.TienePunitorioAplicadoPendiente)
+            {
+                if (!esNoApto)
+                {
+                    requiereAutorizacion = true;
+                }
+
+                var cantidadCuotasPunitorio = resultado.Mora.CuotasConPunitorioAplicadoPendiente;
+                var motivoPunitorio = $"Punitorio aplicado pendiente: {resultado.Mora.MontoPunitorioAplicadoPendiente:C0} ({cantidadCuotasPunitorio} cuota{(cantidadCuotasPunitorio == 1 ? "" : "s")})";
+                motivos.Add(motivoPunitorio);
+                detalles.Add(CrearDetalle("Punitorio", motivoPunitorio, false, "bi-cash-coin", "warning"));
             }
 
             // Evaluar BCRA/Veraz (Central de Deudores). Bloqueo duro independiente de los flags de config:
@@ -629,6 +675,15 @@ namespace TheBuryProject.Services
             return await EvaluarMoraInternaAsync(clienteId, config);
         }
 
+        /// <summary>
+        /// PUN-ML10-C: separa dos deudas de naturaleza distinta que antes se mezclaban en un único
+        /// monto — mora de CAPITAL (predicado canónico <see cref="EstadoCuotaResolver.EstaEnMoraCapitalDerivado"/>,
+        /// nunca lee <c>Cuota.MontoPunitorio</c>) y punitorio APLICADO pendiente de cobro
+        /// (<see cref="IPunitorioService.ObtenerPunitorioAplicadoPendientePorCuotasAsync"/>, una sola
+        /// consulta batch, cero N+1, nunca punitorio calculado-no-aplicado/pagado/anulado). Ver
+        /// <see cref="AptitudMoraDetalle"/> para la semántica exacta de cada campo, incluidas las
+        /// propiedades legacy.
+        /// </summary>
         private async Task<AptitudMoraDetalle> EvaluarMoraInternaAsync(int clienteId, ConfiguracionCredito config)
         {
             var resultado = new AptitudMoraDetalle
@@ -646,74 +701,121 @@ namespace TheBuryProject.Services
             }
 
             // PUN-ML7: fecha comercial única (antes DateTime.UtcNow.Date — adelantaba mora hasta 3hs
-            // por el cruce de día UTC/Argentina, ver IRelojComercial). InicioDiaComercial es la cota
-            // ya diseñada para comparar contra Cuota.FechaVencimiento (DateTime a medianoche).
-            var hoy = _reloj.InicioDiaComercial;
+            // por el cruce de día UTC/Argentina, ver IRelojComercial). PUN-ML10-C: HoyComercial
+            // (DateOnly) porque el predicado canónico EstadoCuotaResolver.EstaEnMoraCapitalDerivado
+            // recibe la fecha comercial como DateOnly, no como DateTime a medianoche.
+            var hoy = _reloj.HoyComercial;
 
-            // Buscar cuotas vencidas del cliente
-            var cuotasVencidas = await _context.Cuotas
-                .Include(c => c.Credito)
-                .Where(c => c.Credito!.ClienteId == clienteId &&
-                           !c.Credito.IsDeleted &&
-                           c.Estado != EstadoCuota.Pagada &&
-                           c.Estado != EstadoCuota.Cancelada &&
-                           c.FechaVencimiento < hoy)
+            // PUN-ML10-C: se traen TODAS las cuotas no eliminadas del cliente (no solo las vencidas)
+            // porque un punitorio aplicado pendiente puede existir sobre una cuota con capital ya
+            // saldado — esa cuota queda "Parcial" solo por el punitorio (ver EstadoCuotaResolver.Resolver)
+            // y no debe perderse. La mora de CAPITAL se filtra aparte, en memoria, con el predicado
+            // canónico. Proyección (sin Include) — no se necesita materializar Credito.
+            var cuotas = await _context.Cuotas
+                .Where(c => c.Credito!.ClienteId == clienteId && !c.Credito.IsDeleted)
+                .Select(c => new
+                {
+                    c.Id,
+                    c.Estado,
+                    c.FechaVencimiento,
+                    c.MontoPagado,
+                    c.MontoTotal
+                })
                 .ToListAsync();
 
-            if (!cuotasVencidas.Any())
+            // Mora de CAPITAL: predicado canónico único (EstadoCuotaResolver), nunca
+            // Cuota.MontoPunitorio; excluye capital totalmente saldado (regla 8) aunque la cuota siga
+            // "Parcial" solo por punitorio pendiente.
+            var cuotasConMoraCapital = cuotas
+                .Where(c => EstadoCuotaResolver.EstaEnMoraCapitalDerivado(c.Estado, c.MontoPagado, c.MontoTotal, c.FechaVencimiento, hoy))
+                .ToList();
+
+            resultado.CuotasConMoraCapital = cuotasConMoraCapital.Count;
+            resultado.MontoMoraCapital = cuotasConMoraCapital.Sum(c => c.MontoTotal - c.MontoPagado);
+            var diasMaximoMoraCapital = cuotasConMoraCapital.Count > 0
+                ? cuotasConMoraCapital.Max(c => EstadoCuotaResolver.DiasAtrasoDerivado(c.Estado, c.FechaVencimiento, hoy))
+                : 0;
+
+            // Legacy: TieneMora/DiasMaximoMora/MontoTotalMora/CuotasVencidas representan
+            // EXCLUSIVAMENTE mora de capital — nunca mezclan punitorio (ver AptitudMoraDetalle).
+            resultado.TieneMora = resultado.CuotasConMoraCapital > 0;
+            resultado.CuotasVencidas = resultado.CuotasConMoraCapital;
+            resultado.MontoTotalMora = resultado.MontoMoraCapital;
+            resultado.DiasMaximoMora = diasMaximoMoraCapital;
+
+            // PUN-ML10-C, regla 6/9: punitorio APLICADO pendiente, una única consulta batch (cero
+            // N+1, sin importar cuántas cuotas tenga el cliente), sobre todas las cuotas del cliente
+            // (no solo las vencidas — regla 4). Nunca lee Cuota.MontoPunitorio ni recalcula "al vuelo".
+            var punitorioPorCuota = await _punitorioService.ObtenerPunitorioAplicadoPendientePorCuotasAsync(
+                cuotas.Select(c => c.Id));
+
+            var cuotasConPunitorioPendiente = punitorioPorCuota.Where(kv => kv.Value > 0m).ToList();
+            resultado.CuotasConPunitorioAplicadoPendiente = cuotasConPunitorioPendiente.Count;
+            resultado.MontoPunitorioAplicadoPendiente = cuotasConPunitorioPendiente.Sum(kv => kv.Value);
+            resultado.TienePunitorioAplicadoPendiente = resultado.MontoPunitorioAplicadoPendiente > 0m;
+
+            if (!resultado.TieneMora && !resultado.TienePunitorioAplicadoPendiente)
             {
-                resultado.TieneMora = false;
                 resultado.Mensaje = "Sin mora";
                 return resultado;
             }
 
-            resultado.TieneMora = true;
-            resultado.CuotasVencidas = cuotasVencidas.Count;
-            resultado.DiasMaximoMora = cuotasVencidas.Max(c => (hoy - c.FechaVencimiento).Days);
-            resultado.MontoTotalMora = cuotasVencidas.Sum(c => c.MontoTotal + c.MontoPunitorio - c.MontoPagado);
-
-            // Determinar si es bloqueante o requiere autorización
+            // Umbrales de mora de CAPITAL — política sin cambios (regla 3): sólo el capital vencido
+            // decide EsBloqueante/RequiereAutorizacion acá. El punitorio aplicado pendiente se combina
+            // aparte, en DeterminarEstadoFinal (regla 4/5: nunca escala a NoApto por sí solo).
             var esBloqueante = false;
             var requiereAuth = false;
 
-            // Verificar días para NoApto
-            if (config.DiasParaNoApto.HasValue && resultado.DiasMaximoMora >= config.DiasParaNoApto.Value)
+            if (resultado.TieneMora)
             {
-                esBloqueante = true;
-            }
-
-            // Verificar monto para NoApto
-            if (config.MontoMoraParaNoApto.HasValue && resultado.MontoTotalMora >= config.MontoMoraParaNoApto.Value)
-            {
-                esBloqueante = true;
-            }
-
-            // Verificar cuotas para NoApto
-            if (config.CuotasVencidasParaNoApto.HasValue && resultado.CuotasVencidas >= config.CuotasVencidasParaNoApto.Value)
-            {
-                esBloqueante = true;
-            }
-
-            // Si no es bloqueante, verificar si requiere autorización
-            if (!esBloqueante)
-            {
-                if (config.DiasParaRequerirAutorizacion.HasValue && resultado.DiasMaximoMora >= config.DiasParaRequerirAutorizacion.Value)
+                // Verificar días para NoApto
+                if (config.DiasParaNoApto.HasValue && resultado.DiasMaximoMora >= config.DiasParaNoApto.Value)
                 {
-                    requiereAuth = true;
+                    esBloqueante = true;
                 }
 
-                if (config.MontoMoraParaRequerirAutorizacion.HasValue && resultado.MontoTotalMora >= config.MontoMoraParaRequerirAutorizacion.Value)
+                // Verificar monto para NoApto
+                if (config.MontoMoraParaNoApto.HasValue && resultado.MontoTotalMora >= config.MontoMoraParaNoApto.Value)
                 {
-                    requiereAuth = true;
+                    esBloqueante = true;
+                }
+
+                // Verificar cuotas para NoApto
+                if (config.CuotasVencidasParaNoApto.HasValue && resultado.CuotasVencidas >= config.CuotasVencidasParaNoApto.Value)
+                {
+                    esBloqueante = true;
+                }
+
+                // Si no es bloqueante, verificar si requiere autorización
+                if (!esBloqueante)
+                {
+                    if (config.DiasParaRequerirAutorizacion.HasValue && resultado.DiasMaximoMora >= config.DiasParaRequerirAutorizacion.Value)
+                    {
+                        requiereAuth = true;
+                    }
+
+                    if (config.MontoMoraParaRequerirAutorizacion.HasValue && resultado.MontoTotalMora >= config.MontoMoraParaRequerirAutorizacion.Value)
+                    {
+                        requiereAuth = true;
+                    }
                 }
             }
 
             resultado.EsBloqueante = esBloqueante;
             resultado.RequiereAutorizacion = requiereAuth || esBloqueante;
 
-            resultado.Mensaje = esBloqueante
-                ? $"Mora crítica: {resultado.DiasMaximoMora} días, {resultado.CuotasVencidas} cuotas, {resultado.MontoTotalMora:C0}"
-                : $"En mora: {resultado.DiasMaximoMora} días - Requiere autorización";
+            var mensajes = new List<string>();
+            if (resultado.TieneMora)
+            {
+                mensajes.Add(esBloqueante
+                    ? $"Mora crítica: {resultado.DiasMaximoMora} días, {resultado.CuotasVencidas} cuotas, {resultado.MontoTotalMora:C0}"
+                    : $"En mora: {resultado.DiasMaximoMora} días - Requiere autorización");
+            }
+            if (resultado.TienePunitorioAplicadoPendiente)
+            {
+                mensajes.Add($"Punitorio aplicado pendiente: {resultado.MontoPunitorioAplicadoPendiente:C0} ({resultado.CuotasConPunitorioAplicadoPendiente} cuota{(resultado.CuotasConPunitorioAplicadoPendiente == 1 ? "" : "s")})");
+            }
+            resultado.Mensaje = string.Join(". ", mensajes);
 
             return resultado;
         }

@@ -119,18 +119,66 @@ namespace TheBuryProject.ViewModels
     }
 
     /// <summary>
-    /// Detalle de evaluación de mora
+    /// Detalle de evaluación de mora.
+    ///
+    /// PUN-ML10-C: separa explícitamente dos deudas de naturaleza distinta que antes se mezclaban en
+    /// un único monto — mora de CAPITAL (cuota vencida con saldo de capital pendiente) y punitorio
+    /// APLICADO PENDIENTE (fila <c>PunitorioAplicado</c> vigente, PUN-ML5/6, todavía no cobrada). Un
+    /// punitorio calculado pero nunca aplicado, o aplicado y luego pagado/anulado, no es deuda y no
+    /// aparece en ninguno de los dos bloques.
+    ///
+    /// Las propiedades legacy (<see cref="TieneMora"/>, <see cref="DiasMaximoMora"/>,
+    /// <see cref="MontoTotalMora"/>, <see cref="CuotasVencidas"/>) se conservan porque
+    /// <c>Views/Cliente/Details_tw.cshtml</c> y <c>ValidacionVentaService</c> ya las consumen, pero su
+    /// semántica quedó corregida: representan EXCLUSIVAMENTE mora de capital, nunca una mezcla con
+    /// punitorio (antes sumaban <c>Cuota.MontoPunitorio</c>, campo legacy congelado desde PUN-ML5/6) —
+    /// son ahora un alias 1:1 de <see cref="MontoMoraCapital"/>/<see cref="CuotasConMoraCapital"/>. El
+    /// punitorio aplicado pendiente vive únicamente en <see cref="MontoPunitorioAplicadoPendiente"/>/
+    /// <see cref="CuotasConPunitorioAplicadoPendiente"/>/<see cref="TienePunitorioAplicadoPendiente"/>.
     /// </summary>
     public class AptitudMoraDetalle
     {
         public bool Evaluada { get; set; }
+
+        /// <summary>Legacy: alias de "hay mora de CAPITAL" (nunca incluye punitorio). Ver <see cref="CuotasConMoraCapital"/>.</summary>
         public bool TieneMora { get; set; }
+
+        /// <summary>Legacy: días de atraso máximos entre las cuotas con mora de CAPITAL. 0 si no hay mora de capital.</summary>
         public int DiasMaximoMora { get; set; }
+
+        /// <summary>Legacy: alias de <see cref="MontoMoraCapital"/> — nunca incluye punitorio aplicado pendiente.</summary>
         public decimal MontoTotalMora { get; set; }
+
+        /// <summary>Legacy: alias de <see cref="CuotasConMoraCapital"/>.</summary>
         public int CuotasVencidas { get; set; }
+
+        /// <summary>
+        /// Clasificación de la mora de CAPITAL únicamente, según los umbrales configurados (mismos de
+        /// siempre). El punitorio aplicado pendiente NO se mezcla acá — su propia contribución a
+        /// RequiereAutorizacion (regla 4: nunca NoApto por sí solo) se resuelve por separado en
+        /// <see cref="ClienteAptitudService.DeterminarEstadoFinal"/>, usando
+        /// <see cref="TienePunitorioAplicadoPendiente"/> con motivo/detalle propios.
+        /// </summary>
         public bool RequiereAutorizacion { get; set; }
+
+        /// <summary>Bloqueo (NoApto). Sólo lo decide la mora de CAPITAL — el punitorio aplicado pendiente nunca es bloqueante por sí solo (PUN-ML10-C regla 4).</summary>
         public bool EsBloqueante { get; set; }
         public string Mensaje { get; set; } = string.Empty;
+
+        /// <summary>PUN-ML10-C: suma de (MontoTotal - MontoPagado) de las cuotas con mora de CAPITAL (saldo de capital pendiente, vencidas, no terminales). Nunca incluye punitorio.</summary>
+        public decimal MontoMoraCapital { get; set; }
+
+        /// <summary>PUN-ML10-C: cantidad de cuotas con mora de CAPITAL (predicado canónico <see cref="EstadoCuotaResolver.EstaEnMoraCapitalDerivado"/>).</summary>
+        public int CuotasConMoraCapital { get; set; }
+
+        /// <summary>PUN-ML10-C: suma del punitorio APLICADO pendiente de cobro (PUN-ML5/6) de todas las cuotas del cliente. Nunca punitorio calculado-no-aplicado, pagado ni anulado.</summary>
+        public decimal MontoPunitorioAplicadoPendiente { get; set; }
+
+        /// <summary>PUN-ML10-C: cantidad de cuotas con punitorio aplicado pendiente &gt; 0.</summary>
+        public int CuotasConPunitorioAplicadoPendiente { get; set; }
+
+        /// <summary>PUN-ML10-C: true si <see cref="MontoPunitorioAplicadoPendiente"/> &gt; 0. Deuda separada de la mora de capital — nunca produce NoApto por sí sola.</summary>
+        public bool TienePunitorioAplicadoPendiente { get; set; }
 
         /// <summary>Umbral de días configurado para requerir autorización (ConfiguracionCredito.DiasParaRequerirAutorizacion).</summary>
         public int? DiasParaRequerirAutorizacion { get; set; }
