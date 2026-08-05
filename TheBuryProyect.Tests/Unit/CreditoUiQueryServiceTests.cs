@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
 using TheBuryProject.Controllers;
@@ -67,65 +66,6 @@ public class CreditoUiQueryServiceTests
         var estado = service.ResolverEstadoConsolidado(creditos, cuotasVencidas);
 
         Assert.Equal(esperado, estado);
-    }
-
-    [Fact]
-    public void ObtenerCuotasPendientes_ConservaFiltradoYOrdenPorNumeroCuota()
-    {
-        var service = new CreditoUiQueryService();
-        var cuotas = new[]
-        {
-            Cuota(1, 3, EstadoCuota.Parcial, DateTime.Today.AddDays(3), 300m),
-            Cuota(2, 1, EstadoCuota.Pagada, DateTime.Today.AddDays(1), 100m),
-            Cuota(3, 2, EstadoCuota.Vencida, DateTime.Today.AddDays(-1), 200m),
-            Cuota(4, 1, EstadoCuota.Pendiente, DateTime.Today.AddDays(1), 100m),
-            Cuota(5, 4, EstadoCuota.Cancelada, DateTime.Today.AddDays(4), 400m)
-        };
-
-        var pendientes = service.ObtenerCuotasPendientes(cuotas);
-
-        Assert.Equal(new[] { 4, 3, 1 }, pendientes.Select(c => c.Id));
-    }
-
-    [Fact]
-    public void BuildCuotasJson_ConservaNombresPropiedadesYValores()
-    {
-        var service = new CreditoUiQueryService();
-        var fecha = new DateTime(2026, 6, 15);
-        var cuotas = new[]
-        {
-            Cuota(7, 2, EstadoCuota.Pendiente, fecha, 1500m, montoPagado: 200m, punitorio: 75m),
-            Cuota(8, 1, EstadoCuota.Pagada, fecha, 999m)
-        };
-
-        using var json = JsonDocument.Parse(service.BuildCuotasJson(cuotas));
-        var root = json.RootElement;
-
-        Assert.True(root.TryGetProperty("7", out var cuota));
-        Assert.False(root.TryGetProperty("8", out _));
-        Assert.Equal(1375m, cuota.GetProperty("saldo").GetDecimal());
-        Assert.Equal(1500m, cuota.GetProperty("montoCuota").GetDecimal());
-        Assert.Equal(75m, cuota.GetProperty("punitorio").GetDecimal());
-        Assert.Equal(2, cuota.GetProperty("numeroCuota").GetInt32());
-        Assert.Equal("15/06/2026", cuota.GetProperty("vencimiento").GetString());
-        Assert.True(cuota.TryGetProperty("estaVencida", out _));
-        Assert.True(cuota.TryGetProperty("diasAtraso", out _));
-    }
-
-    [Fact]
-    public void ProyectarCuotasPendientes_ConservaValueYTextoBase()
-    {
-        var service = new CreditoUiQueryService();
-        var cuotas = new[]
-        {
-            Cuota(9, 4, EstadoCuota.Pendiente, new DateTime(2026, 7, 20), 2500m)
-        };
-
-        var items = service.ProyectarCuotasPendientes(cuotas);
-
-        var item = Assert.Single(items);
-        Assert.Equal("9", item.Value);
-        Assert.Contains("Cuota #4 - Vto: 20/07/2026 - ", item.Text);
     }
 
     [Fact]

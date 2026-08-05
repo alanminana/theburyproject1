@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Mvc.Rendering;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.ViewModels;
@@ -7,40 +6,6 @@ namespace TheBuryProject.Services;
 
 public class CreditoUiQueryService : ICreditoUiQueryService
 {
-    public virtual List<CuotaViewModel> ObtenerCuotasPendientes(IEnumerable<CuotaViewModel>? cuotas) =>
-        (cuotas ?? Enumerable.Empty<CuotaViewModel>())
-            .Where(c => c.Estado == EstadoCuota.Pendiente || c.Estado == EstadoCuota.Vencida || c.Estado == EstadoCuota.Parcial)
-            .OrderBy(c => c.NumeroCuota)
-            .ToList();
-
-    public virtual List<SelectListItem> ProyectarCuotasPendientes(IEnumerable<CuotaViewModel>? cuotas) =>
-        ObtenerCuotasPendientes(cuotas)
-            .Select(c => new SelectListItem
-            {
-                Value = c.Id.ToString(),
-                Text = $"Cuota #{c.NumeroCuota} - Vto: {c.FechaVencimiento:dd/MM/yyyy} - {c.MontoTotal:C}"
-            })
-            .ToList();
-
-    public virtual string BuildCuotasJson(IEnumerable<CuotaViewModel>? cuotas)
-    {
-        var data = ObtenerCuotasPendientes(cuotas)
-            .ToDictionary(
-                c => c.Id.ToString(),
-                c => new
-                {
-                    saldo        = c.SaldoPendiente,
-                    montoCuota   = c.MontoTotal,
-                    punitorio    = c.MontoPunitorio,
-                    numeroCuota  = c.NumeroCuota,
-                    vencimiento  = c.FechaVencimiento.ToString("dd/MM/yyyy"),
-                    estaVencida  = c.EstaVencida,
-                    diasAtraso   = c.DiasAtraso
-                });
-
-        return System.Text.Json.JsonSerializer.Serialize(data);
-    }
-
     public virtual List<CreditoClienteIndexViewModel> AgruparCreditosPorCliente(IEnumerable<CreditoViewModel> creditos)
     {
         return creditos
