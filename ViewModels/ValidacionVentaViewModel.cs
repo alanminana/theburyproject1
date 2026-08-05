@@ -109,9 +109,25 @@ namespace TheBuryProject.ViewModels
         public string? DetalleAdicional { get; set; }
 
         /// <summary>
-        /// Valor numérico asociado (ej: monto que excede el límite, días de mora)
+        /// PUN-ML10-F: valor monetario real asociado a la razón (ej: punitorio aplicado
+        /// pendiente, monto que excede el cupo). Nunca días — para eso ver <see cref="DiasAsociado"/>.
+        /// </summary>
+        public decimal? MontoAsociado { get; set; }
+
+        /// <summary>PUN-ML10-F: días asociados a la razón (ej: días de mora). Nunca dinero.</summary>
+        public int? DiasAsociado { get; set; }
+
+        /// <summary>
+        /// Legacy: valor numérico genérico (monto o días según <see cref="Tipo"/>). Se conserva
+        /// por compatibilidad con consumidores previos a PUN-ML10-F — para nuevas vistas usar
+        /// <see cref="MontoAsociado"/>/<see cref="DiasAsociado"/>, que no mezclan unidades.
+        /// Antes de ML10-F este campo recibía por error <c>DiasMaximoMora</c> incluso para
+        /// razones de tipo Punitorio (mostraba "Monto: $0,00" en vez del punitorio real).
         /// </summary>
         public decimal? ValorAsociado { get; set; }
+
+        /// <summary>Unidad de <see cref="ValorAsociado"/>, explícita para no mezclar dinero y días sin metadato (PUN-ML10-F).</summary>
+        public UnidadValorAsociado? Unidad { get; set; }
 
         /// <summary>
         /// Valor límite configurado
@@ -216,5 +232,19 @@ namespace TheBuryProject.ViewModels
         /// No existe crédito aprobado para el cliente
         /// </summary>
         SinCreditoAprobado = 5
+    }
+
+    /// <summary>
+    /// PUN-ML10-F: unidad explícita del valor numérico genérico legacy (<c>ValorAsociado</c> en
+    /// <see cref="RazonAutorizacion"/> y <c>ProblemaCredito</c>). Evita que un mismo campo
+    /// decimal represente días en un caso y dinero en otro sin forma de distinguirlos.
+    /// </summary>
+    public enum UnidadValorAsociado
+    {
+        /// <summary>El valor es un monto monetario (ej: punitorio aplicado pendiente, excedente de cupo).</summary>
+        Monto = 1,
+
+        /// <summary>El valor es una cantidad de días (ej: días de mora).</summary>
+        Dias = 2
     }
 }

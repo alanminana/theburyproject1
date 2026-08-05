@@ -354,7 +354,12 @@ namespace TheBuryProject.Services
                     AccionSugerida = "Deuda adicional; no bloquea por sí sola",
                     DetalleAdicional = detalle.Descripcion,
                     EsBloqueante = false,
-                    TipoRazon = TipoRazonAutorizacion.Punitorio
+                    TipoRazon = TipoRazonAutorizacion.Punitorio,
+                    // PUN-ML10-F: monto real del punitorio aplicado pendiente (nunca días,
+                    // nunca $0 espurio — este bloque sólo corre cuando TienePunitorioAplicadoPendiente).
+                    MontoAsociado = aptitud.Mora?.MontoPunitorioAplicadoPendiente,
+                    ValorAsociado = aptitud.Mora?.MontoPunitorioAplicadoPendiente,
+                    Unidad = UnidadValorAsociado.Monto
                 });
             }
         }
@@ -371,8 +376,7 @@ namespace TheBuryProject.Services
                 var problema = new ProblemaCredito
                 {
                     Descripcion = detalle.Descripcion,
-                    EsBloqueante = false,
-                    ValorAsociado = aptitud.Mora?.DiasMaximoMora
+                    EsBloqueante = false
                 };
 
                 switch (detalle.Categoria)
@@ -383,16 +387,26 @@ namespace TheBuryProject.Services
                         problema.AccionSugerida = "Supervisor debe autorizar venta";
                         problema.DetalleAdicional = detalle.Descripcion; // Incluye "mora" y días
                         problema.TipoRazon = TipoRazonAutorizacion.MoraActiva;
+                        // Convención de Mora: el valor asociado es días de atraso (nunca dinero).
+                        problema.DiasAsociado = aptitud.Mora?.DiasMaximoMora;
+                        problema.ValorAsociado = aptitud.Mora?.DiasMaximoMora;
+                        problema.Unidad = UnidadValorAsociado.Dias;
                         break;
 
                     // PUN-ML10-D: punitorio aplicado pendiente sin mora de capital bloqueante —
                     // motivo específico, nunca el genérico "Requiere revisión" (regla 3 de PUN-ML10-D).
+                    // PUN-ML10-F: el valor asociado es el MONTO real del punitorio pendiente, nunca
+                    // días de mora de capital (bug corregido — antes reutilizaba DiasMaximoMora acá
+                    // y mostraba "Monto: $0,00" cuando no había mora de capital).
                     case "Punitorio":
                         problema.Categoria = CategoriaMotivo.Punitorio;
                         problema.Titulo = "Punitorio aplicado pendiente";
                         problema.AccionSugerida = "Supervisor debe autorizar venta";
                         problema.DetalleAdicional = detalle.Descripcion;
                         problema.TipoRazon = TipoRazonAutorizacion.Punitorio;
+                        problema.MontoAsociado = aptitud.Mora?.MontoPunitorioAplicadoPendiente;
+                        problema.ValorAsociado = aptitud.Mora?.MontoPunitorioAplicadoPendiente;
+                        problema.Unidad = UnidadValorAsociado.Monto;
                         break;
 
                     default:
@@ -559,7 +573,11 @@ namespace TheBuryProject.Services
                     Descripcion = problema.Descripcion,
                     AccionSugerida = problema.AccionSugerida,
                     UrlAccion = problema.UrlAccion,
-                    EsBloqueante = problema.EsBloqueante
+                    EsBloqueante = problema.EsBloqueante,
+                    // PUN-ML10-F: valor tipado (nunca mezcla monto/días sin unidad).
+                    MontoAsociado = problema.MontoAsociado,
+                    DiasAsociado = problema.DiasAsociado,
+                    Unidad = problema.Unidad
                 });
             }
 
@@ -596,7 +614,11 @@ namespace TheBuryProject.Services
                         Descripcion = problema.Descripcion,
                         DetalleAdicional = problema.DetalleAdicional ?? problema.AccionSugerida,
                         ValorAsociado = problema.ValorAsociado,
-                        ValorLimite = problema.ValorLimite
+                        ValorLimite = problema.ValorLimite,
+                        // PUN-ML10-F: valor tipado (nunca mezcla monto/días sin unidad).
+                        MontoAsociado = problema.MontoAsociado,
+                        DiasAsociado = problema.DiasAsociado,
+                        Unidad = problema.Unidad
                     });
                 }
             }

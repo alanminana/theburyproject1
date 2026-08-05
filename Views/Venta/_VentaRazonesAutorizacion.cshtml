@@ -18,12 +18,27 @@
                                 <p class="text-xs text-slate-400">@razon.DetalleAdicional</p>
                             }
                         </div>
-                        @if (razon.ValorAsociado.HasValue || razon.ValorLimite.HasValue)
+                        @{
+                            // PUN-ML10-F: usar los campos tipados (nunca mezclar días y dinero bajo
+                            // la misma etiqueta "Monto"). Si sólo existe el legacy ValorAsociado
+                            // (registro previo a ML10-F sin MontoAsociado/DiasAsociado), se interpreta
+                            // con la Unidad explícita; sin Unidad se asume monto (comportamiento previo).
+                            var mostrarMonto = razon.MontoAsociado
+                                ?? (razon.Unidad == TheBuryProject.ViewModels.UnidadValorAsociado.Monto ? razon.ValorAsociado : null)
+                                ?? (razon.Unidad == null && razon.DiasAsociado == null ? razon.ValorAsociado : null);
+                            var mostrarDias = razon.DiasAsociado
+                                ?? (razon.Unidad == TheBuryProject.ViewModels.UnidadValorAsociado.Dias ? (int?)razon.ValorAsociado : null);
+                        }
+                        @if (mostrarMonto.HasValue || mostrarDias.HasValue || razon.ValorLimite.HasValue)
                         {
                             <div class="shrink-0 text-right text-xs text-slate-400">
-                                @if (razon.ValorAsociado.HasValue)
+                                @if (mostrarMonto.HasValue)
                                 {
-                                    <p>Monto: <span class="font-semibold text-white">@razon.ValorAsociado.Value.ToString("C2")</span></p>
+                                    <p>Monto: <span class="font-semibold text-white">@mostrarMonto.Value.ToString("C2")</span></p>
+                                }
+                                else if (mostrarDias.HasValue)
+                                {
+                                    <p>Días: <span class="font-semibold text-white">@mostrarDias.Value</span></p>
                                 }
                                 @if (razon.ValorLimite.HasValue)
                                 {

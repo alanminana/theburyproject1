@@ -350,12 +350,34 @@ else
                     }
                     @if (apt?.Mora != null && apt.Mora.TieneMora)
                     {
-                        <div class="kv-row"><dt>Monto en mora</dt><dd>@apt.Mora.MontoTotalMora.ToString("C0")</dd></div>
+                        @* PUN-ML10-F: MontoTotalMora es alias legacy de MontoMoraCapital — nunca incluye
+                           punitorio. Se rotula explícitamente "capital" para no confundirlo con el
+                           punitorio aplicado pendiente, que se muestra en su propio bloque más abajo. *@
+                        <div class="kv-row"><dt>Capital en mora</dt><dd>@apt.Mora.MontoTotalMora.ToString("C0")</dd></div>
                     }
                 </dl>
                 @if (apt?.Mora?.MensajeUmbralDias != null)
                 {
                     <div class="text-xs muted-2 mt-2">@apt.Mora.MensajeUmbralDias</div>
+                }
+
+                @* PUN-ML10-F: punitorio aplicado pendiente es una deuda separada de la mora de
+                   capital (nunca se mezcla en la misma cifra). Sólo se muestra si hay saldo real
+                   pendiente — nunca un bloque vacío ni un $0,00 ficticio. *@
+                @if (apt?.Mora != null && apt.Mora.TienePunitorioAplicadoPendiente)
+                {
+                    <div class="alert alert-warn" style="margin-top:.75rem;align-items:flex-start">
+                        <span class="material-symbols-outlined">paid</span>
+                        <div class="flex-1 min-w-0">
+                            <div class="font-semibold text-white">Punitorio aplicado pendiente</div>
+                            <dl class="kv mt-1">
+                                <div class="kv-row"><dt>Monto pendiente</dt><dd>@apt.Mora.MontoPunitorioAplicadoPendiente.ToString("C0")</dd></div>
+                                <div class="kv-row"><dt>Cuotas afectadas</dt><dd>@apt.Mora.CuotasConPunitorioAplicadoPendiente</dd></div>
+                                <div class="kv-row"><dt>Estado de aptitud</dt><dd><span class="chip @aptitudChip">@aptitudLabel</span></dd></div>
+                            </dl>
+                            <p class="text-xs muted mt-1">Deuda separada de la mora de capital. No bloquea la aptitud por sí sola; puede requerir autorización.</p>
+                        </div>
+                    </div>
                 }
 
                 @if (apt?.Detalles != null && apt.Detalles.Any())

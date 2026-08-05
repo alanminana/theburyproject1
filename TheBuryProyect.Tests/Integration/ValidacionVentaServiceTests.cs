@@ -388,6 +388,136 @@ public class ValidacionVentaServiceTests : IDisposable
         Assert.Equal(TipoRazonAutorizacion.Punitorio, razonPunitorio.Tipo);
     }
 
+    // -------------------------------------------------------------------------
+    // PUN-ML10-F: contrato visual — ValorAsociado/MontoAsociado/DiasAsociado nunca
+    // mezclan unidades y el punitorio siempre lleva el monto real (nunca $0, nunca
+    // el genérico "Requiere revisión"/ClienteRequiereAutorizacion).
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task VentaRazonPunitorio_MuestraMontoReal()
+    {
+        _stubAptitud.ResultadoAptitud = AptitudSoloPunitorioPendiente();
+        _stubAptitud.CupoDisponible = 10000m;
+
+        var result = await _service.ValidarVentaCreditoPersonalAsync(1, montoVenta: 500m);
+
+        var razon = Assert.Single(result.RazonesAutorizacion);
+        Assert.Equal(75m, razon.MontoAsociado);
+        Assert.Equal(UnidadValorAsociado.Monto, razon.Unidad);
+        Assert.Null(razon.DiasAsociado);
+        // Legacy ValorAsociado se conserva con el mismo valor tipado (compatibilidad).
+        Assert.Equal(75m, razon.ValorAsociado);
+    }
+
+    [Fact]
+    public async Task VentaRazonPunitorio_NoMuestraMontoCero()
+    {
+        // Antes de PUN-ML10-F, ValorAsociado se poblaba con aptitud.Mora.DiasMaximoMora
+        // (0 cuando no hay mora de capital), mostrando "Monto: $0,00" en la UI.
+        _stubAptitud.ResultadoAptitud = AptitudSoloPunitorioPendiente();
+        _stubAptitud.CupoDisponible = 10000m;
+
+        var result = await _service.ValidarVentaCreditoPersonalAsync(1, montoVenta: 500m);
+
+        var razon = Assert.Single(result.RazonesAutorizacion);
+        Assert.NotEqual(0m, razon.MontoAsociado);
+        Assert.True(razon.MontoAsociado > 0m);
+    }
+
+    [Fact]
+    public async Task VentaRazonPunitorio_NoUsaMensajeGenerico()
+    {
+        _stubAptitud.ResultadoAptitud = AptitudSoloPunitorioPendiente();
+        _stubAptitud.CupoDisponible = 10000m;
+
+        var result = await _service.ValidarVentaCreditoPersonalAsync(1, montoVenta: 500m);
+
+        var razon = Assert.Single(result.RazonesAutorizacion);
+        Assert.NotEqual(TipoRazonAutorizacion.ClienteRequiereAutorizacion, razon.Tipo);
+        Assert.NotEqual("Requiere revisión", razon.Descripcion);
+        Assert.Equal("Punitorio aplicado pendiente", razon.TipoDisplay);
+    }
+
+    [Fact]
+    public async Task MoraYPunitorio_NoDuplicanBloqueo()
+    {
+        _stubAptitud.ResultadoAptitud = AptitudCapitalRequiereAutorizacionYPunitorio();
+        _stubAptitud.CupoDisponible = 10000m;
+
+        var result = await _service.ValidarVentaCreditoPersonalAsync(1, montoVenta: 500m);
+
+        // Una sola autorización pendiente para la venta (RequiereAutorizacion=true una vez),
+        // con dos razones informativas distintas — nunca dos bloqueos ni dos solicitudes.
+        Assert.True(result.RequiereAutorizacion);
+        Assert.False(result.NoViable);
+        Assert.Empty(result.RequisitosPendientes);
+        Assert.Equal(2, result.RazonesAutorizacion.Count);
+        var razonMora = result.RazonesAutorizacion.Single(r => r.Tipo == TipoRazonAutorizacion.MoraActiva);
+        var razonPunitorio = result.RazonesAutorizacion.Single(r => r.Tipo == TipoRazonAutorizacion.Punitorio);
+        // Mora: convención días. Punitorio: convención monto. Nunca mezcladas.
+        Assert.Equal(5, razonMora.DiasAsociado);
+        Assert.Null(razonMora.MontoAsociado);
+        Assert.Equal(75m, razonPunitorio.MontoAsociado);
+        Assert.Null(razonPunitorio.DiasAsociado);
+    }
+
+    [Fact]
+    public async Task CapitalNoAptoYPunitorio_MantienePrecedenciaVisual()
+    {
+        _stubAptitud.ResultadoAptitud = AptitudCapitalNoAptoYPunitorio();
+
+        var result = await _service.ValidarVentaCreditoPersonalAsync(1, montoVenta: 500m);
+
+        // La mora de capital decide el estado (NoViable) y aparece como requisito bloqueante
+        // único; el punitorio nunca se presenta como un segundo bloqueo, sólo como razón
+        // informativa adicional con su monto real propio.
+        Assert.True(result.NoViable);
+        var requisito = Assert.Single(result.RequisitosPendientes);
+        Assert.Equal(TipoRequisitoPendiente.ClienteNoApto, requisito.Tipo);
+        var razonPunitorio = Assert.Single(result.RazonesAutorizacion);
+        Assert.Equal(TipoRazonAutorizacion.Punitorio, razonPunitorio.Tipo);
+        Assert.Equal(75m, razonPunitorio.MontoAsociado);
+        Assert.Equal(UnidadValorAsociado.Monto, razonPunitorio.Unidad);
+    }
+
+    [Fact]
+    public async Task VentaRazonMora_ConservaDiasSinConvertirseEnMonto()
+    {
+        // Blindaje del contrato para Mora (no forma parte del bug de ML10-F, pero comparte
+        // el mismo campo legacy ValorAsociado — confirma que la corrección de Punitorio no
+        // alteró la convención de días para Mora).
+        var aptitud = AptitudRequiereAutorizacion();
+        aptitud.Mora = new AptitudMoraDetalle { Evaluada = true, TieneMora = true, DiasMaximoMora = 5, RequiereAutorizacion = true };
+        _stubAptitud.ResultadoAptitud = aptitud;
+        _stubAptitud.CupoDisponible = 10000m;
+
+        var result = await _service.ValidarVentaCreditoPersonalAsync(1, montoVenta: 500m);
+
+        var razon = Assert.Single(result.RazonesAutorizacion);
+        Assert.Equal(TipoRazonAutorizacion.MoraActiva, razon.Tipo);
+        Assert.Equal(5, razon.DiasAsociado);
+        Assert.Equal(UnidadValorAsociado.Dias, razon.Unidad);
+        Assert.Null(razon.MontoAsociado);
+    }
+
+    [Fact]
+    public async Task PrevalidacionPunitorio_MotivoConservaMontoTipado()
+    {
+        // Fase 3/5: la misma corrección tipada llega también a PrevalidacionResultViewModel
+        // (superficie usada por el wizard de venta antes de guardar).
+        _stubAptitud.ResultadoAptitud = AptitudSoloPunitorioPendiente();
+        _stubAptitud.CupoDisponible = 10000m;
+
+        var result = await _service.PrevalidarAsync(1, monto: 500m);
+
+        Assert.Equal(ResultadoPrevalidacion.RequiereAutorizacion, result.Resultado);
+        var motivo = Assert.Single(result.Motivos, m => m.Categoria == CategoriaMotivo.Punitorio);
+        Assert.Equal(75m, motivo.MontoAsociado);
+        Assert.Null(motivo.DiasAsociado);
+        Assert.NotEqual(0m, motivo.MontoAsociado);
+    }
+
     [Fact]
     public async Task PunitorioCalculadoNoAplicado_NoAfecta()
     {

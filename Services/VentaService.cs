@@ -473,8 +473,19 @@ namespace TheBuryProject.Services
                 venta.FechaAutorizacion = fechaAutorizacion;
                 venta.MotivoAutorizacion =
                     $"EXCEPCION_DOC|{fechaAutorizacion:O}|{usuarioActual}|{validacion.MotivoExcepcionDocumentalAutorizada}";
+                // PUN-ML10-F: se agrega Unidad/MontoAsociado/DiasAsociado al snapshot de auditoría
+                // (aditivo — nadie deserializa este JSON de vuelta a un tipo fuerte hoy) para que el
+                // registro conserve con qué unidad se mostró/decidió la razón, sin perder Tipo.
                 venta.RazonesAutorizacionJson = System.Text.Json.JsonSerializer.Serialize(
-                    validacion.RazonesAutorizacion.Select(r => new { r.Tipo, r.Descripcion, r.DetalleAdicional }));
+                    validacion.RazonesAutorizacion.Select(r => new
+                    {
+                        r.Tipo,
+                        r.Descripcion,
+                        r.DetalleAdicional,
+                        r.Unidad,
+                        r.MontoAsociado,
+                        r.DiasAsociado
+                    }));
 
                 _logger.LogWarning(
                     "Venta autorizada al registrar excepción documental. Usuario:{Usuario} Razones:{Razones}",
@@ -488,8 +499,19 @@ namespace TheBuryProject.Services
                 venta.Estado = EstadoVenta.PendienteFinanciacion; // También PendienteFinanciacion
                 venta.EstadoAutorizacion = EstadoAutorizacionVenta.PendienteAutorizacion;
                 venta.FechaSolicitudAutorizacion = DateTime.UtcNow;
+                // PUN-ML10-F: se agrega Unidad/MontoAsociado/DiasAsociado al snapshot de auditoría
+                // (aditivo — nadie deserializa este JSON de vuelta a un tipo fuerte hoy) para que el
+                // registro conserve con qué unidad se mostró/decidió la razón, sin perder Tipo.
                 venta.RazonesAutorizacionJson = System.Text.Json.JsonSerializer.Serialize(
-                    validacion.RazonesAutorizacion.Select(r => new { r.Tipo, r.Descripcion, r.DetalleAdicional }));
+                    validacion.RazonesAutorizacion.Select(r => new
+                    {
+                        r.Tipo,
+                        r.Descripcion,
+                        r.DetalleAdicional,
+                        r.Unidad,
+                        r.MontoAsociado,
+                        r.DiasAsociado
+                    }));
 
                 _logger.LogInformation(
                     "Venta requiere autorización. Razones: {Razones}",

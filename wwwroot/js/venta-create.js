@@ -2291,16 +2291,24 @@
 
         if (data.motivos && data.motivos.length > 0) {
             data.motivos.forEach(m => {
-                const iconMap = { 1: 'description', 2: 'account_balance', 3: 'schedule', 4: 'person_off', 5: 'settings' };
+                // PUN-ML10-F: categoría 6 = Punitorio (CategoriaMotivo.Punitorio). Ícono propio para
+                // no mostrarlo genérico ("info") junto a Documentación/Cupo/Mora/EstadoCliente/Config.
+                const iconMap = { 1: 'description', 2: 'account_balance', 3: 'schedule', 4: 'person_off', 5: 'settings', 6: 'paid' };
                 const icon = iconMap[m.categoria] || 'info';
                 const colorCls = m.esBloqueante ? 'text-red-500 bg-red-500/10 border-red-500/20' : 'text-amber-600 bg-amber-500/10 border-amber-500/20';
                 const div = document.createElement('div');
                 div.className = `p-2.5 rounded-lg border ${colorCls} flex items-start gap-2`;
+                // El servidor ya calculó el valor y su unidad (nunca se recalcula acá, ver
+                // wwwroot/js/CLAUDE.md); sólo se elige qué campo mostrar, monto o días.
+                const valorTexto = (m.montoAsociado != null)
+                    ? formatCurrency(m.montoAsociado)
+                    : (m.diasAsociado != null ? `${m.diasAsociado} día${m.diasAsociado === 1 ? '' : 's'}` : null);
                 div.innerHTML = `
                     <span class="material-symbols-outlined text-sm mt-0.5">${icon}</span>
                     <div>
                         <p class="text-[11px] font-bold">${m.titulo}</p>
                         <p class="text-[10px] opacity-80">${m.descripcion}</p>
+                        ${valorTexto ? `<p class="text-[10px] font-bold mt-0.5">${valorTexto}</p>` : ''}
                     </div>`;
                 lista.appendChild(div);
             });

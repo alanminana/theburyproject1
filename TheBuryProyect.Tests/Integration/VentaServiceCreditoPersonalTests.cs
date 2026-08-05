@@ -746,6 +746,55 @@ public class VentaServiceCreditoPersonalTests
         }
     }
 
+    /// <summary>
+    /// PUN-ML10-F: el snapshot de auditoría RazonesAutorizacionJson agrega Unidad/MontoAsociado
+    /// (aditivo, ver <see cref="TheBuryProject.Services.VentaService"/>) sin perder Tipo — la
+    /// razón persistida conserva tanto la clasificación como con qué unidad se mostró/decidió.
+    /// </summary>
+    [Fact]
+    public async Task RazonesAutorizacionJson_ConservaTipoYUnidad()
+    {
+        var (ctx, conn) = CreateDb();
+        await using (ctx) using (conn)
+        {
+            var apertura = await SeedCajaAsync(ctx);
+            var cliente = await SeedClienteAsync(ctx);
+            var producto = await SeedProductoAsync(ctx, precioVenta: 2_000m);
+
+            var resultadoRequiereAutorizacion = new ValidacionVentaResult
+            {
+                RequiereAutorizacion = true,
+                RazonesAutorizacion = new List<RazonAutorizacion>
+                {
+                    new()
+                    {
+                        Tipo = TipoRazonAutorizacion.Punitorio,
+                        Descripcion = "Punitorio aplicado pendiente: $75 (1 cuota)",
+                        MontoAsociado = 75m,
+                        ValorAsociado = 75m,
+                        Unidad = UnidadValorAsociado.Monto
+                    }
+                }
+            };
+
+            var svc = BuildService(
+                ctx,
+                new StubCajaServiceCP(apertura),
+                new StubValidacionVentaService(resultadoRequiereAutorizacion));
+
+            var resultado = await svc.CreateAsync(CreditoPersonalViewModelConProducto(cliente.Id, producto));
+
+            var venta = await ctx.Ventas.AsNoTracking().FirstAsync(v => v.Id == resultado.Id);
+            Assert.NotNull(venta.RazonesAutorizacionJson);
+
+            var razones = System.Text.Json.JsonSerializer.Deserialize<List<RazonAutorizacion>>(venta.RazonesAutorizacionJson!)!;
+            var razon = Assert.Single(razones);
+            Assert.Equal(TipoRazonAutorizacion.Punitorio, razon.Tipo);
+            Assert.Equal(UnidadValorAsociado.Monto, razon.Unidad);
+            Assert.Equal(75m, razon.MontoAsociado);
+        }
+    }
+
     [Fact]
     public async Task CreateAsync_ExcepcionDocumental_NoRequiereSegundaAutorizacion()
     {

@@ -173,6 +173,15 @@ namespace TheBuryProject.ViewModels
         /// Indica si este motivo es bloqueante (NoViable) o solo requiere autorización
         /// </summary>
         public bool EsBloqueante { get; set; }
+
+        /// <summary>PUN-ML10-F: valor monetario real asociado (ej: punitorio aplicado pendiente). Nunca días.</summary>
+        public decimal? MontoAsociado { get; set; }
+
+        /// <summary>PUN-ML10-F: días asociados (ej: días de mora). Nunca dinero.</summary>
+        public int? DiasAsociado { get; set; }
+
+        /// <summary>Unidad explícita para consumidores legacy que todavía lean un valor genérico (PUN-ML10-F).</summary>
+        public UnidadValorAsociado? Unidad { get; set; }
     }
 
     /// <summary>
@@ -267,9 +276,20 @@ namespace TheBuryProject.ViewModels
         public string? AccionSugerida { get; set; }
         public string? UrlAccion { get; set; }
         public bool EsBloqueante { get; set; }
+
+        /// <summary>Legacy: valor genérico (monto o días según <see cref="Categoria"/>/<see cref="TipoRazon"/>). Ver <see cref="MontoAsociado"/>/<see cref="DiasAsociado"/> (PUN-ML10-F).</summary>
         public decimal? ValorAsociado { get; set; }
         public decimal? ValorLimite { get; set; }
-        
+
+        /// <summary>PUN-ML10-F: valor monetario real (ej: punitorio aplicado pendiente, excedente de cupo). Nunca días.</summary>
+        public decimal? MontoAsociado { get; set; }
+
+        /// <summary>PUN-ML10-F: días asociados (ej: días de mora). Nunca dinero.</summary>
+        public int? DiasAsociado { get; set; }
+
+        /// <summary>Unidad explícita de <see cref="ValorAsociado"/> (PUN-ML10-F).</summary>
+        public UnidadValorAsociado? Unidad { get; set; }
+
         /// <summary>
         /// Detalle adicional para la razón (ej: descripción de mora)
         /// </summary>
