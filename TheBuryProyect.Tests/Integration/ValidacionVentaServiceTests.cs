@@ -151,6 +151,88 @@ public class ValidacionVentaServiceTests : IDisposable
         };
 
     // -------------------------------------------------------------------------
+    // PUN-ML10-D: builders de aptitud con punitorio aplicado pendiente. Reflejan el
+    // contrato ya cerrado en ClienteAptitudService (PUN-ML10-C): el punitorio siempre
+    // llega como AptitudDetalleItem con Categoria="Punitorio", EsBloqueo=false.
+    // -------------------------------------------------------------------------
+
+    private static AptitudCrediticiaViewModel AptitudSoloPunitorioPendiente(decimal cupoDisponible = 10000m) =>
+        new()
+        {
+            Estado = EstadoCrediticioCliente.RequiereAutorizacion,
+            ConfiguracionCompleta = true,
+            Detalles = new List<AptitudDetalleItem>
+            {
+                new() { Categoria = "Punitorio", Descripcion = "Punitorio aplicado pendiente: $75 (1 cuota)", EsBloqueo = false }
+            },
+            Mora = new AptitudMoraDetalle
+            {
+                Evaluada = true,
+                TieneMora = false,
+                TienePunitorioAplicadoPendiente = true,
+                MontoPunitorioAplicadoPendiente = 75m,
+                CuotasConPunitorioAplicadoPendiente = 1
+            },
+            Cupo = new AptitudCupoDetalle
+            {
+                TieneCupoAsignado = true,
+                LimiteCredito = cupoDisponible,
+                CupoDisponible = cupoDisponible
+            }
+        };
+
+    private static AptitudCrediticiaViewModel AptitudCapitalRequiereAutorizacionYPunitorio(decimal cupoDisponible = 10000m) =>
+        new()
+        {
+            Estado = EstadoCrediticioCliente.RequiereAutorizacion,
+            ConfiguracionCompleta = true,
+            Detalles = new List<AptitudDetalleItem>
+            {
+                new() { Categoria = "Mora", Descripcion = "Cliente en mora (5 días) - Requiere autorización de supervisor", EsBloqueo = false },
+                new() { Categoria = "Punitorio", Descripcion = "Punitorio aplicado pendiente: $75 (1 cuota)", EsBloqueo = false }
+            },
+            Mora = new AptitudMoraDetalle
+            {
+                Evaluada = true,
+                TieneMora = true,
+                DiasMaximoMora = 5,
+                RequiereAutorizacion = true,
+                TienePunitorioAplicadoPendiente = true,
+                MontoPunitorioAplicadoPendiente = 75m,
+                CuotasConPunitorioAplicadoPendiente = 1
+            },
+            Cupo = new AptitudCupoDetalle
+            {
+                TieneCupoAsignado = true,
+                LimiteCredito = cupoDisponible,
+                CupoDisponible = cupoDisponible
+            }
+        };
+
+    private static AptitudCrediticiaViewModel AptitudCapitalNoAptoYPunitorio() =>
+        new()
+        {
+            Estado = EstadoCrediticioCliente.NoApto,
+            ConfiguracionCompleta = true,
+            Motivo = "Mora crítica: 120 días, $5000",
+            Detalles = new List<AptitudDetalleItem>
+            {
+                new() { Categoria = "Mora", Descripcion = "Mora crítica: 120 días, $5000", EsBloqueo = true },
+                new() { Categoria = "Punitorio", Descripcion = "Punitorio aplicado pendiente: $75 (1 cuota)", EsBloqueo = false }
+            },
+            Mora = new AptitudMoraDetalle
+            {
+                Evaluada = true,
+                TieneMora = true,
+                DiasMaximoMora = 120,
+                EsBloqueante = true,
+                TienePunitorioAplicadoPendiente = true,
+                MontoPunitorioAplicadoPendiente = 75m,
+                CuotasConPunitorioAplicadoPendiente = 1
+            }
+        };
+
+    // -------------------------------------------------------------------------
     // ValidarVentaCreditoPersonalAsync — cliente Apto
     // -------------------------------------------------------------------------
 
@@ -238,6 +320,100 @@ public class ValidacionVentaServiceTests : IDisposable
         Assert.True(result.RequiereAutorizacion);
         Assert.False(result.NoViable);
         Assert.NotEmpty(result.RazonesAutorizacion);
+    }
+
+    // -------------------------------------------------------------------------
+    // PUN-ML10-D: autorización específica por punitorio aplicado pendiente.
+    // Política congelada: reglas 1-10 del goal PUN-ML10-D.
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task SoloPunitorioAplicadoPendiente_RequiereAutorizacionConMotivoEspecifico()
+    {
+        _stubAptitud.ResultadoAptitud = AptitudSoloPunitorioPendiente();
+        _stubAptitud.CupoDisponible = 10000m;
+
+        var result = await _service.ValidarVentaCreditoPersonalAsync(1, montoVenta: 500m);
+
+        Assert.True(result.RequiereAutorizacion);
+        var razon = Assert.Single(result.RazonesAutorizacion);
+        // Motivo específico: nunca el genérico ClienteRequiereAutorizacion/"Requiere revisión".
+        Assert.Equal(TipoRazonAutorizacion.Punitorio, razon.Tipo);
+        Assert.Contains("Punitorio", razon.Descripcion);
+    }
+
+    [Fact]
+    public async Task SoloPunitorioAplicadoPendiente_NuncaDevuelveNoViable()
+    {
+        _stubAptitud.ResultadoAptitud = AptitudSoloPunitorioPendiente();
+        _stubAptitud.CupoDisponible = 10000m;
+
+        var result = await _service.ValidarVentaCreditoPersonalAsync(1, montoVenta: 500m);
+
+        Assert.False(result.NoViable);
+        Assert.Empty(result.RequisitosPendientes);
+    }
+
+    [Fact]
+    public async Task CapitalYPunitorio_NoDuplicaAutorizacion()
+    {
+        _stubAptitud.ResultadoAptitud = AptitudCapitalRequiereAutorizacionYPunitorio();
+        _stubAptitud.CupoDisponible = 10000m;
+
+        var result = await _service.ValidarVentaCreditoPersonalAsync(1, montoVenta: 500m);
+
+        // El estado final lo decide la mora de capital (regla 3): una única autorización,
+        // el punitorio se informa como motivo adicional, no se duplica el flag.
+        Assert.True(result.RequiereAutorizacion);
+        Assert.False(result.NoViable);
+        Assert.Equal(2, result.RazonesAutorizacion.Count);
+        Assert.Contains(result.RazonesAutorizacion, r => r.Tipo == TipoRazonAutorizacion.MoraActiva);
+        Assert.Contains(result.RazonesAutorizacion, r => r.Tipo == TipoRazonAutorizacion.Punitorio);
+    }
+
+    [Fact]
+    public async Task CapitalNoAptoYPunitorio_MantieneNoViable()
+    {
+        _stubAptitud.ResultadoAptitud = AptitudCapitalNoAptoYPunitorio();
+
+        var result = await _service.ValidarVentaCreditoPersonalAsync(1, montoVenta: 500m);
+
+        // El punitorio nunca es la causa del bloqueo ni escala/duplica autorización:
+        // el resultado sigue NoViable por la mora de capital, y el punitorio se informa
+        // aparte como razón adicional (no bloqueante).
+        Assert.True(result.NoViable);
+        Assert.False(result.RequiereAutorizacion);
+        Assert.Contains(result.RequisitosPendientes, r => r.Tipo == TipoRequisitoPendiente.ClienteNoApto);
+        var razonPunitorio = Assert.Single(result.RazonesAutorizacion);
+        Assert.Equal(TipoRazonAutorizacion.Punitorio, razonPunitorio.Tipo);
+    }
+
+    [Fact]
+    public async Task PunitorioCalculadoNoAplicado_NoAfecta()
+    {
+        // Un punitorio calculado pero nunca aplicado no genera AptitudDetalleItem alguno
+        // (ClienteAptitudService/PUN-ML10-C ya lo excluye del DTO) — cliente queda Apto.
+        _stubAptitud.ResultadoAptitud = AptitudApto(cupoDisponible: 10000m);
+        _stubAptitud.CupoDisponible = 10000m;
+
+        var result = await _service.ValidarVentaCreditoPersonalAsync(1, montoVenta: 500m);
+
+        Assert.True(result.PuedeProceeder);
+        Assert.Empty(result.RazonesAutorizacion);
+    }
+
+    [Fact]
+    public async Task PunitorioPagadoOAnulado_NoAfecta()
+    {
+        // Igual que el calculado-no-aplicado: pagado/anulado tampoco produce Detalle alguno
+        // en el DTO de aptitud (PUN-ML10-C), así que ValidacionVentaService no ve diferencia.
+        _stubAptitud.ResultadoAptitud = AptitudApto(cupoDisponible: 10000m);
+        _stubAptitud.CupoDisponible = 10000m;
+
+        var result = await _service.ValidarVentaCreditoPersonalAsync(1, montoVenta: 500m);
+
+        Assert.True(result.PuedeProceeder);
+        Assert.Empty(result.RazonesAutorizacion);
     }
 
     // -------------------------------------------------------------------------

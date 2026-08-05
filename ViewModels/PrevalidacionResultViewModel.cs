@@ -203,7 +203,14 @@ namespace TheBuryProject.ViewModels
         /// <summary>
         /// Problema relacionado con configuración del sistema
         /// </summary>
-        Configuracion = 5
+        Configuracion = 5,
+
+        /// <summary>
+        /// PUN-ML10-D: punitorio aplicado pendiente de cobro (deuda separada de la mora de
+        /// capital, ver <see cref="TheBuryProject.ViewModels.AptitudMoraDetalle"/>). Nunca
+        /// <see cref="Mora"/> — evita que la UI lo etiquete como mora de capital.
+        /// </summary>
+        Punitorio = 6
     }
 
     /// <summary>

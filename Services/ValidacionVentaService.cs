@@ -338,6 +338,25 @@ namespace TheBuryProject.Services
                     TipoRequisito = TipoRequisitoPendiente.ClienteNoApto
                 });
             }
+
+            // PUN-ML10-D (regla 3): capital NoApto (u otra causa bloqueante) + punitorio aplicado
+            // pendiente — el punitorio nunca es la causa del bloqueo (ClienteAptitudService ya lo
+            // marca EsBloqueo=false, PUN-ML10-C regla 4), pero se informa como deuda adicional sin
+            // duplicar bloqueo ni autorización: el resultado ya quedó NoViable arriba y este motivo
+            // se agrega sólo como razón informativa adicional.
+            foreach (var detalle in aptitud.Detalles.Where(d => !d.EsBloqueo && d.Categoria == "Punitorio"))
+            {
+                evaluacion.Problemas.Add(new ProblemaCredito
+                {
+                    Categoria = CategoriaMotivo.Punitorio,
+                    Titulo = "Punitorio aplicado pendiente",
+                    Descripcion = detalle.Descripcion,
+                    AccionSugerida = "Deuda adicional; no bloquea por sí sola",
+                    DetalleAdicional = detalle.Descripcion,
+                    EsBloqueante = false,
+                    TipoRazon = TipoRazonAutorizacion.Punitorio
+                });
+            }
         }
 
         private void EvaluarClienteRequiereAutorizacionUnificado(
@@ -364,6 +383,16 @@ namespace TheBuryProject.Services
                         problema.AccionSugerida = "Supervisor debe autorizar venta";
                         problema.DetalleAdicional = detalle.Descripcion; // Incluye "mora" y días
                         problema.TipoRazon = TipoRazonAutorizacion.MoraActiva;
+                        break;
+
+                    // PUN-ML10-D: punitorio aplicado pendiente sin mora de capital bloqueante —
+                    // motivo específico, nunca el genérico "Requiere revisión" (regla 3 de PUN-ML10-D).
+                    case "Punitorio":
+                        problema.Categoria = CategoriaMotivo.Punitorio;
+                        problema.Titulo = "Punitorio aplicado pendiente";
+                        problema.AccionSugerida = "Supervisor debe autorizar venta";
+                        problema.DetalleAdicional = detalle.Descripcion;
+                        problema.TipoRazon = TipoRazonAutorizacion.Punitorio;
                         break;
 
                     default:

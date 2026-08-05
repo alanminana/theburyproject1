@@ -128,6 +128,7 @@ namespace TheBuryProject.ViewModels
             TipoRazonAutorizacion.DocumentacionVencida => "Documentación vencida",
             TipoRazonAutorizacion.ExcedeUmbralRol => "Excede umbral del rol",
             TipoRazonAutorizacion.ClienteRequiereAutorizacion => "Cliente requiere autorización",
+            TipoRazonAutorizacion.Punitorio => "Punitorio aplicado pendiente",
             _ => Tipo.ToString()
         };
     }
@@ -175,7 +176,15 @@ namespace TheBuryProject.ViewModels
         /// <summary>
         /// El cliente está marcado como "Requiere Autorización" en su aptitud
         /// </summary>
-        ClienteRequiereAutorizacion = 5
+        ClienteRequiereAutorizacion = 5,
+
+        /// <summary>
+        /// PUN-ML10-D: punitorio aplicado pendiente de cobro (deuda separada de la mora de
+        /// capital). Nunca produce NoApto por sí solo — siempre RequiereAutorizacion o,
+        /// combinado con mora de capital/otra causa bloqueante, se informa como razón
+        /// adicional sin duplicar el bloqueo.
+        /// </summary>
+        Punitorio = 6
     }
 
     /// <summary>
