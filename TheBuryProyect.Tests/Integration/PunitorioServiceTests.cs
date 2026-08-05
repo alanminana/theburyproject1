@@ -1745,4 +1745,60 @@ public sealed class PunitorioServiceTests : IDisposable
         var cuotaBd = await _context.Cuotas.AsNoTracking().SingleAsync(c => c.Id == cuota.Id);
         Assert.Equal(estadoAntes, cuotaBd.Estado);
     }
+
+    // -------------------------------------------------------------------------
+    // PUN-ML10-E: aplicar/anular un punitorio no dispara por sí solo un recálculo de
+    // PuntajeCliente/ClientePuntajeHistorial — el trigger sigue siendo exclusivo de
+    // CreditoService (pago) y MoraService (mora de capital). PunitorioService no
+    // depende de IClienteScoringService (confirmado también por auditoría estructural
+    // en ClienteScoringCalculatorPunitorioAuditTests, del lado del calculador).
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task AplicarPunitorio_NoDisparaRecalculoScore()
+    {
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
+
+        // SeedCuotaAsync usa el mismo id correlativo para Cliente/Credito/Cuota.
+        var cliente = await _context.Clientes.SingleAsync(c => c.Id == cuota.CreditoId);
+        cliente.PuntajeCliente = 3;
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        await _service.AplicarAsync(cuota.Id, Comando());
+
+        var clienteDespues = await _context.Clientes.AsNoTracking().SingleAsync(c => c.Id == cuota.CreditoId);
+        Assert.Equal(3, clienteDespues.PuntajeCliente);
+
+        var historial = await _context.ClientesPuntajeHistorial
+            .AsNoTracking()
+            .Where(h => h.ClienteId == cuota.CreditoId)
+            .ToListAsync();
+        Assert.Empty(historial);
+    }
+
+    [Fact]
+    public async Task AnularPunitorio_NoDisparaRecalculoScore()
+    {
+        var cuota = await SeedCuotaAsync(10_000m, _reloj.HoyComercial.AddDays(-6).ToDateTime(TimeOnly.MinValue));
+        await SeedConfiguracionAsync(10m, 20, diasGracia: 5, vigenteDesde: new DateOnly(2025, 1, 1));
+        var aplicada = await _service.AplicarAsync(cuota.Id, Comando());
+
+        var cliente = await _context.Clientes.SingleAsync(c => c.Id == cuota.CreditoId);
+        cliente.PuntajeCliente = 2;
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        await _service.AnularAsync(aplicada.Id, new PunitorioAnularComando { Motivo = "Error verificado" });
+
+        var clienteDespues = await _context.Clientes.AsNoTracking().SingleAsync(c => c.Id == cuota.CreditoId);
+        Assert.Equal(2, clienteDespues.PuntajeCliente);
+
+        var historial = await _context.ClientesPuntajeHistorial
+            .AsNoTracking()
+            .Where(h => h.ClienteId == cuota.CreditoId)
+            .ToListAsync();
+        Assert.Empty(historial);
+    }
 }

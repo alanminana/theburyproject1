@@ -294,4 +294,89 @@ public sealed class ClienteScoringServiceTests : IDisposable
 
         Assert.Empty(historial);
     }
+
+    // -----------------------------------------------------------------------
+    // PUN-ML10-E: capital saldado + punitorio pendiente no contamina el score
+    // persistido del cliente, e idempotencia de recálculos consecutivos.
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task RecalcularAsync_CapitalSaldadoConPunitorioPendiente_NoCuentaComoAtraso()
+    {
+        var ahora = DateTime.UtcNow;
+        var cliente = await SeedClienteAsync(ahora.AddDays(-10));
+
+        _context.Creditos.Add(new Credito
+        {
+            ClienteId = cliente.Id,
+            Numero = "C-PUN-1",
+            Estado = EstadoCredito.Activo,
+            Cuotas = new List<Cuota>
+            {
+                // Estado=Parcial + MontoPagado==MontoTotal: capital saldado, sólo queda pendiente
+                // un punitorio aplicado (contrato EstadoCuotaResolver.Resolver).
+                new()
+                {
+                    Estado = EstadoCuota.Parcial,
+                    FechaVencimiento = ahora.AddDays(-5),
+                    MontoPagado = 100m,
+                    MontoTotal = 100m
+                }
+            }
+        });
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.RecalcularAsync(cliente.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(0, resultado!.Snapshot.CreditosConAtraso);
+
+        var persistido = await _context.Clientes.AsNoTracking().FirstAsync(c => c.Id == cliente.Id);
+        Assert.Equal(0, persistido.CreditosConAtraso);
+    }
+
+    [Fact]
+    public async Task DosRecalculosIguales_SonIdempotentes()
+    {
+        var ahora = DateTime.UtcNow;
+        var cliente = await SeedClienteAsync(ahora.AddDays(-400));
+        // Puntaje inicial distinto del que resultará del recálculo, para que el primer
+        // recálculo sí produzca un cambio real (y así poder demostrar que el segundo no duplica).
+        cliente.PuntajeCliente = 3;
+        await _context.SaveChangesAsync();
+
+        _context.Creditos.Add(new Credito
+        {
+            ClienteId = cliente.Id,
+            Numero = "C-IDEMP-1",
+            Estado = EstadoCredito.Activo,
+            Cuotas = new List<Cuota>
+            {
+                new()
+                {
+                    Estado = EstadoCuota.Vencida,
+                    FechaVencimiento = ahora.AddDays(-5),
+                    MontoPagado = 0m,
+                    MontoTotal = 100m
+                }
+            }
+        });
+        await _context.SaveChangesAsync();
+
+        var primero = await _service.RecalcularYAuditarAsync(cliente.Id, origen: "RecalculoManual");
+        var segundo = await _service.RecalcularYAuditarAsync(cliente.Id, origen: "RecalculoManual");
+
+        Assert.NotNull(primero);
+        Assert.NotNull(segundo);
+        Assert.Equal(primero!.Puntaje, segundo!.Puntaje);
+        Assert.Equal(primero.Snapshot.CreditosConAtraso, segundo.Snapshot.CreditosConAtraso);
+
+        // El segundo recálculo no cambia el puntaje respecto del primero => no duplica historial.
+        var historial = await _context.ClientesPuntajeHistorial
+            .AsNoTracking()
+            .Where(h => h.ClienteId == cliente.Id)
+            .ToListAsync();
+
+        Assert.Single(historial); // sólo el cambio inicial (puntaje base -> penalizado), no 2.
+    }
 }

@@ -119,21 +119,34 @@ namespace TheBuryProject.Services
             return Math.Clamp(puntaje, min, max);
         }
 
+        /// <summary>
+        /// PUN-ML10-E: "con atraso" es exclusivamente mora de CAPITAL. Antes de este fix, una cuota
+        /// con capital totalmente saldado que quedaba <see cref="EstadoCuota.Parcial"/> únicamente
+        /// por un punitorio aplicado pendiente (contrato <see cref="EstadoCuotaResolver.Resolver"/>:
+        /// "capital cero + punitorio pendiente no está pagada") caía en la rama
+        /// "Pendiente/Parcial y ya vencida" de abajo y se contaba como atraso de capital — aunque el
+        /// cliente no debiera un peso de capital. El calculador nunca lee <c>Cuota.MontoPunitorio</c>
+        /// ni conoce <see cref="Models.Entities.PunitorioAplicado"/>: la única señal de punitorio que
+        /// le llega es indirecta, vía el <see cref="EstadoCuota"/> ya resuelto — por diseño (política
+        /// congelada: el punitorio no agrega su propia penalización de scoring en ML10).
+        /// </summary>
         private static bool EsCuotaConAtraso(Cuota cuota, DateTime ahora)
         {
-            if (cuota.Estado == EstadoCuota.Vencida)
+            // Pagada tarde: capital (y punitorio, si lo hubo) ya resueltos — Estado==Pagada exige
+            // MontoPagado>=MontoTotal y punitorioAplicadoPendiente<=0 (ver Resolver) — pero el pago
+            // llegó después del vencimiento. Señal histórica real, independiente de punitorio.
+            if (cuota.Estado == EstadoCuota.Pagada &&
+                cuota.FechaPago.HasValue &&
+                cuota.FechaPago.Value.Date > cuota.FechaVencimiento.Date)
                 return true;
 
-            // Pagada tarde.
-            if (cuota.FechaPago.HasValue && cuota.FechaPago.Value.Date > cuota.FechaVencimiento.Date)
-                return true;
-
-            // Pendiente/parcial y ya vencida (aún no marcada como Vencida).
-            if ((cuota.Estado == EstadoCuota.Pendiente || cuota.Estado == EstadoCuota.Parcial) &&
-                cuota.FechaVencimiento.Date < ahora.Date)
-                return true;
-
-            return false;
+            // Mora de CAPITAL real, hoy: reutiliza el predicado canónico único (EstadoCuotaResolver,
+            // PUN-ML7) en vez de una regla paralela — ya excluye Pagada/Cancelada y exige
+            // MontoPagado < MontoTotal, por lo que capital saldado + punitorio pendiente (Estado
+            // Parcial con MontoPagado == MontoTotal) nunca cuenta acá.
+            return EstadoCuotaResolver.EstaEnMoraCapitalDerivado(
+                cuota.Estado, cuota.MontoPagado, cuota.MontoTotal,
+                cuota.FechaVencimiento, DateOnly.FromDateTime(ahora));
         }
 
         private static bool EsCuotaPagada(Cuota cuota) =>

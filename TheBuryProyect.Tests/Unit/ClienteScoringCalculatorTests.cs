@@ -19,8 +19,9 @@ public sealed class ClienteScoringCalculatorTests
     private static Venta Venta(EstadoVenta estado, DateTime fecha, bool deleted = false) =>
         new() { Numero = "V", ClienteId = 1, Estado = estado, FechaVenta = fecha, IsDeleted = deleted };
 
-    private static Cuota Cuota(EstadoCuota estado, DateTime venc, DateTime? pago = null, decimal pagado = 0m) =>
-        new() { Estado = estado, FechaVencimiento = venc, FechaPago = pago, MontoPagado = pagado, MontoTotal = 100m };
+    private static Cuota Cuota(
+        EstadoCuota estado, DateTime venc, DateTime? pago = null, decimal pagado = 0m, decimal montoTotal = 100m) =>
+        new() { Estado = estado, FechaVencimiento = venc, FechaPago = pago, MontoPagado = pagado, MontoTotal = montoTotal };
 
     private static Credito Credito(bool deleted = false, params Cuota[] cuotas) =>
         new() { ClienteId = 1, IsDeleted = deleted, Cuotas = new List<Cuota>(cuotas) };
@@ -176,6 +177,111 @@ public sealed class ClienteScoringCalculatorTests
     public void Snapshot_CreditoEliminado_SeIgnora()
     {
         var credito = Credito(deleted: true, Cuota(EstadoCuota.Vencida, Ahora.AddDays(-5)));
+
+        var snap = ClienteScoringCalculator.CalcularSnapshot(
+            Ahora.AddDays(-100), new List<Venta>(), new[] { credito }, Ahora);
+
+        Assert.Equal(0, snap.CreditosConAtraso);
+    }
+
+    // ---------------------------------------------------------------------
+    // PUN-ML10-E: "con atraso" es sólo mora de CAPITAL, nunca punitorio.
+    // Una cuota con capital saldado que quedó Parcial únicamente por un punitorio
+    // aplicado pendiente (contrato EstadoCuotaResolver.Resolver) no debe contar.
+    // ---------------------------------------------------------------------
+
+    [Fact]
+    public void CapitalSaldadoConPunitorioPendiente_NoCuentaCreditoConAtraso()
+    {
+        // Estado=Parcial + MontoPagado==MontoTotal: exactamente cómo Resolver deja una cuota
+        // con capital saldado y un punitorio aplicado todavía pendiente de cobro.
+        var credito = Credito(false,
+            Cuota(EstadoCuota.Parcial, venc: Ahora.AddDays(-10), pagado: 100m));
+
+        var snap = ClienteScoringCalculator.CalcularSnapshot(
+            Ahora.AddDays(-100), new List<Venta>(), new[] { credito }, Ahora);
+
+        Assert.Equal(0, snap.CreditosConAtraso);
+        // El capital sí quedó saldado: cuenta como historial de pago en término, no como atraso.
+        Assert.Equal(1, snap.CreditosEnTermino);
+    }
+
+    [Fact]
+    public void CreditoConCincoCuotasSanasYUnaSoloPunitoria_NoCuentaConAtraso()
+    {
+        var cuotas = new[]
+        {
+            Cuota(EstadoCuota.Pagada, venc: Ahora.AddDays(-90), pago: Ahora.AddDays(-91), pagado: 100m),
+            Cuota(EstadoCuota.Pagada, venc: Ahora.AddDays(-60), pago: Ahora.AddDays(-61), pagado: 100m),
+            Cuota(EstadoCuota.Pagada, venc: Ahora.AddDays(-30), pago: Ahora.AddDays(-31), pagado: 100m),
+            Cuota(EstadoCuota.Pendiente, venc: Ahora.AddDays(30)),
+            Cuota(EstadoCuota.Pendiente, venc: Ahora.AddDays(60)),
+            // Sexta cuota: capital saldado, sólo punitorio aplicado pendiente.
+            Cuota(EstadoCuota.Parcial, venc: Ahora.AddDays(-5), pagado: 100m),
+        };
+        var credito = Credito(false, cuotas);
+
+        var snap = ClienteScoringCalculator.CalcularSnapshot(
+            Ahora.AddDays(-400), new List<Venta>(), new[] { credito }, Ahora);
+
+        Assert.Equal(0, snap.CreditosConAtraso);
+        Assert.Equal(1, snap.CreditosEnTermino);
+    }
+
+    [Fact]
+    public void CapitalYPunitorioPendientes_CuentaUnaSolaVezPorCapital()
+    {
+        // La misma cuota tiene capital pendiente (montoPagado < montoTotal) Y punitorio pendiente
+        // (irrelevante para el calculador, que no lo lee): sólo debe sumar 1 por la mora de capital.
+        var credito = Credito(false,
+            Cuota(EstadoCuota.Parcial, venc: Ahora.AddDays(-10), pagado: 40m, montoTotal: 100m));
+
+        var snap = ClienteScoringCalculator.CalcularSnapshot(
+            Ahora.AddDays(-100), new List<Venta>(), new[] { credito }, Ahora);
+
+        Assert.Equal(1, snap.CreditosConAtraso);
+    }
+
+    [Fact]
+    public void VariasCuotasMorosasEnMismoCredito_CuentaUnCredito()
+    {
+        var credito = Credito(false,
+            Cuota(EstadoCuota.Vencida, venc: Ahora.AddDays(-40)),
+            Cuota(EstadoCuota.Vencida, venc: Ahora.AddDays(-10)),
+            Cuota(EstadoCuota.Parcial, venc: Ahora.AddDays(-5), pagado: 20m));
+
+        var snap = ClienteScoringCalculator.CalcularSnapshot(
+            Ahora.AddDays(-100), new List<Venta>(), new[] { credito }, Ahora);
+
+        Assert.Equal(1, snap.CreditosConAtraso);
+    }
+
+    [Fact]
+    public void VariosCreditosDelMismoCliente_CadaUnoCuentaPorSeparado()
+    {
+        var creditoSano = Credito(false,
+            Cuota(EstadoCuota.Pagada, venc: Ahora.AddDays(-30), pago: Ahora.AddDays(-31), pagado: 100m));
+        var creditoConAtraso = Credito(false,
+            Cuota(EstadoCuota.Vencida, venc: Ahora.AddDays(-5)));
+        // Tercer crédito: capital saldado + sólo punitorio pendiente — no debe sumar.
+        var creditoSoloPunitorio = Credito(false,
+            Cuota(EstadoCuota.Parcial, venc: Ahora.AddDays(-2), pagado: 100m));
+
+        var snap = ClienteScoringCalculator.CalcularSnapshot(
+            Ahora.AddDays(-100), new List<Venta>(),
+            new[] { creditoSano, creditoConAtraso, creditoSoloPunitorio }, Ahora);
+
+        // creditoSano y creditoSoloPunitorio pagaron capital (el segundo, con punitorio pendiente
+        // que el calculador ni ve) => ambos cuentan en término; sólo creditoConAtraso suma atraso.
+        Assert.Equal(2, snap.CreditosEnTermino);
+        Assert.Equal(1, snap.CreditosConAtraso);
+    }
+
+    [Fact]
+    public void CapitalPendienteNoVencido_NoCuentaComoAtraso()
+    {
+        var credito = Credito(false,
+            Cuota(EstadoCuota.Pendiente, venc: Ahora.AddDays(5)));
 
         var snap = ClienteScoringCalculator.CalcularSnapshot(
             Ahora.AddDays(-100), new List<Venta>(), new[] { credito }, Ahora);
