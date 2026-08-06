@@ -53,12 +53,50 @@ namespace TheBuryProject.Tests.E2ESeeding
             public string ClienteMoraYPunitorioDocumento { get; init; } = string.Empty;
 
             /// <summary>
-            /// Crédito de 5 cuotas vencidas sin punitorio aplicado, para los specs legacy PUN-ML9
-            /// (aplicar/anular, pago individual, returnUrl, adelanto/pago múltiple).
+            /// Crédito de 6 cuotas vencidas (5 limpias + 1 con punitorio aplicado), dedicado
+            /// EXCLUSIVAMENTE a <c>e2e/credito-punitorio-detalle.spec.js</c> (aplicar/anular). Los
+            /// otros 3 specs legacy PUN-ML9 (pago individual, returnUrl, adelanto/pago múltiple)
+            /// tienen su propio crédito dedicado desde el cierre PUN-ML10-G.1 — ver
+            /// <see cref="ClientePagoIndividualId"/>/<see cref="ClienteReturnUrlId"/>/<see cref="ClienteAdelantoId"/>.
+            /// Antes compartían este mismo crédito de 6 cuotas, lo que agotaba el pool de cuotas
+            /// pagables a mitad de <c>credito-adelanto-pago-multiple.spec.js</c> (causa raíz real
+            /// del carryover documentado en el cierre PUN-ML10-G).
             /// </summary>
             public int ClienteOperacionesId { get; init; }
             public int CreditoOperacionesId { get; init; }
             public IReadOnlyList<int> CuotasOperacionesIds { get; init; } = Array.Empty<int>();
+
+            /// <summary>
+            /// Cuota dedicada al escenario "historial incompleto" de
+            /// <c>credito-punitorio-detalle.spec.js</c> (test read-only, misma cuenta que
+            /// <see cref="ClienteOperacionesId"/> pero un séptimo NumeroCuota que nunca se toca
+            /// desde OPERATION_QUOTAS). Lleva un <c>PagoCuota</c> con <c>HistorialCompleto=false</c>
+            /// para que <c>IPunitorioCalculator</c> devuelva <c>HistorialIncompleto</c> de forma
+            /// determinista — reemplaza el <c>test.skip</c> condicional que dependía de encontrar
+            /// esa condición "si existía" en datos ad hoc.
+            /// </summary>
+            public int CuotaHistorialIncompletoId { get; init; }
+
+            /// <summary>Crédito de 2 cuotas dedicado a <c>credito-pago-cuota-individual.spec.js</c> (PUN-ML9-D).</summary>
+            public int ClientePagoIndividualId { get; init; }
+            public int CreditoPagoIndividualId { get; init; }
+            public int CuotaPagoIndividualSinAplicacionId { get; init; }
+            public int CuotaPagoIndividualConAplicacionId { get; init; }
+
+            /// <summary>Crédito de 1 cuota dedicado a <c>credito-pago-cuota-returnurl.spec.js</c> (PUN-ML9-D.1).</summary>
+            public int ClienteReturnUrlId { get; init; }
+            public int CreditoReturnUrlId { get; init; }
+            public int CuotaReturnUrlId { get; init; }
+
+            /// <summary>
+            /// Crédito con un pool grande de cuotas vencidas SIN punitorio pre-aplicado, dedicado a
+            /// <c>credito-adelanto-pago-multiple.spec.js</c> (PUN-ML9-E). El spec consume cuotas
+            /// reales de forma secuencial (adelanto x3, pago múltiple, atomicidad, doble envío —
+            /// ver el propio archivo) y necesita más de las 6 que "Operaciones" alcanzaba a ofrecer.
+            /// </summary>
+            public int ClienteAdelantoId { get; init; }
+            public int CreditoAdelantoId { get; init; }
+            public IReadOnlyList<int> CuotasAdelantoIds { get; init; } = Array.Empty<int>();
         }
 
         /// <summary>
@@ -129,6 +167,24 @@ namespace TheBuryProject.Tests.E2ESeeding
                     Activo = true,
                     TasaInteresMensualCreditoPersonal = 0m,
                     GastosAdministrativosDefaultCreditoPersonal = 0m
+                });
+                await db.SaveChangesAsync();
+            }
+
+            // ConfiguracionPago de Transferencia CON recargo activo: sin esto, "el recargo por medio
+            // de pago es un cargo separado" (credito-pago-cuota-individual.spec.js) no tiene nada que
+            // separar — mismo gap ya documentado y corregido en el cierre PUN-ML9-F (ahí en un seed
+            // temporal descartable; acá en el seed versionado, nunca se había portado). Idempotente.
+            var tieneConfigPagoTransferencia = await db.ConfiguracionesPago.AnyAsync(c => c.TipoPago == TipoPago.Transferencia);
+            if (!tieneConfigPagoTransferencia)
+            {
+                db.ConfiguracionesPago.Add(new ConfiguracionPago
+                {
+                    TipoPago = TipoPago.Transferencia,
+                    Nombre = "Transferencia",
+                    Activo = true,
+                    TieneRecargo = true,
+                    PorcentajeRecargo = 5m
                 });
                 await db.SaveChangesAsync();
             }
@@ -282,23 +338,80 @@ namespace TheBuryProject.Tests.E2ESeeding
             aplicacionAnulada.MotivoAnulacion = $"Seed E2E {MarcadorApellido} ({sufijo}): anulado deliberadamente para probar que no cuenta como pendiente.";
             await db.SaveChangesAsync();
 
-            // I) Crédito de "operaciones" para los specs legacy PUN-ML9 (aplicar/anular punitorio,
-            // pago individual, returnUrl, adelanto/pago múltiple): 5 cuotas vencidas, capital
-            // pendiente, SIN ningún punitorio aplicado — cada test de esos specs usa una cuota
-            // distinta para no chocar con el índice único "una aplicación activa por cuota"
-            // (Modelo A). También sirve para "pago múltiple" (2+ cuotas pagables) y "adelanto"
-            // (última cuota pendiente), sin necesitar un crédito aparte.
+            // I) Crédito de "operaciones", dedicado EXCLUSIVAMENTE a credito-punitorio-detalle.spec.js
+            // (PUN-ML9-C, aplicar/anular): 5 cuotas vencidas limpias + 1 con punitorio ya aplicado —
+            // cada test de ESE spec usa una cuota distinta para no chocar con el índice único "una
+            // aplicación activa por cuota" (Modelo A). PUN-ML10-G.1: ya NO la comparten los otros 3
+            // specs legacy (pago individual/returnUrl/adelanto-múltiple) — cada uno tiene su propio
+            // crédito dedicado más abajo. Compartir este mismo pool de 6 cuotas entre los 4 specs
+            // agotaba las cuotas pagables a mitad de credito-adelanto-pago-multiple.spec.js: causa
+            // raíz real (bug de seed, no de aplicación) del carryover documentado en el cierre
+            // PUN-ML10-G.
             var (clienteOperaciones, cuotasOperaciones) = await CrearClienteConCreditoAsync(db, "Operaciones", sufijo, ahora,
                 NuevaCuota(1, ahora.AddDays(-10), montoTotal: 1000m, montoPagado: 0m, EstadoCuota.Vencida),
                 NuevaCuota(2, ahora.AddDays(-15), montoTotal: 1000m, montoPagado: 0m, EstadoCuota.Vencida),
                 NuevaCuota(3, ahora.AddDays(-20), montoTotal: 1000m, montoPagado: 0m, EstadoCuota.Vencida),
                 NuevaCuota(4, ahora.AddDays(-25), montoTotal: 1000m, montoPagado: 0m, EstadoCuota.Vencida),
                 NuevaCuota(5, ahora.AddDays(-30), montoTotal: 1000m, montoPagado: 0m, EstadoCuota.Vencida),
-                // 6ª cuota, ya con punitorio aplicado — dedicada a CUOTA_CON_APLICACION
-                // (credito-pago-cuota-individual.spec.js) sin consumir ninguna de las 5 "limpias".
+                // 6ª cuota, ya con punitorio aplicado.
                 NuevaCuota(6, ahora.AddDays(-35), montoTotal: 1000m, montoPagado: 0m, EstadoCuota.Vencida));
             var creditoOperacionesId = cuotasOperaciones[0].CreditoId;
             await AplicarPunitorioAsync(db, cuotasOperaciones[5], importe: 150m, ahora);
+
+            // I.1) 7ª cuota del mismo crédito "Operaciones" (NumeroCuota=7, no forma parte de
+            // OPERATION_QUOTAS — los tests indexados 0..5 nunca la tocan), dedicada al escenario
+            // "historial incompleto" de credito-punitorio-detalle.spec.js: un PagoCuota con
+            // HistorialCompleto=false hace que IPunitorioCalculator devuelva HistorialIncompleto de
+            // forma determinista (ver PunitorioCalculator.EsPagoConfiable). Antes este escenario
+            // dependía de encontrarlo "si existía" en datos ad hoc y el test quedaba en test.skip.
+            var cuotaHistorialIncompleto = NuevaCuota(7, ahora.AddDays(-40), montoTotal: 1000m, montoPagado: 0m, EstadoCuota.Vencida);
+            cuotaHistorialIncompleto.CreditoId = creditoOperacionesId;
+            db.Cuotas.Add(cuotaHistorialIncompleto);
+            await db.SaveChangesAsync();
+            db.PagosCuota.Add(new PagoCuota
+            {
+                CuotaId = cuotaHistorialIncompleto.Id,
+                FechaPagoComercial = DateOnly.FromDateTime(ahora.AddDays(-30)), // posterior al vencimiento (-40), anterior a hoy
+                ImporteTotal = 100m,
+                ImporteAplicadoCuota = null,
+                ImporteAplicadoPunitorio = null,
+                Origen = OrigenPagoCuota.RegistradoPorSistema,
+                Estado = EstadoPagoCuota.Aplicado,
+                HistorialCompleto = false
+            });
+            await db.SaveChangesAsync();
+
+            // J) Crédito dedicado a credito-pago-cuota-individual.spec.js (PUN-ML9-D): 2 cuotas
+            // propias, no compartidas con "Operaciones" — evita que el "aplica/anula" de C interfiera
+            // con las previews/cobro real de D sobre la misma cuota física.
+            var (clientePagoIndividual, cuotasPagoIndividual) = await CrearClienteConCreditoAsync(db, "PagoIndividual", sufijo, ahora,
+                NuevaCuota(1, ahora.AddDays(-10), montoTotal: 1000m, montoPagado: 0m, EstadoCuota.Vencida),
+                NuevaCuota(2, ahora.AddDays(-12), montoTotal: 1000m, montoPagado: 0m, EstadoCuota.Vencida));
+            var creditoPagoIndividualId = cuotasPagoIndividual[0].CreditoId;
+            await AplicarPunitorioAsync(db, cuotasPagoIndividual[1], importe: 150m, ahora);
+
+            // K) Crédito dedicado a credito-pago-cuota-returnurl.spec.js (PUN-ML9-D.1): exactamente
+            // 1 cuota pendiente, tal como documenta el propio spec ("Requiere ... un crédito activo
+            // con 1 cuota pendiente"). Con más de una cuota, el primer enlace "Pagar cuota" de
+            // Details (ordenado por NumeroCuota ascendente) puede no coincidir con la cuota que el
+            // spec espera — bug de seed real encontrado en este cierre, no de la vista.
+            var (clienteReturnUrl, cuotasReturnUrl) = await CrearClienteConCreditoAsync(db, "ReturnUrl", sufijo, ahora,
+                NuevaCuota(1, ahora.AddDays(-10), montoTotal: 1000m, montoPagado: 0m, EstadoCuota.Vencida));
+            var creditoReturnUrlId = cuotasReturnUrl[0].CreditoId;
+
+            // L) Crédito dedicado a credito-adelanto-pago-multiple.spec.js (PUN-ML9-E): pool grande
+            // de cuotas vencidas SIN punitorio pre-aplicado (el spec aplica el suyo cuando lo
+            // necesita). El spec consume cuotas reales de forma secuencial e irreversible (adelanto
+            // x3 confirmados, pago múltiple de 2, atomicidad, doble envío — ver el propio archivo);
+            // 6 cuotas (el tamaño que tenía "Operaciones") no alcanzan ni para una sola corrida del
+            // archivo solo, mucho menos compartidas con los otros 3 specs — causa raíz real de los
+            // skips por "no hay cuotas pagables disponibles" y del fallo final "no tiene overflow
+            // horizontal en mobile" (no había ninguna cuota adelantable restante).
+            var cuotasAdelantoSeed = Enumerable.Range(1, 15)
+                .Select(n => NuevaCuota(n, ahora.AddDays(-(5 + n)), montoTotal: 1000m, montoPagado: 0m, EstadoCuota.Vencida))
+                .ToArray();
+            var (clienteAdelanto, cuotasAdelanto) = await CrearClienteConCreditoAsync(db, "Adelanto", sufijo, ahora, cuotasAdelantoSeed);
+            var creditoAdelantoId = cuotasAdelanto[0].CreditoId;
 
             return new ResultadoSeed
             {
@@ -313,7 +426,18 @@ namespace TheBuryProject.Tests.E2ESeeding
                 ClienteMoraYPunitorioDocumento = moraYPunitorio.NumeroDocumento,
                 ClienteOperacionesId = clienteOperaciones.Id,
                 CreditoOperacionesId = creditoOperacionesId,
-                CuotasOperacionesIds = cuotasOperaciones.Select(c => c.Id).ToList()
+                CuotasOperacionesIds = cuotasOperaciones.Select(c => c.Id).ToList(),
+                CuotaHistorialIncompletoId = cuotaHistorialIncompleto.Id,
+                ClientePagoIndividualId = clientePagoIndividual.Id,
+                CreditoPagoIndividualId = creditoPagoIndividualId,
+                CuotaPagoIndividualSinAplicacionId = cuotasPagoIndividual[0].Id,
+                CuotaPagoIndividualConAplicacionId = cuotasPagoIndividual[1].Id,
+                ClienteReturnUrlId = clienteReturnUrl.Id,
+                CreditoReturnUrlId = creditoReturnUrlId,
+                CuotaReturnUrlId = cuotasReturnUrl[0].Id,
+                ClienteAdelantoId = clienteAdelanto.Id,
+                CreditoAdelantoId = creditoAdelantoId,
+                CuotasAdelantoIds = cuotasAdelanto.Select(c => c.Id).ToList()
             };
         }
 

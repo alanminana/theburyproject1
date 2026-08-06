@@ -53,18 +53,22 @@ namespace TheBuryProject.Tests.E2ESeeding
                 E2E_CLIENTE_PUNITORIO_CALCULADO_NO_APLICADO_ID = resultado.ClientePunitorioCalculadoNoAplicadoId.ToString(),
                 E2E_CLIENTE_MORA_Y_PUNITORIO_DOCUMENTO = resultado.ClienteMoraYPunitorioDocumento,
 
-                // Legacy PUN-ML9 (e2e/credito-punitorio-detalle.spec.js, credito-pago-cuota-*.spec.js,
-                // credito-adelanto-pago-multiple.spec.js): crédito de 5 cuotas vencidas sin punitorio.
+                // Legacy PUN-ML9-C (e2e/credito-punitorio-detalle.spec.js): crédito dedicado de
+                // 6 cuotas vencidas (OPERATION_QUOTAS) + 1 séptima para "historial incompleto".
                 E2E_CREDITO_PUN_ML9_ID = resultado.CreditoOperacionesId.ToString(),
                 E2E_CREDITO_PUN_ML9_C_ID = resultado.CreditoOperacionesId.ToString(),
                 E2E_CUOTAS_PUN_ML9_C = string.Join(",", resultado.CuotasOperacionesIds),
-                E2E_PUNML9D_CREDITO = resultado.CreditoOperacionesId.ToString(),
-                E2E_PUNML9D_CUOTA_SIN_APLICACION = resultado.CuotasOperacionesIds.ElementAtOrDefault(0).ToString(),
-                E2E_PUNML9D_CUOTA_CON_APLICACION = resultado.CuotasOperacionesIds.ElementAtOrDefault(5).ToString(),
-                E2E_RETURNURL_CREDITO = resultado.CreditoOperacionesId.ToString(),
-                E2E_RETURNURL_CUOTA = resultado.CuotasOperacionesIds.ElementAtOrDefault(1).ToString(),
-                E2E_PUNML9E_CREDITO = resultado.CreditoOperacionesId.ToString(),
-                E2E_PUNML9E_CLIENTE = resultado.ClienteOperacionesId.ToString()
+                E2E_CUOTA_HISTORIAL_INCOMPLETO = resultado.CuotaHistorialIncompletoId.ToString(),
+
+                // PUN-ML10-G.1: cada uno de los otros 3 specs legacy PUN-ML9 tiene su propio crédito
+                // dedicado — antes compartían "Operaciones" y se agotaban entre sí (ver seeder).
+                E2E_PUNML9D_CREDITO = resultado.CreditoPagoIndividualId.ToString(),
+                E2E_PUNML9D_CUOTA_SIN_APLICACION = resultado.CuotaPagoIndividualSinAplicacionId.ToString(),
+                E2E_PUNML9D_CUOTA_CON_APLICACION = resultado.CuotaPagoIndividualConAplicacionId.ToString(),
+                E2E_RETURNURL_CREDITO = resultado.CreditoReturnUrlId.ToString(),
+                E2E_RETURNURL_CUOTA = resultado.CuotaReturnUrlId.ToString(),
+                E2E_PUNML9E_CREDITO = resultado.CreditoAdelantoId.ToString(),
+                E2E_PUNML9E_CLIENTE = resultado.ClienteAdelantoId.ToString()
             };
 
             var outputPath = ResolverOutputPath();

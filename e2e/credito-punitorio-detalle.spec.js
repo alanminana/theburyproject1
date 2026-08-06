@@ -14,6 +14,9 @@ const OPERATION_QUOTAS = (process.env.E2E_CUOTAS_PUN_ML9_C || '')
     .split(',')
     .map(value => Number(value.trim()))
     .filter(Number.isInteger);
+// PUN-ML10-G.1: cuota dedicada y determinista para el escenario "historial incompleto" —
+// reemplaza el test.skip condicional que dependía de encontrarla "si existía" en datos ad hoc.
+const CUOTA_HISTORIAL_INCOMPLETO = Number(process.env.E2E_CUOTA_HISTORIAL_INCOMPLETO || 0);
 const VIEWPORTS = [
     { name: '1440x900', width: 1440, height: 900 },
     { name: '1280x720', width: 1280, height: 720 },
@@ -149,22 +152,20 @@ test.describe('Crédito Details — punitorios read-only', () => {
     });
 
     test('historial incompleto sigue respondiendo 200 y lo advierte sin convertir null en cero', async ({ page }) => {
+        test.skip(!CUOTA_HISTORIAL_INCOMPLETO, 'Requiere E2E_CUOTA_HISTORIAL_INCOMPLETO (cuota sembrada con PagoCuota.HistorialCompleto=false).');
         const failures = trackFailures(page);
         await gotoCreditoDetails(page);
 
-        const toggle = page.locator('[data-punitorio-toggle]').first();
-        test.skip(!(await toggle.count()), 'El crédito no tiene cuotas.');
+        const toggle = page.locator(`[aria-controls="punitorio-panel-${CUOTA_HISTORIAL_INCOMPLETO}"]`);
+        await expect(toggle).toHaveCount(1);
         const responsePromise = page.waitForResponse(response =>
             /\/Credito\/\d+\/Cuotas\/\d+\/Punitorio/.test(new URL(response.url()).pathname));
         await toggle.click();
         const response = await responsePromise;
         expect(response.status()).toBe(200);
 
-        const panelId = await toggle.getAttribute('aria-controls');
-        const panel = page.locator(`#${panelId}`);
-        const warning = panel.getByText('Historial incompleto', { exact: true });
-        test.skip(!(await warning.count()), 'La cuota disponible no tiene historial incompleto.');
-        await expect(warning).toBeVisible();
+        const panel = page.locator(`#punitorio-panel-${CUOTA_HISTORIAL_INCOMPLETO}`);
+        await expect(panel.getByText('Historial incompleto', { exact: true })).toBeVisible();
         await expect(panel.getByText(/No reconstruible|Sin información suficiente/).first()).toBeVisible();
         expectNoFailures(failures);
     });
