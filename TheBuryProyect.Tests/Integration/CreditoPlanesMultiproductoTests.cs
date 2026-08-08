@@ -90,21 +90,27 @@ public class CreditoPlanesMultiproductoTests : IDisposable
         Assert.DoesNotContain(4, Cantidades(planes));
     }
 
+    // ML2.1 — corrige la expectativa pre-ML2.1 de este test (asumía que la tasa propia del
+    // producto, 0 % explícito, sobrevivía cuando no hay plan global equivalente). Bajo el
+    // contrato congelado el plan global de cuotas es la única autoridad del porcentaje: sin plan
+    // global para esa cantidad no hay porcentaje válido, ni siquiera cuando el producto declaró
+    // 0 % (Fase 2, caso "Sin plan global").
     [Fact]
-    public async Task Producto_ConTresCuotasATasaCero_ConservaLaTasaCeroExplicita()
+    public async Task Producto_ConCuotaSinPlanGlobalEquivalente_TasaEsInvalidaAunqueElProductoDeclareCero()
     {
         await SeedGlobal((1, 0m), (4, 4m), (6, 0m));
-        var d = await SeedProducto("FIX-RV-PLANES-D", (3, 0m));
+        var d = await SeedProducto("FIX-RV-PLANES-D", (3, 0m)); // 3 cuotas: sin plan global equivalente
 
         var planes = await Resolver(d);
 
         Assert.Equal(new[] { 3 }, Cantidades(planes));
-        // 0 % explícito no es "ausente": no se reemplaza por la tasa global del 10 %.
-        Assert.Equal(0m, planes.BuscarPlan(3)!.TasaMensual);
+        Assert.Null(planes.BuscarPlan(3)!.TasaMensual);
     }
 
+    // ML3 — renombrado (era "...HeredaLaTasaGlobalDeEsaCantidad"): no hay herencia. El TasaMensual
+    // del producto no es fuente de porcentaje; el resultado es siempre el de la cuota global.
     [Fact]
-    public async Task Producto_ConTasaNull_HeredaLaTasaGlobalDeEsaCantidad()
+    public async Task Producto_ConTasaNull_TasaSaleDeLaCuotaGlobalDeEsaCantidad()
     {
         await SeedGlobal((6, 7m));
         var producto = await SeedProducto("FIX-RV-PLANES-HEREDA");
@@ -115,8 +121,13 @@ public class CreditoPlanesMultiproductoTests : IDisposable
         Assert.Equal(7m, planes.BuscarPlan(6)!.TasaMensual);
     }
 
+    // ML3 — renombrado (era "...SinCuotaGlobalEquivalente_HeredaLaTasaUnicaGlobal"): el nombre
+    // original era incorrecto en las dos afirmaciones — SÍ existe cuota global equivalente (misma
+    // cantidad, 1), y el resultado no es "herencia" de ninguna tasa única (ConfiguracionPago.
+    // TasaInteresMensualCreditoPersonal, aquí ni siquiera seedeada): es el 0 % propio y explícito
+    // de esa cuota global, que el TasaMensual del producto no puede alterar ni siendo null.
     [Fact]
-    public async Task Producto_ConTasaNullYSinCuotaGlobalEquivalente_HeredaLaTasaUnicaGlobal()
+    public async Task Producto_ConTasaNullYCuotaGlobalEnCero_TasaEsCeroNoLaTasaUnicaGlobal()
     {
         await SeedGlobal((1, 0m));
         var producto = await SeedProducto("FIX-RV-PLANES-HEREDA-UNICA");
@@ -124,7 +135,8 @@ public class CreditoPlanesMultiproductoTests : IDisposable
 
         var planes = await Resolver(producto);
 
-        // La cuota global de 1 tiene 0 % explícito, así que hereda ese 0 y no el 10 % único.
+        // La cuota global de 1 tiene 0 % explícito: ese es el resultado, no el 10 % de
+        // TasaGlobalUnica (que ademas no interviene: ResolverPlanesCreditoPersonalAsync no la lee).
         Assert.Equal(0m, planes.BuscarPlan(1)!.TasaMensual);
     }
 
@@ -172,8 +184,12 @@ public class CreditoPlanesMultiproductoTests : IDisposable
         Assert.Equal(OrigenPlanesCredito.Mixto, planes.Origen);
     }
 
+    // ML2.1 — corrige la expectativa pre-ML2.1 ("máximo entre productos" era autoridad del
+    // porcentaje). El plan global de cuotas es la única autoridad: ambas cantidades tienen plan
+    // global explícito (0 %) y ganan sobre la tasa propia del producto (2,5 % / 8 %), aunque sea
+    // mayor.
     [Fact]
-    public async Task Multiproducto_TasaDeCadaCantidad_EsElMaximoEntreProductos()
+    public async Task Multiproducto_TasaDeCadaCantidad_SiempreSaleDelPlanGlobalAunqueElProductoDeclareOtra()
     {
         await SeedGlobal((1, 0m), (4, 4m), (6, 0m));
         var b = await SeedProducto("FIX-RV-PLANES-B");
@@ -181,19 +197,22 @@ public class CreditoPlanesMultiproductoTests : IDisposable
 
         var planes = await Resolver(b, c);
 
-        Assert.Equal(2.5m, planes.BuscarPlan(1)!.TasaMensual);   // MAX(0 %, 2,5 %)
-        Assert.Equal(8m, planes.BuscarPlan(6)!.TasaMensual);     // MAX(0 %, 8 %)
+        Assert.Equal(0m, planes.BuscarPlan(1)!.TasaMensual);
+        Assert.Equal(0m, planes.BuscarPlan(6)!.TasaMensual);
     }
 
+    // ML2.1 — corrige la expectativa pre-ML2.1 (0 % coincidente entre productos "sobrevivía" sin
+    // plan global). Sin plan global para 3 cuotas no hay porcentaje válido, ni siquiera cuando
+    // ambos productos declaran 0 % (Fase 2, caso "Sin plan global").
     [Fact]
-    public async Task Multiproducto_TodosConTasaCero_ConservaCero()
+    public async Task Multiproducto_SinPlanesGlobales_TasaEsInvalidaAunTodosDeclarenCero()
     {
         var uno = await SeedProducto("FIX-RV-PLANES-CERO-1", (3, 0m));
         var dos = await SeedProducto("FIX-RV-PLANES-CERO-2", (3, 0m));
 
         var planes = await Resolver(uno, dos);
 
-        Assert.Equal(0m, planes.BuscarPlan(3)!.TasaMensual);
+        Assert.Null(planes.BuscarPlan(3)!.TasaMensual);
     }
 
     [Fact]
@@ -301,8 +320,11 @@ public class CreditoPlanesMultiproductoTests : IDisposable
     // Multiproducto compatible: gate de la configuración
     // =====================================================================
 
+    // ML2.1 — corrige la expectativa pre-ML2.1 ("máximo del servidor" entre productos). El plan
+    // global (0 %, explícito para 6 cuotas) es la única autoridad, no el máximo entre productos
+    // (8 %).
     [Fact]
-    public async Task ConfigurarVenta_CantidadEnLaInterseccion_AplicaLaTasaMaximaDelServidor()
+    public async Task ConfigurarVenta_CantidadEnLaInterseccion_AplicaLaTasaDelPlanGlobal()
     {
         await SeedGlobal((1, 0m), (4, 4m), (6, 0m));
         var b = await SeedProducto("FIX-RV-PLANES-B");
@@ -313,7 +335,7 @@ public class CreditoPlanesMultiproductoTests : IDisposable
 
         Assert.True(resultado.EsValido);
         Assert.Equal(6, resultado.Comando!.CantidadCuotas);
-        Assert.Equal(8m, resultado.Comando.TasaMensual);
+        Assert.Equal(0m, resultado.Comando.TasaMensual);
     }
 
     [Fact]
@@ -332,6 +354,8 @@ public class CreditoPlanesMultiproductoTests : IDisposable
         Assert.Contains("no esta habilitada", resultado.ErrorMessage!, StringComparison.OrdinalIgnoreCase);
     }
 
+    // ML2.1: el plan global explícito (0 % para 6 cuotas) es la autoridad, no el valor que mande
+    // el navegador ni la tasa propia del producto (8 %).
     [Fact]
     public async Task ConfigurarVenta_TasaDelNavegadorEnCaminoGlobal_EsIgnorada()
     {
@@ -341,14 +365,16 @@ public class CreditoPlanesMultiproductoTests : IDisposable
         await SeedConfigGlobalPago();
 
         var modelo = Modelo(6);
-        modelo.TasaMensual = 0m; // corresponde 8 %
+        modelo.TasaMensual = 99m; // valor arbitrario del navegador: no es Manual, se ignora igual
 
         var resultado = await _configuracionVentaService.ResolverAsync(modelo, Venta(b, c));
 
         Assert.True(resultado.EsValido);
-        Assert.Equal(8m, resultado.Comando!.TasaMensual);
+        Assert.Equal(0m, resultado.Comando!.TasaMensual);
     }
 
+    // ML2.1: el plan global explícito (0 % para 6 cuotas) es la autoridad, no el valor forzado
+    // por el navegador ni la tasa propia del producto (8 %).
     [Theory]
     [InlineData(0)]
     [InlineData(-5)]
@@ -368,7 +394,7 @@ public class CreditoPlanesMultiproductoTests : IDisposable
         var resultado = await _configuracionVentaService.ResolverAsync(modelo, Venta(b, c));
 
         Assert.True(resultado.EsValido);
-        Assert.Equal(8m, resultado.Comando!.TasaMensual);
+        Assert.Equal(0m, resultado.Comando!.TasaMensual);
     }
 
     [Fact]
@@ -463,8 +489,11 @@ public class CreditoPlanesMultiproductoTests : IDisposable
         Assert.Equal(4m, resultado.Comando!.TasaMensual);
     }
 
+    // ML2.1 — corrige la expectativa pre-ML2.1 ("usa su tasa propia"). 1 cuota tiene plan global
+    // explícito (0 %); gana sobre la tasa propia del producto (2,5 %), aunque el producto sea el
+    // único de la venta.
     [Fact]
-    public async Task ConfigurarVenta_UnicoProductoPersonalizado_UsaSuTasaPropia()
+    public async Task ConfigurarVenta_UnicoProductoPersonalizado_ElPlanGlobalSigueSiendoAutoridad()
     {
         await SeedGlobal((1, 0m), (4, 4m), (6, 0m));
         var c = await SeedProducto("FIX-RV-PLANES-C", (1, 2.5m), (6, 8m));
@@ -473,23 +502,29 @@ public class CreditoPlanesMultiproductoTests : IDisposable
         var resultado = await _configuracionVentaService.ResolverAsync(Modelo(1), Venta(c));
 
         Assert.True(resultado.EsValido);
-        Assert.Equal(2.5m, resultado.Comando!.TasaMensual);
+        Assert.Equal(0m, resultado.Comando!.TasaMensual);
     }
 
+    // ML2.1 — corrige la expectativa pre-ML2.1 (tasa propia del producto, 0 % explícito,
+    // sobrevivía sin plan global equivalente). Sin plan global para 3 cuotas no hay porcentaje
+    // válido, ni siquiera cuando el producto declaró 0 % (Fase 2, caso "Sin plan global").
     [Fact]
-    public async Task ConfigurarVenta_ProductoConTasaCero_GeneraCreditoSinInteres()
+    public async Task ConfigurarVenta_ProductoConCuotaSinPlanGlobal_EsInvalidaAunqueElProductoDeclareCero()
     {
         var d = await SeedProducto("FIX-RV-PLANES-D", (3, 0m));
         await SeedConfigGlobalPago();
 
         var resultado = await _configuracionVentaService.ResolverAsync(Modelo(3), Venta(d));
 
-        Assert.True(resultado.EsValido);
-        Assert.Equal(0m, resultado.Comando!.TasaMensual);
+        Assert.False(resultado.EsValido);
+        Assert.Null(resultado.Comando);
+        Assert.Contains("porcentaje", resultado.ErrorMessage!, StringComparison.OrdinalIgnoreCase);
     }
 
+    // ML2.1 — corrige la expectativa pre-ML2.1 ("la tasa resuelta" era la del producto). El plan
+    // global explícito (0 % para 6 cuotas) es la autoridad, no la tasa propia del producto (8 %).
     [Fact]
-    public async Task ConfigurarVenta_ConAnticipo_ConservaElAnticipoYLaTasaResuelta()
+    public async Task ConfigurarVenta_ConAnticipo_ConservaElAnticipoYUsaLaTasaDelPlanGlobal()
     {
         await SeedGlobal((1, 0m), (6, 0m));
         var c = await SeedProducto("FIX-RV-PLANES-C", (1, 2.5m), (6, 8m));
@@ -502,7 +537,7 @@ public class CreditoPlanesMultiproductoTests : IDisposable
 
         Assert.True(resultado.EsValido);
         Assert.Equal(2_500m, resultado.Comando!.Anticipo);
-        Assert.Equal(8m, resultado.Comando.TasaMensual);
+        Assert.Equal(0m, resultado.Comando.TasaMensual);
     }
 
     [Fact]

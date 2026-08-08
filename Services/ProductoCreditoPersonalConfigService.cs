@@ -35,6 +35,16 @@ namespace TheBuryProject.Services
 
             var globales = await _configuracionPagoService.GetCuotasCreditoPersonalActivasAsync();
 
+            // ML5 — Contrato congelado: el recargo que se muestra en el editor de Producto es
+            // SIEMPRE el del plan global vigente para esa cantidad de cuotas, nunca el valor
+            // legacy persistido en ProductoCreditoPersonalCuota.TasaMensual (ese campo decide
+            // únicamente qué cantidades ofrece el producto — ver doc de la entidad). Sin plan
+            // global para una cantidad, el recargo es null ("no disponible"), nunca se inventa
+            // ni se hereda de la tasa propia histórica.
+            var recargosGlobalesPorCantidad = globales.ToDictionary(g => g.CantidadCuotas, g => g.TasaMensual);
+            decimal? RecargoVigente(int cantidadCuotas) =>
+                recargosGlobalesPorCantidad.TryGetValue(cantidadCuotas, out var tasa) ? tasa : null;
+
             // Filas de edición: planes propios + plantillas candidatas (globales y defaults)
             // que el operador puede activar. Las plantillas no se persisten si quedan inactivas.
             var cuotas = propias
@@ -42,7 +52,7 @@ namespace TheBuryProject.Services
                 {
                     Id = c.Id,
                     CantidadCuotas = c.CantidadCuotas,
-                    TasaMensual = c.TasaMensual,
+                    TasaMensual = RecargoVigente(c.CantidadCuotas),
                     Activo = c.Activo,
                     Orden = c.Orden
                 })
@@ -69,7 +79,7 @@ namespace TheBuryProject.Services
                 {
                     Id = 0,
                     CantidadCuotas = cantidad,
-                    TasaMensual = null, // heredar la tasa global por defecto al activar la plantilla
+                    TasaMensual = null, // sin plan global para esta cantidad: no disponible, no se inventa
                     Activo = false,
                     Orden = cantidad
                 });
@@ -120,6 +130,9 @@ namespace TheBuryProject.Services
             if (fueraDeRango.Count > 0)
                 errores.Add($"Cantidades de cuotas fuera de rango 1–120: {string.Join(", ", fueraDeRango)}.");
 
+            // ML5: TasaMensual del producto ya no tiene autoridad financiera y no se persiste
+            // (ver GuardarAsync), pero un payload manipulado con un valor negativo sigue siendo
+            // estructuralmente inválido — se rechaza igual, como sanity check del request.
             if (entrantes.Any(c => c.TasaMensual < 0))
                 errores.Add("El recargo no puede ser negativo.");
 
@@ -168,9 +181,13 @@ namespace TheBuryProject.Services
             {
                 var existente = existentes.FirstOrDefault(e => e.CantidadCuotas == entrante.CantidadCuotas);
 
+                // ML5 — Contrato congelado: Producto ya no es autoridad de porcentaje bajo ningún
+                // valor. entrante.TasaMensual NUNCA se escribe acá — ni el editor la envía (sin
+                // input editable), ni un payload manipulado puede reintroducirla. La columna
+                // TasaMensual queda inerte: conserva su valor histórico en updates y nace en null
+                // en altas nuevas (ver doc de ProductoCreditoPersonalCuota.TasaMensual).
                 if (existente != null)
                 {
-                    existente.TasaMensual = entrante.TasaMensual;
                     existente.Activo = entrante.Activo;
                     existente.Orden = entrante.Orden;
                     existente.FechaActualizacion = DateTime.UtcNow;
@@ -178,12 +195,14 @@ namespace TheBuryProject.Services
                 }
                 else if (entrante.Activo)
                 {
-                    // Plantilla activada por el operador: alta de plan propio del producto.
+                    // Plantilla activada por el operador: alta de plan propio del producto. Solo
+                    // decide que esta cantidad de cuotas está disponible; el recargo lo fija
+                    // siempre el plan global (ver ObtenerAsync/RecargoVigente).
                     _context.ProductoCreditoPersonalCuotas.Add(new ProductoCreditoPersonalCuota
                     {
                         ProductoId = productoId,
                         CantidadCuotas = entrante.CantidadCuotas,
-                        TasaMensual = entrante.TasaMensual,
+                        TasaMensual = null,
                         Activo = true,
                         Orden = entrante.Orden,
                         FechaActualizacion = DateTime.UtcNow,

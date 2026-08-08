@@ -774,7 +774,7 @@ namespace TheBuryProject.Controllers
                 config.CuotasCreditoPersonal.Add(new CuotaCreditoPersonalViewModel
                 {
                     CantidadCuotas = nuevaCuotaCantidad.Value,
-                    TasaMensual = nuevaCuotaTasaMensual, // vacio = null = heredar la tasa global
+                    TasaMensual = nuevaCuotaTasaMensual, // ML2.1: vacio = null = plan activo sin porcentaje explicito = configuracion invalida (nunca "heredar")
                     Activo = nuevaCuotaActivo,
                     Orden = nuevaCuotaOrden ?? nuevaCuotaCantidad.Value
                 });
@@ -793,6 +793,19 @@ namespace TheBuryProject.Controllers
 
                 if (config.CuotasCreditoPersonal.Any(c => c.TasaMensual < 0))
                     ModelState.AddModelError(nameof(config.CuotasCreditoPersonal), "Las tasas mensuales por cuota no pueden ser negativas.");
+
+                // ML4 — Fase 6: gate temprano (antes de guardar Defaults/Perfiles) para el mismo
+                // contrato que valida GuardarCuotasCreditoPersonalAsync server-side. Un plan
+                // activo sin porcentaje explicito nunca hereda el recargo global legacy.
+                var activasSinPorcentaje = config.CuotasCreditoPersonal
+                    .Where(c => c.Activo && !c.TasaMensual.HasValue)
+                    .Select(c => c.CantidadCuotas)
+                    .ToList();
+                if (activasSinPorcentaje.Any())
+                    ModelState.AddModelError(
+                        nameof(config.CuotasCreditoPersonal),
+                        "Los planes activos deben tener un recargo total explicito (0 % es valido, nunca " +
+                        $"hereda el recargo global): cantidad de cuotas {string.Join(", ", activasSinPorcentaje)}.");
             }
 
             ValidarLimitesPorPuntaje(config);

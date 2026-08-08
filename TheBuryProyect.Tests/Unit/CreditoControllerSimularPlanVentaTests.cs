@@ -23,13 +23,14 @@ public class CreditoControllerSimularPlanVentaTests
             RatioVerdeMax = 0.12m,
             RatioAmarilloMax = 0.20m
         });
+        var venta = new VentaViewModel { Id = 77, ClienteId = 5, Total = 10_000m, Detalles = new List<VentaDetalleViewModel>() };
 
         var controller = new CreditoController(
             creditoService: null!,
             financialService: financial,
-            configuracionPagoService: null!,
+            configuracionPagoService: new TasaCreditoPersonalConfigService(5m),
             configuracionMoraService: null!,
-            ventaService: null!,
+            ventaService: new StubVentaService(venta),
             logger: NullLogger<CreditoController>.Instance,
             creditoDisponibleService: null!,
             currentUser: null!,
@@ -37,15 +38,19 @@ public class CreditoControllerSimularPlanVentaTests
             contratoVentaCreditoService: null!,
             aptitudService: aptitud);
 
+        // ML6.1: con ventaId, el % lo resuelve la tasa única global configurada arriba (ver
+        // TasaCreditoPersonalConfigService) — tasaMensual/metodoCalculo/fuenteConfiguracion ya no
+        // tienen autoridad, se omiten porque son irrelevantes para lo que este test verifica.
+        // ML8: ventaId es obligatorio — sin venta ni productos el service ya no resuelve el
+        // escalar legacy, devuelve "contexto insuficiente" (ver CreditoSimulacionVentaService).
         var result = await controller.SimularPlanVenta(
             totalVenta: 10_000m,
             anticipo: 0m,
             cuotas: 10,
             gastosAdministrativos: 0m,
             fechaPrimeraCuota: "2026-01-01",
-            tasaMensual: 0m,
-            metodoCalculo: MetodoCalculoCredito.Manual,
-            fuenteConfiguracion: FuenteConfiguracionCredito.Manual);
+            tasaMensual: null,
+            ventaId: venta.Id);
 
         var json = Assert.IsType<JsonResult>(result);
         var value = json.Value;
@@ -62,12 +67,13 @@ public class CreditoControllerSimularPlanVentaTests
     [Fact]
     public async Task SimularPlanVenta_SinTasaRequestYSinConfiguracionGlobal_RetornaBadRequest()
     {
+        var venta = new VentaViewModel { Id = 77, ClienteId = 5, Total = 10_000m, Detalles = new List<VentaDetalleViewModel>() };
         var controller = new CreditoController(
             creditoService: null!,
             financialService: new RecordingFinancialCalculationService(),
             configuracionPagoService: new TasaCreditoPersonalConfigService(null),
             configuracionMoraService: null!,
-            ventaService: null!,
+            ventaService: new StubVentaService(venta),
             logger: NullLogger<CreditoController>.Instance,
             creditoDisponibleService: null!,
             currentUser: null!,
@@ -81,7 +87,8 @@ public class CreditoControllerSimularPlanVentaTests
             cuotas: 10,
             gastosAdministrativos: 0m,
             fechaPrimeraCuota: "2026-01-01",
-            tasaMensual: null);
+            tasaMensual: null,
+            ventaId: venta.Id);
 
         var badRequest = Assert.IsType<BadRequestObjectResult>(result);
         Assert.NotNull(badRequest.Value);
@@ -94,12 +101,13 @@ public class CreditoControllerSimularPlanVentaTests
     [Fact]
     public async Task SimularPlanVenta_ConservaNombresJsonUsadosPorJs()
     {
+        var venta = new VentaViewModel { Id = 77, ClienteId = 5, Total = 10_000m, Detalles = new List<VentaDetalleViewModel>() };
         var controller = new CreditoController(
             creditoService: null!,
             financialService: new RecordingFinancialCalculationService(),
-            configuracionPagoService: null!,
+            configuracionPagoService: new TasaCreditoPersonalConfigService(4.25m),
             configuracionMoraService: null!,
-            ventaService: null!,
+            ventaService: new StubVentaService(venta),
             logger: NullLogger<CreditoController>.Instance,
             creditoDisponibleService: null!,
             currentUser: null!,
@@ -107,15 +115,17 @@ public class CreditoControllerSimularPlanVentaTests
             contratoVentaCreditoService: null!,
             aptitudService: null);
 
+        // ML6.1: tasaMensual/metodoCalculo/fuenteConfiguracion ya no tienen autoridad; el 4.25%
+        // sale de la tasa única global configurada arriba (este test solo verifica los nombres
+        // JSON, no la resolución del %). ML8: ventaId da el contexto obligatorio.
         var result = await controller.SimularPlanVenta(
             totalVenta: 10_000m,
             anticipo: 1_000m,
             cuotas: 6,
             gastosAdministrativos: 250m,
             fechaPrimeraCuota: "2026-07-15",
-            tasaMensual: 4.25m,
-            metodoCalculo: MetodoCalculoCredito.Manual,
-            fuenteConfiguracion: FuenteConfiguracionCredito.Manual);
+            tasaMensual: null,
+            ventaId: venta.Id);
 
         var json = Assert.IsType<JsonResult>(result);
         Assert.NotNull(json.Value);
@@ -146,12 +156,13 @@ public class CreditoControllerSimularPlanVentaTests
     {
         var financial = new RecordingFinancialCalculationService();
         var antes = DateTime.Today.AddMonths(1).Date;
+        var venta = new VentaViewModel { Id = 77, ClienteId = 5, Total = 10_000m, Detalles = new List<VentaDetalleViewModel>() };
         var controller = new CreditoController(
             creditoService: null!,
             financialService: financial,
-            configuracionPagoService: null!,
+            configuracionPagoService: new TasaCreditoPersonalConfigService(5m),
             configuracionMoraService: null!,
-            ventaService: null!,
+            ventaService: new StubVentaService(venta),
             logger: NullLogger<CreditoController>.Instance,
             creditoDisponibleService: null!,
             currentUser: null!,
@@ -159,15 +170,17 @@ public class CreditoControllerSimularPlanVentaTests
             contratoVentaCreditoService: null!,
             aptitudService: null);
 
+        // ML6.1: tasaMensual ya no tiene autoridad; el 5% sale de la tasa única global configurada
+        // arriba (este test solo verifica el fallback de fecha). ML8: ventaId da el contexto
+        // obligatorio.
         var result = await controller.SimularPlanVenta(
             totalVenta: 10_000m,
             anticipo: 0m,
             cuotas: 6,
             gastosAdministrativos: 0m,
             fechaPrimeraCuota: "fecha-invalida",
-            tasaMensual: 5m,
-            metodoCalculo: MetodoCalculoCredito.Manual,
-            fuenteConfiguracion: FuenteConfiguracionCredito.Manual);
+            tasaMensual: null,
+            ventaId: venta.Id);
         var despues = DateTime.Today.AddMonths(1).Date;
 
         Assert.IsType<JsonResult>(result);
@@ -179,14 +192,20 @@ public class CreditoControllerSimularPlanVentaTests
     [InlineData(-1, 0, 5, "anticipo no puede ser negativo")]
     [InlineData(0, -1, 5, "gastos administrativos no pueden ser negativos")]
     [InlineData(0, 0, -1, "tasa mensual no puede ser negativa")]
-    public async Task SimularPlanVenta_RechazaValoresNegativos(decimal anticipo, decimal gastos, decimal tasa, string mensaje)
+    public async Task SimularPlanVenta_RechazaValoresNegativos(
+        decimal anticipo, decimal gastos, decimal tasaGlobalConfigurada, string mensaje)
     {
+        // ML6.1: tasaMensual del request ya no tiene autoridad, así que el caso "tasa negativa" se
+        // ejercita configurando una tasa única global negativa (dato mal cargado), el único camino
+        // legítimo que hoy puede producir un tasaVal < 0. ML8: ventaId da el contexto obligatorio
+        // (los casos anticipo/gastos negativos rechazan antes de resolverlo, así que no les afecta).
+        var venta = new VentaViewModel { Id = 77, ClienteId = 5, Total = 10_000m, Detalles = new List<VentaDetalleViewModel>() };
         var controller = new CreditoController(
             creditoService: null!,
             financialService: new RecordingFinancialCalculationService(),
-            configuracionPagoService: null!,
+            configuracionPagoService: new TasaCreditoPersonalConfigService(tasaGlobalConfigurada),
             configuracionMoraService: null!,
-            ventaService: null!,
+            ventaService: new StubVentaService(venta),
             logger: NullLogger<CreditoController>.Instance,
             creditoDisponibleService: null!,
             currentUser: null!,
@@ -200,9 +219,8 @@ public class CreditoControllerSimularPlanVentaTests
             cuotas: 6,
             gastosAdministrativos: gastos,
             fechaPrimeraCuota: "2026-07-15",
-            tasaMensual: tasa,
-            metodoCalculo: MetodoCalculoCredito.Manual,
-            fuenteConfiguracion: FuenteConfiguracionCredito.Manual);
+            tasaMensual: null,
+            ventaId: venta.Id);
 
         var badRequest = Assert.IsType<BadRequestObjectResult>(result);
         var error = badRequest.Value!.GetType().GetProperty("error")?.GetValue(badRequest.Value)?.ToString();
@@ -214,13 +232,15 @@ public class CreditoControllerSimularPlanVentaTests
     {
         // I6/ML4: sin FuenteConfiguracion + MetodoCalculo ambos Manual, una tasa mandada por el
         // navegador (ej. DevTools) ya no tiene prioridad — el servidor resuelve la global.
+        // ML8: ventaId da el contexto obligatorio.
         var financial = new RecordingFinancialCalculationService();
+        var venta = new VentaViewModel { Id = 77, ClienteId = 5, Total = 10_000m, Detalles = new List<VentaDetalleViewModel>() };
         var controller = new CreditoController(
             creditoService: null!,
             financialService: financial,
             configuracionPagoService: new TasaCreditoPersonalConfigService(9m),
             configuracionMoraService: null!,
-            ventaService: null!,
+            ventaService: new StubVentaService(venta),
             logger: NullLogger<CreditoController>.Instance,
             creditoDisponibleService: null!,
             currentUser: null!,
@@ -234,23 +254,27 @@ public class CreditoControllerSimularPlanVentaTests
             cuotas: 6,
             gastosAdministrativos: 0m,
             fechaPrimeraCuota: "2026-07-15",
-            tasaMensual: 3.5m);
+            tasaMensual: 3.5m,
+            ventaId: venta.Id);
 
         Assert.IsType<JsonResult>(result);
         Assert.Equal(9m, financial.ReceivedTasaMensual);
     }
 
     [Fact]
-    public async Task SimularPlanVenta_TasaManualConFuenteYMetodoManual_SeHonra()
+    public async Task SimularPlanVenta_TasaManualConFuenteYMetodoManual_YaNoSeHonra_UsaTasaGlobal()
     {
-        // Test obligatorio #9.
+        // ML6.1 cierra el "Test obligatorio #9" anterior: FuenteConfiguracion + MetodoCalculo
+        // ambos Manual ya NO conservan la tasa que mandó el operador (rama eliminada del service).
+        // ML8: ventaId da el contexto obligatorio.
         var financial = new RecordingFinancialCalculationService();
+        var venta = new VentaViewModel { Id = 77, ClienteId = 5, Total = 10_000m, Detalles = new List<VentaDetalleViewModel>() };
         var controller = new CreditoController(
             creditoService: null!,
             financialService: financial,
             configuracionPagoService: new TasaCreditoPersonalConfigService(9m),
             configuracionMoraService: null!,
-            ventaService: null!,
+            ventaService: new StubVentaService(venta),
             logger: NullLogger<CreditoController>.Instance,
             creditoDisponibleService: null!,
             currentUser: null!,
@@ -266,15 +290,53 @@ public class CreditoControllerSimularPlanVentaTests
             fechaPrimeraCuota: "2026-07-15",
             tasaMensual: 3.5m,
             metodoCalculo: MetodoCalculoCredito.Manual,
-            fuenteConfiguracion: FuenteConfiguracionCredito.Manual);
+            fuenteConfiguracion: FuenteConfiguracionCredito.Manual,
+            ventaId: venta.Id);
 
         Assert.IsType<JsonResult>(result);
-        Assert.Equal(3.5m, financial.ReceivedTasaMensual);
+        Assert.Equal(9m, financial.ReceivedTasaMensual);
+        Assert.NotEqual(3.5m, financial.ReceivedTasaMensual);
     }
 
     [Fact]
     public async Task SimularPlanVenta_SinTasaRequest_UsaTasaGlobal()
     {
+        var financial = new RecordingFinancialCalculationService();
+        // ML8: ventaId da el contexto obligatorio.
+        var venta = new VentaViewModel { Id = 77, ClienteId = 5, Total = 10_000m, Detalles = new List<VentaDetalleViewModel>() };
+        var controller = new CreditoController(
+            creditoService: null!,
+            financialService: financial,
+            configuracionPagoService: new TasaCreditoPersonalConfigService(8m),
+            configuracionMoraService: null!,
+            ventaService: new StubVentaService(venta),
+            logger: NullLogger<CreditoController>.Instance,
+            creditoDisponibleService: null!,
+            currentUser: null!,
+            viewBagBuilder: null!,
+            contratoVentaCreditoService: null!,
+            aptitudService: null);
+
+        var result = await controller.SimularPlanVenta(
+            totalVenta: 10_000m,
+            anticipo: 0m,
+            cuotas: 6,
+            gastosAdministrativos: 0m,
+            fechaPrimeraCuota: "2026-07-15",
+            tasaMensual: null,
+            ventaId: venta.Id);
+
+        Assert.IsType<JsonResult>(result);
+        Assert.Equal(8m, financial.ReceivedTasaMensual);
+    }
+
+    [Fact]
+    public async Task SimularPlanVenta_SinVentaId_RetornaBadRequestPorContextoInsuficiente()
+    {
+        // ML8 — Fase 1/2: sin ventaId (y esta acción no expone ProductoIds) no hay contexto contra
+        // el cual resolver un plan. Auditado: ningún caller productivo llega acá sin ventaId (toda
+        // navegación real de Configurar Venta lo incluye); el service ya no cae al escalar global
+        // legacy, devuelve "contexto insuficiente".
         var financial = new RecordingFinancialCalculationService();
         var controller = new CreditoController(
             creditoService: null!,
@@ -297,8 +359,10 @@ public class CreditoControllerSimularPlanVentaTests
             fechaPrimeraCuota: "2026-07-15",
             tasaMensual: null);
 
-        Assert.IsType<JsonResult>(result);
-        Assert.Equal(8m, financial.ReceivedTasaMensual);
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result);
+        var error = badRequest.Value!.GetType().GetProperty("error")?.GetValue(badRequest.Value)?.ToString();
+        Assert.Contains("contexto", error, StringComparison.OrdinalIgnoreCase);
+        Assert.Null(financial.ReceivedTasaMensual);
     }
 
     [Fact]
@@ -339,6 +403,52 @@ public class CreditoControllerSimularPlanVentaTests
         var value = json.Value!;
         Assert.Equal(20_000m, value.GetType().GetProperty("totalVenta")!.GetValue(value));
         Assert.Equal(6m, financial.ReceivedTasaMensual);
+    }
+
+    // ML6/ML6.1 — Fase 8/Fase 6, test obligatorio: con ventaId (el único contexto real de
+    // Configurar Venta) un payload manipulado con metodoCalculo=Manual&fuenteConfiguracion=Manual&
+    // tasaMensual=99 no puede pisar el porcentaje del plan, y el JSON debe reportar
+    // fuentePorcentaje="Plan" (nunca "Producto"/"Cliente"/"Manual"/"Global").
+    [Fact]
+    public async Task SimularPlanVenta_ConVentaIdYPayloadManipuladoMetodoFuenteTasa_LosIgnoraYUsaElPlan()
+    {
+        var financial = new RecordingFinancialCalculationService();
+        var venta = new VentaViewModel
+        {
+            Id = 77,
+            ClienteId = 5,
+            Total = 10_000m,
+            Detalles = new List<VentaDetalleViewModel>()
+        };
+        var controller = new CreditoController(
+            creditoService: null!,
+            financialService: financial,
+            configuracionPagoService: new TasaCreditoPersonalConfigService(6m),
+            configuracionMoraService: null!,
+            ventaService: new StubVentaService(venta),
+            logger: NullLogger<CreditoController>.Instance,
+            creditoDisponibleService: null!,
+            currentUser: null!,
+            viewBagBuilder: null!,
+            contratoVentaCreditoService: null!,
+            aptitudService: null);
+
+        var result = await controller.SimularPlanVenta(
+            totalVenta: 999_999m,
+            anticipo: 0m,
+            cuotas: 6,
+            gastosAdministrativos: 0m,
+            fechaPrimeraCuota: "2026-07-15",
+            tasaMensual: 99m,
+            ventaId: 77,
+            metodoCalculo: MetodoCalculoCredito.Manual,
+            fuenteConfiguracion: FuenteConfiguracionCredito.Manual);
+
+        var json = Assert.IsType<JsonResult>(result);
+        Assert.NotEqual(99m, financial.ReceivedTasaMensual);
+        Assert.Equal(6m, financial.ReceivedTasaMensual);
+        var fuente = json.Value!.GetType().GetProperty("fuentePorcentaje")!.GetValue(json.Value);
+        Assert.Equal("Plan", fuente);
     }
 
     private sealed class StubVentaService : IVentaService
@@ -489,17 +599,16 @@ public class CreditoControllerSimularPlanVentaTests
             IEnumerable<int> productoIds) => throw new NotImplementedException();
         public Task<List<MontoPorPuntajeCreditoViewModel>> GetMontosPorPuntajeAsync() => Task.FromResult(new List<MontoPorPuntajeCreditoViewModel>());
         public Task<(bool Ok, List<string> Errores)> GuardarMontosPorPuntajeAsync(List<MontoPorPuntajeCreditoViewModel> items, string usuario) => Task.FromResult((true, new List<string>()));
-        // ML4: planes globales 1..24 (tasa null = heredar la unica) por defecto, para que la
-        // resolucion de planes de un test con VentaId no se rechace por "sin planes activos"
-        // cuando lo que el test ejercita es otra cosa (autoridad del monto, por ejemplo).
-        public Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalAsync() => Task.FromResult(PlanesGlobalesPorDefecto);
-        public Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalActivasAsync() => Task.FromResult(PlanesGlobalesPorDefecto);
-        public async Task<PlanesCreditoPersonalResultado> ResolverPlanesCreditoPersonalAsync(IEnumerable<int> productoIds) => PlanesCreditoPersonalStub.DesdeGlobales(await GetCuotasCreditoPersonalActivasAsync());
-
-        private static readonly List<CuotaCreditoPersonalViewModel> PlanesGlobalesPorDefecto =
-            Enumerable.Range(1, 24)
-                .Select(n => new CuotaCreditoPersonalViewModel { CantidadCuotas = n, TasaMensual = null, Activo = true })
-                .ToList();
+        // ML8: este doble ejercita la resolución vía escalar único global (sin tabla de planes por
+        // cantidad) — igual que ConfiguracionPagoService cuando no hay ninguna cuota global
+        // configurada. Antes emulaba una tabla de planes 1..24 con TasaMensual = _tasa ?? 0m, pero
+        // eso no distinguía "tasa no configurada" (_tasa null) de "tasa 0%" (ambos daban 0m en el
+        // plan). Los tests que sí prueban la tabla de planes por cantidad tienen su propio
+        // PlanesCreditoPersonalResultado explícito vía StubVentaService + VentaConfiguracionPagoService.
+        public Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalAsync() => Task.FromResult(new List<CuotaCreditoPersonalViewModel>());
+        public Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalActivasAsync() => Task.FromResult(new List<CuotaCreditoPersonalViewModel>());
+        public Task<PlanesCreditoPersonalResultado> ResolverPlanesCreditoPersonalAsync(IEnumerable<int> productoIds) =>
+            Task.FromResult(PlanesCreditoPersonalResultado.SinTablaDePlanes());
         public Task<(bool Ok, List<string> Errores)> GuardarCuotasCreditoPersonalAsync(List<CuotaCreditoPersonalViewModel> items, string usuario) => Task.FromResult((true, new List<string>()));
     }
 }

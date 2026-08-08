@@ -19,7 +19,9 @@ public sealed class CreditoSimulacionVentaServiceTests
         var service = CrearService(financial);
         var antes = DateTime.Today.AddMonths(1).Date;
 
-        var result = await service.SimularAsync(Request(fechaPrimeraCuota: "fecha-invalida"));
+        // ML8: sin ventaId, se necesita contexto de productos (ProductoIds) para que el service no
+        // devuelva "contexto insuficiente" antes de llegar al fallback de fecha que este test prueba.
+        var result = await service.SimularAsync(Request(fechaPrimeraCuota: "fecha-invalida", productoIds: new[] { 7 }));
         var despues = DateTime.Today.AddMonths(1).Date;
 
         Assert.True(result.EsValido);
@@ -31,14 +33,24 @@ public sealed class CreditoSimulacionVentaServiceTests
     [InlineData(-1, 0, 5, "anticipo no puede ser negativo")]
     [InlineData(0, -1, 5, "gastos administrativos no pueden ser negativos")]
     [InlineData(0, 0, -1, "tasa mensual no puede ser negativa")]
-    public async Task Simular_RechazaValoresNegativos(decimal anticipo, decimal gastos, decimal tasa, string mensaje)
+    public async Task Simular_RechazaValoresNegativos(
+        decimal anticipo, decimal gastos, decimal tasaGlobalConfigurada, string mensaje)
     {
-        var service = CrearService(new RecordingFinancialCalculationService());
+        // ML6.1: request.TasaMensual ya no tiene autoridad (se eliminó la rama Manual), así que el
+        // caso "tasa negativa" ya no puede inyectarse vía el request: se configura una tasa única
+        // global negativa (dato mal cargado en Administración) para ejercitar el mismo guard
+        // (tasaVal < 0) por el único camino legítimo que puede producirlo hoy.
+        // ML8: se agrega ProductoIds — los dos primeros casos (anticipo/gastos negativos) rechazan
+        // antes de resolver contexto, así que no les afecta; el tercero (tasa negativa) sí necesita
+        // contexto para no rechazar antes por "contexto insuficiente".
+        var service = CrearService(
+            new RecordingFinancialCalculationService(),
+            new TasaCreditoPersonalConfigService(tasaGlobalConfigurada));
 
         var result = await service.SimularAsync(Request(
             anticipo: anticipo,
             gastosAdministrativos: gastos,
-            tasaMensual: tasa));
+            productoIds: new[] { 7 }));
 
         Assert.False(result.EsValido);
         Assert.Contains(mensaje, result.Error!.error, StringComparison.OrdinalIgnoreCase);
@@ -55,29 +67,33 @@ public sealed class CreditoSimulacionVentaServiceTests
         var result = await service.SimularAsync(Request(
             tasaMensual: 3.5m,
             metodoCalculo: null,
-            fuenteConfiguracion: null));
+            fuenteConfiguracion: null,
+            productoIds: new[] { 7 }));
 
         Assert.True(result.EsValido);
         Assert.Equal(9m, financial.ReceivedTasaMensual);
-        Assert.Equal("Global", result.Plan!.fuentePorcentaje);
+        Assert.Equal("Plan", result.Plan!.fuentePorcentaje);
     }
 
     [Fact]
-    public async Task Simular_TasaManualConFuenteYMetodoManual_SeHonra()
+    public async Task Simular_TasaManualConFuenteYMetodoManual_YaNoSeHonra_UsaTasaGlobalYFuentePlan()
     {
-        // Test obligatorio #9: la fuente manual válida (FuenteConfiguracion + MetodoCalculo ambos
-        // Manual) conserva el porcentaje que mandó el operador, incluso con tasa global configurada.
+        // ML6.1 cierra el "Test obligatorio #9" anterior: FuenteConfiguracion + MetodoCalculo
+        // ambos Manual ya NO conservan el porcentaje que mandó el operador (esa rama se eliminó
+        // del service — contrato previo a ML6.1, inalcanzable desde la UI real de Configurar Venta
+        // desde ML6). El servidor ignora tasaMensual igual que con cualquier otra combinación.
         var financial = new RecordingFinancialCalculationService();
         var service = CrearService(financial, new TasaCreditoPersonalConfigService(9m));
 
         var result = await service.SimularAsync(Request(
             tasaMensual: 3.5m,
             metodoCalculo: MetodoCalculoCredito.Manual,
-            fuenteConfiguracion: FuenteConfiguracionCredito.Manual));
+            fuenteConfiguracion: FuenteConfiguracionCredito.Manual,
+            productoIds: new[] { 7 }));
 
         Assert.True(result.EsValido);
-        Assert.Equal(3.5m, financial.ReceivedTasaMensual);
-        Assert.Equal("Manual", result.Plan!.fuentePorcentaje);
+        Assert.Equal(9m, financial.ReceivedTasaMensual);
+        Assert.Equal("Plan", result.Plan!.fuentePorcentaje);
     }
 
     [Fact]
@@ -86,7 +102,7 @@ public sealed class CreditoSimulacionVentaServiceTests
         var financial = new RecordingFinancialCalculationService();
         var service = CrearService(financial, new TasaCreditoPersonalConfigService(8m));
 
-        var result = await service.SimularAsync(Request(tasaMensual: null));
+        var result = await service.SimularAsync(Request(tasaMensual: null, productoIds: new[] { 7 }));
 
         Assert.True(result.EsValido);
         Assert.Equal(8m, financial.ReceivedTasaMensual);
@@ -99,7 +115,7 @@ public sealed class CreditoSimulacionVentaServiceTests
             new RecordingFinancialCalculationService(),
             new TasaCreditoPersonalConfigService(null));
 
-        var result = await service.SimularAsync(Request(tasaMensual: null));
+        var result = await service.SimularAsync(Request(tasaMensual: null, productoIds: new[] { 7 }));
 
         Assert.False(result.EsValido);
         Assert.Contains("tasa de inter", result.Error!.error, StringComparison.OrdinalIgnoreCase);
@@ -109,7 +125,11 @@ public sealed class CreditoSimulacionVentaServiceTests
     [Fact]
     public async Task Simular_DevuelveCalculoFinancieroEsperado()
     {
-        var service = CrearService(new RecordingFinancialCalculationService());
+        // ML6.1: tasaMensual del request ya no tiene autoridad; el 4.25% determinístico se fija
+        // vía la tasa única global configurada (ML8: ahora vía ProductoIds + tabla de planes
+        // legado/sin-tabla, la misma resolución que antes usaba el fallback sin contexto).
+        var service = CrearService(
+            new RecordingFinancialCalculationService(), new TasaCreditoPersonalConfigService(4.25m));
 
         var result = await service.SimularAsync(Request(
             totalVenta: 10_000m,
@@ -117,7 +137,7 @@ public sealed class CreditoSimulacionVentaServiceTests
             cuotas: 6,
             gastosAdministrativos: 250m,
             fechaPrimeraCuota: "2026-07-15",
-            tasaMensual: 4.25m));
+            productoIds: new[] { 7 }));
 
         Assert.True(result.EsValido);
         Assert.NotNull(result.Plan);
@@ -140,7 +160,9 @@ public sealed class CreditoSimulacionVentaServiceTests
         });
         var service = CrearService(financial, aptitudService: aptitud);
 
-        var result = await service.SimularAsync(Request());
+        // ML8: sin ventaId, se necesita ProductoIds como contexto para no rechazar por "contexto
+        // insuficiente" antes de llegar al cálculo del semáforo que este test prueba.
+        var result = await service.SimularAsync(Request(productoIds: new[] { 7 }));
 
         Assert.True(result.EsValido);
         Assert.Equal(0.12m, financial.ReceivedVerdeMax);
@@ -186,7 +208,7 @@ public sealed class CreditoSimulacionVentaServiceTests
         Assert.Equal(12_345m, result.Plan!.totalVenta);
         Assert.Equal(12_000m, result.Plan.montoFinanciado);
         Assert.Equal(5m, financial.ReceivedTasaMensual);
-        Assert.Equal("Global", result.Plan.fuentePorcentaje);
+        Assert.Equal("Plan", result.Plan.fuentePorcentaje);
     }
 
     [Fact]
@@ -240,20 +262,19 @@ public sealed class CreditoSimulacionVentaServiceTests
 
         Assert.True(result.EsValido);
         Assert.Equal(15m, financial.ReceivedTasaMensual);
-        Assert.Equal("Producto", result.Plan!.fuentePorcentaje);
+        Assert.Equal("Plan", result.Plan!.fuentePorcentaje);
     }
 
-    // ── ML10: clasificación explícita de fuentePorcentaje contra los Origen reales que emite
+    // ── ML10/ML6.1: clasificación explícita de fuentePorcentaje contra los Origen reales que emite
     // ConfiguracionPagoService.ResolverPlanesCreditoPersonalAsync en producción (Global/Producto/
-    // Mixto — SinTablaDePlanes es legado de dobles de test, el resolutor real no lo emite). Los
-    // tests preexistentes de "Global" de este archivo usan el doble PlanesCreditoPersonalResultado
-    // .SinTablaDePlanes(), que NO es lo que la implementación real devuelve cuando ningún producto
-    // tiene plan propio (ella emite Origen.Global): por eso no detectaban que, con contexto real de
-    // producto (hayContextoDeProductos=true), CreditoSimulacionVentaService etiquetaba "Producto"
-    // incluso cuando ningún producto de la venta tenía configuración propia. ──────────────────────
+    // Mixto — SinTablaDePlanes es legado de dobles de test, el resolutor real no lo emite). Estos
+    // tests fijan que, sin importar el Origen (disponibilidad de cantidades: quién aportó el plan),
+    // el % siempre lo resuelve el mismo camino (ResolverTasaDelPlanOTasaGlobalAsync contra el plan
+    // de cuotas) y fuentePorcentaje siempre es "Plan" — ML6.1 cerró el bug donde Origen.Producto se
+    // reportaba como si el producto aportara el % (nunca lo hizo: ML2.1 ya lo sacaba del plan). ──
 
     [Fact]
-    public async Task Simular_ConVentaId_PlanPropioDelProducto_FuenteEsProducto()
+    public async Task Simular_ConVentaId_PlanPropioDelProducto_FuenteEsPlan()
     {
         var venta = new VentaViewModel
         {
@@ -274,16 +295,17 @@ public sealed class CreditoSimulacionVentaServiceTests
 
         Assert.True(result.EsValido);
         Assert.Equal(15m, financial.ReceivedTasaMensual);
-        Assert.Equal("Producto", result.Plan!.fuentePorcentaje);
+        Assert.Equal("Plan", result.Plan!.fuentePorcentaje);
     }
 
     [Fact]
-    public async Task Simular_ConVentaId_PlanGlobalPorCantidadSinPlanPropio_FuenteEsGlobalNoProducto()
+    public async Task Simular_ConVentaId_PlanGlobalPorCantidadSinPlanPropio_UsaTasaPorCuotasDelPlanNoElEscalarGlobal()
     {
         // Escenario obligatorio: producto sin configuración propia, plan global con tasa distinta
         // por cantidad de cuotas. ResolverPlanesCreditoPersonalAsync real (ConfiguracionPagoService,
-        // porProducto.Count == 0) devuelve Origen.Global, NUNCA SinTablaDePlanes. La fuente debe
-        // quedar "Global", no "Producto".
+        // porProducto.Count == 0) devuelve Origen.Global, NUNCA SinTablaDePlanes. fuentePorcentaje
+        // es "Plan" en ambos casos (ML6.1); lo que este test protege es que la tasa efectiva salga
+        // de BuscarPlan(cuotas) — el plan por cantidad — y no del escalar plano TasaGlobal.
         var venta = new VentaViewModel
         {
             Id = 55,
@@ -310,15 +332,15 @@ public sealed class CreditoSimulacionVentaServiceTests
 
         Assert.True(result.EsValido);
         Assert.Equal(8m, financial.ReceivedTasaMensual);
-        Assert.Equal("Global", result.Plan!.fuentePorcentaje);
+        Assert.Equal("Plan", result.Plan!.fuentePorcentaje);
     }
 
     [Fact]
-    public async Task Simular_ConVentaId_OrigenMixto_ProductoContribuyeTasa_FuenteEsProducto()
+    public async Task Simular_ConVentaId_OrigenMixto_ProductoContribuyeTasa_FuenteEsPlan()
     {
         // Venta con más de un producto: uno tiene plan propio para esta cantidad, otro hereda la
-        // global (Origen.Mixto). Si el plan efectivo para la cantidad pedida fue aportado por un
-        // producto (ProductosConPlanPropio no vacío), la fuente sigue siendo "Producto".
+        // global (Origen.Mixto). Sin importar quién aportó el plan efectivo para la cantidad
+        // pedida (ProductosConPlanPropio no vacío o vacío), fuentePorcentaje sigue siendo "Plan".
         var venta = new VentaViewModel
         {
             Id = 55,
@@ -342,14 +364,70 @@ public sealed class CreditoSimulacionVentaServiceTests
 
         Assert.True(result.EsValido);
         Assert.Equal(15m, financial.ReceivedTasaMensual);
-        Assert.Equal("Producto", result.Plan!.fuentePorcentaje);
+        Assert.Equal("Plan", result.Plan!.fuentePorcentaje);
     }
 
     [Fact]
-    public async Task Simular_ConVentaId_ConfiguracionPersonalizadaDelCliente_FuenteEsCliente()
+    public async Task Simular_ConVentaId_PlanConCeroPorciento_FuenteEsPlanSinFallback()
     {
-        // Configuración propia del cliente pisa el plan del producto (Origen.Producto igual que en
-        // el primer caso) apenas se pide explícitamente por cliente.
+        // ML6.1 — Tests obligatorios: 0% es un recargo válido del plan, nunca reinterpretado como
+        // "sin porcentaje configurado" ni como motivo para inventar otra fuente.
+        var venta = new VentaViewModel
+        {
+            Id = 55,
+            ClienteId = 20,
+            Total = 10_000m,
+            Detalles = new List<VentaDetalleViewModel> { new() { ProductoId = 7, ProductoNombre = "Notebook" } }
+        };
+        var planes = PlanesCreditoPersonalResultado.Resuelto(
+            new[] { new PlanCuotaCreditoPersonal(6, 0m, new[] { 7 }, false) },
+            OrigenPlanesCredito.Producto);
+        var configService = new VentaConfiguracionPagoService { TasaGlobal = 5m, Planes = planes };
+        var financial = new RecordingFinancialCalculationService();
+        var service = CrearService(financial, configService, ventaService: new StubVentaService(venta));
+
+        var result = await service.SimularAsync(Request(
+            ventaId: 55, cuotas: 6, metodoCalculo: null, fuenteConfiguracion: null));
+
+        Assert.True(result.EsValido);
+        Assert.Equal(0m, financial.ReceivedTasaMensual);
+        Assert.Equal("Plan", result.Plan!.fuentePorcentaje);
+    }
+
+    [Fact]
+    public async Task Simular_ConVentaId_PlanSinPorcentajeExplicito_RechazaSinInventarFuente()
+    {
+        // ML6.1 — Tests obligatorios: plan inexistente/sin porcentaje configurado es inválido; el
+        // servicio no debe caer a Global/Producto/Manual como fuente de rescate (ML2.1: TasaMensual
+        // null en el plan = configuración inválida, nunca "heredar" de otra fuente).
+        var venta = new VentaViewModel
+        {
+            Id = 55,
+            ClienteId = 20,
+            Total = 10_000m,
+            Detalles = new List<VentaDetalleViewModel> { new() { ProductoId = 7, ProductoNombre = "Notebook" } }
+        };
+        var planes = PlanesCreditoPersonalResultado.Resuelto(
+            new[] { new PlanCuotaCreditoPersonal(6, null, new[] { 7 }, false) },
+            OrigenPlanesCredito.Producto);
+        var configService = new VentaConfiguracionPagoService { TasaGlobal = 5m, Planes = planes };
+        var service = CrearService(new RecordingFinancialCalculationService(), configService, ventaService: new StubVentaService(venta));
+
+        var result = await service.SimularAsync(Request(
+            ventaId: 55, cuotas: 6, metodoCalculo: null, fuenteConfiguracion: null));
+
+        Assert.False(result.EsValido);
+        Assert.Null(result.Plan);
+        Assert.Contains("porcentaje financiero", result.Error!.error, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // ML2.1 — corrige la expectativa pre-ML2.1 de este test (asumía que la configuración propia
+    // del cliente pisaba el plan del producto). Bajo el contrato congelado (Fase 3) el cliente ya
+    // no es autoridad del porcentaje ni siquiera pidiéndolo explícitamente por cliente: el plan
+    // resuelto (15 %) sigue ganando sobre parametros.TasaMensual (12 %, dato legado del cliente).
+    [Fact]
+    public async Task Simular_ConVentaId_FuenteCliente_NoPisaElPlanDelProducto()
+    {
         var venta = new VentaViewModel
         {
             Id = 55,
@@ -364,7 +442,7 @@ public sealed class CreditoSimulacionVentaServiceTests
         {
             TasaGlobal = 5m,
             Planes = planes,
-            Parametros = new ParametrosCreditoCliente { TasaMensual = 12m }
+            Parametros = new ParametrosCreditoCliente { TasaMensual = 12m } // ML2.1: legado, sin efecto
         };
         var financial = new RecordingFinancialCalculationService();
         var service = CrearService(financial, configService, ventaService: new StubVentaService(venta));
@@ -374,16 +452,16 @@ public sealed class CreditoSimulacionVentaServiceTests
             fuenteConfiguracion: FuenteConfiguracionCredito.PorCliente));
 
         Assert.True(result.EsValido);
-        Assert.Equal(12m, financial.ReceivedTasaMensual);
-        Assert.Equal("Cliente", result.Plan!.fuentePorcentaje);
+        Assert.Equal(15m, financial.ReceivedTasaMensual);
+        Assert.Equal("Plan", result.Plan!.fuentePorcentaje);
     }
 
     [Fact]
-    public async Task Simular_ConVentaId_ModoManualAutorizado_FuenteEsManual()
+    public async Task Simular_ConVentaId_ManualManipulado_YaNoSeHonra_UsaElPlanDelProducto()
     {
-        // Manual con venta real de por medio (no solo el escenario sin venta ya cubierto arriba):
-        // FuenteConfiguracion + MetodoCalculo ambos Manual conservan la tasa que mandó el operador
-        // incluso con un plan de producto disponible para esa cantidad.
+        // ML6.1 — Fase 6 (request manipulado): FuenteConfiguracion + MetodoCalculo ambos Manual +
+        // tasaMensual manipulada ya NO conservan la tasa que mandó el operador (ML6.1 eliminó esa
+        // rama), ni siquiera con venta real y plan de producto disponible para la cantidad pedida.
         var venta = new VentaViewModel
         {
             Id = 55,
@@ -403,8 +481,9 @@ public sealed class CreditoSimulacionVentaServiceTests
             metodoCalculo: MetodoCalculoCredito.Manual, fuenteConfiguracion: FuenteConfiguracionCredito.Manual));
 
         Assert.True(result.EsValido);
-        Assert.Equal(3.5m, financial.ReceivedTasaMensual);
-        Assert.Equal("Manual", result.Plan!.fuentePorcentaje);
+        Assert.Equal(15m, financial.ReceivedTasaMensual);
+        Assert.NotEqual(3.5m, financial.ReceivedTasaMensual);
+        Assert.Equal("Plan", result.Plan!.fuentePorcentaje);
     }
 
     [Fact]
@@ -505,10 +584,14 @@ public sealed class CreditoSimulacionVentaServiceTests
         // Test obligatorio #5/#6: el vector expuesto es exactamente el que produce
         // FinancialCalculationService.SimularPlanCredito (el mismo que persiste ML3), no un
         // recálculo propio. Se usa el servicio real (sin dobles) para esta comparación.
+        // ML6.1: tasaMensual del request ya no tiene autoridad; el 10% determinístico se fija vía
+        // la tasa única global configurada. ML8: ProductoIds da el contexto que antes daba el
+        // fallback sin venta ni productos (retirado — ver CreditoSimulacionVentaService.SimularAsync).
         var real = new FinancialCalculationService();
-        var service = new CreditoSimulacionVentaService(real, configuracionPagoService: null);
+        var service = new CreditoSimulacionVentaService(real, new TasaCreditoPersonalConfigService(10m));
 
-        var result = await service.SimularAsync(Request(totalVenta: 100_000m, anticipo: 0m, cuotas: 12, tasaMensual: 10m));
+        var result = await service.SimularAsync(Request(
+            totalVenta: 100_000m, anticipo: 0m, cuotas: 12, productoIds: new[] { 7 }));
 
         Assert.True(result.EsValido);
         Assert.Equal(12, result.Plan!.cuotas.Count);
@@ -563,17 +646,21 @@ public sealed class CreditoSimulacionVentaServiceTests
 
         Assert.True(result.EsValido);
         Assert.Equal(15m, financial.ReceivedTasaMensual);
-        Assert.Equal("Producto", result.Plan!.fuentePorcentaje);
+        Assert.Equal("Plan", result.Plan!.fuentePorcentaje);
     }
 
+    // ML2.1 — corrige la expectativa pre-ML2.1 de este test (asumía que el cliente era autoridad
+    // del porcentaje). Sin tabla de planes en absoluto (SinTablaDePlanes) rige la tasa única
+    // global (5 %), nunca parametros.TasaMensual (12 %, dato legado del cliente) — misma regla
+    // que CreditoConfiguracionVentaService.ResolverAsync.
     [Fact]
-    public async Task Simular_SinVentaConProductoIds_UsaTasaCliente_CuandoFuenteConfiguracionPorCliente()
+    public async Task Simular_SinVentaConProductoIds_FuenteCliente_SinTablaDePlanes_UsaTasaGlobal()
     {
         var configService = new VentaConfiguracionPagoService
         {
             TasaGlobal = 5m,
             Planes = PlanesCreditoPersonalResultado.SinTablaDePlanes(),
-            Parametros = new ParametrosCreditoCliente { TasaMensual = 12m }
+            Parametros = new ParametrosCreditoCliente { TasaMensual = 12m } // ML2.1: legado, sin efecto
         };
         var financial = new RecordingFinancialCalculationService();
         var service = CrearService(financial, configService);
@@ -584,8 +671,8 @@ public sealed class CreditoSimulacionVentaServiceTests
             fuenteConfiguracion: FuenteConfiguracionCredito.PorCliente));
 
         Assert.True(result.EsValido);
-        Assert.Equal(12m, financial.ReceivedTasaMensual);
-        Assert.Equal("Cliente", result.Plan!.fuentePorcentaje);
+        Assert.Equal(5m, financial.ReceivedTasaMensual);
+        Assert.Equal("Plan", result.Plan!.fuentePorcentaje);
     }
 
     [Fact]
@@ -623,18 +710,24 @@ public sealed class CreditoSimulacionVentaServiceTests
     }
 
     [Fact]
-    public async Task Simular_SinVentaSinProductoIds_MantieneFallbackGlobalLegacy()
+    public async Task Simular_SinVentaSinProductoIds_RetornaInvalidoPorContextoInsuficiente()
     {
-        // Compatibilidad con el único caller legítimo previo a ML8 (p. ej. /Credito/Simular):
-        // sin VentaId y sin ProductoIds, sigue resolviendo la tasa única global tal cual antes.
+        // ML8 — Fase 1: auditado, el fallback legacy sin contexto (VentaId ni ProductoIds) no tiene
+        // ningún caller productivo hoy: GET /Credito/Simular, el único caller histórico, fue
+        // retirado antes de ML8 y ya no llama a este service (solo redirige a Index);
+        // CreditoController.SimularPlanVenta siempre recibe ventaId desde toda navegación real; y
+        // CotizacionPagoCalculator siempre pasa ProductoIds. Sin caller productivo, este service ya
+        // no resuelve el escalar global legacy (ConfiguracionPago.TasaInteresMensualCreditoPersonal)
+        // como si fuera el porcentaje vigente: devuelve inválido por contexto insuficiente.
         var financial = new RecordingFinancialCalculationService();
         var service = CrearService(financial, new TasaCreditoPersonalConfigService(8m));
 
         var result = await service.SimularAsync(Request(tasaMensual: null, metodoCalculo: null, fuenteConfiguracion: null));
 
-        Assert.True(result.EsValido);
-        Assert.Equal(8m, financial.ReceivedTasaMensual);
-        Assert.Equal("Global", result.Plan!.fuentePorcentaje);
+        Assert.False(result.EsValido);
+        Assert.Null(result.Plan);
+        Assert.Null(financial.ReceivedTasaMensual);
+        Assert.Contains("contexto", result.Error!.error, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -686,28 +779,34 @@ public sealed class CreditoSimulacionVentaServiceTests
         }
     }
 
+    // ML6.1: sin la rama Manual, la mayoría de los tests que no ejercitan la resolución del %
+    // en sí necesitan igual un IConfiguracionPagoService funcional (aunque sea el fallback "sin
+    // contexto de productos") para no romper por TasaGlobalNoConfigurada. Default 5% cuando el
+    // caller no wirea uno explícito — los tests que sí prueban la resolución del % siguen pasando
+    // su propio doble.
     private static CreditoSimulacionVentaService CrearService(
         RecordingFinancialCalculationService financial,
         IConfiguracionPagoService? configuracionPagoService = null,
         IClienteAptitudService? aptitudService = null,
         IVentaService? ventaService = null,
         ICreditoRangoProductoService? creditoRangoProductoService = null) =>
-        new(financial, configuracionPagoService, aptitudService, ventaService, creditoRangoProductoService);
+        new(financial, configuracionPagoService ?? new TasaCreditoPersonalConfigService(5m),
+            aptitudService, ventaService, creditoRangoProductoService);
 
-    // Default Manual/Manual: la mayoría de estos tests preexistentes usan tasaMensual para fijar
-    // un valor determinístico sin necesitar wirear IConfiguracionPagoService, no para probar la
-    // autoridad del porcentaje en sí (eso lo cubren los tests de "TasaRequestSinFuenteManualValida"
-    // y "TasaManualConFuenteYMetodoManual" de forma explícita, pisando estos defaults).
+    // ML6.1: sin default Manual/Manual — el service eliminó esa rama (contrato congelado: el plan
+    // de cuotas es la única fuente del %, request.TasaMensual/MetodoCalculo/FuenteConfiguracion
+    // nunca la pisan). tasaMensual/metodoCalculo/fuenteConfiguracion quedan en null por default: el
+    // % lo determina siempre CrearService (vía IConfiguracionPagoService), nunca el request.
     private static CreditoSimulacionVentaRequest Request(
         decimal totalVenta = 10_000m,
         decimal? anticipo = 0m,
         int cuotas = 6,
         decimal? gastosAdministrativos = 0m,
         string? fechaPrimeraCuota = "2026-07-15",
-        decimal? tasaMensual = 5m,
+        decimal? tasaMensual = null,
         int? ventaId = null,
-        MetodoCalculoCredito? metodoCalculo = MetodoCalculoCredito.Manual,
-        FuenteConfiguracionCredito? fuenteConfiguracion = FuenteConfiguracionCredito.Manual,
+        MetodoCalculoCredito? metodoCalculo = null,
+        FuenteConfiguracionCredito? fuenteConfiguracion = null,
         IEnumerable<int>? productoIds = null,
         int? clienteId = null) =>
         new()
@@ -838,7 +937,12 @@ public sealed class CreditoSimulacionVentaServiceTests
         public Task<(bool Ok, List<string> Errores)> GuardarMontosPorPuntajeAsync(List<MontoPorPuntajeCreditoViewModel> items, string usuario) => Task.FromResult((true, new List<string>()));
         public Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalAsync() => Task.FromResult(new List<CuotaCreditoPersonalViewModel>());
         public Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalActivasAsync() => Task.FromResult(new List<CuotaCreditoPersonalViewModel>());
-        public async Task<PlanesCreditoPersonalResultado> ResolverPlanesCreditoPersonalAsync(IEnumerable<int> productoIds) => PlanesCreditoPersonalStub.DesdeGlobales(await GetCuotasCreditoPersonalActivasAsync());
+        // ML8: este doble solo ejercita la resolución vía escalar único global (tasa única, sin
+        // tabla de planes por cantidad) — igual que ConfiguracionPagoService cuando no hay ninguna
+        // cuota global configurada. Los tests que sí prueban la tabla de planes por cantidad usan
+        // VentaConfiguracionPagoService con un PlanesCreditoPersonalResultado explícito.
+        public Task<PlanesCreditoPersonalResultado> ResolverPlanesCreditoPersonalAsync(IEnumerable<int> productoIds) =>
+            Task.FromResult(PlanesCreditoPersonalResultado.SinTablaDePlanes());
         public Task<(bool Ok, List<string> Errores)> GuardarCuotasCreditoPersonalAsync(List<CuotaCreditoPersonalViewModel> items, string usuario) => Task.FromResult((true, new List<string>()));
     }
 

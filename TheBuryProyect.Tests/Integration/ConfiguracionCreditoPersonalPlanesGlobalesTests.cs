@@ -208,8 +208,15 @@ public class ConfiguracionCreditoPersonalPlanesGlobalesTests : IDisposable
         Assert.Equal(0m, planes.BuscarPlan(6)!.TasaMensual);
     }
 
+    // =====================================================================
+    // ML2.1 — contrato congelado (cerrado): el porcentaje del plan es la ÚNICA autoridad. Un
+    // plan activo sin porcentaje explícito es una configuración inválida (null) y NUNCA hereda
+    // la tasa única global — reemplaza al contrato legacy "PlanConTasaNull_HeredaLaTasaGlobal",
+    // que validaba exactamente lo contrario. No pueden coexistir ambos contratos como válidos.
+    // =====================================================================
+
     [Fact]
-    public async Task PlanConTasaNull_HeredaLaTasaGlobal()
+    public async Task PlanConTasaNull_EsConfiguracionInvalida_NoDebeHeredarLaTasaGlobal()
     {
         await SeedConfigGlobalPago(); // tasa única global 10 %
         await SeedGlobal((6, null));
@@ -217,18 +224,19 @@ public class ConfiguracionCreditoPersonalPlanesGlobalesTests : IDisposable
 
         var planes = await Resolver(producto);
 
-        Assert.Equal(TasaGlobalUnica, planes.BuscarPlan(6)!.TasaMensual);
+        // Contrato congelado: un plan activo sin porcentaje propio no es "10 %" (el de la
+        // global) — no tiene autoridad para resolver nada; es null (configuración inválida).
+        Assert.Null(planes.BuscarPlan(6)!.TasaMensual);
     }
 
-    // =====================================================================
-    // Micro-lote 5: distinción explícita entre recargo único global en 0 %, plan de cuota
-    // en 0 % explícito y cantidad de cuotas inexistente. Ninguno de los tres debe
-    // confundirse entre sí (I8: 0 % ya no se interpreta como "no configurado").
-    // =====================================================================
-
     [Fact]
-    public async Task TasaUnicaGlobalCero_SeHeredaComoCeroNoComoNoConfigurada()
+    public async Task TasaUnicaGlobalCero_PlanExplicitoEnCeroSigueDistinguibleDeNoConfigurado()
     {
+        // Reformulado (ML1): la versión anterior de este test sembraba el plan con TasaMensual
+        // null y afirmaba que heredar el 0 % único global era el comportamiento correcto — eso es
+        // exactamente el contrato de herencia que ML1 da de baja. Se conserva la invariante I8 que
+        // sí sigue vigente (0 % explícito ≠ no configurado), pero ahora con el plan declarando su
+        // propio 0 %, sin pasar por la global.
         var config = new ConfiguracionPago
         {
             TipoPago = TipoPago.CreditoPersonal,
@@ -239,7 +247,7 @@ public class ConfiguracionCreditoPersonalPlanesGlobalesTests : IDisposable
         _context.ConfiguracionesPago.Add(config);
         await _context.SaveChangesAsync();
 
-        await SeedGlobal((5, null)); // hereda la única global
+        await SeedGlobal((5, 0m)); // 0 % PROPIO del plan, no null: no depende de la herencia
         var producto = await SeedProducto("ML5-A");
 
         var planes = await Resolver(producto);
@@ -266,19 +274,49 @@ public class ConfiguracionCreditoPersonalPlanesGlobalesTests : IDisposable
         Assert.DoesNotContain(9, Cantidades(planes));
     }
 
+    // ML2.1 — corrige la expectativa pre-ML2.1 de este test (asumía que la tasa propia del
+    // producto, 12 % legacy, era la autoridad cuando no hay plan global para esa cantidad). Bajo
+    // el contrato congelado (Fase 2) el plan GLOBAL de cuotas es la única autoridad del
+    // porcentaje: sin un plan global para 6 cuotas no hay porcentaje válido, ni siquiera cuando
+    // el producto declara uno propio. Tampoco es el wrapper legacy (10 % único global): ese dejó
+    // de ser fallback del porcentaje.
     [Fact]
-    public async Task WrapperLegacyObtenerTasa_CoincideConElRecargoQueHeredaElPlan()
+    public async Task SinPlanGlobalParaLaCantidad_ProductoConTasaLegacyNoEsAutoridad_EsInvalido()
     {
-        // El "wrapper legacy" (ObtenerTasaInteresMensualCreditoPersonalAsync) y la resolución
-        // de planes por cantidad de cuotas deben devolver siempre el mismo recargo canónico.
-        await SeedConfigGlobalPago();
-        await SeedGlobal((6, null));
-        var producto = await SeedProducto("ML5-C");
+        await SeedConfigGlobalPago(); // wrapper legacy = 10 % único global, no se usa
+        var producto = await SeedProducto("ML5-C", (6, 12m)); // tasa legacy propia del producto
 
         var tasaDirecta = await _configuracionPagoService.ObtenerTasaInteresMensualCreditoPersonalAsync();
         var planes = await Resolver(producto);
 
-        Assert.Equal(tasaDirecta, planes.BuscarPlan(6)!.TasaMensual);
+        Assert.NotEqual(tasaDirecta, planes.BuscarPlan(6)!.TasaMensual);
+        Assert.NotEqual(12m, planes.BuscarPlan(6)!.TasaMensual);
+        Assert.Null(planes.BuscarPlan(6)!.TasaMensual);
+    }
+
+    // =====================================================================
+    // ML2.1 — T4 (cerrado): Producto no es autoridad del porcentaje. El plan (identificado por
+    // su cantidad de cuotas) tiene un único porcentaje canónico; que un producto declare una tasa
+    // "legacy" propia y distinta para la misma cantidad de cuotas no cambia el porcentaje
+    // resuelto para ese plan: ResolverPlanesCreditoPersonalAsync usa siempre la cuota global
+    // cuando existe, nunca la tasa propia de ProductoCreditoPersonalCuota.
+    // =====================================================================
+
+    [Fact]
+    public async Task DosProductosConTasasLegacyDistintasParaElMismoPlan_DebenResolverElMismoPorcentaje()
+    {
+        await SeedConfigGlobalPago();
+        await SeedGlobal((6, 8m)); // porcentaje canónico del plan "6 cuotas": 8 %
+        var productoA = await SeedProducto("ML1-T4-A", (6, 12m)); // tasa legacy propia distinta
+        var productoB = await SeedProducto("ML1-T4-B", (6, 3m));  // tasa legacy propia distinta
+
+        var planesA = await Resolver(productoA);
+        var planesB = await Resolver(productoB);
+
+        // Contrato nuevo: mismo plan (6 cuotas) ⇒ mismo porcentaje (8 %), sin importar el producto.
+        Assert.Equal(8m, planesA.BuscarPlan(6)!.TasaMensual);
+        Assert.Equal(8m, planesB.BuscarPlan(6)!.TasaMensual);
+        Assert.Equal(planesA.BuscarPlan(6)!.TasaMensual, planesB.BuscarPlan(6)!.TasaMensual);
     }
 
     // =====================================================================

@@ -70,10 +70,12 @@ public class ProductoCreditoPersonalConfigServiceTests : IDisposable
     // -------------------------------------------------------------------------
 
     [Fact]
-    public async Task Guardar_Obtener_RoundTripDePlanesYRestriccion()
+    public async Task Guardar_Obtener_RoundTripDeModoActivoYRestriccion()
     {
         var producto = await SeedProducto();
 
+        // ML5: el payload trae TasaMensual (0/10/25 — como enviaría un cliente honesto con el
+        // input viejo, o uno manipulado) pero ninguno de esos valores es autoridad del producto.
         var (ok, errores) = await _service.GuardarAsync(producto.Id, new ProductoCreditoPersonalConfigViewModel
         {
             Modo = ModoCreditoPersonalProducto.ConfiguracionPropia,
@@ -94,15 +96,21 @@ public class ProductoCreditoPersonalConfigServiceTests : IDisposable
         Assert.Equal(ModoCreditoPersonalProducto.ConfiguracionPropia, config.Modo);
         Assert.True(config.AdmiteCreditoPersonal);
         Assert.Equal(12, config.MaxCuotasCredito);
-        Assert.Equal(0m, config.Cuotas.First(c => c.CantidadCuotas == 1).TasaMensual);
         Assert.True(config.Cuotas.First(c => c.CantidadCuotas == 1).Activo);
-        Assert.Equal(10m, config.Cuotas.First(c => c.CantidadCuotas == 3).TasaMensual);
+        Assert.True(config.Cuotas.First(c => c.CantidadCuotas == 3).Activo);
+        // Sin plan global configurado en este test para ninguna de las dos cantidades: el
+        // recargo mostrado es "no disponible" (null), nunca el 0%/10% que mandó el payload.
+        Assert.Null(config.Cuotas.First(c => c.CantidadCuotas == 1).TasaMensual);
+        Assert.Null(config.Cuotas.First(c => c.CantidadCuotas == 3).TasaMensual);
 
         // La fila inactiva (Id = 0) no se persiste: vuelve como plantilla inactiva.
         var persistidas = await _context.ProductoCreditoPersonalCuotas
             .Where(c => c.ProductoId == producto.Id)
             .ToListAsync();
         Assert.Equal(2, persistidas.Count);
+
+        // ML5: el 0%/10%/25% enviados en el payload nunca se persisten como autoridad propia.
+        Assert.All(persistidas, p => Assert.Null(p.TasaMensual));
     }
 
     [Fact]
@@ -160,15 +168,19 @@ public class ProductoCreditoPersonalConfigServiceTests : IDisposable
         var fila = await _context.ProductoCreditoPersonalCuotas
             .FirstAsync(c => c.ProductoId == producto.Id && c.CantidadCuotas == 3);
         Assert.False(fila.Activo);
-        Assert.Equal(10m, fila.TasaMensual);
+        // ML5: la columna nunca se escribió (nació null en el alta) y desactivar tampoco la toca.
+        Assert.Null(fila.TasaMensual);
     }
 
     // -------------------------------------------------------------------------
-    // Plan propio: 0 % es válido y distinguible; el recargo se conserva sin transformación
+    // ML5 — Contrato congelado: Producto no define porcentajes bajo ningún valor entrante
     // -------------------------------------------------------------------------
 
+    // ML5 — reemplaza "...PersisteCeroDistintoDeNull" (ML3): bajo el contrato viejo el 0 %
+    // enviado se guardaba tal cual; ahora ningún valor entrante (0, null o uno manipulado) se
+    // convierte en autoridad del producto. Ver goal ML5, test A/B.
     [Fact]
-    public async Task Guardar_PlanPropioConCeroPorciento_EsValidoYDistinguibleDeHeredar()
+    public async Task Guardar_PlanPropioConCualquierTasaEnviada_NuncaSePersisteComoAutoridad()
     {
         var producto = await SeedProducto();
 
@@ -177,25 +189,34 @@ public class ProductoCreditoPersonalConfigServiceTests : IDisposable
             Modo = ModoCreditoPersonalProducto.ConfiguracionPropia,
             Cuotas = new List<CuotaCreditoPersonalViewModel>
             {
-                new() { CantidadCuotas = 6, TasaMensual = 0m, Activo = true, Orden = 6 },  // 0% explícito
-                new() { CantidadCuotas = 9, TasaMensual = null, Activo = true, Orden = 9 } // hereda
+                new() { CantidadCuotas = 6, TasaMensual = 0m, Activo = true, Orden = 6 },  // 0% explícito enviado
+                new() { CantidadCuotas = 9, TasaMensual = 99m, Activo = true, Orden = 9 }  // payload manipulado (99%)
             }
         }, "tester");
 
         Assert.True(ok, string.Join("; ", errores));
+
+        var persistidas = await _context.ProductoCreditoPersonalCuotas
+            .Where(c => c.ProductoId == producto.Id)
+            .ToListAsync();
+        Assert.Equal(2, persistidas.Count);
+        // Ni el 0% ni el 99% enviados se convierten en autoridad: ambas filas nacen en null.
+        Assert.All(persistidas, p => Assert.Null(p.TasaMensual));
 
         var config = await _service.ObtenerAsync(producto.Id);
         var plan6 = config.Cuotas.Single(c => c.CantidadCuotas == 6);
         var plan9 = config.Cuotas.Single(c => c.CantidadCuotas == 9);
 
         Assert.True(plan6.Activo);
-        Assert.Equal(0m, plan6.TasaMensual);
         Assert.True(plan9.Activo);
+        // Sin plan global configurado para 6 ni 9 cuotas en este test: no disponible, nunca
+        // el 99% que intentó colarse.
+        Assert.Null(plan6.TasaMensual);
         Assert.Null(plan9.TasaMensual);
     }
 
     [Fact]
-    public async Task Guardar_PlanPropioDiezPorciento_SePersisteComoRecargoTotalSinTransformacion()
+    public async Task Guardar_PlanPropioConTasaEnviada_LaColumnaNaceNullSinTransformacion()
     {
         var producto = await SeedProducto();
 
@@ -212,9 +233,9 @@ public class ProductoCreditoPersonalConfigServiceTests : IDisposable
             .AsNoTracking()
             .SingleAsync(c => c.ProductoId == producto.Id && c.CantidadCuotas == 12);
 
-        // El valor persistido es exactamente el 10% ingresado: ninguna fórmula mensual,
-        // compuesta ni multiplicada por cuotas lo transforma en el camino de guardado.
-        Assert.Equal(10m, entidad.TasaMensual);
+        // ML5: GuardarAsync ignora explícitamente TasaMensual del payload en el alta — la
+        // columna nace en null, nunca en el 10% enviado (ver goal ML5, "Persistencia legacy").
+        Assert.Null(entidad.TasaMensual);
     }
 
     // -------------------------------------------------------------------------
@@ -327,19 +348,19 @@ public class ProductoCreditoPersonalConfigServiceTests : IDisposable
             Modo = ModoCreditoPersonalProducto.ConfiguracionPropia,
             Cuotas = new List<CuotaCreditoPersonalViewModel>
             {
-                new() { CantidadCuotas = 6, TasaMensual = 5m, Activo = true }
+                new() { CantidadCuotas = 6, Activo = true, Orden = 1 }
             }
         }, "tester");
         var planAjeno = await _context.ProductoCreditoPersonalCuotas.AsNoTracking()
             .SingleAsync(c => c.ProductoId == productoA.Id && c.CantidadCuotas == 6);
 
-        // DevTools: se envía el Id de la fila de productoA al guardar productoB.
+        // DevTools: se envía el Id de la fila de productoA (y una tasa manipulada) al guardar productoB.
         var (ok, _) = await _service.GuardarAsync(productoB.Id, new ProductoCreditoPersonalConfigViewModel
         {
             Modo = ModoCreditoPersonalProducto.ConfiguracionPropia,
             Cuotas = new List<CuotaCreditoPersonalViewModel>
             {
-                new() { Id = planAjeno.Id, CantidadCuotas = 6, TasaMensual = 99m, Activo = true }
+                new() { Id = planAjeno.Id, CantidadCuotas = 6, TasaMensual = 99m, Activo = true, Orden = 2 }
             }
         }, "tester");
 
@@ -348,11 +369,13 @@ public class ProductoCreditoPersonalConfigServiceTests : IDisposable
         var planAjenoDespues = await _context.ProductoCreditoPersonalCuotas.AsNoTracking()
             .SingleAsync(c => c.Id == planAjeno.Id);
         Assert.Equal(productoA.Id, planAjenoDespues.ProductoId);
-        Assert.Equal(5m, planAjenoDespues.TasaMensual); // sin cambios: el Id ajeno se ignora
+        Assert.Equal(1, planAjenoDespues.Orden); // sin cambios: el Id ajeno se ignora, no se tocó esta fila
+        Assert.Null(planAjenoDespues.TasaMensual); // ML5: tampoco tenía tasa propia
 
         var planB = await _context.ProductoCreditoPersonalCuotas.AsNoTracking()
             .SingleAsync(c => c.ProductoId == productoB.Id && c.CantidadCuotas == 6);
-        Assert.Equal(99m, planB.TasaMensual); // se creó como fila nueva de productoB
+        Assert.Equal(2, planB.Orden); // se creó como fila nueva de productoB
+        Assert.Null(planB.TasaMensual); // ML5: el 99% del payload nunca se persiste
     }
 
     // -------------------------------------------------------------------------
@@ -392,16 +415,23 @@ public class ProductoCreditoPersonalConfigServiceTests : IDisposable
         Assert.DoesNotContain(config.Cuotas, c => c.CantidadCuotas == 17);
     }
 
+    // ML5 — invierte completamente "...NoQuedaAfectadoPorPorcentajeGlobalDistinto" (contrato
+    // viejo): antes el editor mostraba el valor propio persistido del producto por encima del
+    // global; ahora el editor SIEMPRE muestra el recargo del plan global vigente, incluida una
+    // tasa legacy ya persistida en la columna (dato histórico inerte, nunca se reescribe pero
+    // tampoco se muestra como vigente). Ver goal ML5, test E.
     [Fact]
-    public async Task Obtener_ProductoConConfiguracionPropia_NoQuedaAfectadoPorPorcentajeGlobalDistinto()
+    public async Task Obtener_ProductoConPlanPropioActivo_MuestraElPorcentajeDelPlanGlobalNoElHistoricoDelProducto()
     {
         var producto = await SeedProducto();
+        // Plan global vigente: 8% para 6 cuotas.
         await _configuracionPagoService.GuardarCuotasCreditoPersonalAsync(
             new List<TheBuryProject.ViewModels.CuotaCreditoPersonalViewModel>
             {
-                new() { CantidadCuotas = 6, TasaMensual = 5m, Activo = true }
+                new() { CantidadCuotas = 6, TasaMensual = 8m, Activo = true }
             }, "admin");
 
+        // El producto activa esa cantidad; el 20% que "envía" nunca se persiste (ML5).
         await _service.GuardarAsync(producto.Id, new ProductoCreditoPersonalConfigViewModel
         {
             Modo = ModoCreditoPersonalProducto.ConfiguracionPropia,
@@ -415,7 +445,72 @@ public class ProductoCreditoPersonalConfigServiceTests : IDisposable
         var plan6 = config.Cuotas.Single(c => c.CantidadCuotas == 6);
 
         Assert.True(plan6.Activo);
-        Assert.Equal(20m, plan6.TasaMensual); // el propio manda; el 5% global no lo pisa
+        // El editor siempre muestra el recargo del plan global vigente (8%), nunca el 20% que se
+        // intentó enviar ni ningún valor propio histórico del producto.
+        Assert.Equal(8m, plan6.TasaMensual);
+
+        // Simula un dato legacy directamente en la columna (pre-ML5, jamás reescrito por
+        // GuardarAsync): tampoco se muestra como vigente.
+        var entidad = await _context.ProductoCreditoPersonalCuotas
+            .SingleAsync(c => c.ProductoId == producto.Id && c.CantidadCuotas == 6);
+        entidad.TasaMensual = 2.5m;
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var configTrasLegacy = await _service.ObtenerAsync(producto.Id);
+        Assert.Equal(8m, configTrasLegacy.Cuotas.Single(c => c.CantidadCuotas == 6).TasaMensual);
+    }
+
+    // ML5 — goal test C: 0% global se muestra explícito, no vacío/null.
+    [Fact]
+    public async Task Obtener_PlanGlobalEnCero_MuestraCeroExplicitoNoVacio()
+    {
+        var producto = await SeedProducto();
+        await _configuracionPagoService.GuardarCuotasCreditoPersonalAsync(
+            new List<TheBuryProject.ViewModels.CuotaCreditoPersonalViewModel>
+            {
+                new() { CantidadCuotas = 4, TasaMensual = 0m, Activo = true }
+            }, "admin");
+
+        await _service.GuardarAsync(producto.Id, new ProductoCreditoPersonalConfigViewModel
+        {
+            Modo = ModoCreditoPersonalProducto.ConfiguracionPropia,
+            Cuotas = new List<CuotaCreditoPersonalViewModel>
+            {
+                new() { CantidadCuotas = 4, Activo = true }
+            }
+        }, "tester");
+
+        var config = await _service.ObtenerAsync(producto.Id);
+        var plan4 = config.Cuotas.Single(c => c.CantidadCuotas == 4);
+
+        Assert.True(plan4.Activo);
+        Assert.NotNull(plan4.TasaMensual);
+        Assert.Equal(0m, plan4.TasaMensual!.Value);
+    }
+
+    // ML5 — goal test G: el producto activó una cantidad que ya no tiene plan global (o nunca lo
+    // tuvo). No se inventa ninguna tasa: se marca "no disponible" (null), igual que la resolución
+    // real de venta (ResolverPlanesCreditoPersonalAsync).
+    [Fact]
+    public async Task Obtener_ProductoConPlanPropioActivo_SinPlanGlobalParaEsaCantidad_NoDisponible()
+    {
+        var producto = await SeedProducto();
+        // Ningún plan global para 50 cuotas.
+        await _service.GuardarAsync(producto.Id, new ProductoCreditoPersonalConfigViewModel
+        {
+            Modo = ModoCreditoPersonalProducto.ConfiguracionPropia,
+            Cuotas = new List<CuotaCreditoPersonalViewModel>
+            {
+                new() { CantidadCuotas = 50, Activo = true }
+            }
+        }, "tester");
+
+        var config = await _service.ObtenerAsync(producto.Id);
+        var plan50 = config.Cuotas.Single(c => c.CantidadCuotas == 50);
+
+        Assert.True(plan50.Activo); // el producto sigue ofreciendo la cantidad...
+        Assert.Null(plan50.TasaMensual); // ...pero no hay recargo válido para venderla
     }
 
     // -------------------------------------------------------------------------

@@ -66,10 +66,20 @@ public sealed class CreditoConfiguracionVentaServiceTests
         Assert.Contains("negativa", result.ErrorMessage!, StringComparison.OrdinalIgnoreCase);
     }
 
+    // ML2.1: 0% sigue siendo un porcentaje valido y explicito — pero la autoridad es siempre el
+    // plan, tambien en modo Manual. Por eso el plan de la cantidad elegida declara 0% explicito:
+    // el resultado coincide con lo que cargo el operador, no porque Manual "gane", sino porque el
+    // plan tambien vale 0%.
     [Fact]
     public async Task Resolver_AceptaTasaManualCero()
     {
-        var service = CrearService(ConfigService(tasaGlobal: 5m, rango: (1, 120, "Manual", null)));
+        var service = CrearService(ConfigService(
+            tasaGlobal: 5m,
+            rango: (1, 120, "Manual", null),
+            cuotas: new List<CuotaCreditoPersonalViewModel>
+            {
+                new() { CantidadCuotas = 6, TasaMensual = 0m, Activo = true } // plan explicito en 0%
+            }));
         var modelo = Modelo(FuenteConfiguracionCredito.Manual, MetodoCalculoCredito.Manual);
         modelo.TasaMensual = 0m;
 
@@ -129,8 +139,12 @@ public sealed class CreditoConfiguracionVentaServiceTests
         Assert.Equal(10m, result.Comando!.TasaMensual);
     }
 
+    // ML2.1 — Fase 5 del contrato congelado: un plan activo sin porcentaje explicito (TasaMensual
+    // null) es configuracion invalida DE VERDAD, nunca "heredar la tasa global" ni "0% silencioso".
+    // Corrige la expectativa de ML1 (aquel test exigia EsValido = true y solo verificaba que no se
+    // heredara la global; esa expectativa contradice el requerimiento congelado de Fase 5).
     [Fact]
-    public async Task Resolver_CuotaConTasaNull_HeredaTasaGlobal()
+    public async Task Resolver_CuotaConTasaNull_EsConfiguracionInvalida()
     {
         var service = CrearService(ConfigService(
             tasaGlobal: 5m,
@@ -138,15 +152,80 @@ public sealed class CreditoConfiguracionVentaServiceTests
             cuotas: new List<CuotaCreditoPersonalViewModel>
             {
                 new() { CantidadCuotas = 1, TasaMensual = 1m, Activo = true },
-                new() { CantidadCuotas = 6, TasaMensual = null, Activo = true } // null = heredar la global
+                new() { CantidadCuotas = 6, TasaMensual = null, Activo = true } // plan sin porcentaje propio
             }));
         var modelo = Modelo(FuenteConfiguracionCredito.Global, MetodoCalculoCredito.Global);
         modelo.CantidadCuotas = 6;
 
         var result = await service.ResolverAsync(modelo, venta: null);
 
+        Assert.False(result.EsValido);
+        Assert.Equal(nameof(modelo.CantidadCuotas), result.ErrorKey);
+        Assert.Contains("porcentaje", result.ErrorMessage!, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // ML2.1 — Fase 3 (cerrado): Cliente personalizado no altera el porcentaje del plan
+    // seleccionado. Dos clientes con configuraciones "por cliente" distintas, pero pidiendo el
+    // mismo plan (misma cantidad de cuotas, cuyo porcentaje canónico es 8 %), resuelven el mismo
+    // porcentaje: PorCliente usa siempre `planesVenta.BuscarPlan(...)?.TasaMensual`, nunca
+    // `parametrosCliente.TasaMensual`.
+    [Fact]
+    public async Task Resolver_MismoPlanConClientesPersonalizadosDistintos_DebeResolverElMismoPorcentaje()
+    {
+        var cuotasConPlanCanonico = new List<CuotaCreditoPersonalViewModel>
+        {
+            new() { CantidadCuotas = 6, TasaMensual = 8m, Activo = true } // porcentaje canónico del plan
+        };
+
+        var serviceClienteA = CrearService(ConfigService(
+            tasaGlobal: 5m,
+            parametros: new ParametrosCreditoCliente { TieneConfiguracionPersonalizada = true, TasaMensual = 15m },
+            rango: (1, 24, "Cliente", null),
+            cuotas: cuotasConPlanCanonico));
+
+        var serviceClienteB = CrearService(ConfigService(
+            tasaGlobal: 5m,
+            parametros: new ParametrosCreditoCliente { TieneConfiguracionPersonalizada = true, TasaMensual = 2m },
+            rango: (1, 24, "Cliente", null),
+            cuotas: cuotasConPlanCanonico));
+
+        var modelo = Modelo(FuenteConfiguracionCredito.PorCliente, MetodoCalculoCredito.UsarCliente);
+        modelo.CantidadCuotas = 6;
+
+        var resultA = await serviceClienteA.ResolverAsync(modelo, venta: null);
+        var resultB = await serviceClienteB.ResolverAsync(modelo, venta: null);
+
+        AssertComandoValido(resultA);
+        AssertComandoValido(resultB);
+        // Contrato nuevo: mismo plan (6 cuotas, 8 %) ⇒ mismo porcentaje, sin importar el cliente.
+        Assert.Equal(8m, resultA.Comando!.TasaMensual);
+        Assert.Equal(8m, resultB.Comando!.TasaMensual);
+        Assert.Equal(resultA.Comando.TasaMensual, resultB.Comando.TasaMensual);
+    }
+
+    // ML2.1 — Fase 4 (cerrado): Manual/FuenteConfiguracion no altera el porcentaje de un plan
+    // existente. La cantidad de cuotas elegida coincide con un plan que ya tiene porcentaje
+    // canónico (8 %); el modo Manual no puede sobrescribirlo con el valor arbitrario del operador
+    // (50 %): el plan es siempre la autoridad, tambien en Manual.
+    [Fact]
+    public async Task Resolver_FuenteManualConCantidadDePlanExistente_NoDeberiaSobrescribirElPorcentajeDelPlan()
+    {
+        var service = CrearService(ConfigService(
+            tasaGlobal: 5m,
+            rango: (1, 24, "Manual", null),
+            cuotas: new List<CuotaCreditoPersonalViewModel>
+            {
+                new() { CantidadCuotas = 6, TasaMensual = 8m, Activo = true } // porcentaje canónico del plan
+            }));
+        var modelo = Modelo(FuenteConfiguracionCredito.Manual, MetodoCalculoCredito.Manual);
+        modelo.CantidadCuotas = 6;
+        modelo.TasaMensual = 50m; // el operador intenta sobrescribir el 8 % del plan
+
+        var result = await service.ResolverAsync(modelo, venta: null);
+
         AssertComandoValido(result);
-        Assert.Equal(5m, result.Comando!.TasaMensual); // hereda la tasa global (5 %), no 0
+        Assert.NotEqual(50m, result.Comando!.TasaMensual);
+        Assert.Equal(8m, result.Comando.TasaMensual);
     }
 
     [Fact]
@@ -170,10 +249,21 @@ public sealed class CreditoConfiguracionVentaServiceTests
         Assert.Contains("no est", result.ErrorMessage!, StringComparison.OrdinalIgnoreCase);
     }
 
+    // ML2.1: el plan (no el operador) es la autoridad del porcentaje tambien en modo Manual. El
+    // plan de la cantidad elegida declara el mismo 7.25% que carga el operador para mantener el
+    // caso "comando valido" enfocado en FuenteConfiguracion/GastosAdministrativos, no en la
+    // precedencia plan-vs-manual (esa la cubre Resolver_FuenteManualConCantidadDePlanExistente_
+    // NoDeberiaSobrescribirElPorcentajeDelPlan, donde plan y manual difieren a proposito).
     [Fact]
     public async Task Resolver_ArmaComandoValidoParaFuenteManual()
     {
-        var service = CrearService(ConfigService(tasaGlobal: 5m, rango: (1, 120, "Manual", null)));
+        var service = CrearService(ConfigService(
+            tasaGlobal: 5m,
+            rango: (1, 120, "Manual", null),
+            cuotas: new List<CuotaCreditoPersonalViewModel>
+            {
+                new() { CantidadCuotas = 6, TasaMensual = 7.25m, Activo = true }
+            }));
         var modelo = Modelo(FuenteConfiguracionCredito.Manual, MetodoCalculoCredito.Manual);
         modelo.TasaMensual = 7.25m;
         modelo.GastosAdministrativos = 150m;
@@ -182,10 +272,15 @@ public sealed class CreditoConfiguracionVentaServiceTests
 
         AssertComandoValido(result);
         Assert.Equal(FuenteConfiguracionCredito.Manual, result.Comando!.FuenteConfiguracion);
-        Assert.Equal(7.25m, result.Comando.TasaMensual);
+        Assert.Equal(7.25m, result.Comando.TasaMensual); // proviene del plan (coincide con lo cargado)
         Assert.Equal(150m, result.Comando.GastosAdministrativos);
     }
 
+    // ML2.1 — Fase 3: el cliente ya no es autoridad del porcentaje; parametros.TasaMensual queda
+    // como dato legado sin efecto. El plan de la cantidad elegida declara el mismo 6.5% para
+    // mantener el foco del caso en FuenteConfiguracion/CuotasMaxPermitidas (la equivalencia real
+    // de porcentaje entre clientes distintos ya la cubre
+    // Resolver_MismoPlanConClientesPersonalizadosDistintos_DebeResolverElMismoPorcentaje).
     [Fact]
     public async Task Resolver_ArmaComandoValidoParaFuentePorCliente()
     {
@@ -194,16 +289,20 @@ public sealed class CreditoConfiguracionVentaServiceTests
             parametros: new ParametrosCreditoCliente
             {
                 TieneConfiguracionPersonalizada = true,
-                TasaMensual = 6.5m,
+                TasaMensual = 6.5m, // ML2.1: legado, ya no es autoridad
                 GastosAdministrativos = 250m
             },
-            rango: (1, 18, "Cliente", null)));
+            rango: (1, 18, "Cliente", null),
+            cuotas: new List<CuotaCreditoPersonalViewModel>
+            {
+                new() { CantidadCuotas = 6, TasaMensual = 6.5m, Activo = true } // autoridad real: el plan
+            }));
 
         var result = await service.ResolverAsync(Modelo(FuenteConfiguracionCredito.PorCliente, MetodoCalculoCredito.UsarCliente), venta: null);
 
         AssertComandoValido(result);
         Assert.Equal(FuenteConfiguracionCredito.PorCliente, result.Comando!.FuenteConfiguracion);
-        Assert.Equal(6.5m, result.Comando.TasaMensual);
+        Assert.Equal(6.5m, result.Comando.TasaMensual); // proviene del plan (Fase 3)
         Assert.Equal(0m, result.Comando.GastosAdministrativos);
         Assert.Equal(18, result.Comando.CuotasMaxPermitidas);
     }
@@ -381,13 +480,17 @@ public sealed class CreditoConfiguracionVentaServiceTests
         Assert.Null(result.Comando.MedioPagoPrimeraCuota);
     }
 
-    // Micro-lote 4: las cantidades disponibles salen SOLO de los planes globales activos. En
-    // produccion la configuracion siempre tiene planes; por eso el stub, cuando el test no seedea
-    // cuotas propias, ofrece planes 1..24 (tasa null = heredar la global) para que los casos que
-    // ejercen tasa/rango/snapshots tengan cuotas disponibles y no sean rechazados por "sin planes".
-    private static readonly List<CuotaCreditoPersonalViewModel> PlanesGlobalesPorDefecto =
+    // Micro-lote 4 + ML2.1: las cantidades disponibles salen SOLO de los planes globales activos.
+    // En produccion la configuracion siempre tiene planes; por eso el stub, cuando el test no
+    // seedea cuotas propias, ofrece planes 1..24 para que los casos que ejercen tasa/rango/
+    // snapshots tengan cuotas disponibles y no sean rechazados por "sin planes". ML2.1: cada plan
+    // trae un porcentaje EXPLICITO (igual a tasaGlobal, solo como valor de conveniencia del
+    // fixture) — un plan con TasaMensual null es "configuracion invalida" bajo el contrato nuevo
+    // (Fase 5), no un caso por defecto neutro; los tests que necesitan ejercer ese caso puntual
+    // pasan su propio `cuotas` con TasaMensual = null explicito.
+    private static List<CuotaCreditoPersonalViewModel> PlanesGlobalesPorDefecto(decimal tasa) =>
         Enumerable.Range(1, 24)
-            .Select(n => new CuotaCreditoPersonalViewModel { CantidadCuotas = n, TasaMensual = null, Activo = true })
+            .Select(n => new CuotaCreditoPersonalViewModel { CantidadCuotas = n, TasaMensual = tasa, Activo = true })
             .ToList();
 
     private static StubConfiguracionPagoService ConfigService(
@@ -405,7 +508,7 @@ public sealed class CreditoConfiguracionVentaServiceTests
                 GastosAdministrativos = 0m
             },
             Rango = rango ?? (1, 120, "Manual", null),
-            CuotasCreditoPersonal = cuotas ?? PlanesGlobalesPorDefecto
+            CuotasCreditoPersonal = cuotas ?? PlanesGlobalesPorDefecto(tasaGlobal ?? 0m)
         };
 
     private static ConfiguracionCreditoVentaViewModel Modelo(

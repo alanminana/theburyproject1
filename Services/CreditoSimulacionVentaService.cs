@@ -11,6 +11,12 @@ public sealed class CreditoSimulacionVentaService : ICreditoSimulacionVentaServi
         "La tasa de interés de Crédito Personal no está configurada. " +
         "Configure el valor en Administración → Tipos de Pago.";
 
+    // ML6.1 — Contrato congelado: el plan de cuotas es la ÚNICA fuente del porcentaje que este
+    // servicio reporta. Nunca "Producto"/"Perfil"/"Cliente"/"Manual"/"Global": esas etiquetas
+    // describían de dónde salía la DISPONIBILIDAD de cantidades (Origen), no de dónde salía el %,
+    // que siempre resuelve ResolverTasaDelPlanOTasaGlobalAsync contra el mismo plan.
+    private const string FuentePorcentajePlan = "Plan";
+
     private readonly IFinancialCalculationService _financialService;
     private readonly IConfiguracionPagoService? _configuracionPagoService;
     private readonly IClienteAptitudService? _aptitudService;
@@ -82,22 +88,15 @@ public sealed class CreditoSimulacionVentaService : ICreditoSimulacionVentaServi
         if (anticipoVal > totalVentaVal)
             return CreditoSimulacionVentaResultado.Invalido("El anticipo no puede superar el total de la venta.");
 
-        // Autoridad del porcentaje: la fuente Manual solo es legítima con el método Manual (misma
-        // regla que CreditoConfiguracionVentaService.ResolverAsync usa para persistir). Cualquier
-        // otra combinación ignora la tasa que haya mandado el navegador y la resuelve el servidor
-        // a partir del plan efectivo de la venta (o de la tabla global sin venta asociada).
-        var fuenteManualValida = request.FuenteConfiguracion == FuenteConfiguracionCredito.Manual &&
-                                  request.MetodoCalculo == MetodoCalculoCredito.Manual;
-
+        // ML6.1 — Contrato congelado (Fase 3): el plan de cuotas es la ÚNICA fuente del porcentaje,
+        // siempre. request.TasaMensual/MetodoCalculo/FuenteConfiguracion nunca vuelven a pisarlo —
+        // ni siquiera con FuenteConfiguracion+MetodoCalculo ambos Manual (contrato previo a ML6.1,
+        // ya inalcanzable desde la UI real de Configurar Venta desde ML6). MetodoCalculo/
+        // FuenteConfiguracion siguen decidiendo SOLO qué validación de contexto aplica (p. ej. si
+        // hace falta un cliente), nunca de dónde sale la tasa.
         decimal tasaVal;
-        string fuentePorcentaje;
 
-        if (fuenteManualValida && request.TasaMensual.HasValue)
-        {
-            tasaVal = request.TasaMensual.Value;
-            fuentePorcentaje = "Manual";
-        }
-        else if (hayContextoDeProductos)
+        if (hayContextoDeProductos)
         {
             if (_configuracionPagoService is null)
                 return CreditoSimulacionVentaResultado.Invalido(TasaGlobalNoConfigurada);
@@ -129,6 +128,17 @@ public sealed class CreditoSimulacionVentaService : ICreditoSimulacionVentaServi
                     return CreditoSimulacionVentaResultado.Invalido(rango.Error);
             }
 
+            // ML2.1/ML6.1 — Contrato congelado: el plan de cuotas resuelto es la UNICA autoridad del
+            // porcentaje, tambien en simulacion (misma regla que CreditoConfiguracionVentaService.
+            // ResolverAsync). Cliente/Perfil/Producto ya no aportan ni sustituyen el porcentaje: las
+            // tres ramas de abajo (Cliente/Producto-Mixto/Global) llaman exactamente al mismo
+            // resolutor (ResolverTasaDelPlanOTasaGlobalAsync) contra el mismo plan de cuotas — Origen
+            // (Cliente/Producto/Mixto/Global) es la disponibilidad de cantidades, NUNCA la fuente
+            // financiera (ese fue el bug de ML6.1: se reportaba "Producto" como si el producto
+            // aportara el %, cuando el % siempre sale del plan). Sin tabla de planes en absoluto
+            // (legado RigeConfiguracionUnicaGlobal, solo dobles de test) rige la tasa unica global;
+            // con tabla de planes, un porcentaje null es configuracion invalida y nunca cae a la
+            // tasa global.
             if (request.MetodoCalculo == MetodoCalculoCredito.UsarCliente ||
                 request.FuenteConfiguracion == FuenteConfiguracionCredito.PorCliente)
             {
@@ -136,54 +146,43 @@ public sealed class CreditoSimulacionVentaService : ICreditoSimulacionVentaServi
                     return CreditoSimulacionVentaResultado.Invalido(
                         "Se requiere un cliente para resolver la configuración de Crédito personal por cliente.");
 
-                var tasaGlobalCliente = await _configuracionPagoService.ObtenerTasaInteresMensualCreditoPersonalAsync();
-                if (tasaGlobalCliente is null)
-                    return CreditoSimulacionVentaResultado.Invalido(TasaGlobalNoConfigurada);
+                var (tasaCliente, errorCliente) = await ResolverTasaDelPlanOTasaGlobalAsync(planesVenta, request.Cuotas);
+                if (errorCliente is not null)
+                    return CreditoSimulacionVentaResultado.Invalido(errorCliente);
 
-                var parametrosCliente = await _configuracionPagoService.ObtenerParametrosCreditoClienteAsync(
-                    clienteIdEfectivo.Value, tasaGlobalCliente.Value);
-                tasaVal = parametrosCliente.TasaMensual;
-                fuentePorcentaje = "Cliente";
+                tasaVal = tasaCliente!.Value;
             }
             else if (planesVenta.Origen == OrigenPlanesCredito.Producto || planesVenta.Origen == OrigenPlanesCredito.Mixto)
             {
-                // Al menos un producto de la venta aporta configuración propia. BuscarPlan ya
-                // resolvió, para esta cantidad de cuotas puntual, el máximo conservador entre las
-                // tasas de los productos con plan propio (ConfiguracionPagoService.
-                // ResolverPlanesCreditoPersonalAsync); el ?? solo cubre el caso extremo de tasa
-                // única global sin configurar dentro de ese cálculo.
-                var tasaGlobal = await _configuracionPagoService.ObtenerTasaInteresMensualCreditoPersonalAsync();
-                if (tasaGlobal is null)
-                    return CreditoSimulacionVentaResultado.Invalido(TasaGlobalNoConfigurada);
+                var (tasaProducto, errorProducto) = await ResolverTasaDelPlanOTasaGlobalAsync(planesVenta, request.Cuotas);
+                if (errorProducto is not null)
+                    return CreditoSimulacionVentaResultado.Invalido(errorProducto);
 
-                tasaVal = planesVenta.BuscarPlan(request.Cuotas)?.TasaMensual ?? tasaGlobal.Value;
-                fuentePorcentaje = "Producto";
+                tasaVal = tasaProducto!.Value;
             }
             else
             {
-                // Ningún producto de la venta tiene configuración propia (Origen.Global, o el legado
-                // RigeConfiguracionUnicaGlobal que solo emiten dobles de test): rige la tabla global,
-                // que puede tener tasa distinta por cantidad de cuotas. BuscarPlan resuelve esa tasa
-                // específica; el ?? cubre no tener tabla de planes en absoluto.
-                var tasaGlobal = await _configuracionPagoService.ObtenerTasaInteresMensualCreditoPersonalAsync();
-                if (tasaGlobal is null)
-                    return CreditoSimulacionVentaResultado.Invalido(TasaGlobalNoConfigurada);
+                var (tasaGlobalPlan, errorGlobal) = await ResolverTasaDelPlanOTasaGlobalAsync(planesVenta, request.Cuotas);
+                if (errorGlobal is not null)
+                    return CreditoSimulacionVentaResultado.Invalido(errorGlobal);
 
-                tasaVal = planesVenta.BuscarPlan(request.Cuotas)?.TasaMensual ?? tasaGlobal.Value;
-                fuentePorcentaje = "Global";
+                tasaVal = tasaGlobalPlan!.Value;
             }
         }
         else
         {
-            var tasaConfig = _configuracionPagoService is null
-                ? null
-                : await _configuracionPagoService.ObtenerTasaInteresMensualCreditoPersonalAsync();
-
-            if (tasaConfig is null)
-                return CreditoSimulacionVentaResultado.Invalido(TasaGlobalNoConfigurada);
-
-            tasaVal = tasaConfig.Value;
-            fuentePorcentaje = "Global";
+            // ML8 — Sin venta y sin ProductoIds: no hay contexto de productos contra el cual
+            // resolver un plan. Auditado (ML8/Fase 1): el único caller histórico de este fallback
+            // era GET /Credito/Simular, retirado antes de ML8 (hoy solo redirige a Index, ya no
+            // llama a este service); CreditoController.SimularPlanVenta siempre llega con ventaId
+            // desde toda navegación real (Venta/Details, VentaController); CotizacionPagoCalculator
+            // siempre pasa ProductoIds. Sin caller productivo, este fallback ya no resuelve nada:
+            // devuelve inválido en vez de usar el escalar global legacy
+            // (ConfiguracionPago.TasaInteresMensualCreditoPersonal) como si fuera el porcentaje
+            // vigente (contrato ML2.1/ML6.1: el plan de cuotas es la única autoridad).
+            return CreditoSimulacionVentaResultado.Invalido(
+                "No hay contexto suficiente para calcular Crédito Personal: se requiere una venta " +
+                "o los productos de la operación.");
         }
 
         if (tasaVal < 0)
@@ -221,7 +220,7 @@ public sealed class CreditoSimulacionVentaService : ICreditoSimulacionVentaServi
             gastosAdministrativos = plan.GastosAdministrativos,
             totalPlan             = plan.TotalPlan,
             fechaPrimerPago       = plan.FechaPrimerPago.ToString("yyyy-MM-dd"),
-            fuentePorcentaje      = fuentePorcentaje,
+            fuentePorcentaje      = FuentePorcentajePlan,
             cuotas                = plan.Cuotas.Select(c => new CreditoSimulacionCuotaJson
             {
                 numeroCuota = c.NumeroCuota,
@@ -234,5 +233,27 @@ public sealed class CreditoSimulacionVentaService : ICreditoSimulacionVentaServi
             mostrarMsgIngreso     = plan.MostrarMsgIngreso,
             mostrarMsgAntiguedad  = plan.MostrarMsgAntiguedad
         });
+    }
+
+    /// <summary>
+    /// ML2.1 — Contrato congelado: resuelve el porcentaje financiero desde el plan de cuotas
+    /// (unica autoridad). Sin tabla de planes en absoluto (legado, solo dobles de test) usa la
+    /// tasa unica global. Con tabla de planes, un porcentaje null en el plan es configuracion
+    /// invalida: nunca cae a la tasa global.
+    /// </summary>
+    private async Task<(decimal? Tasa, string? Error)> ResolverTasaDelPlanOTasaGlobalAsync(
+        PlanesCreditoPersonalResultado planesVenta,
+        int cuotas)
+    {
+        if (planesVenta.RigeConfiguracionUnicaGlobal)
+        {
+            var tasaGlobal = await _configuracionPagoService!.ObtenerTasaInteresMensualCreditoPersonalAsync();
+            return tasaGlobal is null ? (null, TasaGlobalNoConfigurada) : (tasaGlobal.Value, null);
+        }
+
+        var tasaPlan = planesVenta.BuscarPlan(cuotas)?.TasaMensual;
+        return tasaPlan.HasValue
+            ? (tasaPlan.Value, null)
+            : (null, $"El plan de cuotas para {cuotas} cuotas no tiene un porcentaje financiero configurado.");
     }
 }

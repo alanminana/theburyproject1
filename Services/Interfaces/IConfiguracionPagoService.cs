@@ -11,11 +11,16 @@ namespace TheBuryProject.Services.Interfaces
         Task<ConfiguracionPagoViewModel?> GetByTipoPagoAsync(TipoPago tipoPago);
         /// <summary>
         /// Fuente canónica del porcentaje de recargo TOTAL único global de Crédito Personal
-        /// (no una tasa mensual ni compuesta). Es el valor que heredan los planes de cuota
-        /// cuando su tasa propia es null. Retorna null solo si no existe configuración
+        /// (no una tasa mensual ni compuesta). Retorna null solo si no existe configuración
         /// persistida o si nunca fue definida: en esos casos la operación debe bloquearse en
         /// el caller. Un valor configurado de 0 (recargo cero, válido) NO retorna null.
         /// </summary>
+        /// <remarks>
+        /// ML2.1/ML3 — Contrato congelado: SIN autoridad sobre planes de cuota (un plan activo
+        /// con porcentaje null es configuración inválida, nunca hereda este valor). Solo se usa
+        /// como tasa efectiva cuando no existe ninguna tabla de planes en absoluto
+        /// (compatibilidad de dobles de test) y como gate de "tasa global no configurada".
+        /// </remarks>
         Task<decimal?> ObtenerTasaInteresMensualCreditoPersonalAsync();
         Task<ConfiguracionPagoViewModel> CreateAsync(ConfiguracionPagoViewModel viewModel);
         Task<ConfiguracionPagoViewModel?> UpdateAsync(int id, ConfiguracionPagoViewModel viewModel);

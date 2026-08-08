@@ -285,17 +285,19 @@ public class ConfiguracionPagoServiceTests : IDisposable
     }
 
     // -------------------------------------------------------------------------
-    // 3. Cliente con tasa personalizada → usa tasa personalizada, fuente PorCliente
+    // 3. Cliente con tasa personalizada → fuente PorCliente y el dato queda expuesto en
+    // TasaPersonalizada/TieneTasaPersonalizada (informativo), pero ML2.1 (Fase 3) ya no lo usa
+    // como autoridad del porcentaje resuelto.
     // -------------------------------------------------------------------------
 
     [Fact]
-    public async Task ObtenerParametros_TasaPersonalizada_UsaTasaCliente()
+    public async Task ObtenerParametros_TasaPersonalizada_NoAlteraLaTasaResuelta()
     {
         var cliente = await SeedCliente(tasaPersonalizada: 8m);
 
         var result = await _service.ObtenerParametrosCreditoClienteAsync(cliente.Id, tasaGlobal: 3m);
 
-        Assert.Equal(8m, result.TasaMensual);
+        Assert.Equal(3m, result.TasaMensual);
         Assert.Equal(FuenteConfiguracionCredito.PorCliente, result.Fuente);
         Assert.True(result.TieneConfiguracionPersonalizada);
         Assert.True(result.TieneTasaPersonalizada);
@@ -333,11 +335,12 @@ public class ConfiguracionPagoServiceTests : IDisposable
     }
 
     // -------------------------------------------------------------------------
-    // 6. Cliente con perfil preferido → usa tasa del perfil (si no tiene personalización)
+    // 6. Cliente con perfil preferido → cuotas min/max SI vienen del perfil (no financiero); la
+    // tasa NO (ML2.1 — Fase 3 del contrato congelado: el perfil no es autoridad del porcentaje).
     // -------------------------------------------------------------------------
 
     [Fact]
-    public async Task ObtenerParametros_ConPerfil_SinPersonalizacion_UsaPerfilPreferido()
+    public async Task ObtenerParametros_ConPerfil_SinPersonalizacion_NoUsaLaTasaDelPerfil()
     {
         // Un perfil no activa la ruta "personalizado" — la prioridad personalizado
         // requiere campos propios del cliente
@@ -346,10 +349,11 @@ public class ConfiguracionPagoServiceTests : IDisposable
 
         var result = await _service.ObtenerParametrosCreditoClienteAsync(cliente.Id, tasaGlobal: 3m);
 
-        // Sin configuración personalizada → fuente Global, tasa global
+        // Sin configuración personalizada → fuente Global. ML2.1: la tasa del perfil (6 %) queda
+        // sin efecto sobre este campo informativo/legado; refleja la tasa global tal cual.
         Assert.Equal(FuenteConfiguracionCredito.Global, result.Fuente);
-        Assert.Equal(6m, result.TasaMensual);
-        // Pero cuotas mínimas vienen del perfil
+        Assert.Equal(3m, result.TasaMensual);
+        // Pero cuotas mínimas/máximas (no financieras) SI vienen del perfil.
         Assert.Equal(3, result.CuotasMinimas);
         Assert.Equal(18, result.CuotasMaximas);
         Assert.Equal(100m, result.GastosAdministrativos);
@@ -358,18 +362,19 @@ public class ConfiguracionPagoServiceTests : IDisposable
     }
 
     // -------------------------------------------------------------------------
-    // 7. Cliente con tasa personalizada y perfil → tasa personalizada gana sobre perfil
+    // 7. Cliente con tasa personalizada y perfil → ML2.1: ni la personalizacion (9 %) ni el
+    // perfil (6 %) alteran la tasa resuelta (Fase 3 del contrato congelado).
     // -------------------------------------------------------------------------
 
     [Fact]
-    public async Task ObtenerParametros_TasaPersonalizadaYPerfil_TasaPersonalizadaGana()
+    public async Task ObtenerParametros_TasaPersonalizadaYPerfil_NingunaAlteraLaTasaResuelta()
     {
         var perfil = await SeedPerfil(tasaMensual: 6m);
         var cliente = await SeedCliente(tasaPersonalizada: 9m, perfilPreferidoId: perfil.Id);
 
         var result = await _service.ObtenerParametrosCreditoClienteAsync(cliente.Id, tasaGlobal: 3m);
 
-        Assert.Equal(9m, result.TasaMensual);
+        Assert.Equal(3m, result.TasaMensual);
         Assert.Equal(FuenteConfiguracionCredito.PorCliente, result.Fuente);
     }
 
@@ -404,6 +409,30 @@ public class ConfiguracionPagoServiceTests : IDisposable
         // Micro-lote 4: sin cliente/perfil el cap es el tope técnico (120), no el rango legacy.
         Assert.Equal(120, result.CuotasMaximas);
         Assert.Equal(1, result.CuotasMinimas);
+    }
+
+    // -------------------------------------------------------------------------
+    // ML2.1 — T5 (cerrado): Perfil no altera el porcentaje. Frente al MISMO escenario financiero
+    // (misma tasa global, ningún dato propio del cliente), la única diferencia entre estos dos
+    // clientes es tener o no un perfil preferido; el porcentaje resuelto no depende de esa
+    // elección.
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task ObtenerParametros_MismoEscenario_ConYSinPerfilPreferido_DebeResolverElMismoPorcentaje()
+    {
+        var perfil = await SeedPerfil(tasaMensual: 6m);
+        var clienteSinPerfil = await SeedCliente();
+        var clienteConPerfil = await SeedCliente(perfilPreferidoId: perfil.Id);
+
+        var resultSinPerfil = await _service.ObtenerParametrosCreditoClienteAsync(clienteSinPerfil.Id, tasaGlobal: 3m);
+        var resultConPerfil = await _service.ObtenerParametrosCreditoClienteAsync(clienteConPerfil.Id, tasaGlobal: 3m);
+
+        // Contrato congelado: mismo escenario (misma tasa global, sin config propia) ⇒ mismo
+        // porcentaje, tenga o no el cliente un perfil preferido.
+        Assert.Equal(3m, resultSinPerfil.TasaMensual);
+        Assert.Equal(3m, resultConPerfil.TasaMensual);
+        Assert.Equal(resultSinPerfil.TasaMensual, resultConPerfil.TasaMensual);
     }
 
     // =========================================================================
@@ -1254,8 +1283,13 @@ public class ConfiguracionPagoServiceTests : IDisposable
         Assert.Equal(5m, efectivas.First(c => c.CantidadCuotas == 1).TasaMensual);
     }
 
+    // ML2.1 — corrige la expectativa pre-ML2.1 ("el producto sobrescribe la global"): el producto
+    // sigue decidiendo QUE cantidades ofrece (1 y 3, reemplazando 4/6 de la global), pero el
+    // porcentaje de cada cantidad sale del plan global cuando existe (1 cuota: 5 %, no el 0 %
+    // propio del producto) y es inválido (null) cuando no existe (3 cuotas: sin plan global
+    // equivalente, no el 10 % propio del producto).
     [Fact]
-    public async Task CuotasEfectivas_ProductoConPlanes_SobrescribeGlobal()
+    public async Task CuotasEfectivas_ProductoDecideCantidades_PeroElPlanGlobalSigueSiendoAutoridadDeLaTasa()
     {
         await SeedCuotasGlobales((1, 5m), (4, 8m), (6, 10m));
         var producto = await SeedProductoSimple();
@@ -1264,12 +1298,15 @@ public class ConfiguracionPagoServiceTests : IDisposable
         var efectivas = (await _service.ResolverPlanesCreditoPersonalAsync(new[] { producto.Id })).Planes;
 
         Assert.Equal(new[] { 1, 3 }, efectivas.Select(c => c.CantidadCuotas).ToArray());
-        Assert.Equal(0m, efectivas.First(c => c.CantidadCuotas == 1).TasaMensual);
-        Assert.Equal(10m, efectivas.First(c => c.CantidadCuotas == 3).TasaMensual);
+        Assert.Equal(5m, efectivas.First(c => c.CantidadCuotas == 1).TasaMensual);
+        Assert.Null(efectivas.First(c => c.CantidadCuotas == 3).TasaMensual);
     }
 
+    // ML3 — renombrado (era "...HeredaTasaGlobalDeLaCuota"): no hay herencia ni fallback. El campo
+    // TasaMensual del producto ya no es fuente de porcentaje bajo ningún valor (null o no): el
+    // resultado siempre es el TasaMensual de la cuota global para esa cantidad, tal cual.
     [Fact]
-    public async Task CuotasEfectivas_ProductoConTasaNull_HeredaTasaGlobalDeLaCuota()
+    public async Task CuotasEfectivas_ProductoConTasaNull_TasaSaleDeLaCuotaGlobalNoDelProducto()
     {
         await SeedCuotasGlobales((6, 12m));
         var producto = await SeedProductoSimple();
@@ -1277,14 +1314,15 @@ public class ConfiguracionPagoServiceTests : IDisposable
         {
             ProductoId = producto.Id,
             CantidadCuotas = 6,
-            TasaMensual = null, // heredar la tasa global
+            TasaMensual = null, // irrelevante para el porcentaje: el producto no es autoridad de tasa
             Activo = true
         });
         await _context.SaveChangesAsync();
 
         var efectivas = (await _service.ResolverPlanesCreditoPersonalAsync(new[] { producto.Id })).Planes;
 
-        // El plan del producto en null hereda la tasa de la cuota global (12 %), no cae a 0.
+        // La tasa resuelta es la de la cuota global (12 %), independientemente de lo que declare el
+        // producto: no es "herencia" de un null, es que el producto nunca decide el porcentaje.
         Assert.Equal(12m, efectivas.First(c => c.CantidadCuotas == 6).TasaMensual);
     }
 

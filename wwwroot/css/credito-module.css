@@ -25,6 +25,16 @@
 /* Reglas globales eliminadas: *, html/body, body, .material-symbols-outlined
    → ya las cubre Tailwind preflight / layout.css. */
 
+/* ML8 — Fase 3: Tailwind v4 declara .hidden dentro de @layer utilities. Cualquier regla de este
+   archivo que NO esté en un @layer (como .ph más abajo) es "sin capa" y por spec de CSS Cascade
+   Layers siempre gana sobre una regla en capa, sin importar orden de carga ni especificidad — por
+   eso un elemento con class="ph hidden" podía quedar visible aunque .hidden estuviera presente
+   (bug #plan-resumen-vacio). Mismo fix ya aplicado en venta-module.css y cliente-module.css: forzar
+   .hidden fuera de cualquier capa con !important para que gane siempre, también sobre .ph. */
+.hidden {
+  display: none !important;
+}
+
 /* :focus-visible e input[type] scopeados a contenedores del módulo */
 main.shell :focus-visible,
 header.topbar :focus-visible,

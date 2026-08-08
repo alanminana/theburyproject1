@@ -126,6 +126,49 @@ public class CreditoPersonalConfigUiContractTests
         Assert.DoesNotContain("totalFinanciado /", script);
     }
 
+    // -------------------------------------------------------------------------
+    // ML4 — Fase 9 (F, G): #s2 y su modal ya no pueden sugerir herencia/fallback del recargo
+    // global legacy hacia los planes de cuota, y un plan activo sin porcentaje debe mostrarse
+    // como configuracion incompleta (nunca como si mostrara "Global (X%)" o quedara mudo).
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public void SeccionS2_NoSugiereHerenciaNiFallbackDelRecargoGlobal()
+    {
+        var seccion = LeerSeccionS2ConModalCuota();
+
+        // "Nunca/no hereda..." (negación explícita) es la redacción correcta post-ML4: solo se
+        // prohíbe la afirmación sin negar, que es la que sugiere herencia real.
+        Assert.DoesNotContain("= hereda el recargo global", seccion, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Vacío = hereda global", seccion, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("recargo predeterminado para planes sin recargo", seccion, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Global (", seccion);
+        Assert.DoesNotContain("unicamente cuando un plan activo no tiene un recargo", seccion, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("únicamente cuando un plan activo no tiene un recargo", seccion, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void SeccionS2_PlanActivoSinPorcentaje_SeMuestraComoIncompletoNoComoHerencia()
+    {
+        var seccion = LeerSeccionS2ConModalCuota();
+
+        // Placeholder explicito de "falta cargar" en vez de sugerir un valor heredado.
+        Assert.Contains("Requerido si está activa (0 = sin recargo)", seccion);
+        // Aviso visual server-side cuando el modelo trae un plan activo sin TasaMensual.
+        Assert.Contains("Falta el recargo explícito de este plan activo", seccion);
+        Assert.DoesNotContain("Sin configurar", seccion, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void CampoRecargoGlobalLegacy_NoSeOfreceComoAutoridadFinanciera()
+    {
+        var seccion = LeerSeccionS2ConModalCuota();
+
+        Assert.Contains("legado", seccion, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("sin autoridad financiera", seccion, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("predeterminado para planes sin recargo propio", seccion, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static string LeerScriptDeLaVista()
     {
         var view = LeerVista();

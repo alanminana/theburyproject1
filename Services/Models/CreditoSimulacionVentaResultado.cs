@@ -39,7 +39,12 @@ public sealed class CreditoSimulacionVentaJson
     public decimal totalPlan { get; init; }
     public string fechaPrimerPago { get; init; } = string.Empty;
 
-    /// <summary>De dónde salió <see cref="tasaAplicada"/>: "Manual", "Cliente", "Producto" o "Global".</summary>
+    /// <summary>
+    /// De dónde salió <see cref="tasaAplicada"/>. ML6.1 — Contrato congelado: siempre "Plan" (el
+    /// plan de cuotas es la única fuente del porcentaje). Nunca "Producto"/"Perfil"/"Cliente"/
+    /// "Manual"/"Global": esas etiquetas describían la disponibilidad de cantidades, no la fuente
+    /// financiera.
+    /// </summary>
     public string fuentePorcentaje { get; init; } = string.Empty;
 
     /// <summary>Vector exacto de cuotas de FinancialCalculationService.SimularPlanCredito (ML3).</summary>

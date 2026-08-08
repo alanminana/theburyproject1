@@ -137,6 +137,53 @@ public class ProductoCreditoPersonalUiContractTests
         Assert.DoesNotContain("Math.pow", LeerJsCrear(), StringComparison.OrdinalIgnoreCase);
     }
 
+    // -------------------------------------------------------------------------
+    // ML5 — Producto no define porcentajes: ningún input editable de recargo/tasa en las tres
+    // superficies (modal Crear, modal Editar, página huérfana Producto/Edit_tw), en ningún caso
+    // (ni servidor-render estático ni template JS de renderCards).
+    // -------------------------------------------------------------------------
+
+    private static void AssertSeccionSinInputEditableDePorcentaje(string seccion)
+    {
+        Assert.DoesNotContain("data-cp-tasa\"", seccion);
+        Assert.DoesNotContain("data-cp-tasa ", seccion);
+        Assert.DoesNotContain("CreditoPersonal.Cuotas[i].TasaMensual\" type=\"number\"", seccion);
+        Assert.DoesNotContain("placeholder=\"Hereda global\"", seccion);
+    }
+
+    [Fact]
+    public void SeccionCrear_NoExponeInputEditableDePorcentaje()
+        => AssertSeccionSinInputEditableDePorcentaje(LeerSeccionCreditoCrear());
+
+    [Fact]
+    public void SeccionEditar_NoExponeInputEditableDePorcentaje()
+        => AssertSeccionSinInputEditableDePorcentaje(LeerSeccionCreditoEditar());
+
+    [Fact]
+    public void SeccionProductoEditTw_NoExponeInputEditableDePorcentaje()
+    {
+        var html = LeerProductoEdit();
+        var inicio = html.IndexOf("<!-- Crédito personal -->", StringComparison.Ordinal);
+        var fin = html.IndexOf("<!-- Características -->", StringComparison.Ordinal);
+        Assert.True(inicio >= 0 && fin > inicio, "No se encontró la sección Crédito personal de Producto/Edit_tw.");
+        var seccion = html[inicio..fin];
+        AssertSeccionSinInputEditableDePorcentaje(seccion);
+        // El recargo se muestra de solo lectura, sourced del plan global (ver ObtenerAsync).
+        Assert.Contains("data-cp-recargo-readonly", seccion);
+    }
+
+    [Fact]
+    public void JsCompartido_RenderCards_NoGeneraInputEditableDePorcentaje()
+    {
+        var script = LeerJsCompartido();
+
+        Assert.DoesNotContain("data-cp-tasa\"", script);
+        Assert.DoesNotContain("type=\"number\" step=\"0.01\" min=\"0\" max=\"100\"", script);
+        Assert.DoesNotContain("placeholder=\"Hereda global\"", script);
+        // El recargo por card es texto de solo lectura, no un <input>.
+        Assert.Contains("data-cp-recargo-readonly", script);
+    }
+
     private static string FindRepoRoot()
     {
         var current = new DirectoryInfo(Directory.GetCurrentDirectory());

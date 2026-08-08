@@ -4,6 +4,11 @@
  * render de las cards de plan por cantidad de cuotas, wiring del selector tri-estado
  * (Hereda global / Planes propios / No disponible) y preview server-side del recargo.
  * No calcula nada: solo pinta lo que devuelve el backend.
+ *
+ * ML5 — Contrato congelado: Producto no define porcentajes. El recargo de cada card
+ * (`c.tasaMensual`) llega ya resuelto por el backend contra el plan global vigente
+ * (`ProductoCreditoPersonalConfigService.ObtenerAsync`) — nunca se edita ni se recalcula
+ * acá. null = sin plan global para esa cantidad ("no disponible"), nunca "hereda".
  */
 (function () {
     'use strict';
@@ -39,9 +44,12 @@
 
         cuotas.forEach(function (c, i) {
             var n = Number(c.cantidadCuotas) || 0;
-            // null = heredar el recargo global -> input vacío (placeholder "Hereda global").
-            // 0 = sin recargo explícito, válido y distinto de "hereda".
-            var recargo = (c.tasaMensual != null) ? c.tasaMensual : '';
+            // Recargo ya resuelto por el backend contra el plan global (ver cabecera del
+            // archivo): null = sin plan global para esta cantidad, nunca "hereda".
+            var tasa = (c.tasaMensual != null) ? Number(c.tasaMensual) : null;
+            var recargoTexto = (tasa != null)
+                ? (formatPorcentaje(tasa) + '%')
+                : 'No disponible';
             var orden = (c.orden != null) ? c.orden : n;
             var card = document.createElement('div');
             card.className = 'rounded-xl border border-slate-800 bg-slate-950/40 p-3 space-y-2';
@@ -59,45 +67,42 @@
                     '</label>' +
                 '</div>' +
                 '<div class="space-y-1">' +
-                    '<label class="text-xs text-slate-400">Recargo total (%)</label>' +
-                    '<input data-cp-tasa name="' + fieldPrefix + '[' + i + '].TasaMensual" type="number" step="0.01" min="0" max="100" value="' + recargo + '" placeholder="Hereda global" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 font-mono text-white focus:ring-2 focus:ring-primary outline-none" />' +
+                    '<span class="text-xs text-slate-400">Recargo del plan</span>' +
+                    '<p class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 font-mono text-white" data-cp-recargo-readonly>' + recargoTexto + '</p>' +
                 '</div>' +
                 '<p data-cp-preview class="text-[11px] text-slate-400"></p>';
             cont.appendChild(card);
-            wirePreview(card, n, previewUrl);
+            wirePreview(card, n, tasa, previewUrl);
         });
     }
 
-    function wirePreview(card, cantidadCuotas, previewUrl) {
-        if (!previewUrl) return;
-        var tasaInput = card.querySelector('[data-cp-tasa]');
+    function formatPorcentaje(n) {
+        // Sin ceros de relleno artificiales (10 en vez de 10.00), pero conserva decimales reales.
+        return Number(n).toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    }
+
+    // Preview de una sola vez sobre el recargo YA resuelto por el backend (plan global); no hay
+    // input que escuchar. Sin plan global para esta cantidad (tasaMensual null) no hay nada que
+    // simular: el backend nunca inventa un porcentaje (ver ML5).
+    function wirePreview(card, cantidadCuotas, tasaMensual, previewUrl) {
         var previewEl = card.querySelector('[data-cp-preview]');
-        if (!tasaInput || !previewEl) return;
-        var timer = null;
+        if (!previewEl) return;
 
-        function actualizar() {
-            if (tasaInput.value === '') {
-                previewEl.textContent = 'Hereda el recargo global para esta cantidad.';
-                return;
-            }
-            var pct = Number(tasaInput.value);
-            if (isNaN(pct) || pct < 0) { previewEl.textContent = ''; return; }
-            var url = previewUrl + '?cuotas=' + encodeURIComponent(cantidadCuotas) + '&porcentajeRecargoTotal=' + encodeURIComponent(pct);
-            fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-                .then(function (r) { return r.ok ? r.json() : null; })
-                .then(function (data) {
-                    previewEl.textContent = data
-                        ? ('Sobre $ 100.000: recargo $ ' + formatMoney(data.recargoTotal) + ' · total $ ' + formatMoney(data.totalFinanciado) + ' · ' + textoVector(data))
-                        : '';
-                })
-                .catch(function () { previewEl.textContent = ''; });
+        if (tasaMensual == null) {
+            previewEl.textContent = 'Sin plan global para esta cantidad: no disponible para vender.';
+            return;
         }
+        if (!previewUrl) return;
 
-        tasaInput.addEventListener('input', function () {
-            clearTimeout(timer);
-            timer = setTimeout(actualizar, 350);
-        });
-        actualizar();
+        var url = previewUrl + '?cuotas=' + encodeURIComponent(cantidadCuotas) + '&porcentajeRecargoTotal=' + encodeURIComponent(tasaMensual);
+        fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (data) {
+                previewEl.textContent = data
+                    ? ('Sobre $ 100.000: recargo $ ' + formatMoney(data.recargoTotal) + ' · total $ ' + formatMoney(data.totalFinanciado) + ' · ' + textoVector(data))
+                    : '';
+            })
+            .catch(function () { previewEl.textContent = ''; });
     }
 
     // ── Selector tri-estado (Hereda global / Planes propios / No disponible) ──

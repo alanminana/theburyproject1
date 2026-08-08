@@ -37,10 +37,18 @@ namespace TheBuryProject.Models.Entities
         /// ni compuesta: se aplica una sola vez sobre el saldo financiado). El nombre de la
         /// propiedad es legacy y se conserva por compatibilidad de columna; ver
         /// <see cref="Services.Interfaces.IConfiguracionPagoService.ObtenerTasaInteresMensualCreditoPersonalAsync"/>
-        /// para la fuente canónica de lectura. Se usa como fallback cuando un plan de
-        /// <see cref="ConfiguracionCreditoPersonalCuota"/> no define su propio recargo (null).
-        /// null = nunca configurado; 0 = recargo cero explícito y válido.
+        /// para la fuente canónica de lectura. null = nunca configurado; 0 = recargo cero
+        /// explícito y válido.
         /// </summary>
+        /// <remarks>
+        /// ML2.1/ML3 — Contrato congelado: SIN autoridad financiera sobre planes de
+        /// <see cref="ConfiguracionCreditoPersonalCuota"/>. Un plan activo con <c>TasaMensual</c>
+        /// null es configuración inválida, nunca cae a este valor (dejó de ser fallback). Solo se
+        /// lee como tasa efectiva en <see cref="Services.CreditoConfiguracionVentaService"/> /
+        /// <see cref="Services.CreditoSimulacionVentaService"/> cuando no existe ninguna tabla de
+        /// planes en absoluto (<c>RigeConfiguracionUnicaGlobal</c>, solo dobles de test — el
+        /// resolutor productivo no emite ese caso) y como gate de "tasa global no configurada".
+        /// </remarks>
         [Column(TypeName = "decimal(8,4)")]
         public decimal? TasaInteresMensualCreditoPersonal { get; set; }
 

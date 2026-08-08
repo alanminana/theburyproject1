@@ -131,7 +131,12 @@ public sealed class CreditoConfiguracionVentaService : ICreditoConfiguracionVent
                     modelo.ClienteId,
                     tasaGlobal.Value);
 
-                tasaMensual = parametrosCliente.TasaMensual;
+                // ML2: el cliente ya no es autoridad del porcentaje (Fase 4 del contrato congelado).
+                // Sigue aportando el resto de los parametros no financieros (gastos administrativos);
+                // el porcentaje sale siempre del plan de cuotas resuelto, igual que en la rama global.
+                tasaMensual = planesVenta.RigeConfiguracionUnicaGlobal
+                    ? tasaGlobal.Value
+                    : planesVenta.BuscarPlan(modelo.CantidadCuotas)?.TasaMensual;
                 gastosAdministrativos = modelo.GastosAdministrativos ?? parametrosCliente.GastosAdministrativos;
                 _logger.LogInformation(
                     "CrÃ©dito {CreditoId}: Usando configuraciÃ³n del cliente {ClienteId} - Tasa: {Tasa}%, Gastos: ${Gastos}",
@@ -139,16 +144,18 @@ public sealed class CreditoConfiguracionVentaService : ICreditoConfiguracionVent
             }
             else
             {
-                // Sin tabla de planes rige la tasa unica global (compatibilidad). Con planes, la
-                // tasa la decide el servidor a partir del plan resuelto: nunca el navegador.
+                // Sin tabla de planes rige la tasa unica global (compatibilidad con dobles de test;
+                // el resolutor productivo no emite este caso). Con planes, la tasa la decide el
+                // servidor a partir del plan resuelto: nunca el navegador.
                 if (planesVenta.RigeConfiguracionUnicaGlobal)
                 {
                     tasaMensual = tasaGlobal.Value;
                 }
                 else
                 {
-                    // Tasa null en el plan = "heredar": cae a la tasa global unica.
-                    tasaMensual = planesVenta.BuscarPlan(modelo.CantidadCuotas)?.TasaMensual ?? tasaGlobal.Value;
+                    // ML2: tasa null en el plan (o plan inexistente para esta cantidad) ya no cae a
+                    // la tasa global unica: "null" es configuracion invalida, nunca "heredar".
+                    tasaMensual = planesVenta.BuscarPlan(modelo.CantidadCuotas)?.TasaMensual;
                 }
 
                 gastosAdministrativos = modelo.GastosAdministrativos ?? 0m;
@@ -166,6 +173,16 @@ public sealed class CreditoConfiguracionVentaService : ICreditoConfiguracionVent
                     nameof(modelo.TasaMensual),
                     "La tasa de interÃ©s no puede ser negativa en modo Manual.");
             }
+
+            // ML2.1 — Contrato congelado (Fase 4): el plan de cuotas es la unica autoridad del
+            // porcentaje, tambien en modo Manual. Sin tabla de planes en absoluto (legado, solo
+            // dobles de test) se conserva la tasa que cargo el operador: no hay otra autoridad a
+            // la que recurrir. Con tabla de planes, el porcentaje SIEMPRE sale del plan — incluido
+            // cuando es null (plan sin porcentaje explicito = invalido): el valor manual nunca
+            // actua como rescate, se descarta aunque el plan no fije nada.
+            tasaMensual = planesVenta.RigeConfiguracionUnicaGlobal
+                ? tasaMensual
+                : planesVenta.BuscarPlan(modelo.CantidadCuotas)?.TasaMensual;
 
             _logger.LogInformation(
                 "CrÃ©dito {CreditoId}: ConfiguraciÃ³n manual - Tasa: {Tasa}%, Gastos: ${Gastos}",
@@ -212,6 +229,21 @@ public sealed class CreditoConfiguracionVentaService : ICreditoConfiguracionVent
                 MotivoRechazoConfiguracionCredito.Conflicto);
         }
 
+        // ML2.1 — Contrato congelado (Fase 5): un plan activo sin porcentaje explicito es
+        // configuracion invalida, nunca "0% silencioso". Se valida el plan en si (no la variable
+        // tasaMensual ya resuelta arriba) para cubrir los tres metodos de calculo por igual.
+        if (!planesVenta.RigeConfiguracionUnicaGlobal &&
+            planesVenta.BuscarPlan(modelo.CantidadCuotas)!.TasaMensual is null)
+        {
+            return CreditoConfiguracionVentaResultado.Invalido(
+                nameof(modelo.CantidadCuotas),
+                $"El plan de cuotas para {modelo.CantidadCuotas} cuotas no tiene un porcentaje financiero " +
+                "configurado. Configure el porcentaje en Administracion -> Credito Personal antes de " +
+                "financiar con esta cantidad.",
+                rangoEfectivo,
+                MotivoRechazoConfiguracionCredito.Conflicto);
+        }
+
         if (modelo.CantidadCuotas < cuotasMinPermitidas || modelo.CantidadCuotas > cuotasMaxPermitidas)
         {
             // Si el tope lo impuso un producto es un conflicto con la venta; si es el rango propio
@@ -238,7 +270,11 @@ public sealed class CreditoConfiguracionVentaService : ICreditoConfiguracionVent
             Monto                       = montoAutoritativo,
             Anticipo                    = anticipo,
             CantidadCuotas              = modelo.CantidadCuotas,
-            TasaMensual                 = tasaMensual ?? 0,
+            // ML2.1: a esta altura ya se rechazo toda combinacion con porcentaje invalido (Fase 5,
+            // gate arriba). Nunca coalesce a 0 en silencio: si esta invariante se rompiera, el
+            // comando debe fallar ruidosamente en vez de persistir un 0% no configurado.
+            TasaMensual                 = tasaMensual ?? throw new InvalidOperationException(
+                "TasaMensual no deberia ser null luego de validar el plan de cuotas."),
             GastosAdministrativos       = gastosAdministrativos,
             FechaPrimeraCuota           = modelo.FechaPrimeraCuota,
             MetodoCalculo               = modelo.MetodoCalculo.Value,

@@ -665,11 +665,13 @@ namespace TheBuryProject.Services
         /// <summary>
         /// Fuente canónica del porcentaje de recargo TOTAL único global de Crédito Personal
         /// (no es una tasa mensual ni compuesta: ver <see cref="ConfiguracionPago.TasaInteresMensualCreditoPersonal"/>).
-        /// Es el valor que heredan los planes de <see cref="ConfiguracionCreditoPersonalCuota"/>
-        /// cuya <c>TasaMensual</c> propia es <c>null</c>. Devuelve <c>null</c> únicamente cuando
-        /// no existe configuración persistida o cuando el valor nunca fue definido — NUNCA cuando
-        /// el valor configurado es exactamente 0: un recargo de 0 % es un plan válido (sin
-        /// recargo) y debe distinguirse de "no configurado".
+        /// LEGADO (ML4) — SIN autoridad financiera sobre <see cref="ConfiguracionCreditoPersonalCuota"/>:
+        /// un plan con <c>TasaMensual</c> propia <c>null</c> es configuración inválida y nunca hereda
+        /// este valor (dejó de ser fallback desde ML2.1/ML2). Solo lo consumen los resolutores de
+        /// venta como tasa única cuando no existe ninguna tabla de planes en absoluto (legado, solo
+        /// dobles de test). Devuelve <c>null</c> únicamente cuando no existe configuración persistida
+        /// o cuando el valor nunca fue definido — NUNCA cuando el valor configurado es exactamente 0:
+        /// un recargo de 0 % es válido y debe distinguirse de "no configurado".
         /// </summary>
         public async Task<decimal?> ObtenerTasaInteresMensualCreditoPersonalAsync()
         {
@@ -1025,10 +1027,13 @@ namespace TheBuryProject.Services
                 ? FuenteConfiguracionCredito.PorCliente
                 : FuenteConfiguracionCredito.Global;
 
-            // Cadena de prioridad: personalizado > perfil preferido > global
-            var tasaMensual = tieneConfigPersonalizada
-                ? (cliente!.TasaInteresMensualPersonalizada ?? perfil?.TasaMensual ?? tasaGlobal)
-                : (perfil?.TasaMensual ?? tasaGlobal);
+            // ML2.1 — Fase 3 del contrato congelado: ni el perfil preferido ni la personalizacion
+            // propia del cliente son autoridad del porcentaje financiero (el plan de cuotas global
+            // resuelto por CreditoConfiguracionVentaService/CreditoSimulacionVentaService lo es
+            // siempre). Este campo queda como dato informativo/legado — p. ej. para prellenar el
+            // formulario antes de elegir plan — y por eso ya no arma una cascada personalizado >
+            // perfil > global: siempre refleja la tasa global unica tal cual.
+            var tasaMensual = tasaGlobal;
 
             var gastos = tieneConfigPersonalizada
                 ? (cliente!.GastosAdministrativosPersonalizados ?? perfil?.GastosAdministrativos ?? defaults.GastosAdministrativos)
@@ -1341,7 +1346,7 @@ namespace TheBuryProject.Services
                 return globales.Count == 0
                     ? PlanesCreditoPersonalResultado.SinPlanesGlobales(SinPlanesGlobalesMensaje)
                     : PlanesCreditoPersonalResultado.Resuelto(
-                        await ConstruirPlanesSoloGlobalesAsync(globales),
+                        ConstruirPlanesSoloGlobales(globales),
                         OrigenPlanesCredito.Global);
 
             var planesProducto = await _context.ProductoCreditoPersonalCuotas
@@ -1363,7 +1368,7 @@ namespace TheBuryProject.Services
                 return globales.Count == 0
                     ? PlanesCreditoPersonalResultado.SinPlanesGlobales(SinPlanesGlobalesMensaje)
                     : PlanesCreditoPersonalResultado.Resuelto(
-                        await ConstruirPlanesSoloGlobalesAsync(globales),
+                        ConstruirPlanesSoloGlobales(globales),
                         OrigenPlanesCredito.Global);
 
             // Cantidades efectivas: interseccion de los sets de cada producto con planes propios.
@@ -1397,36 +1402,28 @@ namespace TheBuryProject.Services
                     ComponerMensajeSinInterseccion(cantidadesPorProducto),
                     cantidadesPorProducto);
 
-            // Tasa unica global (nivel 1). Ultimo eslabon de la herencia cuando una cuota
-            // (de producto o global) tiene TasaMensual null = "heredar". Puede ser null si no
-            // esta configurada. Se resuelve siempre porque cualquier plan puede venir en null.
-            var tasaGlobalUnica = await ObtenerTasaInteresMensualCreditoPersonalAsync();
-
+            // ML2 — Contrato congelado: el plan de cuotas es la UNICA autoridad del porcentaje.
+            // Cuando existe una cuota global (ConfiguracionCreditoPersonalCuota) para esta cantidad,
+            // su TasaMensual es el porcentaje resuelto tal cual — incluido null, que significa
+            // "plan activo sin porcentaje explicito" = configuracion invalida, nunca "heredar" (ni
+            // de la tasa propia del producto, ni de la tasa unica global, que dejo de ser fallback).
+            // La tasa propia de ProductoCreditoPersonalCuota queda como dato legacy: solo decide
+            // que cantidades ofrece ese producto, no el porcentaje, y solo se usa cuando NINGUNA
+            // cuota global cubre esa cantidad (unica fuente disponible en ese caso).
             var resultado = new List<PlanCuotaCreditoPersonal>();
             foreach (var cantidad in cantidades.OrderBy(c => c))
             {
-                // Herencia para esta cantidad: cuota-global.tasa ?? tasa-unica-global.
-                var tasaGlobalCuota = globales.FirstOrDefault(g => g.CantidadCuotas == cantidad)?.TasaMensual;
-                var tasaGlobalEfectiva = tasaGlobalCuota ?? tasaGlobalUnica;
+                var entradaGlobal = globales.FirstOrDefault(g => g.CantidadCuotas == cantidad);
 
-                // Cada plan de producto aporta su tasa propia; null = heredar la efectiva global.
-                // Una tasa 0 explicita es un valor valido y no se reemplaza por la global.
-                var tasas = planesProducto
-                    .Where(p => p.CantidadCuotas == cantidad)
-                    .Select(p => p.TasaMensual ?? tasaGlobalEfectiva)
-                    .Where(t => t.HasValue)
-                    .Select(t => t!.Value)
-                    .ToList();
-
-                if (hayProductoSinPlanes && tasaGlobalEfectiva.HasValue)
-                    tasas.Add(tasaGlobalEfectiva.Value);
+                // ML2.1 — Contrato congelado: el plan global de cuotas es la UNICA autoridad del
+                // porcentaje. Sin cuota global para esta cantidad no hay porcentaje valido: null
+                // (invalido), nunca la tasa propia del producto (que dejo de ser fuente de
+                // porcentaje; solo sigue decidiendo que cantidades ofrece ese producto, arriba).
+                decimal? tasaResuelta = entradaGlobal?.TasaMensual;
 
                 resultado.Add(new PlanCuotaCreditoPersonal(
                     cantidad,
-                    // Max = criterio conservador entre productos de la misma venta. null solo si
-                    // ninguna tasa es resoluble (tasa unica global sin configurar); el consumidor
-                    // final la resuelve contra la tasa global.
-                    tasas.Count > 0 ? tasas.Max() : (decimal?)null,
+                    tasaResuelta,
                     planesProducto
                         .Where(p => p.CantidadCuotas == cantidad)
                         .Select(p => p.ProductoId)
@@ -1442,16 +1439,16 @@ namespace TheBuryProject.Services
                 cantidadesPorProducto);
         }
 
-        private async Task<IReadOnlyList<PlanCuotaCreditoPersonal>> ConstruirPlanesSoloGlobalesAsync(
+        private static IReadOnlyList<PlanCuotaCreditoPersonal> ConstruirPlanesSoloGlobales(
             List<CuotaCreditoPersonalViewModel> globales)
         {
-            var tasaGlobalUnica = await ObtenerTasaInteresMensualCreditoPersonalAsync();
-
+            // ML2: la tasa de cada cuota global es la resolucion final, sin fallback a la tasa
+            // unica global. null = plan activo sin porcentaje explicito (configuracion invalida).
             return globales
                 .OrderBy(g => g.CantidadCuotas)
                 .Select(g => new PlanCuotaCreditoPersonal(
                     g.CantidadCuotas,
-                    g.TasaMensual ?? tasaGlobalUnica,
+                    g.TasaMensual,
                     Array.Empty<int>(),
                     true))
                 .ToArray();
@@ -1504,6 +1501,19 @@ namespace TheBuryProject.Services
 
             if (items.Any(i => i.TasaMensual < 0))
                 errores.Add("Las tasas mensuales no pueden ser negativas.");
+
+            // ML4 — Fase 6, contrato congelado: un plan activo requiere un recargo explicito.
+            // 0 % es valido; null nunca se guarda para un plan activo (no hay fallback al
+            // recargo global legacy, que dejo de tener autoridad desde ML2.1). Un plan inactivo
+            // puede conservar un porcentaje historico null: solo se valida cuando Activo = true.
+            var activasSinPorcentaje = items
+                .Where(i => i.Activo && !i.TasaMensual.HasValue)
+                .Select(i => i.CantidadCuotas)
+                .ToList();
+            if (activasSinPorcentaje.Any())
+                errores.Add(
+                    "Los planes activos deben tener un recargo total explicito (0 % es valido, nunca " +
+                    $"hereda el recargo global): cantidad de cuotas {string.Join(", ", activasSinPorcentaje)}.");
 
             if (errores.Any())
                 return (false, errores);

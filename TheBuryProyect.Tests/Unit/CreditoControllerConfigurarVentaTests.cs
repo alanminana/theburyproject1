@@ -92,6 +92,35 @@ public class CreditoControllerConfigurarVentaTests
         Assert.Equal(125m, perfil.GastosAdministrativos);
     }
 
+    // ML6 — Fase 3, test obligatorio: el GET no debe presentar ninguna tasa legacy (cliente,
+    // perfil o global) como si fuera el porcentaje financiero; Método/Fuente quedan fijos en
+    // Global, sin autoridad, sólo por compatibilidad de binding con el POST.
+    [Fact]
+    public async Task ConfigurarVentaGet_NoPrecargaTasaLegacyYFijaMetodoFuenteEnGlobal()
+    {
+        var configService = ConfigService(
+            tasaGlobal: 6m,
+            parametros: new ParametrosCreditoCliente
+            {
+                Fuente = FuenteConfiguracionCredito.PorCliente,
+                TieneTasaPersonalizada = true,
+                TasaPersonalizada = 7.5m,
+                TasaMensual = 7.5m,
+                GastosAdministrativos = 125m,
+                TieneConfiguracionPersonalizada = true,
+                PerfilPreferidoId = 2
+            });
+        var controller = CrearController(new RecordingCreditoService(CreditoBase()), configService);
+
+        var result = await controller.ConfigurarVenta(id: 10, ventaId: null);
+
+        var model = AssertViewModel(result);
+        Assert.Null(model.TasaMensual);
+        Assert.Equal(FuenteConfiguracionCredito.Global, model.FuenteConfiguracion);
+        Assert.Equal(MetodoCalculoCredito.Global, model.MetodoCalculo);
+        Assert.Null(model.PerfilCreditoSeleccionadoId);
+    }
+
     [Fact]
     public async Task ConfigurarVentaPost_RechazaTasaGlobalAusente()
     {
@@ -144,11 +173,22 @@ public class CreditoControllerConfigurarVentaTests
         AssertViewWithModelError(result, controller, nameof(modelo.TasaMensual), "negativa");
     }
 
+    // ML2.1: 0% sigue siendo un porcentaje valido y explicito — pero la autoridad es siempre el
+    // plan, tambien en modo Manual. El plan de la cantidad elegida (6, la default de ModeloPost)
+    // declara 0% explicito para que el resultado coincida con lo cargado por el operador porque
+    // el plan tambien vale 0%, no porque Manual "gane".
     [Fact]
     public async Task ConfigurarVentaPost_AceptaTasaManualCero()
     {
         var creditoService = new RecordingCreditoService(CreditoBase());
-        var controller = CrearController(creditoService, ConfigService(tasaGlobal: 5m));
+        var controller = CrearController(
+            creditoService,
+            ConfigService(
+                tasaGlobal: 5m,
+                cuotas: new List<CuotaCreditoPersonalViewModel>
+                {
+                    new() { CantidadCuotas = 6, TasaMensual = 0m, Activo = true }
+                }));
         var modelo = ModeloPost(FuenteConfiguracionCredito.Manual, MetodoCalculoCredito.Manual);
         modelo.TasaMensual = 0m;
 
@@ -157,6 +197,60 @@ public class CreditoControllerConfigurarVentaTests
         Assert.IsType<RedirectToActionResult>(result);
         Assert.NotNull(creditoService.LastCommand);
         Assert.Equal(0m, creditoService.LastCommand!.TasaMensual);
+    }
+
+    // ML6 — Fase 5, test obligatorio: "Payload 99% + plan 8% => resultado 8%". El payload es el
+    // peor caso posible (Manual/Manual, la única combinación con la que el service llegaría a
+    // mirar modelo.TasaMensual): aun así el plan de la cantidad elegida manda siempre.
+    [Fact]
+    public async Task ConfigurarVentaPost_PayloadManipuladoConTasaDelPlan_IgnoraLaTasaEnviadaYUsaElPlan()
+    {
+        var creditoService = new RecordingCreditoService(CreditoBase());
+        var controller = CrearController(
+            creditoService,
+            ConfigService(
+                tasaGlobal: 5m,
+                cuotas: new List<CuotaCreditoPersonalViewModel>
+                {
+                    new() { CantidadCuotas = 6, TasaMensual = 8m, Activo = true }
+                }));
+        var modelo = ModeloPost(FuenteConfiguracionCredito.Manual, MetodoCalculoCredito.Manual);
+        modelo.TasaMensual = 99m; // el operador (o un DevTools) intenta pisar el 8% del plan
+
+        var result = await controller.ConfigurarVenta(modelo);
+
+        Assert.IsType<RedirectToActionResult>(result);
+        Assert.NotNull(creditoService.LastCommand);
+        Assert.NotEqual(99m, creditoService.LastCommand!.TasaMensual);
+        Assert.Equal(8m, creditoService.LastCommand.TasaMensual);
+    }
+
+    // ML6 — test obligatorio: variar Manual/PorCliente/Perfil sin cambiar el plan da el mismo
+    // resultado financiero — el método/fuente nunca deciden el porcentaje.
+    [Theory]
+    [InlineData(FuenteConfiguracionCredito.Global, MetodoCalculoCredito.Global)]
+    [InlineData(FuenteConfiguracionCredito.Manual, MetodoCalculoCredito.Manual)]
+    [InlineData(FuenteConfiguracionCredito.PorCliente, MetodoCalculoCredito.Global)]
+    public async Task ConfigurarVentaPost_VariarMetodoFuenteSinCambiarPlan_ResultadoIdentico(
+        FuenteConfiguracionCredito fuente, MetodoCalculoCredito metodo)
+    {
+        var creditoService = new RecordingCreditoService(CreditoBase());
+        var controller = CrearController(
+            creditoService,
+            ConfigService(
+                tasaGlobal: 5m,
+                cuotas: new List<CuotaCreditoPersonalViewModel>
+                {
+                    new() { CantidadCuotas = 6, TasaMensual = 8m, Activo = true }
+                }));
+        var modelo = ModeloPost(fuente, metodo);
+        modelo.TasaMensual = fuente == FuenteConfiguracionCredito.Manual ? 99m : modelo.TasaMensual;
+
+        var result = await controller.ConfigurarVenta(modelo);
+
+        Assert.IsType<RedirectToActionResult>(result);
+        Assert.NotNull(creditoService.LastCommand);
+        Assert.Equal(8m, creditoService.LastCommand!.TasaMensual);
     }
 
     [Fact]
@@ -405,7 +499,8 @@ public class CreditoControllerConfigurarVentaTests
         decimal? tasaGlobal,
         ParametrosCreditoCliente? parametros = null,
         List<PerfilCreditoViewModel>? perfiles = null,
-        (int Min, int Max, string Descripcion, string? PerfilNombre)? rango = null)
+        (int Min, int Max, string Descripcion, string? PerfilNombre)? rango = null,
+        List<CuotaCreditoPersonalViewModel>? cuotas = null)
     {
         return new StubConfiguracionPagoService
         {
@@ -417,9 +512,19 @@ public class CreditoControllerConfigurarVentaTests
                 GastosAdministrativos = 0m
             },
             Perfiles = perfiles ?? new List<PerfilCreditoViewModel>(),
-            Rango = rango ?? (1, 120, "Manual", null)
+            Rango = rango ?? (1, 120, "Manual", null),
+            CuotasCreditoPersonal = cuotas ?? PlanesGlobalesPorDefecto(tasaGlobal ?? 0m)
         };
     }
+
+    // ML2.1: cada cantidad trae un porcentaje EXPLICITO (igual a tasaGlobal, valor de conveniencia
+    // del fixture) — un plan con TasaMensual null es "configuracion invalida" bajo el contrato
+    // nuevo, no un default neutro. Los tests que necesitan ejercer ese caso puntual pasan su
+    // propio `cuotas` con TasaMensual = null explicito.
+    private static List<CuotaCreditoPersonalViewModel> PlanesGlobalesPorDefecto(decimal tasa) =>
+        Enumerable.Range(1, 24)
+            .Select(n => new CuotaCreditoPersonalViewModel { CantidadCuotas = n, TasaMensual = tasa, Activo = true })
+            .ToList();
 
     private static CreditoViewModel CreditoBase(decimal montoAprobado = 0m, decimal montoSolicitado = 10_000m) =>
         new()
@@ -554,13 +659,13 @@ public class CreditoControllerConfigurarVentaTests
         public List<PerfilCreditoViewModel> Perfiles { get; init; } = new();
         public (int Min, int Max, string Descripcion, string? PerfilNombre) Rango { get; init; } = (1, 120, "Manual", null);
 
-        // Micro-lote 4: los planes globales activos son la unica fuente de cantidades. En produccion
-        // siempre existen; el stub ofrece 1..24 (tasa null = heredar la global) salvo que el test
-        // seedee otra cosa, para que la configuracion no sea rechazada por "sin planes globales".
-        public List<CuotaCreditoPersonalViewModel> CuotasCreditoPersonal { get; init; } =
-            Enumerable.Range(1, 24)
-                .Select(n => new CuotaCreditoPersonalViewModel { CantidadCuotas = n, TasaMensual = null, Activo = true })
-                .ToList();
+        // Micro-lote 4: los planes globales activos son la unica fuente de cantidades. En
+        // produccion siempre existen; ConfigService() ofrece 1..24 salvo que el test seedee otra
+        // cosa, para que la configuracion no sea rechazada por "sin planes globales". ML2.1: cada
+        // plan trae un porcentaje EXPLICITO (nunca null aqui — ver PlanesGlobalesPorDefecto): un
+        // plan con TasaMensual null es "configuracion invalida" bajo el contrato nuevo, no un
+        // default neutro.
+        public List<CuotaCreditoPersonalViewModel> CuotasCreditoPersonal { get; init; } = new();
 
         public Task<decimal?> ObtenerTasaInteresMensualCreditoPersonalAsync() => Task.FromResult(TasaGlobal);
         public Task<List<PerfilCreditoViewModel>> GetPerfilesCreditoActivosAsync() => Task.FromResult(Perfiles);

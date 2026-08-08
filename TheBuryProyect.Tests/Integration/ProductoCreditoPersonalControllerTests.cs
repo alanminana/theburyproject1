@@ -173,8 +173,11 @@ public class ProductoCreditoPersonalControllerTests : IDisposable
             .OrderBy(c => c.CantidadCuotas)
             .ToListAsync();
         Assert.Equal(2, cuotas.Count);
-        Assert.Equal(0m, cuotas[0].TasaMensual);
-        Assert.Equal(10m, cuotas[1].TasaMensual);
+        Assert.True(cuotas[0].Activo);
+        Assert.True(cuotas[1].Activo);
+        // ML5: el 0% y el 10% enviados nunca se persisten como autoridad del producto.
+        Assert.Null(cuotas[0].TasaMensual);
+        Assert.Null(cuotas[1].TasaMensual);
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -235,6 +238,11 @@ public class ProductoCreditoPersonalControllerTests : IDisposable
     public async Task EditAjax_ConPlanesPropios_GetJsonPrecargaTodoElEstadoGuardado()
     {
         var producto = await SeedProductoAsync();
+        // ML5: el recargo que precarga GetJson sale del plan global vigente, nunca del payload
+        // que se mandó a guardar (3 cuotas: 0% enviado vs 2% global; 9 cuotas: coincide en 15%).
+        await SeedPlanGlobalAsync(3, 2m);
+        await SeedPlanGlobalAsync(9, 15m);
+
         var vm = ProductoViewModelParaEditar(producto);
         vm.CreditoPersonal = new ProductoCreditoPersonalConfigViewModel
         {
@@ -263,9 +271,14 @@ public class ProductoCreditoPersonalControllerTests : IDisposable
         var plan3 = cuotasJson.Single(c => c.GetProperty("cantidadCuotas").GetInt32() == 3);
         var plan9 = cuotasJson.Single(c => c.GetProperty("cantidadCuotas").GetInt32() == 9);
         Assert.True(plan3.GetProperty("activo").GetBoolean());
-        Assert.Equal(0m, plan3.GetProperty("tasaMensual").GetDecimal());
+        Assert.Equal(2m, plan3.GetProperty("tasaMensual").GetDecimal()); // global, no el 0% enviado
         Assert.True(plan9.GetProperty("activo").GetBoolean());
         Assert.Equal(15m, plan9.GetProperty("tasaMensual").GetDecimal());
+
+        // La columna legacy del producto, en cambio, nunca recibió el 0%/15% del payload.
+        var persistidas = await _context.ProductoCreditoPersonalCuotas
+            .Where(c => c.ProductoId == producto.Id).ToListAsync();
+        Assert.All(persistidas, p => Assert.Null(p.TasaMensual));
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -275,6 +288,10 @@ public class ProductoCreditoPersonalControllerTests : IDisposable
     [Fact]
     public async Task CrearYEditar_ConElMismoPayloadDeCredito_PersistenElMismoEstado()
     {
+        // ML5: el recargo que devuelve GetJson sale del plan global, no del payload — sin un plan
+        // global para 6 cuotas, tasaMensual sería JSON null en ambos lados y GetDecimal() lanzaría.
+        await SeedPlanGlobalAsync(6, 8m);
+
         ProductoCreditoPersonalConfigViewModel Config() => new()
         {
             Modo = ModoCreditoPersonalProducto.ConfiguracionPropia,
@@ -487,7 +504,7 @@ public class ProductoCreditoPersonalControllerTests : IDisposable
         // fallara; el rollback de la transacción ambiente debe revertir esa inserción también.
         Assert.False(await _context.Productos.AnyAsync(p => p.Codigo == vm.Codigo));
         Assert.Empty(await _context.ProductoCreditoPersonalCuotas
-            .Where(c => c.CantidadCuotas == 6 && c.TasaMensual == 8m).ToListAsync());
+            .Where(c => c.CantidadCuotas == 6).ToListAsync());
     }
 
     [Fact]
@@ -509,8 +526,7 @@ public class ProductoCreditoPersonalControllerTests : IDisposable
         var doc = ParseJson(result!.Value);
         Assert.False(doc.RootElement.GetProperty("success").GetBoolean());
         Assert.False(await _context.Productos.AnyAsync(p => p.Codigo == vm.Codigo));
-        Assert.Empty(await _context.ProductoCreditoPersonalCuotas
-            .Where(c => c.TasaMensual == 5m || c.TasaMensual == 8m).ToListAsync());
+        Assert.Empty(await _context.ProductoCreditoPersonalCuotas.Where(c => c.CantidadCuotas == 6).ToListAsync());
     }
 
     [Fact]
@@ -539,8 +555,10 @@ public class ProductoCreditoPersonalControllerTests : IDisposable
         await using var otroContext = new AppDbContext(otrasOptions);
 
         Assert.True(await otroContext.Productos.AnyAsync(p => p.Id == productoId));
-        Assert.Equal(1, await otroContext.ProductoCreditoPersonalCuotas
-            .CountAsync(c => c.ProductoId == productoId && c.CantidadCuotas == 6 && c.TasaMensual == 8m));
+        var cuotaCommiteada = await otroContext.ProductoCreditoPersonalCuotas
+            .SingleAsync(c => c.ProductoId == productoId && c.CantidadCuotas == 6);
+        Assert.True(cuotaCommiteada.Activo);
+        Assert.Null(cuotaCommiteada.TasaMensual); // ML5: el 8% del payload nunca se persiste
     }
 
     [Fact]
@@ -568,8 +586,10 @@ public class ProductoCreditoPersonalControllerTests : IDisposable
 
         var productoDesdeOtraConexion = await otroContext.Productos.AsNoTracking().SingleAsync(p => p.Id == producto.Id);
         Assert.Equal(777m, productoDesdeOtraConexion.PrecioVenta);
-        Assert.Equal(1, await otroContext.ProductoCreditoPersonalCuotas
-            .CountAsync(c => c.ProductoId == producto.Id && c.CantidadCuotas == 9 && c.TasaMensual == 12m));
+        var cuotaCommiteada = await otroContext.ProductoCreditoPersonalCuotas
+            .SingleAsync(c => c.ProductoId == producto.Id && c.CantidadCuotas == 9);
+        Assert.True(cuotaCommiteada.Activo);
+        Assert.Null(cuotaCommiteada.TasaMensual); // ML5: el 12% del payload nunca se persiste
     }
 
     [Fact]
@@ -606,7 +626,7 @@ public class ProductoCreditoPersonalControllerTests : IDisposable
             .AsNoTracking().Where(c => c.ProductoId == producto.Id).ToListAsync();
         Assert.Single(cuotasTrasSegundoGuardado); // no se duplicó la fila
         Assert.Equal(cuotasTrasPrimerGuardado[0].Id, cuotasTrasSegundoGuardado[0].Id);
-        Assert.Equal(8m, cuotasTrasSegundoGuardado[0].TasaMensual);
+        Assert.Null(cuotasTrasSegundoGuardado[0].TasaMensual); // ML5: el 8% del payload nunca se persiste
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -663,6 +683,23 @@ public class ProductoCreditoPersonalControllerTests : IDisposable
         _context.Marcas.Add(marca);
         await _context.SaveChangesAsync();
         return (cat, marca);
+    }
+
+    /// <summary>
+    /// Alta directa de un plan global activo (<c>ConfiguracionCreditoPersonalCuota</c>) para que
+    /// el editor de Producto (ML5) tenga un recargo real que mostrar — el recargo de un producto
+    /// nunca sale de su propia columna legacy, siempre del plan global vigente para esa cantidad.
+    /// </summary>
+    private async Task SeedPlanGlobalAsync(int cantidadCuotas, decimal tasaMensual)
+    {
+        _context.ConfiguracionCreditoPersonalCuotas.Add(new ConfiguracionCreditoPersonalCuota
+        {
+            CantidadCuotas = cantidadCuotas,
+            TasaMensual = tasaMensual,
+            Activo = true,
+            Orden = cantidadCuotas
+        });
+        await _context.SaveChangesAsync();
     }
 
     private async Task<Producto> SeedProductoAsync(decimal precioVenta = 100m)

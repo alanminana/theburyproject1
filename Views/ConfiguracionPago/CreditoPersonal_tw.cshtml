@@ -305,11 +305,10 @@
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div class="space-y-4">
                         <div>
-                            <label asp-for="DefaultsGlobales.TasaMensual" class="cp-label">Recargo total predeterminado para planes sin recargo propio (%)</label>
+                            <label asp-for="DefaultsGlobales.TasaMensual" class="cp-label">Recargo global histórico (legado, sin uso en planes)</label>
                             <input asp-for="DefaultsGlobales.TasaMensual" type="number" step="0.01" min="0" max="100"
-                                   readonly="@(!puedeEditar)" class="cp-field" data-summary="tasa"
-                                   data-preview-porcentaje data-preview-cuotas="1" data-preview-target="s2-recargo-hint" />
-                            <p class="cp-hint">Se aplica <strong class="text-slate-300">una sola vez</strong> sobre el saldo financiado (no es mensual ni se compone). Se utiliza <strong class="text-slate-300">únicamente</strong> cuando un plan activo no tiene un recargo específico propio. Un recargo de 0 % configurado en el plan no hereda este valor. <span id="s2-recargo-hint" class="text-cyan-400/80 font-mono" data-preview-out></span></p>
+                                   readonly="@(!puedeEditar)" class="cp-field" data-summary="tasa" />
+                            <p class="cp-hint">Valor legado sin autoridad financiera: <strong class="text-slate-300">ningún</strong> plan de cuotas lo hereda ni lo usa como respaldo. Los planes de la sección "Recargo por cantidad de cuotas" (abajo) son la única fuente del recargo aplicado en una venta; cada uno requiere su propio porcentaje explícito.</p>
                             <span asp-validation-for="DefaultsGlobales.TasaMensual" class="text-xs text-red-500"></span>
                         </div>
 
@@ -388,8 +387,10 @@
                     <span asp-validation-for="CuotasCreditoPersonal" class="block mb-3 text-xs text-red-400"></span>
 
                     <p class="cp-hint mb-3">
-                        <span class="font-semibold text-cyan-300">Recargo vacío</span> = hereda el recargo global
-                        (@dg.TasaMensual.ToString("0.##")%). <span class="font-semibold text-cyan-300">0</span> = sin recargo.
+                        Cada plan activo requiere su <span class="font-semibold text-cyan-300">propio recargo explícito</span>:
+                        nunca hereda el recargo global legado. <span class="font-semibold text-cyan-300">0</span> = sin
+                        recargo (válido). <span class="font-semibold text-amber-300">Vacío</span> en un plan activo es
+                        una configuración inválida que el guardado rechaza.
                         El porcentaje se aplica <strong class="text-slate-300">una única vez</strong> sobre el saldo
                         financiado (ej: 6 cuotas al 10 % sobre $100.000 → recargo $10.000, total financiado $110.000). No se aplica mes a mes ni se compone.
                     </p>
@@ -419,9 +420,13 @@
                                     <div class="mt-3">
                                         <label asp-for="CuotasCreditoPersonal[i].TasaMensual" class="cp-label">Recargo total (%)</label>
                                         <input asp-for="CuotasCreditoPersonal[i].TasaMensual" type="number" step="0.01" min="0" max="100"
-                                               readonly="@(!puedeEditar)" placeholder="Global (@dg.TasaMensual.ToString("0.##")%)" class="cp-field font-mono"
+                                               readonly="@(!puedeEditar)" placeholder="Requerido si está activa (0 = sin recargo)" class="cp-field font-mono"
                                                data-preview-porcentaje data-preview-cuotas="@cuota.CantidadCuotas" data-preview-target="preview-cuota-@i" />
                                         <span asp-validation-for="CuotasCreditoPersonal[i].TasaMensual" class="text-xs text-red-400"></span>
+                                        @if (cuota.Activo && !cuota.TasaMensual.HasValue)
+                                        {
+                                            <p class="cp-hint text-amber-300">⚠ Falta el recargo explícito de este plan activo: no hereda ningún valor global, el guardado lo va a rechazar.</p>
+                                        }
                                         <p class="cp-hint" id="preview-cuota-@i" data-preview-out>Ejemplo sobre $100.000: —</p>
                                     </div>
                                 </div>
@@ -984,7 +989,7 @@
                     </div>
                     <div>
                         <label for="nuevaCuotaTasaMensual" class="cp-label">Recargo total (%)</label>
-                        <input id="nuevaCuotaTasaMensual" name="nuevaCuotaTasaMensual" type="number" step="0.01" min="0" max="100" value="" placeholder="Vacío = hereda global" class="cp-field font-mono"
+                        <input id="nuevaCuotaTasaMensual" name="nuevaCuotaTasaMensual" type="number" step="0.01" min="0" max="100" value="" placeholder="Requerido si está activa (0 = sin recargo)" class="cp-field font-mono"
                                data-preview-porcentaje data-preview-cuotas-input="nuevaCuotaCantidad" data-preview-target="preview-nueva-cuota" />
                     </div>
                     <div class="sm:col-span-2">
@@ -1084,20 +1089,12 @@
             var out = document.getElementById(input.getAttribute('data-preview-target') || '');
             var cuotas = resolverCuotasPreview(input);
             var porcentajeRaw = input.value;
-            var hereda = false;
 
             if (!out) return;
 
-            // Recargo propio vacio = hereda el recargo global (misma regla que persiste el
-            // guardado): la previsualizacion debe reflejar el valor efectivo, no quedar en blanco.
-            if (porcentajeRaw === '') {
-                var globalInput = document.querySelector('[data-summary="tasa"]');
-                if (globalInput && globalInput !== input && globalInput.value !== '') {
-                    porcentajeRaw = globalInput.value;
-                    hereda = true;
-                }
-            }
-
+            // ML4: recargo propio vacio NUNCA hereda el recargo global (dejo de ser fallback
+            // desde ML2.1/ML2). Sin porcentaje propio no hay preview posible: el plan queda
+            // incompleto y el guardado lo va a rechazar si esta activo.
             if (porcentajeRaw === '' || cuotas === null) {
                 out.textContent = '';
                 return;
@@ -1116,9 +1113,8 @@
                 .then(function (r) { return r.ok ? r.json() : null; })
                 .then(function (data) {
                     if (!data) { out.textContent = ''; return; }
-                    var prefijo = hereda ? '(hereda global, ' + porcentaje + ' %) ' : '';
                     if (cuotas <= 1) {
-                        out.textContent = prefijo + 'Recargo ' + moneyPreview(data.recargoTotal) +
+                        out.textContent = 'Recargo ' + moneyPreview(data.recargoTotal) +
                             ' · Total financiado ' + moneyPreview(data.totalFinanciado);
                         return;
                     }
@@ -1133,7 +1129,7 @@
                         ? (cuotas + ' cuotas de ' + moneyPreview(regular))
                         : ((cuotas - 1) + ' cuotas de ' + moneyPreview(regular) +
                             ' · última cuota ' + moneyPreview(ultima));
-                    out.textContent = prefijo + 'Ejemplo sobre $100.000: recargo ' + moneyPreview(data.recargoTotal) +
+                    out.textContent = 'Ejemplo sobre $100.000: recargo ' + moneyPreview(data.recargoTotal) +
                         ' · total financiado ' + moneyPreview(data.totalFinanciado) +
                         ' · ' + textoCuotas;
                 })

@@ -184,6 +184,56 @@ public sealed class ConfiguracionPagoControllerTests
     }
 
     // -------------------------------------------------------------------------
+    // ML4 — Fase 6/9: validación backend autoritativa. El controller rechaza un plan activo
+    // sin porcentaje explícito ANTES de llamar al service (gate temprano, evita guardar
+    // parcialmente Defaults/Perfiles cuando la tabla de cuotas es inválida) — independiente de
+    // que el service (mockeado acá) también valide lo mismo por su cuenta.
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task CreditoPersonal_Post_PlanActivoSinPorcentaje_RechazaYNoRedirige()
+    {
+        var controller = CrearController(new FakeConfiguracionPagoGlobalAdminService());
+        var config = new CreditoPersonalConfigViewModel
+        {
+            DefaultsGlobales = new DefaultsGlobalesViewModel { MinCuotas = 1, MaxCuotas = 24 },
+            CuotasCreditoPersonal =
+            [
+                new CuotaCreditoPersonalViewModel { CantidadCuotas = 6, TasaMensual = null, Activo = true }
+            ]
+        };
+
+        var result = await controller.CreditoPersonal(
+            config, null, null, null, null, null, null, true, null, null, null, true, null, null);
+
+        var view = Assert.IsType<ViewResult>(result);
+        Assert.Equal("CreditoPersonal_tw", view.ViewName);
+        Assert.False(controller.ModelState.IsValid);
+        Assert.Contains(
+            controller.ModelState[nameof(CreditoPersonalConfigViewModel.CuotasCreditoPersonal)]!.Errors,
+            e => e.ErrorMessage.Contains("recargo total explicito", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task CreditoPersonal_Post_PlanActivoConCeroPorciento_NoRechaza()
+    {
+        var controller = CrearController(new FakeConfiguracionPagoGlobalAdminService());
+        var config = new CreditoPersonalConfigViewModel
+        {
+            DefaultsGlobales = new DefaultsGlobalesViewModel { MinCuotas = 1, MaxCuotas = 24 },
+            CuotasCreditoPersonal =
+            [
+                new CuotaCreditoPersonalViewModel { CantidadCuotas = 6, TasaMensual = 0m, Activo = true }
+            ]
+        };
+
+        var result = await controller.CreditoPersonal(
+            config, null, null, null, null, null, null, true, null, null, null, true, null, null);
+
+        Assert.IsType<RedirectToActionResult>(result);
+    }
+
+    // -------------------------------------------------------------------------
     // Micro-lote 5: recargo TOTAL en la sección #s2 de Crédito Personal.
     // -------------------------------------------------------------------------
 

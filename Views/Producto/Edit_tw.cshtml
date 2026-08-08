@@ -267,7 +267,7 @@
                     <input type="radio" asp-for="CreditoPersonal.Modo" value="ConfiguracionPropia" data-cp-modo class="mt-0.5" />
                     <span>
                         <span class="block text-sm font-semibold text-white">Planes propios</span>
-                        <span class="block text-xs text-slate-400">Define cantidades y recargos específicos de este producto.</span>
+                        <span class="block text-xs text-slate-400">Elegí qué cantidades de cuotas ofrece este producto. El recargo de cada una lo fija siempre el plan global.</span>
                     </span>
                 </label>
                 <label class="flex items-start gap-2 rounded-xl border border-slate-800 bg-slate-950/40 p-3 cursor-pointer">
@@ -288,14 +288,15 @@
             <div class="space-y-2" data-cp-cards-wrap>
                 <p class="text-sm font-semibold text-slate-300">Planes de cuotas propios</p>
                 <p class="text-xs text-slate-400">
-                    Activá las cantidades permitidas para este producto y definí el recargo total de cada una
-                    (0% = sin recargo). Las filas inactivas no se aplican.
+                    Activá las cantidades permitidas para este producto. El recargo de cada una es el
+                    del plan global vigente (no editable acá) — las filas inactivas no se aplican.
                 </p>
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3" data-cp-cards-cont>
                     @for (var i = 0; i < Model.CreditoPersonal.Cuotas.Count; i++)
                     {
                         var cuotaPlan = Model.CreditoPersonal.Cuotas[i];
-                        <div class="rounded-xl border border-slate-800 bg-slate-950/40 p-3 space-y-2">
+                        <div class="rounded-xl border border-slate-800 bg-slate-950/40 p-3 space-y-2"
+                             data-cp-tasa-valor="@(cuotaPlan.TasaMensual?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "")">
                             <input type="hidden" asp-for="CreditoPersonal.Cuotas[i].Id" />
                             <input type="hidden" asp-for="CreditoPersonal.Cuotas[i].CantidadCuotas" />
                             <input type="hidden" asp-for="CreditoPersonal.Cuotas[i].Orden" />
@@ -307,10 +308,12 @@
                                 </label>
                             </div>
                             <div class="space-y-1">
-                                <label asp-for="CreditoPersonal.Cuotas[i].TasaMensual" class="text-xs text-slate-400">Recargo total (%)</label>
-                                <input asp-for="CreditoPersonal.Cuotas[i].TasaMensual" type="number" step="0.01" min="0" max="100"
-                                       data-cp-tasa placeholder="Hereda global" class="catalogo-input font-mono" />
-                                <span asp-validation-for="CreditoPersonal.Cuotas[i].TasaMensual" class="text-xs text-red-400"></span>
+                                <span class="text-xs text-slate-400">Recargo del plan</span>
+                                <p class="catalogo-input font-mono flex items-center" data-cp-recargo-readonly>
+                                    @(cuotaPlan.TasaMensual.HasValue
+                                        ? cuotaPlan.TasaMensual.Value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + "%"
+                                        : "No disponible")
+                                </p>
                             </div>
                             <p data-cp-preview class="text-[11px] text-slate-400"></p>
                         </div>
@@ -378,7 +381,9 @@
             root.querySelectorAll('[data-cp-cards-cont] > div').forEach(function (card) {
                 var cantidadInput = card.querySelector('input[name$=".CantidadCuotas"]');
                 var cantidad = cantidadInput ? Number(cantidadInput.value) : 0;
-                if (cantidad) window.ProductoCreditoPersonalUI.wirePreview(card, cantidad, previewUrl);
+                var tasaRaw = card.getAttribute('data-cp-tasa-valor');
+                var tasa = tasaRaw ? Number(tasaRaw) : null;
+                if (cantidad) window.ProductoCreditoPersonalUI.wirePreview(card, cantidad, tasa, previewUrl);
             });
         })();
     </script>

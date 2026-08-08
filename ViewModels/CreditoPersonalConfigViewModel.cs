@@ -40,8 +40,21 @@ public class CuotaCreditoPersonalViewModel
     public int CantidadCuotas { get; set; }
 
     /// <summary>
-    /// Porcentaje de recargo TOTAL propio de esta cantidad de cuotas.
-    /// null = hereda el recargo único global; 0 = sin recargo (0 % explícito, válido); X = recargo propio.
+    /// Porcentaje de recargo TOTAL de esta cantidad de cuotas. Este ViewModel se reutiliza en dos
+    /// contextos con semántica distinta:
+    /// <list type="bullet">
+    /// <item>Tabla global (<c>ConfiguracionCreditoPersonalCuota</c>, vía
+    /// <c>ConfiguracionPagoController.CreditoPersonal</c>): campo editable y autoritativo — null
+    /// NO hereda el recargo único legacy de <c>ConfiguracionPago</c> (dejó de ser fallback desde
+    /// ML2.1), se persiste tal cual. 0 = sin recargo (0 % explícito, válido); X = recargo del plan.</item>
+    /// <item>Planes de producto (<c>ProductoCreditoPersonalCuota</c>, vía
+    /// <c>ProductoController</c> Create/Edit — ML5): SOLO LECTURA, informativo. Sale siempre del
+    /// plan global vigente para esa cantidad (<c>ProductoCreditoPersonalConfigService.ObtenerAsync</c>),
+    /// nunca del valor propio persistido en la entidad. La UI no expone ningún input editable para
+    /// este caso y <c>GuardarAsync</c> ignora explícitamente cualquier valor entrante — un payload
+    /// manipulado no puede reintroducir una tasa propia. null = sin plan global para esa cantidad
+    /// (no disponible), nunca "hereda".</item>
+    /// </list>
     /// </summary>
     [Range(0, 100, ErrorMessage = "El recargo debe estar entre 0 y 100.")]
     public decimal? TasaMensual { get; set; }
@@ -71,9 +84,10 @@ public class MontoPorPuntajeCreditoViewModel
 public class DefaultsGlobalesViewModel
 {
     /// <summary>
-    /// Porcentaje de recargo TOTAL único global (no tasa mensual): fallback usado únicamente
-    /// cuando un plan activo (<see cref="CuotaCreditoPersonalViewModel"/>) no define su propio
-    /// recargo. El nombre de la propiedad es legacy y se conserva por compatibilidad de binding.
+    /// LEGADO (ML4) — SIN autoridad financiera. El plan de cuotas (<see cref="CuotaCreditoPersonalViewModel"/>)
+    /// activo es la única fuente del recargo aplicado en una venta; este valor nunca completa un
+    /// plan sin porcentaje propio (dejó de ser fallback desde ML2.1/ML2). El nombre de la propiedad
+    /// es legacy y se conserva por compatibilidad de binding.
     /// </summary>
     [Range(0, 100, ErrorMessage = "El recargo debe estar entre 0 y 100.")]
     public decimal TasaMensual { get; set; }

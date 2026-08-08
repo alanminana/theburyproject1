@@ -737,9 +737,13 @@ namespace TheBuryProject.Controllers
                 ClienteId = credito.ClienteId,
                 ClienteNombre = credito.ClienteNombre ?? string.Empty,
                 NumeroCredito = credito.Numero,
-                FuenteConfiguracion = parametrosCliente.Fuente,
+                // ML6: la UI ya no ofrece elegir método/fuente (Global/Manual/Cliente/Perfil/
+                // Producto); ambos quedan fijos en Global — sin autoridad sobre el porcentaje,
+                // que sale siempre del plan de cuotas (ver CreditoConfiguracionVentaService).
+                // Se conservan en el modelo/payload solo por compatibilidad de binding.
+                FuenteConfiguracion = FuenteConfiguracionCredito.Global,
                 MetodoCalculo = MetodoCalculoCredito.Global,
-                PerfilCreditoSeleccionadoId = parametrosCliente.PerfilPreferidoId,
+                PerfilCreditoSeleccionadoId = null,
                 Monto = montoVenta,
                 // Intención conservada de una cotización convertida (mismo patrón que
                 // CantidadCuotas abajo). No es autoridad: el operador puede modificarla y el
@@ -747,7 +751,10 @@ namespace TheBuryProject.Controllers
                 Anticipo = credito.AnticipoPreseleccionado,
                 MontoFinanciado = montoVenta,
                 CantidadCuotas = credito.CantidadCuotas > 0 ? credito.CantidadCuotas : 0,
-                TasaMensual = parametrosCliente.TasaMensual,
+                // ML6: ya no se precarga la tasa/perfil/cliente como si fuera el porcentaje
+                // financiero. La UI la muestra sólo de forma read-only, resuelta por el servidor
+                // desde el plan de cuotas (SimularPlanVenta), nunca desde ParametrosCreditoCliente.
+                TasaMensual = null,
                 GastosAdministrativos = parametrosCliente.GastosAdministrativos,
                 FechaPrimeraCuota = credito.FechaPrimeraCuota,
                 // F2: reabrir la configuración muestra la decisión ya persistida.
@@ -1001,8 +1008,10 @@ namespace TheBuryProject.Controllers
         /// Simula el plan de cuotas para una venta. Los parámetros opcionales se normalizan a 0 si vienen vacíos.
         /// Server-authoritative cuando se envía <paramref name="ventaId"/>: el total real de la venta
         /// reemplaza a <paramref name="totalVenta"/> y el porcentaje lo resuelve el servidor a partir del
-        /// plan efectivo, ignorando <paramref name="tasaMensual"/> salvo que <paramref name="fuenteConfiguracion"/>
-        /// y <paramref name="metodoCalculo"/> sean ambos Manual (ver CreditoSimulacionVentaService.SimularAsync).
+        /// plan efectivo. ML6.1 — Contrato congelado: <paramref name="tasaMensual"/> ya no tiene
+        /// autoridad bajo ninguna combinación de <paramref name="fuenteConfiguracion"/>/
+        /// <paramref name="metodoCalculo"/> (ni siquiera ambos Manual): el porcentaje sale siempre
+        /// del plan de cuotas (ver CreditoSimulacionVentaService.SimularAsync).
         /// </summary>
         [HttpGet]
         public async Task<IActionResult> SimularPlanVenta(
@@ -1018,6 +1027,21 @@ namespace TheBuryProject.Controllers
         {
             try
             {
+                // ML6/ML6.1: con ventaId (el único caso real de Configurar Venta — venta con
+                // productos ya asociados) metodoCalculo/fuenteConfiguracion/tasaMensual dejan de
+                // reenviarse al service, aunque el caller todavía los mande: el porcentaje sale
+                // siempre del plan de cuotas resuelto por el servidor, igual que en el POST de
+                // confirmación (CreditoConfiguracionVentaService.ResolverAsync). Un payload
+                // manipulado con metodoCalculo=Manual&fuenteConfiguracion=Manual&tasaMensual=99 no
+                // puede pisar el porcentaje del plan — el service tampoco lo honraría aunque
+                // llegara (ML6.1 eliminó la rama Manual). Sin ventaId se preserva el contrato
+                // previo de parámetros (simulación standalone sin venta real): metodoCalculo/
+                // fuenteConfiguracion siguen decidiendo si hace falta un cliente; tasaMensual sigue
+                // sin autoridad en ningún caso.
+                var metodoEfectivo = ventaId.HasValue ? null : metodoCalculo;
+                var fuenteEfectiva = ventaId.HasValue ? null : fuenteConfiguracion;
+                var tasaEfectiva = ventaId.HasValue ? null : tasaMensual;
+
                 var resultado = await _creditoSimulacionVentaService.SimularAsync(new CreditoSimulacionVentaRequest
                 {
                     TotalVenta = totalVenta,
@@ -1025,10 +1049,10 @@ namespace TheBuryProject.Controllers
                     Cuotas = cuotas,
                     GastosAdministrativos = gastosAdministrativos,
                     FechaPrimeraCuota = fechaPrimeraCuota,
-                    TasaMensual = tasaMensual,
+                    TasaMensual = tasaEfectiva,
                     VentaId = ventaId,
-                    MetodoCalculo = metodoCalculo,
-                    FuenteConfiguracion = fuenteConfiguracion
+                    MetodoCalculo = metodoEfectivo,
+                    FuenteConfiguracion = fuenteEfectiva
                 });
 
                 if (!resultado.EsValido)

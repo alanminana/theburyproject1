@@ -29,13 +29,36 @@ namespace TheBuryProject.ViewModels
         [Display(Name = "Número de Crédito")]
         public string? NumeroCredito { get; set; }
 
+        /// <summary>
+        /// LEGADO (ML6) — SIN autoridad sobre el porcentaje financiero. La UI de Configurar Venta
+        /// ya no ofrece elegir la fuente (Global/Manual/Cliente/Perfil/Producto); el controller
+        /// siempre la fija en <see cref="FuenteConfiguracionCredito.Global"/> en el GET. Se
+        /// conserva la propiedad y el binding sólo por compatibilidad: el porcentaje sale siempre
+        /// del plan de cuotas resuelto por el servidor (<see cref="CantidadCuotas"/>), nunca de
+        /// este campo. <see cref="Services.CreditoConfiguracionVentaService"/> sigue leyéndola
+        /// para decisiones no financieras (origen de gastos administrativos por defecto).
+        /// </summary>
         [Display(Name = "Fuente de Configuración")]
         public FuenteConfiguracionCredito FuenteConfiguracion { get; set; } = FuenteConfiguracionCredito.Global;
 
+        /// <summary>
+        /// LEGADO (ML6) — SIN autoridad sobre el porcentaje financiero. La UI de Configurar Venta
+        /// ya no ofrece un selector de método; el controller siempre lo fija en
+        /// <see cref="MetodoCalculoCredito.Global"/> en el GET y lo transporta como hidden field
+        /// para que el binding requerido (<c>[Required]</c>) del POST siga funcionando. Sigue
+        /// influyendo únicamente el rango de cuotas permitido
+        /// (<see cref="Services.Interfaces.IConfiguracionPagoService.ResolverRangoCuotasAsync"/>),
+        /// nunca el porcentaje: eso sale siempre del plan de cuotas.
+        /// </summary>
         [Display(Name = "Método de cálculo")]
         [Required(ErrorMessage = "Debe seleccionar un método de cálculo")]
         public MetodoCalculoCredito? MetodoCalculo { get; set; }
 
+        /// <summary>
+        /// LEGADO (ML6) — la UI ya no ofrece seleccionar un perfil de crédito para esta pantalla
+        /// (Configurar Venta siempre opera con <see cref="MetodoCalculo"/> = Global). Sin efecto
+        /// sobre el porcentaje financiero.
+        /// </summary>
         public int? PerfilCreditoSeleccionadoId { get; set; }
 
         [Display(Name = "Monto del Crédito")]
@@ -56,7 +79,12 @@ namespace TheBuryProject.ViewModels
         public int CantidadCuotas { get; set; } = 1;
 
         /// <summary>
-        /// Tasa mensual en %. Si vacío, se usa la tasa default del sistema.
+        /// LEGADO (ML6) — SIN autoridad. Es el porcentaje de recargo total del plan seleccionado,
+        /// nunca una tasa mensual (el nombre de la propiedad es histórico). El GET ya no la
+        /// precarga (queda null) y la vista la muestra sólo read-only, actualizada por la preview
+        /// del servidor (<c>/Credito/SimularPlanVenta</c>) — no hay ningún input editable que la
+        /// postee. Se conserva la propiedad por compatibilidad de binding; el POST resuelve el
+        /// porcentaje real siempre desde el plan de cuotas, ignorando cualquier valor entrante.
         /// </summary>
         [Display(Name = "Tasa mensual (%)")]
         [Range(0, 100, ErrorMessage = "La tasa no puede ser negativa ni superar el 100%")]

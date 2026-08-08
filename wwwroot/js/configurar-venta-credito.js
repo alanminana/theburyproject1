@@ -3,12 +3,17 @@
  * Lógica de la vista ConfigurarVenta_tw de Crédito. No calcula saldo, recargo, total
  * financiado ni cuotas: eso es exclusivo del servidor (FinancialCalculationService vía
  * /Credito/SimularPlanVenta, server-authoritative con ventaId). Este script solo:
- *  - Cambia el método de cálculo → precarga de valores (tasa/gastos) desde datos ya
- *    resueltos por el servidor en el GET, sujeto siempre a revalidación server-side.
- *  - Selección de perfil de crédito → aplica tasa/gastos/rango cuotas.
+ *  - Cantidad de cuotas → si hay planes configurados, ajusta a la cantidad válida más
+ *    cercana (dato, no cálculo: la lista de planes ya viene resuelta del servidor).
  *  - Dispara la simulación en tiempo real del plan (AJAX → /Credito/SimularPlanVenta,
- *    con ventaId/metodoCalculo/fuenteConfiguracion) y pinta la respuesta tal cual.
+ *    con ventaId) y pinta la respuesta tal cual, incluido el porcentaje aplicado.
  *  - Semáforo de evaluación preliminar.
+ *
+ * ML6: el método de cálculo y la fuente de configuración (Global/Manual/Cliente/Perfil/
+ * Producto) ya no son elegibles acá — el porcentaje sale siempre del plan de cuotas
+ * resuelto por el servidor. No hay ningún campo editable ni ningún dato local que decida
+ * o precargue una tasa: el input de porcentaje es de solo lectura y se pinta con el valor
+ * que devuelve la simulación del servidor.
  *
  * Se usa tanto en la página standalone (ConfigurarVenta_tw, auto-init sobre document)
  * como embebido dentro del wizard de Venta (venta-credito-embebido.js inyecta el
@@ -33,21 +38,17 @@
 
         const hdnMontoVenta    = $('#hdn-monto-venta');
         const hdnMontoFin      = $('#hdn-monto-financiado');
-        const hdnFuente        = $('#hdn-fuente-configuracion');
         const hdnVentaId       = $('#hdn-venta-id');
         const txtAnticipo      = $('#txt-anticipo');
         const txtMontoFin      = $('#txt-monto-financiado');
 
-        const selectMetodo     = $('#select-metodo-calculo');
-        const selectPerfil     = $('#select-perfil-credito');
-        const panelPerfil      = $('#panel-perfil-credito');
         const txtCuotas        = $('#txt-cuotas');
+        // Read-only (ML6): pintado exclusivamente desde la respuesta del servidor, nunca
+        // editable ni enviado en el POST (sin asp-for, sin atributo name).
         const txtTasa          = $('#txt-tasa');
         const txtGastos        = $('#txt-gastos');
         const txtFecha         = $('#txt-fecha-primera-cuota');
 
-        const metodoInfo       = $('#metodo-info');
-        const metodoInfoTexto  = $('#metodo-info-texto');
         const cuotasRangoInfo  = $('#cuotas-rango-info');
         const badgeTasaFuente  = $('#badge-tasa-fuente');
         const btnCancelar      = $('#btn-cancelar-credito');
@@ -86,8 +87,6 @@
             : {};
         clienteConfig = clienteConfig || {};
 
-        const METODO = { AutomaticoPorCliente: '0', UsarPerfil: '1', UsarCliente: '2', Global: '3', Manual: '4' };
-
         // ── Helpers ────────────────────────────────────────────────────────
         const formatCurrency = TheBury.formatCurrency;
 
@@ -117,154 +116,22 @@
 
         txtAnticipo?.addEventListener('input', marcarSimulacionPendiente);
 
-        // ── 2. Método de Cálculo ───────────────────────────────────────────
-        const metodoDescripciones = {
-            [METODO.AutomaticoPorCliente]: 'Usa la mejor configuración disponible del cliente, perfil preferido o sistema.',
-            [METODO.UsarPerfil]: 'Aplica los valores de un perfil de crédito predefinido.',
-            [METODO.UsarCliente]: 'Usa la configuración personalizada del cliente.',
-            [METODO.Global]: 'Utiliza los valores globales del sistema.',
-            [METODO.Manual]: 'Permite edición libre de todos los campos.'
-        };
-
-        function onMetodoChange() {
-            const val = selectMetodo?.value;
-
-            // Info text
-            if (val && metodoDescripciones[val]) {
-                metodoInfoTexto.textContent = metodoDescripciones[val];
-                show(metodoInfo);
-            } else {
-                hide(metodoInfo);
-            }
-
-            // Show/hide perfil selector
-            if (val === METODO.UsarPerfil) {
-                show(panelPerfil);
-            } else {
-                hide(panelPerfil);
-            }
-
-            // Apply values based on method
-            aplicarValoresMetodo(val);
-
-            // Field editability
-            const esManual = val === METODO.Manual;
-            const esReadonly = !esManual && val !== '';
-            txtTasa.readOnly = esReadonly;
-            txtGastos.readOnly = esReadonly;
-
-            if (esReadonly) {
-                txtTasa.classList.add('bg-slate-100', 'dark:bg-slate-800/50', 'cursor-not-allowed');
-                txtTasa.classList.remove('bg-slate-50', 'dark:bg-slate-800');
-                txtGastos.classList.add('bg-slate-100', 'dark:bg-slate-800/50', 'cursor-not-allowed');
-                txtGastos.classList.remove('bg-slate-50', 'dark:bg-slate-800');
-            } else {
-                txtTasa.classList.remove('bg-slate-100', 'dark:bg-slate-800/50', 'cursor-not-allowed');
-                txtTasa.classList.add('bg-slate-50', 'dark:bg-slate-800');
-                txtGastos.classList.remove('bg-slate-100', 'dark:bg-slate-800/50', 'cursor-not-allowed');
-                txtGastos.classList.add('bg-slate-50', 'dark:bg-slate-800');
-            }
-
-            // Update fuente hidden
-            if (val === METODO.Manual) {
-                if (hdnFuente) hdnFuente.value = '2'; // Manual
-            } else if (val === METODO.UsarCliente) {
-                if (hdnFuente) hdnFuente.value = '1'; // PorCliente
-            } else {
-                if (hdnFuente) hdnFuente.value = '0'; // Global
-            }
-
-            // Badge
-            actualizarBadgeTasa(val);
-
-            programarSimulacion();
+        // BUG reportado: la numeración de las secciones (1 Método, 2 Perfil, 3 Cuotas,
+        // 4 Valores) está hardcodeada en el Razor. La sección 2 ("Perfil de crédito")
+        // sólo se muestra cuando el método es "Usar perfil" — en cualquier otro caso
+        // (el default, "Global") queda oculta y la numeración visible salta 1→3→4. Se
+        // renumeran acá las secciones realmente visibles en cada cambio de método.
+        function renumerarSecciones() {
+            const visibles = Array.from(root.querySelectorAll('.sec-num'))
+                .filter((num) => !num.closest('section')?.classList.contains('hidden'));
+            visibles.forEach((num, index) => { num.textContent = String(index + 1); });
         }
 
-        function aplicarValoresMetodo(metodo) {
-            switch (metodo) {
-                case METODO.AutomaticoPorCliente:
-                    // Priority: client custom > preferred profile > global
-                    if (clienteConfig.tieneConfiguracionCliente) {
-                        txtTasa.value = clienteConfig.tasaPersonalizada ?? clienteConfig.perfilTasa ?? clienteConfig.tasaGlobal ?? '';
-                        txtGastos.value = clienteConfig.gastosPersonalizados ?? clienteConfig.perfilGastos ?? clienteConfig.gastosGlobales ?? 0;
-                        actualizarRangoCuotas(
-                            clienteConfig.perfilMinCuotas ?? 1,
-                            clienteConfig.cuotasMaximas ?? clienteConfig.perfilMaxCuotas ?? 24
-                        );
-                    } else if (clienteConfig.tienePerfilPreferido) {
-                        txtTasa.value = clienteConfig.perfilTasa ?? clienteConfig.tasaGlobal ?? '';
-                        txtGastos.value = clienteConfig.perfilGastos ?? clienteConfig.gastosGlobales ?? 0;
-                        actualizarRangoCuotas(clienteConfig.perfilMinCuotas ?? 1, clienteConfig.perfilMaxCuotas ?? 24);
-                    } else {
-                        txtTasa.value = clienteConfig.tasaGlobal ?? '';
-                        txtGastos.value = clienteConfig.gastosGlobales ?? 0;
-                        if (!aplicarCuotasHabilitadas()) actualizarRangoCuotas(1, 24);
-                    }
-                    break;
-
-                case METODO.UsarPerfil:
-                    onPerfilChange();
-                    break;
-
-                case METODO.UsarCliente:
-                    txtTasa.value = clienteConfig.tasaPersonalizada ?? clienteConfig.tasaGlobal ?? '';
-                    txtGastos.value = clienteConfig.gastosPersonalizados ?? 0;
-                    actualizarRangoCuotas(1, clienteConfig.cuotasMaximas ?? 24);
-                    break;
-
-                case METODO.Global:
-                    txtTasa.value = clienteConfig.tasaGlobal ?? '';
-                    txtGastos.value = clienteConfig.gastosGlobales ?? 0;
-                    if (!aplicarCuotasHabilitadas()) actualizarRangoCuotas(1, 24);
-                    break;
-
-                case METODO.Manual:
-                    // Don't change values, let user edit freely
-                    actualizarRangoCuotas(1, 120);
-                    break;
-            }
-        }
-
-        function actualizarBadgeTasa(metodo) {
-            if (!metodo || metodo === '') {
-                hide(badgeTasaFuente);
-                return;
-            }
-            const labels = {
-                [METODO.AutomaticoPorCliente]: 'Auto',
-                [METODO.UsarPerfil]: 'Perfil',
-                [METODO.UsarCliente]: 'Cliente',
-                [METODO.Global]: 'Global',
-                [METODO.Manual]: 'Manual'
-            };
-            badgeTasaFuente.textContent = labels[metodo] || '';
-            show(badgeTasaFuente);
-        }
-
-        function actualizarRangoCuotas(min, max) {
-            // Sin planes compatibles no hay rango que ofrecer: el servidor rechaza cualquier cantidad.
-            // Sobrescribir el mensaje del servidor con un rango contradiria el motivo del bloqueo.
-            if (clienteConfig.sinPlanesCompatibles) return;
-
-            const maxProducto = parseInt(clienteConfig.maxCuotasCreditoProducto) || null;
-            const maxEfectivo = maxProducto ? Math.min(max, maxProducto) : max;
-
-            txtCuotas.min = min;
-            txtCuotas.max = maxEfectivo;
-            cuotasRangoInfo.textContent = `Rango permitido: ${min} a ${maxEfectivo} cuotas.`;
-            if (maxProducto) {
-                cuotasRangoInfo.textContent += ` ${clienteConfig.restriccionCreditoProductoDescripcion || `Límite por producto: hasta ${maxProducto} cuotas.`}`;
-            }
-
-            // Clamp current value
-            const current = parseInt(txtCuotas.value) || 0;
-            if (current < min) txtCuotas.value = min;
-            if (current > maxEfectivo) txtCuotas.value = maxEfectivo;
-        }
-
-        // ── Planes de cuotas (fuente Global) ───────────────────────────────
-        // Cuando hay planes activos configurados, las cuotas seleccionables surgen
-        // de esos planes (cantidad + tasa propia), no del rango min/max default.
+        // ── 2. Planes de cuotas ────────────────────────────────────────────
+        // ML6: único origen de "cuotas seleccionables". Cuando hay planes activos
+        // configurados, las cantidades surgen de esos planes; el porcentaje de cada uno
+        // es sólo informativo en el datalist (Razor) — nunca se copia acá a txtTasa, que
+        // se pinta exclusivamente con la respuesta de /Credito/SimularPlanVenta.
 
         function cuotasHabilitadasGlobal() {
             const lista = Array.isArray(clienteConfig.cuotasHabilitadas) ? clienteConfig.cuotasHabilitadas : [];
@@ -272,14 +139,6 @@
             return lista
                 .filter(c => !maxProducto || c.cantidadCuotas <= maxProducto)
                 .sort((a, b) => a.cantidadCuotas - b.cantidadCuotas);
-        }
-
-        function esFuenteGlobalPura() {
-            const val = selectMetodo?.value;
-            return val === METODO.Global ||
-                (val === METODO.AutomaticoPorCliente &&
-                    !clienteConfig.tieneConfiguracionCliente &&
-                    !clienteConfig.tienePerfilPreferido);
         }
 
         function aplicarCuotasHabilitadas() {
@@ -295,9 +154,11 @@
             return true;
         }
 
+        // Ajusta la cantidad tipeada a la más cercana entre las cantidades habilitadas por
+        // los planes (dato del servidor, no un cálculo): nunca toca txtTasa.
         function ajustarCuotaAPlanHabilitado() {
             const planes = cuotasHabilitadasGlobal();
-            if (!planes.length || !esFuenteGlobalPura()) return;
+            if (!planes.length) return;
 
             const cantidades = planes.map(c => c.cantidadCuotas);
             const actual = parseInt(txtCuotas.value) || 0;
@@ -305,36 +166,9 @@
                 const cercana = cantidades.reduce((p, c) => Math.abs(c - actual) < Math.abs(p - actual) ? c : p);
                 txtCuotas.value = cercana;
             }
-
-            const plan = planes.find(c => c.cantidadCuotas === (parseInt(txtCuotas.value) || 0));
-            if (plan) txtTasa.value = plan.tasaMensual;
         }
 
-        selectMetodo?.addEventListener('change', onMetodoChange);
-
-        // ── 3. Perfil de Crédito ───────────────────────────────────────────
-        function onPerfilChange() {
-            const opt = selectPerfil?.selectedOptions[0];
-            if (!opt || !opt.value) return;
-
-            const tasa = opt.dataset.tasa;
-            const gastos = opt.dataset.gastos;
-            const minCuotas = parseInt(opt.dataset.minCuotas) || 1;
-            const maxCuotas = parseInt(opt.dataset.maxCuotas) || 24;
-
-            if (tasa) txtTasa.value = tasa;
-            if (gastos) txtGastos.value = gastos;
-            actualizarRangoCuotas(minCuotas, maxCuotas);
-
-            programarSimulacion();
-        }
-
-        selectPerfil?.addEventListener('change', function () {
-            onPerfilChange();
-            programarSimulacion();
-        });
-
-        // ── 4. Simulación de Plan (AJAX) ──────────────────────────────────
+        // ── 3. Simulación de Plan (AJAX) ──────────────────────────────────
         function programarSimulacion() {
             // Ningún cambio de entrada deja el botón de confirmar habilitado con un plan
             // desactualizado: se deshabilita apenas se agenda una nueva simulación.
@@ -352,12 +186,9 @@
             const totalVenta = parseFloat(hdnMontoVenta?.value) || 0;
             const anticipo = parseFloat(txtAnticipo?.value) || 0;
             const cuotas = parseInt(txtCuotas?.value) || 0;
-            const tasa = parseFloat(txtTasa?.value);
             const gastos = parseFloat(txtGastos?.value) || 0;
             const fecha = txtFecha?.value || '';
             const ventaId = hdnVentaId?.value || '';
-            const metodoCalculo = selectMetodo?.value || '';
-            const fuenteConfiguracion = hdnFuente?.value || '';
 
             if (totalVenta <= 0 || cuotas <= 0) {
                 resetPlanResumen();
@@ -377,15 +208,11 @@
                     gastosAdministrativos: gastos.toString(),
                     fechaPrimeraCuota: fecha
                 });
-                // Server-authoritative: con ventaId el backend ignora totalVenta/tasaMensual
-                // salvo que fuenteConfiguracion y metodoCalculo sean ambos Manual, y resuelve
-                // el porcentaje/planes efectivos de los productos de la venta.
+                // Server-authoritative: con ventaId el backend ignora totalVenta y resuelve el
+                // porcentaje/planes efectivos de los productos de la venta. ML6: no se envía
+                // metodoCalculo/fuenteConfiguracion/tasaMensual — el porcentaje sale siempre del
+                // plan de cuotas, nunca de un valor local (ver CreditoController.SimularPlanVenta).
                 if (ventaId) params.set('ventaId', ventaId);
-                if (metodoCalculo !== '') params.set('metodoCalculo', metodoCalculo);
-                if (fuenteConfiguracion !== '') params.set('fuenteConfiguracion', fuenteConfiguracion);
-                if (!isNaN(tasa) && tasa >= 0) {
-                    params.set('tasaMensual', tasa.toString());
-                }
 
                 const resp = await fetch(`/Credito/SimularPlanVenta?${params}`);
                 if (token !== simulacionToken) return; // superada por una simulación más nueva
@@ -448,6 +275,8 @@
             planCuotaEstimada.textContent = formatCurrency(data.cuotaEstimada);
             if (planCuotaDetalle) planCuotaDetalle.textContent = formatearDetalleCuotas(data.cuotas, cuotas);
             planTasa.textContent = `${data.tasaAplicada?.toFixed(2) ?? '0'}%`;
+            // ML6: única fuente del porcentaje mostrado en el form — nunca un valor local.
+            if (txtTasa) txtTasa.value = (data.tasaAplicada ?? 0).toFixed(2);
             planInteres.textContent = formatCurrency(data.interesTotal);
             if (planPrecioFinal) planPrecioFinal.textContent = formatCurrency(data.totalVenta ?? 0);
             if (planAnticipo) planAnticipo.textContent = formatCurrency(data.anticipo ?? 0);
@@ -466,10 +295,9 @@
                 hide(planFechaContainer);
             }
 
-            // El badge junto al campo de porcentaje pasa a reflejar de dónde salió el %
-            // realmente aplicado según el servidor (Manual/Cliente/Producto/Global), no solo
-            // el método de cálculo elegido: con método Global un producto propio puede pisar
-            // la tasa única (fuentePorcentaje="Producto"), y el badge debe decir eso, no "Global".
+            // ML6.1: el badge junto al campo de porcentaje pinta data.fuentePorcentaje tal cual la
+            // manda el servidor. Contrato congelado: el servidor siempre responde "Plan" (el plan
+            // de cuotas es la única fuente del %) — nunca "Producto"/"Cliente"/"Manual"/"Global".
             if (badgeTasaFuente && data.fuentePorcentaje) {
                 badgeTasaFuente.textContent = data.fuentePorcentaje;
                 show(badgeTasaFuente);
@@ -481,6 +309,7 @@
             planCuotaEstimada.textContent = '$ 0,00';
             if (planCuotaDetalle) planCuotaDetalle.textContent = 'Cuota';
             planTasa.textContent = '0%';
+            if (txtTasa) txtTasa.value = '';
             planInteres.textContent = '$ 0,00';
             if (planPrecioFinal) planPrecioFinal.textContent = '$ 0,00';
             if (planAnticipo) planAnticipo.textContent = '$ 0,00';
@@ -494,7 +323,7 @@
             deshabilitarConfirmar(true);
         }
 
-        // ── 5. Semáforo de Evaluación ─────────────────────────────────────
+        // ── 4. Semáforo de Evaluación ─────────────────────────────────────
         function actualizarSemaforo(data) {
             const estado = data.semaforoEstado;
             const mensaje = data.semaforoMensaje;
@@ -515,7 +344,7 @@
                     labelClass: 'text-green-700 dark:text-green-400',
                     tagClass: 'text-green-600 dark:text-green-500',
                     label: 'Riesgo Bajo',
-                    tag: 'Approved'
+                    tag: 'Aprobado'
                 },
                 amarillo: {
                     dotClass: 'bg-yellow-500',
@@ -523,7 +352,7 @@
                     labelClass: 'text-yellow-700 dark:text-yellow-400',
                     tagClass: 'text-yellow-600 dark:text-yellow-500',
                     label: 'Riesgo Moderado',
-                    tag: 'Caution'
+                    tag: 'A revisar'
                 },
                 rojo: {
                     dotClass: 'bg-red-500',
@@ -531,7 +360,7 @@
                     labelClass: 'text-red-700 dark:text-red-400',
                     tagClass: 'text-red-600 dark:text-red-500',
                     label: 'Riesgo Alto',
-                    tag: 'Rejected'
+                    tag: 'Rechazado'
                 }
             };
 
@@ -563,13 +392,12 @@
             }
         }
 
-        // ── 6. Event Listeners ────────────────────────────────────────────
+        // ── 5. Event Listeners ────────────────────────────────────────────
         txtCuotas?.addEventListener('input', programarSimulacion);
         txtCuotas?.addEventListener('change', function () {
             ajustarCuotaAPlanHabilitado();
             programarSimulacion();
         });
-        txtTasa?.addEventListener('input', programarSimulacion);
         txtGastos?.addEventListener('input', programarSimulacion);
         txtFecha?.addEventListener('change', programarSimulacion);
 
@@ -600,7 +428,7 @@
             });
         }
 
-        // ── 7. Primera cuota: cobro inmediato (F2, Micro-lote 6) ──────────
+        // ── 6. Primera cuota: cobro inmediato (F2, Micro-lote 6) ──────────
         // El cobro de la 1ª cuota al confirmar solo se ofrece cuando la primera cuota
         // vence HOY. La autoridad final es el servidor; esto es únicamente UX.
         const pcAplica       = $('[data-primera-cuota-aplica]');
@@ -659,7 +487,10 @@
         }
 
         // Initial state
-        onMetodoChange();
+        // ML6: no hay método/perfil que aplicar; sólo ajustar cuotas al plan habilitado
+        // (dato del servidor) y numerar las secciones visibles (WIP: renumerarSecciones).
+        aplicarCuotasHabilitadas();
+        renumerarSecciones();
         marcarSimulacionPendiente();
         actualizarPrimeraCuota();
 

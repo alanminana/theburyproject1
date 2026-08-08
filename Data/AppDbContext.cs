@@ -997,8 +997,9 @@ namespace TheBuryProject.Data
                 entity.Property(e => e.CantidadCuotas)
                     .IsRequired();
 
-                // Nullable: null = hereda la tasa global. Sin HasDefaultValue para que un
-                // insert con null persista NULL (heredar) y no el default 0 (0 % explícito).
+                // Nullable: null = configuracion invalida (plan activo sin porcentaje explicito),
+                // NUNCA "hereda". Sin HasDefaultValue para que un insert con null persista NULL
+                // y no el default 0 (0 % explicito, valido y distinto de "no configurado").
                 entity.Property(e => e.TasaMensual)
                     .HasPrecision(8, 4);
 
@@ -1031,8 +1032,10 @@ namespace TheBuryProject.Data
                 entity.Property(e => e.CantidadCuotas)
                     .IsRequired();
 
-                // Nullable: null = hereda la tasa global. Sin HasDefaultValue para que un
-                // insert con null persista NULL (heredar) y no el default 0 (0 % explícito).
+                // LEGACY sin autoridad de porcentaje (ML2.1/ML3): este campo nunca resuelve el %
+                // de una venta, solo decide que esta cantidad esta disponible para el producto.
+                // Sin HasDefaultValue para que un insert con null persista NULL (no configurado)
+                // y no el default 0 (0 % explicito).
                 entity.Property(e => e.TasaMensual)
                     .HasPrecision(8, 4);
 

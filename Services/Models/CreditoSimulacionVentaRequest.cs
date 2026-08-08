@@ -12,8 +12,10 @@ public sealed class CreditoSimulacionVentaRequest
     public string? FechaPrimeraCuota { get; init; }
 
     /// <summary>
-    /// Ignorado salvo que <see cref="FuenteConfiguracion"/> y <see cref="MetodoCalculo"/> sean
-    /// ambos Manual: de lo contrario el servidor resuelve el porcentaje (plan/producto/global).
+    /// ML6.1 — Contrato congelado: ignorado siempre. El servidor resuelve el porcentaje
+    /// exclusivamente desde el plan de cuotas (o la tasa única global sin contexto de productos).
+    /// Se conserva el campo por compatibilidad de API, nunca como autoridad del porcentaje —ni
+    /// siquiera con <see cref="FuenteConfiguracion"/> y <see cref="MetodoCalculo"/> ambos Manual.
     /// </summary>
     public decimal? TasaMensual { get; init; }
 
@@ -31,6 +33,15 @@ public sealed class CreditoSimulacionVentaRequest
     /// <summary>Cliente a evaluar cuando no hay <see cref="VentaId"/> (ver <see cref="ProductoIds"/>).</summary>
     public int? ClienteId { get; init; }
 
+    /// <summary>
+    /// ML6.1: ya no decide de dónde sale el porcentaje (siempre del plan). Solo sigue
+    /// determinando si hace falta resolver <see cref="ClienteId"/> (rama "por cliente").
+    /// </summary>
     public MetodoCalculoCredito? MetodoCalculo { get; init; }
+
+    /// <summary>
+    /// ML6.1: ya no decide de dónde sale el porcentaje (siempre del plan). Solo sigue
+    /// determinando si hace falta resolver <see cref="ClienteId"/> (rama "por cliente").
+    /// </summary>
     public FuenteConfiguracionCredito? FuenteConfiguracion { get; init; }
 }

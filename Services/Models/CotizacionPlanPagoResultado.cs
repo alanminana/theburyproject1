@@ -23,7 +23,13 @@ public sealed class CotizacionPlanPagoResultado
     public decimal? TotalFinanciado { get; init; }
     public decimal? UltimaCuota { get; init; }
 
-    /// <summary>De donde salio <see cref="TasaMensual"/>: "Manual", "Cliente", "Producto" o "Global".</summary>
+    /// <summary>
+    /// De donde salio <see cref="TasaMensual"/>. ML6.1 — contrato congelado: el plan de cuotas es la
+    /// UNICA autoridad del porcentaje, asi que este campo siempre vale "Plan" para Credito personal.
+    /// Nunca "Manual"/"Cliente"/"Producto"/"Global": esas etiquetas describian de donde salia la
+    /// DISPONIBILIDAD de cantidades (ver <see cref="CotizacionMedioPagoResultado.FuenteTasaDescripcion"/>),
+    /// no de donde salia el %. Ver <see cref="Services.CreditoSimulacionVentaService"/>.
+    /// </summary>
     public string? FuentePorcentaje { get; init; }
 
     /// <summary>Vector exacto de cuotas (solo Credito personal). Solo la ultima absorbe el residuo.</summary>
