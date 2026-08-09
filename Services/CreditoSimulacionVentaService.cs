@@ -95,6 +95,9 @@ public sealed class CreditoSimulacionVentaService : ICreditoSimulacionVentaServi
         // FuenteConfiguracion siguen decidiendo SOLO qué validación de contexto aplica (p. ej. si
         // hace falta un cliente), nunca de dónde sale la tasa.
         decimal tasaVal;
+        // CSR-ML4: mismo criterio que tasaVal — sale del plan resuelto server-side, nunca del
+        // request/browser (no hay ningún campo de request que lo transporte: ver P10).
+        IReadOnlyList<int> cuotasSinRecargoVal;
 
         if (hayContextoDeProductos)
         {
@@ -168,6 +171,11 @@ public sealed class CreditoSimulacionVentaService : ICreditoSimulacionVentaServi
 
                 tasaVal = tasaGlobalPlan!.Value;
             }
+
+            // CSR-ML4: la lista viaja junto al mismo plan ya resuelto arriba (planesVenta) — no se
+            // vuelve a consultar la configuracion. RigeConfiguracionUnicaGlobal (legado, sin tabla
+            // de planes) nunca tiene exclusiones: BuscarPlan da null y cae al default vacio.
+            cuotasSinRecargoVal = planesVenta.BuscarPlan(request.Cuotas)?.CuotasSinRecargo ?? Array.Empty<int>();
         }
         else
         {
@@ -206,7 +214,8 @@ public sealed class CreditoSimulacionVentaService : ICreditoSimulacionVentaServi
             gastosVal,
             fecha,
             semaforo.RatioVerdeMax,
-            semaforo.RatioAmarilloMax);
+            semaforo.RatioAmarilloMax,
+            cuotasSinRecargoVal);
 
         return CreditoSimulacionVentaResultado.Valido(new CreditoSimulacionVentaJson
         {
@@ -228,6 +237,9 @@ public sealed class CreditoSimulacionVentaService : ICreditoSimulacionVentaServi
                 interes     = c.Interes,
                 total       = c.Total
             }).ToArray(),
+            // CSR-ML6: metadata del plan (qué cuotas se configuraron sin recargo), no inferida del
+            // vector. Viaja tal cual la resolvió el plan de cuotas más arriba (cuotasSinRecargoVal).
+            cuotasSinRecargo      = cuotasSinRecargoVal,
             semaforoEstado        = plan.SemaforoEstado,
             semaforoMensaje       = plan.SemaforoMensaje,
             mostrarMsgIngreso     = plan.MostrarMsgIngreso,

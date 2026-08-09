@@ -50,6 +50,7 @@ namespace TheBuryProject.Data
         public DbSet<PuntajeCreditoLimite> PuntajesCreditoLimite { get; set; }
         public DbSet<ConfiguracionCreditoMontoPorPuntaje> ConfiguracionCreditoMontosPorPuntaje { get; set; }
         public DbSet<ConfiguracionCreditoPersonalCuota> ConfiguracionCreditoPersonalCuotas { get; set; }
+        public DbSet<ConfiguracionCreditoPersonalCuotaSinRecargo> ConfiguracionCreditoPersonalCuotasSinRecargo { get; set; }
         public DbSet<Credito> Creditos { get; set; }
         public DbSet<Cuota> Cuotas { get; set; }
         public DbSet<PagoCuota> PagosCuota { get; set; }
@@ -1014,6 +1015,33 @@ namespace TheBuryProject.Data
 
                 entity.HasIndex(e => e.CantidadCuotas)
                     .IsUnique();
+            });
+
+            // =======================
+            // ConfiguracionCreditoPersonalCuotaSinRecargo (CSR-ML2)
+            // =======================
+            modelBuilder.Entity<ConfiguracionCreditoPersonalCuotaSinRecargo>(entity =>
+            {
+                entity.ToTable("ConfiguracionCreditoPersonalCuotasSinRecargo", t =>
+                {
+                    t.HasCheckConstraint(
+                        "CK_ConfCreditoPersonalCuotaSinRecargo_NumeroCuota",
+                        "[NumeroCuota] >= 1 AND [NumeroCuota] <= 120");
+                });
+
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.NumeroCuota)
+                    .IsRequired();
+
+                entity.HasOne(e => e.ConfiguracionCreditoPersonalCuota)
+                    .WithMany(c => c.CuotasSinRecargo)
+                    .HasForeignKey(e => e.ConfiguracionCreditoPersonalCuotaId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasIndex(e => new { e.ConfiguracionCreditoPersonalCuotaId, e.NumeroCuota })
+                    .IsUnique()
+                    .HasDatabaseName("UX_ConfCreditoPersonalCuotaSinRecargo_PlanNumero");
             });
 
             // =======================

@@ -511,7 +511,8 @@ public class CreditoControllerSimularPlanVentaTests
             decimal gastosAdministrativos,
             DateTime fechaPrimeraCuota,
             decimal semaforoRatioVerdeMax = 0.08m,
-            decimal semaforoRatioAmarilloMax = 0.15m)
+            decimal semaforoRatioAmarilloMax = 0.15m,
+            IReadOnlyCollection<int>? cuotasSinRecargo = null)
         {
             ReceivedVerdeMax = semaforoRatioVerdeMax;
             ReceivedAmarilloMax = semaforoRatioAmarilloMax;

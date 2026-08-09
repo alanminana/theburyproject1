@@ -1,3 +1,4 @@
+using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Models;
 using TheBuryProject.ViewModels;
@@ -125,5 +126,39 @@ namespace TheBuryProject.Services.Interfaces
         Task<(bool Ok, List<string> Errores)> GuardarCuotasCreditoPersonalAsync(
             List<CuotaCreditoPersonalViewModel> items,
             string usuario);
+
+        /// <summary>
+        /// Números de cuota que un plan global de Crédito Personal (<see cref="ConfiguracionCreditoPersonalCuota"/>)
+        /// tiene marcados como "sin recargo comercial" (CSR-ML2), ordenados ascendente. Lista
+        /// vacía = ninguna cuota marcada (default para todos los planes existentes, comportamiento
+        /// actual preservado). Devuelve lista vacía también si el plan indicado no existe.
+        /// </summary>
+        /// <remarks>
+        /// Default vacío para no romper implementaciones/stubs existentes (mismo estilo que
+        /// <see cref="ObtenerPorcentajeAjusteUnPagoAsync"/>): ningún caller de producción de
+        /// CSR-ML2 lo consume todavía (eso es CSR-ML3+), así que el default no puede enmascarar
+        /// una regresión real.
+        /// </remarks>
+        Task<IReadOnlyList<int>> GetCuotasSinRecargoAsync(int configuracionCreditoPersonalCuotaId) =>
+            Task.FromResult<IReadOnlyList<int>>(Array.Empty<int>());
+
+        /// <summary>
+        /// Reemplaza por completo la selección de cuotas sin recargo de un plan global (CSR-ML2).
+        /// Valida: cada número en [1, CantidadCuotas] del plan, sin duplicados, y — cuando el plan
+        /// tiene <c>TasaMensual</c> explícito mayor a 0 — que quede al menos una cuota con recargo
+        /// (con <c>TasaMensual</c> = 0 puede marcarse la totalidad; con <c>TasaMensual</c> null el
+        /// plan ya es inválido por el contrato ML2.1 ya congelado, no reabierto aquí). No persiste
+        /// nada si hay errores de validación.
+        /// </summary>
+        /// <remarks>
+        /// Default "no-op" (mismo motivo que <see cref="GetCuotasSinRecargoAsync"/>) para no
+        /// romper implementaciones/stubs existentes; la implementación real vive en
+        /// <c>ConfiguracionPagoService</c>.
+        /// </remarks>
+        Task<(bool Ok, List<string> Errores)> GuardarCuotasSinRecargoCreditoPersonalAsync(
+            int configuracionCreditoPersonalCuotaId,
+            IReadOnlyList<int> numerosCuota,
+            string usuario) =>
+            Task.FromResult((false, new List<string> { "GuardarCuotasSinRecargoCreditoPersonalAsync no implementado." }));
     }
 }

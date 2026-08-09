@@ -169,6 +169,58 @@ public class CreditoPersonalConfigUiContractTests
         Assert.DoesNotContain("predeterminado para planes sin recargo propio", seccion, StringComparison.OrdinalIgnoreCase);
     }
 
+    // -------------------------------------------------------------------------
+    // CSR-ML5 — editor administrativo de "cuotas sin recargo" por plan (#s2, dentro de cada
+    // tarjeta de plan). UI9: exclusivamente checkbox por número de cuota — nunca input
+    // libre/textarea/CSV. El binding es directo a CuotaCreditoPersonalViewModel.CuotasSinRecargo.
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public void SeccionS2_CuotasSinRecargo_UsaCheckboxPorNumeroDeCuota()
+    {
+        var seccion = LeerSeccionS2ConModalCuota();
+
+        Assert.Contains("CuotasSinRecargo", seccion);
+        Assert.Contains("name=\"CuotasCreditoPersonal[@i].CuotasSinRecargo\"", seccion);
+        Assert.Contains("type=\"checkbox\"", seccion);
+        Assert.Contains("Cuotas sin recargo", seccion);
+    }
+
+    [Fact]
+    public void SeccionS2_CuotasSinRecargo_NoUsaInputLibreNiTextareaNiCsv()
+    {
+        var seccion = LeerSeccionS2ConModalCuota();
+
+        Assert.DoesNotContain("<textarea", seccion, StringComparison.OrdinalIgnoreCase);
+        // No hay un input de texto/CSV bindeado a CuotasSinRecargo (solo los checkbox de arriba).
+        Assert.DoesNotContain("type=\"text\" name=\"CuotasCreditoPersonal", seccion, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("CuotasSinRecargoCsv", seccion, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("split(','", seccion);
+        Assert.DoesNotContain("split(\",\")", seccion);
+    }
+
+    [Fact]
+    public void SeccionS2_CuotasSinRecargo_MuestraAyudaDeCeroPorCientoYDeAlMenosUnaConRecargo()
+    {
+        // La ayuda de "0 %" / "al menos una cuota con recargo" es dinámica (depende de qué
+        // cuotas quedaron marcadas y del recargo del plan): vive en el script, no en el markup
+        // estático de #s2. El JS solo pinta lo que ya validó/validará el servidor.
+        var script = LeerScriptDeLaVista();
+
+        Assert.Contains("recargo 0", script, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("al menos una cuota con recargo", script, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void SeccionS2_CuotasSinRecargo_SoloRenderizaParaPlanesYaPersistidos()
+    {
+        // Un plan sin Id todavia (agregado en la misma request) no tiene UI de cuotas sin
+        // recargo: el controller no tiene a que plan atar la seleccion hasta el proximo GET.
+        var seccion = LeerSeccionS2ConModalCuota();
+
+        Assert.Contains("cuota.Id > 0", seccion);
+    }
+
     private static string LeerScriptDeLaVista()
     {
         var view = LeerVista();

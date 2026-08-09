@@ -346,4 +346,81 @@ public sealed class CreditoPersonalCuotaConfigTests
             Assert.Empty(enDb);
         }
     }
+
+    // -------------------------------------------------------------------------
+    // CSR-ML5 — GetCuotasCreditoPersonalAsync (usado por el GET del admin) batch-carga
+    // CuotasSinRecargo por plan (CSR-ML5.UI1/UI10): sin N+1 (misma query batch que ya usa
+    // ResolverPlanesCreditoPersonalAsync desde CSR-ML4) y sin fallback cuando no hay selección.
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetCuotasCreditoPersonal_PlanConSeleccionUnoTresCinco_DevuelveExactamenteEsos()
+    {
+        var (ctx, conn) = CreateContext();
+        using (conn)
+        {
+            var service = CreateService(ctx);
+            await service.GuardarCuotasCreditoPersonalAsync(
+                new List<CuotaCreditoPersonalViewModel>
+                {
+                    new() { CantidadCuotas = 10, TasaMensual = 10m, Activo = true, Orden = 10 }
+                },
+                "test");
+            var plan = await ctx.ConfiguracionCreditoPersonalCuotas.SingleAsync(c => c.CantidadCuotas == 10);
+
+            var (ok, errores) = await service.GuardarCuotasSinRecargoCreditoPersonalAsync(plan.Id, new[] { 1, 3, 5 }, "test");
+            Assert.True(ok, string.Join("; ", errores));
+
+            var todas = await service.GetCuotasCreditoPersonalAsync();
+
+            Assert.Equal(new[] { 1, 3, 5 }, todas.Single(c => c.CantidadCuotas == 10).CuotasSinRecargo);
+        }
+    }
+
+    [Fact]
+    public async Task GetCuotasCreditoPersonal_PlanSinConfiguracionDeCuotasSinRecargo_DevuelveListaVaciaSinFallback()
+    {
+        var (ctx, conn) = CreateContext();
+        using (conn)
+        {
+            var service = CreateService(ctx);
+            await service.GuardarCuotasCreditoPersonalAsync(
+                new List<CuotaCreditoPersonalViewModel>
+                {
+                    new() { CantidadCuotas = 12, TasaMensual = 5m, Activo = true, Orden = 12 }
+                },
+                "test");
+
+            var todas = await service.GetCuotasCreditoPersonalAsync();
+
+            Assert.Empty(todas.Single(c => c.CantidadCuotas == 12).CuotasSinRecargo);
+        }
+    }
+
+    [Fact]
+    public async Task GetCuotasCreditoPersonal_VariosPlanes_CadaUnoConSuPropiaSeleccion_SinMezclarlas()
+    {
+        var (ctx, conn) = CreateContext();
+        using (conn)
+        {
+            var service = CreateService(ctx);
+            await service.GuardarCuotasCreditoPersonalAsync(
+                new List<CuotaCreditoPersonalViewModel>
+                {
+                    new() { CantidadCuotas = 6, TasaMensual = 10m, Activo = true, Orden = 6 },
+                    new() { CantidadCuotas = 10, TasaMensual = 10m, Activo = true, Orden = 10 }
+                },
+                "test");
+            var plan6 = await ctx.ConfiguracionCreditoPersonalCuotas.SingleAsync(c => c.CantidadCuotas == 6);
+            var plan10 = await ctx.ConfiguracionCreditoPersonalCuotas.SingleAsync(c => c.CantidadCuotas == 10);
+
+            await service.GuardarCuotasSinRecargoCreditoPersonalAsync(plan6.Id, new[] { 1, 2 }, "test");
+            await service.GuardarCuotasSinRecargoCreditoPersonalAsync(plan10.Id, new[] { 2, 10 }, "test");
+
+            var todas = await service.GetCuotasCreditoPersonalAsync();
+
+            Assert.Equal(new[] { 1, 2 }, todas.Single(c => c.CantidadCuotas == 6).CuotasSinRecargo);
+            Assert.Equal(new[] { 2, 10 }, todas.Single(c => c.CantidadCuotas == 10).CuotasSinRecargo);
+        }
+    }
 }

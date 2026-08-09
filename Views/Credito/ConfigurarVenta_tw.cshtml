@@ -320,10 +320,31 @@
                             <div class="kv-row"><dt>Total financiado</dt><dd class="num" id="plan-total" style="color:#34d399;font-weight:600">$ 0,00</dd></div>
                             <div class="kv-row"><dt>Gastos administrativos</dt><dd class="num" id="plan-gastos">$ 0,00</dd></div>
                             <div class="kv-row"><dt>Cantidad de cuotas</dt><dd id="plan-cuotas-label">@Model.CantidadCuotas</dd></div>
+                            <div class="kv-row"><dt>Cuotas sin recargo</dt><dd id="plan-cuotas-sin-recargo">Ninguna</dd></div>
                         </dl>
                         <div id="plan-fecha-container" class="alert alert-info hidden" style="margin-top:.8rem">
                             <span class="material-symbols-outlined">event_upcoming</span>
                             <span>Primer vencimiento: <strong id="plan-fecha-pago">-</strong></span>
+                        </div>
+
+                        @* CSR-ML6: tabla completa por cuota — fuente visual final del vector que
+                           devuelve el servidor (SimularPlanCredito). No se recalcula acá capital,
+                           recargo ni total: cada fila pinta tal cual cuotas[i] de la respuesta. *@
+                        <div class="mt-3" data-plan-cuotas-detalle>
+                            <div class="sec-sub" style="margin-bottom:.35rem">Detalle por cuota</div>
+                            <div class="tbl-wrap" style="border:1px solid var(--line);border-radius:10px">
+                                <table class="tbl" id="plan-cuotas-tabla">
+                                    <thead>
+                                        <tr>
+                                            <th>N°</th>
+                                            <th style="text-align:right">Capital</th>
+                                            <th style="text-align:right">Recargo</th>
+                                            <th style="text-align:right">Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="plan-cuotas-tabla-body"></tbody>
+                                </table>
+                            </div>
                         </div>
                         </div>
                     </div>

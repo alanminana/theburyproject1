@@ -157,6 +157,22 @@ file sealed class StubValidacionVentaServiceConfirmar : IValidacionVentaService
     public Task<ResumenCrediticioClienteViewModel> ObtenerResumenCrediticioAsync(int clienteId) => throw new NotImplementedException();
 }
 
+/// <summary>
+/// CSR-ML4 — P4: variante de <see cref="StubConfiguracionPagoServiceVenta"/> cuyo
+/// <see cref="ResolverPlanesCreditoPersonalAsync"/> devuelve un <see cref="PlanesCreditoPersonalResultado"/>
+/// explícito (con <c>CuotasSinRecargo</c> incluido), en vez del auto-generado 1..24 sin exclusiones
+/// de la base. Re-declara el método (mismo patrón que <c>StubConfiguracionPagoAjuste</c> en
+/// CreditoServicePagarCuotaSeguridadTests.cs) para que el plan con exclusiones llegue tal cual
+/// hasta <see cref="TheBuryProject.Services.VentaService.ConfirmarVentaCreditoAsync"/>.
+/// </summary>
+file sealed class StubConfiguracionPagoServiceVentaConPlan : StubConfiguracionPagoServiceVenta, IConfiguracionPagoService
+{
+    public PlanesCreditoPersonalResultado? PlanesOverride { get; set; }
+
+    public new Task<PlanesCreditoPersonalResultado> ResolverPlanesCreditoPersonalAsync(IEnumerable<int> productoIds) =>
+        Task.FromResult(PlanesOverride ?? PlanesCreditoPersonalResultado.SinTablaDePlanes());
+}
+
 // ---------------------------------------------------------------------------
 
 /// <summary>
@@ -204,7 +220,8 @@ public class VentaServiceConfirmarCreditoTests : IDisposable
 
     private VentaService CreateService(
         bool existeContratoGenerado,
-        ICreditoDisponibleService? creditoDisponibleService = null)
+        ICreditoDisponibleService? creditoDisponibleService = null,
+        IConfiguracionPagoService? configuracionPagoService = null)
     {
         var mapper = new MapperConfiguration(
                 cfg => { cfg.AddProfile<MappingProfile>(); },
@@ -226,7 +243,7 @@ public class VentaServiceConfirmarCreditoTests : IDisposable
             new StubCajaServiceConfirmar(_apertura),
             creditoDisponibleService ?? new StubCreditoDisponibleServiceConfirmar(),
             new StubContratoVentaCreditoService(existeContratoGenerado),
-            new StubConfiguracionPagoServiceVenta());
+            configuracionPagoService ?? new StubConfiguracionPagoServiceVenta());
     }
 
     public void Dispose()
@@ -427,6 +444,65 @@ public class VentaServiceConfirmarCreditoTests : IDisposable
         Assert.Equal(cantidadCuotas, cuotas.Count);
         Assert.All(cuotas, c => Assert.Equal(EstadoCuota.Pendiente, c.Estado));
         Assert.All(cuotas, c => Assert.True(c.MontoTotal > 0));
+    }
+
+    // -------------------------------------------------------------------------
+    // CSR-ML4 — P4: la confirmación real persiste el vector canónico (CuotasSinRecargo del plan
+    // global resuelto), no un plan recalculado localmente.
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task P4_ConfirmarVentaCredito_PersisteVectorConCuotasSinRecargoDelPlanGlobal()
+    {
+        // Arrange — plan global 10 cuotas / 10% con cuotas sin recargo 1,3,5.
+        const int cantidadCuotas = 10;
+        const decimal tasaInteres = 10m;
+        var cuotasSinRecargo = new[] { 1, 3, 5 };
+
+        var configuracionPagoService = new StubConfiguracionPagoServiceVentaConPlan
+        {
+            PlanesOverride = PlanesCreditoPersonalResultado.Resuelto(
+                new[]
+                {
+                    new PlanCuotaCreditoPersonal(
+                        cantidadCuotas, tasaInteres, Array.Empty<int>(), true, cuotasSinRecargo)
+                },
+                OrigenPlanesCredito.Global)
+        };
+        var servicio = CreateService(existeContratoGenerado: true, configuracionPagoService: configuracionPagoService);
+
+        var (venta, credito) = await SeedVentaConfirmable(
+            total: 100_000m,
+            montoAprobado: 100_000m,
+            cantidadCuotas: cantidadCuotas,
+            tasaInteres: tasaInteres);
+
+        // Act
+        var result = await servicio.ConfirmarVentaCreditoAsync(venta.Id);
+
+        // Assert — el vector persistido (Capital/Interes/Total) refleja exactamente la exclusión:
+        // no se recalcula localmente, viene tal cual de SimularPlanCredito con el plan resuelto.
+        Assert.True(result);
+
+        var cuotas = await _context.Cuotas
+            .Where(c => c.CreditoId == credito.Id)
+            .OrderBy(c => c.NumeroCuota)
+            .ToListAsync();
+
+        Assert.Equal(cantidadCuotas, cuotas.Count);
+        foreach (var numero in cuotasSinRecargo)
+        {
+            var cuota = cuotas.Single(c => c.NumeroCuota == numero);
+            Assert.Equal(0m, cuota.MontoInteres);
+            Assert.Equal(cuota.MontoTotal, cuota.MontoCapital);
+        }
+
+        Assert.Contains(cuotas, c => !cuotasSinRecargo.Contains(c.NumeroCuota) && c.MontoInteres > 0m);
+
+        // Capital sigue repartido entre TODAS las cuotas, Total == Capital + Interes por cuota,
+        // y las sumas cierran contra el monto financiado / recargo total del crédito.
+        Assert.Equal(credito.MontoAprobado, cuotas.Sum(c => c.MontoCapital));
+        Assert.All(cuotas, c => Assert.Equal(c.MontoTotal, c.MontoCapital + c.MontoInteres));
     }
 
     [Fact]

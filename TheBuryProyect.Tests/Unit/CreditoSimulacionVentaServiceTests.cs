@@ -265,6 +265,54 @@ public sealed class CreditoSimulacionVentaServiceTests
         Assert.Equal("Plan", result.Plan!.fuentePorcentaje);
     }
 
+    // ── CSR-ML6: cuotasSinRecargo viaja en el JSON como metadata del plan, no inferida ────────
+
+    [Fact]
+    public async Task Simular_PlanConCuotasSinRecargoNoConsecutivas_ExponeLaListaTalCualEnElJson()
+    {
+        var venta = new VentaViewModel
+        {
+            Id = 55,
+            ClienteId = 20,
+            Total = 100_000m,
+            Detalles = new List<VentaDetalleViewModel> { new() { ProductoId = 7, ProductoNombre = "Notebook" } }
+        };
+        var planes = PlanesCreditoPersonalResultado.Resuelto(
+            new[] { new PlanCuotaCreditoPersonal(10, 10m, new[] { 7 }, false, new[] { 1, 3, 5 }) },
+            OrigenPlanesCredito.Producto);
+        var configService = new VentaConfiguracionPagoService { TasaGlobal = 5m, Planes = planes };
+        var service = CrearService(
+            new RecordingFinancialCalculationService(), configService, ventaService: new StubVentaService(venta));
+
+        var result = await service.SimularAsync(Request(ventaId: 55, cuotas: 10));
+
+        Assert.True(result.EsValido);
+        Assert.Equal(new[] { 1, 3, 5 }, result.Plan!.cuotasSinRecargo);
+    }
+
+    [Fact]
+    public async Task Simular_PlanSinCuotasSinRecargoConfiguradas_ExponeListaVacia()
+    {
+        var venta = new VentaViewModel
+        {
+            Id = 55,
+            ClienteId = 20,
+            Total = 10_000m,
+            Detalles = new List<VentaDetalleViewModel> { new() { ProductoId = 7, ProductoNombre = "Notebook" } }
+        };
+        var planes = PlanesCreditoPersonalResultado.Resuelto(
+            new[] { new PlanCuotaCreditoPersonal(6, 15m, new[] { 7 }, false) },
+            OrigenPlanesCredito.Producto);
+        var configService = new VentaConfiguracionPagoService { TasaGlobal = 5m, Planes = planes };
+        var service = CrearService(
+            new RecordingFinancialCalculationService(), configService, ventaService: new StubVentaService(venta));
+
+        var result = await service.SimularAsync(Request(ventaId: 55, cuotas: 6));
+
+        Assert.True(result.EsValido);
+        Assert.Empty(result.Plan!.cuotasSinRecargo);
+    }
+
     // ── ML10/ML6.1: clasificación explícita de fuentePorcentaje contra los Origen reales que emite
     // ConfiguracionPagoService.ResolverPlanesCreditoPersonalAsync en producción (Global/Producto/
     // Mixto — SinTablaDePlanes es legado de dobles de test, el resolutor real no lo emite). Estos
@@ -847,7 +895,8 @@ public sealed class CreditoSimulacionVentaServiceTests
             decimal gastosAdministrativos,
             DateTime fechaPrimeraCuota,
             decimal semaforoRatioVerdeMax = 0.08m,
-            decimal semaforoRatioAmarilloMax = 0.15m)
+            decimal semaforoRatioAmarilloMax = 0.15m,
+            IReadOnlyCollection<int>? cuotasSinRecargo = null)
         {
             ReceivedVerdeMax = semaforoRatioVerdeMax;
             ReceivedAmarilloMax = semaforoRatioAmarilloMax;

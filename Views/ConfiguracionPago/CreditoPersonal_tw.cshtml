@@ -104,6 +104,15 @@
         .cp-profile .profile-body { background:#080f1d; border:1px solid #1e293b; border-top:none; border-radius:0 0 10px 10px; padding:1rem; }
         .cp-chevron { transition: transform .18s; }
         details[open] .cp-chevron { transform: rotate(180deg); }
+        .cp-csr-grid { display:flex; flex-wrap:wrap; gap:.35rem; }
+        .cp-csr-item {
+            display:inline-flex; align-items:center; gap:.3rem; padding:.22rem .5rem; border-radius:7px;
+            border:1px solid #334155; background:#0f172a; cursor:pointer; user-select:none;
+            font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.72rem; font-weight:600; color:#94a3b8;
+            transition: background .12s, border-color .12s, color .12s;
+        }
+        .cp-csr-item input { width:13px; height:13px; }
+        .cp-csr-item.is-checked { border-color:rgba(245,158,11,.4); background:rgba(245,158,11,.1); color:#fcd34d; }
         .cp-modal-bg { background: rgba(2,6,18,.78); backdrop-filter: blur(3px); }
         .cp-modal-card { background:#0f1829; border:1px solid #1e293b; border-radius:16px; box-shadow:0 25px 50px rgba(0,0,0,.55); }
         .cp-savebar {
@@ -429,6 +438,36 @@
                                         }
                                         <p class="cp-hint" id="preview-cuota-@i" data-preview-out>Ejemplo sobre $100.000: —</p>
                                     </div>
+
+                                    @if (cuota.Id > 0)
+                                    {
+                                        <div class="mt-3 pt-3 border-t border-slate-800">
+                                            <div class="flex items-center justify-between gap-2 mb-1.5">
+                                                <span class="cp-label mb-0!">Cuotas sin recargo</span>
+                                                <span class="text-[11px] font-mono text-slate-500" data-csr-resumen="@i">—</span>
+                                            </div>
+                                            <div class="cp-csr-grid" data-csr-checks="@i" data-csr-cantidad="@cuota.CantidadCuotas">
+                                                @for (var n = 1; n <= cuota.CantidadCuotas; n++)
+                                                {
+                                                    var marcada = cuota.CuotasSinRecargo != null && cuota.CuotasSinRecargo.Contains(n);
+                                                    <label class="cp-csr-item@(marcada ? " is-checked" : "")">
+                                                        <input type="checkbox"
+                                                               name="CuotasCreditoPersonal[@i].CuotasSinRecargo"
+                                                               value="@n"
+                                                               checked="@marcada"
+                                                               disabled="@(!puedeEditar)"
+                                                               data-csr-checkbox />
+                                                        <span>@n</span>
+                                                    </label>
+                                                }
+                                            </div>
+                                            <p class="cp-hint" data-csr-ayuda>—</p>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <p class="cp-hint mt-3 pt-3 border-t border-slate-800">Guardá este plan para poder elegir sus cuotas sin recargo.</p>
+                                    }
                                 </div>
                             }
                         </div>
@@ -1154,6 +1193,70 @@
             }
         }
 
+        // CSR-ML5 — ayuda visual (best-effort, NO autoritativa) de "cuotas sin recargo" por plan.
+        // Solo pinta lo que ya validó/validará el servidor (ConfiguracionCreditoPersonalCuotaSinRecargoRules);
+        // no bloquea el checkbox ni el submit — "la validación server-side manda", el POST vuelve
+        // a rechazar una selección inválida aunque este texto no llegue a actualizarse.
+        function updateCsrUI(container) {
+            if (!container) return;
+            var card = container.closest('[data-cuota-card]');
+            var total = parseInt(container.getAttribute('data-csr-cantidad'), 10) || 0;
+            var marcadas = [];
+
+            container.querySelectorAll('[data-csr-checkbox]').forEach(function (chk) {
+                var item = chk.closest('.cp-csr-item');
+                if (item) item.classList.toggle('is-checked', chk.checked);
+                if (chk.checked) marcadas.push(parseInt(chk.value, 10));
+            });
+            marcadas.sort(function (a, b) { return a - b; });
+
+            var resumen = card ? card.querySelector('[data-csr-resumen]') : null;
+            if (resumen) resumen.textContent = marcadas.length + '/' + total;
+
+            var ayuda = card ? card.querySelector('[data-csr-ayuda]') : null;
+            if (!ayuda) return;
+
+            var tasaInput = card ? card.querySelector('input[name$=".TasaMensual"]') : null;
+            var tasa = tasaInput ? parseFloat(tasaInput.value) : NaN;
+            var conRecargo = total - marcadas.length;
+
+            ayuda.classList.remove('text-amber-300');
+
+            if (marcadas.length === 0) {
+                ayuda.textContent = total > 0 ? 'Todas las cuotas tienen recargo.' : '—';
+            } else if (marcadas.length === total) {
+                if (!isNaN(tasa) && tasa > 0) {
+                    ayuda.classList.add('text-amber-300');
+                    ayuda.textContent = '⚠ Debe quedar al menos una cuota con recargo: no se puede marcar sin recargo la totalidad con un recargo mayor a 0 %.';
+                } else {
+                    ayuda.textContent = 'Con recargo 0 %, todas las cuotas ya tienen recargo $0.';
+                }
+            } else {
+                ayuda.textContent = marcadas.length + ' cuota' + (marcadas.length !== 1 ? 's' : '') +
+                    ' sin recargo: ' + marcadas.join(', ') + ' · ' + conRecargo +
+                    ' cuota' + (conRecargo !== 1 ? 's' : '') + ' con recargo.';
+            }
+        }
+
+        function inicializarCsr() {
+            document.querySelectorAll('[data-csr-checks]').forEach(function (container) {
+                updateCsrUI(container);
+                container.querySelectorAll('[data-csr-checkbox]').forEach(function (chk) {
+                    chk.addEventListener('change', function () { updateCsrUI(container); });
+                });
+            });
+
+            // Si cambia el recargo total del plan, el caso "totalidad marcada" pasa de invalido a
+            // valido (0 %) o viceversa: recalcular la ayuda sin esperar a tocar un checkbox.
+            document.querySelectorAll('[data-cuota-card] input[name$=".TasaMensual"]').forEach(function (input) {
+                input.addEventListener('input', function () {
+                    var card = input.closest('[data-cuota-card]');
+                    var container = card ? card.querySelector('[data-csr-checks]') : null;
+                    updateCsrUI(container);
+                });
+            });
+        }
+
         // Refleja en vivo la unica fuente de cantidades: los planes activos. Sin planes activos,
         // Credito Personal no ofrece cuotas (no hay rango de respaldo).
         function updateCuotasMode() {
@@ -1472,6 +1575,7 @@
         showSection(initSection || (CREDIT_SECTIONS.indexOf(initHash) !== -1 ? initHash : 's1'));
         updateCuotasMode();
         inicializarPreviews();
+        inicializarCsr();
         inicializarPreviewPunitorio();
         inicializarConfirmacionRetroactivaPunitorio();
     })();

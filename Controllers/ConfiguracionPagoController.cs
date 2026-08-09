@@ -806,6 +806,24 @@ namespace TheBuryProject.Controllers
                         nameof(config.CuotasCreditoPersonal),
                         "Los planes activos deben tener un recargo total explicito (0 % es valido, nunca " +
                         $"hereda el recargo global): cantidad de cuotas {string.Join(", ", activasSinPorcentaje)}.");
+
+                // CSR-ML5 — gate temprano (antes de guardar nada): misma regla pura que valida la
+                // persistencia (ConfiguracionCreditoPersonalCuotaSinRecargoRules.Validar, ya usada
+                // por GuardarCuotasSinRecargoCreditoPersonalAsync), evaluada contra el estado que
+                // ESTA request está por guardar (CantidadCuotas/TasaMensual posteados, no los ya
+                // persistidos). Un payload manipulado (numero fuera de [1, CantidadCuotas],
+                // duplicado, o la totalidad marcada con un recargo > 0) nunca llega a tocar la
+                // base de datos: ni este plan ni el resto de la configuracion de esta misma
+                // request se guardan.
+                foreach (var cuota in config.CuotasCreditoPersonal)
+                {
+                    var erroresSinRecargo = ConfiguracionCreditoPersonalCuotaSinRecargoRules.Validar(
+                        cuota.CantidadCuotas, cuota.TasaMensual, cuota.CuotasSinRecargo);
+                    foreach (var err in erroresSinRecargo)
+                        ModelState.AddModelError(
+                            nameof(config.CuotasCreditoPersonal),
+                            $"Cuotas sin recargo del plan de {cuota.CantidadCuotas} cuotas: {err}");
+                }
             }
 
             ValidarLimitesPorPuntaje(config);
@@ -859,6 +877,28 @@ namespace TheBuryProject.Controllers
                         ModelState.AddModelError(nameof(config.CuotasCreditoPersonal), err);
                     await PrepararCreditoPersonalConfigParaVistaAsync(config);
                     return View("CreditoPersonal_tw", config);
+                }
+
+                // CSR-ML5: solo planes ya persistidos (Id > 0) tienen un Id valido para guardar su
+                // seleccion de cuotas sin recargo. Un plan agregado en esta misma request via el
+                // modal "Agregar cuota" (Id == 0 hasta este punto — GuardarCuotasCreditoPersonalAsync
+                // no devuelve el Id generado) no expone esa UI: aparece recien en el proximo GET,
+                // con su Id real y seleccion vacia por defecto. La regla ya se validó arriba (gate
+                // temprano); esta llamada vuelve a validar server-side contra el plan recien
+                // persistido — "la validación server-side manda", nunca solo el JS del checkbox.
+                foreach (var cuota in config.CuotasCreditoPersonal.Where(c => c.Id > 0))
+                {
+                    var (okSinRecargo, erroresSinRecargo) = await _configuracionPagoService
+                        .GuardarCuotasSinRecargoCreditoPersonalAsync(cuota.Id, cuota.CuotasSinRecargo, usuario);
+                    if (!okSinRecargo)
+                    {
+                        foreach (var err in erroresSinRecargo)
+                            ModelState.AddModelError(
+                                nameof(config.CuotasCreditoPersonal),
+                                $"Cuotas sin recargo del plan de {cuota.CantidadCuotas} cuotas: {err}");
+                        await PrepararCreditoPersonalConfigParaVistaAsync(config);
+                        return View("CreditoPersonal_tw", config);
+                    }
                 }
             }
 

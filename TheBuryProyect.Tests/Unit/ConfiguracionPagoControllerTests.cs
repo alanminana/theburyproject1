@@ -234,6 +234,217 @@ public sealed class ConfiguracionPagoControllerTests
     }
 
     // -------------------------------------------------------------------------
+    // CSR-ML5 — editor administrativo de cuotas sin recargo por plan (#s2). El GET carga la
+    // selección ya persistida (batch, vía GetCuotasCreditoPersonalAsync); el POST valida en
+    // memoria ANTES de guardar nada (gate temprano, mismo contrato que
+    // ConfiguracionCreditoPersonalCuotaSinRecargoRules.Validar) y solo entonces persiste, plan por
+    // plan, con GuardarCuotasSinRecargoCreditoPersonalAsync — nunca para un plan sin Id todavía.
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task CreditoPersonal_Get_CargaCuotasSinRecargoDelService_SinFallbackParaElPlanSinSeleccion()
+    {
+        var pagoService = new FakeConfiguracionPagoService
+        {
+            CuotasCreditoPersonalParaGet =
+            [
+                new CuotaCreditoPersonalViewModel { Id = 5, CantidadCuotas = 10, TasaMensual = 10m, Activo = true, CuotasSinRecargo = [1, 3, 5] },
+                new CuotaCreditoPersonalViewModel { Id = 6, CantidadCuotas = 6, TasaMensual = 5m, Activo = true, CuotasSinRecargo = [] }
+            ]
+        };
+        var controller = CrearController(new FakeConfiguracionPagoGlobalAdminService(), pagoService: pagoService);
+
+        var result = await controller.CreditoPersonal();
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<CreditoPersonalConfigViewModel>(view.Model);
+        Assert.Equal(new[] { 1, 3, 5 }, model.CuotasCreditoPersonal.Single(c => c.Id == 5).CuotasSinRecargo);
+        Assert.Empty(model.CuotasCreditoPersonal.Single(c => c.Id == 6).CuotasSinRecargo);
+    }
+
+    [Fact]
+    public async Task CreditoPersonal_Post_PlanExistente_PersisteLaSeleccionDeCuotasSinRecargo()
+    {
+        var pagoService = new FakeConfiguracionPagoService();
+        var controller = CrearController(new FakeConfiguracionPagoGlobalAdminService(), pagoService: pagoService);
+        var config = new CreditoPersonalConfigViewModel
+        {
+            DefaultsGlobales = new DefaultsGlobalesViewModel { MinCuotas = 1, MaxCuotas = 24 },
+            CuotasCreditoPersonal =
+            [
+                new CuotaCreditoPersonalViewModel { Id = 5, CantidadCuotas = 10, TasaMensual = 10m, Activo = true, CuotasSinRecargo = [1, 3, 5] }
+            ]
+        };
+
+        var result = await controller.CreditoPersonal(
+            config, null, null, null, null, null, null, true, null, null, null, true, null, null);
+
+        Assert.IsType<RedirectToActionResult>(result);
+        var invocacion = Assert.Single(pagoService.GuardarCuotasSinRecargoInvocaciones);
+        Assert.Equal(5, invocacion.PlanId);
+        Assert.Equal(new[] { 1, 3, 5 }, invocacion.Numeros);
+    }
+
+    [Fact]
+    public async Task CreditoPersonal_Post_PlanSinIdTodavia_NoInvocaGuardarCuotasSinRecargo()
+    {
+        // Un plan agregado en la misma request (via el modal "Agregar cuota") no tiene Id hasta
+        // el proximo GET: no hay UI de cuotas sin recargo para el, y el controller no debe
+        // intentar persistir nada para el (no hay a que plan atarlo).
+        var pagoService = new FakeConfiguracionPagoService();
+        var controller = CrearController(new FakeConfiguracionPagoGlobalAdminService(), pagoService: pagoService);
+        var config = new CreditoPersonalConfigViewModel
+        {
+            DefaultsGlobales = new DefaultsGlobalesViewModel { MinCuotas = 1, MaxCuotas = 24 },
+            CuotasCreditoPersonal =
+            [
+                new CuotaCreditoPersonalViewModel { Id = 0, CantidadCuotas = 6, TasaMensual = 8m, Activo = true }
+            ]
+        };
+
+        var result = await controller.CreditoPersonal(
+            config, null, null, null, null, null, null, true, null, null, null, true, null, null);
+
+        Assert.IsType<RedirectToActionResult>(result);
+        Assert.Empty(pagoService.GuardarCuotasSinRecargoInvocaciones);
+    }
+
+    [Fact]
+    public async Task CreditoPersonal_Post_TotalidadConRecargoPositivo_RechazaAntesDeGuardarNada()
+    {
+        var pagoService = new FakeConfiguracionPagoService();
+        var controller = CrearController(new FakeConfiguracionPagoGlobalAdminService(), pagoService: pagoService);
+        var config = new CreditoPersonalConfigViewModel
+        {
+            DefaultsGlobales = new DefaultsGlobalesViewModel { MinCuotas = 1, MaxCuotas = 24 },
+            CuotasCreditoPersonal =
+            [
+                new CuotaCreditoPersonalViewModel
+                {
+                    Id = 5,
+                    CantidadCuotas = 10,
+                    TasaMensual = 10m,
+                    Activo = true,
+                    CuotasSinRecargo = Enumerable.Range(1, 10).ToList()
+                }
+            ]
+        };
+
+        var result = await controller.CreditoPersonal(
+            config, null, null, null, null, null, null, true, null, null, null, true, null, null);
+
+        var view = Assert.IsType<ViewResult>(result);
+        Assert.Equal("CreditoPersonal_tw", view.ViewName);
+        Assert.False(controller.ModelState.IsValid);
+        Assert.Contains(
+            controller.ModelState[nameof(CreditoPersonalConfigViewModel.CuotasCreditoPersonal)]!.Errors,
+            e => e.ErrorMessage.Contains("al menos una cuota con recargo", StringComparison.OrdinalIgnoreCase));
+
+        // Gate temprano: ni el plan ni la seleccion de cuotas sin recargo llegan a guardarse.
+        Assert.False(pagoService.GuardarCuotasCreditoPersonalInvocado);
+        Assert.Empty(pagoService.GuardarCuotasSinRecargoInvocaciones);
+    }
+
+    [Fact]
+    public async Task CreditoPersonal_Post_TotalidadConCeroPorciento_Acepta()
+    {
+        var pagoService = new FakeConfiguracionPagoService();
+        var controller = CrearController(new FakeConfiguracionPagoGlobalAdminService(), pagoService: pagoService);
+        var config = new CreditoPersonalConfigViewModel
+        {
+            DefaultsGlobales = new DefaultsGlobalesViewModel { MinCuotas = 1, MaxCuotas = 24 },
+            CuotasCreditoPersonal =
+            [
+                new CuotaCreditoPersonalViewModel
+                {
+                    Id = 5,
+                    CantidadCuotas = 10,
+                    TasaMensual = 0m,
+                    Activo = true,
+                    CuotasSinRecargo = Enumerable.Range(1, 10).ToList()
+                }
+            ]
+        };
+
+        var result = await controller.CreditoPersonal(
+            config, null, null, null, null, null, null, true, null, null, null, true, null, null);
+
+        Assert.IsType<RedirectToActionResult>(result);
+        var invocacion = Assert.Single(pagoService.GuardarCuotasSinRecargoInvocaciones);
+        Assert.Equal(Enumerable.Range(1, 10), invocacion.Numeros);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(11)]
+    public async Task CreditoPersonal_Post_NumeroFueraDeRango_RechazaAntesDeGuardarNada(int numeroInvalido)
+    {
+        var pagoService = new FakeConfiguracionPagoService();
+        var controller = CrearController(new FakeConfiguracionPagoGlobalAdminService(), pagoService: pagoService);
+        var config = new CreditoPersonalConfigViewModel
+        {
+            DefaultsGlobales = new DefaultsGlobalesViewModel { MinCuotas = 1, MaxCuotas = 24 },
+            CuotasCreditoPersonal =
+            [
+                new CuotaCreditoPersonalViewModel { Id = 5, CantidadCuotas = 10, TasaMensual = 10m, Activo = true, CuotasSinRecargo = [numeroInvalido] }
+            ]
+        };
+
+        var result = await controller.CreditoPersonal(
+            config, null, null, null, null, null, null, true, null, null, null, true, null, null);
+
+        Assert.IsType<ViewResult>(result);
+        Assert.False(controller.ModelState.IsValid);
+        Assert.False(pagoService.GuardarCuotasCreditoPersonalInvocado);
+        Assert.Empty(pagoService.GuardarCuotasSinRecargoInvocaciones);
+    }
+
+    [Fact]
+    public async Task CreditoPersonal_Post_NumeroDuplicado_RechazaAntesDeGuardarNada()
+    {
+        var pagoService = new FakeConfiguracionPagoService();
+        var controller = CrearController(new FakeConfiguracionPagoGlobalAdminService(), pagoService: pagoService);
+        var config = new CreditoPersonalConfigViewModel
+        {
+            DefaultsGlobales = new DefaultsGlobalesViewModel { MinCuotas = 1, MaxCuotas = 24 },
+            CuotasCreditoPersonal =
+            [
+                new CuotaCreditoPersonalViewModel { Id = 5, CantidadCuotas = 10, TasaMensual = 10m, Activo = true, CuotasSinRecargo = [1, 3, 3] }
+            ]
+        };
+
+        var result = await controller.CreditoPersonal(
+            config, null, null, null, null, null, null, true, null, null, null, true, null, null);
+
+        Assert.IsType<ViewResult>(result);
+        Assert.False(controller.ModelState.IsValid);
+        Assert.False(pagoService.GuardarCuotasCreditoPersonalInvocado);
+        Assert.Empty(pagoService.GuardarCuotasSinRecargoInvocaciones);
+    }
+
+    [Fact]
+    public async Task CreditoPersonal_Post_ListaVacia_EsValida()
+    {
+        var pagoService = new FakeConfiguracionPagoService();
+        var controller = CrearController(new FakeConfiguracionPagoGlobalAdminService(), pagoService: pagoService);
+        var config = new CreditoPersonalConfigViewModel
+        {
+            DefaultsGlobales = new DefaultsGlobalesViewModel { MinCuotas = 1, MaxCuotas = 24 },
+            CuotasCreditoPersonal =
+            [
+                new CuotaCreditoPersonalViewModel { Id = 5, CantidadCuotas = 10, TasaMensual = 10m, Activo = true, CuotasSinRecargo = [] }
+            ]
+        };
+
+        var result = await controller.CreditoPersonal(
+            config, null, null, null, null, null, null, true, null, null, null, true, null, null);
+
+        Assert.IsType<RedirectToActionResult>(result);
+        var invocacion = Assert.Single(pagoService.GuardarCuotasSinRecargoInvocaciones);
+        Assert.Empty(invocacion.Numeros);
+    }
+
+    // -------------------------------------------------------------------------
     // Micro-lote 5: recargo TOTAL en la sección #s2 de Crédito Personal.
     // -------------------------------------------------------------------------
 
@@ -610,14 +821,15 @@ public sealed class ConfiguracionPagoControllerTests
         FakeConfiguracionPagoGlobalAdminService adminService,
         IConfiguracionPunitorioService? punitorioService = null,
         IRelojComercial? reloj = null,
-        ClaimsPrincipal? user = null)
+        ClaimsPrincipal? user = null,
+        FakeConfiguracionPagoService? pagoService = null)
     {
         var httpContext = new DefaultHttpContext();
         if (user != null)
             httpContext.User = user;
 
         return new ConfiguracionPagoController(
-            new FakeConfiguracionPagoService(),
+            pagoService ?? new FakeConfiguracionPagoService(),
             adminService,
             new FakeClienteAptitudService(),
             new FakeCreditoDisponibleService(),
@@ -740,10 +952,31 @@ public sealed class ConfiguracionPagoControllerTests
             => Task.FromResult<MaxCuotasSinInteresResultado?>(null);
         public Task<List<MontoPorPuntajeCreditoViewModel>> GetMontosPorPuntajeAsync() => Task.FromResult(new List<MontoPorPuntajeCreditoViewModel>());
         public Task<(bool Ok, List<string> Errores)> GuardarMontosPorPuntajeAsync(List<MontoPorPuntajeCreditoViewModel> items, string usuario) => Task.FromResult((true, new List<string>()));
-        public Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalAsync() => Task.FromResult(new List<CuotaCreditoPersonalViewModel>());
+
+        /// <summary>CSR-ML5: contenido devuelto por el GET (simula lo que ya carga GetCuotasCreditoPersonalAsync real, batch-poblado con CuotasSinRecargo).</summary>
+        public List<CuotaCreditoPersonalViewModel> CuotasCreditoPersonalParaGet { get; set; } = new();
+        public Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalAsync() => Task.FromResult(CuotasCreditoPersonalParaGet);
         public Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalActivasAsync() => Task.FromResult(new List<CuotaCreditoPersonalViewModel>());
         public async Task<PlanesCreditoPersonalResultado> ResolverPlanesCreditoPersonalAsync(IEnumerable<int> productoIds) => PlanesCreditoPersonalStub.DesdeGlobales(await GetCuotasCreditoPersonalActivasAsync());
-        public Task<(bool Ok, List<string> Errores)> GuardarCuotasCreditoPersonalAsync(List<CuotaCreditoPersonalViewModel> items, string usuario) => Task.FromResult((true, new List<string>()));
+
+        public bool GuardarCuotasCreditoPersonalInvocado { get; private set; }
+        public Task<(bool Ok, List<string> Errores)> GuardarCuotasCreditoPersonalAsync(List<CuotaCreditoPersonalViewModel> items, string usuario)
+        {
+            GuardarCuotasCreditoPersonalInvocado = true;
+            return Task.FromResult((true, new List<string>()));
+        }
+
+        /// <summary>CSR-ML5: invocaciones reales al guardado de cuotas sin recargo — permite verificar qué se posteó (o que nunca se llegó a invocar, en los casos que el gate temprano del controller debe rechazar).</summary>
+        public List<(int PlanId, List<int> Numeros, string Usuario)> GuardarCuotasSinRecargoInvocaciones { get; } = new();
+        public Func<int, IReadOnlyList<int>, (bool Ok, List<string> Errores)>? GuardarCuotasSinRecargoHandler { get; set; }
+        public Task<(bool Ok, List<string> Errores)> GuardarCuotasSinRecargoCreditoPersonalAsync(
+            int configuracionCreditoPersonalCuotaId, IReadOnlyList<int> numerosCuota, string usuario)
+        {
+            GuardarCuotasSinRecargoInvocaciones.Add((configuracionCreditoPersonalCuotaId, numerosCuota.ToList(), usuario));
+            var resultado = GuardarCuotasSinRecargoHandler?.Invoke(configuracionCreditoPersonalCuotaId, numerosCuota)
+                ?? (true, new List<string>());
+            return Task.FromResult(resultado);
+        }
     }
 
     private sealed class FakeClienteAptitudService : IClienteAptitudService

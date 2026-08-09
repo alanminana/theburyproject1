@@ -1050,7 +1050,10 @@ namespace TheBuryProject.Services
                         "La tasa de interés de Crédito Personal es negativa. " +
                         "Configure el valor en Administración → Tipos de Pago antes de confirmar la venta.");
 
-                await ValidarCuotasCreditoPersonalPorProductoAsync(venta, credito);
+                // CSR-ML4: mismo plan global que ya valida la cantidad de cuotas contra los
+                // productos de la venta — se reutiliza para persistir las cuotas (abajo) sin
+                // volver a consultar la configuración.
+                var planCreditoVenta = await ValidarCuotasCreditoPersonalPorProductoAsync(venta, credito);
 
                 // Validar stock antes de confirmar
                 _validator.ValidarStock(venta);
@@ -1062,7 +1065,7 @@ namespace TheBuryProject.Services
                 await MarcarUnidadesVendidasAsync(venta);
 
                 // Generar las cuotas del crédito
-                await GenerarCuotasCreditoAsync(credito, venta.Total);
+                await GenerarCuotasCreditoAsync(credito, venta.Total, planCreditoVenta?.CuotasSinRecargo);
 
                 // Marcar crédito como Generado
                 credito.Estado = EstadoCredito.Generado;
@@ -1116,7 +1119,14 @@ namespace TheBuryProject.Services
         /// monto financiado ya es neto de anticipo (<see cref="Credito.MontoAprobado"/>),
         /// así que se simula con anticipo 0 — SaldoAFinanciar da igual al monto financiado.
         /// </summary>
-        private async Task GenerarCuotasCreditoAsync(Credito credito, decimal montoVenta)
+        /// <param name="cuotasSinRecargo">
+        /// CSR-ML4: vector del plan global resuelto por el caller (<see cref="ValidarCuotasCreditoPersonalPorProductoAsync"/>),
+        /// nunca recalculado acá. Se persiste tal cual en el vector devuelto por SimularPlanCredito —
+        /// una vez creadas las cuotas, un cambio posterior de la configuración global no las afecta
+        /// (no hay ningún camino que vuelva a leer la configuración para una cuota ya persistida).
+        /// </param>
+        private async Task GenerarCuotasCreditoAsync(
+            Credito credito, decimal montoVenta, IReadOnlyList<int>? cuotasSinRecargo)
         {
             var montoFinanciado = credito.MontoAprobado > 0 ? credito.MontoAprobado : montoVenta;
             // PUN-ML7: fecha comercial única (antes DateTime.Today) para el fallback sin
@@ -1129,7 +1139,8 @@ namespace TheBuryProject.Services
                 credito.CantidadCuotas,
                 credito.TasaInteres,
                 0m,
-                fechaCuota);
+                fechaCuota,
+                cuotasSinRecargo: cuotasSinRecargo);
 
             credito.MontoCuota = plan.CuotaEstimada;
             credito.TotalAPagar = plan.TotalAPagar;
@@ -1385,11 +1396,19 @@ namespace TheBuryProject.Services
             }
         }
 
-        private async Task ValidarCuotasCreditoPersonalPorProductoAsync(Venta venta, Credito credito)
+        /// <summary>
+        /// Valida el rango/plan de cuotas de Crédito Personal contra los productos de la venta y
+        /// devuelve el plan global efectivamente resuelto para <c>credito.CantidadCuotas</c>
+        /// (CSR-ML4), para que el caller (<see cref="GenerarCuotasCreditoAsync"/>) persista las
+        /// cuotas con el mismo <c>CuotasSinRecargo</c> sin volver a consultar la configuración.
+        /// <c>null</c> cuando no hay contexto de productos o rige la configuración única global
+        /// (legado, sin tabla de planes): en ambos casos no hay exclusiones que transportar.
+        /// </summary>
+        private async Task<PlanCuotaCreditoPersonal?> ValidarCuotasCreditoPersonalPorProductoAsync(Venta venta, Credito credito)
         {
             if (venta.TipoPago != TipoPago.CreditoPersonal)
             {
-                return;
+                return null;
             }
 
             var productoIds = venta.Detalles
@@ -1400,7 +1419,7 @@ namespace TheBuryProject.Services
 
             if (productoIds.Length == 0)
             {
-                return;
+                return null;
             }
 
             var metodo = credito.MetodoCalculoAplicado ?? MetodoCalculoCredito.Global;
@@ -1448,8 +1467,13 @@ namespace TheBuryProject.Services
                     $"No se puede confirmar la venta con CréditoPersonal. {planesVenta.MensajeRechazo}");
             }
 
-            if (!planesVenta.RigeConfiguracionUnicaGlobal &&
-                planesVenta.BuscarPlan(credito.CantidadCuotas) is null)
+            if (planesVenta.RigeConfiguracionUnicaGlobal)
+            {
+                return null;
+            }
+
+            var planCredito = planesVenta.BuscarPlan(credito.CantidadCuotas);
+            if (planCredito is null)
             {
                 var habilitadas = string.Join(", ", planesVenta.Planes.Select(p => p.CantidadCuotas));
                 throw new CondicionesPagoVentaException(
@@ -1457,6 +1481,8 @@ namespace TheBuryProject.Services
                     $"La cantidad de cuotas configurada ({credito.CantidadCuotas}) no está habilitada para los " +
                     $"productos de esta venta. Cantidades disponibles: {habilitadas}.");
             }
+
+            return planCredito;
         }
 
         private async Task<string> CrearMensajeBloqueoCreditoProductoAsync(

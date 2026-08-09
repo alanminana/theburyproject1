@@ -70,6 +70,9 @@
         const planFechaPago    = $('#plan-fecha-pago');
         const planSimulando    = $('#plan-simulando');
         const planError        = $('#plan-error');
+        // CSR-ML6: metadata del plan + tabla completa por cuota (vector autoritativo del servidor).
+        const planCuotasSinRecargo = $('#plan-cuotas-sin-recargo');
+        const planCuotasTablaBody  = $('#plan-cuotas-tabla-body');
 
         // Semáforo
         const semaforoPanel    = $('#semaforo-panel');
@@ -253,21 +256,76 @@
             btnConfirmar.disabled = deshabilitado;
         }
 
-        // Formatea el vector de cuotas devuelto por el servidor (ML3) como el negocio lo pide:
-        // cuotas iguales → "N cuotas de $X"; con residuo → "N-1 cuotas de $X / Última cuota: $Y".
+        // Formatea el vector de cuotas devuelto por el servidor (ML3) como resumen corto:
+        // cuotas iguales → "N cuotas de $X"; con importes distintos (residuo de redondeo Y/O
+        // cuotas sin recargo, CSR-ML6) → "Ver detalle por cuota" (la tabla completa, siempre
+        // visible, es la fuente visual final — no se resume comparando sólo primera vs última:
+        // ver #plan-cuotas-tabla).
         function formatearDetalleCuotas(cuotas, cantidad) {
             if (!Array.isArray(cuotas) || cuotas.length === 0) return `${cantidad} cuotas`;
+            if (cuotas.length === 1) return `1 cuota de ${formatCurrency(cuotas[0].total)}`;
 
             const primera = cuotas[0].total;
-            const ultima = cuotas[cuotas.length - 1].total;
+            const todasIguales = cuotas.every((c) => Math.abs(Number(c.total) - Number(primera)) < 0.005);
 
-            if (cuotas.length === 1) return `1 cuota de ${formatCurrency(primera)}`;
+            return todasIguales
+                ? `${cuotas.length} cuotas de ${formatCurrency(primera)}`
+                : 'Ver detalle por cuota';
+        }
 
-            if (Math.abs(ultima - primera) < 0.005) {
-                return `${cuotas.length} cuotas de ${formatCurrency(primera)}`;
-            }
+        // CSR-ML6: "N°, N°, …" a partir de la metadata del plan (data.cuotasSinRecargo), nunca
+        // inferido de interes === 0 (con un plan 0% todas las cuotas tendrían interés 0 sin estar
+        // necesariamente marcadas como "sin recargo").
+        function formatearCuotasSinRecargo(lista) {
+            if (!Array.isArray(lista) || lista.length === 0) return 'Ninguna';
+            return lista.slice().sort((a, b) => a - b).join(', ');
+        }
 
-            return `${cuotas.length - 1} cuotas de ${formatCurrency(primera)} + última cuota de ${formatCurrency(ultima)}`;
+        // Pinta la tabla completa por cuota tal cual el vector del servidor: no recalcula capital,
+        // recargo ni total. El badge "Sin recargo" se pinta por el propio interes de la fila (0),
+        // así que con un plan 0% aparece en todas las filas sin sugerir que las demás sí cobran
+        // recargo (ver spec CSR-ML6, caso 0%).
+        function renderTablaCuotas(cuotas) {
+            if (!planCuotasTablaBody) return;
+            planCuotasTablaBody.innerHTML = '';
+            if (!Array.isArray(cuotas)) return;
+
+            cuotas.forEach((c) => {
+                const sinRecargo = Number(c.interes) === 0;
+                const tr = document.createElement('tr');
+
+                const tdNumero = document.createElement('td');
+                tdNumero.textContent = c.numeroCuota;
+                tr.appendChild(tdNumero);
+
+                const tdCapital = document.createElement('td');
+                tdCapital.className = 'num';
+                tdCapital.style.textAlign = 'right';
+                tdCapital.textContent = formatCurrency(c.capital);
+                tr.appendChild(tdCapital);
+
+                const tdRecargo = document.createElement('td');
+                tdRecargo.className = 'num';
+                tdRecargo.style.textAlign = 'right';
+                tdRecargo.textContent = formatCurrency(c.interes);
+                if (sinRecargo) {
+                    const badge = document.createElement('span');
+                    badge.className = 'chip chip-neutral';
+                    badge.style.marginLeft = '.4rem';
+                    badge.textContent = 'Sin recargo';
+                    tdRecargo.appendChild(badge);
+                }
+                tr.appendChild(tdRecargo);
+
+                const tdTotal = document.createElement('td');
+                tdTotal.className = 'num';
+                tdTotal.style.textAlign = 'right';
+                tdTotal.style.fontWeight = '600';
+                tdTotal.textContent = formatCurrency(c.total);
+                tr.appendChild(tdTotal);
+
+                planCuotasTablaBody.appendChild(tr);
+            });
         }
 
         function actualizarPlanResumen(data, cuotas) {
@@ -287,6 +345,9 @@
             // Total financiado = saldo a financiar + recargo (totalAPagar). Los gastos
             // administrativos son informativos aparte, nunca se suman a este total.
             planTotal.textContent = formatCurrency(data.totalAPagar);
+            // CSR-ML6: metadata del plan + tabla completa, pintadas tal cual las manda el servidor.
+            if (planCuotasSinRecargo) planCuotasSinRecargo.textContent = formatearCuotasSinRecargo(data.cuotasSinRecargo);
+            renderTablaCuotas(data.cuotas);
 
             if (data.fechaPrimerPago) {
                 planFechaPago.textContent = formatDateDisplay(data.fechaPrimerPago);
@@ -317,6 +378,8 @@
             if (txtMontoFin) txtMontoFin.textContent = '$ 0,00';
             planGastos.textContent = '$ 0,00';
             planTotal.textContent = '$ 0,00';
+            if (planCuotasSinRecargo) planCuotasSinRecargo.textContent = 'Ninguna';
+            if (planCuotasTablaBody) planCuotasTablaBody.innerHTML = '';
             hide(planFechaContainer);
             hide(planSimulando);
             hide(planError);

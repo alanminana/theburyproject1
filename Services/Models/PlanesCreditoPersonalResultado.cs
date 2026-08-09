@@ -42,23 +42,53 @@ public enum MotivoSinPlanesCredito
 /// <summary>
 /// Plan efectivo de la venta para una cantidad de cuotas.
 /// </summary>
-/// <param name="CantidadCuotas">Cantidad de cuotas habilitada para todos los productos.</param>
-/// <param name="TasaMensual">
-/// Porcentaje de recargo del plan. Única autoridad (ML2.1): el valor de la cuota global
-/// (<c>ConfiguracionCreditoPersonalCuota</c>) para esta cantidad, tal cual. Si no existe cuota
-/// global para esta cantidad, <c>null</c> — nunca la tasa propia del producto, que dejó de ser
-/// fuente de porcentaje. <c>null</c> también cuando la cuota global existe pero no tiene
-/// porcentaje explícito: en ambos casos significa "configuración inválida", NUNCA se hereda de
-/// Producto, Perfil, Cliente, Manual ni de la tasa única global (que dejó de ser fallback del
-/// porcentaje).
-/// </param>
-/// <param name="ProductosConPlanPropio">Productos que aportaron una configuración personalizada.</param>
-/// <param name="IncluyeConfiguracionGlobal">Si algún producto aportó su plan heredando la global.</param>
-public sealed record PlanCuotaCreditoPersonal(
-    int CantidadCuotas,
-    decimal? TasaMensual,
-    IReadOnlyList<int> ProductosConPlanPropio,
-    bool IncluyeConfiguracionGlobal);
+public sealed record PlanCuotaCreditoPersonal
+{
+    private static readonly IReadOnlyList<int> SinExclusiones = Array.Empty<int>();
+
+    /// <param name="cantidadCuotas">Cantidad de cuotas habilitada para todos los productos.</param>
+    /// <param name="tasaMensual">
+    /// Porcentaje de recargo del plan. Única autoridad (ML2.1): el valor de la cuota global
+    /// (<c>ConfiguracionCreditoPersonalCuota</c>) para esta cantidad, tal cual. Si no existe cuota
+    /// global para esta cantidad, <c>null</c> — nunca la tasa propia del producto, que dejó de ser
+    /// fuente de porcentaje. <c>null</c> también cuando la cuota global existe pero no tiene
+    /// porcentaje explícito: en ambos casos significa "configuración inválida", NUNCA se hereda de
+    /// Producto, Perfil, Cliente, Manual ni de la tasa única global (que dejó de ser fallback del
+    /// porcentaje).
+    /// </param>
+    /// <param name="productosConPlanPropio">Productos que aportaron una configuración personalizada.</param>
+    /// <param name="incluyeConfiguracionGlobal">Si algún producto aportó su plan heredando la global.</param>
+    /// <param name="cuotasSinRecargo">
+    /// CSR-ML4: números de cuota (1-based) del plan GLOBAL sin recargo. Viaja junto al plan
+    /// resuelto (ver <see cref="PlanesCreditoPersonalResultado"/>) para que los call sites de
+    /// <c>IFinancialCalculationService.SimularPlanCredito</c> no vuelvan a consultar
+    /// <c>IConfiguracionPagoService.GetCuotasSinRecargoAsync</c> por separado. Al igual que
+    /// <paramref name="tasaMensual"/>, es un dato exclusivo del plan GLOBAL
+    /// (<c>ConfiguracionCreditoPersonalCuota</c>): Cliente/Perfil/Producto/Manual nunca la aportan
+    /// ni la sustituyen. <c>null</c> se normaliza a vacía — vacía también cuando no hay cuotas
+    /// marcadas sin recargo para ese plan (comportamiento histórico) o cuando el plan no tiene
+    /// entrada global (p. ej. cantidad que solo existe por configuración de producto).
+    /// </param>
+    public PlanCuotaCreditoPersonal(
+        int cantidadCuotas,
+        decimal? tasaMensual,
+        IReadOnlyList<int> productosConPlanPropio,
+        bool incluyeConfiguracionGlobal,
+        IReadOnlyList<int>? cuotasSinRecargo = null)
+    {
+        CantidadCuotas = cantidadCuotas;
+        TasaMensual = tasaMensual;
+        ProductosConPlanPropio = productosConPlanPropio;
+        IncluyeConfiguracionGlobal = incluyeConfiguracionGlobal;
+        CuotasSinRecargo = cuotasSinRecargo ?? SinExclusiones;
+    }
+
+    public int CantidadCuotas { get; }
+    public decimal? TasaMensual { get; }
+    public IReadOnlyList<int> ProductosConPlanPropio { get; }
+    public bool IncluyeConfiguracionGlobal { get; }
+    public IReadOnlyList<int> CuotasSinRecargo { get; }
+}
 
 /// <summary>
 /// Resultado canónico de resolver los planes de Crédito Personal de una venta.

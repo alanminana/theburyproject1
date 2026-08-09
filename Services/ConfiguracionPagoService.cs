@@ -1307,7 +1307,7 @@ namespace TheBuryProject.Services
                 .ThenBy(x => x.CantidadCuotas)
                 .ToListAsync();
 
-            return existentes.Select(e => new CuotaCreditoPersonalViewModel
+            var vms = existentes.Select(e => new CuotaCreditoPersonalViewModel
             {
                 Id = e.Id,
                 CantidadCuotas = e.CantidadCuotas,
@@ -1315,6 +1315,19 @@ namespace TheBuryProject.Services
                 Activo = e.Activo,
                 Orden = e.Orden
             }).ToList();
+
+            // CSR-ML5: cuotas sin recargo de TODOS los planes (activos e inactivos, la pantalla
+            // admin edita ambos) en una unica query batch — reutiliza el mismo helper que ya usa
+            // ResolverPlanesCreditoPersonalAsync (CSR-ML4), evita una query por plan.
+            var cuotasSinRecargoPorPlan = await CargarCuotasSinRecargoPorPlanAsync(vms);
+            foreach (var vm in vms)
+            {
+                vm.CuotasSinRecargo = cuotasSinRecargoPorPlan.TryGetValue(vm.Id, out var numeros)
+                    ? numeros.ToList()
+                    : new List<int>();
+            }
+
+            return vms;
         }
 
         public async Task<List<CuotaCreditoPersonalViewModel>> GetCuotasCreditoPersonalActivasAsync()
@@ -1340,13 +1353,19 @@ namespace TheBuryProject.Services
             var ids = productoIds?.Where(id => id > 0).Distinct().OrderBy(id => id).ToArray() ?? Array.Empty<int>();
             var globales = await GetCuotasCreditoPersonalActivasAsync();
 
+            // CSR-ML4: cuotas sin recargo de TODOS los planes globales activos en una unica query
+            // batch (evita N+1 — una consulta por plan resuelto). El plan resuelto la transporta en
+            // PlanCuotaCreditoPersonal.CuotasSinRecargo: los call sites de SimularPlanCredito no
+            // vuelven a consultar GetCuotasSinRecargoAsync por separado.
+            var cuotasSinRecargoPorPlan = await CargarCuotasSinRecargoPorPlanAsync(globales);
+
             // Sin productos financiados solo puede regir la tabla global. Sin planes activos no hay
             // cuotas disponibles: rechazo explicito, nunca fallback a un rango.
             if (ids.Length == 0)
                 return globales.Count == 0
                     ? PlanesCreditoPersonalResultado.SinPlanesGlobales(SinPlanesGlobalesMensaje)
                     : PlanesCreditoPersonalResultado.Resuelto(
-                        ConstruirPlanesSoloGlobales(globales),
+                        ConstruirPlanesSoloGlobales(globales, cuotasSinRecargoPorPlan),
                         OrigenPlanesCredito.Global);
 
             var planesProducto = await _context.ProductoCreditoPersonalCuotas
@@ -1368,7 +1387,7 @@ namespace TheBuryProject.Services
                 return globales.Count == 0
                     ? PlanesCreditoPersonalResultado.SinPlanesGlobales(SinPlanesGlobalesMensaje)
                     : PlanesCreditoPersonalResultado.Resuelto(
-                        ConstruirPlanesSoloGlobales(globales),
+                        ConstruirPlanesSoloGlobales(globales, cuotasSinRecargoPorPlan),
                         OrigenPlanesCredito.Global);
 
             // Cantidades efectivas: interseccion de los sets de cada producto con planes propios.
@@ -1421,6 +1440,14 @@ namespace TheBuryProject.Services
                 // porcentaje; solo sigue decidiendo que cantidades ofrece ese producto, arriba).
                 decimal? tasaResuelta = entradaGlobal?.TasaMensual;
 
+                // CSR-ML4: mismo origen que la tasa — solo el plan GLOBAL aporta CuotasSinRecargo.
+                // Sin cuota global para esta cantidad no hay exclusiones (coherente con tasaResuelta
+                // null: ya es un plan invalido, ProductoCreditoPersonalCuota no la sustituye).
+                var cuotasSinRecargoResueltas = entradaGlobal == null
+                    ? Array.Empty<int>()
+                    : ObtenerCuotasSinRecargoValidadas(
+                        entradaGlobal.Id, cantidad, tasaResuelta, cuotasSinRecargoPorPlan);
+
                 resultado.Add(new PlanCuotaCreditoPersonal(
                     cantidad,
                     tasaResuelta,
@@ -1430,7 +1457,8 @@ namespace TheBuryProject.Services
                         .Distinct()
                         .OrderBy(id => id)
                         .ToArray(),
-                    hayProductoSinPlanes));
+                    hayProductoSinPlanes,
+                    cuotasSinRecargoResueltas));
             }
 
             return PlanesCreditoPersonalResultado.Resuelto(
@@ -1440,7 +1468,8 @@ namespace TheBuryProject.Services
         }
 
         private static IReadOnlyList<PlanCuotaCreditoPersonal> ConstruirPlanesSoloGlobales(
-            List<CuotaCreditoPersonalViewModel> globales)
+            List<CuotaCreditoPersonalViewModel> globales,
+            IReadOnlyDictionary<int, IReadOnlyList<int>> cuotasSinRecargoPorPlan)
         {
             // ML2: la tasa de cada cuota global es la resolucion final, sin fallback a la tasa
             // unica global. null = plan activo sin porcentaje explicito (configuracion invalida).
@@ -1450,8 +1479,64 @@ namespace TheBuryProject.Services
                     g.CantidadCuotas,
                     g.TasaMensual,
                     Array.Empty<int>(),
-                    true))
+                    true,
+                    ObtenerCuotasSinRecargoValidadas(g.Id, g.CantidadCuotas, g.TasaMensual, cuotasSinRecargoPorPlan)))
                 .ToArray();
+        }
+
+        /// <summary>
+        /// CSR-ML4 — Fase 1: carga en una unica query batch las cuotas sin recargo de todos los
+        /// planes globales activos que se estan resolviendo (evita una query por plan). Devuelve un
+        /// lookup por <c>ConfiguracionCreditoPersonalCuota.Id</c>, cada lista ya ordenada ascendente
+        /// (misma garantia que <see cref="GetCuotasSinRecargoAsync"/>).
+        /// </summary>
+        private async Task<IReadOnlyDictionary<int, IReadOnlyList<int>>> CargarCuotasSinRecargoPorPlanAsync(
+            List<CuotaCreditoPersonalViewModel> globales)
+        {
+            if (globales.Count == 0)
+                return new Dictionary<int, IReadOnlyList<int>>();
+
+            var idsGlobales = globales.Select(g => g.Id).ToArray();
+
+            var filas = await _context.ConfiguracionCreditoPersonalCuotasSinRecargo
+                .AsNoTracking()
+                .Where(c => idsGlobales.Contains(c.ConfiguracionCreditoPersonalCuotaId))
+                .OrderBy(c => c.NumeroCuota)
+                .Select(c => new { c.ConfiguracionCreditoPersonalCuotaId, c.NumeroCuota })
+                .ToListAsync();
+
+            return filas
+                .GroupBy(f => f.ConfiguracionCreditoPersonalCuotaId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => (IReadOnlyList<int>)g.Select(f => f.NumeroCuota).ToArray());
+        }
+
+        /// <summary>
+        /// CSR-ML4 — Fase 8: validacion defensiva de la seleccion persistida de cuotas sin recargo
+        /// de un plan, contra la misma regla pura que ya usa la persistencia
+        /// (<see cref="ConfiguracionCreditoPersonalCuotaSinRecargoRules.Validar"/>). La
+        /// administracion ya valida al guardar, pero esto no confia ciegamente en el contenido de
+        /// la tabla: numeros fuera de rango, duplicados, o todas las cuotas excluidas con un
+        /// recargo &gt; 0 no se silencian ni se convierten en lista vacia — se rechaza resolviendo el
+        /// plan (falla ruidosamente), igual que otras invariantes "no deberia pasar" de este service.
+        /// </summary>
+        private static IReadOnlyList<int> ObtenerCuotasSinRecargoValidadas(
+            int planId,
+            int cantidadCuotas,
+            decimal? tasaMensual,
+            IReadOnlyDictionary<int, IReadOnlyList<int>> cuotasSinRecargoPorPlan)
+        {
+            if (!cuotasSinRecargoPorPlan.TryGetValue(planId, out var numeros) || numeros.Count == 0)
+                return Array.Empty<int>();
+
+            var errores = ConfiguracionCreditoPersonalCuotaSinRecargoRules.Validar(cantidadCuotas, tasaMensual, numeros);
+            if (errores.Count > 0)
+                throw new InvalidOperationException(
+                    $"Configuracion de cuotas sin recargo invalida en base de datos para el plan de Credito " +
+                    $"Personal #{planId} ({cantidadCuotas} cuotas): {string.Join(" ", errores)}");
+
+            return numeros;
         }
 
         private static Dictionary<int, IReadOnlyList<int>> ConstruirCantidadesPorProducto(
@@ -1568,6 +1653,67 @@ namespace TheBuryProject.Services
             _logger.LogInformation(
                 "Cuotas de Credito Personal guardadas — {Count} registros — Usuario {Usuario}",
                 items.Count, usuario);
+
+            return (true, errores);
+        }
+
+        public async Task<IReadOnlyList<int>> GetCuotasSinRecargoAsync(int configuracionCreditoPersonalCuotaId)
+        {
+            return await _context.ConfiguracionCreditoPersonalCuotasSinRecargo
+                .AsNoTracking()
+                .Where(c => c.ConfiguracionCreditoPersonalCuotaId == configuracionCreditoPersonalCuotaId)
+                .OrderBy(c => c.NumeroCuota)
+                .Select(c => c.NumeroCuota)
+                .ToListAsync();
+        }
+
+        public async Task<(bool Ok, List<string> Errores)> GuardarCuotasSinRecargoCreditoPersonalAsync(
+            int configuracionCreditoPersonalCuotaId,
+            IReadOnlyList<int> numerosCuota,
+            string usuario)
+        {
+            var errores = new List<string>();
+
+            numerosCuota ??= Array.Empty<int>();
+
+            var plan = await _context.ConfiguracionCreditoPersonalCuotas
+                .Include(p => p.CuotasSinRecargo)
+                .FirstOrDefaultAsync(p => p.Id == configuracionCreditoPersonalCuotaId);
+
+            if (plan == null)
+            {
+                errores.Add("El plan de Credito Personal indicado no existe.");
+                return (false, errores);
+            }
+
+            errores.AddRange(ConfiguracionCreditoPersonalCuotaSinRecargoRules.Validar(
+                plan.CantidadCuotas, plan.TasaMensual, numerosCuota));
+
+            if (errores.Any())
+                return (false, errores);
+
+            _context.ConfiguracionCreditoPersonalCuotasSinRecargo.RemoveRange(plan.CuotasSinRecargo);
+
+            var fecha = DateTime.UtcNow;
+            foreach (var numero in numerosCuota.Distinct().OrderBy(n => n))
+            {
+                _context.ConfiguracionCreditoPersonalCuotasSinRecargo.Add(
+                    new ConfiguracionCreditoPersonalCuotaSinRecargo
+                    {
+                        ConfiguracionCreditoPersonalCuotaId = plan.Id,
+                        NumeroCuota = numero
+                    });
+            }
+
+            plan.FechaActualizacion = fecha;
+            plan.UsuarioActualizacion = usuario;
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Cuotas sin recargo guardadas para plan {PlanId} ({CantidadCuotas} cuotas) — " +
+                "{Count} numeros — Usuario {Usuario}",
+                plan.Id, plan.CantidadCuotas, numerosCuota.Distinct().Count(), usuario);
 
             return (true, errores);
         }

@@ -394,8 +394,24 @@
                         <div class="flex justify-between"><dt class="text-slate-400">Saldo a financiar</dt><dd id="plan-credito-saldo" class="text-white font-mono">—</dd></div>
                         <div class="flex justify-between"><dt class="text-slate-400">Importe del recargo</dt><dd id="plan-credito-importe-recargo" class="text-amber-300 font-mono">—</dd></div>
                         <div class="flex justify-between border-t border-slate-800 pt-1.5"><dt class="text-slate-300 font-medium">Total financiado</dt><dd id="plan-credito-total-financiado" class="text-white font-mono font-semibold">—</dd></div>
+                        <div class="flex justify-between"><dt class="text-slate-400">Cuotas sin recargo</dt><dd id="plan-credito-cuotas-sin-recargo" class="text-white font-mono">—</dd></div>
                     </dl>
                     <p id="plan-credito-vector" class="mt-2 text-xs text-slate-300"></p>
+                    @* CSR-ML6: tabla completa por cuota — mismo vector que Configurar Venta (ambos
+                       caminos comparten CreditoSimulacionVentaService). No se recalcula acá. *@
+                    <div class="mt-2 rounded-lg border border-slate-800 overflow-x-auto">
+                        <table class="w-full text-xs" id="plan-credito-cuotas-tabla">
+                            <thead>
+                                <tr class="text-slate-500 text-[10px] uppercase tracking-wide">
+                                    <th class="text-left px-2 py-1.5">N°</th>
+                                    <th class="text-right px-2 py-1.5">Capital</th>
+                                    <th class="text-right px-2 py-1.5">Recargo</th>
+                                    <th class="text-right px-2 py-1.5">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody id="plan-credito-cuotas-tabla-body"></tbody>
+                        </table>
+                    </div>
                 </div>
                 <div class="card-sub p-3.5">
                     <h4 class="text-sm font-medium text-white flex items-center gap-2"><span class="material-symbols-outlined text-slate-400" style="font-size:17px">rule</span> Condiciones</h4>

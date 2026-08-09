@@ -70,7 +70,8 @@ file sealed class StubFinancialServiceConfig : IFinancialCalculationService
         decimal totalVenta, decimal anticipo, int cuotas, decimal tasaMensual,
         decimal gastosAdministrativos, DateTime fechaPrimeraCuota,
         decimal semaforoRatioVerdeMax = 0.08m,
-        decimal semaforoRatioAmarilloMax = 0.15m) => throw new NotImplementedException();
+        decimal semaforoRatioAmarilloMax = 0.15m,
+        IReadOnlyCollection<int>? cuotasSinRecargo = null) => throw new NotImplementedException();
 }
 
 file sealed class StubCreditoDisponibleServiceConfig : ICreditoDisponibleService

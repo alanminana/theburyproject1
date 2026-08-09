@@ -256,4 +256,32 @@ public class EstadoCuotaResolverTests
         Assert.Equal(esperado, EstadoCuotaResolver.EstaEnMoraCapitalDerivado(
             EstadoCuota.Pendiente, montoPagado: 0m, montoTotal: 1000m, Vencimiento, fechaComercial));
     }
+
+    // ---------------------------------------------------------------------------
+    // CSR-ML4 — regresión de mora/punitorio: una cuota de un plan "sin recargo" persiste con
+    // MontoInteres=0 (MontoTotal == MontoCapital). Ni Resolver ni EstaEnMoraCapitalDerivado
+    // reciben MontoInteres como parámetro — dependen solo de MontoTotal/MontoPagado/fechas — así
+    // que esa cuota vence y entra en mora exactamente igual que cualquier otra. No se toca
+    // producción: este test solo caracteriza el comportamiento ya vigente.
+    // ---------------------------------------------------------------------------
+
+    [Fact]
+    public void CuotaConMontoInteresCeroCSR_VenceImpaga_EntraAVencidaIgualQueCualquierCuota()
+    {
+        var fechaComercial = new DateOnly(2026, 6, 16); // un día después del vencimiento
+
+        var estado = EstadoCuotaResolver.Resolver(
+            EstadoCuota.Pendiente, Vencimiento, fechaComercial,
+            montoPagado: 0m, montoTotal: 1000m, // MontoTotal == MontoCapital (MontoInteres = 0)
+            punitorioAplicadoPendiente: 0m);
+
+        Assert.Equal(EstadoCuota.Vencida, estado);
+    }
+
+    [Fact]
+    public void CuotaConMontoInteresCeroCSR_EstaEnMoraCapitalDerivado_IgualQueCualquierCuota()
+    {
+        Assert.True(EstadoCuotaResolver.EstaEnMoraCapitalDerivado(
+            EstadoCuota.Pendiente, montoPagado: 0m, montoTotal: 1000m, Vencimiento, FechaVencida));
+    }
 }

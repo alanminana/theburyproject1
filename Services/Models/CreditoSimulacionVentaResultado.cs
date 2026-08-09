@@ -50,6 +50,15 @@ public sealed class CreditoSimulacionVentaJson
     /// <summary>Vector exacto de cuotas de FinancialCalculationService.SimularPlanCredito (ML3).</summary>
     public IReadOnlyList<CreditoSimulacionCuotaJson> cuotas { get; init; } = Array.Empty<CreditoSimulacionCuotaJson>();
 
+    /// <summary>
+    /// CSR-ML6: números de cuota (1-based) marcados sin recargo en el plan GLOBAL, tal cual
+    /// viajan en <see cref="Services.Models.PlanCuotaCreditoPersonal.CuotasSinRecargo"/> — metadata
+    /// del plan, no un cálculo. No se infiere de <c>cuotas[].interes == 0</c>: con un plan 0% todas
+    /// las cuotas tendrían interés 0 sin estar necesariamente marcadas como "sin recargo", y esa
+    /// inferencia perdería la distinción. Vacía cuando el plan no tiene cuotas excluidas.
+    /// </summary>
+    public IReadOnlyList<int> cuotasSinRecargo { get; init; } = Array.Empty<int>();
+
     public string semaforoEstado { get; init; } = string.Empty;
     public string semaforoMensaje { get; init; } = string.Empty;
     public bool mostrarMsgIngreso { get; init; }

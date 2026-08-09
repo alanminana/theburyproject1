@@ -34,5 +34,13 @@ namespace TheBuryProject.Models.Entities
 
         [StringLength(100)]
         public string? UsuarioActualizacion { get; set; }
+
+        /// <summary>
+        /// Números de cuota de este plan marcados como "sin recargo comercial" (CSR-ML2). Vacía
+        /// por defecto — comportamiento actual preservado — hasta que se guarde una selección
+        /// explícita vía <see cref="Services.ConfiguracionPagoService.GuardarCuotasSinRecargoCreditoPersonalAsync"/>.
+        /// </summary>
+        public virtual ICollection<ConfiguracionCreditoPersonalCuotaSinRecargo> CuotasSinRecargo { get; set; } =
+            new List<ConfiguracionCreditoPersonalCuotaSinRecargo>();
     }
 }

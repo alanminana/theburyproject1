@@ -337,6 +337,70 @@ public class ConfiguracionCreditoPersonalPlanesGlobalesTests : IDisposable
     }
 
     // =====================================================================
+    // CSR-ML4 — Fase 1: CuotasSinRecargo viaja en el plan resuelto (P1, P8)
+    // =====================================================================
+
+    [Fact]
+    public async Task P1_Plan10Cuotas10PorcientoConExclusiones135_CuotasSinRecargoViajaEnElPlanResuelto()
+    {
+        await SeedConfigGlobalPago();
+        await SeedGlobal((10, 10m));
+        await SeedCuotasSinRecargo(10, 1, 3, 5);
+        var producto = await SeedProducto("CSR4-A");
+
+        var planes = await Resolver(producto);
+
+        Assert.True(planes.EsValido);
+        var plan = planes.BuscarPlan(10);
+        Assert.NotNull(plan);
+        Assert.Equal(new[] { 1, 3, 5 }, plan!.CuotasSinRecargo);
+    }
+
+    [Fact]
+    public async Task P8_PlanSinExclusiones_CuotasSinRecargoVaciaComportamientoHistorico()
+    {
+        await SeedConfigGlobalPago();
+        await SeedGlobal((6, 8m));
+        var producto = await SeedProducto("CSR4-B");
+
+        var planes = await Resolver(producto);
+
+        var plan = planes.BuscarPlan(6);
+        Assert.NotNull(plan);
+        Assert.Empty(plan!.CuotasSinRecargo);
+    }
+
+    [Fact]
+    public async Task Fase6_PlanExistenteSinFilasDeExclusion_ProduceListaVacia()
+    {
+        // Fase 6: un plan global existente que nunca tuvo filas en
+        // ConfiguracionCreditoPersonalCuotaSinRecargo debe resolver [] (mismo caso que P8, pero
+        // con varios planes activos a la vez para probar que el lookup batch no confunde planes).
+        await SeedConfigGlobalPago();
+        await SeedGlobal((3, 5m), (6, 8m));
+        await SeedCuotasSinRecargo(6, 2, 4); // solo el plan de 6 cuotas tiene exclusiones
+        var producto = await SeedProducto("CSR4-C");
+
+        var planes = await Resolver(producto);
+
+        Assert.Empty(planes.BuscarPlan(3)!.CuotasSinRecargo);
+        Assert.Equal(new[] { 2, 4 }, planes.BuscarPlan(6)!.CuotasSinRecargo);
+    }
+
+    [Fact]
+    public async Task Fase8_NumeroFueraDeRangoEnDb_ResolverPlanesFallaRuidosamente()
+    {
+        // Fase 8 — validación defensiva: DB corrupta (número fuera de [1, CantidadCuotas]) no se
+        // silencia ni se convierte en lista vacía — ResolverPlanesCreditoPersonalAsync falla.
+        await SeedConfigGlobalPago();
+        await SeedGlobal((5, 10m));
+        await SeedCuotasSinRecargo(5, 1, 99); // 99 está fuera de rango para un plan de 5 cuotas
+        var producto = await SeedProducto("CSR4-D");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Resolver(producto));
+    }
+
+    // =====================================================================
     // Helpers
     // =====================================================================
 
@@ -411,6 +475,29 @@ public class ConfiguracionCreditoPersonalPlanesGlobalesTests : IDisposable
                 CantidadCuotas = cuotas,
                 TasaMensual = tasa,
                 Activo = true
+            });
+        }
+        await _context.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// CSR-ML4: siembra la selección de cuotas sin recargo de un plan global ya creado por
+    /// <see cref="SeedGlobal"/> (busca su Id por CantidadCuotas — hay un único plan activo por
+    /// cantidad en estos tests).
+    /// </summary>
+    private async Task SeedCuotasSinRecargo(int cantidadCuotas, params int[] numerosCuota)
+    {
+        var planId = await _context.ConfiguracionCreditoPersonalCuotas
+            .Where(p => p.CantidadCuotas == cantidadCuotas)
+            .Select(p => p.Id)
+            .SingleAsync();
+
+        foreach (var numero in numerosCuota)
+        {
+            _context.ConfiguracionCreditoPersonalCuotasSinRecargo.Add(new ConfiguracionCreditoPersonalCuotaSinRecargo
+            {
+                ConfiguracionCreditoPersonalCuotaId = planId,
+                NumeroCuota = numero
             });
         }
         await _context.SaveChangesAsync();

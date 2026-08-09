@@ -46,6 +46,11 @@ public sealed class CotizacionVentaParidadCreditoPersonalTests
             totalFinanciadoEsperado: 104_000m);
 
         Assert.All(resultado.PlanCotizacion.Cuotas, c => Assert.Equal(26_000m, c.Total));
+
+        // CSR-ML6: sin cuotas sin recargo configuradas, la metadata es vacía en ambos caminos —
+        // nunca null.
+        Assert.Empty(resultado.PlanVenta.cuotasSinRecargo);
+        Assert.Empty(resultado.PlanCotizacion.CuotasSinRecargo);
     }
 
     // Caso B — spec ML7: Precio 100000, Anticipo 30000, Plan 12 cuotas, Recargo 10%
@@ -74,6 +79,74 @@ public sealed class CotizacionVentaParidadCreditoPersonalTests
             montoFinanciadoEsperado: 133_100m,
             recargoEsperado: 0m,
             totalFinanciadoEsperado: 133_100m);
+    }
+
+    // Caso D — CSR-ML4 (P2/P3): Precio 100000, Anticipo 0, Plan 10 cuotas, Recargo 10%, cuotas sin
+    // recargo 1,3,5. El vector completo (paridad Fase 6) debe seguir cerrando a centavos Y las
+    // cuotas excluidas deben mostrar Interes=0 en AMBOS caminos — mismo plan resuelto server-side,
+    // ninguno de los dos vuelve a consultar la configuración por separado.
+    [Fact]
+    public async Task CasoD_ConCuotasSinRecargo135_CotizacionYVentaCoincidenYRespetanLaExclusion()
+    {
+        var cuotasSinRecargo = new[] { 1, 3, 5 };
+
+        var resultado = await SimularAmbosCaminosAsync(
+            precioProducto: 100_000m, anticipo: 0m, cuotas: 10, porcentajePlan: 10m,
+            cuotasSinRecargo: cuotasSinRecargo);
+
+        VerificarParidad(resultado,
+            montoFinanciadoEsperado: 100_000m,
+            recargoEsperado: 10_000m,
+            totalFinanciadoEsperado: 110_000m);
+
+        foreach (var numero in cuotasSinRecargo)
+        {
+            Assert.Equal(0m, resultado.PlanCotizacion.Cuotas[numero - 1].Interes);
+            Assert.Equal(0m, resultado.PlanVenta.cuotas[numero - 1].interes);
+        }
+
+        // Al menos una cuota no excluida debe llevar recargo (10 cuotas, 3 excluidas).
+        Assert.Contains(resultado.PlanVenta.cuotas, c => c.interes > 0m);
+
+        // CSR-ML6: la metadata "cuotas sin recargo" (no consecutivas) viaja tal cual en ambos
+        // caminos — no es sólo una coincidencia de Interes == 0, es la lista configurada.
+        Assert.Equal(cuotasSinRecargo, resultado.PlanVenta.cuotasSinRecargo);
+        Assert.Equal(cuotasSinRecargo, resultado.PlanCotizacion.CuotasSinRecargo);
+    }
+
+    // Caso E — CSR-ML4 (P9): plan 0% con cuotas sin recargo configuradas. La lista viaja igual,
+    // pero financieramente no cambia nada (Recargo ya es 0 en todas): sin diferencias artificiales
+    // frente a un plan 0% sin exclusiones.
+    [Fact]
+    public async Task CasoE_RecargoCeroConCuotasSinRecargoConfiguradas_SinDiferenciasArtificiales()
+    {
+        var resultado = await SimularAmbosCaminosAsync(
+            precioProducto: 90_000m, anticipo: 0m, cuotas: 9, porcentajePlan: 0m,
+            cuotasSinRecargo: new[] { 1, 3, 5 });
+
+        VerificarParidad(resultado,
+            montoFinanciadoEsperado: 90_000m,
+            recargoEsperado: 0m,
+            totalFinanciadoEsperado: 90_000m);
+
+        Assert.All(resultado.PlanVenta.cuotas, c => Assert.Equal(0m, c.interes));
+        Assert.All(resultado.PlanCotizacion.Cuotas, c => Assert.Equal(0m, c.Interes));
+
+        // CSR-ML6: la metadata configurada (1,3,5) sigue viajando tal cual con un plan 0% — no se
+        // vacía ni se "completa" a las 9 cuotas sólo porque todas terminan con Interes 0.
+        Assert.Equal(new[] { 1, 3, 5 }, resultado.PlanVenta.cuotasSinRecargo);
+        Assert.Equal(new[] { 1, 3, 5 }, resultado.PlanCotizacion.CuotasSinRecargo);
+    }
+
+    // P10 — ninguna superficie de request de Venta/Cotización transporta CuotasSinRecargo: el
+    // backend la resuelve siempre server-side desde el plan (ver CasoD/CasoE arriba). Guarda de
+    // regresión: si algún día se agrega una propiedad con ese nombre a estos DTOs, este test debe
+    // fallar y forzar a revisar por qué el cliente podría estar mandando la exclusión.
+    [Fact]
+    public void P10_RequestDeSimulacion_NoExponeCuotasSinRecargoComoSuperficieDeCliente()
+    {
+        var propiedades = typeof(CreditoSimulacionVentaRequest).GetProperties();
+        Assert.DoesNotContain(propiedades, p => p.Name.Contains("CuotasSinRecargo", StringComparison.Ordinal));
     }
 
     private sealed record ResultadoParidad(
@@ -124,13 +197,22 @@ public sealed class CotizacionVentaParidadCreditoPersonalTests
 
         // Misma última cuota (la que absorbe el residuo de redondeo).
         Assert.Equal(planVenta.cuotas[^1].total, planCotizacion.UltimaCuota);
+
+        // CSR-ML6: metadata del plan (cuotas sin recargo) idéntica en ambos caminos — mismo
+        // resultado canónico (CreditoSimulacionVentaJson), no reinterpretada por separado.
+        Assert.Equal(planVenta.cuotasSinRecargo, planCotizacion.CuotasSinRecargo);
     }
 
     private static async Task<ResultadoParidad> SimularAmbosCaminosAsync(
-        decimal precioProducto, decimal anticipo, int cuotas, decimal porcentajePlan)
+        decimal precioProducto, decimal anticipo, int cuotas, decimal porcentajePlan,
+        IReadOnlyList<int>? cuotasSinRecargo = null)
     {
         var planes = PlanesCreditoPersonalResultado.Resuelto(
-            new[] { new PlanCuotaCreditoPersonal(cuotas, porcentajePlan, new[] { ProductoId }, false) },
+            new[]
+            {
+                new PlanCuotaCreditoPersonal(
+                    cuotas, porcentajePlan, new[] { ProductoId }, false, cuotasSinRecargo)
+            },
             OrigenPlanesCredito.Producto);
 
         var configuracionPagoService = new FakeConfiguracionPagoServiceParidad

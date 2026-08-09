@@ -18,6 +18,7 @@ namespace TheBuryProject.Services
     {
         private readonly AppDbContext _context;
         private readonly IFinancialCalculationService _financialService;
+        private readonly IConfiguracionPagoService _configuracionPagoService;
         private readonly IWebHostEnvironment _environment;
         private readonly ILogger<ContratoVentaCreditoService> _logger;
 
@@ -29,11 +30,13 @@ namespace TheBuryProject.Services
         public ContratoVentaCreditoService(
             AppDbContext context,
             IFinancialCalculationService financialService,
+            IConfiguracionPagoService configuracionPagoService,
             IWebHostEnvironment environment,
             ILogger<ContratoVentaCreditoService> logger)
         {
             _context = context;
             _financialService = financialService;
+            _configuracionPagoService = configuracionPagoService;
             _environment = environment;
             _logger = logger;
         }
@@ -241,7 +244,7 @@ namespace TheBuryProject.Services
 
             ValidarPlantilla(plantilla, result);
 
-            var planCuotas = ConstruirPlanCuotas(credito, result);
+            var planCuotas = await ConstruirPlanCuotasAsync(venta, credito, result);
             if (!planCuotas.Any())
                 result.Errores.Add("El crédito debe tener un plan de cuotas con fechas de vencimiento.");
 
@@ -360,7 +363,8 @@ namespace TheBuryProject.Services
                 result.Errores.Add("La plantilla debe tener interés por mora diario mayor a cero.");
         }
 
-        private List<CuotaContratoSnapshot> ConstruirPlanCuotas(
+        private async Task<List<CuotaContratoSnapshot>> ConstruirPlanCuotasAsync(
+            Venta venta,
             Credito credito,
             ContratoVentaCreditoValidacionResult result)
         {
@@ -368,6 +372,8 @@ namespace TheBuryProject.Services
             // impedir que el contrato proyecte el plan vigente recién configurado.
             if (credito.Cuotas.Any(c => !c.IsDeleted))
             {
+                // CSR-ML4 — Fase 4: crédito con cuotas persistidas. Se usan tal cual (histórico
+                // ya cerrado): no se recalcula ni se vuelve a resolver la configuración vigente.
                 var cuotasPersistidas = credito.Cuotas
                     .Where(c => !c.IsDeleted)
                     .OrderBy(c => c.NumeroCuota)
@@ -390,6 +396,11 @@ namespace TheBuryProject.Services
             if (credito.CantidadCuotas <= 0 || credito.MontoAprobado <= 0 || !credito.FechaPrimeraCuota.HasValue)
                 return new List<CuotaContratoSnapshot>();
 
+            // CSR-ML4 — Fase 4: crédito sin cuotas persistidas todavía. La re-simulación recibe el
+            // mismo CuotasSinRecargo del plan global resuelto para esta cantidad — nunca se infiere
+            // de Credito.TasaInteres ni se reconstruye a partir de importes.
+            var cuotasSinRecargo = await ResolverCuotasSinRecargoAsync(venta, credito);
+
             // Proyección del plan aún no persistido: mismo cálculo canónico que
             // VentaService.GenerarCuotasCreditoAsync (recargo total, no PMT/francés), para
             // que el contrato nunca muestre un importe distinto al que luego se persiste.
@@ -400,7 +411,8 @@ namespace TheBuryProject.Services
                 credito.CantidadCuotas,
                 credito.TasaInteres,
                 0m,
-                fecha);
+                fecha,
+                cuotasSinRecargo: cuotasSinRecargo);
 
             var plan = new List<CuotaContratoSnapshot>();
             foreach (var item in simulacion.Cuotas)
@@ -417,6 +429,32 @@ namespace TheBuryProject.Services
             }
 
             return plan;
+        }
+
+        /// <summary>
+        /// CSR-ML4 — Fase 4: resuelve el plan global de la venta para <c>credito.CantidadCuotas</c>
+        /// y devuelve su <c>CuotasSinRecargo</c>. Vacía (sin exclusiones, comportamiento histórico)
+        /// cuando no hay productos, cuando rige la configuración única global legado (sin tabla de
+        /// planes) o cuando el plan resuelto ya no cubre esta cantidad — este método solo proyecta
+        /// un plan aún no confirmado, no es la validación autoritativa de esa cantidad (eso ya lo
+        /// hizo VentaService al configurar/confirmar el crédito).
+        /// </summary>
+        private async Task<IReadOnlyList<int>> ResolverCuotasSinRecargoAsync(Venta venta, Credito credito)
+        {
+            var productoIds = venta.Detalles
+                .Where(d => !d.IsDeleted)
+                .Select(d => d.ProductoId)
+                .Distinct()
+                .ToArray();
+
+            if (productoIds.Length == 0)
+                return Array.Empty<int>();
+
+            var planesVenta = await _configuracionPagoService.ResolverPlanesCreditoPersonalAsync(productoIds);
+            if (!planesVenta.EsValido || planesVenta.RigeConfiguracionUnicaGlobal)
+                return Array.Empty<int>();
+
+            return planesVenta.BuscarPlan(credito.CantidadCuotas)?.CuotasSinRecargo ?? Array.Empty<int>();
         }
 
         private static ContratoVentaCreditoSnapshot ConstruirSnapshot(

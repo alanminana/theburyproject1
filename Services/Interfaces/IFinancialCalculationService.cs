@@ -57,6 +57,15 @@ namespace TheBuryProject.Services.Interfaces
         /// <param name="porcentajeRecargo">Recargo TOTAL del plan en porcentaje (ej: 10 = 10% sobre el saldo financiado, no mensual).</param>
         /// <param name="gastosAdministrativos">Gastos adicionales (0 si no aplica).</param>
         /// <param name="fechaPrimeraCuota">Fecha del primer pago.</param>
+        /// <param name="cuotasSinRecargo">
+        /// Números de cuota (1-based, dentro de [1, <paramref name="cuotas"/>]) que no llevan
+        /// recargo (CSR-ML3). <c>null</c> o colección vacía (default) equivale a "ninguna cuota
+        /// sin recargo" y reproduce exactamente el comportamiento vigente (recargo repartido
+        /// entre todas las cuotas). El capital siempre se reparte entre todas las cuotas por
+        /// igual, sin importar esta exclusión; solo el recargo se redistribuye entre las cuotas
+        /// no excluidas. No se admiten duplicados ni valores fuera de rango, y con un recargo
+        /// total mayor a 0 no se puede excluir la totalidad de las cuotas.
+        /// </param>
         /// <returns>DTO con todos los resultados de la simulación.</returns>
         SimulacionPlanCreditoDto SimularPlanCredito(
             decimal totalVenta,
@@ -66,6 +75,7 @@ namespace TheBuryProject.Services.Interfaces
             decimal gastosAdministrativos,
             DateTime fechaPrimeraCuota,
             decimal semaforoRatioVerdeMax = 0.08m,
-            decimal semaforoRatioAmarilloMax = 0.15m);
+            decimal semaforoRatioAmarilloMax = 0.15m,
+            IReadOnlyCollection<int>? cuotasSinRecargo = null);
     }
 }

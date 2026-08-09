@@ -541,7 +541,11 @@ public sealed class CotizacionPagoCalculatorContractTests
             {
                 new CreditoSimulacionCuotaJson { numeroCuota = 1, capital = 90_000m, interes = 9_000m, total = 99_000m },
                 new CreditoSimulacionCuotaJson { numeroCuota = 2, capital = 90_000m, interes = 9_000m, total = 99_000m }
-            }
+            },
+            // CSR-ML6: metadata del plan (qué cuotas se marcaron sin recargo) — el calculator debe
+            // propagarla tal cual, no reinterpretarla. No hace falta que sea consistente con los
+            // importes de arriba: este test sólo verifica el pass-through del campo.
+            cuotasSinRecargo = new[] { 1 }
         };
         var creditoService = new FakeCreditoSimulacionVentaService
         {
@@ -564,6 +568,8 @@ public sealed class CotizacionPagoCalculatorContractTests
         Assert.Equal(2, planResultado.Cuotas.Count);
         Assert.Equal(99_000m, planResultado.UltimaCuota);
         Assert.Equal(planResultado.TotalFinanciado, planResultado.Cuotas.Sum(c => c.Total));
+        // CSR-ML6: metadata del plan propagada tal cual, no reinterpretada desde Cuotas[].Interes.
+        Assert.Equal(new[] { 1 }, planResultado.CuotasSinRecargo);
     }
 
     [Fact]

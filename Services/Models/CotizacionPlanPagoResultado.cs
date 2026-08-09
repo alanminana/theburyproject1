@@ -34,6 +34,14 @@ public sealed class CotizacionPlanPagoResultado
 
     /// <summary>Vector exacto de cuotas (solo Credito personal). Solo la ultima absorbe el residuo.</summary>
     public IReadOnlyList<CotizacionPlanCuotaResultado> Cuotas { get; init; } = Array.Empty<CotizacionPlanCuotaResultado>();
+
+    /// <summary>
+    /// CSR-ML6: numeros de cuota (1-based) marcados sin recargo en el plan GLOBAL, propagados tal
+    /// cual desde <see cref="Services.Models.CreditoSimulacionVentaJson.cuotasSinRecargo"/> (mismo
+    /// resultado canonico que usa Configurar Venta) — metadata del plan, no inferida de
+    /// <c>Cuotas[].Interes == 0</c>. Vacia para el resto de los medios de pago.
+    /// </summary>
+    public IReadOnlyList<int> CuotasSinRecargo { get; init; } = Array.Empty<int>();
 }
 
 public sealed class CotizacionPlanCuotaResultado

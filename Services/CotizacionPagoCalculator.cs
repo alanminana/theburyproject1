@@ -688,6 +688,7 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
             UltimaCuota = vector.Count > 0 ? vector[^1].Total : null,
             FuentePorcentaje = plan.fuentePorcentaje,
             Cuotas = vector,
+            CuotasSinRecargo = plan.cuotasSinRecargo,
             Advertencias = advertencias
         };
     }

@@ -101,13 +101,16 @@ namespace TheBuryProject.Services
             decimal gastosAdministrativos,
             DateTime fechaPrimeraCuota,
             decimal semaforoRatioVerdeMax = 0.08m,
-            decimal semaforoRatioAmarilloMax = 0.15m)
+            decimal semaforoRatioAmarilloMax = 0.15m,
+            IReadOnlyCollection<int>? cuotasSinRecargo = null)
         {
             if (cuotas < 1)
                 throw new ArgumentException("La cantidad de cuotas debe ser al menos 1", nameof(cuotas));
 
             if (porcentajeRecargo < 0)
                 throw new ArgumentException("El porcentaje de recargo no puede ser negativo", nameof(porcentajeRecargo));
+
+            var exclusiones = NormalizarCuotasSinRecargo(cuotas, cuotasSinRecargo);
 
             // Recargo TOTAL del plan sobre el saldo posterior al anticipo (no interés
             // compuesto mensual): ver IFinancialCalculationService.SimularPlanCredito.
@@ -116,7 +119,15 @@ namespace TheBuryProject.Services
             var totalFinanciado = montoFinanciado + interesTotal;
             var cuota = Math.Round(totalFinanciado / cuotas, 2, MidpointRounding.AwayFromZero);
 
-            var cuotasPlan = ConstruirVectorCuotas(montoFinanciado, interesTotal, totalFinanciado, cuotas);
+            if (interesTotal > 0m && exclusiones.Count >= cuotas)
+                throw new ArgumentException(
+                    "Con un recargo total mayor a 0 debe quedar al menos una cuota con recargo: no se " +
+                    $"puede marcar sin recargo la totalidad de las {cuotas} cuotas.",
+                    nameof(cuotasSinRecargo));
+
+            var cuotasPlan = exclusiones.Count == 0
+                ? ConstruirVectorCuotas(montoFinanciado, interesTotal, totalFinanciado, cuotas)
+                : ConstruirVectorCuotasConExclusiones(montoFinanciado, interesTotal, cuotas, exclusiones);
 
             var (estado, mensaje, mostrarIngreso, mostrarAntiguedad) = CalcularSemaforo(
                 cuota,
@@ -238,6 +249,103 @@ namespace TheBuryProject.Services
                 vector[i] = baseCentavos;
             vector[cuotas - 1] = baseCentavos + residuo;
             return vector;
+        }
+
+        /// <summary>
+        /// Valida y normaliza la colección de números de cuota sin recargo (CSR-ML3): sin
+        /// entrada (null o vacía) devuelve la colección vacía compartida, que es la que hace que
+        /// <see cref="SimularPlanCredito"/> tome la rama de compatibilidad (idéntica al
+        /// algoritmo vigente antes de CSR-ML3, ver <see cref="ConstruirVectorCuotas"/>). No
+        /// consulta DB: es la misma política matemática que valida
+        /// <see cref="ConfiguracionCreditoPersonalCuotaSinRecargoRules.Validar"/>, pero aplicada
+        /// acá de forma defensiva porque esta función es pura y puede recibir cualquier input.
+        /// </summary>
+        private static IReadOnlyCollection<int> NormalizarCuotasSinRecargo(
+            int cuotas, IReadOnlyCollection<int>? cuotasSinRecargo)
+        {
+            if (cuotasSinRecargo is null || cuotasSinRecargo.Count == 0)
+                return Array.Empty<int>();
+
+            var fueraDeRango = cuotasSinRecargo.Where(n => n < 1 || n > cuotas).ToList();
+            if (fueraDeRango.Count > 0)
+                throw new ArgumentException(
+                    $"Numeros de cuota fuera de rango 1-{cuotas}: {string.Join(", ", fueraDeRango)}.",
+                    nameof(cuotasSinRecargo));
+
+            var distintos = new HashSet<int>(cuotasSinRecargo);
+            if (distintos.Count != cuotasSinRecargo.Count)
+                throw new ArgumentException(
+                    "Numeros de cuota sin recargo duplicados.", nameof(cuotasSinRecargo));
+
+            return distintos;
+        }
+
+        /// <summary>
+        /// Construye el vector de cuotas cuando hay cuotas específicas sin recargo (CSR-ML3): a
+        /// diferencia de <see cref="ConstruirVectorCuotas"/>, acá Capital y Recargo son dos
+        /// distribuciones INDEPENDIENTES (no se deriva Capital como Total - Interes) y Total se
+        /// arma como su suma. Capital se reparte entre TODAS las cuotas por igual (la exclusión
+        /// no lo afecta); Recargo se reparte solo entre las cuotas no excluidas, con el residuo
+        /// en la última de ellas (no necesariamente la última cuota del plan). Como Total siempre
+        /// se deriva de dos vectores no negativos, nunca puede quedar negativo ni superarse a sí
+        /// mismo: no hace falta el fallback de redistribución que sí necesita
+        /// <see cref="ConstruirVectorCuotas"/>.
+        /// </summary>
+        private static IReadOnlyList<CuotaPlanCreditoDto> ConstruirVectorCuotasConExclusiones(
+            decimal montoFinanciado,
+            decimal interesTotal,
+            int cuotas,
+            IReadOnlyCollection<int> cuotasSinRecargo)
+        {
+            var capitales = DistribuirEnCentavos(montoFinanciado, cuotas);
+            var recargos = DistribuirRecargoConExclusiones(interesTotal, cuotas, cuotasSinRecargo);
+
+            var plan = new CuotaPlanCreditoDto[cuotas];
+            for (var i = 0; i < cuotas; i++)
+            {
+                plan[i] = new CuotaPlanCreditoDto
+                {
+                    NumeroCuota = i + 1,
+                    Capital = CentavosADecimal(capitales[i]),
+                    Interes = CentavosADecimal(recargos[i]),
+                    Total = CentavosADecimal(capitales[i] + recargos[i])
+                };
+            }
+
+            return plan;
+        }
+
+        /// <summary>
+        /// Reparte el recargo total (en centavos) solo entre las cuotas que NO están en
+        /// <paramref name="cuotasSinRecargo"/>, con el mismo esquema de <see cref="DistribuirEnCentavos"/>
+        /// (división entera + residuo completo en una sola cuota) pero restringido al subconjunto
+        /// elegible: el residuo va a la última cuota elegible (mayor NumeroCuota entre las que sí
+        /// llevan recargo), nunca a la última cuota del plan si esa está excluida. Si el recargo
+        /// ya es 0 no se divide nada (evita dividir por cero cuando además todas las cuotas están
+        /// excluidas, caso válido a 0%).
+        /// </summary>
+        private static long[] DistribuirRecargoConExclusiones(
+            decimal interesTotal, int cuotas, IReadOnlyCollection<int> cuotasSinRecargo)
+        {
+            var recargos = new long[cuotas];
+            var centavos = (long)Math.Round(interesTotal * 100m, 0, MidpointRounding.AwayFromZero);
+            if (centavos == 0)
+                return recargos;
+
+            var elegibles = Enumerable.Range(1, cuotas).Where(n => !cuotasSinRecargo.Contains(n)).ToList();
+            // elegibles.Count > 0 está garantizado acá: SimularPlanCredito ya rechazó la
+            // combinación "recargo > 0 y todas las cuotas excluidas" antes de llamar a este método.
+
+            var baseCentavos = centavos / elegibles.Count;
+            var residuo = centavos % elegibles.Count;
+
+            foreach (var numeroCuota in elegibles)
+                recargos[numeroCuota - 1] = baseCentavos;
+
+            var ultimoElegible = elegibles[^1];
+            recargos[ultimoElegible - 1] += residuo;
+
+            return recargos;
         }
 
         private static decimal CentavosADecimal(long centavos) => centavos / 100m;

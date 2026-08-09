@@ -62,6 +62,19 @@ public class CuotaCreditoPersonalViewModel
     public bool Activo { get; set; } = true;
 
     public int Orden { get; set; }
+
+    /// <summary>
+    /// CSR-ML5 — números de cuota (1-based) de este plan marcados como "sin recargo comercial"
+    /// (ver <see cref="Models.Entities.ConfiguracionCreditoPersonalCuotaSinRecargo"/>). Vacía por
+    /// defecto: ningún plan tiene cuotas sin recargo hasta que se guarde una selección explícita.
+    /// La vista admin la bindea directamente desde checkboxes — nunca desde texto libre/CSV: cada
+    /// checkbox marcado postea su número como una entrada más de esta lista, los desmarcados
+    /// simplemente no postean nada (no hace falta un input "false" companion). La persistencia
+    /// final vive en la colección normalizada <c>ConfiguracionCreditoPersonalCuotaSinRecargo</c>
+    /// vía <see cref="Services.Interfaces.IConfiguracionPagoService.GuardarCuotasSinRecargoCreditoPersonalAsync"/>,
+    /// esta lista es solo el vehículo de binding.
+    /// </summary>
+    public List<int> CuotasSinRecargo { get; set; } = new();
 }
 
 public class MontoPorPuntajeCreditoViewModel
