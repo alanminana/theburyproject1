@@ -7,6 +7,28 @@
     const tabs = Array.from(root.querySelectorAll('[data-venta-tab]'));
     const panels = Array.from(root.querySelectorAll('[data-venta-tab-panel]'));
 
+    function ensureTabVisible(tab) {
+        const region = tab.closest('[data-oc-scroll-region]');
+        if (!region) return;
+
+        const containerRect = region.getBoundingClientRect();
+        const tabRect = tab.getBoundingClientRect();
+
+        const overflowLeft = containerRect.left - tabRect.left;
+        const overflowRight = tabRect.right - containerRect.right;
+
+        if (overflowLeft <= 0 && overflowRight <= 0) return;
+
+        const delta = overflowLeft > 0 ? -overflowLeft : overflowRight;
+        const targetLeft = region.scrollLeft + delta;
+
+        if (typeof region.scrollTo === 'function') {
+            region.scrollTo({ left: targetLeft, behavior: 'instant' });
+        } else {
+            region.scrollLeft = targetLeft;
+        }
+    }
+
     function activateTab(tab) {
         const target = tab.dataset.ventaTab;
         if (!target) return;
@@ -22,6 +44,8 @@
             const active = panel.dataset.ventaTabPanel === target;
             panel.hidden = !active;
         });
+
+        ensureTabVisible(tab);
 
         window.requestAnimationFrame(() => {
             if (window.VentaModule && typeof window.VentaModule.initScrollAffordance === 'function') {
@@ -68,27 +92,5 @@
         if (index > 0 && tab.getAttribute('aria-selected') !== 'true') {
             tab.setAttribute('aria-selected', 'false');
         }
-    });
-
-    root.querySelectorAll('[data-quick-filter]').forEach((chip) => {
-        chip.addEventListener('click', () => {
-            const form = document.getElementById('form-filtros');
-            const targetName = chip.dataset.quickFilter;
-            const targetValue = chip.dataset.quickValue || '';
-            const field = form ? form.elements[targetName] : null;
-
-            if (!field) return;
-
-            field.value = targetValue;
-            form.requestSubmit();
-        });
-    });
-
-    root.querySelectorAll('.toast-msg').forEach((toast) => {
-        window.setTimeout(() => {
-            toast.style.opacity = '0';
-            toast.style.transform = 'translateY(-4px)';
-            window.setTimeout(() => toast.remove(), 240);
-        }, 5200);
     });
 })();

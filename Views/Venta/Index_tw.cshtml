@@ -24,6 +24,31 @@
     var devolucionesElegibles = ventas
         .Where(v => puedeCrearDevoluciones && puedeOperarVentas && v.PuedeCrearDevolucion && v.Estado != EstadoVenta.Cancelada)
         .ToList();
+
+    // VENTA-UI-04B: paginación server-rendered en memoria, solo para Operaciones.
+    // "ventas" (arriba) sigue siendo el conjunto filtrado completo para KPIs y tabs;
+    // "ventasPagina" es el recorte de 20 que ya llega calculado desde el controller.
+    var paginacion = ViewBag.Paginacion as TheBuryProject.ViewModels.PaginatedResult<TheBuryProject.ViewModels.VentaViewModel>
+                     ?? new TheBuryProject.ViewModels.PaginatedResult<TheBuryProject.ViewModels.VentaViewModel>
+                     {
+                         Items = ventas,
+                         TotalRecords = ventas.Count,
+                         PageNumber = 1,
+                         PageSize = ventas.Count > 0 ? ventas.Count : 20
+                     };
+    var ventasPagina = paginacion.Items;
+
+    // Base de querystring para los links del paginador: mismos filtros vigentes,
+    // sin PageNumber (se agrega por link) y sin PageSize (queda fijo en 20 en el
+    // controller aunque no se pase explícito).
+    var paginacionRouteBase = new Dictionary<string, string>();
+    if (filter.ClienteId.HasValue) paginacionRouteBase["ClienteId"] = filter.ClienteId.Value.ToString();
+    if (!string.IsNullOrWhiteSpace(filter.Numero)) paginacionRouteBase["Numero"] = filter.Numero;
+    if (!string.IsNullOrWhiteSpace(fechaDesdeStr)) paginacionRouteBase["FechaDesde"] = fechaDesdeStr;
+    if (!string.IsNullOrWhiteSpace(fechaHastaStr)) paginacionRouteBase["FechaHasta"] = fechaHastaStr;
+    if (filter.Estado.HasValue) paginacionRouteBase["Estado"] = filter.Estado.Value.ToString();
+    if (filter.TipoPago.HasValue) paginacionRouteBase["TipoPago"] = filter.TipoPago.Value.ToString();
+    if (filter.EstadoAutorizacion.HasValue) paginacionRouteBase["EstadoAutorizacion"] = filter.EstadoAutorizacion.Value.ToString();
 }
 
 @functions {
@@ -84,9 +109,60 @@
         TipoPago.Tarjeta => "Tarjeta",
         _ => tipoPago.ToString()
     };
+
+    // VENTA-UI-05B: disponibilidad de acciones por venta, compartida entre la tabla
+    // desktop y las cards mobile para que ambas representaciones nunca diverjan.
+    private static (bool EsCancelada, bool PuedeDevolver, bool PuedeCancelar) ResolverAccionesVenta(
+        TheBuryProject.ViewModels.VentaViewModel v,
+        bool puedeOperarVentas,
+        bool puedeCrearDevoluciones,
+        bool puedeCancelarVentas)
+    {
+        var esCancelada = v.Estado == EstadoVenta.Cancelada;
+        var puedeDevolver = puedeOperarVentas && puedeCrearDevoluciones && v.PuedeCrearDevolucion && !esCancelada;
+        var puedeCancelar = puedeCancelarVentas && puedeOperarVentas && v.PuedeCancelar && !esCancelada;
+        return (esCancelada, puedeDevolver, puedeCancelar);
+    }
+
+    // VENTA-UI-04B: helpers del paginador de Operaciones (solo construyen los links;
+    // el recorte de datos ya llegó calculado desde el controller).
+    private static Dictionary<string, string> PaginaRouteData(Dictionary<string, string> baseRoute, int pagina)
+    {
+        var datos = new Dictionary<string, string>(baseRoute)
+        {
+            ["PageNumber"] = pagina.ToString()
+        };
+        return datos;
+    }
+
+    private static List<int> PaginaVentanaNumeros(int paginaActual, int totalPaginas)
+    {
+        var numeros = new List<int>();
+        if (totalPaginas <= 0)
+            return numeros;
+
+        if (totalPaginas <= 7)
+        {
+            for (var p = 1; p <= totalPaginas; p++) numeros.Add(p);
+            return numeros;
+        }
+
+        const int elipsis = -1;
+        numeros.Add(1);
+
+        var inicioVentana = Math.Max(2, paginaActual - 1);
+        var finVentana = Math.Min(totalPaginas - 1, paginaActual + 1);
+
+        if (inicioVentana > 2) numeros.Add(elipsis);
+        for (var p = inicioVentana; p <= finVentana; p++) numeros.Add(p);
+        if (finVentana < totalPaginas - 1) numeros.Add(elipsis);
+
+        numeros.Add(totalPaginas);
+        return numeros;
+    }
 }
 
-<main id="venta-index-rework" class="venta-index-shell">
+<div id="venta-index-rework" class="venta-index-shell">
     @if (!puedeOperarVentas)
     {
         <section id="panel-caja-cerrada" class="card card-alert card-alert-amber" role="status">
@@ -163,7 +239,10 @@
 
         <section class="card tabs-card">
             <div class="tabs-bar">
-                <div class="tabs-scroll" role="tablist" aria-label="Secciones del Centro de Ventas">
+                <div class="tabs-scroll-shell" data-oc-scroll data-oc-scroll-shell>
+                    <div data-oc-scroll-fade="left" hidden></div>
+                    <div data-oc-scroll-fade="right" hidden></div>
+                    <div class="tabs-scroll" role="tablist" aria-label="Secciones del Centro de Ventas" data-oc-scroll-region>
                     <button type="button" id="tab-operaciones" class="tab-btn is-active" role="tab" aria-selected="true"
                             aria-controls="panel-operaciones" data-venta-tab="operaciones">
                         <span class="material-symbols-outlined">table_rows</span>
@@ -188,7 +267,7 @@
                         <span class="material-symbols-outlined">assignment_return</span>
                         Devoluciones
                     </button>
-
+                    </div>
                 </div>
                 <div class="venta-hero__actions venta-tabs__actions" aria-label="Acciones rápidas de ventas">
                     <a asp-controller="Cotizacion" asp-action="Listado" class="btn btn-soft no-underline"
@@ -358,14 +437,12 @@
                                                                 </tr>
                                                             </thead>
                                                             <tbody>
-                                                                @if (ventas.Any())
+                                                                @if (ventasPagina.Any())
                                                                 {
-                                                                    @foreach (var v in ventas)
+                                                                    @foreach (var v in ventasPagina)
                                                                     {
-                                                                        var esCancelada = v.Estado == EstadoVenta.Cancelada;
-                                                                        var puedeDevolver = puedeOperarVentas && puedeCrearDevoluciones &&
-                                                                v.PuedeCrearDevolucion && !esCancelada;
-                                                                        var puedeCancelarVenta = puedeCancelarVentas && puedeOperarVentas && v.PuedeCancelar && !esCancelada;
+                                                                        var (esCancelada, puedeDevolver, puedeCancelarVenta) = ResolverAccionesVenta(
+                                                                            v, puedeOperarVentas, puedeCrearDevoluciones, puedeCancelarVentas);
 
                                                                         <tr>
                                                                             <td>
@@ -378,7 +455,7 @@
                                                                             </td>
                                                                             <td>
                                                                                 <span
-                                                                                    class="pill @EstadoPillClass(v.Estado) @(esCancelada ? "line-through" : "")">@EstadoLabel(v.Estado,
+                                                                                    class="pill @EstadoPillClass(v.Estado)">@EstadoLabel(v.Estado,
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 v.EstadoDisplay)</span>
                                                                                 </td>
                                                                                 <td>
@@ -404,10 +481,6 @@
                                                                                                     Devolver
                                                                                                 </button>
                                                                                             }
-                                                                                            else if (puedeCrearDevoluciones)
-                                                                                            {
-                                                                                                <span class="btn btn-xs btn-ghost is-disabled">Devolver</span>
-                                                                                            }
                                                                                             @if (puedeCancelarVenta)
                                                                                             {
                                                                                                 <a asp-action="Cancelar" asp-route-id="@v.Id"
@@ -415,10 +488,6 @@
                                                                                                     <span class="material-symbols-outlined">block</span>
                                                                                                     Anular
                                                                                                 </a>
-                                                                                            }
-                                                                                            else
-                                                                                            {
-                                                                                                <span class="btn btn-xs btn-ghost is-disabled">Anular</span>
                                                                                             }
                                                                                         </div>
                                                                                     </td>
@@ -432,14 +501,12 @@
                                                     </div>
 
                                                     <div class="mobile-sales-list" aria-label="Ventas en formato mobile">
-                                                        @if (ventas.Any())
+                                                        @if (ventasPagina.Any())
                                                         {
-                                                            @foreach (var v in ventas)
+                                                            @foreach (var v in ventasPagina)
                                                             {
-                                                                var esCancelada = v.Estado == EstadoVenta.Cancelada;
-                                                                var puedeDevolver = puedeOperarVentas && puedeCrearDevoluciones && v.PuedeCrearDevolucion &&
-                                                        !esCancelada;
-                                                                var puedeCancelarVenta = puedeCancelarVentas && puedeOperarVentas && v.PuedeCancelar && !esCancelada;
+                                                                var (esCancelada, puedeDevolver, puedeCancelarVenta) = ResolverAccionesVenta(
+                                                                    v, puedeOperarVentas, puedeCrearDevoluciones, puedeCancelarVentas);
 
                                                                 <article class="card card-sub sale-card">
                                                                     <div class="sale-card__top">
@@ -486,6 +553,71 @@
                                                                 <p>No hay ventas que coincidan con los filtros aplicados.</p>
                                                                 <a asp-action="Index" class="btn btn-soft no-underline">Limpiar filtros</a>
                                                             </div>
+                                                        }
+
+                                                        @if (paginacion.TotalRecords > 0)
+                                                        {
+                                                            <nav class="operaciones-pagination" aria-label="Paginación">
+                                                                <p class="operaciones-pagination__info">
+                                                                    Mostrando @paginacion.FirstRecord–@paginacion.LastRecord de @paginacion.TotalRecords
+                                                                </p>
+                                                                <div class="operaciones-pagination__controls">
+                                                                    @if (paginacion.HasPreviousPage)
+                                                                    {
+                                                                        <a asp-action="Index"
+                                                                           asp-all-route-data="@PaginaRouteData(paginacionRouteBase, paginacion.PageNumber - 1)"
+                                                                           class="btn btn-ghost btn-xs operaciones-pagination__nav" rel="prev">
+                                                                            <span class="material-symbols-outlined">chevron_left</span>
+                                                                            <span>Anterior</span>
+                                                                        </a>
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        <span class="btn btn-ghost btn-xs operaciones-pagination__nav is-disabled" aria-disabled="true">
+                                                                            <span class="material-symbols-outlined">chevron_left</span>
+                                                                            <span>Anterior</span>
+                                                                        </span>
+                                                                    }
+
+                                                                    <div class="operaciones-pagination__pages" aria-label="Páginas">
+                                                                        @foreach (var p in PaginaVentanaNumeros(paginacion.PageNumber, paginacion.TotalPages))
+                                                                        {
+                                                                            if (p == -1)
+                                                                            {
+                                                                                <span class="operaciones-pagination__ellipsis" aria-hidden="true">&hellip;</span>
+                                                                            }
+                                                                            else if (p == paginacion.PageNumber)
+                                                                            {
+                                                                                <span class="operaciones-pagination__page is-current" aria-current="page">@p</span>
+                                                                            }
+                                                                            else
+                                                                            {
+                                                                                <a asp-action="Index" asp-all-route-data="@PaginaRouteData(paginacionRouteBase, p)"
+                                                                                   class="operaciones-pagination__page">@p</a>
+                                                                            }
+                                                                        }
+                                                                    </div>
+
+                                                                    <span class="operaciones-pagination__compact">Página @paginacion.PageNumber de @paginacion.TotalPages</span>
+
+                                                                    @if (paginacion.HasNextPage)
+                                                                    {
+                                                                        <a asp-action="Index"
+                                                                           asp-all-route-data="@PaginaRouteData(paginacionRouteBase, paginacion.PageNumber + 1)"
+                                                                           class="btn btn-ghost btn-xs operaciones-pagination__nav" rel="next">
+                                                                            <span>Siguiente</span>
+                                                                            <span class="material-symbols-outlined">chevron_right</span>
+                                                                        </a>
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        <span class="btn btn-ghost btn-xs operaciones-pagination__nav is-disabled" aria-disabled="true">
+                                                                            <span>Siguiente</span>
+                                                                            <span class="material-symbols-outlined">chevron_right</span>
+                                                                        </span>
+                                                                    }
+                                                                </div>
+                                                            </nav>
                                                         }
                                                     </section>
 
@@ -621,7 +753,7 @@
                                                             Actualizar
                                                         </a>
                                                     </nav>
-                                                </main>
+                                                </div>
 
 
                                                 @if (puedeCrearDevoluciones && puedeOperarVentas)
@@ -634,8 +766,8 @@
                                                 }
 
                                                 @section Scripts {
-                                                    <script src="~/js/module-index.js" asp-append-version="true"></script>
                                                     <script src="~/js/horizontal-scroll-affordance.js" asp-append-version="true"></script>
+                                                    <script src="~/js/venta-module.js" asp-append-version="true"></script>
                                                     <script src="~/js/venta-index.js" asp-append-version="true"></script>
                                                     <script src="~/js/venta-index-rework.js" asp-append-version="true"></script>
 

@@ -503,62 +503,12 @@
     line-height: 1.6;
 }
 
-#venta-index-rework .venta-hero__chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.55rem;
-}
-
 #venta-index-rework .venta-hero__actions {
     display: flex;
     align-items: center;
     justify-content: flex-end;
     gap: 0.75rem;
     flex-wrap: wrap;
-}
-
-/* ─────────────────────────────────────────────
-   KPI Grid
-───────────────────────────────────────────── */
-
-#venta-index-rework .kpi-grid {
-    display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: 1rem;
-}
-
-#venta-index-rework .kpi-card {
-    min-width: 0;
-    padding: 1rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-}
-
-#venta-index-rework .kpi-card__icon {
-    width: 2.4rem;
-    height: 2.4rem;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 0.8rem;
-    background: rgba(245, 197, 24, 0.14);
-    color: #f5c518;
-    font-size: 1.25rem;
-}
-
-#venta-index-rework .kpi-card strong {
-    color: var(--venta-text-strong);
-    font-size: 1.4rem;
-    font-weight: 900;
-    line-height: 1.1;
-    font-variant-numeric: tabular-nums;
-}
-
-#venta-index-rework .kpi-card span:not(.kpi-card__icon) {
-    color: var(--venta-muted-2);
-    font-size: 0.78rem;
-    line-height: 1.35;
 }
 
 /* ─────────────────────────────────────────────
@@ -576,6 +526,10 @@
     gap: 1rem;
     padding: 0.6rem 0.85rem;
     border-bottom: 1px solid var(--venta-border);
+}
+
+#venta-index-rework .tabs-scroll-shell {
+    min-width: 0;
 }
 
 #venta-index-rework .tabs-scroll {
@@ -967,10 +921,6 @@
     opacity: 0.55;
 }
 
-#venta-index-rework .line-through {
-    text-decoration: line-through;
-}
-
 #venta-index-rework .row-actions {
     display: flex;
     justify-content: center;
@@ -1034,6 +984,18 @@
     align-items: center;
     gap: 0.5rem;
     flex-wrap: wrap;
+}
+
+/* VENTA-UI-03: separar la acción destructiva (Anular) del grupo Ver/Devolver
+   para que no compita visualmente como si tuviera la misma jerarquía, y
+   ampliar el target táctil de los botones xs solo dentro de la card mobile. */
+#venta-index-rework .sale-card__actions .btn-xs {
+    min-height: 2.25rem;
+    padding: 0.55rem 0.7rem;
+}
+
+#venta-index-rework .sale-card__actions .btn-danger {
+    margin-left: auto;
 }
 
 /* ─────────────────────────────────────────────
@@ -1147,6 +1109,91 @@
 }
 
 /* ─────────────────────────────────────────────
+   Paginación — Operaciones (VENTA-UI-04B)
+───────────────────────────────────────────── */
+
+#venta-index-rework .operaciones-pagination {
+    margin-top: 1rem;
+    padding-top: 0.85rem;
+    border-top: 1px solid var(--venta-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.85rem;
+    flex-wrap: wrap;
+}
+
+#venta-index-rework .operaciones-pagination__info {
+    color: var(--venta-muted);
+    font-size: 0.82rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+#venta-index-rework .operaciones-pagination__controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+#venta-index-rework .operaciones-pagination__pages {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+#venta-index-rework .operaciones-pagination__page {
+    min-width: 2rem;
+    height: 2rem;
+    padding: 0 0.4rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.6rem;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--venta-muted);
+    font-size: 0.8rem;
+    font-weight: 800;
+    text-decoration: none;
+    font-variant-numeric: tabular-nums;
+    transition:
+        background-color 140ms ease,
+        border-color 140ms ease,
+        color 140ms ease;
+}
+
+#venta-index-rework a.operaciones-pagination__page:hover {
+    background: rgba(148, 163, 184, 0.08);
+    border-color: var(--venta-border-strong);
+    color: var(--venta-text);
+}
+
+#venta-index-rework .operaciones-pagination__page.is-current {
+    background: var(--venta-primary-soft);
+    border-color: rgba(245, 197, 24, 0.38);
+    color: #f5d97a;
+}
+
+#venta-index-rework .operaciones-pagination__ellipsis {
+    min-width: 1.4rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--venta-muted-2);
+    font-size: 0.8rem;
+}
+
+#venta-index-rework .operaciones-pagination__compact {
+    display: none;
+    color: var(--venta-muted);
+    font-size: 0.8rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+/* ─────────────────────────────────────────────
    Mobile sticky bar
 ───────────────────────────────────────────── */
 
@@ -1184,10 +1231,6 @@
 ───────────────────────────────────────────── */
 
 @media (max-width: 1279px) {
-    #venta-index-rework .kpi-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-
     #venta-index-rework .filters-grid--advanced {
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
@@ -1259,21 +1302,17 @@
         width: 100%;
     }
 
-    #venta-index-rework .kpi-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 0.75rem;
-    }
-
-    #venta-index-rework .kpi-card {
-        padding: 0.85rem;
-    }
-
-    #venta-index-rework .kpi-card strong {
-        font-size: 1.15rem;
-    }
-
     #venta-index-rework .tabs-bar {
         padding: 0.85rem;
+    }
+
+    /* VENTA-UI-03.1: "Nueva Venta" y "Cotizaciones" ya están disponibles en
+       .mobile-sticky-bar en este breakpoint; ocultar el duplicado de cabecera
+       solo en mobile evita dos CTA visibles para la misma acción. display:none
+       también saca el control del tab order (no queda focusable). Desktop y
+       tablet (>=768px) conservan la cabecera intacta. */
+    #venta-index-rework .venta-tabs__actions {
+        display: none;
     }
 
     #venta-index-rework .tab-panel {
@@ -1309,6 +1348,26 @@
         display: flex;
         flex-direction: column;
         gap: 0.85rem;
+    }
+
+    /* VENTA-UI-04B: en mobile la ventana numerada genera ruido; se reemplaza por
+       "Página X de Y" entre Anterior/Siguiente, sin JS. */
+    #venta-index-rework .operaciones-pagination {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.65rem;
+    }
+
+    #venta-index-rework .operaciones-pagination__controls {
+        justify-content: space-between;
+    }
+
+    #venta-index-rework .operaciones-pagination__pages {
+        display: none;
+    }
+
+    #venta-index-rework .operaciones-pagination__compact {
+        display: inline-flex;
     }
 
     #venta-index-rework .quote-grid {
@@ -1359,10 +1418,6 @@
 }
 
 @media (max-width: 480px) {
-    #venta-index-rework .kpi-grid {
-        grid-template-columns: 1fr;
-    }
-
     #venta-index-rework .tab-btn {
         padding-inline: 0.7rem;
         font-size: 0.74rem;
