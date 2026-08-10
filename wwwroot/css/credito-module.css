@@ -29,14 +29,33 @@
    archivo que NO esté en un @layer (como .ph más abajo) es "sin capa" y por spec de CSS Cascade
    Layers siempre gana sobre una regla en capa, sin importar orden de carga ni especificidad — por
    eso un elemento con class="ph hidden" podía quedar visible aunque .hidden estuviera presente
-   (bug #plan-resumen-vacio). Mismo fix ya aplicado en venta-module.css y cliente-module.css: forzar
-   .hidden fuera de cualquier capa con !important para que gane siempre, también sobre .ph. */
-.hidden {
+   (bug #plan-resumen-vacio).
+
+   GLOBAL-UI-01.1: el scope anterior (main.shell .hidden + .cp-shell .hidden + IDs de
+   ConfiguracionPago) era más amplio de lo necesario y parte de él era código muerto:
+   ConfiguracionPago/CreditoPersonal_tw referencia <partial name="_CreditoModuleStyles" /> sin
+   calificar, que en Razor resuelve contra Views/Shared/_CreditoModuleStyles.cshtml (un <style>
+   inline distinto, sin relación con este archivo) y NO contra Views/Credito/_CreditoModuleStyles;
+   confirmado en vivo: credito-module.css no aparece en document.styleSheets en esa página, así
+   que ".cp-shell .hidden" y "#m-perfil.hidden, #m-cuota.hidden" nunca podían matchear nada. Esos
+   modales (class="hidden fixed inset-0 z-50 cp-modal-bg flex ...") ya quedan en display:none con
+   el .hidden normal de Tailwind (confirmado con getComputedStyle).
+   Auditoría con Playwright (quitando esta regla vía CSSOM y comparando getComputedStyle) sobre
+   Views/Credito (root real: main.shell) y el fragmento embebido en el wizard de Venta
+   ([data-credito-config-embedded]) confirmó que sólo tres clases sin capa chocan de verdad con
+   .hidden, sea cual sea el contenedor que las envuelva: .alert (siempre display:flex — mismo
+   mecanismo que el bug de #plan-resumen-vacio, cubre además #plan-error/#plan-fecha-container),
+   .chip (siempre display:inline-flex — #badge-tasa-fuente) y .ph (#plan-resumen-vacio). El resto
+   (#plan-simulando, #primera-cuota-aplica, #primera-cuota-medio-container, #semaforo-panel,
+   .credit-cuotas, los modales .overlay de Credito/Details) ya queda oculto sin este override. */
+.alert.hidden,
+.ph.hidden,
+.chip.hidden {
   display: none !important;
 }
 
 /* :focus-visible e input[type] scopeados a contenedores del módulo */
-main.shell :focus-visible,
+.shell :focus-visible,
 header.topbar :focus-visible,
 .credito-filterbar :focus-visible,
 #credito-tabs :focus-visible,
@@ -46,8 +65,8 @@ header.topbar :focus-visible,
   border-radius: 6px;
 }
 
-main.shell input[type="radio"],
-main.shell input[type="checkbox"],
+.shell input[type="radio"],
+.shell input[type="checkbox"],
 header.topbar input[type="radio"],
 header.topbar input[type="checkbox"],
 .credito-filterbar input[type="radio"],

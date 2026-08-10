@@ -8,7 +8,7 @@
     <partial name="_ClienteModuleStyles" />
 }
 
-<main class="shell" style="padding-top:1.5rem;padding-bottom:3rem">
+<div class="shell" style="padding-top:1.5rem;padding-bottom:3rem">
     @if (!string.IsNullOrWhiteSpace(returnUrl))
     {
         <a href="@returnUrl" data-cliente-cancel class="inline-flex items-center gap-1.5 text-sm muted hover:text-white transition" style="text-decoration:none">
@@ -344,7 +344,7 @@
             </div>
         </aside>
     </div>
-</main>
+</div>
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />

@@ -80,7 +80,23 @@
     accent-color: var(--primary);
 }
 
-.hidden {
+/* GLOBAL-UI-01.1: el scope anterior (.shell .hidden + lista de roots de modales/banners)
+   apagaba TODOS los .hidden dentro de esos contenedores, incluidos los spans responsive
+   "hidden 2xl:inline" / "hidden min-[390px]:inline" de la tabla — sin necesidad real, porque
+   ninguno de los .hidden reales de Cliente choca con una regla sin capa salvo dos clases muy
+   puntuales. Auditoría con Playwright (quitando esta regla vía CSSOM y comparando
+   getComputedStyle) sobre los 5 modales/banners top-level (#modal-cliente, #garanteModal,
+   #nivelManualModal, #rejectDocModal, #uploadDocModal — todos .overlay, que ya define
+   display:none propio) y sobre #clienteIndexFeedback, #garanteSeleccionado/#garanteError,
+   #modalFilePreview, #content-scoring/#content-historial y #bcra-aviso confirmó que TODOS
+   quedan en "none" con el .hidden normal de Tailwind, sin el override.
+   Los únicos casos reales de conflicto (confirmado con el mismo método, "flex" sin este
+   override): .alert siempre fuerza display:flex (credito module ya tenía el mismo bug
+   documentado con #plan-resumen-vacio) y .err-text con texto estático (#montoError,
+   #rejectDocMotivoError) activa ".err-text:not(:empty) { display:flex }". Por eso el scope
+   se reduce a esas dos clases, sin depender de qué contenedor las envuelve. */
+.alert.hidden,
+.err-text.hidden {
     display: none !important;
 }
 

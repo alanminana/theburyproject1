@@ -26,7 +26,7 @@
     <partial name="_CreditoModuleStyles" />
 }
 
-<main class="shell" style="padding-top:1.5rem;padding-bottom:3rem">
+<div class="shell" style="padding-top:1.5rem;padding-bottom:3rem">
     <a href="@volverHref"
        class="inline-flex items-center gap-1.5 text-sm muted hover:text-white transition"
        style="text-decoration:none"
@@ -454,7 +454,7 @@
             </aside>
         </div>
     </form>
-</main>
+</div>
 
 <script id="cliente-config-data" data-credito-json="cliente-config" type="application/json">
     @Html.Raw(System.Text.Json.JsonSerializer.Serialize(clienteConfig, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase }))
