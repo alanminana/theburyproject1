@@ -94,9 +94,13 @@
         }, 2200);
     }
 
-    const btnNuevaVentaBloqueada = document.querySelector('[data-action="nueva-venta-bloqueada"]');
-    if (btnNuevaVentaBloqueada) {
-        btnNuevaVentaBloqueada.addEventListener('click', function () {
+    // VENTA-UI-03.1: puede haber más de un CTA "Nueva Venta bloqueada" en el DOM
+    // (cabecera + mobile-sticky-bar); querySelector solo ataba el primero y
+    // dejaba el resto sin handler. querySelectorAll + forEach ata cada elemento
+    // una sola vez y todos comparten el mismo highlightSection (mismo mensaje,
+    // mismo scroll, sin duplicarlo).
+    document.querySelectorAll('[data-action="nueva-venta-bloqueada"]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
             highlightSection(
                 'panel-caja-cerrada',
                 'btn-abrir-caja',
@@ -104,7 +108,7 @@
                 'Primero tenés que abrir la caja para poder vender.'
             );
         });
-    }
+    });
 
     // filter panel toggle — handled by module-index.js (shared)
 })();

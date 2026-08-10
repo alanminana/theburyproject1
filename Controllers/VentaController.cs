@@ -114,6 +114,11 @@ namespace TheBuryProject.Controllers
             {
                 var userName = _currentUser.GetUsername();
 
+                // VENTA-UI-04B: page size fijo de Operaciones, sin selector de usuario.
+                // Se normaliza antes de consultar para que ViewBag.Filter (los links del
+                // paginador) ya refleje el valor efectivo aunque llegue otro por querystring.
+                filter.PageSize = 20;
+
                 // Ejecutar secuencialmente: el DbContext compartido no soporta operaciones concurrentes.
                 var ventas = await _ventaService.GetAllAsync(filter);
                 ViewBag.Clientes = await _clienteLookup.GetClientesSelectListAsync();
@@ -139,12 +144,47 @@ namespace TheBuryProject.Controllers
                     ViewBag.EstadosAutorizacion = new SelectList(Enum.GetValues(typeof(EstadoAutorizacionVenta)));
                 }
 
+                // VENTA-UI-04B: paginación server-rendered en memoria, solo para la
+                // pestaña Operaciones. "ventas" sigue siendo el conjunto filtrado completo:
+                // KPIs, Pendientes, Cotizaciones y Devoluciones lo necesitan íntegro.
+                // GetAllAsync y su contrato no cambian; el recorte ocurre acá, después de
+                // traer todo.
+                var totalRegistros = ventas.Count;
+                var totalPaginas = totalRegistros == 0
+                    ? 0
+                    : (int)Math.Ceiling(totalRegistros / (double)filter.PageSize);
+
+                // PageNumber < 1 ya lo clampea el setter de PaginationViewModel; acá solo
+                // falta el límite superior, que depende del total recién calculado.
+                if (totalPaginas == 0)
+                {
+                    filter.PageNumber = 1;
+                }
+                else if (filter.PageNumber > totalPaginas)
+                {
+                    filter.PageNumber = totalPaginas;
+                }
+
+                var ventasOperacionesPagina = ventas
+                    .Skip((filter.PageNumber - 1) * filter.PageSize)
+                    .Take(filter.PageSize)
+                    .ToList();
+
+                ViewBag.Paginacion = new PaginatedResult<VentaViewModel>
+                {
+                    Items = ventasOperacionesPagina,
+                    TotalRecords = totalRegistros,
+                    PageNumber = filter.PageNumber,
+                    PageSize = filter.PageSize
+                };
+
                 return View("Index_tw", ventas);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al obtener las ventas");
                 TempData["Error"] = "Error al cargar las ventas";
+                ViewBag.Paginacion = new PaginatedResult<VentaViewModel> { PageNumber = 1, PageSize = 20 };
                 return View("Index_tw", new List<VentaViewModel>());
             }
         }

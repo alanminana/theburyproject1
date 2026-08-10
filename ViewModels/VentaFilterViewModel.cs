@@ -3,7 +3,11 @@ using TheBuryProject.Models.Enums;
 
 namespace TheBuryProject.ViewModels
 {
-    public class VentaFilterViewModel
+    // VENTA-UI-04B: hereda PageNumber/PageSize de PaginationViewModel para la
+    // paginación server-rendered de la pestaña Operaciones de Venta/Index. No afecta
+    // AplicarFiltros (VentaService.cs) ni a ClienteController.Details, que solo leen
+    // los campos de filtro propios de esta clase.
+    public class VentaFilterViewModel : PaginationViewModel
     {
         [Display(Name = "Cliente")]
         public int? ClienteId { get; set; }
