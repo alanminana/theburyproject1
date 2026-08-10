@@ -66,8 +66,20 @@
     // anticipo/cuotas no invalida el fragmento en sí, sólo el "configurado").
     document.addEventListener('venta:credito-validado', (event) => {
         if (event.detail && event.detail.configurado === false && !event.detail.origenEmbebido) {
+            console.debug('[venta-credito-embebido] Fragmento invalidado por evento externo', event.detail);
             cargado = false;
             if (ventaId && creditoId) debeResincronizarBorrador = true;
+
+            // BUG reportado: confirmar la excepción documental (u otro evento externo que
+            // invalide el fragmento) dispara este mismo evento SIN que el operador cambie
+            // de pestaña. El único disparador de recarga hasta ahora era "llegar" al paso
+            // Crédito (click de tab o venta:wizard-paso-activo) — si ya estábamos parados
+            // en él, marcar cargado=false no alcanza: el panel queda vacío hasta que el
+            // operador se va a otra pestaña y vuelve. Si el paso Crédito ya está activo,
+            // recargar ahora mismo en vez de esperar una llegada que no va a ocurrir.
+            if (stepBtnCredito?.getAttribute('aria-selected') === 'true' && !stepBtnCredito.disabled) {
+                cargarConfigurador();
+            }
         }
     });
 
@@ -140,7 +152,10 @@
         }
 
         const hdnRowVersion = ventaForm.querySelector('input[name="RowVersion"]');
-        if (hdnRowVersion && data.rowVersion) hdnRowVersion.value = data.rowVersion;
+        if (hdnRowVersion && data.rowVersion) {
+            console.debug('[venta-credito-embebido] RowVersion resincronizado desde ' + url, { anterior: hdnRowVersion.value, nuevo: data.rowVersion });
+            hdnRowVersion.value = data.rowVersion;
+        }
 
         debeResincronizarBorrador = false;
         return true;
@@ -191,7 +206,10 @@
             const rowVersionActual = contenedor.querySelector('#hdn-venta-row-version')?.value;
             const hdnRowVersion = ventaForm.querySelector('input[name="RowVersion"]');
             if (rowVersionActual && hdnRowVersion) {
+                console.debug('[venta-credito-embebido] RowVersion resincronizado desde fragmento ConfigurarVenta', { anterior: hdnRowVersion.value, nuevo: rowVersionActual });
                 hdnRowVersion.value = rowVersionActual;
+            } else if (!rowVersionActual) {
+                console.warn('[venta-credito-embebido] El fragmento de ConfigurarVenta no trajo #hdn-venta-row-version: el RowVersion del wizard puede quedar desactualizado.');
             }
 
             window.TheBury.initConfigurarVentaCredito(contenedor, {
@@ -307,6 +325,15 @@
 
     stepBtnCredito?.addEventListener('click', () => {
         if (stepBtnCredito.disabled) return;
+        if (!cargado) cargarConfigurador();
+    });
+
+    // Cubre llegar al paso "Crédito" sin clickear la pestaña (p.ej. el botón primario
+    // "Continuar a crédito" desde Pago, que navega vía avanzar()/setActiveStep()): sin
+    // este listener el fragmento nunca se pedía y el panel quedaba vacío.
+    document.addEventListener('venta:wizard-paso-activo', (event) => {
+        if (event.detail?.step !== 'credito') return;
+        if (stepBtnCredito?.disabled) return;
         if (!cargado) cargarConfigurador();
     });
 })();

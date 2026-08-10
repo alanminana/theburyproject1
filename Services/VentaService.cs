@@ -728,6 +728,21 @@ namespace TheBuryProject.Services
             if (viewModel.RowVersion == null || viewModel.RowVersion.Length == 0)
                 throw new InvalidOperationException("Falta información de concurrencia (RowVersion). Recargá la venta e intentá nuevamente.");
 
+            // Diagnóstico de concurrencia: venta.RowVersion es el valor recién leído de la
+            // base (línea 706-709, en esta misma request); viewModel.RowVersion es el que
+            // trajo el formulario. Si ya difieren acá, algo bumpeó la fila entre que el
+            // navegador sembró/sincronizó ese hidden y este submit — útil para diferenciar
+            // un conflicto real de otro usuario de un desincronizado propio (p.ej. el
+            // configurador de crédito embebido) antes de llegar al catch de más abajo.
+            if (!venta.RowVersion.AsSpan().SequenceEqual(viewModel.RowVersion))
+            {
+                _logger.LogWarning(
+                    "UpdateAsync venta {Id} RowVersion ya desincronizado antes de SaveChanges. Actual(DB):{Actual} Enviado(form):{Enviado}",
+                    id,
+                    Convert.ToBase64String(venta.RowVersion),
+                    Convert.ToBase64String(viewModel.RowVersion));
+            }
+
             _context.Entry(venta).Property(v => v.RowVersion).OriginalValue = viewModel.RowVersion;
 
             ActualizarDatosVenta(venta, viewModel);

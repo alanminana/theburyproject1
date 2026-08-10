@@ -2403,9 +2403,29 @@
         const clave = `${clienteId}:${total.toFixed(2)}`;
         if (!forzar && clave === verificacionAutoKey) return;
 
+        // BUG reportado: re-verificar (p.ej. reclick en "Verificar crédito") borraba
+        // siempre la excepción recién confirmada por el operador, obligándolo a
+        // rehacerla en bucle. Si ya hay una excepción confirmada para este mismo
+        // cliente+monto (nada relevante cambió), se preserva; sólo se descarta si
+        // cambia el cliente o el total, porque ahí sí corresponde una evaluación nueva.
+        //
+        // BUG reportado (recarga de página): además del reclick con la misma clave,
+        // la primerísima verificación automática al cargar la página (verificacionAutoKey
+        // todavía null en ese momento) debe preservar una excepción ya hidratada desde
+        // el servidor (ver bloque de hidratación en Init, más abajo) — si no, este reset
+        // la pisaba antes de que el operador llegara a ver nada, y el guard de submit
+        // volvía a exigir repetirla aunque ya estuviera auditada.
+        const primeraVerificacionAuto = verificacionAutoKey === null;
+        const preservarExcepcion = excepcionActiva && (clave === verificacionAutoKey || primeraVerificacionAuto);
+        if (preservarExcepcion) {
+            console.debug('[venta-credito] Re-verificación forzada con excepción ya confirmada: se preserva.', { clienteId, total });
+        }
+
         clearFeedback();
         resetVerificacion();
-        resetExcepcionCrediticia();
+        if (!preservarExcepcion) {
+            resetExcepcionCrediticia();
+        }
         mostrarEstadoVerificandoCrediticia(true);
 
         try {
@@ -2416,8 +2436,16 @@
             mostrarResultadoVerificacion(data);
             mostrarMotivos(data);
             mostrarAlertaMora(data);
-            mostrarDocumentacionFaltante(data);
-            actualizarDisponibilidadExcepcion(data);
+
+            if (preservarExcepcion) {
+                // La excepción activa ya oculta estos paneles (ver mostrarPanelExcepcion);
+                // no deben reaparecer detrás de una re-verificación forzada.
+                hide($('#panel-documentacion-faltante'));
+                hide($('#panel-cupo-insuficiente'));
+            } else {
+                mostrarDocumentacionFaltante(data);
+                actualizarDisponibilidadExcepcion(data);
+            }
 
         } catch (err) {
             showFeedback('Error al verificar elegibilidad: ' + err.message, 'error');
@@ -2490,6 +2518,44 @@
     $('#btn-aplicar-excepcion')?.addEventListener('click', mostrarPanelExcepcion);
     $('#btn-cancelar-excepcion')?.addEventListener('click', ocultarPanelExcepcion);
 
+    // Deja el panel de excepción en el estado "confirmada": textarea bloqueado con el
+    // motivo, botones ocultos y badge de aplicada. La usan tanto la confirmación manual
+    // (click en "Aplicar y continuar") como la hidratación al cargar la página cuando el
+    // servidor ya tiene una excepción documental auditada para esta venta (ver Init).
+    function activarExcepcionConfirmada(motivo) {
+        excepcionActiva = true;
+        const hdnExcepcion = $('#hdn-aplicar-excepcion');
+        if (hdnExcepcion) hdnExcepcion.value = 'true';
+
+        show($('#panel-excepcion-crediticia'));
+        hide($('#panel-excepcion-inactiva'));
+        show($('#panel-excepcion-activa'));
+
+        const txtMotivo = $('#txt-excepcion-documental');
+        if (txtMotivo) {
+            txtMotivo.value = motivo;
+            txtMotivo.readOnly = true;
+            txtMotivo.classList.add('opacity-60', 'cursor-not-allowed');
+        }
+        const btnConfirmar = $('#btn-confirmar-excepcion');
+        if (btnConfirmar) btnConfirmar.classList.add('hidden');
+        const btnCancelar = $('#btn-cancelar-excepcion');
+        if (btnCancelar) btnCancelar.classList.add('hidden');
+
+        // Mostrar badge de excepción aplicada
+        const panelActivo = $('#panel-excepcion-activa');
+        if (panelActivo) {
+            let badge = document.getElementById('excepcion-aplicada-badge');
+            if (!badge) {
+                badge = document.createElement('div');
+                badge.id = 'excepcion-aplicada-badge';
+                badge.className = 'flex items-center gap-2 mt-3 text-green-400 text-sm font-semibold';
+                badge.innerHTML = '<span class="material-symbols-outlined text-base">check_circle</span> Excepción aplicada. Ahora configurá el crédito (anticipo, cuotas y contrato) más abajo para poder guardar.';
+                panelActivo.appendChild(badge);
+            }
+        }
+    }
+
     // "Aplicar y continuar" dentro del panel: valida motivo, activa la excepción y bloquea el panel para edición
     $('#btn-confirmar-excepcion')?.addEventListener('click', function () {
         const txtMotivo = $('#txt-excepcion-documental');
@@ -2511,32 +2577,11 @@
 
         // Motivo válido: la excepción viaja en el submit MVC canónico. No confirma
         // ni factura desde el navegador.
-        excepcionActiva = true;
-        const hdnExcepcion = $('#hdn-aplicar-excepcion');
-        if (hdnExcepcion) hdnExcepcion.value = 'true';
-
-        // Bloquear edición del panel y mostrar estado confirmado
-        if (txtMotivo) {
-            txtMotivo.readOnly = true;
-            txtMotivo.classList.add('opacity-60', 'cursor-not-allowed');
-        }
-        const btnConfirmar = $('#btn-confirmar-excepcion');
-        if (btnConfirmar) btnConfirmar.classList.add('hidden');
-        const btnCancelar = $('#btn-cancelar-excepcion');
-        if (btnCancelar) btnCancelar.classList.add('hidden');
-
-        // Mostrar badge de excepción aplicada
-        const panelActivo = $('#panel-excepcion-activa');
-        if (panelActivo) {
-            let badge = document.getElementById('excepcion-aplicada-badge');
-            if (!badge) {
-                badge = document.createElement('div');
-                badge.id = 'excepcion-aplicada-badge';
-                badge.className = 'flex items-center gap-2 mt-3 text-green-400 text-sm font-semibold';
-                badge.innerHTML = '<span class="material-symbols-outlined text-base">check_circle</span> Excepción aplicada. Podés continuar con la revisión.';
-                panelActivo.appendChild(badge);
-            }
-        }
+        activarExcepcionConfirmada(motivo);
+        console.debug('[venta-credito] Excepción documental confirmada.', {
+            clienteId: parseInt(hdnClienteId?.value) || null,
+            total: parseFloat(hdnTotal?.value) || 0
+        });
 
         document.dispatchEvent(new CustomEvent('venta:credito-validado', {
             detail: { aprobado: true, configurado: false }
@@ -3022,6 +3067,16 @@
                 productoUnidadLabel: d.productoUnidadLabel || (d.productoUnidadId ? String(d.productoUnidadId) : '')
             });
         });
+    }
+
+    // Hidratar excepción documental ya autorizada en el servidor (Model.TieneExcepcionDocumentalRegistrada,
+    // parseada de MotivoAutorizacion "EXCEPCION_DOC|..."). Sin esto, `excepcionActiva` arrancaba
+    // siempre en false en cada recarga de la página y el guard de submit de más abajo volvía a
+    // exigir repetir una excepción que el propio servidor ya tenía auditada, bloqueando "Confirmar
+    // operación" sin enviar ningún POST. Debe correr antes de las llamadas de abajo (disparan la
+    // primera verificación automática) para que preservarExcepcion la respete desde el arranque.
+    if (ventaForm?.dataset.excepcionDocumentalRegistrada === 'true') {
+        activarExcepcionConfirmada(ventaForm.dataset.excepcionDocumentalMotivo || '(motivo registrado previamente)');
     }
 
     cargarConfiguracionPagosGlobal();

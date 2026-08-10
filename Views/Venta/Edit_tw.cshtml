@@ -11,7 +11,10 @@
 
 @section Styles {
     <partial name="_VentaModuleStyles" />
-    <partial name="_CreditoModuleStyles" />
+    @* Ruta calificada, NO "_CreditoModuleStyles" a secas: ver comentario equivalente en
+       Create_tw.cshtml (colisión de nombre con Views/Shared/_CreditoModuleStyles.cshtml,
+       el de CreditoPersonal_tw, sin relación con este configurador). *@
+    <partial name="~/Views/Credito/_CreditoModuleStyles.cshtml" />
 }
 
 @section Scripts {

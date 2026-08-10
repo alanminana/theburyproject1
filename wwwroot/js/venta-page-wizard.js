@@ -65,6 +65,14 @@
         });
 
         actualizarAccionPrincipal(step);
+
+        // BUG reportado: el configurador embebido de Crédito Personal (anticipo/cuotas)
+        // sólo se cargaba si el operador clickeaba la pestaña "Crédito" a mano (ver
+        // listener en venta-credito-embebido.js sobre #step-btn-credito). La navegación
+        // normal del wizard llega a este paso vía avanzar() → setActiveStep(), sin pasar
+        // por ese click, así que el panel quedaba vacío. Este evento le avisa al
+        // configurador que el paso cambió sin importar cómo se llegó.
+        document.dispatchEvent(new CustomEvent('venta:wizard-paso-activo', { detail: { step } }));
     }
 
     function requiereCredito() {
@@ -205,13 +213,37 @@
 
     function avanzar() {
         const activos = pasosVisibles();
-        const actual = activos.findIndex((button) => button.getAttribute('aria-selected') === 'true');
-        const siguiente = activos[actual + 1];
+        const actualIndex = activos.findIndex((button) => button.getAttribute('aria-selected') === 'true');
+        const actual = activos[actualIndex];
+        const siguiente = activos[actualIndex + 1];
         if (siguiente && !siguiente.disabled) {
             setActiveStep(siguiente.getAttribute('data-step'));
             siguiente.focus({ preventScroll: true });
             document.getElementById(`step-panel-${siguiente.getAttribute('data-step')}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            return;
         }
+
+        if (!siguiente) return; // ya es el último paso visible, nada que avanzar
+
+        // BUG reportado: "Guardar cambios"/"Siguiente" no hacía nada visible cuando el
+        // paso siguiente estaba bloqueado (típicamente Revisión, mientras Crédito Personal
+        // no tiene el plan configurado — aplicar la excepción documental no alcanza, sigue
+        // haciendo falta anticipo/cuotas/contrato). Avisar en vez de quedar mudo.
+        console.debug('[venta-wizard] avanzar() bloqueado', {
+            actual: actual?.getAttribute('data-step'),
+            siguiente: siguiente.getAttribute('data-step'),
+            requiereCredito: requiereCredito(),
+            creditoValidado
+        });
+
+        if (actual?.getAttribute('data-step') === 'credito' && requiereCredito() && !creditoValidado) {
+            mostrarRequisitoCredito(
+                'Todavía falta configurar el crédito personal (anticipo, cuotas y contrato) antes de poder guardar. Aplicar la excepción no reemplaza esa configuración.',
+                '#panel-configuracion-credito'
+            );
+            return;
+        }
+        mostrarRequisitoCredito('Completá los datos requeridos en este paso antes de continuar.', null);
     }
 
     function mostrarRequisitoCredito(mensaje, selector) {
@@ -219,6 +251,11 @@
         if (alerta) {
             alerta.textContent = mensaje;
             alerta.hidden = false;
+            // "hidden" (atributo) no alcanza: el <p> también trae la clase Tailwind
+            // "hidden" (display:none) desde el markup inicial, y esa clase gana la
+            // cascada. Sin sacarla, el mensaje queda invisible aunque el atributo ya
+            // esté en false — el bug reportado ("no pasa nada" al tocar Siguiente).
+            alerta.classList.remove('hidden');
         }
         const requisito = selector ? document.querySelector(selector) : null;
         requisito?.focus({ preventScroll: true });

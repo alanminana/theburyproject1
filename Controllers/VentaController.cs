@@ -615,7 +615,15 @@ namespace TheBuryProject.Controllers
                     // desde cotización), UpdateAsync ya corrió la validación de aptitud +
                     // excepción documental (misma que CreateAsync) y creó el crédito pendiente,
                     // o lanzó una excepción si quedó NoViable sin excepción aplicada.
-                    if (ventaAntes?.CreditoId.HasValue == true)
+                    //
+                    // BUG reportado: con una excepción documental ya autorizada (motivo cargado,
+                    // crédito configurado y contrato generado en el wizard), este recheck volvía a
+                    // exigir documentación real del cliente y mandaba a "Confirmar operación" a
+                    // /DocumentoCliente en vez de a los detalles de la venta — pisando una excepción
+                    // que el propio sistema ya había aceptado y auditado (MotivoAutorizacion
+                    // "EXCEPCION_DOC|..."). El recheck sólo tiene sentido cuando nadie autorizó
+                    // todavía esa excepción para esta venta.
+                    if (ventaAntes?.CreditoId.HasValue == true && !resultado.TieneExcepcionDocumentalRegistrada)
                     {
                         var documentacion = await _documentacionService.ProcesarDocumentacionVentaAsync(resultado.Id);
 
@@ -810,7 +818,10 @@ namespace TheBuryProject.Controllers
 
             var resultado = await _documentacionService.ProcesarDocumentacionVentaAsync(ventaId);
 
-            if (!resultado.DocumentacionCompleta)
+            // Ver comentario equivalente en Edit(POST): con una excepción documental ya
+            // autorizada para esta venta, no volver a mandar al operador a cargar
+            // documentación real del cliente.
+            if (!resultado.DocumentacionCompleta && !venta.TieneExcepcionDocumentalRegistrada)
             {
                 TempData["Warning"] =
                     $"Falta documentación obligatoria para otorgar crédito: {resultado.MensajeFaltantes}";

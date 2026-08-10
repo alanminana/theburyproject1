@@ -18,7 +18,12 @@
 
 @section Styles {
     <partial name="_VentaModuleStyles" />
-    <partial name="_CreditoModuleStyles" />
+    @* Ruta calificada, NO "_CreditoModuleStyles" a secas: esta vista vive en Views/Venta,
+       así que Razor resolvería el nombre contra Views/Shared/_CreditoModuleStyles.cshtml
+       (el de CreditoPersonal_tw, homónimo y sin relación) en vez de éste, que trae
+       credito-module.css — el que realmente peina .card/.kv/.result-card/etc. del
+       configurador embebido (mismo patrón que usa la vista de ConfiguracionContratoCredito). *@
+    <partial name="~/Views/Credito/_CreditoModuleStyles.cshtml" />
     @* Estilos del cotizador embebido en el paso Cotizar. *@
     <link rel="stylesheet" href="~/css/cotizacion-simulador.css" asp-append-version="true" />
 }

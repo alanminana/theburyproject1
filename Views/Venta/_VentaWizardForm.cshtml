@@ -63,6 +63,25 @@
             PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
         })
         : string.Empty;
+    // Errores "" (nivel modelo: reglas de negocio, concurrencia) vs. errores de campo
+    // (nivel formulario: algo que el operador puede corregir acá mismo). El título y la
+    // acción del banner cambian según cuál predomina — antes ambos casos mostraban el
+    // mismo "Corrige los errores antes de continuar", que no aplica a un conflicto de
+    // concurrencia (no hay ningún campo que "corregir": hay que recargar y reintentar).
+    var erroresModelo = ViewData.ModelState
+        .Where(kvp => string.IsNullOrEmpty(kvp.Key))
+        .SelectMany(kvp => kvp.Value?.Errors ?? Enumerable.Empty<Microsoft.AspNetCore.Mvc.ModelBinding.ModelError>())
+        .Select(e => e.ErrorMessage)
+        .ToList();
+    var erroresCampo = ViewData.ModelState
+        .Where(kvp => !string.IsNullOrEmpty(kvp.Key))
+        .SelectMany(kvp => kvp.Value?.Errors ?? Enumerable.Empty<Microsoft.AspNetCore.Mvc.ModelBinding.ModelError>())
+        .Select(e => e.ErrorMessage)
+        .ToList();
+    var esConflictoConcurrencia = erroresModelo.Any(m => m.Contains("modificada por otro usuario", StringComparison.OrdinalIgnoreCase));
+    var bannerTitulo = esConflictoConcurrencia
+        ? "No se pudo guardar: alguien más modificó esta operación"
+        : (erroresCampo.Any() ? "Corrige los errores antes de continuar" : "No se pudo guardar la operación");
 }
 
     <div id="banner-errores"
@@ -70,13 +89,21 @@
         <div class="flex items-center gap-3">
             <span class="material-symbols-outlined text-red-500">error</span>
             <div class="flex flex-col gap-1">
-                <p class="text-white text-base font-bold leading-tight">Corrige los errores antes de continuar</p>
+                <p class="text-white text-base font-bold leading-tight">@bannerTitulo</p>
                 <div id="banner-errores-list" class="text-slate-400 text-sm">
-                    @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                    @foreach (var error in erroresModelo.Concat(erroresCampo))
                     {
-                        <p>@error.ErrorMessage</p>
+                        <p>@error</p>
                     }
                 </div>
+                @if (esConflictoConcurrencia && esEdicion)
+                {
+                    <a asp-action="Edit" asp-route-id="@Model.Id"
+                       class="mt-1 inline-flex w-fit items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-bold text-white no-underline hover:bg-white/20">
+                        <span class="material-symbols-outlined text-sm">refresh</span>
+                        Recargar página
+                    </a>
+                }
             </div>
         </div>
         <button type="button" id="btn-cerrar-banner-errores"
@@ -112,7 +139,9 @@
     <p id="wizard-feedback" class="hidden mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm font-semibold text-amber-200" role="alert" aria-live="assertive"></p>
 
     <form id="venta-form" asp-action="@formAction" method="post"
-          data-credito-configurado="@Model.CreditoConfigurado.ToString().ToLowerInvariant()">
+          data-credito-configurado="@Model.CreditoConfigurado.ToString().ToLowerInvariant()"
+          data-excepcion-documental-registrada="@Model.TieneExcepcionDocumentalRegistrada.ToString().ToLowerInvariant()"
+          data-excepcion-documental-motivo="@Model.MotivoExcepcionDocumental">
         @Html.AntiForgeryToken()
         <input type="hidden" asp-for="Estado" />
         <input type="hidden" asp-for="RowVersion" />
