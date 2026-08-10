@@ -7,9 +7,27 @@
    Se fuerza .hidden a display:none !important para que siempre gane
    sobre custom display properties, especialmente cuando este CSS se
    carga después del CDN/build de Tailwind.
+
+   GLOBAL-UI-01.1: el scope anterior (#main-content > div.flex-1.overflow-y-auto .hidden)
+   evitaba apagar "hidden lg:block/lg:flex" del header de _Layout, pero seguía siendo un
+   override genérico de TODO el contenido de página — y por eso también apagaba
+   "hidden sm:inline-flex" del badge de estado "Incompleta" (_VentaWizardForm.cshtml) a
+   partir de 640px, un bug confirmado en vivo (getComputedStyle daba display:flex sin este
+   override, none con él, en 1920px donde debería verse). Auditoría con Playwright
+   (classList + getComputedStyle en las 7 vistas) confirmó que de todos los .hidden reales
+   del módulo (dropdowns, sub-paneles, secciones del wizard, modales de Details) sólo dos
+   elementos chocan de verdad con una regla sin capa que fuerza otro display:
+   - #credito-embebido-error: .alert (credito-module.css, sin capa) fuerza display:flex.
+   - #revision-alertas-badge: .badge-erp (shared-components.css, sin capa) fuerza display
+     distinto de none.
+   El resto (venta-sub-panel, dropdowns, secciones del wizard, modales fixed inset-0 de
+   Details) ya queda oculto correctamente con el .hidden normal de Tailwind (verificado
+   quitando esta regla vía CSSOM y leyendo getComputedStyle: siguen en "none"). Cancelar/
+   Autorizar/Rechazar/Delete no tienen ningún elemento .hidden real.
    ───────────────────────────────────────────────────────────── */
 
-.hidden {
+#credito-embebido-error.hidden,
+#revision-alertas-badge.hidden {
     display: none !important;
 }
 
