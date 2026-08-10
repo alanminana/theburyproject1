@@ -34,3 +34,16 @@ Verificar primero la versión instalada y el código real antes de aplicar infor
 ## Cambios de configuración
 
 `/doctor` sirve para auditar y proponer. No aplicar ni aceptar cambios de configuración sin revisar después `git diff` y los servidores o skills afectados.
+
+### UX/UI especializado
+
+Para refactor de módulos existentes:
+
+- `modulo-ui-refactor` es el orquestador principal.
+- `ui-ux-pro-max` e `impeccable` son herramientas consultivas y no reemplazan las reglas del proyecto, el diseño existente ni el alcance definido por `modulo-ui-refactor`.
+- No combinar múltiples skills visuales salvo pedido explícito o necesidad concreta.
+- `ui-ux-pro-max` puede usarse para heurísticas de UX, accesibilidad, responsive, tablas, formularios y visualización de datos.
+- No usar `--persist` de `ui-ux-pro-max` ni crear `design-system/MASTER.md` o overrides de páginas salvo pedido explícito.
+- `impeccable` debe invocarse con un comando concreto. Para este ERP priorizar `audit`, `critique`, `harden`, `adapt`, `clarify`, `optimize` y `polish`.
+- No ejecutar automáticamente `impeccable init`, `document`, `extract`, `hooks`, `doctor` ni crear `PRODUCT.md` o `DESIGN.md`.
+- Las recomendaciones externas no pueden reemplazar fuentes visuales existentes, introducir dependencias, cambiar tipografías, iconografía, navegación o identidad global sin evidencia y autorización explícita.

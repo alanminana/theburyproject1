@@ -76,7 +76,95 @@ Clasificar cada hallazgo:
 Para cada hallazgo indicar evidencia, impacto y corrección mínima.
 
 No declarar código muerto solo por falta de referencias textuales; verificar carga dinámica, layout, bundling y uso desde JavaScript.
+## Apoyo UX/UI especializado
 
+`modulo-ui-refactor` conserva siempre la responsabilidad sobre:
+
+- alcance del micro-lote;
+- contratos Razor/backend;
+- preservación de comportamiento;
+- protección del working tree;
+- archivos permitidos;
+- implementación;
+- validación técnica;
+- validación con Playwright.
+
+Las skills visuales especializadas son consultivas.
+
+### UI/UX Pro Max
+
+Usar únicamente cuando el usuario la invoque explícitamente o cuando el pedido indique expresamente que debe participar.
+
+Priorizar consultas relacionadas con:
+
+- accesibilidad;
+- interacción;
+- responsive;
+- formularios;
+- tablas y visualización de datos;
+- jerarquía;
+- estados de interfaz.
+
+Para TheBuryProject:
+
+- usar `html-tailwind` como referencia técnica cuando corresponda;
+- priorizar dominios `ux`, `web` y `chart`;
+- no usar `--persist`;
+- no crear `design-system/MASTER.md`;
+- no crear overrides de páginas;
+- no considerar sus recomendaciones una fuente de verdad;
+- contrastar siempre sus recomendaciones con la interfaz real y los componentes existentes.
+
+### Impeccable
+Los hallazgos de Impeccable son candidatos de diagnóstico: no ampliar el micro-lote ni implementar hallazgos adicionales automáticamente.
+Usar únicamente mediante invocación explícita y con un comando concreto.
+
+Para módulos existentes priorizar:
+
+- `critique`: análisis UX y heurístico;
+- `audit`: accesibilidad, responsive, performance e integridad técnica;
+- `harden`: estados límite, errores e internacionalización;
+- `adapt`: responsive;
+- `clarify`: textos, labels y mensajes;
+- `optimize`: performance de UI;
+- `polish`: cierre visual conservador.
+
+No ejecutar automáticamente:
+
+- `init`;
+- `document`;
+- `extract`;
+- `hooks`;
+- `doctor`;
+- `bolder`;
+- `delight`;
+- `overdrive`.
+
+No crear `PRODUCT.md`, `DESIGN.md`, design systems ni nueva autoridad visual salvo pedido explícito.
+
+En TheBuryProject usar el modo conceptual `Operate`: priorizar scanability, consistencia, expectativas de aplicaciones administrativas, densidad útil y eficiencia de tarea sobre expresividad visual.
+### Cuando participan ambas
+
+Este flujo aplica únicamente cuando el usuario haya pedido explícitamente usar ambas skills.
+
+No mezclar sus instrucciones directamente.
+Orden:
+
+1. mapear primero la pantalla y sus contratos con `modulo-ui-refactor`;
+2. obtener heurísticas relevantes de `ui-ux-pro-max`;
+3. usar `impeccable critique` o `impeccable audit` como segunda evaluación;
+4. reconciliar hallazgos contra la implementación real del ERP;
+5. clasificar y priorizar únicamente los hallazgos demostrables;
+6. implementar el micro-lote mínimo.
+
+Ante conflicto, prevalecen:
+
+1. comportamiento y reglas de negocio;
+2. contratos existentes;
+3. instrucciones de `AGENTS.md` y `CLAUDE.md`;
+4. coherencia visual existente del ERP;
+5. `modulo-ui-refactor`;
+6. recomendaciones de skills especializadas.
 ## Reglas de modificación
 
 - Preservar reglas de negocio.

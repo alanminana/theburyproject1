@@ -17,7 +17,8 @@
     "minimalist-ui": "user-invocable-only",
     "redesign-existing-projects": "user-invocable-only",
     "stitch-design-taste": "user-invocable-only",
-    "ui-ux-pro-max": "user-invocable-only"
+    "ui-ux-pro-max": "user-invocable-only",
+    "impeccable": "user-invocable-only"
   },
   "enabledPlugins": {
     "claude-mem@thedotmack": false,
