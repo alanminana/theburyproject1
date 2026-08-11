@@ -59,6 +59,9 @@ Para cualquier trabajo UI/UX:
 5. actualizar STATUS al cerrar una pantalla;
 6. actualizar STANDARD solo ante reglas reusables nuevas.
 
+Toda auditoría UI/UX distingue técnica, visual, flujo UX y estados reales (ver
+`ERP-UI-STANDARD.md` §14).
+
 ## Herramientas
 
 Usar la herramienta mínima necesaria:

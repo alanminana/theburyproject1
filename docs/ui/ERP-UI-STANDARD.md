@@ -152,7 +152,66 @@ Mínimo exigible en toda pantalla:
 - Handlers idempotentes cuando el nodo puede volver a inicializarse (modales, tabs tras
   fetch parcial).
 
-## 14. QA obligatorio
+## 14. Metodología de auditoría (4 capas)
+
+Que una pantalla esté técnicamente normalizada, sea responsive, accesible y comparta
+bien componentes **no significa que su UX esté optimizada**. Toda auditoría UI/UX
+evalúa explícitamente estas 4 capas, no solo la primera:
+
+1. **Técnica** — Razor/HTML, partials, CSS, JS, duplicación, contratos, responsive
+   técnico, accesibilidad técnica, tests. Pregunta: ¿está bien construido y es
+   consistente?
+2. **Visual** — jerarquía, densidad, spacing, uso del color, contraste semántico,
+   cards/bordes/pills, prioridad visual, scanability, redundancia visual. Pregunta:
+   ¿se entiende qué es importante?
+3. **Flujo UX** — la pantalla como tarea real: qué intenta hacer el usuario, qué ve
+   primero, qué necesita decidir, qué información necesita, qué lo bloquea, qué acción
+   espera, si hay acciones compitiendo, pasos o información innecesarios, ambigüedad
+   entre guardar/confirmar/aplicar/continuar, dead ends, paridad de prioridad funcional
+   en mobile. Sin cambiar reglas de negocio.
+4. **Estados reales** — no solo happy path: vacío, con datos, completado, error,
+   bloqueado, no viable, estado terminal, mobile. Muchos problemas de UX aparecen solo
+   con datos, errores, bloqueos o estados terminales.
+
+**Regla de evidencia**: una pantalla puede pasar la auditoría técnica y aun así
+requerir mejoras de UX. El cierre distingue explícitamente
+`Técnicamente: ✅/🟡`, `Visualmente: ✅/🟡`, `Flujo UX: ✅/🟡`. Buena paridad, responsive
+y tests no habilitan por sí solos la conclusión "no hace falta tocarla".
+
+**Regla de valor real**: toda propuesta visual o de flujo debe responder al menos una:
+¿reduce carga cognitiva?, ¿aclara prioridad?, ¿elimina redundancia?, ¿reduce pasos?,
+¿hace más evidente una acción?, ¿evita errores?, ¿mejora lectura, responsive o
+accesibilidad?, ¿elimina ambigüedad? Si ninguna aplica, no cambiar.
+
+**Redundancia cognitiva**: mismo estado repetido, mismo error mostrado varias veces,
+mismo total destacado en varios lugares, badges + color + ícono + label diciendo lo
+mismo, información duplicada entre resumen y detalle. Clasificar cada caso como
+duplicación útil, duplicación accidental o redundancia cognitiva antes de tocar nada.
+
+**Contradicciones de acciones**: detectar casos como un estado "Rechazado" junto a un
+CTA "Confirmar", un CTA primario habilitado sobre un estado "no viable", o la misma
+acción duplicada en header y panel. Distinguir contradicción visual (el layout la
+sugiere) de contradicción funcional (el backend realmente lo permite); no afirmar bug
+funcional sin verificar la lógica real.
+
+**Color y señales**: rojo = bloqueo/error real, amarillo = advertencia, verde =
+aprobado/completado, neutro = dato. No comunicar lo mismo simultáneamente con color +
+borde + pill + ícono + badge + barra + texto; no tratar cada importe como si fuera un
+estado semántico.
+
+**Tablas y resúmenes densos** (complementa §6): priorizar scanability y alineación de
+valores, no destacar todas las cifras por igual, dar ancho suficiente a las columnas
+importantes, evitar repetir el mismo total con la misma prominencia, separar
+claramente editable / calculado / resumen / detalle.
+
+**Microcopy**: para títulos, labels, badges, mensajes, errores y acciones — ¿se
+entiende?, ¿usa jerga interna innecesaria?, ¿explica qué hacer después?, ¿distingue
+acción de resultado? No cambiar terminología de negocio establecida sin evidencia.
+
+**Flujo end-to-end**: cuando la pantalla es parte de un flujo evidente (pantalla
+anterior → actual → acción → resultado/siguiente pantalla), no auditarla como isla.
+
+## 15. QA obligatorio
 
 Antes de marcar una pantalla como cerrada, como mínimo:
 
@@ -168,10 +227,14 @@ Tests focalizados relevantes
 git diff revisado
 ```
 
+Playwright observa, además de responsive: estado vacío, con datos, errores/bloqueos,
+prioridad de acciones, scroll, redundancias visibles, modales, feedback y mobile — no
+solo el happy path. No ejecutar acciones destructivas.
+
 No afirmar que una pantalla quedó responsive o accesible sin haberla probado en
 navegador real. No hacer push sin autorización explícita.
 
-## 15. Implementaciones de referencia
+## 16. Implementaciones de referencia
 
 | Referencia | Cubre |
 |---|---|

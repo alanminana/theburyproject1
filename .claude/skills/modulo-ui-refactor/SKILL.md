@@ -62,25 +62,50 @@ Localizar con evidencia:
 
 No asumir que un archivo con nombre parecido gobierna la pantalla real.
 
-## Diagnóstico
+## Auditoría (4 capas)
 
-Clasificar cada hallazgo:
+Ejecutar siempre las 4 capas de `docs/ui/ERP-UI-STANDARD.md` §14 — pasar la primera no
+exime de las otras tres. Una pantalla puede estar técnicamente normalizada y aun así
+requerir mejoras de UX.
 
-- funcional;
-- contrato Razor/backend;
-- estructura HTML;
-- CSS;
-- JavaScript;
-- responsive;
-- accesibilidad;
-- contenido redundante u obsoleto;
-- duplicación;
-- código posiblemente muerto;
-- deuda fuera de scope.
+1. **Técnica** — clasificar cada hallazgo: funcional, contrato Razor/backend,
+   estructura HTML, CSS, JavaScript, responsive técnico, accesibilidad técnica,
+   contenido redundante u obsoleto, duplicación, código posiblemente muerto, deuda
+   fuera de scope. Evidencia, impacto y corrección mínima por hallazgo. No declarar
+   código muerto solo por falta de referencias textuales; verificar carga dinámica,
+   layout, bundling y uso desde JavaScript.
+2. **Visual** — jerarquía, densidad, spacing, color, contraste semántico, prioridad
+   visual, scanability, redundancia visual (clasificar como útil, accidental o
+   cognitiva).
+3. **Flujo UX** — la pantalla como tarea real: qué intenta hacer el usuario, qué ve
+   primero, qué lo bloquea, acciones compitiendo, pasos o información innecesarios,
+   ambigüedad entre guardar/confirmar/aplicar/continuar, dead ends, paridad de
+   prioridad funcional en mobile. Sin cambiar reglas de negocio.
+4. **Estados reales** — no validar solo happy path: vacío, con datos, completado,
+   error, bloqueado, no viable, estado terminal, mobile.
 
-Para cada hallazgo indicar evidencia, impacto y corrección mínima.
+Cierre distingue `Técnicamente: ✅/🟡`, `Visualmente: ✅/🟡`, `Flujo UX: ✅/🟡`. Buena
+paridad, responsive y tests no habilitan por sí solos "no hace falta tocarla". Toda
+propuesta debe responder al menos una pregunta de valor real de §14 del estándar
+(reduce carga cognitiva, aclara prioridad, elimina redundancia/ambigüedad, reduce
+pasos, evita errores, mejora lectura/responsive/accesibilidad); si ninguna aplica, no
+cambiar.
 
-No declarar código muerto solo por falta de referencias textuales; verificar carga dinámica, layout, bundling y uso desde JavaScript.
+## Hallazgos priorizados
+
+Priorizar los hallazgos de las 4 capas antes de implementar, no solo listarlos:
+
+- bloqueante — impide completar la tarea o es un error funcional/backend;
+- alto — fricción real, redundancia cognitiva o contradicción de acciones (visual vs.
+  funcional; no afirmar bug funcional sin verificar la lógica real);
+- medio — mejora visual, de flujo o de microcopy con valor real (§14 del estándar)
+  pero no bloquea;
+- bajo / fuera de scope — deuda documentada, no se implementa en este micro-lote;
+  alimenta el roadmap mínimo del entregable.
+
+Implementar como máximo bloqueante + alto en el micro-lote actual, salvo pedido
+explícito de ampliar el alcance.
+
 ## Apoyo UX/UI especializado
 
 `modulo-ui-refactor` conserva siempre la responsabilidad sobre:
@@ -186,7 +211,7 @@ Para normalización estructural pura de Razor, usar `normalize-razor-structure`.
 
 Para warnings de Tailwind o editor, usar `clasificacion-warnings` y `tailwind-protocolo`.
 
-## Validación visual
+## Validación visual (Playwright real)
 
 Cuando el cambio afecte layout, interacción, CSS, JavaScript, modal, drawer, tabla, tabs o responsive:
 
@@ -204,6 +229,10 @@ Cuando el cambio afecte layout, interacción, CSS, JavaScript, modal, drawer, ta
 - 360x800.
 
 Agregar 1024x720 o 900x720 cuando el problema esté cerca de un breakpoint.
+
+Observar, además de responsive: estado vacío, con datos, errores/bloqueos, prioridad
+de acciones, scroll, redundancias visibles, modales, feedback y mobile — no solo el
+happy path. No ejecutar acciones destructivas.
 
 No afirmar que quedó responsive si no se probó en navegador.
 
@@ -234,13 +263,13 @@ No ejecutar la suite completa salvo cierre de fase, pre-merge o pedido explícit
 Usar este orden:
 
 1. resumen y veredicto;
-2. diagnóstico;
+2. diagnóstico por capas (técnica / visual / flujo UX / estados) con hallazgos priorizados;
 3. archivos modificados y cambio por archivo;
 4. build, tests y QA;
 5. procesos iniciados o cerrados;
 6. riesgos reales;
 7. working tree;
 8. comando `git add` exacto;
-9. siguiente micro-lote, si aporta valor.
+9. roadmap mínimo (siguiente micro-lote), solo si aporta valor real (§14 del estándar).
 
 Veredicto: `Listo para commit`, `Requiere ajuste` o `Bloqueado`.
