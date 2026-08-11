@@ -41,8 +41,7 @@
    HERO
    ══════════════════════════════════════════════════════════════ */
 
-#venta-create-page .hero-erp,
-#venta-edit-page .venta-hero-section {
+#venta-create-page .hero-erp {
     border: 1px solid var(--venta-wizard-border);
     border-radius: 20px;
     background:
@@ -53,29 +52,16 @@
     overflow: visible;
 }
 
-#venta-edit-page .venta-hero-section {
-    position: sticky;
-    top: var(--venta-hero-offset);
-    z-index: var(--venta-z-hero);
-}
-
 #venta-create-page .hero-erp {
     position: relative;
     top: auto;
     z-index: auto;
 }
 
-#venta-create-page .venta-hero-section,
-#venta-edit-page .venta-hero-section {
-    margin-bottom: 0.85rem;
-}
-
 /* ══════════════════════════════════════════════════════════════
    HERO METRICS
    ══════════════════════════════════════════════════════════════ */
 
-#venta-create-page .venta-hero-metrics,
-#venta-edit-page .venta-hero-metrics,
 #venta-create-page .venta-edit-hero-metrics,
 #venta-edit-page .venta-edit-hero-metrics {
     display: grid;
@@ -83,8 +69,6 @@
     gap: 0.75rem;
 }
 
-#venta-create-page .venta-hero-metric,
-#venta-edit-page .venta-hero-metric,
 #venta-create-page .venta-edit-hero-metrics>*,
 #venta-edit-page .venta-edit-hero-metrics>* {
     border: 1px solid var(--venta-wizard-border);
@@ -758,8 +742,7 @@
 
 @media (max-width: 1023px) {
 
-    #venta-create-page .hero-erp,
-    #venta-edit-page .venta-hero-section {
+    #venta-create-page .hero-erp {
         position: relative;
         top: auto;
     }
@@ -769,8 +752,6 @@
         position: static;
     }
 
-    #venta-create-page .venta-hero-metrics,
-    #venta-edit-page .venta-hero-metrics,
     #venta-create-page .venta-edit-hero-metrics,
     #venta-edit-page .venta-edit-hero-metrics {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -818,35 +799,27 @@
         display: flex;
     }
 
-    #venta-create-page .hero-erp,
-    #venta-edit-page .venta-hero-section {
+    #venta-create-page .hero-erp {
         padding: 0.875rem;
         border-radius: 16px;
         overflow: visible;
     }
 
-    #venta-create-page .hero-erp>.flex,
-    #venta-edit-page .venta-hero-section>.flex {
+    #venta-create-page .hero-erp>.flex {
         gap: 1rem;
     }
 
-    #venta-create-page .venta-hero-metrics,
-    #venta-edit-page .venta-hero-metrics,
     #venta-create-page .venta-edit-hero-metrics,
     #venta-edit-page .venta-edit-hero-metrics {
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 0.5rem;
     }
 
-    #venta-create-page .venta-hero-metric,
-    #venta-edit-page .venta-hero-metric,
     #venta-create-page .venta-edit-hero-metrics>*,
     #venta-edit-page .venta-edit-hero-metrics>* {
         padding: 0.75rem;
     }
 
-    #venta-create-page .venta-hero-metric p:last-child,
-    #venta-edit-page .venta-hero-metric p:last-child,
     #venta-create-page .venta-edit-hero-metrics>* p:last-child,
     #venta-edit-page .venta-edit-hero-metrics>* p:last-child {
         display: none;
@@ -883,8 +856,6 @@
         min-height: 2.75rem;
     }
 
-    #venta-create-page .venta-hero-metrics,
-    #venta-edit-page .venta-hero-metrics,
     #venta-create-page .venta-edit-hero-metrics,
     #venta-edit-page .venta-edit-hero-metrics {
         grid-template-columns: 1fr;
@@ -892,19 +863,16 @@
 }
 
 @media (min-width: 768px) and (max-height: 760px) {
-    #venta-create-page .hero-erp,
-    #venta-edit-page .venta-hero-section {
+    #venta-create-page .hero-erp {
         padding: 0.75rem;
         margin-bottom: 0.5rem;
     }
 
-    #venta-create-page .hero-erp>.flex,
-    #venta-edit-page .venta-hero-section>.flex {
+    #venta-create-page .hero-erp>.flex {
         gap: 0.75rem;
     }
 
-    #venta-create-page .hero-erp p,
-    #venta-edit-page .venta-hero-section p {
+    #venta-create-page .hero-erp p {
         margin-top: 0.25rem;
     }
 }
