@@ -121,43 +121,6 @@
    MÓDULO VENTA — clases canónicas compartidas entre vistas
    ══════════════════════════════════════════════════════════════ */
 
-/* Hero section — sección header de Create/Details */
-.venta-hero-section {
-    overflow: visible;
-    border-radius: 1.5rem;
-    border: 1px solid var(--vm-border);
-    background-color: var(--vm-panel-strong);
-    padding: 1.5rem;
-}
-
-@media (min-width: 640px) {
-    .venta-hero-section {
-        padding: 2rem;
-    }
-}
-
-/* Hero metrics grid — 2 cols mobile, 4 en xl */
-.venta-hero-metrics {
-    margin-top: 1.5rem;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.75rem;
-}
-
-@media (min-width: 1280px) {
-    .venta-hero-metrics {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-    }
-}
-
-/* Hero metric card — dark-first */
-.venta-hero-metric {
-    border-radius: 0.875rem;
-    border: 1px solid var(--vm-border);
-    background-color: var(--vm-panel);
-    padding: 1rem;
-}
-
 /* Sección de formulario / contenido */
 .venta-section {
     overflow: visible;

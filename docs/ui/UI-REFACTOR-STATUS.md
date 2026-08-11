@@ -7,8 +7,8 @@ faltan. Actualizar esta tabla al cerrar cada pantalla.
 |---|---|---|---|
 | Global | `_Layout` / Foundation | ✅ Cerrado | `ERP-UI-STANDARD.md` |
 | Venta | `Index` | ✅ Cerrado | `79b4c91`, `e1de859`, `3225b95` |
-| Venta | `Create` | ⏳ Pendiente | — |
-| Venta | `Edit` | ⏳ Pendiente | — |
+| Venta | `Create` | ✅ Cerrado | `_VentaWizardForm.cshtml` + tests de paridad |
+| Venta | `Edit` | ✅ Cerrado | `_VentaWizardForm.cshtml` + tests de paridad |
 | Venta | `Details` | ⏳ Pendiente | — |
 
 Leyenda:
@@ -31,6 +31,19 @@ Resumen no cronológico de lo que quedó implementado:
 - toast con una sola autoridad de inicialización;
 - validación integrada de responsive y accesibilidad;
 - cierre reproducible desde Git (ver commits en la tabla arriba).
+
+## Venta / Create + Edit — cerrados conjuntamente
+
+Resumen no cronológico de lo que quedó implementado:
+
+- vistas finas (`Create_tw.cshtml`, `Edit_tw.cshtml`) sin lógica propia relevante;
+- `_VentaWizardForm.cshtml` como núcleo único compartido entre ambos modos;
+- misma estructura visual entre Crear y Editar;
+- mismo JS y CSS funcional entre ambos modos;
+- diferencias visuales existentes justificadas por diferencias funcionales reales por modo;
+- paridad Crear/Editar protegida por tests;
+- responsive validado;
+- accesibilidad compartida vía el mismo parcial.
 
 ## Backlog transversal
 
