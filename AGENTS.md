@@ -50,6 +50,15 @@ No afirmar que algo funciona sin evidencia suficiente.
 - No afirmar que una pantalla quedó responsive sin validarla en navegador real.
 - No duplicar listeners ni mover lógica crítica al frontend.
 
+Para cualquier trabajo UI/UX:
+
+1. leer `docs/ui/ERP-UI-STANDARD.md`;
+2. leer `docs/ui/UI-REFACTOR-STATUS.md`;
+3. usar `.claude/skills/modulo-ui-refactor/SKILL.md`;
+4. respetar pantallas marcadas como cerradas;
+5. actualizar STATUS al cerrar una pantalla;
+6. actualizar STANDARD solo ante reglas reusables nuevas.
+
 ## Herramientas
 
 Usar la herramienta mínima necesaria:

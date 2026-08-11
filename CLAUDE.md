@@ -23,6 +23,17 @@ Claude puede invocar automáticamente estas skills cuando el pedido coincide cla
 
 Las skills visuales genéricas o de estilo están configuradas como `user-invocable-only`. No combinarlas ni activarlas automáticamente. Usarlas solo mediante `/nombre-skill` cuando el usuario pida expresamente esa dirección visual.
 
+## UI/UX
+
+Para cualquier trabajo UI/UX:
+
+1. leer `docs/ui/ERP-UI-STANDARD.md`;
+2. leer `docs/ui/UI-REFACTOR-STATUS.md`;
+3. usar `.claude/skills/modulo-ui-refactor/SKILL.md`;
+4. respetar pantallas marcadas como cerradas;
+5. actualizar STATUS al cerrar una pantalla;
+6. actualizar STANDARD solo ante reglas reusables nuevas.
+
 ## MCP
 
 - `codebase-memory-mcp`: configuración personal del usuario.

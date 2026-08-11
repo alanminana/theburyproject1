@@ -30,6 +30,11 @@ No volver a pedir datos que ya estén en la conversación o en el repositorio.
 
 ## Inicio obligatorio
 
+Antes de auditar una pantalla:
+
+- leer `docs/ui/ERP-UI-STANDARD.md`;
+- leer `docs/ui/UI-REFACTOR-STATUS.md`.
+
 1. Leer `AGENTS.md` y `CLAUDE.md`.
 2. Ejecutar:
 
