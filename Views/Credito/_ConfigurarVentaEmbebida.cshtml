@@ -33,6 +33,12 @@
         </div>
     }
 
+    @* ── 4. Configuración editable / 5. Resumen financiero ──────────────
+       Configuración = lo que el operador modifica (cuotas, anticipo, gastos, fecha).
+       Resumen = el resultado calculado por el servidor. Los valores de sólo lectura
+       que antes convivían con los campos editables (precio final, saldo a financiar)
+       se sacaron de acá: ya son la fuente principal del Resumen, a la derecha, para no
+       repetir el mismo importe con igual jerarquía en dos lugares (VENTA-FORM-PAGO-CREDITO-02B). *@
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div class="lg:col-span-2 space-y-4">
             <section class="card card-pad">
@@ -100,29 +106,15 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="label">Precio final de venta</label>
-                        <div class="field-money">
-                            <span class="cur">$</span>
-                            <input class="field" readonly value="@Model.Monto.ToString("N2")" id="txt-monto-venta-display" />
-                        </div>
-                    </div>
+                @* Sólo campos editables acá: precio final y saldo a financiar son resultado,
+                   no configuración — su única fuente visual ahora es el Resumen del plan. *@
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                         <label asp-for="Anticipo" class="label">Anticipo</label>
                         <div class="field-money">
                             <span class="cur">$</span>
                             <input asp-for="Anticipo" type="number" step="0.01" min="0" class="field" id="txt-anticipo" />
                         </div>
-                    </div>
-                    <div>
-                        <div class="flex items-center justify-between">
-                            <label class="label">Porcentaje de recargo total del plan</label>
-                            <span id="badge-tasa-fuente" class="chip chip-info hidden"></span>
-                        </div>
-                        @* ML6: read-only, ver ConfigurarVenta_tw.cshtml. *@
-                        <input class="field bg-slate-100 dark:bg-slate-800/50 cursor-not-allowed" readonly id="txt-tasa" />
-                        <p class="hint" style="margin-top:.35rem">El porcentaje se agrega una sola vez sobre el saldo restante después del anticipo. No es una tasa mensual ni interés compuesto. Lo define el plan de cuotas elegido, no es editable.</p>
                     </div>
                     <div>
                         <label asp-for="GastosAdministrativos" class="label">Gastos administrativos</label>
@@ -136,12 +128,21 @@
                         <label asp-for="FechaPrimeraCuota" class="label">Primera fecha de vencimiento</label>
                         <input asp-for="FechaPrimeraCuota" type="date" class="field" id="txt-fecha-primera-cuota" />
                     </div>
-                    <div>
-                        <label class="label">Saldo a financiar</label>
-                        <div class="result-card is-ok" style="padding:.85rem 1rem">
-                            <div class="result-value" id="txt-monto-financiado" style="font-size:1.35rem">$ @Model.MontoFinanciado.ToString("N2")</div>
-                        </div>
+                </div>
+
+                @* Porcentaje de recargo: no es un dato que se edite acá (lo fija el plan de
+                   cuotas elegido arriba), por eso queda separado de los campos editables en
+                   vez de competir con ellos en la misma grilla. *@
+                <div style="margin-top:1.1rem;padding-top:1rem;border-top:1px solid var(--line)">
+                    <div class="flex items-center justify-between" style="max-width:280px">
+                        <label class="label">Porcentaje de recargo total del plan</label>
+                        <span id="badge-tasa-fuente" class="chip chip-info hidden"></span>
                     </div>
+                    <div style="max-width:280px">
+                        @* ML6: read-only, ver ConfigurarVenta_tw.cshtml. *@
+                        <input class="field bg-slate-100 dark:bg-slate-800/50 cursor-not-allowed" readonly id="txt-tasa" />
+                    </div>
+                    <p class="hint" style="margin-top:.35rem">El porcentaje se agrega una sola vez sobre el saldo restante después del anticipo. No es una tasa mensual ni interés compuesto. Lo define el plan de cuotas elegido, no es editable.</p>
                 </div>
 
                 <div id="plan-simulando" class="hint hidden" style="margin-top:.75rem" aria-live="polite" data-plan-simulando>
@@ -213,96 +214,110 @@
                             <span class="material-symbols-outlined">event_upcoming</span>
                             <span>Primer vencimiento: <strong id="plan-fecha-pago">-</strong></span>
                         </div>
-
-                        @* CSR-ML6: tabla completa por cuota — fuente visual final del vector que
-                           devuelve el servidor (SimularPlanCredito). No se recalcula acá capital,
-                           recargo ni total: cada fila pinta tal cual cuotas[i] de la respuesta. *@
-                        <div class="mt-3" data-plan-cuotas-detalle>
-                            <div class="sec-sub" style="margin-bottom:.35rem">Detalle por cuota</div>
-                            <div class="tbl-wrap" style="border:1px solid var(--line);border-radius:10px">
-                                <table class="tbl" id="plan-cuotas-tabla">
-                                    <thead>
-                                        <tr>
-                                            <th>N°</th>
-                                            <th style="text-align:right">Capital</th>
-                                            <th style="text-align:right">Recargo</th>
-                                            <th style="text-align:right">Total</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="plan-cuotas-tabla-body"></tbody>
-                                </table>
-                            </div>
-                        </div>
                     </div>
                 </div>
-
-                <section class="card-2" style="margin-top:1rem;padding:1rem" aria-labelledby="semaforo-title">
-                    <div class="sec-title" id="semaforo-title">Evaluacion preliminar</div>
-                    <div id="semaforo-panel" class="hidden" style="margin-top:.8rem">
-                        <div id="semaforo-badge" class="flex items-center justify-between p-3 rounded-lg">
-                            <div class="flex items-center gap-3">
-                                <div id="semaforo-dot" class="size-4 rounded-full animate-pulse"></div>
-                                <span id="semaforo-label" class="font-bold"></span>
-                            </div>
-                            <span id="semaforo-tag" class="text-[10px] uppercase font-black"></span>
-                        </div>
-                        <p id="semaforo-mensaje" class="muted text-sm italic mt-3"></p>
-                        <div id="semaforo-alertas" class="space-y-3 mt-3"></div>
-                    </div>
-                    <div id="semaforo-vacio" class="ph" style="margin-top:.8rem;padding:1.25rem">
-                        <span class="material-symbols-outlined">query_stats</span>
-                        <div class="ph-label">completa condiciones para evaluar</div>
-                    </div>
-                </section>
-
-                <div class="flex flex-col gap-2" style="margin-top:1.1rem">
-                    <button type="button"
-                            class="btn btn-success btn-block"
-                            id="btn-confirmar-credito"
-                            data-credito-embebido-confirmar
-                            disabled="@Model.SinPlanesCompatibles">
-                        <span class="material-symbols-outlined">check_circle</span>
-                        Confirmar crédito
-                    </button>
-                    <p id="credito-embebido-confirmar-feedback" class="hint hidden" role="status"></p>
-                </div>
-
-                <section class="card-2" style="margin-top:1rem;padding:1rem" data-credito-embebido-contrato-seccion>
-                    <div class="sec-title">Documentacion contractual</div>
-                    @if (Model.ContratoGenerado)
-                    {
-                        <p class="hint" data-credito-embebido-contrato-estado>Contrato generado.</p>
-                        <a asp-controller="ContratoVentaCredito" asp-action="Ver" asp-route-ventaId="@Model.VentaId"
-                           target="_blank" rel="noopener" class="btn btn-success btn-block btn-sm" style="margin-top:.75rem">
-                            <span class="material-symbols-outlined">print</span>
-                            Ver / imprimir contrato
-                        </a>
-                    }
-                    else if (!Model.PlantillaActivaDisponible)
-                    {
-                        <div class="alert alert-bad" style="margin-top:.75rem" data-credito-embebido-contrato-estado>
-                            <span class="material-symbols-outlined">error</span>
-                            <span>No hay ninguna plantilla de contrato activa y vigente.</span>
-                        </div>
-                    }
-                    else
-                    {
-                        <p class="hint" data-credito-embebido-contrato-estado>
-                            @(Model.CreditoEstaConfigurado ? "Generá el contrato para poder confirmar la venta." : "Confirmá el crédito para habilitar el contrato.")
-                        </p>
-                        <button type="button"
-                                id="btn-generar-contrato"
-                                data-credito-embebido-generar-contrato
-                                class="btn btn-amber btn-block btn-sm"
-                                style="margin-top:.75rem"
-                                disabled="@(!Model.CreditoEstaConfigurado)">
-                            <span class="material-symbols-outlined">picture_as_pdf</span>
-                            Generar contrato de venta
-                        </button>
-                    }
-                </section>
             </div>
         </aside>
+    </div>
+
+    @* ── 6. Detalle por cuota — ancho completo ───────────────────────────
+       CSR-ML6: tabla completa por cuota — fuente visual final del vector que devuelve
+       el servidor (SimularPlanCredito). No se recalcula acá capital, recargo ni total:
+       cada fila pinta tal cual cuotas[i] de la respuesta. Antes vivía angosta dentro del
+       aside de 1/3 de ancho; en desktop (>=1024) ahora ocupa el ancho completo del paso
+       para mostrar N°/Capital/Recargo/Total sin scroll innecesario (VENTA-FORM-PAGO-CREDITO-02B). *@
+    <section class="card card-pad mt-4" data-plan-cuotas-detalle>
+        <div class="sec-title" style="margin-bottom:.6rem">Detalle por cuota</div>
+        <div class="tbl-wrap" style="border:1px solid var(--line);border-radius:10px">
+            <table class="tbl" id="plan-cuotas-tabla">
+                <thead>
+                    <tr>
+                        <th>N°</th>
+                        <th style="text-align:right">Capital</th>
+                        <th style="text-align:right">Recargo</th>
+                        <th style="text-align:right">Total</th>
+                    </tr>
+                </thead>
+                <tbody id="plan-cuotas-tabla-body"></tbody>
+            </table>
+        </div>
+    </section>
+
+    @* ── 7. Evaluación preliminar / 8. Acción / Documentación contractual ──
+       Mismo contenido y comportamiento que antes (semáforo sin cambios de reglas ni
+       colores), reagrupados debajo de la tabla en vez de al costado: quedan subordinados
+       a elegibilidad, bloqueantes, configuración y resumen, que se ven primero. Se
+       mantiene el ancho angosto que tenían en el aside (mismo agrupamiento, nueva
+       posición) para no convertir "Confirmar crédito" en un botón de ancho completo,
+       sólo en desktop — por debajo de 1024px pasa a ancho completo (ver
+       venta-page-wizard.css) para no dejar un hueco vacío a la izquierda cuando
+       Configuración/Resumen ya se apilaron a una sola columna. *@
+    <div class="mt-4 credito-embebido-cierre">
+        <section class="card-2" style="padding:1rem" aria-labelledby="semaforo-title">
+            <div class="sec-title" id="semaforo-title">Evaluacion preliminar</div>
+            <div id="semaforo-panel" class="hidden" style="margin-top:.8rem">
+                <div id="semaforo-badge" class="flex items-center justify-between p-3 rounded-lg">
+                    <div class="flex items-center gap-3">
+                        <div id="semaforo-dot" class="size-4 rounded-full animate-pulse"></div>
+                        <span id="semaforo-label" class="font-bold"></span>
+                    </div>
+                    <span id="semaforo-tag" class="text-[10px] uppercase font-black"></span>
+                </div>
+                <p id="semaforo-mensaje" class="muted text-sm italic mt-3"></p>
+                <div id="semaforo-alertas" class="space-y-3 mt-3"></div>
+            </div>
+            <div id="semaforo-vacio" class="ph" style="margin-top:.8rem;padding:1.25rem">
+                <span class="material-symbols-outlined">query_stats</span>
+                <div class="ph-label">completa condiciones para evaluar</div>
+            </div>
+        </section>
+
+        <div class="flex flex-col gap-2" style="margin-top:1rem">
+            <button type="button"
+                    class="btn btn-success btn-block"
+                    id="btn-confirmar-credito"
+                    data-credito-embebido-confirmar
+                    disabled="@Model.SinPlanesCompatibles">
+                <span class="material-symbols-outlined">check_circle</span>
+                Confirmar crédito
+            </button>
+            <p id="credito-embebido-confirmar-feedback" class="hint hidden" role="status"></p>
+        </div>
+
+        <section class="card-2" style="margin-top:1rem;padding:1rem" data-credito-embebido-contrato-seccion>
+            <div class="sec-title">Documentacion contractual</div>
+            @if (Model.ContratoGenerado)
+            {
+                <p class="hint" data-credito-embebido-contrato-estado>Contrato generado.</p>
+                <a asp-controller="ContratoVentaCredito" asp-action="Ver" asp-route-ventaId="@Model.VentaId"
+                   target="_blank" rel="noopener" class="btn btn-success btn-block btn-sm" style="margin-top:.75rem">
+                    <span class="material-symbols-outlined">print</span>
+                    Ver / imprimir contrato
+                </a>
+            }
+            else if (!Model.PlantillaActivaDisponible)
+            {
+                <div class="alert alert-bad" style="margin-top:.75rem" data-credito-embebido-contrato-estado>
+                    <span class="material-symbols-outlined">error</span>
+                    <span>No hay ninguna plantilla de contrato activa y vigente.</span>
+                </div>
+            }
+            else
+            {
+                <p class="hint" data-credito-embebido-contrato-estado>
+                    @(Model.CreditoEstaConfigurado ? "Generá el contrato para poder confirmar la venta." : "Confirmá el crédito para habilitar el contrato.")
+                </p>
+                <button type="button"
+                        id="btn-generar-contrato"
+                        data-credito-embebido-generar-contrato
+                        class="btn btn-amber btn-block btn-sm"
+                        style="margin-top:.75rem"
+                        disabled="@(!Model.CreditoEstaConfigurado)">
+                    <span class="material-symbols-outlined">picture_as_pdf</span>
+                    Generar contrato de venta
+                </button>
+            }
+        </section>
     </div>
 </div>
 

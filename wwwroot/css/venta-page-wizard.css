@@ -939,3 +939,52 @@
         max-height: none;
     }
 }
+
+/* ══════════════════════════════════════════════════════════════
+   PASO CRÉDITO — zonas Estado / Bloqueantes / Otras condiciones
+   (VENTA-FORM-PAGO-CREDITO-02B)
+   Cada panel individual (documentación faltante, cupo insuficiente, mora,
+   motivos) sigue su propio show/hide dinámico vía venta-create.js, sin
+   tocar esa lógica. El label de cada zona (#credito-zona-bloqueantes,
+   #credito-zona-otras-condiciones, ver _VentaWizardForm.cshtml) sólo se
+   pinta cuando al menos uno de sus paneles hijos está visible, para no
+   dejar un encabezado huérfano antes de que corra la verificación o en un
+   resultado Aprobable sin bloqueantes/mora/documentación pendiente.
+   ══════════════════════════════════════════════════════════════ */
+#venta-create-page .credito-zona-label,
+#venta-edit-page .credito-zona-label {
+    display: none;
+}
+
+#venta-create-page #credito-zona-bloqueantes:has(> #panel-documentacion-faltante:not(.hidden), > #panel-cupo-insuficiente:not(.hidden)) .credito-zona-label,
+#venta-edit-page #credito-zona-bloqueantes:has(> #panel-documentacion-faltante:not(.hidden), > #panel-cupo-insuficiente:not(.hidden)) .credito-zona-label {
+    display: block;
+    margin-bottom: 0.15rem;
+}
+
+#venta-create-page #credito-zona-otras-condiciones:has(> #panel-alerta-mora:not(.hidden), > #panel-motivos:not(.hidden)) .credito-zona-label,
+#venta-edit-page #credito-zona-otras-condiciones:has(> #panel-alerta-mora:not(.hidden), > #panel-motivos:not(.hidden)) .credito-zona-label {
+    display: block;
+    margin-bottom: 0.15rem;
+}
+
+/* Evaluación preliminar + Confirmar crédito + Documentación contractual, agrupadas
+   debajo de la tabla de cuotas (ver _ConfigurarVentaEmbebida.cshtml). En desktop
+   conservan el ancho angosto que tenían dentro del aside original, alineadas a la
+   derecha; por debajo de 1024px (mismo breakpoint donde Configuración/Resumen ya se
+   apilan a una columna, ver grid lg:grid-cols-3 del fragmento) pasan a ancho completo
+   para no dejar un hueco vacío a la izquierda en tablet. */
+#venta-create-page .credito-embebido-cierre,
+#venta-edit-page .credito-embebido-cierre {
+    max-width: 26rem;
+    margin-left: auto;
+}
+
+@media (max-width: 1023px) {
+
+    #venta-create-page .credito-embebido-cierre,
+    #venta-edit-page .credito-embebido-cierre {
+        max-width: none;
+        margin-left: 0;
+    }
+}
