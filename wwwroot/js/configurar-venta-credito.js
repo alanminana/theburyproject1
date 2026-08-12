@@ -412,30 +412,36 @@
             hide(semaforoVacio);
             show(semaforoPanel);
 
+            // VENTA-FORM-RIESGO-01: el semáforo es asesorio, no una decisión de
+            // aprobación/rechazo (esa elegibilidad ya la resuelven los bloqueantes y el
+            // cupo mostrados más arriba). "tag" ya no usa lenguaje de aprobación/rechazo
+            // ("Aprobado"/"A revisar"/"Rechazado") para no contradecir visualmente que
+            // "Confirmar crédito" sigue habilitado en Riesgo Alto: ver deshabilitarConfirmar,
+            // que nunca depende de `estado`.
             const estados = {
                 verde: {
                     dotClass: 'bg-green-500',
                     badgeClass: 'bg-green-500/10 border border-green-500/20',
                     labelClass: 'text-green-700 dark:text-green-400',
                     tagClass: 'text-green-600 dark:text-green-500',
-                    label: 'Riesgo Bajo',
-                    tag: 'Aprobado'
+                    label: 'Riesgo bajo',
+                    tag: 'No bloquea'
                 },
                 amarillo: {
                     dotClass: 'bg-yellow-500',
                     badgeClass: 'bg-yellow-500/10 border border-yellow-500/20',
                     labelClass: 'text-yellow-700 dark:text-yellow-400',
                     tagClass: 'text-yellow-600 dark:text-yellow-500',
-                    label: 'Riesgo Moderado',
-                    tag: 'A revisar'
+                    label: 'Riesgo moderado',
+                    tag: 'No bloquea'
                 },
                 rojo: {
                     dotClass: 'bg-red-500',
                     badgeClass: 'bg-red-500/10 border border-red-500/20',
                     labelClass: 'text-red-700 dark:text-red-400',
                     tagClass: 'text-red-600 dark:text-red-500',
-                    label: 'Riesgo Alto',
-                    tag: 'Rechazado'
+                    label: 'Riesgo alto',
+                    tag: 'No bloquea'
                 }
             };
 
