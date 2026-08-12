@@ -22,7 +22,16 @@
         .filter(Boolean);
     const pagoSelect = document.getElementById('select-tipo-pago');
     const ventaForm = document.getElementById('venta-form');
+    const fechaVentaInput = document.getElementById('FechaVenta');
     let creditoValidado = ventaForm?.dataset.creditoConfigurado === 'true';
+
+    // H4: dd/mm/yyyy a partir del value ISO (yyyy-mm-dd) de <input type="date">, mismo
+    // patrón que credito-pagar-cuota.js/credito-adelanto.js — nunca `new Date(...)`, que
+    // corre el día por zona horaria.
+    function formatearFechaVenta(valorIso) {
+        const partes = String(valorIso || '').split('-');
+        return partes.length === 3 ? `${partes[2]}/${partes[1]}/${partes[0]}` : 'Fecha sin definir';
+    }
 
     // H1: #btn-confirmar es el submit real y persistente del sidebar; su copy final
     // ("Guardar cambios"/"Guardar Cotización"/"Confirmar Transacción") lo resuelve el
@@ -226,6 +235,12 @@
         setText('[data-conf-items]', items);
         setText('[data-conf-pago]', pago === 'Sin definir' ? 'Pago sin definir' : pago);
         setText('[data-conf-total]', total);
+        // H4: misma autoridad que ya decide si la venta requiere Crédito Personal
+        // (requiereCredito) y la fecha real de la operación (#FechaVenta) — antes estos dos
+        // nodos quedaban con el texto estático del markup ("Crédito no requerido"/"Fecha sin
+        // definir"), sin ningún escritor JS que los actualizara.
+        setText('[data-conf-credito]', requiereCredito() ? 'Crédito Personal' : 'Crédito no requerido');
+        setText('[data-rev-fecha]', formatearFechaVenta(fechaVentaInput?.value));
 
         const estado = root.querySelector('#vm-estado-global');
         if (estado) {
@@ -385,6 +400,10 @@
         creditoValidado = false;
         refreshStepGating();
     });
+    // H4: el resto del resumen se refresca vía MutationObserver sobre los nodos "hero-*"
+    // (más abajo); la fecha no tiene un nodo hero equivalente que observar, así que necesita
+    // su propio listener directo sobre #FechaVenta.
+    fechaVentaInput?.addEventListener('change', refreshSummary);
     document.addEventListener('venta:credito-validado', (event) => {
         // La elegibilidad (o una excepción aplicada) permite abrir el configurador, pero
         // Revisión sólo se habilita cuando el configurador canónico embebido confirmó el

@@ -83,9 +83,22 @@
         }
     });
 
+    // El guardado del borrador (EditAjax/CreateAjax, ver asegurarBorradorPersistido) puede
+    // rechazar la venta con el mensaje de negocio crudo de ValidacionVentaResult.MensajeResumen
+    // ("OPERACIÓN NO VIABLE: ... Requisitos pendientes: ..."), que ya está visible en detalle en
+    // los paneles de arriba (documentación/cupo/mora/motivos, ver mostrarMotivos en
+    // venta-create.js). Se reemplaza por un resumen corto que dirige ahí en vez de repetirlo.
+    function mensajeControladoNoViable(detalle) {
+        if (!detalle) return detalle;
+        if (detalle.includes('OPERACIÓN NO VIABLE') || detalle.includes('Requisitos pendientes:')) {
+            return 'El cliente no cumple los requisitos mínimos para Crédito Personal. Revisá el detalle arriba antes de continuar.';
+        }
+        return detalle;
+    }
+
     function mostrarError(mensaje) {
         if (!errorBox) return;
-        errorBox.textContent = mensaje;
+        errorBox.textContent = mensajeControladoNoViable(mensaje);
         show(errorBox);
     }
 

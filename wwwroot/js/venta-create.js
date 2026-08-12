@@ -2150,7 +2150,20 @@
 
     function esPrevalidacionExceptuable(data) {
         if (!data) return false;
-        return data.resultado !== RESULTADO_PREVAL.Aprobable;
+        // H5: "Aplicar Excepción" es la excepción DOCUMENTAL (ver copy fijo del panel activo,
+        // "Se omitirán los requisitos de documentación"); mostrarla sólo por resultado !==
+        // Aprobable la ofrecía también frente a mora/BCRA/cupo sin ningún requisito documental
+        // pendiente, donde no resuelve nada. Requiere evidencia real de documentación faltante
+        // o vencida.
+        return data.resultado !== RESULTADO_PREVAL.Aprobable && data.documentacionCompleta === false;
+    }
+
+    // H5 (alcance): la excepción documental sólo omite documentación. Si además hay un motivo
+    // de otra categoría (Cupo=2, Mora=3, EstadoCliente=4, Configuracion=5, Punitorio=6 — ver
+    // CategoriaMotivo), esa condición persiste aunque se aplique la excepción; se lo aclara para
+    // no sugerir un alcance mayor al real.
+    function tieneOtrasCondicionesPendientes(data) {
+        return (data?.motivos || []).some((m) => m.categoria !== 1);
     }
 
     function actualizarDisponibilidadExcepcion(data) {
@@ -2203,6 +2216,7 @@
         hide($('#panel-excepcion-crediticia'));
         hide($('#panel-excepcion-inactiva'));
         hide($('#panel-excepcion-activa'));
+        hide($('#excepcion-alcance-nota'));
     }
 
     function mostrarResultadoVerificacion(data) {
@@ -2331,6 +2345,23 @@
             if (data.diasMora) textos.push(`${data.diasMora} días de mora`);
             if (data.montoMora) textos.push(`Monto adeudado: ${formatCurrency(data.montoMora)}`);
             $('#alerta-mora-texto').textContent = textos.join(' — ') || 'El cliente presenta mora activa.';
+
+            // Este panel quedaba siempre rojo sin mirar esBloqueante, contradiciendo el amber
+            // que mostrarMotivos() ya pinta en Observaciones para el mismo motivo (categoría
+            // Mora=3, ver CategoriaMotivo). Sin un motivo de categoría Mora, la mora presente
+            // está por debajo de cualquier umbral de autorización/bloqueo (ver
+            // ClienteAptitudService.EvaluarMoraInternaAsync) y tampoco es bloqueante.
+            const motivoMora = (data.motivos || []).find((m) => m.categoria === 3);
+            const bloqueante = motivoMora ? motivoMora.esBloqueante : false;
+            const titulo = $('#alerta-mora-titulo');
+            panel.classList.toggle('bg-red-500/10', bloqueante);
+            panel.classList.toggle('border-red-500/20', bloqueante);
+            panel.classList.toggle('bg-amber-500/10', !bloqueante);
+            panel.classList.toggle('border-amber-500/20', !bloqueante);
+            if (titulo) {
+                titulo.classList.toggle('text-red-500', bloqueante);
+                titulo.classList.toggle('text-amber-600', !bloqueante);
+            }
             show(panel);
         } else {
             hide(panel);
@@ -2446,6 +2477,14 @@
                 mostrarDocumentacionFaltante(data);
                 actualizarDisponibilidadExcepcion(data);
             }
+
+            // H5 (alcance): actualizar la nota de "persisten otras condiciones" con cada
+            // verificación fresca, tanto si el panel de excepción está recién abierto como si
+            // ya viene confirmado desde la hidratación (preservarExcepcion). Va después de
+            // actualizarDisponibilidadExcepcion(): ésta pasa por resetExcepcionCrediticia(), que
+            // oculta la nota junto con el resto del panel — si se pintara antes, quedaría pisada.
+            const notaAlcance = $('#excepcion-alcance-nota');
+            if (notaAlcance) notaAlcance.classList.toggle('hidden', !tieneOtrasCondicionesPendientes(data));
 
         } catch (err) {
             showFeedback('Error al verificar elegibilidad: ' + err.message, 'error');

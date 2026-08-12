@@ -82,6 +82,18 @@
     var bannerTitulo = esConflictoConcurrencia
         ? "No se pudo guardar: alguien más modificó esta operación"
         : (erroresCampo.Any() ? "Corrige los errores antes de continuar" : "No se pudo guardar la operación");
+    // El camino "no viable" de Crédito Personal (VentaService/ValidacionVentaService) rechaza el
+    // guardado con un InvalidOperationException cuyo mensaje es el resumen de negocio crudo
+    // ("OPERACIÓN NO VIABLE: ... Requisitos pendientes: Documentación, Cupo"). Ese detalle ya está
+    // visible paso a paso en Crédito (documentación/cupo/mora); repetirlo tal cual acá sólo agrega
+    // texto de backend sin explicar qué hacer. Se reemplaza por un resumen corto que dirige al
+    // operador a ese paso, sin volver a listar cada requisito.
+    var esCreditoNoViable = erroresModelo.Any(m =>
+        m.Contains("OPERACIÓN NO VIABLE", StringComparison.OrdinalIgnoreCase)
+        || m.Contains("Requisitos pendientes:", StringComparison.OrdinalIgnoreCase));
+    var erroresModeloParaMostrar = esCreditoNoViable
+        ? new List<string> { "El cliente no cumple los requisitos mínimos para Crédito Personal. Revisá el detalle en el paso Crédito antes de continuar." }
+        : erroresModelo;
 }
 
     <div id="banner-errores"
@@ -91,7 +103,7 @@
             <div class="flex flex-col gap-1">
                 <p class="text-white text-base font-bold leading-tight">@bannerTitulo</p>
                 <div id="banner-errores-list" class="text-slate-400 text-sm">
-                    @foreach (var error in erroresModelo.Concat(erroresCampo))
+                    @foreach (var error in erroresModeloParaMostrar.Concat(erroresCampo))
                     {
                         <p>@error</p>
                     }
@@ -908,10 +920,11 @@
                                                                                                             <div id="lista-motivos" class="space-y-1"></div>
                                                                                                         </div>
 
-                                                                                                        @* Mora *@
+                                                                                                        @* Mora — clases de color base para esBloqueante:true (rojo); venta-create.js
+                                                                                                           las alterna a amber cuando esBloqueante:false, ver mostrarAlertaMora. *@
                                                                                                         <div id="panel-alerta-mora" role="alert"
                                                                                                              class="p-4 rounded-lg bg-red-500/10 border border-red-500/20 hidden">
-                                                                                                            <p class="text-xs font-bold text-red-500 flex items-center gap-2 mb-2">
+                                                                                                            <p id="alerta-mora-titulo" class="text-xs font-bold text-red-500 flex items-center gap-2 mb-2">
                                                                                                                 <span class="material-symbols-outlined text-sm">warning</span> Alerta de Mora
                                                                                                             </p>
                                                                                                             <p id="alerta-mora-texto" class="text-[11px] text-slate-400"></p>
@@ -981,6 +994,13 @@
                                                                                                                             <p class="text-[11px] text-slate-400">
                                                                                                                                 Se omitirán los requisitos de documentación. Ingresá el motivo obligatorio
                                                                                                                                 para continuar.
+                                                                                                                            </p>
+                                                                                                                            @* H5: sólo visible cuando, además de documentación pendiente, hay otra
+                                                                                                                               condición (mora, cupo, estado del cliente) que esta excepción no
+                                                                                                                               resuelve — ver tieneOtrasCondicionesPendientes en venta-create.js. *@
+                                                                                                                            <p id="excepcion-alcance-nota" class="hidden text-[11px] font-semibold text-amber-300">
+                                                                                                                                Esta excepción sólo omite la documentación pendiente. Las demás
+                                                                                                                                condiciones señaladas arriba siguen sin resolverse.
                                                                                                                             </p>
                                                                                                                             <div>
                                                                                                                                 <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">

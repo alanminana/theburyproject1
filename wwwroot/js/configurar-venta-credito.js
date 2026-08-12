@@ -98,6 +98,12 @@
 
         let simulacionTimer = null;
 
+        // CSR-ML6: números de cuota (1-based) marcados "sin recargo" en la metadata del plan
+        // (data.cuotasSinRecargo), la misma autoridad que ya pinta #plan-cuotas-sin-recargo.
+        // renderTablaCuotas la lee de acá en vez de recibirla por parámetro para no tocar su
+        // firma (contrato congelado, ver CreditoPersonalCuotasTablaUiContractTests).
+        let cuotasSinRecargoVigentes = [];
+
         function formatDateDisplay(dateStr) {
             if (!dateStr) return '-';
             const d = new Date(dateStr + 'T00:00:00');
@@ -282,16 +288,18 @@
         }
 
         // Pinta la tabla completa por cuota tal cual el vector del servidor: no recalcula capital,
-        // recargo ni total. El badge "Sin recargo" se pinta por el propio interes de la fila (0),
-        // así que con un plan 0% aparece en todas las filas sin sugerir que las demás sí cobran
-        // recargo (ver spec CSR-ML6, caso 0%).
+        // recargo ni total. VENTA-FORM-PAGO-CREDITO-02A: el badge "Sin recargo" se pintaba antes
+        // por el propio interes de la fila (0), lo que contradecía #plan-cuotas-sin-recargo con
+        // un plan 0% (todas las cuotas con interés 0 sin estar marcadas como "sin recargo" en la
+        // metadata — exactamente el caso que formatearCuotasSinRecargo ya evita, ver su comentario
+        // arriba). Ahora usa la misma metadata (cuotasSinRecargoVigentes) como única autoridad.
         function renderTablaCuotas(cuotas) {
             if (!planCuotasTablaBody) return;
             planCuotasTablaBody.innerHTML = '';
             if (!Array.isArray(cuotas)) return;
 
             cuotas.forEach((c) => {
-                const sinRecargo = Number(c.interes) === 0;
+                const sinRecargo = cuotasSinRecargoVigentes.includes(c.numeroCuota);
                 const tr = document.createElement('tr');
 
                 const tdNumero = document.createElement('td');
@@ -346,6 +354,9 @@
             // administrativos son informativos aparte, nunca se suman a este total.
             planTotal.textContent = formatCurrency(data.totalAPagar);
             // CSR-ML6: metadata del plan + tabla completa, pintadas tal cual las manda el servidor.
+            // Misma lista para el resumen y para el badge por fila (renderTablaCuotas): una sola
+            // autoridad, nunca pueden contradecirse.
+            cuotasSinRecargoVigentes = Array.isArray(data.cuotasSinRecargo) ? data.cuotasSinRecargo : [];
             if (planCuotasSinRecargo) planCuotasSinRecargo.textContent = formatearCuotasSinRecargo(data.cuotasSinRecargo);
             renderTablaCuotas(data.cuotas);
 
@@ -378,6 +389,7 @@
             if (txtMontoFin) txtMontoFin.textContent = '$ 0,00';
             planGastos.textContent = '$ 0,00';
             planTotal.textContent = '$ 0,00';
+            cuotasSinRecargoVigentes = [];
             if (planCuotasSinRecargo) planCuotasSinRecargo.textContent = 'Ninguna';
             if (planCuotasTablaBody) planCuotasTablaBody.innerHTML = '';
             hide(planFechaContainer);
