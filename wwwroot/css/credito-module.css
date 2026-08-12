@@ -3207,3 +3207,38 @@ select.field {
     gap: .35rem;
   }
 }
+
+/* ---------- Configurador embebido de Crédito (paso "Crédito" del wizard) ----------
+   VENTA-FORM-PAGO-CREDITO-1024-FIX: dentro del wizard de Venta este fragmento no recibe
+   el viewport completo — la propia grilla del wizard (venta-page-wizard.css, columna de
+   totales con piso de 20rem) le deja un contenedor angosto e independiente del viewport,
+   sin relación monótona con él (~220px de ancho real a 1024px de viewport, ~480px a
+   1280px, pero ~590px a 768px, porque ahí el wizard todavía no arma esa columna). El
+   split Configuración 2/3 + Resumen 1/3 (antes "lg:grid-cols-3") y la grilla de 3 campos
+   "Valores del credito" (antes "md:grid-cols-3") usaban breakpoints de Tailwind atados al
+   viewport, no al contenedor real, así que a esos anchos las columnas colapsaban a
+   ~26-113px: labels solapados, importe del Resumen cortado. El split queda apilado
+   siempre acá (ver comentario en _ConfigurarVentaEmbebida.cshtml: ningún checkpoint del
+   wizard tiene ancho real suficiente para que valga la pena, y al no ser monótono con el
+   viewport un único umbral no puede mantener 768px apilado y partir 1440px a la vez). La
+   grilla de "Valores del credito" sí reacciona al ancho real vía container query, scopeada
+   a [data-credito-config-embedded] (raíz del fragmento, no existe en
+   ConfigurarVenta_tw.cshtml — ese standalone usa su propio markup con sus breakpoints
+   `lg:`/`md:` originales, intactos). CSS plano, no utilities de Tailwind, porque
+   tailwind.css es un artefacto pre-compilado que no se regenera en este micro-lote.
+   Umbrales elegidos y verificados con Playwright: */
+[data-credito-config-embedded] {
+  container-type: inline-size;
+}
+
+@container (min-width: 16.25rem) {
+  [data-credito-config-valores-grid] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container (min-width: 26.25rem) {
+  [data-credito-config-valores-grid] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

@@ -39,8 +39,22 @@
        que antes convivían con los campos editables (precio final, saldo a financiar)
        se sacaron de acá: ya son la fuente principal del Resumen, a la derecha, para no
        repetir el mismo importe con igual jerarquía en dos lugares (VENTA-FORM-PAGO-CREDITO-02B). *@
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div class="lg:col-span-2 space-y-4">
+    @* VENTA-FORM-PAGO-CREDITO-1024-FIX: dentro del wizard este fragmento no ocupa el
+       viewport completo — la propia grilla del wizard (venta-page-wizard.css, columna de
+       totales con piso de 20rem) ya le deja a este paso un contenedor angosto e independiente
+       del viewport (~220px de ancho real a 1024px de viewport, ~480px a 1280px, pero ~590px
+       a 768px porque ahí el wizard todavía no arma esa columna — no es monótono con el
+       viewport). El split Configuración 2/3 + Resumen 1/3 (antes "lg:grid-cols-3") no gana
+       nada partiéndose en un contenedor así de angosto en ningún checkpoint del wizard, así
+       que queda apilado siempre acá (Resumen a ancho completo debajo, sin recortarse); la
+       grilla interna de "Valores del credito" (antes "md:grid-cols-3") sí reacciona al ancho
+       real vía container query (CSS plano en credito-module.css, scopeado a
+       [data-credito-config-embedded] — no vía utilities de Tailwind, porque tailwind.css es
+       un artefacto pre-compilado que no se regenera en este micro-lote). Igual en standalone
+       (ConfigurarVenta_tw.cshtml, markup propio con sus breakpoints originales intactos, no
+       se toca) y embebido. *@
+    <div class="grid grid-cols-1 gap-4">
+        <div class="space-y-4">
             <section class="card card-pad">
                 <div class="sec-head">
                     <div class="sec-num">1</div>
@@ -108,7 +122,7 @@
 
                 @* Sólo campos editables acá: precio final y saldo a financiar son resultado,
                    no configuración — su única fuente visual ahora es el Resumen del plan. *@
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="grid grid-cols-1 gap-4" data-credito-config-valores-grid>
                     <div>
                         <label asp-for="Anticipo" class="label">Anticipo</label>
                         <div class="field-money">
