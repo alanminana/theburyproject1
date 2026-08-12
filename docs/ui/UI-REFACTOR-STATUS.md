@@ -43,7 +43,12 @@ Resumen no cronológico de lo que quedó implementado:
 - diferencias visuales existentes justificadas por diferencias funcionales reales por modo;
 - paridad Crear/Editar protegida por tests;
 - responsive validado;
-- accesibilidad compartida vía el mismo parcial.
+- accesibilidad compartida vía el mismo parcial;
+- configurador de crédito embebido (`_ConfigurarVentaEmbebida.cshtml`) usa container
+  queries propias (`credito-module.css`, scopeadas a `[data-credito-config-embedded]`)
+  en vez de breakpoints de Tailwind atados al viewport, porque el ancho real del
+  contenedor no es monótono con el ancho de pantalla dentro del wizard; validación
+  integral final sin regresiones en el rango completo de viewports soportados.
 
 ## Backlog transversal
 
