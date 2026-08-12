@@ -1118,7 +1118,10 @@
 
                                         <button type="submit" id="btn-confirmar" class="vm-btn-confirm">
                                                                                                             <span class="material-symbols-outlined">point_of_sale</span>
-                                                                                                            @(esEdicion ? "Guardar cambios" : (esCotizacion ? "Guardar Cotización" : "Confirmar Transacción"))
+                                                                                                            @* H1: envuelto en span para que venta-page-wizard.js pueda sincronizar este
+                                                                                                               texto con el CTA contextual del wizard fuera de Revisión, sin tocar el
+                                                                                                               copy final canónico (protegido por ParcialCompartido_DiferenciaLosBotonesSoloPorModo). *@
+                                                                                                            <span data-btn-confirmar-label>@(esEdicion ? "Guardar cambios" : (esCotizacion ? "Guardar Cotización" : "Confirmar Transacción"))</span>
                                                                                                         </button>
                                                                                                         <p class="text-center text-[10px] mt-4 opacity-60">
                                                                                                             @(esEdicion

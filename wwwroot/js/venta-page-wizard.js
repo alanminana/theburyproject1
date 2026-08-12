@@ -24,6 +24,13 @@
     const ventaForm = document.getElementById('venta-form');
     let creditoValidado = ventaForm?.dataset.creditoConfigurado === 'true';
 
+    // H1: #btn-confirmar es el submit real y persistente del sidebar; su copy final
+    // ("Guardar cambios"/"Guardar Cotización"/"Confirmar Transacción") lo resuelve el
+    // servidor y es la fuente de verdad. Se captura una sola vez para reutilizarlo en
+    // Revisión y evitar que el wizard invente un texto propio que lo contradiga.
+    const btnConfirmarLabel = document.querySelector('#btn-confirmar [data-btn-confirmar-label]');
+    const textoConfirmarCanonico = btnConfirmarLabel?.textContent?.trim() || '';
+
     // El cotizador embebido (paso Cotizar) trae sus propios nodos [data-side-total]:
     // los maneja cotizacion-simulador.js y el resumen de la venta no debe pisarlos.
     const COTIZADOR_SELECTOR = '[data-cotizacion-simulador]';
@@ -45,6 +52,10 @@
 
     function setActiveStep(step) {
         if (!step) return;
+
+        // H7: el banner de "completá los datos requeridos" está atado al paso donde
+        // se originó (mostrarRequisitoCredito); al cambiar de paso pierde contexto.
+        ocultarFeedback();
 
         // Hook de layout: con Cotizar activo el CSS oculta [data-venta-workspace]
         // (grilla de la venta + barra móvil) para que el simulador ocupe el ancho.
@@ -100,6 +111,17 @@
         // endpoint (/api/cotizacion/simular) y su propio botón. Delegamos en él en
         // vez de conectar el paso al submit de #venta-form.
         const esCotizar = step === 'cotizar';
+        // H1: un único texto por paso para toda autoridad visual de avanzar/confirmar
+        // (CTA del hero, barra sticky mobile y #btn-confirmar). En Revisión se reusa
+        // el copy final canónico en vez de un texto propio ("Confirmar operación"),
+        // para que ningún CTA visible contradiga al que efectivamente confirma.
+        const texto = esCotizar
+            ? 'Simular cotización'
+            : (esRevision
+                ? textoConfirmarCanonico
+                : (esPago ? (requiereCredito() ? 'Continuar a crédito' : 'Revisar operación')
+                    : (step === 'credito' ? (creditoValidado ? 'Revisar operación' : 'Verificar crédito') : 'Siguiente')));
+
         root.querySelectorAll('[data-wizard-primary]').forEach((button) => {
             button.dataset.wizardAction = esCotizar
                 ? 'simular-cotizacion'
@@ -107,18 +129,19 @@
                     ? 'submit'
                     : (step === 'credito' && !creditoValidado ? 'verify-credit' : 'next'));
             const label = button.querySelector('[data-wizard-primary-label]');
-            const texto = esCotizar
-                ? 'Simular cotización'
-                : (esRevision
-                ? 'Confirmar operación'
-                : (esPago ? (requiereCredito() ? 'Continuar a crédito' : 'Revisar operación')
-                    : (step === 'credito' ? (creditoValidado ? 'Revisar operación' : 'Verificar crédito') : 'Siguiente')));
             if (label) {
                 label.textContent = texto;
             } else {
                 button.textContent = texto;
             }
         });
+
+        // El submit persistente del sidebar es la misma autoridad que el CTA
+        // contextual: antes de Revisión debe decir lo mismo ("Siguiente", "Verificar
+        // crédito", etc.), nunca el copy final de confirmación.
+        if (btnConfirmarLabel) {
+            btnConfirmarLabel.textContent = texto;
+        }
     }
 
     function actualizarPasoCredito() {
@@ -171,6 +194,16 @@
         }
 
         actualizarAccionPrincipal(activo?.getAttribute('data-step'));
+
+        // H7: si lo que bloqueaba avanzar ya se resolvió sin cambiar de paso (ej. se
+        // completó el dato faltante mientras el banner seguía visible), limpiarlo.
+        // Si el paso siguiente sigue deshabilitado, el requisito sigue sin cumplirse
+        // y el banner no se toca.
+        const visibles = pasosVisibles();
+        const siguientePaso = visibles[visibles.indexOf(activo) + 1];
+        if (siguientePaso && !siguientePaso.disabled) {
+            ocultarFeedback();
+        }
     }
 
     function refreshSummary() {
@@ -260,6 +293,18 @@
         const requisito = selector ? document.querySelector(selector) : null;
         requisito?.focus({ preventScroll: true });
         requisito?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    // H7: limpia el banner de requisito pendiente cuando el contexto que lo originó
+    // ya no aplica (cambio de paso vía setActiveStep, o el dato faltante se completó
+    // sin cambiar de paso vía refreshStepGating). No se llama mientras el requisito
+    // siga sin cumplirse, para no ocultar un error todavía válido en el paso actual.
+    function ocultarFeedback() {
+        const alerta = document.getElementById('wizard-feedback');
+        if (!alerta || alerta.hidden) return;
+        alerta.hidden = true;
+        alerta.classList.add('hidden');
+        alerta.textContent = '';
     }
 
     function verificarCredito() {
