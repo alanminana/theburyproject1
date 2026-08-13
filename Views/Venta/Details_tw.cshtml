@@ -777,7 +777,12 @@
                     // botón (Puede*, permisos, estado). No se duplica lógica de negocio: cada
                     // condición se nombra una sola vez y se reutiliza tanto para decidir el
                     // empty state como para renderizar el botón correspondiente.
-                    var hayAccionConfigurarCredito = puedeOperarVentas && Model.PuedeConfigurarCredito && puedeVerCreditos;
+                    // VENTA-DETAILS-FINAL (H8): si la venta está PendienteAutorizacion, el backend
+                    // rechaza ConfigurarVenta (Get/Post) con "La venta requiere autorización antes
+                    // de configurar el crédito." (CreditoController). Mostrar el CTA igual —y antes
+                    // que Autorizar/Rechazar— es una contradicción de acciones (§14): no se renderiza
+                    // mientras la autorización esté pendiente, sin duplicar la regla del backend.
+                    var hayAccionConfigurarCredito = puedeOperarVentas && Model.PuedeConfigurarCredito && puedeVerCreditos && !Model.PuedeAutorizar;
                     var hayAccionGenerarContrato = puedeOperarVentas && Model.CreditoConfigurado && contratoVentaCredito == null;
                     var hayAccionVerContrato = puedeOperarVentas && contratoVentaCredito != null;
                     var hayAccionPrepararVenta = puedeOperarVentas && Model.PuedePrepararVenta && puedeActualizarVentas;

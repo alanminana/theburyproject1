@@ -9,7 +9,7 @@ faltan. Actualizar esta tabla al cerrar cada pantalla.
 | Venta | `Index` | ✅ Cerrado | `79b4c91`, `e1de859`, `3225b95` |
 | Venta | `Create` | ✅ Cerrado | `_VentaWizardForm.cshtml` + tests de paridad |
 | Venta | `Edit` | ✅ Cerrado | `_VentaWizardForm.cshtml` + tests de paridad |
-| Venta | `Details` | ⏳ Pendiente | — |
+| Venta | `Details` | ✅ Cerrado | serie VENTA-DETAILS (ver resumen abajo) |
 
 Leyenda:
 
@@ -49,6 +49,27 @@ Resumen no cronológico de lo que quedó implementado:
   en vez de breakpoints de Tailwind atados al viewport, porque el ancho real del
   contenedor no es monótono con el ancho de pantalla dentro del wizard; validación
   integral final sin regresiones en el rango completo de viewports soportados.
+
+## Venta / Details — cerrado
+
+Resumen no cronológico de lo que quedó implementado:
+
+- vista fina (`Details_tw.cshtml`) con card "Acciones" como única autoridad de qué mostrar,
+  derivada de los mismos predicados `Puede*`/permisos que ya controlan cada botón (sin
+  duplicar lógica de negocio);
+- estado vacío explícito cuando ninguna acción está disponible para el estado actual;
+- ningún CTA se ofrece si otra condición previa lo va a bloquear en el backend (ej. una
+  venta con autorización pendiente ya no muestra "Configurar Crédito" — el backend la
+  rechaza igual — y "Autorizar"/"Rechazar" queda como la única acción real disponible);
+- foco contenido dentro de los modales (Cancelar, Anular Factura, Facturar);
+- copy de acciones alineado con lo que realmente hace el endpoint;
+- datos de crédito vigentes hidratados desde la misma fuente que gobierna cuotas y pagos
+  (sin tabla legacy paralela);
+- responsive validado.
+
+Backlog transversal conocido (no bloquea el cierre): sin cobertura E2E propia en `e2e/`
+todavía; el botón de impresión del header usa `window.print()` genérico sin hoja de
+estilos de impresión dedicada para el módulo.
 
 ## Backlog transversal
 
