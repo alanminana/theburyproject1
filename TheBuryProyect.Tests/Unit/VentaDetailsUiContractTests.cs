@@ -56,6 +56,28 @@ public sealed class VentaDetailsUiContractTests
         Assert.False(venta.PuedeFacturar);
     }
 
+    [Fact]
+    public void DetailsView_ModalAnularFactura_MarcaElTextareaMotivoComoFocoInicial()
+    {
+        // VENTA-DETAILS-01B (H3): bindModal resuelve el foco inicial vía
+        // [data-modal-initial-focus] — el textarea Motivo debe llevarlo para que el
+        // usuario aterrice ahí al abrir el modal, en vez del botón cerrar.
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Details_tw.cshtml"));
+
+        Assert.Contains("id=\"anular-factura-motivo\"", view);
+        Assert.Contains("data-modal-initial-focus", view);
+    }
+
+    [Fact]
+    public void DetailsView_ModalAnularFactura_NoDuplicaElFocoConUnAfterOpenLocal()
+    {
+        // Un afterOpen local que también hace foco (vía rAF) compite con el rAF
+        // genérico de bindModal y pierde la carrera — ese era el bug original de H3.
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "details-venta.js"));
+
+        Assert.DoesNotContain("inputMotivoAnulacion?.focus()", script);
+    }
+
     private static string FindRepoRoot()
     {
         var dir = AppContext.BaseDirectory;

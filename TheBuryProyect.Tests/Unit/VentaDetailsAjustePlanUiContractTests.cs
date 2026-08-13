@@ -77,13 +77,16 @@ public class VentaDetailsAjustePlanUiContractTests
     }
 
     [Fact]
-    public void DetailsView_AjustePlanAparaceEnAmbasSecciones_TablayPanel()
+    public void DetailsView_AjustePlanApareceUnaSolaVezEnDesgloseDeTotales()
     {
         var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Details_tw.cshtml"));
 
-        // Hay dos secciones de totales; el sufijo de porcentaje aparece en ambas con nombres distintos
-        Assert.Contains("sufijoPct", view);   // bloque de tabla
-        Assert.Contains("sufijoPctC", view);  // bloque del panel compacto
+        // VENTA-DETAILS-01B (H1): la card lateral duplicada de Totales se eliminó — el
+        // desglose completo (incluido el sufijo de porcentaje del ajuste por plan) vive
+        // una sola vez, al pie de "Detalle de productos". No debe reaparecer un segundo
+        // bloque de totales (antes identificado por "sufijoPctC").
+        Assert.Contains("sufijoPct", view);
+        Assert.DoesNotContain("sufijoPctC", view);
     }
 
     // ── UI contract: ComprobanteFactura_tw.cshtml ───────────────────────

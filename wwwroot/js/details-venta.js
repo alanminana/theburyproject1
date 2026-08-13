@@ -41,11 +41,9 @@
                     }
                 }
             },
-            afterOpen: function () {
-                requestAnimationFrame(function () {
-                    inputMotivoAnulacion?.focus();
-                });
-            },
+            // El foco inicial lo resuelve bindModal vía [data-modal-initial-focus] en el
+            // textarea Motivo (ver Details_tw.cshtml). Un afterOpen local acá competía con
+            // ese rAF y perdía la carrera: el foco terminaba en el botón cerrar (H3).
             beforeClose: function () {
                 inputMotivoAnulacion?.form?.reset();
                 if (inputFacturaId) {

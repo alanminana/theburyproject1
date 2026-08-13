@@ -1062,50 +1062,6 @@
                         }
                     </div>
                 </section>
-
-                <!-- Totals Summary Card (compact, dark) -->
-                <section class="bg-slate-900/60 p-6 rounded-xl border border-slate-800 shadow-xl text-white">
-                    <div class="space-y-3">
-                        <div class="flex justify-between items-center text-sm">
-                            <span class="text-slate-400">Subtotal</span>
-                            <span class="text-slate-200">@Model.Subtotal.ToString("C2")</span>
-                        </div>
-                        @if (Model.Descuento > 0)
-                        {
-                            <div class="flex justify-between items-center text-sm">
-                                <span class="text-slate-400">Descuento</span>
-                                <span class="text-red-400">-@Model.Descuento.ToString("C2")</span>
-                            </div>
-                        }
-                        <div class="flex justify-between items-center text-sm border-b border-slate-800 pb-3">
-                            <span class="text-slate-400">IVA total</span>
-                            <span class="text-slate-200">@Model.IVA.ToString("C2")</span>
-                        </div>
-                        @if (recargoDebitoAplicado > 0)
-                        {
-                            <div class="flex justify-between items-center text-sm">
-                                <span class="text-slate-400">Recargo d&eacute;bito</span>
-                                <span class="text-amber-300">@recargoDebitoAplicado.ToString("C2")</span>
-                            </div>
-                        }
-                        @if (ajustePlanMonto.HasValue)
-                        {
-                            var esRecargoPlanC = ajustePlanMonto.Value > 0;
-                            var esDescuentoPlanC = ajustePlanMonto.Value < 0;
-                            var labelPlanC = esRecargoPlanC ? "Recargo por plan" : esDescuentoPlanC ? "Descuento por plan" : "Ajuste por plan";
-                            var colorPlanC = esRecargoPlanC ? "text-amber-300" : esDescuentoPlanC ? "text-red-400" : "text-slate-400";
-                            var sufijoPctC = ajustePlanPct.HasValue ? $" ({(ajustePlanPct.Value > 0 ? "+" : "")}{ajustePlanPct.Value:0.##}%)" : "";
-                            <div class="flex justify-between items-center text-sm">
-                                <span class="text-slate-400">@labelPlanC@sufijoPctC</span>
-                                <span class="@colorPlanC">@ajustePlanMonto.Value.ToString("C2")</span>
-                            </div>
-                        }
-                        <div class="flex justify-between items-center pt-1">
-                            <span class="text-slate-300 font-bold uppercase tracking-wider text-xs">Total</span>
-                            <span class="text-2xl font-black text-white">@Model.Total.ToString("C2")</span>
-                        </div>
-                    </div>
-                </section>
             </div>
         </div>
 
@@ -1305,6 +1261,7 @@
                               rows="4"
                               required
                               placeholder="Describa el motivo de la anulación..."
+                              data-modal-initial-focus
                               class="venta-input"></textarea>
                 </div>
 
