@@ -165,11 +165,17 @@
                 </div>
                 <div id="plan-error" class="alert alert-bad hidden" style="margin-top:.75rem" role="alert" aria-live="assertive" tabindex="-1" data-plan-error></div>
 
-                <div class="mt-4 rounded-xl border border-slate-700 bg-slate-900/40 p-4"
+                @* CREDITO-VISUAL-02B: "Primera cuota" es un subgrupo (nivel 3) dentro de
+                   "Valores del credito" (nivel 2) — ya no lleva su propia card completa
+                   (border+rounded+fondo), que la ponía visualmente al mismo nivel que
+                   "Configuración de Crédito Personal" (nivel 1). Mismo patrón de separador
+                   liviano que ya usa "Porcentaje de recargo total del plan" más arriba en
+                   esta misma card. *@
+                <div class="mt-4" style="padding-top:1rem;border-top:1px solid var(--line)"
                      id="primera-cuota-panel" data-primera-cuota-panel>
                     <div class="flex items-center gap-2 mb-2">
-                        <span class="material-symbols-outlined" style="color:#f5c518;font-size:20px">payments</span>
-                        <h3 class="font-semibold text-white">Primera cuota</h3>
+                        <span class="material-symbols-outlined" style="color:#f5c518;font-size:16px">payments</span>
+                        <h3 class="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Primera cuota</h3>
                     </div>
 
                     <p class="muted text-sm mb-3" id="primera-cuota-no-aplica" data-primera-cuota-no-aplica>
@@ -239,22 +245,33 @@
        el servidor (SimularPlanCredito). No se recalcula acá capital, recargo ni total:
        cada fila pinta tal cual cuotas[i] de la respuesta. Antes vivía angosta dentro del
        aside de 1/3 de ancho; en desktop (>=1024) ahora ocupa el ancho completo del paso
-       para mostrar N°/Capital/Recargo/Total sin scroll innecesario (VENTA-FORM-PAGO-CREDITO-02B). *@
+       para mostrar N°/Capital/Recargo/Total sin scroll innecesario (VENTA-FORM-PAGO-CREDITO-02B).
+       CREDITO-VISUAL-02B: el Resumen del plan ya muestra cantidad de cuotas, monto de
+       cuota, total financiado y primer vencimiento — esta tabla es detalle de
+       verificación, no información primaria de decisión. Pasa a <details>/<summary>
+       nativo, colapsada por defecto: menos densidad visual sin perder la tabla completa
+       a un clic, sin accordion JS ni estado de expansión manejado por atributo ARIA
+       (accesibilidad nativa del navegador: Enter/Espacio, foco, marcador abierto/cerrado).
+       El <summary> se alimenta
+       de la misma autoridad JS que ya pinta el Resumen (data.cuotaEstimada, ver
+       formatearResumenDetalleCuotas en configurar-venta-credito.js) — nunca recalcula. *@
     <section class="card card-pad mt-4" data-plan-cuotas-detalle>
-        <div class="sec-title" style="margin-bottom:.6rem">Detalle por cuota</div>
-        <div class="tbl-wrap" style="border:1px solid var(--line);border-radius:10px">
-            <table class="tbl" id="plan-cuotas-tabla">
-                <thead>
-                    <tr>
-                        <th>N°</th>
-                        <th style="text-align:right">Capital</th>
-                        <th style="text-align:right">Recargo</th>
-                        <th style="text-align:right">Total</th>
-                    </tr>
-                </thead>
-                <tbody id="plan-cuotas-tabla-body"></tbody>
-            </table>
-        </div>
+        <details data-plan-cuotas-detalle-details>
+            <summary class="sec-title" data-plan-cuotas-detalle-summary>Detalle por cuota</summary>
+            <div class="tbl-wrap" style="border:1px solid var(--line);border-radius:10px;margin-top:.75rem">
+                <table class="tbl" id="plan-cuotas-tabla">
+                    <thead>
+                        <tr>
+                            <th>N°</th>
+                            <th style="text-align:right">Capital</th>
+                            <th style="text-align:right">Recargo</th>
+                            <th style="text-align:right">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody id="plan-cuotas-tabla-body"></tbody>
+                </table>
+            </div>
+        </details>
     </section>
 
     @* ── 7. Evaluación preliminar / 8. Acción / Documentación contractual ──

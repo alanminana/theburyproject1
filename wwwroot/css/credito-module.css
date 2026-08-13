@@ -682,6 +682,24 @@ select.field {
   justify-content: flex-end;
 }
 
+/* ---------- Detalle por cuota (details/summary nativo, CREDITO-VISUAL-02B) ----------
+   Marcador de apertura/cierre y rotación quedan a cargo del navegador (list-item nativo
+   de <summary>, sin JS ni chevron propio); acá sólo se ajustan cursor, color del
+   marcador para que sea legible en dark mode y el foco visible del módulo. */
+[data-plan-cuotas-detalle] summary {
+  cursor: pointer;
+}
+
+[data-plan-cuotas-detalle] summary::marker {
+  color: var(--muted-2);
+}
+
+[data-plan-cuotas-detalle] summary:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
 /* ---------- Empty state ---------- */
 .empty {
   text-align: center;

@@ -978,9 +978,16 @@
                                                                                                            con embedded=true) y generación del contrato de venta obligatorio, sin salir
                                                                                                            del wizard. Orquestado por venta-credito-embebido.js; el HTML de adentro lo
                                                                                                            inyecta ese script (fetch a /Credito/ConfigurarVenta?embedded=true), nunca
-                                                                                                           Razor: el crédito recién existe una vez que la venta está persistida. *@
+                                                                                                           Razor: el crédito recién existe una vez que la venta está persistida.
+                                                                                                           CREDITO-VISUAL-02B: el div interno ya no lleva border/bg/padding propios
+                                                                                                           ("card que contiene cards") — las secciones inyectadas (.card.card-pad)
+                                                                                                           ya aportan su propia jerarquía visual, y la separación con los bloques
+                                                                                                           vecinos la da el gap-5 del contenedor flex padre (#panel-verificacion-crediticia),
+                                                                                                           igual que "Verificación crediticia" arriba, que tampoco usa un wrapper con
+                                                                                                           chrome propio. #panel-configuracion-credito conserva id/DOM/selectors JS
+                                                                                                           intactos: sólo cambian las clases del div hijo. *@
                                                                                                         <div id="panel-configuracion-credito">
-                                                                                                            <div class="rounded-xl border border-slate-700 bg-slate-900/40 p-4">
+                                                                                                            <div>
                                                                                                                 <div class="mb-3 flex items-center gap-2">
                                                                                                                     <span class="material-symbols-outlined text-primary">tune</span>
                                                                                                                     <h3 class="font-semibold text-white">Configuración de Crédito Personal</h3>

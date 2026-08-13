@@ -73,6 +73,11 @@
         // CSR-ML6: metadata del plan + tabla completa por cuota (vector autoritativo del servidor).
         const planCuotasSinRecargo = $('#plan-cuotas-sin-recargo');
         const planCuotasTablaBody  = $('#plan-cuotas-tabla-body');
+        // CREDITO-VISUAL-02B: texto del <summary> de "Detalle por cuota" (details/summary
+        // nativo, colapsado por defecto). El nodo <details> nunca se reemplaza acá — sólo
+        // se actualiza este textContent y el tbody de la tabla (ver renderTablaCuotas) — así
+        // que si el usuario ya lo abrió, una recalculación en vivo no lo vuelve a cerrar.
+        const planCuotasDetalleSummary = $('[data-plan-cuotas-detalle-summary]');
 
         // Semáforo
         const semaforoPanel    = $('#semaforo-panel');
@@ -287,6 +292,16 @@
             return lista.slice().sort((a, b) => a - b).join(', ');
         }
 
+        // CREDITO-VISUAL-02B: texto corto del <summary> de "Detalle por cuota" — misma
+        // cantidad de cuotas y mismo cuotaEstimada que ya pinta el Resumen del plan
+        // (#plan-cuota-estimada), nunca un cálculo propio. Sin simulación válida todavía
+        // usa un fallback neutral (nunca cero cuotas con importe cero, que sería engañoso).
+        function formatearResumenDetalleCuotas(cantidad, cuotaEstimada) {
+            if (!cantidad || cantidad <= 0 || !Number.isFinite(cuotaEstimada)) return 'Detalle por cuota';
+            const plural = cantidad === 1 ? 'cuota' : 'cuotas';
+            return `${cantidad} ${plural} de ${formatCurrency(cuotaEstimada)} · Ver detalle`;
+        }
+
         // Pinta la tabla completa por cuota tal cual el vector del servidor: no recalcula capital,
         // recargo ni total. VENTA-FORM-PAGO-CREDITO-02A: el badge "Sin recargo" se pintaba antes
         // por el propio interes de la fila (0), lo que contradecía #plan-cuotas-sin-recargo con
@@ -359,6 +374,7 @@
             cuotasSinRecargoVigentes = Array.isArray(data.cuotasSinRecargo) ? data.cuotasSinRecargo : [];
             if (planCuotasSinRecargo) planCuotasSinRecargo.textContent = formatearCuotasSinRecargo(data.cuotasSinRecargo);
             renderTablaCuotas(data.cuotas);
+            if (planCuotasDetalleSummary) planCuotasDetalleSummary.textContent = formatearResumenDetalleCuotas(cuotas, data.cuotaEstimada);
 
             if (data.fechaPrimerPago) {
                 planFechaPago.textContent = formatDateDisplay(data.fechaPrimerPago);
@@ -392,6 +408,7 @@
             cuotasSinRecargoVigentes = [];
             if (planCuotasSinRecargo) planCuotasSinRecargo.textContent = 'Ninguna';
             if (planCuotasTablaBody) planCuotasTablaBody.innerHTML = '';
+            if (planCuotasDetalleSummary) planCuotasDetalleSummary.textContent = 'Detalle por cuota';
             hide(planFechaContainer);
             hide(planSimulando);
             hide(planError);
