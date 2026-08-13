@@ -48,7 +48,11 @@ Resumen no cronológico de lo que quedó implementado:
   queries propias (`credito-module.css`, scopeadas a `[data-credito-config-embedded]`)
   en vez de breakpoints de Tailwind atados al viewport, porque el ancho real del
   contenedor no es monótono con el ancho de pantalla dentro del wizard; validación
-  integral final sin regresiones en el rango completo de viewports soportados.
+  integral final sin regresiones en el rango completo de viewports soportados;
+- reapertura CREDITO-VISUAL del paso Crédito cerrada (padding monetario, señales/motivos
+  no duplicados, densidad/detalle por cuota colapsable, excepción documental contextual
+  junto al bloqueante, labels asociados a su input real) sin cambios de cálculo ni de
+  reglas de negocio.
 
 ## Venta / Details — cerrado
 
