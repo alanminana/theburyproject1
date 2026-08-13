@@ -94,7 +94,7 @@
                         <span>@Model.ClienteConfigPersonalizada.MotivoSinPlanes</span>
                     </div>
                 }
-                <label asp-for="CantidadCuotas" class="label">Cantidad de cuotas</label>
+                <label asp-for="CantidadCuotas" for="txt-cuotas" class="label">Cantidad de cuotas</label>
                 <input asp-for="CantidadCuotas"
                        type="number"
                        min="@Model.CuotasMinPermitidas"
@@ -124,14 +124,14 @@
                    no configuración — su única fuente visual ahora es el Resumen del plan. *@
                 <div class="grid grid-cols-1 gap-4" data-credito-config-valores-grid>
                     <div>
-                        <label asp-for="Anticipo" class="label">Anticipo</label>
+                        <label asp-for="Anticipo" for="txt-anticipo" class="label">Anticipo</label>
                         <div class="field-money">
                             <span class="cur">$</span>
                             <input asp-for="Anticipo" type="number" step="0.01" min="0" class="field" id="txt-anticipo" />
                         </div>
                     </div>
                     <div>
-                        <label asp-for="GastosAdministrativos" class="label">Gastos administrativos</label>
+                        <label asp-for="GastosAdministrativos" for="txt-gastos" class="label">Gastos administrativos</label>
                         <div class="field-money">
                             <span class="cur">$</span>
                             <input asp-for="GastosAdministrativos" type="number" step="0.01" min="0" class="field" id="txt-gastos" />
@@ -139,7 +139,7 @@
                         <p class="hint" style="margin-top:.35rem">Concepto informativo aparte: no se distribuye en las cuotas ni forma parte del saldo a financiar.</p>
                     </div>
                     <div>
-                        <label asp-for="FechaPrimeraCuota" class="label">Primera fecha de vencimiento</label>
+                        <label asp-for="FechaPrimeraCuota" for="txt-fecha-primera-cuota" class="label">Primera fecha de vencimiento</label>
                         <input asp-for="FechaPrimeraCuota" type="date" class="field" id="txt-fecha-primera-cuota" />
                     </div>
                 </div>
@@ -191,7 +191,7 @@
                         </label>
 
                         <div id="primera-cuota-medio-container" data-primera-cuota-medio-container class="hidden">
-                            <label asp-for="MedioPagoPrimeraCuota" class="label">Medio de pago</label>
+                            <label asp-for="MedioPagoPrimeraCuota" for="select-medio-primera-cuota" class="label">Medio de pago</label>
                             <select asp-for="MedioPagoPrimeraCuota" class="field"
                                     id="select-medio-primera-cuota" data-primera-cuota-medio>
                                 <option value="Efectivo">Efectivo</option>

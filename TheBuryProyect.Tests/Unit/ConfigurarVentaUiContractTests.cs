@@ -259,6 +259,26 @@ public class ConfigurarVentaUiContractTests
         Assert.DoesNotContain("badgeTasaFuente.textContent = 'Global'", js);
     }
 
+    // CREDITO-VISUAL-CIERRE: asp-for genera el atributo `for` a partir del nombre de la
+    // propiedad del modelo (ej. "Anticipo"), pero estos inputs pisan su id autogenerado con
+    // un id explícito (ej. id="txt-anticipo") para que JS pueda referenciarlos con selectores
+    // cortos. Sin un `for` explícito que coincida con ese id real, el label queda huérfano:
+    // un click no mueve el foco al input (confirmado en vivo con Playwright antes del fix —
+    // label[for="Anticipo"] no matchea ningún elemento, foco no se mueve). El fix agrega el
+    // `for` explícito, que gana sobre el generado por asp-for sin tocar name/id/data-* ni
+    // selectores JS existentes.
+    [Fact]
+    public void ConfigurarVentaEmbebidaView_LabelsCoincidenConIdRealDelInputAsociado()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Credito", "_ConfigurarVentaEmbebida.cshtml"));
+
+        Assert.Contains("<label asp-for=\"CantidadCuotas\" for=\"txt-cuotas\"", view);
+        Assert.Contains("<label asp-for=\"Anticipo\" for=\"txt-anticipo\"", view);
+        Assert.Contains("<label asp-for=\"GastosAdministrativos\" for=\"txt-gastos\"", view);
+        Assert.Contains("<label asp-for=\"FechaPrimeraCuota\" for=\"txt-fecha-primera-cuota\"", view);
+        Assert.Contains("<label asp-for=\"MedioPagoPrimeraCuota\" for=\"select-medio-primera-cuota\"", view);
+    }
+
     // ── Tests de contrato del ViewModel ─────────────────────────────────────
 
     [Fact]
