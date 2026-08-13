@@ -138,6 +138,19 @@ public class VentaWizardAccessibilityContractTests
         Assert.Contains("event.key === 'Home'", wizardScript);
     }
 
+    [Fact]
+    public void SharedModalFocusableSelectorExcludesHiddenInputs()
+    {
+        // VENTA-MODAL-FOCUS-TRAP-01: input[type="hidden"] (p.ej. el antiforgery
+        // token que el FormTagHelper agrega al final del <form>) no debe contarse
+        // como focusable. Si se cuela, el trap calcula un "last" invisible que el
+        // navegador nunca enfoca y Tab escapa del modal en vez de volver al primero.
+        var root = FindRepoRoot();
+        var modalScript = File.ReadAllText(Path.Combine(root, "wwwroot", "js", "venta-module.js"));
+
+        Assert.Contains("input:not([disabled]):not([type=\"hidden\"])", modalScript);
+    }
+
     private static string ReadView(string name) => File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", name));
 
     private static string ReadCotizacionView(string name) => File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Cotizacion", name));
