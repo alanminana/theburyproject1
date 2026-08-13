@@ -29,7 +29,9 @@ namespace TheBuryProject.ViewModels.Requests
         [Range(0, double.MaxValue)]
         public decimal PrecioUnitario { get; set; }
 
-        [Range(0, double.MaxValue)]
+        // VENTA-CREDITO-ELEGIBILIDAD-DESCUENTO-FIX: porcentaje (0-100) sobre PrecioUnitario*Cantidad,
+        // no importe absoluto. Único consumidor autoritativo: VentaService.CalcularSubtotalLineaConDescuento.
+        [Range(0, 100)]
         public decimal Descuento { get; set; }
 
         // Legacy pago por item: el preview activo de Nueva Venta ignora este campo.

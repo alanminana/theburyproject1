@@ -779,7 +779,10 @@ public sealed class CotizacionConversionServiceTests : IDisposable
     [Fact]
     public async Task Convertir_ConDescuentoImporteSnapshot_AplicaDescuentoEnVentaDetalle()
     {
-        // precio 100, cantidad 2, descuentoImporte 10 → subtotal = 100*2 - 10 = 190
+        // precio 100, cantidad 2, descuentoImporte 10 → subtotal = 100*2 - 10 = 190.
+        // VENTA-CREDITO-ELEGIBILIDAD-DESCUENTO-FIX: VentaDetalle.Descuento es porcentaje en toda
+        // la autoridad de VentaService, así que el importe ($10 sobre un bruto de $200) se
+        // normaliza a su equivalente: 10/200*100 = 5%.
         var cotizacion = CotizacionEmitidaConDescuento(conCliente: true, precioSnapshot: 100m, descuentoImporte: 10m);
         _context.Cotizaciones.Add(cotizacion);
         await _context.SaveChangesAsync();
@@ -788,7 +791,7 @@ public sealed class CotizacionConversionServiceTests : IDisposable
 
         Assert.True(resultado.Exitoso);
         var detalle = await _context.VentaDetalles.FirstAsync(d => d.VentaId == resultado.VentaId);
-        Assert.Equal(10m, detalle.Descuento);
+        Assert.Equal(5m, detalle.Descuento);
         Assert.Equal(190m, detalle.Subtotal);
     }
 
@@ -812,7 +815,9 @@ public sealed class CotizacionConversionServiceTests : IDisposable
     [Fact]
     public async Task Convertir_ConAmbosDescuentosSnapshot_UsaImporte()
     {
-        // Cuando hay porcentaje e importe, la conversión usa solo importe
+        // Cuando hay porcentaje e importe, la conversión usa solo importe (el subtotal resta el
+        // importe crudo: 100*2 - 15 = 185). VentaDetalle.Descuento se normaliza al equivalente
+        // porcentual de ese importe sobre el bruto: 15/200*100 = 7.5%.
         var cotizacion = CotizacionEmitidaConDescuento(
             conCliente: true, precioSnapshot: 100m,
             descuentoPorcentaje: 10m, descuentoImporte: 15m);
@@ -823,7 +828,7 @@ public sealed class CotizacionConversionServiceTests : IDisposable
 
         Assert.True(resultado.Exitoso);
         var detalle = await _context.VentaDetalles.FirstAsync(d => d.VentaId == resultado.VentaId);
-        Assert.Equal(15m, detalle.Descuento);
+        Assert.Equal(7.5m, detalle.Descuento);
         Assert.Equal(185m, detalle.Subtotal); // 100 * 2 - 15
     }
 

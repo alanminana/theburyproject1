@@ -385,8 +385,19 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
             }
 
             int cantidad = (int)detalle.Cantidad;
-            decimal descuento = detalle.DescuentoImporteSnapshot ?? 0m;
-            decimal subtotal = Redondear(precioUnitario * cantidad - descuento);
+            decimal descuentoImporte = detalle.DescuentoImporteSnapshot ?? 0m;
+            decimal bruto = precioUnitario * cantidad;
+            decimal subtotal = Redondear(bruto - descuentoImporte);
+
+            // VENTA-CREDITO-ELEGIBILIDAD-DESCUENTO-FIX: VentaDetalle.Descuento es porcentaje
+            // (0-100) en toda la autoridad de VentaService (CalcularSubtotalLineaConDescuento).
+            // DescuentoImporteSnapshot es un contrato propio de Cotización (pesos ya resueltos por
+            // CotizacionPagoCalculator) que no se toca acá; se normaliza a su porcentaje equivalente
+            // sólo al escribirlo en VentaDetalle.Descuento, para que una edición posterior de la
+            // venta (VentaService.CalcularTotales) no reinterprete el mismo número como otra unidad.
+            decimal descuento = bruto > 0m
+                ? Math.Min(100m, Redondear(descuentoImporte / bruto * 100m))
+                : 0m;
 
             // Resolver IVA desde la fuente canónica del producto
             productos.TryGetValue(detalle.ProductoId, out var producto);

@@ -618,6 +618,7 @@ public class VentaServicePrecioTests
 
             var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura));
 
+            // Bruto = 100 * 2 = 200. Descuento de línea 50% → 200 - 100 = 100.
             await svc.CreateAsync(BuildViewModel(cliente.Id, new[]
             {
                 Detalle(producto.Id, cantidad: 2, descuento: 50m)
@@ -627,9 +628,9 @@ public class VentaServicePrecioTests
                 .AsNoTracking()
                 .SingleAsync(d => !d.IsDeleted);
 
-            Assert.Equal(150m, detalle.Subtotal);
+            Assert.Equal(100m, detalle.Subtotal);
             Assert.Equal(10m, detalle.ComisionPorcentajeAplicada);
-            Assert.Equal(15m, detalle.ComisionMonto);
+            Assert.Equal(10m, detalle.ComisionMonto);
         }
     }
 
@@ -893,6 +894,8 @@ public class VentaServicePrecioTests
             producto.PorcentajeIVA = 21m;
             await ctx.SaveChangesAsync();
 
+            // Línea: bruto 121*2=242, descuento de línea 21% → 242 - 50.82 = 191.18.
+            // Descuento general (pesos, sin cambios de contrato): 100 → SubtotalFinal 91.18.
             var model = BuildViewModel(cliente.Id, new[] { Detalle(producto.Id, cantidad: 2, descuento: 21m) });
             model.Descuento = 100m;
             var svc = BuildService(ctx, CreateMapper(), new StubCajaService(apertura));
@@ -902,12 +905,12 @@ public class VentaServicePrecioTests
             var venta = await ctx.Ventas.AsNoTracking().SingleAsync();
             var detalle = await ctx.VentaDetalles.AsNoTracking().SingleAsync(d => !d.IsDeleted);
 
-            Assert.Equal(221m, detalle.Subtotal);
+            Assert.Equal(191.18m, detalle.Subtotal);
             Assert.Equal(100m, detalle.DescuentoGeneralProrrateado);
-            Assert.Equal(121m, detalle.SubtotalFinal);
-            Assert.Equal(100m, detalle.SubtotalFinalNeto);
-            Assert.Equal(21m, detalle.SubtotalFinalIVA);
-            Assert.Equal(121m, venta.Total);
+            Assert.Equal(91.18m, detalle.SubtotalFinal);
+            Assert.Equal(75.36m, detalle.SubtotalFinalNeto);
+            Assert.Equal(15.82m, detalle.SubtotalFinalIVA);
+            Assert.Equal(91.18m, venta.Total);
         }
     }
 

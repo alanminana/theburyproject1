@@ -2938,14 +2938,29 @@ namespace TheBuryProject.Services
 
         #endregion
 
+        /// <summary>
+        /// Bruto de la línea (precio × cantidad) menos el descuento porcentual (0-100) de línea
+        /// aplicado sobre ese bruto. VENTA-CREDITO-ELEGIBILIDAD-DESCUENTO-FIX: única fórmula para
+        /// "Descuento" de línea en las cuatro autoridades de VentaService (persistencia,
+        /// preview síncrono legacy, preview asíncrono y fallback de GetTotalVentaAsync). El
+        /// porcentaje se clampea a [0,100] como defensa adicional a la validación de rango de los
+        /// DTOs públicos (DetalleCalculoVentaRequest, VentaDetalleViewModel).
+        /// </summary>
+        private static decimal CalcularSubtotalLineaConDescuento(decimal precioUnitario, decimal cantidad, decimal descuentoPorcentaje)
+        {
+            var bruto = precioUnitario * cantidad;
+            var porcentaje = Math.Clamp(descuentoPorcentaje, 0m, 100m);
+            var descuentoImporte = bruto * porcentaje / 100m;
+            return Math.Max(0m, bruto - descuentoImporte);
+        }
+
         private void CalcularTotales(Venta venta)
         {
             var detallesList = venta.Detalles.Where(d => !d.IsDeleted).ToList();
 
             foreach (var detalle in detallesList)
             {
-                var subtotalDetalle = Math.Max(0, (detalle.PrecioUnitario * detalle.Cantidad) - detalle.Descuento);
-                detalle.Subtotal = subtotalDetalle;
+                detalle.Subtotal = CalcularSubtotalLineaConDescuento(detalle.PrecioUnitario, detalle.Cantidad, detalle.Descuento);
                 AplicarSnapshotIvaMontos(detalle);
             }
 
@@ -2990,7 +3005,7 @@ namespace TheBuryProject.Services
             // El endpoint activo usa CalcularTotalesPreviewAsync y resuelve IVA por producto.
             // Se conserva para compatibilidad interna y pruebas históricas sin acceso async.
             var subtotalConIVA = detalles
-                .Select(d => Math.Max(0, (d.PrecioUnitario * d.Cantidad) - d.Descuento))
+                .Select(d => CalcularSubtotalLineaConDescuento(d.PrecioUnitario, d.Cantidad, d.Descuento))
                 .Sum();
 
             var descuentoCalculado = descuentoEsPorcentaje
@@ -3034,7 +3049,7 @@ namespace TheBuryProject.Services
 
             foreach (var detalle in detallesList)
             {
-                var subtotalFinal = RedondearMoneda(Math.Max(0, (detalle.PrecioUnitario * detalle.Cantidad) - detalle.Descuento));
+                var subtotalFinal = RedondearMoneda(CalcularSubtotalLineaConDescuento(detalle.PrecioUnitario, detalle.Cantidad, detalle.Descuento));
                 var ivaSnapshot = ResolverSnapshotIvaPreview(detalle.ProductoId, productos);
                 var subtotalNeto = subtotalFinal;
                 var subtotalIva = 0m;
@@ -3852,7 +3867,7 @@ namespace TheBuryProject.Services
             var subtotal = detalles.Sum(d =>
                 d.Subtotal > 0
                     ? d.Subtotal
-                    : Math.Max(0, (d.Cantidad * d.PrecioUnitario) - d.Descuento));
+                    : CalcularSubtotalLineaConDescuento(d.PrecioUnitario, d.Cantidad, d.Descuento));
 
             var subtotalConDescuento = subtotal - venta.Descuento;
             return Math.Max(0m, subtotalConDescuento);

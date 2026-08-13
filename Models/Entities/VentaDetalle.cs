@@ -31,6 +31,8 @@ namespace TheBuryProject.Models.Entities
         [Column(TypeName = "decimal(18,2)")]
         public decimal PrecioUnitario { get; set; }
 
+        // VENTA-CREDITO-ELEGIBILIDAD-DESCUENTO-FIX: porcentaje (0-100) sobre PrecioUnitario*Cantidad,
+        // no importe absoluto. Único consumidor autoritativo: VentaService.CalcularSubtotalLineaConDescuento.
         [Column(TypeName = "decimal(18,2)")]
         public decimal Descuento { get; set; } = 0;
 

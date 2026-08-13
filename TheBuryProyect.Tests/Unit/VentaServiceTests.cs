@@ -154,16 +154,17 @@ public class VentaService_CalcularTotalesPreview
     }
 
     [Fact]
-    public void DescuentoAbsolutoEnDetalle_SeAplicaSobreTotalDelItem()
+    public void DescuentoPorcentualEnDetalle_SeAplicaSobreBrutoDelItem()
     {
         var svc = BuildService();
-        // Item: (1000 * 2) - 100 = 1900. El Descuento del detalle es absoluto sobre precio*cantidad.
+        // Item: (1000 * 2) - (2000 * 20%) = 2000 - 400 = 1600. El Descuento del detalle es
+        // porcentaje (0-100) sobre precio*cantidad, no importe absoluto.
         var result = svc.CalcularTotalesPreview(
-            new List<DetalleCalculoVentaRequest> { Item(1000m, cantidad: 2, descuento: 100m) },
+            new List<DetalleCalculoVentaRequest> { Item(1000m, cantidad: 2, descuento: 20m) },
             descuentoGeneral: 0, descuentoEsPorcentaje: false);
 
-        Assert.Equal(1570.25m, result.Subtotal);
-        Assert.Equal(1900m, result.Total);
+        Assert.Equal(1322.31m, result.Subtotal);
+        Assert.Equal(1600m, result.Total);
     }
 
     [Fact]
@@ -194,12 +195,12 @@ public class VentaService_CalcularTotalesPreview
     }
 
     [Fact]
-    public void DescuentoDetalleIgualAPrecio_NoProdueceNegativos()
+    public void DescuentoDetalleTotal100PorCiento_NoProduceNegativos()
     {
         var svc = BuildService();
-        // Precio 500, descuento 500 → neto 0 por Math.Max(0,...)
+        // Precio 500, descuento 100% → neto 0 por Math.Max(0,...)
         var result = svc.CalcularTotalesPreview(
-            new List<DetalleCalculoVentaRequest> { Item(500m, descuento: 500m) },
+            new List<DetalleCalculoVentaRequest> { Item(500m, descuento: 100m) },
             descuentoGeneral: 0, descuentoEsPorcentaje: false);
 
         Assert.Equal(0, result.Subtotal);
@@ -222,7 +223,7 @@ public class VentaService_CalcularTotalesPreview
     public void MultipleItems_SubtotalEsSumaDeNetosIndividuales()
     {
         var svc = BuildService();
-        // Item A: 200 * 3 = 600. Item B: 150 * 2 - descuento 50 = 250. Subtotal = 850.
+        // Item A: 200 * 3 = 600. Item B: 150 * 2 - (300 * 50%) = 300 - 150 = 150. Total = 750.
         var items = new List<DetalleCalculoVentaRequest>
         {
             new() { ProductoId = 1, PrecioUnitario = 200m, Cantidad = 3, Descuento = 0 },
@@ -230,8 +231,8 @@ public class VentaService_CalcularTotalesPreview
         };
         var result = svc.CalcularTotalesPreview(items, 0, false);
 
-        Assert.Equal(702.48m, result.Subtotal);
-        Assert.Equal(850m, result.Total);
+        Assert.Equal(619.83m, result.Subtotal);
+        Assert.Equal(750m, result.Total);
     }
 
     [Fact]
