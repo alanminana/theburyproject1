@@ -170,9 +170,16 @@ namespace TheBuryProject.Services
                 viewModel.CreditoEstado = venta.Credito.Estado;
             }
 
-            if (venta.TipoPago == TipoPago.CreditoPersonal &&
-                venta.CreditoId.HasValue &&
-                venta.VentaCreditoCuotas.Any())
+            // VENTA-CREDITO-DATOS-HYDRATION: autoridad vigente es Credito (no
+            // venta.VentaCreditoCuotas, tabla legacy sin filas en producción — ver
+            // VENTA-DETAILS-H2-AUDIT). El gate ya no exige cuotas generadas: un crédito
+            // Configurado sin cuotas todavía tiene datos de plan válidos en Credito. Se
+            // reutilizan CreditoConfigurado/CreditoGenerado (ya calculados arriba desde
+            // CreditoEstado + FechaConfiguracionCredito) en vez de re-derivar el mismo
+            // criterio acá: un crédito PendienteConfiguracion NO debe hidratar datos,
+            // aunque Credito ya exista (MontoAprobado viene pre-cargado desde la venta
+            // antes de configurarse — ver Credito.AnticipoPreseleccionado).
+            if (viewModel.CreditoConfigurado || viewModel.CreditoGenerado)
             {
                 viewModel.DatosCreditoPersonall = await ObtenerDatosCreditoVentaAsync(id);
             }
@@ -2233,13 +2240,30 @@ namespace TheBuryProject.Services
 
         #region Métodos de Cálculo - Crédito Personal
 
+        /// <summary>
+        /// VENTA-CREDITO-DATOS-HYDRATION: autoridad vigente para el detalle de crédito
+        /// personal de una venta es <see cref="Credito"/> + <see cref="Credito.Cuotas"/>.
+        /// <see cref="VentaCreditoCuota"/> es legacy (sin filas en producción, ver
+        /// auditoría VENTA-DETAILS-H2-AUDIT) y no se lee más acá. Único consumidor de este
+        /// método es <see cref="GetByIdAsync"/> (Venta/Details), por lo que no se mantiene
+        /// fallback a la tabla legacy.
+        ///
+        /// Antes de que existan cuotas generadas (Credito.Estado == Configurado, aún sin
+        /// confirmar la venta) los campos de plan (MontoAprobado, CantidadCuotas,
+        /// TasaInteres, FechaPrimeraCuota) ya están persistidos y se devuelven tal cual;
+        /// MontoCuota/TotalAPagar/InteresTotal/Cuotas quedan en su valor "aún no
+        /// calculado" (0 / vacío) porque solo se completan en
+        /// <c>VentaService.GenerarCuotasCreditoAsync</c> al confirmar la venta — no se
+        /// recalculan acá para no inventar un cronograma que todavía no existe.
+        /// </summary>
         public async Task<DatosCreditoPersonallViewModel?> ObtenerDatosCreditoVentaAsync(int ventaId)
         {
             var venta = await _context.Ventas
                 .AsNoTracking()
                 .Include(v => v.Credito)
                     .ThenInclude(c => c!.Cliente)
-                .Include(v => v.VentaCreditoCuotas.OrderBy(c => c.NumeroCuota))
+                .Include(v => v.Credito)
+                    .ThenInclude(c => c!.Cuotas.Where(cu => !cu.IsDeleted).OrderBy(cu => cu.NumeroCuota))
                 .FirstOrDefaultAsync(v => v.Id == ventaId &&
                                           !v.IsDeleted &&
                                           v.CreditoId != null &&
@@ -2248,36 +2272,54 @@ namespace TheBuryProject.Services
                                           v.Credito.Cliente != null &&
                                           !v.Credito.Cliente.IsDeleted);
 
-            if (venta == null || !venta.VentaCreditoCuotas.Any())
+            if (venta?.Credito == null)
                 return null;
 
-            var credito = venta.Credito!;
-            var totalCuotas = venta.VentaCreditoCuotas.Sum(c => c.Monto);
-            var primeraCuota = venta.VentaCreditoCuotas.OrderBy(c => c.NumeroCuota).First();
+            var credito = venta.Credito;
+            var cuotas = credito.Cuotas.OrderBy(c => c.NumeroCuota).ToList();
+            var cuotasGeneradas = cuotas.Count > 0;
+            var montoAFinanciar = credito.MontoAprobado;
+
+            // Cronograma cuota-a-cuota: Saldo = capital remanente después de aplicar cada
+            // cuota (amortización), reconstruido desde Cuota.MontoCapital porque la entidad
+            // Cuota no persiste un saldo corrido propio.
+            var saldoCorrido = montoAFinanciar;
+            var cuotasViewModel = new List<VentaCreditoCuotaViewModel>();
+            foreach (var cuota in cuotas)
+            {
+                saldoCorrido = Math.Max(0m, saldoCorrido - cuota.MontoCapital);
+                cuotasViewModel.Add(new VentaCreditoCuotaViewModel
+                {
+                    Id = cuota.Id,
+                    VentaId = venta.Id,
+                    CreditoId = cuota.CreditoId,
+                    NumeroCuota = cuota.NumeroCuota,
+                    FechaVencimiento = cuota.FechaVencimiento,
+                    Monto = cuota.MontoTotal,
+                    Saldo = saldoCorrido,
+                    Pagada = cuota.Estado == EstadoCuota.Pagada,
+                    FechaPago = cuota.FechaPago,
+                    MontoPagado = cuota.MontoPagado
+                });
+            }
 
             var resultado = new DatosCreditoPersonallViewModel
             {
                 CreditoId = credito.Id,
                 CreditoNumero = credito.Numero,
                 CreditoTotalAsignado = credito.MontoAprobado,
-                CreditoDisponible = credito.SaldoPendiente + primeraCuota.Saldo,
-                MontoAFinanciar = primeraCuota.Saldo,
-                CantidadCuotas = venta.VentaCreditoCuotas.Count,
-                MontoCuota = primeraCuota.Monto,
+                CreditoDisponible = credito.SaldoPendiente,
+                MontoAFinanciar = montoAFinanciar,
+                CantidadCuotas = credito.CantidadCuotas,
+                MontoCuota = credito.MontoCuota,
                 TasaInteresMensual = credito.TasaInteres,
-                TotalAPagar = totalCuotas,
-                InteresTotal = totalCuotas - primeraCuota.Saldo,
+                TotalAPagar = credito.TotalAPagar,
+                InteresTotal = cuotasGeneradas ? credito.TotalAPagar - montoAFinanciar : 0m,
                 SaldoRestante = credito.SaldoPendiente,
-                FechaPrimeraCuota = primeraCuota.FechaVencimiento,
-                Cuotas = venta.VentaCreditoCuotas.Select(c => new VentaCreditoCuotaViewModel
-                {
-                    NumeroCuota = c.NumeroCuota,
-                    FechaVencimiento = c.FechaVencimiento,
-                    Monto = c.Monto,
-                    Saldo = c.Saldo,
-                    Pagada = c.Pagada,
-                    FechaPago = c.FechaPago
-                }).ToList()
+                FechaPrimeraCuota = cuotasGeneradas
+                    ? cuotas[0].FechaVencimiento
+                    : credito.FechaPrimeraCuota ?? DateTime.Today.AddMonths(1),
+                Cuotas = cuotasViewModel
             };
 
             return resultado;

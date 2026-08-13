@@ -133,20 +133,27 @@ public class VentaServiceMiscTests : IDisposable
         return tarjeta;
     }
 
-    private async Task<Credito> SeedCreditoAsync(int clienteId, EstadoCredito estado = EstadoCredito.Activo)
+    private async Task<Credito> SeedCreditoAsync(
+        int clienteId,
+        EstadoCredito estado = EstadoCredito.Activo,
+        decimal montoAprobado = 5000m,
+        int cantidadCuotas = 12,
+        decimal tasaInteres = 5m,
+        decimal montoCuota = 450m,
+        decimal totalAPagar = 5400m)
     {
         var n = Interlocked.Increment(ref _counter);
         var c = new Credito
         {
             ClienteId = clienteId,
             Numero = $"CRE-{n:D6}",
-            MontoSolicitado = 5000m,
-            MontoAprobado = 5000m,
-            TasaInteres = 5m,
-            CantidadCuotas = 12,
-            MontoCuota = 450m,
-            TotalAPagar = 5400m,
-            SaldoPendiente = 5000m,
+            MontoSolicitado = montoAprobado,
+            MontoAprobado = montoAprobado,
+            TasaInteres = tasaInteres,
+            CantidadCuotas = cantidadCuotas,
+            MontoCuota = montoCuota,
+            TotalAPagar = totalAPagar,
+            SaldoPendiente = montoAprobado,
             Estado = estado
         };
         _context.Creditos.Add(c);
@@ -344,35 +351,46 @@ public class VentaServiceMiscTests : IDisposable
     }
 
     [Fact]
-    public async Task ObtenerDatosCreditoVenta_ConCuotas_RetornaDatos()
+    public async Task ObtenerDatosCreditoVenta_ConCuotasGeneradas_RetornaDatosDesdeCredito()
     {
+        // VENTA-CREDITO-DATOS-HYDRATION: autoridad vigente es Credito + Credito.Cuotas.
+        // VentaCreditoCuotas es legacy (sin filas en producción, ver auditoría
+        // VENTA-DETAILS-H2-AUDIT) y ya no se lee — se deja vacía a propósito.
         var cliente = await SeedClienteAsync();
-        var credito = await SeedCreditoAsync(cliente.Id);
+        var credito = await SeedCreditoAsync(
+            cliente.Id,
+            estado: EstadoCredito.Generado,
+            montoAprobado: 500m,
+            cantidadCuotas: 2,
+            tasaInteres: 0m,
+            montoCuota: 250m,
+            totalAPagar: 500m);
         var venta = await SeedVentaAsync(cliente.Id, total: 500m, tipoPago: TipoPago.CreditoPersonal);
 
         // Asociar crédito a la venta
         venta.CreditoId = credito.Id;
         _context.Ventas.Update(venta);
 
-        // Seed VentaCreditoCuotas
-        _context.VentaCreditoCuotas.AddRange(
-            new VentaCreditoCuota
+        _context.Cuotas.AddRange(
+            new Cuota
             {
-                VentaId = venta.Id,
                 CreditoId = credito.Id,
                 NumeroCuota = 1,
+                MontoCapital = 250m,
+                MontoInteres = 0m,
+                MontoTotal = 250m,
                 FechaVencimiento = DateTime.UtcNow.AddMonths(1),
-                Monto = 250m,
-                Saldo = 500m
+                Estado = EstadoCuota.Pendiente
             },
-            new VentaCreditoCuota
+            new Cuota
             {
-                VentaId = venta.Id,
                 CreditoId = credito.Id,
                 NumeroCuota = 2,
+                MontoCapital = 250m,
+                MontoInteres = 0m,
+                MontoTotal = 250m,
                 FechaVencimiento = DateTime.UtcNow.AddMonths(2),
-                Monto = 250m,
-                Saldo = 0m
+                Estado = EstadoCuota.Pendiente
             });
         await _context.SaveChangesAsync();
 
@@ -382,6 +400,7 @@ public class VentaServiceMiscTests : IDisposable
         Assert.Equal(credito.Id, resultado!.CreditoId);
         Assert.Equal(2, resultado.CantidadCuotas);
         Assert.Equal(500m, resultado.TotalAPagar);
+        Assert.Equal(2, resultado.Cuotas.Count);
     }
 
     // =========================================================================

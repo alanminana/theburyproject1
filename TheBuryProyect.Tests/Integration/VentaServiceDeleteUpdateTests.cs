@@ -1056,7 +1056,12 @@ public class VentaServiceDeleteUpdateTests : IDisposable
         Assert.False(resultado);
     }
 
-    private async Task<Credito> SeedCreditoActivoAsync(int clienteId, decimal saldo = 10_000m)
+    private async Task<Credito> SeedCreditoActivoAsync(
+        int clienteId,
+        decimal saldo = 10_000m,
+        int cantidadCuotas = 12,
+        decimal montoCuota = 0m,
+        decimal totalAPagar = 0m)
     {
         var credito = new Credito
         {
@@ -1067,7 +1072,9 @@ public class VentaServiceDeleteUpdateTests : IDisposable
             MontoAprobado = saldo,
             SaldoPendiente = saldo,
             TasaInteres = 3m,
-            CantidadCuotas = 12,
+            CantidadCuotas = cantidadCuotas,
+            MontoCuota = montoCuota,
+            TotalAPagar = totalAPagar,
             FechaSolicitud = DateTime.UtcNow
         };
         _context.Set<Credito>().Add(credito);
@@ -1101,21 +1108,26 @@ public class VentaServiceDeleteUpdateTests : IDisposable
     [Fact]
     public async Task ObtenerDatosCreditoVenta_ConCuotas_RetornaDatos()
     {
+        // VENTA-CREDITO-DATOS-HYDRATION: autoridad vigente es Credito + Credito.Cuotas.
+        // VentaCreditoCuotas es legacy (sin filas en producción, ver auditoría
+        // VENTA-DETAILS-H2-AUDIT) y ya no se lee — se deja vacía a propósito.
         var cliente = await SeedClienteAsync();
-        var credito = await SeedCreditoActivoAsync(cliente.Id, 10_000m);
+        var credito = await SeedCreditoActivoAsync(
+            cliente.Id, saldo: 3_000m, cantidadCuotas: 1, montoCuota: 1_000m, totalAPagar: 1_000m);
         var venta = await SeedVentaAsync(cliente.Id, EstadoVenta.Cotizacion);
 
-        // Asociar crédito y agregar cuotas
+        // Asociar crédito y agregar cuota generada
         var ventaEnt = await _context.Ventas.FindAsync(venta.Id);
         ventaEnt!.CreditoId = credito.Id;
-        _context.Set<VentaCreditoCuota>().Add(new VentaCreditoCuota
+        _context.Set<Cuota>().Add(new Cuota
         {
-            VentaId = venta.Id,
             CreditoId = credito.Id,
             NumeroCuota = 1,
+            MontoCapital = 1_000m,
+            MontoInteres = 0m,
+            MontoTotal = 1_000m,
             FechaVencimiento = DateTime.Today.AddMonths(1),
-            Monto = 1_000m,
-            Saldo = 3_000m
+            Estado = EstadoCuota.Pendiente
         });
         await _context.SaveChangesAsync();
 

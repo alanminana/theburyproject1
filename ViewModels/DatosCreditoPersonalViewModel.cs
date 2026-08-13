@@ -52,6 +52,16 @@ namespace TheBuryProject.ViewModels
         public decimal SaldoRestante { get; set; }
 
         public List<VentaCreditoCuotaViewModel> Cuotas { get; set; } = new List<VentaCreditoCuotaViewModel>();
+
+        /// <summary>
+        /// VENTA-CREDITO-DATOS-HYDRATION: true cuando el monto de cuota ya fue calculado
+        /// (crédito con cuotas generadas). En estado Configurado sin cuotas generadas
+        /// todavía, <see cref="MontoCuota"/> queda en 0 porque el campo Credito.MontoCuota
+        /// solo se completa al confirmar la venta (VentaService.GenerarCuotasCreditoAsync).
+        /// La vista usa este flag para no mostrar "$0.00" por cuota mientras el
+        /// cronograma todavía no existe.
+        /// </summary>
+        public bool MontoCuotaDisponible => MontoCuota > 0;
     }
 
 }

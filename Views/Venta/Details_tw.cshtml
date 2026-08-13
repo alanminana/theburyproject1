@@ -570,7 +570,14 @@
                                 </div>
                                 <div class="venta-stat">
                                     <p class="text-[10px] text-slate-500 font-bold uppercase">Cuotas</p>
-                                    <p class="text-sm font-bold text-white">@Model.DatosCreditoPersonall.CantidadCuotas x @Model.DatosCreditoPersonall.MontoCuota.ToString("C2")</p>
+                                    @if (Model.DatosCreditoPersonall.MontoCuotaDisponible)
+                                    {
+                                        <p class="text-sm font-bold text-white">@Model.DatosCreditoPersonall.CantidadCuotas x @Model.DatosCreditoPersonall.MontoCuota.ToString("C2")</p>
+                                    }
+                                    else
+                                    {
+                                        <p class="text-sm font-bold text-white">@Model.DatosCreditoPersonall.CantidadCuotas cuota(s) <span class="font-normal text-slate-500">(monto a confirmar)</span></p>
+                                    }
                                 </div>
                                 <div class="venta-stat">
                                     <p class="text-[10px] text-slate-500 font-bold uppercase">Tasa Mensual</p>
