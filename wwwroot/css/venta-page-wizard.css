@@ -204,6 +204,18 @@
     outline: none;
 }
 
+/* CREDITO-VISUAL-01: el catch-all de arriba (padding: 0.5rem 0.75rem, id+atributo)
+   le gana por especificidad a ".field-money .field" (dos clases) de credito-module.css
+   dentro del paso Crédito del wizard, dejando el input con 12px de padding-left en vez
+   de los ~30px que necesita para no superponer el símbolo "$" de .field-money .cur.
+   Override scopeado (id+2 clases > id+atributo+tipo) en vez de tocar el catch-all: no
+   afecta el resto de los inputs number/text/date del wizard ni la vista standalone
+   ConfigurarVenta_tw (no vive dentro de #venta-create-page/#venta-edit-page). */
+#venta-create-page .field-money .field,
+#venta-edit-page .field-money .field {
+    padding-left: 1.9rem;
+}
+
 /* ══════════════════════════════════════════════════════════════
    BUTTONS / STEPS
    ══════════════════════════════════════════════════════════════ */
