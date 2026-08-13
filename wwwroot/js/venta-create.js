@@ -2217,6 +2217,11 @@
         hide($('#panel-excepcion-inactiva'));
         hide($('#panel-excepcion-activa'));
         hide($('#excepcion-alcance-nota'));
+
+        // CREDITO-VISUAL-03: aria-expanded sincronizado con el mismo estado que gobierna
+        // mostrar/ocultar el panel — nunca queda un valor stale en el disparador.
+        const btnAplicarExcepcionReset = $('#btn-aplicar-excepcion');
+        if (btnAplicarExcepcionReset) btnAplicarExcepcionReset.setAttribute('aria-expanded', 'false');
     }
 
     function mostrarResultadoVerificacion(data) {
@@ -2536,6 +2541,9 @@
             return;
         }
 
+        const btnAplicarExcepcion = $('#btn-aplicar-excepcion');
+        if (btnAplicarExcepcion) btnAplicarExcepcion.setAttribute('aria-expanded', 'true');
+
         hide($('#panel-excepcion-inactiva'));
         show($('#panel-excepcion-activa'));
         hide($('#panel-cupo-insuficiente'));
@@ -2571,9 +2579,16 @@
         const badge = document.getElementById('excepcion-aplicada-badge');
         if (badge) badge.remove();
 
+        const btnAplicarExcepcion = $('#btn-aplicar-excepcion');
+        if (btnAplicarExcepcion) btnAplicarExcepcion.setAttribute('aria-expanded', 'false');
+
         if (esPrevalidacionExceptuable(ultimaPrevalidacion)) {
             show($('#panel-excepcion-crediticia'));
             show($('#panel-excepcion-inactiva'));
+            // CREDITO-VISUAL-03: al cancelar, el foco vuelve al disparador — sólo cuando
+            // sigue visible/focusable (mismo estándar que "foco vuelve al disparador al
+            // cerrar" ya usado en los modales, ver ERP-UI-STANDARD.md).
+            btnAplicarExcepcion?.focus();
         } else {
             hide($('#panel-excepcion-crediticia'));
             hide($('#panel-excepcion-inactiva'));
@@ -2603,6 +2618,11 @@
         if (hdnExcepcion) hdnExcepcion.value = 'true';
 
         show($('#panel-excepcion-crediticia'));
+        // CREDITO-VISUAL-03: #btn-aplicar-excepcion (el disparador con aria-controls/
+        // aria-expanded) queda oculto en este estado confirmado — no forzamos aria-expanded
+        // acá porque no hay control accesible visible que deba reflejar apertura (ver
+        // resetExcepcionCrediticia/mostrarPanelExcepcion/ocultarPanelExcepcion, que sí lo
+        // sincronizan mientras el disparador está visible).
         hide($('#panel-excepcion-inactiva'));
         show($('#panel-excepcion-activa'));
 

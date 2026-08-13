@@ -933,6 +933,65 @@
                                                                                                                 </div>
                                                                                                             </div>
 
+                                                                                                            @* CREDITO-VISUAL-03: excepción documental reubicada junto al bloqueante que
+                                                                                                               resuelve (antes vivía después de #panel-configuracion-credito, a 2000+px
+                                                                                                               de "Documentación crediticia incompleta"). Mismo panel/formulario/ids/JS,
+                                                                                                               sin duplicar autoridad — sólo cambia la posición en el árbol. Gate de
+                                                                                                               permiso server-side ("ventas","authorize") intacto. *@
+                                                                                                             @if (User.TienePermiso("ventas", "authorize"))
+                                                                                                            {
+                                                                                                                <div id="panel-excepcion-crediticia" class="hidden pt-4 border-t border-slate-800">
+                                                                                                                    <input type="hidden" asp-for="AplicarExcepcionDocumental" id="hdn-aplicar-excepcion" />
+                                                                                                                    <div id="panel-excepcion-inactiva">
+                                                                                                                        <button type="button" id="btn-aplicar-excepcion"
+                                                                                                                                aria-controls="panel-excepcion-activa" aria-expanded="false"
+                                                                                                                                class="w-full py-3 text-xs font-bold text-orange-400 bg-orange-500/10 border border-orange-500/20 rounded-lg hover:bg-orange-500/20 transition-all flex items-center justify-center gap-2">
+                                                                                                                            <span class="material-symbols-outlined text-sm">shield_question</span>
+                                                                                                                            Aplicar Excepción (omitir validaciones)
+                                                                                                                        </button>
+                                                                                                                    </div>
+                                                                                                                    <div id="panel-excepcion-activa" class="hidden">
+                                                                                                                        <div class="p-4 rounded-lg bg-orange-500/10 border border-orange-500/20 space-y-3">
+                                                                                                                            <p class="text-xs font-bold text-orange-400 flex items-center gap-2">
+                                                                                                                                <span class="material-symbols-outlined text-sm">shield_question</span>
+                                                                                                                                Confirmar excepción documental
+                                                                                                                            </p>
+                                                                                                                            <p class="text-[11px] text-slate-400">
+                                                                                                                                Se omitirán los requisitos de documentación. Ingresá el motivo obligatorio
+                                                                                                                                para continuar.
+                                                                                                                            </p>
+                                                                                                                            @* H5: sólo visible cuando, además de documentación pendiente, hay otra
+                                                                                                                               condición (mora, cupo, estado del cliente) que esta excepción no
+                                                                                                                               resuelve — ver tieneOtrasCondicionesPendientes en venta-create.js. *@
+                                                                                                                            <p id="excepcion-alcance-nota" class="hidden text-[11px] font-semibold text-amber-300">
+                                                                                                                                Esta excepción sólo omite la documentación pendiente. Las demás
+                                                                                                                                condiciones señaladas arriba siguen sin resolverse.
+                                                                                                                            </p>
+                                                                                                                            <div>
+                                                                                                                                <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                                                                                                                                    Motivo <span class="text-red-500">*</span>
+                                                                                                                                </label>
+                                                                                                                                <textarea asp-for="MotivoExcepcionDocumentalCreate"
+                                                                                                                                          id="txt-excepcion-documental"
+                                                                                                                                          class="w-full h-20 text-xs bg-slate-800 border border-slate-700 rounded-lg focus:ring-primary px-3 py-2"
+                                                                                                                                          placeholder="Ej: Cliente con legajo en trámite, aprobado por gerencia..."></textarea>
+                                                                                                                            </div>
+                                                                                                                            <div class="flex gap-2">
+                                                                                                                                <button type="button" id="btn-confirmar-excepcion"
+                                                                                                                                        class="flex-1 py-2.5 text-[11px] font-bold text-white bg-orange-500 rounded-lg hover:bg-orange-600 transition-all flex items-center justify-center gap-1">
+                                                                                                                                    <span class="material-symbols-outlined text-sm">check_circle</span>
+                                                                                                                                    Aplicar y continuar
+                                                                                                                                </button>
+                                                                                                                                <button type="button" id="btn-cancelar-excepcion"
+                                                                                                                                        class="flex-1 py-2.5 text-[11px] font-bold text-slate-500 bg-slate-800 rounded-lg hover:bg-slate-700 transition-all">
+                                                                                                                                    Cancelar
+                                                                                                                                </button>
+                                                                                                                            </div>
+                                                                                                                        </div>
+                                                                                                                    </div>
+                                                                                                                </div>
+                                                                                                            }
+
                                                                                                             <div id="panel-cupo-insuficiente" role="alert"
                                                                                                                  class="p-3 rounded-lg bg-red-500/10 border border-red-500/20 hidden">
                                                                                                                 <p class="text-xs font-bold text-red-500 flex items-center gap-2">
@@ -1005,60 +1064,6 @@
                                                                                                                 <div id="credito-embebido-contenedor"></div>
                                                                                                             </div>
                                                                                                         </div>
-
-                                                                                                            @* Excepción documental (solo para usuarios con permiso) *@
-                                                                                                             @if (User.TienePermiso("ventas", "authorize"))
-                                                                                                            {
-                                                                                                                <div id="panel-excepcion-crediticia" class="hidden pt-4 border-t border-slate-800">
-                                                                                                                    <input type="hidden" asp-for="AplicarExcepcionDocumental" id="hdn-aplicar-excepcion" />
-                                                                                                                    <div id="panel-excepcion-inactiva">
-                                                                                                                        <button type="button" id="btn-aplicar-excepcion"
-                                                                                                                                class="w-full py-3 text-xs font-bold text-orange-400 bg-orange-500/10 border border-orange-500/20 rounded-lg hover:bg-orange-500/20 transition-all flex items-center justify-center gap-2">
-                                                                                                                            <span class="material-symbols-outlined text-sm">shield_question</span>
-                                                                                                                            Aplicar Excepción (omitir validaciones)
-                                                                                                                        </button>
-                                                                                                                    </div>
-                                                                                                                    <div id="panel-excepcion-activa" class="hidden">
-                                                                                                                        <div class="p-4 rounded-lg bg-orange-500/10 border border-orange-500/20 space-y-3">
-                                                                                                                            <p class="text-xs font-bold text-orange-400 flex items-center gap-2">
-                                                                                                                                <span class="material-symbols-outlined text-sm">shield_question</span>
-                                                                                                                                Confirmar excepción documental
-                                                                                                                            </p>
-                                                                                                                            <p class="text-[11px] text-slate-400">
-                                                                                                                                Se omitirán los requisitos de documentación. Ingresá el motivo obligatorio
-                                                                                                                                para continuar.
-                                                                                                                            </p>
-                                                                                                                            @* H5: sólo visible cuando, además de documentación pendiente, hay otra
-                                                                                                                               condición (mora, cupo, estado del cliente) que esta excepción no
-                                                                                                                               resuelve — ver tieneOtrasCondicionesPendientes en venta-create.js. *@
-                                                                                                                            <p id="excepcion-alcance-nota" class="hidden text-[11px] font-semibold text-amber-300">
-                                                                                                                                Esta excepción sólo omite la documentación pendiente. Las demás
-                                                                                                                                condiciones señaladas arriba siguen sin resolverse.
-                                                                                                                            </p>
-                                                                                                                            <div>
-                                                                                                                                <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">
-                                                                                                                                    Motivo <span class="text-red-500">*</span>
-                                                                                                                                </label>
-                                                                                                                                <textarea asp-for="MotivoExcepcionDocumentalCreate"
-                                                                                                                                          id="txt-excepcion-documental"
-                                                                                                                                          class="w-full h-20 text-xs bg-slate-800 border border-slate-700 rounded-lg focus:ring-primary px-3 py-2"
-                                                                                                                                          placeholder="Ej: Cliente con legajo en trámite, aprobado por gerencia..."></textarea>
-                                                                                                                            </div>
-                                                                                                                            <div class="flex gap-2">
-                                                                                                                                <button type="button" id="btn-confirmar-excepcion"
-                                                                                                                                        class="flex-1 py-2.5 text-[11px] font-bold text-white bg-orange-500 rounded-lg hover:bg-orange-600 transition-all flex items-center justify-center gap-1">
-                                                                                                                                    <span class="material-symbols-outlined text-sm">check_circle</span>
-                                                                                                                                    Aplicar y continuar
-                                                                                                                                </button>
-                                                                                                                                <button type="button" id="btn-cancelar-excepcion"
-                                                                                                                                        class="flex-1 py-2.5 text-[11px] font-bold text-slate-500 bg-slate-800 rounded-lg hover:bg-slate-700 transition-all">
-                                                                                                                                    Cancelar
-                                                                                                                                </button>
-                                                                                                                            </div>
-                                                                                                                        </div>
-                                                                                                                    </div>
-                                                                                                                </div>
-                                                                                                            }
                                                                                                         </div>
                                                                                                     </div>
                                                                                                 </section>

@@ -1091,6 +1091,52 @@ public class VentaCreateUiContractTests
         Assert.Contains("asp-for=\"MotivoExcepcionDocumentalCreate\"", view);
     }
 
+    // CREDITO-VISUAL-03 — la excepción documental vive junto al bloqueante que resuelve
+
+    [Fact]
+    public void CreateView_PanelExcepcionCrediticia_ViveJuntoADocumentacionFaltante()
+    {
+        var view = ReadComposedView("Create_tw.cshtml");
+
+        var idxBloqueantes = view.IndexOf("id=\"credito-zona-bloqueantes\"", StringComparison.Ordinal);
+        var idxDocumentacion = view.IndexOf("id=\"panel-documentacion-faltante\"", StringComparison.Ordinal);
+        var idxExcepcion = view.IndexOf("id=\"panel-excepcion-crediticia\"", StringComparison.Ordinal);
+        var idxCupo = view.IndexOf("id=\"panel-cupo-insuficiente\"", StringComparison.Ordinal);
+        var idxConfiguracionCredito = view.IndexOf("id=\"panel-configuracion-credito\"", StringComparison.Ordinal);
+
+        Assert.True(idxBloqueantes >= 0, "credito-zona-bloqueantes debe existir.");
+        Assert.True(idxDocumentacion >= 0, "panel-documentacion-faltante debe existir.");
+        Assert.True(idxExcepcion >= 0, "panel-excepcion-crediticia debe existir.");
+        Assert.True(idxCupo >= 0, "panel-cupo-insuficiente debe existir.");
+        Assert.True(idxConfiguracionCredito >= 0, "panel-configuracion-credito debe existir.");
+
+        Assert.True(idxDocumentacion > idxBloqueantes, "Documentación debe vivir dentro de credito-zona-bloqueantes.");
+        Assert.True(idxExcepcion > idxDocumentacion,
+            "CREDITO-VISUAL-03: la excepción documental debe aparecer inmediatamente después de " +
+            "Documentación faltante (junto al bloqueante que resuelve), no lejos de ella.");
+        Assert.True(idxCupo > idxExcepcion,
+            "CREDITO-VISUAL-03: la excepción documental sigue viviendo dentro de credito-zona-bloqueantes, antes de Cupo insuficiente.");
+        Assert.True(idxConfiguracionCredito > idxCupo, "panel-configuracion-credito sigue viniendo después de los bloqueantes.");
+
+        // Gate de permiso server-side sigue envolviendo el panel completo (no sólo oculto por CSS).
+        var idxIf = view.LastIndexOf("User.TienePermiso(\"ventas\", \"authorize\")", idxExcepcion, StringComparison.Ordinal);
+        Assert.True(idxIf >= 0 && idxIf < idxExcepcion,
+            "El gate @if (User.TienePermiso(\"ventas\",\"authorize\")) debe seguir envolviendo panel-excepcion-crediticia.");
+    }
+
+    [Fact]
+    public void CreateView_BtnAplicarExcepcion_TieneAriaControlsYExpandedInicial()
+    {
+        var view = ReadComposedView("Create_tw.cshtml");
+
+        var idx = view.IndexOf("id=\"btn-aplicar-excepcion\"", StringComparison.Ordinal);
+        Assert.True(idx >= 0, "btn-aplicar-excepcion debe existir.");
+        var context = view[idx..(idx + 250)];
+
+        Assert.Contains("aria-controls=\"panel-excepcion-activa\"", context);
+        Assert.Contains("aria-expanded=\"false\"", context);
+    }
+
     [Fact]
     public void CreateView_MantienePagoYCreditoComoPasosSeparados()
     {
