@@ -629,7 +629,7 @@
                                    target="_blank" rel="noopener"
                                    class="btn-erp-secondary no-underline">
                                     <span class="material-symbols-outlined text-sm">print</span>
-                                    Ver / imprimir contrato
+                                    Ver contrato
                                 </a>
                             </div>
                         </section>
@@ -764,15 +764,49 @@
             <div class="space-y-4">
 
                 <!-- Actions Card -->
+                @{
+                    // VENTA-DETAILS-01C (H6): autoridad única de "hay acciones disponibles",
+                    // derivada exactamente de las mismas condiciones que ya gobiernan cada
+                    // botón (Puede*, permisos, estado). No se duplica lógica de negocio: cada
+                    // condición se nombra una sola vez y se reutiliza tanto para decidir el
+                    // empty state como para renderizar el botón correspondiente.
+                    var hayAccionConfigurarCredito = puedeOperarVentas && Model.PuedeConfigurarCredito && puedeVerCreditos;
+                    var hayAccionGenerarContrato = puedeOperarVentas && Model.CreditoConfigurado && contratoVentaCredito == null;
+                    var hayAccionVerContrato = puedeOperarVentas && contratoVentaCredito != null;
+                    var hayAccionPrepararVenta = puedeOperarVentas && Model.PuedePrepararVenta && puedeActualizarVentas;
+                    var expressDisponible = puedeOperarVentas && Model.PuedeConfirmarYFacturar
+                        && puedeFacturarVentas && puedeActualizarVentas;
+                    var hayAccionConfirmar = puedeOperarVentas && Model.PuedeConfirmar;
+                    var hayAccionFacturar = puedeOperarVentas && Model.PuedeFacturar && puedeFacturarVentas;
+                    var hayAccionImprimirFactura = tieneFactura && facturaActiva != null;
+                    var hayAccionAutorizar = Model.PuedeAutorizar && (puedeAutorizarVentas || puedeRechazarVentas);
+                    var hayAccionDevolucion = puedeOperarVentas && Model.PuedeCrearDevolucion && puedeCrearDevoluciones;
+                    var hayAccionEditar = puedeOperarVentas && Model.PuedeEditar && puedeActualizarVentas;
+                    var hayAccionCancelar = puedeCancelarVentas && puedeOperarVentas && Model.PuedeCancelar
+                        && Model.Estado != EstadoVenta.Facturada && Model.Estado != EstadoVenta.Entregada;
+                    var hayAccionAnularFactura = puedeOperarVentas && tieneFactura && facturaActiva != null && puedeFacturarVentas;
+
+                    var hayAccionesDestructivas = hayAccionCancelar || hayAccionAnularFactura;
+                    var hayAccionesDisponibles = hayAccionConfigurarCredito || hayAccionGenerarContrato || hayAccionVerContrato
+                        || hayAccionPrepararVenta || expressDisponible || hayAccionConfirmar || hayAccionFacturar
+                        || hayAccionImprimirFactura || hayAccionAutorizar || hayAccionDevolucion || hayAccionEditar
+                        || hayAccionesDestructivas;
+                }
                 <section class="card-erp-panel-padded">
                     <div class="flex items-center gap-2 mb-6 border-b border-slate-800 pb-3">
                         <span class="material-symbols-outlined text-primary">bolt</span>
                         <h2 class="text-white text-xl font-bold">Acciones</h2>
                     </div>
                     <div class="flex flex-col gap-3">
+                        @if (!hayAccionesDisponibles)
+                        {
+                            <p class="text-sm text-slate-400">Sin acciones disponibles para esta venta en su estado actual.</p>
+                        }
+                        else
+                        {
 
                         @* Configurar Crédito *@
-                        @if (puedeOperarVentas && Model.PuedeConfigurarCredito && puedeVerCreditos)
+                        @if (hayAccionConfigurarCredito)
                         {
                             <a asp-action="ConfigurarVenta" asp-controller="Credito"
                                asp-route-id="@Model.CreditoId" asp-route-ventaId="@Model.Id"
@@ -782,7 +816,7 @@
                         }
 
                         @* Contrato — requerido antes de confirmar en Crédito Personal *@
-                        @if (puedeOperarVentas && Model.CreditoConfigurado && contratoVentaCredito == null)
+                        @if (hayAccionGenerarContrato)
                         {
                             <a asp-controller="ContratoVentaCredito" asp-action="Preparar"
                                asp-route-ventaId="@Model.Id"
@@ -790,18 +824,18 @@
                                 <span class="material-symbols-outlined text-sm">contract</span> Generar contrato
                             </a>
                         }
-                        else if (puedeOperarVentas && contratoVentaCredito != null)
+                        else if (hayAccionVerContrato)
                         {
                             <a asp-controller="ContratoVentaCredito" asp-action="Ver"
                                asp-route-ventaId="@Model.Id"
                                target="_blank" rel="noopener"
                                class="btn-erp-secondary btn-erp-block no-underline">
-                                <span class="material-symbols-outlined text-sm">print</span> Ver / imprimir contrato
+                                <span class="material-symbols-outlined text-sm">print</span> Ver contrato
                             </a>
                         }
 
                         @* Preparar venta *@
-                        @if (puedeOperarVentas && Model.PuedePrepararVenta && puedeActualizarVentas)
+                        @if (hayAccionPrepararVenta)
                         {
                             <form asp-action="PrepararVenta" method="post" id="form-preparar-venta">
                                 <input type="hidden" name="id" value="@Model.Id" />
@@ -809,11 +843,6 @@
                                     <span class="material-symbols-outlined text-sm">assignment_turned_in</span> Preparar venta
                                 </button>
                             </form>
-                        }
-
-                        @{
-                            var expressDisponible = puedeOperarVentas && Model.PuedeConfirmarYFacturar
-                                && puedeFacturarVentas && puedeActualizarVentas;
                         }
 
                         @* Confirmar y facturar (un paso) — caso mostrador *@
@@ -828,7 +857,7 @@
                         }
 
                         @* Confirmar (solo confirma; queda pendiente de facturar) *@
-                        @if (puedeOperarVentas && Model.PuedeConfirmar)
+                        @if (hayAccionConfirmar)
                         {
                             <form asp-action="Confirmar" method="post" id="form-confirmar">
                                 <input type="hidden" name="id" value="@Model.Id" />
@@ -862,7 +891,7 @@
                         }
 
                         @* Facturar *@
-                        @if (puedeOperarVentas && Model.PuedeFacturar && puedeFacturarVentas)
+                        @if (hayAccionFacturar)
                         {
                             <button type="button"
                                     data-venta-modal-action="open"
@@ -873,10 +902,10 @@
                         }
 
                         @* Imprimir Factura *@
-                        @if (tieneFactura && facturaActiva != null)
+                        @if (hayAccionImprimirFactura)
                         {
                             <a asp-action="ComprobanteFactura"
-                               asp-route-facturaId="@facturaActiva.Id"
+                               asp-route-facturaId="@facturaActiva!.Id"
                                target="_blank"
                                rel="noopener"
                                class="btn-erp-secondary btn-erp-block no-underline">
@@ -885,7 +914,7 @@
                         }
 
                         @* Autorizar *@
-                        @if (Model.PuedeAutorizar && (puedeAutorizarVentas || puedeRechazarVentas))
+                        @if (hayAccionAutorizar)
                         {
                             <div class="flex flex-col gap-2 sm:flex-row">
                                 @if (puedeAutorizarVentas)
@@ -910,7 +939,7 @@
                         }
 
                         @* Devolucion *@
-                        @if (puedeOperarVentas && Model.PuedeCrearDevolucion && puedeCrearDevoluciones)
+                        @if (hayAccionDevolucion)
                         {
                             <button type="button"
                                data-open-devolucion-modal
@@ -921,7 +950,7 @@
                         }
 
                         @* Editar *@
-                        @if (puedeOperarVentas && Model.PuedeEditar && puedeActualizarVentas)
+                        @if (hayAccionEditar)
                         {
                             <a asp-action="Edit" asp-route-id="@Model.Id"
                                class="btn-erp-ghost btn-erp-block no-underline">
@@ -929,30 +958,34 @@
                             </a>
                         }
 
-                        <div class="border-t border-slate-800 pt-3 mt-1">
-                            @* Cancelar *@
-                            @if (puedeCancelarVentas && puedeOperarVentas && Model.PuedeCancelar && Model.Estado != EstadoVenta.Facturada && Model.Estado != EstadoVenta.Entregada)
-                            {
-                                <a asp-action="Cancelar" asp-route-id="@Model.Id"
-                                   class="btn-erp-danger btn-erp-block no-underline">
-                                    <span class="material-symbols-outlined text-sm">cancel</span> Cancelar Venta
-                                </a>
-                            }
+                        @if (hayAccionesDestructivas)
+                        {
+                            <div class="border-t border-slate-800 pt-3 mt-1">
+                                @* Cancelar *@
+                                @if (hayAccionCancelar)
+                                {
+                                    <a asp-action="Cancelar" asp-route-id="@Model.Id"
+                                       class="btn-erp-danger btn-erp-block no-underline">
+                                        <span class="material-symbols-outlined text-sm">cancel</span> Cancelar Venta
+                                    </a>
+                                }
 
-                            @* Anular Factura *@
-                            @if (puedeOperarVentas && tieneFactura && facturaActiva != null && puedeFacturarVentas)
-                            {
-                                <button type="button"
-                                        id="btn-anular-factura"
-                                        data-factura-id="@facturaActiva.Id"
-                                        data-factura-numero="@facturaActiva.Numero"
-                                        data-venta-modal-action="open"
-                                        data-venta-modal-target="anular-factura"
-                                        class="btn-erp-danger btn-erp-block">
-                                    <span class="material-symbols-outlined text-sm">block</span> Anular Factura
-                                </button>
-                            }
-                        </div>
+                                @* Anular Factura *@
+                                @if (hayAccionAnularFactura)
+                                {
+                                    <button type="button"
+                                            id="btn-anular-factura"
+                                            data-factura-id="@facturaActiva!.Id"
+                                            data-factura-numero="@facturaActiva.Numero"
+                                            data-venta-modal-action="open"
+                                            data-venta-modal-target="anular-factura"
+                                            class="btn-erp-danger btn-erp-block">
+                                        <span class="material-symbols-outlined text-sm">block</span> Anular Factura
+                                    </button>
+                                }
+                            </div>
+                        }
+                        }
                     </div>
                 </section>
 
