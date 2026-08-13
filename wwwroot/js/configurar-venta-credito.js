@@ -418,10 +418,19 @@
             // ("Aprobado"/"A revisar"/"Rechazado") para no contradecir visualmente que
             // "Confirmar crédito" sigue habilitado en Riesgo Alto: ver deshabilitarConfirmar,
             // que nunca depende de `estado`.
+            //
+            // CREDITO-VISUAL-02A: el contenedor (badgeClass) ya no lleva fondo/borde rojo/
+            // amber/verde dominante — esa superficie competía visualmente con bloqueantes
+            // reales (ej. "Cupo insuficiente — operación bloqueada"), haciendo que "Riesgo
+            // alto" pareciera un rechazo. El color del nivel se conserva en el dot y en el
+            // texto (labelClass/tagClass), que siguen distinguiendo bajo/moderado/alto; el
+            // contenedor usa el mismo neutro en los tres niveles (mismo tono que el fallback
+            // de "Otros motivos", ver mostrarMotivos en venta-create.js).
+            const BADGE_NEUTRO = 'bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700';
             const estados = {
                 verde: {
                     dotClass: 'bg-green-500',
-                    badgeClass: 'bg-green-500/10 border border-green-500/20',
+                    badgeClass: BADGE_NEUTRO,
                     labelClass: 'text-green-700 dark:text-green-400',
                     tagClass: 'text-green-600 dark:text-green-500',
                     label: 'Riesgo bajo',
@@ -429,7 +438,7 @@
                 },
                 amarillo: {
                     dotClass: 'bg-yellow-500',
-                    badgeClass: 'bg-yellow-500/10 border border-yellow-500/20',
+                    badgeClass: BADGE_NEUTRO,
                     labelClass: 'text-yellow-700 dark:text-yellow-400',
                     tagClass: 'text-yellow-600 dark:text-yellow-500',
                     label: 'Riesgo moderado',
@@ -437,7 +446,7 @@
                 },
                 rojo: {
                     dotClass: 'bg-red-500',
-                    badgeClass: 'bg-red-500/10 border border-red-500/20',
+                    badgeClass: BADGE_NEUTRO,
                     labelClass: 'text-red-700 dark:text-red-400',
                     tagClass: 'text-red-600 dark:text-red-500',
                     label: 'Riesgo alto',

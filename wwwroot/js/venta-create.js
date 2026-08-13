@@ -2303,8 +2303,28 @@
         const lista = $('#lista-motivos');
         lista.innerHTML = '';
 
-        if (data.motivos && data.motivos.length > 0) {
-            data.motivos.forEach(m => {
+        // CREDITO-VISUAL-02A: Documentación (cat.1), Cupo (cat.2) y Mora (cat.3) ya tienen un
+        // panel dedicado que muestra el mismo hecho con más detalle (documento por documento /
+        // solicitado-disponible-faltante / días-monto). Repetirlo acá es redundancia cognitiva
+        // SOLO cuando esa autoridad dedicada está efectivamente visible en este ciclo (esta
+        // función corre después de mostrarResultadoVerificacion/mostrarAlertaMora/
+        // mostrarDocumentacionFaltante — ver verificarElegibilidadAuto — y también se
+        // re-invoca desde mostrarPanelExcepcion/ocultarPanelExcepcion cuando esos paneles
+        // cambian de visibilidad). Si el panel dedicado NO está visible (ej. la excepción
+        // documental lo oculta), este es el único lugar que conserva el hecho: no filtrar
+        // esa categoría. Contrato obligatorio de CREDITO-VISUAL-02A — nunca ocultar 1/2/3 de
+        // forma incondicional. EstadoCliente/Configuración/Punitorio (4/5/6) no tienen panel
+        // dedicado equivalente y siempre se muestran acá.
+        const autoridadDedicadaVisible = {
+            1: !$('#panel-documentacion-faltante')?.classList.contains('hidden'),
+            2: !$('#panel-cupo-insuficiente')?.classList.contains('hidden'),
+            3: !$('#panel-alerta-mora')?.classList.contains('hidden')
+        };
+        const motivosOriginales = data.motivos || [];
+        const motivos = motivosOriginales.filter(m => !autoridadDedicadaVisible[m.categoria]);
+
+        if (motivos.length > 0) {
+            motivos.forEach(m => {
                 // PUN-ML10-F: categoría 6 = Punitorio (CategoriaMotivo.Punitorio). Ícono propio para
                 // no mostrarlo genérico ("info") junto a Documentación/Cupo/Mora/EstadoCliente/Config.
                 const iconMap = { 1: 'description', 2: 'account_balance', 3: 'schedule', 4: 'person_off', 5: 'settings', 6: 'paid' };
@@ -2327,13 +2347,17 @@
                 lista.appendChild(div);
             });
             show(panel);
-        } else if (data.mensajeResumen) {
+        } else if (motivosOriginales.length === 0 && data.mensajeResumen) {
+            // Sin motivos granulares desde el origen (no por el filtrado de arriba): conservar
+            // el resumen genérico del servidor como única explicación disponible.
             const div = document.createElement('div');
             div.className = 'p-2.5 rounded-lg border bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400';
             div.innerHTML = `<p class="text-[11px]">${data.mensajeResumen}</p>`;
             lista.appendChild(div);
             show(panel);
         } else {
+            // Todos los motivos quedaron cubiertos por un panel dedicado visible (o no había
+            // ninguno): no dejar el heading "Otros motivos" vacío (§9 CREDITO-VISUAL-02A).
             hide(panel);
         }
     }
@@ -2465,7 +2489,6 @@
             ultimaPrevalidacion = data;
 
             mostrarResultadoVerificacion(data);
-            mostrarMotivos(data);
             mostrarAlertaMora(data);
 
             if (preservarExcepcion) {
@@ -2477,6 +2500,11 @@
                 mostrarDocumentacionFaltante(data);
                 actualizarDisponibilidadExcepcion(data);
             }
+
+            // CREDITO-VISUAL-02A: mostrarMotivos() decide qué categorías duplicar según qué
+            // paneles dedicados (Cupo/Documentación/Mora) quedaron visibles arriba en este
+            // mismo ciclo; por eso corre al final, después de que su estado ya es definitivo.
+            mostrarMotivos(data);
 
             // H5 (alcance): actualizar la nota de "persisten otras condiciones" con cada
             // verificación fresca, tanto si el panel de excepción está recién abierto como si
@@ -2512,6 +2540,10 @@
         show($('#panel-excepcion-activa'));
         hide($('#panel-cupo-insuficiente'));
         hide($('#panel-documentacion-faltante'));
+        // CREDITO-VISUAL-02A: al ocultar los paneles dedicados de Cupo/Documentación, dejan de
+        // ser autoridad visible — Otros motivos debe reaparecer con esos hechos para no perder
+        // información (caso obligatorio "excepción aplicada").
+        mostrarMotivos(ultimaPrevalidacion);
         const txt = $('#txt-excepcion-documental');
         if (txt) txt.focus();
     }
@@ -2551,6 +2583,10 @@
         if (ultimaPrevalidacion) {
             mostrarResultadoVerificacion(ultimaPrevalidacion);
             mostrarDocumentacionFaltante(ultimaPrevalidacion);
+            // CREDITO-VISUAL-02A: los paneles dedicados de Cupo/Documentación recién volvieron a
+            // ser autoridad visible arriba — recalcular qué categorías siguen necesitando Otros
+            // motivos (deja de duplicar lo que esos paneles ya vuelven a cubrir).
+            mostrarMotivos(ultimaPrevalidacion);
         }
     }
 
