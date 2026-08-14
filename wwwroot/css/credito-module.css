@@ -688,7 +688,15 @@ select.field {
    marcador para que sea legible en dark mode y el foco visible del módulo. Selector
    scopeado a [data-plan-cuotas-detalle] (no a la raíz del módulo): esta pantalla vive
    tanto standalone (ConfigurarVenta_tw.cshtml, data-credito-config) como embebida en el
-   wizard de Venta (data-credito-config-embedded) y ambas comparten este mismo bloque. */
+   wizard de Venta (data-credito-config-embedded) y ambas comparten este mismo bloque.
+   VENTA-CREDITO-REDESIGN-VISUAL-CIERRE-01: el fragmento embebido retiró el wrapper
+   <section data-plan-cuotas-detalle> (ya no existe como card aparte, ver
+   _ConfigurarVentaEmbebida.cshtml) — el <details> pasó a llevar directamente
+   data-plan-cuotas-detalle-details, así que se agrega el mismo tratamiento para esa
+   variante (regla propia, no combinada en la lista de selectores de arriba, para no
+   tocar el bloque original) y no perder cursor/marcador/foco visible ahí. La página
+   standalone conserva su wrapper data-plan-cuotas-detalle sin cambios (no tiene
+   <summary> propio hoy). */
 [data-plan-cuotas-detalle] summary {
   cursor: pointer;
 }
@@ -698,6 +706,20 @@ select.field {
 }
 
 [data-plan-cuotas-detalle] summary:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+[data-plan-cuotas-detalle-details] summary {
+  cursor: pointer;
+}
+
+[data-plan-cuotas-detalle-details] summary::marker {
+  color: var(--muted-2);
+}
+
+[data-plan-cuotas-detalle-details] summary:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
   border-radius: 6px;
@@ -3270,7 +3292,14 @@ select.field {
    ConfigurarVenta_tw.cshtml — ese standalone usa su propio markup con sus breakpoints
    `lg:`/`md:` originales, intactos). CSS plano, no utilities de Tailwind, porque
    tailwind.css es un artefacto pre-compilado que no se regenera en este micro-lote.
-   Umbrales elegidos y verificados con Playwright: */
+   Umbrales elegidos y verificados con Playwright:
+
+   VENTA-CREDITO-REDESIGN-VISUAL-CIERRE-01: "Cantidad de cuotas" se suma a esta misma
+   grilla (antes ocupaba su propia fila a ancho completo sin razón funcional, ver
+   _ConfigurarVentaEmbebida.cshtml) — ahora son 4 campos (Cuotas/Anticipo/Gastos/
+   Vencimiento), con un umbral nuevo de 4 columnas para el ancho que este paso recupera
+   al dejar de reservar una columna de sidebar (ver venta-page-wizard.css,
+   [data-paso-activo="credito"]). */
 [data-credito-config-embedded] {
   container-type: inline-size;
 }
@@ -3284,5 +3313,11 @@ select.field {
 @container (min-width: 26.25rem) {
   [data-credito-config-valores-grid] {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@container (min-width: 40rem) {
+  [data-credito-config-valores-grid] {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }

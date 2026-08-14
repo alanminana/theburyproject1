@@ -1033,26 +1033,33 @@
     display: none;
 }
 
-/* Guardar configuración + Documentación contractual, agrupadas debajo del desglose
-   (ver _ConfigurarVentaEmbebida.cshtml — la Documentación contractual se movió a
-   Revisión en tiempo de ejecución, VENTA-CREDITO-ARQUITECTURA-VISUAL-02 §7; "Evaluación
-   preliminar" se retiró de acá en VENTA-CREDITO-REDESIGN-VISUAL-IMPLEMENTACION-01, ahora
-   vive como fila "Riesgo" dentro de "Estado del crédito"). En desktop conservan el ancho
-   angosto que tenían dentro del aside original, alineadas a la derecha; por debajo de
-   1280px (mismo breakpoint donde la sidebar del wizard ya se apila, ver
-   @media (max-width: 1279px) más arriba) pasan a ancho completo para no dejar un hueco
-   vacío a la izquierda. */
-#venta-create-page .credito-embebido-cierre,
-#venta-edit-page .credito-embebido-cierre {
-    max-width: 26rem;
-    margin-left: auto;
+/* VENTA-CREDITO-REDESIGN-VISUAL-CIERRE-01: "Configurar plan" (inputs, recargo,
+   resultado vivo, desglose y CTA) pasó a ser una única <section class="card card-pad">
+   de ancho completo (ver _ConfigurarVentaEmbebida.cshtml) — ya no existe un bloque de
+   cierre angosto alineado a una columna 2/3 que justifique un ancho propio distinto del
+   resto de la card (antes .credito-embebido-cierre, retirado del markup junto con esta
+   regla). */
+
+/* ══════════════════════════════════════════════════════════════
+   PASO CRÉDITO — sin columna lateral dedicada (VENTA-CREDITO-REDESIGN-VISUAL-CIERRE-01)
+   La sidebar (Vendedor/Observaciones/Volver/Imprimir; los totales ya se ocultan por JS
+   sólo en este paso, ver sidebarTotales.hidden = esCredito en venta-page-wizard.js)
+   reservaba una columna completa (~30% del ancho en desktop, mínimo 20rem) casi vacía
+   durante todo el scroll de Crédito. Sólo mientras el paso activo es "credito" el grid
+   principal del wizard queda a una columna también en desktop (≥1280px, el breakpoint
+   que en el resto de los pasos separa sidebar/contenido, ver @media(min-width:1280px)
+   más arriba) — la sidebar pasa a fluir debajo del contenido en vez de al costado. El
+   ancho recuperado lo usa el configurador embebido (ver credito-module.css, container
+   queries de [data-credito-config-embedded]). Selector con [data-paso-activo] (mismo
+   hook que ya usa el paso Cotizar) + mayor especificidad que las reglas de los media
+   queries de arriba para ganarles sin depender del orden de las hojas de estilo. El
+   resto de los pasos no cambia. */
+#venta-create-page[data-paso-activo="credito"] #venta-form>.grid,
+#venta-edit-page[data-paso-activo="credito"] #venta-form>.grid {
+    grid-template-columns: 1fr;
 }
 
-@media (max-width: 1279px) {
-
-    #venta-create-page .credito-embebido-cierre,
-    #venta-edit-page .credito-embebido-cierre {
-        max-width: none;
-        margin-left: 0;
-    }
+#venta-create-page[data-paso-activo="credito"] .vm-sidebar,
+#venta-edit-page[data-paso-activo="credito"] .vm-sidebar {
+    position: static;
 }

@@ -166,6 +166,18 @@
             accion = 'next';
         }
 
+        // VENTA-CREDITO-REDESIGN-VISUAL-CIERRE-01: una vez que el SCORE ya corrió
+        // ("guardar-configuracion"/"continuar-revision"), el CTA contextual tiene un botón
+        // real equivalente dentro del configurador embebido (mismos data-hook que ya
+        // delega el click más abajo) — mostrar los dos a la vez duplica el mismo CTA
+        // primario (regla de cierre visual: un solo CTA primario visible durante
+        // Crédito). Sólo "Verificar crédito" (SCORE todavía no corrió) no tiene
+        // equivalente dentro del Plan — ese sub-estado sigue mostrando el CTA global
+        // normalmente. Mismo patrón classList+atributo que ya usa setActiveStep() para
+        // los paneles (necesario porque las utilities de Tailwind como "inline-flex"
+        // ganan por Cascade Layers a un solo mecanismo de ocultamiento).
+        const ocultarCtaGlobal = esCredito && accion !== 'verify-credit';
+
         root.querySelectorAll('[data-wizard-primary]').forEach((button) => {
             button.dataset.wizardAction = accion;
             const label = button.querySelector('[data-wizard-primary-label]');
@@ -174,6 +186,8 @@
             } else {
                 button.textContent = texto;
             }
+            button.classList.toggle('hidden', ocultarCtaGlobal);
+            button.hidden = ocultarCtaGlobal;
         });
 
         // VENTA-CREDITO-REDESIGN-VISUAL-IMPLEMENTACION-01: durante Crédito, #btn-confirmar
