@@ -732,6 +732,11 @@ namespace TheBuryProject.Services
 
             _validator.ValidarEstadoParaEdicion(venta);
 
+            // VENTA-DESCUENTO-LINEA-LEGACY-EDIT-GUARD: corre antes de cualquier operación que
+            // toque venta.Detalles (ActualizarDetalles hace soft-delete + recreate total, sin
+            // match línea-a-línea). Si bloquea, todavía no se mutó nada.
+            ValidarSinDescuentosLegacyAmbiguos(venta);
+
             if (viewModel.RowVersion == null || viewModel.RowVersion.Length == 0)
                 throw new InvalidOperationException("Falta información de concurrencia (RowVersion). Recargá la venta e intentá nuevamente.");
 
@@ -2969,6 +2974,95 @@ namespace TheBuryProject.Services
             venta.Subtotal = detallesList.Sum(d => d.SubtotalFinalNeto);
             venta.IVA = detallesList.Sum(d => d.SubtotalFinalIVA);
             venta.Total = detallesList.Sum(d => d.SubtotalFinal);
+        }
+
+        /// <summary>
+        /// VENTA-DESCUENTO-LINEA-LEGACY-EDIT-GUARD: bloquea la edición de una venta si alguna
+        /// línea activa persistida (ANTES de este Update, nunca desde viewModel.Detalles) fue
+        /// guardada bajo la semántica legacy de "Descuento" como importe absoluto (pre
+        /// VENTA-CREDITO-ELEGIBILIDAD-DESCUENTO-FIX / 662b499), o si su Subtotal persistido no
+        /// se puede reconciliar de forma inequívoca con ningún modelo. El audit previo
+        /// (VENTA-DESCUENTO-LINEA-LEGACY-EDIT-GUARD-AUDIT) confirmó que el POST no envía
+        /// VentaDetalleId ni existe dirty-tracking por línea — ActualizarDetalles hace
+        /// soft-delete total + recreate, así que no hay forma segura de distinguir "valor legacy
+        /// reenviado sin tocar" de "valor conscientemente editado por el operador". Debe correr
+        /// antes de ActualizarDetalles/CalcularTotales: si bloquea, no se mutó nada.
+        /// </summary>
+        private static void ValidarSinDescuentosLegacyAmbiguos(Venta venta)
+        {
+            var haySemanticaBloqueante = venta.Detalles
+                .Where(d => !d.IsDeleted)
+                .Select(d => ClasificarSemanticaDescuentoLineaPersistida(
+                    d.PrecioUnitario, d.Cantidad, d.Descuento, d.Subtotal))
+                .Any(s => s is SemanticaDescuentoLinea.LegacyAbsoluto or SemanticaDescuentoLinea.Ambigua);
+
+            if (haySemanticaBloqueante)
+            {
+                throw new InvalidOperationException(
+                    "No se puede guardar esta venta porque contiene descuentos de línea creados con una versión anterior del sistema. Revisá la operación antes de continuar.");
+            }
+        }
+
+        private enum SemanticaDescuentoLinea
+        {
+            SinDescuento,
+            LegacyAbsoluto,
+            Porcentaje,
+            Ambigua
+        }
+
+        /// <summary>
+        /// Clasifica, de forma determinista y fail-closed, la semántica de "Descuento" de una
+        /// línea ya persistida — reconciliando su Subtotal guardado contra los dos modelos
+        /// posibles: legacy (importe absoluto, pre 662b499) y porcentual (modelo vigente, ver
+        /// <see cref="CalcularSubtotalLineaConDescuento"/>). No usa fecha, CotizacionOrigenId ni
+        /// magnitud de Descuento como autoridad — el audit demostró que ninguno de esos criterios
+        /// es confiable (hay descuentos legacy absolutos con valores dentro de rango 0-100).
+        /// </summary>
+        private static SemanticaDescuentoLinea ClasificarSemanticaDescuentoLineaPersistida(
+            decimal precioUnitario, int cantidad, decimal descuento, decimal subtotalPersistido)
+        {
+            if (descuento == 0m)
+            {
+                return SemanticaDescuentoLinea.SinDescuento;
+            }
+
+            // Ambos modelos usan Math.Max(0, ...)/clamp para no dar negativo: un Subtotal
+            // persistido en 0 es estructuralmente ambiguo (puede venir de un importe absoluto
+            // legacy >= bruto, o de un 100% porcentual actual) y no puede reconciliarse contra
+            // los valores exactos de PrecioUnitario/Cantidad/Descuento. Fail closed siempre.
+            if (subtotalPersistido == 0m)
+            {
+                return SemanticaDescuentoLinea.Ambigua;
+            }
+
+            var bruto = precioUnitario * cantidad;
+            var subtotalAbsoluto = Math.Max(0m, bruto - descuento);
+            var subtotalPorcentual = RedondearMoneda(
+                CalcularSubtotalLineaConDescuento(precioUnitario, cantidad, descuento));
+
+            var coincideAbsoluto = subtotalPersistido == subtotalAbsoluto;
+            var coincidePorcentual = subtotalPersistido == subtotalPorcentual;
+
+            if (coincideAbsoluto && coincidePorcentual)
+            {
+                // p.ej. bruto == 100: ambas fórmulas coinciden algebraicamente para cualquier
+                // descuento en [0,100].
+                return SemanticaDescuentoLinea.Ambigua;
+            }
+
+            if (coincideAbsoluto)
+            {
+                return SemanticaDescuentoLinea.LegacyAbsoluto;
+            }
+
+            if (coincidePorcentual)
+            {
+                return SemanticaDescuentoLinea.Porcentaje;
+            }
+
+            // No reconcilia con ningún modelo — no "arreglar" automáticamente, fail closed.
+            return SemanticaDescuentoLinea.Ambigua;
         }
 
         private async Task CalcularComisionesAsync(Venta venta)
