@@ -55,11 +55,18 @@
        se toca) y embebido. *@
     <div class="grid grid-cols-1 gap-4">
         <div class="space-y-4">
+            @* VENTA-CREDITO-ARQUITECTURA-VISUAL-01: "Cantidad de cuotas" y "Valores del
+               credito" eran dos secciones-card independientes (numeradas 1 y 2), lo que las
+               presentaba como dos pasos principales del mismo peso. Se unifican en una sola
+               sección "Configurar plan": mismos campos/ids/JS, sólo cambia el agrupamiento
+               visual — separadores livianos (border-top) en vez de un límite de card nuevo,
+               mismo patrón que ya usaban "Porcentaje de recargo" y "Primera cuota" dentro de
+               la vieja sección 2. *@
             <section class="card card-pad">
                 <div class="sec-head">
                     <div class="sec-num">1</div>
                     <div>
-                        <div class="sec-title">Cantidad de cuotas</div>
+                        <div class="sec-title">Configurar plan</div>
                         <div class="sec-sub" id="cuotas-rango-info">
                             @if (Model.SinPlanesCompatibles)
                             {
@@ -109,38 +116,31 @@
                         <option value="@plan.CantidadCuotas">@plan.CantidadCuotas cuotas - @(plan.TasaMensual.HasValue ? $"{plan.TasaMensual.Value:N2}% recargo" : "tasa global")</option>
                     }
                 </datalist>
-            </section>
-
-            <section class="card card-pad">
-                <div class="sec-head">
-                    <div class="sec-num">2</div>
-                    <div>
-                        <div class="sec-title">Valores del credito</div>
-                        <div class="sec-sub">El backend valida los importes finales; esta pantalla solo previsualiza.</div>
-                    </div>
-                </div>
 
                 @* Sólo campos editables acá: precio final y saldo a financiar son resultado,
                    no configuración — su única fuente visual ahora es el Resumen del plan. *@
-                <div class="grid grid-cols-1 gap-4" data-credito-config-valores-grid>
-                    <div>
-                        <label asp-for="Anticipo" for="txt-anticipo" class="label">Anticipo</label>
-                        <div class="field-money">
-                            <span class="cur">$</span>
-                            <input asp-for="Anticipo" type="number" step="0.01" min="0" class="field" id="txt-anticipo" />
+                <div style="margin-top:1.1rem;padding-top:1rem;border-top:1px solid var(--line)">
+                    <p class="hint" style="margin-bottom:.75rem">El backend valida los importes finales; esta pantalla solo previsualiza.</p>
+                    <div class="grid grid-cols-1 gap-4" data-credito-config-valores-grid>
+                        <div>
+                            <label asp-for="Anticipo" for="txt-anticipo" class="label">Anticipo</label>
+                            <div class="field-money">
+                                <span class="cur">$</span>
+                                <input asp-for="Anticipo" type="number" step="0.01" min="0" class="field" id="txt-anticipo" />
+                            </div>
                         </div>
-                    </div>
-                    <div>
-                        <label asp-for="GastosAdministrativos" for="txt-gastos" class="label">Gastos administrativos</label>
-                        <div class="field-money">
-                            <span class="cur">$</span>
-                            <input asp-for="GastosAdministrativos" type="number" step="0.01" min="0" class="field" id="txt-gastos" />
+                        <div>
+                            <label asp-for="GastosAdministrativos" for="txt-gastos" class="label">Gastos administrativos</label>
+                            <div class="field-money">
+                                <span class="cur">$</span>
+                                <input asp-for="GastosAdministrativos" type="number" step="0.01" min="0" class="field" id="txt-gastos" />
+                            </div>
+                            <p class="hint" style="margin-top:.35rem">Concepto informativo aparte: no se distribuye en las cuotas ni forma parte del saldo a financiar.</p>
                         </div>
-                        <p class="hint" style="margin-top:.35rem">Concepto informativo aparte: no se distribuye en las cuotas ni forma parte del saldo a financiar.</p>
-                    </div>
-                    <div>
-                        <label asp-for="FechaPrimeraCuota" for="txt-fecha-primera-cuota" class="label">Primera fecha de vencimiento</label>
-                        <input asp-for="FechaPrimeraCuota" type="date" class="field" id="txt-fecha-primera-cuota" />
+                        <div>
+                            <label asp-for="FechaPrimeraCuota" for="txt-fecha-primera-cuota" class="label">Primera fecha de vencimiento</label>
+                            <input asp-for="FechaPrimeraCuota" type="date" class="field" id="txt-fecha-primera-cuota" />
+                        </div>
                     </div>
                 </div>
 
@@ -165,12 +165,10 @@
                 </div>
                 <div id="plan-error" class="alert alert-bad hidden" style="margin-top:.75rem" role="alert" aria-live="assertive" tabindex="-1" data-plan-error></div>
 
-                @* CREDITO-VISUAL-02B: "Primera cuota" es un subgrupo (nivel 3) dentro de
-                   "Valores del credito" (nivel 2) — ya no lleva su propia card completa
-                   (border+rounded+fondo), que la ponía visualmente al mismo nivel que
-                   "Configuración de Crédito Personal" (nivel 1). Mismo patrón de separador
-                   liviano que ya usa "Porcentaje de recargo total del plan" más arriba en
-                   esta misma card. *@
+                @* CREDITO-VISUAL-02B: "Primera cuota" es un subgrupo dentro de "Configurar
+                   plan" — no lleva su propia card completa (border+rounded+fondo), que la
+                   pondría visualmente al mismo nivel que la sección entera. Mismo patrón de
+                   separador liviano que ya usa "Porcentaje de recargo total del plan" arriba. *@
                 <div class="mt-4" style="padding-top:1rem;border-top:1px solid var(--line)"
                      id="primera-cuota-panel" data-primera-cuota-panel>
                     <div class="flex items-center gap-2 mb-2">
@@ -213,6 +211,13 @@
                     Resumen del plan
                 </h3>
 
+                @* VENTA-CREDITO-ARQUITECTURA-VISUAL-01: mini-resumen vivo — sólo lo que hace
+                   falta para decidir si el plan sirve (cuota, total financiado, cantidad,
+                   primer vencimiento). El resto (precio final, anticipo, % de recargo,
+                   importe del recargo, gastos, cuotas sin recargo) es apoyo de verificación,
+                   no la decisión en sí: pasa a detalle expandible. Mismos ids, mismo JS
+                   (configurar-venta-credito.js) — sólo cambia dónde vive cada nodo en el
+                   árbol, nunca se duplica un valor ni se agrega una segunda autoridad. *@
                 <div id="plan-resumen" class="space-y-3">
                     <div id="plan-resumen-contenido">
                         <div class="result-card is-ok">
@@ -220,20 +225,25 @@
                             <div class="result-value" id="plan-cuota-estimada">$ 0,00</div>
                         </div>
                         <dl class="kv mt-3">
-                            <div class="kv-row"><dt>Precio final de venta</dt><dd class="num" id="plan-precio-final">$ @Model.Monto.ToString("N2")</dd></div>
-                            <div class="kv-row"><dt>Anticipo</dt><dd class="num" id="plan-anticipo">$ 0,00</dd></div>
-                            <div class="kv-row"><dt>Saldo a financiar</dt><dd class="num" id="plan-capital">$ @Model.MontoFinanciado.ToString("N2")</dd></div>
-                            <div class="kv-row"><dt>% de recargo total</dt><dd id="plan-tasa">0%</dd></div>
-                            <div class="kv-row"><dt>Importe del recargo</dt><dd class="num" id="plan-interes">$ 0,00</dd></div>
                             <div class="kv-row"><dt>Total financiado</dt><dd class="num" id="plan-total" style="color:#34d399;font-weight:600">$ 0,00</dd></div>
-                            <div class="kv-row"><dt>Gastos administrativos</dt><dd class="num" id="plan-gastos">$ 0,00</dd></div>
                             <div class="kv-row"><dt>Cantidad de cuotas</dt><dd id="plan-cuotas-label">@Model.CantidadCuotas</dd></div>
-                            <div class="kv-row"><dt>Cuotas sin recargo</dt><dd id="plan-cuotas-sin-recargo">Ninguna</dd></div>
                         </dl>
                         <div id="plan-fecha-container" class="alert alert-info hidden" style="margin-top:.8rem">
                             <span class="material-symbols-outlined">event_upcoming</span>
                             <span>Primer vencimiento: <strong id="plan-fecha-pago">-</strong></span>
                         </div>
+                        <details class="mt-3" data-plan-detalle-financiero>
+                            <summary class="sec-title" style="font-size:.8rem">Ver detalle financiero ▸</summary>
+                            <dl class="kv mt-2">
+                                <div class="kv-row"><dt>Precio final de venta</dt><dd class="num" id="plan-precio-final">$ @Model.Monto.ToString("N2")</dd></div>
+                                <div class="kv-row"><dt>Anticipo</dt><dd class="num" id="plan-anticipo">$ 0,00</dd></div>
+                                <div class="kv-row"><dt>Saldo a financiar</dt><dd class="num" id="plan-capital">$ @Model.MontoFinanciado.ToString("N2")</dd></div>
+                                <div class="kv-row"><dt>% de recargo total</dt><dd id="plan-tasa">0%</dd></div>
+                                <div class="kv-row"><dt>Importe del recargo</dt><dd class="num" id="plan-interes">$ 0,00</dd></div>
+                                <div class="kv-row"><dt>Gastos administrativos</dt><dd class="num" id="plan-gastos">$ 0,00</dd></div>
+                                <div class="kv-row"><dt>Cuotas sin recargo</dt><dd id="plan-cuotas-sin-recargo">Ninguna</dd></div>
+                            </dl>
+                        </details>
                     </div>
                 </div>
             </div>
@@ -279,7 +289,7 @@
        colores), reagrupados debajo de la tabla en vez de al costado: quedan subordinados
        a elegibilidad, bloqueantes, configuración y resumen, que se ven primero. Se
        mantiene el ancho angosto que tenían en el aside (mismo agrupamiento, nueva
-       posición) para no convertir "Confirmar crédito" en un botón de ancho completo,
+       posición) para no convertir "Guardar configuración" en un botón de ancho completo,
        sólo en desktop — por debajo de 1024px pasa a ancho completo (ver
        venta-page-wizard.css) para no dejar un hueco vacío a la izquierda cuando
        Configuración/Resumen ya se apilaron a una sola columna. *@
@@ -288,9 +298,15 @@
             <div class="sec-title" id="semaforo-title">Evaluacion preliminar</div>
             @* VENTA-FORM-RIESGO-01: aclaración siempre visible (no depende del resultado del
                semáforo) de que este indicador es asesorio: informa el riesgo del plan, no
-               reemplaza la evaluación crediticia ni condiciona "Confirmar crédito" — esa
+               reemplaza la evaluación crediticia ni condiciona "Guardar configuración" — esa
                elegibilidad ya se resolvió en los bloqueantes/cupo mostrados más arriba. *@
             <p class="hint" style="margin-top:.35rem">Indicador orientativo del riesgo del plan: no determina la aprobación del crédito ni bloquea la confirmación.</p>
+            @* VENTA-CREDITO-ARQUITECTURA-VISUAL-01: el badge (dot+label+tag, ej. "Riesgo
+               alto · No bloquea") es ya el resumen compacto de una línea — queda siempre
+               visible. Mensaje + alertas son la ampliación descriptiva: pasan a un <details>
+               propio, colapsado por defecto. Mismos ids, mismo actualizarSemaforo() en
+               configurar-venta-credito.js — no se toca el JS, sólo la posición de mensaje/
+               alertas dentro del árbol. *@
             <div id="semaforo-panel" class="hidden" style="margin-top:.8rem">
                 <div id="semaforo-badge" class="flex items-center justify-between p-3 rounded-lg">
                     <div class="flex items-center gap-3">
@@ -299,8 +315,11 @@
                     </div>
                     <span id="semaforo-tag" class="text-[10px] uppercase font-black"></span>
                 </div>
-                <p id="semaforo-mensaje" class="muted text-sm italic mt-3"></p>
-                <div id="semaforo-alertas" class="space-y-3 mt-3"></div>
+                <details class="mt-3" data-semaforo-detalle>
+                    <summary class="cursor-pointer text-[11px] font-semibold text-slate-400">Ver evaluación ▸</summary>
+                    <p id="semaforo-mensaje" class="muted text-sm italic mt-3"></p>
+                    <div id="semaforo-alertas" class="space-y-3 mt-3"></div>
+                </details>
             </div>
             <div id="semaforo-vacio" class="ph" style="margin-top:.8rem;padding:1.25rem">
                 <span class="material-symbols-outlined">query_stats</span>
@@ -308,6 +327,10 @@
             </div>
         </section>
 
+        @* VENTA-CREDITO-ARQUITECTURA-VISUAL-01: "Confirmar crédito" era ambiguo — este botón
+           persiste la configuración del plan (anticipo/cuotas/fecha), no aprueba elegibilidad
+           (eso ya se resolvió arriba, en bloqueantes/cupo). Copy alineado con la acción real;
+           mismo id/data-hook/comportamiento (venta-credito-embebido.js). *@
         <div class="flex flex-col gap-2" style="margin-top:1rem">
             <button type="button"
                     class="btn btn-success btn-block"
@@ -315,7 +338,7 @@
                     data-credito-embebido-confirmar
                     disabled="@Model.SinPlanesCompatibles">
                 <span class="material-symbols-outlined">check_circle</span>
-                Confirmar crédito
+                Guardar configuración
             </button>
             <p id="credito-embebido-confirmar-feedback" class="hint hidden" role="status"></p>
         </div>

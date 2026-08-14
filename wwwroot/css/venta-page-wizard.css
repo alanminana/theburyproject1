@@ -980,7 +980,19 @@
     margin-bottom: 0.15rem;
 }
 
-/* Evaluación preliminar + Confirmar crédito + Documentación contractual, agrupadas
+/* VENTA-CREDITO-ARQUITECTURA-VISUAL-01: el banner "verificando/mecanismo automático"
+   (#panel-verificacion-crediticia-auto) sólo aporta mientras no hay resultado todavía.
+   Una vez que #panel-resultado-verificacion es la autoridad visible, el banner queda
+   como ruido redundante — se oculta por CSS (mismo patrón :has() ya usado arriba) sin
+   tocar mostrarEstadoVerificandoCrediticia/mostrarResultadoVerificacion en
+   venta-create.js, que siguen escribiendo los mismos ids sin importar si el banner se
+   ve o no. */
+#venta-create-page #panel-verificacion-crediticia:has(> div > #panel-resultado-verificacion:not(.hidden)) #panel-verificacion-crediticia-auto,
+#venta-edit-page #panel-verificacion-crediticia:has(> div > #panel-resultado-verificacion:not(.hidden)) #panel-verificacion-crediticia-auto {
+    display: none;
+}
+
+/* Evaluación preliminar + Guardar configuración + Documentación contractual, agrupadas
    debajo de la tabla de cuotas (ver _ConfigurarVentaEmbebida.cshtml). En desktop
    conservan el ancho angosto que tenían dentro del aside original, alineadas a la
    derecha; por debajo de 1024px (mismo breakpoint donde Configuración/Resumen ya se

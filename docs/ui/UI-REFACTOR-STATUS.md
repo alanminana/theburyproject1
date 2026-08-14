@@ -52,7 +52,23 @@ Resumen no cronológico de lo que quedó implementado:
 - reapertura CREDITO-VISUAL del paso Crédito cerrada (padding monetario, señales/motivos
   no duplicados, densidad/detalle por cuota colapsable, excepción documental contextual
   junto al bloqueante, labels asociados a su input real) sin cambios de cálculo ni de
-  reglas de negocio.
+  reglas de negocio;
+- reapertura VENTA-CREDITO-ARQUITECTURA-VISUAL-01 del paso Crédito — micro-lote 1 de 2:
+  banner de verificación automática se oculta una vez hay resultado; Resultado SCORE
+  compactado (Cupo Disponible + barra siempre visibles, Límite/Utilizado a detalle
+  expandible); excepción documental aplicada colapsa a un teaser de una línea ("Ver
+  motivo ▸") en vez del formulario completo con textarea permanente; "Cantidad de
+  cuotas" y "Valores del crédito" unificados en una única sección "Configurar plan";
+  mini-resumen vivo reducido a cuota/total financiado/cantidad/primer vencimiento, con
+  el resto del detalle financiero colapsado; evaluación preliminar (semáforo) compacta
+  a badge siempre visible + detalle expandible; CTA "Confirmar crédito" renombrado a
+  "Guardar configuración" (no aprobaba elegibilidad, persistía la configuración del
+  plan). Sin cambios de cálculo, reglas de negocio, ids ni contratos backend. Paso
+  Revisión sin cambios en este lote — la transferencia del resumen financiero completo,
+  evaluación y contrato a Revisión queda para VENTA-CREDITO-ARQUITECTURA-VISUAL-02.
+  Hallazgo conocido no corregido en este lote: Enter no alterna los `<details>` del
+  paso Crédito (interceptado por el handler global de avance del wizard en
+  `venta-page-wizard.js`, preexistente — Espacio sí funciona correctamente).
 
 ## Venta / Details — cerrado
 

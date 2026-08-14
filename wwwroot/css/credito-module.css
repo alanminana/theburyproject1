@@ -685,7 +685,10 @@ select.field {
 /* ---------- Detalle por cuota (details/summary nativo, CREDITO-VISUAL-02B) ----------
    Marcador de apertura/cierre y rotación quedan a cargo del navegador (list-item nativo
    de <summary>, sin JS ni chevron propio); acá sólo se ajustan cursor, color del
-   marcador para que sea legible en dark mode y el foco visible del módulo. */
+   marcador para que sea legible en dark mode y el foco visible del módulo. Selector
+   scopeado a [data-plan-cuotas-detalle] (no a la raíz del módulo): esta pantalla vive
+   tanto standalone (ConfigurarVenta_tw.cshtml, data-credito-config) como embebida en el
+   wizard de Venta (data-credito-config-embedded) y ambas comparten este mismo bloque. */
 [data-plan-cuotas-detalle] summary {
   cursor: pointer;
 }
@@ -695,6 +698,29 @@ select.field {
 }
 
 [data-plan-cuotas-detalle] summary:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* ---------- Detalles colapsables nuevos del fragmento embebido (VENTA-CREDITO-
+   ARQUITECTURA-VISUAL-01) — mini-resumen "Ver detalle financiero" y semáforo "Ver
+   evaluación". Sólo existen en el fragmento inyectado dentro del wizard de Venta
+   ([data-credito-config-embedded]): la página standalone no los tiene, así que no se
+   generaliza a la raíz [data-credito-config] compartida. Mismo tratamiento visual que
+   [data-plan-cuotas-detalle] de arriba. */
+[data-credito-config-embedded] [data-plan-detalle-financiero] summary,
+[data-credito-config-embedded] [data-semaforo-detalle] summary {
+  cursor: pointer;
+}
+
+[data-credito-config-embedded] [data-plan-detalle-financiero] summary::marker,
+[data-credito-config-embedded] [data-semaforo-detalle] summary::marker {
+  color: var(--muted-2);
+}
+
+[data-credito-config-embedded] [data-plan-detalle-financiero] summary:focus-visible,
+[data-credito-config-embedded] [data-semaforo-detalle] summary:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
   border-radius: 6px;

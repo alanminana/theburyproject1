@@ -2210,13 +2210,16 @@
         const btnCancelar = $('#btn-cancelar-excepcion');
         if (btnCancelar) btnCancelar.classList.remove('hidden');
 
-        const badge = document.getElementById('excepcion-aplicada-badge');
-        if (badge) badge.remove();
-
         hide($('#panel-excepcion-crediticia'));
         hide($('#panel-excepcion-inactiva'));
         hide($('#panel-excepcion-activa'));
         hide($('#excepcion-alcance-nota'));
+
+        // VENTA-CREDITO-ARQUITECTURA-VISUAL-01: cualquier reset vuelve el panel al modo
+        // "formulario" (nunca debe quedar el resumen colapsado mostrado sin una excepción
+        // realmente confirmada).
+        show($('#excepcion-formulario'));
+        hide($('#excepcion-confirmada-resumen'));
 
         // CREDITO-VISUAL-03: aria-expanded sincronizado con el mismo estado que gobierna
         // mostrar/ocultar el panel — nunca queda un valor stale en el disparador.
@@ -2571,16 +2574,19 @@
         const errEl = document.getElementById('excepcion-motivo-error');
         if (errEl) errEl.remove();
 
-        // Restore buttons and remove confirmed badge
+        // Restore buttons
         const btnConfirmar = $('#btn-confirmar-excepcion');
         if (btnConfirmar) btnConfirmar.classList.remove('hidden');
         const btnCancelar = $('#btn-cancelar-excepcion');
         if (btnCancelar) btnCancelar.classList.remove('hidden');
-        const badge = document.getElementById('excepcion-aplicada-badge');
-        if (badge) badge.remove();
 
         const btnAplicarExcepcion = $('#btn-aplicar-excepcion');
         if (btnAplicarExcepcion) btnAplicarExcepcion.setAttribute('aria-expanded', 'false');
+
+        // VENTA-CREDITO-ARQUITECTURA-VISUAL-01: cancelar vuelve siempre al formulario
+        // (el resumen colapsado sólo tiene sentido con una excepción ya confirmada).
+        show($('#excepcion-formulario'));
+        hide($('#excepcion-confirmada-resumen'));
 
         if (esPrevalidacionExceptuable(ultimaPrevalidacion)) {
             show($('#panel-excepcion-crediticia'));
@@ -2637,18 +2643,14 @@
         const btnCancelar = $('#btn-cancelar-excepcion');
         if (btnCancelar) btnCancelar.classList.add('hidden');
 
-        // Mostrar badge de excepción aplicada
-        const panelActivo = $('#panel-excepcion-activa');
-        if (panelActivo) {
-            let badge = document.getElementById('excepcion-aplicada-badge');
-            if (!badge) {
-                badge = document.createElement('div');
-                badge.id = 'excepcion-aplicada-badge';
-                badge.className = 'flex items-center gap-2 mt-3 text-green-400 text-sm font-semibold';
-                badge.innerHTML = '<span class="material-symbols-outlined text-base">check_circle</span> Excepción aplicada. Ahora configurá el crédito (anticipo, cuotas y contrato) más abajo para poder guardar.';
-                panelActivo.appendChild(badge);
-            }
-        }
+        // VENTA-CREDITO-ARQUITECTURA-VISUAL-01: ya confirmada, el formulario completo
+        // (textarea de ~80px siempre visible) deja paso al teaser colapsado — mismo
+        // motivo, sin textarea permanente en pantalla. El textarea sigue existiendo
+        // (oculto) porque su valor es el que viaja en el submit.
+        hide($('#excepcion-formulario'));
+        show($('#excepcion-confirmada-resumen'));
+        const resumenMotivo = $('#excepcion-motivo-resumen');
+        if (resumenMotivo) resumenMotivo.textContent = motivo;
     }
 
     // "Aplicar y continuar" dentro del panel: valida motivo, activa la excepción y bloquea el panel para edición
