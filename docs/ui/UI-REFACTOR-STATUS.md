@@ -130,6 +130,35 @@ Resumen no cronológico de lo que quedó implementado:
   oculto incondicionalmente durante todo el paso, no en una captura puntual de ese
   instante. El apilado de Vendedor/Observaciones/Volver/Imprimir debajo del contenido
   (explícitamente opcional en la spec) no se implementó.
+- reapertura VENTA-CREDITO-REDESIGN-VISUAL-CIERRE-01 del paso Crédito: cierra la mitad
+  inferior en exactamente 2 superficies principales para todo el paso (Estado del
+  crédito + Configurar plan). Antes de este lote esa mitad seguía leyéndose como hasta 4
+  bloques con chrome propio consecutivos: título externo "Configuración de Crédito
+  Personal" (retirado — "Configurar plan" queda como única identidad de sección) + card
+  "Configurar plan" + `<aside>` "Resumen del plan" (retirado — el resultado vivo se
+  integra al cierre de la misma card, sin su propio wrapper ni la caja verde
+  `.result-card.is-ok`) + card "Ver desglose" (retirado — el mismo `<details>` fusionado
+  en VISUAL-IMPLEMENTACION-01 pasa a vivir sin wrapper de card propio). "Cantidad de
+  cuotas" se suma a la grilla de Anticipo/Gastos/Vencimiento (antes ocupaba una fila
+  propia a ancho completo sin razón funcional) con un umbral nuevo de contenedor a 4
+  columnas. CTA: el hero global del wizard (`[data-wizard-primary]`, header + barra
+  sticky mobile) se oculta durante Crédito en cuanto existe un botón equivalente dentro
+  del Plan (`guardar-configuracion`/`continuar-revision`) — sólo `verify-credit` (sin
+  equivalente en el Plan) lo deja visible; nunca dos "Guardar configuración" a la vez.
+  Sidebar: sólo durante el paso Crédito (todos los viewports, incluido desktop ≥1280px)
+  el grid principal del wizard pasa a una columna — Vendedor/Observaciones/Volver/
+  Imprimir fluyen debajo del contenido en vez de reservar una columna propia (~30% del
+  ancho, casi vacía durante todo el scroll); el resto de los pasos no cambia. Sin cambios
+  de cálculo, reglas de negocio, ids ni contratos backend; standalone
+  `ConfigurarVenta_tw.cshtml` sin diff. 1 regresión propia encontrada y corregida antes
+  de cerrar: retirar el wrapper `data-plan-cuotas-detalle` de la card de "Ver desglose"
+  dejaba sin estilo (cursor/marcador/foco visible) al `<summary>` embebido — la regla CSS
+  scopeada a ese atributo sumó la variante `data-plan-cuotas-detalle-details` (que ya
+  llevaba el `<details>`) como bloque propio, sin tocar el selector original que protege
+  la página standalone. Validado en vivo (Playwright, Create y Edit) en 1440/1280/1024/
+  768/390/360px sin overflow horizontal, teclado (Enter/Espacio en "Ver desglose"),
+  guardar → continuar a revisión → volver a Crédito sin pérdida de valores, y standalone
+  intacto; 4731/4733 tests (2 skipped ajenos), 0 rojos propios.
 
 ## Venta / Details — cerrado
 
