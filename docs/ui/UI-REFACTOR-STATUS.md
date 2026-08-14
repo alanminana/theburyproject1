@@ -97,6 +97,39 @@ Resumen no cronológico de lo que quedó implementado:
   generado" no se ejercitaron en esta corrida; colisión preexistente de `id="plan-total"`
   entre `_ConfigurarVentaEmbebida.cshtml` y `_CotizadorForm.cshtml` (ajena a este lote,
   sin efecto funcional porque el JS de Crédito siempre consulta con `root` scopeado).
+- reapertura VENTA-CREDITO-REDESIGN-VISUAL-IMPLEMENTACION-01 del paso Crédito: reduce el
+  paso a 2 superficies principales. "Verificación crediticia" se renombra a "Estado del
+  crédito" y fusiona en una sola superficie (filas `.credito-estado-row`, separador
+  superior liviano, color sólo en ícono/texto) lo que antes eran hasta 6 cards con fondo/
+  borde propio — Resultado SCORE, Cupo suficiente (eliminado, redundante), Documentación,
+  Excepción documental aplicada, Alerta de Mora, Otros motivos — más una fila nueva
+  "Riesgo" espejada del mismo semáforo que ya calcula "Configurar plan"
+  (`actualizarSemaforo`, sin segundo cálculo ni fetch; la card "Evaluación preliminar" se
+  retira de Configurar plan). "Ver detalle financiero" y "Detalle por cuota" se fusionan
+  en un único `<details>` "Ver desglose ▸" (antes dos expansiones separadas). El motivo
+  completo de la excepción documental se reubica de un `<details>Ver motivo▸` en Crédito a
+  texto plano en Revisión (mismo id/gate de permiso, sin duplicarse). CTA: nuevo estado
+  `scoreDisponible` (SCORE ya corrió, independiente de si el plan quedó guardado) permite
+  que el CTA contextual pase por Verificar crédito → Guardar configuración → Continuar a
+  revisión sin inventar "Reverificar"; el submit persistente del sidebar (`#btn-confirmar`)
+  se oculta por completo durante todo el paso Crédito porque nunca ejecutaba esa acción
+  (sólo avanzar(), bloqueado en ese paso) — corrige la incoherencia de 2/3 CTAs "Verificar
+  crédito" simultáneos detectada en el audit previo. Sin cambios de cálculo, reglas de
+  negocio, ids ni contratos backend; standalone `ConfigurarVenta_tw.cshtml` con 0 diff.
+  2 bugs propios de este lote encontrados y corregidos en vivo con Playwright antes de
+  cerrar: colisión de CSS Cascade Layers (una regla sin `@layer` le ganaba a `.hidden` de
+  Tailwind, dejando filas vacías visibles antes de tener datos) y un CTA "Guardar
+  configuración" en no-op silencioso cuando el configurador embebido queda bloqueado
+  (fallback agregado con el mismo helper `mostrarRequisitoCredito` ya usado en otros
+  bloqueos del wizard). Validado en vivo (cliente con documentación+cupo+mora
+  bloqueantes, excepción aplicada, plan guardado, Revisión con motivo completo) en
+  1440/1280/1024/390px sin overflow horizontal; 4718/4720 tests (2 skipped ajenos), 0
+  rojos propios. Deuda no bloqueante: no se aisló con precisión el instante "SCORE aún no
+  corrió" en pruebas scripteadas (el fetch resuelve demasiado rápido en el entorno local);
+  la garantía de "sin CTA duplicado" en ese sub-estado se apoya en que el sidebar queda
+  oculto incondicionalmente durante todo el paso, no en una captura puntual de ese
+  instante. El apilado de Vendedor/Observaciones/Volver/Imprimir debajo del contenido
+  (explícitamente opcional en la spec) no se implementó.
 
 ## Venta / Details — cerrado
 
