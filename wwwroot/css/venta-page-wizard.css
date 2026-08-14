@@ -752,7 +752,14 @@
    RESPONSIVE
    ══════════════════════════════════════════════════════════════ */
 
-@media (max-width: 1023px) {
+/* VENTA-CREDITO-ARQUITECTURA-VISUAL-02 (§15): el split sidebar/contenido pasa de 1024
+   a 1280 (antes lg: de Tailwind). A 1024px con el split viejo la columna de contenido
+   quedaba angosta (~220px reales dentro del wizard, ver comentario de
+   VENTA-FORM-PAGO-CREDITO-1024-FIX en credito-module.css) y la sidebar seguía ocupando
+   ancho sin aportar — 76-83% del scroll con la misma info estática visible. Apilar hasta
+   1280 le devuelve el ancho completo al contenido en ese rango; medido con Playwright
+   contra 1024 con sidebar vs. 1024 apilada (altura total, ancho de inputs, legibilidad). */
+@media (max-width: 1279px) {
 
     #venta-create-page .hero-erp {
         position: relative;
@@ -764,13 +771,29 @@
         position: static;
     }
 
+    /* El propio markup trae las utilities precompiladas de Tailwind "lg:grid-cols-12" /
+       "lg:col-span-8" / "lg:col-span-4" (lg: = min-width:1024px, tailwind.css no se
+       regenera en este micro-lote — ver credito-module.css). Sin este reset seguirían
+       activas entre 1024 y 1279px y el split angosto reaparecería exactamente en el
+       rango que se quiere apilar. Misma especificidad (2 ids) que el bloque >=1280px de
+       abajo para ganarle a esas clases sin depender del orden de las hojas de estilo. */
+    #venta-create-page #venta-form>.grid,
+    #venta-edit-page #venta-form>.grid {
+        grid-template-columns: 1fr;
+    }
+
+    #venta-create-page #venta-form>.grid>*,
+    #venta-edit-page #venta-form>.grid>* {
+        grid-column: auto;
+    }
+
     #venta-create-page .venta-edit-hero-metrics,
     #venta-edit-page .venta-edit-hero-metrics {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 1280px) {
 
     #venta-create-page #venta-form>.grid,
     #venta-edit-page #venta-form>.grid {
@@ -900,7 +923,7 @@
    se ocultan: sus paneles ya están cerrados y sus totales/CTA no aplican.
    La variante con `#venta-form >` existe por especificidad: hay que ganarle a
    `#venta-create-page #venta-form>.grid { display: grid }` (2 ids) del bloque
-   >=1024px y a `#venta-create-page .vm-mobile-summary-bar { display: flex }`. */
+   >=1280px y a `#venta-create-page .vm-mobile-summary-bar { display: flex }`. */
 #venta-create-page[data-paso-activo="cotizar"] [data-venta-workspace],
 #venta-create-page[data-paso-activo="cotizar"] #venta-form>[data-venta-workspace] {
     display: none;
@@ -992,19 +1015,20 @@
     display: none;
 }
 
-/* Evaluación preliminar + Guardar configuración + Documentación contractual, agrupadas
-   debajo de la tabla de cuotas (ver _ConfigurarVentaEmbebida.cshtml). En desktop
+/* Evaluación preliminar + Guardar configuración, agrupadas debajo de la tabla de cuotas
+   (ver _ConfigurarVentaEmbebida.cshtml — la Documentación contractual se movió a
+   Revisión en tiempo de ejecución, VENTA-CREDITO-ARQUITECTURA-VISUAL-02 §7). En desktop
    conservan el ancho angosto que tenían dentro del aside original, alineadas a la
-   derecha; por debajo de 1024px (mismo breakpoint donde Configuración/Resumen ya se
-   apilan a una columna, ver grid lg:grid-cols-3 del fragmento) pasan a ancho completo
-   para no dejar un hueco vacío a la izquierda en tablet. */
+   derecha; por debajo de 1280px (mismo breakpoint donde la sidebar del wizard ya se
+   apila, ver @media (max-width: 1279px) más arriba) pasan a ancho completo para no dejar
+   un hueco vacío a la izquierda. */
 #venta-create-page .credito-embebido-cierre,
 #venta-edit-page .credito-embebido-cierre {
     max-width: 26rem;
     margin-left: auto;
 }
 
-@media (max-width: 1023px) {
+@media (max-width: 1279px) {
 
     #venta-create-page .credito-embebido-cierre,
     #venta-edit-page .credito-embebido-cierre {

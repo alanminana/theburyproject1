@@ -230,6 +230,7 @@
                 onCambioPlan: () => { if (configurado) dispatchConfigurado(false); }
             });
             wireBotonesEmbebidos();
+            moverContratoARevision();
             cargado = true;
 
             // Sincronizar "configurado" con lo que el servidor efectivamente refleja en
@@ -245,9 +246,38 @@
         }
     }
 
+    // ── Mover la documentación contractual a Revisión ──────────────────────
+    // VENTA-CREDITO-ARQUITECTURA-VISUAL-02 (§7): el fragmento inyectado siempre trae la
+    // sección contractual dentro de #credito-embebido-contenedor (paso Crédito), porque
+    // es donde llega la respuesta del fetch — no hay forma de que el servidor la renderice
+    // ya ubicada en otro paso. Se reubica acá en tiempo de ejecución: mismo nodo real
+    // (mismos ids/data-hooks/listeners, ya conectados por wireBotonesEmbebidos justo
+    // antes), sólo cambia su posición en el árbol. appendChild lo desconecta de
+    // #credito-embebido-contenedor automáticamente (un nodo no puede tener dos padres) —
+    // Crédito deja de mostrarlo sin que se duplique en ningún lado. El slot se limpia
+    // antes de recibir el nodo fresco porque cada recarga del fragmento reconstruye una
+    // sección contractual nueva (innerHTML completo): sin esto, la versión previa movida
+    // quedaría huérfana pero igual visible (stale) en Revisión.
+    function moverContratoARevision() {
+        const seccionContrato = contenedor.querySelector('[data-credito-embebido-contrato-seccion]');
+        const destino = document.getElementById('revision-credito-contrato-slot');
+        if (!seccionContrato || !destino) return;
+        destino.innerHTML = '';
+        destino.appendChild(seccionContrato);
+    }
+
     function wireBotonesEmbebidos() {
         const btnConfirmar = contenedor.querySelector('[data-credito-embebido-confirmar]');
         const feedback = contenedor.querySelector('#credito-embebido-confirmar-feedback');
+        // VENTA-CREDITO-ARQUITECTURA-VISUAL-02 (§9): sólo existe en el markup cuando el
+        // servidor ya confirma Model.CreditoEstaConfigurado (ver _ConfigurarVentaEmbebida.cshtml)
+        // — no hace falta ningún estado JS adicional para decidir si mostrarlo.
+        const btnContinuarRevision = contenedor.querySelector('[data-credito-embebido-continuar-revision]');
+        btnContinuarRevision?.addEventListener('click', () => {
+            window.VentaWizard?.setActiveStep?.('revision');
+            document.getElementById('step-btn-revision')?.focus({ preventScroll: true });
+            document.getElementById('step-panel-revision')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
 
         btnConfirmar?.addEventListener('click', async () => {
             btnConfirmar.disabled = true;
@@ -344,8 +374,17 @@
     // Cubre llegar al paso "Crédito" sin clickear la pestaña (p.ej. el botón primario
     // "Continuar a crédito" desde Pago, que navega vía avanzar()/setActiveStep()): sin
     // este listener el fragmento nunca se pedía y el panel quedaba vacío.
+    //
+    // VENTA-CREDITO-ARQUITECTURA-VISUAL-02: también cubre llegar directo a "Revisión" sin
+    // pasar por Crédito — posible en Edición, donde creditoValidado ya arranca en true
+    // (Model.CreditoConfigurado sembrado) y la pestaña Revisión queda habilitada desde el
+    // inicio. Sin este fetch el espejo financiero/evaluación de Revisión (ver
+    // actualizarPlanResumen/actualizarSemaforo en configurar-venta-credito.js) se queda en
+    // ceros porque esos valores sólo existen una vez que este mismo fragmento se cargó al
+    // menos una vez. Sigue siendo el único fetch (cargarConfigurador ya es idempotente vía
+    // `cargado`) — Revisión nunca dispara uno propio.
     document.addEventListener('venta:wizard-paso-activo', (event) => {
-        if (event.detail?.step !== 'credito') return;
+        if (event.detail?.step !== 'credito' && event.detail?.step !== 'revision') return;
         if (stepBtnCredito?.disabled) return;
         if (!cargado) cargarConfigurador();
     });

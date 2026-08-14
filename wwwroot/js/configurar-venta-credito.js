@@ -79,6 +79,32 @@
         // que si el usuario ya lo abrió, una recalculación en vivo no lo vuelve a cerrar.
         const planCuotasDetalleSummary = $('[data-plan-cuotas-detalle-summary]');
 
+        // VENTA-CREDITO-ARQUITECTURA-VISUAL-02: espejo de Revisión (Step 5) — mismos
+        // valores que ya pinta el Resumen del plan de arriba, nunca un segundo cálculo ni
+        // un segundo fetch (ver actualizarPlanResumen/actualizarSemaforo más abajo, únicos
+        // puntos que escriben estos nodos). Sólo existen embebido en el wizard de Venta;
+        // viven fuera de `root` (en #step-panel-revision), por eso se buscan sobre
+        // `document`, no sobre `root` — la página standalone (embebido=false) no los tiene.
+        const revTotal = embebido ? document.getElementById('rev-credito-total') : null;
+        const revCuotaLabel = embebido ? document.getElementById('rev-credito-cuota-label') : null;
+        const revCuota = embebido ? document.getElementById('rev-credito-cuota') : null;
+        const revFecha = embebido ? document.getElementById('rev-credito-fecha') : null;
+        const revPrecioFinal = embebido ? document.getElementById('rev-credito-precio-final') : null;
+        const revAnticipo = embebido ? document.getElementById('rev-credito-anticipo') : null;
+        const revSaldo = embebido ? document.getElementById('rev-credito-saldo') : null;
+        const revTasa = embebido ? document.getElementById('rev-credito-tasa') : null;
+        const revInteres = embebido ? document.getElementById('rev-credito-interes') : null;
+        const revGastos = embebido ? document.getElementById('rev-credito-gastos') : null;
+        const revCuotasSinRecargo = embebido ? document.getElementById('rev-credito-cuotas-sin-recargo') : null;
+
+        const revSemaforoPanel = embebido ? document.getElementById('rev-semaforo-panel') : null;
+        const revSemaforoDot = embebido ? document.getElementById('rev-semaforo-dot') : null;
+        const revSemaforoBadge = embebido ? document.getElementById('rev-semaforo-badge') : null;
+        const revSemaforoLabel = embebido ? document.getElementById('rev-semaforo-label') : null;
+        const revSemaforoTag = embebido ? document.getElementById('rev-semaforo-tag') : null;
+        const revSemaforoMensaje = embebido ? document.getElementById('rev-semaforo-mensaje') : null;
+        const revSemaforoAlertas = embebido ? document.getElementById('rev-semaforo-alertas') : null;
+
         // Semáforo
         const semaforoPanel    = $('#semaforo-panel');
         const semaforoVacio    = $('#semaforo-vacio');
@@ -390,6 +416,21 @@
                 badgeTasaFuente.textContent = data.fuentePorcentaje;
                 show(badgeTasaFuente);
             }
+
+            // VENTA-CREDITO-ARQUITECTURA-VISUAL-02: espejo hacia Revisión, mismos valores
+            // recién pintados arriba — ningún cálculo nuevo, sólo se copian a un segundo
+            // nodo (mismo patrón que hero-*/data-rev-* en venta-page-wizard.js).
+            if (revTotal) revTotal.textContent = formatCurrency(data.totalAPagar);
+            if (revCuotaLabel) revCuotaLabel.textContent = planCuotaDetalle ? planCuotaDetalle.textContent : 'Cuota';
+            if (revCuota) revCuota.textContent = formatCurrency(data.cuotaEstimada);
+            if (revFecha) revFecha.textContent = data.fechaPrimerPago ? formatDateDisplay(data.fechaPrimerPago) : '-';
+            if (revPrecioFinal) revPrecioFinal.textContent = formatCurrency(data.totalVenta ?? 0);
+            if (revAnticipo) revAnticipo.textContent = formatCurrency(data.anticipo ?? 0);
+            if (revSaldo) revSaldo.textContent = formatCurrency(data.montoFinanciado);
+            if (revTasa) revTasa.textContent = `${data.tasaAplicada?.toFixed(2) ?? '0'}%`;
+            if (revInteres) revInteres.textContent = formatCurrency(data.interesTotal);
+            if (revGastos) revGastos.textContent = formatCurrency(data.gastosAdministrativos);
+            if (revCuotasSinRecargo) revCuotasSinRecargo.textContent = formatearCuotasSinRecargo(data.cuotasSinRecargo);
         }
 
         function resetPlanResumen() {
@@ -413,6 +454,18 @@
             hide(planSimulando);
             hide(planError);
             deshabilitarConfirmar(true);
+
+            if (revTotal) revTotal.textContent = '$ 0,00';
+            if (revCuotaLabel) revCuotaLabel.textContent = 'Cuota';
+            if (revCuota) revCuota.textContent = '$ 0,00';
+            if (revFecha) revFecha.textContent = '-';
+            if (revPrecioFinal) revPrecioFinal.textContent = '$ 0,00';
+            if (revAnticipo) revAnticipo.textContent = '$ 0,00';
+            if (revSaldo) revSaldo.textContent = '$ 0,00';
+            if (revTasa) revTasa.textContent = '0%';
+            if (revInteres) revInteres.textContent = '$ 0,00';
+            if (revGastos) revGastos.textContent = '$ 0,00';
+            if (revCuotasSinRecargo) revCuotasSinRecargo.textContent = 'Ninguna';
         }
 
         // ── 4. Semáforo de Evaluación ─────────────────────────────────────
@@ -423,11 +476,13 @@
             if (!estado || estado === 'sinDatos') {
                 hide(semaforoPanel);
                 show(semaforoVacio);
+                if (revSemaforoPanel) hide(revSemaforoPanel);
                 return;
             }
 
             hide(semaforoVacio);
             show(semaforoPanel);
+            if (revSemaforoPanel) show(revSemaforoPanel);
 
             // VENTA-FORM-RIESGO-01: el semáforo es asesorio, no una decisión de
             // aprobación/rechazo (esa elegibilidad ya la resuelven los bloqueantes y el
@@ -497,6 +552,22 @@
                     <span>Antigüedad laboral insuficiente.</span>
                 </div>`;
             }
+
+            // VENTA-CREDITO-ARQUITECTURA-VISUAL-02: espejo hacia Revisión — mismo `config`
+            // ya resuelto arriba (una sola vez) y mismo HTML de alertas ya armado, sólo se
+            // copian a un segundo juego de nodos.
+            if (revSemaforoDot) revSemaforoDot.className = `size-4 rounded-full ${config.dotClass}`;
+            if (revSemaforoBadge) revSemaforoBadge.className = `flex items-center justify-between p-3 rounded-lg ${config.badgeClass}`;
+            if (revSemaforoLabel) {
+                revSemaforoLabel.className = `font-bold ${config.labelClass}`;
+                revSemaforoLabel.textContent = config.label;
+            }
+            if (revSemaforoTag) {
+                revSemaforoTag.className = `text-[10px] uppercase font-black ${config.tagClass}`;
+                revSemaforoTag.textContent = config.tag;
+            }
+            if (revSemaforoMensaje) revSemaforoMensaje.textContent = `"${mensaje}"`;
+            if (revSemaforoAlertas) revSemaforoAlertas.innerHTML = semaforoAlertas.innerHTML;
         }
 
         // ── 5. Event Listeners ────────────────────────────────────────────

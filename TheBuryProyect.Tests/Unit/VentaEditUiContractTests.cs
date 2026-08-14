@@ -46,6 +46,18 @@ public class VentaEditUiContractTests
         Assert.Contains("id=\"detalles-hidden-inputs\"", view);
     }
 
+    // VENTA-CREDITO-ARQUITECTURA-VISUAL-02 — paridad Create/Edit vía el mismo parcial.
+
+    [Fact]
+    public void EditView_RevisionTieneSeccionCreditoPersonal()
+    {
+        var view = ReadComposedView("Edit_tw.cshtml");
+
+        Assert.Contains("id=\"revision-credito-personal\"", view);
+        Assert.Contains("id=\"revision-credito-contrato-slot\"", view);
+        Assert.Contains("data-rev-credito-elegibilidad", view);
+    }
+
     [Fact]
     public void VentaCreateJs_TieneSeedVentaInicial()
     {

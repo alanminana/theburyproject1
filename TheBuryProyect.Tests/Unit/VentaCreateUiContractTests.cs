@@ -1063,6 +1063,80 @@ public class VentaCreateUiContractTests
         Assert.DoesNotContain("venta-crear-modal.js", view);
     }
 
+    // VENTA-CREDITO-ARQUITECTURA-VISUAL-02 — Revisión recibe el resumen financiero
+    // completo, la evaluación completa, el estado/excepciones y el slot de contrato de
+    // Crédito Personal. Todos los valores son un espejo (configurar-venta-credito.js /
+    // venta-page-wizard.js), nunca un segundo cálculo.
+
+    [Fact]
+    public void CreateView_RevisionTieneSeccionCreditoPersonalConHooksCompletos()
+    {
+        var view = ReadComposedView("Create_tw.cshtml");
+
+        foreach (var id in new[]
+        {
+            "revision-credito-personal", "rev-credito-total", "rev-credito-cuota-label",
+            "rev-credito-cuota", "rev-credito-fecha", "rev-credito-precio-final",
+            "rev-credito-anticipo", "rev-credito-saldo", "rev-credito-tasa",
+            "rev-credito-interes", "rev-credito-gastos", "rev-credito-cuotas-sin-recargo",
+            "rev-semaforo-panel", "rev-semaforo-dot", "rev-semaforo-label", "rev-semaforo-tag",
+            "rev-semaforo-mensaje", "rev-semaforo-alertas", "rev-credito-pendientes-nota",
+            "revision-credito-contrato-slot"
+        })
+        {
+            Assert.Contains($"id=\"{id}\"", view);
+        }
+
+        Assert.Contains("data-revision-detalle-financiero", view);
+        Assert.Contains("data-revision-semaforo-detalle", view);
+        Assert.Contains("data-rev-credito-elegibilidad", view);
+        Assert.Contains("data-rev-credito-pendientes", view);
+        Assert.Contains("data-rev-credito-excepcion", view);
+
+        // Oculta por defecto: sólo se muestra por JS cuando el pago es Crédito Personal.
+        var idx = view.IndexOf("id=\"revision-credito-personal\"", StringComparison.Ordinal);
+        Assert.True(idx >= 0);
+        var context = view[idx..(idx + 120)];
+        Assert.Contains("hidden", context);
+    }
+
+    [Fact]
+    public void CreateView_SidebarObservacionesColapsadaYVendedorCompacto()
+    {
+        var view = ReadComposedView("Create_tw.cshtml");
+
+        // Observaciones sigue siendo el mismo textarea/binding, ahora dentro de <details>.
+        Assert.Contains("asp-for=\"Observaciones\"", view);
+        Assert.Contains("id=\"Observaciones\"", view);
+        var idxObs = view.IndexOf("asp-for=\"Observaciones\"", StringComparison.Ordinal);
+        var idxDetailsAntes = view.LastIndexOf("<details", idxObs, StringComparison.Ordinal);
+        Assert.True(idxDetailsAntes >= 0, "Observaciones debe vivir dentro de un <details>.");
+
+        // La card completa de Vendedor (avatar + "Vendedor asignado") ya no existe.
+        Assert.DoesNotContain("Vendedor asignado", view);
+    }
+
+    [Fact]
+    public void VentaPageWizardJs_NoInterceptaEnterSobreSummary()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-page-wizard.js"));
+        var keydown = ExtractFunction(script, "ventaForm?.addEventListener('keydown'");
+
+        Assert.Contains("event.target.closest('summary')", keydown);
+    }
+
+    [Fact]
+    public void VentaCredicoEmbebidoJs_MueveContratoARevisionYConectaContinuar()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-credito-embebido.js"));
+
+        Assert.Contains("function moverContratoARevision", script);
+        Assert.Contains("data-credito-embebido-contrato-seccion", script);
+        Assert.Contains("revision-credito-contrato-slot", script);
+        Assert.Contains("data-credito-embebido-continuar-revision", script);
+        Assert.Contains("window.VentaWizard?.setActiveStep?.('revision')", script);
+    }
+
     // KIRA-VENTAS-PAGE-REWORK-1E - pago, credito, documentacion y excepcion
 
     [Fact]

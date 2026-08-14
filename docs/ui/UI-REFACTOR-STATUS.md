@@ -69,6 +69,34 @@ Resumen no cronológico de lo que quedó implementado:
   Hallazgo conocido no corregido en este lote: Enter no alterna los `<details>` del
   paso Crédito (interceptado por el handler global de avance del wizard en
   `venta-page-wizard.js`, preexistente — Espacio sí funciona correctamente).
+- reapertura VENTA-CREDITO-ARQUITECTURA-VISUAL-02 del paso Crédito — micro-lote 2 de 2,
+  completa la arquitectura: Revisión pasa a ser la fase real de revisión financiera/
+  asesoria/contractual, Crédito queda enfocado en configurar. Resumen financiero completo,
+  evaluación preliminar completa y estado final (elegibilidad/pendientes/excepción
+  documental) se muestran en Revisión como un espejo de la misma autoridad que ya los
+  calcula/pinta en Crédito (`actualizarPlanResumen`/`actualizarSemaforo` en
+  `configurar-venta-credito.js`) — mismo `data` de `/Credito/SimularPlanVenta`, sin
+  segundo cálculo ni segundo fetch; la documentación contractual se reubica en Revisión
+  moviendo el nodo real del DOM (mismos ids/listeners) en vez de duplicarlo. "Documentación
+  — exceptuada" reemplaza el rojo de bloqueante real en "Otros motivos" una vez aplicada la
+  excepción documental (antes volvía a aparecer como pendiente sin resolver, contradiciendo
+  la excepción ya aplicada). Sidebar compactada (Vendedor a meta-línea, Observaciones a
+  `<details>` colapsado por defecto). Breakpoint del split sidebar/contenido del wizard
+  pasa de 1024 a 1280 (antes `lg:` de Tailwind): a 1024px la sidebar se apila y el
+  contenido recupera el ancho completo — altura de Step 4 medida con Playwright bajó de
+  ~2924px a ~1777px en 1024×720 (y mejoras equivalentes en el resto de los viewports
+  obligatorios), sin overflow horizontal en ningún caso. Enter ahora sí alterna los
+  `<details>` (excluido del handler global de avance sólo cuando el foco está en un
+  `<summary>`; Espacio seguía funcionando). "Continuar a revisión" aparece tras guardar la
+  configuración del crédito. Sin cambios de cálculo, reglas de negocio, ids ni contratos
+  backend. Validado en vivo con Playwright (Create y Edit, cliente con documentación+cupo+
+  mora bloqueantes, excepción aplicada, plan configurado, "no viable" con plan guardado)
+  y 4706/4706 tests (2 skipped ajenos), 0 rojos propios.
+  Deuda conocida no bloqueante: no se agregó spec E2E versionado nuevo (la validación fue
+  interactiva vía Playwright MCP); estados "viable sin bloqueantes" y "contrato ya
+  generado" no se ejercitaron en esta corrida; colisión preexistente de `id="plan-total"`
+  entre `_ConfigurarVentaEmbebida.cshtml` y `_CotizadorForm.cshtml` (ajena a este lote,
+  sin efecto funcional porque el JS de Crédito siempre consulta con `root` scopeado).
 
 ## Venta / Details — cerrado
 

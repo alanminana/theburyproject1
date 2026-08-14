@@ -2336,8 +2336,17 @@
                 // PUN-ML10-F: categoría 6 = Punitorio (CategoriaMotivo.Punitorio). Ícono propio para
                 // no mostrarlo genérico ("info") junto a Documentación/Cupo/Mora/EstadoCliente/Config.
                 const iconMap = { 1: 'description', 2: 'account_balance', 3: 'schedule', 4: 'person_off', 5: 'settings', 6: 'paid' };
-                const icon = iconMap[m.categoria] || 'info';
-                const colorCls = m.esBloqueante ? 'text-red-500 bg-red-500/10 border-red-500/20' : 'text-amber-600 bg-amber-500/10 border-amber-500/20';
+                // VENTA-CREDITO-ARQUITECTURA-VISUAL-02 (§11/§12): con la excepción documental
+                // aplicada, #panel-documentacion-faltante se oculta y este motivo (categoría 1)
+                // vuelve a filtrarse acá — sin recategorizar, seguiría pintándose con el rojo de
+                // bloqueante real, contradiciendo que ya se exceptuó (regresión reportada de 01).
+                // El hecho no se elimina (contrato CV-02A), sólo cambia su semántica visual a
+                // "resuelto por excepción", nunca a "bloqueante pendiente".
+                const esDocumentacionExceptuada = m.categoria === 1 && excepcionActiva;
+                const icon = esDocumentacionExceptuada ? 'check_circle' : (iconMap[m.categoria] || 'info');
+                const colorCls = esDocumentacionExceptuada
+                    ? 'text-emerald-600 bg-emerald-500/10 border-emerald-500/20'
+                    : (m.esBloqueante ? 'text-red-500 bg-red-500/10 border-red-500/20' : 'text-amber-600 bg-amber-500/10 border-amber-500/20');
                 const div = document.createElement('div');
                 div.className = `p-2.5 rounded-lg border ${colorCls} flex items-start gap-2`;
                 // El servidor ya calculó el valor y su unidad (nunca se recalcula acá, ver
@@ -2345,12 +2354,16 @@
                 const valorTexto = (m.montoAsociado != null)
                     ? formatCurrency(m.montoAsociado)
                     : (m.diasAsociado != null ? `${m.diasAsociado} día${m.diasAsociado === 1 ? '' : 's'}` : null);
+                const titulo = esDocumentacionExceptuada ? 'Documentación — exceptuada' : m.titulo;
+                const descripcion = esDocumentacionExceptuada
+                    ? 'Se aplicó una excepción documental para esta operación.'
+                    : m.descripcion;
                 div.innerHTML = `
                     <span class="material-symbols-outlined text-sm mt-0.5">${icon}</span>
                     <div>
-                        <p class="text-[11px] font-bold">${m.titulo}</p>
-                        <p class="text-[10px] opacity-80">${m.descripcion}</p>
-                        ${valorTexto ? `<p class="text-[10px] font-bold mt-0.5">${valorTexto}</p>` : ''}
+                        <p class="text-[11px] font-bold">${titulo}</p>
+                        <p class="text-[10px] opacity-80">${descripcion}</p>
+                        ${(valorTexto && !esDocumentacionExceptuada) ? `<p class="text-[10px] font-bold mt-0.5">${valorTexto}</p>` : ''}
                     </div>`;
                 lista.appendChild(div);
             });
@@ -2651,6 +2664,12 @@
         show($('#excepcion-confirmada-resumen'));
         const resumenMotivo = $('#excepcion-motivo-resumen');
         if (resumenMotivo) resumenMotivo.textContent = motivo;
+
+        // VENTA-CREDITO-ARQUITECTURA-VISUAL-02 (§11/§12): "Otros motivos" se renderizó la
+        // última vez en mostrarPanelExcepcion(), con excepcionActiva todavía en false (recién
+        // se pone true un par de líneas arriba) — sin este refresco, la categoría 1 quedaba
+        // con el rojo de bloqueante real un ciclo entero después de confirmar la excepción.
+        if (ultimaPrevalidacion) mostrarMotivos(ultimaPrevalidacion);
     }
 
     // "Aplicar y continuar" dentro del panel: valida motivo, activa la excepción y bloquea el panel para edición

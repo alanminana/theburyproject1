@@ -250,6 +250,54 @@
         }
 
         refreshStepGating();
+        refreshRevisionCredito();
+    }
+
+    // ── Crédito Personal en Revisión (VENTA-CREDITO-ARQUITECTURA-VISUAL-02) ────────────
+    // La sección financiera/evaluación se pinta desde configurar-venta-credito.js (misma
+    // autoridad que Crédito, ver actualizarPlanResumen/actualizarSemaforo). Acá sólo se
+    // decide si la sección se muestra (mismo requiereCredito() que gobierna el resto del
+    // wizard) y se deriva un resumen de "Elegibilidad/Pendientes/Excepción documental" a
+    // partir de paneles que venta-create.js ya pinta — se lee su estado visible, nunca se
+    // recalcula la elegibilidad ni se duplica el formulario de resolución.
+    function contarPendientesCredito() {
+        let pendientes = 0;
+        const documentacion = document.getElementById('panel-documentacion-faltante');
+        if (documentacion && !documentacion.classList.contains('hidden')) pendientes += 1;
+        const cupo = document.getElementById('panel-cupo-insuficiente');
+        if (cupo && !cupo.classList.contains('hidden')) pendientes += 1;
+        const mora = document.getElementById('panel-alerta-mora');
+        if (mora && !mora.classList.contains('hidden') && mora.classList.contains('bg-red-500/10')) pendientes += 1;
+        document.querySelectorAll('#lista-motivos > div').forEach((item) => {
+            if (item.className.includes('border-red-500')) pendientes += 1;
+        });
+        return pendientes;
+    }
+
+    function refreshRevisionCredito() {
+        const seccion = document.getElementById('revision-credito-personal');
+        if (!seccion) return;
+
+        const activa = requiereCredito();
+        seccion.hidden = !activa;
+        seccion.classList.toggle('hidden', !activa);
+        if (!activa) return;
+
+        const estadoTexto = getText('verificacion-estado', '');
+        const elegibilidad = !estadoTexto
+            ? 'Pendiente de verificar'
+            : (/NO VIABLE/i.test(estadoTexto) ? 'No viable' : 'Viable');
+        setText('[data-rev-credito-elegibilidad]', elegibilidad);
+
+        const excepcionResumen = document.getElementById('excepcion-confirmada-resumen');
+        const excepcionAplicada = Boolean(excepcionResumen && !excepcionResumen.classList.contains('hidden'));
+        setText('[data-rev-credito-excepcion]', excepcionAplicada ? 'Aplicada' : 'No aplica');
+
+        const pendientes = contarPendientesCredito();
+        setText('[data-rev-credito-pendientes]', String(pendientes));
+
+        const nota = document.getElementById('rev-credito-pendientes-nota');
+        if (nota) nota.classList.toggle('hidden', pendientes === 0);
     }
 
     tabButtons.forEach((button) => {
@@ -369,6 +417,12 @@
         // Dentro del cotizador embebido, Enter pertenece a sus buscadores: no debe
         // avanzar el wizard ni tocar la venta.
         if (event.target instanceof Element && event.target.closest(COTIZADOR_SELECTOR)) return;
+        // VENTA-CREDITO-ARQUITECTURA-VISUAL-02 (§16): Enter sobre un <summary> pertenece
+        // a su propio <details> nativo (abrir/cerrar) — el handler global de avance no
+        // debe interceptarlo. Espacio ya funcionaba porque el navegador lo resuelve antes
+        // de que llegue acá; Enter en cambio sí llega a este listener y sin esta exclusión
+        // el wizard hacía preventDefault()+avanzar() en vez de dejar que <details> abra.
+        if (event.target instanceof Element && event.target.closest('summary')) return;
         const activo = pasosVisibles().find((button) => button.getAttribute('aria-selected') === 'true');
         if (activo?.getAttribute('data-step') === 'revision') return;
         event.preventDefault();
@@ -426,6 +480,7 @@
             creditoValidado = Boolean(event.detail?.aprobado);
         }
         refreshStepGating();
+        refreshRevisionCredito();
     });
 
     const observer = new MutationObserver(refreshSummary);
@@ -433,6 +488,16 @@
         .map((id) => document.getElementById(id))
         .filter(Boolean)
         .forEach((node) => observer.observe(node, { childList: true, characterData: true, subtree: true }));
+
+    // Estado final/bloqueantes de Crédito en Revisión: los paneles que informan
+    // documentación/cupo/mora/motivos/excepción/resultado de verificación los pinta
+    // venta-create.js directamente (no pasan por hero-*), así que refreshRevisionCredito
+    // necesita su propio observer sobre esos nodos.
+    const revisionCreditoObserver = new MutationObserver(refreshRevisionCredito);
+    ['panel-documentacion-faltante', 'panel-cupo-insuficiente', 'panel-alerta-mora', 'lista-motivos', 'excepcion-confirmada-resumen', 'verificacion-estado']
+        .map((id) => document.getElementById(id))
+        .filter(Boolean)
+        .forEach((node) => revisionCreditoObserver.observe(node, { attributes: true, attributeFilter: ['class'], childList: true, subtree: true, characterData: true }));
 
     const initialStep = tabButtons.find((button) => button.getAttribute('aria-selected') === 'true')?.getAttribute('data-step')
         || tabButtons[0]?.getAttribute('data-step');

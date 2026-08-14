@@ -131,9 +131,15 @@ public sealed class CreditoVisualDensidadUiContractTests
         Assert.Contains(">Total<", view);
 
         // La tabla vive dentro del <details>, no fuera.
+        // Carryover pre-existente (ya roto en HEAD b6660e8, ajeno a este micro-lote):
+        // cierreIdx buscaba el primer "</details>" de TODO el archivo, pero "Ver detalle
+        // financiero" (data-plan-detalle-financiero) abre y cierra su propio <details>
+        // antes de que este bloque exista en el documento — el primer cierre real nunca
+        // es el de data-plan-cuotas-detalle-details. Se busca el cierre a partir de la
+        // tabla, no desde el principio del archivo.
         var detailsIdx = view.IndexOf("<details data-plan-cuotas-detalle-details>", StringComparison.Ordinal);
         var tablaIdx = view.IndexOf("id=\"plan-cuotas-tabla\"", StringComparison.Ordinal);
-        var cierreIdx = view.IndexOf("</details>", StringComparison.Ordinal);
+        var cierreIdx = view.IndexOf("</details>", tablaIdx, StringComparison.Ordinal);
         Assert.True(detailsIdx >= 0 && tablaIdx > detailsIdx && cierreIdx > tablaIdx);
     }
 

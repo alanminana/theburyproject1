@@ -341,6 +341,22 @@
                 Guardar configuración
             </button>
             <p id="credito-embebido-confirmar-feedback" class="hint hidden" role="status"></p>
+            @* VENTA-CREDITO-ARQUITECTURA-VISUAL-02 (§9): con el plan ya guardado, el paso
+               siguiente natural es Revisión — no obligar al operador a buscar el CTA
+               contextual del wizard. Sólo aparece cuando el servidor ya confirma el
+               crédito configurado (misma condición que el aviso "Crédito configurado" de
+               arriba); el click delega en window.VentaWizard.setActiveStep, la misma
+               autoridad de navegación que ya usa el resto del wizard. *@
+            @if (Model.CreditoEstaConfigurado)
+            {
+                <button type="button"
+                        class="btn btn-block btn-sm"
+                        data-credito-embebido-continuar-revision
+                        style="margin-top:.5rem">
+                    <span class="material-symbols-outlined">arrow_forward</span>
+                    Continuar a revisión
+                </button>
+            }
         </div>
 
         <section class="card-2" style="margin-top:1rem;padding:1rem" data-credito-embebido-contrato-seccion>
