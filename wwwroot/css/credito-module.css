@@ -474,6 +474,30 @@ select.field {
   font-variant-numeric: tabular-nums;
 }
 
+/* VENTA-CREDITO-REDESIGN-VISUAL-POLISH-01: mismo patrón que .field-money pero con el
+   signo como sufijo — usado por el campo de sólo lectura "Recargo del plan" (Crédito
+   embebido en el wizard de Venta) para leerse "10%" en vez de un número pelado, sin
+   tocar el valor numérico que pinta configurar-venta-credito.js. */
+.field-percent {
+  position: relative;
+}
+
+.field-percent .suf {
+  position: absolute;
+  right: .85rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  font-weight: 600;
+  font-size: .95rem;
+  pointer-events: none;
+}
+
+.field-percent .field {
+  padding-right: 1.9rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .hint {
   font-size: .74rem;
   color: var(--muted-2);
@@ -915,6 +939,19 @@ select.field {
 
 .is-bad .result-value {
   color: #fb7185;
+}
+
+/* VENTA-CREDITO-REDESIGN-VISUAL-POLISH-01: variante compacta de .result-value para
+   cifras secundarias del mismo resumen (Total financiado, Vencimiento) que acompañan a
+   una cifra protagonista (.result-value) sin competir con ella — nunca coloreada, el
+   acento semántico/financiero queda exclusivo del monto principal. */
+.result-value-sm {
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.25;
+  margin-top: .3rem;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ---------- Aside help ---------- */
@@ -3319,5 +3356,34 @@ select.field {
 @container (min-width: 40rem) {
   [data-credito-config-valores-grid] {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* VENTA-CREDITO-REDESIGN-VISUAL-POLISH-01: resultado financiero (Cuota/Total
+   financiado/Vencimiento) en la misma grilla de 3 columnas cuando el ancho del
+   fragmento lo permite — mismo mecanismo de container query que ya usa la grilla de
+   inputs de arriba, mismo contenedor ([data-credito-config-embedded]). Un solo umbral
+   alcanza: son 3 pares label+valor cortos (importe/fecha), no campos de formulario con
+   su propio chrome. */
+@container (min-width: 26.25rem) {
+  [data-plan-resumen-grid] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* VENTA-CREDITO-REDESIGN-VISUAL-POLISH-01: CTA "Guardar configuración" (y "Continuar a
+   revisión", cuando el crédito ya quedó configurado) deja de ocupar el ancho completo
+   una vez que el fragmento tiene espacio de sobra — btn-block (global, .btn-block) se
+   preserva en mobile para mantener el target táctil, este override sólo aplica dentro
+   del fragmento embebido y sólo a partir de este ancho de contenedor. */
+@container (min-width: 26.25rem) {
+  [data-credito-config-embedded] .plan-cta-row {
+    align-items: flex-end;
+  }
+
+  [data-credito-config-embedded] .plan-cta-row [data-credito-embebido-confirmar],
+  [data-credito-config-embedded] .plan-cta-row [data-credito-embebido-continuar-revision] {
+    width: auto;
+    min-width: 15rem;
   }
 }

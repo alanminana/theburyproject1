@@ -391,9 +391,22 @@
         }
 
         function actualizarPlanResumen(data, cuotas) {
-            planCuotasLabel.textContent = cuotas;
+            // VENTA-CREDITO-REDESIGN-VISUAL-POLISH-01: el fragmento embebido retiró la fila
+            // "Cantidad de cuotas" del resumen (redundante con el input de arriba y con "N
+            // cuotas de $X ▸" del summary de "Ver desglose") — el nodo ya no existe ahí.
+            // Guardado igual que el resto de los ids opcionales de esta función; la página
+            // standalone (ConfigurarVenta_tw) sigue teniendo el nodo y sigue actualizándose
+            // exactamente igual.
+            if (planCuotasLabel) planCuotasLabel.textContent = cuotas;
             planCuotaEstimada.textContent = formatCurrency(data.cuotaEstimada);
-            if (planCuotaDetalle) planCuotaDetalle.textContent = formatearDetalleCuotas(data.cuotas, cuotas);
+            // VENTA-CREDITO-REDESIGN-VISUAL-POLISH-01: en el fragmento embebido la etiqueta
+            // "Cuota" queda siempre estática — la variante dinámica ("N cuotas de $X"/"Ver
+            // detalle por cuota") duplicaba (y en el caso "Ver detalle por cuota", hasta
+            // confundía como CTA no interactivo) lo que ya dice el <summary> "N cuotas de
+            // $X · Ver desglose ▸" un par de líneas más abajo, ahora que ambos conviven en
+            // la misma composición compacta. La página standalone (ConfigurarVenta_tw, sin
+            // ese <summary> fusionado) conserva el comportamiento dinámico sin cambios.
+            if (planCuotaDetalle && !embebido) planCuotaDetalle.textContent = formatearDetalleCuotas(data.cuotas, cuotas);
             planTasa.textContent = `${data.tasaAplicada?.toFixed(2) ?? '0'}%`;
             // ML6: única fuente del porcentaje mostrado en el form — nunca un valor local.
             if (txtTasa) txtTasa.value = (data.tasaAplicada ?? 0).toFixed(2);
@@ -447,7 +460,7 @@
         }
 
         function resetPlanResumen() {
-            planCuotasLabel.textContent = '0';
+            if (planCuotasLabel) planCuotasLabel.textContent = '0';
             planCuotaEstimada.textContent = '$ 0,00';
             if (planCuotaDetalle) planCuotaDetalle.textContent = 'Cuota';
             planTasa.textContent = '0%';

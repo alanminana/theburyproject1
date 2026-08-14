@@ -90,7 +90,7 @@
            [data-credito-config-embedded]) suma un umbral de 4 columnas para aprovechar el
            ancho que recupera este paso al dejar de reservar columna de sidebar (ver
            venta-page-wizard.css, [data-paso-activo="credito"]). *@
-        <div class="grid grid-cols-1 gap-4" data-credito-config-valores-grid>
+        <div class="grid grid-cols-1 gap-3" data-credito-config-valores-grid>
             <div>
                 <label asp-for="CantidadCuotas" for="txt-cuotas" class="label">Cantidad de cuotas</label>
                 <input asp-for="CantidadCuotas"
@@ -121,30 +121,34 @@
                     <span class="cur">$</span>
                     <input asp-for="GastosAdministrativos" type="number" step="0.01" min="0" class="field" id="txt-gastos" />
                 </div>
-                <p class="hint" style="margin-top:.35rem">Concepto informativo aparte: no se distribuye en las cuotas ni forma parte del saldo a financiar.</p>
+                <p class="hint" style="margin-top:.35rem">No se financia: queda aparte del saldo y las cuotas.</p>
             </div>
             <div>
                 <label asp-for="FechaPrimeraCuota" for="txt-fecha-primera-cuota" class="label">Primera fecha de vencimiento</label>
                 <input asp-for="FechaPrimeraCuota" type="date" class="field" id="txt-fecha-primera-cuota" />
             </div>
         </div>
-        <p class="hint" style="margin-top:.75rem">El backend valida los importes finales; esta pantalla solo previsualiza.</p>
+        <p class="hint" style="margin-top:.5rem">El backend valida los importes finales; esta pantalla solo previsualiza.</p>
 
         @* Porcentaje de recargo: no es un dato que se edite acá (lo fija el plan de
            cuotas elegido arriba), por eso queda separado de los campos editables en
            vez de competir con ellos en la misma grilla. VENTA-CREDITO-REDESIGN-VISUAL-
            CIERRE-01 (§8): microcopy abreviada — la regla de negocio completa sigue
            disponible como hint corto, sin tooltip. *@
-        <div style="margin-top:1.1rem;padding-top:1rem;border-top:1px solid var(--line)">
+        <div style="margin-top:.85rem;padding-top:.75rem;border-top:1px solid var(--line)">
             <div class="flex items-center justify-between" style="max-width:280px">
                 <label class="label">Recargo del plan</label>
                 <span id="badge-tasa-fuente" class="chip chip-info hidden"></span>
             </div>
-            <div style="max-width:280px">
+            @* field-percent: mismo patrón que field-money (sufijo visual, sin tocar el
+               valor numérico que pinta configurar-venta-credito.js) — "10%" en vez del
+               número pelado, misma lectura clara que el resto de los importes. *@
+            <div class="field-percent" style="max-width:280px">
                 @* ML6: read-only, ver ConfigurarVenta_tw.cshtml. *@
                 <input class="field bg-slate-100 dark:bg-slate-800/50 cursor-not-allowed" readonly id="txt-tasa" />
+                <span class="suf">%</span>
             </div>
-            <p class="hint" style="margin-top:.35rem">Se agrega una sola vez sobre el saldo restante después del anticipo. Lo define el plan de cuotas elegido; no es editable.</p>
+            <p class="hint" style="margin-top:.35rem">Se aplica una vez sobre el saldo tras el anticipo. Lo define el plan elegido; no editable.</p>
         </div>
 
         <div id="plan-simulando" class="hint hidden" style="margin-top:.75rem" aria-live="polite" data-plan-simulando>
@@ -157,15 +161,19 @@
            plan" — no lleva su propia card completa (border+rounded+fondo), que la
            pondría visualmente al mismo nivel que la sección entera. Mismo patrón de
            separador liviano que ya usa "Porcentaje de recargo total del plan" arriba. *@
-        <div class="mt-4" style="padding-top:1rem;border-top:1px solid var(--line)"
+        <div class="mt-4" style="padding-top:.75rem;border-top:1px solid var(--line)"
              id="primera-cuota-panel" data-primera-cuota-panel>
-            <div class="flex items-center gap-2 mb-2">
+            <div class="flex items-center gap-2 mb-1">
                 <span class="material-symbols-outlined" style="color:#f5c518;font-size:16px">payments</span>
                 <h3 class="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Primera cuota</h3>
             </div>
 
-            <p class="muted text-sm mb-3" id="primera-cuota-no-aplica" data-primera-cuota-no-aplica>
-                El cobro inmediato solo está disponible cuando la primera cuota vence hoy.
+            @* VENTA-CREDITO-REDESIGN-VISUAL-POLISH-01: nota compacta (mismo componente
+               .hint que el resto de los textos secundarios de la card) en vez de un
+               párrafo a tamaño de cuerpo — cuando no aplica, este subgrupo no debe leerse
+               como una subsección completa propia. *@
+            <p class="hint" id="primera-cuota-no-aplica" data-primera-cuota-no-aplica>
+                Cobro inmediato no disponible: la primera cuota no vence hoy.
             </p>
 
             <div id="primera-cuota-aplica" data-primera-cuota-aplica class="hidden space-y-3">
@@ -200,19 +208,33 @@
            propia caja verde (.result-card.is-ok, "card dentro de card"): el acento de
            color pasa directo al número (§16 — verde sólo como acento de monto positivo,
            nunca una superficie). *@
-        <div style="margin-top:1.1rem;padding-top:1rem;border-top:1px solid var(--line)" id="plan-resumen" class="space-y-3">
-            <div id="plan-resumen-contenido">
+        <div style="margin-top:.85rem;padding-top:.75rem;border-top:1px solid var(--line)" id="plan-resumen" class="space-y-3">
+            @* VENTA-CREDITO-REDESIGN-VISUAL-POLISH-01: composición horizontal/compacta —
+               antes Cuota (número grande) + <dl> vertical (Total financiado + Cantidad de
+               cuotas, esta última redundante con el input de arriba y con "N cuotas de
+               $X ▸" del summary de "Ver desglose" abajo) + una franja amarilla propia de
+               ancho completo para el primer vencimiento (3 alturas apiladas). Ahora las 3
+               cifras que importan de un vistazo (Cuota/Total financiado/Vencimiento)
+               viven en la misma grilla de 3 columnas en desktop (container query,
+               [data-credito-config-embedded]; stack en mobile), mismo patrón label+valor
+               que ya usa Cuota. Cantidad de cuotas se retira como fila propia (mismo id
+               "plan-cuotas-label" que ya pintaba configurar-venta-credito.js, ahora
+               guardado con "if" — sigue actualizándose sin fila visible, ver
+               actualizarPlanResumen/resetPlanResumen). El acento verde queda exclusivo de
+               Cuota (el número protagonista); Total financiado pasa a texto neutro para
+               no repetir la misma señal en dos importes distintos. *@
+            <div id="plan-resumen-contenido" data-plan-resumen-grid class="grid grid-cols-1 gap-3">
                 <div>
                     <div class="result-label" id="plan-cuota-detalle">Cuota</div>
                     <div class="result-value" id="plan-cuota-estimada" style="color:#34d399">$ 0,00</div>
                 </div>
-                <dl class="kv mt-3">
-                    <div class="kv-row"><dt>Total financiado</dt><dd class="num" id="plan-total" style="color:#34d399;font-weight:600">$ 0,00</dd></div>
-                    <div class="kv-row"><dt>Cantidad de cuotas</dt><dd id="plan-cuotas-label">@Model.CantidadCuotas</dd></div>
-                </dl>
-                <div id="plan-fecha-container" class="alert alert-info hidden" style="margin-top:.8rem">
-                    <span class="material-symbols-outlined">event_upcoming</span>
-                    <span>Primer vencimiento: <strong id="plan-fecha-pago">-</strong></span>
+                <div>
+                    <div class="result-label">Total financiado</div>
+                    <div class="result-value-sm" id="plan-total">$ 0,00</div>
+                </div>
+                <div id="plan-fecha-container" class="hidden">
+                    <div class="result-label">Vencimiento</div>
+                    <div class="result-value-sm" id="plan-fecha-pago">-</div>
                 </div>
             </div>
 
@@ -276,7 +298,7 @@
            paso: venta-page-wizard.js oculta el CTA global del wizard mientras la
            acción contextual es "Guardar configuración"/"Continuar a revisión", para
            que no compitan dos botones con el mismo texto. *@
-        <div class="flex flex-col gap-2" style="margin-top:1.1rem;padding-top:1rem;border-top:1px solid var(--line)">
+        <div class="flex flex-col gap-2 plan-cta-row" style="margin-top:.85rem;padding-top:.75rem;border-top:1px solid var(--line)">
             <button type="button"
                     class="btn btn-success btn-block"
                     id="btn-confirmar-credito"
