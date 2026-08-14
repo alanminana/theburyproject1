@@ -159,6 +159,45 @@ Resumen no cronológico de lo que quedó implementado:
   768/390/360px sin overflow horizontal, teclado (Enter/Espacio en "Ver desglose"),
   guardar → continuar a revisión → volver a Crédito sin pérdida de valores, y standalone
   intacto; 4731/4733 tests (2 skipped ajenos), 0 rojos propios.
+- reapertura VENTA-CREDITO-REDESIGN-VISUAL-POLISH-01 del paso Crédito: pulido final de
+  densidad dentro de "Configurar plan", sin tocar "Estado del crédito" ni reabrir las 2
+  superficies ya cerradas. Grilla de inputs (Cuotas/Anticipo/Gastos/Vencimiento) más
+  compacta (`gap-3`); separadores internos (recargo, primera cuota, resumen, CTA)
+  reducidos de `margin-top:1.1rem;padding-top:1rem` a `.85rem`/`.75rem`. Resultado
+  financiero deja de ser un bloque vertical (cuota + `<dl>` con "Cantidad de cuotas" +
+  franja amarilla de ancho completo para el vencimiento) y pasa a una grilla de 3
+  columnas en desktop ("Cuota" / "Total financiado" / "Vencimiento", container query
+  nueva `[data-plan-resumen-grid]` a 26.25rem, mismo mecanismo que la grilla de inputs)
+  con stack en mobile; el acento verde queda exclusivo de la cuota (Total financiado pasa
+  a texto neutro, nueva clase `.result-value-sm`). Fila "Cantidad de cuotas" retirada del
+  resumen (redundante con el input de arriba y con "N cuotas de $X ▸" del `<summary>` de
+  "Ver desglose" bajo ella) — mismo id `plan-cuotas-label` sigue actualizándose vía JS
+  (`if` guard) para no tocar la página standalone, que conserva la fila. Hallazgo
+  adicional detectado en vivo durante la validación: la etiqueta "Cuota" del resumen
+  también se sobrescribía dinámicamente a "N cuotas de $X"/"Ver detalle por cuota"
+  (`formatearDetalleCuotas`), duplicando (y en el caso "Ver detalle por cuota" hasta
+  simulando un segundo CTA no interactivo) lo que ya dice el `<summary>` de "Ver
+  desglose" — se desactivó esa sobrescritura sólo para el fragmento embebido (`!embebido`
+  en `configurar-venta-credito.js`); el standalone conserva el comportamiento dinámico
+  sin cambios, ahí no es redundante. Recargo del plan con sufijo `%` visual (nueva clase
+  `.field-percent`, mismo patrón que `.field-money`) sin tocar el valor que pinta el JS.
+  Primera cuota (caso "no aplica") pasa de párrafo a nota `.hint` de una línea. CTA
+  "Guardar configuración"/"Continuar a revisión" deja de ser `btn-block` en desktop
+  (nueva clase `.plan-cta-row`, container query a 26.25rem: `align-items:flex-end` +
+  ancho automático con mínimo `15rem`); mobile conserva ancho completo. Microcopy de
+  "Gastos administrativos" y "Recargo del plan" abreviada; el texto protegido por test
+  ("El backend valida los importes finales…") se mantiene literal, sólo con menos margen.
+  Sin cambios de cálculo, reglas de negocio, ids, contratos backend ni arquitectura de 2
+  superficies; standalone `ConfigurarVenta_tw.cshtml` sin diff. Validado en vivo
+  (Playwright, Edit) en 1440/1024/390/360px sin overflow horizontal, edición de
+  cuotas/anticipo/gastos/fecha con recálculo en vivo, primera cuota "aplica"/"no aplica",
+  teclado (Enter en "Ver desglose"), guardar → continuar a revisión, standalone intacto;
+  4731/4733 tests (2 skipped ajenos), 0 rojos propios. Hallazgo fuera de alcance (no
+  corregido, es backend): al reconfigurar un crédito ya guardado, Anticipo y Gastos
+  administrativos no persisten el nuevo valor en el POST de confirmación (vuelven al
+  valor previamente guardado), mientras que Fecha de primera cuota sí persiste — pre-
+  existente, ajeno a este lote (no se tocó `CreditoController`/`venta-credito-embebido.js`),
+  reproducido en vivo sobre la venta VTA-202608-000080.
 
 ## Venta / Details — cerrado
 
