@@ -2240,7 +2240,12 @@
         };
         const color = colorMap[data.colorBadge] || colorMap.danger;
 
-        badge.className = `flex items-center justify-between p-3 rounded-lg ${color.bg}`;
+        // VENTA-CREDITO-REDESIGN-VISUAL-IMPLEMENTACION-01: "Resultado SCORE" pasa de card
+        // con fondo/borde de color propio (competía visualmente con "Cupo insuficiente —
+        // operación bloqueada", mismo hallazgo que ya se había corregido para el semáforo en
+        // CREDITO-VISUAL-02A) a fila de cabecera del bloque "Estado del crédito": el color
+        // semántico queda sólo en el pill de estado (`estado.className`, sin cambios).
+        badge.className = 'flex items-center justify-between pb-3 mb-1 border-b border-slate-800';
         estado.textContent = data.textoEstado || color.text;
         estado.className = `px-2 py-1 rounded-md ${color.badge} text-white text-[10px] font-black uppercase tracking-widest`;
 
@@ -2275,21 +2280,19 @@
             detail: { aprobado: data.resultado === RESULTADO_PREVAL.Aprobable }
         }));
 
-        // Sufficiency check
-        const panelSuficiente = $('#panel-cupo-suficiente');
+        // Sufficiency check. VENTA-CREDITO-REDESIGN-VISUAL-IMPLEMENTACION-01: "Cupo
+        // suficiente" (card verde) se eliminó — quedaba redundante con el pill de
+        // Resultado y con el propio importe de "Cupo disponible" arriba; ya no hay nada
+        // que mostrar en el caso suficiente. El mensaje de insuficiencia ya no repite
+        // "Cupo disponible" (visible en la fila de arriba, mismo dato dos veces seguidas).
         const panelInsuficiente = $('#panel-cupo-insuficiente');
-        hide(panelSuficiente);
         hide(panelInsuficiente);
 
-        if (total > 0 && data.cupoDisponible !== undefined) {
-            if (data.cupoDisponible >= total) {
-                show(panelSuficiente);
-            } else {
-                const faltante = total - data.cupoDisponible;
-                $('#cupo-insuficiente-detalle').textContent =
-                    `Monto solicitado: ${formatCurrency(total)} — Cupo disponible: ${formatCurrency(data.cupoDisponible)} — Faltante: ${formatCurrency(faltante)}`;
-                show(panelInsuficiente);
-            }
+        if (total > 0 && data.cupoDisponible !== undefined && data.cupoDisponible < total) {
+            const faltante = total - data.cupoDisponible;
+            $('#cupo-insuficiente-detalle').textContent =
+                `Monto solicitado: ${formatCurrency(total)} — Faltante: ${formatCurrency(faltante)}`;
+            show(panelInsuficiente);
         }
 
         show(panelResultado);
@@ -2323,9 +2326,18 @@
         // esa categoría. Contrato obligatorio de CREDITO-VISUAL-02A — nunca ocultar 1/2/3 de
         // forma incondicional. EstadoCliente/Configuración/Punitorio (4/5/6) no tienen panel
         // dedicado equivalente y siempre se muestran acá.
+        //
+        // VENTA-CREDITO-REDESIGN-VISUAL-IMPLEMENTACION-01: la categoría 2 (Cupo) cambia de
+        // autoridad — "Cupo disponible" pasó a ser una fila siempre visible de "Estado del
+        // crédito" (no un panel condicional que la excepción documental oculta junto con
+        // Documentación), así que el hecho nunca deja de tener dónde vivir: filtrar siempre.
+        // Confirmado en vivo (Playwright, cliente con documentación+mora+cupo insuficiente):
+        // sin este cambio, aplicar la excepción documental ocultaba #panel-cupo-insuficiente
+        // (mismo hide() que Documentación) y "Cupo insuficiente" reaparecía duplicado en
+        // Otros motivos, repitiendo el mismo $0 que ya mostraba la fila de arriba.
         const autoridadDedicadaVisible = {
             1: !$('#panel-documentacion-faltante')?.classList.contains('hidden'),
-            2: !$('#panel-cupo-insuficiente')?.classList.contains('hidden'),
+            2: true,
             3: !$('#panel-alerta-mora')?.classList.contains('hidden')
         };
         const motivosOriginales = data.motivos || [];
@@ -2344,11 +2356,15 @@
                 // "resuelto por excepción", nunca a "bloqueante pendiente".
                 const esDocumentacionExceptuada = m.categoria === 1 && excepcionActiva;
                 const icon = esDocumentacionExceptuada ? 'check_circle' : (iconMap[m.categoria] || 'info');
+                // VENTA-CREDITO-REDESIGN-VISUAL-IMPLEMENTACION-01: cada motivo pasa de card
+                // con fondo/borde de color propio a fila de "Estado del crédito"
+                // (.credito-estado-row, venta-page-wizard.css) — el color semántico queda
+                // sólo en ícono/texto, nunca en una superficie de fondo.
                 const colorCls = esDocumentacionExceptuada
-                    ? 'text-emerald-600 bg-emerald-500/10 border-emerald-500/20'
-                    : (m.esBloqueante ? 'text-red-500 bg-red-500/10 border-red-500/20' : 'text-amber-600 bg-amber-500/10 border-amber-500/20');
+                    ? 'text-emerald-600'
+                    : (m.esBloqueante ? 'text-red-500' : 'text-amber-600');
                 const div = document.createElement('div');
-                div.className = `p-2.5 rounded-lg border ${colorCls} flex items-start gap-2`;
+                div.className = 'credito-estado-row';
                 // El servidor ya calculó el valor y su unidad (nunca se recalcula acá, ver
                 // wwwroot/js/CLAUDE.md); sólo se elige qué campo mostrar, monto o días.
                 const valorTexto = (m.montoAsociado != null)
@@ -2359,12 +2375,12 @@
                     ? 'Se aplicó una excepción documental para esta operación.'
                     : m.descripcion;
                 div.innerHTML = `
-                    <span class="material-symbols-outlined text-sm mt-0.5">${icon}</span>
-                    <div>
-                        <p class="text-[11px] font-bold">${titulo}</p>
-                        <p class="text-[10px] opacity-80">${descripcion}</p>
-                        ${(valorTexto && !esDocumentacionExceptuada) ? `<p class="text-[10px] font-bold mt-0.5">${valorTexto}</p>` : ''}
-                    </div>`;
+                    <span class="material-symbols-outlined text-sm mt-0.5 ${colorCls}">${icon}</span>
+                    <div class="flex-1">
+                        <p class="text-[11px] font-bold ${colorCls}">${titulo}</p>
+                        <p class="text-[10px] text-slate-400">${descripcion}</p>
+                    </div>
+                    ${(valorTexto && !esDocumentacionExceptuada) ? `<p class="text-[10px] font-bold ${colorCls} shrink-0">${valorTexto}</p>` : ''}`;
                 lista.appendChild(div);
             });
             show(panel);
@@ -2372,8 +2388,8 @@
             // Sin motivos granulares desde el origen (no por el filtrado de arriba): conservar
             // el resumen genérico del servidor como única explicación disponible.
             const div = document.createElement('div');
-            div.className = 'p-2.5 rounded-lg border bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400';
-            div.innerHTML = `<p class="text-[11px]">${data.mensajeResumen}</p>`;
+            div.className = 'credito-estado-row';
+            div.innerHTML = `<p class="text-[11px] text-slate-400">${data.mensajeResumen}</p>`;
             lista.appendChild(div);
             show(panel);
         } else {
@@ -2398,11 +2414,11 @@
             // ClienteAptitudService.EvaluarMoraInternaAsync) y tampoco es bloqueante.
             const motivoMora = (data.motivos || []).find((m) => m.categoria === 3);
             const bloqueante = motivoMora ? motivoMora.esBloqueante : false;
+            // VENTA-CREDITO-REDESIGN-VISUAL-IMPLEMENTACION-01: "Alerta de Mora" pasa de
+            // card con fondo/borde rojo o amber (superficie grande) a fila de "Estado del
+            // crédito" — el color semántico queda sólo en el ícono/título (texto), nunca en
+            // un fondo que compita con "Cupo insuficiente — operación bloqueada".
             const titulo = $('#alerta-mora-titulo');
-            panel.classList.toggle('bg-red-500/10', bloqueante);
-            panel.classList.toggle('border-red-500/20', bloqueante);
-            panel.classList.toggle('bg-amber-500/10', !bloqueante);
-            panel.classList.toggle('border-amber-500/20', !bloqueante);
             if (titulo) {
                 titulo.classList.toggle('text-red-500', bloqueante);
                 titulo.classList.toggle('text-amber-600', !bloqueante);

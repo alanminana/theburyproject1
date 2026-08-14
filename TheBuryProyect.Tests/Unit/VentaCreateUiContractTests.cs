@@ -1150,7 +1150,7 @@ public class VentaCreateUiContractTests
             "panel-planes-pago", "lista-planes-pago", "configuracion-pagos-global-estado",
             "hdn-configuracion-pago-plan-id", "panel-diagnostico-condiciones-pago",
             "panel-verificacion-crediticia", "panel-verificacion-crediticia-auto",
-            "panel-resultado-verificacion", "panel-cupo-suficiente", "panel-cupo-insuficiente",
+            "panel-resultado-verificacion", "panel-cupo-insuficiente",
             "panel-alerta-mora", "panel-documentacion-faltante", "lista-docs-faltantes",
             "btn-cargar-documentacion", "modal-documentacion", "btn-subir-documento",
             "panel-excepcion-crediticia", "hdn-aplicar-excepcion", "btn-aplicar-excepcion",
@@ -1165,32 +1165,34 @@ public class VentaCreateUiContractTests
         Assert.Contains("asp-for=\"MotivoExcepcionDocumentalCreate\"", view);
     }
 
-    // CREDITO-VISUAL-03 — la excepción documental vive junto al bloqueante que resuelve
+    // CREDITO-VISUAL-03 — la excepción documental vive junto al bloqueante que resuelve.
+    // VENTA-CREDITO-REDESIGN-VISUAL-IMPLEMENTACION-01: #credito-zona-bloqueantes/
+    // #credito-zona-otras-condiciones (wrappers puramente visuales, sin consumidor JS) se
+    // eliminaron al fusionar todo en "Estado del crédito" — la fila Cupo (con
+    // #panel-cupo-insuficiente anidado) ahora es parte del resumen de Resultado y vive
+    // antes de Documentación/Excepción, no después. Lo que este test protege (excepción
+    // inmediatamente después de Documentación, gate de permiso intacto) sigue vigente.
 
     [Fact]
     public void CreateView_PanelExcepcionCrediticia_ViveJuntoADocumentacionFaltante()
     {
         var view = ReadComposedView("Create_tw.cshtml");
 
-        var idxBloqueantes = view.IndexOf("id=\"credito-zona-bloqueantes\"", StringComparison.Ordinal);
         var idxDocumentacion = view.IndexOf("id=\"panel-documentacion-faltante\"", StringComparison.Ordinal);
         var idxExcepcion = view.IndexOf("id=\"panel-excepcion-crediticia\"", StringComparison.Ordinal);
-        var idxCupo = view.IndexOf("id=\"panel-cupo-insuficiente\"", StringComparison.Ordinal);
+        var idxMora = view.IndexOf("id=\"panel-alerta-mora\"", StringComparison.Ordinal);
         var idxConfiguracionCredito = view.IndexOf("id=\"panel-configuracion-credito\"", StringComparison.Ordinal);
 
-        Assert.True(idxBloqueantes >= 0, "credito-zona-bloqueantes debe existir.");
         Assert.True(idxDocumentacion >= 0, "panel-documentacion-faltante debe existir.");
         Assert.True(idxExcepcion >= 0, "panel-excepcion-crediticia debe existir.");
-        Assert.True(idxCupo >= 0, "panel-cupo-insuficiente debe existir.");
+        Assert.True(idxMora >= 0, "panel-alerta-mora debe existir.");
         Assert.True(idxConfiguracionCredito >= 0, "panel-configuracion-credito debe existir.");
 
-        Assert.True(idxDocumentacion > idxBloqueantes, "Documentación debe vivir dentro de credito-zona-bloqueantes.");
         Assert.True(idxExcepcion > idxDocumentacion,
             "CREDITO-VISUAL-03: la excepción documental debe aparecer inmediatamente después de " +
             "Documentación faltante (junto al bloqueante que resuelve), no lejos de ella.");
-        Assert.True(idxCupo > idxExcepcion,
-            "CREDITO-VISUAL-03: la excepción documental sigue viviendo dentro de credito-zona-bloqueantes, antes de Cupo insuficiente.");
-        Assert.True(idxConfiguracionCredito > idxCupo, "panel-configuracion-credito sigue viniendo después de los bloqueantes.");
+        Assert.True(idxMora > idxExcepcion, "La excepción sigue viviendo antes de Mora, dentro de Estado del crédito.");
+        Assert.True(idxConfiguracionCredito > idxMora, "panel-configuracion-credito sigue viniendo después de Estado del crédito.");
 
         // Gate de permiso server-side sigue envolviendo el panel completo (no sólo oculto por CSS).
         var idxIf = view.LastIndexOf("User.TienePermiso(\"ventas\", \"authorize\")", idxExcepcion, StringComparison.Ordinal);

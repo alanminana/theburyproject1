@@ -976,31 +976,49 @@
 }
 
 /* ══════════════════════════════════════════════════════════════
-   PASO CRÉDITO — zonas Estado / Bloqueantes / Otras condiciones
-   (VENTA-FORM-PAGO-CREDITO-02B)
-   Cada panel individual (documentación faltante, cupo insuficiente, mora,
-   motivos) sigue su propio show/hide dinámico vía venta-create.js, sin
-   tocar esa lógica. El label de cada zona (#credito-zona-bloqueantes,
-   #credito-zona-otras-condiciones, ver _VentaWizardForm.cshtml) sólo se
-   pinta cuando al menos uno de sus paneles hijos está visible, para no
-   dejar un encabezado huérfano antes de que corra la verificación o en un
-   resultado Aprobable sin bloqueantes/mora/documentación pendiente.
-   ══════════════════════════════════════════════════════════════ */
-#venta-create-page .credito-zona-label,
-#venta-edit-page .credito-zona-label {
+   PASO CRÉDITO — "Estado del crédito" (VENTA-CREDITO-REDESIGN-VISUAL-
+   IMPLEMENTACION-01)
+   Fusiona en una sola superficie lo que antes eran hasta 6 cards con
+   fondo/borde propio (Resultado SCORE, Cupo suficiente, Documentación,
+   Excepción aplicada, Mora, Otros motivos) más el badge de Riesgo (antes
+   una card "Evaluación preliminar" aparte dentro de "Configurar plan").
+   Cada fila sigue su propio show/hide dinámico vía venta-create.js /
+   configurar-venta-credito.js exactamente donde ya lo hacía — sólo cambia
+   el contenedor visual: separador superior liviano en vez de fondo+borde+
+   radio por fila (ver ERP-UI-STANDARD.md §10/§12, "color semántico en
+   ícono/texto/badge, no en superficies"). La fila "Cupo disponible" es
+   siempre la primera (real y visualmente) cuando el panel está visible,
+   así que :first-child alcanza sin depender de qué otras filas estén
+   ocultas en cada estado. */
+#venta-create-page .credito-estado-row,
+#venta-edit-page .credito-estado-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.6rem 0;
+    border-top: 1px solid var(--venta-wizard-border);
+}
+
+#venta-create-page .credito-estado-row:first-child,
+#venta-edit-page .credito-estado-row:first-child {
+    border-top: 0;
+    padding-top: 0;
+}
+
+/* CREDITO-VISUAL-CIERRE ya había documentado este mismo problema en
+   credito-module.css: por CSS Cascade Layers una regla sin capa siempre le
+   gana a una con capa, sin importar especificidad ni orden — el .hidden de
+   Tailwind v4 vive dentro de @layer utilities, así que .credito-estado-row
+   (sin capa, arriba) le ganaba y dejaba filas "vacías" visibles antes de
+   tener datos (confirmado en vivo: #estado-riesgo-row visible con "Riesgo ·"
+   sin dot/label/tag mientras el configurador embebido todavía no cargó).
+   Fix: regla propia, también sin capa, con mayor especificidad que
+   .credito-estado-row sola — no hace falta pelear contra la capa de
+   Tailwind, sólo ganarle a la propia regla de arriba. */
+#venta-create-page .credito-estado-row.hidden,
+#venta-edit-page .credito-estado-row.hidden {
     display: none;
-}
-
-#venta-create-page #credito-zona-bloqueantes:has(> #panel-documentacion-faltante:not(.hidden), > #panel-cupo-insuficiente:not(.hidden)) .credito-zona-label,
-#venta-edit-page #credito-zona-bloqueantes:has(> #panel-documentacion-faltante:not(.hidden), > #panel-cupo-insuficiente:not(.hidden)) .credito-zona-label {
-    display: block;
-    margin-bottom: 0.15rem;
-}
-
-#venta-create-page #credito-zona-otras-condiciones:has(> #panel-alerta-mora:not(.hidden), > #panel-motivos:not(.hidden)) .credito-zona-label,
-#venta-edit-page #credito-zona-otras-condiciones:has(> #panel-alerta-mora:not(.hidden), > #panel-motivos:not(.hidden)) .credito-zona-label {
-    display: block;
-    margin-bottom: 0.15rem;
 }
 
 /* VENTA-CREDITO-ARQUITECTURA-VISUAL-01: el banner "verificando/mecanismo automático"
@@ -1015,13 +1033,15 @@
     display: none;
 }
 
-/* Evaluación preliminar + Guardar configuración, agrupadas debajo de la tabla de cuotas
+/* Guardar configuración + Documentación contractual, agrupadas debajo del desglose
    (ver _ConfigurarVentaEmbebida.cshtml — la Documentación contractual se movió a
-   Revisión en tiempo de ejecución, VENTA-CREDITO-ARQUITECTURA-VISUAL-02 §7). En desktop
-   conservan el ancho angosto que tenían dentro del aside original, alineadas a la
-   derecha; por debajo de 1280px (mismo breakpoint donde la sidebar del wizard ya se
-   apila, ver @media (max-width: 1279px) más arriba) pasan a ancho completo para no dejar
-   un hueco vacío a la izquierda. */
+   Revisión en tiempo de ejecución, VENTA-CREDITO-ARQUITECTURA-VISUAL-02 §7; "Evaluación
+   preliminar" se retiró de acá en VENTA-CREDITO-REDESIGN-VISUAL-IMPLEMENTACION-01, ahora
+   vive como fila "Riesgo" dentro de "Estado del crédito"). En desktop conservan el ancho
+   angosto que tenían dentro del aside original, alineadas a la derecha; por debajo de
+   1280px (mismo breakpoint donde la sidebar del wizard ya se apila, ver
+   @media (max-width: 1279px) más arriba) pasan a ancho completo para no dejar un hueco
+   vacío a la izquierda. */
 #venta-create-page .credito-embebido-cierre,
 #venta-edit-page .credito-embebido-cierre {
     max-width: 26rem;

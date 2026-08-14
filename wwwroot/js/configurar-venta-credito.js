@@ -105,6 +105,17 @@
         const revSemaforoMensaje = embebido ? document.getElementById('rev-semaforo-mensaje') : null;
         const revSemaforoAlertas = embebido ? document.getElementById('rev-semaforo-alertas') : null;
 
+        // VENTA-CREDITO-REDESIGN-VISUAL-IMPLEMENTACION-01: mismo patrón de espejo que
+        // rev-semaforo-* arriba, pero hacia "Estado del crédito" (Views/Venta/_VentaWizardForm.cshtml,
+        // fuera del fragmento embebido — por eso document.getElementById, no root-scoped). El
+        // detalle completo (mensaje/alertas) sigue siendo exclusivo de "Configurar plan" (acá
+        // mismo) y de Revisión; en Estado sólo se refleja el resumen de una línea ("Riesgo:
+        // Alto · No bloquea").
+        const estadoRiesgoRow = embebido ? document.getElementById('estado-riesgo-row') : null;
+        const estadoRiesgoDot = embebido ? document.getElementById('estado-riesgo-dot') : null;
+        const estadoRiesgoLabel = embebido ? document.getElementById('estado-riesgo-label') : null;
+        const estadoRiesgoTag = embebido ? document.getElementById('estado-riesgo-tag') : null;
+
         // Semáforo
         const semaforoPanel    = $('#semaforo-panel');
         const semaforoVacio    = $('#semaforo-vacio');
@@ -318,14 +329,16 @@
             return lista.slice().sort((a, b) => a - b).join(', ');
         }
 
-        // CREDITO-VISUAL-02B: texto corto del <summary> de "Detalle por cuota" — misma
-        // cantidad de cuotas y mismo cuotaEstimada que ya pinta el Resumen del plan
-        // (#plan-cuota-estimada), nunca un cálculo propio. Sin simulación válida todavía
-        // usa un fallback neutral (nunca cero cuotas con importe cero, que sería engañoso).
+        // CREDITO-VISUAL-02B, texto renombrado por VENTA-CREDITO-REDESIGN-VISUAL-
+        // IMPLEMENTACION-01: texto corto del <summary> de "Ver desglose" (fusión de lo que
+        // antes eran dos <details> separados, detalle financiero + detalle por cuota) —
+        // misma cantidad de cuotas y mismo cuotaEstimada que ya pinta el Resumen del plan
+        // (#plan-cuota-estimada), nunca un cálculo propio. Sin simulación válida todavía usa
+        // un fallback neutral (nunca cero cuotas con importe cero, que sería engañoso).
         function formatearResumenDetalleCuotas(cantidad, cuotaEstimada) {
-            if (!cantidad || cantidad <= 0 || !Number.isFinite(cuotaEstimada)) return 'Detalle por cuota';
+            if (!cantidad || cantidad <= 0 || !Number.isFinite(cuotaEstimada)) return 'Ver desglose ▸';
             const plural = cantidad === 1 ? 'cuota' : 'cuotas';
-            return `${cantidad} ${plural} de ${formatCurrency(cuotaEstimada)} · Ver detalle`;
+            return `${cantidad} ${plural} de ${formatCurrency(cuotaEstimada)} · Ver desglose ▸`;
         }
 
         // Pinta la tabla completa por cuota tal cual el vector del servidor: no recalcula capital,
@@ -449,7 +462,7 @@
             cuotasSinRecargoVigentes = [];
             if (planCuotasSinRecargo) planCuotasSinRecargo.textContent = 'Ninguna';
             if (planCuotasTablaBody) planCuotasTablaBody.innerHTML = '';
-            if (planCuotasDetalleSummary) planCuotasDetalleSummary.textContent = 'Detalle por cuota';
+            if (planCuotasDetalleSummary) planCuotasDetalleSummary.textContent = 'Ver desglose ▸';
             hide(planFechaContainer);
             hide(planSimulando);
             hide(planError);
@@ -477,12 +490,14 @@
                 hide(semaforoPanel);
                 show(semaforoVacio);
                 if (revSemaforoPanel) hide(revSemaforoPanel);
+                if (estadoRiesgoRow) hide(estadoRiesgoRow);
                 return;
             }
 
             hide(semaforoVacio);
             show(semaforoPanel);
             if (revSemaforoPanel) show(revSemaforoPanel);
+            if (estadoRiesgoRow) show(estadoRiesgoRow);
 
             // VENTA-FORM-RIESGO-01: el semáforo es asesorio, no una decisión de
             // aprobación/rechazo (esa elegibilidad ya la resuelven los bloqueantes y el
@@ -528,30 +543,45 @@
 
             const config = estados[estado] || estados.amarillo;
 
-            semaforoDot.className = `size-4 rounded-full animate-pulse ${config.dotClass}`;
-            semaforoBadge.className = `flex items-center justify-between p-3 rounded-lg ${config.badgeClass}`;
-            semaforoLabel.className = `font-bold ${config.labelClass}`;
-            semaforoLabel.textContent = config.label;
-            semaforoTag.className = `text-[10px] uppercase font-black ${config.tagClass}`;
-            semaforoTag.textContent = config.tag;
-            semaforoMensaje.textContent = `"${mensaje}"`;
+            // VENTA-CREDITO-REDESIGN-VISUAL-IMPLEMENTACION-01: la card "Evaluación
+            // preliminar" (badge + <details>Ver evaluación▸ con mensaje/alertas) se eliminó
+            // del fragmento embebido — el resumen de una línea vive ahora en "Estado del
+            // crédito" (ver estadoRiesgo* más abajo); mensaje/alertas completos siguen sólo
+            // en Revisión y en la página standalone (ConfigurarVenta_tw, embebido=false, que
+            // conserva su propia card íntegra y estos nodos siempre existen ahí). Guards acá
+            // para que el standalone siga funcionando exactamente igual y para que el
+            // embebido no rompa si algún día tampoco trae estos nodos.
+            if (semaforoDot) semaforoDot.className = `size-4 rounded-full animate-pulse ${config.dotClass}`;
+            if (semaforoBadge) semaforoBadge.className = `flex items-center justify-between p-3 rounded-lg ${config.badgeClass}`;
+            if (semaforoLabel) {
+                semaforoLabel.className = `font-bold ${config.labelClass}`;
+                semaforoLabel.textContent = config.label;
+            }
+            if (semaforoTag) {
+                semaforoTag.className = `text-[10px] uppercase font-black ${config.tagClass}`;
+                semaforoTag.textContent = config.tag;
+            }
+            if (semaforoMensaje) semaforoMensaje.textContent = `"${mensaje}"`;
 
-            // Alertas
-            semaforoAlertas.innerHTML = '';
+            // Alertas — armadas en una variable local (no directamente en semaforoAlertas,
+            // que ya no existe en el fragmento embebido) para poder copiarlas tal cual a
+            // los espejos de Revisión sin depender de que el nodo primario exista.
+            let alertasHtml = '';
             if (data.mostrarMsgIngreso) {
-                semaforoAlertas.innerHTML += `
+                alertasHtml += `
                 <div class="flex items-start gap-2 text-yellow-600 dark:text-yellow-500 text-sm">
                     <span class="material-symbols-outlined text-[18px]">warning</span>
                     <span>Verificar ingresos declarados del cliente.</span>
                 </div>`;
             }
             if (data.mostrarMsgAntiguedad) {
-                semaforoAlertas.innerHTML += `
+                alertasHtml += `
                 <div class="flex items-start gap-2 text-red-500 dark:text-red-400 text-sm">
                     <span class="material-symbols-outlined text-[18px]">error</span>
                     <span>Antigüedad laboral insuficiente.</span>
                 </div>`;
             }
+            if (semaforoAlertas) semaforoAlertas.innerHTML = alertasHtml;
 
             // VENTA-CREDITO-ARQUITECTURA-VISUAL-02: espejo hacia Revisión — mismo `config`
             // ya resuelto arriba (una sola vez) y mismo HTML de alertas ya armado, sólo se
@@ -567,7 +597,21 @@
                 revSemaforoTag.textContent = config.tag;
             }
             if (revSemaforoMensaje) revSemaforoMensaje.textContent = `"${mensaje}"`;
-            if (revSemaforoAlertas) revSemaforoAlertas.innerHTML = semaforoAlertas.innerHTML;
+            if (revSemaforoAlertas) revSemaforoAlertas.innerHTML = alertasHtml;
+
+            // VENTA-CREDITO-REDESIGN-VISUAL-IMPLEMENTACION-01: espejo hacia "Estado del
+            // crédito" — resumen de una línea ("Alto · No bloquea"), sin el prefijo "Riesgo"
+            // de config.label porque la fila ya lo trae como <dt>.
+            if (estadoRiesgoDot) estadoRiesgoDot.className = `size-4 rounded-full ${config.dotClass}`;
+            if (estadoRiesgoLabel) {
+                const nivel = config.label.replace(/^Riesgo\s+/i, '');
+                estadoRiesgoLabel.className = `font-semibold ${config.labelClass}`;
+                estadoRiesgoLabel.textContent = nivel.charAt(0).toUpperCase() + nivel.slice(1);
+            }
+            if (estadoRiesgoTag) {
+                estadoRiesgoTag.className = `text-[10px] uppercase font-black ${config.tagClass}`;
+                estadoRiesgoTag.textContent = config.tag;
+            }
         }
 
         // ── 5. Event Listeners ────────────────────────────────────────────

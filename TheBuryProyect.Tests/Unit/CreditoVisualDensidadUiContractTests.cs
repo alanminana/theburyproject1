@@ -157,12 +157,17 @@ public sealed class CreditoVisualDensidadUiContractTests
         Assert.Contains("planCuotasDetalleSummary.textContent = formatearResumenDetalleCuotas(cuotas, data.cuotaEstimada);", js);
     }
 
+    // VENTA-CREDITO-REDESIGN-VISUAL-IMPLEMENTACION-01: "Detalle por cuota" y "Ver detalle
+    // financiero" se fusionaron en un único <details> "Ver desglose ▸" (ver
+    // ConfigurarVentaEmbebida_UnicoDetailsVerDesglose más abajo) — el fallback y el texto
+    // dinámico del <summary> se renombraron para no quedar desalineados con el nuevo
+    // encabezado.
     [Fact]
     public void ConfigurarVentaJs_SummaryTieneFallbackNeutralSinSimulacionValida()
     {
         var js = ReadJs("configurar-venta-credito.js");
 
-        Assert.Contains("if (!cantidad || cantidad <= 0 || !Number.isFinite(cuotaEstimada)) return 'Detalle por cuota';", js);
+        Assert.Contains("if (!cantidad || cantidad <= 0 || !Number.isFinite(cuotaEstimada)) return 'Ver desglose ▸';", js);
         Assert.DoesNotContain("0 cuotas de $0", js);
     }
 
@@ -175,7 +180,7 @@ public sealed class CreditoVisualDensidadUiContractTests
         Assert.True(resetIdx >= 0, "No se encontró resetPlanResumen().");
         var cuerpoReset = js.Substring(resetIdx, 1100);
 
-        Assert.Contains("planCuotasDetalleSummary.textContent = 'Detalle por cuota';", cuerpoReset);
+        Assert.Contains("planCuotasDetalleSummary.textContent = 'Ver desglose ▸';", cuerpoReset);
     }
 
     [Fact]

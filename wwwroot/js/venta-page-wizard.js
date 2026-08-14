@@ -24,6 +24,13 @@
     const ventaForm = document.getElementById('venta-form');
     const fechaVentaInput = document.getElementById('FechaVenta');
     let creditoValidado = ventaForm?.dataset.creditoConfigurado === 'true';
+    // VENTA-CREDITO-REDESIGN-VISUAL-IMPLEMENTACION-01: distingue "ya corrió el SCORE"
+    // (creditoValidado sólo pasa a true cuando el PLAN quedó guardado, no cuando la
+    // elegibilidad terminó de verificarse) para que el CTA contextual de Crédito pueda
+    // dejar de decir "Verificar crédito" apenas existe un resultado, sin inventar un
+    // "Reverificar" ni un flag de staleness (no existe hoy). Si el crédito ya viene
+    // configurado desde el servidor, el SCORE por definición ya existe también.
+    let scoreDisponible = creditoValidado;
 
     // H4: dd/mm/yyyy a partir del value ISO (yyyy-mm-dd) de <input type="date">, mismo
     // patrón que credito-pagar-cuota.js/credito-adelanto.js — nunca `new Date(...)`, que
@@ -39,6 +46,10 @@
     // Revisión y evitar que el wizard invente un texto propio que lo contradiga.
     const btnConfirmarLabel = document.querySelector('#btn-confirmar [data-btn-confirmar-label]');
     const textoConfirmarCanonico = btnConfirmarLabel?.textContent?.trim() || '';
+    // Sección "Totales y confirmación" completa del sidebar (recordatorio + submit +
+    // nota de qué pasa al confirmar): sólo tiene sentido cerca de confirmar, nunca
+    // mientras se está verificando/configurando el crédito (ver actualizarAccionPrincipal).
+    const sidebarTotales = document.getElementById('venta-sidebar-totales');
 
     // El cotizador embebido (paso Cotizar) trae sus propios nodos [data-side-total]:
     // los maneja cotizacion-simulador.js y el resumen de la venta no debe pisarlos.
@@ -120,23 +131,43 @@
         // endpoint (/api/cotizacion/simular) y su propio botón. Delegamos en él en
         // vez de conectar el paso al submit de #venta-form.
         const esCotizar = step === 'cotizar';
-        // H1: un único texto por paso para toda autoridad visual de avanzar/confirmar
-        // (CTA del hero, barra sticky mobile y #btn-confirmar). En Revisión se reusa
-        // el copy final canónico en vez de un texto propio ("Confirmar operación"),
-        // para que ningún CTA visible contradiga al que efectivamente confirma.
-        const texto = esCotizar
-            ? 'Simular cotización'
-            : (esRevision
-                ? textoConfirmarCanonico
-                : (esPago ? (requiereCredito() ? 'Continuar a crédito' : 'Revisar operación')
-                    : (step === 'credito' ? (creditoValidado ? 'Revisar operación' : 'Verificar crédito') : 'Siguiente')));
+        const esCredito = step === 'credito';
+
+        // H1 (extendido por VENTA-CREDITO-REDESIGN-VISUAL-IMPLEMENTACION-01): un único
+        // texto por paso para toda autoridad visual de avanzar/confirmar. En Crédito la
+        // acción real cambia con el estado (verificar → guardar configuración → continuar
+        // a revisión) — antes todo el paso compartía "Verificar crédito"/"Revisar
+        // operación" con el submit del sidebar, que en realidad nunca verificaba ni
+        // guardaba nada (sólo avanzaba). Ver bloque "sidebarTotales" más abajo.
+        let texto;
+        let accion;
+        if (esCotizar) {
+            texto = 'Simular cotización';
+            accion = 'simular-cotizacion';
+        } else if (esRevision) {
+            texto = textoConfirmarCanonico;
+            accion = 'submit';
+        } else if (esPago) {
+            texto = requiereCredito() ? 'Continuar a crédito' : 'Revisar operación';
+            accion = 'next';
+        } else if (esCredito) {
+            if (creditoValidado) {
+                texto = 'Continuar a revisión';
+                accion = 'continuar-revision';
+            } else if (scoreDisponible) {
+                texto = 'Guardar configuración';
+                accion = 'guardar-configuracion';
+            } else {
+                texto = 'Verificar crédito';
+                accion = 'verify-credit';
+            }
+        } else {
+            texto = 'Siguiente';
+            accion = 'next';
+        }
 
         root.querySelectorAll('[data-wizard-primary]').forEach((button) => {
-            button.dataset.wizardAction = esCotizar
-                ? 'simular-cotizacion'
-                : (esRevision
-                    ? 'submit'
-                    : (step === 'credito' && !creditoValidado ? 'verify-credit' : 'next'));
+            button.dataset.wizardAction = accion;
             const label = button.querySelector('[data-wizard-primary-label]');
             if (label) {
                 label.textContent = texto;
@@ -145,10 +176,18 @@
             }
         });
 
-        // El submit persistente del sidebar es la misma autoridad que el CTA
-        // contextual: antes de Revisión debe decir lo mismo ("Siguiente", "Verificar
-        // crédito", etc.), nunca el copy final de confirmación.
-        if (btnConfirmarLabel) {
+        // VENTA-CREDITO-REDESIGN-VISUAL-IMPLEMENTACION-01: durante Crédito, #btn-confirmar
+        // (submit real del sidebar) nunca ejecuta verificar/guardar/continuar — sólo hace
+        // avanzar()/submit nativo, que en este paso siempre queda bloqueado (el paso
+        // siguiente no se habilita hasta que el plan está configurado). Compartir el mismo
+        // copy que el CTA contextual lo hacía pasar por un segundo "Verificar crédito" o
+        // "Guardar configuración" que al clickear no hacía ninguna de las dos cosas (bug
+        // de origen del audit: 2/3 CTAs "Verificar crédito" simultáneos). Se oculta sólo en
+        // este paso; en el resto del wizard su copy sigue sincronizado como siempre, porque
+        // ahí avanzar() sí es la acción real que el texto promete.
+        if (sidebarTotales) sidebarTotales.hidden = esCredito;
+
+        if (btnConfirmarLabel && !esCredito) {
             btnConfirmarLabel.textContent = texto;
         }
     }
@@ -403,6 +442,41 @@
                 verificarCredito();
                 return;
             }
+            // VENTA-CREDITO-REDESIGN-VISUAL-IMPLEMENTACION-01: el CTA contextual delega en
+            // el botón real que ya vive dentro del configurador embebido (mismo id/data-hook/
+            // JS de venta-credito-embebido.js) — no duplica su lógica de guardado ni de
+            // navegación, sólo simula el click para quien use el CTA de arriba en vez de
+            // bajar hasta "Configurar plan".
+            if (button.dataset.wizardAction === 'guardar-configuracion') {
+                const btnGuardar = document.querySelector('[data-credito-embebido-confirmar]');
+                if (btnGuardar) {
+                    btnGuardar.click();
+                } else {
+                    // SCORE ya corrió pero el cliente sigue bloqueado (documentación/cupo/
+                    // mora sin resolver): el configurador embebido responde con error y
+                    // nunca llega a renderizar "Guardar configuración" — sin este fallback
+                    // el CTA quedaba en un no-op silencioso (bug encontrado en vivo con
+                    // Playwright, cliente con documentación+mora+cupo insuficiente).
+                    mostrarRequisitoCredito(
+                        'Resolvé los bloqueantes de crédito (documentación, cupo o mora) antes de guardar la configuración.',
+                        '#panel-verificacion-crediticia'
+                    );
+                }
+                return;
+            }
+            if (button.dataset.wizardAction === 'continuar-revision') {
+                const btnContinuar = document.querySelector('[data-credito-embebido-continuar-revision]');
+                if (btnContinuar) {
+                    btnContinuar.click();
+                } else {
+                    // El plan ya está configurado (creditoValidado=true) pero el fragmento
+                    // embebido todavía no renderizó su propio botón "Continuar a revisión"
+                    // (p.ej. justo después de guardar, antes de la recarga del fragmento):
+                    // avanzar() ya resuelve lo mismo (el paso Revisión queda habilitado).
+                    avanzar();
+                }
+                return;
+            }
             if (button.dataset.wizardAction === 'simular-cotizacion') {
                 document.getElementById('cotizacion-simular')?.click();
                 return;
@@ -452,6 +526,7 @@
 
     pagoSelect?.addEventListener('change', () => {
         creditoValidado = false;
+        scoreDisponible = false;
         refreshStepGating();
     });
     // H4: el resto del resumen se refresca vía MutationObserver sobre los nodos "hero-*"
@@ -473,6 +548,15 @@
         // página. Sólo los eventos que informan "configurado" explícitamente pueden
         // cambiar este estado; el resto no lo toca.
         if (requiereCredito()) {
+            // VENTA-CREDITO-REDESIGN-VISUAL-IMPLEMENTACION-01: venta-create.js dispara este
+            // evento con {aprobado} en cada corrida de verificarElegibilidadAuto (incluida
+            // la automática al cargar cliente/productos), sin opinar sobre "configurado".
+            // La sola presencia de "aprobado" ya significa que el SCORE corrió al menos una
+            // vez — es la señal que actualizarAccionPrincipal necesita para dejar de decir
+            // "Verificar crédito" una vez que ya no hace falta verificar de nuevo.
+            if (typeof event.detail?.aprobado === 'boolean') {
+                scoreDisponible = true;
+            }
             if (typeof event.detail?.configurado === 'boolean') {
                 creditoValidado = event.detail.configurado;
             }
