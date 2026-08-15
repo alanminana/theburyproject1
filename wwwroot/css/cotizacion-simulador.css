@@ -289,6 +289,27 @@ body:has(.cotz-standalone) #main-content > div:last-child {
    viven dentro de los modales (que se montan dentro de .cotz-app). */
 
 /* ---------- Feedback toast ---------- */
+/* Ancla dentro de .cotz-app, no del viewport. Antes: position:fixed + top-20
+   (top-20 nunca tuvo regla compilada en tailwind.css — sin efecto real; ver
+   git blame de 7a0d3fd/9b7ec61), así que el "top" resuelto era la posición
+   estática de .cotz-app (borde superior), tapando "Ver guardadas" ~4s tras
+   Simular en standalone (medido en vivo, Playwright 1440x900). Con position:
+   absolute + .cotz-app { position:relative }, "top" se mide siempre contra el
+   propio cotz-topbar local — mismo valor sirve para standalone (bajo el header
+   global) y para el wizard embebido de Venta/Create (mucho más abajo en la
+   página), sin duplicar CSS por contexto. Offset mobile-first (banda angosta,
+   <40rem de contenedor): cotz-topbar envuelve "Ver guardadas" a una fila
+   propia — hasta 133px medidos en vivo (standalone y embebido); 9.5rem deja
+   margen real. COTIZACION-SIMULAR-TOAST-OVERLAP-FIX-01. */
+.cotz-app { position: relative; }
+.cotz-app .cotz-feedback { position: absolute; top: 9.5rem; right: .75rem; }
+/* Desde acá (mismo umbral que .workspace más arriba) cotz-topbar es una sola
+   fila (64px medidos en vivo, standalone y embebido): offset más ajustado
+   alcanza para no tapar "Ver guardadas". Va después de la regla base para
+   ganarle en cascada (misma especificidad, gana la que aparece después). */
+@container (min-width: 40rem) {
+    .cotz-app .cotz-feedback { top: 4.5rem; }
+}
 .cotz-feedback { display: flex; align-items: center; gap: .6rem; border: 1px solid; border-radius: 10px; padding: .7rem .9rem; font-size: .82rem; font-weight: 600; box-shadow: 0 18px 50px rgba(0,0,0,.45); }
 .cotz-feedback--ok { background: rgba(16,185,129,.12); border-color: rgba(16,185,129,.4); color: #6ee7b7; }
 .cotz-feedback--warning { background: rgba(245,158,11,.12); border-color: rgba(245,158,11,.4); color: #fcd34d; }

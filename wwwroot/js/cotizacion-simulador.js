@@ -188,7 +188,7 @@
             info: 'cotz-feedback--info'
         }[tone] || 'cotz-feedback--info';
         const icon = tone === 'error' ? 'error' : tone === 'warning' ? 'warning' : tone === 'ok' ? 'check_circle' : 'info';
-        els.feedback.className = `cotz-feedback ${variant} fixed top-20 right-3 z-[60] max-w-sm`;
+        els.feedback.className = `cotz-feedback ${variant} z-[60] max-w-sm`;
         els.feedback.innerHTML = `<span class="material-symbols-outlined" style="font-size:18px">${icon}</span><span>${esc(message)}</span>`;
         clearTimeout(showFeedback._t);
         showFeedback._t = setTimeout(clearFeedback, 4000);

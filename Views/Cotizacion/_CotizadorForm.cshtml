@@ -26,9 +26,10 @@
      data-convertir-base-url="@Url.Content("~/api/cotizacion")"
      data-venta-edit-url="@Url.Content("~/Venta/Edit/")">
 
-    <!-- Feedback toast: top-20 (no top-3) para no competer con el botón "?" del
-         header global del layout (h-16 = 4rem) — item 10 del lote. -->
-    <div id="cotizacion-feedback" class="hidden fixed top-20 right-3 z-[60] max-w-sm" aria-live="polite"></div>
+    <!-- Feedback toast: posición (top/right) la define cotizacion-simulador.css
+         (.cotz-app .cotz-feedback), anclada a .cotz-app y no al viewport — ver
+         COTIZACION-SIMULAR-TOAST-OVERLAP-FIX-01 ahí mismo. -->
+    <div id="cotizacion-feedback" class="hidden z-[60] max-w-sm" aria-live="polite"></div>
 
     <!-- ============================ TOP BAR ============================ -->
     <header class="cotz-topbar">
