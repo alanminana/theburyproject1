@@ -58,25 +58,36 @@ body:has(.cotz-standalone) #main-content > div:last-child {
     flex-wrap: wrap;
 }
 
-/* Flags informativos del top-bar: ocultos en angosto, visibles en ancho.
-   (No usar `hidden xl:inline-flex` de Tailwind: .cotz-app .pill le gana en
-   especificidad y los dejaría siempre visibles.) */
-.cotz-app .pill.topbar-flag { display: none; }
-@media (min-width: 1280px) {
-    .cotz-app .pill.topbar-flag { display: inline-flex; }
-}
+/* ---------- Workspace grid ----------
+   COTIZACION-SIMULAR-REDESIGN-VISUAL-IMPLEMENTACION-01: Resultados dominante +
+   side rails compactos. Usa container queries sobre .cotz-app (no @media) porque
+   el mismo workspace se hostea en 2 anchos reales distintos — pantalla completa
+   (Cotizacion/Index_tw) y embebido dentro del wizard de Venta/Create, cada uno
+   con su propio padding/columna disponible — igual que el patrón validado en
+   [data-credito-config-embedded] (credito-module.css). Los anchos de banda están
+   medidos en vivo (Playwright) contra el ancho real de .cotz-app en ambos hosts,
+   no contra el viewport.
 
-/* ---------- Workspace grid ---------- */
+   container-type va en el PADRE directo de .cotz-app en cada host (.cotz-standalone
+   / .venta-cotizar-panel), no en .cotz-app mismo: un elemento no puede responder a
+   un @container basado en su propio ancho (self-query, inválido por spec) — sólo
+   sus descendientes pueden. .cotz-app no tiene padding/margin horizontal propio,
+   así que su ancho es idéntico al del padre; measurement no cambia, sólo quién
+   puede reaccionar a él (ahora .cotz-app también, además de .workspace). */
+.cotz-standalone, .venta-cotizar-panel { container-type: inline-size; }
+
 .cotz-app .workspace {
     flex: 1;
     min-height: 0;
     display: grid;
-    /* mockup usa 340/366; dentro del shell ERP el sidebar resta 256px, así que
-       achicamos levemente las laterales para dar aire a la tabla de resultados */
-    grid-template-columns: 320px minmax(0, 1fr) 344px;
     gap: 12px;
     padding: 12px;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "productos" "resultados" "config";
 }
+.cotz-app .workspace > [data-zone="productos"] { grid-area: productos; }
+.cotz-app .workspace > [data-zone="resultados"] { grid-area: resultados; }
+.cotz-app .workspace > [data-zone="config"] { grid-area: config; }
 
 /* La tabla de resultados scrollea horizontal sin romper el panel cuando el
    ancho de la columna central es ajustado (no clipea Estado/Recargo). */
@@ -87,21 +98,59 @@ body:has(.cotz-standalone) #main-content > div:last-child {
    columnas sin scroll. Con min-width:0 la rtable activa su overflow-x interno. */
 .cotz-app .col { min-height: 0; min-width: 0; display: flex; flex-direction: column; }
 
-/* Stack a 1 columna cuando no entran 3 columnas dentro del shell.
-   Sidebar expandido = 16rem (256px); las 3 cols (340 + min + 366) necesitan
-   ~1030px de contenido, por eso apilamos por debajo de ~1300px de viewport. */
-@media (max-width: 1300px) {
-    .cotz-app { height: auto; overflow: visible; min-height: 100%; }
-    .cotz-app .workspace { grid-template-columns: minmax(0, 1fr); height: auto; }
-    .cotz-app .panel { max-height: none; }
-    /* en apilado los panel-body no necesitan scroll interno: crece la página */
-    .cotz-app .panel-body { overflow-y: visible; }
+/* Banda angosta (mobile real, <~48rem de contenedor): 1 columna, orden natural
+   del documento (Productos → Resultados → Config). Este lote no rediseña mobile;
+   sólo evita overflow y mantiene la tabla usable (drawers quedan para el cierre). */
+.cotz-app { height: auto; overflow: visible; min-height: 100%; }
+.cotz-app .panel { max-height: none; }
+.cotz-app .panel-body { overflow-y: visible; }
+
+/* Banda ~768: sigue apilado a 1 columna, pero Resultados pasa primero — es la
+   zona dominante también cuando no hay espacio para 3 columnas lado a lado. */
+@container (min-width: 40rem) {
+    .cotz-app .workspace { grid-template-areas: "resultados" "productos" "config"; }
+}
+
+/* Banda ~1024 (intermedia, item 5 del lote): Resultados a todo el ancho arriba,
+   Productos + Configuración en 2 columnas debajo — ni el apilado de mobile ni el
+   workspace de comparación de 3 columnas. Umbral medido en vivo: dentro del shell
+   ERP, 768px y 1024px de viewport dan el MISMO ancho real de .cotz-app (~758px) —
+   a 768px la sidebar pasa a overlay (no resta ancho) y a 1024px sigue en línea
+   restando 256px; ambos casos coinciden casi exacto. Por eso este umbral cubre
+   los dos viewports con el mismo layout: es el ancho real disponible, no la
+   etiqueta "1024" vs "768", lo que decide el layout. */
+@container (min-width: 44rem) {
+    .cotz-app .workspace {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        grid-template-areas:
+            "resultados resultados"
+            "productos  config";
+    }
+}
+
+/* Banda ~1280+: workspace de comparación completo, Resultados dominante.
+   minmax() con piso/techo en vez de píxeles fijos: las laterales no bajan de un
+   ancho usable ni crecen más de lo necesario, y el resto (~58-62%) queda para
+   Resultados — la tabla completa (Medio/Total/Plan/Cuota/Recargo/Estado) entra
+   sin scroll horizontal a este ancho. */
+@container (min-width: 68rem) {
+    .cotz-app { height: 100%; overflow: hidden; }
+    .cotz-app .panel { max-height: 100%; }
+    .cotz-app .panel-body { overflow-y: auto; }
+    .cotz-app .workspace {
+        grid-template-columns: minmax(14rem, 19%) minmax(0, 1fr) minmax(15.5rem, 21%);
+        grid-template-areas: "productos resultados config";
+    }
 }
 
 /* ---------- Cards / panels ---------- */
 .cotz-app .panel { background: #111827; border: 1px solid #1f2937; border-radius: 14px; display: flex; flex-direction: column; min-height: 0; }
 .cotz-app .panel-head { padding: .7rem .85rem .55rem; border-bottom: 1px solid #1b2536; display: flex; align-items: center; gap: .55rem; }
-.cotz-app .panel-body { flex: 1; min-height: 0; overflow-y: auto; padding: .85rem; }
+/* overflow-y vive en la sección "Workspace grid" (arriba): visible por defecto,
+   auto sólo dentro de la banda ≥68rem — de lo contrario esta regla, por venir
+   después en el archivo, le gana a esa por orden de aparición (misma
+   especificidad) y el panel-body queda siempre con scroll interno propio. */
+.cotz-app .panel-body { flex: 1; min-height: 0; padding: .85rem; }
 .cotz-app .panel-body.tight { padding: .7rem .85rem; }
 .cotz-app .panel-foot { padding: .7rem .85rem; border-top: 1px solid #1b2536; }
 .cotz-app .card-sub { background: #0f172a; border: 1px solid #1e2a3d; border-radius: 10px; }
@@ -147,11 +196,14 @@ body:has(.cotz-standalone) #main-content > div:last-child {
 .cotz-app .medio-chip:has(input:checked) .dot { background: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.18); }
 .cotz-app .medio-chip input { position: absolute; opacity: 0; pointer-events: none; }
 
-/* ---------- Cart rows ---------- */
-.cotz-app .cart-row { border: 1px solid #1e2a3d; background: #0f172a; border-radius: 10px; padding: .55rem .6rem; display: flex; flex-direction: column; gap: .5rem; }
-.cotz-app .mini { background: #0b1220; border: 1px solid #243044; border-radius: 7px; color: #e2e8f0; font-size: .78rem; padding: .28rem .4rem; text-align: right; font-family: 'JetBrains Mono', monospace; }
+/* ---------- Cart rows ----------
+   Item 20 del lote: menos "caja dentro de caja" — .mini y .qty-step ya no traen
+   su propio fondo/borde propio, sólo un borde inferior tabular; el único borde
+   visible sigue siendo el de .cart-row (la card). */
+.cotz-app .cart-row { border: 1px solid #1e2a3d; background: #0f172a; border-radius: 10px; padding: .5rem .6rem; display: flex; flex-direction: column; gap: .4rem; }
+.cotz-app .mini { background: transparent; border: 0; border-bottom: 1px solid #243044; border-radius: 0; color: #e2e8f0; font-size: .78rem; padding: .2rem .1rem; text-align: right; font-family: 'JetBrains Mono', monospace; }
 .cotz-app .mini:focus { outline: none; border-color: #3b82f6; }
-.cotz-app .qty-step { display: inline-flex; align-items: center; border: 1px solid #243044; border-radius: 8px; overflow: hidden; background: #0b1220; }
+.cotz-app .qty-step { display: inline-flex; align-items: center; border: 1px solid #1e2a3d; border-radius: 8px; overflow: hidden; background: transparent; }
 .cotz-app .qty-step button { width: 26px; height: 28px; color: #94a3b8; font-size: 14px; display: flex; align-items: center; justify-content: center; background: transparent; border: 0; cursor: pointer; }
 .cotz-app .qty-step button:hover { background: #1a2435; color: #fff; }
 .cotz-app .qty-step input { width: 34px; text-align: center; background: transparent; border: 0; color: #fff; font-size: .8rem; font-family: 'JetBrains Mono', monospace; }
@@ -195,7 +247,6 @@ body:has(.cotz-standalone) #main-content > div:last-child {
 .cotz-app .rtable tr.detail:hover > td { background: #101b2d; }
 .cotz-app .rtable tr.detail.cheap > td { box-shadow: inset 3px 0 0 #10b981; }
 .cotz-app .plan-medio { display: flex; align-items: center; gap: .5rem; padding-left: 1.7rem; }
-.cotz-app .ent-dot { width: 7px; height: 7px; border-radius: 2px; flex: none; }
 
 .cotz-app .total-display { font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
 
@@ -215,6 +266,12 @@ body:has(.cotz-standalone) #main-content > div:last-child {
 .cotz-app .cotz-producto-opcion[data-estado-stock="stock-bajo"]:hover { background: rgba(245,158,11,.18); }
 .cotz-app .cotz-producto-opcion[data-estado-stock="stock-bajo"] .cotz-producto-opcion__badge { background: rgba(245,158,11,.18); color: #fcd34d; }
 
+/* Anticipo (item 25): baja prioridad visual mientras Crédito personal está
+   destildado en "Incluir" — el input sigue activo/editable, sólo se atenúa.
+   Lo aplica cotizacion-simulador.js (actualizarPrioridadAnticipo). */
+.cotz-app [data-anticipo-activo="false"] { opacity: .55; }
+.cotz-app [data-anticipo-activo="false"]:focus-within { opacity: 1; }
+
 /* ---------- Misc helpers ---------- */
 .cotz-app .truncate-1 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cotz-app details > summary { list-style: none; cursor: pointer; }
@@ -223,7 +280,6 @@ body:has(.cotz-standalone) #main-content > div:last-child {
 .cotz-app .chev { transition: transform .2s; }
 .cotz-app .panel-body::-webkit-scrollbar, .cotz-app .dropdown-list::-webkit-scrollbar { width: 8px; }
 .cotz-app .panel-body::-webkit-scrollbar-thumb { background: #1e2a3d; border-radius: 8px; }
-.cotz-app .hr { height: 1px; background: #1b2536; border: 0; margin: .7rem 0; }
 
 /* ---------- Modales / drawer (fuera de .cotz-app, scopear con prefijo propio) ---------- */
 .cotz-modal { animation: cotzFade .18s ease; }

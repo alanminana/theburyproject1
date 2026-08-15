@@ -950,29 +950,20 @@
     padding: 0.75rem;
 }
 
-/* Embebido, el cotizador pierde el ancho que el host de pantalla completa gana
-   comiéndose el padding del shell. Se achican las columnas laterales para que la
-   tabla de resultados no quede en scroll horizontal permanente.
-   Va dentro de min-width para no pisar el apilado a 1 columna de
-   cotizacion-simulador.css (@media max-width: 1300px), que tiene menos
-   especificidad que este selector. */
-@media (min-width: 1301px) {
-    #venta-create-page .venta-cotizar-panel .cotz-app .workspace {
-        grid-template-columns: minmax(0, 17rem) minmax(0, 1fr) minmax(0, 19rem);
-    }
-}
+/* Las proporciones de .workspace (Productos/Resultados/Config) y el apilado por
+   ancho ya las resuelve cotizacion-simulador.css vía @container sobre .cotz-app
+   (COTIZACION-SIMULAR-REDESIGN-VISUAL-IMPLEMENTACION-01): mide el ancho real del
+   propio .cotz-app, así que responde igual de bien acá (más angosto que el host
+   de pantalla completa) sin necesitar un breakpoint de píxeles fijos propio.
+
+   .panel tampoco necesita max-height:none acá: la regla base de
+   cotizacion-simulador.css ya no lo fija salvo dentro de la banda ≥68rem, y
+   .cotz-app arriba fuerza height:auto/overflow:visible siempre en este host
+   (mayor especificidad), así que ese `max-height:100%` nunca llega a aplicar. */
 
 /* El topbar del cotizador redondea contra el borde del panel. */
 #venta-create-page .venta-cotizar-panel .cotz-app .cotz-topbar {
     border-radius: 18px 18px 0 0;
-}
-
-/* Por debajo del breakpoint de apilado el simulador ya crece en vertical;
-   sólo hace falta asegurar que ningún panel imponga alto fijo. */
-@media (max-width: 1300px) {
-    #venta-create-page .venta-cotizar-panel .cotz-app .panel {
-        max-height: none;
-    }
 }
 
 /* ══════════════════════════════════════════════════════════════

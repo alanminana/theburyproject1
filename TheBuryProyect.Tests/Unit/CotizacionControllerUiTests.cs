@@ -107,6 +107,98 @@ public sealed class CotizacionControllerUiTests
         Assert.Contains("plan.fuentePorcentaje", script);
     }
 
+    // COTIZACION-SIMULAR-REDESIGN-VISUAL-IMPLEMENTACION-01: corrección obligatoria del
+    // audit — el modal mostraba "Mejor opción" pero pinta state.opcionSeleccionada
+    // (la fila elegida, no necesariamente la de menor total). Cambia el copy, no la
+    // selección ni el payload de guardado.
+    [Fact]
+    public void Modal_Guardar_MuestraOpcionSeleccionadaNoMejorOpcion()
+    {
+        var partial = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Cotizacion", "_CotizadorForm.cshtml"));
+
+        Assert.Contains("Opción seleccionada", partial);
+        Assert.DoesNotContain("Mejor opción", partial);
+        // El id (y por lo tanto el binding de cotizacion-simulador.js) no cambia.
+        Assert.Contains("id=\"modal-guardar-mejor\"", partial);
+    }
+
+    [Fact]
+    public void Partial_HeaderNoDuplicaElAvisoDeSoloSimulacion()
+    {
+        var partial = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Cotizacion", "_CotizadorForm.cshtml"));
+
+        // Antes: la frase del breadcrumb + 3 pills repitiendo "No crea venta" /
+        // "No toca stock" / "No registra caja". Ahora una sola representación.
+        Assert.DoesNotContain("topbar-flag", partial);
+        Assert.DoesNotContain("No crea venta", partial);
+        Assert.DoesNotContain("No toca stock", partial);
+        Assert.DoesNotContain("No registra caja", partial);
+        Assert.Contains("No modifica venta, stock ni caja", partial);
+    }
+
+    [Fact]
+    public void EstadoDeSimulacion_NoCuadruplicaSenales()
+    {
+        var partial = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Cotizacion", "_CotizadorForm.cshtml"));
+        var scriptUi = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "cotizacion-simulador-ui.js"));
+
+        // La pill propia del panel Resultados se retira (redundante con el banner
+        // del header, que queda como único indicador ambiental).
+        Assert.DoesNotContain("resultados-status-pill", partial);
+        Assert.Contains("id=\"estado-banner\"", partial);
+        // El hint junto al CTA arranca oculto: sólo lo muestra setQuoteState para
+        // pending/error (contextual), no en idle/simulated/saved (ambiental ya
+        // cubierto por el banner).
+        Assert.Contains("hidden mt-1.5 text-[11px] text-slate-400 text-center", partial);
+        Assert.Contains("hint: ''", scriptUi);
+    }
+
+    [Fact]
+    public void Script_RecargoCeroEsNeutralYSinEntDotHash()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "cotizacion-simulador.js"));
+
+        Assert.DoesNotContain("ent-dot", script);
+        Assert.DoesNotContain("function entColor(", script);
+        Assert.Contains("function recargoClass(", script);
+        // 0% no es un éxito (verde): sólo > 0 sigue siendo ámbar.
+        Assert.Contains("if (r > 0) return 'text-amber-300';", script);
+    }
+
+    // Item 30 del lote: RequiereCliente y Crédito personal dependen del cliente —
+    // antes cambiarlo no invalidaba la simulación vigente (sólo lo hacían medios/
+    // descuentos/anticipo/productos).
+    [Fact]
+    public void Script_CambioDeClienteInvalidaLaSimulacion()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "cotizacion-simulador.js"));
+
+        var inicio = script.IndexOf("function setCliente(", StringComparison.Ordinal);
+        Assert.True(inicio >= 0, "No se encontró la función setCliente en cotizacion-simulador.js");
+        var fin = script.IndexOf("\n    async function buscarClientes", StringComparison.Ordinal);
+        Assert.True(fin > inicio, "No se pudo delimitar el cuerpo de setCliente");
+        var cuerpo = script[inicio..fin];
+
+        Assert.Contains("invalidarSimulacion()", cuerpo);
+    }
+
+    // Hooks protegidos por contrato (no renombrar/eliminar): selección de fila,
+    // mejor opción global y el payload real de guardado.
+    [Fact]
+    public void Script_HooksDeSeleccionYGuardadoIntactos()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "cotizacion-simulador.js"));
+        var partial = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Cotizacion", "_CotizadorForm.cshtml"));
+
+        Assert.Contains("tr.dataset.cotizacionOpcionKey = key;", script);
+        Assert.Contains("classList.toggle('selected'", script);
+        Assert.Contains("let bestKey = null, bestTotal = Infinity;", script);
+        Assert.Contains("opcionSeleccionada: state.opcionSeleccionada", script);
+        Assert.Contains("simulacion: buildRequest()", script);
+        Assert.Contains("tr.parent", partial + script);
+        Assert.Contains("tr.detail", partial + script);
+    }
+
     [Fact]
     public void Layout_TieneAccesoSeparadoACotizacion()
     {

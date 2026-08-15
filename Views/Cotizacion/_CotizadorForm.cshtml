@@ -26,8 +26,9 @@
      data-convertir-base-url="@Url.Content("~/api/cotizacion")"
      data-venta-edit-url="@Url.Content("~/Venta/Edit/")">
 
-    <!-- Feedback toast -->
-    <div id="cotizacion-feedback" class="hidden fixed top-3 right-3 z-[60] max-w-sm" aria-live="polite"></div>
+    <!-- Feedback toast: top-20 (no top-3) para no competer con el botón "?" del
+         header global del layout (h-16 = 4rem) — item 10 del lote. -->
+    <div id="cotizacion-feedback" class="hidden fixed top-20 right-3 z-[60] max-w-sm" aria-live="polite"></div>
 
     <!-- ============================ TOP BAR ============================ -->
     <header class="cotz-topbar">
@@ -38,21 +39,22 @@
             <div class="min-w-0">
                 <div class="flex items-center gap-2 flex-wrap">
                     @* h2: el parcial se embebe bajo el h1 de Venta/Create ("Nueva Venta"). *@
-                    <h2 class="text-base font-semibold text-white tracking-tight leading-none">Cotización</h2>
+                    <h2 class="text-base font-semibold text-white tracking-tight leading-none">Cotización <span class="text-slate-500 font-normal">· Solo simulación</span></h2>
+                    @* Único indicador ambiental del estado de simulación (COTIZACION-SIMULAR-REDESIGN-VISUAL-IMPLEMENTACION-01:
+                       antes se repetía en esta pill + una pill propia del panel Resultados + el hint del CTA). *@
                     <span id="estado-banner" class="pill pill-slate"><span class="material-symbols-outlined" style="font-size:13px">info</span> Sin simular</span>
                 </div>
                 <div class="text-[11px] text-slate-500 leading-none mt-1 flex items-center gap-1 min-w-0">
                     <a href="@Url.Action("Index", "Venta")" class="hover:text-slate-300 shrink-0">Ventas</a>
                     <span class="material-symbols-outlined shrink-0" style="font-size:12px">chevron_right</span>
-                    <span class="text-slate-400 truncate-1">Simula medios de pago — no crea venta, no toca stock, no registra caja.</span>
+                    <span class="text-slate-400 truncate-1">No modifica venta, stock ni caja.</span>
                 </div>
             </div>
         </div>
         <div class="ml-auto flex items-center gap-1.5 shrink-0">
-            <span class="pill pill-slate topbar-flag"><span class="material-symbols-outlined" style="font-size:13px">block</span> No crea venta</span>
-            <span class="pill pill-slate topbar-flag"><span class="material-symbols-outlined" style="font-size:13px">inventory</span> No toca stock</span>
-            <span class="pill pill-slate topbar-flag"><span class="material-symbols-outlined" style="font-size:13px">point_of_sale</span> No registra caja</span>
-            <a href="@Url.Action("Listado", "Cotizacion")" class="btn btn-ghost btn-xs ml-1"><span class="material-symbols-outlined" style="font-size:16px">folder_open</span> Ver guardadas</a>
+            <a href="@Url.Action("Listado", "Cotizacion")" class="btn btn-ghost btn-xs">
+                <span class="material-symbols-outlined" style="font-size:16px">folder_open</span> Ver guardadas
+            </a>
         </div>
     </header>
 
@@ -60,7 +62,7 @@
     <div class="workspace">
 
         <!-- =================== COL A · PRODUCTOS =================== -->
-        <div class="col">
+        <div class="col" data-zone="productos">
             <section class="panel flex-1">
                 <div class="panel-head">
                     <span class="num">1</span>
@@ -118,13 +120,12 @@
         </div>
 
         <!-- =================== COL B · RESULTADOS =================== -->
-        <div class="col">
+        <div class="col" data-zone="resultados">
             <section class="panel flex-1">
                 <div class="panel-head">
                     <span class="num">2</span>
                     <h2 class="text-sm font-semibold text-white">Resultados</h2>
                     <span class="text-xs text-slate-500 hidden sm:inline">Comparativa de medios, planes y cuotas</span>
-                    <span class="pill pill-slate ml-auto" id="resultados-status-pill"><span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span> Sin simular</span>
                 </div>
 
                 <!-- Totales (fijo) -->
@@ -186,24 +187,25 @@
         </div>
 
         <!-- =================== COL C · CONFIG + ACCIONES =================== -->
-        <div class="col">
+        <div class="col" data-zone="config">
             <section class="panel flex-1">
-                <div class="panel-body tight space-y-3.5">
+                <div class="panel-body tight space-y-4">
 
                     <!-- Cliente -->
                     <div>
                         <div class="flex items-center gap-2 mb-2">
                             <span class="num">3</span>
                             <h3 class="text-sm font-semibold text-white">Cliente</h3>
-                            <span class="pill pill-slate ml-auto">Opcional</span>
                         </div>
-                        <div class="relative">
+                        @* El buscador se oculta mientras hay cliente seleccionado (la card de abajo
+                           pasa a ser la única representación); "Quitar" lo vuelve a mostrar. *@
+                        <div id="cotizacion-cliente-buscador" class="relative">
                             <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" style="font-size:17px">search</span>
                             <input id="cotizacion-cliente-buscar" type="text" class="field pl-8" placeholder="Nombre, DNI o CUIT…" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="cotizacion-clientes-dropdown">
                             <div id="cotizacion-clientes-dropdown" class="dropdown-list hidden absolute z-30 top-full left-0 right-0 mt-1" role="listbox"></div>
                         </div>
                         <input id="cotizacion-cliente-id" type="hidden" value="">
-                        <div class="mt-1.5 text-[11px] text-slate-500 italic" data-cliente-vacio>El crédito personal puede requerir cliente.</div>
+                        <div class="mt-1.5 text-[11px] text-slate-500 italic" data-cliente-vacio>Opcional — el crédito personal puede requerirlo.</div>
                         <div id="cotizacion-cliente-seleccionado" class="hidden mt-2 card-sub p-2.5 flex items-start justify-between gap-2">
                             <div class="min-w-0">
                                 <div class="text-[10px] uppercase tracking-wide text-emerald-400 font-semibold">Cliente</div>
@@ -226,10 +228,10 @@
                         </details>
                     </div>
 
-                    <hr class="hr">
-
-                    <!-- Anticipo (Credito personal) -->
-                    <div>
+                    @* Anticipo (Credito personal): sólo relevante mientras ese medio está incluido en
+                       la comparativa — baja prioridad visual (data-anticipo-activo) cuando no lo está,
+                       sin ocultar el input ni alterar el valor que igual viaja en el payload. *@
+                    <div id="cotizacion-anticipo-bloque" data-anticipo-activo="true">
                         <h3 class="text-sm font-semibold text-white flex items-center gap-1.5">
                             <span class="material-symbols-outlined text-slate-400" style="font-size:17px">handshake</span> Anticipo (Crédito personal)
                         </h3>
@@ -241,8 +243,6 @@
                             <input id="cotizacion-anticipo" type="number" min="0" step="0.01" value="0" class="field pl-6" aria-label="Anticipo para credito personal">
                         </div>
                     </div>
-
-                    <hr class="hr">
 
                     <!-- Descuentos generales -->
                     <div>
@@ -271,8 +271,6 @@
                             Se sumarán ambos descuentos.
                         </div>
                     </div>
-
-                    <hr class="hr">
 
                     <!-- Vencimiento + observaciones -->
                     <div>
@@ -320,9 +318,10 @@
                             </button>
                         </div>
                     </div>
-                    <p id="cotizacion-simular-estado" class="mt-1.5 text-[11px] text-slate-400 text-center flex items-center justify-center gap-1" aria-live="polite">
-                        <span class="material-symbols-outlined" style="font-size:13px">info</span> Listo para simular.
-                    </p>
+                    @* Contextual, no ambiental: sólo se muestra para pending/error (setQuoteState
+                       en cotizacion-simulador-ui.js). El estado permanente vive únicamente en
+                       #estado-banner del header — antes se repetía acá con otro texto. *@
+                    <p id="cotizacion-simular-estado" class="hidden mt-1.5 text-[11px] text-slate-400 text-center flex items-center justify-center gap-1" aria-live="polite"></p>
                 </div>
             </section>
         </div>
@@ -342,7 +341,11 @@
                         <div class="flex justify-between"><dt class="text-slate-400">Cliente</dt><dd id="modal-guardar-cliente" class="text-white">—</dd></div>
                         <div class="flex justify-between"><dt class="text-slate-400">Productos</dt><dd id="modal-guardar-productos" class="text-white">—</dd></div>
                         <div class="flex justify-between"><dt class="text-slate-400">Total base</dt><dd id="modal-guardar-total" class="text-white font-semibold font-mono">$0,00</dd></div>
-                        <div class="flex justify-between"><dt class="text-slate-400">Mejor opción</dt><dd id="modal-guardar-mejor" class="text-emerald-400">—</dd></div>
+                        @* COTIZACION-SIMULAR-REDESIGN-VISUAL-IMPLEMENTACION-01: el label anterior no
+                           reflejaba que el valor mostrado es state.opcionSeleccionada (la opción
+                           elegida en la tabla, no necesariamente la de menor total). El id/JS que la
+                           alimenta no cambia, sólo el copy. *@
+                        <div class="flex justify-between"><dt class="text-slate-400">Opción seleccionada</dt><dd id="modal-guardar-mejor" class="text-emerald-400">—</dd></div>
                     </dl>
                     <div class="mt-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-2.5 text-xs text-amber-100/90 flex gap-2">
                         <span class="material-symbols-outlined text-amber-300 shrink-0" style="font-size:16px">warning</span>
@@ -378,7 +381,7 @@
                 <dl class="space-y-2 text-sm">
                     <div class="flex justify-between"><dt class="text-slate-400">Cantidad de cuotas</dt><dd id="plan-detalle-cuotas" class="text-white">—</dd></div>
                     <div class="flex justify-between"><dt class="text-slate-400">Valor de cuota</dt><dd id="plan-valor-cuota" class="text-white font-mono">—</dd></div>
-                    <div class="flex justify-between"><dt class="text-slate-400">Recargo total</dt><dd id="plan-recargo" class="text-emerald-400 font-mono">0%</dd></div>
+                    <div class="flex justify-between"><dt class="text-slate-400">Recargo total</dt><dd id="plan-recargo" class="text-slate-400 font-mono">0%</dd></div>
                 </dl>
                 <!-- Desglose exclusivo de Credito personal (ML8): oculto salvo que el plan traiga
                      saldoAFinanciar/totalFinanciado/vector de cuotas (server-authoritative). -->

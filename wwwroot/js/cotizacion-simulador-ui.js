@@ -21,22 +21,31 @@
     window.openModal = openModal; window.closeModal = closeModal;
     document.addEventListener('keydown', e => { if (e.key === 'Escape') { ['modal-guardar', 'modal-plan', 'modal-quitar-producto'].forEach(id => { const el = document.getElementById(id); if (el && !el.classList.contains('hidden')) closeModal(id); }); } });
 
-    // ---- Quote state pills (banner + resultados + hint) ----
+    // ---- Quote state signals ----
+    // COTIZACION-SIMULAR-REDESIGN-VISUAL-IMPLEMENTACION-01: antes había 4 señales
+    // anunciando el mismo estado (toast, banner del header, pill propia de
+    // Resultados, hint fijo junto al CTA). Ahora quedan como máximo 2 visibles a
+    // la vez: #estado-banner es el único indicador AMBIENTAL (siempre visible,
+    // header) y el hint junto al CTA sólo aparece cuando hay algo que el usuario
+    // deba hacer (pending/error) — CONTEXTUAL, no repite el mismo texto en idle/
+    // simulated/saved. El toast (showFeedback en cotizacion-simulador.js) sigue
+    // siendo el feedback transitorio de acciones puntuales (item 10).
     function setQuoteState(state) {
         const cfg = {
-            idle:      { pill: 'pill-slate', dot: 'bg-slate-500',   label: 'Sin simular',        hint: 'Listo para simular.',                  hintCls: 'text-slate-400',   icon: 'info',           banner: 'Sin simular' },
-            simulated: { pill: 'pill-green', dot: 'bg-emerald-400', label: 'Simulada',           hint: 'Simulación lista.',                    hintCls: 'text-emerald-400', icon: 'check_circle',   banner: 'Simulada correctamente' },
-            pending:   { pill: 'pill-amber', dot: 'bg-amber-400',   label: 'Cambios pendientes', hint: 'Cambios pendientes: volvé a simular.', hintCls: 'text-amber-300',   icon: 'warning',        banner: 'Cambios sin simular' },
-            error:     { pill: 'pill-red',   dot: 'bg-red-400',     label: 'Error',              hint: 'No se pudo simular.',                  hintCls: 'text-red-300',     icon: 'error',          banner: 'Error de simulación' },
-            saved:     { pill: 'pill-green', dot: 'bg-emerald-400', label: 'Guardada',           hint: 'Cotización guardada.',                 hintCls: 'text-emerald-400', icon: 'bookmark_added', banner: 'Cotización guardada' }
+            idle:      { pill: 'pill-slate', hint: '',                                      hintCls: 'text-slate-400',   icon: 'info',           banner: 'Sin simular' },
+            simulated: { pill: 'pill-green', hint: '',                                      hintCls: 'text-emerald-400', icon: 'check_circle',   banner: 'Simulada' },
+            pending:   { pill: 'pill-amber', hint: 'Cambios pendientes: volvé a simular.', hintCls: 'text-amber-300',   icon: 'warning',        banner: 'Cambios pendientes' },
+            error:     { pill: 'pill-red',   hint: 'No se pudo simular: revisá los datos.', hintCls: 'text-red-300',     icon: 'error',          banner: 'Error de simulación' },
+            saved:     { pill: 'pill-green', hint: '',                                      hintCls: 'text-emerald-400', icon: 'bookmark_added', banner: 'Guardada' }
         };
         const s = cfg[state]; if (!s) return;
-        const resPill = document.getElementById('resultados-status-pill');
-        if (resPill) { resPill.className = 'pill ' + s.pill + ' ml-auto'; resPill.innerHTML = '<span class="w-1.5 h-1.5 rounded-full ' + s.dot + '"></span> ' + s.label; }
         const banner = document.getElementById('estado-banner');
         if (banner) { banner.className = 'pill ' + s.pill; banner.innerHTML = '<span class="material-symbols-outlined" style="font-size:13px">' + s.icon + '</span> ' + s.banner; }
         const hint = document.getElementById('cotizacion-simular-estado');
-        if (hint) { hint.className = 'mt-1.5 text-[11px] text-center flex items-center justify-center gap-1 ' + s.hintCls; hint.innerHTML = '<span class="material-symbols-outlined" style="font-size:13px">' + s.icon + '</span> ' + s.hint; }
+        if (hint) {
+            hint.className = (s.hint ? '' : 'hidden ') + 'mt-1.5 text-[11px] text-center flex items-center justify-center gap-1 ' + s.hintCls;
+            hint.innerHTML = s.hint ? '<span class="material-symbols-outlined" style="font-size:13px">' + s.icon + '</span> ' + s.hint : '';
+        }
     }
     window.setQuoteState = setQuoteState;
 

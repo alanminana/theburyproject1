@@ -19,6 +19,7 @@
         clienteSeleccionado: null,
         ultimaSimulacion: null,
         opcionSeleccionada: null,
+        bestKey: null,
         pendingDeleteIndex: null,
         cotizacionGuardadaId: null,
         cotizacionGuardadaClienteId: null,
@@ -53,6 +54,8 @@
         headerProdCount: $('#header-prod-count'),
         headerUnitCount: $('#header-unit-count'),
         sideTotal: $('[data-side-total]'),
+        clienteBuscador: $('#cotizacion-cliente-buscador'),
+        clienteVacioHint: $('[data-cliente-vacio]'),
         clienteBuscar: $('#cotizacion-cliente-buscar'),
         clientesDropdown: $('#cotizacion-clientes-dropdown'),
         clienteId: $('#cotizacion-cliente-id'),
@@ -64,6 +67,8 @@
         telefonoLibre: $('#cotizacion-telefono-libre'),
         descuentoGralPct: $('#cotizacion-descuento-gral-pct'),
         descuentoGralImporte: $('#cotizacion-descuento-gral-importe'),
+        anticipoBloque: $('#cotizacion-anticipo-bloque'),
+        incluirCreditoPersonal: $('[data-cotizacion-medio="incluirCreditoPersonal"]'),
         anticipo: $('#cotizacion-anticipo'),
         fechaVencimiento: $('#cotizacion-fecha-vencimiento'),
         observaciones: $('#cotizacion-observaciones'),
@@ -183,7 +188,7 @@
             info: 'cotz-feedback--info'
         }[tone] || 'cotz-feedback--info';
         const icon = tone === 'error' ? 'error' : tone === 'warning' ? 'warning' : tone === 'ok' ? 'check_circle' : 'info';
-        els.feedback.className = `cotz-feedback ${variant} fixed top-3 right-3 z-[60] max-w-sm`;
+        els.feedback.className = `cotz-feedback ${variant} fixed top-20 right-3 z-[60] max-w-sm`;
         els.feedback.innerHTML = `<span class="material-symbols-outlined" style="font-size:18px">${icon}</span><span>${esc(message)}</span>`;
         clearTimeout(showFeedback._t);
         showFeedback._t = setTimeout(clearFeedback, 4000);
@@ -287,6 +292,7 @@
         const hadResults = !!state.ultimaSimulacion;
         state.ultimaSimulacion = null;
         state.opcionSeleccionada = null;
+        state.bestKey = null;
         if (els.guardar) els.guardar.disabled = true;
         resetGuardado();
         if (hadResults) setState('pending');
@@ -441,6 +447,9 @@
         els.productoBuscar?.setAttribute('aria-expanded', 'true');
     }
 
+    // El cliente afecta el resultado real (RequiereCliente, Crédito personal): un
+    // cambio de cliente invalida la simulación vigente igual que producto/
+    // descuento/anticipo/medios (item 30 del lote).
     function setCliente(cliente) {
         state.clienteSeleccionado = cliente;
         if (els.clienteId) els.clienteId.value = cliente?.id || '';
@@ -449,15 +458,22 @@
             els.clienteBuscar.setAttribute('aria-expanded', 'false');
         }
         hide(els.clientesDropdown);
+        invalidarSimulacion();
 
         if (!cliente) {
             hide(els.clienteSeleccionado);
+            show(els.clienteBuscador);
+            show(els.clienteVacioHint);
             updateGuardarModal();
             return;
         }
 
         if (els.clienteNombre) els.clienteNombre.textContent = cliente.display || `${cliente.nombre} ${cliente.apellido}`;
         if (els.clienteDoc) els.clienteDoc.textContent = `${cliente.tipoDocumento || 'Doc'}: ${cliente.numeroDocumento || '-'}`;
+        // Con cliente seleccionado la card de abajo es la única representación
+        // (antes nombre/DNI se repetían en el buscador y en la card) — item 23.
+        hide(els.clienteBuscador);
+        hide(els.clienteVacioHint);
         show(els.clienteSeleccionado);
         updateGuardarModal();
     }
@@ -749,12 +765,13 @@
         return `${new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 }).format(n)}%`;
     }
 
-    const ENT_COLORS = ['#3b82f6', '#22d3ee', '#f97316', '#a855f7', '#10b981', '#eab308', '#ec4899'];
-    function entColor(name) {
-        let h = 0;
-        const s = String(name || '');
-        for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
-        return ENT_COLORS[h % ENT_COLORS.length];
+    // Recargo 0% es un valor neutral (no un éxito ni un descuento): sólo > 0 es
+    // ámbar. < 0 quedaría verde (descuento real), pero recargoValor() nunca
+    // devuelve negativo hoy — no se inventa ese caso acá (item 13/14 del lote).
+    function recargoClass(r) {
+        if (r > 0) return 'text-amber-300';
+        if (r < 0) return 'text-emerald-400';
+        return 'text-slate-400';
     }
 
     function groupByMedioPago(rows) {
@@ -807,6 +824,7 @@
             rows.forEach(r => {
                 if (r.plan && Number(r.plan.total) < bestTotal) { bestTotal = Number(r.plan.total); bestKey = optionKey(r); }
             });
+            state.bestKey = bestKey;
 
             const groups = groupByMedioPago(rows);
             const frag = document.createDocumentFragment();
@@ -882,7 +900,7 @@
             <td class="r"><span class="text-[10px] text-slate-500">desde </span><span class="total-display font-semibold text-white">${formatCurrency(minTotal)}</span></td>
             <td class="text-slate-300">${planRows.length} planes</td>
             <td class="r text-slate-500">—</td>
-            <td class="r ${maxR > 0 ? 'text-amber-300' : 'text-emerald-400'}">${recargoTxt}</td>
+            <td class="r ${recargoClass(maxR)}">${recargoTxt}</td>
             <td><span class="pill pill-slate">${planRows.length} opciones</span></td>`;
         frag.appendChild(parent);
 
@@ -899,10 +917,14 @@
         return Number(plan.cantidadCuotas) > 1 ? `${plan.cantidadCuotas} cuotas` : '1 pago';
     }
 
-    function pillForRow(row, bestKey) {
+    // "Seleccionado" tiene prioridad sobre "Mejor precio"/"Pago único": la fila
+    // elegida debe distinguirse por texto (no sólo por el resaltado azul de
+    // tr.selected), nunca depender sólo de color (item 17 del lote).
+    function pillForRow(row, bestKey, selectedKey) {
         const key = optionKey(row);
-        if (key === bestKey) return '<span class="pill pill-green"><span class="material-symbols-outlined" style="font-size:12px">star</span> Mejor</span>';
-        if (row.plan?.recomendado) return '<span class="pill pill-blue">Recomendado</span>';
+        if (selectedKey && key === selectedKey) return '<span class="pill pill-blue"><span class="material-symbols-outlined" style="font-size:12px">check</span> Seleccionado</span>';
+        if (key === bestKey) return '<span class="pill pill-green"><span class="material-symbols-outlined" style="font-size:12px">star</span> Mejor precio</span>';
+        if (row.plan?.recomendado) return '<span class="pill pill-blue">Pago único</span>';
         return '<span class="pill pill-slate">Elegir</span>';
     }
 
@@ -923,7 +945,7 @@
             <td class="r"><span class="total-display font-semibold text-white">${formatCurrency(plan.total)}</span></td>
             <td class="text-slate-300">${planLabelCuotas(plan)}</td>
             <td class="r ${Number(plan.cantidadCuotas) > 1 ? 'text-slate-300 total-display' : 'text-slate-400'}">${cuotasTxt}</td>
-            <td class="r ${r > 0 ? 'text-amber-300' : 'text-emerald-400'}">${r > 0 ? '+' : ''}${pct(r)}</td>
+            <td class="r ${recargoClass(r)}">${r > 0 ? '+' : ''}${pct(r)}</td>
             <td>${pillForRow(row, bestKey)}</td>`;
         return tr;
     }
@@ -937,20 +959,30 @@
         tr.dataset.g = gkey;
         tr.dataset.cotizacionRowKey = key;
         tr.dataset.cotizacionOpcionKey = key;
+        // Item 15 del lote: el hash de color por plan (antes un punto de color propio
+        // por fila) no tenía semántica real — el color de familia de medio ya vive
+        // en el pay-ico de la fila padre.
         const planName = plan.plan || medioLabel(row.opcion.medioPago, row.opcion.nombreMedioPago);
         tr.innerHTML = `
-            <td><span class="plan-medio"><span class="ent-dot" style="background:${entColor(planName)}"></span><span class="text-slate-200 font-medium">${esc(planName)}</span></span></td>
+            <td><span class="plan-medio"><span class="text-slate-200 font-medium">${esc(planName)}</span></span></td>
             <td class="r"><span class="total-display text-white">${formatCurrency(plan.total)}</span></td>
             <td class="text-slate-300">${planLabelCuotas(plan)}</td>
             <td class="r total-display text-slate-300">${Number(plan.cantidadCuotas) > 1 ? formatCurrency(plan.valorCuota) : '—'}</td>
-            <td class="r ${r > 0 ? 'text-amber-300' : 'text-emerald-400'}">${r > 0 ? '+' : ''}${pct(r)}</td>
+            <td class="r ${recargoClass(r)}">${r > 0 ? '+' : ''}${pct(r)}</td>
             <td>${pillForRow(row, bestKey)}</td>`;
         return tr;
     }
 
+    // Actualiza el resaltado de fila Y la pill de la última columna: el texto
+    // "Seleccionado" tiene que seguir a la selección real, no sólo el color de
+    // fondo (item 17 del lote). state.bestKey lo fija renderResultado().
     function updateSelectedRowHighlight(selectedKey) {
         $$('#cotizacion-resultados-tbody tr[data-cotizacion-row-key]').forEach(tr => {
-            tr.classList.toggle('selected', tr.dataset.cotizacionRowKey === selectedKey);
+            const key = tr.dataset.cotizacionRowKey;
+            tr.classList.toggle('selected', key === selectedKey);
+            const row = findRowByKey(key);
+            const pillCell = tr.querySelector('td:last-child');
+            if (row && pillCell) pillCell.innerHTML = pillForRow(row, state.bestKey, selectedKey);
         });
     }
 
@@ -1021,7 +1053,7 @@
         if (els.planValorCuota) els.planValorCuota.textContent = Number(plan.cantidadCuotas) > 1 ? formatCurrency(plan.valorCuota) : '—';
         if (els.planRecargo) {
             els.planRecargo.textContent = `${r > 0 ? '+' : ''}${pct(r)}`;
-            els.planRecargo.className = (r > 0 ? 'text-amber-300' : 'text-emerald-400') + ' font-mono';
+            els.planRecargo.className = recargoClass(r) + ' font-mono';
         }
 
         // Desglose de Credito personal: solo estos planes traen saldoAFinanciar/totalFinanciado
@@ -1076,6 +1108,16 @@
         }
     }
 
+    // Item 25 del lote: Anticipo sólo importa mientras Crédito personal está
+    // incluido en la comparativa. No oculta el input (el valor sigue viajando en
+    // el payload igual, ver buildRequest) ni cambia el cálculo — sólo baja la
+    // prioridad visual cuando ese medio está destildado.
+    function actualizarPrioridadAnticipo() {
+        if (!els.anticipoBloque) return;
+        const activo = els.incluirCreditoPersonal ? !!els.incluirCreditoPersonal.checked : true;
+        els.anticipoBloque.dataset.anticipoActivo = String(activo);
+    }
+
     /* ---------------------------------------------------------------------
        Eventos
     --------------------------------------------------------------------- */
@@ -1099,6 +1141,8 @@
         $$('[data-cotizacion-medio]').forEach(input => {
             input.addEventListener('change', () => invalidarSimulacion());
         });
+        els.incluirCreditoPersonal?.addEventListener('change', actualizarPrioridadAnticipo);
+        actualizarPrioridadAnticipo();
 
         // descuentos generales + anticipo -> pendiente
         [els.descuentoGralPct, els.descuentoGralImporte, els.anticipo].forEach(el => {
