@@ -142,6 +142,16 @@
         return String(value || '').toLowerCase();
     }
 
+    // Separadores de miles para la card de cliente ("35.996.614" en vez de
+    // "35996614") — sólo si el documento es puramente numérico (DNI); un CUIT u
+    // otro formato ya vendría con su propio separador del backend y se deja tal
+    // cual (COTIZACION-SIMULAR-REDESIGN-VISUAL-POLISH-01).
+    function formatDocumento(value) {
+        const raw = String(value ?? '').trim();
+        if (!raw) return '-';
+        return /^\d+$/.test(raw) ? raw.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : raw;
+    }
+
     function debounce(fn, ms) {
         let timer = null;
         return function (...args) {
@@ -219,36 +229,35 @@
             const subtotal = Number(producto.precioUnitario) * Number(producto.cantidad);
             const article = document.createElement('article');
             article.className = 'cart-row';
+            // COTIZACION-SIMULAR-REDESIGN-VISUAL-POLISH-01: precio vigente sube a la
+            // fila del nombre (dato, no "widget" propio) y Subtotal pasa a su propia
+            // fila a ancho completo — antes compartía una grilla de 3 columnas con
+            // Dto.%/Dto.$ y se recortaba (overflow-x) en el rail angosto de Productos.
             article.innerHTML = `
-                <div class="flex items-start gap-2">
-                    <div class="min-w-0 flex-1">
-                        <div class="text-sm font-medium text-white truncate-1">${esc(producto.nombre || `Producto ${producto.productoId}`)}</div>
-                        <div class="text-[11px] text-slate-500 font-mono">ID ${producto.productoId}${producto.codigo ? ' · ' + esc(producto.codigo) : ''}</div>
-                    </div>
-                    <button type="button" data-cotizacion-eliminar-index="${index}" class="icon-btn btn btn-ghost text-slate-500 hover:text-red-300" aria-label="Quitar">
+                <div class="flex items-start justify-between gap-2">
+                    <div class="text-sm font-medium text-white truncate-1 min-w-0 flex-1">${esc(producto.nombre || `Producto ${producto.productoId}`)}</div>
+                    <button type="button" data-cotizacion-eliminar-index="${index}" class="icon-btn btn btn-ghost text-slate-500 hover:text-red-300 shrink-0" aria-label="Quitar">
                         <span class="material-symbols-outlined" style="font-size:16px">close</span>
                     </button>
                 </div>
                 <div class="flex items-center justify-between gap-2">
+                    <div class="text-[11px] text-slate-500 font-mono truncate-1 min-w-0">ID ${producto.productoId}${producto.codigo ? ' · ' + esc(producto.codigo) : ''}</div>
+                    <div class="text-sm text-white total-display shrink-0">${formatCurrency(producto.precioUnitario)}</div>
+                </div>
+                <div class="cart-row-inputs">
                     <div class="qty-step">
                         <button type="button" aria-label="Restar" onclick="stepRow(this,-1)">−</button>
                         <input type="number" min="1" value="${producto.cantidad}" data-cotizacion-cantidad-index="${index}" aria-label="Cantidad">
                         <button type="button" aria-label="Sumar" onclick="stepRow(this,1)">+</button>
                     </div>
-                    <div class="text-right">
-                        <div class="text-[10px] uppercase tracking-wide text-slate-500">Precio vig.</div>
-                        <div class="text-sm text-white total-display">${formatCurrency(producto.precioUnitario)}</div>
-                    </div>
-                </div>
-                <div class="grid grid-cols-3 gap-1.5 items-end">
                     <label class="block"><span class="text-[10px] text-slate-500">Dto. %</span>
                         <input type="number" value="${producto.descuentoPorcentaje ?? ''}" min="0" max="100" step="0.01" placeholder="0" data-cotizacion-desc-pct-index="${index}" aria-label="Descuento porcentaje producto" class="mini w-full mt-0.5"></label>
                     <label class="block"><span class="text-[10px] text-slate-500">Dto. $</span>
                         <input type="number" value="${producto.descuentoImporte ?? ''}" min="0" step="0.01" placeholder="0" data-cotizacion-desc-importe-index="${index}" aria-label="Descuento importe producto" class="mini w-full mt-0.5"></label>
-                    <div class="text-right">
-                        <div class="text-[10px] text-slate-500">Subtotal</div>
-                        <div class="text-sm font-semibold text-white total-display mt-0.5">${formatCurrency(subtotal)}</div>
-                    </div>
+                </div>
+                <div class="cart-row-subtotal">
+                    <span class="text-[10px] uppercase tracking-wide text-slate-500">Subtotal</span>
+                    <span class="text-sm font-semibold text-white total-display">${formatCurrency(subtotal)}</span>
                 </div>`;
             els.productosTbody.appendChild(article);
         });
@@ -468,8 +477,17 @@
             return;
         }
 
-        if (els.clienteNombre) els.clienteNombre.textContent = cliente.display || `${cliente.nombre} ${cliente.apellido}`;
-        if (els.clienteDoc) els.clienteDoc.textContent = `${cliente.tipoDocumento || 'Doc'}: ${cliente.numeroDocumento || '-'}`;
+        // Nombre sin el sufijo "- DNI: ..." que ya trae cliente.display (pensado para
+        // desambiguar en el buscador/dropdown, no para la card dedicada de abajo, que
+        // ya muestra el documento en su propia línea): antes el DNI aparecía dos
+        // veces y era lo que más empujaba el truncamiento del nombre a "miñana,
+        // alan - DNI: 35…" (COTIZACION-SIMULAR-REDESIGN-VISUAL-POLISH-01).
+        if (els.clienteNombre) {
+            els.clienteNombre.textContent = (cliente.apellido && cliente.nombre)
+                ? `${cliente.apellido}, ${cliente.nombre}`
+                : (cliente.display || `${cliente.nombre} ${cliente.apellido}`);
+        }
+        if (els.clienteDoc) els.clienteDoc.textContent = `${cliente.tipoDocumento || 'DNI'} ${formatDocumento(cliente.numeroDocumento)}`;
         // Con cliente seleccionado la card de abajo es la única representación
         // (antes nombre/DNI se repetían en el buscador y en la card) — item 23.
         hide(els.clienteBuscador);
@@ -806,7 +824,14 @@
         if (!data || !els.resultadosTbody) return;
 
         if (els.subtotal) els.subtotal.textContent = formatCurrency(data.subtotal);
-        if (els.descuento) els.descuento.textContent = formatCurrency(data.descuentoTotal);
+        if (els.descuento) {
+            els.descuento.textContent = formatCurrency(data.descuentoTotal);
+            // $0,00 en verde no comunica nada (mismo criterio que recargoClass() con
+            // 0%): sólo se destaca cuando hay un descuento real aplicado.
+            const hayDescuento = Number(data.descuentoTotal) > 0;
+            els.descuento.classList.toggle('text-emerald-400', hayDescuento);
+            els.descuento.classList.toggle('text-white', !hayDescuento);
+        }
         if (els.totalBase) els.totalBase.textContent = formatCurrency(data.totalBase);
         updateHeaderCounts();
 

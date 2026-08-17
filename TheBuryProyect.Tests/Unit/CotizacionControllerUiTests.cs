@@ -199,6 +199,112 @@ public sealed class CotizacionControllerUiTests
         Assert.Contains("tr.detail", partial + script);
     }
 
+    // COTIZACION-SIMULAR-REDESIGN-VISUAL-POLISH-01 (a partir de acá): valores de
+    // lectura sin apariencia de input, jerarquía de CTA por estado, toast dentro
+    // del topbar, cliente sin DNI duplicado y filtros de medios con una sola señal.
+
+    [Fact]
+    public void Toast_ViveDentroDelTopbarNoComoOverlayDeWorkspace()
+    {
+        var partial = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Cotizacion", "_CotizadorForm.cshtml"));
+
+        var topbarInicio = partial.IndexOf("<header class=\"cotz-topbar\">", StringComparison.Ordinal);
+        var topbarFin = partial.IndexOf("</header>", StringComparison.Ordinal);
+        var feedbackIndex = partial.IndexOf("id=\"cotizacion-feedback\"", StringComparison.Ordinal);
+        Assert.True(topbarInicio >= 0 && topbarFin > topbarInicio, "No se encontró <header class=\"cotz-topbar\">...</header>");
+        Assert.True(feedbackIndex > topbarInicio && feedbackIndex < topbarFin,
+            "#cotizacion-feedback debe vivir dentro de <header class=\"cotz-topbar\">, no como overlay separado de .cotz-app.");
+        // aria-live se preserva: el toast sigue siendo anunciado por lectores de pantalla.
+        Assert.Contains("aria-live=\"polite\"", partial);
+
+        var css = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "css", "cotizacion-simulador.css"));
+        Assert.Contains(".cotz-app .cotz-topbar #cotizacion-feedback:not(.hidden)", css);
+        // No position:fixed al viewport ni position:absolute con offsets medidos en px/rem.
+        Assert.DoesNotContain(".cotz-feedback { position: absolute", css);
+    }
+
+    [Fact]
+    public void CtaSimularGuardar_SimuladaDegradaSimularASecundaria()
+    {
+        var scriptUi = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "cotizacion-simulador-ui.js"));
+
+        // Con simulación vigente, Simular pierde btn-primary y pasa a btn-soft;
+        // en cualquier otro estado (idle/pending/error) recupera btn-primary — es
+        // la única acción disponible ahí y no debe leerse como secundaria.
+        Assert.Contains("const esSecundaria = state === 'simulated';", scriptUi);
+        Assert.Contains("simularBtn.classList.toggle('btn-primary', !esSecundaria);", scriptUi);
+        Assert.Contains("simularBtn.classList.toggle('btn-soft', esSecundaria);", scriptUi);
+
+        // Guardar conserva su color/semántica de éxito (no se le tocó la clase):
+        // sigue siendo la única acción con peso visual fuerte una vez simulada.
+        var partial = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Cotizacion", "_CotizadorForm.cshtml"));
+        Assert.Contains("id=\"cotizacion-guardar\" type=\"button\" class=\"btn btn-success\"", partial);
+    }
+
+    [Fact]
+    public void Descuento_NeutralPorDefectoSoloVerdeConDescuentoReal()
+    {
+        var partial = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Cotizacion", "_CotizadorForm.cshtml"));
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "cotizacion-simulador.js"));
+
+        // Markup: sin verde hardcodeado ($0,00 en verde no comunica nada).
+        Assert.Contains("id=\"cotizacion-descuento\" class=\"text-base font-semibold text-white total-display\"", partial);
+        // JS: sólo se destaca cuando el importe es real.
+        Assert.Contains("const hayDescuento = Number(data.descuentoTotal) > 0;", script);
+        Assert.Contains("els.descuento.classList.toggle('text-emerald-400', hayDescuento);", script);
+    }
+
+    [Fact]
+    public void ClienteSeleccionado_NombreSinDniDuplicado()
+    {
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "cotizacion-simulador.js"));
+
+        // Antes: cliente.display (que ya trae "Apellido, Nombre - DNI: ...") se
+        // usaba como nombre Y el DNI se repetía debajo — el sufijo empujaba el
+        // truncamiento del nombre. Ahora arma "Apellido, Nombre" desde los campos
+        // sueltos que ya vienen en el payload de BuscarClientes.
+        Assert.Contains("`${cliente.apellido}, ${cliente.nombre}`", script);
+        Assert.Contains("function formatDocumento(value)", script);
+
+        // La acción de quitar cliente sigue disponible (no se tocó el flujo).
+        var partial = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Cotizacion", "_CotizadorForm.cshtml"));
+        Assert.Contains("id=\"cotizacion-limpiar-cliente\"", partial);
+        Assert.Contains("aria-label=\"Quitar cliente\"", partial);
+    }
+
+    [Fact]
+    public void FiltrosDeMedios_UnaSolaSenalDeIncluido()
+    {
+        var partial = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Cotizacion", "_CotizadorForm.cshtml"));
+        var css = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "css", "cotizacion-simulador.css"));
+
+        // Antes: <span class="dot"> + fondo/borde del chip repetían el mismo
+        // estado "incluido" con dos señales de color. El checkbox y su
+        // data-cotizacion-medio (contrato con el JS) no cambian.
+        Assert.DoesNotContain("<span class=\"dot\"></span>", partial);
+        Assert.DoesNotContain(".medio-chip .dot", css);
+        Assert.Contains("data-cotizacion-medio=\"incluirEfectivo\"", partial);
+        Assert.Contains(".medio-chip:has(input:checked)", css);
+    }
+
+    // El leak se reproduce sólo embebido en Venta/Create (bajo #venta-create-page),
+    // no en Cotizacion/Index standalone — cubierto en vivo con Playwright porque
+    // depende de la cascada real entre dos hojas de estilo (ver evidencia del
+    // entregable). Acá se fija el contrato mínimo: el override debe existir,
+    // estar scopeado a .cotz-app y no editar el archivo del otro módulo.
+    [Fact]
+    public void TotalDisplay_NeutralizaLeakDeVentaPageWizardSinTocarloAOtroModulo()
+    {
+        var css = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "css", "cotizacion-simulador.css"));
+
+        Assert.Contains(".cotz-app .total-display {", css);
+        Assert.Contains("border: none !important;", css);
+        Assert.Contains("background: none !important;", css);
+
+        var ventaWizardCss = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "css", "venta-page-wizard.css"));
+        Assert.Contains("#venta-create-page .total-display", ventaWizardCss);
+    }
+
     [Fact]
     public void Layout_TieneAccesoSeparadoACotizacion()
     {

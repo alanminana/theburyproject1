@@ -36,6 +36,32 @@ body:has(.cotz-standalone) #main-content > div:last-child {
 .cotz-app .font-mono,
 .cotz-app .total-display { font-family: 'JetBrains Mono', ui-monospace, monospace; }
 
+/* Neutraliza un leak cruzado de módulo: wwwroot/css/venta-page-wizard.css estiliza
+   "#venta-create-page .total-display" / "#venta-edit-page .total-display" (borde
+   ámbar, gradiente, box-shadow — pensado para sus propias .vm-totals) con un
+   selector por CLASE genérica, no por un componente propio. Como el cotizador se
+   embebe dentro de #venta-create-page/#venta-edit-page (pestaña Cotizar del
+   wizard) y también usa `.total-display` como clase compartida, todo importe de
+   lectura de Cotización dentro del wizard hereda esa apariencia de "input
+   enfocado" — es la causa real del hallazgo "importes con borde amarillo"
+   (COTIZACION-SIMULAR-REDESIGN-VISUAL-POLISH-01; no reproducible en
+   Cotizacion/Index standalone, que no vive bajo esos ids). Esa regla usa un
+   selector #id .clase (más específico que cualquier combinación de clases
+   propias): no hay forma de ganarle en cascada sin `!important` — scopeado a
+   `.cotz-app` para no tocar los `.total-display` legítimos de Venta ni requerir
+   editar venta-page-wizard.css (archivo de otro módulo, fuera de alcance). */
+.cotz-app .total-display {
+    border: none !important;
+    background: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    color: #e2e8f0 !important;
+}
+.cotz-app .text-white.total-display { color: #fff !important; }
+.cotz-app .text-emerald-400.total-display { color: #34d399 !important; }
+.cotz-app .text-slate-300.total-display { color: #cbd5e1 !important; }
+.cotz-app .text-slate-400.total-display { color: #94a3b8 !important; }
+
 .cotz-app .material-symbols-outlined {
     font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
     vertical-align: middle;
@@ -104,6 +130,14 @@ body:has(.cotz-standalone) #main-content > div:last-child {
 .cotz-app { height: auto; overflow: visible; min-height: 100%; }
 .cotz-app .panel { max-height: none; }
 .cotz-app .panel-body { overflow-y: visible; }
+/* Los 3 totales (Subtotal/Descuento/Total base) en grid-cols-3 no entran a
+   text-base con "$133.100,00" por debajo de ~40rem de contenedor — el importe
+   se recorta visualmente sobre el total vecino (encontrado en el smoke-test de
+   390/360px, COTIZACION-SIMULAR-REDESIGN-VISUAL-POLISH-01). Sólo baja el
+   tamaño de fuente ahí; no reestructura el layout (fuera de alcance mobile). */
+@container (max-width: 39.9375rem) {
+    .cotz-app .seg .total-display { font-size: .68rem; }
+}
 
 /* Banda ~768: sigue apilado a 1 columna, pero Resultados pasa primero — es la
    zona dominante también cuando no hay espacio para 3 columnas lado a lado. */
@@ -154,7 +188,12 @@ body:has(.cotz-standalone) #main-content > div:last-child {
 .cotz-app .panel-body.tight { padding: .7rem .85rem; }
 .cotz-app .panel-foot { padding: .7rem .85rem; border-top: 1px solid #1b2536; }
 .cotz-app .card-sub { background: #0f172a; border: 1px solid #1e2a3d; border-radius: 10px; }
-.cotz-app .seg { background: #0d1626; border: 1px solid #1c2840; border-radius: 10px; }
+/* Stat de sólo lectura: acento lateral, no caja cerrada. Antes (fondo + borde en
+   las 4 caras + radio) compartía casi el mismo lenguaje visual que .field (input
+   editable) y se leía como un campo enfocable — ver
+   COTIZACION-SIMULAR-REDESIGN-VISUAL-POLISH-01. */
+.cotz-app .seg { border-left: 3px solid #1c2840; padding: .05rem 0 .05rem .65rem; }
+.cotz-app .seg.seg-accent { border-left-color: rgba(59,130,246,.55); }
 
 .cotz-app .num { width: 16px; height: 16px; border-radius: 5px; background: rgba(59,130,246,.16); color: #93c5fd; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
 
@@ -190,10 +229,11 @@ body:has(.cotz-standalone) #main-content > div:last-child {
 .cotz-app .pill-slate { background: rgba(148,163,184,.1); color: #cbd5e1; border-color: rgba(148,163,184,.22); }
 
 /* ---------- Medios filter chips (checkbox toggles) ---------- */
+/* Una sola señal de "incluido": fondo + borde del chip. Antes sumaba un punto de
+   color (mismo azul del borde) — doble codificación redundante del mismo estado,
+   ver COTIZACION-SIMULAR-REDESIGN-VISUAL-POLISH-01. */
 .cotz-app .medio-chip { position: relative; display: inline-flex; align-items: center; gap: .35rem; padding: .35rem .6rem; border-radius: 999px; font-size: .76rem; font-weight: 500; cursor: pointer; border: 1px solid #26344c; background: #131e30; color: #93a2b8; transition: all .14s; user-select: none; }
-.cotz-app .medio-chip .dot { width: 7px; height: 7px; border-radius: 999px; background: #475569; transition: all .14s; }
 .cotz-app .medio-chip:has(input:checked) { background: rgba(59,130,246,.12); border-color: rgba(59,130,246,.45); color: #dbe7fb; }
-.cotz-app .medio-chip:has(input:checked) .dot { background: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.18); }
 .cotz-app .medio-chip input { position: absolute; opacity: 0; pointer-events: none; }
 
 /* ---------- Cart rows ----------
@@ -208,6 +248,14 @@ body:has(.cotz-standalone) #main-content > div:last-child {
 .cotz-app .qty-step button:hover { background: #1a2435; color: #fff; }
 .cotz-app .qty-step input { width: 34px; text-align: center; background: transparent; border: 0; color: #fff; font-size: .8rem; font-family: 'JetBrains Mono', monospace; }
 .cotz-app .qty-step input:focus { outline: none; }
+/* Fila Cantidad/Dto.%/Dto.$: la 1ª columna toma el ancho natural del stepper
+   (~86px, no se lo puede repartir en tercios iguales sin desbordar en el rail
+   angosto de Productos, 14rem mínimo) y las dos siguientes se reparten el resto. */
+.cotz-app .cart-row-inputs { display: grid; grid-template-columns: auto 1fr 1fr; gap: .4rem; align-items: end; }
+/* Subtotal en fila propia a ancho completo: antes compartía una grilla de 3
+   columnas con Dto.%/Dto.$ y el importe quedaba recortado en el rail angosto
+   (overflow-x visible) — ver COTIZACION-SIMULAR-REDESIGN-VISUAL-POLISH-01. */
+.cotz-app .cart-row-subtotal { display: flex; align-items: center; justify-content: space-between; padding-top: .35rem; border-top: 1px solid #1e2a3d; }
 
 /* ---------- Payment icons (badges por medio) ---------- */
 .cotz-app .pay-ico { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: 1px solid transparent; }
@@ -289,29 +337,33 @@ body:has(.cotz-standalone) #main-content > div:last-child {
    viven dentro de los modales (que se montan dentro de .cotz-app). */
 
 /* ---------- Feedback toast ---------- */
-/* Ancla dentro de .cotz-app, no del viewport. Antes: position:fixed + top-20
-   (top-20 nunca tuvo regla compilada en tailwind.css — sin efecto real; ver
-   git blame de 7a0d3fd/9b7ec61), así que el "top" resuelto era la posición
-   estática de .cotz-app (borde superior), tapando "Ver guardadas" ~4s tras
-   Simular en standalone (medido en vivo, Playwright 1440x900). Con position:
-   absolute + .cotz-app { position:relative }, "top" se mide siempre contra el
-   propio cotz-topbar local — mismo valor sirve para standalone (bajo el header
-   global) y para el wizard embebido de Venta/Create (mucho más abajo en la
-   página), sin duplicar CSS por contexto. Offset mobile-first (banda angosta,
-   <40rem de contenedor): cotz-topbar envuelve "Ver guardadas" a una fila
-   propia — hasta 133px medidos en vivo (standalone y embebido); 9.5rem deja
-   margen real. COTIZACION-SIMULAR-TOAST-OVERLAP-FIX-01. */
-.cotz-app { position: relative; }
-.cotz-app .cotz-feedback { position: absolute; top: 9.5rem; right: .75rem; }
-/* Desde acá (mismo umbral que .workspace más arriba) cotz-topbar es una sola
-   fila (64px medidos en vivo, standalone y embebido): offset más ajustado
-   alcanza para no tapar "Ver guardadas". Va después de la regla base para
-   ganarle en cascada (misma especificidad, gana la que aparece después). */
-@container (min-width: 40rem) {
-    .cotz-app .cotz-feedback { top: 4.5rem; }
+/* COTIZACION-SIMULAR-REDESIGN-VISUAL-POLISH-01: el toast pasa a vivir DENTRO de
+   .cotz-topbar en vez de flotar en position:absolute sobre el workspace. El
+   anclaje anterior (COTIZACION-SIMULAR-TOAST-OVERLAP-FIX-01) medía en rem la
+   altura real del topbar para no tapar "Ver guardadas" — pero ese mismo cálculo
+   seguía cayendo sobre el encabezado de "Cliente" (primer elemento del rail
+   Config, que arranca apenas debajo del topbar) porque un offset fijo no puede
+   distinguir "debajo del topbar" de "encima del contenido siguiente". Ahora
+   #cotizacion-feedback es un hijo flex de .cotz-topbar: cuando aparece, ocupa su
+   propia fila dentro del header (flex-basis:100% fuerza el salto de línea con
+   flex-wrap, sin medir px) — nunca se superpone a Productos/Resultados/Config
+   porque nunca sale de la caja del topbar. */
+.cotz-app .cotz-topbar #cotizacion-feedback:not(.hidden) {
+    flex-basis: 100%;
+    order: 5;
+    margin-top: .5rem;
 }
-.cotz-feedback { display: flex; align-items: center; gap: .6rem; border: 1px solid; border-radius: 10px; padding: .7rem .9rem; font-size: .82rem; font-weight: 600; box-shadow: 0 18px 50px rgba(0,0,0,.45); }
+.cotz-feedback { display: inline-flex; width: fit-content; align-items: center; gap: .6rem; border: 1px solid; border-radius: 10px; padding: .55rem .85rem; font-size: .82rem; font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
 .cotz-feedback--ok { background: rgba(16,185,129,.12); border-color: rgba(16,185,129,.4); color: #6ee7b7; }
 .cotz-feedback--warning { background: rgba(245,158,11,.12); border-color: rgba(245,158,11,.4); color: #fcd34d; }
 .cotz-feedback--error { background: rgba(239,68,68,.12); border-color: transparent; color: #fca5a5; }
 .cotz-feedback--info { background: rgba(59,130,246,.12); border-color: rgba(59,130,246,.4); color: #93c5fd; }
+
+/* ---------- CTA: la barra flotante global "Reportar incidencia" (_Layout.cshtml,
+   position:fixed;bottom-6;right-6, ~56x44) queda anclada a la misma esquina que
+   el CTA de este rail cuando el layout llena el viewport completo (≥68rem). Sin
+   tocar el componente global (fuera del alcance de este módulo): se reserva
+   espacio propio para que Simular/Guardar nunca queden debajo. ---------- */
+@container (min-width: 68rem) {
+    .cotz-app [data-zone="config"] .panel-foot { padding-bottom: 3.75rem; }
+}

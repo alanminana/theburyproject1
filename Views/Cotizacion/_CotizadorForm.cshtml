@@ -26,11 +26,6 @@
      data-convertir-base-url="@Url.Content("~/api/cotizacion")"
      data-venta-edit-url="@Url.Content("~/Venta/Edit/")">
 
-    <!-- Feedback toast: posición (top/right) la define cotizacion-simulador.css
-         (.cotz-app .cotz-feedback), anclada a .cotz-app y no al viewport — ver
-         COTIZACION-SIMULAR-TOAST-OVERLAP-FIX-01 ahí mismo. -->
-    <div id="cotizacion-feedback" class="hidden z-[60] max-w-sm" aria-live="polite"></div>
-
     <!-- ============================ TOP BAR ============================ -->
     <header class="cotz-topbar">
         <div class="flex items-center gap-2.5 min-w-0">
@@ -52,6 +47,14 @@
                 </div>
             </div>
         </div>
+        <!-- Feedback toast: vive DENTRO del topbar (no overlay de .cotz-app ni del
+             viewport) — cuando aparece pasa a su propia fila del header (flex-wrap +
+             flex-basis:100% en cotizacion-simulador.css), nunca sobre Productos/
+             Resultados/Config. Reemplaza el anclaje absoluto de
+             COTIZACION-SIMULAR-TOAST-OVERLAP-FIX-01, que dependía de medir en px la
+             altura real del topbar — seguía tapando el encabezado de "Cliente"
+             cuando ese cálculo no coincidía exacto (COTIZACION-SIMULAR-REDESIGN-VISUAL-POLISH-01). -->
+        <div id="cotizacion-feedback" class="hidden" aria-live="polite"></div>
         <div class="ml-auto flex items-center gap-1.5 shrink-0">
             <a href="@Url.Action("Listado", "Cotizacion")" class="btn btn-ghost btn-xs">
                 <span class="material-symbols-outlined" style="font-size:16px">folder_open</span> Ver guardadas
@@ -129,31 +132,39 @@
                     <span class="text-xs text-slate-500 hidden sm:inline">Comparativa de medios, planes y cuotas</span>
                 </div>
 
-                <!-- Totales (fijo) -->
-                <div class="px-3.5 py-2.5 border-b border-slate-800/70 grid grid-cols-3 gap-2">
-                    <div class="seg px-3 py-2">
+                <!-- Totales (fijo). Métricas de lectura: acento lateral, no caja completa
+                     (antes casi idéntico al lenguaje visual de .field → se leía como un
+                     input de sólo lectura, ver COTIZACION-SIMULAR-REDESIGN-VISUAL-POLISH-01). -->
+                <div class="px-3.5 py-2.5 border-b border-slate-800/70 grid grid-cols-3 gap-3">
+                    <div class="seg">
                         <div class="text-[10px] uppercase tracking-wide text-slate-500">Subtotal</div>
                         <div id="cotizacion-subtotal" class="text-base font-semibold text-white total-display">$0,00</div>
                     </div>
-                    <div class="seg px-3 py-2">
+                    <div class="seg">
                         <div class="text-[10px] uppercase tracking-wide text-slate-500">Descuento</div>
-                        <div id="cotizacion-descuento" class="text-base font-semibold text-emerald-400 total-display">$0,00</div>
+                        @* Neutral por defecto: sólo pasa a verde cuando hay descuento real
+                           aplicado (renderResultado en cotizacion-simulador.js) — $0,00 en
+                           verde no comunica nada (mismo criterio que recargoClass() con 0%). *@
+                        <div id="cotizacion-descuento" class="text-base font-semibold text-white total-display">$0,00</div>
                     </div>
-                    <div class="seg px-3 py-2" style="border-color:rgba(59,130,246,.4)">
+                    <div class="seg seg-accent">
                         <div class="text-[10px] uppercase tracking-wide text-blue-300/80">Total base</div>
                         <div id="cotizacion-total-base" class="text-base font-semibold text-white total-display">$0,00</div>
                     </div>
                 </div>
 
-                <!-- Filtros de medios (fijo) -->
+                <!-- Filtros de medios (fijo). Una sola señal de "incluido": fondo + borde
+                     del chip (antes sumaba un punto de color redundante con el mismo azul
+                     del borde — doble codificación del mismo estado, ver
+                     COTIZACION-SIMULAR-REDESIGN-VISUAL-POLISH-01). -->
                 <div class="px-3.5 py-2.5 border-b border-slate-800/70 flex flex-wrap items-center gap-1.5">
                     <span class="text-[10px] uppercase tracking-wide text-slate-500 mr-1">Incluir</span>
-                    <label class="medio-chip"><input type="checkbox" data-cotizacion-medio="incluirEfectivo" checked><span class="dot"></span>Efectivo</label>
-                    <label class="medio-chip"><input type="checkbox" data-cotizacion-medio="incluirTransferencia" checked><span class="dot"></span>Transferencia</label>
-                    <label class="medio-chip"><input type="checkbox" data-cotizacion-medio="incluirTarjetaCredito" checked><span class="dot"></span>T. crédito</label>
-                    <label class="medio-chip"><input type="checkbox" data-cotizacion-medio="incluirTarjetaDebito" checked><span class="dot"></span>T. débito</label>
-                    <label class="medio-chip"><input type="checkbox" data-cotizacion-medio="incluirMercadoPago" checked><span class="dot"></span>MercadoPago</label>
-                    <label class="medio-chip"><input type="checkbox" data-cotizacion-medio="incluirCreditoPersonal" checked><span class="dot"></span>Crédito personal</label>
+                    <label class="medio-chip"><input type="checkbox" data-cotizacion-medio="incluirEfectivo" checked>Efectivo</label>
+                    <label class="medio-chip"><input type="checkbox" data-cotizacion-medio="incluirTransferencia" checked>Transferencia</label>
+                    <label class="medio-chip"><input type="checkbox" data-cotizacion-medio="incluirTarjetaCredito" checked>T. crédito</label>
+                    <label class="medio-chip"><input type="checkbox" data-cotizacion-medio="incluirTarjetaDebito" checked>T. débito</label>
+                    <label class="medio-chip"><input type="checkbox" data-cotizacion-medio="incluirMercadoPago" checked>MercadoPago</label>
+                    <label class="medio-chip"><input type="checkbox" data-cotizacion-medio="incluirCreditoPersonal" checked>Crédito personal</label>
                 </div>
 
                 <!-- Resultados (scroll interno) -->
@@ -294,10 +305,18 @@
                 <!-- Acciones (fijas) -->
                 <div class="panel-foot">
                     <div class="flex items-center justify-between mb-2">
-                        <span class="text-[11px] text-slate-500">Total base</span>
+                        @* "Total de la cotización" (no "Total base"): esta misma etiqueta ya
+                           aparece arriba, en el bloque de Totales de Resultados — repetirla acá
+                           sin distinguir el contexto se leía como una duplicación accidental del
+                           mismo dato (COTIZACION-SIMULAR-REDESIGN-VISUAL-POLISH-01). Mismo id/valor. *@
+                        <span class="text-[11px] text-slate-500">Total de la cotización</span>
                         <span class="text-lg font-semibold text-white total-display" data-side-total>$0,00</span>
                     </div>
                     <div id="cotizacion-acciones-pre" class="grid grid-cols-2 gap-2">
+                        @* Jerarquía por estado (setQuoteState en cotizacion-simulador-ui.js):
+                           primaria por defecto; con simulación vigente ("simulated") pasa a
+                           btn-soft (secundaria) para que Guardar quede como única acción
+                           primaria — antes competían dos CTAs de igual peso visual. *@
                         <button id="cotizacion-simular" type="button" class="btn btn-primary">
                             <span class="material-symbols-outlined" style="font-size:18px">calculate</span> Simular
                         </button>

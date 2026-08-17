@@ -46,6 +46,21 @@
             hint.className = (s.hint ? '' : 'hidden ') + 'mt-1.5 text-[11px] text-center flex items-center justify-center gap-1 ' + s.hintCls;
             hint.innerHTML = s.hint ? '<span class="material-symbols-outlined" style="font-size:13px">' + s.icon + '</span> ' + s.hint : '';
         }
+
+        // COTIZACION-SIMULAR-REDESIGN-VISUAL-POLISH-01: jerarquía de CTA por estado.
+        // Con simulación vigente ("simulated") Guardar es la única acción primaria —
+        // antes Simular (azul, btn-primary) y Guardar (verde, habilitado) competían
+        // como dos CTAs de igual peso visual. En idle/pending/error, Simular sigue
+        // siendo la única acción disponible y mantiene el estilo primario. Sólo clase
+        // (no copy: "Simular de nuevo"/"Reintentar"/etc. no entran en el ancho fijo
+        // de 2 columnas del CTA sin desbordar sobre Guardar) — ids, handlers y
+        // disabled no se tocan acá.
+        const simularBtn = document.getElementById('cotizacion-simular');
+        if (simularBtn) {
+            const esSecundaria = state === 'simulated';
+            simularBtn.classList.toggle('btn-primary', !esSecundaria);
+            simularBtn.classList.toggle('btn-soft', esSecundaria);
+        }
     }
     window.setQuoteState = setQuoteState;
 
