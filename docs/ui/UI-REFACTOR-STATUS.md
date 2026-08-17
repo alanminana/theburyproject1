@@ -10,6 +10,7 @@ faltan. Actualizar esta tabla al cerrar cada pantalla.
 | Venta | `Create` | ✅ Cerrado | `_VentaWizardForm.cshtml` + tests de paridad |
 | Venta | `Edit` | ✅ Cerrado | `_VentaWizardForm.cshtml` + tests de paridad |
 | Venta | `Details` | ✅ Cerrado | serie VENTA-DETAILS (ver resumen abajo) |
+| Cotización | `Simular` (`_CotizadorForm.cshtml`) | ✅ Cerrado | serie COTIZACION-SIMULAR-REDESIGN (ver resumen abajo) |
 
 Leyenda:
 
@@ -219,6 +220,52 @@ Resumen no cronológico de lo que quedó implementado:
 Backlog transversal conocido (no bloquea el cierre): sin cobertura E2E propia en `e2e/`
 todavía; el botón de impresión del header usa `window.print()` genérico sin hoja de
 estilos de impresión dedicada para el módulo.
+
+## Cotización / Simular — cerrado
+
+Parcial compartido `_CotizadorForm.cshtml` (pantalla completa en `Cotizacion/Index_tw` y
+embebido en la pestaña Cotizar de `Venta/Create`). Serie COTIZACION-SIMULAR-REDESIGN,
+desktop/tablet cerrado en IMPLEMENTACION-01 (7a0d3fd) + TOAST-OVERLAP-FIX-01 (6f41a08) +
+POLISH-01 (f722a23); mobile real cerrado en CIERRE-01 (este lote):
+
+- banda angosta (<40rem de contenedor, viewports 390/360px reales): Resultados pasa a
+  aparecer primero también acá — antes sólo se reordenaba desde 40rem, por debajo de eso
+  el panel completo de Productos se mostraba primero y empujaba Resultados fuera del
+  primer viewport (mismo mecanismo de `grid-template-areas` vía container query ya usado
+  en las bandas más anchas, sin duplicar DOM);
+- Productos y Configuración pasan a paneles colapsables (arrancan cerrados, un `<button>`
+  real con `aria-expanded`/`aria-controls` los expande) — reutilizan el DOM real de cada
+  zona, no hay una segunda representación ni un drawer nuevo; el botón vive siempre en el
+  documento pero es `display:none` (fuera del árbol de accesibilidad) fuera de esa banda,
+  mismo patrón que el toggler de un navbar responsive;
+  el CTA de Configuración (`.panel-foot`, Total + Simular/Guardar) nunca se colapsa;
+- tabla de Resultados: mismos `<td>` y mismos hooks (`data-cotizacion-row-key`,
+  `data-cotizacion-opcion-key`, `data-g`, `aria-expanded`) que desktop, reflow a filas
+  compactas de 2 líneas vía flexbox + `nth-child` (Medio/plan + Total en la línea 1;
+  Plan/Cuota + Estado en la línea 2) sin ningún cambio de JS — el click delegado en
+  `#cotizacion-resultados-tbody` sigue funcionando igual. Recargo se oculta de la fila
+  compacta; sigue disponible al tocar la fila (abre el mismo drawer "Detalle del plan" que
+  ya usa desktop). Antes la tabla desbordaba ~266px con scroll horizontal interno;
+- patrón elegido: A (Resultados primero + paneles secundarios colapsables) sobre B
+  (drawers laterales) — reutiliza el DOM real sin gestión de foco nueva que mantener;
+- sin barra sticky: descartada explícitamente — con Productos/Config colapsados el CTA ya
+  queda a 1-2 scrolls de Resultados (antes ~2200px de scroll total en 390px, ahora la
+  página completa entra sin scrollear en el estado vacío) y evita competir con el botón
+  flotante global "Reportar incidencia" (`_Layout.cshtml`, fuera de alcance de este
+  módulo);
+- sin cambios de cálculo, reglas de negocio, `state.opcionSeleccionada`, `bestKey`, payload
+  Guardar, semántica "Mejor precio"/"Pago único"/"Seleccionado" ni tabla desktop; desktop/
+  tablet (1440/1280/1024/768) revalidado sin cambios perceptibles.
+  Validado en vivo con Playwright en 390×844 y 360×800 (toggles, agregar producto, editar
+  cantidad, cambiar cliente, expandir/colapsar grupo Tarjeta/Crédito personal, seleccionar
+  opción, Simular, Guardar) sin overflow horizontal de página ni de tabla; test E2E nuevo
+  T9 en `e2e/cotizacion-simulador.spec.js` (10/10 verdes en esa spec).
+  Hallazgo fuera de alcance encontrado durante la validación (no corregido, ajeno a este
+  lote): `e2e/cotizacion-conversion.spec.js` (T9-T12) espera que Guardar navegue a
+  `/Cotizacion/Detalles/{id}` (`page.waitForURL`) — comportamiento desactualizado desde
+  IMPLEMENTACION-01, que dejó a Guardar en la misma página con un link "Ver cotización"
+  (reproducido en vivo en navegador real, sin relación con CIERRE-01: ocurre a 1366px,
+  fuera de cualquier banda tocada por este lote).
 
 ## Backlog transversal
 

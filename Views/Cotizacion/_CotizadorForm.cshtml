@@ -72,10 +72,16 @@
                     <span class="num">1</span>
                     <h2 class="text-sm font-semibold text-white">Productos</h2>
                     <span class="pill pill-slate ml-auto"><span id="header-prod-count">0</span> ítem · <span id="header-unit-count">0</span> u.</span>
+                    @* Sólo existe visualmente en la banda angosta (<40rem de contenedor, ver
+                       cotizacion-simulador.css) — en 768/1024/desktop el panel queda siempre
+                       expandido como antes de COTIZACION-SIMULAR-REDESIGN-VISUAL-CIERRE-01. *@
+                    <button type="button" class="panel-toggle-btn" id="cotizacion-productos-toggle" aria-expanded="false" aria-controls="cotizacion-productos-search cotizacion-productos-cart" aria-label="Mostrar u ocultar productos">
+                        <span class="material-symbols-outlined panel-toggle-chev" aria-hidden="true" style="font-size:18px">expand_more</span>
+                    </button>
                 </div>
 
                 <!-- Buscador (fijo) -->
-                <div class="px-3.5 pt-3 pb-2.5 border-b border-slate-800/70">
+                <div id="cotizacion-productos-search" class="px-3.5 pt-3 pb-2.5 border-b border-slate-800/70 mobile-collapsible is-collapsed">
                     <div class="relative">
                         <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" style="font-size:17px">search</span>
                         <input id="cotizacion-producto-buscar" type="text" class="field pl-8" placeholder="Buscar nombre, código o ID…" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="cotizacion-productos-dropdown">
@@ -107,7 +113,7 @@
                 </div>
 
                 <!-- Carrito (scroll interno) -->
-                <div class="panel-body tight">
+                <div id="cotizacion-productos-cart" class="panel-body tight mobile-collapsible is-collapsed">
                     <!-- vacío -->
                     <div id="cotizacion-productos-vacio" class="h-full flex flex-col items-center justify-center text-center py-8">
                         <div class="w-11 h-11 rounded-full bg-slate-800 flex items-center justify-center">
@@ -201,7 +207,14 @@
         <!-- =================== COL C · CONFIG + ACCIONES =================== -->
         <div class="col" data-zone="config">
             <section class="panel flex-1">
-                <div class="panel-body tight space-y-4">
+                @* Header propio de la zona: sólo existe visualmente en la banda angosta
+                   (<40rem de contenedor). Sin "num" — el "3" de la subsección Cliente, más
+                   abajo, ya numera esta zona; duplicarlo acá confundiría la numeración. *@
+                <button type="button" class="config-toggle-head" id="cotizacion-config-toggle" aria-expanded="false" aria-controls="cotizacion-config-body">
+                    <h2 class="text-sm font-semibold text-white">Configuración</h2>
+                    <span class="material-symbols-outlined panel-toggle-chev ml-auto" aria-hidden="true" style="font-size:18px;color:#7c8aa3">expand_more</span>
+                </button>
+                <div id="cotizacion-config-body" class="panel-body tight space-y-4 mobile-collapsible is-collapsed">
 
                     <!-- Cliente -->
                     <div>

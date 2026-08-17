@@ -10,6 +10,8 @@
  *   T5. Agrupación expandible por medio de pago (parent/detail)
  *   T6. Descuento por producto
  *   T7/T8. Guardar (modal de confirmación) habilita "Pasar a venta"
+ *   T9. Mobile 390px — Resultados primero, Productos/Config colapsables,
+ *       CTA siempre visible, tabla sin overflow interno (CIERRE-01)
  *
  * Prerrequisitos:
  *   - App corriendo en E2E_BASE_URL (default: http://localhost:5187)
@@ -69,6 +71,15 @@ async function agregarProductoSimulador(page) {
     const input    = page.locator('#cotizacion-producto-buscar');
     const dropdown = page.locator('#cotizacion-productos-dropdown');
     const tbody    = page.locator('#cotizacion-productos-tbody');
+
+    // COTIZACION-SIMULAR-REDESIGN-VISUAL-CIERRE-01: en la banda angosta (<40rem
+    // de contenedor, mobile real) Productos arranca colapsado — el buscador
+    // queda oculto (mobile-collapsible.is-collapsed) hasta expandirlo. En
+    // desktop el toggle es display:none y este click no hace nada.
+    const toggle = page.locator('#cotizacion-productos-toggle');
+    if (await toggle.isVisible().catch(() => false) && await toggle.getAttribute('aria-expanded') !== 'true') {
+        await toggle.click();
+    }
 
     for (const term of TERMINOS_BUSQUEDA) {
         await input.fill(term);
@@ -342,7 +353,8 @@ test.describe('Cotización simulador — COTIZ-QA', () => {
             await page.click('#cotizacion-simular');
             await page.locator('#cotizacion-resultados').waitFor({ state: 'visible', timeout: 15_000 });
 
-            // Hay filas en mobile (la tabla scrollea horizontal DENTRO del panel)
+            // Hay filas en mobile — COTIZACION-SIMULAR-REDESIGN-VISUAL-CIERRE-01:
+            // la tabla ya no scrollea horizontal, reflow a filas compactas (ver T9).
             const rowCount = await page.locator('#cotizacion-resultados-tbody tr').count();
             expect(rowCount).toBeGreaterThan(0);
         }
@@ -350,5 +362,117 @@ test.describe('Cotización simulador — COTIZ-QA', () => {
         // Sin scroll horizontal a nivel de página (el scroll de la tabla es interno)
         const noOverflow = await noHorizontalOverflow(page);
         expect(noOverflow, 'Scroll horizontal de página detectado en mobile 390px').toBeTruthy();
+    });
+
+    // ─── T9: Mobile 390px — Resultados primero + paneles colapsables (CIERRE-01) ─
+
+    test('T9: Mobile 390px — Resultados primero, Productos/Config colapsables, CTA siempre visible', async ({ page }) => {
+        await page.setViewportSize(VIEWPORT_MOBILE);
+        await gotoCotizacion(page);
+
+        // Resultados aparece visualmente antes que Productos y Config — el DOM
+        // sigue en orden "productos, resultados, config" (mismo markup que
+        // desktop/tablet, sin duplicar nodos); el reorden es sólo CSS grid-area
+        // (mismo mecanismo ya usado en la banda ≥40rem desde IMPLEMENTACION-01).
+        const resultadosY = await page.locator('[data-zone="resultados"]').boundingBox().then(b => b.y);
+        const productosY  = await page.locator('[data-zone="productos"]').boundingBox().then(b => b.y);
+        const configY     = await page.locator('[data-zone="config"]').boundingBox().then(b => b.y);
+        expect(resultadosY).toBeLessThan(productosY);
+        expect(resultadosY).toBeLessThan(configY);
+
+        // Productos y Config arrancan colapsados: el toggle existe, aria-expanded=false,
+        // y el contenido real queda oculto (mismo DOM, no una segunda representación).
+        const prodToggle = page.locator('#cotizacion-productos-toggle');
+        const configToggle = page.locator('#cotizacion-config-toggle');
+        await expect(prodToggle).toBeVisible();
+        await expect(configToggle).toBeVisible();
+        await expect(prodToggle).toHaveAttribute('aria-expanded', 'false');
+        await expect(configToggle).toHaveAttribute('aria-expanded', 'false');
+        await expect(page.locator('#cotizacion-producto-buscar')).toBeHidden();
+        await expect(page.locator('#cotizacion-cliente-buscar')).toBeHidden();
+
+        // El CTA (Total + Simular/Guardar) nunca se colapsa, aunque ambos paneles
+        // secundarios estén cerrados — es lo único que debe verse sin expandir nada.
+        await expect(page.locator('#cotizacion-simular')).toBeVisible();
+        await expect(page.locator('#cotizacion-guardar')).toBeVisible();
+
+        // Abrir Productos: el buscador y el carrito quedan accesibles (item 7 del lote).
+        await prodToggle.click();
+        await expect(prodToggle).toHaveAttribute('aria-expanded', 'true');
+        await expect(page.locator('#cotizacion-producto-buscar')).toBeVisible();
+
+        const added = await agregarProductoSimulador(page); // ya expandido, no vuelve a togglear
+        test.skip(!added, 'Sin productos disponibles en el entorno de prueba');
+
+        // Editar cantidad del producto agregado (input real dentro del carrito).
+        const cantidadInput = page.locator('[data-cotizacion-cantidad-index="0"]');
+        await expect(cantidadInput).toBeVisible({ timeout: 3_000 });
+        await cantidadInput.fill('2');
+        await cantidadInput.dispatchEvent('input');
+
+        // Colapsar Productos de nuevo antes de simular (no debe romper el estado).
+        await prodToggle.click();
+        await expect(prodToggle).toHaveAttribute('aria-expanded', 'false');
+
+        // Abrir Configuración para cambiar el cliente (best-effort: puede no haber
+        // clientes cargados en el entorno de prueba, no bloquea el resto del test).
+        await configToggle.click();
+        await expect(configToggle).toHaveAttribute('aria-expanded', 'true');
+        await expect(page.locator('#cotizacion-cliente-buscar')).toBeVisible();
+
+        const clienteInput = page.locator('#cotizacion-cliente-buscar');
+        await clienteInput.fill('a');
+        await page.waitForTimeout(600);
+        const clienteBtn = page.locator('#cotizacion-clientes-dropdown button').first();
+        if (await clienteBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
+            await clienteBtn.click();
+        }
+
+        // El estado pending (setQuoteState) ya está cubierto en desktop por T6/T7/T8
+        // con el mismo cableado — acá se valida el flujo Simular → Guardar en mobile.
+        await page.click('#cotizacion-simular');
+        await page.locator('#cotizacion-resultados').waitFor({ state: 'visible', timeout: 15_000 });
+        await page.locator('#cotizacion-resultados-tbody tr').first().waitFor({ state: 'visible', timeout: 5_000 });
+
+        // Sin scroll horizontal de página NI de la tabla interna (antes desbordaba
+        // ~266px — reflow a filas compactas en vez de columnas de tabla).
+        expect(await noHorizontalOverflow(page)).toBeTruthy();
+        const tablaOverflow = await page.evaluate(() => {
+            const el = document.getElementById('cotizacion-resultados');
+            return el.scrollWidth - el.clientWidth;
+        });
+        expect(tablaOverflow).toBeLessThanOrEqual(2);
+
+        // Abrir/cerrar un grupo expandible (Tarjeta de crédito o Crédito personal,
+        // el que exista en este entorno) sigue funcionando sin cambios de JS.
+        const parent = page.locator('#cotizacion-resultados-tbody tr.parent').first();
+        if (await parent.count() > 0) {
+            const gkey = await parent.getAttribute('data-group');
+            const details = page.locator(`#cotizacion-resultados-tbody tr.detail[data-g="${gkey}"]`);
+            await expect(details.first()).toBeVisible();
+            await parent.click();
+            await expect(details.first()).toBeHidden({ timeout: 2_000 });
+            await parent.click();
+            await expect(details.first()).toBeVisible({ timeout: 2_000 });
+        }
+
+        // Seleccionar una opción abre el drawer de detalle (mismo comportamiento
+        // que desktop — ahí vive el Recargo, oculto de la fila compacta).
+        const selectable = page.locator('#cotizacion-resultados-tbody tr[data-cotizacion-opcion-key]').first();
+        if (await selectable.count() > 0) {
+            await selectable.click();
+            await expect(page.locator('#modal-plan')).toBeVisible({ timeout: 3_000 });
+            await page.keyboard.press('Escape');
+            await expect(page.locator('#modal-plan')).not.toBeVisible({ timeout: 3_000 });
+        }
+
+        // Guardar sigue disponible con ambos paneles colapsados.
+        const guardarBtn = page.locator('#cotizacion-guardar');
+        await expect(guardarBtn).toBeVisible();
+        if (await guardarBtn.isEnabled()) {
+            await guardarBtn.click();
+            await expect(page.locator('#modal-guardar')).toBeVisible({ timeout: 3_000 });
+            await page.keyboard.press('Escape');
+        }
     });
 });

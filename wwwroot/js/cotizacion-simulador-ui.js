@@ -64,6 +64,22 @@
     }
     window.setQuoteState = setQuoteState;
 
+    // ---- Paneles colapsables (mobile real <40rem, COTIZACION-SIMULAR-REDESIGN-VISUAL-CIERRE-01) ----
+    // El botón vive siempre en el DOM (oculto vía CSS fuera de esa banda, ver
+    // cotizacion-simulador.css) — acá sólo se cablea el toggle genérico, sin
+    // depender del ancho real: en bandas más anchas el botón es display:none y
+    // nunca recibe click real, así que esto no tiene efecto visible ahí.
+    document.querySelectorAll('.panel-toggle-btn, .config-toggle-head').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const open = btn.getAttribute('aria-expanded') === 'true';
+            btn.setAttribute('aria-expanded', String(!open));
+            (btn.getAttribute('aria-controls') || '').split(/\s+/).filter(Boolean).forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.toggle('is-collapsed', open);
+            });
+        });
+    });
+
     // ---- Aviso de doble descuento ----
     function watchDescuentos() {
         const pct = parseFloat(document.getElementById('cotizacion-descuento-gral-pct')?.value) || 0;

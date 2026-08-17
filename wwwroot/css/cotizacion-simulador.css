@@ -109,7 +109,13 @@ body:has(.cotz-standalone) #main-content > div:last-child {
     gap: 12px;
     padding: 12px;
     grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: "productos" "resultados" "config";
+    /* Resultados primero en toda la banda apilada (mobile real incluido) —
+       COTIZACION-SIMULAR-REDESIGN-VISUAL-CIERRE-01: la pregunta que responde la
+       pantalla ("¿qué medio/plan conviene y cuánto paga?") vive en Resultados, no
+       en Productos. Antes sólo se reordenaba desde 40rem — por debajo de eso
+       (390/360px reales) Productos se mostraba completo primero, empujando
+       Resultados fuera del primer viewport. */
+    grid-template-areas: "resultados" "productos" "config";
 }
 .cotz-app .workspace > [data-zone="productos"] { grid-area: productos; }
 .cotz-app .workspace > [data-zone="resultados"] { grid-area: resultados; }
@@ -124,9 +130,11 @@ body:has(.cotz-standalone) #main-content > div:last-child {
    columnas sin scroll. Con min-width:0 la rtable activa su overflow-x interno. */
 .cotz-app .col { min-height: 0; min-width: 0; display: flex; flex-direction: column; }
 
-/* Banda angosta (mobile real, <~48rem de contenedor): 1 columna, orden natural
-   del documento (Productos → Resultados → Config). Este lote no rediseña mobile;
-   sólo evita overflow y mantiene la tabla usable (drawers quedan para el cierre). */
+/* Banda apilada (< 44rem de contenedor, incluye mobile real 390/360px y la
+   franja 40-44rem): 1 columna. Este lote (CIERRE-01) sí rediseña mobile real:
+   Productos y Configuración pasan a paneles colapsables (ver sección propia más
+   abajo) para que Resultados domine el primer viewport sin perder acceso a
+   ninguno de los dos. */
 .cotz-app { height: auto; overflow: visible; min-height: 100%; }
 .cotz-app .panel { max-height: none; }
 .cotz-app .panel-body { overflow-y: visible; }
@@ -139,10 +147,102 @@ body:has(.cotz-standalone) #main-content > div:last-child {
     .cotz-app .seg .total-display { font-size: .68rem; }
 }
 
-/* Banda ~768: sigue apilado a 1 columna, pero Resultados pasa primero — es la
-   zona dominante también cuando no hay espacio para 3 columnas lado a lado. */
-@container (min-width: 40rem) {
-    .cotz-app .workspace { grid-template-areas: "resultados" "productos" "config"; }
+/* ---------- Mobile real (<40rem): Productos/Config colapsables ----------
+   COTIZACION-SIMULAR-REDESIGN-VISUAL-CIERRE-01, patrón A elegido (Resultados
+   primero + paneles secundarios colapsables, ver STATUS). Reutiliza el DOM real
+   de cada zona (mismo #cotizacion-productos-tbody, mismos inputs de Config) —
+   no hay una segunda representación ni un drawer nuevo. `.panel-toggle-btn`
+   vive siempre en el DOM (igual que el patrón `.navbar-toggler` de Bootstrap)
+   pero queda en `display:none` (por eso fuera del árbol de accesibilidad,
+   ver base más abajo) salvo en esta banda, donde es la única forma de
+   expandir/colapsar. El CTA de Config (`.panel-foot`, Total + Simular/Guardar)
+   nunca se colapsa: es lo único que debe seguir viéndose sin expandir nada.
+   El "display:none" base va ANTES del @container a propósito: misma especificidad
+   que la regla de adentro (0,2,0 en ambos casos), así que sin este orden el que
+   aparece después en el archivo siempre gana, sin importar el ancho real. */
+.cotz-app .panel-toggle-btn { display: none; }
+.cotz-app .config-toggle-head { display: none; }
+@container (max-width: 39.9375rem) {
+    .cotz-app .panel-toggle-btn {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 26px; height: 26px; margin-left: auto; border-radius: 7px;
+        background: transparent; border: 0; color: #7c8aa3; cursor: pointer; flex-shrink: 0;
+    }
+    .cotz-app .panel-toggle-btn:hover { background: #1a2435; color: #cbd5e1; }
+    .cotz-app .panel-toggle-btn .panel-toggle-chev { transition: transform .2s; }
+    .cotz-app .panel-toggle-btn[aria-expanded="true"] .panel-toggle-chev { transform: rotate(180deg); }
+    /* Encabezado de Productos ya es .panel-head — sólo se le agrega el botón al
+       final (ver arriba). Config no tenía chrome de zona propio (su primer hijo
+       real es "Cliente"): se le agrega un header liviano equivalente, sin num
+       (el "3" de Cliente ya numera esa subsección; duplicarlo en la zona
+       confundiría la numeración). */
+    .cotz-app .config-toggle-head {
+        display: flex; align-items: center; gap: .55rem;
+        padding: .7rem .85rem .55rem; border-bottom: 1px solid #1b2536;
+        background: transparent; border-left: 0; border-right: 0; border-top: 0;
+        width: 100%; text-align: left; cursor: pointer; color: inherit; font: inherit;
+    }
+    .cotz-app .mobile-collapsible.is-collapsed { display: none; }
+}
+
+/* ---------- Mobile real (<40rem): tabla de Resultados como filas compactas ----------
+   Los <td> son exactamente los mismos que arriba (mismo DOM, mismos hooks
+   data-cotizacion-row-key / data-cotizacion-opcion-key / data-g / aria-expanded)
+   — el click delegado en #cotizacion-resultados-tbody (bindEvents en
+   cotizacion-simulador.js) sigue funcionando sin ningún cambio de JS. Sólo se
+   reordena/oculta vía flexbox + nth-child. Jerarquía (item 5 del lote): Medio/
+   plan + Total en la línea 1 (identidad + "cuánto paga"); Plan/Cuota + Estado en
+   la línea 2 (detalle). Recargo se oculta acá — sigue disponible al tocar la
+   fila, que abre el mismo drawer "Detalle del plan" (modal-plan) con el
+   desglose completo que ya usa desktop; no se pierde información, se reubica
+   detrás de un tap ya existente. */
+@container (max-width: 39.9375rem) {
+    .cotz-app .rtable thead { display: none; }
+    .cotz-app .rtable, .cotz-app .rtable tbody { display: block; width: 100%; }
+
+    .cotz-app .rtable tbody tr {
+        display: flex; flex-wrap: wrap; align-items: center;
+        column-gap: .5rem; row-gap: .15rem;
+        padding: .55rem .2rem; border-bottom: 1px solid #16202f;
+    }
+    /* El <tr> pasa a ser la caja visual de la fila (antes lo era cada <td> en
+       layout de tabla) — reubica los fondos de estado acá y neutraliza los que
+       apuntaban a <td> más abajo. */
+    .cotz-app .rtable tbody tr.best { background: rgba(16,185,129,.06); }
+    .cotz-app .rtable tbody tr.selected { background: rgba(59,130,246,.12); box-shadow: inset 3px 0 0 #3b82f6; }
+    .cotz-app .rtable tbody tr.parent[aria-expanded="true"] { background: #0f1a2b; }
+    .cotz-app .rtable tbody tr.detail { background: #0c1424; padding-left: 1rem; }
+    .cotz-app .rtable tbody tr.detail.cheap { box-shadow: inset 3px 0 0 #10b981; }
+    .cotz-app .rtable tbody tr td { background: transparent !important; }
+    /* [hidden] (detail rows colapsados por el toggle de grupo, ver bindEvents)
+       debe seguir ocultando la fila pese al display:flex de arriba — un
+       selector de autor gana siempre al UA stylesheet, así que sin esto
+       "hidden" dejaría de tener efecto acá. */
+    .cotz-app .rtable tbody tr[hidden] { display: none; }
+
+    .cotz-app .rtable td { display: block; padding: 0; border: 0; flex: 1 1 auto; min-width: 0; }
+
+    /* Fila normal / parent (6 celdas reales: Medio, Total, Plan, Cuota, Recargo, Estado).
+       Línea 1 = Medio + Total (td1 crece con flex:1 y ya llena la línea, así que
+       td3 en adelante bajan solos a la línea 2 sin necesitar flex-basis:100% —
+       ponérselo a td3 forzaría SU PROPIA línea completa y empujaría a td4/td6 a
+       una 3ª línea, el bug real encontrado en vivo con Playwright en 390px). */
+    .cotz-app .rtable tbody tr:not(.off) td:nth-child(1) { order: 1; flex: 1 1 auto; min-width: 0; }
+    .cotz-app .rtable tbody tr:not(.off) td:nth-child(2) { order: 2; flex: 0 0 auto; margin-left: auto; font-size: .92rem; }
+    .cotz-app .rtable tbody tr:not(.off) td:nth-child(3) { order: 3; flex: 0 0 auto; font-size: .74rem; color: #7c8aa3; }
+    .cotz-app .rtable tbody tr:not(.off) td:nth-child(4) { order: 4; flex: 0 0 auto; font-size: .74rem; }
+    .cotz-app .rtable tbody tr:not(.off) td:nth-child(5) { display: none; }
+    .cotz-app .rtable tbody tr:not(.off) td:nth-child(6) { order: 5; flex: 0 0 auto; margin-left: auto; }
+
+    /* Fila "off" (medio sin planes: Medio, Total, motivo(colspan 3), Estado — 4
+       celdas reales; también matchea la fila única "no hay medios disponibles",
+       que comparte la misma clase y sólo tiene 1 celda). */
+    .cotz-app .rtable tbody tr.off td:nth-child(1) { order: 1; flex: 1 1 auto; min-width: 0; }
+    .cotz-app .rtable tbody tr.off td:nth-child(2) { order: 2; flex: 0 0 auto; margin-left: auto; }
+    .cotz-app .rtable tbody tr.off td:nth-child(3) { order: 3; flex-basis: 100%; }
+    .cotz-app .rtable tbody tr.off td:nth-child(4) { order: 4; flex: 0 0 auto; }
+
+    .cotz-app .rtable .plan-medio { padding-left: .9rem; }
 }
 
 /* Banda ~1024 (intermedia, item 5 del lote): Resultados a todo el ancho arriba,
