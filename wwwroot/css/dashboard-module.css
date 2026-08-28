@@ -1,5 +1,12 @@
 /* dashboard-module.css — estilos de layout responsivo del Dashboard */
 
+/* Sin esto, un `display:grid` sin `grid-template-columns` explícito crea una
+   pista implícita dimensionada por el contenido (min-content) de sus items;
+   las tablas con scroll horizontal interno (`data-oc-scroll`, min-width fijo)
+   empujaban esa pista — y con ella toda la columna principal — más allá del
+   viewport en cualquier ancho por debajo de 1024px. */
+.dashboard-main-grid { grid-template-columns: minmax(0, 1fr); }
+
 @media (min-width: 1024px) {
     .dashboard-main-grid { grid-template-columns: minmax(0, 1fr) 22rem; }
     .dashboard-sidebar { position: sticky; top: 1.5rem; align-self: start; }
