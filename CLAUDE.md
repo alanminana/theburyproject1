@@ -20,8 +20,9 @@ Claude puede invocar automáticamente estas skills cuando el pedido coincide cla
 - `tailwind-protocolo`
 - `timeouts-y-procesos`
 - `ui-responsive-protocolo`
+- `csharp-testing`
 
-Las skills visuales genéricas o de estilo están configuradas como `user-invocable-only`. No combinarlas ni activarlas automáticamente. Usarlas solo mediante `/nombre-skill` cuando el usuario pida expresamente esa dirección visual.
+`ui-ux-pro-max`, `impeccable` y `dotnet-patterns` son consultoras manuales (`user-invocable-only` en `.claude/settings.json`): Claude no las invoca automáticamente, solo mediante `/ui-ux-pro-max`, `/impeccable` o `/dotnet-patterns` cuando el usuario lo pida expresamente. Ver reglas en "UX/UI especializado" y ".NET especializado" más abajo.
 
 ## UI/UX
 
@@ -61,3 +62,13 @@ Para refactor de módulos existentes:
 - `impeccable` debe invocarse con un comando concreto. Para este ERP priorizar `audit`, `critique`, `harden`, `adapt`, `clarify`, `optimize` y `polish`.
 - No ejecutar automáticamente `impeccable init`, `document`, `extract`, `hooks`, `doctor` ni crear `PRODUCT.md` o `DESIGN.md`.
 - Las recomendaciones externas no pueden reemplazar fuentes visuales existentes, introducir dependencias, cambiar tipografías, iconografía, navegación o identidad global sin evidencia y autorización explícita.
+
+### .NET especializado
+
+Componentes adaptados de `affaan-m/ECC` a la arquitectura real del ERP (services sobre `AppDbContext`, sin Repository Pattern; stack de test real sin FluentAssertions/Moq/NSubstitute/Testcontainers/Bogus):
+
+- `dotnet-patterns`: referencia consultiva manual para patrones C#/.NET (`/dotnet-patterns`).
+- `csharp-testing`: apoyo para tests C# con el stack real de `TheBuryProyect.Tests` (xUnit, `CustomWebApplicationFactory`, SQLite en memoria, stubs manuales); se activa solo ante tareas de testing C#.
+- `.claude/agents/csharp-reviewer.md`: agente de revisión C#/.NET; invocación deliberada, no automática en todo cambio `.cs`.
+
+El código real, `AGENTS.md`/`CLAUDE.md` y las skills propias del proyecto prevalecen siempre sobre estas recomendaciones adaptadas de ECC.

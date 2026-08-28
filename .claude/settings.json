@@ -5,20 +5,9 @@
   },
   "skipDangerousModePermissionPrompt": true,
   "skillOverrides": {
-    "design-taste-frontend": "user-invocable-only",
-    "emil-design-eng": "user-invocable-only",
-    "full-output-enforcement": "user-invocable-only",
-    "gpt-taste": "user-invocable-only",
-    "high-end-visual-design": "user-invocable-only",
-    "image-to-code": "user-invocable-only",
-    "imagegen-frontend-mobile": "user-invocable-only",
-    "imagegen-frontend-web": "user-invocable-only",
-    "industrial-brutalist-ui": "user-invocable-only",
-    "minimalist-ui": "user-invocable-only",
-    "redesign-existing-projects": "user-invocable-only",
-    "stitch-design-taste": "user-invocable-only",
     "ui-ux-pro-max": "user-invocable-only",
-    "impeccable": "user-invocable-only"
+    "impeccable": "user-invocable-only",
+    "dotnet-patterns": "user-invocable-only"
   },
   "enabledPlugins": {
     "claude-mem@thedotmack": false,
