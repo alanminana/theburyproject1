@@ -217,8 +217,13 @@ namespace TheBuryProject.Helpers
             // Mappings para Ventas
             // =======================
             CreateMap<Venta, VentaViewModel>()
+                // VENTA-DETAILS-DUPLICACION-01 (H11): ToDisplayName() incrusta "- DNI: ..."
+                // en el nombre para desambiguar en listas sin columna de documento propia.
+                // VentaViewModel ya expone ClienteDocumento como campo separado en todas las
+                // vistas que lo consumen (Details, Index) — el sufijo quedaba duplicado contra
+                // ese campo. Mismo criterio ya aplicado en cotizacion-simulador.js.
                 .ForMember(dest => dest.ClienteNombre, opt => opt.MapFrom(src =>
-                    src.Cliente != null ? src.Cliente.ToDisplayName() : string.Empty))
+                    src.Cliente != null ? $"{src.Cliente.Apellido}, {src.Cliente.Nombre}" : string.Empty))
                 .ForMember(dest => dest.ClienteDocumento, opt => opt.MapFrom(src => src.Cliente != null ? src.Cliente.NumeroDocumento : string.Empty))
                 .ForMember(dest => dest.CreditoNumero, opt => opt.MapFrom(src => src.Credito != null ? src.Credito.Numero : null))
                 .ForMember(dest => dest.Detalles, opt => opt.MapFrom(src => src.Detalles != null ? src.Detalles.Where(d => !d.IsDeleted) : Enumerable.Empty<VentaDetalle>()))

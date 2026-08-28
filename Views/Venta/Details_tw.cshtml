@@ -7,6 +7,11 @@
     var tieneFactura = facturas.Any(f => !f.Anulada);
     var facturaActiva = facturas.FirstOrDefault(f => !f.Anulada);
     var contratoVentaCredito = ViewBag.ContratoVentaCredito as ContratoVentaCreditoResumenViewModel;
+    // VENTA-DETAILS-DUPLICACION-01 (H11): columnas "Descuento"/"Desc. gral." sólo aportan
+    // cuando alguna línea realmente tiene descuento — si no, son dos columnas vacías ("—"/"-")
+    // repetidas en cada fila. Se ocultan juntas (mismo criterio) sin tocar Model.Descuento ni
+    // el resumen de totales, que sigue mostrando el descuento global de la venta si existe.
+    var hayDescuentosEnDetalle = detalles.Any(d => d.Descuento > 0 || d.DescuentoGeneralProrrateado > 0);
 
     // Status badge mapping (Tailwind)
     string estadoBg = Model.Estado switch
@@ -56,7 +61,6 @@
     var puedeFacturarVentas = User.TienePermiso("ventas", "invoice");
     var puedeCancelarVentas = User.TienePermiso("ventas", "cancel");
     var puedeOperarVentas = (bool?)ViewBag.PuedeOperarVentas ?? false;
-    var cantidadUnidades = detalles.Sum(d => d.Cantidad);
     var recargoDebitoAplicado = Model.RecargoDebitoAplicado;
     var datosTarjeta = Model.DatosTarjeta;
     var ajustePlanMonto = datosTarjeta?.MontoAjustePagoAplicado ?? datosTarjeta?.MontoAjustePlanAplicado;
@@ -183,13 +187,11 @@
                             <span class="material-symbols-outlined text-sm">schedule</span>
                             @Model.FechaVenta.ToString("dd/MM/yyyy HH:mm")
                         </span>
-                        @if (tieneFactura)
-                        {
-                            <span class="inline-flex items-center gap-2 rounded-full border border-green-500/20 bg-green-500/10 px-3 py-1 text-green-400">
-                                <span class="material-symbols-outlined text-sm">receipt</span>
-                                @facturacionResumen
-                            </span>
-                        }
+                        @* VENTA-DETAILS-DUPLICACION-03 (H13): el chip de factura repetía el
+                           mismo número que la tarjeta "Facturación" de la grilla, un instante
+                           después y sin scroll de por medio — esa tarjeta ya tiene más contexto
+                           (fecha de emisión). El estado "Facturada" del badge de arriba ya cubre
+                           la señal de "hay factura" a nivel chip. *@
                     </div>
                 </div>
 
@@ -206,16 +208,11 @@
                 </div>
             </div>
 
-            <div class="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
+            <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <article class="card-erp-metric">
                     <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Cliente</p>
                     <p class="mt-3 text-sm font-bold text-white">@Model.ClienteNombre</p>
                     <p class="mt-1 text-xs text-slate-400">@(string.IsNullOrWhiteSpace(Model.ClienteDocumento) ? "Sin documento registrado." : Model.ClienteDocumento)</p>
-                </article>
-                <article class="card-erp-metric">
-                    <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Detalle</p>
-                    <p class="mt-3 text-sm font-bold text-white">@detalles.Count @(detalles.Count == 1 ? "ítem" : "ítems")</p>
-                    <p class="mt-1 text-xs text-slate-400">@cantidadUnidades @(cantidadUnidades == 1 ? "unidad registrada" : "unidades registradas")</p>
                 </article>
                 <article class="card-erp-metric-info">
                     <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-sky-400">Total</p>
@@ -247,10 +244,10 @@
                                 <p class="mt-1 text-sm text-slate-400">Datos principales de la operación, del cliente y de la forma de cobro elegida.</p>
                             </div>
                         </div>
-                        <span class="inline-flex items-center gap-2 self-start rounded-full badge-erp badge-erp-neutral">
-                            <span class="material-symbols-outlined text-sm">@tipoPagoIcon</span>
-                            @tipoPagoDisplay
-                        </span>
+                        @* VENTA-DETAILS-DUPLICACION-03 (H13): el badge de forma de pago acá
+                           repetía el mismo ícono+texto que el campo "Forma de Pago" dos
+                           renglones abajo, dentro de la misma tarjeta — sin aportar nada que el
+                           campo no dijera ya. *@
                     </div>
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div>
@@ -324,8 +321,11 @@
                                             <th class="px-6 py-3 text-left">Producto</th>
                                             <th class="px-4 py-3 text-center">Cant.</th>
                                             <th class="px-4 py-3 text-right">Precio Unit.</th>
-                                            <th class="px-4 py-3 text-right">Descuento</th>
-                                            <th class="px-4 py-3 text-right">Desc. gral.</th>
+                                            @if (hayDescuentosEnDetalle)
+                                            {
+                                                <th class="px-4 py-3 text-right">Descuento</th>
+                                                <th class="px-4 py-3 text-right">Desc. gral.</th>
+                                            }
                                             <th class="px-4 py-3 text-right">IVA</th>
                                             <th class="px-4 py-3 text-right">Neto</th>
                                             <th class="px-4 py-3 text-right">IVA línea</th>
@@ -400,26 +400,29 @@
                                                 </td>
                                                 <td class="px-4 py-4 text-center font-medium">@item.Cantidad</td>
                                                 <td class="px-4 py-4 text-right text-slate-300">@item.PrecioUnitario.ToString("C2")</td>
-                                                <td class="px-4 py-4 text-right">
-                                                    @if (item.Descuento > 0)
-                                                    {
-                                                        <span class="text-red-500">-@item.Descuento.ToString("C2")</span>
-                                                    }
-                                                    else
-                                                    {
-                                                        <span class="text-slate-400">—</span>
-                                                    }
-                                                </td>
-                                                <td class="px-4 py-4 text-right">
-                                                    @if (item.DescuentoGeneralProrrateado > 0)
-                                                    {
-                                                        <span class="text-red-500">-@item.DescuentoGeneralProrrateado.ToString("C2")</span>
-                                                    }
-                                                    else
-                                                    {
-                                                        <span class="text-slate-400">-</span>
-                                                    }
-                                                </td>
+                                                @if (hayDescuentosEnDetalle)
+                                                {
+                                                    <td class="px-4 py-4 text-right">
+                                                        @if (item.Descuento > 0)
+                                                        {
+                                                            <span class="text-red-500">-@item.Descuento.ToString("C2")</span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="text-slate-400">—</span>
+                                                        }
+                                                    </td>
+                                                    <td class="px-4 py-4 text-right">
+                                                        @if (item.DescuentoGeneralProrrateado > 0)
+                                                        {
+                                                            <span class="text-red-500">-@item.DescuentoGeneralProrrateado.ToString("C2")</span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="text-slate-400">-</span>
+                                                        }
+                                                    </td>
+                                                }
                                                 <td class="px-4 py-4 text-right text-slate-300">@item.PorcentajeIVA.ToString("0.##")%</td>
                                                 <td class="px-4 py-4 text-right text-slate-300">@subtotalNetoLinea.ToString("C2")</td>
                                                 <td class="px-4 py-4 text-right text-slate-300">@subtotalIVALinea.ToString("C2")</td>
@@ -628,17 +631,13 @@
                                     <p class="text-sm font-bold text-white">@contratoVentaCredito.UsuarioGeneracion</p>
                                 </div>
                             </div>
-                            <div class="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                <p class="text-xs text-slate-500">
-                                    @(string.IsNullOrWhiteSpace(contratoVentaCredito.NombreArchivo) ? "PDF contractual generado." : contratoVentaCredito.NombreArchivo)
-                                </p>
-                                <a asp-controller="ContratoVentaCredito" asp-action="Ver" asp-route-ventaId="@contratoVentaCredito.VentaId"
-                                   target="_blank" rel="noopener"
-                                   class="btn-erp-secondary no-underline">
-                                    <span class="material-symbols-outlined text-sm">print</span>
-                                    Ver contrato
-                                </a>
-                            </div>
+                            @* VENTA-DETAILS-DUPLICACION-02 (H12): el CTA "Ver contrato" vive
+                               solo en Acciones (única autoridad de qué mostrar, ver arriba) —
+                               esta card queda informativa, mismo patrón que Facturación, que
+                               tampoco repite "Imprimir Factura" dentro de su propia sección. *@
+                            <p class="mt-5 text-xs text-slate-500">
+                                @(string.IsNullOrWhiteSpace(contratoVentaCredito.NombreArchivo) ? "PDF contractual generado." : contratoVentaCredito.NombreArchivo)
+                            </p>
                         </section>
                     }
                 }
@@ -784,7 +783,14 @@
                     // mientras la autorización esté pendiente, sin duplicar la regla del backend.
                     var hayAccionConfigurarCredito = puedeOperarVentas && Model.PuedeConfigurarCredito && puedeVerCreditos && !Model.PuedeAutorizar;
                     var hayAccionGenerarContrato = puedeOperarVentas && Model.CreditoConfigurado && contratoVentaCredito == null;
-                    var hayAccionVerContrato = puedeOperarVentas && contratoVentaCredito != null;
+                    // VENTA-DETAILS-DUPLICACION-02 (H12): "Ver contrato" es de solo lectura
+                    // (ContratoVentaCreditoController.Ver sirve el PDF ya generado, sin
+                    // ninguna verificación de caja) — igual que hayAccionImprimirFactura, que
+                    // tampoco depende de puedeOperarVentas. El gate previo ocultaba el único
+                    // acceso al contrato cuando no había caja abierta, lo que había forzado a
+                    // duplicar el mismo botón sin condición dentro de la card "Contrato
+                    // generado" para no perder esa vía.
+                    var hayAccionVerContrato = contratoVentaCredito != null;
                     var hayAccionPrepararVenta = puedeOperarVentas && Model.PuedePrepararVenta && puedeActualizarVentas;
                     var expressDisponible = puedeOperarVentas && Model.PuedeConfirmarYFacturar
                         && puedeFacturarVentas && puedeActualizarVentas;
