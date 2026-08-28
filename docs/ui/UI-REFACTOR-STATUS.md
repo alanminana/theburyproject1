@@ -11,6 +11,7 @@ faltan. Actualizar esta tabla al cerrar cada pantalla.
 | Venta | `Edit` | ✅ Cerrado | `_VentaWizardForm.cshtml` + tests de paridad |
 | Venta | `Details` | ✅ Cerrado | serie VENTA-DETAILS (ver resumen abajo) |
 | Cotización | `Simular` (`_CotizadorForm.cshtml`) | ✅ Cerrado | serie COTIZACION-SIMULAR-REDESIGN (ver resumen abajo) |
+| ConfiguracionPago | `MediosPago` | ✅ Cerrado | ver resumen abajo |
 
 Leyenda:
 
@@ -221,6 +222,93 @@ Backlog transversal conocido (no bloquea el cierre): sin cobertura E2E propia en
 todavía; el botón de impresión del header usa `window.print()` genérico sin hoja de
 estilos de impresión dedicada para el módulo.
 
+- reapertura VENTA-DETAILS-DUPLICACION-01 (H11), a partir de reporte directo del usuario
+  sobre duplicación excesiva: causa raíz real del DNI repetido no era Razor — el mapeo
+  compartido `Venta→VentaViewModel` (`AutoMapperProfile.cs`) armaba `ClienteNombre` con
+  `ToDisplayName()`, que incrusta "- DNI: ..." en el nombre (pensado para desambiguar en
+  listas sin columna de documento propia). `ClienteDocumento` ya es un campo separado en
+  todas las vistas que consumen `VentaViewModel` (Details, Index), así que el sufijo
+  quedaba duplicado contra ese campo; mismo criterio de anti-patrón ya corregido antes en
+  `cotizacion-simulador.js`. Fix acotado al mapeo (no se tocó `ToDisplayName()`, que sigue
+  vigente para Cuota/Garante y otros contextos que sí lo necesitan) — valida en vivo tanto
+  en Details como en Index (pantalla cerrada, mismo campo, sin columna de DNI propia; sin
+  pérdida de legibilidad observada). Además, sólo dentro de `Details_tw.cshtml`: la card
+  hero "Detalle" (conteo de ítems/unidades) se retira — duplicaba el badge ya visible en
+  "Detalle de productos" sin aportar valor de decisión (grilla hero pasa de 4 a 3
+  columnas); columnas "Descuento"/"Desc. gral." de la tabla de productos se ocultan juntas
+  cuando ninguna línea tiene descuento real (evita dos columnas vacías repetidas por fila
+  sin perder el dato cuando sí existe). Sin cambios de cálculo, reglas de negocio, ids ni
+  contratos backend. Hallazgos documentados sin implementar en este lote (duplicación
+  legítima entre superficies con propósito distinto, no se tocan): Total de la venta
+  repetido en 7 superficies (hero/línea/resumen/crédito/factura/alícuota); número de
+  factura en 4 superficies; número de contrato en 2. Formato de moneda sin ceros de
+  centavos cuando el importe es entero: evaluado y descartado por ahora (crearía
+  inconsistencia de formato sólo en esta pantalla frente al resto del ERP, que mantiene 2
+  decimales fijos) — candidata a regla reusable si se decide adoptarla ERP-wide.
+  Validado en vivo con Playwright (segunda instancia en :5199 sobre el mismo build, sin
+  tocar la instancia :18787 del usuario) en 1440×900 y 390×844 sin overflow horizontal, 0
+  errores de consola; 1220/1220 tests focalizados (Venta + MappingProfile) verdes.
+
+- reapertura VENTA-DETAILS-DUPLICACION-02 (H12), a partir de reporte directo del usuario
+  sobre una segunda pasada de duplicación en la misma pantalla. De los ítems reportados,
+  la mayoría ya estaba evaluada y aceptada en H11 (Total, número de factura, número de
+  contrato, "Crédito Personal" repetidos entre superficies con propósito distinto) y no se
+  tocó. Un ítem sí era nuevo: el CTA "Ver contrato" aparecía dos veces — como botón en la
+  card "Acciones" y como botón propio dentro de la card "Contrato generado" (mismo
+  `asp-controller/asp-action/asp-route-ventaId`, mismo target). A diferencia del resto
+  (dato repetido en contextos distintos), acá era el mismo control interactivo duplicado,
+  y contradecía el principio ya documentado de que "Acciones" es la única autoridad de qué
+  mostrar (mismo patrón que ya respeta "Facturación", que no repite "Imprimir Factura"
+  fuera de Acciones). Causa raíz verificada en código (no asumida): `hayAccionVerContrato`
+  en Acciones estaba condicionado a `puedeOperarVentas` (caja abierta), pero
+  `ContratoVentaCreditoController.Ver` es de solo lectura y no tiene ninguna verificación
+  de caja — el mismo criterio que ya aplica `hayAccionImprimirFactura`, que nunca tuvo ese
+  gate. Ese gate de más ocultaba el único acceso al contrato cuando no había caja abierta,
+  lo que había forzado a duplicar el botón sin condición dentro de "Contrato generado" para
+  no perder esa vía. Fix: se retira `puedeOperarVentas` de `hayAccionVerContrato` (deja de
+  bloquear una acción de solo lectura que el backend siempre permite) y se retira el botón
+  redundante de "Contrato generado", que queda como card informativa (mismo patrón que
+  Facturación). Sin cambios de cálculo, reglas de negocio, ids ni contratos backend.
+  Validado en vivo con Playwright (segunda instancia en :5199, sin tocar :18787) sobre la
+  venta real reportada por el usuario, en 1440×900 y 390×844 sin overflow horizontal, 0
+  errores de consola; 66/66 tests focalizados (VentaDetails + ContratoVentaCredito) verdes,
+  build 0/0.
+
+- reapertura VENTA-DETAILS-DUPLICACION-03 (H13): el usuario confirmó que la duplicación
+  seguía sintiéndose real después de H11/H12, sobre los 4 grupos que H11 había aceptado
+  como "duplicación legítima" (Total, N° de factura, "Crédito Personal", N° de contrato).
+  Se re-evaluó cada uno mirando la pantalla renderizada (no solo el código) en vez de
+  repetir la conclusión anterior sin evidencia fresca. Resultado: 2 de los 4 eran
+  redundancia cognitiva real (mismo string, mismo bloque visual, sin scroll de por medio,
+  sin aportar nada que el vecino no dijera ya) y se corrigieron; los otros 2 se
+  reconfirmaron como duplicación útil con evidencia visual directa, no solo repitiendo el
+  argumento de H11:
+  - el chip de factura del hero (fila de pills superior) repetía el mismo número que la
+    tarjeta "Facturación" de la grilla hero, un instante después sin scroll — se retira el
+    chip, la tarjeta ya tiene más contexto (fecha de emisión) y el badge "Facturada" ya
+    cubre la señal de "hay factura" a nivel chip;
+  - el badge "Crédito Personal" en el header de la card "Información de la venta" repetía
+    el mismo ícono+texto que el campo "Forma de Pago" dos renglones abajo, dentro de la
+    misma tarjeta — se retira el badge, el campo ya lo dice con más contexto;
+  - Total de la venta en el hero vs. la fila "Total" al pie de "Detalle de productos": se
+    mantienen ambos — vistos en pantalla no compiten por la misma atención (estilo y
+    tamaño distintos) y cumplen roles distintos (vistazo rápido vs. derivación visible del
+    cálculo Subtotal→IVA→Total); "Monto Financiado" (Crédito Personal), factura.Total
+    (Facturación) y el total del resumen por alícuotas son campos propios que hoy
+    coinciden numéricamente en este caso de prueba pero pueden diferir en anticipo o
+    facturación parcial — no se tocan;
+  - "Crédito Personal" como chip superior del hero, campo "Forma de Pago" (tras retirar el
+    badge redundante) y título de su propia sección: se mantienen los 3 — cada uno cumple
+    un rol distinto (tag de escaneo rápido, campo de dato, identidad de sección) y ninguno
+    queda pegado sin contexto contra otro que diga lo mismo;
+  - N° de contrato (campo "Contrato N°") vs. nombre del PDF al pie de la misma tarjeta: se
+    mantienen ambos — el nombre de archivo confirma qué documento se va a abrir, patrón
+    estándar (mismo criterio que el nombre de archivo de una factura).
+  Sin cambios de cálculo, reglas de negocio, ids ni contratos backend. Validado en vivo con
+  Playwright (segunda instancia en :5199, sin tocar :18787) sobre la misma venta real del
+  reporte, en 1440×900 y 390×844 sin overflow horizontal, 0 errores de consola; 66/66 tests
+  focalizados (VentaDetails + ContratoVentaCredito) verdes, build 0/0.
+
 ## Cotización / Simular — cerrado
 
 Parcial compartido `_CotizadorForm.cshtml` (pantalla completa en `Cotizacion/Index_tw` y
@@ -266,6 +354,122 @@ POLISH-01 (f722a23); mobile real cerrado en CIERRE-01 (este lote):
   IMPLEMENTACION-01, que dejó a Guardar en la misma página con un link "Ver cotización"
   (reproducido en vivo en navegador real, sin relación con CIERRE-01: ocurre a 1366px,
   fuera de cualquier banda tocada por este lote).
+
+## ConfiguracionPago / MediosPago — cerrado
+
+Auditoría de 4 capas (sin trabajo previo de este estándar). Micro-lote 1 (bloqueante+alto)
+más micro-lote 2 (deuda de paleta/tokens, a pedido explícito de ampliar alcance):
+
+- breadcrumb real ("Inicio › Configuracion global de pagos") reemplaza un eyebrow que
+  repetía casi literal el H1 sin aportar navegación (§4 exigía breadcrumb, la pantalla no
+  tenía);
+- aviso "Credito personal se administra en una fase separada" retirado del header genérico
+  (se mostraba siempre, para cualquier medio seleccionado) — queda solo una vez, dentro del
+  panel del medio Crédito personal, que ya lo explica con más contexto y su propio CTA;
+- badges "N tarjetas activas" / "N planes" del panel del medio ahora se condicionan a
+  `permiteTarjetas`/`permitePlanesGlobales`: para Crédito personal (que el propio backend
+  bloquea para ambos conceptos) ya no se muestra "0 tarjetas activas" / "0 planes", que
+  sugería un estado vacío completable en vez de un bloqueo real por diseño;
+- breakpoint nuevo en 1024px para `.payments-topbar` y `.method-panel-header`: sin él, el
+  H1 "Configuracion de pagos" y el H2 del medio seleccionado se partían en 2 líneas de
+  forma antiestética en el rango 701–1024px (grid de 2 columnas con poco espacio para el
+  texto) — confirmado en vivo con Playwright en 1024×720/900, resuelto apilando antes.
+  Sin cambios de cálculo, reglas de negocio, ids, `data-*` ni contratos backend.
+  Validado en vivo con Playwright en 1440×900, 1024×900/720 y 390×844 (Efectivo,
+  Transferencia, Tarjeta crédito con Visa expandida, Crédito personal, form "Editar
+  método" en mobile) sin overflow horizontal, 0 errores/warnings de consola; build 0/0.
+
+Micro-lote 2 — tokens de paleta (`--pay-*`, ~40 usos) dejan de hardcodear valores propios
+y pasan a derivar de los tokens de tema reales (`--erp-bg`, `--erp-surface`,
+`--erp-surface-raised`, `--erp-border`, `--erp-text`, `--erp-text-muted`,
+`--erp-text-faint`, `--erp-primary`, definidos en `theme-ml.css`): si el tema del ERP
+cambia, la pantalla cambia con el resto en vez de divergir en silencio. `--pay-ok`/
+`--pay-warn`/`--pay-danger` se alinean a los mismos tonos que usa
+`.badge-erp-success/-warning/-danger` (`shared-components.css`) para que el significado
+cromático (descuento/recargo/inactivo) sea idéntico al resto del ERP. Los hardcodes sueltos
+que no pasaban por variable (`#f5c518`, `#0f172a`, `#fff`, `#0a1322`/`#f8fafc` en
+`.pay-field`) se reemplazan por sus tokens equivalentes. Se retira además el hack
+`margin: -1rem` de `.payments-page` (cancelaba el padding del `_Layout` solo en mobile,
+dejando un residuo inconsistente en tablet/desktop) — la pantalla ahora vive dentro del
+padding estándar del layout, igual que el resto del ERP (`Venta/Index` no usa este hack).
+
+Se mantiene como variante local deliberada (no deuda pendiente, decisión de diseño con
+justificación real): las clases `.pay-badge-*`/`.pay-mini-button` en sí (no se renombran a
+`.badge-erp-*`/`.btn-erp-*`) porque el sistema compartido está dimensionado para listados/
+tablas (botones de 36-44px de alto) y esta pantalla necesita mayor densidad — acordeones
+anidados con varias filas de tarjetas/planes por medio — que un botón de ese tamaño
+degradaría; forzar el reemplazo cambiaría la densidad visual ya validada sin resolver
+ningún riesgo real (el color ya deriva del mismo origen desde este mismo lote).
+Sin cambios de cálculo, reglas de negocio, ids, `data-*` ni contratos backend. Validado en
+vivo con Playwright en 1440×900, 1280×720, 1024×900/720, 390×844 y 360×800 (Efectivo,
+Crédito personal, Tarjeta crédito con Visa expandida) sin overflow horizontal, 0 errores/
+warnings de consola; build 0/0.
+
+Micro-lote 3 — a pedido explícito de cerrar también los hallazgos de prioridad baja del
+diagnóstico original:
+
+- **V3 (forma)** — `.payments-shell-card` pasa de radio propio (22px) + sombra grande
+  (`0 28px 90px`) a radio alineado a `.hero-erp` (`shared-components.css`, 1.5rem) sin
+  box-shadow — el resto del ERP distingue una superficie elevada con borde + fondo, no con
+  sombra grande; la diferencia de luminosidad entre `--pay-shell`/`--pay-bg` (ya
+  retokenizados en el micro-lote 2) alcanza para distinguir el shell del fondo;
+- **U2** — cada fila de plan (`.plan-summary`) tenía un `<span class="pay-mini-button">
+  Editar</span>` con apariencia de botón aislado cuando en realidad toda la fila (el
+  `<summary>` completo) es el único control que abre el formulario — visualmente sugería
+  que solo el botón reaccionaba. Se reemplaza por un chevron (`.plan-chevron`, mismo patrón
+  que `.payment-card-chevron` ya usa el acordeón de tarjeta) que comunica "expandible" en
+  vez de "acción aislada", sin cambiar el comportamiento real (clic en cualquier punto de
+  la fila sigue abriendo el mismo form). Aplicado a los 3 lugares donde se repite el patrón
+  (planes por tarjeta, planes generales en "opciones avanzadas", planes generales de medio
+  simple). `.plan-actions` (CSS y su regla responsive) quedó sin consumidor y se eliminó;
+- **U3** — la descripción de cada método, cuando `Descripcion` está vacía en la base
+  (los 6 medios de seed), mostraba el mismo texto fijo idéntico
+  ("Metodo global con historial preservado..."). Pasa a depender de qué admite
+  realmente el medio (`permiteTarjetas`/`permitePlanesGlobales`, ya calculados): "administra
+  tarjetas propias..." / "usa un plan general..." / "tiene configuracion propia — ver
+  detalle mas abajo" para Crédito personal. Sin inventar dato de negocio nuevo, solo
+  reflejando una condición que el propio código ya calculaba;
+- **sidebar "METODOS"** — mismo hallazgo que U1 (micro-lote 1) pero en el nav lateral, no
+  tocado en su momento: el link de Crédito personal mostraba "0 tarjetas" en el meta y "0"
+  en el badge de conteo de planes, igual que un medio vacío completable. Ahora, solo para
+  el caso donde el medio no admite ni tarjetas ni planes propios (hoy exclusivo de Crédito
+  personal), el meta dice "Config. propia" y el badge muestra "—" con
+  `title="Se administra en su propia pantalla"`; el resto de medios (que sí tienen "0
+  tarjetas" como dato real, no engañoso) no cambia.
+
+Sin cambios de cálculo, reglas de negocio, ids, `data-*` ni contratos backend. Validado en
+vivo con Playwright en 1440×900, 1024×900/720, 390×844 y 360×800 (Efectivo con plan
+general expandido, Crédito personal, Tarjeta crédito con Visa y un plan expandido para
+confirmar que el form de edición sigue abriendo igual) sin overflow horizontal, 0
+errores/warnings de consola; build 0/0.
+
+Con esto, ningún hallazgo del diagnóstico original (4 capas) queda sin cerrar o sin
+justificación de diseño explícita.
+
+Micro-lote 4 — bug reportado en vivo por el usuario tras el cierre: cambiar de medio en el
+sidebar "METODOS" reiniciaba el scroll al tope en cada click. Causa raíz: el scroll real de
+la pantalla vive en el contenedor `.overflow-y-auto` de `_Layout` (no en el `body`/
+`window`), y cada link del sidebar navegaba a una URL nueva (`?medioId=X`) con recarga
+completa de documento — cualquier navegación de documento reinicia ese contenedor, sin
+relación con el resto de los cambios de esta pantalla (reproducido también contra la
+versión previa a este lote). Fix (a pedido explícito del usuario, opción "sin recargar la
+página" sobre la alternativa de solo aterrizar en el panel): los links del sidebar de
+métodos pasan a interceptarse por JS — `fetch` de la misma URL, reemplazo del `<nav>` de
+métodos y de `.payments-main` vía `DOMParser`, `history.pushState`/`popstate` para que
+atrás/adelante sigan funcionando, foco movido al link activo tras el reemplazo. Como el
+documento nunca se recarga, el contenedor de scroll no se toca. Progressive enhancement:
+los `<a href>` siguen siendo reales — si el `fetch` falla, cae a navegación normal
+(`window.location.href`). El spinner de envío de formularios (`@section Scripts`) pasa de
+bindearse por-formulario a delegación de eventos en el contenedor raíz, para seguir
+funcionando en los forms que trae cada reemplazo AJAX sin necesitar re-bind. Los ~10
+formularios de guardar/editar/cambiar-estado siguen siendo POST + redirect real (no se
+tocaron, fuera del alcance reportado) — sí reinician scroll al guardar, pero eso ya
+volvía al mismo medio en el que se estaba, no "a otra sección" como el bug reportado.
+Validado en vivo con Playwright en 1440×900 y 390×844: cambio de sección preserva
+scrollTop exacto (probado en ambos anchos), botón atrás del navegador re-sincroniza el
+panel y el sidebar correctamente, un submit real (Editar método → Guardar) sigue
+funcionando end-to-end con toast de éxito tras el reemplazo AJAX, sin overflow horizontal,
+0 errores/warnings de consola; build 0/0.
 
 ## Backlog transversal
 

@@ -61,6 +61,17 @@
         _ => "tune"
     };
 
+    // Fallback cuando el medio no tiene Descripcion propia cargada. Antes era un texto fijo
+    // identico para los 6 medios; ahora refleja que hace cada uno realmente (tarjetas propias
+    // vs. plan general vs. gestion aparte), sin inventar dato de negocio nuevo.
+    static string MetodoCopyFallback(bool permiteTarjetas, bool permitePlanesGlobales) =>
+        (permiteTarjetas, permitePlanesGlobales) switch
+        {
+            (true, _) => "Administra tarjetas propias y sus planes de cuotas por marca. Los planes usan cuotas exactas, no rangos.",
+            (false, true) => "Usa un plan general de cuotas para todo el medio. Los planes usan cuotas exactas, no rangos.",
+            _ => "Metodo con configuracion propia — ver detalle mas abajo."
+        };
+
     var medioIdQuery = Context.Request.Query["medioId"].FirstOrDefault();
     var medioSeleccionado = Model.Medios.FirstOrDefault(m => m.Id.ToString() == medioIdQuery)
         ?? Model.Medios.FirstOrDefault(m => m.TipoPago == TipoPago.TarjetaCredito)
@@ -72,22 +83,29 @@
 @section Styles {
     <style>
         .payments-page {
-            --pay-bg: #0b1220;
-            --pay-shell: #111827;
-            --pay-panel: #0f172a;
-            --pay-row: #0a1322;
-            --pay-line: #1e2a3d;
-            --pay-line-soft: rgba(148, 163, 184, .18);
-            --pay-text: #f8fafc;
-            --pay-soft: #cbd5e1;
-            --pay-muted: #94a3b8;
-            --pay-dim: #64748b;
-            --pay-accent: #f5c518;
+            /* Tokens del modulo derivados de los tokens de tema reales (theme-ml.css /
+               shared-components.css), no valores propios: si el tema ERP cambia, esta
+               pantalla cambia con el resto en vez de divergir en silencio. --pay-soft se
+               fusiona con --pay-text (el sistema de tema solo define 3 niveles de texto,
+               no 4); --pay-ok/--pay-warn/--pay-danger usan los mismos tonos que
+               .badge-erp-success/-warning/-danger (shared-components.css) para que el
+               significado cromatico (descuento/recargo/inactivo) sea identico al resto
+               del ERP, no solo parecido. */
+            --pay-bg: var(--erp-bg);
+            --pay-shell: var(--erp-surface);
+            --pay-panel: var(--erp-surface-raised);
+            --pay-row: var(--erp-bg);
+            --pay-line: var(--erp-border);
+            --pay-line-soft: var(--erp-border-muted);
+            --pay-text: var(--erp-text);
+            --pay-soft: var(--erp-text);
+            --pay-muted: var(--erp-text-muted);
+            --pay-dim: var(--erp-text-faint);
+            --pay-accent: var(--erp-primary);
             --pay-ok: #34d399;
             --pay-warn: #fbbf24;
-            --pay-danger: #fb7185;
+            --pay-danger: #f87171;
             min-height: calc(100dvh - 5rem);
-            margin: -1rem;
             padding: 1.25rem;
             background: var(--pay-bg);
             color: var(--pay-text);
@@ -101,9 +119,11 @@
             width: min(100%, 1240px);
             margin: 0 auto;
             border: 1px solid var(--pay-line);
-            border-radius: 22px;
+            /* Radio alineado a .hero-erp (shared-components.css), sin box-shadow propia:
+               el resto del ERP distingue una superficie elevada con borde + fondo, no con
+               sombra grande. */
+            border-radius: 1.5rem;
             background: var(--pay-shell);
-            box-shadow: 0 28px 90px rgba(2, 6, 23, .55);
             overflow: hidden;
         }
 
@@ -122,7 +142,7 @@
             font-size: clamp(1.6rem, 3vw, 2.35rem);
             line-height: 1.05;
             font-weight: 900;
-            color: #fff;
+            color: var(--pay-text);
             letter-spacing: 0;
             text-wrap: balance;
         }
@@ -144,26 +164,42 @@
             text-transform: uppercase;
         }
 
+        .payments-breadcrumb {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: .35rem;
+            color: var(--pay-muted);
+            font-size: .7rem;
+            font-weight: 800;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+        }
+
+        .payments-breadcrumb__link {
+            color: var(--pay-muted);
+            text-decoration: none;
+        }
+
+        .payments-breadcrumb__link:hover,
+        .payments-breadcrumb__link:focus-visible {
+            color: var(--pay-accent);
+            text-decoration: underline;
+        }
+
+        .payments-breadcrumb__separator {
+            color: var(--pay-dim);
+        }
+
+        .payments-breadcrumb__current {
+            color: var(--pay-muted);
+        }
+
         .payments-actions {
             display: flex;
             flex-wrap: wrap;
             justify-content: flex-end;
             gap: .55rem;
-        }
-
-        .payments-credit-note {
-            display: inline-flex;
-            max-width: 17rem;
-            align-items: center;
-            gap: .45rem;
-            border: 1px solid rgba(251, 191, 36, .26);
-            border-radius: .75rem;
-            background: rgba(251, 191, 36, .08);
-            padding: .55rem .7rem;
-            color: #fde68a;
-            font-size: .76rem;
-            font-weight: 700;
-            line-height: 1.25;
         }
 
         .payments-metrics {
@@ -177,14 +213,14 @@
             min-width: 0;
             border: 1px solid var(--pay-line);
             border-radius: .9rem;
-            background: #0f172a;
+            background: var(--pay-panel);
             padding: .85rem;
         }
 
         .payments-metric strong {
             display: block;
             margin-top: .25rem;
-            color: #fff;
+            color: var(--pay-text);
             font-size: 1.55rem;
             line-height: 1;
             font-variant-numeric: tabular-nums;
@@ -211,7 +247,7 @@
             top: 1rem;
             border: 1px solid var(--pay-line);
             border-radius: 1rem;
-            background: #0f172a;
+            background: var(--pay-panel);
             padding: .75rem;
         }
 
@@ -240,7 +276,7 @@
         .method-card:focus-visible {
             border-color: rgba(245, 197, 24, .5);
             background: rgba(30, 41, 59, .88);
-            color: #fff;
+            color: var(--pay-text);
             outline: none;
             transform: translateY(-1px);
         }
@@ -252,7 +288,7 @@
         }
 
         .method-card .material-symbols-outlined {
-            color: #f5c518;
+            color: var(--pay-accent);
             font-size: 1.15rem;
         }
 
@@ -300,7 +336,7 @@
             scroll-margin-top: 1rem;
             border: 1px solid var(--pay-line);
             border-radius: 1rem;
-            background: #0f172a;
+            background: var(--pay-panel);
             overflow: hidden;
         }
 
@@ -323,7 +359,7 @@
 
         .method-heading h2 {
             margin: 0;
-            color: #fff;
+            color: var(--pay-text);
             font-size: 1.08rem;
             font-weight: 900;
         }
@@ -400,7 +436,7 @@
         .payment-card-accordion {
             border: 1px solid var(--pay-line);
             border-radius: .9rem;
-            background: #0f172a;
+            background: var(--pay-panel);
             overflow: hidden;
             transition: border-color .18s ease;
         }
@@ -517,7 +553,7 @@
         .pay-details {
             border: 1px solid var(--pay-line);
             border-radius: .9rem;
-            background: #0f172a;
+            background: var(--pay-panel);
         }
 
         .payment-card {
@@ -543,7 +579,7 @@
         }
 
         .card-title {
-            color: #fff;
+            color: var(--pay-text);
             font-size: 1rem;
             font-weight: 900;
         }
@@ -569,7 +605,6 @@
             overflow: hidden;
         }
 
-        .plan-summary,
         .compact-summary {
             display: grid;
             grid-template-columns: minmax(0, 1fr) auto;
@@ -579,13 +614,33 @@
             list-style: none;
         }
 
+        /* El plan es un unico control de expansion (toda la fila abre el form de edicion),
+           no un boton "Editar" aislado + fila inerte alrededor) — el chevron comunica esa
+           unica affordance, igual que .payment-card-chevron en el acordeon de tarjeta. */
         .plan-summary {
+            display: grid;
+            grid-template-columns: 1.1rem minmax(0, 1fr);
+            gap: .5rem;
+            align-items: center;
+            cursor: pointer;
+            list-style: none;
             padding: .52rem .6rem;
         }
 
         .plan-summary::-webkit-details-marker,
         .compact-summary::-webkit-details-marker {
             display: none;
+        }
+
+        .plan-chevron {
+            color: var(--pay-dim);
+            font-size: 1.05rem;
+            flex-shrink: 0;
+            transition: transform .18s ease;
+        }
+
+        .plan-row[open] .plan-chevron {
+            transform: rotate(90deg);
         }
 
         .plan-main {
@@ -597,13 +652,6 @@
             color: var(--pay-soft);
             font-size: .82rem;
             font-weight: 800;
-        }
-
-        .plan-actions {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: flex-end;
-            gap: .35rem;
         }
 
         .details-body {
@@ -620,7 +668,7 @@
         }
 
         .compact-summary .material-symbols-outlined {
-            color: #f5c518;
+            color: var(--pay-accent);
             font-size: 1.05rem;
         }
 
@@ -640,8 +688,8 @@
             min-height: 2.45rem;
             border: 1px solid rgba(148, 163, 184, .24);
             border-radius: .65rem;
-            background: #0a1322;
-            color: #f8fafc;
+            background: var(--pay-row);
+            color: var(--pay-text);
             padding: .52rem .65rem;
             font-size: .86rem;
             outline: none;
@@ -698,14 +746,14 @@
         .pay-mini-button:focus-visible {
             border-color: rgba(245, 197, 24, .5);
             background: rgba(245, 197, 24, .15);
-            color: #fff;
+            color: var(--pay-text);
             outline: none;
             transform: translateY(-1px);
         }
 
         .pay-mini-button.primary {
             border-color: rgba(245, 197, 24, .6);
-            background: #f5c518;
+            background: var(--pay-accent);
             color: #15110a;
         }
 
@@ -738,6 +786,23 @@
             margin: 1rem 1.25rem 0;
         }
 
+        /* Rango intermedio 701-1024px: ".payments-topbar"/".method-panel-header" siguen en 2
+           columnas (ver @@media 700px mas abajo), pero a este ancho la columna de texto queda
+           demasiado angosta para el h1/h2 clamp() y el titulo se envuelve en 2 lineas de forma
+           antiestetica (confirmado en vivo en 1024x720/900). Se apilan antes, sin tocar el resto
+           del layout de esta franja (sidebar de metodos, grillas de cards). */
+        @@media (max-width: 1024px) {
+            .payments-topbar,
+            .method-panel-header {
+                grid-template-columns: minmax(0, 1fr);
+            }
+
+            .payments-actions,
+            .method-stats {
+                justify-content: flex-start;
+            }
+        }
+
         @@media (max-width: 980px) {
             .payments-layout {
                 grid-template-columns: minmax(0, 1fr);
@@ -758,7 +823,6 @@
 
         @@media (max-width: 700px) {
             .payments-page {
-                margin: -.75rem;
                 padding: .75rem;
             }
 
@@ -773,8 +837,7 @@
             }
 
             .payments-actions,
-            .method-stats,
-            .plan-actions {
+            .method-stats {
                 justify-content: flex-start;
             }
 
@@ -810,10 +873,6 @@
             }
 
             .methods-sidebar nav {
-                grid-template-columns: minmax(0, 1fr);
-            }
-
-            .plan-summary {
                 grid-template-columns: minmax(0, 1fr);
             }
 
@@ -882,7 +941,11 @@
     <section class="payments-shell-card" aria-labelledby="payments-title">
         <header class="payments-topbar">
             <div>
-                <div class="payments-eyebrow">Configuracion global de pagos</div>
+                <nav class="payments-breadcrumb" aria-label="Breadcrumb">
+                    <a asp-controller="Home" asp-action="Index" class="payments-breadcrumb__link">Inicio</a>
+                    <span class="payments-breadcrumb__separator" aria-hidden="true">›</span>
+                    <span class="payments-breadcrumb__current">Configuracion global de pagos</span>
+                </nav>
                 <h1 id="payments-title" class="payments-title">Configuracion de pagos</h1>
                 <p class="payments-subtitle">
                     Administra medios, tarjetas y planes reutilizables. El ajuste se aplica una sola vez sobre el total.
@@ -890,10 +953,6 @@
                 </p>
             </div>
             <div class="payments-actions">
-                <span class="payments-credit-note">
-                    <span class="material-symbols-outlined text-[18px]">info</span>
-                    Credito personal se administra en una fase separada.
-                </span>
                 <a asp-controller="Home" asp-action="Index" class="pay-mini-button">
                     <span class="material-symbols-outlined text-[18px]">arrow_back</span>
                     Volver
@@ -999,6 +1058,13 @@
                             var totalPlanesMetodo = medio.Planes.Count;
                             var totalTarjetasMetodo = medio.Tarjetas.Count(t => t.Activa);
                             var esMedioSeleccionado = medioSeleccionado?.Id == medio.Id;
+                            // Igual que en el panel principal: si el medio no admite ni tarjetas ni
+                            // planes propios (hoy solo Credito personal), "0 tarjetas"/"0" sugeriria
+                            // un estado vacio completable aca mismo, cuando en realidad esta bloqueado
+                            // por diseno y se administra en su propia pantalla.
+                            var permiteTarjetasMetodo = medio.TipoPago == TipoPago.TarjetaCredito || medio.TipoPago == TipoPago.TarjetaDebito;
+                            var permitePlanesMetodo = medio.TipoPago != TipoPago.CreditoPersonal && medio.TipoPago != TipoPago.Tarjeta;
+                            var gestionPropiaMetodo = !permiteTarjetasMetodo && !permitePlanesMetodo;
                             <a asp-controller="ConfiguracionPago"
                                asp-action="MediosPago"
                                asp-route-medioId="@medio.Id"
@@ -1007,9 +1073,20 @@
                                 <span class="material-symbols-outlined">@MetodoIcon(medio.TipoPago)</span>
                                 <span class="min-w-0">
                                     <span class="method-name">@TipoPagoDisplay(medio.TipoPago)</span>
-                                    <span class="method-meta">@totalTarjetasMetodo tarjeta@(totalTarjetasMetodo == 1 ? "" : "s")</span>
+                                    <span class="method-meta">
+                                        @(gestionPropiaMetodo
+                                            ? "Config. propia"
+                                            : $"{totalTarjetasMetodo} tarjeta{(totalTarjetasMetodo == 1 ? "" : "s")}")
+                                    </span>
                                 </span>
-                                <span class="method-count" title="@totalPlanesMetodo planes">@totalPlanesMetodo</span>
+                                @if (gestionPropiaMetodo)
+                                {
+                                    <span class="method-count" title="Se administra en su propia pantalla">—</span>
+                                }
+                                else
+                                {
+                                    <span class="method-count" title="@totalPlanesMetodo planes">@totalPlanesMetodo</span>
+                                }
                             </a>
                         }
                     </nav>
@@ -1092,7 +1169,7 @@
                                     <p class="method-copy">
                                         @(!string.IsNullOrWhiteSpace(medio.Descripcion)
                                             ? medio.Descripcion
-                                            : "Metodo global con historial preservado. Los planes usan cuotas exactas, no rangos.")
+                                            : MetodoCopyFallback(permiteTarjetas, permitePlanesGlobales))
                                     </p>
                                     @if (medio.TieneRecargo || medio.PermiteDescuento)
                                     {
@@ -1102,12 +1179,23 @@
                                     }
                                 </div>
                                 <div class="method-stats">
-                                    <span class="pay-badge pay-badge-muted">@tarjetasActivas.Count tarjeta@(tarjetasActivas.Count == 1 ? "" : "s") activa@(tarjetasActivas.Count == 1 ? "" : "s")</span>
-                                    @if (tarjetasQuitadas.Count > 0)
+                                    @* Estos badges solo tienen sentido para medios que realmente admiten tarjetas/planes
+                                       propios (ver permiteTarjetas/permitePlanesGlobales). Para Credito personal (ninguno
+                                       de los dos aplica) mostrar "0 tarjetas"/"0 planes" sugeria un estado vacio por
+                                       completar aca mismo, cuando en realidad esta bloqueado por diseno: se administra en
+                                       la pantalla de credito personal (ver aviso mas abajo). *@
+                                    @if (permiteTarjetas)
                                     {
-                                        <span class="pay-badge pay-badge-off">@tarjetasQuitadas.Count quitada@(tarjetasQuitadas.Count == 1 ? "" : "s")</span>
+                                        <span class="pay-badge pay-badge-muted">@tarjetasActivas.Count tarjeta@(tarjetasActivas.Count == 1 ? "" : "s") activa@(tarjetasActivas.Count == 1 ? "" : "s")</span>
+                                        @if (tarjetasQuitadas.Count > 0)
+                                        {
+                                            <span class="pay-badge pay-badge-off">@tarjetasQuitadas.Count quitada@(tarjetasQuitadas.Count == 1 ? "" : "s")</span>
+                                        }
                                     }
-                                    <span class="pay-badge pay-badge-muted">@totalPlanes plan@(totalPlanes == 1 ? "" : "es")</span>
+                                    @if (permitePlanesGlobales)
+                                    {
+                                        <span class="pay-badge pay-badge-muted">@totalPlanes plan@(totalPlanes == 1 ? "" : "es")</span>
+                                    }
                                     @if (puedeEditar)
                                     {
                                         <details class="pay-details" style="flex-basis:100%;margin-top:.5rem">
@@ -1235,13 +1323,11 @@
                                                         {
                                                             <details class="plan-row">
                                                                 <summary class="plan-summary">
+                                                                    <span class="plan-chevron material-symbols-outlined" aria-hidden="true">chevron_right</span>
                                                                     <span class="plan-main">
                                                                         <span>@plan.CantidadCuotas cuota@(plan.CantidadCuotas == 1 ? "" : "s") exacta@(plan.CantidadCuotas == 1 ? "" : "s")</span>
                                                                         <span class="@AjusteClass(plan.AjustePorcentaje)">@AjusteFirmado(plan.AjustePorcentaje) @AjusteModo(plan.AjustePorcentaje)</span>
                                                                         <span class="@EstadoClass(plan.Activo)">@(plan.Activo ? "Activo" : "Inactivo")</span>
-                                                                    </span>
-                                                                    <span class="plan-actions">
-                                                                        <span class="pay-mini-button">Editar</span>
                                                                     </span>
                                                                 </summary>
 
@@ -1588,13 +1674,11 @@
                                         {
                                             <details class="plan-row">
                                                 <summary class="plan-summary">
+                                                    <span class="plan-chevron material-symbols-outlined" aria-hidden="true">chevron_right</span>
                                                     <span class="plan-main">
                                                         <span>@plan.CantidadCuotas cuota@(plan.CantidadCuotas == 1 ? "" : "s") exacta@(plan.CantidadCuotas == 1 ? "" : "s")</span>
                                                         <span class="@AjusteClass(plan.AjustePorcentaje)">@AjusteFirmado(plan.AjustePorcentaje) @AjusteModo(plan.AjustePorcentaje)</span>
                                                         <span class="@EstadoClass(plan.Activo)">@(plan.Activo ? "Activo" : "Inactivo")</span>
-                                                    </span>
-                                                    <span class="plan-actions">
-                                                        <span class="pay-mini-button">Editar</span>
                                                     </span>
                                                 </summary>
 
@@ -1724,13 +1808,11 @@
                                             {
                                                 <details class="plan-row">
                                                     <summary class="plan-summary">
+                                                        <span class="plan-chevron material-symbols-outlined" aria-hidden="true">chevron_right</span>
                                                         <span class="plan-main">
                                                             <span>@plan.CantidadCuotas cuota@(plan.CantidadCuotas == 1 ? "" : "s") exacta@(plan.CantidadCuotas == 1 ? "" : "s")</span>
                                                             <span class="@AjusteClass(plan.AjustePorcentaje)">@AjusteFirmado(plan.AjustePorcentaje) @AjusteModo(plan.AjustePorcentaje)</span>
                                                             <span class="@EstadoClass(plan.Activo)">@(plan.Activo ? "Activo" : "Inactivo")</span>
-                                                        </span>
-                                                        <span class="plan-actions">
-                                                            <span class="pay-mini-button">Editar</span>
                                                         </span>
                                                     </summary>
 
@@ -1853,25 +1935,111 @@
 @section Scripts {
     <script>
         (() => {
-            document.querySelectorAll('form').forEach((form) => {
-                form.addEventListener('submit', () => {
-                    if (!form.checkValidity()) {
+            const root = document.querySelector('.payments-page');
+            if (!root) {
+                return;
+            }
+
+            // Spinner de envio delegado en el contenedor raiz (no por-formulario): sigue
+            // funcionando en los forms que trae el reemplazo AJAX de seccion de abajo, sin
+            // necesitar re-bind cada vez que cambia el panel.
+            root.addEventListener('submit', (event) => {
+                const form = event.target.closest('form');
+                if (!form || !root.contains(form) || !form.checkValidity()) {
+                    return;
+                }
+
+                const button = form.querySelector('button[type="submit"]');
+                if (!button) {
+                    return;
+                }
+
+                button.disabled = true;
+                button.setAttribute('aria-busy', 'true');
+
+                const icon = button.querySelector('.material-symbols-outlined');
+                if (icon) {
+                    icon.textContent = 'hourglass_top';
+                }
+            });
+
+            // Cambiar de medio en el sidebar "METODOS" es una navegacion a otra URL
+            // (?medioId=X): como el scroll real de la pagina vive en el contenedor
+            // .overflow-y-auto de _Layout (no en el documento), cada navegacion completa
+            // reiniciaba esa posicion aunque el usuario solo quisiera ver otra seccion.
+            // Se reemplaza el nav de metodos + el panel del medio via fetch de la misma
+            // URL en vez de navegar de verdad, asi el documento nunca se recarga y el
+            // scroll no se mueve. Los links siguen siendo <a href> reales (progressive
+            // enhancement): si el fetch falla, se cae a la navegacion normal.
+            let sidebarNav = root.querySelector('.methods-sidebar nav');
+            let mainPanel = root.querySelector('.payments-main');
+            if (!sidebarNav || !mainPanel) {
+                return;
+            }
+
+            let loadToken = 0;
+
+            function bindNav(nav) {
+                nav.addEventListener('click', (event) => {
+                    const link = event.target.closest('a.method-card');
+                    if (!link || !nav.contains(link)) {
                         return;
                     }
-
-                    const button = form.querySelector('button[type="submit"]');
-                    if (!button) {
-                        return;
-                    }
-
-                    button.disabled = true;
-                    button.setAttribute('aria-busy', 'true');
-
-                    const icon = button.querySelector('.material-symbols-outlined');
-                    if (icon) {
-                        icon.textContent = 'hourglass_top';
-                    }
+                    event.preventDefault();
+                    loadMedio(link.href, true);
                 });
+            }
+
+            async function loadMedio(url, pushHistory) {
+                const token = ++loadToken;
+                root.setAttribute('aria-busy', 'true');
+                try {
+                    const response = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                    if (!response.ok) {
+                        throw new Error('MediosPago fetch status ' + response.status);
+                    }
+                    const html = await response.text();
+                    if (token !== loadToken) {
+                        return;
+                    }
+
+                    const doc = new DOMParser().parseFromString(html, 'text/html');
+                    const newNav = doc.querySelector('.methods-sidebar nav');
+                    const newMain = doc.querySelector('.payments-main');
+                    if (!newNav || !newMain) {
+                        throw new Error('MediosPago fetch: markup inesperado');
+                    }
+
+                    sidebarNav.replaceWith(newNav);
+                    mainPanel.replaceWith(newMain);
+                    sidebarNav = newNav;
+                    mainPanel = newMain;
+                    bindNav(sidebarNav);
+
+                    if (pushHistory) {
+                        history.pushState({ mediosPago: true }, '', url);
+                    }
+                    if (doc.title) {
+                        document.title = doc.title;
+                    }
+
+                    const activeLink = sidebarNav.querySelector('[aria-current="page"]');
+                    if (activeLink) {
+                        activeLink.focus({ preventScroll: true });
+                    }
+                } catch (err) {
+                    window.location.href = url;
+                } finally {
+                    if (token === loadToken) {
+                        root.removeAttribute('aria-busy');
+                    }
+                }
+            }
+
+            bindNav(sidebarNav);
+
+            window.addEventListener('popstate', () => {
+                loadMedio(location.href, false);
             });
         })();
     </script>
