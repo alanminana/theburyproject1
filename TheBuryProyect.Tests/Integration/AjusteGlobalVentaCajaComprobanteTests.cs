@@ -105,6 +105,7 @@ file sealed class StubAlertaStockFase61 : IAlertaStockService
     public Task<int> GenerarAlertasStockBajoAsync(CancellationToken ct = default) => Task.FromResult(0);
     public Task<List<AlertaStock>> GetAlertasPendientesAsync() => throw new NotImplementedException();
     public Task<PaginatedResult<AlertaStockViewModel>> BuscarAsync(AlertaStockFiltroViewModel filtro) => throw new NotImplementedException();
+    public Task<(int Pendientes, int Criticas)> ContarPorEstadoAsync(AlertaStockFiltroViewModel filtro) => throw new NotImplementedException();
     public Task<AlertaStockViewModel?> GetByIdAsync(int id) => throw new NotImplementedException();
     public Task<bool> ResolverAlertaAsync(int id, string usuarioResolucion, string? observaciones = null, byte[]? rowVersion = null) => throw new NotImplementedException();
     public Task<bool> IgnorarAlertaAsync(int id, string usuarioResolucion, string? observaciones = null, byte[]? rowVersion = null) => throw new NotImplementedException();

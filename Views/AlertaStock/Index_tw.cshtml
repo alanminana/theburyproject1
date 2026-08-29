@@ -14,8 +14,9 @@
                     || filtro.Tipo.HasValue
                     || filtro.Prioridad.HasValue
                     || filtro.Estado.HasValue;
-    var pendientes = alertas.Count(a => a.Estado == EstadoAlerta.Pendiente);
-    var criticas = alertas.Count(a => a.Prioridad == PrioridadAlerta.Critica || a.NotificacionUrgente);
+    // Conteos sobre el total filtrado real (no solo esta página) — ver AlertaStockService.ContarPorEstadoAsync.
+    var pendientes = ViewBag.TotalPendientes as int? ?? alertas.Count(a => a.Estado == EstadoAlerta.Pendiente);
+    var criticas = ViewBag.TotalCriticas as int? ?? alertas.Count(a => a.Prioridad == PrioridadAlerta.Critica || a.NotificacionUrgente);
 }
 
 @section Styles {

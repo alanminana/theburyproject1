@@ -81,13 +81,14 @@ public class AlertaStockServiceTests : IDisposable
         EstadoAlerta estado = EstadoAlerta.Pendiente,
         DateTime? fechaResolucion = null,
         bool urgente = false,
-        TipoAlertaStock tipo = TipoAlertaStock.StockBajo)
+        TipoAlertaStock tipo = TipoAlertaStock.StockBajo,
+        PrioridadAlerta prioridad = PrioridadAlerta.Media)
     {
         var alerta = new AlertaStock
         {
             ProductoId = productoId,
             Tipo = tipo,
-            Prioridad = PrioridadAlerta.Media,
+            Prioridad = prioridad,
             Estado = estado,
             Mensaje = "Alerta de test",
             StockActual = 5m,
@@ -599,6 +600,66 @@ public class AlertaStockServiceTests : IDisposable
 
         Assert.Equal(5, resultado.TotalRecords);
         Assert.Equal(2, resultado.Items.Count);
+    }
+
+    // =========================================================================
+    // ContarPorEstadoAsync
+    // =========================================================================
+
+    [Fact]
+    public async Task ContarPorEstado_ConMasAlertasQueUnaPagina_CuentaSobreElTotalNoSoloLaPagina()
+    {
+        // 5 pendientes + 1 resuelta en productos distintos (evita el unique index activo por producto).
+        for (int i = 0; i < 5; i++)
+        {
+            var p = await SeedProductoAsync();
+            await SeedAlertaAsync(p.Id, estado: EstadoAlerta.Pendiente);
+        }
+        var pResuelto = await SeedProductoAsync();
+        await SeedAlertaAsync(pResuelto.Id, estado: EstadoAlerta.Resuelta, fechaResolucion: DateTime.UtcNow);
+
+        var filtro = new AlertaStockFiltroViewModel { PageNumber = 1, PageSize = 2 };
+        var pagina = await _service.BuscarAsync(filtro);
+        var (pendientes, _) = await _service.ContarPorEstadoAsync(filtro);
+
+        // La página trae 2 ítems, pero el total real de pendientes es 5 — el conteo no debe
+        // quedarse en lo que entró en esta página.
+        Assert.Equal(2, pagina.Items.Count);
+        Assert.Equal(5, pendientes);
+    }
+
+    [Fact]
+    public async Task ContarPorEstado_CuentaCriticasPorPrioridadOUrgente()
+    {
+        var p1 = await SeedProductoAsync();
+        var p2 = await SeedProductoAsync();
+        var p3 = await SeedProductoAsync();
+        await SeedAlertaAsync(p1.Id, prioridad: PrioridadAlerta.Critica);
+        await SeedAlertaAsync(p2.Id, urgente: true);
+        await SeedAlertaAsync(p3.Id, prioridad: PrioridadAlerta.Media, urgente: false);
+
+        var (_, criticas) = await _service.ContarPorEstadoAsync(new AlertaStockFiltroViewModel { PageNumber = 1, PageSize = 20 });
+
+        Assert.Equal(2, criticas);
+    }
+
+    [Fact]
+    public async Task ContarPorEstado_RespetaLosMismosFiltrosQueBuscarAsync()
+    {
+        var p1 = await SeedProductoAsync();
+        var p2 = await SeedProductoAsync();
+        await SeedAlertaAsync(p1.Id, estado: EstadoAlerta.Pendiente);
+        await SeedAlertaAsync(p2.Id, estado: EstadoAlerta.Resuelta, fechaResolucion: DateTime.UtcNow);
+
+        var (pendientes, _) = await _service.ContarPorEstadoAsync(new AlertaStockFiltroViewModel
+        {
+            ProductoId = p2.Id,
+            PageNumber = 1,
+            PageSize = 20
+        });
+
+        // Filtrado a p2 (la resuelta): 0 pendientes, aunque exista una pendiente en p1.
+        Assert.Equal(0, pendientes);
     }
 
     // =========================================================================

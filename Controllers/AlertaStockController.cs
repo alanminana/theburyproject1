@@ -43,11 +43,14 @@ namespace TheBuryProject.Controllers
                 }
 
                 var resultado = await _alertaStockService.BuscarAsync(filtro);
+                var (totalPendientes, totalCriticas) = await _alertaStockService.ContarPorEstadoAsync(filtro);
 
                 ViewBag.Filtro = filtro;
                 ViewBag.TiposAlerta = Enum.GetValues<TipoAlertaStock>();
                 ViewBag.Prioridades = Enum.GetValues<PrioridadAlerta>();
                 ViewBag.Estados = Enum.GetValues<EstadoAlerta>();
+                ViewBag.TotalPendientes = totalPendientes;
+                ViewBag.TotalCriticas = totalCriticas;
 
                 return View("Index_tw", resultado);
             }

@@ -377,7 +377,12 @@ namespace TheBuryProject.Services
 
         #region Búsqueda y estadísticas
 
-        public async Task<PaginatedResult<AlertaStockViewModel>> BuscarAsync(AlertaStockFiltroViewModel filtro)
+        /// <summary>
+        /// Aplica a la query base los mismos filtros que <see cref="BuscarAsync"/> y
+        /// <see cref="ContarPorEstadoAsync"/> usan para "qué alertas cuentan como resultado
+        /// de esta búsqueda" — una sola autoridad de filtrado para no duplicar criterios.
+        /// </summary>
+        private IQueryable<AlertaStock> AplicarFiltros(AlertaStockFiltroViewModel filtro)
         {
             var query = _context.AlertasStock
                 .AsNoTracking()
@@ -388,7 +393,6 @@ namespace TheBuryProject.Services
                 .Where(a => !a.IsDeleted && !a.Producto.IsDeleted)
                 .AsQueryable();
 
-            // Filtros
             if (filtro.ProductoId.HasValue)
                 query = query.Where(a => a.ProductoId == filtro.ProductoId.Value);
 
@@ -422,6 +426,13 @@ namespace TheBuryProject.Services
                 query = query.Where(a => a.Estado == EstadoAlerta.Pendiente && a.FechaAlerta < hace7Dias);
             }
 
+            return query;
+        }
+
+        public async Task<PaginatedResult<AlertaStockViewModel>> BuscarAsync(AlertaStockFiltroViewModel filtro)
+        {
+            var query = AplicarFiltros(filtro);
+
             var totalRecords = await query.CountAsync();
 
             var items = await query
@@ -439,6 +450,22 @@ namespace TheBuryProject.Services
                 PageNumber = filtro.PageNumber,
                 PageSize = filtro.PageSize
             };
+        }
+
+        /// <summary>
+        /// Cuenta pendientes y críticas sobre el resultado completo de la búsqueda (mismos
+        /// filtros que <see cref="BuscarAsync"/>), no solo sobre la página actual — evita que
+        /// los badges de cabecera de Index muestren un recorte de una sola página como si
+        /// fuera el total real.
+        /// </summary>
+        public async Task<(int Pendientes, int Criticas)> ContarPorEstadoAsync(AlertaStockFiltroViewModel filtro)
+        {
+            var query = AplicarFiltros(filtro);
+
+            var pendientes = await query.CountAsync(a => a.Estado == EstadoAlerta.Pendiente);
+            var criticas = await query.CountAsync(a => a.Prioridad == PrioridadAlerta.Critica || a.NotificacionUrgente);
+
+            return (pendientes, criticas);
         }
 
         public async Task<AlertaStockEstadisticasViewModel> GetEstadisticasAsync()

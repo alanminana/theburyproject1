@@ -31,6 +31,12 @@ namespace TheBuryProject.Services.Interfaces
         Task<PaginatedResult<AlertaStockViewModel>> BuscarAsync(AlertaStockFiltroViewModel filtro);
 
         /// <summary>
+        /// Cuenta pendientes y críticas sobre el resultado completo de la búsqueda (mismos
+        /// filtros que <see cref="BuscarAsync"/>), no solo la página actual.
+        /// </summary>
+        Task<(int Pendientes, int Criticas)> ContarPorEstadoAsync(AlertaStockFiltroViewModel filtro);
+
+        /// <summary>
         /// Obtiene una alerta por ID
         /// </summary>
         Task<AlertaStockViewModel?> GetByIdAsync(int id);
