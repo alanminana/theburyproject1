@@ -69,10 +69,7 @@
    Card, botones, chips base y tabla compartidos con Unidades/Kardex viven ahora en
    inventario-ficha-shared.css (mismo valor, una sola fuente); acá solo queda lo propio
    de esta pantalla. */
-/* KPI */
-.fi-page .fi-kpi {
-  background: #111827; border: 1px solid #1f2937; border-radius: 12px; padding: 1rem 1.1rem;
-}
+/* KPI: migrado al componente compartido card-erp-metric (Fase 5), ver markup. */
 /* Chip "Salida": hoy es roja acá y dorada en Kardex — divergencia real detectada en el
    pase estético, no se unifica en este lote (decisión explícita, ver auditoría). */
 .fi-page .fi-chip-salida   { background: rgba(248,113,113,.10); color: #f87171; border-color: rgba(248,113,113,.28); }
@@ -99,7 +96,6 @@
 @@media (min-width: 640px) {
   .fi-page .fi-cards-mobile { display: none; }
   .fi-page .fi-tbl-wrapper   { display: block; }
-  .fi-page .fi-kpi-sm-restore { font-size: .75rem; letter-spacing: .04em; }
 }
 .fi-page .col-in  { color: #34d399; }
 .fi-page .col-out { color: #f87171; }
@@ -188,19 +184,19 @@
         </div>
 
         <div class="mt-5 grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <div class="fi-kpi">
+            <div class="card-erp-metric">
                 <p class="text-[10px] sm:text-xs font-medium uppercase tracking-[0.01em] sm:tracking-wide text-slate-500">Stock</p>
                 <p class="mt-1 text-2xl font-semibold text-white">@Model.StockActual.ToString("G29")</p>
                 <p class="mt-0.5 text-xs text-slate-500">Valor lógico (agregado)</p>
             </div>
             @if (Model.RequiereNumeroSerie)
             {
-                <div class="fi-kpi">
+                <div class="card-erp-metric">
                     <p class="text-[10px] sm:text-xs font-medium uppercase tracking-[0.01em] sm:tracking-wide text-slate-500">Unidades</p>
                     <p class="mt-1 text-2xl font-semibold text-emerald-400">@conciliacion.UnidadesEnStock</p>
                     <p class="mt-0.5 text-xs text-slate-500">Estado "En Stock"</p>
                 </div>
-                <div class="fi-kpi @(conciliacion.HayDiferencia ? "border-amber-500/30 bg-amber-500/5" : "")">
+                <div class="@(conciliacion.HayDiferencia ? "card-erp-metric-warning" : "card-erp-metric")">
                     <p class="text-[10px] sm:text-xs font-medium uppercase tracking-[0.01em] sm:tracking-wide @(conciliacion.HayDiferencia ? "text-amber-300/80" : "text-slate-500")">Diferencia</p>
                     <p class="mt-1 text-2xl font-semibold @(conciliacion.HayDiferencia ? "text-amber-300" : "text-emerald-400")">
                         @(conciliacion.HayDiferencia
@@ -213,7 +209,7 @@
                         @(conciliacion.HayDiferencia ? "Stock vs unidades físicas" : "Trazabilidad completa")
                     </p>
                 </div>
-                <div class="fi-kpi">
+                <div class="card-erp-metric">
                     <p class="text-[10px] sm:text-xs font-medium uppercase tracking-[0.01em] sm:tracking-wide text-slate-500">Registradas</p>
                     <p class="mt-1 text-2xl font-semibold text-white">@conciliacion.TotalUnidadesRegistradas</p>
                     <p class="mt-0.5 text-xs text-slate-500">Todos los estados</p>
@@ -221,17 +217,17 @@
             }
             else
             {
-                <div class="fi-kpi">
+                <div class="card-erp-metric">
                     <p class="text-[10px] sm:text-xs font-medium uppercase tracking-[0.01em] sm:tracking-wide text-slate-500">Movimientos</p>
                     <p class="mt-1 text-2xl font-semibold text-white">@movs.Count</p>
                     <p class="mt-0.5 text-xs text-slate-500">Registrados</p>
                 </div>
-                <div class="fi-kpi">
+                <div class="card-erp-metric">
                     <p class="text-[10px] sm:text-xs font-medium uppercase tracking-[0.01em] sm:tracking-wide text-slate-500">Entradas totales</p>
                     <p class="mt-1 text-2xl font-semibold text-emerald-400">@totalEntradas.ToString("G29")</p>
                     <p class="mt-0.5 text-xs text-slate-500">Suma histórica</p>
                 </div>
-                <div class="fi-kpi">
+                <div class="card-erp-metric">
                     <p class="text-[10px] sm:text-xs font-medium uppercase tracking-[0.01em] sm:tracking-wide text-slate-500">Salidas totales</p>
                     <p class="mt-1 text-2xl font-semibold text-red-400">@totalSalidas.ToString("G29")</p>
                     <p class="mt-0.5 text-xs text-slate-500">Suma histórica</p>
@@ -648,21 +644,21 @@
              class="space-y-4 @(tabInicial != "movimientos" ? "hidden" : "")">
 
         <div class="grid grid-cols-2 lg:grid-cols-3 gap-3">
-            <div class="fi-kpi">
+            <div class="card-erp-metric">
                 <div class="flex items-center gap-2">
                     <span class="material-symbols-outlined text-emerald-400" style="font-size:20px">arrow_downward</span>
                     <p class="text-[10px] sm:text-xs font-medium uppercase tracking-[0.01em] sm:tracking-wide text-slate-500">Entradas totales</p>
                 </div>
                 <p class="mt-2 text-2xl font-semibold text-emerald-400">@totalEntradas.ToString("G29")</p>
             </div>
-            <div class="fi-kpi">
+            <div class="card-erp-metric">
                 <div class="flex items-center gap-2">
                     <span class="material-symbols-outlined text-red-400" style="font-size:20px">arrow_upward</span>
                     <p class="text-[10px] sm:text-xs font-medium uppercase tracking-[0.01em] sm:tracking-wide text-slate-500">Salidas totales</p>
                 </div>
                 <p class="mt-2 text-2xl font-semibold text-red-400">@totalSalidas.ToString("G29")</p>
             </div>
-            <div class="fi-kpi col-span-2 lg:col-span-1">
+            <div class="card-erp-metric col-span-2 lg:col-span-1">
                 <div class="flex items-center gap-2">
                     <span class="material-symbols-outlined text-slate-400" style="font-size:20px">inventory</span>
                     <p class="text-[10px] sm:text-xs font-medium uppercase tracking-[0.01em] sm:tracking-wide text-slate-500">Stock actual</p>
