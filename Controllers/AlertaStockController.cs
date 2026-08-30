@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TheBuryProject.Filters;
+using TheBuryProject.Helpers;
 using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
@@ -95,10 +96,14 @@ namespace TheBuryProject.Controllers
         }
 
         // GET: AlertaStock/Details/5
-        public async Task<IActionResult> Details(int id)
+        public async Task<IActionResult> Details(int id, string? returnUrl = null)
         {
             try
             {
+                // "Volver" respeta de dónde vino (Índice o Por producto) en vez de ir
+                // siempre a Index — ver Details_tw.cshtml.
+                ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
+
                 var alerta = await _alertaStockService.GetByIdAsync(id);
                 if (alerta == null)
                 {

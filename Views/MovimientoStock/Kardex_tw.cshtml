@@ -89,16 +89,14 @@
 
 @section Styles {
     <link rel="stylesheet" href="~/css/horizontal-scroll-affordance.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/inventario-ficha-shared.css" asp-append-version="true" />
 }
 
 <style>
-/* kdx = kardex: namespaced design system — paridad visual con standalone */
-.kdx-page .kdx-card {
-  background: #111827; border: 1px solid #1f2937; border-radius: 12px;
-}
-.kdx-page .kdx-card-header {
-  background: rgba(11,18,32,.4); border: 1px solid #1e293b; border-radius: 12px;
-}
+/* kdx = kardex: namespaced design system — paridad visual con standalone.
+   Card, botones base, forma de chip, entrada/ajuste y tabla base compartidos con Ficha de
+   inventario/Unidades viven ahora en inventario-ficha-shared.css (mismo valor, una sola
+   fuente); acá solo queda lo propio de esta pantalla. */
 .kdx-page .kdx-card-sub {
   background: #0f172a; border: 1px solid #1e2a3d; border-radius: 10px;
 }
@@ -122,15 +120,10 @@
   .kdx-page .kdx-split-grid { grid-template-columns: 1fr 360px; }
 }
 
-/* Chips */
-.kdx-page .kdx-chip {
-  display: inline-flex; align-items: center; gap: .35rem;
-  padding: .22rem .55rem; border-radius: 999px;
-  font-size: .73rem; font-weight: 500; border: 1px solid transparent; white-space: nowrap;
-}
-.kdx-page .kdx-chip-entrada { background: rgba(16,185,129,.10); color: #34d399; border-color: rgba(16,185,129,.28); }
+/* Chip "Salida": hoy es dorada acá (mismo tono que "Vendida") y roja en Ficha de
+   inventario — divergencia real detectada en el pase estético, no se unifica en este
+   lote (decisión explícita, ver auditoría). "Slate" es una variante propia de Kardex. */
 .kdx-page .kdx-chip-salida  { background: rgba(245,197,24,.10);  color: #f5c518; border-color: rgba(245,197,24,.28); }
-.kdx-page .kdx-chip-ajuste  { background: rgba(245,158,11,.10);  color: #fbbf24; border-color: rgba(245,158,11,.28); }
 .kdx-page .kdx-chip-slate   { background: rgba(148,163,184,.10); color: #cbd5e1; border-color: rgba(148,163,184,.25); }
 
 /* Fields */
@@ -142,21 +135,7 @@
 .kdx-page .kdx-field::placeholder { color: #475569; }
 .kdx-page .kdx-label { display: block; font-size: .75rem; font-weight: 500; color: #94a3b8; margin-bottom: .3rem; }
 
-/* Buttons */
-.kdx-page .kdx-btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: .4rem;
-  padding: .55rem .95rem; border-radius: 8px; font-size: .875rem; font-weight: 500;
-  transition: all .15s; min-height: 40px; cursor: pointer; border: 1px solid transparent;
-  text-decoration: none; white-space: nowrap;
-}
-.kdx-page .kdx-btn:disabled { opacity: .5; cursor: not-allowed; }
-.kdx-page .kdx-btn-primary { background: #f5c518; color: #15110a; border-color: #f5c518; }
-.kdx-page .kdx-btn-primary:hover:not(:disabled) { background: #e0b40f; border-color: #e0b40f; }
-.kdx-page .kdx-btn-ghost { background: transparent; color: #cbd5e1; border-color: #334155; }
-.kdx-page .kdx-btn-ghost:hover { background: #1e293b; color: #fff; }
-.kdx-page .kdx-btn-soft { background: #1e293b; color: #e2e8f0; border-color: #334155; }
-.kdx-page .kdx-btn-soft:hover { background: #273549; }
-.kdx-page .kdx-btn-sm { padding: .375rem .65rem; font-size: .8rem; min-height: 34px; }
+/* Botón propio de esta pantalla (tamaño xs, sin equivalente en Ficha/Unidades) */
 .kdx-page .kdx-btn-xs { padding: .3rem .6rem; font-size: .72rem; min-height: 30px; border-radius: 7px; }
 
 /* Segmented control */
@@ -179,29 +158,11 @@
   display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
 
-/* Table */
-.kdx-page .kdx-tbl {
-  width: 100%; border-collapse: separate; border-spacing: 0;
-  font-size: .85rem; min-width: 920px;
-}
-.kdx-page .kdx-tbl thead th {
-  position: sticky; top: 0; z-index: 2; background: #0d1526;
-  color: #64748b; font-size: .68rem; text-transform: uppercase;
-  letter-spacing: .04em; font-weight: 600; text-align: left;
-  padding: .6rem .75rem; border-bottom: 1px solid #1e2a3d;
-}
-.kdx-page .kdx-tbl thead th.num { text-align: right; }
-.kdx-page .kdx-tbl tbody td {
-  padding: .62rem .75rem; border-bottom: 1px solid #131e33; vertical-align: middle;
-}
-.kdx-page .kdx-tbl tbody tr:hover td { background: rgba(245,197,24,.04); }
+/* Table — ancho mínimo propio (más columnas que Ficha); el resto ya viene del shared */
+.kdx-page .kdx-tbl { min-width: 920px; }
 .kdx-page .kdx-tbl tfoot td {
   padding: .7rem .75rem; border-top: 2px solid #1e2a3d;
   background: #0d1526; font-weight: 600;
-}
-.kdx-page .kdx-tbl .num {
-  text-align: right; font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-variant-numeric: tabular-nums;
 }
 .kdx-page .kdx-tbl .col-in  { color: #34d399; }
 .kdx-page .kdx-tbl .col-out { color: #f87171; }

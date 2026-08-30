@@ -1,0 +1,124 @@
+/*
+ * Primitivas visuales compartidas entre Ficha de inventario (Producto/Inventario, .fi-*),
+ * Unidades del producto (Producto/Unidades, .pu-*) y Kardex (MovimientoStock/Kardex, .kdx-*).
+ *
+ * Antes cada una de las 3 vistas traía su propio <style> con casi el mismo set de reglas
+ * (mismo valor, distinto prefijo de clase) — ver auditoría de Categoría/Inventario, pase
+ * estético. Este archivo es la única fuente para las reglas que eran 100% idénticas entre
+ * las pantallas que las comparten. Lo que divergía a propósito o por historia (colores de
+ * campo, densidad de botones, el chip "Salida" — rojo en Ficha, dorado en Kardex — y demás
+ * piezas propias de cada pantalla) queda intacto en el <style> local de cada vista.
+ *
+ * Cero cambio de valores: cada regla de acá es copia textual de la que ya existía.
+ */
+
+/* ---------- Card / card-header — fi + pu + kdx ---------- */
+.fi-page .fi-card,
+.pu-page .pu-card,
+.kdx-page .kdx-card {
+  background: #111827; border: 1px solid #1f2937; border-radius: 12px;
+}
+.fi-page .fi-card-header,
+.pu-page .pu-card-header,
+.kdx-page .kdx-card-header {
+  background: rgba(11,18,32,.4); border: 1px solid #1e293b; border-radius: 12px;
+}
+
+/* ---------- Botones — base + variantes — fi + pu + kdx ---------- */
+.fi-page .fi-btn,
+.pu-page .pu-btn,
+.kdx-page .kdx-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: .4rem;
+  padding: .55rem .95rem; border-radius: 8px; font-size: .875rem; font-weight: 500;
+  transition: all .15s; min-height: 40px; cursor: pointer; border: 1px solid transparent;
+  text-decoration: none; white-space: nowrap;
+}
+.fi-page .fi-btn-primary,
+.pu-page .pu-btn-primary,
+.kdx-page .kdx-btn-primary { background: #f5c518; color: #15110a; border-color: #f5c518; }
+.fi-page .fi-btn-primary:hover:not(:disabled),
+.pu-page .pu-btn-primary:hover:not(:disabled),
+.kdx-page .kdx-btn-primary:hover:not(:disabled) { background: #e0b40f; border-color: #e0b40f; }
+.fi-page .fi-btn-ghost,
+.pu-page .pu-btn-ghost,
+.kdx-page .kdx-btn-ghost { background: transparent; color: #cbd5e1; border-color: #334155; }
+.fi-page .fi-btn-ghost:hover,
+.pu-page .pu-btn-ghost:hover,
+.kdx-page .kdx-btn-ghost:hover { background: #1e293b; color: #fff; }
+.fi-page .fi-btn-soft,
+.pu-page .pu-btn-soft,
+.kdx-page .kdx-btn-soft { background: #1e293b; color: #e2e8f0; border-color: #334155; }
+.fi-page .fi-btn-soft:hover,
+.pu-page .pu-btn-soft:hover,
+.kdx-page .kdx-btn-soft:hover { background: #273549; }
+
+/* btn-sm — solo fi + kdx (pu usa una densidad propia, se deja como está) */
+.fi-page .fi-btn-sm,
+.kdx-page .kdx-btn-sm { padding: .375rem .65rem; font-size: .8rem; min-height: 34px; }
+
+/* btn:disabled — solo pu + kdx (fi no deshabilita estos botones) */
+.pu-page .pu-btn:disabled,
+.kdx-page .kdx-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ---------- Chips — forma base — fi + kdx (pu usa una forma propia, levemente distinta) --- */
+.fi-page .fi-chip,
+.kdx-page .kdx-chip {
+  display: inline-flex; align-items: center; gap: .35rem;
+  padding: .22rem .55rem; border-radius: 999px;
+  font-size: .73rem; font-weight: 500; border: 1px solid transparent; white-space: nowrap;
+}
+
+/* Chips — neutral — fi + pu (kdx tiene su propia variante "slate") */
+.fi-page .fi-chip-neutral,
+.pu-page .pu-chip-neutral { background: #1e293b; color: #e2e8f0; border-color: #334155; }
+
+/* Chips — tipo de movimiento (entrada/ajuste) — fi + kdx.
+   "Salida" queda deliberadamente fuera de acá: hoy es roja en Ficha y dorada en Kardex —
+   divergencia real, no se unifica en este lote (decisión explícita, ver auditoría). */
+.fi-page .fi-chip-entrada,
+.kdx-page .kdx-chip-entrada { background: rgba(16,185,129,.10); color: #34d399; border-color: rgba(16,185,129,.28); }
+.fi-page .fi-chip-ajuste,
+.kdx-page .kdx-chip-ajuste { background: rgba(245,158,11,.10); color: #fbbf24; border-color: rgba(245,158,11,.28); }
+
+/* Chips — estado de unidad — fi + pu (kdx no muestra unidades, solo movimientos) */
+.fi-page .fi-chip-stock,
+.pu-page .pu-chip-stock { background: rgba(16,185,129,.10); color: #34d399; border-color: rgba(16,185,129,.25); }
+.fi-page .fi-chip-sold,
+.pu-page .pu-chip-sold { background: rgba(245,197,24,.10); color: #f5c518; border-color: rgba(245,197,24,.25); }
+.fi-page .fi-chip-missing,
+.pu-page .pu-chip-missing { background: rgba(245,158,11,.10); color: #fbbf24; border-color: rgba(245,158,11,.25); }
+.fi-page .fi-chip-baja,
+.pu-page .pu-chip-baja { background: rgba(148,163,184,.10); color: #94a3b8; border-color: rgba(148,163,184,.25); }
+.fi-page .fi-chip-reserved,
+.pu-page .pu-chip-reserved { background: rgba(168,85,247,.10); color: #c084fc; border-color: rgba(168,85,247,.25); }
+.fi-page .fi-chip-repair,
+.pu-page .pu-chip-repair { background: rgba(244,114,182,.10); color: #f472b6; border-color: rgba(244,114,182,.25); }
+.fi-page .fi-chip-return,
+.pu-page .pu-chip-return { background: rgba(20,184,166,.10); color: #2dd4bf; border-color: rgba(20,184,166,.25); }
+
+/* ---------- Tabla — base + encabezado + celdas — fi + kdx ---------- */
+.fi-page .fi-tbl,
+.kdx-page .kdx-tbl {
+  width: 100%; border-collapse: separate; border-spacing: 0; font-size: .85rem;
+}
+.fi-page .fi-tbl thead th,
+.kdx-page .kdx-tbl thead th {
+  position: sticky; top: 0; z-index: 2; background: #0d1526;
+  color: #64748b; font-size: .68rem; text-transform: uppercase;
+  letter-spacing: .04em; font-weight: 600; text-align: left;
+  padding: .6rem .75rem; border-bottom: 1px solid #1e2a3d;
+}
+.fi-page .fi-tbl thead th.num,
+.kdx-page .kdx-tbl thead th.num { text-align: right; }
+.fi-page .fi-tbl tbody td,
+.kdx-page .kdx-tbl tbody td {
+  padding: .62rem .75rem; border-bottom: 1px solid #131e33; vertical-align: middle;
+}
+.fi-page .fi-tbl tbody tr:hover td,
+.kdx-page .kdx-tbl tbody tr:hover td { background: rgba(245,197,24,.04); }
+.fi-page .fi-tbl .num,
+.kdx-page .kdx-tbl .num {
+  text-align: right;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}

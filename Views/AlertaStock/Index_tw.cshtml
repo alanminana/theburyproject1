@@ -221,7 +221,7 @@
                                                 <span class="material-symbols-outlined text-lg">inventory_2</span>
                                             </div>
                                             <div class="min-w-0">
-                                                <a asp-action="Details" asp-route-id="@a.Id"
+                                                <a asp-action="Details" asp-route-id="@a.Id" asp-route-returnUrl="@Context.Request.Path@Context.Request.QueryString"
                                                    class="block max-w-[18rem] truncate text-sm font-bold text-white transition-colors hover:text-primary-on-dark no-underline">
                                                     @a.ProductoNombre
                                                 </a>
@@ -267,7 +267,7 @@
                                     </td>
                                     <td class="px-5 py-3 text-right">
                                         <div class="flex items-center justify-end gap-0.5">
-                                            <a asp-action="Details" asp-route-id="@a.Id"
+                                            <a asp-action="Details" asp-route-id="@a.Id" asp-route-returnUrl="@Context.Request.Path@Context.Request.QueryString"
                                                class="row-action row-action--primary no-underline"
                                                title="Ver detalle"
                                                aria-label="Ver detalle de alerta de @a.ProductoNombre">

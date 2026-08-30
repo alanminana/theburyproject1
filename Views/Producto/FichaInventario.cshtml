@@ -61,38 +61,21 @@
 
 @section Styles {
     <link rel="stylesheet" href="~/css/horizontal-scroll-affordance.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/inventario-ficha-shared.css" asp-append-version="true" />
 }
 
 <style>
-/* fi = ficha-inventario — scoped to avoid conflicts with pu- and kdx- */
-.fi-page .fi-card {
-  background: #111827; border: 1px solid #1f2937; border-radius: 12px;
-}
-.fi-page .fi-card-header {
-  background: rgba(11,18,32,.4); border: 1px solid #1e293b; border-radius: 12px;
-}
+/* fi = ficha-inventario — scoped to avoid conflicts with pu- and kdx-.
+   Card, botones, chips base y tabla compartidos con Unidades/Kardex viven ahora en
+   inventario-ficha-shared.css (mismo valor, una sola fuente); acá solo queda lo propio
+   de esta pantalla. */
 /* KPI */
 .fi-page .fi-kpi {
   background: #111827; border: 1px solid #1f2937; border-radius: 12px; padding: 1rem 1.1rem;
 }
-/* Chips — movimiento */
-.fi-page .fi-chip {
-  display: inline-flex; align-items: center; gap: .35rem;
-  padding: .22rem .55rem; border-radius: 999px;
-  font-size: .73rem; font-weight: 500; border: 1px solid transparent; white-space: nowrap;
-}
-.fi-page .fi-chip-neutral  { background: #1e293b; color: #e2e8f0; border-color: #334155; }
-.fi-page .fi-chip-entrada  { background: rgba(16,185,129,.10); color: #34d399; border-color: rgba(16,185,129,.28); }
+/* Chip "Salida": hoy es roja acá y dorada en Kardex — divergencia real detectada en el
+   pase estético, no se unifica en este lote (decisión explícita, ver auditoría). */
 .fi-page .fi-chip-salida   { background: rgba(248,113,113,.10); color: #f87171; border-color: rgba(248,113,113,.28); }
-.fi-page .fi-chip-ajuste   { background: rgba(245,158,11,.10);  color: #fbbf24; border-color: rgba(245,158,11,.28); }
-/* Chips — estado unidad */
-.fi-page .fi-chip-stock    { background: rgba(16,185,129,.10); color: #34d399; border-color: rgba(16,185,129,.25); }
-.fi-page .fi-chip-sold     { background: rgba(245,197,24,.10);  color: #f5c518; border-color: rgba(245,197,24,.25); }
-.fi-page .fi-chip-missing  { background: rgba(245,158,11,.10);  color: #fbbf24; border-color: rgba(245,158,11,.25); }
-.fi-page .fi-chip-baja     { background: rgba(148,163,184,.10); color: #94a3b8; border-color: rgba(148,163,184,.25); }
-.fi-page .fi-chip-reserved { background: rgba(168,85,247,.10);  color: #c084fc; border-color: rgba(168,85,247,.25); }
-.fi-page .fi-chip-repair   { background: rgba(244,114,182,.10); color: #f472b6; border-color: rgba(244,114,182,.25); }
-.fi-page .fi-chip-return   { background: rgba(20,184,166,.10);  color: #2dd4bf; border-color: rgba(20,184,166,.25); }
 /* Tabs */
 .fi-page .fi-tab-btn {
   display: inline-flex; align-items: center; gap: .4rem;
@@ -102,20 +85,6 @@
 }
 .fi-page .fi-tab-btn:hover { color: #f1f5f9; }
 .fi-page .fi-tab-btn[aria-selected="true"] { color: #f8fafc; border-bottom-color: #f5c518; }
-/* Buttons */
-.fi-page .fi-btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: .4rem;
-  padding: .55rem .95rem; border-radius: 8px; font-size: .875rem; font-weight: 500;
-  transition: all .15s; min-height: 40px; cursor: pointer; border: 1px solid transparent;
-  text-decoration: none; white-space: nowrap;
-}
-.fi-page .fi-btn-ghost { background: transparent; color: #cbd5e1; border-color: #334155; }
-.fi-page .fi-btn-ghost:hover { background: #1e293b; color: #fff; }
-.fi-page .fi-btn-soft { background: #1e293b; color: #e2e8f0; border-color: #334155; }
-.fi-page .fi-btn-soft:hover { background: #273549; }
-.fi-page .fi-btn-primary { background: #f5c518; color: #15110a; border-color: #f5c518; }
-.fi-page .fi-btn-primary:hover { background: #e0b40f; border-color: #e0b40f; }
-.fi-page .fi-btn-sm { padding: .375rem .65rem; font-size: .8rem; min-height: 34px; }
 /* Inputs del form inline de stock — paridad con MovimientoStock/Create */
 .fi-page .fi-input {
   width: 100%; border-radius: 8px; border: 1px solid #334155; background: #1e293b;
@@ -124,26 +93,6 @@
 .fi-page .fi-input:focus { border-color: #f5c518; box-shadow: 0 0 0 1px #f5c518; }
 .fi-page select.fi-input { cursor: pointer; }
 .fi-page .fi-input::placeholder { color: #64748b; }
-/* Table */
-.fi-page .fi-tbl {
-  width: 100%; border-collapse: separate; border-spacing: 0; font-size: .85rem;
-}
-.fi-page .fi-tbl thead th {
-  position: sticky; top: 0; z-index: 2; background: #0d1526;
-  color: #64748b; font-size: .68rem; text-transform: uppercase;
-  letter-spacing: .04em; font-weight: 600; text-align: left;
-  padding: .6rem .75rem; border-bottom: 1px solid #1e2a3d;
-}
-.fi-page .fi-tbl thead th.num { text-align: right; }
-.fi-page .fi-tbl tbody td {
-  padding: .62rem .75rem; border-bottom: 1px solid #131e33; vertical-align: middle;
-}
-.fi-page .fi-tbl tbody tr:hover td { background: rgba(245,197,24,.04); }
-.fi-page .fi-tbl .num {
-  text-align: right;
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-variant-numeric: tabular-nums;
-}
 /* Mobile/desktop toggle for card vs table */
 .fi-page .fi-cards-mobile { display: block; }
 .fi-page .fi-tbl-wrapper   { display: none; }
