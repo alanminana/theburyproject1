@@ -4,6 +4,14 @@
     ViewData["MetaDescription"] = "Catálogo de productos, control de stock, listas de precios y movimientos de inventario del ERP TheBuryProject.";
     var productos = Model.Productos.ToList();
     var total = Model.TotalResultados;
+
+    // Pestaña activa server-side (Fase 7): además del toggle por JS, el render inicial ya
+    // respeta Model.TabActiva para que un submit de filtro dentro de Alertas/Movimientos
+    // (recarga completa de página) no vuelva siempre a mostrar Productos.
+    string TabBtnClass(string key) => Model.TabActiva == key
+        ? "shrink-0 px-5 py-3 text-sm font-bold border-b-2 border-primary text-primary bg-primary/10 transition-colors"
+        : "shrink-0 px-5 py-3 text-sm font-bold border-b-2 border-transparent text-slate-400 hover:text-white hover:bg-white/5 transition-colors";
+    string TabPanelClass(string key) => Model.TabActiva == key ? "" : "hidden";
 }
 
 @section Styles {
@@ -38,19 +46,37 @@
         <div class="relative min-w-0" id="catalogo-tabs-wrapper">
         <div class="flex overflow-x-auto" id="catalogo-tabs">
             <button type="button" data-catalogo-tab="productos"
-                    class="shrink-0 px-5 py-3 text-sm font-bold border-b-2 border-primary text-primary bg-primary/10 transition-colors">
+                    class="@TabBtnClass("productos")">
                 Productos
             </button>
             <button type="button" data-catalogo-tab="categorias"
-                    class="shrink-0 px-5 py-3 text-sm font-bold border-b-2 border-transparent text-slate-400 hover:text-white hover:bg-white/5 transition-colors">
+                    class="@TabBtnClass("categorias")">
                 Categorías
                 <span class="ml-1 text-xs text-slate-400">(@Model.TotalCategorias)</span>
             </button>
             <button type="button" data-catalogo-tab="marcas"
-                    class="shrink-0 px-5 py-3 text-sm font-bold border-b-2 border-transparent text-slate-400 hover:text-white hover:bg-white/5 transition-colors">
+                    class="@TabBtnClass("marcas")">
                 Marcas
                 <span class="ml-1 text-xs text-slate-400">(@Model.TotalMarcas)</span>
             </button>
+            @if (Model.MostrarTabAlertas)
+            {
+                <button type="button" data-catalogo-tab="alertas"
+                        class="@TabBtnClass("alertas")">
+                    Alertas
+                    @if (Model.AlertasPartial?.TotalPendientes > 0)
+                    {
+                        <span class="ml-1 text-xs text-slate-400">(@Model.AlertasPartial.TotalPendientes)</span>
+                    }
+                </button>
+            }
+            @if (Model.MostrarTabMovimientos)
+            {
+                <button type="button" data-catalogo-tab="movimientos"
+                        class="@TabBtnClass("movimientos")">
+                    Movimientos
+                </button>
+            }
         </div>
         </div>
         <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center xl:justify-end">
@@ -75,7 +101,7 @@
     </div>
 
     <!-- Tab: Productos -->
-<div id="tab-productos">
+<div id="tab-productos" class="@TabPanelClass("productos")">
 
     @* ============================================================
        CABECERA
@@ -892,7 +918,7 @@
 </div>
 
     <!-- Tab: Categorías -->
-    <div id="tab-categorias" class="hidden">
+    <div id="tab-categorias" class="@TabPanelClass("categorias")">
         <div class="border-b border-slate-800 px-5 py-4">
             <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
                 <div>
@@ -1011,7 +1037,7 @@
     </div>
 
     <!-- Tab: Marcas -->
-    <div id="tab-marcas" class="hidden">
+    <div id="tab-marcas" class="@TabPanelClass("marcas")">
         <div class="border-b border-slate-800 px-5 py-4">
             <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
                 <div>
@@ -1130,6 +1156,48 @@
             <span>Revisá origen, estado y acciones desde la misma grilla.</span>
         </div>
     </div>
+
+    @* Tab: Alertas — reusa el listado real de AlertaStock/Index_tw embebido (Fase 7). *@
+    @if (Model.MostrarTabAlertas)
+    {
+        <div id="tab-alertas" class="space-y-6 p-5 @TabPanelClass("alertas")">
+            @if (Model.AlertasPartial != null)
+            {
+                @* Ruta completa: desde Catalogo/Index_tw, un nombre corto solo buscaría en
+                   Views/Catalogo/ y Views/Shared/, no en Views/AlertaStock/. *@
+                @await Html.PartialAsync("~/Views/AlertaStock/_AlertaStockListadoPartial.cshtml", Model.AlertasPartial)
+            }
+            else
+            {
+                <div class="px-6 py-12 text-center text-sm text-slate-400">
+                    <span class="material-symbols-outlined mx-auto mb-3 block text-4xl text-amber-400">error</span>
+                    <p class="font-semibold text-slate-300">No se pudieron cargar las alertas de stock.</p>
+                    <a asp-controller="AlertaStock" asp-action="Index" class="mt-2 inline-block text-primary hover:underline">Ver alertas en pantalla completa</a>
+                </div>
+            }
+        </div>
+    }
+
+    @* Tab: Movimientos — reusa el listado real de MovimientoStock/Index_tw embebido (Fase 7). *@
+    @if (Model.MostrarTabMovimientos)
+    {
+        <div id="tab-movimientos" class="space-y-6 p-5 @TabPanelClass("movimientos")">
+            @if (Model.MovimientosPartial != null)
+            {
+                @* Ruta completa: desde Catalogo/Index_tw, un nombre corto solo buscaría en
+                   Views/Catalogo/ y Views/Shared/, no en Views/MovimientoStock/. *@
+                @await Html.PartialAsync("~/Views/MovimientoStock/_MovimientoStockListadoPartial.cshtml", Model.MovimientosPartial)
+            }
+            else
+            {
+                <div class="px-6 py-12 text-center text-sm text-slate-400">
+                    <span class="material-symbols-outlined mx-auto mb-3 block text-4xl text-amber-400">error</span>
+                    <p class="font-semibold text-slate-300">No se pudieron cargar los movimientos de stock.</p>
+                    <a asp-controller="MovimientoStock" asp-action="Index" class="mt-2 inline-block text-primary hover:underline">Ver movimientos en pantalla completa</a>
+                </div>
+            }
+        </div>
+    }
 </div>
 </div><!-- /.erp-page-shell -->
 

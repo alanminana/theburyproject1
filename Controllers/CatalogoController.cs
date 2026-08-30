@@ -1,8 +1,11 @@
 using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
 using TheBuryProject.Filters;
+using TheBuryProject.Helpers;
 using TheBuryProject.Models.Constants;
+using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.ViewModels;
 
@@ -14,17 +17,29 @@ namespace TheBuryProject.Controllers
     {
         private readonly ICatalogoService _catalogoService;
         private readonly ICatalogLookupService _catalogLookupService;
+        private readonly IAlertaStockService _alertaStockService;
+        private readonly IMovimientoStockService _movimientoStockService;
+        private readonly IProductoService _productoService;
+        private readonly IMovimientoStockReferenciaResolver _movimientoReferenciaResolver;
         private readonly ILogger<CatalogoController> _logger;
         private readonly IMapper _mapper;
 
         public CatalogoController(
             ICatalogoService catalogoService,
             ICatalogLookupService catalogLookupService,
+            IAlertaStockService alertaStockService,
+            IMovimientoStockService movimientoStockService,
+            IProductoService productoService,
+            IMovimientoStockReferenciaResolver movimientoReferenciaResolver,
             ILogger<CatalogoController> logger,
             IMapper mapper)
         {
             _catalogoService = catalogoService;
             _catalogLookupService = catalogLookupService;
+            _alertaStockService = alertaStockService;
+            _movimientoStockService = movimientoStockService;
+            _productoService = productoService;
+            _movimientoReferenciaResolver = movimientoReferenciaResolver;
             _logger = logger;
             _mapper = mapper;
         }
@@ -43,7 +58,10 @@ namespace TheBuryProject.Controllers
             bool soloActivos = false,
             string? orderBy = null,
             string? orderDirection = "asc",
-            int? listaPrecioId = null)
+            int? listaPrecioId = null,
+            string tab = "productos",
+            [Bind(Prefix = "alerta")] AlertaStockFiltroViewModel? alertaFiltro = null,
+            [Bind(Prefix = "mov")] MovimientoStockFilterViewModel? movFiltro = null)
         {
             try
             {
@@ -73,6 +91,96 @@ namespace TheBuryProject.Controllers
 
                 // Alícuotas IVA para los modales de Producto
                 ViewBag.AlicuotasIVADatos = await _catalogLookupService.ObtenerAlicuotasIVAParaFormAsync();
+
+                // Pestañas Alertas / Movimientos (Fase 7): cada una respeta el permiso real de
+                // su pantalla standalone (stock.viewalerts / movimientos.view), distinto del
+                // cotizaciones.view que protege Catálogo. Cada bloque tiene su propio try/catch
+                // para que una falla ahí no tire abajo Productos/Categorías/Marcas, que ya
+                // cargaron bien.
+                viewModel.MostrarTabAlertas = User.TienePermiso("stock", "viewalerts");
+                viewModel.MostrarTabMovimientos = User.TienePermiso("movimientos", "view");
+
+                var tabsValidas = new[] { "productos", "categorias", "marcas", "alertas", "movimientos" };
+                var tabSolicitada = tabsValidas.Contains(tab) ? tab : "productos";
+                if ((tabSolicitada == "alertas" && !viewModel.MostrarTabAlertas) ||
+                    (tabSolicitada == "movimientos" && !viewModel.MostrarTabMovimientos))
+                {
+                    tabSolicitada = "productos";
+                }
+                viewModel.TabActiva = tabSolicitada;
+
+                if (viewModel.MostrarTabAlertas)
+                {
+                    try
+                    {
+                        var filtroAlertas = alertaFiltro ?? new AlertaStockFiltroViewModel();
+                        if (!filtroAlertas.Estado.HasValue)
+                        {
+                            filtroAlertas.Estado = EstadoAlerta.Pendiente;
+                        }
+
+                        var resultadoAlertas = await _alertaStockService.BuscarAsync(filtroAlertas);
+                        var (totalPendientes, totalCriticas) = await _alertaStockService.ContarPorEstadoAsync(filtroAlertas);
+
+                        viewModel.AlertasPartial = new AlertaStockListadoPartialViewModel
+                        {
+                            Resultado = resultadoAlertas,
+                            Filtro = filtroAlertas,
+                            TiposAlerta = Enum.GetValues<TipoAlertaStock>(),
+                            Prioridades = Enum.GetValues<PrioridadAlerta>(),
+                            Estados = Enum.GetValues<EstadoAlerta>(),
+                            TotalPendientes = totalPendientes,
+                            TotalCriticas = totalCriticas,
+                            Embed = true
+                        };
+                    }
+                    catch (Exception exAlertas)
+                    {
+                        _logger.LogError(exAlertas, "Error al cargar la pestaña Alertas dentro de Catálogo");
+                        viewModel.AlertasPartial = null;
+                    }
+                }
+
+                if (viewModel.MostrarTabMovimientos)
+                {
+                    try
+                    {
+                        var filtroMovimientos = movFiltro ?? new MovimientoStockFilterViewModel();
+                        var (movimientos, total, totalEntradas, totalSalidas, totalAjustes) = await _movimientoStockService.SearchPaginadoAsync(
+                            productoId: filtroMovimientos.ProductoId,
+                            tipo: filtroMovimientos.Tipo,
+                            fechaDesde: filtroMovimientos.FechaDesde,
+                            fechaHasta: filtroMovimientos.FechaHasta,
+                            orderBy: filtroMovimientos.OrderBy,
+                            orderDirection: filtroMovimientos.OrderDirection,
+                            pageNumber: filtroMovimientos.PageNumber,
+                            pageSize: filtroMovimientos.PageSize);
+
+                        var movimientosVm = _mapper.Map<List<MovimientoStockViewModel>>(movimientos);
+                        await _movimientoReferenciaResolver.EnriquecerAsync(movimientosVm);
+
+                        filtroMovimientos.Movimientos = movimientosVm;
+                        filtroMovimientos.TotalResultados = total;
+                        filtroMovimientos.TotalEntradas = totalEntradas;
+                        filtroMovimientos.TotalSalidas = totalSalidas;
+                        filtroMovimientos.TotalAjustes = totalAjustes;
+
+                        var productosParaFiltro = await _productoService.GetAllAsync();
+
+                        viewModel.MovimientosPartial = new MovimientoStockListadoPartialViewModel
+                        {
+                            Filtro = filtroMovimientos,
+                            Productos = new SelectList(productosParaFiltro.OrderBy(p => p.Nombre), "Id", "Nombre", filtroMovimientos.ProductoId),
+                            Tipos = new SelectList(Enum.GetValues(typeof(TipoMovimiento))),
+                            Embed = true
+                        };
+                    }
+                    catch (Exception exMovimientos)
+                    {
+                        _logger.LogError(exMovimientos, "Error al cargar la pestaña Movimientos dentro de Catálogo");
+                        viewModel.MovimientosPartial = null;
+                    }
+                }
 
                 return View("Index_tw", viewModel);
             }

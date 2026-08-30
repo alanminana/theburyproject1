@@ -237,7 +237,15 @@
                         </span>
                         <h2 class="text-sm font-semibold text-slate-100 section-header-erp">Alertas de stock</h2>
                     </div>
-                    <a asp-controller="AlertaStock" asp-action="Index" class="btn-erp-ghost btn-erp-sm no-underline">
+                    @{
+                        // Si el usuario puede entrar a Catálogo, "Ver alertas" lleva directo a la
+                        // pestaña Alertas (Fase 7); si no, cae a la pantalla standalone para no
+                        // regresionar a nadie que tenga stock.viewalerts sin cotizaciones.view.
+                        var alertasEnCatalogo = User.TienePermiso("cotizaciones", "view");
+                    }
+                    <a asp-controller="@(alertasEnCatalogo ? "Catalogo" : "AlertaStock")" asp-action="Index"
+                       asp-route-tab="@(alertasEnCatalogo ? "alertas" : null)"
+                       class="btn-erp-ghost btn-erp-sm no-underline">
                         <span class="material-symbols-outlined text-[14px]">open_in_new</span>
                         Ver alertas
                     </a>

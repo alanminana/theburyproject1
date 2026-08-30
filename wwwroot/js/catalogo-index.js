@@ -184,7 +184,9 @@
         var panels = {
             productos: document.getElementById('tab-productos'),
             categorias: document.getElementById('tab-categorias'),
-            marcas: document.getElementById('tab-marcas')
+            marcas: document.getElementById('tab-marcas'),
+            alertas: document.getElementById('tab-alertas'),
+            movimientos: document.getElementById('tab-movimientos')
         };
 
         var btnAjusteMasivo = document.getElementById('btn-ajuste-masivo');

@@ -158,6 +158,41 @@ namespace TheBuryProject.ViewModels
             SoloActivos;
 
         // ============================================
+        // TABS: ALERTAS DE STOCK / MOVIMIENTOS (Fase 7)
+        // ============================================
+
+        /// <summary>
+        /// Pestaña activa al renderizar (productos|categorias|marcas|alertas|movimientos).
+        /// Refleja el parámetro `tab` de la querystring para que un submit de filtro dentro
+        /// de Alertas/Movimientos no vuelva siempre a la pestaña Productos.
+        /// </summary>
+        public string TabActiva { get; set; } = "productos";
+
+        /// <summary>
+        /// True si el usuario tiene permiso (stock.viewalerts) para ver la pestaña Alertas.
+        /// La pestaña y sus datos no se arman si es false.
+        /// </summary>
+        public bool MostrarTabAlertas { get; set; }
+
+        /// <summary>
+        /// True si el usuario tiene permiso (movimientos.view) para ver la pestaña Movimientos.
+        /// La pestaña y sus datos no se arman si es false.
+        /// </summary>
+        public bool MostrarTabMovimientos { get; set; }
+
+        /// <summary>
+        /// Datos de la pestaña Alertas (null si <see cref="MostrarTabAlertas"/> es false o si
+        /// falló su carga — ver CatalogoController.Index).
+        /// </summary>
+        public AlertaStockListadoPartialViewModel? AlertasPartial { get; set; }
+
+        /// <summary>
+        /// Datos de la pestaña Movimientos (null si <see cref="MostrarTabMovimientos"/> es
+        /// false o si falló su carga — ver CatalogoController.Index).
+        /// </summary>
+        public MovimientoStockListadoPartialViewModel? MovimientosPartial { get; set; }
+
+        // ============================================
         // FACTORY METHOD
         // ============================================
 

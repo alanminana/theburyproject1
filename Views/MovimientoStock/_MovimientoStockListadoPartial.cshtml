@@ -1,0 +1,329 @@
+@model TheBuryProject.ViewModels.MovimientoStockListadoPartialViewModel
+@using TheBuryProject.Models.Enums
+@{
+    var filtro = Model.Filtro;
+    var movimientos = filtro.Movimientos?.ToList() ?? new List<TheBuryProject.ViewModels.MovimientoStockViewModel>();
+
+    string TipoBadgeCls(TipoMovimiento t) => t switch
+    {
+        TipoMovimiento.Entrada => "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
+        TipoMovimiento.Salida  => "bg-rose-500/10 text-rose-400 border border-rose-500/20",
+        TipoMovimiento.Ajuste  => "bg-amber-500/10 text-amber-400 border border-amber-500/20",
+        _ => "bg-slate-500/10 text-slate-400 border border-slate-700"
+    };
+
+    string SignoColor(TipoMovimiento tipo, decimal stockAnterior, decimal stockNuevo) => tipo switch
+    {
+        TipoMovimiento.Entrada => "text-emerald-400 font-bold",
+        TipoMovimiento.Salida  => "text-rose-400 font-bold",
+        TipoMovimiento.Ajuste  => stockNuevo > stockAnterior ? "text-emerald-400 font-bold"
+                                : stockNuevo < stockAnterior ? "text-rose-400 font-bold"
+                                : "text-slate-400 font-bold",
+        _                      => "text-slate-400 font-bold"
+    };
+
+    string Signo(TipoMovimiento tipo, decimal stockAnterior, decimal stockNuevo) => tipo switch
+    {
+        TipoMovimiento.Entrada => "+",
+        TipoMovimiento.Salida  => "-",
+        TipoMovimiento.Ajuste  => stockNuevo > stockAnterior ? "+"
+                                : stockNuevo < stockAnterior ? "-"
+                                : "",
+        _                      => ""
+    };
+
+    string FormatMoney(decimal v) =>
+        v.ToString("C", new System.Globalization.CultureInfo("es-AR"));
+
+    // Agregados sobre el total filtrado real (todas las páginas), no solo lo que entra acá.
+    var entradas = filtro.TotalEntradas;
+    var salidas = filtro.TotalSalidas;
+    var ajustes = filtro.TotalAjustes;
+    var totalFiltrado = filtro.TotalResultados;
+
+    // Embebido en la pestaña "Movimientos" de Catalogo/Index_tw (Fase 7): el formulario de
+    // filtro/paginación apunta a CatalogoController y recuerda la pestaña activa; el link de
+    // Kardex por fila siempre apunta a MovimientoStockController, esté embebido o no.
+    var ctrl = Model.Embed ? "Catalogo" : "MovimientoStock";
+    string Nombre(string campo) => Model.Embed ? $"mov.{campo}" : campo;
+}
+
+<!-- Filtros -->
+<form method="get" asp-controller="@ctrl" asp-action="Index"
+      class="rounded-xl border border-slate-800 bg-slate-900/50 px-5 py-4 space-y-4">
+    @if (Model.Embed)
+    {
+        <input type="hidden" name="tab" value="movimientos" />
+    }
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div>
+            <label for="filtro-producto-id" class="block text-xs font-semibold text-slate-400 mb-1.5">Producto</label>
+            <select id="filtro-producto-id" name="@Nombre("ProductoId")" asp-items="Model.Productos"
+                    class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary">
+                <option value="">Todos los productos</option>
+            </select>
+        </div>
+        <div>
+            <label for="filtro-tipo" class="block text-xs font-semibold text-slate-400 mb-1.5">Tipo</label>
+            <select id="filtro-tipo" name="@Nombre("Tipo")" asp-items="Model.Tipos"
+                    class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary">
+                <option value="">Todos los tipos</option>
+            </select>
+        </div>
+        <div>
+            <label for="filtro-fecha-desde" class="block text-xs font-semibold text-slate-400 mb-1.5">Desde</label>
+            <input id="filtro-fecha-desde" type="date" name="@Nombre("FechaDesde")"
+                   value="@filtro.FechaDesde?.ToString("yyyy-MM-dd")"
+                   class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" />
+        </div>
+        <div>
+            <label for="filtro-fecha-hasta" class="block text-xs font-semibold text-slate-400 mb-1.5">Hasta</label>
+            <input id="filtro-fecha-hasta" type="date" name="@Nombre("FechaHasta")"
+                   value="@filtro.FechaHasta?.ToString("yyyy-MM-dd")"
+                   class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" />
+        </div>
+    </div>
+    <div class="flex items-center gap-3">
+        <button type="submit"
+                class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white hover:bg-primary/90 transition-colors">
+            <span class="material-symbols-outlined text-base">search</span>
+            Buscar
+        </button>
+        <a asp-controller="@ctrl" asp-action="Index" asp-all-route-data="@(Model.Embed ? new Dictionary<string, string> { ["tab"] = "movimientos" } : null)"
+           class="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-400 hover:text-white hover:border-slate-500 transition-colors">
+            <span class="material-symbols-outlined text-base">close</span>
+            Limpiar
+        </a>
+        @if (totalFiltrado > 0)
+        {
+            <span class="text-sm text-slate-400 ml-auto">@totalFiltrado resultado@(totalFiltrado != 1 ? "s" : "")</span>
+        }
+    </div>
+</form>
+
+<!-- Stats -->
+@if (totalFiltrado > 0)
+{
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div class="rounded-xl border border-slate-800 bg-slate-900/50 p-5">
+            <p class="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Total</p>
+            <p class="text-2xl font-bold text-white">@totalFiltrado</p>
+        </div>
+        <div class="rounded-xl border border-slate-800 bg-slate-900/50 p-5">
+            <p class="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Entradas</p>
+            <p class="text-2xl font-bold text-emerald-400">@entradas.ToString("N0")</p>
+        </div>
+        <div class="rounded-xl border border-slate-800 bg-slate-900/50 p-5">
+            <p class="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Salidas</p>
+            <p class="text-2xl font-bold text-rose-400">@salidas.ToString("N0")</p>
+        </div>
+        <div class="rounded-xl border border-slate-800 bg-slate-900/50 p-5">
+            <p class="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Ajustes</p>
+            <p class="text-2xl font-bold text-amber-400">@ajustes</p>
+        </div>
+    </div>
+}
+
+<!-- Tabla -->
+<div data-oc-scroll style="--oc-scroll-min-width: 960px;" class="table-erp-wrapper rounded-xl border border-slate-800 bg-slate-900/50">
+    <div class="border-b border-slate-800 px-5 py-4">
+        <h2 class="text-base font-bold text-white">Historial de movimientos</h2>
+    </div>
+
+    @if (!movimientos.Any())
+    {
+        <div class="flex flex-col items-center gap-3 py-20 text-center opacity-50">
+            <span class="material-symbols-outlined text-4xl text-slate-600">swap_vert</span>
+            <p class="text-slate-400 font-semibold">Sin movimientos para los filtros seleccionados</p>
+        </div>
+    }
+    else
+    {
+        <div data-oc-scroll-shell class="relative">
+            <div data-oc-scroll-fade="left" hidden class="absolute inset-y-0 left-0 z-10 w-6 bg-gradient-to-r from-slate-900 via-slate-900/95 to-transparent"></div>
+            <div data-oc-scroll-fade="right" hidden class="absolute inset-y-0 right-0 z-10 w-6 bg-gradient-to-l from-slate-900 via-slate-900/95 to-transparent"></div>
+            <div data-oc-scroll-region class="overflow-x-auto scroll-smooth" tabindex="0" role="region" aria-label="Historial de movimientos de stock">
+        <table data-oc-scroll-table class="min-w-[960px] w-full text-left border-collapse">
+            <thead>
+                <tr class="border-b border-slate-800 bg-slate-800/30">
+                    <th scope="col" class="px-4 py-3 text-xs font-bold text-slate-300 uppercase tracking-wide">Fecha / Hora</th>
+                    <th scope="col" class="px-4 py-3 text-xs font-bold text-slate-300 uppercase tracking-wide">Tipo</th>
+                    <th scope="col" class="px-4 py-3 text-xs font-bold text-slate-300 uppercase tracking-wide">Producto</th>
+                    <th scope="col" class="px-4 py-3 text-xs font-bold text-slate-300 uppercase tracking-wide">Cantidad</th>
+                    <th scope="col" class="px-4 py-3 text-xs font-bold text-slate-300 uppercase tracking-wide">Costo unit.</th>
+                    <th scope="col" class="px-4 py-3 text-xs font-bold text-slate-300 uppercase tracking-wide">Costo total</th>
+                    <th scope="col" class="px-4 py-3 text-xs font-bold text-slate-300 uppercase tracking-wide cursor-help" title="Origen usado para valuar el costo del movimiento.">Fuente costo</th>
+                    <th scope="col" class="px-4 py-3 text-xs font-bold text-slate-300 uppercase tracking-wide">Referencia</th>
+                    <th scope="col" class="px-4 py-3 text-xs font-bold text-slate-300 uppercase tracking-wide cursor-help" title="Stock resultante después del movimiento">Saldo post.</th>
+                    <th scope="col" class="px-4 py-3 text-xs font-bold text-slate-300 uppercase tracking-wide">Usuario</th>
+                    <th scope="col" class="px-4 py-3 text-xs font-bold text-slate-300 uppercase tracking-wide"></th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800">
+                @foreach (var m in movimientos.OrderByDescending(x => x.Fecha))
+                {
+                    <tr class="hover:bg-slate-800/20 transition-colors">
+                        <td class="px-4 py-3">
+                            <div class="flex flex-col">
+                                <span class="text-sm font-medium text-slate-200">@m.Fecha.ToString("dd MMM yyyy")</span>
+                                <span class="text-xs text-slate-400">@m.Fecha.ToString("HH:mm:ss")</span>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3">
+                            <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold @TipoBadgeCls(m.Tipo)">
+                                @m.Tipo.ToString()
+                            </span>
+                        </td>
+                        <td class="px-4 py-3">
+                            <div class="flex flex-col">
+                                <span class="text-sm font-medium text-slate-200">@(m.ProductoNombre ?? "—")</span>
+                                <span class="text-xs text-slate-400 font-mono tracking-wider">@(m.ProductoCodigo ?? "")</span>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3">
+                            <span class="text-sm @SignoColor(m.Tipo, m.StockAnterior, m.StockNuevo)">@Signo(m.Tipo, m.StockAnterior, m.StockNuevo)@Math.Abs(m.Cantidad).ToString("N0")</span>
+                        </td>
+                        <td class="px-4 py-3">
+                            <span class="text-sm text-slate-400">@FormatMoney(m.CostoUnitarioAlMomento)</span>
+                        </td>
+                        <td class="px-4 py-3">
+                            <span class="text-sm font-semibold text-slate-200">@FormatMoney(m.CostoTotalAlMomento)</span>
+                        </td>
+                        <td class="px-4 py-3">
+                            <span class="inline-flex items-center rounded-full bg-slate-800 px-2 py-0.5 text-xs font-semibold text-slate-300">
+                                @{
+                                    var fuenteLabel = m.FuenteCosto switch
+                                    {
+                                        "VentaDetalleSnapshot" => "Venta",
+                                        "OrdenCompraDetalle"   => "Orden de compra",
+                                        "ProductoActual"       => "Costo actual",
+                                        "AjusteManual"         => "Ajuste manual",
+                                        "Legacy"               => "Histórico migrado",
+                                        _                      => "No informado"
+                                    };
+                                }
+                                @fuenteLabel
+                            </span>
+                        </td>
+                        <td class="px-4 py-3">
+                            @if (m.ReferenciaTipo == "OrdenCompra" && m.OrdenCompraId.HasValue)
+                            {
+                                <div class="flex flex-col gap-0.5">
+                                    <a asp-controller="OrdenCompra" asp-action="Details" asp-route-id="@m.OrdenCompraId"
+                                       class="text-sm font-semibold text-primary hover:underline underline-offset-2">
+                                        Compra @(m.OrdenCompraNumero ?? $"#{m.OrdenCompraId}")
+                                    </a>
+                                    @if (!string.IsNullOrWhiteSpace(m.ProveedorNombre))
+                                    {
+                                        @if (m.ProveedorId.HasValue)
+                                        {
+                                            <a asp-controller="Proveedor" asp-action="Details" asp-route-id="@m.ProveedorId"
+                                               class="text-xs text-slate-400 hover:text-slate-200 hover:underline underline-offset-2">
+                                                Proveedor: @m.ProveedorNombre
+                                            </a>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-xs text-slate-400">Proveedor: @m.ProveedorNombre</span>
+                                        }
+                                    }
+                                </div>
+                            }
+                            else if (m.ReferenciaTipo == "Venta" && m.VentaId.HasValue)
+                            {
+                                <div class="flex flex-col gap-0.5">
+                                    <a asp-controller="Venta" asp-action="Details" asp-route-id="@m.VentaId"
+                                       class="text-sm font-semibold text-primary hover:underline underline-offset-2">
+                                        Venta @m.VentaNumero
+                                    </a>
+                                    <span class="text-xs text-slate-400">
+                                        @if (m.ClienteId.HasValue && !string.IsNullOrWhiteSpace(m.ClienteNombre))
+                                        {
+                                            <a asp-controller="Cliente" asp-action="Details" asp-route-id="@m.ClienteId"
+                                               class="hover:text-slate-200 hover:underline underline-offset-2">@m.ClienteNombre</a>
+                                        }
+                                        else
+                                        {
+                                            <text>Consumidor final</text>
+                                        }
+                                        @if (!string.IsNullOrWhiteSpace(m.MedioPagoTexto))
+                                        {
+                                            <text> · @m.MedioPagoTexto</text>
+                                        }
+                                    </span>
+                                </div>
+                            }
+                            else
+                            {
+                                <span class="text-sm text-slate-400">@(m.ReferenciaTexto ?? m.Referencia ?? "—")</span>
+                            }
+                        </td>
+                        <td class="px-4 py-3">
+                            <span class="text-sm font-bold text-slate-200">@m.StockNuevo.ToString("N0") uds</span>
+                        </td>
+                        <td class="px-4 py-3">
+                            <span class="text-sm text-slate-400">@(m.CreatedBy ?? "—")</span>
+                        </td>
+                        <td class="px-4 py-3 text-right">
+                            <a asp-controller="MovimientoStock" asp-action="Kardex" asp-route-id="@m.ProductoId"
+                               class="text-primary hover:text-primary/80 text-sm font-bold underline-offset-2 hover:underline"
+                               title="Ver kardex de @(m.ProductoNombre ?? "este producto")">Ver kardex</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+            </div>
+        </div>
+
+        @if (filtro.TotalPages > 1)
+        {
+            <div class="flex flex-col gap-3 border-t border-slate-800 px-5 py-4 text-sm text-slate-400 sm:flex-row sm:items-center sm:justify-between">
+                <span>Página @filtro.PageNumber de @filtro.TotalPages · @filtro.TotalResultados movimiento@(filtro.TotalResultados != 1 ? "s" : "")</span>
+                <div class="flex gap-2">
+                    @{
+                        var rutaBase = new Dictionary<string, string>();
+                        if (Model.Embed)
+                        {
+                            rutaBase["tab"] = "movimientos";
+                        }
+                        if (filtro.ProductoId.HasValue)
+                        {
+                            rutaBase[Nombre("ProductoId")] = filtro.ProductoId.Value.ToString();
+                        }
+                        if (filtro.Tipo.HasValue)
+                        {
+                            rutaBase[Nombre("Tipo")] = filtro.Tipo.Value.ToString();
+                        }
+                        if (filtro.FechaDesde.HasValue)
+                        {
+                            rutaBase[Nombre("FechaDesde")] = filtro.FechaDesde.Value.ToString("yyyy-MM-dd");
+                        }
+                        if (filtro.FechaHasta.HasValue)
+                        {
+                            rutaBase[Nombre("FechaHasta")] = filtro.FechaHasta.Value.ToString("yyyy-MM-dd");
+                        }
+                    }
+                    @if (filtro.HasPreviousPage)
+                    {
+                        <a asp-controller="@ctrl" asp-action="Index"
+                           asp-all-route-data="@(new Dictionary<string, string>(rutaBase) { [Nombre("PageNumber")] = (filtro.PageNumber - 1).ToString() })"
+                           class="btn-erp-ghost btn-sm no-underline">
+                            <span class="material-symbols-outlined text-base">chevron_left</span>
+                            Anterior
+                        </a>
+                    }
+                    @if (filtro.HasNextPage)
+                    {
+                        <a asp-controller="@ctrl" asp-action="Index"
+                           asp-all-route-data="@(new Dictionary<string, string>(rutaBase) { [Nombre("PageNumber")] = (filtro.PageNumber + 1).ToString() })"
+                           class="btn-erp-ghost btn-sm no-underline">
+                            Siguiente
+                            <span class="material-symbols-outlined text-base">chevron_right</span>
+                        </a>
+                    }
+                </div>
+            </div>
+        }
+    }
+</div>
