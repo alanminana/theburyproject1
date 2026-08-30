@@ -30,6 +30,21 @@ namespace TheBuryProject.Services.Interfaces
             string? orderBy = null,
             string? orderDirection = "desc");
 
+        /// <summary>
+        /// Igual que <see cref="SearchAsync"/> pero paginado (Skip/Take) — devuelve además el
+        /// total de registros y los agregados (entradas/salidas/ajustes) sobre el filtro
+        /// completo, no solo la página.
+        /// </summary>
+        Task<(IEnumerable<MovimientoStock> Items, int Total, decimal TotalEntradas, decimal TotalSalidas, int TotalAjustes)> SearchPaginadoAsync(
+            int? productoId = null,
+            TipoMovimiento? tipo = null,
+            DateTime? fechaDesde = null,
+            DateTime? fechaHasta = null,
+            string? orderBy = null,
+            string? orderDirection = "desc",
+            int pageNumber = 1,
+            int pageSize = 20);
+
         // Crear movimiento (genérico)
         Task<MovimientoStock> CreateAsync(MovimientoStock movimiento);
 

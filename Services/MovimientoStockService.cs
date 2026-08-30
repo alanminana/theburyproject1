@@ -89,13 +89,18 @@ namespace TheBuryProject.Services
                 .ToListAsync();
         }
 
-        public async Task<IEnumerable<MovimientoStock>> SearchAsync(
-            int? productoId = null,
-            TipoMovimiento? tipo = null,
-            DateTime? fechaDesde = null,
-            DateTime? fechaHasta = null,
-            string? orderBy = null,
-            string? orderDirection = "desc")
+        /// <summary>
+        /// Construye la query filtrada y ordenada que usan <see cref="SearchAsync"/> y
+        /// <see cref="SearchPaginadoAsync"/> — una sola autoridad de filtrado para no
+        /// duplicar criterios entre el listado completo y el paginado.
+        /// </summary>
+        private IQueryable<MovimientoStock> AplicarFiltros(
+            int? productoId,
+            TipoMovimiento? tipo,
+            DateTime? fechaDesde,
+            DateTime? fechaHasta,
+            string? orderBy,
+            string? orderDirection)
         {
             var query = _context.MovimientosStock
                 .AsNoTracking()
@@ -127,7 +132,64 @@ namespace TheBuryProject.Services
                 _ => query.OrderByDescending(m => m.CreatedAt)
             };
 
+            return query;
+        }
+
+        public async Task<IEnumerable<MovimientoStock>> SearchAsync(
+            int? productoId = null,
+            TipoMovimiento? tipo = null,
+            DateTime? fechaDesde = null,
+            DateTime? fechaHasta = null,
+            string? orderBy = null,
+            string? orderDirection = "desc")
+        {
+            var query = AplicarFiltros(productoId, tipo, fechaDesde, fechaHasta, orderBy, orderDirection);
             return await query.ToListAsync();
+        }
+
+        /// <summary>
+        /// Igual que <see cref="SearchAsync"/> pero devuelve una sola página (Skip/Take), más
+        /// el total de registros y los agregados (entradas/salidas/ajustes) calculados sobre
+        /// todo el filtro completo, no solo la página — MovimientoStock/Index no traía todo el
+        /// histórico sin límite antes de esto, y sus tarjetas de resumen deben seguir reflejando
+        /// el total real filtrado, no solo lo que entra en una página (mismo criterio que
+        /// AlertaStockService.ContarPorEstadoAsync).
+        /// </summary>
+        public async Task<(IEnumerable<MovimientoStock> Items, int Total, decimal TotalEntradas, decimal TotalSalidas, int TotalAjustes)> SearchPaginadoAsync(
+            int? productoId = null,
+            TipoMovimiento? tipo = null,
+            DateTime? fechaDesde = null,
+            DateTime? fechaHasta = null,
+            string? orderBy = null,
+            string? orderDirection = "desc",
+            int pageNumber = 1,
+            int pageSize = 20)
+        {
+            var query = AplicarFiltros(productoId, tipo, fechaDesde, fechaHasta, orderBy, orderDirection);
+
+            var total = await query.CountAsync();
+
+            // GroupBy + Sum(decimal) no traduce en el proveedor Sqlite ("cannot apply
+            // aggregate operator 'Sum' on expressions of type 'decimal'"); se trae solo
+            // Tipo+Cantidad (liviano comparado con las entidades completas con Include de
+            // abajo) y se suma en memoria.
+            var filasPorTipo = await query
+                .Select(m => new { m.Tipo, m.Cantidad })
+                .ToListAsync();
+
+            var totalEntradas = filasPorTipo.Where(f => f.Tipo == TipoMovimiento.Entrada).Sum(f => f.Cantidad);
+            var totalSalidas = Math.Abs(filasPorTipo.Where(f => f.Tipo == TipoMovimiento.Salida).Sum(f => f.Cantidad));
+            var totalAjustes = filasPorTipo.Count(f => f.Tipo == TipoMovimiento.Ajuste);
+
+            var paginaValida = pageNumber < 1 ? 1 : pageNumber;
+            var tamanioValido = pageSize < 1 ? 20 : pageSize;
+
+            var items = await query
+                .Skip((paginaValida - 1) * tamanioValido)
+                .Take(tamanioValido)
+                .ToListAsync();
+
+            return (items, total, totalEntradas, totalSalidas, totalAjustes);
         }
 
         #endregion

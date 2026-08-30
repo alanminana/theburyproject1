@@ -44,19 +44,24 @@ namespace TheBuryProject.Controllers
         {
             try
             {
-                var movimientos = await _movimientoStockService.SearchAsync(
+                var (movimientos, total, totalEntradas, totalSalidas, totalAjustes) = await _movimientoStockService.SearchPaginadoAsync(
                     productoId: filter.ProductoId,
                     tipo: filter.Tipo,
                     fechaDesde: filter.FechaDesde,
                     fechaHasta: filter.FechaHasta,
                     orderBy: filter.OrderBy,
-                    orderDirection: filter.OrderDirection);
+                    orderDirection: filter.OrderDirection,
+                    pageNumber: filter.PageNumber,
+                    pageSize: filter.PageSize);
 
                 var viewModels = _mapper.Map<IEnumerable<MovimientoStockViewModel>>(movimientos).ToList();
                 await _referenciaResolver.EnriquecerAsync(viewModels);
 
                 filter.Movimientos = viewModels;
-                filter.TotalResultados = viewModels.Count;
+                filter.TotalResultados = total;
+                filter.TotalEntradas = totalEntradas;
+                filter.TotalSalidas = totalSalidas;
+                filter.TotalAjustes = totalAjustes;
 
                 var productos = await _productoService.GetAllAsync();
                 ViewBag.Productos = new SelectList(productos.OrderBy(p => p.Nombre), "Id", "Nombre", filter.ProductoId);

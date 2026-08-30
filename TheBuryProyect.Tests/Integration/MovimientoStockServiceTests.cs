@@ -843,4 +843,64 @@ public class MovimientoStockServiceTests : IDisposable
 
         Assert.Contains(resultado, m => m.Motivo == "BusquedaHistorial");
     }
+
+    [Fact]
+    public async Task SearchPaginadoAsync_ConUnMovimiento_DevuelveItemYTotalesCorrectos()
+    {
+        var producto = await SeedProductoAsync();
+        await _service.RegistrarAjusteAsync(producto.Id, TipoMovimiento.Entrada, 10m, null, "Test", "user");
+
+        var (items, total, entradas, salidas, ajustes) = await _service.SearchPaginadoAsync();
+
+        Assert.Equal(1, total);
+        Assert.Single(items);
+        Assert.Equal(10m, entradas);
+        Assert.Equal(0m, salidas);
+        Assert.Equal(0, ajustes);
+    }
+
+    [Fact]
+    public async Task SearchPaginadoAsync_ConMasRegistrosQueUnaPagina_PaginaCorrectamente()
+    {
+        var producto = await SeedProductoAsync(stockActual: 1000m);
+        for (var i = 0; i < 5; i++)
+        {
+            await _service.RegistrarAjusteAsync(producto.Id, TipoMovimiento.Entrada, 1m, null, $"Mov {i}", "user");
+        }
+
+        var (itemsPagina1, total1, _, _, _) = await _service.SearchPaginadoAsync(pageNumber: 1, pageSize: 2);
+        var (itemsPagina2, total2, _, _, _) = await _service.SearchPaginadoAsync(pageNumber: 2, pageSize: 2);
+        var (itemsPagina3, total3, _, _, _) = await _service.SearchPaginadoAsync(pageNumber: 3, pageSize: 2);
+
+        Assert.Equal(5, total1);
+        Assert.Equal(5, total2);
+        Assert.Equal(5, total3);
+        Assert.Equal(2, itemsPagina1.Count());
+        Assert.Equal(2, itemsPagina2.Count());
+        Assert.Single(itemsPagina3);
+    }
+
+    [Fact]
+    public async Task SearchPaginadoAsync_TotalesDeAgregados_SonSobreElFiltroCompletoNoSoloLaPagina()
+    {
+        // Mismo espíritu que AlertaStockService.ContarPorEstadoAsync (Fase 0): los totales de
+        // resumen no deben recortarse a lo que entra en una sola página.
+        var producto = await SeedProductoAsync(stockActual: 1000m);
+        for (var i = 0; i < 3; i++)
+        {
+            await _service.RegistrarAjusteAsync(producto.Id, TipoMovimiento.Entrada, 10m, null, $"Entrada {i}", "user");
+        }
+        for (var i = 0; i < 2; i++)
+        {
+            await _service.RegistrarAjusteAsync(producto.Id, TipoMovimiento.Salida, 4m, null, $"Salida {i}", "user");
+        }
+
+        var (items, total, entradas, salidas, ajustes) = await _service.SearchPaginadoAsync(pageNumber: 1, pageSize: 2);
+
+        Assert.Equal(5, total);
+        Assert.Equal(2, items.Count()); // solo la página
+        Assert.Equal(30m, entradas);     // 3 x 10, sobre el total filtrado
+        Assert.Equal(8m, salidas);       // 2 x 4, sobre el total filtrado
+        Assert.Equal(0, ajustes);
+    }
 }
