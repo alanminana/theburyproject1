@@ -277,11 +277,10 @@
                 </button>
                 @if (producto != null)
                 {
-                    <a asp-controller="MovimientoStock" asp-action="Create" asp-route-productoId="@producto.Id"
-                       class="kdx-btn kdx-btn-primary kdx-btn-sm">
+                    <button type="button" data-ajuste-stock-open class="kdx-btn kdx-btn-primary kdx-btn-sm">
                         <span class="material-symbols-outlined" style="font-size:18px">add</span>
                         Registrar ajuste
-                    </a>
+                    </button>
                 }
             </div>
         </div>
@@ -482,11 +481,10 @@
                 </div>
                 @if (producto != null)
                 {
-                    <a asp-controller="MovimientoStock" asp-action="Create" asp-route-productoId="@producto.Id"
-                       class="kdx-btn kdx-btn-primary">
+                    <button type="button" data-ajuste-stock-open class="kdx-btn kdx-btn-primary">
                         <span class="material-symbols-outlined" style="font-size:18px">add</span>
                         Registrar primer ajuste
-                    </a>
+                    </button>
                 }
             </div>
         }
@@ -626,7 +624,25 @@
     </div>
 </div>
 
+@if (producto != null)
+{
+    @await Html.PartialAsync("_AjusteStockModal", new TheBuryProject.ViewModels.AjusteStockModalViewModel
+    {
+        Ajuste = new TheBuryProject.ViewModels.AjusteStockViewModel
+        {
+            ProductoId = producto.Id,
+            ProductoNombre = producto.Nombre,
+            ProductoCodigo = producto.Codigo,
+            StockActual = producto.StockActual,
+            ReturnUrl = Url.Action("Kardex", "MovimientoStock", new { id = producto.Id })
+        },
+        ProductoBloqueado = true,
+        Tipos = ViewBag.Tipos
+    })
+}
+
 @section Scripts {
+    <script src="~/js/ajuste-stock-modal.js" asp-append-version="true"></script>
 <script>
 (function () {
     'use strict';

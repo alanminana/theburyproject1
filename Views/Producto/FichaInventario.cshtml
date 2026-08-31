@@ -175,11 +175,10 @@
                     <span class="material-symbols-outlined" style="font-size:16px">receipt_long</span>
                     Kardex completo
                 </a>
-                <a asp-controller="MovimientoStock" asp-action="Create" asp-route-productoId="@Model.ProductoId"
-                   class="fi-btn fi-btn-soft fi-btn-sm">
+                <button type="button" data-ajuste-stock-open class="fi-btn fi-btn-soft fi-btn-sm">
                     <span class="material-symbols-outlined" style="font-size:16px">edit_note</span>
                     Registrar ajuste
-                </a>
+                </button>
             </div>
         </div>
 
@@ -673,8 +672,7 @@
                 <div class="flex flex-col items-center gap-3 px-5 py-12 text-center">
                     <span class="material-symbols-outlined text-4xl text-slate-700">swap_vert</span>
                     <p class="text-sm font-semibold text-slate-500">No hay movimientos registrados para este producto.</p>
-                    <a asp-controller="MovimientoStock" asp-action="Create" asp-route-productoId="@Model.ProductoId"
-                       class="text-xs font-bold text-blue-400 hover:underline">Registrar el primer ajuste de stock</a>
+                    <button type="button" data-ajuste-stock-open class="text-xs font-bold text-blue-400 hover:underline">Registrar el primer ajuste de stock</button>
                 </div>
             }
             else
@@ -783,7 +781,24 @@
 
 </div>
 
+@* Ruta completa: desde Views/Producto/, un nombre corto solo buscaría en
+   Views/Producto/ y Views/Shared/, no en Views/MovimientoStock/. *@
+@await Html.PartialAsync("~/Views/MovimientoStock/_AjusteStockModal.cshtml", new TheBuryProject.ViewModels.AjusteStockModalViewModel
+{
+    Ajuste = new TheBuryProject.ViewModels.AjusteStockViewModel
+    {
+        ProductoId = Model.ProductoId,
+        ProductoNombre = Model.Nombre,
+        ProductoCodigo = Model.Codigo,
+        StockActual = Model.StockActual,
+        ReturnUrl = Url.Action("Inventario", "Producto", new { productoId = Model.ProductoId, tab = "movimientos" })
+    },
+    ProductoBloqueado = true,
+    Tipos = ViewBag.Tipos
+})
+
 @section Scripts {
+    <script src="~/js/ajuste-stock-modal.js" asp-append-version="true"></script>
 <script>
 (function () {
     var btns   = document.querySelectorAll('[data-fi-tab]');

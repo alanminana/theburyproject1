@@ -67,6 +67,12 @@ namespace TheBuryProject.Controllers
                 ViewBag.Productos = new SelectList(productos.OrderBy(p => p.Nombre), "Id", "Nombre", filter.ProductoId);
                 ViewBag.Tipos = new SelectList(Enum.GetValues(typeof(TipoMovimiento))); // mantiene coherencia con la vista
 
+                // Para el modal "Registrar ajuste" embebido en esta misma vista: solo productos
+                // activos, igual que el GET Create original — el filtro de arriba (ViewBag.Productos)
+                // incluye inactivos a propósito (se puede filtrar historial de un producto dado de baja).
+                ViewBag.ProductosActivosParaAjuste = new SelectList(
+                    productos.Where(p => p.Activo).OrderBy(p => p.Nombre), "Id", "Nombre");
+
                 return View("Index_tw", filter);
             }
             catch (Exception ex)
@@ -160,6 +166,8 @@ namespace TheBuryProject.Controllers
 
                 ViewBag.Producto = producto;
                 ViewBag.ProductoEliminado = producto.IsDeleted;
+                // Para el modal "Registrar ajuste" embebido en esta vista (producto fijo).
+                ViewBag.Tipos = new SelectList(Enum.GetValues(typeof(TipoMovimiento)));
                 return View("Kardex_tw", viewModels);
             }
             catch (Exception ex)

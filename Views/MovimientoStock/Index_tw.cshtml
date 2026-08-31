@@ -31,11 +31,11 @@
             </h1>
             <p class="text-slate-400 text-sm mt-0.5">Historial general de entradas, salidas y ajustes por SKU</p>
         </div>
-        <a asp-controller="MovimientoStock" asp-action="Create"
-           class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white hover:bg-primary/90 transition-colors">
+        <button type="button" data-ajuste-stock-open
+                class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white hover:bg-primary/90 transition-colors">
             <span class="material-symbols-outlined text-base">add</span>
             Registrar ajuste
-        </a>
+        </button>
     </div>
 
     <!-- Banner SKU -->
@@ -56,8 +56,17 @@
 
 </div>
 
+@await Html.PartialAsync("_AjusteStockModal", new TheBuryProject.ViewModels.AjusteStockModalViewModel
+{
+    Ajuste = new TheBuryProject.ViewModels.AjusteStockViewModel { ReturnUrl = Url.Action("Index", "MovimientoStock") },
+    ProductoBloqueado = false,
+    Productos = ViewBag.ProductosActivosParaAjuste,
+    Tipos = ViewBag.Tipos
+})
+
 @section Scripts {
     <script src="~/js/horizontal-scroll-affordance.js" asp-append-version="true"></script>
+    <script src="~/js/ajuste-stock-modal.js" asp-append-version="true"></script>
     <script>
         document.querySelectorAll('[data-oc-scroll]').forEach(function (root) {
             window.TheBury?.initHorizontalScrollAffordance?.(root);

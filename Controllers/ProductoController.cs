@@ -713,6 +713,8 @@ namespace TheBuryProject.Controllers
 
                 var movimientos = await _movimientoStockService.GetByProductoIdAsync(productoId);
                 ViewBag.Movimientos = _mapper.Map<IEnumerable<MovimientoStockViewModel>>(movimientos);
+                // Para el modal "Registrar ajuste" embebido en esta vista (producto fijo).
+                ViewBag.Tipos = new SelectList(Enum.GetValues(typeof(TipoMovimiento)));
 
                 return View("FichaInventario", viewModel);
             }
