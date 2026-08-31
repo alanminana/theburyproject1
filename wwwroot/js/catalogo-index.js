@@ -191,6 +191,22 @@
 
         var btnAjusteMasivo = document.getElementById('btn-ajuste-masivo');
 
+        // Fase 7: con 5 pestañas la barra puede no entrar completa en mobile
+        // (overflow-x-auto). Sin esto, entrar directo por ?tab=alertas o
+        // ?tab=movimientos en un celular deja la pestaña activa marcada pero
+        // scrolleada fuera de vista.
+        function scrollActiveTabIntoView() {
+            var activeBtn = tabContainer.querySelector('[data-catalogo-tab].border-primary');
+            if (!activeBtn) return;
+            var wrapperRect = tabContainer.getBoundingClientRect();
+            var btnRect = activeBtn.getBoundingClientRect();
+            if (btnRect.left < wrapperRect.left) {
+                tabContainer.scrollLeft += (btnRect.left - wrapperRect.left);
+            } else if (btnRect.right > wrapperRect.right) {
+                tabContainer.scrollLeft += (btnRect.right - wrapperRect.right);
+            }
+        }
+
         function switchTab(target) {
             buttons.forEach(function (button) {
                 button.classList.remove('border-primary', 'text-primary', 'bg-primary/10');
@@ -225,6 +241,7 @@
 
             window.requestAnimationFrame(function () {
                 refreshScrollAffordances();
+                scrollActiveTabIntoView();
             });
         }
 
@@ -232,6 +249,10 @@
             button.addEventListener('click', function () {
                 switchTab(getTabValue(button));
             });
+        });
+
+        window.requestAnimationFrame(function () {
+            scrollActiveTabIntoView();
         });
     }
 
