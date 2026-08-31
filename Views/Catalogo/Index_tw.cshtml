@@ -2349,20 +2349,7 @@
                         <h3 class="text-white text-xl font-bold">Datos de la marca</h3>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div class="flex flex-col gap-2">
-                            <label class="text-sm font-semibold text-slate-300">Código</label>
-                            <input name="Codigo" type="text"
-                                   class="catalogo-input"
-                                   placeholder="Ej: SAM" />
-                            <span data-valmsg-for="Codigo" class="text-xs text-red-500 hidden"></span>
-                        </div>
-                        <div class="flex flex-col gap-2">
-                            <label class="text-sm font-semibold text-slate-300">Nombre</label>
-                            <input name="Nombre" type="text"
-                                   class="catalogo-input"
-                                   placeholder="Nombre de la marca" />
-                            <span data-valmsg-for="Nombre" class="text-xs text-red-500 hidden"></span>
-                        </div>
+                        @await Html.PartialAsync("_MarcaModalCodigoNombre", "marca-modal")
                         <div class="flex flex-col gap-2 md:col-span-2">
                             <label class="text-sm font-semibold text-slate-300">Marca Padre (Submarca de)</label>
                             <select name="ParentId" id="marca-modal-parentId"
@@ -2433,16 +2420,7 @@
                         <h3 class="text-white text-xl font-bold">Datos de la marca</h3>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div class="flex flex-col gap-2">
-                            <label class="text-sm font-semibold text-slate-300">Código</label>
-                            <input name="Codigo" id="marca-edit-codigo" type="text" class="catalogo-input" />
-                            <span data-valmsg-for="Codigo" class="text-xs text-red-500 hidden"></span>
-                        </div>
-                        <div class="flex flex-col gap-2">
-                            <label class="text-sm font-semibold text-slate-300">Nombre</label>
-                            <input name="Nombre" id="marca-edit-nombre" type="text" class="catalogo-input" />
-                            <span data-valmsg-for="Nombre" class="text-xs text-red-500 hidden"></span>
-                        </div>
+                        @await Html.PartialAsync("_MarcaModalCodigoNombre", "marca-edit")
                         <div class="flex flex-col gap-2 md:col-span-2">
                             <label class="text-sm font-semibold text-slate-300">Descripción</label>
                             <textarea name="Descripcion" id="marca-edit-descripcion" rows="2" class="catalogo-input"></textarea>

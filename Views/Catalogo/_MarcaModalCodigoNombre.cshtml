@@ -1,0 +1,22 @@
+@model string
+@{
+    // Prefijo de id usado por marca-crear-modal.js / marca-editar-modal.js ("marca-modal" / "marca-edit").
+    var p = Model;
+}
+@* Campos compartidos entre los modales "Nueva Marca" / "Editar Marca": Código y Nombre son
+   pixel-idénticos en ambos. "Marca Padre" queda fuera a propósito — su layout (span, label,
+   texto de ayuda) difiere entre alta y edición, así que no es una duplicación real. *@
+<div class="flex flex-col gap-2">
+    <label class="text-sm font-semibold text-slate-300">Código</label>
+    <input name="Codigo" id="@(p)-codigo" type="text"
+           class="catalogo-input"
+           placeholder="Ej: SAM" />
+    <span data-valmsg-for="Codigo" class="text-xs text-red-500 hidden"></span>
+</div>
+<div class="flex flex-col gap-2">
+    <label class="text-sm font-semibold text-slate-300">Nombre</label>
+    <input name="Nombre" id="@(p)-nombre" type="text"
+           class="catalogo-input"
+           placeholder="Nombre de la marca" />
+    <span data-valmsg-for="Nombre" class="text-xs text-red-500 hidden"></span>
+</div>
