@@ -128,8 +128,12 @@
             <p class="text-xs text-slate-400 uppercase tracking-wide">Promedio resolución</p>
             <p class="mt-1 text-2xl font-bold text-slate-100">@Model.PromedioResolucionDias.ToString("N1") días</p>
         </div>
+        @* "Valor en riesgo", no "Valor stock crítico": mismo cálculo que la tarjeta homónima de
+           Criticos_tw (Tipo StockCritico + StockAgotado, homogeneizado). Reusar el nombre evita que
+           este monto — que sí incluye Agotado — se lea como el valor de la tarjeta "Stock crítico"
+           de arriba, que NO lo incluye. *@
         <div class="card-erp-metric card-erp-metric-danger">
-            <p class="text-xs text-slate-400 uppercase tracking-wide">Valor stock crítico</p>
+            <p class="text-xs text-slate-400 uppercase tracking-wide">Valor en riesgo</p>
             <p class="mt-1 text-2xl font-bold text-red-400">$@Model.ValorTotalStockCritico.ToString("N0")</p>
         </div>
     </div>

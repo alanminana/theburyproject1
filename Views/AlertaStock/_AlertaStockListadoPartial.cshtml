@@ -63,11 +63,14 @@
             <span class="material-symbols-outlined text-sm">pending_actions</span>
             @pendientes pendientes
         </span>
+        @* "Urgentes" (no "críticas"): coincide con NotificacionUrgente = Tipo StockCritico/StockAgotado,
+           la misma población que agrupa el botón "Críticos" y el KPI "Urgentes" de Estadisticas — evita
+           un cuarto significado de "crítico" en esta pantalla (ver AlertaStockService.ContarPorEstadoAsync). *@
         @if (criticas > 0)
         {
             <span class="badge-erp badge-erp-danger">
                 <span class="material-symbols-outlined text-sm">priority_high</span>
-                @criticas criticas
+                @criticas urgentes
             </span>
         }
         @if (filtroActivo)
