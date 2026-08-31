@@ -82,7 +82,8 @@ public class AlertaStockServiceTests : IDisposable
         DateTime? fechaResolucion = null,
         bool urgente = false,
         TipoAlertaStock tipo = TipoAlertaStock.StockBajo,
-        PrioridadAlerta prioridad = PrioridadAlerta.Media)
+        PrioridadAlerta prioridad = PrioridadAlerta.Media,
+        decimal stockActual = 5m)
     {
         var alerta = new AlertaStock
         {
@@ -91,7 +92,7 @@ public class AlertaStockServiceTests : IDisposable
             Prioridad = prioridad,
             Estado = estado,
             Mensaje = "Alerta de test",
-            StockActual = 5m,
+            StockActual = stockActual,
             StockMinimo = 10m,
             FechaAlerta = DateTime.UtcNow,
             FechaResolucion = fechaResolucion,
@@ -694,6 +695,26 @@ public class AlertaStockServiceTests : IDisposable
         Assert.Equal(1, resultado.AlertasResueltas);
         Assert.Equal(1, resultado.AlertasIgnoradas);
         Assert.Equal(3, resultado.ProductosAfectados);
+    }
+
+    [Fact]
+    public async Task GetEstadisticas_ValorStockCritico_UsaStockActualDelProductoNoElSnapshotDeLaAlerta()
+    {
+        // La alerta se creó con el stock en 8 (snapshot congelado en AlertaStock.StockActual),
+        // pero el producto bajó a 2 después sin que la alerta pendiente se regenere. "Valor
+        // stock crítico" (Estadisticas) debe reflejar el riesgo ACTUAL, igual que "Valor en
+        // riesgo" (Criticos), no el stock que había al momento de crearse la alerta.
+        var producto = await SeedProductoAsync(stockActual: 8m, stockMinimo: 10m);
+        await SeedAlertaAsync(producto.Id, tipo: TipoAlertaStock.StockCritico, estado: EstadoAlerta.Pendiente, stockActual: 8m);
+
+        producto.StockActual = 2m;
+        await _context.SaveChangesAsync();
+
+        var estadisticas = await _service.GetEstadisticasAsync();
+        var criticos = await _service.GetProductosCriticosAsync();
+
+        Assert.Equal(2m * producto.PrecioCompra, estadisticas.ValorTotalStockCritico);
+        Assert.Equal(estadisticas.ValorTotalStockCritico, criticos.Sum(p => p.ValorInventario));
     }
 
     // =========================================================================

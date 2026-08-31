@@ -540,9 +540,13 @@ namespace TheBuryProject.Services
                         .Average(a => a.CantidadSugeridaReposicion ?? 0)
                     : 0,
 
+                // Usa el stock ACTUAL del producto, no el snapshot congelado en la alerta
+                // (a.StockActual queda fijo al momento de crearse y la alerta sigue pendiente
+                // aunque el stock real siga moviéndose). Así coincide con "Valor en riesgo" de
+                // GetProductosCriticosAsync, que ya usa producto.StockActual.
                 ValorTotalStockCritico = alertasPendientes
                     .Where(a => a.Tipo == TipoAlertaStock.StockCritico || a.Tipo == TipoAlertaStock.StockAgotado)
-                    .Sum(a => a.Producto.PrecioCompra * a.StockActual),
+                    .Sum(a => a.Producto.PrecioCompra * a.Producto.StockActual),
 
                 // Listas detalladas
                 UltimasAlertas = await _context.AlertasStock
