@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TheBuryProject.Filters;
+using TheBuryProject.Helpers;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.ViewModels;
@@ -32,6 +33,39 @@ namespace TheBuryProject.Controllers
         {
             TempData["Info"] = "Las categorías se gestionan desde el catálogo.";
             return RedirectToAction("Index", "Catalogo");
+        }
+
+        // POST: Categoria/Delete/5 — no tiene vista GET propia (no hay Delete_tw), pero el
+        // botón "Eliminar" del modal de Catalogo/Index_tw sí postea acá (form-delete-categoria
+        // en categoria-editar-modal.js). No es CRUD fantasma: es la única forma de eliminar.
+        [HttpPost, ActionName("Delete")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteConfirmed(int id, string? returnUrl = null)
+        {
+            try
+            {
+                var result = await _categoriaService.DeleteAsync(id);
+                if (result)
+                {
+                    TempData["Success"] = "Categoría eliminada exitosamente";
+                }
+                else
+                {
+                    TempData["Error"] = "No se encontró la categoría a eliminar";
+                }
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Error de validación al eliminar categoría {Id}", id);
+                TempData["Error"] = ex.Message;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al eliminar categoría {Id}", id);
+                TempData["Error"] = "Error al eliminar la categoría. Intentá nuevamente.";
+            }
+
+            return this.RedirectToReturnUrlOrIndex(returnUrl);
         }
 
         #region AJAX — única vía real de gestión (modal del catálogo)

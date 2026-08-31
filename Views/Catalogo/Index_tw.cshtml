@@ -2168,55 +2168,12 @@
                         <h3 class="text-white text-xl font-bold">Datos de la categoría</h3>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div class="flex flex-col gap-2">
-                            <label class="text-sm font-semibold text-slate-300">Código</label>
-                            <input name="Codigo" type="text"
-                                   class="catalogo-input"
-                                   placeholder="Ej: CAT-001" />
-                            <span data-valmsg-for="Codigo" class="text-xs text-red-500 hidden"></span>
-                        </div>
-                        <div class="flex flex-col gap-2">
-                            <label class="text-sm font-semibold text-slate-300">Nombre</label>
-                            <input name="Nombre" type="text"
-                                   class="catalogo-input"
-                                   placeholder="Nombre de la categoría" />
-                            <span data-valmsg-for="Nombre" class="text-xs text-red-500 hidden"></span>
-                        </div>
-                        <div class="flex flex-col gap-2 md:col-span-2">
-                            <label class="text-sm font-semibold text-slate-300">Descripción</label>
-                            <textarea name="Descripcion" rows="3"
-                                      class="catalogo-input"
-                                      placeholder="Añade una descripción detallada..."></textarea>
-                        </div>
-                        <div class="flex flex-col gap-2 md:col-span-2">
-                            <label class="text-sm font-semibold text-slate-300">Categoría Padre</label>
-                            <select name="ParentId" id="cat-modal-parentId"
-                                    class="catalogo-input">
-                                <option value="">Ninguna (Categoría Principal)</option>
-                                @if (Model.CategoriasFiltro != null)
-                                {
-                                    @foreach (var cat in Model.CategoriasFiltro)
-                                    {
-                                        <option value="@cat.Value">@cat.Text</option>
-                                    }
-                                }
-                            </select>
-                            <p class="text-xs text-slate-400 italic">Selecciona una categoría superior si esta es una subcategoría</p>
-                        </div>
-                        <div class="flex flex-col gap-2 md:col-span-2">
-                            <label class="text-sm font-semibold text-slate-300">Alícuota IVA por defecto</label>
-                            <select name="AlicuotaIVAId" id="cat-modal-alicuotaIVAId" class="catalogo-input">
-                                <option value="">Sin alícuota por defecto</option>
-                                @if (ViewBag.AlicuotasIVADatos != null)
-                                {
-                                    @foreach (var a in ViewBag.AlicuotasIVADatos)
-                                    {
-                                        <option value="@a.Id">@a.Texto</option>
-                                    }
-                                }
-                            </select>
-                            <p class="text-xs text-slate-400 italic">Los productos sin alícuota propia pueden heredar esta alícuota.</p>
-                        </div>
+                        @await Html.PartialAsync("_CategoriaModalFields", new TheBuryProject.ViewModels.CategoriaModalFieldsViewModel
+                        {
+                            Prefix = "cat-modal",
+                            CategoriasFiltro = Model.CategoriasFiltro,
+                            AlicuotasIVADatos = ViewBag.AlicuotasIVADatos
+                        })
                     </div>
                 </div>
 
@@ -2302,40 +2259,11 @@
                         <h3 class="text-white text-xl font-bold">Datos de la categoría</h3>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div class="flex flex-col gap-2">
-                            <label class="text-sm font-semibold text-slate-300">Código</label>
-                            <input name="Codigo" id="cat-edit-codigo" type="text" class="catalogo-input" />
-                            <span data-valmsg-for="Codigo" class="text-xs text-red-500 hidden"></span>
-                        </div>
-                        <div class="flex flex-col gap-2">
-                            <label class="text-sm font-semibold text-slate-300">Nombre</label>
-                            <input name="Nombre" id="cat-edit-nombre" type="text" class="catalogo-input" />
-                            <span data-valmsg-for="Nombre" class="text-xs text-red-500 hidden"></span>
-                        </div>
-                        <div class="flex flex-col gap-2 md:col-span-2">
-                            <label class="text-sm font-semibold text-slate-300">Descripción</label>
-                            <textarea name="Descripcion" id="cat-edit-descripcion" rows="3" class="catalogo-input"></textarea>
-                        </div>
-                        <div class="flex flex-col gap-2 md:col-span-2">
-                            <label class="text-sm font-semibold text-slate-300">Categoría Padre</label>
-                            <select name="ParentId" id="cat-edit-parentId" class="catalogo-input">
-                                <option value="">Ninguna (Categoría Principal)</option>
-                            </select>
-                        </div>
-                        <div class="flex flex-col gap-2 md:col-span-2">
-                            <label class="text-sm font-semibold text-slate-300">Alícuota IVA por defecto</label>
-                            <select name="AlicuotaIVAId" id="cat-edit-alicuotaIVAId" class="catalogo-input">
-                                <option value="">Sin alícuota por defecto</option>
-                                @if (ViewBag.AlicuotasIVADatos != null)
-                                {
-                                    @foreach (var a in ViewBag.AlicuotasIVADatos)
-                                    {
-                                        <option value="@a.Id">@a.Texto</option>
-                                    }
-                                }
-                            </select>
-                            <p class="text-xs text-slate-400 italic">Los productos sin alícuota propia pueden heredar esta alícuota.</p>
-                        </div>
+                        @await Html.PartialAsync("_CategoriaModalFields", new TheBuryProject.ViewModels.CategoriaModalFieldsViewModel
+                        {
+                            Prefix = "cat-edit",
+                            AlicuotasIVADatos = ViewBag.AlicuotasIVADatos
+                        })
                         <div class="flex items-center justify-between p-4 bg-slate-800/30 rounded-lg border border-slate-800 md:col-span-2">
                             <div>
                                 <p class="text-sm font-bold text-white">Control de Serie por Defecto</p>

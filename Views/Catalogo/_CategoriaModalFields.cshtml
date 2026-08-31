@@ -1,0 +1,57 @@
+@model TheBuryProject.ViewModels.CategoriaModalFieldsViewModel
+@{
+    var p = Model.Prefix;
+}
+@* Campos compartidos entre los modales "Nueva Categoría" / "Editar Categoría".
+   El call site es responsable de la tarjeta (bg-slate-900/50...) y el <div class="grid ...">
+   que envuelve este partial, porque cada modal agrega elementos propios dentro del mismo grid
+   (el modal de edición suma los toggles de Control de serie / Activo al final). *@
+<div class="flex flex-col gap-2">
+    <label class="text-sm font-semibold text-slate-300">Código</label>
+    <input name="Codigo" id="@(p)-codigo" type="text"
+           class="catalogo-input"
+           placeholder="Ej: CAT-001" />
+    <span data-valmsg-for="Codigo" class="text-xs text-red-500 hidden"></span>
+</div>
+<div class="flex flex-col gap-2">
+    <label class="text-sm font-semibold text-slate-300">Nombre</label>
+    <input name="Nombre" id="@(p)-nombre" type="text"
+           class="catalogo-input"
+           placeholder="Nombre de la categoría" />
+    <span data-valmsg-for="Nombre" class="text-xs text-red-500 hidden"></span>
+</div>
+<div class="flex flex-col gap-2 md:col-span-2">
+    <label class="text-sm font-semibold text-slate-300">Descripción</label>
+    <textarea name="Descripcion" id="@(p)-descripcion" rows="3"
+              class="catalogo-input"
+              placeholder="Añade una descripción detallada..."></textarea>
+</div>
+<div class="flex flex-col gap-2 md:col-span-2">
+    <label class="text-sm font-semibold text-slate-300">Categoría Padre</label>
+    <select name="ParentId" id="@(p)-parentId"
+            class="catalogo-input">
+        <option value="">Ninguna (Categoría Principal)</option>
+        @if (Model.CategoriasFiltro != null)
+        {
+            @foreach (var cat in Model.CategoriasFiltro)
+            {
+                <option value="@cat.Value">@cat.Text</option>
+            }
+        }
+    </select>
+    <p class="text-xs text-slate-400 italic">Selecciona una categoría superior si esta es una subcategoría</p>
+</div>
+<div class="flex flex-col gap-2 md:col-span-2">
+    <label class="text-sm font-semibold text-slate-300">Alícuota IVA por defecto</label>
+    <select name="AlicuotaIVAId" id="@(p)-alicuotaIVAId" class="catalogo-input">
+        <option value="">Sin alícuota por defecto</option>
+        @if (Model.AlicuotasIVADatos != null)
+        {
+            @foreach (var a in Model.AlicuotasIVADatos)
+            {
+                <option value="@a.Id">@a.Texto</option>
+            }
+        }
+    </select>
+    <p class="text-xs text-slate-400 italic">Los productos sin alícuota propia pueden heredar esta alícuota.</p>
+</div>
