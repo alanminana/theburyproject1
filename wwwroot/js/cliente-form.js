@@ -1,4 +1,6 @@
-/* cliente-form.js — Lógica para Create_tw / Edit_tw de Cliente */
+/* cliente-form.js — Lógica para Create_tw / Edit_tw de Cliente
+   (comparte estructura de tabs con cliente-modal.js, que gobierna la misma
+   marca _ClienteFormCampos dentro del modal AJAX — ver Cliente/Index) */
 (function () {
     'use strict';
 
@@ -28,6 +30,28 @@
         document.querySelectorAll('.tab-panel').forEach(function (item) {
             item.classList.toggle('is-active', item === panel);
         });
+    }
+
+    function updatePreview() {
+        var apellido = document.getElementById('Apellido');
+        var nombre = document.getElementById('Nombre');
+        var documento = document.getElementById('NumeroDocumento');
+        var ap = apellido ? apellido.value.trim() : '';
+        var no = nombre ? nombre.value.trim() : '';
+        var nameEl = document.getElementById('pv-name');
+        var avatarEl = document.getElementById('pv-avatar');
+        var docEl = document.getElementById('pv-doc');
+
+        // Sin nombre/apellido cargado, se deja el texto ya renderizado por
+        // Razor (placeholder "Nuevo cliente" en Create, nombre real en Edit)
+        // en vez de pisarlo con un literal fijo.
+        if (nameEl && (ap || no)) {
+            nameEl.textContent = ap + (ap && no ? ', ' : '') + no;
+        }
+        if (avatarEl && (ap || no)) {
+            avatarEl.textContent = ((ap.charAt(0) || '') + (no.charAt(0) || '')).toUpperCase() || '+';
+        }
+        if (docEl && documento) docEl.textContent = documento.value.trim() || '-';
     }
 
     function validarMontos() {
@@ -62,6 +86,17 @@
             var btn = e.target.closest('[data-cliente-section]');
             if (!btn) return;
             toggleSection(btn.getAttribute('data-cliente-section'));
+        });
+
+        document.querySelectorAll('[data-cliente-tab]').forEach(function (tab) {
+            tab.addEventListener('click', function () {
+                activateTab(tab.getAttribute('data-cliente-tab').replace('t-', ''));
+            });
+        });
+
+        ['Apellido', 'Nombre', 'NumeroDocumento'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.addEventListener('input', updatePreview);
         });
 
         var minInput = document.getElementById('montoMinimo');
