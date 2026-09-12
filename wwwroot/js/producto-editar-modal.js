@@ -290,7 +290,7 @@
         });
     }
 
-    // El cálculo/desglose de precios vive en el script inline de Catalogo/Index_tw
+    // El cálculo/desglose de precios vive en producto-precio-calculo.js
     // (bindPrecioProducto); acá no se duplican listeners de precio.
 
     // ── Contexto de precio vigente ──────────────────────────────

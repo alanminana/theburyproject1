@@ -332,8 +332,8 @@ const ProductoModal = (() => {
     }
 
     // El cálculo de precios (costo real + ganancia = precio final con IVA, desglose)
-    // vive en el script inline de Catalogo/Index_tw (bindPrecioProducto). Acá no se
-    // duplican listeners de precio.
+    // vive en producto-precio-calculo.js (bindPrecioProducto). Acá no se duplican
+    // listeners de precio.
 
     // ── Características dinámicas ────────────────────────────
     function addCaracteristica() {
