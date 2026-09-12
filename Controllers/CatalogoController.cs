@@ -12,9 +12,21 @@ using TheBuryProject.ViewModels;
 namespace TheBuryProject.Controllers
 {
     [Authorize]
-    [PermisoRequerido(Modulo = "cotizaciones", Accion = "view")]
+    // Vista unificada de catálogo (productos) con acciones puntuales de precios masivos.
+    // Default a nivel clase: productos.view (mismo módulo/accion que ProductoController.Index).
+    // Las acciones que mutan o consultan precios usan el módulo "precios" ya seedeado y
+    // consumido por CambiosPreciosController, en vez de crear un módulo nuevo.
+    [PermisoRequerido(Modulo = ModuloProductos, Accion = AccionVer)]
     public class CatalogoController : Controller
     {
+        private const string ModuloProductos = "productos";
+        private const string ModuloPrecios = "precios";
+        private const string AccionVer = "view";
+        private const string AccionActualizar = "update";
+        private const string AccionSimular = "simulate";
+        private const string AccionAplicar = "apply";
+        private const string AccionRevertir = "revert";
+
         private readonly ICatalogoService _catalogoService;
         private readonly ICatalogLookupService _catalogLookupService;
         private readonly IAlertaStockService _alertaStockService;
@@ -208,6 +220,7 @@ namespace TheBuryProject.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = ModuloProductos, Accion = AccionActualizar)]
         public async Task<IActionResult> ToggleDestacado(int productoId)
         {
             try
@@ -240,7 +253,9 @@ namespace TheBuryProject.Controllers
         /// Devuelve preview con Actual/Nuevo/Diferencia para confirmación.
         /// </summary>
         [HttpPost]
-        [ValidateAntiForgeryToken]        public async Task<IActionResult> SimularCambioPrecios([FromBody] SolicitudSimulacionPrecios solicitud)
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = ModuloPrecios, Accion = AccionSimular)]
+        public async Task<IActionResult> SimularCambioPrecios([FromBody] SolicitudSimulacionPrecios solicitud)
         {
             try
             {
@@ -265,7 +280,9 @@ namespace TheBuryProject.Controllers
         /// Persiste los cambios con auditoría e historial.
         /// </summary>
         [HttpPost]
-        [ValidateAntiForgeryToken]        public async Task<IActionResult> AplicarCambioPrecios([FromBody] SolicitudAplicarPrecios solicitud)
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = ModuloPrecios, Accion = AccionAplicar)]
+        public async Task<IActionResult> AplicarCambioPrecios([FromBody] SolicitudAplicarPrecios solicitud)
         {
             try
             {
@@ -296,6 +313,7 @@ namespace TheBuryProject.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]        [Consumes("application/json")]
         [ActionName("AplicarCambioPrecioDirecto")]
+        [PermisoRequerido(Modulo = ModuloPrecios, Accion = AccionAplicar)]
         public async Task<IActionResult> AplicarCambioPrecioDirectoJson([FromBody] AplicarCambioPrecioDirectoViewModel model)
         {
             try
@@ -327,6 +345,7 @@ namespace TheBuryProject.Controllers
         /// </summary>
         [HttpPost]
         [ValidateAntiForgeryToken]        [Consumes("application/x-www-form-urlencoded", "multipart/form-data")]
+        [PermisoRequerido(Modulo = ModuloPrecios, Accion = AccionAplicar)]
         public async Task<IActionResult> AplicarCambioPrecioDirecto(AplicarCambioPrecioDirectoViewModel model)
         {
             try
@@ -379,7 +398,9 @@ namespace TheBuryProject.Controllers
         }
 
         [HttpPost("Catalogo/RevertirCambioPrecio/{eventoId:int}")]
-        [ValidateAntiForgeryToken]        public async Task<IActionResult> RevertirCambioPrecio(int eventoId, string? returnUrl = null)
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = ModuloPrecios, Accion = AccionRevertir)]
+        public async Task<IActionResult> RevertirCambioPrecio(int eventoId, string? returnUrl = null)
         {
             try
             {
@@ -426,6 +447,7 @@ namespace TheBuryProject.Controllers
         /// AJAX: Obtiene el historial de cambios de precio de un producto específico.
         /// </summary>
         [HttpGet]
+        [PermisoRequerido(Modulo = ModuloPrecios, Accion = AccionVer)]
         public async Task<IActionResult> HistorialPrecioProductoApi(int productoId)
         {
             try
@@ -463,6 +485,7 @@ namespace TheBuryProject.Controllers
         /// </summary>
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = ModuloPrecios, Accion = AccionRevertir)]
         public async Task<IActionResult> RevertirCambioPrecioApi(int eventoId)
         {
             try
