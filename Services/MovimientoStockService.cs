@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using TheBuryProject.Data;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
@@ -252,10 +253,7 @@ namespace TheBuryProject.Services
                     throw new InvalidOperationException(mensaje);
             }
 
-            var hasAmbientTransaction = _context.Database.CurrentTransaction != null;
-            await using var transaction = hasAmbientTransaction
-                ? null
-                : await _context.Database.BeginTransactionAsync();
+            await using var transaction = await BeginTransactionIfNeededAsync();
 
             try
             {
@@ -362,27 +360,11 @@ namespace TheBuryProject.Services
                     throw new InvalidOperationException(mensaje);
             }
 
-            var hasAmbientTransaction = _context.Database.CurrentTransaction != null;
-            await using var transaction = hasAmbientTransaction
-                ? null
-                : await _context.Database.BeginTransactionAsync();
+            await using var transaction = await BeginTransactionIfNeededAsync();
 
             try
             {
-                var productoIds = entradas
-                    .Select(e => e.productoId)
-                    .Distinct()
-                    .ToList();
-
-                var productos = await _context.Productos
-                    .Where(p => productoIds.Contains(p.Id) && !p.IsDeleted)
-                    .ToListAsync();
-
-                var productosById = productos.ToDictionary(p => p.Id);
-
-                var missingIds = productoIds.Where(id => !productosById.ContainsKey(id)).ToList();
-                if (missingIds.Count > 0)
-                    throw new InvalidOperationException($"Producto(s) no encontrado(s): {string.Join(", ", missingIds)}");
+                var productosById = await CargarProductosActivosOThrowAsync(entradas.Select(e => e.productoId));
 
                 var movimientos = new List<MovimientoStock>(entradas.Count);
 
@@ -477,24 +459,11 @@ namespace TheBuryProject.Services
                 .GroupBy(s => s.productoId)
                 .ToDictionary(g => g.Key, g => g.Sum(x => x.cantidad));
 
-            var hasAmbientTransaction = _context.Database.CurrentTransaction != null;
-            await using var transaction = hasAmbientTransaction
-                ? null
-                : await _context.Database.BeginTransactionAsync();
+            await using var transaction = await BeginTransactionIfNeededAsync();
 
             try
             {
-                var productoIds = totalsByProducto.Keys.ToList();
-
-                var productos = await _context.Productos
-                    .Where(p => productoIds.Contains(p.Id) && !p.IsDeleted)
-                    .ToListAsync();
-
-                var productosById = productos.ToDictionary(p => p.Id);
-
-                var missingIds = productoIds.Where(id => !productosById.ContainsKey(id)).ToList();
-                if (missingIds.Count > 0)
-                    throw new InvalidOperationException($"Producto(s) no encontrado(s): {string.Join(", ", missingIds)}");
+                var productosById = await CargarProductosActivosOThrowAsync(totalsByProducto.Keys);
 
                 foreach (var (productoId, totalCantidad) in totalsByProducto)
                 {
@@ -650,6 +619,41 @@ namespace TheBuryProject.Services
 
             if (!string.IsNullOrWhiteSpace(costo.FuenteCosto))
                 movimiento.FuenteCosto = costo.FuenteCosto!;
+        }
+
+        /// <summary>
+        /// Abre una transacción propia solo si no hay una ambiente en curso (ej. cuando el
+        /// caller ya está dentro de una transacción de nivel superior, como VentaService).
+        /// Única autoridad de este chequeo — antes se repetía igual en RegistrarAjusteAsync,
+        /// RegistrarEntradasAsync y RegistrarSalidasAsync.
+        /// </summary>
+        private async Task<IDbContextTransaction?> BeginTransactionIfNeededAsync()
+        {
+            var hasAmbientTransaction = _context.Database.CurrentTransaction != null;
+            return hasAmbientTransaction ? null : await _context.Database.BeginTransactionAsync();
+        }
+
+        /// <summary>
+        /// Carga los productos activos correspondientes a <paramref name="productoIds"/> o lanza
+        /// si falta alguno. Única autoridad de este fetch — antes se repetía igual (mismo query,
+        /// mismo diccionario, mismo chequeo de faltantes) en RegistrarEntradasAsync y
+        /// RegistrarSalidasAsync.
+        /// </summary>
+        private async Task<Dictionary<int, Producto>> CargarProductosActivosOThrowAsync(IEnumerable<int> productoIds)
+        {
+            var ids = productoIds.Distinct().ToList();
+
+            var productos = await _context.Productos
+                .Where(p => ids.Contains(p.Id) && !p.IsDeleted)
+                .ToListAsync();
+
+            var productosById = productos.ToDictionary(p => p.Id);
+
+            var missingIds = ids.Where(id => !productosById.ContainsKey(id)).ToList();
+            if (missingIds.Count > 0)
+                throw new InvalidOperationException($"Producto(s) no encontrado(s): {string.Join(", ", missingIds)}");
+
+            return productosById;
         }
 
         /// <summary>
