@@ -153,61 +153,17 @@
     }
 
     function bindCopyPermissionsModal(modal) {
-        const form = $('formCopyPermissions');
-        const errorBox = $('copyPermissionsErrors');
-        const errorList = $('copyPermissionsErrorList');
-        const submitButton = $('submitCopyPermissions');
-        const defaultSubmitHtml = submitButton?.innerHTML || '';
-
-        form?.addEventListener('submit', event => {
-            event.preventDefault();
-
-            if (errorBox && errorList) {
-                errorBox.classList.add('hidden');
-                errorList.innerHTML = '';
+        seguridad.bindAjaxModal({
+            formId: 'formCopyPermissions',
+            errorBoxId: 'copyPermissionsErrors',
+            errorListId: 'copyPermissionsErrorList',
+            submitButtonId: 'submitCopyPermissions',
+            loadingHtml: '<span class="material-symbols-outlined text-sm animate-spin">progress_activity</span> Copiando...',
+            defaultErrorMessage: 'No se pudo copiar permisos.',
+            onSuccess: (result, form) => {
+                modal.close();
+                seguridad.navigateTo(seguridad.resolveReturnUrl(form, result, currentUrl), currentUrl);
             }
-
-            if (submitButton) {
-                submitButton.disabled = true;
-                submitButton.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">progress_activity</span> Copiando...';
-            }
-
-            fetch(form.action, {
-                method: 'POST',
-                body: new FormData(form),
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
-            })
-                .then(response => response.json())
-                .then(result => {
-                    if (result.success) {
-                        modal.close();
-                        seguridad.navigateTo(seguridad.resolveReturnUrl(form, result, currentUrl), currentUrl);
-                        return;
-                    }
-
-                    if (errorBox && errorList) {
-                        errorList.innerHTML = (result.errors || ['No se pudo copiar permisos.'])
-                            .map(message => `<p>${message}</p>`)
-                            .join('');
-                        errorBox.classList.remove('hidden');
-                    }
-
-                    if (submitButton) {
-                        submitButton.disabled = false;
-                        submitButton.innerHTML = defaultSubmitHtml;
-                    }
-                })
-                .catch(() => {
-                    if (errorBox && errorList) {
-                        errorList.innerHTML = '<p>Error de conexión. Intentá de nuevo.</p>';
-                        errorBox.classList.remove('hidden');
-                    }
-
-                    if (submitButton) {
-                        submitButton.disabled = false;
-                        submitButton.innerHTML = defaultSubmitHtml;
-                    }
-                });
         });
     }
 

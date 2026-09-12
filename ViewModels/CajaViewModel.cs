@@ -218,6 +218,13 @@ public class CajasListViewModel
     /// </summary>
     public IDictionary<int, AperturaFisicoResumen> ResumenFisicoPorApertura { get; set; }
         = new Dictionary<int, AperturaFisicoResumen>();
+
+    /// <summary>
+    /// Fecha del último cierre por caja (clave: Caja.Id). Una caja sin ningún cierre
+    /// registrado no tiene entrada acá (columna "Último cierre" de Index muestra "—").
+    /// </summary>
+    public IDictionary<int, DateTime> UltimoCierrePorCaja { get; set; }
+        = new Dictionary<int, DateTime>();
 }
 /// <summary>
 /// Resumen de totales agrupados por tipo de pago dentro de una apertura de caja.

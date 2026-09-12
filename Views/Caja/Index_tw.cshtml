@@ -31,6 +31,11 @@
         <!-- Page header -->
         <div class="page-head">
             <div class="min-w-0">
+                <nav class="caja-breadcrumb" aria-label="Breadcrumb">
+                    <a asp-controller="Home" asp-action="Index" class="caja-breadcrumb__link">Inicio</a>
+                    <span class="caja-breadcrumb__separator" aria-hidden="true">›</span>
+                    <span class="caja-breadcrumb__current">Cajas</span>
+                </nav>
                 <h1 class="page-title">Cajas</h1>
                 <p class="page-sub">Operá los turnos abiertos, gestioná tus cajas y revisá el historial de cierres.</p>
             </div>
@@ -84,11 +89,17 @@
                 <div class="kpi-value">$@saldoTurnos.ToString("N2")</div>
                 <div class="kpi-foot">suma de turnos en curso</div>
             </div>
-            <div class="kpi">
-                <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">pending_actions</span>Cajas en uso</div>
-                <div class="kpi-value">@cajasEnUso</div>
-                <div class="kpi-foot">con turno activo</div>
-            </div>
+            @* "Cajas en uso" solo aporta un dato propio quien ve TODOS los turnos (admin ve
+               "Turnos abiertos" con el mismo numero); para el vendedor "Turnos abiertos" es
+               su propio turno y "Cajas en uso" es el conteo global, un dato distinto. *@
+            @if (!esAdmin)
+            {
+                <div class="kpi">
+                    <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">pending_actions</span>Cajas en uso</div>
+                    <div class="kpi-value">@cajasEnUso</div>
+                    <div class="kpi-foot">con turno activo</div>
+                </div>
+            }
             <div class="kpi">
                 <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">inventory_2</span>Cajas disponibles</div>
                 <div class="kpi-value">@cajasDisponibles</div>
@@ -262,7 +273,18 @@
                                             }
                                         </td>
                                         <td class="muted num">
-                                            @(estaAbierta ? "Turno en curso" : "—")
+                                            @if (estaAbierta)
+                                            {
+                                                @:Turno en curso
+                                            }
+                                            else if (Model.UltimoCierrePorCaja.TryGetValue(caja.Id, out var ultimoCierre))
+                                            {
+                                                @ultimoCierre.ToLocalTime().ToString("dd/MM · HH:mm")
+                                            }
+                                            else
+                                            {
+                                                @:—
+                                            }
                                         </td>
                                         <td>
                                             <div class="row-actions">
@@ -283,7 +305,8 @@
                                                     {
                                                         <button type="button" data-caja-open-edit data-caja-id="@caja.Id"
                                                                 class="btn btn-ghost btn-sm" aria-label="Editar"
-                                                                aria-disabled="true" style="opacity:.45;pointer-events:none">
+                                                                aria-disabled="true" style="opacity:.45;pointer-events:none"
+                                                                title="No se puede editar mientras la caja tiene un turno abierto">
                                                             <span class="material-symbols-outlined">edit</span>
                                                         </button>
                                                     }
@@ -309,7 +332,7 @@
                                                         </button>
                                                         <form asp-action="Delete" method="post" class="inline-flex"
                                                               data-caja-delete-form
-                                                              data-confirm-message="¿Está seguro de eliminar esta caja?">
+                                                              data-confirm-message="¿Eliminar esta caja? No podrá deshacerse desde esta pantalla.">
                                                             <input type="hidden" name="id" value="@caja.Id" />
                                                             <input type="hidden" name="rowVersion"
                                                                    value="@Convert.ToBase64String(caja.RowVersion)" />
@@ -347,12 +370,12 @@
                                                     </button>
                                                     <form asp-action="Delete" method="post" class="inline-flex"
                                                           data-caja-delete-form
-                                                          data-confirm-message="¿Eliminar permanentemente esta caja inactiva?">
+                                                          data-confirm-message="¿Eliminar esta caja? No podrá deshacerse desde esta pantalla.">
                                                         <input type="hidden" name="id" value="@caja.Id" />
                                                         <input type="hidden" name="rowVersion"
                                                                value="@Convert.ToBase64String(caja.RowVersion)" />
                                                         <button type="submit" class="btn btn-ghost btn-sm"
-                                                                aria-label="Eliminar permanentemente">
+                                                                aria-label="Eliminar">
                                                             <span class="material-symbols-outlined"
                                                                   style="color:#fb7185">delete</span>
                                                         </button>

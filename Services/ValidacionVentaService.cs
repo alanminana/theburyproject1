@@ -352,7 +352,9 @@ namespace TheBuryProject.Services
                     Titulo = "Punitorio aplicado pendiente",
                     Descripcion = detalle.Descripcion,
                     AccionSugerida = "Deuda adicional; no bloquea por sí sola",
-                    DetalleAdicional = detalle.Descripcion,
+                    // Bug corregido: mismo caso que en EvaluarClienteRequiereAutorizacionUnificado
+                    // — no repetir Descripcion en DetalleAdicional.
+                    DetalleAdicional = "Deuda adicional; no bloquea por sí sola",
                     EsBloqueante = false,
                     TipoRazon = TipoRazonAutorizacion.Punitorio,
                     // PUN-ML10-F: monto real del punitorio aplicado pendiente (nunca días,
@@ -385,7 +387,10 @@ namespace TheBuryProject.Services
                         problema.Categoria = CategoriaMotivo.Mora;
                         problema.Titulo = "Mora no bloqueante";
                         problema.AccionSugerida = "Supervisor debe autorizar venta";
-                        problema.DetalleAdicional = detalle.Descripcion; // Incluye "mora" y días
+                        // Bug corregido: antes repetía problema.Descripcion (ya asignado arriba)
+                        // acá también, mostrando la misma frase dos veces en el panel de
+                        // autorización. DetalleAdicional debe aportar algo distinto.
+                        problema.DetalleAdicional = problema.AccionSugerida;
                         problema.TipoRazon = TipoRazonAutorizacion.MoraActiva;
                         // Convención de Mora: el valor asociado es días de atraso (nunca dinero).
                         problema.DiasAsociado = aptitud.Mora?.DiasMaximoMora;
@@ -402,7 +407,8 @@ namespace TheBuryProject.Services
                         problema.Categoria = CategoriaMotivo.Punitorio;
                         problema.Titulo = "Punitorio aplicado pendiente";
                         problema.AccionSugerida = "Supervisor debe autorizar venta";
-                        problema.DetalleAdicional = detalle.Descripcion;
+                        // Bug corregido: mismo caso que "Mora" arriba — no repetir Descripcion.
+                        problema.DetalleAdicional = problema.AccionSugerida;
                         problema.TipoRazon = TipoRazonAutorizacion.Punitorio;
                         problema.MontoAsociado = aptitud.Mora?.MontoPunitorioAplicadoPendiente;
                         problema.ValorAsociado = aptitud.Mora?.MontoPunitorioAplicadoPendiente;

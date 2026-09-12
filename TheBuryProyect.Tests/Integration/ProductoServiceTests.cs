@@ -1463,6 +1463,74 @@ public class ProductoServiceTests : IDisposable
         Assert.True(bd.RequiereNumeroSerie);
     }
 
+    [Fact]
+    public async Task UpdateAsync_PersisteCambioDeSubcategoriaYSubmarca()
+    {
+        var producto = await SeedProductoAsync();
+        var (subcat, submarca) = await SeedCategoriaMarcaAsync();
+
+        var update = new Producto
+        {
+            Id = producto.Id,
+            Codigo = producto.Codigo,
+            Nombre = producto.Nombre,
+            CategoriaId = producto.CategoriaId,
+            SubcategoriaId = subcat.Id,
+            MarcaId = producto.MarcaId,
+            SubmarcaId = submarca.Id,
+            PrecioCompra = producto.PrecioCompra,
+            PrecioVenta = producto.PrecioVenta,
+            PorcentajeIVA = producto.PorcentajeIVA,
+            StockActual = producto.StockActual,
+            StockMinimo = producto.StockMinimo,
+            Activo = producto.Activo,
+            RowVersion = producto.RowVersion
+        };
+
+        await _service.UpdateAsync(update);
+
+        _context.ChangeTracker.Clear();
+        var bd = await _context.Productos.FirstAsync(p => p.Id == producto.Id);
+        Assert.Equal(subcat.Id, bd.SubcategoriaId);
+        Assert.Equal(submarca.Id, bd.SubmarcaId);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_PermiteQuitarSubcategoriaYSubmarca()
+    {
+        var producto = await SeedProductoAsync();
+        var (subcat, submarca) = await SeedCategoriaMarcaAsync();
+        producto.SubcategoriaId = subcat.Id;
+        producto.SubmarcaId = submarca.Id;
+        await _context.SaveChangesAsync();
+        await _context.Entry(producto).ReloadAsync();
+
+        var update = new Producto
+        {
+            Id = producto.Id,
+            Codigo = producto.Codigo,
+            Nombre = producto.Nombre,
+            CategoriaId = producto.CategoriaId,
+            SubcategoriaId = null,
+            MarcaId = producto.MarcaId,
+            SubmarcaId = null,
+            PrecioCompra = producto.PrecioCompra,
+            PrecioVenta = producto.PrecioVenta,
+            PorcentajeIVA = producto.PorcentajeIVA,
+            StockActual = producto.StockActual,
+            StockMinimo = producto.StockMinimo,
+            Activo = producto.Activo,
+            RowVersion = producto.RowVersion
+        };
+
+        await _service.UpdateAsync(update);
+
+        _context.ChangeTracker.Clear();
+        var bd = await _context.Productos.FirstAsync(p => p.Id == producto.Id);
+        Assert.Null(bd.SubcategoriaId);
+        Assert.Null(bd.SubmarcaId);
+    }
+
     // -------------------------------------------------------------------------
     // Regresión: DeleteAsync no debe borrar MovimientoStock
     // -------------------------------------------------------------------------

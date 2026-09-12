@@ -12,6 +12,7 @@ faltan. Actualizar esta tabla al cerrar cada pantalla.
 | Venta | `Details` | ✅ Cerrado | serie VENTA-DETAILS (ver resumen abajo) |
 | Cotización | `Simular` (`_CotizadorForm.cshtml`) | ✅ Cerrado | serie COTIZACION-SIMULAR-REDESIGN (ver resumen abajo) |
 | ConfiguracionPago | `MediosPago` | ✅ Cerrado | ver resumen abajo |
+| Caja | Abrir / Cerrar / RegistrarMovimiento / DetallesApertura / DetallesCierre / Historial / Conciliación | ✅ Cerrado | ver resumen abajo |
 
 Leyenda:
 
@@ -33,6 +34,32 @@ Resumen no cronológico de lo que quedó implementado:
 - toast con una sola autoridad de inicialización;
 - validación integrada de responsive y accesibilidad;
 - cierre reproducible desde Git (ver commits en la tabla arriba).
+
+- reapertura VENTA-INDEX-FILTRO-FANTASMA-01: auditoría de 4 capas en vivo (Playwright
+  contra la app real, no solo lectura de código) detectó un hallazgo no documentado en
+  cierres previos. `pendientesAutorizacion`, `cotizacionesPresupuestos` y
+  `devolucionesElegibles` se calculan sobre `ventas` (el conjunto ya filtrado por el
+  controller vía `Buscar venta`/filtros avanzados — decisión intencional de VENTA-UI-04B,
+  documentada en el comentario de `Index_tw.cshtml`), pero el indicador "Filtros activos"
+  y el control para quitarlos vivían solo dentro de `panel-operaciones`. Resultado
+  reproducido en vivo: con un filtro que no matchea nada, la pestaña Pendientes pasaba de
+  "20" a mostrar "Sin pendientes de autorización" (ícono verde de estado resuelto) sin
+  ninguna señal de que un filtro residual, no la ausencia real de pendientes, explicaba el
+  vacío — mismo mecanismo en Cotizaciones y presupuestos y en Devoluciones. Se descartó
+  hacer que esas 3 pestañas ignoren el filtro (revertiría una decisión de diseño ya
+  documentada) a favor de comunicar el estado real: se agrega el mismo indicador ya usado
+  en Operaciones (`pill pill-blue` "Filtros activos" + link "Limpiar filtros" a
+  `asp-action="Index"`, mismo componente `panel-heading__meta` que ya usaba Devoluciones
+  para "Ver historial") a los 3 `panel-heading` de Pendientes/Cotizaciones/Devoluciones,
+  condicionado a `filtroActivo` (variable ya existente, sin nueva lógica). Sin cambios de
+  cálculo, reglas de negocio, ids, `data-*` ni contratos backend/JS; 0 CSS nuevo (reusa
+  `.pill`, `.pill-blue`, `.panel-heading__meta`, `.btn-ghost`, ícono `clear_all`, ya
+  definidos). Validado en vivo con Playwright (segunda pasada sobre la instancia :18787
+  del usuario, solo navegación de lectura) en 1440×900 y 390×844: filtro sin resultados
+  aplicado desde Operaciones → Pendientes/Cotizaciones/Devoluciones muestran el indicador y
+  "Limpiar filtros" restaura el badge "20" y el listado completo; sin overflow horizontal,
+  0 errores/warnings de consola; build 0 errores; 7/7 tests focalizados
+  (`VentaControllerIndexPaginacionTests`) verdes.
 
 ## Venta / Create + Edit — cerrados conjuntamente
 
@@ -201,6 +228,23 @@ Resumen no cronológico de lo que quedó implementado:
   existente, ajeno a este lote (no se tocó `CreditoController`/`venta-credito-embebido.js`),
   reproducido en vivo sobre la venta VTA-202608-000080.
 
+- reapertura VENTA-CREDITO-CTA-SIN-COLOR-01, a partir de reporte directo del usuario sobre
+  `Venta/Edit`: el botón "Continuar a revisión" (`_ConfigurarVentaEmbebida.cshtml`, sólo
+  visible cuando `Model.CreditoEstaConfigurado`) "no tiene color y no se nota". Causa raíz
+  verificada en código: el botón sólo llevaba `class="btn btn-block btn-sm"` — `.btn`
+  (`credito-module.css`) es únicamente estructura (padding, radio, tipografía); el color de
+  fondo/texto lo aporta siempre una clase variante (`.btn-primary`/`.btn-success`/
+  `.btn-ghost`/`.btn-soft`/`.btn-amber`/`.btn-danger`), que acá faltaba — el botón quedaba
+  sin fondo, ilegible contra el fondo oscuro del panel. Fix: se agrega `btn-soft` (variante
+  secundaria neutra ya definida, usada para CTAs no-primarios en el mismo archivo) — queda
+  visible sin competir con el verde de "Guardar configuración" (`btn-success`), que sigue
+  siendo el único CTA primario del bloque. Sin cambios de cálculo, reglas de negocio, ids,
+  `data-*` ni contratos backend/JS. Validado: build 0 errores, 335/335 tests focalizados
+  (incluye `VentaCreditoRedesignVisual*`, que ya cubren `data-credito-embebido-continuar-
+  revision`) verdes; validado en vivo con Playwright sobre VTA-202608-000080 (paso Crédito,
+  crédito ya configurado) — "Continuar a revisión" queda visible (fondo slate, borde) sin
+  competir con el verde de "Guardar configuración", 0 errores de consola.
+
 ## Venta / Details — cerrado
 
 Resumen no cronológico de lo que quedó implementado:
@@ -309,6 +353,59 @@ estilos de impresión dedicada para el módulo.
   reporte, en 1440×900 y 390×844 sin overflow horizontal, 0 errores de consola; 66/66 tests
   focalizados (VentaDetails + ContratoVentaCredito) verdes, build 0/0.
 
+- reapertura VENTA-DETAILS-OPTIMIZACION-01, a partir de una auditoría de 4 capas completa
+  pedida por el usuario (no un reporte de bug puntual). 5 hallazgos nuevos no cubiertos por
+  H11-H13 (que se habían enfocado en Total/N° de factura/Crédito Personal/N° de contrato):
+  - el campo "Cliente" (nombre + documento) de la grilla "Información de la venta" repetía
+    exactamente el mismo dato, con el mismo peso tipográfico, que la card "Cliente" del hero
+    inmediatamente arriba sin scroll de por medio (en mobile, layout de 1 columna, quedan uno
+    debajo del otro) — a diferencia de Total/N° de factura (H11-H13, mantenidos porque cada
+    aparición cumple un rol distinto), acá no había cálculo ni contexto adicional agregado.
+    Se retira el campo de la grilla (pasa de 4 a 3 columnas); el hero ya lo muestra con más
+    jerarquía. Como el botón "Imprimir" usa `window.print()` genérico sin hoja de estilos de
+    impresión propia (deuda ya documentada), la duplicación se trasladaba también a cualquier
+    impresión de la pantalla;
+  - el badge "Usa pago principal" se repetía idéntico en cada línea de la tabla de productos
+    que no tuviera una excepción de forma de pago — el caso común, sin aportar nada a decidir
+    (§14: "mismo estado repetido"). Ahora solo se muestra badge cuando la línea realmente
+    tiene una excepción;
+  - reordenamiento: con autorización pendiente, la card "Acciones" (Autorizar/Rechazar) ya
+    era visible sin scroll en la columna derecha en desktop (`lg:items-start`, columnas en
+    paralelo), mientras que el motivo/las razones para decidir quedaban al final de la
+    columna izquierda, después de Información/Detalle de productos/Crédito/Documentación/
+    Facturación si existían. La card "Autorización" se extrajo a
+    `_VentaAutorizacionPanel.cshtml` (mismo patrón que `_VentaRazonesAutorizacion.cshtml`)
+    para poder llamarla desde 2 posiciones sin duplicar el markup: al principio de la
+    columna izquierda cuando `Model.DebeAlertarAutorizacionPendiente` (a la misma altura que
+    "Acciones" también en desktop), o en su posición original al final cuando ya está
+    resuelta (solo registro histórico). En mobile las columnas ya se apilaban en este mismo
+    orden relativo, así que no cambia nada ahí;
+  - accesibilidad: los botones "cerrar" (ícono `close` solo, sin texto) de los modales
+    "Emitir factura" y "Anular factura" no tenían `aria-label` ni `title` — viola §11 del
+    estándar ("nombres accesibles en botones con solo ícono"). Se agrega
+    `aria-label="Cerrar"` a ambos;
+  - `venta-page-wizard.css` (1056 líneas) se cargaba también en Details/Autorizar/Rechazar/
+    Cancelar/Delete vía `_VentaModuleStyles.cshtml` aunque ninguna de esas 5 vistas usa
+    clases de wizard (verificado con grep, 0 matches) — solo Create/Edit lo necesitan. Se
+    separa a `_VentaWizardStyles.cshtml`, incluido explícitamente solo en Create_tw/Edit_tw;
+    las otras 5 vistas dejan de pagar ese payload sin cambio visual.
+  El resto de las duplicaciones ya evaluadas en H11-H13 (Total en 7 lugares, N° de factura,
+  N° de contrato, chips de Fecha/Forma de pago) se revisaron de nuevo y se reconfirmaron sin
+  evidencia nueva para reabrirlas — no se tocan. Sin cambios de cálculo, reglas de negocio,
+  ids ni contratos backend. Comparación de referencia contra `Venta/Index` (§16): confirmó
+  buen uso compartido del lenguaje visual (`hero-erp`, `card-erp-panel`, `badge-erp-*`); el
+  mapeo estado→color queda documentado como duplicado de forma independiente entre ambas
+  vistas (Index vía clases `.pill-*` scopeadas + helper `@functions`, Details vía switch de
+  Tailwind inline) — no bloqueante, no se unifica en este lote (crearía una autoridad visual
+  nueva sin pedido explícito). No se pudo hacer una pasada de Playwright en vivo en este
+  lote: el navegador MCP quedó tomado por otra sesión activa del usuario sobre el mismo
+  proyecto durante todo el desarrollo; validado en cambio con 1198/1198 tests de contrato UI
+  relacionados con Venta verdes (incluye los 4 tests actualizados/agregados para reflejar el
+  nuevo contrato: badge sin excepción, y las 2 posiciones de `_VentaAutorizacionPanel`) y
+  build 0 errores (vía `bin/valrun`, sin tocar la instancia :18787 del usuario). Pendiente
+  para el próximo cierre: repetir la validación visual en vivo con Playwright cuando el
+  navegador quede libre, especialmente el caso de autorización pendiente en 1440×900/390×844.
+
 ## Cotización / Simular — cerrado
 
 Parcial compartido `_CotizadorForm.cshtml` (pantalla completa en `Cotizacion/Index_tw` y
@@ -354,6 +451,64 @@ POLISH-01 (f722a23); mobile real cerrado en CIERRE-01 (este lote):
   IMPLEMENTACION-01, que dejó a Guardar en la misma página con un link "Ver cotización"
   (reproducido en vivo en navegador real, sin relación con CIERRE-01: ocurre a 1366px,
   fuera de cualquier banda tocada por este lote).
+
+- reapertura COTIZACION-SIMULAR-OVERLAP-01, a partir de reporte directo del usuario (con
+  capturas) de íconos superpuestos con el texto tipeado en varios campos del cotizador
+  (`_CotizadorForm.cshtml`, embebido en la pestaña Cotizar de `Venta/Create`/`Edit` y en
+  `Cotizacion/Index_tw`). Causa raíz verificada en código, no visual únicamente:
+  `cotizacion-simulador.css` no usa `@layer` — por reglas de CSS Cascade Layers, cualquier
+  regla fuera de un `@layer` le gana a las utilities de Tailwind (`@layer utilities`) sin
+  importar el orden de las hojas ni la especificidad, mismo mecanismo ya documentado para
+  `.hidden` en VENTA-CREDITO-REDESIGN-VISUAL-IMPLEMENTACION-01. El padding shorthand de
+  `.cotz-app .field { padding: .5rem .65rem }` anulaba por completo `.pl-8`/`.pl-6`/`.pr-6`
+  (usadas para dejar hueco a un ícono absoluto: lupa de "Buscar nombre, código o ID…" y de
+  "Nombre, DNI o CUIT…", "$" de Anticipo e Importe de descuento general, "%" de Porcentaje
+  de descuento general), dejando el padding lateral real en `.65rem` — el texto quedaba
+  tapado por el ícono en los 5 campos. Fix: 3 reglas nuevas (`.field.pl-8`/`.field.pl-6`/
+  `.field.pr-6`, mismos valores que ya define Tailwind con `--spacing: .25rem`) que
+  restauran el padding sólo del lado que trae el ícono, sin tocar `.field` en general ni
+  crear una nueva autoridad de espaciado. Sin cambios de cálculo, reglas de negocio, ids
+  ni contratos backend/JS. Validado: build 0 errores, 335/335 tests focalizados
+  (`VentaCreditoRedesignVisual*`, `VentaCreateUiContractTests`, `Cotizacion*`) verdes.
+
+  Validación en vivo (Playwright, una vez liberado el navegador MCP) encontró que el fix
+  de arriba no alcanzaba dentro de `Venta/Create`/`Edit`: el cotizador se embebe dentro de
+  `#venta-create-page`/`#venta-edit-page`, y `venta-page-wizard.css` trae un reset genérico
+  de inputs con selector `#venta-create-page input[type="text"], ... input[type="number"],
+  ...` — un ID en la cadena de selectores le gana en especificidad a `.cotz-app
+  .field.pl-8` (3 clases) sin importar cuántas clases se sumen ahí, así que el padding
+  seguía cayendo a `.75rem`/`.8rem` (el reset del wizard) en vez de a los 2rem/1.5rem del
+  fix. Es el mismo patrón que ya resolvió `.cotz-app .total-display` más arriba en este
+  mismo archivo (línea ~39, borde ámbar heredado de `venta-page-wizard.css` por el mismo
+  mecanismo). Fix: `!important` en las 3 reglas — no hay forma de ganarle a un selector con
+  ID sólo con clases, y el archivo ya documenta y usa este mismo escape para el caso
+  gemelo. No aplica en `Cotizacion/Index_tw` standalone (sin ese ancestro), donde el fix
+  sin `!important` ya alcanzaba, pero el `!important` ahí es inocuo (mismo valor, sin
+  competencia). Validado en vivo con Playwright, logueado como usuario real: los 5 campos
+  (buscador de productos, buscador de cliente, "$" de Anticipo, "$" de Importe y "%" de
+  Porcentaje) muestran padding-left/right correcto (32px/24px/24px medidos por
+  `getComputedStyle`, antes 12px) tanto en `Venta/Create` (1440×900, embebido en el
+  wizard) como en 390×844 (mobile real); captura visual confirma texto e íconos sin
+  superposición; sin overflow horizontal; 0 errores/warnings de consola.
+
+  Segunda pasada sobre el mismo reporte: el hallazgo "card de producto agregado (ej.
+  heladera) con espacio desperdiciado / poco prolija" sí tenía causa raíz verificable en
+  código, no encontrada en la primera pasada. `.qty-step input` y `.mini` (Cantidad y
+  Dto. %/Dto. $ de cada fila del carrito) son `type="number"` sin ningún reset de las
+  flechas nativas del navegador — a diferencia de `.stepper` en `credito-module.css`, que
+  ya suprime esas flechas para el mismo tipo de componente (custom −/+ + input). El
+  spinner nativo se sumaba al ancho fijo de `.qty-step`/`.mini` dentro de una fila ya
+  angosta (rail de Productos, 14rem mínimo), angostando el dígito visible y dejando huecos
+  irregulares; en los `.field` con sufijo "%" (`pr-6`, Descuento general) el spinner además
+  caía debajo del signo "%" posicionado en absoluto. Fix: mismo patrón ya usado en
+  `credito-module.css` (`appearance: textfield` / `::-webkit-*-spin-button { appearance:
+  none }`), aplicado una sola vez a `.cotz-app input[type="number"]` (cubre `.qty-step`,
+  `.mini` y los `.field` numéricos con "$"/"%"). Sin cambios de cálculo, reglas de
+  negocio, ids ni contratos backend/JS. Validado: build 0 errores, 226/226 tests
+  focalizados (`Cotizacion*`, `VentaWizardAccessibility*`) verdes; validado en vivo con
+  Playwright agregando "heladera" al carrito en `Venta/Create` — fila del carrito sin
+  flechas nativas visibles, espaciado prolijo entre stepper y Dto. %/Dto. $, sin huecos ni
+  recortes; 0 errores de consola.
 
 ## ConfiguracionPago / MediosPago — cerrado
 
@@ -470,6 +625,115 @@ scrollTop exacto (probado en ambos anchos), botón atrás del navegador re-sincr
 panel y el sidebar correctamente, un submit real (Editar método → Guardar) sigue
 funcionando end-to-end con toast de éxito tras el reemplazo AJAX, sin overflow horizontal,
 0 errores/warnings de consola; build 0/0.
+
+## Caja — cerrado
+
+Auditoría de 4 capas pedida por el usuario sobre las 8 pantallas full-page del módulo
+(`Abrir`, `Cerrar`, `Create`/`Edit`, `DetallesApertura`, `DetallesCierre`, `Historial`,
+`RegistrarMovimiento`) más los 5 parciales de Conciliación (`_ConciliacionCards`,
+`_ConciliacionTabs`, `_ConciliacionResumenTab`, `_ConciliacionVentasTab`,
+`_ConciliacionMovimientosTab`, `_ConciliacionConciliacionTab`, `_ConciliacionAuditoriaTab`),
+sin trabajo previo de este estándar (el módulo venía de un rework visual propio ML9/ML10,
+`docs/ui-caja-handoff-ml10.md`, no auditado contra `ERP-UI-STANDARD.md`). Diagnóstico +
+implementación pedidos explícitamente en el mismo lote:
+
+- **Movimientos ⊂ Libro mayor (redundancia real, no interpretación)**: verificado en
+  `CajaConciliacionBuilder.cs` que el tab "Movimientos" y el libro mayor del tab
+  "Conciliación" partían del mismo array `movimientos` — el libro mayor solo sumaba la fila
+  de apertura y el saldo corriente. Se fusionó "Movimientos" dentro de "Conciliación" (pasa
+  de 5 a 4 tabs); sus filtros propios (tipo/dirección, medio, usuario) se absorbieron en el
+  libro mayor sin perder capacidad de filtrado — medio y usuario ahora se derivan de los
+  datos reales (`ConciliacionLineaViewModel.Usuario`, campo nuevo, puramente aditivo, sin
+  tocar ninguna regla de cálculo) en vez de listas hardcodeadas, mismo patrón que ya usa el
+  filtro "Estado" de `_ConciliacionVentasTab`;
+- **ARIA de tabs incompleto** (§5): `_ConciliacionTabs` tenía `role="tab"`/`aria-selected`
+  pero sin `id`/`aria-controls`/`aria-labelledby`/`role="tabpanel"` ni roving tabindex ni
+  navegación por flechas — comparado directamente contra la referencia ya cerrada
+  `Venta/Index` (`venta-index-rework.js`), que sí los tiene. Se portó el mismo patrón
+  completo (ids `cc-tab-*`/`cc-panel-*`, `aria-controls`/`aria-labelledby` bidireccional,
+  `tabindex` 0/-1 con roving, `ArrowLeft`/`ArrowRight`/`Home`/`End` en `caja-conciliacion.js`);
+- **"Caja física esperada" repetida 3 veces en el mismo tab sin aportar nada la 3ª vez**: card
+  fija arriba de los tabs + fórmula del "Resumen de conciliación" + pie del libro mayor, las
+  3 dentro de la misma pantalla y sin scroll entre las 2 últimas. Se retiró la 3ª repetición;
+  el pie del libro mayor ahora muestra la Diferencia final solo cuando el turno está cerrado
+  (el único dato de esa sección que no se veía en ningún otro lado), y no se muestra nada
+  cuando el turno sigue abierto (no hay "diferencia final" todavía);
+- **Concepto de `RegistrarMovimiento` sin fallback server-side**: el `<select>` no tenía
+  ningún `<option>` server-renderizado — un fallo de `caja-registrar-movimiento.js` dejaba un
+  campo obligatorio vacío sin ninguna opción elegible. Las 2 `<optgroup>` (Ingresos/Egresos,
+  mismos 12 conceptos que ya usaba el JS, sin agregar los conceptos de `ConceptoMovimientoCaja`
+  reservados a movimientos generados por el sistema — venta transferencia/Mercado Pago/
+  liquidación ML/reversión — que este formulario nunca ofreció) quedan siempre en el HTML; el
+  JS ahora oculta la que no corresponde al tipo activo en vez de reconstruir el `<select>`
+  desde cero, y lee los sets Ingreso/Egreso del propio DOM en vez de duplicarlos en un array;
+- **Trabajo JS muerto en `RegistrarMovimiento`**: 5 `<span hidden>` (`tipo-card-label`,
+  `tipo-card-copy`, `tipo-panel-badge`, `tipo-panel-title`, `tipo-panel-copy`) recibían
+  texto/clases en cada cambio de tipo pero estaban permanentemente ocultos (atributo `hidden`
+  más una regla CSS `!important` que los forzaba); el HTML de referencia que los originó
+  (`referencia/Caja/`) ya no existe en el repo para "terminar" un panel visual con ellos, y el
+  copy que escribían ya es visible por otro lado (`#tipo-help`). Se eliminaron junto con el
+  código JS y CSS que los sostenía;
+- **`caja-detalles-apertura.js` huérfano** (128 líneas): ninguna vista actual lo carga
+  (`DetallesApertura_tw`/`DetallesCierre_tw` cargan `caja-conciliacion.js`) y sus selectores
+  (`data-sale-payment-filter`, `data-merch-filter`, `#tabla-movimientos`, etc.) no existen en
+  ningún `.cshtml` vigente — es JS de una versión anterior a la Conciliación actual. Eliminado;
+- **`Create_tw`/`Edit_tw` full-page huérfanas**: sin ningún link de entrada real (verificado en
+  `_Layout`, `Index_tw`, `Dashboard`, `Venta`), ya documentadas como "legacy, coexiste con
+  modal AJAX" desde el handoff ML10, sin tests que las cubrieran. El modal (`_CreateModal_tw`/
+  `_EditModal_tw`, cargado vía `CreatePartial`/`EditPartial`) es la única vía real desde
+  `Index_tw`, y su submit (`caja-index.js`) siempre postea con `X-Requested-With` — se
+  confirmó que el fallback no-AJAX del controller nunca se ejercita en el flujo real. Se
+  eliminaron ambas vistas y `caja-form.js` (su único consumidor); `CajaController` pierde las
+  2 acciones GET y sus 5 ramas de fallback a esas vistas pasan a redirigir a `Index` con
+  `TempData["Error"]` (mismo criterio que ya usa `Delete`), sin tocar la lógica de negocio de
+  `CrearCajaAsync`/`ActualizarCajaAsync` ni el contrato AJAX existente;
+- **`Abrir_tw` sin estado explícito para "no hay cajas para abrir"**: el `<select>` quedaba
+  con el placeholder únicamente cuando el padrón del usuario estaba vacío. Se agregó un aviso
+  explícito + `disabled` en el select y el submit cuando no hay ninguna opción real. De paso
+  se corrigió una discrepancia real encontrada al implementar esto: `SetCajasActivasSelectListAsync`
+  no excluía cajas ya abiertas (`Estado == EstadoCaja.Abierta`) de su propio `<select>`,
+  contradiciendo el hint de la pantalla ("Solo se listan cajas disponibles (sin turno
+  abierto)") — `AbrirCajaAsync` ya lo rechazaba igual del lado del service, pero el listado
+  podía mostrar una caja no operable. Ahora el filtro incluye `Estado != Abierta`.
+
+Sin cambios de reglas de negocio, cálculo, ids/`data-*` de contrato existentes ni rutas.
+Validado: build 0 errores (proyecto principal + `TheBuryProyect.Tests`, `dotnet build`),
+229/229 tests focalizados de Caja verdes (`--filter FullyQualifiedName~Caja`, incluye 3 tests
+de contrato nuevos/actualizados en `CajaDetallesAperturaContractTests` que fijan el nuevo
+contrato de 4 tabs + ARIA + Concepto server-renderizado), sintaxis de los 2 JS reescritos
+verificada con `node --check`. **Pendiente para el próximo cierre**: no se pudo validar en
+vivo con Playwright — el navegador MCP quedó tomado por otra sesión activa del usuario
+durante todo el lote (mismo escenario ya documentado en VENTA-DETAILS-OPTIMIZACION-01);
+repetir cuando el navegador quede libre, en particular el roving tabindex/flechas de los
+tabs, el filtro fusionado del libro mayor y el `disabled` condicional de `Abrir_tw` en los
+viewports obligatorios.
+
+- reapertura CAJA-VENTAS-AGRUPACION-01 (2026-09-12): hallazgo del usuario sobre
+  `/Caja/DetallesApertura/{id}` — el tab "Ventas del turno" (`_ConciliacionVentasTab.cshtml`)
+  ya excluía `VentaTurnoCategoria.Registro` (cotizaciones/presupuestos/canceladas), pero
+  mezclaba `Efectiva` (Confirmada/Facturada/Entregada) y `Pendiente` (PendienteRequisitos/
+  PendienteFinanciacion) en una sola lista ordenada solo por fecha, sin separación visual —
+  regresión funcional respecto al diseño original de 3 bloques de
+  `docs/fase-kira-caja-detalle-ventas-ux.md`, que esa fase había resuelto explícitamente por
+  el mismo motivo ("confusión operativa" al mezclar estados). Una venta `Confirmada` o
+  `Pendiente financiación` (todavía sin facturar, sin ingreso real en caja) terminaba
+  compitiendo visualmente en pie de igualdad con una `Facturada`. Fix: la tabla ahora agrupa
+  por categoría — "Ventas efectivas" primero, "Operaciones pendientes" después (con leyenda
+  "Sin ingreso inmediato — todavía no impactan la caja") — vía una fila de encabezado de
+  grupo por sección (`.tbl-group-row`, CSS nuevo en `caja-module.css`), conservando el orden
+  por fecha dentro de cada grupo. Categorización de negocio (`VentaTurnoCategoria`,
+  `CajaConciliacionBuilder.CategoriaVenta`) sin cambios — el fix es puramente de jerarquía
+  visual, no de qué ventas se muestran. Los 4 filtros existentes (medio/estado/impacta/
+  cliente) y sus `data-venta-*` no cambiaron; `caja-conciliacion.js` se extendió para ocultar
+  el encabezado de un grupo si el filtro deja 0 filas visibles en él (evita un título de
+  grupo huérfano sobre una tabla vacía). Nuevo test de contrato
+  `Ventas_AgrupaEfectivasYPendientesConEncabezadoPropio`. Sin cambios de ids/`data-*`
+  existentes, rutas ni reglas de negocio. Validado: build 0 errores, 230/230 tests
+  focalizados de Caja verdes (`--filter FullyQualifiedName~Caja`, incluye el test nuevo),
+  sintaxis de `caja-conciliacion.js` verificada con `node --check`. **No validado en vivo con
+  Playwright** — mismo bloqueo ya documentado arriba (navegador MCP tomado por otra sesión
+  activa del usuario durante todo el lote); pendiente repetir cuando el navegador quede
+  libre, en los 5 viewports obligatorios y con los 3 filtros aplicados sobre datos reales.
 
 ## Backlog transversal
 

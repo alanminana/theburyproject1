@@ -59,7 +59,7 @@
         @Html.AntiForgeryToken()
 
         <div asp-validation-summary="ModelOnly"
-             class="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400 space-y-1 hidden [&:not(:empty)]:block">
+             class="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400 space-y-1 hidden not-empty:block">
         </div>
 
         <!-- Producto -->

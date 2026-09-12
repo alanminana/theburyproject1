@@ -302,6 +302,27 @@ body:has(.cotz-standalone) #main-content > div:last-child {
 .cotz-app .field:focus { border-color: #3b82f6; outline: none; box-shadow: 0 0 0 3px rgba(59,130,246,.16); }
 .cotz-app .field:disabled { opacity: .5; }
 .cotz-app textarea.field { resize: none; }
+/* Este archivo no usa @layer: por reglas de CSS Cascade Layers, cualquier regla
+   fuera de un @layer le gana a las utilities de Tailwind (declaradas en
+   @layer utilities), sin importar el orden de las hojas ni la especificidad —
+   mismo mecanismo ya documentado para .hidden en VENTA-CREDITO-REDESIGN-VISUAL-
+   IMPLEMENTACION-01. El padding shorthand de .field de arriba anulaba por
+   completo .pl-8/.pl-6/.pr-6 (usadas para dejar hueco a un ícono absoluto:
+   lupa del buscador de productos/cliente, "$" de Anticipo/Importe, "%" de
+   Porcentaje), dejando el padding lateral real en .65rem — el texto tipeado
+   quedaba tapado por el ícono. Mismos valores que ya define Tailwind
+   (--spacing: .25rem), sólo para el lado que trae el ícono.
+   !important verificado como necesario en vivo (Playwright, Venta/Create): el
+   cotizador se embebe dentro de #venta-create-page/#venta-edit-page, y
+   venta-page-wizard.css trae un reset genérico de inputs con selector
+   "#venta-create-page input[type=\"text\"], ... input[type=\"number\"], ..." — un
+   ID en la cadena de selectores le gana en especificidad a cualquier cantidad de
+   clases, así que ninguna combinación de clases acá (por más específica que sea)
+   puede ganarle sin !important. No aplica en Cotizacion/Index_tw (sin ese
+   ancestro), donde esta regla igual sigue siendo la fuente de verdad. */
+.cotz-app .field.pl-8 { padding-left: 2rem !important; }
+.cotz-app .field.pl-6 { padding-left: 1.5rem !important; }
+.cotz-app .field.pr-6 { padding-right: 1.5rem !important; }
 .cotz-app .label { display: block; font-size: .68rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: #7c8aa3; margin-bottom: .3rem; }
 
 /* ---------- Buttons ---------- */
@@ -348,6 +369,16 @@ body:has(.cotz-standalone) #main-content > div:last-child {
 .cotz-app .qty-step button:hover { background: #1a2435; color: #fff; }
 .cotz-app .qty-step input { width: 34px; text-align: center; background: transparent; border: 0; color: #fff; font-size: .8rem; font-family: 'JetBrains Mono', monospace; }
 .cotz-app .qty-step input:focus { outline: none; }
+/* Todo input[type=number] del cotizador (.qty-step, .mini y los .field con "$"/"%"
+   de Anticipo/Descuentos) carecía de reset de las flechas nativas del navegador — a
+   diferencia de .stepper en credito-module.css, que sí las suprime para el mismo tipo
+   de componente. El spinner nativo se sumaba al ancho fijo de .qty-step/.mini,
+   angostando el dígito visible y dejando huecos irregulares en una fila ya angosta
+   (rail de Productos, 14rem mínimo); en los .field con sufijo "%" (pr-6) el spinner
+   además caía debajo del signo "%" posicionado en absoluto. */
+.cotz-app input[type="number"] { -moz-appearance: textfield; }
+.cotz-app input[type="number"]::-webkit-outer-spin-button,
+.cotz-app input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 /* Fila Cantidad/Dto.%/Dto.$: la 1ª columna toma el ancho natural del stepper
    (~86px, no se lo puede repartir en tercios iguales sin desbordar en el rail
    angosto de Productos, 14rem mínimo) y las dos siguientes se reparten el resto. */

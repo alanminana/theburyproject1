@@ -89,7 +89,7 @@ public static class CajaConciliacionBuilder
                 .OrderByDescending(m => m.FechaMovimiento)
                 .Select(m => MapMovimiento(m, cuotaToCreditoId))
                 .ToList(),
-            LibroMayor = BuildLibroMayor(apertura.MontoInicial, movimientos, cuotaToCreditoId),
+            LibroMayor = BuildLibroMayor(apertura.MontoInicial, movimientos, cuotaToCreditoId, apertura.UsuarioApertura),
             ResumenPorMedio = BuildResumenPorMedio(ventasEfectivas, detalle.ResumenRealPorMedioPago),
             Auditoria = BuildAuditoria(apertura, movimientos, cierre, lineasVenta),
         };
@@ -272,7 +272,8 @@ public static class CajaConciliacionBuilder
     private static List<ConciliacionLineaViewModel> BuildLibroMayor(
         decimal fondoInicial,
         List<MovimientoCaja> movimientos,
-        IReadOnlyDictionary<int, int>? cuotaToCreditoId)
+        IReadOnlyDictionary<int, int>? cuotaToCreditoId,
+        string usuarioApertura)
     {
         var filas = new List<ConciliacionLineaViewModel>();
         var saldo = fondoInicial;
@@ -292,7 +293,8 @@ public static class CajaConciliacionBuilder
             Sale = 0m,
             SaldoEsperado = saldo,
             ImpactaCajaFisica = true,
-            EsApertura = true
+            EsApertura = true,
+            Usuario = usuarioApertura
         });
 
         foreach (var m in movimientos.OrderBy(x => x.FechaMovimiento).ThenBy(x => x.Id))
@@ -323,7 +325,8 @@ public static class CajaConciliacionBuilder
                 ImporteBase = m.ImporteBase,
                 RecargoMedioPago = m.RecargoMedioPago,
                 DescuentoMedioPago = m.DescuentoMedioPago,
-                ReferenciaUrl = ResolverReferenciaUrl(m, cuotaToCreditoId)
+                ReferenciaUrl = ResolverReferenciaUrl(m, cuotaToCreditoId),
+                Usuario = m.Usuario
             });
         }
 

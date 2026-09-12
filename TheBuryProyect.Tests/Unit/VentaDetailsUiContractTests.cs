@@ -57,6 +57,25 @@ public sealed class VentaDetailsUiContractTests
     }
 
     [Fact]
+    public void VentaViewModel_CreditoPersonalConCreditoConfiguradoOfreceConfirmarYFacturar()
+    {
+        // La acción combinada ya no excluye crédito personal: PuedeConfirmar exige
+        // crédito configurado (y VentaController.Confirmar exige contrato generado antes
+        // de llegar a REGLA 4), así que llegado este punto no queda ningún requisito
+        // pendiente que impida facturar en el mismo paso que mostrador.
+        var venta = new VentaViewModel
+        {
+            Estado = EstadoVenta.PendienteRequisitos,
+            TipoPago = TipoPago.CreditoPersonal,
+            CreditoId = 55,
+            FechaConfiguracionCredito = DateTime.Today
+        };
+
+        Assert.True(venta.PuedeConfirmar);
+        Assert.True(venta.PuedeConfirmarYFacturar);
+    }
+
+    [Fact]
     public void DetailsView_ModalAnularFactura_MarcaElTextareaMotivoComoFocoInicial()
     {
         // VENTA-DETAILS-01B (H3): bindModal resuelve el foco inicial vía

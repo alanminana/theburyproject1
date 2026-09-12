@@ -78,7 +78,7 @@
         if (lgMedia.matches) {
             container.innerHTML =
                 '<div class="lg:h-full">' +
-                '<div class="sticky top-0 max-h-[calc(100vh-4rem)] w-[28rem] bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col items-center justify-center gap-3 min-h-[12rem]">' +
+                '<div class="sticky top-0 max-h-[calc(100vh-4rem)] w-md bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col items-center justify-center gap-3 min-h-48">' +
                 '  <span class="material-symbols-outlined text-primary text-3xl animate-spin">progress_activity</span>' +
                 '  <p class="text-sm text-slate-500">Cargando...</p>' +
                 '</div></div>';
@@ -213,11 +213,47 @@
                 cells[1].textContent = _ubicacionText(entity);
             }
             _updateMobileCardText(entity);
+            // La edición cambia el rowVersion de concurrencia en el backend; si no se
+            // refresca acá, un "Eliminar" inmediato sobre esta misma fila (sin recargar)
+            // viaja con el token viejo y el backend lo rechaza como conflicto de concurrencia.
+            _refreshDeleteFormRowVersion(currentRow, entity);
             showPageFeedback('Caja actualizada: ' + entity.nombre, 'success');
         } else {
             showPageFeedback('Caja actualizada: ' + entity.nombre, 'success');
             setTimeout(() => location.reload(), 800);
         }
+    }
+
+    function _refreshDeleteFormRowVersion(row, entity) {
+        if (!entity.rowVersion) return;
+        const input = row.querySelector('form[data-caja-delete-form] input[name="rowVersion"]');
+        if (input) input.value = entity.rowVersion;
+    }
+
+    // Token antifalsificación ya presente en el DOM (cualquier form server-rendered
+    // con [ValidateAntiForgeryToken] lo trae) para poder construir un form de Eliminar
+    // client-side sin una vuelta al server. Mismo patrón que document.querySelector(
+    // 'input[name="__RequestVerificationToken"]') ya usado en catalogo-index.js.
+    function _antiForgeryToken() {
+        const input = document.querySelector('input[name="__RequestVerificationToken"]');
+        return input ? input.value : '';
+    }
+
+    function _buildCajaDeleteFormHtml(entity) {
+        const token = _antiForgeryToken();
+        // Sin token no hay forma de armar un submit válido (ValidateAntiForgeryToken lo
+        // rechazaría) — se omite el botón para esta fila en vez de ofrecer uno roto;
+        // recargar la página lo resuelve, igual que el resto de los fallbacks de este archivo.
+        if (!token) return '';
+
+        return '<form action="/Caja/Delete" method="post" class="inline-flex" ' +
+            'data-caja-delete-form data-confirm-message="¿Eliminar esta caja? No podrá deshacerse desde esta pantalla.">' +
+            '<input type="hidden" name="__RequestVerificationToken" value="' + escapeHtml(token) + '" />' +
+            '<input type="hidden" name="id" value="' + entity.id + '" />' +
+            '<input type="hidden" name="rowVersion" value="' + escapeHtml(entity.rowVersion || '') + '" />' +
+            '<button type="submit" class="btn btn-ghost btn-sm" aria-label="Eliminar">' +
+            '<span class="material-symbols-outlined" style="color:#fb7185">delete</span></button>' +
+            '</form>';
     }
 
     function _handleCajaCreada(entity) {
@@ -292,7 +328,7 @@
         const chipHtml = isArch
             ? '<span class="chip chip-neutral">Archivada</span>'
             : '<span class="chip chip-ok">Disponible</span>';
-        const actionsHtml = isArch
+        const primaryActionsHtml = isArch
             ? '<button type="button" data-caja-open-edit data-caja-id="' + entity.id + '" ' +
               'class="btn btn-ghost btn-sm" title="Reactivar / Editar">' +
               '<span class="material-symbols-outlined">restore_from_trash</span>Reactivar</button>'
@@ -301,12 +337,19 @@
               '<button type="button" data-caja-open-edit data-caja-id="' + entity.id + '" ' +
               'class="btn btn-ghost btn-sm" aria-label="Editar">' +
               '<span class="material-symbols-outlined">edit</span></button>';
+        // Misma acción "Eliminar" que ya trae la fila renderizada por el server (Razor);
+        // sin esto, una caja creada por el modal quedaba sin esta acción hasta recargar.
+        const actionsHtml = primaryActionsHtml + _buildCajaDeleteFormHtml(entity);
 
+        // 5 <td> para calzar con el <thead> real (Caja/Ubicación/Estado/Último cierre/
+        // Acciones); una caja recién creada por CrearCajaAsync siempre nace Cerrada, así
+        // que "Último cierre" es siempre "—" acá (nunca "Turno en curso").
         tr.innerHTML =
             '<td><div class="' + nameClass + '">' + escapeHtml(entity.nombre) + '</div>' +
             '<div class="mono text-xs muted-2">' + escapeHtml(entity.codigo) + '</div></td>' +
             '<td class="muted">' + _ubicacionHtml(entity) + '</td>' +
             '<td>' + chipHtml + '</td>' +
+            '<td class="muted num">—</td>' +
             '<td><div class="row-actions">' + actionsHtml + '</div></td>';
 
         return tr;
@@ -410,6 +453,10 @@
         const editTrigger = e.target.closest('[data-caja-open-edit]');
         if (editTrigger) {
             e.preventDefault();
+            // pointer-events:none ya bloquea el click de mouse; sin este chequeo, Tab +
+            // Enter/Espacio sobre el botón aria-disabled seguía abriendo el modal (el
+            // click sintético del teclado no lo respeta).
+            if (editTrigger.getAttribute('aria-disabled') === 'true') return;
             const id = editTrigger.dataset.cajaId;
             if (!id) {
                 showPageFeedback('No se pudo identificar la caja seleccionada.', 'error');

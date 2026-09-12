@@ -64,11 +64,19 @@ const ProveedorEditarModal = (() => {
         setField('CodigoPostal', data.codigoPostal);
         setField('Aclaraciones', data.aclaraciones);
         setField('Activo', data.activo);
-        // Productos: usar el picker (categorías y marcas ya no se editan en este modal)
-        const picker = form().querySelector('.proveedor-product-picker');
-        if (picker && picker._picker) {
-            picker._picker.preload(data.productosSeleccionados || []);
-        }
+
+        // Categorías / Marcas / Productos: cada uno es una instancia del picker,
+        // distinguida por su data-form-name.
+        const preloadByFormName = {
+            CategoriasSeleccionadas: data.categoriasSeleccionadas || [],
+            MarcasSeleccionadas: data.marcasSeleccionadas || [],
+            ProductosSeleccionados: data.productosSeleccionados || []
+        };
+        form().querySelectorAll('.proveedor-product-picker').forEach(picker => {
+            if (!picker._picker) return;
+            const formName = picker.dataset.formName;
+            picker._picker.preload(preloadByFormName[formName] || []);
+        });
     }
 
     async function open(id) {
@@ -150,7 +158,7 @@ const ProveedorEditarModal = (() => {
 
     function renderProveedorCell(entity) {
         var nombreFantasiaHtml = entity.nombreFantasia
-            ? '<span class="h-1 w-1 rounded-full bg-slate-700"></span><span class="truncate max-w-[14rem]">' + escHtml(entity.nombreFantasia) + '</span>'
+            ? '<span class="h-1 w-1 rounded-full bg-slate-700"></span><span class="truncate max-w-56">' + escHtml(entity.nombreFantasia) + '</span>'
             : '';
 
         return '<div class="min-w-0">' +
@@ -177,7 +185,7 @@ const ProveedorEditarModal = (() => {
             contactoHtml = '<span class="text-xs text-slate-500">Sin contacto</span>';
         }
 
-        return '<div class="flex max-w-[17rem] flex-col gap-0.5 text-sm">' + contactoHtml + '</div>';
+        return '<div class="flex max-w-68 flex-col gap-0.5 text-sm">' + contactoHtml + '</div>';
     }
 
     function renderEstadoBadge(activo) {
@@ -217,7 +225,12 @@ const ProveedorEditarModal = (() => {
 
     /* ESC to close */
     document.addEventListener('keydown', e => {
-        if (e.key === 'Escape' && !modal().classList.contains('hidden')) close();
+        if (e.key !== 'Escape' || modal().classList.contains('hidden')) return;
+        close();
+        const proveedorModule = window.TheBury && window.TheBury.ProveedorModule;
+        if (proveedorModule && typeof proveedorModule.deactivateModalA11y === 'function') {
+            proveedorModule.deactivateModalA11y('edit');
+        }
     });
 
     return { open, close, submit };

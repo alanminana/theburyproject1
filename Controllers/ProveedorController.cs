@@ -2,7 +2,6 @@
 using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering;
 using TheBuryProject.Filters;
 using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.Entities;
@@ -53,6 +52,7 @@ namespace TheBuryProject.Controllers
                 var viewModels = _mapper.Map<IEnumerable<ProveedorViewModel>>(proveedores);
 
                 var (categorias, marcas, productos) = await _catalogLookupService.GetCategoriasMarcasYProductosAsync();
+                var (categoriasJson, marcasJson, productosJson) = BuildPickerCatalogosJson(categorias, marcas, productos);
 
                 var filterViewModel = new ProveedorFilterViewModel
                 {
@@ -62,18 +62,9 @@ namespace TheBuryProject.Controllers
                     OrderDirection = orderDirection,
                     Proveedores = viewModels,
                     TotalResultados = viewModels.Count(),
-                    CategoriasDisponibles = categorias.OrderBy(c => c.Nombre).Select(c => new SelectListItem { Value = c.Id.ToString(), Text = c.Nombre }).ToList(),
-                    MarcasDisponibles = marcas.OrderBy(m => m.Nombre).Select(m => new SelectListItem { Value = m.Id.ToString(), Text = m.Nombre }).ToList(),
-                    ProductosDisponibles = productos.OrderBy(p => p.Nombre).Select(p => new SelectListItem { Value = p.Id.ToString(), Text = string.IsNullOrWhiteSpace(p.Codigo) ? p.Nombre : $"{p.Codigo} - {p.Nombre}" }).ToList(),
-                    ProductosPickerJson = System.Text.Json.JsonSerializer.Serialize(
-                        productos.OrderBy(p => p.Nombre).Select(p => new {
-                            id = p.Id,
-                            codigo = p.Codigo ?? "",
-                            nombre = p.Nombre,
-                            marca = p.Marca?.Nombre ?? "",
-                            categoria = p.Categoria?.Nombre ?? ""
-                        })
-                    )
+                    CategoriasPickerJson = categoriasJson,
+                    MarcasPickerJson = marcasJson,
+                    ProductosPickerJson = productosJson
                 };
 
                 return View("Index_tw", filterViewModel);
@@ -97,7 +88,7 @@ namespace TheBuryProject.Controllers
                 if (proveedor == null) return NotFound();
 
                 var viewModel = _mapper.Map<ProveedorViewModel>(proveedor);
-                await CargarAsociacionesAsync(viewModel);
+                await CargarPickerCatalogosAsync(viewModel);
                 return View("Details_tw", viewModel);
             }
             catch (Exception ex)
@@ -366,39 +357,50 @@ namespace TheBuryProject.Controllers
             }
         }
 
-        private async Task CargarAsociacionesAsync(ProveedorViewModel viewModel)
+        /// <summary>
+        /// Puebla los 3 catálogos (JSON) que consume el picker de búsqueda+chips del modal de
+        /// edición embebido en Details_tw (mismo formato/mismo componente que usa Index_tw).
+        /// La preselección real (qué categorías/marcas/productos ya tiene el proveedor) la resuelve
+        /// el propio JS del modal vía /Proveedor/GetEditData, no este método.
+        /// </summary>
+        private async Task CargarPickerCatalogosAsync(ProveedorViewModel viewModel)
         {
             var (categorias, marcas, productos) = await _catalogLookupService.GetCategoriasMarcasYProductosAsync();
+            var (categoriasJson, marcasJson, productosJson) = BuildPickerCatalogosJson(categorias, marcas, productos);
 
-            viewModel.CategoriasDisponibles = categorias
-                .OrderBy(c => c.Nombre)
-                .Select(c => new SelectListItem
-                {
-                    Value = c.Id.ToString(),
-                    Text = c.Nombre,
-                    Selected = viewModel.CategoriasSeleccionadas.Contains(c.Id)
-                })
-                .ToList();
+            viewModel.CategoriasPickerJson = categoriasJson;
+            viewModel.MarcasPickerJson = marcasJson;
+            viewModel.ProductosPickerJson = productosJson;
+        }
 
-            viewModel.MarcasDisponibles = marcas
-                .OrderBy(m => m.Nombre)
-                .Select(m => new SelectListItem
-                {
-                    Value = m.Id.ToString(),
-                    Text = m.Nombre,
-                    Selected = viewModel.MarcasSeleccionadas.Contains(m.Id)
-                })
-                .ToList();
+        /// <summary>
+        /// Serializa los catálogos de Categorías/Marcas/Productos al formato que espera
+        /// wwwroot/js/proveedor-product-picker.js: {id, nombre} y, para Productos, además
+        /// {codigo, marca, categoria} para poder buscar por esos campos.
+        /// Compartido por Index (modales Crear/Editar) y Details (modal Editar).
+        /// </summary>
+        private static (string categoriasJson, string marcasJson, string productosJson) BuildPickerCatalogosJson(
+            IEnumerable<Models.Entities.Categoria> categorias,
+            IEnumerable<Models.Entities.Marca> marcas,
+            IEnumerable<Models.Entities.Producto> productos)
+        {
+            var categoriasJson = System.Text.Json.JsonSerializer.Serialize(
+                categorias.OrderBy(c => c.Nombre).Select(c => new { id = c.Id, nombre = c.Nombre }));
 
-            viewModel.ProductosDisponibles = productos
-                .OrderBy(p => p.Nombre)
-                .Select(p => new SelectListItem
+            var marcasJson = System.Text.Json.JsonSerializer.Serialize(
+                marcas.OrderBy(m => m.Nombre).Select(m => new { id = m.Id, nombre = m.Nombre }));
+
+            var productosJson = System.Text.Json.JsonSerializer.Serialize(
+                productos.OrderBy(p => p.Nombre).Select(p => new
                 {
-                    Value = p.Id.ToString(),
-                    Text = string.IsNullOrWhiteSpace(p.Codigo) ? p.Nombre : $"{p.Codigo} - {p.Nombre}",
-                    Selected = viewModel.ProductosSeleccionados.Contains(p.Id)
-                })
-                .ToList();
+                    id = p.Id,
+                    codigo = p.Codigo ?? "",
+                    nombre = p.Nombre,
+                    marca = p.Marca?.Nombre ?? "",
+                    categoria = p.Categoria?.Nombre ?? ""
+                }));
+
+            return (categoriasJson, marcasJson, productosJson);
         }
 
         #endregion

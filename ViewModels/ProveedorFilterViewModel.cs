@@ -1,6 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc.Rendering;
-
-namespace TheBuryProject.ViewModels
+﻿namespace TheBuryProject.ViewModels
 {
     /// <summary>
     /// ViewModel para búsqueda y filtros de proveedores
@@ -15,12 +13,10 @@ namespace TheBuryProject.ViewModels
         public IEnumerable<ProveedorViewModel> Proveedores { get; set; } = new List<ProveedorViewModel>();
         public int TotalResultados { get; set; }
 
-        // Asociaciones para el modal de creación
-        public List<SelectListItem> CategoriasDisponibles { get; set; } = new();
-        public List<SelectListItem> MarcasDisponibles { get; set; } = new();
-        public List<SelectListItem> ProductosDisponibles { get; set; } = new();
-
-        // JSON enriquecido para el product picker (incluye marca y categoría)
+        // Catálogos para el picker de búsqueda+chips de los modales de Crear/Editar.
+        // JSON de {id, nombre} (Productos incluye además codigo/marca/categoria).
+        public string CategoriasPickerJson { get; set; } = "[]";
+        public string MarcasPickerJson { get; set; } = "[]";
         public string ProductosPickerJson { get; set; } = "[]";
     }
 }

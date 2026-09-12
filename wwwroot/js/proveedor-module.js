@@ -17,6 +17,7 @@
     }
 
     let eventsBound = false;
+    let lastFocusedTrigger = null;
 
     const getCreateModalApi = () => typeof ProveedorCrearModal !== 'undefined' ? ProveedorCrearModal : null;
     const getEditModalApi = () => typeof ProveedorEditarModal !== 'undefined' ? ProveedorEditarModal : null;
@@ -32,24 +33,84 @@
         return null;
     }
 
-    function invokeModalAction(target, action, proveedorId) {
+    function getModalEl(target) {
+        return document.getElementById(target === 'create' ? 'modal-crear-proveedor' : 'modal-editar-proveedor');
+    }
+
+    function getFocusableElements(container) {
+        return [...container.querySelectorAll(
+            'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )].filter(el => el.offsetParent !== null);
+    }
+
+    function trapFocus(event, container) {
+        if (event.key !== 'Tab') return;
+        const focusables = getFocusableElements(container);
+        if (!focusables.length) return;
+
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+
+        if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+        }
+    }
+
+    // Estado accesible del modal (§10/§11 ERP-UI-STANDARD): aria-hidden sincronizado,
+    // foco inicial dentro del modal, foco atrapado con Tab, foco vuelve al disparador al cerrar.
+    function activateModalA11y(target, triggerEl) {
+        const modalEl = getModalEl(target);
+        if (!modalEl) return;
+
+        lastFocusedTrigger = triggerEl || document.activeElement;
+        modalEl.setAttribute('aria-hidden', 'false');
+
+        const focusables = getFocusableElements(modalEl);
+        if (focusables.length) focusables[0].focus();
+
+        modalEl._trapHandler = e => trapFocus(e, modalEl);
+        modalEl.addEventListener('keydown', modalEl._trapHandler);
+    }
+
+    function deactivateModalA11y(target) {
+        const modalEl = getModalEl(target);
+        if (!modalEl) return;
+
+        modalEl.setAttribute('aria-hidden', 'true');
+
+        if (modalEl._trapHandler) {
+            modalEl.removeEventListener('keydown', modalEl._trapHandler);
+            modalEl._trapHandler = null;
+        }
+
+        if (lastFocusedTrigger && typeof lastFocusedTrigger.focus === 'function') {
+            lastFocusedTrigger.focus();
+        }
+        lastFocusedTrigger = null;
+    }
+
+    function invokeModalAction(target, action, proveedorId, triggerEl) {
         const api = getModalApi(target);
         if (!api) return;
 
         if (action === 'open' && typeof api.open === 'function') {
             if (target === 'edit') {
-                if (Number.isFinite(proveedorId)) {
-                    api.open(proveedorId);
-                }
-                return;
+                if (!Number.isFinite(proveedorId)) return;
+                api.open(proveedorId);
+            } else {
+                api.open();
             }
-
-            api.open();
+            activateModalA11y(target, triggerEl);
             return;
         }
 
         if (action === 'close' && typeof api.close === 'function') {
             api.close();
+            deactivateModalA11y(target);
             return;
         }
 
@@ -109,7 +170,7 @@
                 const target = modalTrigger.getAttribute('data-proveedor-modal');
                 const proveedorId = Number(modalTrigger.getAttribute('data-proveedor-id'));
 
-                invokeModalAction(target, action, proveedorId);
+                invokeModalAction(target, action, proveedorId, modalTrigger);
                 return;
             }
         });
@@ -268,10 +329,16 @@
         initToastDismiss();
         const [scrollAffordance] = initScrollAffordances();
         loadProductos(scrollAffordance);
+        // El modal de edición (_ProveedorEditModal, compartido con Index) usa el mismo
+        // picker de Categorías/Marcas/Productos — necesita inicializarse también acá.
+        if (typeof ProveedorProductPicker !== 'undefined') {
+            ProveedorProductPicker.init();
+        }
     }
 
     window.TheBury.ProveedorModule = {
         initIndex,
-        initDetails
+        initDetails,
+        deactivateModalA11y
     };
 })();

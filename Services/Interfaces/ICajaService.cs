@@ -170,6 +170,14 @@ namespace TheBuryProject.Services.Interfaces
 
         Task<CierreCaja> CerrarCajaAsync(CerrarCajaViewModel model, string usuario);
         Task<CierreCaja?> ObtenerCierrePorIdAsync(int id);
+
+        /// <summary>
+        /// Fecha del cierre más reciente por caja (clave: Caja.Id), en una sola consulta
+        /// para todas las cajas (sin N+1). Una caja sin ningún cierre no aparece en el
+        /// diccionario.
+        /// </summary>
+        Task<Dictionary<int, DateTime>> ObtenerUltimosCierresPorCajaAsync();
+
         Task<List<CierreCaja>> ObtenerHistorialCierresAsync(
             int? cajaId = null,
             DateTime? fechaDesde = null,

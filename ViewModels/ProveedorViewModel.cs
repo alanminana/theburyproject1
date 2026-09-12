@@ -84,10 +84,12 @@ namespace TheBuryProject.ViewModels
         [Display(Name = "Productos")]
         public List<int> ProductosSeleccionados { get; set; } = new List<int>();
 
-        // Propiedades para los dropdowns (UI)
-        public List<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem> CategoriasDisponibles { get; set; } = new List<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>();
-        public List<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem> MarcasDisponibles { get; set; } = new List<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>();
-        public List<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem> ProductosDisponibles { get; set; } = new List<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>();
+        // Catálogos para el picker de búsqueda+chips del modal de edición (Categorías/Marcas/Productos).
+        // JSON de {id, nombre} (Productos incluye además codigo/marca/categoria) — mismo formato que
+        // ProveedorFilterViewModel, para que _ProveedorEditModal funcione igual desde Index y Details.
+        public string CategoriasPickerJson { get; set; } = "[]";
+        public string MarcasPickerJson { get; set; } = "[]";
+        public string ProductosPickerJson { get; set; } = "[]";
 
         // Propiedades para mostrar en la vista de detalles
         public List<string> CategoriasAsociadas { get; set; } = new List<string>();

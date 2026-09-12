@@ -1,3 +1,6 @@
 <link rel="stylesheet" href="~/css/horizontal-scroll-affordance.css" asp-append-version="true" />
 <link rel="stylesheet" href="~/css/venta-module.css" asp-append-version="true" />
-<link rel="stylesheet" href="~/css/venta-page-wizard.css" asp-append-version="true" />
+@* VENTA-DETAILS-OPTIMIZACION-01: venta-page-wizard.css (1056 líneas) se movió a
+   _VentaWizardStyles.cshtml — Details/Autorizar/Rechazar/Cancelar/Delete no usan ninguna
+   clase de wizard (verificado, 0 matches), así que lo cargaban sin necesidad. Solo
+   Create_tw/Edit_tw (que sí usan _VentaWizardForm) lo incluyen ahora explícitamente. *@

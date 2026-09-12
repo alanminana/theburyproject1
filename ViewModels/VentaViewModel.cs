@@ -352,12 +352,13 @@ namespace TheBuryProject.ViewModels
             Estado == EstadoVenta.Confirmada && (!RequiereAutorizacion || EstadoAutorizacion == EstadoAutorizacionVenta.Autorizada);
 
         /// <summary>
-        /// Habilita la acción combinada "Confirmar y facturar" (un solo paso) para el
-        /// caso de mostrador: la venta puede confirmarse y no usa crédito personal
-        /// (el crédito requiere contrato/configuración y no es facturable en un click).
+        /// Habilita la acción combinada "Confirmar y facturar" (un solo paso). Para
+        /// crédito personal, PuedeConfirmar ya exige crédito configurado y contrato
+        /// generado (ver VentaController.Confirmar REGLA 3/3.5), así que llegado este
+        /// punto no queda ningún requisito pendiente que impida facturar en el mismo
+        /// paso — se reutiliza la misma acción combinada que mostrador.
         /// </summary>
-        public bool PuedeConfirmarYFacturar =>
-            PuedeConfirmar && TipoPago != TipoPago.CreditoPersonal;
+        public bool PuedeConfirmarYFacturar => PuedeConfirmar;
 
         public bool PuedeCancelar => Estado != EstadoVenta.Cancelada;
 

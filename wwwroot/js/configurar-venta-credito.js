@@ -160,9 +160,9 @@
         // servidor (FinancialCalculationService.SimularPlanCredito). Mientras se espera
         // la respuesta de /Credito/SimularPlanVenta se muestra un estado "calculando",
         // nunca un valor derivado en el navegador.
-        function marcarSimulacionPendiente() {
+        function marcarSimulacionPendiente(esCambioUsuario = true) {
             if (txtMontoFin) txtMontoFin.textContent = 'Calculando…';
-            programarSimulacion();
+            programarSimulacion(esCambioUsuario);
         }
 
         txtAnticipo?.addEventListener('input', marcarSimulacionPendiente);
@@ -220,11 +220,25 @@
         }
 
         // ── 3. Simulación de Plan (AJAX) ──────────────────────────────────
-        function programarSimulacion() {
+        // BUG reportado: al confirmar el crédito en el wizard, ir a Revisión y generar el
+        // contrato, la página "se refrescaba" y volvía sola al paso Crédito. Causa real:
+        // cada recarga del fragmento embebido (cargarConfigurador en
+        // venta-credito-embebido.js, incluida la que sigue a "Generar contrato") vuelve a
+        // pasar por el Init de este módulo, que simula el plan una vez más sólo para
+        // refrescar los números en pantalla — no porque el operador haya tocado nada.
+        // Esa simulación inicial llamaba a onCambioPlan() igual que un cambio real de
+        // cuotas/anticipo/gastos/fecha, lo cual le avisaba al wizard (venta-page-wizard.js)
+        // que el crédito dejó de estar configurado; eso deshabilitaba la pestaña Revisión
+        // y, al ser la pestaña activa, el wizard saltaba a la última habilitada (Crédito).
+        // El propio fragmento recién cargado corregía el estado un instante después (sigue
+        // configurado), pero para entonces el salto de pestaña ya había ocurrido. `esCambioUsuario`
+        // distingue ambos casos: los listeners de inputs (cambio real) lo dejan en su default
+        // `true`; el Init (ver más abajo) lo llama con `false` para simular sin invalidar.
+        function programarSimulacion(esCambioUsuario = true) {
             // Ningún cambio de entrada deja el botón de confirmar habilitado con un plan
             // desactualizado: se deshabilita apenas se agenda una nueva simulación.
             deshabilitarConfirmar(true);
-            opts.onCambioPlan?.();
+            if (esCambioUsuario) opts.onCambioPlan?.();
             clearTimeout(simulacionTimer);
             simulacionTimer = setTimeout(simularPlan, 400);
         }
@@ -726,7 +740,10 @@
         // (dato del servidor) y numerar las secciones visibles (WIP: renumerarSecciones).
         aplicarCuotasHabilitadas();
         renumerarSecciones();
-        marcarSimulacionPendiente();
+        // esCambioUsuario=false: esta simulación sólo refresca los números en pantalla con
+        // los valores que ya vinieron del servidor, no es un cambio del operador (ver
+        // comentario en programarSimulacion).
+        marcarSimulacionPendiente(false);
         actualizarPrimeraCuota();
 
         return {

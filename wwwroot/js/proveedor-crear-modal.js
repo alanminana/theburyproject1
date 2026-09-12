@@ -45,9 +45,10 @@ const ProveedorCrearModal = (() => {
         // Re-check the Activo toggle (default true)
         const activo = form().querySelector('input[name="Activo"]');
         if (activo) activo.checked = true;
-        // Reset product picker
-        const picker = form().querySelector('.proveedor-product-picker');
-        if (picker && picker._picker) picker._picker.reset();
+        // Reset pickers de Categorías / Marcas / Productos
+        form().querySelectorAll('.proveedor-product-picker').forEach(picker => {
+            if (picker._picker) picker._picker.reset();
+        });
     }
 
     function open() {
@@ -119,7 +120,7 @@ const ProveedorCrearModal = (() => {
 
     function renderProveedorCell(entity) {
         var nombreFantasiaHtml = entity.nombreFantasia
-            ? '<span class="h-1 w-1 rounded-full bg-slate-700"></span><span class="truncate max-w-[14rem]">' + escHtml(entity.nombreFantasia) + '</span>'
+            ? '<span class="h-1 w-1 rounded-full bg-slate-700"></span><span class="truncate max-w-56">' + escHtml(entity.nombreFantasia) + '</span>'
             : '';
 
         return '<div class="min-w-0">' +
@@ -146,7 +147,7 @@ const ProveedorCrearModal = (() => {
             contactoHtml = '<span class="text-xs text-slate-500">Sin contacto</span>';
         }
 
-        return '<div class="flex max-w-[17rem] flex-col gap-0.5 text-sm">' + contactoHtml + '</div>';
+        return '<div class="flex max-w-68 flex-col gap-0.5 text-sm">' + contactoHtml + '</div>';
     }
 
     function renderEstadoBadge(activo) {
@@ -199,7 +200,12 @@ const ProveedorCrearModal = (() => {
 
     /* ESC to close */
     document.addEventListener('keydown', e => {
-        if (e.key === 'Escape' && !modal().classList.contains('hidden')) close();
+        if (e.key !== 'Escape' || modal().classList.contains('hidden')) return;
+        close();
+        const proveedorModule = window.TheBury && window.TheBury.ProveedorModule;
+        if (proveedorModule && typeof proveedorModule.deactivateModalA11y === 'function') {
+            proveedorModule.deactivateModalA11y('create');
+        }
     });
 
     return { open, close, submit };

@@ -238,6 +238,12 @@ public class ConciliacionLineaViewModel
     public decimal SaldoEsperado { get; set; }
     public bool ImpactaCajaFisica { get; set; }
     public bool EsApertura { get; set; }
+    /// <summary>
+    /// Usuario que registró la fila (responsable de apertura para <see cref="EsApertura"/>,
+    /// <c>MovimientoCaja.Usuario</c> para el resto). Habilita el filtro por usuario del libro
+    /// mayor, que antes solo existía en el tab "Movimientos" (fusionado acá).
+    /// </summary>
+    public string Usuario { get; set; } = string.Empty;
 
     /// <summary>Importe base del movimiento, antes de recargo/descuento del medio de pago.</summary>
     public decimal? ImporteBase { get; set; }

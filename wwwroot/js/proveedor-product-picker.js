@@ -1,19 +1,22 @@
 /**
  * proveedor-product-picker.js
  *
- * Autocomplete + chip picker para asociar productos a un proveedor.
+ * Autocomplete + chip picker genérico para asociar Categorías, Marcas o
+ * Productos a un proveedor (misma interacción de búsqueda+chips para los 3).
  *
  * Arquitectura:
+ *  - Cada instancia lee su propio catálogo desde un <script type="application/json">
+ *    identificado por data-catalog-source (ej. "categorias-picker-data").
  *  - El dropdown se mueve al <body> como portal (escapa del overflow: auto del modal)
  *  - Posicionamiento via position:fixed calculado desde getBoundingClientRect
- *  - Model binding via hidden inputs name="ProductosSeleccionados"
+ *  - Model binding via hidden inputs name=<data-form-name>
  *  - API pública por instancia en containerEl._picker: { preload(ids), reset() }
  *
  * Requiere en el HTML:
  *  <script type="application/json" id="productos-picker-data">[...]</script>
- *  con objetos { id, codigo, nombre, marca, categoria }
+ *  con objetos { id, nombre } (Productos además: codigo, marca, categoria)
  *
- *  <div class="proveedor-product-picker" data-form-name="ProductosSeleccionados">
+ *  <div class="proveedor-product-picker" data-form-name="ProductosSeleccionados" data-catalog-source="productos-picker-data">
  *    <div class="relative">
  *      <input class="picker-search-input" ...>
  *      <div class="picker-dropdown" hidden></div>   ← JS lo mueve al body
@@ -26,23 +29,19 @@
  * Expone: window.ProveedorProductPicker = { init }
  */
 const ProveedorProductPicker = (() => {
-    let allProducts = [];
+    // ─── Catálogo (uno por data-catalog-source, cacheado para no re-parsear) ───
+    const catalogCache = new Map();
 
-    // ─── Catálogo ───────────────────────────────────────────────────────────────
-    function loadCatalog() {
-        const el = document.getElementById('productos-picker-data');
-        if (!el) return;
-        try { allProducts = JSON.parse(el.textContent || '[]'); } catch { allProducts = []; }
-    }
+    function loadCatalog(sourceId) {
+        if (catalogCache.has(sourceId)) return catalogCache.get(sourceId);
 
-    function search(query) {
-        const q = query.toLowerCase();
-        return allProducts.filter(p =>
-            (p.nombre || '').toLowerCase().includes(q) ||
-            (p.codigo || '').toLowerCase().includes(q) ||
-            (p.marca || '').toLowerCase().includes(q) ||
-            (p.categoria || '').toLowerCase().includes(q)
-        ).slice(0, 25);
+        const el = document.getElementById(sourceId);
+        let items = [];
+        if (el) {
+            try { items = JSON.parse(el.textContent || '[]'); } catch { items = []; }
+        }
+        catalogCache.set(sourceId, items);
+        return items;
     }
 
     // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -52,13 +51,26 @@ const ProveedorProductPicker = (() => {
         return d.innerHTML;
     }
 
-    function productLabel(p) {
+    function itemLabel(p) {
         return p.codigo ? `${p.codigo} — ${p.nombre}` : p.nombre;
     }
 
     // ─── Picker por instancia ────────────────────────────────────────────────────
     function initPicker(containerEl) {
         const formName = containerEl.dataset.formName || 'ProductosSeleccionados';
+        const catalogSource = containerEl.dataset.catalogSource || 'productos-picker-data';
+        const items = loadCatalog(catalogSource);
+
+        function search(query) {
+            const q = query.toLowerCase();
+            return items.filter(p =>
+                (p.nombre || '').toLowerCase().includes(q) ||
+                (p.codigo || '').toLowerCase().includes(q) ||
+                (p.marca || '').toLowerCase().includes(q) ||
+                (p.categoria || '').toLowerCase().includes(q)
+            ).slice(0, 25);
+        }
+
         const searchInput = containerEl.querySelector('.picker-search-input');
         const dropdownEl  = containerEl.querySelector('.picker-dropdown');
         const chipsEl     = containerEl.querySelector('.picker-chips-container');
@@ -68,7 +80,6 @@ const ProveedorProductPicker = (() => {
         if (!searchInput || !dropdownEl) return;
 
         // ── Portal: mover dropdown al body para escapar overflow:auto del modal ──
-        // Construimos el contenido del dropdown dentro del elemento
         const resultsList = document.createElement('ul');
         resultsList.className = 'divide-y divide-slate-700/50 py-1 max-h-64 overflow-y-auto';
         dropdownEl.appendChild(resultsList);
@@ -132,18 +143,18 @@ const ProveedorProductPicker = (() => {
             if (countEl) countEl.textContent = selectedIds.size;
         }
 
-        function getSelectedProducts() {
-            return allProducts.filter(p => selectedIds.has(p.id));
+        function getSelectedItems() {
+            return items.filter(p => selectedIds.has(p.id));
         }
 
         // ── Chips ────────────────────────────────────────────────────────────────
         function renderChips() {
             chipsEl.innerHTML = '';
-            getSelectedProducts().forEach(p => {
+            getSelectedItems().forEach(p => {
                 const chip = document.createElement('span');
                 chip.className = 'picker-chip inline-flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800/80 pl-2.5 pr-1.5 py-1 text-[11px] font-semibold text-slate-200';
                 chip.innerHTML =
-                    `<span class="truncate max-w-[18rem]">${escHtml(productLabel(p))}</span>` +
+                    `<span class="truncate max-w-[18rem]">${escHtml(itemLabel(p))}</span>` +
                     `<button type="button" class="picker-chip-remove shrink-0 flex items-center justify-center w-4 h-4 rounded-full text-slate-500 hover:text-white hover:bg-slate-700 transition-colors ml-0.5" data-id="${p.id}" aria-label="Quitar ${escHtml(p.nombre)}">` +
                     `<span class="material-symbols-outlined text-[12px]" style="font-size:12px">close</span></button>`;
                 chipsEl.appendChild(chip);
@@ -158,9 +169,9 @@ const ProveedorProductPicker = (() => {
             });
         }
 
-        // ── Selección de producto ────────────────────────────────────────────────
-        function selectProduct(product) {
-            selectedIds.add(product.id);
+        // ── Selección ─────────────────────────────────────────────────────────────
+        function selectItem(item) {
+            selectedIds.add(item.id);
             renderChips();
             syncHiddenInputs();
             closeDropdown();
@@ -191,7 +202,7 @@ const ProveedorProductPicker = (() => {
 
                 li.innerHTML =
                     `<div class="flex-1 min-w-0">` +
-                    `<p class="text-sm font-semibold ${isSelected ? 'text-slate-400' : 'text-white'} truncate">${escHtml(productLabel(p))}</p>` +
+                    `<p class="text-sm font-semibold ${isSelected ? 'text-slate-400' : 'text-white'} truncate">${escHtml(itemLabel(p))}</p>` +
                     (meta ? `<p class="text-xs text-slate-500 truncate">${escHtml(meta)}</p>` : '') +
                     `</div>` +
                     (isSelected
@@ -199,7 +210,7 @@ const ProveedorProductPicker = (() => {
                         : `<span class="material-symbols-outlined text-slate-600 shrink-0" style="font-size:16px">add_circle</span>`);
 
                 if (!isSelected) {
-                    li.addEventListener('click', () => selectProduct(p));
+                    li.addEventListener('click', () => selectItem(p));
                 }
                 resultsList.appendChild(li);
             });
@@ -247,7 +258,6 @@ const ProveedorProductPicker = (() => {
 
     // ─── Entrada pública ─────────────────────────────────────────────────────────
     function init() {
-        loadCatalog();
         document.querySelectorAll('.proveedor-product-picker').forEach(initPicker);
     }
 

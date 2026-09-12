@@ -67,7 +67,7 @@ const CategoriaModal = (() => {
                 '<td class="px-6 py-4 text-sm font-mono text-slate-500 dark:text-slate-400">' + escHtml(entity.codigo) + '</td>' +
                 '<td class="px-6 py-4">' +
                   '<div class="flex items-center gap-3">' +
-                    '<div class="w-10 h-10 rounded bg-slate-100 dark:bg-slate-800 flex items-center justify-center flex-shrink-0">' +
+                    '<div class="w-10 h-10 rounded bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0">' +
                       '<span class="material-symbols-outlined text-slate-400 text-lg">category</span>' +
                     '</div>' +
                     '<div><span class="text-sm font-semibold text-slate-900 dark:text-white">' + escHtml(entity.nombre) + '</span></div>' +

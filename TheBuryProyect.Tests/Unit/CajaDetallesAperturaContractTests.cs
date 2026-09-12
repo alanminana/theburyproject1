@@ -8,6 +8,13 @@ namespace TheBuryProyect.Tests.Unit;
 /// Vendido/Cobrado/Pendiente/Caja esperada, tabs, libro mayor con saldo acumulado,
 /// conteo físico y la separación explícita "impacta caja física".
 /// El contenido vive en partials compartidos (_Conciliacion*); por eso se leen varios archivos.
+///
+/// Evolución del contrato (fusión Movimientos → Conciliación): el tab "Movimientos" mostraba
+/// exactamente el mismo array de movimientos que el libro mayor de "Conciliación" (ver
+/// CajaConciliacionBuilder.BuildLibroMayor), solo sin la fila de apertura ni el saldo
+/// acumulado — dos tabs con la misma tabla. Se fusionó en un solo tab (4 en vez de 5) sin
+/// perder capacidad de filtrado: el libro mayor absorbió los filtros de tipo/medio/usuario
+/// que antes eran exclusivos de "Movimientos".
 /// </summary>
 public class CajaDetallesAperturaContractTests
 {
@@ -50,14 +57,27 @@ public class CajaDetallesAperturaContractTests
     }
 
     [Fact]
-    public void Tabs_TieneLasCincoSecciones()
+    public void Tabs_TieneLasCuatroSecciones()
     {
         var tabs = Read("Views/Caja/_ConciliacionTabs.cshtml");
         Assert.Contains("data-cc-tab=\"resumen\"", tabs);
         Assert.Contains("data-cc-tab=\"ventas\"", tabs);
-        Assert.Contains("data-cc-tab=\"movimientos\"", tabs);
         Assert.Contains("data-cc-tab=\"conciliacion\"", tabs);
         Assert.Contains("data-cc-tab=\"auditoria\"", tabs);
+        Assert.DoesNotContain("data-cc-tab=\"movimientos\"", tabs);
+    }
+
+    [Fact]
+    public void Tabs_TienenAriaCompletoYRovingTabindex()
+    {
+        // §5 del estándar UI: id + aria-controls (tab → panel) + aria-labelledby (panel → tab) +
+        // role="tabpanel" + roving tabindex, mismo patrón ya cerrado en Venta/Index.
+        var tabs = Read("Views/Caja/_ConciliacionTabs.cshtml");
+        Assert.Contains("aria-controls=\"cc-panel-resumen\"", tabs);
+        Assert.Contains("role=\"tabpanel\"", tabs);
+        Assert.Contains("aria-labelledby=\"cc-tab-resumen\"", tabs);
+        Assert.Contains("tabindex=\"0\"", tabs);
+        Assert.Contains("tabindex=\"-1\"", tabs);
     }
 
     [Fact]
@@ -71,12 +91,17 @@ public class CajaDetallesAperturaContractTests
     }
 
     [Fact]
-    public void Movimientos_UsaColumnasEntraYSaleSeparadas()
+    public void Ventas_AgrupaEfectivasYPendientesConEncabezadoPropio()
     {
-        var mov = Read("Views/Caja/_ConciliacionMovimientosTab.cshtml");
-        Assert.Contains(">Entra<", mov);
-        Assert.Contains(">Sale<", mov);
-        Assert.Contains("data-mov-tipo", mov);
+        // Reapertura (auditoría 4 capas): una venta Confirmada/PendienteFinanciacion sin
+        // facturar no debe competir en pie de igualdad con una Facturada en la misma lista sin
+        // separación — ver docs/fase-kira-caja-detalle-ventas-ux.md y docs/ui/UI-REFACTOR-STATUS.md.
+        var ventas = Read("Views/Caja/_ConciliacionVentasTab.cshtml");
+        Assert.Contains("Ventas efectivas", ventas);
+        Assert.Contains("Operaciones pendientes", ventas);
+        Assert.Contains("data-venta-group=\"efectiva\"", ventas);
+        Assert.Contains("data-venta-group=\"pendiente\"", ventas);
+        Assert.Contains("data-venta-categoria", ventas);
     }
 
     [Fact]
@@ -89,6 +114,18 @@ public class CajaDetallesAperturaContractTests
         Assert.Contains("Conteo físico", conc);
         Assert.Contains("Caja contada", conc);
         Assert.Contains("data-conteo", conc);
+    }
+
+    [Fact]
+    public void Conciliacion_LibroMayorUsaColumnasEntraYSaleYAbsorbeFiltrosDeMovimientos()
+    {
+        var conc = Read("Views/Caja/_ConciliacionConciliacionTab.cshtml");
+        Assert.Contains(">Entra<", conc);
+        Assert.Contains(">Sale<", conc);
+        // Filtros heredados del extinto tab "Movimientos": dirección (antes data-mov-tipo),
+        // medio y usuario (antes data-mov-filter="medio"/"usuario").
+        Assert.Contains("data-lm-dir", conc);
+        Assert.Contains("data-lm-filter=\"medio\"", conc);
     }
 
     [Fact]
@@ -107,12 +144,24 @@ public class CajaDetallesAperturaContractTests
         {
             "Views/Caja/_ConciliacionResumenTab.cshtml",
             "Views/Caja/_ConciliacionVentasTab.cshtml",
-            "Views/Caja/_ConciliacionMovimientosTab.cshtml",
             "Views/Caja/_ConciliacionConciliacionTab.cshtml",
             "Views/Caja/_ConciliacionAuditoriaTab.cshtml",
         })
         {
             Assert.DoesNotContain("Html.Raw", Read(f));
         }
+    }
+
+    [Fact]
+    public void RegistrarMovimiento_ConceptoTieneOpcionesServerRenderizadas()
+    {
+        // El <select> de Concepto dependía 100% de JS para tener <option>s: un fallo de carga
+        // dejaba un campo obligatorio vacío. Ahora las 2 optgroups (Ingresos/Egresos) están
+        // siempre en el HTML servido; el JS solo oculta la que no corresponde al tipo activo.
+        var view = Read("Views/Caja/RegistrarMovimiento_tw.cshtml");
+        Assert.Contains("data-concepto-group=\"0\"", view);
+        Assert.Contains("data-concepto-group=\"1\"", view);
+        Assert.Contains("<option value=\"0\">", view);
+        Assert.Contains("<option value=\"99\">", view);
     }
 }

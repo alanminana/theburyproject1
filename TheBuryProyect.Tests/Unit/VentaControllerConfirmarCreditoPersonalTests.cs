@@ -179,6 +179,85 @@ public class VentaControllerConfirmarCreditoPersonalTests
             controller.TempData["Success"]);
     }
 
+    /// <summary>
+    /// ConfirmarYFacturar fusiona Confirmar+Facturar en un solo paso también para
+    /// crédito personal (antes solo mostrador): corre el mismo núcleo REGLA 1-4 y,
+    /// si confirma, factura inmediatamente en la misma request.
+    /// </summary>
+    [Fact]
+    public async Task ConfirmarYFacturar_CreditoPersonalExitoso_ConfirmaYFacturaEnUnPaso()
+    {
+        var venta = CreateVentaCreditoPersonalBase();
+        venta.RequiereAutorizacion = false;
+        venta.EstadoAutorizacion = EstadoAutorizacionVenta.NoRequiere;
+
+        var ventaService = new StubVentaService
+        {
+            VentaById = venta,
+            ConfirmarCreditoResult = true,
+            FacturarResult = true
+        };
+        var validacionService = new StubValidacionVentaService { Resultado = new ValidacionVentaResult() };
+        var controller = CreateController(ventaService, validacionService);
+
+        var result = await controller.ConfirmarYFacturar(venta.Id);
+
+        Assert.IsType<RedirectToActionResult>(result);
+        Assert.Equal(1, ventaService.ConfirmarVentaCreditoCallCount);
+        Assert.Equal(1, ventaService.FacturarVentaCallCount);
+        Assert.Equal(
+            "Venta confirmada. Crédito generado con cuotas. Factura generada.",
+            controller.TempData["Success"]);
+        Assert.Null(controller.TempData["Error"]);
+    }
+
+    [Fact]
+    public async Task ConfirmarYFacturar_CreditoPersonalFacturacionFalla_AvisaSinPerderMensajeDeConfirmacion()
+    {
+        var venta = CreateVentaCreditoPersonalBase();
+        venta.RequiereAutorizacion = false;
+        venta.EstadoAutorizacion = EstadoAutorizacionVenta.NoRequiere;
+
+        var ventaService = new StubVentaService
+        {
+            VentaById = venta,
+            ConfirmarCreditoResult = true,
+            FacturarResult = false
+        };
+        var validacionService = new StubValidacionVentaService { Resultado = new ValidacionVentaResult() };
+        var controller = CreateController(ventaService, validacionService);
+
+        var result = await controller.ConfirmarYFacturar(venta.Id);
+
+        Assert.IsType<RedirectToActionResult>(result);
+        Assert.Equal(1, ventaService.ConfirmarVentaCreditoCallCount);
+        Assert.Equal(1, ventaService.FacturarVentaCallCount);
+        Assert.Equal(
+            "Venta confirmada. Crédito generado con cuotas. No se pudo generar la factura; reintente desde Facturar.",
+            controller.TempData["Warning"]);
+    }
+
+    [Fact]
+    public async Task ConfirmarYFacturar_CreditoPersonalSinContrato_RedirigeAPrepararSinFacturar()
+    {
+        var venta = CreateVentaCreditoPersonalBase();
+        venta.RequiereAutorizacion = false;
+        venta.EstadoAutorizacion = EstadoAutorizacionVenta.NoRequiere;
+
+        var ventaService = new StubVentaService { VentaById = venta };
+        var validacionService = new StubValidacionVentaService();
+        var contratoService = new StubContratoVentaCreditoService { ContratoGeneradoStub = false };
+        var controller = CreateController(ventaService, validacionService, contratoService: contratoService);
+
+        var result = await controller.ConfirmarYFacturar(venta.Id);
+
+        var redirect = Assert.IsType<RedirectToActionResult>(result);
+        Assert.Equal("Preparar", redirect.ActionName);
+        Assert.Equal("ContratoVentaCredito", redirect.ControllerName);
+        Assert.Equal(0, ventaService.ConfirmarVentaCreditoCallCount);
+        Assert.Equal(0, ventaService.FacturarVentaCallCount);
+    }
+
     [Fact]
     public async Task Details_CreditoPersonalPrimeraCuotaVenceHoy_OfreceCobroEnConfirmacion()
     {
@@ -246,7 +325,8 @@ public class VentaControllerConfirmarCreditoPersonalTests
     private static VentaController CreateController(
         StubVentaService ventaService,
         StubValidacionVentaService validacionVentaService,
-        StubCreditoService? creditoService = null)
+        StubCreditoService? creditoService = null,
+        StubContratoVentaCreditoService? contratoService = null)
     {
         var httpContext = new DefaultHttpContext();
         var controller = new VentaController(
@@ -261,7 +341,7 @@ public class VentaControllerConfirmarCreditoPersonalTests
             new StubCurrentUserService(),
             new StubCajaService(),
             null!,
-            new StubContratoVentaCreditoService(),
+            contratoService ?? new StubContratoVentaCreditoService(),
             null!,
             // Fecha comercial anclada al "hoy" del proceso: los stubs siembran FechaPrimeraCuota
             // con DateTime.Today, de modo que el banner "vence hoy" queda determinista.
@@ -278,6 +358,8 @@ public class VentaControllerConfirmarCreditoPersonalTests
         public VentaViewModel? VentaById { get; set; }
         public bool ConfirmarCreditoResult { get; set; }
         public int ConfirmarVentaCreditoCallCount { get; private set; }
+        public bool FacturarResult { get; set; } = true;
+        public int FacturarVentaCallCount { get; private set; }
 
         public Task<VentaViewModel?> GetByIdAsync(int id) => Task.FromResult(VentaById);
 
@@ -287,6 +369,12 @@ public class VentaControllerConfirmarCreditoPersonalTests
             return Task.FromResult(ConfirmarCreditoResult);
         }
 
+        public Task<bool> FacturarVentaAsync(int id, FacturaViewModel facturaViewModel)
+        {
+            FacturarVentaCallCount++;
+            return Task.FromResult(FacturarResult);
+        }
+
         public Task<VentaViewModel> CreateAsync(VentaViewModel viewModel) => throw new NotImplementedException();
         public Task<List<VentaViewModel>> GetAllAsync(VentaFilterViewModel? filter = null) => throw new NotImplementedException();
         public Task<VentaViewModel?> UpdateAsync(int id, VentaViewModel viewModel) => throw new NotImplementedException();
@@ -294,7 +382,6 @@ public class VentaControllerConfirmarCreditoPersonalTests
         public Task<bool> ConfirmarVentaAsync(int id) => throw new NotImplementedException();
         public Task<bool> CancelarVentaAsync(int id, string motivo) => throw new NotImplementedException();
         public Task AsociarCreditoAVentaAsync(int ventaId, int creditoId) => throw new NotImplementedException();
-        public Task<bool> FacturarVentaAsync(int id, FacturaViewModel facturaViewModel) => throw new NotImplementedException();
         public Task<int?> AnularFacturaAsync(int facturaId, string motivo) => throw new NotImplementedException();
         public Task<bool> ValidarStockAsync(int ventaId) => throw new NotImplementedException();
         public Task<bool> SolicitarAutorizacionAsync(int id, string usuarioSolicita, string motivo) => throw new NotImplementedException();
@@ -386,7 +473,9 @@ public class VentaControllerConfirmarCreditoPersonalTests
 
     private sealed class StubContratoVentaCreditoService : IContratoVentaCreditoService
     {
-        public Task<bool> ExisteContratoGeneradoAsync(int ventaId) => Task.FromResult(true);
+        public bool ContratoGeneradoStub { get; set; } = true;
+
+        public Task<bool> ExisteContratoGeneradoAsync(int ventaId) => Task.FromResult(ContratoGeneradoStub);
         public Task<ContratoVentaCredito?> ObtenerContratoPorVentaAsync(int ventaId) => Task.FromResult<ContratoVentaCredito?>(null);
 
         public Task<ContratoVentaCreditoValidacionResult> ValidarDatosParaGenerarAsync(int ventaId) => throw new NotImplementedException();
@@ -440,6 +529,7 @@ public class VentaControllerConfirmarCreditoPersonalTests
         public Task<CierreCaja> CerrarCajaAsync(CerrarCajaViewModel model, string usuario) => throw new NotImplementedException();
         public Task<CierreCaja?> ObtenerCierrePorIdAsync(int id) => throw new NotImplementedException();
         public Task<List<CierreCaja>> ObtenerHistorialCierresAsync(int? cajaId = null, DateTime? fechaDesde = null, DateTime? fechaHasta = null) => throw new NotImplementedException();
+        public Task<Dictionary<int, DateTime>> ObtenerUltimosCierresPorCajaAsync() => throw new NotImplementedException();
         public Task<DetallesAperturaViewModel> ObtenerDetallesAperturaAsync(int aperturaId) => throw new NotImplementedException();
         public Task<ReporteCajaViewModel> GenerarReporteCajaAsync(DateTime fechaDesde, DateTime fechaHasta, int? cajaId = null) => throw new NotImplementedException();
         public Task<HistorialCierresViewModel> ObtenerEstadisticasCierresAsync(int? cajaId = null, DateTime? fechaDesde = null, DateTime? fechaHasta = null) => throw new NotImplementedException();

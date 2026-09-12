@@ -251,7 +251,11 @@ namespace TheBuryProject.Controllers
                     Total = venta.Total,
                     ResumenAlicuotas = FacturaAlicuotaResumenBuilder.Build(venta.Detalles)
                 };
-                ViewBag.TiposFactura = new SelectList(Enum.GetValues(typeof(TipoFactura)));
+                // Bug corregido: el <select> no marcaba ninguna opción como seleccionada
+                // (asp-items sin asp-for), así que el navegador mostraba la primera del enum
+                // (A) aunque el default real de la operación sea B — quedaba "elegido" un
+                // tipo de comprobante distinto al que el usuario veía pensado por default.
+                ViewBag.TiposFactura = new SelectList(Enum.GetValues(typeof(TipoFactura)), facturaViewModel.Tipo);
                 ViewBag.FacturaViewModel = facturaViewModel;
 
                 return View("Details_tw", venta);
@@ -979,198 +983,22 @@ namespace TheBuryProject.Controllers
 
                 if (venta.TipoPago == TipoPago.CreditoPersonal)
                 {
-                    var returnToVentaDetailsUrl = Url.Action(nameof(Details), new { id });
-
-                    // REGLA 1: Si está en PendienteFinanciacion → debe configurar primero
-                    if (venta.Estado == EstadoVenta.PendienteFinanciacion)
+                    var usuarioActualCredito = User ?? new ClaimsPrincipal(new ClaimsIdentity());
+                    var resultadoCredito = await ConfirmarCreditoPersonalCoreAsync(
+                        venta, usuarioActualCredito, aplicarExcepcionDocumental, motivoExcepcionDocumental);
+                    if (resultadoCredito.RedirectTemprano != null)
                     {
-                        if (!venta.CreditoId.HasValue)
-                        {
-                            _logger.LogWarning(
-                                "Confirmar(POST) venta {Id} sin CreditoId en PendienteFinanciacion",
-                                id);
-                            TempData["Error"] = "La venta no tiene crédito asociado. Error de datos.";
-                            return RedirectToAction(nameof(Details), new { id });
-                        }
-                        
-                        _logger.LogInformation(
-                            "Confirmar(POST) venta {Id} pendiente financiacion, redirigiendo a configuracion",
-                            id);
-                        TempData["Warning"] = "Debe configurar el plan de financiamiento antes de confirmar.";
-                        return RedirectToAction(
-                            "ConfigurarVenta",
-                            "Credito",
-                            new { id = venta.CreditoId.Value, ventaId = venta.Id, returnUrl = returnToVentaDetailsUrl });
+                        return resultadoCredito.RedirectTemprano;
                     }
 
-                    // Verificar que tiene crédito asociado
-                    if (!venta.CreditoId.HasValue)
+                    TempData[resultadoCredito.TempDataKey] = resultadoCredito.Mensaje;
+
+                    // Confirmar sólo habilita Facturar; no hay ninguna decisión que tomar
+                    // en Details en el medio, así que evitamos el segundo click "a ciegas"
+                    // yendo directo a la pantalla de facturación.
+                    if (resultadoCredito.Exito && usuarioActualCredito.TienePermiso(ModuloVentas, AccionFacturar))
                     {
-                        _logger.LogWarning(
-                            "Confirmar(POST) venta {Id} sin CreditoId en flujo credito personal",
-                            id);
-                        TempData["Error"] = "La venta con crédito personal debe tener un crédito asociado.";
-                        return RedirectToAction(nameof(Details), new { id });
-                    }
-
-                    var credito = await _creditoService.GetByIdAsync(venta.CreditoId.Value);
-                    
-                    // REGLA 2: Si el crédito ya está Generado/Activo → venta ya confirmada
-                    if (credito != null && (credito.Estado == EstadoCredito.Generado || 
-                                            credito.Estado == EstadoCredito.Activo ||
-                                            credito.Estado == EstadoCredito.Finalizado))
-                    {
-                        _logger.LogInformation(
-                            "Confirmar(POST) venta {Id} ya confirmada con credito {EstadoCredito}",
-                            id,
-                            credito.Estado);
-                        TempData["Info"] = "Esta venta ya fue confirmada con crédito generado.";
-                        return RedirectToAction(nameof(Details), new { id });
-                    }
-
-                    // REGLA 3: Si financiación NO configurada → redirigir a configurar
-                    if (!venta.FinanciamientoConfigurado && 
-                        (credito == null || credito.Estado == EstadoCredito.PendienteConfiguracion))
-                    {
-                        _logger.LogInformation(
-                            "Confirmar(POST) venta {Id} sin financiamiento configurado, redirigiendo a configuracion",
-                            id);
-                        TempData["Warning"] = "El crédito debe configurarse antes de confirmar la venta.";
-                        return RedirectToAction(
-                            "ConfigurarVenta",
-                            "Credito",
-                            new { id = venta.CreditoId.Value, ventaId = venta.Id, returnUrl = returnToVentaDetailsUrl });
-                    }
-
-                    // REGLA 3.5: Crédito configurado → contrato obligatorio antes de confirmar
-                    var contratoGenerado = await _contratoVentaCreditoService.ExisteContratoGeneradoAsync(id);
-                    if (!contratoGenerado)
-                    {
-                        _logger.LogInformation(
-                            "Confirmar(POST) venta {Id}: contrato no generado, redirigiendo a Preparar",
-                            id);
-                        TempData["Warning"] = "Debe generar e imprimir el contrato antes de confirmar la operación con Crédito Personal.";
-                        return RedirectToAction("Preparar", "ContratoVentaCredito", new { ventaId = id });
-                    }
-
-                    // REGLA 4: Financiación configurada → confirmar y generar cuotas
-                    var validacionConfirmacion = await _validacionVentaService.ValidarConfirmacionVentaAsync(id);
-                    var usuarioActual = User ?? new ClaimsPrincipal(new ClaimsIdentity());
-                    var puedeAplicarExcepcionDocumental = usuarioActual.TienePermiso(ModuloVentas, AccionAutorizar);
-                    var excepcionDocumentalRegistrada = !string.IsNullOrWhiteSpace(venta.MotivoAutorizacion)
-                        && venta.MotivoAutorizacion.Contains("EXCEPCION_DOC|", StringComparison.Ordinal);
-                    var autorizacionFormalDocumental = venta.RequiereAutorizacion
-                        && venta.EstadoAutorizacion == EstadoAutorizacionVenta.Autorizada
-                        && venta.RazonesAutorizacion.Any(r => r.Tipo == TipoRazonAutorizacion.DocumentacionVencida);
-                    var soloDocumentacionFaltante = validacionConfirmacion.RequisitosPendientes.Any()
-                        && validacionConfirmacion.RequisitosPendientes.All(r =>
-                            r.Tipo == TipoRequisitoPendiente.DocumentacionFaltante);
-
-                    var excepcionDocumentalAplicada = false;
-                    if (aplicarExcepcionDocumental && puedeAplicarExcepcionDocumental && soloDocumentacionFaltante)
-                    {
-                        if (string.IsNullOrWhiteSpace(motivoExcepcionDocumental))
-                        {
-                            TempData["Error"] = "Debe ingresar un motivo para aplicar la excepción documental.";
-                            return RedirectToAction(nameof(Details), new { id });
-                        }
-
-                        var usuarioAutoriza = _currentUser.GetUsername();
-                        var motivoNormalizado = motivoExcepcionDocumental.Trim();
-                        var auditoriaRegistrada = await _ventaService.RegistrarExcepcionDocumentalAsync(
-                            id,
-                            usuarioAutoriza,
-                            motivoNormalizado);
-
-                        if (!auditoriaRegistrada)
-                        {
-                            TempData["Error"] = "No se pudo registrar la auditoría de excepción documental.";
-                            return RedirectToAction(nameof(Details), new { id });
-                        }
-
-                        validacionConfirmacion.NoViable = false;
-                        validacionConfirmacion.PendienteRequisitos = false;
-                        excepcionDocumentalAplicada = true;
-
-                        _logger.LogWarning(
-                            "Confirmar(POST) venta {Id}: se aplica excepción documental por usuario {Usuario}. Motivo: {Motivo}",
-                            id,
-                            usuarioAutoriza,
-                            motivoNormalizado);
-                    }
-                    else if ((excepcionDocumentalRegistrada || autorizacionFormalDocumental) && soloDocumentacionFaltante)
-                    {
-                        validacionConfirmacion.NoViable = false;
-                        validacionConfirmacion.PendienteRequisitos = false;
-                        excepcionDocumentalAplicada = true;
-
-                        _logger.LogInformation(
-                            "Confirmar(POST) venta {Id}: se reutiliza excepción documental ya autorizada (traza de confirmación o autorización formal de creación).",
-                            id);
-                    }
-
-                    if (validacionConfirmacion.NoViable || validacionConfirmacion.PendienteRequisitos)
-                    {
-                        TempData["Error"] = validacionConfirmacion.MensajeResumen;
-                        return RedirectToAction(nameof(Details), new { id });
-                    }
-
-                    var resultadoCredito = await _ventaService.ConfirmarVentaCreditoAsync(id);
-                    _logger.LogInformation(
-                        "Confirmar(POST) venta {Id} resultado confirmacion credito {Resultado}",
-                        id,
-                        resultadoCredito);
-                    if (resultadoCredito)
-                    {
-                        var tempDataKey = excepcionDocumentalAplicada ? "Warning" : "Success";
-                        var mensajeConfirmacion = excepcionDocumentalAplicada
-                            ? "Venta confirmada por excepción documental autorizada. Crédito generado con cuotas."
-                            : "Venta confirmada. Crédito generado con cuotas.";
-
-                        // F2 (Micro-lote 6): la decisión de cobrar la 1ª cuota se tomó y persistió en
-                        // la configuración del crédito. Acá se lee de la base (server-authoritative,
-                        // no del payload) y se ejecuta reutilizando PagarCuota (aplica recargo del
-                        // medio e impacta en caja). El servidor revalida vence-hoy, saldo, medio y
-                        // caja. Un fallo del cobro NO revierte la venta/crédito ya confirmados.
-                        var decisionCredito = venta.CreditoId.HasValue
-                            ? await _creditoService.GetByIdAsync(venta.CreditoId.Value)
-                            : null;
-
-                        if (decisionCredito?.CobrarPrimeraCuotaSolicitada == true && venta.CreditoId.HasValue)
-                        {
-                            try
-                            {
-                                var cobro = await _creditoService.CobrarPrimeraCuotaAlGenerarAsync(
-                                    venta.CreditoId.Value,
-                                    decisionCredito.MedioPagoPrimeraCuota);
-
-                                switch (cobro.Estado)
-                                {
-                                    case EstadoCobroPrimeraCuota.Cobrada:
-                                        mensajeConfirmacion += $" Se cobró la 1ª cuota: {cobro.Total:C2} ({cobro.MedioPago}).";
-                                        break;
-                                    case EstadoCobroPrimeraCuota.Error:
-                                        mensajeConfirmacion += " No se pudo cobrar la 1ª cuota; podés cobrarla desde el detalle.";
-                                        tempDataKey = "Warning";
-                                        break;
-                                    default:
-                                        mensajeConfirmacion += " La 1ª cuota no se cobró: " + (cobro.Mensaje ?? "no corresponde.");
-                                        break;
-                                }
-                            }
-                            catch (Exception exCobro)
-                            {
-                                _logger.LogError(exCobro, "Error al cobrar 1ª cuota al confirmar venta {Id}", id);
-                                mensajeConfirmacion += " No se pudo cobrar la 1ª cuota: " + exCobro.Message;
-                                tempDataKey = "Warning";
-                            }
-                        }
-
-                        TempData[tempDataKey] = mensajeConfirmacion;
-                    }
-                    else
-                    {
-                        TempData["Error"] = "No se pudo confirmar la venta con crédito";
+                        return RedirectToAction(nameof(Facturar), new { id });
                     }
                     return RedirectToAction(nameof(Details), new { id });
                 }
@@ -1184,6 +1012,14 @@ namespace TheBuryProject.Controllers
                 if (resultado)
                 {
                     TempData["Success"] = "Venta confirmada exitosamente. El stock ha sido descontado.";
+
+                    // Ídem: ir directo a Facturar en vez de volver a Details a esperar un
+                    // segundo click sobre un botón que recién ahora se habilitó.
+                    var usuarioParaFacturar = User ?? new ClaimsPrincipal(new ClaimsIdentity());
+                    if (usuarioParaFacturar.TienePermiso(ModuloVentas, AccionFacturar))
+                    {
+                        return RedirectToAction(nameof(Facturar), new { id });
+                    }
                 }
                 else
                 {
@@ -1203,6 +1039,235 @@ namespace TheBuryProject.Controllers
 
             return RedirectToAction(nameof(Details), new { id });
         }
+
+        /// <summary>
+        /// Núcleo de las REGLA 1-4 de confirmación de crédito personal, compartido entre
+        /// <see cref="Confirmar"/> (deja la venta en Confirmada, a un click de Facturar) y
+        /// <see cref="ConfirmarYFacturar"/> (fusiona ambos pasos). Los early-exit
+        /// (financiamiento pendiente, sin crédito asociado, contrato faltante, requisitos
+        /// documentales) dejan el TempData ya seteado y devuelven el redirect
+        /// correspondiente en <see cref="ResultadoConfirmacionCreditoPersonal.RedirectTemprano"/>;
+        /// el resultado final de REGLA 4 (éxito/fracaso de la confirmación en sí, incluido
+        /// el cobro de la 1ª cuota si corresponde) no toca TempData — cada llamador decide
+        /// cómo presentarlo y a dónde redirigir después.
+        /// </summary>
+        private async Task<ResultadoConfirmacionCreditoPersonal> ConfirmarCreditoPersonalCoreAsync(
+            VentaViewModel venta,
+            ClaimsPrincipal usuarioActual,
+            bool aplicarExcepcionDocumental,
+            string? motivoExcepcionDocumental)
+        {
+            var id = venta.Id;
+            var returnToVentaDetailsUrl = Url.Action(nameof(Details), new { id });
+
+            // REGLA 1: Si está en PendienteFinanciacion → debe configurar primero
+            if (venta.Estado == EstadoVenta.PendienteFinanciacion)
+            {
+                if (!venta.CreditoId.HasValue)
+                {
+                    _logger.LogWarning(
+                        "Confirmar(POST) venta {Id} sin CreditoId en PendienteFinanciacion",
+                        id);
+                    TempData["Error"] = "La venta no tiene crédito asociado. Error de datos.";
+                    return new ResultadoConfirmacionCreditoPersonal(RedirectToAction(nameof(Details), new { id }), false, "", "");
+                }
+
+                _logger.LogInformation(
+                    "Confirmar(POST) venta {Id} pendiente financiacion, redirigiendo a configuracion",
+                    id);
+                TempData["Warning"] = "Debe configurar el plan de financiamiento antes de confirmar.";
+                return new ResultadoConfirmacionCreditoPersonal(
+                    RedirectToAction(
+                        "ConfigurarVenta",
+                        "Credito",
+                        new { id = venta.CreditoId.Value, ventaId = venta.Id, returnUrl = returnToVentaDetailsUrl }),
+                    false, "", "");
+            }
+
+            // Verificar que tiene crédito asociado
+            if (!venta.CreditoId.HasValue)
+            {
+                _logger.LogWarning(
+                    "Confirmar(POST) venta {Id} sin CreditoId en flujo credito personal",
+                    id);
+                TempData["Error"] = "La venta con crédito personal debe tener un crédito asociado.";
+                return new ResultadoConfirmacionCreditoPersonal(RedirectToAction(nameof(Details), new { id }), false, "", "");
+            }
+
+            var credito = await _creditoService.GetByIdAsync(venta.CreditoId.Value);
+
+            // REGLA 2: Si el crédito ya está Generado/Activo → venta ya confirmada
+            if (credito != null && (credito.Estado == EstadoCredito.Generado ||
+                                    credito.Estado == EstadoCredito.Activo ||
+                                    credito.Estado == EstadoCredito.Finalizado))
+            {
+                _logger.LogInformation(
+                    "Confirmar(POST) venta {Id} ya confirmada con credito {EstadoCredito}",
+                    id,
+                    credito.Estado);
+                TempData["Info"] = "Esta venta ya fue confirmada con crédito generado.";
+                return new ResultadoConfirmacionCreditoPersonal(RedirectToAction(nameof(Details), new { id }), false, "", "");
+            }
+
+            // REGLA 3: Si financiación NO configurada → redirigir a configurar
+            if (!venta.FinanciamientoConfigurado &&
+                (credito == null || credito.Estado == EstadoCredito.PendienteConfiguracion))
+            {
+                _logger.LogInformation(
+                    "Confirmar(POST) venta {Id} sin financiamiento configurado, redirigiendo a configuracion",
+                    id);
+                TempData["Warning"] = "El crédito debe configurarse antes de confirmar la venta.";
+                return new ResultadoConfirmacionCreditoPersonal(
+                    RedirectToAction(
+                        "ConfigurarVenta",
+                        "Credito",
+                        new { id = venta.CreditoId.Value, ventaId = venta.Id, returnUrl = returnToVentaDetailsUrl }),
+                    false, "", "");
+            }
+
+            // REGLA 3.5: Crédito configurado → contrato obligatorio antes de confirmar
+            var contratoGenerado = await _contratoVentaCreditoService.ExisteContratoGeneradoAsync(id);
+            if (!contratoGenerado)
+            {
+                _logger.LogInformation(
+                    "Confirmar(POST) venta {Id}: contrato no generado, redirigiendo a Preparar",
+                    id);
+                TempData["Warning"] = "Debe generar e imprimir el contrato antes de confirmar la operación con Crédito Personal.";
+                return new ResultadoConfirmacionCreditoPersonal(
+                    RedirectToAction("Preparar", "ContratoVentaCredito", new { ventaId = id }),
+                    false, "", "");
+            }
+
+            // REGLA 4: Financiación configurada → confirmar y generar cuotas
+            var validacionConfirmacion = await _validacionVentaService.ValidarConfirmacionVentaAsync(id);
+            var puedeAplicarExcepcionDocumental = usuarioActual.TienePermiso(ModuloVentas, AccionAutorizar);
+            var excepcionDocumentalRegistrada = !string.IsNullOrWhiteSpace(venta.MotivoAutorizacion)
+                && venta.MotivoAutorizacion.Contains("EXCEPCION_DOC|", StringComparison.Ordinal);
+            var autorizacionFormalDocumental = venta.RequiereAutorizacion
+                && venta.EstadoAutorizacion == EstadoAutorizacionVenta.Autorizada
+                && venta.RazonesAutorizacion.Any(r => r.Tipo == TipoRazonAutorizacion.DocumentacionVencida);
+            var soloDocumentacionFaltante = validacionConfirmacion.RequisitosPendientes.Any()
+                && validacionConfirmacion.RequisitosPendientes.All(r =>
+                    r.Tipo == TipoRequisitoPendiente.DocumentacionFaltante);
+
+            var excepcionDocumentalAplicada = false;
+            if (aplicarExcepcionDocumental && puedeAplicarExcepcionDocumental && soloDocumentacionFaltante)
+            {
+                if (string.IsNullOrWhiteSpace(motivoExcepcionDocumental))
+                {
+                    TempData["Error"] = "Debe ingresar un motivo para aplicar la excepción documental.";
+                    return new ResultadoConfirmacionCreditoPersonal(RedirectToAction(nameof(Details), new { id }), false, "", "");
+                }
+
+                var usuarioAutoriza = _currentUser.GetUsername();
+                var motivoNormalizado = motivoExcepcionDocumental.Trim();
+                var auditoriaRegistrada = await _ventaService.RegistrarExcepcionDocumentalAsync(
+                    id,
+                    usuarioAutoriza,
+                    motivoNormalizado);
+
+                if (!auditoriaRegistrada)
+                {
+                    TempData["Error"] = "No se pudo registrar la auditoría de excepción documental.";
+                    return new ResultadoConfirmacionCreditoPersonal(RedirectToAction(nameof(Details), new { id }), false, "", "");
+                }
+
+                validacionConfirmacion.NoViable = false;
+                validacionConfirmacion.PendienteRequisitos = false;
+                excepcionDocumentalAplicada = true;
+
+                _logger.LogWarning(
+                    "Confirmar(POST) venta {Id}: se aplica excepción documental por usuario {Usuario}. Motivo: {Motivo}",
+                    id,
+                    usuarioAutoriza,
+                    motivoNormalizado);
+            }
+            else if ((excepcionDocumentalRegistrada || autorizacionFormalDocumental) && soloDocumentacionFaltante)
+            {
+                validacionConfirmacion.NoViable = false;
+                validacionConfirmacion.PendienteRequisitos = false;
+                excepcionDocumentalAplicada = true;
+
+                _logger.LogInformation(
+                    "Confirmar(POST) venta {Id}: se reutiliza excepción documental ya autorizada (traza de confirmación o autorización formal de creación).",
+                    id);
+            }
+
+            if (validacionConfirmacion.NoViable || validacionConfirmacion.PendienteRequisitos)
+            {
+                TempData["Error"] = validacionConfirmacion.MensajeResumen;
+                return new ResultadoConfirmacionCreditoPersonal(RedirectToAction(nameof(Details), new { id }), false, "", "");
+            }
+
+            var confirmoCredito = await _ventaService.ConfirmarVentaCreditoAsync(id);
+            _logger.LogInformation(
+                "Confirmar(POST) venta {Id} resultado confirmacion credito {Resultado}",
+                id,
+                confirmoCredito);
+            if (!confirmoCredito)
+            {
+                return new ResultadoConfirmacionCreditoPersonal(null, false, "Error", "No se pudo confirmar la venta con crédito");
+            }
+
+            var tempDataKey = excepcionDocumentalAplicada ? "Warning" : "Success";
+            var mensajeConfirmacion = excepcionDocumentalAplicada
+                ? "Venta confirmada por excepción documental autorizada. Crédito generado con cuotas."
+                : "Venta confirmada. Crédito generado con cuotas.";
+
+            // F2 (Micro-lote 6): la decisión de cobrar la 1ª cuota se tomó y persistió en
+            // la configuración del crédito. Acá se lee de la base (server-authoritative,
+            // no del payload) y se ejecuta reutilizando PagarCuota (aplica recargo del
+            // medio e impacta en caja). El servidor revalida vence-hoy, saldo, medio y
+            // caja. Un fallo del cobro NO revierte la venta/crédito ya confirmados.
+            var decisionCredito = venta.CreditoId.HasValue
+                ? await _creditoService.GetByIdAsync(venta.CreditoId.Value)
+                : null;
+
+            if (decisionCredito?.CobrarPrimeraCuotaSolicitada == true && venta.CreditoId.HasValue)
+            {
+                try
+                {
+                    var cobro = await _creditoService.CobrarPrimeraCuotaAlGenerarAsync(
+                        venta.CreditoId.Value,
+                        decisionCredito.MedioPagoPrimeraCuota);
+
+                    switch (cobro.Estado)
+                    {
+                        case EstadoCobroPrimeraCuota.Cobrada:
+                            mensajeConfirmacion += $" Se cobró la 1ª cuota: {cobro.Total:C2} ({cobro.MedioPago}).";
+                            break;
+                        case EstadoCobroPrimeraCuota.Error:
+                            mensajeConfirmacion += " No se pudo cobrar la 1ª cuota; podés cobrarla desde el detalle.";
+                            tempDataKey = "Warning";
+                            break;
+                        default:
+                            mensajeConfirmacion += " La 1ª cuota no se cobró: " + (cobro.Mensaje ?? "no corresponde.");
+                            break;
+                    }
+                }
+                catch (Exception exCobro)
+                {
+                    _logger.LogError(exCobro, "Error al cobrar 1ª cuota al confirmar venta {Id}", id);
+                    mensajeConfirmacion += " No se pudo cobrar la 1ª cuota: " + exCobro.Message;
+                    tempDataKey = "Warning";
+                }
+            }
+
+            return new ResultadoConfirmacionCreditoPersonal(null, true, tempDataKey, mensajeConfirmacion);
+        }
+
+        /// <summary>
+        /// Resultado de <see cref="ConfirmarCreditoPersonalCoreAsync"/>. Si
+        /// <see cref="RedirectTemprano"/> no es null, el llamador debe devolverlo tal cual
+        /// (el TempData del caso ya quedó seteado dentro del helper). Caso contrario,
+        /// <see cref="Exito"/> indica si REGLA 4 confirmó la venta; <see cref="TempDataKey"/>
+        /// y <see cref="Mensaje"/> quedan a disposición del llamador para presentarlos.
+        /// </summary>
+        private sealed record ResultadoConfirmacionCreditoPersonal(
+            IActionResult? RedirectTemprano,
+            bool Exito,
+            string TempDataKey,
+            string Mensaje);
 
         #endregion
 
@@ -1464,7 +1529,8 @@ namespace TheBuryProject.Controllers
                 };
 
                 ViewBag.Venta = venta;
-                ViewBag.TiposFactura = new SelectList(Enum.GetValues(typeof(TipoFactura)));
+                // Mismo bug que en Details(GET): preseleccionar el Tipo real (B por default acá).
+                ViewBag.TiposFactura = new SelectList(Enum.GetValues(typeof(TipoFactura)), facturaViewModel.Tipo);
 
                 return View("Facturar_tw", facturaViewModel);
             }
@@ -1497,7 +1563,8 @@ namespace TheBuryProject.Controllers
                 {
                     var venta = await _ventaService.GetByIdAsync(facturaViewModel.VentaId);
                     ViewBag.Venta = venta;
-                    ViewBag.TiposFactura = new SelectList(Enum.GetValues(typeof(TipoFactura)));
+                    // Reflejar lo que el usuario ya había elegido, no el default de la operación.
+                    ViewBag.TiposFactura = new SelectList(Enum.GetValues(typeof(TipoFactura)), facturaViewModel.Tipo);
                     return View("Facturar_tw", facturaViewModel);
                 }
 
@@ -1521,12 +1588,20 @@ namespace TheBuryProject.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        // POST: Venta/ConfirmarYFacturar/5 — acción combinada (mostrador): confirma y factura en un paso.
-        // Solo para medios sin crédito personal; el crédito requiere contrato/configuración.
+        // POST: Venta/ConfirmarYFacturar/5 — acción combinada: confirma y factura en un
+        // paso. Para crédito personal corre el mismo núcleo REGLA 1-4 que Confirmar
+        // (contrato ya generado, documentación, cobro de 1ª cuota si corresponde) antes
+        // de facturar: PuedeConfirmar ya exige crédito configurado y contrato generado,
+        // así que llegado este punto no queda ningún requisito pendiente que impida
+        // facturar en el mismo paso.
         [HttpPost]
         [ValidateAntiForgeryToken]
         [PermisoRequerido(Modulo = ModuloVentas, Accion = AccionFacturar)]
-        public async Task<IActionResult> ConfirmarYFacturar(int id, TipoFactura tipo = TipoFactura.B)
+        public async Task<IActionResult> ConfirmarYFacturar(
+            int id,
+            TipoFactura tipo = TipoFactura.B,
+            bool aplicarExcepcionDocumental = false,
+            string? motivoExcepcionDocumental = null)
         {
             try
             {
@@ -1546,12 +1621,6 @@ namespace TheBuryProject.Controllers
                     return RedirectToAction(nameof(Index));
                 }
 
-                if (venta.TipoPago == TipoPago.CreditoPersonal)
-                {
-                    TempData["Error"] = "Las ventas con crédito personal no se pueden facturar en un solo paso. Use el flujo de confirmación con contrato.";
-                    return RedirectToAction(nameof(Details), new { id });
-                }
-
                 _logger.LogInformation(
                     "ConfirmarYFacturar(POST) venta {Id}. Estado:{Estado} TipoPago:{TipoPago} User:{User}",
                     id,
@@ -1559,11 +1628,36 @@ namespace TheBuryProject.Controllers
                     venta.TipoPago,
                     _currentUser.GetUsername());
 
-                var confirmada = await _ventaService.ConfirmarVentaAsync(id);
-                if (!confirmada)
+                string? mensajeConfirmacionCredito = null;
+                var advertenciaPreviaConfirmacion = false;
+
+                if (venta.TipoPago == TipoPago.CreditoPersonal)
                 {
-                    TempData["Error"] = "No se pudo confirmar la venta; no se generó la factura.";
-                    return RedirectToAction(nameof(Details), new { id });
+                    var usuarioActual = User ?? new ClaimsPrincipal(new ClaimsIdentity());
+                    var resultadoCredito = await ConfirmarCreditoPersonalCoreAsync(
+                        venta, usuarioActual, aplicarExcepcionDocumental, motivoExcepcionDocumental);
+                    if (resultadoCredito.RedirectTemprano != null)
+                    {
+                        return resultadoCredito.RedirectTemprano;
+                    }
+
+                    if (!resultadoCredito.Exito)
+                    {
+                        TempData[resultadoCredito.TempDataKey] = resultadoCredito.Mensaje;
+                        return RedirectToAction(nameof(Details), new { id });
+                    }
+
+                    mensajeConfirmacionCredito = resultadoCredito.Mensaje;
+                    advertenciaPreviaConfirmacion = resultadoCredito.TempDataKey == "Warning";
+                }
+                else
+                {
+                    var confirmada = await _ventaService.ConfirmarVentaAsync(id);
+                    if (!confirmada)
+                    {
+                        TempData["Error"] = "No se pudo confirmar la venta; no se generó la factura.";
+                        return RedirectToAction(nameof(Details), new { id });
+                    }
                 }
 
                 var facturaViewModel = new FacturaViewModel
@@ -1576,11 +1670,16 @@ namespace TheBuryProject.Controllers
                 var facturada = await _ventaService.FacturarVentaAsync(id, facturaViewModel);
                 if (facturada)
                 {
-                    TempData["Success"] = "Venta confirmada y facturada en un solo paso. El stock fue descontado.";
+                    var mensajeExito = mensajeConfirmacionCredito != null
+                        ? mensajeConfirmacionCredito + " Factura generada."
+                        : "Venta confirmada y facturada en un solo paso. El stock fue descontado.";
+                    TempData[advertenciaPreviaConfirmacion ? "Warning" : "Success"] = mensajeExito;
                 }
                 else
                 {
-                    TempData["Warning"] = "La venta se confirmó pero no se pudo generar la factura. Reintente facturar.";
+                    TempData["Warning"] = mensajeConfirmacionCredito != null
+                        ? mensajeConfirmacionCredito + " No se pudo generar la factura; reintente desde Facturar."
+                        : "La venta se confirmó pero no se pudo generar la factura. Reintente facturar.";
                 }
 
                 return RedirectToAction(nameof(Details), new { id });

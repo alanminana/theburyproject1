@@ -4,6 +4,12 @@
     var difSign = Model.DiferenciaCaja > 0 ? "+ " : (Model.DiferenciaCaja < 0 ? "− " : "");
     // Denominaciones de billetes/monedas para el conteo físico (calculadora en vivo, sin persistir).
     var denominaciones = new[] { 20000m, 10000m, 2000m, 1000m, 500m, 200m, 100m, 50m, 20m, 10m };
+    // Filtros del libro mayor fusionados desde el extinto tab "Movimientos" (mismo array de
+    // origen, ver CajaConciliacionBuilder.BuildLibroMayor): medio y usuario se derivan de los
+    // datos reales en vez de listas hardcodeadas (mismo patrón que el filtro "Estado" de
+    // _ConciliacionVentasTab), así no hay 2 listas de medios de pago que mantener a mano.
+    var lmMedios = Model.LibroMayor.Select(f => f.MedioPago).Where(m => !string.IsNullOrWhiteSpace(m)).Distinct().OrderBy(m => m).ToList();
+    var lmUsuarios = Model.LibroMayor.Select(f => f.Usuario).Where(u => !string.IsNullOrWhiteSpace(u)).Distinct().OrderBy(u => u).ToList();
 }
 
 <div class="space-y-4">
@@ -58,11 +64,39 @@
                 <p class="text-sm muted">Saldo esperado acumulado operación por operación. Solo las filas que impactan caja física cambian el saldo.</p>
             </div>
             <div class="flex flex-wrap items-end gap-3">
+                <div class="flex gap-1.5" role="group" aria-label="Filtrar por dirección">
+                    <button type="button" class="btn btn-soft btn-sm" data-lm-dir="all" aria-pressed="true">Todos</button>
+                    <button type="button" class="btn btn-ghost btn-sm" data-lm-dir="in" aria-pressed="false">Ingresos</button>
+                    <button type="button" class="btn btn-ghost btn-sm" data-lm-dir="out" aria-pressed="false">Egresos</button>
+                </div>
                 <div class="flex gap-1.5" role="group" aria-label="Filtrar libro mayor">
-                    <button type="button" class="btn btn-soft btn-sm" data-lm-tipo="all" aria-pressed="true">Todos</button>
+                    <button type="button" class="btn btn-soft btn-sm" data-lm-tipo="all" aria-pressed="true">Impacta: todos</button>
                     <button type="button" class="btn btn-ghost btn-sm" data-lm-tipo="si" aria-pressed="false">Impactan caja</button>
                     <button type="button" class="btn btn-ghost btn-sm" data-lm-tipo="no" aria-pressed="false">No impactan</button>
                 </div>
+                <div>
+                    <label class="label mb-1" for="cc-lm-medio">Medio</label>
+                    <select id="cc-lm-medio" class="field" data-lm-filter="medio">
+                        <option value="all">Todos</option>
+                        @foreach (var medio in lmMedios)
+                        {
+                            <option value="@medio.ToLowerInvariant()">@medio</option>
+                        }
+                    </select>
+                </div>
+                @if (lmUsuarios.Count > 1)
+                {
+                    <div>
+                        <label class="label mb-1" for="cc-lm-usuario">Usuario</label>
+                        <select id="cc-lm-usuario" class="field" data-lm-filter="usuario">
+                            <option value="all">Todos</option>
+                            @foreach (var u in lmUsuarios)
+                            {
+                                <option value="@u.ToLowerInvariant()">@u</option>
+                            }
+                        </select>
+                    </div>
+                }
                 <div>
                     <label class="label mb-1" for="cc-lm-ref">Buscar referencia</label>
                     <input id="cc-lm-ref" type="search" class="field" placeholder="N° venta, crédito, concepto" data-lm-filter="ref" />
@@ -94,6 +128,9 @@
                             {
                                 <tr data-lm-row
                                     data-lm-impacta="@(f.ImpactaCajaFisica ? "si" : "no")"
+                                    data-lm-dir="@(f.EsApertura || f.Entra > 0 ? "in" : "out")"
+                                    data-lm-medio="@f.MedioPago.ToLowerInvariant()"
+                                    data-lm-usuario="@f.Usuario.ToLowerInvariant()"
                                     data-lm-ref="@($"{f.Referencia} {f.Concepto}".ToLowerInvariant())"
                                     class="@(f.EsApertura ? "cc-lm-apertura" : "")">
                                     <td class="num muted-2">@f.Orden</td>
@@ -154,10 +191,17 @@
                 </div>
             </div>
         </div>
-        <div class="px-4 py-2.5 text-xs muted-2 flex items-center justify-between gap-2" style="border-top:1px solid var(--line)">
-            <span>Saldo final esperado en caja física</span>
-            <span class="num font-semibold text-white">$ @Model.CajaFisicaEsperada.ToString("N2")</span>
-        </div>
+        @* La card fija de arriba (_ConciliacionCards) y la fórmula de "Resumen de conciliación"
+           en esta misma pestaña ya muestran la caja física esperada — repetirla acá una 3ª vez
+           no agregaba nada. Con el turno cerrado, el pie pasa a mostrar la Diferencia (el único
+           dato de esta sección que no se ve en ningún otro lado). *@
+        @if (Model.EstaCerrada)
+        {
+            <div class="px-4 py-2.5 text-xs muted-2 flex items-center justify-between gap-2" style="border-top:1px solid var(--line)">
+                <span>Diferencia final (contado vs. esperado)</span>
+                <span class="num font-semibold @difClass">@difSign$ @Math.Abs(Model.DiferenciaCaja).ToString("N2")</span>
+            </div>
+        }
     </section>
 
     <!-- 3) Ventas sin impacto en caja -->

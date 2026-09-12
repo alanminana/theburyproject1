@@ -63,7 +63,8 @@ namespace TheBuryProject.Controllers
                 // Efectivo esperado calculado por el backend (misma logica que el detalle/cierre)
                 ResumenFisicoPorApertura = aperturasAbiertas.ToDictionary(
                     a => a.Id,
-                    a => Services.CajaService.CalcularResumenFisico(a))
+                    a => Services.CajaService.CalcularResumenFisico(a)),
+                UltimoCierrePorCaja = await _cajaService.ObtenerUltimosCierresPorCajaAsync()
             };
 
             ViewBag.CurrentUser = _currentUser.GetUsername();
@@ -72,12 +73,6 @@ namespace TheBuryProject.Controllers
             ViewBag.CajasOperables = (await _cajaVendedorService.ObtenerCajaIdsDeUsuarioAsync(_currentUser.GetUserId())).ToHashSet();
 
             return View("Index_tw", viewModel);
-        }
-
-        [PermisoRequerido(Modulo = "caja", Accion = "create")]
-        public IActionResult Create()
-        {
-            return View("Create_tw");
         }
 
         [PermisoRequerido(Modulo = "caja", Accion = "create")]
@@ -97,14 +92,15 @@ namespace TheBuryProject.Controllers
             {
                 if (isAjax)
                     return Json(new { ok = false, errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage) });
-                return View("Create_tw", model);
+                TempData["Error"] = "Revisá los datos de la caja e intentá nuevamente.";
+                return RedirectToAction(nameof(Index));
             }
 
             try
             {
-                await _cajaService.CrearCajaAsync(model);
+                var caja = await _cajaService.CrearCajaAsync(model);
                 if (isAjax)
-                    return Json(new { ok = true, entity = new { id = model.Id, codigo = model.Codigo, nombre = model.Nombre, sucursal = model.Sucursal, ubicacion = model.Ubicacion, activa = model.Activa } });
+                    return Json(new { ok = true, entity = new { id = caja.Id, codigo = caja.Codigo, nombre = caja.Nombre, sucursal = caja.Sucursal, ubicacion = caja.Ubicacion, activa = caja.Activa, rowVersion = Convert.ToBase64String(caja.RowVersion) } });
                 TempData["Success"] = "Caja creada exitosamente";
                 return RedirectToAction(nameof(Index));
             }
@@ -114,24 +110,8 @@ namespace TheBuryProject.Controllers
                 if (isAjax)
                     return Json(new { ok = false, errors = new[] { ex.Message } });
                 TempData["Error"] = ex.Message;
-                return View("Create_tw", model);
-            }
-        }
-
-        [PermisoRequerido(Modulo = "caja", Accion = "update")]
-        public async Task<IActionResult> Edit(int id)
-        {
-            var caja = await _cajaService.ObtenerCajaPorIdAsync(id);
-            if (caja == null)
-            {
-                TempData["Error"] = "Caja no encontrada";
                 return RedirectToAction(nameof(Index));
             }
-
-            // Usar AutoMapper
-            var model = _mapper.Map<CajaViewModel>(caja);
-
-            return View("Edit_tw", model);
         }
 
         [PermisoRequerido(Modulo = "caja", Accion = "update")]
@@ -169,20 +149,21 @@ namespace TheBuryProject.Controllers
                 var msg = "No se recibió la versión de fila (RowVersion). Recargá la página e intentá nuevamente.";
                 if (isAjax)
                     return Json(new { ok = false, errors = new[] { msg } });
-                ModelState.AddModelError("", msg);
-                return View("Edit_tw", model);
+                TempData["Error"] = msg;
+                return RedirectToAction(nameof(Index));
             }
 
             if (!ModelState.IsValid)
             {
                 if (isAjax)
                     return Json(new { ok = false, errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage) });
-                return View("Edit_tw", model);
+                TempData["Error"] = "Revisá los datos de la caja e intentá nuevamente.";
+                return RedirectToAction(nameof(Index));
             }
 
             try
             {
-                await _cajaService.ActualizarCajaAsync(id, model);
+                var caja = await _cajaService.ActualizarCajaAsync(id, model);
 
                 // Padrón de vendedores: solo cuando el formulario lo gestionó (modal de edición).
                 if (model.VendedoresGestionados)
@@ -191,7 +172,7 @@ namespace TheBuryProject.Controllers
                 }
 
                 if (isAjax)
-                    return Json(new { ok = true, entity = new { id = model.Id, codigo = model.Codigo, nombre = model.Nombre, sucursal = model.Sucursal, ubicacion = model.Ubicacion, activa = model.Activa } });
+                    return Json(new { ok = true, entity = new { id = caja.Id, codigo = caja.Codigo, nombre = caja.Nombre, sucursal = caja.Sucursal, ubicacion = caja.Ubicacion, activa = caja.Activa, rowVersion = Convert.ToBase64String(caja.RowVersion) } });
                 TempData["Success"] = "Caja actualizada exitosamente";
                 return RedirectToAction(nameof(Index));
             }
@@ -201,7 +182,7 @@ namespace TheBuryProject.Controllers
                 if (isAjax)
                     return Json(new { ok = false, errors = new[] { ex.Message } });
                 TempData["Error"] = ex.Message;
-                return View("Edit_tw", model);
+                return RedirectToAction(nameof(Index));
             }
         }
 
@@ -631,7 +612,10 @@ namespace TheBuryProject.Controllers
         private async Task<List<Caja>> SetCajasActivasSelectListAsync(int? selectedId)
         {
             var cajas = await _cajaService.ObtenerTodasCajasAsync();
-            var activas = cajas.Where(c => c.Activa).AsEnumerable();
+            // Activa + sin turno abierto: el hint de Abrir_tw ("Solo se listan cajas disponibles
+            // (sin turno abierto)") no se cumplía antes de este filtro — el AbrirCajaAsync del
+            // service ya lo rechazaba igual, pero el <select> podía mostrar una caja ya abierta.
+            var activas = cajas.Where(c => c.Activa && c.Estado != EstadoCaja.Abierta).AsEnumerable();
 
             // Enforcement: un usuario no supervisor solo puede abrir las cajas de su padrón.
             if (!EsSupervisorCaja())

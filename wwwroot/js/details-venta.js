@@ -24,6 +24,10 @@
     }
 
     if (typeof ventaModule.bindModal === 'function') {
+        ventaModule.bindModal('confirmar-facturar-modal', {
+            displayClass: 'flex'
+        });
+
         ventaModule.bindModal('facturar-modal', {
             displayClass: 'flex'
         });

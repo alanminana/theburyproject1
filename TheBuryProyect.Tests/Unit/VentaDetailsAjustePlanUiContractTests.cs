@@ -313,12 +313,15 @@ public class VentaDetailsAjustePlanUiContractTests
     }
 
     [Fact]
-    public void DetailsView_ItemSinExcepcion_MuestraUsaPagoPrincipal()
+    public void DetailsView_ItemSinExcepcion_NoMuestraBadgeRedundante()
     {
+        // VENTA-DETAILS-OPTIMIZACION-01: el badge "Usa pago principal" repetía el mismo
+        // texto en cada línea sin excepción (caso por defecto) sin aportar nada a decidir.
+        // Ahora solo se muestra badge cuando la línea realmente tiene una excepción.
         var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Details_tw.cshtml"));
 
-        Assert.Contains("Usa pago principal", view);
-        Assert.Contains("hereda-pago-principal", view);
+        Assert.DoesNotContain("Usa pago principal", view);
+        Assert.DoesNotContain("hereda-pago-principal", view);
     }
 
     [Fact]
@@ -557,11 +560,18 @@ public class VentaDetailsAjustePlanUiContractTests
     }
 
     // ── Excepción documental: trazabilidad en Details ──────────────────
+    //
+    // VENTA-DETAILS-OPTIMIZACION-01: la card "Autorización" se extrajo a
+    // _VentaAutorizacionPanel.cshtml para poder ubicarla en 2 posiciones posibles desde
+    // Details_tw.cshtml (arriba de la columna cuando está pendiente, o en su posición
+    // original cuando ya fue resuelta) sin duplicar el markup — mismo patrón que ya usa
+    // _VentaRazonesAutorizacion.cshtml (ver VentaRazonesAutorizacionUiContractTests). Los
+    // tests que verificaban este contenido ahora leen el parcial, no Details_tw.cshtml.
 
     [Fact]
-    public void DetailsView_MuestraJustificacionExcepcionDocumental_ConPropiedadesParseadas()
+    public void AutorizacionPanel_MuestraJustificacionExcepcionDocumental_ConPropiedadesParseadas()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Details_tw.cshtml"));
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaAutorizacionPanel.cshtml"));
 
         // La justificación de la excepción documental se muestra desde las propiedades
         // ya parseadas del ViewModel, no imprimiendo la traza cruda EXCEPCION_DOC|...
@@ -572,9 +582,9 @@ public class VentaDetailsAjustePlanUiContractTests
     }
 
     [Fact]
-    public void DetailsView_RenderizaRazonesAutorizacionEstructuradas()
+    public void AutorizacionPanel_RenderizaRazonesAutorizacionEstructuradas()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Details_tw.cshtml"));
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaAutorizacionPanel.cshtml"));
 
         // La justificación ingresada al crear la venta (RazonAutorizacion.DetalleAdicional,
         // persistida en RazonesAutorizacionJson) se refleja vía el partial compartido.
@@ -583,13 +593,30 @@ public class VentaDetailsAjustePlanUiContractTests
     }
 
     [Fact]
-    public void DetailsView_NoImprimeTrazaCrudaCuandoHayExcepcion()
+    public void AutorizacionPanel_NoImprimeTrazaCrudaCuandoHayExcepcion()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Details_tw.cshtml"));
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "_VentaAutorizacionPanel.cshtml"));
 
         // El MotivoAutorizacion crudo solo se imprime en la rama else (sin excepción
         // registrada), evitando exponer la traza EXCEPCION_DOC|fecha|usuario|motivo.
         Assert.Contains("else if (!string.IsNullOrEmpty(Model.MotivoAutorizacion))", view);
+    }
+
+    [Fact]
+    public void DetailsView_UbicaAutorizacionPendienteAlPrincipioYResueltaAlFinal()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Details_tw.cshtml"));
+
+        // Reordenamiento: con autorización pendiente, la card se llama desde el principio
+        // de la columna izquierda (a la misma altura que "Acciones" en desktop); ya resuelta,
+        // se llama en su posición original al final de la columna. Ambas llamadas usan el
+        // mismo parcial — sin duplicar el markup de _VentaAutorizacionPanel.cshtml acá.
+        Assert.Contains("Model.DebeAlertarAutorizacionPendiente", view);
+        Assert.Contains("Model.RequiereAutorizacion && !Model.DebeAlertarAutorizacionPendiente", view);
+
+        const string partialCall = "<partial name=\"_VentaAutorizacionPanel\" model=\"Model\" />";
+        var apariciones = view.Split(new[] { partialCall }, StringSplitOptions.None).Length - 1;
+        Assert.Equal(2, apariciones);
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────

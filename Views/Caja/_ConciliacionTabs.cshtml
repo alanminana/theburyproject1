@@ -1,39 +1,45 @@
 @model TheBuryProject.ViewModels.CajaConciliacionViewModel
 
+@* Patrón ARIA completo de tabs (§5 del estándar UI), mismo criterio que Venta/Index:
+   id + aria-controls/aria-labelledby bidireccional, role="tabpanel", roving tabindex
+   inicial (solo el tab activo con tabindex="0"); caja-conciliacion.js agrega
+   navegación por flechas/Home/End y mantiene el roving al cambiar de tab. *@
 <div class="cc-tabwrap" data-cc-tabs>
     <div class="cc-tabs" role="tablist" aria-label="Secciones del detalle de caja">
-        <button type="button" class="cc-tab is-active" role="tab" data-cc-tab="resumen" aria-selected="true">
+        <button type="button" id="cc-tab-resumen" class="cc-tab is-active" role="tab"
+                data-cc-tab="resumen" aria-selected="true" aria-controls="cc-panel-resumen" tabindex="0">
             <span class="material-symbols-outlined">dashboard</span>Resumen
         </button>
-        <button type="button" class="cc-tab" role="tab" data-cc-tab="ventas" aria-selected="false">
+        <button type="button" id="cc-tab-ventas" class="cc-tab" role="tab"
+                data-cc-tab="ventas" aria-selected="false" aria-controls="cc-panel-ventas" tabindex="-1">
             <span class="material-symbols-outlined">receipt_long</span>Ventas
             <span class="cc-tab-count">@Model.Ventas.Count(v => v.Categoria != TheBuryProject.ViewModels.VentaTurnoCategoria.Registro)</span>
         </button>
-        <button type="button" class="cc-tab" role="tab" data-cc-tab="movimientos" aria-selected="false">
-            <span class="material-symbols-outlined">swap_vert</span>Movimientos
+        @* "Movimientos" se fusionó acá: el libro mayor de Conciliación ya incluía las mismas
+           filas (mismo array Movimientos) más la apertura y el saldo corriente — dos tabs
+           mostraban la misma tabla. Los filtros propios de Movimientos (tipo/medio/usuario)
+           se movieron al libro mayor, así que no se perdió capacidad de filtrado. *@
+        <button type="button" id="cc-tab-conciliacion" class="cc-tab" role="tab"
+                data-cc-tab="conciliacion" aria-selected="false" aria-controls="cc-panel-conciliacion" tabindex="-1">
+            <span class="material-symbols-outlined">balance</span>Conciliación
             <span class="cc-tab-count">@Model.CantidadMovimientos</span>
         </button>
-        <button type="button" class="cc-tab" role="tab" data-cc-tab="conciliacion" aria-selected="false">
-            <span class="material-symbols-outlined">balance</span>Conciliación
-        </button>
-        <button type="button" class="cc-tab" role="tab" data-cc-tab="auditoria" aria-selected="false">
+        <button type="button" id="cc-tab-auditoria" class="cc-tab" role="tab"
+                data-cc-tab="auditoria" aria-selected="false" aria-controls="cc-panel-auditoria" tabindex="-1">
             <span class="material-symbols-outlined">history</span>Auditoría
         </button>
     </div>
 
-    <div class="cc-panel" data-cc-panel="resumen">
+    <div id="cc-panel-resumen" class="cc-panel" role="tabpanel" aria-labelledby="cc-tab-resumen" data-cc-panel="resumen">
         <partial name="_ConciliacionResumenTab" model="Model" />
     </div>
-    <div class="cc-panel is-hidden" data-cc-panel="ventas">
+    <div id="cc-panel-ventas" class="cc-panel is-hidden" role="tabpanel" aria-labelledby="cc-tab-ventas" data-cc-panel="ventas">
         <partial name="_ConciliacionVentasTab" model="Model" />
     </div>
-    <div class="cc-panel is-hidden" data-cc-panel="movimientos">
-        <partial name="_ConciliacionMovimientosTab" model="Model" />
-    </div>
-    <div class="cc-panel is-hidden" data-cc-panel="conciliacion">
+    <div id="cc-panel-conciliacion" class="cc-panel is-hidden" role="tabpanel" aria-labelledby="cc-tab-conciliacion" data-cc-panel="conciliacion">
         <partial name="_ConciliacionConciliacionTab" model="Model" />
     </div>
-    <div class="cc-panel is-hidden" data-cc-panel="auditoria">
+    <div id="cc-panel-auditoria" class="cc-panel is-hidden" role="tabpanel" aria-labelledby="cc-tab-auditoria" data-cc-panel="auditoria">
         <partial name="_ConciliacionAuditoriaTab" model="Model" />
     </div>
 </div>

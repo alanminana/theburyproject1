@@ -629,6 +629,18 @@
                                                                 <h2>Pendientes</h2>
                                                                 <p>Operaciones que necesitan autorización antes de continuar.</p>
                                                             </div>
+                                                            @if (filtroActivo)
+                                                            {
+                                                                <div class="panel-heading__meta">
+                                                                    <span class="pill pill-blue"
+                                                                          title="Este listado respeta los filtros de Buscar venta y Filtros avanzados aplicados en Operaciones.">Filtros
+                                                                        activos</span>
+                                                                    <a asp-action="Index" class="btn btn-ghost no-underline">
+                                                                        <span class="material-symbols-outlined">clear_all</span>
+                                                                        Limpiar filtros
+                                                                    </a>
+                                                                </div>
+                                                            }
                                                         </div>
                                                         <div class="compact-list">
                                                             @foreach (var v in ventas.Where(v => v.EstadoAutorizacion ==
@@ -663,6 +675,18 @@
                                                                     <h2>Cotizaciones y presupuestos</h2>
                                                                     <p>Registros reales en estado cotización o presupuesto.</p>
                                                                 </div>
+                                                                @if (filtroActivo)
+                                                                {
+                                                                    <div class="panel-heading__meta">
+                                                                        <span class="pill pill-blue"
+                                                                              title="Este listado respeta los filtros de Buscar venta y Filtros avanzados aplicados en Operaciones.">Filtros
+                                                                            activos</span>
+                                                                        <a asp-action="Index" class="btn btn-ghost no-underline">
+                                                                            <span class="material-symbols-outlined">clear_all</span>
+                                                                            Limpiar filtros
+                                                                        </a>
+                                                                    </div>
+                                                                }
                                                             </div>
                                                             <div class="quote-grid">
                                                                 @foreach (var v in cotizacionesPresupuestos)
@@ -697,11 +721,23 @@
                                                                     <h2>Devoluciones</h2>
                                                                     <p>Ventas elegibles para abrir el modal real de devolución.</p>
                                                                 </div>
-                                                                @if (puedeVerDevoluciones)
-                                                                {
-                                                                    <a asp-controller="Devolucion" asp-action="Index" asp-route-tab="devoluciones"
-                                                                       class="btn btn-ghost no-underline">Ver historial</a>
-                                                                }
+                                                                <div class="panel-heading__meta">
+                                                                    @if (filtroActivo)
+                                                                    {
+                                                                        <span class="pill pill-blue"
+                                                                              title="Este listado respeta los filtros de Buscar venta y Filtros avanzados aplicados en Operaciones.">Filtros
+                                                                            activos</span>
+                                                                        <a asp-action="Index" class="btn btn-ghost no-underline">
+                                                                            <span class="material-symbols-outlined">clear_all</span>
+                                                                            Limpiar filtros
+                                                                        </a>
+                                                                    }
+                                                                    @if (puedeVerDevoluciones)
+                                                                    {
+                                                                        <a asp-controller="Devolucion" asp-action="Index" asp-route-tab="devoluciones"
+                                                                           class="btn btn-ghost no-underline">Ver historial</a>
+                                                                    }
+                                                                </div>
                                                             </div>
                                                             <div class="compact-list">
                                                                 @foreach (var v in devolucionesElegibles)

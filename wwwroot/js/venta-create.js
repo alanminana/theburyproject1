@@ -19,7 +19,6 @@
     const detalles = [];         // { productoId, codigo, nombre, cantidad, precioUnitario, descuento, subtotal, stock, requiereNumeroSerie, productoUnidadId, productoUnidadLabel }
     let clienteSeleccionado = null;  // { id, nombre, apellido, tipoDocumento, numeroDocumento }
     let tarjetaInfoCache = [];   // from /api/ventas/GetTarjetasActivas
-    let creditoCupoDisponible = null;
     let debounceTimer = null;
     let detalleScrollAffordance = null;
     let reintentandoSubmitConDatosTarjeta = false;
@@ -127,7 +126,6 @@
     const panelPlanesPago = $('#panel-planes-pago');
     const listaPlanesPago = $('#lista-planes-pago');
 
-    const panelAvisoCredito = $('#panel-aviso-credito');
     const panelDiagnosticoCondicionesPago = $('#panel-diagnostico-condiciones-pago');
     const diagnosticoCondicionesPagoIcon = $('#diagnostico-condiciones-pago-icon');
     const diagnosticoCondicionesPagoEstado = $('#diagnostico-condiciones-pago-estado');
@@ -151,6 +149,10 @@
     const heroTotal = $('#hero-total');
     const heroTipoPago = $('#hero-tipo-pago');
     const detalleItemsBadge = $('#detalle-items-badge');
+    // H-T2: badge estático del header del paso "Selección de productos" que nunca se
+    // actualizaba (quedaba en "0 productos" con el carrito cargado). Se conecta a la
+    // misma fuente que ya alimenta detalleItemsBadge (pestaña "Productos").
+    const detalleProductosHeaderBadge = $('#detalle-productos-header-badge');
 
     // Totals
     const totalSubtotal = $('#total-subtotal');
@@ -410,6 +412,10 @@
 
         if (detalleItemsBadge) {
             detalleItemsBadge.innerHTML = `<span class="material-symbols-outlined text-sm">shopping_bag</span>${detalleTexto}`;
+        }
+
+        if (detalleProductosHeaderBadge) {
+            detalleProductosHeaderBadge.textContent = detalleTexto;
         }
 
         if (heroTipoPago) {
@@ -1662,8 +1668,6 @@
             actualizarTotalesUI(total, 0, 0, total);
         }
 
-        // Update credit availability notice
-        actualizarAvisoCredito();
         programarDiagnosticoCondicionesPago();
         verificarElegibilidadAuto();
     }
@@ -1709,11 +1713,6 @@
 
         if (planGlobalSeleccionado) {
             actualizarResumenTarjetaDesdePlanGlobal(backendResult);
-        }
-
-        // Actualizar aviso de crédito si corresponde
-        if (selectTipoPago?.value === TIPO_PAGO.CreditoPersonal) {
-            actualizarAvisoCredito(creditoCupoDisponible);
         }
     }
 
@@ -2098,38 +2097,15 @@
         show(panelTarjetaResumen);
     }
 
-    // ── 8. Credit Personal ────────────────────────────────────────────
-    // El crédito se genera automáticamente por el sistema según el cupo del cliente.
-    // No hay selección de crédito existente. El aviso muestra cupo vs. total de la venta.
-
-    function actualizarAvisoCredito(cupoDisponible) {
-        const tipoPago = selectTipoPago?.value;
-        if (!esTipoPagoCredito(tipoPago)) { hide(panelAvisoCredito); return; }
-        if (cupoDisponible === undefined || cupoDisponible === null) { hide(panelAvisoCredito); return; }
-
-        const total = parseFloat(hdnTotal?.value) || 0;
-        const margen = cupoDisponible - total;
-
-        $('#credito-disponible').textContent = formatCurrency(cupoDisponible);
-        $('#credito-solicitado').textContent = formatCurrency(total);
-
-        const margenEl = $('#credito-margen');
-        margenEl.textContent = formatCurrency(margen);
-        if (margen < 0) {
-            margenEl.classList.add('text-red-500');
-            margenEl.classList.remove('text-green-500', 'text-slate-900', 'dark:text-white');
-            panelAvisoCredito.classList.remove('bg-primary/5', 'border-primary/20');
-            panelAvisoCredito.classList.add('bg-orange-500/10', 'border-orange-500/20');
-        } else {
-            margenEl.classList.remove('text-red-500');
-            margenEl.classList.add('text-green-500');
-            panelAvisoCredito.classList.remove('bg-orange-500/10', 'border-orange-500/20');
-            panelAvisoCredito.classList.add('bg-primary/5', 'border-primary/20');
-        }
-        show(panelAvisoCredito);
-    }
-
     // ── 9. Credit Verification (Crédito Personal Workflow) ───────────
+    // VENTA-CREDITO-INFO-CONSOLIDACION-01: existía una sección "8. Credit Personal" acá
+    // (actualizarAvisoCredito) que mantenía en sync un aviso de cupo/solicitado/margen
+    // en el paso Cliente y un mini-panel de cupo/estado en el paso Pago — ambos
+    // alimentados por el mismo data.cupoDisponible que ya pinta, con más contexto
+    // (límite/utilizado/barra), "Estado del crédito" en el paso Crédito. Se retiraron
+    // los 3 nodos (panel-aviso-credito, panel-credito-cupo y esta función) por
+    // redundancia cognitiva: mismo número, visto 3 veces en el mismo flujo sin aportar
+    // una decisión nueva en las primeras dos apariciones.
     // State for credit verification
     let ultimaPrevalidacion = null;
     let excepcionActiva = false;
@@ -2176,12 +2152,9 @@
     }
 
     function invalidarVerificacionCrediticia() {
-        creditoCupoDisponible = null;
         verificacionAutoKey = null;
         resetVerificacion();
         resetExcepcionCrediticia();
-        hide($('#panel-credito-cupo'));
-        hide(panelAvisoCredito);
         clearFeedback();
         document.dispatchEvent(new CustomEvent('venta:credito-validado', {
             detail: { aprobado: false, configurado: false }
@@ -2296,17 +2269,6 @@
         }
 
         show(panelResultado);
-
-        // Actualizar aviso de crédito y panel de cupo en el panel "Crédito Personal"
-        creditoCupoDisponible = data.cupoDisponible ?? null;
-        actualizarAvisoCredito(creditoCupoDisponible);
-
-        const panelCupo = $('#panel-credito-cupo');
-        if (panelCupo && data.cupoDisponible !== undefined) {
-            $('#credito-cupo-valor').textContent = formatCurrency(data.cupoDisponible);
-            $('#credito-cupo-estado').textContent = data.textoEstado || '—';
-            show(panelCupo);
-        }
     }
 
     function mostrarMotivos(data) {

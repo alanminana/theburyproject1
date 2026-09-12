@@ -387,28 +387,12 @@
 
                                 </div>
 
-                                @* Aviso de crédito personal (oculto por defecto) *@
-                                <div id="panel-aviso-credito"
-                                     class="mt-6 p-4 rounded-lg bg-orange-500/10 border border-orange-500/20 hidden">
-                                    <div class="flex items-center gap-2 mb-3">
-                                        <span class="material-symbols-outlined text-orange-500 text-sm">info</span>
-                                        <span class="text-orange-500 font-bold text-sm">Aviso de Crédito Personal</span>
-                                    </div>
-                                    <div class="grid grid-cols-3 gap-4 text-xs">
-                                        <div>
-                                            <p class="text-slate-400">Disponible</p>
-                                            <p id="credito-disponible" class="text-white font-bold mt-0.5">$0,00</p>
-                                        </div>
-                                        <div>
-                                            <p class="text-slate-400">Solicitado</p>
-                                            <p id="credito-solicitado" class="text-white font-bold mt-0.5">$0,00</p>
-                                        </div>
-                                        <div>
-                                            <p class="text-slate-400">Margen</p>
-                                            <p id="credito-margen" class="text-white font-bold mt-0.5">$0,00</p>
-                                        </div>
-                                    </div>
-                                </div>
+                                @* VENTA-CREDITO-INFO-CONSOLIDACION-01: el aviso de cupo/solicitado/margen
+                                   que vivía acá (oculto hasta elegir Crédito Personal en el paso Pago) se
+                                   retira — repetía el mismo dato de "Cupo disponible" que hoy ya muestra,
+                                   con más contexto (límite/utilizado/barra), la superficie "Estado del
+                                   crédito" del paso Crédito. Ver también panel-credito-cupo, retirado por
+                                   el mismo motivo. *@
 
                             </div>
                         </section>
@@ -428,7 +412,11 @@
                                         </div>
                                         <span class="badge-erp badge-erp-neutral shrink-0">
                                             <span class="material-symbols-outlined text-sm">shopping_bag</span>
-                                            0 productos
+                                            @* H-T2: badge estático que nunca se actualizaba (quedaba en "0
+                                               productos" con el carrito cargado, mientras el badge de la
+                                               pestaña sí reflejaba el conteo real) — se conecta a la misma
+                                               fuente que ya escribe #detalle-items-badge en actualizarResumenOperacion(). *@
+                                            <span id="detalle-productos-header-badge">0 productos</span>
                                         </span>
                                     </div>
 
@@ -496,7 +484,7 @@
                                                     <input type="hidden" id="hdn-producto-requiere-numero-serie" />
                                                 </div>
                                                 <div>
-                                                    <label
+                                                    <label for="txt-cantidad"
                                                     class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Cantidad</label>
                                                     <input id="txt-cantidad" type="number" min="1" value="1" class="venta-input" />
                                                     <p id="stock-error" class="hidden text-[9px] text-red-500 font-bold mt-1"></p>
@@ -529,7 +517,7 @@
                                                     </div>
                                                     <div id="panel-selector-unidad"
                                                          class="hidden col-span-2 md:col-span-5 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3">
-                                                        <label class="block text-[10px] font-bold text-amber-500 uppercase mb-1">Unidad
+                                                        <label for="select-producto-unidad" class="block text-[10px] font-bold text-amber-500 uppercase mb-1">Unidad
                                                             física</label>
                                                             <select id="select-producto-unidad" class="venta-input"
                                                                     aria-describedby="producto-unidad-ayuda producto-unidad-error">
@@ -552,7 +540,7 @@
                                                                  class="hidden col-span-2 md:col-span-5 flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-400">
                                                             </div>
                                                             <div>
-                                                                <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Desc.
+                                                                <label for="txt-descuento-item" class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Desc.
                                                                     %</label>
                                                                     <input id="txt-descuento-item" type="number" min="0" max="100" value="0"
                                                                            class="venta-input" />
@@ -748,43 +736,43 @@
                                                                                             </h4>
                                                                                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                                                                 <div>
-                                                                                                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Número de
+                                                                                                    <label for="txt-num-cheque" class="block text-xs font-bold text-slate-500 uppercase mb-1">Número de
                                                                                                         Cheque</label>
                                                                                                         <input type="text" name="DatosCheque.NumeroCheque" id="txt-num-cheque"
                                                                                                                class="venta-input" placeholder="Nº de cheque" />
                                                                                                     </div>
                                                                                                     <div>
-                                                                                                        <label
+                                                                                                        <label for="txt-banco-cheque"
                                                                                                         class="block text-xs font-bold text-slate-500 uppercase mb-1">Banco</label>
                                                                                                         <input type="text" name="DatosCheque.Banco" id="txt-banco-cheque"
                                                                                                                class="venta-input" placeholder="Nombre del banco" />
                                                                                                     </div>
                                                                                                     <div>
-                                                                                                        <label
+                                                                                                        <label for="txt-titular-cheque"
                                                                                                         class="block text-xs font-bold text-slate-500 uppercase mb-1">Titular</label>
                                                                                                         <input type="text" name="DatosCheque.Titular" id="txt-titular-cheque"
                                                                                                                class="venta-input" placeholder="Nombre del titular" />
                                                                                                     </div>
                                                                                                     <div>
-                                                                                                        <label
+                                                                                                        <label for="txt-cuit-cheque"
                                                                                                         class="block text-xs font-bold text-slate-500 uppercase mb-1">CUIT</label>
                                                                                                         <input type="text" name="DatosCheque.CUIT" id="txt-cuit-cheque"
                                                                                                                class="venta-input" placeholder="XX-XXXXXXXX-X" />
                                                                                                     </div>
                                                                                                     <div>
-                                                                                                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Fecha de
+                                                                                                        <label for="txt-fecha-emision-cheque" class="block text-xs font-bold text-slate-500 uppercase mb-1">Fecha de
                                                                                                             Emisión</label>
                                                                                                             <input type="date" name="DatosCheque.FechaEmision" id="txt-fecha-emision-cheque"
                                                                                                                    class="venta-input" />
                                                                                                         </div>
                                                                                                         <div>
-                                                                                                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Fecha de
+                                                                                                            <label for="txt-fecha-vencimiento-cheque" class="block text-xs font-bold text-slate-500 uppercase mb-1">Fecha de
                                                                                                                 Vencimiento</label>
                                                                                                                 <input type="date" name="DatosCheque.FechaVencimiento"
                                                                                                                        id="txt-fecha-vencimiento-cheque" class="venta-input" />
                                                                                                             </div>
                                                                                                             <div>
-                                                                                                                <label
+                                                                                                                <label for="txt-monto-cheque"
                                                                                                                 class="block text-xs font-bold text-slate-500 uppercase mb-1">Monto</label>
                                                                                                                 <input type="number" step="0.01" name="DatosCheque.Monto" id="txt-monto-cheque"
                                                                                                                        class="venta-input" placeholder="$0,00" />
@@ -808,16 +796,9 @@
                                                                                                                 crédito al confirmar.
                                                                                                             </p>
                                                                                                         </div>
-                                                                                                        <div id="panel-credito-cupo" class="mt-4 grid grid-cols-2 gap-3 hidden">
-                                                                                                            <div class="venta-stat">
-                                                                                                                <p class="venta-stat__label">Cupo disponible</p>
-                                                                                                                <p id="credito-cupo-valor" class="text-sm font-bold text-emerald-500">$0,00</p>
-                                                                                                            </div>
-                                                                                                            <div class="venta-stat">
-                                                                                                                <p class="venta-stat__label">Estado</p>
-                                                                                                                <p id="credito-cupo-estado" class="venta-stat__value">—</p>
-                                                                                                            </div>
-                                                                                                        </div>
+                                                                                                        @* VENTA-CREDITO-INFO-CONSOLIDACION-01: "Cupo disponible / Estado" que
+                                                                                                           vivía acá se retira — mismo dato que "Estado del crédito" ya muestra
+                                                                                                           un paso más adelante, con más contexto (límite/utilizado/barra). *@
                                                                                                     </div>
 
                                                                                                     @* Panel diagnóstico condiciones de pago — oculto por defecto.
@@ -962,7 +943,7 @@
                                                                                                                             condiciones señaladas arriba siguen sin resolverse.
                                                                                                                         </p>
                                                                                                                         <div>
-                                                                                                                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                                                                                                                            <label for="txt-excepcion-documental" class="block text-[10px] font-bold text-slate-500 uppercase mb-1">
                                                                                                                                 Motivo <span class="text-red-500">*</span>
                                                                                                                             </label>
                                                                                                                             <textarea asp-for="MotivoExcepcionDocumentalCreate"

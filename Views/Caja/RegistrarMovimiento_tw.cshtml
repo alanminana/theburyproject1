@@ -52,7 +52,29 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4" style="margin-top:1.25rem">
                 <div>
                     <label asp-for="Concepto" class="label">Concepto <span class="req">*</span></label>
-                    <select asp-for="Concepto" id="select-concepto" data-initial-value="@((int)Model.Concepto)" class="field" required></select>
+                    @* Las 2 optgroups quedan siempre server-renderizadas (mismo criterio que usa
+                       el backend para clasificar movimientos manuales, ConceptoMovimientoCaja):
+                       si caja-registrar-movimiento.js no carga, el campo obligatorio conserva
+                       opciones elegibles en vez de quedar vacío. Con JS, el script oculta la
+                       optgroup que no corresponde al tipo activo. *@
+                    <select asp-for="Concepto" id="select-concepto" data-initial-value="@((int)Model.Concepto)" class="field" required>
+                        <optgroup label="Ingresos" data-concepto-group="0">
+                            <option value="0">Venta efectivo</option>
+                            <option value="1">Venta tarjeta</option>
+                            <option value="2">Venta cheque</option>
+                            <option value="3">Cobro cuota</option>
+                            <option value="4">Cancelación crédito</option>
+                            <option value="5">Anticipo crédito</option>
+                        </optgroup>
+                        <optgroup label="Egresos" data-concepto-group="1">
+                            <option value="10">Gasto operativo</option>
+                            <option value="11">Extracción efectivo</option>
+                            <option value="12">Depósito efectivo</option>
+                            <option value="20">Devolución cliente</option>
+                            <option value="30">Ajuste caja</option>
+                            <option value="99">Otro</option>
+                        </optgroup>
+                    </select>
                     <span asp-validation-for="Concepto" class="text-rose-500 text-xs"></span>
                 </div>
                 <div>
@@ -63,6 +85,21 @@
                     </div>
                     <span asp-validation-for="Monto" class="text-rose-500 text-xs"></span>
                 </div>
+            </div>
+
+            @* Impacto en vivo pegado al campo que lo dispara (Monto): antes vivía solo en el
+               aside, donde en mobile quedaba después de todo el formulario. Mismo tratamiento
+               en mobile y desktop (§7 del estándar UI). *@
+            <div class="card-2" id="impact-card" style="margin-top:1rem;padding:.85rem 1rem">
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="material-symbols-outlined" id="impact-icon" style="color:@(esEgreso ? "#fb7185" : "#34d399");font-size:20px">@(esEgreso ? "trending_down" : "trending_up")</span>
+                    <h3 class="font-semibold text-white text-sm">Impacto en la caja</h3>
+                </div>
+                <dl>
+                    <div class="defrow"><dt>Efectivo esperado actual</dt><dd class="num" id="impact-base" data-value="@saldoActualValue.ToString(System.Globalization.CultureInfo.InvariantCulture)">@saldoActual</dd></div>
+                    <div class="defrow"><dt id="impact-label">@(esEgreso ? "Este egreso" : "Este ingreso")</dt><dd class="num" id="impact-delta" style="color:@(esEgreso ? "#fb7185" : "#34d399")">$ 0,00</dd></div>
+                    <div class="defrow"><dt class="font-medium" style="color:#e2e8f0">Nuevo esperado</dt><dd class="num font-semibold text-white" id="impact-total">@saldoActual</dd></div>
+                </dl>
             </div>
 
             <div style="margin-top:1rem">
@@ -85,18 +122,6 @@
         </form>
 
         <aside class="space-y-4">
-            <div class="card card-pad" id="impact-card">
-                <div class="flex items-center gap-2 mb-3">
-                    <span class="material-symbols-outlined" id="impact-icon" style="color:@(esEgreso ? "#fb7185" : "#34d399");font-size:20px">@(esEgreso ? "trending_down" : "trending_up")</span>
-                    <h3 class="font-semibold text-white">Impacto en la caja</h3>
-                </div>
-                <dl>
-                    <div class="defrow"><dt>Efectivo esperado actual</dt><dd class="num" id="impact-base" data-value="@saldoActualValue.ToString(System.Globalization.CultureInfo.InvariantCulture)">@saldoActual</dd></div>
-                    <div class="defrow"><dt id="impact-label">@(esEgreso ? "Este egreso" : "Este ingreso")</dt><dd class="num" id="impact-delta" style="color:@(esEgreso ? "#fb7185" : "#34d399")">$ 0,00</dd></div>
-                    <div class="defrow"><dt class="font-medium" style="color:#e2e8f0">Nuevo esperado</dt><dd class="num font-semibold text-white" id="impact-total">@saldoActual</dd></div>
-                </dl>
-            </div>
-
             <div class="card card-pad">
                 <div class="flex items-center gap-2 mb-3">
                     <span class="material-symbols-outlined" style="color:#f5c518;font-size:20px">tips_and_updates</span>
@@ -112,13 +137,6 @@
                 <span class="material-symbols-outlined">verified_user</span>
                 <div>Transacción segura. El movimiento queda firmado con tu usuario y la hora exacta.</div>
             </div>
-
-            @* hidden como atributo: caja-registrar-movimiento.js reescribe className y borraría la clase "hidden". *@
-            <span id="tipo-card-label" hidden>@(esEgreso ? "Egreso" : "Ingreso")</span>
-            <span id="tipo-card-copy" hidden></span>
-            <span id="tipo-panel-badge" hidden>@(esEgreso ? "Egreso" : "Ingreso")</span>
-            <span id="tipo-panel-title" hidden></span>
-            <span id="tipo-panel-copy" hidden></span>
         </aside>
     </div>
 </div>

@@ -419,7 +419,9 @@ namespace TheBuryProject.Services
                 existing.Nombre = producto.Nombre;
                 existing.Descripcion = producto.Descripcion;
                 existing.CategoriaId = producto.CategoriaId;
+                existing.SubcategoriaId = producto.SubcategoriaId;
                 existing.MarcaId = producto.MarcaId;
+                existing.SubmarcaId = producto.SubmarcaId;
                 existing.PrecioCompra = producto.PrecioCompra;
                 existing.CostoEnvio = producto.CostoEnvio;
                 existing.PercepcionesCompra = producto.PercepcionesCompra;

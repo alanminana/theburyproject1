@@ -65,11 +65,22 @@
             <h2 class="font-semibold text-white">Datos de apertura</h2>
             <p class="text-sm muted-2" style="margin-top:.2rem;margin-bottom:1.25rem">Confirmá la caja y el monto con el que arranca el turno.</p>
 
+            @{ var sinCajasDisponibles = cajas == null || !cajas.Any(); }
+            @if (sinCajasDisponibles)
+            {
+                <div class="alert alert-warn" style="margin-bottom:1rem">
+                    <span class="material-symbols-outlined">info</span>
+                    <div>No tenés ninguna caja disponible para abrir ahora mismo: o no hay ninguna asignada a tu usuario, o las que tenés ya están con un turno abierto. Pedile al administrador que te asigne una caja, o cerrá el turno abierto antes de abrir uno nuevo.</div>
+                </div>
+            }
+
             <div class="space-y-4">
                 <div>
                     <label asp-for="CajaId" class="label">Caja a abrir <span class="req">*</span></label>
                     <select asp-for="CajaId" asp-items="cajas" class="field" data-caja-abrir-select
-                            data-caja-ultimo-cierre-url="@Url.Action("UltimoEfectivoCierre")">
+                            data-caja-ultimo-cierre-url="@Url.Action("UltimoEfectivoCierre")"
+                            aria-disabled="@(sinCajasDisponibles ? "true" : "false")"
+                            disabled="@sinCajasDisponibles">
                         <option value="">Seleccioná una caja disponible…</option>
                     </select>
                     <p class="hint">Solo se listan cajas disponibles (sin turno abierto).</p>
@@ -102,7 +113,10 @@
             <div class="flex flex-col-reverse sm:flex-row justify-end gap-2"
                  style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid #1f2937">
                 <a asp-action="Index" class="btn btn-ghost" style="text-decoration:none">Cancelar</a>
-                <button type="submit" class="btn btn-primary">
+                <button type="submit" class="btn btn-primary"
+                        aria-disabled="@(sinCajasDisponibles ? "true" : "false")"
+                        title="@(sinCajasDisponibles ? "No hay ninguna caja disponible para abrir" : null)"
+                        disabled="@sinCajasDisponibles">
                     <span class="material-symbols-outlined">lock_open</span>Abrir caja
                 </button>
             </div>

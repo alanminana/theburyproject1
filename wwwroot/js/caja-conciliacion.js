@@ -39,16 +39,20 @@
         btn.addEventListener('click', function () { window.print(); });
     });
 
-    // ── Tabs ──
+    // ── Tabs: ARIA completo + roving tabindex (mismo patrón que venta-index-rework.js / §5) ──
     document.querySelectorAll('[data-cc-tabs]').forEach(function (wrap) {
         var tabs = Array.prototype.slice.call(wrap.querySelectorAll('[data-cc-tab]'));
         var panels = Array.prototype.slice.call(wrap.querySelectorAll('[data-cc-panel]'));
 
-        function activate(name) {
+        function activate(tab) {
+            var name = tab.getAttribute('data-cc-tab');
+            if (!name) return;
+
             tabs.forEach(function (t) {
-                var on = t.getAttribute('data-cc-tab') === name;
+                var on = t === tab;
                 t.classList.toggle('is-active', on);
                 t.setAttribute('aria-selected', on ? 'true' : 'false');
+                t.tabIndex = on ? 0 : -1;
             });
             panels.forEach(function (p) {
                 var on = p.getAttribute('data-cc-panel') === name;
@@ -57,9 +61,33 @@
             });
         }
 
+        function moveFocus(current, direction) {
+            if (!tabs.length) return;
+            var index = tabs.indexOf(current);
+            if (index < 0) return;
+            var nextIndex = (index + direction + tabs.length) % tabs.length;
+            tabs[nextIndex].focus();
+            activate(tabs[nextIndex]);
+        }
+
         tabs.forEach(function (t) {
-            t.addEventListener('click', function () {
-                activate(t.getAttribute('data-cc-tab'));
+            t.addEventListener('click', function () { activate(t); });
+            t.addEventListener('keydown', function (event) {
+                if (event.key === 'ArrowRight') {
+                    event.preventDefault();
+                    moveFocus(t, 1);
+                } else if (event.key === 'ArrowLeft') {
+                    event.preventDefault();
+                    moveFocus(t, -1);
+                } else if (event.key === 'Home') {
+                    event.preventDefault();
+                    tabs[0].focus();
+                    activate(tabs[0]);
+                } else if (event.key === 'End') {
+                    event.preventDefault();
+                    tabs[tabs.length - 1].focus();
+                    activate(tabs[tabs.length - 1]);
+                }
             });
         });
 
@@ -73,6 +101,7 @@
         var body = document.querySelector('[data-venta-body]');
         if (!body) return;
         var rows = Array.prototype.slice.call(body.querySelectorAll('[data-venta-row]'));
+        var groupHeaders = Array.prototype.slice.call(body.querySelectorAll('[data-venta-group]'));
         var controls = {
             medio: document.querySelector('[data-venta-filter="medio"]'),
             estado: document.querySelector('[data-venta-filter="estado"]'),
@@ -89,6 +118,7 @@
             var fImpacta = controls.impacta ? controls.impacta.value : 'all';
             var fCliente = controls.cliente ? controls.cliente.value.trim().toLowerCase() : '';
             var visible = 0, total = 0;
+            var visibleByGroup = {};
 
             rows.forEach(function (row) {
                 var ok = (fMedio === 'all' || row.dataset.ventaMedio === fMedio)
@@ -96,7 +126,18 @@
                     && (fImpacta === 'all' || row.dataset.ventaImpacta === fImpacta)
                     && (fCliente === '' || (row.dataset.ventaCliente || '').indexOf(fCliente) !== -1);
                 row.hidden = !ok;
-                if (ok) { visible += 1; total += parseNum(row.dataset.ventaTotal); }
+                if (ok) {
+                    visible += 1;
+                    total += parseNum(row.dataset.ventaTotal);
+                    visibleByGroup[row.dataset.ventaCategoria] = true;
+                }
+            });
+
+            // Encabezado de grupo ("Ventas efectivas" / "Operaciones pendientes"): solo se
+            // muestra si le queda al menos una fila visible tras el filtro, para no dejar un
+            // título de grupo huérfano sobre una tabla vacía.
+            groupHeaders.forEach(function (header) {
+                header.hidden = !visibleByGroup[header.dataset.ventaGroup];
             });
 
             if (empty) { empty.classList.toggle('hidden', visible > 0); }
@@ -112,63 +153,32 @@
         apply();
     })();
 
-    // ── Filtro de Movimientos ──
-    (function () {
-        var body = document.querySelector('[data-mov-body]');
-        if (!body) return;
-        var rows = Array.prototype.slice.call(body.querySelectorAll('[data-mov-row]'));
-        var tipoBtns = Array.prototype.slice.call(document.querySelectorAll('[data-mov-tipo]'));
-        var medioSel = document.querySelector('[data-mov-filter="medio"]');
-        var usuarioSel = document.querySelector('[data-mov-filter="usuario"]');
-        var empty = document.querySelector('[data-mov-empty]');
-        var tipo = 'all';
-
-        function apply() {
-            var fMedio = medioSel ? medioSel.value : 'all';
-            var fUsuario = usuarioSel ? usuarioSel.value : 'all';
-            var visible = 0;
-            rows.forEach(function (row) {
-                var ok = (tipo === 'all' || row.dataset.movT === tipo)
-                    && (fMedio === 'all' || row.dataset.movMedio === fMedio)
-                    && (fUsuario === 'all' || row.dataset.movUsuario === fUsuario);
-                row.hidden = !ok;
-                if (ok) { visible += 1; }
-            });
-            if (empty) { empty.classList.toggle('hidden', visible > 0); }
-        }
-
-        tipoBtns.forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                tipo = btn.getAttribute('data-mov-tipo') || 'all';
-                tipoBtns.forEach(function (b) {
-                    var on = b === btn;
-                    b.classList.toggle('btn-soft', on);
-                    b.classList.toggle('btn-ghost', !on);
-                    b.setAttribute('aria-pressed', on ? 'true' : 'false');
-                });
-                apply();
-            });
-        });
-        if (medioSel) { medioSel.addEventListener('change', apply); }
-        if (usuarioSel) { usuarioSel.addEventListener('change', apply); }
-        apply();
-    })();
-
-    // ── Filtro de Libro mayor ──
+    // ── Filtro de Libro mayor (incluye lo que antes era el filtro exclusivo del tab
+    //    "Movimientos" — tipo/dirección, medio, usuario — fusionado en Conciliación) ──
     (function () {
         var body = document.querySelector('[data-lm-body]');
         if (!body) return;
         var rows = Array.prototype.slice.call(body.querySelectorAll('[data-lm-row]'));
-        var tipoBtns = Array.prototype.slice.call(document.querySelectorAll('[data-lm-tipo]'));
+        var dirBtns = Array.prototype.slice.call(document.querySelectorAll('[data-lm-dir]'));
+        var impactaBtns = Array.prototype.slice.call(document.querySelectorAll('[data-lm-tipo]'));
+        var medioSel = document.querySelector('[data-lm-filter="medio"]');
+        var usuarioSel = document.querySelector('[data-lm-filter="usuario"]');
         var refInput = document.querySelector('[data-lm-filter="ref"]');
         var empty = document.querySelector('[data-lm-empty]');
-        var tipo = 'all';
+        var dir = 'all';
+        var impacta = 'all';
 
         function apply() {
+            var fMedio = medioSel ? medioSel.value : 'all';
+            var fUsuario = usuarioSel ? usuarioSel.value : 'all';
             var fRef = refInput ? refInput.value.trim().toLowerCase() : '';
             var visible = 0;
+
             rows.forEach(function (row) {
-                var ok = (tipo === 'all' || row.dataset.lmImpacta === tipo)
+                var ok = (dir === 'all' || row.dataset.lmDir === dir)
+                    && (impacta === 'all' || row.dataset.lmImpacta === impacta)
+                    && (fMedio === 'all' || row.dataset.lmMedio === fMedio)
+                    && (fUsuario === 'all' || row.dataset.lmUsuario === fUsuario)
                     && (fRef === '' || (row.dataset.lmRef || '').indexOf(fRef) !== -1);
                 row.hidden = !ok;
                 if (ok) { visible += 1; }
@@ -176,18 +186,25 @@
             if (empty) { empty.classList.toggle('hidden', visible > 0); }
         }
 
-        tipoBtns.forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                tipo = btn.getAttribute('data-lm-tipo') || 'all';
-                tipoBtns.forEach(function (b) {
-                    var on = b === btn;
-                    b.classList.toggle('btn-soft', on);
-                    b.classList.toggle('btn-ghost', !on);
-                    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        function bindToggleGroup(btns, onPick) {
+            btns.forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    onPick(btn);
+                    btns.forEach(function (b) {
+                        var on = b === btn;
+                        b.classList.toggle('btn-soft', on);
+                        b.classList.toggle('btn-ghost', !on);
+                        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+                    });
+                    apply();
                 });
-                apply();
             });
-        });
+        }
+
+        bindToggleGroup(dirBtns, function (btn) { dir = btn.getAttribute('data-lm-dir') || 'all'; });
+        bindToggleGroup(impactaBtns, function (btn) { impacta = btn.getAttribute('data-lm-tipo') || 'all'; });
+        if (medioSel) { medioSel.addEventListener('change', apply); }
+        if (usuarioSel) { usuarioSel.addEventListener('change', apply); }
         if (refInput) { refInput.addEventListener('input', apply); }
         apply();
     })();

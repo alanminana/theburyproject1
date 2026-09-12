@@ -1,11 +1,22 @@
 @model TheBuryProject.ViewModels.CajaConciliacionViewModel
 @using System.Globalization
+@using TheBuryProject.ViewModels
 @{
     var ventas = Model.Ventas
-        .Where(v => v.Categoria != TheBuryProject.ViewModels.VentaTurnoCategoria.Registro)
+        .Where(v => v.Categoria != VentaTurnoCategoria.Registro)
         .ToList();
     var totalVentas = ventas.Sum(v => v.TotalVenta);
     var estados = ventas.Select(v => v.EstadoLabel).Distinct().OrderBy(e => e).ToList();
+
+    // Ventas efectivas (Confirmada/Facturada/Entregada) primero, Operaciones pendientes
+    // (PendienteRequisitos/PendienteFinanciacion) después: agrupar por categoría evita que una
+    // venta todavía sin facturar compita visualmente en pie de igualdad con una ya concretada
+    // cuando ambas caen el mismo día (spec: docs/fase-kira-caja-detalle-ventas-ux.md, reapertura
+    // registrada en docs/ui/UI-REFACTOR-STATUS.md). El orden por fecha se conserva dentro de
+    // cada grupo.
+    var efectivas = ventas.Where(v => v.Categoria == VentaTurnoCategoria.Efectiva).ToList();
+    var pendientes = ventas.Where(v => v.Categoria == VentaTurnoCategoria.Pendiente).ToList();
+    var ordenTabla = efectivas.Concat(pendientes).ToList();
 }
 
 <section class="card" style="overflow:hidden">
@@ -55,7 +66,7 @@
 
     @if (ventas.Any())
     {
-        <div data-oc-scroll style="--oc-scroll-min-width: 880px;">
+        <div data-oc-scroll style="--oc-scroll-min-width: 1020px;">
             <div data-oc-scroll-shell>
                 <div data-oc-scroll-fade="left" hidden></div>
                 <div data-oc-scroll-fade="right" hidden></div>
@@ -64,6 +75,8 @@
                         <thead>
                             <tr>
                                 <th>Venta</th>
+                                <th>Fecha</th>
+                                <th>Hora</th>
                                 <th>Cliente</th>
                                 <th>Estado</th>
                                 <th>Medio de pago</th>
@@ -74,9 +87,34 @@
                             </tr>
                         </thead>
                         <tbody data-venta-body>
-                            @foreach (var v in ventas)
+                            @{ VentaTurnoCategoria? categoriaAnterior = null; }
+                            @foreach (var v in ordenTabla)
                             {
+                                if (v.Categoria != categoriaAnterior)
+                                {
+                                    if (v.Categoria == VentaTurnoCategoria.Efectiva)
+                                    {
+                                        <tr class="tbl-group-row" data-venta-group="efectiva">
+                                            <td colspan="10">
+                                                <span class="tbl-group-label">Ventas efectivas</span>
+                                                <span class="tbl-group-count">@efectivas.Count</span>
+                                            </td>
+                                        </tr>
+                                    }
+                                    else
+                                    {
+                                        <tr class="tbl-group-row" data-venta-group="pendiente">
+                                            <td colspan="10">
+                                                <span class="tbl-group-label">Operaciones pendientes</span>
+                                                <span class="tbl-group-count">@pendientes.Count</span>
+                                                <span class="tbl-group-hint">Sin ingreso inmediato — todavía no impactan la caja</span>
+                                            </td>
+                                        </tr>
+                                    }
+                                    categoriaAnterior = v.Categoria;
+                                }
                                 <tr data-venta-row
+                                    data-venta-categoria="@(v.Categoria == VentaTurnoCategoria.Efectiva ? "efectiva" : "pendiente")"
                                     data-venta-medio="@v.MedioKey"
                                     data-venta-estado="@v.EstadoLabel.ToLowerInvariant()"
                                     data-venta-impacta="@(v.ImpactaCajaFisica ? "si" : "no")"
@@ -91,8 +129,9 @@
                                         {
                                             <div class="mono text-white">@v.Numero</div>
                                         }
-                                        <div class="text-xs muted-2">@v.Fecha.ToString("dd/MM HH:mm")</div>
                                     </td>
+                                    <td class="muted-2">@v.Fecha.ToString("dd/MM/yyyy")</td>
+                                    <td class="muted-2">@v.Fecha.ToString("HH:mm")</td>
                                     <td>@v.Cliente</td>
                                     <td><span class="@v.EstadoChipClass">@v.EstadoLabel</span></td>
                                     <td><span class="chip @(v.ImpactaCajaFisica ? "chip-ok" : "chip-info")">@v.MedioPago</span></td>

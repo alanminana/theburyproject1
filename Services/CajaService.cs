@@ -1139,6 +1139,24 @@ namespace TheBuryProject.Services
             }
         }
 
+        public async Task<Dictionary<int, DateTime>> ObtenerUltimosCierresPorCajaAsync()
+        {
+            try
+            {
+                return await _context.CierresCaja
+                    .AsNoTracking()
+                    .Where(c => !c.IsDeleted && !c.AperturaCaja.IsDeleted)
+                    .GroupBy(c => c.AperturaCaja.CajaId)
+                    .Select(g => new { CajaId = g.Key, UltimoCierre = g.Max(c => c.FechaCierre) })
+                    .ToDictionaryAsync(x => x.CajaId, x => x.UltimoCierre);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al obtener últimos cierres por caja");
+                throw;
+            }
+        }
+
         public async Task<List<CierreCaja>> ObtenerHistorialCierresAsync(
             int? cajaId = null,
             DateTime? fechaDesde = null,
