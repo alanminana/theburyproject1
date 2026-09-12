@@ -657,44 +657,19 @@ const ProductoModal = (() => {
     }
 
     function handleServerErrors(errors) {
-        const messages = [];
-        for (const [field, msgs] of Object.entries(errors)) {
-            msgs.forEach(msg => messages.push(msg));
-
-            // Marcar campo con error
-            if (field) {
-                const span = document.querySelector(`[data-valmsg-for="${field}"]`);
-                if (span) {
-                    span.textContent = msgs[0];
-                    span.classList.remove('hidden');
-                }
-                // Borde rojo en el input
-                const input = document.querySelector(`[name="${field}"]`);
-                if (input) input.classList.add('border-red-500');
-            }
-        }
-        if (messages.length) showValidation(messages.join('. '));
+        ProductoModalFormUtils.handleServerErrors(errors, showValidation, null);
     }
 
     // ── Validación visual ───────────────────────────────────
-    function showValidation(text) {
-        const box = el('modal-validation-summary');
-        const msg = el('modal-validation-text');
-        if (box && msg) {
-            msg.textContent = text;
-            box.classList.remove('hidden');
-            box.classList.add('flex');
-            box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
-    }
-
-    function hideValidation() {
-        const box = el('modal-validation-summary');
-        if (box) {
-            box.classList.add('hidden');
-            box.classList.remove('flex');
-        }
-    }
+    // Compartido con producto-editar-modal.js vía producto-modal-validacion.js;
+    // acá se preserva el comportamiento previo: requireBoth (sólo actúa si box
+    // y msg existen) + scroll al summary al mostrarlo.
+    const _validacion = ProductoModalFormUtils.bindValidation('modal-validation-summary', 'modal-validation-text', {
+        requireBoth: true,
+        scrollIntoView: true
+    });
+    function showValidation(text) { _validacion.showValidation(text); }
+    function hideValidation() { _validacion.hideValidation(); }
 
     function clearFieldErrors() {
         document.querySelectorAll('#form-nuevo-producto [data-valmsg-for]').forEach(span => {

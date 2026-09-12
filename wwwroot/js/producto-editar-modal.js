@@ -435,17 +435,12 @@
 
     // ── Validación ──────────────────────────────────────────────
 
-    function showValidation(text) {
-        var box = el(VAL_BOX_ID);
-        var msg = el(VAL_TXT_ID);
-        if (box) { box.classList.remove('hidden'); box.classList.add('flex'); }
-        if (msg) msg.textContent = text;
-    }
-
-    function hideValidation() {
-        var box = el(VAL_BOX_ID);
-        if (box) { box.classList.add('hidden'); box.classList.remove('flex'); }
-    }
+    // Compartido con producto-crear-modal.js vía producto-modal-validacion.js;
+    // acá se preserva el comportamiento previo: box y msg se actualizan de
+    // forma independiente (sin requireBoth) y sin scroll automático.
+    var _validacion = ProductoModalFormUtils.bindValidation(VAL_BOX_ID, VAL_TXT_ID, {});
+    function showValidation(text) { _validacion.showValidation(text); }
+    function hideValidation() { _validacion.hideValidation(); }
 
     function clearErrors() {
         document.querySelectorAll('#' + FORM_ID + ' [data-valmsg-for]').forEach(function (s) {
@@ -457,18 +452,7 @@
     }
 
     function handleServerErrors(errors) {
-        var messages = [];
-        Object.keys(errors).forEach(function (field) {
-            var msgs = errors[field];
-            msgs.forEach(function (m) { messages.push(m); });
-            if (field) {
-                var span = document.querySelector('#' + FORM_ID + ' [data-valmsg-for="' + field + '"]');
-                if (span) { span.textContent = msgs[0]; span.classList.remove('hidden'); }
-                var input = document.querySelector('#' + FORM_ID + ' [name="' + field + '"]');
-                if (input) input.classList.add('border-red-500');
-            }
-        });
-        if (messages.length) showValidation(messages.join('. '));
+        ProductoModalFormUtils.handleServerErrors(errors, showValidation, '#' + FORM_ID);
     }
 
     function escHtml(str) {
