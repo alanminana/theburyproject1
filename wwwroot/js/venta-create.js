@@ -2780,15 +2780,6 @@
     const ventaForm = document.getElementById('venta-form');
 
     const bannerErrores = $('#banner-errores');
-    // Orden real de pasos derivado del DOM (misma fuente que venta-page-wizard.js).
-    // Create expone 4 pasos y Edit 5 (incluye 'credito'); derivarlo evita que la
-    // navegación al primer paso con error de servidor ignore pasos no hardcodeados.
-    const ORDEN_STEPS = (() => {
-        const pasos = Array.from(document.querySelectorAll('.vm-step-tab[data-step]'))
-            .map(b => b.getAttribute('data-step'))
-            .filter((s, i, arr) => s && arr.indexOf(s) === i);
-        return pasos.length ? pasos : ['cliente', 'productos', 'pago', 'revision'];
-    })();
 
     function toggleBannerErrores(visible) {
         if (!bannerErrores) return;
@@ -2811,80 +2802,6 @@
         if (list) list.replaceChildren();
         ventaForm?.querySelectorAll('[data-server-error]').forEach(limpiarCampoError);
         ventaForm?.querySelectorAll('.venta-server-field-error').forEach(p => p.remove());
-    }
-
-    // Mapea una clave de ModelState al control visible que debe marcarse.
-    function resolverCampoError(key) {
-        if (!key) return null;                                    // error de nivel modelo
-        if (key === 'ClienteId') return $('#input-buscar-cliente');
-        if (/^Detalles/i.test(key)) return $('#input-buscar-producto');
-        const el = ventaForm?.querySelector(`[name="${key}"]`);
-        if (!el || el.type === 'hidden') return null;             // totales/RowVersion: sin proxy visible
-        return el;
-    }
-
-    function stepDeElemento(el) {
-        const panel = el?.closest('[id^="step-panel-"]');
-        return panel ? panel.id.replace('step-panel-', '') : null;
-    }
-
-    function marcarCampoError(el, mensaje) {
-        if (!el) return;
-        el.classList.add('border-red-500', 'ring-1', 'ring-red-500');
-        el.dataset.serverError = '1';
-        let msgEl = el.nextElementSibling;
-        if (!(msgEl && msgEl.classList.contains('venta-server-field-error'))) {
-            msgEl = document.createElement('p');
-            msgEl.className = 'venta-server-field-error text-[11px] text-red-500 font-bold mt-1';
-            el.insertAdjacentElement('afterend', msgEl);
-        }
-        msgEl.textContent = mensaje;
-        const limpiar = () => limpiarCampoError(el);
-        el.addEventListener('input', limpiar, { once: true });
-        el.addEventListener('change', limpiar, { once: true });
-    }
-
-    // Rellena el banner, marca cada campo y navega al primer paso con error.
-    function renderErroresServidor(errors) {
-        const list = $('#banner-errores-list');
-        if (list) list.replaceChildren();
-
-        let primerStep = null;
-        let primerCampo = null;
-
-        for (const [key, msgs] of Object.entries(errors || {})) {
-            const arr = Array.isArray(msgs) ? msgs : [msgs];
-            arr.forEach(m => {
-                if (list && m) {
-                    const p = document.createElement('p');
-                    p.textContent = m;
-                    list.appendChild(p);
-                }
-            });
-
-            const el = resolverCampoError(key);
-            if (!el) continue;
-            marcarCampoError(el, arr.join(' '));
-
-            const step = stepDeElemento(el);
-            if (step) {
-                const idx = ORDEN_STEPS.indexOf(step);
-                const idxActual = primerStep ? ORDEN_STEPS.indexOf(primerStep) : Infinity;
-                if (idx > -1 && idx < idxActual) { primerStep = step; primerCampo = el; }
-            }
-            if (!primerCampo) primerCampo = el;
-        }
-
-        toggleBannerErrores(true);
-
-        if (primerStep && window.VentaWizard?.setActiveStep) {
-            window.VentaWizard.setActiveStep(primerStep);
-        }
-        (primerCampo || bannerErrores)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-
-    function setSubmitDisabled(disabled) {
-        ventaForm?.querySelectorAll('button[type="submit"]').forEach(btn => { btn.disabled = disabled; });
     }
 
     // Botón "Cerrar" del banner de errores (antes era un no-op).
