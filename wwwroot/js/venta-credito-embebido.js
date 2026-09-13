@@ -22,6 +22,7 @@
     const root = document.getElementById('venta-create-page') || document.getElementById('venta-edit-page');
     if (!root) return;
 
+    const ventaModule = window.VentaModule || {};
     const ventaForm = document.getElementById('venta-form');
     const contenedor = document.getElementById('credito-embebido-contenedor');
     const cargandoEl = document.getElementById('credito-embebido-cargando');
@@ -31,8 +32,13 @@
 
     if (!ventaForm || !contenedor) return;
 
+    // Delegado a VentaModule.requiereCredito (venta-module.js), compartido con
+    // venta-page-wizard.js: misma condición sobre el mismo #select-tipo-pago, antes
+    // duplicada en ambos archivos. Fallback inline por si VentaModule no cargó.
     function requiereCredito() {
-        return pagoSelect?.value === pagoSelect?.dataset.creditoPersonalValue;
+        return typeof ventaModule.requiereCredito === 'function'
+            ? ventaModule.requiereCredito(pagoSelect)
+            : pagoSelect?.value === pagoSelect?.dataset.creditoPersonalValue;
     }
 
     function show(el) { el?.classList.remove('hidden'); }

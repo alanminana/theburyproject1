@@ -4,6 +4,8 @@
     const root = document.getElementById('venta-create-page') || document.getElementById('venta-edit-page');
     if (!root) return;
 
+    const ventaModule = window.VentaModule || {};
+
     const ventaInicialSeed = document.getElementById('venta-inicial-json');
     if (ventaInicialSeed?.value && !window.ventaInicial) {
         try {
@@ -106,8 +108,13 @@
         document.dispatchEvent(new CustomEvent('venta:wizard-paso-activo', { detail: { step } }));
     }
 
+    // Delegado a VentaModule.requiereCredito (venta-module.js), compartido con
+    // venta-credito-embebido.js: misma condición sobre el mismo #select-tipo-pago,
+    // antes duplicada en ambos archivos. Fallback inline por si VentaModule no cargó.
     function requiereCredito() {
-        return pagoSelect?.value === pagoSelect?.dataset.creditoPersonalValue;
+        return typeof ventaModule.requiereCredito === 'function'
+            ? ventaModule.requiereCredito(pagoSelect)
+            : pagoSelect?.value === pagoSelect?.dataset.creditoPersonalValue;
     }
 
     function pasosVisibles() {

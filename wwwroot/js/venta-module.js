@@ -42,6 +42,14 @@
         requestAnimationFrame(() => instance.update());
     }
 
+    // Compartida entre venta-page-wizard.js y venta-credito-embebido.js: ambos corren
+    // sobre el mismo #select-tipo-pago del wizard y necesitan la misma condición para
+    // decidir si el paso "Crédito" aplica. Recibe el <select> como parámetro en vez de
+    // buscarlo por id acá para no acoplar este módulo compartido al DOM de una pantalla.
+    function requiereCredito(pagoSelect) {
+        return pagoSelect?.value === pagoSelect?.dataset.creditoPersonalValue;
+    }
+
     function createBodyLockController() {
         let previousOverflow = '';
 
@@ -184,4 +192,5 @@
     window.VentaModule.initScrollAffordance = initScrollAffordance;
     window.VentaModule.refreshScrollAffordance = refreshScrollAffordance;
     window.VentaModule.bindModal = bindModal;
+    window.VentaModule.requiereCredito = requiereCredito;
 })();
