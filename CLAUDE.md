@@ -46,6 +46,8 @@ Toda auditoría UI/UX distingue técnica, visual, flujo UX y estados reales (ver
 
 Verificar primero la versión instalada y el código real antes de aplicar información externa.
 
+Si al usar el MCP `playwright` ya existen procesos/sesión de Playwright abiertos porque otro agente los está usando y no terminó el proceso correctamente (no se puede asumir que esté libre para cerrar o matar), no forzar el cierre de esa sesión ni reutilizarla: abrir una nueva sesión de Playwright propia y continuar en esa.
+
 ## Cambios de configuración
 
 `/doctor` sirve para auditar y proponer. No aplicar ni aceptar cambios de configuración sin revisar después `git diff` y los servidores o skills afectados.
