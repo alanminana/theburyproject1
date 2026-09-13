@@ -64,7 +64,13 @@
     const chkFacturar = document.getElementById('chk-facturar');
     let modalConfirmarFacturar = null;
     if (typeof ventaModule.bindModal === 'function') {
-        modalConfirmarFacturar = ventaModule.bindModal('confirmar-facturar');
+        // displayClass: 'flex' — igual que facturar-modal/anular-factura en
+        // details-venta.js. Sin esto, bindModal sólo saca "hidden" (display:none) y
+        // el modal queda con display:block por defecto: "items-center justify-center"
+        // no hacen nada y el diálogo se renderiza pegado arriba a la izquierda.
+        modalConfirmarFacturar = ventaModule.bindModal('confirmar-facturar', {
+            displayClass: 'flex'
+        });
     }
 
     // Igual motivo que actualizarPasoCredito(): el checkbox sólo aplica a pagos sin

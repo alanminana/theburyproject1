@@ -5,6 +5,16 @@
     const theBury = window.TheBury || {};
     const ventaModule = window.VentaModule || {};
     const formConfirmar = document.getElementById('form-confirmar');
+    // Checkbox "Facturar al confirmar" + modal de tipo de factura (mismo patrón que
+    // Venta/Edit): reemplaza al viejo botón directo "Confirmar y facturar" con Tipo B fijo.
+    const chkFacturarDetails = document.getElementById('chk-facturar-details');
+    const btnConfirmarFacturarDetails = document.getElementById('btn-confirmar-facturar-details');
+    let modalConfirmarFacturarDetails = null;
+    if (typeof ventaModule.bindModal === 'function') {
+        modalConfirmarFacturarDetails = ventaModule.bindModal('confirmar-facturar', {
+            displayClass: 'flex'
+        });
+    }
     const inputFacturaId = document.getElementById('anular-factura-id');
     const inputMotivoAnulacion = document.getElementById('anular-factura-motivo');
     const labelFacturaNumero = document.getElementById('modal-anular-factura-numero');
@@ -70,12 +80,40 @@
         formConfirmar.addEventListener('submit', function (event) {
             event.preventDefault();
 
+            // "Facturar al confirmar" tildado: no confirmar a ciegas con Tipo B fijo — abrir
+            // el modal para elegir el tipo. btnConfirmarFacturarDetails hace su propio submit
+            // (form.submit() no dispara este listener), así que acá no hace falta distinguir
+            // "de dónde vino el submit" como en el wizard de Edit.
+            if (chkFacturarDetails?.checked && modalConfirmarFacturarDetails) {
+                modalConfirmarFacturarDetails.open();
+                return;
+            }
+
             const submitVenta = function () {
                 formConfirmar.submit();
             };
 
             if (typeof theBury.confirmAction === 'function') {
                 theBury.confirmAction('¿Está seguro de confirmar esta venta? Esta acción no se puede deshacer.', submitVenta);
+                return;
+            }
+
+            submitVenta();
+        });
+
+        btnConfirmarFacturarDetails?.addEventListener('click', function () {
+            const accionUrl = btnConfirmarFacturarDetails.dataset.actionUrl;
+            const submitVenta = function () {
+                // form.submit() no dispara 'submit' (evita reabrir este mismo modal en loop) y
+                // no respeta formaction de botones — por eso se pisa form.action a mano antes.
+                if (accionUrl) {
+                    formConfirmar.action = accionUrl;
+                }
+                formConfirmar.submit();
+            };
+
+            if (typeof theBury.confirmAction === 'function') {
+                theBury.confirmAction('¿Está seguro de confirmar y facturar esta venta? Esta acción no se puede deshacer.', submitVenta);
                 return;
             }
 
