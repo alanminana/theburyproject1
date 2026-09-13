@@ -5,6 +5,7 @@
 document.addEventListener('DOMContentLoaded', function () {
     'use strict';
 
+    var creditoModule = (window.TheBury && window.TheBury.CreditoModule) || {};
     var root = document.querySelector('[data-credito-adelanto]');
     if (!root) return;
 
@@ -33,9 +34,12 @@ document.addEventListener('DOMContentLoaded', function () {
         elemento.textContent = formatearDinero ? dinero.format(valor) : valor;
     }
 
+    // Delegado a CreditoModule.formatearFechaIso (credito-module.js), compartido con
+    // credito-pagar-cuota.js.
     function formatearFechaIso(valor) {
-        var partes = String(valor || '').split('-');
-        return partes.length === 3 ? partes[2] + '/' + partes[1] + '/' + partes[0] : valor;
+        return typeof creditoModule.formatearFechaIso === 'function'
+            ? creditoModule.formatearFechaIso(valor)
+            : valor;
     }
 
     function actualizarConfirmacion() {
@@ -49,13 +53,12 @@ document.addEventListener('DOMContentLoaded', function () {
         actualizarConfirmacion();
     }
 
+    // Delegado a CreditoModule.mensajeError (credito-module.js), compartido con
+    // credito-pagar-cuota.js.
     function mensajeError(payload, fallback) {
-        if (payload && payload.message) return payload.message;
-        if (payload && payload.errors) {
-            var claves = Object.keys(payload.errors);
-            if (claves.length && payload.errors[claves[0]].length) return payload.errors[claves[0]][0];
-        }
-        return fallback;
+        return typeof creditoModule.mensajeError === 'function'
+            ? creditoModule.mensajeError(payload, fallback)
+            : fallback;
     }
 
     function aplicarPreview(payload) {

@@ -139,6 +139,24 @@
         };
     }
 
+    // Compartida entre credito-pagar-cuota.js y credito-adelanto.js: ambos formatean
+    // la fecha comercial (ISO -> dd/mm/yyyy) devuelta por el preview del servidor.
+    function formatearFechaIso(valor) {
+        var partes = String(valor || '').split('-');
+        return partes.length === 3 ? partes[2] + '/' + partes[1] + '/' + partes[0] : valor;
+    }
+
+    // Compartida entre credito-pagar-cuota.js y credito-adelanto.js: ambos leen el
+    // mismo formato de error (message / ModelState errors) que devuelve el preview.
+    function mensajeError(payload, fallback) {
+        if (payload && payload.message) return payload.message;
+        if (payload && payload.errors) {
+            var claves = Object.keys(payload.errors);
+            if (claves.length && payload.errors[claves[0]].length) return payload.errors[claves[0]][0];
+        }
+        return fallback;
+    }
+
     function initGaranteToggle() {
         var toggle = document.getElementById('requiere-garante-toggle');
         var garanteField = document.getElementById('garante-field');
@@ -158,9 +176,11 @@
 
     TheBury.CreditoModule = {
         bindModalController: bindModalController,
+        formatearFechaIso: formatearFechaIso,
         initGaranteToggle: initGaranteToggle,
         initSharedUi: initSharedUi,
         initScrollAffordance: initScrollAffordance,
+        mensajeError: mensajeError,
         parseJsonScript: parseJsonScript,
         refreshScrollAffordance: refreshScrollAffordance
     };
