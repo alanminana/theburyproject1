@@ -782,10 +782,11 @@ namespace TheBuryProject.Controllers
 
             if (venta != null && venta.RequiereAutorizacion && venta.EstadoAutorizacion != EstadoAutorizacionVenta.Autorizada)
             {
+                var mensajeAutorizacionGet = ObtenerMensajeAutorizacionPendiente(venta);
                 if (embedded)
-                    return ErrorConfigurarVenta(true, StatusCodes.Status409Conflict, "La venta requiere autorización antes de configurar el crédito.", returnUrl, ventaId);
+                    return ErrorConfigurarVenta(true, StatusCodes.Status409Conflict, mensajeAutorizacionGet, returnUrl, ventaId);
 
-                TempData["Error"] = "La venta requiere autorización antes de configurar el crédito.";
+                TempData["Error"] = mensajeAutorizacionGet;
                 return RedirectToAction("Details", "Venta", new { id = ventaId });
             }
 
@@ -862,6 +863,31 @@ namespace TheBuryProject.Controllers
             }
 
             return View("ConfigurarVenta_tw", modelo);
+        }
+
+        // VENTA-CREDITO-AUTORIZACION-MOTIVO-REAL-01: el bloqueo por autorización pendiente
+        // mostraba siempre el mismo texto genérico ("La venta requiere autorización antes
+        // de configurar el crédito."), sin decir el motivo real (mora, cupo excedido,
+        // documentación vencida, etc.) que sí calculó ValidacionVentaService/
+        // ClienteAptitudService y quedó persistido en RazonesAutorizacionJson. Se arma acá
+        // el mismo texto que ya usa el usuario en Venta/Details vía _VentaRazonesAutorizacion,
+        // concatenado en una sola línea para caber en un TempData/alert; si por algún motivo
+        // no hay razones persistidas (no debería pasar si RequiereAutorizacion es true), cae
+        // al texto genérico anterior en vez de mostrar un mensaje vacío o confuso.
+        private static string ObtenerMensajeAutorizacionPendiente(VentaViewModel venta)
+        {
+            const string mensajeGenerico = "La venta requiere autorización antes de configurar el crédito.";
+
+            var razones = venta.RazonesAutorizacion;
+            if (razones is null || razones.Count == 0)
+                return mensajeGenerico;
+
+            var detalles = razones.Select(r =>
+                string.IsNullOrWhiteSpace(r.DetalleAdicional)
+                    ? $"{r.TipoDisplay}: {r.Descripcion}"
+                    : $"{r.TipoDisplay}: {r.Descripcion} ({r.DetalleAdicional})");
+
+            return $"{mensajeGenerico} Motivo: {string.Join("; ", detalles)}";
         }
 
         // Errores del POST fuera del ModelState (crédito/venta inexistente, estado no
@@ -946,10 +972,11 @@ namespace TheBuryProject.Controllers
 
             if (venta != null && venta.RequiereAutorizacion && venta.EstadoAutorizacion != EstadoAutorizacionVenta.Autorizada)
             {
+                var mensajeAutorizacionPost = ObtenerMensajeAutorizacionPendiente(venta);
                 if (embedded)
-                    return ErrorConfigurarVenta(true, StatusCodes.Status409Conflict, "La venta requiere autorización antes de configurar el crédito.", returnUrl, modelo.VentaId);
+                    return ErrorConfigurarVenta(true, StatusCodes.Status409Conflict, mensajeAutorizacionPost, returnUrl, modelo.VentaId);
 
-                TempData["Error"] = "La venta requiere autorización antes de configurar el crédito.";
+                TempData["Error"] = mensajeAutorizacionPost;
                 return RedirectToAction("Details", "Venta", new { id = modelo.VentaId });
             }
 

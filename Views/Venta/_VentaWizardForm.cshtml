@@ -1024,28 +1024,71 @@
                                                                                                         </div>
                                                                                                     </div>
 
-                                                                                                    @* Configurador canónico embebido de Crédito Personal: anticipo, cuotas, tasa
-                                                                                                       (server-authoritative vía /Credito/SimularPlanVenta y /Credito/ConfigurarVenta
-                                                                                                       con embedded=true) y generación del contrato de venta obligatorio, sin salir
-                                                                                                       del wizard. Orquestado por venta-credito-embebido.js; el HTML de adentro lo
-                                                                                                       inyecta ese script (fetch a /Credito/ConfigurarVenta?embedded=true), nunca
-                                                                                                       Razor: el crédito recién existe una vez que la venta está persistida.
-                                                                                                       VENTA-CREDITO-REDESIGN-VISUAL-CIERRE-01: el título propio ("Configuración de
-                                                                                                       Crédito Personal" + descripción) se retira: era una segunda identidad de
-                                                                                                       sección compitiendo con "Configurar plan" (título real de la única superficie
-                                                                                                       que trae el fragmento inyectado, ver _ConfigurarVentaEmbebida.cshtml).
-                                                                                                       "Estado del crédito" arriba ya da contexto mientras carga. CREDITO-VISUAL-02B:
-                                                                                                       el div interno tampoco lleva border/bg/padding propios ("card que contiene
-                                                                                                       cards") — la sección inyectada (.card.card-pad) ya aporta su propia jerarquía
-                                                                                                       visual. #panel-configuracion-credito conserva id/DOM/selectors JS intactos. *@
-                                                                                                    <div id="panel-configuracion-credito">
-                                                                                                        <div id="credito-embebido-cargando" class="hidden flex items-center gap-2 text-xs text-slate-400" aria-live="polite">
-                                                                                                            <span class="material-symbols-outlined animate-spin text-sm">progress_activity</span>
-                                                                                                            Preparando configuración del crédito…
+                                                                                                    @{
+                                                                                                        // VENTA-CREDITO-AUTORIZACION-WIZARD-01: si la venta ya requiere autorización y
+                                                                                                        // todavía no fue autorizada (Pendiente o Rechazada — mismo gate que usa
+                                                                                                        // CreditoController.ConfigurarVenta para rechazar con 409), no tiene sentido
+                                                                                                        // intentar cargar el configurador embebido: el backend lo iba a bloquear igual
+                                                                                                        // con un mensaje genérico ("La venta requiere autorización antes de configurar
+                                                                                                        // el crédito."), sin decir el motivo real. En su lugar se muestra acá el mismo
+                                                                                                        // componente que ya usa Venta/Details (_VentaAutorizacionPanel, con las razones
+                                                                                                        // reales vía _VentaRazonesAutorizacion) y, sólo si el usuario tiene el permiso
+                                                                                                        // correspondiente, las acciones reales Autorizar/Rechazar — mismos endpoints y
+                                                                                                        // mismo gate de permiso que Details (ventas.authorize / ventas.reject).
+                                                                                                        var creditoBloqueadoPorAutorizacion = esEdicion
+                                                                                                            && Model.RequiereAutorizacion
+                                                                                                            && Model.EstadoAutorizacion != EstadoAutorizacionVenta.Autorizada;
+                                                                                                        var puedeAutorizarVentaWizard = User.TienePermiso("ventas", "authorize");
+                                                                                                        var puedeRechazarVentaWizard = User.TienePermiso("ventas", "reject");
+                                                                                                    }
+                                                                                                    @if (creditoBloqueadoPorAutorizacion)
+                                                                                                    {
+                                                                                                        <partial name="_VentaAutorizacionPanel" model="Model" />
+                                                                                                        @if (Model.PuedeAutorizar && (puedeAutorizarVentaWizard || puedeRechazarVentaWizard))
+                                                                                                        {
+                                                                                                            <div class="flex flex-col gap-2 sm:flex-row">
+                                                                                                                @if (puedeAutorizarVentaWizard)
+                                                                                                                {
+                                                                                                                    <a asp-controller="Venta" asp-action="Autorizar" asp-route-id="@Model.Id"
+                                                                                                                       class="btn-erp-success btn-erp-block flex-1 no-underline">
+                                                                                                                        <span class="material-symbols-outlined text-sm">thumb_up</span> Autorizar
+                                                                                                                    </a>
+                                                                                                                }
+                                                                                                                @if (puedeRechazarVentaWizard)
+                                                                                                                {
+                                                                                                                    <a asp-controller="Venta" asp-action="Rechazar" asp-route-id="@Model.Id"
+                                                                                                                       class="btn-erp-danger btn-erp-block flex-1 no-underline">
+                                                                                                                        <span class="material-symbols-outlined text-sm">thumb_down</span> Rechazar
+                                                                                                                    </a>
+                                                                                                                }
+                                                                                                            </div>
+                                                                                                        }
+                                                                                                    }
+                                                                                                    else
+                                                                                                    {
+                                                                                                        @* Configurador canónico embebido de Crédito Personal: anticipo, cuotas, tasa
+                                                                                                           (server-authoritative vía /Credito/SimularPlanVenta y /Credito/ConfigurarVenta
+                                                                                                           con embedded=true) y generación del contrato de venta obligatorio, sin salir
+                                                                                                           del wizard. Orquestado por venta-credito-embebido.js; el HTML de adentro lo
+                                                                                                           inyecta ese script (fetch a /Credito/ConfigurarVenta?embedded=true), nunca
+                                                                                                           Razor: el crédito recién existe una vez que la venta está persistida.
+                                                                                                           VENTA-CREDITO-REDESIGN-VISUAL-CIERRE-01: el título propio ("Configuración de
+                                                                                                           Crédito Personal" + descripción) se retira: era una segunda identidad de
+                                                                                                           sección compitiendo con "Configurar plan" (título real de la única superficie
+                                                                                                           que trae el fragmento inyectado, ver _ConfigurarVentaEmbebida.cshtml).
+                                                                                                           "Estado del crédito" arriba ya da contexto mientras carga. CREDITO-VISUAL-02B:
+                                                                                                           el div interno tampoco lleva border/bg/padding propios ("card que contiene
+                                                                                                           cards") — la sección inyectada (.card.card-pad) ya aporta su propia jerarquía
+                                                                                                           visual. #panel-configuracion-credito conserva id/DOM/selectors JS intactos. *@
+                                                                                                        <div id="panel-configuracion-credito">
+                                                                                                            <div id="credito-embebido-cargando" class="hidden flex items-center gap-2 text-xs text-slate-400" aria-live="polite">
+                                                                                                                <span class="material-symbols-outlined animate-spin text-sm">progress_activity</span>
+                                                                                                                Preparando configuración del crédito…
+                                                                                                            </div>
+                                                                                                            <div id="credito-embebido-error" class="hidden alert alert-bad text-xs" role="alert"></div>
+                                                                                                            <div id="credito-embebido-contenedor"></div>
                                                                                                         </div>
-                                                                                                        <div id="credito-embebido-error" class="hidden alert alert-bad text-xs" role="alert"></div>
-                                                                                                        <div id="credito-embebido-contenedor"></div>
-                                                                                                    </div>
+                                                                                                    }
                                                                                                 </div>
                                                                                             </div>
                                                                                                 </section>

@@ -439,6 +439,36 @@ public class CreditoControllerConfigurarVentaTests
     }
 
     [Fact]
+    public async Task ConfigurarVentaGet_BloqueaVentaPendienteAutorizacion_MuestraMotivoRealNoGenerico()
+    {
+        // VENTA-CREDITO-AUTORIZACION-MOTIVO-REAL-01: cuando la venta trae razones reales
+        // persistidas (RazonesAutorizacionJson, lo que hace ValidacionVentaService en
+        // producción) el mensaje de bloqueo debe citarlas, no quedarse en el texto genérico.
+        var venta = VentaConEstadoAutorizacion(EstadoAutorizacionVenta.PendienteAutorizacion);
+        venta.RazonesAutorizacionJson = System.Text.Json.JsonSerializer.Serialize(new List<RazonAutorizacion>
+        {
+            new()
+            {
+                Tipo = TipoRazonAutorizacion.MoraActiva,
+                Descripcion = "Cliente en mora",
+                DetalleAdicional = "50 días de mora"
+            }
+        });
+        var controller = CrearController(
+            new RecordingCreditoService(CreditoBase()),
+            ConfigService(tasaGlobal: 5m),
+            ventaService: new StubVentaService(venta: venta));
+
+        var result = await controller.ConfigurarVenta(id: 10, ventaId: 99);
+
+        AssertRedirectAVentaDetails(result, 99);
+        var mensaje = Assert.IsType<string>(controller.TempData["Error"]);
+        Assert.Contains("Mora activa", mensaje);
+        Assert.Contains("Cliente en mora", mensaje);
+        Assert.Contains("50 días de mora", mensaje);
+    }
+
+    [Fact]
     public async Task ConfigurarVentaPost_VentaAutorizadaPermiteConfigurarCredito()
     {
         var creditoService = new RecordingCreditoService(CreditoBase());
