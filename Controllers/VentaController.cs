@@ -288,13 +288,6 @@ namespace TheBuryProject.Controllers
 
         #region Cotizar / Crear
 
-        // GET: Venta/Cotizar — flujo legacy: las cotizaciones se gestionan desde CotizacionController.
-        [HttpGet]
-        public IActionResult Cotizar()
-        {
-            return RedirectToAction(nameof(Create));
-        }
-
         // POST: Venta/Create
         [HttpPost]
         [ValidateAntiForgeryToken]

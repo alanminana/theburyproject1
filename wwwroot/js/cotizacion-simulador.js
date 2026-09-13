@@ -114,8 +114,8 @@
         planCreditoCuotasTablaBody: $('#plan-credito-cuotas-tabla-body')
     };
 
-    function show(el) { el?.classList.remove('hidden'); }
-    function hide(el) { el?.classList.add('hidden'); }
+    const show = theBury.show || function (el) { el?.classList.remove('hidden'); };
+    const hide = theBury.hide || function (el) { el?.classList.add('hidden'); };
     function setState(s) { if (typeof window.setQuoteState === 'function') window.setQuoteState(s); }
 
     function esc(value) {

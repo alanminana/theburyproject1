@@ -17,6 +17,13 @@ TheBury.formatCurrency = function (value) {
 };
 
 /**
+ * Show/hide an element by toggling the `hidden` utility class.
+ * Null-safe: no-op if `el` is null/undefined.
+ */
+TheBury.show = function (el) { el?.classList.remove('hidden'); };
+TheBury.hide = function (el) { el?.classList.add('hidden'); };
+
+/**
  * Auto-dismiss all toast elements on the page.
  * Targets both `.toast-msg` and elements whose id starts with "toast-".
  * @param {number} [delay=5000] ms before fade-out starts

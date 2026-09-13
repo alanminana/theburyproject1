@@ -49,8 +49,12 @@
     let clienteSearchTimer = null;
     let clienteSearchController = null;
 
-    function show(el) { el.classList.remove('hidden'); }
-    function hide(el) { el.classList.add('hidden'); }
+    const show = (window.TheBury && window.TheBury.show)
+        ? window.TheBury.show
+        : function (el) { el?.classList.remove('hidden'); };
+    const hide = (window.TheBury && window.TheBury.hide)
+        ? window.TheBury.hide
+        : function (el) { el?.classList.add('hidden'); };
 
     function clearChildren(el) {
         while (el.firstChild) el.removeChild(el.firstChild);
