@@ -100,6 +100,12 @@ namespace TheBuryProject.ViewModels
         public IEnumerable<OpcionDropdown> Categorias { get; set; } = Enumerable.Empty<OpcionDropdown>();
 
         /// <summary>
+        /// Categorías raíz (sin padre), para el combo "Categoría" de alta/edición de producto:
+        /// no debe mezclarse con subcategorías, que se cargan aparte según la categoría elegida.
+        /// </summary>
+        public IEnumerable<OpcionDropdown> CategoriasRaiz { get; set; } = Enumerable.Empty<OpcionDropdown>();
+
+        /// <summary>
         /// Marcas disponibles para el JS de acciones masivas
         /// </summary>
         public IEnumerable<OpcionDropdown> Marcas { get; set; } = Enumerable.Empty<OpcionDropdown>();
@@ -225,6 +231,7 @@ namespace TheBuryProject.ViewModels
 
                 // Listas para JS de acciones masivas
                 Categorias = resultado.Categorias,
+                CategoriasRaiz = resultado.CategoriasRaiz,
                 Marcas = resultado.Marcas,
                 ListasPrecios = resultado.ListasPrecios,
 

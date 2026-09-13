@@ -314,10 +314,10 @@
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div class="space-y-4">
                         <div>
-                            <label asp-for="DefaultsGlobales.TasaMensual" class="cp-label">Recargo global histórico (legado, sin uso en planes)</label>
+                            <label asp-for="DefaultsGlobales.TasaMensual" class="cp-label">Recargo global (fallback de planes sin porcentaje propio)</label>
                             <input asp-for="DefaultsGlobales.TasaMensual" type="number" step="0.01" min="0" max="100"
                                    readonly="@(!puedeEditar)" class="cp-field" data-summary="tasa" />
-                            <p class="cp-hint">Valor legado sin autoridad financiera: <strong class="text-slate-300">ningún</strong> plan de cuotas lo hereda ni lo usa como respaldo. Los planes de la sección "Recargo por cantidad de cuotas" (abajo) son la única fuente del recargo aplicado en una venta; cada uno requiere su propio porcentaje explícito.</p>
+                            <p class="cp-hint">Los planes de la sección "Recargo por cantidad de cuotas" (abajo) son la fuente primaria del recargo aplicado en una venta. Si un plan activo <strong class="text-slate-300">no</strong> fija su propio porcentaje, este valor lo completa al vender; sin ningún valor acá tampoco, ese plan queda sin porcentaje válido.</p>
                             <span asp-validation-for="DefaultsGlobales.TasaMensual" class="text-xs text-red-500"></span>
                         </div>
 
@@ -396,10 +396,10 @@
                     <span asp-validation-for="CuotasCreditoPersonal" class="block mb-3 text-xs text-red-400"></span>
 
                     <p class="cp-hint mb-3">
-                        Cada plan activo requiere su <span class="font-semibold text-cyan-300">propio recargo explícito</span>:
-                        nunca hereda el recargo global legado. <span class="font-semibold text-cyan-300">0</span> = sin
-                        recargo (válido). <span class="font-semibold text-amber-300">Vacío</span> en un plan activo es
-                        una configuración inválida que el guardado rechaza.
+                        Cada plan activo puede fijar su <span class="font-semibold text-cyan-300">propio recargo explícito</span>.
+                        <span class="font-semibold text-amber-300">Vacío</span> se guarda igual y hereda el recargo global (arriba) al vender;
+                        sin ningún valor ahí tampoco, esta cantidad de cuotas queda sin porcentaje válido y no se puede vender con ella.
+                        <span class="font-semibold text-cyan-300">0</span> = sin recargo, explícito y distinto de "sin configurar".
                         El porcentaje se aplica <strong class="text-slate-300">una única vez</strong> sobre el saldo
                         financiado (ej: 6 cuotas al 10 % sobre $100.000 → recargo $10.000, total financiado $110.000). No se aplica mes a mes ni se compone.
                     </p>
@@ -434,7 +434,7 @@
                                         <span asp-validation-for="CuotasCreditoPersonal[i].TasaMensual" class="text-xs text-red-400"></span>
                                         @if (cuota.Activo && !cuota.TasaMensual.HasValue)
                                         {
-                                            <p class="cp-hint text-amber-300">⚠ Falta el recargo explícito de este plan activo: no hereda ningún valor global, el guardado lo va a rechazar.</p>
+                                            <p class="cp-hint text-cyan-300">ℹ Sin recargo propio: al vender va a heredar el recargo global de arriba (@dg.TasaMensual.ToString("0.##") %). Si tampoco está configurado ahí, no se va a poder vender con esta cantidad de cuotas.</p>
                                         }
                                         <p class="cp-hint" id="preview-cuota-@i" data-preview-out>Ejemplo sobre $100.000: —</p>
                                     </div>

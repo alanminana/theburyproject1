@@ -131,17 +131,17 @@ public sealed class CreditoSimulacionVentaService : ICreditoSimulacionVentaServi
                     return CreditoSimulacionVentaResultado.Invalido(rango.Error);
             }
 
-            // ML2.1/ML6.1 — Contrato congelado: el plan de cuotas resuelto es la UNICA autoridad del
-            // porcentaje, tambien en simulacion (misma regla que CreditoConfiguracionVentaService.
-            // ResolverAsync). Cliente/Perfil/Producto ya no aportan ni sustituyen el porcentaje: las
-            // tres ramas de abajo (Cliente/Producto-Mixto/Global) llaman exactamente al mismo
-            // resolutor (ResolverTasaDelPlanOTasaGlobalAsync) contra el mismo plan de cuotas — Origen
+            // El plan de cuotas resuelto es la autoridad primaria del porcentaje, tambien en
+            // simulacion (misma regla que CreditoConfiguracionVentaService.ResolverAsync).
+            // Cliente/Perfil/Producto no aportan ni sustituyen el porcentaje: las tres ramas de
+            // abajo (Cliente/Producto-Mixto/Global) llaman exactamente al mismo resolutor
+            // (ResolverTasaDelPlanOTasaGlobalAsync) contra el mismo plan de cuotas — Origen
             // (Cliente/Producto/Mixto/Global) es la disponibilidad de cantidades, NUNCA la fuente
-            // financiera (ese fue el bug de ML6.1: se reportaba "Producto" como si el producto
-            // aportara el %, cuando el % siempre sale del plan). Sin tabla de planes en absoluto
-            // (legado RigeConfiguracionUnicaGlobal, solo dobles de test) rige la tasa unica global;
-            // con tabla de planes, un porcentaje null es configuracion invalida y nunca cae a la
-            // tasa global.
+            // financiera. Sin tabla de planes en absoluto (legado RigeConfiguracionUnicaGlobal,
+            // solo dobles de test) rige la tasa unica global directamente; con tabla de planes, el
+            // porcentaje sale de BuscarPlan (que ya intento el fallback al recargo global legacy
+            // dentro de ConfiguracionPagoService) — null a esta altura es configuracion invalida
+            // de verdad, ni propia ni heredada.
             if (request.MetodoCalculo == MetodoCalculoCredito.UsarCliente ||
                 request.FuenteConfiguracion == FuenteConfiguracionCredito.PorCliente)
             {
@@ -248,10 +248,11 @@ public sealed class CreditoSimulacionVentaService : ICreditoSimulacionVentaServi
     }
 
     /// <summary>
-    /// ML2.1 — Contrato congelado: resuelve el porcentaje financiero desde el plan de cuotas
-    /// (unica autoridad). Sin tabla de planes en absoluto (legado, solo dobles de test) usa la
-    /// tasa unica global. Con tabla de planes, un porcentaje null en el plan es configuracion
-    /// invalida: nunca cae a la tasa global.
+    /// Resuelve el porcentaje financiero desde el plan de cuotas (autoridad primaria). Sin tabla
+    /// de planes en absoluto (legado, solo dobles de test) usa la tasa unica global directamente.
+    /// Con tabla de planes, el porcentaje sale de BuscarPlan — que ya intento el fallback al
+    /// recargo global legacy dentro de ConfiguracionPagoService cuando la fila global no tenia
+    /// porcentaje propio; un null a esta altura es configuracion invalida de verdad.
     /// </summary>
     private async Task<(decimal? Tasa, string? Error)> ResolverTasaDelPlanOTasaGlobalAsync(
         PlanesCreditoPersonalResultado planesVenta,

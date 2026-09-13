@@ -66,12 +66,12 @@ public sealed class CreditoPersonalCuotaConfigTests
         }
     }
 
-    // ML4 — Fase 9 (test C): reemplaza a la vieja "TasaNull_PersisteNullDistintoDeCero". Desde
-    // ML4, un plan ACTIVO sin porcentaje explícito ya no se puede guardar (antes se persistía
-    // null tal cual, quedando "inválido para venta" pero grabado). 0 % sigue siendo válido y
-    // distinguible de null: se prueba junto en el mismo caso para dejar el contraste explícito.
+    // Un plan ACTIVO sin porcentaje explícito se puede guardar: al resolverse contra una venta
+    // hereda el recargo global legacy si existe (ver ResolverPlanesCreditoPersonalAsync). 0 %
+    // sigue siendo válido y distinguible de null: se prueba junto en el mismo caso para dejar el
+    // contraste explícito.
     [Fact]
-    public async Task GuardarCuotasCreditoPersonal_ActivoSinPorcentaje_Rechaza()
+    public async Task GuardarCuotasCreditoPersonal_ActivoSinPorcentaje_Persiste()
     {
         var (ctx, conn) = CreateContext();
         using (conn)
@@ -81,16 +81,17 @@ public sealed class CreditoPersonalCuotaConfigTests
             var (ok, errores) = await service.GuardarCuotasCreditoPersonalAsync(
                 new List<CuotaCreditoPersonalViewModel>
                 {
-                    new() { CantidadCuotas = 2, TasaMensual = null, Activo = true, Orden = 2 }, // sin configurar: invalido
+                    new() { CantidadCuotas = 2, TasaMensual = null, Activo = true, Orden = 2 }, // sin porcentaje propio: valido, hereda al resolver
                     new() { CantidadCuotas = 3, TasaMensual = 0m, Activo = true, Orden = 3 }    // 0 % explicito: valido
                 },
                 "test");
 
-            Assert.False(ok);
-            Assert.Contains(errores, e => e.Contains("recargo total explicito", StringComparison.OrdinalIgnoreCase));
+            Assert.True(ok, string.Join("; ", errores));
 
-            // Rechazo atomico: nada se persiste, ni siquiera el item 0% que por si solo era valido.
-            Assert.Empty(await ctx.ConfiguracionCreditoPersonalCuotas.ToListAsync());
+            var guardadas = await ctx.ConfiguracionCreditoPersonalCuotas.OrderBy(x => x.CantidadCuotas).ToListAsync();
+            Assert.Equal(2, guardadas.Count);
+            Assert.Null(guardadas.First(g => g.CantidadCuotas == 2).TasaMensual);
+            Assert.Equal(0m, guardadas.First(g => g.CantidadCuotas == 3).TasaMensual);
         }
     }
 
@@ -118,10 +119,11 @@ public sealed class CreditoPersonalCuotaConfigTests
         }
     }
 
-    // ML4 — Fase 9 (test D): el recargo global legacy nunca completa un plan activo sin
-    // porcentaje propio, ni siquiera cuando esta configurado con un valor explicito (10 %).
+    // Persistir un plan activo sin porcentaje propio se guarda tal cual (null); el recargo global
+    // legacy configurado (10 %) recién se aplica al RESOLVER el plan contra una venta
+    // (ResolverPlanesCreditoPersonalAsync), no al guardar.
     [Fact]
-    public async Task GuardarCuotasCreditoPersonal_ConRecargoGlobalLegacyConfigurado_NuncaLoUsaComoFallback()
+    public async Task GuardarCuotasCreditoPersonal_ConRecargoGlobalLegacyConfigurado_PersisteNullYLuegoHereda()
     {
         var (ctx, conn) = CreateContext();
         using (conn)
@@ -144,8 +146,14 @@ public sealed class CreditoPersonalCuotaConfigTests
                 },
                 "test");
 
-            Assert.False(ok, string.Join("; ", errores));
-            Assert.Empty(await ctx.ConfiguracionCreditoPersonalCuotas.ToListAsync());
+            Assert.True(ok, string.Join("; ", errores));
+            var guardada = await ctx.ConfiguracionCreditoPersonalCuotas.SingleAsync();
+            Assert.Null(guardada.TasaMensual);
+
+            // Al resolver contra una venta (sin producto: solo tabla global), hereda el 10 % legacy.
+            var planes = await service.ResolverPlanesCreditoPersonalAsync(Array.Empty<int>());
+            Assert.True(planes.EsValido);
+            Assert.Equal(10m, planes.BuscarPlan(1)!.TasaMensual);
         }
     }
 

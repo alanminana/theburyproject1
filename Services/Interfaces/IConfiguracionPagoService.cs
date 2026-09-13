@@ -17,8 +17,10 @@ namespace TheBuryProject.Services.Interfaces
         /// el caller. Un valor configurado de 0 (recargo cero, válido) NO retorna null.
         /// </summary>
         /// <remarks>
-        /// ML2.1/ML3 — Contrato congelado: SIN autoridad sobre planes de cuota (un plan activo
-        /// con porcentaje null es configuración inválida, nunca hereda este valor). Solo se usa
+        /// Fallback financiero sobre planes de cuota: una fila global activa con porcentaje
+        /// propio null hereda este valor al resolverse contra una venta (ver
+        /// <c>ConfiguracionPagoService.ResolverPlanesCreditoPersonalAsync</c>). Sin fila global
+        /// para esa cantidad (solo config de producto) sigue sin ser autoridad. También se usa
         /// como tasa efectiva cuando no existe ninguna tabla de planes en absoluto
         /// (compatibilidad de dobles de test) y como gate de "tasa global no configurada".
         /// </remarks>

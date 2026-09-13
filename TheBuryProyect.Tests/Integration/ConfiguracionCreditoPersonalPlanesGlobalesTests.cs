@@ -209,14 +209,14 @@ public class ConfiguracionCreditoPersonalPlanesGlobalesTests : IDisposable
     }
 
     // =====================================================================
-    // ML2.1 — contrato congelado (cerrado): el porcentaje del plan es la ÚNICA autoridad. Un
-    // plan activo sin porcentaje explícito es una configuración inválida (null) y NUNCA hereda
-    // la tasa única global — reemplaza al contrato legacy "PlanConTasaNull_HeredaLaTasaGlobal",
-    // que validaba exactamente lo contrario. No pueden coexistir ambos contratos como válidos.
+    // Un plan activo con fila global (existe) pero sin porcentaje propio hereda el recargo único
+    // global legacy al resolverse. Distinto de "sin fila global para la cantidad" (ver
+    // SinPlanGlobalParaLaCantidad_ProductoConTasaLegacyNoEsAutoridad_EsInvalido más abajo), donde
+    // no hay fila de la que heredar y sigue siendo inválido.
     // =====================================================================
 
     [Fact]
-    public async Task PlanConTasaNull_EsConfiguracionInvalida_NoDebeHeredarLaTasaGlobal()
+    public async Task PlanConTasaNull_HeredaLaTasaGlobal()
     {
         await SeedConfigGlobalPago(); // tasa única global 10 %
         await SeedGlobal((6, null));
@@ -224,8 +224,19 @@ public class ConfiguracionCreditoPersonalPlanesGlobalesTests : IDisposable
 
         var planes = await Resolver(producto);
 
-        // Contrato congelado: un plan activo sin porcentaje propio no es "10 %" (el de la
-        // global) — no tiene autoridad para resolver nada; es null (configuración inválida).
+        Assert.Equal(TasaGlobalUnica, planes.BuscarPlan(6)!.TasaMensual);
+    }
+
+    [Fact]
+    public async Task PlanConTasaNullYSinRecargoGlobalLegacyConfigurado_SigueSiendoInvalido()
+    {
+        // Sin ConfiguracionesPago para CreditoPersonal (nunca configurado): no hay nada de lo que
+        // heredar, el plan sigue sin porcentaje válido.
+        await SeedGlobal((6, null));
+        var producto = await SeedProducto("ML4-A");
+
+        var planes = await Resolver(producto);
+
         Assert.Null(planes.BuscarPlan(6)!.TasaMensual);
     }
 

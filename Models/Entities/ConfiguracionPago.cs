@@ -41,10 +41,11 @@ namespace TheBuryProject.Models.Entities
         /// explícito y válido.
         /// </summary>
         /// <remarks>
-        /// ML2.1/ML3 — Contrato congelado: SIN autoridad financiera sobre planes de
-        /// <see cref="ConfiguracionCreditoPersonalCuota"/>. Un plan activo con <c>TasaMensual</c>
-        /// null es configuración inválida, nunca cae a este valor (dejó de ser fallback). Solo se
-        /// lee como tasa efectiva en <see cref="Services.CreditoConfiguracionVentaService"/> /
+        /// Fallback financiero de <see cref="ConfiguracionCreditoPersonalCuota"/>: una fila global
+        /// activa con <c>TasaMensual</c> propia null completa su porcentaje con este valor al
+        /// resolverse contra una venta (ver <see cref="Services.ConfiguracionPagoService.ResolverPlanesCreditoPersonalAsync"/>).
+        /// Sin fila global para esa cantidad (solo config de producto) sigue sin ser autoridad. También
+        /// se lee como tasa efectiva en <see cref="Services.CreditoConfiguracionVentaService"/> /
         /// <see cref="Services.CreditoSimulacionVentaService"/> cuando no existe ninguna tabla de
         /// planes en absoluto (<c>RigeConfiguracionUnicaGlobal</c>, solo dobles de test — el
         /// resolutor productivo no emite ese caso) y como gate de "tasa global no configurada".

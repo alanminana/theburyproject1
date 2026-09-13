@@ -287,6 +287,13 @@ namespace TheBuryProject.ViewModels
         public IEnumerable<OpcionDropdown> Categorias { get; set; } = new List<OpcionDropdown>();
 
         /// <summary>
+        /// Categorías raíz (sin categoría padre). Usada donde se elige la categoría principal
+        /// de un producto, para no mezclarla con subcategorías (que se eligen aparte, ya
+        /// filtradas por su categoría padre).
+        /// </summary>
+        public IEnumerable<OpcionDropdown> CategoriasRaiz { get; set; } = new List<OpcionDropdown>();
+
+        /// <summary>
         /// Lista de marcas disponibles (Id, Nombre)
         /// </summary>
         public IEnumerable<OpcionDropdown> Marcas { get; set; } = new List<OpcionDropdown>();

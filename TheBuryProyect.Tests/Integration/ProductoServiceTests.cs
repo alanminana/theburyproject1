@@ -298,6 +298,49 @@ public class ProductoServiceTests : IDisposable
             _service.CreateAsync(producto));
     }
 
+    [Fact]
+    public async Task Create_SubcategoriaHijaDeLaCategoria_Persiste()
+    {
+        var (cat, marca) = await SeedCategoriaMarcaAsync();
+        var codigoHija = Guid.NewGuid().ToString("N")[..8];
+        var hija = new Categoria { Codigo = codigoHija, Nombre = "Sub-" + codigoHija, Activo = true, ParentId = cat.Id };
+        _context.Categorias.Add(hija);
+        await _context.SaveChangesAsync();
+
+        var producto = BuildProducto(cat.Id, marca.Id);
+        producto.SubcategoriaId = hija.Id;
+
+        var resultado = await _service.CreateAsync(producto);
+
+        Assert.Equal(hija.Id, resultado.SubcategoriaId);
+    }
+
+    [Fact]
+    public async Task Create_SubcategoriaNoHijaDeLaCategoria_LanzaExcepcion()
+    {
+        // Dos categorías raíz sin relación entre sí: elegir una como "categoría" y la otra
+        // como "subcategoría" es exactamente el bug que no distinguía ambos niveles.
+        var (cat, marca) = await SeedCategoriaMarcaAsync();
+        var (otraCat, _) = await SeedCategoriaMarcaAsync();
+
+        var producto = BuildProducto(cat.Id, marca.Id);
+        producto.SubcategoriaId = otraCat.Id;
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.CreateAsync(producto));
+    }
+
+    [Fact]
+    public async Task Create_SubcategoriaInexistente_LanzaExcepcion()
+    {
+        var (cat, marca) = await SeedCategoriaMarcaAsync();
+        var producto = BuildProducto(cat.Id, marca.Id);
+        producto.SubcategoriaId = 999999;
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.CreateAsync(producto));
+    }
+
     // -------------------------------------------------------------------------
     // UpdateAsync
     // -------------------------------------------------------------------------

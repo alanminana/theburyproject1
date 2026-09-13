@@ -45,8 +45,10 @@ public class CuotaCreditoPersonalViewModel
     /// <list type="bullet">
     /// <item>Tabla global (<c>ConfiguracionCreditoPersonalCuota</c>, vía
     /// <c>ConfiguracionPagoController.CreditoPersonal</c>): campo editable y autoritativo — null
-    /// NO hereda el recargo único legacy de <c>ConfiguracionPago</c> (dejó de ser fallback desde
-    /// ML2.1), se persiste tal cual. 0 = sin recargo (0 % explícito, válido); X = recargo del plan.</item>
+    /// se persiste tal cual (un plan activo puede guardarse sin porcentaje propio) y hereda el
+    /// recargo único legacy de <c>ConfiguracionPago</c> al resolverse contra una venta (ver
+    /// <c>ConfiguracionPagoService.ResolverPlanesCreditoPersonalAsync</c>). 0 = sin recargo
+    /// (0 % explícito, válido); X = recargo del plan.</item>
     /// <item>Planes de producto (<c>ProductoCreditoPersonalCuota</c>, vía
     /// <c>ProductoController</c> Create/Edit — ML5): SOLO LECTURA, informativo. Sale siempre del
     /// plan global vigente para esa cantidad (<c>ProductoCreditoPersonalConfigService.ObtenerAsync</c>),

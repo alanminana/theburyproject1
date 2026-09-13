@@ -53,12 +53,6 @@
         });
     }
 
-    function queueScrollRefresh() {
-        window.requestAnimationFrame(function () {
-            refreshScrollAffordances();
-        });
-    }
-
     initScrollAffordances(document);
 
     // ── Nueva Venta bloqueada: highlight panel caja cerrada ───

@@ -3150,8 +3150,12 @@
 @section Scripts {
     <script>
         window.CatalogoData = window.CatalogoData || {};
+        // Solo categorías raíz: el combo "Categoría" del alta/edición de producto no debe
+        // mezclarlas con subcategorías (que se cargan aparte vía GetSubcategorias según la
+        // categoría elegida). Model.CategoriasFiltro (todas, para el filtro del listado) no
+        // sirve acá porque no distingue nivel jerárquico.
         window.CatalogoData.categorias = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
-            Model.CategoriasFiltro?.Select(c => new { id = c.Value, nombre = c.Text }) ?? Enumerable.Empty<object>()
+            Model.CategoriasRaiz?.Select(c => new { id = c.Id, nombre = c.Nombre }) ?? Enumerable.Empty<object>()
         ));
         window.CatalogoData.marcas = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
             Model.MarcasFiltro?.Select(m => new { id = m.Value, nombre = m.Text }) ?? Enumerable.Empty<object>()

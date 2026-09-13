@@ -18,9 +18,10 @@ namespace TheBuryProject.Models.Entities
 
         /// <summary>
         /// Porcentaje de recargo TOTAL propio de esta cantidad de cuotas (no mensual, no
-        /// compuesto) — única autoridad del porcentaje financiero (ML2.1, contrato congelado).
-        /// null = configuración inválida (plan activo sin porcentaje explícito); NO hereda el
-        /// recargo único global de <see cref="ConfiguracionPago"/>, que dejó de ser fallback.
+        /// compuesto) — autoridad primaria del porcentaje financiero. null = sin porcentaje
+        /// propio: al resolverse contra una venta hereda el recargo único global de
+        /// <see cref="ConfiguracionPago.TasaInteresMensualCreditoPersonal"/> (fallback); solo si
+        /// ese valor tampoco está configurado el plan queda sin porcentaje válido.
         /// 0 = sin recargo (0 % explícito, válido y distinto de "no configurado"); X = recargo.
         /// </summary>
         [Range(0, 100)]

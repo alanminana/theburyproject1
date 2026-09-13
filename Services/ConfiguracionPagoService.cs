@@ -665,13 +665,15 @@ namespace TheBuryProject.Services
         /// <summary>
         /// Fuente canónica del porcentaje de recargo TOTAL único global de Crédito Personal
         /// (no es una tasa mensual ni compuesta: ver <see cref="ConfiguracionPago.TasaInteresMensualCreditoPersonal"/>).
-        /// LEGADO (ML4) — SIN autoridad financiera sobre <see cref="ConfiguracionCreditoPersonalCuota"/>:
-        /// un plan con <c>TasaMensual</c> propia <c>null</c> es configuración inválida y nunca hereda
-        /// este valor (dejó de ser fallback desde ML2.1/ML2). Solo lo consumen los resolutores de
-        /// venta como tasa única cuando no existe ninguna tabla de planes en absoluto (legado, solo
-        /// dobles de test). Devuelve <c>null</c> únicamente cuando no existe configuración persistida
-        /// o cuando el valor nunca fue definido — NUNCA cuando el valor configurado es exactamente 0:
-        /// un recargo de 0 % es válido y debe distinguirse de "no configurado".
+        /// FALLBACK de <see cref="ConfiguracionCreditoPersonalCuota"/>: cuando existe una fila global
+        /// activa para una cantidad de cuotas pero su <c>TasaMensual</c> propia es <c>null</c>,
+        /// <see cref="ResolverPlanesCreditoPersonalAsync"/> completa el porcentaje del plan con este
+        /// valor (revertido — el "nunca hereda" era el contrato ML2.1/ML4; ver histórico de esta
+        /// clase). Sigue sin ser autoridad cuando NO existe ninguna fila global para esa cantidad
+        /// (solo config de producto): ahí el plan queda sin porcentaje igual que antes. Devuelve
+        /// <c>null</c> únicamente cuando no existe configuración persistida o cuando el valor nunca
+        /// fue definido — NUNCA cuando el valor configurado es exactamente 0: un recargo de 0 % es
+        /// válido y debe distinguirse de "no configurado".
         /// </summary>
         public async Task<decimal?> ObtenerTasaInteresMensualCreditoPersonalAsync()
         {
@@ -1353,6 +1355,13 @@ namespace TheBuryProject.Services
             var ids = productoIds?.Where(id => id > 0).Distinct().OrderBy(id => id).ToArray() ?? Array.Empty<int>();
             var globales = await GetCuotasCreditoPersonalActivasAsync();
 
+            // Fallback del porcentaje: cuando una fila global existe para una cantidad pero su
+            // TasaMensual propia es null, se completa con el recargo unico legacy de ConfiguracionPago
+            // (ver ObtenerTasaInteresMensualCreditoPersonalAsync). Se resuelve una sola vez acá y se
+            // propaga a ambas construcciones de planes de abajo. Si tampoco hay recargo legacy
+            // configurado, el plan queda sin porcentaje igual que antes (configuracion invalida).
+            var legacyTasaGlobal = await ObtenerTasaInteresMensualCreditoPersonalAsync();
+
             // CSR-ML4: cuotas sin recargo de TODOS los planes globales activos en una unica query
             // batch (evita N+1 — una consulta por plan resuelto). El plan resuelto la transporta en
             // PlanCuotaCreditoPersonal.CuotasSinRecargo: los call sites de SimularPlanCredito no
@@ -1365,7 +1374,7 @@ namespace TheBuryProject.Services
                 return globales.Count == 0
                     ? PlanesCreditoPersonalResultado.SinPlanesGlobales(SinPlanesGlobalesMensaje)
                     : PlanesCreditoPersonalResultado.Resuelto(
-                        ConstruirPlanesSoloGlobales(globales, cuotasSinRecargoPorPlan),
+                        ConstruirPlanesSoloGlobales(globales, cuotasSinRecargoPorPlan, legacyTasaGlobal),
                         OrigenPlanesCredito.Global);
 
             var planesProducto = await _context.ProductoCreditoPersonalCuotas
@@ -1387,7 +1396,7 @@ namespace TheBuryProject.Services
                 return globales.Count == 0
                     ? PlanesCreditoPersonalResultado.SinPlanesGlobales(SinPlanesGlobalesMensaje)
                     : PlanesCreditoPersonalResultado.Resuelto(
-                        ConstruirPlanesSoloGlobales(globales, cuotasSinRecargoPorPlan),
+                        ConstruirPlanesSoloGlobales(globales, cuotasSinRecargoPorPlan, legacyTasaGlobal),
                         OrigenPlanesCredito.Global);
 
             // Cantidades efectivas: interseccion de los sets de cada producto con planes propios.
@@ -1421,24 +1430,26 @@ namespace TheBuryProject.Services
                     ComponerMensajeSinInterseccion(cantidadesPorProducto),
                     cantidadesPorProducto);
 
-            // ML2 — Contrato congelado: el plan de cuotas es la UNICA autoridad del porcentaje.
-            // Cuando existe una cuota global (ConfiguracionCreditoPersonalCuota) para esta cantidad,
-            // su TasaMensual es el porcentaje resuelto tal cual — incluido null, que significa
-            // "plan activo sin porcentaje explicito" = configuracion invalida, nunca "heredar" (ni
-            // de la tasa propia del producto, ni de la tasa unica global, que dejo de ser fallback).
-            // La tasa propia de ProductoCreditoPersonalCuota queda como dato legacy: solo decide
-            // que cantidades ofrece ese producto, no el porcentaje, y solo se usa cuando NINGUNA
-            // cuota global cubre esa cantidad (unica fuente disponible en ese caso).
+            // El plan de cuotas (fila global) es la autoridad primaria del porcentaje. Cuando existe
+            // una cuota global para esta cantidad, su TasaMensual manda; si esa fila no trae un
+            // porcentaje propio (null), se completa con el recargo legacy unico de ConfiguracionPago
+            // (legacyTasaGlobal, resuelto una sola vez arriba) — y solo si tampoco hay recargo legacy
+            // configurado el plan queda sin porcentaje (configuracion invalida). La tasa propia de
+            // ProductoCreditoPersonalCuota sigue sin ser fuente de porcentaje: solo decide que
+            // cantidades ofrece ese producto, y solo se usa cuando NINGUNA cuota global cubre esa
+            // cantidad (unica fuente disponible en ese caso — ahí tampoco hay fallback legacy: no
+            // existe fila global de la que colgarlo).
             var resultado = new List<PlanCuotaCreditoPersonal>();
             foreach (var cantidad in cantidades.OrderBy(c => c))
             {
                 var entradaGlobal = globales.FirstOrDefault(g => g.CantidadCuotas == cantidad);
 
-                // ML2.1 — Contrato congelado: el plan global de cuotas es la UNICA autoridad del
-                // porcentaje. Sin cuota global para esta cantidad no hay porcentaje valido: null
-                // (invalido), nunca la tasa propia del producto (que dejo de ser fuente de
-                // porcentaje; solo sigue decidiendo que cantidades ofrece ese producto, arriba).
-                decimal? tasaResuelta = entradaGlobal?.TasaMensual;
+                // Sin fila global para esta cantidad no hay porcentaje valido: null (invalido),
+                // nunca la tasa propia del producto ni el recargo legacy (que solo es fallback DE
+                // una fila global existente, no de una cantidad inexistente en la tabla global).
+                decimal? tasaResuelta = entradaGlobal != null
+                    ? entradaGlobal.TasaMensual ?? legacyTasaGlobal
+                    : null;
 
                 // CSR-ML4: mismo origen que la tasa — solo el plan GLOBAL aporta CuotasSinRecargo.
                 // Sin cuota global para esta cantidad no hay exclusiones (coherente con tasaResuelta
@@ -1469,18 +1480,24 @@ namespace TheBuryProject.Services
 
         private static IReadOnlyList<PlanCuotaCreditoPersonal> ConstruirPlanesSoloGlobales(
             List<CuotaCreditoPersonalViewModel> globales,
-            IReadOnlyDictionary<int, IReadOnlyList<int>> cuotasSinRecargoPorPlan)
+            IReadOnlyDictionary<int, IReadOnlyList<int>> cuotasSinRecargoPorPlan,
+            decimal? legacyTasaGlobal)
         {
-            // ML2: la tasa de cada cuota global es la resolucion final, sin fallback a la tasa
-            // unica global. null = plan activo sin porcentaje explicito (configuracion invalida).
+            // La tasa de cada cuota global es la resolucion final; si esa cuota no trae su propio
+            // porcentaje (null), se completa con el recargo legacy unico (legacyTasaGlobal). Solo si
+            // tampoco hay recargo legacy configurado el plan queda sin porcentaje (invalido).
             return globales
                 .OrderBy(g => g.CantidadCuotas)
-                .Select(g => new PlanCuotaCreditoPersonal(
-                    g.CantidadCuotas,
-                    g.TasaMensual,
-                    Array.Empty<int>(),
-                    true,
-                    ObtenerCuotasSinRecargoValidadas(g.Id, g.CantidadCuotas, g.TasaMensual, cuotasSinRecargoPorPlan)))
+                .Select(g =>
+                {
+                    var tasaResuelta = g.TasaMensual ?? legacyTasaGlobal;
+                    return new PlanCuotaCreditoPersonal(
+                        g.CantidadCuotas,
+                        tasaResuelta,
+                        Array.Empty<int>(),
+                        true,
+                        ObtenerCuotasSinRecargoValidadas(g.Id, g.CantidadCuotas, tasaResuelta, cuotasSinRecargoPorPlan));
+                })
                 .ToArray();
         }
 
@@ -1587,18 +1604,10 @@ namespace TheBuryProject.Services
             if (items.Any(i => i.TasaMensual < 0))
                 errores.Add("Las tasas mensuales no pueden ser negativas.");
 
-            // ML4 — Fase 6, contrato congelado: un plan activo requiere un recargo explicito.
-            // 0 % es valido; null nunca se guarda para un plan activo (no hay fallback al
-            // recargo global legacy, que dejo de tener autoridad desde ML2.1). Un plan inactivo
-            // puede conservar un porcentaje historico null: solo se valida cuando Activo = true.
-            var activasSinPorcentaje = items
-                .Where(i => i.Activo && !i.TasaMensual.HasValue)
-                .Select(i => i.CantidadCuotas)
-                .ToList();
-            if (activasSinPorcentaje.Any())
-                errores.Add(
-                    "Los planes activos deben tener un recargo total explicito (0 % es valido, nunca " +
-                    $"hereda el recargo global): cantidad de cuotas {string.Join(", ", activasSinPorcentaje)}.");
+            // Un plan activo puede guardarse sin recargo explicito: al resolverse contra una venta
+            // (ResolverPlanesCreditoPersonalAsync), esa cantidad completa el porcentaje con el
+            // recargo global legacy si existe; sin recargo legacy tampoco, sigue siendo invalido en
+            // ese momento (no acá). 0 % es igual de valido y no dispara ningun fallback.
 
             if (errores.Any())
                 return (false, errores);

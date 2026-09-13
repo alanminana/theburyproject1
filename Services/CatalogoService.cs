@@ -116,6 +116,10 @@ namespace TheBuryProject.Services
                 Categorias = categorias
                     .OrderBy(c => c.Nombre)
                     .Select(c => new OpcionDropdown { Id = c.Id, Nombre = c.Nombre }),
+                CategoriasRaiz = categorias
+                    .Where(c => c.ParentId == null)
+                    .OrderBy(c => c.Nombre)
+                    .Select(c => new OpcionDropdown { Id = c.Id, Nombre = c.Nombre }),
                 Marcas = marcas
                     .OrderBy(m => m.Nombre)
                     .Select(m => new OpcionDropdown { Id = m.Id, Nombre = m.Nombre }),

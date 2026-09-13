@@ -139,10 +139,12 @@ public sealed class CreditoConfiguracionVentaServiceTests
         Assert.Equal(10m, result.Comando!.TasaMensual);
     }
 
-    // ML2.1 — Fase 5 del contrato congelado: un plan activo sin porcentaje explicito (TasaMensual
-    // null) es configuracion invalida DE VERDAD, nunca "heredar la tasa global" ni "0% silencioso".
-    // Corrige la expectativa de ML1 (aquel test exigia EsValido = true y solo verificaba que no se
-    // heredara la global; esa expectativa contradice el requerimiento congelado de Fase 5).
+    // Este stub de IConfiguracionPagoService arma el plan resuelto directamente desde `cuotas`,
+    // sin pasar por el fallback al recargo global legacy que ConfiguracionPagoService.
+    // ResolverPlanesCreditoPersonalAsync aplica en producción (ver ConfiguracionPagoServiceTests /
+    // ConfiguracionCreditoPersonalPlanesGlobalesTests para ese fallback). Un TasaMensual null AQUÍ
+    // representa el caso "ni porcentaje propio ni recargo legacy configurado": CreditoConfiguracion
+    // VentaService debe rechazarlo igual, nunca "0% silencioso".
     [Fact]
     public async Task Resolver_CuotaConTasaNull_EsConfiguracionInvalida()
     {
@@ -152,7 +154,7 @@ public sealed class CreditoConfiguracionVentaServiceTests
             cuotas: new List<CuotaCreditoPersonalViewModel>
             {
                 new() { CantidadCuotas = 1, TasaMensual = 1m, Activo = true },
-                new() { CantidadCuotas = 6, TasaMensual = null, Activo = true } // plan sin porcentaje propio
+                new() { CantidadCuotas = 6, TasaMensual = null, Activo = true } // ya resuelto null: sin porcentaje propio NI legacy
             }));
         var modelo = Modelo(FuenteConfiguracionCredito.Global, MetodoCalculoCredito.Global);
         modelo.CantidadCuotas = 6;

@@ -1,0 +1,53 @@
+@model VentaViewModel
+@*
+    VENTA-CREDITO-AUTORIZACION-WIZARD-01: extraído de Venta/Details_tw.cshtml para que
+    Details y el wizard (_VentaWizardForm, paso Crédito bloqueado por autorización)
+    rendericen exactamente el mismo panel — mismo estado, mismas razones reales
+    (_VentaRazonesAutorizacion) y mismo texto — sin duplicar el markup entre ambos.
+    El llamador decide cuándo mostrarlo (Model.RequiereAutorizacion en Details;
+    creditoBloqueadoPorAutorizacion, que ya incluye RequiereAutorizacion, en el wizard).
+*@
+<section class="card-erp-panel-padded">
+    <div class="flex items-center gap-2 mb-4 border-b border-slate-800 pb-3">
+        <span class="material-symbols-outlined text-primary">admin_panel_settings</span>
+        <h2 class="text-white text-xl font-bold">Autorización</h2>
+    </div>
+    <div class="flex items-center gap-3 p-3 rounded-lg @(Model.EstadoAutorizacion == EstadoAutorizacionVenta.Autorizada ? "bg-green-500/10 border border-green-500/20" : Model.EstadoAutorizacion == EstadoAutorizacionVenta.Rechazada ? "bg-red-500/10 border border-red-500/20" : "bg-amber-500/10 border border-amber-500/20")">
+        <span class="material-symbols-outlined text-sm @(Model.EstadoAutorizacion == EstadoAutorizacionVenta.Autorizada ? "text-green-500" : Model.EstadoAutorizacion == EstadoAutorizacionVenta.Rechazada ? "text-red-500" : "text-amber-500")">
+            @(Model.EstadoAutorizacion == EstadoAutorizacionVenta.Autorizada ? "verified" : Model.EstadoAutorizacion == EstadoAutorizacionVenta.Rechazada ? "gpp_bad" : "hourglass_top")
+        </span>
+        <div>
+            <p class="text-sm font-bold text-white">@Model.EstadoAutorizacionDisplay</p>
+            @if (!string.IsNullOrEmpty(Model.UsuarioAutoriza))
+            {
+                <p class="text-[11px] text-slate-400">@Model.UsuarioAutoriza · @Model.FechaAutorizacion?.ToString("dd/MM/yyyy HH:mm")</p>
+            }
+            @if (Model.TieneExcepcionDocumentalRegistrada)
+            {
+                <div class="mt-2 rounded-md border border-orange-500/30 bg-orange-500/10 p-2">
+                    <p class="text-[10px] font-bold uppercase tracking-wide text-orange-400 flex items-center gap-1">
+                        <span class="material-symbols-outlined text-xs">shield_question</span>
+                        Excepción documental
+                    </p>
+                    <p class="text-[11px] text-slate-300 mt-1">@Model.MotivoExcepcionDocumental</p>
+                    @if (!string.IsNullOrEmpty(Model.UsuarioExcepcionDocumental))
+                    {
+                        <p class="text-[10px] text-slate-500 mt-1">@Model.UsuarioExcepcionDocumental@(Model.FechaExcepcionDocumental.HasValue ? $" · {Model.FechaExcepcionDocumental.Value:dd/MM/yyyy HH:mm}" : "")</p>
+                    }
+                </div>
+            }
+            else if (!string.IsNullOrEmpty(Model.MotivoAutorizacion))
+            {
+                <p class="text-[11px] text-slate-500 mt-1">@Model.MotivoAutorizacion</p>
+            }
+            @if (!string.IsNullOrEmpty(Model.MotivoRechazo))
+            {
+                <p class="text-[11px] text-red-500 mt-1">@Model.MotivoRechazo</p>
+            }
+        </div>
+    </div>
+    @if (Model.RazonesAutorizacion.Any())
+    {
+        <partial name="_VentaRazonesAutorizacion" model="Model.RazonesAutorizacion" />
+    }
+</section>

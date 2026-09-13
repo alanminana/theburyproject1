@@ -774,7 +774,7 @@ namespace TheBuryProject.Controllers
                 config.CuotasCreditoPersonal.Add(new CuotaCreditoPersonalViewModel
                 {
                     CantidadCuotas = nuevaCuotaCantidad.Value,
-                    TasaMensual = nuevaCuotaTasaMensual, // ML2.1: vacio = null = plan activo sin porcentaje explicito = configuracion invalida (nunca "heredar")
+                    TasaMensual = nuevaCuotaTasaMensual, // vacio = null: hereda el recargo global legacy al resolverse contra una venta
                     Activo = nuevaCuotaActivo,
                     Orden = nuevaCuotaOrden ?? nuevaCuotaCantidad.Value
                 });
@@ -794,18 +794,9 @@ namespace TheBuryProject.Controllers
                 if (config.CuotasCreditoPersonal.Any(c => c.TasaMensual < 0))
                     ModelState.AddModelError(nameof(config.CuotasCreditoPersonal), "Las tasas mensuales por cuota no pueden ser negativas.");
 
-                // ML4 — Fase 6: gate temprano (antes de guardar Defaults/Perfiles) para el mismo
-                // contrato que valida GuardarCuotasCreditoPersonalAsync server-side. Un plan
-                // activo sin porcentaje explicito nunca hereda el recargo global legacy.
-                var activasSinPorcentaje = config.CuotasCreditoPersonal
-                    .Where(c => c.Activo && !c.TasaMensual.HasValue)
-                    .Select(c => c.CantidadCuotas)
-                    .ToList();
-                if (activasSinPorcentaje.Any())
-                    ModelState.AddModelError(
-                        nameof(config.CuotasCreditoPersonal),
-                        "Los planes activos deben tener un recargo total explicito (0 % es valido, nunca " +
-                        $"hereda el recargo global): cantidad de cuotas {string.Join(", ", activasSinPorcentaje)}.");
+                // Un plan activo puede guardarse sin recargo explicito: hereda el recargo global
+                // legacy al resolverse contra una venta (ver ConfiguracionPagoService.
+                // ResolverPlanesCreditoPersonalAsync). No hay gate temprano que lo rechace acá.
 
                 // CSR-ML5 — gate temprano (antes de guardar nada): misma regla pura que valida la
                 // persistencia (ConfiguracionCreditoPersonalCuotaSinRecargoRules.Validar, ya usada
@@ -815,10 +806,16 @@ namespace TheBuryProject.Controllers
                 // duplicado, o la totalidad marcada con un recargo > 0) nunca llega a tocar la
                 // base de datos: ni este plan ni el resto de la configuracion de esta misma
                 // request se guardan.
+                // Un plan sin TasaMensual propia va a heredar el recargo global legacy al resolverse
+                // (ver ResolverPlanesCreditoPersonalAsync): la regla de "no marcar todas sin recargo
+                // con un recargo > 0" debe validarse contra ese porcentaje EFECTIVO, no contra el
+                // valor crudo (posiblemente null) que se está por guardar.
+                var legacyTasaGlobalPreview = await _configuracionPagoService.ObtenerTasaInteresMensualCreditoPersonalAsync();
                 foreach (var cuota in config.CuotasCreditoPersonal)
                 {
+                    var tasaEfectiva = cuota.TasaMensual ?? legacyTasaGlobalPreview;
                     var erroresSinRecargo = ConfiguracionCreditoPersonalCuotaSinRecargoRules.Validar(
-                        cuota.CantidadCuotas, cuota.TasaMensual, cuota.CuotasSinRecargo);
+                        cuota.CantidadCuotas, tasaEfectiva, cuota.CuotasSinRecargo);
                     foreach (var err in erroresSinRecargo)
                         ModelState.AddModelError(
                             nameof(config.CuotasCreditoPersonal),

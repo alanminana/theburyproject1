@@ -48,13 +48,14 @@ public sealed record PlanCuotaCreditoPersonal
 
     /// <param name="cantidadCuotas">Cantidad de cuotas habilitada para todos los productos.</param>
     /// <param name="tasaMensual">
-    /// Porcentaje de recargo del plan. Única autoridad (ML2.1): el valor de la cuota global
-    /// (<c>ConfiguracionCreditoPersonalCuota</c>) para esta cantidad, tal cual. Si no existe cuota
-    /// global para esta cantidad, <c>null</c> — nunca la tasa propia del producto, que dejó de ser
-    /// fuente de porcentaje. <c>null</c> también cuando la cuota global existe pero no tiene
-    /// porcentaje explícito: en ambos casos significa "configuración inválida", NUNCA se hereda de
-    /// Producto, Perfil, Cliente, Manual ni de la tasa única global (que dejó de ser fallback del
-    /// porcentaje).
+    /// Porcentaje de recargo del plan. Autoridad primaria: el valor de la cuota global
+    /// (<c>ConfiguracionCreditoPersonalCuota</c>) para esta cantidad. Si esa cuota existe pero no
+    /// tiene porcentaje propio, se completa con el recargo único global legacy de
+    /// <c>ConfiguracionPago.TasaInteresMensualCreditoPersonal</c> (fallback); solo si ese valor
+    /// tampoco está configurado el resultado es <c>null</c> ("configuración inválida"). Si NO
+    /// existe cuota global para esta cantidad (solo config de producto), sigue siendo <c>null</c>
+    /// sin ningún fallback — nunca la tasa propia del producto, que no es fuente de porcentaje, ni
+    /// Perfil, Cliente o Manual, que tampoco lo son.
     /// </param>
     /// <param name="productosConPlanPropio">Productos que aportaron una configuración personalizada.</param>
     /// <param name="incluyeConfiguracionGlobal">Si algún producto aportó su plan heredando la global.</param>

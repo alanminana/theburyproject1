@@ -431,6 +431,25 @@ public class CatalogoServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task ObtenerCatalogo_CategoriasRaiz_ExcluyeSubcategorias()
+    {
+        var (raiz, _) = await SeedCatMarcaAsync();
+        var codeHija = Guid.NewGuid().ToString("N")[..8];
+        var hija = new Categoria { Codigo = codeHija, Nombre = "Sub-" + codeHija, Activo = true, ParentId = raiz.Id };
+        _context.Categorias.Add(hija);
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.ObtenerCatalogoAsync(new FiltrosCatalogo());
+
+        // Todas (Categorias) trae raíz + hija; CategoriasRaiz debe excluir la hija: el combo
+        // "Categoría" de alta/edición de producto no debe mezclar niveles de jerarquía.
+        Assert.Contains(resultado.Categorias, c => c.Id == raiz.Id);
+        Assert.Contains(resultado.Categorias, c => c.Id == hija.Id);
+        Assert.Contains(resultado.CategoriasRaiz, c => c.Id == raiz.Id);
+        Assert.DoesNotContain(resultado.CategoriasRaiz, c => c.Id == hija.Id);
+    }
+
+    [Fact]
     public async Task ObtenerCatalogo_ConListaPredeterminada_SeteaListaPrecioActualNombre()
     {
         var prod = await SeedProductoAsync(precioVenta: 100m);

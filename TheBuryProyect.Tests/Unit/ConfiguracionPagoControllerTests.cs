@@ -184,14 +184,12 @@ public sealed class ConfiguracionPagoControllerTests
     }
 
     // -------------------------------------------------------------------------
-    // ML4 — Fase 6/9: validación backend autoritativa. El controller rechaza un plan activo
-    // sin porcentaje explícito ANTES de llamar al service (gate temprano, evita guardar
-    // parcialmente Defaults/Perfiles cuando la tabla de cuotas es inválida) — independiente de
-    // que el service (mockeado acá) también valide lo mismo por su cuenta.
+    // Un plan activo sin porcentaje explícito ya no se rechaza en el gate temprano del controller:
+    // se guarda tal cual y hereda el recargo global legacy al resolverse contra una venta.
     // -------------------------------------------------------------------------
 
     [Fact]
-    public async Task CreditoPersonal_Post_PlanActivoSinPorcentaje_RechazaYNoRedirige()
+    public async Task CreditoPersonal_Post_PlanActivoSinPorcentaje_NoRechaza()
     {
         var controller = CrearController(new FakeConfiguracionPagoGlobalAdminService());
         var config = new CreditoPersonalConfigViewModel
@@ -206,12 +204,7 @@ public sealed class ConfiguracionPagoControllerTests
         var result = await controller.CreditoPersonal(
             config, null, null, null, null, null, null, true, null, null, null, true, null, null);
 
-        var view = Assert.IsType<ViewResult>(result);
-        Assert.Equal("CreditoPersonal_tw", view.ViewName);
-        Assert.False(controller.ModelState.IsValid);
-        Assert.Contains(
-            controller.ModelState[nameof(CreditoPersonalConfigViewModel.CuotasCreditoPersonal)]!.Errors,
-            e => e.ErrorMessage.Contains("recargo total explicito", StringComparison.OrdinalIgnoreCase));
+        Assert.IsType<RedirectToActionResult>(result);
     }
 
     [Fact]

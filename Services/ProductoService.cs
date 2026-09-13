@@ -280,7 +280,7 @@ namespace TheBuryProject.Services
         {
             try
             {
-                ValidarProducto(producto);
+                await ValidarProductoAsync(producto);
 
                 if (await ExistsCodigoAsync(producto.Codigo))
                     throw new InvalidOperationException($"Ya existe un producto con el código '{producto.Codigo}'");
@@ -378,7 +378,7 @@ namespace TheBuryProject.Services
                 if (existing == null)
                     throw new InvalidOperationException($"No se encontró el producto con ID {producto.Id}");
 
-                ValidarProducto(producto);
+                await ValidarProductoAsync(producto);
 
                 if (await ExistsCodigoAsync(producto.Codigo, producto.Id))
                     throw new InvalidOperationException($"Ya existe otro producto con el código '{producto.Codigo}'");
@@ -676,7 +676,7 @@ namespace TheBuryProject.Services
             }
         }
 
-        private void ValidarProducto(Producto producto)
+        private async Task ValidarProductoAsync(Producto producto)
         {
             if (string.IsNullOrWhiteSpace(producto.Codigo))
                 throw new InvalidOperationException("El código del producto no puede estar vacío");
@@ -686,6 +686,20 @@ namespace TheBuryProject.Services
 
             if (producto.CategoriaId <= 0)
                 throw new InvalidOperationException("La categoría es obligatoria");
+
+            if (producto.SubcategoriaId.HasValue)
+            {
+                var subcategoria = await _context.Categorias
+                    .Where(c => c.Id == producto.SubcategoriaId.Value && !c.IsDeleted)
+                    .Select(c => new { c.ParentId })
+                    .FirstOrDefaultAsync();
+
+                if (subcategoria == null)
+                    throw new InvalidOperationException("La subcategoría seleccionada no existe");
+
+                if (subcategoria.ParentId != producto.CategoriaId)
+                    throw new InvalidOperationException("La subcategoría seleccionada no pertenece a la categoría elegida");
+            }
 
             if (producto.MarcaId <= 0)
                 throw new InvalidOperationException("La marca es obligatoria");

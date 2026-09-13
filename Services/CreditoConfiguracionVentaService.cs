@@ -153,8 +153,10 @@ public sealed class CreditoConfiguracionVentaService : ICreditoConfiguracionVent
                 }
                 else
                 {
-                    // ML2: tasa null en el plan (o plan inexistente para esta cantidad) ya no cae a
-                    // la tasa global unica: "null" es configuracion invalida, nunca "heredar".
+                    // BuscarPlan ya trae el porcentaje resuelto por ConfiguracionPagoService, incluido
+                    // el fallback al recargo global legacy cuando la fila global no tiene porcentaje
+                    // propio. Si aun asi es null, es porque no hay fila global para esa cantidad (o
+                    // tampoco hay recargo legacy configurado): configuracion invalida de verdad.
                     tasaMensual = planesVenta.BuscarPlan(modelo.CantidadCuotas)?.TasaMensual;
                 }
 
@@ -174,12 +176,12 @@ public sealed class CreditoConfiguracionVentaService : ICreditoConfiguracionVent
                     "La tasa de interÃ©s no puede ser negativa en modo Manual.");
             }
 
-            // ML2.1 — Contrato congelado (Fase 4): el plan de cuotas es la unica autoridad del
-            // porcentaje, tambien en modo Manual. Sin tabla de planes en absoluto (legado, solo
-            // dobles de test) se conserva la tasa que cargo el operador: no hay otra autoridad a
-            // la que recurrir. Con tabla de planes, el porcentaje SIEMPRE sale del plan — incluido
-            // cuando es null (plan sin porcentaje explicito = invalido): el valor manual nunca
-            // actua como rescate, se descarta aunque el plan no fije nada.
+            // El plan de cuotas es la autoridad del porcentaje, tambien en modo Manual. Sin tabla de
+            // planes en absoluto (legado, solo dobles de test) se conserva la tasa que cargo el
+            // operador: no hay otra autoridad a la que recurrir. Con tabla de planes, el porcentaje
+            // SIEMPRE sale del plan resuelto (que ya incluye el fallback al recargo global legacy
+            // cuando corresponde): el valor manual nunca actua como rescate, se descarta aunque el
+            // plan no resuelva nada (ni porcentaje propio ni recargo legacy configurado).
             tasaMensual = planesVenta.RigeConfiguracionUnicaGlobal
                 ? tasaMensual
                 : planesVenta.BuscarPlan(modelo.CantidadCuotas)?.TasaMensual;
@@ -229,17 +231,18 @@ public sealed class CreditoConfiguracionVentaService : ICreditoConfiguracionVent
                 MotivoRechazoConfiguracionCredito.Conflicto);
         }
 
-        // ML2.1 — Contrato congelado (Fase 5): un plan activo sin porcentaje explicito es
-        // configuracion invalida, nunca "0% silencioso". Se valida el plan en si (no la variable
-        // tasaMensual ya resuelta arriba) para cubrir los tres metodos de calculo por igual.
+        // Un plan activo sin porcentaje resuelto (ni propio ni heredado del recargo global legacy —
+        // BuscarPlan ya intento ambos en ConfiguracionPagoService) es configuracion invalida, nunca
+        // "0% silencioso". Se valida el plan en si (no la variable tasaMensual ya resuelta arriba)
+        // para cubrir los tres metodos de calculo por igual.
         if (!planesVenta.RigeConfiguracionUnicaGlobal &&
             planesVenta.BuscarPlan(modelo.CantidadCuotas)!.TasaMensual is null)
         {
             return CreditoConfiguracionVentaResultado.Invalido(
                 nameof(modelo.CantidadCuotas),
                 $"El plan de cuotas para {modelo.CantidadCuotas} cuotas no tiene un porcentaje financiero " +
-                "configurado. Configure el porcentaje en Administracion -> Credito Personal antes de " +
-                "financiar con esta cantidad.",
+                "configurado (ni propio ni recargo global legacy). Configure alguno de los dos en " +
+                "Administracion -> Credito Personal antes de financiar con esta cantidad.",
                 rangoEfectivo,
                 MotivoRechazoConfiguracionCredito.Conflicto);
         }
