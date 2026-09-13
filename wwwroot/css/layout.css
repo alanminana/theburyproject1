@@ -142,6 +142,12 @@ body.app-layout {
     will-change: width, transform;
 }
 
+/* Reserva el espacio del scrollbar en ambos lados para que los íconos
+   queden centrados siempre, haya o no overflow vertical */
+#sidebar nav {
+    scrollbar-gutter: stable both-edges;
+}
+
 /* Brand y labels */
 #sidebar .sidebar-label {
     min-width: 0;
@@ -195,6 +201,10 @@ body.app-layout {
     #sidebar.collapsed nav>div>a {
         justify-content: center;
         padding-inline: 0;
+        /* El gap-3 de Tailwind sigue reservando espacio hacia la etiqueta
+           aunque quede en width:0, corriendo el ícono a la izquierda del
+           centro real dentro de la píldora activa/hover */
+        gap: 0;
     }
 
     #sidebar.collapsed nav a .material-symbols-outlined,
@@ -211,6 +221,15 @@ body.app-layout {
 
     #sidebar.collapsed nav a {
         position: relative;
+    }
+
+    /* Los títulos de sección ("Operaciones", "Logística", etc.) solo se
+       ocultaban con opacity/width en 0: conservaban alto + margin-bottom,
+       sumando overflow espurio en el nav y descentrando los íconos */
+    #sidebar.collapsed nav>div>p.sidebar-label {
+        height: 0;
+        margin: 0;
+        overflow: hidden;
     }
 
     #toggleSidebar {
@@ -238,6 +257,7 @@ body.app-layout {
     body.sidebar-auto-collapse #sidebar nav>div>a {
         justify-content: center;
         padding-inline: 0;
+        gap: 0;
     }
 
     body.sidebar-auto-collapse #sidebar nav a .material-symbols-outlined,
@@ -250,6 +270,12 @@ body.app-layout {
 
     body.sidebar-auto-collapse #sidebar #collapseIcon {
         transform: rotate(180deg);
+    }
+
+    body.sidebar-auto-collapse #sidebar nav>div>p.sidebar-label {
+        height: 0;
+        margin: 0;
+        overflow: hidden;
     }
 }
 
