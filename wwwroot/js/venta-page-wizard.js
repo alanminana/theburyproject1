@@ -57,6 +57,28 @@
     // los maneja cotizacion-simulador.js y el resumen de la venta no debe pisarlos.
     const COTIZADOR_SELECTOR = '[data-cotizacion-simulador]';
 
+    // Checkbox "Facturar al confirmar" (sólo Edit, sólo con permiso invoice — ver
+    // puedeFacturarVentas en _VentaWizardForm.cshtml) + modal de tipo de factura que
+    // #btn-confirmar abre en vez de enviar directo cuando está tildado.
+    const facturarOpcion = document.getElementById('rev-facturar-opcion');
+    const chkFacturar = document.getElementById('chk-facturar');
+    let modalConfirmarFacturar = null;
+    if (typeof ventaModule.bindModal === 'function') {
+        modalConfirmarFacturar = ventaModule.bindModal('confirmar-facturar');
+    }
+
+    // Igual motivo que actualizarPasoCredito(): el checkbox sólo aplica a pagos sin
+    // Crédito Personal (ConfirmarYFacturar del lado servidor rechaza esa combinación).
+    function actualizarOpcionFacturar() {
+        if (!facturarOpcion) return;
+        const disponible = !requiereCredito();
+        facturarOpcion.hidden = !disponible;
+        facturarOpcion.classList.toggle('hidden', !disponible);
+        if (!disponible && chkFacturar) {
+            chkFacturar.checked = false;
+        }
+    }
+
     function setText(selector, value) {
         root.querySelectorAll(selector).forEach((node) => {
             if (node.closest(COTIZADOR_SELECTOR)) return;
@@ -236,6 +258,7 @@
         const productosListo = (document.getElementById('tbody-detalles')?.children.length || 0) > 0;
 
         actualizarPasoCredito();
+        actualizarOpcionFacturar();
         const requisitos = {
             // Cotizar es el punto de entrada de Create: nunca depende de la venta.
             cotizar: () => true,
@@ -450,6 +473,17 @@
         if (activo?.getAttribute('data-step') !== 'revision') {
             event.preventDefault();
             avanzar();
+            return;
+        }
+
+        // "Confirmar venta" con "Facturar al confirmar" tildado: no enviar a ciegas con
+        // el tipo de factura por defecto — abrir el modal para que el operador lo elija
+        // (o cancele) y sea SU submit ("confirmar-facturar") el que complete el envío.
+        // "Guardar sin confirmar" nunca factura, tenga o no tenga el checkbox tildado.
+        const submitterAction = event.submitter?.name === 'accionConfirmacion' ? event.submitter.value : null;
+        if (chkFacturar?.checked && submitterAction === 'confirmar' && modalConfirmarFacturar) {
+            event.preventDefault();
+            modalConfirmarFacturar.open(event.submitter);
         }
     });
 

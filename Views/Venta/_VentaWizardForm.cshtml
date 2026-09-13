@@ -5,6 +5,12 @@
     // Parcial compartido por Create_tw y Edit_tw. El modo se infiere del modelo:
     // una venta nueva no tiene Id (0); una edición sí. Ver Micro-lote 7 (paridad).
     var esEdicion = Model.Id > 0;
+    // "Confirmar venta" (+ checkbox "Facturar"): sólo tiene sentido en edición y sólo si
+    // el usuario tiene permiso de facturar (mismo gate que Details usa para "Facturar"/
+    // "Confirmar y facturar"). El checkbox además sólo aplica a pagos sin Crédito
+    // Personal (ConfirmarYFacturar no factura crédito personal en un paso); esa parte
+    // reacciona en vivo al medio de pago vía venta-page-wizard.js.
+    var puedeFacturarVentas = User.TienePermiso("ventas", "invoice");
     var clientes = ViewBag.Clientes as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
     var productos = ViewBag.Productos as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
     var tiposPago = ViewBag.TiposPago as IEnumerable<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>;
@@ -231,7 +237,7 @@
                                 class="inline-flex h-11 w-full items-center justify-center rounded-xl bg-primary px-5 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90">
                             @if (esEdicion)
                             {
-                                <text>Guardar cambios</text>
+                                <text>Confirmar venta</text>
                             }
                             else
                             {
@@ -311,7 +317,7 @@
                 </div>
                 <button type="button" class="vm-btn-confirm-sm" data-wizard-primary>
                     <span class="material-symbols-outlined vm-btn-confirm-sm__icon">point_of_sale</span>
-                    <span data-wizard-primary-label>@(esEdicion || esCotizacion ? "Guardar" : "Confirmar")</span>
+                    <span data-wizard-primary-label>@(esCotizacion && !esEdicion ? "Guardar" : "Confirmar")</span>
                 </button>
             </div>
 
@@ -1259,16 +1265,30 @@
                                                                                                             </div>
                                                                                                         }
 
-                                        <button type="submit" id="btn-confirmar" class="vm-btn-confirm">
+                                        @if (esEdicion && puedeFacturarVentas)
+                                        {
+                                            <div id="rev-facturar-opcion" class="mb-3 flex items-center gap-2 @(Model.TipoPago == TipoPago.CreditoPersonal ? "hidden" : "")">
+                                                <input type="checkbox" id="chk-facturar" class="size-4 rounded border-white/30 bg-white/10" />
+                                                <label for="chk-facturar" class="cursor-pointer text-xs font-semibold text-white/90">Facturar al confirmar</label>
+                                            </div>
+                                        }
+                                        <button type="submit" id="btn-confirmar" name="accionConfirmacion" value="confirmar" class="vm-btn-confirm">
                                                                                                             <span class="material-symbols-outlined">point_of_sale</span>
                                                                                                             @* H1: envuelto en span para que venta-page-wizard.js pueda sincronizar este
                                                                                                                texto con el CTA contextual del wizard fuera de Revisión, sin tocar el
                                                                                                                copy final canónico (protegido por ParcialCompartido_DiferenciaLosBotonesSoloPorModo). *@
-                                                                                                            <span data-btn-confirmar-label>@(esEdicion ? "Guardar cambios" : (esCotizacion ? "Guardar Cotización" : "Confirmar Transacción"))</span>
+                                                                                                            <span data-btn-confirmar-label>@(esEdicion ? "Confirmar venta" : (esCotizacion ? "Guardar Cotización" : "Confirmar Transacción"))</span>
                                                                                                         </button>
+                                                                                                        @if (esEdicion)
+                                                                                                        {
+                                                                                                            <button type="submit" id="btn-guardar-sin-confirmar" name="accionConfirmacion" value="guardar"
+                                                                                                                    class="mt-3 w-full rounded-xl border border-white/20 bg-white/10 py-2 text-xs font-bold text-white/90 transition-colors hover:bg-white/20">
+                                                                                                                Guardar sin confirmar
+                                                                                                            </button>
+                                                                                                        }
                                                                                                         <p class="text-center text-[10px] mt-4 opacity-60">
                                                                                                             @(esEdicion
-                                                                                                                ? $"Los cambios quedarán guardados en la operación {Model.Numero}."
+                                                                                                                ? $"\"Confirmar venta\" guarda los cambios y confirma la operación {Model.Numero} (tildá \"Facturar\" para facturarla en el mismo paso). \"Guardar sin confirmar\" sólo guarda los cambios."
                                                                                                                 : (esCotizacion ? "Se guardará como cotización pendiente." : "Al confirmar, se generará la factura correspondiente."))
                                                                                                         </p>
                                                                                                     </section>
@@ -1322,6 +1342,52 @@
 
                                                                                             @* Inputs ocultos para el envío de detalles por POST *@
                                                                                             <div id="detalles-hidden-inputs" class="hidden"></div>
+
+                                                                                            @* Modal "Confirmar y facturar": el <select> vive DENTRO de #venta-form (a
+                                                                                               diferencia de #modal-documentacion, que está afuera y se maneja por fetch)
+                                                                                               para que tipoFactura viaje con el mismo submit, sin JS que copie valores.
+                                                                                               venta-page-wizard.js decide cuándo abrirlo (checkbox "Facturar" tildado +
+                                                                                               click en "Confirmar venta") en vez de un trigger data-venta-modal-action="open". *@
+                                                                                            @if (esEdicion && puedeFacturarVentas)
+                                                                                            {
+                                                                                                <div id="modal-confirmar-facturar" data-venta-modal="confirmar-facturar"
+                                                                                                     class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 px-4 backdrop-blur-sm overflow-y-auto"
+                                                                                                     role="dialog" aria-modal="true" aria-labelledby="modal-confirmar-facturar-titulo" aria-hidden="true" tabindex="-1">
+                                                                                                    <div class="absolute inset-0" data-venta-modal-action="close"></div>
+                                                                                                    <div class="relative w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl">
+                                                                                                        <div class="flex items-center justify-between border-b border-slate-800 p-6">
+                                                                                                            <h3 id="modal-confirmar-facturar-titulo" class="flex items-center gap-2 text-lg font-bold text-white">
+                                                                                                                <span class="material-symbols-outlined text-primary">receipt_long</span>
+                                                                                                                Confirmar y facturar
+                                                                                                            </h3>
+                                                                                                            <button type="button" data-venta-modal-action="close" class="rounded-lg p-1 hover:bg-slate-800">
+                                                                                                                <span class="material-symbols-outlined text-slate-400">close</span>
+                                                                                                            </button>
+                                                                                                        </div>
+                                                                                                        <div class="space-y-4 p-6">
+                                                                                                            <p class="text-sm text-slate-400">
+                                                                                                                La operación @Model.Numero se confirmará y se generará la factura correspondiente en el mismo paso.
+                                                                                                            </p>
+                                                                                                            <div>
+                                                                                                                <label for="modal-tipo-factura" class="mb-2 block text-xs font-bold uppercase text-slate-500">Tipo de factura</label>
+                                                                                                                <select id="modal-tipo-factura" name="tipoFactura"
+                                                                                                                        class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white"
+                                                                                                                        data-modal-initial-focus>
+                                                                                                                    <option value="@TipoFactura.A">A</option>
+                                                                                                                    <option value="@TipoFactura.B" selected>B</option>
+                                                                                                                    <option value="@TipoFactura.C">C</option>
+                                                                                                                </select>
+                                                                                                            </div>
+                                                                                                        </div>
+                                                                                                        <div class="flex gap-3 border-t border-slate-800 p-6">
+                                                                                                            <button type="button" data-venta-modal-action="close" class="btn-erp-ghost flex-1">Cancelar</button>
+                                                                                                            <button type="submit" name="accionConfirmacion" value="confirmar-facturar" class="btn-erp-primary flex-1">
+                                                                                                                <span class="material-symbols-outlined text-sm">receipt_long</span> Confirmar y facturar
+                                                                                                            </button>
+                                                                                                        </div>
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            }
 
                                                                                         </form>
 

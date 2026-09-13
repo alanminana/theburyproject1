@@ -544,7 +544,15 @@ namespace TheBuryProject.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [PermisoRequerido(Modulo = ModuloVentas, Accion = AccionActualizar)]
-        public async Task<IActionResult> Edit(int id, VentaViewModel viewModel)
+        public async Task<IActionResult> Edit(
+            int id,
+            VentaViewModel viewModel,
+            // "Confirmar venta" (+ checkbox "Facturar") del wizard: en vez de solo guardar,
+            // este POST puede encadenar Confirmar/ConfirmarYFacturar sin duplicar su lógica
+            // (ver ProcesarAccionPostGuardadoAsync). "guardar" preserva el comportamiento
+            // histórico de este botón (botón secundario "Guardar sin confirmar").
+            [FromForm] string accionConfirmacion = "guardar",
+            [FromForm] TipoFactura tipoFactura = TipoFactura.B)
         {
             try
             {
@@ -638,8 +646,7 @@ namespace TheBuryProject.Controllers
                     // configurar los créditos que siguen PendienteConfiguracion.
                     if (resultado.CreditoConfigurado)
                     {
-                        TempData["Success"] = "Venta actualizada exitosamente";
-                        return RedirectToAction(nameof(Details), new { id });
+                        return await ProcesarAccionPostGuardadoAsync(id, accionConfirmacion, tipoFactura);
                     }
 
                     TempData["Success"] = "Venta actualizada. Crédito listo para configurar.";
@@ -649,8 +656,7 @@ namespace TheBuryProject.Controllers
                         new { id = resultado.CreditoId, ventaId = resultado.Id, returnUrl = returnToVentaDetailsUrl });
                 }
 
-                TempData["Success"] = "Venta actualizada exitosamente";
-                return RedirectToAction(nameof(Details), new { id });
+                return await ProcesarAccionPostGuardadoAsync(id, accionConfirmacion, tipoFactura);
             }
             catch (CondicionesPagoVentaException ex)
             {
@@ -673,6 +679,35 @@ namespace TheBuryProject.Controllers
                 _logger.LogError(ex, "Error al actualizar venta: {Id}", id);
                 ModelState.AddModelError("", "Error al actualizar la venta: " + ex.Message);
                 return await RetornarVistaEdicionConDatos(viewModel);
+            }
+        }
+
+        // "Confirmar venta" (+ checkbox "Facturar") del wizard de edición: decide qué pasa
+        // después de guardar según lo que pidió el operador, reutilizando la misma lógica
+        // de negocio de Confirmar/ConfirmarYFacturar que ya usa Details en vez de
+        // duplicarla. "guardar" (botón secundario "Guardar sin confirmar") conserva el
+        // comportamiento histórico de este POST: sólo persiste, sin cambiar de estado.
+        private async Task<IActionResult> ProcesarAccionPostGuardadoAsync(
+            int id,
+            string accionConfirmacion,
+            TipoFactura tipoFactura)
+        {
+            var usuarioActual = User ?? new ClaimsPrincipal(new ClaimsIdentity());
+            var puedeFacturar = usuarioActual.TienePermiso(ModuloVentas, AccionFacturar);
+
+            switch (accionConfirmacion)
+            {
+                case "confirmar-facturar" when puedeFacturar:
+                    return await EjecutarConfirmarYFacturarAsync(id, tipoFactura);
+                case "confirmar":
+                case "confirmar-facturar":
+                    // Sin permiso de facturar (checkbox forzado a mano sin el permiso real,
+                    // o venta con Crédito Personal donde ConfirmarYFacturar ya se autobloquea):
+                    // degrada a "solo confirmar" en vez de descartar el guardado ya aplicado.
+                    return await EjecutarConfirmarVentaAsync(id, aplicarExcepcionDocumental: false, motivoExcepcionDocumental: null);
+                default:
+                    TempData["Success"] = "Venta actualizada exitosamente";
+                    return RedirectToAction(nameof(Details), new { id });
             }
         }
 
@@ -936,6 +971,18 @@ namespace TheBuryProject.Controllers
             int id,
             bool aplicarExcepcionDocumental = false,
             string? motivoExcepcionDocumental = null)
+        {
+            return await EjecutarConfirmarVentaAsync(id, aplicarExcepcionDocumental, motivoExcepcionDocumental);
+        }
+
+        // Lógica real de "Confirmar", extraída para reutilizarla desde Edit(POST) (botón
+        // "Confirmar venta" del wizard de edición): guardar y confirmar en un solo submit
+        // sin duplicar toda esta lógica de negocio (crédito personal, contrato, excepción
+        // documental, cobro de 1ª cuota, etc.).
+        private async Task<IActionResult> EjecutarConfirmarVentaAsync(
+            int id,
+            bool aplicarExcepcionDocumental,
+            string? motivoExcepcionDocumental)
         {
             try
             {
@@ -1520,6 +1567,13 @@ namespace TheBuryProject.Controllers
         [ValidateAntiForgeryToken]
         [PermisoRequerido(Modulo = ModuloVentas, Accion = AccionFacturar)]
         public async Task<IActionResult> ConfirmarYFacturar(int id, TipoFactura tipo = TipoFactura.B)
+        {
+            return await EjecutarConfirmarYFacturarAsync(id, tipo);
+        }
+
+        // Extraída por el mismo motivo que EjecutarConfirmarVentaAsync: Edit(POST) la
+        // reutiliza cuando el operador tilda "Facturar" al confirmar desde el wizard.
+        private async Task<IActionResult> EjecutarConfirmarYFacturarAsync(int id, TipoFactura tipo)
         {
             try
             {
