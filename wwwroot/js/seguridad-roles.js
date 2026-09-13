@@ -4,7 +4,7 @@
     const seguridad = TheBury.SeguridadModule;
     seguridad.initSharedUi();
 
-    const $ = id => document.getElementById(id);
+    const $ = seguridad.getById;
     const normalize = seguridad.normalizeText;
     const currentUrl = seguridad.getCurrentUrl();
     const state = seguridad.createState();
@@ -63,66 +63,23 @@
     seguridad.bindEscapeToState(state);
 
     function bindAjaxModal(modal, config) {
-        const form = $(config.formId);
-        const errorBox = $(config.errorBoxId);
-        const errorList = $(config.errorListId);
         const submitButton = $(config.submitButtonId);
         const cancelButton = $(config.cancelButtonId);
-        const defaultSubmitHtml = submitButton?.innerHTML || '';
         const footer = submitButton?.closest('div');
 
         applyModalFooterLayout(footer, [cancelButton, submitButton]);
 
-        form?.addEventListener('submit', event => {
-            event.preventDefault();
-            clearActionFeedback();
-
-            if (errorBox && errorList) {
-                errorBox.classList.add('hidden');
-                errorList.innerHTML = '';
+        seguridad.bindAjaxModal({
+            formId: config.formId,
+            errorBoxId: config.errorBoxId,
+            errorListId: config.errorListId,
+            submitButtonId: config.submitButtonId,
+            loadingHtml: config.loadingHtml,
+            validate: () => { clearActionFeedback(); return []; },
+            onSuccess: (result, form) => {
+                modal.close();
+                navigateTo(resolveReturnUrl(form, result));
             }
-
-            if (submitButton) {
-                submitButton.disabled = true;
-                submitButton.innerHTML = config.loadingHtml;
-            }
-
-            fetch(form.action, {
-                method: 'POST',
-                body: new FormData(form),
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
-            })
-                .then(response => response.json())
-                .then(result => {
-                    if (result.success) {
-                        modal.close();
-                        navigateTo(resolveReturnUrl(form, result));
-                        return;
-                    }
-
-                    if (errorBox && errorList) {
-                        errorList.innerHTML = (result.errors || ['No se pudo completar la operación.'])
-                            .map(message => `<p>${message}</p>`)
-                            .join('');
-                        errorBox.classList.remove('hidden');
-                    }
-
-                    if (submitButton) {
-                        submitButton.disabled = false;
-                        submitButton.innerHTML = defaultSubmitHtml;
-                    }
-                })
-                .catch(() => {
-                    if (errorBox && errorList) {
-                        errorList.innerHTML = '<p>Error de conexión. Intentá de nuevo.</p>';
-                        errorBox.classList.remove('hidden');
-                    }
-
-                    if (submitButton) {
-                        submitButton.disabled = false;
-                        submitButton.innerHTML = defaultSubmitHtml;
-                    }
-                });
         });
     }
 

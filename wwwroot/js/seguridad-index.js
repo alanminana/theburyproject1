@@ -4,7 +4,7 @@
     const seguridad = TheBury.SeguridadModule;
     seguridad.initSharedUi();
 
-    const $ = id => document.getElementById(id);
+    const $ = seguridad.getById;
     const normalizeText = seguridad.normalizeText;
     const currentUrl = seguridad.getCurrentUrl();
     const state = seguridad.createState();
@@ -247,46 +247,17 @@
     }
 
     function bindCreateModal(modal) {
-        const form = $('formCreateUser');
-        const errBox = $('createUserErrors');
-        const errList = $('createUserErrorList');
-        const submitButton = $('submitCreateUser');
-        const defaultButtonHtml = submitButton?.innerHTML || '';
-        form?.addEventListener('submit', event => {
-            event.preventDefault();
-            errBox?.classList.add('hidden');
-            if (errList) errList.innerHTML = '';
-            if (submitButton) {
-                submitButton.disabled = true;
-                submitButton.innerHTML = '<span class=\"material-symbols-outlined text-sm animate-spin\">progress_activity</span> Guardando...';
+        seguridad.bindAjaxModal({
+            formId: 'formCreateUser',
+            errorBoxId: 'createUserErrors',
+            errorListId: 'createUserErrorList',
+            submitButtonId: 'submitCreateUser',
+            loadingHtml: '<span class="material-symbols-outlined text-sm animate-spin">progress_activity</span> Guardando...',
+            defaultErrorMessage: 'No se pudo crear el usuario.',
+            onSuccess: (result, form) => {
+                modal.close();
+                navigateTo(resolveReturnUrl(form, result));
             }
-            fetch(form.action, { method: 'POST', body: new FormData(form), headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-                .then(response => response.json())
-                .then(result => {
-                    if (result.success) {
-                        modal.close();
-                        navigateTo(resolveReturnUrl(form, result));
-                        return;
-                    }
-                    if (errBox && errList) {
-                        errList.innerHTML = (result.errors || ['No se pudo crear el usuario.']).map(message => `<p>${message}</p>`).join('');
-                        errBox.classList.remove('hidden');
-                    }
-                    if (submitButton) {
-                        submitButton.disabled = false;
-                        submitButton.innerHTML = defaultButtonHtml;
-                    }
-                })
-                .catch(() => {
-                    if (errBox && errList) {
-                        errList.innerHTML = '<p>Error de conexión. Intentá de nuevo.</p>';
-                        errBox.classList.remove('hidden');
-                    }
-                    if (submitButton) {
-                        submitButton.disabled = false;
-                        submitButton.innerHTML = defaultButtonHtml;
-                    }
-                });
         });
     }
 
@@ -318,15 +289,11 @@
 
     function bindChangePassModal(modal) {
         const form = $('formChangePass');
-        const errBox = $('changePassErrors');
-        const errList = $('changePassErrorList');
         const newPw = $('newPasswordInput');
         const confirmPw = $('confirmPasswordInput');
         const bars = $('strengthBars');
         const strengthLabel = $('strengthLabel');
         const matchIndicator = $('matchIndicator');
-        const submitButton = $('submitChangePass');
-        const defaultButtonHtml = submitButton?.innerHTML || '';
         const policy = {
             requiredLength: Number(form?.dataset.requiredLength || 6),
             requireUppercase: form?.dataset.requireUppercase === 'true',
@@ -342,7 +309,7 @@
             symbol: $('passwordRequirementSymbol')
         };
 
-        changePassContainer?.querySelectorAll('.toggle-pass-visibility').forEach(button => {
+        $('changePassContainer')?.querySelectorAll('.toggle-pass-visibility').forEach(button => {
             button.addEventListener('click', () => {
                 const target = $(button.dataset.target);
                 if (!target) return;
@@ -352,17 +319,6 @@
                 if (icon) icon.textContent = isPassword ? 'visibility_off' : 'visibility';
             });
         });
-
-        const hideErrors = () => {
-            if (errBox) errBox.classList.add('hidden');
-            if (errList) errList.innerHTML = '';
-        };
-
-        const showErrors = messages => {
-            if (!errBox || !errList) return;
-            errList.innerHTML = messages.map(message => `<p>${message}</p>`).join('');
-            errBox.classList.remove('hidden');
-        };
 
         function renderPasswordPolicy() {
             const checks = evaluatePasswordPolicy(newPw?.value || '', policy);
@@ -400,124 +356,75 @@
             return false;
         }
 
-        newPw?.addEventListener('input', () => { renderPasswordPolicy(); updateMatch(); hideErrors(); });
-        confirmPw?.addEventListener('input', () => { updateMatch(); hideErrors(); });
         renderPasswordPolicy();
         updateMatch();
 
-        form?.addEventListener('submit', event => {
-            event.preventDefault();
-            hideErrors();
-            const checks = renderPasswordPolicy();
-            const errors = [];
-            if (!checks.length) errors.push(`La contraseña debe tener al menos ${policy.requiredLength} caracteres.`);
-            if (policy.requireUppercase && !checks.uppercase) errors.push('La contraseña debe incluir al menos una letra mayúscula.');
-            if (policy.requireLowercase && !checks.lowercase) errors.push('La contraseña debe incluir al menos una letra minúscula.');
-            if (policy.requireDigit && !checks.digit) errors.push('La contraseña debe incluir al menos un número.');
-            if (policy.requireSymbol && !checks.symbol) errors.push('La contraseña debe incluir al menos un símbolo.');
-            if (!updateMatch()) errors.push('La contraseña y la confirmación no coinciden.');
-            if (errors.length) {
-                showErrors(errors);
-                return;
+        const ajaxModal = seguridad.bindAjaxModal({
+            formId: 'formChangePass',
+            errorBoxId: 'changePassErrors',
+            errorListId: 'changePassErrorList',
+            submitButtonId: 'submitChangePass',
+            loadingHtml: '<span class="material-symbols-outlined text-sm animate-spin">progress_activity</span> Guardando...',
+            defaultErrorMessage: 'No se pudo resetear la contraseña.',
+            validate: () => {
+                const checks = renderPasswordPolicy();
+                const errors = [];
+                if (!checks.length) errors.push(`La contraseña debe tener al menos ${policy.requiredLength} caracteres.`);
+                if (policy.requireUppercase && !checks.uppercase) errors.push('La contraseña debe incluir al menos una letra mayúscula.');
+                if (policy.requireLowercase && !checks.lowercase) errors.push('La contraseña debe incluir al menos una letra minúscula.');
+                if (policy.requireDigit && !checks.digit) errors.push('La contraseña debe incluir al menos un número.');
+                if (policy.requireSymbol && !checks.symbol) errors.push('La contraseña debe incluir al menos un símbolo.');
+                if (!updateMatch()) errors.push('La contraseña y la confirmación no coinciden.');
+                return errors;
+            },
+            onSuccess: (result, form) => {
+                modal.close();
+                navigateTo(resolveReturnUrl(form, result));
             }
-            if (submitButton) {
-                submitButton.disabled = true;
-                submitButton.innerHTML = '<span class=\"material-symbols-outlined text-sm animate-spin\">progress_activity</span> Guardando...';
-            }
-            fetch(form.action, { method: 'POST', body: new FormData(form), headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-                .then(response => response.json())
-                .then(result => {
-                    if (result.success) {
-                        modal.close();
-                        navigateTo(resolveReturnUrl(form, result));
-                        return;
-                    }
-                    showErrors(result.errors || ['No se pudo resetear la contraseña.']);
-                    if (submitButton) {
-                        submitButton.disabled = false;
-                        submitButton.innerHTML = defaultButtonHtml;
-                    }
-                })
-                .catch(() => {
-                    showErrors(['Error de conexión. Intentá de nuevo.']);
-                    if (submitButton) {
-                        submitButton.disabled = false;
-                        submitButton.innerHTML = defaultButtonHtml;
-                    }
-                });
         });
+
+        newPw?.addEventListener('input', () => { renderPasswordPolicy(); updateMatch(); ajaxModal?.hideErrors(); });
+        confirmPw?.addEventListener('input', () => { updateMatch(); ajaxModal?.hideErrors(); });
     }
 
     function bindBlockUserModal(modal) {
         const form = $('formBlockUser');
-        const errBox = $('blockUserErrors');
-        const errList = $('blockUserErrorList');
         const motivoInput = form?.querySelector('[name=\"MotivoBloqueo\"]');
         const bloqueadoHastaInput = form?.querySelector('[name=\"BloqueadoHasta\"]');
         const submitButton = $('submitBlockUser');
-        const defaultButtonHtml = submitButton?.innerHTML || '';
         const footer = submitButton?.closest('div');
         const cancelButton = $('cancelBlockUser');
 
         applyModalFooterLayout(footer, [cancelButton, submitButton]);
 
-        const hideErrors = () => {
-            if (errBox) errBox.classList.add('hidden');
-            if (errList) errList.innerHTML = '';
-        };
-
-        const showErrors = messages => {
-            if (!errBox || !errList) return;
-            errList.innerHTML = messages.map(message => `<p>${message}</p>`).join('');
-            errBox.classList.remove('hidden');
-        };
-
-        motivoInput?.addEventListener('input', hideErrors);
-        bloqueadoHastaInput?.addEventListener('input', hideErrors);
-
-        form?.addEventListener('submit', event => {
-            event.preventDefault();
-            hideErrors();
-            const errors = [];
-            const motivo = (motivoInput?.value || '').trim();
-            const bloqueadoHasta = bloqueadoHastaInput?.value || '';
-            if (!motivo) errors.push('El motivo de bloqueo es requerido.');
-            if (bloqueadoHasta) {
-                const bloqueoDate = new Date(bloqueadoHasta);
-                if (Number.isNaN(bloqueoDate.getTime()) || bloqueoDate.getTime() <= Date.now()) {
-                    errors.push('La fecha de bloqueo debe ser posterior a la fecha actual.');
+        const ajaxModal = seguridad.bindAjaxModal({
+            formId: 'formBlockUser',
+            errorBoxId: 'blockUserErrors',
+            errorListId: 'blockUserErrorList',
+            submitButtonId: 'submitBlockUser',
+            loadingHtml: '<span class="material-symbols-outlined text-sm animate-spin">progress_activity</span> Bloqueando...',
+            defaultErrorMessage: 'Error al bloquear el usuario.',
+            validate: () => {
+                const errors = [];
+                const motivo = (motivoInput?.value || '').trim();
+                const bloqueadoHasta = bloqueadoHastaInput?.value || '';
+                if (!motivo) errors.push('El motivo de bloqueo es requerido.');
+                if (bloqueadoHasta) {
+                    const bloqueoDate = new Date(bloqueadoHasta);
+                    if (Number.isNaN(bloqueoDate.getTime()) || bloqueoDate.getTime() <= Date.now()) {
+                        errors.push('La fecha de bloqueo debe ser posterior a la fecha actual.');
+                    }
                 }
+                return errors;
+            },
+            onSuccess: (result, form) => {
+                modal.close();
+                navigateTo(resolveReturnUrl(form, result));
             }
-            if (errors.length) {
-                showErrors(errors);
-                return;
-            }
-            if (submitButton) {
-                submitButton.disabled = true;
-                submitButton.innerHTML = '<span class=\"material-symbols-outlined text-sm animate-spin\">progress_activity</span> Bloqueando...';
-            }
-            fetch(form.action, { method: 'POST', body: new FormData(form), headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-                .then(response => response.json())
-                .then(result => {
-                    if (result.success) {
-                        modal.close();
-                        navigateTo(resolveReturnUrl(form, result));
-                        return;
-                    }
-                    showErrors(result.errors || ['Error al bloquear el usuario.']);
-                    if (submitButton) {
-                        submitButton.disabled = false;
-                        submitButton.innerHTML = defaultButtonHtml;
-                    }
-                })
-                .catch(() => {
-                    showErrors(['Error de conexión. Intentá de nuevo.']);
-                    if (submitButton) {
-                        submitButton.disabled = false;
-                        submitButton.innerHTML = defaultButtonHtml;
-                    }
-                });
         });
+
+        motivoInput?.addEventListener('input', () => ajaxModal?.hideErrors());
+        bloqueadoHastaInput?.addEventListener('input', () => ajaxModal?.hideErrors());
     }
 
     function openCreateModal() {

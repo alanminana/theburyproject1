@@ -31,6 +31,10 @@
         return `${location.pathname}${location.search}`;
     }
 
+    function getById(id) {
+        return document.getElementById(id);
+    }
+
     function setBodyScrollLock(locked) {
         document.documentElement.classList.toggle('overflow-hidden', locked);
         document.body.classList.toggle('overflow-hidden', locked);
@@ -202,11 +206,90 @@
         return '';
     }
 
+    // Envío AJAX genérico para formularios de modal: fetch + FormData -> JSON,
+    // con manejo uniforme de error/loading/éxito. `validate` es opcional (client-side,
+    // corre antes del fetch); `onSuccess(result, form)` decide qué hacer al confirmar.
+    function bindAjaxModal({
+        formId,
+        errorBoxId,
+        errorListId,
+        submitButtonId,
+        loadingHtml,
+        defaultErrorMessage = 'No se pudo completar la operación.',
+        validate,
+        onSuccess
+    }) {
+        const form = document.getElementById(formId);
+        if (!form) return null;
+
+        const errorBox = errorBoxId ? document.getElementById(errorBoxId) : null;
+        const errorList = errorListId ? document.getElementById(errorListId) : null;
+        const submitButton = submitButtonId ? document.getElementById(submitButtonId) : null;
+        const defaultSubmitHtml = submitButton?.innerHTML || '';
+
+        const hideErrors = () => {
+            if (errorBox) errorBox.classList.add('hidden');
+            if (errorList) errorList.innerHTML = '';
+        };
+
+        const showErrors = messages => {
+            if (!errorBox || !errorList) return;
+            errorList.innerHTML = messages.map(message => `<p>${message}</p>`).join('');
+            errorBox.classList.remove('hidden');
+        };
+
+        const resetSubmitButton = () => {
+            if (!submitButton) return;
+            submitButton.disabled = false;
+            submitButton.innerHTML = defaultSubmitHtml;
+        };
+
+        form.addEventListener('submit', event => {
+            event.preventDefault();
+            hideErrors();
+
+            if (typeof validate === 'function') {
+                const validationErrors = validate() || [];
+                if (validationErrors.length) {
+                    showErrors(validationErrors);
+                    return;
+                }
+            }
+
+            if (submitButton && loadingHtml) {
+                submitButton.disabled = true;
+                submitButton.innerHTML = loadingHtml;
+            }
+
+            fetch(form.action, {
+                method: 'POST',
+                body: new FormData(form),
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        onSuccess?.(result, form);
+                        return;
+                    }
+                    showErrors(result.errors || [defaultErrorMessage]);
+                    resetSubmitButton();
+                })
+                .catch(() => {
+                    showErrors(['Error de conexión. Intentá de nuevo.']);
+                    resetSubmitButton();
+                });
+        });
+
+        return { form, hideErrors, showErrors };
+    }
+
     const SeguridadModule = {
         createState,
         initSharedUi,
         normalizeText,
         getCurrentUrl,
+        getById,
         setBodyScrollLock,
         confirmAction,
         resolveReturnUrl,
@@ -217,6 +300,7 @@
         bindModalFrame,
         bindEscapeToState,
         openInjectedModal,
+        bindAjaxModal,
         getReturnUrl(element) {
             return getDatasetValue(element, ['seguridadReturnUrl', 'returnUrl']);
         },
