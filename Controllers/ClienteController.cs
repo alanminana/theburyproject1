@@ -71,19 +71,30 @@ namespace TheBuryProject.Controllers
             {
                 ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
 
-                var clientes = await _clienteService.SearchAsync(
+                var (clientes, total, paginaEfectiva) = await _clienteService.SearchPagedAsync(
                     searchTerm: filter.SearchTerm,
                     tipoDocumento: filter.TipoDocumento,
                     soloActivos: filter.SoloActivos,
                     conCreditosActivos: filter.ConCreditosActivos,
                     puntajeMinimo: filter.PuntajeMinimo,
+                    nivelRiesgo: filter.NivelRiesgoFiltro,
                     orderBy: filter.OrderBy,
-                    orderDirection: filter.OrderDirection);
+                    orderDirection: filter.OrderDirection,
+                    page: filter.PageNumber,
+                    pageSize: filter.PageSize);
 
                 var viewModels = _mapper.Map<List<ClienteViewModel>>(clientes);
+                await CompletarCreditoDisponibleAsync(viewModels);
 
                 filter.Clientes = viewModels;
-                filter.TotalResultados = viewModels.Count;
+                filter.TotalResultados = total;
+                filter.PageNumber = paginaEfectiva; // clampeada si venía fuera de rango (§9 ERP-UI-STANDARD)
+
+                // La UI oculta "Editar"/"Eliminar" sin permiso, pero el gate real vive en el
+                // controller ([PermisoRequerido] en Edit/Delete): ocultar un botón no reemplaza
+                // esa verificación, solo evita ofrecer una acción que el backend va a rechazar.
+                ViewBag.PuedeEditarClientes = _currentUser.HasPermission("clientes", "edit");
+                ViewBag.PuedeEliminarClientes = _currentUser.HasPermission("clientes", "delete");
 
                 CargarDropdowns();
                 return View("Index_tw", filter);
@@ -91,11 +102,34 @@ namespace TheBuryProject.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al obtener clientes");
-                TempData["Error"] = "Error al cargar los clientes";
+                ViewBag.ErrorCarga = true;
 
                 var fallback = new ClienteFilterViewModel();
                 CargarDropdowns();
                 return View("Index_tw", fallback);
+            }
+        }
+
+        /// <summary>
+        /// Completa el cupo de crédito disponible de cada fila con la misma autoridad que ya
+        /// usa la ficha del cliente (<see cref="ICreditoDisponibleService.CalcularDisponibleAsync"/>),
+        /// para no duplicar la regla de cálculo de cupo. Acotado al tamaño de la página actual
+        /// (paginación real de por medio), no a todo el listado filtrado.
+        /// </summary>
+        private async Task CompletarCreditoDisponibleAsync(List<ClienteViewModel> pagina)
+        {
+            foreach (var vm in pagina)
+            {
+                try
+                {
+                    var valores = await _creditoDisponibleService.CalcularDisponibleAsync(vm.Id);
+                    vm.CreditoDisponible = valores.Disponible;
+                }
+                catch (CreditoDisponibleException ex)
+                {
+                    vm.CreditoRequiereConfiguracion = true;
+                    vm.CreditoMensajeError = ex.Message;
+                }
             }
         }
 
@@ -120,6 +154,7 @@ namespace TheBuryProject.Controllers
             }
         }
 
+        [PermisoRequerido(Modulo = "clientes", Accion = "create")]
         public async Task<IActionResult> Create(string? returnUrl = null)
         {
             ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);
@@ -130,6 +165,7 @@ namespace TheBuryProject.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "clientes", Accion = "create")]
         public async Task<IActionResult> Create(ClienteViewModel viewModel, string? returnUrl = null)
         {
             try
@@ -166,6 +202,7 @@ namespace TheBuryProject.Controllers
             }
         }
 
+        [PermisoRequerido(Modulo = "clientes", Accion = "edit")]
         public async Task<IActionResult> Edit(int id, string? returnUrl = null)
         {
             try
@@ -191,6 +228,7 @@ namespace TheBuryProject.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "clientes", Accion = "edit")]
         public async Task<IActionResult> Edit(int id, ClienteViewModel viewModel, string? returnUrl = null)
         {
             if (id != viewModel.Id)
@@ -321,6 +359,7 @@ namespace TheBuryProject.Controllers
 
         #endregion
 
+        [PermisoRequerido(Modulo = "clientes", Accion = "delete")]
         public async Task<IActionResult> Delete(int id, string? returnUrl = null)
         {
             try
@@ -344,6 +383,7 @@ namespace TheBuryProject.Controllers
 
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "clientes", Accion = "delete")]
         public async Task<IActionResult> DeleteConfirmed(int id, string? returnUrl = null)
         {
             try
@@ -421,7 +461,9 @@ namespace TheBuryProject.Controllers
         /// Asigna o actualiza el límite de crédito (cupo) de un cliente.
         /// </summary>
         [HttpPost]
-        [ValidateAntiForgeryToken]        public async Task<IActionResult> AsignarLimiteCredito(int clienteId, decimal limiteCredito, string? motivo = null, string? returnUrl = null)
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "clientes", Accion = "managecreditlimits")]
+        public async Task<IActionResult> AsignarLimiteCredito(int clienteId, decimal limiteCredito, string? motivo = null, string? returnUrl = null)
         {
             try
             {
@@ -539,6 +581,7 @@ namespace TheBuryProject.Controllers
         /// </summary>
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "clientes", Accion = "edit")]
         public async Task<IActionResult> RecalcularAptitud(int clienteId, string? returnUrl = null)
         {
             try
@@ -563,6 +606,7 @@ namespace TheBuryProject.Controllers
         /// </summary>
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "clientes", Accion = "edit")]
         public async Task<IActionResult> RecalcularPuntaje(int clienteId, string? returnUrl = null)
         {
             try
@@ -585,6 +629,7 @@ namespace TheBuryProject.Controllers
         }
 
         [HttpPost]
+        [PermisoRequerido(Modulo = "clientes", Accion = "edit")]
         public async Task<IActionResult> ActualizarBcra(int clienteId)
         {
             try

@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TheBuryProject.Data;
+using TheBuryProject.Helpers;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
@@ -181,16 +182,73 @@ namespace TheBuryProject.Services
             bool? conCreditosActivos,
             decimal? puntajeMinimo,
             string? orderBy,
-            string? orderDirection)
+            string? orderDirection,
+            string? nivelRiesgo = null)
         {
-            // QueryFilter no aplica IsDeleted automáticamente.
-            var query = _context.Clientes
+            var query = AplicarFiltrosBusqueda(
+                BaseQuery(),
+                searchTerm, tipoDocumento, soloActivos, conCreditosActivos, puntajeMinimo, nivelRiesgo);
+
+            query = AplicarOrden(query, orderBy, orderDirection);
+
+            return await query.ToListAsync();
+        }
+
+        public async Task<(List<Cliente> Items, int Total, int PageNumber)> SearchPagedAsync(
+            string? searchTerm = null,
+            string? tipoDocumento = null,
+            bool? soloActivos = null,
+            bool? conCreditosActivos = null,
+            decimal? puntajeMinimo = null,
+            string? nivelRiesgo = null,
+            string? orderBy = null,
+            string? orderDirection = null,
+            int page = 1,
+            int pageSize = 25)
+        {
+            var query = AplicarFiltrosBusqueda(
+                BaseQuery(),
+                searchTerm, tipoDocumento, soloActivos, conCreditosActivos, puntajeMinimo, nivelRiesgo);
+
+            var total = await query.CountAsync();
+
+            var pageSizeEfectivo = pageSize < 1 ? 25 : Math.Min(pageSize, 100);
+            var totalPaginas = total == 0 ? 0 : (int)Math.Ceiling(total / (double)pageSizeEfectivo);
+
+            var pageEfectiva = page < 1 ? 1 : page;
+            if (totalPaginas == 0)
+                pageEfectiva = 1;
+            else if (pageEfectiva > totalPaginas)
+                pageEfectiva = totalPaginas;
+
+            query = AplicarOrden(query, orderBy, orderDirection);
+
+            var items = await query
+                .Skip((pageEfectiva - 1) * pageSizeEfectivo)
+                .Take(pageSizeEfectivo)
+                .ToListAsync();
+
+            return (items, total, pageEfectiva);
+        }
+
+        // QueryFilter no aplica IsDeleted automáticamente.
+        private IQueryable<Cliente> BaseQuery() =>
+            _context.Clientes
                 .AsNoTracking()
                 .Where(c => !c.IsDeleted)
                 // Necesario para que AutoMapper calcule correctamente CreditosActivos/MontoAdeudado en Index.
                 .Include(c => c.Creditos.Where(cr => !cr.IsDeleted && cr.Estado == EstadoCredito.Activo))
                 .AsQueryable();
 
+        private static IQueryable<Cliente> AplicarFiltrosBusqueda(
+            IQueryable<Cliente> query,
+            string? searchTerm,
+            string? tipoDocumento,
+            bool? soloActivos,
+            bool? conCreditosActivos,
+            decimal? puntajeMinimo,
+            string? nivelRiesgo)
+        {
             if (!string.IsNullOrWhiteSpace(searchTerm))
             {
                 var term = searchTerm.Trim();
@@ -199,7 +257,10 @@ namespace TheBuryProject.Services
                     (c.Nombre ?? string.Empty).Contains(term) ||
                     (c.Apellido ?? string.Empty).Contains(term) ||
                     (c.NumeroDocumento ?? string.Empty).Contains(term) ||
-                    (c.Email ?? string.Empty).Contains(term));
+                    (c.Email ?? string.Empty).Contains(term) ||
+                    (c.Telefono ?? string.Empty).Contains(term) ||
+                    (c.TelefonoAlternativo ?? string.Empty).Contains(term) ||
+                    (c.CuilCuit ?? string.Empty).Contains(term));
             }
 
             if (!string.IsNullOrWhiteSpace(tipoDocumento))
@@ -217,9 +278,18 @@ namespace TheBuryProject.Services
             if (puntajeMinimo.HasValue)
                 query = query.Where(c => c.PuntajeRiesgo >= puntajeMinimo.Value);
 
+            var nivelesBucket = ClienteHelper.NivelesRiesgoDeBucket(nivelRiesgo);
+            if (nivelesBucket.Count > 0)
+                query = query.Where(c => nivelesBucket.Contains(c.NivelRiesgo));
+
+            return query;
+        }
+
+        private static IQueryable<Cliente> AplicarOrden(IQueryable<Cliente> query, string? orderBy, string? orderDirection)
+        {
             var desc = string.Equals(orderDirection, "desc", StringComparison.OrdinalIgnoreCase);
 
-            query = (orderBy?.Trim().ToLowerInvariant()) switch
+            return (orderBy?.Trim().ToLowerInvariant()) switch
             {
                 "documento" => desc
                     ? query.OrderByDescending(c => c.NumeroDocumento).ThenByDescending(c => c.TipoDocumento)
@@ -233,12 +303,14 @@ namespace TheBuryProject.Services
                     ? query.OrderByDescending(c => c.PuntajeRiesgo)
                     : query.OrderBy(c => c.PuntajeRiesgo),
 
+                "activo" => desc
+                    ? query.OrderByDescending(c => c.Activo)
+                    : query.OrderBy(c => c.Activo),
+
                 _ => desc
                     ? query.OrderByDescending(c => c.CreatedAt)
                     : query.OrderBy(c => c.CreatedAt)
             };
-
-            return await query.ToListAsync();
         }
 
         public async Task ActualizarPuntajeRiesgoAsync(int clienteId, decimal nuevoPuntaje, string actualizadoPor)

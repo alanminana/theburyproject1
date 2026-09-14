@@ -5,10 +5,14 @@
 
     var clientes = Model.Clientes?.ToList() ?? new List<ClienteViewModel>();
     var totalEnPagina = clientes.Count;
+    var errorCarga = ViewBag.ErrorCarga is true;
+    var puedeEditar = ViewBag.PuedeEditarClientes is true;
+    var puedeEliminar = ViewBag.PuedeEliminarClientes is true;
+
     var filtroClienteActivo = !string.IsNullOrWhiteSpace(Model.SearchTerm)
                             || Model.SoloActivos.HasValue
-                            || !string.IsNullOrWhiteSpace(Model.TipoDocumento);
-    var totalResultados = Model.TotalResultados > 0 ? Model.TotalResultados : totalEnPagina;
+                            || !string.IsNullOrWhiteSpace(Model.TipoDocumento)
+                            || !string.IsNullOrWhiteSpace(Model.NivelRiesgoFiltro);
 
     string ClienteNombre(ClienteViewModel cliente)
     {
@@ -20,36 +24,31 @@
         return $"{cliente.Apellido}, {cliente.Nombre}".Trim(' ', ',');
     }
 
-    string RiesgoTexto(ClienteViewModel cliente)
+    // Única fuente de verdad para la franja de riesgo (bajo/medio/alto): la misma que usa
+    // el filtro "Riesgo" server-side (ClienteHelper.ClasificarRiesgo / NivelesRiesgoDeBucket),
+    // para que el chip de cada fila nunca pueda contradecir lo que el filtro seleccionó.
+    string RiesgoBucket(ClienteViewModel cliente) => ClienteHelper.ClasificarRiesgo(cliente.NivelRiesgo);
+
+    string RiesgoTexto(ClienteViewModel cliente) => RiesgoBucket(cliente) switch
     {
-        var riesgo = cliente.NivelRiesgo.ToString();
+        "alto" => "Alto",
+        "medio" => "Medio",
+        _ => "Bajo"
+    };
 
-        if (riesgo.Contains("Rechazado")) return "No apto";
-        if (riesgo.Contains("Condicional") || riesgo.Contains("Limitado")) return "Requiere aut.";
-
-        return cliente.PuntajeRiesgo > 0 ? "Apto" : "No evaluado";
-    }
-
-    string RiesgoChip(ClienteViewModel cliente)
+    string RiesgoChip(ClienteViewModel cliente) => RiesgoBucket(cliente) switch
     {
-        var riesgo = cliente.NivelRiesgo.ToString();
+        "alto" => "chip-bad",
+        "medio" => "chip-warn",
+        _ => "chip-ok"
+    };
 
-        if (riesgo.Contains("Rechazado")) return "chip-bad";
-        if (riesgo.Contains("Condicional") || riesgo.Contains("Limitado")) return "chip-warn";
-
-        return cliente.PuntajeRiesgo > 0 ? "chip-ok" : "chip-neutral";
-    }
-
-    string RiesgoIcon(ClienteViewModel cliente)
+    string RiesgoIcon(ClienteViewModel cliente) => RiesgoBucket(cliente) switch
     {
-        var chip = RiesgoChip(cliente);
-
-        if (chip == "chip-bad") return "block";
-        if (chip == "chip-warn") return "gpp_maybe";
-        if (chip == "chip-ok") return "verified";
-
-        return "remove";
-    }
+        "alto" => "block",
+        "medio" => "gpp_maybe",
+        _ => "verified"
+    };
 
     int RiesgoPct(ClienteViewModel cliente)
     {
@@ -62,15 +61,88 @@
         );
     }
 
-    string BarClass(ClienteViewModel cliente)
+    string TextoRiesgoFiltro(string bucket) => bucket switch
     {
-        var chip = RiesgoChip(cliente);
+        "bajo" => "Bajo",
+        "medio" => "Medio",
+        "alto" => "Alto",
+        _ => bucket
+    };
 
-        if (chip == "chip-bad") return "is-bad";
-        if (chip == "chip-warn") return "is-warn";
+    // ── Helpers de querystring: filtros vigentes menos uno (chips removibles) y orden ──
+    Dictionary<string, string> RutaFiltros(string? campoExcluido = null)
+    {
+        var dict = new Dictionary<string, string>();
 
-        return "is-ok";
+        if (!string.IsNullOrWhiteSpace(Model.SearchTerm) && campoExcluido != "SearchTerm")
+            dict["SearchTerm"] = Model.SearchTerm;
+
+        if (Model.SoloActivos.HasValue && campoExcluido != "SoloActivos")
+            dict["SoloActivos"] = Model.SoloActivos.Value.ToString();
+
+        if (!string.IsNullOrWhiteSpace(Model.TipoDocumento) && campoExcluido != "TipoDocumento")
+            dict["TipoDocumento"] = Model.TipoDocumento;
+
+        if (!string.IsNullOrWhiteSpace(Model.NivelRiesgoFiltro) && campoExcluido != "NivelRiesgoFiltro")
+            dict["NivelRiesgoFiltro"] = Model.NivelRiesgoFiltro;
+
+        if (Model.PageSize != 25)
+            dict["PageSize"] = Model.PageSize.ToString();
+
+        return dict;
     }
+
+    Dictionary<string, string> RutaOrden(string campo)
+    {
+        var dict = RutaFiltros();
+        dict["OrderBy"] = campo;
+        dict["OrderDirection"] = (Model.OrderBy == campo && Model.OrderDirection != "desc") ? "desc" : "asc";
+        return dict;
+    }
+
+    Dictionary<string, string> RutaPagina(int pagina)
+    {
+        var dict = RutaFiltros();
+        if (!string.IsNullOrWhiteSpace(Model.OrderBy)) dict["OrderBy"] = Model.OrderBy;
+        if (!string.IsNullOrWhiteSpace(Model.OrderDirection)) dict["OrderDirection"] = Model.OrderDirection;
+        dict["PageNumber"] = pagina.ToString();
+        return dict;
+    }
+
+    string IconoOrden(string campo) => Model.OrderBy != campo
+        ? "unfold_more"
+        : (Model.OrderDirection == "desc" ? "arrow_downward" : "arrow_upward");
+
+    List<int> VentanaPaginas(int actual, int total)
+    {
+        var numeros = new List<int>();
+        if (total <= 0) return numeros;
+
+        if (total <= 7)
+        {
+            for (var p = 1; p <= total; p++) numeros.Add(p);
+            return numeros;
+        }
+
+        const int elipsis = -1;
+        numeros.Add(1);
+
+        var inicio = Math.Max(2, actual - 1);
+        var fin = Math.Min(total - 1, actual + 1);
+
+        if (inicio > 2) numeros.Add(elipsis);
+        for (var p = inicio; p <= fin; p++) numeros.Add(p);
+        if (fin < total - 1) numeros.Add(elipsis);
+
+        numeros.Add(total);
+        return numeros;
+    }
+
+    var totalPaginas = Model.PageSize > 0 && Model.TotalResultados > 0
+        ? (int)Math.Ceiling(Model.TotalResultados / (double)Model.PageSize)
+        : 0;
+    var primerRegistro = Model.TotalResultados == 0 ? 0 : ((Model.PageNumber - 1) * Model.PageSize) + 1;
+    var ultimoRegistro = Math.Min(Model.PageNumber * Model.PageSize, Model.TotalResultados);
 }
 
 @section Styles {
@@ -107,7 +179,7 @@ else
         <div class="page-head__copy min-w-0">
             <h1 id="cliente-page-title" class="page-title">Gestión de Clientes</h1>
             <p class="page-sub">
-                Buscá clientes, revisá aptitud crediticia y administrá documentación asociada.
+                Buscá y administrá tus clientes.
             </p>
         </div>
 
@@ -117,361 +189,486 @@ else
                 Nuevo cliente
             </button>
 
-            <a asp-controller="DocumentoCliente" asp-action="Index" class="btn btn-ghost">
-                <span class="material-symbols-outlined" aria-hidden="true">folder_shared</span>
-                Documentos
-            </a>
+            @* Documentos/Créditos/Límites por puntaje no son acciones primarias de ESTA
+               pantalla (pertenecen a otros módulos) — quedan disponibles sin competir
+               visualmente con "Nuevo cliente". *@
+            <details class="cliente-more-menu relative" data-cliente-row-menu>
+                <summary class="btn btn-ghost btn-sm cursor-pointer" aria-label="Más acciones de clientes"
+                         title="Más acciones de clientes">
+                    <span class="material-symbols-outlined" aria-hidden="true">more_horiz</span>
+                    Más
+                </summary>
 
-            <a asp-controller="Credito" asp-action="Index" class="btn btn-ghost">
-                <span class="material-symbols-outlined" aria-hidden="true">credit_score</span>
-                Créditos
-            </a>
+                <div class="cliente-more-menu__content cliente-row-menu__content">
+                    <a asp-controller="DocumentoCliente" asp-action="Index" class="cliente-row-menu__item">
+                        <span class="material-symbols-outlined" aria-hidden="true">folder_shared</span>
+                        Documentos
+                    </a>
 
-            <button type="button" class="btn btn-soft cliente-admin-action" data-cliente-open-limites>
-                <span class="material-symbols-outlined" aria-hidden="true">tune</span>
-                Límites por puntaje
-            </button>
+                    <a asp-controller="Credito" asp-action="Index" class="cliente-row-menu__item">
+                        <span class="material-symbols-outlined" aria-hidden="true">credit_score</span>
+                        Créditos
+                    </a>
+
+                    <button type="button" class="cliente-row-menu__item" data-cliente-open-limites>
+                        <span class="material-symbols-outlined" aria-hidden="true">tune</span>
+                        Límites por puntaje
+                    </button>
+                </div>
+            </details>
         </div>
     </header>
-    <section class="cliente-section" aria-labelledby="cliente-list-title">
 
-        @* ============================================================
-       CABECERA
-       ============================================================ *@
-        <div class="cliente-list-head">
-            <div class="cliente-list-title">
-                <h2 id="cliente-list-title" class="sec-title">
-                    Listado de clientes
-                </h2>
+    @if (errorCarga)
+    {
+        <section class="cliente-section" aria-labelledby="cliente-list-title">
+            <h2 id="cliente-list-title" class="sr-only">Listado de clientes</h2>
 
-                @if (filtroClienteActivo)
-                {
-                    <span class="chip chip-info">
-                        <span class="material-symbols-outlined" aria-hidden="true">
-                            filter_alt
-                        </span>
+            <div class="card cliente-empty-card" role="alert" data-cliente-error-carga>
+                <div class="empty">
+                    <div class="empty-ic">
+                        <span class="material-symbols-outlined" aria-hidden="true">cloud_off</span>
+                    </div>
 
-                        Filtros activos
-                    </span>
-                }
-            </div>
+                    <h3>No pudimos cargar los clientes</h3>
+                    <p>Ocurrió un error al consultar el listado. Probá de nuevo en unos segundos.</p>
 
-            <span id="result-count" class="cliente-result-summary" aria-live="polite">
-                Mostrando @totalEnPagina de @totalResultados
-                @(totalResultados == 1 ? "cliente" : "clientes")
-            </span>
-        </div>
-
-        @* ============================================================
-       FILTROS
-       ============================================================ *@
-        <form id="cliente-filter-form" method="get" asp-action="Index" class="card card-pad cliente-filters"
-              role="search" aria-label="Buscar y filtrar clientes">
-
-            @* BÚSQUEDA *@
-            <div class="cliente-filter-field cliente-filter-search">
-                <label for="cliente-search-input" class="cliente-filter-label">
-                    Buscar cliente
-                </label>
-
-                <div class="cliente-search-control">
-                    <span class="material-symbols-outlined cliente-search-control__icon" aria-hidden="true">
-                        search
-                    </span>
-
-                    <input id="cliente-search-input" name="SearchTerm" value="@Model.SearchTerm" type="search"
-                           class="field cliente-search-control__input" placeholder="Nombre, documento, teléfono o email..."
-                           autocomplete="off" />
+                    <a asp-action="Index" class="btn btn-soft btn-sm empty-action">
+                        <span class="material-symbols-outlined" aria-hidden="true">refresh</span>
+                        Reintentar
+                    </a>
                 </div>
             </div>
+        </section>
+    }
+    else
+    {
+        <section class="cliente-section" aria-labelledby="cliente-list-title">
 
-            @* ESTADO *@
-            <div class="cliente-filter-field">
-                <label for="cliente-filter-estado" class="cliente-filter-label">
-                    Estado
-                </label>
+            @* ============================================================
+           CABECERA
+           ============================================================ *@
+            <div class="cliente-list-head">
+                <div class="cliente-list-title">
+                    <h2 id="cliente-list-title" class="sec-title">
+                        Listado de clientes
+                    </h2>
+                </div>
 
-                <select id="cliente-filter-estado" name="SoloActivos" class="field cliente-filter-select">
-
-                    <option value="">
-                        Todos los estados
-                    </option>
-
-                    @if (Model.SoloActivos == true)
+                <span id="result-count" class="cliente-result-summary" aria-live="polite">
+                    @if (Model.TotalResultados == 0)
                     {
-                        <option value="true" selected>
-                            Solo activos
-                        </option>
+                        @:0 clientes
                     }
                     else
                     {
-                        <option value="true">
-                            Solo activos
-                        </option>
+                        @:Mostrando @primerRegistro–@ultimoRegistro de @Model.TotalResultados @(Model.TotalResultados == 1 ? "cliente" : "clientes")
                     }
-
-                    @if (Model.SoloActivos == false)
-                    {
-                        <option value="false" selected>
-                            Solo inactivos
-                        </option>
-                    }
-                    else
-                    {
-                        <option value="false">
-                            Solo inactivos
-                        </option>
-                    }
-                </select>
+                </span>
             </div>
 
-            @* TIPO DE DOCUMENTO *@
-            <div class="cliente-filter-field">
-                <label for="cliente-filter-documento" class="cliente-filter-label">
-                    Tipo de documento
-                </label>
+            @* ============================================================
+           FILTROS (se aplican automáticamente, sin botón "Filtrar")
+           ============================================================ *@
+            <form id="cliente-filter-form" method="get" asp-action="Index" class="card card-pad cliente-filters"
+                  role="search" aria-label="Buscar y filtrar clientes">
 
-                <select id="cliente-filter-documento" name="TipoDocumento" class="field cliente-filter-select">
+                @* PageNumber deliberadamente fuera del form: cambiar cualquier filtro
+                   vuelve a la página 1 (ERP-UI-STANDARD §9). *@
 
-                    @if (string.IsNullOrWhiteSpace(Model.TipoDocumento))
-                    {
-                        <option value="" selected>
-                            Todos los tipos
-                        </option>
-                    }
-                    else
-                    {
-                        <option value="">
-                            Todos los tipos
-                        </option>
-                    }
+                @* BÚSQUEDA *@
+                <div class="cliente-filter-field cliente-filter-search">
+                    <label for="cliente-search-input" class="cliente-filter-label">
+                        Buscar cliente
+                    </label>
 
-                    @if (ViewBag.TiposDocumento != null)
-                    {
-                        foreach (var tipo in (SelectList)ViewBag.TiposDocumento)
+                    <div class="cliente-search-control">
+                        <span class="material-symbols-outlined cliente-search-control__icon" aria-hidden="true">
+                            search
+                        </span>
+
+                        <input id="cliente-search-input" name="SearchTerm" value="@Model.SearchTerm" type="search"
+                               class="field cliente-search-control__input"
+                               placeholder="Nombre, DNI, CUIT, teléfono o email..."
+                               autocomplete="off" data-cliente-autosubmit="debounce" />
+                    </div>
+                </div>
+
+                @* ESTADO *@
+                <div class="cliente-filter-field">
+                    <label for="cliente-filter-estado" class="cliente-filter-label">
+                        Estado
+                    </label>
+
+                    <select id="cliente-filter-estado" name="SoloActivos" class="field cliente-filter-select"
+                            data-cliente-autosubmit="change">
+
+                        <option value="">Todos</option>
+
+                        @if (Model.SoloActivos == true)
                         {
-                            var tipoValue = string.IsNullOrWhiteSpace(tipo.Value)
-                                ? tipo.Text
-                                : tipo.Value;
+                            <option value="true" selected>Activo</option>
+                        }
+                        else
+                        {
+                            <option value="true">Activo</option>
+                        }
 
-                            if (Model.TipoDocumento == tipoValue)
+                        @if (Model.SoloActivos == false)
+                        {
+                            <option value="false" selected>Inactivo</option>
+                        }
+                        else
+                        {
+                            <option value="false">Inactivo</option>
+                        }
+                    </select>
+                </div>
+
+                @* RIESGO *@
+                <div class="cliente-filter-field">
+                    <label for="cliente-filter-riesgo" class="cliente-filter-label">
+                        Riesgo
+                    </label>
+
+                    <select id="cliente-filter-riesgo" name="NivelRiesgoFiltro" class="field cliente-filter-select"
+                            data-cliente-autosubmit="change">
+
+                        <option value="">Todos</option>
+
+                        @foreach (var bucket in new[] { "bajo", "medio", "alto" })
+                        {
+                            if (Model.NivelRiesgoFiltro == bucket)
                             {
-                                <option value="@tipoValue" selected>
-                                    @tipo.Text
-                                </option>
+                                <option value="@bucket" selected>@TextoRiesgoFiltro(bucket)</option>
                             }
                             else
                             {
-                                <option value="@tipoValue">
-                                    @tipo.Text
-                                </option>
+                                <option value="@bucket">@TextoRiesgoFiltro(bucket)</option>
                             }
                         }
+                    </select>
+                </div>
+
+                @* TIPO DE DOCUMENTO *@
+                <div class="cliente-filter-field">
+                    <label for="cliente-filter-documento" class="cliente-filter-label">
+                        Tipo de documento
+                    </label>
+
+                    <select id="cliente-filter-documento" name="TipoDocumento" class="field cliente-filter-select"
+                            data-cliente-autosubmit="change">
+
+                        @if (string.IsNullOrWhiteSpace(Model.TipoDocumento))
+                        {
+                            <option value="" selected>Todos los tipos</option>
+                        }
+                        else
+                        {
+                            <option value="">Todos los tipos</option>
+                        }
+
+                        @if (ViewBag.TiposDocumento != null)
+                        {
+                            foreach (var tipo in (SelectList)ViewBag.TiposDocumento)
+                            {
+                                var tipoValue = string.IsNullOrWhiteSpace(tipo.Value)
+                                    ? tipo.Text
+                                    : tipo.Value;
+
+                                if (Model.TipoDocumento == tipoValue)
+                                {
+                                    <option value="@tipoValue" selected>@tipo.Text</option>
+                                }
+                                else
+                                {
+                                    <option value="@tipoValue">@tipo.Text</option>
+                                }
+                            }
+                        }
+                    </select>
+                </div>
+
+                @* TAMAÑO DE PÁGINA *@
+                <div class="cliente-filter-field cliente-filter-pagesize">
+                    <label for="cliente-filter-pagesize" class="cliente-filter-label">
+                        Mostrar
+                    </label>
+
+                    <select id="cliente-filter-pagesize" name="PageSize" class="field cliente-filter-select"
+                            data-cliente-autosubmit="change">
+
+                        @foreach (var tam in new[] { 10, 25, 50, 100 })
+                        {
+                            if (Model.PageSize == tam)
+                            {
+                                <option value="@tam" selected>@tam</option>
+                            }
+                            else
+                            {
+                                <option value="@tam">@tam</option>
+                            }
+                        }
+                    </select>
+                </div>
+            </form>
+
+            @* ============================================================
+           FILTROS ACTIVOS (chips removibles individualmente)
+           ============================================================ *@
+            @if (filtroClienteActivo)
+            {
+                <div class="cliente-filter-chips" aria-label="Filtros activos">
+                    @if (!string.IsNullOrWhiteSpace(Model.SearchTerm))
+                    {
+                        <a asp-action="Index" asp-all-route-data="@RutaFiltros("SearchTerm")"
+                           class="chip chip-info chip-removable" aria-label="Quitar filtro de búsqueda">
+                            Búsqueda: "@Model.SearchTerm"
+                            <span class="material-symbols-outlined" aria-hidden="true">close</span>
+                        </a>
                     }
-                </select>
-            </div>
 
-            @* ACCIONES *@
-            <div class="cliente-filter-actions">
-                <button type="submit" class="btn btn-soft cliente-filter-submit">
+                    @if (Model.SoloActivos.HasValue)
+                    {
+                        <a asp-action="Index" asp-all-route-data="@RutaFiltros("SoloActivos")"
+                           class="chip chip-info chip-removable"
+                           aria-label="Quitar filtro de estado @(Model.SoloActivos.Value ? "activo" : "inactivo")">
+                            @(Model.SoloActivos.Value ? "Activo" : "Inactivo")
+                            <span class="material-symbols-outlined" aria-hidden="true">close</span>
+                        </a>
+                    }
 
+                    @if (!string.IsNullOrWhiteSpace(Model.NivelRiesgoFiltro))
+                    {
+                        <a asp-action="Index" asp-all-route-data="@RutaFiltros("NivelRiesgoFiltro")"
+                           class="chip chip-info chip-removable" aria-label="Quitar filtro de riesgo">
+                            Riesgo @TextoRiesgoFiltro(Model.NivelRiesgoFiltro)
+                            <span class="material-symbols-outlined" aria-hidden="true">close</span>
+                        </a>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(Model.TipoDocumento))
+                    {
+                        <a asp-action="Index" asp-all-route-data="@RutaFiltros("TipoDocumento")"
+                           class="chip chip-info chip-removable" aria-label="Quitar filtro de tipo de documento">
+                            Documento: @Model.TipoDocumento
+                            <span class="material-symbols-outlined" aria-hidden="true">close</span>
+                        </a>
+                    }
+
+                    <a asp-action="Index" class="btn btn-ghost btn-sm cliente-filter-clear">
+                        <span class="material-symbols-outlined" aria-hidden="true">close</span>
+                        Limpiar filtros
+                    </a>
+                </div>
+            }
+
+            <p id="cliente-table-help" class="sr-only">
+                Las acciones directas permiten ver el legajo y editar el cliente.
+                Créditos y eliminación se encuentran dentro del menú Más acciones.
+            </p>
+
+            @* ============================================================
+           TABLA DE ESCRITORIO
+           ============================================================ *@
+            <div class="card cliente-table-card hide-mobile" data-oc-scroll>
+
+                <div class="scroll-hint cliente-scroll-hint hide-mobile" data-oc-scroll-hint hidden>
                     <span class="material-symbols-outlined" aria-hidden="true">
-                        filter_list
+                        swipe
                     </span>
 
-                    Filtrar
-                </button>
-
-                @if (filtroClienteActivo)
-                {
-                    <a asp-action="Index" class="btn btn-ghost cliente-filter-clear">
-
-                        <span class="material-symbols-outlined" aria-hidden="true">
-                            close
-                        </span>
-
-                        Limpiar
-                    </a>
-                }
-            </div>
-        </form>
-        <p id="cliente-table-help" class="sr-only">
-            Las acciones directas permiten ver el legajo, editar el cliente y consultar sus créditos.
-            La eliminación se encuentra dentro del menú Más acciones.
-        </p>
-
-        @* ============================================================
-       TABLA DE ESCRITORIO
-       ============================================================ *@
-        <div class="card cliente-table-card hide-mobile" data-oc-scroll>
-
-            <div class="scroll-hint cliente-scroll-hint hide-mobile" data-oc-scroll-hint hidden>
-                <span class="material-symbols-outlined" aria-hidden="true">
-                    swipe
-                </span>
-
-                Deslizá horizontalmente para ver crédito, estado y acciones.
-            </div>
-
-            <div data-oc-scroll-shell>
-
-                <div data-oc-scroll-fade="left" class="pointer-events-none" aria-hidden="true" hidden>
+                    Deslizá horizontalmente para ver crédito, riesgo y acciones.
                 </div>
 
-                <div data-oc-scroll-fade="right" class="pointer-events-none" aria-hidden="true" hidden>
-                </div>
+                <div data-oc-scroll-shell>
 
-                <div class="tbl-wrap" data-oc-scroll-region tabindex="0" role="region"
-                     aria-label="Listado de clientes en tabla" aria-describedby="result-count cliente-table-help">
+                    <div data-oc-scroll-fade="left" class="pointer-events-none" aria-hidden="true" hidden>
+                    </div>
 
-                    <table class="tbl cliente-table" data-oc-scroll-table>
+                    <div data-oc-scroll-fade="right" class="pointer-events-none" aria-hidden="true" hidden>
+                    </div>
 
-                        <caption class="sr-only">
-                            Listado de clientes
-                        </caption>
+                    <div class="tbl-wrap" data-oc-scroll-region tabindex="0" role="region"
+                         aria-label="Listado de clientes en tabla" aria-describedby="result-count cliente-table-help">
 
-                        <colgroup>
-                            <col class="cliente-col-nombre" />
-                            <col class="cliente-col-documento" />
-                            <col class="cliente-col-contacto" />
-                            <col class="cliente-col-credito" />
-                            <col class="cliente-col-estado" />
-                            <col class="cliente-col-acciones" />
-                        </colgroup>
+                        <table class="tbl cliente-table" data-oc-scroll-table>
 
-                        <thead>
-                            <tr>
-                                <th scope="col">
-                                    Cliente
-                                </th>
+                            <caption class="sr-only">
+                                Listado de clientes
+                            </caption>
 
-                                <th scope="col">
-                                    Documento
-                                </th>
+                            <colgroup>
+                                <col class="cliente-col-nombre" />
+                                <col class="cliente-col-documento" />
+                                <col class="cliente-col-contacto" />
+                                <col class="cliente-col-credito" />
+                                <col class="cliente-col-riesgo" />
+                                <col class="cliente-col-estado" />
+                                <col class="cliente-col-acciones" />
+                            </colgroup>
 
-                                <th scope="col">
-                                    Contacto
-                                </th>
+                            <thead>
+                                <tr>
+                                    <th scope="col">
+                                        <a asp-action="Index" asp-all-route-data="@RutaOrden("nombre")" class="cliente-th-sort">
+                                            Cliente
+                                            <span class="material-symbols-outlined" aria-hidden="true">@IconoOrden("nombre")</span>
+                                        </a>
+                                    </th>
 
-                                <th scope="col">
-                                    Crédito y riesgo
-                                </th>
+                                    <th scope="col">
+                                        <a asp-action="Index" asp-all-route-data="@RutaOrden("documento")" class="cliente-th-sort">
+                                            Documento
+                                            <span class="material-symbols-outlined" aria-hidden="true">@IconoOrden("documento")</span>
+                                        </a>
+                                    </th>
 
-                                <th scope="col">
-                                    Estado
-                                </th>
+                                    <th scope="col">
+                                        Contacto
+                                    </th>
 
-                                <th scope="col" class="text-right">
-                                    Acciones
-                                </th>
-                            </tr>
-                        </thead>
+                                    <th scope="col">
+                                        Crédito
+                                    </th>
 
-                        <tbody id="clientes-body">
+                                    <th scope="col">
+                                        <a asp-action="Index" asp-all-route-data="@RutaOrden("puntaje")" class="cliente-th-sort">
+                                            Riesgo
+                                            <span class="material-symbols-outlined" aria-hidden="true">@IconoOrden("puntaje")</span>
+                                        </a>
+                                    </th>
 
-                            @if (clientes.Any())
-                            {
-                                foreach (var c in clientes)
+                                    <th scope="col">
+                                        <a asp-action="Index" asp-all-route-data="@RutaOrden("activo")" class="cliente-th-sort">
+                                            Estado
+                                            <span class="material-symbols-outlined" aria-hidden="true">@IconoOrden("activo")</span>
+                                        </a>
+                                    </th>
+
+                                    <th scope="col" class="text-right">
+                                        Acciones
+                                    </th>
+                                </tr>
+                            </thead>
+
+                            <tbody id="clientes-body">
+
+                                @if (clientes.Any())
                                 {
-                                    var pct = RiesgoPct(c);
-                                    var estado = c.Activo ? "activo" : "inactivo";
-                                    var rowName = ClienteNombre(c);
+                                    foreach (var c in clientes)
+                                    {
+                                        var pct = RiesgoPct(c);
+                                        var estado = c.Activo ? "activo" : "inactivo";
+                                        var rowName = ClienteNombre(c);
 
-                                    var tieneTelefono =
-                                        !string.IsNullOrWhiteSpace(c.Telefono);
+                                        var tieneTelefono =
+                                            !string.IsNullOrWhiteSpace(c.Telefono);
 
-                                    var tieneEmail =
-                                        !string.IsNullOrWhiteSpace(c.Email);
+                                        var tieneEmail =
+                                            !string.IsNullOrWhiteSpace(c.Email);
 
-                                    var telefono = tieneTelefono
-                                        ? c.Telefono
-                                        : "Sin teléfono";
+                                        var telefono = tieneTelefono
+                                            ? c.Telefono
+                                            : "Sin teléfono";
 
-                                    var email = tieneEmail
-                                        ? c.Email
-                                        : "Sin email";
+                                        var email = tieneEmail
+                                            ? c.Email
+                                            : "Sin email";
 
-                                    var tipoDocumento =
-                                        string.IsNullOrWhiteSpace(c.TipoDocumento)
-                                            ? "Documento"
-                                            : c.TipoDocumento;
+                                        var tipoDocumento =
+                                            string.IsNullOrWhiteSpace(c.TipoDocumento)
+                                                ? "Documento"
+                                                : c.TipoDocumento;
 
-                                    var documentoPrincipal =
-                                        string.IsNullOrWhiteSpace(c.NumeroDocumento)
-                                            ? $"{tipoDocumento} sin número"
-                                            : $"{tipoDocumento} {c.NumeroDocumento}";
+                                        var documentoPrincipal =
+                                            string.IsNullOrWhiteSpace(c.NumeroDocumento)
+                                                ? $"{tipoDocumento} sin número"
+                                                : $"{tipoDocumento} {c.NumeroDocumento}";
 
-                                    var tieneCuilCuit =
-                                        !string.IsNullOrWhiteSpace(c.CuilCuit);
+                                        var tieneCuilCuit =
+                                            !string.IsNullOrWhiteSpace(c.CuilCuit);
 
-                                    <tr data-cliente-row-id="@c.Id" data-estado="@estado" data-tipodoc="@c.TipoDocumento">
+                                        <tr data-cliente-row-id="@c.Id" data-estado="@estado" data-tipodoc="@c.TipoDocumento">
 
-                                        @* CLIENTE *@
-                                        <th scope="row" class="text-left font-normal">
-                                            <div class="cliente-name-cell" title="@rowName">
-                                                <div class="font-medium @(c.Activo ? "text-white" : "text-slate-400")">
-                                                    @rowName
+                                            @* CLIENTE *@
+                                            <th scope="row" class="text-left font-normal">
+                                                <div class="cliente-name-cell" title="@rowName">
+                                                    <div class="font-medium @(c.Activo ? "text-white" : "text-slate-400")">
+                                                        @rowName
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        </th>
+                                            </th>
 
-                                        @* DOCUMENTO *@
-                                        <td>
-                                            <div class="mono whitespace-nowrap text-sm text-slate-200"
-                                                 title="@documentoPrincipal">
-                                                @documentoPrincipal
-                                            </div>
-
-                                            @if (tieneCuilCuit)
-                                            {
-                                                <div class="mono mt-1 whitespace-nowrap text-xs muted-2" title="@c.CuilCuit">
-                                                    CUIT/CUIL @c.CuilCuit
-                                                </div>
-                                            }
-                                        </td>
-
-                                        @* CONTACTO *@
-                                        <td>
-                                            <div class="flex max-w-64 flex-col gap-1">
-
-                                                <div class="flex min-w-0 items-center gap-2 text-sm @(tieneTelefono ? "muted" : "muted-2")"
-                                                     title="@telefono">
-
-                                                    <span class="material-symbols-outlined shrink-0 text-base"
-                                                          aria-hidden="true">
-                                                        phone
-                                                    </span>
-
-                                                    <span class="truncate">
-                                                        @telefono
-                                                    </span>
+                                            @* DOCUMENTO *@
+                                            <td>
+                                                <div class="mono whitespace-nowrap text-sm text-slate-200"
+                                                     title="@documentoPrincipal">
+                                                    @documentoPrincipal
                                                 </div>
 
-                                                <div class="flex min-w-0 items-center gap-2 text-xs @(tieneEmail ? "muted" : "muted-2")"
-                                                     title="@email">
+                                                @if (tieneCuilCuit)
+                                                {
+                                                    <div class="mono mt-1 whitespace-nowrap text-xs muted-2" title="@c.CuilCuit">
+                                                        CUIT/CUIL @c.CuilCuit
+                                                    </div>
+                                                }
+                                            </td>
 
-                                                    <span class="material-symbols-outlined shrink-0 text-base"
-                                                          aria-hidden="true">
-                                                        mail
-                                                    </span>
+                                            @* CONTACTO *@
+                                            <td>
+                                                <div class="flex max-w-64 flex-col gap-1">
 
-                                                    <span class="truncate">
-                                                        @email
-                                                    </span>
+                                                    <div class="flex min-w-0 items-center gap-2 text-sm @(tieneTelefono ? "muted" : "muted-2")"
+                                                         title="@telefono">
+
+                                                        <span class="material-symbols-outlined shrink-0 text-base"
+                                                              aria-hidden="true">
+                                                            phone
+                                                        </span>
+
+                                                        <span class="truncate">
+                                                            @telefono
+                                                        </span>
+                                                    </div>
+
+                                                    <div class="flex min-w-0 items-center gap-2 text-xs @(tieneEmail ? "muted" : "muted-2")"
+                                                         title="@email">
+
+                                                        <span class="material-symbols-outlined shrink-0 text-base"
+                                                              aria-hidden="true">
+                                                            mail
+                                                        </span>
+
+                                                        <span class="truncate">
+                                                            @email
+                                                        </span>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        </td>
+                                            </td>
 
-                                        @* CRÉDITO Y RIESGO *@
-                                        <td>
-                                            <div class="cliente-credit-cell">
+                                            @* CRÉDITO *@
+                                            <td>
+                                                @if (c.CreditoRequiereConfiguracion)
+                                                {
+                                                    <span class="text-sm muted-2" title="@c.CreditoMensajeError">
+                                                        Requiere configuración
+                                                    </span>
+                                                }
+                                                else
+                                                {
+                                                    <div class="cliente-credit-cell">
+                                                        <span class="text-sm font-semibold text-white num">
+                                                            @((c.CreditoDisponible ?? 0m).ToString("C"))
+                                                        </span>
+                                                        <span class="text-xs muted-2">Disponible</span>
+                                                    </div>
+                                                }
+                                            </td>
 
-                                                <span class="text-sm font-semibold text-white num">
-                                                    @((c.MontoAdeudado ?? 0m).ToString("C"))
-                                                </span>
-
-                                                <div class="flex flex-wrap items-center gap-2">
-
+                                            @* RIESGO *@
+                                            <td>
+                                                <div class="cliente-risk-cell">
                                                     <span class="chip @RiesgoChip(c)">
                                                         <span class="material-symbols-outlined" aria-hidden="true">
                                                             @RiesgoIcon(c)
@@ -481,345 +678,407 @@ else
                                                     </span>
 
                                                     <span class="text-xs muted-2">
-                                                        Riesgo @pct%
+                                                        @pct%
                                                     </span>
                                                 </div>
-                                            </div>
+                                            </td>
 
-                                            <div class="bar" role="meter" aria-label="Nivel de riesgo crediticio de @rowName"
-                                                 aria-valuemin="0" aria-valuemax="100" aria-valuenow="@pct"
-                                                 aria-valuetext="@pct por ciento">
+                                            @* ESTADO *@
+                                            <td>
+                                                <span class="chip @(c.Activo ? "chip-ok" : "chip-neutral")">
+                                                    @(c.Activo ? "Activo" : "Inactivo")
+                                                </span>
+                                            </td>
 
-                                                <div class="bar-fill @BarClass(c)" style="width:@pct%">
-                                                </div>
-                                            </div>
-                                        </td>
+                                            @* ACCIONES *@
+                                            <td>
+                                                <div class="row-actions whitespace-nowrap">
 
-                                        @* ESTADO *@
-                                        <td>
-                                            <span class="chip @(c.Activo ? "chip-ok" : "chip-neutral")">
-                                                @(c.Activo ? "Activo" : "Inactivo")
-                                            </span>
-                                        </td>
-
-                                        @* ACCIONES *@
-                                        <td>
-                                            <div class="row-actions whitespace-nowrap">
-
-                                                <a asp-action="Details" asp-route-id="@c.Id" class="btn btn-soft btn-sm"
-                                                   title="Ver legajo de @rowName">
-
-                                                    <span class="material-symbols-outlined" aria-hidden="true">
-                                                        visibility
-                                                    </span>
-
-                                                    Ver
-                                                </a>
-
-                                                <button type="button" class="btn btn-ghost btn-sm cliente-row-action--icon"
-                                                        data-cliente-modal-open="edit" data-cliente-id="@c.Id"
-                                                        aria-label="Editar @rowName" title="Editar @rowName">
-
-                                                    <span class="material-symbols-outlined" aria-hidden="true">
-                                                        edit
-                                                    </span>
-                                                </button>
-
-                                                <a asp-controller="Credito" asp-action="Index" asp-route-clienteId="@c.Id"
-                                                   class="btn btn-ghost btn-sm cliente-row-action--icon"
-                                                   aria-label="Ver créditos de @rowName" title="Ver créditos de @rowName">
-
-                                                    <span class="material-symbols-outlined" aria-hidden="true">
-                                                        credit_score
-                                                    </span>
-
-                                                    <span class="hidden 2xl:inline">
-                                                        Créditos
-                                                    </span>
-                                                </a>
-
-                                                <details class="cliente-row-menu relative" data-cliente-row-menu>
-
-                                                    <summary
-                                                        class="btn btn-ghost btn-sm cursor-pointer cliente-row-action--icon"
-                                                        aria-label="Más acciones para @rowName"
-                                                        title="Más acciones para @rowName">
+                                                    <a asp-action="Details" asp-route-id="@c.Id" class="btn btn-soft btn-sm"
+                                                       title="Ver legajo de @rowName">
 
                                                         <span class="material-symbols-outlined" aria-hidden="true">
-                                                            more_vert
+                                                            visibility
                                                         </span>
-                                                    </summary>
 
-                                                    <div class="cliente-row-menu__content">
+                                                        Ver
+                                                    </a>
 
-                                                        <button type="button"
-                                                                data-delete-url="@Url.Action("Delete", new { id = c.Id })"
-                                                                data-nombre="@rowName"
-                                                                class="cliente-row-menu__item cliente-row-menu__item--danger">
+                                                    @if (puedeEditar)
+                                                    {
+                                                        <button type="button" class="btn btn-ghost btn-sm cliente-row-action--icon"
+                                                                data-cliente-modal-open="edit" data-cliente-id="@c.Id"
+                                                                aria-label="Editar @rowName" title="Editar @rowName">
 
                                                             <span class="material-symbols-outlined" aria-hidden="true">
-                                                                delete
+                                                                edit
                                                             </span>
-
-                                                            Eliminar cliente
                                                         </button>
-                                                    </div>
-                                                </details>
-                                            </div>
-                                        </td>
-                                    </tr>
+                                                    }
+
+                                                    <details class="cliente-row-menu relative" data-cliente-row-menu>
+
+                                                        <summary
+                                                            class="btn btn-ghost btn-sm cursor-pointer cliente-row-action--icon"
+                                                            aria-label="Más acciones para @rowName"
+                                                            title="Más acciones para @rowName">
+
+                                                            <span class="material-symbols-outlined" aria-hidden="true">
+                                                                more_vert
+                                                            </span>
+                                                        </summary>
+
+                                                        <div class="cliente-row-menu__content">
+                                                            <a asp-controller="Credito" asp-action="Index" asp-route-clienteId="@c.Id"
+                                                               class="cliente-row-menu__item">
+                                                                <span class="material-symbols-outlined" aria-hidden="true">
+                                                                    credit_score
+                                                                </span>
+                                                                Ver créditos
+                                                            </a>
+
+                                                            @if (puedeEliminar)
+                                                            {
+                                                                <button type="button"
+                                                                        data-delete-url="@Url.Action("Delete", new { id = c.Id })"
+                                                                        data-nombre="@rowName"
+                                                                        class="cliente-row-menu__item cliente-row-menu__item--danger">
+
+                                                                    <span class="material-symbols-outlined" aria-hidden="true">
+                                                                        delete
+                                                                    </span>
+
+                                                                    Eliminar cliente
+                                                                </button>
+                                                            }
+                                                        </div>
+                                                    </details>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
                                 }
-                            }
-                        </tbody>
-                    </table>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        @* ============================================================
-       TARJETAS MÓVILES
-       ============================================================ *@
-        <div id="clientes-cards" class="m-card cliente-mobile-list" role="list" aria-labelledby="cliente-list-title"
-             aria-describedby="result-count">
+            @* ============================================================
+           TARJETAS MÓVILES
+           ============================================================ *@
+            <div id="clientes-cards" class="m-card cliente-mobile-list" role="list" aria-labelledby="cliente-list-title"
+                 aria-describedby="result-count">
 
-            @foreach (var c in clientes)
-            {
-                var rowName = ClienteNombre(c);
-                var pct = RiesgoPct(c);
+                @foreach (var c in clientes)
+                {
+                    var rowName = ClienteNombre(c);
+                    var pct = RiesgoPct(c);
 
-                var tieneTelefono =
-                    !string.IsNullOrWhiteSpace(c.Telefono);
+                    var tieneTelefono =
+                        !string.IsNullOrWhiteSpace(c.Telefono);
 
-                var tieneEmail =
-                    !string.IsNullOrWhiteSpace(c.Email);
+                    var tieneEmail =
+                        !string.IsNullOrWhiteSpace(c.Email);
 
-                var telefono = tieneTelefono
-                    ? c.Telefono
-                    : "Sin teléfono";
+                    var telefono = tieneTelefono
+                        ? c.Telefono
+                        : "Sin teléfono";
 
-                var email = tieneEmail
-                    ? c.Email
-                    : "Sin email";
+                    var email = tieneEmail
+                        ? c.Email
+                        : "Sin email";
 
-                var tipoDocumento =
-                    string.IsNullOrWhiteSpace(c.TipoDocumento)
-                        ? "Documento"
-                        : c.TipoDocumento;
+                    var tipoDocumento =
+                        string.IsNullOrWhiteSpace(c.TipoDocumento)
+                            ? "Documento"
+                            : c.TipoDocumento;
 
-                var documentoPrincipal =
-                    string.IsNullOrWhiteSpace(c.NumeroDocumento)
-                        ? $"{tipoDocumento} sin número"
-                        : $"{tipoDocumento} {c.NumeroDocumento}";
+                    var documentoPrincipal =
+                        string.IsNullOrWhiteSpace(c.NumeroDocumento)
+                            ? $"{tipoDocumento} sin número"
+                            : $"{tipoDocumento} {c.NumeroDocumento}";
 
-                <article class="card card-pad cliente-mobile-card" role="listitem" data-cliente-row-id="@c.Id"
-                         data-estado="@(c.Activo ? "activo" : "inactivo")" data-tipodoc="@c.TipoDocumento">
+                    <article class="card card-pad cliente-mobile-card" role="listitem" data-cliente-row-id="@c.Id"
+                             data-estado="@(c.Activo ? "activo" : "inactivo")" data-tipodoc="@c.TipoDocumento">
 
-                    @* ENCABEZADO *@
-                    <div class="cliente-card-top">
+                        @* ENCABEZADO *@
+                        <div class="cliente-card-top">
 
-                        <div class="cliente-mobile-person">
-                            <div class="cliente-mobile-person__text">
+                            <div class="cliente-mobile-person">
+                                <div class="cliente-mobile-person__text">
 
-                                <h3 class="font-medium @(c.Activo ? "text-white" : "text-slate-400")">
-                                    @rowName
-                                </h3>
+                                    <h3 class="font-medium @(c.Activo ? "text-white" : "text-slate-400")">
+                                        @rowName
+                                    </h3>
 
-                                <div class="mono mt-1 text-xs muted-2" title="@documentoPrincipal">
-                                    @documentoPrincipal
+                                    <div class="mono mt-1 text-xs muted-2" title="@documentoPrincipal">
+                                        @documentoPrincipal
+                                    </div>
+                                </div>
+                            </div>
+
+                            <span class="chip @(c.Activo ? "chip-ok" : "chip-neutral")">
+                                @(c.Activo ? "Activo" : "Inactivo")
+                            </span>
+                        </div>
+
+                        @* CONTACTO *@
+                        <div class="mt-3 grid gap-2">
+
+                            <div class="flex min-w-0 items-center gap-2 text-sm @(tieneTelefono ? "muted" : "muted-2")"
+                                 title="@telefono">
+
+                                <span class="material-symbols-outlined shrink-0 text-base" aria-hidden="true">
+                                    phone
+                                </span>
+
+                                <span class="truncate">
+                                    @telefono
+                                </span>
+                            </div>
+
+                            <div class="flex min-w-0 items-center gap-2 text-sm @(tieneEmail ? "muted" : "muted-2")"
+                                 title="@email">
+
+                                <span class="material-symbols-outlined shrink-0 text-base" aria-hidden="true">
+                                    mail
+                                </span>
+
+                                <span class="truncate">
+                                    @email
+                                </span>
+                            </div>
+                        </div>
+
+                        @* CRÉDITO Y RIESGO *@
+                        <div class="mt-3 grid grid-cols-2 gap-2">
+                            <div class="minimetric">
+                                <div class="mm-label">Crédito</div>
+
+                                @if (c.CreditoRequiereConfiguracion)
+                                {
+                                    <div class="text-sm muted-2" title="@c.CreditoMensajeError">Requiere config.</div>
+                                }
+                                else
+                                {
+                                    <div class="mm-value num">@((c.CreditoDisponible ?? 0m).ToString("C"))</div>
+                                    <div class="text-xs muted-2">Disponible</div>
+                                }
+                            </div>
+
+                            <div class="minimetric">
+                                <div class="mm-label">Riesgo</div>
+                                <div class="flex flex-wrap items-center gap-2 mt-1">
+                                    <span class="chip @RiesgoChip(c)">
+                                        <span class="material-symbols-outlined" aria-hidden="true">
+                                            @RiesgoIcon(c)
+                                        </span>
+                                        @RiesgoTexto(c)
+                                    </span>
+                                    <span class="text-xs muted-2">@pct%</span>
                                 </div>
                             </div>
                         </div>
 
-                        <span class="chip @(c.Activo ? "chip-ok" : "chip-neutral")">
-                            @(c.Activo ? "Activo" : "Inactivo")
-                        </span>
-                    </div>
+                        @* ACCIONES *@
+                        <div class="cliente-card-actions">
 
-                    @* CONTACTO *@
-                    <div class="mt-3 grid gap-2">
-
-                        <div class="flex min-w-0 items-center gap-2 text-sm @(tieneTelefono ? "muted" : "muted-2")"
-                             title="@telefono">
-
-                            <span class="material-symbols-outlined shrink-0 text-base" aria-hidden="true">
-                                phone
-                            </span>
-
-                            <span class="truncate">
-                                @telefono
-                            </span>
-                        </div>
-
-                        <div class="flex min-w-0 items-center gap-2 text-sm @(tieneEmail ? "muted" : "muted-2")"
-                             title="@email">
-
-                            <span class="material-symbols-outlined shrink-0 text-base" aria-hidden="true">
-                                mail
-                            </span>
-
-                            <span class="truncate">
-                                @email
-                            </span>
-                        </div>
-                    </div>
-
-                    @* CRÉDITO Y RIESGO *@
-                    <div class="minimetric cliente-card-credit">
-
-                        <div class="mm-label">
-                            Crédito y riesgo
-                        </div>
-
-                        <div class="mm-value num">
-                            @((c.MontoAdeudado ?? 0m).ToString("C"))
-                        </div>
-
-                        <div class="mt-2 flex flex-wrap items-center gap-2">
-
-                            <span class="chip @RiesgoChip(c)">
-                                <span class="material-symbols-outlined" aria-hidden="true">
-                                    @RiesgoIcon(c)
-                                </span>
-
-                                @RiesgoTexto(c)
-                            </span>
-
-                            <span class="text-xs muted-2">
-                                Riesgo @pct%
-                            </span>
-                        </div>
-
-                        <div class="bar cliente-card-bar" role="meter" aria-label="Nivel de riesgo crediticio de @rowName"
-                             aria-valuemin="0" aria-valuemax="100" aria-valuenow="@pct" aria-valuetext="@pct por ciento">
-
-                            <div class="bar-fill @BarClass(c)" style="width:@pct%">
-                            </div>
-                        </div>
-                    </div>
-
-                    @* ACCIONES *@
-                    <div class="cliente-card-actions">
-
-                        <a asp-action="Details" asp-route-id="@c.Id"
-                           class="btn btn-soft btn-sm btn-block cliente-card-actions__primary">
-
-                            <span class="material-symbols-outlined" aria-hidden="true">
-                                visibility
-                            </span>
-
-                            Ver legajo
-                        </a>
-
-                        <div class="grid grid-cols-3 gap-2">
-
-                            <button type="button" class="btn btn-ghost btn-sm" data-cliente-modal-open="edit"
-                                    data-cliente-id="@c.Id" aria-label="Editar @rowName" title="Editar @rowName">
+                            <a asp-action="Details" asp-route-id="@c.Id"
+                               class="btn btn-soft btn-sm btn-block cliente-card-actions__primary">
 
                                 <span class="material-symbols-outlined" aria-hidden="true">
-                                    edit
+                                    visibility
                                 </span>
 
-                                <span class="hidden min-[390px]:inline">
-                                    Editar
-                                </span>
-                            </button>
-
-                            <a asp-controller="Credito" asp-action="Index" asp-route-clienteId="@c.Id"
-                               class="btn btn-ghost btn-sm" aria-label="Ver créditos de @rowName"
-                               title="Ver créditos de @rowName">
-
-                                <span class="material-symbols-outlined" aria-hidden="true">
-                                    credit_score
-                                </span>
-
-                                <span class="hidden min-[390px]:inline">
-                                    Créditos
-                                </span>
+                                Ver legajo
                             </a>
 
-                            <details class="cliente-card-menu" data-cliente-row-menu>
+                            <div class="grid @(puedeEditar ? "grid-cols-2" : "grid-cols-1") gap-2">
 
-                                <summary class="btn btn-ghost btn-sm btn-block" aria-label="Más acciones para @rowName"
-                                         title="Más acciones para @rowName">
-
-                                    <span class="material-symbols-outlined" aria-hidden="true">
-                                        more_horiz
-                                    </span>
-
-                                    <span class="hidden min-[390px]:inline">
-                                        Más
-                                    </span>
-                                </summary>
-
-                                <div class="cliente-card-menu__content">
-
-                                    <button type="button" data-delete-url="@Url.Action("Delete", new { id = c.Id })"
-                                            data-nombre="@rowName"
-                                            class="cliente-row-menu__item cliente-row-menu__item--danger">
+                                @if (puedeEditar)
+                                {
+                                    <button type="button" class="btn btn-ghost btn-sm" data-cliente-modal-open="edit"
+                                            data-cliente-id="@c.Id" aria-label="Editar @rowName" title="Editar @rowName">
 
                                         <span class="material-symbols-outlined" aria-hidden="true">
-                                            delete
+                                            edit
                                         </span>
 
-                                        Eliminar cliente
+                                        <span class="hidden min-[390px]:inline">
+                                            Editar
+                                        </span>
                                     </button>
-                                </div>
-                            </details>
+                                }
+
+                                <details class="cliente-card-menu" data-cliente-row-menu>
+
+                                    <summary class="btn btn-ghost btn-sm btn-block" aria-label="Más acciones para @rowName"
+                                             title="Más acciones para @rowName">
+
+                                        <span class="material-symbols-outlined" aria-hidden="true">
+                                            more_horiz
+                                        </span>
+
+                                        <span class="hidden min-[390px]:inline">
+                                            Más
+                                        </span>
+                                    </summary>
+
+                                    <div class="cliente-card-menu__content">
+                                        <a asp-controller="Credito" asp-action="Index" asp-route-clienteId="@c.Id"
+                                           class="cliente-row-menu__item">
+                                            <span class="material-symbols-outlined" aria-hidden="true">
+                                                credit_score
+                                            </span>
+                                            Ver créditos
+                                        </a>
+
+                                        @if (puedeEliminar)
+                                        {
+                                            <button type="button" data-delete-url="@Url.Action("Delete", new { id = c.Id })"
+                                                    data-nombre="@rowName"
+                                                    class="cliente-row-menu__item cliente-row-menu__item--danger">
+
+                                                <span class="material-symbols-outlined" aria-hidden="true">
+                                                    delete
+                                                </span>
+
+                                                Eliminar cliente
+                                            </button>
+                                        }
+                                    </div>
+                                </details>
+                            </div>
                         </div>
-                    </div>
-                </article>
-            }
-        </div>
-
-        @* ============================================================
-       ESTADO VACÍO
-       ============================================================ *@
-        @if (!clientes.Any())
-        {
-            <div id="empty-state" class="card cliente-empty-card" role="status">
-
-                <div class="empty">
-
-                    <div class="empty-ic">
-                        <span class="material-symbols-outlined" aria-hidden="true">
-                            person_search
-                        </span>
-                    </div>
-
-                    @if (filtroClienteActivo)
-                    {
-                        <h3>
-                            Sin resultados
-                        </h3>
-
-                        <p>
-                            No encontramos clientes con esos filtros.
-                            Probá con otros términos o limpiá la búsqueda.
-                        </p>
-
-                        <a asp-action="Index" class="btn btn-soft btn-sm empty-action">
-
-                            <span class="material-symbols-outlined" aria-hidden="true">
-                                close
-                            </span>
-
-                            Limpiar filtros
-                        </a>
-                    }
-                    else
-                    {
-                        <h3>
-                            Todavía no hay clientes
-                        </h3>
-
-                        <p>
-                            No hay clientes cargados para mostrar en este momento.
-                        </p>
-                    }
-                </div>
+                    </article>
+                }
             </div>
-        }
-    </section>
+
+            @* ============================================================
+           ESTADO VACÍO
+           ============================================================ *@
+            @if (!clientes.Any())
+            {
+                <div id="empty-state" class="card cliente-empty-card" role="status">
+
+                    <div class="empty">
+
+                        <div class="empty-ic">
+                            <span class="material-symbols-outlined" aria-hidden="true">
+                                person_search
+                            </span>
+                        </div>
+
+                        @if (filtroClienteActivo)
+                        {
+                            <h3>
+                                No encontramos clientes con esta búsqueda
+                            </h3>
+
+                            <p>
+                                Probá con otros términos o limpiá los filtros.
+                            </p>
+
+                            <a asp-action="Index" class="btn btn-soft btn-sm empty-action">
+
+                                <span class="material-symbols-outlined" aria-hidden="true">
+                                    close
+                                </span>
+
+                                Limpiar filtros
+                            </a>
+                        }
+                        else
+                        {
+                            <h3>
+                                No hay clientes registrados
+                            </h3>
+
+                            <p>
+                                Creá tu primer cliente para comenzar.
+                            </p>
+
+                            <button type="button" class="btn btn-soft btn-sm empty-action" data-cliente-modal-open="create">
+                                <span class="material-symbols-outlined" aria-hidden="true">
+                                    person_add
+                                </span>
+
+                                Nuevo cliente
+                            </button>
+                        }
+                    </div>
+                </div>
+            }
+
+            @* ============================================================
+           PAGINACIÓN
+           ============================================================ *@
+            @if (Model.TotalResultados > 0 && totalPaginas > 1)
+            {
+                <nav class="cliente-pagination" aria-label="Paginación de clientes">
+                    <p class="cliente-pagination__info">
+                        Mostrando @primerRegistro–@ultimoRegistro de @Model.TotalResultados
+                    </p>
+
+                    <div class="cliente-pagination__controls">
+                        @if (Model.PageNumber > 1)
+                        {
+                            <a asp-action="Index" asp-all-route-data="@RutaPagina(Model.PageNumber - 1)"
+                               class="btn btn-ghost btn-xs cliente-pagination__nav" rel="prev">
+                                <span class="material-symbols-outlined" aria-hidden="true">chevron_left</span>
+                                <span>Anterior</span>
+                            </a>
+                        }
+                        else
+                        {
+                            <span class="btn btn-ghost btn-xs cliente-pagination__nav is-disabled" aria-disabled="true">
+                                <span class="material-symbols-outlined" aria-hidden="true">chevron_left</span>
+                                <span>Anterior</span>
+                            </span>
+                        }
+
+                        <div class="cliente-pagination__pages" aria-label="Páginas">
+                            @foreach (var p in VentanaPaginas(Model.PageNumber, totalPaginas))
+                            {
+                                if (p == -1)
+                                {
+                                    <span class="cliente-pagination__ellipsis" aria-hidden="true">&hellip;</span>
+                                }
+                                else if (p == Model.PageNumber)
+                                {
+                                    <span class="cliente-pagination__page is-current" aria-current="page">@p</span>
+                                }
+                                else
+                                {
+                                    <a asp-action="Index" asp-all-route-data="@RutaPagina(p)"
+                                       class="cliente-pagination__page">@p</a>
+                                }
+                            }
+                        </div>
+
+                        <span class="cliente-pagination__compact">Página @Model.PageNumber de @totalPaginas</span>
+
+                        @if (Model.PageNumber < totalPaginas)
+                        {
+                            <a asp-action="Index" asp-all-route-data="@RutaPagina(Model.PageNumber + 1)"
+                               class="btn btn-ghost btn-xs cliente-pagination__nav" rel="next">
+                                <span>Siguiente</span>
+                                <span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>
+                            </a>
+                        }
+                        else
+                        {
+                            <span class="btn btn-ghost btn-xs cliente-pagination__nav is-disabled" aria-disabled="true">
+                                <span>Siguiente</span>
+                                <span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>
+                            </span>
+                        }
+                    </div>
+                </nav>
+            }
+        </section>
+    }
 </div>
 
 <div id="limitesModalContainer"></div>

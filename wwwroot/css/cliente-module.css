@@ -748,7 +748,7 @@ select.field {
 #cliente-filter-form.cliente-filters {
     display: grid;
     grid-template-columns:
-        minmax(16rem, 1fr) minmax(10rem, 10.5rem) minmax(11rem, 11.5rem) auto;
+        minmax(15rem, 1.6fr) minmax(8rem, 1fr) minmax(8rem, 1fr) minmax(9rem, 1fr) minmax(6rem, 0.7fr);
     align-items: end;
     gap: 0.75rem;
 
@@ -837,28 +837,6 @@ select.field {
 }
 
 /* ============================================================
-   Acciones
-   ============================================================ */
-
-#cliente-filter-form .cliente-filter-actions {
-    display: flex;
-    min-width: max-content;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 0.5rem;
-}
-
-#cliente-filter-form .cliente-filter-actions .btn {
-    min-height: 42px;
-    margin: 0;
-}
-
-#cliente-filter-form .cliente-filter-submit,
-#cliente-filter-form .cliente-filter-clear {
-    flex: 0 0 auto;
-}
-
-/* ============================================================
    Tablet
    ============================================================ */
 
@@ -870,11 +848,6 @@ select.field {
 
     #cliente-filter-form .cliente-filter-search {
         grid-column: 1 / -1;
-    }
-
-    #cliente-filter-form .cliente-filter-actions {
-        grid-column: 1 / -1;
-        justify-content: flex-end;
     }
 }
 
@@ -889,22 +862,41 @@ select.field {
     }
 
     #cliente-filter-form .cliente-filter-search,
-    #cliente-filter-form .cliente-filter-field,
-    #cliente-filter-form .cliente-filter-actions {
+    #cliente-filter-form .cliente-filter-field {
         grid-column: auto;
     }
+}
 
-    #cliente-filter-form .cliente-filter-actions {
-        display: flex;
-        width: 100%;
-        min-width: 0;
-        flex-direction: column;
-        align-items: stretch;
-    }
+/* ============================================================
+   Filtros activos (chips removibles) — fuera del <form>, entre
+   los filtros y la tabla.
+   ============================================================ */
 
-    #cliente-filter-form .cliente-filter-actions .btn {
-        width: 100%;
-    }
+.cliente-filter-chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0 0 0.9rem;
+}
+
+.chip-removable {
+    cursor: pointer;
+    text-decoration: none;
+    transition: filter 0.15s ease;
+}
+
+.chip-removable:hover,
+.chip-removable:focus-visible {
+    filter: brightness(1.2);
+}
+
+.chip-removable .material-symbols-outlined {
+    font-size: 13px;
+}
+
+.cliente-filter-clear {
+    margin-left: 0.25rem;
 }
 
 /* ============================================================
@@ -1123,15 +1115,37 @@ select.field {
 }
 
 .cliente-col-credito {
-    width: 13%;
+    width: 11%;
+}
+
+.cliente-col-riesgo {
+    width: 11%;
 }
 
 .cliente-col-estado {
-    width: 9%;
+    width: 8%;
 }
 
 .cliente-col-acciones {
-    width: 19%;
+    width: 17%;
+}
+
+.cliente-th-sort {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    color: inherit;
+    text-decoration: none;
+}
+
+.cliente-th-sort:hover,
+.cliente-th-sort:focus-visible {
+    color: #e2e8f0;
+}
+
+.cliente-th-sort .material-symbols-outlined {
+    font-size: 15px;
+    opacity: 0.7;
 }
 
 .tbl thead th {
@@ -1214,18 +1228,29 @@ select.field {
 
 .cliente-credit-cell {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.3rem;
     margin-bottom: 0.35rem;
     min-width: 0;
 }
 
 .cliente-credit-cell .num {
     min-width: 0;
+    max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+/* Riesgo: chip + porcentaje, sin barra (una fila densa no necesita una barra por
+   cliente — el chip y el texto ya comunican la franja sin depender solo del color). */
+.cliente-risk-cell {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 0;
 }
 
 /* ============================================================
@@ -1290,6 +1315,21 @@ select.field {
 .cliente-row-menu__item--danger:focus-visible {
     background-color: rgba(239, 68, 68, 0.12);
     color: #fca5a5;
+}
+
+/* Menú "Más" del header: a diferencia de los menús de fila (que abren hacia
+   arriba para no salirse de la tabla), este vive arriba de la página y debe
+   abrir hacia abajo. Mismo componente visual (.cliente-row-menu__content),
+   solo cambia el punto de anclaje. */
+.cliente-more-menu {
+    display: inline-block;
+}
+
+.cliente-more-menu__content.cliente-row-menu__content {
+    top: calc(100% + 0.25rem);
+    bottom: auto;
+    right: 0;
+    min-width: 11rem;
 }
 
 /* ============================================================
@@ -2460,5 +2500,104 @@ select.field {
         animation-iteration-count: 1 !important;
         scroll-behavior: auto !important;
         transition-duration: 0.001ms !important;
+    }
+}
+
+/* ============================================================
+   Paginación (mismo lenguaje visual que Venta/Index, sin acoplar
+   CSS entre módulos: reglas propias scopeadas a este listado)
+   ============================================================ */
+
+.cliente-pagination {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-top: 0.9rem;
+    padding: 0.6rem 0.1rem 0;
+}
+
+.cliente-pagination__info {
+    margin: 0;
+    color: var(--muted-2);
+    font-size: 0.75rem;
+}
+
+.cliente-pagination__controls {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.cliente-pagination__nav {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.cliente-pagination__nav.is-disabled {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+.cliente-pagination__pages {
+    display: flex;
+    align-items: center;
+    gap: 0.15rem;
+}
+
+.cliente-pagination__page {
+    display: inline-flex;
+    min-width: 1.75rem;
+    height: 1.75rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.4rem;
+    color: var(--muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.cliente-pagination__page:hover,
+.cliente-pagination__page:focus-visible {
+    background: rgba(148, 163, 184, 0.12);
+    color: #e2e8f0;
+}
+
+.cliente-pagination__page.is-current {
+    background: var(--primary);
+    color: #0f172a;
+}
+
+.cliente-pagination__ellipsis {
+    padding-inline: 0.15rem;
+    color: var(--muted-2);
+}
+
+.cliente-pagination__compact {
+    display: none;
+    color: var(--muted-2);
+    font-size: 0.75rem;
+}
+
+@media (max-width: 640px) {
+    .cliente-pagination__pages {
+        display: none;
+    }
+
+    .cliente-pagination__compact {
+        display: inline-flex;
+    }
+
+    .cliente-pagination {
+        justify-content: center;
+        text-align: center;
+    }
+
+    .cliente-pagination__info {
+        width: 100%;
+        text-align: center;
     }
 }

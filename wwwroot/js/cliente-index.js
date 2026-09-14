@@ -8,6 +8,25 @@
     var modalContainer = document.getElementById('limitesModalContainer');
     var feedbackSlot = document.getElementById('clienteIndexFeedback');
     var scrollRoot = document.querySelector('[data-oc-scroll]');
+    var filterForm = document.getElementById('cliente-filter-form');
+
+    // ── Filtros automáticos, sin botón "Filtrar" ──
+    // Selects: se re-consulta al servidor apenas cambia la opción.
+    // Búsqueda de texto: debounce corto para no disparar un request por tecla.
+    if (filterForm) {
+        var debounceTimer;
+
+        filterForm.querySelectorAll('[data-cliente-autosubmit="change"]').forEach(function (el) {
+            el.addEventListener('change', function () { filterForm.submit(); });
+        });
+
+        filterForm.querySelectorAll('[data-cliente-autosubmit="debounce"]').forEach(function (el) {
+            el.addEventListener('input', function () {
+                window.clearTimeout(debounceTimer);
+                debounceTimer = window.setTimeout(function () { filterForm.submit(); }, 400);
+            });
+        });
+    }
 
     function clearFeedback() {
         if (!feedbackSlot) return;

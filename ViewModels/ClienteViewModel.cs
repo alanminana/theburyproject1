@@ -256,6 +256,14 @@ namespace TheBuryProject.ViewModels
         [Timestamp]
         public byte[]? RowVersion { get; set; }
 
+        // Crédito disponible para listados (Cliente/Index). No se mapea desde la entidad:
+        // lo completa el controller con ICreditoDisponibleService.CalcularDisponibleAsync,
+        // la misma autoridad que ya usa la ficha del cliente (ClienteDetalleViewModel), para
+        // no duplicar la regla de negocio de cálculo de cupo en dos lugares distintos.
+        public decimal? CreditoDisponible { get; set; }
+        public bool CreditoRequiereConfiguracion { get; set; }
+        public string? CreditoMensajeError { get; set; }
+
         private static string? NormalizeDigitsOrNull(string? value)
         {
             if (string.IsNullOrWhiteSpace(value))
