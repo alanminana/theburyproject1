@@ -141,6 +141,43 @@ Mínimo exigible en toda pantalla:
 - No reorganizar ni fusionar reglas existentes solo por estética.
 - Respetar `@media (prefers-reduced-motion: reduce)` en animaciones nuevas.
 
+### 12.1 Convergencia CSS legacy → compartido
+
+El ERP tiene dos capas de CSS coexistiendo a propósito, no por error:
+
+- `theme-ml.css` es la fuente canónica de **tokens** globales (`--erp-*`, `--color-*`,
+  paleta oro/navy) — ya aplicada a todos los módulos, legacy o no, vía cascada de
+  variables (ver cabecera del propio archivo).
+- `shared-components.css` es la fuente canónica de **componentes** reutilizables
+  (`.card-erp-metric`, `.filter-panel-erp`, `.chip-erp-*`, `.badge-erp-*`,
+  `.table-erp-wrapper`, etc.).
+- El CSS legacy por módulo (`cliente-module.css`, `credito-module.css`, etc.) define sus
+  propias clases de componente (`card`, `chip-ok`, `page-head`...) con su propio
+  `:root` de variables, consumiendo igual los tokens de `theme-ml.css` para el color.
+
+Reglas de convergencia:
+
+1. No migrar CSS legacy existente de forma aislada solo por uniformidad de clases — no es
+   un proyecto en sí mismo.
+2. Cuando un módulo entra en auditoría, refactor, rediseño funcional o mantenimiento
+   relevante (no por el solo hecho de tocarlo tangencialmente):
+   - revisar primero si sus componentes locales tienen equivalente en
+     `shared-components.css`;
+   - si existe equivalente y la migración es de bajo riesgo, reemplazar y eliminar el CSS
+     local redundante;
+   - si el componente local responde a una necesidad real específica del módulo, puede
+     mantenerse, documentando la excepción inline o en el resumen de
+     `UI-REFACTOR-STATUS.md`.
+3. Todo componente nuevo usa primero tokens y componentes compartidos (ya cubierto por
+   las reglas de arriba en este mismo §12).
+4. No hacer una migración ERP-wide masiva de legacy existente de una sola vez — la
+   convergencia avanza módulo por módulo, aprovechando trabajo ya necesario sobre esa
+   pantalla (ver §14 y §15: toda migración de componentes pasa por la misma auditoría de
+   4 capas y el mismo QA obligatorio que cualquier otro cambio de pantalla).
+
+Objetivo: reducir progresivamente CSS duplicado y aumentar la adopción de
+`shared-components.css`, sin introducir regresiones ni trabajo cosmético de bajo valor.
+
 ## 13. JavaScript
 
 - Una sola autoridad por comportamiento (un único script inicializa un componente dado).
