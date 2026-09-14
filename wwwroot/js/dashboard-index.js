@@ -150,7 +150,8 @@
         button.classList.add(...BASE_TAB_CLASSES);
         button.classList.remove(...allVariantClasses);
         button.classList.add(...(isActive ? activeClasses : INACTIVE_TAB_CLASSES));
-        button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        button.tabIndex = isActive ? 0 : -1;
     };
 
     const setActiveTab = (tabName) => {
@@ -167,9 +168,48 @@
     };
 
     const initTabs = () => {
-        const defaultButton = document.querySelector('[data-dashboard-tab][aria-pressed="true"]') || document.querySelector('[data-dashboard-tab="vencidas"]');
+        const defaultButton = document.querySelector('[data-dashboard-tab][aria-selected="true"]') || document.querySelector('[data-dashboard-tab="vencidas"]');
         if (defaultButton) {
             setActiveTab(defaultButton.dataset.dashboardTab);
+        }
+    };
+
+    // Navegación por teclado del patrón ARIA tabs (ERP-UI-STANDARD §5), mismo
+    // enfoque que wwwroot/js/venta-index-rework.js: roving tabindex + flechas/Home/End
+    // mueven foco y activan la pestaña a la vez.
+    const moveTabFocus = (current, direction) => {
+        const buttons = Array.from(document.querySelectorAll('[data-dashboard-tab]'));
+        if (!buttons.length) return;
+
+        const index = buttons.indexOf(current);
+        if (index < 0) return;
+
+        const nextIndex = (index + direction + buttons.length) % buttons.length;
+        buttons[nextIndex].focus();
+        setActiveTab(buttons[nextIndex].dataset.dashboardTab);
+    };
+
+    const handleTabKeydown = (event) => {
+        const tabButton = event.target.closest('[data-dashboard-tab]');
+        if (!tabButton) return;
+
+        const buttons = Array.from(document.querySelectorAll('[data-dashboard-tab]'));
+        if (!buttons.length) return;
+
+        if (event.key === 'ArrowRight') {
+            event.preventDefault();
+            moveTabFocus(tabButton, 1);
+        } else if (event.key === 'ArrowLeft') {
+            event.preventDefault();
+            moveTabFocus(tabButton, -1);
+        } else if (event.key === 'Home') {
+            event.preventDefault();
+            buttons[0].focus();
+            setActiveTab(buttons[0].dataset.dashboardTab);
+        } else if (event.key === 'End') {
+            event.preventDefault();
+            buttons[buttons.length - 1].focus();
+            setActiveTab(buttons[buttons.length - 1].dataset.dashboardTab);
         }
     };
 
@@ -222,6 +262,7 @@
         setInitialNoteStatus();
         initScrollAffordances();
         document.addEventListener('click', handleClick);
+        document.addEventListener('keydown', handleTabKeydown);
     };
 
     if (document.readyState === 'loading') {

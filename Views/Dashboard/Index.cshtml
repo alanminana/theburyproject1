@@ -22,7 +22,15 @@
 
 <div class="space-y-6">
 
-
+    <!-- Header de página (ERP-UI-STANDARD §4): patrón .hero-erp canónico (ver
+         Views/AlertaStock/Index_tw.cshtml); sin breadcrumb — Dashboard es la raíz
+         de navegación (Home/Index redirige acá), un breadcrumb de un solo nivel no
+         aportaría; sin acciones primarias — ya las cubre "Accesos rápidos" del sidebar
+         sin duplicar autoridad. -->
+    <div class="hero-erp sm:p-8">
+        <h1 class="text-xl font-bold text-slate-100 sm:text-2xl">Dashboard</h1>
+        <p class="mt-1 text-sm text-slate-400">Resumen operativo de ventas, cobranzas y stock.</p>
+    </div>
 
     <!-- Main + Sidebar -->
     <div class="dashboard-main-grid grid gap-6">
@@ -66,12 +74,15 @@
                         <div class="flex items-center gap-2">
                             <span class="text-xs text-slate-400">@cuotasVencidasCount venc. / @cuotasProximasCount
                                 próx.</span>
-                                <div class="flex gap-1" data-dashboard-tabs>
+                                <div class="flex gap-1" data-dashboard-tabs role="tablist"
+                                     aria-label="Cuotas vencidas o próximas a vencer">
                                     <button id="tabVencidas" type="button" data-dashboard-tab="vencidas"
-                                            data-dashboard-tab-tone="danger" aria-pressed="true"
+                                            data-dashboard-tab-tone="danger" role="tab" aria-selected="true"
+                                            aria-controls="tbodyVencidas"
                                             class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-500/10 text-red-500 border border-red-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">Vencidas</button>
                                     <button id="tabProximas" type="button" data-dashboard-tab="proximas"
-                                            data-dashboard-tab-tone="info" aria-pressed="false"
+                                            data-dashboard-tab-tone="info" role="tab" aria-selected="false"
+                                            aria-controls="tbodyProximas" tabindex="-1"
                                             class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">Próximas</button>
                                 </div>
                             </div>
@@ -104,6 +115,7 @@
                                             </tr>
                                         </thead>
                                         <tbody id="tbodyVencidas" data-dashboard-tab-panel="vencidas"
+                                               role="tabpanel" aria-labelledby="tabVencidas"
                                                class="divide-y divide-slate-800">
                                             @foreach (var cuota in cuotasVencidas.Take(5))
                                             {
@@ -160,6 +172,7 @@
                                                 }
                                             </tbody>
                                             <tbody id="tbodyProximas" data-dashboard-tab-panel="proximas"
+                                                   role="tabpanel" aria-labelledby="tabProximas"
                                                    class="divide-y divide-slate-800 hidden">
                                                 @foreach (var cuota in cuotasProximas.Take(5))
                                                 {

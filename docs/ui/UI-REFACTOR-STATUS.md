@@ -12,6 +12,7 @@ faltan. Actualizar esta tabla al cerrar cada pantalla.
 | Venta | `Details` | ✅ Cerrado | serie VENTA-DETAILS (ver resumen abajo) |
 | Cotización | `Simular` (`_CotizadorForm.cshtml`) | ✅ Cerrado | serie COTIZACION-SIMULAR-REDESIGN (ver resumen abajo) |
 | ConfiguracionPago | `MediosPago` | ✅ Cerrado | ver resumen abajo |
+| Dashboard | `Index` | ◐ Foundation aplicada | header en `.hero-erp` + tabs Vencidas/Próximas con patrón ARIA completo (ver resumen abajo); resto sin auditoría de 4 capas |
 
 Leyenda:
 
@@ -470,6 +471,55 @@ scrollTop exacto (probado en ambos anchos), botón atrás del navegador re-sincr
 panel y el sidebar correctamente, un submit real (Editar método → Guardar) sigue
 funcionando end-to-end con toast de éxito tras el reemplazo AJAX, sin overflow horizontal,
 0 errores/warnings de consola; build 0/0.
+
+## Dashboard / Index — foundation aplicada (header + tabs accesibles)
+
+A partir de un pedido del usuario de adoptar como estándar visual ERP-wide una imagen de
+referencia (sidebar oscuro + KPIs + filtros + tabla), se auditó Dashboard como candidato:
+ya usa el sistema canónico compartido en su mayoría (`card-erp-metric` para el row de 4
+KPIs, `card-erp-panel` para las secciones) — el único gap real contra `ERP-UI-STANDARD.md`
+§4 era la ausencia de header de página. Se agregó `<h1>Dashboard</h1>` + subtítulo, sin
+breadcrumb (Dashboard es la raíz de navegación — `Home/Index` redirige acá, un breadcrumb
+de un solo nivel no aporta) ni acciones primarias nuevas (ya las cubre "Accesos rápidos"
+del sidebar, sin duplicar autoridad). Validado en vivo con Playwright (instancia propia)
+en 1440×900, 1280×720, 1024×720, 768×1024, 390×844 y 360×800, sin overflow horizontal en
+ningún viewport, 0 errores de consola; build 0/0.
+
+**Segunda pasada (misma sesión, auditoría de 4 capas contra `ERP-UI-STANDARD.md` con
+gate previo al usuario):**
+
+- *Header* (§4, bajo riesgo): el `<h1>`/subtítulo existente se envolvió en `.hero-erp`, el
+  contenedor canónico que ya usan ~12 pantallas cerradas (referencia:
+  `Views/AlertaStock/Index_tw.cshtml`) — las clases de texto ya coincidían, solo faltaba el
+  contenedor boxed. Sin breadcrumb ni acciones nuevas, sin cambio de contenido.
+- *Tabs "Vencidas"/"Próximas"* (§5/§11, antes solo `aria-pressed` sin semántica de tabs):
+  se llevó al patrón ARIA completo tomando como referencia la implementación ya resuelta en
+  `Views/Venta/Index_tw.cshtml` / `wwwroot/js/venta-index-rework.js` — contenedor
+  `role="tablist"` con `aria-label`, botones `role="tab"` + `aria-selected` +
+  `aria-controls` apuntando al `<tbody>` correspondiente, los `<tbody id="tbodyVencidas"/
+  "tbodyProximas">` pasan a `role="tabpanel"` + `aria-labelledby`, roving `tabindex`
+  (0 en la tab activa, -1 en la inactiva) y navegación por teclado
+  (`ArrowLeft`/`ArrowRight` circular, `Home`, `End`) agregada en `wwwroot/js/dashboard-index.js`.
+  Mismo contenido, misma lógica de datos y mismo click-handler conceptual — solo se
+  reemplazó `aria-pressed` por `aria-selected` y se sumó el manejo de teclado; sin cambios
+  visuales.
+- *Fuera de alcance, documentado como hallazgo transversal, no corregido*: los wrappers
+  `data-oc-scroll-region` de las tablas (Dashboard y otras pantallas) no tienen
+  `role="region"` + `aria-label` propio (exigido por §6) — verificado que esto también
+  falta en pantallas ya cerradas como `AlertaStock/Index_tw.cshtml`, por lo que es un gap
+  del patrón compartido `horizontal-scroll-affordance`, no algo propio de Dashboard;
+  corregirlo solo acá generaría inconsistencia con el resto del ERP. Candidato a una tarea
+  aparte sobre el patrón compartido.
+
+Validado en vivo con Playwright (instancia propia, puerto aislado): los 6 viewports
+(1440/1280/1024/768/390/360) sin overflow horizontal; QA de teclado específico sobre las
+tabs (foco inicial, `ArrowRight` mueve foco y activa el panel, `Home`/`End` van al primer/
+último tab) confirmado vía inspección de `aria-selected`/`tabIndex`/panel oculto en cada
+paso; 0 errores/warnings de consola en toda la sesión; build 0 warnings/0 errores;
+57/57 tests de `LayoutUiContractTests` (no hay contrato UI dedicado a `Dashboard/Index`
+todavía). Resto de la pantalla (contenido de la tabla de cobranzas, alertas de stock,
+productos destacados, sidebar de accesos/notas/actividad) sigue sin auditoría de 4 capas
+completa — no se marca "✅ Cerrado". Sin commit, sin push (pendiente autorización).
 
 ## Backlog transversal
 
