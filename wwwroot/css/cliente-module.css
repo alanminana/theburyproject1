@@ -514,6 +514,15 @@
     font-size: 18px;
 }
 
+/* .btn fija su propio display (inline-flex) con la misma especificidad que la
+   utilidad .hidden de Tailwind y se carga después en la cascada — sin este
+   selector compuesto, un botón .btn.hidden queda visible igual (encontrado al
+   validar el wizard de alta con Playwright: el submit final se veía en pasos
+   intermedios pese a tener la clase "hidden"). */
+.btn.hidden {
+    display: none;
+}
+
 .btn-primary {
     background: var(--primary);
     color: #15110a;
@@ -1637,6 +1646,88 @@ select.field {
     background: #fb7185;
 }
 
+/* ============================================================
+   Wizard real de alta (drawer Create) — estados de paso.
+   Scopeado a .wizard-steps: la edición y las páginas full-page nunca
+   agregan esta clase, así que estas reglas no las afectan.
+   ============================================================ */
+
+.wizard-steps .tab {
+    gap: 0.4rem;
+}
+
+.step-status-icon {
+    flex-shrink: 0;
+    color: var(--muted-2, #64748b);
+}
+
+.wizard-steps .tab[data-step-state="current"] {
+    border-bottom-color: var(--primary);
+    color: #fff;
+    background: rgba(245, 197, 24, 0.08);
+}
+
+.wizard-steps .tab[data-step-state="current"] .step-status-icon {
+    color: #f5c518;
+}
+
+.wizard-steps .tab[data-step-state="complete"] .step-status-icon {
+    color: #4ade80;
+}
+
+.wizard-steps .tab[data-step-state="error"] {
+    color: #fca5a5;
+}
+
+.wizard-steps .tab[data-step-state="error"] .step-status-icon {
+    color: #f87171;
+}
+
+/* Cónyuge condicional (Lote 2): "no aplica" según Estado civil. No es un
+   error ni queda pendiente de completar, así que usa un tono neutro propio
+   en vez de reutilizar pending/complete/error. */
+.wizard-steps .tab[data-step-state="skip"] {
+    color: var(--muted-2, #64748b);
+    font-style: italic;
+}
+
+.wizard-steps .tab[data-step-state="skip"] .step-status-icon {
+    color: var(--muted-2, #64748b);
+}
+
+.wizard-progress-label {
+    font-variant-numeric: tabular-nums;
+}
+
+/* Stepper compacto de mobile (Lote 3): se suma arriba de .wizard-steps solo
+   <=640px (ver media query en la sección Mobile) — ahí el texto de cada tab
+   pasa a sr-only y la barra queda icon-only (angosta, pero sigue siendo
+   clickeable igual que en desktop/tablet). Oculto por defecto: en desktop/
+   tablet la barra de tabs con texto completo sigue siendo la única UI. */
+.wizard-compact-step {
+    display: none;
+}
+
+.wizard-compact-step-row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 0.45rem;
+    color: #fff;
+    font-size: 0.92rem;
+    font-weight: 600;
+}
+
+.wizard-compact-step-row .material-symbols-outlined {
+    flex-shrink: 0;
+    color: #f5c518;
+    font-size: 18px;
+}
+
+.wizard-compact-step .bar {
+    margin-bottom: 0.6rem;
+}
+
 .tab-panel {
     display: none;
     min-height: 0;
@@ -1721,6 +1812,39 @@ select.field {
     font-size: 0.86rem;
     font-weight: 500;
     text-align: right;
+}
+
+/* Resumen lateral dinámico del wizard de alta (Lote 2, punto 3): bloque de
+   Contacto, oculto por completo (atributo hidden) cuando no hay teléfono ni
+   email cargados. Reutiliza el mismo separador visual que .kv-row en vez de
+   inventar un patrón nuevo. */
+.pv-contact {
+    margin-top: 0.85rem;
+    padding-top: 0.85rem;
+    border-top: 1px solid var(--line);
+}
+
+.pv-contact-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0;
+    margin: 0;
+    list-style: none;
+}
+
+.pv-contact-list li {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #cbd5e1;
+    font-size: 0.84rem;
+}
+
+.pv-contact-list .material-symbols-outlined {
+    flex-shrink: 0;
+    color: var(--muted-2, #64748b);
+    font-size: 18px;
 }
 
 .result-card {
@@ -2411,6 +2535,35 @@ select.field {
 
     .tab {
         min-width: max-content;
+    }
+
+    /* Lote 3: mobile real suma el resumen compacto del paso ("Paso X de N" +
+       ícono/nombre + barra) ARRIBA de la barra de 5 tabs, en vez de comprimir
+       el texto hasta cortar "Contacto"/"Crédito" a mitad de palabra. La barra
+       en sí NO se oculta ni dejan de ser tabs: solo su texto pasa a
+       sr-only (mismo patrón que .sr-only de este archivo) y quedan
+       icon-only, más angostas — "abrir manualmente un paso permitido" (click
+       directo en una tab) sigue funcionando exactamente igual que en
+       desktop/tablet, solo cambia la densidad visual. */
+    .wizard-compact-step {
+        display: block;
+    }
+
+    .wizard-steps .tab-label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        border: 0;
+        white-space: nowrap;
+    }
+
+    .wizard-steps .tab {
+        gap: 0.3rem;
+        padding-inline: 0.65rem;
     }
 
     .kv .kv-row {

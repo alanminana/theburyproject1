@@ -13,6 +13,7 @@ faltan. Actualizar esta tabla al cerrar cada pantalla.
 | Cotización | `Simular` (`_CotizadorForm.cshtml`) | ✅ Cerrado | serie COTIZACION-SIMULAR-REDESIGN (ver resumen abajo) |
 | ConfiguracionPago | `MediosPago` | ✅ Cerrado | ver resumen abajo |
 | Dashboard | `Index` | ◐ Foundation aplicada | header en `.hero-erp` + tabs Vencidas/Próximas con patrón ARIA completo (ver resumen abajo); resto sin auditoría de 4 capas |
+| Cliente | `Nuevo cliente` (drawer Create) | ✅ Cerrado | serie wizard Cliente (ver resumen abajo) |
 
 Leyenda:
 
@@ -528,6 +529,82 @@ completa — no se marca "✅ Cerrado". Sin commit, sin push (pendiente autoriza
 El fade derecho del scroll horizontal (componente compartido, `data-oc-scroll-fade`)
 puede quedar levemente visible al alcanzar el final del scroll en anchos intermedios
 (~768px / 1024px). No bloquea `Venta/Index`. No resuelto todavía.
+
+## Cliente / Nuevo cliente (drawer Create) — cerrado
+
+Alcance estrictamente acotado al drawer de alta (`data-cliente-wizard="create"`, dentro
+de `_ClienteModal.cshtml` dentro de `Cliente/Index_tw.cshtml`). Implementado en 3 lotes
+(navegación real → UX contextual → responsive y acabado final), auditado y autorizado
+por el usuario entre cada lote. No tocado: drawer Edit (sigue con su comportamiento
+legacy de formulario con tabs, sin progresión ni bloqueo de pasos), `/Cliente/Create`
+página completa (`Create_tw.cshtml`), `/Cliente/Edit/{id}` página completa
+(`Edit_tw.cshtml`), reglas de negocio, modelos, validadores, permisos.
+
+Resumen no cronológico de lo que quedó implementado:
+
+- wizard real de 5 pasos navegables — Personales, Cónyuge, Contacto, Laboral,
+  Crédito — con progresión, `Anterior`/`Siguiente` y `Crear cliente` disponible
+  únicamente en el paso final (nunca se envía el form desde un paso intermedio);
+- Cónyuge condicional: se marca "No aplica" (estado propio `skip`, no reutiliza
+  pending/complete/error) según el Estado civil elegido en Personales, en vez de
+  forzar completarlo siempre;
+- Referencias queda fuera del flujo navegable de 5 pasos (no es un paso del wizard,
+  texto técnico limpiado);
+- validación por paso: `Siguiente` no avanza con campos obligatorios del paso actual
+  incompletos, reutilizando las reglas `[Required]` del ViewModel (`asp-validation-for`
+  junto con `_ValidationScriptsPartial`) en vez de duplicarlas a mano en JS; el primer
+  campo con error recibe foco y `scrollIntoView`;
+- estados de paso claramente distinguibles vía `data-step-state`: `pending`, `current`,
+  `complete`, `error`, `skip` (Cónyuge no aplicable) — cada uno con su propio color de
+  ícono/texto, sin reutilizar el semáforo de otro estado para significar algo distinto;
+- bloqueo de pasos futuros inválidos: solo se puede saltar por click directo a un paso
+  ya alcanzado/permitido, nunca a uno posterior sin completar los anteriores;
+- resumen lateral dinámico (desktop: columna lateral; tablet/mobile: se apila debajo del
+  formulario vía el mismo breakpoint `lg:` de Tailwind que ya gobierna el grid, sin
+  breakpoint nuevo) — iniciales, nombre, documento, contacto (oculto por completo si no
+  hay teléfono ni email cargados, sin fila vacía), estado, aptitud, límite; sin datos
+  ficticios ni duplicados;
+- accesibilidad: `aria-current="step"` en el tab activo, `aria-invalid`/
+  `aria-describedby` en campos con error, anuncio de "Paso X de 5" vía `aria-live`,
+  navegación con teclado completa, foco visible; el texto de cada tab vive en un
+  `<span class="tab-label">` propio para poder ocultarlo visualmente sin sacarlo del
+  árbol de accesibilidad (ver punto de mobile abajo);
+- barra de pasos sin truncar nombres ("Crédito" completo) en desktop/tablet; el tab
+  activo se mantiene visible dentro de la barra horizontalmente scrolleable vía
+  `scrollIntoView({ block: 'nearest', inline: 'nearest' })` en cada cambio de paso —
+  antes, en anchos como 1024px, "Crédito" podía quedar totalmente fuera de vista sin
+  aviso al llegar al último paso con `Siguiente`;
+- mobile (≤640px): se suma un stepper compacto ("Paso X de 5" + ícono/nombre del paso
+  actual + barra de progreso) **arriba** de la barra de 5 tabs, en vez de comprimir el
+  texto hasta cortar palabras a la mitad. La barra de tabs no se oculta ni se reemplaza:
+  su texto pasa a `sr-only` (mismo patrón ya usado en `cliente-module.css`, no
+  `display:none`) y los tabs quedan ícono-only, pero siguen siendo del mismo tamaño y
+  totalmente clickeables — "abrir manualmente un paso permitido" con un click directo
+  en un tab funciona igual que en desktop. Decisión explícita: el mockup original del
+  usuario sugería reemplazar la barra por completo; se corrigió a este diseño aditivo
+  porque la sustitución total rompía 2 tests ya existentes que protegen esa capacidad;
+- footer con las 3 combinaciones de botones según la posición del paso (inicial:
+  `Cancelar` + `Siguiente`; intermedio: `Anterior` + `Siguiente`; último: `Anterior` +
+  `Crear cliente`), sin `Cancelar` duplicado, targets táctiles adecuados en mobile;
+- scroll: header fijo, contenido central scrolleable, footer fijo — sin doble scrollbar,
+  sin inputs ocultos tras el footer;
+- validado en los 7 viewports de la matriz mínima (1920/1440/1280/1024/768/390/360 —
+  vía los 7 proyectos configurados en `playwright.config.js`): sin overflow horizontal
+  inesperado, sin pasos truncados, footer usable, resumen bien posicionado en cada
+  banda, navegación `Anterior`/`Siguiente` correcta, `Crear cliente` solo al final,
+  consola limpia.
+
+**Validación:** `dotnet build` 0 warnings/0 errores; `ClienteWizardUiContractTests.cs`
+(16 tests, contrato sobre el markup real vía `File.ReadAllText`, sin renderizar Razor);
+`e2e/cliente-wizard-nuevo.spec.js` (10 tests) verde en los 7 proyectos de Playwright
+configurados (71/71 corridas); suite completa filtrada por `Cliente` 462/462 tests
+(2 skipped ajenos), 0 rojos propios.
+
+Deuda no bloqueante: el stepper compacto de mobile es aditivo (ícono-only + resumen
+arriba) en vez de reemplazar la barra por completo, por la razón de compatibilidad
+explicada arriba — es una decisión de diseño ya tomada, no una tarea pendiente. No se
+tocó `/Cliente/Create` ni `/Cliente/Edit/{id}` página completa: si se quiere el mismo
+wizard fuera del drawer, es un alcance nuevo a autorizar aparte.
 
 ## Regla para mantener estos documentos
 

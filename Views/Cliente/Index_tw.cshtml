@@ -1086,6 +1086,12 @@ else
 <partial name="_ClienteModal" />
 
 @section Scripts {
+    @* Necesario para el wizard real del drawer de alta (validación de campos
+       obligatorios por paso, reutilizando las reglas [Required] del ViewModel en
+       vez de duplicarlas en JS). No hay otro formulario con asp-for en esta vista
+       (el buscador/filtros usa inputs planos sin data-val), así que no activa
+       validación en ningún otro lugar de la pantalla. *@
+    <partial name="_ValidationScriptsPartial" />
     <script src="~/js/module-index.js" asp-append-version="true"></script>
     <script src="~/js/horizontal-scroll-affordance.js" asp-append-version="true"></script>
     <script src="~/js/cliente-index.js" asp-append-version="true"></script>

@@ -1,6 +1,13 @@
 @model ClienteViewModel
 @{
     var isEdit = Model.Id > 0;
+    // El wizard de pasos real (navegación Anterior/Siguiente, validación por paso,
+    // "Crear cliente" solo al final) aplica únicamente al alta desde este drawer.
+    // La edición conserva la navegación libre por tabs de siempre. ViewData se lee
+    // desde _ClienteFormCampos (compartido también por Create_tw/Edit_tw, que nunca
+    // fijan esta clave y por lo tanto nunca activan el modo wizard).
+    var isWizard = !isEdit;
+    ViewData["ClienteWizardMode"] = isWizard ? "create" : null;
     var formAction = isEdit ? Url.Action("EditAjax", "Cliente") : Url.Action("CreateAjax", "Cliente");
     var title = isEdit ? "Editar cliente" : "Nuevo cliente";
     var subtitle = isEdit
@@ -40,12 +47,21 @@
         </div>
         <p class="page-sub">@subtitle</p>
     </div>
-    <button type="button" id="modal-cliente-cancel" class="btn btn-ghost" style="margin-left:auto">
-        Cancelar
-    </button>
+    @if (isWizard)
+    {
+        <button type="button" id="modal-cliente-close" class="icon-btn btn btn-ghost" style="margin-left:auto" aria-label="Cerrar">
+            <span class="material-symbols-outlined" aria-hidden="true">close</span>
+        </button>
+    }
+    else
+    {
+        <button type="button" id="modal-cliente-cancel" class="btn btn-ghost" style="margin-left:auto">
+            Cancelar
+        </button>
+    }
 </header>
 
-<form id="cliente-modal-form" action="@formAction" method="post" novalidate class="flex min-h-0 flex-1 flex-col">
+<form id="cliente-modal-form" action="@formAction" method="post" novalidate class="flex min-h-0 flex-1 flex-col" data-cliente-wizard="@(isWizard ? "create" : null)">
     @Html.AntiForgeryToken()
 
     @if (isEdit)
@@ -79,6 +95,22 @@
                         <div class="avatar avatar-lg" id="pv-avatar">@($"{Model.Apellido?.FirstOrDefault()}{Model.Nombre?.FirstOrDefault()}".ToUpperInvariant())</div>
                         <div class="min-w-0"><div class="font-semibold text-white" id="pv-name">@nombreResumen</div><div class="mono text-xs muted-2" id="pv-doc">@(Model.NumeroDocumento ?? "-")</div></div>
                     </div>
+                    @if (isWizard)
+                    {
+                        // Resumen lateral dinámico (Lote 2, punto 3): bloque de Contacto
+                        // compacto, oculto por defecto con el atributo nativo "hidden"
+                        // (mismo mecanismo que Referencias en Lote 2, ya confirmado seguro
+                        // por la regla global [hidden] { display: none !important; }).
+                        // cliente-modal.js decide si mostrarlo y con qué línea(s) según
+                        // haya teléfono y/o email cargados — nunca placeholders.
+                        <div class="pv-contact" id="pv-contact" hidden>
+                            <div class="text-xs uppercase tracking-wide muted-2 font-semibold mb-2">Contacto</div>
+                            <ul class="pv-contact-list">
+                                <li id="pv-contact-phone" hidden><span class="material-symbols-outlined" aria-hidden="true">call</span><span data-pv-contact-value></span></li>
+                                <li id="pv-contact-email" hidden><span class="material-symbols-outlined" aria-hidden="true">mail</span><span data-pv-contact-value></span></li>
+                            </ul>
+                        </div>
+                    }
                     <dl class="kv">
                         @if (isEdit)
                         {
@@ -114,7 +146,23 @@
 
     <div class="drawer-foot">
         <div class="text-xs muted-2 flex items-center gap-1.5 mr-auto"><span class="material-symbols-outlined" style="font-size:16px">lock</span>Los datos se guardan de forma segura.</div>
-        <button type="button" id="modal-cliente-cancel-bottom" class="btn btn-ghost">Cancelar</button>
-        <button type="submit" class="btn btn-primary"><span class="material-symbols-outlined">@submitIcon</span>@submitText</button>
+        @if (isWizard)
+        {
+            <button type="button" id="cliente-wizard-cancel" class="btn btn-ghost">Cancelar</button>
+            <button type="button" id="cliente-wizard-prev" class="btn btn-ghost hidden">
+                <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>Anterior
+            </button>
+            <button type="button" id="cliente-wizard-next" class="btn btn-primary">
+                Siguiente<span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
+            </button>
+            <button type="submit" id="cliente-wizard-submit" class="btn btn-primary hidden">
+                <span class="material-symbols-outlined" aria-hidden="true">person_add</span>Crear cliente
+            </button>
+        }
+        else
+        {
+            <button type="button" id="modal-cliente-cancel-bottom" class="btn btn-ghost">Cancelar</button>
+            <button type="submit" class="btn btn-primary"><span class="material-symbols-outlined">@submitIcon</span>@submitText</button>
+        }
     </div>
 </form>

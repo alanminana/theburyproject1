@@ -10,27 +10,134 @@
     // re-renderiza este parcial con ModelState inválido — los errores del modal
     // se muestran vía la lista JSON (#cliente-modal-error-list).
     var isEdit = Model.Id > 0;
+    // Modo wizard real (fijado únicamente por _ClienteFormPartial en alta desde el
+    // drawer). Create_tw/Edit_tw y el drawer de edición nunca fijan esta clave, por
+    // lo que conservan exactamente el patrón de tabs libres de siempre.
+    var isWizard = ViewData["ClienteWizardMode"] as string == "create";
+
+    // Cónyuge condicional (Lote 2): usa los valores reales de
+    // DropdownConstants.EstadosCiviles, no un enum nuevo. Solo afecta el
+    // primer paint (antes de que corra JS); cliente-modal.js recalcula esto
+    // en vivo si el usuario cambia el Estado civil sin recargar.
+    var estadosCivilesSinConyuge = new HashSet<string> { "Soltero/a", "Divorciado/a", "Viudo/a" };
+    var conyugeNoAplica = isWizard && !string.IsNullOrWhiteSpace(Model.EstadoCivil) && estadosCivilesSinConyuge.Contains(Model.EstadoCivil);
+
+    // Fuente única de los pasos navegables del wizard para el primer paint
+    // (Referencias queda fuera desde Lote 2). Después del mount, cliente-modal.js
+    // recalcula "Paso X de N" desde el DOM real (steps.length) y esta lista deja
+    // de usarse — si un lote futuro oculta otro paso, alcanza con tocar esta lista.
+    var wizardStepIds = new[] { "t-personal", "t-conyuge", "t-contacto", "t-laboral", "t-credito" };
+
+    string StepIcon(string state) => state switch
+    {
+        "complete" => "check_circle",
+        "error" => "error",
+        "current" => "radio_button_checked",
+        "skip" => "remove_circle",
+        _ => "radio_button_unchecked"
+    };
+
+    string StepLabel(string state) => state switch
+    {
+        "complete" => "Completado",
+        "error" => "Con errores",
+        "current" => "Paso actual",
+        "skip" => "No aplica",
+        _ => "Pendiente"
+    };
 }
 
 <div style="padding:.4rem .4rem 0">
-    <div class="tabs" role="tablist" id="form-tabs">
-        <button type="button" class="tab" role="tab" aria-selected="true" aria-controls="t-personal" data-cliente-tab="t-personal">
-            <span class="material-symbols-outlined">badge</span>Personales
+    @if (isWizard)
+    {
+        <div class="wizard-progress-label muted-2 text-xs" data-wizard-progress aria-live="polite" style="margin-bottom:.35rem">Paso 1 de @wizardStepIds.Length</div>
+        @* Lote 3: resumen compacto del paso actual para mobile (<=640px),
+           donde la barra completa de 5 tabs con texto no entra sin comprimir
+           ni cortar "Contacto"/"Crédito" a mitad de palabra (confirmado en
+           vivo con Playwright). Se suma ARRIBA de la barra, no la reemplaza:
+           cliente-module.css solo oculta visualmente el texto de cada tab
+           (".tab-label" pasa a sr-only) y deja los botones icon-only, del
+           mismo tamaño y seguían siendo clickeables — "abrir manualmente un
+           paso permitido" (click directo en una tab) debe seguir funcionando
+           igual en mobile; reemplazar la barra por completo lo rompía (2
+           tests existentes de Lote 1/2 lo ejercitan). Ícono y nombre acá se
+           leen en vivo del propio botón de tab correspondiente
+           (cliente-modal.js) — no se duplica el dato, este markup es solo el
+           estado inicial antes de que corra JS. *@
+        <div class="wizard-compact-step" data-wizard-compact>
+            <div class="wizard-compact-step-row">
+                <span class="material-symbols-outlined" aria-hidden="true" data-wizard-compact-icon>badge</span>
+                <span data-wizard-compact-label>Personales</span>
+            </div>
+            <div class="bar"><div class="bar-fill" data-wizard-compact-fill style="width:@(100 / wizardStepIds.Length)%"></div></div>
+        </div>
+    }
+    <div class="tabs @(isWizard ? "wizard-steps" : "")" role="@(isWizard ? null : "tablist")" aria-label="@(isWizard ? "Pasos del formulario" : null)" id="form-tabs">
+        <button type="button" class="tab" role="@(isWizard ? null : "tab")" aria-selected="@(isWizard ? null : "true")" aria-current="@(isWizard ? "step" : null)" data-step-state="@(isWizard ? "current" : null)" data-step-label="@(isWizard ? "Personales" : null)" aria-controls="t-personal" data-cliente-tab="t-personal">
+            @if (isWizard)
+            {
+                <span class="step-status-icon material-symbols-outlined" data-step-icon aria-hidden="true">@StepIcon("current")</span>
+            }
+            <span class="material-symbols-outlined">badge</span><span class="tab-label">Personales</span>
+            @if (isWizard)
+            {
+                <span class="sr-only" data-step-status-text>@StepLabel("current")</span>
+            }
         </button>
-        <button type="button" class="tab" role="tab" aria-selected="false" aria-controls="t-conyuge" data-cliente-tab="t-conyuge">
-            <span class="material-symbols-outlined">diversity_3</span>Cónyuge
+        <button type="button" class="tab" role="@(isWizard ? null : "tab")" aria-selected="@(isWizard ? null : "false")" data-step-state="@(isWizard ? (conyugeNoAplica ? "skip" : "pending") : null)" data-step-label="@(isWizard ? "Cónyuge" : null)" aria-controls="t-conyuge" data-cliente-tab="t-conyuge">
+            @if (isWizard)
+            {
+                <span class="step-status-icon material-symbols-outlined" data-step-icon aria-hidden="true">@StepIcon(conyugeNoAplica ? "skip" : "pending")</span>
+            }
+            <span class="material-symbols-outlined">diversity_3</span><span class="tab-label">Cónyuge</span>
+            @if (isWizard)
+            {
+                <span class="sr-only" data-step-status-text>@StepLabel(conyugeNoAplica ? "skip" : "pending")</span>
+            }
         </button>
-        <button type="button" class="tab" role="tab" aria-selected="false" aria-controls="t-contacto" data-cliente-tab="t-contacto">
-            <span class="material-symbols-outlined">call</span>Contacto
+        <button type="button" class="tab" role="@(isWizard ? null : "tab")" aria-selected="@(isWizard ? null : "false")" data-step-state="@(isWizard ? "pending" : null)" data-step-label="@(isWizard ? "Contacto" : null)" aria-controls="t-contacto" data-cliente-tab="t-contacto">
+            @if (isWizard)
+            {
+                <span class="step-status-icon material-symbols-outlined" data-step-icon aria-hidden="true">@StepIcon("pending")</span>
+            }
+            <span class="material-symbols-outlined">call</span><span class="tab-label">Contacto</span>
+            @if (isWizard)
+            {
+                <span class="sr-only" data-step-status-text>@StepLabel("pending")</span>
+            }
         </button>
-        <button type="button" class="tab" role="tab" aria-selected="false" aria-controls="t-laboral" data-cliente-tab="t-laboral">
-            <span class="material-symbols-outlined">work</span>Laboral
+        <button type="button" class="tab" role="@(isWizard ? null : "tab")" aria-selected="@(isWizard ? null : "false")" data-step-state="@(isWizard ? "pending" : null)" data-step-label="@(isWizard ? "Laboral" : null)" aria-controls="t-laboral" data-cliente-tab="t-laboral">
+            @if (isWizard)
+            {
+                <span class="step-status-icon material-symbols-outlined" data-step-icon aria-hidden="true">@StepIcon("pending")</span>
+            }
+            <span class="material-symbols-outlined">work</span><span class="tab-label">Laboral</span>
+            @if (isWizard)
+            {
+                <span class="sr-only" data-step-status-text>@StepLabel("pending")</span>
+            }
         </button>
-        <button type="button" class="tab" role="tab" aria-selected="false" aria-controls="t-refs" data-cliente-tab="t-refs">
+        <button type="button" class="tab" role="@(isWizard ? null : "tab")" aria-selected="@(isWizard ? null : "false")" data-step-state="@(isWizard ? "pending" : null)" aria-controls="t-refs" data-cliente-tab="t-refs" hidden="@isWizard">
+            @if (isWizard)
+            {
+                <span class="step-status-icon material-symbols-outlined" data-step-icon aria-hidden="true">@StepIcon("pending")</span>
+            }
             <span class="material-symbols-outlined">contacts</span>Referencias
+            @if (isWizard)
+            {
+                <span class="sr-only" data-step-status-text>@StepLabel("pending")</span>
+            }
         </button>
-        <button type="button" class="tab" role="tab" aria-selected="false" aria-controls="t-credito" data-cliente-tab="t-credito">
-            <span class="material-symbols-outlined">credit_score</span>Crediticio
+        <button type="button" class="tab" role="@(isWizard ? null : "tab")" aria-selected="@(isWizard ? null : "false")" data-step-state="@(isWizard ? "pending" : null)" data-step-label="@(isWizard ? "Crédito" : null)" aria-controls="t-credito" data-cliente-tab="t-credito">
+            @if (isWizard)
+            {
+                <span class="step-status-icon material-symbols-outlined" data-step-icon aria-hidden="true">@StepIcon("pending")</span>
+            }
+            <span class="material-symbols-outlined">credit_score</span><span class="tab-label">@(isWizard ? "Crédito" : "Crediticio")</span>
+            @if (isWizard)
+            {
+                <span class="sr-only" data-step-status-text>@StepLabel("pending")</span>
+            }
         </button>
     </div>
 </div>
@@ -38,8 +145,8 @@
 <div class="card-pad">
     <div asp-validation-summary="ModelOnly" class="alert alert-bad empty:hidden" style="margin-bottom:1rem"></div>
 
-    <section class="tab-panel is-active" id="t-personal" role="tabpanel" data-cliente-section="personal">
-        <div class="sec-head"><span class="sec-num">1</span><div><div class="sec-title">Datos personales</div><div class="sec-sub">Identificación del titular.</div></div></div>
+    <section class="tab-panel is-active" id="t-personal" role="@(isWizard ? null : "tabpanel")" aria-labelledby="@(isWizard ? "t-personal-title" : null)" data-cliente-section="personal">
+        <div class="sec-head"><span class="sec-num">1</span><div><div class="sec-title" id="t-personal-title">Datos personales</div><div class="sec-sub">Identificación del titular.</div></div></div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
                 <label asp-for="TipoDocumento" class="label">Tipo de documento <span class="req">*</span></label>
@@ -89,8 +196,8 @@
         </div>
     </section>
 
-    <section class="tab-panel" id="t-conyuge" role="tabpanel" data-cliente-section="conyuge">
-        <div class="sec-head"><span class="sec-num">2</span><div><div class="sec-title">Datos del cónyuge</div><div class="sec-sub">Requerido si el cliente está casado o en pareja.</div></div></div>
+    <section class="tab-panel" id="t-conyuge" role="@(isWizard ? null : "tabpanel")" aria-labelledby="@(isWizard ? "t-conyuge-title" : null)" data-cliente-section="conyuge">
+        <div class="sec-head"><span class="sec-num">2</span><div><div class="sec-title" id="t-conyuge-title">Datos del cónyuge</div><div class="sec-sub">Requerido si el cliente está casado o en pareja.</div></div></div>
         <div class="alert alert-info" id="conyuge-hint" style="margin-bottom:1rem"><span class="material-symbols-outlined">info</span><div>Completá esta sección solo si corresponde por estado civil.</div></div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div class="sm:col-span-2">
@@ -126,8 +233,8 @@
         </div>
     </section>
 
-    <section class="tab-panel" id="t-contacto" role="tabpanel" data-cliente-section="contacto">
-        <div class="sec-head"><span class="sec-num">3</span><div><div class="sec-title">Datos de contacto</div><div class="sec-sub">Teléfono, correo y domicilio.</div></div></div>
+    <section class="tab-panel" id="t-contacto" role="@(isWizard ? null : "tabpanel")" aria-labelledby="@(isWizard ? "t-contacto-title" : null)" data-cliente-section="contacto">
+        <div class="sec-head"><span class="sec-num">3</span><div><div class="sec-title" id="t-contacto-title">Datos de contacto</div><div class="sec-sub">Teléfono, correo y domicilio.</div></div></div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
                 <label asp-for="Telefono" class="label">Teléfono <span class="req">*</span></label>
@@ -169,8 +276,8 @@
         </div>
     </section>
 
-    <section class="tab-panel" id="t-laboral" role="tabpanel" data-cliente-section="laboral">
-        <div class="sec-head"><span class="sec-num">4</span><div><div class="sec-title">Datos laborales</div><div class="sec-sub">Fuente de ingresos del cliente.</div></div></div>
+    <section class="tab-panel" id="t-laboral" role="@(isWizard ? null : "tabpanel")" aria-labelledby="@(isWizard ? "t-laboral-title" : null)" data-cliente-section="laboral">
+        <div class="sec-head"><span class="sec-num">4</span><div><div class="sec-title" id="t-laboral-title">Datos laborales</div><div class="sec-sub">Fuente de ingresos del cliente.</div></div></div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
                 <label asp-for="TipoEmpleo" class="label">Situación laboral</label>
@@ -212,8 +319,8 @@
         </div>
     </section>
 
-    <section class="tab-panel" id="t-refs" role="tabpanel" data-cliente-section="referencias">
-        <div class="sec-head"><span class="sec-num">5</span><div><div class="sec-title">Referencias</div><div class="sec-sub">Contactos personales o comerciales que avalan al cliente.</div></div></div>
+    <section class="tab-panel" id="t-refs" role="@(isWizard ? null : "tabpanel")" aria-labelledby="@(isWizard ? "t-refs-title" : null)" data-cliente-section="referencias">
+        <div class="sec-head"><span class="sec-num">5</span><div><div class="sec-title" id="t-refs-title">Referencias</div><div class="sec-sub">Contactos personales o comerciales que avalan al cliente.</div></div></div>
         <div class="ph">
             <span class="material-symbols-outlined">contacts</span>
             <div class="ph-label">SIN CAMPOS EN EL MODELO ACTUAL</div>
@@ -221,8 +328,10 @@
         </div>
     </section>
 
-    <section class="tab-panel" id="t-credito" role="tabpanel" data-cliente-section="crediticio">
-        <div class="sec-head"><span class="sec-num">6</span><div><div class="sec-title">Configuración crediticia</div><div class="sec-sub">Parámetros iniciales y observaciones.</div></div></div>
+    <section class="tab-panel" id="t-credito" role="@(isWizard ? null : "tabpanel")" aria-labelledby="@(isWizard ? "t-credito-title" : null)" data-cliente-section="crediticio">
+        @* En wizard, Referencias queda fuera de los pasos navegables (Lote 2): Crédito
+           pasa a ser el 5to paso real, no el 6to. La edición conserva el número original. *@
+        <div class="sec-head"><span class="sec-num">@(isWizard ? "5" : "6")</span><div><div class="sec-title" id="t-credito-title">Configuración crediticia</div><div class="sec-sub">Parámetros iniciales y observaciones.</div></div></div>
         @if (isEdit)
         {
             <div class="alert alert-info" style="margin-bottom:1rem"><span class="material-symbols-outlined">shield_lock</span><div>El puntaje, nivel de riesgo, créditos, cuotas impagas y monto adeudado se preservan ocultos para concurrencia y consistencia del legajo.</div></div>
