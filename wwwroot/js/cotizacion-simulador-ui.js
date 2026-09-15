@@ -19,7 +19,7 @@
     function openModal(id) { const el = document.getElementById(id); if (!el) return; el.classList.remove('hidden'); document.body.style.overflow = 'hidden'; }
     function closeModal(id) { const el = document.getElementById(id); if (!el) return; el.classList.add('hidden'); document.body.style.overflow = ''; }
     window.openModal = openModal; window.closeModal = closeModal;
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') { ['modal-guardar', 'modal-plan', 'modal-quitar-producto'].forEach(id => { const el = document.getElementById(id); if (el && !el.classList.contains('hidden')) closeModal(id); }); } });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') { ['modal-plan', 'modal-quitar-producto'].forEach(id => { const el = document.getElementById(id); if (el && !el.classList.contains('hidden')) closeModal(id); }); } });
 
     // ---- Quote state signals ----
     // COTIZACION-SIMULAR-REDESIGN-VISUAL-IMPLEMENTACION-01: antes había 4 señales

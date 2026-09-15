@@ -112,6 +112,7 @@ namespace TheBuryProject.Models.Entities
         public virtual ICollection<Factura> Facturas { get; set; } = new List<Factura>();
         public virtual DatosTarjeta? DatosTarjeta { get; set; }
         public virtual DatosCheque? DatosCheque { get; set; }
+        public virtual VentaEnvio? Envio { get; set; }
         public virtual ICollection<VentaCreditoCuota> VentaCreditoCuotas { get; set; } = new List<VentaCreditoCuota>();
         public virtual ICollection<MovimientoCaja> MovimientosCaja { get; set; } = new List<MovimientoCaja>();
 

@@ -272,6 +272,7 @@
             productos: () => clienteListo,
             pago: () => clienteListo && productosListo,
             credito: () => clienteListo && productosListo,
+            envio: () => clienteListo && productosListo,
             revision: () => clienteListo && productosListo && (!requiereCredito() || creditoValidado)
         };
 

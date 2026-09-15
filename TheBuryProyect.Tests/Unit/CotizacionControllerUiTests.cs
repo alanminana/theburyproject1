@@ -107,19 +107,21 @@ public sealed class CotizacionControllerUiTests
         Assert.Contains("plan.fuentePorcentaje", script);
     }
 
-    // COTIZACION-SIMULAR-REDESIGN-VISUAL-IMPLEMENTACION-01: corrección obligatoria del
-    // audit — el modal mostraba "Mejor opción" pero pinta state.opcionSeleccionada
-    // (la fila elegida, no necesariamente la de menor total). Cambia el copy, no la
-    // selección ni el payload de guardado.
+    // COTIZACION-SIMULAR-GUARDAR-DIRECTO-01 (pedido explícito del usuario: Guardar y
+    // Pasar a venta como una sola acción, sin modal de confirmación intermedio):
+    // el modal "Guardar cotización" (resumen + confirmar) se retira por completo —
+    // #cotizacion-guardar guarda directo y encadena a pasarAVenta() cuando hay un
+    // cliente de sistema seleccionado (ver guardarYPasarAVenta en
+    // cotizacion-simulador.js). Reemplaza a Modal_Guardar_MuestraOpcionSeleccionadaNoMejorOpcion,
+    // que protegía copy de ese modal ya eliminado.
     [Fact]
-    public void Modal_Guardar_MuestraOpcionSeleccionadaNoMejorOpcion()
+    public void CotizadorForm_NoDeclaraModalGuardarPropio()
     {
         var partial = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Cotizacion", "_CotizadorForm.cshtml"));
 
-        Assert.Contains("Opción seleccionada", partial);
-        Assert.DoesNotContain("Mejor opción", partial);
-        // El id (y por lo tanto el binding de cotizacion-simulador.js) no cambia.
-        Assert.Contains("id=\"modal-guardar-mejor\"", partial);
+        Assert.DoesNotContain("id=\"modal-guardar\"", partial);
+        Assert.DoesNotContain("id=\"cotizacion-guardar-confirm\"", partial);
+        Assert.DoesNotContain("onclick=\"openModal('modal-guardar')\"", partial);
     }
 
     [Fact]
@@ -546,7 +548,8 @@ public sealed class CotizacionControllerUiTests
         public Task<Cliente> CreateAsync(Cliente cliente) => Task.FromResult(cliente);
         public Task<Cliente> UpdateAsync(Cliente cliente) => Task.FromResult(cliente);
         public Task<bool> DeleteAsync(int id) => Task.FromResult(false);
-        public Task<IEnumerable<Cliente>> SearchAsync(string? searchTerm = null, string? tipoDocumento = null, bool? soloActivos = null, bool? conCreditosActivos = null, decimal? puntajeMinimo = null, string? orderBy = null, string? orderDirection = null) => Task.FromResult<IEnumerable<Cliente>>(Array.Empty<Cliente>());
+        public Task<IEnumerable<Cliente>> SearchAsync(string? searchTerm = null, string? tipoDocumento = null, bool? soloActivos = null, bool? conCreditosActivos = null, decimal? puntajeMinimo = null, string? orderBy = null, string? orderDirection = null, string? nivelRiesgo = null) => Task.FromResult<IEnumerable<Cliente>>(Array.Empty<Cliente>());
+        public Task<(List<Cliente> Items, int Total, int PageNumber)> SearchPagedAsync(string? searchTerm = null, string? tipoDocumento = null, bool? soloActivos = null, bool? conCreditosActivos = null, decimal? puntajeMinimo = null, string? nivelRiesgo = null, string? orderBy = null, string? orderDirection = null, int page = 1, int pageSize = 25) => Task.FromResult((new List<Cliente>(), 0, 1));
         public Task<bool> ExisteDocumentoAsync(string tipoDocumento, string numeroDocumento, int? excludeId = null) => Task.FromResult(false);
         public Task<Cliente?> GetByDocumentoAsync(string tipoDocumento, string numeroDocumento) => Task.FromResult<Cliente?>(null);
         public Task ActualizarPuntajeRiesgoAsync(int clienteId, decimal nuevoPuntaje, string motivo) => Task.CompletedTask;

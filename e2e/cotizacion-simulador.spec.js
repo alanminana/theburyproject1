@@ -9,7 +9,7 @@
  *   T4. Mobile 390px — sin scroll horizontal de página
  *   T5. Agrupación expandible por medio de pago (parent/detail)
  *   T6. Descuento por producto
- *   T7/T8. Guardar (modal de confirmación) habilita "Pasar a venta"
+ *   T7/T8. Guardar (directo, sin modal) habilita "Pasar a venta"
  *   T9. Mobile 390px — Resultados primero, Productos/Config colapsables,
  *       CTA siempre visible, tabla sin overflow interno (CIERRE-01)
  *
@@ -30,8 +30,8 @@
  *   #cotizacion-resultados-tbody tr[data-cotizacion-opcion-key] — fila seleccionable
  *   tr.selected                        — fila seleccionada
  *   tr.parent / tr.detail              — grupo expandible (varios planes por medio)
- *   #cotizacion-guardar                — abre el modal de confirmación
- *   #cotizacion-guardar-confirm        — confirma el guardado (POST)
+ *   #cotizacion-guardar                — guarda directo (POST); encadena a Pasar a
+ *                                         venta si hay un cliente de sistema
  */
 
 const { test, expect } = require('playwright/test');
@@ -296,14 +296,12 @@ test.describe('Cotización simulador — COTIZ-QA', () => {
         await page.locator('#cotizacion-resultados').waitFor({ state: 'visible', timeout: 15_000 });
         await page.locator('#cotizacion-resultados-tbody tr').first().waitFor({ state: 'visible', timeout: 5_000 });
 
-        // Guardar: abre modal de confirmación, luego confirmar
+        // COTIZACION-SIMULAR-GUARDAR-DIRECTO-01: Guardar ya no abre un modal de
+        // confirmación — guarda directo (y encadenaría a Pasar a venta si hubiera
+        // un cliente de sistema seleccionado, que este flujo no selecciona).
         const guardarBtn = page.locator('#cotizacion-guardar');
         await expect(guardarBtn).toBeEnabled({ timeout: 5_000 });
         await guardarBtn.click();
-
-        const guardarConfirm = page.locator('#cotizacion-guardar-confirm');
-        await expect(guardarConfirm).toBeVisible({ timeout: 5_000 });
-        await guardarConfirm.click();
 
         // Tras guardar, la acción se transforma en "Pasar a venta"
         await expect(page.locator('#cotizacion-pasar-venta')).toBeVisible({ timeout: 20_000 });
@@ -331,10 +329,6 @@ test.describe('Cotización simulador — COTIZ-QA', () => {
         const guardarBtn = page.locator('#cotizacion-guardar');
         await expect(guardarBtn).toBeEnabled({ timeout: 5_000 });
         await guardarBtn.click();
-
-        const guardarConfirm = page.locator('#cotizacion-guardar-confirm');
-        await expect(guardarConfirm).toBeVisible({ timeout: 5_000 });
-        await guardarConfirm.click();
 
         // Tras guardar, la acción se transforma en "Pasar a venta"
         await expect(page.locator('#cotizacion-pasar-venta')).toBeVisible({ timeout: 20_000 });
@@ -466,13 +460,14 @@ test.describe('Cotización simulador — COTIZ-QA', () => {
             await expect(page.locator('#modal-plan')).not.toBeVisible({ timeout: 3_000 });
         }
 
-        // Guardar sigue disponible con ambos paneles colapsados.
+        // Guardar sigue disponible con ambos paneles colapsados. COTIZACION-SIMULAR-
+        // GUARDAR-DIRECTO-01: ya no abre un modal — guarda directo (sin cliente de
+        // sistema en este flujo, así que no encadena a Pasar a venta automáticamente).
         const guardarBtn = page.locator('#cotizacion-guardar');
         await expect(guardarBtn).toBeVisible();
         if (await guardarBtn.isEnabled()) {
             await guardarBtn.click();
-            await expect(page.locator('#modal-guardar')).toBeVisible({ timeout: 3_000 });
-            await page.keyboard.press('Escape');
+            await expect(page.locator('#cotizacion-pasar-venta')).toBeVisible({ timeout: 20_000 });
         }
     });
 });

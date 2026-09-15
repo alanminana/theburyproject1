@@ -77,7 +77,12 @@ namespace TheBuryProject.Controllers
                         numeroDocumento = c.NumeroDocumento,
                         telefono = c.Telefono,
                         email = c.Email,
-                        display = c.ToDisplayName()
+                        display = c.ToDisplayName(),
+                        // ENVIO-ML4: precarga del paso Envío del wizard al tildar "Tiene envío".
+                        domicilio = c.Domicilio,
+                        localidad = c.Localidad,
+                        provincia = c.Provincia,
+                        codigoPostal = c.CodigoPostal
                     });
 
                 return Ok(clientes);

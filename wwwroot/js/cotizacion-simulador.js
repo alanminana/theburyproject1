@@ -72,9 +72,9 @@
         anticipo: $('#cotizacion-anticipo'),
         fechaVencimiento: $('#cotizacion-fecha-vencimiento'),
         observaciones: $('#cotizacion-observaciones'),
+        tieneEnvio: $('#cotizacion-tiene-envio'),
         simular: $('#cotizacion-simular'),
         guardar: $('#cotizacion-guardar'),
-        guardarConfirm: $('#cotizacion-guardar-confirm'),
         accionesPre: $('#cotizacion-acciones-pre'),
         accionesPost: $('#cotizacion-acciones-post'),
         pasarVenta: $('#cotizacion-pasar-venta'),
@@ -88,11 +88,6 @@
         descuento: $('#cotizacion-descuento'),
         totalBase: $('#cotizacion-total-base'),
         resultadosTbody: $('#cotizacion-resultados-tbody'),
-        // modal guardar summary
-        mgCliente: $('#modal-guardar-cliente'),
-        mgProductos: $('#modal-guardar-productos'),
-        mgTotal: $('#modal-guardar-total'),
-        mgMejor: $('#modal-guardar-mejor'),
         // plan drawer
         planMedio: $('#plan-medio'),
         planCuotas: $('#plan-cuotas'),
@@ -220,7 +215,6 @@
 
         if (state.productos.length === 0) {
             show(els.productosVacio);
-            updateGuardarModal();
             return;
         }
 
@@ -261,7 +255,6 @@
                 </div>`;
             els.productosTbody.appendChild(article);
         });
-        updateGuardarModal();
     }
 
     function previewBase() {
@@ -473,7 +466,6 @@
             hide(els.clienteSeleccionado);
             show(els.clienteBuscador);
             show(els.clienteVacioHint);
-            updateGuardarModal();
             return;
         }
 
@@ -493,7 +485,6 @@
         hide(els.clienteBuscador);
         hide(els.clienteVacioHint);
         show(els.clienteSeleccionado);
-        updateGuardarModal();
     }
 
     async function buscarClientes() {
@@ -604,7 +595,19 @@
         }
     }
 
-    async function guardar() {
+    // COTIZACION-SIMULAR-GUARDAR-DIRECTO-01 (pedido explícito del usuario: Guardar y
+    // Pasar a venta pasan a ser una sola acción, sin el modal de confirmación
+    // intermedio): un solo click guarda la cotización y, si hay un cliente de
+    // sistema seleccionado (requisito real de pasarAVenta, no nuevo), continúa
+    // directo a convertirla en venta y navega — sin pausa para revisar un resumen
+    // que ya se ve completo en el propio formulario (Cliente/Resultados/Total ya
+    // están a la vista antes de guardar). Guarda primero con su propio try/catch:
+    // si falla, no se intenta nada más. Si guarda bien, la UI queda siempre en el
+    // estado "guardado" real (mostrarAccionesPostGuardado) antes de intentar pasar
+    // a venta — así, si esa segunda llamada falla (o no hay cliente de sistema), el
+    // operador ve la cotización guardada y el botón "Pasar a venta" queda
+    // disponible para reintentar a mano, en vez de quedar en un estado ambiguo.
+    async function guardarYPasarAVenta() {
         clearFeedback();
         if (!state.ultimaSimulacion?.exitoso) {
             showFeedback('Primero simula una cotizacion valida.', 'warning');
@@ -612,6 +615,7 @@
         }
 
         setBusy(true);
+        let data;
         try {
             const payload = {
                 simulacion: buildRequest(),
@@ -619,10 +623,11 @@
                 observaciones: els.observaciones?.value?.trim() || null,
                 nombreClienteLibre: els.nombreLibre?.value?.trim() || null,
                 telefonoClienteLibre: els.telefonoLibre?.value?.trim() || null,
-                fechaVencimiento: els.fechaVencimiento?.value || null
+                fechaVencimiento: els.fechaVencimiento?.value || null,
+                tieneEnvio: els.tieneEnvio?.checked || false
             };
 
-            const data = await fetchJson(urls.guardar, {
+            data = await fetchJson(urls.guardar, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -630,23 +635,33 @@
                 },
                 body: JSON.stringify(payload)
             });
-
-            window.closeModal?.('modal-guardar');
-            state.cotizacionGuardadaId = data.id;
-            state.cotizacionGuardadaClienteId = state.clienteSeleccionado?.id || null;
-            setState('saved');
-            showFeedback(`Cotizacion ${data.numero} guardada. Ya podés pasarla a venta.`, 'ok');
-            mostrarAccionesPostGuardado(data);
         } catch (error) {
             showFeedback(error.message || 'No se pudo guardar la cotizacion.', 'error');
-        } finally {
             setBusy(false);
+            return;
+        }
+
+        state.cotizacionGuardadaId = data.id;
+        state.cotizacionGuardadaClienteId = state.clienteSeleccionado?.id || null;
+        setState('saved');
+        mostrarAccionesPostGuardado(data);
+        setBusy(false);
+
+        if (state.cotizacionGuardadaClienteId) {
+            showFeedback(`Cotizacion ${data.numero} guardada. Pasando a venta…`, 'ok');
+            await pasarAVenta();
+        } else {
+            showFeedback(`Cotizacion ${data.numero} guardada. Seleccioná un cliente del sistema para pasarla a venta.`, 'warning');
         }
     }
 
-    // Conversión directa (1 clic): la cotización recién guardada usa precios
-    // vigentes, así que se convierte con precio cotizado y auto-confirma avisos
-    // informativos (p. ej. unidades trazables se asignan luego en Venta/Edit).
+    // Conversión directa: la cotización recién guardada usa precios vigentes, así
+    // que se convierte con precio cotizado y auto-confirma avisos informativos
+    // (p. ej. unidades trazables se asignan luego en Venta/Edit). La llama
+    // guardarYPasarAVenta() automáticamente cuando hay un cliente de sistema; el
+    // botón "Pasar a venta" del estado post-guardado la reusa igual para el caso en
+    // que el guardado no pudo continuar solo (sin cliente de sistema en ese
+    // momento, o esta llamada automática falló).
     async function pasarAVenta() {
         if (!state.cotizacionGuardadaId) return;
 
@@ -851,7 +866,22 @@
             });
             state.bestKey = bestKey;
 
-            const groups = groupByMedioPago(rows);
+            // COTIZACION-SIMULAR-ORDEN-01 (reapertura, reporte directo del usuario: "está
+            // ordenado de forma horrible"): antes el orden de las filas era el orden fijo en
+            // que el backend devuelve los medios (enum), no un orden pensado para comparar —
+            // un medio "Sin planes"/"Req. cliente" en el medio de la lista interrumpía la
+            // comparación de precios entre los medios sí disponibles. Ahora los grupos con
+            // planes disponibles van primero, ordenados por su plan más barato (coincide con
+            // el criterio que ya usa la pill "Mejor precio"); los grupos sin planes quedan al
+            // final, en su orden relativo original (sort estable). Sin cambiar bestKey,
+            // opcionSeleccionada ni ningún dato: sólo el orden de pintado.
+            const groups = groupByMedioPago(rows)
+                .map(group => {
+                    const totales = group.rows.filter(r => r.plan).map(r => Number(r.plan.total));
+                    return { group, tienePlanes: totales.length > 0, minTotal: totales.length ? Math.min(...totales) : Infinity };
+                })
+                .sort((a, b) => (a.tienePlanes === b.tienePlanes) ? (a.minTotal - b.minTotal) : (a.tienePlanes ? -1 : 1))
+                .map(x => x.group);
             const frag = document.createDocumentFragment();
             groups.forEach(group => appendGroup(frag, group, bestKey));
             els.resultadosTbody.appendChild(frag);
@@ -866,7 +896,6 @@
 
         hide(els.resultadosVacio);
         show(els.resultados);
-        updateGuardarModal();
 
         const mensajes = [...(data.errores || []), ...(data.advertencias || [])];
         if (mensajes.length) {
@@ -1104,35 +1133,6 @@
         window.openModal?.('modal-plan');
     }
 
-    function updateGuardarModal() {
-        if (els.mgCliente) {
-            els.mgCliente.textContent = state.clienteSeleccionado?.display
-                || (els.nombreLibre?.value?.trim() || '—');
-        }
-        if (els.mgProductos) {
-            const items = state.productos.length;
-            const unidades = state.productos.reduce((acc, p) => acc + Number(p.cantidad), 0);
-            els.mgProductos.textContent = items
-                ? `${items} ${items === 1 ? 'ítem' : 'ítems'} · ${unidades} ${unidades === 1 ? 'unidad' : 'unidades'}`
-                : '—';
-        }
-        const base = state.ultimaSimulacion?.totalBase ?? previewBase();
-        if (els.mgTotal) els.mgTotal.textContent = formatCurrency(base);
-        if (els.mgMejor) {
-            const sel = state.opcionSeleccionada;
-            if (sel && state.ultimaSimulacion) {
-                const row = findRowByKey(`${sel.medioPago}|${sel.plan || ''}|${sel.cantidadCuotas || ''}`);
-                if (row?.plan) {
-                    els.mgMejor.textContent = `${medioLabel(row.opcion.medioPago, row.opcion.nombreMedioPago)} · ${formatCurrency(row.plan.total)}`;
-                } else {
-                    els.mgMejor.textContent = '—';
-                }
-            } else {
-                els.mgMejor.textContent = '—';
-            }
-        }
-    }
-
     // Item 25 del lote: Anticipo sólo importa mientras Crédito personal está
     // incluido en la comparativa. No oculta el input (el valor sigue viajando en
     // el payload igual, ver buildRequest) ni cambia el cálculo — sólo baja la
@@ -1153,7 +1153,7 @@
         els.agregarProducto?.addEventListener('click', () => agregarProducto(state.productoSeleccionado, els.cantidad?.value));
         els.agregarManual?.addEventListener('click', agregarProductoManual);
         els.simular?.addEventListener('click', simular);
-        els.guardarConfirm?.addEventListener('click', guardar);
+        els.guardar?.addEventListener('click', guardarYPasarAVenta);
         els.pasarVenta?.addEventListener('click', pasarAVenta);
         els.nuevaCotizacion?.addEventListener('click', () => window.location.reload());
 
@@ -1238,7 +1238,6 @@
                 const row = findRowByKey(key);
                 state.opcionSeleccionada = row ? toSeleccion(row) : null;
                 updateSelectedRowHighlight(key);
-                updateGuardarModal();
                 if (row) openPlanDrawer(row);
             }
         });

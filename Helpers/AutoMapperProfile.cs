@@ -173,10 +173,15 @@ namespace TheBuryProject.Helpers
                 .ForMember(d => d.Sueldo, o => o.MapFrom(s => s.GaranteCliente != null ? s.GaranteCliente.Sueldo : (decimal?)null));
 
             CreateMap<Cliente, ClienteViewModel>()
+                // Mismo criterio que VENTA-DETAILS-DUPLICACION-01 (H11): ToDisplayName()
+                // incrusta "- DNI: ..." en el nombre para desambiguar en listas sin columna de
+                // documento propia. ClienteViewModel ya expone NumeroDocumento como campo
+                // separado en todas las vistas que consumen NombreCompleto (Index, Edit,
+                // Delete, modal Crear/Editar) — el sufijo quedaba duplicado contra ese campo.
                 .ForMember(d => d.NombreCompleto, o => o.MapFrom(s =>
                     !string.IsNullOrWhiteSpace(s.NombreCompleto)
                         ? s.NombreCompleto
-                        : s.ToDisplayName()))
+                        : $"{s.Apellido}, {s.Nombre}".Trim(' ', ',')))
                 .ForMember(d => d.Edad, o => o.MapFrom(s => ClienteHelper.CalcularEdad(s.FechaNacimiento)))
                 .ForMember(d => d.CreditosActivos, o => o.MapFrom(s => s.Creditos.Count(c =>
                     !c.IsDeleted && c.Estado == EstadoCredito.Activo)))
@@ -225,6 +230,11 @@ namespace TheBuryProject.Helpers
                 .ForMember(dest => dest.ClienteNombre, opt => opt.MapFrom(src =>
                     src.Cliente != null ? $"{src.Cliente.Apellido}, {src.Cliente.Nombre}" : string.Empty))
                 .ForMember(dest => dest.ClienteDocumento, opt => opt.MapFrom(src => src.Cliente != null ? src.Cliente.NumeroDocumento : string.Empty))
+                .ForMember(dest => dest.ClienteTelefono, opt => opt.MapFrom(src => src.Cliente != null ? src.Cliente.Telefono : null))
+                .ForMember(dest => dest.ClienteDomicilio, opt => opt.MapFrom(src => src.Cliente != null ? src.Cliente.Domicilio : null))
+                .ForMember(dest => dest.ClienteLocalidad, opt => opt.MapFrom(src => src.Cliente != null ? src.Cliente.Localidad : null))
+                .ForMember(dest => dest.ClienteProvincia, opt => opt.MapFrom(src => src.Cliente != null ? src.Cliente.Provincia : null))
+                .ForMember(dest => dest.ClienteCodigoPostal, opt => opt.MapFrom(src => src.Cliente != null ? src.Cliente.CodigoPostal : null))
                 .ForMember(dest => dest.CreditoNumero, opt => opt.MapFrom(src => src.Credito != null ? src.Credito.Numero : null))
                 .ForMember(dest => dest.Detalles, opt => opt.MapFrom(src => src.Detalles != null ? src.Detalles.Where(d => !d.IsDeleted) : Enumerable.Empty<VentaDetalle>()))
                 .ForMember(dest => dest.Facturas, opt => opt.MapFrom(src => src.Facturas != null ? src.Facturas.Where(f => !f.IsDeleted) : Enumerable.Empty<Factura>()))
@@ -233,7 +243,8 @@ namespace TheBuryProject.Helpers
                     src.DatosTarjeta.TipoTarjeta == TipoTarjeta.Debito &&
                     src.DatosTarjeta.RecargoAplicado.HasValue
                         ? src.DatosTarjeta.RecargoAplicado.Value
-                        : 0m));
+                        : 0m))
+                .ForMember(dest => dest.TieneEnvio, opt => opt.MapFrom(src => src.Envio != null));
 
             CreateMap<VentaViewModel, Venta>()
                 // Un alta nunca puede adoptar la clave que el navegador conserve de
@@ -246,7 +257,8 @@ namespace TheBuryProject.Helpers
                 .ForMember(dest => dest.Detalles, opt => opt.Ignore())
                 .ForMember(dest => dest.Facturas, opt => opt.Ignore())
                 .ForMember(dest => dest.DatosCheque, opt => opt.Ignore())
-                .ForMember(dest => dest.DatosTarjeta, opt => opt.Ignore());
+                .ForMember(dest => dest.DatosTarjeta, opt => opt.Ignore())
+                .ForMember(dest => dest.Envio, opt => opt.Ignore());
 
             CreateMap<VentaDetalle, VentaDetalleViewModel>()
                 // Identidad histórica: snapshot al momento de la venta → relación viva sólo para filas
@@ -339,6 +351,21 @@ namespace TheBuryProject.Helpers
             CreateMap<DatosCheque, DatosChequeViewModel>();
 
             CreateMap<DatosChequeViewModel, DatosCheque>()
+                .ForMember(d => d.Venta, o => o.Ignore());
+
+            // =======================
+            // VentaEnvio
+            // =======================
+            CreateMap<VentaEnvio, VentaEnvioViewModel>();
+
+            CreateMap<VentaEnvioViewModel, VentaEnvio>()
+                .ForMember(d => d.Id, o => o.Ignore())
+                .ForMember(d => d.VentaId, o => o.Ignore())
+                .ForMember(d => d.Estado, o => o.Ignore())
+                .ForMember(d => d.NumeroSeguimiento, o => o.Ignore())
+                .ForMember(d => d.FechaDespacho, o => o.Ignore())
+                .ForMember(d => d.FechaEntregaReal, o => o.Ignore())
+                .ForMember(d => d.MotivoNoEntrega, o => o.Ignore())
                 .ForMember(d => d.Venta, o => o.Ignore());
 
             // =======================

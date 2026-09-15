@@ -78,6 +78,7 @@ namespace TheBuryProject.Data
         public DbSet<PerfilCredito> PerfilesCredito { get; set; }
         public DbSet<DatosTarjeta> DatosTarjeta { get; set; }
         public DbSet<DatosCheque> DatosCheque { get; set; }
+        public DbSet<VentaEnvio> VentaEnvios { get; set; }
         public DbSet<VentaCreditoCuota> VentaCreditoCuotas { get; set; }
 
         public DbSet<ConfiguracionMora> ConfiguracionesMora { get; set; }
@@ -1906,6 +1907,32 @@ namespace TheBuryProject.Data
                 entity.HasOne(e => e.Venta)
                     .WithOne(v => v.DatosCheque)
                     .HasForeignKey<DatosCheque>(e => e.VentaId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // =======================
+            // VentaEnvio
+            // =======================
+            modelBuilder.Entity<VentaEnvio>(entity =>
+            {
+                entity.ToTable("VentaEnvio");
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Destinatario)
+                    .IsRequired()
+                    .HasMaxLength(200);
+
+                entity.Property(e => e.Domicilio)
+                    .IsRequired()
+                    .HasMaxLength(300);
+
+                entity.Property(e => e.CostoEnvio).HasPrecision(18, 2);
+
+                entity.HasIndex(e => e.Estado);
+
+                entity.HasOne(e => e.Venta)
+                    .WithOne(v => v.Envio)
+                    .HasForeignKey<VentaEnvio>(e => e.VentaId)
                     .OnDelete(DeleteBehavior.Cascade);
             });
 

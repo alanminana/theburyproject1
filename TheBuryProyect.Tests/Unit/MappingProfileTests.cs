@@ -152,6 +152,47 @@ public class MappingProfileTests
     }
 
     // =========================================================================
+    // Cliente → ClienteViewModel (NombreCompleto sin DNI incrustado)
+    // =========================================================================
+
+    [Fact]
+    public void Map_Cliente_ConNombreCompletoEnBd_UsaValorTalCual()
+    {
+        var entity = new Cliente
+        {
+            Nombre = "Juan",
+            Apellido = "García",
+            NombreCompleto = "García, Juan",
+            NumeroDocumento = "12345678"
+        };
+
+        var vm = _mapper.Map<ClienteViewModel>(entity);
+
+        Assert.Equal("García, Juan", vm.NombreCompleto);
+    }
+
+    [Fact]
+    public void Map_Cliente_SinNombreCompletoEnBd_ArmaApellidoNombreSinDni()
+    {
+        // NombreCompleto vacío en la entidad (caso real de seed/altas antiguas): el fallback
+        // no debe usar ToDisplayName(), que incrusta "- DNI: ..." y duplica NumeroDocumento,
+        // ya expuesto como campo propio en todas las vistas que consumen NombreCompleto.
+        var entity = new Cliente
+        {
+            Nombre = "Juan",
+            Apellido = "García",
+            NombreCompleto = null,
+            NumeroDocumento = "12345678"
+        };
+
+        var vm = _mapper.Map<ClienteViewModel>(entity);
+
+        Assert.Equal("García, Juan", vm.NombreCompleto);
+        Assert.DoesNotContain("DNI", vm.NombreCompleto);
+        Assert.DoesNotContain("12345678", vm.NombreCompleto);
+    }
+
+    // =========================================================================
     // AlertaCobranza → AlertaCobranzaViewModel (color e ícono por prioridad)
     // =========================================================================
 

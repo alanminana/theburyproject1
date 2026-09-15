@@ -45,6 +45,7 @@ namespace TheBuryProject.Controllers
         private readonly IContratoVentaCreditoService _contratoVentaCreditoService;
         private readonly AppDbContext _context;
         private readonly IRelojComercial _reloj;
+        private readonly IVentaEnvioService _ventaEnvioService;
 
         #region Helpers de caja
 
@@ -85,7 +86,8 @@ namespace TheBuryProject.Controllers
             VentaViewBagBuilder viewBagBuilder,
             IContratoVentaCreditoService contratoVentaCreditoService,
             AppDbContext context,
-            IRelojComercial reloj)
+            IRelojComercial reloj,
+            IVentaEnvioService ventaEnvioService)
         {
             _ventaService = ventaService;
             _logger = logger;
@@ -101,6 +103,7 @@ namespace TheBuryProject.Controllers
             _contratoVentaCreditoService = contratoVentaCreditoService;
             _context = context;
             _reloj = reloj;
+            _ventaEnvioService = ventaEnvioService;
         }
 
         #endregion
@@ -1317,6 +1320,48 @@ namespace TheBuryProject.Controllers
             {
                 _logger.LogError(ex, "Error al cancelar venta: {Id}", id);
                 TempData["Error"] = "Error al cancelar la venta: " + ex.Message;
+            }
+
+            return RedirectToAction(nameof(Details), new { id });
+        }
+
+        #endregion
+
+        #region Envío
+
+        // POST: Venta/CambiarEstadoEnvio/5
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = ModuloVentas, Accion = AccionActualizar)]
+        public async Task<IActionResult> CambiarEstadoEnvio(int id, EstadoEnvio estado, string? motivo)
+        {
+            try
+            {
+                var cajaGuard = await RedirigirSiCajaCerradaAsync(
+                    "Debe abrir una caja antes de operar sobre ventas.",
+                    nameof(Details),
+                    new { id });
+                if (cajaGuard != null)
+                {
+                    return cajaGuard;
+                }
+
+                var resultado = await _ventaEnvioService.CambiarEstadoAsync(
+                    id, estado, motivo, _currentUser.GetUsername());
+
+                if (resultado.Exitoso)
+                {
+                    TempData["Success"] = $"Envío actualizado a \"{resultado.Envio!.Estado}\".";
+                }
+                else
+                {
+                    TempData["Error"] = resultado.Error;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al cambiar estado de envío de la venta {Id}", id);
+                TempData["Error"] = "Error al actualizar el estado del envío: " + ex.Message;
             }
 
             return RedirectToAction(nameof(Details), new { id });

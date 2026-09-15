@@ -77,9 +77,20 @@
     var pagoCreditoIcon = !c.TieneHistorialCredito ? "hourglass_empty" : c.PagaCreditosEnTermino ? "task_alt" : "report";
     var pagoCreditoLabel = !c.TieneHistorialCredito ? "Sin historial" : c.PagaCreditosEnTermino ? "Paga en termino" : "Con atraso";
     var nivelesDisponibles = panel?.NivelesDisponibles ?? new List<ClienteNivelCreditoOpcionViewModel>();
-    var clienteNombre = string.IsNullOrWhiteSpace(c.NombreCompleto)
-        ? $"{c.Apellido}, {c.Nombre}".Trim(' ', ',')
-        : c.NombreCompleto;
+    // Presentacion solamente: Nombre/Apellido (y por ende NombreCompleto, que hoy los
+    // concatena "apellido, nombre" tal cual se cargaron) quedan quardados como el
+    // usuario los tipeo (ej. "miñana"/"alan", todo minuscula) — el dato en backend no
+    // se toca. Para la ficha se muestra "Nombre Apellido" con mayuscula inicial.
+    string TitleCase(string? valor)
+    {
+        if (string.IsNullOrWhiteSpace(valor)) return string.Empty;
+        var esAr = System.Globalization.CultureInfo.GetCultureInfo("es-AR");
+        return esAr.TextInfo.ToTitleCase(valor.Trim().ToLower(esAr));
+    }
+
+    var clienteNombre = (!string.IsNullOrWhiteSpace(c.Nombre) || !string.IsNullOrWhiteSpace(c.Apellido))
+        ? $"{TitleCase(c.Nombre)} {TitleCase(c.Apellido)}".Trim()
+        : (string.IsNullOrWhiteSpace(c.NombreCompleto) ? "-" : TitleCase(c.NombreCompleto));
     var iniciales = $"{(string.IsNullOrWhiteSpace(c.Apellido) ? "?" : c.Apellido.Trim()[0])}{(string.IsNullOrWhiteSpace(c.Nombre) ? "?" : c.Nombre.Trim()[0])}".ToUpperInvariant();
     var progressClass = ProgressWidthClass(Convert.ToDouble(porcentajeLibre));
     var returnToDetails = Url.Action("Details", "Cliente", new { id = c.Id });
@@ -95,6 +106,17 @@
     var moraActiva = apt?.Mora != null && apt.Mora.TieneMora;
     var sinLimite = (panel?.TieneErrorConfiguracion == true) || limiteTotal <= 0m;
     var mostrarBanner = !esApto || docAtencion || bcraAtencion || moraActiva || sinLimite || tieneNivelManual;
+
+    // Titulo de la seccion de motivos: "de no aptitud" solo tiene sentido cuando hay
+    // algo bloqueando/condicionando al cliente; con el cliente Apto no hay "no aptitud"
+    // que motivar (la seccion igual se muestra, con el mensaje "sin observaciones").
+    var motivosTitulo = esApto ? "Motivos de aptitud" : "Motivos de no aptitud";
+
+    // Ultimos creditos: la ficha no debe listar el historial completo (puede haber
+    // decenas), solo un resumen reciente con acceso al listado completo ya existente
+    // (Credito/Index filtrado por cliente, mismo link que ya ofrecia esta pantalla).
+    var totalCreditos = Model.CreditosActivos?.Count ?? 0;
+    var creditosRecientes = Model.CreditosActivos?.Take(5) ?? Enumerable.Empty<CreditoViewModel>();
 
     string ProgressWidthClass(double percentage)
     {
@@ -130,6 +152,69 @@
         EstadoDocumento.Vencido => "schedule",
         _ => "pending"
     };
+
+    // Humanizacion SOLO de presentacion: el backend (ClienteAptitudService) arma
+    // "Documentacion incompleta: DNI, ReciboSueldo, Servicio" con el nombre tecnico
+    // del enum TipoDocumentoCliente (tipo.ToString()) porque ese texto tambien se
+    // persiste/audita tal cual. Aca se traduce solo para mostrar, sin tocar el enum
+    // ni el dato guardado — mismo mapeo que ya usa DocumentoClienteViewModel.TipoDocumentoNombre.
+    string HumanizarTipoDocumento(string raw) => raw switch
+    {
+        "ReciboSueldo" => "Recibo de Sueldo",
+        "ConstanciaCUIL" => "Constancia CUIL",
+        _ => raw
+    };
+
+    string HumanizarTexto(string? texto)
+    {
+        if (string.IsNullOrEmpty(texto)) return texto ?? string.Empty;
+        return texto.Replace("ReciboSueldo", "Recibo de Sueldo").Replace("ConstanciaCUIL", "Constancia CUIL");
+    }
+
+    // Idem para el estado del credito (EstadoCredito.PendienteConfiguracion se
+    // mostraba tal cual, "pegado" — mismo criterio que TipoDocumentoNombre).
+    string EstadoCreditoLabel(EstadoCredito estado) => estado switch
+    {
+        EstadoCredito.PendienteConfiguracion => "Pendiente de configuracion",
+        _ => estado.ToString()
+    };
+
+    // Chip de "Documentacion" en el panel lateral: antes mostraba solo pendientes
+    // (podia leerse "0 pendientes" mientras 3 documentos figuraban "Faltante" mas
+    // abajo). Ahora refleja ambos conceptos igual que el KPI superior.
+    string documentosAsuntoLabel;
+    string documentosAsuntoChip;
+    if (documentosPendientes > 0 && documentosFaltantes > 0)
+    {
+        documentosAsuntoLabel = $"{documentosPendientes} pendientes · {documentosFaltantes} faltantes";
+        documentosAsuntoChip = "chip-warn";
+    }
+    else if (documentosFaltantes > 0)
+    {
+        documentosAsuntoLabel = $"{documentosFaltantes} faltantes";
+        documentosAsuntoChip = "chip-warn";
+    }
+    else if (documentosPendientes > 0)
+    {
+        documentosAsuntoLabel = $"{documentosPendientes} pendientes";
+        documentosAsuntoChip = "chip-warn";
+    }
+    else
+    {
+        documentosAsuntoLabel = "Al dia";
+        documentosAsuntoChip = "chip-ok";
+    }
+
+    // Solapa Resumen / Documentación: lista real de documentos faltantes (excluye
+    // los ya subidos aunque figuren pendientes de verificar — misma regla que ya
+    // usaba el bloque completo de "Documentacion", ahora factorizada una sola vez
+    // para no duplicar el criterio de deteccion entre el resumen y el detalle) y
+    // lista de documentos subidos pendientes de verificar.
+    var documentosFaltantesList = (apt?.Documentacion?.DocumentosFaltantes ?? new List<string>())
+        .Where(faltante => !(Model.Documentos?.Any(d => d.TipoDocumento.ToString() == faltante) ?? false))
+        .ToList();
+    var documentosPendientesList = Model.Documentos?.Where(d => d.Estado == EstadoDocumento.Pendiente).ToList()
+        ?? new List<DocumentoClienteViewModel>();
 }
 
 @section Styles {
@@ -138,7 +223,7 @@
 
 @if (TempData["Success"] != null || TempData["Error"] != null)
 {
-    <div id="clienteIndexFeedback" class="shell" style="margin-top:1rem" role="alert" aria-live="polite">
+    <div id="clienteIndexFeedback" class="shell cliente-details" style="margin-top:1rem" role="alert" aria-live="polite">
         @if (TempData["Success"] != null)
         {
             <div class="alert alert-ok"><span class="material-symbols-outlined">check_circle</span><span class="flex-1 self-center">@TempData["Success"]</span></div>
@@ -151,19 +236,25 @@
 }
 else
 {
-    <div id="clienteIndexFeedback" class="hidden shell" style="margin-top:1rem" role="alert" aria-live="polite"></div>
+    <div id="clienteIndexFeedback" class="hidden shell cliente-details" style="margin-top:1rem" role="alert" aria-live="polite"></div>
 }
 
-<div class="shell" style="padding-top:1.5rem;padding-bottom:3rem">
+<div class="shell cliente-details" style="padding-top:1.5rem;padding-bottom:3rem">
+    <nav class="breadcrumb" aria-label="Migas de pan">
+        <a asp-action="Index">Clientes</a>
+        <span class="sep">/</span>
+        <span style="color:#cbd5e1">Detalle</span>
+    </nav>
+
     @if (!string.IsNullOrWhiteSpace(returnUrl))
     {
-        <a href="@returnUrl" class="inline-flex items-center gap-1.5 text-sm muted hover:text-white transition" style="text-decoration:none">
+        <a href="@returnUrl" class="inline-flex items-center gap-1.5 text-sm muted hover:text-white transition" style="text-decoration:none;margin-top:.35rem">
             <span class="material-symbols-outlined" style="font-size:18px">arrow_back</span>Volver a clientes
         </a>
     }
     else
     {
-        <a asp-action="Index" class="inline-flex items-center gap-1.5 text-sm muted hover:text-white transition" style="text-decoration:none">
+        <a asp-action="Index" class="inline-flex items-center gap-1.5 text-sm muted hover:text-white transition" style="text-decoration:none;margin-top:.35rem">
             <span class="material-symbols-outlined" style="font-size:18px">arrow_back</span>Volver a clientes
         </a>
     }
@@ -200,8 +291,8 @@ else
             <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">account_balance_wallet</span>Credito disponible</div>
             <div class="kpi-value">@limiteDisponible.ToString("C0")</div>
             @* La barra de progreso (con saldo usado/limite) ya se muestra en detalle
-               en la card "Calificacion crediticia" mas abajo; mostrarla tambien aca
-               era el mismo dato dos veces en la misma pantalla. *@
+               en la card "Informacion crediticia" de la solapa Credito; mostrarla
+               tambien aca era el mismo dato dos veces en la misma pantalla. *@
             <div class="kpi-foot">@porcentajeLibre.ToString("N0")% libre de @limiteTotal.ToString("C0")</div>
         </div>
         <div class="kpi @(esApto ? "kpi--ok" : esNoApto ? "kpi--bad" : esRequiereAut ? "kpi--warn" : string.Empty)">
@@ -230,7 +321,7 @@ else
                 <p class="text-sm muted mt-0.5">
                     @if (!string.IsNullOrWhiteSpace(apt?.Motivo))
                     {
-                        @apt.Motivo
+                        @HumanizarTexto(apt.Motivo)
                     }
                     else if (esApto && tieneNivelManual)
                     {
@@ -266,52 +357,368 @@ else
         </div>
     }
 
-    @if (Model.VentasPendientesAutorizacion != null && Model.VentasPendientesAutorizacion.Any())
-    {
-        var puedeAutorizarVentas = User.TienePermiso("ventas", "authorize");
-        <div class="alert alert-warn" style="margin-top:1.25rem;align-items:flex-start">
-            <span class="material-symbols-outlined">gpp_maybe</span>
-            <div class="flex-1 min-w-0">
-                <div class="font-semibold text-white">Ventas pendientes de autorización</div>
-                <div class="mt-2 space-y-2">
-                    @foreach (var venta in Model.VentasPendientesAutorizacion)
-                    {
-                        <div class="flex items-center justify-between gap-2 flex-wrap">
-                            <div class="min-w-0 text-sm">
-                                <span class="mono">@venta.Numero</span>
-                                <span class="muted-2"> · </span>@venta.Fecha.ToString("dd/MM/yyyy")
-                                <span class="muted-2"> · </span>@venta.Total.ToString("C0")
-                                @if (!string.IsNullOrWhiteSpace(venta.Resumen))
-                                {
-                                    <div class="text-xs muted-2">@venta.Resumen</div>
-                                }
+    @* Navegacion por solapas (ERP-UI-STANDARD.md §5): resumen ejecutivo y alerta
+       principal quedan siempre visibles arriba; el resto de la ficha se organiza
+       por contexto en 5 solapas fijas. Mismo patron ARIA + roving tabindex que
+       Views/Venta/Index_tw.cshtml (.tabs-scroll-shell/.tab-btn) y Views/Dashboard/Index.cshtml
+       (teclado), reescalado a los tokens locales de cliente-module.css. Paneles
+       server-rendered completos, mostrados/ocultados por JS (sin fetch adicional,
+       sin SPA) — ver wwwroot/js/cliente-details.js. *@
+    <div class="tabs-scroll-shell" data-oc-scroll data-oc-scroll-shell style="margin-top:1.5rem">
+        <div data-oc-scroll-fade="left" hidden></div>
+        <div data-oc-scroll-fade="right" hidden></div>
+        <div class="tabs-scroll" role="tablist" aria-label="Secciones del cliente" data-oc-scroll-region>
+            <button type="button" id="tab-resumen" class="tab-btn is-active" role="tab" aria-selected="true"
+                    aria-controls="panel-resumen" data-cliente-tab="resumen">
+                <span class="material-symbols-outlined">dashboard</span>Resumen
+            </button>
+            <button type="button" id="tab-credito" class="tab-btn" role="tab" aria-selected="false" tabindex="-1"
+                    aria-controls="panel-credito" data-cliente-tab="credito">
+                <span class="material-symbols-outlined">credit_score</span>Crédito
+            </button>
+            <button type="button" id="tab-documentacion" class="tab-btn" role="tab" aria-selected="false" tabindex="-1"
+                    aria-controls="panel-documentacion" data-cliente-tab="documentacion">
+                <span class="material-symbols-outlined">folder_shared</span>Documentación
+            </button>
+            <button type="button" id="tab-datos" class="tab-btn" role="tab" aria-selected="false" tabindex="-1"
+                    aria-controls="panel-datos" data-cliente-tab="datos">
+                <span class="material-symbols-outlined">badge</span>Datos
+            </button>
+            <button type="button" id="tab-historial" class="tab-btn" role="tab" aria-selected="false" tabindex="-1"
+                    aria-controls="panel-historial" data-cliente-tab="historial">
+                <span class="material-symbols-outlined">history</span>Historial
+            </button>
+        </div>
+    </div>
+
+    <div id="panel-resumen" class="tab-panel is-active" data-cliente-tab-panel="resumen" role="tabpanel" aria-labelledby="tab-resumen" style="margin-top:1.25rem">
+        <div class="space-y-4">
+            @if (Model.VentasPendientesAutorizacion != null && Model.VentasPendientesAutorizacion.Any())
+            {
+                var puedeAutorizarVentas = User.TienePermiso("ventas", "authorize");
+                <div class="alert alert-warn" style="align-items:flex-start">
+                    <span class="material-symbols-outlined">gpp_maybe</span>
+                    <div class="flex-1 min-w-0">
+                        <div class="font-semibold text-white">Ventas pendientes de autorización</div>
+                        <div class="mt-2 space-y-2">
+                            @foreach (var venta in Model.VentasPendientesAutorizacion)
+                            {
+                                <div class="flex items-center justify-between gap-2 flex-wrap">
+                                    <div class="min-w-0 text-sm">
+                                        <span class="mono">@venta.Numero</span>
+                                        <span class="muted-2"> · </span>@venta.Fecha.ToString("dd/MM/yyyy")
+                                        <span class="muted-2"> · </span>@venta.Total.ToString("C0")
+                                        @if (!string.IsNullOrWhiteSpace(venta.Resumen))
+                                        {
+                                            <div class="text-xs muted-2">@HumanizarTexto(venta.Resumen)</div>
+                                        }
+                                    </div>
+                                    @if (puedeAutorizarVentas)
+                                    {
+                                        <a asp-controller="Venta" asp-action="Autorizar" asp-route-id="@venta.VentaId" class="btn btn-soft btn-sm shrink-0">Ver autorización</a>
+                                    }
+                                    else
+                                    {
+                                        <a asp-controller="Venta" asp-action="Details" asp-route-id="@venta.VentaId" class="btn btn-ghost btn-sm shrink-0">Ver venta</a>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+
+            @* 10/10 polish (2026-09-14): "Crédito disponible" ya es el primer KPI
+               siempre visible arriba de las solapas — repetirlo aca en una card
+               grande identica era el mismo dato dos veces en la misma pantalla.
+               Este bloque queda reducido a lo que el KPI todavia no muestra
+               (puntaje, mora, capital en mora) y remite el desglose completo
+               (origen del cupo, punitorio, historial) a la solapa Crédito. *@
+            @* Reapertura visual 2026-09-15 (ronda 2): las 4 cards NO se emparejan por fila
+               (eso encadenaba la altura de Crédito a la de BCRA, dejando un agujero vacío
+               debajo de la card más corta cuando su par de fila era mucho más alto). Ahora
+               son dos stacks independientes: cada .cliente-details-col es su propio flujo
+               vertical, así que la altura de una columna nunca crea espacio muerto en la
+               otra. Orden en el markup: izquierda = Crédito → Motivos; derecha = BCRA →
+               Documentación (mismo criterio de la referencia del usuario). *@
+            <div class="cliente-details-2col">
+            <div class="cliente-details-col">
+            <section class="card card-pad">
+                <h2 class="font-semibold text-white mb-3 flex items-center gap-2"><span class="material-symbols-outlined" style="color:#f5c518;font-size:20px">credit_score</span>Crédito</h2>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span class="chip @(limiteDisponible > 0 ? "chip-ok" : "chip-neutral")">@(limiteDisponible > 0 ? $"{limiteDisponible:C0} disponibles" : "Sin cupo disponible")</span>
+                    <span class="chip chip-neutral">Puntaje @nivelFinal/5</span>
+                    <span class="chip @moraChip">Mora: @moraLabel</span>
+                </div>
+                @if (apt?.Mora != null && apt.Mora.TieneMora)
+                {
+                    <p class="text-xs muted-2" style="margin-top:.6rem">Capital en mora: @apt.Mora.MontoTotalMora.ToString("C0")</p>
+                }
+            </section>
+
+            <section class="card card-pad">
+                <h2 class="font-semibold text-white mb-3 flex items-center gap-2"><span class="material-symbols-outlined" style="color:#f5c518;font-size:20px">checklist</span>@motivosTitulo</h2>
+                @if (apt?.Detalles != null && apt.Detalles.Any())
+                {
+                    <ul class="space-y-2">
+                        @foreach (var d in apt.Detalles)
+                        {
+                            var esBloq = d.EsBloqueo;
+                            <li class="flex items-start gap-2">
+                                <span class="material-symbols-outlined shrink-0" style="font-size:18px;color:@(esBloq ? "#f87171" : "#f5b21a")">@MotivoIcon(d.Categoria)</span>
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <span class="text-sm text-white break-words">@HumanizarTexto(d.Descripcion)</span>
+                                        <span class="chip @(esBloq ? "chip-bad" : "chip-warn") shrink-0">@(esBloq ? "Bloqueante" : "Requiere autorizacion")</span>
+                                    </div>
+                                    <div class="text-xs muted-2">@d.Categoria</div>
+                                </div>
+                            </li>
+                        }
+                    </ul>
+                }
+                else if (esApto)
+                {
+                    <div class="flex items-center gap-2 text-sm muted">
+                        <span class="material-symbols-outlined shrink-0" style="font-size:18px;color:#34d399">check_circle</span>
+                        <span>Sin observaciones. Cliente apto para operar a credito@(tieneNivelManual ? " (puntaje asignado manualmente)" : "").</span>
+                    </div>
+                }
+                else
+                {
+                    <div class="flex items-center gap-2 text-sm muted">
+                        <span class="material-symbols-outlined shrink-0" style="font-size:18px;color:#94a3b8">info</span>
+                        <span>Sin motivos registrados para el estado actual.</span>
+                    </div>
+                }
+            </section>
+            </div>
+
+            <div class="cliente-details-col">
+            <div class="card card-pad" id="bcra-panel">
+                <div class="flex items-center justify-between gap-2 mb-3">
+                    <h3 class="font-semibold text-white flex items-center gap-2"><span class="material-symbols-outlined" style="color:#f5c518;font-size:20px">account_balance</span>Situacion BCRA</h3>
+                    <span class="chip @bcraChip" id="bcra-chip"><span class="material-symbols-outlined" id="bcra-chip-icon">@bcraChipIcon</span><span id="bcra-chip-label">@bcraChipLabel</span></span>
+                </div>
+                <div class="result-card @bcraTone" style="padding:.85rem 1rem">
+                    <div class="flex items-center justify-between">
+                        <div class="result-label">Situacion crediticia</div>
+                        <span class="text-2xl font-bold @bcraColor">@(bcraVal?.ToString() ?? "-")</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-sm mt-0.5">
+                        <div class="h-2 w-2 rounded-full @bcraDot" id="bcra-dot"></div>
+                        <span class="font-bold @bcraColor" id="bcra-desc">@bcraDesc</span>
+                    </div>
+                </div>
+                @if (bcraUsandoUltimoExito)
+                {
+                    <p class="text-xs muted mt-2" id="bcra-aviso" role="status">@bcraMensaje</p>
+                }
+                else
+                {
+                    <p class="text-xs muted mt-2 hidden" id="bcra-aviso" role="status"></p>
+                }
+                @* Reapertura visual 2026-09-15 (ronda 2): CUIL/Período/Última consulta como
+                   3 métricas compactas en fila en vez de kv-rows apiladas — mismo dt/dd,
+                   sólo cambia el layout via .kv--metrics (ver kv--metrics mas abajo en Crédito). *@
+                <dl class="kv kv--metrics mt-3">
+                    <div class="kv-row"><dt>CUIL / CUIT</dt><dd class="mono">@Dash(c.CuilCuit)</dd></div>
+                    <div class="kv-row"><dt>Periodo informado</dt><dd>@Dash(bcraPeriodo)</dd></div>
+                    <div class="kv-row">
+                        <dt>Ultima consulta</dt>
+                        <dd id="bcra-meta">@(bcraFecha.HasValue ? bcraFecha.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm") : "Pendiente de consulta")</dd>
+                    </div>
+                </dl>
+                @if (tieneCuil)
+                {
+                    <button type="button" id="bcra-btn" data-cliente-bcra-refresh data-cliente-id="@c.Id" class="btn btn-soft btn-sm btn-block" style="margin-top:.9rem">
+                        <span class="material-symbols-outlined" id="bcra-icon">sync</span><span id="bcra-btn-label">Actualizar BCRA</span>
+                    </button>
+                    @* Error de red/servidor al refrescar: no pisa bcra-desc (perderia el
+                       ultimo dato real conocido) — mensaje propio, cerca del boton, que
+                       permite reintentar simplemente volviendo a tocar el mismo boton. *@
+                    <p id="bcra-error" class="text-xs hidden" style="color:#fb7185;margin-top:.5rem" role="alert">No pudimos actualizar BCRA. Volvé a intentar.</p>
+                }
+            </div>
+
+            <div class="card card-pad">
+                <div class="flex items-center justify-between gap-2 mb-3">
+                    <h3 class="font-semibold text-white flex items-center gap-2"><span class="material-symbols-outlined" style="color:#94a3b8;font-size:20px">folder_shared</span>Documentación</h3>
+                    <span class="chip @documentosAsuntoChip">@documentosAsuntoLabel</span>
+                </div>
+                @if (documentosFaltantesList.Any() || documentosPendientesList.Any())
+                {
+                    <div class="space-y-2">
+                        @foreach (var faltante in documentosFaltantesList)
+                        {
+                            <div class="doc-row">
+                                <div class="doc-ic"><span class="material-symbols-outlined">description</span></div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm text-white">@HumanizarTipoDocumento(faltante)</div>
+                                    <div class="text-xs muted-2">Esperando carga</div>
+                                </div>
+                                <span class="chip chip-warn">Faltante</span>
                             </div>
-                            @if (puedeAutorizarVentas)
-                            {
-                                <a asp-controller="Venta" asp-action="Autorizar" asp-route-id="@venta.VentaId" class="btn btn-soft btn-sm shrink-0">Ver autorización</a>
-                            }
-                            else
-                            {
-                                <a asp-controller="Venta" asp-action="Details" asp-route-id="@venta.VentaId" class="btn btn-ghost btn-sm shrink-0">Ver venta</a>
-                            }
+                        }
+                        @foreach (var doc in documentosPendientesList)
+                        {
+                            <div class="doc-row">
+                                <div class="doc-ic"><span class="material-symbols-outlined">description</span></div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm text-white">@doc.TipoDocumentoNombre</div>
+                                    <div class="text-xs muted-2">Cargado @doc.FechaSubida.ToString("dd/MM/yyyy")</div>
+                                </div>
+                                <span class="chip @DocumentoChip(doc)"><span class="material-symbols-outlined">@DocumentoIcon(doc)</span>@doc.EstadoNombre</span>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="flex items-center gap-2 text-sm muted">
+                        <span class="material-symbols-outlined shrink-0" style="font-size:18px;color:#34d399">check_circle</span>
+                        <span>Documentación completa.</span>
+                    </div>
+                }
+                <a asp-controller="DocumentoCliente" asp-action="Index" asp-route-clienteId="@c.Id" class="btn btn-ghost btn-sm btn-block" style="margin-top:.9rem">Ver toda la documentación<span class="material-symbols-outlined">chevron_right</span></a>
+            </div>
+
+            @{
+                var garante = Model.GaranteInfo;
+            }
+            @* Reapertura visual 2026-09-15 (ronda 4): Garante deja de ser una barra
+               full-width debajo de las 2 columnas (quedaba huérfana, sin relación de
+               ancho con nada mas del layout) y pasa a ser la 3ra card del stack
+               derecho, apilada debajo de Documentación — mismo ancho, mismo patrón
+               de header (icono + h3 + accion a la derecha) que BCRA/Documentación. *@
+            <div class="card card-pad" id="garante-panel-card">
+                <div class="flex items-center justify-between gap-2 mb-3">
+                    <h3 class="font-semibold text-white flex items-center gap-2"><span class="material-symbols-outlined" style="color:#94a3b8;font-size:20px">supervisor_account</span>Garante</h3>
+                    @if (garante == null)
+                    {
+                        <!-- Sin garante: botón para asignar -->
+                        <div id="garanteSinAsignar">
+                            <button type="button" class="btn btn-ghost btn-sm"
+                                    data-garante-asignar
+                                    data-cliente-id="@c.Id">
+                                <span class="material-symbols-outlined" style="font-size:14px">person_add</span> Asignar garante
+                            </button>
                         </div>
                     }
                 </div>
+                <p class="text-xs muted-2">
+                    @if (garante == null)
+                    {
+                        <text>Sin garante asignado &bull; </text>
+                    }El garante no aumenta el cupo asignado.
+                </p>
+
+                @if (garante != null)
+                {
+                    <!-- Garante asignado: mostrar estado -->
+                    <div id="garanteAsignado" style="margin-top:.65rem">
+                        <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
+                            <span class="text-sm text-white">@garante.NombreCompleto</span>
+                            <span class="text-xs muted-2">DNI @garante.NumeroDocumento</span>
+                            @if (garante.EsValido)
+                            {
+                                <span class="chip chip-ok" style="font-size:.7rem">Válido</span>
+                            }
+                            else
+                            {
+                                <span class="chip chip-bad" style="font-size:.7rem">Inválido</span>
+                            }
+                        </div>
+                        <div class="text-xs muted-2" style="margin-top:.2rem">
+                            Puntaje @garante.PuntajeCliente/5 &bull; @garante.CantidadGarantiasActivas garantía(s) activa(s) &bull; Alta @garante.FechaAlta.ToString("dd/MM/yyyy")
+                        </div>
+                        @if (!garante.EsValido && garante.MotivosInvalidez.Any())
+                        {
+                            <ul style="margin:.3rem 0 0 1rem;padding:0;list-style:disc" class="text-xs" aria-label="Motivos de invalidez">
+                                @foreach (var motivo in garante.MotivosInvalidez)
+                                {
+                                    <li style="color:#fb7185">@motivo</li>
+                                }
+                            </ul>
+                        }
+                        <div style="display:flex;gap:.4rem;margin-top:.5rem;flex-wrap:wrap">
+                            <button type="button" class="btn btn-ghost btn-sm"
+                                    data-garante-cambiar
+                                    data-cliente-id="@c.Id"
+                                    title="Cambiar garante">
+                                <span class="material-symbols-outlined" style="font-size:14px">swap_horiz</span> Cambiar
+                            </button>
+                            <button type="button" class="btn btn-ghost btn-sm"
+                                    data-garante-remover
+                                    data-cliente-id="@c.Id"
+                                    title="Quitar garante"
+                                    style="color:#fb7185">
+                                <span class="material-symbols-outlined" style="font-size:14px">remove_circle_outline</span> Quitar
+                            </button>
+                        </div>
+                    </div>
+                }
+
+                <!-- Modal: Asignar / Cambiar garante -->
+                <div id="garanteModal" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="garanteModalTitle">
+                    <div class="modal">
+                        <div class="modal-card card" style="max-width:540px">
+                            <div class="drawer-head">
+                                <div class="avatar avatar-sm avatar--slate">
+                                    <span class="material-symbols-outlined" style="font-size:17px">supervisor_account</span>
+                                </div>
+                                <div class="min-w-0 flex-1">
+                                    <h2 id="garanteModalTitle" class="sec-title">Asignar garante</h2>
+                                    <p class="sec-sub">Buscá un cliente existente para asignar como garante.</p>
+                                </div>
+                                <button type="button" class="btn btn-ghost btn-sm" data-garante-modal-cerrar aria-label="Cerrar">
+                                    <span class="material-symbols-outlined">close</span>
+                                </button>
+                            </div>
+
+                            <div style="padding:1rem 1.25rem">
+                                <label class="label" for="garanteBuscador">Buscar cliente</label>
+                                <input type="text" id="garanteBuscador" class="field" placeholder="Apellido, nombre o DNI..." autocomplete="off" />
+                                <div id="garanteResultados" style="margin-top:.5rem;max-height:220px;overflow-y:auto"></div>
+
+                                <div id="garanteSeleccionado" class="hidden" style="margin-top:.75rem;padding:.6rem;background:rgba(255,255,255,.05);border-radius:6px">
+                                    <div class="text-sm text-white" id="garanteSelNombre"></div>
+                                    <div class="text-xs muted-2" id="garanteSelInfo"></div>
+                                </div>
+
+                                <div style="margin-top:.6rem">
+                                    <label class="label" for="garanteObservacion">Observación (opcional)</label>
+                                    <input type="text" id="garanteObservacion" class="field" placeholder="Motivo o nota..." maxlength="500" />
+                                </div>
+
+                                <div id="garanteError" class="hidden" style="margin-top:.5rem;color:#fb7185;font-size:.8rem"></div>
+                            </div>
+
+                            <div style="padding:.75rem 1.25rem 1rem;display:flex;gap:.5rem;justify-content:flex-end">
+                                <button type="button" class="btn btn-ghost btn-sm" data-garante-modal-cerrar>Cancelar</button>
+                                <button type="button" class="btn btn-primary btn-sm" id="garanteConfirmar" disabled>Confirmar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            </div>
             </div>
         </div>
-    }
+    </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4" style="margin-top:1.25rem">
-        <div class="lg:col-span-2 space-y-4">
+    <div id="panel-credito" class="tab-panel" data-cliente-tab-panel="credito" role="tabpanel" aria-labelledby="tab-credito" hidden style="margin-top:1.25rem">
+        <div class="space-y-4">
             <section class="card card-pad">
                 <div class="flex items-start justify-between gap-3 mb-4 flex-wrap">
-                    <h2 class="font-semibold text-white flex items-center gap-2"><span class="material-symbols-outlined" style="color:#f5c518;font-size:20px">credit_score</span>Calificacion crediticia</h2>
+                    <h2 class="font-semibold text-white flex items-center gap-2"><span class="material-symbols-outlined" style="color:#f5c518;font-size:20px">credit_score</span>Informacion crediticia</h2>
                     <div class="flex items-center gap-2 flex-wrap">
                         <button type="button" class="btn btn-soft btn-sm" data-cliente-open-nivel-manual><span class="material-symbols-outlined">rule_settings</span>Asignar puntaje manual</button>
                         <button type="button" class="btn btn-ghost btn-sm" data-cliente-open-limites><span class="material-symbols-outlined">tune</span>Limites por puntaje</button>
                     </div>
                 </div>
 
+                <div class="cliente-details-2col">
                 @if (panel?.TieneErrorConfiguracion == true)
                 {
                     <div class="alert alert-warn"><span class="material-symbols-outlined">warning</span><span>@panel.MensajeError</span></div>
@@ -326,7 +733,7 @@ else
                     </div>
                 }
 
-                <div class="minimetric mt-4">
+                <div class="minimetric">
                     <div class="mm-label">Puntaje crediticio</div>
                     <div class="flex items-center gap-2 flex-wrap" style="margin-top:.25rem">
                         <div class="mm-value num" style="margin-top:0;font-size:1.4rem">@nivelFinal<span class="text-xs muted-2 font-normal"> / 5</span></div>
@@ -337,13 +744,18 @@ else
                         <div class="text-xs muted-2" style="margin-top:.4rem">Manual: @nivelManual/5 &bull; Automatico calculado: @nivelAutomatico/5</div>
                     }
                 </div>
+                </div>
 
                 @* Desglose: se quitaron "Fuente del puntaje" (ya visible como chip arriba),
                    "Documentacion" y "BCRA" (ya cubiertas por sus propias cards/KPIs) y
                    "Override manual" (ya lo indica el mismo chip de fuente) — quedaban
                    como el mismo dato repetido una tercera vez en la pantalla. *@
                 <div class="text-xs muted-2 font-semibold uppercase mt-4" style="letter-spacing:.04em">Desglose</div>
-                <dl class="kv mt-1">
+                @* Reapertura visual 2026-09-15: metricas compactas en columna (Origen | Mora |
+                   Capital en mora) en vez de filas kv estiradas a todo el ancho del monitor —
+                   mismo dt/dd/kv-row que ya protegen los contratos de UI (PUN-ML10-F), solo
+                   cambia el layout via el modificador .kv--metrics. *@
+                <dl class="kv kv--metrics mt-1">
                     <div class="kv-row"><dt>Origen del cupo</dt><dd>@Dash(panel?.Valores?.OrigenLimite)</dd></div>
                     <div class="kv-row"><dt>Mora</dt><dd><span class="chip @moraChip">@moraLabel</span></dd></div>
                     @if (tieneNivelManual && !string.IsNullOrWhiteSpace(motivoNivelManual))
@@ -379,43 +791,6 @@ else
                             </dl>
                             <p class="text-xs muted mt-1">Deuda separada de la mora de capital. No bloquea la aptitud por sí sola; puede requerir autorización.</p>
                         </div>
-                    </div>
-                }
-            </section>
-
-            <section class="card card-pad">
-                <h2 class="font-semibold text-white mb-3 flex items-center gap-2"><span class="material-symbols-outlined" style="color:#f5c518;font-size:20px">checklist</span>Motivos de aptitud</h2>
-                @if (apt?.Detalles != null && apt.Detalles.Any())
-                {
-                    <ul class="space-y-2">
-                        @foreach (var d in apt.Detalles)
-                        {
-                            var esBloq = d.EsBloqueo;
-                            <li class="flex items-start gap-2">
-                                <span class="material-symbols-outlined shrink-0" style="font-size:18px;color:@(esBloq ? "#f87171" : "#f5b21a")">@MotivoIcon(d.Categoria)</span>
-                                <div class="min-w-0 flex-1">
-                                    <div class="flex items-center gap-2 flex-wrap">
-                                        <span class="text-sm text-white break-words">@d.Descripcion</span>
-                                        <span class="chip @(esBloq ? "chip-bad" : "chip-warn") shrink-0">@(esBloq ? "Bloqueante" : "Requiere autorizacion")</span>
-                                    </div>
-                                    <div class="text-xs muted-2">@d.Categoria</div>
-                                </div>
-                            </li>
-                        }
-                    </ul>
-                }
-                else if (esApto)
-                {
-                    <div class="flex items-center gap-2 text-sm muted">
-                        <span class="material-symbols-outlined shrink-0" style="font-size:18px;color:#34d399">check_circle</span>
-                        <span>Sin observaciones. Cliente apto para operar a credito@(tieneNivelManual ? " (puntaje asignado manualmente)" : "").</span>
-                    </div>
-                }
-                else
-                {
-                    <div class="flex items-center gap-2 text-sm muted">
-                        <span class="material-symbols-outlined shrink-0" style="font-size:18px;color:#94a3b8">info</span>
-                        <span>Sin motivos registrados para el estado actual.</span>
                     </div>
                 }
             </section>
@@ -526,41 +901,9 @@ else
             </section>
 
             <section class="card card-pad">
-                <h2 class="font-semibold text-white mb-3 flex items-center gap-2"><span class="material-symbols-outlined" style="color:#94a3b8;font-size:20px">badge</span>Datos personales</h2>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6">
-                    <dl class="kv">
-                        <div class="kv-row"><dt>Nombre completo</dt><dd>@clienteNombre</dd></div>
-                        <div class="kv-row"><dt>Documento</dt><dd class="mono">@c.TipoDocumento @c.NumeroDocumento</dd></div>
-                        <div class="kv-row"><dt>CUIL / CUIT</dt><dd class="mono">@Dash(c.CuilCuit)</dd></div>
-                    </dl>
-                    <dl class="kv">
-                        <div class="kv-row"><dt>Fecha de nacimiento</dt><dd>@(c.FechaNacimiento.HasValue ? c.FechaNacimiento.Value.ToString("dd/MM/yyyy") : "-")@(c.Edad.HasValue ? $" · {c.Edad} anos" : string.Empty)</dd></div>
-                        <div class="kv-row"><dt>Estado civil</dt><dd>@Dash(c.EstadoCivil)</dd></div>
-                        <div class="kv-row"><dt>Conyuge</dt><dd>@Dash(c.ConyugeNombreCompleto)</dd></div>
-                    </dl>
-                </div>
-            </section>
-
-            <section class="card card-pad">
-                <h2 class="font-semibold text-white mb-3 flex items-center gap-2"><span class="material-symbols-outlined" style="color:#94a3b8;font-size:20px">call</span>Contacto</h2>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6">
-                    <dl class="kv">
-                        <div class="kv-row"><dt>Telefono</dt><dd>@Dash(c.Telefono)</dd></div>
-                        <div class="kv-row"><dt>Telefono alternativo</dt><dd>@Dash(c.TelefonoAlternativo)</dd></div>
-                        <div class="kv-row"><dt>Email</dt><dd>@Dash(c.Email)</dd></div>
-                    </dl>
-                    <dl class="kv">
-                        <div class="kv-row"><dt>Domicilio</dt><dd>@Dash(c.Domicilio)</dd></div>
-                        <div class="kv-row"><dt>Localidad</dt><dd>@Dash(c.Localidad)</dd></div>
-                        <div class="kv-row"><dt>Provincia</dt><dd>@Dash(c.Provincia)</dd></div>
-                    </dl>
-                </div>
-            </section>
-
-            <section class="card card-pad">
                 <div class="flex items-center justify-between gap-3 mb-3">
-                    <h2 class="font-semibold text-white flex items-center gap-2"><span class="material-symbols-outlined" style="color:#94a3b8;font-size:20px">payments</span>Creditos del cliente</h2>
-                    <a asp-controller="Credito" asp-action="Index" asp-route-clienteId="@c.Id" class="btn btn-ghost btn-sm">Ver todos<span class="material-symbols-outlined">chevron_right</span></a>
+                    <h2 class="font-semibold text-white flex items-center gap-2"><span class="material-symbols-outlined" style="color:#94a3b8;font-size:20px">payments</span>Ultimos creditos del cliente</h2>
+                    <a asp-controller="Credito" asp-action="Index" asp-route-clienteId="@c.Id" class="btn btn-ghost btn-sm">Ver todos (@totalCreditos)<span class="material-symbols-outlined">chevron_right</span></a>
                 </div>
                 @if (Model.CreditosActivos != null && Model.CreditosActivos.Any())
                 {
@@ -577,11 +920,11 @@ else
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach (var credito in Model.CreditosActivos)
+                                @foreach (var credito in creditosRecientes)
                                 {
                                     <tr>
                                         <td class="mono">@(credito.Numero ?? $"#{credito.Id}")</td>
-                                        <td><span class="chip chip-info">@credito.Estado</span></td>
+                                        <td><span class="chip chip-info">@EstadoCreditoLabel(credito.Estado)</span></td>
                                         <td>@credito.MontoAprobado.ToString("C0")</td>
                                         <td>@credito.SaldoPendiente.ToString("C0")</td>
                                         <td>@credito.FechaSolicitud.ToString("dd/MM/yyyy")</td>
@@ -606,61 +949,23 @@ else
                 }
             </section>
         </div>
+    </div>
 
-        <aside class="space-y-4">
-            <div class="card card-pad" id="bcra-panel">
-                <div class="flex items-center justify-between gap-2 mb-3">
-                    <h3 class="font-semibold text-white flex items-center gap-2"><span class="material-symbols-outlined" style="color:#f5c518;font-size:20px">account_balance</span>Situacion BCRA</h3>
-                    <span class="chip @bcraChip" id="bcra-chip"><span class="material-symbols-outlined" id="bcra-chip-icon">@bcraChipIcon</span><span id="bcra-chip-label">@bcraChipLabel</span></span>
-                </div>
-                <div class="result-card @bcraTone" style="padding:.85rem 1rem">
-                    <div class="flex items-center justify-between">
-                        <div class="result-label">Situacion crediticia</div>
-                        <span class="text-2xl font-bold @bcraColor">@(bcraVal?.ToString() ?? "-")</span>
-                    </div>
-                    <div class="flex items-center gap-2 text-sm mt-0.5">
-                        <div class="h-2 w-2 rounded-full @bcraDot" id="bcra-dot"></div>
-                        <span class="font-bold @bcraColor" id="bcra-desc">@bcraDesc</span>
-                    </div>
-                </div>
-                @if (bcraUsandoUltimoExito)
-                {
-                    <p class="text-xs muted mt-2" id="bcra-aviso" role="status">@bcraMensaje</p>
-                }
-                else
-                {
-                    <p class="text-xs muted mt-2 hidden" id="bcra-aviso" role="status"></p>
-                }
-                <dl class="kv mt-3">
-                    <div class="kv-row"><dt>CUIL / CUIT</dt><dd class="mono">@Dash(c.CuilCuit)</dd></div>
-                    <div class="kv-row"><dt>Periodo informado</dt><dd>@Dash(bcraPeriodo)</dd></div>
-                    <div class="kv-row">
-                        <dt>Ultima consulta</dt>
-                        <dd id="bcra-meta">@(bcraFecha.HasValue ? bcraFecha.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm") : "Pendiente de consulta")</dd>
-                    </div>
-                </dl>
-                @if (tieneCuil)
-                {
-                    <button type="button" id="bcra-btn" data-cliente-bcra-refresh data-cliente-id="@c.Id" class="btn btn-soft btn-sm btn-block" style="margin-top:.9rem">
-                        <span class="material-symbols-outlined" id="bcra-icon">sync</span>Actualizar BCRA
-                    </button>
-                }
-            </div>
-
+    <div id="panel-documentacion" class="tab-panel" data-cliente-tab-panel="documentacion" role="tabpanel" aria-labelledby="tab-documentacion" hidden style="margin-top:1.25rem">
+        <div class="space-y-4">
             <div class="card card-pad">
                 <div class="flex items-center justify-between gap-2 mb-3">
                     <h3 class="font-semibold text-white flex items-center gap-2"><span class="material-symbols-outlined" style="color:#94a3b8;font-size:20px">folder_shared</span>Documentacion</h3>
-                    <span class="chip @(documentosPendientes > 0 || documentosFaltantes > 0 ? "chip-warn" : "chip-ok")">@documentosPendientes pendientes</span>
+                    <span class="chip @documentosAsuntoChip">@documentosAsuntoLabel</span>
                 </div>
                 @if (apt?.Documentacion != null && !apt.Documentacion.Completa && apt.Documentacion.DocumentosFaltantes.Any())
                 {
                     <div class="alert alert-warn" style="margin-bottom:.75rem">
                         <span class="material-symbols-outlined">warning</span>
-                        <span>Faltan: @string.Join(", ", apt.Documentacion.DocumentosFaltantes)</span>
+                        <span>Faltan: @string.Join(", ", apt.Documentacion.DocumentosFaltantes.Select(HumanizarTipoDocumento))</span>
                     </div>
                 }
 
-             
                 <div class="space-y-2">
                     @if (Model.Documentos != null && Model.Documentos.Any())
                     {
@@ -700,148 +1005,81 @@ else
                         }
                     }
 
-                    @if (apt?.Documentacion != null && apt.Documentacion.DocumentosFaltantes.Any())
+                    @foreach (var faltante in documentosFaltantesList)
                     {
-                        @foreach (var faltante in apt.Documentacion.DocumentosFaltantes)
-                        {
-                            var yaSubido = Model.Documentos?.Any(d => d.TipoDocumentoNombre == faltante) ?? false;
-                            if (!yaSubido)
-                            {
-                                <div class="doc-row">
-                                    <div class="doc-ic"><span class="material-symbols-outlined">description</span></div>
-                                    <div class="flex-1 min-w-0">
-                                        <div class="text-sm text-white">@faltante</div>
-                                        <div class="text-xs muted-2">Esperando carga</div>
-                                    </div>
-                                    <span class="chip chip-warn">Pendiente</span>
-                                    <button type="button" data-cliente-upload-open data-tipo-documento-value="" data-tipo-documento-label="@faltante" class="btn btn-ghost btn-sm" title="Subir archivo">
-                                        <span class="material-symbols-outlined">upload</span>
-                                    </button>
-                                </div>
-                            }
-                        }
+                        <div class="doc-row">
+                            <div class="doc-ic"><span class="material-symbols-outlined">description</span></div>
+                            <div class="flex-1 min-w-0">
+                                <div class="text-sm text-white">@HumanizarTipoDocumento(faltante)</div>
+                                <div class="text-xs muted-2">Esperando carga</div>
+                            </div>
+                            <span class="chip chip-warn">Faltante</span>
+                            <button type="button" data-cliente-upload-open data-tipo-documento-value="" data-tipo-documento-label="@HumanizarTipoDocumento(faltante)" class="btn btn-ghost btn-sm" title="Subir archivo">
+                                <span class="material-symbols-outlined">upload</span>
+                            </button>
+                        </div>
+                    }
+                    @if ((Model.Documentos == null || !Model.Documentos.Any()) && !documentosFaltantesList.Any())
+                    {
+                        <div class="flex items-center gap-2 text-sm muted">
+                            <span class="material-symbols-outlined shrink-0" style="font-size:18px;color:#34d399">check_circle</span>
+                            <span>No hay documentación pendiente.</span>
+                        </div>
                     }
                 </div>
                 <a asp-controller="DocumentoCliente" asp-action="Index" asp-route-clienteId="@c.Id" class="btn btn-ghost btn-sm btn-block" style="margin-top:.9rem">Ver toda la documentacion<span class="material-symbols-outlined">chevron_right</span></a>
             </div>
+        </div>
+    </div>
 
-            @{
-                var garante = Model.GaranteInfo;
-            }
-            <div class="card card-pad" id="garante-panel-card">
-                <div class="flex items-center justify-between gap-2 mb-3">
-                    <h3 class="font-semibold text-white flex items-center gap-2"><span class="material-symbols-outlined" style="color:#94a3b8;font-size:20px">supervisor_account</span>Garante</h3>
-                </div>
-                <p class="text-xs muted-2" style="margin-bottom:.75rem">El garante no aumenta el cupo asignado.</p>
+    <div id="panel-datos" class="tab-panel" data-cliente-tab-panel="datos" role="tabpanel" aria-labelledby="tab-datos" hidden style="margin-top:1.25rem">
+        <div class="space-y-4">
+            <div class="cliente-details-2col">
+            <section class="card card-pad">
+                <h2 class="font-semibold text-white mb-3 flex items-center gap-2"><span class="material-symbols-outlined" style="color:#94a3b8;font-size:20px">badge</span>Datos personales</h2>
+                @* Reapertura visual 2026-09-15 (ronda 2): grilla de 2 columnas de campos
+                   (kv--fields) en vez de un dl.kv de una sola columna angosto — la card
+                   ocupa casi media pantalla en desktop y quedaba con mucha superficie
+                   vacia; mismo dt/dd/kv-row, solo cambia el layout. *@
+                <dl class="kv kv--fields">
+                    <div class="kv-row"><dt>Nombre completo</dt><dd>@clienteNombre</dd></div>
+                    <div class="kv-row"><dt>Documento</dt><dd class="mono">@c.TipoDocumento @c.NumeroDocumento</dd></div>
+                    <div class="kv-row"><dt>CUIL / CUIT</dt><dd class="mono">@Dash(c.CuilCuit)</dd></div>
+                    <div class="kv-row"><dt>Fecha de nacimiento</dt><dd>@(c.FechaNacimiento.HasValue ? c.FechaNacimiento.Value.ToString("dd/MM/yyyy") : "-")@(c.Edad.HasValue ? $" · {c.Edad} anos" : string.Empty)</dd></div>
+                    <div class="kv-row"><dt>Estado civil</dt><dd>@Dash(c.EstadoCivil)</dd></div>
+                    <div class="kv-row"><dt>Conyuge</dt><dd>@Dash(c.ConyugeNombreCompleto)</dd></div>
+                </dl>
+            </section>
 
-                @if (garante != null)
-                {
-                    <!-- Garante asignado: mostrar estado -->
-                    <div id="garanteAsignado">
-                        <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
-                            <span class="text-sm text-white">@garante.NombreCompleto</span>
-                            <span class="text-xs muted-2">DNI @garante.NumeroDocumento</span>
-                            @if (garante.EsValido)
-                            {
-                                <span class="chip chip-ok" style="font-size:.7rem">Válido</span>
-                            }
-                            else
-                            {
-                                <span class="chip chip-bad" style="font-size:.7rem">Inválido</span>
-                            }
-                        </div>
-                        <div class="text-xs muted-2" style="margin-top:.2rem">
-                            Puntaje @garante.PuntajeCliente/5 &bull; @garante.CantidadGarantiasActivas garantía(s) activa(s) &bull; Alta @garante.FechaAlta.ToString("dd/MM/yyyy")
-                        </div>
-                        @if (!garante.EsValido && garante.MotivosInvalidez.Any())
-                        {
-                            <ul style="margin:.3rem 0 0 1rem;padding:0;list-style:disc" class="text-xs" aria-label="Motivos de invalidez">
-                                @foreach (var motivo in garante.MotivosInvalidez)
-                                {
-                                    <li style="color:#fb7185">@motivo</li>
-                                }
-                            </ul>
-                        }
-                        <div style="display:flex;gap:.4rem;margin-top:.5rem;flex-wrap:wrap">
-                            <button type="button" class="btn btn-ghost btn-sm"
-                                    data-garante-cambiar
-                                    data-cliente-id="@c.Id"
-                                    title="Cambiar garante">
-                                <span class="material-symbols-outlined" style="font-size:14px">swap_horiz</span> Cambiar
-                            </button>
-                            <button type="button" class="btn btn-ghost btn-sm"
-                                    data-garante-remover
-                                    data-cliente-id="@c.Id"
-                                    title="Quitar garante"
-                                    style="color:#fb7185">
-                                <span class="material-symbols-outlined" style="font-size:14px">remove_circle_outline</span> Quitar
-                            </button>
-                        </div>
-                    </div>
-                }
-                else
-                {
-                    <!-- Sin garante: botón para asignar -->
-                    <div id="garanteSinAsignar">
-                        <div class="text-xs muted-2">Sin garante asignado</div>
-                        <button type="button" class="btn btn-ghost btn-sm" style="margin-top:.4rem"
-                                data-garante-asignar
-                                data-cliente-id="@c.Id">
-                            <span class="material-symbols-outlined" style="font-size:14px">person_add</span> Asignar garante
-                        </button>
-                    </div>
-                }
-
-                <!-- Modal: Asignar / Cambiar garante -->
-                <div id="garanteModal" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="garanteModalTitle">
-                    <div class="modal">
-                        <div class="modal-card card" style="max-width:540px">
-                            <div class="drawer-head">
-                                <div class="avatar avatar-sm avatar--slate">
-                                    <span class="material-symbols-outlined" style="font-size:17px">supervisor_account</span>
-                                </div>
-                                <div class="min-w-0 flex-1">
-                                    <h2 id="garanteModalTitle" class="sec-title">Asignar garante</h2>
-                                    <p class="sec-sub">Buscá un cliente existente para asignar como garante.</p>
-                                </div>
-                                <button type="button" class="btn btn-ghost btn-sm" data-garante-modal-cerrar aria-label="Cerrar">
-                                    <span class="material-symbols-outlined">close</span>
-                                </button>
-                            </div>
-
-                            <div style="padding:1rem 1.25rem">
-                                <label class="label" for="garanteBuscador">Buscar cliente</label>
-                                <input type="text" id="garanteBuscador" class="field" placeholder="Apellido, nombre o DNI..." autocomplete="off" />
-                                <div id="garanteResultados" style="margin-top:.5rem;max-height:220px;overflow-y:auto"></div>
-
-                                <div id="garanteSeleccionado" class="hidden" style="margin-top:.75rem;padding:.6rem;background:rgba(255,255,255,.05);border-radius:6px">
-                                    <div class="text-sm text-white" id="garanteSelNombre"></div>
-                                    <div class="text-xs muted-2" id="garanteSelInfo"></div>
-                                </div>
-
-                                <div style="margin-top:.6rem">
-                                    <label class="label" for="garanteObservacion">Observación (opcional)</label>
-                                    <input type="text" id="garanteObservacion" class="field" placeholder="Motivo o nota..." maxlength="500" />
-                                </div>
-
-                                <div id="garanteError" class="hidden" style="margin-top:.5rem;color:#fb7185;font-size:.8rem"></div>
-                            </div>
-
-                            <div style="padding:.75rem 1.25rem 1rem;display:flex;gap:.5rem;justify-content:flex-end">
-                                <button type="button" class="btn btn-ghost btn-sm" data-garante-modal-cerrar>Cancelar</button>
-                                <button type="button" class="btn btn-primary btn-sm" id="garanteConfirmar" disabled>Confirmar</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            <section class="card card-pad">
+                <h2 class="font-semibold text-white mb-3 flex items-center gap-2"><span class="material-symbols-outlined" style="color:#94a3b8;font-size:20px">call</span>Contacto</h2>
+                <dl class="kv kv--fields">
+                    <div class="kv-row"><dt>Telefono</dt><dd>@Dash(c.Telefono)</dd></div>
+                    <div class="kv-row"><dt>Telefono alternativo</dt><dd>@Dash(c.TelefonoAlternativo)</dd></div>
+                    <div class="kv-row"><dt>Email</dt><dd>@Dash(c.Email)</dd></div>
+                    <div class="kv-row"><dt>Domicilio</dt><dd>@Dash(c.Domicilio)</dd></div>
+                    <div class="kv-row"><dt>Localidad</dt><dd>@Dash(c.Localidad)</dd></div>
+                    <div class="kv-row"><dt>Provincia</dt><dd>@Dash(c.Provincia)</dd></div>
+                </dl>
+            </section>
             </div>
 
             <div class="card card-pad" style="border-color:rgba(244,63,94,.25)">
                 <h3 class="font-semibold text-white mb-1">Zona sensible</h3>
                 <p class="text-sm muted mb-3">Dar de baja al cliente lo oculta del listado operativo. Se conserva el historial.</p>
-                <a asp-action="Delete" asp-route-id="@c.Id" asp-route-returnUrl="@returnUrl" class="btn btn-ghost btn-sm btn-block" style="color:#fb7185;border-color:rgba(244,63,94,.3)"><span class="material-symbols-outlined">delete</span>Eliminar cliente</a>
+                <a asp-action="Delete" asp-route-id="@c.Id" asp-route-returnUrl="@returnUrl" class="btn btn-ghost btn-sm btn-block" style="color:#fb7185;border-color:rgba(244,63,94,.3)"><span class="material-symbols-outlined">delete</span>Dar de baja cliente</a>
             </div>
-        </aside>
+        </div>
+    </div>
+
+    <div id="panel-historial" class="tab-panel" data-cliente-tab-panel="historial" role="tabpanel" aria-labelledby="tab-historial" hidden style="margin-top:1.25rem">
+        <div class="space-y-4">
+            <section class="card card-pad">
+                <h2 class="font-semibold text-white mb-2 flex items-center gap-2"><span class="material-symbols-outlined" style="color:#94a3b8;font-size:20px">history</span>Créditos históricos</h2>
+                <p class="text-sm muted mb-3">El detalle completo de créditos, cuotas y pagos del cliente vive en su propio listado (mismo acceso que ya ofrecía esta ficha).</p>
+                <a asp-controller="Credito" asp-action="Index" asp-route-clienteId="@c.Id" class="btn btn-soft btn-sm">Ver todos los créditos (@totalCreditos)<span class="material-symbols-outlined">chevron_right</span></a>
+            </section>
+        </div>
     </div>
 </div>
 
@@ -1034,6 +1272,7 @@ else
 </div>
 
 @section Scripts {
+    <script src="~/js/horizontal-scroll-affordance.js" asp-append-version="true"></script>
     <script src="~/js/cliente-index.js" asp-append-version="true"></script>
     <script src="~/js/cliente-details.js" asp-append-version="true"></script>
     <script src="~/js/cliente-garante.js" asp-append-version="true"></script>

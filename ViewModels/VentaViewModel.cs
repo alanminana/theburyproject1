@@ -25,6 +25,14 @@ namespace TheBuryProject.ViewModels
         public string ClienteNombre { get; set; } = string.Empty;
         public string ClienteDocumento { get; set; } = string.Empty;
 
+        // Sólo lectura, para precargar el paso Envío del wizard al tildar "Tiene envío"
+        // con un cliente ya seleccionado (no viajan de vuelta al servidor).
+        public string? ClienteTelefono { get; set; }
+        public string? ClienteDomicilio { get; set; }
+        public string? ClienteLocalidad { get; set; }
+        public string? ClienteProvincia { get; set; }
+        public string? ClienteCodigoPostal { get; set; }
+
         [Display(Name = "Fecha de Venta")]
         [Required]
         [DataType(DataType.Date)]
@@ -126,6 +134,16 @@ namespace TheBuryProject.ViewModels
         public DatosTarjetaViewModel? DatosTarjeta { get; set; }
         public DatosChequeViewModel? DatosCheque { get; set; }
         public DatosCreditoPersonallViewModel? DatosCreditoPersonall { get; set; }
+
+        /// <summary>
+        /// Checkbox del wizard ("Esta venta tiene envío"). La fila VentaEnvio sólo
+        /// existe si esto está en true: es la autoridad para crear/editar/borrar,
+        /// igual que TipoPago decide DatosTarjeta/DatosCheque.
+        /// </summary>
+        [Display(Name = "Tiene envío")]
+        public bool TieneEnvio { get; set; }
+
+        public VentaEnvioViewModel? Envio { get; set; }
 
         [Display(Name = "Recargo debito")]
         [DisplayFormat(DataFormatString = "{0:C2}")]
@@ -372,6 +390,15 @@ namespace TheBuryProject.ViewModels
         public bool FueRechazada => EstadoAutorizacion == EstadoAutorizacionVenta.Rechazada;
 
         public bool TieneRequisitosPendientes => Estado == EstadoVenta.PendienteRequisitos;
+
+        /// <summary>
+        /// La venta tiene un envío registrado (fila VentaEnvio persistida), distinto de
+        /// TieneEnvio (el checkbox del formulario antes de guardar).
+        /// </summary>
+        public bool TieneEnvioRegistrado => Envio != null;
+
+        public bool PuedeCambiarEstadoEnvio =>
+            Envio != null && !Envio.EsTerminal && Estado != EstadoVenta.Cancelada;
 
         public bool TieneExcepcionDocumentalRegistrada => TryGetUltimaExcepcionDocumental(out _, out _, out _);
 

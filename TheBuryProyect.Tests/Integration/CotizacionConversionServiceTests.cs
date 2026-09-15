@@ -493,6 +493,47 @@ public sealed class CotizacionConversionServiceTests : IDisposable
         Assert.NotNull(resultado.VentaId);
     }
 
+    // ENVIO-ML4: la intención de envío declarada en el simulador (Cotizacion.TieneEnvio)
+    // debe sobrevivir a la conversión, precargada con la dirección real del cliente.
+    [Fact]
+    public async Task Convertir_CotizacionConTieneEnvio_CreaVentaConEnvioPendienteYDireccionDelCliente()
+    {
+        var cotizacion = CotizacionEmitida(conCliente: true);
+        cotizacion.TieneEnvio = true;
+        _context.Cotizaciones.Add(cotizacion);
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.ConvertirAVentaAsync(cotizacion.Id, RequestDefault(), "carlos");
+
+        Assert.True(resultado.Exitoso);
+        var venta = await _context.Ventas
+            .Include(v => v.Envio)
+            .FirstAsync(v => v.Id == resultado.VentaId);
+
+        Assert.NotNull(venta.Envio);
+        Assert.Equal(EstadoEnvio.Pendiente, venta.Envio!.Estado);
+        Assert.Equal(_cliente.Domicilio, venta.Envio.Domicilio);
+        Assert.Contains(_cliente.Apellido, venta.Envio.Destinatario);
+    }
+
+    [Fact]
+    public async Task Convertir_CotizacionSinTieneEnvio_NoCreaEnvio()
+    {
+        var cotizacion = CotizacionEmitida(conCliente: true);
+        Assert.False(cotizacion.TieneEnvio);
+        _context.Cotizaciones.Add(cotizacion);
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.ConvertirAVentaAsync(cotizacion.Id, RequestDefault(), "carlos");
+
+        Assert.True(resultado.Exitoso);
+        var venta = await _context.Ventas
+            .Include(v => v.Envio)
+            .FirstAsync(v => v.Id == resultado.VentaId);
+
+        Assert.Null(venta.Envio);
+    }
+
     [Fact]
     public async Task Convertir_SinClienteYSinOverride_Falla()
     {

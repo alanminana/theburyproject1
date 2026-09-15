@@ -31,5 +31,8 @@ namespace TheBuryProject.ViewModels
 
         [Display(Name = "Estado de Autorización")]
         public EstadoAutorizacionVenta? EstadoAutorizacion { get; set; }
+
+        [Display(Name = "Estado de envío")]
+        public EstadoEnvio? EstadoEnvio { get; set; }
     }
 }

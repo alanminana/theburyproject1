@@ -6,14 +6,15 @@ faltan. Actualizar esta tabla al cerrar cada pantalla.
 | Área | Pantalla | Estado | Referencia |
 |---|---|---|---|
 | Global | `_Layout` / Foundation | ✅ Cerrado | `ERP-UI-STANDARD.md` |
-| Venta | `Index` | ✅ Cerrado | `79b4c91`, `e1de859`, `3225b95` |
-| Venta | `Create` | ✅ Cerrado | `_VentaWizardForm.cshtml` + tests de paridad |
-| Venta | `Edit` | ✅ Cerrado | `_VentaWizardForm.cshtml` + tests de paridad |
-| Venta | `Details` | ✅ Cerrado | serie VENTA-DETAILS (ver resumen abajo) |
-| Cotización | `Simular` (`_CotizadorForm.cshtml`) | ✅ Cerrado | serie COTIZACION-SIMULAR-REDESIGN (ver resumen abajo) |
+| Venta | `Index` | ✅ Cerrado | `79b4c91`, `e1de859`, `3225b95` + ENVIO-ML (ver resumen abajo) |
+| Venta | `Create` | ✅ Cerrado | `_VentaWizardForm.cshtml` + tests de paridad + ENVIO-ML (ver resumen abajo) |
+| Venta | `Edit` | ✅ Cerrado | `_VentaWizardForm.cshtml` + tests de paridad + ENVIO-ML (ver resumen abajo) |
+| Venta | `Details` | ✅ Cerrado | serie VENTA-DETAILS (ver resumen abajo) + ENVIO-ML (ver resumen abajo) |
+| Cotización | `Simular` (`_CotizadorForm.cshtml`) | ✅ Cerrado | serie COTIZACION-SIMULAR-REDESIGN (ver resumen abajo) + ENVIO-ML (ver resumen abajo) |
 | ConfiguracionPago | `MediosPago` | ✅ Cerrado | ver resumen abajo |
 | Dashboard | `Index` | ◐ Foundation aplicada | header en `.hero-erp` + tabs Vencidas/Próximas con patrón ARIA completo (ver resumen abajo); resto sin auditoría de 4 capas |
 | Cliente | `Nuevo cliente` (drawer Create) | ✅ Cerrado | serie wizard Cliente (ver resumen abajo) |
+| Cliente | `Details` | ✅ Cerrado | serie CLIENTE-DETAILS-TABS (ver resumen abajo) |
 
 Leyenda:
 
@@ -311,6 +312,41 @@ estilos de impresión dedicada para el módulo.
   reporte, en 1440×900 y 390×844 sin overflow horizontal, 0 errores de consola; 66/66 tests
   focalizados (VentaDetails + ContratoVentaCredito) verdes, build 0/0.
 
+- reapertura VENTA-DETAILS-CONFIRMAR-DUPLICADO-01, a partir de reporte directo del usuario
+  con capturas ("me aparece 2 veces el botón confirmar/facturar, está mal que aparezca en
+  detalles, borralo"): "Confirmar Venta" (+ checkbox "Facturar al confirmar" + modal
+  "Confirmar y facturar") vivía duplicado en 2 pantallas para la misma venta — el mismo
+  botón/modal ya existe en el paso Revisión del wizard de `Venta/Edit` (agregado el mismo
+  día por `c4c23c6`/`93c7f4e`, que además unificó el patrón visual con Details sin notar la
+  duplicación de superficie). Se retira por completo de Details: bloque `@if
+  (hayAccionConfirmar)` (form, checkbox, modal `#modal-confirmar-facturar`) eliminado de
+  `Details_tw.cshtml`; declaraciones `hayAccionConfirmar`/`puedeFacturarAlConfirmar`
+  retiradas (sólo se usaban ahí); JS muerto correspondiente (`formConfirmar`,
+  `chkFacturarDetails`, `btnConfirmarFacturarDetails`, `modalConfirmarFacturarDetails` y sus
+  listeners) retirado de `details-venta.js`. "Editar Venta" queda como única vía desde
+  Details hacia esa acción; `hayAccionFacturar` (venta ya confirmada, sólo falta
+  facturarla — estado distinto, sin equivalente en el wizard) no se toca. Test
+  `DetailsView_OfreceConfirmarYFacturarEnUnPaso` (`VentaDetailsUiContractTests.cs`), que
+  protegía la presencia de ese bloque, reemplazado por
+  `DetailsView_NoDuplicaConfirmarVentaDelWizardDeEdicion` (verifica ausencia del bloque
+  retirado). Deuda no bloqueante, fuera de alcance de este lote: `ViewBag
+  .PrimeraCuotaVenceHoy`/`PrimeraCuotaDecisionCobrar`/`PrimeraCuotaDecisionMedio` sigue
+  poblándose en el controller (`VentaController.Details`) pero ya no lo renderiza ninguna
+  vista — no se tocó el controller para no mezclar con lógica de negocio de cobro de 1ª
+  cuota, cubierta por `VentaControllerConfirmarCreditoPersonalTests`. Sin cambios de
+  cálculo, reglas de negocio, ids (`Confirmar`/`ConfirmarYFacturar` siguen existiendo como
+  actions, sólo se retira el botón que los invocaba desde Details) ni contratos backend.
+  Validado con build 0/0 y 11/11 tests focalizados (`VentaDetailsUiContractTests`).
+  Hallazgo aparte durante la misma investigación (no es un bug de código, no se tocó
+  nada por esto): el proceso `TheBuryProyect.exe` corriendo en esta máquina llevaba
+  arrancado desde ~4h antes de los commits `c4c23c6`/`93c7f4e` que agregaron "Confirmar
+  venta + Facturar" — el controller compilado en memoria todavía no tenía ese `switch`
+  (las vistas sí se ven actualizadas por recompilación en caliente de Razor). Reproducido
+  con una réplica exacta del POST real (`accionConfirmacion=confirmar-facturar`
+  confirmado en el FormData enviado) que igual cayó en el `default` del código viejo.
+  Requiere rebuild + restart del proceso para validar cualquier cambio de controller
+  de esta sesión.
+
 ## Cotización / Simular — cerrado
 
 Parcial compartido `_CotizadorForm.cshtml` (pantalla completa en `Cotizacion/Index_tw` y
@@ -356,6 +392,114 @@ POLISH-01 (f722a23); mobile real cerrado en CIERRE-01 (este lote):
   IMPLEMENTACION-01, que dejó a Guardar en la misma página con un link "Ver cotización"
   (reproducido en vivo en navegador real, sin relación con CIERRE-01: ocurre a 1366px,
   fuera de cualquier banda tocada por este lote).
+
+- reapertura COTIZACION-SIMULAR-DENSIDAD-01, a partir de reporte directo del usuario
+  ("lo veo todo demasiado amontonado, y poco legible") sobre la misma pantalla ya cerrada.
+  Causa raíz verificada en vivo con datos reales (no asumida): el umbral de 68rem que activa
+  el workspace de "comparación completa" (3 columnas: Productos | Resultados | Config) y el
+  piso `minmax()` de esas dos columnas laterales (14rem/19% Productos, 15.5rem/21% Config)
+  estaban desalineados — a 68rem el componente porcentual todavía no le ganaba al piso, así
+  que cruzar a "modo comparación ancho" daba MENOS aire a Productos/Config que la banda de 2
+  columnas anterior (ahí ocupan la mitad del contenedor completo, ~450-490px medido en vivo a
+  1280px), en vez de más. Reproducido con datos reales (2 productos, comparativa completa de
+  6 medios con Tarjeta crédito expandida a 3 planes) tanto en `Cotizacion/Index_tw` a 1440px
+  como embebido en la pestaña Cotizar de `Venta/Create` hasta 1920px de viewport (contenedor
+  real más angosto que standalone por la sidebar del wizard, ~1336px a 1920px): nombres de
+  producto truncados en el carrito y los inputs "Dto. %"/"Dto. $" de cada línea prácticamente
+  sin ancho usable — justo el rango de resoluciones de escritorio más común (1366-1536px
+  reales standalone, y hasta 1920px embebido). Fix acotado a 3 valores en
+  `wwwroot/css/cotizacion-simulador.css` (piso subido a 17rem/18rem, umbral corrido de 68rem
+  a 84rem, aplicado a los 2 bloques `@container` que comparten ese umbral — el de la grilla/
+  alto de panel y el del padding reservado para el botón flotante global "Reportar
+  incidencia"): la banda de 2 columnas, más generosa, pasa a cubrir standalone hasta
+  ~1536px reales y embebido hasta 1920px reales; el modo de 3 columnas queda para standalone
+  ≥~1600px o embebido en monitores aún más anchos, donde el piso nuevo ya entra holgado (no
+  se tocó la banda ≥90rem en la práctica porque a esos anchos el componente porcentual ya
+  superaba ambos pisos, viejo y nuevo, sin cambio perceptible). Sin cambios de cálculo,
+  reglas de negocio, ids, `data-*` ni contratos backend — sólo 2 números (`min-width` de los
+  `@container`) y 2 valores de piso (`minmax()`) más los comentarios que documentan la
+  decisión. Validado en vivo con Playwright, con datos mockeados a nivel `fetch` (base local
+  sin productos utilizables en el momento de la validación, ajeno a este módulo) porque el
+  hallazgo sólo es observable con el workspace de Resultados poblado, no en el estado vacío:
+  1440×900 y 1920×1000 en `Cotizacion/Index_tw` (pasan de 3 a 2 columnas / se mantienen en 3
+  columnas con piso más generoso, respectivamente) y en la pestaña Cotizar de `Venta/Create`
+  (pasan de 3 a 2 columnas en ambos casos), más regresión en 1280×800, 1024×720, 768×1024 y
+  390×844 sin cambios perceptibles y sin overflow horizontal ni errores de consola. Deuda no
+  bloqueante: no se re-ejecutó `e2e/cotizacion-simulador.spec.js` (requiere una segunda
+  instancia de la app en el puerto que usa `playwright.config.js`, no se levantó para este
+  lote) — el cambio es sólo CSS de `@container`/`minmax()` sobre ids y estructura ya
+  existentes, sin tocar nada que esas specs excluyan; sus aserciones son de visibilidad, no
+  de posición de columnas.
+
+- reapertura COTIZACION-SIMULAR-ORDEN-01, misma sesión, a partir de reporte directo del
+  usuario ("está ordenado de forma horrible") sobre 3 aspectos distintos, confirmados los 3
+  con evidencia real:
+  - **orden de paneles**: en la banda de 2 columnas (44rem-84rem, ampliada por
+    DENSIDAD-01 a cubrir la mayoría del escritorio real) Resultados ocupaba la fila
+    superior completa, por delante de Productos — un simulador vacío ("Sin simulación
+    todavía") recibía al operador antes que el punto de partida real (buscar un
+    producto), y antes que Configuración (Cliente/Descuentos/Anticipo). Se invirtieron
+    las 2 filas (Productos + Config primero, Resultados después a todo el ancho); se
+    evaluó y descartó un layout con Resultados como columna lateral angosta porque
+    ninguna proporción de columnas deja ancho suficiente para la tabla de 6 columnas Y
+    un riel de Productos usable a la vez en este rango (medido en vivo a 1024px:
+    introducía scroll horizontal interno en la tabla que no existía antes). La banda de
+    3 columnas y el mobile real (<40rem, ya cerrado en CIERRE-01 con "Resultados
+    primero" deliberado) no se tocan;
+  - **orden de las filas de Resultados**: los medios de pago se pintaban en el orden fijo
+    en que los devuelve el backend (enum), no por conveniencia — un medio "Sin
+    planes"/"Req. cliente" en el medio de la lista interrumpía la comparación de precios
+    entre los medios sí disponibles. `cotizacion-simulador.js`: los grupos con planes
+    disponibles ahora se ordenan por su plan más barato (mismo criterio que ya usa la
+    pill "Mejor precio"), los grupos sin planes quedan al final en su orden relativo
+    original (sort estable); no cambia `bestKey`, `opcionSeleccionada` ni ningún cálculo,
+    sólo el orden de pintado — verificado en vivo con datos mockeados que fuerzan un
+    medio "off" intercalado en el medio del enum;
+  - **orden interno de Configuración**: "Anticipo (Crédito personal)" — condicional, sólo
+    relevante con ese medio incluido, y ya tratado como secundario por el propio JS
+    (`data-anticipo-activo` lo atenúa cuando no aplica) — aparecía antes que "Descuentos
+    generales", universal. Se invierte el orden en `_CotizadorForm.cshtml` (mismos ids,
+    sin cambios de JS).
+  Sin cambios de cálculo, reglas de negocio, ids, `data-*` ni contratos backend. Validado
+  en vivo con Playwright (datos mockeados, mismo motivo que DENSIDAD-01) en 1024×900,
+  1280×800, 1440×1000 y 768×1024 standalone (sin overflow horizontal ni de tabla en
+  ninguno) y en la pestaña Cotizar de `Venta/Create` a 1440px; regresión en mobile real
+  390×844 confirmando que el orden "Resultados primero" de CIERRE-01 sigue intacto.
+
+- reapertura COTIZACION-SIMULAR-GUARDAR-DIRECTO-01, misma sesión, a pedido explícito del
+  usuario: "Guardar" y "Pasar a venta" pasan a ser una sola acción, sin el modal de
+  confirmación intermedio ("Guardar cotización": resumen + advertencia + botón
+  confirmar). Un click en "Guardar" guarda la cotización y, si hay un cliente de sistema
+  seleccionado (requisito real preexistente de `pasarAVenta()`, no nuevo), continúa solo
+  a convertirla en venta y navega — sin pausa para revisar un resumen que ya se ve
+  completo en el propio formulario antes de guardar (Cliente/Resultados/Total ya están a
+  la vista). Guarda primero con su propio try/catch; si guarda bien, la UI queda siempre
+  en el estado "guardado" real (`mostrarAccionesPostGuardado`) antes de intentar pasar a
+  venta — si esa segunda llamada falla, o no hay cliente de sistema en ese momento, el
+  operador ve la cotización guardada con "Pasar a venta" disponible para reintentar a
+  mano, en vez de quedar en un estado ambiguo. Decisión explícita del usuario (con el
+  trade-off planteado y confirmado): esto vuelve irrepetible por UI, desde el simulador,
+  el escenario de fondo que usaba `e2e/cotizacion-conversion.spec.js` (T9-T12) — guardar
+  con cliente de sistema ya no deja una cotización "Emitida" sin convertir en
+  `Cotizacion/Detalles` para ejercitar ahí el modal de conversión manual
+  (`#cotizacion-btn-convertir`), porque ese modal comparte la misma precondición
+  (ClienteId) que ahora dispara la conversión automática desde el simulador. Esa pantalla
+  de conversión manual en Detalles no se tocó y sigue funcionando (p. ej. para una
+  cotización guardada sin cliente de sistema en su momento); los 4 tests afectados ahora
+  skipean con el motivo real documentado en el propio archivo — reescribirlos para llegar
+  a ese estado por API directa (sin conducir el simulador) queda pendiente como
+  seguimiento, fuera de este lote. Modal "Guardar cotización" completo (`#modal-guardar`,
+  `#cotizacion-guardar-confirm`, resumen `mg*`) retirado de `_CotizadorForm.cshtml`,
+  `cotizacion-simulador.js` y `cotizacion-simulador-ui.js` (listener de Escape); sin
+  cambios de cálculo, reglas de negocio, ids ni contratos backend en el resto del flujo.
+  Validado en vivo con Playwright: click en Guardar sin cliente de sistema → guarda,
+  sin modal, feedback explica por qué no continuó, "Pasar a venta" queda disponible;
+  click en Guardar con cliente de sistema → guarda y encadena sola a la conversión,
+  navega a `/Venta/Edit/{id}` sin ningún click intermedio (verificado contra endpoints
+  mockeados, dado que la base local no tiene productos utilizables ahora mismo — ver
+  hallazgo de DENSIDAD-01). Tests focalizados: `CotizacionControllerUiTests` (43/43,
+  incluye el reemplazo de `Modal_Guardar_MuestraOpcionSeleccionadaNoMejorOpcion` por
+  `CotizadorForm_NoDeclaraModalGuardarPropio`) y build 0/0.
 
 ## ConfiguracionPago / MediosPago — cerrado
 
@@ -530,6 +674,56 @@ El fade derecho del scroll horizontal (componente compartido, `data-oc-scroll-fa
 puede quedar levemente visible al alcanzar el final del scroll en anchos intermedios
 (~768px / 1024px). No bloquea `Venta/Index`. No resuelto todavía.
 
+## Venta + Cotización / Envío a domicilio — cerrado (serie ENVIO-ML)
+
+Extensión aditiva sobre las 5 pantallas ya cerradas de la tabla (Venta Index/Create/Edit/
+Details, Cotización Simular): no se rediseñó nada existente, se agregó el concepto de
+envío que antes no existía en el módulo de Venta (solo existía para MercadoLibre, dominio
+no reutilizable).
+
+- Modelo: `VentaEnvio` 1:1 con `Venta` (mismo patrón que `DatosCheque`), 7 estados
+  (Pendiente→Preparando→Despachado→EnCamino→Entregado, +Fallido/Cancelado) con máquina de
+  transición fail-closed en `VentaEnvioService`. El costo de envío es puramente
+  informativo — no toca Total/IVA/caja/crédito/factura.
+- Simular (`_CotizadorForm.cshtml`): checkbox "Esta venta tiene envío a domicilio". Al
+  guardar y convertir a venta, si estaba tildado se crea el `VentaEnvio` Pendiente
+  precargado con el domicilio del cliente.
+- Wizard (`Create`/`Edit`): paso "Envío" siempre visible entre Pago y Revisión (a
+  diferencia de Crédito, que se oculta condicionalmente), con checkbox interno que
+  muestra/oculta el formulario de datos de entrega y botón "Usar domicilio del cliente".
+- Details: card "Envío" + acción "Actualizar Estado de Envío" (modal con `<select>` que
+  solo ofrece las transiciones válidas desde el estado actual).
+- Index: quinto tab "Envíos pendientes" con badge de conteo, derivado en memoria del
+  conjunto ya filtrado (mismo patrón que "Cotizaciones y presupuestos"/"Devoluciones"),
+  sin acción de controller nueva.
+
+**Validación (4 capas):**
+
+- *Técnica*: `dotnet build` 0 warnings/0 errores; suite completa 4798 tests, 0 regresiones
+  propias (10 rojos preexistentes sin relación); tests nuevos dedicados
+  (`VentaEnvioServiceTests` sobre la máquina de estados y "no toca totales",
+  `VentaEnvioUiContractTests` sobre los hooks DOM/JS, casos en
+  `CotizacionConversionServiceTests`).
+- *Visual y flujo UX*: recorrido real end-to-end contra una instancia propia recién
+  compilada (build aislado, sin tocar la app del usuario) — Simular con envío → Guardar
+  (convierte directo a `Venta/Edit`) → paso Envío prellenado con destinatario/domicilio/
+  teléfono del cliente → Details muestra la card y el botón de acción → modal cambia el
+  estado (Pendiente→Preparando) → aparece en "Envíos pendientes" del Index → al pasar a un
+  estado terminal (Cancelado) desaparece de esa lista. Sin errores de consola nuevos.
+- *Estados reales*: verificado sobre una venta real creada en el flujo (no datos
+  mockeados), con el `<select>` del modal ofreciendo únicamente las transiciones válidas
+  para cada estado real de la fila.
+- *Responsive*: barrido en los 7 viewports de la matriz mínima (1440×900, 1280×720,
+  1024×720, 900×720, 768×1024, 390×844, 360×800) sobre las 3 pantallas nuevas/tocadas
+  (wizard paso Envío, Details, Index tab Envíos pendientes) — sin overflow horizontal de
+  página en ninguno. La barra de tabs del wizard y del Index reutiliza el scroll
+  horizontal de pills ya existente en el resto de la app (no es una regresión de esta
+  serie).
+
+`EstadoVenta` no se sincroniza automáticamente con el estado del envío (decisión
+deliberada: son dos máquinas de estado independientes; queda como posible extensión
+futura a validar con el usuario, no como pendiente de esta serie).
+
 ## Cliente / Nuevo cliente (drawer Create) — cerrado
 
 Alcance estrictamente acotado al drawer de alta (`data-cliente-wizard="create"`, dentro
@@ -605,6 +799,101 @@ arriba) en vez de reemplazar la barra por completo, por la razón de compatibili
 explicada arriba — es una decisión de diseño ya tomada, no una tarea pendiente. No se
 tocó `/Cliente/Create` ni `/Cliente/Edit/{id}` página completa: si se quiere el mismo
 wizard fuera del drawer, es un alcance nuevo a autorizar aparte.
+
+## Cliente / Details — cerrado (serie CLIENTE-DETAILS-TABS)
+
+Reorganización estructural/visual a pedido explícito del usuario (imagen de referencia +
+spec funcional detallada, 2026-09-14): la ficha pasa de scroll único muy largo a
+estructura híbrida — resumen ejecutivo y alerta principal siempre visibles arriba, resto
+de la pantalla organizado en 5 solapas fijas. Sin cambios de backend, ViewModel, reglas
+de negocio, cálculo de crédito, BCRA, permisos ni rutas.
+
+- arriba de las solapas (siempre visible): identidad del cliente (avatar, nombre,
+  chips de aptitud/estado, DNI/CUIL/edad, Imprimir/Editar perfil), resumen ejecutivo de
+  4 KPIs (Crédito disponible, Estado de aptitud, Documentos, Situación BCRA) y la alerta
+  principal de aptitud (única, con motivo condensado + `Recalcular aptitud`) — todo
+  contenido ya existente, sin nuevas métricas ni reglas;
+- solapas `[ Resumen | Crédito | Documentación | Datos | Historial ]` con patrón ARIA
+  completo (`role="tablist/tab/tabpanel"`, `aria-selected`, `aria-controls`,
+  `aria-labelledby`, roving tabindex, `ArrowLeft/ArrowRight/Home/End`) — mismo enfoque que
+  `Views/Venta/Index_tw.cshtml` (`.tabs-scroll-shell`/`.tab-btn`) y el roving tabindex de
+  `wwwroot/js/dashboard-index.js`; paneles 100% server-renderizados, mostrados/ocultados
+  por JS (`cliente-details.js`, sin fetch adicional, sin SPA); Resumen es la solapa activa
+  por defecto;
+- **Persistencia de solapa (lote 10/10, 2026-09-14)**: la solapa activa se refleja en el
+  hash de la URL (`#credito`, `#documentacion`, ...) vía `history.replaceState` (nunca
+  `pushState`, para no ensuciar "Atrás"); al cargar, un hash inválido o ausente cae a
+  Resumen; un `hashchange` (link a otra solapa sin recarga completa) también resincroniza.
+  Las acciones que redirigen directo al `returnUrl` recibido (Verificar/Rechazar/Subir
+  documento — `DocumentoClienteController` hace `LocalRedirect` literal a esa URL) reciben
+  el hash de la solapa activa agregado al campo oculto antes de enviar el form, sin tocar
+  ningún controller. Las acciones que redirigen vía `RedirectToAction(Details, ...)`
+  (Recalcular aptitud/scoring, asignar/limpiar puntaje manual) arman una URL nueva por
+  routing y no preservan el fragmento — quedan en Resumen tras usarse (deuda documentada,
+  requeriría tocar esos controllers);
+- **Resumen**: Ventas pendientes de autorización (movida acá desde su posición anterior
+  como banner siempre visible — evita competir con la alerta principal), bloque "Crédito"
+  condensado a chips (lote 10/10: ya no repite "Crédito disponible" como card grande
+  idéntica al KPI superior — solo lo que el KPI no muestra: puntaje, mora, capital en
+  mora), card BCRA completa (movida tal cual), Motivos de (no) aptitud (movida tal cual),
+  Documentación condensada (solo ítems que requieren atención — faltantes/pendientes — sin
+  las acciones de carga/revisión, que quedan en la solapa Documentación, con estado vacío
+  honesto cuando no hay nada pendiente) y Garante (movido tal cual, con su modal);
+- **Crédito**: card "Información crediticia" completa (desglose, puntaje, acciones
+  Asignar puntaje manual/Límites, punitorio aplicado pendiente — movida tal cual),
+  Scoring de comportamiento + Historial de puntaje (colapsables, sin cambios), Últimos
+  créditos del cliente (tabla ya acotada a 5 + "Ver todos", sin cambios);
+  ambas antes compartían fila de grid 50/50 con BCRA — al perder su acompañante pasan a
+  ancho completo dentro de su solapa;
+- **Documentación**: card completa (carga, verificar, rechazar, reemplazar) movida tal
+  cual, sin recortes de funcionalidad;
+- **Datos**: Datos personales + Contacto (movidas tal cual) y Zona sensible (movida al
+  final, visualmente aislada con su borde rojo existente — decisión explícita del usuario
+  de ubicarla acá en vez de al final de Resumen);
+- **Historial**: nueva card mínima que reutiliza el mismo link ya existente a
+  `Credito/Index` filtrado por cliente ("Ver todos los créditos (N)") — no se inventó una
+  bitácora nueva; el historial de puntaje, al ya vivir como colapsable dentro de la card
+  de Crédito, se mantuvo ahí (mismo criterio que la spec del usuario: "si ya existe
+  colapsable, mantener ese comportamiento");
+- mobile: barra de tabs con scroll horizontal interno + affordance de fade lateral
+  (`data-oc-scroll`/`horizontal-scroll-affordance.js`, reutilizado del resto del ERP, no
+  cargado antes en esta vista) — las 5 secciones siguen alcanzables y clickeables sin
+  truncar texto ni ocultar funcionalidad; identificador de crédito (`CRE-202609-000123`)
+  ya no se parte en varias líneas en la tabla de últimos créditos (lote 10/10: la celda
+  mono queda `white-space:nowrap`, resuelto por el mismo scroll horizontal de la tabla);
+- densidad (lote 10/10): `dl.kv` dentro de las solapas queda con `max-width:34rem` — en
+  1920/2560px un par label/valor de una sola columna ya no se estira de punta a punta del
+  monitor (shell sigue fluido, sin volver a `max-width:1120px`);
+- BCRA (lote 10/10): un error de red/servidor al refrescar ya no pisa el último dato real
+  conocido (`bcra-desc`) con un texto genérico — mensaje propio (`#bcra-error`) cerca del
+  botón, reintentable con el mismo botón (queda habilitado de nuevo al terminar);
+- CSS nuevo acotado a `.shell.cliente-details .tab-btn`/`.tabs-scroll` (scopeado a la
+  ficha, mismo patrón de convergencia que ya usa Venta) — `.tab-panel` se reutilizó tal
+  cual (ya existía en `cliente-module.css`, compartido con el wizard de Create/Edit).
+
+Sin cambios de cálculo, reglas de negocio, ids, `data-*` ni contratos backend/ViewModel.
+Riesgo real encontrado y corregido (lote inicial): `e2e/cliente-aptitud-punitorio.spec.js`
+verificaba visibilidad del bloque de mora/punitorio asumiendo que vivía siempre visible;
+se agregó un paso explícito de navegación a la solapa Crédito en los 4 tests que lo
+requerían (los que solo verifican ausencia con `toHaveCount(0)` no lo necesitaban). Ese
+spec requiere IDs de clientes sembrados por variables de entorno no disponibles en esta
+sesión — se verificó sintácticamente (`node --check`) pero no se re-ejecutó contra los 9
+escenarios sembrados.
+
+Se validó en vivo con Playwright (instancia propia en :18787 y luego :5199, detenidas al
+cerrar) sobre 2 clientes reales de la base de desarrollo en ambos lotes, incluida
+navegación por teclado completa (`ArrowRight`/`Home`/`End`), persistencia de solapa por
+reload real (`#credito` sobrevive a F5), fallback a Resumen ante hash inválido, y consola
+limpia en 1920/1440/1280/1024/768/390/360. `ClienteDetailsTabsUiContractTests.cs` (17
+tests) y `e2e/cliente-details-tabs.spec.js` (6 tests, no requiere seed especial), ambos
+verdes; suite focalizada por `Cliente` 484/486 tests (2 skipped ajenos), 0 rojos propios;
+build 0/0.
+
+Deuda no resuelta en este lote (evaluada y descartada deliberadamente, no pendiente por
+olvido): formato de DNI con puntos de miles — se dejó tal cual (dígitos sin separador) por
+ser el mismo criterio usado sin excepción en `Cliente/Index`, `Cliente/Edit` y
+`Cliente/Delete`; agregar puntos solo en Details introduciría la inconsistencia que se
+buscaba evitar, no resolverla.
 
 ## Regla para mantener estos documentos
 

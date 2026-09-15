@@ -28,6 +28,12 @@
     --bad: #f43f5e;
     --info: #f5c518;
 
+    /* --cliente-shell sigue siendo compartida por .shell "pelado" (Create/Edit/Delete,
+       formularios angostos/centrados, fuera de alcance de este trabajo). Index y Details
+       ya no dependen de esta variable — ver .shell.cliente-index / .shell.cliente-details
+       (ancho fluido, sin cap): Details dejo de ser un formulario angosto para convertirse
+       en una ficha ejecutiva con datos/tablas que aprovechan el ancho disponible, mismo
+       criterio que ya usa Index. */
     --cliente-shell: 1120px;
     --cliente-radius: 14px;
     --cliente-table-min: 960px;
@@ -251,6 +257,31 @@
     padding-inline: 1rem;
 }
 
+/* Cliente/Index converge a ancho fluido (mismo criterio que
+   Views/AlertaStock/Index_tw.cshtml, que no define ningún wrapper con max-width):
+   el gutter lateral real ya lo aporta el padding responsive de _Layout.cshtml
+   (px-4/sm:px-6/lg:px-8) — .shell no debe sumarle un tope ni un padding propio
+   encima, o vuelve a angostar el contenido en monitores anchos (medido: 92px de
+   margen muerto de cada lado a 1920px con el max-width fijo anterior).
+   Solo afecta esta pantalla: .shell "pelado" (sin .cliente-index/.cliente-details)
+   lo siguen usando Create/Edit/Delete, donde un ancho capado/centrado sigue siendo
+   correcto por ser formularios angostos, no una ficha con datos/tablas. */
+.shell.cliente-index {
+    max-width: none;
+    margin-inline: 0;
+    padding-inline: 0;
+}
+
+/* Cliente/Details converge al mismo ancho fluido que Index: dejo de ser un
+   formulario angosto para ser una ficha ejecutiva de cliente (KPIs, tablas,
+   pares de cards) que necesita aprovechar el ancho disponible en vez de quedar
+   centrada en ~1120px con grandes huecos a los costados. */
+.shell.cliente-details {
+    max-width: none;
+    margin-inline: 0;
+    padding-inline: 0;
+}
+
 .cliente-index {
     padding-top: 1.5rem;
     padding-bottom: 3rem;
@@ -319,9 +350,9 @@
     min-width: max-content;
 }
 
-.cliente-primary-action {
-    box-shadow: 0 10px 28px rgba(245, 197, 24, 0.22);
-}
+/* .cliente-primary-action eliminada: "Nuevo cliente" (Index) migró a .btn-erp-primary,
+   que ya trae el mismo box-shadow (rgba(245,197,24,.22)). Verificado sin otros
+   consumidores en Views/Cliente antes de borrarla. */
 
 .cliente-admin-action {
     color: #cbd5e1;
@@ -399,6 +430,102 @@
     .grid-kpi {
         grid-template-columns: repeat(4, 1fr);
     }
+}
+
+/* ============================================================
+   Reapertura visual 2026-09-15 (ronda 2): grid de 2 columnas para
+   las secciones de la ficha (Resumen y Datos) — evita que cada card
+   se estire a todo el ancho del viewport con poco contenido
+   (referencia del usuario: cliente-details a 1920px).
+
+   IMPORTANTE: .cliente-details-2col ya NO empareja cards por fila
+   (eso encadenaba la altura de una card a la de su par de fila —
+   ej. Crédito quedaba con un agujero vacío debajo porque BCRA, su
+   par de fila, era mucho más alta). Sus 2 hijos directos son ahora
+   dos stacks independientes (ver .cliente-details-col más abajo) o,
+   en Crédito/Datos donde cada "columna" es una sola card, las cards
+   mismas — en ambos casos la altura de una columna nunca condiciona
+   el layout de la otra.
+   ============================================================ */
+.shell.cliente-details .cliente-details-2col {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    align-items: start;
+}
+
+@media (min-width: 1024px) {
+    .shell.cliente-details .cliente-details-2col {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+/* Stack vertical independiente dentro de .cliente-details-2col (Resumen:
+   columna izquierda Crédito→Motivos, columna derecha BCRA→Documentación).
+   display:flex en vez de otro grid para que cada card apile inmediatamente
+   debajo de la anterior sin tracks de fila compartidos con la otra columna. */
+.shell.cliente-details .cliente-details-col {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    min-width: 0;
+}
+
+/* El tope de ancho para dl.kv dentro de las solapas ya existe mas abajo
+   (.shell.cliente-details .tab-panel .kv, "10/10 polish 2026-09-14") y
+   cubre BCRA/Datos/Desglose por igual — no se duplica aca. Los modificadores
+   de abajo (kv--metrics, kv--fields) lo pisan puntualmente con selectores
+   de mayor especificidad quando el layout compacto necesita mas ancho que
+   ese tope pensado para un dl.kv de una sola columna.
+
+   kv--metrics: filas que deben leerse como métricas compactas en columna
+   (ej. Origen del cupo | Mora | Capital en mora; CUIL/CUIT | Período |
+   Última consulta) en vez de pares label/valor estirados de punta a punta.
+   kv--fields: mismo criterio pero como grilla de 2 columnas de campos
+   (Datos personales / Contacto), para cards que aprovechan casi media
+   pantalla y quedaban con muchisima superficie vacia con un dl.kv de una
+   sola columna angosta. Ambos reusan el mismo dt/dd/kv-row que ya protegen
+   los contratos de UI existentes — solo cambia el layout. */
+.shell.cliente-details .tab-panel .kv.kv--metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.75rem 1.25rem;
+    max-width: 32rem;
+}
+
+.shell.cliente-details .tab-panel .kv.kv--fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem 1.75rem;
+    max-width: none;
+}
+
+@media (max-width: 640px) {
+    .shell.cliente-details .tab-panel .kv.kv--fields {
+        grid-template-columns: 1fr;
+    }
+}
+
+.shell.cliente-details .kv.kv--metrics .kv-row,
+.shell.cliente-details .kv.kv--fields .kv-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.2rem;
+    padding: 0;
+    border-top: 0;
+}
+
+.shell.cliente-details .kv.kv--metrics dt,
+.shell.cliente-details .kv.kv--fields dt {
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 0.68rem;
+}
+
+.shell.cliente-details .kv.kv--metrics dd,
+.shell.cliente-details .kv.kv--fields dd {
+    text-align: left;
+    font-size: 0.92rem;
 }
 
 .kpi {
@@ -1050,9 +1177,15 @@ select.field {
     background: var(--oc-scroll-thumb-hover, #64748b);
 }
 
-[data-oc-scroll-table] {
-    min-width: var(--cliente-table-min);
-}
+/* [data-oc-scroll-table]{min-width:var(--cliente-table-min)} eliminada: esta regla
+   nunca se aplicaba. horizontal-scroll-affordance.css define el MISMO selector con
+   min-width:var(--oc-scroll-min-width, auto) y se carga después (mismo archivo
+   _ClienteModuleStyles.cshtml), con idéntica especificidad — siempre ganaba esa,
+   y como Cliente nunca seteaba --oc-scroll-min-width, resolvía a "auto" (piso 0,
+   confirmado con getComputedStyle en vivo). Fix real: setear --oc-scroll-min-width
+   en el contenedor [data-oc-scroll] del Index (mismo mecanismo que ya usa
+   Proveedor/Index_tw.cshtml), referenciando --cliente-table-min como única fuente
+   de verdad en vez de duplicar el valor. */
 
 [data-oc-scroll-fade] {
     position: absolute;
@@ -1111,32 +1244,49 @@ select.field {
     font-size: 0.8125rem;
 }
 
+/* Redistribución de ancho — segunda pasada (la anterior, ex 17/13/17/11/11/8/17 →
+   20/13/19/11/11/8/12, resultó en overlap real de Acciones sobre Estado: medido
+   23px de superposición a 1280px y 72px a 1024px con el piso de 960px ya reforzado
+   (ver --oc-scroll-min-width más abajo). Causa: 3 botones .row-action ícono-only
+   (2.5rem/40px fijos c/u, shared-components.css) + gap + padding de celda necesitan
+   ≈158px reales, y un % relativo se queda corto en cuanto la tabla se angosta.
+   Fix: columnas con contenido de ancho fijo/acotado (Documento, Crédito, Riesgo,
+   Estado, Acciones) pasan a px exactos con margen medido en vivo (Playwright,
+   badges/botones reales). Nombre/Contacto —texto variable, ya truncan con
+   ellipsis— quedan en "auto": bajo table-layout:fixed, las columnas sin ancho
+   explícito se reparten el espacio restante de la tabla en partes iguales
+   (comportamiento estándar del algoritmo, verificado en vivo: 197px c/u a 1106px
+   de tabla) — probado con calc(% - px) primero, pero no lo resuelven los motores
+   de layout de tabla (calc() con % relativo no es válido para <col>, cae a auto
+   igual; se simplifica el código para reflejar lo que realmente pasa). */
 .cliente-col-nombre {
-    width: 17%;
+    width: auto;
 }
 
 .cliente-col-documento {
-    width: 13%;
+    width: 160px;
 }
 
 .cliente-col-contacto {
-    width: 17%;
+    width: auto;
 }
 
 .cliente-col-credito {
-    width: 11%;
+    width: 160px;
 }
 
 .cliente-col-riesgo {
-    width: 11%;
+    width: 118px;
 }
 
 .cliente-col-estado {
-    width: 8%;
+    width: 106px;
 }
 
 .cliente-col-acciones {
-    width: 17%;
+    /* 3× .row-action (40px c/u) + 2 gaps (0.2rem) + padding de celda (0.75rem
+       izq + 1.25rem der, última columna) ≈ 158px necesarios — 168px deja margen. */
+    width: 168px;
 }
 
 .cliente-th-sort {
@@ -1161,7 +1311,7 @@ select.field {
     position: sticky;
     top: 0;
     z-index: 2;
-    padding: 0.65rem 0.5rem;
+    padding: 0.65rem 0.75rem;
     background: rgba(15, 23, 42, 0.96);
     color: var(--muted);
     font-size: 0.66rem;
@@ -1172,10 +1322,28 @@ select.field {
     white-space: nowrap;
 }
 
-.tbl tbody td {
-    padding: 0.7rem 0.5rem;
+/* .tbl tbody th cubre la celda "Cliente" (<th scope="row">, ver colgroup): antes solo
+   tbody td tenía padding propio, así que el nombre quedaba pegado al borde izquierdo
+   de la tabla — no era una cuestión de gusto, faltaba la regla. */
+.tbl tbody td,
+.tbl tbody th {
+    padding: 0.75rem;
     border-top: 1px solid var(--line);
     vertical-align: middle;
+}
+
+/* Aire extra en los bordes reales de la tarjeta (mismo criterio que .table-erp-wrapper
+   en otras pantallas, ej. Proveedor/Index_tw): el padding entre columnas ya lo da la
+   regla de arriba, esto es solo el borde izquierdo/derecho de la tabla completa. */
+.tbl thead th:first-child,
+.tbl tbody td:first-child,
+.tbl tbody th:first-child {
+    padding-left: 1.25rem;
+}
+
+.tbl thead th:last-child,
+.tbl tbody td:last-child {
+    padding-right: 1.25rem;
 }
 
 .tbl tbody tr:hover {
@@ -1189,11 +1357,9 @@ select.field {
     gap: 0.2rem;
 }
 
-.cliente-row-action--icon {
-    width: 34px;
-    min-width: 34px;
-    padding-inline: 0;
-}
+/* .cliente-row-action--icon eliminada: Editar/Más (tabla desktop) migraron a
+   .row-action, que ya define su propio tamaño ícono-only en ≥640px. Verificada sin
+   otros consumidores (solo esta tabla la usaba). */
 
 .cliente-name-cell,
 .cliente-mobile-person__text {
@@ -1755,6 +1921,99 @@ select.field {
 }
 
 /* ============================================================
+   Solapas de Cliente/Details (ficha ejecutiva): navegacion por
+   secciones bajo el resumen ejecutivo/alerta principal, siempre
+   visibles. Mismo patron visual/ARIA que #venta-index-rework
+   .tab-btn (wwwroot/css/ventas-index.css) y el roving tabindex de
+   wwwroot/js/dashboard-index.js, reescalado a los tokens locales
+   de este modulo (--card-2/--line/--primary). .tab-panel ya existe
+   arriba (compartido con el wizard de Create/Edit) y se reutiliza
+   tal cual para los 5 paneles.
+   ============================================================ */
+.shell.cliente-details .tabs-scroll-shell {
+    position: relative;
+    min-width: 0;
+}
+
+.shell.cliente-details .tabs-scroll {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+}
+
+.shell.cliente-details .tabs-scroll::-webkit-scrollbar {
+    display: none;
+}
+
+.shell.cliente-details .tab-btn {
+    min-height: 2.5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    flex: 0 0 auto;
+    padding: 0.55rem 1rem;
+    border-radius: 0.7rem;
+    border: 1px solid var(--line);
+    background: var(--card-2);
+    color: var(--muted);
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition:
+        background-color 140ms ease,
+        border-color 140ms ease,
+        color 140ms ease;
+}
+
+.shell.cliente-details .tab-btn .material-symbols-outlined {
+    font-size: 1.05rem;
+}
+
+.shell.cliente-details .tab-btn:hover {
+    color: var(--text);
+    border-color: var(--line-2);
+}
+
+.shell.cliente-details .tab-btn.is-active,
+.shell.cliente-details .tab-btn[aria-selected="true"] {
+    background: rgba(245, 197, 24, 0.12);
+    border-color: rgba(245, 197, 24, 0.4);
+    color: var(--primary);
+}
+
+.shell.cliente-details .tab-btn:focus-visible {
+    outline: 2px solid var(--cliente-focus);
+    outline-offset: 2px;
+}
+
+/* Densidad interna de las solapas (10/10 polish, 2026-09-14): el shell sigue
+   fluido (no se vuelve a capar .shell.cliente-details), pero un dl.kv de una
+   sola columna dentro de una card no debe estirar el par label/valor hasta
+   los extremos del monitor en 1920/2560px. Scopeado a los paneles de Details
+   (no a .kv global, que tambien usa el wizard de alta con su propio layout
+   angosto) para no afectar otras pantallas. */
+.shell.cliente-details .tab-panel .kv {
+    max-width: 26rem;
+}
+
+/* Identificador de credito (CRE-202609-000123): con table-layout:auto y el
+   overflow-wrap:anywhere de .creditos-cliente-table td, la celda mono podia
+   partirse en varias lineas ilegibles en mobile. La tabla ya vive dentro de
+   .tbl-wrap[data-oc-scroll] (scroll horizontal con fade) — el identificador
+   se mantiene en una sola linea y el scroll horizontal resuelve el ancho,
+   igual que ya se resuelve el resto de tablas angostas del ERP. */
+.creditos-cliente-table td.mono {
+    white-space: nowrap;
+    overflow-wrap: normal;
+    word-break: normal;
+}
+
+/* ============================================================
    Section headers
    ============================================================ */
 
@@ -2311,21 +2570,17 @@ select.field {
     }
 
     .tbl thead th,
-    .tbl tbody td {
+    .tbl tbody td,
+    .tbl tbody th {
         padding-inline: 0.4rem;
     }
 
-    .cliente-col-contacto {
-        width: 16%;
-    }
-
-    .cliente-col-acciones {
-        width: 20%;
-    }
-
-    .row-actions .btn-sm:not(.cliente-row-action--icon) {
-        padding-inline: 0.5rem;
-    }
+    /* .cliente-col-contacto/.cliente-col-acciones y el ajuste de .row-actions .btn-sm
+       que vivían acá quedaban obsoletos con la migración a .row-action: compensaban
+       el ancho del label "Ver" (antes siempre visible) en esta banda angosta —
+       .row-action es ícono-only en toda la tabla desktop (≥900px), así que ya no hace
+       falta ensanchar Acciones a costa de Contacto acá; se usan las proporciones base
+       (ver .cliente-col-*). */
 
     .drawer-panel-wide {
         max-width: 960px;

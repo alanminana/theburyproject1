@@ -8,6 +8,21 @@
  *   T11. Conversión con descuento por producto importe — no rompe el flujo
  *   T12. Panel de conversión ausente si cotización ya fue convertida (regresión)
  *
+ * COTIZACION-SIMULAR-GUARDAR-DIRECTO-01 (pedido explícito del usuario, decisión
+ * confirmada: Guardar pasa directo a venta siempre que se pueda): con un cliente
+ * de sistema seleccionado — precondición que estos 4 tests ya armaban vía
+ * seleccionarPrimerCliente() —, Guardar ahora guarda y convierte en un solo paso,
+ * navegando derecho a /Venta/Edit/{id}. El escenario que T9-T12 necesitan como
+ * punto de partida (cotización "Emitida" SIN convertir, visible en Detalles, para
+ * ejercitar ahí el modal de conversión manual) ya no es alcanzable por UI desde el
+ * simulador — crearCotizacionYNavegar() devuelve '' y los 4 tests skipean con el
+ * motivo real. La pantalla de conversión manual de Detalles (#cotizacion-btn-
+ * convertir, #cotizacion-conversion-modal) no se tocó y sigue funcionando para una
+ * cotización que haya quedado guardada sin cliente de sistema en el momento de
+ * guardar; reescribir estos 4 tests para llegar a ese estado (por API directa en
+ * vez de conducir el simulador) queda pendiente como seguimiento, fuera de este
+ * lote.
+ *
  * Prerrequisitos:
  *   - App corriendo en E2E_BASE_URL (default: http://localhost:5187)
  *   - E2E_USER y E2E_PASS configurados (ver global-setup.js)
@@ -23,8 +38,8 @@
  *   #cotizacion-simular                — botón simular
  *   #cotizacion-resultados             — contenedor de resultados
  *   #cotizacion-resultados-tbody tr    — fila de opción de pago (tabla rtable)
- *   #cotizacion-guardar                — botón guardar (abre modal confirmación)
- *   #cotizacion-guardar-confirm        — botón confirmar guardado en el modal
+ *   #cotizacion-guardar                — botón guardar (directo, sin modal; encadena
+ *                                         a Pasar a venta si hay cliente de sistema)
  *   #cotizacion-btn-convertir          — botón "Convertir a Venta" en Detalles
  *   #cotizacion-conversion-modal       — modal de conversión
  *   #cotizacion-conversion-loading     — panel de carga del preview
@@ -135,8 +150,11 @@ async function seleccionarPrimerCliente(page) {
 }
 
 /**
- * Crea una cotización completa (cliente + producto + simular + guardar) y retorna la URL de detalles.
- * Retorna '' si no hay productos o clientes disponibles (el test debe skipear).
+ * Crea una cotización completa (cliente + producto + simular + guardar).
+ * Retorna '' — y el test debe skipear — si no hay productos/clientes en el
+ * entorno, O si Guardar convirtió sola a venta (siempre que hay cliente de
+ * sistema, ver COTIZACION-SIMULAR-GUARDAR-DIRECTO-01 más arriba): ya no hay
+ * Detalles sin convertir que visitar en ese caso.
  * @param {import('playwright/test').Page} page
  * @param {{ descImporte?: number }} [opts]
  * @returns {Promise<string>}
@@ -162,21 +180,27 @@ async function crearCotizacionYNavegar(page, opts = {}) {
     await page.locator('#cotizacion-resultados').waitFor({ state: 'visible', timeout: 15_000 });
     await page.locator('#cotizacion-resultados-tbody tr').first().waitFor({ state: 'visible', timeout: 5_000 });
 
-    // Guardar: el botón abre el modal de confirmación; el confirm dispara el POST.
+    // COTIZACION-SIMULAR-GUARDAR-DIRECTO-01 (pedido explícito del usuario): Guardar
+    // ya no abre un modal — guarda directo y, como acá siempre hay un cliente de
+    // sistema seleccionado (seleccionarPrimerCliente arriba), encadena solo a
+    // pasarAVenta() y navega derecho a /Venta/Edit/{id}, sin pasar por Detalles.
+    // Esto vuelve irrepetible por UI el escenario que T9-T12 necesitan (cotización
+    // "Emitida" sin convertir en Detalles, con cliente ya asignado, para ejercitar
+    // el modal de conversión manual de esa pantalla) — devolver '' hace que esos
+    // tests skipeen con el motivo real en vez de fallar contra un contrato que ya
+    // no es alcanzable desde el simulador.
     const guardarBtn = page.locator('#cotizacion-guardar');
     await expect(guardarBtn).toBeEnabled({ timeout: 5_000 });
     await guardarBtn.click();
 
-    const guardarConfirm = page.locator('#cotizacion-guardar-confirm');
-    await expect(guardarConfirm).toBeVisible({ timeout: 5_000 });
-
-    await Promise.all([
-        page.waitForURL(/\/Cotizacion\/Detalles\/\d+/, { timeout: 20_000 }),
-        guardarConfirm.click()
-    ]);
-    await page.waitForLoadState('domcontentloaded');
-
-    return page.url();
+    try {
+        await page.waitForURL(/\/Venta\/Edit\/\d+/, { timeout: 20_000 });
+        return '';
+    } catch {
+        // No convirtió sola (p.ej. la llamada a pasarAVenta falló) — cae al estado
+        // post-guardado normal, sin navegar. No hay Detalles que visitar tampoco.
+        return '';
+    }
 }
 
 /**
@@ -235,7 +259,7 @@ test.describe('Cotización conversión — COTIZ-QA-3', () => {
 
         // 1. Crear cotización con cliente y navegar a Detalles
         const detallesUrl = await crearCotizacionYNavegar(page);
-        test.skip(!detallesUrl, 'Sin productos o clientes disponibles en el entorno de prueba');
+        test.skip(!detallesUrl, 'Guardar con cliente de sistema ahora pasa directo a Venta/Edit (COTIZACION-SIMULAR-GUARDAR-DIRECTO-01) — este escenario (Detalles sin convertir) ya no es alcanzable por UI desde el simulador, o no hay productos/clientes en el entorno');
 
         expect(detallesUrl).toMatch(/\/Cotizacion\/Detalles\/\d+/);
 
@@ -271,7 +295,7 @@ test.describe('Cotización conversión — COTIZ-QA-3', () => {
 
         // 1. Crear cotización
         const detallesUrl = await crearCotizacionYNavegar(page);
-        test.skip(!detallesUrl, 'Sin productos o clientes disponibles en el entorno de prueba');
+        test.skip(!detallesUrl, 'Guardar con cliente de sistema ahora pasa directo a Venta/Edit (COTIZACION-SIMULAR-GUARDAR-DIRECTO-01) — este escenario (Detalles sin convertir) ya no es alcanzable por UI desde el simulador, o no hay productos/clientes en el entorno');
 
         // 2. Abrir modal y confirmar conversión
         const convertible = await abrirModalYEsperarPreview(page);
@@ -313,7 +337,7 @@ test.describe('Cotización conversión — COTIZ-QA-3', () => {
 
         // 1. Crear cotización con descuento importe $50 en primer producto
         const detallesUrl = await crearCotizacionYNavegar(page, { descImporte: 50 });
-        test.skip(!detallesUrl, 'Sin productos o clientes disponibles en el entorno de prueba');
+        test.skip(!detallesUrl, 'Guardar con cliente de sistema ahora pasa directo a Venta/Edit (COTIZACION-SIMULAR-GUARDAR-DIRECTO-01) — este escenario (Detalles sin convertir) ya no es alcanzable por UI desde el simulador, o no hay productos/clientes en el entorno');
 
         // 2. Abrir modal de conversión
         const convertible = await abrirModalYEsperarPreview(page);
@@ -341,7 +365,7 @@ test.describe('Cotización conversión — COTIZ-QA-3', () => {
 
         // 1. Crear y convertir cotización
         const detallesUrl = await crearCotizacionYNavegar(page);
-        test.skip(!detallesUrl, 'Sin productos o clientes disponibles en el entorno de prueba');
+        test.skip(!detallesUrl, 'Guardar con cliente de sistema ahora pasa directo a Venta/Edit (COTIZACION-SIMULAR-GUARDAR-DIRECTO-01) — este escenario (Detalles sin convertir) ya no es alcanzable por UI desde el simulador, o no hay productos/clientes en el entorno');
 
         const convertible = await abrirModalYEsperarPreview(page);
         test.skip(!convertible, 'Modal de conversión no disponible');

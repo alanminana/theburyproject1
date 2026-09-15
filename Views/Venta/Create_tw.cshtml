@@ -39,6 +39,9 @@
     <script src="~/js/credito-module.js" asp-append-version="true"></script>
     <script src="~/js/venta-page-wizard.js" asp-append-version="true"></script>
     <script src="~/js/venta-create.js" asp-append-version="true"></script>
+    @* Paso Envío: lee window.ventaInicial (ya sembrado por venta-page-wizard.js arriba)
+       y escucha la selección de cliente que dispara venta-create.js. *@
+    <script src="~/js/venta-envio.js" asp-append-version="true"></script>
     @* Configurador embebido del paso Crédito: configurar-venta-credito.js expone
        initConfigurarVentaCredito, que venta-credito-embebido.js llama tras inyectar el
        fragmento de /Credito/ConfigurarVenta?embedded=true. Debe cargar después de

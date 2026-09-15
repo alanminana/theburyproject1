@@ -76,6 +76,7 @@ public sealed class CotizacionService : ICotizacionService
             // financian en cuotas con recargo): si se seleccionó otro medio, no hay anticipo.
             Anticipo = seleccion?.Plan?.Anticipo ?? 0m,
             FechaVencimiento = request.FechaVencimiento,
+            TieneEnvio = request.TieneEnvio,
             CreatedBy = string.IsNullOrWhiteSpace(usuario) ? "System" : usuario.Trim()
         };
 
@@ -460,6 +461,7 @@ public sealed class CotizacionService : ICotizacionService
             ValorCuotaSeleccionada = cotizacion.ValorCuotaSeleccionada,
             Anticipo = cotizacion.Anticipo,
             FechaVencimiento = cotizacion.FechaVencimiento,
+            TieneEnvio = cotizacion.TieneEnvio,
             MotivoCancelacion = cotizacion.MotivoCancelacion,
             VentaConvertidaId = ventaConvertidaId,
             NumeroVentaConvertida = numeroVentaConvertida,

@@ -47,9 +47,33 @@
                 {
                     id = Model.ClienteId,
                     nombre = Model.ClienteNombre,
-                    documento = Model.ClienteDocumento
+                    documento = Model.ClienteDocumento,
+                    telefono = Model.ClienteTelefono ?? string.Empty,
+                    domicilio = Model.ClienteDomicilio ?? string.Empty,
+                    localidad = Model.ClienteLocalidad ?? string.Empty,
+                    provincia = Model.ClienteProvincia ?? string.Empty,
+                    codigoPostal = Model.ClienteCodigoPostal ?? string.Empty
                 }
                 : null,
+            // ENVIO-ML4: hidrata el paso Envío del wizard. Si la venta ya tiene un
+            // VentaEnvio persistido (p.ej. convertida desde una cotización con envío),
+            // sus datos ganan sobre los del cliente.
+            tieneEnvio = Model.TieneEnvio,
+            envio = Model.Envio == null
+                ? null
+                : new
+                {
+                    destinatario = Model.Envio.Destinatario,
+                    telefono = Model.Envio.Telefono ?? string.Empty,
+                    domicilio = Model.Envio.Domicilio,
+                    localidad = Model.Envio.Localidad ?? string.Empty,
+                    provincia = Model.Envio.Provincia ?? string.Empty,
+                    codigoPostal = Model.Envio.CodigoPostal ?? string.Empty,
+                    transportista = Model.Envio.Transportista ?? string.Empty,
+                    costoEnvio = Model.Envio.CostoEnvio,
+                    fechaProgramada = Model.Envio.FechaProgramada.HasValue ? Model.Envio.FechaProgramada.Value.ToString("yyyy-MM-dd") : null,
+                    observaciones = Model.Envio.Observaciones ?? string.Empty
+                },
             detalles = Model.Detalles.Select(d => new
             {
                 productoId = d.ProductoId,
@@ -281,9 +305,20 @@
                             <span class="vm-step-tab__num">@(4 + offsetPaso)</span>
                             Crédito
                         </button>
+                        <button type="button" id="step-btn-envio" role="tab" aria-selected="false" tabindex="-1"
+                                aria-controls="step-panel-envio" data-step="envio" class="vm-step-tab">
+                            <span class="vm-step-tab__num">@(5 + offsetPaso)</span>
+                            Envío
+                            @if (Model.TieneEnvio)
+                            {
+                                <span id="step-btn-envio-badge" class="vm-step-tab__badge">
+                                    <span class="material-symbols-outlined" style="font-size:12px">local_shipping</span>
+                                </span>
+                            }
+                        </button>
                         <button type="button" id="step-btn-revision" role="tab" aria-selected="false" tabindex="-1"
                                 aria-controls="step-panel-revision" data-step="revision" class="vm-step-tab">
-                            <span class="vm-step-tab__num">@(5 + offsetPaso)</span>
+                            <span class="vm-step-tab__num">@(6 + offsetPaso)</span>
                             Revisión
                         </button>
                     </div>
@@ -1075,6 +1110,88 @@
                                                                                                 </div>
                                                                                             </div>
                                                                                                 </section>
+
+                                                                                            <section id="step-panel-envio" role="tabpanel" aria-labelledby="step-btn-envio" class="hidden">
+                                                                                                <div class="venta-section">
+                                                                                                    <div class="mb-6 flex items-start justify-between gap-4">
+                                                                                                        <div class="flex items-center gap-3">
+                                                                                                            <span class="w-8 h-8 shrink-0 flex items-center justify-center rounded-full bg-primary/15 text-primary text-xs font-bold">5</span>
+                                                                                                            <div>
+                                                                                                                <h2 class="text-lg font-bold text-white">Envío</h2>
+                                                                                                                <p class="text-sm text-slate-400">Si la venta se entrega a domicilio, cargá los datos de envío. El costo es sólo informativo: no modifica el total de la venta.</p>
+                                                                                                            </div>
+                                                                                                        </div>
+                                                                                                        <span class="badge-erp badge-erp-neutral shrink-0">
+                                                                                                            <span class="material-symbols-outlined text-sm">local_shipping</span>
+                                                                                                            Opcional
+                                                                                                        </span>
+                                                                                                    </div>
+
+                                                                                                    <div class="venta-sub-panel">
+                                                                                                        <label class="flex items-center gap-2 text-sm text-white cursor-pointer">
+                                                                                                            <input type="checkbox" asp-for="TieneEnvio" id="chk-tiene-envio" class="size-4 rounded border-white/30 bg-white/10" />
+                                                                                                            Esta venta tiene envío a domicilio
+                                                                                                        </label>
+                                                                                                    </div>
+
+                                                                                                    <div id="envio-datos" class="venta-sub-panel mt-4@(Model.TieneEnvio ? "" : " hidden")">
+                                                                                                        <div class="flex items-center justify-between gap-3 mb-4">
+                                                                                                            <h4 class="text-sm font-bold text-white flex items-center gap-2">
+                                                                                                                <span class="material-symbols-outlined text-sm">local_shipping</span> Datos de entrega
+                                                                                                            </h4>
+                                                                                                            <button type="button" id="btn-envio-usar-cliente" class="text-xs font-bold text-primary hover:underline">
+                                                                                                                Usar domicilio del cliente
+                                                                                                            </button>
+                                                                                                        </div>
+                                                                                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                                                                            <div class="md:col-span-2">
+                                                                                                                <label class="venta-label" for="envio-destinatario">Destinatario</label>
+                                                                                                                <input type="text" name="Envio.Destinatario" id="envio-destinatario" class="venta-input" maxlength="200" placeholder="Nombre de quien recibe" />
+                                                                                                            </div>
+                                                                                                            <div>
+                                                                                                                <label class="venta-label" for="envio-telefono">Teléfono</label>
+                                                                                                                <input type="text" name="Envio.Telefono" id="envio-telefono" class="venta-input" maxlength="30" />
+                                                                                                            </div>
+                                                                                                            <div>
+                                                                                                                <label class="venta-label" for="envio-transportista">Transportista</label>
+                                                                                                                <input type="text" name="Envio.Transportista" id="envio-transportista" class="venta-input" maxlength="150" placeholder="Ej: Correo Argentino, envío propio…" />
+                                                                                                            </div>
+                                                                                                            <div class="md:col-span-2">
+                                                                                                                <label class="venta-label" for="envio-domicilio">Domicilio de entrega</label>
+                                                                                                                <input type="text" name="Envio.Domicilio" id="envio-domicilio" class="venta-input" maxlength="300" />
+                                                                                                            </div>
+                                                                                                            <div>
+                                                                                                                <label class="venta-label" for="envio-localidad">Localidad</label>
+                                                                                                                <input type="text" name="Envio.Localidad" id="envio-localidad" class="venta-input" maxlength="100" />
+                                                                                                            </div>
+                                                                                                            <div>
+                                                                                                                <label class="venta-label" for="envio-provincia">Provincia</label>
+                                                                                                                <input type="text" name="Envio.Provincia" id="envio-provincia" class="venta-input" maxlength="100" />
+                                                                                                            </div>
+                                                                                                            <div>
+                                                                                                                <label class="venta-label" for="envio-cp">Código postal</label>
+                                                                                                                <input type="text" name="Envio.CodigoPostal" id="envio-cp" class="venta-input" maxlength="20" />
+                                                                                                            </div>
+                                                                                                            <div>
+                                                                                                                <label class="venta-label" for="envio-costo">Costo de envío (informativo)</label>
+                                                                                                                <div class="relative">
+                                                                                                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
+                                                                                                                    <input type="number" name="Envio.CostoEnvio" id="envio-costo" min="0" step="0.01" class="venta-input" style="padding-left:1.75rem" />
+                                                                                                                </div>
+                                                                                                                <p class="mt-1 text-xs text-slate-500">No modifica el total de la venta.</p>
+                                                                                                            </div>
+                                                                                                            <div>
+                                                                                                                <label class="venta-label" for="envio-fecha">Fecha programada</label>
+                                                                                                                <input type="date" name="Envio.FechaProgramada" id="envio-fecha" class="venta-input" />
+                                                                                                            </div>
+                                                                                                            <div class="md:col-span-2">
+                                                                                                                <label class="venta-label" for="envio-observaciones">Observaciones</label>
+                                                                                                                <textarea name="Envio.Observaciones" id="envio-observaciones" rows="2" maxlength="500" class="venta-input"></textarea>
+                                                                                                            </div>
+                                                                                                        </div>
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            </section>
 
                                                                                                  <section id="step-panel-revision" role="tabpanel" aria-labelledby="step-btn-revision" class="hidden" hidden>
                                                                                                     <div class="venta-section">

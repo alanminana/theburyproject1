@@ -10,6 +10,9 @@ public sealed class CotizacionCrearRequest
     public string? NombreClienteLibre { get; init; }
     public string? TelefonoClienteLibre { get; init; }
     public DateTime? FechaVencimiento { get; init; }
+
+    /// <summary>Checkbox "Esta venta tiene envío a domicilio" del simulador.</summary>
+    public bool TieneEnvio { get; init; }
 }
 
 public sealed class CotizacionOpcionPagoSeleccionadaRequest
@@ -54,6 +57,7 @@ public sealed class CotizacionResultado
     public decimal Anticipo { get; init; }
 
     public DateTime? FechaVencimiento { get; init; }
+    public bool TieneEnvio { get; init; }
     public IReadOnlyList<CotizacionDetalleResultado> Detalles { get; init; } = Array.Empty<CotizacionDetalleResultado>();
     public IReadOnlyList<CotizacionPagoSimuladoResultado> OpcionesPago { get; init; } = Array.Empty<CotizacionPagoSimuladoResultado>();
 

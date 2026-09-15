@@ -24,6 +24,13 @@
     var devolucionesElegibles = ventas
         .Where(v => puedeCrearDevoluciones && puedeOperarVentas && v.PuedeCrearDevolucion && v.Estado != EstadoVenta.Cancelada)
         .ToList();
+    // ENVIO-ML6: envíos que todavía no llegaron a un estado terminal (Entregado/
+    // Cancelado), derivados en memoria del mismo "ventas" ya cargado — mismo patrón que
+    // cotizacionesPresupuestos/devolucionesElegibles, sin acción de controller nueva.
+    var enviosPendientes = ventas
+        .Where(v => v.Envio != null && !v.Envio.EsTerminal)
+        .OrderBy(v => v.Envio!.FechaProgramada ?? v.FechaVenta)
+        .ToList();
 
     // VENTA-UI-04B: paginación server-rendered en memoria, solo para Operaciones.
     // "ventas" (arriba) sigue siendo el conjunto filtrado completo para KPIs y tabs;
@@ -266,6 +273,15 @@
                             aria-controls="panel-devoluciones" data-venta-tab="devoluciones">
                         <span class="material-symbols-outlined">assignment_return</span>
                         Devoluciones
+                    </button>
+                    <button type="button" id="tab-envios" class="tab-btn" role="tab" aria-selected="false"
+                            aria-controls="panel-envios" data-venta-tab="envios">
+                        <span class="material-symbols-outlined">local_shipping</span>
+                        Envíos pendientes
+                        @if (enviosPendientes.Count > 0)
+                        {
+                            <span class="tab-btn__count">@enviosPendientes.Count</span>
+                        }
                     </button>
                     </div>
                 </div>
@@ -726,7 +742,48 @@
                                                             </div>
                                                         </section>
 
-                                                           
+                                                        <section id="panel-envios" role="tabpanel" aria-labelledby="tab-envios"
+                                                                 data-venta-tab-panel="envios" class="tab-panel" hidden>
+                                                            <div class="panel-heading">
+                                                                <div>
+                                                                    <p class="label">Logística</p>
+                                                                    <h2>Envíos pendientes</h2>
+                                                                    <p>Ventas con envío a domicilio que todavía no llegaron a destino.</p>
+                                                                </div>
+                                                            </div>
+                                                            <div class="compact-list">
+                                                                @foreach (var v in enviosPendientes)
+                                                                {
+                                                                    <article class="card card-sub compact-item">
+                                                                        <div>
+                                                                            <a asp-action="Details" asp-route-id="@v.Id" class="sale-number no-underline">@v.Numero</a>
+                                                                            <p>
+                                                                                @v.ClienteNombre
+                                                                                @if (!string.IsNullOrWhiteSpace(v.Envio!.Domicilio))
+                                                                                {
+                                                                                    <text> · @v.Envio.Domicilio</text>
+                                                                                }
+                                                                                @if (v.Envio.FechaProgramada.HasValue)
+                                                                                {
+                                                                                    <text> · Programado @v.Envio.FechaProgramada.Value.ToString("dd/MM/yyyy")</text>
+                                                                                }
+                                                                            </p>
+                                                                        </div>
+                                                                        <span class="pill @v.Envio.EstadoPillClass">@v.Envio.EstadoDisplay</span>
+                                                                        <a asp-action="Details" asp-route-id="@v.Id" class="btn btn-xs btn-soft no-underline">Ver</a>
+                                                                    </article>
+                                                                }
+                                                                @if (!enviosPendientes.Any())
+                                                                {
+                                                                    <div class="empty-state empty-state-compact">
+                                                                        <span class="material-symbols-outlined">local_shipping</span>
+                                                                        <h3>Sin envíos pendientes</h3>
+                                                                    </div>
+                                                                }
+                                                            </div>
+                                                        </section>
+
+
                                                     </section>
 
                                                     <nav class="mobile-sticky-bar" aria-label="Acciones principales de ventas">

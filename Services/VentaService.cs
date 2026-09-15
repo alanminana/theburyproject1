@@ -99,6 +99,7 @@ namespace TheBuryProject.Services
                 .Include(v => v.Detalles.Where(d => !d.IsDeleted && d.Producto != null && !d.Producto.IsDeleted)).ThenInclude(d => d.Producto)
                 .Include(v => v.DatosTarjeta)
                 .Include(v => v.DatosCheque)
+                .Include(v => v.Envio)
                 .Where(v =>
                     !v.IsDeleted &&
                     (v.Cliente == null || !v.Cliente.IsDeleted) &&
@@ -126,6 +127,7 @@ namespace TheBuryProject.Services
                 .Include(v => v.Facturas)
                 .Include(v => v.DatosTarjeta).ThenInclude(dt => dt!.ConfiguracionTarjeta)
                 .Include(v => v.DatosCheque)
+                .Include(v => v.Envio)
                 .Include(v => v.VentaCreditoCuotas.OrderBy(c => c.NumeroCuota))
                 .FirstOrDefaultAsync(v =>
                     v.Id == id &&
@@ -713,6 +715,7 @@ namespace TheBuryProject.Services
             var venta = await _context.Ventas
                 .Include(v => v.Detalles)
                 .Include(v => v.DatosTarjeta)
+                .Include(v => v.Envio)
                 .FirstOrDefaultAsync(v => v.Id == id && !v.IsDeleted);
 
             if (venta == null)
@@ -768,6 +771,7 @@ namespace TheBuryProject.Services
             // CalcularTotales establece venta.Total desde los ítems (base limpia).
             // Si el orden se invierte o se agrega otra llamada al ajuste después, el ajuste se compone.
             await SincronizarDatosTarjetaEdicionAsync(venta, viewModel);
+            SincronizarEnvioEdicion(venta, viewModel);
             await CalcularComisionesAsync(venta);
 
             // Venta sin crédito asociado todavía (p.ej. convertida desde cotización): este
@@ -2164,6 +2168,62 @@ namespace TheBuryProject.Services
             await AplicarSnapshotDatosTarjetaAsync(venta, datosTarjeta, viewModel.DatosTarjeta);
         }
 
+        /// <summary>
+        /// Alta/edición/baja del envío 1:1 de la venta al editar. La existencia de
+        /// venta.Envio, no un flag en Venta, es la autoridad — igual patrón que
+        /// SincronizarDatosTarjetaEdicionAsync. No toca Total/IVA/caja/crédito: el costo
+        /// de envío es informativo.
+        /// </summary>
+        private void SincronizarEnvioEdicion(Venta venta, VentaViewModel viewModel)
+        {
+            if (!viewModel.TieneEnvio)
+            {
+                if (venta.Envio != null)
+                {
+                    _context.VentaEnvios.Remove(venta.Envio);
+                    venta.Envio = null;
+                }
+
+                return;
+            }
+
+            if (viewModel.Envio == null)
+            {
+                throw new InvalidOperationException(
+                    "Marcaste que la venta tiene envío pero faltan los datos de entrega.");
+            }
+
+            var envio = venta.Envio;
+            if (envio == null)
+            {
+                envio = _mapper.Map<VentaEnvio>(viewModel.Envio);
+                envio.VentaId = venta.Id;
+                envio.Estado = EstadoEnvio.Pendiente;
+                venta.Envio = envio;
+                _context.VentaEnvios.Add(envio);
+            }
+            else
+            {
+                ActualizarEnvioDesdeViewModel(envio, viewModel.Envio);
+            }
+        }
+
+        private static void ActualizarEnvioDesdeViewModel(VentaEnvio destino, VentaEnvioViewModel origen)
+        {
+            destino.Destinatario = origen.Destinatario;
+            destino.Telefono = origen.Telefono;
+            destino.Domicilio = origen.Domicilio;
+            destino.Localidad = origen.Localidad;
+            destino.Provincia = origen.Provincia;
+            destino.CodigoPostal = origen.CodigoPostal;
+            destino.Transportista = origen.Transportista;
+            destino.CostoEnvio = origen.CostoEnvio;
+            destino.FechaProgramada = origen.FechaProgramada;
+            destino.Observaciones = origen.Observaciones;
+            // Estado, NumeroSeguimiento y las fechas de despacho/entrega NO se editan
+            // desde acá: son autoridad exclusiva de VentaEnvioService.CambiarEstadoAsync.
+        }
+
         private static bool TipoPagoRequiereDatosTarjeta(TipoPago tipoPago) =>
             tipoPago is TipoPago.TarjetaCredito or TipoPago.TarjetaDebito or TipoPago.MercadoPago;
 
@@ -2558,6 +2618,9 @@ namespace TheBuryProject.Services
 
             if (filter.EstadoAutorizacion.HasValue)
                 query = query.Where(v => v.EstadoAutorizacion == filter.EstadoAutorizacion.Value);
+
+            if (filter.EstadoEnvio.HasValue)
+                query = query.Where(v => v.Envio != null && v.Envio.Estado == filter.EstadoEnvio.Value);
 
             return query;
         }
@@ -3744,6 +3807,33 @@ namespace TheBuryProject.Services
             {
                 await GuardarPlanCreditoPersonallAsync(ventaId, viewModel.DatosCreditoPersonall);
             }
+
+            if (viewModel.TieneEnvio && viewModel.Envio != null)
+            {
+                await GuardarEnvioAsync(ventaId, viewModel.Envio);
+            }
+        }
+
+        /// <summary>
+        /// Alta del envío al crear la venta (equivalente a GuardarDatosTarjetaAsync para
+        /// DatosTarjeta). Idempotente igual que su par: si ya existe un envío para la
+        /// venta, no lo duplica ni lo pisa en silencio.
+        /// </summary>
+        private async Task<bool> GuardarEnvioAsync(int ventaId, VentaEnvioViewModel datosEnvio)
+        {
+            var yaExiste = await _context.VentaEnvios
+                .AnyAsync(e => e.VentaId == ventaId && !e.IsDeleted);
+            if (yaExiste)
+                return false;
+
+            var envio = _mapper.Map<VentaEnvio>(datosEnvio);
+            envio.VentaId = ventaId;
+            envio.Estado = EstadoEnvio.Pendiente;
+
+            _context.VentaEnvios.Add(envio);
+            await _context.SaveChangesAsync();
+
+            return true;
         }
 
         /// <summary>

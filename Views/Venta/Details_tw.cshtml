@@ -716,6 +716,69 @@
                     </section>
                 }
 
+                <!-- Envío (if applicable) -->
+                @if (Model.Envio != null)
+                {
+                    var envio = Model.Envio;
+                    <section class="card-erp-panel-padded">
+                        <div class="mb-6 flex flex-col gap-3 border-b border-slate-800 pb-4 sm:flex-row sm:items-start sm:justify-between">
+                            <div class="flex items-start gap-2">
+                                <span class="material-symbols-outlined mt-0.5 text-primary">local_shipping</span>
+                                <div>
+                                    <p class="text-xs font-bold uppercase tracking-[0.18em] text-primary">Entrega a domicilio</p>
+                                    <h2 class="mt-1 text-xl font-bold text-white">Envío</h2>
+                                    <p class="mt-1 text-sm text-slate-400">Sólo informativo: el costo de envío no forma parte del total de la venta.</p>
+                                </div>
+                            </div>
+                            <span class="pill @envio.EstadoPillClass shrink-0">@envio.EstadoDisplay</span>
+                        </div>
+                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                            <div class="venta-stat sm:col-span-2 xl:col-span-3">
+                                <p class="text-[10px] text-slate-500 font-bold uppercase">Destinatario</p>
+                                <p class="text-sm font-bold text-white">@envio.Destinatario</p>
+                            </div>
+                            <div class="venta-stat sm:col-span-2 xl:col-span-3">
+                                <p class="text-[10px] text-slate-500 font-bold uppercase">Domicilio de entrega</p>
+                                <p class="text-sm font-bold text-white">
+                                    @envio.Domicilio
+                                    @if (!string.IsNullOrWhiteSpace(envio.Localidad) || !string.IsNullOrWhiteSpace(envio.Provincia))
+                                    {
+                                        <text>, @string.Join(", ", new[] { envio.Localidad, envio.Provincia }.Where(s => !string.IsNullOrWhiteSpace(s)))</text>
+                                    }
+                                </p>
+                            </div>
+                            @if (!string.IsNullOrWhiteSpace(envio.Telefono))
+                            {
+                                <div class="venta-stat">
+                                    <p class="text-[10px] text-slate-500 font-bold uppercase">Teléfono</p>
+                                    <p class="text-sm font-bold text-white">@envio.Telefono</p>
+                                </div>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(envio.Transportista))
+                            {
+                                <div class="venta-stat">
+                                    <p class="text-[10px] text-slate-500 font-bold uppercase">Transportista</p>
+                                    <p class="text-sm font-bold text-white">@envio.Transportista</p>
+                                </div>
+                            }
+                            @if (envio.CostoEnvio.HasValue)
+                            {
+                                <div class="venta-stat">
+                                    <p class="text-[10px] text-slate-500 font-bold uppercase">Costo (informativo)</p>
+                                    <p class="text-sm font-bold text-white">@envio.CostoEnvio.Value.ToString("C2")</p>
+                                </div>
+                            }
+                            @if (envio.Estado == EstadoEnvio.Fallido && !string.IsNullOrWhiteSpace(envio.MotivoNoEntrega))
+                            {
+                                <div class="venta-stat sm:col-span-2 xl:col-span-3">
+                                    <p class="text-[10px] text-slate-500 font-bold uppercase">Motivo de la entrega fallida</p>
+                                    <p class="text-sm font-bold text-amber-300">@envio.MotivoNoEntrega</p>
+                                </div>
+                            }
+                        </div>
+                    </section>
+                }
+
                 <!-- Authorization Info (if applicable) -->
                 @if (Model.RequiereAutorizacion)
                 {
@@ -749,12 +812,14 @@
                     // generado" para no perder esa vía.
                     var hayAccionVerContrato = contratoVentaCredito != null;
                     var hayAccionPrepararVenta = puedeOperarVentas && Model.PuedePrepararVenta && puedeActualizarVentas;
-                    // Checkbox "Facturar al confirmar" + modal (mismo patrón que Venta/Edit):
-                    // reemplaza al viejo botón directo "Confirmar y facturar" (que confirmaba
-                    // y facturaba con Tipo B fijo, sin elegir tipo). Misma condición que antes.
-                    var puedeFacturarAlConfirmar = puedeOperarVentas && Model.PuedeConfirmarYFacturar
-                        && puedeFacturarVentas && puedeActualizarVentas;
-                    var hayAccionConfirmar = puedeOperarVentas && Model.PuedeConfirmar;
+                    // Reapertura (reporte directo del usuario): "Confirmar Venta" (+ checkbox
+                    // "Facturar al confirmar") se retira de Details — quedaba duplicado contra
+                    // el mismo botón/modal del paso Revisión de Venta/Edit para la misma venta,
+                    // dos autoridades ofreciendo la misma acción en dos pantallas. Confirmar
+                    // queda como una acción exclusiva del wizard de edición; Details conserva
+                    // "Editar Venta" como única vía hacia esa acción. hayAccionFacturar (venta
+                    // YA confirmada, sólo falta facturarla) no se toca: es un estado distinto,
+                    // sin equivalente en el wizard.
                     var hayAccionFacturar = puedeOperarVentas && Model.PuedeFacturar && puedeFacturarVentas;
                     var hayAccionImprimirFactura = tieneFactura && facturaActiva != null;
                     var hayAccionAutorizar = Model.PuedeAutorizar && (puedeAutorizarVentas || puedeRechazarVentas);
@@ -763,11 +828,13 @@
                     var hayAccionCancelar = puedeCancelarVentas && puedeOperarVentas && Model.PuedeCancelar
                         && Model.Estado != EstadoVenta.Facturada && Model.Estado != EstadoVenta.Entregada;
                     var hayAccionAnularFactura = puedeOperarVentas && tieneFactura && facturaActiva != null && puedeFacturarVentas;
+                    var hayAccionActualizarEnvio = puedeOperarVentas && puedeActualizarVentas && Model.PuedeCambiarEstadoEnvio;
 
                     var hayAccionesDestructivas = hayAccionCancelar || hayAccionAnularFactura;
                     var hayAccionesDisponibles = hayAccionConfigurarCredito || hayAccionGenerarContrato || hayAccionVerContrato
-                        || hayAccionPrepararVenta || hayAccionConfirmar || hayAccionFacturar
+                        || hayAccionPrepararVenta || hayAccionFacturar
                         || hayAccionImprimirFactura || hayAccionAutorizar || hayAccionDevolucion || hayAccionEditar
+                        || hayAccionActualizarEnvio
                         || hayAccionesDestructivas;
                 }
                 <section class="card-erp-panel-padded">
@@ -820,96 +887,6 @@
                                 <button type="submit" class="btn-erp-primary btn-erp-block">
                                     <span class="material-symbols-outlined text-sm">assignment_turned_in</span> Preparar venta
                                 </button>
-                            </form>
-                        }
-
-                        @* Confirmar (+ checkbox "Facturar al confirmar", mismo patrón que Venta/Edit:
-                           tildado, "Confirmar Venta" abre un modal para elegir el tipo de factura y
-                           termina en ConfirmarYFacturar en vez de Confirmar). *@
-                        @if (hayAccionConfirmar)
-                        {
-                            <form asp-action="Confirmar" method="post" id="form-confirmar">
-                                <input type="hidden" name="id" value="@Model.Id" />
-                                @* Micro-lote 6 (F2): la decisión de cobrar la 1ª cuota se tomó en la
-                                   configuración del crédito. Acá solo se muestra el resumen; el servidor
-                                   la revalida y ejecuta al confirmar (no hay input manipulable). *@
-                                @if (ViewBag.PrimeraCuotaVenceHoy == true)
-                                {
-                                    if (ViewBag.PrimeraCuotaDecisionCobrar == true)
-                                    {
-                                        <div class="mb-3 flex flex-col gap-1 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-sm text-emerald-200">
-                                            <span class="flex items-center gap-2 font-semibold">
-                                                <span class="material-symbols-outlined text-base">payments</span>
-                                                Se cobrará la 1ª cuota al confirmar (vence hoy)
-                                            </span>
-                                            <span class="text-xs text-emerald-300/80">Medio de pago: <strong>@ViewBag.PrimeraCuotaDecisionMedio</strong>. El recargo del medio se aplica al cobrar e impacta en caja.</span>
-                                        </div>
-                                    }
-                                    else
-                                    {
-                                        <div class="mb-3 flex flex-col gap-1 rounded-xl border border-slate-600/40 bg-slate-800/40 p-3 text-sm text-slate-300">
-                                            <span class="font-semibold">La 1ª cuota vence hoy y no se cobrará al confirmar.</span>
-                                            <span class="text-xs text-slate-400">Para cobrarla en el alta, activá la opción en la configuración del crédito.</span>
-                                        </div>
-                                    }
-                                }
-                                @if (puedeFacturarAlConfirmar)
-                                {
-                                    <div class="mb-3 flex items-center gap-2">
-                                        <input type="checkbox" id="chk-facturar-details" class="size-4 rounded border-slate-600 bg-slate-800" />
-                                        <label for="chk-facturar-details" class="cursor-pointer text-xs font-semibold text-slate-300">Facturar al confirmar</label>
-                                    </div>
-                                }
-                                <button type="submit" class="btn-erp-primary btn-erp-block">
-                                    <span class="material-symbols-outlined text-sm">check_circle</span> Confirmar Venta
-                                </button>
-
-                                @* Modal "Confirmar y facturar": el <select> vive DENTRO de #form-confirmar
-                                   (no es un <form> nuevo) para que "tipo" viaje en el mismo submit — ver
-                                   btnConfirmarFacturarDetails en details-venta.js, que cambia form.action a
-                                   ConfirmarYFacturar antes de reusar el submit de este form. *@
-                                @if (puedeFacturarAlConfirmar)
-                                {
-                                    <div id="modal-confirmar-facturar" data-venta-modal="confirmar-facturar"
-                                         class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 px-4 backdrop-blur-sm overflow-y-auto"
-                                         role="dialog" aria-modal="true" aria-labelledby="modal-confirmar-facturar-titulo" aria-hidden="true" tabindex="-1">
-                                        <div class="absolute inset-0" data-venta-modal-action="close"></div>
-                                        <div class="relative w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl">
-                                            <div class="flex items-center justify-between border-b border-slate-800 p-6">
-                                                <h3 id="modal-confirmar-facturar-titulo" class="flex items-center gap-2 text-lg font-bold text-white">
-                                                    <span class="material-symbols-outlined text-primary">receipt_long</span>
-                                                    Confirmar y facturar
-                                                </h3>
-                                                <button type="button" data-venta-modal-action="close" class="rounded-lg p-1 hover:bg-slate-800">
-                                                    <span class="material-symbols-outlined text-slate-400">close</span>
-                                                </button>
-                                            </div>
-                                            <div class="space-y-4 p-6">
-                                                <p class="text-sm text-slate-400">
-                                                    La operación @Model.Numero se confirmará y se generará la factura correspondiente en el mismo paso.
-                                                </p>
-                                                <div>
-                                                    <label for="modal-tipo-factura-details" class="mb-2 block text-xs font-bold uppercase text-slate-500">Tipo de factura</label>
-                                                    <select id="modal-tipo-factura-details" name="tipo"
-                                                            class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white"
-                                                            data-modal-initial-focus>
-                                                        <option value="@TipoFactura.A">A</option>
-                                                        <option value="@TipoFactura.B" selected>B</option>
-                                                        <option value="@TipoFactura.C">C</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                            <div class="flex gap-3 border-t border-slate-800 p-6">
-                                                <button type="button" data-venta-modal-action="close" class="btn-erp-ghost flex-1">Cancelar</button>
-                                                <button type="button" id="btn-confirmar-facturar-details"
-                                                        data-action-url="@Url.Action("ConfirmarYFacturar")"
-                                                        class="btn-erp-primary flex-1">
-                                                    <span class="material-symbols-outlined text-sm">receipt_long</span> Confirmar y facturar
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                }
                             </form>
                         }
 
@@ -969,6 +946,18 @@
                                data-venta-id="@Model.Id"
                                class="btn-erp-ghost btn-erp-block">
                                 <span class="material-symbols-outlined text-sm">undo</span> Crear Devolución
+                            </button>
+                        }
+
+                        @* Actualizar estado de envío *@
+                        @if (hayAccionActualizarEnvio)
+                        {
+                            <button type="button"
+                                    id="btn-actualizar-envio"
+                                    data-venta-modal-action="open"
+                                    data-venta-modal-target="actualizar-envio"
+                                    class="btn-erp-ghost btn-erp-block">
+                                <span class="material-symbols-outlined text-sm">local_shipping</span> Actualizar Estado de Envío
                             </button>
                         }
 
@@ -1330,6 +1319,64 @@
                     <button type="submit"
                             class="venta-details-modal-action btn-erp-danger">
                         Confirmar anulación
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+}
+
+@if (Model.Envio != null && hayAccionActualizarEnvio)
+{
+    <div id="modal-actualizar-envio"
+         data-venta-modal="actualizar-envio"
+         data-venta-modal-backdrop
+         aria-hidden="true"
+         class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 px-4 backdrop-blur-sm">
+        <div class="w-full max-w-lg rounded-2xl bg-slate-900 p-6 shadow-2xl">
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <h3 class="text-lg font-bold text-white">Actualizar estado de envío</h3>
+                    <p class="mt-1 text-sm text-slate-400">
+                        Estado actual: <span class="pill @Model.Envio.EstadoPillClass">@Model.Envio.EstadoDisplay</span>
+                    </p>
+                </div>
+                <button type="button"
+                        data-venta-modal-action="close"
+                        class="inline-flex size-9 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-800 hover:text-slate-200">
+                    <span class="material-symbols-outlined text-base">close</span>
+                </button>
+            </div>
+
+            <form asp-action="CambiarEstadoEnvio" method="post" id="form-actualizar-envio" class="mt-6 space-y-4">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" value="@Model.Id" />
+
+                <div>
+                    <label for="envio-nuevo-estado" class="venta-label">Nuevo estado</label>
+                    <select id="envio-nuevo-estado" name="estado" required class="venta-input" data-modal-initial-focus>
+                        @foreach (var siguiente in Model.Envio.EstadosSiguientesPosibles)
+                        {
+                            <option value="@((int)siguiente)">@TheBuryProject.ViewModels.VentaEnvioViewModel.EstadoDisplayFor(siguiente)</option>
+                        }
+                    </select>
+                </div>
+
+                <div id="envio-motivo-bloque" class="hidden">
+                    <label for="envio-motivo" class="venta-label">Motivo de la entrega fallida</label>
+                    <textarea id="envio-motivo" name="motivo" rows="3" maxlength="500"
+                              placeholder="Por qué no se pudo entregar..." class="venta-input"></textarea>
+                </div>
+
+                <div class="venta-details-modal-footer flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                    <button type="button"
+                            data-venta-modal-action="close"
+                            class="venta-details-modal-action btn-erp-ghost">
+                        Cancelar
+                    </button>
+                    <button type="submit"
+                            class="venta-details-modal-action btn-erp-primary">
+                        Actualizar
                     </button>
                 </div>
             </form>

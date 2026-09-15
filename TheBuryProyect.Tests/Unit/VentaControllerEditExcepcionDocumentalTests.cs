@@ -130,7 +130,8 @@ public class VentaControllerEditExcepcionDocumentalTests
             null!,
             new StubContratoVentaCreditoService(),
             null!,
-            new TheBuryProject.Tests.Helpers.RelojComercialFake(DateOnly.FromDateTime(DateTime.Today)));
+            new TheBuryProject.Tests.Helpers.RelojComercialFake(DateOnly.FromDateTime(DateTime.Today)),
+            null!); // IVentaEnvioService — no usado en este test
 
         controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
         controller.TempData = new TempDataDictionary(httpContext, new StubTempDataProvider());

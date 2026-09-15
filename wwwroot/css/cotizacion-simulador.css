@@ -245,34 +245,68 @@ body:has(.cotz-standalone) #main-content > div:last-child {
     .cotz-app .rtable .plan-medio { padding-left: .9rem; }
 }
 
-/* Banda ~1024 (intermedia, item 5 del lote): Resultados a todo el ancho arriba,
-   Productos + Configuración en 2 columnas debajo — ni el apilado de mobile ni el
-   workspace de comparación de 3 columnas. Umbral medido en vivo: dentro del shell
-   ERP, 768px y 1024px de viewport dan el MISMO ancho real de .cotz-app (~758px) —
-   a 768px la sidebar pasa a overlay (no resta ancho) y a 1024px sigue en línea
+/* Banda ~1024 (intermedia, item 5 del lote): Productos + Configuración en 2
+   columnas, Resultados a todo el ancho — ni el apilado de mobile ni el workspace
+   de comparación de 3 columnas. Umbral medido en vivo: dentro del shell ERP,
+   768px y 1024px de viewport dan el MISMO ancho real de .cotz-app (~758px) — a
+   768px la sidebar pasa a overlay (no resta ancho) y a 1024px sigue en línea
    restando 256px; ambos casos coinciden casi exacto. Por eso este umbral cubre
    los dos viewports con el mismo layout: es el ancho real disponible, no la
-   etiqueta "1024" vs "768", lo que decide el layout. */
+   etiqueta "1024" vs "768", lo que decide el layout.
+   COTIZACION-SIMULAR-ORDEN-01 (reapertura por reporte directo del usuario: "está
+   ordenado de forma horrible"): antes la fila de Resultados iba PRIMERO
+   ("resultados resultados" / "productos config") — un simulador vacío ("Sin
+   simulación todavía") recibía al operador antes que el punto de partida real
+   (buscar un producto), y antes que Config (Cliente/Descuentos/Anticipo). Con el
+   umbral de la banda de 3 columnas corrido a 84rem (ver más abajo), esta banda
+   pasó a cubrir la mayoría del rango de escritorio real (1366-1920px), así que
+   el orden dejó de ser un caso de borde angosto y pasó a ser la experiencia
+   default. Fila de Productos+Config PRIMERO (izquierda→derecha = 1→3), Resultados
+   DESPUÉS a todo el ancho (2): "lo que armo" antes que "lo que obtengo", sin
+   angostar la tabla comparativa a media fila (evita el scroll horizontal interno
+   que un split Productos/Resultados lado a lado forzaría en este rango de ancho:
+   ninguna proporción de columnas deja suficiente lugar para el ancho real de la
+   tabla de 6 columnas Y un riel de Productos usable al mismo tiempo, medido en
+   vivo a 1024px). Sólo se invierten las 2 filas — mismas 2 columnas 1fr/1fr para
+   Productos/Config que ya estaban validadas. */
 @container (min-width: 44rem) {
     .cotz-app .workspace {
         grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
         grid-template-areas:
-            "resultados resultados"
-            "productos  config";
+            "productos  config"
+            "resultados resultados";
     }
 }
 
-/* Banda ~1280+: workspace de comparación completo, Resultados dominante.
-   minmax() con piso/techo en vez de píxeles fijos: las laterales no bajan de un
-   ancho usable ni crecen más de lo necesario, y el resto (~58-62%) queda para
-   Resultados — la tabla completa (Medio/Total/Plan/Cuota/Recargo/Estado) entra
-   sin scroll horizontal a este ancho. */
-@container (min-width: 68rem) {
+/* Banda ~1600+ de viewport standalone (contenedor ≥84rem): workspace de
+   comparación completo, Resultados dominante. COTIZACION-SIMULAR-DENSIDAD-01
+   (reapertura por reporte directo del usuario: "todo demasiado amontonado, y
+   poco legible"): el umbral y el piso de las laterales vivían desalineados — a
+   68rem el piso (14rem/19% Productos, 15.5rem/21% Config) ya estaba clavado en
+   su mínimo (~224px/248px) porque el componente porcentual todavía no le ganaba
+   al piso, así que cruzar a "modo comparación ancho" daba MENOS aire que la
+   banda de 2 columnas anterior (ahí Productos/Config ocupan la mitad del
+   contenedor completo, ~450-490px medido en vivo a 1280px de viewport) —
+   nombres de producto truncados y inputs Dto. %/Dto. $ casi sin ancho usable,
+   reproducido en vivo a 1440px standalone y hasta 1920px embebido en
+   Venta/Create (contenedor real más angosto que standalone por la sidebar del
+   wizard: ~1336px de contenedor a 1920px de viewport embebido). Piso subido a
+   17rem/18rem y umbral corrido de 68rem a 84rem para que la banda de 2 columnas
+   (más generosa) cubra tanto el rango de escritorio más común standalone
+   (1366-1536px reales) como el embebido hasta 1920px de viewport real (medido
+   en vivo, contenedor ~1336px < 84rem); el modo de 3 columnas queda para
+   standalone ≥~1600px de viewport o embebido en monitores aún más anchos,
+   donde el piso nuevo ya entra holgado. minmax() con piso/techo en vez de
+   píxeles fijos: las laterales no bajan de un ancho usable ni crecen más de lo
+   necesario, y el resto queda para Resultados — la tabla completa (Medio/
+   Total/Plan/Cuota/Recargo/Estado) sigue entrando sin scroll horizontal en los
+   anchos validados. */
+@container (min-width: 84rem) {
     .cotz-app { height: 100%; overflow: hidden; }
     .cotz-app .panel { max-height: 100%; }
     .cotz-app .panel-body { overflow-y: auto; }
     .cotz-app .workspace {
-        grid-template-columns: minmax(14rem, 19%) minmax(0, 1fr) minmax(15.5rem, 21%);
+        grid-template-columns: minmax(17rem, 19%) minmax(0, 1fr) minmax(18rem, 21%);
         grid-template-areas: "productos resultados config";
     }
 }
@@ -281,7 +315,7 @@ body:has(.cotz-standalone) #main-content > div:last-child {
 .cotz-app .panel { background: #111827; border: 1px solid #1f2937; border-radius: 14px; display: flex; flex-direction: column; min-height: 0; }
 .cotz-app .panel-head { padding: .7rem .85rem .55rem; border-bottom: 1px solid #1b2536; display: flex; align-items: center; gap: .55rem; }
 /* overflow-y vive en la sección "Workspace grid" (arriba): visible por defecto,
-   auto sólo dentro de la banda ≥68rem — de lo contrario esta regla, por venir
+   auto sólo dentro de la banda ≥84rem — de lo contrario esta regla, por venir
    después en el archivo, le gana a esa por orden de aparición (misma
    especificidad) y el panel-body queda siempre con scroll interno propio. */
 .cotz-app .panel-body { flex: 1; min-height: 0; padding: .85rem; }
@@ -350,7 +384,7 @@ body:has(.cotz-standalone) #main-content > div:last-child {
 .cotz-app .qty-step input:focus { outline: none; }
 /* Fila Cantidad/Dto.%/Dto.$: la 1ª columna toma el ancho natural del stepper
    (~86px, no se lo puede repartir en tercios iguales sin desbordar en el rail
-   angosto de Productos, 14rem mínimo) y las dos siguientes se reparten el resto. */
+   angosto de Productos, 17rem mínimo) y las dos siguientes se reparten el resto. */
 .cotz-app .cart-row-inputs { display: grid; grid-template-columns: auto 1fr 1fr; gap: .4rem; align-items: end; }
 /* Subtotal en fila propia a ancho completo: antes compartía una grilla de 3
    columnas con Dto.%/Dto.$ y el importe quedaba recortado en el rail angosto
@@ -461,9 +495,10 @@ body:has(.cotz-standalone) #main-content > div:last-child {
 
 /* ---------- CTA: la barra flotante global "Reportar incidencia" (_Layout.cshtml,
    position:fixed;bottom-6;right-6, ~56x44) queda anclada a la misma esquina que
-   el CTA de este rail cuando el layout llena el viewport completo (≥68rem). Sin
-   tocar el componente global (fuera del alcance de este módulo): se reserva
-   espacio propio para que Simular/Guardar nunca queden debajo. ---------- */
-@container (min-width: 68rem) {
+   el CTA de este rail cuando el layout llena el viewport completo (≥84rem, mismo
+   umbral que "Workspace grid" — COTIZACION-SIMULAR-DENSIDAD-01). Sin tocar el
+   componente global (fuera del alcance de este módulo): se reserva espacio
+   propio para que Simular/Guardar nunca queden debajo. ---------- */
+@container (min-width: 84rem) {
     .cotz-app [data-zone="config"] .panel-foot { padding-bottom: 3.75rem; }
 }

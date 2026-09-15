@@ -265,7 +265,8 @@ public class VentaControllerConfirmarCreditoPersonalTests
             null!,
             // Fecha comercial anclada al "hoy" del proceso: los stubs siembran FechaPrimeraCuota
             // con DateTime.Today, de modo que el banner "vence hoy" queda determinista.
-            new TheBuryProject.Tests.Helpers.RelojComercialFake(DateOnly.FromDateTime(DateTime.Today)));
+            new TheBuryProject.Tests.Helpers.RelojComercialFake(DateOnly.FromDateTime(DateTime.Today)),
+            null!); // IVentaEnvioService — no usado en este test
 
         controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
         controller.TempData = new TempDataDictionary(httpContext, new StubTempDataProvider());

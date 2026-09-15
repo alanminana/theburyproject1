@@ -184,7 +184,8 @@ public class VentaControllerIndexPaginacionTests
             null!, // VentaViewBagBuilder — solo se usa con caja abierta
             null!, // IContratoVentaCreditoService — no usado por Index
             null!, // AppDbContext — no usado por Index
-            null!); // IRelojComercial — no usado por Index
+            null!, // IRelojComercial — no usado por Index
+            null!); // IVentaEnvioService — no usado por Index
 
         controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
         controller.TempData = new TempDataDictionary(httpContext, new StubTempDataProvider());

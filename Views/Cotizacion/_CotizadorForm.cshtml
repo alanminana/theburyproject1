@@ -253,22 +253,13 @@
                         </details>
                     </div>
 
-                    @* Anticipo (Credito personal): sólo relevante mientras ese medio está incluido en
-                       la comparativa — baja prioridad visual (data-anticipo-activo) cuando no lo está,
-                       sin ocultar el input ni alterar el valor que igual viaja en el payload. *@
-                    <div id="cotizacion-anticipo-bloque" data-anticipo-activo="true">
-                        <h3 class="text-sm font-semibold text-white flex items-center gap-1.5">
-                            <span class="material-symbols-outlined text-slate-400" style="font-size:17px">handshake</span> Anticipo (Crédito personal)
-                        </h3>
-                        <p class="text-[10px] text-slate-500 mt-0.5">
-                            Se resta del total antes del recargo. El porcentaje se agrega una sola vez sobre el saldo restante después del anticipo.
-                        </p>
-                        <div class="mt-2 relative">
-                            <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-sm">$</span>
-                            <input id="cotizacion-anticipo" type="number" min="0" step="0.01" value="0" class="field pl-6" aria-label="Anticipo para credito personal">
-                        </div>
-                    </div>
-
+                    @* COTIZACION-SIMULAR-ORDEN-01 (reapertura, reporte directo del usuario: "está
+                       ordenado de forma horrible"): Descuentos generales pasa antes que Anticipo.
+                       Anticipo sólo aplica a un medio puntual (Crédito personal) y ya se trata como
+                       secundario en el propio JS (data-anticipo-activo lo atenúa cuando ese medio
+                       está destildado, ver actualizarPrioridadAnticipo en cotizacion-simulador.js);
+                       tenerlo primero, antes que un campo universal como Descuentos generales,
+                       invertía esa misma jerarquía. Mismos ids, sin cambios de cálculo ni de JS. *@
                     <!-- Descuentos generales -->
                     <div>
                         <h3 class="text-sm font-semibold text-white flex items-center gap-1.5">
@@ -297,6 +288,22 @@
                         </div>
                     </div>
 
+                    @* Anticipo (Credito personal): sólo relevante mientras ese medio está incluido en
+                       la comparativa — baja prioridad visual (data-anticipo-activo) cuando no lo está,
+                       sin ocultar el input ni alterar el valor que igual viaja en el payload. *@
+                    <div id="cotizacion-anticipo-bloque" data-anticipo-activo="true">
+                        <h3 class="text-sm font-semibold text-white flex items-center gap-1.5">
+                            <span class="material-symbols-outlined text-slate-400" style="font-size:17px">handshake</span> Anticipo (Crédito personal)
+                        </h3>
+                        <p class="text-[10px] text-slate-500 mt-0.5">
+                            Se resta del total antes del recargo. El porcentaje se agrega una sola vez sobre el saldo restante después del anticipo.
+                        </p>
+                        <div class="mt-2 relative">
+                            <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-sm">$</span>
+                            <input id="cotizacion-anticipo" type="number" min="0" step="0.01" value="0" class="field pl-6" aria-label="Anticipo para credito personal">
+                        </div>
+                    </div>
+
                     <!-- Vencimiento + observaciones -->
                     <div>
                         <h3 class="text-sm font-semibold text-white flex items-center gap-1.5">
@@ -311,6 +318,13 @@
                                 <label for="cotizacion-observaciones" class="label">Observaciones</label>
                                 <textarea id="cotizacion-observaciones" rows="2" class="field" maxlength="1000" placeholder="Notas internas opcionales…"></textarea>
                             </div>
+                            @* ENVIO-ML4: sólo declara la intención de envío. Los datos de entrega
+                               (dirección, transportista) se cargan después en el paso "Envío" del
+                               wizard de Venta, con la dirección del cliente precargada. *@
+                            <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                                <input type="checkbox" id="cotizacion-tiene-envio" class="rounded border-slate-600 bg-slate-800">
+                                Esta venta tiene envío a domicilio
+                            </label>
                         </div>
                     </div>
                 </div>
@@ -333,7 +347,11 @@
                         <button id="cotizacion-simular" type="button" class="btn btn-primary">
                             <span class="material-symbols-outlined" style="font-size:18px">calculate</span> Simular
                         </button>
-                        <button id="cotizacion-guardar" type="button" class="btn btn-success" disabled onclick="openModal('modal-guardar')">
+                        @* COTIZACION-SIMULAR-GUARDAR-DIRECTO-01 (pedido explícito del usuario:
+                           Guardar y Pasar a venta como una sola acción, sin modal intermedio):
+                           guarda directo vía guardarYPasarAVenta() en cotizacion-simulador.js, que
+                           encadena a pasarAVenta() cuando hay un cliente de sistema seleccionado. *@
+                        <button id="cotizacion-guardar" type="button" class="btn btn-success" disabled>
                             <span class="material-symbols-outlined" style="font-size:18px">save</span> Guardar
                         </button>
                     </div>
@@ -359,40 +377,6 @@
             </section>
         </div>
 
-    </div>
-
-    <!-- ============================ MODAL: GUARDAR ============================ -->
-    <div id="modal-guardar" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm overflow-y-auto" onclick="if(event.target===this)closeModal('modal-guardar')" role="dialog" aria-modal="true" aria-labelledby="guardar-title">
-        <div class="min-h-full flex items-center justify-center p-4">
-            <div class="cotz-modal panel w-full max-w-lg">
-                <div class="panel-head">
-                    <h3 id="guardar-title" class="text-sm font-semibold text-white">Guardar cotización</h3>
-                    <button type="button" onclick="closeModal('modal-guardar')" aria-label="Cerrar" class="icon-btn btn btn-ghost ml-auto"><span class="material-symbols-outlined text-slate-400" style="font-size:18px">close</span></button>
-                </div>
-                <div class="p-4">
-                    <dl class="card-sub p-3 space-y-2 text-sm">
-                        <div class="flex justify-between"><dt class="text-slate-400">Cliente</dt><dd id="modal-guardar-cliente" class="text-white">—</dd></div>
-                        <div class="flex justify-between"><dt class="text-slate-400">Productos</dt><dd id="modal-guardar-productos" class="text-white">—</dd></div>
-                        <div class="flex justify-between"><dt class="text-slate-400">Total base</dt><dd id="modal-guardar-total" class="text-white font-semibold font-mono">$0,00</dd></div>
-                        @* COTIZACION-SIMULAR-REDESIGN-VISUAL-IMPLEMENTACION-01: el label anterior no
-                           reflejaba que el valor mostrado es state.opcionSeleccionada (la opción
-                           elegida en la tabla, no necesariamente la de menor total). El id/JS que la
-                           alimenta no cambia, sólo el copy. *@
-                        <div class="flex justify-between"><dt class="text-slate-400">Opción seleccionada</dt><dd id="modal-guardar-mejor" class="text-emerald-400">—</dd></div>
-                    </dl>
-                    <div class="mt-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-2.5 text-xs text-amber-100/90 flex gap-2">
-                        <span class="material-symbols-outlined text-amber-300 shrink-0" style="font-size:16px">warning</span>
-                        Guardar no crea venta, no registra caja y no modifica stock.
-                    </div>
-                    <div class="mt-4 flex justify-end gap-2">
-                        <button type="button" class="btn btn-ghost" onclick="closeModal('modal-guardar')">Cancelar</button>
-                        <button type="button" id="cotizacion-guardar-confirm" class="btn btn-success">
-                            <span class="material-symbols-outlined" style="font-size:18px">save</span> Guardar
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 
     <!-- ============================ MODAL: PLAN DETAIL (drawer) ============================ -->

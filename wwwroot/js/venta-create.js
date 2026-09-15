@@ -750,7 +750,9 @@
 
             dropdownClientes.innerHTML = data.map(c => `
                 <div class="px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer border-b border-slate-100 dark:border-slate-700 last:border-0"
-                     data-id="${c.id}" data-nombre="${c.nombre}" data-apellido="${c.apellido}" data-tipo-doc="${c.tipoDocumento}" data-num-doc="${c.numeroDocumento}">
+                     data-id="${c.id}" data-nombre="${c.nombre}" data-apellido="${c.apellido}" data-tipo-doc="${c.tipoDocumento}" data-num-doc="${c.numeroDocumento}"
+                     data-telefono="${c.telefono || ''}" data-domicilio="${c.domicilio || ''}" data-localidad="${c.localidad || ''}"
+                     data-provincia="${c.provincia || ''}" data-cp="${c.codigoPostal || ''}">
                     <p class="text-sm font-medium text-slate-900 dark:text-white">${c.display}</p>
                     <p class="text-xs text-slate-500">${c.tipoDocumento}: ${c.numeroDocumento} ${c.telefono ? '· ' + c.telefono : ''}</p>
                 </div>
@@ -768,7 +770,12 @@
             nombre: item.dataset.nombre,
             apellido: item.dataset.apellido,
             tipoDocumento: item.dataset.tipoDoc,
-            numeroDocumento: item.dataset.numDoc
+            numeroDocumento: item.dataset.numDoc,
+            telefono: item.dataset.telefono || '',
+            domicilio: item.dataset.domicilio || '',
+            localidad: item.dataset.localidad || '',
+            provincia: item.dataset.provincia || '',
+            codigoPostal: item.dataset.cp || ''
         };
 
         hdnClienteId.value = clienteSeleccionado.id;
@@ -783,6 +790,9 @@
 
         invalidarVerificacionCrediticia();
         onTipoPagoChange();
+        // ENVIO-ML4: si el paso Envío ya está tildado (p.ej. venta convertida desde una
+        // cotización con envío), re-precargar con el cliente recién elegido.
+        document.dispatchEvent(new CustomEvent('venta:cliente-seleccionado', { detail: clienteSeleccionado }));
     });
 
     btnLimpiarCliente?.addEventListener('click', function () {

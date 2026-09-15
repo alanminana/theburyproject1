@@ -153,7 +153,8 @@ public class VentaControllerCondicionesPagoErrorTests
             null!,
             null!,
             null!,
-            new TheBuryProject.Tests.Helpers.RelojComercialFake());
+            new TheBuryProject.Tests.Helpers.RelojComercialFake(),
+            null!); // IVentaEnvioService — no usado en este test
 
         controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
         controller.TempData = new TempDataDictionary(httpContext, new StubTempDataProvider());

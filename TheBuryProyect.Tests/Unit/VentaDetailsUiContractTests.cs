@@ -16,12 +16,18 @@ public sealed class VentaDetailsUiContractTests
     }
 
     [Fact]
-    public void DetailsView_OfreceConfirmarYFacturarEnUnPaso()
+    public void DetailsView_NoDuplicaConfirmarVentaDelWizardDeEdicion()
     {
+        // Reapertura (reporte directo del usuario): "Confirmar Venta" (+ "Facturar al
+        // confirmar") quedaba ofrecido en 2 pantallas para la misma venta — este mismo
+        // botón/modal ya vive en el paso Revisión de Venta/Edit. Details conserva
+        // "Editar Venta" como única vía hacia esa acción; no debe volver a declarar su
+        // propio form-confirmar/modal-confirmar-facturar.
         var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Details_tw.cshtml"));
 
-        Assert.Contains("Model.PuedeConfirmarYFacturar", view);
-        Assert.Contains("asp-action=\"ConfirmarYFacturar\"", view);
+        Assert.DoesNotContain("id=\"form-confirmar\"", view);
+        Assert.DoesNotContain("asp-action=\"ConfirmarYFacturar\"", view);
+        Assert.DoesNotContain("chk-facturar-details", view);
     }
 
     [Fact]

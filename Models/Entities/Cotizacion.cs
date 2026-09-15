@@ -46,6 +46,13 @@ public class Cotizacion : AuditableEntity
     /// </summary>
     public decimal Anticipo { get; set; }
 
+    /// <summary>
+    /// Intención de envío a domicilio declarada en el simulador. No genera ninguna
+    /// entidad propia en Cotización: es sólo la señal que, al convertir a venta,
+    /// hace que la Venta nazca con un VentaEnvio en estado Pendiente.
+    /// </summary>
+    public bool TieneEnvio { get; set; }
+
     public DateTime? FechaVencimiento { get; set; }
 
     [StringLength(500)]

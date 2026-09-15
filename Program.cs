@@ -126,6 +126,7 @@ builder.Services.AddScoped<IConfiguracionPunitorioService, ConfiguracionPunitori
 builder.Services.AddScoped<IPunitorioCalculator, PunitorioCalculator>();
 builder.Services.AddScoped<IPunitorioService, PunitorioService>();
 builder.Services.AddScoped<IVentaService, VentaService>();
+builder.Services.AddScoped<IVentaEnvioService, VentaEnvioService>();
 builder.Services.AddScoped<IConfiguracionPagoService, ConfiguracionPagoService>();
 builder.Services.AddScoped<IConfiguracionPagoGlobalAdminService, ConfiguracionPagoService>();
 builder.Services.AddScoped<IConfiguracionPagoGlobalQueryService, ConfiguracionPagoGlobalQueryService>();

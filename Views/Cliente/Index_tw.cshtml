@@ -36,11 +36,13 @@
         _ => "Bajo"
     };
 
+    // badge-erp-* (shared-components.css) — convergencia ERP-UI-STANDARD §12.1: mismo
+    // cálculo y textos, solo cambia el componente visual (antes .chip-* local).
     string RiesgoChip(ClienteViewModel cliente) => RiesgoBucket(cliente) switch
     {
-        "alto" => "chip-bad",
-        "medio" => "chip-warn",
-        _ => "chip-ok"
+        "alto" => "badge-erp badge-erp-danger",
+        "medio" => "badge-erp badge-erp-warning",
+        _ => "badge-erp badge-erp-success"
     };
 
     string RiesgoIcon(ClienteViewModel cliente) => RiesgoBucket(cliente) switch
@@ -175,47 +177,54 @@ else
 }
 
 <div class="shell cliente-index" aria-labelledby="cliente-page-title">
-    <header class="page-head cliente-page-head">
-        <div class="page-head__copy min-w-0">
-            <h1 id="cliente-page-title" class="page-title">Gestión de Clientes</h1>
-            <p class="page-sub">
-                Buscá y administrá tus clientes.
-            </p>
-        </div>
+    <!-- Header de página (ERP-UI-STANDARD §4): patrón .hero-erp canónico (ver
+         Views/AlertaStock/Index_tw.cshtml). El título también aparece en la barra
+         superior global (_Layout.cshtml) — comportamiento compartido por todas las
+         pantallas del ERP (Dashboard, AlertaStock, etc.), no algo propio de Cliente;
+         no se toca acá. -->
+    <header class="hero-erp sm:p-8 cliente-page-head">
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div class="page-head__copy min-w-0">
+                <h1 id="cliente-page-title" class="text-xl font-bold text-slate-100 sm:text-2xl">Gestión de Clientes</h1>
+                <p class="mt-1 text-sm text-slate-400">
+                    Buscá y administrá tus clientes.
+                </p>
+            </div>
 
-        <div class="head-actions cliente-head-actions" aria-label="Acciones principales de clientes">
-            <button type="button" class="btn btn-primary cliente-primary-action" data-cliente-modal-open="create">
-                <span class="material-symbols-outlined" aria-hidden="true">person_add</span>
-                Nuevo cliente
-            </button>
+            <div class="flex flex-wrap gap-2 shrink-0 cliente-head-actions" aria-label="Acciones principales de clientes">
+                <button type="button" class="btn-erp-primary" data-cliente-modal-open="create">
+                    <span class="material-symbols-outlined" aria-hidden="true">person_add</span>
+                    Nuevo cliente
+                </button>
 
-            @* Documentos/Créditos/Límites por puntaje no son acciones primarias de ESTA
-               pantalla (pertenecen a otros módulos) — quedan disponibles sin competir
-               visualmente con "Nuevo cliente". *@
-            <details class="cliente-more-menu relative" data-cliente-row-menu>
-                <summary class="btn btn-ghost btn-sm cursor-pointer" aria-label="Más acciones de clientes"
-                         title="Más acciones de clientes">
-                    <span class="material-symbols-outlined" aria-hidden="true">more_horiz</span>
-                    Más
-                </summary>
+                @* Documentos/Créditos/Límites por puntaje no son acciones primarias de ESTA
+                   pantalla (pertenecen a otros módulos) — quedan disponibles sin competir
+                   visualmente con "Nuevo cliente". *@
+                <details class="cliente-more-menu relative" data-cliente-row-menu>
+                    <summary class="btn-erp-ghost cursor-pointer" aria-label="Más acciones de clientes"
+                             title="Más acciones de clientes">
+                        <span class="material-symbols-outlined" aria-hidden="true">more_horiz</span>
+                        Más
+                    </summary>
 
-                <div class="cliente-more-menu__content cliente-row-menu__content">
-                    <a asp-controller="DocumentoCliente" asp-action="Index" class="cliente-row-menu__item">
-                        <span class="material-symbols-outlined" aria-hidden="true">folder_shared</span>
-                        Documentos
-                    </a>
+                    <div class="cliente-more-menu__content cliente-row-menu__content">
+                        <a asp-controller="DocumentoCliente" asp-action="Index" class="cliente-row-menu__item">
+                            <span class="material-symbols-outlined" aria-hidden="true">folder_shared</span>
+                            Documentos
+                        </a>
 
-                    <a asp-controller="Credito" asp-action="Index" class="cliente-row-menu__item">
-                        <span class="material-symbols-outlined" aria-hidden="true">credit_score</span>
-                        Créditos
-                    </a>
+                        <a asp-controller="Credito" asp-action="Index" class="cliente-row-menu__item">
+                            <span class="material-symbols-outlined" aria-hidden="true">credit_score</span>
+                            Créditos
+                        </a>
 
-                    <button type="button" class="cliente-row-menu__item" data-cliente-open-limites>
-                        <span class="material-symbols-outlined" aria-hidden="true">tune</span>
-                        Límites por puntaje
-                    </button>
-                </div>
-            </details>
+                        <button type="button" class="cliente-row-menu__item" data-cliente-open-limites>
+                            <span class="material-symbols-outlined" aria-hidden="true">tune</span>
+                            Límites por puntaje
+                        </button>
+                    </div>
+                </details>
+            </div>
         </div>
     </header>
 
@@ -270,7 +279,7 @@ else
             @* ============================================================
            FILTROS (se aplican automáticamente, sin botón "Filtrar")
            ============================================================ *@
-            <form id="cliente-filter-form" method="get" asp-action="Index" class="card card-pad cliente-filters"
+            <form id="cliente-filter-form" method="get" asp-action="Index" class="filter-panel-erp cliente-filters"
                   role="search" aria-label="Buscar y filtrar clientes">
 
                 @* PageNumber deliberadamente fuera del form: cambiar cualquier filtro
@@ -288,7 +297,7 @@ else
                         </span>
 
                         <input id="cliente-search-input" name="SearchTerm" value="@Model.SearchTerm" type="search"
-                               class="field cliente-search-control__input"
+                               class="filter-input-erp cliente-search-control__input"
                                placeholder="Nombre, DNI, CUIT, teléfono o email..."
                                autocomplete="off" data-cliente-autosubmit="debounce" />
                     </div>
@@ -300,7 +309,7 @@ else
                         Estado
                     </label>
 
-                    <select id="cliente-filter-estado" name="SoloActivos" class="field cliente-filter-select"
+                    <select id="cliente-filter-estado" name="SoloActivos" class="filter-select-erp cliente-filter-select"
                             data-cliente-autosubmit="change">
 
                         <option value="">Todos</option>
@@ -331,7 +340,7 @@ else
                         Riesgo
                     </label>
 
-                    <select id="cliente-filter-riesgo" name="NivelRiesgoFiltro" class="field cliente-filter-select"
+                    <select id="cliente-filter-riesgo" name="NivelRiesgoFiltro" class="filter-select-erp cliente-filter-select"
                             data-cliente-autosubmit="change">
 
                         <option value="">Todos</option>
@@ -356,7 +365,7 @@ else
                         Tipo de documento
                     </label>
 
-                    <select id="cliente-filter-documento" name="TipoDocumento" class="field cliente-filter-select"
+                    <select id="cliente-filter-documento" name="TipoDocumento" class="filter-select-erp cliente-filter-select"
                             data-cliente-autosubmit="change">
 
                         @if (string.IsNullOrWhiteSpace(Model.TipoDocumento))
@@ -395,7 +404,7 @@ else
                         Mostrar
                     </label>
 
-                    <select id="cliente-filter-pagesize" name="PageSize" class="field cliente-filter-select"
+                    <select id="cliente-filter-pagesize" name="PageSize" class="filter-select-erp cliente-filter-select"
                             data-cliente-autosubmit="change">
 
                         @foreach (var tam in new[] { 10, 25, 50, 100 })
@@ -471,7 +480,14 @@ else
             @* ============================================================
            TABLA DE ESCRITORIO
            ============================================================ *@
-            <div class="card cliente-table-card hide-mobile" data-oc-scroll>
+            @* --oc-scroll-min-width: mismo mecanismo que Views/Proveedor/Index_tw.cshtml
+               (horizontal-scroll-affordance.css) — referencia --cliente-table-min
+               (cliente-module.css) como única fuente de verdad en vez de duplicar el
+               valor. Sin esto, el min-width de la tabla quedaba en "auto" (piso 0,
+               confirmado en vivo) y la columna Acciones terminaba solapada con Estado
+               por debajo de ~1300px. *@
+            <div class="table-erp-wrapper cliente-table-card hide-mobile" data-oc-scroll
+                 style="--oc-scroll-min-width: var(--cliente-table-min);">
 
                 <div class="scroll-hint cliente-scroll-hint hide-mobile" data-oc-scroll-hint hidden>
                     <span class="material-symbols-outlined" aria-hidden="true">
@@ -669,7 +685,7 @@ else
                                             @* RIESGO *@
                                             <td>
                                                 <div class="cliente-risk-cell">
-                                                    <span class="chip @RiesgoChip(c)">
+                                                    <span class="@RiesgoChip(c)">
                                                         <span class="material-symbols-outlined" aria-hidden="true">
                                                             @RiesgoIcon(c)
                                                         </span>
@@ -685,47 +701,58 @@ else
 
                                             @* ESTADO *@
                                             <td>
-                                                <span class="chip @(c.Activo ? "chip-ok" : "chip-neutral")">
+                                                <span class="badge-erp @(c.Activo ? "badge-erp-success" : "badge-erp-neutral")">
                                                     @(c.Activo ? "Activo" : "Inactivo")
                                                 </span>
                                             </td>
 
-                                            @* ACCIONES *@
+                                            @* ACCIONES — convergencia a .row-action (shared-components.css):
+                                               mismos 3 controles, mismos permisos/destinos/data-*, solo
+                                               cambia el componente visual (antes btn/btn-ghost locales).
+                                               A ≥640px .row-action se vuelve ícono-only (label oculto vía
+                                               .row-action__label), igual que AlertaStock/Proveedor — como la
+                                               tabla desktop solo se muestra a partir de 900px (.hide-mobile),
+                                               siempre se ve ícono-only acá, con title/aria-label. *@
                                             <td>
                                                 <div class="row-actions whitespace-nowrap">
 
-                                                    <a asp-action="Details" asp-route-id="@c.Id" class="btn btn-soft btn-sm"
-                                                       title="Ver legajo de @rowName">
+                                                    <a asp-action="Details" asp-route-id="@c.Id"
+                                                       class="row-action row-action--primary"
+                                                       aria-label="Ver legajo de @rowName" title="Ver legajo de @rowName">
 
                                                         <span class="material-symbols-outlined" aria-hidden="true">
                                                             visibility
                                                         </span>
 
-                                                        Ver
+                                                        <span class="row-action__label">Ver</span>
                                                     </a>
 
                                                     @if (puedeEditar)
                                                     {
-                                                        <button type="button" class="btn btn-ghost btn-sm cliente-row-action--icon"
+                                                        <button type="button" class="row-action"
                                                                 data-cliente-modal-open="edit" data-cliente-id="@c.Id"
                                                                 aria-label="Editar @rowName" title="Editar @rowName">
 
                                                             <span class="material-symbols-outlined" aria-hidden="true">
                                                                 edit
                                                             </span>
+
+                                                            <span class="row-action__label">Editar</span>
                                                         </button>
                                                     }
 
                                                     <details class="cliente-row-menu relative" data-cliente-row-menu>
 
                                                         <summary
-                                                            class="btn btn-ghost btn-sm cursor-pointer cliente-row-action--icon"
+                                                            class="row-action"
                                                             aria-label="Más acciones para @rowName"
                                                             title="Más acciones para @rowName">
 
                                                             <span class="material-symbols-outlined" aria-hidden="true">
                                                                 more_vert
                                                             </span>
+
+                                                            <span class="row-action__label">Más</span>
                                                         </summary>
 
                                                         <div class="cliente-row-menu__content">
@@ -818,7 +845,7 @@ else
                                 </div>
                             </div>
 
-                            <span class="chip @(c.Activo ? "chip-ok" : "chip-neutral")">
+                            <span class="badge-erp @(c.Activo ? "badge-erp-success" : "badge-erp-neutral")">
                                 @(c.Activo ? "Activo" : "Inactivo")
                             </span>
                         </div>
@@ -870,7 +897,7 @@ else
                             <div class="minimetric">
                                 <div class="mm-label">Riesgo</div>
                                 <div class="flex flex-wrap items-center gap-2 mt-1">
-                                    <span class="chip @RiesgoChip(c)">
+                                    <span class="@RiesgoChip(c)">
                                         <span class="material-symbols-outlined" aria-hidden="true">
                                             @RiesgoIcon(c)
                                         </span>
@@ -881,7 +908,11 @@ else
                             </div>
                         </div>
 
-                        @* ACCIONES *@
+                        @* ACCIONES — se mantienen los botones locales (btn/btn-ghost) acá, sin
+                           converger a .row-action: estas cards se muestran hasta 899px, y
+                           .row-action pasa a ícono-only ya a partir de 640px — adoptarlo acá
+                           ocultaría el label "Editar"/"Más" en la banda 640-899px, cambiando
+                           un comportamiento que hoy funciona con min-[390px]:inline. *@
                         <div class="cliente-card-actions">
 
                             <a asp-action="Details" asp-route-id="@c.Id"

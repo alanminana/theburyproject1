@@ -103,6 +103,7 @@
     function actualizarBcra(clienteId) {
         var btn = document.getElementById('bcra-btn');
         var icon = document.getElementById('bcra-icon');
+        var btnLabel = document.getElementById('bcra-btn-label');
         var descEl = document.getElementById('bcra-desc');
         var dotEl = document.getElementById('bcra-dot');
         var metaEl = document.getElementById('bcra-meta');
@@ -110,11 +111,14 @@
         var chipIconEl = document.getElementById('bcra-chip-icon');
         var chipLabelEl = document.getElementById('bcra-chip-label');
         var avisoEl = document.getElementById('bcra-aviso');
+        var errorEl = document.getElementById('bcra-error');
 
         if (!btn || !descEl) return;
 
         btn.disabled = true;
         if (icon) icon.classList.add('animate-spin');
+        if (btnLabel) btnLabel.textContent = 'Actualizando...';
+        if (errorEl) errorEl.classList.add('hidden');
 
         fetch('/Cliente/ActualizarBcra', {
             method: 'POST',
@@ -186,15 +190,159 @@
                 }
             })
             .catch(function () {
-                if (descEl) descEl.textContent = 'Error al consultar';
+                // No pisar descEl: mantiene el ultimo dato real conocido en pantalla
+                // en vez de reemplazarlo por un texto generico de error (perderia
+                // contexto real, ej. "Usando ultima consulta valida"). El error se
+                // muestra aparte, cerca del boton, y reintentar es volver a tocarlo.
+                if (errorEl) errorEl.classList.remove('hidden');
             })
             .finally(function () {
                 btn.disabled = false;
                 if (icon) icon.classList.remove('animate-spin');
+                if (btnLabel) btnLabel.textContent = 'Actualizar BCRA';
             });
     }
 
+    // Solapas de la ficha (ERP-UI-STANDARD.md §5): patron ARIA completo con roving
+    // tabindex, mismo enfoque que wwwroot/js/dashboard-index.js y el tab-btn de
+    // Views/Venta/Index_tw.cshtml. Paneles ya vienen server-renderizados completos;
+    // esto solo alterna que panel queda visible, sin fetch ni reload.
+    function setActiveClienteTab(tabName, updateHash) {
+        var buttons = Array.prototype.slice.call(document.querySelectorAll('[data-cliente-tab]'));
+        var panels = Array.prototype.slice.call(document.querySelectorAll('[data-cliente-tab-panel]'));
+        if (!buttons.length) return;
+
+        buttons.forEach(function (button) {
+            var isActive = button.getAttribute('data-cliente-tab') === tabName;
+            button.classList.toggle('is-active', isActive);
+            button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+            button.tabIndex = isActive ? 0 : -1;
+        });
+
+        panels.forEach(function (panel) {
+            var isActive = panel.getAttribute('data-cliente-tab-panel') === tabName;
+            panel.classList.toggle('is-active', isActive);
+            panel.hidden = !isActive;
+        });
+
+        // Persistencia de solapa activa (sin SPA, sin backend): el hash de la URL
+        // refleja la solapa visible. replaceState (nunca pushState) para no llenar
+        // el historial de "Atras" con un paso por cada solapa — cambiar de solapa
+        // sigue sintiendose como una sola pantalla, no una navegacion nueva.
+        if (updateHash !== false && window.history && window.history.replaceState) {
+            var nuevoHash = '#' + tabName;
+            if (window.location.hash !== nuevoHash) {
+                window.history.replaceState(null, '', nuevoHash);
+            }
+        }
+    }
+
+    function moveClienteTabFocus(current, direction) {
+        var buttons = Array.prototype.slice.call(document.querySelectorAll('[data-cliente-tab]'));
+        if (!buttons.length) return;
+
+        var index = buttons.indexOf(current);
+        if (index < 0) return;
+
+        var nextIndex = (index + direction + buttons.length) % buttons.length;
+        buttons[nextIndex].focus();
+        setActiveClienteTab(buttons[nextIndex].getAttribute('data-cliente-tab'));
+    }
+
+    function initClienteTabs() {
+        var buttons = document.querySelectorAll('[data-cliente-tab]');
+        if (!buttons.length) return;
+
+        buttons.forEach(function (button) {
+            button.addEventListener('click', function () {
+                setActiveClienteTab(button.getAttribute('data-cliente-tab'));
+            });
+
+            button.addEventListener('keydown', function (event) {
+                if (event.key === 'ArrowRight') {
+                    event.preventDefault();
+                    moveClienteTabFocus(button, 1);
+                } else if (event.key === 'ArrowLeft') {
+                    event.preventDefault();
+                    moveClienteTabFocus(button, -1);
+                } else if (event.key === 'Home') {
+                    event.preventDefault();
+                    var first = document.querySelector('[data-cliente-tab]');
+                    if (first) {
+                        first.focus();
+                        setActiveClienteTab(first.getAttribute('data-cliente-tab'));
+                    }
+                } else if (event.key === 'End') {
+                    event.preventDefault();
+                    var all = document.querySelectorAll('[data-cliente-tab]');
+                    var last = all[all.length - 1];
+                    if (last) {
+                        last.focus();
+                        setActiveClienteTab(last.getAttribute('data-cliente-tab'));
+                    }
+                }
+            });
+        });
+
+        // Persistencia de solapa activa via hash (#credito, #documentacion, etc.):
+        // si la URL trae un hash valido se abre esa solapa; si no hay hash o no
+        // coincide con ninguna de las 5, cae a Resumen (nunca una pantalla en
+        // blanco). updateHash:false porque esto es solo reflejar el estado, no
+        // una interaccion que deba tocar el historial.
+        function activarTabDesdeHash() {
+            var tabNames = Array.prototype.map.call(
+                document.querySelectorAll('[data-cliente-tab]'),
+                function (b) { return b.getAttribute('data-cliente-tab'); }
+            );
+            var hashTab = (window.location.hash || '').replace('#', '');
+            var tab = tabNames.indexOf(hashTab) !== -1 ? hashTab : 'resumen';
+            setActiveClienteTab(tab, false);
+        }
+
+        activarTabDesdeHash();
+
+        // Cubre tambien la navegacion "en la misma pagina" (un link a #documentacion
+        // mientras ya se esta en #credito, o editar el hash a mano): el navegador no
+        // recarga, solo dispara hashchange — sin este listener la solapa quedaria
+        // desincronizada de la URL hasta el proximo reload real.
+        window.addEventListener('hashchange', activarTabDesdeHash);
+
+        // Al volver de una accion secundaria que redirige directo al "returnUrl"
+        // recibido (Verificar/Rechazar/Subir documento — DocumentoClienteController
+        // usa RedirectToReturnUrlOrIndex, que hace LocalRedirect literal a esa URL),
+        // se le agrega el hash de la solapa activa al campo oculto antes de enviar
+        // el form: el redirect llega con "#documentacion" y esta misma logica de
+        // arriba vuelve a abrir esa solapa. Sin tocar el controller ni el contrato
+        // de returnUrl (el backend sigue redirigiendo al string que ya recibia).
+        // No aplica a acciones que redirigen con RedirectToAction(Details, ...)
+        // (Recalcular aptitud/scoring, asignar/limpiar puntaje manual): esas arman
+        // una URL nueva por routing y no preservan un fragmento — quedan en Resumen
+        // tras usarse, igual que antes de este cambio (deuda documentada).
+        document.addEventListener('submit', function (event) {
+            var form = event.target;
+            if (!form || typeof form.querySelector !== 'function') return;
+            var returnUrlField = form.querySelector('input[name="returnUrl"]');
+            if (!returnUrlField || !returnUrlField.value) return;
+            if (returnUrlField.value.indexOf('#') !== -1) return;
+            var activo = document.querySelector('[data-cliente-tab].is-active');
+            if (!activo) return;
+            returnUrlField.value += '#' + activo.getAttribute('data-cliente-tab');
+        }, true);
+    }
+
+    function initClienteScrollAffordances() {
+        var roots = Array.prototype.slice.call(document.querySelectorAll('[data-oc-scroll]'));
+        roots.forEach(function (root) {
+            if (window.TheBury && typeof window.TheBury.initHorizontalScrollAffordance === 'function') {
+                window.TheBury.initHorizontalScrollAffordance(root);
+            }
+        });
+    }
+
     function initClienteDetails() {
+        initClienteTabs();
+        initClienteScrollAffordances();
+
         document.querySelectorAll('[data-cliente-details-toggle]').forEach(function (button) {
             var sectionName = button.getAttribute('data-cliente-details-toggle');
             var content = document.getElementById('content-' + sectionName);

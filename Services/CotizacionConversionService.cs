@@ -220,6 +220,7 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
             // Recargar dentro de transacción para evitar doble conversión concurrente
             var cotizacionEnTx = await _context.Cotizaciones
                 .Include(c => c.Detalles)
+                .Include(c => c.Cliente)
                 .FirstOrDefaultAsync(c => c.Id == cotizacionId, cancellationToken);
 
             if (cotizacionEnTx is null || cotizacionEnTx.Estado != EstadoCotizacion.Emitida)
@@ -252,6 +253,24 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
 
             foreach (var detalle in detalles)
                 venta.Detalles.Add(detalle);
+
+            // La intención de envío declarada en el simulador ("TieneEnvio") produce un
+            // VentaEnvio Pendiente precargado con el domicilio del cliente, editable
+            // después desde el paso Envío del wizard. Sólo informativo: no altera Total.
+            if (cotizacionEnTx.TieneEnvio)
+            {
+                var cliente = cotizacionEnTx.Cliente;
+                venta.Envio = new VentaEnvio
+                {
+                    Estado = EstadoEnvio.Pendiente,
+                    Destinatario = cliente != null ? $"{cliente.Apellido}, {cliente.Nombre}" : string.Empty,
+                    Telefono = cliente?.Telefono,
+                    Domicilio = cliente?.Domicilio ?? string.Empty,
+                    Localidad = cliente?.Localidad,
+                    Provincia = cliente?.Provincia,
+                    CodigoPostal = cliente?.CodigoPostal
+                };
+            }
 
             _context.Ventas.Add(venta);
             cotizacionEnTx.Estado = EstadoCotizacion.ConvertidaAVenta;

@@ -107,6 +107,18 @@ async function gotoClienteDetails(page, clienteId) {
     return failures;
 }
 
+// El bloque de mora de capital/punitorio vive dentro de la card "Informacion
+// crediticia", que la reorganizacion en solapas (2026-09-14) movio a la solapa
+// "Credito" de Cliente/Details (Resumen, la solapa por defecto, solo muestra un
+// resumen de 4 metricas). Los tests que verifican ese bloque en detalle navegan
+// primero a esa solapa; los que solo verifican ausencia (toHaveCount(0)) no lo
+// necesitan, porque un elemento server-side ausente lo esta sin importar la
+// solapa activa.
+async function irATabCredito(page) {
+    await page.locator('[data-cliente-tab="credito"]').click();
+    await expect(page.locator('#panel-credito')).toBeVisible();
+}
+
 async function gotoPanelCredito(page, clienteId) {
     const failures = trackFailures(page);
     await page.goto(`/Credito?ClienteId=${clienteId}`, { waitUntil: 'domcontentloaded' });
@@ -153,6 +165,7 @@ test.describe('Cliente Details — mora de capital vs. punitorio aplicado pendie
 
     test('sólo punitorio aplicado pendiente: muestra el bloque con monto real, sin capital en mora', async ({ page }) => {
         const failures = await gotoClienteDetails(page, CLIENTE_PUNITORIO_ID);
+        await irATabCredito(page);
 
         await expect(page.getByText('Capital en mora', { exact: true })).toHaveCount(0);
         const bloque = page.locator('.alert', { hasText: 'Punitorio aplicado pendiente' });
@@ -171,7 +184,10 @@ test.describe('Cliente Details — mora de capital vs. punitorio aplicado pendie
     test('mora de capital + punitorio: ambos bloques visibles, sin mezclar montos', async ({ page }) => {
         const failures = await gotoClienteDetails(page, CLIENTE_MORA_Y_PUNITORIO_ID);
 
+        // "Capital en mora" ya es visible en el resumen de la solapa Resumen (default);
+        // el bloque completo de punitorio vive en el detalle de la solapa Credito.
         await expect(page.getByText('Capital en mora', { exact: true })).toBeVisible();
+        await irATabCredito(page);
         const bloquePunitorio = page.locator('.alert', { hasText: 'Punitorio aplicado pendiente' });
         await expect(bloquePunitorio).toBeVisible();
         expectNoFailures(failures);
@@ -181,6 +197,7 @@ test.describe('Cliente Details — mora de capital vs. punitorio aplicado pendie
         const failures = await gotoClienteDetails(page, CLIENTE_NOAPTO_PUNITORIO_ID);
 
         await expect(page.getByText('No apto', { exact: true }).first()).toBeVisible();
+        await irATabCredito(page);
         const bloquePunitorio = page.locator('.alert', { hasText: 'Punitorio aplicado pendiente' });
         await expect(bloquePunitorio).toBeVisible();
         await expect(bloquePunitorio.getByText('No bloquea la aptitud por sí sola')).toBeVisible();
@@ -190,6 +207,7 @@ test.describe('Cliente Details — mora de capital vs. punitorio aplicado pendie
     test('punitorio parcialmente pagado: el monto pendiente es el neto, no el importe original', async ({ page }) => {
         // Seed: Importe aplicado $500, pago parcial $200 => pendiente neto $300 (nunca $500).
         const failures = await gotoClienteDetails(page, CLIENTE_PUNITORIO_PARCIAL_ID);
+        await irATabCredito(page);
 
         const bloque = page.locator('.alert', { hasText: 'Punitorio aplicado pendiente' });
         await expect(bloque).toBeVisible();
