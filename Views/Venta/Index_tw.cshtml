@@ -483,26 +483,35 @@
                                                                                     <td class="total-cell @(esCancelada ? "is-muted" : "")">$@v.Total.ToString("N2")
                                                                                     </td>
                                                                                     <td>
+                                                                                        @* VENTA-INDEX-CLIENTE-PARIDAD-01: convergencia a .row-action (shared-components.css),
+                                                                                           mismo patrón ya usado por Cliente/Index — icono-only en la tabla desktop (siempre
+                                                                                           ≥768px acá, ver .table-shell{display:none} bajo 768px), mismos permisos/destinos/
+                                                                                           data-* que antes, sólo cambia el componente visual y baja el peso de 3 botones
+                                                                                           llenos a 3 íconos, con aria-label/title reales (antes sin nombre accesible propio,
+                                                                                           dependían del texto visible). *@
                                                                                         <div class="row-actions">
                                                                                             <a asp-action="Details" asp-route-id="@v.Id"
-                                                                                               class="btn btn-xs btn-soft no-underline">
-                                                                                                <span class="material-symbols-outlined">visibility</span>
-                                                                                                Ver
+                                                                                               class="row-action row-action--primary"
+                                                                                               aria-label="Ver venta @v.Numero" title="Ver venta @v.Numero">
+                                                                                                <span class="material-symbols-outlined" aria-hidden="true">visibility</span>
+                                                                                                <span class="row-action__label">Ver</span>
                                                                                             </a>
                                                                                             @if (puedeDevolver)
                                                                                             {
                                                                                                 <button type="button" data-open-devolucion-modal data-venta-id="@v.Id"
-                                                                                                        class="btn btn-xs btn-amber">
-                                                                                                    <span class="material-symbols-outlined">assignment_return</span>
-                                                                                                    Devolver
+                                                                                                        class="row-action row-action--warning"
+                                                                                                        aria-label="Devolver venta @v.Numero" title="Devolver venta @v.Numero">
+                                                                                                    <span class="material-symbols-outlined" aria-hidden="true">assignment_return</span>
+                                                                                                    <span class="row-action__label">Devolver</span>
                                                                                                 </button>
                                                                                             }
                                                                                             @if (puedeCancelarVenta)
                                                                                             {
                                                                                                 <a asp-action="Cancelar" asp-route-id="@v.Id"
-                                                                                                   class="btn btn-xs btn-danger no-underline">
-                                                                                                    <span class="material-symbols-outlined">block</span>
-                                                                                                    Anular
+                                                                                                   class="row-action row-action--danger"
+                                                                                                   aria-label="Anular venta @v.Numero" title="Anular venta @v.Numero">
+                                                                                                    <span class="material-symbols-outlined" aria-hidden="true">block</span>
+                                                                                                    <span class="row-action__label">Anular</span>
                                                                                                 </a>
                                                                                             }
                                                                                         </div>

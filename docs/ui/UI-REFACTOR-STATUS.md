@@ -6,7 +6,7 @@ faltan. Actualizar esta tabla al cerrar cada pantalla.
 | Área | Pantalla | Estado | Referencia |
 |---|---|---|---|
 | Global | `_Layout` / Foundation | ✅ Cerrado | `ERP-UI-STANDARD.md` |
-| Venta | `Index` | ✅ Cerrado | `79b4c91`, `e1de859`, `3225b95` + ENVIO-ML (ver resumen abajo) |
+| Venta | `Index` | ✅ Cerrado | `79b4c91`, `e1de859`, `3225b95` + ENVIO-ML + VENTA-INDEX-CLIENTE-PARIDAD-01 (ver resumen abajo) |
 | Venta | `Create` | ✅ Cerrado | `_VentaWizardForm.cshtml` + tests de paridad + ENVIO-ML (ver resumen abajo) |
 | Venta | `Edit` | ✅ Cerrado | `_VentaWizardForm.cshtml` + tests de paridad + ENVIO-ML (ver resumen abajo) |
 | Venta | `Details` | ✅ Cerrado | serie VENTA-DETAILS (ver resumen abajo) + ENVIO-ML (ver resumen abajo) |
@@ -36,6 +36,41 @@ Resumen no cronológico de lo que quedó implementado:
 - toast con una sola autoridad de inicialización;
 - validación integrada de responsive y accesibilidad;
 - cierre reproducible desde Git (ver commits en la tabla arriba).
+
+- reapertura VENTA-INDEX-CLIENTE-PARIDAD-01, a pedido explícito del usuario de
+  converger la composición visual con `Cliente/Index` (referencia interna, no
+  rediseño inventado). Causa raíz confirmada en código antes de tocar nada:
+  `#venta-index-rework.venta-index-shell` tenía `max-width:1440px; margin-inline:auto`
+  propio — `.shell.cliente-index` (`cliente-module.css`) ya había convergido a ancho
+  fluido sin cap (el gutter real lo aporta `_Layout.cshtml`) en la serie
+  CLIENTE-INDEX-REDESIGN, dejando ~130px de margen muerto por lado en Venta/Index a
+  1920px que Cliente/Index no tiene. Fix: `.venta-index-shell` pasa a fluido con el
+  mismo criterio (`max-width:none`); el id `#venta-index-rework` es exclusivo de esta
+  vista (no lo comparten Create/Edit/Details de Venta), así que no requirió scope
+  adicional. Efecto colateral corregido en el mismo lote: al liberar el shell, el
+  campo único de la fila base de filtros ("Buscar venta") se estiraba a >1400px de
+  ancho — se acota su pista de grid a un máximo útil (28rem), mismo criterio de "no
+  convertir el filtro en una card gigante" que ya sigue Cliente/Index. Acciones por
+  fila de la tabla desktop (Ver/Devolver/Anular) convergen de botones llenos
+  (`btn btn-xs btn-soft/btn-amber/btn-danger`) al componente compartido `.row-action`
+  (`shared-components.css`, mismo patrón ya usado por `Cliente/Index`) — ícono-only
+  (la tabla desktop de Venta sólo se muestra ≥768px, igual que la de Cliente ≥900px),
+  bajando el peso visual de 3 controles y sumando `aria-label`/`title` reales que
+  antes no tenían (dependían del texto visible). Tabs, hero, filtros avanzados,
+  paginación y las cards mobile no se tocaron — ya usan un patrón de tabs con ARIA
+  completo equivalente al resto del ERP y Cliente/Index no tiene tabs con qué
+  compararlos; las cards mobile mantienen sus botones locales, mismo criterio ya
+  documentado en Cliente/Index (`.row-action` pasa a ícono-only desde 640px, antes
+  del breakpoint donde se muestran las cards). Sin cambios de reglas de negocio,
+  permisos, contratos backend, paginación funcional, ids ni `data-*` (`data-open-devolucion-modal`/
+  `data-venta-id` intactos). Validado en vivo con Playwright (instancia propia en
+  :5199, sin tocar la instancia :18787 del usuario) comparando contra `Cliente/Index`
+  en 1920×1080, 1440×900, 1280×720, 1024×720, 768×1024, 390×844 y 360×800: mismo
+  ancho útil y mismo borde derecho de contenido que Cliente/Index a ≥1440px, sin
+  overflow horizontal en ningún viewport, 0 errores de consola; modal de devolución
+  verificado end-to-end contra una venta real desde el nuevo botón ícono; build 0/0;
+  105/105 tests focalizados de Venta (`VentaController*`, `VentaApiController*`,
+  `VentaDetailsUiContractTests`, `VentaEnvio*`) verdes.
 
 ## Venta / Create + Edit — cerrados conjuntamente
 
