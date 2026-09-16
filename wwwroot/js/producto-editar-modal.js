@@ -319,111 +319,106 @@
 
     // ── Actualizar fila en tabla ────────────────────────────────
 
+    // Selectores por data-attribute (no por posición de <td>): la celda "producto"
+    // combina nombre/código/categoría/marca en un único td y el orden de columnas
+    // cambió con el rediseño del index, así que indexar tds[] quedó desalineado y
+    // corrompía la fila entera al guardar.
     function updateRow(entity) {
         if (!currentRow) return;
-        var tds = currentRow.querySelectorAll('td');
-        // td[1] = Código
-        if (tds[1]) tds[1].textContent = entity.codigo;
-        // td[2] = Nombre + descripcion + badge inactivo
-        if (tds[2]) {
-            var nameEl = tds[2].querySelector('.font-semibold');
-            if (nameEl) nameEl.textContent = entity.nombre;
-            var descEl = tds[2].querySelector('.text-\\[10px\\].text-slate-400');
-            var descripcion = (entity.descripcion || '').trim();
-            if (descripcion) {
-                if (descEl) {
-                    descEl.textContent = descripcion;
-                } else if (nameEl) {
-                    descEl = document.createElement('p');
-                    descEl.className = 'text-[10px] text-slate-400 truncate max-w-[200px]';
-                    descEl.textContent = descripcion;
-                    nameEl.insertAdjacentElement('afterend', descEl);
-                }
-            } else if (descEl) {
-                descEl.remove();
-            }
-            var inactivoBadge = tds[2].querySelector('.text-red-400');
-            if (entity.activo) {
-                if (inactivoBadge) inactivoBadge.remove();
-                currentRow.classList.remove('opacity-50');
-            } else {
-                if (!inactivoBadge) {
-                    var badge = document.createElement('span');
-                    badge.className = 'text-[10px] font-bold text-red-400';
-                    badge.textContent = 'Inactivo';
-                    tds[2].querySelector('div > div')?.appendChild(badge);
-                }
-                currentRow.classList.add('opacity-50');
-            }
+
+        var nameEl = currentRow.querySelector('[data-prod-nombre]');
+        if (nameEl) { nameEl.textContent = entity.nombre; nameEl.title = entity.nombre || ''; }
+
+        var inactivoBadge = currentRow.querySelector('[data-prod-inactivo-badge]');
+        if (inactivoBadge) inactivoBadge.classList.toggle('hidden', !!entity.activo);
+        currentRow.classList.toggle('bg-slate-950/40', !entity.activo);
+
+        var codigoEl = currentRow.querySelector('[data-prod-codigo]');
+        if (codigoEl) {
+            var codigoTexto = entity.codigo || 'Sin código';
+            codigoEl.textContent = codigoTexto;
+            codigoEl.title = entity.codigo || '';
         }
-        // td[3] = Categoría
-        if (tds[3]) tds[3].textContent = entity.categoriaNombre || '—';
-        // td[4] = Marca
-        if (tds[4]) tds[4].textContent = entity.marcaNombre || '—';
-        // td[6] = Precio vigente + base/fallback + comisión
-        if (tds[6]) {
-            var priceEl = tds[6].querySelector('.font-bold');
-            if (priceEl) {
-                priceEl.textContent = '$ ' + Number(entity.precioActual).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            }
-            var labelEl = tds[6].querySelector('[data-prod-precio-label]');
-            var baseLabelEl = tds[6].querySelector('[data-prod-precio-base-label]');
-            if (entity.tienePrecioLista) {
-                var baseFormatted = Number(entity.precioBase || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                var listaNombre = entity.listaPrecioActualNombre || '';
-                if (labelEl) {
-                    labelEl.textContent = 'Vigente por lista: ' + listaNombre;
-                }
-                if (baseLabelEl) {
-                    baseLabelEl.textContent = 'Base/fallback: $ ' + baseFormatted;
-                } else if (labelEl) {
-                    var newBase = document.createElement('p');
-                    newBase.setAttribute('data-prod-precio-base-label', '');
-                    newBase.className = 'text-[10px] text-slate-500';
-                    newBase.textContent = 'Base/fallback: $ ' + baseFormatted;
-                    labelEl.insertAdjacentElement('afterend', newBase);
-                }
-            } else {
-                if (labelEl) labelEl.textContent = 'Base/fallback';
-                if (baseLabelEl) baseLabelEl.remove();
-            }
-            var margenEl = tds[6].querySelector('[data-prod-margen]');
-            var margen = Number(entity.margenPorcentaje || 0);
-            if (margen > 0) {
-                var margenText = '+' + margen.toLocaleString('es-AR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '% margen';
-                if (margenEl) {
-                    margenEl.textContent = margenText;
-                } else {
-                    var newMargen = document.createElement('p');
-                    newMargen.setAttribute('data-prod-margen', '');
-                    newMargen.className = 'text-[10px] text-emerald-400';
-                    newMargen.textContent = margenText;
-                    var commParent = tds[6].querySelector('[data-producto-comision]')?.closest('p');
-                    if (commParent) commParent.insertAdjacentElement('beforebegin', newMargen);
-                }
-            } else if (margenEl) {
-                margenEl.remove();
-            }
-            var commissionEl = tds[6].querySelector('[data-producto-comision]');
-            if (commissionEl) {
-                var commission = Number(entity.comisionPorcentaje || 0);
-                commissionEl.textContent = commission > 0
-                    ? commission.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '%'
-                    : 'Sin comisión';
-            }
+
+        var categoriaEl = currentRow.querySelector('[data-prod-categoria]');
+        if (categoriaEl) {
+            var categoriaTexto = entity.categoriaNombre || 'Sin categoría';
+            categoriaEl.textContent = categoriaTexto;
+            categoriaEl.title = categoriaTexto;
         }
+
+        var marcaEl = currentRow.querySelector('[data-prod-marca]');
+        if (marcaEl) {
+            var marcaTexto = entity.marcaNombre || 'Sin marca';
+            marcaEl.textContent = marcaTexto;
+            marcaEl.title = marcaTexto;
+        }
+
+        var priceEl = currentRow.querySelector('[data-prod-precio-actual]');
+        if (priceEl) {
+            priceEl.textContent = '$ ' + Number(entity.precioActual).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+        var labelEl = currentRow.querySelector('[data-prod-precio-label]');
+        var baseLabelEl = currentRow.querySelector('[data-prod-precio-base-label]');
+        if (entity.tienePrecioLista) {
+            var baseFormatted = Number(entity.precioBase || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            var listaNombre = entity.listaPrecioActualNombre || '';
+            if (labelEl) {
+                labelEl.textContent = 'Vigente por lista: ' + listaNombre;
+            }
+            if (baseLabelEl) {
+                baseLabelEl.textContent = 'Base/fallback: $ ' + baseFormatted;
+            } else if (labelEl) {
+                var newBase = document.createElement('p');
+                newBase.setAttribute('data-prod-precio-base-label', '');
+                newBase.className = 'text-[10px] text-slate-500';
+                newBase.textContent = 'Base/fallback: $ ' + baseFormatted;
+                labelEl.insertAdjacentElement('afterend', newBase);
+            }
+        } else {
+            if (labelEl) labelEl.textContent = 'Base/fallback';
+            if (baseLabelEl) baseLabelEl.remove();
+        }
+        var margenEl = currentRow.querySelector('[data-prod-margen]');
+        var margen = Number(entity.margenPorcentaje || 0);
+        if (margen > 0) {
+            var margenText = '+' + margen.toLocaleString('es-AR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '% margen';
+            if (margenEl) {
+                margenEl.textContent = margenText;
+            } else {
+                var newMargen = document.createElement('span');
+                newMargen.setAttribute('data-prod-margen', '');
+                newMargen.className = 'shrink-0 font-semibold text-emerald-400';
+                newMargen.textContent = margenText;
+                var precioTd = priceEl ? priceEl.closest('td') : null;
+                if (precioTd) precioTd.querySelector('div')?.appendChild(newMargen);
+            }
+        } else if (margenEl) {
+            margenEl.remove();
+        }
+
         var commissionBtn = currentRow.querySelector('[data-comision-producto-id]');
+        var commissionValue = Number(entity.comisionPorcentaje || 0);
         if (commissionBtn) {
-            var commissionValue = Number(entity.comisionPorcentaje || 0);
             commissionBtn.setAttribute('data-comision-porcentaje', String(commissionValue));
             commissionBtn.setAttribute('data-comision-producto-nombre', entity.nombre || '');
             if (commissionBtn.hasAttribute('title')) {
                 commissionBtn.title = 'Comisión vendedor: ' + commissionValue.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '%';
             }
+            var commissionEl = commissionBtn.querySelector('[data-producto-comision]');
+            if (commissionEl) {
+                commissionEl.textContent = commissionValue > 0
+                    ? commissionValue.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '%'
+                    : 'Sin comisión';
+            }
         }
-        // data attributes en el tr
+
+        // data attributes en el tr (búsqueda y orden de columnas)
         currentRow.setAttribute('data-producto-codigo', entity.codigo);
         currentRow.setAttribute('data-producto-nombre', entity.nombre);
+        currentRow.setAttribute('data-sort-nombre', (entity.nombre || '').toLowerCase());
+        currentRow.setAttribute('data-sort-precio', String(entity.precioActual || 0));
+        currentRow.setAttribute('data-sort-comision', String(commissionValue));
         currentRow.setAttribute('data-search', [
             entity.codigo || '',
             entity.nombre || '',

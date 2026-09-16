@@ -504,22 +504,22 @@
 
                                                 <div class="flex min-w-0 items-center gap-2">
 
-                                                    <span class="block min-w-0 flex-1 truncate text-sm font-semibold text-white"
+                                                    <span data-prod-nombre
+                                                          class="block min-w-0 flex-1 truncate text-sm font-semibold text-white"
                                                           title="@p.Nombre">
                                                         @p.Nombre
                                                     </span>
 
-                                                    @if (!p.Activo)
-                                                    {
-                                                        <span class="inline-flex shrink-0 rounded-full border border-red-500/30 bg-red-500/10 px-2 py-0.5 text-[11px] font-bold text-red-300">
-                                                            Inactivo
-                                                        </span>
-                                                    }
+                                                    <span data-prod-inactivo-badge
+                                                          class="inline-flex shrink-0 rounded-full border border-red-500/30 bg-red-500/10 px-2 py-0.5 text-[11px] font-bold text-red-300 @(p.Activo ? "hidden" : "")">
+                                                        Inactivo
+                                                    </span>
                                                 </div>
 
                                                 <div class="mt-1 flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-xs text-slate-400">
 
-                                                    <span class="max-w-36 shrink-0 truncate font-mono text-slate-300"
+                                                    <span data-prod-codigo
+                                                          class="max-w-36 shrink-0 truncate font-mono text-slate-300"
                                                           title="@p.Codigo">
                                                         @(string.IsNullOrWhiteSpace(p.Codigo)
                                                             ? "Sin código"
@@ -531,7 +531,8 @@
                                                         ·
                                                     </span>
 
-                                                    <span class="max-w-28 truncate"
+                                                    <span data-prod-categoria
+                                                          class="max-w-28 truncate"
                                                           title="@(p.CategoriaNombre ?? "Sin categoría")">
                                                         @(p.CategoriaNombre ?? "Sin categoría")
                                                     </span>
@@ -541,7 +542,8 @@
                                                         ·
                                                     </span>
 
-                                                    <span class="max-w-28 truncate"
+                                                    <span data-prod-marca
+                                                          class="max-w-28 truncate"
                                                           title="@(p.MarcaNombre ?? "Sin marca")">
                                                         @(p.MarcaNombre ?? "Sin marca")
                                                     </span>
@@ -559,7 +561,7 @@
 
                                     @* PRECIO: máximo dos líneas *@
                                     <td class="px-4 py-3 align-middle">
-                                        <p class="tabular-nums whitespace-nowrap text-sm font-bold text-white">
+                                        <p data-prod-precio-actual class="tabular-nums whitespace-nowrap text-sm font-bold text-white">
                                             $ @p.PrecioActual.ToString("N2")
                                         </p>
 

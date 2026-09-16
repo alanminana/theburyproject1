@@ -387,7 +387,7 @@ namespace TheBuryProject.Controllers
         /// <summary>
         /// Obtiene las subcategorías (hijas) de una categoría padre para dropdown AJAX
         /// </summary>
-        [HttpGet]
+        [HttpGet("Producto/GetSubcategorias/{categoriaId}")]
         public async Task<IActionResult> GetSubcategorias(int categoriaId)
         {
             try
@@ -405,7 +405,7 @@ namespace TheBuryProject.Controllers
         /// <summary>
         /// Obtiene las submarcas (hijas) de una marca padre para dropdown AJAX
         /// </summary>
-        [HttpGet]
+        [HttpGet("Producto/GetSubmarcas/{marcaId}")]
         public async Task<IActionResult> GetSubmarcas(int marcaId)
         {
             try
