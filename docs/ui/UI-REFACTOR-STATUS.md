@@ -15,6 +15,7 @@ faltan. Actualizar esta tabla al cerrar cada pantalla.
 | Dashboard | `Index` | ◐ Foundation aplicada | header en `.hero-erp` + tabs Vencidas/Próximas con patrón ARIA completo (ver resumen abajo); resto sin auditoría de 4 capas |
 | Cliente | `Nuevo cliente` (drawer Create) | ✅ Cerrado | serie wizard Cliente (ver resumen abajo) |
 | Cliente | `Details` | ✅ Cerrado | serie CLIENTE-DETAILS-TABS (ver resumen abajo) |
+| Catálogo | `Inventario` (tab Productos) | ✅ Cerrado | ver resumen abajo |
 
 Leyenda:
 
@@ -1154,6 +1155,64 @@ olvido): formato de DNI con puntos de miles — se dejó tal cual (dígitos sin 
 ser el mismo criterio usado sin excepción en `Cliente/Index`, `Cliente/Edit` y
 `Cliente/Delete`; agregar puntos solo en Details introduciría la inconsistencia que se
 buscaba evitar, no resolverla.
+
+## Catálogo / Inventario (tab Productos) — cerrado
+
+A pedido explícito del usuario, con una captura de referencia como fuente visual
+autorizada (fidelidad literal confirmada por el usuario), para converger geometría y
+composición con `Cliente/Index` y `Venta/Index` sin tocar reglas de negocio, permisos,
+rutas ni ViewModels.
+
+- **Shell**: `erp-page-shell-xl` (cap `--erp-shell-xl: 1480px`, centrado) reemplazado por
+  `erp-page-shell` fluido (sin modificador de ancho máximo) — mismo criterio de
+  convergencia ya aplicado en `Cliente/Index` (`.shell.cliente-index`) y `Venta/Index`
+  (`#venta-index-rework.venta-index-shell`): el gutter real ya lo aporta `_Layout.cshtml`.
+  Medido en vivo (Playwright, 1920×1080): 1480px → 1774px, igual que Venta (1774px) y
+  Cliente (1784px), mismo gutter izquierdo (104px). `erp-page-shell-xl` sigue vigente sin
+  cambios para las otras 2 vistas que la comparten (`DocumentoCliente/Index_tw`,
+  `Producto/UnidadesGlobal`), no tocadas.
+- **Tabs**: ícono + fondo pill dorado en el tab activo (antes texto con subrayado
+  inferior); aplica a los 5 tabs (Productos/Categorías/Marcas/Alertas/Movimientos), scroll
+  horizontal interno sin cambios cuando no entran a lo ancho.
+- **Acciones superiores**: "Nuevo producto" se reubica junto a "Inventario"/"Ajuste
+  Masivo" (antes vivía en una cabecera propia dentro del tab Productos); se retira el
+  bloque "Productos del catálogo / Filtrá, seleccioná..." — el contador de productos
+  visibles (`#productos-visible-count`, mismo id que actualiza `catalogo-index.js`) y
+  "Limpiar filtros" pasan a la fila de filtros.
+- **Tabla de Productos**: `table-layout: fixed` con anchos por intención (Producto 42% >
+  Precio 18% > Stock 12% > Acciones 15% > Comisión 10%), scopeado a
+  `#tab-productos .erp-table` en `catalogo-module.css` para no afectar las tablas de
+  Categorías/Marcas/Alertas/Movimientos, que comparten la clase `.erp-table` con otras
+  columnas.
+- **Badge "Inactivo"**: se reduce peso visual (de `font-bold` rojo saturado a
+  `font-semibold` más sutil) sin eliminarlo ni moverlo a columna propia (confirmado con el
+  usuario que la referencia lo mostraba junto al nombre del producto, no en columna
+  separada).
+- **Acciones por fila**: "Inventario" y "···" (más acciones) convergen al componente
+  compartido `.row-action` (`shared-components.css`, mismo patrón ya usado en
+  `Cliente/Index`/`Venta/Index`) — ghost, ícono-only; "Editar" conserva texto.
+- Regresión propia encontrada y corregida en el mismo lote: al ensanchar la columna
+  Producto, el `flex-1` del nombre estiraba el badge "Inactivo" lejos del texto visible
+  (hasta ~700px de distancia). Corregido reemplazando `flex-1` por `shrink` + `max-w-xl`
+  en el nombre.
+- Sin cambios de cálculo, reglas de negocio, permisos, ids, rutas ni `data-*`.
+  Validado en vivo con Playwright (instancia del usuario en :18787, solo lectura, sin
+  tocarla) en 1920×1080, 1440×900, 1280×720, 1024×720, 768×1024, 390×844 y 360×800: sin
+  overflow horizontal de página en ningún viewport, 0 errores/warnings de consola; tab
+  switching, modal "Nuevo producto", selección múltiple (chip + badge + barra sticky) y
+  atributos/hrefs de acciones verificados funcionalmente sin cambios; build 0/0; 73/73
+  tests focalizados de Catálogo verdes.
+
+Hallazgos fuera de alcance detectados durante la auditoría, no corregidos (preexistentes,
+ajenos a este lote): el botón "···" (más acciones) no tiene ningún listener JS que lo abra
+en `catalogo-index.js` ni `catalogo-module.js` (botón inerte); a exactamente 1024px de
+viewport el input de búsqueda del formulario de filtros se comprime a ~92px y su label
+pasa a 2 líneas (breakpoint `lg:` del formulario de filtros, sin relación con el shell ni
+la tabla).
+
+Deuda conocida, no iniciada en este lote: Categorías/Marcas/Alertas/Movimientos se
+benefician del shell fluido y del rediseño de tabs, pero no recibieron auditoría completa
+de 4 capas — quedan fuera del alcance visual pedido (limitado a "Inventario"/Productos).
 
 ## Regla para mantener estos documentos
 

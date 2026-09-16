@@ -9,9 +9,10 @@
     // respeta Model.TabActiva para que un submit de filtro dentro de Alertas/Movimientos
     // (recarga completa de página) no vuelva siempre a mostrar Productos.
     string TabBtnClass(string key) => Model.TabActiva == key
-        ? "shrink-0 px-5 py-3 text-sm font-bold border-b-2 border-primary text-primary bg-primary/10 transition-colors"
-        : "shrink-0 px-5 py-3 text-sm font-bold border-b-2 border-transparent text-slate-400 hover:text-white hover:bg-white/5 transition-colors";
+        ? "inline-flex shrink-0 items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-slate-950 transition-colors"
+        : "inline-flex shrink-0 items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-bold text-slate-400 transition-colors hover:bg-white/5 hover:text-white";
     string TabPanelClass(string key) => Model.TabActiva == key ? "" : "hidden";
+    string TabIconClass(string key) => Model.TabActiva == key ? "text-slate-950" : "text-slate-500";
 }
 
 @section Styles {
@@ -20,7 +21,7 @@
 }
 
 
-<div class="erp-page-shell erp-page-shell-xl">
+<div class="erp-page-shell">
 
 <!-- TempData Alerts -->
 @if (TempData["Success"] != null)
@@ -42,31 +43,35 @@
 <div class="card-erp-panel overflow-hidden">
 
     <!-- Tab Bar + Actions -->
-    <div class="flex flex-col gap-4 border-b border-slate-800 bg-slate-800/20 px-4 py-4 xl:flex-row xl:items-center xl:justify-between">
+    <div class="flex flex-col gap-4 border-b border-slate-800 px-4 py-4 xl:flex-row xl:items-center xl:justify-between">
         <div class="relative min-w-0" id="catalogo-tabs-wrapper">
-        <div class="flex overflow-x-auto" id="catalogo-tabs">
+        <div class="flex gap-1 overflow-x-auto" id="catalogo-tabs">
             <button type="button" data-catalogo-tab="productos"
                     class="@TabBtnClass("productos")">
+                <span class="material-symbols-outlined text-base @TabIconClass("productos")" aria-hidden="true">grid_view</span>
                 Productos
             </button>
             <button type="button" data-catalogo-tab="categorias"
                     class="@TabBtnClass("categorias")">
+                <span class="material-symbols-outlined text-base @TabIconClass("categorias")" aria-hidden="true">category</span>
                 Categorías
-                <span class="ml-1 text-xs text-slate-400">(@Model.TotalCategorias)</span>
+                <span class="text-xs text-slate-400">(@Model.TotalCategorias)</span>
             </button>
             <button type="button" data-catalogo-tab="marcas"
                     class="@TabBtnClass("marcas")">
+                <span class="material-symbols-outlined text-base @TabIconClass("marcas")" aria-hidden="true">sell</span>
                 Marcas
-                <span class="ml-1 text-xs text-slate-400">(@Model.TotalMarcas)</span>
+                <span class="text-xs text-slate-400">(@Model.TotalMarcas)</span>
             </button>
             @if (Model.MostrarTabAlertas)
             {
                 <button type="button" data-catalogo-tab="alertas"
                         class="@TabBtnClass("alertas")">
+                    <span class="material-symbols-outlined text-base @TabIconClass("alertas")" aria-hidden="true">notifications</span>
                     Alertas
                     @if (Model.AlertasPartial?.TotalPendientes > 0)
                     {
-                        <span class="ml-1 text-xs text-slate-400">(@Model.AlertasPartial.TotalPendientes)</span>
+                        <span class="text-xs text-slate-400">(@Model.AlertasPartial.TotalPendientes)</span>
                     }
                 </button>
             }
@@ -74,6 +79,7 @@
             {
                 <button type="button" data-catalogo-tab="movimientos"
                         class="@TabBtnClass("movimientos")">
+                    <span class="material-symbols-outlined text-base @TabIconClass("movimientos")" aria-hidden="true">sync_alt</span>
                     Movimientos
                 </button>
             }
@@ -93,6 +99,13 @@
                     <span id="btn-ajuste-masivo-count">0</span>
                 </span>
             </button>
+            <button type="button"
+                    id="btn-crear-producto"
+                    data-catalogo-modal-open="producto"
+                    class="btn-erp-primary btn-sm w-full sm:w-auto">
+                <span class="material-symbols-outlined text-sm" aria-hidden="true">add</span>
+                Nuevo producto
+            </button>
             <div id="catalogo-selection-chip" class="hidden items-center gap-2 rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-[11px] font-bold text-amber-400">
                 <span class="material-symbols-outlined text-[14px]">checklist</span>
                 <span><span id="catalogo-selection-chip-count">0</span> seleccionados</span>
@@ -104,42 +117,6 @@
 <div id="tab-productos" class="@TabPanelClass("productos")">
 
     @* ============================================================
-       CABECERA
-       ============================================================ *@
-    <div class="border-b border-slate-800 px-5 py-4">
-        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-
-            <div class="min-w-0">
-                <h2 class="text-base font-bold text-white">
-                    Productos del catálogo
-                </h2>
-
-                <p class="mt-1 text-sm text-slate-400">
-                    Filtrá, seleccioná productos y aplicá ajustes desde la misma grilla.
-                </p>
-            </div>
-
-            <div class="flex flex-wrap items-center gap-3">
-                <span class="badge-erp badge-erp-neutral">
-                    <span id="productos-visible-count">@productos.Count</span>
-                    <span>&nbsp;visibles</span>
-                </span>
-
-                <button type="button"
-                        id="btn-crear-producto"
-                        data-catalogo-modal-open="producto"
-                        class="btn-erp-primary btn-sm w-full sm:w-auto">
-                    <span class="material-symbols-outlined text-sm"
-                          aria-hidden="true">
-                        add
-                    </span>
-                    Nuevo producto
-                </button>
-            </div>
-        </div>
-    </div>
-
-    @* ============================================================
        FILTROS COMPACTOS
        Una línea en escritorio, dos en tablet y apilado en móvil.
        ============================================================ *@
@@ -148,6 +125,23 @@
           asp-controller="Catalogo"
           asp-action="Index"
           class="border-b border-slate-800 bg-slate-900/30 px-4 py-3">
+
+        <div class="mb-3 flex items-center justify-end gap-4">
+            <span class="badge-erp badge-erp-neutral">
+                <span id="productos-visible-count">@productos.Count</span>
+                <span>&nbsp;productos</span>
+            </span>
+
+            @if (Model.TieneFiltrosActivos)
+            {
+                <a asp-controller="Catalogo"
+                   asp-action="Index"
+                   class="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-300 no-underline transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                    <span class="material-symbols-outlined text-base" aria-hidden="true">clear_all</span>
+                    Limpiar filtros
+                </a>
+            }
+        </div>
 
         <div class="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end">
 
@@ -278,19 +272,6 @@
                         </span>
                         Filtrar
                     </button>
-
-                    @if (Model.TieneFiltrosActivos)
-                    {
-                        <a asp-controller="Catalogo"
-                           asp-action="Index"
-                           class="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-lg border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-300 no-underline transition-colors hover:bg-slate-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary lg:flex-none">
-                            <span class="material-symbols-outlined text-lg"
-                                  aria-hidden="true">
-                                clear_all
-                            </span>
-                            Limpiar
-                        </a>
-                    }
                 </div>
             </div>
         </div>
@@ -505,13 +486,13 @@
                                                 <div class="flex min-w-0 items-center gap-2">
 
                                                     <span data-prod-nombre
-                                                          class="block min-w-0 flex-1 truncate text-sm font-semibold text-white"
+                                                          class="block min-w-0 max-w-xl shrink truncate text-sm font-semibold text-white"
                                                           title="@p.Nombre">
                                                         @p.Nombre
                                                     </span>
 
                                                     <span data-prod-inactivo-badge
-                                                          class="inline-flex shrink-0 rounded-full border border-red-500/30 bg-red-500/10 px-2 py-0.5 text-[11px] font-bold text-red-300 @(p.Activo ? "hidden" : "")">
+                                                          class="inline-flex shrink-0 rounded-full border border-red-500/20 bg-red-500/5 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-red-400/90 @(p.Activo ? "hidden" : "")">
                                                         Inactivo
                                                     </span>
                                                 </div>
@@ -653,14 +634,15 @@
                                             <a asp-controller="Producto"
                                                asp-action="Inventario"
                                                asp-route-productoId="@p.ProductoId"
-                                               class="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-slate-300 no-underline transition-colors hover:border-slate-600 hover:bg-slate-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                               class="row-action row-action--primary"
                                                aria-label="Abrir inventario de @p.Nombre"
                                                title="Inventario">
 
-                                                <span class="material-symbols-outlined text-lg"
+                                                <span class="material-symbols-outlined"
                                                       aria-hidden="true">
                                                     inventory_2
                                                 </span>
+                                                <span class="row-action__label">Inventario</span>
                                             </a>
 
                                             <button type="button"
@@ -668,17 +650,18 @@
                                                     data-producto-id="@p.ProductoId"
                                                     data-producto-nombre="@p.Nombre"
                                                     data-compra-url="@compraUrl"
-                                                    class="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-slate-300 transition-colors hover:border-slate-600 hover:bg-slate-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                                    class="row-action"
                                                     aria-label="Más acciones para @p.Nombre"
                                                     aria-haspopup="menu"
                                                     aria-expanded="false"
                                                     aria-controls="catalogo-row-actions-menu"
                                                     title="Más acciones">
 
-                                                <span class="material-symbols-outlined text-xl"
+                                                <span class="material-symbols-outlined"
                                                       aria-hidden="true">
                                                     more_horiz
                                                 </span>
+                                                <span class="row-action__label">Más acciones</span>
                                             </button>
                                         </div>
                                     </td>

@@ -79,6 +79,29 @@ select.catalogo-input option {
     outline-offset: 2px;
 }
 
+/* CATALOGO-INVENTARIO-SHELL: reparto de columnas con intención al liberar el shell
+   fluido (antes acotado a 1480px vía erp-page-shell-xl). table-layout:auto sin esto
+   deja que el navegador reparta el espacio libre de forma pareja entre columnas en
+   vez de priorizar Producto; scopeado a la tabla de Productos (#tab-productos) para
+   no afectar las tablas de Categorías/Marcas/Alertas/Movimientos, que comparten la
+   misma clase .erp-table pero tienen otras columnas. */
+#tab-productos .erp-table {
+    table-layout: fixed;
+}
+
+#tab-productos .erp-table th:nth-child(1),
+#tab-productos .erp-table td:nth-child(1) { width: 3%; }   /* selección */
+#tab-productos .erp-table th:nth-child(2),
+#tab-productos .erp-table td:nth-child(2) { width: 42%; }  /* Producto: prioridad máxima */
+#tab-productos .erp-table th:nth-child(3),
+#tab-productos .erp-table td:nth-child(3) { width: 12%; }  /* Stock */
+#tab-productos .erp-table th:nth-child(4),
+#tab-productos .erp-table td:nth-child(4) { width: 18%; }  /* Precio vigente */
+#tab-productos .erp-table th:nth-child(5),
+#tab-productos .erp-table td:nth-child(5) { width: 10%; }  /* Comisión */
+#tab-productos .erp-table th:nth-child(6),
+#tab-productos .erp-table td:nth-child(6) { width: 15%; }  /* Acciones */
+
 /* Tab bar right-fade affordance */
 #catalogo-tabs-wrapper::after {
     content: '';
