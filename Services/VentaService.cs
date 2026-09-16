@@ -460,7 +460,10 @@ namespace TheBuryProject.Services
         /// - Crea el crédito en estado PendienteConfiguracion
         /// - Pone la venta en estado PendienteFinanciacion
         /// </summary>
-        private async Task AplicarResultadoValidacionAsync(
+        // VENTA-COTIZACION-REWORK-03: pública (antes privada) para que CotizacionConversionService
+        // la reutilice vía IVentaService en vez de duplicar esta lógica — ver XML doc en
+        // IVentaService.AplicarResultadoValidacionAsync.
+        public async Task AplicarResultadoValidacionAsync(
             Venta venta,
             ValidacionVentaResult validacion,
             string usuarioActual)
@@ -650,8 +653,10 @@ namespace TheBuryProject.Services
 
         /// <summary>
         /// Crea el crédito para una venta con CreditoPersonal después de que la venta fue guardada.
+        /// VENTA-COTIZACION-REWORK-03: pública (antes privada) — ver XML doc en
+        /// IVentaService.CrearCreditoPendienteParaVentaAsync.
         /// </summary>
-        private async Task CrearCreditoPendienteParaVentaAsync(Venta venta)
+        public async Task CrearCreditoPendienteParaVentaAsync(Venta venta)
         {
             // Generar número de crédito
             var ultimoCredito = await _context.Creditos

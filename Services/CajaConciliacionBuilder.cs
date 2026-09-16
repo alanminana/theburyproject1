@@ -53,6 +53,7 @@ public static class CajaConciliacionBuilder
         var ventasEfectivas = lineasVenta.Where(v => v.Categoria == VentaTurnoCategoria.Efectiva).ToList();
         var totalVendido = ventasEfectivas.Sum(v => v.TotalVenta);
         var totalPendiente = ventasEfectivas.Sum(v => v.Pendiente);
+        var totalIvaFacturado = ventasEfectivas.Where(v => v.DiscriminaIva).Sum(v => v.Iva);
 
         var vm = new CajaConciliacionViewModel
         {
@@ -80,6 +81,7 @@ public static class CajaConciliacionBuilder
             TotalCobradoEfectivo = detalle.TotalIngresosFisicos,
             TotalCobradoDigital = detalle.TotalIngresosDigitales,
             TotalPendiente = totalPendiente,
+            TotalIvaFacturado = totalIvaFacturado,
             IngresosEfectivo = detalle.TotalIngresosFisicos,
             EgresosEfectivo = detalle.TotalEgresosFisicos,
             CajaFisicaEsperada = detalle.CajaFisicaEsperada,
@@ -166,7 +168,10 @@ public static class CajaConciliacionBuilder
             ImpactaCajaFisica = impacta,
             Referencia = v.Numero,
             MotivoNoImpacta = motivo,
-            Categoria = categoria
+            Categoria = categoria,
+            DiscriminaIva = DiscriminaIva(v.Estado),
+            Neto = v.Subtotal,
+            Iva = v.IVA
         };
     }
 
@@ -176,6 +181,15 @@ public static class CajaConciliacionBuilder
         EstadoVenta.PendienteRequisitos or EstadoVenta.PendienteFinanciacion => VentaTurnoCategoria.Pendiente,
         _ => VentaTurnoCategoria.Registro
     };
+
+    /// <summary>
+    /// Una venta discrimina IVA solo cuando hay factura real detrás (Facturada/Entregada — el
+    /// flujo de negocio exige pasar por <c>VentaController.Facturar</c> para llegar a esos
+    /// estados). Una Confirmada sin facturar es una venta informal ("en negro"): se cobra el
+    /// total tal cual y no hace falta discriminar ni declarar el IVA de esa operación.
+    /// </summary>
+    private static bool DiscriminaIva(EstadoVenta estado) =>
+        estado is EstadoVenta.Facturada or EstadoVenta.Entregada;
 
     // ──────────────────────────────────────────────────────────────────────
     // Movimientos

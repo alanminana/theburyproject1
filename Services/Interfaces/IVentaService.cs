@@ -16,6 +16,41 @@ namespace TheBuryProject.Services.Interfaces
         {
             throw new NotImplementedException();
         }
+
+        // VENTA-COTIZACION-REWORK-03 (auditoría en vivo del usuario, 2026-09-15): expone la
+        // misma lógica de autorización/creación de crédito que ya usa CreateAsync (antes
+        // privada), para que quien cree una Venta con TipoPago=CreditoPersonal FUERA del POST
+        // estándar de Venta/Create — hoy sólo CotizacionConversionService — reutilice
+        // exactamente el mismo proceso real en vez de inventar un segundo camino de
+        // autorización. Default en NotImplementedException: ningún stub de test existente que
+        // implementa esta interfaz necesita tocarse salvo que efectivamente ejerza esta rama
+        // (CotizacionConversionService sólo la llama cuando TipoPago == CreditoPersonal).
+
+        /// <summary>
+        /// Aplica el resultado de <see cref="IValidacionVentaService.ValidarVentaCreditoPersonalAsync"/>
+        /// a una <see cref="Venta"/> con TipoPago=CreditoPersonal AÚN NO GUARDADA (setea
+        /// RequiereAutorizacion/EstadoAutorizacion/RazonesAutorizacionJson/Estado). Debe llamarse
+        /// antes de persistir la venta. <paramref name="validacion"/> no debe tener NoViable=true
+        /// (mismo contrato que la rama interna de CreateAsync: el caller decide qué hacer con un
+        /// NoViable antes de llegar acá — para conversión de cotización, rechazar esa alternativa).
+        /// </summary>
+        Task AplicarResultadoValidacionAsync(Venta venta, ValidacionVentaResult validacion, string usuarioActual)
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <summary>
+        /// Crea el <see cref="Models.Entities.Credito"/> real (PendienteConfiguracion) para una
+        /// venta con TipoPago=CreditoPersonal ya persistida (requiere <c>venta.Id</c>) y aprobable
+        /// (RequiereAutorizacion=false). Si <c>venta.CotizacionOrigenId</c> está seteado, precarga
+        /// cuotas/anticipo intencionados desde esa cotización (mismo comportamiento que ya tiene
+        /// para ventas creadas directamente desde Cotización vía CreateAsync).
+        /// </summary>
+        Task CrearCreditoPendienteParaVentaAsync(Venta venta)
+        {
+            throw new NotImplementedException();
+        }
+
         Task<bool> ConfirmarVentaAsync(int id);
         /// <summary>
         /// Confirma una venta con crédito personal: genera cuotas, marca crédito como Generado

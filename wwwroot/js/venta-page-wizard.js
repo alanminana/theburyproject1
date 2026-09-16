@@ -211,7 +211,14 @@
         // normalmente. Mismo patrón classList+atributo que ya usa setActiveStep() para
         // los paneles (necesario porque las utilities de Tailwind como "inline-flex"
         // ganan por Cascade Layers a un solo mecanismo de ocultamiento).
-        const ocultarCtaGlobal = esCredito && accion !== 'verify-credit';
+        // COTIZACION-WORKSTATION-01 (§9 del rework visual de Cotización): mismo
+        // criterio, ahora también para Cotizar. El CTA "Simular cotización" pasó a
+        // vivir junto a la franja de Totales del cotizador (#cotizacion-simular, que
+        // este botón global ya disparaba por id — ver el delegado más abajo), que es
+        // donde está el resumen que lo motiva. Mantener además el botón del header
+        // dejaba la misma intención duplicada en dos lugares con peso visual
+        // distinto, a media pantalla de distancia uno del otro.
+        const ocultarCtaGlobal = (esCredito && accion !== 'verify-credit') || esCotizar;
 
         root.querySelectorAll('[data-wizard-primary]').forEach((button) => {
             button.dataset.wizardAction = accion;

@@ -96,7 +96,14 @@
         };
 }
 
-<div id="venta-details-page" class="mx-auto w-full max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+<div id="venta-details-page" class="w-full py-4">
+    @* VENTA-DETAILS-GEOMETRIA-01: converge al mismo criterio de ancho fluido que
+       #venta-index-rework (ventas-index.css) y .shell.cliente-details
+       (cliente-module.css) — el gutter lateral real ya lo aporta el padding
+       responsive de _Layout.cshtml (px-4/sm:px-6/lg:px-8); un max-width propio
+       + padding propio encima duplicaba el gutter y angostaba el contenido a
+       1280px centrado (medido: ~160px de margen muerto por lado a 1920px,
+       mientras Venta/Index y Cliente/Details usan el ancho fluido completo). *@
     <div class="space-y-4">
 
         <!-- TempData Messages -->
@@ -228,10 +235,15 @@
         </section>
 
         <!-- Main Grid -->
-        <div class="grid grid-cols-1 gap-5 lg:grid-cols-3 lg:items-start">
+        @* VENTA-DETAILS-GEOMETRIA-01: mismo patrón main+aside ya usado en
+           Venta/Autorizar_tw.cshtml y Venta/Cancelar_tw.cshtml
+           (minmax(0,1.65fr)_minmax(18rem,1fr)) en vez de grid-cols-3/col-span-2
+           fijo — converge al lenguaje visual del propio módulo Venta y evita
+           que la tabla fuerce un blowout del grid (minmax(0,…) + min-w-0). *@
+        <div class="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1.65fr)_minmax(18rem,1fr)] lg:items-start">
 
             <!-- Left Column: Details -->
-            <div class="lg:col-span-2 space-y-4">
+            <div class="min-w-0 space-y-4">
 
                 <!-- Sale Info Card -->
                 <section class="card-erp-panel-padded">

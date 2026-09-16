@@ -919,6 +919,26 @@
    el scroll lo hace la página, no los panel-body.
    ══════════════════════════════════════════════════════════════ */
 
+/* VENTA-COTIZACION-REWORK-02 (reapertura por reporte visual directo del
+   usuario: "encerrado en un shell central demasiado angosto"). Causa raíz
+   medida en vivo con Playwright a 1920x1080: `#venta-create-page` (shell de
+   TODO el wizard, no sólo Cotizar) trae `max-width:1400px` — a 1920px eso
+   deja ~130px de margen muerto por lado más allá de la sidebar, el mismo
+   defecto que Venta/Index ya corrigió (ver ventas-index.css, comentario
+   VENTA-INDEX-CLIENTE-PARIDAD-01). La comparativa de medios de pago es el
+   núcleo comercial de la pantalla (VENTA-COTIZACION-REWORK-01) y necesita
+   ese ancho real para mostrar varias alternativas sin angostarse.
+   Se libera el cap SÓLO mientras Cotizar es el paso activo (selector por
+   `data-paso-activo`, ya usado más abajo para ocultar la grilla de Venta) en
+   vez de tocar `#venta-create-page` de forma global: los otros 5 pasos
+   (Cliente/Productos/Pago/Crédito/Envío/Revisión) ya están cerrados en
+   UI-REFACTOR-STATUS.md con su geometría medida y validada contra ese ancho
+   de 1400px (grid 2fr/minmax(20rem,1fr), breakpoints propios en 1280px,
+   etc.) — ensancharlos no fue pedido y los reabriría sin evidencia. */
+#venta-create-page[data-paso-activo="cotizar"] {
+    max-width: none;
+}
+
 /* Mientras Cotizar es el paso activo, la grilla de la venta y la barra móvil
    se ocultan: sus paneles ya están cerrados y sus totales/CTA no aplican.
    La variante con `#venta-form >` existe por especificidad: hay que ganarle a
@@ -930,7 +950,71 @@
 }
 
 #venta-create-page .venta-cotizar-panel {
-    margin-bottom: 1.25rem;
+    margin-bottom: 0.25rem;
+}
+
+/* VENTA-COTIZACION-REWORK-03 (pedido explícito del usuario: a 1920x1080 debe
+   verse AL MENOS la primera alternativa real de pago sin scroll, sin quitar
+   datos ni achicar tipografía de importes/datos críticos). Compacta la altura
+   del chrome compartido del wizard (hero "Nueva Venta" + stepper) SOLO
+   mientras Cotizar es el paso activo — mismo criterio de scope que el fix de
+   ancho de arriba (VENTA-COTIZACION-REWORK-02): los otros 5 pasos ya están
+   cerrados con su propia densidad medida y no se tocan. Reduce padding/
+   márgenes/tamaños de TÍTULOS DE SECCIÓN (no de datos ni importes). */
+#venta-create-page[data-paso-activo="cotizar"] .hero-erp {
+    padding: .3rem .8rem;
+}
+
+#venta-create-page[data-paso-activo="cotizar"] section.hero-erp {
+    margin-bottom: .45rem;
+}
+
+#venta-create-page[data-paso-activo="cotizar"] .hero-erp > .flex.flex-col {
+    gap: .5rem;
+}
+
+#venta-create-page[data-paso-activo="cotizar"] .hero-erp h1 {
+    font-size: 1.05rem;
+    line-height: 1.15;
+}
+
+#venta-create-page[data-paso-activo="cotizar"] .hero-erp p {
+    margin-top: .15rem;
+    font-size: .74rem;
+    line-height: 1.25;
+}
+
+#venta-create-page[data-paso-activo="cotizar"] .hero-erp .flex.w-full.flex-col.gap-3 {
+    gap: .4rem;
+}
+
+/* Fila de pills (breadcrumb "Ventas / Cotización en curso") — un solo renglón
+   compacto, no aporta jerarquía de dato. Las pills en sí (no son importes/
+   datos de negocio, son navegación) bajan de py-1 a un padding menor. */
+#venta-create-page[data-paso-activo="cotizar"] .hero-erp .flex.flex-wrap.items-center.gap-2.text-xs {
+    margin-bottom: 0;
+}
+
+#venta-create-page[data-paso-activo="cotizar"] .hero-erp .flex.flex-wrap.items-center.gap-2.text-xs > * {
+    padding-top: .15rem;
+    padding-bottom: .15rem;
+}
+
+/* Stepper: mismo alto de toque (accesibilidad), menos aire vertical alrededor. */
+#venta-create-page[data-paso-activo="cotizar"] .mt-4.flex.items-center.justify-between {
+    margin-top: .35rem;
+}
+
+#venta-create-page[data-paso-activo="cotizar"] .vm-step-tab {
+    min-height: 1.9rem;
+    padding: .28rem .6rem;
+    font-size: .72rem;
+}
+
+#venta-create-page[data-paso-activo="cotizar"] .vm-step-tab__num {
+    width: 1.15rem;
+    height: 1.15rem;
+    font-size: .62rem;
 }
 
 #venta-create-page .venta-cotizar-panel .cotz-app {
@@ -947,7 +1031,67 @@
 
 /* El shell de la venta ya aporta el padding lateral de página. */
 #venta-create-page .venta-cotizar-panel .cotz-app .workspace {
-    padding: 0.75rem;
+    padding: 0.5rem;
+    gap: 4px;
+}
+
+/* VENTA-COTIZACION-REWORK-03: mismo criterio que arriba — compactar SOLO el
+   host embebido (Venta/Create), no cotizacion-simulador.css (compartido con
+   Cotizacion/Index_tw standalone, cerrado en la serie COTIZACION-SIMULAR-
+   REDESIGN-VISUAL). Reduce el aire alrededor de encabezados/franjas, nunca
+   el tamaño de los importes (.total-display / celdas de datos no se tocan). */
+#venta-create-page .venta-cotizar-panel .cotz-app .cotz-topbar {
+    padding: .3rem .85rem;
+}
+
+#venta-create-page .venta-cotizar-panel .cotz-app .panel-head {
+    padding: .42rem .85rem .38rem;
+}
+
+#venta-create-page .venta-cotizar-panel .cotz-app .panel-body {
+    padding: .55rem .7rem;
+}
+
+/* COTIZACION-WORKSTATION-01: el pie de Resultados ahora es la barra de selección
+   (resumen + Guardar/Continuar), no un rail de acciones alto — mismo criterio de
+   compactación que el resto del chrome embebido. */
+#venta-create-page .venta-cotizar-panel .cotz-app .panel-foot {
+    padding: .5rem .85rem !important;
+}
+
+/* COTIZACION-WORKSTATION-01: se retiró la regla que compactaba la fila de filtros
+   "Incluir" de Resultados (`[data-zone="resultados"] .panel-head + div`). Esa fila
+   ya no existe — los filtros de medios pasaron a un desplegable dentro del propio
+   panel-head (.medios-filtro), así que el selector ahora matchearía el
+   `.panel-body` de la tabla y le aplastaría el padding vertical a .12rem. */
+
+/* Chips de filtro ("Efectivo", "T. crédito"...): son controles de UI, no
+   datos de negocio — bajan de padding .35rem/font .76rem a algo más chico. */
+#venta-create-page .venta-cotizar-panel .cotz-app .medio-chip {
+    padding: .12rem .5rem;
+    font-size: .7rem;
+}
+
+/* Tabla de Resultados: sólo el padding vertical de encabezado/filas baja —
+   font-size de .rtable (celdas de datos: Total final, Cuota, Recargo, etc.)
+   NO se toca, por pedido explícito ("no reducir tamaño de fuente de importes
+   o datos críticos"). */
+#venta-create-page .venta-cotizar-panel .cotz-app .rtable thead th {
+    padding-top: .22rem;
+    padding-bottom: .22rem;
+}
+
+#venta-create-page .venta-cotizar-panel .cotz-app .rtable td {
+    padding-top: .35rem;
+    padding-bottom: .35rem;
+}
+
+/* Franja Subtotal/Descuento/Total base: sólo el padding del contenedor baja
+   (no el font-size de los importes). COTIZACION-WORKSTATION-01: la franja ahora
+   aloja también el CTA contextual (§8/§9), así que el padding vertical no puede
+   bajar de lo que necesita un botón de 38px sin recortarlo. */
+#venta-create-page .venta-cotizar-panel .cotz-app .totales-bar {
+    padding: .45rem .9rem;
 }
 
 /* Las proporciones de .workspace (Productos/Resultados/Config) y el apilado por

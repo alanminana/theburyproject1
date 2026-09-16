@@ -36,9 +36,9 @@ public class CajaConciliacionBuilderTests
             Cerrada = cerrada
         };
 
-        var ventaCredito = new Venta { Id = 1, Numero = "VTA-1", Total = 20000m, Estado = EstadoVenta.Facturada, TipoPago = TipoPago.CreditoPersonal, FechaVenta = Base.AddMinutes(6) };
-        var ventaEfectivo = new Venta { Id = 2, Numero = "VTA-2", Total = 3000m, Estado = EstadoVenta.Confirmada, TipoPago = TipoPago.Efectivo, FechaVenta = Base.AddMinutes(3) };
-        var ventaTarjeta = new Venta { Id = 3, Numero = "VTA-3", Total = 5000m, Estado = EstadoVenta.Facturada, TipoPago = TipoPago.TarjetaCredito, FechaVenta = Base.AddMinutes(4) };
+        var ventaCredito = new Venta { Id = 1, Numero = "VTA-1", Subtotal = 16528.93m, IVA = 3471.07m, Total = 20000m, Estado = EstadoVenta.Facturada, TipoPago = TipoPago.CreditoPersonal, FechaVenta = Base.AddMinutes(6) };
+        var ventaEfectivo = new Venta { Id = 2, Numero = "VTA-2", Subtotal = 2479.34m, IVA = 520.66m, Total = 3000m, Estado = EstadoVenta.Confirmada, TipoPago = TipoPago.Efectivo, FechaVenta = Base.AddMinutes(3) };
+        var ventaTarjeta = new Venta { Id = 3, Numero = "VTA-3", Subtotal = 4132.23m, IVA = 867.77m, Total = 5000m, Estado = EstadoVenta.Facturada, TipoPago = TipoPago.TarjetaCredito, FechaVenta = Base.AddMinutes(4) };
 
         var movimientos = new List<MovimientoCaja>
         {
@@ -173,6 +173,32 @@ public class CajaConciliacionBuilderTests
         // Acreditado y sin estado (null) son el camino normal ⇒ no muestran chip.
         Assert.False(vm.Movimientos.Single(m => m.MovimientoId == 32).MuestraAcreditacion);
         Assert.False(vm.Movimientos.Single(m => m.MovimientoId == 13).MuestraAcreditacion);
+    }
+
+    [Fact]
+    public void Facturada_DiscriminaIva_ConfirmadaSinFacturar_NoDiscrimina()
+    {
+        var vm = CajaConciliacionBuilder.Build(BuildDetalleStandard(), cierre: null, puedeOperar: true);
+
+        var facturada = vm.Ventas.Single(v => v.VentaId == 1);
+        Assert.True(facturada.DiscriminaIva);
+        Assert.Equal(16528.93m, facturada.Neto);
+        Assert.Equal(3471.07m, facturada.Iva);
+
+        var confirmadaSinFacturar = vm.Ventas.Single(v => v.VentaId == 2);
+        Assert.False(confirmadaSinFacturar.DiscriminaIva);
+        // El dato existe (Venta.IVA siempre se calcula) pero no se discrimina en pantalla: es
+        // una venta "en negro", se cobra el total sin desglosar IVA.
+        Assert.Equal(520.66m, confirmadaSinFacturar.Iva);
+    }
+
+    [Fact]
+    public void TotalIvaFacturado_SoloSumaVentasQueDiscriminanIva()
+    {
+        var vm = CajaConciliacionBuilder.Build(BuildDetalleStandard(), cierre: null, puedeOperar: true);
+
+        // Solo las 2 Facturadas (VTA-1 3471.07 + VTA-3 867.77); la Confirmada (VTA-2, 520.66) queda afuera.
+        Assert.Equal(4338.84m, vm.TotalIvaFacturado);
     }
 
     [Fact]

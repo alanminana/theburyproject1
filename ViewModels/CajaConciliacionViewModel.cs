@@ -60,6 +60,13 @@ public class CajaConciliacionViewModel
     public string? JustificacionDiferencia { get; set; }
     public string? DetalleArqueo { get; set; }
 
+    /// <summary>
+    /// IVA a depositar del turno: suma del IVA solo de las ventas que discriminan IVA
+    /// (Facturada/Entregada). Las Confirmadas sin facturar ("venta en negro") cobran el total
+    /// sin necesidad de discriminar ni declarar IVA, así que no suman acá.
+    /// </summary>
+    public decimal TotalIvaFacturado { get; set; }
+
     // ── Colecciones por tab ──
     public List<ResumenMedioConciliacionViewModel> ResumenPorMedio { get; set; } = new();
     public List<VentaTurnoLineaViewModel> Ventas { get; set; } = new();
@@ -134,6 +141,17 @@ public class VentaTurnoLineaViewModel
     public string? MotivoNoImpacta { get; set; }
     public VentaTurnoCategoria Categoria { get; set; } = VentaTurnoCategoria.Efectiva;
     public bool Cancelada => Estado == EstadoVenta.Cancelada;
+
+    /// <summary>
+    /// True si la venta tiene factura real (Facturada/Entregada): discrimina Neto + IVA porque
+    /// hay que declararlo. Una Confirmada sin facturar es una venta "en negro" — se cobra el
+    /// total y no hace falta discriminar ni pagar IVA por ella.
+    /// </summary>
+    public bool DiscriminaIva { get; set; }
+    /// <summary>Neto de la venta (<c>Venta.Subtotal</c>). Solo tiene sentido mostrarlo si <see cref="DiscriminaIva"/>.</summary>
+    public decimal Neto { get; set; }
+    /// <summary>IVA de la venta (<c>Venta.IVA</c>). Solo tiene sentido mostrarlo si <see cref="DiscriminaIva"/>.</summary>
+    public decimal Iva { get; set; }
 }
 
 /// <summary>Movimiento real de caja con Entra/Sale separados (no monto con signo).</summary>

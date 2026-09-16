@@ -12,7 +12,7 @@
     <div class="px-4 py-3 space-y-3" style="border-bottom:1px solid var(--line)">
         <div>
             <h2 class="font-semibold text-white">Ventas del turno</h2>
-            <p class="text-sm muted">Operaciones generadas en este turno. "Cobrado ahora" es lo recibido; "Pendiente" es lo que todavía no entró.</p>
+            <p class="text-sm muted">Operaciones generadas en este turno. "Cobrado ahora" es lo recibido; "Pendiente" es lo que todavía no entró. Confirmada y Facturada impactan caja por igual; la columna IVA solo aplica a las facturadas.</p>
         </div>
         <div class="cc-filters">
             <div>
@@ -55,7 +55,7 @@
 
     @if (ventas.Any())
     {
-        <div data-oc-scroll style="--oc-scroll-min-width: 880px;">
+        <div data-oc-scroll style="--oc-scroll-min-width: 980px;">
             <div data-oc-scroll-shell>
                 <div data-oc-scroll-fade="left" hidden></div>
                 <div data-oc-scroll-fade="right" hidden></div>
@@ -68,6 +68,7 @@
                                 <th>Estado</th>
                                 <th>Medio de pago</th>
                                 <th style="text-align:right">Total</th>
+                                <th style="text-align:right">IVA</th>
                                 <th style="text-align:right">Cobrado ahora</th>
                                 <th style="text-align:right">Pendiente</th>
                                 <th style="text-align:center">Impacta caja</th>
@@ -96,7 +97,23 @@
                                     <td>@v.Cliente</td>
                                     <td><span class="@v.EstadoChipClass">@v.EstadoLabel</span></td>
                                     <td><span class="chip @(v.ImpactaCajaFisica ? "chip-ok" : "chip-info")">@v.MedioPago</span></td>
-                                    <td style="text-align:right" class="num">$@v.TotalVenta.ToString("N2")</td>
+                                    <td style="text-align:right" class="num">
+                                        $@v.TotalVenta.ToString("N2")
+                                        @if (v.DiscriminaIva)
+                                        {
+                                            <div class="text-xs muted-2">neto $@v.Neto.ToString("N2")</div>
+                                        }
+                                    </td>
+                                    <td style="text-align:right" class="num">
+                                        @if (v.DiscriminaIva)
+                                        {
+                                            <span>$@v.Iva.ToString("N2")</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="chip chip-neutral" title="Venta confirmada sin facturar: no discrimina IVA">No discrimina</span>
+                                        }
+                                    </td>
                                     <td style="text-align:right" class="num text-emerald-400">$@v.CobradoAhora.ToString("N2")</td>
                                     <td style="text-align:right" class="num @(v.Pendiente > 0 ? "text-amber-300" : "muted-2")">$@v.Pendiente.ToString("N2")</td>
                                     <td style="text-align:center">

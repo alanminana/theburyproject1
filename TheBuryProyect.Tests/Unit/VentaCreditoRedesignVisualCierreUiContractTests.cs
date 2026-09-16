@@ -167,7 +167,13 @@ public sealed class VentaCreditoRedesignVisualCierreUiContractTests
         // Sólo "Verificar crédito" (SCORE todavía no corrió) no tiene botón equivalente
         // dentro del Plan — en 'guardar-configuracion' y 'continuar-revision' el CTA
         // global se oculta para no duplicar el CTA primario visible.
-        Assert.Contains("const ocultarCtaGlobal = esCredito && accion !== 'verify-credit';", js);
+        //
+        // COTIZACION-WORKSTATION-01: el mismo criterio se extiende al paso Cotizar. Su
+        // CTA "Simular cotización" pasó a vivir junto a la franja de Totales del
+        // cotizador (#cotizacion-simular, que este botón global ya disparaba por id),
+        // que es donde está el resumen que lo motiva; mantener además el del header
+        // dejaba la misma intención duplicada a media pantalla de distancia.
+        Assert.Contains("const ocultarCtaGlobal = (esCredito && accion !== 'verify-credit') || esCotizar;", js);
         Assert.Contains("button.classList.toggle('hidden', ocultarCtaGlobal);", js);
         Assert.Contains("button.hidden = ocultarCtaGlobal;", js);
     }

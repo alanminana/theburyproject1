@@ -13,7 +13,7 @@
     <div class="result-card">
         <div class="result-label">Vendido</div>
         <div class="result-value">$ @Model.TotalVendido.ToString("N2")</div>
-        <div class="cc-card-foot">facturado en el turno (incluye crédito)</div>
+        <div class="cc-card-foot">confirmado o facturado en el turno (incluye crédito)</div>
     </div>
     <div class="result-card">
         <div class="result-label">Cobrado</div>
@@ -24,6 +24,11 @@
         <div class="result-label">Pendiente</div>
         <div class="result-value">$ @Model.TotalPendiente.ToString("N2")</div>
         <div class="cc-card-foot">vendido todavía no cobrado</div>
+    </div>
+    <div class="result-card">
+        <div class="result-label">IVA a depositar</div>
+        <div class="result-value">$ @Model.TotalIvaFacturado.ToString("N2")</div>
+        <div class="cc-card-foot">solo ventas facturadas · las confirmadas sin facturar no discriminan IVA</div>
     </div>
     @if (Model.EstaCerrada)
     {

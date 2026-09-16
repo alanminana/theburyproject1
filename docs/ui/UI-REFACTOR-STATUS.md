@@ -382,6 +382,54 @@ estilos de impresión dedicada para el módulo.
   Requiere rebuild + restart del proceso para validar cualquier cambio de controller
   de esta sesión.
 
+- reapertura VENTA-DETAILS-GEOMETRIA-01, a pedido explícito del usuario de converger la
+  geometría de la pantalla con `Venta/Index` (ancho fluido) y `Cliente/Details` (ficha
+  ejecutiva), sin agregar tabs ni tocar reglas de negocio. Causa raíz confirmada con
+  geometría real medida en vivo (Playwright, instancia propia, 1920×1080), no asumida:
+  `#venta-details-page` tenía `mx-auto w-full max-w-7xl px-4 py-4 sm:px-6 lg:px-8` propio
+  — un `max-width` de 1280px centrado más un gutter horizontal duplicado sobre el que ya
+  aporta `_Layout.cshtml` — mientras `#venta-index-rework` (`ventas-index.css`) y
+  `.shell.cliente-details` (`cliente-module.css`) ya habían convergido a ancho fluido sin
+  cap (mismo criterio que `VENTA-INDEX-CLIENTE-PARIDAD-01`). Medido: shell real de 1280px
+  centrado con ~160px de margen muerto por lado a 1920px (vs. 1600px fluido de Index y
+  Cliente/Details) y, como efecto colateral no evidente sin medir, la tabla de productos
+  ya scrolleaba internamente incluso a 1920px (wrapper de 802px contra el
+  `min-width:56rem` de la tabla). Fix: `#venta-details-page` pasa a `w-full py-4` (sin
+  `max-w-7xl`/`mx-auto`/gutter propio); el grid main/aside pasa de `grid-cols-3` +
+  `col-span-2` fijo (66/33 sin piso) a `lg:grid-cols-[minmax(0,1.65fr)_minmax(18rem,1fr)]`
+  junto con `min-w-0` en main — mismo patrón ya usado en `Venta/Autorizar_tw.cshtml` y
+  `Venta/Cancelar_tw.cshtml` (consistencia dentro del propio módulo), con piso de 18rem en
+  el aside y `minmax(0,…)` para que la tabla no fuerce un blowout del grid. Resultado
+  verificado: shell de Details pasa a 1600px, igual que Index y Cliente/Details; la tabla
+  deja de scrollear internamente a 1920px (972px de contenido en un wrapper de 982px).
+  Se evaluó explícitamente forzar además el layout a una sola columna en el rango
+  1024–1536px para eliminar también ahí el scroll interno de la tabla, y se descartó: se
+  comprobó en vivo que sin el piso de `min-width:56rem` los importes envuelven a 2 líneas
+  ("$" / "120.000,00") y la columna final llega a recortarse contra el aside a 1280px —
+  el piso de 56rem no es cosmético, protege exactamente la regla "evitar wrap innecesario
+  en importes"; con un aside real de ≥18rem y un main+aside lado a lado, no hay ancho
+  suficiente para 8 columnas financieras por debajo de ~1780px viewport. El scroll interno
+  de fallback en ese rango (1024–1440px) es, por lo tanto, una decisión evidenciada, no
+  una regresión: ya existía antes de este lote (el cap de 1280px tampoco daba espacio
+  suficiente ahí) y el estándar admite explícitamente scroll "como fallback cuando
+  realmente haga falta". Tarjetas con grids dependientes de breakpoints de viewport
+  (Información, Crédito Personal, Contrato, Envío) se revisaron en vivo con datos reales
+  tras el cambio de proporciones y no mostraron cramping en ningún viewport — no se
+  tocaron. Sin cambios de cálculo, reglas de negocio, permisos, ids ni contratos backend;
+  ninguna otra vista comparte `#venta-details-page` (verificado por grep). Validado en
+  vivo con Playwright (instancia propia en :5199, build a `bin/valrun` para no chocar con
+  el proceso `TheBuryProyect.exe` del usuario en :18787, detenida al cerrar) sobre 3
+  ventas reales distintas (sin crédito/envío, con envío, con Crédito Personal + contrato
+  generado) en 1920×1080, 1440×900, 1280×720, 1024×720, 768×1024, 390×844 y 360×800: sin
+  overflow horizontal de página en ningún viewport, 0 errores/warnings de consola; build
+  0/0; 11/11 tests focalizados (`VentaDetailsUiContractTests`) verdes. 3 tests de
+  `VentaDetailsAjustePlanUiContractTests` fallan buscando contenido
+  (`Model.TieneExcepcionDocumentalRegistrada`, `_VentaRazonesAutorizacion`) que no existe
+  en `Details_tw.cshtml` ni en `HEAD` antes de este lote — confirmado pre-existente y
+  ajeno a este cambio, no corregido (fuera de alcance). Working tree con WIP externo
+  concurrente detectado (`Controllers/VentaController.cs` modificado,
+  `VentaControllerEditEnvioModelStateTests.cs` nuevo) — no tocado.
+
 ## Cotización / Simular — cerrado
 
 Parcial compartido `_CotizadorForm.cshtml` (pantalla completa en `Cotizacion/Index_tw` y
@@ -536,7 +584,184 @@ POLISH-01 (f722a23); mobile real cerrado en CIERRE-01 (este lote):
   incluye el reemplazo de `Modal_Guardar_MuestraOpcionSeleccionadaNoMejorOpcion` por
   `CotizadorForm_NoDeclaraModalGuardarPropio`) y build 0/0.
 
-## ConfiguracionPago / MediosPago — cerrado
+- reapertura COTIZACION-WORKSTATION-01, a pedido explícito del usuario con mockup como
+  referencia visual autorizada, tras el rework funcional de la etapa (Cotización agnóstica
+  al medio de pago). Diagnóstico del usuario, confirmado en vivo: la pantalla se leía como
+  "formulario + formulario + tabla cruda" — carditis (card dentro de card dentro de card),
+  Cliente y Condiciones cargados como una lista plana de campos, Crédito personal dominando
+  todo el panel Cliente con una banda roja, Guardar con peso de CTA primario, y una
+  transición débil entre configurar → simular → comparar → elegir → continuar. Alcance
+  visual/UX: no se tocaron reglas de negocio, cálculos, recargos, cuotas, permisos,
+  aptitud, autorización, stock, caja, endpoints ni ViewModels.
+  - **Superficies (§3/§24)**: quedan 3 con borde (Productos, Cliente+Condiciones,
+    Resultados) más la franja de Totales. `.card-sub` se restringe al drawer de plan; la
+    ficha de Cliente, la aptitud crediticia y los avisos de descuento pasan a acento
+    lateral/tipografía. Una escala de spacing única (.45/.55/.7/.9rem).
+  - **Cliente (§5/§6)**: identidad (avatar + nombre + documento) con el estado de Crédito
+    personal contiguo y subordinado — acento lateral de 2px (verde/ámbar/rojo) con eyebrow
+    "Crédito personal" que nombra su alcance real, en vez de una banda que teñía todo el
+    panel como si la operación entera estuviera rechazada. El detalle (cupo, motivos) sigue
+    detrás de "Ver situación".
+  - **Totales + CTA (§8/§9)**: la franja Subtotal/Descuento/Total base pasa a ser el puente
+    entre configuración y resultados y aloja la única acción primaria de la etapa, que
+    alterna "Simular cotización" ↔ "Actualizar cotización". El CTA del header del wizard se
+    oculta durante Cotizar (`ocultarCtaGlobal` en `venta-page-wizard.js`, mismo mecanismo ya
+    usado en el paso Crédito): antes la misma intención existía duplicada a media pantalla
+    de distancia, con el botón local escondido por CSS.
+  - **Comparador (§11-§15)**: columna ACCIÓN con "Elegir" explícito por alternativa —
+    antes la única forma de elegir era clickear cualquier parte de la fila, sin affordance
+    visible, y eso además abría siempre el drawer. Ahora "Elegir" selecciona sin abrir el
+    detalle y el click en el resto de la fila abre el detalle; el drawer cierra el circuito
+    con "Elegir esta opción". Jerarquía padre/hijo real (la fila del medio lleva ícono,
+    peso tipográfico y separador de grupo; las de plan van indentadas, más livianas y **sin
+    repetir el Estado**, que es el mismo para todo el grupo). Bajo el nombre de Crédito
+    personal va el dato que explica su estado (cupo vs. monto solicitado), no una segunda
+    copia del veredicto que ya está en la columna Estado.
+  - **Cierre (§16/§17)**: barra de selección al pie del comparador con la opción elegida y
+    dos acciones de jerarquía explícita. **Cambio de intención pedido por el usuario**:
+    "Guardar" deja de ser `.btn-success` a ancho completo y de hacer dos cosas a la vez
+    (persistir + convertir); ahora es secundaria (`.btn-soft`) y sólo persiste, y
+    "Continuar con esta opción" es la única primaria y encadena la conversión. Mismos
+    endpoints, mismo payload y misma secuencia interna (`guardarCotizacion()` +
+    `continuarConOpcion()` en `cotizacion-simulador.js`).
+  - **Filtros de medios (§3)**: la banda permanente de 6 chips sobre el comparador pasa a
+    un desplegable en el encabezado. Mismos checkboxes y mismos `data-cotizacion-medio`.
+  - **Responsive (§27/§28)**: el orden del DOM pasa a ser el orden del flujo (Productos →
+    Cliente/Condiciones → Totales+Simular → Resultados), que es el que el usuario fijó para
+    mobile. Eso **revierte a propósito** el "Resultados primero + Productos/Config
+    colapsables" de CIERRE-01: con Productos ya primero no hay nada que plegar, así que los
+    toggles y su handler se retiraron. Umbral de 2 columnas bajado de 44rem a 38rem de
+    contenedor: a 1024×720 y 768×1024 el comparador sube ~400px (de `top:1291` a `top:891`).
+  - Hallazgos propios encontrados y corregidos durante el QA en vivo, no asumidos: (a) el
+    leak de `venta-page-wizard.css` ya documentado para `.total-display`/`.field` también le
+    gana a los utilitarios `pl-8`/`pl-6`/`pr-6` — dentro del wizard el ícono de búsqueda
+    quedaba encima de la primera letra del placeholder y el "$" pegado al valor del Anticipo
+    (sólo reproducible embebido, no en standalone); (b) `.hidden` de Tailwind (una clase)
+    perdía contra cualquier `.cotz-app .x { display:… }` propio, así que `show()/hide()`
+    dejaban de funcionar en los componentes nuevos — blindado una vez con
+    `.cotz-app .hidden { display:none !important }`; (c) `.rt-accion { width:1% }` es un
+    truco de layout de tabla que como flex-item se resolvía a ~4px reales y desbordaba la
+    fila: eran los 6px de scroll horizontal dentro del panel de Resultados a 390px; (d) en
+    el rail angosto de Productos (≤52rem de contenedor, que incluye la banda de 2 columnas
+    de 1024/768) el stepper dejaba ~60px por descuento y las etiquetas "Dto. %"/"Dto. $"
+    partían en dos líneas.
+  - **Validación**: build 0 errores / 0 advertencias. Tests .NET focalizados
+    (`Cotizacion|Venta|Credito|Ui`): 2384/2394 — los 10 rojos restantes son pre-existentes
+    y ajenos (`Views/Producto/Edit_tw.cshtml` no existe; `Create_tw.cshtml`,
+    `_VentaWizardForm.cshtml` y `venta-create.js` están en HEAD sin modificar;
+    `Details_tw.cshtml` es WIP externo concurrente). E2E: `cotizacion-simulador.spec.js` +
+    `venta-cotizar-step.spec.js` + `cotizacion-conversion.spec.js` = 26 passed, 4 skipped
+    (skips conocidos y documentados en el propio spec), 0 rojos. QA visual en vivo con
+    Playwright (instancia propia contra el proceso del usuario en :18787) en 1920×1080,
+    1440×900, 1280×720, 1024×720, 768×1024, 390×844 y 360×800: sin overflow horizontal en
+    ninguno, 0 errores de consola, y a 1920×1080 se mantiene el above-the-fold pedido
+    (header, Productos, Cliente+Condiciones, franja de Totales, encabezado de Resultados y
+    la primera alternativa real cierran en y=904). Verificado además el host standalone
+    (`Cotizacion/Index_tw`), que comparte el parcial.
+  - Contratos de markup actualizados, no borrados, donde el pedido del usuario cambió la
+    intención que protegían: `CtaSimularGuardar_SimuladaDegradaSimularASecundaria` (Guardar
+    ya no es `.btn-success`), `ClienteSeleccionado_NombreSinDniDuplicado` (el botón-ícono
+    "Quitar cliente" pasó a un botón con texto "Cambiar"),
+    `EstadoDeSimulacion_NoCuadruplicaSenales`, `Descuento_NeutralPorDefecto…`,
+    `VentaPageWizardJs_OcultaCtaGlobalCuandoElPlanTieneBotonEquivalente` y el T9 mobile de
+    `cotizacion-simulador.spec.js`.
+  - Working tree con WIP externo concurrente (Caja/Conciliación, `VentaController.cs`,
+    `Views/Venta/Details_tw.cshtml`, `VentaControllerEditEnvioModelStateTests.cs`) — no
+    tocado. Sin commit ni push.
+
+- COTIZACION-WORKSTATION-02 — pasada de fidelidad visual y contraste, a pedido explícito
+  ("los productos seleccionados y el cliente seleccionado no se distinguen del fondo; la
+  pantalla sigue demasiado plana"). No es un rediseño: corrige la jerarquía de superficies
+  que WORKSTATION-01 dejó pendiente. Sin tocar endpoints, servicios, ViewModels, reglas de
+  negocio, cálculos, recargos, cuotas, aptitud, autorización, stock, caja ni conversiones.
+
+  **Causa raíz (medida en vivo, no supuesta): la escala de elevación estaba invertida.**
+  El fondo de la app es `#0b0e14` (`--ml-bg`), el panel `#111827`, y todo lo que vivía
+  DENTRO del panel era **más oscuro** que él: `.cart-row` y `.field` en `#0f172a` (a 3
+  puntos de RGB entre sí y del propio panel) y las filas padre del comparador en `#0e1726`.
+  Un bloque más oscuro que su contenedor se lee como un hueco, no como contenido elevado —
+  de ahí que el producto agregado y el cliente elegido "se mezclaran con el fondo" y que el
+  producto compitiera en peso con los inputs del buscador.
+
+  La escala correcta ya existía en el design system: `theme-ml.css` define
+  `--ml-bg < --ml-panel < --ml-panel-2 < --ml-elev`, **ascendente**. Se introduce ese mismo
+  contrato como tokens locales (`--cz-s1/--cz-s2/--cz-s3/--cz-sunk`) expresado en la familia
+  navy que ya usa el cotizador — mismo rol y mismos saltos de luminancia, no una paleta
+  nueva (§19 del pedido) — más un nivel *hundido* para los controles de entrada, que sí
+  deben quedar por debajo de la superficie que los contiene:
+
+  | nivel | uso | color |
+  | --- | --- | --- |
+  | fondo app | shell ERP (no lo pinta el cotizador) | `#0b0e14` |
+  | superficie workstation | `.panel`, `thead`, fila de plan hija | `#111827` |
+  | bloque | producto agregado, cliente elegido, fila de medio, franja de totales | `#1b2539` |
+  | hover de bloque | `.cart-row:hover`, fila de medio hover | `#223050` |
+  | hundido | `.field`, zona Condiciones, pie de selección | `#0c1220` / velos |
+  | elegida | alternativa seleccionada (acento, no superficie) | `rgba(59,130,246,.16)` + barra de 3px |
+
+  Cambios por zona: producto agregado y cliente elegido pasan a bloque elevado con borde y
+  hover (comparten lenguaje visual: son ambos "lo que ya cargué"); Condiciones pasa a una
+  zona **recesada** dentro del mismo panel — Cliente elevado / Condiciones hundido se
+  distinguen sin agregar otra card (§9); la franja de Totales sube a nivel bloque con
+  degradado propio, borde reforzado, valores de `.95rem` a `1.02rem` y divisor vertical
+  antes del CTA (es la única superficie con degradado de la pantalla, que es justamente lo
+  que la marca como transición, §13); en el comparador el nivel de elevación de la fila
+  **es** su nivel jerárquico — toda alternativa de primer nivel (con planes o sin ellos)
+  sube a bloque y los planes hijos vuelven al nivel del panel (antes las filas de medio sin
+  planes no tenían fondo alguno y pesaban igual que un plan hijo); la aptitud de Crédito
+  personal conserva el acento lateral y suma un velo semántico del 7% **sobre su propio
+  bloque**, nunca sobre el panel Cliente (§8).
+
+  Cuatro defectos propios encontrados midiendo en vivo durante esta pasada:
+  - `wwwroot/css/layout.css` declara `header { min-height: 4rem }` con selector de
+    **elemento** — pensado para el header global del ERP pero aplicado a cualquier
+    `<header>` de cualquier página: la barra contextual de Cotización medía **64px para una
+    línea de 30px**. Neutralizado con `min-height: 0` scopeado a `.cotz-app` (gana por
+    especificidad, sin `!important`, sin tocar `layout.css`). Devuelve ~24px de alto a la
+    workstation (§16). *Deuda ajena: cualquier otro `<header>` anidado del ERP paga lo
+    mismo — no se toca acá.*
+  - El leak ya documentado de `venta-page-wizard.css` (`#venta-create-page input[type=…]`,
+    id + atributo) también fija `background-color` y borde de los inputs: el nivel hundido
+    no llegaba a aplicarse **justo en el host embebido**, el que se estaba corrigiendo. Se
+    agregan esas dos propiedades a la neutralización existente; la geometría se deja como
+    estaba para no alterar densidad ya validada.
+  - Mismo leak vía `#venta-create-page .btn { min-height: 2.55rem }`: todo `.btn-xs` del
+    cotizador se renderizaba a 41px dentro del wizard y a 30px en standalone.
+  - A 1024×720 y 768×1024 el comparador necesitaba 706px en 620px disponibles: el
+    `overflow-x: auto` del panel salvaba el layout pero obligaba a scrollear horizontalmente
+    la herramienta de decisión de la pantalla. Banda intermedia nueva
+    (`@container (min-width: 38rem) and (max-width: 46rem)`) que ajusta sólo aire horizontal
+    — ninguna columna se oculta ni se recorta. Medido después: `scrollWidth == clientWidth`.
+
+  Validación: 7 viewports (1920×1080, 1440×900, 1280×720, 1024×720, 768×1024, 390×844,
+  360×800) sin overflow horizontal —ni de documento ni dentro del comparador— y 0 errores de
+  consola; above-the-fold a 1920×1080 preservado con la primera alternativa real visible;
+  host standalone `Cotizacion/Index_tw` verificado (mismo parcial, misma escala, topbar 44px);
+  estados cubiertos: vacío, 1 producto, 2 productos, cliente no apto colapsado y con "Ver
+  situación" desplegado, Crédito personal expandido, alternativa elegida y drawer de plan.
+  Sin tests nuevos: el lote es cosmético y no introduce contratos de markup nuevos (los
+  contratos existentes —`.cart-row`, `<header class="cotz-topbar">`, ids y `data-*`— se
+  preservan intactos).
+
+- reapertura puntual, a partir de reporte directo del usuario sobre el panel Productos del
+  paso Cotizar de `Venta/Create` ("los productos agregados no se distinguen del fondo").
+  QA en vivo (Playwright, sesión propia sobre el proceso del usuario en :18787, sin
+  reiniciarlo) confirmó que WORKSTATION-02 ya resolvía el pedido — `.cart-row` elevado con
+  borde/hover, jerarquía nombre/meta/precio, subtotal anclado — en 1920×1080, 1440×900,
+  1024×720, 390×844 y 360×800 con 1 y 2 productos. A 1280×720 apareció un defecto propio no
+  documentado hasta ahora: los inputs Dto. %/Dto. $ del producto agregado se renderizaban
+  rotos (spinner nativo del navegador cortado, se leía como un "(" en vez de "0"). Causa
+  raíz medida en vivo (no asumida): el mismo leak cruzado de `venta-page-wizard.css`
+  (`#venta-create-page input[type="number"]`, ID+atributo) ya documentado arriba para
+  `.field`/`.total-display`/`.btn-xs` también le gana a `.cotz-app .qty-step input` (dos
+  clases) y fuerza `width:100%` + padding/borde/fondo propios en el input de cantidad — a
+  886px de contenedor real (banda "auto 1fr 1fr" de `.cart-row-inputs`), el stepper pasaba
+  de ~86px a 285px, dejando sólo 44px para cada input de descuento. El mismo leak también
+  vaciaba visualmente el dígito de Cantidad (padding heredado de 24px horizontales sobre un
+  input de 34px). Fix: `.cotz-app .qty-step input` neutraliza ancho/padding/borde/fondo con
+  `!important`, mismo patrón ya usado para `.field`. Sin cambios de cálculo, reglas de
+  negocio, ids ni contratos backend. Revalidado en vivo (1440×900, 1280×720, 1024×720,
+  390×844, 360×800, 1 y 2 productos) sin overflow horizontal, 0 errores de consola.
 
 Auditoría de 4 capas (sin trabajo previo de este estándar). Micro-lote 1 (bloqueante+alto)
 más micro-lote 2 (deuda de paleta/tokens, a pedido explícito de ampliar alcance):

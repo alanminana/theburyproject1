@@ -308,6 +308,7 @@ namespace TheBuryProject.Controllers
                 }
 
                 LimpiarModelStateSegunTipoPago(viewModel.TipoPago, viewModel);
+                LimpiarModelStateSegunEnvio(viewModel);
 
                 // El vendedor siempre es el usuario logueado: el backend lo resuelve
                 // (VentaService.ResolverVendedorAsync). No se delega ni se selecciona en la UI.
@@ -404,6 +405,7 @@ namespace TheBuryProject.Controllers
                 }
 
                 LimpiarModelStateSegunTipoPago(viewModel.TipoPago, viewModel);
+                LimpiarModelStateSegunEnvio(viewModel);
 
                 // El vendedor siempre es el usuario logueado: el backend lo resuelve
                 // (VentaService.ResolverVendedorAsync). No se delega ni se selecciona en la UI.
@@ -579,6 +581,7 @@ namespace TheBuryProject.Controllers
                     viewModel.RowVersion?.Length ?? 0);
 
                 LimpiarModelStateSegunTipoPago(viewModel.TipoPago, viewModel);
+                LimpiarModelStateSegunEnvio(viewModel);
 
                 if (!ModelState.IsValid || !ValidarDetalles(viewModel))
                 {
@@ -740,6 +743,7 @@ namespace TheBuryProject.Controllers
                 }
 
                 LimpiarModelStateSegunTipoPago(viewModel.TipoPago, viewModel);
+                LimpiarModelStateSegunEnvio(viewModel);
 
                 if (!ModelState.IsValid || !ValidarDetalles(viewModel))
                 {
@@ -1828,6 +1832,30 @@ namespace TheBuryProject.Controllers
 
             // CreditoId nunca es obligatorio: el sistema crea el crédito automáticamente
             ModelState.Remove("CreditoId");
+        }
+
+        /// <summary>
+        /// Elimina del ModelState los errores de validación de Envio.* cuando el operador
+        /// no tildó "Esta venta tiene envío a domicilio" (TieneEnvio=false). Los inputs
+        /// Envio.Destinatario/Envio.Domicilio son [Required] en VentaEnvioViewModel, pero
+        /// el panel "envio-datos" del wizard sólo se oculta con la clase CSS "hidden": los
+        /// <input> siguen en el DOM y se postean vacíos, así que el model binder construye
+        /// igual un VentaEnvioViewModel y dispara esos Required aunque el checkbox esté
+        /// apagado. Mismo patrón que LimpiarModelStateSegunTipoPago con DatosTarjeta/Cheque.
+        /// </summary>
+        private void LimpiarModelStateSegunEnvio(VentaViewModel viewModel)
+        {
+            if (viewModel.TieneEnvio)
+            {
+                return;
+            }
+
+            foreach (var key in ModelState.Keys
+                .Where(k => k.StartsWith("Envio.", StringComparison.OrdinalIgnoreCase))
+                .ToList())
+                ModelState.Remove(key);
+
+            viewModel.Envio = null;
         }
 
         private bool ValidarDetalles(VentaViewModel viewModel)

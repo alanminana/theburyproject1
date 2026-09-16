@@ -105,15 +105,25 @@ test.describe('Venta/Create — paso Cotizar', () => {
     test('la acción principal cotiza en vez de guardar la venta', async ({ page }) => {
         await gotoCreate(page);
 
+        // COTIZACION-WORKSTATION-01 (§9): durante Cotizar el CTA del header queda
+        // oculto — la acción primaria vive junto a la franja de Totales del cotizador,
+        // al lado del resumen que la motiva. El botón global sigue existiendo (con su
+        // data-wizard-action intacto, que es el contrato con venta-page-wizard.js) y
+        // vuelve a mostrarse en cuanto el paso activo deja de ser Cotizar.
         const primary = page.locator('[data-wizard-primary]').first();
-        await expect(primary).toContainText(/Simular cotizaci.n/);
         await expect(primary).toHaveAttribute('data-wizard-action', 'simular-cotizacion');
-        await expect(primary).not.toContainText(/Confirmar operaci.n|Guardar Operaci.n|Siguiente/);
+        await expect(primary).toBeHidden();
+
+        const ctaCotizador = page.locator('#cotizacion-simular');
+        await expect(ctaCotizador).toBeVisible();
+        await expect(ctaCotizador).toContainText(/Simular cotizaci.n/);
+        await expect(ctaCotizador).not.toContainText(/Confirmar operaci.n|Guardar Operaci.n|Siguiente/);
 
         // El CTA de la venta no queda visible mientras se cotiza.
         await expect(page.locator('#btn-confirmar')).toBeHidden();
 
         await page.locator('#step-btn-cliente').click();
+        await expect(primary).toBeVisible();
         await expect(primary).toContainText(/Siguiente/);
     });
 
@@ -135,8 +145,11 @@ test.describe('Venta/Create — paso Cotizar', () => {
         await page.locator('#cotizacion-agregar-producto').click();
         await expect(page.locator('#cotizacion-productos-tbody > *')).toHaveCount(1);
 
-        // Se dispara desde el CTA del wizard, que delega en el botón del cotizador.
-        await page.locator('[data-wizard-primary]').first().click();
+        // COTIZACION-WORKSTATION-01 (§9): se dispara desde el CTA contextual del
+        // cotizador, junto a la franja de Totales (antes desde el CTA del header, que
+        // delegaba en este mismo botón por id y ahora se oculta durante Cotizar para
+        // no duplicar la misma intención a media pantalla de distancia).
+        await page.locator('#cotizacion-simular').click();
         await expect(page.locator('#cotizacion-resultados')).toBeVisible({ timeout: 20_000 });
         await expect(page.locator('#cotizacion-resultados-tbody > *').first()).toBeVisible();
         await expect(page.locator('#estado-banner')).toContainText(/Simulada/);
