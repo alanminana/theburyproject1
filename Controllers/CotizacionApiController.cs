@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TheBuryProject.Filters;
+using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.Services.Models;
 
@@ -18,18 +19,79 @@ public sealed class CotizacionApiController : ControllerBase
     private readonly ICotizacionPagoCalculator _calculator;
     private readonly ICotizacionService _cotizacionService;
     private readonly ICotizacionConversionService _conversionService;
+    private readonly IClienteAptitudService _aptitudService;
     private readonly ILogger<CotizacionApiController> _logger;
 
     public CotizacionApiController(
         ICotizacionPagoCalculator calculator,
         ICotizacionService cotizacionService,
         ICotizacionConversionService conversionService,
+        IClienteAptitudService aptitudService,
         ILogger<CotizacionApiController> logger)
     {
         _calculator = calculator;
         _cotizacionService = cotizacionService;
         _conversionService = conversionService;
+        _aptitudService = aptitudService;
         _logger = logger;
+    }
+
+    /// <summary>
+    /// Evaluación de aptitud crediticia (Crédito personal) en modo preview, para que
+    /// Cotización pueda mostrar si el cliente es apto ANTES de convertirse en venta.
+    /// Reutiliza la misma fuente de verdad que ya usa Venta (ValidacionVentaService) y
+    /// Cliente/Details (mismo método <see cref="IClienteAptitudService.EvaluarAptitudSinGuardarAsync"/>,
+    /// que no persiste ni reserva cupo — es sólo lectura/consulta, ver su XML doc).
+    /// No duplica reglas de aptitud ni recalcula nada en el cliente.
+    /// </summary>
+    [HttpGet("aptitud-credito")]
+    public async Task<IActionResult> AptitudCredito(
+        [FromQuery] int clienteId,
+        [FromQuery] decimal monto = 0,
+        CancellationToken cancellationToken = default)
+    {
+        if (clienteId <= 0)
+            return BadRequest(new { error = "Cliente inválido." });
+
+        try
+        {
+            var aptitud = await _aptitudService.EvaluarAptitudSinGuardarAsync(clienteId);
+
+            var motivos = aptitud.Detalles
+                .Select(d => d.Descripcion)
+                .Where(d => !string.IsNullOrWhiteSpace(d))
+                .Distinct()
+                .ToList();
+
+            var cupoDisponible = aptitud.Cupo.CupoDisponible;
+            var faltante = Math.Max(0, monto - cupoDisponible);
+
+            return Ok(new
+            {
+                estado = aptitud.Estado.ToString(),
+                apto = aptitud.Estado == EstadoCrediticioCliente.Apto,
+                motivo = aptitud.Motivo,
+                motivos,
+                cupoDisponible,
+                montoSolicitado = monto,
+                faltante,
+                mora = new { tiene = aptitud.Mora.TieneMora, dias = aptitud.Mora.DiasMaximoMora },
+                documentacion = new
+                {
+                    completa = aptitud.Documentacion.Completa,
+                    faltantes = aptitud.Documentacion.DocumentosFaltantes
+                }
+            });
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al evaluar aptitud crediticia (preview) para cliente {ClienteId}", clienteId);
+            return StatusCode(500, new { error = "No se pudo evaluar el crédito." });
+        }
     }
 
     [HttpPost("simular")]

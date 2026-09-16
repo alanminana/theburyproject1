@@ -7,6 +7,7 @@ using TheBuryProject.Controllers;
 using TheBuryProject.Filters;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.Services.Models;
+using TheBuryProject.Tests.Integration;
 
 namespace TheBuryProject.Tests.Unit;
 
@@ -147,7 +148,7 @@ public sealed class CotizacionApiControllerTests
     }
 
     private static CotizacionApiController CreateController(StubCotizacionPagoCalculator? calculator = null) =>
-        new(calculator ?? new StubCotizacionPagoCalculator(), new StubCotizacionService(), new StubCotizacionConversionService(), NullLogger<CotizacionApiController>.Instance);
+        new(calculator ?? new StubCotizacionPagoCalculator(), new StubCotizacionService(), new StubCotizacionConversionService(), new StubClienteAptitudService(), NullLogger<CotizacionApiController>.Instance);
 
     private static CotizacionSimulacionRequest RequestValido() =>
         new()

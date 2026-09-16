@@ -6,6 +6,7 @@ using TheBuryProject.Filters;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.Services.Models;
+using TheBuryProject.Tests.Integration;
 
 namespace TheBuryProject.Tests.Unit;
 
@@ -211,6 +212,7 @@ public sealed class CotizacionConversionApiTests
             new StubCalculator(),
             new StubCotizacionSvc(),
             conversionService ?? new StubConversionService(),
+            new StubClienteAptitudService(),
             NullLogger<CotizacionApiController>.Instance);
 
     private sealed class StubConversionService : ICotizacionConversionService

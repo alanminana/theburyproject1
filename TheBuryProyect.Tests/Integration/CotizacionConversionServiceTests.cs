@@ -7,8 +7,29 @@ using TheBuryProject.Models.Enums;
 using TheBuryProject.Services;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.Services.Models;
+using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Tests.Integration;
+
+// ---------------------------------------------------------------------------
+// VENTA-COTIZACION-REWORK-03: stub de IValidacionVentaService configurable —
+// mismo patrón que VentaServiceCreditoPersonalTests.StubValidacionVentaService
+// (no reusable directamente porque ese es `file`-scoped a ese archivo).
+// ---------------------------------------------------------------------------
+file sealed class StubValidacionVentaServiceConversion : IValidacionVentaService
+{
+    private readonly ValidacionVentaResult _resultado;
+    public StubValidacionVentaServiceConversion(ValidacionVentaResult resultado) => _resultado = resultado;
+
+    public Task<ValidacionVentaResult> ValidarVentaCreditoPersonalAsync(
+        int clienteId, decimal montoVenta, int? creditoId = null)
+        => Task.FromResult(_resultado);
+
+    public Task<PrevalidacionResultViewModel> PrevalidarAsync(int clienteId, decimal monto) => throw new NotImplementedException();
+    public Task<ValidacionVentaResult> ValidarConfirmacionVentaAsync(int ventaId) => throw new NotImplementedException();
+    public Task<bool> ClientePuedeRecibirCreditoAsync(int clienteId, decimal montoSolicitado) => throw new NotImplementedException();
+    public Task<ResumenCrediticioClienteViewModel> ObtenerResumenCrediticioAsync(int clienteId) => throw new NotImplementedException();
+}
 
 public sealed class CotizacionConversionServiceTests : IDisposable
 {
@@ -67,12 +88,47 @@ public sealed class CotizacionConversionServiceTests : IDisposable
         _context.SaveChanges();
 
         _precioResolver = new StubPrecioVigenteResolver();
-        var numberGenerator = new VentaNumberGenerator(_context, NullLogger<VentaNumberGenerator>.Instance);
 
-        _service = new CotizacionConversionService(
+        // VENTA-COTIZACION-REWORK-03: aprobable por defecto — ninguno de los tests
+        // preexistentes (no crediticios) toca esta rama; los tests de Crédito personal que sí
+        // necesitan otro resultado (RequiereAutorizacion/NoViable) arman su propia instancia de
+        // CotizacionConversionService vía BuildService(), no la comparten con _service.
+        _service = BuildService(new ValidacionVentaResult { NoViable = false, RequiereAutorizacion = false });
+    }
+
+    /// <summary>
+    /// VentaService "real" (no stub) para IVentaService.AplicarResultadoValidacionAsync/
+    /// CrearCreditoPendienteParaVentaAsync: ambos métodos sólo tocan AppDbContext + logger (ver
+    /// sus cuerpos), así que el resto de las dependencias del constructor de VentaService —
+    /// irrelevantes para esas dos operaciones — se pasan en null!, mismo patrón que ya usa
+    /// VentaServiceCreditoPersonalTests para escenarios equivalentes.
+    /// </summary>
+    private CotizacionConversionService BuildService(ValidacionVentaResult validacionCredito)
+    {
+        var numberGenerator = new VentaNumberGenerator(_context, NullLogger<VentaNumberGenerator>.Instance);
+        var ventaService = new VentaService(
+            _context,
+            null!,                    // IMapper
+            NullLogger<VentaService>.Instance,
+            null!,                    // IAlertaStockService
+            null!,                    // IMovimientoStockService
+            null!,                    // IFinancialCalculationService
+            null!,                    // IVentaValidator
+            numberGenerator,
+            null!,                    // IPrecioVigenteResolver
+            null!,                    // ICurrentUserService
+            null!,                    // IValidacionVentaService (no la usan los 2 métodos reutilizados)
+            null!,                    // ICajaService
+            null!,                    // ICreditoDisponibleService
+            null!,                    // IContratoVentaCreditoService
+            null!);                   // IConfiguracionPagoService
+
+        return new CotizacionConversionService(
             _context,
             numberGenerator,
             _precioResolver,
+            new StubValidacionVentaServiceConversion(validacionCredito),
+            ventaService,
             NullLogger<CotizacionConversionService>.Instance);
     }
 
@@ -594,8 +650,14 @@ public sealed class CotizacionConversionServiceTests : IDisposable
         Assert.Equal(300m, detalles[0].PrecioUnitario);
     }
 
+    // VENTA-COTIZACION-REWORK-03 (auditoría en vivo del usuario, 2026-09-15): antes esta prueba
+    // se llamaba Convertir_NoCreaCredito y afirmaba el bug — la conversión NUNCA creaba el
+    // Credito real ni evaluaba autorización para Crédito personal (RequiereAutorizacion=false
+    // hardcodeado). Corregido: ahora reutiliza la misma evaluación/creación de crédito que
+    // Venta/Create (IValidacionVentaService + IVentaService), así que con un cliente aprobable
+    // SÍ debe crear el Credito real, igual que si la venta se hubiera creado directo.
     [Fact]
-    public async Task Convertir_NoCreaCredito()
+    public async Task Convertir_CreditoPersonalAprobable_CreaCreditoPendienteConfiguracion()
     {
         var cotizacion = CotizacionEmitida(conCliente: true);
         cotizacion.MedioPagoSeleccionado = CotizacionMedioPagoTipo.CreditoPersonal;
@@ -603,10 +665,78 @@ public sealed class CotizacionConversionServiceTests : IDisposable
         await _context.SaveChangesAsync();
 
         var creditosAntes = await _context.Creditos.CountAsync();
-        await _service.ConvertirAVentaAsync(cotizacion.Id, RequestDefault(), "carlos");
+        var resultado = await _service.ConvertirAVentaAsync(cotizacion.Id, RequestDefault(), "carlos");
         var creditosDespues = await _context.Creditos.CountAsync();
 
+        Assert.True(resultado.Exitoso);
+        Assert.Equal(creditosAntes + 1, creditosDespues);
+
+        var venta = await _context.Ventas.FindAsync(resultado.VentaId);
+        Assert.NotNull(venta);
+        Assert.True(venta!.CreditoId.HasValue);
+        Assert.False(venta.RequiereAutorizacion);
+        Assert.Equal(EstadoAutorizacionVenta.NoRequiere, venta.EstadoAutorizacion);
+        Assert.Equal(EstadoVenta.PendienteFinanciacion, venta.Estado);
+
+        var credito = await _context.Creditos.FindAsync(venta.CreditoId!.Value);
+        Assert.NotNull(credito);
+        Assert.Equal(EstadoCredito.PendienteConfiguracion, credito!.Estado);
+        Assert.Equal(venta.Total, credito.MontoSolicitado);
+    }
+
+    [Fact]
+    public async Task Convertir_CreditoPersonalRequiereAutorizacion_NoCreaCreditoYQuedaPendienteAutorizacion()
+    {
+        var cotizacion = CotizacionEmitida(conCliente: true);
+        cotizacion.MedioPagoSeleccionado = CotizacionMedioPagoTipo.CreditoPersonal;
+        _context.Cotizaciones.Add(cotizacion);
+        await _context.SaveChangesAsync();
+
+        var validacion = new ValidacionVentaResult
+        {
+            NoViable = false,
+            RequiereAutorizacion = true,
+            RazonesAutorizacion = { new RazonAutorizacion { Tipo = TipoRazonAutorizacion.MoraActiva, Descripcion = "Mora 15 días" } }
+        };
+        var service = BuildService(validacion);
+
+        var creditosAntes = await _context.Creditos.CountAsync();
+        var resultado = await service.ConvertirAVentaAsync(cotizacion.Id, RequestDefault(), "carlos");
+        var creditosDespues = await _context.Creditos.CountAsync();
+
+        Assert.True(resultado.Exitoso);
         Assert.Equal(creditosAntes, creditosDespues);
+
+        var venta = await _context.Ventas.FindAsync(resultado.VentaId);
+        Assert.NotNull(venta);
+        Assert.False(venta!.CreditoId.HasValue);
+        Assert.True(venta.RequiereAutorizacion);
+        Assert.Equal(EstadoAutorizacionVenta.PendienteAutorizacion, venta.EstadoAutorizacion);
+        Assert.Equal(EstadoVenta.PendienteFinanciacion, venta.Estado);
+        Assert.NotNull(venta.RazonesAutorizacionJson);
+    }
+
+    [Fact]
+    public async Task Convertir_CreditoPersonalNoViable_RechazaConversionYNoConvierteLaCotizacion()
+    {
+        var cotizacion = CotizacionEmitida(conCliente: true);
+        cotizacion.MedioPagoSeleccionado = CotizacionMedioPagoTipo.CreditoPersonal;
+        _context.Cotizaciones.Add(cotizacion);
+        await _context.SaveChangesAsync();
+
+        var validacion = new ValidacionVentaResult { NoViable = true };
+        var service = BuildService(validacion);
+
+        var ventasAntes = await _context.Ventas.CountAsync();
+        var resultado = await service.ConvertirAVentaAsync(cotizacion.Id, RequestDefault(), "carlos");
+        var ventasDespues = await _context.Ventas.CountAsync();
+
+        Assert.False(resultado.Exitoso);
+        Assert.NotEmpty(resultado.Errores);
+        Assert.Equal(ventasAntes, ventasDespues);
+
+        var cotizacionRecargada = await _context.Cotizaciones.FindAsync(cotizacion.Id);
+        Assert.Equal(EstadoCotizacion.Emitida, cotizacionRecargada!.Estado);
     }
 
     [Fact]

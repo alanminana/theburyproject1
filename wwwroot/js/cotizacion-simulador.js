@@ -19,11 +19,22 @@
         clienteSeleccionado: null,
         ultimaSimulacion: null,
         opcionSeleccionada: null,
+        // Fila completa de la alternativa elegida (opcion + plan): la barra de
+        // selección y el drawer necesitan el medio/plan/total, no sólo las claves
+        // que viajan al backend en opcionSeleccionada.
+        seleccionRow: null,
+        planAbiertoKey: null,
         bestKey: null,
         pendingDeleteIndex: null,
         cotizacionGuardadaId: null,
         cotizacionGuardadaClienteId: null,
-        busy: false
+        busy: false,
+        // Aptitud crediticia (preview, Crédito personal): cache por clienteId+monto
+        // para no repetir la consulta en cada render (ver evaluarAptitudCredito).
+        aptitud: null,
+        aptitudClienteId: null,
+        aptitudMonto: null,
+        aptitudToken: 0
     };
 
     const urls = {
@@ -33,7 +44,8 @@
         productoResumen: root.dataset.productoResumenUrl || '/Cotizacion/ProductoResumen',
         clientes: root.dataset.clientesUrl || '/Cotizacion/BuscarClientes',
         convertirBase: root.dataset.convertirBaseUrl || '/api/cotizacion',
-        ventaEdit: root.dataset.ventaEditUrl || '/Venta/Edit/'
+        ventaEdit: root.dataset.ventaEditUrl || '/Venta/Edit/',
+        aptitudCredito: root.dataset.aptitudCreditoUrl || '/api/cotizacion/aptitud-credito'
     };
 
     const $ = (selector) => root.querySelector(selector);
@@ -52,7 +64,6 @@
         productosTbody: $('#cotizacion-productos-tbody'),
         productosVacio: $('#cotizacion-productos-vacio'),
         headerProdCount: $('#header-prod-count'),
-        headerUnitCount: $('#header-unit-count'),
         sideTotal: $('[data-side-total]'),
         clienteBuscador: $('#cotizacion-cliente-buscador'),
         clienteVacioHint: $('[data-cliente-vacio]'),
@@ -62,6 +73,9 @@
         clienteSeleccionado: $('#cotizacion-cliente-seleccionado'),
         clienteNombre: $('#cotizacion-cliente-nombre'),
         clienteDoc: $('#cotizacion-cliente-doc'),
+        clienteAvatar: $('#cotizacion-cliente-avatar'),
+        aptitudCredito: $('#cotizacion-aptitud-credito'),
+        contactoLibre: $('#cotizacion-contacto-libre'),
         limpiarCliente: $('#cotizacion-limpiar-cliente'),
         nombreLibre: $('#cotizacion-nombre-libre'),
         telefonoLibre: $('#cotizacion-telefono-libre'),
@@ -74,7 +88,12 @@
         observaciones: $('#cotizacion-observaciones'),
         tieneEnvio: $('#cotizacion-tiene-envio'),
         simular: $('#cotizacion-simular'),
+        simularLabel: $('[data-simular-label]'),
         guardar: $('#cotizacion-guardar'),
+        // COTIZACION-WORKSTATION-01 (§16/§17): "Continuar con esta opción" es la
+        // acción primaria del cierre; Guardar queda como secundaria y sólo persiste.
+        continuar: $('#cotizacion-continuar'),
+        seleccionResumen: $('#cotizacion-seleccion-resumen'),
         accionesPre: $('#cotizacion-acciones-pre'),
         accionesPost: $('#cotizacion-acciones-post'),
         pasarVenta: $('#cotizacion-pasar-venta'),
@@ -84,6 +103,7 @@
         simularEstado: $('#cotizacion-simular-estado'),
         resultadosVacio: $('#cotizacion-resultados-vacio'),
         resultados: $('#cotizacion-resultados'),
+        totalesBar: $('#cotizacion-totales-bar'),
         subtotal: $('#cotizacion-subtotal'),
         descuento: $('#cotizacion-descuento'),
         totalBase: $('#cotizacion-total-base'),
@@ -106,7 +126,8 @@
         planCreditoVector: $('#plan-credito-vector'),
         // CSR-ML6: metadata del plan + tabla completa por cuota.
         planCreditoCuotasSinRecargo: $('#plan-credito-cuotas-sin-recargo'),
-        planCreditoCuotasTablaBody: $('#plan-credito-cuotas-tabla-body')
+        planCreditoCuotasTablaBody: $('#plan-credito-cuotas-tabla-body'),
+        planElegibilidad: $('#plan-elegibilidad')
     };
 
     const show = theBury.show || function (el) { el?.classList.remove('hidden'); };
@@ -147,6 +168,15 @@
         return /^\d+$/.test(raw) ? raw.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : raw;
     }
 
+    // Iniciales para el avatar de la ficha de Cliente (2 letras, sin acentos raros
+    // por la fuente monoespaciada — sólo texto, sin lógica de negocio).
+    function initialsFrom(nombre, apellido) {
+        const a = String(nombre || '').trim().charAt(0);
+        const b = String(apellido || '').trim().charAt(0);
+        const initials = `${a}${b}`.toUpperCase();
+        return initials || '—';
+    }
+
     function debounce(fn, ms) {
         let timer = null;
         return function (...args) {
@@ -181,6 +211,13 @@
             els.guardar.disabled = value || !state.ultimaSimulacion?.exitoso;
             const ico = els.guardar.querySelector('.material-symbols-outlined');
             if (ico) ico.textContent = value ? 'progress_activity' : 'save';
+        }
+        // Continuar exige además una alternativa elegida (§16): sin selección no hay
+        // "esta opción" con la que seguir.
+        if (els.continuar) {
+            els.continuar.disabled = value || !state.ultimaSimulacion?.exitoso || !state.seleccionRow?.plan;
+            const ico = els.continuar.querySelector('.material-symbols-outlined');
+            if (ico) ico.textContent = value ? 'progress_activity' : 'arrow_forward';
         }
     }
 
@@ -229,14 +266,14 @@
             // Dto.%/Dto.$ y se recortaba (overflow-x) en el rail angosto de Productos.
             article.innerHTML = `
                 <div class="flex items-start justify-between gap-2">
-                    <div class="text-sm font-medium text-white truncate-1 min-w-0 flex-1">${esc(producto.nombre || `Producto ${producto.productoId}`)}</div>
-                    <button type="button" data-cotizacion-eliminar-index="${index}" class="icon-btn btn btn-ghost text-slate-500 hover:text-red-300 shrink-0" aria-label="Quitar">
+                    <div class="cart-row__nombre truncate-1 min-w-0 flex-1">${esc(producto.nombre || `Producto ${producto.productoId}`)}</div>
+                    <button type="button" data-cotizacion-eliminar-index="${index}" class="cart-row__quitar shrink-0" aria-label="Quitar">
                         <span class="material-symbols-outlined" style="font-size:16px">close</span>
                     </button>
                 </div>
                 <div class="flex items-center justify-between gap-2">
-                    <div class="text-[11px] text-slate-500 font-mono truncate-1 min-w-0">ID ${producto.productoId}${producto.codigo ? ' · ' + esc(producto.codigo) : ''}</div>
-                    <div class="text-sm text-white total-display shrink-0">${formatCurrency(producto.precioUnitario)}</div>
+                    <div class="cart-row__meta truncate-1 min-w-0">ID ${producto.productoId}${producto.codigo ? ' · ' + esc(producto.codigo) : ''}</div>
+                    <div class="cart-row__precio text-slate-300 total-display shrink-0">${formatCurrency(producto.precioUnitario)}</div>
                 </div>
                 <div class="cart-row-inputs">
                     <div class="qty-step">
@@ -263,10 +300,9 @@
 
     function updateHeaderCounts() {
         const items = state.productos.length;
-        const unidades = state.productos.reduce((acc, p) => acc + Number(p.cantidad), 0);
         if (els.headerProdCount) els.headerProdCount.textContent = String(items);
-        if (els.headerUnitCount) els.headerUnitCount.textContent = String(unidades);
-        // total lateral: si hay simulación usamos la base real, si no, preview bruto
+        // Resumen del carrito en el encabezado de Productos (§4): si hay simulación
+        // vigente usamos la base real, si no, el preview bruto de precios de lista.
         const base = state.ultimaSimulacion?.totalBase ?? previewBase();
         if (els.sideTotal) els.sideTotal.textContent = formatCurrency(base);
     }
@@ -294,10 +330,70 @@
         const hadResults = !!state.ultimaSimulacion;
         state.ultimaSimulacion = null;
         state.opcionSeleccionada = null;
+        state.seleccionRow = null;
         state.bestKey = null;
         if (els.guardar) els.guardar.disabled = true;
         resetGuardado();
+        resetTotalesBar();
+        // §9: una única acción primaria contextual. "Actualizar cotización" sólo
+        // cuando hubo un resultado que quedó desactualizado por un cambio; en frío
+        // (nunca se simuló) sigue siendo "Simular cotización".
+        setSimularLabel(hadResults ? 'Actualizar cotización' : 'Simular cotización');
+        renderSeleccionBar();
         if (hadResults) setState('pending');
+    }
+
+    function setSimularLabel(texto) {
+        if (els.simularLabel) els.simularLabel.textContent = texto;
+    }
+
+    // §16: el cierre del comparador dice qué se eligió y habilita las dos acciones
+    // que siguen. Sin selección válida, Continuar queda deshabilitado — la regla real
+    // no cambia (guardarYPasarAVenta ya exigía simulación válida): sólo se hace
+    // visible en el botón en vez de fallar recién al clickear.
+    function renderSeleccionBar() {
+        const row = state.seleccionRow;
+        const hayOpcion = !!(row && row.plan);
+        if (els.continuar) els.continuar.disabled = !hayOpcion;
+        if (!els.seleccionResumen) return;
+
+        if (!hayOpcion) {
+            els.seleccionResumen.innerHTML = `
+                <span class="seleccion-resumen__label">Sin opción elegida</span>
+                <span class="seleccion-resumen__valor">Simulá y elegí una alternativa para continuar.</span>`;
+            return;
+        }
+
+        const medio = medioLabel(row.opcion.medioPago, row.opcion.nombreMedioPago);
+        const plan = planLabelCuotas(row.plan);
+        // Crédito personal con autorización pendiente: el resumen lo dice acá también
+        // (§16) — el botón sigue habilitado porque Venta SÍ deja continuar pidiendo
+        // autorización de supervisor; NoApto es el único caso que Venta rechaza.
+        const tone = esCreditoPersonalMedio(row.opcion.medioPago) ? aptitudTone(state.aptitud) : null;
+        const nota = tone === 'requiere-autorizacion'
+            ? ` <span class="rmedio-aptitud rmedio-aptitud--requiere-autorizacion">· Requiere autorización</span>`
+            : tone === 'no-apto'
+                ? ` <span class="rmedio-aptitud rmedio-aptitud--no-apto">· Cliente no apto</span>`
+                : '';
+        els.seleccionResumen.innerHTML = `
+            <span class="seleccion-resumen__label">Opción seleccionada</span>
+            <span class="seleccion-resumen__valor"><strong>${esc(medio)}</strong> · ${esc(plan)} · <span class="total-display">${formatCurrency(row.plan.total)}</span>${nota}</span>`;
+    }
+
+    // Prioridad 2 (auditoría en vivo, 2026-09-15): vuelve la franja Subtotal/
+    // Descuento/Total base a su estado neutral ("—", sin acento) cada vez que la
+    // simulación vigente deja de ser válida — antes quedaba con el último valor
+    // simulado (o "$0,00" inicial) aunque Productos ya mostrara un subtotal
+    // distinto. No cambia ningún cálculo, sólo la representación.
+    function resetTotalesBar() {
+        if (els.subtotal) els.subtotal.textContent = '—';
+        if (els.descuento) {
+            els.descuento.textContent = '—';
+            els.descuento.classList.remove('text-emerald-400');
+            els.descuento.classList.add('text-white');
+        }
+        if (els.totalBase) els.totalBase.textContent = '—';
+        els.totalesBar?.classList.add('is-pendiente');
     }
 
     // Vuelve a las acciones de pre-guardado (Simular/Guardar) y descarta el
@@ -464,8 +560,13 @@
 
         if (!cliente) {
             hide(els.clienteSeleccionado);
+            // "Cambiar" sólo tiene sentido con un cliente elegido (§5): con el buscador
+            // visible sería una segunda forma de hacer lo mismo.
+            hide(els.limpiarCliente);
             show(els.clienteBuscador);
             show(els.clienteVacioHint);
+            show(els.contactoLibre);
+            evaluarAptitudCredito();
             return;
         }
 
@@ -480,11 +581,15 @@
                 : (cliente.display || `${cliente.nombre} ${cliente.apellido}`);
         }
         if (els.clienteDoc) els.clienteDoc.textContent = `${cliente.tipoDocumento || 'DNI'} ${formatDocumento(cliente.numeroDocumento)}`;
+        if (els.clienteAvatar) els.clienteAvatar.textContent = initialsFrom(cliente.nombre, cliente.apellido);
         // Con cliente seleccionado la card de abajo es la única representación
         // (antes nombre/DNI se repetían en el buscador y en la card) — item 23.
         hide(els.clienteBuscador);
         hide(els.clienteVacioHint);
+        hide(els.contactoLibre);
         show(els.clienteSeleccionado);
+        show(els.limpiarCliente);
+        evaluarAptitudCredito();
     }
 
     async function buscarClientes() {
@@ -520,9 +625,16 @@
             const button = document.createElement('button');
             button.type = 'button';
             button.className = 'dropdown-item block w-full text-left';
+            // Nombre + documento en líneas separadas (mismo criterio que la ficha de
+            // Cliente ya seleccionado, item 10 del rework): cliente.display trae
+            // "Apellido, Nombre - DNI: ..." pensado para exportar/listar, no para una
+            // fila de dropdown que ya separa el documento en su propia línea.
+            const nombreDropdown = (cliente.nombre || cliente.apellido)
+                ? `${cliente.nombre} ${cliente.apellido}`.trim()
+                : (cliente.display || 'Cliente');
             button.innerHTML = `
-                <span class="block text-sm font-medium text-white truncate-1">${esc(cliente.display || `${cliente.nombre} ${cliente.apellido}`)}</span>
-                <span class="block text-[11px] text-slate-500 font-mono">${esc(cliente.tipoDocumento || 'Doc')}: ${esc(cliente.numeroDocumento || '-')}</span>`;
+                <span class="block text-sm font-medium text-white truncate-1">${esc(nombreDropdown)}</span>
+                <span class="block text-[11px] text-slate-500 font-mono">${esc(cliente.tipoDocumento || 'DNI')} ${esc(formatDocumento(cliente.numeroDocumento))}</span>`;
             button.addEventListener('click', () => setCliente(cliente));
             els.clientesDropdown.appendChild(button);
         });
@@ -580,6 +692,10 @@
             state.ultimaSimulacion = data;
             state.opcionSeleccionada = null;
             renderResultado(data);
+            // El monto financiable recién es real después de simular (antes es sólo un
+            // preview bruto de precios de lista) — re-evalúa aptitud con el total base
+            // definitivo cuando ya hay cliente seleccionado (no dispara si no lo hay).
+            evaluarAptitudCredito();
             if (data.exitoso === false) {
                 setState('error');
                 showFeedback('La simulacion devolvio observaciones que requieren revision.', 'warning');
@@ -595,23 +711,22 @@
         }
     }
 
-    // COTIZACION-SIMULAR-GUARDAR-DIRECTO-01 (pedido explícito del usuario: Guardar y
-    // Pasar a venta pasan a ser una sola acción, sin el modal de confirmación
-    // intermedio): un solo click guarda la cotización y, si hay un cliente de
-    // sistema seleccionado (requisito real de pasarAVenta, no nuevo), continúa
-    // directo a convertirla en venta y navega — sin pausa para revisar un resumen
-    // que ya se ve completo en el propio formulario (Cliente/Resultados/Total ya
-    // están a la vista antes de guardar). Guarda primero con su propio try/catch:
-    // si falla, no se intenta nada más. Si guarda bien, la UI queda siempre en el
-    // estado "guardado" real (mostrarAccionesPostGuardado) antes de intentar pasar
-    // a venta — así, si esa segunda llamada falla (o no hay cliente de sistema), el
-    // operador ve la cotización guardada y el botón "Pasar a venta" queda
-    // disponible para reintentar a mano, en vez de quedar en un estado ambiguo.
-    async function guardarYPasarAVenta() {
+    // Persiste la cotización con la alternativa elegida y deja la UI en el estado
+    // "guardado" real (mostrarAccionesPostGuardado). Devuelve el payload guardado, o
+    // null si falló — así el caller decide si sigue (continuarConOpcion) o no
+    // (Guardar cotización a secas).
+    //
+    // COTIZACION-WORKSTATION-01 (§10/§16/§17): antes esto era un único
+    // guardarYPasarAVenta() detrás de un solo botón verde a ancho completo que hacía
+    // las dos cosas. Se separan las DOS intenciones distintas —persistir y convertir—
+    // en dos botones con jerarquía explícita, sin cambiar endpoints, payload ni orden
+    // de llamadas: "Continuar con esta opción" encadena exactamente la misma
+    // secuencia que hacía el botón único.
+    async function guardarCotizacion() {
         clearFeedback();
         if (!state.ultimaSimulacion?.exitoso) {
-            showFeedback('Primero simula una cotizacion valida.', 'warning');
-            return;
+            showFeedback('Primero simulá una cotización válida.', 'warning');
+            return null;
         }
 
         setBusy(true);
@@ -636,9 +751,9 @@
                 body: JSON.stringify(payload)
             });
         } catch (error) {
-            showFeedback(error.message || 'No se pudo guardar la cotizacion.', 'error');
+            showFeedback(error.message || 'No se pudo guardar la cotización.', 'error');
             setBusy(false);
-            return;
+            return null;
         }
 
         state.cotizacionGuardadaId = data.id;
@@ -646,12 +761,32 @@
         setState('saved');
         mostrarAccionesPostGuardado(data);
         setBusy(false);
+        return data;
+    }
+
+    // Acción secundaria "Guardar cotización" (§10): sólo persiste. El pie pasa al
+    // estado post-guardado, donde "Pasar a venta" sigue disponible para continuar más
+    // tarde — ese botón no cambió.
+    async function guardarSolo() {
+        const data = await guardarCotizacion();
+        if (!data) return;
+        showFeedback(`Cotización ${data.numero} guardada.`, 'ok');
+    }
+
+    // Acción primaria "Continuar con esta opción" (§16): guarda y encadena a la
+    // conversión en venta con la alternativa elegida. Si el guardado falla no se
+    // intenta nada más; si guarda bien pero la conversión no puede seguir (sin cliente
+    // de sistema, o esa segunda llamada falla), la cotización queda guardada y visible
+    // con "Pasar a venta" para reintentar a mano, nunca en un estado ambiguo.
+    async function continuarConOpcion() {
+        const data = await guardarCotizacion();
+        if (!data) return;
 
         if (state.cotizacionGuardadaClienteId) {
-            showFeedback(`Cotizacion ${data.numero} guardada. Pasando a venta…`, 'ok');
+            showFeedback(`Cotización ${data.numero} guardada. Pasando a venta…`, 'ok');
             await pasarAVenta();
         } else {
-            showFeedback(`Cotizacion ${data.numero} guardada. Seleccioná un cliente del sistema para pasarla a venta.`, 'warning');
+            showFeedback(`Cotización ${data.numero} guardada. Seleccioná un cliente del sistema para pasarla a venta.`, 'warning');
         }
     }
 
@@ -786,6 +921,209 @@
         return map[key] || { icon: 'payments', tone: 'slate' };
     }
 
+    function esCreditoPersonalMedio(medio) {
+        return medioLabel(medio, null) === 'Crédito personal';
+    }
+
+    // Prioridad 1 (auditoría en vivo del usuario, 2026-09-15 → rework funcional):
+    // EstadoCrediticioCliente (backend) tiene 3 estados reales no-"Apto": NoApto (bloqueo
+    // duro) y RequiereAutorizacion (mora moderada/BCRA situación 2/excepción documental —
+    // Venta NO lo rechaza, le pide autorización de supervisor y continúa). Antes esta
+    // pantalla sólo leía el booleano `apto` y trataba ambos casos como "No apto", ocultando
+    // que uno de los dos SÍ tiene un camino real para seguir. Clasifica con el mismo campo
+    // `estado` que ya devuelve /api/cotizacion/aptitud-credito (CotizacionApiController —
+    // AptitudCredito ya expone aptitud.Estado.ToString(), no se tocó el backend).
+    function aptitudTone(data) {
+        if (!data) return null;
+        if (data.estado === 'RequiereAutorizacion') return 'requiere-autorizacion';
+        return data.apto === true ? 'apto' : 'no-apto';
+    }
+
+    // Nota inline de aptitud para cuando Crédito personal SÍ trae planes (el cálculo
+    // de cuotas no depende de la aptitud real del cliente — son dos cosas separadas,
+    // ver CotizacionPagoCalculator/CreditoSimulacionVentaService): sin esto, un
+    // cliente No apto veía los mismos planes "Elegir" que uno apto, sin ninguna señal
+    // de que Venta va a pedirle autorización o rechazar la operación más adelante
+    // (item 19/23 del pedido — Venta no bloquea de plano, pasa a autorización, así
+    // que Cotización tampoco deshabilita "Elegir": sólo lo advierte).
+    function aptitudNotaHtml() {
+        if (!state.aptitud || state.aptitudClienteId !== state.clienteSeleccionado?.id) return '';
+        const tone = aptitudTone(state.aptitud);
+        if (tone === 'apto' || !tone) return '';
+        // §14: bajo el nombre del medio va el DATO que explica el estado (cupo vs.
+        // monto solicitado), no una segunda copia del estado — ese ya vive en la
+        // columna Estado de la misma fila. Antes acá decía "No apto para crédito" y
+        // la pill de al lado decía "No apto": la misma fila repetía el veredicto dos
+        // veces y no aportaba el número que permite decidir qué hacer.
+        const clsTone = tone === 'requiere-autorizacion' ? 'rmedio-aptitud--requiere-autorizacion' : 'rmedio-aptitud--no-apto';
+        return `<div class="rmedio-aptitud ${clsTone}">Cupo ${formatCurrency(state.aptitud.cupoDisponible)} · solicitado ${formatCurrency(state.aptitud.montoSolicitado)}</div>`;
+    }
+
+    /* ---------------------------------------------------------------------
+       Aptitud crediticia (Crédito personal) — preview no transaccional.
+       Reutiliza /api/cotizacion/aptitud-credito (CotizacionApiController), que a su
+       vez llama a IClienteAptitudService.EvaluarAptitudSinGuardarAsync — MISMA fuente
+       de verdad que ya usa Venta (ValidacionVentaService) y Cliente/Details. Esta
+       pantalla no recalcula aptitud ni inventa un criterio propio, sólo consulta y
+       muestra el resultado real.
+    --------------------------------------------------------------------- */
+    function renderAptitudCredito(view) {
+        if (!els.aptitudCredito) return;
+        if (!view) { hide(els.aptitudCredito); els.aptitudCredito.innerHTML = ''; return; }
+
+        show(els.aptitudCredito);
+
+        // §6: el eyebrow nombra el alcance real del estado. Sin él, "No apto"/"Requiere
+        // autorización" a secas se lee como un veredicto sobre TODA la cotización,
+        // cuando sólo condiciona una de las seis alternativas de pago.
+        const eyebrow = '<div class="aptitud-card__eyebrow">Crédito personal</div>';
+
+        if (view.tone === 'evaluando') {
+            els.aptitudCredito.innerHTML = `
+                <div class="aptitud-card aptitud-card--evaluando">
+                    ${eyebrow}
+                    <div class="aptitud-card__head" style="color:#93a2b8">
+                        <span class="material-symbols-outlined" style="font-size:15px">progress_activity</span> Evaluando…
+                    </div>
+                </div>`;
+            return;
+        }
+
+        if (view.tone === 'error') {
+            // Un fallo técnico de la consulta NO es una falta de aptitud: el copy lo
+            // dice explícitamente y ofrece reintentar, en vez de dejar al operador
+            // creyendo que el cliente fue rechazado.
+            els.aptitudCredito.innerHTML = `
+                <div class="aptitud-card aptitud-card--error">
+                    ${eyebrow}
+                    <div class="aptitud-card__head"><span class="material-symbols-outlined" style="font-size:15px">error</span> No se pudo evaluar</div>
+                    <p class="aptitud-card__resumen">Error al consultar la evaluación — no es un rechazo del cliente.</p>
+                    <button type="button" class="btn btn-soft btn-xs" data-cotizacion-reintentar-aptitud>
+                        <span class="material-symbols-outlined" style="font-size:14px">refresh</span> Reintentar
+                    </button>
+                </div>`;
+            return;
+        }
+
+        const data = view.data;
+        const tone = aptitudTone(data);
+        const motivos = Array.isArray(data.motivos) ? data.motivos.filter(Boolean) : [];
+        const motivosHtml = motivos.length
+            ? `<ul>${motivos.map(m => `<li>${esc(m)}</li>`).join('')}</ul>`
+            : '';
+
+        if (tone === 'apto') {
+            els.aptitudCredito.innerHTML = `
+                <div class="aptitud-card aptitud-card--apto">
+                    ${eyebrow}
+                    <div class="aptitud-card__head"><span class="material-symbols-outlined" style="font-size:15px">check_circle</span> Apto</div>
+                    <p class="aptitud-card__resumen">Cupo disponible: ${formatCurrency(data.cupoDisponible)}</p>
+                    <details class="aptitud-card__detalle">
+                        <summary><span class="material-symbols-outlined chev" style="font-size:13px">expand_more</span> Ver situación</summary>
+                        <dl>
+                            <dt>Cupo disponible</dt><dd>${formatCurrency(data.cupoDisponible)}</dd>
+                            <dt>Monto solicitado</dt><dd>${formatCurrency(data.montoSolicitado)}</dd>
+                            <dt>Disponible restante</dt><dd>${formatCurrency(Math.max(0, Number(data.cupoDisponible) - Number(data.montoSolicitado)))}</dd>
+                        </dl>
+                    </details>
+                </div>`;
+            return;
+        }
+
+        // VENTA-COTIZACION-REWORK-02 (§6, "elegibilidad compacta"): la línea de
+        // resumen reproduce el patrón de la referencia visual ("Mora 106 días · 3
+        // documentos faltantes") a partir de los mismos campos reales que ya trae
+        // el endpoint (mora/documentacion) — sin inventar un criterio nuevo, sólo
+        // formatea lo que EvaluarAptitudSinGuardarAsync ya devuelve. El detalle
+        // completo (dl + motivos) pasa a un <details> plegado — antes quedaba
+        // siempre expandido y era lo que más empujaba Resultados fuera del fold.
+        const resumenPartes = [];
+        if (data.mora?.tiene && Number(data.mora.dias) > 0) resumenPartes.push(`Mora ${data.mora.dias} días`);
+        const faltantesCount = Array.isArray(data.documentacion?.faltantes) ? data.documentacion.faltantes.length : 0;
+        if (faltantesCount > 0) resumenPartes.push(`${faltantesCount} documento${faltantesCount === 1 ? '' : 's'} faltante${faltantesCount === 1 ? '' : 's'}`);
+        const resumenLinea = resumenPartes.length ? resumenPartes.join(' · ') : (motivos[0] || '');
+
+        // Prioridad 1: RequiereAutorizacion NO es un bloqueo — Venta va a pedir autorización
+        // de supervisor y puede continuar (a diferencia de NoApto, que Venta sí rechaza sin
+        // excepción). Copy e ícono honestos con esa diferencia real, no "No apto" genérico.
+        if (tone === 'requiere-autorizacion') {
+            els.aptitudCredito.innerHTML = `
+                <div class="aptitud-card aptitud-card--requiere-autorizacion">
+                    ${eyebrow}
+                    <div class="aptitud-card__head"><span class="material-symbols-outlined" style="font-size:15px">gpp_maybe</span> Requiere autorización</div>
+                    ${resumenLinea ? `<p class="aptitud-card__resumen">${esc(resumenLinea)}</p>` : ''}
+                    <details class="aptitud-card__detalle">
+                        <summary><span class="material-symbols-outlined chev" style="font-size:13px">expand_more</span> Ver situación</summary>
+                        <p class="aptitud-card__resumen">Podés continuar: la venta va a pedir autorización de un supervisor.</p>
+                        <dl>
+                            <dt>Cupo disponible</dt><dd>${formatCurrency(data.cupoDisponible)}</dd>
+                            <dt>Monto solicitado</dt><dd>${formatCurrency(data.montoSolicitado)}</dd>
+                        </dl>
+                        ${motivosHtml}
+                    </details>
+                </div>`;
+            return;
+        }
+
+        els.aptitudCredito.innerHTML = `
+            <div class="aptitud-card aptitud-card--no-apto">
+                ${eyebrow}
+                <div class="aptitud-card__head"><span class="material-symbols-outlined" style="font-size:15px">cancel</span> No apto</div>
+                ${resumenLinea ? `<p class="aptitud-card__resumen">${esc(resumenLinea)}</p>` : ''}
+                <details class="aptitud-card__detalle">
+                    <summary><span class="material-symbols-outlined chev" style="font-size:13px">expand_more</span> Ver situación</summary>
+                    <dl>
+                        <dt>Cupo disponible</dt><dd>${formatCurrency(data.cupoDisponible)}</dd>
+                        <dt>Monto solicitado</dt><dd>${formatCurrency(data.montoSolicitado)}</dd>
+                        <dt>Faltante</dt><dd>${formatCurrency(data.faltante)}</dd>
+                    </dl>
+                    ${motivosHtml}
+                </details>
+            </div>`;
+    }
+
+    // Sólo evalúa con cliente + monto cotizado real (nunca al tipear, nunca sin
+    // cliente): dispara al seleccionar/quitar cliente y después de cada simulación
+    // exitosa con ese cliente. Cachea por clienteId+monto para no repetir la misma
+    // consulta en renders sucesivos que no cambiaron ninguno de los dos.
+    async function evaluarAptitudCredito() {
+        if (!els.aptitudCredito) return;
+        const cliente = state.clienteSeleccionado;
+        if (!cliente?.id) {
+            state.aptitud = null;
+            state.aptitudClienteId = null;
+            state.aptitudMonto = null;
+            renderAptitudCredito(null);
+            return;
+        }
+
+        const monto = Number(state.ultimaSimulacion?.totalBase ?? previewBase()) || 0;
+        if (monto <= 0) {
+            renderAptitudCredito(null);
+            return;
+        }
+
+        if (state.aptitud && state.aptitudClienteId === cliente.id && state.aptitudMonto === monto) {
+            renderAptitudCredito({ tone: 'ok', data: state.aptitud });
+            return;
+        }
+
+        const token = ++state.aptitudToken;
+        renderAptitudCredito({ tone: 'evaluando' });
+        try {
+            const data = await fetchJson(`${urls.aptitudCredito}?clienteId=${cliente.id}&monto=${monto}`);
+            if (token !== state.aptitudToken) return; // superado por una consulta más nueva
+            state.aptitud = data;
+            state.aptitudClienteId = cliente.id;
+            state.aptitudMonto = monto;
+            renderAptitudCredito({ tone: 'ok', data });
+        } catch {
+            if (token !== state.aptitudToken) return;
+            state.aptitud = null;
+            renderAptitudCredito({ tone: 'error' });
+        }
+    }
+
     // % a mostrar en la columna "Recargo" de la comparativa. Ojo: costoFinancieroTotal es un
     // IMPORTE en pesos (informativo, se usa aparte en el desglose de Credito personal), no un
     // porcentaje — mezclarlo acá en el Math.max inflaba el recargo mostrado a miles de "%".
@@ -848,6 +1186,7 @@
             els.descuento.classList.toggle('text-white', !hayDescuento);
         }
         if (els.totalBase) els.totalBase.textContent = formatCurrency(data.totalBase);
+        els.totalesBar?.classList.remove('is-pendiente');
         updateHeaderCounts();
 
         els.resultadosTbody.replaceChildren();
@@ -856,7 +1195,7 @@
         if (!rows.length) {
             const tr = document.createElement('tr');
             tr.className = 'off';
-            tr.innerHTML = `<td colspan="6" class="text-center text-sm text-slate-500" style="padding:1.5rem">No hay medios disponibles para los filtros seleccionados.</td>`;
+            tr.innerHTML = `<td colspan="7" class="text-center text-sm text-slate-500" style="padding:1.5rem">No hay medios disponibles para los filtros seleccionados.</td>`;
             els.resultadosTbody.appendChild(tr);
         } else {
             // mejor global: menor total con plan disponible
@@ -889,13 +1228,19 @@
             // auto-seleccionar recomendado (o el mejor) para habilitar guardar
             const recomendado = rows.find(r => r.plan?.recomendado) || rows.find(r => r.plan && optionKey(r) === bestKey) || rows.find(r => r.plan);
             if (recomendado) {
-                state.opcionSeleccionada = toSeleccion(recomendado);
-                updateSelectedRowHighlight(optionKey(recomendado));
+                seleccionarRow(recomendado, { abrirDrawer: false });
+            } else {
+                state.seleccionRow = null;
+                renderSeleccionBar();
             }
         }
 
         hide(els.resultadosVacio);
         show(els.resultados);
+
+        // §9: con una simulación vigente el CTA pasa a "Actualizar cotización" —
+        // volver a apretarlo re-simula con los mismos datos, no arranca de cero.
+        setSimularLabel('Actualizar cotización');
 
         const mensajes = [...(data.errores || []), ...(data.advertencias || [])];
         if (mensajes.length) {
@@ -903,6 +1248,43 @@
         }
 
         if (els.guardar) els.guardar.disabled = data.exitoso === false;
+        renderSeleccionBar();
+    }
+
+    // Punto único de selección: la usan el botón "Elegir" de la fila, el click sobre
+    // la fila (que además abre el detalle) y el pie del drawer. Mantiene sincronizados
+    // state.opcionSeleccionada (lo que viaja al backend al guardar), state.seleccionRow
+    // (lo que muestra la barra de cierre) y el resaltado de la tabla.
+    function seleccionarRow(row, options) {
+        if (!row?.plan) return;
+        state.opcionSeleccionada = toSeleccion(row);
+        state.seleccionRow = row;
+        updateSelectedRowHighlight(optionKey(row));
+        renderSeleccionBar();
+        if (options?.abrirDrawer) openPlanDrawer(row);
+    }
+
+    // ---- Celdas Estado / Acción -------------------------------------------------
+    // §11/§15: "Estado" dice si la alternativa está disponible (y con qué condición
+    // para Crédito personal); "Acción" es la affordance explícita para elegirla.
+    // Antes ambas cosas compartían una sola pill que alternaba entre "Mejor precio",
+    // "Elegir" y "Seleccionado" — mezclaba una etiqueta de estado con un botón y no
+    // había forma visible de saber que la fila era clickeable.
+    function estadoCellHtml(row) {
+        if (esCreditoPersonalMedio(row.opcion.medioPago)) {
+            const tone = aptitudTone(state.aptitud);
+            if (tone === 'no-apto') return '<span class="pill pill-red">No apto</span>';
+            if (tone === 'requiere-autorizacion') return '<span class="pill pill-amber">Requiere autorización</span>';
+        }
+        return '<span class="pill pill-green">Disponible</span>';
+    }
+
+    function accionCellHtml(row, selectedKey) {
+        const key = optionKey(row);
+        if (selectedKey && key === selectedKey) {
+            return `<button type="button" class="rt-btn rt-btn--on" data-cotizacion-elegir="${esc(key)}" aria-pressed="true"><span class="material-symbols-outlined" style="font-size:13px">check</span> Seleccionado</button>`;
+        }
+        return `<button type="button" class="rt-btn" data-cotizacion-elegir="${esc(key)}" aria-pressed="false">Elegir</button>`;
     }
 
     function appendGroup(frag, group, bestKey) {
@@ -914,15 +1296,42 @@
         if (!planRows.length) {
             const tr = document.createElement('tr');
             tr.className = 'off';
+
+            // Crédito personal + aptitud ya evaluada (mismo dato de la ficha de Cliente,
+            // sin segunda consulta): reemplaza el motivo genérico por la razón real de
+            // negocio (cupo/mora/documentación) en vez de "No hay planes activos" —
+            // item 18/19 del pedido de rework.
+            if (esCreditoPersonalMedio(group.medioPago) && state.aptitud && state.aptitudClienteId === state.clienteSeleccionado?.id) {
+                // Prioridad 1: 3 estados reales, no 2 — ver aptitudTone().
+                const tone = aptitudTone(state.aptitud);
+                const pillCls = tone === 'apto' ? 'pill-green' : (tone === 'requiere-autorizacion' ? 'pill-amber' : 'pill-red');
+                const pillLabel = tone === 'apto' ? 'Apto' : (tone === 'requiere-autorizacion' ? 'Requiere autorización' : 'No apto');
+                const resumen = tone === 'apto'
+                    ? 'Cliente apto — sin planes configurados para este monto.'
+                    : tone === 'requiere-autorizacion'
+                        ? (state.aptitud.motivo || 'Requiere autorización de un supervisor — sin planes configurados para este monto.')
+                        : `Cupo ${formatCurrency(state.aptitud.cupoDisponible)} · solicitado ${formatCurrency(state.aptitud.montoSolicitado)} · faltante ${formatCurrency(state.aptitud.faltante)}`;
+                const rmedioCls = tone === 'apto' ? 'rmedio-aptitud--apto' : (tone === 'requiere-autorizacion' ? 'rmedio-aptitud--requiere-autorizacion' : 'rmedio-aptitud--no-apto');
+                tr.innerHTML = `
+                    <td><span class="rmedio"><span class="pay-ico pay-ico--slate"><span class="material-symbols-outlined" style="font-size:16px">${meta.icon}</span></span><span class="rmedio-nombre font-medium text-slate-300">${esc(group.label)}</span></span></td>
+                    <td class="r text-slate-500">—</td>
+                    <td colspan="3" class="rmedio-aptitud ${rmedioCls}">${esc(resumen)}</td>
+                    <td><span class="pill ${pillCls}">${esc(pillLabel)}</span></td>
+                    <td class="r rt-accion"><button type="button" class="rt-btn rt-btn--ghost" data-cotizacion-ver-situacion>Ver situación</button></td>`;
+                frag.appendChild(tr);
+                return;
+            }
+
             const pill = estadoPill(estadoStr);
             const motivo = group.opcion.motivoNoDisponible
                 || (pill.label === 'Req. cliente' ? 'Seleccioná un cliente para evaluar el crédito.' : 'No hay planes activos para el medio solicitado.');
             const motivoIcon = pill.label === 'Req. cliente' ? 'person_alert' : 'warning';
             tr.innerHTML = `
-                <td><span class="rmedio"><span class="pay-ico pay-ico--slate"><span class="material-symbols-outlined" style="font-size:16px">${meta.icon}</span></span><span class="font-medium text-slate-300">${esc(group.label)}</span></span></td>
+                <td><span class="rmedio"><span class="pay-ico pay-ico--slate"><span class="material-symbols-outlined" style="font-size:16px">${meta.icon}</span></span><span class="rmedio-nombre font-medium text-slate-300">${esc(group.label)}</span></span></td>
                 <td class="r text-slate-500">—</td>
                 <td colspan="3" class="text-xs text-amber-200/80"><span class="material-symbols-outlined text-amber-300" style="font-size:14px">${motivoIcon}</span> ${esc(motivo)}</td>
-                <td><span class="pill ${pill.cls}">${esc(pill.label)}</span></td>`;
+                <td><span class="pill ${pill.cls}">${esc(pill.label)}</span></td>
+                <td class="r rt-accion text-slate-600">—</td>`;
             frag.appendChild(tr);
             return;
         }
@@ -944,18 +1353,31 @@
         const fuenteTxt = group.opcion.fuenteTasaDescripcion
             ? `<div class="text-[10px] text-slate-500">${esc(group.opcion.fuenteTasaDescripcion)}</div>`
             : '';
+        // La pill de la fila-padre distingue NoApto (bloqueo real, Venta rechaza) de
+        // RequiereAutorizacion (Venta sigue, pide autorización de supervisor).
+        const aptitudNota = esCreditoPersonalMedio(group.medioPago) ? aptitudNotaHtml() : '';
+        const toneGrupo = esCreditoPersonalMedio(group.medioPago) ? aptitudTone(state.aptitud) : null;
+        const pillOpciones = toneGrupo === 'no-apto'
+            ? '<span class="pill pill-red">No apto</span>'
+            : toneGrupo === 'requiere-autorizacion'
+                ? '<span class="pill pill-amber">Requiere autorización</span>'
+                : '<span class="pill pill-green">Disponible</span>';
 
+        // §13: la fila padre resume el medio (identidad + rango de precio + estado) y
+        // su acción es EXPANDIR, no elegir — elegir es una decisión por plan, que vive
+        // en las filas hijas. Por eso no lleva data-cotizacion-opcion-key.
         const parent = document.createElement('tr');
         parent.className = 'parent';
         parent.setAttribute('aria-expanded', 'true');
         parent.dataset.group = gkey;
         parent.innerHTML = `
-            <td><span class="rmedio"><span class="pay-ico pay-ico--${meta.tone}"><span class="material-symbols-outlined" style="font-size:16px">${meta.icon}</span></span><span><span class="font-medium text-white">${esc(group.label)}</span>${fuenteTxt}</span><span class="material-symbols-outlined twist">expand_more</span></span></td>
+            <td><span class="rmedio"><span class="pay-ico pay-ico--${meta.tone}"><span class="material-symbols-outlined" style="font-size:16px">${meta.icon}</span></span><span><span class="rmedio-nombre font-semibold text-white">${esc(group.label)}</span>${fuenteTxt}${aptitudNota}</span><span class="material-symbols-outlined twist">expand_more</span></span></td>
             <td class="r"><span class="text-[10px] text-slate-500">desde </span><span class="total-display font-semibold text-white">${formatCurrency(minTotal)}</span></td>
-            <td class="text-slate-300">${planRows.length} planes</td>
+            <td class="text-slate-400">${planRows.length} planes</td>
             <td class="r text-slate-500">—</td>
             <td class="r ${recargoClass(maxR)}">${recargoTxt}</td>
-            <td><span class="pill pill-slate">${planRows.length} opciones</span></td>`;
+            <td>${pillOpciones}</td>
+            <td class="r rt-accion"><span class="rt-btn rt-btn--ghost" aria-hidden="true">Ver planes</span></td>`;
         frag.appendChild(parent);
 
         // detalle más barato
@@ -971,15 +1393,10 @@
         return Number(plan.cantidadCuotas) > 1 ? `${plan.cantidadCuotas} cuotas` : '1 pago';
     }
 
-    // "Seleccionado" tiene prioridad sobre "Mejor precio"/"Pago único": la fila
-    // elegida debe distinguirse por texto (no sólo por el resaltado azul de
-    // tr.selected), nunca depender sólo de color (item 17 del lote).
-    function pillForRow(row, bestKey, selectedKey) {
-        const key = optionKey(row);
-        if (selectedKey && key === selectedKey) return '<span class="pill pill-blue"><span class="material-symbols-outlined" style="font-size:12px">check</span> Seleccionado</span>';
-        if (key === bestKey) return '<span class="pill pill-green"><span class="material-symbols-outlined" style="font-size:12px">star</span> Mejor precio</span>';
-        if (row.plan?.recomendado) return '<span class="pill pill-blue">Pago único</span>';
-        return '<span class="pill pill-slate">Elegir</span>';
+    // "Mejor precio" es una propiedad del PRECIO, así que vive junto al medio/plan en
+    // la primera columna (§12), no mezclada con el estado ni con la acción.
+    function mejorPrecioBadge(key, bestKey) {
+        return key === bestKey ? ' <span class="pill pill-green">Mejor precio</span>' : '';
     }
 
     function buildSingleRow(row, meta, bestKey) {
@@ -994,13 +1411,15 @@
         const fuenteTxt = row.opcion.fuenteTasaDescripcion
             ? `<div class="text-[10px] text-slate-500">${esc(row.opcion.fuenteTasaDescripcion)}</div>`
             : '';
+        const aptitudNota = esCreditoPersonalMedio(row.opcion.medioPago) ? aptitudNotaHtml() : '';
         tr.innerHTML = `
-            <td><span class="rmedio"><span class="pay-ico pay-ico--${meta.tone}"><span class="material-symbols-outlined" style="font-size:16px">${meta.icon}</span></span><span><span class="font-medium text-white">${esc(medioLabel(row.opcion.medioPago, row.opcion.nombreMedioPago))}</span>${fuenteTxt}</span></span></td>
+            <td><span class="rmedio"><span class="pay-ico pay-ico--${meta.tone}"><span class="material-symbols-outlined" style="font-size:16px">${meta.icon}</span></span><span><span class="rmedio-nombre font-semibold text-white">${esc(medioLabel(row.opcion.medioPago, row.opcion.nombreMedioPago))}</span>${mejorPrecioBadge(key, bestKey)}${fuenteTxt}${aptitudNota}</span></span></td>
             <td class="r"><span class="total-display font-semibold text-white">${formatCurrency(plan.total)}</span></td>
-            <td class="text-slate-300">${planLabelCuotas(plan)}</td>
-            <td class="r ${Number(plan.cantidadCuotas) > 1 ? 'text-slate-300 total-display' : 'text-slate-400'}">${cuotasTxt}</td>
+            <td class="text-slate-400">${planLabelCuotas(plan)}</td>
+            <td class="r ${Number(plan.cantidadCuotas) > 1 ? 'text-slate-300 total-display' : 'text-slate-500'}">${cuotasTxt}</td>
             <td class="r ${recargoClass(r)}">${r > 0 ? '+' : ''}${pct(r)}</td>
-            <td>${pillForRow(row, bestKey)}</td>`;
+            <td>${estadoCellHtml(row)}</td>
+            <td class="r rt-accion">${accionCellHtml(row, null)}</td>`;
         return tr;
     }
 
@@ -1013,30 +1432,33 @@
         tr.dataset.g = gkey;
         tr.dataset.cotizacionRowKey = key;
         tr.dataset.cotizacionOpcionKey = key;
-        // Item 15 del lote: el hash de color por plan (antes un punto de color propio
-        // por fila) no tenía semántica real — el color de familia de medio ya vive
-        // en el pay-ico de la fila padre.
+        // §13: la fila hija no repite el ícono del medio (ya lo trae el padre) ni su
+        // peso tipográfico — sólo el plan y sus números. Tampoco repite el ESTADO: es
+        // el mismo para todos los planes del medio y ya lo declara la fila padre (con
+        // Crédito personal no apto, antes "No apto" aparecía una vez por plan además
+        // de en el padre — 3 copias del mismo veredicto en un solo grupo).
         const planName = plan.plan || medioLabel(row.opcion.medioPago, row.opcion.nombreMedioPago);
         tr.innerHTML = `
-            <td><span class="plan-medio"><span class="text-slate-200 font-medium">${esc(planName)}</span></span></td>
+            <td><span class="plan-medio"><span class="plan-nombre text-slate-200">${esc(planName)}</span>${mejorPrecioBadge(key, bestKey)}</span></td>
             <td class="r"><span class="total-display text-white">${formatCurrency(plan.total)}</span></td>
-            <td class="text-slate-300">${planLabelCuotas(plan)}</td>
+            <td class="text-slate-400">${planLabelCuotas(plan)}</td>
             <td class="r total-display text-slate-300">${Number(plan.cantidadCuotas) > 1 ? formatCurrency(plan.valorCuota) : '—'}</td>
             <td class="r ${recargoClass(r)}">${r > 0 ? '+' : ''}${pct(r)}</td>
-            <td>${pillForRow(row, bestKey)}</td>`;
+            <td></td>
+            <td class="r rt-accion">${accionCellHtml(row, null)}</td>`;
         return tr;
     }
 
-    // Actualiza el resaltado de fila Y la pill de la última columna: el texto
-    // "Seleccionado" tiene que seguir a la selección real, no sólo el color de
-    // fondo (item 17 del lote). state.bestKey lo fija renderResultado().
+    // Actualiza el resaltado de fila Y el botón de la columna Acción: "Seleccionado"
+    // tiene que seguir a la selección real y no depender sólo del color de fondo
+    // (§15). state.bestKey lo fija renderResultado().
     function updateSelectedRowHighlight(selectedKey) {
         $$('#cotizacion-resultados-tbody tr[data-cotizacion-row-key]').forEach(tr => {
             const key = tr.dataset.cotizacionRowKey;
             tr.classList.toggle('selected', key === selectedKey);
             const row = findRowByKey(key);
-            const pillCell = tr.querySelector('td:last-child');
-            if (row && pillCell) pillCell.innerHTML = pillForRow(row, state.bestKey, selectedKey);
+            const accionCell = tr.querySelector('td.rt-accion');
+            if (row && accionCell) accionCell.innerHTML = accionCellHtml(row, selectedKey);
         });
     }
 
@@ -1095,6 +1517,10 @@
 
     function openPlanDrawer(row) {
         if (!row?.plan) return;
+        // El pie del drawer ("Elegir esta opción") necesita saber qué plan está
+        // abierto: se llega ahí explorando el detalle, no necesariamente desde la
+        // fila ya seleccionada.
+        state.planAbiertoKey = optionKey(row);
         const plan = row.plan;
         const medio = medioLabel(row.opcion.medioPago, row.opcion.nombreMedioPago);
         const planName = plan.plan && plan.plan !== medio ? `${medio} · ${plan.plan}` : medio;
@@ -1108,6 +1534,38 @@
         if (els.planRecargo) {
             els.planRecargo.textContent = `${r > 0 ? '+' : ''}${pct(r)}`;
             els.planRecargo.className = recargoClass(r) + ' font-mono';
+        }
+
+        // Item 24 del rework: estado de elegibilidad arriba del resto del drawer,
+        // sólo para Crédito personal y sólo si ya hay una evaluación (misma que la
+        // ficha de Cliente — no se dispara una segunda consulta acá).
+        if (els.planElegibilidad) {
+            const mostrarElegibilidad = esCreditoPersonalMedio(row.opcion.medioPago)
+                && state.aptitud && state.aptitudClienteId === state.clienteSeleccionado?.id;
+            if (mostrarElegibilidad) {
+                // Prioridad 1: mismo tri-estado que el resto de la pantalla — un plan de
+                // Crédito personal con RequiereAutorizacion no es "No apto" (Venta lo deja
+                // continuar pidiendo autorización de supervisor).
+                const tone = aptitudTone(state.aptitud);
+                const cardCls = tone === 'apto' ? 'aptitud-card--apto' : (tone === 'requiere-autorizacion' ? 'aptitud-card--requiere-autorizacion' : 'aptitud-card--no-apto');
+                const icon = tone === 'apto' ? 'check_circle' : (tone === 'requiere-autorizacion' ? 'gpp_maybe' : 'cancel');
+                const titulo = tone === 'apto' ? 'Apto para crédito' : (tone === 'requiere-autorizacion' ? 'Requiere autorización' : 'No apto para crédito');
+                els.planElegibilidad.innerHTML = `
+                    <div class="aptitud-card ${cardCls}">
+                        <div class="aptitud-card__head">
+                            <span class="material-symbols-outlined" style="font-size:16px">${icon}</span>
+                            ${esc(titulo)}
+                        </div>
+                        ${tone === 'requiere-autorizacion' ? `<p class="aptitud-card__resumen">Podés continuar: la venta va a pedir autorización de un supervisor.</p>` : ''}
+                        ${tone === 'no-apto' ? `<dl><dt>Faltante</dt><dd>${formatCurrency(state.aptitud.faltante)}</dd></dl>` : ''}
+                        ${Array.isArray(state.aptitud.motivos) && state.aptitud.motivos.length
+                            ? `<ul>${state.aptitud.motivos.map(m => `<li>${esc(m)}</li>`).join('')}</ul>` : ''}
+                    </div>`;
+                show(els.planElegibilidad);
+            } else {
+                hide(els.planElegibilidad);
+                els.planElegibilidad.innerHTML = '';
+            }
         }
 
         // Desglose de Credito personal: solo estos planes traen saldoAFinanciar/totalFinanciado
@@ -1153,13 +1611,20 @@
         els.agregarProducto?.addEventListener('click', () => agregarProducto(state.productoSeleccionado, els.cantidad?.value));
         els.agregarManual?.addEventListener('click', agregarProductoManual);
         els.simular?.addEventListener('click', simular);
-        els.guardar?.addEventListener('click', guardarYPasarAVenta);
+        els.guardar?.addEventListener('click', guardarSolo);
+        els.continuar?.addEventListener('click', continuarConOpcion);
         els.pasarVenta?.addEventListener('click', pasarAVenta);
         els.nuevaCotizacion?.addEventListener('click', () => window.location.reload());
 
         els.limpiarCliente?.addEventListener('click', () => {
             setCliente(null);
             if (els.clienteBuscar) els.clienteBuscar.value = '';
+        });
+
+        els.aptitudCredito?.addEventListener('click', event => {
+            if (!event.target.closest('[data-cotizacion-reintentar-aptitud]')) return;
+            state.aptitudClienteId = null; // invalida la cache para forzar una nueva consulta
+            evaluarAptitudCredito();
         });
 
         // medios filter -> marca pendiente si ya había simulación
@@ -1222,8 +1687,29 @@
             }
         });
 
-        // resultados: expandir grupos / seleccionar plan
+        // resultados: expandir grupos / elegir alternativa / ver detalle
         els.resultadosTbody?.addEventListener('click', event => {
+            // "Ver situación" (fila de Crédito personal sin planes): lleva la atención
+            // a la evaluación ya hecha en Cliente, sin abrir el drawer de plan (no hay
+            // plan que mostrar) ni repetir la consulta.
+            if (event.target.closest('[data-cotizacion-ver-situacion]')) {
+                els.aptitudCredito?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                els.aptitudCredito?.querySelector('.aptitud-card__detalle')?.setAttribute('open', '');
+                return;
+            }
+
+            // §15: "Elegir" es la acción explícita de selección y NO abre el drawer —
+            // elegir y explorar el detalle son dos intenciones distintas. Antes ambas
+            // estaban pegadas al mismo click sobre la fila, así que elegir siempre
+            // forzaba un drawer que había que cerrar a mano.
+            const elegirBtn = event.target.closest('[data-cotizacion-elegir]');
+            if (elegirBtn && els.resultadosTbody.contains(elegirBtn)) {
+                event.stopPropagation();
+                const row = findRowByKey(elegirBtn.dataset.cotizacionElegir);
+                if (row) seleccionarRow(row, { abrirDrawer: false });
+                return;
+            }
+
             const parent = event.target.closest('tr.parent');
             if (parent && els.resultadosTbody.contains(parent)) {
                 const open = parent.getAttribute('aria-expanded') === 'true';
@@ -1232,14 +1718,23 @@
                 return;
             }
 
+            // Click en el resto de la fila: abre el detalle del plan. Sigue marcándola
+            // como seleccionada (mismo comportamiento que antes, y la barra de cierre
+            // necesita una opción vigente para habilitar Continuar).
             const selectable = event.target.closest('tr[data-cotizacion-opcion-key]');
             if (selectable && els.resultadosTbody.contains(selectable)) {
-                const key = selectable.dataset.cotizacionOpcionKey;
-                const row = findRowByKey(key);
-                state.opcionSeleccionada = row ? toSeleccion(row) : null;
-                updateSelectedRowHighlight(key);
-                if (row) openPlanDrawer(row);
+                const row = findRowByKey(selectable.dataset.cotizacionOpcionKey);
+                if (row) seleccionarRow(row, { abrirDrawer: true });
             }
+        });
+
+        // Pie del drawer: elegir la alternativa que se estaba mirando y cerrar — sin
+        // esto, llegar al detalle explorando dejaba al operador sin salida hacia la
+        // decisión (tenía que cerrar y buscar la fila de nuevo).
+        root.querySelector('[data-cotizacion-elegir-drawer]')?.addEventListener('click', () => {
+            const row = findRowByKey(state.planAbiertoKey);
+            if (row) seleccionarRow(row, { abrirDrawer: false });
+            window.closeModal?.('modal-plan');
         });
 
         document.addEventListener('click', event => {
@@ -1256,4 +1751,7 @@
 
     bindEvents();
     renderProductos();
+    // Estado inicial del cierre: sin simulación no hay opción elegida, así que
+    // Continuar arranca deshabilitado con el resumen explicando qué falta (§16/§26).
+    renderSeleccionBar();
 })();

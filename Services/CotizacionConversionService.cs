@@ -13,17 +13,30 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
     private readonly AppDbContext _context;
     private readonly VentaNumberGenerator _numberGenerator;
     private readonly IPrecioVigenteResolver _precioResolver;
+    // VENTA-COTIZACION-REWORK-03 (auditoría en vivo del usuario, 2026-09-15): Crédito personal
+    // reutiliza la MISMA evaluación de autorización y creación de crédito que ya usa
+    // VentaService.CreateAsync — antes esta clase hardcodeaba RequiereAutorizacion=false/
+    // EstadoAutorizacion=NoRequiere para CUALQUIER medio (incluido Crédito personal) y nunca
+    // creaba el Credito real, un segundo camino de autorización no auditado que contradecía lo
+    // que la misma venta habría mostrado creada desde Venta/Create. Ningún otro medio de pago
+    // cambia de comportamiento.
+    private readonly IValidacionVentaService _validacionVentaService;
+    private readonly IVentaService _ventaService;
     private readonly ILogger<CotizacionConversionService> _logger;
 
     public CotizacionConversionService(
         AppDbContext context,
         VentaNumberGenerator numberGenerator,
         IPrecioVigenteResolver precioResolver,
+        IValidacionVentaService validacionVentaService,
+        IVentaService ventaService,
         ILogger<CotizacionConversionService> logger)
     {
         _context = context;
         _numberGenerator = numberGenerator;
         _precioResolver = precioResolver;
+        _validacionVentaService = validacionVentaService;
+        _ventaService = ventaService;
         _logger = logger;
     }
 
@@ -229,13 +242,15 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
 
             var numero = await _numberGenerator.GenerarNumeroAsync(EstadoVenta.Cotizacion);
 
+            var tipoPago = MapearTipoPago(cotizacionEnTx.MedioPagoSeleccionado);
+
             var venta = new Venta
             {
                 Numero = numero,
                 ClienteId = clienteId.Value,
                 FechaVenta = DateTime.UtcNow,
                 Estado = EstadoVenta.Cotizacion,
-                TipoPago = MapearTipoPago(cotizacionEnTx.MedioPagoSeleccionado),
+                TipoPago = tipoPago,
                 AperturaCajaId = null,
                 VendedorUserId = null,
                 VendedorNombre = usuario,
@@ -253,6 +268,26 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
 
             foreach (var detalle in detalles)
                 venta.Detalles.Add(detalle);
+
+            // Crédito personal: evaluar con la MISMA fuente de verdad que Venta/Create
+            // (IValidacionVentaService) y aplicar el resultado con la misma lógica
+            // (IVentaService.AplicarResultadoValidacionAsync) — nunca hardcodear NoRequiere acá.
+            // NoViable (ni siquiera autorizable) rechaza la conversión con ESA alternativa: el
+            // vendedor puede elegir otro medio o resolver la situación crediticia antes de
+            // continuar (no se crea una venta a medias con un TipoPago que no puede sostenerse).
+            if (tipoPago == TipoPago.CreditoPersonal)
+            {
+                var validacionCredito = await _validacionVentaService.ValidarVentaCreditoPersonalAsync(
+                    clienteId.Value, venta.Total, creditoId: null);
+
+                if (validacionCredito.NoViable)
+                {
+                    return CotizacionConversionResultado.Fallido(cotizacionId,
+                        [$"Crédito personal no está disponible para este cliente en este momento: {validacionCredito.MensajeResumen}. Elegí otro medio de pago o resolvé la situación crediticia del cliente antes de continuar."]);
+                }
+
+                await _ventaService.AplicarResultadoValidacionAsync(venta, validacionCredito, usuario);
+            }
 
             // La intención de envío declarada en el simulador ("TieneEnvio") produce un
             // VentaEnvio Pendiente precargado con el domicilio del cliente, editable
@@ -276,6 +311,21 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
             cotizacionEnTx.Estado = EstadoCotizacion.ConvertidaAVenta;
 
             await _context.SaveChangesAsync(cancellationToken);
+
+            // Igual que CreateAsync: el Credito real recién puede crearse con venta.Id ya
+            // asignado, y sólo si la venta quedó aprobable (no si quedó pendiente de
+            // autorización) — misma condición, misma lógica, sin duplicarla. Precarga cuotas/
+            // anticipo intencionados desde esta cotización (venta.CotizacionOrigenId, seteado
+            // arriba) automáticamente, igual que cuando la venta se crea directo desde
+            // Venta/Create con una cotización de origen.
+            if (tipoPago == TipoPago.CreditoPersonal
+                && venta.Estado == EstadoVenta.PendienteFinanciacion
+                && !venta.RequiereAutorizacion
+                && !venta.CreditoId.HasValue)
+            {
+                await _ventaService.CrearCreditoPendienteParaVentaAsync(venta);
+            }
+
             await transaction.CommitAsync(cancellationToken);
 
             _logger.LogInformation(

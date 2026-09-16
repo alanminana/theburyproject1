@@ -358,44 +358,47 @@ test.describe('Cotización simulador — COTIZ-QA', () => {
         expect(noOverflow, 'Scroll horizontal de página detectado en mobile 390px').toBeTruthy();
     });
 
-    // ─── T9: Mobile 390px — Resultados primero + paneles colapsables (CIERRE-01) ─
-
-    test('T9: Mobile 390px — Resultados primero, Productos/Config colapsables, CTA siempre visible', async ({ page }) => {
+    // ─── T9: Mobile 390px — orden del flujo + comparador compacto ───────────────
+    //
+    // COTIZACION-WORKSTATION-01 (§27 del pedido de rework visual): este test protegía
+    // el orden inverso de COTIZACION-SIMULAR-REDESIGN-VISUAL-CIERRE-01 (Resultados
+    // primero, Productos/Configuración colapsados detrás de un toggle). El usuario fijó
+    // explícitamente el orden del flujo en mobile — Productos → Cliente/Condiciones →
+    // Totales+Simular → Resultados → Selección/Continuar — así que ese contrato se
+    // reemplaza por el nuevo, y los toggles (#cotizacion-productos-toggle /
+    // #cotizacion-config-toggle) se retiraron del parcial junto con su handler: con
+    // Productos ya primero no hay nada que plegar para llegar al comparador.
+    test('T9: Mobile 390px — orden del flujo, comparador compacto y cierre accesible', async ({ page }) => {
         await page.setViewportSize(VIEWPORT_MOBILE);
         await gotoCotizacion(page);
 
-        // Resultados aparece visualmente antes que Productos y Config — el DOM
-        // sigue en orden "productos, resultados, config" (mismo markup que
-        // desktop/tablet, sin duplicar nodos); el reorden es sólo CSS grid-area
-        // (mismo mecanismo ya usado en la banda ≥40rem desde IMPLEMENTACION-01).
-        const resultadosY = await page.locator('[data-zone="resultados"]').boundingBox().then(b => b.y);
-        const productosY  = await page.locator('[data-zone="productos"]').boundingBox().then(b => b.y);
-        const configY     = await page.locator('[data-zone="config"]').boundingBox().then(b => b.y);
-        expect(resultadosY).toBeLessThan(productosY);
-        expect(resultadosY).toBeLessThan(configY);
+        // El orden visual de las 4 zonas es el orden del flujo comercial, y coincide
+        // con el orden del DOM (mismo markup que desktop/tablet, sin duplicar nodos:
+        // en desktop el grid las recoloca en 2 columnas + 2 filas).
+        const y = async (zona) => (await page.locator(`[data-zone="${zona}"]`).boundingBox()).y;
+        const productosY  = await y('productos');
+        const configY     = await y('config');
+        const totalesY    = await y('totales');
+        const resultadosY = await y('resultados');
+        expect(productosY).toBeLessThan(configY);
+        expect(configY).toBeLessThan(totalesY);
+        expect(totalesY).toBeLessThan(resultadosY);
 
-        // Productos y Config arrancan colapsados: el toggle existe, aria-expanded=false,
-        // y el contenido real queda oculto (mismo DOM, no una segunda representación).
-        const prodToggle = page.locator('#cotizacion-productos-toggle');
-        const configToggle = page.locator('#cotizacion-config-toggle');
-        await expect(prodToggle).toBeVisible();
-        await expect(configToggle).toBeVisible();
-        await expect(prodToggle).toHaveAttribute('aria-expanded', 'false');
-        await expect(configToggle).toHaveAttribute('aria-expanded', 'false');
-        await expect(page.locator('#cotizacion-producto-buscar')).toBeHidden();
-        await expect(page.locator('#cotizacion-cliente-buscar')).toBeHidden();
-
-        // El CTA (Total + Simular/Guardar) nunca se colapsa, aunque ambos paneles
-        // secundarios estén cerrados — es lo único que debe verse sin expandir nada.
-        await expect(page.locator('#cotizacion-simular')).toBeVisible();
-        await expect(page.locator('#cotizacion-guardar')).toBeVisible();
-
-        // Abrir Productos: el buscador y el carrito quedan accesibles (item 7 del lote).
-        await prodToggle.click();
-        await expect(prodToggle).toHaveAttribute('aria-expanded', 'true');
+        // Sin toggles: Productos y Configuración están accesibles de entrada.
+        await expect(page.locator('#cotizacion-productos-toggle')).toHaveCount(0);
+        await expect(page.locator('#cotizacion-config-toggle')).toHaveCount(0);
         await expect(page.locator('#cotizacion-producto-buscar')).toBeVisible();
+        await expect(page.locator('#cotizacion-cliente-buscar')).toBeVisible();
 
-        const added = await agregarProductoSimulador(page); // ya expandido, no vuelve a togglear
+        // El CTA contextual vive junto a la franja de Totales y es el único primario
+        // antes de simular; el cierre (Guardar/Continuar) ya existe, con Continuar
+        // deshabilitado mientras no haya una opción elegida.
+        await expect(page.locator('#cotizacion-simular')).toBeVisible();
+        await expect(page.locator('[data-simular-label]')).toHaveText('Simular cotización');
+        await expect(page.locator('#cotizacion-guardar')).toBeVisible();
+        await expect(page.locator('#cotizacion-continuar')).toBeDisabled();
+
+        const added = await agregarProductoSimulador(page);
         test.skip(!added, 'Sin productos disponibles en el entorno de prueba');
 
         // Editar cantidad del producto agregado (input real dentro del carrito).
@@ -404,16 +407,8 @@ test.describe('Cotización simulador — COTIZ-QA', () => {
         await cantidadInput.fill('2');
         await cantidadInput.dispatchEvent('input');
 
-        // Colapsar Productos de nuevo antes de simular (no debe romper el estado).
-        await prodToggle.click();
-        await expect(prodToggle).toHaveAttribute('aria-expanded', 'false');
-
-        // Abrir Configuración para cambiar el cliente (best-effort: puede no haber
-        // clientes cargados en el entorno de prueba, no bloquea el resto del test).
-        await configToggle.click();
-        await expect(configToggle).toHaveAttribute('aria-expanded', 'true');
-        await expect(page.locator('#cotizacion-cliente-buscar')).toBeVisible();
-
+        // Seleccionar cliente (best-effort: puede no haber clientes cargados en el
+        // entorno de prueba, no bloquea el resto del test).
         const clienteInput = page.locator('#cotizacion-cliente-buscar');
         await clienteInput.fill('a');
         await page.waitForTimeout(600);
@@ -450,8 +445,18 @@ test.describe('Cotización simulador — COTIZ-QA', () => {
             await expect(details.first()).toBeVisible({ timeout: 2_000 });
         }
 
-        // Seleccionar una opción abre el drawer de detalle (mismo comportamiento
-        // que desktop — ahí vive el Recargo, oculto de la fila compacta).
+        // "Elegir" selecciona sin abrir el drawer (§15: elegir y explorar el detalle
+        // son intenciones distintas); tocar el resto de la fila sí abre el detalle,
+        // que es donde vive el Recargo, oculto de la fila compacta en mobile.
+        const elegirBtn = page.locator('#cotizacion-resultados-tbody [data-cotizacion-elegir]').first();
+        if (await elegirBtn.count() > 0) {
+            await elegirBtn.click();
+            await expect(page.locator('#modal-plan')).not.toBeVisible();
+            await expect(page.locator('#cotizacion-resultados-tbody tr.selected')).toHaveCount(1);
+            await expect(page.locator('#cotizacion-seleccion-resumen')).toContainText('Opción seleccionada', { ignoreCase: true });
+            await expect(page.locator('#cotizacion-continuar')).toBeEnabled();
+        }
+
         const selectable = page.locator('#cotizacion-resultados-tbody tr[data-cotizacion-opcion-key]').first();
         if (await selectable.count() > 0) {
             await selectable.click();
@@ -460,14 +465,17 @@ test.describe('Cotización simulador — COTIZ-QA', () => {
             await expect(page.locator('#modal-plan')).not.toBeVisible({ timeout: 3_000 });
         }
 
-        // Guardar sigue disponible con ambos paneles colapsados. COTIZACION-SIMULAR-
-        // GUARDAR-DIRECTO-01: ya no abre un modal — guarda directo (sin cliente de
-        // sistema en este flujo, así que no encadena a Pasar a venta automáticamente).
+        // COTIZACION-WORKSTATION-01 (§10/§16): "Guardar cotización" es ahora la acción
+        // secundaria y SÓLO persiste — deja la UI en el estado post-guardado, donde
+        // "Pasar a venta" queda disponible. La conversión encadenada vive en la acción
+        // primaria "Continuar con esta opción", que no se ejercita acá (este flujo no
+        // tiene garantizado un cliente de sistema, requisito real de la conversión).
         const guardarBtn = page.locator('#cotizacion-guardar');
         await expect(guardarBtn).toBeVisible();
         if (await guardarBtn.isEnabled()) {
             await guardarBtn.click();
             await expect(page.locator('#cotizacion-pasar-venta')).toBeVisible({ timeout: 20_000 });
+            await expect(page.locator('#cotizacion-acciones-pre')).toBeHidden();
         }
     });
 });

@@ -64,21 +64,13 @@
     }
     window.setQuoteState = setQuoteState;
 
-    // ---- Paneles colapsables (mobile real <40rem, COTIZACION-SIMULAR-REDESIGN-VISUAL-CIERRE-01) ----
-    // El botón vive siempre en el DOM (oculto vía CSS fuera de esa banda, ver
-    // cotizacion-simulador.css) — acá sólo se cablea el toggle genérico, sin
-    // depender del ancho real: en bandas más anchas el botón es display:none y
-    // nunca recibe click real, así que esto no tiene efecto visible ahí.
-    document.querySelectorAll('.panel-toggle-btn, .config-toggle-head').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const open = btn.getAttribute('aria-expanded') === 'true';
-            btn.setAttribute('aria-expanded', String(!open));
-            (btn.getAttribute('aria-controls') || '').split(/\s+/).filter(Boolean).forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.classList.toggle('is-collapsed', open);
-            });
-        });
-    });
+    // COTIZACION-WORKSTATION-01: se retiró el toggle de paneles colapsables de mobile
+    // (.panel-toggle-btn / .config-toggle-head). Existían porque el apilado mobile
+    // ponía Resultados primero y había que plegar Productos/Configuración para que no
+    // lo empujaran fuera del primer viewport. El pedido actual del usuario fija el
+    // orden natural (Productos → Cliente/Condiciones → Totales+Simular → Resultados,
+    // §27), así que Productos vuelve a ser lo primero y no hay nada que plegar; los
+    // botones y sus clases se eliminaron del parcial y del CSS.
 
     // ---- Aviso de doble descuento ----
     function watchDescuentos() {

@@ -150,8 +150,11 @@ public sealed class CotizacionControllerUiTests
         Assert.Contains("id=\"estado-banner\"", partial);
         // El hint junto al CTA arranca oculto: sólo lo muestra setQuoteState para
         // pending/error (contextual), no en idle/simulated/saved (ambiental ya
-        // cubierto por el banner).
-        Assert.Contains("hidden mt-1.5 text-[11px] text-slate-400 text-center", partial);
+        // cubierto por el banner). COTIZACION-WORKSTATION-01: el markup ya no
+        // precarga las clases de presentación del hint (setQuoteState las reescribe
+        // enteras en cada cambio de estado, así que duplicarlas acá sólo las dejaba
+        // desincronizadas); lo que el contrato protege es que arranque oculto.
+        Assert.Contains("id=\"cotizacion-simular-estado\" class=\"hidden\"", partial);
         Assert.Contains("hint: ''", scriptUi);
     }
 
@@ -237,10 +240,18 @@ public sealed class CotizacionControllerUiTests
         Assert.Contains("simularBtn.classList.toggle('btn-primary', !esSecundaria);", scriptUi);
         Assert.Contains("simularBtn.classList.toggle('btn-soft', esSecundaria);", scriptUi);
 
-        // Guardar conserva su color/semántica de éxito (no se le tocó la clase):
-        // sigue siendo la única acción con peso visual fuerte una vez simulada.
+        // COTIZACION-WORKSTATION-01 (§10/§17 del pedido, cambio de intención explícito
+        // del usuario): "Guardar" DEJA de ser la acción con peso visual fuerte. Antes
+        // era .btn-success (verde, ancho completo) y además hacía dos cosas —
+        // persistir Y convertir a venta. Ahora son dos botones con jerarquía clara:
+        // Guardar cotización es secundaria (.btn-soft) y sólo persiste; Continuar con
+        // esta opción es la única primaria (.btn-primary) del cierre. Con Simular
+        // degradado a .btn-soft al simular (arriba), queda un solo primario visible
+        // por estado, que es lo que el pedido exige.
         var partial = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Cotizacion", "_CotizadorForm.cshtml"));
-        Assert.Contains("id=\"cotizacion-guardar\" type=\"button\" class=\"btn btn-success\"", partial);
+        Assert.Contains("id=\"cotizacion-guardar\" type=\"button\" class=\"btn btn-soft\"", partial);
+        Assert.Contains("id=\"cotizacion-continuar\" type=\"button\" class=\"btn btn-primary\"", partial);
+        Assert.DoesNotContain("btn-success", partial);
     }
 
     [Fact]
@@ -250,7 +261,8 @@ public sealed class CotizacionControllerUiTests
         var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "cotizacion-simulador.js"));
 
         // Markup: sin verde hardcodeado ($0,00 en verde no comunica nada).
-        Assert.Contains("id=\"cotizacion-descuento\" class=\"text-base font-semibold text-white total-display\"", partial);
+        Assert.Contains("id=\"cotizacion-descuento\" class=\"seg-value text-white total-display\"", partial);
+        Assert.DoesNotContain("id=\"cotizacion-descuento\" class=\"seg-value text-emerald", partial);
         // JS: sólo se destaca cuando el importe es real.
         Assert.Contains("const hayDescuento = Number(data.descuentoTotal) > 0;", script);
         Assert.Contains("els.descuento.classList.toggle('text-emerald-400', hayDescuento);", script);
@@ -268,10 +280,16 @@ public sealed class CotizacionControllerUiTests
         Assert.Contains("`${cliente.apellido}, ${cliente.nombre}`", script);
         Assert.Contains("function formatDocumento(value)", script);
 
-        // La acción de quitar cliente sigue disponible (no se tocó el flujo).
+        // La acción de cambiar/quitar el cliente sigue disponible (no se tocó el flujo
+        // ni el id, que es el hook del listener). COTIZACION-WORKSTATION-01 (§5): pasó
+        // de un botón-ícono "✕" con aria-label a un botón con texto visible
+        // "Cambiar" en el encabezado de Cliente — con nombre accesible propio ya no
+        // necesita aria-label, y el label visible dice qué hace en vez de obligar a
+        // interpretar un ícono.
         var partial = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Cotizacion", "_CotizadorForm.cshtml"));
         Assert.Contains("id=\"cotizacion-limpiar-cliente\"", partial);
-        Assert.Contains("aria-label=\"Quitar cliente\"", partial);
+        var botonCambiar = partial.IndexOf("id=\"cotizacion-limpiar-cliente\"", StringComparison.Ordinal);
+        Assert.Contains("Cambiar", partial[botonCambiar..(botonCambiar + 260)]);
     }
 
     [Fact]

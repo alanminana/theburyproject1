@@ -15,6 +15,28 @@
     El parcial no abre un elemento de formulario propio: el simulador postea por fetch
     a /api/cotizacion/*. Ningún input lleva `name`, así que embeberlo dentro de
     #venta-form no altera el POST de la venta.
+
+    ── COTIZACION-WORKSTATION-01 (rework visual final, pedido explícito con mockup) ──
+    Objetivo: dejar de leerse como "formulario + formulario + tabla" y pasar a leerse
+    como una workstation comercial con una secuencia evidente:
+
+        Productos + Cliente/Condiciones → Simular → Comparar → Elegir → Continuar
+
+    Cambios estructurales de este lote (sin tocar reglas de negocio, endpoints,
+    cálculos, permisos ni ViewModels — §30 del pedido):
+      · Menos "carditis": Productos, Cliente+Condiciones y Resultados son las ÚNICAS
+        3 superficies con borde. Todo lo de adentro se jerarquiza con spacing,
+        encabezados, divisores y grids, no con más cajas anidadas (§3/§24).
+      · Cliente se lee como identidad (avatar + nombre + documento) y la aptitud de
+        Crédito personal baja a un acento lateral compacto, no a una banda roja que
+        tiña todo el panel (§5/§6).
+      · La franja de Totales pasa a ser el puente configuración → resultados y aloja
+        el CTA contextual único Simular/Actualizar cotización (§8/§9).
+      · Resultados suma una columna ACCIÓN con "Elegir" explícito por alternativa y
+        cierra con una barra de selección (Guardar cotización / Continuar con esta
+        opción), que es donde el flujo termina (§11/§15/§16).
+      · Orden del DOM = orden visual (productos → config → totales → resultados), así
+        el recorrido por teclado y el apilado mobile coinciden con el flujo (§27).
 *@
 <div class="cotz-app"
      data-cotizacion-simulador
@@ -24,29 +46,22 @@
      data-producto-resumen-url="@Url.Action("ProductoResumen", "Cotizacion")"
      data-clientes-url="@Url.Action("BuscarClientes", "Cotizacion")"
      data-convertir-base-url="@Url.Content("~/api/cotizacion")"
-     data-venta-edit-url="@Url.Content("~/Venta/Edit/")">
+     data-venta-edit-url="@Url.Content("~/Venta/Edit/")"
+     data-aptitud-credito-url="@Url.Content("~/api/cotizacion/aptitud-credito")">
 
     <!-- ============================ TOP BAR ============================ -->
+    @* §19: barra contextual liviana, un solo renglón — no un segundo hero. El
+       breadcrumb "Ventas ›" se retira: embebido en Venta/Create el hero del wizard
+       ya lo trae, y en standalone la sidebar cumple esa función. *@
     <header class="cotz-topbar">
-        <div class="flex items-center gap-2.5 min-w-0">
-            <div class="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/30 flex items-center justify-center shrink-0">
-                <span class="material-symbols-outlined text-blue-400" style="font-size:20px">calculate</span>
-            </div>
-            <div class="min-w-0">
-                <div class="flex items-center gap-2 flex-wrap">
-                    @* h2: el parcial se embebe bajo el h1 de Venta/Create ("Nueva Venta"). *@
-                    <h2 class="text-base font-semibold text-white tracking-tight leading-none">Cotización <span class="text-slate-500 font-normal">· Solo simulación</span></h2>
-                    @* Único indicador ambiental del estado de simulación (COTIZACION-SIMULAR-REDESIGN-VISUAL-IMPLEMENTACION-01:
-                       antes se repetía en esta pill + una pill propia del panel Resultados + el hint del CTA). *@
-                    <span id="estado-banner" class="pill pill-slate"><span class="material-symbols-outlined" style="font-size:13px">info</span> Sin simular</span>
-                </div>
-                <div class="text-[11px] text-slate-500 leading-none mt-1 flex items-center gap-1 min-w-0">
-                    <a href="@Url.Action("Index", "Venta")" class="hover:text-slate-300 shrink-0">Ventas</a>
-                    <span class="material-symbols-outlined shrink-0" style="font-size:12px">chevron_right</span>
-                    <span class="text-slate-400 truncate-1">No modifica venta, stock ni caja.</span>
-                </div>
-            </div>
-        </div>
+        <span class="material-symbols-outlined text-slate-500 shrink-0" style="font-size:16px">calculate</span>
+        @* h2: el parcial se embebe bajo el h1 de Venta/Create ("Nueva Venta"). *@
+        <h2 class="cotz-topbar__title">Cotización</h2>
+        <span class="cotz-topbar__sep">·</span>
+        <span class="cotz-topbar__hint truncate-1">Solo simulación. No modifica venta, stock ni caja.</span>
+        @* Único indicador ambiental del estado de simulación (COTIZACION-SIMULAR-REDESIGN-VISUAL-IMPLEMENTACION-01:
+           antes se repetía en esta pill + una pill propia del panel Resultados + el hint del CTA). *@
+        <span id="estado-banner" class="pill pill-slate shrink-0"><span class="material-symbols-outlined" style="font-size:13px">info</span> Sin simular</span>
         <!-- Feedback toast: vive DENTRO del topbar (no overlay de .cotz-app ni del
              viewport) — cuando aparece pasa a su propia fila del header (flex-wrap +
              flex-basis:100% en cotizacion-simulador.css), nunca sobre Productos/
@@ -55,133 +70,278 @@
              altura real del topbar — seguía tapando el encabezado de "Cliente"
              cuando ese cálculo no coincidía exacto (COTIZACION-SIMULAR-REDESIGN-VISUAL-POLISH-01). -->
         <div id="cotizacion-feedback" class="hidden" aria-live="polite"></div>
-        <div class="ml-auto flex items-center gap-1.5 shrink-0">
-            <a href="@Url.Action("Listado", "Cotizacion")" class="btn btn-ghost btn-xs">
-                <span class="material-symbols-outlined" style="font-size:16px">folder_open</span> Ver guardadas
-            </a>
-        </div>
+        <a href="@Url.Action("Listado", "Cotizacion")" class="btn btn-ghost btn-xs ml-auto shrink-0">
+            <span class="material-symbols-outlined" style="font-size:15px">folder_open</span> Ver guardadas
+        </a>
     </header>
 
     <!-- ============================ WORKSPACE ============================ -->
+    @* Orden del DOM = orden de lectura y de tabulación = orden de apilado mobile
+       (§27): Productos → Cliente/Condiciones → Totales+Simular → Resultados. En
+       desktop el grid coloca Productos|Config en una fila y Totales/Resultados a
+       ancho completo debajo (ver cotizacion-simulador.css). *@
     <div class="workspace">
 
-        <!-- =================== COL A · PRODUCTOS =================== -->
+        <!-- =================== PRODUCTOS =================== -->
         <div class="col" data-zone="productos">
             <section class="panel flex-1">
                 <div class="panel-head">
-                    <span class="num">1</span>
-                    <h2 class="text-sm font-semibold text-white">Productos</h2>
-                    <span class="pill pill-slate ml-auto"><span id="header-prod-count">0</span> ítem · <span id="header-unit-count">0</span> u.</span>
-                    @* Sólo existe visualmente en la banda angosta (<40rem de contenedor, ver
-                       cotizacion-simulador.css) — en 768/1024/desktop el panel queda siempre
-                       expandido como antes de COTIZACION-SIMULAR-REDESIGN-VISUAL-CIERRE-01. *@
-                    <button type="button" class="panel-toggle-btn" id="cotizacion-productos-toggle" aria-expanded="false" aria-controls="cotizacion-productos-search cotizacion-productos-cart" aria-label="Mostrar u ocultar productos">
-                        <span class="material-symbols-outlined panel-toggle-chev" aria-hidden="true" style="font-size:18px">expand_more</span>
-                    </button>
+                    <h2 class="sec-title">Productos</h2>
+                    @* §4: el resumen del carrito vive en el encabezado de la sección, no
+                       en una fila-subtotal propia abajo (que duplicaba el mismo dato con
+                       el "Total de la cotización" del rail de acciones, ya retirado).
+                       Mismo id/valor que consumía updateHeaderCounts(). *@
+                    <span class="sec-meta ml-auto"><span id="header-prod-count">0</span> ítem · <span class="total-display text-slate-200" data-side-total>$0,00</span></span>
                 </div>
 
-                <!-- Buscador (fijo) -->
-                <div id="cotizacion-productos-search" class="px-3.5 pt-3 pb-2.5 border-b border-slate-800/70 mobile-collapsible is-collapsed">
+                <!-- Buscador -->
+                <div id="cotizacion-productos-search" class="prod-search">
                     <div class="relative">
                         <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" style="font-size:17px">search</span>
-                        <input id="cotizacion-producto-buscar" type="text" class="field pl-8" placeholder="Buscar nombre, código o ID…" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="cotizacion-productos-dropdown">
+                        <input id="cotizacion-producto-buscar" type="text" class="field pl-8" placeholder="Buscar producto por nombre, código o ID…" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="cotizacion-productos-dropdown">
                         <div id="cotizacion-productos-dropdown" class="dropdown-list hidden absolute z-30 top-full left-0 right-0 mt-1" role="listbox"></div>
                     </div>
-                    <div class="mt-2 flex items-center gap-2">
+                    <div class="prod-search__row">
                         <div class="qty-step">
                             <button type="button" aria-label="Restar" onclick="stepQty('cotizacion-cantidad',-1)">−</button>
                             <input id="cotizacion-cantidad" type="number" min="1" value="1" aria-label="Cantidad">
                             <button type="button" aria-label="Sumar" onclick="stepQty('cotizacion-cantidad',1)">+</button>
                         </div>
-                        <button id="cotizacion-agregar-producto" type="button" class="btn btn-primary flex-1">
+                        <button id="cotizacion-agregar-producto" type="button" class="btn btn-soft flex-1">
                             <span class="material-symbols-outlined" style="font-size:18px">add</span> Agregar
                         </button>
                     </div>
-                    <div id="cotizacion-producto-seleccionado" class="mt-2 text-[11px] text-slate-500 italic flex items-center gap-1.5">
+                    <div id="cotizacion-producto-seleccionado" class="prod-search__pick italic">
                         <span class="material-symbols-outlined text-slate-600" style="font-size:14px">inventory_2</span> Sin producto seleccionado.
                     </div>
-                    <details class="mt-1.5">
-                        <summary class="text-[11px] text-slate-400 hover:text-slate-200 flex items-center gap-1">
+                    <details class="prod-search__adv">
+                        <summary class="link-sub">
                             <span class="material-symbols-outlined chev" style="font-size:14px">expand_more</span> Agregar por ID (avanzado)
                         </summary>
                         <div class="mt-2 grid grid-cols-12 gap-1.5">
                             <input id="cotizacion-producto-id-manual" type="text" class="field col-span-6" placeholder="ID">
                             <input id="cotizacion-cantidad-manual" type="number" min="1" value="1" class="field col-span-3" aria-label="Cantidad manual">
-                            <button id="cotizacion-agregar-manual" type="button" class="btn btn-soft col-span-3 px-0">Usar</button>
+                            <button id="cotizacion-agregar-manual" type="button" class="btn btn-soft btn-xs col-span-3 px-0">Usar</button>
                         </div>
                     </details>
                 </div>
 
-                <!-- Carrito (scroll interno) -->
-                <div id="cotizacion-productos-cart" class="panel-body tight mobile-collapsible is-collapsed">
-                    <!-- vacío -->
-                    <div id="cotizacion-productos-vacio" class="h-full flex flex-col items-center justify-center text-center py-8">
-                        <div class="w-11 h-11 rounded-full bg-slate-800 flex items-center justify-center">
-                            <span class="material-symbols-outlined text-slate-400">remove_shopping_cart</span>
-                        </div>
-                        <p class="mt-2.5 text-sm text-white font-medium">Sin productos aún</p>
-                        <p class="text-xs text-slate-500">Buscá un producto para empezar.</p>
+                <!-- Carrito -->
+                <div id="cotizacion-productos-cart" class="panel-body tight">
+                    @* §26: vacío compacto, no una gran superficie muerta. *@
+                    <div id="cotizacion-productos-vacio" class="empty-mini">
+                        <span class="material-symbols-outlined" style="font-size:18px">remove_shopping_cart</span>
+                        <span>Sin productos aún. Buscá uno para empezar.</span>
                     </div>
 
-                    <!-- filas reales (render backend) -->
+                    @* §6: separación real entre productos (antes 6px) para que la lista no
+                       se lea como un bloque continuo cuando hay varios. *@
                     <div id="cotizacion-productos-tbody" class="space-y-2"></div>
                 </div>
             </section>
         </div>
 
-        <!-- =================== COL B · RESULTADOS =================== -->
-        <div class="col" data-zone="resultados">
+        <!-- =================== CLIENTE + CONDICIONES =================== -->
+        <div class="col" data-zone="config">
             <section class="panel flex-1">
                 <div class="panel-head">
-                    <span class="num">2</span>
-                    <h2 class="text-sm font-semibold text-white">Resultados</h2>
-                    <span class="text-xs text-slate-500 hidden sm:inline">Comparativa de medios, planes y cuotas</span>
+                    <h2 class="sec-title">Cliente</h2>
+                    @* §5: "Cambiar" acompaña la identidad, no un botón-ícono suelto dentro
+                       de otra card. Sólo aparece con cliente seleccionado (lo alterna
+                       setCliente() junto con el buscador). *@
+                    <button id="cotizacion-limpiar-cliente" type="button" class="link-sub ml-auto hidden">
+                        <span class="material-symbols-outlined" style="font-size:14px">swap_horiz</span> Cambiar
+                    </button>
                 </div>
 
-                <!-- Totales (fijo). Métricas de lectura: acento lateral, no caja completa
-                     (antes casi idéntico al lenguaje visual de .field → se leía como un
-                     input de sólo lectura, ver COTIZACION-SIMULAR-REDESIGN-VISUAL-POLISH-01). -->
-                <div class="px-3.5 py-2.5 border-b border-slate-800/70 grid grid-cols-3 gap-3">
+                <div id="cotizacion-config-body" class="panel-body tight">
+
+                    <!-- Cliente: identidad -->
+                    @* El buscador se oculta mientras hay cliente seleccionado (la ficha de
+                       abajo pasa a ser la única representación); "Cambiar" lo vuelve a mostrar. *@
+                    <div id="cotizacion-cliente-buscador" class="relative">
+                        <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" style="font-size:17px">search</span>
+                        <input id="cotizacion-cliente-buscar" type="text" class="field pl-8" placeholder="Buscar cliente por nombre, DNI o CUIT…" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="cotizacion-clientes-dropdown">
+                        <div id="cotizacion-clientes-dropdown" class="dropdown-list hidden absolute z-30 top-full left-0 right-0 mt-1" role="listbox"></div>
+                    </div>
+                    <input id="cotizacion-cliente-id" type="hidden" value="">
+                    <div class="hint-line" data-cliente-vacio>Opcional — Crédito personal puede requerirlo.</div>
+
+                    @* §5: ficha de identidad (avatar + nombre + documento), SIN card propia
+                       — el panel ya es la superficie. Comparte fila con el estado de
+                       Crédito personal, que queda visualmente subordinado (§6). *@
+                    <div id="cotizacion-cliente-seleccionado" class="hidden cliente-row">
+                        <div class="cliente-id">
+                            <span id="cotizacion-cliente-avatar" class="cliente-avatar" aria-hidden="true">—</span>
+                            <div class="min-w-0">
+                                <div id="cotizacion-cliente-nombre" class="cliente-nombre truncate-1">—</div>
+                                <div id="cotizacion-cliente-doc" class="cliente-doc">—</div>
+                            </div>
+                        </div>
+                        @* Aptitud crediticia (preview, no transaccional): reutiliza
+                           IClienteAptitudService.EvaluarAptitudSinGuardarAsync vía
+                           /api/cotizacion/aptitud-credito — misma fuente de verdad que ya usa Venta
+                           (ValidacionVentaService) y Cliente/Details, sin segunda implementación ni
+                           cálculo en JS. Sólo tiene sentido evaluar Crédito personal, así que se
+                           consulta con cliente + total simulado (evaluarAptitudCredito en
+                           cotizacion-simulador.js), nunca al tipear.
+                           §6: acento semántico lateral, nunca una banda de color que convierta
+                           todo el panel Cliente en un estado de error. *@
+                        <div id="cotizacion-aptitud-credito" class="hidden cliente-cred" aria-live="polite"></div>
+                    </div>
+
+                    @* Sólo tiene efecto sin cliente de sistema seleccionado (el propio texto
+                       de abajo lo aclara) — se oculta mientras hay uno elegido (setCliente en
+                       cotizacion-simulador.js) en vez de mostrar un input inerte. *@
+                    <details id="cotizacion-contacto-libre" class="mt-1.5">
+                        <summary class="link-sub">
+                            <span class="material-symbols-outlined chev" style="font-size:14px">expand_more</span> Datos de contacto libres
+                        </summary>
+                        <div class="mt-2 space-y-1.5">
+                            <input id="cotizacion-nombre-libre" type="text" class="field" placeholder="Nombre del cliente o empresa…" aria-label="Nombre libre" maxlength="200">
+                            <input id="cotizacion-telefono-libre" type="tel" class="field" placeholder="Teléfono / WhatsApp" aria-label="Teléfono libre" maxlength="30">
+                            <p class="hint-line">Se guarda si no hay cliente de sistema seleccionado.</p>
+                        </div>
+                    </details>
+
+                    <!-- Condiciones de cotización -->
+                    @* §7: subgrupo dentro de la MISMA superficie (divisor + título), no otra
+                       card. §3/§24: un solo grid compacto para los 4 campos puntuales — antes
+                       "Descuentos generales" tenía su propio <h3> + grid anidado, un tercer
+                       nivel de jerarquía para dos inputs de una línea.
+                       COTIZACION-WORKSTATION-02 (§9): el grupo pasa a una zona RECESADA
+                       (.condiciones-zone) en vez de depender sólo del título — Cliente queda
+                       elevado y Condiciones hundido, así se distinguen sin otra card. *@
+                    <div class="condiciones-zone">
+                    <div class="condiciones-divider">Condiciones de cotización</div>
+
+                    <div class="cond-grid">
+                        <div>
+                            <label for="cotizacion-descuento-gral-pct" class="label">Descuento %</label>
+                            <div class="relative">
+                                <input id="cotizacion-descuento-gral-pct" type="number" min="0" max="100" step="0.01" value="0" class="field pr-6" title="Se aplica al total antes de calcular medios.">
+                                <span class="field-affix field-affix--right">%</span>
+                            </div>
+                        </div>
+                        <div>
+                            <label for="cotizacion-descuento-gral-importe" class="label">Descuento $</label>
+                            <div class="relative">
+                                <span class="field-affix field-affix--left">$</span>
+                                <input id="cotizacion-descuento-gral-importe" type="number" min="0" step="0.01" value="0" class="field pl-6" title="Se aplica al total antes de calcular medios.">
+                            </div>
+                        </div>
+                        @* Anticipo conserva su bloque propio (id/data-anticipo-activo) para que
+                           actualizarPrioridadAnticipo() en cotizacion-simulador.js lo siga atenuando
+                           igual cuando Crédito personal está destildado. *@
+                        <div id="cotizacion-anticipo-bloque" data-anticipo-activo="true">
+                            <label for="cotizacion-anticipo" class="label">Anticipo</label>
+                            <div class="relative">
+                                <span class="field-affix field-affix--left">$</span>
+                                <input id="cotizacion-anticipo" type="number" min="0" step="0.01" value="0" class="field pl-6" aria-label="Anticipo para credito personal" title="Crédito personal: se resta del total antes del recargo. El porcentaje se agrega una sola vez sobre el saldo restante después del anticipo.">
+                            </div>
+                        </div>
+                        <div>
+                            <label for="cotizacion-fecha-vencimiento" class="label">Válida hasta</label>
+                            <input id="cotizacion-fecha-vencimiento" type="date" class="field">
+                        </div>
+                        <div class="cond-grid__full">
+                            <label for="cotizacion-observaciones" class="label">Observaciones</label>
+                            <textarea id="cotizacion-observaciones" rows="2" class="field" maxlength="1000" placeholder="Notas internas opcionales…"></textarea>
+                        </div>
+                        @* ENVIO-ML4: sólo declara la intención de envío para esta cotización —
+                           los datos de entrega (dirección, transportista) recién se cargan si la
+                           operación avanza al paso "Envío" del wizard de Venta. *@
+                        <label class="cond-grid__full cond-check">
+                            <input type="checkbox" id="cotizacion-tiene-envio" class="rounded border-slate-600 bg-slate-800">
+                            Considerar envío a domicilio
+                        </label>
+                        <div data-descuentos-ambos class="cond-grid__full hidden note-amber">
+                            <span class="material-symbols-outlined shrink-0" style="font-size:14px">warning</span>
+                            Se sumarán ambos descuentos.
+                        </div>
+                    </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- =================== TOTALES + CTA (puente configurar → comparar) =================== -->
+        @* §8/§9: la franja de totales es la transición entre "lo que armo" y "lo que
+           obtengo", así que es también donde vive la ÚNICA acción primaria de esta
+           etapa — Simular cotización / Actualizar cotización según estado. Antes el
+           CTA sólo existía en el header del wizard, lejos del resumen que lo motiva
+           (y duplicado con un botón local oculto); ahora el header delega acá y se
+           oculta durante Cotizar (actualizarAccionPrincipal en venta-page-wizard.js),
+           de modo que nunca hay dos botones compitiendo por la misma intención.
+
+           Antes de la primera simulación los 3 valores quedan en "—" con la franja en
+           estado neutral (is-pendiente): mostrar "$0,00" contradecía el subtotal real
+           ya visible en Productos. renderResultado()/invalidarSimulacion() alternan la
+           clase; ningún cálculo cambia. *@
+        <div class="col" data-zone="totales">
+            <div id="cotizacion-totales-bar" class="totales-bar is-pendiente" title="Pendiente de simular">
+                <div class="totales-bar__stats">
                     <div class="seg">
-                        <div class="text-[10px] uppercase tracking-wide text-slate-500">Subtotal</div>
-                        <div id="cotizacion-subtotal" class="text-base font-semibold text-white total-display">$0,00</div>
+                        <div class="seg-label">Subtotal de productos</div>
+                        <div id="cotizacion-subtotal" class="seg-value text-white total-display">—</div>
                     </div>
                     <div class="seg">
-                        <div class="text-[10px] uppercase tracking-wide text-slate-500">Descuento</div>
+                        <div class="seg-label">Descuento</div>
                         @* Neutral por defecto: sólo pasa a verde cuando hay descuento real
                            aplicado (renderResultado en cotizacion-simulador.js) — $0,00 en
                            verde no comunica nada (mismo criterio que recargoClass() con 0%). *@
-                        <div id="cotizacion-descuento" class="text-base font-semibold text-white total-display">$0,00</div>
+                        <div id="cotizacion-descuento" class="seg-value text-white total-display">—</div>
                     </div>
                     <div class="seg seg-accent">
-                        <div class="text-[10px] uppercase tracking-wide text-blue-300/80">Total base</div>
-                        <div id="cotizacion-total-base" class="text-base font-semibold text-white total-display">$0,00</div>
+                        <div class="seg-label">Total base</div>
+                        <div id="cotizacion-total-base" class="seg-value text-white total-display">—</div>
                     </div>
                 </div>
+                <div class="totales-bar__cta">
+                    <button id="cotizacion-simular" type="button" class="btn btn-primary">
+                        <span class="material-symbols-outlined" style="font-size:18px">calculate</span>
+                        <span data-simular-label>Simular cotización</span>
+                    </button>
+                    @* Contextual, no ambiental: sólo se muestra para pending/error (setQuoteState
+                       en cotizacion-simulador-ui.js). El estado permanente vive únicamente en
+                       #estado-banner del topbar. *@
+                    <p id="cotizacion-simular-estado" class="hidden" aria-live="polite"></p>
+                </div>
+            </div>
+        </div>
 
-                <!-- Filtros de medios (fijo). Una sola señal de "incluido": fondo + borde
-                     del chip (antes sumaba un punto de color redundante con el mismo azul
-                     del borde — doble codificación del mismo estado, ver
-                     COTIZACION-SIMULAR-REDESIGN-VISUAL-POLISH-01). -->
-                <div class="px-3.5 py-2.5 border-b border-slate-800/70 flex flex-wrap items-center gap-1.5">
-                    <span class="text-[10px] uppercase tracking-wide text-slate-500 mr-1">Incluir</span>
-                    <label class="medio-chip"><input type="checkbox" data-cotizacion-medio="incluirEfectivo" checked>Efectivo</label>
-                    <label class="medio-chip"><input type="checkbox" data-cotizacion-medio="incluirTransferencia" checked>Transferencia</label>
-                    <label class="medio-chip"><input type="checkbox" data-cotizacion-medio="incluirTarjetaCredito" checked>T. crédito</label>
-                    <label class="medio-chip"><input type="checkbox" data-cotizacion-medio="incluirTarjetaDebito" checked>T. débito</label>
-                    <label class="medio-chip"><input type="checkbox" data-cotizacion-medio="incluirMercadoPago" checked>MercadoPago</label>
-                    <label class="medio-chip"><input type="checkbox" data-cotizacion-medio="incluirCreditoPersonal" checked>Crédito personal</label>
+        <!-- =================== RESULTADOS · COMPARADOR =================== -->
+        <div class="col" data-zone="resultados">
+            <section class="panel flex-1">
+                <div class="panel-head panel-head--stack">
+                    <div class="min-w-0">
+                        <h2 class="sec-title">Comparar alternativas de pago</h2>
+                        <p class="sec-sub">Elegí la mejor opción para tu cliente. Los importes incluyen recargos del plan.</p>
+                    </div>
+                    @* §3/§11: los filtros de medios dejan de ocupar una banda permanente de
+                       chips arriba del comparador (ruido fijo para una acción ocasional) y
+                       pasan a un desplegable. Mismos checkboxes, mismos data-cotizacion-medio
+                       — buildRequest() los sigue leyendo con el mismo selector. *@
+                    <details class="medios-filtro ml-auto">
+                        <summary class="link-sub">
+                            <span class="material-symbols-outlined chev" style="font-size:14px">expand_more</span> Filtrar medios
+                        </summary>
+                        <div class="medios-filtro__body">
+                            <label class="medio-chip"><input type="checkbox" data-cotizacion-medio="incluirEfectivo" checked>Efectivo</label>
+                            <label class="medio-chip"><input type="checkbox" data-cotizacion-medio="incluirTransferencia" checked>Transferencia</label>
+                            <label class="medio-chip"><input type="checkbox" data-cotizacion-medio="incluirTarjetaCredito" checked>T. crédito</label>
+                            <label class="medio-chip"><input type="checkbox" data-cotizacion-medio="incluirTarjetaDebito" checked>T. débito</label>
+                            <label class="medio-chip"><input type="checkbox" data-cotizacion-medio="incluirMercadoPago" checked>MercadoPago</label>
+                            <label class="medio-chip"><input type="checkbox" data-cotizacion-medio="incluirCreditoPersonal" checked>Crédito personal</label>
+                        </div>
+                    </details>
                 </div>
 
-                <!-- Resultados (scroll interno) -->
                 <div class="panel-body" style="padding:0">
-                    <!-- vacío -->
-                    <div id="cotizacion-resultados-vacio" class="h-full flex flex-col items-center justify-center text-center py-10">
-                        <div class="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center">
-                            <span class="material-symbols-outlined text-slate-400">payments</span>
-                        </div>
-                        <p class="mt-3 text-sm text-white font-medium">Sin simulación todavía</p>
-                        <p class="text-xs text-slate-500">Agregá productos y simulá para ver las opciones.</p>
+                    @* §26: vacío compacto, con la acción que lo resuelve nombrada. *@
+                    <div id="cotizacion-resultados-vacio" class="empty-mini empty-mini--block">
+                        <span class="material-symbols-outlined" style="font-size:20px">payments</span>
+                        <span><strong class="text-slate-200 font-medium">Sin simulación todavía.</strong> Simulá la cotización para comparar opciones.</span>
                     </div>
 
                     <!-- resultados -->
@@ -189,190 +349,59 @@
                         <table class="rtable">
                             <thead>
                                 <tr>
-                                    <th>Medio</th>
+                                    <th>Medio de pago</th>
                                     <th class="r">Total final</th>
-                                    <th>Plan</th>
-                                    <th class="r">Cuota</th>
+                                    <th>Plan / cuotas</th>
+                                    <th class="r">Cuota estimada</th>
                                     <th class="r">Recargo</th>
                                     <th>Estado</th>
+                                    <th class="r">Acción</th>
                                 </tr>
                             </thead>
                             <tbody id="cotizacion-resultados-tbody"></tbody>
                         </table>
                     </div>
                 </div>
-            </section>
-        </div>
 
-        <!-- =================== COL C · CONFIG + ACCIONES =================== -->
-        <div class="col" data-zone="config">
-            <section class="panel flex-1">
-                @* Header propio de la zona: sólo existe visualmente en la banda angosta
-                   (<40rem de contenedor). Sin "num" — el "3" de la subsección Cliente, más
-                   abajo, ya numera esta zona; duplicarlo acá confundiría la numeración. *@
-                <button type="button" class="config-toggle-head" id="cotizacion-config-toggle" aria-expanded="false" aria-controls="cotizacion-config-body">
-                    <h2 class="text-sm font-semibold text-white">Configuración</h2>
-                    <span class="material-symbols-outlined panel-toggle-chev ml-auto" aria-hidden="true" style="font-size:18px;color:#7c8aa3">expand_more</span>
-                </button>
-                <div id="cotizacion-config-body" class="panel-body tight space-y-4 mobile-collapsible is-collapsed">
-
-                    <!-- Cliente -->
-                    <div>
-                        <div class="flex items-center gap-2 mb-2">
-                            <span class="num">3</span>
-                            <h3 class="text-sm font-semibold text-white">Cliente</h3>
-                        </div>
-                        @* El buscador se oculta mientras hay cliente seleccionado (la card de abajo
-                           pasa a ser la única representación); "Quitar" lo vuelve a mostrar. *@
-                        <div id="cotizacion-cliente-buscador" class="relative">
-                            <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" style="font-size:17px">search</span>
-                            <input id="cotizacion-cliente-buscar" type="text" class="field pl-8" placeholder="Nombre, DNI o CUIT…" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="cotizacion-clientes-dropdown">
-                            <div id="cotizacion-clientes-dropdown" class="dropdown-list hidden absolute z-30 top-full left-0 right-0 mt-1" role="listbox"></div>
-                        </div>
-                        <input id="cotizacion-cliente-id" type="hidden" value="">
-                        <div class="mt-1.5 text-[11px] text-slate-500 italic" data-cliente-vacio>Opcional — el crédito personal puede requerirlo.</div>
-                        <div id="cotizacion-cliente-seleccionado" class="hidden mt-2 card-sub p-2.5 flex items-start justify-between gap-2">
-                            <div class="min-w-0">
-                                <div class="text-[10px] uppercase tracking-wide text-emerald-400 font-semibold">Cliente</div>
-                                <div id="cotizacion-cliente-nombre" class="text-sm font-medium text-white truncate-1">—</div>
-                                <div id="cotizacion-cliente-doc" class="text-[11px] text-slate-400 font-mono">—</div>
-                            </div>
-                            <button id="cotizacion-limpiar-cliente" type="button" class="icon-btn btn btn-ghost text-slate-400" aria-label="Quitar cliente">
-                                <span class="material-symbols-outlined" style="font-size:16px">close</span>
-                            </button>
-                        </div>
-                        <details class="mt-2">
-                            <summary class="text-[11px] text-slate-400 hover:text-slate-200 flex items-center gap-1">
-                                <span class="material-symbols-outlined chev" style="font-size:14px">expand_more</span> Datos de contacto libres
-                            </summary>
-                            <div class="mt-2 space-y-1.5">
-                                <input id="cotizacion-nombre-libre" type="text" class="field" placeholder="Nombre del cliente o empresa…" aria-label="Nombre libre" maxlength="200">
-                                <input id="cotizacion-telefono-libre" type="tel" class="field" placeholder="Teléfono / WhatsApp" aria-label="Teléfono libre" maxlength="30">
-                                <p class="text-[10px] text-slate-500">Se guarda si no hay cliente de sistema seleccionado.</p>
-                            </div>
-                        </details>
+                <!-- =================== SELECCIÓN + CONTINUAR =================== -->
+                @* §16/§17: el flujo termina acá, debajo del comparador — resumen de la
+                   opción elegida + como máximo una acción primaria ("Continuar con esta
+                   opción"), con Guardar cotización explícitamente secundaria (§10: ya no
+                   es una barra verde a ancho completo). Post-guardado, el mismo pie
+                   cambia a "Pasar a venta" / Ver / Nueva, sin mover el punto de cierre. *@
+                <div class="panel-foot seleccion-bar">
+                    <div id="cotizacion-seleccion-resumen" class="seleccion-resumen" aria-live="polite">
+                        <span class="seleccion-resumen__label">Sin opción elegida</span>
+                        <span class="seleccion-resumen__valor">Simulá y elegí una alternativa para continuar.</span>
                     </div>
-
-                    @* COTIZACION-SIMULAR-ORDEN-01 (reapertura, reporte directo del usuario: "está
-                       ordenado de forma horrible"): Descuentos generales pasa antes que Anticipo.
-                       Anticipo sólo aplica a un medio puntual (Crédito personal) y ya se trata como
-                       secundario en el propio JS (data-anticipo-activo lo atenúa cuando ese medio
-                       está destildado, ver actualizarPrioridadAnticipo en cotizacion-simulador.js);
-                       tenerlo primero, antes que un campo universal como Descuentos generales,
-                       invertía esa misma jerarquía. Mismos ids, sin cambios de cálculo ni de JS. *@
-                    <!-- Descuentos generales -->
-                    <div>
-                        <h3 class="text-sm font-semibold text-white flex items-center gap-1.5">
-                            <span class="material-symbols-outlined text-slate-400" style="font-size:17px">sell</span> Descuentos generales
-                        </h3>
-                        <p class="text-[10px] text-slate-500 mt-0.5">Se aplican al total antes de calcular medios.</p>
-                        <div class="mt-2 grid grid-cols-2 gap-2">
-                            <div>
-                                <label for="cotizacion-descuento-gral-pct" class="label">% Porcentaje</label>
-                                <div class="relative">
-                                    <input id="cotizacion-descuento-gral-pct" type="number" min="0" max="100" step="0.01" value="0" class="field pr-6">
-                                    <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-sm">%</span>
-                                </div>
-                            </div>
-                            <div>
-                                <label for="cotizacion-descuento-gral-importe" class="label">$ Importe</label>
-                                <div class="relative">
-                                    <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-sm">$</span>
-                                    <input id="cotizacion-descuento-gral-importe" type="number" min="0" step="0.01" value="0" class="field pl-6">
-                                </div>
-                            </div>
-                        </div>
-                        <div data-descuentos-ambos class="hidden mt-2 rounded-lg border border-amber-500/40 bg-amber-500/5 p-2 text-[11px] text-amber-100/90 flex gap-1.5">
-                            <span class="material-symbols-outlined text-amber-300 shrink-0" style="font-size:14px">warning</span>
-                            Se sumarán ambos descuentos.
-                        </div>
-                    </div>
-
-                    @* Anticipo (Credito personal): sólo relevante mientras ese medio está incluido en
-                       la comparativa — baja prioridad visual (data-anticipo-activo) cuando no lo está,
-                       sin ocultar el input ni alterar el valor que igual viaja en el payload. *@
-                    <div id="cotizacion-anticipo-bloque" data-anticipo-activo="true">
-                        <h3 class="text-sm font-semibold text-white flex items-center gap-1.5">
-                            <span class="material-symbols-outlined text-slate-400" style="font-size:17px">handshake</span> Anticipo (Crédito personal)
-                        </h3>
-                        <p class="text-[10px] text-slate-500 mt-0.5">
-                            Se resta del total antes del recargo. El porcentaje se agrega una sola vez sobre el saldo restante después del anticipo.
-                        </p>
-                        <div class="mt-2 relative">
-                            <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-sm">$</span>
-                            <input id="cotizacion-anticipo" type="number" min="0" step="0.01" value="0" class="field pl-6" aria-label="Anticipo para credito personal">
-                        </div>
-                    </div>
-
-                    <!-- Vencimiento + observaciones -->
-                    <div>
-                        <h3 class="text-sm font-semibold text-white flex items-center gap-1.5">
-                            <span class="material-symbols-outlined text-slate-400" style="font-size:17px">event</span> Vencimiento y notas
-                        </h3>
-                        <div class="mt-2 space-y-2">
-                            <div>
-                                <label for="cotizacion-fecha-vencimiento" class="label">Válida hasta</label>
-                                <input id="cotizacion-fecha-vencimiento" type="date" class="field">
-                            </div>
-                            <div>
-                                <label for="cotizacion-observaciones" class="label">Observaciones</label>
-                                <textarea id="cotizacion-observaciones" rows="2" class="field" maxlength="1000" placeholder="Notas internas opcionales…"></textarea>
-                            </div>
-                            @* ENVIO-ML4: sólo declara la intención de envío. Los datos de entrega
-                               (dirección, transportista) se cargan después en el paso "Envío" del
-                               wizard de Venta, con la dirección del cliente precargada. *@
-                            <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
-                                <input type="checkbox" id="cotizacion-tiene-envio" class="rounded border-slate-600 bg-slate-800">
-                                Esta venta tiene envío a domicilio
-                            </label>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Acciones (fijas) -->
-                <div class="panel-foot">
-                    <div class="flex items-center justify-between mb-2">
-                        @* "Total de la cotización" (no "Total base"): esta misma etiqueta ya
-                           aparece arriba, en el bloque de Totales de Resultados — repetirla acá
-                           sin distinguir el contexto se leía como una duplicación accidental del
-                           mismo dato (COTIZACION-SIMULAR-REDESIGN-VISUAL-POLISH-01). Mismo id/valor. *@
-                        <span class="text-[11px] text-slate-500">Total de la cotización</span>
-                        <span class="text-lg font-semibold text-white total-display" data-side-total>$0,00</span>
-                    </div>
-                    <div id="cotizacion-acciones-pre" class="grid grid-cols-2 gap-2">
-                        @* Jerarquía por estado (setQuoteState en cotizacion-simulador-ui.js):
-                           primaria por defecto; con simulación vigente ("simulated") pasa a
-                           btn-soft (secundaria) para que Guardar quede como única acción
-                           primaria — antes competían dos CTAs de igual peso visual. *@
-                        <button id="cotizacion-simular" type="button" class="btn btn-primary">
-                            <span class="material-symbols-outlined" style="font-size:18px">calculate</span> Simular
+                    <div id="cotizacion-acciones-pre" class="seleccion-acciones">
+                        <button id="cotizacion-guardar" type="button" class="btn btn-soft" disabled>
+                            <span class="material-symbols-outlined" style="font-size:18px">save</span> Guardar cotización
                         </button>
-                        @* COTIZACION-SIMULAR-GUARDAR-DIRECTO-01 (pedido explícito del usuario:
-                           Guardar y Pasar a venta como una sola acción, sin modal intermedio):
-                           guarda directo vía guardarYPasarAVenta() en cotizacion-simulador.js, que
-                           encadena a pasarAVenta() cuando hay un cliente de sistema seleccionado. *@
-                        <button id="cotizacion-guardar" type="button" class="btn btn-success" disabled>
-                            <span class="material-symbols-outlined" style="font-size:18px">save</span> Guardar
+                        @* COTIZACION-WORKSTATION-01 (§16/§17): antes "Guardar" era la única
+                           acción de pre-guardado y hacía las DOS cosas (guardar + convertir a
+                           venta) con peso de CTA primario verde. Se separan en dos intenciones
+                           distintas con jerarquía explícita: Guardar cotización (secundaria,
+                           sólo persiste) y Continuar con esta opción (primaria, guarda y pasa
+                           a venta con la alternativa elegida). Mismos endpoints y misma
+                           secuencia interna — ver guardarCotizacion()/continuarConOpcion() en
+                           cotizacion-simulador.js; no cambia ninguna regla de negocio. *@
+                        <button id="cotizacion-continuar" type="button" class="btn btn-primary" disabled>
+                            <span data-continuar-label>Continuar con esta opción</span>
+                            <span class="material-symbols-outlined" style="font-size:18px">arrow_forward</span>
                         </button>
                     </div>
-                    <div id="cotizacion-acciones-post" class="hidden space-y-2">
-                        <button id="cotizacion-pasar-venta" type="button" class="btn btn-primary w-full">
+                    <div id="cotizacion-acciones-post" class="hidden seleccion-acciones">
+                        <a id="cotizacion-ver-guardada" href="#" class="link-sub no-underline">
+                            <span class="material-symbols-outlined" style="font-size:14px">visibility</span> Ver cotización
+                        </a>
+                        <button id="cotizacion-nueva" type="button" class="link-sub">
+                            <span class="material-symbols-outlined" style="font-size:14px">add</span> Nueva
+                        </button>
+                        <button id="cotizacion-pasar-venta" type="button" class="btn btn-primary">
                             <span class="material-symbols-outlined" style="font-size:18px">point_of_sale</span> Pasar a venta
                         </button>
-                        <div class="flex items-center justify-center gap-3 text-[11px]">
-                            <a id="cotizacion-ver-guardada" href="#" class="text-slate-400 hover:text-slate-200 inline-flex items-center gap-1 no-underline">
-                                <span class="material-symbols-outlined" style="font-size:13px">visibility</span> Ver cotización
-                            </a>
-                            <span class="text-slate-700">·</span>
-                            <button id="cotizacion-nueva" type="button" class="text-slate-400 hover:text-slate-200 inline-flex items-center gap-1">
-                                <span class="material-symbols-outlined" style="font-size:13px">add</span> Nueva
-                            </button>
-                        </div>
                     </div>
-                    @* Contextual, no ambiental: sólo se muestra para pending/error (setQuoteState
-                       en cotizacion-simulador-ui.js). El estado permanente vive únicamente en
-                       #estado-banner del header — antes se repetía acá con otro texto. *@
-                    <p id="cotizacion-simular-estado" class="hidden mt-1.5 text-[11px] text-slate-400 text-center flex items-center justify-center gap-1" aria-live="polite"></p>
                 </div>
             </section>
         </div>
@@ -391,6 +420,11 @@
                 <button type="button" onclick="closeModal('modal-plan')" aria-label="Cerrar" class="icon-btn btn btn-ghost"><span class="material-symbols-outlined text-slate-400" style="font-size:18px">close</span></button>
             </header>
             <div class="flex-1 overflow-y-auto p-4 space-y-3">
+                @* Estado de elegibilidad de Crédito personal arriba del resto del drawer —
+                   sólo se completa/muestra cuando el plan es Crédito personal
+                   (esCreditoPersonalMedio en cotizacion-simulador.js), con el mismo dato ya
+                   evaluado para la ficha de Cliente (sin segunda consulta). *@
+                <div id="plan-elegibilidad" class="hidden plan-elegibilidad"></div>
                 <div class="card-sub p-3.5">
                     <div class="text-xs text-slate-500">Total final</div>
                     <div id="plan-total" class="mt-1 text-3xl font-semibold text-white total-display">$0,00</div>
@@ -443,8 +477,11 @@
             </div>
             <footer class="px-4 py-3.5 border-t border-slate-800 flex gap-2 justify-end">
                 <button type="button" class="btn btn-ghost" onclick="closeModal('modal-plan')">Cerrar</button>
-                <button type="button" class="btn btn-primary" onclick="closeModal('modal-plan')">
-                    <span class="material-symbols-outlined" style="font-size:18px">star</span> Usar esta opción
+                @* Elige la alternativa abierta y cierra: mismo camino que "Elegir" en la
+                   fila (data-cotizacion-elegir), para que el drawer no sea un callejón
+                   sin salida cuando se llegó a él explorando el detalle. *@
+                <button type="button" class="btn btn-primary" data-cotizacion-elegir-drawer>
+                    <span class="material-symbols-outlined" style="font-size:18px">check</span> Elegir esta opción
                 </button>
             </footer>
         </aside>
