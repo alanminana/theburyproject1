@@ -1245,7 +1245,7 @@ public class CambiosPreciosController : Controller
             if (producto == null)
             {
                 TempData["Error"] = "Producto no encontrado.";
-                return RedirectToAction("Index", "Productos");
+                return RedirectToAction("Index", "Catalogo");
             }
 
             var historial = listaId.HasValue
@@ -1282,7 +1282,7 @@ public class CambiosPreciosController : Controller
         {
             _logger.LogError(ex, "Error al obtener historial de precios para producto {ProductoId}", productoId);
             TempData["Error"] = "Error al cargar el historial de precios.";
-            return RedirectToAction("Index", "Productos");
+            return RedirectToAction("Index", "Catalogo");
         }
     }
 
