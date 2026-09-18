@@ -6,6 +6,12 @@ namespace TheBuryProject.Services.Models
     {
         public bool EsValido => !Errores.Any();
         public List<string> Errores { get; set; } = new();
+
+        /// <summary>
+        /// Cliente de la venta validada (cuando la venta existe), para que el caller pueda
+        /// ofrecer "Completar datos del cliente" sin una segunda consulta.
+        /// </summary>
+        public int? ClienteId { get; set; }
     }
 
     public class ContratoVentaCreditoPdfArchivo

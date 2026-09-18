@@ -1,6 +1,10 @@
 @{
     var ventaId = (int)ViewBag.VentaId;
     var contratoGenerado = (bool)ViewBag.ContratoGenerado;
+    var datosFaltantes = ViewBag.DatosFaltantes as List<string> ?? new List<string>();
+    var clienteIdFaltante = ViewBag.ClienteId as int?;
+    var puedeGenerar = !contratoGenerado && datosFaltantes.Count == 0;
+    var muestraFaltantes = !contratoGenerado && datosFaltantes.Count > 0;
     ViewData["Title"] = contratoGenerado ? "Contrato generado" : "Generar contrato";
 }
 
@@ -87,6 +91,42 @@
                 </div>
             </section>
 
+            @* PROBLEMA 1 (Localidad): antes esto se descubría recién al pulsar "Generar e
+               imprimir contrato" abajo (InvalidOperationException 500). datosFaltantes ya
+               trae TODOS los faltantes de una sola pasada (Cliente/Crédito/Garante/Plantilla —
+               no sólo Localidad), calculados en el GET sin persistir nada. *@
+            @if (muestraFaltantes)
+            {
+                <section class="mt-5 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-5" data-contrato-state-faltantes>
+                    <div class="flex items-start gap-4">
+                        <span class="flex size-12 shrink-0 items-center justify-center rounded-2xl border border-rose-500/30 bg-rose-500/15 text-rose-300">
+                            <span class="material-symbols-outlined text-[26px]">error</span>
+                        </span>
+                        <div class="min-w-0">
+                            <p class="text-[11px] font-black uppercase tracking-[0.18em] text-rose-300">Datos incompletos</p>
+                            <h2 class="mt-1 text-lg font-black text-white">No se puede generar el contrato todavía</h2>
+                            <p class="mt-2 text-sm leading-6 text-rose-100/75">Faltan estos datos:</p>
+                            <ul class="mt-1 list-disc pl-5 text-sm leading-6 text-rose-100/90">
+                                @foreach (var faltante in datosFaltantes)
+                                {
+                                    <li>@faltante</li>
+                                }
+                            </ul>
+                            @if (clienteIdFaltante.HasValue && datosFaltantes.Any(f => f.Contains("cliente", StringComparison.OrdinalIgnoreCase)))
+                            {
+                                <a asp-controller="Cliente" asp-action="Edit" asp-route-id="@clienteIdFaltante"
+                                   asp-route-returnUrl="@Url.Action("Preparar", "ContratoVentaCredito", new { ventaId })"
+                                   target="_blank" rel="noopener"
+                                   class="mt-4 inline-flex items-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/15 px-4 py-2.5 text-sm font-bold text-rose-200 transition-colors hover:bg-rose-500/25 no-underline">
+                                    <span class="material-symbols-outlined text-[20px]">person_edit</span>
+                                    Completar datos del cliente
+                                </a>
+                            }
+                        </div>
+                    </div>
+                </section>
+            }
+
             <section class="mt-5 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-5 @(contratoGenerado ? "" : "hidden")"
                      data-contrato-state-generado>
                 <div class="flex items-start gap-4">
@@ -120,7 +160,7 @@
                 </a>
 
                 <form asp-controller="ContratoVentaCredito" asp-action="Generar" method="post"
-                      class="w-full sm:w-auto @(contratoGenerado ? "hidden" : "")"
+                      class="w-full sm:w-auto @((contratoGenerado || muestraFaltantes) ? "hidden" : "")"
                       data-contrato-generar-form>
                     <input type="hidden" name="ventaId" value="@ventaId" />
                     <button type="submit"

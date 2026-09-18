@@ -386,15 +386,49 @@
                                 <span>No hay ninguna plantilla de contrato activa y vigente.</span>
                             </div>
                         }
+                        else if (Model.PuedeGenerarContrato && Model.DatosContractualesFaltantes.Count > 0)
+                        {
+                            @* PROBLEMA 1 (Localidad): antes esto sólo se descubría al pulsar "Generar
+                               contrato de venta" (InvalidOperationException 500, sin aviso previo).
+                               Model.DatosContractualesFaltantes ya trae TODOS los faltantes de una sola
+                               pasada (Cliente/Crédito/Garante/Plantilla), no sólo Localidad. *@
+                            <div class="alert alert-warn" style="margin-top:.75rem" data-contrato-faltantes>
+                                <span class="material-symbols-outlined">contract</span>
+                                <div>
+                                    <p style="margin:0;font-weight:600">No se puede generar el contrato todavía.</p>
+                                    <p style="margin:.35rem 0 0" class="hint">Faltan estos datos:</p>
+                                    <ul style="margin:.25rem 0 .5rem 1.1rem">
+                                        @foreach (var faltante in Model.DatosContractualesFaltantes)
+                                        {
+                                            <li>@faltante</li>
+                                        }
+                                    </ul>
+                                    @if (Model.DatosContractualesFaltantes.Any(f => f.Contains("cliente", StringComparison.OrdinalIgnoreCase)))
+                                    {
+                                        <a asp-controller="Cliente" asp-action="Edit" asp-route-id="@Model.ClienteId"
+                                           target="_blank" rel="noopener" class="btn btn-warn btn-block btn-sm">
+                                            <span class="material-symbols-outlined">person_edit</span>
+                                            Completar datos del cliente
+                                        </a>
+                                    }
+                                </div>
+                            </div>
+                        }
                         else if (Model.PuedeGenerarContrato)
                         {
-                            <button type="submit"
+                            @* PROBLEMA 2 (doble request): antes este botón submiteaba el <form> nativo
+                               via formaction+formtarget="_blank" SIN ningún guard (ni disabled, ni
+                               preventDefault) — un doble click abría dos pestañas y disparaba dos POST
+                               reales a ContratoVentaCredito/Generar para la misma venta. Ahora es
+                               type="button" e interceptado por JS (configurar-venta-credito.js), mismo
+                               patrón fetch+disable-primero que ya usa el fragmento embebido del wizard
+                               (btnGenerarContrato ahí es type="button" desde el origen). *@
+                            <div id="contrato-generar-feedback" class="alert alert-bad hidden" style="margin-top:.75rem"></div>
+                            <button type="button"
                                     id="btn-generar-contrato"
                                     data-contrato-generar
-                                    formaction="@Url.Action("Generar", "ContratoVentaCredito", new { ventaId = Model.VentaId })"
-                                    formmethod="post"
-                                    formtarget="_blank"
-                                    formnovalidate
+                                    data-contrato-generar-url="@Url.Action("Generar", "ContratoVentaCredito", new { ventaId = Model.VentaId })"
+                                    data-contrato-ver-url-base="@Url.Action("Ver", "ContratoVentaCredito", new { ventaId = Model.VentaId })"
                                     class="btn btn-amber btn-block btn-sm"
                                     style="margin-top:.75rem">
                                 <span class="material-symbols-outlined">picture_as_pdf</span>

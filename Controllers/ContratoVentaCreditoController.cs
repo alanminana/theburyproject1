@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TheBuryProject.Filters;
+using TheBuryProject.Services.Exceptions;
 using TheBuryProject.Services.Interfaces;
 
 namespace TheBuryProject.Controllers
@@ -26,8 +27,25 @@ namespace TheBuryProject.Controllers
         [HttpGet]
         public async Task<IActionResult> Preparar(int ventaId)
         {
+            var contratoGenerado = await _contratoService.ExisteContratoGeneradoAsync(ventaId);
             ViewBag.VentaId = ventaId;
-            ViewBag.ContratoGenerado = await _contratoService.ExisteContratoGeneradoAsync(ventaId);
+            ViewBag.ContratoGenerado = contratoGenerado;
+
+            // PROBLEMA 1 (Localidad): antes esto se descubría recién al pulsar "Generar e
+            // imprimir contrato" (InvalidOperationException 500, sin ningún aviso previo).
+            // ValidarDatosParaGenerarAsync ya agrega TODOS los faltantes de una sola pasada
+            // (Cliente/Crédito/Garante/Plantilla — no sólo Localidad) sin persistir nada.
+            if (!contratoGenerado)
+            {
+                var validacion = await _contratoService.ValidarDatosParaGenerarAsync(ventaId);
+                ViewBag.DatosFaltantes = validacion.EsValido ? new List<string>() : validacion.Errores;
+                ViewBag.ClienteId = validacion.ClienteId;
+            }
+            else
+            {
+                ViewBag.DatosFaltantes = new List<string>();
+            }
+
             return View();
         }
 
@@ -52,6 +70,34 @@ namespace TheBuryProject.Controllers
                     });
                 }
 
+                return RedirectToAction(nameof(Preparar), new { ventaId });
+            }
+            catch (ContratoVentaCreditoValidacionException ex)
+            {
+                // §12 del pedido: una validación de negocio conocida (cliente sin localidad,
+                // crédito sin plan, plantilla incompleta, etc. — ver
+                // ContratoVentaCreditoService.CargarDatosValidadosAsync) no es un error
+                // inesperado del sistema. El preflight ya evita que el usuario llegue hasta
+                // acá con datos faltantes (Preparar GET y ConfigurarVenta GET la corren
+                // antes), así que si esto se dispara es porque algo cambió entre el aviso y
+                // el click (u otro caller que no pasó por el preflight) — se registra como
+                // advertencia, no como error, y el mensaje sigue siendo el mismo para el usuario.
+                // Se atrapa el tipo específico (no InvalidOperationException genérico) para no
+                // esconder como Warning otras InvalidOperationException reales del mismo camino
+                // (ruta de archivo inválida, snapshot corrupto, contrato no encontrado tras
+                // generarlo) — esas siguen cayendo al catch (Exception) de abajo como Error.
+                _logger.LogWarning(ex, "Validación de negocio al generar contrato para venta {VentaId}", ventaId);
+
+                if (isAjax)
+                {
+                    return Json(new
+                    {
+                        success = false,
+                        message = "No se pudo generar el contrato: " + ex.Message
+                    });
+                }
+
+                TempData["Error"] = "No se pudo generar el contrato: " + ex.Message;
                 return RedirectToAction(nameof(Preparar), new { ventaId });
             }
             catch (Exception ex)

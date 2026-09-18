@@ -9,6 +9,7 @@ using TheBuryProject.Models.DTOs;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services;
+using TheBuryProject.Services.Exceptions;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.Services.Models;
 using TheBuryProject.ViewModels;
@@ -225,27 +226,277 @@ public class ContratoVentaCreditoServiceTests : IDisposable
         Assert.True(MontoInteresDeCuota(cuotas, 4) > 0m);
     }
 
+    // =========================================================================================
+    // PROBLEMA 1/2 (pedido 2026-09-17): Localidad del cliente + agregación de todos los
+    // faltantes contractuales de una sola pasada + no bypass por excepción documental + no
+    // duplicación ante una carrera real de dos requests concurrentes.
+    // =========================================================================================
+
+    [Fact]
+    public async Task CasoA_ClienteCompleto_GeneraContratoCorrectamente()
+    {
+        var venta = await SeedVentaCreditoAsync(new[]
+        {
+            DetalleSeed("P1", "Producto 1", subtotal: 1_000m, subtotalFinal: 1_000m)
+        }, total: 1_000m);
+
+        var resultado = await _service.ValidarDatosParaGenerarAsync(venta.Id);
+        Assert.True(resultado.EsValido);
+
+        var contrato = await _service.GenerarAsync(venta.Id, "tester");
+        Assert.NotNull(contrato);
+    }
+
+    [Fact]
+    public async Task CasoB_ClienteSinLocalidad_NoGenera_MensajeIdentificaLocalidad()
+    {
+        var venta = await SeedVentaCreditoAsync(new[]
+        {
+            DetalleSeed("P1", "Producto 1", subtotal: 1_000m, subtotalFinal: 1_000m)
+        }, total: 1_000m, clienteLocalidad: null);
+
+        var resultado = await _service.ValidarDatosParaGenerarAsync(venta.Id);
+
+        Assert.False(resultado.EsValido);
+        Assert.Contains(resultado.Errores, e => e.Contains("localidad", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(venta.ClienteId, resultado.ClienteId);
+
+        var ex = await Assert.ThrowsAsync<ContratoVentaCreditoValidacionException>(() => _service.GenerarAsync(venta.Id, "tester"));
+        Assert.Contains(ex.Errores, e => e.Contains("localidad", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task CasoC_ClienteConLocalidadPeroSinTelefonoYSinGarante_ReportaTodosLosFaltantesJuntos()
+    {
+        var venta = await SeedVentaCreditoAsync(new[]
+        {
+            DetalleSeed("P1", "Producto 1", subtotal: 1_000m, subtotalFinal: 1_000m)
+        }, total: 1_000m, clienteTelefono: string.Empty, requiereGaranteSinGarante: true);
+
+        var resultado = await _service.ValidarDatosParaGenerarAsync(venta.Id);
+
+        Assert.False(resultado.EsValido);
+        // Ambos faltantes reportados en la MISMA pasada — nunca "falta X" → corregir → "ahora falta Y".
+        Assert.Contains(resultado.Errores, e => e.Contains("teléfono", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(resultado.Errores, e => e.Contains("garante", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(resultado.Errores, e => e.Contains("localidad", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task CasoD_ExcepcionDocumentalConLocalidadFaltante_NoSaltaElRequisitoContractual()
+    {
+        // La excepción documental (RequiereAutorizacion=false/EstadoAutorizacion=Autorizada) es
+        // una regla de VentaService/autorización, en un código completamente disjunto de
+        // ValidarDatosParaGenerarAsync (que nunca lee RequiereAutorizacion/EstadoAutorizacion).
+        // Este test prueba que esa disjunción es real: una venta "autorizada por excepción"
+        // sigue exigiendo Localidad igual que cualquier otra.
+        var venta = await SeedVentaCreditoAsync(new[]
+        {
+            DetalleSeed("P1", "Producto 1", subtotal: 1_000m, subtotalFinal: 1_000m)
+        }, total: 1_000m, clienteLocalidad: null);
+
+        venta.RequiereAutorizacion = false;
+        venta.EstadoAutorizacion = EstadoAutorizacionVenta.Autorizada;
+        venta.ExcepcionAlMomento = 1_000m;
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.ValidarDatosParaGenerarAsync(venta.Id);
+
+        Assert.False(resultado.EsValido);
+        Assert.Contains(resultado.Errores, e => e.Contains("localidad", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task CasoE_SinEnvioClienteCompleto_GeneraContrato()
+    {
+        var venta = await SeedVentaCreditoAsync(new[]
+        {
+            DetalleSeed("P1", "Producto 1", subtotal: 1_000m, subtotalFinal: 1_000m)
+        }, total: 1_000m);
+        Assert.Null(venta.Envio);
+
+        var resultado = await _service.ValidarDatosParaGenerarAsync(venta.Id);
+        Assert.True(resultado.EsValido);
+    }
+
+    [Fact]
+    public async Task CasoF_ConEnvioConLocalidadPeroClienteSinLocalidad_NoOculaElFaltanteDelCliente()
+    {
+        // VentaEnvio.Localidad y Cliente.Localidad son conceptos distintos (§2 del pedido):
+        // que el envío SÍ tenga localidad completa no debe esconder que el Cliente no la tiene.
+        var venta = await SeedVentaCreditoAsync(new[]
+        {
+            DetalleSeed("P1", "Producto 1", subtotal: 1_000m, subtotalFinal: 1_000m)
+        }, total: 1_000m, clienteLocalidad: null);
+
+        venta.Envio = new VentaEnvio
+        {
+            VentaId = venta.Id,
+            Destinatario = "Juan Perez",
+            Domicilio = "Otra calle 456",
+            Localidad = "Localidad del envío",
+            Estado = EstadoEnvio.Pendiente
+        };
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.ValidarDatosParaGenerarAsync(venta.Id);
+
+        Assert.False(resultado.EsValido);
+        Assert.Contains(resultado.Errores, e => e.Contains("localidad", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task CasoH_LlamadasRepetidasParaLaMismaVenta_NuncaDuplicanElContrato()
+    {
+        // §10/§11 del pedido: el backend debe seguir siendo seguro ante dos requests para la
+        // misma venta, más allá de cualquier guard del lado del cliente (ver "existente" al
+        // inicio de GenerarAsync). No es una carrera real dentro del mismo DbContext (EF Core
+        // no soporta operaciones concurrentes sobre una misma instancia, y forzar dos conexiones
+        // separadas sólo para simular el timing exacto de la carrera sería un test frágil que no
+        // prueba nada más que sepa hacerlo el índice único de la BD — ver el test siguiente).
+        var venta = await SeedVentaCreditoAsync(new[]
+        {
+            DetalleSeed("P1", "Producto 1", subtotal: 1_000m, subtotalFinal: 1_000m)
+        }, total: 1_000m);
+
+        var primero = await _service.GenerarAsync(venta.Id, "tester1");
+        var segundo = await _service.GenerarAsync(venta.Id, "tester2");
+
+        Assert.Equal(primero.Id, segundo.Id);
+
+        var totalPersistidos = await _context.ContratosVentaCredito
+            .IgnoreQueryFilters()
+            .CountAsync(c => c.VentaId == venta.Id && !c.IsDeleted);
+        Assert.Equal(1, totalPersistidos);
+    }
+
+    [Fact]
+    public async Task CasoH2_IndiceUnicoDeVentaId_RechazaUnaSegundaFilaAunqueElServicioNoLaVea()
+    {
+        // Fundamento real de la idempotencia del catch(DbUpdateException) en GenerarAsync: si
+        // dos requests concurrentes pasaran ambos el "existente == null" antes de que cualquiera
+        // confirmara (la carrera real que un test síncrono de un solo DbContext no puede forzar
+        // de forma fiable), la segunda inserción es la que este índice rechaza — no una
+        // coincidencia de la lógica del servicio.
+        var venta = await SeedVentaCreditoAsync(new[]
+        {
+            DetalleSeed("P1", "Producto 1", subtotal: 1_000m, subtotalFinal: 1_000m)
+        }, total: 1_000m);
+
+        _context.ContratosVentaCredito.Add(new ContratoVentaCredito
+        {
+            VentaId = venta.Id,
+            CreditoId = venta.CreditoId!.Value,
+            ClienteId = venta.ClienteId,
+            PlantillaContratoCreditoId = (await _context.PlantillasContratoCredito.FirstAsync()).Id,
+            NumeroContrato = "CVC-DUP-1",
+            NumeroPagare = "PAG-DUP-1",
+            UsuarioGeneracion = "tester1",
+            TextoContratoSnapshot = "x",
+            TextoPagareSnapshot = "x",
+            DatosSnapshotJson = "{}"
+        });
+        await _context.SaveChangesAsync();
+
+        _context.ContratosVentaCredito.Add(new ContratoVentaCredito
+        {
+            VentaId = venta.Id,
+            CreditoId = venta.CreditoId!.Value,
+            ClienteId = venta.ClienteId,
+            PlantillaContratoCreditoId = (await _context.PlantillasContratoCredito.FirstAsync()).Id,
+            NumeroContrato = "CVC-DUP-2",
+            NumeroPagare = "PAG-DUP-2",
+            UsuarioGeneracion = "tester2",
+            TextoContratoSnapshot = "x",
+            TextoPagareSnapshot = "x",
+            DatosSnapshotJson = "{}"
+        });
+
+        var ex = await Assert.ThrowsAsync<DbUpdateException>(() => _context.SaveChangesAsync());
+
+        // Prueba, contra una DbUpdateException real de Sqlite (no un mensaje inventado a mano),
+        // que el patrón que usa GenerarAsync para discriminar esta constraint puntual
+        // efectivamente la reconoce.
+        Assert.True(ContratoVentaCreditoService.EsViolacionIndiceUnicoVentaId(ex));
+    }
+
+    [Fact]
+    public async Task CasoH3_DbUpdateExceptionDeOtraConstraint_NoEsTratadaComoIndiceUnicoDeVentaId()
+    {
+        // Contracara de CasoH2: una DbUpdateException real pero de una constraint distinta
+        // (acá, NumeroContrato duplicado — también único en el modelo) NO debe discriminarse
+        // como la carrera de VentaId. Si el catch de GenerarAsync fuera un catch(DbUpdateException)
+        // genérico (como era antes de este ajuste), un error de este tipo también terminaría
+        // devolviendo "el ganador" en vez de propagarse, escondiendo un bug real.
+        var venta1 = await SeedVentaCreditoAsync(new[]
+        {
+            DetalleSeed("P1", "Producto 1", subtotal: 1_000m, subtotalFinal: 1_000m)
+        }, total: 1_000m);
+        var venta2 = await SeedVentaCreditoAsync(new[]
+        {
+            DetalleSeed("P2", "Producto 2", subtotal: 1_000m, subtotalFinal: 1_000m)
+        }, total: 1_000m);
+
+        var plantillaId = (await _context.PlantillasContratoCredito.FirstAsync()).Id;
+
+        _context.ContratosVentaCredito.Add(new ContratoVentaCredito
+        {
+            VentaId = venta1.Id,
+            CreditoId = venta1.CreditoId!.Value,
+            ClienteId = venta1.ClienteId,
+            PlantillaContratoCreditoId = plantillaId,
+            NumeroContrato = "CVC-MISMO-NUMERO",
+            NumeroPagare = "PAG-DUP-A",
+            UsuarioGeneracion = "tester1",
+            TextoContratoSnapshot = "x",
+            TextoPagareSnapshot = "x",
+            DatosSnapshotJson = "{}"
+        });
+        await _context.SaveChangesAsync();
+
+        _context.ContratosVentaCredito.Add(new ContratoVentaCredito
+        {
+            VentaId = venta2.Id,
+            CreditoId = venta2.CreditoId!.Value,
+            ClienteId = venta2.ClienteId,
+            PlantillaContratoCreditoId = plantillaId,
+            NumeroContrato = "CVC-MISMO-NUMERO",
+            NumeroPagare = "PAG-DUP-B",
+            UsuarioGeneracion = "tester2",
+            TextoContratoSnapshot = "x",
+            TextoPagareSnapshot = "x",
+            DatosSnapshotJson = "{}"
+        });
+
+        var ex = await Assert.ThrowsAsync<DbUpdateException>(() => _context.SaveChangesAsync());
+
+        Assert.False(ContratoVentaCreditoService.EsViolacionIndiceUnicoVentaId(ex));
+    }
+
     private async Task<Venta> SeedVentaCreditoAsync(
         IEnumerable<DetalleSeedData> detalles,
         decimal total,
         decimal descuento = 0m,
-        decimal tasaInteres = 5m)
+        decimal tasaInteres = 5m,
+        string? clienteLocalidad = "Ciudad",
+        string? clienteTelefono = "1122334455",
+        bool requiereGaranteSinGarante = false)
     {
         var cliente = new Cliente
         {
             Nombre = "Juan",
             Apellido = "Perez",
             TipoDocumento = "DNI",
-            NumeroDocumento = "12345678",
+            NumeroDocumento = $"DNI{Guid.NewGuid():N}"[..12],
             Domicilio = "Calle 123",
-            Localidad = "Ciudad",
-            Telefono = "1122334455"
+            Localidad = clienteLocalidad,
+            Telefono = clienteTelefono
         };
 
         var credito = new Credito
         {
             Cliente = cliente,
-            Numero = "CRE-001",
+            Numero = $"CRE-{Guid.NewGuid():N}"[..10],
             MontoSolicitado = total,
             MontoAprobado = total,
             SaldoPendiente = total,
@@ -253,7 +504,8 @@ public class ContratoVentaCreditoServiceTests : IDisposable
             CantidadCuotas = 1,
             MontoCuota = total,
             TotalAPagar = total,
-            FechaPrimeraCuota = DateTime.UtcNow.Date.AddMonths(1)
+            FechaPrimeraCuota = DateTime.UtcNow.Date.AddMonths(1),
+            RequiereGarante = requiereGaranteSinGarante
         };
 
         credito.Cuotas.Add(new Cuota
@@ -265,8 +517,8 @@ public class ContratoVentaCreditoServiceTests : IDisposable
             FechaVencimiento = credito.FechaPrimeraCuota.Value
         });
 
-        var categoria = new Categoria { Nombre = $"Categoria {Guid.NewGuid():N}" };
-        var marca = new Marca { Nombre = $"Marca {Guid.NewGuid():N}" };
+        var categoria = new Categoria { Nombre = $"Categoria {Guid.NewGuid():N}", Codigo = $"CAT-{Guid.NewGuid():N}"[..10] };
+        var marca = new Marca { Nombre = $"Marca {Guid.NewGuid():N}", Codigo = $"MAR-{Guid.NewGuid():N}"[..10] };
 
         var venta = new Venta
         {
@@ -384,8 +636,8 @@ public class ContratoVentaCreditoServiceTests : IDisposable
             }
         }
 
-        var categoria = new Categoria { Nombre = $"Categoria {Guid.NewGuid():N}" };
-        var marca = new Marca { Nombre = $"Marca {Guid.NewGuid():N}" };
+        var categoria = new Categoria { Nombre = $"Categoria {Guid.NewGuid():N}", Codigo = $"CAT-{Guid.NewGuid():N}"[..10] };
+        var marca = new Marca { Nombre = $"Marca {Guid.NewGuid():N}", Codigo = $"MAR-{Guid.NewGuid():N}"[..10] };
         var producto = new Producto
         {
             Codigo = $"P-{Guid.NewGuid():N}"[..10],

@@ -651,15 +651,59 @@
             });
         }
 
-        // En la página standalone, generar el contrato es un submit de página completa
-        // (formtarget=_blank + reload). Embebido en el wizard, venta-credito-embebido.js
-        // ata su propio listener a este mismo botón (fetch + recarga del fragmento), así
-        // que acá no hay que hacer nada más.
+        // PROBLEMA 2 (doble request): este botón era antes un <button type="submit"
+        // formaction=... formtarget="_blank" formnovalidate> — un submit nativo de página
+        // completa SIN ningún guard (ni disabled, ni preventDefault). Un doble click (o una
+        // respuesta lenta) abría dos pestañas nuevas y disparaba dos POST reales a
+        // ContratoVentaCredito/Generar para la misma venta — la causa real del error
+        // duplicado en el log. Ahora es type="button" e intercepta el click con fetch,
+        // deshabilitando ANTES de cualquier await (mismo patrón ya usado y probado por
+        // generarContratoEmbebido() en venta-credito-embebido.js para el fragmento embebido,
+        // que nunca tuvo este problema). El backend además ya es idempotente ante una
+        // carrera real (índice único de VentaId en ContratosVentaCredito, ver
+        // ContratoVentaCreditoService.GenerarAsync).
+        const contratoFeedback = $('#contrato-generar-feedback');
+
         if (btnGenerarContrato && !embebido) {
-            btnGenerarContrato.addEventListener('click', function () {
-                window.setTimeout(function () {
+            btnGenerarContrato.addEventListener('click', async function () {
+                if (btnGenerarContrato.disabled) return;
+                btnGenerarContrato.disabled = true;
+                const originalHtml = btnGenerarContrato.innerHTML;
+                btnGenerarContrato.innerHTML = '<span class="material-symbols-outlined animate-spin">progress_activity</span> Generando contrato...';
+                if (contratoFeedback) { contratoFeedback.textContent = ''; contratoFeedback.classList.add('hidden'); }
+
+                const url = btnGenerarContrato.getAttribute('data-contrato-generar-url');
+                const tokenInput = root.querySelector('input[name="__RequestVerificationToken"]');
+                const params = new URLSearchParams();
+                if (tokenInput) params.append('__RequestVerificationToken', tokenInput.value);
+
+                try {
+                    const resp = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
+                        body: params.toString(),
+                        credentials: 'same-origin'
+                    });
+                    const data = await resp.json().catch(() => null);
+                    if (!resp.ok || !data || !data.success) {
+                        throw new Error((data && data.message) || 'No se pudo generar el contrato.');
+                    }
+
+                    if (data.verUrl && typeof window.open === 'function') {
+                        window.open(data.verUrl, '_blank', 'noopener');
+                    }
+                    // Recarga fresca: el servidor decide si el contrato quedó generado (mismo
+                    // criterio que ya usa el fragmento embebido tras confirmarCreditoEmbebido/
+                    // generarContratoEmbebido — nunca se asume nada del lado del navegador).
                     window.location.reload();
-                }, 2500);
+                } catch (error) {
+                    btnGenerarContrato.disabled = false;
+                    btnGenerarContrato.innerHTML = originalHtml;
+                    if (contratoFeedback) {
+                        contratoFeedback.textContent = error.message || 'No se pudo generar el contrato.';
+                        contratoFeedback.classList.remove('hidden');
+                    }
+                }
             });
         }
 

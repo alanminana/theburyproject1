@@ -767,17 +767,22 @@ public class CreditoControllerConfigurarVentaTests
     {
         private readonly bool _existeContrato;
         private readonly bool _existePlantilla;
+        private readonly ContratoVentaCreditoValidacionResult _validacion;
 
-        public StubContratoVentaCreditoService(bool existeContrato = false, bool existePlantilla = false)
+        public StubContratoVentaCreditoService(
+            bool existeContrato = false,
+            bool existePlantilla = false,
+            ContratoVentaCreditoValidacionResult? validacion = null)
         {
             _existeContrato = existeContrato;
             _existePlantilla = existePlantilla;
+            _validacion = validacion ?? new ContratoVentaCreditoValidacionResult();
         }
 
         public Task<bool> ExisteContratoGeneradoAsync(int ventaId) => Task.FromResult(_existeContrato);
         public Task<bool> ExistePlantillaActivaAsync() => Task.FromResult(_existePlantilla);
 
-        public Task<ContratoVentaCreditoValidacionResult> ValidarDatosParaGenerarAsync(int ventaId) => throw new NotImplementedException();
+        public Task<ContratoVentaCreditoValidacionResult> ValidarDatosParaGenerarAsync(int ventaId) => Task.FromResult(_validacion);
         public Task<ContratoVentaCredito> GenerarAsync(int ventaId, string usuario) => throw new NotImplementedException();
         public Task<ContratoVentaCredito> GenerarPdfAsync(int ventaId, string usuario) => throw new NotImplementedException();
         public Task<ContratoVentaCreditoPdfArchivo?> ObtenerPdfAsync(int ventaId) => throw new NotImplementedException();

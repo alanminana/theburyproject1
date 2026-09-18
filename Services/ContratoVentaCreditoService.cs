@@ -9,6 +9,7 @@ using TheBuryProject.Data;
 using TheBuryProject.Helpers;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
+using TheBuryProject.Services.Exceptions;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.Services.Models;
 
@@ -60,7 +61,7 @@ namespace TheBuryProject.Services
             var validacion = new ContratoVentaCreditoValidacionResult();
             var datos = await CargarDatosValidadosAsync(ventaId, validacion);
             if (datos == null || !validacion.EsValido)
-                throw new InvalidOperationException(string.Join(" ", validacion.Errores));
+                throw new ContratoVentaCreditoValidacionException(validacion.Errores);
 
             var numeroContrato = await GenerarNumeroContratoAsync();
             var numeroPagare = await GenerarNumeroPagareAsync();
@@ -84,7 +85,26 @@ namespace TheBuryProject.Services
             };
 
             _context.ContratosVentaCredito.Add(contrato);
-            await _context.SaveChangesAsync();
+
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex) when (EsViolacionIndiceUnicoVentaId(ex))
+            {
+                // Carrera real (dos requests concurrentes pasaron el "existente == null" de
+                // arriba antes de que cualquiera confirmara): el índice único
+                // IX_ContratosVentaCredito_VentaId (IsDeleted = 0) rechaza esta segunda
+                // inserción. La otra ya generó el contrato válido — se devuelve ese en vez de
+                // propagar el error de SQL. El filtro del catch (no un catch genérico) es
+                // deliberado: cualquier otro DbUpdateException (FK rota, columna truncada,
+                // conexión caída, etc.) debe seguir propagándose sin disfrazarse de carrera.
+                var ganador = await ObtenerContratoPorVentaAsync(ventaId);
+                if (ganador != null)
+                    return ganador;
+
+                throw;
+            }
 
             _logger.LogInformation(
                 "Contrato de venta crédito {NumeroContrato} preparado para venta {VentaId} por {Usuario}",
@@ -221,6 +241,8 @@ namespace TheBuryProject.Services
                 result.Errores.Add("Venta no encontrada.");
                 return null;
             }
+
+            result.ClienteId = venta.ClienteId;
 
             ValidarVenta(venta, result);
             ValidarCliente(venta.Cliente, result);
@@ -803,6 +825,30 @@ namespace TheBuryProject.Services
                 builder.Append(invalid.Contains(ch) ? '_' : ch);
 
             return builder.ToString();
+        }
+
+        // Discrimina la violación del índice único IX_ContratosVentaCredito_VentaId (definido en
+        // AppDbContext.cs como HasIndex(e => e.VentaId).IsUnique().HasFilter("IsDeleted = 0"), sin
+        // HasDatabaseName explícito → EF genera ese nombre) del resto de los DbUpdateException
+        // posibles. No hay una forma portable entre proveedores (SqlServer en producción, Sqlite en
+        // tests) de inspeccionar el número/código de error sin acoplarse a un proveedor concreto,
+        // así que se busca el nombre del índice (mensaje real de SqlServer) o la combinación
+        // "UNIQUE constraint failed" + tabla.columna (mensaje real de Sqlite) en el mensaje de la
+        // excepción interna. Cualquier otro DbUpdateException (mensaje que no matchea ninguno de
+        // los dos patrones) no entra por este catch y se propaga normalmente.
+        // internal (no private): TheBuryProyect.Tests tiene InternalsVisibleTo (ver
+        // TheBuryProyect.csproj) — se usa para verificar contra una DbUpdateException real de
+        // Sqlite (CasoH2/CasoH3) que el patrón de mensaje realmente discrimina esta constraint y
+        // no cualquier otra, sin necesitar reflection ni simular una carrera real de dos conexiones.
+        internal static bool EsViolacionIndiceUnicoVentaId(DbUpdateException ex)
+        {
+            var mensaje = ex.InnerException?.Message ?? ex.Message;
+
+            if (mensaje.Contains("IX_ContratosVentaCredito_VentaId", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            return mensaje.Contains("UNIQUE constraint failed", StringComparison.OrdinalIgnoreCase)
+                && mensaje.Contains("ContratosVentaCredito.VentaId", StringComparison.OrdinalIgnoreCase);
         }
 
         private static void AgregarSiVacio(

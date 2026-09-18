@@ -853,6 +853,8 @@ namespace TheBuryProject.Controllers
                 })
                 .ToList();
 
+            await PoblarFaltantesContratoAsync(modelo);
+
             // El wizard de Venta pide este mismo GET con embedded=true para inyectar el
             // configurador dentro del paso "Crédito" (fetch + innerHTML), sin el layout de
             // página completa (breadcrumb, header, navegación). Mismo modelo, misma
@@ -1104,6 +1106,7 @@ namespace TheBuryProject.Controllers
             modelo.ContratoGenerado = modelo.VentaId.HasValue &&
                 await _contratoVentaCreditoService.ExisteContratoGeneradoAsync(modelo.VentaId.Value);
             modelo.PlantillaActivaDisponible = await _contratoVentaCreditoService.ExistePlantillaActivaAsync();
+            await PoblarFaltantesContratoAsync(modelo);
             modelo.PerfilesActivos = (await _configuracionPagoService.GetPerfilesCreditoActivosAsync())
                 .Select(p => new PerfilCreditoActivoViewModel
                 {
@@ -1131,7 +1134,32 @@ namespace TheBuryProject.Controllers
                 SinPlanesCompatibles = !planes.EsValido,
                 MotivoSinPlanes = planes.MensajeRechazo
             };
+            await PoblarFaltantesContratoAsync(modelo);
             return View("ConfigurarVenta_tw", modelo);
+        }
+
+        /// <summary>
+        /// PROBLEMA 1 (Localidad del cliente en Contrato de Crédito Personal): antes el único
+        /// lugar donde se descubrían datos contractuales faltantes (Cliente.Localidad, etc.) era
+        /// al pulsar "Generar contrato de venta" acá mismo, en ConfigurarVenta_tw/embebido — un
+        /// InvalidOperationException 500 sin ningún aviso previo. Reutiliza
+        /// IContratoVentaCreditoService.ValidarDatosParaGenerarAsync (ya agrega TODOS los
+        /// faltantes de una sola pasada — Cliente/Crédito/Garante/Plantilla, no sólo Localidad)
+        /// para poblar Model.DatosContractualesFaltantes ANTES de que la vista decida si mostrar
+        /// el botón real o el aviso con "Completar datos del cliente". Sólo corre cuando
+        /// PuedeGenerarContrato ya es true (si falta configurar el crédito o no hay plantilla,
+        /// ese aviso previo ya existe y no hace falta esta consulta extra).
+        /// </summary>
+        private async Task PoblarFaltantesContratoAsync(ConfiguracionCreditoVentaViewModel modelo)
+        {
+            if (!modelo.PuedeGenerarContrato)
+            {
+                modelo.DatosContractualesFaltantes = new List<string>();
+                return;
+            }
+
+            var validacion = await _contratoVentaCreditoService.ValidarDatosParaGenerarAsync(modelo.VentaId!.Value);
+            modelo.DatosContractualesFaltantes = validacion.EsValido ? new List<string>() : validacion.Errores;
         }
 
         /// <summary>

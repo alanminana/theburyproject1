@@ -144,6 +144,17 @@ namespace TheBuryProject.ViewModels
         public List<PerfilCreditoActivoViewModel> PerfilesActivos { get; set; } = new();
 
         public bool PuedeGenerarContrato => VentaId.HasValue && CreditoEstaConfigurado && !ContratoGenerado && PlantillaActivaDisponible;
+
+        /// <summary>
+        /// Datos contractuales (Cliente/Crédito/Garante/Plantilla) que
+        /// ContratoVentaCreditoService.GenerarAsync exigiría y todavía faltan — poblado sólo
+        /// cuando <see cref="PuedeGenerarContrato"/> es true (ver
+        /// CreditoController.PoblarFaltantesContratoAsync). Vacía si no falta nada: el botón
+        /// real de "Generar contrato" se muestra sólo en ese caso.
+        /// </summary>
+        public List<string> DatosContractualesFaltantes { get; set; } = new();
+
+        public bool ContratoListoParaGenerar => PuedeGenerarContrato && DatosContractualesFaltantes.Count == 0;
     }
 
     public class ClienteConfigCreditoVentaViewModel

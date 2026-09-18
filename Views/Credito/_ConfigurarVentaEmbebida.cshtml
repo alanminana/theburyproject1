@@ -351,6 +351,34 @@
                 <span>No hay ninguna plantilla de contrato activa y vigente.</span>
             </div>
         }
+        else if (Model.PuedeGenerarContrato && Model.DatosContractualesFaltantes.Count > 0)
+        {
+            @* PROBLEMA 1 (Localidad): antes esto sólo se descubría al pulsar "Generar contrato
+               de venta" (InvalidOperationException 500). Model.DatosContractualesFaltantes ya
+               trae TODOS los faltantes de una sola pasada (Cliente/Crédito/Garante/Plantilla —
+               ver CreditoController.PoblarFaltantesContratoAsync), nunca sólo Localidad. *@
+            <div class="alert alert-warn" style="margin-top:.75rem" data-credito-embebido-contrato-estado data-credito-embebido-contrato-faltantes>
+                <span class="material-symbols-outlined">contract</span>
+                <div>
+                    <p style="margin:0;font-weight:600">No se puede generar el contrato todavía.</p>
+                    <p style="margin:.35rem 0 0" class="hint">Faltan estos datos:</p>
+                    <ul style="margin:.25rem 0 .5rem 1.1rem">
+                        @foreach (var faltante in Model.DatosContractualesFaltantes)
+                        {
+                            <li>@faltante</li>
+                        }
+                    </ul>
+                    @if (Model.DatosContractualesFaltantes.Any(f => f.Contains("cliente", StringComparison.OrdinalIgnoreCase)))
+                    {
+                        <a asp-controller="Cliente" asp-action="Edit" asp-route-id="@Model.ClienteId"
+                           target="_blank" rel="noopener" class="btn btn-warn btn-block btn-sm">
+                            <span class="material-symbols-outlined">person_edit</span>
+                            Completar datos del cliente
+                        </a>
+                    }
+                </div>
+            </div>
+        }
         else
         {
             <p class="hint" data-credito-embebido-contrato-estado>
