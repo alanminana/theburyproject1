@@ -5,7 +5,7 @@
 
 <div class="max-w-7xl mx-auto space-y-6">
 
-    <div class="flex items-center gap-3">
+    <div class="flex flex-wrap items-center gap-3">
         <a asp-action="Index" class="text-slate-400 hover:text-slate-300 transition-colors">
             <span class="material-symbols-outlined text-xl">arrow_back</span>
         </a>
@@ -13,7 +13,7 @@
             <h1 class="text-2xl font-bold text-slate-100">Reporte de Morosidad</h1>
             <p class="text-sm text-slate-400">Estado de cuotas vencidas y créditos en mora.</p>
         </div>
-        <div class="flex gap-2">
+        <div class="flex w-full flex-wrap gap-2 sm:w-auto">
             <a asp-action="ExportarMorosidadExcel"
                class="inline-flex items-center gap-2 rounded-lg border border-emerald-800 bg-emerald-900/20 px-4 py-2 text-sm font-medium text-emerald-400 hover:bg-emerald-900/40 transition-colors">
                 <span class="material-symbols-outlined text-base">download</span>

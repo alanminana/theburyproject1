@@ -11,6 +11,7 @@ const ProductoModal = (() => {
 
     let caracteristicaIndex = 0;
     let _openTrigger = null;
+    let _tabs = null;
 
     function dispatchScrollRefresh() {
         if (catalogoModule && typeof catalogoModule.requestScrollRefresh === 'function') {
@@ -30,6 +31,19 @@ const ProductoModal = (() => {
         dispatchScrollRefresh();
     }
 
+    // ── Solapas ───────────────────────────────────────────────
+    function initTabs() {
+        _tabs = window.ProductoModalTabs.wire({
+            root: el('form-nuevo-producto'),
+            tabAttr: 'data-prod-create-tab',
+            panelAttr: 'data-prod-create-panel',
+            idPrefix: 'prod-create',
+            onActivate: function (name) {
+                if (name === 'caracteristicas') dispatchScrollRefresh();
+            }
+        });
+    }
+
     // ── Abrir / Cerrar ──────────────────────────────────────
     function open(trigger) {
         _openTrigger = (trigger instanceof Element) ? trigger : null;
@@ -37,6 +51,7 @@ const ProductoModal = (() => {
         modal.classList.remove('hidden');
         modal.classList.add('flex');
         document.body.style.overflow = 'hidden';
+        if (_tabs) _tabs.activate('datos');
         updateCaracteristicasUi();
         cargarCreditoPersonalCandidatos();
         setTimeout(function () {
@@ -121,6 +136,8 @@ const ProductoModal = (() => {
         if (precioFinal) precioFinal.value = '0.00';
 
         resetCreditoPersonalModo();
+
+        if (_tabs) _tabs.activate('datos');
 
         // Ocultar errores
         hideValidation();
@@ -293,7 +310,7 @@ const ProductoModal = (() => {
                 resetSelect(subSelect, 'Seleccionar subcategoría');
                 if (!catId) return;
                 try {
-                    const resp = await fetch(`/Producto/GetSubcategorias?categoriaId=${encodeURIComponent(catId)}`);
+                    const resp = await fetch(`/Producto/GetSubcategorias/${encodeURIComponent(catId)}`);
                     if (!resp.ok) return;
                     const items = await resp.json();
                     items.forEach(item => {
@@ -317,7 +334,7 @@ const ProductoModal = (() => {
                 resetSelect(subSelect, 'Seleccionar submarca');
                 if (!marcaId) return;
                 try {
-                    const resp = await fetch(`/Producto/GetSubmarcas?marcaId=${encodeURIComponent(marcaId)}`);
+                    const resp = await fetch(`/Producto/GetSubmarcas/${encodeURIComponent(marcaId)}`);
                     if (!resp.ok) return;
                     const items = await resp.json();
                     items.forEach(item => {
@@ -658,6 +675,16 @@ const ProductoModal = (() => {
 
     function handleServerErrors(errors) {
         ProductoModalFormUtils.handleServerErrors(errors, showValidation, null);
+        jumpToFirstErrorTab(errors);
+    }
+
+    function jumpToFirstErrorTab(errors) {
+        if (!_tabs) return;
+        const fields = Object.keys(errors || {});
+        for (const field of fields) {
+            const tabName = _tabs.findTabForField(field);
+            if (tabName) { _tabs.activate(tabName); return; }
+        }
     }
 
     // ── Validación visual ───────────────────────────────────
@@ -704,6 +731,7 @@ const ProductoModal = (() => {
 
     // ── Init ────────────────────────────────────────────────
     function init() {
+        initTabs();
         initCascadingDropdowns();
         initSubmit();
         initEscKey();

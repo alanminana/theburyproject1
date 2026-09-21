@@ -19,7 +19,7 @@
 }
 
 .catalogo-input::placeholder {
-    color: #94a3b8;
+    color: var(--erp-fg-2, #b9c3d3);
 }
 
 .catalogo-input:focus {
@@ -101,6 +101,75 @@ select.catalogo-input option {
 #tab-productos .erp-table td:nth-child(5) { width: 10%; }  /* Comisión */
 #tab-productos .erp-table th:nth-child(6),
 #tab-productos .erp-table td:nth-child(6) { width: 15%; }  /* Acciones */
+
+/* CATALOGO-PRODUCTO-MODAL-PRECIOS-01: ancho de modal y proporciones de Precios.
+   Los grids internos de abajo se implementan con CSS plano (no clases responsivas
+   de Tailwind tipo sm:/xl:) porque wwwroot/css/tailwind.css tiene dos bloques
+   @layer utilities duplicados (uno anexado tras el principal); cuando un elemento
+   combina un breakpoint bajo (sm:) declarado en el bloque tardío con uno alto
+   (xl:) declarado en el bloque temprano, el de breakpoint bajo gana por orden de
+   cascada incluso en viewports grandes (confirmado con getComputedStyle en vivo:
+   a 1440px, "sm:grid-cols-3 xl:grid-cols-1" rendereaba 3 columnas, no 1). Mismo
+   criterio ya usado en credito-module.css: CSS explícito en vez de depender de
+   las utilidades responsivas precompiladas para estos casos. */
+.catalogo-producto-modal-shell {
+    max-width: 1100px; /* entre max-w-5xl (1024px, insuficiente para 3 columnas de Precios) y max-w-6xl (1152px); no fullscreen */
+}
+
+.catalogo-costos-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.catalogo-costos-grid > :nth-child(3) {
+    grid-column: 1 / -1;
+}
+
+.catalogo-ganancia-grid {
+    display: grid;
+    grid-template-columns: 2fr 3fr; /* Ganancia $ necesita más ancho que Ganancia % */
+    gap: 1rem;
+}
+
+/* Por debajo de este ancho el 40/60 vuelve a comprimir el valor en pesos
+   (confirmado en vivo a 360px: "529375,00" se cortaba); apilar evita el corte
+   sin tocar el input. */
+@media (max-width: 420px) {
+    .catalogo-ganancia-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Distingue un valor derivado (no editable) de un input real: sin chrome de
+   control, borde punteado en vez de sólido, valor con más peso tipográfico.
+   No se aplica a alturas/padding-block de ningún input real (§18). */
+.catalogo-valor-calculado {
+    border: 1px dashed rgba(148, 163, 184, 0.3);
+    border-radius: 0.5rem;
+    background-color: rgba(148, 163, 184, 0.06);
+}
+
+.catalogo-valor-calculado input {
+    border: none !important;
+    background-color: transparent !important;
+    font-weight: 700;
+}
+
+.catalogo-precio-final-label {
+    font-size: 0.8rem;
+    letter-spacing: 0.02em;
+}
+
+.catalogo-precio-final input {
+    font-size: 1.25rem;
+    font-weight: 800;
+}
+
+.catalogo-precio-final .catalogo-precio-final-symbol {
+    font-size: 1.05rem;
+    font-weight: 800;
+}
 
 /* Tab bar right-fade affordance */
 #catalogo-tabs-wrapper::after {

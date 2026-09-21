@@ -4,7 +4,7 @@
    variantes responsive de Tailwind compiladas. Paleta dark del ERP.
    ════════════════════════════════════════════════════════════════ */
 
-.ml-dash { --ml-border: #1e293b; --ml-card: #161c28; --ml-muted: #94a3b8; }
+.ml-dash { --ml-border: #1e293b; --ml-card: #161c28; --ml-muted: var(--erp-fg-2, #b9c3d3); }
 
 /* ── Barra de estado: conexión + simulación ───────────────────── */
 .ml-dash-status {
@@ -18,11 +18,11 @@
 
 .ml-dash-status__label {
     display: block;
-    font-size: 0.65rem;
+    font-size: var(--erp-fs-min, 0.75rem);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: #64748b;
+    color: var(--erp-fg-3, #a6b1c3);
 }
 
 .ml-dash-status__value {
@@ -38,7 +38,7 @@
     gap: 0.3rem;
     padding: 0.2rem 0.6rem;
     border-radius: 999px;
-    font-size: 0.72rem;
+    font-size: var(--erp-fs-min, 0.75rem);
     font-weight: 700;
     border: 1px solid transparent;
     white-space: nowrap;
@@ -47,7 +47,7 @@
 .ml-dash-badge--sim { background: rgba(56, 189, 248, 0.12); border-color: rgba(56, 189, 248, 0.35); color: #7dd3fc; }
 .ml-dash-badge--real { background: rgba(244, 63, 94, 0.12); border-color: transparent; color: #fb7185; }
 .ml-dash-badge--ok { background: rgba(16, 185, 129, 0.12); border-color: rgba(16, 185, 129, 0.35); color: #34d399; }
-.ml-dash-badge--off { background: rgba(100, 116, 139, 0.12); border-color: rgba(100, 116, 139, 0.35); color: #94a3b8; }
+.ml-dash-badge--off { background: rgba(100, 116, 139, 0.12); border-color: rgba(100, 116, 139, 0.35); color: var(--erp-fg-2, #b9c3d3); }
 
 /* ── Alertas priorizadas ──────────────────────────────────────── */
 .ml-dash-alerts {
@@ -94,14 +94,14 @@
     padding: 0.05rem 0.5rem;
     border-radius: 999px;
     background: rgba(148, 163, 184, 0.18);
-    font-size: 0.78rem;
+    font-size: var(--erp-fs-min, 0.75rem);
     font-weight: 800;
     color: #e2e8f0;
     text-align: center;
 }
 
-.ml-dash-alert__desc { font-size: 0.78rem; color: var(--ml-muted); line-height: 1.4; }
-.ml-dash-alert__link { font-size: 0.78rem; font-weight: 600; color: #fbbf24; text-decoration: none; }
+.ml-dash-alert__desc { font-size: var(--erp-fs-min, 0.75rem); color: var(--ml-muted); line-height: 1.4; }
+.ml-dash-alert__link { font-size: var(--erp-fs-min, 0.75rem); font-weight: 600; color: #fbbf24; text-decoration: none; }
 .ml-dash-alert__link:hover { text-decoration: underline; }
 
 /* ── Secciones KPI ────────────────────────────────────────────── */
@@ -141,7 +141,7 @@
 
 .ml-dash-section__link {
     flex-shrink: 0;
-    font-size: 0.75rem;
+    font-size: var(--erp-fs-min, 0.75rem);
     font-weight: 600;
     color: #fbbf24;
     text-decoration: none;
@@ -174,11 +174,11 @@
 .ml-dash-kpi__value--good { color: #34d399; }
 .ml-dash-kpi__value--warn { color: #fbbf24; }
 .ml-dash-kpi__value--bad { color: #fb7185; }
-.ml-dash-kpi__value--muted { color: #64748b; }
+.ml-dash-kpi__value--muted { color: var(--erp-fg-3, #a6b1c3); }
 
 .ml-dash-kpi__label {
     margin-top: 0.15rem;
-    font-size: 0.62rem;
+    font-size: var(--erp-fs-min, 0.75rem);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.03em;
@@ -213,15 +213,15 @@
     -webkit-overflow-scrolling: touch;
 }
 
-.ml-dash-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+.ml-dash-table { width: 100%; border-collapse: collapse; font-size: var(--erp-fs-min, 0.75rem); }
 .ml-dash-table th {
     text-align: left;
     padding: 0.4rem 0.5rem;
-    font-size: 0.62rem;
+    font-size: var(--erp-fs-min, 0.75rem);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: #64748b;
+    color: var(--erp-fg-3, #a6b1c3);
     border-bottom: 1px solid var(--ml-border);
     white-space: nowrap;
 }
@@ -239,7 +239,7 @@
     display: inline-block;
     padding: 0.05rem 0.45rem;
     border-radius: 999px;
-    font-size: 0.66rem;
+    font-size: var(--erp-fs-min, 0.75rem);
     font-weight: 700;
     background: rgba(100, 116, 139, 0.18);
     color: #cbd5e1;
@@ -258,5 +258,5 @@
     border: 1px dashed var(--ml-border);
     background: rgba(15, 23, 42, 0.4);
     font-size: 0.8rem;
-    color: #64748b;
+    color: var(--erp-fg-3, #a6b1c3);
 }

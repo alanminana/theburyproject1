@@ -1,15 +1,19 @@
 :root {
-    --venta-wizard-bg: #0b111a;
-    --venta-wizard-card: #111827;
-    --venta-wizard-card-strong: #182130;
-    --venta-wizard-border: rgba(148, 163, 184, 0.18);
-    --venta-wizard-border-strong: rgba(56, 189, 248, 0.34);
-    --venta-wizard-text: #f8fafc;
-    --venta-wizard-muted: #94a3b8;
+    /* COTIZACION-MOCKUP-02: paleta grafito del mockup de Nueva Venta (mismas superficies que
+       el cotizador, --cz-* en cotizacion-simulador.css) para TODOS los pasos del wizard. El
+       oro del ERP sigue siendo el acento de acciones y del stepper; el azul del mockup queda
+       para foco y controles de datos. */
+    --venta-wizard-bg: #0b0e14;
+    --venta-wizard-card: #10151b;
+    --venta-wizard-card-strong: #171e26;
+    --venta-wizard-border: #232b34;
+    --venta-wizard-border-strong: #2c3644;
+    --venta-wizard-text: #f1f4f8;
+    --venta-wizard-muted: #b8c2cc;
     --venta-wizard-accent: #f5c518;
     --venta-wizard-accent-hover: #ffd435;
     --venta-wizard-accent-active: #e0b40f;
-    --venta-wizard-accent-2: #38bdf8;
+    --venta-wizard-accent-2: #5b8def;
     --venta-wizard-success: #22c55e;
     --venta-header-offset: 0rem;
     --venta-hero-offset: var(--venta-header-offset);
@@ -45,8 +49,8 @@
     border: 1px solid var(--venta-wizard-border);
     border-radius: 20px;
     background:
-        linear-gradient(135deg, rgba(15, 23, 42, 0.97), rgba(12, 18, 28, 0.94)),
-        radial-gradient(circle at top left, rgba(56, 189, 248, 0.12), transparent 38%);
+        linear-gradient(135deg, rgba(16, 21, 27, 0.97), rgba(11, 14, 20, 0.94)),
+        radial-gradient(circle at top left, rgba(91, 141, 239, 0.08), transparent 38%);
     box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
     padding: 1rem;
     overflow: visible;
@@ -142,12 +146,19 @@
     display: block;
     margin-bottom: 0.45rem;
     color: #aab7c8;
-    font-size: 0.72rem;
+    font-size: var(--erp-fs-min, 0.75rem);
     font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }
 
+/* Prioridad absoluta (auditoría UX del usuario, 2026-09-16): rgba(15,23,42,.82)
+   compuesto sobre `--venta-wizard-card` (#111827, fondo de .venta-section) renderiza
+   prácticamente el mismo color que el contenedor — el input quedaba "invisible" hasta
+   hover/focus, mismo patrón de inversión de elevación ya diagnosticado y resuelto en
+   el Cotizador (--cz-sunk, cotizacion-simulador.css). Acá se resuelve igual: el campo
+   usa el tono del fondo de PÁGINA (un nivel más oscuro que la card que lo contiene, no
+   el mismo), recesado a propósito en vez de mezclado con su contenedor. */
 #venta-create-page .venta-input,
 #venta-edit-page .venta-input,
 #venta-create-page .venta-select,
@@ -168,9 +179,9 @@
 #venta-edit-page textarea {
     width: 100%;
     min-height: 2.4rem;
-    border: 1px solid rgba(148, 163, 184, 0.22);
+    border: 1px solid rgba(148, 163, 184, 0.28);
     border-radius: 12px;
-    background-color: rgba(15, 23, 42, 0.82);
+    background-color: var(--venta-wizard-bg, #0b111a);
     color: #f8fafc;
     padding: 0.5rem 0.75rem;
     font-size: 0.9rem;
@@ -181,7 +192,7 @@
 #venta-create-page textarea::placeholder,
 #venta-edit-page input::placeholder,
 #venta-edit-page textarea::placeholder {
-    color: #64748b;
+    color: var(--erp-fg-3, #a6b1c3);
 }
 
 #venta-create-page input:hover,
@@ -292,10 +303,10 @@
     gap: 0.5rem;
     flex: 0 0 auto;
     border: 1px solid rgba(148, 163, 184, 0.18);
-    background: rgba(15, 23, 42, 0.72);
-    color: #cbd5e1;
+    background: rgba(16, 21, 27, 0.72);
+    color: #b8c2cc;
     padding: 0.55rem 0.75rem;
-    font-size: 0.78rem;
+    font-size: var(--erp-fs-min, 0.75rem);
     font-weight: 800;
 }
 
@@ -304,8 +315,8 @@
 #venta-create-page .vm-step-tab:focus-visible,
 #venta-edit-page .vm-step-tab:focus-visible {
     border-color: var(--venta-wizard-border-strong);
-    background: rgba(14, 165, 233, 0.13);
-    color: #f8fafc;
+    background: rgba(255, 255, 255, 0.04);
+    color: #f1f4f8;
 }
 
 #venta-create-page .vm-step-tab--active,
@@ -328,7 +339,7 @@
     border-radius: 999px;
     background: rgba(148, 163, 184, 0.14);
     color: currentColor;
-    font-size: 0.72rem;
+    font-size: var(--erp-fs-min, 0.75rem);
 }
 
 /* `.pill` es una clase genérica: el cotizador embebido en el paso Cotizar trae la
@@ -345,10 +356,10 @@
     min-width: 1.25rem;
     justify-content: center;
     border-radius: 999px;
-    background: rgba(56, 189, 248, 0.18);
-    color: #bae6fd;
+    background: rgba(91, 141, 239, 0.16);
+    color: #a9c3f7;
     padding: 0.1rem 0.4rem;
-    font-size: 0.68rem;
+    font-size: var(--erp-fs-min, 0.75rem);
     font-weight: 800;
 }
 
@@ -363,7 +374,7 @@
 #venta-create-page #dropdown-productos,
 #venta-edit-page #dropdown-productos {
     border: 1px solid var(--venta-wizard-border);
-    background: #111827;
+    background: #10151b;
     box-shadow: 0 18px 45px rgba(0, 0, 0, 0.32);
     z-index: var(--venta-z-dropdown);
 }
@@ -422,7 +433,7 @@
     border: 1px solid rgba(245, 197, 24, 0.35);
     background:
         linear-gradient(135deg, rgba(245, 197, 24, 0.12), rgba(56, 189, 248, 0.08)),
-        rgba(15, 23, 42, 0.92);
+        rgba(16, 21, 27, 0.92);
     color: #fff;
     box-shadow: 0 18px 48px rgba(0, 0, 0, 0.3);
 }
@@ -443,7 +454,7 @@
     margin-bottom: 0.75rem;
     border: 1px solid rgba(245, 197, 24, 0.32);
     border-radius: 16px;
-    background: rgba(12, 18, 28, 0.94);
+    background: rgba(11, 14, 20, 0.94);
     padding: 0.65rem;
     box-shadow: 0 18px 40px rgba(0, 0, 0, 0.32);
     backdrop-filter: blur(14px);
@@ -533,8 +544,8 @@
 #venta-edit-page .venta-quantity-button {
     min-width: 2.75rem;
     min-height: 2.75rem;
-    border: 1px solid rgba(148, 163, 184, 0.28);
-    background: #182130;
+    border: 1px solid var(--venta-wizard-border-strong);
+    background: var(--venta-wizard-card-strong);
     color: #f8fafc;
     font-size: 1.1rem;
     font-weight: 700;
@@ -547,7 +558,7 @@
 #venta-create-page .venta-quantity-button:focus-visible,
 #venta-edit-page .venta-quantity-button:focus-visible { outline: 3px solid rgba(245, 197, 24, 0.55); outline-offset: 2px; }
 #venta-create-page .venta-quantity-error,
-#venta-edit-page .venta-quantity-error { max-width: 10rem; margin-top: 0.35rem; color: #fda4af; font-size: 0.75rem; line-height: 1.25; text-align: left; }
+#venta-edit-page .venta-quantity-error { max-width: 10rem; margin-top: 0.35rem; color: #fda4af; font-size: var(--erp-fs-min, 0.75rem); line-height: 1.25; text-align: left; }
 
 /* Capas del flujo: dropdowns no deben superar un modal ni los toasts. */
 #venta-create-page #modal-documentacion,
@@ -602,7 +613,7 @@
 #venta-edit-page .venta-producto-opcion__badge {
     border-radius: 0.25rem;
     padding: 0.125rem 0.5rem;
-    font-size: 0.625rem;
+    font-size: var(--erp-fs-min, 0.75rem);
     font-weight: 700;
     line-height: 1.2;
     text-transform: uppercase;
@@ -666,7 +677,7 @@
     align-items: center;
     gap: 0.5rem;
     margin-top: 0.35rem;
-    font-size: 0.6875rem;
+    font-size: var(--erp-fs-min, 0.75rem);
     line-height: 1.3;
 }
 
@@ -688,11 +699,11 @@
 #venta-create-page .venta-linea-unidad__accion,
 #venta-edit-page .venta-linea-unidad__accion {
     min-height: 2rem;
-    border: 1px solid rgba(148, 163, 184, 0.35);
+    border: 1px solid var(--venta-wizard-border-strong);
     border-radius: 0.4rem;
     background: transparent;
     padding: 0.2rem 0.6rem;
-    font-size: 0.6875rem;
+    font-size: var(--erp-fs-min, 0.75rem);
     font-weight: 700;
     color: #cbd5e1;
     cursor: pointer;
@@ -735,7 +746,7 @@
     border-radius: 0.4rem;
     background-color: var(--vm-panel-strong, #1a202c);
     padding: 0.25rem 0.5rem;
-    font-size: 0.75rem;
+    font-size: var(--erp-fs-min, 0.75rem);
     color: var(--vm-text, #e2e8f0);
 }
 
@@ -743,7 +754,7 @@
 #venta-edit-page .venta-linea-unidad__error {
     margin-top: 0.35rem;
     max-width: 22rem;
-    font-size: 0.6875rem;
+    font-size: var(--erp-fs-min, 0.75rem);
     font-weight: 600;
     color: #fda4af;
 }
@@ -777,14 +788,19 @@
        activas entre 1024 y 1279px y el split angosto reaparecería exactamente en el
        rango que se quiere apilar. Misma especificidad (2 ids) que el bloque >=1280px de
        abajo para ganarle a esas clases sin depender del orden de las hojas de estilo. */
+    /* minmax(0, 1fr), NO `1fr` a secas: `1fr` equivale a minmax(auto, 1fr), así que el
+       min-content de la tabla de productos (~736px) ensanchaba la columna entera y el
+       paso Productos desbordaba 408px a 390px de viewport (medido en vivo). El
+       `grid-cols-1` de Tailwind que este reset reemplaza ya usaba minmax(0, 1fr). */
     #venta-create-page #venta-form>.grid,
     #venta-edit-page #venta-form>.grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
     }
 
     #venta-create-page #venta-form>.grid>*,
     #venta-edit-page #venta-form>.grid>* {
         grid-column: auto;
+        min-width: 0;
     }
 
     #venta-create-page .venta-edit-hero-metrics,
@@ -919,24 +935,31 @@
    el scroll lo hace la página, no los panel-body.
    ══════════════════════════════════════════════════════════════ */
 
-/* VENTA-COTIZACION-REWORK-02 (reapertura por reporte visual directo del
-   usuario: "encerrado en un shell central demasiado angosto"). Causa raíz
-   medida en vivo con Playwright a 1920x1080: `#venta-create-page` (shell de
-   TODO el wizard, no sólo Cotizar) trae `max-width:1400px` — a 1920px eso
-   deja ~130px de margen muerto por lado más allá de la sidebar, el mismo
-   defecto que Venta/Index ya corrigió (ver ventas-index.css, comentario
-   VENTA-INDEX-CLIENTE-PARIDAD-01). La comparativa de medios de pago es el
-   núcleo comercial de la pantalla (VENTA-COTIZACION-REWORK-01) y necesita
-   ese ancho real para mostrar varias alternativas sin angostarse.
-   Se libera el cap SÓLO mientras Cotizar es el paso activo (selector por
-   `data-paso-activo`, ya usado más abajo para ocultar la grilla de Venta) en
-   vez de tocar `#venta-create-page` de forma global: los otros 5 pasos
-   (Cliente/Productos/Pago/Crédito/Envío/Revisión) ya están cerrados en
-   UI-REFACTOR-STATUS.md con su geometría medida y validada contra ese ancho
-   de 1400px (grid 2fr/minmax(20rem,1fr), breakpoints propios en 1280px,
-   etc.) — ensancharlos no fue pedido y los reabriría sin evidencia. */
-#venta-create-page[data-paso-activo="cotizar"] {
+/* Shell fluido en los seis pasos. VENTA-COTIZACION-REWORK-02 ya había liberado el tope de
+   1400px sólo mientras Cotizar era el paso activo (a 1920px dejaba ~130px de margen muerto por
+   lado, el mismo defecto que Venta/Index corrigió en VENTA-INDEX-CLIENTE-PARIDAD-01). Con el
+   hero/stepper del mockup compartido por todos los pasos (COTIZACION-MOCKUP-02) el ancho no
+   puede depender del paso: cambiaría al navegar. */
+#venta-create-page,
+#venta-edit-page {
     max-width: none;
+}
+
+/* COTIZACION-MOCKUP-01/02: el mockup deja 32px de gutter en desktop; el shell del ERP ya aporta
+   32px, así que el px-8 propio de la página se anula (el hero y el contenido de cada paso
+   comparten el mismo ancho). */
+@media (min-width: 1280px) {
+    #venta-create-page,
+    #venta-edit-page {
+        padding-inline: 0;
+        padding-top: 0;
+    }
+
+    /* Los pasos aún no habilitados se atenúan menos que el 50% genérico: en el mockup todas las
+       pastillas inactivas comparten el mismo gris (siguen sin ser clickeables). */
+    :is(#venta-create-page, #venta-edit-page) .vm-step-tab:disabled {
+        opacity: 0.7;
+    }
 }
 
 /* Mientras Cotizar es el paso activo, la grilla de la venta y la barra móvil
@@ -953,162 +976,295 @@
     margin-bottom: 0.25rem;
 }
 
-/* VENTA-COTIZACION-REWORK-03 (pedido explícito del usuario: a 1920x1080 debe
-   verse AL MENOS la primera alternativa real de pago sin scroll, sin quitar
-   datos ni achicar tipografía de importes/datos críticos). Compacta la altura
-   del chrome compartido del wizard (hero "Nueva Venta" + stepper) SOLO
-   mientras Cotizar es el paso activo — mismo criterio de scope que el fix de
-   ancho de arriba (VENTA-COTIZACION-REWORK-02): los otros 5 pasos ya están
-   cerrados con su propia densidad medida y no se tocan. Reduce padding/
-   márgenes/tamaños de TÍTULOS DE SECCIÓN (no de datos ni importes). */
-#venta-create-page[data-paso-activo="cotizar"] .hero-erp {
-    padding: .3rem .8rem;
+/* COTIZACION-MOBILE-01: la barra "Total base + Simular" del cotizador es sticky abajo en
+   la banda angosta (cotizacion-simulador.css). Embebida acá, el contenedor de scroll de
+   _Layout trae `padding-bottom: 6rem` inline y un sticky se ancla a la caja de contenido
+   (sin ese padding): con `bottom: .5rem` a secas la barra flotaba ~104px por encima del
+   borde visible (medido a 390×844). Standalone (/Cotizacion) no tiene ese padding y ya
+   quedaba a 8px. En bandas donde no es sticky, `bottom` no tiene efecto. */
+#venta-create-page .venta-cotizar-panel .cotz-app .workspace > [data-zone="totales"] {
+    bottom: calc(0.5rem - 6rem);
 }
 
-#venta-create-page[data-paso-activo="cotizar"] section.hero-erp {
-    margin-bottom: .45rem;
+/* COTIZACION-MOCKUP-01: el apilado en 1 columna del cotizador embebido (antes acá, <46rem) pasó a
+   cotizacion-simulador.css y rige para ambos hosts por debajo de 60rem de contenedor. */
+
+/* COTIZACION-MOCKUP-01: la compactación del chrome (VENTA-COTIZACION-REWORK-03) rige sólo
+   por debajo de 1280px; en desktop el hero/stepper de Cotizar siguen el mockup del usuario
+   (bloque "Hero de Cotizar en desktop" más abajo). */
+@media (max-width: 1279.98px) {
+    /* VENTA-COTIZACION-REWORK-03 (pedido explícito del usuario: a 1920x1080 debe
+       verse AL MENOS la primera alternativa real de pago sin scroll, sin quitar
+       datos ni achicar tipografía de importes/datos críticos). Compacta la altura
+       del chrome compartido del wizard (hero "Nueva Venta" + stepper) SOLO
+       mientras Cotizar es el paso activo — mismo criterio de scope que el fix de
+       ancho de arriba (VENTA-COTIZACION-REWORK-02): los otros 5 pasos ya están
+       cerrados con su propia densidad medida y no se tocan. Reduce padding/
+       márgenes/tamaños de TÍTULOS DE SECCIÓN (no de datos ni importes). */
+    #venta-create-page[data-paso-activo="cotizar"] .hero-erp {
+        padding: .3rem .8rem;
+    }
+
+    #venta-create-page[data-paso-activo="cotizar"] section.hero-erp {
+        margin-bottom: .45rem;
+    }
+
+    #venta-create-page[data-paso-activo="cotizar"] .hero-erp > .flex.flex-col {
+        gap: .5rem;
+    }
+
+    #venta-create-page[data-paso-activo="cotizar"] .hero-erp h1 {
+        font-size: 1.05rem;
+        line-height: 1.15;
+    }
+
+    #venta-create-page[data-paso-activo="cotizar"] .hero-erp p {
+        margin-top: .15rem;
+        font-size: var(--erp-fs-min, 0.75rem);
+        line-height: 1.25;
+    }
+
+    #venta-create-page[data-paso-activo="cotizar"] .hero-erp .flex.w-full.flex-col.gap-3 {
+        gap: .4rem;
+    }
+
+    /* Fila de pills (breadcrumb "Ventas / Cotización en curso") — un solo renglón
+       compacto, no aporta jerarquía de dato. Las pills en sí (no son importes/
+       datos de negocio, son navegación) bajan de py-1 a un padding menor. */
+    #venta-create-page[data-paso-activo="cotizar"] .hero-erp .flex.flex-wrap.items-center.gap-2.text-xs {
+        margin-bottom: 0;
+    }
+
+    #venta-create-page[data-paso-activo="cotizar"] .hero-erp .flex.flex-wrap.items-center.gap-2.text-xs > * {
+        padding-top: .15rem;
+        padding-bottom: .15rem;
+    }
+
+    /* Stepper: mismo alto de toque (accesibilidad), menos aire vertical alrededor. */
+    #venta-create-page[data-paso-activo="cotizar"] .mt-4.flex.items-center.justify-between {
+        margin-top: .35rem;
+    }
+
+    #venta-create-page[data-paso-activo="cotizar"] .vm-step-tab {
+        min-height: 1.9rem;
+        padding: .28rem .6rem;
+        font-size: var(--erp-fs-min, 0.75rem);
+    }
+
+    #venta-create-page[data-paso-activo="cotizar"] .vm-step-tab__num {
+        width: 1.15rem;
+        height: 1.15rem;
+        font-size: var(--erp-fs-min, 0.75rem);
+    }
 }
 
-#venta-create-page[data-paso-activo="cotizar"] .hero-erp > .flex.flex-col {
-    gap: .5rem;
+/* COTIZACION-MOCKUP-01: el cotizador ya no se enmarca con un borde propio ni compacta
+   paddings/alturas de fila en este host — cotizacion-simulador.css resuelve la geometría del
+   mockup (container queries sobre el ancho real de .cotz-app) y el shell de la página ya
+   aporta el padding lateral. Se retiraron los overrides de VENTA-COTIZACION-REWORK-03
+   (borde de 18px, .workspace 0.5rem, paddings de topbar/panel/franja, filas de la tabla). */
+
+/* ══════════════════════════════════════════════════════════════
+   Hero del wizard en desktop (COTIZACION-MOCKUP-01, extendido a todos los pasos y a Edit en
+   COTIZACION-MOCKUP-02)
+   Convergencia con templates/Nueva Venta — Cotizar: breadcrumb + acciones en una fila,
+   título/subtítulo, stepper de pastillas numeradas con conectores y estado "Incompleta",
+   todo sobre la página (sin card) y cerrado por un divisor. Sólo ≥1280px: tablet/teléfono
+   conservan el hero compacto de los bloques de arriba. El chrome es el mismo en los seis
+   pasos (el stepper no debe cambiar de ancho ni de aspecto al navegar).
+   Acento: el oro del ERP (--color-primary), no el azul del mockup — el stepper es del
+   wizard completo y no debe cambiar de color al pasar de paso.
+   ══════════════════════════════════════════════════════════════ */
+@media (min-width: 1280px) {
+    :is(#venta-create-page, #venta-edit-page) section.hero-erp {
+        background: transparent;
+        border: 0;
+        border-bottom: 1px solid #232b34;
+        border-radius: 0;
+        box-shadow: none;
+        padding: 0 0 18px;
+        margin-bottom: 20px;
+        overflow: visible;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .hero-erp > .vm-hero__row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 20px 16px;
+    }
+
+    /* El bloque crumbs+título se aplana para poder poner el breadcrumb en la fila de
+       Cancelar y el título en la siguiente, sin tocar el DOM compartido con Edit. */
+    :is(#venta-create-page, #venta-edit-page) .hero-erp > .vm-hero__row > .space-y-3 { display: contents; }
+
+    :is(#venta-create-page, #venta-edit-page) .vm-hero__crumbs {
+        grid-row: 1;
+        grid-column: 1;
+        gap: 8px;
+        font-size: 12.5px;
+        font-weight: 600;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .vm-hero__crumbs > :is(span, a).bg-slate-800 {
+        background: transparent;
+        padding: 0;
+        color: #62707e;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .vm-hero__crumbs > a.bg-slate-800:hover {
+        background: transparent;
+        color: #b8c2cc;
+    }
+
+    /* Edit: el pill de la venta ("COT-…") es un enlace al detalle; sólo el último tramo
+       (Editar / "Venta en curso") lleva el acento. */
+    :is(#venta-create-page, #venta-edit-page) .vm-hero__crumbs > .text-slate-600 { color: #62707e; }
+
+    :is(#venta-create-page, #venta-edit-page) .vm-hero__crumbs > span.bg-primary\/10 {
+        padding: 4px 10px;
+        font-weight: 700;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .hero-erp > .vm-hero__row > .space-y-3 > div:not(.vm-hero__crumbs) {
+        grid-row: 2;
+        grid-column: 1 / -1;
+        margin-top: 0;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .hero-erp h1 {
+        font-size: 22px;
+        font-weight: 800;
+        line-height: 1.2;
+        letter-spacing: 0;
+        color: #f1f4f8;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .hero-erp p.vm-hero__desc {
+        margin-top: 4px;
+        max-width: none;
+        font-size: 13px;
+        line-height: 1.4;
+        color: #8993a1;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .vm-hero__actions {
+        grid-row: 1;
+        grid-column: 2;
+        width: auto;
+        min-width: 0;
+        flex-direction: row;
+        align-items: center;
+        gap: 10px;
+    }
+
+    /* CTA contextual del wizard (Siguiente / Revisar operación / Confirmar…): mismo alto y
+       radio que Cancelar; el color sigue siendo el oro del ERP. */
+    :is(#venta-create-page, #venta-edit-page) .vm-hero__primary {
+        width: auto;
+        height: 36px;
+        min-height: 36px;
+        padding: 0 18px;
+        border-radius: 10px;
+        font-size: 13px;
+        font-weight: 800;
+        white-space: nowrap;
+        box-shadow: none;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .vm-hero__cancel {
+        width: auto;
+        height: 36px;
+        min-height: 36px;
+        padding: 0 16px;
+        border: 1px solid #232b34;
+        border-radius: 10px;
+        background: #171e26;
+        color: #b8c2cc;
+        font-size: 13px;
+        font-weight: 700;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .vm-hero__cancel:hover {
+        background: #1b222a;
+        color: #f1f4f8;
+    }
+
+    /* Stepper */
+    :is(#venta-create-page, #venta-edit-page) .vm-hero__steps { margin-top: 14px; }
+
+    :is(#venta-create-page, #venta-edit-page) .venta-wizard-tablist { gap: 0; }
+
+    :is(#venta-create-page, #venta-edit-page) .vm-step-tab {
+        position: relative;
+        min-height: 0;
+        gap: 8px;
+        padding: 6px 14px 6px 6px;
+        border: 0;
+        border-radius: 999px;
+        background: transparent;
+        color: #62707e;
+        font-size: 13px;
+        font-weight: 700;
+    }
+
+    /* Conector de 16×1 entre pastillas (6px de aire a cada lado). */
+    :is(#venta-create-page, #venta-edit-page) .vm-step-tab + .vm-step-tab { margin-left: 28px; }
+    :is(#venta-create-page, #venta-edit-page) .vm-step-tab + .vm-step-tab::before {
+        content: "";
+        position: absolute;
+        left: -22px;
+        top: 50%;
+        width: 16px;
+        height: 1px;
+        background: #232b34;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .vm-step-tab:hover { background: rgba(255, 255, 255, 0.03); color: #b8c2cc; }
+
+    :is(#venta-create-page, #venta-edit-page) .vm-step-tab__num {
+        width: 22px;
+        height: 22px;
+        border: 1.5px solid #2c3644;
+        background: transparent;
+        color: #62707e;
+        font-size: 11.5px;
+        font-weight: 800;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .vm-step-tab--active,
+    :is(#venta-create-page, #venta-edit-page) .vm-step-tab--active:hover {
+        background: rgba(245, 197, 24, 0.10);
+        color: var(--color-primary, #f5c518);
+        font-weight: 800;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .vm-step-tab--active .vm-step-tab__num {
+        border-color: var(--color-primary, #f5c518);
+        background: var(--color-primary, #f5c518);
+        color: #111827;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .vm-step-tab__badge {
+        min-width: 0;
+        padding: 1px 7px;
+        background: #1b222a;
+        color: #62707e;
+        font-size: 10.5px;
+        font-weight: 800;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) #vm-estado-global {
+        padding: 6px 14px;
+        border-color: #2c3644;
+        background: #1b222a;
+        color: #8993a1;
+        font-size: 12px;
+        font-weight: 700;
+        white-space: nowrap;
+    }
 }
 
-#venta-create-page[data-paso-activo="cotizar"] .hero-erp h1 {
-    font-size: 1.05rem;
-    line-height: 1.15;
-}
-
-#venta-create-page[data-paso-activo="cotizar"] .hero-erp p {
-    margin-top: .15rem;
-    font-size: .74rem;
-    line-height: 1.25;
-}
-
-#venta-create-page[data-paso-activo="cotizar"] .hero-erp .flex.w-full.flex-col.gap-3 {
-    gap: .4rem;
-}
-
-/* Fila de pills (breadcrumb "Ventas / Cotización en curso") — un solo renglón
-   compacto, no aporta jerarquía de dato. Las pills en sí (no son importes/
-   datos de negocio, son navegación) bajan de py-1 a un padding menor. */
-#venta-create-page[data-paso-activo="cotizar"] .hero-erp .flex.flex-wrap.items-center.gap-2.text-xs {
-    margin-bottom: 0;
-}
-
-#venta-create-page[data-paso-activo="cotizar"] .hero-erp .flex.flex-wrap.items-center.gap-2.text-xs > * {
-    padding-top: .15rem;
-    padding-bottom: .15rem;
-}
-
-/* Stepper: mismo alto de toque (accesibilidad), menos aire vertical alrededor. */
-#venta-create-page[data-paso-activo="cotizar"] .mt-4.flex.items-center.justify-between {
-    margin-top: .35rem;
-}
-
-#venta-create-page[data-paso-activo="cotizar"] .vm-step-tab {
-    min-height: 1.9rem;
-    padding: .28rem .6rem;
-    font-size: .72rem;
-}
-
-#venta-create-page[data-paso-activo="cotizar"] .vm-step-tab__num {
-    width: 1.15rem;
-    height: 1.15rem;
-    font-size: .62rem;
-}
-
-#venta-create-page .venta-cotizar-panel .cotz-app {
-    height: auto;
-    overflow: visible;
-    background: transparent;
-    border: 1px solid var(--venta-wizard-border, rgba(148, 163, 184, 0.18));
-    border-radius: 18px;
-}
-
-#venta-create-page .venta-cotizar-panel .cotz-app .panel-body {
-    overflow-y: visible;
-}
-
-/* El shell de la venta ya aporta el padding lateral de página. */
-#venta-create-page .venta-cotizar-panel .cotz-app .workspace {
-    padding: 0.5rem;
-    gap: 4px;
-}
-
-/* VENTA-COTIZACION-REWORK-03: mismo criterio que arriba — compactar SOLO el
-   host embebido (Venta/Create), no cotizacion-simulador.css (compartido con
-   Cotizacion/Index_tw standalone, cerrado en la serie COTIZACION-SIMULAR-
-   REDESIGN-VISUAL). Reduce el aire alrededor de encabezados/franjas, nunca
-   el tamaño de los importes (.total-display / celdas de datos no se tocan). */
-#venta-create-page .venta-cotizar-panel .cotz-app .cotz-topbar {
-    padding: .3rem .85rem;
-}
-
-#venta-create-page .venta-cotizar-panel .cotz-app .panel-head {
-    padding: .42rem .85rem .38rem;
-}
-
-#venta-create-page .venta-cotizar-panel .cotz-app .panel-body {
-    padding: .55rem .7rem;
-}
-
-/* COTIZACION-WORKSTATION-01: el pie de Resultados ahora es la barra de selección
-   (resumen + Guardar/Continuar), no un rail de acciones alto — mismo criterio de
-   compactación que el resto del chrome embebido. */
-#venta-create-page .venta-cotizar-panel .cotz-app .panel-foot {
-    padding: .5rem .85rem !important;
-}
-
-/* COTIZACION-WORKSTATION-01: se retiró la regla que compactaba la fila de filtros
-   "Incluir" de Resultados (`[data-zone="resultados"] .panel-head + div`). Esa fila
-   ya no existe — los filtros de medios pasaron a un desplegable dentro del propio
-   panel-head (.medios-filtro), así que el selector ahora matchearía el
-   `.panel-body` de la tabla y le aplastaría el padding vertical a .12rem. */
-
-/* Chips de filtro ("Efectivo", "T. crédito"...): son controles de UI, no
-   datos de negocio — bajan de padding .35rem/font .76rem a algo más chico. */
-#venta-create-page .venta-cotizar-panel .cotz-app .medio-chip {
-    padding: .12rem .5rem;
-    font-size: .7rem;
-}
-
-/* Tabla de Resultados: sólo el padding vertical de encabezado/filas baja —
-   font-size de .rtable (celdas de datos: Total final, Cuota, Recargo, etc.)
-   NO se toca, por pedido explícito ("no reducir tamaño de fuente de importes
-   o datos críticos"). */
-#venta-create-page .venta-cotizar-panel .cotz-app .rtable thead th {
-    padding-top: .22rem;
-    padding-bottom: .22rem;
-}
-
-#venta-create-page .venta-cotizar-panel .cotz-app .rtable td {
-    padding-top: .35rem;
-    padding-bottom: .35rem;
-}
-
-/* Franja Subtotal/Descuento/Total base: sólo el padding del contenedor baja
-   (no el font-size de los importes). COTIZACION-WORKSTATION-01: la franja ahora
-   aloja también el CTA contextual (§8/§9), así que el padding vertical no puede
-   bajar de lo que necesita un botón de 38px sin recortarlo. */
-#venta-create-page .venta-cotizar-panel .cotz-app .totales-bar {
-    padding: .45rem .9rem;
-}
-
-/* Las proporciones de .workspace (Productos/Resultados/Config) y el apilado por
-   ancho ya las resuelve cotizacion-simulador.css vía @container sobre .cotz-app
-   (COTIZACION-SIMULAR-REDESIGN-VISUAL-IMPLEMENTACION-01): mide el ancho real del
-   propio .cotz-app, así que responde igual de bien acá (más angosto que el host
-   de pantalla completa) sin necesitar un breakpoint de píxeles fijos propio.
-
-   .panel tampoco necesita max-height:none acá: la regla base de
-   cotizacion-simulador.css ya no lo fija salvo dentro de la banda ≥68rem, y
-   .cotz-app arriba fuerza height:auto/overflow:visible siempre en este host
-   (mayor especificidad), así que ese `max-height:100%` nunca llega a aplicar. */
-
-/* El topbar del cotizador redondea contra el borde del panel. */
-#venta-create-page .venta-cotizar-panel .cotz-app .cotz-topbar {
-    border-radius: 18px 18px 0 0;
-}
 
 /* ══════════════════════════════════════════════════════════════
    PASO CRÉDITO — "Estado del crédito" (VENTA-CREDITO-REDESIGN-VISUAL-
@@ -1191,10 +1347,682 @@
    resto de los pasos no cambia. */
 #venta-create-page[data-paso-activo="credito"] #venta-form>.grid,
 #venta-edit-page[data-paso-activo="credito"] #venta-form>.grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
 }
 
 #venta-create-page[data-paso-activo="credito"] .vm-sidebar,
 #venta-edit-page[data-paso-activo="credito"] .vm-sidebar {
     position: static;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   WIZARD APILADO + MOBILE — VENTA-WIZARD-MOBILE-01 / VENTA-WIZARD-TABLET-01
+   Medido en vivo a 390×844 (Create): antes de este bloque el chrome del wizard
+   (hero con breadcrumb + descripción + 2 botones a ancho completo + stepper +
+   tarjeta "Total/Siguiente" + panel-header numerado) ocupaba ~570px de los 844
+   antes del primer campo, la barra de resumen (sticky arriba, 100px) tapaba el
+   campo que se estaba editando, y cada paso cerraba con un TERCER botón
+   "Siguiente/Confirmar" (tarjeta amarilla del sidebar) — 3 CTAs iguales por paso.
+   Criterio: un solo CTA primario (barra inferior), todos los pasos visibles en el
+   stepper, y el contenido del paso empieza en el primer tercio de la pantalla.
+
+   Tres capas, de lo general a lo específico:
+   1) @media (max-width: 1279px) — el wizard va apilado (la sidebar de totales pasa
+      debajo del contenido, ver el bloque de arriba). Todo lo que sobra del hero, el CTA
+      duplicado y la barra de resumen valen igual en tablet que en teléfono. Medido a
+      768 y 1024 (sidebar del ERP abierta): la columna útil queda en ~630–880px.
+   2) @container — el stepper y la tabla de productos dependen del ANCHO REAL de su
+      columna, que varía con la sidebar del ERP (16rem / 4.5rem colapsada / drawer): a
+      1024 con sidebar abierta y a 768 la columna es la misma (~630px), a 1279 es
+      ~880px. Un @media por viewport acertaba a un ancho y fallaba al otro.
+   3) @media (max-width: 767px) — sólo teléfono: barra fija abajo, sin descripciones,
+      filtros colapsados.
+   No toca ids, data-* ni lógica: el CTA de la barra sigue siendo [data-wizard-primary]
+   y en Revisión sigue disparando #btn-confirmar (venta-page-wizard.js).
+   ══════════════════════════════════════════════════════════════ */
+
+/* Contenedores de tamaño (sólo inline): no cambian el layout, sólo habilitan @container.
+   La barra de resumen NO es descendiente de ninguno (un container con layout containment
+   se volvería el containing block de su `position: fixed`). */
+:is(#venta-create-page, #venta-edit-page) .vm-hero__steps {
+    container: vmsteps / inline-size;
+}
+
+:is(#venta-create-page, #venta-edit-page) #venta-detalles-scroll {
+    container: vmdetalle / inline-size;
+}
+
+/* ── 1) Wizard apilado (≤1279px): tablet + teléfono ─────────────────────────── */
+@media (max-width: 1279px) {
+
+    /* Hero: título + Cancelar en una fila; sin breadcrumb ni descripción.
+       El breadcrumb repite el nombre del módulo (ya en la sidebar del ERP) y la
+       descripción explica lo que el stepper ya muestra. El CTA del hero se retira: es el
+       mismo [data-wizard-primary] que la barra de resumen. */
+    :is(#venta-create-page, #venta-edit-page) .hero-erp {
+        padding: 0.9rem 1.1rem;
+        margin-bottom: 0.75rem;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .hero-erp > .vm-hero__row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .vm-hero__crumbs,
+    :is(#venta-create-page, #venta-edit-page) .vm-hero__desc,
+    :is(#venta-create-page, #venta-edit-page) .vm-hero__primary {
+        display: none;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .vm-hero__actions {
+        width: auto;
+        flex-direction: row;
+        gap: 0;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .vm-hero__cancel {
+        width: auto;
+        min-height: 2.5rem;
+        height: 2.5rem;
+        padding-inline: 0.9rem;
+        font-size: 0.8125rem;
+    }
+
+    /* Stepper: la tira ocupa el ancho disponible y scrollea sólo si de verdad no entra
+       (venta-page-wizard.js centra el paso activo). La versión compacta (números + paso
+       activo con nombre) la decide el @container de más abajo, no el viewport. */
+    :is(#venta-create-page, #venta-edit-page) .vm-hero__steps {
+        margin-top: 0.7rem;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .venta-wizard-tablist {
+        flex: 1 1 auto;
+        min-width: 0;
+        scrollbar-width: none;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .venta-wizard-tablist::-webkit-scrollbar {
+        display: none;
+    }
+
+    /* Barra de resumen (Total + CTA): sticky al pie de la columna del wizard. No es
+       `fixed` a este ancho porque la sidebar del ERP (16rem / 4.5rem / drawer) cambia
+       de ancho y una barra de borde a borde la taparía. Es lo último del <form> para que
+       el sticky funcione. Antes: sticky ARRIBA, 100px, tapando el campo en edición.
+       `bottom` compensa el `padding-bottom: 6rem` inline del contenedor de scroll de
+       _Layout: un sticky se ancla a la caja de CONTENIDO del scroller (sin su padding),
+       así que con `bottom: 0.75rem` a secas la barra quedaba 6rem por encima del borde
+       visible (medido a 844×390 y 1024×720). */
+    :is(#venta-create-page, #venta-edit-page) .vm-mobile-summary-bar {
+        display: flex;
+        position: sticky;
+        top: auto;
+        bottom: calc(0.75rem - 6rem);
+        margin: 1.25rem 0 0;
+        padding: 0.6rem 0.65rem 0.6rem 1.1rem;
+        box-shadow: 0 14px 36px rgba(0, 0, 0, 0.5);
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .vm-mobile-summary-bar__info {
+        font-size: 1rem;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .vm-mobile-summary-bar .vm-btn-confirm-sm {
+        width: auto;
+        min-height: 2.75rem;
+        padding-inline: 1.4rem;
+    }
+
+    /* `hidden`/`.hidden` que alterna venta-page-wizard.js pierde contra el display
+       del botón (regla sin @layer); se blinda para el paso Crédito. */
+    :is(#venta-create-page, #venta-edit-page) [data-wizard-primary][hidden] {
+        display: none;
+    }
+
+    /* Sidebar inferior: sin tercer CTA. La tarjeta amarilla repetía "Siguiente/Confirmar"
+       + el recordatorio en TODOS los pasos. Sólo se conserva en Revisión (recordatorio,
+       "Facturar al confirmar" y "Guardar sin confirmar" de Edición), neutra y sin el botón
+       principal — el CTA es el de la barra, que en Revisión dispara este #btn-confirmar. */
+    :is(#venta-create-page, #venta-edit-page):not([data-paso-activo="revision"]) #venta-sidebar-totales,
+    :is(#venta-create-page, #venta-edit-page):not([data-paso-activo="revision"]) .vm-sidebar-actions {
+        display: none;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) #venta-sidebar-totales {
+        padding: 0.9rem;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-radius: 16px;
+        background: rgba(16, 21, 27, 0.78);
+        box-shadow: none;
+    }
+
+    :is(#venta-create-page, #venta-edit-page)[data-paso-activo="revision"] #btn-confirmar {
+        display: none;
+    }
+
+    /* La nota de "qué pasa al confirmar" venía en 10px (text-[10px]): 12px es el mínimo. */
+    :is(#venta-create-page, #venta-edit-page) #venta-sidebar-totales p {
+        margin-top: 0.75rem;
+        font-size: var(--erp-fs-min, 0.75rem);
+        line-height: 1.4;
+        opacity: 0.8;
+    }
+
+    /* Encabezado de cada paso: sin el círculo numerado, que se desincroniza del stepper
+       (Create suma el paso Cotizar y Crédito es condicional). */
+    :is(#venta-create-page, #venta-edit-page) .venta-section > .mb-6.flex {
+        margin-bottom: 0.9rem;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .venta-section > .mb-6.flex > .flex > span:first-child {
+        display: none;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .venta-section > .mb-6.flex h2 {
+        font-size: 1.05rem;
+    }
+}
+
+/* ── 2a) Stepper por ancho real de su fila ──────────────────────────────────
+   Todos los pasos con nombre + el chip de estado ocupan ~750px (7 pasos con Crédito).
+   Por debajo, los inactivos pasan a sólo el número (el nombre sigue en el nombre
+   accesible: font-size:0 no lo quita) y el activo muestra número + nombre; así entran
+   todos en la misma vista y se sabe dónde se está. Si con Crédito igual no entran, la
+   tira scrollea y el JS centra el activo. */
+@container vmsteps (max-width: 47rem) {
+
+    :is(#venta-create-page, #venta-edit-page) .venta-wizard-tablist {
+        gap: 0.25rem;
+    }
+
+    :is(#venta-create-page, #venta-edit-page)[data-paso-activo] .vm-step-tab {
+        min-width: 2.5rem;
+        min-height: 2.5rem;
+        justify-content: center;
+        gap: 0;
+        padding: 0.3rem;
+        font-size: 0;
+    }
+
+    :is(#venta-create-page, #venta-edit-page)[data-paso-activo] .vm-step-tab__num {
+        width: 1.5rem;
+        height: 1.5rem;
+        font-size: var(--erp-fs-min, 0.75rem);
+    }
+
+    /* El contador de ítems del paso Productos se retira del stepper compacto: ya está
+       en la lista de productos y en el Total de la barra, y ensanchaba el tab activo
+       hasta empujar el último paso fuera de la pantalla. */
+    :is(#venta-create-page, #venta-edit-page)[data-paso-activo] .vm-step-tab__badge {
+        display: none;
+    }
+
+    :is(#venta-create-page, #venta-edit-page)[data-paso-activo] .vm-step-tab--active {
+        gap: 0.45rem;
+        padding: 0.3rem 0.65rem 0.3rem 0.35rem;
+        font-size: 0.8125rem;
+    }
+}
+
+/* ── 2b) Productos: la tabla de 7 columnas pasa a tarjetas cuando no entra ──
+   La tabla necesita ~736px; con la columna más angosta (teléfono, tablet, 1024 con
+   sidebar abierta) Subtotal y Acciones quedaban detrás de un scroll horizontal. Mismo
+   DOM (mismos data-quantity-*, data-index, data-line-subtotal): sólo se reordena con
+   grid, igual criterio que el comparador del cotizador (§28). Las etiquetas de Unit./Desc.
+   vienen de ::before porque el <thead> se oculta. */
+@container vmdetalle (max-width: 45.999rem) {
+
+    :is(#venta-create-page, #venta-edit-page) #venta-detalles-scroll [data-oc-scroll-table] {
+        display: block;
+        min-width: 0;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) #venta-detalles-scroll thead {
+        display: none;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) #venta-detalles-scroll tbody {
+        display: block;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) #venta-detalles-scroll tbody tr:has(> td:nth-child(7)) {
+        display: grid;
+        grid-template-columns: auto auto minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 0.35rem 0.75rem;
+        margin-bottom: 0.6rem;
+        padding: 0.8rem 0.9rem;
+        border: 1px solid var(--venta-wizard-border-strong);
+        border-radius: 14px;
+        background: rgba(16, 21, 27, 0.6);
+    }
+
+    :is(#venta-create-page, #venta-edit-page) #venta-detalles-scroll tbody tr > td {
+        display: block;
+        min-width: 0;
+        padding: 0;
+        border: 0;
+        text-align: left;
+        white-space: nowrap;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) #venta-detalles-scroll tbody tr > td:nth-child(2),
+    :is(#venta-create-page, #venta-edit-page) #venta-detalles-scroll tbody tr > td:nth-child(3) {
+        white-space: normal;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) #venta-detalles-scroll tbody tr:has(> td:nth-child(7)) > td:nth-child(2) { grid-area: 1 / 1 / 2 / 4; font-size: 0.9375rem; }
+    :is(#venta-create-page, #venta-edit-page) #venta-detalles-scroll tbody tr:has(> td:nth-child(7)) > td:nth-child(7) { grid-area: 1 / 4; justify-self: end; }
+    :is(#venta-create-page, #venta-edit-page) #venta-detalles-scroll tbody tr:has(> td:nth-child(7)) > td:nth-child(1) { grid-area: 2 / 1; color: #94a3b8; }
+    :is(#venta-create-page, #venta-edit-page) #venta-detalles-scroll tbody tr:has(> td:nth-child(7)) > td:nth-child(4) { grid-area: 2 / 2; color: #94a3b8; font-size: var(--erp-fs-min, 0.75rem); }
+    :is(#venta-create-page, #venta-edit-page) #venta-detalles-scroll tbody tr:has(> td:nth-child(7)) > td:nth-child(5) { grid-area: 2 / 3; color: #94a3b8; font-size: var(--erp-fs-min, 0.75rem); }
+    :is(#venta-create-page, #venta-edit-page) #venta-detalles-scroll tbody tr:has(> td:nth-child(7)) > td:nth-child(3) { grid-area: 3 / 1 / 4 / 4; }
+    :is(#venta-create-page, #venta-edit-page) #venta-detalles-scroll tbody tr:has(> td:nth-child(7)) > td:nth-child(6) { grid-area: 3 / 4; font-size: 1.05rem; text-align: right; }
+
+    :is(#venta-create-page, #venta-edit-page) #venta-detalles-scroll tbody tr:has(> td:nth-child(7)) > td:nth-child(4)::before { content: "Unit. "; }
+    :is(#venta-create-page, #venta-edit-page) #venta-detalles-scroll tbody tr:has(> td:nth-child(7)) > td:nth-child(5)::before { content: "Desc. "; }
+
+    :is(#venta-create-page, #venta-edit-page) #venta-detalles-scroll .btn-eliminar-detalle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 2.5rem;
+        height: 2.5rem;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) #venta-detalles-scroll .venta-quantity-button {
+        min-width: 2.5rem;
+        min-height: 2.5rem;
+    }
+}
+
+/* ── 3) Sólo teléfono (≤767px) ──────────────────────────────────────────── */
+@media (max-width: 767px) {
+
+    :is(#venta-create-page, #venta-edit-page) .hero-erp {
+        padding: 0.7rem 0.8rem;
+        margin-bottom: 0.6rem;
+        border-radius: 16px;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .vm-hero__title {
+        font-size: 1.2rem;
+        line-height: 1.15;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .vm-hero__steps {
+        margin-top: 0.6rem;
+    }
+
+    /* ── Barra de resumen: fija abajo, de borde a borde, una fila (Total + CTA) ──
+       Abajo no tapa lo que se escribe y el pulgar la alcanza sin scroll. z-index bajo el
+       de sidebar/modales (z-50). En teléfono el drawer del ERP no está abierto a la vez,
+       así que no hay sidebar que tapar. */
+    :is(#venta-create-page, #venta-edit-page) .vm-mobile-summary-bar {
+        position: fixed;
+        top: auto;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 30;
+        margin: 0;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0.55rem 0.9rem calc(0.55rem + env(safe-area-inset-bottom, 0px));
+        border: 0;
+        border-top: 1px solid rgba(245, 197, 24, 0.28);
+        border-radius: 0;
+        background: rgba(11, 14, 20, 0.97);
+        box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.4);
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .vm-mobile-summary-bar__info {
+        flex: 1 1 auto;
+        width: auto;
+        font-size: 0.9375rem;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .vm-mobile-summary-bar__icon {
+        display: none;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .vm-mobile-summary-bar .vm-btn-confirm-sm {
+        flex: 0 1 auto;
+        padding-inline: 1.1rem;
+        font-size: 0.875rem;
+        letter-spacing: 0;
+        text-transform: none;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .vm-mobile-summary-bar .vm-btn-confirm-sm__icon {
+        display: none;
+    }
+
+    /* Espacio para que la barra fija no tape el final del contenido. El padding
+       lateral del root se anula: _Layout ya aporta px-4 y sumarle .75rem más dejaba
+       ~56px de 390 (14%) de margen muerto — el stepper y las tarjetas no entraban. */
+    :is(#venta-create-page, #venta-edit-page) {
+        padding-top: 0.25rem;
+        padding-inline: 0;
+        padding-bottom: 5rem;
+    }
+
+    /* Encabezado de cada paso: sólo el título. Las descripciones/chips repiten lo que el
+       stepper y los propios campos ya dicen. Envío y Revisión conservan su texto: ahí
+       aclara reglas (el costo de envío es informativo). */
+    :is(#venta-create-page, #venta-edit-page) :is(#step-panel-cliente, #step-panel-productos, #step-panel-pago) .venta-section > .mb-6.flex p,
+    :is(#venta-create-page, #venta-edit-page) .venta-section > .mb-6.flex .badge-erp {
+        display: none;
+    }
+
+    /* Filtros de búsqueda de Productos: disclosure (cerrado por JS en teléfono). */
+    :is(#venta-create-page, #venta-edit-page) .vm-filtros__summary {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        min-height: 2.75rem;
+        padding: 0 0.85rem;
+        border: 1px solid var(--venta-wizard-border-strong);
+        border-radius: 12px;
+        background: rgba(16, 21, 27, 0.6);
+        color: #cbd5e1;
+        font-size: 0.875rem;
+        font-weight: 700;
+        cursor: pointer;
+        list-style: none;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .vm-filtros__summary::-webkit-details-marker {
+        display: none;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .vm-filtros__summary .material-symbols-outlined {
+        font-size: 18px;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .vm-filtros__chev {
+        margin-left: auto;
+        transition: transform 0.2s;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .vm-filtros[open] .vm-filtros__chev {
+        transform: rotate(180deg);
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .vm-filtros[open] > .grid {
+        margin-top: 0.5rem;
+    }
+
+    /* Campos a 16px: iOS Safari (iPhone) no hace zoom al enfocar. Sólo teléfono: en tablet
+       las columnas del cotizador embebido son angostas y a 16px cortaban la fecha. */
+    :is(#venta-create-page, #venta-edit-page) :is(input:not([type="checkbox"], [type="radio"], [type="hidden"]), select, textarea) {
+        font-size: 1rem;
+    }
+}
+
+/* ── 4) Viewport bajo (teléfono/tablet en horizontal, ≤500px de alto) ──
+   844×390: el hero completo (~160px) + la barra de resumen (~65px) + el topbar del ERP
+   (64px) dejaban ~100px de contenido de 390. Se compactan hero y barra. */
+@media (max-width: 1279px) and (max-height: 500px) {
+
+    :is(#venta-create-page, #venta-edit-page) .hero-erp {
+        padding: 0.5rem 0.9rem;
+        margin-bottom: 0.5rem;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .vm-hero__title {
+        font-size: 1.2rem;
+        line-height: 1.15;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .vm-hero__steps {
+        margin-top: 0.4rem;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .vm-mobile-summary-bar {
+        padding-top: 0.35rem;
+        padding-bottom: calc(0.35rem + env(safe-area-inset-bottom, 0px));
+        margin-top: 0.75rem;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .vm-mobile-summary-bar .vm-btn-confirm-sm {
+        min-height: 2.5rem;
+    }
+}
+
+@media (max-width: 767px) and (max-height: 500px) {
+    :is(#venta-create-page, #venta-edit-page) {
+        padding-bottom: 4rem;
+    }
+}
+
+/* Pantallas de 360px: 6 pasos (5 inactivos + activo con nombre) no entran con tabs de
+   2.5rem; se bajan a 2.15rem (~34px, sobre el mínimo WCAG 2.5.8 de 24px). */
+@media (max-width: 380px) {
+    #venta-create-page[data-paso-activo] .vm-step-tab,
+    #venta-edit-page[data-paso-activo] .vm-step-tab {
+        min-width: 2.15rem;
+    }
+
+    #venta-create-page .venta-wizard-tablist,
+    #venta-edit-page .venta-wizard-tablist {
+        gap: 0.2rem;
+    }
+
+    #venta-create-page .hero-erp,
+    #venta-edit-page .hero-erp {
+        padding-inline: 0.6rem;
+    }
+}
+
+/* Filtros de Productos (<details data-collapse-mobile>): ≥768px el disclosure no aplica,
+   el <summary> se oculta y el contenido se ve siempre como antes de VENTA-WIZARD-MOBILE-01. */
+@media (min-width: 768px) {
+    #venta-create-page .vm-filtros__summary,
+    #venta-edit-page .vm-filtros__summary {
+        display: none;
+    }
+}
+
+
+/* VENTA-ENVIO-TOTAL-01: con envío, la barra sticky mobile dice "A cobrar: $ 181.758,90" (más largo que
+   "Total: $ 180.758,90"); en pantallas muy angostas baja un punto la tipografía para que el importe entre
+   entero junto al botón (misma jerarquía, sin recortar cifras). Clase que alterna venta-page-wizard.js. */
+@media (max-width: 400px) {
+    :is(#venta-create-page, #venta-edit-page) .vm-mobile-summary-bar--con-envio .vm-mobile-summary-bar__info {
+        font-size: 0.875rem;
+    }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   WIZARD — formato del mockup en todos los pasos (COTIZACION-MOCKUP-02)
+   El mockup "Nueva Venta — Cotizar" sólo dibuja el paso 1. Los otros pasos (Cliente,
+   Productos, Pago, Crédito, Envío, Revisión) y Venta/Edit adoptan su lenguaje visual:
+   superficies grafito (--venta-wizard-* de :root, mismas que --cz-* del cotizador), líneas de
+   1px #232b34, radios de 16/10px, sin sombras, títulos de card de 15px, labels chicos en
+   mayúsculas, campos hundidos con foco azul y chips neutros. No cambia estructura, ids ni
+   comportamiento; el acento de acciones sigue siendo el oro del ERP.
+   ══════════════════════════════════════════════════════════════ */
+
+/* El número de cada card es estático (1…5) y no sigue al stepper: en Create el paso Cliente es
+   el 2 (Cotizar es el 1) y Revisión repetía el 5. El número real lo lleva el stepper. */
+:is(#venta-create-page, #venta-edit-page) .vm-step-bubble { display: none; }
+
+/* Superficies: card, sub-card y sidebar sin sombra propia (el mockup separa por línea). */
+:is(#venta-create-page, #venta-edit-page) .card,
+:is(#venta-create-page, #venta-edit-page) .card-sub,
+:is(#venta-create-page, #venta-edit-page) .venta-section {
+    box-shadow: none;
+}
+
+:is(#venta-create-page, #venta-edit-page) .vm-totals {
+    border: 1px solid var(--venta-wizard-border);
+    background: var(--venta-wizard-card);
+    box-shadow: none;
+}
+
+/* Recuadro de aviso dentro del resumen lateral ("Verificá cliente, tipo de pago y total…"). */
+:is(#venta-create-page, #venta-edit-page) .vm-totals > div[role="note"] {
+    border-color: var(--venta-wizard-border);
+    background: var(--venta-wizard-card-strong);
+    color: #b8c2cc;
+}
+
+:is(#venta-create-page, #venta-edit-page) .vm-totals > div[role="note"] .text-white\/90,
+:is(#venta-create-page, #venta-edit-page) .vm-totals > div[role="note"] .text-white\/60 { color: #b8c2cc; }
+
+/* Chips neutros (p. ej. "CLIENTE + CONTEXTO", "DINÁMICO POR MEDIO", "OPCIONAL"). */
+:is(#venta-create-page, #venta-edit-page) .badge-erp-neutral {
+    border: 1px solid var(--venta-wizard-border-strong);
+    background: #1b222a;
+    color: #8993a1;
+    font-weight: 700;
+}
+
+/* Campos: hundidos respecto de la card, borde de línea-2 y foco azul (el mismo azul de los
+   campos del cotizador del paso 1). */
+:is(#venta-create-page, #venta-edit-page) .venta-input,
+:is(#venta-create-page, #venta-edit-page) .venta-select,
+:is(#venta-create-page, #venta-edit-page) input[type="text"],
+:is(#venta-create-page, #venta-edit-page) input[type="number"],
+:is(#venta-create-page, #venta-edit-page) input[type="date"],
+:is(#venta-create-page, #venta-edit-page) input[type="email"],
+:is(#venta-create-page, #venta-edit-page) input[type="tel"],
+:is(#venta-create-page, #venta-edit-page) select,
+:is(#venta-create-page, #venta-edit-page) textarea {
+    border-color: var(--venta-wizard-border-strong);
+    border-radius: 10px;
+}
+
+:is(#venta-create-page, #venta-edit-page) input:hover,
+:is(#venta-create-page, #venta-edit-page) select:hover,
+:is(#venta-create-page, #venta-edit-page) textarea:hover {
+    border-color: #3a4656;
+}
+
+:is(#venta-create-page, #venta-edit-page) input:focus,
+:is(#venta-create-page, #venta-edit-page) select:focus,
+:is(#venta-create-page, #venta-edit-page) textarea:focus {
+    border-color: var(--venta-wizard-accent-2);
+    box-shadow: 0 0 0 3px rgba(91, 141, 239, 0.18);
+}
+
+:is(#venta-create-page, #venta-edit-page) .label,
+:is(#venta-create-page, #venta-edit-page) .venta-label {
+    color: #8993a1;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+}
+
+:is(#venta-create-page, #venta-edit-page) input::placeholder,
+:is(#venta-create-page, #venta-edit-page) textarea::placeholder {
+    color: #62707e;
+}
+
+/* Botón fantasma (Cancelar, Volver al detalle, Imprimir borrador, …). */
+:is(#venta-create-page, #venta-edit-page) .btn-erp-ghost {
+    border-color: var(--venta-wizard-border-strong);
+    background: #171e26;
+    color: #b8c2cc;
+    font-weight: 700;
+}
+
+:is(#venta-create-page, #venta-edit-page) .btn-erp-ghost:hover {
+    border-color: #3a4656;
+    background: #1b222a;
+    color: #f1f4f8;
+}
+
+/* Cliente seleccionado (paso Cliente): mismo tratamiento neutro que la ficha del cotizador. */
+:is(#venta-create-page, #venta-edit-page) #info-cliente {
+    border-color: var(--venta-wizard-border);
+    background: #171e26;
+}
+
+:is(#venta-create-page, #venta-edit-page) #info-cliente .bg-primary\/20 { background: rgba(91, 141, 239, 0.16); }
+:is(#venta-create-page, #venta-edit-page) #info-cliente .text-primary { color: #5b8def; }
+
+/* "Cambiar" limpia la selección pero no es una acción destructiva: acento azul como en la ficha
+   del cotizador, no rojo. */
+:is(#venta-create-page, #venta-edit-page) #btn-limpiar-cliente { color: #5b8def; }
+:is(#venta-create-page, #venta-edit-page) #btn-limpiar-cliente:hover { color: #8fb0f5; text-decoration: none; }
+
+@media (min-width: 1280px) {
+    /* Card de paso: 16px de radio y 20px de aire, como las cards Productos/Cliente del mockup. */
+    :is(#venta-create-page, #venta-edit-page) .venta-section {
+        border-radius: 16px;
+        padding: 20px;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .venta-wizard-tab-panel {
+        padding: 20px;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .venta-wizard-tab-panel > .mb-6 {
+        margin-bottom: 16px;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .venta-section h2 {
+        font-size: 15px;
+        font-weight: 700;
+        line-height: 1.3;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .venta-section h2 + p {
+        margin-top: 2px;
+        font-size: 12.5px;
+        line-height: 1.4;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .badge-erp-neutral {
+        padding: 4px 10px;
+        font-size: 10.5px;
+        letter-spacing: 0.06em;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .venta-input,
+    :is(#venta-create-page, #venta-edit-page) input[type="text"],
+    :is(#venta-create-page, #venta-edit-page) input[type="number"],
+    :is(#venta-create-page, #venta-edit-page) input[type="date"],
+    :is(#venta-create-page, #venta-edit-page) input[type="email"],
+    :is(#venta-create-page, #venta-edit-page) input[type="tel"],
+    :is(#venta-create-page, #venta-edit-page) select {
+        min-height: 40px;
+        font-size: 13.5px;
+    }
+
+    /* Resumen lateral: card de 16px con 20px de aire y CTA del mismo porte que el resto. */
+    :is(#venta-create-page, #venta-edit-page) .vm-totals {
+        border-radius: 16px;
+        padding: 20px;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .vm-totals .vm-btn-confirm {
+        min-height: 44px;
+        padding: 0 20px;
+        border-radius: 10px;
+        font-size: 13.5px;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+        box-shadow: none;
+    }
+
+    :is(#venta-create-page, #venta-edit-page) .vm-totals .vm-btn-confirm:hover { box-shadow: none; }
+
+    :is(#venta-create-page, #venta-edit-page) .vm-sidebar { gap: 16px; }
+}
+
+/* Filtros de Productos: el `md:grid-cols-4` del markup reparte cuatro columnas iguales y, con la
+   grilla 2fr/1fr de 1280–1440px, el par Min/Max quedaba en ~50px por campo (placeholder cortado).
+   Con auto-fit las celdas no bajan de 9.5rem y la última baja de fila cuando no entra. */
+@media (min-width: 768px) {
+    :is(#venta-create-page, #venta-edit-page) div:has(> #filtro-categoria) {
+        grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+    }
 }

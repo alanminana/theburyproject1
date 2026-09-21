@@ -94,11 +94,11 @@ else
                             <span class="stag @mlStag">@orden.Status</span>
                             @if (orden.DevolucionEstado != MercadoLibreDevolucionEstado.Ninguna)
                             {
-                                <div class="le" style="font-size:10px;color:var(--amber);margin-top:3px">devolución: @orden.DevolucionEstado</div>
+                                <div class="le" style="font-size:var(--erp-fs-min, 0.75rem);color:var(--amber);margin-top:3px">devolución: @orden.DevolucionEstado</div>
                             }
                             @if (orden.TieneClaimPendiente)
                             {
-                                <div class="le" style="font-size:10px;color:var(--red);margin-top:3px">claim pendiente (@orden.ClaimsPendientes)</div>
+                                <div class="le" style="font-size:var(--erp-fs-min, 0.75rem);color:var(--red);margin-top:3px">claim pendiente (@orden.ClaimsPendientes)</div>
                             }
                         </td>
                         <td>
@@ -134,7 +134,7 @@ else
                                 <span class="chip @envCls"><span class="dot"></span>@orden.EstadoEnvioInterno</span>
                                 @if (!string.IsNullOrEmpty(orden.TrackingNumber))
                                 {
-                                    <div class="le" style="font-family:var(--mono);font-size:10px;color:var(--faint);margin-top:3px;max-width:150px;overflow:hidden;text-overflow:ellipsis" title="@orden.TrackingNumber">@orden.TrackingNumber</div>
+                                    <div class="le" style="font-family:var(--mono);font-size:var(--erp-fs-min, 0.75rem);color:var(--faint);margin-top:3px;max-width:150px;overflow:hidden;text-overflow:ellipsis" title="@orden.TrackingNumber">@orden.TrackingNumber</div>
                                 }
                             }
                             else

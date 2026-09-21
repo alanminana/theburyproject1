@@ -123,6 +123,10 @@ namespace TheBuryProject.Services
                 Marcas = marcas
                     .OrderBy(m => m.Nombre)
                     .Select(m => new OpcionDropdown { Id = m.Id, Nombre = m.Nombre }),
+                MarcasRaiz = marcas
+                    .Where(m => m.ParentId == null)
+                    .OrderBy(m => m.Nombre)
+                    .Select(m => new OpcionDropdown { Id = m.Id, Nombre = m.Nombre }),
                 ListasPrecios = listasPrecio
                     .Select(l => new OpcionDropdown { Id = l.Id, Nombre = l.Nombre }),
 

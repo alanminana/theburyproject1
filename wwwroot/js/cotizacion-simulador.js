@@ -5,12 +5,18 @@
     if (!root) return;
 
     const theBury = window.TheBury || {};
-    const formatCurrency = theBury.formatCurrency || function (value) {
+    const formatCurrencyBase = theBury.formatCurrency || function (value) {
         return new Intl.NumberFormat('es-AR', {
             style: 'currency',
             currency: 'ARS',
             minimumFractionDigits: 2
         }).format(value || 0);
+    };
+    // COTIZACION-MOCKUP-01: el mockup muestra los importes pegados al símbolo
+    // ("$180.758,90"), igual que el resto del ERP en listados; Intl es-AR intercala un
+    // espacio (a veces no separable) tras el "$". Sólo cambia la presentación, no el valor.
+    const formatCurrency = function (value) {
+        return String(formatCurrencyBase(value)).replace(/^(-?)\$[\s\u00a0\u202f]+/, '$1$');
     };
 
     const state = {
@@ -24,6 +30,43 @@
         // que viajan al backend en opcionSeleccionada.
         seleccionRow: null,
         planAbiertoKey: null,
+        // VENTA-COTIZACION-EXCEPCION-01: "plan objetivo para excepción" — deliberadamente
+        // separado de opcionSeleccionada/seleccionRow (§6 del pedido del usuario): un plan de
+        // Crédito personal No apto nunca debe volverse una selección válida sólo por haber
+        // pedido la excepción; se vuelve real (o se rechaza) recién cuando el backend la
+        // autoriza, al convertir (ver continuarConExcepcion). Shape: { key, medioPago, plan,
+        // cantidadCuotas, motivo }. Se descarta en cualquier invalidarSimulacion() (cambio de
+        // cliente/producto/monto/plan) — nunca sobrevive a un contexto distinto al que se pidió.
+        excepcion: null,
+        // Modo del botón único del pie del drawer ('elegir' | 'excepcion' | 'bloqueado') — ver
+        // openPlanDrawer/el listener de [data-cotizacion-elegir-drawer].
+        planDrawerMode: 'elegir',
+        // COTIZACION-MIVENTA-01 (POC "Mi Venta"): datos reales de envío guardados desde el
+        // modal (mismos campos que VentaEnvio) — null hasta que se guarda el modal al menos
+        // una vez. Igual que excepcion, deliberadamente separado de lo que se persiste en
+        // Cotizacion.TieneEnvio (sólo bool): la intención puede guardarse, el detalle recién
+        // se manda al backend al confirmar la venta (mismo criterio que ya se usó para
+        // excepcion — ver [[cotizador-excepcion-documental-estado]]).
+        envio: null,
+        // COTIZACION-MIVENTA-02: mismo patrón que `envio` — null hasta que se guarda el modal
+        // real de facturación (#modal-facturar-config, mismo partial que Venta/Details) al
+        // menos una vez. Shape: { tipo, puntoVenta, fechaEmision }. La factura NUNCA se emite
+        // acá — sólo se guarda la intención/configuración para el momento de confirmar.
+        facturarConfig: null,
+        // Cache del último preview de IVA/alícuotas pedido a /conversion/factura-preview (mismo
+        // cálculo que usará la Venta real) — evita repetir el fetch si el modal se reabre sin
+        // haber cambiado productos/cliente.
+        facturaPreview: null,
+        facturaPreviewCotizacionId: null,
+        // Reentrancia real de "Confirmar Mi Venta" (§DOBLE SUBMIT) — ver continuarConOpcion().
+        confirmando: false,
+        // COTIZACION-MIVENTA-02: reentrancia del click EXTERNO "Confirmar Mi Venta" (que corre
+        // el preflight antes de abrir el modal de confirmación) — distinta de `confirmando`,
+        // que guarda el click de aceptar DENTRO del modal (crear/confirmar la Venta).
+        verificando: false,
+        // COTIZACION-MIVENTA-02: reentrancia de "Continuar con wizard" — camino totalmente
+        // separado de Confirmar Mi Venta, con su propia protección de doble-submit.
+        continuandoWizard: false,
         bestKey: null,
         pendingDeleteIndex: null,
         cotizacionGuardadaId: null,
@@ -37,6 +80,17 @@
         aptitudToken: 0
     };
 
+    // VENTA-COTIZACION-EXCEPCION-01: mismo gate de permiso que ya usa Venta/Create para
+    // renderizar el bloque de excepción documental (@if (User.TienePermiso("ventas",
+    // "authorize")) en _VentaWizardForm.cshtml) — ver el mismo data-* en _CotizadorForm.cshtml.
+    // El backend (IVentaService.AplicarExcepcionDocumentalSiCorresponde) revalida este permiso
+    // igual: esto sólo evita ofrecer una acción que el servidor va a rechazar.
+    const puedeExcepcionDocumental = root.dataset.puedeExcepcionDocumental === 'true';
+    // COTIZACION-MIVENTA-01: mismo criterio — sólo evita ofrecer "Facturar" a quien el
+    // backend igual rechazaría (VentaController.Facturar/ConfirmarYFacturar exigen
+    // ventas/invoice); CotizacionConversionService revalida este permiso de nuevo.
+    const puedeFacturar = root.dataset.puedeFacturar === 'true';
+
     const urls = {
         simular: root.dataset.simularUrl || '/api/cotizacion/simular',
         guardar: root.dataset.guardarUrl || '/api/cotizacion/guardar',
@@ -45,7 +99,10 @@
         clientes: root.dataset.clientesUrl || '/Cotizacion/BuscarClientes',
         convertirBase: root.dataset.convertirBaseUrl || '/api/cotizacion',
         ventaEdit: root.dataset.ventaEditUrl || '/Venta/Edit/',
-        aptitudCredito: root.dataset.aptitudCreditoUrl || '/api/cotizacion/aptitud-credito'
+        ventaDetails: root.dataset.ventaDetailsUrl || '/Venta/Details/',
+        ventaFacturar: root.dataset.ventaFacturarUrl || '/Venta/Facturar/',
+        aptitudCredito: root.dataset.aptitudCreditoUrl || '/api/cotizacion/aptitud-credito',
+        caja: root.dataset.cajaUrl || '/Caja'
     };
 
     const $ = (selector) => root.querySelector(selector);
@@ -87,12 +144,58 @@
         fechaVencimiento: $('#cotizacion-fecha-vencimiento'),
         observaciones: $('#cotizacion-observaciones'),
         tieneEnvio: $('#cotizacion-tiene-envio'),
+        envioResumen: $('#cotizacion-envio-resumen'),
+        envioResumenTexto: $('#cotizacion-envio-resumen-texto'),
+        envioEditar: $('#cotizacion-envio-editar'),
+        envioDestinatario: $('#cotizacion-envio-destinatario'),
+        envioDestinatarioError: $('#cotizacion-envio-destinatario-error'),
+        envioDomicilio: $('#cotizacion-envio-domicilio'),
+        envioDomicilioError: $('#cotizacion-envio-domicilio-error'),
+        envioTelefono: $('#cotizacion-envio-telefono'),
+        envioLocalidad: $('#cotizacion-envio-localidad'),
+        envioProvincia: $('#cotizacion-envio-provincia'),
+        envioCp: $('#cotizacion-envio-cp'),
+        envioTransportista: $('#cotizacion-envio-transportista'),
+        envioCosto: $('#cotizacion-envio-costo'),
+        envioFecha: $('#cotizacion-envio-fecha'),
+        envioObservaciones: $('#cotizacion-envio-observaciones'),
+        envioGuardar: $('#cotizacion-envio-guardar'),
+        envioCancelar: $('#cotizacion-envio-cancelar'),
+        facturarBloque: $('[data-puede-facturar-bloque]'),
+        facturarCheckbox: $('#cotizacion-facturar'),
+        facturarResumen: $('#cotizacion-facturar-resumen'),
+        facturarResumenTexto: $('#cotizacion-facturar-resumen-texto'),
+        facturarEditar: $('#cotizacion-facturar-editar'),
+        facturarCancelar: $('#cotizacion-facturar-cancelar'),
+        facturarGuardar: $('#cotizacion-facturar-guardar'),
+        // Modal de facturación (COTIZACION-MIVENTA-02): campos del partial compartido
+        // Views/Venta/_FacturaCamposEmision.cshtml, con idPrefix "cotizacion-factura-".
+        facturaSubtotal: $('#cotizacion-factura-subtotal'),
+        facturaIva: $('#cotizacion-factura-iva'),
+        facturaTotal: $('#cotizacion-factura-total'),
+        facturaAlicuotasSection: $('#cotizacion-factura-alicuotas-section'),
+        facturaAlicuotasTbody: $('#cotizacion-factura-alicuotas-tbody'),
+        facturaTipo: $('#cotizacion-factura-tipo-factura'),
+        facturaPuntoVenta: $('#cotizacion-factura-punto-venta'),
+        facturaFecha: $('#cotizacion-factura-fecha-emision'),
+        confirmarResumen: $('#cotizacion-confirmar-resumen'),
+        confirmarAceptarLabel: $('[data-confirmar-aceptar-label]'),
+        confirmarAceptar: $('#cotizacion-confirmar-aceptar'),
+        confirmarCancelar: $('#cotizacion-confirmar-cancelar'),
         simular: $('#cotizacion-simular'),
         simularLabel: $('[data-simular-label]'),
+        simularIcono: $('[data-simular-icon]'),
         guardar: $('#cotizacion-guardar'),
         // COTIZACION-WORKSTATION-01 (§16/§17): "Continuar con esta opción" es la
         // acción primaria del cierre; Guardar queda como secundaria y sólo persiste.
         continuar: $('#cotizacion-continuar'),
+        continuarLabel: $('[data-continuar-label]'),
+        // COTIZACION-MIVENTA-02: segundo camino explícito — crea la Venta sin confirmar y va
+        // siempre al wizard tradicional (Venta/Edit).
+        continuarWizard: $('#cotizacion-continuar-wizard'),
+        bloqueos: $('#cotizacion-bloqueos'),
+        bloqueosTitulo: $('#cotizacion-bloqueos-titulo'),
+        bloqueosLista: $('#cotizacion-bloqueos-lista'),
         seleccionResumen: $('#cotizacion-seleccion-resumen'),
         accionesPre: $('#cotizacion-acciones-pre'),
         accionesPost: $('#cotizacion-acciones-post'),
@@ -107,6 +210,18 @@
         subtotal: $('#cotizacion-subtotal'),
         descuento: $('#cotizacion-descuento'),
         totalBase: $('#cotizacion-total-base'),
+        // VENTA-ENVIO-TOTAL-01: con envío cargado la franja separa Total productos / Envío / Total a cobrar.
+        totalBaseLabel: $('#cotizacion-total-base-label'),
+        segTotalBase: $('#cotizacion-seg-total-base'),
+        segEnvio: $('#cotizacion-seg-envio'),
+        envioImporte: $('#cotizacion-envio-importe'),
+        segTotalACobrar: $('#cotizacion-seg-total-a-cobrar'),
+        totalACobrar: $('#cotizacion-total-a-cobrar'),
+        totalesStats: $('#cotizacion-totales-stats'),
+        facturaResumenComercial: $('#cotizacion-factura-resumen-comercial'),
+        facturaComercialProductos: $('#cotizacion-factura-comercial-productos'),
+        facturaComercialEnvio: $('#cotizacion-factura-comercial-envio'),
+        facturaComercialTotal: $('#cotizacion-factura-comercial-total'),
         resultadosTbody: $('#cotizacion-resultados-tbody'),
         // plan drawer
         planMedio: $('#plan-medio'),
@@ -115,6 +230,7 @@
         planDetalleCuotas: $('#plan-detalle-cuotas'),
         planValorCuota: $('#plan-valor-cuota'),
         planRecargo: $('#plan-recargo'),
+        planRecargoLabel: $('#plan-recargo-label'),
         // desglose exclusivo de credito personal
         planCreditoDesglose: $('#plan-credito-desglose'),
         planCreditoFuente: $('#plan-credito-fuente'),
@@ -127,7 +243,20 @@
         // CSR-ML6: metadata del plan + tabla completa por cuota.
         planCreditoCuotasSinRecargo: $('#plan-credito-cuotas-sin-recargo'),
         planCreditoCuotasTablaBody: $('#plan-credito-cuotas-tabla-body'),
-        planElegibilidad: $('#plan-elegibilidad')
+        planCreditoCuotasDetalle: $('#plan-credito-cuotas-detalle'),
+        planElegibilidad: $('#plan-elegibilidad'),
+        planElegirDrawer: $('[data-cotizacion-elegir-drawer]'),
+        // VENTA-COTIZACION-EXCEPCION-01: formulario de excepción documental dentro del drawer
+        // de Crédito personal (§4 del pedido: "dentro del drawer de detalle de Crédito
+        // personal") — mismo copy que Venta/Create (#panel-excepcion-activa), ids propios.
+        planExcepcionPanel: $('#plan-excepcion-panel'),
+        planExcepcionFormulario: $('#plan-excepcion-formulario'),
+        planExcepcionMotivo: $('#plan-excepcion-motivo'),
+        planExcepcionMotivoError: $('#plan-excepcion-motivo-error'),
+        planExcepcionConfirmar: $('[data-cotizacion-excepcion-confirmar]'),
+        planExcepcionCancelar: $('[data-cotizacion-excepcion-cancelar]'),
+        planExcepcionResumenWrap: $('#plan-excepcion-resumen-wrap'),
+        planExcepcionResumen: $('#plan-excepcion-resumen')
     };
 
     const show = theBury.show || function (el) { el?.classList.remove('hidden'); };
@@ -205,7 +334,7 @@
         if (els.simular) {
             els.simular.disabled = value;
             const ico = els.simular.querySelector('.material-symbols-outlined');
-            if (ico) ico.textContent = value ? 'progress_activity' : 'calculate';
+            if (ico) ico.textContent = value ? 'progress_activity' : simularIcono();
         }
         if (els.guardar) {
             els.guardar.disabled = value || !state.ultimaSimulacion?.exitoso;
@@ -213,12 +342,32 @@
             if (ico) ico.textContent = value ? 'progress_activity' : 'save';
         }
         // Continuar exige además una alternativa elegida (§16): sin selección no hay
-        // "esta opción" con la que seguir.
+        // "esta opción" con la que seguir. Envío/Facturar pendientes de completar el modal
+        // también bloquean sólo el camino de Mi Venta — ver actualizarDisabledContinuar().
+        const sinSeleccion = !state.ultimaSimulacion?.exitoso || (!state.seleccionRow?.plan && !state.excepcion);
         if (els.continuar) {
-            els.continuar.disabled = value || !state.ultimaSimulacion?.exitoso || !state.seleccionRow?.plan;
+            els.continuar.disabled = value || sinSeleccion || tieneAlgunPendienteDeModal();
             const ico = els.continuar.querySelector('.material-symbols-outlined');
+            if (ico) ico.textContent = value ? 'progress_activity' : 'check';
+        }
+        // COTIZACION-MIVENTA-02: "Continuar con wizard" comparte la misma base (simulación +
+        // selección) pero NUNCA exige envío/facturar completos — el wizard tradicional recolecta
+        // esos datos paso a paso, por eso existen dos caminos.
+        if (els.continuarWizard) {
+            els.continuarWizard.disabled = value || sinSeleccion;
+            const ico = els.continuarWizard.querySelector('.material-symbols-outlined');
             if (ico) ico.textContent = value ? 'progress_activity' : 'arrow_forward';
         }
+    }
+
+    // COTIZACION-MIVENTA-02: Envío activado sin modal guardado, o Facturar activado sin
+    // configuración guardada, bloquean "Confirmar Mi Venta" (nunca "Continuar con wizard") —
+    // mismo criterio para ambos checkboxes (§PRE-FLIGHT del pedido: nunca dejar llegar a un
+    // botón habilitado que falla recién después).
+    function tieneAlgunPendienteDeModal() {
+        const envioPendiente = !!(els.tieneEnvio?.checked) && !state.envio;
+        const facturarPendiente = !!(els.facturarCheckbox?.checked) && !state.facturarConfig;
+        return envioPendiente || facturarPendiente;
     }
 
     function showFeedback(message, tone) {
@@ -245,6 +394,20 @@
     /* ---------------------------------------------------------------------
        Productos (cart-rows)
     --------------------------------------------------------------------- */
+    // Modo de descuento visible de una línea: el explícito si el usuario ya alternó; si no, "$"
+    // sólo cuando la línea trae importe y no porcentaje (p. ej. hidratada desde una cotización).
+    function descModoDe(producto) {
+        if (producto.descModo === 'pct' || producto.descModo === 'importe') return producto.descModo;
+        return (Number(producto.descuentoImporte) > 0 && !(Number(producto.descuentoPorcentaje) > 0)) ? 'importe' : 'pct';
+    }
+
+    // Punto "tiene descuento" en el botón del selector (visible sólo cuando ese modo está inactivo).
+    function marcarDescuentoCargado(input, modo, valor) {
+        input.closest('.dto-control')
+            ?.querySelector(`[data-cotizacion-dto-modo="${modo}"]`)
+            ?.classList.toggle('has-value', Number(valor) > 0);
+    }
+
     function renderProductos() {
         updateHeaderCounts();
         if (!els.productosTbody) return;
@@ -260,35 +423,47 @@
             const subtotal = Number(producto.precioUnitario) * Number(producto.cantidad);
             const article = document.createElement('article');
             article.className = 'cart-row';
-            // COTIZACION-SIMULAR-REDESIGN-VISUAL-POLISH-01: precio vigente sube a la
-            // fila del nombre (dato, no "widget" propio) y Subtotal pasa a su propia
-            // fila a ancho completo — antes compartía una grilla de 3 columnas con
-            // Dto.%/Dto.$ y se recortaba (overflow-x) en el rail angosto de Productos.
+            // COTIZACION-MOCKUP-01: nombre, cantidad, descuento y precio en UNA fila; el
+            // Subtotal va debajo con su divisor. El descuento por línea es un solo campo con
+            // selector % / $ (mockup): los dos <input> reales (mismos data-cotizacion-desc-*-index)
+            // siguen en el DOM y el selector sólo decide cuál se ve — un descuento ya cargado en
+            // el otro modo no se pierde al alternar (queda marcado con un punto en su botón).
+            const modo = descModoDe(producto);
+            const tienePct = Number(producto.descuentoPorcentaje) > 0;
+            const tieneImporte = Number(producto.descuentoImporte) > 0;
             article.innerHTML = `
-                <div class="flex items-start justify-between gap-2">
-                    <div class="cart-row__nombre truncate-1 min-w-0 flex-1">${esc(producto.nombre || `Producto ${producto.productoId}`)}</div>
-                    <button type="button" data-cotizacion-eliminar-index="${index}" class="cart-row__quitar shrink-0" aria-label="Quitar">
-                        <span class="material-symbols-outlined" style="font-size:16px">close</span>
+                <div class="cart-row__main">
+                    <div class="cart-row__info">
+                        <div class="cart-row__nombre truncate-1">${esc(producto.nombre || `Producto ${producto.productoId}`)}</div>
+                        <div class="cart-row__meta truncate-1">ID ${producto.productoId}${producto.codigo ? ' · ' + esc(producto.codigo) : ''}</div>
+                    </div>
+                    <div class="cart-row__field cart-row__field--qty">
+                        <span class="cart-row__label">Cant.</span>
+                        <div class="qty-step">
+                            <button type="button" aria-label="Restar" onclick="stepRow(this,-1)">−</button>
+                            <input type="number" min="1" value="${producto.cantidad}" data-cotizacion-cantidad-index="${index}" aria-label="Cantidad">
+                            <button type="button" aria-label="Sumar" onclick="stepRow(this,1)">+</button>
+                        </div>
+                    </div>
+                    <div class="cart-row__field">
+                        <span class="cart-row__label">Descuento</span>
+                        <div class="dto-control">
+                            <div class="dto-toggle" role="group" aria-label="Tipo de descuento">
+                                <button type="button" data-cotizacion-dto-modo="pct" data-index="${index}" aria-pressed="${modo === 'pct'}" class="${tienePct ? 'has-value' : ''}" aria-label="Descuento en porcentaje">%</button>
+                                <button type="button" data-cotizacion-dto-modo="importe" data-index="${index}" aria-pressed="${modo === 'importe'}" class="${tieneImporte ? 'has-value' : ''}" aria-label="Descuento en pesos">$</button>
+                            </div>
+                            <input type="number" value="${producto.descuentoPorcentaje ?? ''}" min="0" max="100" step="0.01" placeholder="0" data-cotizacion-desc-pct-index="${index}" aria-label="Descuento porcentaje producto" class="mini${modo === 'pct' ? '' : ' hidden'}">
+                            <input type="number" value="${producto.descuentoImporte ?? ''}" min="0" step="0.01" placeholder="0" data-cotizacion-desc-importe-index="${index}" aria-label="Descuento importe producto" class="mini${modo === 'importe' ? '' : ' hidden'}">
+                        </div>
+                    </div>
+                    <div class="cart-row__precio total-display">${formatCurrency(producto.precioUnitario)}</div>
+                    <button type="button" data-cotizacion-eliminar-index="${index}" class="cart-row__quitar" aria-label="Quitar">
+                        <span class="material-symbols-outlined" style="font-size:15px">close</span>
                     </button>
                 </div>
-                <div class="flex items-center justify-between gap-2">
-                    <div class="cart-row__meta truncate-1 min-w-0">ID ${producto.productoId}${producto.codigo ? ' · ' + esc(producto.codigo) : ''}</div>
-                    <div class="cart-row__precio text-slate-300 total-display shrink-0">${formatCurrency(producto.precioUnitario)}</div>
-                </div>
-                <div class="cart-row-inputs">
-                    <div class="qty-step">
-                        <button type="button" aria-label="Restar" onclick="stepRow(this,-1)">−</button>
-                        <input type="number" min="1" value="${producto.cantidad}" data-cotizacion-cantidad-index="${index}" aria-label="Cantidad">
-                        <button type="button" aria-label="Sumar" onclick="stepRow(this,1)">+</button>
-                    </div>
-                    <label class="block"><span class="text-[10px] text-slate-500">Dto. %</span>
-                        <input type="number" value="${producto.descuentoPorcentaje ?? ''}" min="0" max="100" step="0.01" placeholder="0" data-cotizacion-desc-pct-index="${index}" aria-label="Descuento porcentaje producto" class="mini w-full mt-0.5"></label>
-                    <label class="block"><span class="text-[10px] text-slate-500">Dto. $</span>
-                        <input type="number" value="${producto.descuentoImporte ?? ''}" min="0" step="0.01" placeholder="0" data-cotizacion-desc-importe-index="${index}" aria-label="Descuento importe producto" class="mini w-full mt-0.5"></label>
-                </div>
                 <div class="cart-row-subtotal">
-                    <span class="text-[10px] uppercase tracking-wide text-slate-500">Subtotal</span>
-                    <span class="text-sm font-semibold text-white total-display">${formatCurrency(subtotal)}</span>
+                    <span class="cart-row-subtotal__label">Subtotal</span>
+                    <span class="cart-row-subtotal__value total-display">${formatCurrency(subtotal)}</span>
                 </div>`;
             els.productosTbody.appendChild(article);
         });
@@ -317,10 +492,10 @@
             if (producto) {
                 els.productoSeleccionado.classList.remove('italic');
                 const marcaSel = [producto.marca, producto.submarca].filter(Boolean).join(' ');
-                els.productoSeleccionado.innerHTML = `<span class="material-symbols-outlined text-blue-400" style="font-size:14px">check_circle</span> ${esc(producto.nombre)}${marcaSel ? ' · ' + esc(marcaSel) : ''} · ${esc(formatCurrency(producto.precioVenta))} · Stock ${esc(producto.stockActual ?? '-')}`;
+                els.productoSeleccionado.innerHTML = `<span class="material-symbols-outlined text-blue-400 shrink-0" style="font-size:14px">check_circle</span><span class="min-w-0">${esc(producto.nombre)}${marcaSel ? ' · ' + esc(marcaSel) : ''} · ${esc(formatCurrency(producto.precioVenta))} · Stock ${esc(producto.stockActual ?? '-')}</span>`;
             } else {
                 els.productoSeleccionado.classList.add('italic');
-                els.productoSeleccionado.innerHTML = `<span class="material-symbols-outlined text-slate-600" style="font-size:14px">inventory_2</span> Sin producto seleccionado.`;
+                els.productoSeleccionado.textContent = 'Sin producto seleccionado';
             }
         }
         hide(els.productosDropdown);
@@ -332,9 +507,24 @@
         state.opcionSeleccionada = null;
         state.seleccionRow = null;
         state.bestKey = null;
+        // §13 del pedido: cualquier cambio de contexto (cliente/producto/monto/plan — todo lo
+        // que ya invalida acá la simulación vigente) revalida la excepción: nunca se arrastra
+        // silenciosamente a un contexto distinto al que se pidió.
+        resetExcepcion();
+        // COTIZACION-MIVENTA-02: el preview de IVA/alícuotas está atado a la última cotización
+        // guardada (mismos productos/precios) — cualquier cambio que invalide la simulación
+        // también invalida ese cache; se vuelve a pedir la próxima vez que se abra el modal.
+        state.facturaPreview = null;
+        state.facturaPreviewCotizacionId = null;
         if (els.guardar) els.guardar.disabled = true;
         resetGuardado();
         resetTotalesBar();
+        // Cualquier cambio de contexto invalida un preflight previo — nunca se deja un
+        // bloqueo desactualizado visible tras cambiar algo (no se limpia desde
+        // renderSeleccionBar(): ese mismo método corre en el `finally` de
+        // iniciarConfirmarMiVenta() justo después de mostrar un bloqueo real, y borrarlo ahí
+        // sería un auto-borrado inmediato).
+        renderBloqueos([]);
         // §9: una única acción primaria contextual. "Actualizar cotización" sólo
         // cuando hubo un resultado que quedó desactualizado por un cambio; en frío
         // (nunca se simuló) sigue siendo "Simular cotización".
@@ -343,8 +533,16 @@
         if (hadResults) setState('pending');
     }
 
+    // El CTA lleva el ícono del mockup: "sync" cuando actualiza una simulación vigente,
+    // "calculate" cuando simula por primera vez.
+    function simularIcono() {
+        return els.simularLabel?.textContent?.trim().startsWith('Actualizar') ? 'sync' : 'calculate';
+    }
+
     function setSimularLabel(texto) {
         if (els.simularLabel) els.simularLabel.textContent = texto;
+        const ico = els.simularIcono;
+        if (ico && !state.busy) ico.textContent = simularIcono();
     }
 
     // §16: el cierre del comparador dice qué se eligió y habilita las dos acciones
@@ -352,20 +550,60 @@
     // no cambia (guardarYPasarAVenta ya exigía simulación válida): sólo se hace
     // visible en el botón en vez de fallar recién al clickear.
     function renderSeleccionBar() {
+        renderTotalesEnvio();
         const row = state.seleccionRow;
         const hayOpcion = !!(row && row.plan);
-        if (els.continuar) els.continuar.disabled = !hayOpcion;
+        // VENTA-COTIZACION-EXCEPCION-01: sin selección normal vigente, un plan objetivo para
+        // excepción (§6: nunca reemplaza a una selección válida real) pasa a ofrecer su propia
+        // acción primaria — "Continuar con excepción" en vez de "Continuar con esta opción" —
+        // para no confundir ambos caminos bajo el mismo copy.
+        const excepcion = !hayOpcion ? state.excepcion : null;
+        const sinOpcion = !hayOpcion && !excepcion;
+        // COTIZACION-MIVENTA-01/02: envío ON o facturar ON sin sus modales guardados exigen
+        // completarlos antes de habilitar "Confirmar Mi Venta" (§PRE-FLIGHT: nunca dejar
+        // llegar a un botón habilitado que falla recién después) — "Continuar con wizard"
+        // nunca exige esto, el wizard tradicional recolecta esos datos paso a paso.
+        const envioPendiente = !!(els.tieneEnvio?.checked) && !state.envio;
+        const facturarPendiente = !!(els.facturarCheckbox?.checked) && !state.facturarConfig;
+        if (els.continuar) els.continuar.disabled = sinOpcion || envioPendiente || facturarPendiente;
+        if (els.continuarWizard) els.continuarWizard.disabled = sinOpcion;
+        if (els.continuarLabel) {
+            els.continuarLabel.textContent = excepcion
+                ? 'Continuar con excepción'
+                : (state.facturarConfig ? 'Confirmar y facturar' : 'Confirmar Mi Venta');
+        }
         if (!els.seleccionResumen) return;
 
+        if ((envioPendiente || facturarPendiente) && (hayOpcion || excepcion)) {
+            const falta = [envioPendiente && 'el envío', facturarPendiente && 'la facturación'].filter(Boolean).join(' y ');
+            els.seleccionResumen.innerHTML = `
+                <span class="seleccion-resumen__label">Falta completar ${esc(falta)}</span>
+                <span class="seleccion-resumen__valor">Guardá la configuración pendiente para poder confirmar la venta. "Continuar con wizard" sigue disponible.</span>`;
+            return;
+        }
+
         if (!hayOpcion) {
+            if (excepcion) {
+                els.seleccionResumen.innerHTML = `
+                    <span class="seleccion-resumen__label">Excepción solicitada</span>
+                    <span class="seleccion-resumen__valor">Crédito personal · pendiente de autorización al continuar · Motivo: ${esc(excepcion.motivo)}</span>`;
+                return;
+            }
             els.seleccionResumen.innerHTML = `
                 <span class="seleccion-resumen__label">Sin opción elegida</span>
                 <span class="seleccion-resumen__valor">Simulá y elegí una alternativa para continuar.</span>`;
             return;
         }
 
-        const medio = medioLabel(row.opcion.medioPago, row.opcion.nombreMedioPago);
-        const plan = planLabelCuotas(row.plan);
+        // Prioridad absoluta (auditoría UX del usuario, 2026-09-16): antes este resumen
+        // repetía "Medio · N cuotas · Total" sin decir cuánto vale cada cuota ni el
+        // recargo — para entenderlo había que volver a mirar la tabla. Ahora trae los
+        // mismos 4 datos que sostienen la decisión (medio/marca, cuotas y su valor,
+        // total, recargo) sin abrir nada más.
+        const nombre = nombreParaResumen(row);
+        const cuotasTxt = cuotasConValorTexto(row.plan);
+        const r = recargoValor(row.plan);
+        const recargoTxt = `${r > 0 ? '+' : ''}${pct(r)}`;
         // Crédito personal con autorización pendiente: el resumen lo dice acá también
         // (§16) — el botón sigue habilitado porque Venta SÍ deja continuar pidiendo
         // autorización de supervisor; NoApto es el único caso que Venta rechaza.
@@ -375,9 +613,62 @@
             : tone === 'no-apto'
                 ? ` <span class="rmedio-aptitud rmedio-aptitud--no-apto">· Cliente no apto</span>`
                 : '';
+        // VENTA-ENVIO-TOTAL-01 / COTIZACION-MOCKUP-01: el total de la opción (que ya incluye el
+        // recargo del plan) y el envío (sin recargo) se muestran por separado y se suman en TOTAL A
+        // COBRAR; sin envío guardado el envío es $0,00 y el total a cobrar es el de la opción.
+        const envioSel = importeEnvioActual();
         els.seleccionResumen.innerHTML = `
-            <span class="seleccion-resumen__label">Opción seleccionada</span>
-            <span class="seleccion-resumen__valor"><strong>${esc(medio)}</strong> · ${esc(plan)} · <span class="total-display">${formatCurrency(row.plan.total)}</span>${nota}</span>`;
+            <span class="seleccion-resumen__label seleccion-resumen__label--ok">Opción seleccionada</span>
+            <span class="seleccion-resumen__valor"><span class="cap-first">${esc(nombre)}</span> · ${esc(cuotasTxt)} · Total <span class="total-display">${formatCurrency(row.plan.total)}</span> · <span class="${r > 0 ? recargoClass(r) : ''}">${esc(recargoTxt)}</span> · Envío <span class="total-display">${formatCurrency(envioSel)}</span> · <strong>Total a cobrar <span id="cotizacion-seleccion-total-a-cobrar" class="total-display">${formatCurrency(Number(row.plan.total) + envioSel)}</span></strong>${nota}</span>`;
+    }
+
+    // Para tarjetas, `medioLabel` sólo da el nombre genérico del medio ("Tarjeta
+    // crédito"): la marca real (Visa, Mastercard...) viaja en `plan.plan`, que
+    // CotizacionPagoCalculator arma como "<marca> · <cuotas>". Se reusa el mismo
+    // separador para extraer sólo la marca acá, sin duplicar esa lista en el front.
+    function nombreParaResumen(row) {
+        const medio = medioLabel(row.opcion.medioPago, row.opcion.nombreMedioPago);
+        if (esTarjetaMedio(row.opcion.medioPago) && row.plan.plan) {
+            const marca = row.plan.plan.split(' · ')[0].trim();
+            if (marca) return marca;
+        }
+        return medio;
+    }
+
+    function cuotasConValorTexto(plan) {
+        return Number(plan.cantidadCuotas) > 1
+            ? `${plan.cantidadCuotas} cuotas de ${formatCurrency(plan.valorCuota)}`
+            : '1 pago';
+    }
+
+    // VENTA-ENVIO-TOTAL-01: importe de envío vigente (0 si no hay envío guardado o no tiene costo;
+    // un envío nunca resta). El backend normaliza igual (VentaMontos.NormalizarImporteEnvio) y es
+    // la fuente persistida: Cotizacion.CostoEnvio → VentaEnvio.CostoEnvio → Venta.TotalACobrar.
+    function importeEnvioActual() {
+        const costo = Number(state.envio?.costoEnvio);
+        return els.tieneEnvio?.checked && state.envio && Number.isFinite(costo) && costo > 0 ? costo : 0;
+    }
+
+    function hayEnvioGuardado() {
+        return !!(els.tieneEnvio?.checked && state.envio);
+    }
+
+    // Franja de totales (COTIZACION-MOCKUP-01): SIEMPRE los cinco datos del mockup —
+    // Subtotal · Descuento · Total productos · Envío · TOTAL A COBRAR. Sin envío guardado, Envío es
+    // $0,00 y Total a cobrar coincide con Total productos. El total a cobrar de la franja es antes
+    // de recargos/ajustes del medio de pago elegido (el envío no los recibe); con una opción elegida,
+    // el resumen de selección muestra el total a cobrar final. Sin simulación vigente quedan en "—".
+    function renderTotalesEnvio() {
+        if (!state.ultimaSimulacion) {
+            if (els.envioImporte) els.envioImporte.textContent = '—';
+            if (els.totalACobrar) els.totalACobrar.textContent = '—';
+            return;
+        }
+
+        const base = Number(state.ultimaSimulacion.totalBase) || 0;
+        const envio = importeEnvioActual();
+        if (els.envioImporte) els.envioImporte.textContent = formatCurrency(envio);
+        if (els.totalACobrar) els.totalACobrar.textContent = formatCurrency(base + envio);
     }
 
     // Prioridad 2 (auditoría en vivo, 2026-09-15): vuelve la franja Subtotal/
@@ -394,6 +685,7 @@
         }
         if (els.totalBase) els.totalBase.textContent = '—';
         els.totalesBar?.classList.add('is-pendiente');
+        renderTotalesEnvio();
     }
 
     // Vuelve a las acciones de pre-guardado (Simular/Guardar) y descarta el
@@ -558,6 +850,17 @@
         hide(els.clientesDropdown);
         invalidarSimulacion();
 
+        // COTIZACION-MIVENTA-01 (§CAMBIOS DE CONTEXTO del pedido): los datos de envío
+        // guardados están atados al cliente que estaba seleccionado (destinatario/domicilio
+        // salían de ahí) — un cambio de cliente nunca debe arrastrarlos silenciosamente a
+        // otro contexto. El checkbox vuelve a OFF; si el usuario todavía quiere envío,
+        // reabre el modal con los datos del nuevo cliente.
+        if (state.envio) {
+            state.envio = null;
+            if (els.tieneEnvio) els.tieneEnvio.checked = false;
+            renderResumenEnvio();
+        }
+
         if (!cliente) {
             hide(els.clienteSeleccionado);
             // "Cambiar" sólo tiene sentido con un cliente elegido (§5): con el buscador
@@ -711,6 +1014,281 @@
         }
     }
 
+    /* ---------------------------------------------------------------------
+       COTIZACION-MIVENTA-01 (POC "Mi Venta"): Envío a domicilio (modal real) y
+       Facturar. Mismos campos reales de VentaEnvio/VentaEnvioViewModel que ya usa el
+       paso Envío de Venta/Create — nada inventado. El detalle sólo viaja al backend
+       al confirmar la venta (CotizacionConversionRequest.Envio*), igual que motivo de
+       excepción: la Cotización sólo persiste la intención (TieneEnvio bool).
+    --------------------------------------------------------------------- */
+    const ENVIO_CAMPOS = ['envioDestinatario', 'envioDomicilio', 'envioTelefono', 'envioLocalidad',
+        'envioProvincia', 'envioCp', 'envioTransportista', 'envioCosto', 'envioFecha', 'envioObservaciones'];
+
+    function renderResumenEnvio() {
+        if (state.envio) {
+            show(els.envioResumen);
+            if (els.envioResumenTexto) {
+                els.envioResumenTexto.textContent = `${state.envio.destinatario} · ${state.envio.domicilio}`;
+            }
+        } else {
+            hide(els.envioResumen);
+        }
+    }
+
+    // Sólo completa lo que el operador todavía no tocó (mismo criterio que
+    // venta-envio.js en Venta/Create: no pisa lo ya tipeado).
+    function precargarEnvioDesdeCliente() {
+        const c = state.clienteSeleccionado;
+        if (!c) return;
+        if (els.envioDestinatario && !els.envioDestinatario.value.trim()) {
+            const nombre = `${c.apellido || ''}, ${c.nombre || ''}`.replace(/^,\s*/, '').replace(/,\s*$/, '').trim();
+            els.envioDestinatario.value = nombre || c.display || '';
+        }
+        if (els.envioDomicilio && !els.envioDomicilio.value.trim()) els.envioDomicilio.value = c.domicilio || '';
+        if (els.envioTelefono && !els.envioTelefono.value.trim()) els.envioTelefono.value = c.telefono || '';
+        if (els.envioLocalidad && !els.envioLocalidad.value.trim()) els.envioLocalidad.value = c.localidad || '';
+        if (els.envioProvincia && !els.envioProvincia.value.trim()) els.envioProvincia.value = c.provincia || '';
+        if (els.envioCp && !els.envioCp.value.trim()) els.envioCp.value = c.codigoPostal || '';
+    }
+
+    function abrirModalEnvio() {
+        hide(els.envioDestinatarioError);
+        hide(els.envioDomicilioError);
+        if (state.envio) {
+            if (els.envioDestinatario) els.envioDestinatario.value = state.envio.destinatario || '';
+            if (els.envioDomicilio) els.envioDomicilio.value = state.envio.domicilio || '';
+            if (els.envioTelefono) els.envioTelefono.value = state.envio.telefono || '';
+            if (els.envioLocalidad) els.envioLocalidad.value = state.envio.localidad || '';
+            if (els.envioProvincia) els.envioProvincia.value = state.envio.provincia || '';
+            if (els.envioCp) els.envioCp.value = state.envio.codigoPostal || '';
+            if (els.envioTransportista) els.envioTransportista.value = state.envio.transportista || '';
+            if (els.envioCosto) els.envioCosto.value = state.envio.costoEnvio ?? '';
+            if (els.envioFecha) els.envioFecha.value = state.envio.fechaProgramada || '';
+            if (els.envioObservaciones) els.envioObservaciones.value = state.envio.observaciones || '';
+        } else {
+            ENVIO_CAMPOS.forEach(k => { if (els[k]) els[k].value = ''; });
+            precargarEnvioDesdeCliente();
+        }
+        window.openModal?.('modal-envio');
+    }
+
+    function guardarModalEnvio() {
+        const destinatario = els.envioDestinatario?.value.trim() || '';
+        const domicilio = els.envioDomicilio?.value.trim() || '';
+        let valido = true;
+        if (!destinatario) {
+            if (els.envioDestinatarioError) { els.envioDestinatarioError.textContent = 'El destinatario es obligatorio.'; show(els.envioDestinatarioError); }
+            valido = false;
+        } else {
+            hide(els.envioDestinatarioError);
+        }
+        if (!domicilio) {
+            if (els.envioDomicilioError) { els.envioDomicilioError.textContent = 'El domicilio es obligatorio.'; show(els.envioDomicilioError); }
+            valido = false;
+        } else {
+            hide(els.envioDomicilioError);
+        }
+        if (!valido) return;
+
+        state.envio = {
+            destinatario,
+            domicilio,
+            telefono: els.envioTelefono?.value.trim() || null,
+            localidad: els.envioLocalidad?.value.trim() || null,
+            provincia: els.envioProvincia?.value.trim() || null,
+            codigoPostal: els.envioCp?.value.trim() || null,
+            transportista: els.envioTransportista?.value.trim() || null,
+            costoEnvio: els.envioCosto?.value ? parseFloat(els.envioCosto.value) : null,
+            fechaProgramada: els.envioFecha?.value || null,
+            observaciones: els.envioObservaciones?.value.trim() || null
+        };
+        if (els.tieneEnvio) els.tieneEnvio.checked = true;
+        renderResumenEnvio();
+        window.closeModal?.('modal-envio');
+        renderSeleccionBar();
+    }
+
+    // Si cancela sin haber guardado nunca una configuración válida, el checkbox
+    // vuelve a OFF (comportamiento pedido explícitamente) — con una ya guardada,
+    // cancelar sólo descarta la edición en curso.
+    function cancelarModalEnvio() {
+        window.closeModal?.('modal-envio');
+        if (!state.envio && els.tieneEnvio) els.tieneEnvio.checked = false;
+    }
+
+    /* ---------------------------------------------------------------------
+       COTIZACION-MIVENTA-02: "Facturar al confirmar" — mismo patrón que Envío
+       (checkbox → modal real → guardar config → resumen compacto → Editar), pero el
+       modal reutiliza EXACTAMENTE el partial de Venta/Details (_FacturaCamposEmision) y
+       el preview de Subtotal/IVA/alícuotas se pide al backend (mismo cálculo que
+       ConvertirAVentaAsync) — nunca se recalcula IVA en este archivo. La factura NUNCA
+       se emite acá: sólo se guarda la intención (state.facturarConfig) hasta que
+       "Confirmar Mi Venta"/"Confirmar y facturar" la use al convertir.
+    --------------------------------------------------------------------- */
+    function renderResumenFacturar() {
+        if (state.facturarConfig) {
+            show(els.facturarResumen);
+            if (els.facturarResumenTexto) {
+                const partes = [`Factura ${state.facturarConfig.tipo}`];
+                if (state.facturarConfig.puntoVenta) partes.push(`PV ${state.facturarConfig.puntoVenta}`);
+                els.facturarResumenTexto.textContent = partes.join(' · ');
+            }
+        } else {
+            hide(els.facturarResumen);
+        }
+    }
+
+    function renderPreviewFactura(preview) {
+        if (els.facturaSubtotal) els.facturaSubtotal.textContent = formatCurrency(preview.subtotal);
+        if (els.facturaIva) els.facturaIva.textContent = formatCurrency(preview.iva);
+        if (els.facturaTotal) els.facturaTotal.textContent = formatCurrency(preview.total);
+        // VENTA-ENVIO-TOTAL-01: si hay envío, el modal explica que se cobra pero no integra el comprobante.
+        const envioFactura = importeEnvioActual();
+        els.facturaResumenComercial?.classList.toggle('hidden', !(envioFactura > 0));
+        if (envioFactura > 0) {
+            if (els.facturaComercialProductos) els.facturaComercialProductos.textContent = formatCurrency(preview.total);
+            if (els.facturaComercialEnvio) els.facturaComercialEnvio.textContent = formatCurrency(envioFactura);
+            if (els.facturaComercialTotal) els.facturaComercialTotal.textContent = formatCurrency(Number(preview.total) + envioFactura);
+        }
+        const alicuotas = preview.resumenAlicuotas || [];
+        if (els.facturaAlicuotasSection) els.facturaAlicuotasSection.classList.toggle('hidden', alicuotas.length === 0);
+        if (els.facturaAlicuotasTbody) {
+            els.facturaAlicuotasTbody.replaceChildren();
+            alicuotas.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.className = 'text-slate-300';
+                tr.innerHTML = `
+                    <td class="py-2 pr-3">
+                        <p class="font-bold text-white">${esc(item.alicuotaIVANombre)}</p>
+                        <p class="text-[10px] text-slate-500">${esc(Number(item.porcentajeIVA).toFixed(2))}%</p>
+                    </td>
+                    <td class="px-2 py-2 text-right font-semibold">${formatCurrency(item.baseImponible)}</td>
+                    <td class="px-2 py-2 text-right font-semibold">${formatCurrency(item.iva)}</td>
+                    <td class="py-2 pl-3 text-right font-black text-white">${formatCurrency(item.total)}</td>`;
+                els.facturaAlicuotasTbody.appendChild(tr);
+            });
+        }
+    }
+
+    // El preview de IVA/alícuotas (GET /conversion/factura-preview) necesita una cotización
+    // persistida con los mismos snapshots que usará la Venta real — se guarda primero si
+    // todavía no existe (igual criterio que ya usa "Confirmar Mi Venta" antes de convertir).
+    async function abrirModalFacturar() {
+        clearFeedback();
+        if (!state.cotizacionGuardadaId) {
+            const data = await guardarCotizacion({ silencioso: true });
+            if (!data) {
+                if (els.facturarCheckbox) els.facturarCheckbox.checked = false;
+                return;
+            }
+        }
+
+        if (els.facturaTipo) els.facturaTipo.value = state.facturarConfig?.tipo || 'B';
+        if (els.facturaPuntoVenta) els.facturaPuntoVenta.value = state.facturarConfig?.puntoVenta || '';
+        if (els.facturaFecha) els.facturaFecha.value = state.facturarConfig?.fechaEmision || new Date().toISOString().slice(0, 10);
+
+        if (state.facturaPreview && state.facturaPreviewCotizacionId === state.cotizacionGuardadaId) {
+            renderPreviewFactura(state.facturaPreview);
+        } else {
+            try {
+                const preview = await fetchJson(`${urls.convertirBase}/${state.cotizacionGuardadaId}/conversion/factura-preview`);
+                state.facturaPreview = preview;
+                state.facturaPreviewCotizacionId = state.cotizacionGuardadaId;
+                renderPreviewFactura(preview);
+            } catch (error) {
+                showFeedback(error.message || 'No se pudo calcular el preview de facturación.', 'error');
+            }
+        }
+
+        window.openModal?.('modal-facturar-config');
+    }
+
+    function guardarModalFacturar() {
+        state.facturarConfig = {
+            tipo: els.facturaTipo?.value || 'B',
+            puntoVenta: els.facturaPuntoVenta?.value.trim() || null,
+            fechaEmision: els.facturaFecha?.value || new Date().toISOString().slice(0, 10)
+        };
+        if (els.facturarCheckbox) els.facturarCheckbox.checked = true;
+        renderResumenFacturar();
+        window.closeModal?.('modal-facturar-config');
+        renderSeleccionBar();
+    }
+
+    // Mismo criterio que Envío: sin configuración guardada nunca, cancelar apaga el checkbox;
+    // con una ya guardada, cancelar sólo descarta la edición en curso (§14 del pedido).
+    function cancelarModalFacturar() {
+        window.closeModal?.('modal-facturar-config');
+        if (!state.facturarConfig && els.facturarCheckbox) els.facturarCheckbox.checked = false;
+    }
+
+    /* ---------------------------------------------------------------------
+       COTIZACION-MIVENTA-02: bloque de bloqueo del preflight (§4/§NUEVA REGLA
+       FUNDAMENTAL del pedido) — "Confirmar Mi Venta" nunca crea la Venta a ciegas ni
+       navega sola al wizard cuando ya sabe que no puede terminar. Reutilizado también
+       para los dos casos residuales post-creación (rarísimos tras un preflight Listo,
+       pero posibles por una condición de carrera: caja cerrada entre el preflight y la
+       conversión, o falla de facturación después de confirmar) — mismo panel, título y
+       acciones distintas, nunca un redirect automático.
+    --------------------------------------------------------------------- */
+    const ACCIONES_BLOQUEO = {
+        'sin_caja': () => window.open(urls.caja, '_blank', 'noopener'),
+        'credito_personal_requiere_wizard': () => continuarConWizard()
+    };
+
+    function renderBloqueos(bloqueos, titulo) {
+        if (els.bloqueosTitulo) els.bloqueosTitulo.textContent = titulo || 'No se puede confirmar todavía';
+        if (!els.bloqueosLista) return;
+        els.bloqueosLista.replaceChildren();
+
+        if (!bloqueos || bloqueos.length === 0) {
+            hide(els.bloqueos);
+            return;
+        }
+
+        bloqueos.forEach(b => {
+            const li = document.createElement('li');
+            li.className = 'cotz-bloqueos__item';
+            const span = document.createElement('span');
+            span.textContent = b.mensaje;
+            li.appendChild(span);
+            if (b.accionSugerida) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'btn btn-soft btn-xs';
+                btn.textContent = b.accionSugerida;
+                btn.addEventListener('click', () => (ACCIONES_BLOQUEO[b.codigo] || (() => {}))());
+                li.appendChild(btn);
+            }
+            els.bloqueosLista.appendChild(li);
+        });
+        show(els.bloqueos);
+    }
+
+    // Renderiza el caso residual "Venta creada pero no confirmada" / "confirmada pero sin
+    // facturar" (condición de carrera post-preflight) reutilizando el mismo panel, con
+    // enlaces reales en vez de botones (nunca navega sola).
+    function renderResultadoParcial(titulo, mensaje, acciones) {
+        if (els.bloqueosTitulo) els.bloqueosTitulo.textContent = titulo;
+        if (!els.bloqueosLista) return;
+        els.bloqueosLista.replaceChildren();
+
+        const li = document.createElement('li');
+        li.className = 'cotz-bloqueos__item';
+        const span = document.createElement('span');
+        span.textContent = mensaje;
+        li.appendChild(span);
+        acciones.forEach(a => {
+            const link = document.createElement('a');
+            link.href = a.href;
+            link.className = 'btn btn-soft btn-xs no-underline';
+            link.textContent = a.label;
+            li.appendChild(link);
+        });
+        els.bloqueosLista.appendChild(li);
+        show(els.bloqueos);
+    }
+
     // Persiste la cotización con la alternativa elegida y deja la UI en el estado
     // "guardado" real (mostrarAccionesPostGuardado). Devuelve el payload guardado, o
     // null si falló — así el caller decide si sigue (continuarConOpcion) o no
@@ -722,7 +1300,16 @@
     // en dos botones con jerarquía explícita, sin cambiar endpoints, payload ni orden
     // de llamadas: "Continuar con esta opción" encadena exactamente la misma
     // secuencia que hacía el botón único.
-    async function guardarCotizacion() {
+    // COTIZACION-MIVENTA-02: `silencioso` evita el cambio de UI a "post-guardado"
+    // (mostrarAccionesPostGuardado oculta #cotizacion-acciones-pre — Confirmar Mi Venta/
+    // Continuar con wizard/Guardar — y muestra Pasar a venta/Ver cotización/Nueva). Antes de
+    // esta iteración, guardarCotizacion() siempre terminaba en una navegación inmediata
+    // (pasarAVenta) así que ese flip nunca se veía; ahora "Facturar al confirmar" necesita
+    // guardar internamente para pedir el preview de IVA (abrirModalFacturar) SIN abandonar la
+    // pantalla, y el preflight de "Confirmar Mi Venta"/"Continuar con wizard" tampoco debe
+    // esconder sus propios botones mientras decide qué mostrar — sólo "Guardar cotización"
+    // (guardarSolo, la única acción cuyo propósito ES persistir y quedarse) usa el modo normal.
+    async function guardarCotizacion({ silencioso = false } = {}) {
         clearFeedback();
         if (!state.ultimaSimulacion?.exitoso) {
             showFeedback('Primero simulá una cotización válida.', 'warning');
@@ -739,8 +1326,24 @@
                 nombreClienteLibre: els.nombreLibre?.value?.trim() || null,
                 telefonoClienteLibre: els.telefonoLibre?.value?.trim() || null,
                 fechaVencimiento: els.fechaVencimiento?.value || null,
-                tieneEnvio: els.tieneEnvio?.checked || false
+                tieneEnvio: els.tieneEnvio?.checked || false,
+                // VENTA-ENVIO-TOTAL-01: el importe viaja con la cotización (Cotizacion.CostoEnvio) para
+                // que sobreviva a "Pasar a venta" desde una cotización ya guardada.
+                costoEnvio: importeEnvioActual() > 0 ? importeEnvioActual() : null
             };
+            // VENTA-COTIZACION-EXCEPCION-01: sin selección normal vigente, el plan objetivo
+            // para excepción (state.excepcion) es lo que se guarda como elegido — así
+            // Cotizacion.MedioPagoSeleccionado queda en CreditoPersonal y la conversión
+            // (pasarAVenta) intenta esa alternativa en vez de caer al medio por defecto. El
+            // motivo/permiso de la excepción viajan aparte, sólo en pasarAVenta — guardar la
+            // cotización nunca autoriza nada por sí solo.
+            if (!payload.opcionSeleccionada && state.excepcion) {
+                payload.opcionSeleccionada = {
+                    medioPago: state.excepcion.medioPago,
+                    plan: state.excepcion.plan,
+                    cantidadCuotas: state.excepcion.cantidadCuotas
+                };
+            }
 
             data = await fetchJson(urls.guardar, {
                 method: 'POST',
@@ -758,8 +1361,10 @@
 
         state.cotizacionGuardadaId = data.id;
         state.cotizacionGuardadaClienteId = state.clienteSeleccionado?.id || null;
-        setState('saved');
-        mostrarAccionesPostGuardado(data);
+        if (!silencioso) {
+            setState('saved');
+            mostrarAccionesPostGuardado(data);
+        }
         setBusy(false);
         return data;
     }
@@ -773,38 +1378,200 @@
         showFeedback(`Cotización ${data.numero} guardada.`, 'ok');
     }
 
-    // Acción primaria "Continuar con esta opción" (§16): guarda y encadena a la
-    // conversión en venta con la alternativa elegida. Si el guardado falla no se
-    // intenta nada más; si guarda bien pero la conversión no puede seguir (sin cliente
-    // de sistema, o esa segunda llamada falla), la cotización queda guardada y visible
-    // con "Pasar a venta" para reintentar a mano, nunca en un estado ambiguo.
-    async function continuarConOpcion() {
-        const data = await guardarCotizacion();
-        if (!data) return;
+    // Payload compartido por preflight/convertir (confirmar) y convertir (wizard, sin
+    // confirmar) — una sola fuente para los campos reales, cada caller sólo agrega
+    // confirmarVenta/facturar según su camino (§9 del pedido: nunca confundir ambos).
+    function construirPayloadConversion(overrides) {
+        return {
+            usarPrecioCotizado: true,
+            confirmarAdvertencias: true,
+            clienteIdOverride: null,
+            observacionesAdicionales: null,
+            // VENTA-COTIZACION-EXCEPCION-01: mismo mecanismo de excepción documental que
+            // ya existe en Venta/Create — el backend (IVentaService.
+            // AplicarExcepcionDocumentalSiCorresponde) vuelve a decidir esto de forma
+            // independiente y authoritative; nunca se asume aprobada del lado cliente.
+            aplicarExcepcionDocumental: !!state.excepcion,
+            motivoExcepcionDocumental: state.excepcion?.motivo || null,
+            confirmarVenta: false,
+            facturar: false,
+            tipoFactura: state.facturarConfig?.tipo || 'B',
+            envioDestinatario: state.envio?.destinatario || null,
+            envioDomicilio: state.envio?.domicilio || null,
+            envioTelefono: state.envio?.telefono || null,
+            envioLocalidad: state.envio?.localidad || null,
+            envioProvincia: state.envio?.provincia || null,
+            envioCodigoPostal: state.envio?.codigoPostal || null,
+            envioTransportista: state.envio?.transportista || null,
+            envioCostoEnvio: state.envio?.costoEnvio ?? null,
+            envioFechaProgramada: state.envio?.fechaProgramada || null,
+            envioObservaciones: state.envio?.observaciones || null,
+            ...overrides
+        };
+    }
 
-        if (state.cotizacionGuardadaClienteId) {
-            showFeedback(`Cotización ${data.numero} guardada. Pasando a venta…`, 'ok');
-            await pasarAVenta();
-        } else {
-            showFeedback(`Cotización ${data.numero} guardada. Seleccioná un cliente del sistema para pasarla a venta.`, 'warning');
+    async function postConversion(path, overrides) {
+        const resp = await fetch(`${urls.convertirBase}/${state.cotizacionGuardadaId}/conversion/${path}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+            },
+            body: JSON.stringify(construirPayloadConversion(overrides))
+        });
+        return { resp, data: await resp.json().catch(() => ({})) };
+    }
+
+    // COTIZACION-MIVENTA-02 (§NUEVA REGLA FUNDAMENTAL/§3 del pedido): chequeo de sólo
+    // lectura ANTES de crear la Venta — reutiliza las MISMAS reglas reales que
+    // ConfirmarVentaAsync exige después de crear (stock, caja, permisos; Crédito personal
+    // siempre se reporta como bloqueo real, nunca oculto). Nunca crea nada.
+    async function ejecutarPreflight() {
+        const { resp, data } = await postConversion('preflight', { facturar: !!state.facturarConfig });
+        if (!resp.ok) return null;
+        return data;
+    }
+
+    // COTIZACION-MIVENTA-01 (§CONFIRMACIÓN FINAL): resumen antes de disparar la conversión
+    // real — se abre SÓLO cuando el preflight (iniciarConfirmarMiVenta) ya confirmó que
+    // puede terminar; nunca decide nada por sí solo.
+    function abrirModalConfirmarVenta() {
+        const row = state.seleccionRow;
+        const hayOpcion = !!(row && row.plan);
+        const excepcion = !hayOpcion ? state.excepcion : null;
+        if (!hayOpcion && !excepcion) return;
+
+        const c = state.clienteSeleccionado;
+        const clienteTxt = c ? `${c.apellido || ''}, ${c.nombre || ''}`.replace(/^,\s*/, '').replace(/,\s*$/, '').trim() || c.display : '—';
+        const medioTxt = hayOpcion
+            ? `${nombreParaResumen(row)} · ${cuotasConValorTexto(row.plan)}`
+            : 'Crédito personal · excepción solicitada';
+        const totalTxt = (hayOpcion && row.plan) ? formatCurrency(row.plan.total) : (els.totalBase?.textContent || '—');
+        const envioTxt = state.envio ? `Sí · ${state.envio.domicilio}` : 'No';
+        // VENTA-ENVIO-TOTAL-01: con envío guardado el modal separa Productos / Envío / TOTAL A COBRAR.
+        const conEnvio = hayEnvioGuardado();
+        const envioImp = importeEnvioActual();
+        const totalNum = (hayOpcion && row.plan) ? Number(row.plan.total) : Number(state.ultimaSimulacion?.totalBase);
+        const totalACobrarTxt = Number.isFinite(totalNum) ? formatCurrency(totalNum + envioImp) : '—';
+        // COTIZACION-MIVENTA-02: refleja la configuración real guardada en el modal de
+        // facturación (tipo + punto de venta), no un select simplificado.
+        const facturarTxt = state.facturarConfig
+            ? `Sí · Factura ${state.facturarConfig.tipo}${state.facturarConfig.puntoVenta ? ' · PV ' + state.facturarConfig.puntoVenta : ''}`
+            : 'No';
+
+        if (els.confirmarResumen) {
+            const fila = (label, valor) => `<div class="flex justify-between gap-3"><dt class="text-slate-400">${esc(label)}</dt><dd class="text-white text-right">${esc(valor)}</dd></div>`;
+            els.confirmarResumen.innerHTML =
+                fila('Cliente', clienteTxt) +
+                fila('Medio de pago', medioTxt) +
+                (conEnvio ? fila('Productos', totalTxt) : fila('Total', totalTxt)) +
+                fila('Envío', conEnvio ? `${formatCurrency(envioImp)} · ${state.envio.domicilio}` : envioTxt) +
+                (conEnvio ? `<div class="flex justify-between gap-3 border-t border-slate-700 pt-2"><dt class="font-semibold text-white">Total a cobrar</dt><dd id="cotizacion-confirmar-total-a-cobrar" class="text-white text-right text-base font-black">${esc(totalACobrarTxt)}</dd></div>` : '') +
+                fila('Facturación', facturarTxt);
+        }
+        // §23 del pedido: el CTA anticipa el resultado — Facturar OFF dice "Confirmar Mi
+        // Venta", Facturar ON dice "Confirmar y facturar"; excepción de Crédito personal
+        // sigue con su propio copy (nunca se trata como una selección normal).
+        if (els.confirmarAceptarLabel) {
+            els.confirmarAceptarLabel.textContent = excepcion
+                ? 'Continuar con excepción'
+                : (state.facturarConfig ? 'Confirmar y facturar' : 'Confirmar Mi Venta');
+        }
+        window.openModal?.('modal-confirmar-venta');
+    }
+
+    // COTIZACION-MIVENTA-02 (§CAMINO A del pedido): click en "Confirmar Mi Venta" — corre
+    // el preflight ANTES de abrir el modal de confirmación. Si no puede terminar, se queda
+    // en esta pantalla mostrando #cotizacion-bloqueos (nunca crea la Venta, nunca navega
+    // sola al wizard); si puede, abre el resumen y continuarConOpcion() recién crea/confirma
+    // cuando el operador acepta ahí.
+    async function iniciarConfirmarMiVenta() {
+        if (state.verificando || state.confirmando) return;
+        state.verificando = true;
+        if (els.continuar) els.continuar.disabled = true;
+        clearFeedback();
+        try {
+            const data = await guardarCotizacion({ silencioso: true });
+            if (!data) return;
+
+            if (!state.cotizacionGuardadaClienteId) {
+                showFeedback('Seleccioná un cliente del sistema para confirmar la venta.', 'warning');
+                return;
+            }
+
+            const preflight = await ejecutarPreflight();
+            if (!preflight) {
+                showFeedback('No se pudo verificar la venta. Reintentá.', 'error');
+                return;
+            }
+
+            if (!preflight.listo) {
+                renderBloqueos(preflight.bloqueos, 'No se puede confirmar todavía');
+                return;
+            }
+
+            renderBloqueos([]);
+            abrirModalConfirmarVenta();
+        } finally {
+            state.verificando = false;
+            renderSeleccionBar();
         }
     }
 
-    // Conversión directa: la cotización recién guardada usa precios vigentes, así
-    // que se convierte con precio cotizado y auto-confirma avisos informativos
-    // (p. ej. unidades trazables se asignan luego en Venta/Edit). La llama
-    // guardarYPasarAVenta() automáticamente cuando hay un cliente de sistema; el
-    // botón "Pasar a venta" del estado post-guardado la reusa igual para el caso en
-    // que el guardado no pudo continuar solo (sin cliente de sistema en ese
-    // momento, o esta llamada automática falló).
+    // Acción primaria dentro del modal de confirmación: crea/confirma/factura vía
+    // /conversion/convertir — sólo se llama después de un preflight Listo=true.
+    //
+    // §DOBLE SUBMIT del pedido: Venta/Create no tiene ninguna protección contra
+    // doble-submit hoy (auditado antes de implementar — ni disabled-on-click en el
+    // formulario clásico, ni idempotencia en el backend), así que acá no hay nada
+    // existente que "reutilizar" — esto es una protección nueva, mínima y necesaria: el
+    // botón queda disabled durante TODA la secuencia.
+    async function continuarConOpcion() {
+        // Reentrancia real (no sólo "disabled" visual): un segundo disparo sincrónico —
+        // doble click físico antes de que el modal termine de ocultarse, o el propio
+        // listener de #cotizacion-confirmar-aceptar reentrando — pasaría igual si sólo
+        // chequeáramos els.continuar.disabled, porque ese botón no es el que dispara la
+        // confirmación. state.confirmando se fija ANTES de cualquier await, así que un
+        // segundo llamado sincrónico ve el flag ya en true y corta acá, sin tocar la red.
+        if (state.confirmando) return;
+        state.confirmando = true;
+        if (els.continuar) els.continuar.disabled = true;
+        try {
+            const data = await guardarCotizacion({ silencioso: true });
+            if (!data) return;
+
+            if (state.cotizacionGuardadaClienteId) {
+                showFeedback(`Cotización ${data.numero} guardada. Confirmando venta…`, 'ok');
+                await pasarAVenta();
+            } else {
+                showFeedback(`Cotización ${data.numero} guardada. Seleccioná un cliente del sistema para confirmar la venta.`, 'warning');
+            }
+        } finally {
+            state.confirmando = false;
+            // Si pasarAVenta() tuvo éxito la página ya está navegando (window.location.assign);
+            // si falló o no se llegó a intentar, renderSeleccionBar() vuelve a habilitar según
+            // el estado real (nunca a mano) para permitir reintentar.
+            renderSeleccionBar();
+        }
+    }
+
+    // COTIZACION-MIVENTA-02 (§CAMINO A/§NUEVA REGLA FUNDAMENTAL/§20 del pedido): Confirmar +
+    // Facturar (si corresponde) — llamada sólo tras un preflight Listo=true, así que el
+    // camino esperado es siempre Venta/Details. El único caso en que puede NO confirmarse
+    // (condición de carrera real: p. ej. la caja se cerró entre el preflight y esta llamada)
+    // nunca redirige sola al wizard — se explica en #cotizacion-bloqueos con "Ver venta" y
+    // "Continuar con wizard" como elecciones explícitas (§NO HACER del pedido).
     async function pasarAVenta() {
         if (!state.cotizacionGuardadaId) return;
-
         if (!state.cotizacionGuardadaClienteId) {
             showFeedback('Seleccioná un cliente del sistema para pasar a venta.', 'warning');
             return;
         }
 
+        // COTIZACION-MIVENTA-01: además de llamarse desde continuarConOpcion() (donde
+        // #cotizacion-continuar ya está disabled), esta función es el handler directo del
+        // botón secundario "Pasar a venta" del estado post-guardado — ese botón sigue
+        // gestionando su propio spinner acá.
         const btn = els.pasarVenta;
         if (btn) {
             btn.disabled = true;
@@ -813,32 +1580,52 @@
         }
 
         try {
-            const resp = await fetch(`${urls.convertirBase}/${state.cotizacionGuardadaId}/conversion/convertir`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
-                },
-                body: JSON.stringify({
-                    usarPrecioCotizado: true,
-                    confirmarAdvertencias: true,
-                    clienteIdOverride: null,
-                    observacionesAdicionales: null
-                })
+            const { resp, data } = await postConversion('convertir', {
+                confirmarVenta: true,
+                facturar: !!state.facturarConfig
             });
 
-            const data = await resp.json().catch(() => ({}));
-
-            if (resp.ok && data.exitoso && data.ventaId) {
-                showFeedback(`Venta ${data.numeroVenta || ''} creada. Abriendo…`, 'ok');
-                window.location.assign(`${urls.ventaEdit}${data.ventaId}`);
+            if (!resp.ok || !data.exitoso || !data.ventaId) {
+                const mensaje = (data.errores && data.errores.length)
+                    ? data.errores.join(' ')
+                    : (data.error || 'No se pudo pasar la cotización a venta.');
+                showFeedback(mensaje, 'error');
                 return;
             }
 
-            const mensaje = (data.errores && data.errores.length)
-                ? data.errores.join(' ')
-                : (data.error || 'No se pudo pasar la cotización a venta.');
-            showFeedback(mensaje, 'error');
+            if (data.ventaConfirmada) {
+                const partes = [`Venta ${data.numeroVenta || ''} ${data.facturada ? 'facturada' : 'confirmada'}`];
+                if (data.excepcionDocumentalAplicada) partes.push('con excepción documental autorizada');
+                showFeedback(`${partes.join(' ')}. Abriendo…`, 'ok');
+
+                // §20 del pedido: Confirmar y Facturar no son una única transacción (arquitectura
+                // real preexistente, no se cambia acá) — si se pidió facturar y la venta quedó
+                // Confirmada SIN facturar, se explica en vez de asumir que todo salió bien.
+                if (state.facturarConfig && !data.facturada) {
+                    renderResultadoParcial(
+                        'Venta confirmada — no se pudo facturar',
+                        data.mensajeConfirmacion || 'La venta se confirmó pero no se pudo generar la factura.',
+                        [
+                            { label: 'Reintentar facturación', href: `${urls.ventaFacturar}${data.ventaId}` },
+                            { label: 'Ver venta', href: `${urls.ventaDetails}${data.ventaId}` }
+                        ]);
+                    return;
+                }
+
+                window.location.assign(`${urls.ventaDetails}${data.ventaId}`);
+                return;
+            }
+
+            // Residual: la Venta se creó pero no se pudo confirmar a pesar de un preflight
+            // Listo=true (condición de carrera). Nunca se navega sola al wizard — se ofrecen
+            // las dos salidas explícitas.
+            renderResultadoParcial(
+                'Venta creada — no se pudo confirmar',
+                data.mensajeConfirmacion || 'La venta se creó pero no se pudo confirmar. Podés reintentar desde el wizard.',
+                [
+                    { label: 'Continuar con wizard', href: `${urls.ventaEdit}${data.ventaId}` },
+                    { label: 'Ver venta', href: `${urls.ventaDetails}${data.ventaId}` }
+                ]);
         } catch (error) {
             showFeedback(error.message || 'No se pudo pasar la cotización a venta.', 'error');
         } finally {
@@ -847,6 +1634,51 @@
                 const ico = btn.querySelector('.material-symbols-outlined');
                 if (ico) ico.textContent = 'point_of_sale';
             }
+        }
+    }
+
+    // COTIZACION-MIVENTA-02 (§CAMINO B/§7/§8/§26 del pedido): "Continuar con wizard" — crea
+    // la Venta SIN confirmar (mismo ConvertirAVentaAsync existente, ConfirmarVenta=false) y
+    // va siempre a Venta/Edit, que ya reconstituye el wizard completo desde la Venta
+    // persistida (cliente, productos, medio, plan, envío, observaciones) — no hace falta
+    // ningún DTO ni mecanismo nuevo (confirmado en la auditoría antes de implementar).
+    async function continuarConWizard() {
+        if (state.continuandoWizard || state.confirmando || state.verificando) return;
+        state.continuandoWizard = true;
+        if (els.continuarWizard) els.continuarWizard.disabled = true;
+        clearFeedback();
+        try {
+            const data = await guardarCotizacion({ silencioso: true });
+            if (!data) return;
+
+            if (!state.cotizacionGuardadaClienteId) {
+                showFeedback('Seleccioná un cliente del sistema para continuar con el wizard.', 'warning');
+                return;
+            }
+
+            showFeedback(`Cotización ${data.numero} guardada. Abriendo el wizard…`, 'ok');
+
+            const { resp, data: conversion } = await postConversion('convertir', {
+                confirmarVenta: false,
+                facturar: false
+            });
+
+            if (!resp.ok || !conversion.exitoso || !conversion.ventaId) {
+                const mensaje = (conversion.errores && conversion.errores.length)
+                    ? conversion.errores.join(' ')
+                    : (conversion.error || 'No se pudo continuar con el wizard.');
+                showFeedback(mensaje, 'error');
+                return;
+            }
+
+            // Siempre Venta/Edit — "Continuar con wizard" nunca decide por resultado, a
+            // diferencia de "Confirmar Mi Venta" (§9 del pedido: no confundir los caminos).
+            window.location.assign(`${urls.ventaEdit}${conversion.ventaId}`);
+        } catch (error) {
+            showFeedback(error.message || 'No se pudo continuar con el wizard.', 'error');
+        } finally {
+            state.continuandoWizard = false;
+            renderSeleccionBar();
         }
     }
 
@@ -892,17 +1724,23 @@
         }[estado] || 'NoDisponible';
     }
 
+    const MEDIO_LABELS = {
+        0: 'Efectivo',
+        1: 'Transferencia',
+        2: 'Tarjeta crédito',
+        3: 'Tarjeta débito',
+        4: 'MercadoPago',
+        5: 'Crédito personal'
+    };
+
+    // `nombre` viene de la configuración real de la base (editable) y suele estar en minúscula
+    // y sin tildes ("tarjeta credito"). Si sólo difiere del nombre canónico del medio en
+    // mayúsculas/tildes, se muestra el canónico; cualquier otro nombre configurado se respeta.
     function medioLabel(medio, nombre) {
-        if (nombre) return nombre;
+        const canonico = typeof medio === 'string' ? medio : MEDIO_LABELS[medio];
+        if (nombre) return canonico && normalize(nombre) === normalize(canonico) ? canonico : nombre;
         if (typeof medio === 'string') return medio;
-        return {
-            0: 'Efectivo',
-            1: 'Transferencia',
-            2: 'Tarjeta crédito',
-            3: 'Tarjeta débito',
-            4: 'MercadoPago',
-            5: 'Crédito personal'
-        }[medio] || 'Medio';
+        return canonico || 'Medio';
     }
 
     function medioMeta(medio) {
@@ -915,14 +1753,52 @@
             'Transferencia': { icon: 'account_balance', tone: 'blue' },
             'Tarjeta crédito': { icon: 'credit_card', tone: 'purple' },
             'Tarjeta débito': { icon: 'credit_card', tone: 'blue' },
-            'MercadoPago': { icon: 'qr_code_2', tone: 'cyan' },
-            'Crédito personal': { icon: 'handshake', tone: 'amber' }
+            'MercadoPago': { icon: 'smartphone', tone: 'cyan' },
+            'Crédito personal': { icon: 'percent', tone: 'amber' }
         };
         return map[key] || { icon: 'payments', tone: 'slate' };
     }
 
     function esCreditoPersonalMedio(medio) {
         return medioLabel(medio, null) === 'Crédito personal';
+    }
+
+    function esTarjetaMedio(medio) {
+        const label = medioLabel(medio, null);
+        return label === 'Tarjeta crédito' || label === 'Tarjeta débito';
+    }
+
+    /* ---------------------------------------------------------------------
+       Excepción documental de Crédito personal (VENTA-COTIZACION-EXCEPCION-01)
+       Mismo mecanismo que ya existe en Venta/Create (ver esPrevalidacionExceptuable/
+       tieneOtrasCondicionesPendientes en su JS del wizard y
+       IVentaService.AplicarExcepcionDocumentalSiCorresponde en el backend, la ÚNICA
+       autoridad real): documentación incompleta o cupo insuficiente pueden exceptuarse
+       con motivo + permiso ventas.authorize; mora NUNCA se exceptúa. Esta pantalla no
+       tiene el desglose por categoría que sí expone PrevalidacionResultViewModel
+       (Motivos[].Categoria) — /api/cotizacion/aptitud-credito expone mora.tiene y
+       documentacion.completa directamente (misma fuente, IClienteAptitudService) — así
+       que la condición se deriva de esos dos campos. Es sólo una AFFORDANCE de UI: el
+       backend vuelve a decidir esto mismo, de forma independiente, al convertir.
+    --------------------------------------------------------------------- */
+    function esExcepcionDisponible(aptitud) {
+        if (!aptitud) return false;
+        if (aptitudTone(aptitud) !== 'no-apto') return false;
+        if (aptitud.mora?.tiene) return false; // mora: nunca exceptuable (igual que Venta/Create)
+        const documentacionIncompleta = aptitud.documentacion?.completa === false;
+        const cupoInsuficiente = Number(aptitud.faltante || 0) > 0;
+        return documentacionIncompleta || cupoInsuficiente;
+    }
+
+    // "Plan objetivo para excepción" vigente para esta fila puntual, o null. Se usa para
+    // decidir si la fila muestra "Solicitar excepción" o "Excepción solicitada" — nunca para
+    // tratarla como una selección válida (ver comentario de state.excepcion).
+    function excepcionParaRow(row) {
+        return state.excepcion && state.excepcion.key === optionKey(row) ? state.excepcion : null;
+    }
+
+    function resetExcepcion() {
+        state.excepcion = null;
     }
 
     // Prioridad 1 (auditoría en vivo del usuario, 2026-09-15 → rework funcional):
@@ -956,7 +1832,7 @@
         // la pill de al lado decía "No apto": la misma fila repetía el veredicto dos
         // veces y no aportaba el número que permite decidir qué hacer.
         const clsTone = tone === 'requiere-autorizacion' ? 'rmedio-aptitud--requiere-autorizacion' : 'rmedio-aptitud--no-apto';
-        return `<div class="rmedio-aptitud ${clsTone}">Cupo ${formatCurrency(state.aptitud.cupoDisponible)} · solicitado ${formatCurrency(state.aptitud.montoSolicitado)}</div>`;
+        return `<span class="rmedio-aptitud ${clsTone}">Cupo ${formatCurrency(state.aptitud.cupoDisponible)} · solicitado ${formatCurrency(state.aptitud.montoSolicitado)}</span>`;
     }
 
     /* ---------------------------------------------------------------------
@@ -981,10 +1857,7 @@
         if (view.tone === 'evaluando') {
             els.aptitudCredito.innerHTML = `
                 <div class="aptitud-card aptitud-card--evaluando">
-                    ${eyebrow}
-                    <div class="aptitud-card__head" style="color:#93a2b8">
-                        <span class="material-symbols-outlined" style="font-size:15px">progress_activity</span> Evaluando…
-                    </div>
+                    <div class="aptitud-card__top">${eyebrow}<span class="aptitud-card__head"><span class="material-symbols-outlined" style="font-size:15px">progress_activity</span> Evaluando…</span></div>
                 </div>`;
             return;
         }
@@ -995,8 +1868,7 @@
             // creyendo que el cliente fue rechazado.
             els.aptitudCredito.innerHTML = `
                 <div class="aptitud-card aptitud-card--error">
-                    ${eyebrow}
-                    <div class="aptitud-card__head"><span class="material-symbols-outlined" style="font-size:15px">error</span> No se pudo evaluar</div>
+                    <div class="aptitud-card__top">${eyebrow}<span class="aptitud-card__head"><span class="material-symbols-outlined" style="font-size:15px">error</span> No se pudo evaluar</span></div>
                     <p class="aptitud-card__resumen">Error al consultar la evaluación — no es un rechazo del cliente.</p>
                     <button type="button" class="btn btn-soft btn-xs" data-cotizacion-reintentar-aptitud>
                         <span class="material-symbols-outlined" style="font-size:14px">refresh</span> Reintentar
@@ -1015,8 +1887,7 @@
         if (tone === 'apto') {
             els.aptitudCredito.innerHTML = `
                 <div class="aptitud-card aptitud-card--apto">
-                    ${eyebrow}
-                    <div class="aptitud-card__head"><span class="material-symbols-outlined" style="font-size:15px">check_circle</span> Apto</div>
+                    <div class="aptitud-card__top">${eyebrow}<span class="aptitud-card__head"><span class="material-symbols-outlined" style="font-size:15px">check_circle</span> Apto</span></div>
                     <p class="aptitud-card__resumen">Cupo disponible: ${formatCurrency(data.cupoDisponible)}</p>
                     <details class="aptitud-card__detalle">
                         <summary><span class="material-symbols-outlined chev" style="font-size:13px">expand_more</span> Ver situación</summary>
@@ -1049,8 +1920,7 @@
         if (tone === 'requiere-autorizacion') {
             els.aptitudCredito.innerHTML = `
                 <div class="aptitud-card aptitud-card--requiere-autorizacion">
-                    ${eyebrow}
-                    <div class="aptitud-card__head"><span class="material-symbols-outlined" style="font-size:15px">gpp_maybe</span> Requiere autorización</div>
+                    <div class="aptitud-card__top">${eyebrow}<span class="aptitud-card__head"><span class="material-symbols-outlined" style="font-size:15px">gpp_maybe</span> Requiere autorización</span></div>
                     ${resumenLinea ? `<p class="aptitud-card__resumen">${esc(resumenLinea)}</p>` : ''}
                     <details class="aptitud-card__detalle">
                         <summary><span class="material-symbols-outlined chev" style="font-size:13px">expand_more</span> Ver situación</summary>
@@ -1067,8 +1937,7 @@
 
         els.aptitudCredito.innerHTML = `
             <div class="aptitud-card aptitud-card--no-apto">
-                ${eyebrow}
-                <div class="aptitud-card__head"><span class="material-symbols-outlined" style="font-size:15px">cancel</span> No apto</div>
+                <div class="aptitud-card__top">${eyebrow}<span class="aptitud-card__head"><span class="material-symbols-outlined" style="font-size:15px">cancel</span> No apto</span></div>
                 ${resumenLinea ? `<p class="aptitud-card__resumen">${esc(resumenLinea)}</p>` : ''}
                 <details class="aptitud-card__detalle">
                     <summary><span class="material-symbols-outlined chev" style="font-size:13px">expand_more</span> Ver situación</summary>
@@ -1090,6 +1959,11 @@
         if (!els.aptitudCredito) return;
         const cliente = state.clienteSeleccionado;
         if (!cliente?.id) {
+            // §12 (pedido del usuario, 2026-09-17): bumpear el token también acá — sin esto,
+            // una consulta en vuelo para un cliente que se QUITA (no se reemplaza por otro)
+            // seguía teniendo token === state.aptitudToken al resolver y pisaba este estado
+            // "sin cliente" con datos de un cliente que ya no está seleccionado.
+            state.aptitudToken++;
             state.aptitud = null;
             state.aptitudClienteId = null;
             state.aptitudMonto = null;
@@ -1099,6 +1973,9 @@
 
         const monto = Number(state.ultimaSimulacion?.totalBase ?? previewBase()) || 0;
         if (monto <= 0) {
+            // Mismo motivo: si el monto cae a 0 (p.ej. se vació el carrito) mientras una
+            // consulta anterior está en vuelo, esa respuesta tardía no debe aplicarse acá.
+            state.aptitudToken++;
             renderAptitudCredito(null);
             return;
         }
@@ -1117,6 +1994,7 @@
             state.aptitudClienteId = cliente.id;
             state.aptitudMonto = monto;
             renderAptitudCredito({ tone: 'ok', data });
+            refrescarTablaPorAptitud();
         } catch {
             if (token !== state.aptitudToken) return;
             state.aptitud = null;
@@ -1124,25 +2002,49 @@
         }
     }
 
+    // Bug crítico (reporte del usuario, 2026-09-17): simular() pinta la tabla de
+    // comparación ANTES de que esta consulta resuelva (dispara en paralelo, después
+    // del render) — con cliente elegido antes de agregar productos, state.aptitud
+    // todavía es null en ese primer pintado (evaluarAptitudCredito no llega a
+    // consultar sin monto > 0). El resultado: la card de Cliente ya muestra "No
+    // apto" con la evaluación fresca, pero la tabla quedó pintada con la aptitud
+    // vieja/nula y sigue mostrando Crédito personal "Disponible" con "Elegir" — la
+    // misma fila se contradice con la card, a metros de distancia. Repintar la
+    // tabla acá, en cuanto esta consulta trae un resultado nuevo, es la única forma
+    // de que ambas superficies queden de acuerdo (renderResultado ya preserva la
+    // selección vigente si sigue siendo válida, ver optionKey en su tail).
+    function refrescarTablaPorAptitud() {
+        if (state.ultimaSimulacion?.exitoso) renderResultado(state.ultimaSimulacion);
+    }
+
     // % a mostrar en la columna "Recargo" de la comparativa. Ojo: costoFinancieroTotal es un
     // IMPORTE en pesos (informativo, se usa aparte en el desglose de Credito personal), no un
     // porcentaje — mezclarlo acá en el Math.max inflaba el recargo mostrado a miles de "%".
+    // Ajuste firmado: un plan con ajuste negativo configurado (ej. descuento por pago en
+    // Efectivo) llega del servidor como recargoPorcentaje = 0 + descuentoPorcentaje > 0
+    // (ver CotizacionPagoCalculator.CrearPlanResultado). Se devuelve como negativo para que
+    // la comparativa muestre el descuento real en vez de un "0%" que oculta que el total
+    // ya viene rebajado. Recargo y descuento son excluyentes en un mismo plan.
     function recargoValor(plan) {
         if (!plan) return 0;
+        const descuento = Number(plan.descuentoPorcentaje || 0);
+        if (descuento > 0) return -descuento;
         return Math.max(Number(plan.recargoPorcentaje || 0), Number(plan.interesPorcentaje || 0));
+    }
+
+    function recargoTexto(r) {
+        return `${r > 0 ? '+' : ''}${pct(r)}`;
     }
 
     function pct(n) {
         return `${new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 }).format(n)}%`;
     }
 
-    // Recargo 0% es un valor neutral (no un éxito ni un descuento): sólo > 0 es
-    // ámbar. < 0 quedaría verde (descuento real), pero recargoValor() nunca
-    // devuelve negativo hoy — no se inventa ese caso acá (item 13/14 del lote).
+    // Mockup: > 0 es ámbar (recargo); 0% y < 0 (descuento real del plan, ej. Efectivo) son
+    // verdes — "sin recargo" es la buena noticia de la comparación.
     function recargoClass(r) {
         if (r > 0) return 'text-amber-300';
-        if (r < 0) return 'text-emerald-400';
-        return 'text-slate-400';
+        return 'text-emerald-400';
     }
 
     function groupByMedioPago(rows) {
@@ -1187,6 +2089,7 @@
         }
         if (els.totalBase) els.totalBase.textContent = formatCurrency(data.totalBase);
         els.totalesBar?.classList.remove('is-pendiente');
+        renderTotalesEnvio();
         updateHeaderCounts();
 
         els.resultadosTbody.replaceChildren();
@@ -1198,10 +2101,15 @@
             tr.innerHTML = `<td colspan="7" class="text-center text-sm text-slate-500" style="padding:1.5rem">No hay medios disponibles para los filtros seleccionados.</td>`;
             els.resultadosTbody.appendChild(tr);
         } else {
-            // mejor global: menor total con plan disponible
+            // mejor global: menor total con plan disponible. Un plan de Crédito
+            // personal No apto queda afuera de la comparación — coronarlo "Mejor
+            // precio" o auto-seleccionarlo sería ofrecer como ganadora una alternativa
+            // que Venta va a rechazar en el paso Crédito (mismo criterio que
+            // accionCellHtml/openPlanDrawer más abajo).
+            const bloqueada = r => esCreditoPersonalMedio(r.opcion.medioPago) && aptitudTone(state.aptitud) === 'no-apto';
             let bestKey = null, bestTotal = Infinity;
             rows.forEach(r => {
-                if (r.plan && Number(r.plan.total) < bestTotal) { bestTotal = Number(r.plan.total); bestKey = optionKey(r); }
+                if (r.plan && !bloqueada(r) && Number(r.plan.total) < bestTotal) { bestTotal = Number(r.plan.total); bestKey = optionKey(r); }
             });
             state.bestKey = bestKey;
 
@@ -1225,8 +2133,19 @@
             groups.forEach(group => appendGroup(frag, group, bestKey));
             els.resultadosTbody.appendChild(frag);
 
-            // auto-seleccionar recomendado (o el mejor) para habilitar guardar
-            const recomendado = rows.find(r => r.plan?.recomendado) || rows.find(r => r.plan && optionKey(r) === bestKey) || rows.find(r => r.plan);
+            // auto-seleccionar recomendado (o el mejor) para habilitar guardar — nunca
+            // una alternativa bloqueada (ver `bloqueada` arriba). Si esta es una
+            // repintada por aptitud llegada tarde (ver refrescarTablaPorAptitud) y la
+            // selección vigente sigue siendo válida, se preserva en vez de saltar al
+            // "mejor precio": sólo se descarta cuando la fila elegida quedó bloqueada
+            // por la aptitud recién resuelta.
+            const seleccionPrevia = state.seleccionRow
+                ? rows.find(r => r.plan && optionKey(r) === optionKey(state.seleccionRow) && !bloqueada(r))
+                : null;
+            const recomendado = seleccionPrevia
+                || rows.find(r => r.plan?.recomendado && !bloqueada(r))
+                || rows.find(r => r.plan && optionKey(r) === bestKey && !bloqueada(r))
+                || rows.find(r => r.plan && !bloqueada(r));
             if (recomendado) {
                 seleccionarRow(recomendado, { abrirDrawer: false });
             } else {
@@ -1270,18 +2189,62 @@
     // Antes ambas cosas compartían una sola pill que alternaba entre "Mejor precio",
     // "Elegir" y "Seleccionado" — mezclaba una etiqueta de estado con un botón y no
     // había forma visible de saber que la fila era clickeable.
+    // Prioridad absoluta (auditoría UX del usuario, 2026-09-16): "Disponible" repetido
+    // en cada fila (Efectivo, Transferencia, Tarjeta, MercadoPago, Cheque...) nunca
+    // cambia de valor — todo lo que llega a esta tabla YA está disponible, así que la
+    // pill sólo competía visualmente con Total/Cuota/Recargo sin aportar nada. Ahora la
+    // columna queda vacía en el caso trivial y sólo habla cuando hay algo real que
+    // advertir (Crédito personal con autorización u observación pendiente).
+    const PILL_NO_APTO = '<span class="pill pill-red"><span class="material-symbols-outlined">cancel</span> No apto</span>';
+
     function estadoCellHtml(row) {
         if (esCreditoPersonalMedio(row.opcion.medioPago)) {
             const tone = aptitudTone(state.aptitud);
-            if (tone === 'no-apto') return '<span class="pill pill-red">No apto</span>';
+            if (tone === 'no-apto') return PILL_NO_APTO;
             if (tone === 'requiere-autorizacion') return '<span class="pill pill-amber">Requiere autorización</span>';
         }
-        return '<span class="pill pill-green">Disponible</span>';
+        return '';
     }
 
+    // Prioridad absoluta (auditoría UX del usuario, 2026-09-16): la Acción tiene que
+    // ser coherente con la Estado de la misma fila/grupo. Antes esta función ignoraba
+    // la aptitud e imprimía "Elegir" para cualquier plan, incluso uno de Crédito
+    // personal ya marcado "No apto" en la columna de al lado — la fila entera se
+    // contradecía a sí misma. Ahora la acción sigue el mismo tri-estado que ya usan
+    // estadoCellHtml/pillOpciones: No apto no ofrece ninguna acción de selección,
+    // Requiere autorización lo dice en el propio botón en vez de sonar igual que un
+    // medio sin condiciones.
     function accionCellHtml(row, selectedKey) {
         const key = optionKey(row);
-        if (selectedKey && key === selectedKey) {
+        const selected = Boolean(selectedKey && key === selectedKey);
+        if (esCreditoPersonalMedio(row.opcion.medioPago)) {
+            const tone = aptitudTone(state.aptitud);
+            if (tone === 'no-apto') {
+                // VENTA-COTIZACION-EXCEPCION-01: "No apto" sigue siendo "No apto" (§5 del
+                // pedido) — la excepción es una vía extraordinaria separada, nunca lo
+                // reemplaza. Un plan con la excepción ya solicitada (state.excepcion, ver
+                // openPlanDrawer/confirmarExcepcionEnDrawer) lo dice explícitamente en vez de
+                // volver a ofrecer "Solicitar excepción"; nunca se ofrece la acción cuando no
+                // corresponde según la misma regla que ya usa Venta/Create (esExcepcionDisponible)
+                // o cuando el usuario actual no tiene el permiso (puedeExcepcionDocumental, mismo
+                // gate server-side que @if (User.TienePermiso("ventas","authorize")) en el wizard).
+                const excepcion = excepcionParaRow(row);
+                if (excepcion) {
+                    return `<button type="button" class="rt-btn rt-btn--warn" data-cotizacion-ver-excepcion="${esc(key)}" aria-pressed="true"><span class="material-symbols-outlined" style="font-size:13px">warning</span> Excepción solicitada</button>`;
+                }
+                if (puedeExcepcionDocumental && esExcepcionDisponible(state.aptitud)) {
+                    return `<button type="button" class="rt-btn rt-btn--warn" data-cotizacion-excepcion="${esc(key)}" aria-pressed="false"><span class="material-symbols-outlined" style="font-size:13px">warning</span> Solicitar excepción</button>`;
+                }
+                return '<span class="rt-accion-bloqueada" aria-disabled="true">No disponible</span>';
+            }
+            if (tone === 'requiere-autorizacion') {
+                if (selected) {
+                    return `<button type="button" class="rt-btn rt-btn--on" data-cotizacion-elegir="${esc(key)}" aria-pressed="true"><span class="material-symbols-outlined" style="font-size:13px">check</span> Seleccionado</button>`;
+                }
+                return `<button type="button" class="rt-btn rt-btn--warn" data-cotizacion-elegir="${esc(key)}" aria-pressed="false">Solicitar autorización</button>`;
+            }
+        }
+        if (selected) {
             return `<button type="button" class="rt-btn rt-btn--on" data-cotizacion-elegir="${esc(key)}" aria-pressed="true"><span class="material-symbols-outlined" style="font-size:13px">check</span> Seleccionado</button>`;
         }
         return `<button type="button" class="rt-btn" data-cotizacion-elegir="${esc(key)}" aria-pressed="false">Elegir</button>`;
@@ -1329,7 +2292,7 @@
             tr.innerHTML = `
                 <td><span class="rmedio"><span class="pay-ico pay-ico--slate"><span class="material-symbols-outlined" style="font-size:16px">${meta.icon}</span></span><span class="rmedio-nombre font-medium text-slate-300">${esc(group.label)}</span></span></td>
                 <td class="r text-slate-500">—</td>
-                <td colspan="3" class="text-xs text-amber-200/80"><span class="material-symbols-outlined text-amber-300" style="font-size:14px">${motivoIcon}</span> ${esc(motivo)}</td>
+                <td colspan="3" class="rt-motivo"><span class="material-symbols-outlined text-amber-300" style="font-size:14px">${motivoIcon}</span> ${esc(motivo)}</td>
                 <td><span class="pill ${pill.cls}">${esc(pill.label)}</span></td>
                 <td class="r rt-accion text-slate-600">—</td>`;
             frag.appendChild(tr);
@@ -1348,17 +2311,17 @@
         const minTotal = Math.min(...totals);
         const recargos = planRows.map(r => recargoValor(r.plan));
         const minR = Math.min(...recargos), maxR = Math.max(...recargos);
-        const recargoTxt = minR === maxR ? (minR > 0 ? `+${pct(minR)}` : pct(minR)) : `+${pct(minR)} a +${pct(maxR)}`;
+        const recargoTxt = minR === maxR ? recargoTexto(minR) : `${recargoTexto(minR)} a ${recargoTexto(maxR)}`;
 
         const fuenteTxt = group.opcion.fuenteTasaDescripcion
-            ? `<div class="text-[10px] text-slate-500">${esc(group.opcion.fuenteTasaDescripcion)}</div>`
+            ? `<div class="rmedio-sub">${esc(group.opcion.fuenteTasaDescripcion)}</div>`
             : '';
         // La pill de la fila-padre distingue NoApto (bloqueo real, Venta rechaza) de
         // RequiereAutorizacion (Venta sigue, pide autorización de supervisor).
         const aptitudNota = esCreditoPersonalMedio(group.medioPago) ? aptitudNotaHtml() : '';
         const toneGrupo = esCreditoPersonalMedio(group.medioPago) ? aptitudTone(state.aptitud) : null;
         const pillOpciones = toneGrupo === 'no-apto'
-            ? '<span class="pill pill-red">No apto</span>'
+            ? PILL_NO_APTO
             : toneGrupo === 'requiere-autorizacion'
                 ? '<span class="pill pill-amber">Requiere autorización</span>'
                 : '<span class="pill pill-green">Disponible</span>';
@@ -1366,18 +2329,26 @@
         // §13: la fila padre resume el medio (identidad + rango de precio + estado) y
         // su acción es EXPANDIR, no elegir — elegir es una decisión por plan, que vive
         // en las filas hijas. Por eso no lleva data-cotizacion-opcion-key.
+        // Banda angosta (mobile): los medios con planes arrancan colapsados para poder
+        // comparar medios de un vistazo (eran ~1400px de filas de plan) y se abren al
+        // tocar. Nunca se colapsa el grupo que contiene la opción elegida o la de mejor
+        // precio: la selección tiene que seguir a la vista. Ancho/desktop: sin cambios.
+        const seleccionKey = state.seleccionRow ? optionKey(state.seleccionRow) : null;
+        const colapsarGrupo = esBandaAngosta()
+            && !planRows.some(r => { const k = optionKey(r); return k === bestKey || k === seleccionKey; });
+
         const parent = document.createElement('tr');
         parent.className = 'parent';
-        parent.setAttribute('aria-expanded', 'true');
+        parent.setAttribute('aria-expanded', colapsarGrupo ? 'false' : 'true');
         parent.dataset.group = gkey;
         parent.innerHTML = `
-            <td><span class="rmedio"><span class="pay-ico pay-ico--${meta.tone}"><span class="material-symbols-outlined" style="font-size:16px">${meta.icon}</span></span><span><span class="rmedio-nombre font-semibold text-white">${esc(group.label)}</span>${fuenteTxt}${aptitudNota}</span><span class="material-symbols-outlined twist">expand_more</span></span></td>
-            <td class="r"><span class="text-[10px] text-slate-500">desde </span><span class="total-display font-semibold text-white">${formatCurrency(minTotal)}</span></td>
+            <td><span class="rmedio"><span class="pay-ico pay-ico--${meta.tone}"><span class="material-symbols-outlined" style="font-size:16px">${meta.icon}</span></span><span><span class="rmedio-nombre">${esc(group.label)}</span>${fuenteTxt}</span><span class="material-symbols-outlined twist">expand_more</span></span></td>
+            <td class="r rt-desde"><span class="text-slate-300">desde </span><span class="total-display font-semibold text-white">${formatCurrency(minTotal)}</span></td>
             <td class="text-slate-400">${planRows.length} planes</td>
             <td class="r text-slate-500">—</td>
-            <td class="r ${recargoClass(maxR)}">${recargoTxt}</td>
+            <td class="r font-semibold ${recargoClass(maxR)}">${recargoTxt}</td>
             <td>${pillOpciones}</td>
-            <td class="r rt-accion"><span class="rt-btn rt-btn--ghost" aria-hidden="true">Ver planes</span></td>`;
+            <td class="r rt-accion"><span class="rt-btn rt-btn--ghost" aria-hidden="true">Ver planes</span></td>${aptitudNota ? `<td class="rt-nota">${aptitudNota}</td>` : ''}`;
         frag.appendChild(parent);
 
         // detalle más barato
@@ -1385,8 +2356,19 @@
         planRows.forEach(r => { if (Number(r.plan.total) < cheapTotal) { cheapTotal = Number(r.plan.total); cheapKey = optionKey(r); } });
 
         planRows.forEach(row => {
-            frag.appendChild(buildDetailRow(row, gkey, bestKey, cheapKey));
+            const detalle = buildDetailRow(row, gkey, bestKey, cheapKey);
+            if (colapsarGrupo) detalle.hidden = true;
+            frag.appendChild(detalle);
         });
+    }
+
+    // Misma banda que los @container (max-width: 37.9375rem) de cotizacion-simulador.css:
+    // se mide el ancho REAL del host (standalone o panel embebido en Venta/Create), no el
+    // viewport — a 700px de viewport el cotizador ya está en 2 columnas.
+    function esBandaAngosta() {
+        const app = document.querySelector('[data-cotizacion-simulador]');
+        const host = app && (app.closest('.venta-cotizar-panel, .cotz-standalone') || app.parentElement);
+        return !!host && host.clientWidth > 0 && host.clientWidth < 38 * 16;
     }
 
     function planLabelCuotas(plan) {
@@ -1409,17 +2391,17 @@
         if (key === bestKey) tr.className = 'best';
         const cuotasTxt = Number(plan.cantidadCuotas) > 1 ? formatCurrency(plan.valorCuota) : '—';
         const fuenteTxt = row.opcion.fuenteTasaDescripcion
-            ? `<div class="text-[10px] text-slate-500">${esc(row.opcion.fuenteTasaDescripcion)}</div>`
+            ? `<div class="rmedio-sub">${esc(row.opcion.fuenteTasaDescripcion)}</div>`
             : '';
         const aptitudNota = esCreditoPersonalMedio(row.opcion.medioPago) ? aptitudNotaHtml() : '';
         tr.innerHTML = `
-            <td><span class="rmedio"><span class="pay-ico pay-ico--${meta.tone}"><span class="material-symbols-outlined" style="font-size:16px">${meta.icon}</span></span><span><span class="rmedio-nombre font-semibold text-white">${esc(medioLabel(row.opcion.medioPago, row.opcion.nombreMedioPago))}</span>${mejorPrecioBadge(key, bestKey)}${fuenteTxt}${aptitudNota}</span></span></td>
+            <td><span class="rmedio"><span class="pay-ico pay-ico--${meta.tone}"><span class="material-symbols-outlined" style="font-size:16px">${meta.icon}</span></span><span><span class="rmedio-nombre">${esc(medioLabel(row.opcion.medioPago, row.opcion.nombreMedioPago))}</span>${mejorPrecioBadge(key, bestKey)}${fuenteTxt}</span></span></td>
             <td class="r"><span class="total-display font-semibold text-white">${formatCurrency(plan.total)}</span></td>
             <td class="text-slate-400">${planLabelCuotas(plan)}</td>
-            <td class="r ${Number(plan.cantidadCuotas) > 1 ? 'text-slate-300 total-display' : 'text-slate-500'}">${cuotasTxt}</td>
-            <td class="r ${recargoClass(r)}">${r > 0 ? '+' : ''}${pct(r)}</td>
+            <td class="rt-cuota r ${Number(plan.cantidadCuotas) > 1 ? 'font-semibold text-slate-200 total-display' : 'text-slate-500 is-empty'}">${cuotasTxt}</td>
+            <td class="r font-semibold ${recargoClass(r)}">${r > 0 ? '+' : ''}${pct(r)}</td>
             <td>${estadoCellHtml(row)}</td>
-            <td class="r rt-accion">${accionCellHtml(row, null)}</td>`;
+            <td class="r rt-accion">${accionCellHtml(row, null)}</td>${aptitudNota ? `<td class="rt-nota">${aptitudNota}</td>` : ''}`;
         return tr;
     }
 
@@ -1440,10 +2422,10 @@
         const planName = plan.plan || medioLabel(row.opcion.medioPago, row.opcion.nombreMedioPago);
         tr.innerHTML = `
             <td><span class="plan-medio"><span class="plan-nombre text-slate-200">${esc(planName)}</span>${mejorPrecioBadge(key, bestKey)}</span></td>
-            <td class="r"><span class="total-display text-white">${formatCurrency(plan.total)}</span></td>
-            <td class="text-slate-400">${planLabelCuotas(plan)}</td>
-            <td class="r total-display text-slate-300">${Number(plan.cantidadCuotas) > 1 ? formatCurrency(plan.valorCuota) : '—'}</td>
-            <td class="r ${recargoClass(r)}">${r > 0 ? '+' : ''}${pct(r)}</td>
+            <td class="r"><span class="total-display font-semibold text-white">${formatCurrency(plan.total)}</span></td>
+            <td class="rt-plan text-slate-400">${planLabelCuotas(plan)}</td>
+            <td class="rt-cuota r font-semibold total-display text-slate-200${Number(plan.cantidadCuotas) > 1 ? '' : ' is-empty'}">${Number(plan.cantidadCuotas) > 1 ? formatCurrency(plan.valorCuota) : '—'}</td>
+            <td class="r font-semibold ${recargoClass(r)}">${r > 0 ? '+' : ''}${pct(r)}</td>
             <td></td>
             <td class="r rt-accion">${accionCellHtml(row, null)}</td>`;
         return tr;
@@ -1521,6 +2503,10 @@
         // abierto: se llega ahí explorando el detalle, no necesariamente desde la
         // fila ya seleccionada.
         state.planAbiertoKey = optionKey(row);
+        // El detalle cuota por cuota no debe competir con Total/cuotas/valor de
+        // cuota/recargo al ABRIR el drawer — si quedó expandido de una consulta
+        // anterior (mismo <details>, el drawer no se recrea), se repliega acá.
+        els.planCreditoCuotasDetalle?.removeAttribute('open');
         const plan = row.plan;
         const medio = medioLabel(row.opcion.medioPago, row.opcion.nombreMedioPago);
         const planName = plan.plan && plan.plan !== medio ? `${medio} · ${plan.plan}` : medio;
@@ -1532,9 +2518,10 @@
         if (els.planDetalleCuotas) els.planDetalleCuotas.textContent = cuotasTxt;
         if (els.planValorCuota) els.planValorCuota.textContent = Number(plan.cantidadCuotas) > 1 ? formatCurrency(plan.valorCuota) : '—';
         if (els.planRecargo) {
-            els.planRecargo.textContent = `${r > 0 ? '+' : ''}${pct(r)}`;
+            els.planRecargo.textContent = recargoTexto(r);
             els.planRecargo.className = recargoClass(r) + ' font-mono';
         }
+        if (els.planRecargoLabel) els.planRecargoLabel.textContent = r < 0 ? 'Descuento por plan' : 'Recargo total';
 
         // Item 24 del rework: estado de elegibilidad arriba del resto del drawer,
         // sólo para Crédito personal y sólo si ya hay una evaluación (misma que la
@@ -1562,11 +2549,53 @@
                             ? `<ul>${state.aptitud.motivos.map(m => `<li>${esc(m)}</li>`).join('')}</ul>` : ''}
                     </div>`;
                 show(els.planElegibilidad);
+
+                // El pie del drawer tiene que ofrecer la misma acción que la fila
+                // (accionCellHtml): un plan No apto no se puede "elegir" desde acá
+                // tampoco — sería la misma contradicción con otra puerta de entrada.
+                // VENTA-COTIZACION-EXCEPCION-01: cuando SÍ corresponde ofrecer la excepción
+                // (mismo criterio que accionCellHtml), este botón abre el formulario en vez de
+                // quedar deshabilitado — nunca selecciona la fila (ver el listener de
+                // [data-cotizacion-elegir-drawer], que branchea por state.planDrawerMode).
+                if (els.planElegirDrawer) {
+                    if (tone === 'no-apto') {
+                        const excepcionVigente = excepcionParaRow(row);
+                        const puedeExceptuar = puedeExcepcionDocumental && esExcepcionDisponible(state.aptitud);
+                        if (excepcionVigente) {
+                            state.planDrawerMode = 'excepcion-vigente';
+                            els.planElegirDrawer.disabled = true;
+                            els.planElegirDrawer.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px">shield_question</span> Excepción solicitada';
+                        } else if (puedeExceptuar) {
+                            state.planDrawerMode = 'excepcion';
+                            els.planElegirDrawer.disabled = false;
+                            els.planElegirDrawer.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px">shield_question</span> Solicitar excepción';
+                        } else {
+                            state.planDrawerMode = 'bloqueado';
+                            els.planElegirDrawer.disabled = true;
+                            els.planElegirDrawer.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px">block</span> No disponible';
+                        }
+                    } else if (tone === 'requiere-autorizacion') {
+                        state.planDrawerMode = 'elegir';
+                        els.planElegirDrawer.disabled = false;
+                        els.planElegirDrawer.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px">gpp_maybe</span> Solicitar autorización';
+                    } else {
+                        state.planDrawerMode = 'elegir';
+                        els.planElegirDrawer.disabled = false;
+                        els.planElegirDrawer.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px">check</span> Elegir esta opción';
+                    }
+                }
             } else {
                 hide(els.planElegibilidad);
                 els.planElegibilidad.innerHTML = '';
+                state.planDrawerMode = 'elegir';
+                if (els.planElegirDrawer) {
+                    els.planElegirDrawer.disabled = false;
+                    els.planElegirDrawer.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px">check</span> Elegir esta opción';
+                }
             }
         }
+
+        renderFormularioExcepcionEnDrawer(row);
 
         // Desglose de Credito personal: solo estos planes traen saldoAFinanciar/totalFinanciado
         // (server-authoritative, via CreditoSimulacionVentaService). El resto de los medios no
@@ -1591,6 +2620,77 @@
         window.openModal?.('modal-plan');
     }
 
+    // VENTA-COTIZACION-EXCEPCION-01: formulario de excepción documental dentro del drawer.
+    // Pinta según state.planDrawerMode, ya decidido por openPlanDrawer para esta fila:
+    // 'excepcion-vigente' muestra el resumen de lo ya solicitado (nunca "aplicada" — eso
+    // sólo lo confirma el backend al convertir, ver continuarConExcepcion); 'excepcion'
+    // deja el formulario listo pero PLEGADO (se abre con abrirFormularioExcepcionEnDrawer,
+    // desde el botón del pie o el "Solicitar excepción" de la fila); cualquier otro modo
+    // oculta todo el panel.
+    function renderFormularioExcepcionEnDrawer(row) {
+        if (!els.planExcepcionPanel) return;
+
+        if (state.planDrawerMode === 'excepcion-vigente') {
+            const excepcion = excepcionParaRow(row);
+            show(els.planExcepcionPanel);
+            hide(els.planExcepcionFormulario);
+            show(els.planExcepcionResumenWrap);
+            if (els.planExcepcionResumen) els.planExcepcionResumen.textContent = excepcion?.motivo || '';
+            return;
+        }
+
+        if (state.planDrawerMode !== 'excepcion') {
+            hide(els.planExcepcionPanel);
+            return;
+        }
+
+        hide(els.planExcepcionPanel);
+        show(els.planExcepcionFormulario);
+        hide(els.planExcepcionResumenWrap);
+        if (els.planExcepcionMotivo) els.planExcepcionMotivo.value = '';
+        els.planExcepcionMotivo?.classList.remove('border-red-500');
+        hide(els.planExcepcionMotivoError);
+    }
+
+    function abrirFormularioExcepcionEnDrawer() {
+        if (state.planDrawerMode !== 'excepcion') return;
+        show(els.planExcepcionPanel);
+        els.planExcepcionMotivo?.focus();
+    }
+
+    function cancelarFormularioExcepcionEnDrawer() {
+        hide(els.planExcepcionPanel);
+        if (els.planExcepcionMotivo) els.planExcepcionMotivo.value = '';
+        els.planExcepcionMotivo?.classList.remove('border-red-500');
+        hide(els.planExcepcionMotivoError);
+    }
+
+    // "Aplicar y continuar" del drawer: fija el PLAN OBJETIVO PARA EXCEPCIÓN (state.excepcion)
+    // — deliberadamente no llama seleccionarRow (§6: nunca se vuelve una selección válida acá).
+    // El backend recién decide de verdad al convertir (continuarConExcepcion/pasarAVenta), con
+    // el mismo criterio (IVentaService.AplicarExcepcionDocumentalSiCorresponde).
+    function confirmarExcepcionEnDrawer() {
+        const row = findRowByKey(state.planAbiertoKey);
+        if (!row) return;
+        const motivo = (els.planExcepcionMotivo?.value || '').trim();
+        if (!motivo) {
+            show(els.planExcepcionMotivoError);
+            els.planExcepcionMotivo?.classList.add('border-red-500');
+            els.planExcepcionMotivo?.focus();
+            return;
+        }
+        state.excepcion = {
+            key: optionKey(row),
+            medioPago: row.opcion.medioPago,
+            plan: row.plan.plan,
+            cantidadCuotas: row.plan.cantidadCuotas,
+            motivo
+        };
+        window.closeModal?.('modal-plan');
+        refrescarTablaPorAptitud();
+        renderSeleccionBar();
+    }
+
     // Item 25 del lote: Anticipo sólo importa mientras Crédito personal está
     // incluido en la comparativa. No oculta el input (el valor sigue viajando en
     // el payload igual, ver buildRequest) ni cambia el cálculo — sólo baja la
@@ -1612,9 +2712,51 @@
         els.agregarManual?.addEventListener('click', agregarProductoManual);
         els.simular?.addEventListener('click', simular);
         els.guardar?.addEventListener('click', guardarSolo);
-        els.continuar?.addEventListener('click', continuarConOpcion);
+        // COTIZACION-MIVENTA-02: "Confirmar Mi Venta" corre primero el preflight
+        // (§NUEVA REGLA FUNDAMENTAL); el modal de confirmación sólo se abre si puede
+        // terminar — continuarConOpcion() recién crea/confirma si el operador acepta ahí.
+        els.continuar?.addEventListener('click', iniciarConfirmarMiVenta);
+        els.continuarWizard?.addEventListener('click', continuarConWizard);
+        els.confirmarAceptar?.addEventListener('click', () => {
+            window.closeModal?.('modal-confirmar-venta');
+            continuarConOpcion();
+        });
+        els.confirmarCancelar?.addEventListener('click', () => window.closeModal?.('modal-confirmar-venta'));
         els.pasarVenta?.addEventListener('click', pasarAVenta);
         els.nuevaCotizacion?.addEventListener('click', () => window.location.reload());
+
+        // Envío: el checkbox abre/cierra el modal real de datos (§CHECKBOX "CONSIDERAR
+        // ENVÍO A DOMICILIO" del pedido) en vez de sólo declarar intención.
+        els.tieneEnvio?.addEventListener('change', () => {
+            if (els.tieneEnvio.checked) {
+                abrirModalEnvio();
+            } else {
+                state.envio = null;
+                renderResumenEnvio();
+                renderSeleccionBar();
+            }
+        });
+        els.envioEditar?.addEventListener('click', abrirModalEnvio);
+        els.envioGuardar?.addEventListener('click', guardarModalEnvio);
+        els.envioCancelar?.addEventListener('click', cancelarModalEnvio);
+
+        // COTIZACION-MIVENTA-02: Facturar sólo visible con permiso ventas/invoice
+        // (data-puede-facturar-bloque, gate server-side idéntico al de
+        // VentaController.Facturar/ConfirmarYFacturar) — mismo patrón checkbox → modal →
+        // resumen → Editar que ya usa Envío (§21 del pedido: alinear ambos visualmente).
+        if (puedeFacturar) show(els.facturarBloque);
+        els.facturarCheckbox?.addEventListener('change', () => {
+            if (els.facturarCheckbox.checked) {
+                abrirModalFacturar();
+            } else {
+                state.facturarConfig = null;
+                renderResumenFacturar();
+                renderSeleccionBar();
+            }
+        });
+        els.facturarEditar?.addEventListener('click', abrirModalFacturar);
+        els.facturarGuardar?.addEventListener('click', guardarModalFacturar);
+        els.facturarCancelar?.addEventListener('click', cancelarModalFacturar);
 
         els.limpiarCliente?.addEventListener('click', () => {
             setCliente(null);
@@ -1634,6 +2776,15 @@
         els.incluirCreditoPersonal?.addEventListener('change', actualizarPrioridadAnticipo);
         actualizarPrioridadAnticipo();
 
+        // Fecha "Válida hasta": vacía se ve como placeholder apagado (mockup); el input nativo de
+        // fecha no tiene placeholder, así que CSS lo atenúa vía data-vacio.
+        if (els.fechaVencimiento) {
+            const marcarVacio = () => { els.fechaVencimiento.dataset.vacio = String(!els.fechaVencimiento.value); };
+            els.fechaVencimiento.addEventListener('input', marcarVacio);
+            els.fechaVencimiento.addEventListener('change', marcarVacio);
+            marcarVacio();
+        }
+
         // descuentos generales + anticipo -> pendiente
         [els.descuentoGralPct, els.descuentoGralImporte, els.anticipo].forEach(el => {
             el?.addEventListener('input', () => invalidarSimulacion());
@@ -1641,6 +2792,25 @@
 
         // carrito: abrir confirmación de quitar
         els.productosTbody?.addEventListener('click', event => {
+            // Selector % / $ del descuento por línea (COTIZACION-MOCKUP-01): sólo alterna cuál de
+            // los dos <input> se ve; ningún valor cargado se modifica ni se descarta.
+            const modoBtn = event.target.closest('[data-cotizacion-dto-modo]');
+            if (modoBtn) {
+                const index = Number(modoBtn.dataset.index);
+                const modo = modoBtn.dataset.cotizacionDtoModo === 'importe' ? 'importe' : 'pct';
+                if (state.productos[index]) state.productos[index].descModo = modo;
+                const control = modoBtn.closest('.dto-control');
+                control?.querySelectorAll('[data-cotizacion-dto-modo]').forEach(btn => {
+                    btn.setAttribute('aria-pressed', String(btn === modoBtn));
+                });
+                const pctInput = control?.querySelector('[data-cotizacion-desc-pct-index]');
+                const importeInput = control?.querySelector('[data-cotizacion-desc-importe-index]');
+                pctInput?.classList.toggle('hidden', modo !== 'pct');
+                importeInput?.classList.toggle('hidden', modo !== 'importe');
+                (modo === 'pct' ? pctInput : importeInput)?.focus();
+                return;
+            }
+
             const deleteButton = event.target.closest('[data-cotizacion-eliminar-index]');
             if (!deleteButton) return;
             state.pendingDeleteIndex = Number(deleteButton.dataset.cotizacionEliminarIndex);
@@ -1674,6 +2844,7 @@
             if (descPctInput) {
                 const index = Number(descPctInput.dataset.cotizacionDescPctIndex);
                 state.productos[index].descuentoPorcentaje = parseNonNegativeDecimal(descPctInput.value);
+                marcarDescuentoCargado(descPctInput, 'pct', state.productos[index].descuentoPorcentaje);
                 invalidarSimulacion();
                 return;
             }
@@ -1682,6 +2853,7 @@
             if (descImporteInput) {
                 const index = Number(descImporteInput.dataset.cotizacionDescImporteIndex);
                 state.productos[index].descuentoImporte = parseNonNegativeDecimal(descImporteInput.value);
+                marcarDescuentoCargado(descImporteInput, 'importe', state.productos[index].descuentoImporte);
                 invalidarSimulacion();
                 return;
             }
@@ -1710,6 +2882,25 @@
                 return;
             }
 
+            // VENTA-COTIZACION-EXCEPCION-01: "Solicitar excepción"/"Excepción solicitada" abren
+            // el mismo drawer que ya usa esta fila para su detalle — el formulario de motivo
+            // vive ahí (§4 del pedido), nunca seleccionan la fila (openPlanDrawer, no
+            // seleccionarRow).
+            const excepcionBtn = event.target.closest('[data-cotizacion-excepcion]');
+            if (excepcionBtn && els.resultadosTbody.contains(excepcionBtn)) {
+                event.stopPropagation();
+                const row = findRowByKey(excepcionBtn.dataset.cotizacionExcepcion);
+                if (row) { openPlanDrawer(row); abrirFormularioExcepcionEnDrawer(); }
+                return;
+            }
+            const verExcepcionBtn = event.target.closest('[data-cotizacion-ver-excepcion]');
+            if (verExcepcionBtn && els.resultadosTbody.contains(verExcepcionBtn)) {
+                event.stopPropagation();
+                const row = findRowByKey(verExcepcionBtn.dataset.cotizacionVerExcepcion);
+                if (row) openPlanDrawer(row);
+                return;
+            }
+
             const parent = event.target.closest('tr.parent');
             if (parent && els.resultadosTbody.contains(parent)) {
                 const open = parent.getAttribute('aria-expanded') === 'true';
@@ -1720,11 +2911,18 @@
 
             // Click en el resto de la fila: abre el detalle del plan. Sigue marcándola
             // como seleccionada (mismo comportamiento que antes, y la barra de cierre
-            // necesita una opción vigente para habilitar Continuar).
+            // necesita una opción vigente para habilitar Continuar) — salvo un plan de
+            // Crédito personal No apto: ahí el click sólo abre el detalle (para ver por
+            // qué), nunca lo selecciona, porque el botón Elegir de esa fila tampoco
+            // existe (accionCellHtml).
             const selectable = event.target.closest('tr[data-cotizacion-opcion-key]');
             if (selectable && els.resultadosTbody.contains(selectable)) {
                 const row = findRowByKey(selectable.dataset.cotizacionOpcionKey);
-                if (row) seleccionarRow(row, { abrirDrawer: true });
+                if (row) {
+                    const bloqueada = esCreditoPersonalMedio(row.opcion.medioPago) && aptitudTone(state.aptitud) === 'no-apto';
+                    if (bloqueada) openPlanDrawer(row);
+                    else seleccionarRow(row, { abrirDrawer: true });
+                }
             }
         });
 
@@ -1732,10 +2930,21 @@
         // esto, llegar al detalle explorando dejaba al operador sin salida hacia la
         // decisión (tenía que cerrar y buscar la fila de nuevo).
         root.querySelector('[data-cotizacion-elegir-drawer]')?.addEventListener('click', () => {
+            // VENTA-COTIZACION-EXCEPCION-01: en modo 'excepcion' este botón abre el formulario
+            // de motivo en vez de seleccionar la fila (§6 — ver confirmarExcepcionEnDrawer).
+            // En 'excepcion-vigente'/'bloqueado' el botón está disabled, así que nunca dispara
+            // este click.
+            if (state.planDrawerMode === 'excepcion') {
+                abrirFormularioExcepcionEnDrawer();
+                return;
+            }
             const row = findRowByKey(state.planAbiertoKey);
             if (row) seleccionarRow(row, { abrirDrawer: false });
             window.closeModal?.('modal-plan');
         });
+
+        els.planExcepcionConfirmar?.addEventListener('click', confirmarExcepcionEnDrawer);
+        els.planExcepcionCancelar?.addEventListener('click', cancelarFormularioExcepcionEnDrawer);
 
         document.addEventListener('click', event => {
             if (!event.target.closest('#cotizacion-producto-buscar') && !event.target.closest('#cotizacion-productos-dropdown')) {

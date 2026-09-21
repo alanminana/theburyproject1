@@ -89,24 +89,24 @@
                     <label asp-for="AjusteCanalPorcentaje">Ajuste de canal <span class="req">%</span></label>
                     <div class="suffix"><input asp-for="AjusteCanalPorcentaje" type="number" step="0.01" /><span class="u">%</span></div>
                     <span class="hint">Recargo aplicado sobre el precio ERP al publicar.</span>
-                    <span asp-validation-for="AjusteCanalPorcentaje" style="color:var(--red);font-size:11.5px"></span>
+                    <span asp-validation-for="AjusteCanalPorcentaje" style="color:var(--red);font-size:var(--erp-fs-min, 0.75rem)"></span>
                 </div>
                 <div class="field">
                     <label asp-for="ComisionEstimadaPorcentaje">Comisión ML estimada <span class="req">%</span></label>
                     <div class="suffix"><input asp-for="ComisionEstimadaPorcentaje" type="number" step="0.01" /><span class="u">%</span></div>
                     <span class="hint">Para calcular el neto estimado por orden.</span>
-                    <span asp-validation-for="ComisionEstimadaPorcentaje" style="color:var(--red);font-size:11.5px"></span>
+                    <span asp-validation-for="ComisionEstimadaPorcentaje" style="color:var(--red);font-size:var(--erp-fs-min, 0.75rem)"></span>
                 </div>
                 <div class="field">
                     <label asp-for="CostoEnvioEstimado">Costo de envío estimado</label>
                     <div class="suffix"><input asp-for="CostoEnvioEstimado" type="number" step="0.01" /><span class="u">ARS</span></div>
-                    <span asp-validation-for="CostoEnvioEstimado" style="color:var(--red);font-size:11.5px"></span>
+                    <span asp-validation-for="CostoEnvioEstimado" style="color:var(--red);font-size:var(--erp-fs-min, 0.75rem)"></span>
                 </div>
                 <div class="field">
                     <label asp-for="MargenMinimoPorcentaje">Margen mínimo <span class="req">%</span></label>
                     <div class="suffix"><input asp-for="MargenMinimoPorcentaje" type="number" step="0.01" /><span class="u">%</span></div>
                     <span class="hint">Los push de precio advierten si quedan por debajo. Vacío = sin control.</span>
-                    <span asp-validation-for="MargenMinimoPorcentaje" style="color:var(--red);font-size:11.5px"></span>
+                    <span asp-validation-for="MargenMinimoPorcentaje" style="color:var(--red);font-size:var(--erp-fs-min, 0.75rem)"></span>
                 </div>
                 <div class="field">
                     <label asp-for="ReglaRedondeo">Regla de redondeo</label>

@@ -163,6 +163,73 @@ public sealed class CotizacionServicePersistenceTests : IDisposable
         Assert.Equal(0m, resultado.Anticipo);
     }
 
+    // VENTA-ENVIO-TOTAL-01: el importe de envío es un concepto separado del total de la opción
+    // (que ya lleva el recargo del plan): se persiste en la Cotización y se suma sólo en
+    // TotalACobrar, calculado en backend.
+    [Fact]
+    public async Task CrearCotizacion_ConEnvio_PersisteImporteYCalculaTotalACobrarSinTocarTotales()
+    {
+        var request = new CotizacionCrearRequest
+        {
+            Simulacion = Request(_cliente.Id).Simulacion,
+            OpcionSeleccionada = Request(_cliente.Id).OpcionSeleccionada,
+            TieneEnvio = true,
+            CostoEnvio = 1000m
+        };
+
+        var resultado = await _service.CrearAsync(request, "carlos");
+
+        Assert.True(resultado.TieneEnvio);
+        Assert.Equal(1000m, resultado.ImporteEnvio);
+        Assert.Equal(100m, resultado.TotalBase);          // productos: sin envío
+        Assert.Equal(110m, resultado.TotalSeleccionado);  // opción elegida: sin envío
+        Assert.Equal(1110m, resultado.TotalACobrar);      // 110 + 1000
+
+        // Persistido y recargado desde otra consulta: mismo importe (no depende de la UI).
+        var entity = await _context.Cotizaciones.AsNoTracking().SingleAsync(c => c.Id == resultado.Id);
+        Assert.Equal(1000m, entity.CostoEnvio);
+        Assert.Equal(1000m, entity.ImporteEnvio);
+    }
+
+    [Fact]
+    public async Task CrearCotizacion_SinEnvioConImporteEnRequest_IgnoraElImporte()
+    {
+        var request = new CotizacionCrearRequest
+        {
+            Simulacion = Request(_cliente.Id).Simulacion,
+            OpcionSeleccionada = Request(_cliente.Id).OpcionSeleccionada,
+            TieneEnvio = false,
+            CostoEnvio = 500m
+        };
+
+        var resultado = await _service.CrearAsync(request, "carlos");
+
+        Assert.Equal(0m, resultado.ImporteEnvio);
+        Assert.Equal(110m, resultado.TotalACobrar);
+        var entity = await _context.Cotizaciones.AsNoTracking().SingleAsync(c => c.Id == resultado.Id);
+        Assert.Null(entity.CostoEnvio);
+    }
+
+    [Theory]
+    [InlineData(-300)]
+    [InlineData(0)]
+    public async Task CrearCotizacion_ConEnvioSinImporteValido_NoSumaNada(int costoEnvio)
+    {
+        var request = new CotizacionCrearRequest
+        {
+            Simulacion = Request(_cliente.Id).Simulacion,
+            OpcionSeleccionada = Request(_cliente.Id).OpcionSeleccionada,
+            TieneEnvio = true,
+            CostoEnvio = costoEnvio
+        };
+
+        var resultado = await _service.CrearAsync(request, "carlos");
+
+        Assert.True(resultado.TieneEnvio);
+        Assert.Equal(0m, resultado.ImporteEnvio);
+        Assert.Equal(110m, resultado.TotalACobrar);   // un envío nunca resta ni oculta importes
+    }
+
     [Fact]
     public async Task CrearCotizacion_NoCreaVentaNiTocaStockCaja()
     {

@@ -9,6 +9,7 @@
     var currentRow = null;
     var caractIndex = 0;
     var _openTrigger = null;
+    var _tabs = null;
 
     function el(id) { return document.getElementById(id); }
 
@@ -275,19 +276,21 @@
     }
 
     // ── Solapas ─────────────────────────────────────────────────
+    // Autoridad compartida con producto-crear-modal.js (ver producto-modal-tabs.js):
+    // mismo patrón ARIA/teclado para ambos modales, cada uno con sus propios
+    // data-attribute.
+
+    function initTabs() {
+        _tabs = window.ProductoModalTabs.wire({
+            root: el(FORM_ID),
+            tabAttr: 'data-prod-edit-tab',
+            panelAttr: 'data-prod-edit-panel',
+            idPrefix: 'prod-edit'
+        });
+    }
 
     function activateTab(name) {
-        document.querySelectorAll('#' + FORM_ID + ' [data-prod-edit-tab]').forEach(function (btn) {
-            var active = btn.getAttribute('data-prod-edit-tab') === name;
-            btn.setAttribute('aria-selected', active ? 'true' : 'false');
-            btn.classList.toggle('border-primary', active);
-            btn.classList.toggle('text-white', active);
-            btn.classList.toggle('border-transparent', !active);
-            btn.classList.toggle('text-slate-400', !active);
-        });
-        document.querySelectorAll('#' + FORM_ID + ' [data-prod-edit-panel]').forEach(function (panel) {
-            panel.classList.toggle('hidden', panel.getAttribute('data-prod-edit-panel') !== name);
-        });
+        if (_tabs) _tabs.activate(name);
     }
 
     // El cálculo/desglose de precios vive en producto-precio-calculo.js
@@ -330,7 +333,12 @@
         if (nameEl) { nameEl.textContent = entity.nombre; nameEl.title = entity.nombre || ''; }
 
         var inactivoBadge = currentRow.querySelector('[data-prod-inactivo-badge]');
-        if (inactivoBadge) inactivoBadge.classList.toggle('hidden', !!entity.activo);
+        // hidden e inline-flex son utilidades de display en la misma capa de Tailwind y
+        // gana la que va después en tailwind.css (inline-flex), así que se alternan juntas.
+        if (inactivoBadge) {
+            inactivoBadge.classList.toggle('hidden', !!entity.activo);
+            inactivoBadge.classList.toggle('inline-flex', !entity.activo);
+        }
         currentRow.classList.toggle('bg-slate-950/40', !entity.activo);
 
         var codigoEl = currentRow.querySelector('[data-prod-codigo]');
@@ -448,6 +456,16 @@
 
     function handleServerErrors(errors) {
         ProductoModalFormUtils.handleServerErrors(errors, showValidation, '#' + FORM_ID);
+        jumpToFirstErrorTab(errors);
+    }
+
+    function jumpToFirstErrorTab(errors) {
+        if (!_tabs) return;
+        var fields = Object.keys(errors || {});
+        for (var i = 0; i < fields.length; i++) {
+            var tabName = _tabs.findTabForField(fields[i]);
+            if (tabName) { _tabs.activate(tabName); return; }
+        }
     }
 
     function escHtml(str) {
@@ -501,13 +519,6 @@
 
     function initDelegatedEvents() {
         document.addEventListener('click', async function (e) {
-            // Cambiar de solapa
-            var tabBtn = e.target.closest('[data-prod-edit-tab]');
-            if (tabBtn && el(FORM_ID) && el(FORM_ID).contains(tabBtn)) {
-                activateTab(tabBtn.getAttribute('data-prod-edit-tab'));
-                return;
-            }
-
             // Abrir modal edit
             var editBtn = e.target.closest('[data-prod-edit-id]');
             if (editBtn) {
@@ -572,6 +583,7 @@
     }
 
     document.addEventListener('DOMContentLoaded', function () {
+        initTabs();
         initSubmit();
         initDelegatedEvents();
         initCreditoPersonalModo();

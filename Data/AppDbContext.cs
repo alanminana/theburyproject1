@@ -1493,6 +1493,7 @@ namespace TheBuryProject.Data
                 entity.Property(e => e.TotalSeleccionado).HasPrecision(18, 2);
                 entity.Property(e => e.ValorCuotaSeleccionada).HasPrecision(18, 2);
                 entity.Property(e => e.Anticipo).HasPrecision(18, 2);
+                entity.Property(e => e.CostoEnvio).HasPrecision(18, 2);
 
                 entity.HasIndex(e => e.Numero)
                     .IsUnique()
@@ -1577,12 +1578,9 @@ namespace TheBuryProject.Data
                     .IsRequired()
                     .HasMaxLength(20);
 
-                entity.Property(e => e.CAE).HasMaxLength(50);
-
                 entity.HasIndex(e => e.Numero)
                     .IsUnique()
                     .HasFilter("IsDeleted = 0");
-                entity.HasIndex(e => e.CAE);
 
                 entity.HasOne(e => e.Venta)
                     .WithMany(v => v.Facturas)

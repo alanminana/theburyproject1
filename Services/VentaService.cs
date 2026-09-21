@@ -250,25 +250,12 @@ namespace TheBuryProject.Services
                         venta.Total, 
                         viewModel.CreditoId);
 
-                    // E2: Si NoViable, rechazar guardado completamente
-                    if (validacion.NoViable)
-                    {
-                        if (PuedeAplicarExcepcionDocumentalCreate(viewModel, validacion))
-                        {
-                            var motivoExcepcion = viewModel.MotivoExcepcionDocumentalCreate!.Trim();
-                            AplicarExcepcionDocumentalComoAutorizada(validacion, motivoExcepcion);
-
-                            _logger.LogWarning(
-                                "CreateAsync venta autorizada por excepción documental. Cliente:{ClienteId} Usuario:{Usuario}",
-                                viewModel.ClienteId,
-                                currentUserName);
-                        }
-                        else
-                        {
-                            throw new InvalidOperationException(
-                                $"No es posible crear la venta con crédito personal. {validacion.MensajeResumen}");
-                        }
-                    }
+                    // E2: Si NoViable, rechazar guardado completamente (salvo excepción aplicable).
+                    AplicarExcepcionDocumentalSiCorresponde(
+                        validacion,
+                        viewModel.AplicarExcepcionDocumental,
+                        viewModel.MotivoExcepcionDocumentalCreate,
+                        currentUserName);
 
                     await AplicarResultadoValidacionAsync(venta, validacion, currentUserName);
                 }
@@ -544,17 +531,22 @@ namespace TheBuryProject.Services
             await Task.CompletedTask;
         }
 
-        private bool PuedeAplicarExcepcionDocumentalCreate(
-            VentaViewModel viewModel,
+        // VENTA-COTIZACION-EXCEPCION-01: desacoplada de VentaViewModel (antes recibía el
+        // viewModel completo) para que CotizacionConversionService pueda invocar la MISMA
+        // regla desde CotizacionConversionRequest sin depender del modelo de Venta ni
+        // duplicar esta decisión — ver AplicarExcepcionDocumentalSiCorresponde más abajo.
+        private bool PuedeAplicarExcepcionDocumental(
+            bool aplicarExcepcionDocumental,
+            string? motivoExcepcionDocumental,
             ValidacionVentaResult validacion)
         {
-            if (!viewModel.AplicarExcepcionDocumental)
+            if (!aplicarExcepcionDocumental)
             {
-                _logger.LogWarning("Excepción documental: AplicarExcepcionDocumental={Valor}", viewModel.AplicarExcepcionDocumental);
+                _logger.LogWarning("Excepción documental: AplicarExcepcionDocumental={Valor}", aplicarExcepcionDocumental);
                 return false;
             }
 
-            if (string.IsNullOrWhiteSpace(viewModel.MotivoExcepcionDocumentalCreate))
+            if (string.IsNullOrWhiteSpace(motivoExcepcionDocumental))
             {
                 _logger.LogWarning("Excepción documental: MotivoExcepcionDocumentalCreate vacío");
                 return false;
@@ -649,6 +641,45 @@ namespace TheBuryProject.Services
                 TipoRequisitoPendiente.DocumentacionFaltante => TipoRazonAutorizacion.DocumentacionVencida,
                 _ => TipoRazonAutorizacion.ExcedeCupo
             };
+        }
+
+        /// <summary>
+        /// VENTA-COTIZACION-EXCEPCION-01: misma decisión que CreateAsync tomaba inline (antes de
+        /// esta extracción) al encontrar <c>validacion.NoViable</c> — expuesta en <see
+        /// cref="IVentaService"/> para que CotizacionConversionService la reutilice al convertir
+        /// una cotización con Crédito personal, en vez de reimplementar el gate de permiso
+        /// (ventas.authorize), el alcance excepcionable (documentación/cupo, nunca mora) o el
+        /// mensaje de rechazo. Si <paramref name="validacion"/> no es NoViable, no hace nada.
+        /// Si lo es y la excepción no corresponde (falta el permiso, falta el motivo, o hay algún
+        /// requisito pendiente que no es excepcionable), lanza InvalidOperationException con el
+        /// mismo mensaje que ya usa CreateAsync — el caller decide qué hacer con eso (CreateAsync
+        /// deja que se propague; CotizacionConversionService la traduce a un resultado Fallido).
+        /// </summary>
+        public void AplicarExcepcionDocumentalSiCorresponde(
+            ValidacionVentaResult validacion,
+            bool aplicarExcepcionDocumental,
+            string? motivoExcepcionDocumental,
+            string usuarioActual)
+        {
+            if (!validacion.NoViable)
+            {
+                return;
+            }
+
+            if (PuedeAplicarExcepcionDocumental(aplicarExcepcionDocumental, motivoExcepcionDocumental, validacion))
+            {
+                var motivoExcepcion = motivoExcepcionDocumental!.Trim();
+                AplicarExcepcionDocumentalComoAutorizada(validacion, motivoExcepcion);
+
+                _logger.LogWarning(
+                    "Venta autorizada por excepción documental. Usuario:{Usuario}",
+                    usuarioActual);
+            }
+            else
+            {
+                throw new InvalidOperationException(
+                    $"No es posible crear la venta con crédito personal. {validacion.MensajeResumen}");
+            }
         }
 
         /// <summary>
@@ -792,7 +823,7 @@ namespace TheBuryProject.Services
 
                 if (validacion.NoViable)
                 {
-                    if (PuedeAplicarExcepcionDocumentalCreate(viewModel, validacion))
+                    if (PuedeAplicarExcepcionDocumental(viewModel.AplicarExcepcionDocumental, viewModel.MotivoExcepcionDocumentalCreate, validacion))
                     {
                         var motivoExcepcion = viewModel.MotivoExcepcionDocumentalCreate!.Trim();
                         AplicarExcepcionDocumentalComoAutorizada(validacion, motivoExcepcion);
@@ -979,6 +1010,8 @@ namespace TheBuryProject.Services
                 // Registrar movimiento de caja al confirmar para ventas con cobro inmediato
                 // (Efectivo, Tarjeta, Cheque, Transferencia, MercadoPago).
                 // Las ventas a crédito personal y cuenta corriente no generan ingreso inmediato.
+                // Se registra TotalACobrar (productos + envío): un único ingreso por venta, así la
+                // reversión por cancelación (que espeja ese movimiento) devuelve también el envío.
                 if (venta.TipoPago != TipoPago.CreditoPersonal &&
                     venta.TipoPago != TipoPago.CuentaCorriente)
                 {
@@ -986,7 +1019,7 @@ namespace TheBuryProject.Services
                     await _cajaService.RegistrarMovimientoVentaAsync(
                         venta.Id,
                         venta.Numero,
-                        venta.Total,
+                        venta.TotalACobrar,
                         venta.TipoPago,
                         usuario);
                 }
@@ -1318,6 +1351,7 @@ namespace TheBuryProject.Services
                 "No se puede facturar la venta sin una caja abierta para el usuario actual.");
             var venta = await _context.Ventas
                 .Include(v => v.Facturas)
+                .Include(v => v.Envio)
                 .FirstOrDefaultAsync(v => v.Id == id && !v.IsDeleted);
 
             if (venta == null)
@@ -1333,7 +1367,9 @@ namespace TheBuryProject.Services
             factura.Numero = await _numberGenerator.GenerarNumeroFacturaAsync(factura.Tipo);
             factura.Subtotal = venta.Subtotal;
             factura.IVA = venta.IVA;
-            factura.Total = venta.Total;
+            // El comprobante cubre el total facturable (hoy = Venta.Total, sin envío): ver
+            // VentaMontos. Distinto de TotalACobrar, que es lo que se recibe (productos + envío).
+            factura.Total = venta.TotalFacturable;
 
             _context.Facturas.Add(factura);
 
@@ -1367,7 +1403,7 @@ namespace TheBuryProject.Services
                     await _cajaService.RegistrarMovimientoVentaAsync(
                         venta.Id,
                         venta.Numero,
-                        venta.Total,
+                        venta.TotalACobrar,
                         venta.TipoPago,
                         usuario);
                 }
@@ -2176,8 +2212,10 @@ namespace TheBuryProject.Services
         /// <summary>
         /// Alta/edición/baja del envío 1:1 de la venta al editar. La existencia de
         /// venta.Envio, no un flag en Venta, es la autoridad — igual patrón que
-        /// SincronizarDatosTarjetaEdicionAsync. No toca Total/IVA/caja/crédito: el costo
-        /// de envío es informativo.
+        /// SincronizarDatosTarjetaEdicionAsync. No toca Total/IVA/crédito: el importe de envío
+        /// (CostoEnvio) es un concepto separado que se suma en Venta.TotalACobrar. Sólo se
+        /// llega acá en estados previos a la confirmación (ValidarEstadoParaEdicion), así que el
+        /// importe no puede cambiar después de registrado el cobro.
         /// </summary>
         private void SincronizarEnvioEdicion(Venta venta, VentaViewModel viewModel)
         {
@@ -2222,7 +2260,7 @@ namespace TheBuryProject.Services
             destino.Provincia = origen.Provincia;
             destino.CodigoPostal = origen.CodigoPostal;
             destino.Transportista = origen.Transportista;
-            destino.CostoEnvio = origen.CostoEnvio;
+            destino.CostoEnvio = origen.CostoEnvio.HasValue ? Math.Max(0m, origen.CostoEnvio.Value) : null;
             destino.FechaProgramada = origen.FechaProgramada;
             destino.Observaciones = origen.Observaciones;
             // Estado, NumeroSeguimiento y las fechas de despacho/entrega NO se editan
@@ -2635,6 +2673,7 @@ namespace TheBuryProject.Services
             return await _context.Ventas
                 .Include(v => v.Detalles.Where(d => !d.IsDeleted && d.Producto != null && !d.Producto.IsDeleted)).ThenInclude(d => d.Producto)
                 .Include(v => v.DatosTarjeta)
+                .Include(v => v.Envio)
                 .Include(v => v.Credito)
                 .Include(v => v.Cliente)
                 .Include(v => v.VentaCreditoCuotas)

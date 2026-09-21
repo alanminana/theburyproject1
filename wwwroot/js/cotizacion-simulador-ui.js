@@ -19,7 +19,24 @@
     function openModal(id) { const el = document.getElementById(id); if (!el) return; el.classList.remove('hidden'); document.body.style.overflow = 'hidden'; }
     function closeModal(id) { const el = document.getElementById(id); if (!el) return; el.classList.add('hidden'); document.body.style.overflow = ''; }
     window.openModal = openModal; window.closeModal = closeModal;
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') { ['modal-plan', 'modal-quitar-producto'].forEach(id => { const el = document.getElementById(id); if (el && !el.classList.contains('hidden')) closeModal(id); }); } });
+    // COTIZACION-MIVENTA-02 (§31 del pedido — Escape): modal-envio y modal-confirmar-venta
+    // (COTIZACION-MIVENTA-01) y modal-facturar-config (esta iteración) no estaban en esta
+    // lista — Escape no los cerraba. Mismo criterio de "sin guardar nunca revierte el
+    // checkbox" que ya usan cancelarModalEnvio/cancelarModalFacturar: Escape en esos dos
+    // dispara el mismo botón "Cancelar" (no un simple ocultar) para no dejar el checkbox
+    // tildado con un modal cerrado sin datos guardados.
+    const CANCELAR_POR_ID = { 'modal-envio': 'cotizacion-envio-cancelar', 'modal-facturar-config': 'cotizacion-facturar-cancelar' };
+    document.addEventListener('keydown', e => {
+        if (e.key !== 'Escape') return;
+        ['modal-plan', 'modal-quitar-producto', 'modal-envio', 'modal-facturar-config', 'modal-confirmar-venta'].forEach(id => {
+            const el = document.getElementById(id);
+            if (!el || el.classList.contains('hidden')) return;
+            const cancelarId = CANCELAR_POR_ID[id];
+            const cancelarBtn = cancelarId && document.getElementById(cancelarId);
+            if (cancelarBtn) cancelarBtn.click();
+            else closeModal(id);
+        });
+    });
 
     // ---- Quote state signals ----
     // COTIZACION-SIMULAR-REDESIGN-VISUAL-IMPLEMENTACION-01: antes había 4 señales
@@ -47,19 +64,15 @@
             hint.innerHTML = s.hint ? '<span class="material-symbols-outlined" style="font-size:13px">' + s.icon + '</span> ' + s.hint : '';
         }
 
-        // COTIZACION-SIMULAR-REDESIGN-VISUAL-POLISH-01: jerarquía de CTA por estado.
-        // Con simulación vigente ("simulated") Guardar es la única acción primaria —
-        // antes Simular (azul, btn-primary) y Guardar (verde, habilitado) competían
-        // como dos CTAs de igual peso visual. En idle/pending/error, Simular sigue
-        // siendo la única acción disponible y mantiene el estilo primario. Sólo clase
-        // (no copy: "Simular de nuevo"/"Reintentar"/etc. no entran en el ancho fijo
-        // de 2 columnas del CTA sin desbordar sobre Guardar) — ids, handlers y
-        // disabled no se tocan acá.
+        // COTIZACION-MOCKUP-01: el CTA de la franja de totales conserva SIEMPRE el estilo
+        // primario (mockup: "Actualizar cotización" y "Confirmar Mi Venta" son ambos de acento).
+        // Antes (COTIZACION-SIMULAR-REDESIGN-VISUAL-POLISH-01) degradaba Simular a secundario con
+        // una simulación vigente para que Guardar fuera la única acción primaria; el mockup del
+        // usuario prevalece sobre esa jerarquía. Ids, handlers y disabled no se tocan acá.
         const simularBtn = document.getElementById('cotizacion-simular');
         if (simularBtn) {
-            const esSecundaria = state === 'simulated';
-            simularBtn.classList.toggle('btn-primary', !esSecundaria);
-            simularBtn.classList.toggle('btn-soft', esSecundaria);
+            simularBtn.classList.add('btn-primary');
+            simularBtn.classList.remove('btn-soft');
         }
     }
     window.setQuoteState = setQuoteState;

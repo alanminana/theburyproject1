@@ -107,7 +107,7 @@ async function agregarProductoSimulador(page) {
         await firstBtn.click();
 
         await expect(page.locator('#cotizacion-producto-seleccionado'))
-            .not.toHaveText('Sin producto seleccionado.', { timeout: 3_000 })
+            .not.toHaveText('Sin producto seleccionado', { timeout: 3_000 })
             .catch(() => null);
 
         await page.click('#cotizacion-agregar-producto');
@@ -171,6 +171,8 @@ async function crearCotizacionYNavegar(page, opts = {}) {
 
     // Aplicar descuento por producto si se indica
     if (opts.descImporte != null) {
+        // El descuento en pesos está detrás del selector % / $ de la línea (COTIZACION-MOCKUP-01).
+        await page.locator('[data-cotizacion-dto-modo="importe"][data-index="0"]').click();
         const descInput = page.locator('[data-cotizacion-desc-importe-index="0"]');
         await expect(descInput).toBeVisible({ timeout: 3_000 });
         await descInput.fill(String(opts.descImporte));

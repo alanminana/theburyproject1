@@ -23,6 +23,10 @@
     // Efectivo esperado lo calcula el backend (mismo criterio fisico que el detalle de apertura).
     var saldoTurnos = aperturasMostradas.Sum(a =>
         Model.ResumenFisicoPorApertura.TryGetValue(a.Id, out var r) ? r.CajaFisicaEsperada : 0m);
+
+    // Aperturas de un día comercial anterior: no se puede operar con ellas hasta cerrarlas.
+    var vencidasIds = Model.AperturasVencidasIds ?? new HashSet<int>();
+    var hayVencidasMostradas = aperturasMostradas.Any(a => vencidasIds.Contains(a.Id));
 }
 
 <div class="caja-index-shell flex min-h-full items-start gap-0">
@@ -71,6 +75,16 @@
                 @TempData["Error"]
             </div>
         }
+        @if (hayVencidasMostradas)
+        {
+            <div class="alert-erp alert-erp-warning" role="alert">
+                <span class="material-symbols-outlined" aria-hidden="true">schedule</span>
+                <span>
+                    Hay una caja abierta desde el día anterior. No se puede operar (ventas, cuotas ni
+                    movimientos) hasta cerrarla con arqueo y justificación.
+                </span>
+            </div>
+        }
 
         <!-- KPIs -->
         <div class="grid-kpi">
@@ -117,8 +131,9 @@
                             ? r
                             : new TheBuryProject.ViewModels.AperturaFisicoResumen { CajaFisicaEsperada = apertura.MontoInicial };
                         var esPropietario = apertura.UsuarioApertura == currentUser;
+                        var esVencida = vencidasIds.Contains(apertura.Id);
 
-                        <article class="card card-pad">
+                        <article class="card card-pad@(esVencida ? " caja-card-vencida" : "")">
                             <div class="flex items-start justify-between gap-3">
                                 <div class="min-w-0">
                                     <div class="flex items-center gap-2 flex-wrap">
@@ -130,11 +145,24 @@
                                     </div>
                                     <div class="mt-1 text-xs muted flex items-center gap-1.5">
                                         <span class="material-symbols-outlined" style="font-size:14px">person</span>
-                                        @apertura.UsuarioApertura · abierta @apertura.FechaApertura.ToString("HH:mm")
+                                        @apertura.UsuarioApertura · abierta @apertura.FechaApertura.ToString(esVencida ? "dd/MM HH:mm" : "HH:mm")
                                     </div>
                                 </div>
-                                <span class="chip chip-ok"><span class="material-symbols-outlined">lock_open</span>Abierta</span>
+                                @if (esVencida)
+                                {
+                                    <span class="chip chip-warn"><span class="material-symbols-outlined">schedule</span>Vencida</span>
+                                }
+                                else
+                                {
+                                    <span class="chip chip-ok"><span class="material-symbols-outlined">lock_open</span>Abierta</span>
+                                }
                             </div>
+                            @if (esVencida)
+                            {
+                                <p class="mt-2 text-xs text-amber-300">
+                                    Quedó abierta del día anterior. No se puede operar hasta cerrarla (arqueo y justificación).
+                                </p>
+                            }
                             <div class="mt-4 grid grid-cols-3 gap-2">
                                 <div class="card-2 p-2.5">
                                     <div class="text-[.68rem] uppercase tracking-wide muted-2 font-semibold">Fondo</div>
@@ -156,10 +184,13 @@
                                        class="btn btn-soft btn-sm no-underline">
                                         <span class="material-symbols-outlined">visibility</span>Ver turno
                                     </a>
-                                    <a asp-action="RegistrarMovimiento" asp-route-aperturaId="@apertura.Id"
-                                       class="btn btn-soft btn-sm no-underline">
-                                        <span class="material-symbols-outlined">add_card</span>Movimiento
-                                    </a>
+                                    @if (!esVencida)
+                                    {
+                                        <a asp-action="RegistrarMovimiento" asp-route-aperturaId="@apertura.Id"
+                                           class="btn btn-soft btn-sm no-underline">
+                                            <span class="material-symbols-outlined">add_card</span>Movimiento
+                                        </a>
+                                    }
                                     <a asp-action="Cerrar" asp-route-aperturaId="@apertura.Id"
                                        class="btn btn-primary btn-sm no-underline" style="margin-left:auto">
                                         <span class="material-symbols-outlined">lock</span>Cerrar caja

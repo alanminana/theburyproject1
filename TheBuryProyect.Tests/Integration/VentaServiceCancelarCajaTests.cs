@@ -101,6 +101,7 @@ file sealed class StubContratoVentaCreditoCancelarCaja : IContratoVentaCreditoSe
 {
     public Task<bool> ExisteContratoGeneradoAsync(int ventaId) => Task.FromResult(true);
     public Task<ContratoVentaCreditoValidacionResult> ValidarDatosParaGenerarAsync(int ventaId) => Task.FromResult(new ContratoVentaCreditoValidacionResult());
+    public ContratoVentaCreditoValidacionResult ValidarDatosClienteParaContrato(Cliente? cliente) => new();
     public Task<ContratoVentaCredito> GenerarAsync(int ventaId, string usuario) => throw new NotImplementedException();
     public Task<ContratoVentaCredito> GenerarPdfAsync(int ventaId, string usuario) => throw new NotImplementedException();
     public Task<ContratoVentaCreditoPdfArchivo?> ObtenerPdfAsync(int ventaId) => Task.FromResult<ContratoVentaCreditoPdfArchivo?>(null);

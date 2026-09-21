@@ -8,7 +8,9 @@ namespace TheBuryProject.Models.Entities
     /// Datos de envío/entrega a domicilio de una venta, 1:1 con Venta (igual patrón que
     /// DatosTarjeta/DatosCheque). Sólo existe si la venta tiene envío: la presencia de la
     /// fila es la única autoridad, Venta no tiene un flag "TieneEnvio" propio.
-    /// El costo es informativo: no impacta Subtotal/IVA/Total/caja/crédito de la venta.
+    /// El costo de envío es un importe que el cliente paga: se suma a lo que hay que cobrar
+    /// (<see cref="Venta.TotalACobrar"/>) y a lo que registra Caja, pero NO a Subtotal/IVA/Total ni
+    /// al comprobante ni al crédito de la venta (ver Helpers/VentaMontos).
     /// </summary>
     public class VentaEnvio : AuditableEntity
     {
@@ -44,7 +46,9 @@ namespace TheBuryProject.Models.Entities
         public string? NumeroSeguimiento { get; set; }
 
         /// <summary>
-        /// Costo del envío a fines informativos/logísticos. No se suma a Venta.Total.
+        /// Importe del envío que se le cobra al cliente (null/0 = sin cargo). Fuente única del
+        /// importe: se suma a Venta.TotalACobrar, nunca a Venta.Total. Una vez confirmada la venta
+        /// no se edita (Venta/Update sólo admite estados previos a la confirmación).
         /// </summary>
         public decimal? CostoEnvio { get; set; }
 

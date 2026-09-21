@@ -1,13 +1,21 @@
 using AutoMapper;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using TheBuryProject.Controllers;
 using TheBuryProject.Data;
 using TheBuryProject.Helpers;
+using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services;
+using TheBuryProject.Services.Exceptions;
 using TheBuryProject.Services.Interfaces;
+using TheBuryProject.Tests.Helpers;
 using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Tests.Integration;
@@ -414,7 +422,7 @@ public class CajaServiceTests : IDisposable
         var caja = await SeedCajaAsync();
         var apertura = await AbrirCajaAsync(caja, montoInicial: 1000m);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        await Assert.ThrowsAsync<DiferenciaCajaSinJustificacionException>(() =>
             _service.CerrarCajaAsync(
                 new CerrarCajaViewModel
                 {
@@ -425,6 +433,57 @@ public class CajaServiceTests : IDisposable
                     JustificacionDiferencia = null
                 },
                 "usuario1"));
+    }
+
+    [Fact]
+    public async Task CerrarCaja_DiferenciaSinJustificacion_SeLoguearComoWarningSinError()
+    {
+        var caja = await SeedCajaAsync();
+        var apertura = await AbrirCajaAsync(caja, montoInicial: 1000m);
+        var logger = new CapturingLogger<CajaService>();
+        var service = new CajaService(_context, BuildMapper(), logger, new StubNotificacionService());
+
+        await Assert.ThrowsAsync<DiferenciaCajaSinJustificacionException>(() =>
+            service.CerrarCajaAsync(
+                new CerrarCajaViewModel { AperturaCajaId = apertura.Id, EfectivoContado = 900m },
+                "usuario1"));
+
+        // Rechazo de validación esperado: una sola línea de warning, sin stack trace ni nivel Error.
+        var entrada = Assert.Single(logger.Entries);
+        Assert.Equal(LogLevel.Warning, entrada.Level);
+        Assert.Null(entrada.Exception);
+    }
+
+    [Fact]
+    public async Task Cerrar_DiferenciaSinJustificacion_DevuelveVistaConErrorEnElCampo()
+    {
+        var caja = await SeedCajaAsync();
+        var apertura = await AbrirCajaAsync(caja, montoInicial: 1000m);
+        var controller = new CajaController(
+            _service,
+            null!, // ICajaVendedorService — no usado: el usuario es supervisor
+            new StubSupervisorCurrentUser(),
+            NullLogger<CajaController>.Instance,
+            BuildMapper(),
+            _context,
+            new RelojComercialFake());
+        var httpContext = new DefaultHttpContext();
+        controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
+        controller.TempData = new TempDataDictionary(httpContext, new StubTempDataProvider());
+        var model = new CerrarCajaViewModel { AperturaCajaId = apertura.Id, EfectivoContado = 900m };
+
+        var result = await controller.Cerrar(model);
+
+        var view = Assert.IsType<ViewResult>(result);
+        Assert.Equal("Cerrar_tw", view.ViewName);
+        Assert.Same(model, view.Model);
+        Assert.False(controller.ModelState.IsValid);
+        var errores = controller.ModelState[nameof(CerrarCajaViewModel.JustificacionDiferencia)]!.Errors;
+        Assert.Contains(errores, e => e.ErrorMessage.Contains("justificación", StringComparison.OrdinalIgnoreCase));
+        // El modelo se repuebla con los datos vigentes del sistema para volver a mostrar el arqueo.
+        Assert.Equal(1000m, model.MontoEsperadoSistema);
+        // Ya no viaja como toast: el error vive en el campo.
+        Assert.False(controller.TempData.ContainsKey("Error"));
     }
 
     [Fact]
@@ -512,6 +571,102 @@ public class CajaServiceTests : IDisposable
         Assert.Equal(500m, cierre.TotalIngresosSistema);
         Assert.Equal(1_500m, cierre.MontoEsperadoSistema);
         Assert.Equal(0m, cierre.Diferencia);
+    }
+
+    // -------------------------------------------------------------------------
+    // Aperturas vencidas (abiertas de un día comercial anterior): bloqueo de operación
+    // -------------------------------------------------------------------------
+
+    private async Task MarcarComoDeAyerAsync(AperturaCaja apertura)
+    {
+        apertura.FechaApertura = DateTime.UtcNow.AddDays(-1);
+        await _context.SaveChangesAsync();
+    }
+
+    [Fact]
+    public void EsAperturaVencida_AperturaCerrada_NuncaEsVencidaAunqueSeaVieja()
+    {
+        var apertura = new AperturaCaja { FechaApertura = DateTime.UtcNow.AddDays(-5), Cerrada = true };
+
+        var vencida = CajaService.EsAperturaVencida(apertura, DateOnly.FromDateTime(DateTime.UtcNow), TimeZoneInfo.Utc);
+
+        Assert.False(vencida);
+    }
+
+    [Fact]
+    public void EsAperturaVencida_AbiertaHoy_NoEsVencida()
+    {
+        var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+        var apertura = new AperturaCaja { FechaApertura = DateTime.UtcNow, Cerrada = false };
+
+        var vencida = CajaService.EsAperturaVencida(apertura, hoy, TimeZoneInfo.Utc);
+
+        Assert.False(vencida);
+    }
+
+    [Fact]
+    public void EsAperturaVencida_AbiertaAyerSinCerrar_EsVencida()
+    {
+        var hoy = DateOnly.FromDateTime(DateTime.UtcNow);
+        var apertura = new AperturaCaja { FechaApertura = DateTime.UtcNow.AddDays(-1), Cerrada = false };
+
+        var vencida = CajaService.EsAperturaVencida(apertura, hoy, TimeZoneInfo.Utc);
+
+        Assert.True(vencida);
+    }
+
+    [Fact]
+    public async Task RegistrarMovimiento_AperturaVencida_LanzaExcepcion()
+    {
+        var caja = await SeedCajaAsync();
+        var apertura = await AbrirCajaAsync(caja, montoInicial: 1000m);
+        await MarcarComoDeAyerAsync(apertura);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.RegistrarMovimientoAsync(
+                BuildMovimiento(apertura.Id, TipoMovimientoCaja.Ingreso, 100m), "u"));
+
+        Assert.Contains("día anterior", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ObtenerAperturaActivaParaVenta_SoloHayVencida_RetornaNull()
+    {
+        var caja = await SeedCajaAsync();
+        var apertura = await AbrirCajaAsync(caja, montoInicial: 1000m);
+        await MarcarComoDeAyerAsync(apertura);
+
+        var activa = await _service.ObtenerAperturaActivaParaVentaAsync();
+
+        Assert.Null(activa);
+    }
+
+    [Fact]
+    public async Task ObtenerAperturaActivaParaVenta_HayVencidaYHoy_RetornaLaDeHoy()
+    {
+        var cajaVieja = await SeedCajaAsync();
+        var aperturaVieja = await AbrirCajaAsync(cajaVieja, montoInicial: 500m);
+        await MarcarComoDeAyerAsync(aperturaVieja);
+
+        var cajaHoy = await SeedCajaAsync();
+        var aperturaHoy = await AbrirCajaAsync(cajaHoy, montoInicial: 800m);
+
+        var activa = await _service.ObtenerAperturaActivaParaVentaAsync();
+
+        Assert.NotNull(activa);
+        Assert.Equal(aperturaHoy.Id, activa!.Id);
+    }
+
+    [Fact]
+    public async Task ObtenerAperturaActivaParaUsuario_SoloTieneVencida_RetornaNull()
+    {
+        var caja = await SeedCajaAsync();
+        var apertura = await AbrirCajaAsync(caja, montoInicial: 1000m);
+        await MarcarComoDeAyerAsync(apertura);
+
+        var activa = await _service.ObtenerAperturaActivaParaUsuarioAsync("testuser");
+
+        Assert.Null(activa);
     }
 
     // -------------------------------------------------------------------------
@@ -1526,4 +1681,38 @@ public class CajaServiceTests : IDisposable
         Assert.Equal(0, resultado.CierresConDiferencia);
         Assert.Equal(100m, resultado.PorcentajeCierresExactos);
     }
+
+    private static IMapper BuildMapper() =>
+        new MapperConfiguration(
+                cfg => cfg.AddProfile<MappingProfile>(),
+                NullLoggerFactory.Instance)
+            .CreateMapper();
+}
+
+file sealed class StubSupervisorCurrentUser : ICurrentUserService
+{
+    public string GetUsername() => "supervisor";
+    public string GetUserId() => "supervisor-id";
+    public bool IsAuthenticated() => true;
+    public string? GetEmail() => null;
+    public bool IsInRole(string role) => role == Roles.Administrador;
+    public bool HasPermission(string modulo, string accion) => true;
+    public string? GetIpAddress() => null;
+}
+
+file sealed class StubTempDataProvider : ITempDataProvider
+{
+    public IDictionary<string, object> LoadTempData(HttpContext context) => new Dictionary<string, object>();
+    public void SaveTempData(HttpContext context, IDictionary<string, object> values) { }
+}
+
+file sealed class CapturingLogger<T> : ILogger<T>
+{
+    public List<(LogLevel Level, Exception? Exception)> Entries { get; } = new();
+
+    public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+    public bool IsEnabled(LogLevel logLevel) => true;
+
+    public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+        Func<TState, Exception?, string> formatter) => Entries.Add((logLevel, exception));
 }

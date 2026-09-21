@@ -47,6 +47,7 @@ namespace TheBuryProject.ViewModels
         public string? NumeroSeguimiento { get; set; }
 
         [Display(Name = "Costo de envío"), DataType(DataType.Currency)]
+        [Range(0, 999999999.99, ErrorMessage = "El costo de envío no puede ser negativo.")]
         public decimal? CostoEnvio { get; set; }
 
         [Display(Name = "Fecha programada")]

@@ -16,6 +16,9 @@ public sealed class StubContratoVentaCreditoService : IContratoVentaCreditoServi
     public Task<ContratoVentaCreditoValidacionResult> ValidarDatosParaGenerarAsync(int ventaId)
         => Task.FromResult(new ContratoVentaCreditoValidacionResult());
 
+    public ContratoVentaCreditoValidacionResult ValidarDatosClienteParaContrato(Cliente? cliente)
+        => new();
+
     public Task<ContratoVentaCredito> GenerarAsync(int ventaId, string usuario)
         => throw new NotImplementedException();
 

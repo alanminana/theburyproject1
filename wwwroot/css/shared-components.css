@@ -270,7 +270,7 @@
 .btn-erp-primary:disabled,
 .btn-erp-primary[aria-disabled="true"] {
     background-color: #334155;
-    color: #64748b;
+    color: var(--erp-fg-3, #a6b1c3);
     box-shadow: none;
     cursor: not-allowed;
     pointer-events: none;
@@ -298,7 +298,7 @@
 .btn-erp-secondary:focus-visible { outline: 2px solid #f5c518; outline-offset: 2px; }
 .btn-erp-secondary:disabled,
 .btn-erp-secondary[aria-disabled="true"] {
-    color: #475569;
+    color: var(--erp-fg-4, #93a0b5);
     border-color: #1e293b;
     cursor: not-allowed;
     pointer-events: none;
@@ -314,7 +314,7 @@
     padding-inline: 1.25rem;
     border-radius: 0.75rem;
     background-color: transparent;
-    color: #94a3b8;              /* slate-400 */
+    color: var(--erp-fg-2, #b9c3d3);              /* slate-400 */
     font-size: 0.875rem;
     font-weight: 600;
     text-decoration: none;
@@ -330,7 +330,7 @@
 .btn-erp-ghost:focus-visible { outline: 2px solid #f5c518; outline-offset: 2px; }
 .btn-erp-ghost:disabled,
 .btn-erp-ghost[aria-disabled="true"] {
-    color: #475569;
+    color: var(--erp-fg-4, #93a0b5);
     border-color: #1e293b;
     cursor: not-allowed;
     pointer-events: none;
@@ -358,7 +358,7 @@
 .btn-erp-warning:focus-visible { outline: 2px solid #f59e0b; outline-offset: 2px; }
 .btn-erp-warning:disabled,
 .btn-erp-warning[aria-disabled="true"] {
-    color: #475569;
+    color: var(--erp-fg-4, #93a0b5);
     border-color: #1e293b;
     background-color: transparent;
     cursor: not-allowed;
@@ -389,7 +389,7 @@
 .btn-erp-success:disabled,
 .btn-erp-success[aria-disabled="true"] {
     background-color: #334155;
-    color: #64748b;
+    color: var(--erp-fg-3, #a6b1c3);
     box-shadow: none;
     cursor: not-allowed;
     pointer-events: none;
@@ -418,7 +418,7 @@
 .btn-erp-danger:disabled,
 .btn-erp-danger[aria-disabled="true"] {
     background-color: transparent;
-    color: #475569;
+    color: var(--erp-fg-4, #93a0b5);
     border-color: #1e293b;
     cursor: not-allowed;
     pointer-events: none;
@@ -591,14 +591,14 @@
     gap: 0.375rem;
     border-radius: 9999px;
     padding: 0.1875rem 0.625rem;
-    font-size: 0.6875rem;
+    font-size: var(--erp-fs-min, 0.75rem);
     font-weight: 700;
     letter-spacing: 0.05em;
     text-transform: uppercase;
 }
 
 .badge-erp-primary  { background-color: rgba(245, 197, 24, 0.12); color: #f5c518; border: 1px solid rgba(245, 197, 24, 0.2); }
-.badge-erp-neutral  { background-color: #1e293b; color: #94a3b8; border: 1px solid #334155; }
+.badge-erp-neutral  { background-color: #1e293b; color: var(--erp-fg-2, #b9c3d3); border: 1px solid #334155; }
 .badge-erp-success  { background-color: rgba(16, 185, 129, 0.1); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2); }
 .badge-erp-warning  { background-color: rgba(245, 158, 11, 0.1); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.2); }
 .badge-erp-danger   { background-color: rgba(239, 68, 68, 0.1);  color: #f87171; border: 1px solid transparent; }
@@ -627,8 +627,8 @@
     padding: 0.375rem 0.625rem;
     border-radius: 0.5rem;
     background-color: transparent;
-    color: #64748b;              /* slate-500 */
-    font-size: 0.75rem;
+    color: var(--erp-fg-3, #a6b1c3);              /* slate-500 */
+    font-size: var(--erp-fs-min, 0.75rem);
     font-weight: 600;
     text-decoration: none;
     border: none;
@@ -645,7 +645,7 @@
 /* Label — visible en mobile, oculto en sm+ */
 .row-action__label {
     display: inline;
-    font-size: 0.6875rem;
+    font-size: var(--erp-fs-min, 0.75rem);
     font-weight: 600;
 }
 
@@ -662,21 +662,21 @@
 }
 
 /* -- Primary: ver / detalle -- */
-.row-action--primary { color: #64748b; }
+.row-action--primary { color: var(--erp-fg-3, #a6b1c3); }
 .row-action--primary:hover {
     background-color: rgba(245, 197, 24, 0.12);
     color: #f5c518;
 }
 
 /* -- Warning: acción reversible / devolver / pagar -- */
-.row-action--warning { color: #64748b; }
+.row-action--warning { color: var(--erp-fg-3, #a6b1c3); }
 .row-action--warning:hover {
     background-color: rgba(245, 158, 11, 0.1);
     color: #fbbf24;
 }
 
 /* -- Danger: eliminar / anular -- */
-.row-action--danger { color: #64748b; }
+.row-action--danger { color: var(--erp-fg-3, #a6b1c3); }
 .row-action--danger:hover {
     background-color: rgba(239, 68, 68, 0.1);
     color: #f87171;
@@ -749,7 +749,7 @@
 }
 
 .filter-input-erp::placeholder {
-    color: #94a3b8;
+    color: var(--erp-fg-2, #b9c3d3);
 }
 
 /* Modificador para inputs con ícono absoluto prefijado */
@@ -826,7 +826,7 @@ select:not(.filter-select-erp):not(.caja-select):not(.credito-select):not(.credi
 }
 
 .input-erp::placeholder {
-    color: #475569;
+    color: var(--erp-fg-4, #93a0b5);
 }
 
 .input-erp:focus,
@@ -930,9 +930,9 @@ select:not(.filter-select-erp):not(.caja-select):not(.credito-select):not(.credi
     border: 1px solid #334155;
     background-color: #1e293b;
     padding: 0.25rem 0.75rem;
-    font-size: 0.6875rem;        /* 11px — metadato, no texto operativo */
+    font-size: var(--erp-fs-min, 0.75rem);        /* 11px — metadato, no texto operativo */
     font-weight: 600;
-    color: #94a3b8;
+    color: var(--erp-fg-2, #b9c3d3);
     white-space: nowrap;
     flex-shrink: 0;
 }
@@ -962,7 +962,7 @@ select:not(.filter-select-erp):not(.caja-select):not(.credito-select):not(.credi
     height: 2.5rem;
     border-radius: 0.625rem;
     background-color: transparent;
-    color: #64748b;
+    color: var(--erp-fg-3, #a6b1c3);
     border: 1px solid #334155;
     cursor: pointer;
     transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
@@ -1078,7 +1078,7 @@ select:not(.filter-select-erp):not(.caja-select):not(.credito-select):not(.credi
 .payment-option-card--blocked {
     background-color: #0d131f;
     border-color: #1e293b;
-    color: #475569;
+    color: var(--erp-fg-4, #93a0b5);
     cursor: not-allowed;
     pointer-events: none;
 }
@@ -1106,7 +1106,7 @@ select:not(.filter-select-erp):not(.caja-select):not(.credito-select):not(.credi
     gap: 0.25rem;
     border-radius: 9999px;
     padding: 0.125rem 0.5rem;
-    font-size: 0.6875rem;
+    font-size: var(--erp-fs-min, 0.75rem);
     font-weight: 600;
     letter-spacing: 0.03em;
     border: 1px solid transparent;
@@ -1168,7 +1168,7 @@ select:not(.filter-select-erp):not(.caja-select):not(.credito-select):not(.credi
 
 .commercial-context-bar .material-symbols-outlined {
     font-size: 16px;
-    color: #64748b;
+    color: var(--erp-fg-3, #a6b1c3);
     flex-shrink: 0;
 }
 
@@ -1184,7 +1184,7 @@ select:not(.filter-select-erp):not(.caja-select):not(.credito-select):not(.credi
     gap: 0.2rem;
     border-radius: 0.375rem;
     padding: 0.125rem 0.4rem;
-    font-size: 0.625rem;
+    font-size: var(--erp-fs-min, 0.75rem);
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
@@ -1214,7 +1214,7 @@ select:not(.filter-select-erp):not(.caja-select):not(.credito-select):not(.credi
     gap: 0.3rem;
     border-radius: 9999px;
     padding: 0.1875rem 0.625rem;
-    font-size: 0.6875rem;
+    font-size: var(--erp-fs-min, 0.75rem);
     font-weight: 700;
     letter-spacing: 0.05em;
     text-transform: uppercase;
@@ -1248,7 +1248,7 @@ select:not(.filter-select-erp):not(.caja-select):not(.credito-select):not(.credi
 
 .quote-state-badge--vencida {
     background-color: #1e293b;
-    color: #64748b;
+    color: var(--erp-fg-3, #a6b1c3);
     border-color: #334155;
 }
 
@@ -1275,7 +1275,7 @@ select:not(.filter-select-erp):not(.caja-select):not(.credito-select):not(.credi
     justify-content: space-between;
     padding: 0.5rem 0.875rem;
     font-size: 0.8125rem;
-    color: #94a3b8;
+    color: var(--erp-fg-2, #b9c3d3);
     border-bottom: 1px solid #1a202c;
 }
 
@@ -1293,8 +1293,8 @@ select:not(.filter-select-erp):not(.caja-select):not(.credito-select):not(.credi
 }
 
 .total-breakdown-card__label {
-    color: #64748b;
-    font-size: 0.75rem;
+    color: var(--erp-fg-3, #a6b1c3);
+    font-size: var(--erp-fs-min, 0.75rem);
 }
 
 .total-breakdown-card__value {
@@ -1405,7 +1405,7 @@ select:not(.filter-select-erp):not(.caja-select):not(.credito-select):not(.credi
     background-color: #1a202c;
     border: 1px solid #1e293b;
     font-size: 0.8125rem;
-    color: #94a3b8;
+    color: var(--erp-fg-2, #b9c3d3);
     width: 100%;
     flex-wrap: wrap;
 }
@@ -1415,4 +1415,55 @@ select:not(.filter-select-erp):not(.caja-select):not(.credito-select):not(.credi
     color: #dde2f4;
     font-size: 0.9375rem;
     font-variant-numeric: tabular-nums;
+}
+
+/* 11. FACTURA-TOTALES
+    Tarjetas Subtotal / IVA / Total a facturar de Views/Shared/_FacturaCamposEmision.cshtml.
+    El partial vive en hosts de ancho muy distinto (modal "Emitir factura" de Venta/Details y
+    modal "Facturar al confirmar" del Cotizador, ~10rem más angosto), por eso la grilla responde
+    al ancho REAL del contenedor y no al viewport: en angosto el Total ocupa su propia fila y el
+    importe nunca se sale de la tarjeta; en ancho vuelven las 3 columnas. */
+
+.factura-totales-host {
+    container-type: inline-size;
+    container-name: factura-totales;
+}
+
+.factura-totales {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.factura-totales__card {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between; /* importes alineados abajo aunque la etiqueta ocupe 2 líneas */
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.factura-totales__card--total {
+    grid-column: 1 / -1;
+}
+
+.factura-totales__value {
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+@container factura-totales (min-width: 34rem) {
+    .factura-totales {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .factura-totales__card--total {
+        grid-column: auto;
+    }
+}
+
+@container factura-totales (max-width: 17rem) {
+    .factura-totales {
+        grid-template-columns: minmax(0, 1fr);
+    }
 }

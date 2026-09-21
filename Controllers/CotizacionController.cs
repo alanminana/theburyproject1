@@ -204,7 +204,14 @@ public sealed class CotizacionController : Controller
                 apellido = c.Apellido,
                 tipoDocumento = c.TipoDocumento,
                 numeroDocumento = c.NumeroDocumento,
-                display = c.ToDisplayName()
+                display = c.ToDisplayName(),
+                // COTIZACION-MIVENTA-01: mismos campos que ya usa venta-envio.js para
+                // precargar el modal de envío de Venta/Create — no se inventa ningún dato.
+                telefono = c.Telefono,
+                domicilio = c.Domicilio,
+                localidad = c.Localidad,
+                provincia = c.Provincia,
+                codigoPostal = c.CodigoPostal
             }));
         }
         catch (OperationCanceledException)

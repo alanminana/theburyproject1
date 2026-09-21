@@ -159,15 +159,18 @@ public sealed class CotizacionControllerUiTests
     }
 
     [Fact]
-    public void Script_RecargoCeroEsNeutralYSinEntDotHash()
+    public void Script_RecargoCeroEsVerdeSegunMockupYSinEntDotHash()
     {
         var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "cotizacion-simulador.js"));
 
         Assert.DoesNotContain("ent-dot", script);
         Assert.DoesNotContain("function entColor(", script);
         Assert.Contains("function recargoClass(", script);
-        // 0% no es un éxito (verde): sólo > 0 sigue siendo ámbar.
+        // COTIZACION-MOCKUP-01 (el mockup del usuario prevalece sobre el criterio anterior de
+        // "0% neutral"): > 0 es ámbar (recargo); 0% y descuentos del plan son verdes — "sin
+        // recargo" es la buena noticia de la comparación.
         Assert.Contains("if (r > 0) return 'text-amber-300';", script);
+        Assert.Contains("return 'text-emerald-400';", script);
     }
 
     // Item 30 del lote: RequiereCliente y Crédito personal dependen del cliente —
@@ -229,29 +232,43 @@ public sealed class CotizacionControllerUiTests
     }
 
     [Fact]
-    public void CtaSimularGuardar_SimuladaDegradaSimularASecundaria()
+    public void CtaSimularGuardar_SimularConservaEstiloPrimarioSegunMockup()
     {
         var scriptUi = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "cotizacion-simulador-ui.js"));
 
-        // Con simulación vigente, Simular pierde btn-primary y pasa a btn-soft;
-        // en cualquier otro estado (idle/pending/error) recupera btn-primary — es
-        // la única acción disponible ahí y no debe leerse como secundaria.
-        Assert.Contains("const esSecundaria = state === 'simulated';", scriptUi);
-        Assert.Contains("simularBtn.classList.toggle('btn-primary', !esSecundaria);", scriptUi);
-        Assert.Contains("simularBtn.classList.toggle('btn-soft', esSecundaria);", scriptUi);
+        // COTIZACION-MOCKUP-01: el mockup dibuja "Actualizar cotización" y "Confirmar Mi Venta"
+        // ambos con el acento — Simular ya no se degrada a .btn-soft con una simulación vigente
+        // (criterio de COTIZACION-SIMULAR-REDESIGN-VISUAL-POLISH-01, superado por la referencia).
+        Assert.DoesNotContain("const esSecundaria", scriptUi);
+        Assert.DoesNotContain("classList.toggle('btn-soft'", scriptUi);
+        Assert.Contains("simularBtn.classList.add('btn-primary');", scriptUi);
 
-        // COTIZACION-WORKSTATION-01 (§10/§17 del pedido, cambio de intención explícito
-        // del usuario): "Guardar" DEJA de ser la acción con peso visual fuerte. Antes
-        // era .btn-success (verde, ancho completo) y además hacía dos cosas —
-        // persistir Y convertir a venta. Ahora son dos botones con jerarquía clara:
-        // Guardar cotización es secundaria (.btn-soft) y sólo persiste; Continuar con
-        // esta opción es la única primaria (.btn-primary) del cierre. Con Simular
-        // degradado a .btn-soft al simular (arriba), queda un solo primario visible
-        // por estado, que es lo que el pedido exige.
+        // Guardar cotización y Continuar con wizard son secundarias (.btn-soft) y no
+        // persisten/convierten con peso primario; Confirmar Mi Venta es la primaria del cierre
+        // (COTIZACION-WORKSTATION-01 §10/§17, sin cambios).
         var partial = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Cotizacion", "_CotizadorForm.cshtml"));
         Assert.Contains("id=\"cotizacion-guardar\" type=\"button\" class=\"btn btn-soft\"", partial);
         Assert.Contains("id=\"cotizacion-continuar\" type=\"button\" class=\"btn btn-primary\"", partial);
         Assert.DoesNotContain("btn-success", partial);
+    }
+
+    [Fact]
+    public void Mockup_TotalesMuestranSiempreLosCincoDatosYElDescuentoDeLineaTieneSelector()
+    {
+        var partial = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Cotizacion", "_CotizadorForm.cshtml"));
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "cotizacion-simulador.js"));
+
+        // Franja de totales: Envío y Total a cobrar ya no nacen ocultos (mockup: cinco datos siempre).
+        Assert.DoesNotContain("id=\"cotizacion-seg-envio\" class=\"seg hidden\"", partial);
+        Assert.DoesNotContain("id=\"cotizacion-seg-total-a-cobrar\" class=\"seg seg-accent hidden\"", partial);
+        Assert.Contains("Total productos", partial);
+
+        // Descuento por línea: un solo campo visible con selector % / $, pero los DOS <input> (mismos
+        // data-*-index que ya usaban el estado y los E2E) siguen existiendo.
+        Assert.Contains("data-cotizacion-dto-modo=\"pct\"", script);
+        Assert.Contains("data-cotizacion-dto-modo=\"importe\"", script);
+        Assert.Contains("data-cotizacion-desc-pct-index=", script);
+        Assert.Contains("data-cotizacion-desc-importe-index=", script);
     }
 
     [Fact]

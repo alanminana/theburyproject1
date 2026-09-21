@@ -95,14 +95,14 @@
                 <div data-oc-scroll-fade="left" hidden class="absolute inset-y-0 left-0 z-10 w-6 bg-gradient-to-r from-slate-900 via-slate-900/95 to-transparent"></div>
                 <div data-oc-scroll-fade="right" hidden class="absolute inset-y-0 right-0 z-10 w-6 bg-gradient-to-l from-slate-900 via-slate-900/95 to-transparent"></div>
                 <div data-oc-scroll-region class="overflow-x-auto scroll-smooth" tabindex="0" role="region" aria-label="Tabla de roles del módulo Seguridad">
-            <table data-oc-scroll-table class="w-full text-left border-collapse" style="min-width: var(--oc-scroll-min-width);">
+            <table data-erp-cards data-oc-scroll-table class="w-full text-left border-collapse" style="min-width: var(--oc-scroll-min-width);">
                 <thead class="bg-slate-800/50 border-b border-slate-800">
                     <tr>
-                        <th class="px-4 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Nombre rol</th>
+                        <th data-card="title" class="px-4 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Nombre rol</th>
                         <th class="px-4 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Descripción</th>
-                        <th class="px-4 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Estado</th>
-                        <th class="px-4 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Cantidad usuarios</th>
-                        <th class="px-4 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider text-right">Acciones</th>
+                        <th data-card="half" class="px-4 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Estado</th>
+                        <th data-card="half" class="px-4 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Cantidad usuarios</th>
+                        <th data-card="actions" class="px-4 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider text-right">Acciones</th>
                     </tr>
                 </thead>
                 <tbody id="rolesTableBody" class="divide-y divide-slate-800">

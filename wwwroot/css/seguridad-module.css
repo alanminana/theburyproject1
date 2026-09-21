@@ -62,3 +62,20 @@
         width: auto;
     }
 }
+
+/* MOBILE-DEBT-01: el header full-bleed usa md:-mx-10 (40px) pero el layout tiene px-6 (24px) entre 640 y
+   1023px y px-8 (32px) desde 1024px, asi que desbordaba 16px a 768 y 8px en desktop. Se compensa exactamente
+   el padding del layout; margen y padding se anulan entre si, por lo que el contenido no se mueve. */
+@media (min-width: 640px) {
+    .seguridad-bleed {
+        margin-inline: -1.5rem;
+        padding-inline: 1.5rem;
+    }
+}
+
+@media (min-width: 1024px) {
+    .seguridad-bleed {
+        margin-inline: -2rem;
+        padding-inline: 2rem;
+    }
+}

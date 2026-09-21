@@ -40,7 +40,7 @@
                         @if (item.VariationId.HasValue)
                         {
                             <div style="font-family:var(--mono);font-size:12px">@item.VariationId</div>
-                            <div class="le" style="font-size:11px;color:var(--muted)">@(item.VariationAtributos ?? "—")</div>
+                            <div class="le" style="font-size:var(--erp-fs-min, 0.75rem);color:var(--muted)">@(item.VariationAtributos ?? "—")</div>
                         }
                         else
                         {
@@ -49,7 +49,7 @@
                     </td>
                     <td>
                         <span style="font-family:var(--mono);color:var(--blue)">@(item.ProductoCodigo ?? "—")</span>
-                        <div class="le" style="font-size:11px;color:var(--muted)">@item.ProductoNombre</div>
+                        <div class="le" style="font-size:var(--erp-fs-min, 0.75rem);color:var(--muted)">@item.ProductoNombre</div>
                     </td>
                     <td class="num">
                         @if (item.CambiaStock)

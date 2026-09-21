@@ -39,18 +39,19 @@ namespace TheBuryProject.ViewModels
         [DisplayFormat(DataFormatString = "{0:C2}")]
         public decimal Total { get; set; }
 
-        [Display(Name = "CAE")]
-        [StringLength(100)]
-        public string? CAE { get; set; }
-
-        [Display(Name = "Vencimiento CAE")]
-        [DataType(DataType.Date)]
-        public DateTime? FechaVencimientoCAE { get; set; }
-
         public bool Anulada { get; set; }
         public DateTime? FechaAnulacion { get; set; }
         public string? MotivoAnulacion { get; set; }
         public List<FacturaAlicuotaResumenViewModel> ResumenAlicuotas { get; set; } = new();
+
+        // Trazabilidad comercial vs. comprobante (sólo lectura, se completa al preparar el modal;
+        // no viaja al comprobante ni interviene en ningún cálculo fiscal). Total = total del
+        // comprobante; TotalACobrar = lo que se recibe (productos + envío). Ver Helpers/VentaMontos.
+        public decimal ImporteEnvio { get; set; }
+        public decimal TotalACobrar { get; set; }
+
+        /// <summary>El envío se cobra pero no integra el comprobante: hay que explicar la diferencia.</summary>
+        public bool TieneEnvioFueraDelComprobante => ImporteEnvio > 0m;
     }
 
     public class FacturaAlicuotaResumenViewModel

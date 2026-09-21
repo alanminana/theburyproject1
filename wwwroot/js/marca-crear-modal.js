@@ -85,13 +85,13 @@ const MarcaModal = (() => {
             tbody.appendChild(tr);
         }
 
-        // Agregar la nueva marca al select del modal de producto
-        var marcaSelect = document.getElementById('modal-marcaId');
-        if (marcaSelect) {
-            var opt = document.createElement('option');
-            opt.value = entity.id;
-            opt.textContent = entity.nombre;
-            marcaSelect.appendChild(opt);
+        // Agregar la nueva marca (si es raíz) al autocomplete de Marca del modal de producto.
+        // window.CatalogoData.marcas sólo trae marcas raíz (ver Index_tw.cshtml); una
+        // submarca (con ParentId) no corresponde ahí.
+        var formParentSelect = form ? form.querySelector('[name="ParentId"]') : null;
+        var esRaiz = !(formParentSelect && formParentSelect.value);
+        if (esRaiz && window.CatalogoData && Array.isArray(window.CatalogoData.marcas)) {
+            window.CatalogoData.marcas.push({ id: entity.id, nombre: entity.nombre });
         }
 
         // Agregar la nueva marca al select ParentId del propio modal

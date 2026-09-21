@@ -39,6 +39,29 @@ namespace TheBuryProject.Services.Interfaces
             throw new NotImplementedException();
         }
 
+        // VENTA-COTIZACION-EXCEPCION-01: misma extensión que AplicarResultadoValidacionAsync
+        // arriba, para el mecanismo de excepción documental. Antes esta decisión (permiso
+        // ventas.authorize + alcance excepcionable: documentación/cupo, nunca mora) vivía
+        // inline en CreateAsync; se expone acá para que CotizacionConversionService la
+        // reutilice al convertir una cotización con Crédito personal "No apto" en vez de
+        // reimplementar el gate o inventar un criterio propio de qué es exceptuable.
+
+        /// <summary>
+        /// Si <paramref name="validacion"/>.NoViable es true, aplica la excepción documental
+        /// cuando corresponde (mutando <paramref name="validacion"/> a un estado autorizado,
+        /// igual que la rama interna de CreateAsync) o lanza <see cref="InvalidOperationException"/>
+        /// con el mismo mensaje que ya usa CreateAsync si no corresponde. Si NoViable es false,
+        /// no hace nada. Debe llamarse antes de <see cref="AplicarResultadoValidacionAsync"/>.
+        /// </summary>
+        void AplicarExcepcionDocumentalSiCorresponde(
+            ValidacionVentaResult validacion,
+            bool aplicarExcepcionDocumental,
+            string? motivoExcepcionDocumental,
+            string usuarioActual)
+        {
+            throw new NotImplementedException();
+        }
+
         /// <summary>
         /// Crea el <see cref="Models.Entities.Credito"/> real (PendienteConfiguracion) para una
         /// venta con TipoPago=CreditoPersonal ya persistida (requiere <c>venta.Id</c>) y aprobable

@@ -437,20 +437,10 @@
             <div class="total-row"><span>Total</span><strong>@Model.Totales.Total.ToString("C2")</strong></div>
         </section>
 
-        @if (!string.IsNullOrWhiteSpace(Model.Factura.CAE) ||
-             Model.Factura.FechaVencimientoCAE.HasValue ||
-             Model.Factura.Anulada ||
+        @if (Model.Factura.Anulada ||
              !string.IsNullOrWhiteSpace(Model.Venta.Observaciones))
         {
             <section class="notes">
-                @if (!string.IsNullOrWhiteSpace(Model.Factura.CAE))
-                {
-                    <p><strong>CAE:</strong> @Model.Factura.CAE</p>
-                }
-                @if (Model.Factura.FechaVencimientoCAE.HasValue)
-                {
-                    <p><strong>Vencimiento CAE:</strong> @Model.Factura.FechaVencimientoCAE.Value.ToString("dd/MM/yyyy")</p>
-                }
                 @if (Model.Factura.Anulada)
                 {
                     <p><strong>Anulada:</strong> @Model.Factura.FechaAnulacion?.ToString("dd/MM/yyyy HH:mm") @Model.Factura.MotivoAnulacion</p>

@@ -45,16 +45,16 @@
         <div class="card"><div class="cardpad">
             <div class="subsec" style="cursor:default">Identificación</div>
             <div class="formgrid" style="grid-template-columns:1fr">
-                <div class="field full"><label asp-for="Codigo">Código interno</label><input asp-for="Codigo" /><span asp-validation-for="Codigo" style="color:var(--red);font-size:11.5px"></span></div>
-                <div class="field full"><label asp-for="Nombre">Nombre</label><input asp-for="Nombre" /><span asp-validation-for="Nombre" style="color:var(--red);font-size:11.5px"></span></div>
+                <div class="field full"><label asp-for="Codigo">Código interno</label><input asp-for="Codigo" /><span asp-validation-for="Codigo" style="color:var(--red);font-size:var(--erp-fs-min, 0.75rem)"></span></div>
+                <div class="field full"><label asp-for="Nombre">Nombre</label><input asp-for="Nombre" /><span asp-validation-for="Nombre" style="color:var(--red);font-size:var(--erp-fs-min, 0.75rem)"></span></div>
                 <div class="field full"><label asp-for="Descripcion">Descripción (opcional)</label><textarea asp-for="Descripcion" rows="3"></textarea></div>
                 <div class="field"><label asp-for="CategoriaId">Categoría</label>
                     <select asp-for="CategoriaId"><option value="">Elegir...</option>@foreach (var c in categorias){<option value="@c.Id">@c.Nombre</option>}</select>
-                    <span asp-validation-for="CategoriaId" style="color:var(--red);font-size:11.5px"></span>
+                    <span asp-validation-for="CategoriaId" style="color:var(--red);font-size:var(--erp-fs-min, 0.75rem)"></span>
                 </div>
                 <div class="field"><label asp-for="MarcaId">Marca</label>
                     <select asp-for="MarcaId"><option value="">Elegir...</option>@foreach (var m in marcas){<option value="@m.Id">@m.Nombre</option>}</select>
-                    <span asp-validation-for="MarcaId" style="color:var(--red);font-size:11.5px"></span>
+                    <span asp-validation-for="MarcaId" style="color:var(--red);font-size:var(--erp-fs-min, 0.75rem)"></span>
                 </div>
             </div>
         </div></div>
@@ -62,10 +62,10 @@
         <div class="card"><div class="cardpad">
             <div class="subsec" style="cursor:default">Precios y stock</div>
             <div class="formgrid">
-                <div class="field"><label asp-for="PrecioCompra">Precio de costo</label><div class="suffix"><input asp-for="PrecioCompra" type="number" step="0.01" /><span class="u">ARS</span></div><span asp-validation-for="PrecioCompra" style="color:var(--red);font-size:11.5px"></span></div>
-                <div class="field"><label asp-for="PrecioVenta">Precio de venta</label><div class="suffix"><input asp-for="PrecioVenta" type="number" step="0.01" /><span class="u">ARS</span></div><span class="hint">Prellenado con el precio ML; ajustalo si difiere.</span><span asp-validation-for="PrecioVenta" style="color:var(--red);font-size:11.5px"></span></div>
-                <div class="field"><label asp-for="PorcentajeIVA">IVA <span class="req">%</span></label><div class="suffix"><input asp-for="PorcentajeIVA" type="number" step="0.5" /><span class="u">%</span></div><span asp-validation-for="PorcentajeIVA" style="color:var(--red);font-size:11.5px"></span></div>
-                <div class="field"><label asp-for="StockInicial">Stock inicial</label><input asp-for="StockInicial" type="number" step="1" /><span class="hint">Genera un movimiento "Stock inicial" en el kardex. Poné 0 si lo cargás por compras.</span><span asp-validation-for="StockInicial" style="color:var(--red);font-size:11.5px"></span></div>
+                <div class="field"><label asp-for="PrecioCompra">Precio de costo</label><div class="suffix"><input asp-for="PrecioCompra" type="number" step="0.01" /><span class="u">ARS</span></div><span asp-validation-for="PrecioCompra" style="color:var(--red);font-size:var(--erp-fs-min, 0.75rem)"></span></div>
+                <div class="field"><label asp-for="PrecioVenta">Precio de venta</label><div class="suffix"><input asp-for="PrecioVenta" type="number" step="0.01" /><span class="u">ARS</span></div><span class="hint">Prellenado con el precio ML; ajustalo si difiere.</span><span asp-validation-for="PrecioVenta" style="color:var(--red);font-size:var(--erp-fs-min, 0.75rem)"></span></div>
+                <div class="field"><label asp-for="PorcentajeIVA">IVA <span class="req">%</span></label><div class="suffix"><input asp-for="PorcentajeIVA" type="number" step="0.5" /><span class="u">%</span></div><span asp-validation-for="PorcentajeIVA" style="color:var(--red);font-size:var(--erp-fs-min, 0.75rem)"></span></div>
+                <div class="field"><label asp-for="StockInicial">Stock inicial</label><input asp-for="StockInicial" type="number" step="1" /><span class="hint">Genera un movimiento "Stock inicial" en el kardex. Poné 0 si lo cargás por compras.</span><span asp-validation-for="StockInicial" style="color:var(--red);font-size:var(--erp-fs-min, 0.75rem)"></span></div>
                 <div class="field full">
                     <label class="checkline" style="background:none;border:0;padding:0;cursor:pointer"><input asp-for="RequiereNumeroSerie" class="cbx" type="checkbox"><span><b style="color:var(--ink)">Producto trazable</b><div class="cm">Requiere unidad física / número de serie para vender.</div></span></label>
                 </div>

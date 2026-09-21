@@ -519,11 +519,15 @@ if (typeof CatalogoModule !== 'undefined' && typeof CatalogoModule.registerProdu
 
     var currentKey = null;
     var currentDir = 'asc';
-    var headers = table.querySelectorAll('th[data-sort]');
+    // data-sort vive en el <button> dentro del <th> (no en el <th>): buscar por el boton.
+    var headers = Array.prototype.filter.call(table.querySelectorAll('th'), function (th) {
+        return th.querySelector('[data-sort]');
+    });
 
     headers.forEach(function (th) {
-        th.addEventListener('click', function () {
-            var key = th.dataset.sort;
+        var trigger = th.querySelector('[data-sort]');
+        trigger.addEventListener('click', function () {
+            var key = trigger.dataset.sort;
             if (currentKey === key) {
                 currentDir = currentDir === 'asc' ? 'desc' : 'asc';
             } else {

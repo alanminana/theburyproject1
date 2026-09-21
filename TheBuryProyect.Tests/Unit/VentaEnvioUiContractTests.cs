@@ -122,6 +122,104 @@ public class VentaEnvioUiContractTests
         Assert.Contains("data-venta-tab-panel=\"envios\"", view);
     }
 
+    // -------------------------------------------------------------------------
+    // VENTA-ENVIO-TOTAL-01: el envío se cobra — Productos / Envío / TOTAL A COBRAR
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public void VentaDetails_MuestraProductosEnvioYTotalACobrar_SinLlamarloInformativo()
+    {
+        var view = LeerVista("Venta", "Details_tw.cshtml");
+        Assert.Contains("id=\"venta-total-a-cobrar\"", view);
+        Assert.Contains("id=\"venta-total-productos\"", view);
+        Assert.Contains("id=\"venta-importe-envio\"", view);
+        Assert.Contains("Model.TotalACobrar", view);
+        Assert.Contains("Costo de envío", view);
+        Assert.DoesNotContain("Costo (informativo)", view);
+        Assert.DoesNotContain("Sólo informativo", view);
+    }
+
+    [Fact]
+    public void VentaDetails_ExplicaQueElEnvioNoIntegraElComprobante()
+    {
+        var view = LeerVista("Venta", "Details_tw.cshtml");
+        Assert.Contains("id=\"venta-comprobante-nota\"", view);
+        Assert.Contains("Model.TotalFacturable", view);
+        Assert.Contains("id=\"venta-envio-no-financiado\"", view);
+    }
+
+    [Fact]
+    public void VentaWizard_RevisionSeparaProductosEnvioYTotalACobrar_SinDecirInformativo()
+    {
+        var view = LeerVista("Venta", "_VentaWizardForm.cshtml");
+        Assert.Contains("data-rev-envio-lines", view);
+        Assert.Contains("data-rev-total-productos", view);
+        Assert.Contains("data-rev-envio", view);
+        Assert.Contains("data-rev-total-label", view);
+        Assert.Contains("data-mobile-total-label", view);
+        // Crédito Personal: el envío no se financia (ver VentaMontos / Details).
+        Assert.Contains("data-rev-envio-credito-nota", view);
+        Assert.DoesNotContain("Costo de envío (informativo)", view);
+        Assert.DoesNotContain("costo es sólo informativo", view);
+    }
+
+    [Fact]
+    public void VentaPageWizardJs_SumaElEnvioAlTotalSinPisarLaFuenteNumerica()
+    {
+        var js = LeerJs("venta-page-wizard.js");
+        Assert.Contains("leerImporteEnvio", js);
+        Assert.Contains("venta:envio-toggle", js);
+        Assert.Contains("data-rev-envio-credito-nota", js);
+        // #total-final (data-side-total) es la fuente de la suma: nunca debe recibir el total con envío.
+        Assert.Contains("setText('[data-side-total]', totalProductos)", js);
+        Assert.Contains("setText('[data-rev-total], [data-mobile-total]', total)", js);
+
+        var create = LeerJs("venta-create.js");
+        Assert.Contains("totalFinal.dataset.valor", create);
+    }
+
+    [Fact]
+    public void Cotizador_SeparaEnvioYTotalACobrar_YLoEnviaAlGuardar()
+    {
+        var view = LeerVista("Cotizacion", "_CotizadorForm.cshtml");
+        Assert.Contains("id=\"cotizacion-seg-envio\"", view);
+        Assert.Contains("id=\"cotizacion-seg-total-a-cobrar\"", view);
+        Assert.DoesNotContain("Informativo: no modifica el total de la venta", view);
+
+        var js = LeerJs("cotizacion-simulador.js");
+        Assert.Contains("costoEnvio: importeEnvioActual() > 0 ? importeEnvioActual() : null", js);
+        Assert.Contains("cotizacion-confirmar-total-a-cobrar", js);
+    }
+
+    [Fact]
+    public void CotizacionDetalles_MuestraEnvioYTotalACobrar()
+    {
+        var view = LeerVista("Cotizacion", "Detalles_tw.cshtml");
+        Assert.Contains("id=\"cotizacion-envio-totales\"", view);
+        Assert.Contains("Model.TotalACobrar", view);
+    }
+
+    [Fact]
+    public void CajaVentasDelTurno_MuestraProductosYEnvioDentroDeLaCeldaDeTotal()
+    {
+        var view = LeerVista("Caja", "_ConciliacionVentasTab.cshtml");
+        Assert.Contains("data-venta-productos", view);
+        Assert.Contains("data-venta-envio", view);
+        Assert.Contains("v.ImporteEnvio", view);
+    }
+
+    [Fact]
+    public void ModalFacturar_ExplicaResumenComercialFrenteAlComprobante()
+    {
+        var partial = LeerVista("Shared", "_FacturaCamposEmision.cshtml");
+        Assert.Contains("resumen-comercial", partial);
+        Assert.Contains("comercial-envio", partial);
+        Assert.Contains("no integra este comprobante", partial);
+
+        var facturarPagina = LeerVista("Venta", "Facturar_tw.cshtml");
+        Assert.Contains("facturar-resumen-comercial", facturarPagina);
+    }
+
     private static string FindRepoRoot()
     {
         var current = new DirectoryInfo(Directory.GetCurrentDirectory());

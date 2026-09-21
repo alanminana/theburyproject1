@@ -251,7 +251,9 @@ namespace TheBuryProject.Controllers
                     Tipo = TipoFactura.B,
                     Subtotal = venta.Subtotal,
                     IVA = venta.IVA,
-                    Total = venta.Total,
+                    Total = venta.TotalFacturable,
+                    ImporteEnvio = venta.ImporteEnvio,
+                    TotalACobrar = venta.TotalACobrar,
                     ResumenAlicuotas = FacturaAlicuotaResumenBuilder.Build(venta.Detalles)
                 };
                 ViewBag.TiposFactura = new SelectList(Enum.GetValues(typeof(TipoFactura)));
@@ -1548,7 +1550,9 @@ namespace TheBuryProject.Controllers
                     Tipo = TipoFactura.B,
                     Subtotal = venta.Subtotal,
                     IVA = venta.IVA,
-                    Total = venta.Total,
+                    Total = venta.TotalFacturable,
+                    ImporteEnvio = venta.ImporteEnvio,
+                    TotalACobrar = venta.TotalACobrar,
                     ResumenAlicuotas = FacturaAlicuotaResumenBuilder.Build(venta.Detalles)
                 };
 

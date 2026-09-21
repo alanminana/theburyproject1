@@ -487,7 +487,7 @@ else
                 else
                 {
                     <div class="flex items-center gap-2 text-sm muted">
-                        <span class="material-symbols-outlined shrink-0" style="font-size:18px;color:#94a3b8">info</span>
+                        <span class="material-symbols-outlined shrink-0" style="font-size:18px;color:var(--erp-fg-2, #b9c3d3)">info</span>
                         <span>Sin motivos registrados para el estado actual.</span>
                     </div>
                 }
@@ -543,7 +543,7 @@ else
 
             <div class="card card-pad">
                 <div class="flex items-center justify-between gap-2 mb-3">
-                    <h3 class="font-semibold text-white flex items-center gap-2"><span class="material-symbols-outlined" style="color:#94a3b8;font-size:20px">folder_shared</span>Documentación</h3>
+                    <h3 class="font-semibold text-white flex items-center gap-2"><span class="material-symbols-outlined" style="color:var(--erp-fg-2, #b9c3d3);font-size:20px">folder_shared</span>Documentación</h3>
                     <span class="chip @documentosAsuntoChip">@documentosAsuntoLabel</span>
                 </div>
                 @if (documentosFaltantesList.Any() || documentosPendientesList.Any())
@@ -593,7 +593,7 @@ else
                de header (icono + h3 + accion a la derecha) que BCRA/Documentación. *@
             <div class="card card-pad" id="garante-panel-card">
                 <div class="flex items-center justify-between gap-2 mb-3">
-                    <h3 class="font-semibold text-white flex items-center gap-2"><span class="material-symbols-outlined" style="color:#94a3b8;font-size:20px">supervisor_account</span>Garante</h3>
+                    <h3 class="font-semibold text-white flex items-center gap-2"><span class="material-symbols-outlined" style="color:var(--erp-fg-2, #b9c3d3);font-size:20px">supervisor_account</span>Garante</h3>
                     @if (garante == null)
                     {
                         <!-- Sin garante: botón para asignar -->
@@ -622,11 +622,11 @@ else
                             <span class="text-xs muted-2">DNI @garante.NumeroDocumento</span>
                             @if (garante.EsValido)
                             {
-                                <span class="chip chip-ok" style="font-size:.7rem">Válido</span>
+                                <span class="chip chip-ok" style="font-size:var(--erp-fs-min, 0.75rem)">Válido</span>
                             }
                             else
                             {
-                                <span class="chip chip-bad" style="font-size:.7rem">Inválido</span>
+                                <span class="chip chip-bad" style="font-size:var(--erp-fs-min, 0.75rem)">Inválido</span>
                             }
                         </div>
                         <div class="text-xs muted-2" style="margin-top:.2rem">
@@ -902,7 +902,7 @@ else
 
             <section class="card card-pad">
                 <div class="flex items-center justify-between gap-3 mb-3">
-                    <h2 class="font-semibold text-white flex items-center gap-2"><span class="material-symbols-outlined" style="color:#94a3b8;font-size:20px">payments</span>Ultimos creditos del cliente</h2>
+                    <h2 class="font-semibold text-white flex items-center gap-2"><span class="material-symbols-outlined" style="color:var(--erp-fg-2, #b9c3d3);font-size:20px">payments</span>Ultimos creditos del cliente</h2>
                     <a asp-controller="Credito" asp-action="Index" asp-route-clienteId="@c.Id" class="btn btn-ghost btn-sm">Ver todos (@totalCreditos)<span class="material-symbols-outlined">chevron_right</span></a>
                 </div>
                 @if (Model.CreditosActivos != null && Model.CreditosActivos.Any())
@@ -955,7 +955,7 @@ else
         <div class="space-y-4">
             <div class="card card-pad">
                 <div class="flex items-center justify-between gap-2 mb-3">
-                    <h3 class="font-semibold text-white flex items-center gap-2"><span class="material-symbols-outlined" style="color:#94a3b8;font-size:20px">folder_shared</span>Documentacion</h3>
+                    <h3 class="font-semibold text-white flex items-center gap-2"><span class="material-symbols-outlined" style="color:var(--erp-fg-2, #b9c3d3);font-size:20px">folder_shared</span>Documentacion</h3>
                     <span class="chip @documentosAsuntoChip">@documentosAsuntoLabel</span>
                 </div>
                 @if (apt?.Documentacion != null && !apt.Documentacion.Completa && apt.Documentacion.DocumentosFaltantes.Any())
@@ -1036,7 +1036,7 @@ else
         <div class="space-y-4">
             <div class="cliente-details-2col">
             <section class="card card-pad">
-                <h2 class="font-semibold text-white mb-3 flex items-center gap-2"><span class="material-symbols-outlined" style="color:#94a3b8;font-size:20px">badge</span>Datos personales</h2>
+                <h2 class="font-semibold text-white mb-3 flex items-center gap-2"><span class="material-symbols-outlined" style="color:var(--erp-fg-2, #b9c3d3);font-size:20px">badge</span>Datos personales</h2>
                 @* Reapertura visual 2026-09-15 (ronda 2): grilla de 2 columnas de campos
                    (kv--fields) en vez de un dl.kv de una sola columna angosto — la card
                    ocupa casi media pantalla en desktop y quedaba con mucha superficie
@@ -1052,7 +1052,7 @@ else
             </section>
 
             <section class="card card-pad">
-                <h2 class="font-semibold text-white mb-3 flex items-center gap-2"><span class="material-symbols-outlined" style="color:#94a3b8;font-size:20px">call</span>Contacto</h2>
+                <h2 class="font-semibold text-white mb-3 flex items-center gap-2"><span class="material-symbols-outlined" style="color:var(--erp-fg-2, #b9c3d3);font-size:20px">call</span>Contacto</h2>
                 <dl class="kv kv--fields">
                     <div class="kv-row"><dt>Telefono</dt><dd>@Dash(c.Telefono)</dd></div>
                     <div class="kv-row"><dt>Telefono alternativo</dt><dd>@Dash(c.TelefonoAlternativo)</dd></div>
@@ -1075,7 +1075,7 @@ else
     <div id="panel-historial" class="tab-panel" data-cliente-tab-panel="historial" role="tabpanel" aria-labelledby="tab-historial" hidden style="margin-top:1.25rem">
         <div class="space-y-4">
             <section class="card card-pad">
-                <h2 class="font-semibold text-white mb-2 flex items-center gap-2"><span class="material-symbols-outlined" style="color:#94a3b8;font-size:20px">history</span>Créditos históricos</h2>
+                <h2 class="font-semibold text-white mb-2 flex items-center gap-2"><span class="material-symbols-outlined" style="color:var(--erp-fg-2, #b9c3d3);font-size:20px">history</span>Créditos históricos</h2>
                 <p class="text-sm muted mb-3">El detalle completo de créditos, cuotas y pagos del cliente vive en su propio listado (mismo acceso que ya ofrecía esta ficha).</p>
                 <a asp-controller="Credito" asp-action="Index" asp-route-clienteId="@c.Id" class="btn btn-soft btn-sm">Ver todos los créditos (@totalCreditos)<span class="material-symbols-outlined">chevron_right</span></a>
             </section>

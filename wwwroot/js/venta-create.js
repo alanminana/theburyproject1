@@ -23,6 +23,14 @@
     let debounceTimer = null;
     let detalleScrollAffordance = null;
     let reintentandoSubmitConDatosTarjeta = false;
+    // COTIZACION-MIVENTA-02 (§27 del pedido): Venta/Create no tenía protección contra
+    // doble-submit del envío final (auditado antes de implementar — confirmado: ni
+    // disabled-on-click, ni idempotencia en el backend). Reentrancia real (no sólo
+    // "disabled" visual): se fija ANTES de dejar pasar el submit real, así que un segundo
+    // click físico o Enter mientras el navegador todavía no terminó de navegar cae en el
+    // guard del principio del handler sin iniciar una segunda petición. Un re-render del
+    // servidor (error de validación) recarga la página y la resetea sola.
+    let submitFinalEnCurso = false;
     let productoActualUnidadesEnStock = 0;
     let productoActualStockSinIdentificar = 0;
     let productoActualRequiereNumeroSerie = false;
@@ -156,6 +164,14 @@
 
     function show(el) { el?.classList.remove('hidden'); }
     function hide(el) { el?.classList.add('hidden'); }
+
+    // display real de estos paneles es flex/grid, no block: 'hidden' nunca puede convivir
+    // con esa utility en el markup (conflicto de cascada real, cssConflict de Tailwind
+    // IntelliSense) — mostrar/ocultar alterna explícitamente ambas clases.
+    function showFlex(el) { el?.classList.remove('hidden'); el?.classList.add('flex'); }
+    function hideFlex(el) { el?.classList.add('hidden'); el?.classList.remove('flex'); }
+    function showGrid(el) { el?.classList.remove('hidden'); el?.classList.add('grid'); }
+    function hideGrid(el) { el?.classList.add('hidden'); el?.classList.remove('grid'); }
 
     function formatPercent(value) {
         return new Intl.NumberFormat('es-AR', {
@@ -397,8 +413,15 @@
             heroDetallesCount.textContent = detalleTexto;
         }
 
+        // Prioridad absoluta (auditoría UX del usuario, 2026-09-16): esta es la única
+        // representación del conteo de productos (la sección Productos tenía además un
+        // badge "0 productos" estático en su propio encabezado, sin id, nunca actualizado
+        // por JS — quedó eliminado del markup). `.vm-step-tab__badge` es un pill numérico
+        // chico, igual al de Envío (icono/número, nunca texto largo); antes se le
+        // inyectaba ícono + "N productos" y quedaba desproporcionado frente al resto de
+        // los tabs.
         if (detalleItemsBadge) {
-            detalleItemsBadge.innerHTML = `<span class="material-symbols-outlined text-sm">shopping_bag</span>${detalleTexto}`;
+            detalleItemsBadge.textContent = String(cantidadItems);
         }
 
         if (heroTipoPago) {
@@ -530,12 +553,23 @@
         if (!selectTipoPago || !Array.isArray(medios) || medios.length === 0) return;
 
         const selectedBefore = selectTipoPago.value;
+        // Razor ya renderizó el nombre canónico de cada tipo de pago (enum). El `nombre` de la
+        // configuración global es editable y suele venir en minúscula y sin tildes
+        // ("credito personal"): si sólo difiere en mayúsculas/tildes se muestra el canónico;
+        // cualquier otro nombre configurado se respeta.
+        const nombresCanonicos = new Map(
+            Array.from(selectTipoPago.options, o => [o.value, o.textContent.trim()]));
+        const claveNombre = texto => String(texto ?? '')
+            .normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();
         selectTipoPago.replaceChildren();
 
         medios.forEach(medio => {
             const opt = document.createElement('option');
             opt.value = medio.tipoPago;
-            opt.textContent = medio.nombre;
+            const canonico = nombresCanonicos.get(String(medio.tipoPago));
+            opt.textContent = canonico && claveNombre(medio.nombre) === claveNombre(canonico)
+                ? canonico
+                : medio.nombre;
             opt.dataset.configuracionPagoId = String(medio.id);
             selectTipoPago.appendChild(opt);
         });
@@ -926,7 +960,7 @@
         txtDescuentoItem.value = 0;
         hide(stockError);
 
-        show(panelAgregarProducto);
+        showGrid(panelAgregarProducto);
         hide(dropdownProductos);
         inputBuscarProducto.value = '';
         actualizarAdvertenciaStockSinIdentificar();
@@ -955,18 +989,18 @@
         if (!advertenciaStockSinIdentificar) return;
         // No mostrar advertencia cuando se usa unidad física o producto estricto
         if (esOrigenUnidadFisica()) {
-            hide(advertenciaStockSinIdentificar);
+            hideFlex(advertenciaStockSinIdentificar);
             return;
         }
         const cantidad = parseInt(txtCantidad?.value) || 0;
         if (productoActualStockSinIdentificar < 0) {
             advertenciaStockSinIdentificar.textContent = 'Revisar conciliación: hay más unidades físicas registradas que stock agregado disponible.';
-            show(advertenciaStockSinIdentificar);
+            showFlex(advertenciaStockSinIdentificar);
         } else if (cantidad > productoActualStockSinIdentificar && productoActualUnidadesEnStock > 0) {
             advertenciaStockSinIdentificar.textContent = 'Advertencia: la cantidad supera el stock no trazado disponible. Considerate seleccionar una unidad física registrada.';
-            show(advertenciaStockSinIdentificar);
+            showFlex(advertenciaStockSinIdentificar);
         } else {
-            hide(advertenciaStockSinIdentificar);
+            hideFlex(advertenciaStockSinIdentificar);
         }
     }
 
@@ -1114,7 +1148,7 @@
         }
 
         // Reset add panel
-        hide(panelAgregarProducto);
+        hideGrid(panelAgregarProducto);
         hdnProductoId.value = '';
         if (hdnProductoRequiereNumeroSerie) {
             hdnProductoRequiereNumeroSerie.value = '';
@@ -1125,7 +1159,7 @@
         productoActualUnidadesEnStock = 0;
         productoActualStockSinIdentificar = 0;
         productoActualRequiereNumeroSerie = false;
-        hide(advertenciaStockSinIdentificar);
+        hideFlex(advertenciaStockSinIdentificar);
         limpiarOrigenStock();
         limpiarSelectorUnidad();
 
@@ -1440,7 +1474,12 @@
         if (totalSubtotal) totalSubtotal.textContent = formatCurrency(subtotal);
         if (totalDescuento) totalDescuento.textContent = `-${formatCurrency(descuento)}`;
         if (totalIva) totalIva.textContent = formatCurrency(iva);
-        if (totalFinal) totalFinal.textContent = formatCurrency(totalDisplay);
+        if (totalFinal) {
+            totalFinal.textContent = formatCurrency(totalDisplay);
+            // Valor numérico del total de productos: venta-page-wizard.js le suma el envío
+            // (VENTA-ENVIO-TOTAL-01) sin tener que parsear el texto formateado.
+            totalFinal.dataset.valor = String(Number.isFinite(totalDisplay) ? totalDisplay : 0);
+        }
 
         if (hdnSubtotal) hdnSubtotal.value = subtotal.toFixed(2);
         if (hdnDescuento) hdnDescuento.value = descuento.toFixed(2);
@@ -1463,9 +1502,11 @@
             actualizarResumenTarjetaDesdePlanGlobal(backendResult);
         }
 
-        // Actualizar aviso de crédito si corresponde
+        // Actualizar aviso de crédito si corresponde. `creditoCupoDisponible` y
+        // `ultimaPrevalidacion` se fijan juntos en mostrarResultadoVerificacion (misma
+        // evaluación real), así que viajan juntos acá también.
         if (selectTipoPago?.value === TIPO_PAGO.CreditoPersonal) {
-            actualizarAvisoCredito(creditoCupoDisponible);
+            actualizarAvisoCredito(creditoCupoDisponible, ultimaPrevalidacion?.resultado);
         }
     }
 
@@ -1735,7 +1776,7 @@
         if (!tarjetaId) {
             limpiarDatosTarjetaSeleccionada();
             renderPlanesGlobalesSeleccionados();
-            hide(panelTarjetaResumen);
+            hideFlex(panelTarjetaResumen);
             limiteCuotasExistente = null;
             cuotasLimitadasPorReglaExistente = false;
             if (panelAvisoCuotasSinInteres) hide(panelAvisoCuotasSinInteres);
@@ -1791,7 +1832,7 @@
         const cuotas = parseInt(selectCuotasTarjeta?.value) || 1;
         const total = parseFloat(hdnTotal?.value) || 0;
 
-        if (!tarjetaId || total <= 0) { hide(panelTarjetaResumen); return; }
+        if (!tarjetaId || total <= 0) { hideFlex(panelTarjetaResumen); return; }
 
         try {
             const data = await fetchJson(`/api/ventas/CalcularCuotasTarjeta?tarjetaId=${tarjetaId}&monto=${total}&cuotas=${cuotas}`);
@@ -1806,16 +1847,16 @@
                 $('#tarjeta-recargo').textContent = `${recargo}%`;
             }
 
-            show(panelTarjetaResumen);
+            showFlex(panelTarjetaResumen);
         } catch {
-            hide(panelTarjetaResumen);
+            hideFlex(panelTarjetaResumen);
         }
     }
 
     function actualizarResumenTarjetaDesdePlanGlobal(result) {
         const plan = getPlanGlobalSeleccionado();
         if (!plan || !result) {
-            hide(panelTarjetaResumen);
+            hideFlex(panelTarjetaResumen);
             return;
         }
 
@@ -1838,14 +1879,23 @@
             recargoEl.textContent = labelAjuste;
         }
 
-        show(panelTarjetaResumen);
+        showFlex(panelTarjetaResumen);
     }
 
     // ── 8. Credit Personal ────────────────────────────────────────────
     // El crédito se genera automáticamente por el sistema según el cupo del cliente.
     // No hay selección de crédito existente. El aviso muestra cupo vs. total de la venta.
 
-    function actualizarAvisoCredito(cupoDisponible) {
+    // Prioridad absoluta (auditoría UX del usuario, 2026-09-16): este aviso vivía en el
+    // paso Cliente como un segundo cálculo de aptitud, independiente de la evaluación
+    // real que corre en el paso Crédito (verificarElegibilidadAuto/PrevalidarCredito).
+    // Antes derivaba su propio veredicto sólo de cupo vs. total, así que un cliente
+    // NoViable por mora o documentación —pero con cupo nominal suficiente— podía ver
+    // este aviso en verde mientras el paso Crédito, más adelante, lo bloqueaba. Ahora
+    // no evalúa nada por su cuenta: sólo muestra los mismos tres números y colorea
+    // según el `resultado` que ya devolvió esa misma evaluación (RESULTADO_PREVAL,
+    // ver mostrarResultadoVerificacion) — una sola fuente de verdad, no dos.
+    function actualizarAvisoCredito(cupoDisponible, resultado) {
         const tipoPago = selectTipoPago?.value;
         if (!esTipoPagoCredito(tipoPago)) { hide(panelAvisoCredito); return; }
         if (cupoDisponible === undefined || cupoDisponible === null) { hide(panelAvisoCredito); return; }
@@ -1858,17 +1908,39 @@
 
         const margenEl = $('#credito-margen');
         margenEl.textContent = formatCurrency(margen);
-        if (margen < 0) {
-            margenEl.classList.add('text-red-500');
-            margenEl.classList.remove('text-green-500', 'text-slate-900', 'dark:text-white');
-            panelAvisoCredito.classList.remove('bg-primary/5', 'border-primary/20');
-            panelAvisoCredito.classList.add('bg-orange-500/10', 'border-orange-500/20');
-        } else {
-            margenEl.classList.remove('text-red-500');
-            margenEl.classList.add('text-green-500');
-            panelAvisoCredito.classList.remove('bg-orange-500/10', 'border-orange-500/20');
-            panelAvisoCredito.classList.add('bg-primary/5', 'border-primary/20');
+
+        // Si todavía no corrió la evaluación real (resultado===undefined, p.ej. este
+        // aviso se está pintando con un cupo cacheado de una verificación anterior),
+        // el margen numérico es la única señal disponible; en cuanto hay `resultado`
+        // fresco, manda por sobre el cálculo local aunque el cupo alcance.
+        const noViable = resultado === RESULTADO_PREVAL.NoViable;
+        const requiereAutorizacion = resultado === RESULTADO_PREVAL.RequiereAutorizacion;
+        const alerta = noViable || requiereAutorizacion || (resultado === undefined && margen < 0);
+
+        margenEl.classList.toggle('text-red-500', alerta);
+        margenEl.classList.toggle('text-green-500', !alerta);
+        panelAvisoCredito.classList.toggle('bg-orange-500/10', alerta);
+        panelAvisoCredito.classList.toggle('border-orange-500/20', alerta);
+        panelAvisoCredito.classList.toggle('bg-primary/5', !alerta);
+        panelAvisoCredito.classList.toggle('border-primary/20', !alerta);
+
+        // Un margen positivo en rojo sería tan contradictorio como el problema que esto
+        // corrige: si el bloqueo viene de mora/documentación (no del cupo), decirlo en
+        // vez de dejar que el operador intente explicarse un número verde-que-no-es-verde.
+        const nota = $('#aviso-credito-nota');
+        if (nota) {
+            if (noViable) {
+                nota.textContent = 'Cliente no viable para crédito — el detalle está en el paso Crédito.';
+                show(nota);
+            } else if (requiereAutorizacion) {
+                nota.textContent = 'Requiere autorización de un supervisor — vas a poder continuar desde el paso Crédito.';
+                show(nota);
+            } else {
+                hide(nota);
+                nota.textContent = '';
+            }
         }
+
         show(panelAvisoCredito);
     }
 
@@ -1923,7 +1995,7 @@
         verificacionAutoKey = null;
         resetVerificacion();
         resetExcepcionCrediticia();
-        hide($('#panel-credito-cupo'));
+        hideGrid($('#panel-credito-cupo'));
         hide(panelAvisoCredito);
         clearFeedback();
         document.dispatchEvent(new CustomEvent('venta:credito-validado', {
@@ -2042,13 +2114,13 @@
 
         // Actualizar aviso de crédito y panel de cupo en el panel "Crédito Personal"
         creditoCupoDisponible = data.cupoDisponible ?? null;
-        actualizarAvisoCredito(creditoCupoDisponible);
+        actualizarAvisoCredito(creditoCupoDisponible, data.resultado);
 
         const panelCupo = $('#panel-credito-cupo');
         if (panelCupo && data.cupoDisponible !== undefined) {
             $('#credito-cupo-valor').textContent = formatCurrency(data.cupoDisponible);
             $('#credito-cupo-estado').textContent = data.textoEstado || '—';
-            show(panelCupo);
+            showGrid(panelCupo);
         }
     }
 
@@ -2552,6 +2624,11 @@
 
     if (ventaForm) {
         ventaForm.addEventListener('submit', async function (e) {
+            if (submitFinalEnCurso) {
+                e.preventDefault();
+                return;
+            }
+
             const trazableSinUnidad = detalles.find(d => d.requiereNumeroSerie && !d.productoUnidadId);
             if (trazableSinUnidad) {
                 e.preventDefault();
@@ -2643,6 +2720,8 @@
             // Todas las guardas pasaron: Create y Edit continúan por sus actions
             // MVC canónicas. El controlador decide la redirección a crédito luego de
             // persistir, por lo que no se crean borradores desde el navegador.
+            submitFinalEnCurso = true;
+            ventaForm.querySelectorAll('button[type="submit"]').forEach(btn => { btn.disabled = true; });
         });
     }
 

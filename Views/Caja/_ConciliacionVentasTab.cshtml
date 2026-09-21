@@ -12,7 +12,7 @@
     <div class="px-4 py-3 space-y-3" style="border-bottom:1px solid var(--line)">
         <div>
             <h2 class="font-semibold text-white">Ventas del turno</h2>
-            <p class="text-sm muted">Operaciones generadas en este turno. "Cobrado ahora" es lo recibido; "Pendiente" es lo que todavía no entró. Confirmada y Facturada impactan caja por igual; la columna IVA solo aplica a las facturadas.</p>
+            <p class="text-sm muted">Operaciones generadas en este turno. "Total" es lo que hay que cobrar (productos + envío, si tiene); "Cobrado ahora" es lo recibido; "Pendiente" es lo que todavía no entró. Confirmada y Facturada impactan caja por igual; la columna IVA solo aplica a las facturadas.</p>
         </div>
         <div class="cc-filters">
             <div>
@@ -60,18 +60,18 @@
                 <div data-oc-scroll-fade="left" hidden></div>
                 <div data-oc-scroll-fade="right" hidden></div>
                 <div data-oc-scroll-region tabindex="0" role="region" aria-label="Ventas del turno" class="tbl-wrap">
-                    <table data-oc-scroll-table class="tbl">
+                    <table data-erp-cards data-oc-scroll-table class="tbl">
                         <thead>
                             <tr>
-                                <th>Venta</th>
+                                <th data-card="title">Venta</th>
                                 <th>Cliente</th>
-                                <th>Estado</th>
-                                <th>Medio de pago</th>
-                                <th style="text-align:right">Total</th>
-                                <th style="text-align:right">IVA</th>
-                                <th style="text-align:right">Cobrado ahora</th>
-                                <th style="text-align:right">Pendiente</th>
-                                <th style="text-align:center">Impacta caja</th>
+                                <th data-card="half">Estado</th>
+                                <th data-card="half">Medio de pago</th>
+                                <th data-card="half" style="text-align:right">Total</th>
+                                <th data-card="half" style="text-align:right">IVA</th>
+                                <th data-card="half" style="text-align:right">Cobrado ahora</th>
+                                <th data-card="half" style="text-align:right">Pendiente</th>
+                                <th data-card="half" style="text-align:center">Impacta caja</th>
                             </tr>
                         </thead>
                         <tbody data-venta-body>
@@ -99,6 +99,13 @@
                                     <td><span class="chip @(v.ImpactaCajaFisica ? "chip-ok" : "chip-info")">@v.MedioPago</span></td>
                                     <td style="text-align:right" class="num">
                                         $@v.TotalVenta.ToString("N2")
+                                        @* VENTA-ENVIO-TOTAL-01: con envío el Total es "a cobrar" (productos +
+                                           envío); se conserva la trazabilidad de cada concepto en la misma celda. *@
+                                        @if (v.ImporteEnvio > 0m)
+                                        {
+                                            <div class="text-xs muted-2" style="white-space:nowrap" data-venta-productos>Productos $@v.TotalProductos.ToString("N2")</div>
+                                            <div class="text-xs muted-2" style="white-space:nowrap" data-venta-envio>Envío $@v.ImporteEnvio.ToString("N2")</div>
+                                        }
                                         @if (v.DiscriminaIva)
                                         {
                                             <div class="text-xs muted-2">neto $@v.Neto.ToString("N2")</div>

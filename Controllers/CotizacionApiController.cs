@@ -234,6 +234,59 @@ public sealed class CotizacionApiController : ControllerBase
         }
     }
 
+    // COTIZACION-MIVENTA-02: chequeo de sólo lectura antes de convertir — "Confirmar Mi Venta"
+    // lo llama primero para saber si puede terminar de verdad sin crear la Venta a ciegas.
+    [HttpPost("{id:int}/conversion/preflight")]
+    [PermisoRequerido(Modulo = "cotizaciones", Accion = "convert")]
+    public async Task<IActionResult> ConversionPreflight(
+        [FromRoute] int id,
+        [FromBody] CotizacionConversionRequest? request,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var usuario = User?.Identity?.Name ?? "System";
+            var resultado = await _conversionService.PreflightConversionAsync(id, request ?? new CotizacionConversionRequest(), usuario, cancellationToken);
+            return Ok(resultado);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al calcular preflight de conversion para cotizacion {Id}", id);
+            return StatusCode(500, new { error = "No se pudo calcular el preflight de la venta." });
+        }
+    }
+
+    // COTIZACION-MIVENTA-02: preview de Subtotal/IVA/alícuotas para el modal "Facturar al
+    // confirmar" — sin crear Venta ni Factura.
+    [HttpGet("{id:int}/conversion/factura-preview")]
+    [PermisoRequerido(Modulo = "cotizaciones", Accion = "convert")]
+    public async Task<IActionResult> FacturaPreview(
+        [FromRoute] int id,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var resultado = await _conversionService.PreviewFacturaAsync(id, cancellationToken);
+            if (!resultado.Exitoso)
+                return BadRequest(new { errores = resultado.Errores });
+
+            return Ok(resultado);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al calcular preview de factura para cotizacion {Id}", id);
+            return StatusCode(500, new { error = "No se pudo calcular el preview de facturación." });
+        }
+    }
+
     [HttpPost("{id:int}/conversion/convertir")]
     [PermisoRequerido(Modulo = "cotizaciones", Accion = "convert")]
     public async Task<IActionResult> Convertir(

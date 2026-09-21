@@ -268,5 +268,17 @@ public sealed class CotizacionApiControllerTests
 
         public Task<CotizacionConversionResultado> ConvertirAVentaAsync(int cotizacionId, CotizacionConversionRequest request, string usuario, CancellationToken cancellationToken = default) =>
             Task.FromResult(ConversionResultado);
+
+        public CotizacionMiVentaPreflightResultado PreflightResultado { get; init; } =
+            new() { Listo = true };
+
+        public CotizacionFacturaPreviewResultado FacturaPreviewResultado { get; init; } =
+            new() { Exitoso = true };
+
+        public Task<CotizacionMiVentaPreflightResultado> PreflightConversionAsync(int cotizacionId, CotizacionConversionRequest request, string usuario, CancellationToken cancellationToken = default) =>
+            Task.FromResult(PreflightResultado);
+
+        public Task<CotizacionFacturaPreviewResultado> PreviewFacturaAsync(int cotizacionId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(FacturaPreviewResultado);
     }
 }

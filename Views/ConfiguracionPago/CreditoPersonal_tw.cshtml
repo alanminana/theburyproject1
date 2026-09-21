@@ -33,7 +33,7 @@
         .cp-nav-link {
             display: flex; align-items: center; gap: .55rem; width: 100%;
             padding: .5rem .65rem; border-radius: 8px; border: 1px solid transparent;
-            background: transparent; color: #94a3b8; font-size: .81rem; line-height: 1.25;
+            background: transparent; color: var(--erp-fg-2, #b9c3d3); font-size: .81rem; line-height: 1.25;
             text-align: left; cursor: pointer; transition: background .12s, border-color .12s, color .12s;
         }
         .cp-nav-link:hover { background: #131e33; color: #e2e8f0; }
@@ -41,7 +41,7 @@
         .cp-num {
             width: 21px; height: 21px; border-radius: 5px; background: #1e293b;
             display: inline-flex; align-items: center; justify-content: center;
-            font-size: .66rem; font-weight: 700; color: #94a3b8; flex-shrink: 0;
+            font-size: var(--erp-fs-min, 0.75rem); font-weight: 700; color: var(--erp-fg-2, #b9c3d3); flex-shrink: 0;
         }
         .cp-nav-link.is-active .cp-num { background: #06b6d4; color: #04222a; }
         .cp-section { display: none; border: 1px solid #1e293b; border-radius: 12px; background: rgba(15,23,42,.5); padding: 1.25rem; }
@@ -52,7 +52,7 @@
             display: flex; align-items: center; justify-content: center;
             background: rgba(6,182,212,.12); color: #67e8f9;
         }
-        .cp-tag { font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #64748b; }
+        .cp-tag { font-size: var(--erp-fs-min, 0.75rem); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--erp-fg-3, #a6b1c3); }
         .cp-card { background: #0f172a; border: 1px solid #1e293b; border-radius: 10px; padding: .85rem 1rem; }
         .cp-notice {
             display: flex; gap: .75rem; align-items: flex-start;
@@ -68,8 +68,8 @@
         .cp-field-money { padding-left: 1.75rem; }
         .cp-field:focus { outline: none; border-color: #06b6d4; }
         .cp-field[readonly], .cp-field:disabled { opacity: .62; cursor: default; }
-        .cp-label { display:block; margin-bottom:.35rem; color:#94a3b8; font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
-        .cp-hint { margin-top:.28rem; color:#64748b; font-size:.72rem; line-height:1.4; }
+        .cp-label { display:block; margin-bottom:.35rem; color:var(--erp-fg-2, #b9c3d3); font-size:var(--erp-fs-min, 0.75rem); font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
+        .cp-hint { margin-top:.28rem; color:var(--erp-fg-3, #a6b1c3); font-size:var(--erp-fs-min, 0.75rem); line-height:1.4; }
         .cp-rango { transition: opacity .15s; }
         .cp-rango.is-overridden { opacity: .45; }
         .cp-tag-off {
@@ -89,12 +89,12 @@
         .cp-chip {
             display:inline-flex; align-items:center; justify-content:center;
             min-width:1.6rem; height:1.5rem; padding:0 .45rem; border-radius:7px;
-            font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.72rem; font-weight:700;
+            font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:var(--erp-fs-min, 0.75rem); font-weight:700;
             background:rgba(6,182,212,.12); border:1px solid rgba(6,182,212,.28); color:#a5f3fc;
         }
         .cp-pill {
             display:inline-flex; align-items:center; gap:.25rem; border-radius:999px; padding:.15rem .5rem;
-            font-size:.66rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em;
+            font-size:var(--erp-fs-min, 0.75rem); font-weight:700; text-transform:uppercase; letter-spacing:.05em;
             border:1px solid rgba(6,182,212,.22); background:rgba(6,182,212,.1); color:#67e8f9;
         }
         .cp-pill-green { border-color:rgba(34,197,94,.22); background:rgba(34,197,94,.1); color:#86efac; }
@@ -108,7 +108,7 @@
         .cp-csr-item {
             display:inline-flex; align-items:center; gap:.3rem; padding:.22rem .5rem; border-radius:7px;
             border:1px solid #334155; background:#0f172a; cursor:pointer; user-select:none;
-            font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.72rem; font-weight:600; color:#94a3b8;
+            font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:var(--erp-fs-min, 0.75rem); font-weight:600; color:var(--erp-fg-2, #b9c3d3);
             transition: background .12s, border-color .12s, color .12s;
         }
         .cp-csr-item input { width:13px; height:13px; }
@@ -316,6 +316,7 @@
                         <div>
                             <label asp-for="DefaultsGlobales.TasaMensual" class="cp-label">Recargo global (fallback de planes sin porcentaje propio)</label>
                             <input asp-for="DefaultsGlobales.TasaMensual" type="number" step="0.01" min="0" max="100"
+                                   value="@(dg.TasaMensual.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture))"
                                    readonly="@(!puedeEditar)" class="cp-field" data-summary="tasa" />
                             <p class="cp-hint">Los planes de la sección "Recargo por cantidad de cuotas" (abajo) son la fuente primaria del recargo aplicado en una venta. Si un plan activo <strong class="text-slate-300">no</strong> fija su propio porcentaje, este valor lo completa al vender; sin ningún valor acá tampoco, ese plan queda sin porcentaje válido.</p>
                             <span asp-validation-for="DefaultsGlobales.TasaMensual" class="text-xs text-red-500"></span>
@@ -429,6 +430,7 @@
                                     <div class="mt-3">
                                         <label asp-for="CuotasCreditoPersonal[i].TasaMensual" class="cp-label">Recargo total (%)</label>
                                         <input asp-for="CuotasCreditoPersonal[i].TasaMensual" type="number" step="0.01" min="0" max="100"
+                                               value="@(cuota.TasaMensual?.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture))"
                                                readonly="@(!puedeEditar)" placeholder="Requerido si está activa (0 = sin recargo)" class="cp-field font-mono"
                                                data-preview-porcentaje data-preview-cuotas="@cuota.CantidadCuotas" data-preview-target="preview-cuota-@i" />
                                         <span asp-validation-for="CuotasCreditoPersonal[i].TasaMensual" class="text-xs text-red-400"></span>
@@ -586,7 +588,9 @@
                                     </div>
                                     <div>
                                         <label asp-for="Perfiles[i].TasaMensual" class="cp-label">Tasa mensual (%)</label>
-                                        <input asp-for="Perfiles[i].TasaMensual" type="number" step="0.01" min="0" max="100" readonly="@(!puedeEditar)" class="cp-field font-mono" />
+                                        <input asp-for="Perfiles[i].TasaMensual" type="number" step="0.01" min="0" max="100"
+                                               value="@(perfil.TasaMensual.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture))"
+                                               readonly="@(!puedeEditar)" class="cp-field font-mono" />
                                     </div>
                                     <div>
                                         <label asp-for="Perfiles[i].GastosAdministrativos" class="cp-label">Gastos admin ($)</label>
@@ -963,35 +967,35 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
                     <div class="sm:col-span-2">
                         <label for="nuevoPerfilNombre" class="cp-label">Nombre</label>
-                        <input id="nuevoPerfilNombre" name="nuevoPerfilNombre" placeholder="Ej. Cliente frecuente" class="cp-field" />
+                        <input id="nuevoPerfilNombre" name="nuevoPerfilNombre" form="credito-config-form" placeholder="Ej. Cliente frecuente" class="cp-field" />
                     </div>
                     <div class="sm:col-span-2">
                         <label for="nuevoPerfilDescripcion" class="cp-label">Descripcion</label>
-                        <input id="nuevoPerfilDescripcion" name="nuevoPerfilDescripcion" placeholder="Notas internas del perfil" class="cp-field" />
+                        <input id="nuevoPerfilDescripcion" name="nuevoPerfilDescripcion" form="credito-config-form" placeholder="Notas internas del perfil" class="cp-field" />
                     </div>
                     <div>
                         <label for="nuevoPerfilTasaMensual" class="cp-label">Tasa mensual (%)</label>
-                        <input id="nuevoPerfilTasaMensual" name="nuevoPerfilTasaMensual" type="number" step="0.01" min="0" max="100" value="0" class="cp-field font-mono" />
+                        <input id="nuevoPerfilTasaMensual" name="nuevoPerfilTasaMensual" form="credito-config-form" type="number" step="0.01" min="0" max="100" value="0" class="cp-field font-mono" />
                     </div>
                     <div>
                         <label for="nuevoPerfilGastosAdministrativos" class="cp-label">Gastos administrativos ($)</label>
-                        <input id="nuevoPerfilGastosAdministrativos" name="nuevoPerfilGastosAdministrativos" type="number" step="0.01" min="0" value="0" class="cp-field font-mono" />
+                        <input id="nuevoPerfilGastosAdministrativos" name="nuevoPerfilGastosAdministrativos" form="credito-config-form" type="number" step="0.01" min="0" value="0" class="cp-field font-mono" />
                     </div>
                     <div>
                         <label for="nuevoPerfilMinCuotas" class="cp-label">Cuota minima</label>
-                        <input id="nuevoPerfilMinCuotas" name="nuevoPerfilMinCuotas" type="number" min="1" max="120" value="1" class="cp-field font-mono" />
+                        <input id="nuevoPerfilMinCuotas" name="nuevoPerfilMinCuotas" form="credito-config-form" type="number" min="1" max="120" value="1" class="cp-field font-mono" />
                     </div>
                     <div>
                         <label for="nuevoPerfilMaxCuotas" class="cp-label">Cuota maxima</label>
-                        <input id="nuevoPerfilMaxCuotas" name="nuevoPerfilMaxCuotas" type="number" min="1" max="120" value="24" class="cp-field font-mono" />
+                        <input id="nuevoPerfilMaxCuotas" name="nuevoPerfilMaxCuotas" form="credito-config-form" type="number" min="1" max="120" value="24" class="cp-field font-mono" />
                     </div>
                     <div>
                         <label for="nuevoPerfilOrden" class="cp-label">Orden</label>
-                        <input id="nuevoPerfilOrden" name="nuevoPerfilOrden" type="number" value="0" class="cp-field font-mono" />
+                        <input id="nuevoPerfilOrden" name="nuevoPerfilOrden" form="credito-config-form" type="number" value="0" class="cp-field font-mono" />
                     </div>
                     <div class="flex items-end">
                         <label class="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm font-semibold text-slate-300 cursor-pointer w-full h-[42px]">
-                            <input id="nuevoPerfilActivo" name="nuevoPerfilActivo" type="checkbox" value="true" checked class="rounded border-slate-600 bg-slate-900 text-primary focus:ring-primary" />
+                            <input id="nuevoPerfilActivo" name="nuevoPerfilActivo" form="credito-config-form" type="checkbox" value="true" checked class="rounded border-slate-600 bg-slate-900 text-primary focus:ring-primary" />
                             Activo
                         </label>
                     </div>
@@ -1024,11 +1028,11 @@
                         @* value vacío por defecto: el modal "Agregar cuota" comparte el form de configuración; con un
                            valor por defecto (p.ej. 1) el botón "Guardar configuración" posteaba esa cuota como nueva y
                            chocaba con un plan ya existente ("Cantidades de cuotas duplicadas"). Vacío ⇒ Guardar no agrega. *@
-                        <input id="nuevaCuotaCantidad" name="nuevaCuotaCantidad" type="number" min="1" max="120" value="" class="cp-field font-mono" />
+                        <input id="nuevaCuotaCantidad" name="nuevaCuotaCantidad" form="credito-config-form" type="number" min="1" max="120" value="" class="cp-field font-mono" />
                     </div>
                     <div>
                         <label for="nuevaCuotaTasaMensual" class="cp-label">Recargo total (%)</label>
-                        <input id="nuevaCuotaTasaMensual" name="nuevaCuotaTasaMensual" type="number" step="0.01" min="0" max="100" value="" placeholder="Requerido si está activa (0 = sin recargo)" class="cp-field font-mono"
+                        <input id="nuevaCuotaTasaMensual" name="nuevaCuotaTasaMensual" form="credito-config-form" type="number" step="0.01" min="0" max="100" value="" placeholder="Requerido si está activa (0 = sin recargo)" class="cp-field font-mono"
                                data-preview-porcentaje data-preview-cuotas-input="nuevaCuotaCantidad" data-preview-target="preview-nueva-cuota" />
                     </div>
                     <div class="sm:col-span-2">
@@ -1036,7 +1040,7 @@
                     </div>
                     <div class="sm:col-span-2 flex items-end">
                         <label class="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm font-semibold text-slate-300 cursor-pointer w-full h-[42px]">
-                            <input id="nuevaCuotaActivo" name="nuevaCuotaActivo" type="checkbox" value="true" checked class="rounded border-slate-600 bg-slate-900 text-primary focus:ring-primary" />
+                            <input id="nuevaCuotaActivo" name="nuevaCuotaActivo" form="credito-config-form" type="checkbox" value="true" checked class="rounded border-slate-600 bg-slate-900 text-primary focus:ring-primary" />
                             Activa
                         </label>
                     </div>

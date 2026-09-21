@@ -31,11 +31,23 @@ la historia del proyecto. Este documento define reglas; el código real (Foundat
 
 ## 4. Headers y acciones
 
-- Header de página: breadcrumb + título + acciones primarias agrupadas a la derecha.
+- Patrón canónico — sin card de "hero" propio para el título de pantalla (ver
+  `Catálogo/Index_tw.cshtml`, `Cliente/Index_tw.cshtml`, `Venta/Index_tw.cshtml`): el
+  título ya lo muestra la barra superior global (`_Layout.cshtml`), así que no se repite
+  en un card aparte dentro del contenido. Las acciones primarias de la pantalla se
+  integran a la cabecera del mismo card de contenido — junto a los tabs cuando la
+  pantalla los tiene, o junto al título de la sección/listado cuando no.
+- No crear un card o header separado solo para repetir el título de la página. Un
+  breadcrumb o dato de contexto adicional (estado operativo, eyebrow, etc.) se justifica
+  únicamente si comunica algo que la barra global no cubre — y aun así, evaluar primero si
+  puede integrarse sin un card propio antes de sumar una superficie nueva.
 - Acciones condicionadas por permiso (`User.TienePermiso`) se resuelven en el servidor,
   no se ocultan solo con CSS.
 - Acciones no disponibles no se muestran si un estado disabled no aporta explicación (ver
   §8).
+- Una acción que no tiene equivalente en ninguna otra barra de la pantalla (ej. una
+  sticky bar mobile) no puede quedar oculta en el breakpoint donde esa barra reemplaza al
+  resto de las acciones — solo se ocultan las acciones que sí están duplicadas ahí.
 
 ## 5. Tabs
 
@@ -276,7 +288,8 @@ navegador real. No hacer push sin autorización explícita.
 | Referencia | Cubre |
 |---|---|
 | Global / `_Layout` (`Views/Shared/_Layout.cshtml`) | `main` único, skip link, sidebar, header, permisos por sección, modales globales |
-| Venta / Index (`Views/Venta/Index_tw.cshtml`, `ventas-index.css`, `venta-index.js`, `venta-index-rework.js`) | listados ERP, tabla desktop + cards mobile paritarias, tabs responsive accesibles, paginación server-rendered, filtros preservados, acciones normalizadas, sticky mobile |
+| Catálogo / Inventario (`Views/Catalogo/Index_tw.cshtml`) | patrón de header sin hero (§4): título solo en la barra global, acciones primarias integradas a la cabecera del card de tabs/contenido |
+| Venta / Index (`Views/Venta/Index_tw.cshtml`, `ventas-index.css`, `venta-index.js`, `venta-index-rework.js`) | listados ERP, tabla desktop + cards mobile paritarias, tabs responsive accesibles, paginación server-rendered, filtros preservados, acciones normalizadas, sticky mobile, header sin hero (§4) |
 
 No asumir que toda pantalla nueva debe copiar literalmente `Venta/Index`; debe seguir
 las mismas reglas de este documento, con el layout que su contenido requiera.

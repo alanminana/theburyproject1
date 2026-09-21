@@ -124,6 +124,9 @@ namespace TheBuryProject.Controllers
             try
             {
                 var producto = await MapearProductoParaPersistenciaAsync(viewModel);
+                // Sin permiso, el costo de envío no se puede fijar al crear: se ignora lo enviado.
+                if (!PuedeEditarCostoEnvio())
+                    producto.CostoEnvio = 0m;
                 await _productoService.CreateAsync(producto);
 
                 var (creditoOk, erroresCreditoPersist) = await _productoCreditoPersonalConfigService.GuardarAsync(
@@ -318,6 +321,16 @@ namespace TheBuryProject.Controllers
 
                 var producto = await MapearProductoParaPersistenciaAsync(viewModel);
                 producto.RowVersion = viewModel.RowVersion!;
+                // Sin permiso, el costo de envío es solo lectura: se conserva el valor persistido
+                // aunque el request traiga otro (input readonly manipulado).
+                if (!PuedeEditarCostoEnvio())
+                {
+                    producto.CostoEnvio = await _context.Productos
+                        .AsNoTracking()
+                        .Where(p => p.Id == id)
+                        .Select(p => p.CostoEnvio)
+                        .FirstOrDefaultAsync();
+                }
                 await _productoService.UpdateAsync(producto);
 
                 await transaction.CommitAsync();
@@ -478,6 +491,8 @@ namespace TheBuryProject.Controllers
                 cuotas = resultado.Cuotas.Select(c => new { numero = c.NumeroCuota, total = c.Total }).ToList()
             });
         }
+
+        private bool PuedeEditarCostoEnvio() => User.TienePermiso("productos", "editshippingcost");
 
         private async Task<Producto> MapearProductoParaPersistenciaAsync(ProductoViewModel viewModel)
         {

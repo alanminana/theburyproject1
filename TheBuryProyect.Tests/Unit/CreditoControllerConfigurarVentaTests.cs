@@ -783,6 +783,7 @@ public class CreditoControllerConfigurarVentaTests
         public Task<bool> ExistePlantillaActivaAsync() => Task.FromResult(_existePlantilla);
 
         public Task<ContratoVentaCreditoValidacionResult> ValidarDatosParaGenerarAsync(int ventaId) => Task.FromResult(_validacion);
+        public ContratoVentaCreditoValidacionResult ValidarDatosClienteParaContrato(Cliente? cliente) => _validacion;
         public Task<ContratoVentaCredito> GenerarAsync(int ventaId, string usuario) => throw new NotImplementedException();
         public Task<ContratoVentaCredito> GenerarPdfAsync(int ventaId, string usuario) => throw new NotImplementedException();
         public Task<ContratoVentaCreditoPdfArchivo?> ObtenerPdfAsync(int ventaId) => throw new NotImplementedException();

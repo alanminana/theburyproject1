@@ -44,6 +44,11 @@
     function show(el) { el?.classList.remove('hidden'); }
     function hide(el) { el?.classList.add('hidden'); }
 
+    // #credito-embebido-cargando es flex, no block: 'hidden' no puede convivir con esa
+    // utility en el markup (conflicto de cascada real) — alternar ambas clases explícito.
+    function showFlex(el) { el?.classList.remove('hidden'); el?.classList.add('flex'); }
+    function hideFlex(el) { el?.classList.add('hidden'); el?.classList.remove('flex'); }
+
     let ventaId = window.ventaInicial?.id || null;
     let creditoId = window.ventaInicial?.creditoId || null;
     let configurado = window.ventaInicial?.creditoConfigurado === true;
@@ -185,7 +190,7 @@
         if (enCurso || !requiereCredito()) return;
         enCurso = true;
         ocultarError();
-        show(cargandoEl);
+        showFlex(cargandoEl);
 
         try {
             const ok = await asegurarBorradorPersistido();
@@ -248,7 +253,7 @@
             cargado = false;
         } finally {
             enCurso = false;
-            hide(cargandoEl);
+            hideFlex(cargandoEl);
         }
     }
 
@@ -307,11 +312,61 @@
 
         const btnContrato = contenedor.querySelector('[data-credito-embebido-generar-contrato]');
         btnContrato?.addEventListener('click', async () => {
+            if (btnContrato.disabled) return;
+
+            // La pestaña se reserva ANTES del primer await, en el mismo gesto del click: un
+            // window.open() disparado después de un await ya no cuenta como iniciado por el
+            // usuario y los navegadores lo bloquean como popup. Si el navegador igual lo
+            // bloquea acá (ventanaContrato === null), el flujo sigue sin tratarlo como error
+            // — el fragmento recargado abajo ya trae el link manual "Ver / imprimir contrato".
+            const ventanaContrato = abrirPestanaReservada();
             btnContrato.disabled = true;
             ocultarError();
-            await generarContratoEmbebido();
+
+            const verUrl = await generarContratoEmbebido();
+            if (verUrl) {
+                navegarPestanaReservada(ventanaContrato, verUrl);
+            } else {
+                cerrarPestanaReservada(ventanaContrato);
+            }
+
+            // Recarga fresca: el servidor decide si el contrato quedó generado (o si sigue
+            // faltando algún dato contractual) — nunca se asume nada del lado del navegador.
             await cargarConfigurador();
         });
+    }
+
+    // Reservar/navegar/cerrar la pestaña del contrato en el gesto de click del usuario (ver
+    // wireBotonesEmbebidos). about:blank en vez de la URL final porque todavía no la tenemos:
+    // ese fetch es async y recién resuelve después de este mismo tick.
+    function abrirPestanaReservada() {
+        let ventana = null;
+        try {
+            ventana = window.open('about:blank', '_blank');
+            if (ventana) ventana.opener = null;
+        } catch {
+            ventana = null;
+        }
+        return ventana;
+    }
+
+    function navegarPestanaReservada(ventana, url) {
+        if (!ventana || ventana.closed) return;
+        try {
+            ventana.location.href = url;
+        } catch {
+            // El operador todavía puede abrir el contrato desde el link manual
+            // "Ver / imprimir contrato" que trae el fragmento recargado.
+        }
+    }
+
+    function cerrarPestanaReservada(ventana) {
+        if (!ventana || ventana.closed) return;
+        try {
+            ventana.close();
+        } catch {
+            // A lo sumo queda una pestaña about:blank que el operador puede cerrar a mano.
+        }
     }
 
     async function confirmarCreditoEmbebido() {
@@ -349,6 +404,9 @@
         }
     }
 
+    // Devuelve la verUrl del contrato (generado ahora o ya existente — Generar es idempotente
+    // por VentaId, ver ContratoVentaCreditoService.GenerarAsync) para que el caller navegue la
+    // pestaña ya reservada, o null si falló / faltan datos contractuales.
     async function generarContratoEmbebido() {
         const tokenInput = contenedor.querySelector('input[name="__RequestVerificationToken"]');
         const params = new URLSearchParams({ ventaId: String(ventaId) });
@@ -363,12 +421,12 @@
             const data = await resp.json().catch(() => null);
             if (!resp.ok || !data?.success) {
                 mostrarError(data?.message || 'No se pudo generar el contrato.');
-                return false;
+                return null;
             }
-            return true;
+            return data.verUrl || null;
         } catch {
             mostrarError('No se pudo contactar al servidor para generar el contrato.');
-            return false;
+            return null;
         }
     }
 

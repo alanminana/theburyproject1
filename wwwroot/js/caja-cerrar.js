@@ -95,8 +95,45 @@ document.addEventListener('DOMContentLoaded', () => {
 
     inputs.forEach(input => input.addEventListener('input', recalcular));
 
+    // La justificación es obligatoria cuando hay diferencia. El servidor sigue siendo la autoridad;
+    // esto solo evita el viaje de ida y vuelta y deja el error pegado al campo.
+    const form = document.getElementById('form-cerrar');
+    // Span propio: jquery.validate.unobtrusive vacía el de asp-validation-for al validar el formulario.
+    const justificacionErrorEl = document.querySelector('[data-caja-justificacion-error]');
+    const justificacionErrorServidorEl = document.querySelector('[data-valmsg-for="JustificacionDiferencia"]');
+    const MENSAJE_JUSTIFICACION = 'Debe proporcionar una justificación para la diferencia encontrada';
+
+    function setErrorJustificacion(mensaje) {
+        if (justificacionErrorEl) {
+            justificacionErrorEl.textContent = mensaje;
+        }
+        if (mensaje === '' && justificacionErrorServidorEl) {
+            justificacionErrorServidorEl.textContent = '';
+        }
+        justificacionEl.setAttribute('aria-invalid', mensaje ? 'true' : 'false');
+    }
+
+    form?.addEventListener('submit', event => {
+        if (!justificacionEl.disabled && !justificacionEl.value.trim()) {
+            event.preventDefault();
+            setErrorJustificacion(MENSAJE_JUSTIFICACION);
+            justificacionEl.focus();
+        }
+    });
+
+    justificacionEl.addEventListener('input', () => {
+        if (justificacionEl.value.trim()) {
+            setErrorJustificacion('');
+        }
+    });
+
     // Initial calculation (e.g. on validation roundtrip)
     recalcular();
+
+    if (justificacionErrorServidorEl?.textContent.trim()) {
+        justificacionEl.setAttribute('aria-invalid', 'true');
+        justificacionEl.focus();
+    }
 
     TheBury.autoDismissToasts();
 });

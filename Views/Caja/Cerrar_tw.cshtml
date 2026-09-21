@@ -86,6 +86,7 @@
                     <label asp-for="JustificacionDiferencia" class="label">Justificación de la diferencia <span class="req">*</span></label>
                     <textarea asp-for="JustificacionDiferencia" id="justificacion" rows="2" disabled placeholder="Explicá el origen del sobrante o faltante." class="field"></textarea>
                     <span asp-validation-for="JustificacionDiferencia" class="text-rose-500 text-xs"></span>
+                    <span data-caja-justificacion-error role="alert" class="text-rose-500 text-xs"></span>
                 </div>
 
                 <div class="caja-cerrar-notes-grid" style="margin-top:1rem">

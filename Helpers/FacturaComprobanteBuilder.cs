@@ -54,8 +54,6 @@ namespace TheBuryProject.Helpers
                     Tipo = factura.Tipo,
                     PuntoVenta = factura.PuntoVenta,
                     FechaEmision = factura.FechaEmision,
-                    CAE = factura.CAE,
-                    FechaVencimientoCAE = factura.FechaVencimientoCAE,
                     Anulada = factura.Anulada,
                     FechaAnulacion = factura.FechaAnulacion,
                     MotivoAnulacion = factura.MotivoAnulacion

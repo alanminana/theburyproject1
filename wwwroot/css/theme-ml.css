@@ -100,3 +100,82 @@ body {
 .btn-erp-primary:focus-visible {
     outline-color: #f5c518;
 }
+
+/* ==========================================================================
+   Legibilidad / accesibilidad visual (contraste AA+ y tamaños mínimos)
+   --------------------------------------------------------------------------
+   Los grises de texto de Tailwind (slate-400/500/600) y los tamaños
+   text-[10px]/[11px] quedaban casi al tono del fondo oscuro (#0b0e14-#1e2533).
+   Se reapuntan SOLO las utilidades de texto/placeholder (no bg/border) y los
+   tokens de texto tenue. Contraste sobre #141821: >= 6.4:1 (AA), la mayoría >= 8:1.
+   ========================================================================== */
+:root {
+    /* Escala ÚNICA de texto sobre fondo oscuro (contraste sobre #141821).
+       Cambiar acá = cambia en todo el ERP (utilidades Tailwind, módulos, chips). */
+    --erp-fg-1: #d3dae6;   /* cuerpo secundario   ~11:1 */
+    --erp-fg-2: #b9c3d3;   /* etiquetas / muted   ~9:1  */
+    --erp-fg-3: #a6b1c3;   /* metadatos           ~7.5:1 */
+    --erp-fg-4: #93a0b5;   /* placeholder / tenue ~6.4:1 (mínimo permitido) */
+    --erp-text-muted: var(--erp-fg-2);
+    --erp-text-faint: var(--erp-fg-3);
+    --ml-muted:       var(--erp-fg-2);
+    --ml-faint:       var(--erp-fg-3);
+
+    --erp-fs-min: 0.75rem; /* tamaño mínimo absoluto de texto (12px) */
+
+    /* Escala mínima: 12px -> 13px */
+    --text-xs: 0.8125rem;
+    --text-xs--line-height: 1.25rem;
+}
+
+/* Estas utilidades viven en @layer utilities (misma capa que Tailwind) para NO pisar
+   variantes (hover:, group-hover:, peer-checked:...) que ganan por especificidad. */
+@layer utilities {
+    .text-slate-300 { color: var(--erp-fg-1); }
+    .text-slate-400 { color: var(--erp-fg-2); }
+    .text-slate-500 { color: var(--erp-fg-3); }
+    .text-slate-600 { color: var(--erp-fg-4); }
+    .placeholder-slate-500::placeholder,
+    .placeholder-slate-400::placeholder { color: var(--erp-fg-4); }
+    /* variante dark: (especificidad 0,1,0, empata con las de arriba y gana por orden) */
+    .dark\:text-slate-300:where(.dark, .dark *) { color: var(--erp-fg-1); }
+    .dark\:text-slate-400:where(.dark, .dark *) { color: var(--erp-fg-2); }
+    .dark\:text-slate-500:where(.dark, .dark *) { color: var(--erp-fg-3); }
+
+    /* Tamaños arbitrarios ilegibles: 10px -> 12px, 11px -> 13px */
+    .text-\[10px\] { font-size: 0.75rem; }
+    .text-\[11px\] { font-size: 0.8125rem; }
+    .text-\[9px\], .text-\[\.68rem\] { font-size: var(--erp-fs-min); }
+}
+input::placeholder, textarea::placeholder { color: var(--erp-fg-4); opacity: 1; }
+
+/* Componentes con color/tamaño hardcodeado en shared-components.css */
+.btn-erp-ghost { color: var(--erp-fg-1); }
+.row-action { color: var(--erp-fg-3); font-size: 0.8125rem; }
+.chip-erp { font-size: 0.75rem; color: var(--erp-fg-1); }
+.chip-erp-success { color: #4ade80; }
+.chip-erp-warning { color: #fcd34d; }
+.chip-erp-danger  { color: #fca5a5; }
+.chip-erp-primary { color: #f5c518; }
+.badge-erp-neutral { color: var(--erp-fg-1); }
+.badge-erp-success { color: #4ade80; }
+.badge-erp-warning { color: #fcd34d; }
+.badge-erp-danger  { color: #fca5a5; }
+
+/* Texto sobre fondo dorado sólido: el blanco daba 1.6:1. Se usa la misma tinta oscura de .btn-erp-primary. */
+@layer utilities {
+    .bg-primary.text-white,
+    .bg-primary .text-white { color: #15110a; }
+}
+
+/* Rojo de estado sobre fondos oscuros/tintados (red-500 daba 4.2:1) */
+@layer utilities { .text-red-500 { color: #f87171; } }
+
+
+/* Texto blanco sobre fondos de estado claros/medios: no llegaba a 4.5:1
+   (amber-500 2.1, orange-500 2.8, emerald-500 2.5, amber-600 3.2, emerald-600 3.8). */
+@layer utilities {
+    .bg-amber-500.text-white, .bg-amber-600.text-white,
+    .bg-orange-500.text-white, .bg-emerald-500.text-white { color: #15110a; }
+    .bg-emerald-600.text-white { background-color: #047857; }
+}

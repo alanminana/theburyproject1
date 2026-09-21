@@ -397,6 +397,15 @@ namespace TheBuryProject.ViewModels
         /// </summary>
         public bool TieneEnvioRegistrado => Envio != null;
 
+        // Montos derivados en backend (fórmula única en VentaMontos): Total = productos; el envío es
+        // un concepto separado; TotalACobrar = lo que el cliente entrega; TotalFacturable = lo que cubre
+        // el comprobante (hoy = Total, sin envío).
+        public decimal ImporteEnvio => Helpers.VentaMontos.NormalizarImporteEnvio(Envio?.CostoEnvio);
+
+        public decimal TotalACobrar => Helpers.VentaMontos.CalcularTotalACobrar(Total, Envio?.CostoEnvio);
+
+        public decimal TotalFacturable => Helpers.VentaMontos.CalcularTotalFacturable(Total);
+
         public bool PuedeCambiarEstadoEnvio =>
             Envio != null && !Envio.EsTerminal && Estado != EstadoVenta.Cancelada;
 

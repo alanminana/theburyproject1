@@ -218,6 +218,13 @@ public class CajasListViewModel
     /// </summary>
     public IDictionary<int, AperturaFisicoResumen> ResumenFisicoPorApertura { get; set; }
         = new Dictionary<int, AperturaFisicoResumen>();
+
+    /// <summary>
+    /// Ids de <see cref="AperturaCaja"/> "vencidas": siguen abiertas desde un día comercial
+    /// anterior a hoy. No se puede operar con ellas (ventas, cuotas, movimientos manuales);
+    /// deben cerrarse (arqueo + justificación) antes de continuar.
+    /// </summary>
+    public ISet<int> AperturasVencidasIds { get; set; } = new HashSet<int>();
 }
 /// <summary>
 /// Resumen de totales agrupados por tipo de pago dentro de una apertura de caja.

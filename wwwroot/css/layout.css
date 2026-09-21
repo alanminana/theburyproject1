@@ -205,6 +205,11 @@ body.app-layout {
            aunque quede en width:0, corriendo el ícono a la izquierda del
            centro real dentro de la píldora activa/hover */
         gap: 0;
+        /* Píldora activa/hover cuadrada con aire alrededor del ícono */
+        width: 2.75rem;
+        height: 2.75rem;
+        margin-inline: auto;
+        padding-block: 0;
     }
 
     #sidebar.collapsed nav a .material-symbols-outlined,

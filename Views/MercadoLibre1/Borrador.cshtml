@@ -111,7 +111,7 @@
     @if (erroresLineas.Length > 0)
     {
         <div class="card" style="margin-top:12px" data-ml-campos-error="@string.Join(",", camposError)"><div class="cardpad">
-            <div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);margin-bottom:6px">Última validación / respuesta de ML (@Model.FechaValidacionUtc?.ToLocalTime().ToString("dd/MM HH:mm"))</div>
+            <div style="font-size:var(--erp-fs-min, 0.75rem);font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);margin-bottom:6px">Última validación / respuesta de ML (@Model.FechaValidacionUtc?.ToLocalTime().ToString("dd/MM HH:mm"))</div>
             @foreach (var linea in erroresLineas.Where(l => !l.StartsWith("CAMPOS_ERROR:") && !l.StartsWith("ATRIBUTOS_ERROR:")))
             {
                 <div style="font-size:12px;color:@(linea.StartsWith("ERROR") ? "var(--red)" : "var(--amber)")">@linea</div>
@@ -134,7 +134,7 @@
                 <div class="field full" data-ml-field="title">
                     <label asp-for="Titulo">Título <span class="req">*</span></label>
                     <input asp-for="Titulo" maxlength="60" />
-                    <span asp-validation-for="Titulo" style="color:var(--red);font-size:11.5px"></span>
+                    <span asp-validation-for="Titulo" style="color:var(--red);font-size:var(--erp-fs-min, 0.75rem)"></span>
                 </div>
                 <div class="field full" data-ml-field="category_id" id="ml-categoria-picker"
                      data-url-sugerencias="@Url.Action("CategoriaSugerencias")"
@@ -156,7 +156,7 @@
                     </div>
                     <ul data-rol="resultados" style="margin-top:8px;max-height:220px;overflow-y:auto;list-style:none"></ul>
                     <p data-rol="estado" class="hint"></p>
-                    <span asp-validation-for="CategoryIdMl" style="color:var(--red);font-size:11.5px"></span>
+                    <span asp-validation-for="CategoryIdMl" style="color:var(--red);font-size:var(--erp-fs-min, 0.75rem)"></span>
                     <span class="hint">Solo se puede publicar en categorías hoja.</span>
                 </div>
                 <div class="field" data-ml-field="condition">
@@ -176,12 +176,12 @@
                 <div class="field" data-ml-field="price">
                     <label asp-for="Precio">Precio <span class="req">*</span></label>
                     <div class="suffix"><input asp-for="Precio" type="number" step="0.01" /><span class="u">ARS</span></div>
-                    <span asp-validation-for="Precio" style="color:var(--red);font-size:11.5px"></span>
+                    <span asp-validation-for="Precio" style="color:var(--red);font-size:var(--erp-fs-min, 0.75rem)"></span>
                 </div>
                 <div class="field" data-ml-field="available_quantity">
                     <label asp-for="Stock">Stock a publicar <span class="req">*</span></label>
                     <input asp-for="Stock" type="number" step="1" min="0" />
-                    <span asp-validation-for="Stock" style="color:var(--red);font-size:11.5px"></span>
+                    <span asp-validation-for="Stock" style="color:var(--red);font-size:var(--erp-fs-min, 0.75rem)"></span>
                     <span class="hint">Podés bajarlo respecto del stock ERP, pero no superarlo. No modifica el inventario.</span>
                 </div>
             </div>

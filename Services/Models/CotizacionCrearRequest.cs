@@ -13,6 +13,9 @@ public sealed class CotizacionCrearRequest
 
     /// <summary>Checkbox "Esta venta tiene envío a domicilio" del simulador.</summary>
     public bool TieneEnvio { get; init; }
+
+    /// <summary>Importe del envío cargado en el modal (opcional; se ignora sin <see cref="TieneEnvio"/>).</summary>
+    public decimal? CostoEnvio { get; init; }
 }
 
 public sealed class CotizacionOpcionPagoSeleccionadaRequest
@@ -58,6 +61,15 @@ public sealed class CotizacionResultado
 
     public DateTime? FechaVencimiento { get; init; }
     public bool TieneEnvio { get; init; }
+
+    /// <summary>Importe del envío persistido en la cotización (0 si no hay envío o no tiene costo).</summary>
+    public decimal ImporteEnvio { get; init; }
+
+    /// <summary>
+    /// Total de la opción elegida (o TotalBase si aún no hay opción) + envío. Calculado en backend
+    /// con la misma fórmula que Venta.TotalACobrar; el envío no recibe recargo del plan.
+    /// </summary>
+    public decimal TotalACobrar { get; init; }
     public IReadOnlyList<CotizacionDetalleResultado> Detalles { get; init; } = Array.Empty<CotizacionDetalleResultado>();
     public IReadOnlyList<CotizacionPagoSimuladoResultado> OpcionesPago { get; init; } = Array.Empty<CotizacionPagoSimuladoResultado>();
 

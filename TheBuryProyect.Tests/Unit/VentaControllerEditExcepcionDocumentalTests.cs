@@ -238,6 +238,7 @@ public class VentaControllerEditExcepcionDocumentalTests
         public Task<bool> ExisteContratoGeneradoAsync(int ventaId) => Task.FromResult(true);
         public Task<ContratoVentaCredito?> ObtenerContratoPorVentaAsync(int ventaId) => Task.FromResult<ContratoVentaCredito?>(null);
         public Task<ContratoVentaCreditoValidacionResult> ValidarDatosParaGenerarAsync(int ventaId) => throw new NotImplementedException();
+        public ContratoVentaCreditoValidacionResult ValidarDatosClienteParaContrato(Cliente? cliente) => throw new NotImplementedException();
         public Task<ContratoVentaCredito> GenerarAsync(int ventaId, string usuario) => throw new NotImplementedException();
         public Task<ContratoVentaCredito> GenerarPdfAsync(int ventaId, string usuario) => throw new NotImplementedException();
         public Task<ContratoVentaCreditoPdfArchivo?> ObtenerPdfAsync(int ventaId) => throw new NotImplementedException();

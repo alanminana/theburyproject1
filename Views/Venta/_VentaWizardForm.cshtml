@@ -204,9 +204,9 @@
            HERO — cabecera con métricas en vivo
            ══════════════════════════════════════════════════════════════════ *@
         <section class="hero-erp mb-5">
-            <div class="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
+            <div class="vm-hero__row flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
                 <div class="space-y-3">
-                    <div class="flex flex-wrap items-center gap-2 text-xs font-semibold">
+                    <div class="vm-hero__crumbs flex flex-wrap items-center gap-2 text-xs font-semibold">
                         @if (esEdicion)
                         {
                             <a asp-action="Index" class="inline-flex items-center rounded-full bg-slate-800 px-3 py-1 text-slate-400 no-underline hover:bg-slate-700 transition-colors">Ventas</a>
@@ -223,7 +223,7 @@
                         }
                         </div>
                         <div>
-                            <h1 class="text-2xl font-black tracking-tight text-white sm:text-3xl">
+                            <h1 class="vm-hero__title text-2xl font-black tracking-tight text-white sm:text-3xl">
                                 @if (esEdicion)
                                 {
                                     @(esCotizacion ? "Editar Cotización" : "Editar Venta")
@@ -233,7 +233,7 @@
                                     @(esCotizacion ? "Nueva Cotización" : "Nueva Venta")
                                 }
                             </h1>
-                            <p class="mt-2 text-sm text-slate-400 sm:text-base max-w-2xl">
+                            <p class="vm-hero__desc mt-2 text-sm text-slate-400 sm:text-base max-w-2xl">
                                 @if (esEdicion)
                                 {
                                     <text>Modificá los datos de la operación. Solo se pueden editar ventas en estado Cotización, Presupuesto, Pendiente Requisitos o Pendiente Financiación.</text>
@@ -248,17 +248,17 @@
                         </div>
                     </div>
 
-                    <div class="flex w-full flex-col gap-3 sm:flex-row xl:w-auto xl:min-w-60 xl:flex-col">
+                    <div class="vm-hero__actions flex w-full flex-col gap-3 sm:flex-row xl:w-auto xl:min-w-60 xl:flex-col">
                         @if (esEdicion)
                         {
-                            <a asp-action="Details" asp-route-id="@Model.Id" class="btn-erp-ghost h-11 w-full no-underline">Cancelar</a>
+                            <a asp-action="Details" asp-route-id="@Model.Id" class="vm-hero__cancel btn-erp-ghost h-11 w-full no-underline">Cancelar</a>
                         }
                         else
                         {
-                            <a asp-action="Index" class="btn-erp-ghost h-11 w-full no-underline">Cancelar</a>
+                            <a asp-action="Index" class="vm-hero__cancel btn-erp-ghost h-11 w-full no-underline">Cancelar</a>
                         }
                         <button type="button" data-wizard-primary
-                                class="inline-flex h-11 w-full items-center justify-center rounded-xl bg-primary px-5 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90">
+                                class="vm-hero__primary inline-flex h-11 w-full items-center justify-center rounded-xl bg-primary px-5 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90">
                             @if (esEdicion)
                             {
                                 <text>Confirmar venta</text>
@@ -271,7 +271,7 @@
                     </div>
                 </div>
 
-                <div class="mt-4 flex items-center justify-between gap-3">
+                <div class="vm-hero__steps mt-4 flex items-center justify-between gap-3">
                     <div role="tablist" class="venta-wizard-tablist flex gap-1 overflow-x-auto" aria-label="Pasos de la venta">
                         @if (pasoCotizar)
                         {
@@ -345,16 +345,10 @@
                 </section>
             }
 
-            <div class="vm-mobile-summary-bar" data-venta-workspace role="region" aria-label="Resumen de compra">
-                <div class="vm-mobile-summary-bar__info">
-                    <span class="material-symbols-outlined vm-mobile-summary-bar__icon">receipt_long</span>
-                    <span>Total: <strong id="vm-modal-sticky-total" data-mobile-total>$0,00</strong></span>
-                </div>
-                <button type="button" class="vm-btn-confirm-sm" data-wizard-primary>
-                    <span class="material-symbols-outlined vm-btn-confirm-sm__icon">point_of_sale</span>
-                    <span data-wizard-primary-label>@(esCotizacion && !esEdicion ? "Guardar" : "Confirmar")</span>
-                </button>
-            </div>
+            @* La barra de resumen (Total + CTA, .vm-mobile-summary-bar) vive al final del
+               formulario, después de la grilla: en <768px es fixed (no depende de su lugar en
+               el DOM) y en 768-1279px es sticky al pie de la columna del wizard, lo que sólo
+               funciona si es posterior al contenido. *@
 
             @* data-venta-workspace: se oculta mientras el paso activo es Cotizar, para que
                el simulador ocupe el ancho completo y no queden visibles los totales ni el
@@ -371,7 +365,7 @@
                             <div class="mb-6 flex items-start justify-between gap-4">
                                 <div class="flex items-center gap-3">
                                     <span
-                                    class="w-8 h-8 shrink-0 flex items-center justify-center rounded-full bg-primary/15 text-primary text-xs font-bold">1</span>
+                                    class="vm-step-bubble w-8 h-8 shrink-0 flex items-center justify-center rounded-full bg-primary/15 text-primary text-xs font-bold">1</span>
                                     <div>
                                         <h2 class="text-lg font-bold text-white">Datos generales</h2>
                                         <p class="text-sm text-slate-400">Seleccioná el cliente, la fecha y el tipo de pago
@@ -435,6 +429,7 @@
                                         <span class="material-symbols-outlined text-orange-500 text-sm">info</span>
                                         <span class="text-orange-500 font-bold text-sm">Aviso de Crédito Personal</span>
                                     </div>
+                                    <p id="aviso-credito-nota" class="text-xs text-orange-200/80 mb-3 hidden"></p>
                                     <div class="grid grid-cols-3 gap-4 text-xs">
                                         <div>
                                             <p class="text-slate-400">Disponible</p>
@@ -460,22 +455,27 @@
                                 <div class="mb-6 flex items-start justify-between gap-4">
                                     <div class="flex items-center gap-3">
                                         <span
-                                        class="w-8 h-8 shrink-0 flex items-center justify-center rounded-full bg-primary/15 text-primary text-xs font-bold">2</span>
+                                        class="vm-step-bubble w-8 h-8 shrink-0 flex items-center justify-center rounded-full bg-primary/15 text-primary text-xs font-bold">2</span>
                                         <div>
                                             <h2 class="text-lg font-bold text-white">Selección de productos</h2>
                                             <p class="text-sm text-slate-400">Buscá artículos, afiná por filtros y revisá el
                                                 detalle antes de pasar al cobro.</p>
                                             </div>
                                         </div>
-                                        <span class="badge-erp badge-erp-neutral shrink-0">
-                                            <span class="material-symbols-outlined text-sm">shopping_bag</span>
-                                            0 productos
-                                        </span>
                                     </div>
 
-                                    @* Filtros avanzados *@
+                                    @* Filtros avanzados. <details> abierto por defecto: en mobile
+                                       (data-collapse-mobile, venta-page-wizard.js) arranca cerrado para que el
+                                       buscador quede primero; en ≥768px el <summary> se oculta por CSS y los
+                                       filtros se ven siempre, como antes. Mismos ids y mismo grid. *@
+                                    <details class="vm-filtros mb-5" data-collapse-mobile open>
+                                    <summary class="vm-filtros__summary">
+                                        <span class="material-symbols-outlined" aria-hidden="true">tune</span>
+                                        Filtros de búsqueda
+                                        <span class="material-symbols-outlined vm-filtros__chev" aria-hidden="true">expand_more</span>
+                                    </summary>
                                     <div
-                                        class="grid grid-cols-1 gap-3 rounded-xl border border-slate-800 bg-slate-800/50 p-4 mb-5 md:grid-cols-4">
+                                        class="grid grid-cols-1 gap-3 rounded-xl border border-slate-800 bg-slate-800/50 p-4 md:grid-cols-4">
                                         <select id="filtro-categoria" class="venta-select text-xs">
                                             <option value="">Categoría: Todas</option>
                                             @if (categorias != null)
@@ -508,6 +508,7 @@
                                             <span class="text-xs text-slate-400 font-medium">Solo con stock</span>
                                         </label>
                                     </div>
+                                    </details>
 
                                     @* Búsqueda de producto *@
                                     <div class="flex flex-col gap-4 mb-6">
@@ -524,7 +525,7 @@
 
                                         @* Panel de agregar producto (mostrado por JS) *@
                                         <div id="panel-agregar-producto"
-                                             class="hidden grid grid-cols-2 gap-3 rounded-xl border border-primary/20 bg-primary/10 p-4 md:grid-cols-5">
+                                             class="hidden grid-cols-2 gap-3 rounded-xl border border-primary/20 bg-primary/10 p-4 md:grid-cols-5">
                                             <div class="md:col-span-2">
                                                 <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Producto
                                                     Seleccionado</label>
@@ -590,7 +591,7 @@
                                                             </div>
                                                             </div>
                                                             <div id="advertencia-stock-sin-identificar"
-                                                                 class="hidden col-span-2 md:col-span-5 flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-400">
+                                                                 class="hidden col-span-2 md:col-span-5 items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-400">
                                                             </div>
                                                             <div>
                                                                 <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Desc.
@@ -657,7 +658,7 @@
                                                                                 <div class="mb-6 flex items-start justify-between gap-4">
                                                                                     <div class="flex items-center gap-3">
                                                                                         <span
-                                                                                        class="w-8 h-8 shrink-0 flex items-center justify-center rounded-full bg-primary/15 text-primary text-xs font-bold">3</span>
+                                                                                        class="vm-step-bubble w-8 h-8 shrink-0 flex items-center justify-center rounded-full bg-primary/15 text-primary text-xs font-bold">3</span>
                                                                                         <div>
                                                                                             <h2 class="text-lg font-bold text-white">Detalle de cobro y crédito</h2>
                                                                                             <p class="text-sm text-slate-400">La pantalla adapta los campos requeridos según el
@@ -736,7 +737,7 @@
                                                                                                 </div>
                                                                                             </div>
                                                                                             <div id="panel-tarjeta-resumen"
-                                                                                                 class="mt-4 flex flex-wrap gap-4 pt-4 border-t border-slate-700 hidden">
+                                                                                                 class="mt-4 flex-wrap gap-4 pt-4 border-t border-slate-700 hidden">
                                                                                                 <div class="px-3 py-2 bg-primary/10 rounded-md">
                                                                                                     <p class="text-[10px] text-primary font-bold uppercase">Monto por cuota</p>
                                                                                                     <p id="tarjeta-monto-cuota" class="text-sm font-bold text-white">$0,00</p>
@@ -849,7 +850,7 @@
                                                                                                                 crédito al confirmar.
                                                                                                             </p>
                                                                                                         </div>
-                                                                                                        <div id="panel-credito-cupo" class="mt-4 grid grid-cols-2 gap-3 hidden">
+                                                                                                        <div id="panel-credito-cupo" class="mt-4 grid-cols-2 gap-3 hidden">
                                                                                                             <div class="venta-stat">
                                                                                                                 <p class="venta-stat__label">Cupo disponible</p>
                                                                                                                 <p id="credito-cupo-valor" class="text-sm font-bold text-emerald-500">$0,00</p>
@@ -870,7 +871,7 @@
                                                                                             <div id="panel-verificacion-crediticia" class="venta-section">
                                                                                                 <div class="mb-6 flex items-start justify-between gap-4">
                                                                                                     <div class="flex items-center gap-3">
-                                                                                                        <span class="w-8 h-8 shrink-0 flex items-center justify-center rounded-full bg-primary/15 text-primary text-xs font-bold">4</span>
+                                                                                                        <span class="vm-step-bubble w-8 h-8 shrink-0 flex items-center justify-center rounded-full bg-primary/15 text-primary text-xs font-bold">4</span>
                                                                                                         <div>
                                                                                                             <h2 class="text-lg font-bold text-white">Estado del crédito</h2>
                                                                                                             <p class="text-sm text-slate-400">Cupo, documentación, mora y riesgo antes de confirmar.</p>
@@ -1099,7 +1100,7 @@
                                                                                                            cards") — la sección inyectada (.card.card-pad) ya aporta su propia jerarquía
                                                                                                            visual. #panel-configuracion-credito conserva id/DOM/selectors JS intactos. *@
                                                                                                         <div id="panel-configuracion-credito">
-                                                                                                            <div id="credito-embebido-cargando" class="hidden flex items-center gap-2 text-xs text-slate-400" aria-live="polite">
+                                                                                                            <div id="credito-embebido-cargando" class="hidden items-center gap-2 text-xs text-slate-400" aria-live="polite">
                                                                                                                 <span class="material-symbols-outlined animate-spin text-sm">progress_activity</span>
                                                                                                                 Preparando configuración del crédito…
                                                                                                             </div>
@@ -1115,10 +1116,10 @@
                                                                                                 <div class="venta-section">
                                                                                                     <div class="mb-6 flex items-start justify-between gap-4">
                                                                                                         <div class="flex items-center gap-3">
-                                                                                                            <span class="w-8 h-8 shrink-0 flex items-center justify-center rounded-full bg-primary/15 text-primary text-xs font-bold">5</span>
+                                                                                                            <span class="vm-step-bubble w-8 h-8 shrink-0 flex items-center justify-center rounded-full bg-primary/15 text-primary text-xs font-bold">5</span>
                                                                                                             <div>
                                                                                                                 <h2 class="text-lg font-bold text-white">Envío</h2>
-                                                                                                                <p class="text-sm text-slate-400">Si la venta se entrega a domicilio, cargá los datos de envío. El costo es sólo informativo: no modifica el total de la venta.</p>
+                                                                                                                <p class="text-sm text-slate-400">Si la venta se entrega a domicilio, cargá los datos de envío. El costo de envío se suma al total a cobrar de la venta.</p>
                                                                                                             </div>
                                                                                                         </div>
                                                                                                         <span class="badge-erp badge-erp-neutral shrink-0">
@@ -1173,12 +1174,12 @@
                                                                                                                 <input type="text" name="Envio.CodigoPostal" id="envio-cp" class="venta-input" maxlength="20" />
                                                                                                             </div>
                                                                                                             <div>
-                                                                                                                <label class="venta-label" for="envio-costo">Costo de envío (informativo)</label>
+                                                                                                                <label class="venta-label" for="envio-costo">Costo de envío</label>
                                                                                                                 <div class="relative">
                                                                                                                     <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
                                                                                                                     <input type="number" name="Envio.CostoEnvio" id="envio-costo" min="0" step="0.01" class="venta-input" style="padding-left:1.75rem" />
                                                                                                                 </div>
-                                                                                                                <p class="mt-1 text-xs text-slate-500">No modifica el total de la venta.</p>
+                                                                                                                <p class="mt-1 text-xs text-slate-500">Se cobra junto con los productos: no lleva recargos del medio de pago ni integra el comprobante.</p>
                                                                                                             </div>
                                                                                                             <div>
                                                                                                                 <label class="venta-label" for="envio-fecha">Fecha programada</label>
@@ -1198,7 +1199,7 @@
                                                                                                         <div class="mb-6 flex items-start justify-between gap-4">
                                                                                                             <div class="flex items-center gap-3">
                                                                                                                 <span
-                                                                                                                class="w-8 h-8 shrink-0 flex items-center justify-center rounded-full bg-primary/15 text-primary text-xs font-bold">5</span>
+                                                                                                                class="vm-step-bubble w-8 h-8 shrink-0 flex items-center justify-center rounded-full bg-primary/15 text-primary text-xs font-bold">5</span>
                                                                                                                 <div>
                                                                                                                     <h2 class="text-lg font-bold text-white">Revisión</h2>
                                                                                                                     <p class="text-sm text-slate-400">Resumen final antes de confirmar la operación.</p>
@@ -1314,8 +1315,17 @@
                                                                                                                     <span class="text-slate-400">IVA</span>
                                                                                                                     <span data-rev-iva class="font-semibold text-slate-200">$0,00</span>
                                                                                                                 </div>
+                                                                                                                @* VENTA-ENVIO-TOTAL-01: con envío cargado, Revisión separa Productos / Envío y deja
+                                                                                                                   TOTAL A COBRAR como cifra dominante. venta-page-wizard.js (refreshSummary) muestra
+                                                                                                                   este bloque y cambia la etiqueta; el importe real de Venta.TotalACobrar lo calcula
+                                                                                                                   el backend (VentaMontos), esto es sólo el cálculo en vivo previo a guardar. *@
+                                                                                                                <div data-rev-envio-lines class="hidden mt-3 space-y-2 border-t border-slate-800 pt-3 text-sm">
+                                                                                                                    <div class="flex justify-between"><span class="text-slate-400">Total productos</span><span data-rev-total-productos class="font-semibold text-slate-200">$0,00</span></div>
+                                                                                                                    <div class="flex justify-between"><span class="text-slate-400">Envío</span><span data-rev-envio class="font-semibold text-slate-200">$0,00</span></div>
+                                                                                                                    <p data-rev-envio-credito-nota class="hidden text-xs text-amber-300">El envío no se financia con el crédito: se cobra aparte de las cuotas.</p>
+                                                                                                                </div>
                                                                                                                 <div class="mt-3 flex items-center justify-between border-t border-slate-800 pt-3">
-                                                                                                                    <span class="font-bold text-white">Total</span>
+                                                                                                                    <span data-rev-total-label class="font-bold text-white">Total</span>
                                                                                                                     <span data-rev-total class="text-2xl font-black text-white">$0,00</span>
                                                                                                                 </div>
                                                                                                             </div>
@@ -1410,7 +1420,7 @@
                                                                                                         </p>
                                                                                                     </section>
 
-                                                                                                    <div class="flex flex-col gap-3 sm:flex-row">
+                                                                                                    <div class="vm-sidebar-actions flex flex-col gap-3 sm:flex-row">
                                                                                                         @if (esEdicion)
                                                                                                         {
                                                                                                             <a asp-action="Details" asp-route-id="@Model.Id" class="btn-erp-ghost w-full flex-1 sm:w-auto no-underline">
@@ -1429,6 +1439,17 @@
                                                                                                 @* ── /Sidebar derecha ───────────────────────────────────── *@
 
                                                                                             </div>
+
+            <div class="vm-mobile-summary-bar" data-venta-workspace role="region" aria-label="Resumen de compra">
+                <div class="vm-mobile-summary-bar__info">
+                    <span class="material-symbols-outlined vm-mobile-summary-bar__icon">receipt_long</span>
+                    <span><span data-mobile-total-label>Total</span>: <strong id="vm-modal-sticky-total" data-mobile-total>$0,00</strong></span>
+                </div>
+                <button type="button" class="vm-btn-confirm-sm" data-wizard-primary>
+                    <span class="material-symbols-outlined vm-btn-confirm-sm__icon">point_of_sale</span>
+                    <span data-wizard-primary-label>@(esCotizacion && !esEdicion ? "Guardar" : "Confirmar")</span>
+                </button>
+            </div>
 
                                                                                             @* Totales — fuente de verdad para JS (venta-create.js escribe estos ids;
                                                                                                venta-page-wizard.js los espeja hacia los spans visibles data-rev-*/data-mobile-total).

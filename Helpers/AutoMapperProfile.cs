@@ -359,6 +359,10 @@ namespace TheBuryProject.Helpers
             CreateMap<VentaEnvio, VentaEnvioViewModel>();
 
             CreateMap<VentaEnvioViewModel, VentaEnvio>()
+                // Un envío nunca resta del total a cobrar: importe negativo se guarda como 0.
+                .ForMember(d => d.CostoEnvio, o => o.MapFrom(s => s.CostoEnvio.HasValue
+                    ? Math.Max(0m, s.CostoEnvio.Value)
+                    : (decimal?)null))
                 .ForMember(d => d.Id, o => o.Ignore())
                 .ForMember(d => d.VentaId, o => o.Ignore())
                 .ForMember(d => d.Estado, o => o.Ignore())

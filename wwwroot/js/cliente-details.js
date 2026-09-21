@@ -295,7 +295,12 @@
                 function (b) { return b.getAttribute('data-cliente-tab'); }
             );
             var hashTab = (window.location.hash || '').replace('#', '');
-            var tab = tabNames.indexOf(hashTab) !== -1 ? hashTab : 'resumen';
+            // Fallback: ?tab=credito (Details(id, tab) lo recibe en el controller pero la
+            // vista no lo usaba). El hash, si existe, tiene prioridad.
+            var queryTab = new URLSearchParams(window.location.search).get('tab') || '';
+            var tab = tabNames.indexOf(hashTab) !== -1
+                ? hashTab
+                : (tabNames.indexOf(queryTab) !== -1 ? queryTab : 'resumen');
             setActiveClienteTab(tab, false);
         }
 

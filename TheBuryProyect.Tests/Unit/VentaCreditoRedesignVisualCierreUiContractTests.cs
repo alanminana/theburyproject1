@@ -196,7 +196,10 @@ public sealed class VentaCreditoRedesignVisualCierreUiContractTests
         var idx = css.IndexOf("[data-paso-activo=\"credito\"] #venta-form>.grid,", StringComparison.Ordinal);
         Assert.True(idx >= 0);
         var bloque = css.Substring(idx, Math.Min(400, css.Length - idx));
-        Assert.Contains("grid-template-columns: 1fr;", bloque);
+        // minmax(0, 1fr) y no `1fr` a secas: `1fr` es minmax(auto, 1fr) y el min-content de
+        // la tabla de productos (~736px) ensanchaba la columna y desbordaba el wizard a
+        // 390px (VENTA-WIZARD-MOBILE-01). Sigue siendo UNA columna.
+        Assert.Contains("grid-template-columns: minmax(0, 1fr);", bloque);
 
         var idxSidebar = css.IndexOf("[data-paso-activo=\"credito\"] .vm-sidebar,", StringComparison.Ordinal);
         Assert.True(idxSidebar >= 0);

@@ -1,0 +1,209 @@
+/* ==========================================================================
+   ERP-TABLE-CARDS-01 — tablas de listado a tarjetas en telefono (<640px)
+   --------------------------------------------------------------------------
+   Componente compartido y OPT-IN: solo actua sobre <table data-erp-cards>.
+   Por encima de 640px la tabla sigue siendo tabla (con su scroll horizontal).
+
+   El contenido lo describe cada <th> con data-card (lo copia erp-table-cards.js
+   a cada <td> de su columna, junto con data-label):
+     data-card="title"    columna principal: sin etiqueta, ancho completo, arriba.
+     data-card="half"     mitad de ancho: dos columnas cortas comparten renglon.
+     data-card="third"    tercio de ancho: tres cantidades cortas por renglon.
+     data-card="actions"  pie de la tarjeta (botones). Se infiere de "Acciones".
+     data-card="select"   checkbox de fila: esquina superior derecha. Se infiere.
+     data-card="hide"     columna que no se muestra en la tarjeta.
+   Sin data-card: renglon etiqueta/valor de ancho completo.
+
+   El <thead> se oculta, salvo los <th> con controles (boton de orden, checkbox
+   "seleccionar todos"), que quedan como una franja sobre las tarjetas para no
+   perder esas funciones en telefono.
+   ========================================================================== */
+
+@media (max-width: 639.98px) {
+    table[data-erp-cards] {
+        display: block;
+        width: 100%;
+        min-width: 0 !important; /* anula el min-width inline de data-oc-scroll-table */
+        border-collapse: separate;
+    }
+
+    table[data-erp-cards] > tfoot {
+        margin-top: 0.75rem;
+    }
+
+    /* Con tarjetas el scroll pasa a ser el de la pagina: se anulan el scroll propio del wrapper y su alto maximo. */
+    [data-oc-scroll-region]:has(> table[data-erp-cards]) {
+        max-height: none !important;
+        overflow: visible !important;
+    }
+
+    /* Franja de controles del thead ---------------------------------------- */
+    table[data-erp-cards] > thead {
+        display: block;
+    }
+
+    table[data-erp-cards] > thead > tr {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.35rem 0.9rem;
+        padding: 0 0.25rem 0.75rem;
+        border: 0;
+        background: transparent;
+    }
+
+    table[data-erp-cards] > thead th {
+        display: none;
+        width: auto !important;
+        min-width: 0 !important;
+        padding: 0;
+        border: 0;
+    }
+
+    table[data-erp-cards] > thead th:has(button, input, a) {
+        display: block;
+    }
+
+    table[data-erp-cards] > thead th button {
+        min-height: 2.5rem;
+    }
+
+    /* El "seleccionar todos" suele llevar la etiqueta solo para lectores de pantalla:
+       en la franja se muestra el texto para que el checkbox no quede huerfano. */
+    table[data-erp-cards] > thead th:has(input[type="checkbox"]) {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    table[data-erp-cards] > thead th:has(input[type="checkbox"])::after {
+        content: "Seleccionar todos";
+        color: var(--erp-text-muted, #a7b0c0);
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0;
+        text-transform: none;
+    }
+
+    table[data-erp-cards] > thead:has(button[data-sort]) > tr::before {
+        content: "Ordenar por";
+        color: var(--erp-text-faint, #7e8799);
+        font-size: 0.6875rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+    }
+
+    /* Tarjetas ------------------------------------------------------------- */
+    table[data-erp-cards] > :is(tbody, tfoot) {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        border: 0;
+    }
+
+    table[data-erp-cards] > :is(tbody, tfoot) > tr {
+        position: relative;
+        display: flex;
+        flex-wrap: wrap;
+        padding: 0.4rem 0;
+        background: var(--erp-surface, #141821);
+        border: 1px solid var(--erp-border, rgba(255, 255, 255, 0.07));
+        border-radius: 0.9rem;
+    }
+
+    table[data-erp-cards] > :is(tbody, tfoot) > tr > td {
+        display: block;
+        flex: 1 1 100%;
+        width: auto !important; /* gana a anchos por columna con selector de id (p. ej. #tab-productos .erp-table td:nth-child(n)) */
+        min-width: 0;
+        max-width: none;
+        padding: 0.4rem 1rem;
+        border: 0;
+        text-align: left !important; /* columnas numericas (.num, text-right) tambien se leen a la izquierda en la tarjeta */
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
+    table[data-erp-cards] > :is(tbody, tfoot) > tr > td[data-label]::before {
+        content: attr(data-label);
+        display: block;
+        margin-bottom: 0.15rem;
+        color: var(--erp-text-faint, #7e8799);
+        font-size: 0.6875rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        line-height: 1.3;
+        text-transform: uppercase;
+    }
+
+    /* Roles de columna ----------------------------------------------------- */
+    table[data-erp-cards] > :is(tbody, tfoot) > tr > td[data-card="half"] {
+        flex: 1 1 50%;
+    }
+
+    /* Tres por renglon: solo para cantidades cortas (entrada/salida/saldo); los importes van en "half". */
+    table[data-erp-cards] > :is(tbody, tfoot) > tr > td[data-card="third"] {
+        flex: 1 1 33%;
+        padding-right: 0.25rem;
+    }
+
+    table[data-erp-cards] > :is(tbody, tfoot) > tr > td[data-card="title"] {
+        order: -1;
+        padding-top: 0.75rem;
+        padding-right: 3rem; /* reserva el lugar del checkbox de seleccion */
+    }
+
+    table[data-erp-cards] > :is(tbody, tfoot) > tr > td[data-card="select"] {
+        position: absolute;
+        top: 0.35rem;
+        right: 0.35rem;
+        flex: none;
+        padding: 0.5rem;
+    }
+
+    table[data-erp-cards] > :is(tbody, tfoot) > tr > td[data-card="select"] input[type="checkbox"] {
+        width: 1.35rem;
+        height: 1.35rem;
+    }
+
+    table[data-erp-cards] > :is(tbody, tfoot) > tr > td[data-card="actions"] {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 0.35rem;
+        padding-top: 0.7rem;
+        border-top: 1px solid var(--erp-border, rgba(255, 255, 255, 0.07));
+    }
+
+    table[data-erp-cards] > :is(tbody, tfoot) > tr > td[data-card="actions"] > div {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+
+    table[data-erp-cards] > :is(tbody, tfoot) > tr > td[data-card="actions"] :is(a, button) {
+        min-width: 2.5rem;
+        min-height: 2.5rem;
+    }
+
+    table[data-erp-cards] > :is(tbody, tfoot) > tr > td[data-card="hide"],
+    table[data-erp-cards] > :is(tbody, tfoot) > tr > td[data-card="empty"] {
+        display: none;
+    }
+
+    /* Filas de una sola celda (estado vacio, "cargando", detalle expandido) */
+    table[data-erp-cards] > :is(tbody, tfoot) > tr[data-card-full] > td {
+        flex: 1 1 100%;
+    }
+
+    /* Los utilitarios de Tailwind (.hidden) viven en @layer y pierden contra
+       el display de arriba: se restauran para filtros que ocultan filas. */
+    table[data-erp-cards] > :is(tbody, tfoot) > tr[hidden],
+    table[data-erp-cards] > :is(tbody, tfoot) > tr.hidden,
+    table[data-erp-cards] > :is(tbody, tfoot) > tr > td[hidden],
+    table[data-erp-cards] > :is(tbody, tfoot) > tr > td.hidden {
+        display: none !important;
+    }
+}

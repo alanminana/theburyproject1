@@ -133,7 +133,15 @@ public class VentaTurnoLineaViewModel
     public string EstadoChipClass { get; set; } = "chip chip-neutral";
     public string MedioPago { get; set; } = string.Empty;
     public string MedioKey { get; set; } = "otro";
+    /// <summary>
+    /// Total a cobrar de la venta = <see cref="TotalProductos"/> + <see cref="ImporteEnvio"/>
+    /// (<c>Venta.TotalACobrar</c>). Es la base de Cobrado/Pendiente y de "Vendido" en los resúmenes.
+    /// </summary>
     public decimal TotalVenta { get; set; }
+    /// <summary>Total de productos (<c>Venta.Total</c>, sin envío).</summary>
+    public decimal TotalProductos { get; set; }
+    /// <summary>Importe de envío a cobrar (0 si la venta no tiene envío o no tiene costo).</summary>
+    public decimal ImporteEnvio { get; set; }
     public decimal CobradoAhora { get; set; }
     public decimal Pendiente { get; set; }
     public bool ImpactaCajaFisica { get; set; }

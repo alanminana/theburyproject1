@@ -88,22 +88,22 @@ const CategoriaModal = (() => {
             tbody.appendChild(tr);
         }
 
-        // Agregar la nueva categoría al select del modal de producto
-        var catSelect = document.getElementById('modal-categoriaId');
-        if (catSelect) {
-            var opt = document.createElement('option');
-            opt.value = entity.id;
-            opt.textContent = entity.nombre;
-            catSelect.appendChild(opt);
+        // Agregar la nueva categoría (si es raíz) al autocomplete de Categoría del modal de producto.
+        // window.CatalogoData.categorias sólo trae categorías raíz (ver Index_tw.cshtml); una
+        // subcategoría (con ParentId) no corresponde ahí.
+        var formParentSelect = form ? form.querySelector('[name="ParentId"]') : null;
+        var esRaiz = !(formParentSelect && formParentSelect.value);
+        if (esRaiz && window.CatalogoData && Array.isArray(window.CatalogoData.categorias)) {
+            window.CatalogoData.categorias.push({ id: entity.id, nombre: entity.nombre });
         }
 
         // Agregar la nueva categoría al select ParentId del propio modal
-        var parentSelect = document.getElementById('cat-modal-parentId');
-        if (parentSelect) {
+        var modalParentSelect = document.getElementById('cat-modal-parentId');
+        if (modalParentSelect) {
             var parentOpt = document.createElement('option');
             parentOpt.value = entity.id;
             parentOpt.textContent = entity.nombre;
-            parentSelect.appendChild(parentOpt);
+            modalParentSelect.appendChild(parentOpt);
         }
 
         // Toast de éxito

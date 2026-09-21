@@ -37,7 +37,25 @@
         opción), que es donde el flujo termina (§11/§15/§16).
       · Orden del DOM = orden visual (productos → config → totales → resultados), así
         el recorrido por teclado y el apilado mobile coinciden con el flujo (§27).
+
+    ── COTIZACION-MIVENTA-02 (segunda iteración de la POC "Mi Venta", 2026-09-17) ──
+    Corrige 3 problemas de UX encontrados en la primera iteración:
+      1. "Confirmar Mi Venta" ya no puede derivar silenciosamente a Venta/Edit — antes de
+         crear la Venta corre un preflight de sólo lectura (/conversion/preflight) que
+         reutiliza las MISMAS reglas reales (IVentaValidator.ValidarStock, ICajaService);
+         si no puede terminar, se queda en esta pantalla mostrando el bloqueo (§CIERRE
+         MI VENTA más abajo) — nunca crea la Venta a ciegas ni navega sola al wizard.
+      2. "Facturar al confirmar" reutiliza el MISMO partial que ya usa el modal "Emitir
+         factura" de Venta/Details (Views/Venta/_FacturaCamposEmision.cshtml) — no hay un
+         segundo cálculo de IVA ni un select A/B/C simplificado.
+      3. Nuevo botón explícito "Continuar con wizard": crea la Venta sin confirmar (mismo
+         ConvertirAVentaAsync ya existente, con ConfirmarVenta=false) y va siempre a
+         Venta/Edit — el mismo mecanismo que ya reconstituye el wizard completo desde una
+         Venta persistida, sin DTO nuevo.
 *@
+@{
+    ViewData["TiposFactura"] = new Microsoft.AspNetCore.Mvc.Rendering.SelectList(Enum.GetValues(typeof(TipoFactura)));
+}
 <div class="cotz-app"
      data-cotizacion-simulador
      data-simular-url="@Url.Content("~/api/cotizacion/simular")"
@@ -47,17 +65,23 @@
      data-clientes-url="@Url.Action("BuscarClientes", "Cotizacion")"
      data-convertir-base-url="@Url.Content("~/api/cotizacion")"
      data-venta-edit-url="@Url.Content("~/Venta/Edit/")"
-     data-aptitud-credito-url="@Url.Content("~/api/cotizacion/aptitud-credito")">
+     data-venta-details-url="@Url.Content("~/Venta/Details/")"
+     data-venta-facturar-url="@Url.Content("~/Venta/Facturar/")"
+     data-aptitud-credito-url="@Url.Content("~/api/cotizacion/aptitud-credito")"
+     data-caja-url="@Url.Content("~/Caja")"
+     data-puede-excepcion-documental="@User.TienePermiso("ventas", "authorize").ToString().ToLowerInvariant()"
+     data-puede-confirmar-venta="@User.TienePermiso("ventas", "update").ToString().ToLowerInvariant()"
+     data-puede-facturar="@User.TienePermiso("ventas", "invoice").ToString().ToLowerInvariant()">
 
     <!-- ============================ TOP BAR ============================ -->
     @* §19: barra contextual liviana, un solo renglón — no un segundo hero. El
        breadcrumb "Ventas ›" se retira: embebido en Venta/Create el hero del wizard
        ya lo trae, y en standalone la sidebar cumple esa función. *@
     <header class="cotz-topbar">
-        <span class="material-symbols-outlined text-slate-500 shrink-0" style="font-size:16px">calculate</span>
+        @* COTIZACION-MOCKUP-01: ícono en tile de 32px con tinte de acento (mockup). *@
+        <span class="cotz-topbar__icon" aria-hidden="true"><span class="material-symbols-outlined" style="font-size:16px">receipt_long</span></span>
         @* h2: el parcial se embebe bajo el h1 de Venta/Create ("Nueva Venta"). *@
         <h2 class="cotz-topbar__title">Cotización</h2>
-        <span class="cotz-topbar__sep">·</span>
         <span class="cotz-topbar__hint truncate-1">Solo simulación. No modifica venta, stock ni caja.</span>
         @* Único indicador ambiental del estado de simulación (COTIZACION-SIMULAR-REDESIGN-VISUAL-IMPLEMENTACION-01:
            antes se repetía en esta pill + una pill propia del panel Resultados + el hint del CTA). *@
@@ -70,8 +94,8 @@
              altura real del topbar — seguía tapando el encabezado de "Cliente"
              cuando ese cálculo no coincidía exacto (COTIZACION-SIMULAR-REDESIGN-VISUAL-POLISH-01). -->
         <div id="cotizacion-feedback" class="hidden" aria-live="polite"></div>
-        <a href="@Url.Action("Listado", "Cotizacion")" class="btn btn-ghost btn-xs ml-auto shrink-0">
-            <span class="material-symbols-outlined" style="font-size:15px">folder_open</span> Ver guardadas
+        <a href="@Url.Action("Listado", "Cotizacion")" class="btn btn-soft btn-sm ml-auto shrink-0">
+            <span class="material-symbols-outlined" style="font-size:16px">folder_open</span> Ver guardadas
         </a>
     </header>
 
@@ -91,7 +115,7 @@
                        en una fila-subtotal propia abajo (que duplicaba el mismo dato con
                        el "Total de la cotización" del rail de acciones, ya retirado).
                        Mismo id/valor que consumía updateHeaderCounts(). *@
-                    <span class="sec-meta ml-auto"><span id="header-prod-count">0</span> ítem · <span class="total-display text-slate-200" data-side-total>$0,00</span></span>
+                    <span class="sec-meta ml-auto"><span class="sec-meta__count"><span id="header-prod-count">0</span> ítem</span> · <span class="sec-meta__total total-display" data-side-total>$0,00</span></span>
                 </div>
 
                 <!-- Buscador -->
@@ -101,22 +125,22 @@
                         <input id="cotizacion-producto-buscar" type="text" class="field pl-8" placeholder="Buscar producto por nombre, código o ID…" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="cotizacion-productos-dropdown">
                         <div id="cotizacion-productos-dropdown" class="dropdown-list hidden absolute z-30 top-full left-0 right-0 mt-1" role="listbox"></div>
                     </div>
+                    @* COTIZACION-MOCKUP-01: cantidad + Agregar + estado de la selección en UNA
+                       fila (antes el estado iba en una línea propia debajo). *@
                     <div class="prod-search__row">
-                        <div class="qty-step">
+                        <div class="qty-step qty-step--lg">
                             <button type="button" aria-label="Restar" onclick="stepQty('cotizacion-cantidad',-1)">−</button>
                             <input id="cotizacion-cantidad" type="number" min="1" value="1" aria-label="Cantidad">
                             <button type="button" aria-label="Sumar" onclick="stepQty('cotizacion-cantidad',1)">+</button>
                         </div>
-                        <button id="cotizacion-agregar-producto" type="button" class="btn btn-soft flex-1">
-                            <span class="material-symbols-outlined" style="font-size:18px">add</span> Agregar
+                        <button id="cotizacion-agregar-producto" type="button" class="btn btn-primary shrink-0">
+                            <span class="material-symbols-outlined" style="font-size:16px">add</span> Agregar
                         </button>
-                    </div>
-                    <div id="cotizacion-producto-seleccionado" class="prod-search__pick italic">
-                        <span class="material-symbols-outlined text-slate-600" style="font-size:14px">inventory_2</span> Sin producto seleccionado.
+                        <div id="cotizacion-producto-seleccionado" class="prod-search__pick italic">Sin producto seleccionado</div>
                     </div>
                     <details class="prod-search__adv">
                         <summary class="link-sub">
-                            <span class="material-symbols-outlined chev" style="font-size:14px">expand_more</span> Agregar por ID (avanzado)
+                            <span class="material-symbols-outlined chev" style="font-size:13px">expand_more</span> Agregar por ID (avanzado)
                         </summary>
                         <div class="mt-2 grid grid-cols-12 gap-1.5">
                             <input id="cotizacion-producto-id-manual" type="text" class="field col-span-6" placeholder="ID">
@@ -129,14 +153,14 @@
                 <!-- Carrito -->
                 <div id="cotizacion-productos-cart" class="panel-body tight">
                     @* §26: vacío compacto, no una gran superficie muerta. *@
-                    <div id="cotizacion-productos-vacio" class="empty-mini">
+                    <div id="cotizacion-productos-vacio" class="empty-mini empty-mini--block">
                         <span class="material-symbols-outlined" style="font-size:18px">remove_shopping_cart</span>
                         <span>Sin productos aún. Buscá uno para empezar.</span>
                     </div>
 
-                    @* §6: separación real entre productos (antes 6px) para que la lista no
-                       se lea como un bloque continuo cuando hay varios. *@
-                    <div id="cotizacion-productos-tbody" class="space-y-2"></div>
+                    @* Separación real entre productos para que la lista no se lea como un
+                       bloque continuo cuando hay varios. *@
+                    <div id="cotizacion-productos-tbody" class="flex flex-col gap-3"></div>
                 </div>
             </section>
         </div>
@@ -149,7 +173,7 @@
                     @* §5: "Cambiar" acompaña la identidad, no un botón-ícono suelto dentro
                        de otra card. Sólo aparece con cliente seleccionado (lo alterna
                        setCliente() junto con el buscador). *@
-                    <button id="cotizacion-limpiar-cliente" type="button" class="link-sub ml-auto hidden">
+                    <button id="cotizacion-limpiar-cliente" type="button" class="link-sub link-sub--accent ml-auto hidden">
                         <span class="material-symbols-outlined" style="font-size:14px">swap_horiz</span> Cambiar
                     </button>
                 </div>
@@ -193,13 +217,23 @@
                     @* Sólo tiene efecto sin cliente de sistema seleccionado (el propio texto
                        de abajo lo aclara) — se oculta mientras hay uno elegido (setCliente en
                        cotizacion-simulador.js) en vez de mostrar un input inerte. *@
-                    <details id="cotizacion-contacto-libre" class="mt-1.5">
+                    @* COTIZACION-MOCKUP-01: campos chicos con etiqueta visible (mockup). El
+                       mockup dibuja además Email/Dirección: Cotizacion sólo persiste nombre y
+                       teléfono libres (CotizacionCrearRequest), así que no se inventan campos
+                       que el backend descartaría. *@
+                    <details id="cotizacion-contacto-libre" class="contacto-libre">
                         <summary class="link-sub">
-                            <span class="material-symbols-outlined chev" style="font-size:14px">expand_more</span> Datos de contacto libres
+                            <span class="material-symbols-outlined chev" style="font-size:13px">expand_more</span> Datos de contacto libres
                         </summary>
-                        <div class="mt-2 space-y-1.5">
-                            <input id="cotizacion-nombre-libre" type="text" class="field" placeholder="Nombre del cliente o empresa…" aria-label="Nombre libre" maxlength="200">
-                            <input id="cotizacion-telefono-libre" type="tel" class="field" placeholder="Teléfono / WhatsApp" aria-label="Teléfono libre" maxlength="30">
+                        <div class="contacto-libre__grid">
+                            <div class="contacto-libre__field">
+                                <label for="cotizacion-nombre-libre" class="contacto-libre__label">Nombre</label>
+                                <input id="cotizacion-nombre-libre" type="text" class="field" placeholder="Cliente o empresa" maxlength="200">
+                            </div>
+                            <div class="contacto-libre__field">
+                                <label for="cotizacion-telefono-libre" class="contacto-libre__label">Teléfono</label>
+                                <input id="cotizacion-telefono-libre" type="tel" class="field" placeholder="Teléfono / WhatsApp" maxlength="30">
+                            </div>
                             <p class="hint-line">Se guarda si no hay cliente de sistema seleccionado.</p>
                         </div>
                     </details>
@@ -216,45 +250,82 @@
                     <div class="condiciones-divider">Condiciones de cotización</div>
 
                     <div class="cond-grid">
-                        <div>
-                            <label for="cotizacion-descuento-gral-pct" class="label">Descuento %</label>
-                            <div class="relative">
-                                <input id="cotizacion-descuento-gral-pct" type="number" min="0" max="100" step="0.01" value="0" class="field pr-6" title="Se aplica al total antes de calcular medios.">
-                                <span class="field-affix field-affix--right">%</span>
+                        @* COTIZACION-CONDICIONES-PROPORCION-01: cada par pasa de 2 columnas
+                           50/50 a una fila flex con ancho proporcional al tipo de dato (ver
+                           .cond-pair en cotizacion-simulador.css) — mismos ids, bindings y
+                           validaciones, sólo ancho. *@
+                        <div class="cond-grid__full cond-pair cond-pair--descuento">
+                            <div class="cond-pair__a">
+                                <label for="cotizacion-descuento-gral-pct" class="label">Descuento %</label>
+                                <div class="relative">
+                                    <input id="cotizacion-descuento-gral-pct" type="number" min="0" max="100" step="0.01" value="0" class="field pr-6" title="Se aplica al total antes de calcular medios.">
+                                    <span class="field-affix field-affix--right">%</span>
+                                </div>
+                            </div>
+                            <div class="cond-pair__b">
+                                <label for="cotizacion-descuento-gral-importe" class="label">Descuento $</label>
+                                <div class="relative">
+                                    <span class="field-affix field-affix--left">$</span>
+                                    <input id="cotizacion-descuento-gral-importe" type="number" min="0" step="0.01" value="0" class="field pl-6" title="Se aplica al total antes de calcular medios.">
+                                </div>
                             </div>
                         </div>
-                        <div>
-                            <label for="cotizacion-descuento-gral-importe" class="label">Descuento $</label>
-                            <div class="relative">
-                                <span class="field-affix field-affix--left">$</span>
-                                <input id="cotizacion-descuento-gral-importe" type="number" min="0" step="0.01" value="0" class="field pl-6" title="Se aplica al total antes de calcular medios.">
+                        <div class="cond-grid__full cond-pair cond-pair--anticipo">
+                            @* Anticipo conserva su bloque propio (id/data-anticipo-activo) para que
+                               actualizarPrioridadAnticipo() en cotizacion-simulador.js lo siga atenuando
+                               igual cuando Crédito personal está destildado. *@
+                            <div id="cotizacion-anticipo-bloque" class="cond-pair__a" data-anticipo-activo="true">
+                                <label for="cotizacion-anticipo" class="label">Anticipo</label>
+                                <div class="relative">
+                                    <span class="field-affix field-affix--left">$</span>
+                                    <input id="cotizacion-anticipo" type="number" min="0" step="0.01" value="0" class="field pl-6" aria-label="Anticipo para credito personal" title="Crédito personal: se resta del total antes del recargo. El porcentaje se agrega una sola vez sobre el saldo restante después del anticipo.">
+                                </div>
                             </div>
-                        </div>
-                        @* Anticipo conserva su bloque propio (id/data-anticipo-activo) para que
-                           actualizarPrioridadAnticipo() en cotizacion-simulador.js lo siga atenuando
-                           igual cuando Crédito personal está destildado. *@
-                        <div id="cotizacion-anticipo-bloque" data-anticipo-activo="true">
-                            <label for="cotizacion-anticipo" class="label">Anticipo</label>
-                            <div class="relative">
-                                <span class="field-affix field-affix--left">$</span>
-                                <input id="cotizacion-anticipo" type="number" min="0" step="0.01" value="0" class="field pl-6" aria-label="Anticipo para credito personal" title="Crédito personal: se resta del total antes del recargo. El porcentaje se agrega una sola vez sobre el saldo restante después del anticipo.">
+                            <div class="cond-pair__b">
+                                <label for="cotizacion-fecha-vencimiento" class="label">Válida hasta</label>
+                                <input id="cotizacion-fecha-vencimiento" type="date" class="field">
                             </div>
-                        </div>
-                        <div>
-                            <label for="cotizacion-fecha-vencimiento" class="label">Válida hasta</label>
-                            <input id="cotizacion-fecha-vencimiento" type="date" class="field">
                         </div>
                         <div class="cond-grid__full">
                             <label for="cotizacion-observaciones" class="label">Observaciones</label>
                             <textarea id="cotizacion-observaciones" rows="2" class="field" maxlength="1000" placeholder="Notas internas opcionales…"></textarea>
                         </div>
-                        @* ENVIO-ML4: sólo declara la intención de envío para esta cotización —
-                           los datos de entrega (dirección, transportista) recién se cargan si la
-                           operación avanza al paso "Envío" del wizard de Venta. *@
-                        <label class="cond-grid__full cond-check">
+                        @* COTIZACION-MIVENTA-01: "Considerar envío a domicilio" pasa de sólo
+                           declarar intención a abrir el modal real de datos de envío (mismos
+                           campos que el paso Envío de Venta/Create, VentaEnvio) — ver
+                           #cotizacion-envio-modal más abajo y abrirModalEnvio()/
+                           guardarModalEnvio() en cotizacion-simulador.js. Si el usuario cancela
+                           sin haber guardado nunca una configuración válida, el checkbox vuelve
+                           a OFF (comportamiento pedido explícitamente). *@
+                        <div class="cond-grid__full cond-checks">
+                        <label class="cond-check">
                             <input type="checkbox" id="cotizacion-tiene-envio" class="rounded border-slate-600 bg-slate-800">
                             Considerar envío a domicilio
                         </label>
+                        <div id="cotizacion-envio-resumen" class="hidden note-info">
+                            <span class="material-symbols-outlined shrink-0" style="font-size:14px">local_shipping</span>
+                            <span id="cotizacion-envio-resumen-texto" class="min-w-0 truncate-1"></span>
+                            <button type="button" id="cotizacion-envio-editar" class="link-sub no-underline shrink-0">Editar</button>
+                        </div>
+                        @* COTIZACION-MIVENTA-02: "Facturar al confirmar" ya no muestra un select
+                           inline A/B/C — activar el checkbox abre el modal real de configuración
+                           (#modal-facturar-config, mismo partial que Venta/Details) y, al
+                           guardar, este bloque pasa a mostrar un resumen compacto (mismo patrón
+                           que Envío: checkbox → modal → resumen → Editar). Sólo visible con
+                           permiso ventas/invoice (mismo gate que VentaController.Facturar/
+                           ConfirmarYFacturar). *@
+                        <div data-puede-facturar-bloque class="hidden">
+                            <label class="cond-check">
+                                <input type="checkbox" id="cotizacion-facturar" class="rounded border-slate-600 bg-slate-800">
+                                Facturar al confirmar
+                            </label>
+                            <div id="cotizacion-facturar-resumen" class="hidden note-info mt-1.5">
+                                <span class="material-symbols-outlined shrink-0" style="font-size:14px">receipt_long</span>
+                                <span id="cotizacion-facturar-resumen-texto" class="min-w-0 truncate-1"></span>
+                                <button type="button" id="cotizacion-facturar-editar" class="link-sub no-underline shrink-0">Editar</button>
+                            </div>
+                        </div>
+                        </div>
                         <div data-descuentos-ambos class="cond-grid__full hidden note-amber">
                             <span class="material-symbols-outlined shrink-0" style="font-size:14px">warning</span>
                             Se sumarán ambos descuentos.
@@ -280,7 +351,12 @@
            clase; ningún cálculo cambia. *@
         <div class="col" data-zone="totales">
             <div id="cotizacion-totales-bar" class="totales-bar is-pendiente" title="Pendiente de simular">
-                <div class="totales-bar__stats">
+                @* COTIZACION-MOCKUP-01: la franja muestra SIEMPRE los cinco datos del mockup
+                   (Subtotal · Descuento · Total productos · Envío · TOTAL A COBRAR). Sin envío
+                   guardado, Envío es $0,00 y Total a cobrar coincide con Total productos: no hay
+                   dato nuevo, sólo deja de esconderse. renderTotalesEnvio() en
+                   cotizacion-simulador.js completa los importes (VENTA-ENVIO-TOTAL-01). *@
+                <div id="cotizacion-totales-stats" class="totales-bar__stats">
                     <div class="seg">
                         <div class="seg-label">Subtotal de productos</div>
                         <div id="cotizacion-subtotal" class="seg-value text-white total-display">—</div>
@@ -289,17 +365,25 @@
                         <div class="seg-label">Descuento</div>
                         @* Neutral por defecto: sólo pasa a verde cuando hay descuento real
                            aplicado (renderResultado en cotizacion-simulador.js) — $0,00 en
-                           verde no comunica nada (mismo criterio que recargoClass() con 0%). *@
+                           verde no comunica nada. *@
                         <div id="cotizacion-descuento" class="seg-value text-white total-display">—</div>
                     </div>
-                    <div class="seg seg-accent">
-                        <div class="seg-label">Total base</div>
+                    <div id="cotizacion-seg-total-base" class="seg">
+                        <div id="cotizacion-total-base-label" class="seg-label">Total productos</div>
                         <div id="cotizacion-total-base" class="seg-value text-white total-display">—</div>
+                    </div>
+                    <div id="cotizacion-seg-envio" class="seg">
+                        <div class="seg-label">Envío</div>
+                        <div id="cotizacion-envio-importe" class="seg-value text-white total-display">—</div>
+                    </div>
+                    <div id="cotizacion-seg-total-a-cobrar" class="seg seg-accent" title="Total productos + envío, antes de recargos o ajustes del medio de pago elegido (el envío no los recibe).">
+                        <div class="seg-label">Total a cobrar</div>
+                        <div id="cotizacion-total-a-cobrar" class="seg-value text-white total-display">—</div>
                     </div>
                 </div>
                 <div class="totales-bar__cta">
                     <button id="cotizacion-simular" type="button" class="btn btn-primary">
-                        <span class="material-symbols-outlined" style="font-size:18px">calculate</span>
+                        <span class="material-symbols-outlined" style="font-size:16px" data-simular-icon>calculate</span>
                         <span data-simular-label>Simular cotización</span>
                     </button>
                     @* Contextual, no ambiental: sólo se muestra para pending/error (setQuoteState
@@ -324,7 +408,7 @@
                        — buildRequest() los sigue leyendo con el mismo selector. *@
                     <details class="medios-filtro ml-auto">
                         <summary class="link-sub">
-                            <span class="material-symbols-outlined chev" style="font-size:14px">expand_more</span> Filtrar medios
+                            <span class="material-symbols-outlined" style="font-size:14px">filter_alt</span> Filtrar medios
                         </summary>
                         <div class="medios-filtro__body">
                             <label class="medio-chip"><input type="checkbox" data-cotizacion-medio="incluirEfectivo" checked>Efectivo</label>
@@ -363,47 +447,81 @@
                     </div>
                 </div>
 
-                <!-- =================== SELECCIÓN + CONTINUAR =================== -->
-                @* §16/§17: el flujo termina acá, debajo del comparador — resumen de la
-                   opción elegida + como máximo una acción primaria ("Continuar con esta
-                   opción"), con Guardar cotización explícitamente secundaria (§10: ya no
-                   es una barra verde a ancho completo). Post-guardado, el mismo pie
-                   cambia a "Pasar a venta" / Ver / Nueva, sin mover el punto de cierre. *@
-                <div class="panel-foot seleccion-bar">
-                    <div id="cotizacion-seleccion-resumen" class="seleccion-resumen" aria-live="polite">
-                        <span class="seleccion-resumen__label">Sin opción elegida</span>
-                        <span class="seleccion-resumen__valor">Simulá y elegí una alternativa para continuar.</span>
-                    </div>
-                    <div id="cotizacion-acciones-pre" class="seleccion-acciones">
-                        <button id="cotizacion-guardar" type="button" class="btn btn-soft" disabled>
-                            <span class="material-symbols-outlined" style="font-size:18px">save</span> Guardar cotización
-                        </button>
-                        @* COTIZACION-WORKSTATION-01 (§16/§17): antes "Guardar" era la única
-                           acción de pre-guardado y hacía las DOS cosas (guardar + convertir a
-                           venta) con peso de CTA primario verde. Se separan en dos intenciones
-                           distintas con jerarquía explícita: Guardar cotización (secundaria,
-                           sólo persiste) y Continuar con esta opción (primaria, guarda y pasa
-                           a venta con la alternativa elegida). Mismos endpoints y misma
-                           secuencia interna — ver guardarCotizacion()/continuarConOpcion() en
-                           cotizacion-simulador.js; no cambia ninguna regla de negocio. *@
-                        <button id="cotizacion-continuar" type="button" class="btn btn-primary" disabled>
-                            <span data-continuar-label>Continuar con esta opción</span>
-                            <span class="material-symbols-outlined" style="font-size:18px">arrow_forward</span>
-                        </button>
-                    </div>
-                    <div id="cotizacion-acciones-post" class="hidden seleccion-acciones">
-                        <a id="cotizacion-ver-guardada" href="#" class="link-sub no-underline">
-                            <span class="material-symbols-outlined" style="font-size:14px">visibility</span> Ver cotización
-                        </a>
-                        <button id="cotizacion-nueva" type="button" class="link-sub">
-                            <span class="material-symbols-outlined" style="font-size:14px">add</span> Nueva
-                        </button>
-                        <button id="cotizacion-pasar-venta" type="button" class="btn btn-primary">
-                            <span class="material-symbols-outlined" style="font-size:18px">point_of_sale</span> Pasar a venta
-                        </button>
-                    </div>
-                </div>
             </section>
+
+            <!-- =================== SELECCIÓN + CONTINUAR =================== -->
+            @* §16/§17: el flujo termina acá, debajo del comparador — resumen de la
+               opción elegida + como máximo una acción primaria ("Continuar con esta
+               opción"), con Guardar cotización explícitamente secundaria (§10: ya no
+               es una barra verde a ancho completo). Post-guardado, el mismo pie
+               cambia a "Pasar a venta" / Ver / Nueva, sin mover el punto de cierre. *@
+            <div class="panel-foot seleccion-bar">
+                <div id="cotizacion-seleccion-resumen" class="seleccion-resumen" aria-live="polite">
+                    <span class="seleccion-resumen__label">Sin opción elegida</span>
+                    <span class="seleccion-resumen__valor">Simulá y elegí una alternativa para continuar.</span>
+                </div>
+                @* COTIZACION-MIVENTA-02 (§4/§CIERRE MI VENTA del pedido): bloque contextual
+                   que reemplaza el intento silencioso de "Confirmar Mi Venta" cuando el
+                   preflight (/conversion/preflight, sólo lectura) detecta que no puede
+                   terminar — nunca se crea la Venta a ciegas ni se navega sola al wizard.
+                   Cada bloqueo puede traer una acción resolutiva puntual (Abrir caja en una
+                   pestaña nueva sin perder el estado del Cotizador, o Continuar con wizard
+                   cuando el propio backend exige el paso de configuración de Crédito
+                   personal). Ver renderBloqueos() en cotizacion-simulador.js. *@
+                <div id="cotizacion-bloqueos" class="hidden cotz-bloqueos" role="alert" aria-live="assertive">
+                    <div class="cotz-bloqueos__title">
+                        <span class="material-symbols-outlined" style="font-size:16px">block</span>
+                        <span id="cotizacion-bloqueos-titulo">No se puede confirmar todavía</span>
+                    </div>
+                    <ul id="cotizacion-bloqueos-lista" class="cotz-bloqueos__lista"></ul>
+                </div>
+                <div id="cotizacion-acciones-pre" class="seleccion-acciones">
+                    <button id="cotizacion-guardar" type="button" class="btn btn-soft" disabled>
+                        <span class="material-symbols-outlined" style="font-size:16px">save</span> Guardar cotización
+                    </button>
+                    @* COTIZACION-MIVENTA-02 (§7/§8/§26 del pedido): segundo camino explícito
+                       para poder comparar ambas experiencias durante la POC — nunca deriva
+                       silenciosamente, sólo se activa con este click. Crea la Venta SIN
+                       confirmar (mismo ConvertirAVentaAsync existente, ConfirmarVenta=false)
+                       y va siempre a Venta/Edit, que ya reconstituye el wizard completo
+                       desde la Venta persistida (cliente, productos, medio, plan, envío,
+                       observaciones) — no hace falta ningún DTO ni mecanismo nuevo. Secundaria:
+                       nunca compite en peso visual con la acción primaria. *@
+                    <button id="cotizacion-continuar-wizard" type="button" class="btn btn-soft" disabled>
+                        Continuar con wizard <span class="material-symbols-outlined" style="font-size:16px">arrow_forward</span>
+                    </button>
+                    @* COTIZACION-WORKSTATION-01 (§16/§17): antes "Guardar" era la única
+                       acción de pre-guardado y hacía las DOS cosas (guardar + convertir a
+                       venta) con peso de CTA primario verde. Se separan en dos intenciones
+                       distintas con jerarquía explícita: Guardar cotización (secundaria,
+                       sólo persiste) y Continuar con esta opción (primaria, guarda y pasa
+                       a venta con la alternativa elegida). Mismos endpoints y misma
+                       secuencia interna — ver guardarCotizacion()/continuarConOpcion() en
+                       cotizacion-simulador.js; no cambia ninguna regla de negocio. *@
+                    @* COTIZACION-MIVENTA-02: "Confirmar Mi Venta" corre el preflight ANTES
+                       de crear la Venta (§NUEVA REGLA FUNDAMENTAL del pedido) — sólo si
+                       Listo=true guarda, convierte, confirma y factura si corresponde, y
+                       termina SIEMPRE en Venta/Details. Si el preflight dice que no puede
+                       terminar, se queda en esta pantalla mostrando #cotizacion-bloqueos —
+                       nunca crea la Venta a ciegas ni redirige sola al wizard. *@
+                    <button id="cotizacion-continuar" type="button" class="btn btn-primary" disabled>
+                        <span class="material-symbols-outlined" style="font-size:16px">check</span>
+                        <span data-continuar-label>Confirmar Mi Venta</span>
+                    </button>
+                </div>
+                <div id="cotizacion-acciones-post" class="hidden seleccion-acciones">
+                    <a id="cotizacion-ver-guardada" href="#" class="link-sub no-underline">
+                        <span class="material-symbols-outlined" style="font-size:14px">visibility</span> Ver cotización
+                    </a>
+                    <button id="cotizacion-nueva" type="button" class="link-sub">
+                        <span class="material-symbols-outlined" style="font-size:14px">add</span> Nueva
+                    </button>
+                    <button id="cotizacion-pasar-venta" type="button" class="btn btn-primary">
+                        <span class="material-symbols-outlined" style="font-size:18px">point_of_sale</span> Pasar a venta
+                    </button>
+                </div>
+            </div>
+
         </div>
 
     </div>
@@ -411,7 +529,7 @@
     <!-- ============================ MODAL: PLAN DETAIL (drawer) ============================ -->
     <div id="modal-plan" class="hidden fixed inset-0 z-50" role="dialog" aria-modal="true" aria-labelledby="plan-title">
         <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeModal('modal-plan')"></div>
-        <aside class="absolute right-0 top-0 h-full w-full sm:w-[420px] bg-slate-950 border-l border-slate-800 shadow-2xl flex flex-col">
+        <aside class="absolute right-0 top-0 h-full w-full sm:w-105 bg-slate-950 border-l border-slate-800 shadow-2xl flex flex-col">
             <header class="px-4 py-3.5 border-b border-slate-800 flex items-start justify-between gap-3">
                 <div>
                     <div class="text-[11px] text-slate-500 uppercase tracking-wide">Detalle del plan</div>
@@ -432,7 +550,7 @@
                 <dl class="space-y-2 text-sm">
                     <div class="flex justify-between"><dt class="text-slate-400">Cantidad de cuotas</dt><dd id="plan-detalle-cuotas" class="text-white">—</dd></div>
                     <div class="flex justify-between"><dt class="text-slate-400">Valor de cuota</dt><dd id="plan-valor-cuota" class="text-white font-mono">—</dd></div>
-                    <div class="flex justify-between"><dt class="text-slate-400">Recargo total</dt><dd id="plan-recargo" class="text-slate-400 font-mono">0%</dd></div>
+                    <div class="flex justify-between"><dt id="plan-recargo-label" class="text-slate-400">Recargo total</dt><dd id="plan-recargo" class="text-slate-400 font-mono">0%</dd></div>
                 </dl>
                 <!-- Desglose exclusivo de Credito personal (ML8): oculto salvo que el plan traiga
                      saldoAFinanciar/totalFinanciado/vector de cuotas (server-authoritative). -->
@@ -451,21 +569,31 @@
                         <div class="flex justify-between"><dt class="text-slate-400">Cuotas sin recargo</dt><dd id="plan-credito-cuotas-sin-recargo" class="text-white font-mono">—</dd></div>
                     </dl>
                     <p id="plan-credito-vector" class="mt-2 text-xs text-slate-300"></p>
-                    @* CSR-ML6: tabla completa por cuota — mismo vector que Configurar Venta (ambos
-                       caminos comparten CreditoSimulacionVentaService). No se recalcula acá. *@
-                    <div class="mt-2 rounded-lg border border-slate-800 overflow-x-auto">
-                        <table class="w-full text-xs" id="plan-credito-cuotas-tabla">
-                            <thead>
-                                <tr class="text-slate-500 text-[10px] uppercase tracking-wide">
-                                    <th class="text-left px-2 py-1.5">N°</th>
-                                    <th class="text-right px-2 py-1.5">Capital</th>
-                                    <th class="text-right px-2 py-1.5">Recargo</th>
-                                    <th class="text-right px-2 py-1.5">Total</th>
-                                </tr>
-                            </thead>
-                            <tbody id="plan-credito-cuotas-tabla-body"></tbody>
-                        </table>
-                    </div>
+                    @* Prioridad absoluta (auditoría UX del usuario, 2026-09-16): la tabla
+                       cuota por cuota es la información MÁS larga del drawer y antes se
+                       pintaba siempre abierta, compitiendo con Total/cuotas/valor de
+                       cuota/recargo (arriba, ya visibles). Progressive disclosure: mismo
+                       patrón <details>+"link-sub" que ya usa el resto del Cotizador
+                       (prod-search__adv). CSR-ML6: mismo vector que Configurar Venta (ambos
+                       caminos comparten CreditoSimulacionVentaService); no se recalcula acá. *@
+                    <details class="mt-2" id="plan-credito-cuotas-detalle">
+                        <summary class="link-sub">
+                            <span class="material-symbols-outlined chev" style="font-size:14px">expand_more</span> Ver detalle por cuota
+                        </summary>
+                        <div class="mt-2 rounded-lg border border-slate-800 overflow-x-auto">
+                            <table class="w-full text-xs" id="plan-credito-cuotas-tabla">
+                                <thead>
+                                    <tr class="text-slate-500 text-[10px] uppercase tracking-wide">
+                                        <th class="text-left px-2 py-1.5">N°</th>
+                                        <th class="text-right px-2 py-1.5">Capital</th>
+                                        <th class="text-right px-2 py-1.5">Recargo</th>
+                                        <th class="text-right px-2 py-1.5">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="plan-credito-cuotas-tabla-body"></tbody>
+                            </table>
+                        </div>
+                    </details>
                 </div>
                 <div class="card-sub p-3.5">
                     <h4 class="text-sm font-medium text-white flex items-center gap-2"><span class="material-symbols-outlined text-slate-400" style="font-size:17px">rule</span> Condiciones</h4>
@@ -473,6 +601,56 @@
                         <li>Plan vigente a la fecha de simulación.</li>
                         <li>Sujeto a aprobación del emisor.</li>
                     </ul>
+                </div>
+                @* VENTA-COTIZACION-EXCEPCION-01: mismo mecanismo de excepción documental que
+                   Venta/Create (ver #panel-excepcion-activa en _VentaWizardForm.cshtml), mismo
+                   copy, gateado por el mismo permiso (ventas/authorize — data-puede-excepcion-
+                   documental en la raíz de este parcial). Sólo se muestra cuando
+                   state.planDrawerMode es 'excepcion'/'excepcion-vigente' (openPlanDrawer decide
+                   eso con la misma regla que accionCellHtml: documentación/cupo, nunca mora). El
+                   backend vuelve a decidir todo esto de forma independiente al convertir — este
+                   panel nunca "aplica" nada por sí solo, sólo junta el motivo. *@
+                <div id="plan-excepcion-panel" class="hidden p-4 rounded-lg bg-orange-500/10 border border-orange-500/20 space-y-3">
+                    <div id="plan-excepcion-formulario" class="hidden space-y-3">
+                        <p class="text-xs font-bold text-orange-400 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-sm">shield_question</span>
+                            Confirmar excepción documental
+                        </p>
+                        <p class="text-[11px] text-slate-400">
+                            Se omitirán los requisitos de documentación o cupo pendientes. Ingresá el
+                            motivo obligatorio para continuar — la excepción recién queda autorizada
+                            cuando se pase esta cotización a venta.
+                        </p>
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                                Motivo <span class="text-red-500">*</span>
+                            </label>
+                            <textarea id="plan-excepcion-motivo"
+                                class="w-full h-20 text-xs bg-slate-800 border border-slate-700 rounded-lg focus:ring-primary px-3 py-2"
+                                placeholder="Ej: Cliente con legajo en trámite, aprobado por gerencia..."></textarea>
+                            <p id="plan-excepcion-motivo-error" class="hidden text-[11px] text-red-500 mt-1">El motivo es obligatorio.</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <button type="button" data-cotizacion-excepcion-confirmar
+                                class="flex-1 py-2.5 text-[11px] font-bold text-white bg-orange-500 rounded-lg hover:bg-orange-600 transition-all flex items-center justify-center gap-1">
+                                <span class="material-symbols-outlined text-sm">check_circle</span>
+                                Aplicar y continuar
+                            </button>
+                            <button type="button" data-cotizacion-excepcion-cancelar
+                                class="flex-1 py-2.5 text-[11px] font-bold text-slate-500 bg-slate-800 rounded-lg hover:bg-slate-700 transition-all">
+                                Cancelar
+                            </button>
+                        </div>
+                    </div>
+                    <div id="plan-excepcion-resumen-wrap" class="hidden">
+                        <p class="text-xs font-bold text-orange-400 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-sm">shield_question</span>
+                            Excepción solicitada
+                        </p>
+                        <p class="text-[11px] text-slate-400 mt-1">
+                            Pendiente de autorización — se aplica al continuar. Motivo: <span id="plan-excepcion-resumen"></span>
+                        </p>
+                    </div>
                 </div>
             </div>
             <footer class="px-4 py-3.5 border-t border-slate-800 flex gap-2 justify-end">
@@ -485,6 +663,149 @@
                 </button>
             </footer>
         </aside>
+    </div>
+
+    <!-- ============================ MODAL: ENVÍO A DOMICILIO ============================ -->
+    @* COTIZACION-MIVENTA-01: mismos campos reales de VentaEnvio/VentaEnvioViewModel que ya
+       usa el paso Envío de Venta/Create (Models/Entities/VentaEnvio.cs) — ninguno inventado.
+       Destinatario/Domicilio obligatorios (igual que la entidad); el resto opcional. Se
+       precarga desde el cliente seleccionado sólo si el campo todavía está vacío (ver
+       precargarEnvioDesdeCliente() en cotizacion-simulador.js). *@
+    <div id="modal-envio" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm overflow-y-auto" onclick="if(event.target===this)closeModal('modal-envio')" role="dialog" aria-modal="true" aria-labelledby="cotizacion-envio-modal-title">
+        <div class="min-h-full flex items-center justify-center p-4">
+            <div class="cotz-modal panel w-full max-w-lg p-4">
+                <div class="flex items-start gap-3">
+                    <div class="w-9 h-9 rounded-lg bg-sky-500/10 border border-sky-500/30 flex items-center justify-center shrink-0">
+                        <span class="material-symbols-outlined text-sky-400" style="font-size:20px">local_shipping</span>
+                    </div>
+                    <div class="min-w-0">
+                        <h3 id="cotizacion-envio-modal-title" class="text-base font-semibold text-white">Envío a domicilio</h3>
+                        <p class="text-sm text-slate-400 mt-0.5">Datos de entrega para esta venta.</p>
+                    </div>
+                </div>
+                <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="sm:col-span-2">
+                        <label for="cotizacion-envio-destinatario" class="label">Destinatario *</label>
+                        <input id="cotizacion-envio-destinatario" type="text" maxlength="200" class="field">
+                        <p id="cotizacion-envio-destinatario-error" class="hidden text-xs text-red-400 mt-1"></p>
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label for="cotizacion-envio-domicilio" class="label">Domicilio *</label>
+                        <input id="cotizacion-envio-domicilio" type="text" maxlength="300" class="field">
+                        <p id="cotizacion-envio-domicilio-error" class="hidden text-xs text-red-400 mt-1"></p>
+                    </div>
+                    <div>
+                        <label for="cotizacion-envio-telefono" class="label">Teléfono</label>
+                        <input id="cotizacion-envio-telefono" type="text" maxlength="30" class="field">
+                    </div>
+                    <div>
+                        <label for="cotizacion-envio-localidad" class="label">Localidad</label>
+                        <input id="cotizacion-envio-localidad" type="text" maxlength="100" class="field">
+                    </div>
+                    <div>
+                        <label for="cotizacion-envio-provincia" class="label">Provincia</label>
+                        <input id="cotizacion-envio-provincia" type="text" maxlength="100" class="field">
+                    </div>
+                    <div>
+                        <label for="cotizacion-envio-cp" class="label">Código postal</label>
+                        <input id="cotizacion-envio-cp" type="text" maxlength="20" class="field">
+                    </div>
+                    <div>
+                        <label for="cotizacion-envio-transportista" class="label">Transportista</label>
+                        <input id="cotizacion-envio-transportista" type="text" maxlength="150" class="field">
+                    </div>
+                    <div>
+                        <label for="cotizacion-envio-costo" class="label">Costo de envío</label>
+                        <div class="relative">
+                            <span class="field-affix field-affix--left">$</span>
+                            <input id="cotizacion-envio-costo" type="number" min="0" step="0.01" class="field pl-6" title="Se suma al total a cobrar. No lleva recargos del medio de pago ni integra el comprobante.">
+                        </div>
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label for="cotizacion-envio-fecha" class="label">Fecha programada</label>
+                        <input id="cotizacion-envio-fecha" type="date" class="field">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label for="cotizacion-envio-observaciones" class="label">Observaciones</label>
+                        <textarea id="cotizacion-envio-observaciones" rows="2" maxlength="500" class="field"></textarea>
+                    </div>
+                </div>
+                <div class="mt-4 flex justify-end gap-2">
+                    <button type="button" id="cotizacion-envio-cancelar" class="btn btn-ghost">Cancelar</button>
+                    <button type="button" id="cotizacion-envio-guardar" class="btn btn-primary">
+                        <span class="material-symbols-outlined" style="font-size:18px">save</span> Guardar datos de envío
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================ MODAL: FACTURAR AL CONFIRMAR ============================ -->
+    @* COTIZACION-MIVENTA-02 (§10/§11/§12 del pedido): reutiliza EXACTAMENTE el mismo partial
+       que ya usa el modal "Emitir factura" de Venta/Details — Views/Venta/_FacturaCamposEmision.cshtml
+       — no un segundo cálculo de IVA ni un select A/B/C simplificado. Diferencia clave: como
+       todavía no existe una Venta, "Guardar configuración" (nunca "Emitir factura") sólo
+       captura la intención en state.facturarConfig — la factura recién se emite al confirmar
+       (ConfirmarYFacturarSiCorrespondeAsync, ya existente). Subtotal/IVA/alícuotas se piden a
+       /conversion/factura-preview (mismo cálculo que ConvertirAVentaAsync, ver
+       CotizacionConversionService.PreviewFacturaAsync) — nunca se recalculan en este JS. *@
+    <div id="modal-facturar-config" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm overflow-y-auto" onclick="if(event.target===this)closeModal('modal-facturar-config')" role="dialog" aria-modal="true" aria-labelledby="cotizacion-facturar-modal-title">
+        <div class="min-h-full flex items-center justify-center p-4">
+            <div class="cotz-modal panel w-full max-w-lg p-4">
+                <div class="flex items-start gap-3">
+                    <div class="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center shrink-0">
+                        <span class="material-symbols-outlined text-emerald-400" style="font-size:20px">receipt_long</span>
+                    </div>
+                    <div class="min-w-0">
+                        <h3 id="cotizacion-facturar-modal-title" class="text-base font-semibold text-white">Facturar al confirmar</h3>
+                        <p class="text-sm text-slate-400 mt-0.5">Se emitirá recién al confirmar la venta — esto sólo guarda la configuración.</p>
+                    </div>
+                </div>
+                <div class="mt-4 space-y-3">
+                    @* IncludeNames=false: cuando este parcial se embebe en Venta/Create, el
+                       Cotizador vive DENTRO de #venta-form (ver comentario de cabecera de este
+                       archivo) — ningún input propio lleva `name` para no filtrar al POST de la
+                       venta; este modal nunca hace un submit real, sólo lee por id. *@
+                    @{ ViewData["IdPrefix"] = "cotizacion-factura-"; ViewData["IncludeNames"] = false; }
+                    <partial name="_FacturaCamposEmision" model="new FacturaViewModel()" view-data="ViewData" />
+                </div>
+                <div class="mt-4 flex justify-end gap-2">
+                    <button type="button" id="cotizacion-facturar-cancelar" class="btn btn-ghost">Cancelar</button>
+                    <button type="button" id="cotizacion-facturar-guardar" class="btn btn-primary">
+                        <span class="material-symbols-outlined" style="font-size:18px">save</span> Guardar configuración
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================ MODAL: CONFIRMAR VENTA ============================ -->
+    @* Venta/Create no tiene hoy un paso de confirmación previo al submit final (auditado
+       antes de implementar esto) — se agrega uno liviano acá porque §CONFIRMACIÓN FINAL del
+       pedido lo pide explícitamente para la POC; no reemplaza ninguna validación real, sólo
+       resume lo que ya se va a enviar. *@
+    <div id="modal-confirmar-venta" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm overflow-y-auto" onclick="if(event.target===this)closeModal('modal-confirmar-venta')" role="dialog" aria-modal="true" aria-labelledby="confirmar-venta-title">
+        <div class="min-h-full flex items-center justify-center p-4">
+            <div class="cotz-modal panel w-full max-w-md p-4">
+                <div class="flex items-start gap-3">
+                    <div class="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center shrink-0">
+                        <span class="material-symbols-outlined text-emerald-400" style="font-size:20px">task_alt</span>
+                    </div>
+                    <div class="min-w-0">
+                        <h3 id="confirmar-venta-title" class="text-base font-semibold text-white">Confirmar Mi Venta</h3>
+                        <p class="text-sm text-slate-400 mt-0.5">Revisá antes de continuar.</p>
+                    </div>
+                </div>
+                <dl id="cotizacion-confirmar-resumen" class="mt-4 space-y-1.5 text-sm"></dl>
+                <div class="mt-4 flex justify-end gap-2">
+                    <button type="button" id="cotizacion-confirmar-cancelar" class="btn btn-ghost">Cancelar</button>
+                    <button type="button" id="cotizacion-confirmar-aceptar" class="btn btn-primary">
+                        <span class="material-symbols-outlined" style="font-size:18px">task_alt</span>
+                        <span data-confirmar-aceptar-label>Confirmar Mi Venta</span>
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- ============================ MODAL: QUITAR PRODUCTO ============================ -->

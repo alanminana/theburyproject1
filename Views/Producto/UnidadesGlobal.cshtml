@@ -12,7 +12,7 @@
         .invg-js .invg-tabs { display: flex; flex-wrap: wrap; }
         .invg-tab {
             display: inline-flex; align-items: center; gap: .4rem;
-            padding: .6rem .95rem; font-size: .875rem; font-weight: 600; color: #94a3b8;
+            padding: .6rem .95rem; font-size: .875rem; font-weight: 600; color: var(--erp-fg-2, #b9c3d3);
             background: transparent; border: 0; border-bottom: 2px solid transparent;
             cursor: pointer; border-radius: 6px 6px 0 0; white-space: nowrap;
         }
@@ -22,18 +22,18 @@
         .invg-tab:focus-visible { outline: 2px solid #f5c518; outline-offset: 2px; }
         .invg-mov-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: .85rem; }
         .invg-mov-table thead th {
-            background: #0d1526; color: #64748b; font-size: .68rem; text-transform: uppercase;
+            background: #0d1526; color: var(--erp-fg-3, #a6b1c3); font-size: var(--erp-fs-min, 0.75rem); text-transform: uppercase;
             letter-spacing: .04em; text-align: left; padding: .7rem 1rem; border-bottom: 1px solid #1e293b; white-space: nowrap;
         }
         .invg-td { padding: .6rem 1rem; border-bottom: 1px solid rgba(30,41,59,.6); color: #cbd5e1; vertical-align: top; }
         .invg-strong { color: #e2e8f0; font-weight: 600; }
-        .invg-sub { color: #64748b; font-size: .75rem; }
+        .invg-sub { color: var(--erp-fg-3, #a6b1c3); font-size: .75rem; }
         .invg-mono { font-family: ui-monospace, monospace; }
-        .invg-mov-state { padding: 2rem 1rem; text-align: center; color: #64748b; }
+        .invg-mov-state { padding: 2rem 1rem; text-align: center; color: var(--erp-fg-3, #a6b1c3); }
         .invg-mov-error { color: #fda4af; }
         .invg-chip {
             display: inline-flex; align-items: center; gap: .3rem; padding: .18rem .5rem;
-            border-radius: 999px; font-size: .72rem; font-weight: 600; border: 1px solid transparent; white-space: nowrap;
+            border-radius: 999px; font-size: var(--erp-fs-min, 0.75rem); font-weight: 600; border: 1px solid transparent; white-space: nowrap;
         }
         .invg-chip-in { background: rgba(16,185,129,.1); color: #34d399; border-color: rgba(16,185,129,.28); }
         .invg-chip-out { background: rgba(248,113,113,.1); color: #f87171; border-color: rgba(248,113,113,.28); }
@@ -250,17 +250,17 @@
         else
         {
             <div class="overflow-x-auto">
-                <table class="erp-table">
+                <table data-erp-cards class="erp-table">
                     <thead>
                         <tr class="border-b border-slate-800 bg-slate-900/40 text-left text-xs font-bold uppercase tracking-wider text-slate-500">
-                            <th scope="col" class="px-4 py-3">Producto</th>
-                            <th scope="col" class="px-4 py-3">Código interno</th>
-                            <th scope="col" class="px-4 py-3">N° serie</th>
-                            <th scope="col" class="px-4 py-3">Estado</th>
-                            <th scope="col" class="px-4 py-3">Ubicación</th>
-                            <th scope="col" class="px-4 py-3">Cliente</th>
-                            <th scope="col" class="px-4 py-3">Fecha venta</th>
-                            <th scope="col" class="px-4 py-3">Ingreso</th>
+                            <th data-card="title" scope="col" class="px-4 py-3">Producto</th>
+                            <th data-card="half" scope="col" class="px-4 py-3">Código interno</th>
+                            <th data-card="half" scope="col" class="px-4 py-3">N° serie</th>
+                            <th data-card="half" scope="col" class="px-4 py-3">Estado</th>
+                            <th data-card="half" scope="col" class="px-4 py-3">Ubicación</th>
+                            <th data-card="half" scope="col" class="px-4 py-3">Cliente</th>
+                            <th data-card="half" scope="col" class="px-4 py-3">Fecha venta</th>
+                            <th data-card="half" scope="col" class="px-4 py-3">Ingreso</th>
                             <th scope="col" class="px-4 py-3 text-right">Acciones</th>
                         </tr>
                     </thead>

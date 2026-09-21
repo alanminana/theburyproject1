@@ -111,6 +111,12 @@ namespace TheBuryProject.ViewModels
         public IEnumerable<OpcionDropdown> Marcas { get; set; } = Enumerable.Empty<OpcionDropdown>();
 
         /// <summary>
+        /// Marcas raíz (sin padre), para el combo "Marca" de alta/edición de producto:
+        /// no debe mezclarse con submarcas, que se cargan aparte según la marca elegida.
+        /// </summary>
+        public IEnumerable<OpcionDropdown> MarcasRaiz { get; set; } = Enumerable.Empty<OpcionDropdown>();
+
+        /// <summary>
         /// Listas de precios disponibles para el JS de acciones masivas
         /// </summary>
         public IEnumerable<OpcionDropdown> ListasPrecios { get; set; } = Enumerable.Empty<OpcionDropdown>();
@@ -233,6 +239,7 @@ namespace TheBuryProject.ViewModels
                 Categorias = resultado.Categorias,
                 CategoriasRaiz = resultado.CategoriasRaiz,
                 Marcas = resultado.Marcas,
+                MarcasRaiz = resultado.MarcasRaiz,
                 ListasPrecios = resultado.ListasPrecios,
 
                 // Métricas

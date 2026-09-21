@@ -32,18 +32,20 @@
 }
 
 :root {
-    --vm-bg: #0b111a;
-    --vm-panel: #161c28;
-    --vm-panel-strong: #1a202c;
-    --vm-panel-soft: rgba(30, 41, 59, 0.3);
-    --vm-border: #1e293b;
-    --vm-border-strong: #334155;
+    /* COTIZACION-MOCKUP-02: escala grafito del mockup de Nueva Venta (ver --venta-wizard-* en
+       venta-page-wizard.css y --cz-* en cotizacion-simulador.css). */
+    --vm-bg: #0b0e14;
+    --vm-panel: #10151b;
+    --vm-panel-strong: #171e26;
+    --vm-panel-soft: rgba(27, 34, 42, 0.3);
+    --vm-border: #232b34;
+    --vm-border-strong: #2c3644;
     --vm-border-focus: #f5c518;
-    --vm-text: #e2e8f0;
-    --vm-text-strong: #f8fafc;
-    --vm-muted: #94a3b8;
-    --vm-muted-2: #64748b;
-    --vm-placeholder: #475569;
+    --vm-text: #e4e9ef;
+    --vm-text-strong: #f1f4f8;
+    --vm-muted: var(--erp-fg-2, #b9c3d3);
+    --vm-muted-2: var(--erp-fg-3, #a6b1c3);
+    --vm-placeholder: #62707e;
     --vm-primary: #f5c518;
     --vm-primary-hover: #ffd435;
     --vm-primary-active: #e0b40f;
@@ -133,7 +135,7 @@
 /* Label de campo en formularios */
 .venta-label {
     display: block;
-    font-size: 0.75rem;
+    font-size: var(--erp-fs-min, 0.75rem);
     font-weight: 800;
     color: var(--vm-muted);
     text-transform: uppercase;
@@ -193,7 +195,7 @@
     border-radius: 9999px;
     background-color: var(--vm-border);
     padding: 0.25rem 0.75rem;
-    font-size: 0.75rem;
+    font-size: var(--erp-fs-min, 0.75rem);
     font-weight: 600;
     color: var(--vm-muted);
 }
@@ -205,9 +207,9 @@
     gap: 0.5rem;
     border-radius: 9999px;
     border: 1px solid var(--vm-border-strong);
-    background-color: rgba(30, 41, 59, 0.6);
+    background-color: rgba(27, 34, 42, 0.6);
     padding: 0.25rem 0.75rem;
-    font-size: 0.75rem;
+    font-size: var(--erp-fs-min, 0.75rem);
     font-weight: 500;
     color: var(--vm-muted);
 }
@@ -229,7 +231,7 @@
 }
 
 .venta-stat__label {
-    font-size: 0.625rem;
+    font-size: var(--erp-fs-min, 0.75rem);
     font-weight: 800;
     color: var(--vm-muted);
     text-transform: uppercase;
@@ -278,7 +280,7 @@
     display: flex;
     align-items: center;
     gap: 0.375rem;
-    font-size: 0.6875rem;
+    font-size: var(--erp-fs-min, 0.75rem);
     font-weight: 800;
     color: var(--vm-muted);
     text-transform: uppercase;
@@ -289,7 +291,7 @@
 
 .vm-label .vm-required {
     color: #f87171;
-    font-size: 0.75rem;
+    font-size: var(--erp-fs-min, 0.75rem);
     line-height: 1;
 }
 
@@ -300,7 +302,7 @@
     min-height: 3rem;
     padding: 0.75rem 1rem;
     background-color: var(--vm-panel);
-    border: 1.5px solid #2d3748;
+    border: 1.5px solid #2c3644;
     border-radius: 0.5rem;
     font-size: 0.9375rem;
     color: var(--vm-text);
@@ -339,7 +341,7 @@
     min-height: 3rem;
     padding: 0.75rem 2.5rem 0.75rem 1rem;
     background-color: var(--vm-panel);
-    border: 1.5px solid #2d3748;
+    border: 1.5px solid #2c3644;
     border-radius: 0.5rem;
     font-size: 0.9375rem;
     color: var(--vm-text);
@@ -423,7 +425,7 @@
     background-color: var(--vm-border);
     border: 1px solid var(--vm-border-strong);
     color: var(--vm-muted-2);
-    font-size: 0.75rem;
+    font-size: var(--erp-fs-min, 0.75rem);
     font-weight: 700;
 }
 
@@ -441,7 +443,7 @@
     top: calc(100% + 4px);
     left: 0;
     width: 100%;
-    background-color: #1a2235;
+    background-color: #1b222a;
     border: 1px solid var(--vm-border);
     border-radius: 0.5rem;
     box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5), 0 4px 12px rgba(0, 0, 0, 0.3);
@@ -490,7 +492,7 @@
 }
 
 .vm-btn-ghost:hover {
-    border-color: #475569;
+    border-color: #3a4656;
     background-color: var(--vm-border);
     color: #cbd5e1;
 }
@@ -516,7 +518,7 @@
 
 .vm-btn-add:hover {
     background-color: var(--vm-border);
-    border-color: #475569;
+    border-color: #3a4656;
     color: #cbd5e1;
 }
 
@@ -542,7 +544,7 @@
 
 .vm-btn-verify:hover {
     background-color: var(--vm-border);
-    border-color: #475569;
+    border-color: #3a4656;
     color: #cbd5e1;
 }
 
@@ -596,10 +598,10 @@
     gap: 0.5rem;
     border-radius: 0.5rem;
     border: 1px solid rgba(148, 163, 184, 0.15);
-    background-color: rgba(30, 41, 59, 0.5);
+    background-color: rgba(27, 34, 42, 0.5);
     padding: 0.625rem 0.75rem;
     margin-bottom: 0.875rem;
-    font-size: 0.6875rem;
+    font-size: var(--erp-fs-min, 0.75rem);
     line-height: 1.5;
     color: var(--vm-muted);
 }
@@ -836,7 +838,7 @@
     border-radius: 0.375rem;
     background-color: var(--vm-primary);
     padding: 0.5rem 0.875rem;
-    font-size: 0.75rem;
+    font-size: var(--erp-fs-min, 0.75rem);
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -879,4 +881,230 @@
     .vm-error-summary {
         margin-inline: 1rem;
     }
+}/* ══════════════════════════════════════════════════════════════
+   GRAFITO — remap de los utilitarios Tailwind slate (COTIZACION-MOCKUP-02)
+   El markup del módulo (wizard, Details y las pantallas auxiliares) emite utilitarios
+   slate-*, la paleta azulada de Tailwind. Dentro de las pantallas de Venta se llevan a la
+   escala grafito del mockup de Nueva Venta (mismos valores que --cz-* del cotizador).
+   ══════════════════════════════════════════════════════════════ */
+:is(#venta-create-page, #venta-edit-page, #venta-details-page, .venta-aux-page) .bg-slate-950 { background-color: #0b0e14; }
+:is(#venta-create-page, #venta-edit-page, #venta-details-page, .venta-aux-page) .bg-slate-900 { background-color: #10151b; }
+:is(#venta-create-page, #venta-edit-page, #venta-details-page, .venta-aux-page) .bg-slate-900\/60 { background-color: rgba(16, 21, 27, 0.6); }
+:is(#venta-create-page, #venta-edit-page, #venta-details-page, .venta-aux-page) .bg-slate-800 { background-color: #1b222a; }
+:is(#venta-create-page, #venta-edit-page, #venta-details-page, .venta-aux-page) .bg-slate-800\/50 { background-color: rgba(27, 34, 42, 0.5); }
+:is(#venta-create-page, #venta-edit-page, #venta-details-page, .venta-aux-page) .bg-slate-800\/60 { background-color: rgba(27, 34, 42, 0.6); }
+:is(#venta-create-page, #venta-edit-page, #venta-details-page, .venta-aux-page) .bg-slate-700 { background-color: #2c3644; }
+:is(#venta-create-page, #venta-edit-page, #venta-details-page, .venta-aux-page) .bg-slate-700\/50 { background-color: rgba(44, 54, 68, 0.5); }
+:is(#venta-create-page, #venta-edit-page, #venta-details-page, .venta-aux-page) .border-slate-800 { border-color: #232b34; }
+:is(#venta-create-page, #venta-edit-page, #venta-details-page, .venta-aux-page) .border-slate-700 { border-color: #2c3644; }
+:is(#venta-create-page, #venta-edit-page, #venta-details-page, .venta-aux-page) .border-slate-600 { border-color: #3a4656; }
+:is(#venta-create-page, #venta-edit-page, #venta-details-page, .venta-aux-page) .text-slate-200 { color: #e4e9ef; }
+:is(#venta-create-page, #venta-edit-page, #venta-details-page, .venta-aux-page) .text-slate-300 { color: #b8c2cc; }
+:is(#venta-create-page, #venta-edit-page, #venta-details-page, .venta-aux-page) .text-slate-400 { color: #8993a1; }
+:is(#venta-create-page, #venta-edit-page, #venta-details-page, .venta-aux-page) .text-slate-500 { color: #718093; }
+:is(#venta-create-page, #venta-edit-page, #venta-details-page, .venta-aux-page) .text-slate-600 { color: #5d6a79; }
+
+
+/* ══════════════════════════════════════════════════════════════
+   DETAILS + PANTALLAS AUXILIARES — formato del mockup (COTIZACION-MOCKUP-02)
+   Details, Cancelar, Autorizar, Rechazar y Eliminar usan los componentes globales del ERP
+   (.hero-erp, .card-erp-*, .btn-erp-*), que llevan la paleta azulada. Dentro de estas pantallas
+   se pintan con las superficies grafito del mockup de Nueva Venta. Sólo color, borde, radio
+   y sombra: la estructura, los ids y el comportamiento no cambian.
+   ══════════════════════════════════════════════════════════════ */
+
+:is(#venta-details-page, .venta-aux-page) .card-erp-panel,
+:is(#venta-details-page, .venta-aux-page) .card-erp-panel-padded,
+:is(#venta-details-page, .venta-aux-page) .card-erp-metric {
+    border-color: var(--vm-border);
+    background-color: var(--vm-panel);
+    box-shadow: none;
+}
+
+:is(#venta-details-page, .venta-aux-page) .card-erp-metric-info {
+    border-color: rgba(91, 141, 239, 0.28);
+    background-color: rgba(91, 141, 239, 0.08);
+}
+
+:is(#venta-details-page, .venta-aux-page) .btn-erp-secondary {
+    border: 1px solid var(--vm-border-strong);
+    background-color: #171e26;
+    color: #b8c2cc;
+    font-weight: 700;
+}
+
+:is(#venta-details-page, .venta-aux-page) .btn-erp-secondary:hover {
+    border-color: #3a4656;
+    background-color: #1b222a;
+    color: #f1f4f8;
+}
+
+:is(#venta-details-page, .venta-aux-page) .btn-erp-ghost {
+    border-color: var(--vm-border-strong);
+    background: #171e26;
+    color: #b8c2cc;
+    font-weight: 700;
+}
+
+:is(#venta-details-page, .venta-aux-page) .btn-erp-ghost:hover {
+    border-color: #3a4656;
+    background: #1b222a;
+    color: #f1f4f8;
+}
+
+:is(#venta-details-page, .venta-aux-page) .badge-erp {
+    white-space: nowrap;
+}
+
+:is(#venta-details-page, .venta-aux-page) .badge-erp-neutral {
+    border: 1px solid var(--vm-border-strong);
+    background-color: #1b222a;
+    color: #8993a1;
+}
+
+:is(#venta-details-page, .venta-aux-page) .hero-erp {
+    border-color: var(--vm-border);
+    background: var(--vm-panel);
+    box-shadow: none;
+}
+
+:is(#venta-details-page, .venta-aux-page) input,
+:is(#venta-details-page, .venta-aux-page) select,
+:is(#venta-details-page, .venta-aux-page) textarea {
+    border-color: var(--vm-border-strong);
+}
+
+:is(#venta-details-page, .venta-aux-page) input:focus,
+:is(#venta-details-page, .venta-aux-page) select:focus,
+:is(#venta-details-page, .venta-aux-page) textarea:focus {
+    border-color: #5b8def;
+    box-shadow: 0 0 0 3px rgba(91, 141, 239, 0.18);
+}
+
+@media (min-width: 1280px) {
+    #venta-details-page .card-erp-panel,
+    #venta-details-page .card-erp-panel-padded {
+        border-radius: 16px;
+    }
+
+    #venta-details-page .card-erp-panel-padded { padding: 20px; }
+
+    #venta-details-page .card-erp-metric,
+    #venta-details-page .card-erp-metric-info,
+    #venta-details-page .card-erp-metric-success,
+    #venta-details-page .card-erp-metric-warning,
+    #venta-details-page .card-erp-metric-danger {
+        border-radius: 14px;
+        padding: 14px 16px;
+    }
+
+    /* Hero: sin card, cerrado por un divisor (como el hero del wizard). Breadcrumb y acciones en
+       la primera fila, título + estado y descripción en la segunda, chips en la tercera. */
+    #venta-details-page section.hero-erp {
+        border: 0;
+        border-bottom: 1px solid var(--vm-border);
+        border-radius: 0;
+        background: transparent;
+        padding: 0 0 18px;
+        margin-bottom: 20px;
+        overflow: visible;
+    }
+
+    #venta-details-page .venta-hero-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 14px 16px;
+    }
+
+    #venta-details-page .venta-hero-row > .space-y-3 { display: contents; }
+
+    #venta-details-page .venta-hero-crumbs {
+        grid-row: 1;
+        grid-column: 1;
+        gap: 8px;
+        font-size: 12.5px;
+        font-weight: 600;
+    }
+
+    #venta-details-page .venta-hero-crumbs > span.bg-slate-800 {
+        background: transparent;
+        padding: 0;
+        color: #62707e;
+    }
+
+    #venta-details-page .venta-hero-crumbs > span.bg-primary\/10 { padding: 4px 10px; font-weight: 700; }
+
+    #venta-details-page .venta-hero-title {
+        grid-row: 2;
+        grid-column: 1 / -1;
+        margin-top: 0;
+    }
+
+    #venta-details-page .venta-hero-title h1 {
+        font-size: 22px;
+        font-weight: 800;
+        line-height: 1.2;
+        letter-spacing: 0;
+        color: #f1f4f8;
+    }
+
+    #venta-details-page .venta-hero-title p {
+        margin-top: 4px;
+        max-width: none;
+        font-size: 13px;
+        line-height: 1.4;
+        color: #8993a1;
+    }
+
+    #venta-details-page .venta-hero-meta {
+        grid-row: 3;
+        grid-column: 1 / -1;
+    }
+
+    #venta-details-page .venta-hero-actions {
+        grid-row: 1;
+        grid-column: 2;
+        width: auto;
+        min-width: 0;
+        flex-direction: row;
+        align-items: center;
+        gap: 10px;
+    }
+
+    #venta-details-page .venta-hero-actions > * {
+        width: auto;
+        height: 36px;
+        min-height: 36px;
+        padding: 0 16px;
+        border-radius: 10px;
+        font-size: 13px;
+        white-space: nowrap;
+    }
+
+    #venta-details-page .venta-hero-kpis { margin-top: 18px; }
+}
+
+/* Detalle de productos: 7 columnas de importes. La columna lateral pasa a ancho casi fijo (288–384px)
+   para darle el resto a la tabla, los importes no se parten en dos líneas y las celdas se compactan:
+   "Subtotal final" queda entera desde 1280px. Por debajo sigue el scroll horizontal del componente
+   (con su aviso visible). */
+@media (min-width: 1024px) {
+    #venta-details-page .venta-details-grid {
+        grid-template-columns: minmax(0, 1fr) clamp(18rem, 20vw, 24rem);
+    }
+
+    /* Sin la reserva de 10px del componente: al entrar la tabla completa quedaba una franja vacía
+       a la derecha del encabezado. */
+    #venta-details-scroll [data-oc-scroll-region] { scrollbar-gutter: auto; }
+
+    #venta-details-scroll td { white-space: nowrap; }
+
+    #venta-details-scroll td:first-child { white-space: normal; }
+
+    #venta-details-scroll :is(th, td).px-4 { padding-inline: 0.75rem; }
+
+    #venta-details-scroll :is(th, td).px-6:first-child { padding-inline: 1.25rem 0.75rem; }
+
+    #venta-details-scroll :is(th, td).px-6:last-child { padding-inline: 0.75rem 1.25rem; }
 }

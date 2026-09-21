@@ -176,57 +176,11 @@ else
     <div id="clienteIndexFeedback" class="hidden shell cliente-feedback" role="alert" aria-live="polite"></div>
 }
 
-<div class="shell cliente-index" aria-labelledby="cliente-page-title">
-    <!-- Header de página (ERP-UI-STANDARD §4): patrón .hero-erp canónico (ver
-         Views/AlertaStock/Index_tw.cshtml). El título también aparece en la barra
-         superior global (_Layout.cshtml) — comportamiento compartido por todas las
-         pantallas del ERP (Dashboard, AlertaStock, etc.), no algo propio de Cliente;
-         no se toca acá. -->
-    <header class="hero-erp sm:p-8 cliente-page-head">
-        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div class="page-head__copy min-w-0">
-                <h1 id="cliente-page-title" class="text-xl font-bold text-slate-100 sm:text-2xl">Gestión de Clientes</h1>
-                <p class="mt-1 text-sm text-slate-400">
-                    Buscá y administrá tus clientes.
-                </p>
-            </div>
-
-            <div class="flex flex-wrap gap-2 shrink-0 cliente-head-actions" aria-label="Acciones principales de clientes">
-                <button type="button" class="btn-erp-primary" data-cliente-modal-open="create">
-                    <span class="material-symbols-outlined" aria-hidden="true">person_add</span>
-                    Nuevo cliente
-                </button>
-
-                @* Documentos/Créditos/Límites por puntaje no son acciones primarias de ESTA
-                   pantalla (pertenecen a otros módulos) — quedan disponibles sin competir
-                   visualmente con "Nuevo cliente". *@
-                <details class="cliente-more-menu relative" data-cliente-row-menu>
-                    <summary class="btn-erp-ghost cursor-pointer" aria-label="Más acciones de clientes"
-                             title="Más acciones de clientes">
-                        <span class="material-symbols-outlined" aria-hidden="true">more_horiz</span>
-                        Más
-                    </summary>
-
-                    <div class="cliente-more-menu__content cliente-row-menu__content">
-                        <a asp-controller="DocumentoCliente" asp-action="Index" class="cliente-row-menu__item">
-                            <span class="material-symbols-outlined" aria-hidden="true">folder_shared</span>
-                            Documentos
-                        </a>
-
-                        <a asp-controller="Credito" asp-action="Index" class="cliente-row-menu__item">
-                            <span class="material-symbols-outlined" aria-hidden="true">credit_score</span>
-                            Créditos
-                        </a>
-
-                        <button type="button" class="cliente-row-menu__item" data-cliente-open-limites>
-                            <span class="material-symbols-outlined" aria-hidden="true">tune</span>
-                            Límites por puntaje
-                        </button>
-                    </div>
-                </details>
-            </div>
-        </div>
-    </header>
+<div class="shell cliente-index">
+    <!-- Header de página (ERP-UI-STANDARD §4, patrón sin hero — ver Catálogo/Index_tw.cshtml):
+         sin card de título propio; el título ya aparece en la barra superior global
+         (_Layout.cshtml). Las acciones principales se integran como toolbar del mismo card
+         de contenido, junto a "Listado de clientes". -->
 
     @if (errorCarga)
     {
@@ -253,6 +207,45 @@ else
     else
     {
         <section class="cliente-section" aria-labelledby="cliente-list-title">
+
+            @* ============================================================
+           ACCIONES (patrón sin hero — mismo card que el contenido)
+           ============================================================ *@
+            <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end mb-3 cliente-head-actions"
+                 aria-label="Acciones principales de clientes">
+                <button type="button" class="btn-erp-primary btn-sm w-full sm:w-auto" data-cliente-modal-open="create">
+                    <span class="material-symbols-outlined" aria-hidden="true">person_add</span>
+                    Nuevo cliente
+                </button>
+
+                @* Documentos/Créditos/Límites por puntaje no son acciones primarias de ESTA
+                   pantalla (pertenecen a otros módulos) — quedan disponibles sin competir
+                   visualmente con "Nuevo cliente". *@
+                <details class="cliente-more-menu relative" data-cliente-row-menu>
+                    <summary class="btn-erp-ghost btn-sm cursor-pointer w-full sm:w-auto" aria-label="Más acciones de clientes"
+                             title="Más acciones de clientes">
+                        <span class="material-symbols-outlined" aria-hidden="true">more_horiz</span>
+                        Más
+                    </summary>
+
+                    <div class="cliente-more-menu__content cliente-row-menu__content">
+                        <a asp-controller="DocumentoCliente" asp-action="Index" class="cliente-row-menu__item">
+                            <span class="material-symbols-outlined" aria-hidden="true">folder_shared</span>
+                            Documentos
+                        </a>
+
+                        <a asp-controller="Credito" asp-action="Index" class="cliente-row-menu__item">
+                            <span class="material-symbols-outlined" aria-hidden="true">credit_score</span>
+                            Créditos
+                        </a>
+
+                        <button type="button" class="cliente-row-menu__item" data-cliente-open-limites>
+                            <span class="material-symbols-outlined" aria-hidden="true">tune</span>
+                            Límites por puntaje
+                        </button>
+                    </div>
+                </details>
+            </div>
 
             @* ============================================================
            CABECERA

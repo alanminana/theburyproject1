@@ -797,6 +797,30 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             9982,
             "cobranzas.payinstallment");
 
+    public const string ProductoEditSinCostoEnvioUserId = "test-producto-edit-sin-envio-id";
+    public const string ProductoEditConCostoEnvioUserId = "test-producto-edit-con-envio-id";
+
+    /// <summary>Puede ver y editar productos, pero NO tiene productos.editshippingcost.</summary>
+    public Task SeedUserWithProductoEditSinCostoEnvioAsync() =>
+        SeedPermissionUserAsync(
+            ProductoEditSinCostoEnvioUserId,
+            "test-producto-edit-sin-envio-role-id",
+            "TestProductoEditSinEnvioRole",
+            9970,
+            "productos.view",
+            "productos.update");
+
+    /// <summary>Puede ver y editar productos y además tiene productos.editshippingcost.</summary>
+    public Task SeedUserWithProductoEditConCostoEnvioAsync() =>
+        SeedPermissionUserAsync(
+            ProductoEditConCostoEnvioUserId,
+            "test-producto-edit-con-envio-role-id",
+            "TestProductoEditConEnvioRole",
+            9960,
+            "productos.view",
+            "productos.update",
+            "productos.editshippingcost");
+
     private async Task SeedPermissionUserAsync(
         string userId,
         string roleId,

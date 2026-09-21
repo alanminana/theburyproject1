@@ -354,9 +354,9 @@
                         <tr>
                             <td><div class="prod"><span class="pt" style="font-family:var(--mono);font-size:12px">@v.VariationId</span><span class="pm">@(v.SellerSku ?? "SKU —")</span></div></td>
                             <td style="color:var(--muted)">@(v.Atributos ?? "—")</td>
-                            <td class="num">@v.Precio.ToString("N2")<div class="le" style="font-size:11px;color:var(--faint)">stock @v.AvailableQuantity</div></td>
+                            <td class="num">@v.Precio.ToString("N2")<div class="le" style="font-size:var(--erp-fs-min, 0.75rem);color:var(--faint)">stock @v.AvailableQuantity</div></td>
                             <td>@if (!string.IsNullOrWhiteSpace(v.ProductoCodigo)){<span style="font-family:var(--mono);color:var(--blue)">@v.ProductoCodigo</span>}else{<span class="warnpill">Sin resolver</span>}</td>
-                            <td><span style="font-size:12px">@v.OrigenStockEfectivo</span><div class="le" style="font-size:10.5px;color:var(--faint)">publicable: @(v.StockDisponibleSegunOrigen?.ToString() ?? "—")</div></td>
+                            <td><span style="font-size:12px">@v.OrigenStockEfectivo</span><div class="le" style="font-size:var(--erp-fs-min, 0.75rem);color:var(--faint)">publicable: @(v.StockDisponibleSegunOrigen?.ToString() ?? "—")</div></td>
                         </tr>
                     }
                 </tbody>

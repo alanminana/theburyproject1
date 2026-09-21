@@ -13,6 +13,10 @@
         : "inline-flex shrink-0 items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-bold text-slate-400 transition-colors hover:bg-white/5 hover:text-white";
     string TabPanelClass(string key) => Model.TabActiva == key ? "" : "hidden";
     string TabIconClass(string key) => Model.TabActiva == key ? "text-slate-950" : "text-slate-500";
+
+    // El costo de envío del producto es un valor fijo: solo lo edita quien tenga el permiso
+    // productos.editshippingcost (ProductoController lo vuelve a exigir en el servidor).
+    var puedeEditarCostoEnvio = User.TienePermiso("productos", "editshippingcost");
 }
 
 @section Styles {
@@ -310,14 +314,14 @@
                  role="region"
                  aria-label="Tabla de productos del catálogo">
 
-                <table class="erp-table w-full text-left"
+                <table data-erp-cards class="erp-table w-full text-left"
                        data-oc-scroll-table
                        style="min-width: var(--oc-scroll-min-width);">
 
                     <thead>
                         <tr class="border-b border-slate-800 bg-slate-800/30">
 
-                            <th scope="col"
+                            <th data-card="select" scope="col"
                                 class="w-12 px-3 py-3 text-center">
                                 <input type="checkbox"
                                        id="chk-select-all"
@@ -325,7 +329,7 @@
                                        aria-label="Seleccionar todos los productos visibles" />
                             </th>
 
-                            <th scope="col"
+                            <th data-card="title" scope="col"
                                 aria-sort="none"
                                 class="min-w-85 px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">
 
@@ -342,12 +346,12 @@
                                 </button>
                             </th>
 
-                            <th scope="col"
+                            <th data-card="half" scope="col"
                                 class="min-w-32.5 px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-slate-400">
                                 Stock
                             </th>
 
-                            <th scope="col"
+                            <th data-card="half" scope="col"
                                 aria-sort="none"
                                 class="min-w-47.5 px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">
 
@@ -364,7 +368,7 @@
                                 </button>
                             </th>
 
-                            <th scope="col"
+                            <th data-card="half" scope="col"
                                 aria-sort="none"
                                 class="min-w-31.25 px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">
 
@@ -381,7 +385,7 @@
                                 </button>
                             </th>
 
-                            <th scope="col"
+                            <th data-card="actions" scope="col"
                                 class="min-w-52.5 px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">
                                 Acciones
                             </th>
@@ -492,7 +496,7 @@
                                                     </span>
 
                                                     <span data-prod-inactivo-badge
-                                                          class="inline-flex shrink-0 rounded-full border border-red-500/20 bg-red-500/5 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-red-400/90 @(p.Activo ? "hidden" : "")">
+                                                          class="shrink-0 rounded-full border border-red-500/20 bg-red-500/5 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-red-400/90 @(p.Activo ? "hidden" : "inline-flex")">
                                                         Inactivo
                                                     </span>
                                                 </div>
@@ -931,13 +935,13 @@
                 <div data-oc-scroll-fade="left" hidden class="absolute inset-y-0 left-0 z-10 w-6 bg-linear-to-r from-slate-900 via-slate-900/95 to-transparent"></div>
                 <div data-oc-scroll-fade="right" hidden class="absolute inset-y-0 right-0 z-10 w-6 bg-linear-to-l from-slate-900 via-slate-900/95 to-transparent"></div>
                 <div data-oc-scroll-region class="overflow-x-auto scroll-smooth" tabindex="0" role="region" aria-label="Tabla de categorías del catálogo">
-            <table class="erp-table text-left" data-oc-scroll-table style="min-width: var(--oc-scroll-min-width);">
+            <table data-erp-cards class="erp-table text-left" data-oc-scroll-table style="min-width: var(--oc-scroll-min-width);">
                 <thead>
                     <tr class="bg-slate-800/30 border-b border-slate-800">
-                        <th scope="col" class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Código</th>
-                        <th scope="col" class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Categoría</th>
-                        <th scope="col" class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Categoría Padre</th>
-                        <th scope="col" class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-center">Estado</th>
+                        <th data-card="half" scope="col" class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Código</th>
+                        <th data-card="title" scope="col" class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Categoría</th>
+                        <th data-card="half" scope="col" class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Categoría Padre</th>
+                        <th data-card="half" scope="col" class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-center">Estado</th>
                         <th scope="col" class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right">Acciones</th>
                     </tr>
                 </thead>
@@ -1050,14 +1054,14 @@
                 <div data-oc-scroll-fade="left" hidden class="absolute inset-y-0 left-0 z-10 w-6 bg-linear-to-r from-slate-900 via-slate-900/95 to-transparent"></div>
                 <div data-oc-scroll-fade="right" hidden class="absolute inset-y-0 right-0 z-10 w-6 bg-linear-to-l from-slate-900 via-slate-900/95 to-transparent"></div>
                 <div data-oc-scroll-region class="overflow-x-auto scroll-smooth" tabindex="0" role="region" aria-label="Tabla de marcas del catálogo">
-            <table class="erp-table text-left" data-oc-scroll-table style="min-width: var(--oc-scroll-min-width);">
+            <table data-erp-cards class="erp-table text-left" data-oc-scroll-table style="min-width: var(--oc-scroll-min-width);">
                 <thead>
                     <tr class="bg-slate-800/30 border-b border-slate-800">
-                        <th scope="col" class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Código</th>
-                        <th scope="col" class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Marca</th>
-                        <th scope="col" class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Marca Padre</th>
-                        <th scope="col" class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">País de Origen</th>
-                        <th scope="col" class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-center">Estado</th>
+                        <th data-card="half" scope="col" class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Código</th>
+                        <th data-card="title" scope="col" class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Marca</th>
+                        <th data-card="half" scope="col" class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Marca Padre</th>
+                        <th data-card="half" scope="col" class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">País de Origen</th>
+                        <th data-card="half" scope="col" class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-center">Estado</th>
                         <th scope="col" class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right">Acciones</th>
                     </tr>
                 </thead>
@@ -1192,7 +1196,7 @@
     <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" data-catalogo-modal-close="producto"></div>
 
     <!-- Modal Container -->
-    <div class="relative flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-slate-800 bg-[#111827] shadow-2xl">
+    <div class="catalogo-producto-modal-shell relative flex max-h-[92vh] w-full flex-col overflow-hidden rounded-xl border border-slate-800 bg-[#111827] shadow-2xl">
 
         <!-- Header -->
         <header class="relative border-b border-slate-800 px-6 py-5" style="flex-shrink: 0;">
@@ -1227,20 +1231,31 @@
               class="flex flex-col flex-1 overflow-hidden">
             @Html.AntiForgeryToken()
 
-            <!-- Scrollable Content -->
-            <div class="flex-1 overflow-y-auto p-6 space-y-8">
-
-                <!-- Validation Summary -->
-                <div id="modal-validation-summary" role="alert" aria-live="assertive" aria-atomic="true" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 gap-3">
-                    <span class="material-symbols-outlined text-red-500">error</span>
-                    <div>
-                        <h4 class="text-sm font-bold text-red-500">Errores de validación</h4>
-                        <p id="modal-validation-text" class="text-xs text-red-400/80 mt-1"></p>
-                    </div>
+            <!-- Validation Summary (siempre visible sobre las solapas) -->
+            <div id="modal-validation-summary" role="alert" aria-live="assertive" aria-atomic="true" class="hidden mx-6 mt-4 bg-red-500/10 border border-red-500/20 rounded-lg p-4 gap-3">
+                <span class="material-symbols-outlined text-red-500">error</span>
+                <div>
+                    <h4 class="text-sm font-bold text-red-500">Errores de validación</h4>
+                    <p id="modal-validation-text" class="text-xs text-red-400/80 mt-1"></p>
                 </div>
+            </div>
 
-          
+            <!-- Solapas -->
+            <div class="shrink-0 border-b border-slate-800 px-6 pt-3 overflow-x-auto" role="tablist" aria-label="Secciones del producto">
+                <nav class="flex flex-nowrap gap-1 -mb-px min-w-max">
+                    <button type="button" role="tab" data-prod-create-tab="datos" aria-selected="true" class="prod-create-tab whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors hover:text-white border-primary text-white">Datos</button>
+                    <button type="button" role="tab" data-prod-create-tab="precios" aria-selected="false" class="prod-create-tab whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors hover:text-white border-transparent text-slate-400">Precios</button>
+                    <button type="button" role="tab" data-prod-create-tab="credito" aria-selected="false" class="prod-create-tab whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors hover:text-white border-transparent text-slate-400">Crédito personal</button>
+                    <button type="button" role="tab" data-prod-create-tab="caracteristicas" aria-selected="false" class="prod-create-tab whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors hover:text-white border-transparent text-slate-400">Características</button>
+                    <button type="button" role="tab" data-prod-create-tab="stock" aria-selected="false" class="prod-create-tab whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors hover:text-white border-transparent text-slate-400">Stock</button>
+                </nav>
+            </div>
 
+            <!-- Scrollable Content -->
+            <div class="flex-1 overflow-y-auto p-6">
+
+                <!-- Panel: Datos -->
+                <div data-prod-create-panel="datos" role="tabpanel">
                 <!-- Section 1: Información Básica -->
                 <section>
                     <div class="flex items-center gap-2 mb-4 border-l-4 border-primary pl-3">
@@ -1317,7 +1332,10 @@
                         </div>
                     </div>
                 </section>
+                </div>
 
+                <!-- Panel: Precios -->
+                <div data-prod-create-panel="precios" role="tabpanel" class="hidden">
                 <!-- Section 2: Precios -->
                 <section>
                     <div class="flex items-center gap-2 mb-4 border-l-4 border-primary pl-3">
@@ -1360,8 +1378,8 @@
                                 </select>
                             </div>
 
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div class="space-y-1">
+                            <div class="space-y-3">
+                                <div class="space-y-1 catalogo-valor-calculado p-2">
                                     <label class="text-xs font-bold uppercase tracking-wider text-slate-400">Compra sin IVA</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
@@ -1369,7 +1387,7 @@
                                                class="w-full bg-slate-950/60 border border-slate-800 text-slate-300 rounded-lg pl-7 pr-4 py-2 outline-none" />
                                     </div>
                                 </div>
-                                <div class="space-y-1">
+                                <div class="space-y-1 catalogo-valor-calculado p-2">
                                     <label class="text-xs font-bold uppercase tracking-wider text-slate-400">IVA compra</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
@@ -1387,14 +1405,19 @@
                                 <p class="text-xs text-slate-400">Se suman al costo del producto.</p>
                             </div>
 
-                            <div class="grid grid-cols-1 sm:grid-cols-3 xl:grid-cols-1 gap-4">
+                            <div class="catalogo-costos-grid">
                                 <div class="space-y-1">
                                     <label class="text-sm font-medium text-slate-300">Envío</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
                                         <input name="CostoEnvio" id="modal-costoEnvio" type="number" step="0.01" min="0" value="0"
-                                               class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-7 pr-4 py-2 focus:ring-2 focus:ring-primary outline-none" />
+                                               readonly="@(!puedeEditarCostoEnvio)" title="@(puedeEditarCostoEnvio ? null : "Requiere el permiso «Editar costo de envío»")"
+                                               class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-7 pr-4 py-2 focus:ring-2 focus:ring-primary outline-none @(puedeEditarCostoEnvio ? "" : "cursor-not-allowed opacity-60")" />
                                     </div>
+                                    @if (!puedeEditarCostoEnvio)
+                                    {
+                                        <p class="text-xs text-slate-500" data-costo-envio-solo-lectura title="Requiere el permiso «Editar costo de envío»">Fijo · solo lectura</p>
+                                    }
                                 </div>
                                 <div class="space-y-1">
                                     <label class="text-sm font-medium text-slate-300">Percepciones</label>
@@ -1433,7 +1456,7 @@
                                 <p class="text-xs text-slate-400">La ganancia se aplica sobre el costo real. El precio final ya incluye IVA.</p>
                             </div>
 
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div class="catalogo-ganancia-grid">
                                 <div class="space-y-1">
                                     <label class="text-sm font-medium text-slate-300">Ganancia %</label>
                                     <div class="relative">
@@ -1452,10 +1475,10 @@
                                 </div>
                             </div>
 
-                            <div class="space-y-1">
-                                <label class="text-sm font-medium text-slate-300">Precio final de venta con IVA</label>
+                            <div class="space-y-1 catalogo-precio-final">
+                                <label class="catalogo-precio-final-label text-sm font-medium text-slate-300">Precio final de venta con IVA</label>
                                 <div class="relative">
-                                    <span class="absolute left-3 top-2 text-primary font-bold">$</span>
+                                    <span class="catalogo-precio-final-symbol absolute left-3 top-2 text-primary font-bold">$</span>
                                     <input name="PrecioVenta" id="modal-precioFinal" type="number" step="0.01" min="0"
                                            class="w-full bg-primary/5 border border-primary/30 text-primary font-bold rounded-lg pl-7 pr-4 py-2 focus:ring-2 focus:ring-primary outline-none" />
                                 </div>
@@ -1480,8 +1503,8 @@
                                 <p class="text-[11px] text-slate-500">Cambiarla solo recalcula el desglose; no modifica el precio final.</p>
                             </div>
 
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div class="space-y-1">
+                            <div class="space-y-3">
+                                <div class="space-y-1 catalogo-valor-calculado p-2">
                                     <label class="text-xs font-bold uppercase tracking-wider text-slate-400">Venta sin IVA</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
@@ -1489,7 +1512,7 @@
                                                class="w-full bg-slate-950/60 border border-slate-800 text-slate-300 rounded-lg pl-7 pr-4 py-2 outline-none" />
                                     </div>
                                 </div>
-                                <div class="space-y-1">
+                                <div class="space-y-1 catalogo-valor-calculado p-2">
                                     <label class="text-xs font-bold uppercase tracking-wider text-slate-400">IVA incluido en la venta</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
@@ -1501,8 +1524,8 @@
                         </div>
                     </div>
 
-                    <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div class="space-y-1">
+                    <div class="mt-4">
+                        <div class="space-y-1 max-w-xs">
                             <label class="text-sm font-medium text-slate-300">Máx. cuotas sin interés</label>
                             <input name="MaxCuotasSinInteresPermitidas" id="modal-maxCuotasSinInteres" type="number" min="1" max="60"
                                    class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none"
@@ -1512,7 +1535,10 @@
                         </div>
                     </div>
                 </section>
+                </div>
 
+                <!-- Panel: Crédito personal -->
+                <div data-prod-create-panel="credito" role="tabpanel" class="hidden">
                 <!-- Section 3: Crédito personal -->
                 <section data-producto-credito-personal>
                     <div class="flex items-center gap-2 mb-2 border-l-4 border-primary pl-3">
@@ -1564,7 +1590,10 @@
                         <div id="modal-credito-cards" data-cp-cards-cont class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-2"></div>
                     </div>
                 </section>
+                </div>
 
+                <!-- Panel: Características -->
+                <div data-prod-create-panel="caracteristicas" role="tabpanel" class="hidden">
                 <!-- Section 4: Características -->
                 <section>
                     <div class="flex items-center gap-2 mb-4 border-l-4 border-primary pl-3">
@@ -1624,7 +1653,10 @@
                         Ejemplo: Color: Negro, Material: Acero, Memoria: 16GB
                     </p>
                 </section>
+                </div>
 
+                <!-- Panel: Stock -->
+                <div data-prod-create-panel="stock" role="tabpanel" class="hidden">
                 <!-- Section 5: Stock & Configuración -->
                 <section>
                     <div class="flex items-center gap-2 mb-4 border-l-4 border-primary pl-3">
@@ -1655,6 +1687,7 @@
                         </div>
                     </div>
                 </section>
+                </div>
             </div>
 
             <!-- Footer -->
@@ -1675,7 +1708,7 @@
 <!-- Modal: Editar Producto -->
 <div id="modal-editar-producto" role="dialog" aria-modal="true" aria-labelledby="modal-editar-producto-title" class="fixed inset-0 z-50 hidden items-center justify-center p-4 sm:p-6">
     <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" data-prod-edit-modal-close></div>
-    <div class="relative flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-slate-800 bg-[#111827] shadow-2xl">
+    <div class="catalogo-producto-modal-shell relative flex max-h-[92vh] w-full flex-col overflow-hidden rounded-xl border border-slate-800 bg-[#111827] shadow-2xl">
 
         <header class="border-b border-slate-800 px-6 py-5 flex items-center justify-between">
             <div>
@@ -1703,7 +1736,7 @@
             </div>
 
             <!-- Solapas -->
-            <div class="border-b border-slate-800 px-6 pt-3 overflow-x-auto" role="tablist" aria-label="Secciones del producto">
+            <div class="shrink-0 border-b border-slate-800 px-6 pt-3 overflow-x-auto" role="tablist" aria-label="Secciones del producto">
                 <nav class="flex flex-nowrap gap-1 -mb-px min-w-max">
                     <button type="button" role="tab" data-prod-edit-tab="datos" aria-selected="true" class="prod-edit-tab whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors hover:text-white border-primary text-white">Datos</button>
                     <button type="button" role="tab" data-prod-edit-tab="precios" aria-selected="false" class="prod-edit-tab whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors hover:text-white border-transparent text-slate-400">Precios</button>
@@ -1810,8 +1843,8 @@
                                 </select>
                             </div>
 
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div class="space-y-1">
+                            <div class="space-y-3">
+                                <div class="space-y-1 catalogo-valor-calculado p-2">
                                     <label class="text-xs font-bold uppercase tracking-wider text-slate-400">Compra sin IVA</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
@@ -1819,7 +1852,7 @@
                                                class="w-full bg-slate-950/60 border border-slate-800 text-slate-300 rounded-lg pl-7 pr-4 py-2 outline-none" />
                                     </div>
                                 </div>
-                                <div class="space-y-1">
+                                <div class="space-y-1 catalogo-valor-calculado p-2">
                                     <label class="text-xs font-bold uppercase tracking-wider text-slate-400">IVA compra</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
@@ -1837,14 +1870,19 @@
                                 <p class="text-xs text-slate-400">Se suman al costo del producto.</p>
                             </div>
 
-                            <div class="grid grid-cols-1 sm:grid-cols-3 xl:grid-cols-1 gap-4">
+                            <div class="catalogo-costos-grid">
                                 <div class="space-y-1">
                                     <label class="text-sm font-medium text-slate-300">Envío</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
                                         <input id="prod-edit-costoEnvio" name="CostoEnvio" type="number" step="0.01" min="0" value="0"
-                                               class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-7 pr-4 py-2 focus:ring-2 focus:ring-primary outline-none text-white" />
+                                               readonly="@(!puedeEditarCostoEnvio)" title="@(puedeEditarCostoEnvio ? null : "Requiere el permiso «Editar costo de envío»")"
+                                               class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-7 pr-4 py-2 focus:ring-2 focus:ring-primary outline-none text-white @(puedeEditarCostoEnvio ? "" : "cursor-not-allowed opacity-60")" />
                                     </div>
+                                    @if (!puedeEditarCostoEnvio)
+                                    {
+                                        <p class="text-xs text-slate-500" data-costo-envio-solo-lectura title="Requiere el permiso «Editar costo de envío»">Fijo · solo lectura</p>
+                                    }
                                 </div>
                                 <div class="space-y-1">
                                     <label class="text-sm font-medium text-slate-300">Percepciones</label>
@@ -1883,7 +1921,7 @@
                                 <p class="text-xs text-slate-400">La ganancia se aplica sobre el costo real. El precio final ya incluye IVA.</p>
                             </div>
 
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div class="catalogo-ganancia-grid">
                                 <div class="space-y-1">
                                     <label class="text-sm font-medium text-slate-300">Ganancia %</label>
                                     <div class="relative">
@@ -1902,10 +1940,10 @@
                                 </div>
                             </div>
 
-                            <div class="space-y-1">
-                                <label class="text-sm font-medium text-slate-300">Precio final de venta con IVA</label>
+                            <div class="space-y-1 catalogo-precio-final">
+                                <label class="catalogo-precio-final-label text-sm font-medium text-slate-300">Precio final de venta con IVA</label>
                                 <div class="relative">
-                                    <span class="absolute left-3 top-2 text-primary font-bold">$</span>
+                                    <span class="catalogo-precio-final-symbol absolute left-3 top-2 text-primary font-bold">$</span>
                                     <input id="prod-edit-precioFinal" name="PrecioVenta" type="number" step="0.01" min="0"
                                            class="w-full bg-primary/5 border border-primary/30 text-primary font-bold rounded-lg pl-7 pr-4 py-2 focus:ring-2 focus:ring-primary outline-none" />
                                 </div>
@@ -1931,8 +1969,8 @@
 
                             <input type="hidden" id="prod-edit-comisionPorcentaje" name="ComisionPorcentaje" value="0" />
 
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div class="space-y-1">
+                            <div class="space-y-3">
+                                <div class="space-y-1 catalogo-valor-calculado p-2">
                                     <label class="text-xs font-bold uppercase tracking-wider text-slate-400">Venta sin IVA</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
@@ -1940,7 +1978,7 @@
                                                class="w-full bg-slate-950/60 border border-slate-800 text-slate-300 rounded-lg pl-7 pr-4 py-2 outline-none" />
                                     </div>
                                 </div>
-                                <div class="space-y-1">
+                                <div class="space-y-1 catalogo-valor-calculado p-2">
                                     <label class="text-xs font-bold uppercase tracking-wider text-slate-400">IVA incluido en la venta</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
@@ -1952,8 +1990,8 @@
                         </div>
                     </div>
 
-                    <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div class="space-y-1">
+                    <div class="mt-4">
+                        <div class="space-y-1 max-w-xs">
                             <label class="text-sm font-medium text-slate-300">Máx. cuotas sin interés</label>
                             <input id="prod-edit-maxCuotasSinInteres" name="MaxCuotasSinInteresPermitidas" type="number" min="1" max="60"
                                    class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none text-white"
@@ -2570,15 +2608,15 @@
                     <div data-oc-scroll-fade="left" class="pointer-events-none absolute inset-y-0 left-0 hidden w-8 bg-linear-to-r from-[#161d2c] via-[#161d2c]/95 to-transparent"></div>
                     <div data-oc-scroll-fade="right" class="pointer-events-none absolute inset-y-0 right-0 hidden w-8 bg-linear-to-l from-[#161d2c] via-[#161d2c]/95 to-transparent"></div>
                     <div data-oc-scroll-region tabindex="0" role="region" aria-label="Historial de cambios de precio" class="overflow-x-auto">
-                        <table data-oc-scroll-table class="w-full border-collapse text-left" style="min-width: var(--oc-scroll-min-width);">
+                        <table data-erp-cards data-oc-scroll-table class="w-full border-collapse text-left" style="min-width: var(--oc-scroll-min-width);">
                             <thead>
                                 <tr class="bg-[#1c2536] text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                                    <th class="px-8 py-4">Fecha y Hora</th>
-                                    <th class="px-6 py-4">Usuario</th>
+                                    <th data-card="title" class="px-8 py-4">Fecha y Hora</th>
+                                    <th data-card="half" class="px-6 py-4">Usuario</th>
                                     <th class="px-6 py-4">Motivo</th>
-                                    <th class="px-6 py-4 text-right">Precio Ant.</th>
-                                    <th class="px-6 py-4 text-right">Precio Nuevo</th>
-                                    <th class="px-6 py-4 text-center">Variación</th>
+                                    <th data-card="third" class="px-6 py-4 text-right">Precio Ant.</th>
+                                    <th data-card="third" class="px-6 py-4 text-right">Precio Nuevo</th>
+                                    <th data-card="third" class="px-6 py-4 text-center">Variación</th>
                                     <th class="px-8 py-4 text-right">Acción</th>
                                 </tr>
                             </thead>
@@ -3083,19 +3121,19 @@
                 <div data-oc-scroll-fade="left" hidden class="absolute inset-y-0 left-0 z-10 w-6 rounded-l-xl" style="background:linear-gradient(to right,#0f172a,transparent);pointer-events:none;"></div>
                 <div data-oc-scroll-fade="right" hidden class="absolute inset-y-0 right-0 z-10 w-6 rounded-r-xl" style="background:linear-gradient(to left,#0f172a,transparent);pointer-events:none;"></div>
                 <div data-oc-scroll-region class="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/50" tabindex="0" role="region" aria-label="Tabla de movimientos de inventario">
-                <table class="w-full text-left border-collapse" style="min-width:1180px;">
+                <table data-erp-cards class="w-full text-left border-collapse" style="min-width:1180px;">
                     <thead>
                         <tr class="border-b border-slate-800 bg-slate-800/30">
-                            <th scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Fecha/Hora</th>
-                            <th scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Tipo</th>
-                            <th scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Producto</th>
-                            <th scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Cant.</th>
-                            <th scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Costo unitario</th>
-                            <th scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Costo total</th>
-                            <th scope="col" class="px-4 py-4 text-sm font-bold text-slate-300 cursor-help" title="Origen usado para valuar el costo del movimiento.">Fuente costo</th>
-                            <th scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Referencia</th>
-                            <th scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Usuario</th>
-                            <th scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Saldo Post.</th>
+                            <th data-card="half" scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Fecha/Hora</th>
+                            <th data-card="half" scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Tipo</th>
+                            <th data-card="title" scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Producto</th>
+                            <th data-card="third" scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Cant.</th>
+                            <th data-card="third" scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Costo unitario</th>
+                            <th data-card="third" scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Costo total</th>
+                            <th data-card="half" scope="col" class="px-4 py-4 text-sm font-bold text-slate-300 cursor-help" title="Origen usado para valuar el costo del movimiento.">Fuente costo</th>
+                            <th data-card="half" scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Referencia</th>
+                            <th data-card="half" scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Usuario</th>
+                            <th data-card="half" scope="col" class="px-4 py-4 text-sm font-bold text-slate-300">Saldo Post.</th>
                             <th scope="col" class="px-4 py-4 text-sm font-bold text-slate-300 text-right">Acción</th>
                         </tr>
                     </thead>
@@ -3142,8 +3180,12 @@
         window.CatalogoData.categorias = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
             Model.CategoriasRaiz?.Select(c => new { id = c.Id, nombre = c.Nombre }) ?? Enumerable.Empty<object>()
         ));
+        // Sólo marcas raíz: el combo "Marca" del alta/edición de producto no debe
+        // mezclarlas con submarcas (que se cargan aparte vía GetSubmarcas según la
+        // marca elegida). Model.MarcasFiltro (todas, para el filtro del listado) no
+        // sirve acá porque no distingue nivel jerárquico.
         window.CatalogoData.marcas = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
-            Model.MarcasFiltro?.Select(m => new { id = m.Value, nombre = m.Text }) ?? Enumerable.Empty<object>()
+            Model.MarcasRaiz?.Select(m => new { id = m.Id, nombre = m.Nombre }) ?? Enumerable.Empty<object>()
         ));
     </script>
     <script>
@@ -3180,6 +3222,7 @@
     <script src="~/js/catalogo-index.js" asp-append-version="true"></script>
     <script src="~/js/producto-credito-personal-ui.js" asp-append-version="true"></script>
     <script src="~/js/producto-modal-validacion.js" asp-append-version="true"></script>
+    <script src="~/js/producto-modal-tabs.js" asp-append-version="true"></script>
     <script src="~/js/producto-crear-modal.js" asp-append-version="true"></script>
     <script src="~/js/categoria-crear-modal.js" asp-append-version="true"></script>
     <script src="~/js/categoria-editar-modal.js" asp-append-version="true"></script>

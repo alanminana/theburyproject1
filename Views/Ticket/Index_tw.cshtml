@@ -251,7 +251,7 @@
             <div data-oc-scroll-fade="left" hidden></div>
             <div data-oc-scroll-fade="right" hidden></div>
             <div data-oc-scroll-region tabindex="0" role="region" aria-label="Listado de tickets">
-                <table data-oc-scroll-table class="w-full border-collapse text-left">
+                <table data-erp-cards data-oc-scroll-table class="w-full border-collapse text-left">
                     <thead>
                         <tr class="border-b border-slate-800 bg-slate-800/30">
                             @if (puedeSeleccionar)
@@ -264,13 +264,13 @@
                                            data-ticket-select-all />
                                 </th>
                             }
-                            <th class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">#</th>
-                            <th class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Fecha</th>
-                            <th class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Resumen</th>
-                            <th class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Tipo</th>
-                            <th class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Estado</th>
-                            <th class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Reportado por</th>
-                            <th class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Origen</th>
+                            <th data-card="half" class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">#</th>
+                            <th data-card="half" class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Fecha</th>
+                            <th data-card="title" class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Resumen</th>
+                            <th data-card="half" class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Tipo</th>
+                            <th data-card="half" class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Estado</th>
+                            <th data-card="half" class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Reportado por</th>
+                            <th data-card="half" class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Origen</th>
                             <th class="px-5 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Acciones</th>
                         </tr>
                     </thead>

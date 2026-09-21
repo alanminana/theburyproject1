@@ -1,8 +1,11 @@
 ﻿using AutoMapper;
+using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Data;
+using TheBuryProject.Helpers;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
+using TheBuryProject.Services.Exceptions;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.ViewModels;
 
@@ -18,18 +21,25 @@ namespace TheBuryProject.Services
         private readonly ILogger<CajaService> _logger;
         private readonly INotificacionService _notificacionService;
 
+        private readonly IRelojComercial _relojComercial;
+
         private const decimal TOLERANCIA_DIFERENCIA = CajaConstants.TOLERANCIA_DIFERENCIA;
+
+        private const string MensajeCajaVencida =
+            "La caja quedó abierta desde el día anterior. Debés cerrarla (arqueo y justificación) antes de poder operar.";
 
         public CajaService(
             AppDbContext context,
             IMapper mapper,
             ILogger<CajaService> logger,
-            INotificacionService notificacionService)
+            INotificacionService notificacionService,
+            IRelojComercial? relojComercial = null)
         {
             _context = context;
             _mapper = mapper;
             _logger = logger;
             _notificacionService = notificacionService;
+            _relojComercial = relojComercial ?? RelojComercial.Sistema;
         }
 
         #region CRUD de Cajas
@@ -276,6 +286,11 @@ namespace TheBuryProject.Services
 
                 return apertura;
             }
+            catch (InvalidOperationException)
+            {
+                // Regla de negocio (caja inactiva / ya abierta): el controller la registra como warning y la muestra al usuario.
+                throw;
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al abrir caja");
@@ -364,9 +379,14 @@ namespace TheBuryProject.Services
 
             try
             {
+                // Excluye aperturas vencidas (de un día comercial anterior): no son válidas para
+                // seguir operando, deben cerrarse primero (ver EsAperturaVencida).
+                var inicioDiaComercialUtc = InicioDiaComercialUtc;
+
                 return await _context.AperturasCaja
                     .Include(a => a.Caja)
-                    .Where(a => !a.Cerrada && !a.IsDeleted && a.UsuarioApertura == usuario)
+                    .Where(a => !a.Cerrada && !a.IsDeleted && a.UsuarioApertura == usuario
+                             && a.FechaApertura >= inicioDiaComercialUtc)
                     .OrderByDescending(a => a.FechaApertura)
                     .FirstOrDefaultAsync();
             }
@@ -426,6 +446,38 @@ namespace TheBuryProject.Services
             };
         }
 
+        /// <summary>
+        /// Indica si una apertura sigue abierta desde un día comercial anterior a <paramref name="hoyComercial"/>
+        /// ("vencida"). Una apertura vencida no puede seguir operando (ventas, cuotas, movimientos
+        /// manuales): debe cerrarse (arqueo + justificación) antes de continuar. Cálculo puro (sin DB),
+        /// reutilizado por el enforcement de escritura y por el badge de <c>Caja/Index</c>.
+        /// </summary>
+        public static bool EsAperturaVencida(AperturaCaja apertura, DateOnly hoyComercial, TimeZoneInfo zonaComercial)
+        {
+            if (apertura.Cerrada)
+            {
+                return false;
+            }
+
+            var fechaAperturaComercial = DateOnly.FromDateTime(
+                TimeZoneInfo.ConvertTimeFromUtc(apertura.FechaApertura, zonaComercial));
+
+            return fechaAperturaComercial < hoyComercial;
+        }
+
+        private bool EsAperturaVencida(AperturaCaja apertura) =>
+            EsAperturaVencida(apertura, _relojComercial.HoyComercial, _relojComercial.ZonaComercial);
+
+        /// <summary>
+        /// Medianoche del día comercial de hoy (Argentina), expresada en UTC. Umbral traducible a
+        /// SQL para que las consultas de "apertura activa para operar" excluyan aperturas vencidas
+        /// sin necesitar conversión de zona horaria dentro de la query.
+        /// </summary>
+        private DateTime InicioDiaComercialUtc =>
+            TimeZoneInfo.ConvertTimeToUtc(
+                DateTime.SpecifyKind(_relojComercial.InicioDiaComercial, DateTimeKind.Unspecified),
+                _relojComercial.ZonaComercial);
+
         #endregion
 
         #region Movimientos de Caja
@@ -443,6 +495,11 @@ namespace TheBuryProject.Services
                 if (apertura.Cerrada)
                 {
                     throw new InvalidOperationException("No se pueden registrar movimientos en una caja cerrada");
+                }
+
+                if (EsAperturaVencida(apertura))
+                {
+                    throw new InvalidOperationException(MensajeCajaVencida);
                 }
 
                 var movimiento = new MovimientoCaja
@@ -606,9 +663,13 @@ namespace TheBuryProject.Services
         {
             try
             {
+                // Excluye aperturas vencidas (de un día comercial anterior): no son válidas para
+                // seguir operando, deben cerrarse primero (ver EsAperturaVencida).
+                var inicioDiaComercialUtc = InicioDiaComercialUtc;
+
                 // Obtener la primera caja abierta (ordenada por Id para consistencia)
                 return await _context.AperturasCaja
-                    .Where(a => !a.Cerrada && !a.IsDeleted)
+                    .Where(a => !a.Cerrada && !a.IsDeleted && a.FechaApertura >= inicioDiaComercialUtc)
                     .OrderBy(a => a.Id)
                     .FirstOrDefaultAsync();
             }
@@ -643,6 +704,7 @@ namespace TheBuryProject.Services
                 int? aperturaId = null;
                 string? vendedorUserId = null;
                 decimal? recargoDebitoAplicado = null;
+                decimal importeEnvioIncluido = 0m;
 
                 if (ventaId > 0)
                 {
@@ -653,6 +715,8 @@ namespace TheBuryProject.Services
                         {
                             v.AperturaCajaId,
                             v.VendedorUserId,
+                            v.Total,
+                            CostoEnvio = v.Envio != null ? v.Envio.CostoEnvio : null,
                             RecargoDebitoAplicado = v.DatosTarjeta != null
                                 ? v.DatosTarjeta.RecargoAplicado
                                 : null
@@ -663,6 +727,11 @@ namespace TheBuryProject.Services
                     {
                         aperturaId = ventaData.AperturaCajaId;
                         vendedorUserId = ventaData.VendedorUserId;
+                        // Sólo se anota "incluye envío" si el monto cobrado realmente lo contiene
+                        // (Total + envío); trazabilidad del ingreso único de la venta.
+                        var envioVenta = VentaMontos.NormalizarImporteEnvio(ventaData.CostoEnvio);
+                        if (envioVenta > 0m && monto >= ventaData.Total + envioVenta)
+                            importeEnvioIncluido = envioVenta;
                         recargoDebitoAplicado = tipoPago == TipoPago.TarjetaDebito
                             ? ventaData.RecargoDebitoAplicado
                             : null;
@@ -729,7 +798,9 @@ namespace TheBuryProject.Services
                     RecargoDebitoAplicado = recargoDebitoAplicado,
                     MedioPagoDetalle = ResolverMedioPagoDetalle(tipoPago),
                     Usuario = usuario,
-                    Observaciones = $"Pago: {tipoPago}",
+                    Observaciones = importeEnvioIncluido > 0m
+                        ? $"Pago: {tipoPago} · incluye envío {importeEnvioIncluido.ToString("C2", CultureInfo.GetCultureInfo("es-AR"))}"
+                        : $"Pago: {tipoPago}",
                     CreatedAt = DateTime.UtcNow
                 };
 
@@ -1068,7 +1139,7 @@ namespace TheBuryProject.Services
                 // Validar justificación si hay diferencia
                 if (Math.Abs(diferencia) > TOLERANCIA_DIFERENCIA && string.IsNullOrWhiteSpace(model.JustificacionDiferencia))
                 {
-                    throw new InvalidOperationException("Debe proporcionar una justificación para la diferencia encontrada");
+                    throw new DiferenciaCajaSinJustificacionException();
                 }
 
                 var cierre = new CierreCaja
@@ -1112,6 +1183,13 @@ namespace TheBuryProject.Services
                 await CrearNotificacionesCierreAsync(cierre, apertura.Caja);
 
                 return cierre;
+            }
+            catch (DiferenciaCajaSinJustificacionException ex)
+            {
+                _logger.LogWarning(
+                    "Cierre de caja {AperturaCajaId} rechazado: {Mensaje}",
+                    model.AperturaCajaId, ex.Message);
+                throw;
             }
             catch (Exception ex)
             {
@@ -1199,6 +1277,7 @@ public async Task<DetallesAperturaViewModel> ObtenerDetallesAperturaAsync(int ap
             .AsNoTracking()
             .Include(v => v.Cliente)
             .Include(v => v.DatosTarjeta)
+            .Include(v => v.Envio)
             .Include(v => v.Detalles)
                 .ThenInclude(d => d.Producto)
             .Where(v => v.AperturaCajaId == aperturaId && !v.IsDeleted)

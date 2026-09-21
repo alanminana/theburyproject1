@@ -150,7 +150,7 @@ const ProveedorEditarModal = (() => {
 
     function renderProveedorCell(entity) {
         var nombreFantasiaHtml = entity.nombreFantasia
-            ? '<span class="h-1 w-1 rounded-full bg-slate-700"></span><span class="truncate max-w-[14rem]">' + escHtml(entity.nombreFantasia) + '</span>'
+            ? '<span class="h-1 w-1 rounded-full bg-slate-700"></span><span class="truncate max-w-56">' + escHtml(entity.nombreFantasia) + '</span>'
             : '';
 
         return '<div class="min-w-0">' +
@@ -177,7 +177,7 @@ const ProveedorEditarModal = (() => {
             contactoHtml = '<span class="text-xs text-slate-500">Sin contacto</span>';
         }
 
-        return '<div class="flex max-w-[17rem] flex-col gap-0.5 text-sm">' + contactoHtml + '</div>';
+        return '<div class="flex max-w-68 flex-col gap-0.5 text-sm">' + contactoHtml + '</div>';
     }
 
     function renderEstadoBadge(activo) {

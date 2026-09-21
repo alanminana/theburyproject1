@@ -279,6 +279,23 @@ public sealed class CotizacionPagoCalculatorContractTests
     }
 
     [Fact]
+    public async Task Simular_Tarjeta_SinEtiquetaPropia_GeneraFormatoSingularPluralConMedioPuntos()
+    {
+        // Regresión (reporte del usuario, 2026-09-17): en producción los planes de tarjeta no
+        // tienen Etiqueta propia (columna NULL en ConfiguracionPagoPlanes) — el calculator arma
+        // el label. El formato viejo era "{tarjeta} - {cuotas} pago(s)"; el correcto es
+        // "{tarjeta} · 1 pago" / "{tarjeta} · N cuotas", sin "pago(s)" ni guion medio.
+        var resultado = await CreateCalculator(configuracion: ConfiguracionTarjetaSinEtiquetaPropia())
+            .SimularAsync(DefaultRequest(cuotas: new[] { 1, 3 }));
+
+        var tarjeta = Assert.Single(resultado.OpcionesPago, o => o.MedioPago == CotizacionMedioPagoTipo.TarjetaCredito);
+        Assert.Contains(tarjeta.Planes, p => p.Plan == "Visa · 1 pago" && p.CantidadCuotas == 1);
+        Assert.Contains(tarjeta.Planes, p => p.Plan == "Visa · 3 cuotas" && p.CantidadCuotas == 3);
+        Assert.DoesNotContain(tarjeta.Planes, p => p.Plan.Contains("pago(s)"));
+        Assert.DoesNotContain(tarjeta.Planes, p => p.Plan.Contains(" - "));
+    }
+
+    [Fact]
     public async Task Simular_TarjetaConfiguracionInactiva_DevuelveNoDisponible()
     {
         var resultado = await CreateCalculator().SimularAsync(DefaultRequest(tarjetaId: 999));
@@ -379,6 +396,20 @@ public sealed class CotizacionPagoCalculatorContractTests
         Assert.Equal("CreditoPersonalReadOnly", plan.TipoCalculo);
         Assert.Equal(1, creditoService.CallCount);
         Assert.Equal("Configuracion global", credito.FuenteTasaDescripcion);
+    }
+
+    [Fact]
+    public async Task Simular_CreditoPersonalConCliente_UnaCuota_UsaEtiquetaSingularSinParentesis()
+    {
+        // Regresión (reporte del usuario, 2026-09-17): "1 pago", nunca "1 cuota(s)"/"1 pago(s)".
+        var resultado = await CreateCalculator(
+            creditoService: new FakeCreditoSimulacionVentaService(),
+            configuracionPagoService: ConfiguracionCreditoPersonalDisponible())
+            .SimularAsync(DefaultRequest(clienteId: 44, cuotas: new[] { 1 }));
+
+        var credito = Assert.Single(resultado.OpcionesPago, o => o.MedioPago == CotizacionMedioPagoTipo.CreditoPersonal);
+        var plan = Assert.Single(credito.Planes);
+        Assert.Equal("1 pago", plan.Plan);
     }
 
     [Fact]
@@ -902,13 +933,46 @@ public sealed class CotizacionPagoCalculatorContractTests
             }
         };
 
+    private static ConfiguracionPagoGlobalResultado ConfiguracionTarjetaSinEtiquetaPropia() =>
+        new()
+        {
+            Medios = new List<MedioPagoGlobalDto>
+            {
+                new()
+                {
+                    Id = 3,
+                    TipoPago = TipoPago.TarjetaCredito,
+                    NombreVisible = "Tarjeta credito",
+                    Activo = true,
+                    Tarjetas = new List<TarjetaPagoGlobalDto>
+                    {
+                        new()
+                        {
+                            Id = 10,
+                            ConfiguracionPagoId = 3,
+                            Nombre = "Visa",
+                            TipoTarjeta = TipoTarjeta.Credito,
+                            Activa = true,
+                            PermiteCuotas = true,
+                            CantidadMaximaCuotas = 12
+                        }
+                    },
+                    Planes = new List<PlanPagoGlobalConfiguradoDto>
+                    {
+                        Plan(3, 3, TipoPago.TarjetaCredito, cuotas: 1, ajuste: 0m, etiqueta: null, tarjetaId: 10),
+                        Plan(4, 3, TipoPago.TarjetaCredito, cuotas: 3, ajuste: 10m, etiqueta: null, tarjetaId: 10)
+                    }
+                }
+            }
+        };
+
     private static PlanPagoGlobalConfiguradoDto Plan(
         int id,
         int medioId,
         TipoPago tipoPago,
         int cuotas,
         decimal ajuste,
-        string etiqueta,
+        string? etiqueta,
         int? tarjetaId = null) =>
         new()
         {

@@ -217,33 +217,10 @@
             </div>
         }
 
-        <section class="venta-hero card">
-            <div class="venta-hero__content">
-                <div class="venta-hero__eyebrow">
-                    <span class="dot dot-green"></span>
-                    Centro operativo
-                </div>
-                <nav class="venta-breadcrumb" aria-label="Breadcrumb">
-                    <a asp-controller="Venta" asp-action="Index" class="venta-breadcrumb__link">Ventas</a>
-                    <span class="venta-breadcrumb__separator" aria-hidden="true">›</span>
-                    <span class="venta-breadcrumb__current">Centro de ventas</span>
-                </nav>
-                <div>
-                    <h1>Centro de Ventas</h1>
-                </div>
-            </div>
-            <div class="venta-hero__actions">
-                @if (puedeConfigurarPagos)
-                {
-                    <a asp-controller="ConfiguracionPago" asp-action="MediosPago" class="btn btn-soft no-underline"
-                       title="Los métodos, tarjetas, cuotas, recargos y descuentos se administran desde Configuración de pagos.">
-                        <span class="material-symbols-outlined" aria-hidden="true">tune</span>
-                        Medios de pago
-                    </a>
-                }
-            </div>
-        </section>
-
+        <!-- Header de página (ERP-UI-STANDARD §4, patrón sin hero — ver Catálogo/Index_tw.cshtml):
+             sin card de título propio; el título ya aparece en la barra superior global
+             (_Layout.cshtml). Las acciones se integran a la barra de tabs del mismo card de
+             contenido. -->
         <section class="card tabs-card">
             <div class="tabs-bar">
                 <div class="tabs-scroll-shell" data-oc-scroll data-oc-scroll-shell>
@@ -285,28 +262,41 @@
                     </button>
                     </div>
                 </div>
-                <div class="venta-hero__actions venta-tabs__actions" aria-label="Acciones rápidas de ventas">
-                    <a asp-controller="Cotizacion" asp-action="Listado" class="btn btn-soft no-underline"
-                       title="Ver cotizaciones">
-                        <span class="material-symbols-outlined">request_quote</span>
-                        Ver cotizaciones
-                    </a>
-
-                    @if (puedeCrear)
+                <div class="venta-hero__actions">
+                    @* "Medios de pago" no se duplica en .mobile-sticky-bar (a diferencia de
+                       Cotizaciones/Nueva Venta) — queda fuera de .venta-tabs__actions para no
+                       perder acceso a esta acción en mobile (<768px la oculta, ver CSS). *@
+                    @if (puedeConfigurarPagos)
                     {
-                        <a asp-controller="Venta" asp-action="Create" class="btn btn-primary no-underline">
-                            <span class="material-symbols-outlined">add</span>
-                            Nueva Venta
+                        <a asp-controller="ConfiguracionPago" asp-action="MediosPago" class="btn btn-soft no-underline"
+                           title="Los métodos, tarjetas, cuotas, recargos y descuentos se administran desde Configuración de pagos.">
+                            <span class="material-symbols-outlined" aria-hidden="true">tune</span>
+                            Medios de pago
                         </a>
                     }
-                    else if (!puedeOperarVentas)
-                    {
-                        <button type="button" data-action="nueva-venta-bloqueada" class="btn btn-primary">
-                            <span class="material-symbols-outlined">add</span>
-                            Nueva Venta
-                        </button>
-                        <span id="msg-caja-cerrada" class="sr-only" aria-live="polite"></span>
-                    }
+                    <div class="venta-tabs__actions" aria-label="Acciones rápidas de ventas">
+                        <a asp-controller="Cotizacion" asp-action="Listado" class="btn btn-soft no-underline"
+                           title="Ver cotizaciones">
+                            <span class="material-symbols-outlined">request_quote</span>
+                            Ver cotizaciones
+                        </a>
+
+                        @if (puedeCrear)
+                        {
+                            <a asp-controller="Venta" asp-action="Create" class="btn btn-primary no-underline">
+                                <span class="material-symbols-outlined">add</span>
+                                Nueva Venta
+                            </a>
+                        }
+                        else if (!puedeOperarVentas)
+                        {
+                            <button type="button" data-action="nueva-venta-bloqueada" class="btn btn-primary">
+                                <span class="material-symbols-outlined">add</span>
+                                Nueva Venta
+                            </button>
+                            <span id="msg-caja-cerrada" class="sr-only" aria-live="polite"></span>
+                        }
+                    </div>
                 </div>
             </div>
 

@@ -18,13 +18,18 @@
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
-/* Material Symbols Outlined — variable font */
+/* Material Symbols Outlined — variable font.
+   MOBILE-DEBT-01: se sirve una instancia recortada de material-symbols-outlined.woff2 (3.9 MB) con los ejes
+   GRAD=0 y opsz=24 fijados (los unicos valores que usa el sitio) y wght acotado a 400-700; se conservan FILL
+   (0-1, usado por las estrellas) y los 6570 glifos/ligaduras: 3.9 MB -> 0.77 MB. El archivo original queda como
+   fuente para regenerar (fontTools.varLib.instancer.instantiateVariableFont(font, {'GRAD': 0, 'opsz': 24, 'wght': (400, 700)})).
+   Si se regenera, cambiar el nombre del archivo: la URL no lleva version. */
 @font-face {
   font-family: 'Material Symbols Outlined';
   font-style: normal;
   font-weight: 100 700;
   font-display: swap;
-  src: url('/fonts/material-symbols-outlined.woff2') format('woff2');
+  src: url('/fonts/material-symbols-outlined-fill.woff2') format('woff2');
 }
 
 .material-symbols-outlined {

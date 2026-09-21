@@ -30,8 +30,6 @@ namespace TheBuryProject.ViewModels
         public TipoFactura Tipo { get; set; }
         public string? PuntoVenta { get; set; }
         public DateTime FechaEmision { get; set; }
-        public string? CAE { get; set; }
-        public DateTime? FechaVencimientoCAE { get; set; }
         public bool Anulada { get; set; }
         public DateTime? FechaAnulacion { get; set; }
         public string? MotivoAnulacion { get; set; }

@@ -64,5 +64,5 @@
 /* checkbox "Publicación REAL" */
 .ml-real-check { display: flex; align-items: flex-start; gap: 9px; padding: 9px 12px; border-radius: 10px; background: var(--amber-soft); border: 1px solid rgba(241,169,59,.3); cursor: pointer; }
 .ml-real-check__text { display: flex; flex-direction: column; gap: 2px; font-size: 12.5px; }
-.ml-real-check__flag { font-family: var(--mono); font-size: 10px; color: var(--red); background: var(--red-soft); padding: 1px 6px; border-radius: 5px; }
-.ml-real-check__hint { color: var(--muted); font-size: 11.5px; }
+.ml-real-check__flag { font-family: var(--mono); font-size: var(--erp-fs-min, 0.75rem); color: var(--red); background: var(--red-soft); padding: 1px 6px; border-radius: 5px; }
+.ml-real-check__hint { color: var(--muted); font-size: var(--erp-fs-min, 0.75rem); }

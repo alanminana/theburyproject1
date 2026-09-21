@@ -49,7 +49,7 @@
                     </span>
                 </p>
             </div>
-            <div class="flex items-center gap-2">
+            <div class="flex flex-wrap items-center gap-2">
                 <a href="@Url.Action("DescargarPdf", "Cotizacion", new { id = Model.Id })"
                    class="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 text-sm font-bold text-slate-200 hover:bg-slate-700"
                    title="Descargar cotización como PDF">
@@ -243,6 +243,23 @@
         </div>
     </section>
 
+    @* VENTA-ENVIO-TOTAL-01: el envío es un concepto separado del total de productos (no recibe
+       recargo del plan) y se suma en TOTAL A COBRAR (calculado en backend: Cotizacion.CostoEnvio). *@
+    @if (Model.TieneEnvio)
+    {
+        <section id="cotizacion-envio-totales" class="grid grid-cols-1 gap-3 md:grid-cols-4">
+            <div class="rounded-lg border border-slate-800 bg-slate-900/60 p-4 md:col-start-3">
+                <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Envío</p>
+                <p id="cotizacion-envio-importe" class="mt-2 text-lg font-black text-white">@Model.ImporteEnvio.ToString("C")</p>
+            </div>
+            <div class="rounded-lg border border-sky-500/30 bg-sky-500/10 p-4">
+                <p class="text-[11px] font-bold uppercase tracking-wider text-sky-300">Total a cobrar</p>
+                <p id="cotizacion-total-a-cobrar" class="mt-2 text-xl font-black text-white">@Model.TotalACobrar.ToString("C")</p>
+                <p class="mt-1 text-xs text-sky-200/80">@(Model.TotalSeleccionado.HasValue ? "Opción seleccionada + envío" : "Total base + envío")</p>
+            </div>
+        </section>
+    }
+
     @if (!string.IsNullOrWhiteSpace(Model.Observaciones))
     {
         <section class="rounded-lg border border-slate-800 bg-slate-900/60 p-5">
@@ -256,14 +273,14 @@
             <h2 class="text-base font-bold text-white">Productos cotizados</h2>
         </div>
         <div class="overflow-x-auto">
-            <table class="w-full min-w-[760px] text-left">
+            <table data-erp-cards class="w-full min-w-[760px] text-left">
                 <thead class="bg-slate-800/60">
                     <tr>
-                        <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Producto</th>
-                        <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Codigo</th>
-                        <th class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Cantidad</th>
-                        <th class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Precio snapshot</th>
-                        <th class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Subtotal</th>
+                        <th data-card="title" class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Producto</th>
+                        <th data-card="half" class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Codigo</th>
+                        <th data-card="half" class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Cantidad</th>
+                        <th data-card="half" class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Precio snapshot</th>
+                        <th data-card="half" class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Subtotal</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-800">
@@ -287,15 +304,15 @@
             <h2 class="text-base font-bold text-white">Opciones simuladas</h2>
         </div>
         <div class="overflow-x-auto">
-            <table class="w-full min-w-[980px] text-left">
+            <table data-erp-cards class="w-full min-w-[980px] text-left">
                 <thead class="bg-slate-800/60">
                     <tr>
-                        <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Medio</th>
-                        <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Plan</th>
-                        <th class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Cuotas</th>
-                        <th class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Total</th>
-                        <th class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Valor cuota</th>
-                        <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Estado</th>
+                        <th data-card="title" class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Medio</th>
+                        <th data-card="half" class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Plan</th>
+                        <th data-card="half" class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Cuotas</th>
+                        <th data-card="half" class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Total</th>
+                        <th data-card="half" class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Valor cuota</th>
+                        <th data-card="half" class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Estado</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-800">

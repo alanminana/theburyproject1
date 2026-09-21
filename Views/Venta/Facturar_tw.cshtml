@@ -12,7 +12,7 @@
     var recargoDebitoAplicado = venta?.RecargoDebitoAplicado ?? 0m;
 }
 
-<div class="fixed inset-0 z-[80] overflow-hidden bg-slate-950/80 backdrop-blur-sm" data-facturar-panel>
+<div class="venta-aux-page fixed inset-0 z-80 overflow-hidden bg-slate-950/80 backdrop-blur-sm" data-facturar-panel>
     <div class="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(34,197,94,0.12),transparent_36%),radial-gradient(circle_at_bottom_right,rgba(245,197,24,0.10),transparent_34%)]"></div>
 
     <aside class="absolute right-0 top-0 flex h-full w-full max-w-3xl flex-col border-l border-slate-800 bg-slate-950 text-slate-100 shadow-2xl shadow-black/50">
@@ -95,6 +95,21 @@
                             <p class="mt-2 text-xl font-black text-emerald-300">@total.ToString("C2")</p>
                         </div>
                     </div>
+
+                    @* VENTA-ENVIO-TOTAL-01: total comercial vs. comprobante. El envío se cobra pero no
+                       integra el comprobante (Venta.TotalFacturable = Venta.Total). *@
+                    @if (Model.TieneEnvioFueraDelComprobante)
+                    {
+                        <div id="facturar-resumen-comercial" class="mt-4 rounded-xl border border-sky-500/25 bg-sky-500/5 p-4">
+                            <p class="text-[10px] font-black uppercase tracking-[0.18em] text-sky-300">Resumen comercial</p>
+                            <dl class="mt-2 space-y-1 text-sm">
+                                <div class="flex justify-between gap-3"><dt class="text-slate-400">Productos (total del comprobante)</dt><dd class="font-semibold text-slate-100">@Model.Total.ToString("C2")</dd></div>
+                                <div class="flex justify-between gap-3"><dt class="text-slate-400">Envío</dt><dd class="font-semibold text-slate-100">@Model.ImporteEnvio.ToString("C2")</dd></div>
+                                <div class="flex justify-between gap-3 border-t border-sky-500/20 pt-1"><dt class="font-bold text-sky-200">Total a cobrar</dt><dd class="font-black text-sky-200">@Model.TotalACobrar.ToString("C2")</dd></div>
+                            </dl>
+                            <p class="mt-2 text-[11px] leading-relaxed text-slate-400">El envío se cobra aparte y no integra este comprobante.</p>
+                        </div>
+                    }
                 </section>
 
                 @if (Model.ResumenAlicuotas.Any())
@@ -176,24 +191,6 @@
                             <span asp-validation-for="FechaEmision" class="mt-1 block text-xs text-rose-400"></span>
                         </div>
 
-                        <div>
-                            <label asp-for="CAE" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">
-                                CAE <span class="font-normal normal-case text-slate-500">(opcional)</span>
-                            </label>
-                            <input asp-for="CAE" type="text" maxlength="100"
-                                   class="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm font-semibold text-slate-100 outline-none transition-colors placeholder:text-slate-600 focus:border-primary focus:ring-2 focus:ring-primary/20"
-                                   placeholder="Código de autorización electrónica" />
-                            <span asp-validation-for="CAE" class="mt-1 block text-xs text-rose-400"></span>
-                        </div>
-
-                        <div>
-                            <label asp-for="FechaVencimientoCAE" class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">
-                                Vencimiento CAE <span class="font-normal normal-case text-slate-500">(opcional)</span>
-                            </label>
-                            <input asp-for="FechaVencimientoCAE" type="date"
-                                   class="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm font-semibold text-slate-100 outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20" />
-                            <span asp-validation-for="FechaVencimientoCAE" class="mt-1 block text-xs text-rose-400"></span>
-                        </div>
                     </div>
                 </section>
             </div>
@@ -216,6 +213,10 @@
         </form>
     </aside>
 </div>
+
+@section Styles {
+    <partial name="_VentaModuleStyles" />
+}
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />

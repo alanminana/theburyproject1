@@ -940,9 +940,9 @@ public class VentaCreateUiContractTests
         var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
         var fn     = ExtractFunction(script, "function actualizarResumenOperacion");
 
-        // El badge del wizard (siempre visible) se actualiza directamente
-        Assert.Contains("detalleItemsBadge.innerHTML", fn);
-        Assert.Contains("shopping_bag", fn);
+        // El badge del wizard (siempre visible) es un pill numérico chico (mismo patrón
+        // que el de Envío): sólo el número, sin ícono ni texto largo.
+        Assert.Contains("detalleItemsBadge.textContent = String(cantidadItems)", fn);
 
         // Los elementos hero (solo existen en Create_tw, no en el modal) usan guarda null
         // para que la función no lance errores cuando no se encuentra el elemento

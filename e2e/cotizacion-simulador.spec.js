@@ -96,7 +96,7 @@ async function agregarProductoSimulador(page) {
 
         // Esperar a que el campo de estado muestre el producto
         await expect(page.locator('#cotizacion-producto-seleccionado'))
-            .not.toContainText('Sin producto seleccionado.', { timeout: 3_000 })
+            .not.toContainText('Sin producto seleccionado', { timeout: 3_000 })
             .catch(() => null);
 
         await page.click('#cotizacion-agregar-producto');
@@ -258,11 +258,18 @@ test.describe('Cotización simulador — COTIZ-QA', () => {
         const added = await agregarProductoSimulador(page);
         test.skip(!added, 'Sin productos disponibles en el entorno de prueba');
 
-        // Inputs de descuento por producto en la primera card
+        // Descuento por producto en la primera card (COTIZACION-MOCKUP-01): un solo campo con
+        // selector % / $ — "%" es el modo inicial; el campo en pesos existe pero queda oculto
+        // hasta alternar (así ningún valor cargado en el otro modo se pierde).
         const descPctInput     = page.locator('[data-cotizacion-desc-pct-index="0"]');
         const descImporteInput = page.locator('[data-cotizacion-desc-importe-index="0"]');
         await expect(descPctInput).toBeVisible({ timeout: 3_000 });
+        await expect(descImporteInput).toBeHidden();
+        await page.locator('[data-cotizacion-dto-modo="importe"][data-index="0"]').click();
         await expect(descImporteInput).toBeVisible({ timeout: 3_000 });
+        await expect(descPctInput).toBeHidden();
+        await page.locator('[data-cotizacion-dto-modo="pct"][data-index="0"]').click();
+        await expect(descPctInput).toBeVisible({ timeout: 3_000 });
 
         await descPctInput.fill('10');
 

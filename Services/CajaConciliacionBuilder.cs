@@ -136,9 +136,13 @@ public static class CajaConciliacionBuilder
             ? c
             : 0m;
         if (cobrado < 0m) cobrado = 0m;
-        if (cobrado > v.Total) cobrado = v.Total;
 
-        var pendiente = v.Total - cobrado;
+        // Base de lo cobrable = productos + envío (Venta.TotalACobrar; requiere Envio cargado). El
+        // cobrado real sale de los movimientos de caja, que ya incluyen el envío.
+        var totalACobrar = v.TotalACobrar;
+        if (cobrado > totalACobrar) cobrado = totalACobrar;
+
+        var pendiente = totalACobrar - cobrado;
 
         string? motivo = null;
         if (!impacta && categoria != VentaTurnoCategoria.Registro)
@@ -162,7 +166,9 @@ public static class CajaConciliacionBuilder
             EstadoChipClass = EstadoChipClass(v.Estado),
             MedioPago = TipoPagoLabel(v.TipoPago),
             MedioKey = MedioKey(v.TipoPago),
-            TotalVenta = v.Total,
+            TotalVenta = totalACobrar,
+            TotalProductos = v.Total,
+            ImporteEnvio = v.ImporteEnvio,
             CobradoAhora = cobrado,
             Pendiente = pendiente,
             ImpactaCajaFisica = impacta,

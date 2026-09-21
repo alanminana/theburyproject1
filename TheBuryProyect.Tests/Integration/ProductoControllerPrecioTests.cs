@@ -254,6 +254,7 @@ public class ProductoControllerPrecioTests : IDisposable
     {
         var producto = await SeedProductoAsync(precioVenta: 121m);
         var productoActualizado = await _context.Productos.FindAsync(producto.Id);
+        ConcederPermisoCostoEnvio();
         var vm = CrearProductoViewModelParaEditar(productoActualizado!);
         vm.PrecioCompra = 100_040m; // costo real: compra 100.000 + gastos 40
         vm.CostoEnvio = 15m;
@@ -277,6 +278,91 @@ public class ProductoControllerPrecioTests : IDisposable
         Assert.Equal(15m, getDoc.RootElement.GetProperty("costoEnvio").GetDecimal());
         Assert.Equal(10m, getDoc.RootElement.GetProperty("percepcionesCompra").GetDecimal());
         Assert.Equal(15m, getDoc.RootElement.GetProperty("otrosCostosCompra").GetDecimal());
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Costo de envío: solo lo edita quien tiene productos.editshippingcost
+    // ─────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task EditAjax_SinPermisoCostoEnvio_ConservaElValorPersistidoAunqueElRequestTraigaOtro()
+    {
+        var producto = await SeedProductoAsync(precioVenta: 121m);
+        producto.CostoEnvio = 40m;
+        await _context.SaveChangesAsync();
+        var productoActualizado = await _context.Productos.FindAsync(producto.Id);
+        var vm = CrearProductoViewModelParaEditar(productoActualizado!);
+        vm.CostoEnvio = 999m; // request manipulado: el input es readonly para este usuario
+
+        var result = await _controller.EditAjax(producto.Id, vm) as JsonResult;
+
+        Assert.NotNull(result);
+        Assert.True(ParseJson(result!.Value).RootElement.GetProperty("success").GetBoolean());
+        var enBd = await _context.Productos.AsNoTracking().SingleAsync(p => p.Id == producto.Id);
+        Assert.Equal(40m, enBd.CostoEnvio);
+    }
+
+    [Fact]
+    public async Task EditAjax_ConPermisoCostoEnvio_PersisteElValorEnviado()
+    {
+        var producto = await SeedProductoAsync(precioVenta: 121m);
+        producto.CostoEnvio = 40m;
+        await _context.SaveChangesAsync();
+        ConcederPermisoCostoEnvio();
+        var productoActualizado = await _context.Productos.FindAsync(producto.Id);
+        var vm = CrearProductoViewModelParaEditar(productoActualizado!);
+        vm.CostoEnvio = 75m;
+
+        var result = await _controller.EditAjax(producto.Id, vm) as JsonResult;
+
+        Assert.NotNull(result);
+        Assert.True(ParseJson(result!.Value).RootElement.GetProperty("success").GetBoolean());
+        var enBd = await _context.Productos.AsNoTracking().SingleAsync(p => p.Id == producto.Id);
+        Assert.Equal(75m, enBd.CostoEnvio);
+    }
+
+    [Fact]
+    public async Task CreateAjax_SinPermisoCostoEnvio_IgnoraElCostoEnviado()
+    {
+        var vm = await CrearProductoViewModelParaCrearAsync();
+        vm.CostoEnvio = 25m;
+
+        var result = await _controller.CreateAjax(vm) as JsonResult;
+
+        Assert.NotNull(result);
+        var doc = ParseJson(result!.Value);
+        Assert.True(doc.RootElement.GetProperty("success").GetBoolean());
+        var id = doc.RootElement.GetProperty("entity").GetProperty("id").GetInt32();
+        var enBd = await _context.Productos.AsNoTracking().SingleAsync(p => p.Id == id);
+        Assert.Equal(0m, enBd.CostoEnvio);
+    }
+
+    [Fact]
+    public async Task CreateAjax_ConPermisoCostoEnvio_PersisteElCostoEnviado()
+    {
+        ConcederPermisoCostoEnvio();
+        var vm = await CrearProductoViewModelParaCrearAsync();
+        vm.CostoEnvio = 25m;
+
+        var result = await _controller.CreateAjax(vm) as JsonResult;
+
+        Assert.NotNull(result);
+        var doc = ParseJson(result!.Value);
+        Assert.True(doc.RootElement.GetProperty("success").GetBoolean());
+        var id = doc.RootElement.GetProperty("entity").GetProperty("id").GetInt32();
+        var enBd = await _context.Productos.AsNoTracking().SingleAsync(p => p.Id == id);
+        Assert.Equal(25m, enBd.CostoEnvio);
+    }
+
+    private void ConcederPermisoCostoEnvio()
+    {
+        _controller.ControllerContext.HttpContext.User = new ClaimsPrincipal(new ClaimsIdentity(
+            new[]
+            {
+                new Claim(ClaimTypes.Name, "admin@test.com"),
+                new Claim("Permission", "productos.editshippingcost")
+            },
+            "TestAuth"));
     }
 
     [Theory]

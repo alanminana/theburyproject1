@@ -28,7 +28,7 @@
                 <div class="field full">
                     <label asp-for="Nombre">Nombre del lote</label>
                     <input asp-for="Nombre" placeholder="Ej: Aumento 10% electro junio" />
-                    <span asp-validation-for="Nombre" style="color:var(--red);font-size:11.5px"></span>
+                    <span asp-validation-for="Nombre" style="color:var(--red);font-size:var(--erp-fs-min, 0.75rem)"></span>
                 </div>
                 <div class="field full">
                     <label asp-for="Origen">Origen del precio nuevo</label>
@@ -40,7 +40,7 @@
                 <div class="field full">
                     <label asp-for="ValorAjustePorcentaje">Ajuste <span class="req">%</span></label>
                     <div class="suffix"><input asp-for="ValorAjustePorcentaje" type="number" step="0.01" /><span class="u">%</span></div>
-                    <span asp-validation-for="ValorAjustePorcentaje" style="color:var(--red);font-size:11.5px"></span>
+                    <span asp-validation-for="ValorAjustePorcentaje" style="color:var(--red);font-size:var(--erp-fs-min, 0.75rem)"></span>
                     <span class="hint">"% sobre precio ML": aumento directo. "Desde precio ERP": ajuste extra sobre el precio de canal.</span>
                 </div>
             </div>

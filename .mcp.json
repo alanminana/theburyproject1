@@ -11,7 +11,8 @@
       "command": "npx.cmd",
       "args": [
         "-y",
-        "@playwright/mcp@latest"
+        "@playwright/mcp@latest",
+        "--isolated"
       ]
     },
     "github": {

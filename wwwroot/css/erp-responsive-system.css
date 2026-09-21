@@ -90,7 +90,7 @@
 .erp-page-subtitle {
     margin: 0.35rem 0 0;
     max-width: 64ch;
-    color: #94a3b8;
+    color: var(--erp-fg-2, #b9c3d3);
     font-size: 0.875rem;
     line-height: 1.5;
 }
@@ -235,7 +235,7 @@
     gap: 0.75rem;
     padding: 3rem 1.5rem;
     text-align: center;
-    color: #64748b;
+    color: var(--erp-fg-3, #a6b1c3);
 }
 
 .erp-empty-state .material-symbols-outlined {
@@ -251,7 +251,7 @@
 
 .erp-empty-state__text {
     max-width: 42ch;
-    color: #64748b;
+    color: var(--erp-fg-3, #a6b1c3);
     font-size: 0.85rem;
     line-height: 1.5;
 }
@@ -322,5 +322,66 @@
 
     .erp-modal-footer > * {
         width: 100%;
+    }
+}
+
+/* ==========================================================================
+   MOBILE-DEBT-01 — deuda mobile transversal (auditoria 2026-09-20)
+   ========================================================================== */
+
+/* Alto del shell: 100vh en navegadores moviles incluye la barra de URL que se oculta al scrollear, y deja el
+   pie de la pagina (y las barras sticky/fixed) por debajo del borde visible. dvh sigue a la barra. */
+#erp-app-shell {
+    height: 100vh;
+}
+
+@supports (height: 100dvh) {
+    #erp-app-shell {
+        height: 100dvh;
+    }
+}
+
+/* Inputs a 16px en telefono: iOS Safari hace zoom automatico al enfocar un campo con font-size < 16px (354 de
+   403 inputs del sitio estaban a 14px y aun quedaban 47 con CSS de modulo de mayor especificidad: .field,
+   .pay-field, .kdx-field, filtros de listado). Es un unico criterio de accesibilidad tactil, por eso va con
+   !important y sin excepciones por modulo; solo aplica en telefono. */
+@media (max-width: 767px) {
+    input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="color"], [type="hidden"], [type="submit"], [type="button"], [type="image"]),
+    select,
+    textarea {
+        font-size: 1rem !important;
+    }
+}
+
+/* Targets tactiles (WCAG 2.5.8 AA: 24px minimos; se apunta a 40px en lo que es accion primaria de fila/filtro). */
+@media (pointer: coarse) {
+    :where(input[type="checkbox"], input[type="radio"]) {
+        min-width: 1.5rem;
+        min-height: 1.5rem;
+    }
+}
+
+@media (max-width: 767px) {
+    /* Botones y chips "chicos" del sistema (btn-sm/btn-xs de Caja, Crédito, filtros de listado, Mercado Libre) */
+    :is(.btn-sm, .btn-xs, .fi-btn-sm, .fchip, a.inline-flex.flex-1, button.inline-flex.flex-1) {
+        min-height: 2.5rem;
+    }
+
+    /* Links "Volver a ..." y accesos de una sola linea */
+    a.inline-flex.items-center.gap-1\.5.text-sm.muted,
+    .payments-breadcrumb__link,
+    summary.link-sub {
+        display: inline-flex;
+        align-items: center;
+        min-height: 2.5rem;
+    }
+
+    /* Links que son solo un icono (flecha "volver", etc.): 24px de icono no es un target tactil */
+    a[href]:has(> .material-symbols-outlined:only-child) {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 2.5rem;
+        min-height: 2.5rem;
     }
 }

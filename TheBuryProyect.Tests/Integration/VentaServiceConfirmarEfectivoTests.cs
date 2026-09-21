@@ -19,7 +19,7 @@ namespace TheBuryProject.Tests.Integration;
 // Stubs reutilizados en el mismo archivo (file scope = no colisión con otros)
 // ---------------------------------------------------------------------------
 
-file sealed class StubCajaServiceEfectivo : ICajaService
+sealed class StubCajaServiceEfectivo : ICajaService
 {
     public Task<decimal?> ObtenerUltimoEfectivoCierreAsync(int cajaId) => Task.FromResult<decimal?>(null);
     private readonly AperturaCaja _apertura;
@@ -49,8 +49,13 @@ file sealed class StubCajaServiceEfectivo : ICajaService
     public Task<decimal> CalcularSaldoActualAsync(int aperturaId) => throw new NotImplementedException();
     public Task<decimal> CalcularSaldoRealAsync(int aperturaId) => throw new NotImplementedException();
     public Task<MovimientoCaja> AcreditarMovimientoAsync(int movimientoId, string usuario) => throw new NotImplementedException();
+    // VENTA-ENVIO-TOTAL-01: registra el monto con el que VentaService cobra en caja.
+    public decimal? UltimoMontoVenta { get; private set; }
     public Task<MovimientoCaja?> RegistrarMovimientoVentaAsync(int ventaId, string ventaNumero, decimal monto, TipoPago tipoPago, string usuario)
-        => Task.FromResult<MovimientoCaja?>(new MovimientoCaja());
+    {
+        UltimoMontoVenta = monto;
+        return Task.FromResult<MovimientoCaja?>(new MovimientoCaja());
+    }
     public Task<MovimientoCaja?> RegistrarContramovimientoVentaAsync(int ventaId, string ventaNumero, string motivo, string usuario)
         => Task.FromResult<MovimientoCaja?>(null);
     public Task<AperturaCaja?> ObtenerAperturaActivaParaVentaAsync() => throw new NotImplementedException();
@@ -173,6 +178,7 @@ public class VentaServiceConfirmarEfectivoTests : IDisposable
     private readonly VentaService _service;
     private readonly AperturaCaja _apertura;
     private readonly StubMovimientoStockEfectivo _movimientoStock;
+    private readonly StubCajaServiceEfectivo _cajaStub;
 
     private static int _counter = 200;
 
@@ -196,6 +202,7 @@ public class VentaServiceConfirmarEfectivoTests : IDisposable
             .CreateMapper();
 
         _movimientoStock = new StubMovimientoStockEfectivo();
+        _cajaStub = new StubCajaServiceEfectivo(_apertura);
 
         _service = new VentaService(
             _context,
@@ -209,7 +216,7 @@ public class VentaServiceConfirmarEfectivoTests : IDisposable
             new PrecioVigenteResolver(_context),
             new StubCurrentUserEfectivo(),
             new StubValidacionVentaEfectivo(),
-            new StubCajaServiceEfectivo(_apertura),
+            _cajaStub,
             new StubCreditoDisponibleEfectivo(),
             new StubContratoVentaCreditoService(),
             new StubConfiguracionPagoServiceVenta());
@@ -344,6 +351,40 @@ public class VentaServiceConfirmarEfectivoTests : IDisposable
         Assert.NotNull(ventaActualizada);
         Assert.Equal(EstadoVenta.Confirmada, ventaActualizada!.Estado);
         Assert.NotNull(ventaActualizada.FechaConfirmacion);
+    }
+
+    // VENTA-ENVIO-TOTAL-01: al confirmar, Caja cobra el TOTAL A COBRAR (productos + envío) en UN solo
+    // ingreso; Venta.Total sigue siendo el total de productos (no se mezcla el envío).
+    [Fact]
+    public async Task ConfirmarVenta_Efectivo_ConEnvio_RegistraEnCajaProductosMasEnvio()
+    {
+        var (venta, _) = await SeedVentaEfectivo();
+        _context.VentaEnvios.Add(new VentaEnvio
+        {
+            VentaId = venta.Id,
+            Destinatario = "Juan Perez",
+            Domicilio = "Calle Falsa 123",
+            CostoEnvio = 250m
+        });
+        await _context.SaveChangesAsync();
+
+        var confirmada = await _service.ConfirmarVentaAsync(venta.Id);
+
+        Assert.True(confirmada);
+        Assert.Equal(1_250m, _cajaStub.UltimoMontoVenta);        // 1.000 productos + 250 envío
+        var ventaActualizada = await _context.Ventas.Include(v => v.Envio).AsNoTracking().FirstAsync(v => v.Id == venta.Id);
+        Assert.Equal(1_000m, ventaActualizada.Total);             // el envío no entra en Venta.Total
+        Assert.Equal(1_250m, ventaActualizada.TotalACobrar);
+    }
+
+    [Fact]
+    public async Task ConfirmarVenta_Efectivo_SinEnvio_RegistraEnCajaSoloElTotal()
+    {
+        var (venta, _) = await SeedVentaEfectivo();
+
+        await _service.ConfirmarVentaAsync(venta.Id);
+
+        Assert.Equal(1_000m, _cajaStub.UltimoMontoVenta);
     }
 
     [Fact]

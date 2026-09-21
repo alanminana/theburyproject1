@@ -61,7 +61,7 @@
     <form asp-action="Index" method="get" id="form-filtros"
           class="border-b border-slate-800 bg-slate-900/30 p-4">
         <div class="flex flex-wrap items-end gap-4">
-            <div class="min-w-[220px] flex-1">
+            <div class="min-w-55 flex-1">
                 <label class="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-slate-400">Buscar proveedor</label>
                 <div class="relative">
                     <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-lg text-slate-400">search</span>
@@ -122,14 +122,14 @@
         <div data-oc-scroll-fade="left" hidden></div>
         <div data-oc-scroll-fade="right" hidden></div>
         <div data-oc-scroll-region tabindex="0" role="region" aria-label="Listado de proveedores">
-            <table data-oc-scroll-table class="w-full text-left border-collapse">
+            <table data-erp-cards data-oc-scroll-table class="w-full text-left border-collapse">
             <thead>
                 <tr class="border-b border-slate-800 bg-slate-800/30">
-                    <th class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Proveedor</th>
+                    <th data-card="title" class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Proveedor</th>
                     <th class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Productos</th>
                     <th class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Contacto</th>
                     <th class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Estado</th>
-                    <th class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right">Acciones</th>
+                    <th data-card="actions" class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right">Acciones</th>
                 </tr>
             </thead>
             <tbody id="proveedores-tbody" class="divide-y divide-slate-800">
@@ -152,7 +152,7 @@
                                         @if (!string.IsNullOrEmpty(p.NombreFantasia))
                                         {
                                             <span class="h-1 w-1 rounded-full bg-slate-700"></span>
-                                            <span class="truncate max-w-[14rem]">@p.NombreFantasia</span>
+                                            <span class="truncate max-w-56">@p.NombreFantasia</span>
                                         }
                                     </p>
                                 </div>
@@ -163,7 +163,7 @@
                                     <div class="flex max-w-[18rem] flex-wrap gap-1">
                                         @foreach (var cat in categorias)
                                         {
-                                            <span class="chip-erp max-w-[9rem] truncate">@cat</span>
+                                            <span class="chip-erp max-w-36 truncate">@cat</span>
                                         }
                                         @if (categoriasRestantes > 0)
                                         {
@@ -177,7 +177,7 @@
                                 }
                             </td>
                             <td class="px-5 py-3">
-                                <div class="flex max-w-[17rem] flex-col gap-0.5 text-sm">
+                                <div class="flex max-w-68 flex-col gap-0.5 text-sm">
                                     @if (!string.IsNullOrEmpty(p.Contacto))
                                     {
                                         <span class="truncate font-semibold text-slate-200">@p.Contacto</span>
@@ -411,7 +411,7 @@
                                         @* El dropdown se mueve al body vía JS (portal) para escapar del overflow del modal *@
                                         <div class="picker-dropdown" hidden></div>
                                     </div>
-                                    <div class="picker-chips-container flex flex-wrap gap-1.5 mt-3 min-h-[1.75rem]"></div>
+                                    <div class="picker-chips-container flex flex-wrap gap-1.5 mt-3 min-h-7"></div>
                                     <p class="text-xs text-slate-500 mt-2">
                                         <span class="picker-count-number font-semibold text-slate-300">0</span> seleccionados
                                     </p>
@@ -474,7 +474,7 @@
                                 <div class="flex items-center gap-3">
                                     <label class="relative inline-flex items-center cursor-pointer">
                                         <input type="checkbox" name="Activo" value="true" checked class="sr-only peer" />
-                                        <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-colors peer-checked:bg-primary"></div>
+                                        <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:inset-s-0.5 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-colors peer-checked:bg-primary"></div>
                                         <span class="ms-3 text-sm font-semibold text-slate-300">Proveedor Activo</span>
                                     </label>
                                 </div>
@@ -493,21 +493,21 @@
                                     </div>
                                     <ul class="space-y-4">
                                         <li class="flex gap-3">
-                                            <div class="flex-shrink-0 w-6 h-6 rounded-full border border-primary/40 flex items-center justify-center text-[10px] font-bold text-primary-on-dark">1</div>
+                                            <div class="shrink-0 w-6 h-6 rounded-full border border-primary/40 flex items-center justify-center text-[10px] font-bold text-primary-on-dark">1</div>
                                             <div>
                                                 <p class="text-sm font-bold mb-1">Verificación de CUIT</p>
                                                 <p class="text-xs text-slate-400 leading-relaxed">Asegúrese de que el CUIT sea válido ante la AFIP para evitar rechazos en facturación.</p>
                                             </div>
                                         </li>
                                         <li class="flex gap-3">
-                                            <div class="flex-shrink-0 w-6 h-6 rounded-full border border-primary/40 flex items-center justify-center text-[10px] font-bold text-primary-on-dark">2</div>
+                                            <div class="shrink-0 w-6 h-6 rounded-full border border-primary/40 flex items-center justify-center text-[10px] font-bold text-primary-on-dark">2</div>
                                             <div>
                                                 <p class="text-sm font-bold mb-1">Categorización</p>
                                                 <p class="text-xs text-slate-400 leading-relaxed">Seleccionar correctamente las categorías permitirá que el proveedor aparezca en las búsquedas del catálogo.</p>
                                             </div>
                                         </li>
                                         <li class="flex gap-3">
-                                            <div class="flex-shrink-0 w-6 h-6 rounded-full border border-primary/40 flex items-center justify-center text-[10px] font-bold text-primary-on-dark">3</div>
+                                            <div class="shrink-0 w-6 h-6 rounded-full border border-primary/40 flex items-center justify-center text-[10px] font-bold text-primary-on-dark">3</div>
                                             <div>
                                                 <p class="text-sm font-bold mb-1">Contacto Principal</p>
                                                 <p class="text-xs text-slate-400 leading-relaxed">Este será el destinatario predeterminado para el envío automático de órdenes de compra.</p>
@@ -660,7 +660,7 @@
                                         @* El dropdown se mueve al body vía JS (portal) para escapar del overflow del modal *@
                                         <div class="picker-dropdown" hidden></div>
                                     </div>
-                                    <div class="picker-chips-container flex flex-wrap gap-1.5 mt-3 min-h-[1.75rem]"></div>
+                                    <div class="picker-chips-container flex flex-wrap gap-1.5 mt-3 min-h-7"></div>
                                     <p class="text-xs text-slate-500 mt-2">
                                         <span class="picker-count-number font-semibold text-slate-300">0</span> seleccionados
                                     </p>
@@ -723,7 +723,7 @@
                                 <div class="flex items-center gap-3">
                                     <label class="relative inline-flex items-center cursor-pointer">
                                         <input type="checkbox" name="Activo" value="true" class="sr-only peer" />
-                                        <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-colors peer-checked:bg-primary"></div>
+                                        <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:inset-s-0.5 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-colors peer-checked:bg-primary"></div>
                                         <span class="ms-3 text-sm font-semibold text-slate-300">Proveedor Activo</span>
                                     </label>
                                 </div>
@@ -742,21 +742,21 @@
                                     </div>
                                     <ul class="space-y-4">
                                         <li class="flex gap-3">
-                                            <div class="flex-shrink-0 w-6 h-6 rounded-full border border-primary/40 flex items-center justify-center text-[10px] font-bold text-primary-on-dark">1</div>
+                                            <div class="shrink-0 w-6 h-6 rounded-full border border-primary/40 flex items-center justify-center text-[10px] font-bold text-primary-on-dark">1</div>
                                             <div>
                                                 <p class="text-sm font-bold mb-1">Verificación de CUIT</p>
                                                 <p class="text-xs text-slate-400 leading-relaxed">Asegúrese de que el CUIT sea válido ante la AFIP para evitar rechazos en facturación.</p>
                                             </div>
                                         </li>
                                         <li class="flex gap-3">
-                                            <div class="flex-shrink-0 w-6 h-6 rounded-full border border-primary/40 flex items-center justify-center text-[10px] font-bold text-primary-on-dark">2</div>
+                                            <div class="shrink-0 w-6 h-6 rounded-full border border-primary/40 flex items-center justify-center text-[10px] font-bold text-primary-on-dark">2</div>
                                             <div>
                                                 <p class="text-sm font-bold mb-1">Categorización</p>
                                                 <p class="text-xs text-slate-400 leading-relaxed">Seleccionar correctamente las categorías permitirá que el proveedor aparezca en las búsquedas del catálogo.</p>
                                             </div>
                                         </li>
                                         <li class="flex gap-3">
-                                            <div class="flex-shrink-0 w-6 h-6 rounded-full border border-primary/40 flex items-center justify-center text-[10px] font-bold text-primary-on-dark">3</div>
+                                            <div class="shrink-0 w-6 h-6 rounded-full border border-primary/40 flex items-center justify-center text-[10px] font-bold text-primary-on-dark">3</div>
                                             <div>
                                                 <p class="text-sm font-bold mb-1">Concurrencia</p>
                                                 <p class="text-xs text-slate-400 leading-relaxed">Si otro usuario editó este proveedor mientras lo tenías abierto, se te notificará al guardar.</p>

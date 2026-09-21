@@ -5,6 +5,8 @@ using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.Services.Models;
+using TheBuryProject.Services.Validators;
+using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Services;
 
@@ -22,6 +24,17 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
     // cambia de comportamiento.
     private readonly IValidacionVentaService _validacionVentaService;
     private readonly IVentaService _ventaService;
+    private readonly ICurrentUserService _currentUserService;
+    // COTIZACION-MIVENTA-02: ambos de sólo lectura para el preflight — ninguno persiste ni
+    // reserva nada (ValidarStock lee Producto.StockActual en memoria;
+    // ObtenerAperturaActivaParaUsuarioAsync ya se usa como chequeo puro en
+    // AsegurarCajaAbiertaParaUsuarioActualAsync).
+    private readonly IVentaValidator _ventaValidator;
+    private readonly ICajaService _cajaService;
+    // PROBLEMA 1 (contrato de Crédito personal — pedido del usuario 2026-09-17, §7): sólo
+    // lectura, para enriquecer (nunca bloquear más de lo que ya bloquea) el aviso de Crédito
+    // personal con los datos contractuales del cliente que YA sabemos que van a faltar.
+    private readonly IContratoVentaCreditoService _contratoVentaCreditoService;
     private readonly ILogger<CotizacionConversionService> _logger;
 
     public CotizacionConversionService(
@@ -30,6 +43,10 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
         IPrecioVigenteResolver precioResolver,
         IValidacionVentaService validacionVentaService,
         IVentaService ventaService,
+        ICurrentUserService currentUserService,
+        IVentaValidator ventaValidator,
+        ICajaService cajaService,
+        IContratoVentaCreditoService contratoVentaCreditoService,
         ILogger<CotizacionConversionService> logger)
     {
         _context = context;
@@ -37,6 +54,10 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
         _precioResolver = precioResolver;
         _validacionVentaService = validacionVentaService;
         _ventaService = ventaService;
+        _currentUserService = currentUserService;
+        _ventaValidator = ventaValidator;
+        _cajaService = cajaService;
+        _contratoVentaCreditoService = contratoVentaCreditoService;
         _logger = logger;
     }
 
@@ -163,8 +184,205 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
             HayCambiosDePrecios = hayCambiosDePrecios,
             HayProductosTrazables = hayProductosTrazables,
             TotalCotizado = cotizacion.TotalSeleccionado ?? cotizacion.TotalBase,
+            ImporteEnvio = cotizacion.ImporteEnvio,
+            TotalACobrar = VentaMontos.CalcularTotalACobrar(
+                cotizacion.TotalSeleccionado ?? cotizacion.TotalBase, cotizacion.ImporteEnvio),
             AnticipoCotizado = cotizacion.Anticipo,
             Detalles = detallesPreview
+        };
+    }
+
+    // COTIZACION-MIVENTA-02: sólo lectura — no abre transacción, no persiste nada, no reserva
+    // caja ni cupo. Reutiliza las MISMAS reglas que ConfirmarVentaAsync exige después de crear
+    // (IVentaValidator.ValidarStock, ICajaService.ObtenerAperturaActivaParaUsuarioAsync) para
+    // poder avisar ANTES de crear la Venta — "Confirmar Mi Venta" nunca debe crear una Venta que
+    // ya sabíamos no iba a poder confirmarse.
+    public async Task<CotizacionMiVentaPreflightResultado> PreflightConversionAsync(
+        int cotizacionId,
+        CotizacionConversionRequest request,
+        string usuario,
+        CancellationToken cancellationToken = default)
+    {
+        var bloqueos = new List<CotizacionMiVentaBloqueo>();
+
+        var cotizacion = await _context.Cotizaciones
+            .Include(c => c.Detalles)
+            .FirstOrDefaultAsync(c => c.Id == cotizacionId, cancellationToken);
+
+        if (cotizacion is null)
+        {
+            bloqueos.Add(new CotizacionMiVentaBloqueo { Codigo = "no_encontrada", Mensaje = $"La cotización {cotizacionId} no existe." });
+            return new CotizacionMiVentaPreflightResultado { Listo = false, Bloqueos = bloqueos };
+        }
+
+        var erroresEstado = new List<string>();
+        ValidarEstadoConvertible(cotizacion, erroresEstado);
+        foreach (var error in erroresEstado)
+            bloqueos.Add(new CotizacionMiVentaBloqueo { Codigo = "cotizacion_invalida", Mensaje = error });
+
+        var clienteId = request.ClienteIdOverride ?? cotizacion.ClienteId;
+        if (clienteId is null)
+            bloqueos.Add(new CotizacionMiVentaBloqueo { Codigo = "sin_cliente", Mensaje = "Falta asignar un cliente para poder crear la venta." });
+
+        var tipoPago = MapearTipoPago(cotizacion.MedioPagoSeleccionado);
+        var esCreditoPersonal = tipoPago == TipoPago.CreditoPersonal;
+
+        // VentaValidator.ValidarEstadoParaConfirmacion sólo acepta Cotización/Presupuesto/
+        // PendienteRequisitos, y AplicarResultadoValidacionAsync deja toda venta de Crédito
+        // personal en PendienteFinanciacion — confirmar en el mismo paso es estructuralmente
+        // imposible hasta configurar el plan en el wizard (Credito/ConfigurarVenta). No es una
+        // ambigüedad de negocio: es una regla real ya existente, se reporta tal cual es.
+        if (esCreditoPersonal)
+        {
+            var mensaje = "Para finalizar este Crédito personal falta completar su configuración de plan. Ese paso sólo está disponible en el wizard tradicional.";
+
+            // §7 del pedido: NO bloquea más de lo que ya bloquea arriba (Crédito personal
+            // nunca puede confirmarse en un paso, ver comentario de más arriba) — sólo
+            // adelanta, sin inventar nada, que el contrato que el wizard va a exigir después
+            // también le va a faltar completar datos del cliente. Misma regla que
+            // ContratoVentaCreditoService.ValidarDatosParaGenerarAsync exige sobre el Cliente,
+            // corrida acá sobre el cliente ya persistido (todavía no existe Venta/Crédito).
+            if (clienteId.HasValue)
+            {
+                var clienteParaContrato = await _context.Clientes
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(c => c.Id == clienteId.Value, cancellationToken);
+                var validacionContrato = _contratoVentaCreditoService.ValidarDatosClienteParaContrato(clienteParaContrato);
+                if (!validacionContrato.EsValido)
+                {
+                    mensaje += " Además, para el contrato de Crédito personal también van a faltar estos datos del cliente: "
+                        + string.Join(" ", validacionContrato.Errores);
+                }
+            }
+
+            bloqueos.Add(new CotizacionMiVentaBloqueo
+            {
+                Codigo = "credito_personal_requiere_wizard",
+                Mensaje = mensaje,
+                AccionSugerida = "Continuar con wizard"
+            });
+        }
+
+        // Stock: misma regla que corre ConfirmarVentaAsync después de crear (VentaValidator.
+        // ValidarStock), corrida ahora sobre una Venta en memoria, sin persistir nada.
+        var productoIds = cotizacion.Detalles.Select(d => d.ProductoId).Distinct().ToList();
+        if (productoIds.Count > 0)
+        {
+            var productosStock = await _context.Productos
+                .Where(p => productoIds.Contains(p.Id))
+                .ToDictionaryAsync(p => p.Id, cancellationToken);
+
+            var ventaEnMemoria = new Venta();
+            foreach (var detalle in cotizacion.Detalles)
+            {
+                productosStock.TryGetValue(detalle.ProductoId, out var producto);
+                ventaEnMemoria.Detalles.Add(new VentaDetalle
+                {
+                    ProductoId = detalle.ProductoId,
+                    Cantidad = (int)detalle.Cantidad,
+                    Producto = producto
+                });
+            }
+
+            try
+            {
+                _ventaValidator.ValidarStock(ventaEnMemoria);
+            }
+            catch (InvalidOperationException ex)
+            {
+                bloqueos.Add(new CotizacionMiVentaBloqueo { Codigo = "stock", Mensaje = ex.Message });
+            }
+        }
+
+        // Caja: mismo chequeo que AsegurarCajaAbiertaParaUsuarioActualAsync corre dentro de
+        // ConfirmarVentaAsync, sin lanzar — acá sólo se consulta.
+        var apertura = await _cajaService.ObtenerAperturaActivaParaUsuarioAsync(usuario);
+        if (apertura is null)
+        {
+            bloqueos.Add(new CotizacionMiVentaBloqueo
+            {
+                Codigo = "sin_caja",
+                Mensaje = "No hay una caja abierta a tu nombre. Confirmar la venta requiere una caja abierta.",
+                AccionSugerida = "Abrir caja"
+            });
+        }
+
+        // Permisos: mismos que ya exigen los atributos [PermisoRequerido] de VentaController
+        // que ConfirmarYFacturarSiCorrespondeAsync termina invocando — se revalidan igual ahí,
+        // esto sólo evita crear una Venta que después ese mismo método va a dejar sin confirmar.
+        const string modulo = "ventas";
+        if (!_currentUserService.HasPermission(modulo, "update"))
+            bloqueos.Add(new CotizacionMiVentaBloqueo { Codigo = "sin_permiso_confirmar", Mensaje = "No tenés permiso para confirmar ventas." });
+
+        if (request.Facturar && !_currentUserService.HasPermission(modulo, "invoice"))
+            bloqueos.Add(new CotizacionMiVentaBloqueo { Codigo = "sin_permiso_facturar", Mensaje = "No tenés permiso para facturar." });
+
+        return new CotizacionMiVentaPreflightResultado
+        {
+            Listo = bloqueos.Count == 0,
+            EsCreditoPersonal = esCreditoPersonal,
+            Bloqueos = bloqueos
+        };
+    }
+
+    // COTIZACION-MIVENTA-02: preview de Subtotal/IVA/alícuotas ANTES de crear la Venta, con el
+    // mismo cálculo que ConvertirAVentaAsync usa para los VentaDetalle reales (ConstruirDetalles)
+    // envuelto en el mismo builder que ya usa VentaController.Facturar GET
+    // (FacturaAlicuotaResumenBuilder.Build) — no es una segunda implementación de IVA.
+    public async Task<CotizacionFacturaPreviewResultado> PreviewFacturaAsync(
+        int cotizacionId,
+        CancellationToken cancellationToken = default)
+    {
+        var cotizacion = await _context.Cotizaciones
+            .Include(c => c.Detalles)
+            .FirstOrDefaultAsync(c => c.Id == cotizacionId, cancellationToken);
+
+        if (cotizacion is null)
+            return new CotizacionFacturaPreviewResultado { Exitoso = false, Errores = { $"La cotización {cotizacionId} no existe." } };
+
+        var productoIds = cotizacion.Detalles.Select(d => d.ProductoId).Distinct().ToList();
+        var productos = new Dictionary<int, Producto>();
+        if (productoIds.Count > 0)
+        {
+            productos = await _context.Productos
+                .Include(p => p.AlicuotaIVA)
+                .Include(p => p.Categoria)
+                    .ThenInclude(c => c.AlicuotaIVA)
+                .Where(p => productoIds.Contains(p.Id))
+                .ToDictionaryAsync(p => p.Id, cancellationToken);
+        }
+
+        var detalles = ConstruirDetalles(
+            cotizacion,
+            new CotizacionConversionRequest { UsarPrecioCotizado = true },
+            new Dictionary<int, PrecioVigenteResultado>(),
+            productos);
+
+        var detalleViewModels = detalles.Select(d => new VentaDetalleViewModel
+        {
+            PorcentajeIVA = d.PorcentajeIVA,
+            AlicuotaIVANombre = d.AlicuotaIVANombre,
+            Subtotal = d.Subtotal,
+            SubtotalNeto = d.SubtotalNeto,
+            SubtotalIVA = d.SubtotalIVA,
+            SubtotalFinalNeto = d.SubtotalFinalNeto,
+            SubtotalFinalIVA = d.SubtotalFinalIVA,
+            SubtotalFinal = d.SubtotalFinal,
+            DescuentoGeneralProrrateado = d.DescuentoGeneralProrrateado
+        }).ToList();
+
+        // Mismo criterio que ConvertirAVentaAsync: Subtotal ya incluye IVA, Total = Subtotal,
+        // IVA es sólo el desglose informativo (ver venta.Subtotal/IVA/Total más arriba).
+        var subtotal = detalles.Sum(d => d.Subtotal);
+        var iva = detalles.Sum(d => d.SubtotalIVA);
+
+        return new CotizacionFacturaPreviewResultado
+        {
+            Exitoso = true,
+            Subtotal = subtotal,
+            IVA = iva,
+            Total = subtotal,
+            ResumenAlicuotas = FacturaAlicuotaResumenBuilder.Build(detalleViewModels)
         };
     }
 
@@ -272,9 +490,13 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
             // Crédito personal: evaluar con la MISMA fuente de verdad que Venta/Create
             // (IValidacionVentaService) y aplicar el resultado con la misma lógica
             // (IVentaService.AplicarResultadoValidacionAsync) — nunca hardcodear NoRequiere acá.
-            // NoViable (ni siquiera autorizable) rechaza la conversión con ESA alternativa: el
-            // vendedor puede elegir otro medio o resolver la situación crediticia antes de
-            // continuar (no se crea una venta a medias con un TipoPago que no puede sostenerse).
+            // NoViable (ni siquiera autorizable) rechaza la conversión con ESA alternativa, SALVO
+            // que el operador haya solicitado la misma excepción documental que ya existe en
+            // Venta/Create (request.AplicarExcepcionDocumental) y corresponda según la MISMA regla
+            // (permiso ventas.authorize + alcance excepcionable: documentación/cupo, nunca mora —
+            // ver IVentaService.AplicarExcepcionDocumentalSiCorresponde, que decide esto en un solo
+            // lugar para CreateAsync y para esta conversión, sin duplicar el criterio).
+            var excepcionDocumentalAplicada = false;
             if (tipoPago == TipoPago.CreditoPersonal)
             {
                 var validacionCredito = await _validacionVentaService.ValidarVentaCreditoPersonalAsync(
@@ -282,8 +504,21 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
 
                 if (validacionCredito.NoViable)
                 {
-                    return CotizacionConversionResultado.Fallido(cotizacionId,
-                        [$"Crédito personal no está disponible para este cliente en este momento: {validacionCredito.MensajeResumen}. Elegí otro medio de pago o resolvé la situación crediticia del cliente antes de continuar."]);
+                    try
+                    {
+                        _ventaService.AplicarExcepcionDocumentalSiCorresponde(
+                            validacionCredito,
+                            request.AplicarExcepcionDocumental,
+                            request.MotivoExcepcionDocumental,
+                            usuario);
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        return CotizacionConversionResultado.Fallido(cotizacionId,
+                            [$"Crédito personal no está disponible para este cliente en este momento: {validacionCredito.MensajeResumen}. Elegí otro medio de pago o resolvé la situación crediticia del cliente antes de continuar."]);
+                    }
+
+                    excepcionDocumentalAplicada = validacionCredito.ExcepcionDocumentalAutorizada;
                 }
 
                 await _ventaService.AplicarResultadoValidacionAsync(venta, validacionCredito, usuario);
@@ -291,19 +526,47 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
 
             // La intención de envío declarada en el simulador ("TieneEnvio") produce un
             // VentaEnvio Pendiente precargado con el domicilio del cliente, editable
-            // después desde el paso Envío del wizard. Sólo informativo: no altera Total.
+            // después desde el paso Envío del wizard. El importe (VentaEnvio.CostoEnvio) NO se
+            // suma a venta.Total: es un concepto separado que se suma en Venta.TotalACobrar.
             if (cotizacionEnTx.TieneEnvio)
             {
                 var cliente = cotizacionEnTx.Cliente;
+                // COTIZACION-MIVENTA-01: el modal de envío del Cotizador puede mandar overrides
+                // reales (mismos campos de VentaEnvio/VentaEnvioViewModel que ya usa el paso
+                // Envío de Venta/Create); si no llegan (o llegan vacíos) se completa con el
+                // domicilio del Cliente, igual que antes.
                 venta.Envio = new VentaEnvio
                 {
                     Estado = EstadoEnvio.Pendiente,
-                    Destinatario = cliente != null ? $"{cliente.Apellido}, {cliente.Nombre}" : string.Empty,
-                    Telefono = cliente?.Telefono,
-                    Domicilio = cliente?.Domicilio ?? string.Empty,
-                    Localidad = cliente?.Localidad,
-                    Provincia = cliente?.Provincia,
-                    CodigoPostal = cliente?.CodigoPostal
+                    Destinatario = !string.IsNullOrWhiteSpace(request.EnvioDestinatario)
+                        ? request.EnvioDestinatario!.Trim()
+                        : (cliente != null ? $"{cliente.Apellido}, {cliente.Nombre}" : string.Empty),
+                    Telefono = !string.IsNullOrWhiteSpace(request.EnvioTelefono)
+                        ? request.EnvioTelefono!.Trim()
+                        : cliente?.Telefono,
+                    Domicilio = !string.IsNullOrWhiteSpace(request.EnvioDomicilio)
+                        ? request.EnvioDomicilio!.Trim()
+                        : (cliente?.Domicilio ?? string.Empty),
+                    Localidad = !string.IsNullOrWhiteSpace(request.EnvioLocalidad)
+                        ? request.EnvioLocalidad!.Trim()
+                        : cliente?.Localidad,
+                    Provincia = !string.IsNullOrWhiteSpace(request.EnvioProvincia)
+                        ? request.EnvioProvincia!.Trim()
+                        : cliente?.Provincia,
+                    CodigoPostal = !string.IsNullOrWhiteSpace(request.EnvioCodigoPostal)
+                        ? request.EnvioCodigoPostal!.Trim()
+                        : cliente?.CodigoPostal,
+                    Transportista = string.IsNullOrWhiteSpace(request.EnvioTransportista)
+                        ? null
+                        : request.EnvioTransportista!.Trim(),
+                    // El importe viaja desde la Cotización persistida (fuente de verdad); el request
+                    // (modal del Cotizador, misma sesión) sólo lo sobreescribe si llega explícito.
+                    // Nunca negativo: un envío no puede restar del total a cobrar.
+                    CostoEnvio = ResolverCostoEnvioConversion(request.EnvioCostoEnvio, cotizacionEnTx.CostoEnvio),
+                    FechaProgramada = request.EnvioFechaProgramada,
+                    Observaciones = string.IsNullOrWhiteSpace(request.EnvioObservaciones)
+                        ? null
+                        : request.EnvioObservaciones!.Trim()
                 };
             }
 
@@ -332,6 +595,15 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
                 "Cotización {CotizacionId} convertida a Venta {VentaId} ({Numero}) por {Usuario}",
                 cotizacionId, venta.Id, venta.Numero, usuario);
 
+            // COTIZACION-MIVENTA-01: Confirmar/Facturar son pasos POSTERIORES a la creación
+            // (misma secuencia y mismos métodos que VentaController.EjecutarConfirmarYFacturarAsync
+            // usa hoy desde Venta/Edit), cada uno en su propia transacción — no se abre una nueva
+            // transacción acá para no romper ese mismo patrón. Nunca se intenta si el estado de la
+            // venta no lo permite (crédito personal siempre queda PendienteFinanciacion, igual que
+            // Venta/Create) ni si el usuario no tiene el permiso real que ya exige VentaController.
+            var (ventaConfirmada, facturada, mensajeConfirmacion) = await ConfirmarYFacturarSiCorrespondeAsync(
+                venta, request);
+
             return new CotizacionConversionResultado
             {
                 Exitoso = true,
@@ -339,7 +611,11 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
                 VentaId = venta.Id,
                 NumeroVenta = venta.Numero,
                 EstadoVenta = venta.Estado,
-                Advertencias = advertencias
+                Advertencias = advertencias,
+                ExcepcionDocumentalAplicada = excepcionDocumentalAplicada,
+                VentaConfirmada = ventaConfirmada,
+                Facturada = facturada,
+                MensajeConfirmacion = mensajeConfirmacion
             };
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -349,6 +625,71 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
             return CotizacionConversionResultado.Fallido(cotizacionId,
                 ["Ocurrió un error interno al crear la venta. Intente nuevamente."]);
         }
+    }
+
+    // COTIZACION-MIVENTA-01: mismo par de llamadas y mismo orden que
+    // VentaController.EjecutarConfirmarYFacturarAsync (Confirmar → Facturar), reutilizando
+    // los dos métodos ya existentes de IVentaService sin reimplementar ninguna regla de
+    // negocio. Nunca lanza: cualquier motivo por el que no se pudo confirmar/facturar
+    // (estado de la venta, falta de permiso) se devuelve como mensaje, para que la cotización
+    // recién convertida nunca quede en un estado ambiguo para el frontend.
+    private async Task<(bool VentaConfirmada, bool Facturada, string? Mensaje)> ConfirmarYFacturarSiCorrespondeAsync(
+        Venta venta,
+        CotizacionConversionRequest request)
+    {
+        if (!request.ConfirmarVenta)
+            return (false, false, null);
+
+        const string modulo = "ventas";
+        const string accionActualizar = "update";
+        const string accionFacturar = "invoice";
+
+        if (!_currentUserService.HasPermission(modulo, accionActualizar))
+            return (false, false, "No tenés permiso para confirmar la venta. Quedó creada; podés confirmarla desde Venta/Edit.");
+
+        bool ventaConfirmada;
+        try
+        {
+            ventaConfirmada = await _ventaService.ConfirmarVentaAsync(venta.Id);
+        }
+        catch (InvalidOperationException ex)
+        {
+            // Ej.: crédito personal pendiente de configurar el plan (mismo camino que
+            // Venta/Create, que en ese caso redirige a Credito/ConfigurarVenta en vez de
+            // confirmar) o autorización pendiente — no es un error, es el estado real.
+            return (false, false, ex.Message);
+        }
+
+        if (!ventaConfirmada)
+            return (false, false, "No se pudo confirmar la venta.");
+
+        if (!request.Facturar)
+            return (true, false, null);
+
+        if (!_currentUserService.HasPermission(modulo, accionFacturar))
+            return (true, false, "La venta se confirmó pero no tenés permiso para facturar. Podés facturarla desde Venta/Details.");
+
+        try
+        {
+            var facturaViewModel = new FacturaViewModel
+            {
+                VentaId = venta.Id,
+                FechaEmision = DateTime.Today,
+                Tipo = request.TipoFactura
+            };
+            var facturada = await _ventaService.FacturarVentaAsync(venta.Id, facturaViewModel);
+            return (true, facturada, facturada ? null : "La venta se confirmó pero no se pudo generar la factura. Reintente facturar.");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return (true, false, ex.Message);
+        }
+    }
+
+    private static decimal? ResolverCostoEnvioConversion(decimal? costoRequest, decimal? costoCotizacion)
+    {
+        var importe = VentaMontos.NormalizarImporteEnvio(costoRequest ?? costoCotizacion);
+        return importe > 0m ? importe : null;
     }
 
     private static List<string> EvaluarAdvertencias(

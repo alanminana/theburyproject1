@@ -3,22 +3,25 @@
    Todo scopeado bajo .cotz-app para no filtrar al resto del ERP.
    Se carga vía @section Styles (después de theme-ml.css) → gana en cascada.
 
-   COTIZACION-WORKSTATION-01 (rework visual final, pedido explícito con mockup):
-   el objetivo de este lote es que la pantalla deje de leerse como "formulario +
-   formulario + tabla" y pase a leerse como una workstation comercial. Las
-   decisiones transversales que gobiernan el resto del archivo:
+   COTIZACION-MOCKUP-01 (convergencia exacta con templates/Nueva Venta — Cotizar):
+   el mockup del usuario es la fuente visual autorizada de este archivo. Sus valores
+   (paleta grafito, radios 16/14/12, paddings 22-24px, tipografía 10-15px, grilla de
+   la tabla 2.2fr·1fr·.9fr·1fr·.8fr·1fr·1.1fr) pasan a ser los tokens de abajo. No
+   cambian ids, data-*, endpoints, cálculos ni reglas de negocio: sólo presentación.
 
-     · 3 superficies con borde y nada más (Productos, Cliente+Condiciones,
-       Resultados). Adentro de cada una la jerarquía la dan spacing, encabezados,
-       divisores, grids y tipografía — NO más cajas anidadas (§3/§24 del pedido).
-       Por eso .card-sub queda restringida al drawer de plan, y bloques que antes
-       eran cards (ficha de Cliente, aptitud, avisos de descuento) pasan a acento
-       lateral o texto jerarquizado.
-     · Una escala de espaciado única (§22): .45/.55/.7/.9rem. Sin 4 paddings
-       distintos conviviendo en la misma columna.
-     · Color con semántica (§25): ámbar = acción principal/acento, verde = éxito/
-       disponible, rojo = bloqueo, azul = neutral/información. Nunca grandes
-       superficies teñidas — sólo acentos.
+   Decisiones que gobiernan el archivo:
+     · Cuatro superficies: Productos, Cliente, Comparar alternativas (cards de 16px de
+       radio) y las dos franjas (Totales, Opción seleccionada, de 14px). Adentro,
+       bloques elevados (--cz-s2) para lo "ya cargado" (línea de producto, ficha de
+       cliente, aptitud, condiciones, cabecera de grupo de medio de pago).
+     · Escala de elevación grafito: --cz-bg < --cz-s1 (card) < --cz-s2 (bloque) <
+       --cz-s3 (hover). Un input toma el tono de la superficie OPUESTA a la que lo
+       contiene (--cz-field-bg): sobre una card (s1) es s2; dentro de un bloque s2 vuelve
+       a s1 — así siempre se lee como hueco editable.
+     · Acento propio del cotizador --cz-accent (#5b8def, el del mockup). El chrome del
+       wizard (breadcrumb/stepper) conserva el acento oro del ERP; ver venta-page-wizard.css.
+     · Semántica de color: verde = disponible/seleccionado/recargo 0%, ámbar = recargo
+       y advertencias, rojo = no apto/bloqueo, violeta/teal sólo identifican el medio.
    ========================================================================== */
 
 /* ---------- Root / integración con el shell ERP ---------- */
@@ -33,87 +36,101 @@ body:has(.cotz-standalone) #main-content > div:last-child {
     height: 100%;
 }
 
-/* ---------- Escala de elevación (COTIZACION-WORKSTATION-02) ----------
-   Hallazgo del QA de contraste: la escala de superficies estaba INVERTIDA. El
-   fondo de la app es #0b0e14 (--ml-bg), el panel #111827… y todo lo que vivía
-   DENTRO del panel era más oscuro que él (.cart-row y .field en #0f172a, filas
-   padre del comparador en #0e1726). Un bloque más oscuro que su contenedor se
-   lee como un hueco, no como contenido elevado: por eso el producto agregado y
-   el cliente seleccionado "se mezclaban con el fondo", y por eso .cart-row y
-   .field —separados por 3 puntos de RGB— competían visualmente (§5/§10).
-
-   La escala correcta ya existe en el design system del ERP: theme-ml.css define
-   --ml-bg < --ml-panel < --ml-panel-2 < --ml-elev, ASCENDENTE. Estos tokens
-   locales son esa misma escala expresada en la familia navy que ya usa el
-   cotizador (no una paleta nueva: mismo rol, mismos saltos de luminancia), más
-   un nivel "hundido" para los controles de entrada, que sí deben quedar por
-   DEBAJO de la superficie que los contiene.
-
-       --cz-bg    fondo app          ← el shell (no lo pinta el cotizador)
-       --cz-s1    superficie workstation (panel, franja de totales)
-       --cz-s2    bloque dentro del panel (producto, cliente, fila de medio)
-       --cz-s3    hover de ese bloque
-       --cz-sunk  control de entrada (field, mini) — recesado a propósito
-       --cz-sel   alternativa elegida (acento, no superficie gigante) */
 .cotz-app {
     --cz-bg: #0b0e14;
-    --cz-s1: #111827;
-    --cz-s2: #1b2539;
-    --cz-s3: #223050;
-    --cz-sunk: #0c1220;
-    --cz-line: #1f2937;
-    --cz-line-2: #2b3a52;
-    --cz-line-3: #36486a;
-    --cz-accent: #3b82f6;
-    /* Medido: la fila de medio ya está elevada, así que un velo del 16% dejaba la
-       elegida a menos distancia de sus vecinas que las vecinas del panel. Al 22%
-       el salto queda por encima del resto de la escala y la selección se ve de
-       entrada, sin convertir la fila en un bloque de estado (§12). */
-    --cz-sel: rgba(59, 130, 246, .22);
+    --cz-s1: #10151b;
+    --cz-s2: #171e26;
+    --cz-s3: #1b222a;
+    --cz-sunk: #10151b;
+    --cz-line: #232b34;
+    --cz-line-2: #2c3644;
+    --cz-line-3: #1d242c;
+    --cz-text: #f1f4f8;
+    --cz-text-2: #b8c2cc;
+    --cz-text-3: #8993a1;
+    --cz-text-4: #62707e;
+    --cz-accent: #5b8def;
+    --cz-accent-hover: #4a7ce0;
+    --cz-accent-soft: rgba(91, 141, 239, .10);
+    --cz-sel: rgba(91, 141, 239, .08);
+    --cz-green: #4ade80;
+    --cz-green-bg: #123024;
+    --cz-green-bar: #22c55e;
+    --cz-amber: #fbbf24;
+    --cz-amber-bg: #2a2210;
+    --cz-amber-line: #4d3b12;
+    --cz-red: #f87171;
+    --cz-red-bg: #2a1518;
+    --cz-violet: #a78bfa;
+    --cz-violet-bg: #211a33;
+    --cz-teal: #2dd4bf;
+    --cz-teal-bg: #0f2a28;
+    /* Fondo de los inputs: la superficie opuesta a la que los contiene (ver cabecera). */
+    --cz-field-bg: var(--cz-s2);
+    /* Grilla de la tabla de Resultados — idéntica al mockup (7 columnas). Total, Cuota, Recargo y
+       Acción tienen un mínimo: cada <tr> es su propia grilla, así que ninguna columna puede depender
+       del contenido de su fila o quedarían desalineadas entre filas. 8.5rem entra "desde $180.758,90";
+       10rem entra "Solicitar excepción", el botón más ancho. */
+    --rt-cols: minmax(0, 2.2fr) minmax(8.5rem, 1fr) minmax(5rem, .9fr) minmax(6rem, 1fr) minmax(4.5rem, .8fr) minmax(0, 1fr) minmax(10rem, 1.1fr);
 }
 
 .cotz-app {
     display: flex;
     flex-direction: column;
+    gap: 20px;
     background: var(--cz-bg);
-    color: #e2e8f0;
+    color: var(--cz-text-2);
     font-family: 'Inter', system-ui, sans-serif;
-    /* La pantalla crece con su contenido y scrollea como el resto del ERP; el
-       scroll interno por panel se retiró con el layout de 2 filas. */
+    /* La pantalla crece con su contenido y scrollea como el resto del ERP. */
     height: auto;
     overflow: visible;
     min-height: 100%;
+    box-sizing: border-box;
 }
 
-.cotz-app .font-mono,
-.cotz-app .total-display { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+/* Pantalla completa: el mockup deja 32px de aire alrededor de todo el contenido. Embebido
+   en Venta/Create el shell de la página ya aporta ese padding lateral. */
+.cotz-standalone .cotz-app { padding: 20px 32px 32px; }
+.venta-cotizar-panel .cotz-app { padding: 0; }
+
+.cotz-app .font-mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+/* Importes: proporcionales como en el mockup (no monoespaciados), con cifras tabulares
+   para que las columnas de la tabla alineen. */
+.cotz-app .total-display { font-family: inherit; font-variant-numeric: tabular-nums; letter-spacing: -.005em; white-space: nowrap; }
+
+/* Los utilitarios Tailwind que emiten el HTML y el JS (text-white, text-slate-*, ...)
+   se remapean a la paleta del mockup dentro del cotizador, en vez de tocar cada
+   plantilla de cadena. Especificidad 0,2,0 > utilitario 0,1,0. */
+.cotz-app .text-white { color: var(--cz-text); }
+.cotz-app .text-slate-200 { color: var(--cz-text); }
+.cotz-app .text-slate-300 { color: var(--cz-text-2); }
+.cotz-app .text-slate-400 { color: var(--cz-text-3); }
+.cotz-app .text-slate-500,
+.cotz-app .text-slate-600 { color: var(--cz-text-4); }
+.cotz-app .text-emerald-400 { color: var(--cz-green); }
+.cotz-app .text-amber-300 { color: var(--cz-amber); }
+.cotz-app .text-blue-400 { color: var(--cz-accent); }
 
 /* Neutraliza un leak cruzado de módulo: wwwroot/css/venta-page-wizard.css estiliza
    "#venta-create-page .total-display" / "#venta-edit-page .total-display" (borde
    ámbar, gradiente, box-shadow — pensado para sus propias .vm-totals) con un
-   selector por CLASE genérica, no por un componente propio. Como el cotizador se
-   embebe dentro de #venta-create-page/#venta-edit-page (pestaña Cotizar del
-   wizard) y también usa `.total-display` como clase compartida, todo importe de
-   lectura de Cotización dentro del wizard hereda esa apariencia de "input
-   enfocado" — es la causa real del hallazgo "importes con borde amarillo"
-   (COTIZACION-SIMULAR-REDESIGN-VISUAL-POLISH-01; no reproducible en
-   Cotizacion/Index standalone, que no vive bajo esos ids). Esa regla usa un
-   selector #id .clase (más específico que cualquier combinación de clases
-   propias): no hay forma de ganarle en cascada sin `!important` — scopeado a
-   `.cotz-app` para no tocar los `.total-display` legítimos de Venta ni requerir
-   editar venta-page-wizard.css (archivo de otro módulo, fuera de alcance). */
+   selector por CLASE genérica. Como el cotizador se embebe dentro de esos ids y
+   también usa `.total-display`, todo importe heredaba apariencia de "input
+   enfocado". Esa regla usa #id .clase: sólo se le gana con `!important`, scopeado a
+   `.cotz-app` para no tocar los `.total-display` legítimos de Venta. */
 .cotz-app .total-display {
     border: none !important;
     background: none !important;
     box-shadow: none !important;
     border-radius: 0 !important;
-    color: #e2e8f0 !important;
+    color: var(--cz-text) !important;
 }
-.cotz-app .text-white.total-display { color: #fff !important; }
-.cotz-app .text-emerald-400.total-display { color: #34d399 !important; }
-.cotz-app .text-slate-300.total-display { color: #cbd5e1 !important; }
-.cotz-app .text-slate-400.total-display { color: #94a3b8 !important; }
-.cotz-app .text-slate-200.total-display { color: #e2e8f0 !important; }
+.cotz-app .text-white.total-display { color: var(--cz-text) !important; }
+.cotz-app .text-emerald-400.total-display { color: var(--cz-green) !important; }
+.cotz-app .text-amber-300.total-display { color: var(--cz-amber) !important; }
+.cotz-app .text-slate-300.total-display { color: var(--cz-text-2) !important; }
+.cotz-app .text-slate-400.total-display { color: var(--cz-text-3) !important; }
+.cotz-app .text-slate-200.total-display { color: var(--cz-text) !important; }
 
 .cotz-app .material-symbols-outlined {
     font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
@@ -121,72 +138,55 @@ body:has(.cotz-standalone) #main-content > div:last-child {
     line-height: 1;
 }
 
-.cotz-app :focus-visible { outline: 2px solid #60a5fa; outline-offset: 1px; border-radius: 6px; }
+.cotz-app :focus-visible { outline: 2px solid var(--cz-accent); outline-offset: 1px; border-radius: 6px; }
 .cotz-app input[type="radio"],
-.cotz-app input[type="checkbox"] { accent-color: #3b82f6; }
+.cotz-app input[type="checkbox"] { accent-color: var(--cz-accent); }
 
-/* ---------- Top bar (barra contextual, §19) ----------
-   Un solo renglón: identidad de la etapa + estado + salida a guardadas. Antes
-   era un segundo hero (título + breadcrumb propio en dos líneas) compitiendo con
-   el hero real del wizard justo arriba. */
+/* ---------- Top bar ----------
+   Identidad de la etapa + estado + salida a guardadas, en un renglón, sin fondo ni
+   borde propios (el mockup lo apoya directo sobre la página). */
 .cotz-app .cotz-topbar {
     flex-shrink: 0;
-    /* §16, encontrado midiendo en vivo: la barra medía 64px para una sola línea de
-       30px. Causa: `wwwroot/css/layout.css` declara `header { min-height: 4rem }`
-       con un selector de ELEMENTO — pensado para el header global del ERP, pero
-       aplicado a cualquier <header> de cualquier página. Esta barra es contextual,
-       no el header de la aplicación, así que recupera su alto natural. Scopeado a
-       .cotz-app (gana por especificidad, sin !important) en vez de tocar layout.css,
-       que gobierna el header real de todo el sistema. */
+    /* `wwwroot/css/layout.css` declara `header { min-height: 4rem }` con selector de
+       ELEMENTO, pensado para el header global; acá se recupera el alto natural. */
     min-height: 0;
-    border-bottom: 1px solid #1b2536;
-    background: rgba(2, 6, 23, .5);
-    padding: .4rem .9rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
     display: flex;
     align-items: center;
-    gap: .45rem;
+    gap: 12px;
     flex-wrap: wrap;
     min-width: 0;
 }
-.cotz-app .cotz-topbar__title { font-size: .82rem; font-weight: 600; color: #fff; letter-spacing: -.01em; flex-shrink: 0; }
-.cotz-app .cotz-topbar__sep { color: #334155; flex-shrink: 0; }
-.cotz-app .cotz-topbar__hint { font-size: .7rem; color: #64748b; min-width: 0; }
+.cotz-app .cotz-topbar__icon {
+    width: 32px; height: 32px; flex: 0 0 auto; border-radius: 9px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--cz-accent-soft); color: var(--cz-accent);
+}
+.cotz-app .cotz-topbar__title { font-size: 16px; font-weight: 800; color: var(--cz-text); letter-spacing: 0; flex-shrink: 0; margin: 0; }
+.cotz-app .cotz-topbar__hint { font-size: 12.5px; color: var(--cz-text-4); min-width: 0; }
 
 /* ---------- Workspace grid ----------
-   Usa container queries sobre .cotz-app (no @media) porque el mismo workspace se
-   hostea en 2 anchos reales distintos — pantalla completa (Cotizacion/Index_tw)
-   y embebido dentro del wizard de Venta/Create, cada uno con su propio padding/
-   columna disponible — igual que el patrón validado en
-   [data-credito-config-embedded] (credito-module.css). Los anchos de banda están
-   medidos en vivo (Playwright) contra el ancho real de .cotz-app en ambos hosts,
-   no contra el viewport.
-
-   container-type va en el PADRE directo de .cotz-app en cada host (.cotz-standalone
-   / .venta-cotizar-panel), no en .cotz-app mismo: un elemento no puede responder a
-   un @container basado en su propio ancho (self-query, inválido por spec) — sólo
-   sus descendientes pueden.
-
-   COTIZACION-WORKSTATION-01 (§27): el orden del DOM ya es el orden de lectura
-   (Productos → Cliente/Condiciones → Totales+Simular → Resultados), así que la
-   banda apilada no necesita grid-template-areas propio: el auto-placement da
-   exactamente la secuencia pedida. Esto revierte a propósito el "Resultados
-   primero en mobile" de COTIZACION-SIMULAR-REDESIGN-VISUAL-CIERRE-01 — el pedido
-   actual del usuario fija ese orden explícitamente y prevalece. Con el orden
-   natural restaurado, Productos vuelve a ser accesible de entrada y desaparece la
-   necesidad de colapsar Productos/Config en mobile (los toggles se retiraron). */
+   Container queries sobre .cotz-app (no @media) porque el mismo workspace se hostea en
+   2 anchos reales distintos — pantalla completa (Cotizacion/Index_tw) y embebido en
+   Venta/Create. container-type va en el PADRE directo de .cotz-app en cada host
+   (.cotz-standalone / .venta-cotizar-panel): un elemento no puede responder a un
+   @container basado en su propio ancho. Los anchos están medidos contra el ancho real. */
 .cotz-standalone, .venta-cotizar-panel { container-type: inline-size; }
 
 .cotz-app .workspace {
     flex: 1;
     min-height: 0;
     display: grid;
-    gap: 10px;
-    padding: 10px;
+    gap: 20px 24px;
+    padding: 0;
     grid-template-columns: minmax(0, 1fr);
-    /* Cada columna crece según su propio contenido: sin esto, Grid (align-items:
-       stretch) fuerza a Productos y Cliente+Condiciones a la misma altura y la
-       más corta queda con cientos de píxeles vacíos. */
+    /* Cada columna crece según su propio contenido: sin esto, Grid fuerza a Productos
+       y Cliente a la misma altura y la más corta queda con cientos de px vacíos. */
     align-items: start;
+    /* Las filas de la grilla no se estiran para llenar la altura de la pantalla. */
+    align-content: start;
     grid-template-areas: "productos" "config" "totales" "resultados";
 }
 .cotz-app .workspace > [data-zone="productos"] { grid-area: productos; }
@@ -194,27 +194,18 @@ body:has(.cotz-standalone) #main-content > div:last-child {
 .cotz-app .workspace > [data-zone="totales"] { grid-area: totales; }
 .cotz-app .workspace > [data-zone="resultados"] { grid-area: resultados; }
 
-/* La tabla de resultados scrollea horizontal sin romper el panel cuando el
-   ancho disponible es ajustado (no clipea Estado/Recargo/Acción). */
+/* La tabla de resultados scrollea horizontal sin romper el panel cuando el ancho es
+   ajustado (no clipea Estado/Recargo/Acción). */
 .cotz-app #cotizacion-resultados { overflow-x: auto; }
-/* min-width:0 deja que la columna se encoja por debajo del min-content de la
-   tabla de resultados; sin esto, al apilar, el track `1fr` (=minmax(auto,1fr))
-   se expande al min-content de la rtable y desborda el viewport recortando
-   columnas sin scroll. Con min-width:0 la rtable activa su overflow-x interno. */
-.cotz-app .col { min-height: 0; min-width: 0; display: flex; flex-direction: column; }
+/* min-width:0 deja que la columna se encoja por debajo del min-content de la tabla. */
+.cotz-app .col { min-height: 0; min-width: 0; display: flex; flex-direction: column; gap: 20px; }
 .cotz-app .panel { max-height: none; }
 .cotz-app .panel-body { overflow-y: visible; }
 
-/* Banda ≥38rem de contenedor: Productos + Cliente/Condiciones en 2 columnas,
-   Totales y Resultados a todo el ancho debajo. Umbral medido en vivo: dentro del
-   shell ERP, 768px y 1024px de viewport dan el MISMO ancho real de .cotz-app
-   (~758px) — a 768px la sidebar pasa a overlay (no resta ancho) y a 1024px sigue
-   en línea restando 256px. Es el ancho real disponible, no la etiqueta del
-   viewport, lo que decide el layout.
-   La comparativa de medios ("Comparar alternativas de pago") es el núcleo
-   comercial de la pantalla y se lee a todo el ancho SIEMPRE, nunca como un riel
-   angosto entre dos columnas laterales (VENTA-COTIZACION-REWORK-01). */
-@container (min-width: 38rem) {
+/* Banda ≥60rem de contenedor: Productos + Cliente en 2 columnas iguales (mockup),
+   Totales y Resultados a todo el ancho debajo. La comparativa de medios es el núcleo
+   comercial de la pantalla y se lee a todo el ancho SIEMPRE. */
+@container (min-width: 60rem) {
     .cotz-app .workspace {
         grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
         grid-template-areas:
@@ -224,193 +215,248 @@ body:has(.cotz-standalone) #main-content > div:last-child {
     }
 }
 
-/* ---------- Superficies ----------
-   §24: el borde vive en la superficie principal y en los inputs. Nada de
-   "borde externo > borde sección > borde subsección > borde input". */
-/* La sombra no es decorativa: separa la superficie workstation del fondo de la
-   app sin subirle la luminancia (que comprimiría el salto hacia los bloques de
-   adentro). Es el mismo recurso que usa .dropdown-list, atenuado. */
-.cotz-app .panel { background: var(--cz-s1); border: 1px solid var(--cz-line); border-radius: 14px; display: flex; flex-direction: column; min-height: 0; box-shadow: 0 1px 3px rgba(0,0,0,.4); }
-.cotz-app .panel-head { padding: .55rem .9rem .5rem; border-bottom: 1px solid #1b2536; display: flex; align-items: center; gap: .55rem; min-width: 0; }
-.cotz-app .panel-head--stack { align-items: flex-start; }
-.cotz-app .panel-body { flex: 1; min-height: 0; padding: .9rem; }
-.cotz-app .panel-body.tight { padding: .7rem .9rem .9rem; }
-.cotz-app .panel-foot { padding: .7rem .9rem !important; border-top: 1px solid #1b2536; }
-/* Sólo el drawer de plan la usa: es un contexto modal, sin la superficie del
-   panel alrededor, así que ahí una card sí aporta agrupación real. */
+/* ---------- Superficies ---------- */
+.cotz-app .panel {
+    background: var(--cz-s1); border: 1px solid var(--cz-line); border-radius: 16px;
+    padding: 22px 24px; display: flex; flex-direction: column; gap: 16px;
+    min-height: 0; box-sizing: border-box;
+}
+.cotz-app .panel-head { padding: 0; border: 0; display: flex; align-items: center; gap: 12px; min-width: 0; }
+.cotz-app .panel-head--stack { align-items: flex-start; justify-content: space-between; }
+.cotz-app .panel-body { flex: 1; min-height: 0; padding: 0; }
+.cotz-app .panel-body.tight { padding: 0; }
+/* Cliente: ficha, aptitud, contacto y condiciones se apilan con 16px entre bloques. */
+.cotz-app #cotizacion-config-body { display: flex; flex-direction: column; gap: 16px; }
+/* Sólo el drawer de plan la usa: es un contexto modal, sin la superficie del panel
+   alrededor, así que ahí una card sí aporta agrupación real. */
 .cotz-app .card-sub { background: #0f172a; border: 1px solid #1e2a3d; border-radius: 10px; }
 
-/* ---------- Tipografía de sección (§23) ----------
-   Nivel 1 = Productos / Cliente / Comparar alternativas de pago.
-   Nivel 2 = Condiciones de cotización / Crédito personal.
-   Labels chicos y secundarios; valores legibles. */
-.cotz-app .sec-title { font-size: .9rem; font-weight: 600; color: #fff; letter-spacing: -.01em; line-height: 1.2; }
-.cotz-app .sec-sub { font-size: .7rem; color: #64748b; margin-top: .1rem; line-height: 1.3; }
-.cotz-app .sec-meta { font-size: .72rem; color: #7c8aa3; white-space: nowrap; flex-shrink: 0; }
-.cotz-app .hint-line { font-size: .68rem; color: #64748b; margin-top: .35rem; }
+/* ---------- Tipografía de sección ---------- */
+.cotz-app .sec-title { font-size: 14.5px; font-weight: 800; color: var(--cz-text); letter-spacing: 0; line-height: 1.25; margin: 0; }
+.cotz-app .sec-sub { font-size: 12.5px; color: var(--cz-text-4); margin-top: 4px; line-height: 1.35; }
+.cotz-app .sec-meta { font-size: 12.5px; color: var(--cz-text-3); white-space: nowrap; flex-shrink: 0; }
+.cotz-app .sec-meta__count { font-weight: 700; color: var(--cz-text-2); }
+.cotz-app .sec-meta__total { font-weight: 800; color: var(--cz-text); }
+.cotz-app .hint-line { font-size: 12.5px; color: var(--cz-text-4); margin-top: 0; }
 
-/* Acción terciaria: mismo peso que un link, nunca un botón con caja (§17). */
+/* Acción terciaria: mismo peso que un link, nunca un botón con caja. */
 .cotz-app .link-sub {
-    display: inline-flex; align-items: center; gap: .25rem;
-    font-size: .7rem; font-weight: 500; color: #7c8aa3;
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12.5px; font-weight: 700; color: var(--cz-text-3);
     background: none; border: 0; padding: 0; cursor: pointer;
 }
-.cotz-app .link-sub:hover { color: #cbd5e1; }
+.cotz-app .link-sub:hover { color: var(--cz-text); }
+.cotz-app .link-sub--accent { color: var(--cz-accent); }
+.cotz-app .link-sub--accent:hover { color: var(--cz-accent); filter: brightness(1.15); }
 
-/* ---------- Empty states (§26) ----------
-   Compactos: una línea con el ícono y la acción que lo resuelve, no una
-   superficie vacía de 200px. */
+/* ---------- Empty states: compactos, una línea con el ícono ---------- */
 .cotz-app .empty-mini {
     display: flex; align-items: center; gap: .5rem;
-    padding: .7rem .1rem; font-size: .75rem; color: #64748b;
+    padding: 4px 0; font-size: 12.5px; color: var(--cz-text-4);
 }
-.cotz-app .empty-mini--block { padding: 1.1rem .9rem; }
-.cotz-app .empty-mini .material-symbols-outlined { color: #475569; flex-shrink: 0; }
+.cotz-app .empty-mini--block { padding: 18px 16px; border: 1px dashed var(--cz-line-2); border-radius: 12px; }
+.cotz-app .empty-mini .material-symbols-outlined { color: var(--cz-text-4); flex-shrink: 0; }
 
-/* ---------- Productos ---------- */
-.cotz-app .prod-search { padding: .7rem .9rem .6rem; border-bottom: 1px solid #1b2536; }
-.cotz-app .prod-search__row { margin-top: .45rem; display: flex; align-items: center; gap: .45rem; }
-.cotz-app .prod-search__pick { margin-top: .45rem; font-size: .68rem; color: #64748b; display: flex; align-items: center; gap: .35rem; }
-.cotz-app .prod-search__adv { margin-top: .35rem; }
+/* ---------- Productos: búsqueda ---------- */
+.cotz-app .prod-search { padding: 0; border: 0; display: flex; flex-direction: column; gap: 16px; }
+.cotz-app .prod-search__row { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.cotz-app .prod-search__pick { flex: 1 1 0; min-width: 0; font-size: 12.5px; color: var(--cz-text-4); display: flex; align-items: center; gap: 6px; line-height: 1.3; }
+.cotz-app .prod-search__pick.italic { font-style: italic; }
+.cotz-app .prod-search__adv { margin-top: -4px; }
+.cotz-app .prod-search__adv summary { align-self: flex-start; }
 
-/* ---------- Cliente: identidad (§5) ----------
-   Se lee como "quién es el cliente", no como otro grupo de campos. Sin card
-   propia: la superficie ya es el panel. */
-/* §7: el cliente elegido es una ENTIDAD seleccionada, no una línea de texto suelta
-   sobre el panel. Mismo nivel de elevación que el producto agregado (son la misma
-   clase de cosa: "lo que ya cargué"), así ambos comparten lenguaje visual. */
-/* `flex-start`, no `center`: al desplegar "Ver situación" el bloque de crédito
-   crece varias líneas y la identidad quedaba flotando a media altura contra una
-   columna vacía. Anclada arriba, el nombre sigue siendo lo primero que se lee. */
-.cotz-app .cliente-row {
-    display: flex; flex-wrap: wrap; align-items: flex-start; gap: .55rem .9rem;
-    background: var(--cz-s2); border: 1px solid var(--cz-line-2); border-radius: 10px;
-    padding: .5rem .6rem;
+/* ---------- Cart rows (producto agregado) ----------
+   Una sola fila con nombre, cantidad, descuento y precio; el subtotal va debajo,
+   separado por un divisor. */
+.cotz-app .cart-row {
+    border: 1px solid var(--cz-line-2); background: var(--cz-s2); border-radius: 14px;
+    padding: 16px 18px; display: flex; flex-direction: column; gap: 14px;
+    --cz-field-bg: var(--cz-s1);
 }
-/* Identidad y estado de crédito quedan contiguos (no uno en cada extremo con un
-   hueco muerto entre medio): ambos toman su ancho natural y envuelven a una
-   segunda línea recién cuando no entran. */
-.cotz-app .cliente-id { display: flex; align-items: center; gap: .6rem; min-width: 0; flex: 0 1 auto; }
+.cotz-app .cart-row__main { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.cotz-app .cart-row__info { min-width: 0; flex: 1 1 0; }
+.cotz-app .cart-row__nombre { font-size: 15px; font-weight: 800; color: var(--cz-text); line-height: 1.25; }
+.cotz-app .cart-row__meta { font-size: 12.5px; color: var(--cz-text-3); margin-top: 3px; }
+.cotz-app .cart-row__field { flex: 0 0 auto; display: flex; flex-direction: column; gap: 5px; }
+.cotz-app .cart-row__field--qty { align-items: center; }
+.cotz-app .cart-row__label { font-size: 10px; font-weight: 700; letter-spacing: .4px; color: var(--cz-text-4); text-transform: uppercase; line-height: 1; }
+.cotz-app .cart-row__precio { flex: 0 0 auto; min-width: 100px; text-align: right; font-size: 15px; font-weight: 800; color: var(--cz-text); white-space: nowrap; }
+/* Quitar: discreto, sin caja; visible siempre (en touch no hay hover). */
+.cotz-app .cart-row__quitar {
+    display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto;
+    width: 28px; height: 28px; border-radius: 8px;
+    background: transparent; border: 0; color: var(--cz-text-4); cursor: pointer;
+    transition: color .14s, background .14s;
+}
+.cotz-app .cart-row__quitar:hover { background: rgba(248, 113, 113, .12); color: var(--cz-red); }
+.cotz-app .cart-row-subtotal {
+    display: flex; align-items: center; justify-content: space-between;
+    padding-top: 14px; border-top: 1px solid var(--cz-line-3);
+}
+.cotz-app .cart-row-subtotal__label { font-size: 11.5px; font-weight: 800; letter-spacing: .6px; color: var(--cz-text-4); text-transform: uppercase; }
+.cotz-app .cart-row-subtotal__value { font-size: 19px; font-weight: 800; color: var(--cz-text); }
+
+/* Descuento por línea: un solo campo con selector % / $ (mockup). Los dos <input>
+   siguen existiendo (mismos data-cotizacion-desc-*-index): el selector sólo decide
+   cuál se ve, así ningún descuento ya cargado se pierde al alternar. */
+.cotz-app .dto-control { display: flex; align-items: center; gap: 6px; }
+.cotz-app .dto-toggle { display: flex; background: var(--cz-s1); border: 1px solid var(--cz-line); border-radius: 7px; overflow: hidden; }
+.cotz-app .dto-toggle button {
+    position: relative; padding: 5px 9px; font-size: 12px; font-weight: 700; border: 0; background: transparent;
+    color: var(--cz-text-3); cursor: pointer; font-family: inherit; min-height: 0;
+}
+.cotz-app .dto-toggle button[aria-pressed="true"] { background: var(--cz-accent); color: #fff; }
+/* Punto: el modo inactivo también tiene un descuento cargado. */
+.cotz-app .dto-toggle button.has-value:not([aria-pressed="true"])::after {
+    content: ""; position: absolute; top: 3px; right: 3px; width: 5px; height: 5px; border-radius: 999px; background: var(--cz-amber);
+}
+.cotz-app .mini {
+    width: 46px; box-sizing: border-box; padding: 5px 8px; background: var(--cz-field-bg); border: 1px solid var(--cz-line);
+    border-radius: 7px; color: var(--cz-text); font-size: 12.5px; text-align: right; font-family: inherit; min-height: 0;
+    font-variant-numeric: tabular-nums;
+}
+.cotz-app .mini:focus { outline: none; border-color: var(--cz-accent); }
+/* Leak `#venta-create-page input[type="number"]` (width:100%, min-height:2.4rem, radio 12px,
+   padding y fuente propios): el campo de descuento por línea debe medir lo que dice el mockup. */
+.cotz-app input.mini[type="number"] {
+    width: 46px !important;
+    min-height: 0 !important;
+    padding: 5px 8px !important;
+    border-radius: 7px !important;
+    font-size: 12.5px !important;
+    background-color: var(--cz-field-bg) !important;
+    border-color: var(--cz-line) !important;
+}
+.cotz-app input.mini[type="number"]:focus { border-color: var(--cz-accent) !important; }
+.cotz-app .qty-step { display: inline-flex; align-items: center; border: 1px solid var(--cz-line); border-radius: 7px; overflow: hidden; background: var(--cz-s1); }
+.cotz-app .qty-step button { width: 24px; height: 28px; color: var(--cz-text-2); font-size: 13px; display: flex; align-items: center; justify-content: center; background: transparent; border: 0; cursor: pointer; }
+.cotz-app .qty-step button:hover { background: var(--cz-s3); color: var(--cz-text); }
+.cotz-app .qty-step input { width: 24px; text-align: center; background: transparent; border: 0; color: var(--cz-text); font-size: 12.5px; font-weight: 700; font-family: inherit; }
+.cotz-app .qty-step input:focus { outline: none; }
+/* Mismo leak cruzado ya documentado: `#venta-create-page input[type="number"]` (ID +
+   atributo) le gana por especificidad a `.cotz-app .qty-step input` y fuerza
+   width:100% + padding/border/background propios en el input de cantidad. */
+.cotz-app .qty-step input {
+    width: 24px !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    font-size: 12.5px !important;
+}
+.cotz-app .qty-step input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+.cotz-app .qty-step input::-webkit-outer-spin-button,
+.cotz-app .qty-step input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+/* Stepper grande (buscador): 36 + 38 + 36 × 40 de alto, como el mockup. */
+.cotz-app .qty-step--lg { flex: 0 0 auto; background: var(--cz-s2); border-radius: 10px; }
+.cotz-app .qty-step--lg button { width: 36px; height: 40px; font-size: 16px; }
+.cotz-app .qty-step--lg input { width: 38px !important; font-size: 14px !important; }
+
+/* ---------- Cliente: identidad ---------- */
+.cotz-app .cliente-row { display: flex; flex-direction: column; gap: 16px; }
+.cotz-app .cliente-id {
+    display: flex; align-items: center; gap: 12px; min-width: 0;
+    padding: 14px; background: var(--cz-s2); border: 1px solid var(--cz-line); border-radius: 12px;
+}
 .cotz-app .cliente-avatar {
-    width: 34px; height: 34px; border-radius: 999px; flex-shrink: 0;
-    background: rgba(52,211,153,.14); color: #34d399; border: 1px solid rgba(52,211,153,.3);
+    width: 44px; height: 44px; border-radius: 999px; flex-shrink: 0;
+    background: var(--cz-accent); color: #fff;
     display: inline-flex; align-items: center; justify-content: center;
-    font-size: .72rem; font-weight: 700; letter-spacing: .01em;
+    font-size: 14px; font-weight: 800;
 }
-.cotz-app .cliente-nombre { font-size: .88rem; font-weight: 600; color: #fff; line-height: 1.2; }
-.cotz-app .cliente-doc { font-size: .7rem; color: #7c8aa3; font-family: 'JetBrains Mono', monospace; margin-top: .05rem; }
-/* El estado de Crédito personal comparte fila con la identidad: presente,
-   consultable, pero visualmente subordinado (§6). */
-/* Crece hasta el borde del bloque: con `flex: 0 1 auto` el acento terminaba a
-   media fila y dejaba un hueco muerto a la derecha que leía como error de layout. */
-.cotz-app .cliente-cred { flex: 1 1 12rem; min-width: 0; }
+.cotz-app .cliente-nombre { text-transform: capitalize; font-size: 14.5px; font-weight: 800; color: var(--cz-text); line-height: 1.25; }
+.cotz-app .cliente-doc { font-size: 12.5px; color: var(--cz-text-3); margin-top: 2px; }
+.cotz-app .cliente-cred { min-width: 0; }
 
 /* ---------- Aptitud crediticia (Crédito personal) ----------
-   §6: rojo/ámbar SÓLO como acento semántico. Antes era una card con fondo
-   teñido + borde en las 4 caras: con un cliente no apto, todo el panel Cliente
-   se leía como un estado de error global de la cotización, cuando en realidad
-   afecta a UNA de las seis alternativas de pago. Ahora es un acento lateral
-   sobre la superficie del panel, sin fondo propio.
-
-   Estados: sin-cliente, evaluando, apto, requiere-autorizacion, no-apto, error.
-   EstadoCrediticioCliente tiene 3 estados reales no-"Apto": NoApto (bloqueo duro)
-   y RequiereAutorizacion (el cliente puede seguir — Venta le pide autorización de
-   supervisor, no lo rechaza); ámbar vs. rojo mantiene esa diferencia visible. */
+   Card propia (mockup): eyebrow a la izquierda, estado como pill a la derecha, resumen
+   y "Ver situación" plegable. Estados: sin-cliente, evaluando, apto,
+   requiere-autorizacion, no-apto, error. RequiereAutorizacion no es un bloqueo (Venta
+   pide autorización de supervisor): ámbar vs. rojo mantiene esa diferencia visible. */
 .cotz-app .aptitud-card {
-    border: 0; border-left: 2px solid #2b3a52; border-radius: 0 6px 6px 0;
-    background: rgba(2, 6, 23, .35); padding: .3rem .55rem .32rem .6rem;
-    font-size: .72rem; color: #94a3b8;
+    display: flex; flex-direction: column; gap: 10px;
+    background: var(--cz-s2); border: 1px solid var(--cz-line-2); border-radius: 12px; padding: 16px 18px;
+    font-size: 12.5px; color: var(--cz-text-3);
 }
-/* El tinte semántico se queda en el acento y en un velo del 7% sobre ESTE bloque
-   — nunca sobre el panel Cliente entero (§8): afecta a una de las seis
-   alternativas de pago, no al estado global de la cotización. */
-.cotz-app .aptitud-card--apto { border-left-color: #10b981; background: rgba(16,185,129,.07); }
-.cotz-app .aptitud-card--requiere-autorizacion { border-left-color: #f59e0b; background: rgba(245,158,11,.07); }
-.cotz-app .aptitud-card--no-apto { border-left-color: #ef4444; background: rgba(239,68,68,.07); }
-.cotz-app .aptitud-card--error { border-left-color: #f59e0b; background: rgba(245,158,11,.07); }
-.cotz-app .aptitud-card--evaluando { color: #93a2b8; }
-/* Eyebrow: nombra el alcance real del estado ("Crédito personal") para que no se
-   lea como un veredicto sobre toda la operación. */
-.cotz-app .aptitud-card__eyebrow { font-size: .58rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #64748b; }
-.cotz-app .aptitud-card__head { display: flex; align-items: center; gap: .3rem; font-weight: 700; font-size: .75rem; margin-top: .05rem; }
-.cotz-app .aptitud-card--apto .aptitud-card__head { color: #34d399; }
-.cotz-app .aptitud-card--no-apto .aptitud-card__head { color: #f87171; }
-.cotz-app .aptitud-card--requiere-autorizacion .aptitud-card__head { color: #fbbf24; }
-.cotz-app .aptitud-card--error .aptitud-card__head { color: #fbbf24; }
-.cotz-app .aptitud-card dl { margin-top: .3rem; display: grid; grid-template-columns: 1fr auto; gap: .1rem .5rem; font-size: .7rem; }
-.cotz-app .aptitud-card dt { color: #7c8aa3; }
-.cotz-app .aptitud-card dd { text-align: right; font-family: 'JetBrains Mono', monospace; color: #e2e8f0; }
-.cotz-app .aptitud-card ul { margin-top: .3rem; padding-left: 1rem; list-style: disc; color: #cbd5e1; }
-.cotz-app .aptitud-card ul li { margin-top: .08rem; }
-.cotz-app .aptitud-card .btn-xs { margin-top: .4rem; }
-/* Línea de resumen (siempre visible) + detalle plegado: el dl/ul expandido era el
-   mayor contribuyente a la altura de esta columna y empujaba Resultados fuera del
-   primer viewport. */
-.cotz-app .aptitud-card__resumen { margin-top: .1rem; font-size: .7rem; color: #a7b4c7; line-height: 1.35; }
-.cotz-app .aptitud-card__detalle { margin-top: .2rem; }
-.cotz-app .aptitud-card__detalle summary { display: flex; align-items: center; gap: .25rem; font-size: .66rem; font-weight: 600; color: #7c8aa3; }
-.cotz-app .aptitud-card__detalle summary:hover { color: #cbd5e1; }
-
-/* Estado de elegibilidad dentro del drawer "Detalle del plan": ahí sí conviene
-   una caja (contexto modal, sin panel alrededor). */
-.cotz-app .plan-elegibilidad .aptitud-card {
-    border: 1px solid #1e2a3d; border-left-width: 3px; border-radius: 10px;
-    background: #0f172a; padding: .45rem .65rem;
+.cotz-app .aptitud-card__top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.cotz-app .aptitud-card__eyebrow { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: var(--cz-text-4); }
+.cotz-app .aptitud-card__head {
+    display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px;
+    font-size: 11.5px; font-weight: 700; background: var(--cz-s3); color: var(--cz-text-2); white-space: nowrap;
 }
+.cotz-app .aptitud-card__head .material-symbols-outlined { font-size: 12px !important; }
+.cotz-app .aptitud-card > .aptitud-card__head { align-self: flex-start; }
+.cotz-app .aptitud-card--apto .aptitud-card__head { background: var(--cz-green-bg); color: var(--cz-green); }
+.cotz-app .aptitud-card--no-apto .aptitud-card__head { background: var(--cz-red-bg); color: var(--cz-red); }
+.cotz-app .aptitud-card--requiere-autorizacion .aptitud-card__head,
+.cotz-app .aptitud-card--error .aptitud-card__head { background: var(--cz-amber-bg); color: var(--cz-amber); }
+.cotz-app .aptitud-card--evaluando .aptitud-card__head { background: transparent; color: var(--cz-text-3); padding-inline: 0; }
+.cotz-app .aptitud-card dl { margin-top: 2px; display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; font-size: 12.5px; }
+.cotz-app .aptitud-card dt { color: var(--cz-text-4); }
+.cotz-app .aptitud-card dd { text-align: right; color: var(--cz-text-2); font-variant-numeric: tabular-nums; }
+.cotz-app .aptitud-card ul { margin-top: 6px; padding-left: 1rem; list-style: disc; color: var(--cz-text-2); }
+.cotz-app .aptitud-card ul li { margin-top: 2px; }
+.cotz-app .aptitud-card .btn-xs { align-self: flex-start; }
+.cotz-app .aptitud-card__resumen { margin: 0; font-size: 12.5px; color: var(--cz-text-3); line-height: 1.4; }
+.cotz-app .aptitud-card__detalle summary { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--cz-text-3); }
+.cotz-app .aptitud-card__detalle summary:hover { color: var(--cz-text); }
+.cotz-app .aptitud-card__detalle[open] summary { margin-bottom: 8px; }
 
-/* ---------- Condiciones de cotización (§7) ----------
-   Subgrupo dentro de la misma superficie: un divisor liviano y un título de
-   nivel 2, no otra card ni un <h3> por cada par de inputs. */
-/* COTIZACION-WORKSTATION-02 (§9): el título solo, sobre el mismo fondo del panel,
-   no alcanzaba a leerse como un grupo. La zona pasa a estar RECESADA respecto del
-   panel (dirección opuesta a Cliente, que está elevado): dos zonas distinguibles
-   dentro de una misma superficie, sin agregar una segunda card con borde. */
+/* Estado de elegibilidad dentro del drawer "Detalle del plan": ahí sí conviene una
+   caja (contexto modal, sin panel alrededor). */
+.cotz-app .plan-elegibilidad .aptitud-card { border-radius: 10px; padding: 10px 12px; background: #0f172a; border-color: #1e2a3d; }
+
+/* Datos de contacto libres: compactos, campos chicos de 30px (mockup). */
+.cotz-app .contacto-libre { display: flex; flex-direction: column; gap: 8px; }
+.cotz-app .contacto-libre__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
+.cotz-app .contacto-libre__field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.cotz-app .contacto-libre__label { font-size: 10px; font-weight: 700; letter-spacing: .3px; color: var(--cz-text-4); text-transform: uppercase; }
+.cotz-app .contacto-libre .field { height: 30px; padding: 6px 9px !important; font-size: 12px !important; border-radius: 7px !important; min-height: 0 !important; }
+.cotz-app .contacto-libre .hint-line { grid-column: 1 / -1; }
+
+/* ---------- Condiciones de cotización ----------
+   Card elevada (bloque s2) dentro del panel Cliente, con grilla de 2 columnas iguales. */
 .cotz-app .condiciones-zone {
-    margin-top: .8rem; padding: .55rem .6rem .65rem;
-    border-radius: 10px; background: rgba(2, 6, 23, .45);
+    margin-top: 0; padding: 18px; border-radius: 12px;
+    background: var(--cz-s2); border: 1px solid var(--cz-line-2);
+    display: flex; flex-direction: column; gap: 16px;
+    --cz-field-bg: var(--cz-s1);
 }
-/* Título de grupo (nivel 2) — tiene que separarse de los .label de cada campo,
-   que comparten mayúsculas y tamaño chico: sube de tamaño y de color. */
-.cotz-app .condiciones-divider {
-    font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
-    color: #cbd5e1;
-}
-.cotz-app .cond-grid {
-    margin-top: .55rem;
-    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: .55rem .7rem;
-}
+.cotz-app .condiciones-divider { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px; color: var(--cz-text-4); }
+.cotz-app .cond-grid { margin-top: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 14px; }
 .cotz-app .cond-grid__full { grid-column: 1 / -1; }
-.cotz-app .cond-check { display: flex; align-items: center; gap: .5rem; font-size: .75rem; color: #cbd5e1; cursor: pointer; }
-/* Aviso puntual: acento ámbar en texto + ícono, sin caja teñida (§25). */
-.cotz-app .note-amber { display: flex; align-items: center; gap: .4rem; font-size: .7rem; color: #fcd34d; }
+/* Cada par (Descuento %/$, Anticipo/Válida hasta) se aplana en la grilla: cuatro celdas
+   iguales, como el mockup. En banda angosta vuelve a ser una fila propia (ver abajo). */
+.cotz-app .cond-pair { display: contents; }
+.cotz-app .cond-pair__a,
+.cotz-app .cond-pair__b { min-width: 0; }
+.cotz-app .cond-check { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--cz-text-2); cursor: pointer; }
+.cotz-app .cond-check input { width: 16px; height: 16px; margin: 0; flex: 0 0 auto; }
+.cotz-app .cond-checks { display: flex; flex-direction: column; gap: 10px; }
+/* Aviso puntual: acento en texto + ícono, sin caja teñida. */
+.cotz-app .note-amber { display: flex; align-items: center; gap: .4rem; font-size: 12.5px; color: var(--cz-amber); }
+/* Resumen informativo (envío/factura guardados), no una advertencia. */
+.cotz-app .note-info { display: flex; align-items: center; gap: .4rem; font-size: 12.5px; color: var(--cz-accent); }
+.cotz-app .note-info button.link-sub { color: var(--cz-accent); text-decoration: underline; font-size: 12.5px; }
 
 /* ---------- Fields ---------- */
-/* §10: los controles de entrada quedan por DEBAJO de la superficie que los
-   contiene. Antes .field (#0f172a) y .panel (#111827) estaban a 3 puntos de RGB:
-   el input no se leía como un hueco editable sino como una caja más, y competía
-   en peso con el producto ya agregado. */
-.cotz-app .field { background: var(--cz-sunk); border: 1px solid #243044; color: #e2e8f0; border-radius: 9px; padding: .4rem .6rem; width: 100%; font-size: .82rem; transition: border .15s, box-shadow .15s; }
-.cotz-app .field:focus { border-color: #3b82f6; outline: none; box-shadow: 0 0 0 3px rgba(59,130,246,.16); }
+.cotz-app .field {
+    background: var(--cz-field-bg); border: 1px solid var(--cz-line); color: var(--cz-text);
+    border-radius: 8px; padding: 9px 12px; width: 100%; font-size: 13.5px; font-family: inherit;
+    transition: border .15s, box-shadow .15s;
+}
+.cotz-app .field::placeholder { color: var(--cz-text-4); }
+.cotz-app .field:focus { border-color: var(--cz-accent); outline: none; box-shadow: 0 0 0 3px rgba(91, 141, 239, .16); }
 .cotz-app .field:disabled { opacity: .5; }
+/* Fecha vacía: el mockup la muestra como placeholder apagado (cotizacion-simulador.js marca data-vacio). */
+.cotz-app input[type="date"].field[data-vacio="true"] { color: var(--cz-text-4) !important; }
 .cotz-app textarea.field { resize: none; }
-/* Mismo leak cruzado ya documentado arriba para .total-display: venta-page-wizard.css
-   estiliza inputs/textarea/select CRUDOS por tipo con `#venta-create-page
-   input[type="number"], ...` (ID + atributo) — más específico que `.cotz-app .field`
-   (dos clases) — así que todo input del cotizador dentro de Venta/Create heredaba el
-   padding de Venta en vez del propio, sin que ningún cambio a `.field` acá tuviera
-   efecto (sólo se veía en Cotizacion/Index_tw standalone). Se neutraliza acá con
-   !important scopeado a .cotz-app en vez de tocar el archivo del otro módulo.
-   Del padding sólo se neutraliza el vertical: el horizontal lo siguen resolviendo
-   `.field` (base) y los utilitarios pl-6/pl-8/pr-6 que usan los inputs con ícono o
-   signo "$"/"%" — un !important en el shorthand completo les ganaría también y
-   desalinearía el ícono.
-
-   COTIZACION-WORKSTATION-02: esa misma regla ajena fija `background-color:
-   rgba(15,23,42,.82)` y su propio borde, así que el nivel "hundido" de la escala de
-   elevación (--cz-sunk) NUNCA llegaba a aplicarse en el host embebido — justo el que
-   se está corrigiendo. Se agregan acá las dos propiedades de contraste; la geometría
-   (min-height/radio/tamaño) se deja como está para no alterar densidad ya validada. */
+/* Mismo leak cruzado ya documentado: venta-page-wizard.css estiliza inputs CRUDOS por
+   tipo con `#venta-create-page input[type="number"], ...` (ID + atributo), más
+   específico que `.cotz-app .field`. Se neutralizan sólo las propiedades que
+   contradicen el mockup; el padding horizontal lo siguen resolviendo `.field` y los
+   utilitarios pl-6/pl-8/pr-6 de los inputs con ícono o signo "$"/"%". */
 .cotz-app input[type="text"].field,
 .cotz-app input[type="number"].field,
 .cotz-app input[type="date"].field,
@@ -418,337 +464,265 @@ body:has(.cotz-standalone) #main-content > div:last-child {
 .cotz-app input[type="tel"].field,
 .cotz-app select.field,
 .cotz-app textarea.field {
-    padding-top: .4rem !important;
-    padding-bottom: .4rem !important;
-    background-color: var(--cz-sunk) !important;
-    border-color: #26344c !important;
+    min-height: 0 !important;
+    padding-top: 9px !important;
+    padding-bottom: 9px !important;
+    border-radius: 8px !important;
+    background-color: var(--cz-field-bg) !important;
+    border-color: var(--cz-line) !important;
+    font-size: 13.5px !important;
+    color: var(--cz-text) !important;
 }
 .cotz-app input.field:focus,
 .cotz-app select.field:focus,
-.cotz-app textarea.field:focus { border-color: var(--cz-accent) !important; }
-.cotz-app .label { display: block; font-size: .64rem; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: #64748b; margin-bottom: .18rem; }
-.cotz-app .field-affix { position: absolute; top: 50%; transform: translateY(-50%); color: #64748b; font-size: .8rem; pointer-events: none; }
-.cotz-app .field-affix--left { left: .6rem; }
-.cotz-app .field-affix--right { right: .6rem; }
-/* Encontrado en el QA visual de este lote: el mismo leak de venta-page-wizard.css
-   documentado arriba (`#venta-create-page input[type="text"]`, ID + atributo) también
-   le gana a los utilitarios pl-8/pl-6/pr-6 que reservan el hueco del ícono de búsqueda
-   y de los signos "$"/"%" — dentro del wizard el ícono quedaba encima de la primera
-   letra del placeholder ("⌕uscar producto…") y el "$" pegado al valor del Anticipo.
-   Sólo se veía embebido en Venta/Create, no en Cotizacion/Index standalone. */
-.cotz-app .field.pl-8 { padding-left: 2rem !important; }
-.cotz-app .field.pl-6 { padding-left: 1.5rem !important; }
-.cotz-app .field.pr-6 { padding-right: 1.5rem !important; }
+.cotz-app textarea.field:focus { border-color: var(--cz-accent) !important; box-shadow: 0 0 0 3px rgba(91, 141, 239, .16) !important; }
+/* Buscadores: 14px y radio 10 (mockup). */
+.cotz-app #cotizacion-producto-buscar.field,
+.cotz-app #cotizacion-cliente-buscar.field {
+    font-size: 14px !important; border-radius: 10px !important;
+    padding-top: 12px !important; padding-bottom: 12px !important;
+}
+/* `#venta-create-page .label` (color #aab7c8, 800, tracking .08em) es otro leak por id: se neutraliza. */
+.cotz-app .label { display: block; font-size: 11px !important; font-weight: 700 !important; letter-spacing: .4px !important; text-transform: uppercase; color: var(--cz-text-4) !important; margin-bottom: 6px !important; }
+.cotz-app .field-affix { position: absolute; top: 50%; transform: translateY(-50%); color: var(--cz-text-4); font-size: 13px; pointer-events: none; }
+.cotz-app .field-affix--left { left: 12px; }
+.cotz-app .field-affix--right { right: 12px; }
+/* Los utilitarios de padding con ícono/signo pierden contra el leak de arriba (ID). */
+.cotz-app .field.pl-8 { padding-left: 40px !important; }
+.cotz-app .field.pl-6 { padding-left: 26px !important; }
+.cotz-app .field.pr-6 { padding-right: 30px !important; }
 
-/* ---------- Buttons (§17: 3 niveles, nunca 4 colores primarios a la vez) ---------- */
-.cotz-app .btn { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; padding: .5rem .85rem; border-radius: 9px; font-size: .82rem; font-weight: 600; transition: all .15s; min-height: 38px; cursor: pointer; border: 1px solid transparent; white-space: nowrap; }
+/* ---------- Buttons ---------- */
+.cotz-app .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 0 18px; border-radius: 10px !important; font-size: 13px; font-weight: 700; font-family: inherit;
+    transition: background .15s, border-color .15s, color .15s, filter .15s;
+    height: 40px; min-height: 40px !important; cursor: pointer; border: 1px solid transparent; white-space: nowrap;
+}
 .cotz-app .btn:disabled { cursor: not-allowed; }
-/* Primaria (Simular/Actualizar · Continuar con esta opción). */
-.cotz-app .btn-primary { background: #2563eb; color: #fff; }
-.cotz-app .btn-primary:hover:not(:disabled) { background: #1d4ed8; }
-/* Deshabilitada = neutra, nunca una versión atenuada del color de éxito: un
-   sólido al 40% de opacidad sigue leyéndose como "acción disponible" (§10). */
-.cotz-app .btn-primary:disabled { background: #18233a; color: #56637a; border-color: #232f45; }
-/* Secundaria (Guardar cotización, Agregar). */
-.cotz-app .btn-soft { background: #18233a; color: #cbd5e1; border-color: #26344c; }
-.cotz-app .btn-soft:hover:not(:disabled) { background: #213050; color: #fff; }
-.cotz-app .btn-soft:disabled { color: #56637a; border-color: #232f45; }
-.cotz-app .btn-ghost { background: transparent; color: #cbd5e1; border-color: #2b3a52; }
-.cotz-app .btn-ghost:hover { background: #1a2435; color: #fff; }
-.cotz-app .btn-amber { background: #d97706; color: #fff; }
-.cotz-app .btn-amber:hover:not(:disabled) { background: #b45309; }
-.cotz-app .btn-xs { padding: .28rem .55rem; min-height: 30px; font-size: .72rem; border-radius: 8px; }
-.cotz-app .icon-btn { width: 30px; height: 30px; min-height: 0; padding: 0; border-radius: 8px; }
-/* §16, medido en vivo: la barra contextual de Cotización ocupaba 64px para una
-   sola línea de texto. La causa es el mismo leak por ID ya documentado arriba —
-   `#venta-create-page .btn { min-height: 2.55rem }` (1 id + 1 clase) le gana a
-   `.cotz-app .btn-xs` (2 clases), así que "Ver guardadas" se renderizaba a 41px
-   dentro del wizard y a 30px en el host standalone. Neutralizarlo devuelve ~26px
-   de alto a la workstation sin tocar ningún botón de Venta. */
-.cotz-app .btn-xs { min-height: 30px !important; }
-.cotz-app .icon-btn { min-height: 0 !important; }
+/* Primaria (Simular/Actualizar · Agregar · Confirmar). */
+.cotz-app .btn-primary { background: var(--cz-accent); color: #fff; font-weight: 800; }
+.cotz-app .btn-primary:hover:not(:disabled) { background: var(--cz-accent-hover); }
+/* Deshabilitada = neutra, nunca una versión atenuada del acento: un sólido al 40% de
+   opacidad sigue leyéndose como "acción disponible". */
+.cotz-app .btn-primary:disabled { background: var(--cz-s2); color: var(--cz-text-4); border-color: var(--cz-line); }
+/* Secundaria (Guardar cotización, Continuar con wizard, Ver guardadas). */
+.cotz-app .btn-soft { background: var(--cz-s2); color: var(--cz-text); border-color: var(--cz-line); }
+.cotz-app .btn-soft:hover:not(:disabled) { background: var(--cz-s3); border-color: var(--cz-line-2); }
+.cotz-app .btn-soft:disabled { color: var(--cz-text-4); }
+.cotz-app .btn-ghost { background: var(--cz-s2); color: var(--cz-text-2); border-color: var(--cz-line); }
+.cotz-app .btn-ghost:hover { background: var(--cz-s3); color: var(--cz-text); }
+.cotz-app .btn-amber { background: #b45309; color: #fff; }
+.cotz-app .btn-amber:hover:not(:disabled) { background: #92400e; }
+.cotz-app .btn-sm { height: 36px; min-height: 36px !important; padding: 0 16px; }
+.cotz-app .btn-xs { height: 30px; min-height: 30px !important; padding: 0 12px; font-size: 12px; border-radius: 8px !important; }
+.cotz-app .icon-btn { width: 30px; height: 30px; min-height: 0 !important; padding: 0; border-radius: 8px !important; }
 
-/* ---------- Pills / chips ---------- */
-.cotz-app .pill { display: inline-flex; align-items: center; gap: .25rem; padding: .12rem .45rem; border-radius: 999px; font-size: .66rem; font-weight: 600; border: 1px solid transparent; white-space: nowrap; }
-.cotz-app .pill-green { background: rgba(16,185,129,.12); color: #34d399; border-color: rgba(16,185,129,.28); }
-.cotz-app .pill-amber { background: rgba(245,158,11,.12); color: #fbbf24; border-color: rgba(245,158,11,.28); }
-.cotz-app .pill-red { background: rgba(239,68,68,.12); color: #f87171; border-color: rgba(239,68,68,.28); }
-.cotz-app .pill-blue { background: rgba(59,130,246,.12); color: #60a5fa; border-color: rgba(59,130,246,.28); }
-.cotz-app .pill-slate { background: rgba(148,163,184,.1); color: #cbd5e1; border-color: rgba(148,163,184,.2); }
+/* ---------- Pills ---------- */
+.cotz-app .pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; font-size: 11.5px; font-weight: 700; border: 0; white-space: nowrap; line-height: 1.2; }
+.cotz-app .pill .material-symbols-outlined { font-size: 12px !important; }
+.cotz-app .pill-green { background: var(--cz-green-bg); color: var(--cz-green); }
+.cotz-app .pill-amber { background: var(--cz-amber-bg); color: var(--cz-amber); }
+.cotz-app .pill-red { background: var(--cz-red-bg); color: var(--cz-red); }
+.cotz-app .pill-blue { background: var(--cz-accent-soft); color: var(--cz-accent); }
+.cotz-app .pill-slate { background: var(--cz-s3); color: var(--cz-text-3); box-shadow: inset 0 0 0 1px var(--cz-line-2); }
+/* Dentro de la tabla las pills son más chicas (11px / 10.5px del mockup). */
+.cotz-app .rtable .pill { padding: 4px 10px; font-size: 11px; }
+.cotz-app .rtable .plan-medio .pill,
+.cotz-app .rtable .rmedio .pill { padding: 2px 8px; font-size: 10.5px; font-weight: 800; }
 
-/* ---------- Filtro de medios (desplegable, §3) ----------
-   Antes era una banda permanente de 6 chips sobre el comparador: ruido fijo para
-   una acción ocasional, justo en la zona donde el ojo tiene que empezar a
-   comparar. Mismos checkboxes y mismos data-cotizacion-medio. */
+/* ---------- Filtro de medios (desplegable) ---------- */
 .cotz-app .medios-filtro { position: relative; flex-shrink: 0; }
+.cotz-app .medios-filtro > summary {
+    display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 14px;
+    background: var(--cz-s2); border: 1px solid var(--cz-line); border-radius: 9px;
+    color: var(--cz-text-2); font-size: 12.5px; font-weight: 700; cursor: pointer;
+}
+.cotz-app .medios-filtro > summary:hover { background: var(--cz-s3); color: var(--cz-text); }
 .cotz-app .medios-filtro__body {
     position: absolute; right: 0; top: calc(100% + .35rem); z-index: 20;
     display: flex; flex-wrap: wrap; gap: .35rem; width: max-content; max-width: 19rem;
-    background: #0f172a; border: 1px solid #243044; border-radius: 10px; padding: .5rem;
+    background: var(--cz-s2); border: 1px solid var(--cz-line-2); border-radius: 10px; padding: .5rem;
     box-shadow: 0 18px 50px rgba(0,0,0,.45);
 }
-.cotz-app .medio-chip { position: relative; display: inline-flex; align-items: center; gap: .35rem; padding: .22rem .55rem; border-radius: 999px; font-size: .72rem; font-weight: 500; cursor: pointer; border: 1px solid #26344c; background: #131e30; color: #93a2b8; transition: all .14s; user-select: none; }
-.cotz-app .medio-chip:has(input:checked) { background: rgba(59,130,246,.12); border-color: rgba(59,130,246,.45); color: #dbe7fb; }
+.cotz-app .medio-chip { position: relative; display: inline-flex; align-items: center; gap: .35rem; padding: .22rem .6rem; border-radius: 999px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid var(--cz-line-2); background: var(--cz-s1); color: var(--cz-text-3); transition: all .14s; user-select: none; }
+.cotz-app .medio-chip:has(input:checked) { background: var(--cz-accent-soft); border-color: rgba(91,141,239,.45); color: var(--cz-text); }
 .cotz-app .medio-chip input { position: absolute; opacity: 0; pointer-events: none; }
 
-/* ---------- Cart rows (producto agregado, §5/§6) ----------
-   Es el CONTENIDO de la sección Productos, no un control: vive en el nivel 2 de la
-   escala, por encima del panel que lo contiene y muy por encima de los inputs
-   (nivel hundido). Antes estaba en #0f172a — por debajo del panel y a 3 puntos de
-   RGB del buscador — y por eso "se mezclaba con el fondo". */
-.cotz-app .cart-row {
-    border: 1px solid var(--cz-line-2); background: var(--cz-s2); border-radius: 10px;
-    padding: .5rem .6rem; display: flex; flex-direction: column; gap: .4rem;
-    transition: background .14s, border-color .14s;
-}
-/* §6: con varios productos, cada uno responde al puntero — la separación entre
-   ellos deja de depender sólo del gap. */
-.cotz-app .cart-row:hover { background: var(--cz-s3); border-color: var(--cz-line-3); }
-/* §5: el nombre es el dato principal de la fila; ID/código son metadata. */
-.cotz-app .cart-row__nombre { font-size: .84rem; font-weight: 600; color: #fff; line-height: 1.25; }
-.cotz-app .cart-row__meta { font-size: .66rem; color: #7c8aa3; font-family: 'JetBrains Mono', monospace; }
-.cotz-app .cart-row__precio { font-size: .8rem; }
-/* §5: "control de eliminar discreto" — sin caja ni borde propios (era un
-   .btn.btn-ghost, la misma gramática visual que una acción real de la pantalla).
-   Se mantiene visible siempre (no sólo en hover) para no depender del puntero:
-   en touch no hay hover y quitar un producto tiene que seguir siendo alcanzable. */
-.cotz-app .cart-row__quitar {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 24px; height: 24px; border-radius: 6px;
-    background: transparent; border: 0; color: #64748b; cursor: pointer;
-    transition: color .14s, background .14s;
-}
-.cotz-app .cart-row__quitar:hover { background: rgba(239,68,68,.12); color: #f87171; }
-.cotz-app .mini { background: transparent; border: 0; border-bottom: 1px solid var(--cz-line-2); border-radius: 0; color: #e2e8f0; font-size: .76rem; padding: .18rem .1rem; text-align: right; font-family: 'JetBrains Mono', monospace; }
-.cotz-app .mini:focus { outline: none; border-color: #3b82f6; }
-.cotz-app .qty-step { display: inline-flex; align-items: center; border: 1px solid #1e2a3d; border-radius: 8px; overflow: hidden; background: transparent; }
-.cotz-app .qty-step button { width: 26px; height: 28px; color: #94a3b8; font-size: 14px; display: flex; align-items: center; justify-content: center; background: transparent; border: 0; cursor: pointer; }
-.cotz-app .qty-step button:hover { background: #1a2435; color: #fff; }
-.cotz-app .qty-step input { width: 34px; text-align: center; background: transparent; border: 0; color: #fff; font-size: .8rem; font-family: 'JetBrains Mono', monospace; }
-.cotz-app .qty-step input:focus { outline: none; }
-/* Mismo leak cruzado ya documentado arriba para .field/.total-display/.btn-xs:
-   `#venta-create-page input[type="number"]` (ID + atributo) le gana por
-   especificidad a `.cotz-app .qty-step input` (dos clases) y fuerza width:100% +
-   padding/border/background propios en el input de cantidad del producto
-   agregado. Encontrado midiendo en vivo a 1280×720 (container real de 886px,
-   banda "auto 1fr 1fr"): el stepper pasaba de ~86px a 285px, empujando
-   Dto. %/Dto. $ a 44px cada uno — demasiado angosto para el spinner nativo del
-   navegador, que se renderizaba roto (parecía un "(" en vez de "0"). Neutralizar
-   sólo el ancho no alcanza: el padding heredado (0.5rem 0.75rem = 24px
-   horizontales) no deja lugar para el dígito dentro de 34px, y quedaba
-   invisible. Sólo reproducible embebido en Venta/Create; standalone no tiene el
-   leak. */
-.cotz-app .qty-step input {
-    width: 34px !important;
-    min-height: 0 !important;
-    padding: 0 !important;
-    border: 0 !important;
-    border-radius: 0 !important;
-    background: transparent !important;
-    font-size: .8rem !important;
-}
-/* La 1ª columna toma el ancho natural del stepper (~86px) y las dos siguientes se
-   reparten el resto: en tercios iguales el stepper desborda el rail angosto. */
-.cotz-app .cart-row-inputs { display: grid; grid-template-columns: auto 1fr 1fr; gap: .4rem; align-items: end; }
-/* Rail de Productos angosto: el stepper ocupa ~90px fijos, así que por debajo de
-   ~52rem de contenedor (mobile apilado 286-316px, y también la banda de 2 columnas
-   de 1024/768px, donde cada columna queda en ~310-325px) los dos descuentos se
-   quedan con ~60px cada uno: las etiquetas "Dto. %"/"Dto. $" partían en dos líneas
-   y los inputs quedaban inusables. El stepper pasa a su propia fila y los dos
-   descuentos se reparten la siguiente. Umbral sobre el CONTENEDOR (.cotz-app), que
-   es lo que miden los @container de este archivo — no sobre el ancho de la fila. */
-@container (max-width: 52rem) {
-    .cotz-app .cart-row-inputs { grid-template-columns: 1fr 1fr; }
-    .cotz-app .cart-row-inputs > .qty-step { grid-column: 1 / -1; justify-self: start; }
-}
-/* Subtotal en fila propia a ancho completo: compartiendo grilla con Dto.%/Dto.$
-   el importe quedaba recortado en el rail angosto. */
-.cotz-app .cart-row-subtotal { display: flex; align-items: center; justify-content: space-between; padding-top: .35rem; border-top: 1px solid var(--cz-line-2); }
-
-/* ---------- Franja de Totales + CTA (§8/§9) ----------
-   Es el puente entre configurar y comparar, y por eso aloja la única acción
-   primaria de la etapa (Simular / Actualizar cotización). Fila simple con
-   divisores — no se envuelve en otro .panel: es un dato de sólo lectura más un
-   botón, no una sección. */
-/* COTIZACION-WORKSTATION-02 (§13): como puente entre configuración y resultados
-   la franja tiene que pesar MÁS que un panel cualquiera, y antes usaba
-   exactamente el mismo fondo y el mismo borde que .panel — se leía como "una fila
-   más". Ahora sube al nivel 2 con borde reforzado; es la única superficie de la
-   pantalla con degradado, que es justamente lo que la marca como transición. */
+/* ---------- Franja de Totales + CTA ----------
+   Cinco datos en una card con divisores + la única acción primaria de la etapa
+   (Simular / Actualizar cotización). Antes de simular los valores quedan en "—". */
 .cotz-app .totales-bar {
-    display: flex; flex-wrap: wrap; align-items: center; gap: .6rem 1.25rem;
-    padding: .65rem .9rem; border-radius: 12px;
-    background: linear-gradient(180deg, var(--cz-s2), #151d30);
-    border: 1px solid var(--cz-line-2);
-    box-shadow: 0 1px 3px rgba(0,0,0,.45);
+    display: flex; flex-wrap: nowrap; align-items: center; gap: 0;
+    padding: 18px 24px; border-radius: 14px;
+    background: var(--cz-s1); border: 1px solid var(--cz-line); box-shadow: none;
 }
-.cotz-app .totales-bar__stats {
-    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .9rem;
-    flex: 1 1 20rem; min-width: 0;
-}
-/* El divisor vertical separa "lo que configuré" de "la acción que lo convierte en
-   resultados" sin agregar otra caja. Se retira al apilar (banda angosta). */
-.cotz-app .totales-bar__cta {
-    margin-left: auto; display: flex; flex-direction: column; gap: .2rem; flex: 0 0 auto;
-    padding-left: 1.1rem; border-left: 1px solid var(--cz-line-2);
-}
-.cotz-app .totales-bar__cta .btn { min-width: 12.5rem; }
-/* Stat de sólo lectura: acento lateral, no caja cerrada — con fondo + borde en
-   las 4 caras compartía el lenguaje visual de .field (input editable) y se leía
-   como un campo enfocable. */
-.cotz-app .seg { border-left: 3px solid #35455f; padding: .05rem 0 .05rem .6rem; min-width: 0; }
-.cotz-app .seg.seg-accent { border-left-color: var(--cz-accent); }
-.cotz-app .seg-label { font-size: .6rem; text-transform: uppercase; letter-spacing: .05em; color: #8b99ae; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* §13: los tres valores son el dato que sostiene la decisión — suben de tamaño,
-   no bajan (el pedido prohíbe achicar importes). */
-.cotz-app .seg-value { font-size: 1.02rem; font-weight: 600; line-height: 1.25; }
-.cotz-app .seg.seg-accent .seg-label { color: rgba(147,197,253,.8); }
-
-/* Antes de la primera simulación exitosa (o tras invalidarse por un cambio de
-   producto/cliente/condiciones) los 3 valores quedan en "—" y la franja se
-   neutraliza: ningún cálculo cambia, sólo deja de mostrar un "$0,00" que
-   contradecía el subtotal real ya visible en Productos. El acento azul de "Total
-   base" también se neutraliza para no resaltar un valor que todavía no es el
-   resultado real. Alterna vía renderResultado()/invalidarSimulacion(). */
+.cotz-app .totales-bar__stats { display: flex; flex: 1 1 auto; min-width: 0; }
+.cotz-app .totales-bar__cta { margin-left: 0; display: flex; flex-direction: column; gap: 4px; flex: 0 0 auto; padding: 0; border: 0; }
+.cotz-app .totales-bar__cta .btn { height: 44px; min-height: 44px !important; padding: 0 20px; font-size: 13.5px; gap: 9px; }
+.cotz-app .seg { flex: 1 1 0; min-width: 0; padding: 0 20px; border: 0; border-right: 1px solid var(--cz-line-3); }
+.cotz-app .seg:first-child { padding-left: 0; }
+.cotz-app .seg:last-child { border-right: 0; }
+.cotz-app .seg-label { font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px; color: var(--cz-text-4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cotz-app .seg-value { margin-top: 4px; font-size: 17px; font-weight: 800; line-height: 1.25; color: var(--cz-text); }
+.cotz-app .seg.seg-accent .seg-label { color: var(--cz-accent); }
+.cotz-app .seg.seg-accent .seg-value { font-size: 18px; }
+/* Antes de la primera simulación (o tras invalidarse) los valores quedan en "—" y la
+   franja se neutraliza. Alterna vía renderResultado()/invalidarSimulacion(). */
 .cotz-app .totales-bar.is-pendiente .seg { opacity: .55; }
-.cotz-app .totales-bar.is-pendiente .seg.seg-accent { border-left-color: #1c2840; }
-.cotz-app .totales-bar.is-pendiente .seg.seg-accent .seg-label { color: #64748b; }
+.cotz-app .totales-bar.is-pendiente .seg.seg-accent .seg-label { color: var(--cz-text-4); }
 
 /* Hint contextual del CTA: sólo aparece para pending/error (setQuoteState). */
 .cotz-app #cotizacion-simular-estado {
-    font-size: .66rem; display: flex; align-items: center; justify-content: center; gap: .25rem;
+    font-size: 12px; display: flex; align-items: center; justify-content: center; gap: .25rem; margin-top: 0 !important;
 }
 
-/* ---------- Comparador de alternativas (§11-§15) ----------
-   El núcleo de la pantalla: tiene que leerse como una herramienta de decisión,
-   no como un volcado tabular. La jerarquía la dan el peso del medio (fila padre),
-   la indentación de los planes (filas hijas) y una columna de acción explícita —
-   antes la única forma de elegir era hacer click en cualquier parte de la fila,
-   sin affordance visible. */
-.cotz-app .rtable { width: 100%; border-collapse: separate; border-spacing: 0; font-size: .8rem; }
-.cotz-app .rtable thead th { text-align: left; font-size: .6rem; text-transform: uppercase; letter-spacing: .05em; color: #8b99ae; font-weight: 600; padding: .4rem .6rem; position: sticky; top: 0; z-index: 1; background: var(--cz-s1); border-bottom: 1px solid var(--cz-line-2); }
+/* ---------- Comparador de alternativas ----------
+   Núcleo de la pantalla. Cada medio de pago es un bloque redondeado con su cabecera;
+   las alternativas (planes) cuelgan de ella. Misma <table>/<tr>/<td> y mismos hooks
+   que siempre (data-cotizacion-row-key, data-g, aria-expanded): en ≥38rem las filas
+   pasan a ser una grilla CSS (mockup); por debajo rige el reflow flex de más abajo. */
+.cotz-app .rtable { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
+.cotz-app .rtable thead th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: .5px; color: var(--cz-text-4); font-weight: 800; padding: .4rem .6rem; background: transparent; border-bottom: 1px solid var(--cz-line-3); }
 .cotz-app .rtable thead th.r, .cotz-app .rtable td.r { text-align: right; }
-.cotz-app .rtable td { padding: .4rem .6rem; border-bottom: 1px solid #16202f; vertical-align: middle; }
+.cotz-app .rtable td { padding: .5rem .6rem; border-bottom: 1px solid var(--cz-line-3); vertical-align: middle; }
 .cotz-app .rtable tbody tr { transition: background .12s; }
 
-/* COTIZACION-WORKSTATION-02 (§11/§12): el nivel de elevación de la fila ES su
-   nivel jerárquico. Toda alternativa de primer nivel (un medio de pago, tenga
-   planes o no) sube al nivel 2 y se lee como una opción completa con identidad
-   propia; los planes hijos vuelven al nivel del panel, subordinados. Antes las
-   filas padre estaban en #0e1726 —por DEBAJO del panel— y las filas de medio sin
-   planes (Efectivo, Transferencia…) no tenían fondo alguno: todas se leían con el
-   mismo peso, que es lo que hacía parecer esto una tabla cruda. */
-.cotz-app .rtable tbody tr:not(.detail) > td { background: var(--cz-s2); border-top: 1px solid var(--cz-line-2); }
-/* `:not(.selected)` no es defensivo por costumbre: sin él este selector suma más
-   clases que la regla de fila elegida y el hover le borraría el acento azul. */
+.cotz-app .rtable tbody tr:not(.detail) > td { background: var(--cz-s2); }
+.cotz-app .rtable tbody tr.detail > td { background: transparent; }
 .cotz-app .rtable tbody tr:not(.detail):not(.off):not(.selected):hover > td { background: var(--cz-s3); }
 
 /* Fila padre (medio con planes): además es el disparador del grupo. */
 .cotz-app .rtable tr.parent { cursor: pointer; }
-.cotz-app .rtable .twist { font-size: 16px; color: #93a2b8; transition: transform .2s; margin-left: .15rem; }
-.cotz-app .rtable tr.parent[aria-expanded="true"] .twist { transform: rotate(180deg); color: #93c5fd; }
+.cotz-app .rtable .twist { font-size: 14px !important; color: var(--cz-text-3); transition: transform .2s; }
+.cotz-app .rtable tr.parent[aria-expanded="false"] .twist { transform: rotate(-90deg); }
 
-/* Filas hijas (planes): menor peso, recesadas respecto de su padre, indentadas. */
-.cotz-app .rtable tr.detail > td { background: var(--cz-s1); border-bottom: 1px solid #131f2e; font-size: .78rem; padding-top: .3rem; padding-bottom: .3rem; }
-.cotz-app .rtable tr.detail:hover > td { background: #182238; }
-.cotz-app .rtable tr.detail.cheap > td:first-child { box-shadow: inset 3px 0 0 #10b981; }
-.cotz-app .plan-medio { display: flex; align-items: center; gap: .5rem; padding-left: 1.85rem; }
+.cotz-app .rtable tr.detail.cheap > td:first-child { box-shadow: inset 3px 0 0 var(--cz-green-bar); }
+.cotz-app .plan-medio { display: flex; align-items: center; flex-wrap: wrap; gap: 2px 8px; min-width: 0; }
 
-/* Fila única de un medio sin planes: mantiene la identidad de alternativa (mismo
-   nivel que las demás) pero no es clickeable ni elegible — sólo se atenúa. */
-.cotz-app .rtable tr.off { cursor: default; color: #64748b; }
-.cotz-app .rtable tr.off > td { opacity: .72; }
+/* Fila única de un medio sin planes: mantiene la identidad de alternativa pero no es
+   clickeable ni elegible — sólo se atenúa. */
+.cotz-app .rtable tr.off { cursor: default; color: var(--cz-text-3); }
+.cotz-app .rtable tr.off > td { opacity: .8; }
 
-/* Mejor precio / seleccionada (§12/§15): acento, nunca un bloque gigante — pero
-   evidente en un segundo. La seleccionada va después de todo lo demás para ganar
-   sin recurrir a !important, y suma borde de acento arriba y abajo para que el
-   recorrido de la fila completa quede cerrado. */
-.cotz-app .rtable tr.best > td { background: rgba(16,185,129,.08); }
-.cotz-app .rtable tr.best:hover > td { background: rgba(16,185,129,.13); }
+/* Seleccionada: velo de acento + botón "Seleccionado" + barra lateral (verde si además
+   es la más barata; de acento si no). Va después de todo lo demás para ganar sin !important. */
 .cotz-app .rtable tbody tr.selected > td,
-.cotz-app .rtable tbody tr.selected:hover > td {
-    background: var(--cz-sel);
-    border-top-color: rgba(59,130,246,.45);
-    border-bottom-color: rgba(59,130,246,.45);
-}
+.cotz-app .rtable tbody tr.selected:hover > td { background: var(--cz-sel); }
 .cotz-app .rtable tbody tr.selected > td:first-child { box-shadow: inset 3px 0 0 var(--cz-accent); }
+.cotz-app .rtable tbody tr.selected.cheap > td:first-child,
+.cotz-app .rtable tbody tr.selected.best > td:first-child { box-shadow: inset 3px 0 0 var(--cz-green-bar); }
 
-.cotz-app .rmedio { display: flex; align-items: center; gap: .5rem; }
-.cotz-app .rmedio .pay-ico { width: 26px; height: 26px; }
+.cotz-app .rmedio { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.cotz-app .rmedio .twist { order: -1; }
+/* Filas de un solo medio: un separador de 12px alinea sus íconos con los de los grupos. */
+.cotz-app .rmedio:not(:has(.twist))::before { content: ""; flex: 0 0 12px; }
+.cotz-app .rmedio-nombre { font-size: 13.5px; font-weight: 800; color: var(--cz-text); }
 /* Los nombres de medio/plan vienen de la configuración real de la base
-   (`nombreMedioPago`, editable por el administrador) y hoy están cargados en
-   minúscula ("efectivo", "tarjeta credito"). Capitalizar la inicial es puramente
-   presentacional: no reescribe el dato ni lo reemplaza por el nombre del enum,
-   que descartaría el nombre configurado por el administrador.
-   `::first-letter` sólo aplica a contenedores de bloque, así que los <span>
-   afectados pasan a inline-block (no cambia su posición en el flujo). */
+   (`nombreMedioPago`, editable) y hoy están en minúscula: capitalizar la inicial es
+   puramente presentacional. `::first-letter` sólo aplica a bloques, así que los
+   <span> afectados pasan a inline-block. */
 .cotz-app .rmedio-nombre,
 .cotz-app .plan-nombre,
+.cotz-app .cap-first,
 .cotz-app .seleccion-resumen__valor strong { display: inline-block; }
 .cotz-app .rmedio-nombre::first-letter,
 .cotz-app .plan-nombre::first-letter,
+.cotz-app .cap-first::first-letter,
 .cotz-app .seleccion-resumen__valor strong::first-letter { text-transform: uppercase; }
-/* Motivo de aptitud en la fila de Crédito personal: la comparación dice la razón
-   real de negocio (cupo/mora/documentación), no un "sin planes" genérico. */
-.cotz-app .rmedio-aptitud { font-size: .69rem; }
-.cotz-app .rmedio-aptitud--no-apto { color: #f87171; }
-.cotz-app .rmedio-aptitud--apto { color: #34d399; }
-.cotz-app .rmedio-aptitud--requiere-autorizacion { color: #fbbf24; }
+.cotz-app .plan-nombre { font-size: 13px; font-weight: 600; color: var(--cz-text-2); white-space: nowrap; }
+/* Sub-línea del medio (fuente de la tasa, cupo vs. solicitado). */
+.cotz-app .rmedio-sub { font-size: 11.5px; color: var(--cz-text-4); margin-top: 1px; font-weight: 500; }
+.cotz-app .rmedio-aptitud { font-size: 12px; color: var(--cz-text-4); }
+.cotz-app .rmedio-aptitud--no-apto,
+.cotz-app .rmedio-aptitud--apto,
+.cotz-app .rmedio-aptitud--requiere-autorizacion { color: var(--cz-text-4); }
+.cotz-app .rt-nota { font-size: 12px; color: var(--cz-text-4); }
+.cotz-app .rt-motivo { font-size: 12px; color: var(--cz-text-3); }
+/* Cifras de la tabla: total 13.5px/800, cuota 13px/500 en gris claro, "—" apagado (mockup). */
+.cotz-app .rtable .total-display { font-weight: 800; }
+.cotz-app .rtable td.r > .total-display,
+.cotz-app .rtable td.r > .font-semibold { font-size: 13.5px; }
+.cotz-app .rtable td.rt-cuota { font-size: 13px; font-weight: 500 !important; color: var(--cz-text-2) !important; }
+.cotz-app .rtable td.rt-cuota.is-empty { color: var(--cz-text-4) !important; }
+.cotz-app .rtable td.rt-desde { font-size: 13px; color: var(--cz-text-2); white-space: nowrap; }
+.cotz-app .rtable td.r { white-space: nowrap; }
+.cotz-app .rtable td.rt-desde .total-display { font-size: 13.5px; }
+.cotz-app .rt-plan,
+.cotz-app td.rt-plan { color: var(--cz-text-3); }
 
-/* Columna ACCIÓN: affordance explícita por alternativa (§11/§15). */
+/* Columna ACCIÓN. */
 .cotz-app .rt-accion { width: 1%; white-space: nowrap; }
 .cotz-app .rt-btn {
-    display: inline-flex; align-items: center; justify-content: center; gap: .25rem;
-    min-height: 26px; padding: .18rem .6rem; border-radius: 7px;
-    font-size: .7rem; font-weight: 600; cursor: pointer;
-    background: #18233a; color: #cbd5e1; border: 1px solid #26344c; transition: all .14s;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    height: 32px; padding: 0 14px; border-radius: 8px; font-family: inherit;
+    font-size: 12px; font-weight: 700; cursor: pointer;
+    background: var(--cz-s2); color: var(--cz-text-2); border: 1px solid var(--cz-line-2); transition: all .14s;
 }
-.cotz-app .rt-btn:hover { background: #213050; color: #fff; }
-.cotz-app .rt-btn--on { background: rgba(59,130,246,.18); border-color: rgba(59,130,246,.55); color: #bfdbfe; cursor: default; }
-.cotz-app .rt-btn--ghost { background: transparent; border-color: #2b3a52; color: #93a2b8; }
-.cotz-app .rt-btn--ghost:hover { background: #1a2435; color: #e2e8f0; }
+.cotz-app .rt-btn:hover { background: var(--cz-s3); color: var(--cz-text); }
+.cotz-app .rt-btn .material-symbols-outlined { font-size: 12px !important; }
+.cotz-app .rt-btn--on { background: var(--cz-accent); border-color: var(--cz-accent); color: #fff; font-weight: 800; cursor: default; }
+.cotz-app .rt-btn--on:hover { background: var(--cz-accent); color: #fff; }
+/* Cabecera de grupo ("Ver planes", "Ver situación"): fondo de la card, no del bloque. */
+.cotz-app .rt-btn--ghost { background: var(--cz-s1); border-color: var(--cz-line-2); color: var(--cz-text-2); }
+.cotz-app .rt-btn--ghost:hover { background: var(--cz-s3); color: var(--cz-text); }
+/* Requiere autorización / excepción: dice explícitamente lo que hace (no es un "Elegir"). */
+.cotz-app .rt-btn--warn { background: var(--cz-amber-bg); border-color: var(--cz-amber-line); color: var(--cz-amber); }
+.cotz-app .rt-btn--warn:hover { background: #33290f; color: var(--cz-amber); }
+/* No apto: sin affordance de selección — este texto deja explícito que no hay acción. */
+.cotz-app .rt-accion-bloqueada { font-size: 12px; color: var(--cz-text-4); white-space: nowrap; }
 
-.cotz-app .total-display { font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+/* ---------- Barra de selección + Continuar ----------
+   Card propia debajo del comparador (mockup): qué se eligió, y las tres acciones que
+   siguen con jerarquía explícita (Guardar y Continuar con wizard secundarias,
+   Confirmar Mi Venta primaria). */
+.cotz-app .seleccion-bar {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 16px;
+    background: var(--cz-s1); border: 1px solid var(--cz-line); border-radius: 14px; padding: 16px 24px;
+}
+.cotz-app .panel-foot { padding: 16px 24px; border-top: 0; }
+.cotz-app .seleccion-resumen { min-width: 0; flex: 1 1 14rem; display: flex; flex-direction: column; gap: 3px; }
+.cotz-app .seleccion-resumen__label { font-size: 11.5px; text-transform: uppercase; letter-spacing: .5px; color: var(--cz-text-4); font-weight: 800; }
+.cotz-app .seleccion-resumen__label--ok { color: var(--cz-green); }
+.cotz-app .seleccion-resumen__valor { font-size: 12.5px; color: var(--cz-text-2); line-height: 1.45; }
+.cotz-app .seleccion-resumen__valor strong { color: var(--cz-text); font-weight: 700; }
+.cotz-app .seleccion-acciones { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.cotz-app .seleccion-acciones .btn { height: 40px; }
+.cotz-app .seleccion-acciones .btn-primary { padding: 0 20px; }
 
-/* ---------- Barra de selección + Continuar (§16) ----------
-   Cierre del flujo: qué se eligió, y las dos acciones que siguen con jerarquía
-   explícita (Guardar secundaria, Continuar primaria). Antes Guardar era una barra
-   a ancho completo con el color de éxito y era además la única acción, aunque
-   hiciera dos cosas distintas (persistir y convertir). */
-.cotz-app .seleccion-bar { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem .9rem; }
-/* §15/§23: el pie de Resultados es donde termina el flujo, así que se distingue
-   del cuerpo de la tabla en vez de ser otra fila del mismo tono. */
-.cotz-app .panel-foot.seleccion-bar { background: rgba(2, 6, 23, .4); border-radius: 0 0 13px 13px; }
-.cotz-app .seleccion-resumen { min-width: 0; flex: 1 1 14rem; display: flex; flex-direction: column; gap: .05rem; }
-.cotz-app .seleccion-resumen__label { font-size: .6rem; text-transform: uppercase; letter-spacing: .05em; color: #8b99ae; font-weight: 700; }
-.cotz-app .seleccion-resumen__valor { font-size: .82rem; color: #cbd5e1; }
-.cotz-app .seleccion-resumen__valor strong { color: #fff; font-weight: 600; }
-.cotz-app .seleccion-acciones { margin-left: auto; display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+/* Bloque de bloqueo del preflight — flex-basis:100% fuerza su propia fila dentro de
+   .seleccion-bar, entre el resumen y las acciones. */
+.cotz-app .cotz-bloqueos { flex: 1 1 100%; border: 1px solid rgba(248, 113, 113, .28); background: rgba(248, 113, 113, .08); border-radius: 10px; padding: .6rem .75rem; }
+.cotz-app .cotz-bloqueos__title { display: flex; align-items: center; gap: .35rem; font-size: 12px; font-weight: 700; color: #fca5a5; text-transform: uppercase; letter-spacing: .04em; }
+.cotz-app .cotz-bloqueos__lista { margin: .45rem 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: .35rem; }
+.cotz-app .cotz-bloqueos__item { display: flex; align-items: center; justify-content: space-between; gap: .6rem; font-size: 12px; color: var(--cz-text); }
+.cotz-app .cotz-bloqueos__item button, .cotz-app .cotz-bloqueos__item a { flex-shrink: 0; }
 
-/* ---------- Payment icons (badges por medio) ---------- */
-.cotz-app .pay-ico { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: 1px solid transparent; }
-.cotz-app .pay-ico--emerald { background: rgba(16,185,129,.12); border-color: rgba(16,185,129,.3); }
-.cotz-app .pay-ico--emerald .material-symbols-outlined { color: #34d399; }
-.cotz-app .pay-ico--blue { background: rgba(59,130,246,.12); border-color: rgba(59,130,246,.3); }
-.cotz-app .pay-ico--blue .material-symbols-outlined { color: #60a5fa; }
-.cotz-app .pay-ico--purple { background: rgba(168,85,247,.12); border-color: rgba(168,85,247,.3); }
-.cotz-app .pay-ico--purple .material-symbols-outlined { color: #d8b4fe; }
-.cotz-app .pay-ico--cyan { background: rgba(6,182,212,.12); border-color: rgba(6,182,212,.3); }
-.cotz-app .pay-ico--cyan .material-symbols-outlined { color: #67e8f9; }
-.cotz-app .pay-ico--amber { background: rgba(245,158,11,.12); border-color: rgba(245,158,11,.3); }
-.cotz-app .pay-ico--amber .material-symbols-outlined { color: #fcd34d; }
-.cotz-app .pay-ico--slate { background: rgba(51,65,85,.4); border-color: rgba(71,85,105,.4); }
-.cotz-app .pay-ico--slate .material-symbols-outlined { color: #94a3b8; }
+/* ---------- Payment icons (tile por medio, 28px como el mockup) ---------- */
+.cotz-app .pay-ico { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: 0; }
+.cotz-app .pay-ico .material-symbols-outlined { font-size: 14px !important; }
+.cotz-app .pay-ico--emerald { background: var(--cz-green-bg); }
+.cotz-app .pay-ico--emerald .material-symbols-outlined { color: var(--cz-green); }
+.cotz-app .pay-ico--blue { background: var(--cz-accent-soft); }
+.cotz-app .pay-ico--blue .material-symbols-outlined { color: var(--cz-accent); }
+.cotz-app .pay-ico--purple { background: var(--cz-violet-bg); }
+.cotz-app .pay-ico--purple .material-symbols-outlined { color: var(--cz-violet); }
+.cotz-app .pay-ico--cyan { background: var(--cz-teal-bg); }
+.cotz-app .pay-ico--cyan .material-symbols-outlined { color: var(--cz-teal); }
+.cotz-app .pay-ico--amber { background: var(--cz-amber-bg); }
+.cotz-app .pay-ico--amber .material-symbols-outlined { color: var(--cz-amber); }
+.cotz-app .pay-ico--slate { background: var(--cz-s3); }
+.cotz-app .pay-ico--slate .material-symbols-outlined { color: var(--cz-text-3); }
 
 /* ---------- Dropdowns (búsqueda producto / cliente) ---------- */
-.cotz-app .dropdown-list { background: #0f172a; border: 1px solid #243044; border-radius: 10px; box-shadow: 0 18px 50px rgba(0,0,0,.45); max-height: 260px; overflow-y: auto; }
+.cotz-app .dropdown-list { background: var(--cz-s2); border: 1px solid var(--cz-line-2); border-radius: 10px; box-shadow: 0 18px 50px rgba(0,0,0,.45); max-height: 260px; overflow-y: auto; }
 .cotz-app .dropdown-item { padding: .45rem .7rem; cursor: pointer; transition: background .12s; }
-.cotz-app .dropdown-item:hover, .cotz-app .dropdown-item.active { background: #1e293b; }
+.cotz-app .dropdown-item:hover, .cotz-app .dropdown-item.active { background: var(--cz-s3); }
 
 /* Semáforo de stock: lo aplica cotizacion-simulador.js. Va a mano porque el build
    de Tailwind sólo escanea las vistas Razor. */
 .cotz-app .cotz-producto-opcion { border-left: 4px solid transparent; }
-.cotz-app .cotz-producto-opcion__badge { display: inline-block; margin-top: .2rem; border-radius: .25rem; padding: .1rem .4rem; font-size: .625rem; font-weight: 700; text-transform: uppercase; }
+.cotz-app .cotz-producto-opcion__badge { display: inline-block; margin-top: .2rem; border-radius: .25rem; padding: .1rem .4rem; font-size: 12px; font-weight: 700; text-transform: uppercase; }
 .cotz-app .cotz-producto-opcion[data-estado-stock="sin-stock"] { border-left-color: #ef4444; background: rgba(239,68,68,.1); }
 .cotz-app .cotz-producto-opcion[data-estado-stock="sin-stock"]:hover { background: rgba(239,68,68,.18); }
 .cotz-app .cotz-producto-opcion[data-estado-stock="sin-stock"] .cotz-producto-opcion__badge { background: rgba(239,68,68,.18); color: #fca5a5; }
@@ -764,158 +738,231 @@ body:has(.cotz-standalone) #main-content > div:last-child {
 
 /* ---------- Misc helpers ---------- */
 /* `.hidden` de Tailwind es una sola clase (0,1,0): cualquier componente propio de
-   este archivo que fije `display` con un selector `.cotz-app .x` (0,2,0) le gana
-   por especificidad y el elemento queda visible aunque el JS lo haya "ocultado".
-   Es el mismo defecto de Cascade Layers ya encontrado en el paso Crédito
-   (VENTA-CREDITO-REDESIGN-VISUAL-IMPLEMENTACION-01). show()/hide() en
-   cotizacion-simulador.js alternan exclusivamente esta clase, así que se blinda
-   una sola vez acá en vez de repetir un `.x.hidden` por cada componente. */
+   este archivo que fije `display` con un selector `.cotz-app .x` (0,2,0) le gana por
+   especificidad y el elemento queda visible aunque el JS lo haya "ocultado".
+   show()/hide() en cotizacion-simulador.js alternan exclusivamente esta clase, así
+   que se blinda una sola vez acá. */
 .cotz-app .hidden { display: none !important; }
 .cotz-app .truncate-1 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cotz-app details > summary { list-style: none; cursor: pointer; }
 .cotz-app details > summary::-webkit-details-marker { display: none; }
-.cotz-app details[open] .chev { transform: rotate(180deg); }
+.cotz-app details[open] > summary .chev { transform: rotate(180deg); }
 .cotz-app .chev { transition: transform .2s; }
 .cotz-app .panel-body::-webkit-scrollbar, .cotz-app .dropdown-list::-webkit-scrollbar { width: 8px; }
-.cotz-app .panel-body::-webkit-scrollbar-thumb { background: #1e2a3d; border-radius: 8px; }
+.cotz-app .panel-body::-webkit-scrollbar-thumb { background: var(--cz-line-2); border-radius: 8px; }
 
 /* ---------- Modales / drawer (fuera de .cotz-app, scopear con prefijo propio) ---------- */
 .cotz-modal { animation: cotzFade .18s ease; }
+
+/* Drawer "Detalle del plan": el markup pedía `sm:w-105`, una clase que el Tailwind
+   precompilado del ERP no trae, así que el panel salía a ancho completo (1440px de drawer).
+   Se fija acá (420px desde 640px) con las superficies del cotizador. */
+#modal-plan > aside {
+    width: 100%;
+    background: #10151b;
+    border-left-color: #232b34;
+}
+#modal-plan > aside > header { border-bottom-color: #232b34; }
+#modal-plan > aside > footer { border-top-color: #232b34; }
+#modal-plan .card-sub { background: #171e26; border: 1px solid #232b34; border-radius: 12px; box-shadow: none; }
+#modal-plan #plan-title { text-transform: none; }
+#modal-plan #plan-medio { display: inline-block; }
+#modal-plan #plan-medio::first-letter { text-transform: uppercase; }
+@media (min-width: 640px) {
+    #modal-plan > aside { width: 26.25rem; max-width: 100%; }
+}
 @keyframes cotzFade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
 /* ---------- Feedback toast ---------- */
-/* El toast vive DENTRO de .cotz-topbar en vez de flotar en position:absolute
-   sobre el workspace: un offset fijo no puede distinguir "debajo del topbar" de
-   "encima del contenido siguiente", y la versión anterior seguía cayendo sobre el
-   encabezado de Cliente. Como hijo flex del topbar, cuando aparece ocupa su propia
-   fila (flex-basis:100% fuerza el salto con flex-wrap, sin medir px) y nunca sale
-   de la caja del header. */
+/* El toast vive DENTRO de .cotz-topbar, entre el estado y "Ver guardadas" (que conserva su
+   ml-auto y no se mueve): nunca sale de la caja del header ni tapa Productos/Cliente. Si el
+   ancho no alcanza, el flex-wrap del topbar lo baja solo a su propia fila. (Antes se forzaba
+   flex-basis:100%, pero el `max-w-sm` que le pone el JS acotaba el tamaño hipotético y el
+   salto de línea nunca ocurría: el toast quedaba a la derecha del botón y lo desplazaba.) */
 .cotz-app .cotz-topbar #cotizacion-feedback:not(.hidden) {
-    flex-basis: 100%;
-    order: 5;
-    margin-top: .4rem;
+    flex: 0 1 auto;
+    min-width: 0;
 }
-.cotz-feedback { display: inline-flex; width: fit-content; align-items: center; gap: .6rem; border: 1px solid; border-radius: 10px; padding: .45rem .75rem; font-size: .78rem; font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
-.cotz-feedback--ok { background: rgba(16,185,129,.12); border-color: rgba(16,185,129,.4); color: #6ee7b7; }
-.cotz-feedback--warning { background: rgba(245,158,11,.12); border-color: rgba(245,158,11,.4); color: #fcd34d; }
-.cotz-feedback--error { background: rgba(239,68,68,.12); border-color: rgba(239,68,68,.4); color: #fca5a5; }
-.cotz-feedback--info { background: rgba(59,130,246,.12); border-color: rgba(59,130,246,.4); color: #93c5fd; }
+.cotz-feedback { display: inline-flex; width: fit-content; align-items: center; gap: .6rem; border: 1px solid; border-radius: 10px; padding: .45rem .75rem; font-size: 12px; font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+.cotz-feedback--ok { background: rgba(74,222,128,.10); border-color: rgba(74,222,128,.4); color: #86efac; }
+.cotz-feedback--warning { background: rgba(251,191,36,.10); border-color: rgba(251,191,36,.4); color: #fcd34d; }
+.cotz-feedback--error { background: rgba(248,113,113,.10); border-color: rgba(248,113,113,.4); color: #fca5a5; }
+.cotz-feedback--info { background: rgba(91,141,239,.12); border-color: rgba(91,141,239,.4); color: #a9c3f7; }
 
-/* ---------- Banda intermedia: comparador sin scroll horizontal ----------
-   Medido en vivo (COTIZACION-WORKSTATION-02): a 1024x720 y 768x1024 el ancho real
-   de .cotz-app queda en ~39-41rem, el comparador dispone de ~620px y la tabla de 7
-   columnas necesita ~706px — el `overflow-x: auto` del panel salvaba el layout
-   pero obligaba a scrollear horizontalmente JUSTO la herramienta de decisión de la
-   pantalla. Por debajo de 46rem el aire horizontal de la tabla se ajusta para que
-   entren las 7 columnas completas; ninguna se oculta ni se recorta (§11/§20).
-   La banda arranca en 38rem porque por debajo de eso ya rige el reflow a bloques. */
-@container (min-width: 38rem) and (max-width: 46rem) {
-    .cotz-app .rtable { font-size: .76rem; }
-    .cotz-app .rtable td,
-    .cotz-app .rtable thead th { padding-left: .34rem; padding-right: .34rem; }
-    .cotz-app .rmedio .pay-ico { width: 22px; height: 22px; }
-    .cotz-app .rt-btn { padding: .18rem .42rem; }
-    .cotz-app .plan-medio { padding-left: 1.1rem; }
-    /* El check del botón "Seleccionado" es redundante con el estado azul de la
-       fila; en esta banda cede su ancho a los datos. */
-    .cotz-app .rt-btn--on .material-symbols-outlined { display: none; }
+/* ============================================================================
+   ≥60rem de contenedor: comparador como grilla (mockup)
+   Cada <tr> es una fila de grilla de 7 columnas; los "grupos" (bloque redondeado con
+   borde) se arman con los bordes laterales de cada fila más el borde superior de la
+   primera y el inferior de la última. Sin cambiar el DOM: la primera fila de un grupo
+   es toda <tr> que NO es .detail; la última, la que precede a la siguiente no-.detail.
+   ========================================================================== */
+@container (min-width: 60rem) {
+    .cotz-app .rtable,
+    .cotz-app .rtable thead,
+    .cotz-app .rtable tbody { display: block; width: 100%; }
+
+    .cotz-app .rtable tr {
+        display: grid; grid-template-columns: var(--rt-cols);
+        column-gap: 12px; align-items: center;
+    }
+    .cotz-app .rtable th,
+    .cotz-app .rtable td { display: block; min-width: 0; padding: 0; border: 0; }
+    .cotz-app .rtable td[colspan="3"] { grid-column: span 3; }
+    .cotz-app .rtable td[colspan="7"] { grid-column: 1 / -1; }
+    .cotz-app .rtable td.rt-nota { grid-column: 1 / -1; }
+    .cotz-app .rtable tbody tr[hidden] { display: none; }
+
+    .cotz-app .rtable thead tr { padding: 0 16px 8px; border-bottom: 1px solid var(--cz-line-3); margin-bottom: 14px; }
+    .cotz-app .rtable thead th { padding: 0; border: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* Lados de todo el grupo. */
+    .cotz-app .rtable tbody tr {
+        border: 1px solid var(--cz-line-3); border-top-width: 0; border-bottom-width: 0;
+        padding: 12px 16px 12px 54px;
+    }
+    /* Primera fila del grupo: tope redondeado + separación del grupo anterior. */
+    .cotz-app .rtable tbody tr:not(.detail) {
+        margin-top: 12px; border-top-width: 1px; border-radius: 12px 12px 0 0; padding: 13px 16px;
+    }
+    .cotz-app .rtable tbody tr:not(.detail):first-child { margin-top: 0; }
+    /* Fila que también cierra el grupo: medio sin planes, medio de un plan, o cabecera
+       colapsada. */
+    .cotz-app .rtable tbody tr:not(.detail):not(.parent),
+    .cotz-app .rtable tbody tr.parent[aria-expanded="false"],
+    .cotz-app .rtable tbody tr.parent:has(+ tr:not(.detail)),
+    .cotz-app .rtable tbody tr.parent:last-child {
+        border-bottom-width: 1px; border-radius: 12px;
+    }
+    /* Planes: separador superior + la última cierra el grupo. */
+    .cotz-app .rtable tbody tr.detail { border-top: 1px solid var(--cz-line-3); position: relative; }
+    .cotz-app .rtable tbody tr.detail:has(+ tr:not(.detail)),
+    .cotz-app .rtable tbody tr.detail:last-child {
+        border-bottom-width: 1px; border-radius: 0 0 12px 12px;
+    }
+    /* Las celdas no pintan fondo: lo pinta la fila (con sus esquinas redondeadas). */
+    .cotz-app .rtable tbody tr > td { background: transparent !important; box-shadow: none !important; }
+    .cotz-app .rtable tbody tr:not(.detail) { background: var(--cz-s2); }
+    .cotz-app .rtable tbody tr:not(.detail):not(.parent) { background: transparent; }
+    .cotz-app .rtable tbody tr:not(.detail):not(.off):hover { background: var(--cz-s3); }
+    .cotz-app .rtable tbody tr:not(.detail):not(.parent):not(.off):hover { background: var(--cz-s2); }
+    .cotz-app .rtable tbody tr.detail:hover { background: var(--cz-s2); }
+    .cotz-app .rtable tbody tr.selected,
+    .cotz-app .rtable tbody tr.selected:hover { background: var(--cz-sel); }
+    /* Barra lateral de 3px del mockup: verde = más barata / elegida-y-más-barata;
+       de acento = elegida que no es la más barata. */
+    .cotz-app .rtable tbody tr.detail.cheap { box-shadow: inset 3px 0 0 var(--cz-green-bar); }
+    .cotz-app .rtable tbody tr.selected { box-shadow: inset 3px 0 0 var(--cz-accent); }
+    .cotz-app .rtable tbody tr.selected.cheap,
+    .cotz-app .rtable tbody tr.selected.best { box-shadow: inset 3px 0 0 var(--cz-green-bar); }
+    .cotz-app .rtable tbody tr.detail.cheap > td:first-child,
+    .cotz-app .rtable tbody tr.selected > td:first-child { box-shadow: none !important; }
+
+    /* Cabecera de grupo con sub-línea (cupo vs. solicitado): la segunda fila de la grilla
+       la ocupa la nota, alineada con el nombre del medio (16px de padding + 38px). */
+    .cotz-app .rtable tbody tr:has(> td.rt-nota) { padding-bottom: 4px; }
+    .cotz-app .rtable td.rt-nota { padding: 0 0 6px 38px; }
+    .cotz-app .rtable td.rt-accion { width: auto; }
+    .cotz-app .rtable .plan-medio { padding-left: 0; }
 }
 
 /* ============================================================================
-   Banda angosta (<44rem de contenedor: mobile real 390/360px y tablets angostas)
+   Contenedores medianos (<78rem): la línea de producto se apila. El mockup la dibuja en una
+   sola fila con ~590px útiles; por debajo de ~78rem de contenedor la columna de Productos
+   queda en <520px y el nombre quedaba reducido a una rendija. Nombre + quitar arriba;
+   cantidad, descuento y precio debajo. Mismos nodos, sólo cambia el reflujo.
    ========================================================================== */
-
-/* Los 3 totales en grid-cols-3 no entran a .95rem con importes largos: el importe
-   se recorta sobre el total vecino. Sólo baja el tamaño de fuente; no
-   reestructura el layout. */
-@container (max-width: 37.9375rem) {
-    .cotz-app .totales-bar__stats { gap: .5rem; }
-    .cotz-app .seg-value { font-size: .78rem; }
-    .cotz-app .seg { padding-left: .45rem; }
-    /* §27: el CTA de simular pasa a ancho completo debajo del resumen — es la
-       acción que cierra la zona de configuración en el apilado mobile. */
-    /* Apilado: el divisor vertical pierde sentido (ya no separa dos columnas) y
-       pasa a ser un divisor horizontal sobre el CTA. */
-    .cotz-app .totales-bar__cta {
-        margin-left: 0; flex: 1 1 100%;
-        padding-left: 0; border-left: 0;
-        padding-top: .55rem; border-top: 1px solid var(--cz-line-2);
-    }
-    .cotz-app .totales-bar__cta .btn { width: 100%; min-width: 0; }
-    /* Igual criterio para el cierre del comparador: Continuar a ancho completo,
-       Guardar secundaria arriba. */
-    .cotz-app .seleccion-acciones { margin-left: 0; flex: 1 1 100%; }
-    .cotz-app .seleccion-acciones .btn { flex: 1 1 100%; }
-    .cotz-app .medios-filtro__body { max-width: 15rem; }
+@container (max-width: 77.9375rem) {
+    .cotz-app .cart-row__main { flex-wrap: wrap; row-gap: 12px; }
+    .cotz-app .cart-row__info { flex: 1 1 calc(100% - 3rem); }
+    .cotz-app .cart-row__quitar { order: 1; }
+    .cotz-app .cart-row__field { order: 2; }
+    .cotz-app .cart-row__precio { order: 3; margin-left: auto; min-width: 0; }
 }
 
-/* ---------- Mobile: comparador como bloques compactos (§28) ----------
-   Los <td> son exactamente los mismos que en desktop (mismo DOM, mismos hooks
-   data-cotizacion-row-key / data-cotizacion-opcion-key / data-g / aria-expanded)
-   — el click delegado en #cotizacion-resultados-tbody sigue funcionando sin
-   ningún cambio de JS. Sólo se reordena/oculta vía flexbox + nth-child.
-   Jerarquía: Medio/plan + Total en la línea 1 (identidad + "cuánto paga");
-   Plan/Cuota + Estado + Acción en la línea 2. Recargo se oculta acá — sigue
-   disponible al tocar la fila, que abre el drawer "Detalle del plan" con el
-   desglose completo; no se pierde información, se reubica detrás de un tap ya
-   existente. */
-@container (max-width: 37.9375rem) {
+/* Franja de totales por debajo de ~84rem (laptops con la sidebar expandida): "Subtotal de productos"
+   es el rótulo más largo y con seis cortes iguales se recortaba con puntos suspensivos — el primer
+   segmento pesa un 30% más. En el ancho del mockup (≥84rem) los cortes siguen siendo iguales. */
+@container (max-width: 83.9375rem) {
+    .cotz-app .seg:first-child { flex: 1.3 1 0; }
+}
+
+/* Franja de totales entre 60 y 72rem: cinco datos + botón no entran en una fila sin recortar
+   los rótulos — el botón baja a una segunda fila, alineado a la derecha. */
+@container (min-width: 60rem) and (max-width: 71.9375rem) {
+    .cotz-app .totales-bar { flex-wrap: wrap; row-gap: 16px; }
+    .cotz-app .totales-bar__stats { flex: 1 1 100%; }
+    .cotz-app .totales-bar__cta { margin-left: auto; }
+    .cotz-app .seg { padding-inline: 16px; }
+    .cotz-app .seg-label { letter-spacing: .3px; }
+}
+
+/* ============================================================================
+   Banda media (<60rem de contenedor: tablets y wizard embebido en 1024)
+   La grilla de 7 columnas del mockup necesita ~60rem para no encimar cifras (Total final
+   ≈ 85px, Acción ≥ 160px). Por debajo el comparador pasa a bloques compactos de dos
+   líneas (el mismo reflow que en mobile, con Recargo visible) y la franja de totales
+   se parte en dos filas. Sin scroll horizontal ni columnas recortadas.
+   ========================================================================== */
+@container (max-width: 59.9375rem) {
+    .cotz-app .totales-bar { flex-wrap: wrap; gap: 16px; }
+    .cotz-app .totales-bar__stats { flex: 1 1 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: 14px 16px; }
+    .cotz-app .seg,
+    .cotz-app .seg:first-child { padding: 0; border: 0; }
+    .cotz-app .totales-bar__cta { flex: 1 1 100%; }
+    .cotz-app .totales-bar__cta .btn { width: 100%; }
+
+    /* Comparador: bloques compactos. Los <td> son los mismos que en desktop (mismo DOM,
+       mismos hooks): el click delegado en #cotizacion-resultados-tbody sigue
+       funcionando sin cambios de JS; sólo se reordena/oculta vía flexbox + nth-child.
+       Línea 1 = Medio/plan + Total; línea 2 = Plan/Cuota + Recargo + Estado + Acción.
+       En la banda angosta (<38rem) Recargo se oculta y queda en el drawer "Detalle del plan". */
     .cotz-app .rtable thead { display: none; }
     .cotz-app .rtable, .cotz-app .rtable tbody { display: block; width: 100%; }
 
     .cotz-app .rtable tbody tr {
         display: flex; flex-wrap: wrap; align-items: center;
         column-gap: .5rem; row-gap: .15rem;
-        padding: .5rem .2rem; border-bottom: 1px solid #16202f;
+        padding: .6rem .7rem; border-bottom: 1px solid var(--cz-line-3);
     }
-    /* El <tr> pasa a ser la caja visual de la fila (en desktop lo es cada <td>) —
+    /* El <tr> pasa a ser la caja visual de la fila (en desktop lo es cada <td>):
        reubica los fondos de estado acá y neutraliza los que apuntan a <td>. */
-    /* Misma escala de elevación que en desktop (§20): alternativa de primer nivel
-       elevada, plan hijo recesado. */
     .cotz-app .rtable tbody tr:not(.detail) { background: var(--cz-s2); border-top: 1px solid var(--cz-line-2); }
-    .cotz-app .rtable tbody tr.best { background: rgba(16,185,129,.09); }
-    .cotz-app .rtable tbody tr.detail { background: var(--cz-s1); padding-left: 1rem; }
-    .cotz-app .rtable tbody tr.detail.cheap { box-shadow: inset 3px 0 0 #10b981; }
-    /* El plan elegido gana al acento verde de "más barato" — si no, un plan que es
-       las dos cosas se pinta de verde y la selección deja de verse (en desktop ya
-       ganaba por especificidad; acá el selector de .cheap sumaba una clase más). */
+    .cotz-app .rtable tbody tr.best { background: rgba(74,222,128,.07); }
+    .cotz-app .rtable tbody tr.detail { background: transparent; padding-left: 1rem; }
+    .cotz-app .rtable tbody tr.detail.cheap { box-shadow: inset 3px 0 0 var(--cz-green-bar); }
+    /* El plan elegido gana al acento verde de "más barato". */
     .cotz-app .rtable tbody tr.selected,
     .cotz-app .rtable tbody tr.detail.selected { background: var(--cz-sel); box-shadow: inset 3px 0 0 var(--cz-accent); }
     .cotz-app .rtable tbody tr > td { background: transparent !important; box-shadow: none !important; }
-    /* [hidden] (filas detail colapsadas por el toggle de grupo) debe seguir
-       ocultando la fila pese al display:flex de arriba — un selector de autor gana
-       siempre al UA stylesheet, así que sin esto "hidden" dejaría de tener efecto. */
+    /* [hidden] (filas detail colapsadas por el toggle de grupo) debe seguir ocultando la
+       fila pese al display:flex de arriba. */
     .cotz-app .rtable tbody tr[hidden] { display: none; }
 
     .cotz-app .rtable td { display: block; padding: 0; border: 0; flex: 1 1 auto; min-width: 0; }
-    /* `.rt-accion { width: 1% }` es un truco de layout de TABLA (que el navegador lee
-       como "lo mínimo posible") — como flex-item con flex-basis:auto ese 1% se resuelve
-       a ~4px reales y, con flex-shrink:0, el botón desborda la fila. Medido en vivo a
-       390px: eran los 6px de scroll horizontal dentro del panel de Resultados. */
+    /* `.rt-accion { width: 1% }` es un truco de layout de TABLA: como flex-item ese 1%
+       se resuelve a ~4px y el botón desborda la fila. */
     .cotz-app .rtable td.rt-accion { width: auto; }
 
     /* Fila normal / parent (7 celdas: Medio, Total, Plan, Cuota, Recargo, Estado,
-       Acción). Línea 1 = Medio + Total (td1 crece con flex:1 y ya llena la línea,
-       así que td3 en adelante bajan solos a la línea 2 sin necesitar
-       flex-basis:100% — ponérselo a td3 forzaría SU PROPIA línea y empujaría el
-       resto a una 3ª). */
+       Acción). Línea 1 = Medio + Total (td1 crece con flex:1 y ya llena la línea, así
+       que td3 en adelante bajan solos a la línea 2 sin flex-basis:100%). */
     .cotz-app .rtable tbody tr:not(.off) td:nth-child(1) { order: 1; flex: 1 1 auto; min-width: 0; }
     .cotz-app .rtable tbody tr:not(.off) td:nth-child(2) { order: 2; flex: 0 0 auto; margin-left: auto; font-size: .9rem; }
-    .cotz-app .rtable tbody tr:not(.off) td:nth-child(3) { order: 3; flex: 0 0 auto; font-size: .72rem; color: #7c8aa3; }
-    .cotz-app .rtable tbody tr:not(.off) td:nth-child(4) { order: 4; flex: 0 0 auto; font-size: .72rem; }
-    .cotz-app .rtable tbody tr:not(.off) td:nth-child(5) { display: none; }
+    .cotz-app .rtable tbody tr:not(.off) td:nth-child(3) { order: 3; flex: 0 0 auto; font-size: 12px; color: var(--cz-text-3); }
+    .cotz-app .rtable tbody tr:not(.off) td:nth-child(4) { order: 4; flex: 0 0 auto; font-size: 12px; }
+    .cotz-app .rtable tbody tr:not(.off) td:nth-child(5) { order: 4; flex: 0 0 auto; font-size: 12px; }
     .cotz-app .rtable tbody tr:not(.off) td:nth-child(6) { order: 5; flex: 0 0 auto; margin-left: auto; }
     .cotz-app .rtable tbody tr:not(.off) td:nth-child(7) { order: 6; flex: 0 0 auto; width: auto; }
-    /* Las filas hijas emiten la celda Estado vacía (el estado lo declara el padre,
-       §13). En el reflow de flexbox esa celda vacía igual se lleva el margin-left:auto
-       y empuja "Elegir" a una tercera línea propia: se oculta y el margen pasa a la
-       celda de acción. */
+    /* La nota del medio (cupo/solicitado) ocupa su propia línea al final. */
+    .cotz-app .rtable tbody tr td.rt-nota { order: 9; flex: 1 1 100%; padding-top: 2px; }
+    /* Las filas hijas emiten la celda Estado vacía (el estado lo declara el padre): en el
+       reflow flex esa celda vacía se llevaría el margin-left:auto y empujaría "Elegir" a
+       una tercera línea propia — se oculta y el margen pasa a la celda de acción. */
     .cotz-app .rtable tbody tr.detail td:nth-child(6) { display: none; }
     .cotz-app .rtable tbody tr.detail td:nth-child(7) { margin-left: auto; }
 
-    /* Fila "off" (medio sin planes: Medio, Total, motivo(colspan 3), Estado,
-       Acción — 5 celdas reales; también matchea la fila única "no hay medios
-       disponibles", que comparte la clase y sólo tiene 1 celda). */
+    /* Fila "off" (medio sin planes: Medio, Total, motivo(colspan 3), Estado, Acción — 5
+       celdas reales; también matchea la fila única "no hay medios disponibles"). */
     .cotz-app .rtable tbody tr.off td:nth-child(1) { order: 1; flex: 1 1 auto; min-width: 0; }
     .cotz-app .rtable tbody tr.off td:nth-child(2) { order: 2; flex: 0 0 auto; margin-left: auto; }
     .cotz-app .rtable tbody tr.off td:nth-child(3) { order: 3; flex-basis: 100%; }
@@ -923,4 +970,82 @@ body:has(.cotz-standalone) #main-content > div:last-child {
     .cotz-app .rtable tbody tr.off td:nth-child(5) { order: 5; flex: 0 0 auto; margin-left: auto; }
 
     .cotz-app .rtable .plan-medio { padding-left: .9rem; }
+
+    /* La celda "Plan" repite el nombre de la primera columna ("3 cuotas" ya está en
+       "Visa · 3 cuotas"); la celda de cuota gana su etiqueta porque el <thead> está
+       oculto, y se retira cuando no hay cuotas (1 pago). */
+    .cotz-app .rtable tbody tr.detail td.rt-plan { display: none; }
+    .cotz-app .rtable tbody tr td.rt-cuota { order: 4; flex: 0 0 auto; font-size: 12px; }
+    .cotz-app .rtable tbody tr td.rt-cuota.is-empty { display: none; }
+    .cotz-app .rtable tbody tr td.rt-cuota:not(.is-empty)::before { content: "Cuota "; color: var(--cz-text-4); font-weight: 500; }
+    /* Fila de plan con cuotas: línea 1 = nombre + total, línea 2 = cuota + Elegir. */
+    .cotz-app .rtable tbody tr.detail:not(:has(td.rt-cuota.is-empty)) td:nth-child(1) { flex: 1 1 calc(100% - 8.5rem); }
+    /* Fila padre: el "—" de cuota y el botón "Ver planes" no aportan (el chevron y la
+       fila entera ya expanden/colapsan). */
+    .cotz-app .rtable tbody tr.parent td:nth-child(4),
+    .cotz-app .rtable tbody tr.parent td.rt-accion { display: none; }
+    /* Textos secundarios generados por JS con text-[10px]: 12px es el mínimo legible. */
+    .cotz-app .rtable [class*="text-[10px]"] { font-size: 12px; }
+}
+
+/* ============================================================================
+   Banda angosta (<38rem de contenedor: mobile real 390/360px y tablets angostas)
+   ========================================================================== */
+@container (max-width: 37.9375rem) {
+    .cotz-standalone .cotz-app { padding: 12px 12px 24px; }
+    .cotz-app .workspace { display: flex; flex-direction: column; align-items: stretch; gap: 16px; }
+    .cotz-app .workspace > [data-zone] { flex: 0 0 auto; }
+    .cotz-app .panel { padding: 16px; }
+    .cotz-app .col { gap: 16px; }
+
+    /* Totales + Simular: barra que acompaña el scroll (pegada abajo hasta que el flujo
+       natural la alcanza). Compacta: sólo el segmento de acento (Total a cobrar) + el
+       botón — Subtotal y Descuento siguen visibles en Productos y en los propios campos. */
+    .cotz-app .workspace > [data-zone="totales"] { position: sticky; bottom: 0.5rem; z-index: 25; }
+    .cotz-app .totales-bar { flex-wrap: nowrap; padding: 8px 9px 8px 14px; gap: 12px; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(0, 0, 0, 0.4); }
+    .cotz-app .totales-bar__stats { display: block; flex: 1 1 auto; }
+    .cotz-app .totales-bar__stats > .seg:not(.seg-accent) { display: none; }
+    .cotz-app .totales-bar__stats > .seg { padding: 0; border: 0; }
+    .cotz-app .totales-bar__stats .seg-value { font-size: 1.05rem; }
+    .cotz-app .totales-bar__cta { flex: 0 0 auto; margin-left: auto; }
+    .cotz-app .totales-bar__cta .btn { width: auto; min-width: 0; height: 44px; padding-inline: .8rem; }
+
+    /* §27: acciones del cierre a ancho completo. */
+    .cotz-app .seleccion-bar { padding: 14px 16px; }
+    .cotz-app .seleccion-acciones { margin-left: 0; flex: 1 1 100%; }
+    .cotz-app .seleccion-acciones .btn { flex: 1 1 100%; }
+    .cotz-app .medios-filtro__body { max-width: 15rem; }
+
+    /* Condiciones: Descuento %/$ y Anticipo/Válida hasta van de a dos (cada mitad queda
+       en ~135px, alcanza para un importe o una fecha corta). */
+    .cotz-app .cond-pair { display: flex; gap: 8px; }
+    .cotz-app .cond-pair__a,
+    .cotz-app .cond-pair__b { flex: 1 1 0; min-width: 0; }
+    .cotz-app .cond-grid__full { grid-column: 1 / -1; }
+    .cotz-app .cond-pair .label { letter-spacing: 0; white-space: nowrap; }
+    .cotz-app .cond-pair--anticipo .cond-pair__a { flex: 0 0 40%; }
+
+    /* Buscador: el mensaje "producto seleccionado" baja a su propia línea. */
+    .cotz-app .prod-search__row { flex-wrap: wrap; }
+    .cotz-app .prod-search__pick { flex-basis: 100%; }
+    .cotz-app .prod-search__row .btn-primary { flex: 1 1 auto; }
+
+    /* Campos a 16px: iOS Safari no hace zoom al enfocar. */
+    .cotz-app :is(input:not([type="checkbox"], [type="radio"], [type="hidden"]), select, textarea) { font-size: 1rem !important; }
+
+    /* Producto agregado: nombre en su propia línea; cantidad, descuento y precio debajo. */
+    .cotz-app .cart-row { padding: 14px; }
+    .cotz-app .cart-row__main { flex-wrap: wrap; gap: 12px; }
+    .cotz-app .cart-row__info { flex: 1 1 calc(100% - 3.5rem); }
+    .cotz-app .cart-row__quitar { width: 2.5rem; height: 2.5rem; margin: -0.5rem -0.5rem 0 0; order: 1; }
+    .cotz-app .cart-row__precio { flex: 1 1 100%; order: 3; text-align: left; min-width: 0; font-size: 0.9375rem; }
+    .cotz-app .cart-row__field { order: 2; }
+    .cotz-app .qty-step button { width: 2.5rem; height: 2.5rem; font-size: 1.1rem; }
+    .cotz-app .qty-step input { width: 2.75rem !important; font-size: 1rem !important; }
+    .cotz-app input.mini[type="number"] { width: 4.5rem !important; min-height: 2.5rem !important; padding: 0.4rem 0.6rem !important; font-size: 1rem !important; }
+    .cotz-app .dto-toggle button { padding: 0.55rem 0.8rem; font-size: 0.875rem; }
+    .cotz-app .cart-row__label { font-size: 12px; }
+
+    /* Banda angosta: Recargo se oculta en la tabla (queda en el drawer "Detalle del plan"). */
+    .cotz-app .rtable tbody tr:not(.off) td:nth-child(5) { display: none; }
 }

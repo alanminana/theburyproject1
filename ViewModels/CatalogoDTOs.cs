@@ -299,6 +299,13 @@ namespace TheBuryProject.ViewModels
         public IEnumerable<OpcionDropdown> Marcas { get; set; } = new List<OpcionDropdown>();
 
         /// <summary>
+        /// Marcas raíz (sin marca padre). Usada donde se elige la marca principal de un
+        /// producto, para no mezclarla con submarcas (que se eligen aparte, ya filtradas
+        /// por su marca padre).
+        /// </summary>
+        public IEnumerable<OpcionDropdown> MarcasRaiz { get; set; } = new List<OpcionDropdown>();
+
+        /// <summary>
         /// Listas de precios disponibles (Id, Nombre)
         /// </summary>
         public IEnumerable<OpcionDropdown> ListasPrecios { get; set; } = new List<OpcionDropdown>();

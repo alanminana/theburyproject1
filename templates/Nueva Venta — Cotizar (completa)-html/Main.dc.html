@@ -1,0 +1,619 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Nueva Venta — Cotizar</title>
+<script src="./vendor/react.js"></script>
+<script src="./vendor/react-dom.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0;font-family:'Manrope',sans-serif;background:#0B0E13;color:#F1F4F8;}
+</style>
+</helmet>
+<div style="width: 1440px; height: 2080px; box-sizing: border-box; background: #0B0E13; padding: 32px; display: flex; flex-direction: column; gap: 20px; font-family: 'Manrope', sans-serif;">
+
+  <!-- ===== Breadcrumb + Cancelar ===== -->
+  <div style="display: flex; align-items: center; justify-content: space-between;">
+    <div style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: #62707E; font-weight: 600;">
+      <span>Ventas</span>
+      <span>/</span>
+      <span style="padding: 4px 10px; border-radius: 999px; background: {{accent}}1a; color: {{accent}}; font-weight: 700;">Venta en curso</span>
+    </div>
+    <button type="button" style="height: 36px; padding: 0 16px; background: #171E26; border: 1px solid #232B34; border-radius: 10px; color: #B8C2CC; font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer;">Cancelar</button>
+  </div>
+
+  <!-- ===== Header ===== -->
+  <div style="display: flex; flex-direction: column; gap: 14px; padding-bottom: 18px; border-bottom: 1px solid #232B34;">
+    <div>
+      <h1 style="margin: 0; font-size: 22px; font-weight: 800; color: #F1F4F8;">Nueva Venta</h1>
+      <p style="margin: 4px 0 0 0; font-size: 13px; color: #8993A1;">Armá la venta, verificá elegibilidad crediticia y cerrá la operación sin salir de la pantalla.</p>
+    </div>
+    <div style="display: flex; align-items: center; justify-content: space-between;">
+      <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+        <div style="display: flex; align-items: center; gap: 8px; padding: 6px 14px 6px 6px; border-radius: 999px; background: {{accent}}1a;">
+          <span style="width: 22px; height: 22px; border-radius: 50%; background: {{accent}}; color: #ffffff; font-size: 11.5px; font-weight: 800; display: flex; align-items: center; justify-content: center;">1</span>
+          <span style="font-size: 13px; font-weight: 800; color: {{accent}};">Cotizar</span>
+        </div>
+        <span style="width: 16px; height: 1px; background: #232B34; display: inline-block;"></span>
+        <div style="display: flex; align-items: center; gap: 8px; padding: 6px 14px 6px 6px;">
+          <span style="width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid #2C3644; color: #62707E; font-size: 11.5px; font-weight: 800; display: flex; align-items: center; justify-content: center;">2</span>
+          <span style="font-size: 13px; font-weight: 700; color: #62707E;">Cliente</span>
+        </div>
+        <span style="width: 16px; height: 1px; background: #232B34; display: inline-block;"></span>
+        <div style="display: flex; align-items: center; gap: 8px; padding: 6px 14px 6px 6px;">
+          <span style="width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid #2C3644; color: #62707E; font-size: 11.5px; font-weight: 800; display: flex; align-items: center; justify-content: center;">3</span>
+          <span style="font-size: 13px; font-weight: 700; color: #62707E;">Productos</span>
+          <span style="padding: 1px 7px; border-radius: 999px; background: #1B222A; color: #62707E; font-size: 10.5px; font-weight: 800;">0</span>
+        </div>
+        <span style="width: 16px; height: 1px; background: #232B34; display: inline-block;"></span>
+        <div style="display: flex; align-items: center; gap: 8px; padding: 6px 14px 6px 6px;">
+          <span style="width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid #2C3644; color: #62707E; font-size: 11.5px; font-weight: 800; display: flex; align-items: center; justify-content: center;">4</span>
+          <span style="font-size: 13px; font-weight: 700; color: #62707E;">Pago</span>
+        </div>
+        <span style="width: 16px; height: 1px; background: #232B34; display: inline-block;"></span>
+        <div style="display: flex; align-items: center; gap: 8px; padding: 6px 14px 6px 6px;">
+          <span style="width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid #2C3644; color: #62707E; font-size: 11.5px; font-weight: 800; display: flex; align-items: center; justify-content: center;">5</span>
+          <span style="font-size: 13px; font-weight: 700; color: #62707E;">Envío</span>
+        </div>
+        <span style="width: 16px; height: 1px; background: #232B34; display: inline-block;"></span>
+        <div style="display: flex; align-items: center; gap: 8px; padding: 6px 14px 6px 6px;">
+          <span style="width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid #2C3644; color: #62707E; font-size: 11.5px; font-weight: 800; display: flex; align-items: center; justify-content: center;">6</span>
+          <span style="font-size: 13px; font-weight: 700; color: #62707E;">Revisión</span>
+        </div>
+      </div>
+      <span style="padding: 6px 14px; border-radius: 999px; background: #1B222A; border: 1px solid #2C3644; color: #8993A1; font-size: 12px; font-weight: 700; white-space: nowrap;">Incompleta</span>
+    </div>
+  </div>
+
+  <!-- ===== Cotización sub-header ===== -->
+  <div style="display: flex; align-items: center; justify-content: space-between;">
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <div style="width: 32px; height: 32px; flex: 0 0 auto; border-radius: 9px; background: {{accent}}1a; display: flex; align-items: center; justify-content: center; color: {{accent}};">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l3 3v17l-3-1.5-2 1.5-2-1.5-2 1.5-2-1.5-1 1.5V2z"></path><line x1="9" y1="8" x2="16" y2="8"></line><line x1="9" y1="12" x2="16" y2="12"></line></svg>
+      </div>
+      <h2 style="margin: 0; font-size: 16px; font-weight: 800; color: #F1F4F8;">Cotización</h2>
+      <span style="font-size: 12.5px; color: #62707E;">Solo simulación. No modifica venta, stock ni caja.</span>
+      <span style="display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; background: #123024; color: #4ADE80; font-size: 11.5px; font-weight: 700;">
+        <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        Simulada
+      </span>
+    </div>
+    <button type="button" style="display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 16px; background: #171E26; border: 1px solid #232B34; border-radius: 10px; color: #F1F4F8; font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer;">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6z"></path></svg>
+      Ver guardadas
+    </button>
+  </div>
+
+  <!-- ===== Two columns: Productos / Cliente ===== -->
+  <div style="display: flex; gap: 24px; align-items: flex-start;">
+
+    <!-- Productos -->
+    <div style="flex: 1; display: flex; flex-direction: column; gap: 16px; background: #10151B; border: 1px solid #232B34; border-radius: 16px; padding: 22px 24px; box-sizing: border-box;">
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <h3 style="margin: 0; font-size: 14.5px; font-weight: 800; color: #F1F4F8;">Productos</h3>
+        <div style="font-size: 12.5px; color: #8993A1;">
+          <span style="font-weight: 700; color: #B8C2CC;">1 ítem</span> · <span style="font-weight: 800; color: #F1F4F8;">$180.758,90</span>
+        </div>
+      </div>
+
+      <div style="position: relative;">
+        <label for="search-product" style="position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;">Buscar producto por nombre, código o ID</label>
+        <span style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #62707E; display: flex;">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        </span>
+        <input id="search-product" type="text" placeholder="Buscar producto por nombre, código o ID..." style="width: 100%; box-sizing: border-box; padding: 12px 14px 12px 40px; background: #171E26; border: 1px solid #232B34; border-radius: 10px; color: #F1F4F8; font-size: 14px; font-family: inherit;">
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="flex: 0 0 auto; display: flex; align-items: center; background: #171E26; border: 1px solid #232B34; border-radius: 10px; overflow: hidden;">
+          <button type="button" aria-label="Disminuir cantidad" style="width: 36px; height: 40px; border: none; background: transparent; color: #B8C2CC; font-size: 16px; cursor: pointer;">−</button>
+          <div aria-live="polite" style="width: 38px; text-align: center; font-weight: 700; font-size: 14px; color: #F1F4F8;">1</div>
+          <button type="button" aria-label="Aumentar cantidad" style="width: 36px; height: 40px; border: none; background: transparent; color: #B8C2CC; font-size: 16px; cursor: pointer;">+</button>
+        </div>
+        <button type="button" style="flex: 0 0 auto; height: 40px; padding: 0 20px; background: {{accent}}; color: #ffffff; border: none; border-radius: 10px; font-weight: 700; font-size: 13.5px; font-family: inherit; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          Agregar
+        </button>
+        <span style="font-size: 12.5px; color: #62707E; font-style: italic;">Sin producto seleccionado</span>
+      </div>
+
+      <button type="button" style="align-self: flex-start; display: flex; align-items: center; gap: 6px; background: none; border: none; padding: 0; color: #8993A1; font-size: 12.5px; font-weight: 700; font-family: inherit; cursor: pointer;">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        Agregar por ID (avanzado)
+      </button>
+
+      <!-- Línea de producto: nombre, cantidad, descuento y precio en una sola fila -->
+      <div style="background: #171E26; border: 1px solid #2C3644; border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 14px;">
+        <div style="display: flex; align-items: center; gap: 16px;">
+          <div style="min-width: 0; flex: 1;">
+            <div style="font-weight: 800; font-size: 15px; color: #F1F4F8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">MATE SYSTEM 1.2L</div>
+            <div style="font-size: 12.5px; color: #8993A1; margin-top: 3px;">ID 1 · 001001</div>
+          </div>
+
+          <div style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 5px; align-items: center;">
+            <label for="line-qty-val" style="font-size: 10px; font-weight: 700; letter-spacing: 0.4px; color: #62707E; text-transform: uppercase;">Cant.</label>
+            <div style="display: flex; align-items: center; background: #10151B; border: 1px solid #232B34; border-radius: 7px; overflow: hidden;">
+              <button type="button" aria-label="Disminuir cantidad de este producto" style="width: 24px; height: 28px; border: none; background: transparent; color: #B8C2CC; font-size: 13px; cursor: pointer;">−</button>
+              <div id="line-qty-val" aria-live="polite" style="width: 24px; text-align: center; font-weight: 700; font-size: 12.5px; color: #F1F4F8;">1</div>
+              <button type="button" aria-label="Aumentar cantidad de este producto" style="width: 24px; height: 28px; border: none; background: transparent; color: #B8C2CC; font-size: 13px; cursor: pointer;">+</button>
+            </div>
+          </div>
+
+          <div style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 5px;">
+            <label for="dto-value" style="font-size: 10px; font-weight: 700; letter-spacing: 0.4px; color: #62707E; text-transform: uppercase;">Descuento</label>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <div style="display: flex; background: #10151B; border: 1px solid #232B34; border-radius: 7px; overflow: hidden;">
+                <button type="button" aria-pressed="true" style="padding: 5px 9px; font-size: 12px; font-weight: 700; border: none; background: {{accent}}; color: #ffffff; font-family: inherit; cursor: pointer;">%</button>
+                <button type="button" aria-pressed="false" style="padding: 5px 9px; font-size: 12px; font-weight: 700; border: none; background: transparent; color: #8993A1; font-family: inherit; cursor: pointer;">$</button>
+              </div>
+              <input id="dto-value" type="text" value="0" style="width: 46px; box-sizing: border-box; padding: 5px 8px; background: #10151B; border: 1px solid #232B34; border-radius: 7px; color: #F1F4F8; font-size: 12.5px; font-family: inherit; text-align: right;">
+            </div>
+          </div>
+
+          <div style="flex: 0 0 auto; text-align: right; min-width: 100px;">
+            <div style="font-weight: 800; font-size: 15px; color: #F1F4F8; white-space: nowrap;">$180.758,90</div>
+          </div>
+
+          <button type="button" aria-label="Quitar producto" style="flex: 0 0 auto; width: 28px; height: 28px; border-radius: 8px; border: none; background: transparent; color: #62707E; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 14px; border-top: 1px solid #1D242C;">
+          <span style="font-size: 11.5px; font-weight: 800; letter-spacing: 0.6px; color: #62707E; text-transform: uppercase;">Subtotal</span>
+          <span style="font-size: 19px; font-weight: 800; color: #F1F4F8;">$180.758,90</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cliente -->
+    <div style="flex: 1; display: flex; flex-direction: column; gap: 16px; background: #10151B; border: 1px solid #232B34; border-radius: 16px; padding: 22px 24px; box-sizing: border-box;">
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <h3 style="margin: 0; font-size: 14.5px; font-weight: 800; color: #F1F4F8;">Cliente</h3>
+        <button type="button" style="display: flex; align-items: center; gap: 6px; background: none; border: none; padding: 0; color: {{accent}}; font-size: 12.5px; font-weight: 700; font-family: inherit; cursor: pointer;">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+          Cambiar
+        </button>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 12px; padding: 14px; background: #171E26; border: 1px solid #232B34; border-radius: 12px;">
+        <div style="width: 44px; height: 44px; flex: 0 0 auto; border-radius: 50%; background: {{accent}}; color: #ffffff; font-weight: 800; font-size: 14px; display: flex; align-items: center; justify-content: center;">CC</div>
+        <div style="min-width: 0;">
+          <div style="font-weight: 800; font-size: 14.5px; color: #F1F4F8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Cotizacion, Cotizacion</div>
+          <div style="font-size: 12.5px; color: #8993A1; margin-top: 2px;">DNI 37.898.524</div>
+        </div>
+      </div>
+
+      <div style="background: #171E26; border: 1px solid #2C3644; border-radius: 12px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <span style="font-size: 11px; font-weight: 800; letter-spacing: 0.5px; color: #62707E; text-transform: uppercase;">Crédito personal</span>
+          <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: #2A1518; color: #F87171; font-size: 11.5px; font-weight: 700;">
+            <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
+            No apto
+          </span>
+        </div>
+        <div style="font-size: 12.5px; color: #8993A1;">3 documentos faltantes</div>
+        <button type="button" style="align-self: flex-start; display: flex; align-items: center; gap: 6px; background: none; border: none; padding: 0; color: #8993A1; font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer;">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          Ver situación
+        </button>
+      </div>
+
+      <!-- Datos de contacto libres: compactos, en una sola fila de 3 campos pequeños -->
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <button type="button" style="align-self: flex-start; display: flex; align-items: center; gap: 6px; background: none; border: none; padding: 0; color: #8993A1; font-size: 12.5px; font-weight: 700; font-family: inherit; cursor: pointer;">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
+          Datos de contacto libres
+        </button>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label for="c-tel" style="font-size: 10px; font-weight: 700; letter-spacing: 0.3px; color: #62707E; text-transform: uppercase;">Teléfono</label>
+            <input id="c-tel" type="text" placeholder="—" style="width: 100%; box-sizing: border-box; padding: 6px 9px; background: #171E26; border: 1px solid #232B34; border-radius: 7px; color: #F1F4F8; font-size: 12px; font-family: inherit; height: 30px;">
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label for="c-mail" style="font-size: 10px; font-weight: 700; letter-spacing: 0.3px; color: #62707E; text-transform: uppercase;">Email</label>
+            <input id="c-mail" type="text" placeholder="—" style="width: 100%; box-sizing: border-box; padding: 6px 9px; background: #171E26; border: 1px solid #232B34; border-radius: 7px; color: #F1F4F8; font-size: 12px; font-family: inherit; height: 30px;">
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label for="c-dir" style="font-size: 10px; font-weight: 700; letter-spacing: 0.3px; color: #62707E; text-transform: uppercase;">Dirección</label>
+            <input id="c-dir" type="text" placeholder="—" style="width: 100%; box-sizing: border-box; padding: 6px 9px; background: #171E26; border: 1px solid #232B34; border-radius: 7px; color: #F1F4F8; font-size: 12px; font-family: inherit; height: 30px;">
+          </div>
+        </div>
+      </div>
+
+      <div style="background: #171E26; border: 1px solid #2C3644; border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 16px;">
+        <span style="font-size: 11px; font-weight: 800; letter-spacing: 0.6px; color: #62707E; text-transform: uppercase;">Condiciones de cotización</span>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <label for="c-dto-pct" style="font-size: 11px; font-weight: 700; letter-spacing: 0.4px; color: #62707E; text-transform: uppercase;">Descuento %</label>
+            <div style="position: relative;">
+              <input id="c-dto-pct" type="text" value="0" style="width: 100%; box-sizing: border-box; padding: 9px 30px 9px 12px; background: #10151B; border: 1px solid #232B34; border-radius: 8px; color: #F1F4F8; font-size: 13.5px; font-family: inherit;">
+              <span style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #62707E; font-size: 13px;">%</span>
+            </div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <label for="c-dto-fix" style="font-size: 11px; font-weight: 700; letter-spacing: 0.4px; color: #62707E; text-transform: uppercase;">Descuento $</label>
+            <div style="position: relative;">
+              <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #62707E; font-size: 13px;">$</span>
+              <input id="c-dto-fix" type="text" value="0" style="width: 100%; box-sizing: border-box; padding: 9px 12px 9px 26px; background: #10151B; border: 1px solid #232B34; border-radius: 8px; color: #F1F4F8; font-size: 13.5px; font-family: inherit;">
+            </div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <label for="c-anticipo" style="font-size: 11px; font-weight: 700; letter-spacing: 0.4px; color: #62707E; text-transform: uppercase;">Anticipo</label>
+            <div style="position: relative;">
+              <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #62707E; font-size: 13px;">$</span>
+              <input id="c-anticipo" type="text" value="0" style="width: 100%; box-sizing: border-box; padding: 9px 12px 9px 26px; background: #10151B; border: 1px solid #232B34; border-radius: 8px; color: #F1F4F8; font-size: 13.5px; font-family: inherit;">
+            </div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <label for="c-validez" style="font-size: 11px; font-weight: 700; letter-spacing: 0.4px; color: #62707E; text-transform: uppercase;">Válida hasta</label>
+            <div style="position: relative;">
+              <input id="c-validez" type="text" placeholder="dd/mm/aaaa" style="width: 100%; box-sizing: border-box; padding: 9px 34px 9px 12px; background: #10151B; border: 1px solid #232B34; border-radius: 8px; color: #F1F4F8; font-size: 13.5px; font-family: inherit;">
+              <span style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #62707E;">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><line x1="16" y1="3" x2="16" y2="7"></line><line x1="8" y1="3" x2="8" y2="7"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <label for="c-obs" style="font-size: 11px; font-weight: 700; letter-spacing: 0.4px; color: #62707E; text-transform: uppercase;">Observaciones</label>
+          <textarea id="c-obs" rows="2" placeholder="Notas internas opcionales..." style="width: 100%; box-sizing: border-box; padding: 10px 12px; background: #10151B; border: 1px solid #232B34; border-radius: 8px; color: #F1F4F8; font-size: 13.5px; font-family: inherit; resize: none;"></textarea>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <input id="c-envio" type="checkbox" style="width: 16px; height: 16px; accent-color: {{accent}}; margin: 0;">
+            <label for="c-envio" style="font-size: 13px; color: #B8C2CC;">Considerar envío a domicilio</label>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <input id="c-facturar" type="checkbox" style="width: 16px; height: 16px; accent-color: {{accent}}; margin: 0;">
+            <label for="c-facturar" style="font-size: 13px; color: #B8C2CC;">Facturar al confirmar</label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Summary bar ===== -->
+  <div style="display: flex; align-items: center; background: #10151B; border: 1px solid #232B34; border-radius: 14px; padding: 18px 24px;">
+    <div style="flex: 1; padding-right: 20px; border-right: 1px solid #1D242C;">
+      <div style="font-size: 10.5px; font-weight: 800; letter-spacing: 0.6px; color: #62707E; text-transform: uppercase;">Subtotal de productos</div>
+      <div style="margin-top: 4px; font-size: 17px; font-weight: 800; color: #F1F4F8;">$180.758,90</div>
+    </div>
+    <div style="flex: 1; padding: 0 20px; border-right: 1px solid #1D242C;">
+      <div style="font-size: 10.5px; font-weight: 800; letter-spacing: 0.6px; color: #62707E; text-transform: uppercase;">Descuento</div>
+      <div style="margin-top: 4px; font-size: 17px; font-weight: 800; color: #F1F4F8;">$0,00</div>
+    </div>
+    <div style="flex: 1; padding: 0 20px; border-right: 1px solid #1D242C;">
+      <div style="font-size: 10.5px; font-weight: 800; letter-spacing: 0.6px; color: #62707E; text-transform: uppercase;">Total productos</div>
+      <div style="margin-top: 4px; font-size: 17px; font-weight: 800; color: #F1F4F8;">$180.758,90</div>
+    </div>
+    <div style="flex: 1; padding: 0 20px; border-right: 1px solid #1D242C;">
+      <div style="font-size: 10.5px; font-weight: 800; letter-spacing: 0.6px; color: #62707E; text-transform: uppercase;">Envío</div>
+      <div style="margin-top: 4px; font-size: 17px; font-weight: 800; color: #F1F4F8;">$0,00</div>
+    </div>
+    <div style="flex: 1; padding: 0 20px 0 20px;">
+      <div style="font-size: 10.5px; font-weight: 800; letter-spacing: 0.6px; color: {{accent}}; text-transform: uppercase;">Total a cobrar</div>
+      <div style="margin-top: 4px; font-size: 18px; font-weight: 800; color: #F1F4F8;">$180.758,90</div>
+    </div>
+    <button type="button" style="flex: 0 0 auto; display: flex; align-items: center; gap: 9px; height: 44px; padding: 0 20px; background: {{accent}}; color: #ffffff; border: none; border-radius: 10px; font-weight: 800; font-size: 13.5px; font-family: inherit; cursor: pointer; white-space: nowrap;">
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+      Actualizar cotización
+    </button>
+  </div>
+
+  <!-- ===== Comparar alternativas de pago ===== -->
+  <div style="background: #10151B; border: 1px solid #232B34; border-radius: 16px; padding: 20px 24px; display: flex; flex-direction: column; gap: 14px;">
+    <div style="display: flex; align-items: flex-start; justify-content: space-between;">
+      <div>
+        <h3 style="margin: 0; font-size: 14.5px; font-weight: 800; color: #F1F4F8;">Comparar alternativas de pago</h3>
+        <p style="margin: 4px 0 0 0; font-size: 12.5px; color: #62707E;">Elegí la mejor opción para tu cliente. Los importes incluyen recargos del plan.</p>
+      </div>
+      <button type="button" style="flex: 0 0 auto; display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 14px; background: #171E26; border: 1px solid #232B34; border-radius: 9px; color: #B8C2CC; font-size: 12.5px; font-weight: 700; font-family: inherit; cursor: pointer;">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="4 4 20 4 14 12.5 14 19 10 21 10 12.5 4 4"></polygon></svg>
+        Filtrar medios
+      </button>
+    </div>
+
+    <!-- table header -->
+    <div style="display: grid; grid-template-columns: 2.2fr 1fr 0.9fr 1fr 0.8fr 1fr 1.1fr; gap: 12px; padding: 0 16px 8px 16px; border-bottom: 1px solid #1D242C;">
+      <span style="font-size: 10.5px; font-weight: 800; letter-spacing: 0.5px; color: #62707E; text-transform: uppercase;">Medio de pago</span>
+      <span style="font-size: 10.5px; font-weight: 800; letter-spacing: 0.5px; color: #62707E; text-transform: uppercase; text-align: right;">Total final</span>
+      <span style="font-size: 10.5px; font-weight: 800; letter-spacing: 0.5px; color: #62707E; text-transform: uppercase;">Plan / cuotas</span>
+      <span style="font-size: 10.5px; font-weight: 800; letter-spacing: 0.5px; color: #62707E; text-transform: uppercase; text-align: right;">Cuota estimada</span>
+      <span style="font-size: 10.5px; font-weight: 800; letter-spacing: 0.5px; color: #62707E; text-transform: uppercase; text-align: right;">Recargo</span>
+      <span style="font-size: 10.5px; font-weight: 800; letter-spacing: 0.5px; color: #62707E; text-transform: uppercase;">Estado</span>
+      <span style="font-size: 10.5px; font-weight: 800; letter-spacing: 0.5px; color: #62707E; text-transform: uppercase; text-align: right;">Acción</span>
+    </div>
+
+    <!-- Grupo: Tarjeta crédito -->
+    <div style="border: 1px solid #1D242C; border-radius: 12px; overflow: hidden;">
+      <div style="display: grid; grid-template-columns: 2.2fr 1fr 0.9fr 1fr 0.8fr 1fr 1.1fr; align-items: center; gap: 12px; padding: 13px 16px; background: #171E26;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#8993A1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          <div style="width: 28px; height: 28px; flex: 0 0 auto; border-radius: 8px; background: #211A33; color: #A78BFA; display: flex; align-items: center; justify-content: center;">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
+          </div>
+          <span style="font-weight: 800; font-size: 13.5px; color: #F1F4F8;">Tarjeta crédito</span>
+        </div>
+        <div style="text-align: right; font-size: 13px; color: #B8C2CC;">desde <span style="font-weight: 800; color: #F1F4F8;">$180.758,90</span></div>
+        <div style="font-size: 13px; color: #8993A1;">5 planes</div>
+        <div style="text-align: right; font-size: 13px; color: #62707E;">—</div>
+        <div style="text-align: right; font-size: 12px; font-weight: 700; color: #FBBF24;">0% a +36%</div>
+        <div><span style="display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 999px; background: #123024; color: #4ADE80; font-size: 11px; font-weight: 700;">Disponible</span></div>
+        <div style="text-align: right;">
+          <button type="button" style="height: 32px; padding: 0 14px; background: #10151B; border: 1px solid #2C3644; border-radius: 8px; color: #B8C2CC; font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer;">Ver planes</button>
+        </div>
+      </div>
+
+      <div style="position: relative; display: grid; grid-template-columns: 2.2fr 1fr 0.9fr 1fr 0.8fr 1fr 1.1fr; align-items: center; gap: 12px; padding: 12px 16px 12px 54px; background: {{accent}}14; border-top: 1px solid #1D242C;">
+        <span style="position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: #22C55E;"></span>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 13px; color: #F1F4F8; font-weight: 700;">Visa · 1 pago</span>
+          <span style="padding: 2px 8px; border-radius: 999px; background: #123024; color: #4ADE80; font-size: 10.5px; font-weight: 800;">Mejor precio</span>
+        </div>
+        <div style="text-align: right; font-size: 13.5px; font-weight: 800; color: #F1F4F8;">$180.758,90</div>
+        <div style="font-size: 13px; color: #8993A1;">1 pago</div>
+        <div style="text-align: right; font-size: 13px; color: #62707E;">—</div>
+        <div style="text-align: right; font-size: 12px; font-weight: 700; color: #4ADE80;">0%</div>
+        <div></div>
+        <div style="text-align: right;">
+          <button type="button" style="display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 14px; background: {{accent}}; border: none; border-radius: 8px; color: #ffffff; font-size: 12px; font-weight: 800; font-family: inherit; cursor: pointer;">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            Seleccionado
+          </button>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 2.2fr 1fr 0.9fr 1fr 0.8fr 1fr 1.1fr; align-items: center; gap: 12px; padding: 12px 16px 12px 54px; border-top: 1px solid #1D242C;">
+        <span style="font-size: 13px; color: #B8C2CC; font-weight: 600;">Visa · 3 cuotas</span>
+        <div style="text-align: right; font-size: 13.5px; font-weight: 800; color: #F1F4F8;">$198.834,79</div>
+        <div style="font-size: 13px; color: #8993A1;">3 cuotas</div>
+        <div style="text-align: right; font-size: 13px; color: #B8C2CC;">$66.278,26</div>
+        <div style="text-align: right; font-size: 12px; font-weight: 700; color: #FBBF24;">+10%</div>
+        <div></div>
+        <div style="text-align: right;"><button type="button" style="height: 32px; padding: 0 14px; background: #171E26; border: 1px solid #2C3644; border-radius: 8px; color: #B8C2CC; font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer;">Elegir</button></div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 2.2fr 1fr 0.9fr 1fr 0.8fr 1fr 1.1fr; align-items: center; gap: 12px; padding: 12px 16px 12px 54px; border-top: 1px solid #1D242C;">
+        <span style="font-size: 13px; color: #B8C2CC; font-weight: 600;">Visa · 6 cuotas</span>
+        <div style="text-align: right; font-size: 13.5px; font-weight: 800; color: #F1F4F8;">$215.103,09</div>
+        <div style="font-size: 13px; color: #8993A1;">6 cuotas</div>
+        <div style="text-align: right; font-size: 13px; color: #B8C2CC;">$35.850,52</div>
+        <div style="text-align: right; font-size: 12px; font-weight: 700; color: #FBBF24;">+19%</div>
+        <div></div>
+        <div style="text-align: right;"><button type="button" style="height: 32px; padding: 0 14px; background: #171E26; border: 1px solid #2C3644; border-radius: 8px; color: #B8C2CC; font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer;">Elegir</button></div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 2.2fr 1fr 0.9fr 1fr 0.8fr 1fr 1.1fr; align-items: center; gap: 12px; padding: 12px 16px 12px 54px; border-top: 1px solid #1D242C;">
+        <span style="font-size: 13px; color: #B8C2CC; font-weight: 600;">Visa · 9 cuotas</span>
+        <div style="text-align: right; font-size: 13.5px; font-weight: 800; color: #F1F4F8;">$229.563,80</div>
+        <div style="font-size: 13px; color: #8993A1;">9 cuotas</div>
+        <div style="text-align: right; font-size: 13px; color: #B8C2CC;">$25.507,09</div>
+        <div style="text-align: right; font-size: 12px; font-weight: 700; color: #FBBF24;">+27%</div>
+        <div></div>
+        <div style="text-align: right;"><button type="button" style="height: 32px; padding: 0 14px; background: #171E26; border: 1px solid #2C3644; border-radius: 8px; color: #B8C2CC; font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer;">Elegir</button></div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 2.2fr 1fr 0.9fr 1fr 0.8fr 1fr 1.1fr; align-items: center; gap: 12px; padding: 12px 16px 12px 54px; border-top: 1px solid #1D242C;">
+        <span style="font-size: 13px; color: #B8C2CC; font-weight: 600;">Visa · 12 cuotas</span>
+        <div style="text-align: right; font-size: 13.5px; font-weight: 800; color: #F1F4F8;">$245.832,10</div>
+        <div style="font-size: 13px; color: #8993A1;">12 cuotas</div>
+        <div style="text-align: right; font-size: 13px; color: #B8C2CC;">$20.486,01</div>
+        <div style="text-align: right; font-size: 12px; font-weight: 700; color: #FBBF24;">+36%</div>
+        <div></div>
+        <div style="text-align: right;"><button type="button" style="height: 32px; padding: 0 14px; background: #171E26; border: 1px solid #2C3644; border-radius: 8px; color: #B8C2CC; font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer;">Elegir</button></div>
+      </div>
+    </div>
+
+    <!-- Grupo: Medio digital (fila simple) -->
+    <div style="border: 1px solid #1D242C; border-radius: 12px; display: grid; grid-template-columns: 2.2fr 1fr 0.9fr 1fr 0.8fr 1fr 1.1fr; align-items: center; gap: 12px; padding: 13px 16px;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="width: 12px; display: inline-block;"></span>
+        <div style="width: 28px; height: 28px; flex: 0 0 auto; border-radius: 8px; background: #0F2A28; color: #2DD4BF; display: flex; align-items: center; justify-content: center;">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"></rect><line x1="11" y1="18" x2="13" y2="18"></line></svg>
+        </div>
+        <span style="font-weight: 800; font-size: 13.5px; color: #F1F4F8;">Medio digital</span>
+      </div>
+      <div style="text-align: right; font-size: 13.5px; font-weight: 800; color: #F1F4F8;">$180.758,90</div>
+      <div style="font-size: 13px; color: #8993A1;">1 pago</div>
+      <div style="text-align: right; font-size: 13px; color: #62707E;">—</div>
+      <div style="text-align: right; font-size: 12px; font-weight: 700; color: #4ADE80;">0%</div>
+      <div></div>
+      <div style="text-align: right;"><button type="button" style="height: 32px; padding: 0 14px; background: #171E26; border: 1px solid #2C3644; border-radius: 8px; color: #B8C2CC; font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer;">Elegir</button></div>
+    </div>
+
+    <!-- Grupo: Crédito personal -->
+    <div style="border: 1px solid #1D242C; border-radius: 12px; overflow: hidden;">
+      <div style="display: grid; grid-template-columns: 2.2fr 1fr 0.9fr 1fr 0.8fr 1fr 1.1fr; align-items: center; gap: 12px; padding: 13px 16px 4px 16px; background: #171E26;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#8993A1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          <div style="width: 28px; height: 28px; flex: 0 0 auto; border-radius: 8px; background: #2A2210; color: #FBBF24; display: flex; align-items: center; justify-content: center;">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><line x1="8" y1="15" x2="16" y2="9"></line></svg>
+          </div>
+          <div>
+            <div style="font-weight: 800; font-size: 13.5px; color: #F1F4F8;">Crédito personal</div>
+            <div style="font-size: 11.5px; color: #62707E; margin-top: 1px;">Configuración global</div>
+          </div>
+        </div>
+        <div style="text-align: right; font-size: 13px; color: #B8C2CC;">desde <span style="font-weight: 800; color: #F1F4F8;">$180.758,90</span></div>
+        <div style="font-size: 13px; color: #8993A1;">5 planes</div>
+        <div style="text-align: right; font-size: 13px; color: #62707E;">—</div>
+        <div style="text-align: right; font-size: 12px; font-weight: 700; color: #FBBF24;">0% a +10%</div>
+        <div><span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: #2A1518; color: #F87171; font-size: 11px; font-weight: 700;">
+          <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
+          No apto
+        </span></div>
+        <div style="text-align: right;"><button type="button" style="height: 32px; padding: 0 14px; background: #10151B; border: 1px solid #2C3644; border-radius: 8px; color: #B8C2CC; font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer;">Ver planes</button></div>
+      </div>
+      <div style="padding: 0 16px 10px 54px; background: #171E26; font-size: 12px; color: #62707E;">Cupo $1.000.000.000,00 · solicitado $180.758,90</div>
+
+      <div style="display: grid; grid-template-columns: 2.2fr 1fr 0.9fr 1fr 0.8fr 1fr 1.1fr; align-items: center; gap: 12px; padding: 12px 16px 12px 54px; border-top: 1px solid #1D242C;">
+        <span style="font-size: 13px; color: #B8C2CC; font-weight: 600;">3 cuotas</span>
+        <div style="text-align: right; font-size: 13.5px; font-weight: 800; color: #F1F4F8;">$189.796,85</div>
+        <div style="font-size: 13px; color: #8993A1;">3 cuotas</div>
+        <div style="text-align: right; font-size: 13px; color: #B8C2CC;">$63.265,62</div>
+        <div style="text-align: right; font-size: 12px; font-weight: 700; color: #FBBF24;">+5%</div>
+        <div></div>
+        <div style="text-align: right;">
+          <button type="button" style="display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 14px; background: #2A2210; border: 1px solid #4D3B12; border-radius: 8px; color: #FBBF24; font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer;">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path></svg>
+            Solicitar excepción
+          </button>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 2.2fr 1fr 0.9fr 1fr 0.8fr 1fr 1.1fr; align-items: center; gap: 12px; padding: 12px 16px 12px 54px; border-top: 1px solid #1D242C;">
+        <span style="font-size: 13px; color: #B8C2CC; font-weight: 600;">4 cuotas</span>
+        <div style="text-align: right; font-size: 13.5px; font-weight: 800; color: #F1F4F8;">$198.834,79</div>
+        <div style="font-size: 13px; color: #8993A1;">4 cuotas</div>
+        <div style="text-align: right; font-size: 13px; color: #B8C2CC;">$49.708,70</div>
+        <div style="text-align: right; font-size: 12px; font-weight: 700; color: #FBBF24;">+10%</div>
+        <div></div>
+        <div style="text-align: right;">
+          <button type="button" style="display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 14px; background: #2A2210; border: 1px solid #4D3B12; border-radius: 8px; color: #FBBF24; font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer;">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path></svg>
+            Solicitar excepción
+          </button>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 2.2fr 1fr 0.9fr 1fr 0.8fr 1fr 1.1fr; align-items: center; gap: 12px; padding: 12px 16px 12px 54px; border-top: 1px solid #1D242C;">
+        <span style="font-size: 13px; color: #B8C2CC; font-weight: 600;">6 cuotas</span>
+        <div style="text-align: right; font-size: 13.5px; font-weight: 800; color: #F1F4F8;">$198.834,79</div>
+        <div style="font-size: 13px; color: #8993A1;">6 cuotas</div>
+        <div style="text-align: right; font-size: 13px; color: #B8C2CC;">$33.139,13</div>
+        <div style="text-align: right; font-size: 12px; font-weight: 700; color: #FBBF24;">+10%</div>
+        <div></div>
+        <div style="text-align: right;">
+          <button type="button" style="display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 14px; background: #2A2210; border: 1px solid #4D3B12; border-radius: 8px; color: #FBBF24; font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer;">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path></svg>
+            Solicitar excepción
+          </button>
+        </div>
+      </div>
+
+      <div style="position: relative; display: grid; grid-template-columns: 2.2fr 1fr 0.9fr 1fr 0.8fr 1fr 1.1fr; align-items: center; gap: 12px; padding: 12px 16px 12px 54px; border-top: 1px solid #1D242C;">
+        <span style="position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: #22C55E;"></span>
+        <span style="font-size: 13px; color: #B8C2CC; font-weight: 600;">7 cuotas</span>
+        <div style="text-align: right; font-size: 13.5px; font-weight: 800; color: #F1F4F8;">$180.758,90</div>
+        <div style="font-size: 13px; color: #8993A1;">7 cuotas</div>
+        <div style="text-align: right; font-size: 13px; color: #B8C2CC;">$25.822,70</div>
+        <div style="text-align: right; font-size: 12px; font-weight: 700; color: #4ADE80;">0%</div>
+        <div></div>
+        <div style="text-align: right;">
+          <button type="button" style="display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 14px; background: #2A2210; border: 1px solid #4D3B12; border-radius: 8px; color: #FBBF24; font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer;">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path></svg>
+            Solicitar excepción
+          </button>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 2.2fr 1fr 0.9fr 1fr 0.8fr 1fr 1.1fr; align-items: center; gap: 12px; padding: 12px 16px 12px 54px; border-top: 1px solid #1D242C;">
+        <span style="font-size: 13px; color: #B8C2CC; font-weight: 600;">9 cuotas</span>
+        <div style="text-align: right; font-size: 13.5px; font-weight: 800; color: #F1F4F8;">$180.758,90</div>
+        <div style="font-size: 13px; color: #8993A1;">9 cuotas</div>
+        <div style="text-align: right; font-size: 13px; color: #B8C2CC;">$20.884,32</div>
+        <div style="text-align: right; font-size: 12px; font-weight: 700; color: #4ADE80;">0%</div>
+        <div></div>
+        <div style="text-align: right;">
+          <button type="button" style="display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 14px; background: #2A2210; border: 1px solid #4D3B12; border-radius: 8px; color: #FBBF24; font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer;">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path></svg>
+            Solicitar excepción
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Grupo: Transferencia (fila simple) -->
+    <div style="border: 1px solid #1D242C; border-radius: 12px; display: grid; grid-template-columns: 2.2fr 1fr 0.9fr 1fr 0.8fr 1fr 1.1fr; align-items: center; gap: 12px; padding: 13px 16px;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="width: 12px; display: inline-block;"></span>
+        <div style="width: 28px; height: 28px; flex: 0 0 auto; border-radius: 8px; background: {{accent}}1a; color: {{accent}}; display: flex; align-items: center; justify-content: center;">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="21" x2="21" y2="21"></line><path d="M4 10h16v11H4z"></path><path d="M12 2 2 8h20L12 2z"></path></svg>
+        </div>
+        <span style="font-weight: 800; font-size: 13.5px; color: #F1F4F8;">Transferencia</span>
+      </div>
+      <div style="text-align: right; font-size: 13.5px; font-weight: 800; color: #F1F4F8;">$186.181,67</div>
+      <div style="font-size: 13px; color: #8993A1;">1 pago</div>
+      <div style="text-align: right; font-size: 13px; color: #62707E;">—</div>
+      <div style="text-align: right; font-size: 12px; font-weight: 700; color: #FBBF24;">+3%</div>
+      <div></div>
+      <div style="text-align: right;"><button type="button" style="height: 32px; padding: 0 14px; background: #171E26; border: 1px solid #2C3644; border-radius: 8px; color: #B8C2CC; font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer;">Elegir</button></div>
+    </div>
+
+    <!-- Grupo: Débito (fila simple) -->
+    <div style="border: 1px solid #1D242C; border-radius: 12px; display: grid; grid-template-columns: 2.2fr 1fr 0.9fr 1fr 0.8fr 1fr 1.1fr; align-items: center; gap: 12px; padding: 13px 16px;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="width: 12px; display: inline-block;"></span>
+        <div style="width: 28px; height: 28px; flex: 0 0 auto; border-radius: 8px; background: {{accent}}1a; color: {{accent}}; display: flex; align-items: center; justify-content: center;">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
+        </div>
+        <span style="font-weight: 800; font-size: 13.5px; color: #F1F4F8;">Débito</span>
+      </div>
+      <div style="text-align: right; font-size: 13.5px; font-weight: 800; color: #F1F4F8;">$186.181,67</div>
+      <div style="font-size: 13px; color: #8993A1;">1 pago</div>
+      <div style="text-align: right; font-size: 13px; color: #62707E;">—</div>
+      <div style="text-align: right; font-size: 12px; font-weight: 700; color: #FBBF24;">+3%</div>
+      <div></div>
+      <div style="text-align: right;"><button type="button" style="height: 32px; padding: 0 14px; background: #171E26; border: 1px solid #2C3644; border-radius: 8px; color: #B8C2CC; font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer;">Elegir</button></div>
+    </div>
+
+    <!-- Grupo: Efectivo (fila simple) -->
+    <div style="border: 1px solid #1D242C; border-radius: 12px; display: grid; grid-template-columns: 2.2fr 1fr 0.9fr 1fr 0.8fr 1fr 1.1fr; align-items: center; gap: 12px; padding: 13px 16px;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="width: 12px; display: inline-block;"></span>
+        <div style="width: 28px; height: 28px; flex: 0 0 auto; border-radius: 8px; background: #123024; color: #4ADE80; display: flex; align-items: center; justify-content: center;">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="3"></circle></svg>
+        </div>
+        <span style="font-weight: 800; font-size: 13.5px; color: #F1F4F8;">Efectivo</span>
+      </div>
+      <div style="text-align: right; font-size: 13.5px; font-weight: 800; color: #F1F4F8;">$189.796,85</div>
+      <div style="font-size: 13px; color: #8993A1;">1 pago</div>
+      <div style="text-align: right; font-size: 13px; color: #62707E;">—</div>
+      <div style="text-align: right; font-size: 12px; font-weight: 700; color: #FBBF24;">+5%</div>
+      <div></div>
+      <div style="text-align: right;"><button type="button" style="height: 32px; padding: 0 14px; background: #171E26; border: 1px solid #2C3644; border-radius: 8px; color: #B8C2CC; font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer;">Elegir</button></div>
+    </div>
+  </div>
+
+  <!-- ===== Footer: opción elegida ===== -->
+  <div style="display: flex; align-items: center; justify-content: space-between; background: #10151B; border: 1px solid #232B34; border-radius: 14px; padding: 16px 24px;">
+    <div>
+      <div style="font-size: 11.5px; font-weight: 800; letter-spacing: 0.5px; color: #4ADE80; text-transform: uppercase;">Opción seleccionada</div>
+      <div style="margin-top: 3px; font-size: 12.5px; color: #B8C2CC;">Visa · 1 pago · Total $180.758,90 · 0% · Envío $0,00 · <span style="color: #F1F4F8; font-weight: 700;">Total a cobrar $180.758,90</span></div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <button type="button" style="display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 18px; background: #171E26; border: 1px solid #232B34; border-radius: 10px; color: #F1F4F8; font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer;">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+        Guardar cotización
+      </button>
+      <button type="button" style="display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 18px; background: #171E26; border: 1px solid #232B34; border-radius: 10px; color: #F1F4F8; font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer;">
+        Continuar con wizard
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+      </button>
+      <button type="button" style="display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 20px; background: {{accent}}; border: none; border-radius: 10px; color: #ffffff; font-size: 13px; font-weight: 800; font-family: inherit; cursor: pointer;">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        Confirmar Mi Venta
+      </button>
+    </div>
+  </div>
+
+</div>
+<script type="text/x-dc" data-dc-script="" data-props="{&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#5B8DEF&quot;},&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:2080}}">
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#5B8DEF' };
+  }
+}
+</script>
+</x-dc>
+</body>
+</html>

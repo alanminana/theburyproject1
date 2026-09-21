@@ -48,7 +48,11 @@ public static class RolesPermisosSeeder
                 ("Crear", "create", 2),
                 ("Editar", "update", 3),
                 ("Eliminar", "delete", 4),
-                ("Exportar", "export", 5)
+                ("Exportar", "export", 5),
+                // Costo de envío del producto: valor fijo, solo editable por quien tenga este
+                // permiso (Admin/SuperAdmin lo reciben por AsignarTodosLosPermisosAsync; el resto
+                // de los roles lo ve en solo lectura salvo que se les asigne en Seguridad).
+                ("Editar costo de envío", "editshippingcost", 6)
             }),
             ("Categorías", "categorias", "Catálogo", "bi-tags", 2, new List<(string, string, int)>
             {

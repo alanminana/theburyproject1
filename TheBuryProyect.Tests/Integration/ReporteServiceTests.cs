@@ -1516,7 +1516,7 @@ public class ReporteServiceTests : IDisposable
         decimal subtotalFinalNeto,
         decimal subtotalFinalIva,
         decimal porcentajeIva = 21m,
-        EstadoVenta estado = EstadoVenta.Confirmada,
+        EstadoVenta estado = EstadoVenta.Facturada,
         DateTime? fecha = null)
     {
         var venta = new Venta
@@ -1622,7 +1622,7 @@ public class ReporteServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task GenerarReporteIva_ConVentaConfirmada_UsaSnapshotYDesglosaPorAlicuota()
+    public async Task GenerarReporteIva_ConVentaFacturada_UsaSnapshotYDesglosaPorAlicuota()
     {
         var cliente = await SeedClienteAsync();
         var producto = await SeedProductoAsync();
@@ -1642,13 +1642,29 @@ public class ReporteServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task GenerarReporteIva_ExcluyeVentasCanceladasYCotizaciones()
+    public async Task GenerarReporteIva_ExcluyeVentasConfirmadasCanceladasYCotizaciones()
     {
         var cliente = await SeedClienteAsync();
         var producto = await SeedProductoAsync();
+        // Confirmada sin facturar: venta informal, no discrimina IVA (mismo criterio que Caja).
         await SeedVentaConSnapshotIvaAsync(cliente.Id, producto.Id, 121m, 100m, 21m, estado: EstadoVenta.Confirmada);
         await SeedVentaConSnapshotIvaAsync(cliente.Id, producto.Id, 242m, 200m, 42m, estado: EstadoVenta.Cancelada);
         await SeedVentaConSnapshotIvaAsync(cliente.Id, producto.Id, 363m, 300m, 63m, estado: EstadoVenta.Cotizacion);
+        await SeedVentaConSnapshotIvaAsync(cliente.Id, producto.Id, 484m, 400m, 84m, estado: EstadoVenta.Facturada);
+
+        var resultado = await _service.GenerarReporteIvaAsync(new ReporteIvaFiltroViewModel { Tipo = "ventas" });
+
+        Assert.Equal(1, resultado.VentasCantidad);
+        Assert.Equal(84m, resultado.VentasIva);
+        Assert.Equal(484m, resultado.VentasTotal);
+    }
+
+    [Fact]
+    public async Task GenerarReporteIva_IncluyeVentasEntregadas()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        await SeedVentaConSnapshotIvaAsync(cliente.Id, producto.Id, 121m, 100m, 21m, estado: EstadoVenta.Entregada);
 
         var resultado = await _service.GenerarReporteIvaAsync(new ReporteIvaFiltroViewModel { Tipo = "ventas" });
 

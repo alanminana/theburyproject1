@@ -215,14 +215,16 @@ namespace TheBuryProject.Services
                 {
                     // Fuente: snapshot histórico de VentaDetalle (alícuota, neto e IVA al momento
                     // de la operación). Una venta genera un solo registro de IVA aunque se cobre
-                    // en varios movimientos de Caja. Se excluyen borradores/cotizaciones y canceladas.
+                    // en varios movimientos de Caja. Solo Facturada/Entregada tienen factura real
+                    // detrás y discriminan IVA (mismo criterio que CajaConciliacionBuilder.DiscriminaIva);
+                    // una Confirmada sin facturar es una venta informal que no declara IVA, y se
+                    // excluye igual que borradores/cotizaciones y canceladas.
                     var ventasQuery = _context.VentaDetalles
                         .AsNoTracking()
                         .Where(d =>
                             !d.IsDeleted &&
                             !d.Venta.IsDeleted &&
-                            (d.Venta.Estado == EstadoVenta.Confirmada ||
-                             d.Venta.Estado == EstadoVenta.Facturada ||
+                            (d.Venta.Estado == EstadoVenta.Facturada ||
                              d.Venta.Estado == EstadoVenta.Entregada));
 
                     if (desde.HasValue)

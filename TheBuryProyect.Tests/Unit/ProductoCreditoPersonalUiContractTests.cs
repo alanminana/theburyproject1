@@ -1,18 +1,15 @@
 namespace TheBuryProject.Tests.Unit;
 
 /// <summary>
-/// ML6: la sección Crédito Personal de Crear y Editar Producto (modal del catálogo y la
-/// página Producto/Edit_tw huérfana) debe hablar de recargo TOTAL, nunca de tasa mensual /
-/// TEA / interés compuesto / sistema francés, y el preview debe consumir el vector del
-/// servidor sin reconstruir la última cuota en JavaScript (mismo contrato que ML5).
+/// ML6: la sección Crédito Personal de Crear y Editar Producto (modal del catálogo) debe
+/// hablar de recargo TOTAL, nunca de tasa mensual / TEA / interés compuesto / sistema
+/// francés, y el preview debe consumir el vector del servidor sin reconstruir la última
+/// cuota en JavaScript (mismo contrato que ML5).
 /// </summary>
 public class ProductoCreditoPersonalUiContractTests
 {
     private static string LeerCatalogoIndex() =>
         File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Catalogo", "Index_tw.cshtml"));
-
-    private static string LeerProductoEdit() =>
-        File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Producto", "Edit_tw.cshtml"));
 
     private static string LeerJsCompartido() =>
         File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "producto-credito-personal-ui.js"));
@@ -62,16 +59,6 @@ public class ProductoCreditoPersonalUiContractTests
     [Fact]
     public void SeccionEditar_HablaDeRecargoTotalSinSemanticaMensual()
         => AssertSeccionHablaDeRecargoTotalSinSemanticaMensual(LeerSeccionCreditoEditar());
-
-    [Fact]
-    public void SeccionProductoEditTw_HablaDeRecargoTotalSinSemanticaMensual()
-    {
-        var html = LeerProductoEdit();
-        var inicio = html.IndexOf("<!-- Crédito personal -->", StringComparison.Ordinal);
-        var fin = html.IndexOf("<!-- Características -->", StringComparison.Ordinal);
-        Assert.True(inicio >= 0 && fin > inicio, "No se encontró la sección Crédito personal de Producto/Edit_tw.");
-        AssertSeccionHablaDeRecargoTotalSinSemanticaMensual(html[inicio..fin]);
-    }
 
     // -------------------------------------------------------------------------
     // Modelo de estados tri-estado explícito (Hereda / Propio / No disponible),
@@ -138,9 +125,9 @@ public class ProductoCreditoPersonalUiContractTests
     }
 
     // -------------------------------------------------------------------------
-    // ML5 — Producto no define porcentajes: ningún input editable de recargo/tasa en las tres
-    // superficies (modal Crear, modal Editar, página huérfana Producto/Edit_tw), en ningún caso
-    // (ni servidor-render estático ni template JS de renderCards).
+    // ML5 — Producto no define porcentajes: ningún input editable de recargo/tasa en las dos
+    // superficies (modal Crear, modal Editar), en ningún caso (ni servidor-render estático
+    // ni template JS de renderCards).
     // -------------------------------------------------------------------------
 
     private static void AssertSeccionSinInputEditableDePorcentaje(string seccion)
@@ -158,19 +145,6 @@ public class ProductoCreditoPersonalUiContractTests
     [Fact]
     public void SeccionEditar_NoExponeInputEditableDePorcentaje()
         => AssertSeccionSinInputEditableDePorcentaje(LeerSeccionCreditoEditar());
-
-    [Fact]
-    public void SeccionProductoEditTw_NoExponeInputEditableDePorcentaje()
-    {
-        var html = LeerProductoEdit();
-        var inicio = html.IndexOf("<!-- Crédito personal -->", StringComparison.Ordinal);
-        var fin = html.IndexOf("<!-- Características -->", StringComparison.Ordinal);
-        Assert.True(inicio >= 0 && fin > inicio, "No se encontró la sección Crédito personal de Producto/Edit_tw.");
-        var seccion = html[inicio..fin];
-        AssertSeccionSinInputEditableDePorcentaje(seccion);
-        // El recargo se muestra de solo lectura, sourced del plan global (ver ObtenerAsync).
-        Assert.Contains("data-cp-recargo-readonly", seccion);
-    }
 
     [Fact]
     public void JsCompartido_RenderCards_NoGeneraInputEditableDePorcentaje()

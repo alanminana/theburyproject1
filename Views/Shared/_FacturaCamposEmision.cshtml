@@ -1,0 +1,149 @@
+@model FacturaViewModel
+@*
+    COTIZACION-MIVENTA-02: extraído de Views/Venta/Details_tw.cshtml ("Emitir factura") para
+    que el Cotizador ("Facturar al confirmar") reutilice EXACTAMENTE el mismo marcado — misma
+    fuente de verdad, ver §11 del pedido ("Evitar tener ModalFacturaDetails y
+    ModalFacturaCotizador con lógica divergente"). Vive en Views/Shared (no en Views/Venta)
+    porque el tag helper <partial> resuelve por convención relativa al controlador actual —
+    Views/Venta sólo es visible desde VentaController, y este partial se embebe también desde
+    CotizacionController (Views/Cotizacion/_CotizadorForm.cshtml).
+
+    Sólo el body visual/de captura de datos; cada host decide qué hacer con estos valores
+    (Details: <form asp-action="Facturar"> real; Cotizador: sólo lee los inputs por id al
+    hacer clic en "Guardar configuración", sin persistir nada todavía).
+
+    ViewData esperado por el host:
+      - "TiposFactura" (SelectList, obligatorio)
+      - "IdPrefix" (string, opcional — default "modal-"): evita colisión de ids cuando el
+        mismo partial se embebe más de una vez en la misma página (mismo criterio que ya usa
+        _CotizadorForm.cshtml con el modal de Envío).
+*@
+@{
+    var tiposFactura = ViewData["TiposFactura"] as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
+    var idPrefix = ViewData["IdPrefix"] as string ?? "modal-";
+    // COTIZACION-MIVENTA-02: Details usa un <form asp-action="Facturar"> real y necesita
+    // name="Tipo"/"PuntoVenta"/"FechaEmision" para el model binding. El Cotizador embebe
+    // este mismo partial DENTRO de #venta-form cuando corre incrustado en el wizard de
+    // Venta/Create (_CotizadorForm.cshtml no abre form propio, ver su comentario de
+    // cabecera) — ahí nunca hay un submit real (el JS sólo lee los inputs por id), así que
+    // esos `name` filtrarían al POST de la venta. Con IncludeNames=false (Razor omite el
+    // atributo por completo cuando el valor interpolado es null) los inputs quedan sin
+    // `name`, preservando el invariante "ningún input del Cotizador lleva name".
+    var incluirNames = !(ViewData["IncludeNames"] is bool b && !b);
+    string? Nombre(string nombre) => incluirNames ? nombre : null;
+}
+@* VENTA-ENVIO-TOTAL-01: trazabilidad total comercial vs. comprobante. Sólo se muestra si la venta
+   tiene un importe de envío: el envío se cobra pero no integra este comprobante (Venta.
+   TotalFacturable = Venta.Total; ver Helpers/VentaMontos). En el Cotizador (sin Venta aún) queda
+   oculto y lo puede completar el JS del host por id. *@
+<section id="@(idPrefix)resumen-comercial" class="rounded-2xl border border-sky-500/25 bg-sky-500/5 p-5@(Model.TieneEnvioFueraDelComprobante ? "" : " hidden")">
+    <p class="text-[10px] font-black uppercase tracking-[0.18em] text-sky-300">Resumen comercial</p>
+    <dl class="mt-3 space-y-1.5 text-sm">
+        <div class="flex justify-between gap-3"><dt class="text-slate-400">Productos</dt><dd id="@(idPrefix)comercial-productos" class="shrink-0 whitespace-nowrap font-semibold text-slate-100">@Model.Total.ToString("C2")</dd></div>
+        <div class="flex justify-between gap-3"><dt class="text-slate-400">Envío</dt><dd id="@(idPrefix)comercial-envio" class="shrink-0 whitespace-nowrap font-semibold text-slate-100">@Model.ImporteEnvio.ToString("C2")</dd></div>
+        <div class="flex justify-between gap-3 border-t border-sky-500/20 pt-1.5"><dt class="font-bold text-sky-200">Total a cobrar</dt><dd id="@(idPrefix)comercial-total" class="shrink-0 whitespace-nowrap font-black text-sky-200">@Model.TotalACobrar.ToString("C2")</dd></div>
+    </dl>
+    <p class="mt-3 text-[11px] leading-relaxed text-slate-400">El envío se cobra aparte y no integra este comprobante: el total a facturar de abajo corresponde sólo a los productos (total del comprobante).</p>
+</section>
+
+<section class="factura-totales-host rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+    @* Grilla por container query (shared-components.css §11): 3 columnas sólo si el host es
+       ancho (Details); en el modal angosto del Cotizador el Total ocupa su propia fila. *@
+    <div class="factura-totales">
+        <div class="factura-totales__card rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+            <p class="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Subtotal</p>
+            <p id="@(idPrefix)subtotal" class="factura-totales__value text-base font-bold text-slate-100">@Model.Subtotal.ToString("C2")</p>
+        </div>
+        <div class="factura-totales__card rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+            <p class="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">IVA</p>
+            <p id="@(idPrefix)iva" class="factura-totales__value text-base font-bold text-slate-100">@Model.IVA.ToString("C2")</p>
+        </div>
+        <div class="factura-totales__card factura-totales__card--total rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-4">
+            <p class="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-300">Total a facturar</p>
+            <p id="@(idPrefix)total" class="factura-totales__value text-xl font-black text-emerald-300">@Model.Total.ToString("C2")</p>
+        </div>
+    </div>
+</section>
+
+<section id="@(idPrefix)alicuotas-section" class="rounded-2xl border border-slate-800 bg-slate-900/70 p-5@(Model.ResumenAlicuotas.Any() ? "" : " hidden")">
+    <div class="mb-4 flex items-center gap-3 border-b border-slate-800 pb-3">
+        <span class="material-symbols-outlined text-primary text-sm">percent</span>
+        <h4 class="text-sm font-black text-white">Resumen por alícuota</h4>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-xs">
+            <thead>
+                <tr class="border-b border-slate-800 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+                    <th class="py-2 pr-3 text-left">Alícuota</th>
+                    <th class="px-2 py-2 text-right">Base</th>
+                    <th class="px-2 py-2 text-right">IVA</th>
+                    <th class="py-2 pl-3 text-right">Total</th>
+                </tr>
+            </thead>
+            <tbody id="@(idPrefix)alicuotas-tbody" class="divide-y divide-slate-800">
+                @foreach (var item in Model.ResumenAlicuotas)
+                {
+                    <tr class="text-slate-300">
+                        <td class="py-2 pr-3">
+                            <p class="font-bold text-white">@item.AlicuotaIVANombre</p>
+                            <p class="text-[10px] text-slate-500">@item.PorcentajeIVA.ToString("0.##")%</p>
+                        </td>
+                        <td class="px-2 py-2 text-right font-semibold">@item.BaseImponible.ToString("C2")</td>
+                        <td class="px-2 py-2 text-right font-semibold">@item.IVA.ToString("C2")</td>
+                        <td class="py-2 pl-3 text-right font-black text-white">@item.Total.ToString("C2")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+    <div class="mb-4 flex items-center gap-3 border-b border-slate-800 pb-3">
+        <span class="material-symbols-outlined text-primary text-sm">edit_document</span>
+        <h4 class="text-sm font-black text-white">Datos de facturación</h4>
+    </div>
+    <div class="grid gap-3 sm:grid-cols-2">
+        <div>
+            <label for="@(idPrefix)tipo-factura" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+                Tipo de comprobante <span class="text-rose-400">*</span>
+            </label>
+            @* No se usa asp-items acá: el SelectTagHelper que ese atributo activa fuerza
+               name="" en el <select> aunque `name` se le pase null — rompería el invariante
+               "ningún input del Cotizador lleva name" cuando este parcial va embebido en
+               #venta-form. Se listan las mismas opciones a mano, mismo comportamiento (sin
+               selectedValue en el SelectList tampoco antes había ninguna opción con
+               selected="selected" — el JS del host es quien fija el valor real al abrir). *@
+            <select id="@(idPrefix)tipo-factura" name="@Nombre("Tipo")"
+                    class="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-semibold text-slate-100 outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20">
+                @if (tiposFactura != null)
+                {
+                    @foreach (var item in tiposFactura)
+                    {
+                        @* SelectListItem.Value viene null cuando el SelectList se construye sin
+                           dataValueField (new SelectList(Enum.GetValues(...))) — el propio
+                           SelectTagHelper cae a Text en ese caso (GenerateOption interno); se
+                           replica el mismo fallback acá para tener el mismo `value` que ya
+                           tenía este <select> con asp-items. *@
+                        <option value="@(item.Value ?? item.Text)" selected="@(item.Selected ? "selected" : null)">@item.Text</option>
+                    }
+                }
+            </select>
+        </div>
+        <div>
+            <label for="@(idPrefix)punto-venta" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+                Punto de venta
+            </label>
+            <input id="@(idPrefix)punto-venta" name="@Nombre("PuntoVenta")" type="text" maxlength="50" value="@Model.PuntoVenta"
+                   class="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-semibold text-slate-100 outline-none transition-colors placeholder:text-slate-600 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                   placeholder="Ej: 0001" />
+        </div>
+        <div>
+            <label for="@(idPrefix)fecha-emision" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+                Fecha de emisión <span class="text-rose-400">*</span>
+            </label>
+            <input id="@(idPrefix)fecha-emision" name="@Nombre("FechaEmision")" type="date" value="@Model.FechaEmision.ToString("yyyy-MM-dd")"
+                   class="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-semibold text-slate-100 outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20" />
+        </div>
+    </div>
+</section>

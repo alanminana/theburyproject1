@@ -49,6 +49,13 @@ namespace TheBuryProject.Services
             return result;
         }
 
+        public ContratoVentaCreditoValidacionResult ValidarDatosClienteParaContrato(Cliente? cliente)
+        {
+            var result = new ContratoVentaCreditoValidacionResult { ClienteId = cliente?.Id };
+            ValidarCliente(cliente, result);
+            return result;
+        }
+
         public async Task<ContratoVentaCredito> GenerarAsync(int ventaId, string usuario)
         {
             if (string.IsNullOrWhiteSpace(usuario))

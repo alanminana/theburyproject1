@@ -10,8 +10,7 @@ namespace TheBuryProject.Tests.Integration;
 
 /// <summary>
 /// Tests de integración de VentaEnvioService: máquina de estados fail-closed y que el
-/// costo de envío se mantiene informativo (nunca toca Total/Subtotal/IVA/caja/crédito
-/// de la venta).
+/// cambio de estado logístico nunca toca Total/Subtotal/IVA/caja/crédito de la venta.
 /// </summary>
 public class VentaEnvioServiceTests : IDisposable
 {
@@ -212,7 +211,8 @@ public class VentaEnvioServiceTests : IDisposable
     }
 
     // -------------------------------------------------------------------------
-    // El costo de envío es informativo: nunca toca los totales de la venta.
+    // El costo de envío es un concepto separado (se suma sólo en Venta.TotalACobrar, ver
+    // VentaEnvioTotalACobrarTests): cambiar el estado logístico nunca toca los totales de la venta.
     // -------------------------------------------------------------------------
 
     [Fact]

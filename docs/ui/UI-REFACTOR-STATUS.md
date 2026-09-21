@@ -6,13 +6,14 @@ faltan. Actualizar esta tabla al cerrar cada pantalla.
 | Área | Pantalla | Estado | Referencia |
 |---|---|---|---|
 | Global | `_Layout` / Foundation | ✅ Cerrado | `ERP-UI-STANDARD.md` |
-| Venta | `Index` | ✅ Cerrado | `79b4c91`, `e1de859`, `3225b95` + ENVIO-ML + VENTA-INDEX-CLIENTE-PARIDAD-01 (ver resumen abajo) |
+| Venta | `Index` | ✅ Cerrado | `79b4c91`, `e1de859`, `3225b95` + ENVIO-ML + VENTA-INDEX-CLIENTE-PARIDAD-01 + VENTA-INDEX-SIN-HERO-01 (ver resumen abajo) |
 | Venta | `Create` | ✅ Cerrado | `_VentaWizardForm.cshtml` + tests de paridad + ENVIO-ML (ver resumen abajo) |
 | Venta | `Edit` | ✅ Cerrado | `_VentaWizardForm.cshtml` + tests de paridad + ENVIO-ML (ver resumen abajo) |
 | Venta | `Details` | ✅ Cerrado | serie VENTA-DETAILS (ver resumen abajo) + ENVIO-ML (ver resumen abajo) |
 | Cotización | `Simular` (`_CotizadorForm.cshtml`) | ✅ Cerrado | serie COTIZACION-SIMULAR-REDESIGN (ver resumen abajo) + ENVIO-ML (ver resumen abajo) |
 | ConfiguracionPago | `MediosPago` | ✅ Cerrado | ver resumen abajo |
 | Dashboard | `Index` | ◐ Foundation aplicada | header en `.hero-erp` + tabs Vencidas/Próximas con patrón ARIA completo (ver resumen abajo); resto sin auditoría de 4 capas |
+| Cliente | `Index` | ✅ Cerrado | CLIENTE-INDEX-SIN-HERO-01 (ver resumen abajo) |
 | Cliente | `Nuevo cliente` (drawer Create) | ✅ Cerrado | serie wizard Cliente (ver resumen abajo) |
 | Cliente | `Details` | ✅ Cerrado | serie CLIENTE-DETAILS-TABS (ver resumen abajo) |
 | Catálogo | `Inventario` (tab Productos) | ✅ Cerrado | ver resumen abajo |
@@ -72,6 +73,43 @@ Resumen no cronológico de lo que quedó implementado:
   verificado end-to-end contra una venta real desde el nuevo botón ícono; build 0/0;
   105/105 tests focalizados de Venta (`VentaController*`, `VentaApiController*`,
   `VentaDetailsUiContractTests`, `VentaEnvio*`) verdes.
+
+- reapertura VENTA-INDEX-SIN-HERO-01, a pedido explícito del usuario tras comparar
+  capturas reales de Inventario/Cliente/Ventas y preferir la composición de Catálogo
+  (sin card de hero propio, acciones integradas a la barra de tabs). Convergencia
+  literal con `Catálogo/Index_tw.cshtml` (ver también CLIENTE-INDEX-SIN-HERO-01, misma
+  sesión): se retira la `<section class="venta-hero card">` (eyebrow "Centro operativo",
+  breadcrumb "Ventas › Centro de ventas", `<h1>Centro de Ventas</h1>`) — el título ya lo
+  muestra la barra superior global, y el breadcrumb no aportaba navegación real (un solo
+  nivel, sin jerarquía). El único botón que vivía en el hero ("Medios de pago") se mueve
+  a la barra de tabs, junto a "Ver cotizaciones"/"Nueva Venta", pero **fuera** del `<div
+  class="venta-tabs__actions">` que ya se ocultaba a <768px por duplicar la sticky mobile
+  bar — "Medios de pago" no tiene equivalente en esa barra (único punto de entrada real a
+  `ConfiguracionPago/MediosPago` desde Ventas, verificado por grep) y hubiera quedado sin
+  acceso en mobile si se agrupaba con esos dos. CSS muerto retirado de
+  `ventas-index.css` (`.venta-hero`, `::before`, `__content`, `__eyebrow`, `.dot`/
+  `.dot-green`, `.venta-breadcrumb*` y sus 2 variantes en media queries) — `id="venta-
+  index-rework"` es exclusivo de esta vista, confirmado sin otros consumidores. Sin
+  cambios de cálculo, reglas de negocio, ids, `data-*` ni contratos backend; ERP-UI-
+  STANDARD.md §4 actualizado para documentar este patrón (sin hero, acciones integradas
+  al card de contenido) como canónico, con `Catálogo/Index_tw.cshtml` como referencia.
+  Validado en vivo con Playwright (instancia del usuario en :18787, solo lectura, sin
+  tocarla) en 1920×1080, 1440×900, 1280×720, 1024×720, 768×1024, 390×844 y 360×800: sin
+  overflow horizontal en ningún viewport, 0 errores de consola; tab switching y "Medios de
+  pago" (visible y navegable en los 7 viewports, incluido mobile real) verificados
+  funcionalmente; build 0/0; 501/501 tests focalizados (`Cliente*` + `VentaEnvioUiContractTests`)
+  verdes.
+- reapertura VENTA-INDEX-MOBILE-P0 (<1024px, hallazgo de la auditoría mobile): con la
+  barra de tabs en `flex-direction: column` (≤1023px), el `flex: 1 1 44rem` de
+  `.tabs-scroll-shell` — un ancho base pensado para la fila — pasaba a ser la **altura**:
+  ~700px de bloque vacío entre las tabs y las acciones a 390 y 768, empujando filtros y
+  listado una pantalla hacia abajo. Además `flex-wrap: wrap` volvía la columna multi-línea
+  y el shell medía 613px dentro de una tarjeta de 358, así que "Cotizaciones/Devoluciones/
+  Envíos" quedaban recortadas por `.tabs-card{overflow:hidden}` sin poder deslizarse. Fix
+  aditivo dentro del `@media (max-width: 1023px)` existente (`flex: 0 0 auto` +
+  `flex-wrap: nowrap`), sin tocar las reglas base. Scroll total 1790→1122px (390) y
+  1407→960px (768); el shell pasa a 329px y las tabs se deslizan; ≥1024px idéntico (capturas
+  1440/1280/1024 iguales byte a byte); 70/70 tests focalizados verdes.
 
 ## Venta / Create + Edit — cerrados conjuntamente
 
@@ -239,6 +277,63 @@ Resumen no cronológico de lo que quedó implementado:
   valor previamente guardado), mientras que Fecha de primera cuota sí persiste — pre-
   existente, ajeno a este lote (no se tocó `CreditoController`/`venta-credito-embebido.js`),
   reproducido en vivo sobre la venta VTA-202608-000080.
+- reapertura VENTA-WIZARD-MOBILE-01 (mobile ≤767px, a pedido explícito: "que se vea
+  especialmente bien en mobile"): medido en vivo a 390×844, antes de este lote el paso
+  Productos **desbordaba 408px** horizontalmente (regresión ya commiteada, no mobile-only:
+  `grid-template-columns: 1fr` en los resets ≤1279px de `venta-page-wizard.css` equivale a
+  `minmax(auto, 1fr)`, así que el min-content de la tabla de productos ensanchaba la
+  columna; también afectaba 1024–1279px) — corregido a `minmax(0, 1fr)` + `min-width: 0`
+  (el test `VentaPageWizardCss_SidebarSinColumnaDedicadaDuranteCredito` se actualizó: el
+  valor `1fr` era el bug, la intención "una columna" se conserva). Shell mobile: hero
+  compacto (título + Cancelar en una fila; sin breadcrumb, sin descripción, sin el CTA del
+  hero, que duplicaba el de la barra), stepper con los N pasos visibles a la vez (inactivos
+  = número, activo = número + nombre; el nombre accesible se conserva; 40×40px, 34px a
+  ≤380px; `venta-page-wizard.js` centra el activo si con Crédito no entran), barra de
+  resumen fija abajo en una fila (Total + CTA; antes sticky arriba y apilada, 100px,
+  tapando el campo en edición), sin el tercer CTA de la tarjeta amarilla del sidebar (sólo
+  Revisión conserva recordatorio/"Facturar al confirmar"/"Guardar sin confirmar", neutra y
+  sin botón principal: el de la barra dispara el mismo `#btn-confirmar`, verificado con el
+  submit interceptado), encabezado de paso sólo con título (el círculo numerado se
+  desincronizaba del stepper), tabla de productos → tarjetas (cantidad, precio, descuento
+  y subtotal ahora visibles sin scroll horizontal; mismo DOM y `data-*`), filtros de
+  búsqueda en `<details data-collapse-mobile>` cerrado en mobile (abierto y sin summary en
+  ≥768px) y campos a 16px (iOS no hace zoom). Altura de los pasos Cliente/Productos/Pago/
+  Envío 1547–1777px → 892px; el contenido empieza en el primer tercio de la pantalla.
+  Sin cambios de reglas de negocio, ids ni contratos backend; desktop/tablet sin cambios
+  (verificado 768 y 1440). Tablet y horizontal, que quedaron fuera de este lote, se
+  resolvieron en VENTA-WIZARD-TABLET-01 (entrada siguiente).
+- VENTA-WIZARD-TABLET-01 (tablet 768–1279px y teléfono en horizontal, continuación de
+  VENTA-WIZARD-MOBILE-01): medido en vivo, **768–1279px es un solo rango** — el wizard se
+  apila por debajo de 1280 y la columna útil queda en ~630–880px según la sidebar del ERP
+  (16rem / 4.5rem / drawer), así que a 1024 con sidebar abierta fallaba igual que a 768:
+  stepper cortado en "Envío" con "Revisión" oculta, tabla de productos con Subtotal y
+  Eliminar detrás de scroll horizontal, y el CTA repetido en el hero y en la tarjeta
+  amarilla. El bloque mobile se reorganizó en capas: (1) `@media (max-width: 1279px)`
+  — hero de una fila sin breadcrumb/descripción/CTA duplicado, tarjeta amarilla sólo en
+  Revisión, encabezado de paso sin círculo numerado y barra de resumen **sticky** al pie
+  de la columna (no `fixed`: la sidebar del ERP cambia de ancho y la taparía; por eso la
+  barra pasó a ser lo último del `<form>`); (2) **container queries** para lo que depende
+  del ancho real y no del viewport — el stepper pasa a números + paso activo con nombre
+  bajo 47rem de fila (`vmsteps`) y la tabla de productos pasa a tarjetas bajo 46rem de
+  contenedor (`vmdetalle`); (3) `@media (max-width: 767px)` sólo teléfono (barra `fixed`,
+  descripciones ocultas, filtros colapsados, campos a 16px); (4) viewport bajo (≤500px de
+  alto): hero y barra compactos. Verificado en vivo en 768×1024, 900×720, 1024×720,
+  1279×720, 844×390 y 667×375: 0 overflow horizontal y 0 errores de consola en
+  Create/Edit; el CTA de la barra avanza el paso en Create y en Edit/Revisión dispara
+  `#btn-confirmar` (incluido el modal "Confirmar y facturar"); crédito de 7 pasos entra
+  completo en 768; nombres accesibles del stepper intactos. Regresión: las 26 capturas de
+  teléfono 390/360 son idénticas byte a byte a las de antes de reorganizar el bloque. Dos
+  hallazgos propios corregidos en el camino: un `sticky bottom` se ancla a la caja de
+  contenido del scroller, y `_Layout` fija `padding-bottom: 6rem` inline, así que la barra
+  flotaba 6rem sobre el borde visible (se compensa con `calc(.75rem - 6rem)`); y una regla
+  de 16px para pantallas táctiles cortaba la fecha del cotizador en 768 (se retiró, queda
+  sólo ≤767px). **Efecto colateral en escritorio, a confirmar:** por ser container query,
+  la tabla de productos también pasa a tarjetas en ≥1280px cuando la columna izquierda
+  (2fr) mide <736px (1280–1440 con sidebar abierta) — ahí la tabla ya cortaba Subtotal y
+  Eliminar; sólo cambia el paso Productos (el resto de las capturas de 1280/1440 son
+  idénticas). Si se prefiere conservar la tabla en escritorio, alcanza con envolver el
+  `@container vmdetalle` en `@media (max-width: 1279px)`. Fuera de alcance: el paso Cotizar
+  en 768–1023px conserva sus 2 columnas del cotizador (angostas, sin cortes).
 
 ## Venta / Details — cerrado
 
@@ -878,6 +973,124 @@ panel y el sidebar correctamente, un submit real (Editar método → Guardar) si
 funcionando end-to-end con toast de éxito tras el reemplazo AJAX, sin overflow horizontal,
 0 errores/warnings de consola; build 0/0.
 
+- COTIZACION-MOBILE-01 (banda angosta, <38rem de contenedor: 390/360px, standalone y
+  embebido en Venta/Create — a pedido explícito): scroll total de 2951px → ~1920px con
+  producto + cliente + simulación (390×844). El `.workspace` pasa de grid a flex en una
+  columna (mismo apilado) para que la franja Totales + "Simular/Actualizar cotización"
+  quede **sticky abajo** (compacta: sólo "Total base" + el botón; Subtotal y Descuento ya
+  están en Productos y en los propios campos); Descuento %/$ y Anticipo/Válida hasta
+  vuelven a ir de a dos (bloque ~450px → ~300px); productos agregados con objetivos
+  táctiles de 40px (eran 24–28px) y descuentos por ítem como campos con borde; comparador:
+  los medios con planes **arrancan colapsados** en banda angosta (~1400px de filas de plan;
+  nunca el grupo con la opción elegida o la de mejor precio; se abren al tocar, mismo
+  handler), las filas de plan pierden la celda "Plan" (repetía "N cuotas") y dejan
+  nombre+total / cuota+Elegir en dos líneas ordenadas, y la fila padre pierde el "—" y el
+  botón "Ver planes" (el chevron ya lo comunica); textos `text-[10px]` generados por JS a
+  12px y campos a 16px. JS: sólo clases semánticas (`rt-plan`, `rt-cuota`, `is-empty`),
+  `esBandaAngosta()` y el colapso inicial en `appendGroup`. Sin cambios de cálculo,
+  endpoints, ids ni contratos; banda de 2 columnas y desktop sin cambios.
+  Corrección posterior (VENTA-WIZARD-TABLET-01): embebido en Venta/Create la barra sticky
+  flotaba ~104px sobre el borde inferior — `_Layout` trae `padding-bottom: 6rem` inline en
+  el scroller y un sticky se ancla a la caja de contenido —, mientras que standalone
+  (`/Cotizacion`, sin ese padding) quedaba bien a 8px. Se compensa sólo para el host
+  embebido, en `venta-page-wizard.css`.
+
+- reapertura COTIZACION-MOCKUP-01 (Venta/Create paso Cotizar + Cotizacion/Simular), a pedido
+  explícito del usuario con un mockup como referencia visual autorizada
+  (`templates/Nueva Venta — Cotizar (completa)-html/Main.dc.html`, viewport 1440 sin sidebar):
+  "readaptarlo para que sea exacto". Alcance visual: no se tocaron reglas de negocio, cálculos,
+  permisos, endpoints ni contratos backend; ids y `data-*` intactos.
+  - **Sistema visual**: paleta grafito del mockup como tokens `--cz-*` locales de `.cotz-app`
+    (card `#10151b`, bloque `#171e26`, líneas `#232b34/#2c3644`, texto `#f1f4f8/#b8c2cc/#8993a1/
+    #62707e`, acento `#5b8def`), radios 16/14/12, paddings 22-24px, escala tipográfica 10–15px,
+    importes proporcionales con cifras tabulares (antes monoespaciados) y pegados al símbolo
+    (`$180.758,90`, sólo presentación en el cotizador — `TheBury.formatCurrency` global intacto).
+    Los inputs toman el tono opuesto al de su contenedor (`--cz-field-bg`).
+  - **Estructura**: Productos | Cliente en 2 columnas iguales; línea de producto en una fila
+    (nombre, CANT., DESCUENTO con selector %/$, precio, ×) + Subtotal; ficha de cliente con avatar
+    de acento; **aptitud crediticia como card propia** (eyebrow + pill de estado + "Ver
+    situación"); Condiciones como card elevada de grilla 2×2 igual; franja de totales con los
+    **cinco datos siempre** (Subtotal · Descuento · Total productos · Envío · Total a cobrar) y
+    CTA primario "Actualizar cotización"; comparador con **cada medio de pago como bloque
+    redondeado** (cabecera con chevron + tile de color por medio, planes colgando, barra lateral
+    verde en el más barato/seleccionado, "Seleccionado" sólido de acento); **barra "Opción
+    seleccionada" como card propia** con Guardar / Continuar con wizard / Confirmar Mi Venta.
+  - **Chrome del wizard (sólo paso Cotizar, ≥1280px)**: breadcrumb + Cancelar en una fila, título
+    22px, stepper de pastillas numeradas con conectores y "Incompleta", todo sin card y cerrado
+    por un divisor. Se anula el `px-8` propio de la página en ese paso para llegar al gutter de 32px
+    del mockup.
+  - **Responsive**: la grilla de 7 columnas y las 2 columnas de Productos|Cliente rigen desde
+    60rem de contenedor (medido: por debajo la cifra del Total final y "Solicitar excepción"
+    se encimaban); entre 38 y 60rem las filas de la tabla pasan al reflow de dos líneas (con
+    Recargo visible); por debajo de 38rem se conserva el reflow y la barra sticky de mobile.
+    La línea de producto se apila por debajo de 78rem de contenedor.
+  - **Decisiones de adaptación (no copia literal)**: (1) acento del wizard = oro del ERP y del
+    cotizador = azul del mockup (`--cz-accent`; el stepper es del wizard completo y no debe
+    cambiar de color entre pasos); (2) tipografía Inter (el mockup usa Manrope, que el ERP no
+    carga — no se agregó dependencia); (3) "Datos de contacto libres" del mockup dibuja
+    Teléfono/Email/Dirección con cliente seleccionado, pero `Cotizacion` sólo persiste nombre y
+    teléfono libres y sólo aplican sin cliente de sistema: se conservan esos dos campos, visibles
+    únicamente sin cliente; (4) el descuento por línea del mockup es un único campo con selector
+    %/$: los dos `<input>` reales siguen en el DOM y alternar sólo decide cuál se ve (un descuento
+    cargado en el otro modo no se pierde; queda un punto ámbar en su botón).
+  - **Criterios previos superados por la referencia** (tests de contrato actualizados):
+    "Simular" ya no se degrada a `.btn-soft` con simulación vigente; recargo 0% pasa de neutro a
+    verde; Envío/Total a cobrar dejan de esconderse sin envío; la compactación del hero a 1080p
+    de VENTA-COTIZACION-REWORK-03 rige sólo por debajo de 1280px (con la geometría del mockup la
+    primera alternativa de pago queda bajo el pliegue a 1080p).
+
+- COTIZACION-MOCKUP-02 (resto de las pantallas de Venta al formato del mockup), a pedido explícito
+  del usuario ("readaptá el resto de las ventanas de venta para que se acoplen al nuevo formato").
+  El mockup sólo dibuja el paso Cotizar; el resto se **deriva de su lenguaje visual** (no hay
+  referencia por pantalla). Sin cambios de reglas de negocio, permisos, endpoints ni ids/`data-*`.
+  - **Pendientes de MOCKUP-01 resueltos**: el drawer "Detalle del plan" salía a ancho completo
+    porque `sm:w-105` no está en el Tailwind precompilado (ahora 420px desde 640px, superficies
+    grafito) y los nombres de medio de pago que sólo difieren del canónico en mayúsculas/tildes
+    ("tarjeta credito") muestran el canónico ("Tarjeta crédito"); cualquier otro nombre
+    configurado se respeta.
+  - **Wizard Create + Edit, los seis pasos** (`venta-page-wizard.css`): tokens `--venta-wizard-*`
+    a la escala grafito; el hero del mockup (breadcrumb + acciones, título 22px, stepper con
+    conectores, "Incompleta", divisor) deja de ser exclusivo de Cotizar y rige en todos los pasos
+    y en Edit desde 1280px — el stepper no cambia de aspecto ni de ancho al navegar (el tope de
+    1400px se libera para los seis pasos por el mismo motivo); cards de 16px/20px de aire sin
+    sombra, títulos de 15px, chips neutros, campos de 40px con foco azul, resumen lateral
+    grafito con CTA de 44px (oro del ERP), ficha de cliente neutra con "Cambiar" en azul (no rojo:
+    no es destructivo). El número estático de cada card (1…5) no seguía al stepper (Cliente es el
+    2 en Create; Revisión repetía el 5): se retira (`.vm-step-bubble`), el número real lo lleva el
+    stepper. Filtros de Productos con `auto-fit` (Min/Max quedaban en ~50px a 1280–1440px).
+  - **Details y pantallas auxiliares** (`venta-module.css`): tokens `--vm-*` a grafito, remap de
+    utilitarios slate de Tailwind a la escala grafito (alcance: wizard, Details, Cancelar,
+    Autorizar, Rechazar, Eliminar y el panel Facturar), cards/métricas/botones/badges de los
+    componentes globales (`.card-erp-*`, `.btn-erp-*`, `.badge-erp-neutral`) pintados con las
+    superficies del mockup **sólo dentro de estas pantallas**; el hero de Details adopta el mismo
+    patrón (breadcrumb + Volver/Imprimir en la primera fila, título + estado, descripción, chips,
+    KPI, divisor) desde 1280px con hooks `venta-hero-*`. Facturar carga ahora el partial de
+    estilos del módulo.
+  - **Index** (`ventas-index.css`): tokens y literales azulados a grafito; sin cambios de layout.
+  - **Cierre de pendientes (segunda ronda)**: la tabla "Detalle de productos" de Details cortaba
+    "Subtotal final" a 1440–1688px (región de 832px contra 896px de `--oc-scroll-min-width`). La
+    columna lateral pasa a ancho casi fijo (`clamp(18rem, 20vw, 24rem)`, hook `venta-details-grid`),
+    los importes no se parten en dos líneas, las celdas se compactan, el piso baja a 36rem y se
+    anula la reserva de 10px de `scrollbar-gutter` del componente en esta tabla: entera de 1280 a
+    1688px sin scroll; a 1024px conserva el scroll horizontal, ahora con su aviso visible también
+    en desktop (antes `lg:hidden`). Los nombres de "Forma de pago" del wizard (Create y Edit)
+    salían de la configuración global en minúscula ("credito personal"): `aplicarMediosGlobales
+    AlSelector` (`venta-create.js`) conserva el nombre canónico que Razor ya renderiza por tipo de
+    pago cuando el configurado sólo difiere en mayúsculas/tildes; un nombre realmente distinto
+    ("debito", "medio digital") se respeta.
+  - **Fuera de alcance**: `ComprobanteFactura` (documento imprimible, no una ventana de trabajo) y
+    los componentes globales del ERP fuera de Venta (siguen con su paleta).
+  - **Verificación**: capturas reales en 1688 (1440 de contenido), 1280, 1024, 768 y 390 de
+    Create (seis pasos, con y sin Crédito personal), Edit, Details ×3 estados, Cancelar, Eliminar,
+    Facturar e Index: 0 overflow horizontal, 0 errores de consola. E2E `venta-wizard-accessibility`
+    (9 viewports), `venta-cotizar-step`, `cotizacion-simulador`, `cotizacion-continuar-wizard`
+    en verde. `venta-pago-por-item` no es ejecutable: prueba el pago por ítem
+    (`.btn-configurar-pago-item`, `#modal-pago-item`), que ya no existe en ninguna vista ni script
+    (retirado en "Aislar pago por producto y restaurar pago general en ventas"); spec obsoleta,
+    candidata a eliminarse. Tests C# de Venta/Cotización: 1481/1489, los 8 rojos son anteriores a
+    esta tarea (los fragmentos que buscan tampoco están en HEAD): "Guardar cambios" de Edit,
+    panel de diagnóstico y razones de autorización/justificación en Details.
+
 ## Dashboard / Index — foundation aplicada (header + tabs accesibles)
 
 A partir de un pedido del usuario de adoptar como estándar visual ERP-wide una imagen de
@@ -984,6 +1197,44 @@ no reutilizable).
 `EstadoVenta` no se sincroniza automáticamente con el estado del envío (decisión
 deliberada: son dos máquinas de estado independientes; queda como posible extensión
 futura a validar con el usuario, no como pendiente de esta serie).
+
+### Envío cobrable: Total a cobrar ≠ Total facturable (VENTA-ENVIO-TOTAL-01)
+
+Reemplaza la decisión "el costo de envío es sólo informativo" de esta serie: el importe de
+envío (`VentaEnvio.CostoEnvio`, campo único, sin duplicar) es un concepto **separado** que el
+cliente paga. `Venta.Total` sigue siendo el total de productos; el envío no entra en IVA,
+precio unitario, recargos del medio de pago, crédito ni comprobante. Fórmula única en backend
+(`Helpers/VentaMontos`): `TotalACobrar = Total + ImporteEnvio`; `TotalFacturable = Total`
+(el envío no está en ningún cálculo fiscal del sistema — sin línea, alícuota ni configuración —
+y no se cambió sin evidencia; la diferencia queda explícita en UI).
+
+- Cotizador (`Simular`): la franja de totales pasa a Subtotal · Descuento · Total productos ·
+  Envío · **TOTAL A COBRAR** cuando hay envío guardado (sin envío queda idéntica); el resumen de
+  la opción elegida y el modal de "Confirmar Mi Venta" separan Productos / Envío / Total a
+  cobrar; el importe viaja con la cotización (`Cotizacion.CostoEnvio`, migración
+  `AddCotizacionCostoEnvio`) y sobrevive a "Pasar a venta". Cotización/Detalles muestra Envío y
+  Total a cobrar.
+- Wizard (`Create`/`Edit`): paso Envío sin "informativo"; Revisión muestra Total productos /
+  Envío / **Total a cobrar** (dominante) y la barra sticky mobile dice "A cobrar"; Crédito
+  Personal aclara que el envío no se financia.
+- `Venta/Details`: el resumen superior separa Productos / Envío / Total a cobrar; la card Envío
+  dice "Costo de envío"; la card Facturación explica que el comprobante no incluye el envío.
+- Facturar (modal de Details, página `Facturar_tw` y partial compartido con el Cotizador):
+  bloque "Resumen comercial" (Productos · Envío · Total a cobrar) por encima del comprobante.
+- Caja: `ConfirmarVentaAsync` registra **un** ingreso por `TotalACobrar` (la reversión por
+  cancelación espeja ese ingreso e incluye el envío); Ventas del turno muestra Productos y
+  Envío dentro de la celda Total; Vendido/Cobrado/Pendiente/Caja esperada usan lo realmente
+  cobrado. Crédito Personal/Cuenta corriente: sin cambios (el envío no se financia; queda como
+  pendiente de cobro explícito).
+
+**Validación (4 capas):** *Técnica*: tests nuevos `VentaEnvioTotalACobrarTests` (fórmula,
+persistencia tras recargar, Caja Efectivo/Transferencia/Tarjeta/MP, pago parcial, sin envío, envío
+cero, crédito personal, cancelación, guard de edición), casos de Cotización/Conversión/Confirmar y
+contrato UI. *Visual y flujo UX*: recorrido real Cotizador → Confirmar Mi Venta → Details → Caja →
+Facturar, más Cotizador → wizard (Revisión) con instancia propia. *Estados reales*: venta
+confirmada real ($180.758,90 + $1.000,00 → Caja +$181.758,90) y venta legacy con envío
+"informativo" que ahora figura con $1.000,00 pendiente. *Responsive*: 7 viewports (1920×1080 a
+360×800) × Cotizador, Revisión, Details, Caja Resumen/Ventas y modal Facturar, 0 overflow.
 
 ## Cliente / Nuevo cliente (drawer Create) — cerrado
 
@@ -1156,6 +1407,49 @@ ser el mismo criterio usado sin excepción en `Cliente/Index`, `Cliente/Edit` y
 `Cliente/Delete`; agregar puntos solo en Details introduciría la inconsistencia que se
 buscaba evitar, no resolverla.
 
+## Cliente / Index — cerrado (CLIENTE-INDEX-SIN-HERO-01)
+
+La búsqueda/filtros/paginación/permisos de esta pantalla se implementaron el 2026-09-14
+(ver historial de memoria del proyecto) sin actualizar esta tabla en su momento. Este
+lote (mismo día que VENTA-INDEX-SIN-HERO-01) cierra específicamente el patrón de header,
+a pedido explícito del usuario tras comparar capturas reales de Inventario/Cliente/Ventas
+y preferir la composición sin hero de Catálogo:
+
+- se retira el `<header class="hero-erp cliente-page-head">` (título `<h1>Gestión de
+  Clientes</h1>` + subtítulo "Buscá y administrá tus clientes." + acciones) — el título ya
+  lo muestra la barra superior global (`_Layout.cshtml`), y el subtítulo era descriptivo
+  sin valor de decisión, redundante con el propio nombre de la pantalla;
+- "Nuevo cliente" y el menú "Más" (Documentos/Créditos/Límites por puntaje) se mueven a
+  una toolbar dentro del mismo card de contenido (`.cliente-section`), alineada a la
+  derecha por encima de "Listado de clientes" — mismo criterio que la fila de
+  tabs+acciones de `Catálogo/Index_tw.cshtml` y `Venta/Index_tw.cshtml`
+  (VENTA-INDEX-SIN-HERO-01), adaptado a que Cliente no tiene tabs. `.hero-erp` (componente
+  compartido de `shared-components.css`, usado por Dashboard/AlertaStock/Proveedor/
+  ConfiguracionPago/Ticket/CambiosPrecios) no se toca, sólo se deja de usar en esta vista;
+- doble espaciado retirado: `.cliente-section` tenía `margin-top:1.5rem` (y `1.25rem` en
+  mobile) pensado como separación bajo el header que se retira — sumado al
+  `padding-top` propio de `.cliente-index`, dejaba ~48px de hueco vacío bajo la barra
+  global en vez de los ~32px de Catálogo; se retira el margin duplicado (ambas reglas,
+  `cliente-module.css`) y `.cliente-index` sigue aportando el espaciado real;
+- `data-cliente-modal-open="create"` y `data-cliente-row-menu` (selectores por atributo,
+  no por posición en el DOM) verificados sin cambios de comportamiento: el modal "Nuevo
+  cliente" y el menú "Más" abren igual desde la nueva ubicación;
+- `aria-labelledby="cliente-page-title"` retirado del contenedor raíz junto con el `id`
+  que referenciaba (removido con el header); ningún test ni JS lo consumía (verificado por
+  grep). CSS muerto retirado de `cliente-module.css` (`.page-head__copy`, única regla,
+  único consumidor). Sin cambios de reglas de negocio, permisos, contratos backend, ids ni
+  `data-*` funcionales.
+  Validado en vivo con Playwright (instancia del usuario en :18787, solo lectura, sin
+  tocarla) en 1440×900 y 390×844: sin overflow horizontal, 0 errores de consola; modal
+  "Nuevo cliente" (wizard completo) y menú "Más" (Documentos/Créditos/Límites) verificados
+  funcionalmente end-to-end; build 0/0; 501/501 tests focalizados (`Cliente*` +
+  `VentaEnvioUiContractTests`) verdes.
+
+Deuda conocida, no iniciada en este lote: la búsqueda/filtros/paginación/permisos del
+2026-09-14 no recibieron la auditoría de 4 capas de §14 — este cierre cubre
+específicamente el patrón de header (CLIENTE-INDEX-SIN-HERO-01), no una auditoría
+integral de la pantalla.
+
 ## Catálogo / Inventario (tab Productos) — cerrado
 
 A pedido explícito del usuario, con una captura de referencia como fuente visual
@@ -1213,6 +1507,91 @@ la tabla).
 Deuda conocida, no iniciada en este lote: Categorías/Marcas/Alertas/Movimientos se
 benefician del shell fluido y del rediseño de tabs, pero no recibieron auditoría completa
 de 4 capas — quedan fuera del alcance visual pedido (limitado a "Inventario"/Productos).
+
+## Mobile transversal — MOBILE-DEBT-01 (deuda de la auditoría mobile 2026-09-20)
+
+Lote transversal que cierra la deuda restante de la auditoría mobile (101 rutas, 390/360/768).
+No es una pantalla: toca `_Layout`, un componente compartido nuevo y CSS por módulo; cada
+pantalla afectada sigue con su estado de cierre propio.
+
+- **Nombre de módulo en el header <lg.** `_Layout` ocultaba el `<h2>` (`hidden lg:block`)
+  aunque en <lg la sidebar es un drawer y el header es lo único que nombra la pantalla: 20 de
+  101 rutas quedaban sin título visible en mobile/tablet (Venta, Cliente, Catálogo, Seguridad,
+  Proveedor, Órdenes de compra, …). Ahora se muestra siempre, truncado con `min-w-0`; costo
+  vertical cero (el header ya medía 64px). 20 → 2 rutas sin nombre visible (las 2 son
+  `Cotizacion/Imprimir`, vista de impresión sin layout).
+- **ERP-TABLE-CARDS-01 (componente compartido, opt-in).** `wwwroot/css/erp-table-cards.css` +
+  `wwwroot/js/erp-table-cards.js`, cargados desde `_Layout`. Solo actúan sobre
+  `<table data-erp-cards>` y solo bajo 640px: la fila pasa a tarjeta y el resto de anchos
+  conserva la tabla. Cada `<th>` declara `data-card="title|half|actions|select|hide"`; el JS
+  copia a cada `<td>` la etiqueta (`data-label`, leída del `<th>`) y el rol, sin mover nodos,
+  y restituye los roles ARIA de tabla mientras el navegador los pierde por el `display`.
+  El `<thead>` no se pierde: los `<th>` con controles (botones de orden, "seleccionar todos")
+  quedan como franja sobre las tarjetas. Roles de columna: `title` (sube al tope de la tarjeta),
+  `half`, `third` (tres cantidades cortas por renglón), `actions`, `select`, `hide`; las filas con
+  `colspan` (totales, "cargando", vacío) mantienen las etiquetas del resto de las columnas.
+  Aplicado a: Catálogo (Productos, Categorías, Marcas, Historial de precios y Movimientos),
+  Proveedor (Index y Details), Órdenes de compra (Index y Create, editable), Cotización/Listado
+  y Cotización/Detalles (líneas y medios de pago), Venta/Details (líneas), Seguridad (Usuarios,
+  Roles, Auditoría), Tickets, Kardex, Movimientos de stock, Reporte de márgenes, Unidades
+  globales y los dos listados del Dashboard. **No** se aplicó a las que ya tienen alternativa
+  mobile propia (Venta/Index `mobile-sales-list`, Caja/Historial `hide-mobile`), al desglose de
+  IVA de Venta/Details (3 filas de 4 columnas que entran) ni a los editores de propiedades y
+  la simulación de precios de Catálogo. Costo asumido: las tarjetas son más altas que las filas
+  (Catálogo +1090px con 5 productos en 390); en Kardex el wrapper con scroll interno
+  (`max-height`) se anula en teléfono para que el scroll sea el de la página.
+- **Hallazgo propio, corregido:** el ordenamiento por columna de Catálogo no funcionaba en
+  ningún ancho (el JS buscaba `th[data-sort]` pero el atributo vive en el `<button>` del `<th>`);
+  se corrigió en `catalogo-index.js` porque la franja "Ordenar por" de mobile lo expone.
+- **Overflow puntual (0 en 390/360/768 al cierre):** `Credito/CuotasVencidas` (3 KPIs con
+  `repeat(3,1fr)` inline → `.grid-kpi--3`, apilados en teléfono), `MercadoLibre/Dashboard`
+  (`.kgrid` con `1fr` → `minmax(0,1fr)` y 1 columna bajo 560px), `Cotizacion/Detalles` (acciones
+  del header sin `flex-wrap`), `Reporte/Morosidad` (header sin wrap a 360), `Seguridad` (header
+  full-bleed con `md:-mx-10` sobre un padding de 24/32px: desbordaba 16px a 768 y 8px en
+  escritorio; ahora compensa el padding real del layout) y el filtro de Auditoría (5 columnas
+  desde `lg`, desbordaba 38px a 1024 → desde `xl`). Tablas de Mercado Libre (`.tbl` dentro de
+  `.card{overflow:hidden}` sin wrapper): la card ahora scrollea en X.
+- **Fuente de íconos 3.86 MB → 0.77 MB.** `material-symbols-outlined-fill.woff2`: misma fuente
+  con los ejes `GRAD=0` y `opsz=24` fijados (los únicos valores que usa el sitio) y `wght`
+  acotado a 400–700 (hay un `::after` con `font-weight:900` en Venta/Index), conservando `FILL`
+  (las estrellas) y los 6570 glifos/ligaduras. Comparación de 12 pantallas en 1440 y 390:
+  idénticas salvo un chevron 1–2px; las demás diferencias también aparecen entre dos cargas de
+  la fuente original (contenido dinámico). El original queda en `wwwroot/fonts/` como fuente
+  para regenerar (receta en `local-fonts.css`); si se regenera hay que cambiarle el nombre
+  (la URL no lleva versión). Caché y compresión: entrada siguiente.
+- **Compresión y caché de estáticos.** `Program.cs`: `Cache-Control` explícito (`immutable` con
+  `?v=`, 30 días para `/fonts`) y compresión sólo de `text/css`, `text/javascript`,
+  `application/javascript` e `image/svg+xml` (`tailwind.css` pesa 230 KB). HTML y JSON quedan
+  fuera a propósito: pueden reflejar tokens antiforgery y comprimirlos sobre HTTPS abre BREACH.
+  Cubierto por `StaticAssetsCacheHttpTests` (incluye "el HTML no se comprime"). Toma efecto al
+  reiniciar la app.
+- **Paso Cotizar del wizard en 768–1023px.** Embebido, el cotizador dispone de ~630–750px y su
+  banda de 2 columnas (≥38rem) dejaba columnas de ~310–350px: etiquetas partidas ("DESCUENTO %"),
+  placeholders cortados y una columna de Productos con 250px contra 500px de Cliente/Condiciones.
+  Bajo 46rem de contenedor el host embebido (`#venta-create-page`) apila en 1 columna
+  (Productos → Cliente y condiciones → Totales → Resultados); a 900px/1280px conserva las 2
+  columnas y `/Cotizacion` standalone no cambia. Costo: +187–240px de scroll a 768/1024.
+- **Otros:** `#erp-app-shell` usa `100dvh` (el `h-screen` de `_Layout` era `100vh` y dejaba el pie
+  bajo la barra de URL móvil); en teléfono todos los campos a 16px con `!important` (iOS hace
+  zoom con <16px; 354 → 0, incluidos los de CSS de módulo con mayor especificidad); en
+  pantallas táctiles checkboxes/radios ≥24px, botones/chips chicos y links de una sola línea o
+  de solo ícono ≥40px.
+- **Validación:** barrido de las mismas 101 rutas en 390×844, 360×800 y 768×1024 antes/después
+  (instancia propia en :5199 con el build actual, porque la del usuario tenía la vista de
+  Details apuntando a un modelo aún sin compilar): rutas con overflow 4/5/1 → 0/0/0; rutas con
+  tabla en scroll 23 → 2 (390; las 2 restantes son las tablas de Caja/DetallesApertura que no
+  eran una lista con datos al medir, luego convertidas y verificadas por pestaña); inputs <16px
+  354 → 0; controles <36px 500 → 228 y <24px 108 → 26; rutas sin nombre de página 20 → 2;
+  0 errores de consola; 0 rutas con status distinto de 200. Filtros de fila (Caja) y ordenamiento
+  y "seleccionar todos" (Catálogo) verificados con las filas como tarjetas. 2865/2873 tests
+  focalizados; los 8 rojos son los mismos de antes (Venta wizard/Details, trabajo en curso del
+  usuario). Pantallas ≥640px sin cambios visuales salvo el header con título (<lg), el filtro de
+  Auditoría a 1024–1279 y el paso Cotizar a 768–1023.
+- **Deuda que queda:** `/Mora` (500: `Views/Mora/Index` y el resto de las vistas del controller
+  no existen; bug funcional ajeno a mobile, excluido a pedido); tablas de editores (propiedades
+  y simulación de precios de Catálogo) sin reflow; ~26 controles <24px, casi todos links de
+  breadcrumb de una línea; la tabla de productos del wizard pasa a tarjetas también en ≥1280px
+  con la columna <736px (decisión pendiente, se dejó como está).
 
 ## Regla para mantener estos documentos
 

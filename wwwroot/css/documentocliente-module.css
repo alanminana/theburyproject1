@@ -17,8 +17,8 @@
     --doc-line: #1f2937;
     --doc-line-2: #334155;
     --doc-text: #e2e8f0;
-    --doc-muted: #94a3b8;
-    --doc-muted-2: #64748b;
+    --doc-muted: var(--erp-fg-2, #b9c3d3);
+    --doc-muted-2: var(--erp-fg-3, #a6b1c3);
     --doc-primary: #f5c518;
     --doc-primary-soft: rgba(245, 197, 24, 0.14);
     --doc-radius: 0.875rem;
@@ -352,7 +352,7 @@
 
     .documento-page .filter-panel-erp label {
         margin-bottom: 0.35rem;
-        font-size: 0.68rem;
+        font-size: var(--erp-fs-min, 0.75rem);
     }
 
     .documento-page .filter-panel-erp select,
@@ -491,7 +491,7 @@
     .documento-responsive-table--cards td::before {
         content: attr(data-label);
         color: var(--doc-muted-2);
-        font-size: 0.68rem;
+        font-size: var(--erp-fs-min, 0.75rem);
         font-weight: 700;
         letter-spacing: 0.04em;
         text-transform: uppercase;

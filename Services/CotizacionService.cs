@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Data;
+using TheBuryProject.Helpers;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Interfaces;
@@ -77,6 +78,10 @@ public sealed class CotizacionService : ICotizacionService
             Anticipo = seleccion?.Plan?.Anticipo ?? 0m,
             FechaVencimiento = request.FechaVencimiento,
             TieneEnvio = request.TieneEnvio,
+            // Sólo se guarda el importe si hay envío y es > 0 (null/negativo = sin cargo).
+            CostoEnvio = request.TieneEnvio && VentaMontos.NormalizarImporteEnvio(request.CostoEnvio) > 0m
+                ? VentaMontos.NormalizarImporteEnvio(request.CostoEnvio)
+                : null,
             CreatedBy = string.IsNullOrWhiteSpace(usuario) ? "System" : usuario.Trim()
         };
 
@@ -462,6 +467,10 @@ public sealed class CotizacionService : ICotizacionService
             Anticipo = cotizacion.Anticipo,
             FechaVencimiento = cotizacion.FechaVencimiento,
             TieneEnvio = cotizacion.TieneEnvio,
+            ImporteEnvio = cotizacion.ImporteEnvio,
+            TotalACobrar = VentaMontos.CalcularTotalACobrar(
+                cotizacion.TotalSeleccionado ?? cotizacion.TotalBase,
+                cotizacion.ImporteEnvio),
             MotivoCancelacion = cotizacion.MotivoCancelacion,
             VentaConvertidaId = ventaConvertidaId,
             NumeroVentaConvertida = numeroVentaConvertida,

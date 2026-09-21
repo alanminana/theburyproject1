@@ -588,9 +588,10 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
 
                 if (calculo.EsValido)
                 {
+                    var cuotasTexto = plan.CantidadCuotas > 1 ? $"{plan.CantidadCuotas} cuotas" : "1 pago";
                     var etiqueta = string.IsNullOrWhiteSpace(plan.Etiqueta)
-                        ? $"{tarjeta.Nombre} - {plan.CantidadCuotas} pago(s)"
-                        : $"{tarjeta.Nombre} - {plan.Etiqueta}";
+                        ? $"{tarjeta.Nombre} · {cuotasTexto}"
+                        : $"{tarjeta.Nombre} · {plan.Etiqueta}";
                     planes.Add(CrearPlanResultado(etiqueta, calculo));
                 }
             }
@@ -672,7 +673,7 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
 
         return new CotizacionPlanPagoResultado
         {
-            Plan = $"{cuotas} cuota(s)",
+            Plan = cuotas > 1 ? $"{cuotas} cuotas" : "1 pago",
             CantidadCuotas = cuotas,
             TasaMensual = plan.tasaAplicada,
             InteresPorcentaje = plan.tasaAplicada,

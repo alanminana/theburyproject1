@@ -224,6 +224,15 @@ builder.Services.AddRazorPages();
 // forma correcta de que un fetch JSON pase antiforgery en ASP.NET Core.
 builder.Services.AddAntiforgery(options => options.HeaderName = "RequestVerificationToken");
 
+// Compresion de estaticos de texto (css/js/svg) — MOBILE-DEBT-01. tailwind.css pesa 230 KB y en redes
+// moviles se nota. Solo estos tipos: HTML y JSON quedan fuera a proposito (pueden reflejar tokens antiforgery;
+// comprimirlos sobre HTTPS abre BREACH). Los estaticos no llevan secretos, asi que EnableForHttps es seguro.
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.MimeTypes = new[] { "text/css", "text/javascript", "application/javascript", "image/svg+xml" };
+});
+
 var app = builder.Build();
 
 // 8. Pipeline
@@ -253,7 +262,25 @@ if (!app.Environment.IsDevelopment() && !app.Environment.IsEnvironment("Testing"
 {
     app.UseHttpsRedirection();
 }
-app.UseStaticFiles();
+app.UseResponseCompression();
+app.UseStaticFiles(new StaticFileOptions
+{
+    // Cache explicito de estaticos (MOBILE-DEBT-01): sin Cache-Control cada visita revalida y en redes moviles
+    // el costo se nota. Las URLs con ?v=<hash> (asp-append-version) cambian cuando cambia el contenido, asi que
+    // pueden ser inmutables; las fuentes locales no llevan version, por eso solo 30 dias.
+    OnPrepareResponse = context =>
+    {
+        var request = context.Context.Request;
+        if (request.Query.ContainsKey("v"))
+        {
+            context.Context.Response.Headers.CacheControl = "public,max-age=31536000,immutable";
+        }
+        else if (request.Path.StartsWithSegments("/fonts"))
+        {
+            context.Context.Response.Headers.CacheControl = "public,max-age=2592000";
+        }
+    }
+});
 
 app.UseRouting();
 

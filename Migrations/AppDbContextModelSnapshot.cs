@@ -3027,6 +3027,10 @@ namespace TheBuryProject.Migrations
                     b.Property<int?>("ClienteId")
                         .HasColumnType("int");
 
+                    b.Property<decimal?>("CostoEnvio")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -4109,10 +4113,6 @@ namespace TheBuryProject.Migrations
                     b.Property<bool>("Anulada")
                         .HasColumnType("bit");
 
-                    b.Property<string>("CAE")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -4123,9 +4123,6 @@ namespace TheBuryProject.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<DateTime>("FechaEmision")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("FechaVencimientoCAE")
                         .HasColumnType("datetime2");
 
                     b.Property<decimal>("IVA")
@@ -4172,8 +4169,6 @@ namespace TheBuryProject.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("CAE");
 
                     b.HasIndex("Numero")
                         .IsUnique()

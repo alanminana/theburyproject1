@@ -116,5 +116,16 @@ namespace TheBuryProject.Models.Entities
         public virtual ICollection<VentaCreditoCuota> VentaCreditoCuotas { get; set; } = new List<VentaCreditoCuota>();
         public virtual ICollection<MovimientoCaja> MovimientosCaja { get; set; } = new List<MovimientoCaja>();
 
+        // Montos derivados (no persistidos). Total = total de productos (ítems + recargos del medio de
+        // pago); el envío vive sólo en VentaEnvio.CostoEnvio. Fórmula única en VentaMontos.
+        // ImporteEnvio requiere Envio cargado (Include): sin él vale 0.
+        [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+        public decimal ImporteEnvio => Helpers.VentaMontos.NormalizarImporteEnvio(Envio?.CostoEnvio);
+
+        [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+        public decimal TotalACobrar => Helpers.VentaMontos.CalcularTotalACobrar(Total, Envio?.CostoEnvio);
+
+        [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+        public decimal TotalFacturable => Helpers.VentaMontos.CalcularTotalFacturable(Total);
     }
 }

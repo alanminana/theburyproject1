@@ -94,6 +94,22 @@
         });
     }
 
+    // VENTA-ENVIO-TOTAL-01: importe de envío del paso Envío (0 si no está tildado o no tiene costo;
+    // un envío nunca resta). El backend normaliza igual (VentaMontos.NormalizarImporteEnvio).
+    function leerImporteEnvio() {
+        const tilde = document.getElementById('chk-tiene-envio');
+        const costo = document.getElementById('envio-costo');
+        if (!tilde?.checked || !costo) return 0;
+        const valor = parseFloat(costo.value);
+        return Number.isFinite(valor) && valor > 0 ? valor : 0;
+    }
+
+    function formatearMoneda(valor) {
+        return window.TheBury && typeof window.TheBury.formatCurrency === 'function'
+            ? window.TheBury.formatCurrency(valor)
+            : `$${Number(valor).toFixed(2)}`;
+    }
+
     function getText(id, fallback) {
         const el = document.getElementById(id);
         const text = el?.textContent?.trim();
@@ -118,6 +134,19 @@
             button.setAttribute('aria-selected', active ? 'true' : 'false');
             button.tabIndex = active ? 0 : -1;
         });
+
+        // Mobile: la tira de pasos puede scrollear (7 pasos con Crédito); se centra el
+        // activo para que el operador siempre vea dónde está. Sólo mueve la tira (no
+        // la página) y sólo si realmente desborda.
+        const tabActivo = Array.from(tabButtons).find((button) => button.getAttribute('data-step') === step);
+        const tira = tabActivo?.parentElement;
+        if (tira && tira.scrollWidth > tira.clientWidth + 1) {
+            const izquierda = tabActivo.getBoundingClientRect().left - tira.getBoundingClientRect().left + tira.scrollLeft;
+            tira.scrollTo({
+                left: izquierda - (tira.clientWidth - tabActivo.offsetWidth) / 2,
+                behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
+            });
+        }
 
         panels.forEach((panel) => {
             const active = panel.id === `step-panel-${step}`;
@@ -319,7 +348,27 @@
         const subtotal = getText('total-subtotal', '$0,00');
         const descuento = getText('total-descuento', '-$0,00');
         const iva = getText('total-iva', '$0,00');
-        const total = getText('total-final', '$0,00');
+        const totalProductos = getText('total-final', '$0,00');
+
+        // VENTA-ENVIO-TOTAL-01: total a cobrar = productos + envío. Cálculo en vivo sobre el total
+        // de productos que ya resolvió el backend (#total-final); la fuente persistida es
+        // Venta.TotalACobrar (backend). #total-final se deja intacto: es la fuente de esta suma.
+        const envio = leerImporteEnvio();
+        const hayEnvio = envio > 0;
+        const productosNumero = Number(document.getElementById('total-final')?.dataset.valor);
+        const total = hayEnvio && Number.isFinite(productosNumero)
+            ? formatearMoneda(productosNumero + envio)
+            : totalProductos;
+
+        setText('[data-rev-total-productos]', totalProductos);
+        setText('[data-rev-envio]', formatearMoneda(envio));
+        root.querySelectorAll('[data-rev-envio-lines]').forEach((nodo) => nodo.classList.toggle('hidden', !hayEnvio));
+        setText('[data-rev-total-label]', hayEnvio ? 'Total a cobrar' : 'Total');
+        // Crédito Personal: el crédito/cupo se calculan sobre el total de productos; el envío no se financia.
+        root.querySelectorAll('[data-rev-envio-credito-nota]').forEach((nodo) => nodo.classList.toggle('hidden', !(hayEnvio && requiereCredito())));
+        // Barra sticky mobile: rótulo corto ("A cobrar"), "Total a cobrar: $ 181.758,90" no entra a 360-390px.
+        setText('[data-mobile-total-label]', hayEnvio ? 'A cobrar' : 'Total');
+        root.querySelectorAll('.vm-mobile-summary-bar').forEach((barra) => barra.classList.toggle('vm-mobile-summary-bar--con-envio', hayEnvio));
 
         setText('[data-side-cliente], [data-rev-cliente]', cliente);
         setText('[data-side-items], [data-rev-items]', items);
@@ -327,7 +376,9 @@
         setText('[data-side-subtotal], [data-rev-subtotal]', subtotal);
         setText('[data-side-descuento], [data-rev-descuento]', descuento);
         setText('[data-side-iva], [data-rev-iva]', iva);
-        setText('[data-side-total], [data-rev-total], [data-mobile-total]', total);
+        // [data-side-total] incluye a #total-final (fuente numérica): sigue mostrando sólo productos.
+        setText('[data-side-total]', totalProductos);
+        setText('[data-rev-total], [data-mobile-total]', total);
         setText('[data-conf-cliente]', cliente === 'Sin seleccionar' ? 'Cliente sin seleccionar' : cliente);
         setText('[data-conf-items]', items);
         setText('[data-conf-pago]', pago === 'Sin definir' ? 'Pago sin definir' : pago);
@@ -636,6 +687,11 @@
         refreshRevisionCredito();
     });
 
+    // VENTA-ENVIO-TOTAL-01: el importe de envío cambia el total a cobrar sin tocar hero-*/total-*.
+    // venta-envio.js emite 'venta:envio-toggle' al iniciar (hidrata Edit) y al tildar/destildar.
+    document.getElementById('envio-costo')?.addEventListener('input', refreshSummary);
+    document.addEventListener('venta:envio-toggle', refreshSummary);
+
     const observer = new MutationObserver(refreshSummary);
     ['hero-cliente', 'hero-detalles-count', 'hero-tipo-pago', 'total-subtotal', 'total-descuento', 'total-iva', 'total-final']
         .map((id) => document.getElementById(id))
@@ -651,6 +707,12 @@
         .map((id) => document.getElementById(id))
         .filter(Boolean)
         .forEach((node) => revisionCreditoObserver.observe(node, { attributes: true, attributeFilter: ['class'], childList: true, subtree: true, characterData: true }));
+
+    // Disclosures que en mobile arrancan cerrados (ej. filtros de Productos). El markup
+    // los trae abiertos para que sin JS y en ≥768px el contenido siempre sea visible.
+    if (window.matchMedia('(max-width: 767px)').matches) {
+        root.querySelectorAll('details[data-collapse-mobile]').forEach((detalle) => { detalle.open = false; });
+    }
 
     const initialStep = tabButtons.find((button) => button.getAttribute('aria-selected') === 'true')?.getAttribute('data-step')
         || tabButtons[0]?.getAttribute('data-step');

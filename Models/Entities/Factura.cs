@@ -33,11 +33,6 @@ namespace TheBuryProject.Models.Entities
         [Column(TypeName = "decimal(18,2)")]
         public decimal Total { get; set; }
 
-        [StringLength(100)]
-        public string? CAE { get; set; }
-
-        public DateTime? FechaVencimientoCAE { get; set; }
-
         public bool Anulada { get; set; } = false;
 
         public DateTime? FechaAnulacion { get; set; }

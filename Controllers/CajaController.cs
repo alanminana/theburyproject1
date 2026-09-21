@@ -10,6 +10,7 @@ using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services;
+using TheBuryProject.Services.Exceptions;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.ViewModels;
 
@@ -28,6 +29,7 @@ namespace TheBuryProject.Controllers
         private readonly ILogger<CajaController> _logger;
         private readonly IMapper _mapper;
         private readonly AppDbContext _context;
+        private readonly IRelojComercial _relojComercial;
 
         public CajaController(
             ICajaService cajaService,
@@ -35,7 +37,8 @@ namespace TheBuryProject.Controllers
             ICurrentUserService currentUser,
             ILogger<CajaController> logger,
             IMapper mapper,
-            AppDbContext context)
+            AppDbContext context,
+            IRelojComercial relojComercial)
         {
             _cajaService = cajaService;
             _cajaVendedorService = cajaVendedorService;
@@ -43,6 +46,7 @@ namespace TheBuryProject.Controllers
             _logger = logger;
             _mapper = mapper;
             _context = context;
+            _relojComercial = relojComercial;
         }
 
         #region CRUD de Cajas
@@ -55,6 +59,9 @@ namespace TheBuryProject.Controllers
             var cajas = await _cajaService.ObtenerTodasCajasAsync();
             var aperturasAbiertas = await _cajaService.ObtenerAperturasAbiertasAsync();
 
+            var hoyComercial = _relojComercial.HoyComercial;
+            var zonaComercial = _relojComercial.ZonaComercial;
+
             var viewModel = new CajasListViewModel
             {
                 CajasActivas = cajas.Where(c => c.Activa).ToList(),
@@ -63,7 +70,12 @@ namespace TheBuryProject.Controllers
                 // Efectivo esperado calculado por el backend (misma logica que el detalle/cierre)
                 ResumenFisicoPorApertura = aperturasAbiertas.ToDictionary(
                     a => a.Id,
-                    a => Services.CajaService.CalcularResumenFisico(a))
+                    a => Services.CajaService.CalcularResumenFisico(a)),
+                // Aperturas de un día comercial anterior: bloqueadas para operar hasta cerrarlas.
+                AperturasVencidasIds = aperturasAbiertas
+                    .Where(a => Services.CajaService.EsAperturaVencida(a, hoyComercial, zonaComercial))
+                    .Select(a => a.Id)
+                    .ToHashSet()
             };
 
             ViewBag.CurrentUser = _currentUser.GetUsername();
@@ -236,21 +248,26 @@ namespace TheBuryProject.Controllers
 
         public async Task<IActionResult> Abrir(int? cajaId)
         {
-            var cajas = await SetCajasActivasSelectListAsync(cajaId);
+            var disponibles = await SetCajasActivasSelectListAsync(cajaId);
 
             var model = new AbrirCajaViewModel();
             if (cajaId.HasValue)
             {
-                model.CajaId = cajaId.Value;
-                var caja = cajas.FirstOrDefault(c => c.Id == cajaId.Value);
-                if (caja != null)
+                var caja = disponibles.FirstOrDefault(c => c.Id == cajaId.Value);
+                if (caja == null)
                 {
+                    // Caja con turno abierto, inactiva o fuera del padrón: no se preselecciona.
+                    TempData["Error"] = "La caja indicada no está disponible para abrir.";
+                }
+                else
+                {
+                    model.CajaId = caja.Id;
                     model.CajaNombre = caja.Nombre;
                     model.CajaCodigo = caja.Codigo;
-                }
 
-                // Fondo inicial por defecto = último efectivo con el que cerró la caja (editable).
-                model.MontoInicial = await _cajaService.ObtenerUltimoEfectivoCierreAsync(cajaId.Value) ?? 0m;
+                    // Fondo inicial por defecto = último efectivo con el que cerró la caja (editable).
+                    model.MontoInicial = await _cajaService.ObtenerUltimoEfectivoCierreAsync(caja.Id) ?? 0m;
+                }
             }
 
             return View("Abrir_tw", model);
@@ -485,6 +502,14 @@ namespace TheBuryProject.Controllers
 
                 return RedirectToAction(nameof(DetallesCierre), new { id = cierre.Id, returnUrl = safeReturnUrl });
             }
+            catch (DiferenciaCajaSinJustificacionException ex)
+            {
+                // Rechazo de validación esperado (ya registrado por el servicio): error pegado al campo.
+                ModelState.AddModelError(nameof(model.JustificacionDiferencia), ex.Message);
+                await TryPopulateCerrarModelAsync(model);
+                ViewBag.ReturnUrl = returnUrl;
+                return View("Cerrar_tw", model);
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al cerrar caja");
@@ -628,10 +653,20 @@ namespace TheBuryProject.Controllers
         private const string MensajeSinPermisoOperarCaja =
             "No estás habilitado para operar esta caja. Pedí al administrador que te asigne a ella.";
 
+        /// <summary>
+        /// Carga en ViewBag.Cajas solo las cajas que se pueden abrir ahora: activas, sin turno abierto
+        /// y, para no supervisores, dentro de su padrón. Devuelve esa misma lista.
+        /// </summary>
         private async Task<List<Caja>> SetCajasActivasSelectListAsync(int? selectedId)
         {
             var cajas = await _cajaService.ObtenerTodasCajasAsync();
             var activas = cajas.Where(c => c.Activa).AsEnumerable();
+
+            // Mismo criterio que AbrirCajaAsync ("La caja ya tiene una apertura activa").
+            var cajaIdsConTurnoAbierto = (await _cajaService.ObtenerAperturasAbiertasAsync())
+                .Select(a => a.CajaId)
+                .ToHashSet();
+            activas = activas.Where(c => !cajaIdsConTurnoAbierto.Contains(c.Id));
 
             // Enforcement: un usuario no supervisor solo puede abrir las cajas de su padrón.
             if (!EsSupervisorCaja())
@@ -640,8 +675,9 @@ namespace TheBuryProject.Controllers
                 activas = activas.Where(c => cajasHabilitadas.Contains(c.Id));
             }
 
-            ViewBag.Cajas = new SelectList(activas.ToList(), "Id", "Nombre", selectedId);
-            return cajas;
+            var disponibles = activas.ToList();
+            ViewBag.Cajas = new SelectList(disponibles, "Id", "Nombre", selectedId);
+            return disponibles;
         }
 
         private async Task SetHistorialFiltersAsync(int? cajaId, DateTime? fechaDesde, DateTime? fechaHasta)

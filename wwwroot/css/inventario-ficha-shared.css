@@ -65,7 +65,7 @@
 .kdx-page .kdx-chip {
   display: inline-flex; align-items: center; gap: .35rem;
   padding: .22rem .55rem; border-radius: 999px;
-  font-size: .73rem; font-weight: 500; border: 1px solid transparent; white-space: nowrap;
+  font-size: var(--erp-fs-min, 0.75rem); font-weight: 500; border: 1px solid transparent; white-space: nowrap;
 }
 
 /* Chips — neutral — fi + pu (kdx tiene su propia variante "slate") */
@@ -88,7 +88,7 @@
 .fi-page .fi-chip-missing,
 .pu-page .pu-chip-missing { background: rgba(245,158,11,.10); color: #fbbf24; border-color: rgba(245,158,11,.25); }
 .fi-page .fi-chip-baja,
-.pu-page .pu-chip-baja { background: rgba(148,163,184,.10); color: #94a3b8; border-color: rgba(148,163,184,.25); }
+.pu-page .pu-chip-baja { background: rgba(148,163,184,.10); color: var(--erp-fg-2, #b9c3d3); border-color: rgba(148,163,184,.25); }
 .fi-page .fi-chip-reserved,
 .pu-page .pu-chip-reserved { background: rgba(168,85,247,.10); color: #c084fc; border-color: rgba(168,85,247,.25); }
 .fi-page .fi-chip-repair,
@@ -104,7 +104,7 @@
 .fi-page .fi-tbl thead th,
 .kdx-page .kdx-tbl thead th {
   position: sticky; top: 0; z-index: 2; background: #0d1526;
-  color: #64748b; font-size: .68rem; text-transform: uppercase;
+  color: var(--erp-fg-3, #a6b1c3); font-size: var(--erp-fs-min, 0.75rem); text-transform: uppercase;
   letter-spacing: .04em; font-weight: 600; text-align: left;
   padding: .6rem .75rem; border-bottom: 1px solid #1e2a3d;
 }

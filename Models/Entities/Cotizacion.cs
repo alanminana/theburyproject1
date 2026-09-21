@@ -53,6 +53,18 @@ public class Cotizacion : AuditableEntity
     /// </summary>
     public bool TieneEnvio { get; set; }
 
+    /// <summary>
+    /// Importe del envío declarado en el simulador (null/0 = sin cargo). Sólo tiene sentido con
+    /// <see cref="TieneEnvio"/>. Es un importe separado del precio de los productos: no entra en
+    /// Subtotal/DescuentoTotal/TotalBase ni en el total de ninguna opción de pago (no lleva recargo del
+    /// plan). Al convertir a venta viaja a <c>VentaEnvio.CostoEnvio</c>.
+    /// </summary>
+    public decimal? CostoEnvio { get; set; }
+
+    /// <summary>Importe de envío efectivo (nunca negativo). Ver <see cref="Helpers.VentaMontos"/>.</summary>
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public decimal ImporteEnvio => TieneEnvio ? Helpers.VentaMontos.NormalizarImporteEnvio(CostoEnvio) : 0m;
+
     public DateTime? FechaVencimiento { get; set; }
 
     [StringLength(500)]
