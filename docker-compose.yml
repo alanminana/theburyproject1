@@ -1,0 +1,276 @@
+# TheBuryProject - stack Docker (ERP + SQL Server).
+# Uso:  cp .env.example .env   (editar secretos)   y luego   docker compose up -d --build
+# Desarrollo: agregar  -f docker-compose.yml -f docker-compose.dev.yml  (ver docker-compose.dev.yml)
+
+name: theburyproject
+
+# Produccion: definir ERP_IMAGE con un tag de release unico (nunca reutilizarlo), o un digest.
+# El fallback :local es solo para builds locales. Recursos/actualizaciones: docs/docker-produccion.md.
+# Misma imagen para `migrate` y `app` (un solo build cacheado; ambos tienen `build` para que `up` sin --build tambien la construya).
+x-erp-build: &erp-build
+  context: .
+  dockerfile: Dockerfile
+
+x-runtime: &runtime
+  security_opt:
+    - no-new-privileges:true
+  logging:
+    driver: json-file
+    options:
+      max-size: '10m'
+      max-file: '3'
+
+services:
+  # SEGURIDAD: `db` NO define `ports:`. SQL Server solo es alcanzable por la red interna bury-net (db:1433) desde app, migrate y db-init.
+  # No agregar publicacion de 1433 aqui; para acceso desde el host usar docker-compose.dev.yml (solo 127.0.0.1).
+  db:
+    cpus: ${DB_CPUS:-4.0}
+    mem_limit: ${DB_MEMORY:-3g}
+    <<: *runtime
+    image: mcr.microsoft.com/mssql/server@sha256:4402d880dd4c34bfa7d8705e56a86cd6c88da80a1f6bbbe741f999e76264a090
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?Definir MSSQL_SA_PASSWORD en .env}
+      # Developer: solo desarrollo/pruebas (sin licencia de produccion). Produccion: Express (gratis, limites) o Standard/Enterprise con licencia.
+      MSSQL_PID: ${MSSQL_PID:-Express}
+    volumes:
+      - bury-sqldata:/var/opt/mssql
+      # Destino de BACKUP DATABASE/LOG (scripts/backup/). Directorio del HOST fuera del volumen de datos de SQL (ver BACKUP_DIR en .env.example).
+      # Solo el subdirectorio sql/: db no ve los backups de archivos ni los logs.
+      - ${BACKUP_DIR:-./backups}/sql:/backups/sql
+    networks:
+      - bury-net
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q \"SELECT 1\" -b -o /dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  # One-shot con credencial ADMINISTRATIVA (sa). Unico servicio, ademas de db, que la conoce.
+  # Crea la base (DbInitializer abre la conexion ANTES de MigrateAsync(), asi que debe existir vacia), crea el login/usuario
+  # dedicados: el de la app (db_datareader/db_datawriter, SIN DDL) y el de migraciones (ademas db_ddladmin) (docker/db-init/*). Idempotente.
+  # Las migraciones y seeds los aplica el servicio `migrate`, no la app.
+  db-init:
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,mode=1777
+    <<: *runtime
+    image: mcr.microsoft.com/mssql/server@sha256:4402d880dd4c34bfa7d8705e56a86cd6c88da80a1f6bbbe741f999e76264a090
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?Definir MSSQL_SA_PASSWORD en .env}
+      MSSQL_DATABASE: ${MSSQL_DATABASE:-TheBuryProjectDb}
+      ERP_DB_USER: ${ERP_DB_USER:?Definir ERP_DB_USER en .env}
+      ERP_DB_PASSWORD: ${ERP_DB_PASSWORD:?Definir ERP_DB_PASSWORD en .env}
+      ERP_MIGRATION_USER: ${ERP_MIGRATION_USER:?Definir ERP_MIGRATION_USER en .env}
+      ERP_MIGRATION_PASSWORD: ${ERP_MIGRATION_PASSWORD:?Definir ERP_MIGRATION_PASSWORD en .env}
+    volumes:
+      - ./docker/db-init:/init:ro
+    entrypoint: ["/bin/bash", "/init/init-db.sh"]
+    networks:
+      - bury-net
+
+  # One-shot de MIGRACIONES: ejecuta `TheBuryProyect.dll --migrate` (EF Core migrations + seeds idempotentes: roles, permisos,
+  # sucursales, plantilla de contrato y admin inicial) con el login de migraciones (db_ddladmin, sin sysadmin/db_owner) y termina.
+  # Exit 0 = esquema al dia; != 0 = fallo, y `app` no arranca (service_completed_successfully). Es el unico servicio que recibe Admin__*.
+  migrate:
+    cpus: ${MIGRATE_CPUS:-4.0}
+    mem_limit: ${MIGRATE_MEMORY:-3g}
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,mode=1777
+    <<: *runtime
+    build: *erp-build
+    image: ${ERP_IMAGE:-theburyproject/erp:local}
+    restart: "no"
+    command: ["--migrate"]
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    healthcheck:
+      disable: true # el HEALTHCHECK de la imagen consulta el puerto web, que este proceso no abre
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      Logging__LogLevel__Microsoft.Hosting.Lifetime: Information
+      ConnectionStrings__DefaultConnection: "Server=db,1433;Database=${MSSQL_DATABASE:-TheBuryProjectDb};TrustServerCertificate=True;MultipleActiveResultSets=true"
+      ErpDb__User: ${ERP_MIGRATION_USER:?Definir ERP_MIGRATION_USER en .env}
+      ErpDb__Password: ${ERP_MIGRATION_PASSWORD:?Definir ERP_MIGRATION_PASSWORD en .env}
+      Admin__Email: ${ADMIN_EMAIL:?Definir ADMIN_EMAIL en .env}
+      Admin__UserName: ${ADMIN_USERNAME:-admin}
+      # Necesaria solo si el admin aun no existe. Una base nueva sin password falla en Production.
+      Admin__Password: ${ADMIN_PASSWORD:-}
+    networks:
+      - bury-net
+
+  app:
+    cpus: ${APP_CPUS:-2.0}
+    mem_limit: ${APP_MEMORY:-2g}
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,mode=1777
+    <<: *runtime
+    build: *erp-build
+    image: ${ERP_IMAGE:-theburyproject/erp:local}
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    # SEGURIDAD: `app` NO define `ports:`. Kestrel escucha HTTP en 8080 solo dentro de bury-net (app:8080), alcanzable por Caddy.
+    # Para http://localhost:8080 en desarrollo usar docker-compose.dev.yml (solo 127.0.0.1).
+    expose:
+      - "8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      Logging__LogLevel__Microsoft.Hosting.Lifetime: Information
+      # El host es el NOMBRE DEL SERVICIO (db), nunca localhost. TrustServerCertificate: el SQL Server del contenedor usa certificado autofirmado.
+      # SIN credenciales aqui: usuario/password del ERP van por separado (ErpDb__*) y Program.cs los aplica con SqlConnectionStringBuilder
+      # (escapa cualquier caracter). `app` NO recibe MSSQL_SA_PASSWORD ni las credenciales de migraciones (no tiene DDL).
+      # Migraciones y seeds los ejecuta `migrate`: la app arranca sin tocar el esquema.
+      Database__InitializeOnStartup: "false"
+      ConnectionStrings__DefaultConnection: "Server=db,1433;Database=${MSSQL_DATABASE:-TheBuryProjectDb};TrustServerCertificate=True;MultipleActiveResultSets=true"
+      ErpDb__User: ${ERP_DB_USER:?Definir ERP_DB_USER en .env}
+      ErpDb__Password: ${ERP_DB_PASSWORD:?Definir ERP_DB_PASSWORD en .env}
+      MercadoLibre__ClientId: ${MERCADOLIBRE_CLIENT_ID:-}
+      MercadoLibre__ClientSecret: ${MERCADOLIBRE_CLIENT_SECRET:-}
+      MercadoLibre__RedirectUri: ${MERCADOLIBRE_REDIRECT_URI:-}
+      # Forwarded Headers (Program.cs): solo se confia en X-Forwarded-* que vengan de esta subred (Caddy). No usar ASPNETCORE_FORWARDEDHEADERS_ENABLED (confia en cualquiera).
+      ForwardedHeaders__KnownNetworks: ${BURY_NET_SUBNET:-172.29.88.0/24}
+    volumes:
+      - bury-keys:/keys
+      - bury-uploads:/app/wwwroot/uploads
+      - bury-appdata:/app/App_Data
+    networks:
+      - bury-net
+
+  # Reverse proxy + TLS. Unico servicio publicado al host (80/443). Certificados y estado ACME persisten en caddy-data.
+  caddy:
+    cpus: ${CADDY_CPUS:-1.0}
+    mem_limit: ${CADDY_MEMORY:-256m}
+    <<: *runtime
+    image: caddy:2-alpine@sha256:de23def33b17fb5d1290b0f6c2add1d70780e52341896c00a4c8a2a2fe9d355e
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    environment:
+      ERP_DOMAIN: ${ERP_DOMAIN:?Definir ERP_DOMAIN en .env (dominio publico real con DNS apuntando a este servidor)}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - bury-net
+
+  # ---------------------------------------------------------------------------------------------------------------------------
+  # Herramientas de backup/restore (profile `tools`: NUNCA arrancan con `up`; las invoca scripts/backup/*.sh via `compose run`).
+  # No reciben ninguna credencial de SQL ni del ERP. Detalle y procedimientos: docs/backup-restore.md
+  # ---------------------------------------------------------------------------------------------------------------------------
+
+  # Lectura de los volumenes con estado (solo lectura) -> tar; checksums; retencion local. Sin red.
+  backup-files:
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+    image: alpine:3@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
+    profiles: ["tools"]
+    restart: "no"
+    network_mode: none
+    healthcheck:
+      disable: true
+    volumes:
+      - bury-keys:/src/keys:ro
+      - bury-uploads:/src/uploads:ro
+      - bury-appdata:/src/appdata:ro
+      - caddy-data:/src/caddy-data:ro
+      - ${BACKUP_DIR:-./backups}:/backups
+      - ./scripts/backup/container:/opt/bury-backup:ro
+
+  # Restauracion de archivos: UNICO servicio con los volumenes con estado en escritura. Solo se usa con `app` detenida.
+  restore-files:
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+    image: alpine:3@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
+    profiles: ["tools"]
+    restart: "no"
+    network_mode: none
+    healthcheck:
+      disable: true
+    volumes:
+      - bury-keys:/dst/keys
+      - bury-uploads:/dst/uploads
+      - bury-appdata:/dst/appdata
+      - caddy-data:/dst/caddy-data
+      - ${BACKUP_DIR:-./backups}:/backups:ro
+      - ./scripts/backup/container:/opt/bury-backup:ro
+
+  # Copia externa via rclone (S3, Backblaze B2, Azure Blob, SFTP, ...). El destino se define por configuracion (RCLONE_CONFIG_OFFSITE_*
+  # en backup-offsite.env, fuera de Git) y BACKUP_REMOTE en .env. Solo lectura sobre los backups; las credenciales del proveedor
+  # viven unicamente en este contenedor.
+  backup-offsite:
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+    image: rclone/rclone:1@sha256:45401ad7410db1d67ffdb58e19059ad20b0d8e0285a60e38bbec55cc1019c7a5
+    profiles: ["tools"]
+    restart: "no"
+    healthcheck:
+      disable: true
+    env_file:
+      - path: ./backup-offsite.env
+        required: false
+    volumes:
+      - ${BACKUP_DIR:-./backups}:/backups:ro
+    networks:
+      - bury-net
+
+  # Descarga desde la copia externa al directorio local de backups (servidor nuevo tras un desastre). Unico con escritura sobre /backups.
+  restore-offsite:
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+    image: rclone/rclone:1@sha256:45401ad7410db1d67ffdb58e19059ad20b0d8e0285a60e38bbec55cc1019c7a5
+    profiles: ["tools"]
+    restart: "no"
+    healthcheck:
+      disable: true
+    env_file:
+      - path: ./backup-offsite.env
+        required: false
+    volumes:
+      - ${BACKUP_DIR:-./backups}:/backups
+    networks:
+      - bury-net
+
+networks:
+  bury-net:
+    driver: bridge
+    # Subred fija: ASP.NET la usa como red de proxies confiables (ForwardedHeaders__KnownNetworks). Cambiarla solo si choca con la red del host.
+    ipam:
+      config:
+        - subnet: ${BURY_NET_SUBNET:-172.29.88.0/24}
+
+volumes:
+  caddy-data:
+  caddy-config:
+  bury-sqldata:
+  bury-keys:
+  bury-uploads:
+  bury-appdata:

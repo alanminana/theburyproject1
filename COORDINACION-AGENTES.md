@@ -232,5 +232,5 @@ git add Controllers/ClienteController.cs Data/AppDbContext.cs \
 
 ## Cómo levantar para QA (resumen, ver memoria "QA Local App Harness")
 - LocalDB, crear DB vacía PRIMERO (gotcha DbInitializer), entorno Development, puerto libre.
-- Login dev: `admin` / `Admin123!`.
+- Login dev: `admin` / `[CREDENCIAL RETIRADA: usar secret store local]`.
 - Ruta a validar: `/Cliente/Details/2`.

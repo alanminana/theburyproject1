@@ -48,7 +48,7 @@ QA visual y funcional con Playwright sobre la app viva:
 - QA desktop 1440x900: OK.
 - QA mobile 390x844: OK.
 - Navegación desde el sidebar hacia la pantalla: OK.
-- Permiso `mora:config` verificado: solo el rol con el permiso ve el link y accede (login de QA: SuperAdmin `admin` / `Admin123!`).
+- Permiso `mora:config` verificado: solo el rol con el permiso ve el link y accede (login de QA: SuperAdmin `admin` / `[CREDENCIAL RETIRADA: usar secret store local]`).
 - Guardado real: OK — `ImpactarScorePorMora` y la región score persisten en DB.
 - Consola del navegador: sin errores.
 

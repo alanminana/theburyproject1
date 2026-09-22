@@ -1,0 +1,26 @@
+{
+  "project": "theburyproject",
+  "database": "TheBuryProjectDb",
+  "base_url": "https://erp.example.com",
+  "backup_dir": "/srv/bury-backups",
+  "state_dir": "/var/lib/bury-monitor",
+  "interval_seconds": 60,
+  "slow_seconds": 900,
+  "cooldown_seconds": 3600,
+  "retention_days": 30,
+  "disk_paths": ["/"],
+  "disk_free_warning_gib": 20,
+  "disk_free_critical_gib": 10,
+  "volume_warning_gib": 20,
+  "volume_critical_gib": 40,
+  "growth_warning_gib_day": 2,
+  "sql_log_warning_gib": 2,
+  "sql_log_critical_gib": 5,
+  "backup_windows": {
+    "full": [93600, 108000],
+    "log": [1800, 2700],
+    "files": [93600, 108000],
+    "offsite-sql": [1800, 2700],
+    "offsite-files": [93600, 108000]
+  }
+}

@@ -124,7 +124,7 @@ Ninguno en archivos JS. La auditoria concluye que:
 
 - Spec: e2e/ui-4e-layout-visual.spec.js.
 - Resultado: **169 passed / 0 failed** (2.0 min).
-- Credenciales: E2E_USER=Admin / E2E_PASS=Admin123!.
+- Credenciales: E2E_USER=Admin / E2E_PASS=[CREDENCIAL RETIRADA: usar secret store local].
 - Entorno: ASPNETCORE_ENVIRONMENT=Development.
 
 ## L. Cierre de procesos

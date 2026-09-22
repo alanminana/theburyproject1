@@ -1,0 +1,6 @@
+# Reverse proxy de produccion. Caddy termina TLS (certificados ACME + renovacion automatica) y redirige HTTP->HTTPS.
+# El sitio se llama como ERP_DOMAIN (variable de entorno; ver .env.example). Caddy pasa X-Forwarded-For/Proto/Host
+# y descarta las X-Forwarded-* que traiga el cliente. WebSocket (SignalR) se proxya sin configuracion extra.
+{$ERP_DOMAIN} {
+	reverse_proxy app:8080
+}

@@ -1,0 +1,26 @@
+[Unit]
+Description=TheBuryProject host monitoring
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/theburyproject/scripts/monitoring/monitor.py --config /etc/bury-monitor/config.json
+EnvironmentFile=/etc/bury-monitor/monitor.env
+StateDirectory=bury-monitor
+UMask=0077
+Restart=always
+RestartSec=15
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/bury-monitor
+PrivateTmp=true
+CPUQuota=25%
+MemoryMax=192M
+TasksMax=48
+Nice=10
+IOSchedulingClass=idle
+
+[Install]
+WantedBy=multi-user.target

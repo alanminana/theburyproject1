@@ -85,3 +85,26 @@ smoke_*.jpeg
 /CLAUDE.local.md
 /.agent-local.md
 /.agent-config-backup-*/
+
+# Docker: secretos locales de compose
+.env
+
+# Backups (scripts/backup): contienen datos sensibles (DB, claves Data Protection, uploads). NUNCA a Git.
+# Los scripts de scripts/backup/ SI se versionan.
+/backups/
+*.trn
+*.bak.failed-verify
+backup-offsite.env
+
+# Variantes locales de secretos, dumps y certificados privados.
+.env.*
+!.env.example
+!.env.*.example
+*.env
+*.pfx
+*.p12
+*.key
+*.pem
+*.dump
+*.dmp
+secrets/

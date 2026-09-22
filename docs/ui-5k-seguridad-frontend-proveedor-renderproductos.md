@@ -139,7 +139,7 @@ Todo el módulo proveedor queda consistente en el uso de DOM seguro para datos d
 
 - Spec: `e2e/ui-4e-layout-visual.spec.js`.
 - Resultado: **169 passed / 0 failed** (1.7 min).
-- Credenciales: `E2E_USER=Admin` / `E2E_PASS=Admin123!`.
+- Credenciales: `E2E_USER=Admin` / `E2E_PASS=[CREDENCIAL RETIRADA: usar secret store local]`.
 - Entorno: `ASPNETCORE_ENVIRONMENT=Development`.
 
 ## K. Cierre de procesos

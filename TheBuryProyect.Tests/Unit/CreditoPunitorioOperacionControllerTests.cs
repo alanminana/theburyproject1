@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Globalization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
@@ -32,37 +33,49 @@ public class CreditoPunitorioOperacionControllerTests
         Assert.Equal("applyfine", permiso.Accion);
     }
 
-    [Fact]
-    public async Task Aplicar_ValidaRelacion_DecodificaRowVersion_YDevuelveImporteReal()
+    [Theory]
+    [InlineData("es-AR", "$ 42,75")]
+    [InlineData("en-US", "$ 42.75")]
+    public async Task Aplicar_ValidaRelacion_DecodificaRowVersion_YDevuelveImporteReal(
+        string cultura, string importeFormateado)
     {
-        using var cts = new CancellationTokenSource();
-        var service = new RecordingPunitorioService(Detalle())
+        var culturaAnterior = CultureInfo.CurrentCulture;
+        try
         {
-            Aplicado = new PunitorioAplicado { Id = 21, CuotaId = 11, Importe = 42.75m }
-        };
-        var controller = Controller(service);
-
-        var result = await controller.AplicarPunitorioCuota(
-            creditoId: 7,
-            cuotaId: 11,
-            new AplicarPunitorioHttpViewModel
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo(cultura);
+            using var cts = new CancellationTokenSource();
+            var service = new RecordingPunitorioService(Detalle())
             {
-                Motivo = "  Mora verificada  ",
-                CuotaRowVersionBase64 = Convert.ToBase64String(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 })
-            },
-            cts.Token);
+                Aplicado = new PunitorioAplicado { Id = 21, CuotaId = 11, Importe = 42.75m }
+            };
+            var controller = Controller(service);
 
-        var json = Assert.IsType<JsonResult>(result);
-        var response = Assert.IsType<PunitorioOperacionResponseViewModel>(json.Value);
-        Assert.True(response.Success);
-        Assert.True(response.ReloadPanel);
-        Assert.Equal(42.75m, response.ImporteAplicadoReal);
-        Assert.Contains("$ 42,75", response.Message);
-        Assert.Equal(1, service.DetalleCalls);
-        Assert.Equal(1, service.AplicarCalls);
-        Assert.Equal("Mora verificada", service.LastAplicarCommand!.Motivo);
-        Assert.Equal(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 }, service.LastAplicarCommand.CuotaRowVersionEsperada);
-        Assert.Equal(cts.Token, service.LastCancellationToken);
+            var result = await controller.AplicarPunitorioCuota(
+                creditoId: 7,
+                cuotaId: 11,
+                new AplicarPunitorioHttpViewModel
+                {
+                    Motivo = "  Mora verificada  ",
+                    CuotaRowVersionBase64 = Convert.ToBase64String(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 })
+                },
+                cts.Token);
+
+            var json = Assert.IsType<JsonResult>(result);
+            var response = Assert.IsType<PunitorioOperacionResponseViewModel>(json.Value);
+            Assert.True(response.Success);
+            Assert.True(response.ReloadPanel);
+            Assert.Equal(42.75m, response.ImporteAplicadoReal);
+            Assert.Contains(importeFormateado, response.Message);
+            Assert.Equal(1, service.DetalleCalls);
+            Assert.Equal(1, service.AplicarCalls);
+            Assert.Equal("Mora verificada", service.LastAplicarCommand!.Motivo);
+            Assert.Equal(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 }, service.LastAplicarCommand.CuotaRowVersionEsperada);
+            Assert.Equal(cts.Token, service.LastCancellationToken);
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = culturaAnterior;
+        }
     }
 
     [Fact]

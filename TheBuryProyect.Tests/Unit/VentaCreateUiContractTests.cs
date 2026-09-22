@@ -86,15 +86,17 @@ public class VentaCreateUiContractTests
     }
 
     [Fact]
-    public void CreateView_PanelDiagnosticoCondicionesPagoExisteOcultoEnNuevaVenta()
+    public void CreateView_NoConservaPanelDiagnosticoCondicionesPagoSinConsumidores()
     {
-        // El panel existe en el DOM para que los refs JS resuelvan, pero empieza oculto.
-        // El diagnóstico no dispara en nueva venta (programarDiagnosticoCondicionesPago es stub),
-        // por lo que el panel permanece hidden durante toda la sesión de Create.
+        // El diagnóstico y su stub se retiraron juntos. No reintroducir DOM inerte
+        // ni referencias JS a controles que ya no forman parte del flujo canónico.
         var view = ReadComposedView("Create_tw.cshtml");
 
-        Assert.Contains("id=\"panel-diagnostico-condiciones-pago\"", view);
-        Assert.Contains("id=\"diagnostico-condiciones-pago-bloqueo\"", view);
+        Assert.DoesNotContain("id=\"panel-diagnostico-condiciones-pago\"", view);
+        Assert.DoesNotContain("id=\"diagnostico-condiciones-pago-bloqueo\"", view);
+        var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
+        Assert.DoesNotContain("panel-diagnostico-condiciones-pago", script);
+        Assert.DoesNotContain("diagnostico-condiciones-pago-bloqueo", script);
         Assert.DoesNotContain("data-diagnostico-condiciones-pago", view);
         Assert.DoesNotContain("Las cuotas disponibles fueron restringidas por condiciones del producto", view);
     }
@@ -343,12 +345,11 @@ public class VentaCreateUiContractTests
     public void VentaCreateJs_NoLlamaDiagnosticoCondicionesPagoDesdeNuevaVenta()
     {
         var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));
-        var programar = ExtractFunction(script, "function programarDiagnosticoCondicionesPago");
 
         Assert.DoesNotContain("DiagnosticarCondicionesPagoCarrito", script);
         Assert.DoesNotContain("function diagnosticarCondicionesPagoCarrito", script);
-        Assert.Contains("clearTimeout(diagnosticoCondicionesTimer)", programar);
-        Assert.DoesNotContain("setTimeout", programar);
+        Assert.DoesNotContain("programarDiagnosticoCondicionesPago", script);
+        Assert.DoesNotContain("diagnosticoCondicionesTimer", script);
     }
 
     [Fact]
@@ -1148,7 +1149,7 @@ public class VentaCreateUiContractTests
         {
             "panel-tarjeta", "panel-cheque", "panel-mercadopago", "panel-credito-personal",
             "panel-planes-pago", "lista-planes-pago", "configuracion-pagos-global-estado",
-            "hdn-configuracion-pago-plan-id", "panel-diagnostico-condiciones-pago",
+            "hdn-configuracion-pago-plan-id",
             "panel-verificacion-crediticia", "panel-verificacion-crediticia-auto",
             "panel-resultado-verificacion", "panel-cupo-insuficiente",
             "panel-alerta-mora", "panel-documentacion-faltante", "lista-docs-faltantes",

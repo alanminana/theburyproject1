@@ -31,7 +31,7 @@ No se implementaron cambios de código.
 ## D. Usuario usado
 
 - Usuario: `Admin`
-- Contraseña: `Admin123!`
+- Contraseña: `[CREDENCIAL RETIRADA: usar secret store local]`
 - Rol: SuperAdmin
 
 ---

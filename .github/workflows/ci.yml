@@ -5,21 +5,53 @@ on:
     branches: [ main ]
   pull_request:
 
+# Minimo privilegio: este workflow solo lee codigo, compila, testea y valida. No publica nada.
+permissions:
+  contents: read
+
+# Un push nuevo a la misma rama/PR cancela la corrida anterior de ese mismo ref.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Imagen efimera de este workflow. No se publica a ningun registry (ver docs/ci.md).
+  CI_IMAGE_TAG: theburyproject/erp:ci-${{ github.sha }}
+  DOTNET_EF_VERSION: '10.0.12' # debe coincidir con Microsoft.EntityFrameworkCore.Tools en TheBuryProyect.csproj
+  GITLEAKS_VERSION: '8.30.1'
+
 jobs:
+  # ---------------------------------------------------------------------------------------------
+  # restore + build (Release) + tests + chequeo de migraciones EF + auditoria de dependencias .NET
+  # ---------------------------------------------------------------------------------------------
   build-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup .NET 8
+      # El SDK lo fija global.json (10.0.401, rollForward latestPatch): evita drift silencioso a otro SDK.
+      - name: Setup .NET (segun global.json)
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
+          global-json-file: global.json
 
-      # El proyecto de tests referencia al principal: restaurar/compilar/testear
-      # desde el .csproj de tests cubre ambos. Los tests usan SQLite in-memory,
-      # por lo que no requieren SQL Server en el runner.
+      - name: Verificar SDK efectivo
+        run: dotnet --info
+
+      # Cache de paquetes NuGet. La clave depende de global.json y de todos los .csproj: cualquier
+      # cambio de dependencias invalida la cache (nunca oculta un cambio de version de paquete).
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('global.json', '**/*.csproj', '**/packages.lock.json') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      # El proyecto de tests referencia al principal: restaurar/compilar/testear desde el .csproj de
+      # tests cubre ambos. Los tests usan SQLite in-memory, por lo que no requieren SQL Server en el runner.
       - name: Restore
         run: dotnet restore TheBuryProyect.Tests/TheBuryProyect.Tests.csproj
 
@@ -27,11 +59,276 @@ jobs:
         run: dotnet build TheBuryProyect.Tests/TheBuryProyect.Tests.csproj -c Release --no-restore
 
       - name: Test (Release)
-        run: dotnet test TheBuryProyect.Tests/TheBuryProyect.Tests.csproj -c Release --no-build --logger "trx;LogFileName=test-results.trx"
+        run: >
+          dotnet test TheBuryProyect.Tests/TheBuryProyect.Tests.csproj -c Release --no-build
+          --logger "trx;LogFileName=test-results.trx"
+          --logger "console;verbosity=normal"
+          --results-directory ./TestResults
 
-      - name: Upload test results
+      - name: Resumen de tests
+        if: always()
+        run: |
+          TRX=$(find ./TestResults -name '*.trx' | head -n1)
+          if [ -z "$TRX" ]; then
+            echo "No se genero ningun .trx" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          COUNTERS=$(grep -o '<Counters[^/]*/>' "$TRX" || true)
+          TOTAL=$(echo "$COUNTERS" | grep -o 'total="[0-9]*"' | grep -o '[0-9]*' || echo '')
+          PASSED=$(echo "$COUNTERS" | grep -o 'passed="[0-9]*"' | grep -o '[0-9]*' || echo '')
+          FAILED=$(echo "$COUNTERS" | grep -o 'failed="[0-9]*"' | grep -o '[0-9]*' || echo '')
+          # No todos los runners exponen "skipped"/"notExecuted" de forma confiable en <Counters>:
+          # se deriva de total - passed - failed, que siempre es correcto.
+          if [ -n "$TOTAL" ] && [ -n "$PASSED" ] && [ -n "$FAILED" ]; then
+            SKIPPED=$((TOTAL - PASSED - FAILED))
+          else
+            TOTAL='?'; PASSED='?'; FAILED='?'; SKIPPED='?'
+          fi
+          {
+            echo "### Resultado de tests"
+            echo ""
+            echo "| Total | Passed | Failed | Skipped |"
+            echo "|-------|--------|--------|---------|"
+            echo "| $TOTAL | $PASSED | $FAILED | $SKIPPED |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # El gate real es el exit code de `dotnet test` (falla si Failed > 0). Este resumen es solo informativo.
+      - name: Upload test results (TRX)
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-results
-          path: '**/test-results.trx'
+          path: TestResults/**/*.trx
+          retention-days: 14
+          if-no-files-found: warn
+
+      # Detecta cambios de modelo EF sin migracion correspondiente. No requiere SQL Server real
+      # (compara el modelo compilado contra el snapshot de la ultima migracion).
+      - name: Instalar dotnet-ef
+        run: dotnet tool install --global dotnet-ef --version ${{ env.DOTNET_EF_VERSION }}
+
+      - name: EF Core - pending model changes
+        run: dotnet ef migrations has-pending-model-changes --project TheBuryProyect.csproj
+
+      # Auditoria de paquetes .NET (directos y transitivos) contra el feed de NuGet. No actualiza nada.
+      # Politica: Critical/High bloquean, Moderate/Low se informan (ver docs/ci.md).
+      - name: Auditoria de dependencias .NET (vulnerabilidades)
+        run: |
+          set -o pipefail
+          mkdir -p ./security-reports
+          for PROJ in TheBuryProyect.csproj TheBuryProyect.Tests/TheBuryProyect.Tests.csproj; do
+            NAME=$(basename "$PROJ" .csproj)
+            dotnet list "$PROJ" package --vulnerable --include-transitive --format json --output-version 1 \
+              > "./security-reports/vulnerable-$NAME.json"
+          done
+
+      - name: Evaluar gate de vulnerabilidades (Critical/High bloquean)
+        run: |
+          HIGH_OR_CRITICAL=0
+          {
+            echo "### Dependencias .NET vulnerables"
+            echo ""
+            echo "| Proyecto | Paquete | Version | Severidad | Tipo | Advisory |"
+            echo "|----------|---------|---------|-----------|------|----------|"
+          } >> "$GITHUB_STEP_SUMMARY"
+          for FILE in ./security-reports/vulnerable-*.json; do
+            PROJ=$(basename "$FILE" .json | sed 's/^vulnerable-//')
+            jq -r --arg proj "$PROJ" '
+              .projects[]?.frameworks[]? as $fw
+              | ( ($fw.topLevelPackages // [])[] | . + {kind:"directo"} ),
+                ( ($fw.transitivePackages // [])[] | . + {kind:"transitivo"} )
+              | . as $pkg
+              | ($pkg.vulnerabilities // [])[]
+              | [$proj, $pkg.id, $pkg.resolvedVersion, .severity, $pkg.kind, .advisoryurl] | @tsv
+            ' "$FILE" >> ./security-reports/findings.tsv || true
+          done
+          if [ -s ./security-reports/findings.tsv ]; then
+            while IFS=$'\t' read -r PROJ PKG VER SEV KIND URL; do
+              echo "| $PROJ | $PKG | $VER | $SEV | $KIND | $URL |" >> "$GITHUB_STEP_SUMMARY"
+              if [ "$SEV" = "Critical" ] || [ "$SEV" = "High" ]; then
+                HIGH_OR_CRITICAL=1
+              fi
+            done < ./security-reports/findings.tsv
+          else
+            echo "| - | Sin hallazgos | - | - | - | - |" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ "$HIGH_OR_CRITICAL" = "1" ]; then
+            echo "Hay paquetes con severidad Critical o High: CI bloqueado." >&2
+            exit 1
+          fi
+
+      - name: Upload security reports (dependencias .NET)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotnet-dependency-audit
+          path: security-reports/
+          retention-days: 14
+          if-no-files-found: ignore
+
+  # ---------------------------------------------------------------------------------------------
+  # Docker build (imagen efimera, sin push) + inspeccion de contenido + scan de vulnerabilidades
+  # ---------------------------------------------------------------------------------------------
+  docker-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v4
+
+      # Dockerfile EXISTENTE, sin modificar. No recibe build-args ni secretos productivos:
+      # el publish no toca la base de datos (las migraciones las aplica el servicio `migrate` en runtime).
+      - name: Docker build (sin push)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile
+          push: false
+          load: true
+          tags: ${{ env.CI_IMAGE_TAG }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Defensa adicional (no reemplaza el secret scanning del repo): la imagen final no debe
+      # contener archivos conocidos de secretos/config local. Se lista el filesystem exportado sin
+      # ejecutar el entrypoint de la app.
+      - name: Inspeccionar contenido de la imagen (archivos prohibidos)
+        run: |
+          CID=$(docker create "${{ env.CI_IMAGE_TAG }}")
+          docker export "$CID" | tar -tf - > ./image-files.txt
+          docker rm "$CID" >/dev/null
+          PATTERN='(^|/)\.env($|\.)|\.bak$|(^|/)\.git(/|$)|backup-offsite\.env$|secrets\.json$|appsettings\.Development\.json$'
+          if grep -Ei "$PATTERN" ./image-files.txt; then
+            echo "La imagen contiene archivos que no deberian estar presentes (ver lista arriba)." >&2
+            exit 1
+          fi
+          echo "OK: sin archivos prohibidos en la imagen."
+
+      # Trivy escanea la imagen ya construida (no reconstruye). Version fija, sin 'latest'.
+      # Politica (ver docs/ci.md #23): se registran todos los hallazgos; solo bloquea Critical
+      # fixeable en paquetes de aplicacion (.NET/NuGet). Paquetes de SO se informan, no bloquean,
+      # porque este bloque no modifica el Dockerfile/imagen base para resolverlos.
+      - name: Trivy - reporte completo (no bloqueante)
+        uses: aquasecurity/trivy-action@0.36.0
+        with:
+          image-ref: ${{ env.CI_IMAGE_TAG }}
+          format: table
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'
+
+      - name: Trivy - gate (Critical, paquetes de aplicacion, con fix disponible)
+        uses: aquasecurity/trivy-action@0.36.0
+        with:
+          image-ref: ${{ env.CI_IMAGE_TAG }}
+          format: table
+          vuln-type: library
+          severity: 'CRITICAL'
+          ignore-unfixed: true
+          exit-code: '1'
+
+  # ---------------------------------------------------------------------------------------------
+  # Validacion de sintaxis de Docker Compose (normal, dev, profile tools, monitoring) con .env sintetico
+  # ---------------------------------------------------------------------------------------------
+  compose-validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # .env sintetico SOLO dentro del runner: nunca se commitea ni se sube como artifact.
+      # Se genera desde .env.example (versionado, sin secretos) reemplazando CHANGE_ME por un
+      # valor inequivocamente sintetico.
+      - name: Generar .env sintetico de CI
+        run: |
+          ENV_FILE="$RUNNER_TEMP/.env.ci"
+          sed 's/CHANGE_ME/CI_SYNTHETIC_VALUE_DO_NOT_USE_1234/g' .env.example > "$ENV_FILE"
+          echo "ENV_FILE=$ENV_FILE" >> "$GITHUB_ENV"
+
+      # `docker compose config` puede expandir/imprimir secretos: se redirige a /dev/null y se usa
+      # --quiet (valida y solo reporta errores, no vuelca la configuracion resuelta a los logs).
+      - name: Validar docker-compose.yml
+        run: docker compose --env-file "$ENV_FILE" -f docker-compose.yml config --quiet
+
+      - name: Validar docker-compose.yml + docker-compose.dev.yml
+        run: docker compose --env-file "$ENV_FILE" -f docker-compose.yml -f docker-compose.dev.yml config --quiet
+
+      - name: Validar profile tools (backup/restore)
+        run: docker compose --env-file "$ENV_FILE" -f docker-compose.yml --profile tools config --quiet
+
+      # No requiere secretos del ERP (host de monitoreo separado).
+      - name: Validar docker-compose.monitoring.yml
+        run: docker compose -f docker-compose.monitoring.yml config --quiet
+
+      - name: Eliminar .env sintetico
+        if: always()
+        run: rm -f "$ENV_FILE"
+
+  # ---------------------------------------------------------------------------------------------
+  # Deteccion de secretos NUEVOS introducidos por este push/PR (no re-escanea todo el historial:
+  # ya se sabe que hay una contrasena de admin de desarrollo expuesta historicamente, ver docs/ci.md).
+  # ---------------------------------------------------------------------------------------------
+  secret-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Binario oficial de gitleaks, version fijada (no 'latest'), sin curl|bash: se descarga el
+      # release, se verifica que sea el asset esperado y se ejecuta directamente.
+      - name: Instalar gitleaks
+        run: |
+          set -euo pipefail
+          curl -sSL -o gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${{ env.GITLEAKS_VERSION }}/gitleaks_${{ env.GITLEAKS_VERSION }}_linux_x64.tar.gz"
+          tar -xzf gitleaks.tar.gz gitleaks
+          chmod +x gitleaks
+          ./gitleaks version
+
+      - name: Determinar rango de commits nuevos
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            RANGE="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+          else
+            BEFORE="${{ github.event.before }}"
+            if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+              RANGE="${{ github.sha }}~1..${{ github.sha }}"
+            else
+              RANGE="$BEFORE..${{ github.sha }}"
+            fi
+          fi
+          echo "LOG_OPTS=$RANGE" >> "$GITHUB_ENV"
+
+      # Solo escanea los commits nuevos de este push/PR. El secreto historico conocido (ver
+      # docs/secretos-produccion.md) esta fuera de este rango y NO bloquea CI; un secreto nuevo si.
+      - name: gitleaks - solo commits nuevos
+        run: ./gitleaks git --log-opts="${{ env.LOG_OPTS }}" --redact -v --exit-code 1
+
+  # ---------------------------------------------------------------------------------------------
+  # Build+test en Windows: informativo/paridad, NO bloquea merge (runtime productivo es Linux).
+  # ---------------------------------------------------------------------------------------------
+  build-test-windows:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore TheBuryProyect.Tests/TheBuryProyect.Tests.csproj
+
+      - name: Build (Release)
+        run: dotnet build TheBuryProyect.Tests/TheBuryProyect.Tests.csproj -c Release --no-restore
+
+      - name: Test (Release)
+        run: dotnet test TheBuryProyect.Tests/TheBuryProyect.Tests.csproj -c Release --no-build

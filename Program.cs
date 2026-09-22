@@ -1,9 +1,12 @@
 using AutoMapper;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using TheBuryProject.Data;
 using TheBuryProject.Extensions;
 using TheBuryProject.Helpers;
@@ -41,9 +44,15 @@ if (!builder.Environment.IsEnvironment("Testing"))
 }
 
 // 2. EF Core (evitar mezclar AddDbContext + AddDbContextFactory)
+// Docker/produccion: la cadena base va sin credenciales y el login SQL dedicado llega por ErpDb:User / ErpDb:Password
+// (SqlConnectionStringBuilder escapa cualquier caracter). Sin ErpDb:* se usa la cadena tal cual (LocalDB/Windows Auth en desarrollo).
+var defaultConnectionString = ProductionSecrets.ConnectionString(builder.Configuration, builder.Environment.IsProduction());
+if (builder.Environment.IsProduction() && !string.IsNullOrEmpty(builder.Configuration["MercadoLibre:ClientId"]))
+    ProductionSecrets.Require(builder.Configuration["MercadoLibre:ClientSecret"], "MercadoLibre:ClientSecret");
+
 builder.Services.AddDbContextFactory<AppDbContext>(options =>
 {
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
+    options.UseSqlServer(defaultConnectionString);
 });
 
 // Si tu app ya inyecta AppDbContext en servicios/scopes (MVC), crealo desde el factory:
@@ -71,6 +80,12 @@ builder.Services.AddDefaultIdentity<ApplicationUser>(options =>
     // IMPORTANTE: NO requerir email confirmado para login (útil para testing)
     options.SignIn.RequireConfirmedEmail = false;
     options.SignIn.RequireConfirmedAccount = false;
+
+    // El esquema real (migraciones) usa nvarchar(450) en las claves compuestas de AspNetUserLogins/Tokens.
+    // Identity.UI fija MaxLengthForKeys=128 en runtime, lo que hacía divergir el modelo del snapshot;
+    // EF Core 9+ lo trata como error (PendingModelChangesWarning) en MigrateAsync. 0 = sin límite explícito,
+    // idéntico al modelo de diseño con el que se generaron las migraciones (sin cambio de esquema).
+    options.Stores.MaxLengthForKeys = 0;
 })
 .AddRoles<IdentityRole>()
 .AddEntityFrameworkStores<AppDbContext>();
@@ -186,8 +201,20 @@ builder.Services.AddRateLimiter(options =>
     });
 });
 
-// 5.8 Health checks (liveness para el orquestador)
-builder.Services.AddHealthChecks();
+// 5.8 Health checks. Liveness y readiness separados por tag:
+//   live  -> solo prueba que el proceso ASP.NET responde; NO depende de SQL ni de nada externo.
+//   ready -> ademas verifica que AppDbContext puede conectarse a SQL Server (CanConnectAsync: abre la conexion configurada, no lee ni escribe datos).
+builder.Services.AddHealthChecks()
+    .AddCheck("self", () => HealthCheckResult.Healthy(), tags: new[] { "live" })
+    .AddDbContextCheck<AppDbContext>("sqlserver", failureStatus: HealthStatus.Unhealthy, tags: new[] { "ready" });
+// Con SQL caido el connect puede colgar hasta el timeout de SqlClient (15 s); el check se corta antes que el timeout del HEALTHCHECK de Docker (5 s).
+builder.Services.Configure<HealthCheckServiceOptions>(options =>
+{
+    foreach (var registration in options.Registrations.Where(r => r.Name == "sqlserver"))
+    {
+        registration.Timeout = TimeSpan.FromSeconds(4);
+    }
+});
 
 // 5.6 Background services (están bien: crean scope por iteración)
 builder.Services.AddHostedService<MoraBackgroundService>();
@@ -233,9 +260,34 @@ builder.Services.AddResponseCompression(options =>
     options.MimeTypes = new[] { "text/css", "text/javascript", "application/javascript", "image/svg+xml" };
 });
 
+// 7.1 Forwarded Headers (detras de Caddy). Solo se confia en cabeceras que llegan de los proxies conocidos:
+// loopback (default del framework) + las redes CIDR de "ForwardedHeaders:KnownNetworks" (la subred de la red Docker
+// bury-net, fijada en docker-compose.yml). NO se usa ASPNETCORE_FORWARDEDHEADERS_ENABLED porque vacia las listas y confia en cualquiera.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost;
+    options.ForwardLimit = 1; // un solo salto: Caddy
+    var knownNetworks = builder.Configuration["ForwardedHeaders:KnownNetworks"];
+    foreach (var cidr in (knownNetworks ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+    {
+        options.KnownIPNetworks.Add(System.Net.IPNetwork.Parse(cidr));
+    }
+});
+
 var app = builder.Build();
 
+// 7.2 Modo `--migrate` (servicio one-shot `migrate` de docker-compose): aplica migraciones + seeds con el usuario de migracion
+// (ErpDb:User = ERP_MIGRATION_USER, con DDL) y termina SIN levantar Kestrel ni background services. Exit 0 = OK, 1 = fallo.
+if (args.Contains("--migrate"))
+{
+    return await DbMigrationRunner.RunAsync(app);
+}
+
 // 8. Pipeline
+// Forwarded Headers PRIMERO: todo lo que dependa de Request.Scheme/Host/RemoteIp (HSTS, redirects, cookies, auth, audit) lo necesita ya resuelto.
+app.UseForwardedHeaders();
+
+
 // Security headers (defensa básica). CSP se omite a propósito: requiere QA visual
 // porque las vistas usan estilos/scripts inline y SignalR; ver docs/despliegue-produccion.md.
 app.Use(async (context, next) =>
@@ -258,11 +310,30 @@ if (!app.Environment.IsDevelopment() && !app.Environment.IsEnvironment("Testing"
     app.UseHsts();
 }
 
-if (!app.Environment.IsDevelopment() && !app.Environment.IsEnvironment("Testing"))
+// La redireccion HTTP->HTTPS la hace Caddy (borde TLS). Kestrel solo escucha HTTP interno y no tiene puerto HTTPS,
+// por lo que UseHttpsRedirection() no puede resolver a donde redirigir ("Failed to determine the https port"): se
+// registra solo si se configura explicitamente un puerto HTTPS (HTTPS_PORT / ASPNETCORE_HTTPS_PORT), p. ej. Kestrel con TLS propio.
+if (!app.Environment.IsDevelopment() && !app.Environment.IsEnvironment("Testing")
+    && !string.IsNullOrWhiteSpace(app.Configuration["HTTPS_PORT"]))
 {
     app.UseHttpsRedirection();
 }
 app.UseResponseCompression();
+
+// Documentos de clientes (DNI, comprobantes) se guardan bajo wwwroot con nombre predecible
+// ({ClienteId}_{Tipo}_{timestamp}); bloqueado ANTES de UseStaticFiles para que solo sean accesibles
+// vía DocumentoClienteController.Descargar (autenticado + permiso "clientes.viewdocs"), que lee el
+// archivo directo del disco sin pasar por este middleware.
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/uploads/documentos-clientes"))
+    {
+        context.Response.StatusCode = StatusCodes.Status404NotFound;
+        return;
+    }
+    await next();
+});
+
 app.UseStaticFiles(new StaticFileOptions
 {
     // Cache explicito de estaticos (MOBILE-DEBT-01): sin Cache-Control cada visita revalida y en redes moviles
@@ -299,10 +370,18 @@ app.MapControllerRoute(
 
 app.MapRazorPages();
 app.MapHub<NotificacionesHub>("/hubs/notificaciones");
-app.MapHealthChecks("/health");
+// Respuesta de texto plano (Healthy/Unhealthy) sin detalle de checks ni excepciones; Unhealthy -> 503.
+app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = r => r.Tags.Contains("live") }).AllowAnonymous();
+app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = r => r.Tags.Contains("ready") }).AllowAnonymous();
 
 // 13. Init DB
-if (!app.Environment.IsEnvironment("Testing"))
+// Docker/produccion: `Database:InitializeOnStartup=false` (el servicio `migrate` ya aplico migraciones y seeds; el usuario SQL de `app`
+// no tiene DDL). Por defecto (LocalDB / desarrollo Windows) sigue inicializando al arrancar, como siempre.
+if (!app.Environment.IsEnvironment("Testing") && !app.Configuration.GetValue("Database:InitializeOnStartup", true))
+{
+    app.Logger.LogInformation("Database:InitializeOnStartup=false: la app no ejecuta migraciones ni seeds (lo hace el servicio migrate).");
+}
+else if (!app.Environment.IsEnvironment("Testing"))
 {
     using var scope = app.Services.CreateScope();
     var services = scope.ServiceProvider;
@@ -331,5 +410,6 @@ if (!app.Environment.IsEnvironment("Testing"))
 }
 
 app.Run();
+return 0;
 
 public partial class Program { }

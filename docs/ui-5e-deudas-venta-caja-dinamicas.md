@@ -122,7 +122,7 @@ Se verificó y preservó explícitamente:
 ## L. Playwright
 
 - Suite: `e2e/ui-4e-layout-visual.spec.js`
-- Credenciales: `E2E_USER=Admin / E2E_PASS=Admin123!`
+- Credenciales: `E2E_USER=Admin / E2E_PASS=[CREDENCIAL RETIRADA: usar secret store local]`
 - Ejecutado con `npx.cmd` por ExecutionPolicy de PowerShell.
 
 ## M. Riesgos/deudas

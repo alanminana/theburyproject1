@@ -1,3 +1,4 @@
+using System.Globalization;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -9,6 +10,7 @@ namespace TheBuryProject.Services;
 
 public sealed class CotizacionPdfService : ICotizacionPdfService
 {
+    private static readonly CultureInfo CulturaMonetaria = CultureInfo.GetCultureInfo("es-AR");
     private static readonly string ColorNegro = "#111827";
     private static readonly string ColorGrisOscuro = "#4B5563";
     private static readonly string ColorGrisBorde = "#D1D5DB";
@@ -151,7 +153,7 @@ public sealed class CotizacionPdfService : ICotizacionPdfService
                         col.Item().Row(r =>
                         {
                             r.ConstantItem(70).Text("Valor cuota").FontSize(9).FontColor(ColorGrisOscuro).Bold();
-                            r.RelativeItem().Text(cotizacion.ValorCuotaSeleccionada.Value.ToString("C2")).FontSize(9);
+                            r.RelativeItem().Text(cotizacion.ValorCuotaSeleccionada.Value.ToString("C2", CulturaMonetaria)).FontSize(9);
                         });
                     }
                 }
@@ -221,7 +223,7 @@ public sealed class CotizacionPdfService : ICotizacionPdfService
                 table.Cell().Element(c => Td(c, item.NombreProductoSnapshot));
                 table.Cell().Element(c => Td(c, item.CodigoProductoSnapshot));
                 table.Cell().Element(c => TdRight(c, item.Cantidad.ToString("G29")));
-                table.Cell().Element(c => TdRight(c, item.PrecioUnitarioSnapshot.ToString("C2")));
+                table.Cell().Element(c => TdRight(c, item.PrecioUnitarioSnapshot.ToString("C2", CulturaMonetaria)));
 
                 if (tieneDescuento)
                 {
@@ -230,13 +232,13 @@ public sealed class CotizacionPdfService : ICotizacionPdfService
                         var texto = item.DescuentoPorcentajeSnapshot.HasValue
                             ? $"{item.DescuentoPorcentajeSnapshot.Value:0.##}%"
                             : item.DescuentoImporteSnapshot.HasValue
-                                ? item.DescuentoImporteSnapshot.Value.ToString("C2")
+                                ? item.DescuentoImporteSnapshot.Value.ToString("C2", CulturaMonetaria)
                                 : "-";
                         TdRight(c, texto);
                     });
                 }
 
-                table.Cell().Element(c => TdRight(c, item.Subtotal.ToString("C2")));
+                table.Cell().Element(c => TdRight(c, item.Subtotal.ToString("C2", CulturaMonetaria)));
             }
         });
     }
@@ -294,28 +296,29 @@ public sealed class CotizacionPdfService : ICotizacionPdfService
                     table.Cell().Border(1).BorderColor(ColorGrisBorde).Padding(5).AlignRight()
                         .Text($"{seleccionada.InteresPorcentaje:0.##}%").FontSize(9);
                 table.Cell().Border(1).BorderColor(ColorGrisBorde).Padding(5).AlignRight()
-                    .Text(seleccionada.Total.ToString("C2")).FontSize(9);
+                    .Text(seleccionada.Total.ToString("C2", CulturaMonetaria)).FontSize(9);
             });
         });
     }
 
     private static void RenderTotales(IContainer container, CotizacionResultado cotizacion)
     {
-        var totalMostrar = cotizacion.TotalSeleccionado ?? cotizacion.TotalBase;
-
         container.AlignRight().Border(1).BorderColor(ColorNegro).Width(220).Column(col =>
         {
-            FilaTotales(col, "Subtotal", cotizacion.Subtotal.ToString("C2"), false);
+            FilaTotales(col, "Subtotal", cotizacion.Subtotal.ToString("C2", CulturaMonetaria), false);
 
             if (cotizacion.DescuentoTotal != 0)
-                FilaTotales(col, "Descuento total", cotizacion.DescuentoTotal.ToString("C2"), false);
+                FilaTotales(col, "Descuento total", cotizacion.DescuentoTotal.ToString("C2", CulturaMonetaria), false);
 
-            FilaTotales(col, "Total base", cotizacion.TotalBase.ToString("C2"), false);
+            FilaTotales(col, "Total base", cotizacion.TotalBase.ToString("C2", CulturaMonetaria), false);
 
             if (cotizacion.TotalSeleccionado.HasValue && cotizacion.TotalSeleccionado != cotizacion.TotalBase)
-                FilaTotales(col, "Total c/ plan", cotizacion.TotalSeleccionado.Value.ToString("C2"), false);
+                FilaTotales(col, "Total c/ plan", cotizacion.TotalSeleccionado.Value.ToString("C2", CulturaMonetaria), false);
 
-            FilaTotales(col, "TOTAL", totalMostrar.ToString("C2"), true);
+            if (cotizacion.TieneEnvio)
+                FilaTotales(col, "Envío", cotizacion.ImporteEnvio.ToString("C2", CulturaMonetaria), false);
+
+            FilaTotales(col, "TOTAL", cotizacion.TotalACobrar.ToString("C2", CulturaMonetaria), true);
         });
     }
 

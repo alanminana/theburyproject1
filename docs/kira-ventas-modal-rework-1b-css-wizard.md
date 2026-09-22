@@ -213,7 +213,7 @@ Contratos JS: `VentaCrearModal.submit()`, `VentaCrearModal.open()`, `VentaCrearM
 Para validar manualmente:
 ```powershell
 $env:E2E_USER="Admin"
-$env:E2E_PASS="Admin123!"
+$env:E2E_PASS="[CREDENCIAL RETIRADA: usar secret store local]"
 # Navegar a /Venta, abrir modal Nueva Venta
 # Verificar desktop 1440x900: tabs visibles, sidebar sticky, sin overflow
 # Verificar mobile 390x844: tabs scrolleables, summary bar visible, campos accesibles

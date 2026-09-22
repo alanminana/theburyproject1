@@ -446,7 +446,6 @@ public class CambiosPreciosController : Controller
     /// Simula y aplica en un solo paso.
     /// </summary>
     [HttpPost]
-    [IgnoreAntiforgeryToken]
     [PermisoRequerido(Modulo = ModuloPrecios, Accion = AccionAplicar)]
     public async Task<IActionResult> AplicarRapido([FromBody] AplicarRapidoRequest request)
     {

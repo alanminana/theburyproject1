@@ -34,7 +34,7 @@ Información del test:
 
 ```powershell
 $env:E2E_USER="Admin"
-$env:E2E_PASS="Admin123!"
+$env:E2E_PASS="[CREDENCIAL RETIRADA: usar secret store local]"
 npx.cmd playwright test e2e/ui-4e-layout-visual.spec.js -g "sidebar-desktop-expanded" --trace on --project "768x1024"
 ```
 

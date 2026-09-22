@@ -18,6 +18,7 @@ Claude puede invocar automáticamente estas skills cuando el pedido coincide cla
 - `timeouts-y-procesos`
 - `ui-responsive-protocolo`
 - `csharp-testing`
+- `security-review`
 
 `ui-ux-pro-max`, `impeccable` y `dotnet-patterns` son consultoras manuales (user-invocable-only en `.claude/settings.json`): Claude no las invoca automáticamente, solo mediante `/ui-ux-pro-max`, `/impeccable` o `/dotnet-patterns` cuando el usuario lo pida expresamente. Ver reglas en "UX/UI especializado" y ".NET especializado" más abajo.
 
