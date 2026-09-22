@@ -211,7 +211,7 @@ jobs:
       # fixeable en paquetes de aplicacion (.NET/NuGet). Paquetes de SO se informan, no bloquean,
       # porque este bloque no modifica el Dockerfile/imagen base para resolverlos.
       - name: Trivy - reporte completo (no bloqueante)
-        uses: aquasecurity/trivy-action@0.36.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ env.CI_IMAGE_TAG }}
           format: table
@@ -219,7 +219,7 @@ jobs:
           exit-code: '0'
 
       - name: Trivy - gate (Critical, paquetes de aplicacion, con fix disponible)
-        uses: aquasecurity/trivy-action@0.36.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ env.CI_IMAGE_TAG }}
           format: table
