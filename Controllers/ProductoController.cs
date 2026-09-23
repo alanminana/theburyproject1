@@ -147,6 +147,7 @@ namespace TheBuryProject.Controllers
                 await transaction.CommitAsync();
 
                 var productoCreado = await _productoService.GetByIdAsync(producto.Id);
+                var filaCreada = await _catalogoService.ObtenerFilaAsync(producto.Id);
 
                 return Json(new
                 {
@@ -161,7 +162,9 @@ namespace TheBuryProject.Controllers
                         categoriaNombre    = productoCreado?.Categoria?.Nombre  ?? "—",
                         marcaNombre        = productoCreado?.Marca?.Nombre      ?? "—",
                         precioVenta        = productoCreado?.PrecioVenta        ?? viewModel.PrecioVenta,
-                        comisionPorcentaje = 0m
+                        comisionPorcentaje = 0m,
+                        stockActual        = filaCreada?.StockActual            ?? productoCreado?.StockActual ?? viewModel.StockActual,
+                        estadoStock        = filaCreada?.EstadoStock            ?? "Normal"
                     }
                 });
             }

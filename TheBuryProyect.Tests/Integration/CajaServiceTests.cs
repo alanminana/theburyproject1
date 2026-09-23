@@ -23,8 +23,10 @@ namespace TheBuryProject.Tests.Integration;
 // ---------------------------------------------------------------------------
 // Stub de INotificacionService — sin dependencia de Moq
 // ---------------------------------------------------------------------------
-file sealed class StubNotificacionService : INotificacionService
+internal sealed class StubNotificacionService : INotificacionService
 {
+    public List<string> RolesNotificados { get; } = new();
+
     public Task<Notificacion> CrearNotificacionAsync(CrearNotificacionViewModel model)
         => Task.FromResult(new Notificacion());
 
@@ -32,7 +34,10 @@ file sealed class StubNotificacionService : INotificacionService
         => Task.CompletedTask;
 
     public Task CrearNotificacionParaRolAsync(string rol, TipoNotificacion tipo, string titulo, string mensaje, string? url = null, PrioridadNotificacion prioridad = PrioridadNotificacion.Media)
-        => Task.CompletedTask;
+    {
+        RolesNotificados.Add(rol);
+        return Task.CompletedTask;
+    }
 
     public Task<List<NotificacionViewModel>> ObtenerNotificacionesUsuarioAsync(string usuario, bool soloNoLeidas = false, int limite = 50)
         => Task.FromResult(new List<NotificacionViewModel>());
@@ -70,6 +75,7 @@ public class CajaServiceTests : IDisposable
     private readonly SqliteConnection _connection;
     private readonly AppDbContext _context;
     private readonly CajaService _service;
+    private readonly StubNotificacionService _notificacionStub;
 
     public CajaServiceTests()
     {
@@ -88,11 +94,12 @@ public class CajaServiceTests : IDisposable
                 NullLoggerFactory.Instance)
             .CreateMapper();
 
+        _notificacionStub = new StubNotificacionService();
         _service = new CajaService(
             _context,
             mapper,
             NullLogger<CajaService>.Instance,
-            new StubNotificacionService());
+            _notificacionStub);
     }
 
     public void Dispose()
@@ -202,6 +209,24 @@ public class CajaServiceTests : IDisposable
 
         var cajaBd = await _context.Set<Caja>().FirstAsync(c => c.Id == caja.Id);
         Assert.Equal(EstadoCaja.Abierta, cajaBd.Estado);
+    }
+
+    [Fact]
+    public async Task AbrirCaja_NotificaRolesQuePuedenAutorizarNoRolInexistente()
+    {
+        // Regresión: la notificación de apertura apuntaba al literal "Supervisor", un rol que
+        // nunca existió en el seeder (Models.Constants.Roles) — CrearNotificacionParaRolAsync
+        // siempre encontraba 0 usuarios y la notificación (SignalR incluido) nunca salía.
+        var caja = await SeedCajaAsync();
+
+        await _service.AbrirCajaAsync(
+            new AbrirCajaViewModel { CajaId = caja.Id, MontoInicial = 500m },
+            "usuario1");
+
+        Assert.DoesNotContain("Supervisor", _notificacionStub.RolesNotificados);
+        Assert.Contains(Roles.SuperAdmin, _notificacionStub.RolesNotificados);
+        Assert.Contains(Roles.Administrador, _notificacionStub.RolesNotificados);
+        Assert.Contains(Roles.Gerente, _notificacionStub.RolesNotificados);
     }
 
     [Fact]
