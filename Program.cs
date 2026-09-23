@@ -357,6 +357,11 @@ app.UseRouting();
 
 app.UseRateLimiter();
 
+// 8.1 Ver TransientDbUnavailableMiddleware: SQL caído/reiniciando no debe verse como un 500 genérico.
+// Antes de Auth porque PermissionClaimsTransformation (dentro de UseAuthentication) es el punto más
+// probable donde una caída transitoria de SQL se manifiesta primero en cada request autenticado.
+app.UseMiddleware<TheBuryProject.Middleware.TransientDbUnavailableMiddleware>();
+
 // 9. Auth
 app.UseAuthentication();
 app.UseMiddleware<TerminosCondicionesMiddleware>();
