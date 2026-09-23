@@ -39,6 +39,15 @@ const TIPO_PAGO_BADGE = {
  * @returns {Promise<string|null>} Nombre del cliente seleccionado, o null si no hay resultados
  */
 async function searchAndSelectClient(page, term = 'an') {
+    // El wizard de Venta/Create abre en el paso "Cotizar" (COTIZACION-MOCKUP-02); el
+    // buscador de cliente vive en el paso "Cliente", a un clic. Sin este paso el input
+    // queda oculto y el fill() de abajo cuelga hasta el timeout. Venta/Edit no tiene
+    // paso "Cotizar" y ya abre en Cliente, así que el tab no existe ahí — no-op seguro.
+    const clienteTab = page.locator('#step-btn-cliente');
+    if (await clienteTab.count() && await clienteTab.getAttribute('aria-selected') !== 'true') {
+        await clienteTab.click();
+    }
+
     const input = page.locator('#input-buscar-cliente');
     await input.fill(term);
 
@@ -68,6 +77,11 @@ async function searchAndSelectClient(page, term = 'an') {
  * @param {import('playwright/test').Page} page
  */
 async function activarFiltroStock(page) {
+    const productosTab = page.locator('#step-btn-productos');
+    if (await productosTab.count() && await productosTab.getAttribute('aria-selected') !== 'true') {
+        await productosTab.click();
+    }
+
     const checkbox = page.locator('#filtro-solo-stock');
     const exists = await checkbox.count();
     if (exists && !(await checkbox.isChecked())) {
@@ -84,6 +98,13 @@ async function activarFiltroStock(page) {
  * @returns {Promise<{id:string, nombre:string}|null>}
  */
 async function addProduct(page, term) {
+    // Mismo motivo que en searchAndSelectClient: el buscador de producto vive en el
+    // paso "Productos", a un clic desde donde arranca el wizard (Cotizar en Create).
+    const productosTab = page.locator('#step-btn-productos');
+    if (await productosTab.count() && await productosTab.getAttribute('aria-selected') !== 'true') {
+        await productosTab.click();
+    }
+
     const inputBuscar = page.locator('#input-buscar-producto');
     await inputBuscar.fill(term);
     await page.waitForTimeout(700);
@@ -217,6 +238,9 @@ async function configurePagoItem(page, tipoPagoValue, intentarSeleccionarPlan = 
  * @param {string} tipoPagoValue
  */
 async function setGlobalTipoPago(page, tipoPagoValue) {
+    // Asume que el paso "Pago" ya está activo (todos los callers actuales navegan ahí antes de
+    // llamar esta función). No navega por su cuenta: ensureConfirmarHabilitado la reutiliza como
+    // fallback estando en "Revisión", donde saltar a Pago rompería esa navegación en curso.
     await page.selectOption('#select-tipo-pago', tipoPagoValue);
     await waitForDiagnostico(page);
 }
@@ -228,6 +252,9 @@ async function setGlobalTipoPago(page, tipoPagoValue) {
  * @returns {Promise<boolean>} true si quedó habilitado
  */
 async function ensureConfirmarHabilitado(page) {
+    // Asume que el wizard ya está en el paso "Revisión" (llegar ahí es progresivo — cada paso
+    // previo se cierra con su propio CTA contextual, ver venta-functional-audit.spec.js — un
+    // click directo sobre el tab sin pasar por ese CTA puede dejar la transición a medio hacer).
     const btn = page.locator('#btn-confirmar');
 
     const disabled = await btn.isDisabled();
@@ -245,6 +272,8 @@ async function ensureConfirmarHabilitado(page) {
  * @param {import('playwright/test').Page} page
  */
 async function ensureVendedorSeleccionado(page) {
+    // Mismo supuesto que ensureConfirmarHabilitado: se llama ya parado en "Revisión".
+
     const select = page.locator('#VendedorUserId');
     const visible = await select.isVisible().catch(() => false);
     if (!visible) return;

@@ -75,6 +75,12 @@ async function noHorizontalScroll(page) {
 
 // ─── BLOQUE 1: Login visual ────────────────────────────────────────────────
 test.describe('Login visual', () => {
+    // Cada project de playwright.config.js aplica storageState: AUTH_FILE por defecto (para
+    // los specs autenticados, la mayoría). Sin limpiarlo acá, este test navega ya logueado y
+    // /Identity/Account/Login redirige al Dashboard — de ahí que el locator del username
+    // resolviera al input de otro widget de la página (#ticket-titulo del panel de incidentes).
+    test.use({ storageState: { cookies: [], origins: [] } });
+
     test('login-mobile.png — 390x844', async ({ page }) => {
         await page.setViewportSize(VIEWPORTS.mobile);
         await page.goto('/Identity/Account/Login', { waitUntil: 'domcontentloaded', timeout: 20_000 });

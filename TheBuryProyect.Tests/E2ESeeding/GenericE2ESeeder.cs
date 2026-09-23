@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Data;
 using TheBuryProject.Models.Entities;
+using TheBuryProject.Models.Enums;
 
 namespace TheBuryProject.Tests.E2ESeeding
 {
@@ -79,6 +80,26 @@ namespace TheBuryProject.Tests.E2ESeeding
                 });
             }
             await db.SaveChangesAsync();
+
+            // ConfiguracionPago activa para Efectivo: la mayoría de los specs de Venta/Crédito
+            // usan Efectivo como medio de pago base (helpers.js TIPO_PAGO.Efectivo, crearVentaThrowaway
+            // en varios specs). ClienteAptitudPunitorioE2ESeeder ya siembra Transferencia y Crédito
+            // Personal para sus propios escenarios; sobre una base recién creada esas dos filas son
+            // las ÚNICAS en ConfiguracionesPago (Activo global "reemplaza" — no complementa — las
+            // opciones del selector, ver aplicarMediosGlobalesAlSelector en venta-create.js), así que
+            // sin este seed Efectivo desaparece del wizard aunque el tipo de pago siga existiendo en
+            // el enum. Idempotente: no duplica en re-corridas.
+            var tieneConfigPagoEfectivo = await db.ConfiguracionesPago.AnyAsync(c => c.TipoPago == TipoPago.Efectivo);
+            if (!tieneConfigPagoEfectivo)
+            {
+                db.ConfiguracionesPago.Add(new ConfiguracionPago
+                {
+                    TipoPago = TipoPago.Efectivo,
+                    Nombre = "Efectivo",
+                    Activo = true
+                });
+                await db.SaveChangesAsync();
+            }
 
             var categoria = await db.Categorias.FirstOrDefaultAsync(c => c.Codigo == Marcador)
                 ?? new Categoria { Codigo = Marcador, Nombre = "Seed E2E genérico", Activo = true };

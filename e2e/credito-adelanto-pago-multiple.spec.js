@@ -82,10 +82,26 @@ function expectNoFailures(failures) {
     expect(failures.serverErrors, `HTTP 5xx: ${failures.serverErrors.join(' | ')}`).toHaveLength(0);
 }
 
-/** "$ 12.345,67" -> 12345.67 */
+/**
+ * "$ 12.345,67" -> 12345.67. "Datos del pago"/Previsualización formatea es-AR
+ * ('.' miles, ',' decimales); "Contexto autoritativo" formatea invariant/US ('.' decimales,
+ * ',' miles) — dos convenciones distintas en la misma pantalla. El separador que aparece
+ * último en el texto es el decimal (estándar en ambos formatos); el otro, si aparece antes,
+ * es de miles y se descarta.
+ */
 function aNumero(texto) {
-    const limpio = String(texto || '').replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.');
-    const valor = Number.parseFloat(limpio);
+    const limpio = String(texto || '').replace(/[^\d,.-]/g, '');
+    const ultimaComa = limpio.lastIndexOf(',');
+    const ultimoPunto = limpio.lastIndexOf('.');
+    let normalizado;
+    if (ultimaComa > ultimoPunto) {
+        normalizado = limpio.replace(/\./g, '').replace(',', '.');
+    } else if (ultimoPunto > ultimaComa) {
+        normalizado = limpio.replace(/,/g, '');
+    } else {
+        normalizado = limpio;
+    }
+    const valor = Number.parseFloat(normalizado);
     return Number.isFinite(valor) ? valor : NaN;
 }
 

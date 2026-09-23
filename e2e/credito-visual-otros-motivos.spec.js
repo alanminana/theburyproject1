@@ -112,20 +112,23 @@ test.describe('CREDITO-VISUAL-02A — Otros motivos vs. paneles dedicados', () =
         await expect(page.locator('#panel-cupo-insuficiente')).toBeVisible();
         await expect(page.locator('#panel-alerta-mora')).toBeVisible();
 
-        // "Otros motivos": microcopy nuevo + sólo la categoría sin panel dedicado (5).
+        // "Otros motivos": VENTA-CREDITO-REDESIGN-VISUAL-IMPLEMENTACION-01 fusionó el heading
+        // dedicado en las filas de "Estado del crédito" (mostrarMotivos en venta-create.js ya no
+        // renderiza un <p> de título, sólo las filas); el contrato de contenido sigue vigente.
         const panelMotivos = page.locator('#panel-motivos');
         await expect(panelMotivos).toBeVisible();
-        await expect(page.locator('#panel-motivos > p')).toHaveText('Otros motivos');
         await expect(panelMotivos).toContainText('Configuración');
         await expect(panelMotivos).not.toContainText('Documentación');
         await expect(panelMotivos).not.toContainText('Cupo insuficiente');
         await expect(panelMotivos).not.toContainText('Mora activa');
 
-        // Notas libres del vendedor: sigue llamándose "Observaciones", sin cambios.
+        // Notas libres del vendedor: sigue llamándose "Observaciones", sin cambios, pero ahora
+        // vive colapsada por defecto en un <details> nativo — hay que abrirlo para verla.
+        await page.locator('summary', { hasText: 'Observaciones' }).click();
         await expect(page.locator('#Observaciones')).toBeVisible();
     });
 
-    test('Documentación/Cupo reaparecen en Otros motivos si la excepción oculta sus paneles dedicados (fallback obligatorio)', async ({ page }) => {
+    test('Documentación reaparece en Otros motivos si la excepción oculta su panel dedicado (fallback obligatorio)', async ({ page }) => {
         const id = await crearVentaThrowaway(page);
         const editUrl = `/Venta/Edit/${id}`;
 
@@ -150,10 +153,14 @@ test.describe('CREDITO-VISUAL-02A — Otros motivos vs. paneles dedicados', () =
 
         await expect(panelMotivos).toBeVisible();
         await expect(panelMotivos).toContainText('Documentación');
-        await expect(panelMotivos).toContainText('Cupo');
+        // VENTA-CREDITO-REDESIGN-VISUAL-IMPLEMENTACION-01: Cupo pasó a ser una fila siempre
+        // visible de "Estado del crédito" (no un panel condicional que la excepción documental
+        // oculta junto con Documentación) — mostrarMotivos() la filtra de Otros motivos de forma
+        // incondicional (autoridadDedicadaVisible[2] = true), así que ya no reaparece acá.
+        await expect(panelMotivos).not.toContainText('Cupo insuficiente');
         await expect(panelMotivos).not.toContainText('Mora activa');
 
-        // Cancelar restaura la autoridad dedicada y vuelve a suprimir Documentación/Cupo.
+        // Cancelar restaura la autoridad dedicada y vuelve a suprimir Documentación.
         await page.locator('#btn-cancelar-excepcion').click();
         await expect(page.locator('#panel-documentacion-faltante')).toBeVisible();
         await expect(page.locator('#panel-cupo-insuficiente')).toBeVisible();

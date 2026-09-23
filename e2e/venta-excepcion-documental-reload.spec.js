@@ -35,10 +35,17 @@ const {
 
 test.use({ storageState: 'e2e/.auth/user.json' });
 
+// mostrarMotivos() (venta-create.js) espera objetos {categoria,titulo,descripcion,esBloqueante},
+// no strings sueltos: con motivos de texto plano nunca se arma la fila "Documentación —
+// exceptuada" (categoria 1) que confirma la hidratación de la excepción.
 const NO_VIABLE_RESPONSE = {
     resultado: 2, colorBadge: 'danger', textoEstado: 'No viable',
     limiteCredito: 0, creditoUtilizado: 0, cupoDisponible: 0,
-    documentacionCompleta: false, documentosFaltantes: ['DNI'], documentosVencidos: [], motivos: ['Mora vigente'],
+    documentacionCompleta: false, documentosFaltantes: ['DNI'], documentosVencidos: [],
+    motivos: [
+        { categoria: 1, titulo: 'Documentación', descripcion: 'Faltan documentos: DNI', esBloqueante: true },
+        { categoria: 3, titulo: 'Mora vigente', descripcion: 'Mora vigente', esBloqueante: true },
+    ],
 };
 
 /** Crea una venta descartable real (cliente + producto de QA, Efectivo) y devuelve su Id. */
@@ -143,9 +150,12 @@ test('excepción documental hidratada al recargar Edit: no vuelve a bloquear el 
     await page.locator('#step-btn-credito').click();
     await expect(page.locator('#step-panel-credito')).toBeVisible();
 
-    // Hidratación: el badge de "excepción aplicada" debe aparecer solo, sin que el
-    // operador haya tocado "Aplicar Excepción" ni "Aplicar y continuar".
-    const badge = page.locator('#excepcion-aplicada-badge');
+    // Hidratación: la confirmación de "excepción aplicada" debe aparecer sola, sin que
+    // el operador haya tocado "Aplicar Excepción" ni "Aplicar y continuar".
+    // VENTA-CREDITO-REDESIGN-VISUAL-IMPLEMENTACION-01 retiró #excepcion-aplicada-badge:
+    // la fila "Documentación — exceptuada" de Otros motivos (mostrarMotivos(), categoría 1
+    // emerald) es ahora la única confirmación visible del hecho.
+    const badge = page.getByText('Documentación — exceptuada');
     await expect(badge).toBeVisible({ timeout: 10_000 });
 
     const txtMotivo = page.locator('#txt-excepcion-documental');

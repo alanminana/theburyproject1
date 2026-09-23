@@ -5,7 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const {
     searchAndSelectClient, activarFiltroStock, addProduct, addTwoDistinctProducts,
-    setGlobalTipoPago, ensureConfirmarHabilitado, ensureVendedorSeleccionado, TIPO_PAGO,
+    setGlobalTipoPago, ensureVendedorSeleccionado, TIPO_PAGO,
 } = require('./helpers');
 
 test.use({ storageState: 'e2e/.auth/user.json' });
@@ -135,12 +135,21 @@ test('Create: validaciones, cliente, productos, descuentos, pago, crédito, moda
     }));
     await page.locator('#select-tipo-pago').selectOption(TIPO_PAGO.CreditoPersonal);
     await expect(page.locator('#step-btn-credito')).toBeVisible();
-    const wizardPrimary = page.locator('[data-wizard-primary]').first();
+    // Puede haber más de un [data-wizard-primary] en el DOM (uno por paso/layout); sólo el CTA
+    // del paso activo está visible en cada momento — .first() sin filtrar corría el riesgo de
+    // resolver a uno oculto según el orden de marcado, no el orden visual de los pasos.
+    // Hay 2 elementos [data-wizard-primary] en el DOM (CTA del header .vm-hero__primary y la
+    // barra sticky mobile .vm-btn-confirm-sm); ambos se sincronizan en texto/acción por JS pero
+    // sólo uno es interactuable según el viewport. Se ancla al del header, que es el que este
+    // spec ya audita en desktop (1366x768).
+    const wizardPrimary = page.locator('[data-wizard-primary].vm-hero__primary');
     await expect(wizardPrimary).toContainText(/Continuar a cr.dito/);
     await wizardPrimary.click();
     await expect(page.locator('#step-btn-credito')).toHaveAttribute('aria-selected', 'true');
-    await expect(wizardPrimary).toContainText(/Verificar cr.dito/);
-    await wizardPrimary.click();
+    // VENTA-CREDITO-REDESIGN-VISUAL-IMPLEMENTACION-01: entrar al paso Crédito ya dispara la
+    // verificación automática (antes hacía falta un segundo click en "Verificar crédito" para
+    // recién ahí mostrar el resultado) — el panel de resultado aparece directo, sin ese paso
+    // intermedio ni ese texto en el CTA.
     await expect(page.locator('#panel-resultado-verificacion')).toBeVisible();
     await expect(page.locator('#btn-cargar-documentacion')).toBeVisible();
 
@@ -174,6 +183,9 @@ test('Create: validaciones, cliente, productos, descuentos, pago, crédito, moda
     await expect(modal).toBeHidden();
     await expect(docTrigger).toBeFocused();
     await page.evaluate(() => { document.body.style.zoom = ''; });
+    // El bloque de arriba puso el viewport en mobile (390x844) para probar el stacking del
+    // modal; el resto del flujo (navegación por tabs, CTA de Revisión) se auditó en desktop.
+    await page.setViewportSize({ width: 1366, height: 768 });
     await page.unroute('**/api/ventas/PrevalidarCredito*');
     await page.locator('#step-btn-pago').click();
     await expect(page.locator('#step-panel-pago #select-tipo-pago')).toBeVisible();
@@ -196,10 +208,34 @@ test('Create: validaciones, cliente, productos, descuentos, pago, crédito, moda
     }
     await observe(page, 'create-before-save');
 
-    await page.locator('#step-btn-revision').click();
+    // El wizard gatea el avance por pasos: saltar directo al tab "Revisión" con un click no
+    // lo activa si los pasos previos (Pago, Envío) no se "cierran" primero con su CTA
+    // contextual — mismo patrón de estado progresivo que "End = último paso habilitado"
+    // (venta-cotizar-step.spec.js). El CTA es el mismo elemento re-etiquetado por paso
+    // (Pago→"Revisar operación", Envío→su propio "Continuar"), así que se re-consulta y
+    // clickea hasta llegar a Revisión en vez de asumir un único click.
+    // No se usa aria-selected como condición de corte: la navegación por teclado de más
+    // arriba (ArrowRight/End) ya lo deja en "true" sobre el roving tabindex sin cambiar el
+    // panel visible (foco ≠ activación en este tablist) — el panel real es la única señal
+    // confiable de que la navegación por click efectivamente ocurrió.
+    const revisionPanel = page.locator('#step-panel-revision');
+    for (let intentos = 0; intentos < 4; intentos++) {
+        if (await revisionPanel.isVisible().catch(() => false)) break;
+        await wizardPrimary.click();
+        await page.waitForTimeout(300);
+    }
+    await expect(revisionPanel).toBeVisible();
     await ensureVendedorSeleccionado(page);
-    await ensureConfirmarHabilitado(page);
-    await page.locator('#btn-confirmar').click();
+
+    const btnConfirmar = page.locator('#btn-confirmar');
+    // venta-page-wizard.js delega en #btn-confirmar.click() cuando el CTA contextual ya está
+    // parado en el último paso (Revisión): el click que activó el panel puede haber disparado
+    // la confirmación real en el mismo gesto. Si ya quedó deshabilitado (submit en curso) no
+    // hace falta un segundo click — sólo esperar la navegación; si sigue habilitado, confirmar
+    // explícitamente acá.
+    if (await btnConfirmar.isEnabled()) {
+        await btnConfirmar.click();
+    }
     await page.waitForURL(/\/Venta\/(Details|Edit)\/\d+/, { timeout: 20_000 });
     const detailsUrl = page.url();
     const id = detailsUrl.match(/\/(?:Details|Edit)\/(\d+)/)?.[1];
