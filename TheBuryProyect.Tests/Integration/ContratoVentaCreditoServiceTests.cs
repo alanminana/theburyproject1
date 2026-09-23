@@ -247,6 +247,38 @@ public class ContratoVentaCreditoServiceTests : IDisposable
         Assert.NotNull(contrato);
     }
 
+    /// <summary>
+    /// Revalidación Linux pendiente del cierre anterior: el primer PDF generado en un proceso
+    /// limpio debe poder ser un CONTRATO (no una cotización). A diferencia de <c>GenerarAsync</c>
+    /// (los demás tests de esta clase), <see cref="ContratoVentaCreditoService.GenerarPdfAsync"/> es
+    /// el único método que efectivamente invoca QuestPDF (<c>GenerarPdfBytes</c>/<c>GeneratePdf()</c>)
+    /// y escribe el archivo en disco — se corre en aislamiento total vía
+    /// <c>dotnet test --filter FullyQualifiedName~PrimerPdfDeUnProcesoLimpio</c> para que sea
+    /// realmente el primer render QuestPDF de ese proceso, sin cotización previa.
+    /// </summary>
+    [Fact]
+    public async Task GenerarPdfAsync_PrimerPdfDeUnProcesoLimpio_GeneraPdfValidoSinExcepcionDeFonts()
+    {
+        var venta = await SeedVentaCreditoAsync(new[]
+        {
+            DetalleSeed("P1", "Producto 1", subtotal: 1_000m, subtotalFinal: 1_000m)
+        }, total: 1_000m);
+
+        var contrato = await _service.GenerarPdfAsync(venta.Id, "tester");
+
+        Assert.NotNull(contrato);
+        Assert.False(string.IsNullOrWhiteSpace(contrato.RutaArchivo));
+
+        var rutaCompleta = Path.Combine(Path.GetTempPath(), contrato.RutaArchivo!.Replace('/', Path.DirectorySeparatorChar));
+        Assert.True(File.Exists(rutaCompleta), $"No se encontró el PDF generado en {rutaCompleta}");
+
+        var bytes = await File.ReadAllBytesAsync(rutaCompleta);
+        Assert.True(bytes.Length > 1000, "El PDF generado es sospechosamente pequeño");
+
+        var header = System.Text.Encoding.ASCII.GetString(bytes, 0, 5);
+        Assert.Equal("%PDF-", header);
+    }
+
     [Fact]
     public async Task CasoB_ClienteSinLocalidad_NoGenera_MensajeIdentificaLocalidad()
     {

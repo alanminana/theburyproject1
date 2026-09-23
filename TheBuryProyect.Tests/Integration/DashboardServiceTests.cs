@@ -5,6 +5,7 @@ using TheBuryProject.Data;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services;
+using TheBuryProject.Services.Interfaces;
 
 namespace TheBuryProject.Tests.Integration;
 
@@ -20,6 +21,17 @@ public class DashboardServiceTests : IDisposable
     private readonly AppDbContext _context;
     private readonly DashboardService _service;
 
+    /// <summary>
+    /// Fecha comercial (Argentina) real, compartida por <see cref="_service"/> y los helpers de seed
+    /// de este archivo. Antes los helpers sembraban con <c>DateTime.Today</c> (calendario local del
+    /// proceso) mientras DashboardService compara contra <c>IRelojComercial.InicioDiaComercial</c>
+    /// (día comercial de Argentina, UTC-3 real, resuelto por defecto vía RelojComercial.Sistema): en
+    /// un runner Linux en UTC, entre las 00:00 y las 03:00 UTC ambas fechas difieren en un día,
+    /// produciendo fallos intermitentes en los KPIs de "hoy"/"mes"/"año". Inyectar el mismo reloj en
+    /// ambos lados elimina la dependencia de la zona horaria del host.
+    /// </summary>
+    private readonly IRelojComercial _reloj = RelojComercial.Sistema;
+
     public DashboardServiceTests()
     {
         _connection = new SqliteConnection($"DataSource={Guid.NewGuid():N};Mode=Memory;Cache=Shared");
@@ -32,7 +44,7 @@ public class DashboardServiceTests : IDisposable
         _context = new AppDbContext(options);
         _context.Database.EnsureCreated();
 
-        _service = new DashboardService(_context, NullLogger<DashboardService>.Instance);
+        _service = new DashboardService(_context, NullLogger<DashboardService>.Instance, _reloj);
     }
 
     public void Dispose()
@@ -97,7 +109,7 @@ public class DashboardServiceTests : IDisposable
             ClienteId = clienteId,
             Estado = EstadoVenta.Confirmada,
             TipoPago = TipoPago.Efectivo,
-            FechaVenta = fecha ?? DateTime.Today,
+            FechaVenta = fecha ?? _reloj.InicioDiaComercial,
             Subtotal = total, Total = total
         };
         _context.Ventas.Add(venta);
@@ -128,7 +140,7 @@ public class DashboardServiceTests : IDisposable
         decimal subtotal, decimal subtotalFinal = 0m,
         DateTime? fechaVenta = null)
     {
-        var fecha = fechaVenta ?? DateTime.Today;
+        var fecha = fechaVenta ?? _reloj.InicioDiaComercial;
         var venta = new Venta
         {
             Numero = Guid.NewGuid().ToString("N")[..8],
@@ -231,8 +243,8 @@ public class DashboardServiceTests : IDisposable
     {
         var cliente = await SeedClienteAsync();
 
-        await SeedVentaAsync(cliente.Id, total: 150m, fecha: DateTime.Today);
-        await SeedVentaAsync(cliente.Id, total: 200m, fecha: DateTime.Today.AddDays(-1));
+        await SeedVentaAsync(cliente.Id, total: 150m, fecha: _reloj.InicioDiaComercial);
+        await SeedVentaAsync(cliente.Id, total: 200m, fecha: _reloj.InicioDiaComercial.AddDays(-1));
 
         var resultado = await _service.GetDashboardDataAsync();
 
@@ -243,10 +255,10 @@ public class DashboardServiceTests : IDisposable
     public async Task GetDashboard_ConVentasMes_SumaVentasMes()
     {
         var cliente = await SeedClienteAsync();
-        var inicioMes = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+        var inicioMes = new DateTime(_reloj.InicioDiaComercial.Year, _reloj.InicioDiaComercial.Month, 1);
 
         await SeedVentaAsync(cliente.Id, total: 100m, fecha: inicioMes);
-        await SeedVentaAsync(cliente.Id, total: 200m, fecha: DateTime.Today);
+        await SeedVentaAsync(cliente.Id, total: 200m, fecha: _reloj.InicioDiaComercial);
 
         var resultado = await _service.GetDashboardDataAsync();
 
@@ -258,7 +270,7 @@ public class DashboardServiceTests : IDisposable
     public async Task GetDashboard_TicketPromedio_CalculaCorrectamente()
     {
         var cliente = await SeedClienteAsync();
-        var inicioMes = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+        var inicioMes = new DateTime(_reloj.InicioDiaComercial.Year, _reloj.InicioDiaComercial.Month, 1);
 
         await SeedVentaAsync(cliente.Id, total: 100m, fecha: inicioMes);
         await SeedVentaAsync(cliente.Id, total: 200m, fecha: inicioMes.AddDays(1));
@@ -273,7 +285,7 @@ public class DashboardServiceTests : IDisposable
     {
         var cliente = await SeedClienteAsync();
 
-        await SeedVentaAsync(cliente.Id, total: 999m, fecha: new DateTime(DateTime.Today.Year - 1, 12, 31));
+        await SeedVentaAsync(cliente.Id, total: 999m, fecha: new DateTime(_reloj.InicioDiaComercial.Year - 1, 12, 31));
 
         var resultado = await _service.GetDashboardDataAsync();
 
@@ -310,10 +322,10 @@ public class DashboardServiceTests : IDisposable
 
         // Cuota vencida (pendiente + vencimiento pasado)
         await SeedCuotaAsync(credito.Id, EstadoCuota.Pendiente,
-            fechaVencimiento: DateTime.Today.AddDays(-5), montoTotal: 200m);
+            fechaVencimiento: _reloj.InicioDiaComercial.AddDays(-5), montoTotal: 200m);
         // Cuota no vencida
         await SeedCuotaAsync(credito.Id, EstadoCuota.Pendiente,
-            fechaVencimiento: DateTime.Today.AddDays(5), montoTotal: 200m);
+            fechaVencimiento: _reloj.InicioDiaComercial.AddDays(5), montoTotal: 200m);
 
         var resultado = await _service.GetDashboardDataAsync();
 
@@ -368,14 +380,14 @@ public class DashboardServiceTests : IDisposable
     public async Task GetDashboard_VentasUltimos7Dias_ContieneEntradaParaCadaDia()
     {
         var cliente = await SeedClienteAsync();
-        await SeedVentaAsync(cliente.Id, total: 50m, fecha: DateTime.Today);
+        await SeedVentaAsync(cliente.Id, total: 50m, fecha: _reloj.InicioDiaComercial);
 
         var resultado = await _service.GetDashboardDataAsync();
 
         // Debe haber 8 entradas (hace7Dias..hoy inclusive)
         Assert.Equal(8, resultado.VentasUltimos7Dias.Count);
         // El día de hoy debe sumar 50
-        var hoy = resultado.VentasUltimos7Dias.FirstOrDefault(v => v.Fecha == DateTime.Today);
+        var hoy = resultado.VentasUltimos7Dias.FirstOrDefault(v => v.Fecha == _reloj.InicioDiaComercial);
         Assert.NotNull(hoy);
         Assert.Equal(50m, hoy!.Total);
     }
