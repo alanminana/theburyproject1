@@ -2629,6 +2629,15 @@
                 return;
             }
 
+            // venta-page-wizard.js está registrado ANTES y ya puede haber cancelado este
+            // submit para abrir el modal "Confirmar y facturar" en su lugar (checkbox
+            // "Facturar al confirmar" tildado). preventDefault() no detiene a los demás
+            // listeners del mismo evento: sin este guard, este handler seguía de largo y
+            // deshabilitaba TODOS los button[type="submit"] del form (más abajo, la guarda
+            // "todas las guardas pasaron") — incluido el propio botón del modal recién
+            // abierto, que quedaba inutilizable para siempre (bug real de staging 2026-09-23).
+            if (e.defaultPrevented) return;
+
             const trazableSinUnidad = detalles.find(d => d.requiereNumeroSerie && !d.productoUnidadId);
             if (trazableSinUnidad) {
                 e.preventDefault();
