@@ -122,9 +122,9 @@ namespace TheBuryProject.Controllers
 
             try
             {
-                await _cajaService.CrearCajaAsync(model);
+                var caja = await _cajaService.CrearCajaAsync(model);
                 if (isAjax)
-                    return Json(new { ok = true, entity = new { id = model.Id, codigo = model.Codigo, nombre = model.Nombre, sucursal = model.Sucursal, ubicacion = model.Ubicacion, activa = model.Activa } });
+                    return Json(new { ok = true, entity = new { id = caja.Id, codigo = caja.Codigo, nombre = caja.Nombre, sucursal = caja.Sucursal, ubicacion = caja.Ubicacion, activa = caja.Activa } });
                 TempData["Success"] = "Caja creada exitosamente";
                 return RedirectToAction(nameof(Index));
             }

@@ -1,8 +1,63 @@
-# Validación funcional del ERP — 22/09/2026
+# Validación funcional del ERP — 22/09/2026 (cierre 23/09/2026)
 
-## Veredicto y alcance
+## Actualización de cierre (23/09/2026, rama `preprod-functional-closeout-20260922`)
+
+El bloque anterior dejó pendiente el bug de Caja id=0 y no había clasificación de AutoMapper.
+Este bloque los cierra:
+
+- **Caja id=0: causa raíz encontrada y corregida.** `Controllers/CajaController.cs` (acción `Create`)
+  descartaba el `Caja` devuelto por `ICajaService.CrearCajaAsync` y armaba la respuesta JSON con el
+  `CajaViewModel` de entrada, cuyo `Id` nunca se asigna en un alta (queda en 0 por default). Fix de
+  una línea: usar la entidad devuelta por el servicio. Test de regresión HTTP real nuevo:
+  `TheBuryProyect.Tests/Integration/CajaControllerCreateHttpTests.cs` (login, antiforgery real,
+  POST AJAX a `/Caja/Create`, verifica `response.entity.id > 0` y que coincide con el registro
+  persistido en DB). Suite focalizada Caja/pagos/movimientos tras el fix: 879/879.
+- **AutoMapper: clasificado con evidencia oficial.** Ver `docs/despliegue-produccion.md` §9. Resultado:
+  GO-LIVE BLOCKER EXTERNO condicionado a decisión de negocio/legal (RPL-1.5 vs. licencia comercial
+  Lucky Penny Software), no un bug de código. No se compró ni configuró ninguna licencia.
+- **Linux revalidado sobre el HEAD commiteado actual** (`da3be25`, no working tree modificado como
+  en el bloque anterior): build de imagen desde `Dockerfile` real, stack `docker compose` real
+  (overlay `docker-compose.dev.yml`), `.env` sintético no versionado. `health/live` y `health/ready`
+  200 Healthy. Login + aceptación de términos con usuario admin sintético funcionando (con un hallazgo
+  incidental, ver abajo). Alta real de producto y cliente por HTTP, cotización con envío guardada vía
+  `POST /api/cotizacion/guardar` y **primer PDF generado en ese contenedor** descargado y verificado
+  con `pypdf` (`strict=True`): `%PDF-1.4`, 86.481 bytes, 1 página, texto extraído confirma
+  `Envío $ 125,00` y `TOTAL $ 2.125,00` (es-AR, símbolo `$`, no `¤`). Excel
+  (`/Reporte/ExportarVentasExcel`) 200, `PK`/ZIP válido. SignalR `negotiate` 200 con WebSockets/SSE/
+  LongPolling anunciados. Suite .NET completa ejecutada dentro de un contenedor Linux SDK 10 sobre
+  una copia aislada del working tree (sin montar el repo real): **4970 total, 4962 passed, 8 failed,
+  2 skipped**. No se repitió la generación de PDF de contrato en un contenedor limpio aparte
+  (dependía de un flujo de venta a crédito completo no armado en este bloque); no se repitió el
+  upload/download HTTP de documentos de cliente en Linux (se confía en la suite `DocumentoClienteServiceTests`,
+  incluida en la corrida anterior, 0 fallos).
+- **Los 8 fallos Linux son de fixtures de test, no de la aplicación.** `MoraServiceTests`/
+  `DashboardServiceTests` construyen fechas esperadas con `DateTime.Today` (zona del proceso —
+  UTC en el contenedor Linux, sin `TZ` configurado) mientras el código de producción ya usa
+  `IRelojComercial` (zona Argentina) desde el fix PUN-ML7. La corrida cayó exactamente en la
+  ventana horaria (~21–24 h Argentina) donde "hoy" en UTC ya es el día siguiente al "hoy comercial"
+  real, produciendo conteos de días de atraso off-by-one. No se modificó código de producción ni de
+  test para esto (fuera del alcance de este bloque); queda como pendiente documentado.
+- **Hallazgo incidental (fuera de alcance, no corregido):** `POST /Identity/Account/Login` con el
+  campo de formulario `ReturnUrl`/`returnUrl=/` explícito en el body devuelve `500
+  InvalidOperationException: The supplied URL is not local` en `Areas/Identity/Pages/Account/Login.cshtml.cs`
+  (llamadas a `LocalRedirect(returnUrl)`, líneas 124/145/183/229). Sin ese campo (dejando que
+  `returnUrl ??= Url.Content("~/")` resuelva el default) el flujo funciona normalmente. Reproducido
+  de forma determinística en el contenedor Linux; no se investigó si también ocurre en Windows ni
+  se corrigió por estar fuera del alcance de este bloque.
+- Migraciones: re-verificado `dotnet ef migrations list --no-build` (106 IDs, sin conexión a DB real
+  configurada en esta máquina) y `has-pending-model-changes` (sin cambios pendientes). Sin cambios
+  desde el bloque anterior.
+- Dependencias: `dotnet list package --vulnerable --include-transitive` sobre ambos `.csproj`: 0
+  vulnerabilidades.
+- Baseline Windows final de este bloque: build 0 errores/8 warnings (mismos preexistentes:
+  CS8601×2, CS8767×5 en tests, EF1003×1 test-only); suite completa **4970 total, 4968 passed,
+  0 failed, 2 skipped**, 2 m 51 s.
+
+## Veredicto y alcance (bloque original, 22/09/2026)
 
 **Requiere ajuste para cierre funcional sin pendientes:** la creación de Caja devuelve `entity.id=0` aunque persiste correctamente con un ID real. `Controllers/CajaController.cs` ya estaba modificado por otro trabajo y no se tocó. Las correcciones de este bloque tienen validación focalizada y de suite completa detallada abajo.
+
+**Actualización 23/09/2026: este pendiente quedó resuelto — ver "Actualización de cierre" arriba.**
 
 Se ejecutó la suite .NET completa, pruebas HTTP contra SQL Server real y navegador Chromium contra la app Linux. Esto cubre los recorridos indicados; no equivale a probar todas las combinaciones comerciales ni toda la suite Playwright del repositorio. No se utilizaron datos productivos ni se hicieron operaciones reales contra Mercado Libre/BCRA.
 
@@ -225,7 +280,7 @@ Imagen funcional final: `theburyproject/erp:functional-20260922-pdf`, ID `sha256
 | Roles | SuperAdmin confirmado en SQL; listado 200 | Alta de rol sin permisos; asignación posterior de solo `Clientes.view` por admin | Antes: recursos protegidos denegados. Después: lectura 200, escritura 403 | OK |
 | Clientes | Listado/consulta 200 | Alta Ana Sintetica, edición domicilio | Nombre vacío rechazado; SQL confirma `Calle Prueba 789`; wizard probado en navegador | OK; no se borró el cliente usado por ventas |
 | Ventas | Listado y detalle 200 | Alta con dos unidades, guardado y confirmación | Sin detalles rechazado; total 2000, subtotal 1652,89, IVA 347,11; SQL Estado=Confirmada y stock 20→18 | OK en venta de contado |
-| Caja | Listado/apertura consultables | Alta, apertura con 1000, ingreso manual 250 y cobro de venta 2000 | Doble apertura rechazada; SQL confirma movimientos | **Pendiente:** alta devuelve ID 0 pese a persistir ID 1 |
+| Caja | Listado/apertura consultables | Alta, apertura con 1000, ingreso manual 250 y cobro de venta 2000 | Doble apertura rechazada; SQL confirma movimientos | OK — bug de alta con ID 0 corregido el 23/09/2026 (ver "Actualización de cierre") |
 | Cotizaciones | Listado/detalle/PDF 200 | Simular, guardar; ajustes de selección/descuento en navegador | Dos unidades: TotalBase 2000; TieneEnvio=true/CostoEnvio=125 en SQL | OK; no hay endpoint de edición del snapshot emitido en el recorrido canónico |
 | Catálogo | Catálogo 200 | Alta HTTP producto QAF-HTTP, precio 1000, costo 500, stock 20 | Persistencia SQL; stock posterior 18 | OK |
 | Seguridad | Acceso SuperAdmin 200 | Asignación de permiso acotado | Usuario sin permisos → AccessDenied; usuario con solo lectura → POST escritura 403 | OK; no se otorgaron permisos para evitar el rechazo |
@@ -377,13 +432,24 @@ Lista exacta de cambios propios:
 9. `Services/CotizacionPdfService.cs`
 10. `docs/validacion-funcional.md` (nuevo)
 
+Archivos del cierre 23/09/2026 (rama `preprod-functional-closeout-20260922`):
+
+11. `Controllers/CajaController.cs` (fix id=0 en `Create`)
+12. `TheBuryProyect.Tests/Integration/CajaControllerCreateHttpTests.cs` (nuevo, regresión)
+13. `docs/despliegue-produccion.md` (nueva sección 9, AutoMapper/licencias)
+14. `docs/validacion-funcional.md` (esta actualización)
+
 <!-- GIT_FINAL -->
 
-Pendientes funcionales concretos:
+Pendientes funcionales concretos (actualizado 23/09/2026):
 
-1. Revisar el ID devuelto por alta de Caja cuando se libere `Controllers/CajaController.cs`; propuesta: construir la respuesta desde la entidad/ID retornado por el servicio. No se editó un archivo del trabajo paralelo.
+1. ~~Revisar el ID devuelto por alta de Caja~~ — **resuelto**, ver "Actualización de cierre".
 2. Si se necesita certificar la DB histórica original, comparar sus 106 IDs con el listado de este informe mediante acceso autorizado a una copia no productiva. Esta ejecución solo certifica su propia DB aislada.
 3. Completar escenarios Playwright que requieren fixtures específicos, incluido el caso omitido de múltiples planes. No queda un test .NET funcional omitido para esconder un fallo.
 4. Integraciones reales y consumidores de archivos no ejercitados se mantienen al nivel declarado en sus tablas. No se presenta como probado lo que solo fue inventariado.
+5. **Nuevo:** `MoraServiceTests`/`DashboardServiceTests` (8 tests) usan `DateTime.Today` en vez de `IRelojComercial` para construir fechas de fixture; fallan de forma determinística en Linux durante la ventana horaria ~21–24 h Argentina. No corregido en este bloque (fuera de alcance); el código de producción no está afectado.
+6. **Nuevo:** `POST /Identity/Account/Login` con `ReturnUrl`/`returnUrl=/` explícito en el body de un POST de aceptación de términos devuelve 500 (`LocalRedirect` rechaza `/` como no local). No corregido en este bloque (fuera de alcance); el flujo funciona si no se envía ese campo (default `~/`).
+7. **Nuevo:** AutoMapper requiere una decisión de negocio/legal antes de producción (RPL-1.5 vs. licencia comercial) — ver `docs/despliegue-produccion.md` §9. GO-LIVE BLOCKER EXTERNO, no técnico.
+8. No se generó el PDF de contrato de crédito ni se repitió el upload/download HTTP de documentos de cliente en un contenedor Linux limpio en este bloque (se confía en la suite existente, que pasó 0 fallos en las clases relevantes).
 
 No se avanzó con monitoreo, firewall, dominio público, CI/CD ni cambios de infraestructura.

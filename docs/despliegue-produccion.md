@@ -112,6 +112,43 @@ scripts/backup/restore-test.sh                         # prueba de restore no de
 - **Webhook ML** (`/api/mercadolibre/webhook`): anónimo por contrato de ML, protegido con
   rate limiting (1000/min). Evaluar validación adicional por `user_id`/IP si ML lo permite.
 
+## 9. Dependencias y licencias de producción
+
+**AutoMapper (`AutoMapper` 16.1.1, paquete directo en `TheBuryProyect.csproj`; sin otras versiones transitivas).**
+Desde que Lucky Penny Software adquirió el proyecto, AutoMapper 15+ es dual-licencia:
+Reciprocal Public License 1.5 (RPL-1.5, código abierto pero con obligaciones recíprocas/copyleft)
+o licencia comercial por tiers de desarrolladores (Standard 1–10, Professional 11–50, Enterprise
+ilimitado; ver [luckypennysoftware.com/faq](https://luckypennysoftware.com/faq) y
+[docs.automapper.io/en/latest/License-configuration.html](https://docs.automapper.io/en/latest/License-configuration.html),
+consultado 2026-09-22).
+
+- El warning `LuckyPennySoftware.AutoMapper.License` es solo informativo: sin license key no hay
+  degradación funcional ni llamadas de red — es un `WARNING` de log únicamente.
+- Desarrollo, staging, CI/CD y testing no requieren license key según el fabricante; **solo el
+  despliegue en producción** activa la pregunta de licenciamiento.
+- RPL-1.5 exige liberar el código fuente (de AutoMapper y, según la cláusula de "External
+  Deployment", potencialmente de derivados) si el software se pone a disposición de terceros
+  distintos del licenciatario a través de una red. No determinamos con certeza si el uso interno
+  actual de este ERP (staff propio, sin portal de clientes) cae fuera de esa cláusula: es una
+  decisión legal, no técnica.
+- **Clasificación: GO-LIVE BLOCKER EXTERNO condicionado a decisión de negocio/legal**, no un bug.
+  No se compró licencia, no se cargó ninguna clave, no se bajó de versión ni se intentó ocultar el
+  warning.
+- Acción requerida antes de producción: que el negocio decida entre (a) comprar licencia comercial
+  Lucky Penny Software (tier según cantidad de desarrolladores con acceso programático), (b)
+  obtener una opinión legal de que el uso actual cumple RPL-1.5 sin obligación de liberar código, o
+  (c) reemplazar AutoMapper por mapeo manual. Si se opta por (a), la license key se configura vía
+  `IServiceCollection`/`MappingConfiguration` (ver doc oficial) y **no debe versionarse**: va como
+  variable de entorno/secreto igual que el resto de credenciales de este documento.
+- Estimación de esfuerzo para (c), solo a título informativo (no se implementó en este bloque):
+  74 `CreateMap<>` en 2 archivos (`Helpers/AutoMapperProfile.cs`, `Helpers/MercadoLibreMappingProfile.cs`)
+  y 90 call sites de `_mapper.Map<>()` en 19 archivos de `Controllers/`/`Services/`. Riesgo medio
+  (varios `ForMember` con lógica condicional que habría que portar 1:1); esfuerzo estimado del
+  orden de días, no horas.
+
+**Vulnerabilidades de dependencias**: `dotnet list package --vulnerable --include-transitive` sobre
+`TheBuryProyect.csproj` y `TheBuryProyect.Tests.csproj` no reportó paquetes vulnerables (2026-09-22).
+
 ## Credenciales SQL: administrativa, migraciones y aplicación
 
 | Servicio | Credencial | Tareas |
