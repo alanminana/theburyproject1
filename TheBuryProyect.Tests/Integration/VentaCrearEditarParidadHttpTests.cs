@@ -83,7 +83,11 @@ public class VentaCrearEditarParidadHttpTests : IClassFixture<CustomWebApplicati
         }
 
         // Diferencias propias del modo edición.
-        Assert.Contains("Guardar cambios", html);
+        // Edición separa confirmar de guardar el borrador; ambos submits conservan su intención.
+        Assert.Contains("Confirmar venta", html);
+        Assert.Contains("Guardar sin confirmar", html);
+        Assert.Contains("id=\"btn-confirmar\" name=\"accionConfirmacion\" value=\"confirmar\"", html);
+        Assert.Contains("id=\"btn-guardar-sin-confirmar\" name=\"accionConfirmacion\" value=\"guardar\"", html);
         Assert.Contains("id=\"venta-inicial-json\"", html);
         Assert.Contains("window.ventaInicial", html);
         // Precarga real del cliente y del producto en el seed.

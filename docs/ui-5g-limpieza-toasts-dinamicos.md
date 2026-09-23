@@ -75,7 +75,7 @@ Cerrar dos deudas operativas menores antes de avanzar a nuevos módulos:
 ## I. Playwright ejecutado
 
 - Comando: `npx.cmd playwright test e2e/ui-4e-layout-visual.spec.js`
-- Variables: `E2E_USER=Admin`, `E2E_PASS=Admin123!`, `ASPNETCORE_ENVIRONMENT=Development`
+- Variables: `E2E_USER=Admin`, `E2E_PASS=[CREDENCIAL RETIRADA: usar secret store local]`, `ASPNETCORE_ENVIRONMENT=Development`
 - **Resultado: 169 passed / 0 failed** (1.9 min)
 
 ## J. Cierre de procesos

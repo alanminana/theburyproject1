@@ -192,7 +192,7 @@ Los tests no referencian clases de íconos — ningún contrato roto.
 ## O. Playwright
 
 Ejecutado: `npx.cmd playwright test e2e/ui-4e-layout-visual.spec.js`  
-Con credenciales: `E2E_USER=Admin / E2E_PASS=Admin123!`  
+Con credenciales: `E2E_USER=Admin / E2E_PASS=[CREDENCIAL RETIRADA: usar secret store local]`
 Resultado: ver sección de informe final.
 
 ---

@@ -271,7 +271,7 @@ Para validar manualmente cuando la app esté disponible:
 
 ```powershell
 $env:E2E_USER="Admin"
-$env:E2E_PASS="Admin123!"
+$env:E2E_PASS="[CREDENCIAL RETIRADA: usar secret store local]"
 # Navegar a /Venta
 # Abrir modal Nueva Venta
 # Verificar: tabs clickeables, panel visible cambia, aria-selected cambia

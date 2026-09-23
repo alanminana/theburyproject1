@@ -1,0 +1,29 @@
+# Overlay de DESARROLLO. Uso:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+#
+# ATENCION: ASPNETCORE_ENVIRONMENT=Development hace que DbInitializer cree usuarios de prueba con
+# contraseñas conocidas y falle rapido ante errores de base. Nunca usar este overlay en un servidor expuesto.
+
+services:
+  # En desarrollo Caddy no arranca salvo que se pida (--profile tls): no hay dominio ni se necesitan 80/443.
+  caddy:
+    profiles: ["tls"]
+
+  db:
+    ports:
+      # Unico lugar donde se publica SQL Server. 127.0.0.1 = solo esta maquina (NUNCA 0.0.0.0 ni omitir el host: expondria SQL a la red).
+      # Solo loopback: permite SSMS / Azure Data Studio / `dotnet ef` desde el host sin exponer SQL a la red.
+      - "127.0.0.1:${MSSQL_HOST_PORT:-1433}:1433"
+
+  migrate:
+    environment:
+      # Development: ademas de migrar/sembrar, DbInitializer crea los usuarios de prueba (mismo criterio que `app` en dev).
+      ASPNETCORE_ENVIRONMENT: Development
+
+  app:
+    ports:
+      # Acceso directo a Kestrel en desarrollo (http://localhost:8080). Solo loopback; en produccion `app` no publica puertos.
+      - "127.0.0.1:${APP_PORT:-8080}:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      Logging__LogLevel__Default: Information

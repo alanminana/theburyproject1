@@ -160,6 +160,28 @@ public class MercadoLibreApiClientTests
         Assert.Equal(100.5m, items[0].Price);
     }
 
+    [Theory]
+    [InlineData("{\"access_token\":\"sensitive-value\"}")]
+    [InlineData("{\"message\":\"csecret\"}")]
+    public async Task ApiError_DiscardsSensitiveResponse(string body)
+    {
+        var (cliente, handler) = BuildCliente();
+        handler.Responder = _ => Json(body, HttpStatusCode.BadRequest);
+        var error = await Assert.ThrowsAsync<MercadoLibreApiException>(() => cliente.GetCurrentUserAsync("temporary-token"));
+        Assert.True(string.IsNullOrEmpty(error.ResponseExcerpt));
+        Assert.DoesNotContain(body, error.ToString());
+    }
+
+    [Fact]
+    public async Task ApiError_PreservesValidationReferences()
+    {
+        var (cliente, handler) = BuildCliente();
+        const string body = "{\"cause\":[{\"code\":\"item.category_id.invalid\",\"references\":[\"category_id\"]}]}";
+        handler.Responder = _ => Json(body, HttpStatusCode.BadRequest);
+        var error = await Assert.ThrowsAsync<MercadoLibreApiException>(() => cliente.GetCurrentUserAsync("temporary-token"));
+        Assert.Equal(body, error.ResponseExcerpt);
+    }
+
     [Fact]
     public async Task SearchItemIds_ScanConScrollId()
     {

@@ -396,7 +396,13 @@ namespace TheBuryProject.Services
             try
             {
                 var body = await response.Content.ReadAsStringAsync(ct);
-                excerpt = body.Length > 500 ? body[..500] : body;
+                var bearer = response.RequestMessage?.Headers.Authorization?.Parameter;
+                // Mantener errores de validación, descartar respuestas que reflejen secretos.
+                var sensitive = System.Text.RegularExpressions.Regex.IsMatch(body,
+                    "token|secret|password|authorization|bearer", System.Text.RegularExpressions.RegexOptions.IgnoreCase)
+                    || (!string.IsNullOrEmpty(_options.ClientSecret) && body.Contains(_options.ClientSecret, StringComparison.Ordinal))
+                    || (!string.IsNullOrEmpty(bearer) && body.Contains(bearer, StringComparison.Ordinal));
+                excerpt = sensitive ? string.Empty : (body.Length > 500 ? body[..500] : body);
             }
             catch
             {
@@ -404,8 +410,8 @@ namespace TheBuryProject.Services
             }
 
             _logger.LogError(
-                "Mercado Libre {Operacion} falló con status {Status}: {Excerpt}",
-                operacion, (int)response.StatusCode, excerpt);
+                "Mercado Libre {Operacion} falló con status {Status}",
+                operacion, (int)response.StatusCode);
 
             throw new MercadoLibreApiException(
                 $"Error llamando a Mercado Libre ({operacion}). Status: {(int)response.StatusCode}.",

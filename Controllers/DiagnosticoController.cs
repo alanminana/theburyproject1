@@ -54,7 +54,6 @@ namespace TheBuryProject.Controllers
         /// </summary>
         public async Task<IActionResult> Index()
         {
-            var connectionString = _configuration.GetConnectionString("DefaultConnection");
             var dbName = _context.Database.GetDbConnection().Database;
             var totalUsuarios = await _context.Users.CountAsync();
             var usuariosActivos = await _context.Users.CountAsync(u => u.Activo);
@@ -71,7 +70,6 @@ namespace TheBuryProject.Controllers
 
             var info = new
             {
-                ConnectionString = connectionString,
                 DatabaseName = dbName,
                 TotalUsuarios = totalUsuarios,
                 UsuariosActivos = usuariosActivos,
@@ -165,7 +163,7 @@ namespace TheBuryProject.Controllers
                     // Verificar que la password se guardó
                     var verificar = await _userManager.CheckPasswordAsync(user, newPassword);
                     
-                    TempData["Success"] = $"✅ Contraseña resetada para {email}. Nueva contraseña: {newPassword}. Verificación: {(verificar ? "✓ CORRECTA" : "✗ ERROR")}";
+                    TempData["Success"] = $"✅ Contraseña resetada para {email}. Verificación: {(verificar ? "✓ CORRECTA" : "✗ ERROR")}";
                     return View();
                 }
 
@@ -194,7 +192,7 @@ namespace TheBuryProject.Controllers
                 // Verificar que la password se guardó
                 var verificar2 = await _userManager.CheckPasswordAsync(user, newPassword);
 
-                TempData["Success"] = $"✅ Contraseña resetada (método 2) para {email}. Nueva contraseña: {newPassword}. Verificación: {(verificar2 ? "✓ CORRECTA" : "✗ ERROR")}";
+                TempData["Success"] = $"✅ Contraseña resetada (método 2) para {email}. Verificación: {(verificar2 ? "✓ CORRECTA" : "✗ ERROR")}";
                 return View();
             }
             catch (Exception ex)
@@ -243,7 +241,6 @@ namespace TheBuryProject.Controllers
                 {
                     Success = true,
                     Email = email,
-                    NewPassword = newPassword,
                     PasswordVerificada = passwordOk,
                     Message = passwordOk ? "✅ Password resetada y verificada" : "⚠️ Password resetada pero verificación falló"
                 });
@@ -257,7 +254,8 @@ namespace TheBuryProject.Controllers
         /// <summary>
         /// Prueba el login de un usuario y devuelve diagnóstico detallado
         /// </summary>
-        [HttpGet]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> TestLogin(string email, string password)
         {
             var diagnostico = new Dictionary<string, object?>();

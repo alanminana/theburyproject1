@@ -900,6 +900,61 @@ public class DocumentoClienteServiceTests : IDisposable
             if (File.Exists(fullPath)) File.Delete(fullPath);
         }
     }
+
+    [Theory]
+    [InlineData("\\", "descargar")]
+    [InlineData("/", "descargar")]
+    [InlineData("\\", "eliminar")]
+    [InlineData("/", "eliminar")]
+    [InlineData("\\", "reemplazar")]
+    [InlineData("/", "reemplazar")]
+    public async Task RutasPersistidas_DeWindowsOLinux_ResuelvenElMismoArchivo(string separador, string operacion)
+    {
+        var cliente = await SeedClienteAsync();
+        var contenido = new byte[] { 0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x34 };
+        var carpeta = Path.Combine(Path.GetTempPath(), "uploads", "documentos-clientes");
+        Directory.CreateDirectory(carpeta);
+        var nombre = $"portable_{Guid.NewGuid():N}.pdf";
+        var rutaFisica = Path.Combine(carpeta, nombre);
+        await File.WriteAllBytesAsync(rutaFisica, contenido);
+        var rutaPersistida = string.Join(separador, "uploads", "documentos-clientes", nombre);
+        var documento = await SeedDocumentoAsync(cliente.Id, TipoDocumentoCliente.DNI, rutaArchivo: rutaPersistida);
+        string? rutaReemplazo = null;
+        try
+        {
+            if (operacion == "descargar")
+            {
+                Assert.Equal(contenido, await _service.DescargarArchivoAsync(documento.Id));
+            }
+            else if (operacion == "eliminar")
+            {
+                Assert.True(await _service.DeleteAsync(documento.Id));
+                Assert.False(File.Exists(rutaFisica));
+                Assert.True(documento.IsDeleted);
+            }
+            else
+            {
+                var reemplazo = await _service.UploadAsync(new DocumentoClienteViewModel
+                {
+                    ClienteId = cliente.Id,
+                    TipoDocumento = TipoDocumentoCliente.DNI,
+                    Archivo = new FakeFormFile("nuevo.pdf", "application/pdf", contenido),
+                    ReemplazarExistente = true,
+                    DocumentoAReemplazarId = documento.Id
+                });
+                rutaReemplazo = Path.Combine(Path.GetTempPath(), reemplazo.RutaArchivo!);
+                Assert.False(File.Exists(rutaFisica));
+                Assert.True(documento.IsDeleted);
+                Assert.DoesNotContain("\\", reemplazo.RutaArchivo!);
+                Assert.Equal(contenido, await _service.DescargarArchivoAsync(reemplazo.Id));
+            }
+        }
+        finally
+        {
+            File.Delete(rutaFisica);
+            if (rutaReemplazo != null) File.Delete(rutaReemplazo);
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------

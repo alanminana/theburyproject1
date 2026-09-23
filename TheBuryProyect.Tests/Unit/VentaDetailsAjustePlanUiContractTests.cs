@@ -561,7 +561,7 @@ public class VentaDetailsAjustePlanUiContractTests
     [Fact]
     public void DetailsView_MuestraJustificacionExcepcionDocumental_ConPropiedadesParseadas()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Details_tw.cshtml"));
+        var view = ReadAuthorizationPanelFromDetails();
 
         // La justificación de la excepción documental se muestra desde las propiedades
         // ya parseadas del ViewModel, no imprimiendo la traza cruda EXCEPCION_DOC|...
@@ -574,7 +574,7 @@ public class VentaDetailsAjustePlanUiContractTests
     [Fact]
     public void DetailsView_RenderizaRazonesAutorizacionEstructuradas()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Details_tw.cshtml"));
+        var view = ReadAuthorizationPanelFromDetails();
 
         // La justificación ingresada al crear la venta (RazonAutorizacion.DetalleAdicional,
         // persistida en RazonesAutorizacionJson) se refleja vía el partial compartido.
@@ -585,11 +585,24 @@ public class VentaDetailsAjustePlanUiContractTests
     [Fact]
     public void DetailsView_NoImprimeTrazaCrudaCuandoHayExcepcion()
     {
-        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Venta", "Details_tw.cshtml"));
+        var view = ReadAuthorizationPanelFromDetails();
 
         // El MotivoAutorizacion crudo solo se imprime en la rama else (sin excepción
         // registrada), evitando exponer la traza EXCEPCION_DOC|fecha|usuario|motivo.
         Assert.Contains("else if (!string.IsNullOrEmpty(Model.MotivoAutorizacion))", view);
+        Assert.True(view.IndexOf("Model.TieneExcepcionDocumentalRegistrada", StringComparison.Ordinal)
+            < view.IndexOf("else if (!string.IsNullOrEmpty(Model.MotivoAutorizacion))", StringComparison.Ordinal));
+    }
+
+    private static string ReadAuthorizationPanelFromDetails()
+    {
+        var root = FindRepoRoot();
+        var details = File.ReadAllText(Path.Combine(root, "Views", "Venta", "Details_tw.cshtml"));
+        // Verificar también la conexión al parcial: leerlo aislado ocultaría una
+        // regresión si Details dejara de renderizarlo o de pasarle el modelo.
+        Assert.Contains("<partial name=\"_VentaAutorizacionPanel\" model=\"Model\" />", details);
+        Assert.Contains("@if (Model.RequiereAutorizacion)", details);
+        return File.ReadAllText(Path.Combine(root, "Views", "Venta", "_VentaAutorizacionPanel.cshtml"));
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
@@ -41,11 +42,14 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             // - IDbContextFactory<AppDbContext>  (servicios del negocio)
             // - AppDbContext scoped               (registrado en Program.cs)
             // - DbContextOptions<AppDbContext>    (registrado internamente por AddEntityFrameworkStores)
+            // - IDbContextOptionsConfiguration<AppDbContext> (EF Core 9+: AddDbContext* acumula acá el UseSqlServer de
+            //   Program.cs; si no se quita, coexiste con UseSqlite y EF rechaza dos proveedores)
             var dbDescriptors = services
                 .Where(d =>
                     d.ServiceType == typeof(IDbContextFactory<AppDbContext>) ||
                     d.ServiceType == typeof(AppDbContext) ||
                     d.ServiceType == typeof(DbContextOptions<AppDbContext>) ||
+                    d.ServiceType == typeof(IDbContextOptionsConfiguration<AppDbContext>) ||
                     d.ServiceType == typeof(DbContextOptions))
                 .ToList();
 

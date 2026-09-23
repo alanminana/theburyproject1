@@ -120,7 +120,7 @@ namespace TheBuryProject.Services
                     ClienteId = viewModel.ClienteId,
                     TipoDocumento = viewModel.TipoDocumento,
                     NombreArchivo = viewModel.Archivo.FileName,
-                    RutaArchivo = Path.Combine(UPLOAD_FOLDER, nombreArchivo),
+                    RutaArchivo = Path.Combine(UPLOAD_FOLDER, nombreArchivo).Replace('\\', '/'),
                     TipoMIME = viewModel.Archivo.ContentType,
                     TamanoBytes = viewModel.Archivo.Length,
                     Estado = EstadoDocumento.Pendiente,
@@ -138,7 +138,7 @@ namespace TheBuryProject.Services
 
                 if (documentoAnterior != null && !string.IsNullOrWhiteSpace(documentoAnterior.RutaArchivo))
                 {
-                    var rutaAnteriorCompleta = Path.Combine(_environment.WebRootPath, documentoAnterior.RutaArchivo);
+                    var rutaAnteriorCompleta = ResolverRutaArchivo(documentoAnterior.RutaArchivo);
                     if (File.Exists(rutaAnteriorCompleta))
                     {
                         File.Delete(rutaAnteriorCompleta);
@@ -276,7 +276,7 @@ namespace TheBuryProject.Services
                 documento.IsDeleted = true;
                 await _context.SaveChangesAsync();
 
-                var rutaCompleta = Path.Combine(_environment.WebRootPath, documento.RutaArchivo);
+                var rutaCompleta = ResolverRutaArchivo(documento.RutaArchivo);
                 if (File.Exists(rutaCompleta))
                 {
                     File.Delete(rutaCompleta);
@@ -304,7 +304,7 @@ namespace TheBuryProject.Services
                 if (documento == null)
                     throw new InvalidOperationException("Documento no encontrado");
 
-                var rutaCompleta = Path.Combine(_environment.WebRootPath, documento.RutaArchivo);
+                var rutaCompleta = ResolverRutaArchivo(documento.RutaArchivo);
 
                 if (!File.Exists(rutaCompleta))
                     throw new InvalidOperationException("Archivo no encontrado en el servidor");
@@ -319,6 +319,12 @@ namespace TheBuryProject.Services
         }
 
         #endregion
+
+        // La DB puede contener rutas guardadas por Windows antes de trasladar los
+        // archivos a Linux. Ambos separadores representan el mismo directorio.
+        private string ResolverRutaArchivo(string rutaRelativa) =>
+            Path.Combine(_environment.WebRootPath,
+                rutaRelativa.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar));
 
         #region Búsqueda
 

@@ -56,8 +56,16 @@ namespace TheBuryProject.Controllers
         /// </summary>
         public async Task<IActionResult> Index()
         {
+            var cajaIdsVisibles = await ObtenerCajaIdsVisiblesAsync();
             var cajas = await _cajaService.ObtenerTodasCajasAsync();
             var aperturasAbiertas = await _cajaService.ObtenerAperturasAbiertasAsync();
+
+            // Visibilidad: un usuario no admin solo ve las cajas de su padrón (y sus turnos).
+            if (cajaIdsVisibles != null)
+            {
+                cajas = cajas.Where(c => cajaIdsVisibles.Contains(c.Id)).ToList();
+                aperturasAbiertas = aperturasAbiertas.Where(a => cajaIdsVisibles.Contains(a.CajaId)).ToList();
+            }
 
             var hoyComercial = _relojComercial.HoyComercial;
             var zonaComercial = _relojComercial.ZonaComercial;
@@ -281,6 +289,11 @@ namespace TheBuryProject.Controllers
         public async Task<IActionResult> UltimoEfectivoCierre(int cajaId)
         {
             if (cajaId <= 0)
+            {
+                return Json(new { monto = 0m });
+            }
+
+            if (!await PuedeOperarCajaAsync(cajaId))
             {
                 return Json(new { monto = 0m });
             }
@@ -528,6 +541,12 @@ namespace TheBuryProject.Controllers
         {
             try
             {
+                if (!await PuedeVerAperturaAsync(id))
+                {
+                    TempData["Error"] = MensajeSinPermisoOperarCaja;
+                    return RedirectToAction(nameof(Index));
+                }
+
                 var detalles = await _cajaService.ObtenerDetallesAperturaAsync(id);
                 var puedeOperar = await PuedeOperarAperturaAsync(id);
                 var cuotaCreditoMap = await ObtenerMapaCuotaCreditoAsync(detalles.Movimientos);
@@ -550,6 +569,12 @@ namespace TheBuryProject.Controllers
             if (cierre == null)
             {
                 TempData["Error"] = "Cierre no encontrado";
+                return RedirectToAction(nameof(Historial));
+            }
+
+            if (!await PuedeVerAperturaAsync(cierre.AperturaCajaId))
+            {
+                TempData["Error"] = MensajeSinPermisoOperarCaja;
                 return RedirectToAction(nameof(Historial));
             }
 
@@ -594,6 +619,28 @@ namespace TheBuryProject.Controllers
         public async Task<IActionResult> Historial(int? cajaId, DateTime? fechaDesde, DateTime? fechaHasta)
         {
             var viewModel = await _cajaService.ObtenerEstadisticasCierresAsync(cajaId, fechaDesde, fechaHasta);
+
+            // Visibilidad: un usuario no admin solo ve los cierres de las cajas de su padrón.
+            var cajaIdsVisibles = await ObtenerCajaIdsVisiblesAsync();
+            if (cajaIdsVisibles != null)
+            {
+                var cierres = viewModel.Cierres
+                    .Where(c => cajaIdsVisibles.Contains(c.AperturaCaja.CajaId))
+                    .ToList();
+                var conDiferencia = cierres.Count(c => c.TieneDiferencia);
+
+                viewModel = new HistorialCierresViewModel
+                {
+                    Cierres = cierres,
+                    TotalCierres = cierres.Count,
+                    CierresConDiferencia = conDiferencia,
+                    PorcentajeCierresExactos = cierres.Count > 0
+                        ? ((cierres.Count - conDiferencia) / (decimal)cierres.Count) * 100
+                        : 0,
+                    TotalDiferenciasPositivas = cierres.Where(c => c.Diferencia > 0).Sum(c => c.Diferencia),
+                    TotalDiferenciasNegativas = cierres.Where(c => c.Diferencia < 0).Sum(c => c.Diferencia)
+                };
+            }
 
             await SetHistorialFiltersAsync(cajaId, fechaDesde, fechaHasta);
 
@@ -650,6 +697,33 @@ namespace TheBuryProject.Controllers
             return await PuedeOperarCajaAsync(apertura.CajaId);
         }
 
+        /// <summary>
+        /// Visibilidad: null = sin restricción (admin o quien administra cajas); de lo contrario,
+        /// ids de las cajas del padrón del usuario. Una caja fuera del padrón no se muestra.
+        /// </summary>
+        private async Task<IReadOnlyCollection<int>?> ObtenerCajaIdsVisiblesAsync()
+        {
+            if (EsAdminCaja())
+            {
+                return null;
+            }
+
+            return (await _cajaVendedorService.ObtenerCajaIdsDeUsuarioAsync(_currentUser.GetUserId())).ToHashSet();
+        }
+
+        /// <summary>Puede ver el detalle de una apertura: admin o miembro del padrón de su caja.</summary>
+        private async Task<bool> PuedeVerAperturaAsync(int aperturaId)
+        {
+            var apertura = await _cajaService.ObtenerAperturaPorIdAsync(aperturaId);
+            if (apertura == null)
+            {
+                return true;
+            }
+
+            var visibles = await ObtenerCajaIdsVisiblesAsync();
+            return visibles == null || visibles.Contains(apertura.CajaId);
+        }
+
         private const string MensajeSinPermisoOperarCaja =
             "No estás habilitado para operar esta caja. Pedí al administrador que te asigne a ella.";
 
@@ -683,6 +757,11 @@ namespace TheBuryProject.Controllers
         private async Task SetHistorialFiltersAsync(int? cajaId, DateTime? fechaDesde, DateTime? fechaHasta)
         {
             var cajas = await _cajaService.ObtenerTodasCajasAsync();
+            var cajaIdsVisibles = await ObtenerCajaIdsVisiblesAsync();
+            if (cajaIdsVisibles != null)
+            {
+                cajas = cajas.Where(c => cajaIdsVisibles.Contains(c.Id)).ToList();
+            }
             ViewBag.Cajas = new SelectList(cajas, "Id", "Nombre", cajaId);
             ViewBag.FechaDesde = fechaDesde;
             ViewBag.FechaHasta = fechaHasta;

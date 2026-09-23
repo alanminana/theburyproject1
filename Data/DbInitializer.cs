@@ -198,6 +198,13 @@ namespace TheBuryProject.Data
             var adminEmail = configuration["Admin:Email"] ?? "admin@thebury.com";
             var adminUserName = configuration["Admin:UserName"] ?? "admin";
             var adminPassword = configuration["Admin:Password"]; // debe venir de user-secrets / ENV
+            var adminUser = await userManager.FindByNameAsync(adminUserName)
+                ?? await userManager.FindByEmailAsync(adminEmail);
+            if (env?.IsProduction() == true && adminUser == null)
+            {
+                TheBuryProject.Helpers.ProductionSecrets.Require(adminEmail, "Admin:Email");
+                TheBuryProject.Helpers.ProductionSecrets.Require(adminPassword, "Admin:Password (primer despliegue)");
+            }
             var sucursalDefault = await context.Sucursales
                 .AsNoTracking()
                 .Where(s => s.Activa)
@@ -210,7 +217,7 @@ namespace TheBuryProject.Data
                     .FirstOrDefaultAsync();
 
             // Fallback seguro: permitir el valor por defecto sólo en entorno Development
-            if (string.IsNullOrWhiteSpace(adminPassword))
+            if (adminUser == null && string.IsNullOrWhiteSpace(adminPassword))
             {
                 if (env != null && env.IsDevelopment())
                 {
@@ -225,9 +232,6 @@ namespace TheBuryProject.Data
                 }
             }
 
-            var adminUser = await userManager.FindByNameAsync(adminUserName)
-                ?? await userManager.FindByEmailAsync(adminEmail);
-
             if (adminUser == null)
             {
                 adminUser = new ApplicationUser
@@ -241,7 +245,7 @@ namespace TheBuryProject.Data
                     Sucursal = sucursalDefault?.Nombre
                 };
 
-                var result = await userManager.CreateAsync(adminUser, adminPassword);
+                var result = await userManager.CreateAsync(adminUser, adminPassword!);
 
                 if (result.Succeeded)
                 {
@@ -257,6 +261,8 @@ namespace TheBuryProject.Data
                 {
                     logger.LogError("Error al crear usuario administrador: {Errors}",
                         string.Join(", ", result.Errors.Select(e => e.Description)));
+                    if (env?.IsProduction() == true)
+                        throw new InvalidOperationException("No se pudo crear el administrador inicial. Revisar la configuración de bootstrap.");
                 }
             }
             else

@@ -195,7 +195,7 @@ npx.cmd playwright test e2e/ui-4e-layout-visual.spec.js     → 169/169 OK (regr
 
 ```powershell
 $env:E2E_USER="Admin"
-$env:E2E_PASS="Admin123!"
+$env:E2E_PASS="[CREDENCIAL RETIRADA: usar secret store local]"
 $env:ASPNETCORE_ENVIRONMENT="Development"
 ```
 

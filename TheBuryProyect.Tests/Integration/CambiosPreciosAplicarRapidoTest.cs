@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using TheBuryProject.Data;
@@ -89,9 +90,13 @@ public class CambiosPreciosAplicarRapidoTest : IClassFixture<CustomWebApplicatio
         };
 
         var json = System.Text.Json.JsonSerializer.Serialize(request);
+        var paginaHtml = await GetHtmlAsync(client, "/CambiosPrecios/Simular");
+        var token = HiddenValue(paginaHtml, "__RequestVerificationToken");
+
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "/CambiosPrecios/AplicarRapido");
         httpRequest.Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
         httpRequest.Headers.Add("X-Requested-With", "XMLHttpRequest");
+        httpRequest.Headers.Add("RequestVerificationToken", token);
         var response = await client.SendAsync(httpRequest);
 
         var responseBody = await response.Content.ReadAsStringAsync();
@@ -102,6 +107,49 @@ public class CambiosPreciosAplicarRapidoTest : IClassFixture<CustomWebApplicatio
         var body = await response.Content.ReadFromJsonAsync<AplicarRapidoResponse>();
         Assert.NotNull(body);
         Assert.True(body!.Success, $"success esperado true, body: {await response.Content.ReadAsStringAsync()}");
+    }
+
+    [Fact]
+    public async Task Post_AplicarRapido_SinAntiforgeryToken_EsRechazado()
+    {
+        // Regresión: AplicarRapido llevaba [IgnoreAntiforgeryToken] pese a que el controller es
+        // [AutoValidateAntiforgeryToken] — un POST sin el token debe rechazarse igual que cualquier
+        // otra acción del controller.
+        await _factory.SeedTestUserAsync();
+        var client = _factory.CreateAuthenticatedClient();
+        var request = new AplicarRapidoRequest
+        {
+            Modo = "seleccionados",
+            Porcentaje = 10m,
+            ProductoIds = new List<int> { 10 },
+            ListasPrecioIds = null
+        };
+
+        var json = System.Text.Json.JsonSerializer.Serialize(request);
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "/CambiosPrecios/AplicarRapido");
+        httpRequest.Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+        httpRequest.Headers.Add("X-Requested-With", "XMLHttpRequest");
+        var response = await client.SendAsync(httpRequest);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    private async Task<string> GetHtmlAsync(HttpClient client, string url)
+    {
+        var response = await client.GetAsync(url);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        return await response.Content.ReadAsStringAsync();
+    }
+
+    private static string HiddenValue(string html, string name)
+    {
+        var tag = Regex.Match(
+            html,
+            $"<input[^>]*name=\"{Regex.Escape(name)}\"[^>]*>",
+            RegexOptions.IgnoreCase).Value;
+        var value = Regex.Match(tag, "value=\"([^\"]*)\"", RegexOptions.IgnoreCase);
+        Assert.True(value.Success, $"No se encontró el input oculto {name}.");
+        return System.Net.WebUtility.HtmlDecode(value.Groups[1].Value);
     }
 
     private record AplicarRapidoResponse(bool Success, int? BatchId, int? ProductosAfectados, string? Mensaje);
