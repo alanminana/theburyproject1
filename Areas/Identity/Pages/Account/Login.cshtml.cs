@@ -72,7 +72,7 @@ namespace TheBuryProject.Areas.Identity.Pages.Account
                 ModelState.AddModelError(string.Empty, ErrorMessage);
             }
 
-            returnUrl ??= Url.Content("~/");
+            returnUrl = ObtenerReturnUrlSeguraOFallback(returnUrl);
             ReturnUrl = returnUrl;
 
             if (User.Identity?.IsAuthenticated == true)
@@ -103,7 +103,7 @@ namespace TheBuryProject.Areas.Identity.Pages.Account
 
         public async Task<IActionResult> OnPostAsync(string returnUrl = null)
         {
-            returnUrl ??= Url.Content("~/");
+            returnUrl = ObtenerReturnUrlSeguraOFallback(returnUrl);
             ReturnUrl = returnUrl;
 
             // Fase 2: las credenciales ya se validaron en el POST anterior (cookie activa);
@@ -201,7 +201,7 @@ namespace TheBuryProject.Areas.Identity.Pages.Account
         /// </summary>
         public async Task<IActionResult> OnPostDesafiarAsync(string returnUrl = null)
         {
-            returnUrl ??= Url.Content("~/");
+            returnUrl = ObtenerReturnUrlSeguraOFallback(returnUrl);
             ReturnUrl = returnUrl;
             MostrarTerminos = true;
 
@@ -227,6 +227,21 @@ namespace TheBuryProject.Areas.Identity.Pages.Account
 
             _logger.LogInformation("Usuario {UserName} desafió a los dioses", user.UserName);
             return LocalRedirect(returnUrl);
+        }
+
+        /// <summary>
+        /// Normaliza el returnUrl recibido por query/form antes de guardarlo o usarlo en
+        /// LocalRedirect: null/vacío/no-local (externo, malformado, protocol-relative, etc.)
+        /// caen al home. LocalRedirect lanza InvalidOperationException si recibe una URL que
+        /// Url.IsLocalUrl rechaza, así que esa validación tiene que pasar SIEMPRE antes,
+        /// nunca solo confiar en el valor recibido del request.
+        /// </summary>
+        private string ObtenerReturnUrlSeguraOFallback(string returnUrl)
+        {
+            var home = Url.Content("~/");
+            return !string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl)
+                ? returnUrl
+                : home;
         }
     }
 }

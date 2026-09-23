@@ -33,6 +33,18 @@ public class MoraServiceTests : IDisposable
     private readonly RecordingCreditoService _creditoServiceFake;
     private readonly ClienteScoringService _clienteScoringService;
 
+    /// <summary>
+    /// Fecha comercial (Argentina) real usada tanto por <see cref="_service"/> como por los helpers
+    /// de seed de este archivo. Antes los helpers sembraban con <c>DateTime.Today</c> (calendario
+    /// local del proceso) mientras <see cref="_service"/> comparaba contra
+    /// <c>RelojComercial.Sistema</c> (día comercial de Argentina, UTC-3 real): en un runner Linux en
+    /// UTC, entre las 00:00 y las 03:00 UTC ambas fechas difieren en un día, produciendo fallos
+    /// intermitentes en DiasAtraso y en filtros de frontera. Usar la misma fuente en ambos lados
+    /// (sin fijarla a una fecha estática arbitraria, que rompería los tests de "ya pasó"/"a futuro"
+    /// relativos a la ejecución real) elimina la dependencia de la zona horaria del host.
+    /// </summary>
+    private readonly IRelojComercial _reloj = RelojComercial.Sistema;
+
     public MoraServiceTests()
     {
         _connection = new SqliteConnection($"DataSource={Guid.NewGuid():N};Mode=Memory;Cache=Shared");
@@ -52,7 +64,7 @@ public class MoraServiceTests : IDisposable
 
         _creditoServiceFake = new RecordingCreditoService();
         _clienteScoringService = new ClienteScoringService(_context, NullLogger<ClienteScoringService>.Instance);
-        _service = new MoraService(_context, _mapper, NullLogger<MoraService>.Instance, _creditoServiceFake, _clienteScoringService, RelojComercial.Sistema);
+        _service = new MoraService(_context, _mapper, NullLogger<MoraService>.Instance, _creditoServiceFake, _clienteScoringService, _reloj);
     }
 
     /// <summary>
@@ -517,7 +529,7 @@ public class MoraServiceTests : IDisposable
             MontoTotal = montoTotal,
             MontoPagado = 0m,
             Estado = EstadoCuota.Pendiente,
-            FechaVencimiento = DateTime.Today.AddDays(-diasVencido)
+            FechaVencimiento = _reloj.InicioDiaComercial.AddDays(-diasVencido)
         };
         _context.Set<Cuota>().Add(cuota);
         await _context.SaveChangesAsync();
@@ -535,7 +547,7 @@ public class MoraServiceTests : IDisposable
             MontoTotal = montoTotal,
             MontoPagado = 0m,
             Estado = EstadoCuota.Pendiente,
-            FechaVencimiento = DateTime.Today.AddDays(diasHastaVencimiento)
+            FechaVencimiento = _reloj.InicioDiaComercial.AddDays(diasHastaVencimiento)
         };
         _context.Set<Cuota>().Add(cuota);
         await _context.SaveChangesAsync();
@@ -564,7 +576,7 @@ public class MoraServiceTests : IDisposable
             MontoTotal = montoTotal,
             MontoPagado = montoPagado,
             Estado = estado,
-            FechaVencimiento = DateTime.Today.AddDays(-diasVencido)
+            FechaVencimiento = _reloj.InicioDiaComercial.AddDays(-diasVencido)
         };
         _context.Set<Cuota>().Add(cuota);
         await _context.SaveChangesAsync();
@@ -1744,7 +1756,7 @@ public class MoraServiceTests : IDisposable
         {
             AlertaId = alerta.Id,
             ClienteId = cliente.Id,
-            FechaPromesa = DateTime.Today.AddDays(7),
+            FechaPromesa = _reloj.InicioDiaComercial.AddDays(7),
             MontoPromesa = 1_000m
         };
         await _service.RegistrarPromesaPagoAsync(promesaVm, gestorId: "gestor1");
@@ -1768,7 +1780,7 @@ public class MoraServiceTests : IDisposable
         {
             AlertaId = alerta.Id,
             ClienteId = cliente.Id,
-            FechaPromesa = DateTime.Today.AddDays(-5), // ya pasó, nadie la marcó cumplida/incumplida
+            FechaPromesa = _reloj.InicioDiaComercial.AddDays(-5), // ya pasó, nadie la marcó cumplida/incumplida
             MontoPromesa = 1_000m
         };
         await _service.RegistrarPromesaPagoAsync(promesaVm, gestorId: "gestor1");
