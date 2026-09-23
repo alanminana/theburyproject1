@@ -2730,7 +2730,15 @@
             // MVC canónicas. El controlador decide la redirección a crédito luego de
             // persistir, por lo que no se crean borradores desde el navegador.
             submitFinalEnCurso = true;
-            ventaForm.querySelectorAll('button[type="submit"]').forEach(btn => { btn.disabled = true; });
+            // BLOCKER staging 2026-09-23: deshabilitar el propio submitter (e.submitter) acá
+            // lo excluye del form-data en el momento real de envío (el navegador arma el set
+            // de campos disabled-aware recién al serializar, después de que corren los
+            // listeners de "submit"), así que accionConfirmacion nunca llegaba al servidor
+            // sin importar qué botón se clickeara. El submitter queda habilitado a propósito;
+            // la navegación de la respuesta hace innecesario re-deshabilitarlo después.
+            ventaForm.querySelectorAll('button[type="submit"]').forEach(btn => {
+                if (btn !== e.submitter) btn.disabled = true;
+            });
         });
     }
 

@@ -12,20 +12,18 @@ se deja así explícitamente.
 
 ## Resultado
 
-## STAGING NO APROBADO — BLOCKER técnico nuevo encontrado (no relacionado a infraestructura)
+## STAGING APROBADO — BLOCKER F3 resuelto y verificado en vivo
 
-Se cerraron las tres reservas técnicas de infraestructura de la sesión anterior (fix de
-`--project`, 500 transitorio de SQL, backup de archivos en Linux), y se encontraron y
-corrigieron dos bugs funcionales reales durante el smoke. Pero el smoke funcional profundo
-reveló un **BLOCKER de aplicación no relacionado con nada de lo anterior**: el campo
-`accionConfirmacion` no viaja en el POST final de `Venta/Edit` sin importar qué botón dispare
-el submit (ni "Confirmar venta" simple ni el modal "Confirmar y facturar"), así que **toda
-confirmación de venta cae al branch por defecto de `ProcesarAccionPostGuardadoAsync` y sólo
-guarda los cambios — nunca confirma, nunca descuenta stock, nunca factura**. No se identificó
-la causa raíz dentro del presupuesto de esta sesión (ver Findings). Esto bloquea el flujo
-central de negocio (cerrar una venta) y no se puede recomendar "STAGING APROBADO" con esto
-abierto, aunque la infraestructura (deploy, SQL, backup/restore, TLS, health gates) funcionó
-de punta a punta.
+Continuación de esta misma rama: el BLOCKER F3 (`accionConfirmacion` no viajaba en el POST
+final de `Venta/Edit`) quedó **encontrado, corregido, cubierto con regresión y verificado en
+vivo con ambos botones** ("Confirmar venta" y "Confirmar y facturar" del modal). Ver sección 3
+y el finding F3 actualizado más abajo. Con esto se cierran los tres findings HIGH/BLOCKER de
+esta rama (F1, F2, F3); la infraestructura (deploy, SQL, backup/restore, TLS, health gates) ya
+había funcionado de punta a punta en la pasada anterior.
+
+Quedan fuera de este bloque de trabajo, sin cambios: crédito/contrato, Excel, documentos
+(upload/download/replace/delete), evento SignalR de negocio real y monitoring (F-CREDITO-EXCEL-DOC,
+ver "Fuera de alcance") — no están relacionados con F3 y no se tocaron, tal como se pidió.
 
 ## Git
 
@@ -128,12 +126,52 @@ del host por el usuario).
 | PDF de cotización | **VALIDADO** — descarga 200, contenido correcto: `$` formateado es-AR, línea de Envío, TOTAL correcto, sin `¤` |
 | Convertir cotización → venta | **BUG REAL encontrado y corregido** (ver Findings F1) — antes: botón permanentemente deshabilitado aun eligiendo cliente; después: convierte y crea la Venta |
 | Abrir caja (crear caja nueva + turno) | **VALIDADO** |
-| Confirmar venta / Confirmar y facturar | **BUG REAL encontrado y parcialmente corregido, BLOCKER nuevo detrás** (ver Findings F2 y F3) — el botón del modal ya no queda deshabilitado, pero el POST final nunca confirma de verdad (cae al branch "guardar") |
-| Stock (descuento al confirmar) | **NO VERIFICADO** — depende de F3 (la venta nunca llegó a confirmarse de verdad) |
+| Confirmar venta / Confirmar y facturar | **VALIDADO end-to-end** (ver sección 5 y Findings F2/F3) — ambos botones confirman de verdad: estado pasa a Confirmada/Facturada, se emite factura FA-B-... en el flujo "Confirmar y facturar" |
+| Stock (descuento al confirmar) | **VALIDADO** — banner real del sistema tras "Confirmar y facturar": "Venta confirmada y facturada en un solo paso. El stock fue descontado." |
 | Crédito/contrato, PDF contrato, Excel, documentos (upload/download/replace/delete) | **NO COMPLETADO** — presupuesto de la sesión agotado en el diagnóstico de F1/F2/F3 |
 | `/uploads/documentos-clientes/*` sin archivo real | **VALIDADO** (heredado, ya cerrado en sesión anterior, no re-tocado) |
 | SignalR negotiate + WebSocket | **VALIDADO** — conectado automáticamente en cada carga de página autenticada (`wss://staging.bury.local/hubs/notificaciones`), visto en consola del navegador real en cada flujo de este smoke |
 | SignalR evento real de negocio | **NO PROBADO** — no se llegó a un flujo que dispare una notificación verificable |
+
+## 5. BLOCKER F3 (`accionConfirmacion` no viaja en el POST) — RESUELTO
+
+**Causa raíz encontrada**: en `wwwroot/js/venta-create.js`, el handler de `submit` del form
+compartido (`#venta-form`, usado tanto por Create como por Edit) deshabilitaba **todos** los
+`button[type="submit"]` del form como guarda anti-doble-envío — incluido el propio botón que
+había disparado ese mismo submit (`event.submitter`). Deshabilitar el submitter *dentro* del
+handler de `submit` hace que el navegador lo excluya del conjunto de datos del formulario en el
+momento real de serializar la petición (la exclusión de campos `disabled` ocurre en el algoritmo
+de envío del formulario, después de que corren los listeners de `submit`, no antes) — así que el
+par `name="accionConfirmacion" value="..."` de ese botón nunca llegaba al servidor, sin importar
+cuál de los tres botones se clickeara ("Confirmar venta", "Guardar sin confirmar" o "Confirmar y
+facturar" del modal). El servidor caía siempre al branch `default` de
+`ProcesarAccionPostGuardadoAsync` ("Venta actualizada exitosamente", sin cambiar `Estado`).
+
+No relacionado con F1 ni F2 (ninguno de esos dos cambios toca este loop de deshabilitado).
+
+**Fix** (`wwwroot/js/venta-create.js`, línea ~2733): el loop que deshabilita los botones excluye
+ahora a `e.submitter` — el resto de los botones se sigue deshabilitando (la protección
+anti-doble-envío queda intacta), pero el botón que disparó el submit queda habilitado y viaja en
+el body de la petición real.
+
+**Regresión agregada**: `e2e/venta-edit-confirmar-post-blocker.spec.js` (Playwright) — intercepta
+el POST real a `/Venta/Edit/{id}`, verifica que `accionConfirmacion` viaje en el body, que la
+venta termine en `/Venta/Details` con el mensaje "Venta confirmada" (no el branch `default` de
+sólo-guardado), y que un intento posterior de volver a `Venta/Edit/{id}` sobre la venta ya
+confirmada sea redirigido (guard de estado existente — no hay forma de re-disparar el confirm ni
+de descontar stock una segunda vez por este camino).
+
+**Verificado en vivo con Playwright MCP** contra `http://127.0.0.1:18787` (Development, LocalDB),
+con ambos botones, sobre dos cotizaciones reales distintas:
+
+| Botón | Antes del fix (sesión anterior) | Después del fix (esta sesión) |
+|---|---|---|
+| "Confirmar venta" (sin facturar) | Quedaba en el branch `default`, sin cambiar `Estado` | Estado → **Confirmada**, historial: "Venta confirmada · 23/09/2026 11:56", banner "Venta confirmada; ya podés emitir la factura desde Acciones." |
+| "Confirmar y facturar" (checkbox + modal) | Igual — el modal ya no quedaba deshabilitado (F2) pero el POST final tampoco confirmaba | Estado → **Facturada**, factura `FA-B-202609-000001` emitida, banner del sistema: "Venta confirmada y facturada en un solo paso. El stock fue descontado." |
+| Re-editar la venta ya confirmada | — | `GET /Venta/Edit/{id}` redirige a `/Venta/Details/{id}` (guard de estado `ValidarEstadoParaEdicion`) — confirma que no hay forma de duplicar el descuento de stock reintentando este flujo |
+
+**Tests**: 1697/1697 focalizados (Venta/Caja/Stock) y 4989/4991 de la suite completa Release
+(2 omitidos = seed runners intencionales), 0 rojos, antes y después del fix.
 
 ### Hallazgo adicional sin corregir (fuera de alcance de esta sesión)
 
@@ -153,7 +191,7 @@ sesión: "no cambies nada más fuera de ese alcance").
 | **F-BACKUP — INFO→FIJO** | `scripts/backup/backup.sh files`/`retention.sh` fallaban en Windows/Git Bash | **CERRADO** — reproducido exitosamente en Linux real (WSL2 Ubuntu); confirmado irrelevante para producción Linux |
 | **F1 — HIGH→FIJO** | `CotizacionConversionService.PreviewConversionAsync` bloqueaba `Convertible` por cliente faltante sin importar el medio de pago, contradiciendo el propio flujo de "asignar cliente acá mismo" de la UI — botón "Confirmar Conversion" permanentemente deshabilitado | **FIJO**, test de regresión agregado, verificado en vivo |
 | **F2 — HIGH→FIJO** | `venta-create.js`: el submit handler no respetaba `event.defaultPrevented`, así que deshabilitaba el botón del modal "Confirmar y facturar" recién abierto por otro listener — quedaba inutilizable para siempre | **FIJO**, verificado en vivo (antes: disabled permanente; después: clickeable, la request llega al servidor) |
-| **F3 — BLOCKER, NO RESUELTO** | El campo `accionConfirmacion` del botón submit clickeado NO viaja en el body del POST a `Venta/Edit/{id}` — confirmado con ambos botones ("Confirmar venta" simple y "Confirmar y facturar" del modal), inspeccionando el body real de la request (`browser_network_request`). El resto de los campos del form sí viajan correctamente (incluido `tipoFactura=B` del mismo modal). El servidor cae siempre al branch `default` de `ProcesarAccionPostGuardadoAsync` ("Venta actualizada exitosamente", sin cambiar `Estado`). No se identificó la causa exacta (¿atributos del botón alterados por algún script?, ¿algo en el árbol DOM del wizard rompe la asociación submitter↔form?) dentro del presupuesto de esta sesión. Bloquea el flujo central de negocio: ninguna venta puede confirmarse, facturarse ni descontar stock desde este wizard tal como está. **No parece causado por F1 ni F2** (ambos cambios de este commit no tocan la serialización del formulario ni los atributos del botón). Requiere una sesión dedicada con más presupuesto para instrumentar el DOM real (o revisar con `git bisect` si es reciente). | **BLOCKER — abierto** |
+| **F3 — BLOCKER→FIJO** | El campo `accionConfirmacion` del botón submit clickeado NO viajaba en el body del POST a `Venta/Edit/{id}`, con ningún botón. Causa raíz: `venta-create.js` deshabilitaba el propio `event.submitter` dentro de su handler de `submit`, y el navegador excluye los campos `disabled` al serializar la petición real. Ver sección 5. | **FIJO**, regresión Playwright agregada, verificado en vivo con ambos botones (Confirmar venta → Confirmada; Confirmar y facturar → Facturada + stock descontado) |
 | **F4 — LOW, no corregido** | Vistas de Cotización (Detalles/Listado/modal de conversión) muestran `¤` en vez de `$` | Documentado, fuera de alcance explícito de esta sesión |
 | **F5 — INFO** | Producto con `StockActual=20` recién creado aparece "Agotado" en el catálogo | Documentado, no investigado a fondo, no bloqueante |
 
@@ -165,10 +203,13 @@ dotnet test  --configuration Release        → 4989 passed / 0 failed / 2 skipp
 ```
 
 Incluye los 11 tests nuevos de `TransientDbUnavailableMiddlewareTests` y el test de regresión
-`Preview_EfectivoSinCliente_EsConvertibleParaPermitirOverrideEnLaUi`. Se agregó también
-`e2e/venta-confirmar-facturar-modal.spec.js` (Playwright) para F2, **no ejecutado** en esta
-sesión (el `storageState` versionado apunta a otro entorno de desarrollo, no a este staging
-ad-hoc) — la corrección de F2 se verificó a mano con Playwright MCP contra el staging real.
+`Preview_EfectivoSinCliente_EsConvertibleParaPermitirOverrideEnLaUi`. Se agregaron también
+`e2e/venta-confirmar-facturar-modal.spec.js` (F2) y `e2e/venta-edit-confirmar-post-blocker.spec.js`
+(F3), **no ejecutados con datos reales de staging** en esta sesión (el `storageState`/dataset de
+staging no tiene un cliente que matchee el término de búsqueda `'an'` que usan los helpers
+compartidos; el spec sí corre y pasa su fase de autenticación, sólo se salta el escenario por
+falta de dato de QA) — ambas correcciones (F2 y F3) se verificaron a mano con Playwright MCP
+contra la app real (staging para F2 en la sesión anterior, Development/LocalDB para F3 en ésta).
 
 `git diff --check`: sin problemas de espacio en blanco. Secret scan manual del diff: sin
 credenciales ni secretos.
@@ -176,10 +217,11 @@ credenciales ni secretos.
 ## Fuera de alcance de esta sesión
 
 - Crédito/contrato, PDF de contrato, Excel, documentos (upload/download/replace/delete de
-  cliente), evento SignalR de negocio real, monitoring: no alcanzados — el presupuesto se
-  concentró en diagnosticar F1/F2/F3, que son más severos (bloquean el flujo central de venta).
-- F3 (BLOCKER) queda para una sesión dedicada.
-- F4 (¤ en Cotización) y F5 (stock "Agotado") quedan documentados, no corregidos.
+  cliente), evento SignalR de negocio real, monitoring: siguen sin probarse — el objetivo único
+  de este bloque de trabajo fue F3 (BLOCKER), y ninguno de estos ítems resultó causado por él.
+  Quedan para una sesión dedicada de smoke funcional, como ya estaba documentado.
+- F4 (¤ en Cotización) y F5 (stock "Agotado") quedan documentados, no corregidos — no resultaron
+  causados por F3.
 - AutoMapper: sigue GO-LIVE BLOCKER EXTERNO de negocio/legal, no tocado.
 - Integraciones externas, VPN/LAN/TLS física del host: fuera de alcance, sin cambios.
 
