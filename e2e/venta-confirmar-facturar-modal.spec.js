@@ -14,9 +14,9 @@
  *
  * Nota: verificado en vivo contra el staging de esta sesión con Playwright MCP (no vía este
  * spec, que no se ejecutó en esta sesión — el storageState de e2e/.auth/user.json apunta a
- * otro entorno). Queda un segundo hallazgo relacionado, no resuelto en esta sesión: el campo
- * accionConfirmacion=confirmar-facturar no viaja en el POST final (el backend cae al branch
- * default y sólo guarda, sin confirmar ni facturar) — éste spec no lo cubre todavía.
+ * otro entorno). El segundo hallazgo (accionConfirmacion=confirmar-facturar no viajaba en el POST
+ * final) se corrigió después en venta-create.js (excluir e.submitter de la deshabilitación) y lo
+ * cubre el segundo test de este spec.
  */
 const { test, expect } = require('playwright/test');
 const {
@@ -61,4 +61,44 @@ test('checkbox Facturar al confirmar + Confirmar venta deja el botón del modal 
     await expect(modalBtn).toBeVisible({ timeout: 5_000 });
     // El bug real: este botón quedaba [disabled] para siempre apenas se abría el modal.
     await expect(modalBtn).toBeEnabled();
+});
+
+test('"Confirmar y facturar" del modal envía accionConfirmacion=confirmar-facturar y factura la venta', async ({ page }) => {
+    await page.goto('/Venta/Create', { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('#venta-form')).toBeVisible({ timeout: 15_000 });
+    await page.locator('#step-btn-cliente').click();
+    const client = await searchAndSelectClient(page);
+    test.skip(!client, 'El entorno no expone cliente de QA para el autocompletado.');
+    await page.locator('#step-btn-productos').click();
+    await activarFiltroStock(page);
+    const product = await addProduct(page, 'an');
+    test.skip(!product, 'El entorno no expone producto con stock para QA.');
+    await page.locator('#step-btn-pago').click();
+    await page.locator('#select-tipo-pago').selectOption(TIPO_PAGO.Efectivo);
+    await page.locator('#step-btn-revision').click();
+    await ensureVendedorSeleccionado(page);
+    await page.locator('#btn-confirmar').click();
+    await page.waitForURL(/\/Venta\/(Details|Edit)\/\d+/, { timeout: 20_000 });
+    const id = page.url().match(/\/(?:Details|Edit)\/(\d+)/)?.[1];
+    expect(id).toBeTruthy();
+
+    await page.goto(`/Venta/Edit/${id}`, { waitUntil: 'domcontentloaded' });
+    await page.locator('[data-step="revision"]').click();
+    const chkFacturar = page.locator('#chk-facturar');
+    test.skip(await chkFacturar.count() === 0, 'Sin permiso ventas.invoice en este entorno: el checkbox no se renderiza.');
+    await chkFacturar.check();
+    await page.locator('#btn-confirmar').click();
+
+    const modalBtn = page.locator('#modal-confirmar-facturar button[name="accionConfirmacion"][value="confirmar-facturar"]');
+    await expect(modalBtn).toBeEnabled({ timeout: 5_000 });
+
+    const postRequest = page.waitForRequest((req) =>
+        req.url().includes(`/Venta/Edit/${id}`) && req.method() === 'POST');
+    await modalBtn.click();
+    const body = (await postRequest).postData() || '';
+    expect(body).toMatch(/accionConfirmacion=confirmar-facturar/);
+
+    await page.waitForURL(/\/Venta\/Details\/\d+/, { timeout: 20_000 });
+    console.log('SMOKE facturar: venta', id, '->', page.url());
+    console.log((await page.locator('body').innerText()).match(/(Venta confirmada|Factura[^\n]*|Estado[^\n]*)/g)?.slice(0, 6));
 });

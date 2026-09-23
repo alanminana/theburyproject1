@@ -31,6 +31,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const ultimoCierreUrl = selectCaja?.dataset.cajaUltimoCierreUrl;
 
+    // El fondo del último cierre es solo un valor por defecto: si el usuario ya cargó
+    // un monto (tipeado o con los atajos), elegir/cambiar la caja no debe pisarlo.
+    let montoEditadoPorUsuario = false;
+    let aplicandoDefault = false;
+
     async function aplicarUltimoCierreComoFondo() {
         if (!selectCaja || !montoInput || !ultimoCierreUrl || !selectCaja.value) {
             return;
@@ -46,9 +51,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const data = await resp.json();
             const monto = Number(data?.monto);
-            if (Number.isFinite(monto)) {
+            if (Number.isFinite(monto) && !montoEditadoPorUsuario) {
+                aplicandoDefault = true;
                 montoInput.value = monto;
                 montoInput.dispatchEvent(new Event('input'));
+                aplicandoDefault = false;
             }
         } catch {
             // Si falla la consulta, el usuario carga el fondo manualmente.
@@ -59,7 +66,12 @@ document.addEventListener('DOMContentLoaded', () => {
         updateCajaPreview();
         aplicarUltimoCierreComoFondo();
     });
-    montoInput?.addEventListener('input', updateMontoPreview);
+    montoInput?.addEventListener('input', () => {
+        if (!aplicandoDefault) {
+            montoEditadoPorUsuario = true;
+        }
+        updateMontoPreview();
+    });
 
     updateCajaPreview();
     updateMontoPreview();

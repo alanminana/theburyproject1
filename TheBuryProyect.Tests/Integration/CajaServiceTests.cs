@@ -26,6 +26,7 @@ namespace TheBuryProject.Tests.Integration;
 internal sealed class StubNotificacionService : INotificacionService
 {
     public List<string> RolesNotificados { get; } = new();
+    public List<string> MensajesNotificados { get; } = new();
 
     public Task<Notificacion> CrearNotificacionAsync(CrearNotificacionViewModel model)
         => Task.FromResult(new Notificacion());
@@ -36,6 +37,7 @@ internal sealed class StubNotificacionService : INotificacionService
     public Task CrearNotificacionParaRolAsync(string rol, TipoNotificacion tipo, string titulo, string mensaje, string? url = null, PrioridadNotificacion prioridad = PrioridadNotificacion.Media)
     {
         RolesNotificados.Add(rol);
+        MensajesNotificados.Add(mensaje);
         return Task.CompletedTask;
     }
 
@@ -227,6 +229,28 @@ public class CajaServiceTests : IDisposable
         Assert.Contains(Roles.SuperAdmin, _notificacionStub.RolesNotificados);
         Assert.Contains(Roles.Administrador, _notificacionStub.RolesNotificados);
         Assert.Contains(Roles.Gerente, _notificacionStub.RolesNotificados);
+    }
+
+    [Fact]
+    public async Task AbrirCaja_Con30000_PersisteExacto_NotificaMismoMontoYSaldoLoUsa()
+    {
+        // Regresión staging 2026-09-23: el fondo ingresado (30000) terminaba en 0.00 en DB y en la
+        // notificación. La causa era el JS del form (caja-abrir.js) que lo pisaba; el service debe
+        // seguir persistiendo, notificando y calculando con exactamente el valor recibido.
+        var caja = await SeedCajaAsync();
+
+        var apertura = await _service.AbrirCajaAsync(
+            new AbrirCajaViewModel { CajaId = caja.Id, MontoInicial = 30000m },
+            "usuario1");
+
+        var aperturaBd = await _context.Set<AperturaCaja>().AsNoTracking().FirstAsync(a => a.Id == apertura.Id);
+        Assert.Equal(30000m, aperturaBd.MontoInicial);
+
+        var montoTexto = 30000m.ToString("N2");
+        Assert.All(_notificacionStub.MensajesNotificados, m => Assert.Contains($"${montoTexto}", m));
+        Assert.NotEmpty(_notificacionStub.MensajesNotificados);
+
+        Assert.Equal(30000m, await _service.CalcularSaldoActualAsync(apertura.Id));
     }
 
     [Fact]

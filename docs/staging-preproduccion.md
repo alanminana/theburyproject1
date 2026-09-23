@@ -329,9 +329,41 @@ notificación por rol para cada uno — sin tocar la firma pública del servicio
 SignalR real vía `page.on('websocket')`:
 `{"type":1,"target":"NotificacionesActualizadas","arguments":[]}` — el evento de negocio pedido.
 
-Hallazgo cosmético no investigado, sin relación con el fix: el texto de esa notificación mostró
-"$0.00" en vez del monto inicial cargado; no se profundizó (no bloqueante, posible artefacto del
-guión de prueba automatizado, a revisar en una próxima pasada si se repite manualmente).
+Hallazgo (originalmente anotado como cosmético): el texto de esa notificación mostró "$0.00" en
+vez del monto inicial cargado. **No era cosmético** — ver 6.5b.
+
+### 6.5b Monto inicial de apertura de Caja llegaba como 0.00 — BUG REAL corregido (F8)
+
+Síntoma: se ingresó MontoInicial = 30000 en Caja/Abrir; `AperturasCaja.MontoInicial` quedó 0.00 y
+el toast/notificación mostraron "$0.00" (afectaba también saldo y cierre, que parten de ese valor).
+
+**Causa raíz** (caso *a*: el valor no viaja como el usuario lo cargó): `wwwroot/js/caja-abrir.js`
+prellena el fondo con el efectivo del último cierre al *elegir la caja* (`UltimoEfectivoCierre`,
+devuelve 0 para una caja sin cierres previos) y lo escribía siempre, pisando el monto que el
+usuario ya había tipeado o elegido con los atajos "$ 30.000". Si se carga el monto antes de elegir
+la caja (orden del smoke automatizado), el POST salía con `MontoInicial=0`. Descartado el resto de
+la cadena: input `type=number` sin problema de cultura, model binding, controller y
+`CajaService.AbrirCajaAsync` persisten/notifican exactamente el valor recibido.
+Reproducido en navegador real antes del fix (input pasaba de 30000 a 0 tras elegir la caja).
+
+**Fix mínimo**: el prefill del último cierre sólo se aplica si el usuario no editó el monto
+(bandera `montoEditadoPorUsuario`; el propio prefill no la activa). Sin cambios de backend.
+
+**Regresión**: `e2e/caja-abrir-monto-inicial.spec.js` (3 tests: monto previo no se pisa y el POST
+lleva `MontoInicial=30000`; sin monto sigue prellenando; atajo $30.000 no se pisa) — verificado que
+falla sin el fix (revirtiendo) y pasa con él; y
+`CajaServiceTests.AbrirCaja_Con30000_PersisteExacto_NotificaMismoMontoYSaldoLoUsa` (DB = 30000,
+mensaje de notificación con el mismo monto, `CalcularSaldoActualAsync` = 30000).
+
+**Verificado en staging** (imagen `20260923-staging-fixes-v4`, deploy.sh OK): monto tipeado antes
+de elegir la caja → el input conserva 30000; `AperturasCaja.MontoInicial = 30000.00`; toast y fila
+de `Notificaciones` "…con monto inicial $30,000.00".
+
+**"Confirmar y facturar" (cierre de evidencia pendiente)**, mismo staging v4: Venta/Create →
+Venta/Edit → Revisión → "Facturar al confirmar" → botón del modal habilitado; POST real con
+`accionConfirmacion=confirmar-facturar`; resultado en DB: venta 3 en estado Facturada, 1 factura
+`FA-B-202609-000001` por $150.000,00, stock 18→17, 1 movimiento de caja. Test agregado al spec
+`e2e/venta-confirmar-facturar-modal.spec.js`.
 
 ### 6.6 Producto "Agotado" — BUG REAL encontrado y corregido (F6)
 
@@ -375,6 +407,7 @@ alcance ampliado y documentado para una futura sesión dedicada.
 | **F5 — MEDIUM→FIJO** | Producto nuevo creado vía modal AJAX aparecía "Agotado" pese a tener stock real, hasta recargar la página — `CreateAjax` no devolvía `stockActual`/`estadoStock` | **FIJO** (ver 6.6), 2 tests de regresión, verificado en vivo |
 | **F6 — MEDIUM→FIJO** | `Reporte/ExportarVentasExcel` mostraba "Anónimo" para clientes reales — leía un campo (`Cliente.NombreCompleto`) que el alta estándar de cliente nunca completa | **FIJO** (ver 6.3), 2 tests de regresión, verificado en vivo con archivo real descargado |
 | **F7 — MEDIUM→FIJO** | Las notificaciones de Caja (apertura, cierre con/sin diferencia) apuntaban a un rol `"Supervisor"` que no existe en el sistema — nunca llegaban a nadie ni disparaban el evento SignalR correspondiente, en ningún ambiente, desde que se escribió el código | **FIJO** (ver 6.5): ahora notifica a `SuperAdmin`/`Administrador`/`Gerente` (los roles que sí pueden autorizar); 1 test de regresión; verificado en vivo con fila real en `Notificaciones` y frame WebSocket real capturado |
+| **F8 — HIGH→FIJO** | El fondo inicial de Caja/Abrir llegaba como 0.00 si el usuario lo cargaba antes de elegir la caja: `caja-abrir.js` lo pisaba con el efectivo del último cierre (0 en cajas sin cierres). Afectaba DB, notificación, saldo y arqueo | **FIJO** (ver 6.5b): el prefill sólo aplica si el monto no fue editado; 3 specs Playwright + 1 test C#; verificado en staging v4 (DB 30000.00) |
 
 ## Tests
 
