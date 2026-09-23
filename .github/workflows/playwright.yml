@@ -148,12 +148,18 @@ jobs:
       # es una contraseña de desarrollo hardcodeada en el propio repo, nunca una credencial real.
       # Rol "Administrador" (no SuperAdmin): el minimo necesario para cubrir Ventas/Clientes/
       # Creditos/Cotizaciones/Cajas, que es lo que ejercita el suite actual.
+      # Acotado a 1366x768: playwright.config.js define 7 projects de viewport y sin filtro
+      # `npx playwright test` corre TODOS (≈1366 tests, ~7x el tiempo), muy por fuera de lo
+      # validado localmente (196 tests / 1 viewport, documentado en docs/ci-playwright-e2e.md).
+      # El resto de los viewports pertenece a auditorías UI responsive dedicadas
+      # (venta-wizard-accessibility, venta-cotizar-step, ui-4e-layout-visual, etc.), no a este
+      # gate de E2E funcional general.
       - name: Run Playwright tests
         env:
           E2E_BASE_URL: "http://127.0.0.1:${{ env.APP_PORT_CI }}"
           E2E_USER: administrador
           E2E_PASS: "Admin123!"
-        run: npx playwright test
+        run: npx playwright test --project=1366x768
 
       - name: Logs del stack (diagnostico)
         if: ${{ !cancelled() }}

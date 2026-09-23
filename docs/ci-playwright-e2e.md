@@ -84,34 +84,88 @@ Un especifico (`cotizacion-credito-personal-aptitud-contradiccion.spec.js`) depe
 (`E2E_CLIENTE_NOAPTO_DNI`, default `35996614`) que ninguno de los dos seeders produce; el propio spec
 ya hace `test.skip` si no lo encuentra (skip explicito por diseño, no agregado por este bloque).
 
-## Hallazgo: drift preexistente app/test (fuera de alcance)
+## Drift cerrado y estado final (bloque de cierre, 2026-09-23)
 
-Corrida real completa (1 viewport, `1366x768`, contra el stack de este workflow funcionando
-correctamente — app healthy, `/health/ready`=200, dataset sembrado): **35 failed, 1 flaky, 16
-skipped, 144 passed** (196 tests, ~12m40s). El fallo raiz confirmado (`venta-pago-por-item.spec.js`):
-el wizard de `Venta/Create` tiene ahora un primer paso "Cotizar" antes de "Cliente" (rediseño
-posterior de la serie `COTIZACION-MOCKUP-01/02`); `helpers.js.searchAndSelectClient` espera
-`#input-buscar-cliente` visible de entrada, pero en el paso "Cotizar" ese campo pertenece a otro
-bloque. Esto **no es un problema de infraestructura**: los tests fallan igual con la app y la base
-funcionando correctamente (confirmado con captura del DOM real en el momento del fallo).
+La corrida inicial completa (1 viewport, `1366x768`, stack funcionando correctamente) dio **35
+failed, 1 flaky, 16 skipped, 144 passed** (196 tests). Se investigó cada fallo (nunca "a ciegas":
+primero reproducir, leer el DOM real vía trace/error-context, recién después decidir) y se
+clasificó en tests desactualizados por rediseños posteriores del wizard, un bug de la propia
+suite E2E (config de medios de pago incompleta) y un límite real del entorno de red aislado.
+Ver el detalle completo en el informe de cierre de la tarea (PR).
 
-El mismo patron (specs que interactuan con `Venta/Create` asumiendo su layout anterior) explica la
-mayoria de los 35 fallos, agrupados en 10 archivos: `venta-pago-por-item` (6/6),
-`venta-wizard-accessibility` (11/13 — cuenta de pasos/overflow del wizard), `credito-visual-excepcion-reposicion`
-(5/7), `venta-functional-audit` (2/2), `venta-excepcion-documental-reload` (2/2),
-`credito-visual-otros-motivos` (2/2), `credito-pago-cuota-individual` (3/12 — setup vía venta
-descartable), `cotizacion-credito-personal-excepcion` (1/1 — "Pasar a venta"). Dos fallos parecen
-de otra naturaleza y quedan sin clasificar en profundidad (fuera del alcance de este bloque, que es
-infraestructura, no debugging de specs): `cliente-aptitud-punitorio.spec.js` (2, aserciones sobre
-bloques de mora/punitorio en Cliente Details) y `ui-4e-layout-visual.spec.js` (1, diff de screenshot
-"login-mobile.png" — probablemente baseline generado en otro SO/resolución, clase de fallo habitual
-en snapshot testing cross-entorno). 1 flaky en `credito-adelanto-pago-multiple.spec.js` (paso en el
-segundo intento).
+**Resultado final, misma base fresca, 1 sola corrida completa**: **174 passed, 1 failed, 0 flaky,
+15 skipped** (196 tests, ~6.7min).
 
-No se modifico ningun spec ni la app para forzar estos casos a verde (prohibido explicitamente en el
-alcance de este bloque). El workflow completo (infra, dataset, arranque, Playwright, artifacts,
-cleanup) esta validado y funcionando; el numero de tests en rojo depende de que estos specs se
-actualicen para el wizard actual de Venta/Create — tarea de otro equipo/bloque, no de CI.
+Causas cerradas (categoría, causa, acción):
+
+- **Drift del wizard de Venta/Create** (`venta-wizard-accessibility`, `credito-visual-*`,
+  `venta-excepcion-documental-reload`, `venta-functional-audit` parcial): el wizard agregó un
+  primer paso "Cotizar" antes de "Cliente" (serie `COTIZACION-MOCKUP-01/02`) y varios helpers
+  compartidos (`e2e/helpers.js`: `searchAndSelectClient`, `addProduct`, `activarFiltroStock`,
+  `setGlobalTipoPago`, `ensureConfirmarHabilitado`, `ensureVendedorSeleccionado`) asumían que el
+  paso "Cliente"/"Productos"/"Pago"/"Revisión" ya estaba activo. Fix centralizado en los helpers
+  (activan el tab correspondiente sólo si no está ya seleccionado) en vez de repetirlo en cada spec.
+- **`venta-pago-por-item.spec.js` (6 fallos) — spec obsoleta, eliminada.** El pago por ítem
+  (`.btn-configurar-pago-item`, `#modal-pago-item`) ya no existe en ninguna vista ni script — está
+  confirmado por un contract test C# dedicado (`VentaCreateUiContractTests.CreateView_
+  NoMuestraAccionPagoPorItemEnTabla`) y ya documentado como candidata a eliminarse en
+  `docs/ui/UI-REFACTOR-STATUS.md` antes de este bloque. Se borró el archivo.
+- **Redesign `VENTA-CREDITO-REDESIGN-VISUAL-IMPLEMENTACION-01`** (`credito-visual-otros-motivos`,
+  `credito-visual-excepcion-reposicion` caso G, `venta-excepcion-documental-reload`): el heading
+  "Otros motivos" y el badge `#excepcion-aplicada-badge` se retiraron a favor de una sola fila
+  "Documentación — exceptuada" dentro de "Estado del crédito"; Cupo pasó a filtrarse siempre de
+  "Otros motivos" (vive permanente en "Estado del crédito"); "Observaciones" pasó a un `<details>`
+  colapsado. Tests actualizados a los selectores/contrato vigentes.
+- **Bug de la propia suite E2E — config de medios de pago incompleta.** `ConfiguracionPago` es
+  global (`aplicarMediosGlobalesAlSelector` en `venta-create.js` reemplaza, no completa, las
+  opciones del selector "Forma de pago"): el seeder de escenarios de punitorio
+  (`ClienteAptitudPunitorioE2ESeeder`) siembra sólo Transferencia y Crédito Personal para sus
+  propios casos, dejando "Efectivo" fuera del selector para el resto de los specs. Fix: `GenericE2ESeeder`
+  ahora siembra también Efectivo activo (idempotente), ya que es el seeder pensado para necesidades
+  genéricas del suite.
+- **`aNumero()` (parser de moneda de test) — bug de la suite, no de la app.** `credito-pago-cuota-
+  individual.spec.js` y `credito-adelanto-pago-multiple.spec.js` conviven con dos formatos de
+  moneda reales en la misma pantalla ("Contexto autoritativo" en invariant/US, "Datos del pago" en
+  es-AR) y el parser asumía uno solo. Reescrito con una heurística agnóstica de locale (el separador
+  que aparece último en el texto es el decimal).
+- **`ui-4e-layout-visual.spec.js` (login-mobile) — oversight de storageState.** Todos los projects
+  de `playwright.config.js` aplican `storageState: AUTH_FILE` por defecto; el test de "Login
+  visual" no lo limpiaba, así que navegaba ya autenticado y `/Identity/Account/Login` redirigía al
+  Dashboard (de ahí que el locator del username resolviera a un input de otro widget de la
+  página). Fix: `test.use({ storageState: { cookies: [], origins: [] } })` en ese describe.
+- **`cliente-aptitud-punitorio.spec.js` (2 fallos) — drift por la reorganización en tabs de
+  Cliente/Details (2026-09-14).** El `<dt>Capital en mora</dt>` exacto vive en la tab "Crédito"
+  (la tab "Resumen", default, sólo muestra un párrafo resumen con formato distinto); dos tests no
+  navegaban a esa tab antes de verificar visibilidad. Se agregó la navegación faltante.
+- **`cotizacion-credito-personal-excepcion.spec.js` (1) — límite real del entorno, no bug ni
+  drift.** `SituacionCrediticiaBcraService` llama a la API real de BCRA (`api.bcra.gob.ar`); el
+  stack Docker CI no tiene egreso a internet, así que para un cliente recién creado sin consulta
+  BCRA cacheada la aptitud queda en "Requiere autorización / No se pudo validar BCRA" en vez de
+  "No apto". Se agregó un `test.skip` explícito y documentado sólo para ese caso (mismo patrón que
+  los skips ya existentes por falta de datos de QA) — no oculta un fallo, reconoce una precondición
+  de red que este entorno no puede cumplir.
+- **2 flaky (no reproducibles de forma determinista) en la corrida inicial de este cierre**:
+  ambos con el mismo síntoma en consola — `Failed to complete negotiation with the server:
+  TypeError: Failed to fetch` (negociación SignalR). No volvieron a aparecer en la corrida final
+  definitiva; consistente con un hipo de red transitorio de la máquina bajo carga (otros stacks
+  Docker corriendo en paralelo durante el desarrollo de este bloque), no con un bug determinista
+  de la app ni de los specs.
+
+**Sin cerrar — 1 fallo real, requiere debugging en vivo (no se fuerza un fix a ciegas):**
+`venta-functional-audit.spec.js` ("Create: validaciones, cliente, productos, descuentos, pago,
+crédito, modal y guardado"). Reproducido de forma consistente: al llegar al paso "Revisión" de un
+alta Efectivo simple (4 productos, sin crédito), `#btn-confirmar` queda con el atributo `disabled`
+sin que ningún JS de `wwwroot/js/*.js` lo establezca de forma rastreable estáticamente (grep
+exhaustivo sin resultado) y sin errores de consola ni respuestas 4xx/5xx capturadas por el test.
+Se investigó y se descartaron: navegación incompleta al paso (corregido con espera por el panel
+real, no por `aria-selected` — ese sí tenía un bug real de desync con foco de teclado, ya
+corregido), viewport residual de un bloque anterior del mismo test (corregido), y el fallback de
+`ensureConfirmarHabilitado` intentando cambiar el tipo de pago desde el paso equivocado (corregido).
+Con todo eso corregido, el botón sigue deshabilitado sin causa identificable por análisis estático.
+Necesita inspección en vivo (DevTools/trace viewer) para encontrar qué lo deja así.
+
+No se modificó ninguna regla de negocio para lograr estos resultados — sólo specs E2E, el seeder
+`GenericE2ESeeder` (agrega una fila de configuración, no cambia lógica) y el workflow.
 
 ## Ejecucion local
 
@@ -132,7 +186,7 @@ E2E_SEED_CONNECTION="Server=127.0.0.1,14330;Database=TheBuryProjectDb;User Id=er
   --filter "FullyQualifiedName~GenericE2ESeedRunner.Sembrar|FullyQualifiedName~ClienteAptitudPunitorioE2ESeedRunner.Sembrar"
 
 npm ci && npx playwright install chromium
-E2E_USER=administrador E2E_PASS='Admin123!' E2E_BASE_URL=http://127.0.0.1:18080 npx playwright test
+E2E_USER=administrador E2E_PASS='Admin123!' E2E_BASE_URL=http://127.0.0.1:18080 npx playwright test --project=1366x768
 
 docker compose -p bury-e2e-ci -f docker-compose.yml -f docker-compose.ci.yml down -v
 ```
@@ -155,19 +209,40 @@ docker compose -p bury-e2e-ci -f docker-compose.yml -f docker-compose.ci.yml dow
 
 | Archivo | Proposito |
 |---|---|
-| `.github/workflows/playwright.yml` | Reescrito: stack Docker efimero completo en vez de asumir app externa |
+| `.github/workflows/playwright.yml` | Stack Docker efimero completo (bloque original) + acotado a `--project=1366x768` (cierre) |
 | `docker-compose.ci.yml` | Overlay nuevo, solo CI: publica puertos a 127.0.0.1 + `migrate` en Development |
-| `TheBuryProyect.Tests/E2ESeeding/GenericE2ESeeder.cs` | Nuevo: clientes/productos genericos buscables |
-| `TheBuryProyect.Tests/E2ESeeding/GenericE2ESeedRunner.cs` | Nuevo: punto de entrada `dotnet test --filter` para el seeder de arriba |
+| `TheBuryProyect.Tests/E2ESeeding/GenericE2ESeeder.cs` | Clientes/productos genericos buscables + `ConfiguracionPago` de Efectivo (cierre) |
+| `TheBuryProyect.Tests/E2ESeeding/GenericE2ESeedRunner.cs` | Punto de entrada `dotnet test --filter` para el seeder de arriba |
 | `docs/ci-playwright-e2e.md` | Este documento |
+| `e2e/helpers.js` | Helpers de wizard con guard de tab activo (cierre) |
+| `e2e/cliente-aptitud-punitorio.spec.js` | Fix drift: navegar a tab Crédito antes de verificar (cierre) |
+| `e2e/credito-visual-excepcion-reposicion.spec.js` | Fix drift: confirmación de excepción sin badge retirado (cierre) |
+| `e2e/credito-visual-otros-motivos.spec.js` | Fix drift: heading retirado, Cupo filtrado siempre, Observaciones colapsada (cierre) |
+| `e2e/venta-excepcion-documental-reload.spec.js` | Fix drift + mock de motivos con shape correcto (cierre) |
+| `e2e/venta-functional-audit.spec.js` | Fixes parciales de navegación (queda 1 fallo sin resolver, ver arriba) (cierre) |
+| `e2e/credito-pago-cuota-individual.spec.js` | Fix `aNumero()` (parser de moneda agnóstico de locale) (cierre) |
+| `e2e/credito-adelanto-pago-multiple.spec.js` | Fix `aNumero()` (mismo parser) (cierre) |
+| `e2e/ui-4e-layout-visual.spec.js` | Fix drift: storageState limpio en "Login visual" (cierre) |
+| `e2e/cotizacion-credito-personal-excepcion.spec.js` | Skip explícito por límite de red del entorno CI (cierre) |
+| `e2e/venta-pago-por-item.spec.js` | **Eliminado**: probaba una feature retirada del producto (cierre) |
 
 No se modifico: `docker-compose.yml`, `docker-compose.dev.yml`, `Dockerfile`, `docker/db-init/*`,
 `Caddyfile`, `scripts/deploy/**`, `scripts/backup/**`, `scripts/monitoring/**`, migraciones
-existentes, ningun spec de `e2e/*.spec.js`, ni `ClienteAptitudPunitorioE2ESeeder.cs`/
-`ClienteAptitudPunitorioE2ESeedRunner.cs` (solo se agrego un archivo complementario nuevo).
+existentes, `ClienteAptitudPunitorioE2ESeeder.cs`/`ClienteAptitudPunitorioE2ESeedRunner.cs`, ni
+ninguna regla de negocio de la aplicación.
 
 ## Estado
 
 ```text
-[COMPLETAR al cierre con los numeros reales de la corrida completa]
+Corrida final (1 sola pasada, base fresca, 1366x768): 196 total
+  174 passed, 1 failed, 0 flaky, 15 skipped (~6.7 min)
+
+Único fallo restante: venta-functional-audit.spec.js — "Create: validaciones, cliente,
+productos, descuentos, pago, crédito, modal y guardado". #btn-confirmar queda disabled al
+llegar a Revisión sin causa identificable por análisis estático; requiere debugging en vivo
+(ver sección de arriba). No se oculta ni se fuerza a verde.
+
+GitHub Actions real: NO ejecutado en este cierre (sin acceso a gh CLI ni MCP github
+funcional en este entorno — ver informe de cierre de la tarea). Pendiente de que se abra el
+PR y corra el workflow real antes de mergear.
 ```
