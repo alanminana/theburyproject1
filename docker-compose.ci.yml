@@ -1,0 +1,23 @@
+# Overlay de CI (E2E self-contained). Uso:
+#   docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d --build app
+#
+# Publica db/app en 127.0.0.1 para que el runner (host) corra el seed E2E (dotnet test) y Playwright
+# contra el stack real. NO arranca caddy (requiere DNS/ACME reales, fuera de alcance de un runner
+# efimero) ni los servicios de backup/restore (profile "tools").
+#
+# `migrate` corre en Development SOLO en este overlay: DbInitializer.CreateTestUsersAsync siembra los
+# usuarios de prueba con contraseñas sinteticas ya hardcodeadas en Data/DbInitializer.cs (no son
+# secretos productivos). `app` se mantiene en Production (igual que el stack real) para maxima paridad.
+
+services:
+  db:
+    ports:
+      - "127.0.0.1:${MSSQL_HOST_PORT:-1433}:1433"
+
+  migrate:
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+
+  app:
+    ports:
+      - "127.0.0.1:${APP_PORT:-8080}:8080"

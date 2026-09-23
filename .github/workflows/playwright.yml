@@ -1,27 +1,186 @@
 name: Playwright Tests
+
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main ]
   pull_request:
-    branches: [ main, master ]
+
+# Minimo privilegio: este workflow solo lee codigo y corre el suite E2E contra un stack efimero
+# propio (SQL Server + app en Docker, ambos creados y destruidos dentro del job). No publica nada.
+permissions:
+  contents: read
+
+concurrency:
+  group: playwright-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  COMPOSE_PROJECT: bury-e2e-ci
+  APP_PORT_CI: 18080
+  MSSQL_HOST_PORT_CI: 14330
+
 jobs:
   test:
     timeout-minutes: 60
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-node@v4
-      with:
-        node-version: lts/*
-    - name: Install dependencies
-      run: npm ci
-    - name: Install Playwright Browsers
-      run: npx playwright install --with-deps
-    - name: Run Playwright tests
-      run: npx playwright test
-    - uses: actions/upload-artifact@v4
-      if: ${{ !cancelled() }}
-      with:
-        name: playwright-report
-        path: playwright-report/
-        retention-days: 30
+      - uses: actions/checkout@v4
+
+      # El SDK lo fija global.json (mismo criterio que ci.yml): evita drift silencioso a otro SDK.
+      - name: Setup .NET (segun global.json)
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('global.json', '**/*.csproj', '**/packages.lock.json') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      # .env EFIMERO de este job: valores sinteticos generados aqui, nunca commiteados ni subidos
+      # como artifact. Cada credencial distinta (SQL Server exige ERP_DB_USER != ERP_MIGRATION_USER,
+      # ninguno "sa"; ver docker/db-init/init-db.sh). Se borra siempre al final del job (if: always()).
+      - name: Generar .env efimero de CI (credenciales sinteticas)
+        run: |
+          set -euo pipefail
+          gen_pw() { echo "Ee1!$(openssl rand -hex 12)"; }
+
+          MSSQL_SA_PASSWORD=$(gen_pw)
+          ERP_DB_PASSWORD=$(gen_pw)
+          ERP_MIGRATION_PASSWORD=$(gen_pw)
+          ADMIN_PASSWORD=$(gen_pw)
+
+          echo "::add-mask::$MSSQL_SA_PASSWORD"
+          echo "::add-mask::$ERP_DB_PASSWORD"
+          echo "::add-mask::$ERP_MIGRATION_PASSWORD"
+          echo "::add-mask::$ADMIN_PASSWORD"
+
+          ENV_FILE="$RUNNER_TEMP/.env.playwright-ci"
+          cat > "$ENV_FILE" <<EOF
+          MSSQL_SA_PASSWORD='${MSSQL_SA_PASSWORD}'
+          MSSQL_DATABASE=TheBuryProjectDb
+          ERP_DB_USER=erp_app_ci
+          ERP_DB_PASSWORD='${ERP_DB_PASSWORD}'
+          ERP_MIGRATION_USER=erp_migrate_ci
+          ERP_MIGRATION_PASSWORD='${ERP_MIGRATION_PASSWORD}'
+          MSSQL_PID=Developer
+          ADMIN_EMAIL=admin-ci@example.invalid
+          ADMIN_USERNAME=admin_ci
+          ADMIN_PASSWORD='${ADMIN_PASSWORD}'
+          ERP_DOMAIN=ci.example.invalid
+          APP_PORT=${APP_PORT_CI}
+          MSSQL_HOST_PORT=${MSSQL_HOST_PORT_CI}
+          EOF
+
+          echo "ENV_FILE=$ENV_FILE" >> "$GITHUB_ENV"
+          # No-secretas: las necesitan pasos posteriores (readiness, connection string de seed, Playwright).
+          echo "ERP_DB_USER=erp_app_ci" >> "$GITHUB_ENV"
+          echo "ERP_DB_PASSWORD=${ERP_DB_PASSWORD}" >> "$GITHUB_ENV"
+
+      # Reutiliza los assets de produccion (docker-compose.yml + Dockerfile + docker/db-init +
+      # migrate) sin modificarlos: docker-compose.ci.yml es un overlay que SOLO publica puertos a
+      # 127.0.0.1 (para que el runner hable con SQL Server/la app) y pone `migrate` en Development
+      # (para que DbInitializer.CreateTestUsersAsync siembre los usuarios de prueba sinteticos ya
+      # versionados en Data/DbInitializer.cs). `app` queda en Production, igual que el stack real.
+      # No se levanta `caddy` (requiere DNS/ACME reales) ni los servicios de backup (profile tools).
+      - name: Levantar stack (db -> db-init -> migrate -> app)
+        run: |
+          docker compose --env-file "$ENV_FILE" -p "$COMPOSE_PROJECT" \
+            -f docker-compose.yml -f docker-compose.ci.yml up -d --build app
+
+      - name: Esperar readiness de la app (/health/ready)
+        run: |
+          set -uo pipefail
+          ok=""
+          for i in $(seq 1 60); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:${APP_PORT_CI}/health/ready" || echo 000)
+            if [ "$code" = "200" ]; then ok=1; break; fi
+            sleep 3
+          done
+          if [ -z "$ok" ]; then
+            echo "::error::La app no quedo ready dentro del timeout. Logs de diagnostico:"
+            docker compose --env-file "$ENV_FILE" -p "$COMPOSE_PROJECT" -f docker-compose.yml -f docker-compose.ci.yml logs db db-init migrate app
+            exit 1
+          fi
+          echo "App ready (200) en http://127.0.0.1:${APP_PORT_CI}/health/ready"
+
+      # dataset E2E: sin esto la base queda vacia (sin clientes/productos/config de punitorio) y la
+      # mayoria de los specs de Cotizacion/Venta hacen test.skip por falta de datos, no por ningun
+      # bug real. TheBuryProyect.Tests/E2ESeeding/*Seeder.cs son idempotentes y estan versionados en
+      # el repo (no se generan aqui). Usan el usuario de la APP (sin DDL, sin sysadmin) por defecto.
+      - name: Compilar TheBuryProyect.Tests (Release)
+        run: |
+          dotnet restore TheBuryProyect.Tests/TheBuryProyect.Tests.csproj
+          dotnet build TheBuryProyect.Tests/TheBuryProyect.Tests.csproj -c Release --no-restore
+
+      - name: Sembrar dataset E2E (clientes/productos genericos + escenarios de punitorio)
+        env:
+          E2E_SEED_CONNECTION: "Server=127.0.0.1,${{ env.MSSQL_HOST_PORT_CI }};Database=TheBuryProjectDb;User Id=${{ env.ERP_DB_USER }};Password=${{ env.ERP_DB_PASSWORD }};TrustServerCertificate=True;MultipleActiveResultSets=true"
+        run: |
+          dotnet test TheBuryProyect.Tests/TheBuryProyect.Tests.csproj -c Release --no-build \
+            --filter "FullyQualifiedName~GenericE2ESeedRunner.Sembrar|FullyQualifiedName~ClienteAptitudPunitorioE2ESeedRunner.Sembrar" \
+            --logger "console;verbosity=normal"
+
+      - name: Exportar ids del seed como variables de entorno
+        run: |
+          SEED_JSON="e2e/.auth/pun-ml10g-seed-ids.json"
+          if [ ! -f "$SEED_JSON" ]; then
+            echo "::error::No se genero $SEED_JSON (fallo el seed de escenarios de punitorio)."
+            exit 1
+          fi
+          jq -r 'to_entries[] | "\(.key)=\(.value)"' "$SEED_JSON" >> "$GITHUB_ENV"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+
+      # Usuario E2E sintetico: creado por DbInitializer.CreateTestUsersAsync (Data/DbInitializer.cs,
+      # ya versionado) SOLO porque `migrate` corrio en Development en este job — no es un secreto,
+      # es una contraseña de desarrollo hardcodeada en el propio repo, nunca una credencial real.
+      # Rol "Administrador" (no SuperAdmin): el minimo necesario para cubrir Ventas/Clientes/
+      # Creditos/Cotizaciones/Cajas, que es lo que ejercita el suite actual.
+      - name: Run Playwright tests
+        env:
+          E2E_BASE_URL: "http://127.0.0.1:${{ env.APP_PORT_CI }}"
+          E2E_USER: administrador
+          E2E_PASS: "Admin123!"
+        run: npx playwright test
+
+      - name: Logs del stack (diagnostico)
+        if: ${{ !cancelled() }}
+        run: |
+          mkdir -p qa-evidence/e2e/docker-logs
+          docker compose --env-file "$ENV_FILE" -p "$COMPOSE_PROJECT" -f docker-compose.yml -f docker-compose.ci.yml \
+            logs --no-color db > qa-evidence/e2e/docker-logs/db.log 2>&1 || true
+          docker compose --env-file "$ENV_FILE" -p "$COMPOSE_PROJECT" -f docker-compose.yml -f docker-compose.ci.yml \
+            logs --no-color db-init > qa-evidence/e2e/docker-logs/db-init.log 2>&1 || true
+          docker compose --env-file "$ENV_FILE" -p "$COMPOSE_PROJECT" -f docker-compose.yml -f docker-compose.ci.yml \
+            logs --no-color migrate > qa-evidence/e2e/docker-logs/migrate.log 2>&1 || true
+          docker compose --env-file "$ENV_FILE" -p "$COMPOSE_PROJECT" -f docker-compose.yml -f docker-compose.ci.yml \
+            logs --no-color app > qa-evidence/e2e/docker-logs/app.log 2>&1 || true
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: |
+            qa-evidence/e2e/playwright-report/
+            qa-evidence/e2e/test-results/
+            qa-evidence/e2e/docker-logs/
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Cleanup (stack + .env efimero)
+        if: always()
+        run: |
+          docker compose --env-file "$ENV_FILE" -p "$COMPOSE_PROJECT" -f docker-compose.yml -f docker-compose.ci.yml down -v || true
+          rm -f "$ENV_FILE"
