@@ -52,12 +52,24 @@ dc() {
 }
 
 # ---------------------------------------------------------------- estado de release (fuera de git; ver .gitignore)
-DP_STATE_DIR="${DP_STATE_DIR:-$REPO_DIR/.deploy-state/$DP_PROJECT}"
-DP_LOCK_DIR="$DP_STATE_DIR/.lock"
-DP_LOG_FILE="$DP_STATE_DIR/deploy.log"
-DP_RECORD_FILE="$DP_STATE_DIR/releases.log"
-DP_CURRENT_FILE="$DP_STATE_DIR/current-image"
-DP_PREVIOUS_FILE="$DP_STATE_DIR/previous-image"
+# Los paths de estado dependen de DP_PROJECT. Los scripts (deploy.sh/rollback.sh) parsean --project DESPUES de hacer
+# `source lib.sh`, asi que no alcanza con calcularlos una sola vez aqui: si no se recalculan, todo release/lock queda
+# en el proyecto default ("theburyproject") sin importar que --project indique otro (ej. un stack de staging aislado),
+# con riesgo real de colision de lock/release-log entre proyectos distintos corridos desde el mismo checkout.
+# recompute_state_paths() se llama una vez aqui (para que scripts que no reparsean --project sigan funcionando igual
+# que antes) y CADA script que acepta --project debe volver a llamarla justo despues de terminar su parseo de argumentos.
+_DP_STATE_DIR_EXPLICIT=${DP_STATE_DIR+1}
+recompute_state_paths() {
+  if [[ -z "$_DP_STATE_DIR_EXPLICIT" ]]; then
+    DP_STATE_DIR="$REPO_DIR/.deploy-state/$DP_PROJECT"
+  fi
+  DP_LOCK_DIR="$DP_STATE_DIR/.lock"
+  DP_LOG_FILE="$DP_STATE_DIR/deploy.log"
+  DP_RECORD_FILE="$DP_STATE_DIR/releases.log"
+  DP_CURRENT_FILE="$DP_STATE_DIR/current-image"
+  DP_PREVIOUS_FILE="$DP_STATE_DIR/previous-image"
+}
+recompute_state_paths
 
 ensure_state_dir() { mkdir -p "$DP_STATE_DIR"; }
 
