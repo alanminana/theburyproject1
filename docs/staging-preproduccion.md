@@ -17,14 +17,12 @@ se deja así explícitamente.
 Tercera pasada de esta misma rama: se cerró el smoke funcional restante que había quedado
 documentado como "no completado" (crédito/contrato, Excel, documentos, SignalR, símbolo `¤`,
 producto "Agotado"). Ver sección 6. Se encontraron y corrigieron **3 bugs reales adicionales**
-(F6, F7, F8, todos LOW/MEDIUM, ninguno bloqueante), con regresión propia cada uno. El BLOCKER F3
+(F5, F6, F7, todos LOW/MEDIUM, ninguno bloqueante), con regresión propia cada uno. El BLOCKER F3
 de la pasada anterior sigue cerrado y no se re-tocó. No quedó ningún BLOCKER técnico al cierre de
 esta sesión.
 
-Quedan documentados y explícitamente **no completados** por motivos de entorno (no de código):
-contrato/PDF de crédito y cuotas reales (falta un plan global de cuotas de Crédito Personal
-seedeado, y no se encontró una vía de UI para crearlo dentro del tiempo de esta sesión — ver
-sección 6.2). No es un bug encontrado; es un gap de seed de un ambiente sintético recién creado.
+Crédito (contrato, PDF y cuotas reales) quedó también validado de punta a punta (sección 6.2).
+No queda ningún ítem del smoke sin probar salvo los declarados en "Fuera de alcance".
 
 ## Git
 
@@ -49,7 +47,7 @@ commits de esta pasada (F5/F6/F7 — smoke funcional restante), sobre `5e30aa3`:
   M  TheBuryProyect.Tests/Integration/ReporteServiceTests.cs          (1 test, F6)
   M  TheBuryProyect.Tests/Integration/CajaServiceTests.cs             (1 test, F7)
   M  docs/staging-preproduccion.md                                   (esta sección + Findings + Resultado)
-push: pendiente
+push: hecho a origin/staging-fixes-20260923 (38f25ac + commit docs de crédito)
 ```
 
 ## 1. Fix de deploy (`8954707`) — reverificado
@@ -142,7 +140,7 @@ del host por el usuario).
 | Abrir caja (crear caja nueva + turno) | **VALIDADO** |
 | Confirmar venta / Confirmar y facturar | **VALIDADO end-to-end para "Confirmar venta"** (ver sección 5 y Finding F3, re-verificado en esta pasada con evidencia de DB: Estado → Confirmada). "Confirmar y facturar" comparte el mismo form/JS y el mismo fix (ver sección 5), pero **no se re-hizo el click específico del modal en esta pasada** — no reafirmar la mención anterior de una factura `FA-B-...` concreta sin repetir esa prueba. |
 | Stock (descuento al confirmar) | **VALIDADO** — `Productos.StockActual` 20→19 tras confirmar, un único registro nuevo en `MovimientosStock` (motivo "Confirmación de venta"), verificado por consulta SQL directa contra la DB de staging |
-| Crédito/contrato, PDF contrato, Excel, documentos (upload/download/replace/delete) | **NO COMPLETADO** — presupuesto de la sesión agotado en el diagnóstico de F1/F2/F3 |
+| Crédito/contrato, PDF contrato, Excel, documentos (upload/download/replace/delete) | **VALIDADO en la pasada posterior** — ver sección 6 (en esta pasada quedó sin completar) |
 | `/uploads/documentos-clientes/*` sin archivo real | **VALIDADO** (heredado, ya cerrado en sesión anterior, no re-tocado) |
 | SignalR negotiate + WebSocket | **VALIDADO** — conectado automáticamente en cada carga de página autenticada (`wss://staging.bury.local/hubs/notificaciones`), visto en consola del navegador real en cada flujo de este smoke |
 | SignalR evento real de negocio | **NO PROBADO** — no se llegó a un flujo que dispare una notificación verificable |
@@ -257,33 +255,29 @@ lo que no hay forma de re-disparar el descuento — **sin doble descuento**. El 
 llevó `accionConfirmacion` correctamente (inspección de red directa), confirmando que F3 sigue
 resuelto en la imagen actual.
 
-### 6.2 Crédito — PARCIAL, no completado por gap de seed (no es bug)
+### 6.2 Crédito — VALIDADO completo
 
-Se armó el circuito completo hasta donde el entorno lo permite:
+Circuito completo sobre el ambiente sintético nuevo:
 
-- Medios de pago globales: el ambiente nuevo no tenía ninguno seedeado (`ConfiguracionPago`
-  vacío) — se crearon "Efectivo" y "Crédito Personal" desde la UI (el formulario de alta de un
-  *nuevo* medio queda colapsado dentro de un `<details>` con el mismo texto "Agregar método" que
-  el de agregar una tarjeta a un medio existente, lo cual es confuso pero funciona).
-- Cliente: aptitud crediticia inicial "No apto" (sin documentación) — se subieron y verificaron
-  los 3 documentos requeridos (DNI, Recibo de Sueldo, Servicio) vía `DocumentoCliente`, y se
-  asignó un puntaje manual (cupo $200.000) porque BCRA/Veraz no es alcanzable desde este entorno
-  aislado (`Error API (400)`, esperado).
-- Venta a crédito personal: creada, quedó `PendienteFinanciación` con estado "Requiere
-  autorización" (semáforo no bloqueante, consistente con la decisión de negocio de
-  `VENTA-FORM-RIESGO-01`) — **autorizada manualmente con motivo**, generó un crédito
-  `CRE-202609-000001` en estado `PENDIENTE`.
-- Configuración del crédito (cuotas, contrato, PDF): **no se pudo completar**. La pantalla
-  `Credito/ConfigurarVenta` reporta *"No hay planes de Credito Personal globales activos, por lo
-  que no puede financiarse con este medio de pago"*, tanto en modo "Hereda global" como
-  intentando "Planes propios" a nivel producto (ese modo también depende de que exista un plan
-  global para cada cantidad de cuotas). No se encontró, dentro del tiempo de esta sesión, una
-  pantalla de administración para dar de alta un plan global de cuotas nuevo — sólo edición de
-  tasa/gastos generales, límites por puntaje y perfiles de riesgo, ninguno de los cuales crea un
-  "plan" en el sentido que pide esta pantalla. Se documenta como **gap de seed/bootstrap de un
-  ambiente sintético nuevo**, no como bug de código: no se tocó nada de la lógica de crédito.
+- Medios de pago globales: el ambiente nuevo no tenía ninguno seedeado; se crearon "Efectivo" y
+  "Crédito Personal" desde la UI (el alta de un *nuevo* medio está colapsada en un `<details>` con
+  el mismo texto "Agregar método" que el de agregar tarjeta a un medio existente: confuso, funciona).
+- Cliente: aptitud inicial "No apto" (sin documentación) — se subieron/verificaron los 3 documentos
+  requeridos y se asignó puntaje manual (cupo $200.000), porque BCRA/Veraz no es alcanzable desde
+  el entorno aislado (`Error API (400)`, esperado).
+- Venta a crédito: quedó `PendienteFinanciación` con "Requiere autorización" (semáforo no
+  bloqueante, coherente con `VENTA-FORM-RIESGO-01`); autorizada manualmente con motivo.
+- Plan de cuotas: no había ningún plan global. Se crea desde `ConfiguracionPago/CreditoPersonal`
+  → sección 2 "Config financiera" → "Agregar cuota" (cantidad + recargo total %). Se creó 6 cuotas
+  al 10 %. (En una primera pasada no lo encontré y lo documenté erróneamente como gap de seed sin
+  vía de UI; sí existe.)
+- Configurar crédito: $150.000 + 10 % = $165.000 en **6 cuotas de $27.500** (matemática correcta).
+- **Contrato/pagaré**: "Generar e imprimir contrato" → JSON success; `ContratoVentaCredito/Ver`
+  devuelve `application/pdf`, 48.111 bytes, cabecera `%PDF-` y cierre `%%EOF` (**PDF válido**).
+- "Confirmar operación" → Venta `Confirmada`; DB: 1 crédito (estado 8), **6 cuotas suman
+  $165.000,00**, `StockActual` del producto 20 → 19 (descuento único).
 
-### 6.3 Excel — BUG REAL encontrado y corregido (F8)
+### 6.3 Excel — BUG REAL encontrado y corregido (F6)
 
 `Reporte/ExportarVentasExcel` **VALIDADO**: descarga real (`.xlsx`, firma ZIP/PK válida,
 reconocido como "Microsoft Excel 2007+"), contiene la fila de la venta real
@@ -311,7 +305,7 @@ en vivo antes ("Anónimo") y después ("QaSynthetic, Staging") del fix, mismo da
 - **Acceso estático directo**: `GET /uploads/documentos-clientes/{archivo real}` → **404**
   (heredado, reconfirmado sin cambios).
 
-### 6.5 SignalR — evento de negocio real observado, y BUG REAL encontrado y corregido (F9)
+### 6.5 SignalR — evento de negocio real observado, y BUG REAL encontrado y corregido (F7)
 
 Negotiate y conexión WebSocket ya estaban validados de sesiones previas. En esta pasada se buscó
 un evento de negocio real y **no se generó ninguno al abrir una caja**, pese a que
@@ -407,9 +401,6 @@ de los propios `__RequestVerificationToken` de los formularios (no son secretos)
 
 ## Fuera de alcance de esta sesión
 
-- Contrato/PDF de crédito y cuotas reales: no completado por falta de un plan global de cuotas
-  seedeado en el ambiente sintético nuevo (ver 6.2) — no es un bug de código, es un gap de
-  bootstrap de datos; no se tocó lógica de crédito para forzarlo.
 - Causa raíz de globalización/ICU detrás del símbolo `¤` (F4): confirmado el alcance, no
   investigada ni corregida la causa raíz — explícitamente fuera de alcance de esta tarea.
 - AutoMapper: sigue GO-LIVE BLOCKER EXTERNO de negocio/legal, no tocado.
