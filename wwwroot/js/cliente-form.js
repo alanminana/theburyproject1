@@ -161,8 +161,12 @@
         // El validador de unobtrusive puede no haberse creado todavía en este punto del arranque.
         if (jq.validator.unobtrusive && !jq(form).data('validator')) jq.validator.unobtrusive.parse(form);
         var validator = jq(form).data('validator');
-        // Solo se dejan fuera los <input type="hidden"> (Id, RowVersion, etc.), no las solapas.
-        if (validator) validator.settings.ignore = 'input[type="hidden"]';
+        // Fuera: los <input type="hidden"> (Id, RowVersion, etc.) y, en las solapas inactivas,
+        // todo lo que no sea [Required]. Los decimales llegan con coma (es-AR: Sueldo="5000000,00")
+        // y la regla "number" de jQuery los rechaza: validar eso en solapas ocultas bloqueaba
+        // guardar un cliente ya existente. La solapa activa se valida completa y el servidor
+        // sigue siendo la autoridad del resto.
+        if (validator) validator.settings.ignore = 'input[type="hidden"], .tab-panel:not(.is-active) :not([data-val-required])';
 
         jq(form).on('invalid-form.validate', function (event, v) {
             v.errorList.forEach(function (item) {

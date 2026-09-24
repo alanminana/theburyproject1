@@ -98,6 +98,62 @@
         if (box) box.classList.add('hidden');
     }
 
+    /* ── edición: validación entre solapas y cambios sin guardar ───
+     * Misma lógica que cliente-form.js en las páginas Create/Edit: jQuery
+     * Validation ignora los campos ocultos y las solapas inactivas lo están,
+     * así que un obligatorio vacío en otra solapa no se veía. Solo aplica a
+     * la edición; el wizard de alta valida por paso (initWizard). */
+    function marcarSolapa(panel) {
+        var tab = document.querySelector('#modal-cliente [data-cliente-tab="' + panel.id + '"]');
+        if (!tab || tab.classList.contains('has-error')) return;
+        tab.classList.add('has-error');
+        var aviso = document.createElement('span');
+        aviso.className = 'sr-only';
+        aviso.setAttribute('data-tab-error-hint', '');
+        aviso.textContent = ' (con errores)';
+        tab.appendChild(aviso);
+    }
+
+    function iniciarValidacionEntreSolapas(form) {
+        var jq = window.jQuery;
+        if (!jq || !jq.validator || !jq.validator.unobtrusive) return;
+        jq.validator.unobtrusive.parse(form);
+        var validator = jq(form).data('validator');
+        if (!validator) return;
+        patchValidatorAria(form);
+        // Solo [Required], igual que el wizard: los valores decimales llegan
+        // con coma (es-AR) y la regla "number" de jQuery los rechazaría
+        // (Sueldo, Monto máximo), bloqueando un guardado válido. El resto lo
+        // sigue validando el servidor.
+        validator.settings.ignore = 'input[type="hidden"], :not([data-val-required])';
+
+        jq(form).on('invalid-form.validate', function (event, v) {
+            clearErrors();
+            v.errorList.forEach(function (item) {
+                var panel = item.element.closest('.tab-panel');
+                if (panel) marcarSolapa(panel);
+            });
+            var primero = v.errorList.length ? v.errorList[0].element : null;
+            var panelPrimero = primero ? primero.closest('.tab-panel') : null;
+            if (panelPrimero) {
+                activateTab(panelPrimero.id.replace(/^t-/, ''));
+                primero.focus();
+            }
+        });
+    }
+
+    function isEditDirty() {
+        var form = document.getElementById('cliente-modal-form');
+        return !!form && form.getAttribute('data-cliente-wizard') !== 'create' && form.dataset.dirty === '1';
+    }
+
+    // Cerrar por Escape, fondo o Cancelar: en edición, con datos modificados y
+    // sin guardar, pide confirmación en vez de descartarlos en silencio.
+    function requestClose() {
+        if (isEditDirty() && !window.confirm('Hay cambios sin guardar. ¿Descartarlos y cerrar?')) return;
+        close();
+    }
+
     /* ── open / close ───────────────────────────────────────────── */
 
     function openModal() {
@@ -556,16 +612,16 @@
         var wizardReady = isWizardMode && !!(window.jQuery && jQuery.validator && jQuery.validator.unobtrusive);
 
         var cancelBtn = document.getElementById('modal-cliente-cancel');
-        if (cancelBtn) cancelBtn.addEventListener('click', close);
+        if (cancelBtn) cancelBtn.addEventListener('click', requestClose);
 
         var closeBtn = document.getElementById('modal-cliente-close');
-        if (closeBtn) closeBtn.addEventListener('click', close);
+        if (closeBtn) closeBtn.addEventListener('click', requestClose);
 
         var cancelBottomBtn = document.getElementById('modal-cliente-cancel-bottom');
-        if (cancelBottomBtn) cancelBottomBtn.addEventListener('click', close);
+        if (cancelBottomBtn) cancelBottomBtn.addEventListener('click', requestClose);
 
         var wizardCancelBtn = document.getElementById('cliente-wizard-cancel');
-        if (wizardCancelBtn) wizardCancelBtn.addEventListener('click', close);
+        if (wizardCancelBtn) wizardCancelBtn.addEventListener('click', requestClose);
 
         // updatePreview() es la vista previa genérica de edición (Apellido,
         // Nombre) — se preserva intacta para ese caso. El wizard de alta
@@ -594,6 +650,9 @@
         } else {
             // Edición (y cualquier fallback sin jQuery Validate disponible):
             // navegación libre entre tabs, como siempre.
+            form.addEventListener('input', function () { form.dataset.dirty = '1'; });
+            form.addEventListener('change', function () { form.dataset.dirty = '1'; });
+            if (!isWizardMode) iniciarValidacionEntreSolapas(form);
             document.querySelectorAll('#modal-cliente [data-cliente-tab]').forEach(function (tab) {
                 tab.addEventListener('click', function () {
                     activateTab(tab.getAttribute('data-cliente-tab').replace('t-', ''));
@@ -608,9 +667,18 @@
 
             if (isWizardMode && typeof form.wizardValidateAll === 'function') {
                 if (!form.wizardValidateAll()) return;
-            } else if (!validarMontos()) {
-                toggleSection('credito', true);
-                return;
+            } else {
+                if (!validarMontos()) {
+                    toggleSection('credito', true);
+                    return;
+                }
+                form.querySelectorAll('.tab.has-error').forEach(function (t) {
+                    t.classList.remove('has-error');
+                    var h = t.querySelector('[data-tab-error-hint]');
+                    if (h) h.remove();
+                });
+                var validator = window.jQuery && jQuery(form).data('validator');
+                if (validator && !jQuery(form).valid()) return;
             }
 
             submitForm(form, isWizardMode);
@@ -704,12 +772,12 @@
         });
 
         /* Backdrop click */
-        backdrop.addEventListener('click', close);
+        backdrop.addEventListener('click', requestClose);
 
         /* ESC key */
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
-                close();
+                requestClose();
             }
         });
 

@@ -1567,6 +1567,31 @@ a pedido explícito del usuario tras comparar capturas reales de Inventario/Clie
 y preferir la composición sin hero de Catálogo:
 
 - se retira el `<header class="hero-erp cliente-page-head">` (título `<h1>Gestión de
+**Corrección posterior (regresión propia, detectada al auditar el drawer)**: la validación entre
+solapas de `cliente-form.js` validaba también las reglas `number` en solapas ocultas y los decimales
+llegan con coma (es-AR: `Sueldo="5000000,00"`), así que guardar un cliente existente en `/Cliente/Edit/{id}`
+quedaba bloqueado ("The field Sueldo must be a number"). Ahora, en solapas inactivas solo se exigen los
+`[Required]` (la activa se valida completa; el servidor sigue siendo la autoridad). Nuevo
+`e2e/cliente-form-validacion.spec.js` (29 corridas): obligatorio de Contacto abre y marca la solapa sin
+enviar, Escape con/sin datos, y "editar un cliente existente sin cambios es válido en el navegador".
+
+### Cliente / Drawer de edición — auditoría `/ui-module` (2026-09-24)
+
+Drawer del botón "Editar" del listado (`_ClienteModal` + `_ClienteFormPartial`, `cliente-modal.js`); el
+wizard de alta no cambia. 4 capas, sin overflow ni errores de consola en 1440/1280/768/390/360:
+- **P1 (técnica/estados)**: el drawer de edición no corría jQuery Validation: con Teléfono vacío en otra
+  solapa el guardado iba al servidor y volvía como cartel arriba, sin solapa marcada, sin campo enfocado ni
+  error junto al campo. Ahora valida `[Required]` entre solapas, abre y marca la primera con error y enfoca
+  el campo (solo `[Required]`: mismo motivo de la coma decimal que arriba).
+- **P1 (flujo)**: Escape, clic en el fondo y Cancelar descartaban cambios sin avisar. En edición con cambios
+  sin guardar ahora piden confirmación ("Hay cambios sin guardar…"); sin cambios cierran directo.
+- Cambios: `cliente-modal.js` (solo edición; `requestClose`, flags de sucio con listeners solo en la rama de
+  edición) y `cliente-module.css` (punto de solapa con error también en `#cliente-modal-form`). Sin C#.
+- Sin resolver (P3 / requiere C#): errores de servidor de `EditAjax` llegan como lista sin campo ni solapa
+  (siguen en el cartel superior); el foco no se mueve al abrir/cerrar el drawer; doble "Cancelar"
+  (cabecera y pie); sin confirmación al cerrar el wizard de alta (para no arriesgar sus e2e).
+- QA: 503 tests `Cliente*` y `cliente-wizard-nuevo` verdes; sin guardar datos reales.
+
   Clientes</h1>` + subtítulo "Buscá y administrá tus clientes." + acciones) — el título ya
   lo muestra la barra superior global (`_Layout.cshtml`), y el subtítulo era descriptivo
   sin valor de decisión, redundante con el propio nombre de la pantalla;
