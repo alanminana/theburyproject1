@@ -1,6 +1,9 @@
-# Reverse proxy de produccion. Caddy termina TLS (certificados ACME + renovacion automatica) y redirige HTTP->HTTPS.
-# El sitio se llama como ERP_DOMAIN (variable de entorno; ver .env.example). Caddy pasa X-Forwarded-For/Proto/Host
-# y descarta las X-Forwarded-* que traiga el cliente. WebSocket (SignalR) se proxya sin configuracion extra.
+# Reverse proxy de produccion para instalacion PRIVADA (LAN/VPN). Caddy termina TLS con su CA INTERNA (`tls internal`):
+# no usa Let's Encrypt/ACME publico, no requiere DNS publico ni puertos 80/443 abiertos a Internet.
+# El sitio se llama como ERP_DOMAIN (hostname interno, p. ej. `tbp`; ver .env.example). Los clientes deben resolver ese nombre
+# (archivo hosts o DNS local) y confiar en la CA raiz de Caddy (docs/red-privada-lan-vpn.md).
+# Caddy pasa X-Forwarded-For/Proto/Host y descarta las X-Forwarded-* que traiga el cliente. WebSocket (SignalR) se proxya sin configuracion extra.
 {$ERP_DOMAIN} {
+	tls internal
 	reverse_proxy app:8080
 }

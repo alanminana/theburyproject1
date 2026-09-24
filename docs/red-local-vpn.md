@@ -32,16 +32,16 @@ elegida; no se autoriza port forwarding al ERP.
 |---|---|---|---|
 | SQL | 1433 TCP | Ninguna en producción; 1433 por defecto en overlay de desarrollo | 127.0.0.1 solo en desarrollo |
 | app / Kestrel | 8080 TCP | Ninguna en producción; 8080 por defecto en overlay de desarrollo | 127.0.0.1 solo en desarrollo |
-| Caddy | 80 TCP, 443 TCP/UDP | 80 TCP, 443 TCP/UDP | Sin IP explícita en los bindings |
+| Caddy | 443 TCP/UDP (80 ya no se publica) | 443 TCP/UDP | Sin IP explícita en los bindings |
 | Uptime Kuma, Compose separado | 3001 TCP | 3001 TCP | 127.0.0.1 |
 | Agente de monitoreo | Sin listener entrante | Ninguna | No corresponde |
 | Inicialización, migración y herramientas de backup/restore | Sin listener entrante | Ninguna | No corresponde |
 
 El Compose de producción usa la red bridge `bury-net`. La app confía en forwarded
 headers de la subred Docker configurada y loopback; esto no se modificó.
-El `Caddyfile` y la documentación previa todavía contemplan TLS/ACME y un dominio
-público. Se conservan por instrucción expresa: **no representan una decisión de
-publicar el ERP ni acreditan que la arquitectura privada ya esté implementada**.
+**Actualización 2026-09-24:** el `Caddyfile` usa `tls internal` (CA interna, sin ACME ni DNS público) y Compose
+solo publica 443. La preparación del despliegue privado está en `docs/red-privada-lan-vpn.md`; sigue pendiente la
+instalación real en el host definitivo.
 Los bindings sin IP explícita tampoco prueban accesibilidad desde Internet: faltan
 el host, el firewall y el router reales.
 

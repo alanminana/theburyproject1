@@ -150,7 +150,8 @@ services:
     networks:
       - bury-net
 
-  # Reverse proxy + TLS. Unico servicio publicado al host (80/443). Certificados y estado ACME persisten en caddy-data.
+  # Reverse proxy + TLS (CA interna de Caddy, `tls internal`). Unico servicio publicado al host: 443 TCP/UDP (sin 80: no hay ACME/HTTP-01).
+  # La CA raiz y los certificados persisten en caddy-data.
   caddy:
     cpus: ${CADDY_CPUS:-1.0}
     mem_limit: ${CADDY_MEMORY:-256m}
@@ -161,11 +162,10 @@ services:
       app:
         condition: service_healthy
     ports:
-      - "80:80"
       - "443:443"
       - "443:443/udp" # HTTP/3
     environment:
-      ERP_DOMAIN: ${ERP_DOMAIN:?Definir ERP_DOMAIN en .env (dominio publico real con DNS apuntando a este servidor)}
+      ERP_DOMAIN: ${ERP_DOMAIN:?Definir ERP_DOMAIN en .env (hostname interno con el que los clientes acceden, p. ej. tbp; ver docs/red-privada-lan-vpn.md)}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
