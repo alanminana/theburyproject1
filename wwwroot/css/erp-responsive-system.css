@@ -27,8 +27,8 @@
    puedan especializar sobre esta base.
 
    Tokens de color alineados con shared-components.css / layout.css:
-     surface-low #161c28 · panel #111827 · border #1e293b / #334155
-     primary #f5c518 (oro ML) · text #dde2f4 · muted #94a3b8 · muted-2 #64748b
+     surface-low var(--pal-neutral-875) · panel var(--pal-neutral-925) · border var(--pal-neutral-800) / var(--pal-neutral-700)
+     primary var(--pal-accent) (oro ML) · text var(--pal-neutral-200) · muted var(--pal-neutral-450) · muted-2 var(--pal-neutral-500)
    ══════════════════════════════════════════════════════════════ */
 
 :root {
@@ -80,7 +80,7 @@
 
 .erp-page-title {
     margin: 0;
-    color: #fff;
+    color: var(--pal-white);
     font-size: clamp(1.35rem, 2vw, 1.75rem);
     font-weight: 700;
     letter-spacing: -0.02em;
@@ -90,7 +90,7 @@
 .erp-page-subtitle {
     margin: 0.35rem 0 0;
     max-width: 64ch;
-    color: var(--erp-fg-2, #b9c3d3);
+    color: var(--erp-fg-2, var(--pal-neutral-350));
     font-size: 0.875rem;
     line-height: 1.5;
 }
@@ -164,8 +164,8 @@
 
 .erp-kpi-card {
     border-radius: 0.875rem;
-    border: 1px solid #1e293b;
-    background-color: #161c28;
+    border: 1px solid var(--pal-neutral-800);
+    background-color: var(--pal-neutral-875);
     padding: 1rem;
     text-align: center;
 }
@@ -193,7 +193,7 @@
     width: 100%;
     border-collapse: collapse;
     font-size: 0.875rem;
-    color: #dde2f4;
+    color: var(--pal-neutral-200);
 }
 
 .erp-table-actions {
@@ -218,8 +218,8 @@
 
 .erp-mobile-card {
     border-radius: 0.875rem;
-    border: 1px solid #1e293b;
-    background-color: #161c28;
+    border: 1px solid var(--pal-neutral-800);
+    background-color: var(--pal-neutral-875);
     padding: 1rem;
 }
 
@@ -235,7 +235,7 @@
     gap: 0.75rem;
     padding: 3rem 1.5rem;
     text-align: center;
-    color: var(--erp-fg-3, #a6b1c3);
+    color: var(--erp-fg-3, var(--pal-neutral-400));
 }
 
 .erp-empty-state .material-symbols-outlined {
@@ -244,14 +244,14 @@
 }
 
 .erp-empty-state__title {
-    color: #cbd5e1;
+    color: var(--pal-neutral-300);
     font-size: 0.95rem;
     font-weight: 600;
 }
 
 .erp-empty-state__text {
     max-width: 42ch;
-    color: var(--erp-fg-3, #a6b1c3);
+    color: var(--erp-fg-3, var(--pal-neutral-400));
     font-size: 0.85rem;
     line-height: 1.5;
 }
@@ -270,7 +270,7 @@
     align-items: center;
     justify-content: center;
     padding: 1rem;
-    background-color: rgba(2, 6, 16, 0.7);
+    background-color: color-mix(in srgb, var(--pal-neutral-950) 70%, transparent);
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
 }
@@ -283,9 +283,9 @@
     max-height: min(92vh, calc(100vh - 2rem));
     overflow: hidden;
     border-radius: 1rem;
-    border: 1px solid #1e293b;
-    background-color: #111827;
-    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--pal-neutral-800);
+    background-color: var(--pal-neutral-925);
+    box-shadow: 0 24px 60px color-mix(in srgb, var(--pal-black) 50%, transparent);
 }
 
 .erp-modal-header {
@@ -294,7 +294,7 @@
     justify-content: space-between;
     gap: 1rem;
     padding: 1.25rem 1.5rem;
-    border-bottom: 1px solid #1e293b;
+    border-bottom: 1px solid var(--pal-neutral-800);
 }
 
 .erp-modal-body {
@@ -310,8 +310,8 @@
     justify-content: flex-end;
     gap: 0.75rem;
     padding: 1rem 1.5rem;
-    border-top: 1px solid #1e293b;
-    background-color: #0f172a;
+    border-top: 1px solid var(--pal-neutral-800);
+    background-color: var(--pal-neutral-925);
 }
 
 /* En mobile las acciones del footer se apilan a ancho completo */

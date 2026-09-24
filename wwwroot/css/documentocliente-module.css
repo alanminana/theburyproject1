@@ -11,21 +11,21 @@
    ───────────────────────────────────────────────────────────── */
 
 :root {
-    --doc-bg: #0b1220;
-    --doc-card: #111827;
-    --doc-card-2: #0f172a;
-    --doc-line: #1f2937;
-    --doc-line-2: #334155;
-    --doc-text: #e2e8f0;
-    --doc-muted: var(--erp-fg-2, #b9c3d3);
-    --doc-muted-2: var(--erp-fg-3, #a6b1c3);
-    --doc-primary: #f5c518;
-    --doc-primary-soft: rgba(245, 197, 24, 0.14);
+    --doc-bg: var(--pal-neutral-925);
+    --doc-card: var(--pal-neutral-925);
+    --doc-card-2: var(--pal-neutral-925);
+    --doc-line: var(--pal-neutral-800);
+    --doc-line-2: var(--pal-neutral-700);
+    --doc-text: var(--pal-neutral-200);
+    --doc-muted: var(--erp-fg-2, var(--pal-neutral-350));
+    --doc-muted-2: var(--erp-fg-3, var(--pal-neutral-400));
+    --doc-primary: var(--pal-accent);
+    --doc-primary-soft: color-mix(in srgb, var(--pal-accent) 14%, transparent);
     --doc-radius: 0.875rem;
     --doc-table-min-flat: 69rem;
     --doc-table-min-grouped: 76rem;
     --doc-table-min-modal: 58rem;
-    --doc-focus: #f5c518;
+    --doc-focus: var(--pal-accent);
 }
 
 /* Base safety */
@@ -134,7 +134,7 @@
     overflow-x: auto;
     overflow-y: hidden;
     scrollbar-width: thin;
-    scrollbar-color: #475569 rgba(15, 23, 42, 0.35);
+    scrollbar-color: var(--pal-neutral-600) color-mix(in srgb, var(--pal-neutral-925) 35%, transparent);
     scroll-behavior: smooth;
 }
 
@@ -143,17 +143,17 @@
 }
 
 .documento-page [data-oc-scroll-region]::-webkit-scrollbar-track {
-    background: rgba(15, 23, 42, 0.35);
+    background: color-mix(in srgb, var(--pal-neutral-925) 35%, transparent);
     border-radius: 999px;
 }
 
 .documento-page [data-oc-scroll-region]::-webkit-scrollbar-thumb {
-    background: #475569;
+    background: var(--pal-neutral-600);
     border-radius: 999px;
 }
 
 .documento-page [data-oc-scroll-region]::-webkit-scrollbar-thumb:hover {
-    background: #64748b;
+    background: var(--pal-neutral-500);
 }
 
 .documento-page [data-oc-scroll-fade][hidden],
@@ -172,12 +172,12 @@
 
 .documento-page [data-oc-scroll-fade="left"] {
     left: 0;
-    background: linear-gradient(to right, rgba(17, 24, 39, 0.96), transparent);
+    background: linear-gradient(to right, color-mix(in srgb, var(--pal-neutral-925) 96%, transparent), transparent);
 }
 
 .documento-page [data-oc-scroll-fade="right"] {
     right: 0;
-    background: linear-gradient(to left, rgba(17, 24, 39, 0.96), transparent);
+    background: linear-gradient(to left, color-mix(in srgb, var(--pal-neutral-925) 96%, transparent), transparent);
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -206,7 +206,7 @@
     position: sticky;
     top: 0;
     z-index: 1;
-    background: rgba(30, 41, 59, 0.96);
+    background: color-mix(in srgb, var(--pal-neutral-800) 96%, transparent);
 }
 
 .documento-responsive-table--grouped {
@@ -466,7 +466,7 @@
         overflow: hidden;
         border: 1px solid var(--doc-line);
         border-radius: 0.875rem;
-        background: rgba(15, 23, 42, 0.42);
+        background: color-mix(in srgb, var(--pal-neutral-925) 42%, transparent);
     }
 
     .documento-responsive-table--cards tr:last-child {
@@ -480,7 +480,7 @@
         gap: 0.75rem;
         padding: 0.75rem 1rem !important;
         border: 0;
-        border-bottom: 1px solid rgba(31, 41, 55, 0.85);
+        border-bottom: 1px solid color-mix(in srgb, var(--pal-neutral-800) 85%, transparent);
         text-align: left !important;
     }
 

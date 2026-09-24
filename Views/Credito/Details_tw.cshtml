@@ -203,7 +203,7 @@
                 <section class="card" style="overflow:hidden">
                     <div class="card-pad" style="padding-bottom:.75rem">
                         <div class="flex items-center justify-between gap-3">
-                            <h2 class="font-semibold text-white flex items-center gap-2"><span class="material-symbols-outlined" style="color:#f5c518;font-size:20px">calendar_month</span>Plan de cuotas</h2>
+                            <h2 class="font-semibold text-white flex items-center gap-2"><span class="material-symbols-outlined" style="color:var(--pal-accent);font-size:20px">calendar_month</span>Plan de cuotas</h2>
                             <div class="scroll-hint hide-mobile"><span class="material-symbols-outlined" style="font-size:15px">swipe</span>Deslizá</div>
                         </div>
                     </div>
@@ -245,7 +245,7 @@
                                                     </td>
                                                     <td class="num" style="text-align:right">$ @cuota.MontoCapital.ToString("N2")</td>
                                                     <td class="num" style="text-align:right">$ @cuota.MontoInteres.ToString("N2")</td>
-                                                    <td class="num" style="text-align:right;font-weight:600;color:#fff">$ @cuota.MontoTotal.ToString("N2")</td>
+                                                    <td class="num" style="text-align:right;font-weight:600;color:var(--pal-white)">$ @cuota.MontoTotal.ToString("N2")</td>
                                                     <td>
                                                         <button type="button"
                                                                 class="btn btn-ghost btn-sm punitorio-toggle"
@@ -259,7 +259,7 @@
                                                             <span class="material-symbols-outlined punitorio-toggle__chevron" data-punitorio-chevron aria-hidden="true">expand_more</span>
                                                         </button>
                                                     </td>
-                                                    <td class="num @(cuota.MontoPagado > 0 ? "" : "dash")" style="text-align:right;@(cuota.MontoPagado > 0 ? "color:#34d399" : "")">
+                                                    <td class="num @(cuota.MontoPagado > 0 ? "" : "dash")" style="text-align:right;@(cuota.MontoPagado > 0 ? "color:var(--pal-success-400)" : "")">
                                                         @(cuota.MontoPagado > 0 ? $"$ {cuota.MontoPagado:N2}" : "—")
                                                         @if (cuota.FechaPago.HasValue)
                                                         {
@@ -271,7 +271,7 @@
                                                         }
                                                         @if (cuota.RecargoMedioPago != 0)
                                                         {
-                                                            <span class="block text-xs" style="color:#fbbf24;font-weight:400">@(cuota.RecargoMedioPago > 0 ? "+ recargo" : "− desc.") $ @Math.Abs(cuota.RecargoMedioPago).ToString("N2")</span>
+                                                            <span class="block text-xs" style="color:var(--pal-warning-400);font-weight:400">@(cuota.RecargoMedioPago > 0 ? "+ recargo" : "− desc.") $ @Math.Abs(cuota.RecargoMedioPago).ToString("N2")</span>
                                                         }
                                                     </td>
                                                     <td><span class="chip @CuotaChip(cuota.Estado, estaVencida)">@(estaVencida && cuota.Estado == EstadoCuota.Pendiente ? "Vencida" : cuota.EstadoTexto)</span></td>
@@ -289,7 +289,7 @@
                                             }
                                         </tbody>
                                         <tfoot>
-                                            <tr style="background:rgba(15,23,42,.5)">
+                                            <tr style="background:color-mix(in srgb, var(--pal-neutral-925) 50%, transparent)">
                                                 <td colspan="9" style="padding:.7rem 1rem;color:var(--muted)">
                                                     Abrí el detalle de cada cuota para consultar el cálculo al día, el importe aplicado pendiente y su historial.
                                                 </td>
@@ -326,7 +326,7 @@
 
             <aside class="space-y-4">
                 <div class="card card-pad">
-                    <h3 class="font-semibold text-white mb-3 flex items-center gap-2"><span class="material-symbols-outlined" style="color:var(--erp-fg-2, #b9c3d3);font-size:20px">person</span>Cliente</h3>
+                    <h3 class="font-semibold text-white mb-3 flex items-center gap-2"><span class="material-symbols-outlined" style="color:var(--erp-fg-2, var(--pal-neutral-350));font-size:20px">person</span>Cliente</h3>
                     <div class="flex items-center gap-3">
                         <div class="avatar avatar-lg">@Iniciales(cliente.NombreCompleto)</div>
                         <div class="min-w-0">
@@ -358,7 +358,7 @@
                 </div>
 
                 <div class="card card-pad">
-                    <h3 class="font-semibold text-white mb-3 flex items-center gap-2"><span class="material-symbols-outlined" style="color:#f5c518;font-size:20px">savings</span>Resumen financiero</h3>
+                    <h3 class="font-semibold text-white mb-3 flex items-center gap-2"><span class="material-symbols-outlined" style="color:var(--pal-accent);font-size:20px">savings</span>Resumen financiero</h3>
                     <div class="result-card" style="padding:.85rem 1rem">
                         <div class="result-label">Total a cobrar (capital + interés)</div>
                         <div class="result-value" style="font-size:1.5rem">$ @cr.TotalAPagar.ToString("N2")</div>
@@ -386,7 +386,7 @@
                 @if (cr.FuenteRestriccionCuotasSnap != null || cr.CuotasMaximasPermitidas.HasValue || cr.MaxCuotasBaseSnap.HasValue)
                 {
                     <div class="card card-pad" data-credito-restriccion-cuotas>
-                        <h3 class="font-semibold text-white mb-3 flex items-center gap-2"><span class="material-symbols-outlined" style="color:#f5c518;font-size:20px">rule</span>Restricción de cuotas</h3>
+                        <h3 class="font-semibold text-white mb-3 flex items-center gap-2"><span class="material-symbols-outlined" style="color:var(--pal-accent);font-size:20px">rule</span>Restricción de cuotas</h3>
                         <div class="doc-row">
                             <div class="doc-ic"><span class="material-symbols-outlined">@(esRestriccionProducto ? "inventory_2" : "settings")</span></div>
                             <div class="flex-1 min-w-0">
@@ -428,7 +428,7 @@
                 @if (contratoVentaCredito != null)
                 {
                     <div class="card card-pad">
-                        <h3 class="font-semibold text-white mb-3 flex items-center gap-2"><span class="material-symbols-outlined" style="color:var(--erp-fg-2, #b9c3d3);font-size:20px">receipt_long</span>Venta asociada</h3>
+                        <h3 class="font-semibold text-white mb-3 flex items-center gap-2"><span class="material-symbols-outlined" style="color:var(--erp-fg-2, var(--pal-neutral-350));font-size:20px">receipt_long</span>Venta asociada</h3>
                         <div class="doc-row">
                             <div class="doc-ic"><span class="material-symbols-outlined">contract</span></div>
                             <div class="flex-1 min-w-0">
@@ -447,7 +447,7 @@
                 @if (Model.Garante != null)
                 {
                     <div class="card card-pad">
-                        <h3 class="font-semibold text-white mb-3 flex items-center gap-2"><span class="material-symbols-outlined" style="color:var(--erp-fg-2, #b9c3d3);font-size:20px">shield_person</span>Garante</h3>
+                        <h3 class="font-semibold text-white mb-3 flex items-center gap-2"><span class="material-symbols-outlined" style="color:var(--erp-fg-2, var(--pal-neutral-350));font-size:20px">shield_person</span>Garante</h3>
                         <div class="flex items-center gap-3">
                             <div class="avatar avatar--slate">@Iniciales(Model.Garante.NombreCompleto)</div>
                             <div class="min-w-0">
@@ -461,7 +461,7 @@
                 @if (Model.CupoGlobalConError || Model.CupoGlobalDisponible.HasValue)
                 {
                     <div class="card card-pad">
-                        <h3 class="font-semibold text-white mb-3 flex items-center gap-2"><span class="material-symbols-outlined" style="color:#f5c518;font-size:20px">account_balance_wallet</span>Cupo global</h3>
+                        <h3 class="font-semibold text-white mb-3 flex items-center gap-2"><span class="material-symbols-outlined" style="color:var(--pal-accent);font-size:20px">account_balance_wallet</span>Cupo global</h3>
                         @if (Model.CupoGlobalConError)
                         {
                             <div class="alert alert-warn"><span class="material-symbols-outlined">warning</span><span>@(Model.CupoGlobalMensajeError ?? "No se pudo calcular el cupo")</span></div>
@@ -482,10 +482,10 @@
 
                 @if (puedeCancelar)
                 {
-                    <div class="card card-pad" style="border-color:rgba(244,63,94,.25)">
+                    <div class="card card-pad" style="border-color:color-mix(in srgb, var(--pal-danger-500) 25%, transparent)">
                         <h3 class="font-semibold text-white mb-1">Zona sensible</h3>
                         <p class="text-sm muted mb-3">Cancelar el crédito anula las cuotas pendientes. Esta acción queda registrada en el historial.</p>
-                        <button type="button" id="btn-cancelar" class="btn btn-ghost btn-sm btn-block" style="color:#fb7185;border-color:rgba(244,63,94,.3)" data-credito-modal-action="open" data-credito-modal-target="cancelar"><span class="material-symbols-outlined">cancel</span>Cancelar crédito</button>
+                        <button type="button" id="btn-cancelar" class="btn btn-ghost btn-sm btn-block" style="color:var(--pal-danger-400);border-color:color-mix(in srgb, var(--pal-danger-500) 30%, transparent)" data-credito-modal-action="open" data-credito-modal-target="cancelar"><span class="material-symbols-outlined">cancel</span>Cancelar crédito</button>
                     </div>
                 }
             </aside>
@@ -497,7 +497,7 @@
     <div class="modal">
         <div class="modal-card card card-pad" style="max-width:460px">
             <div class="flex items-start gap-3">
-                <div class="w-10 h-10 rounded-lg grid place-items-center shrink-0" style="background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.3)"><span class="material-symbols-outlined" style="color:#34d399">check_circle</span></div>
+                <div class="w-10 h-10 rounded-lg grid place-items-center shrink-0" style="background:color-mix(in srgb, var(--pal-success-500) 12%, transparent);border:1px solid color-mix(in srgb, var(--pal-success-500) 30%, transparent)"><span class="material-symbols-outlined" style="color:var(--pal-success-400)">check_circle</span></div>
                 <div class="flex-1"><h3 id="modal-aprobar-title" class="font-semibold text-white">Aprobar crédito</h3><p class="text-sm muted mt-0.5">Se generará el plan de cuotas y el crédito pasará a estado activo.</p></div>
                 <button type="button" class="btn btn-ghost btn-sm" data-credito-modal-action="close" aria-label="Cerrar"><span class="material-symbols-outlined">close</span></button>
             </div>
@@ -521,7 +521,7 @@
     <div class="modal">
         <div class="modal-card card card-pad" style="max-width:460px">
             <div class="flex items-start gap-3">
-                <div class="w-10 h-10 rounded-lg grid place-items-center shrink-0" style="background:rgba(244,63,94,.12);border:1px solid rgba(244,63,94,.3)"><span class="material-symbols-outlined" style="color:#fb7185">block</span></div>
+                <div class="w-10 h-10 rounded-lg grid place-items-center shrink-0" style="background:color-mix(in srgb, var(--pal-danger-500) 12%, transparent);border:1px solid color-mix(in srgb, var(--pal-danger-500) 30%, transparent)"><span class="material-symbols-outlined" style="color:var(--pal-danger-400)">block</span></div>
                 <div class="flex-1"><h3 id="modal-rechazar-title" class="font-semibold text-white">Rechazar crédito</h3><p class="text-sm muted mt-0.5">El crédito quedará marcado como rechazado. Indicá el motivo.</p></div>
                 <button type="button" class="btn btn-ghost btn-sm" data-credito-modal-action="close" aria-label="Cerrar"><span class="material-symbols-outlined">close</span></button>
             </div>
@@ -547,7 +547,7 @@
     <div class="modal">
         <div class="modal-card card card-pad" style="max-width:460px">
             <div class="flex items-start gap-3">
-                <div class="w-10 h-10 rounded-lg grid place-items-center shrink-0" style="background:rgba(244,63,94,.12);border:1px solid rgba(244,63,94,.3)"><span class="material-symbols-outlined" style="color:#fb7185">cancel</span></div>
+                <div class="w-10 h-10 rounded-lg grid place-items-center shrink-0" style="background:color-mix(in srgb, var(--pal-danger-500) 12%, transparent);border:1px solid color-mix(in srgb, var(--pal-danger-500) 30%, transparent)"><span class="material-symbols-outlined" style="color:var(--pal-danger-400)">cancel</span></div>
                 <div class="flex-1"><h3 id="modal-cancelar-title" class="font-semibold text-white">Cancelar crédito @creditoNumero</h3><p class="text-sm muted mt-0.5">Se anularán las cuotas pendientes. El historial se conserva.</p></div>
                 <button type="button" class="btn btn-ghost btn-sm" data-credito-modal-action="close" aria-label="Cerrar"><span class="material-symbols-outlined">close</span></button>
             </div>

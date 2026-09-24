@@ -10,6 +10,7 @@
 }
 
 @section Styles {
+    <link rel="stylesheet" href="~/css/palette.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/standalone-tokens.css" asp-append-version="true" />
 }
 
@@ -19,9 +20,9 @@
     <!-- Background glows -->
     <div class="absolute inset-0 overflow-hidden pointer-events-none">
         <div class="absolute -top-[20%] -right-[10%] w-[600px] h-[600px] rounded-full blur-[120px]"
-             style="background-color: rgba(180,197,255,0.04);"></div>
+             style="background-color: color-mix(in srgb, var(--pal-info-200) 4%, transparent);"></div>
         <div class="absolute -bottom-[20%] -left-[10%] w-[500px] h-[500px] rounded-full blur-[100px]"
-             style="background-color: rgba(47,67,128,0.08);"></div>
+             style="background-color: color-mix(in srgb, var(--pal-neutral-600) 8%, transparent);"></div>
     </div>
 
     <!-- Error card -->
@@ -30,8 +31,8 @@
         <!-- Security icon with glow -->
         <div class="mb-8 inline-flex items-center justify-center w-32 h-32 rounded-full"
              style="background-color: var(--c-surface-high);
-                    border: 1px solid rgba(180,197,255,0.15);
-                    box-shadow: 0 0 40px -10px rgba(19,91,236,0.5);">
+                    border: 1px solid color-mix(in srgb, var(--pal-info-200) 15%, transparent);
+                    box-shadow: 0 0 40px -10px color-mix(in srgb, var(--pal-info-600) 50%, transparent);">
             <span class="material-symbols-outlined text-6xl"
                   style="color: var(--c-primary-light); font-variation-settings: 'FILL' 1;">security</span>
         </div>
@@ -54,9 +55,9 @@
                class="px-8 py-4 font-bold rounded-xl text-sm transition-all no-underline hover:brightness-110 active:scale-[0.98]"
                style="background-color: var(--c-primary-container);
                       color: var(--c-on-primary);
-                      box-shadow: 0 0 20px rgba(19,91,236,0);"
-               onmouseover="this.style.boxShadow='0 0 20px rgba(19,91,236,0.4)'"
-               onmouseout="this.style.boxShadow='0 0 20px rgba(19,91,236,0)'">
+                      box-shadow: 0 0 20px color-mix(in srgb, var(--pal-info-600) 0%, transparent);"
+               onmouseover="this.style.boxShadow='0 0 20px color-mix(in srgb, var(--pal-info-600) 40%, transparent)'"
+               onmouseout="this.style.boxShadow='0 0 20px color-mix(in srgb, var(--pal-info-600) 0%, transparent)'">
                 Volver al Dashboard
             </a>
             <a href="javascript:history.back()"
@@ -69,16 +70,16 @@
 
         <!-- Status info panel -->
         <div class="mt-16 pt-8 grid grid-cols-2 gap-8"
-             style="border-top: 1px solid rgba(67,70,85,0.15);">
+             style="border-top: 1px solid color-mix(in srgb, var(--pal-neutral-650) 15%, transparent);">
             <div class="text-left">
                 <span class="block text-[10px] uppercase tracking-widest font-bold mb-1"
-                      style="color: rgba(195,197,216,0.45);">ID de Sesión</span>
-                <code class="text-xs font-mono" style="color: rgba(180,197,255,0.6);">@sessionId</code>
+                      style="color: color-mix(in srgb, var(--pal-neutral-350) 45%, transparent);">ID de Sesión</span>
+                <code class="text-xs font-mono" style="color: color-mix(in srgb, var(--pal-info-200) 60%, transparent);">@sessionId</code>
             </div>
             <div class="text-right">
                 <span class="block text-[10px] uppercase tracking-widest font-bold mb-1"
-                      style="color: rgba(195,197,216,0.45);">Timestamp</span>
-                <code class="text-xs font-mono" style="color: rgba(180,197,255,0.6);">@timestamp</code>
+                      style="color: color-mix(in srgb, var(--pal-neutral-350) 45%, transparent);">Timestamp</span>
+                <code class="text-xs font-mono" style="color: color-mix(in srgb, var(--pal-info-200) 60%, transparent);">@timestamp</code>
             </div>
         </div>
     </div>

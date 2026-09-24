@@ -10,22 +10,22 @@
 .catalogo-input {
     width: 100%;
     padding: 0.5rem 0.75rem;
-    background-color: #161c28;
-    border: 1px solid #1e293b;
+    background-color: var(--pal-neutral-875);
+    border: 1px solid var(--pal-neutral-800);
     border-radius: 0.5rem;
     font-size: 0.875rem;
-    color: #dde2f4;
+    color: var(--pal-neutral-200);
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .catalogo-input::placeholder {
-    color: var(--erp-fg-2, #b9c3d3);
+    color: var(--erp-fg-2, var(--pal-neutral-350));
 }
 
 .catalogo-input:focus {
     outline: none;
-    border-color: #f5c518;
-    box-shadow: 0 0 0 3px rgba(245, 197, 24, 0.18);
+    border-color: var(--pal-accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--pal-accent) 18%, transparent);
 }
 
 select.catalogo-input {
@@ -39,8 +39,8 @@ select.catalogo-input {
 }
 
 select.catalogo-input option {
-    background-color: #161c28;
-    color: #dde2f4;
+    background-color: var(--pal-neutral-875);
+    color: var(--pal-neutral-200);
 }
 
 /* Modal de condiciones de pago por producto */
@@ -63,19 +63,19 @@ select.catalogo-input option {
 
 /* Botón Movimientos — operacional, no destructivo */
 #btn-movimientos-inventario {
-    border-color: rgba(245, 197, 24, 0.35);
-    background-color: rgba(245, 197, 24, 0.08);
-    color: #f5c518;
+    border-color: color-mix(in srgb, var(--pal-accent) 35%, transparent);
+    background-color: color-mix(in srgb, var(--pal-accent) 8%, transparent);
+    color: var(--pal-accent);
 }
 
 #btn-movimientos-inventario:hover {
-    border-color: rgba(245, 197, 24, 0.55);
-    background-color: rgba(245, 197, 24, 0.14);
-    color: #f5d97a;
+    border-color: color-mix(in srgb, var(--pal-accent) 55%, transparent);
+    background-color: color-mix(in srgb, var(--pal-accent) 14%, transparent);
+    color: var(--pal-accent-300);
 }
 
 #btn-movimientos-inventario:focus-visible {
-    outline: 2px solid #f5c518;
+    outline: 2px solid var(--pal-accent);
     outline-offset: 2px;
 }
 
@@ -145,9 +145,9 @@ select.catalogo-input option {
    control, borde punteado en vez de sólido, valor con más peso tipográfico.
    No se aplica a alturas/padding-block de ningún input real (§18). */
 .catalogo-valor-calculado {
-    border: 1px dashed rgba(148, 163, 184, 0.3);
+    border: 1px dashed color-mix(in srgb, var(--pal-neutral-450) 30%, transparent);
     border-radius: 0.5rem;
-    background-color: rgba(148, 163, 184, 0.06);
+    background-color: color-mix(in srgb, var(--pal-neutral-450) 6%, transparent);
 }
 
 .catalogo-valor-calculado input {
@@ -179,7 +179,7 @@ select.catalogo-input option {
     right: 0;
     bottom: 0;
     width: 2.5rem;
-    background: linear-gradient(to right, transparent, #161c28);
+    background: linear-gradient(to right, transparent, var(--pal-neutral-875));
     pointer-events: none;
     z-index: 2;
     opacity: 0;

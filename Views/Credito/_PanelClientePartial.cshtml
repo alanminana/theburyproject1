@@ -48,11 +48,11 @@
            EstadoCuotaResolver.EstaEnMoraCapitalDerivado. *@
         <div class="minimetric">
             <div class="mm-label">Mora de capital</div>
-            <div class="mm-value num" style="@(Model.MontoMoraCapital > 0 ? "color:#fb7185" : "")">@Model.MontoMoraCapital.ToString("C0")</div>
+            <div class="mm-value num" style="@(Model.MontoMoraCapital > 0 ? "color:var(--pal-danger-400)" : "")">@Model.MontoMoraCapital.ToString("C0")</div>
         </div>
         <div class="minimetric">
             <div class="mm-label">Cuotas venc.</div>
-            <div class="mm-value num" style="@(Model.CuotasVencidas > 0 ? "color:#fb7185" : "")">@Model.CuotasVencidas</div>
+            <div class="mm-value num" style="@(Model.CuotasVencidas > 0 ? "color:var(--pal-danger-400)" : "")">@Model.CuotasVencidas</div>
         </div>
     </div>
 
@@ -129,7 +129,7 @@
                         <span class="pl">@cuotasPagas/@cantidadCuotasCredito</span>
                     </div>
                     <div class="credit-panel-amount">
-                        <div class="num" style="font-weight:600;color:#fff">@credito.SaldoPendiente.ToString("C0")</div>
+                        <div class="num" style="font-weight:600;color:var(--pal-white)">@credito.SaldoPendiente.ToString("C0")</div>
                         <div class="text-xs muted-2">saldo</div>
                     </div>
                     <span class="sr-only" data-credito-credit-toggle-label>Ver cuotas</span>

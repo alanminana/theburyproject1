@@ -107,7 +107,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (impactIconEl) {
             impactIconEl.textContent = esEgreso ? 'trending_down' : 'trending_up';
-            impactIconEl.style.color = esEgreso ? '#fb7185' : '#34d399';
+            impactIconEl.style.color = esEgreso ? 'var(--pal-danger-400)' : 'var(--pal-success-400)';
         }
 
         if (submitBtnEl) {
@@ -146,7 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const nuevoTotal = base + delta;
 
         impactDeltaEl.textContent = `${delta < 0 ? '-' : '+'} ${formatCurrency(Math.abs(delta))}`;
-        impactDeltaEl.style.color = esEgreso ? '#fb7185' : '#34d399';
+        impactDeltaEl.style.color = esEgreso ? 'var(--pal-danger-400)' : 'var(--pal-success-400)';
         impactTotalEl.textContent = formatCurrency(nuevoTotal);
     }
 

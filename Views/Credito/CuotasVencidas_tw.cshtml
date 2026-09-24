@@ -143,7 +143,7 @@
                                         ? "Cliente sin nombre"
                                         : cuota.ClienteNombre;
 
-                                    <tr style="@(esCritica ? "background:rgba(244,63,94,.05)" : null)">
+                                    <tr style="@(esCritica ? "background:color-mix(in srgb, var(--pal-danger-500) 5%, transparent)" : null)">
                                         <td>
                                             <span class="dias-badge @(esCritica ? "bad" : "warn")">
                                                 @cuota.DiasAtraso
@@ -169,8 +169,8 @@
                                         </td>
                                         <td>@cuota.FechaVencimiento.ToString("dd/MM/yyyy")</td>
                                         <td class="num" style="text-align:right">@montoBase.ToString("C0")</td>
-                                        <td class="num" style="text-align:right;color:#fbbf24">@(cuota.MontoPunitorio > 0 ? cuota.MontoPunitorio.ToString("C0") : "—")</td>
-                                        <td class="num" style="text-align:right;font-weight:600;color:#fff">@cuota.SaldoPendiente.ToString("C0")</td>
+                                        <td class="num" style="text-align:right;color:var(--pal-warning-400)">@(cuota.MontoPunitorio > 0 ? cuota.MontoPunitorio.ToString("C0") : "—")</td>
+                                        <td class="num" style="text-align:right;font-weight:600;color:var(--pal-white)">@cuota.SaldoPendiente.ToString("C0")</td>
                                         <td style="text-align:right">
                                             @if (puedePagarCuota)
                                             {
@@ -186,11 +186,11 @@
                                 }
                             </tbody>
                             <tfoot>
-                                <tr style="background:rgba(15,23,42,.5)">
+                                <tr style="background:color-mix(in srgb, var(--pal-neutral-925) 50%, transparent)">
                                     <td colspan="5" style="padding:.75rem 1rem;font-weight:600;color:var(--muted)">Total en mora (@total cuota@(total == 1 ? "" : "s"))</td>
-                                    <td class="num" style="text-align:right;padding:.75rem 1rem;color:#fff">@montoBaseTotal.ToString("C0")</td>
-                                    <td class="num" style="text-align:right;color:#fbbf24">@punitoriosTotal.ToString("C0")</td>
-                                    <td class="num" style="text-align:right;font-weight:700;color:#fb7185">@montoPendienteTotal.ToString("C0")</td>
+                                    <td class="num" style="text-align:right;padding:.75rem 1rem;color:var(--pal-white)">@montoBaseTotal.ToString("C0")</td>
+                                    <td class="num" style="text-align:right;color:var(--pal-warning-400)">@punitoriosTotal.ToString("C0")</td>
+                                    <td class="num" style="text-align:right;font-weight:700;color:var(--pal-danger-400)">@montoPendienteTotal.ToString("C0")</td>
                                     <td></td>
                                 </tr>
                             </tfoot>

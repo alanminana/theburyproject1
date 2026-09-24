@@ -102,9 +102,9 @@
             --pay-muted: var(--erp-text-muted);
             --pay-dim: var(--erp-text-faint);
             --pay-accent: var(--erp-primary);
-            --pay-ok: #34d399;
-            --pay-warn: #fbbf24;
-            --pay-danger: #f87171;
+            --pay-ok: var(--pal-success-400);
+            --pay-warn: var(--pal-warning-400);
+            --pay-danger: var(--pal-danger-400);
             min-height: calc(100dvh - 5rem);
             padding: 1.25rem;
             background: var(--pay-bg);
@@ -134,7 +134,7 @@
             align-items: start;
             padding: 1.25rem;
             border-bottom: 1px solid var(--pay-line);
-            background: linear-gradient(180deg, rgba(15, 23, 42, .98), rgba(17, 24, 39, .98));
+            background: linear-gradient(180deg, color-mix(in srgb, var(--pal-neutral-925) 98%, transparent), color-mix(in srgb, var(--pal-neutral-925) 98%, transparent));
         }
 
         .payments-title {
@@ -228,9 +228,9 @@
 
         .payments-rule {
             margin: 1rem 1.25rem 0;
-            border: 1px solid rgba(245, 197, 24, .34);
+            border: 1px solid color-mix(in srgb, var(--pal-accent) 34%, transparent);
             border-radius: 1rem;
-            background: rgba(245, 197, 24, .08);
+            background: color-mix(in srgb, var(--pal-accent) 8%, transparent);
             padding: .85rem 1rem;
         }
 
@@ -265,7 +265,7 @@
             min-height: 3.1rem;
             border: 1px solid transparent;
             border-radius: .8rem;
-            background: #1e293b;
+            background: var(--pal-neutral-800);
             padding: .55rem;
             color: var(--pay-soft);
             text-decoration: none;
@@ -274,16 +274,16 @@
 
         .method-card:hover,
         .method-card:focus-visible {
-            border-color: rgba(245, 197, 24, .5);
-            background: rgba(30, 41, 59, .88);
+            border-color: color-mix(in srgb, var(--pal-accent) 50%, transparent);
+            background: color-mix(in srgb, var(--pal-neutral-800) 88%, transparent);
             color: var(--pay-text);
             outline: none;
             transform: translateY(-1px);
         }
 
         .method-card.is-selected {
-            border-color: rgba(245, 197, 24, .58);
-            background: rgba(245, 197, 24, .18);
+            border-color: color-mix(in srgb, var(--pal-accent) 58%, transparent);
+            background: color-mix(in srgb, var(--pal-accent) 18%, transparent);
             box-shadow: inset 3px 0 0 var(--pay-accent);
         }
 
@@ -317,7 +317,7 @@
         .method-count {
             min-width: 1.65rem;
             border-radius: .5rem;
-            background: rgba(10, 19, 34, .85);
+            background: color-mix(in srgb, var(--pal-neutral-925) 85%, transparent);
             padding: .2rem .35rem;
             color: var(--pay-muted);
             text-align: center;
@@ -347,7 +347,7 @@
             align-items: start;
             padding: 1rem;
             border-bottom: 1px solid var(--pay-line);
-            background: rgba(15, 23, 42, .72);
+            background: color-mix(in srgb, var(--pal-neutral-925) 72%, transparent);
         }
 
         .method-heading {
@@ -395,27 +395,27 @@
         }
 
         .pay-badge-ok {
-            border-color: rgba(52, 211, 153, .32);
-            background: rgba(52, 211, 153, .1);
-            color: #a7f3d0;
+            border-color: color-mix(in srgb, var(--pal-success-400) 32%, transparent);
+            background: color-mix(in srgb, var(--pal-success-400) 10%, transparent);
+            color: var(--pal-success-200);
         }
 
         .pay-badge-warn {
-            border-color: rgba(251, 191, 36, .34);
-            background: rgba(251, 191, 36, .1);
-            color: #fde68a;
+            border-color: color-mix(in srgb, var(--pal-warning-400) 34%, transparent);
+            background: color-mix(in srgb, var(--pal-warning-400) 10%, transparent);
+            color: var(--pal-warning-200);
         }
 
         .pay-badge-off {
-            border-color: rgba(251, 113, 133, .32);
-            background: rgba(251, 113, 133, .09);
-            color: #fecdd3;
+            border-color: color-mix(in srgb, var(--pal-danger-400) 32%, transparent);
+            background: color-mix(in srgb, var(--pal-danger-400) 9%, transparent);
+            color: var(--pal-danger-200);
         }
 
         .pay-badge-muted {
-            border-color: rgba(148, 163, 184, .22);
-            background: rgba(148, 163, 184, .08);
-            color: #cbd5e1;
+            border-color: color-mix(in srgb, var(--pal-neutral-450) 22%, transparent);
+            background: color-mix(in srgb, var(--pal-neutral-450) 8%, transparent);
+            color: var(--pal-neutral-300);
         }
 
         .cards-grid {
@@ -442,7 +442,7 @@
         }
 
         .payment-card-accordion[open] {
-            border-color: rgba(245, 197, 24, .38);
+            border-color: color-mix(in srgb, var(--pal-accent) 38%, transparent);
         }
 
         .payment-card-summary {
@@ -462,7 +462,7 @@
         }
 
         .payment-card-summary:hover {
-            background: rgba(30, 41, 59, .55);
+            background: color-mix(in srgb, var(--pal-neutral-800) 55%, transparent);
         }
 
         .payment-card-summary:focus-visible {
@@ -500,7 +500,7 @@
 
         .payment-card-body {
             border-top: 1px solid var(--pay-line);
-            background: rgba(10, 19, 34, .4);
+            background: color-mix(in srgb, var(--pal-neutral-925) 40%, transparent);
         }
 
         .payment-card-footer {
@@ -509,14 +509,14 @@
             gap: .5rem;
             padding: .65rem .85rem;
             border-top: 1px solid var(--pay-line);
-            background: rgba(10, 19, 34, .3);
+            background: color-mix(in srgb, var(--pal-neutral-925) 30%, transparent);
         }
 
         .inactive-card-note {
             margin: .65rem .85rem .25rem;
             padding-left: .6rem;
-            border-left: 3px solid rgba(251, 113, 133, .45);
-            color: #fecdd3;
+            border-left: 3px solid color-mix(in srgb, var(--pal-danger-400) 45%, transparent);
+            color: var(--pal-danger-200);
             font-size: .78rem;
             font-weight: 700;
             line-height: 1.4;
@@ -534,7 +534,7 @@
         }
 
         .payment-card-quitada {
-            border-color: rgba(251, 113, 133, .22);
+            border-color: color-mix(in srgb, var(--pal-danger-400) 22%, transparent);
         }
 
         .cards-quitadas-header {
@@ -542,7 +542,7 @@
             align-items: center;
             gap: .4rem;
             padding: .3rem .2rem .1rem;
-            color: #fca5a5;
+            color: var(--pal-danger-300);
             font-size: var(--erp-fs-min, 0.75rem);
             font-weight: 700;
             letter-spacing: .03em;
@@ -657,7 +657,7 @@
         .details-body {
             border-top: 1px solid var(--pay-line);
             padding: .75rem;
-            background: rgba(15, 23, 42, .74);
+            background: color-mix(in srgb, var(--pal-neutral-925) 74%, transparent);
         }
 
         .compact-summary {
@@ -686,7 +686,7 @@
         .pay-select {
             width: 100%;
             min-height: 2.45rem;
-            border: 1px solid rgba(148, 163, 184, .24);
+            border: 1px solid color-mix(in srgb, var(--pal-neutral-450) 24%, transparent);
             border-radius: .65rem;
             background: var(--pay-row);
             color: var(--pay-text);
@@ -697,8 +697,8 @@
 
         .pay-field:focus,
         .pay-select:focus {
-            border-color: rgba(245, 197, 24, .8);
-            box-shadow: 0 0 0 3px rgba(245, 197, 24, .18);
+            border-color: color-mix(in srgb, var(--pal-accent) 80%, transparent);
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--pal-accent) 18%, transparent);
         }
 
         .pay-check {
@@ -706,9 +706,9 @@
             align-items: center;
             gap: .45rem;
             min-height: 2.45rem;
-            border: 1px solid rgba(148, 163, 184, .24);
+            border: 1px solid color-mix(in srgb, var(--pal-neutral-450) 24%, transparent);
             border-radius: .65rem;
-            background: rgba(10, 19, 34, .85);
+            background: color-mix(in srgb, var(--pal-neutral-925) 85%, transparent);
             padding: .52rem .65rem;
             color: var(--pay-soft);
             font-size: .84rem;
@@ -729,9 +729,9 @@
             justify-content: center;
             gap: .35rem;
             min-height: 2rem;
-            border: 1px solid rgba(148, 163, 184, .24);
+            border: 1px solid color-mix(in srgb, var(--pal-neutral-450) 24%, transparent);
             border-radius: .6rem;
-            background: rgba(15, 23, 42, .78);
+            background: color-mix(in srgb, var(--pal-neutral-925) 78%, transparent);
             padding: .4rem .6rem;
             color: var(--pay-soft);
             font-size: .76rem;
@@ -744,22 +744,22 @@
 
         .pay-mini-button:hover,
         .pay-mini-button:focus-visible {
-            border-color: rgba(245, 197, 24, .5);
-            background: rgba(245, 197, 24, .15);
+            border-color: color-mix(in srgb, var(--pal-accent) 50%, transparent);
+            background: color-mix(in srgb, var(--pal-accent) 15%, transparent);
             color: var(--pay-text);
             outline: none;
             transform: translateY(-1px);
         }
 
         .pay-mini-button.primary {
-            border-color: rgba(245, 197, 24, .6);
+            border-color: color-mix(in srgb, var(--pal-accent) 60%, transparent);
             background: var(--pay-accent);
-            color: #15110a;
+            color: var(--pal-on-accent);
         }
 
         .pay-mini-button.danger {
-            border-color: rgba(251, 113, 133, .34);
-            color: #fecdd3;
+            border-color: color-mix(in srgb, var(--pal-danger-400) 34%, transparent);
+            color: var(--pal-danger-200);
         }
 
         .empty-state,
@@ -767,13 +767,13 @@
             margin: 1rem;
             border: 1px solid var(--pay-line);
             border-radius: .9rem;
-            background: rgba(10, 19, 34, .66);
+            background: color-mix(in srgb, var(--pal-neutral-925) 66%, transparent);
             padding: 1rem;
         }
 
         .credit-debt {
-            border-color: rgba(251, 191, 36, .28);
-            color: #fde68a;
+            border-color: color-mix(in srgb, var(--pal-warning-400) 28%, transparent);
+            color: var(--pal-warning-200);
         }
 
         .legacy-note {
@@ -895,9 +895,9 @@
         }
 
         .advanced-method-plans {
-            border: 1px solid rgba(148, 163, 184, .15);
+            border: 1px solid color-mix(in srgb, var(--pal-neutral-450) 15%, transparent);
             border-radius: .9rem;
-            background: rgba(10, 19, 34, .35);
+            background: color-mix(in srgb, var(--pal-neutral-925) 35%, transparent);
             overflow: hidden;
         }
 
@@ -921,7 +921,7 @@
         }
 
         .advanced-method-plans > summary:hover {
-            background: rgba(30, 41, 59, .35);
+            background: color-mix(in srgb, var(--pal-neutral-800) 35%, transparent);
             color: var(--pay-muted);
         }
 
@@ -929,7 +929,7 @@
             margin: 0;
             padding: .5rem .9rem .4rem;
             border-top: 1px solid var(--pay-line);
-            background: rgba(15, 23, 42, .5);
+            background: color-mix(in srgb, var(--pal-neutral-925) 50%, transparent);
             color: var(--pay-dim);
             font-size: .76rem;
             line-height: 1.45;

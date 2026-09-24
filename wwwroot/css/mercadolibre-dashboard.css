@@ -4,7 +4,7 @@
    variantes responsive de Tailwind compiladas. Paleta dark del ERP.
    ════════════════════════════════════════════════════════════════ */
 
-.ml-dash { --ml-border: #1e293b; --ml-card: #161c28; --ml-muted: var(--erp-fg-2, #b9c3d3); }
+.ml-dash { --ml-border: var(--pal-neutral-800); --ml-card: var(--pal-neutral-875); --ml-muted: var(--erp-fg-2, var(--pal-neutral-350)); }
 
 /* ── Barra de estado: conexión + simulación ───────────────────── */
 .ml-dash-status {
@@ -22,13 +22,13 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: var(--erp-fg-3, #a6b1c3);
+    color: var(--erp-fg-3, var(--pal-neutral-400));
 }
 
 .ml-dash-status__value {
     font-size: 0.9rem;
     font-weight: 600;
-    color: #e2e8f0;
+    color: var(--pal-neutral-200);
     word-break: break-word;
 }
 
@@ -44,10 +44,10 @@
     white-space: nowrap;
 }
 
-.ml-dash-badge--sim { background: rgba(56, 189, 248, 0.12); border-color: rgba(56, 189, 248, 0.35); color: #7dd3fc; }
-.ml-dash-badge--real { background: rgba(244, 63, 94, 0.12); border-color: transparent; color: #fb7185; }
-.ml-dash-badge--ok { background: rgba(16, 185, 129, 0.12); border-color: rgba(16, 185, 129, 0.35); color: #34d399; }
-.ml-dash-badge--off { background: rgba(100, 116, 139, 0.12); border-color: rgba(100, 116, 139, 0.35); color: var(--erp-fg-2, #b9c3d3); }
+.ml-dash-badge--sim { background: color-mix(in srgb, var(--pal-info-400) 12%, transparent); border-color: color-mix(in srgb, var(--pal-info-400) 35%, transparent); color: var(--pal-info-300); }
+.ml-dash-badge--real { background: color-mix(in srgb, var(--pal-danger-500) 12%, transparent); border-color: transparent; color: var(--pal-danger-400); }
+.ml-dash-badge--ok { background: color-mix(in srgb, var(--pal-success-500) 12%, transparent); border-color: color-mix(in srgb, var(--pal-success-500) 35%, transparent); color: var(--pal-success-400); }
+.ml-dash-badge--off { background: color-mix(in srgb, var(--pal-neutral-500) 12%, transparent); border-color: color-mix(in srgb, var(--pal-neutral-500) 35%, transparent); color: var(--erp-fg-2, var(--pal-neutral-350)); }
 
 /* ── Alertas priorizadas ──────────────────────────────────────── */
 .ml-dash-alerts {
@@ -67,10 +67,10 @@
     background: var(--ml-card);
 }
 
-.ml-dash-alert--info { border-left-color: #38bdf8; }
-.ml-dash-alert--warning { border-left-color: #f59e0b; }
+.ml-dash-alert--info { border-left-color: var(--pal-info-400); }
+.ml-dash-alert--warning { border-left-color: var(--pal-warning-500); }
 .ml-dash-alert--error { border-left-color: transparent; }
-.ml-dash-alert--critical { border-left-color: #e11d48; background: rgba(225, 29, 72, 0.08); }
+.ml-dash-alert--critical { border-left-color: var(--pal-danger-600); background: color-mix(in srgb, var(--pal-danger-600) 8%, transparent); }
 
 .ml-dash-alert__head {
     display: flex;
@@ -85,7 +85,7 @@
     gap: 0.4rem;
     font-size: 0.85rem;
     font-weight: 700;
-    color: #f1f5f9;
+    color: var(--pal-neutral-100);
 }
 
 .ml-dash-alert__count {
@@ -93,15 +93,15 @@
     min-width: 1.5rem;
     padding: 0.05rem 0.5rem;
     border-radius: 999px;
-    background: rgba(148, 163, 184, 0.18);
+    background: color-mix(in srgb, var(--pal-neutral-450) 18%, transparent);
     font-size: var(--erp-fs-min, 0.75rem);
     font-weight: 800;
-    color: #e2e8f0;
+    color: var(--pal-neutral-200);
     text-align: center;
 }
 
 .ml-dash-alert__desc { font-size: var(--erp-fs-min, 0.75rem); color: var(--ml-muted); line-height: 1.4; }
-.ml-dash-alert__link { font-size: var(--erp-fs-min, 0.75rem); font-weight: 600; color: #fbbf24; text-decoration: none; }
+.ml-dash-alert__link { font-size: var(--erp-fs-min, 0.75rem); font-weight: 600; color: var(--pal-warning-400); text-decoration: none; }
 .ml-dash-alert__link:hover { text-decoration: underline; }
 
 /* ── Secciones KPI ────────────────────────────────────────────── */
@@ -136,14 +136,14 @@
     margin: 0;
     font-size: 0.95rem;
     font-weight: 700;
-    color: #fff;
+    color: var(--pal-white);
 }
 
 .ml-dash-section__link {
     flex-shrink: 0;
     font-size: var(--erp-fs-min, 0.75rem);
     font-weight: 600;
-    color: #fbbf24;
+    color: var(--pal-warning-400);
     text-decoration: none;
     white-space: nowrap;
 }
@@ -158,8 +158,8 @@
 .ml-dash-kpi {
     padding: 0.5rem 0.6rem;
     border-radius: 0.6rem;
-    background: rgba(15, 23, 42, 0.5);
-    border: 1px solid rgba(30, 41, 59, 0.8);
+    background: color-mix(in srgb, var(--pal-neutral-925) 50%, transparent);
+    border: 1px solid color-mix(in srgb, var(--pal-neutral-800) 80%, transparent);
     text-align: center;
 }
 
@@ -167,14 +167,14 @@
     font-size: 1.15rem;
     font-weight: 800;
     line-height: 1.1;
-    color: #f8fafc;
+    color: var(--pal-neutral-50);
     font-variant-numeric: tabular-nums;
 }
 
-.ml-dash-kpi__value--good { color: #34d399; }
-.ml-dash-kpi__value--warn { color: #fbbf24; }
-.ml-dash-kpi__value--bad { color: #fb7185; }
-.ml-dash-kpi__value--muted { color: var(--erp-fg-3, #a6b1c3); }
+.ml-dash-kpi__value--good { color: var(--pal-success-400); }
+.ml-dash-kpi__value--warn { color: var(--pal-warning-400); }
+.ml-dash-kpi__value--bad { color: var(--pal-danger-400); }
+.ml-dash-kpi__value--muted { color: var(--erp-fg-3, var(--pal-neutral-400)); }
 
 .ml-dash-kpi__label {
     margin-top: 0.15rem;
@@ -196,9 +196,9 @@
     padding: 0.15rem 0;
 }
 .ml-dash-line dt { color: var(--ml-muted); }
-.ml-dash-line dd { margin: 0; font-weight: 700; color: #e2e8f0; font-variant-numeric: tabular-nums; }
-.ml-dash-line dd.is-bad { color: #fb7185; }
-.ml-dash-line dd.is-good { color: #34d399; }
+.ml-dash-line dd { margin: 0; font-weight: 700; color: var(--pal-neutral-200); font-variant-numeric: tabular-nums; }
+.ml-dash-line dd.is-bad { color: var(--pal-danger-400); }
+.ml-dash-line dd.is-good { color: var(--pal-success-400); }
 
 /* ── Tablas recientes ─────────────────────────────────────────── */
 .ml-dash-recent {
@@ -221,14 +221,14 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: var(--erp-fg-3, #a6b1c3);
+    color: var(--erp-fg-3, var(--pal-neutral-400));
     border-bottom: 1px solid var(--ml-border);
     white-space: nowrap;
 }
 .ml-dash-table td {
     padding: 0.45rem 0.5rem;
-    color: #cbd5e1;
-    border-bottom: 1px solid rgba(30, 41, 59, 0.5);
+    color: var(--pal-neutral-300);
+    border-bottom: 1px solid color-mix(in srgb, var(--pal-neutral-800) 50%, transparent);
     white-space: nowrap;
 }
 .ml-dash-table tr:last-child td { border-bottom: none; }
@@ -241,12 +241,12 @@
     border-radius: 999px;
     font-size: var(--erp-fs-min, 0.75rem);
     font-weight: 700;
-    background: rgba(100, 116, 139, 0.18);
-    color: #cbd5e1;
+    background: color-mix(in srgb, var(--pal-neutral-500) 18%, transparent);
+    color: var(--pal-neutral-300);
 }
-.ml-dash-pill--good { background: rgba(16, 185, 129, 0.15); color: #34d399; }
-.ml-dash-pill--warn { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
-.ml-dash-pill--bad { background: rgba(244, 63, 94, 0.15); color: #fb7185; }
+.ml-dash-pill--good { background: color-mix(in srgb, var(--pal-success-500) 15%, transparent); color: var(--pal-success-400); }
+.ml-dash-pill--warn { background: color-mix(in srgb, var(--pal-warning-500) 15%, transparent); color: var(--pal-warning-400); }
+.ml-dash-pill--bad { background: color-mix(in srgb, var(--pal-danger-500) 15%, transparent); color: var(--pal-danger-400); }
 
 /* placeholder de funcionalidad pendiente */
 .ml-dash-placeholder {
@@ -256,7 +256,7 @@
     padding: 0.85rem 1rem;
     border-radius: 0.75rem;
     border: 1px dashed var(--ml-border);
-    background: rgba(15, 23, 42, 0.4);
+    background: color-mix(in srgb, var(--pal-neutral-925) 40%, transparent);
     font-size: 0.8rem;
-    color: var(--erp-fg-3, #a6b1c3);
+    color: var(--erp-fg-3, var(--pal-neutral-400));
 }

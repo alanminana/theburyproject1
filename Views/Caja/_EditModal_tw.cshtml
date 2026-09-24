@@ -40,7 +40,7 @@
                     </div>
                     <div class="kpi">
                         <div class="kpi-label">Estado</div>
-                        <div class="text-base font-semibold mt-1" style="color:@(Model.Activa ? "#34d399" : "#94a3b8")">@(Model.Activa ? "Activa" : "Inactiva")</div>
+                        <div class="text-base font-semibold mt-1" style="color:@(Model.Activa ? "var(--pal-success-400)" : "var(--pal-neutral-450)")">@(Model.Activa ? "Activa" : "Inactiva")</div>
                     </div>
                     <div class="kpi">
                         <div class="kpi-label">Ubicación</div>
@@ -109,7 +109,7 @@
                 <!-- Padrón de usuarios habilitados -->
                 <div class="card card-pad">
                     <div class="flex items-center gap-2 mb-1">
-                        <span class="material-symbols-outlined" style="color:#f5c518;font-size:20px">badge</span>
+                        <span class="material-symbols-outlined" style="color:var(--pal-accent);font-size:20px">badge</span>
                         <h3 class="font-semibold text-white">Usuarios habilitados</h3>
                     </div>
                     <p class="text-xs muted-2 mb-3">Definí quién opera y vende en esta caja. Solo los usuarios asignados (más el administrador) pueden operarla. Sin asignaciones, solo el administrador.</p>
@@ -158,7 +158,7 @@
 
                 <div class="card card-pad">
                     <div class="flex items-center gap-2 mb-3">
-                        <span class="material-symbols-outlined" style="color:#f5c518;font-size:20px">tips_and_updates</span>
+                        <span class="material-symbols-outlined" style="color:var(--pal-accent);font-size:20px">tips_and_updates</span>
                         <h3 class="font-semibold text-white">Buenas prácticas</h3>
                     </div>
                     <ul class="help-list">

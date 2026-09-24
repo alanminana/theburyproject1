@@ -10,14 +10,14 @@
         módulo;
      3. refuerzan 3 acentos sobre clases existentes (defensa por orden).
    NOTA (jun-2026): la deuda de "azul cobalto hardcodeado como acento
-   primario" (#135bec / #2563eb / #1d4ed8 / #3b82f6 / #60a5fa / #93c5fd /
+   primario" (var(--pal-info-600) / var(--pal-info-600) / var(--pal-info-700) / var(--pal-info-500) / var(--pal-info-400) / var(--pal-info-300) /
    rgba 19,91,236 · 37,99,235 · 59,130,246) ya quedó normalizada a oro EN LA
    FUENTE de cada módulo (venta/ventas-index/venta-modal/caja/catalogo/
    plantillas/cliente/credito/documentocliente/shared-components/layout/
    standalone-tokens) y en tailwind-input.css → tailwind.css regenerado. Por
    eso los 3 overrides de abajo hoy son redundantes/refuerzo, no el único
    origen del oro. Se conservan los colores semánticos no-cobalto: cian-info
-   (#38bdf8), verde-éxito (#22c55e), sky-glow del wizard de venta.
+   (var(--pal-info-400)), verde-éxito (var(--pal-success-500)), sky-glow del wizard de venta.
    Debe cargarse DESPUÉS de tailwind/shared-components/layout/erp-responsive
    para ganar por orden. NO romper Tailwind: las utilidades bg-primary,
    text-primary, etc. referencian var(--color-primary) en Tailwind v4, así que
@@ -26,45 +26,45 @@
 
 :root {
     /* --- Acento: azul ML-anterior -> oro Mercado Libre --- */
-    --color-primary: #f5c518;
+    --color-primary: var(--pal-accent);
 
     /* --- Fondo/superficies: paleta oscura refinada ML --- */
-    --color-background-dark: #0b0e14;
+    --color-background-dark: var(--pal-neutral-950);
 
     /* --- Remapeo de tokens ERP (consumidos por shared-components.css) --- */
-    --erp-bg:             #0b0e14;
-    --erp-surface:        #141821;
-    --erp-surface-raised: #1a1f2a;
-    --erp-surface-high:   #1e2533;
-    --erp-border:         rgba(255, 255, 255, 0.07);
-    --erp-border-muted:   rgba(255, 255, 255, 0.045);
-    --erp-text:           #eef1f6;
-    --erp-text-muted:     #a7b0c0;
-    --erp-text-faint:     #7e8799;
-    --erp-primary:        #f5c518;
-    --erp-primary-hover:  #ffd435;
-    --erp-primary-faint:  rgba(245, 197, 24, 0.13);
+    --erp-bg:             var(--pal-neutral-950);
+    --erp-surface:        var(--pal-neutral-900);
+    --erp-surface-raised: var(--pal-neutral-850);
+    --erp-surface-high:   var(--pal-neutral-800);
+    --erp-border:         color-mix(in srgb, var(--pal-white) 7%, transparent);
+    --erp-border-muted:   color-mix(in srgb, var(--pal-white) 4.5%, transparent);
+    --erp-text:           var(--pal-neutral-100);
+    --erp-text-muted:     var(--pal-neutral-400);
+    --erp-text-faint:     var(--pal-neutral-500);
+    --erp-primary:        var(--pal-accent);
+    --erp-primary-hover:  var(--pal-accent-400);
+    --erp-primary-faint:  color-mix(in srgb, var(--pal-accent) 13%, transparent);
 
     /* --- Tipografía ML --- */
     --font-display: 'Hanken Grotesk', 'Inter', system-ui, sans-serif;
 
     /* --- Tokens ML expuestos para normalización por módulo (.ml-*) --- */
-    --ml-bg:        #0b0e14;
-    --ml-panel:     #141821;
-    --ml-panel-2:   #1a1f2a;
-    --ml-elev:      #1e2533;
-    --ml-ink:       #eef1f6;
-    --ml-muted:     #a7b0c0;
-    --ml-faint:     #7e8799;
-    --ml-line:      rgba(255, 255, 255, 0.07);
-    --ml-line-2:    rgba(255, 255, 255, 0.045);
-    --ml-line-3:    rgba(255, 255, 255, 0.11);
-    --ml-gold:      #f5c518;
-    --ml-gold-soft: rgba(245, 197, 24, 0.13);
-    --ml-green:     #37d399;
-    --ml-amber:     #f1a93b;
-    --ml-red:       #f87171;
-    --ml-blue:      #5fa8ff;
+    --ml-bg:        var(--pal-neutral-950);
+    --ml-panel:     var(--pal-neutral-900);
+    --ml-panel-2:   var(--pal-neutral-850);
+    --ml-elev:      var(--pal-neutral-800);
+    --ml-ink:       var(--pal-neutral-100);
+    --ml-muted:     var(--pal-neutral-400);
+    --ml-faint:     var(--pal-neutral-500);
+    --ml-line:      color-mix(in srgb, var(--pal-white) 7%, transparent);
+    --ml-line-2:    color-mix(in srgb, var(--pal-white) 4.5%, transparent);
+    --ml-line-3:    color-mix(in srgb, var(--pal-white) 11%, transparent);
+    --ml-gold:      var(--pal-accent);
+    --ml-gold-soft: color-mix(in srgb, var(--pal-accent) 13%, transparent);
+    --ml-green:     var(--pal-success-400);
+    --ml-amber:     var(--pal-warning-400);
+    --ml-red:       var(--pal-danger-400);
+    --ml-blue:      var(--pal-info-400);
     --ml-mono:      'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
     --ml-radius:    13px;
 }
@@ -76,46 +76,46 @@ body {
 
 /* --- Fixes puntuales de acento (clases existentes que hardcodean el azul) --- */
 
-/* Texto de acento sobre fondo oscuro: azul #5b8dff -> oro */
+/* Texto de acento sobre fondo oscuro: azul var(--pal-info-400) -> oro */
 .text-primary-on-dark {
-    color: #f5c518;
+    color: var(--pal-accent);
 }
 
 /* Barra de item de nav activo: azul -> oro */
 .nav-item-active {
-    box-shadow: inset 3px 0 0 rgba(245, 197, 24, 0.85);
+    box-shadow: inset 3px 0 0 color-mix(in srgb, var(--pal-accent) 85%, transparent);
 }
 
 /* Botón primario sólido (único acento sólido con texto claro):
    azul + texto blanco -> oro + texto oscuro (contraste correcto, igual que .btn.primary de ML). */
 .btn-erp-primary {
-    background-color: #f5c518;
-    color: #15110a;
-    box-shadow: 0 4px 14px rgba(245, 197, 24, 0.22);
+    background-color: var(--pal-accent);
+    color: var(--pal-on-accent);
+    box-shadow: 0 4px 14px color-mix(in srgb, var(--pal-accent) 22%, transparent);
 }
 .btn-erp-primary:hover {
-    background-color: #ffd435;
-    color: #15110a;
+    background-color: var(--pal-accent-400);
+    color: var(--pal-on-accent);
 }
 .btn-erp-primary:focus-visible {
-    outline-color: #f5c518;
+    outline-color: var(--pal-accent);
 }
 
 /* ==========================================================================
    Legibilidad / accesibilidad visual (contraste AA+ y tamaños mínimos)
    --------------------------------------------------------------------------
    Los grises de texto de Tailwind (slate-400/500/600) y los tamaños
-   text-[10px]/[11px] quedaban casi al tono del fondo oscuro (#0b0e14-#1e2533).
+   text-[10px]/[11px] quedaban casi al tono del fondo oscuro (fondos neutral-950..800).
    Se reapuntan SOLO las utilidades de texto/placeholder (no bg/border) y los
-   tokens de texto tenue. Contraste sobre #141821: >= 6.4:1 (AA), la mayoría >= 8:1.
+   tokens de texto tenue. Contraste sobre var(--pal-neutral-900): >= 6.4:1 (AA), la mayoría >= 8:1.
    ========================================================================== */
 :root {
-    /* Escala ÚNICA de texto sobre fondo oscuro (contraste sobre #141821).
+    /* Escala ÚNICA de texto sobre fondo oscuro (contraste sobre var(--pal-neutral-900)).
        Cambiar acá = cambia en todo el ERP (utilidades Tailwind, módulos, chips). */
-    --erp-fg-1: #d3dae6;   /* cuerpo secundario   ~11:1 */
-    --erp-fg-2: #b9c3d3;   /* etiquetas / muted   ~9:1  */
-    --erp-fg-3: #a6b1c3;   /* metadatos           ~7.5:1 */
-    --erp-fg-4: #93a0b5;   /* placeholder / tenue ~6.4:1 (mínimo permitido) */
+    --erp-fg-1: var(--pal-neutral-250);   /* cuerpo secundario   ~11:1 */
+    --erp-fg-2: var(--pal-neutral-350);   /* etiquetas / muted   ~9:1  */
+    --erp-fg-3: var(--pal-neutral-400);   /* metadatos           ~7.5:1 */
+    --erp-fg-4: var(--pal-neutral-450);   /* placeholder / tenue ~6.4:1 (mínimo permitido) */
     --erp-text-muted: var(--erp-fg-2);
     --erp-text-faint: var(--erp-fg-3);
     --ml-muted:       var(--erp-fg-2);
@@ -153,29 +153,29 @@ input::placeholder, textarea::placeholder { color: var(--erp-fg-4); opacity: 1; 
 .btn-erp-ghost { color: var(--erp-fg-1); }
 .row-action { color: var(--erp-fg-3); font-size: 0.8125rem; }
 .chip-erp { font-size: 0.75rem; color: var(--erp-fg-1); }
-.chip-erp-success { color: #4ade80; }
-.chip-erp-warning { color: #fcd34d; }
-.chip-erp-danger  { color: #fca5a5; }
-.chip-erp-primary { color: #f5c518; }
+.chip-erp-success { color: var(--pal-success-400); }
+.chip-erp-warning { color: var(--pal-warning-300); }
+.chip-erp-danger  { color: var(--pal-danger-300); }
+.chip-erp-primary { color: var(--pal-accent); }
 .badge-erp-neutral { color: var(--erp-fg-1); }
-.badge-erp-success { color: #4ade80; }
-.badge-erp-warning { color: #fcd34d; }
-.badge-erp-danger  { color: #fca5a5; }
+.badge-erp-success { color: var(--pal-success-400); }
+.badge-erp-warning { color: var(--pal-warning-300); }
+.badge-erp-danger  { color: var(--pal-danger-300); }
 
 /* Texto sobre fondo dorado sólido: el blanco daba 1.6:1. Se usa la misma tinta oscura de .btn-erp-primary. */
 @layer utilities {
     .bg-primary.text-white,
-    .bg-primary .text-white { color: #15110a; }
+    .bg-primary .text-white { color: var(--pal-on-accent); }
 }
 
 /* Rojo de estado sobre fondos oscuros/tintados (red-500 daba 4.2:1) */
-@layer utilities { .text-red-500 { color: #f87171; } }
+@layer utilities { .text-red-500 { color: var(--pal-danger-400); } }
 
 
 /* Texto blanco sobre fondos de estado claros/medios: no llegaba a 4.5:1
    (amber-500 2.1, orange-500 2.8, emerald-500 2.5, amber-600 3.2, emerald-600 3.8). */
 @layer utilities {
     .bg-amber-500.text-white, .bg-amber-600.text-white,
-    .bg-orange-500.text-white, .bg-emerald-500.text-white { color: #15110a; }
-    .bg-emerald-600.text-white { background-color: #047857; }
+    .bg-orange-500.text-white, .bg-emerald-500.text-white { color: var(--pal-on-accent); }
+    .bg-emerald-600.text-white { background-color: var(--pal-success-700); }
 }

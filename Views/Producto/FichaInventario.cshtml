@@ -72,24 +72,24 @@
 /* KPI: migrado al componente compartido card-erp-metric (Fase 5), ver markup. */
 /* Chip "Salida": hoy es roja acá y dorada en Kardex — divergencia real detectada en el
    pase estético, no se unifica en este lote (decisión explícita, ver auditoría). */
-.fi-page .fi-chip-salida   { background: rgba(248,113,113,.10); color: #f87171; border-color: rgba(248,113,113,.28); }
+.fi-page .fi-chip-salida   { background: color-mix(in srgb, var(--pal-danger-400) 10%, transparent); color: var(--pal-danger-400); border-color: color-mix(in srgb, var(--pal-danger-400) 28%, transparent); }
 /* Tabs */
 .fi-page .fi-tab-btn {
   display: inline-flex; align-items: center; gap: .4rem;
   padding: .625rem 1rem; font-size: .875rem; font-weight: 500;
-  color: var(--erp-fg-2, #b9c3d3); border-bottom: 2px solid transparent; border-top: none; border-left: none; border-right: none;
+  color: var(--erp-fg-2, var(--pal-neutral-350)); border-bottom: 2px solid transparent; border-top: none; border-left: none; border-right: none;
   background: transparent; transition: color .15s, border-color .15s; cursor: pointer; white-space: nowrap; flex-shrink: 0;
 }
-.fi-page .fi-tab-btn:hover { color: #f1f5f9; }
-.fi-page .fi-tab-btn[aria-selected="true"] { color: #f8fafc; border-bottom-color: #f5c518; }
+.fi-page .fi-tab-btn:hover { color: var(--pal-neutral-100); }
+.fi-page .fi-tab-btn[aria-selected="true"] { color: var(--pal-neutral-50); border-bottom-color: var(--pal-accent); }
 /* Inputs del form inline de stock — paridad con MovimientoStock/Create */
 .fi-page .fi-input {
-  width: 100%; border-radius: 8px; border: 1px solid #334155; background: #1e293b;
-  color: #fff; padding: .5rem .75rem; font-size: .875rem; outline: none;
+  width: 100%; border-radius: 8px; border: 1px solid var(--pal-neutral-700); background: var(--pal-neutral-800);
+  color: var(--pal-white); padding: .5rem .75rem; font-size: .875rem; outline: none;
 }
-.fi-page .fi-input:focus { border-color: #f5c518; box-shadow: 0 0 0 1px #f5c518; }
+.fi-page .fi-input:focus { border-color: var(--pal-accent); box-shadow: 0 0 0 1px var(--pal-accent); }
 .fi-page select.fi-input { cursor: pointer; }
-.fi-page .fi-input::placeholder { color: var(--erp-fg-3, #a6b1c3); }
+.fi-page .fi-input::placeholder { color: var(--erp-fg-3, var(--pal-neutral-400)); }
 /* Mobile/desktop toggle for card vs table */
 .fi-page .fi-cards-mobile { display: block; }
 .fi-page .fi-tbl-wrapper   { display: none; }
@@ -97,9 +97,9 @@
   .fi-page .fi-cards-mobile { display: none; }
   .fi-page .fi-tbl-wrapper   { display: block; }
 }
-.fi-page .col-in  { color: #34d399; }
-.fi-page .col-out { color: #f87171; }
-.fi-page .col-adj { color: #fbbf24; }
+.fi-page .col-in  { color: var(--pal-success-400); }
+.fi-page .col-out { color: var(--pal-danger-400); }
+.fi-page .col-adj { color: var(--pal-warning-400); }
 </style>
 
 <div class="fi-page space-y-5">
@@ -490,7 +490,7 @@
                             @* Quick-fill explícito: setea la cantidad sugerida en el form, sin prellenarlo
                                automáticamente (evita crear N unidades de un click accidental). *@
                             <button type="button" data-fi-uf-fill="@faltanUnidades"
-                                    class="fi-btn fi-btn-sm mt-2" style="background:rgba(245,158,11,.15);color:#fbbf24;border-color:rgba(245,158,11,.4);">
+                                    class="fi-btn fi-btn-sm mt-2" style="background:color-mix(in srgb, var(--pal-warning-500) 15%, transparent);color:var(--pal-warning-400);border-color:color-mix(in srgb, var(--pal-warning-500) 40%, transparent);">
                                 <span class="material-symbols-outlined" style="font-size:16px">balance</span>
                                 Conciliar: cargar @faltanUnidades unidad@(faltanUnidades != 1 ? "es" : "")
                             </button>
