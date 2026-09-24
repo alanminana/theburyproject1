@@ -1922,7 +1922,8 @@ select.field {
 }
 
 /* Solapa con errores de validación (páginas Create/Edit): punto de peligro junto al texto. */
-#clienteForm .tabs .tab.has-error::before {
+#clienteForm .tabs .tab.has-error::before,
+#cliente-modal-form .tabs .tab.has-error::before {
     content: "";
     flex: 0 0 auto;
     width: 0.5rem;
