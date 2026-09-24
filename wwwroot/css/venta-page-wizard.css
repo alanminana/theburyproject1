@@ -1715,8 +1715,8 @@
     /* Encabezado de cada paso: sólo el título. Las descripciones/chips repiten lo que el
        stepper y los propios campos ya dicen. Envío y Revisión conservan su texto: ahí
        aclara reglas (el costo de envío es informativo). */
-    :is(#venta-create-page, #venta-edit-page) :is(#step-panel-cliente, #step-panel-productos, #step-panel-pago) .venta-section > .mb-6.flex p,
-    :is(#venta-create-page, #venta-edit-page) .venta-section > .mb-6.flex .badge-erp {
+    :is(#venta-create-page, #venta-edit-page) :is(#step-panel-cliente, #step-panel-productos, #step-panel-pago) .venta-section > .mb-6.flex.items-start p,
+    :is(#venta-create-page, #venta-edit-page) .venta-section > .mb-6.flex.items-start .badge-erp {
         display: none;
     }
 

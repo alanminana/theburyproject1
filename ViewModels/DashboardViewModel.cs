@@ -73,6 +73,7 @@ namespace TheBuryProject.ViewModels
         public string CreditoNumero { get; set; } = string.Empty;
         public int NumeroCuota { get; set; }
         public string ClienteNombre { get; set; } = string.Empty;
+        public string ClienteDocumento { get; set; } = string.Empty;
         public int ClienteId { get; set; }
         public DateTime FechaVencimiento { get; set; }
         public decimal Monto { get; set; }
@@ -90,6 +91,7 @@ namespace TheBuryProject.ViewModels
         public string CreditoNumero { get; set; } = string.Empty;
         public int NumeroCuota { get; set; }
         public string ClienteNombre { get; set; } = string.Empty;
+        public string ClienteDocumento { get; set; } = string.Empty;
         public int ClienteId { get; set; }
         public DateTime FechaVencimiento { get; set; }
         public decimal Monto { get; set; }

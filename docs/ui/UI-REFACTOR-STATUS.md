@@ -12,7 +12,7 @@ faltan. Actualizar esta tabla al cerrar cada pantalla.
 | Venta | `Details` | ✅ Cerrado | serie VENTA-DETAILS (ver resumen abajo) + ENVIO-ML (ver resumen abajo) |
 | Cotización | `Simular` (`_CotizadorForm.cshtml`) | ✅ Cerrado | serie COTIZACION-SIMULAR-REDESIGN (ver resumen abajo) + ENVIO-ML (ver resumen abajo) |
 | ConfiguracionPago | `MediosPago` | ✅ Cerrado | ver resumen abajo |
-| Dashboard | `Index` | ◐ Auditoría 4 capas aplicada (2026-09-24) | estado del día en lugar de hero, tabs con contador, permisos en accesos/acciones, paneles planos, composición por ancho de columna; **falta verificar con filas reales de cuotas** (ver sección abajo) |
+| Dashboard | `Index` | ◐ Auditoría 4 capas aplicada (2026-09-24) | estado del día en lugar de hero, tabs con contador, permisos en accesos/acciones, paneles planos, composición por ancho de columna; filas reales de cuotas verificadas en el saneamiento pre-PR; falta validar con un rol de permisos restringidos (ver sección abajo) |
 | Cliente | `Index` | ✅ Cerrado | CLIENTE-INDEX-SIN-HERO-01 (ver resumen abajo) |
 | Cliente | `Nuevo cliente` (drawer Create) | ✅ Cerrado | serie wizard Cliente (ver resumen abajo) |
 | Cliente | `Details` | ✅ Cerrado | serie CLIENTE-DETAILS-TABS (ver resumen abajo) |
@@ -1217,6 +1217,39 @@ queries), sin revertirlo. Impeccable critique corrió en modo degradado (un solo
   orden de foco; el menú cubre las rutas); el chip de sección (COBRANZAS/INVENTARIO/DESTACADOS)
   es identidad transversal (25 vistas), no se tocó; el gating de "Ver alertas" conserva su
   lógica previa (`cotizaciones.view`, distinta de `productos.view` del Catálogo).
+
+### Saneamiento pre-PR (2026-09-24, rama `saneamiento-cambios-pendientes-20260924`)
+
+Re-validación con datos reales en un clon de la LocalDB (`_qa`, con un crédito de 12 cuotas y una
+venta pendiente de autorización sembrados solo en el clon) y Chrome/Playwright propio, a
+1440/1366/1024/768/390/360. Impeccable `critique` corrió con dos sub-agentes aislados (A: diseño,
+B: detector + navegador) y luego `polish`; el detector devolvió 0 hallazgos sobre Dashboard y Venta.
+
+- *Corregido (contratos descubiertos):*
+  - Dashboard: la tabla "Cuotas por cobrar" (mín. 47,25 rem) recortaba la columna Acciones a 1440px
+    con sidebar; ahora 40 rem con `px-4`. El DNI ya no viaja incrustado en `ClienteNombre`
+    (`CuotaVencidaDto`/`CuotaProximaVencerDto.ClienteDocumento`), misma causa raíz que H11.
+  - Venta wizard, mobile: la regla que oculta las descripciones del encabezado de paso
+    (`.venta-section > .mb-6.flex p`) también alcanzaba al dropdown del buscador de productos y
+    ocultaba nombre/código/descripción (`display:none`); ahora se limita a `.mb-6.flex.items-start`
+    (test de contrato en `VentaCreateUiContractTests`).
+  - Venta/Details, Historial: `size-4.5` y `before:left-2.25` no existen en el Tailwind
+    precompilado (punto de 4px y línea sobre el texto); pasan a `.venta-timeline` en `venta-module.css`.
+  - Venta/Index: las acciones de la tabla se alinean al inicio (2 vs 3 acciones desalineaban el primer ícono).
+  - Etiquetas accesibles en los buscadores del cotizador y en Observaciones del wizard.
+- *Validado:* Dashboard (KPIs, tabs Vencidas/Próximas con mouse y teclado, stock bajo KPI=tabla,
+  accesos, notas, actividad); Venta Index/Details (cotización y confirmada)/Create hasta el paso
+  Revisión con el CTA "Crear venta"/Edit/Facturar/Cancelar/Autorizar/Rechazar (hasta el envío del
+  formulario, sin ejecutar acciones destructivas); panel de filtros compartido en OrdenCompra y
+  Caja/Historial (mouse, Enter, Espacio; Escape no está implementado); smoke de paleta en Caja,
+  Crédito, Catálogo, Cliente, Orden de Compra, MercadoLibre. 0 errores de consola / requests fallidos.
+- *NO validado:* Dashboard con un rol de permisos restringidos; Details de una venta Facturada con
+  crédito; Delete de Venta (destructivo); Login/Identity con sesión cerrada solo se capturó.
+- *Deuda conocida (no introducida por esta rama):* contraste de textos `text-slate-500` pequeños
+  (~3,3:1) por el mapeo de paleta; tap targets <44px en `btn-xs` de tarjetas mobile de Venta/Index;
+  el POST de "Autorizar" sin motivo muestra el error antes de que la persona escriba nada;
+  `Credito/Index` tiene el título alineado a la derecha (`.credito-index-head {justify-content:flex-end}`);
+  los `h1` del layout ("TheBuryProject") coexisten con el título de página.
 
 ## Backlog transversal
 

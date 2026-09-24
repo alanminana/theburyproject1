@@ -1097,3 +1097,25 @@
 
     #venta-details-scroll :is(th, td).px-6:last-child { padding-inline: 0.75rem 1.25rem; }
 }
+
+/* Historial de Details: línea y puntos con medidas propias. `size-4.5` y `before:left-2.25`
+   no existen en el CSS de Tailwind precompilado, así que el punto colapsaba a 4px y la línea
+   quedaba pisando el texto. Punto de 18px en el margen izquierdo; la línea pasa por su centro. */
+.venta-timeline::before {
+    content: "";
+    position: absolute;
+    top: 0.25rem;
+    bottom: 0.25rem;
+    left: 0.5rem;
+    width: 1px;
+    background: var(--pal-neutral-700);
+}
+
+.venta-timeline__dot {
+    position: absolute;
+    top: 0.125rem;
+    left: -1.5rem;
+    width: 1.125rem;
+    height: 1.125rem;
+    box-sizing: border-box;
+}
