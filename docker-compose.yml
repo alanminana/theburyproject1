@@ -138,6 +138,9 @@ services:
       MercadoLibre__ClientId: ${MERCADOLIBRE_CLIENT_ID:-}
       MercadoLibre__ClientSecret: ${MERCADOLIBRE_CLIENT_SECRET:-}
       MercadoLibre__RedirectUri: ${MERCADOLIBRE_REDIRECT_URI:-}
+      # Licencia comercial de AutoMapper (Lucky Penny). Solo `app` la recibe (Program.cs la aplica en cfg.LicenseKey). Exigida por
+      # scripts/deploy/preflight.sh en produccion; vacia es valida en desarrollo/CI. Ver docs/secretos-produccion.md.
+      AUTOMAPPER_LICENSE_KEY: ${AUTOMAPPER_LICENSE_KEY:-}
       # Forwarded Headers (Program.cs): solo se confia en X-Forwarded-* que vengan de esta subred (Caddy). No usar ASPNETCORE_FORWARDEDHEADERS_ENABLED (confia en cualquiera).
       ForwardedHeaders__KnownNetworks: ${BURY_NET_SUBNET:-172.29.88.0/24}
     volumes:
