@@ -38,7 +38,7 @@ rotados, pero no había estado estructurado persistente para alertas.
 
 Faltaban: notificación, deduplicación/resolved, histórico de recursos, observador externo,
 captura persistente de OOM, vigilancia de filesystem/volúmenes/SQL/TLS y caducidad de backups.
-La rotación Docker no cubre errorlog/dumps SQL ni `/var/log/bury-backup-errors.log`.
+La rotación Docker no cubre errorlog/dumps SQL; `/var/log/bury-backup-errors.log` se rota con `/etc/logrotate.d/bury-backup` (lo instala `install-schedule.sh --install`).
 Su crecimiento queda incluido en filesystem/volumen; revisar su retención operativa.
 
 ## Señales, frecuencia y severidad
@@ -121,7 +121,7 @@ No se rehashean bases grandes cada minuto; una modificación posterior del archi
 durante las verificaciones de restauración existentes, no por esta lectura de estado.
 
 Conservar VERIFYONLY en **cada backup**, restore real **semanal** con `restore-test.sh`
-(base temporal y DBCC CHECKDB, ya programado), disaster drill completo **trimestral**
+(base temporal y DBCC CHECKDB, ya programado) — su resultado lo publica `monitor-status/restore-test.json` y el monitor alerta por fallo (CRITICAL) o por vencido (8 d warning / 10 d critical, `restore_test` en `config.json`; sin archivo mide desde la primera observación). El monitor local no detecta la caída total del sitio (ver `offsite-monitoring-activacion.md` §5), disaster drill completo **trimestral**
 en servidor aislado desde offsite incluyendo claves y archivos. Una base pequeña justifica
 el restore semanal; VERIFYONLY no demuestra recuperación funcional. Registrar RPO/RTO y
 resultado del drill. Este bloque no ejecuta DR ni cambia el scheduler/retención de backups.

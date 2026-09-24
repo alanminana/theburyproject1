@@ -262,6 +262,12 @@ jobs:
       - name: Validar docker-compose.monitoring.yml
         run: docker compose -f docker-compose.monitoring.yml config --quiet
 
+      # Tests de hardening de backup/monitoring (sin docker/cron/root reales; valores sinteticos).
+      - name: Tests de scripts de backup y monitor
+        run: |
+          bash scripts/backup/test-hardening.sh
+          python3 -m unittest discover -s scripts/monitoring -p 'test_monitor.py'
+
       - name: Eliminar .env sintetico
         if: always()
         run: rm -f "$ENV_FILE"

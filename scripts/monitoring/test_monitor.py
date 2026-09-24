@@ -94,6 +94,56 @@ class MonitoringTests(unittest.TestCase):
         for key in ("full", "log", "offsite-sql"):
             self.assertEqual(self.collector.signals["backup." + key]["severity"], "CRITICAL")
 
+    def write_restore(self, **status):
+        directory = Path(self.tmp.name) / "monitor-status"
+        directory.mkdir(exist_ok=True)
+        (directory / "restore-test.json").write_text(json.dumps(status))
+
+    def restore_severity(self):
+        self.collector.restore_test()
+        return self.collector.signals["backup.restore-test"]["severity"]
+
+    def test_restore_test_ok_failed_stale_and_recovery(self):
+        now = monitor.time.time()
+        self.write_restore(time=now - 86400, exit=0, verified=True, last_success=now - 86400, message="ok")
+        self.assertEqual(self.restore_severity(), "INFO")
+        self.write_restore(time=now, exit=9, verified=False, last_success=now - 86400, message="restore FALLO")
+        self.assertEqual(self.restore_severity(), "CRITICAL")
+        self.assertIn("FAILED", self.collector.signals["backup.restore-test"]["detail"])
+        self.write_restore(time=now, exit=0, verified=True, last_success=now, message="ok")   # recuperacion
+        self.assertEqual(self.restore_severity(), "INFO")
+        for age, expected in [(7 * 86400, "INFO"), (8.5 * 86400, "WARNING"), (11 * 86400, "CRITICAL")]:
+            self.write_restore(time=now - age, exit=0, verified=True, last_success=now - age, message="ok")
+            self.assertEqual(self.restore_severity(), expected)
+        self.write_restore(time=now - 86400, exit=9, verified=False, last_success=now - 11 * 86400)   # fallo Y vencido
+        self.assertEqual(self.restore_severity(), "CRITICAL")
+
+    def test_restore_test_recovery_resolves_alert(self):
+        now = monitor.time.time()
+        self.write_restore(time=now, exit=9, verified=False, last_success=None, message="x")
+        self.collector.restore_test()
+        self.alerts.update({"backup.restore-test": {**self.collector.signals["backup.restore-test"], "hold": 0}}, 1000)
+        self.write_restore(time=now, exit=0, verified=True, last_success=now, message="ok")
+        self.collector.restore_test()
+        self.alerts.update({"backup.restore-test": {**self.collector.signals["backup.restore-test"], "hold": 0}}, 1060)
+        self.assertEqual([e["status"] for e in self.events], ["firing", "resolved"])
+
+    def test_restore_test_never_run_grace_then_alert(self):
+        self.assertEqual(self.restore_severity(), "INFO")          # primera observacion: ventana normal
+        self.assertIn("never executed", self.collector.signals["backup.restore-test"]["detail"])
+        first = self.store.get("restore_test.first_seen")
+        for age, expected in [(7 * 86400, "INFO"), (9 * 86400, "WARNING"), (11 * 86400, "CRITICAL")]:
+            self.store.put("restore_test.first_seen", monitor.time.time() - age)
+            self.assertEqual(self.restore_severity(), expected)
+        self.assertIsNotNone(first)
+
+    def test_restore_test_invalid_or_future_status(self):
+        (Path(self.tmp.name) / "monitor-status").mkdir()
+        (Path(self.tmp.name) / "monitor-status" / "restore-test.json").write_text("{not json")
+        self.assertEqual(self.restore_severity(), "CRITICAL")
+        self.write_restore(time=monitor.time.time() + 5000, exit=0, verified=True, last_success=None)
+        self.assertEqual(self.restore_severity(), "CRITICAL")
+
     def test_disk_free_space_even_when_percentage_low(self):
         usage = monitor.shutil._ntuple_diskusage(100*monitor.GIB, 60*monitor.GIB, 5*monitor.GIB)
         self.collector.slow = False
