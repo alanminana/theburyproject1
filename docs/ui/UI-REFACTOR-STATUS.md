@@ -1479,9 +1479,10 @@ seed). Técnicamente: ✅ · Visualmente: ✅ · Flujo UX: ✅ (ver seguimiento 
 **Seguimiento (mismo día, a pedido "soluciona los pendientes")** — los tres puntos que habían
 quedado abiertos por decisión de producto:
 - **Redundancia de "No apto"**: se retira el chip de aptitud del encabezado (repetía el KPI
-  "Estado de aptitud" a 40px de distancia) y la fila "Estado de aptitud" dentro del aviso de
-  punitorio de Crédito. Quedan el KPI (estado), la alerta principal (motivo + acción, pedido
-  explícito del usuario) y la card "Motivos", que detalla la lista.
+  "Estado de aptitud" a 40px de distancia). Quedan el KPI (estado), la alerta principal (motivo +
+  acción, pedido explícito del usuario) y la card "Motivos", que detalla la lista. La fila "Estado
+  de aptitud" del aviso de punitorio en Crédito **se conserva**: `cliente-aptitud-punitorio.spec.js`
+  la exige como contrato (se había quitado y el CI lo detectó; restaurada).
 - **Solapa Historial fusionada en Crédito**: era una card con un único link a
   `Credito/Index?clienteId=` que "Últimos créditos del cliente" ya tiene ("Ver todos (N)").
   La ficha pasa de 5 a **4 solapas** (Resumen/Crédito/Documentación/Datos). Un `#historial`

@@ -789,6 +789,7 @@ else
                             <dl class="kv mt-1">
                                 <div class="kv-row"><dt>Monto pendiente</dt><dd>@apt.Mora.MontoPunitorioAplicadoPendiente.ToString("C0")</dd></div>
                                 <div class="kv-row"><dt>Cuotas afectadas</dt><dd>@apt.Mora.CuotasConPunitorioAplicadoPendiente</dd></div>
+                                <div class="kv-row"><dt>Estado de aptitud</dt><dd><span class="chip @aptitudChip">@aptitudLabel</span></dd></div>
                             </dl>
                             <p class="text-xs muted mt-1">Deuda separada de la mora de capital. No bloquea la aptitud por sí sola; puede requerir autorización.</p>
                         </div>
