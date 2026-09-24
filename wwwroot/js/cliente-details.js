@@ -132,7 +132,11 @@
                 return response.json();
             })
             .then(function (data) {
-                if (descEl) descEl.textContent = data.descripcion || 'Sin información';
+                // El servicio devuelve "Error API (NNN)" cuando falla la consulta; mismo texto
+                // legible que renderiza la vista al cargar (Details_tw.cshtml, bcraDescVisible).
+                var descTexto = data.descripcion || 'Sin información';
+                if (descTexto.indexOf('Error API (') === 0) descTexto = 'No se pudo consultar';
+                if (descEl) descEl.textContent = descTexto;
 
                 var color;
                 var dotColor;
@@ -286,7 +290,7 @@
 
         // Persistencia de solapa activa via hash (#credito, #documentacion, etc.):
         // si la URL trae un hash valido se abre esa solapa; si no hay hash o no
-        // coincide con ninguna de las 5, cae a Resumen (nunca una pantalla en
+        // coincide con ninguna de las 4, cae a Resumen (nunca una pantalla en
         // blanco). updateHash:false porque esto es solo reflejar el estado, no
         // una interaccion que deba tocar el historial.
         function activarTabDesdeHash() {
@@ -295,6 +299,9 @@
                 function (b) { return b.getAttribute('data-cliente-tab'); }
             );
             var hashTab = (window.location.hash || '').replace('#', '');
+            // La solapa "Historial" se fusionó en Crédito: un #historial viejo (favoritos,
+            // links guardados) abre Crédito en vez de caer a Resumen.
+            if (hashTab === 'historial') hashTab = 'credito';
             // Fallback: ?tab=credito (Details(id, tab) lo recibe en el controller pero la
             // vista no lo usaba). El hash, si existe, tiene prioridad.
             var queryTab = new URLSearchParams(window.location.search).get('tab') || '';

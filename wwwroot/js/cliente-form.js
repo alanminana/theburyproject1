@@ -113,14 +113,91 @@
                     toggleSection('credito', true);
                 }
             });
+
+            iniciarValidacionEntreSolapas(form);
+            marcarSolapasConErrores(form);
+        }
+
+        // Escape vuelve a la pantalla anterior, pero solo si el formulario sigue intacto:
+        // con datos ya escritos (o al cerrar un <select>/selector de fecha con Escape) se
+        // perdía todo sin aviso.
+        var modificado = false;
+        if (form) {
+            form.addEventListener('input', function () { modificado = true; });
+            form.addEventListener('change', function () { modificado = true; });
         }
 
         document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape') {
+            if (e.key === 'Escape' && !modificado) {
                 var url = getCancelUrl();
                 if (url) window.location.href = url;
             }
         });
+    }
+
+    function nombreDeSolapa(panel) {
+        return panel.id.replace(/^t-/, '');
+    }
+
+    function marcarSolapa(panel) {
+        var tab = document.querySelector('[data-cliente-tab="' + panel.id + '"]');
+        if (!tab || tab.classList.contains('has-error')) return;
+        tab.classList.add('has-error');
+        var aviso = document.createElement('span');
+        aviso.className = 'sr-only';
+        aviso.textContent = ' (con errores)';
+        tab.appendChild(aviso);
+    }
+
+    // jQuery Validation ignora por defecto los campos ocultos, y las solapas inactivas lo
+    // están: Teléfono y Domicilio (obligatorios, en Contacto) no se validaban al enviar desde
+    // Personales y el rechazo llegaba recién del servidor, sin ningún error visible. Se validan
+    // todas las solapas y, si algo falla, se abre la primera con error, se marcan las que
+    // tienen errores y se enfoca el campo.
+    function iniciarValidacionEntreSolapas(form) {
+        var jq = window.jQuery;
+        if (!jq || !jq.validator) return;
+
+        // El validador de unobtrusive puede no haberse creado todavía en este punto del arranque.
+        if (jq.validator.unobtrusive && !jq(form).data('validator')) jq.validator.unobtrusive.parse(form);
+        var validator = jq(form).data('validator');
+        // Solo se dejan fuera los <input type="hidden"> (Id, RowVersion, etc.), no las solapas.
+        if (validator) validator.settings.ignore = 'input[type="hidden"]';
+
+        jq(form).on('invalid-form.validate', function (event, v) {
+            v.errorList.forEach(function (item) {
+                var panel = item.element.closest('.tab-panel');
+                if (panel) marcarSolapa(panel);
+            });
+
+            var primero = v.errorList.length ? v.errorList[0].element : null;
+            var panelPrimero = primero ? primero.closest('.tab-panel') : null;
+            if (panelPrimero) {
+                activateTab(nombreDeSolapa(panelPrimero));
+                primero.focus();
+            }
+        });
+    }
+
+    // Tras un rechazo del servidor la página se vuelve a renderizar en Personales: se marca
+    // cada solapa con errores y se abre la primera.
+    function marcarSolapasConErrores(form) {
+        var primera = null;
+        form.querySelectorAll('.tab-panel').forEach(function (panel) {
+            var conError = panel.querySelector('.input-validation-error') ||
+                Array.prototype.some.call(panel.querySelectorAll('.field-validation-error'), function (s) {
+                    return s.textContent.trim().length > 0;
+                });
+            if (!conError) return;
+            marcarSolapa(panel);
+            if (!primera) primera = panel;
+        });
+
+        if (primera) {
+            activateTab(nombreDeSolapa(primera));
+            var campo = primera.querySelector('.input-validation-error');
+            if (campo) campo.focus();
+        }
     }
 
     if (document.readyState === 'loading') {

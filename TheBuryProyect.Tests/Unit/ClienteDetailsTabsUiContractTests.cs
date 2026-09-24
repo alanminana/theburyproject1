@@ -3,9 +3,9 @@ namespace TheBuryProject.Tests.Unit;
 /// <summary>
 /// Contrato de UI de la reorganizacion "hibrida" de Cliente/Details (2026-09-14):
 /// resumen ejecutivo + alerta principal siempre visibles arriba, y el resto de la
-/// ficha organizado en 5 solapas fijas (Resumen/Credito/Documentacion/Datos/
-/// Historial) con el patron ARIA completo de ERP-UI-STANDARD.md §5. Cubre que las
-/// 5 solapas existan, que Resumen sea la que arranca activa, que cada panel
+/// ficha organizado en 4 solapas fijas (Resumen/Credito/Documentacion/Datos; la
+/// ex solapa Historial se fusiono en Credito, 2026-09-24) con el patron ARIA completo de ERP-UI-STANDARD.md §5. Cubre que las
+/// 4 solapas existan, que Resumen sea la que arranca activa, que cada panel
 /// conserve los elementos criticos que ya tenia antes del reorden, y que no se
 /// hayan perdido ids/data-* usados por JS o por tests/E2E existentes.
 /// </summary>
@@ -14,24 +14,24 @@ public class ClienteDetailsTabsUiContractTests
     private const string ViewRelativePath = "Views/Cliente/Details_tw.cshtml";
 
     [Fact]
-    public void DetailsView_TieneExactamenteCincoSolapasConPatronAriaCompleto()
+    public void DetailsView_TieneExactamenteCuatroSolapasConPatronAriaCompleto()
     {
         var view = ReadView();
 
         Assert.Contains("role=\"tablist\"", view);
 
-        var tabs = new[] { "resumen", "credito", "documentacion", "datos", "historial" };
+        var tabs = new[] { "resumen", "credito", "documentacion", "datos" };
         foreach (var tab in tabs)
         {
             Assert.Contains($"data-cliente-tab=\"{tab}\"", view);
             Assert.Contains($"data-cliente-tab-panel=\"{tab}\"", view);
         }
 
-        // Exactamente 5, ni más ni menos (mockup del usuario: "Máximo 5").
+        // Exactamente 4 (la solapa Historial era una sola card con un link que Crédito ya tiene).
         var countTabs = CountOccurrences(view, "data-cliente-tab=\"");
         var countPanels = CountOccurrences(view, "data-cliente-tab-panel=\"");
-        Assert.Equal(5, countTabs);
-        Assert.Equal(5, countPanels);
+        Assert.Equal(4, countTabs);
+        Assert.Equal(4, countPanels);
 
         Assert.Contains("role=\"tab\"", view);
         Assert.Contains("role=\"tabpanel\"", view);
@@ -46,22 +46,21 @@ public class ClienteDetailsTabsUiContractTests
         var view = ReadView();
 
         // El boton de Resumen es el unico con aria-selected="true" en el markup inicial;
-        // los otros 4 arrancan con tabindex="-1" (roving tabindex, sólo el activo enfocable).
+        // los otros 3 arrancan con tabindex="-1" (roving tabindex, sólo el activo enfocable).
         Assert.Contains("id=\"tab-resumen\" class=\"tab-btn is-active\" role=\"tab\" aria-selected=\"true\"", view);
         Assert.Contains("id=\"panel-resumen\" class=\"tab-panel is-active\" data-cliente-tab-panel=\"resumen\"", view);
 
-        foreach (var tab in new[] { "credito", "documentacion", "datos", "historial" })
+        foreach (var tab in new[] { "credito", "documentacion", "datos" })
         {
             Assert.Contains($"aria-controls=\"panel-{tab}\" data-cliente-tab=\"{tab}\"", view);
         }
 
-        // Los otros 4 paneles arrancan con el atributo hidden nativo (progressive
+        // Los otros 3 paneles arrancan con el atributo hidden nativo (progressive
         // enhancement: sin JS quedarían ocultos, igual que el patron ya usado en
         // Views/Venta/Index_tw.cshtml para sus tab-panel).
         Assert.Contains("data-cliente-tab-panel=\"credito\" role=\"tabpanel\" aria-labelledby=\"tab-credito\" hidden", view);
         Assert.Contains("data-cliente-tab-panel=\"documentacion\" role=\"tabpanel\" aria-labelledby=\"tab-documentacion\" hidden", view);
         Assert.Contains("data-cliente-tab-panel=\"datos\" role=\"tabpanel\" aria-labelledby=\"tab-datos\" hidden", view);
-        Assert.Contains("data-cliente-tab-panel=\"historial\" role=\"tabpanel\" aria-labelledby=\"tab-historial\" hidden", view);
     }
 
     [Fact]
@@ -77,8 +76,8 @@ public class ClienteDetailsTabsUiContractTests
         // El resumen ejecutivo (4 KPIs) y la alerta principal de aptitud viven antes
         // de la barra de solapas — nunca dentro de un tab-panel que pueda ocultarse.
         Assert.Contains("grid-kpi", antesDeTabs);
-        Assert.Contains("Credito disponible", antesDeTabs);
-        Assert.Contains("Situacion BCRA", antesDeTabs);
+        Assert.Contains("Crédito disponible", antesDeTabs);
+        Assert.Contains("Situación BCRA", antesDeTabs);
         Assert.Contains("apt-card", antesDeTabs);
         Assert.Contains("Recalcular aptitud", antesDeTabs);
     }
@@ -109,7 +108,7 @@ public class ClienteDetailsTabsUiContractTests
         Assert.Contains("data-cliente-open-limites", panel);
         Assert.Contains("Scoring de comportamiento", panel);
         Assert.Contains("Historial de puntaje", panel);
-        Assert.Contains("Ultimos creditos del cliente", panel);
+        Assert.Contains("Últimos créditos del cliente", panel);
         Assert.Contains("Model.CreditosActivos?.Take(5)", view); // computado arriba, reusado acá
         Assert.Contains("foreach (var credito in creditosRecientes)", panel);
         Assert.Contains("Ver todos (@totalCreditos)", panel);
@@ -126,14 +125,14 @@ public class ClienteDetailsTabsUiContractTests
         Assert.Contains("data-cliente-reject-form", panel);
         Assert.Contains("asp-action=\"Verificar\"", panel);
         Assert.Contains("asp-action=\"Rechazar\"", panel);
-        Assert.Contains("Ver toda la documentacion", panel);
+        Assert.Contains("Ver toda la documentación", panel);
     }
 
     [Fact]
     public void DetailsView_PanelDatosConservaDatosPersonalesContactoYZonaSensible()
     {
         var view = ReadView();
-        var panel = ExtraerPanel(view, "panel-datos", "panel-historial");
+        var panel = ExtraerPanel(view, "panel-datos", "id=\"limitesModalContainer\"");
 
         Assert.Contains("Datos personales", panel);
         Assert.Contains("Contacto", panel);
@@ -143,15 +142,17 @@ public class ClienteDetailsTabsUiContractTests
     }
 
     [Fact]
-    public void DetailsView_PanelHistorialReutilizaListadoDeCreditosExistente()
+    public void DetailsView_HistorialSeFusionoEnCreditoSinPerderElLinkAlListado()
     {
         var view = ReadView();
-        var panel = ExtraerPanel(view, "panel-historial", "id=\"limitesModalContainer\"");
 
-        Assert.Contains("Créditos históricos", panel);
+        Assert.DoesNotContain("id=\"tab-historial\"", view);
+        Assert.DoesNotContain("id=\"panel-historial\"", view);
+
+        // El unico contenido de la ex solapa era el link al listado de creditos del cliente;
+        // Credito ya lo tiene en "Ultimos creditos del cliente".
+        var panel = ExtraerPanel(view, "panel-credito", "panel-documentacion");
         Assert.Contains("asp-controller=\"Credito\" asp-action=\"Index\" asp-route-clienteId=\"@c.Id\"", panel);
-        // No inventa una bitacora nueva: solo el link al listado completo ya existente.
-        Assert.DoesNotContain("<table", panel);
     }
 
     [Fact]

@@ -363,11 +363,11 @@ else
 
                         @if (string.IsNullOrWhiteSpace(Model.TipoDocumento))
                         {
-                            <option value="" selected>Todos los tipos</option>
+                            <option value="" selected>Todos</option>
                         }
                         else
                         {
-                            <option value="">Todos los tipos</option>
+                            <option value="">Todos</option>
                         }
 
                         @if (ViewBag.TiposDocumento != null)
@@ -467,7 +467,7 @@ else
 
             <p id="cliente-table-help" class="sr-only">
                 Las acciones directas permiten ver el legajo y editar el cliente.
-                Créditos y eliminación se encuentran dentro del menú Más acciones.
+                Créditos y baja del cliente se encuentran dentro del menú Más acciones.
             </p>
 
             @* ============================================================
@@ -513,7 +513,7 @@ else
                                 <col class="cliente-col-contacto" />
                                 <col class="cliente-col-credito" />
                                 <col class="cliente-col-riesgo" />
-                                <col class="cliente-col-estado" />
+                                <col class="cliente-col-estado cliente-estado-cell" />
                                 <col class="cliente-col-acciones" />
                             </colgroup>
 
@@ -548,7 +548,7 @@ else
                                         </a>
                                     </th>
 
-                                    <th scope="col">
+                                    <th scope="col" class="cliente-estado-cell">
                                         <a asp-action="Index" asp-all-route-data="@RutaOrden("activo")" class="cliente-th-sort">
                                             Estado
                                             <span class="material-symbols-outlined" aria-hidden="true">@IconoOrden("activo")</span>
@@ -607,6 +607,12 @@ else
                                                         @rowName
                                                     </div>
                                                 </div>
+
+                                                @* Solo en la banda estrecha (≈900–1366px): la columna Estado se oculta
+                                                   para darle ancho a Cliente/Contacto y el estado pasa acá, bajo el nombre. *@
+                                                <span class="badge-erp cliente-name-estado @(c.Activo ? "badge-erp-success" : "badge-erp-neutral")">
+                                                    @(c.Activo ? "Activo" : "Inactivo")
+                                                </span>
                                             </th>
 
                                             @* DOCUMENTO *@
@@ -618,8 +624,8 @@ else
 
                                                 @if (tieneCuilCuit)
                                                 {
-                                                    <div class="mono mt-1 whitespace-nowrap text-xs muted-2" title="@c.CuilCuit">
-                                                        CUIT/CUIL @c.CuilCuit
+                                                    <div class="mono mt-1 text-xs muted-2 cliente-doc-secondary" title="CUIT/CUIL @c.CuilCuit">
+                                                        CUIT/CUIL <span class="cliente-doc-secondary__value">@c.CuilCuit</span>
                                                     </div>
                                                 }
                                             </td>
@@ -668,7 +674,7 @@ else
                                                 {
                                                     <div class="cliente-credit-cell">
                                                         <span class="text-sm font-semibold text-white num">
-                                                            @((c.CreditoDisponible ?? 0m).ToString("C"))
+                                                            @((c.CreditoDisponible ?? 0m).ToString("C").Replace(' ', ' '))
                                                         </span>
                                                         <span class="text-xs muted-2">Disponible</span>
                                                     </div>
@@ -686,14 +692,14 @@ else
                                                         @RiesgoTexto(c)
                                                     </span>
 
-                                                    <span class="text-xs muted-2">
+                                                    <span class="text-xs muted-2" title="Puntaje de riesgo: @pct%">
                                                         @pct%
                                                     </span>
                                                 </div>
                                             </td>
 
                                             @* ESTADO *@
-                                            <td>
+                                            <td class="cliente-estado-cell">
                                                 <span class="badge-erp @(c.Activo ? "badge-erp-success" : "badge-erp-neutral")">
                                                     @(c.Activo ? "Activo" : "Inactivo")
                                                 </span>
@@ -759,17 +765,15 @@ else
 
                                                             @if (puedeEliminar)
                                                             {
-                                                                <button type="button"
-                                                                        data-delete-url="@Url.Action("Delete", new { id = c.Id })"
-                                                                        data-nombre="@rowName"
-                                                                        class="cliente-row-menu__item cliente-row-menu__item--danger">
+                                                                <a asp-action="Delete" asp-route-id="@c.Id"
+   class="cliente-row-menu__item cliente-row-menu__item--danger">
 
                                                                     <span class="material-symbols-outlined" aria-hidden="true">
                                                                         delete
                                                                     </span>
 
-                                                                    Eliminar cliente
-                                                                </button>
+                                                                    Dar de baja cliente
+</a>
                                                             }
                                                         </div>
                                                     </details>
@@ -872,7 +876,7 @@ else
                         </div>
 
                         @* CRÉDITO Y RIESGO *@
-                        <div class="mt-3 grid grid-cols-2 gap-2">
+                        <div class="mt-3 grid grid-cols-2 gap-2 cliente-mobile-metrics">
                             <div class="minimetric">
                                 <div class="mm-label">Crédito</div>
 
@@ -882,7 +886,7 @@ else
                                 }
                                 else
                                 {
-                                    <div class="mm-value num">@((c.CreditoDisponible ?? 0m).ToString("C"))</div>
+                                    <div class="mm-value num">@((c.CreditoDisponible ?? 0m).ToString("C").Replace(' ', ' '))</div>
                                     <div class="text-xs muted-2">Disponible</div>
                                 }
                             </div>
@@ -896,7 +900,7 @@ else
                                         </span>
                                         @RiesgoTexto(c)
                                     </span>
-                                    <span class="text-xs muted-2">@pct%</span>
+                                    <span class="text-xs muted-2" title="Puntaje de riesgo: @pct%">@pct%</span>
                                 </div>
                             </div>
                         </div>
@@ -929,7 +933,7 @@ else
                                             edit
                                         </span>
 
-                                        <span class="hidden min-[390px]:inline">
+                                        <span>
                                             Editar
                                         </span>
                                     </button>
@@ -944,7 +948,7 @@ else
                                             more_horiz
                                         </span>
 
-                                        <span class="hidden min-[390px]:inline">
+                                        <span>
                                             Más
                                         </span>
                                     </summary>
@@ -960,16 +964,15 @@ else
 
                                         @if (puedeEliminar)
                                         {
-                                            <button type="button" data-delete-url="@Url.Action("Delete", new { id = c.Id })"
-                                                    data-nombre="@rowName"
-                                                    class="cliente-row-menu__item cliente-row-menu__item--danger">
+                                            <a asp-action="Delete" asp-route-id="@c.Id"
+   class="cliente-row-menu__item cliente-row-menu__item--danger">
 
                                                 <span class="material-symbols-outlined" aria-hidden="true">
                                                     delete
                                                 </span>
 
-                                                Eliminar cliente
-                                            </button>
+                                                Dar de baja cliente
+</a>
                                         }
                                     </div>
                                 </details>

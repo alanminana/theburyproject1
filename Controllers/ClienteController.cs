@@ -389,7 +389,7 @@ namespace TheBuryProject.Controllers
             try
             {
                 await _clienteService.DeleteAsync(id);
-                TempData["Success"] = "Cliente eliminado exitosamente";
+                TempData["Success"] = "Cliente dado de baja";
                 return this.RedirectToReturnUrlOrIndex(returnUrl);
             }
             catch (InvalidOperationException ex)

@@ -19,7 +19,7 @@ public class ClienteDetailsBcraUiContractTests
         Assert.Contains("\"Consulta OK\"", view);
         Assert.Contains("\"Sin consultar\"", view);
         Assert.Contains("\"Sin CUIL\"", view);
-        Assert.Contains("\"Usando ultima consulta valida\"", view);
+        Assert.Contains("\"Usando última consulta válida\"", view);
         Assert.Contains("\"Error BCRA\"", view);
 
         // El bug de FASE 11A (bcraOk ? "Consulta OK" : "Pendiente") ya no debe existir:

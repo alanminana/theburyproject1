@@ -12,7 +12,7 @@ faltan. Actualizar esta tabla al cerrar cada pantalla.
 | Venta | `Details` | ✅ Cerrado | serie VENTA-DETAILS (ver resumen abajo) + ENVIO-ML (ver resumen abajo) |
 | Cotización | `Simular` (`_CotizadorForm.cshtml`) | ✅ Cerrado | serie COTIZACION-SIMULAR-REDESIGN (ver resumen abajo) + ENVIO-ML (ver resumen abajo) |
 | ConfiguracionPago | `MediosPago` | ✅ Cerrado | ver resumen abajo |
-| Dashboard | `Index` | ◐ Foundation aplicada | header en `.hero-erp` + tabs Vencidas/Próximas con patrón ARIA completo (ver resumen abajo); resto sin auditoría de 4 capas |
+| Dashboard | `Index` | ◐ Auditoría 4 capas aplicada (2026-09-24) | estado del día en lugar de hero, tabs con contador, permisos en accesos/acciones, paneles planos, composición por ancho de columna; **falta verificar con filas reales de cuotas** (ver sección abajo) |
 | Cliente | `Index` | ✅ Cerrado | CLIENTE-INDEX-SIN-HERO-01 (ver resumen abajo) |
 | Cliente | `Nuevo cliente` (drawer Create) | ✅ Cerrado | serie wizard Cliente (ver resumen abajo) |
 | Cliente | `Details` | ✅ Cerrado | serie CLIENTE-DETAILS-TABS (ver resumen abajo) |
@@ -1140,6 +1140,37 @@ todavía). Resto de la pantalla (contenido de la tabla de cobranzas, alertas de 
 productos destacados, sidebar de accesos/notas/actividad) sigue sin auditoría de 4 capas
 completa — no se marca "✅ Cerrado". Sin commit, sin push (pendiente autorización).
 
+### Dashboard / Index — `/ui-module dashboard` (2026-09-24, sin commit)
+
+Pipeline completo (ux-heuristics + Impeccable critique/polish + `modulo-ui-refactor`) sobre el
+WIP previo del working tree (header con estado del día, estados vacíos, KPIs con container
+queries), sin revertirlo. Impeccable critique corrió en modo degradado (un solo contexto).
+
+- *Flujo/UX:* "Accesos rápidos", "Reponer", "Ver crédito" y "Ver catálogo" ahora respetan los
+  permisos del destino (`ventas.create`, `clientes.create`, `reportes.view`, `productos.view`,
+  `caja.view`, `creditos.view`, `ordenescompra.create`); antes llevaban a un 403. Bug del
+  vacío de "Próximas" (evaluaba `cuotasVencidas.Count`) corregido. Las tabs muestran su
+  contador (se quitó el texto "N vencidas · M próximas" duplicado) y una nota "Mostrando las 5
+  más antiguas de N" + "Ver créditos" avisa que la lista está acotada. Notas rápidas aclaran
+  "Solo en este navegador" (localStorage).
+- *Visual:* el `<h1>` queda `sr-only` (la barra global ya muestra el título, §4); se eliminó
+  el panel dentro de panel (`.dashboard-table-wrap`) y la franja vacía del hint; sin
+  encabezados de tabla sobre un estado vacío; pill de stock sin salto de línea.
+- *Responsive:* la columna lateral pasó de ≥1024 a ≥1280px (a 1024 dejaba ~320px de contenido y
+  recortaba KPIs/tabs/botones — el chequeo de overflow no lo detectaba); KPIs por container
+  query (1/2/4 columnas según el ancho real); en teléfono los KPIs son filas compactas
+  (~296px en vez de ~500px); accesos 3×2 entre 640 y 1279px.
+- *A11y:* regiones de scroll con `role="region"` + `aria-label`.
+- *Validado en vivo* (Playwright, app propia en :18787) a 1920/1440/1280/1024/768/390/360: sin
+  overflow, sin recortes, 0 errores/requests fallidos; tabs con mouse y teclado. Build 0 errores.
+- *Sin verificar:* la BD dev no tiene cuotas, así que el estado con filas (tabla llena, nota de
+  truncado renderizada por servidor, "Ver crédito") no se vio real; el toggle JS de la nota se
+  probó con markup simulado. Tampoco se probó con un rol de permisos restringidos.
+- *Deuda documentada:* Accesos rápidos queda al final en mobile (reordenar por CSS rompería el
+  orden de foco; el menú cubre las rutas); el chip de sección (COBRANZAS/INVENTARIO/DESTACADOS)
+  es identidad transversal (25 vistas), no se tocó; el gating de "Ver alertas" conserva su
+  lógica previa (`cotizaciones.view`, distinta de `productos.view` del Catálogo).
+
 ## Backlog transversal
 
 **P2 — horizontal-scroll-affordance**
@@ -1407,6 +1438,125 @@ ser el mismo criterio usado sin excepción en `Cliente/Index`, `Cliente/Edit` y
 `Cliente/Delete`; agregar puntos solo en Details introduciría la inconsistencia que se
 buscaba evitar, no resolverla.
 
+### Cliente / Details — auditoría `/ui-module` (2026-09-24)
+
+Reabierta para este alcance (Index se trabajó antes; Create/Edit/drawer/Delete quedan
+aparte). 4 capas con `ux-heuristics` + critique (un solo contexto), sobre la ficha real de
+un cliente No apto sin cupo usado y BCRA en error, en las 5 solapas. Solo Razor/CSS/JS de
+presentación; sin cambios de backend, ViewModel, reglas, permisos ni ids/`data-*`:
+
+- **Jerga técnica al usuario (P1)**: el KPI y la card BCRA mostraban `Error API (400)`
+  (texto interno del servicio, que además lo detecta por ese prefijo). Se muestra "No se
+  pudo consultar" (vista y refresco JS de `cliente-details.js`); el dato persistido y el
+  servicio no se tocan. La solapa Historial exponía una nota de desarrollo ("mismo acceso que
+  ya ofrecía esta ficha"): reescrita.
+- **Señales de color contradictorias (P2)**: el cupo disponible ($ 1.000.000.000, 100% libre)
+  y su barra salían en rojo por la aptitud del cliente, mientras el KPI de arriba estaba en
+  acento. El tono de esa card/barra sigue ahora al cupo (rojo solo si está agotado); la
+  aptitud ya la comunican el chip del encabezado, el KPI y la alerta principal.
+- **Microcopy (P2)**: ~30 textos visibles sin tilde ("Crédito disponible", "Situación BCRA",
+  "Última consulta", "Requiere autorización", "Al día", "Teléfono", "Automático", etc.);
+  4 aserciones de tests de contrato + 1 spec e2e actualizadas al texto nuevo. Placeholders
+  `ph-label` que repetían el título del estado vacío, retirados. Sigue sin tilde
+  "Monto maximo personalizado" (texto que arma `CreditoDisponibleService`, backend, fuera de
+  alcance).
+- **Equilibrio del layout (P2, desktop)**: la columna izquierda de Resumen quedaba ~750px
+  vacía bajo Motivos. Garante pasa al final de esa columna. En <1024px las columnas se
+  aplanan (`display:contents`) y Garante, la card menos urgente, cierra la lista (BCRA y
+  Documentación antes).
+- **Mobile (P2)**: los KPI de texto (Estado de aptitud, Situación BCRA) pueden bajar de línea
+  (`.kpi-value--text`); con `nowrap` "No se pudo consultar" se cortaba.
+- **Accesibilidad (P2)**: los botones de subir archivo por documento faltante eran solo un
+  ícono cuyo nombre accesible era la palabra "upload"; ahora `aria-label`/`title` "Subir
+  archivo de <documento>".
+
+Validado en vivo (Playwright, :18787, solo lectura) en 1440, 1280, 768, 390 y 360 × 5 solapas:
+sin overflow de página ni textos cortados dentro de las solapas, 0 errores de consola. 503/503
+tests `Cliente*` verdes (2 omitidos por diseño). No re-ejecutados: los specs Playwright
+`e2e/cliente-details-tabs.spec.js` y `cliente-aptitud-punitorio.spec.js` (este último exige
+seed). Técnicamente: ✅ · Visualmente: ✅ · Flujo UX: ✅ (ver seguimiento abajo).
+
+**Seguimiento (mismo día, a pedido "soluciona los pendientes")** — los tres puntos que habían
+quedado abiertos por decisión de producto:
+- **Redundancia de "No apto"**: se retira el chip de aptitud del encabezado (repetía el KPI
+  "Estado de aptitud" a 40px de distancia) y la fila "Estado de aptitud" dentro del aviso de
+  punitorio de Crédito. Quedan el KPI (estado), la alerta principal (motivo + acción, pedido
+  explícito del usuario) y la card "Motivos", que detalla la lista.
+- **Solapa Historial fusionada en Crédito**: era una card con un único link a
+  `Credito/Index?clienteId=` que "Últimos créditos del cliente" ya tiene ("Ver todos (N)").
+  La ficha pasa de 5 a **4 solapas** (Resumen/Crédito/Documentación/Datos). Un `#historial`
+  guardado abre Crédito (alias en `cliente-details.js`) en vez de caer a Resumen. Tests de
+  contrato y `e2e/cliente-details-tabs.spec.js` actualizados (+1 test del alias): 43/43 en los
+  5 viewports del proyecto Playwright; 503/503 `Cliente*`.
+- **Navegación duplicada**: se retira el breadcrumb "Clientes / Detalle" y queda "Volver a
+  clientes" (target más grande; respeta `returnUrl`); la ubicación la dan la barra global y el
+  ítem activo del menú.
+
+Validado de nuevo en vivo en 1440/1280/768/390/360 × 4 solapas: sin overflow, sin textos
+cortados, 0 errores de consola. Flujo UX: ✅.
+
+### Cliente / Create y Edit (páginas completas) — auditoría `/ui-module` (2026-09-24)
+
+Alcance: `/Cliente/Create` y `/Cliente/Edit/{id}` (`Create_tw`, `Edit_tw`) y el parcial de campos
+`_ClienteFormCampos`, que **comparte** con el drawer. No se convirtió la página a wizard (el
+estado del drawer ya lo dejaba como alcance aparte y la auditoría no lo justificó: el formulario
+es corto, los obligatorios están todos en la primera solapa y los errores se ven). Sin cambios de
+backend, ViewModel, validaciones, permisos ni ids/`name`:
+
+- **Jerga y contradicción en Edit (P1)**: mostraba el enum crudo `AprobadoCondicional` dos veces
+  (chip del encabezado y "Aptitud" del resumen) — no es la aptitud del cliente (Details dice "No
+  apto") sino su nivel de riesgo. Ahora "Nivel de riesgo: Medio" con la misma clasificación y textos
+  que Cliente/Index (`ClienteHelper.ClasificarRiesgo`); se retira el chip duplicado del encabezado;
+  "Score 6,00" pasa a "Puntaje de riesgo 60%" (misma escala que Index y su tooltip).
+- **Solapa oculta (P1)**: a 1280px la sexta solapa ("Crediticio", con los montos
+  mínimo/máximo personalizados) quedaba fuera de la barra sin ninguna pista. 1024–1439px: la
+  barra pierde los íconos (el texto basta) y, entre 1024 y 1279px, la tarjeta lateral baja debajo
+  del formulario; ≤640px la barra scrollea con fade en el borde derecho. Medido: las 6 solapas
+  entran completas de 768 a 1920.
+- **Accesibilidad (P2)**: 3 campos sin etiqueta asociada (Estado civil, Monto mínimo y máximo
+  personalizados: el `<label asp-for>` apuntaba a un id distinto del `id` fijado en el input). Corrige
+  también el drawer (parcial compartido).
+- Sin cambio deliberado: el `<h1>` repite el título de la barra global — se conserva como encabezado
+  del formulario (título + subtítulo con la advertencia de aptitud); nombre en minúsculas
+  ("cotizacion, cotizacion") es dato cargado, no presentación.
+
+Validado en vivo 1440/1280/768/390/360 en ambas páginas (sin overflow, 0 errores de consola);
+503/503 `Cliente*`; e2e `cliente-wizard-nuevo` + `cliente-details-tabs` 113/113 en los 5 proyectos
+Playwright. Técnicamente: ✅ · Visualmente: ✅ · Flujo UX: ✅.
+
+**Seguimiento — errores en solapas ocultas y Escape (P1, solo `cliente-form.js`, páginas
+Create/Edit; el drawer y su wizard usan `cliente-modal.js` y no cambian)**: Teléfono y Domicilio
+son obligatorios pero viven en la solapa Contacto. jQuery Validation ignora los campos ocultos, así
+que "Crear cliente" desde Personales se enviaba, el servidor lo rechazaba y la página volvía a
+Personales **sin ningún error visible** (los mensajes quedaban en Contacto). Ahora se validan todas
+las solapas (`ignore` = solo `input[type=hidden]`); si algo falla se abre la primera solapa con error,
+se enfoca el campo y las solapas con errores llevan un punto rojo (+ "(con errores)" para lectores de
+pantalla); lo mismo tras un rechazo del servidor. "Recordá" de Create avisa que teléfono y domicilio
+son obligatorios. Además `Escape` (volver a la pantalla anterior) solo actúa con el formulario
+intacto: con datos escritos —o al cerrar un desplegable con Escape— descartaba todo sin aviso.
+Verificado en vivo: 0 POST al servidor con obligatorios de Contacto vacíos, foco en Teléfono, Escape
+sin navegar; 113/113 e2e del wizard/solapas siguen verdes.
+
+### Cliente / Delete ("Dar de baja") — auditoría `/ui-module` (2026-09-24)
+
+`DeleteAsync` es un **soft-delete** (`IsDeleted = true`, se conserva el historial) y en Details el
+mismo botón se llama "Dar de baja cliente… Se conserva el historial", pero la pantalla de destino
+decía "Eliminar cliente / Esta acción es permanente / Eliminar definitivamente" y el menú de Index
+"Eliminar cliente" con un diálogo genérico "no se puede deshacer": tres nombres y una promesa falsa
+para la misma acción (P1, confianza/error de comprensión). Se unifica en **"Dar de baja"** con lo que
+el código realmente hace:
+- Delete: título, alerta ("El cliente dejará de aparecer en el listado… se conserva su historial…
+  Hoy el sistema no ofrece reactivarlo" — verificado: no existe reactivación en servicio/controller/
+  vistas de Cliente), confirmación y botón ("Dar de baja al cliente"); se retiran del detalle los
+  datos que repetían el encabezado (nombre, documento, estado), "Qué se va a eliminar" pasa a
+  "Créditos y deuda del cliente" (no lista lo que se borra) y "Créditos activos" deja de ir en verde.
+- Index: el ítem del menú (tabla y tarjetas) pasa a "Dar de baja cliente" y es un link directo a esa
+  pantalla, que ya es la confirmación (checkbox): se elimina el diálogo previo redundante que
+  además afirmaba "no se puede deshacer" (`module-index.js` compartido con otros módulos, no se toca).
+- Mensaje de éxito: "Cliente dado de baja" (única línea de C# tocada, `ClienteController.DeleteConfirmed`).
+Sin cambios de permisos (`clientes.delete`), rutas ni del servicio. Validado en 5 viewports, sin
+overflow ni errores de consola; 503/503 `Cliente*`. Técnicamente: ✅ · Visualmente: ✅ · Flujo UX: ✅.
+
 ## Cliente / Index — cerrado (CLIENTE-INDEX-SIN-HERO-01)
 
 La búsqueda/filtros/paginación/permisos de esta pantalla se implementaron el 2026-09-14
@@ -1448,7 +1598,51 @@ y preferir la composición sin hero de Catálogo:
 Deuda conocida, no iniciada en este lote: la búsqueda/filtros/paginación/permisos del
 2026-09-14 no recibieron la auditoría de 4 capas de §14 — este cierre cubre
 específicamente el patrón de header (CLIENTE-INDEX-SIN-HERO-01), no una auditoría
-integral de la pantalla.
+integral de la pantalla. (Retomada por `/ui-module cliente`, ver abajo.)
+
+### Cliente / Index — auditoría `/ui-module` (2026-09-24)
+
+Reabierta para este alcance (pantalla por pantalla; Details/Create/Edit no se tocaron).
+Auditoría de 4 capas con `ux-heuristics` + critique (en un solo contexto, sin sub-agentes)
+sobre la pantalla real (1 cliente en la DB local + estado vacío por búsqueda sin
+resultados). Hallazgos y cambios, todo en `Index_tw.cshtml` y `cliente-module.css`, sin
+tocar reglas de negocio, permisos, contratos ni `data-*`:
+
+- **Mobile ≤640px (P1, flujo/visual)**: los 5 filtros apilados ocupaban una pantalla
+  entera antes del primer cliente (y empujaban el estado vacío bajo el pliegue). Búsqueda a
+  ancho completo + Estado/Riesgo y Tipo/Mostrar de a pares; "Nuevo cliente" y "Más" en una
+  sola fila. El primer cliente y el estado vacío completo entran ahora en 390×844.
+- **Desktop (P2, microcopy/datos)**: el CUIT/CUIL se truncaba con "…" (identificador
+  ilegible sin abrir el legajo). El prefijo baja de línea; el número nunca se corta. El
+  porcentaje de riesgo ("60%") sin etiqueta gana `title="Puntaje de riesgo: N%"`.
+- **Tarjetas mobile/tablet (P2)**: el "$" del importe se separaba del número (nbsp);
+  Crédito toma el ancho de su importe y Riesgo el resto (apilados ≤380px, donde el chip
+  desbordaba); "Editar"/"Más" pierden la etiqueta bajo 390px de viewport útil → siempre
+  visible (ancho de sobra); entre 421 y 899px "Más" caía en una fila aparte (bug previo:
+  `.cliente-card-menu{grid-column:1/-1}` dentro de la grilla interna de 2 columnas); el
+  botón "Editar" no tenía borde y "Más" sí → mismo peso.
+- **Microcopy (P3)**: la opción "Todos los tipos" del filtro Tipo de documento pasa a
+  "Todos" (igual que Estado/Riesgo; el label ya dice qué se filtra; se cortaba a 360px).
+- Sin cambio deliberado: "Limpiar filtros" en chips + estado vacío es duplicación útil
+  (recuperación en el punto del fallo).
+
+Validado en vivo (Playwright, instancia del usuario :18787, solo lectura): 1440×900,
+768×1024, 390×844 y 360×800, con datos y estado vacío; sin overflow horizontal, 0
+errores/warnings de consola; menú "Más" y autosubmit de filtros verificados. Build OK,
+503/503 tests `Cliente*` (2 omitidos por diseño, seeders E2E).
+- **Laptops 900–1439px (P2, visual/datos)**: a 1280×720 (contenedor ≈948px) la tabla
+  scrolleaba en horizontal y Cliente/Contacto quedaban en ~124px c/u ("cotizacion, co…",
+  "asdf.123…"): las columnas fijas sumaban 712px. En esa banda la columna Estado se oculta
+  y su pill (misma lógica) pasa bajo el nombre; el piso de tabla baja a 854px y el reparto
+  es Cliente 160 / Documento 140 / Crédito 150 (Contacto recibe el resto, ≈212px). Efecto
+  aceptado: en la banda no se puede ordenar por Estado (el filtro Estado sí). Medido en
+  vivo: sin scroll ni truncado de 1280 a 1920; a 900/1024 (contenedor < 854px) se mantiene
+  el scroll interno con aviso, diseño previo.
+- **Progreso del wizard "Nuevo cliente"**: la barra deja de animar `width` (layout) y avanza
+  con `transform: scaleX` (`cliente-modal.js`), con `prefers-reduced-motion`.
+
+Técnicamente: ✅ · Visualmente: ✅ · Flujo UX: ✅ (sobre el volumen real de datos local: 1
+cliente; no se evaluó la tabla con paginación multi-página).
 
 ## Catálogo / Inventario (tab Productos) — cerrado
 

@@ -5,12 +5,14 @@
     var nombreResumen = string.IsNullOrWhiteSpace(Model.NombreCompleto)
         ? $"{Model.Apellido}, {Model.Nombre}".Trim(' ', ',')
         : Model.NombreCompleto;
-    var nivelRiesgo = Model.NivelRiesgo.ToString();
-    var chipRiesgo = nivelRiesgo.Contains("Rechazado")
-        ? "chip-bad"
-        : nivelRiesgo.Contains("Condicional") || nivelRiesgo.Contains("Limitado")
-            ? "chip-warn"
-            : "chip-ok";
+    // Mismo criterio y mismos textos que Cliente/Index (ClienteHelper.ClasificarRiesgo):
+    // el enum crudo ("AprobadoCondicional") es jerga interna y no es la aptitud del cliente.
+    var riesgoBucket = ClienteHelper.ClasificarRiesgo(Model.NivelRiesgo);
+    var riesgoTexto = riesgoBucket switch { "alto" => "Alto", "medio" => "Medio", _ => "Bajo" };
+    var chipRiesgo = riesgoBucket switch { "alto" => "chip-bad", "medio" => "chip-warn", _ => "chip-ok" };
+    var riesgoPct = Model.PuntajeRiesgo <= 0
+        ? 0
+        : Math.Clamp((int)Math.Round((double)Model.PuntajeRiesgo * 10, MidpointRounding.AwayFromZero), 0, 100);
 }
 
 @section Styles {
@@ -33,10 +35,7 @@
 
     <div class="page-head" style="margin-top:.85rem">
         <div class="min-w-0">
-            <div class="flex items-center gap-2 flex-wrap">
-                <h1 class="page-title">Editar cliente</h1>
-                <span class="chip @chipRiesgo"><span class="material-symbols-outlined">verified</span>@nivelRiesgo</span>
-            </div>
+            <h1 class="page-title">Editar cliente</h1>
             <p class="page-sub">Modificá los datos de <strong>@nombreResumen</strong>. Las métricas crediticias se preservan y no se editan manualmente.</p>
         </div>
     </div>
@@ -60,7 +59,7 @@
 
             <partial name="_ClienteFormCampos" model="Model" />
 
-            <div class="flex flex-col-reverse sm:flex-row items-center justify-between gap-2 card-pad" style="border-top:1px solid var(--line);background:rgba(8,12,22,.4)">
+            <div class="flex flex-col-reverse sm:flex-row items-center justify-between gap-2 card-pad" style="border-top:1px solid var(--line);background:color-mix(in srgb, var(--pal-neutral-950) 40%, transparent)">
                 <div class="text-xs muted-2 flex items-center gap-1.5 mr-auto"><span class="material-symbols-outlined" style="font-size:16px">lock</span>Los datos se guardan de forma segura.</div>
                 <div class="flex gap-2 w-full sm:w-auto">
                     @if (!string.IsNullOrWhiteSpace(returnUrl))
@@ -85,14 +84,14 @@
                 </div>
                 <dl class="kv">
                     <div class="kv-row"><dt>Estado</dt><dd><span class="chip @(Model.Activo ? "chip-ok" : "chip-neutral")">@(Model.Activo ? "Activo" : "Inactivo")</span></dd></div>
-                    <div class="kv-row"><dt>Aptitud</dt><dd><span class="chip @chipRiesgo">@nivelRiesgo</span></dd></div>
-                    <div class="kv-row"><dt>Score</dt><dd class="num">@Model.PuntajeRiesgo</dd></div>
+                    <div class="kv-row"><dt>Nivel de riesgo</dt><dd><span class="chip @chipRiesgo">@riesgoTexto</span></dd></div>
+                    <div class="kv-row"><dt>Puntaje de riesgo</dt><dd class="num">@riesgoPct%</dd></div>
                     <div class="kv-row"><dt>Créditos activos</dt><dd class="num">@Model.CreditosActivos</dd></div>
                     <div class="kv-row"><dt>Monto adeudado</dt><dd class="num">@((Model.MontoAdeudado ?? 0m).ToString("C"))</dd></div>
                 </dl>
             </div>
             <div class="card card-pad">
-                <div class="flex items-center gap-2 mb-3"><span class="material-symbols-outlined" style="color:#fbbf24;font-size:20px">shield_lock</span><h3 class="font-semibold text-white">Datos preservados</h3></div>
+                <div class="flex items-center gap-2 mb-3"><span class="material-symbols-outlined" style="color:var(--pal-warning-400);font-size:20px">shield_lock</span><h3 class="font-semibold text-white">Datos preservados</h3></div>
                 <p class="text-sm muted leading-relaxed">Las métricas crediticias, puntaje, nivel de riesgo, créditos, cuotas impagas y monto adeudado se mantienen y no se editan desde este formulario.</p>
             </div>
         </aside>

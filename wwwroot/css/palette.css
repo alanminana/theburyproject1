@@ -1,0 +1,401 @@
+/* ==========================================================================
+   palette.css — ÚNICA FUENTE DE VERDAD DE COLOR DEL ERP.
+   --------------------------------------------------------------------------
+   Para cambiar la paleta de todo el sistema se edita SOLO la sección 1.
+   Ningún otro archivo debería tener hex/rgb literales: los CSS de módulo,
+   las vistas y Tailwind consumen estos tokens.
+
+   Secciones:
+     1. PALETA BASE        (EDITAR ACÁ)  — 6 colores de marca + rampa neutra
+     2. ESCALAS DERIVADAS  (no editar)   — tonos 50..950 generados por rol
+     3. PUENTE TAILWIND    (no editar)   — --color-* de Tailwind -> tokens
+
+   Cómo se usa desde otros archivos:
+     color: var(--pal-danger-400);          fondo tenue:
+     background: color-mix(in srgb, var(--pal-accent) 13%, transparent);
+
+   Debe cargarse ANTES que theme-ml.css y que los CSS de módulo.
+   ========================================================================== */
+
+/* ---------- 1. PALETA BASE ------------------------------------------------ */
+:root {
+    /* Colores de marca. Cada uno genera su escala completa (sección 2). */
+    --pal-accent: #a5d926;   /* acento principal: botones, foco, selección activa */
+    --pal-success: #75d65c;  /* ok / ingreso / confirmado */
+    --pal-warning: #f59e0b;  /* atención / pendiente */
+    --pal-danger: #f43f5e;   /* error / egreso / mora */
+    --pal-info: #8cd9a2;     /* informativo / enlaces */
+    --pal-violet: #8f1fad;   /* categoría / énfasis secundario */
+
+    /* Texto que va SOBRE el color de acento (contraste). */
+    --pal-on-accent: #15110a;
+
+    /* Blanco y negro "puros" (papel / tinta). */
+    --pal-white: #ffffff;
+    --pal-black: #000000;
+
+    /* Rampa neutra (fondos, superficies, bordes, texto). Claro -> oscuro.
+       Matiz violeta (#5f33cc, h≈258°). Para otra paleta, regenerar con otro matiz. */
+    --pal-neutral-50: #f9f9fc;
+    --pal-neutral-100: #f4f2f8;
+    --pal-neutral-200: #e6e2f0;
+    --pal-neutral-250: #d9d3e6;
+    --pal-neutral-300: #d2cbe1;
+    --pal-neutral-350: #c1b9d3;
+    --pal-neutral-400: #afa6c3;
+    --pal-neutral-450: #9d93b5;
+    --pal-neutral-500: #70648b;
+    --pal-neutral-600: #514769;
+    --pal-neutral-650: #423a56;
+    --pal-neutral-700: #3d3355;
+    --pal-neutral-750: #332c44;
+    --pal-neutral-800: #271f3a;
+    --pal-neutral-850: #1f1a2c;
+    --pal-neutral-875: #1b1628;
+    --pal-neutral-900: #181421;
+    --pal-neutral-925: #13101b;
+    --pal-neutral-950: #0e0b14;
+}
+
+/* ---------- ALTERNATIVA (paleta candidata de css/palette.css) --------------
+   Para probarla: descomentar este bloque (queda por encima del :root anterior).
+   Nota: sólo cubre 4 roles; warning/danger se mantienen (la paleta no los trae).
+   Ojo con textos blancos sobre --pal-info/--pal-success claros: revisar contraste.
+
+:root {
+    --pal-accent:  #a5d926;  lima
+    --pal-success: #75d65c;  verde
+    --pal-info:    #8cd9a2;  menta
+    --pal-violet:  #8f1fad;  magenta
+    (violeta #5f33cc queda libre: ideal para fondos/acentos oscuros)
+}
+*/
+
+/* ---------- 2. ESCALAS DERIVADAS (no editar) ------------------------------ */
+:root {
+    /* accent */
+    --pal-accent-50: color-mix(in srgb, var(--pal-accent) 8%, white);
+    --pal-accent-100: color-mix(in srgb, var(--pal-accent) 16%, white);
+    --pal-accent-200: color-mix(in srgb, var(--pal-accent) 32%, white);
+    --pal-accent-300: color-mix(in srgb, var(--pal-accent) 52%, white);
+    --pal-accent-400: color-mix(in srgb, var(--pal-accent) 74%, white);
+    --pal-accent-500: var(--pal-accent);
+    --pal-accent-600: color-mix(in srgb, var(--pal-accent) 86%, black);
+    --pal-accent-700: color-mix(in srgb, var(--pal-accent) 72%, black);
+    --pal-accent-800: color-mix(in srgb, var(--pal-accent) 58%, black);
+    --pal-accent-900: color-mix(in srgb, var(--pal-accent) 42%, black);
+    --pal-accent-950: color-mix(in srgb, var(--pal-accent) 26%, black);
+    /* success */
+    --pal-success-50: color-mix(in srgb, var(--pal-success) 8%, white);
+    --pal-success-100: color-mix(in srgb, var(--pal-success) 16%, white);
+    --pal-success-200: color-mix(in srgb, var(--pal-success) 32%, white);
+    --pal-success-300: color-mix(in srgb, var(--pal-success) 52%, white);
+    --pal-success-400: color-mix(in srgb, var(--pal-success) 74%, white);
+    --pal-success-500: var(--pal-success);
+    --pal-success-600: color-mix(in srgb, var(--pal-success) 86%, black);
+    --pal-success-700: color-mix(in srgb, var(--pal-success) 72%, black);
+    --pal-success-800: color-mix(in srgb, var(--pal-success) 58%, black);
+    --pal-success-900: color-mix(in srgb, var(--pal-success) 42%, black);
+    --pal-success-950: color-mix(in srgb, var(--pal-success) 26%, black);
+    /* warning */
+    --pal-warning-50: color-mix(in srgb, var(--pal-warning) 8%, white);
+    --pal-warning-100: color-mix(in srgb, var(--pal-warning) 16%, white);
+    --pal-warning-200: color-mix(in srgb, var(--pal-warning) 32%, white);
+    --pal-warning-300: color-mix(in srgb, var(--pal-warning) 52%, white);
+    --pal-warning-400: color-mix(in srgb, var(--pal-warning) 74%, white);
+    --pal-warning-500: var(--pal-warning);
+    --pal-warning-600: color-mix(in srgb, var(--pal-warning) 86%, black);
+    --pal-warning-700: color-mix(in srgb, var(--pal-warning) 72%, black);
+    --pal-warning-800: color-mix(in srgb, var(--pal-warning) 58%, black);
+    --pal-warning-900: color-mix(in srgb, var(--pal-warning) 42%, black);
+    --pal-warning-950: color-mix(in srgb, var(--pal-warning) 26%, black);
+    /* danger */
+    --pal-danger-50: color-mix(in srgb, var(--pal-danger) 8%, white);
+    --pal-danger-100: color-mix(in srgb, var(--pal-danger) 16%, white);
+    --pal-danger-200: color-mix(in srgb, var(--pal-danger) 32%, white);
+    --pal-danger-300: color-mix(in srgb, var(--pal-danger) 52%, white);
+    --pal-danger-400: color-mix(in srgb, var(--pal-danger) 74%, white);
+    --pal-danger-500: var(--pal-danger);
+    --pal-danger-600: color-mix(in srgb, var(--pal-danger) 86%, black);
+    --pal-danger-700: color-mix(in srgb, var(--pal-danger) 72%, black);
+    --pal-danger-800: color-mix(in srgb, var(--pal-danger) 58%, black);
+    --pal-danger-900: color-mix(in srgb, var(--pal-danger) 42%, black);
+    --pal-danger-950: color-mix(in srgb, var(--pal-danger) 26%, black);
+    /* info */
+    --pal-info-50: color-mix(in srgb, var(--pal-info) 8%, white);
+    --pal-info-100: color-mix(in srgb, var(--pal-info) 16%, white);
+    --pal-info-200: color-mix(in srgb, var(--pal-info) 32%, white);
+    --pal-info-300: color-mix(in srgb, var(--pal-info) 52%, white);
+    --pal-info-400: color-mix(in srgb, var(--pal-info) 74%, white);
+    --pal-info-500: var(--pal-info);
+    --pal-info-600: color-mix(in srgb, var(--pal-info) 86%, black);
+    --pal-info-700: color-mix(in srgb, var(--pal-info) 72%, black);
+    --pal-info-800: color-mix(in srgb, var(--pal-info) 58%, black);
+    --pal-info-900: color-mix(in srgb, var(--pal-info) 42%, black);
+    --pal-info-950: color-mix(in srgb, var(--pal-info) 26%, black);
+    /* violet */
+    --pal-violet-50: color-mix(in srgb, var(--pal-violet) 8%, white);
+    --pal-violet-100: color-mix(in srgb, var(--pal-violet) 16%, white);
+    --pal-violet-200: color-mix(in srgb, var(--pal-violet) 32%, white);
+    --pal-violet-300: color-mix(in srgb, var(--pal-violet) 52%, white);
+    --pal-violet-400: color-mix(in srgb, var(--pal-violet) 74%, white);
+    --pal-violet-500: var(--pal-violet);
+    --pal-violet-600: color-mix(in srgb, var(--pal-violet) 86%, black);
+    --pal-violet-700: color-mix(in srgb, var(--pal-violet) 72%, black);
+    --pal-violet-800: color-mix(in srgb, var(--pal-violet) 58%, black);
+    --pal-violet-900: color-mix(in srgb, var(--pal-violet) 42%, black);
+    --pal-violet-950: color-mix(in srgb, var(--pal-violet) 26%, black);
+}
+
+/* ---------- 3. PUENTE TAILWIND (no editar) --------------------------------
+   Las utilidades compiladas (bg-slate-900, text-red-400, ...) leen
+   var(--color-*). Se reapuntan a los tokens: no hace falta recompilar. */
+:root {
+    --color-primary: var(--pal-accent);
+    --color-white: var(--pal-white);
+    --color-black: var(--pal-black);
+
+    --color-slate-50: var(--pal-neutral-50);
+    --color-slate-100: var(--pal-neutral-100);
+    --color-slate-200: var(--pal-neutral-200);
+    --color-slate-300: var(--pal-neutral-300);
+    --color-slate-400: var(--pal-neutral-400);
+    --color-slate-500: var(--pal-neutral-500);
+    --color-slate-600: var(--pal-neutral-600);
+    --color-slate-700: var(--pal-neutral-700);
+    --color-slate-800: var(--pal-neutral-800);
+    --color-slate-900: var(--pal-neutral-900);
+    --color-slate-950: var(--pal-neutral-950);
+    --color-gray-50: var(--pal-neutral-50);
+    --color-gray-100: var(--pal-neutral-100);
+    --color-gray-200: var(--pal-neutral-200);
+    --color-gray-300: var(--pal-neutral-300);
+    --color-gray-400: var(--pal-neutral-400);
+    --color-gray-500: var(--pal-neutral-500);
+    --color-gray-600: var(--pal-neutral-600);
+    --color-gray-700: var(--pal-neutral-700);
+    --color-gray-800: var(--pal-neutral-800);
+    --color-gray-900: var(--pal-neutral-900);
+    --color-gray-950: var(--pal-neutral-950);
+    --color-zinc-50: var(--pal-neutral-50);
+    --color-zinc-100: var(--pal-neutral-100);
+    --color-zinc-200: var(--pal-neutral-200);
+    --color-zinc-300: var(--pal-neutral-300);
+    --color-zinc-400: var(--pal-neutral-400);
+    --color-zinc-500: var(--pal-neutral-500);
+    --color-zinc-600: var(--pal-neutral-600);
+    --color-zinc-700: var(--pal-neutral-700);
+    --color-zinc-800: var(--pal-neutral-800);
+    --color-zinc-900: var(--pal-neutral-900);
+    --color-zinc-950: var(--pal-neutral-950);
+    --color-neutral-50: var(--pal-neutral-50);
+    --color-neutral-100: var(--pal-neutral-100);
+    --color-neutral-200: var(--pal-neutral-200);
+    --color-neutral-300: var(--pal-neutral-300);
+    --color-neutral-400: var(--pal-neutral-400);
+    --color-neutral-500: var(--pal-neutral-500);
+    --color-neutral-600: var(--pal-neutral-600);
+    --color-neutral-700: var(--pal-neutral-700);
+    --color-neutral-800: var(--pal-neutral-800);
+    --color-neutral-900: var(--pal-neutral-900);
+    --color-neutral-950: var(--pal-neutral-950);
+    --color-stone-50: var(--pal-neutral-50);
+    --color-stone-100: var(--pal-neutral-100);
+    --color-stone-200: var(--pal-neutral-200);
+    --color-stone-300: var(--pal-neutral-300);
+    --color-stone-400: var(--pal-neutral-400);
+    --color-stone-500: var(--pal-neutral-500);
+    --color-stone-600: var(--pal-neutral-600);
+    --color-stone-700: var(--pal-neutral-700);
+    --color-stone-800: var(--pal-neutral-800);
+    --color-stone-900: var(--pal-neutral-900);
+    --color-stone-950: var(--pal-neutral-950);
+
+    --color-red-50: var(--pal-danger-50);
+    --color-red-100: var(--pal-danger-100);
+    --color-red-200: var(--pal-danger-200);
+    --color-red-300: var(--pal-danger-300);
+    --color-red-400: var(--pal-danger-400);
+    --color-red-500: var(--pal-danger-500);
+    --color-red-600: var(--pal-danger-600);
+    --color-red-700: var(--pal-danger-700);
+    --color-red-800: var(--pal-danger-800);
+    --color-red-900: var(--pal-danger-900);
+    --color-red-950: var(--pal-danger-950);
+    --color-rose-50: var(--pal-danger-50);
+    --color-rose-100: var(--pal-danger-100);
+    --color-rose-200: var(--pal-danger-200);
+    --color-rose-300: var(--pal-danger-300);
+    --color-rose-400: var(--pal-danger-400);
+    --color-rose-500: var(--pal-danger-500);
+    --color-rose-600: var(--pal-danger-600);
+    --color-rose-700: var(--pal-danger-700);
+    --color-rose-800: var(--pal-danger-800);
+    --color-rose-900: var(--pal-danger-900);
+    --color-rose-950: var(--pal-danger-950);
+    --color-pink-50: var(--pal-danger-50);
+    --color-pink-100: var(--pal-danger-100);
+    --color-pink-200: var(--pal-danger-200);
+    --color-pink-300: var(--pal-danger-300);
+    --color-pink-400: var(--pal-danger-400);
+    --color-pink-500: var(--pal-danger-500);
+    --color-pink-600: var(--pal-danger-600);
+    --color-pink-700: var(--pal-danger-700);
+    --color-pink-800: var(--pal-danger-800);
+    --color-pink-900: var(--pal-danger-900);
+    --color-pink-950: var(--pal-danger-950);
+    --color-amber-50: var(--pal-warning-50);
+    --color-amber-100: var(--pal-warning-100);
+    --color-amber-200: var(--pal-warning-200);
+    --color-amber-300: var(--pal-warning-300);
+    --color-amber-400: var(--pal-warning-400);
+    --color-amber-500: var(--pal-warning-500);
+    --color-amber-600: var(--pal-warning-600);
+    --color-amber-700: var(--pal-warning-700);
+    --color-amber-800: var(--pal-warning-800);
+    --color-amber-900: var(--pal-warning-900);
+    --color-amber-950: var(--pal-warning-950);
+    --color-yellow-50: var(--pal-warning-50);
+    --color-yellow-100: var(--pal-warning-100);
+    --color-yellow-200: var(--pal-warning-200);
+    --color-yellow-300: var(--pal-warning-300);
+    --color-yellow-400: var(--pal-warning-400);
+    --color-yellow-500: var(--pal-warning-500);
+    --color-yellow-600: var(--pal-warning-600);
+    --color-yellow-700: var(--pal-warning-700);
+    --color-yellow-800: var(--pal-warning-800);
+    --color-yellow-900: var(--pal-warning-900);
+    --color-yellow-950: var(--pal-warning-950);
+    --color-orange-50: var(--pal-warning-50);
+    --color-orange-100: var(--pal-warning-100);
+    --color-orange-200: var(--pal-warning-200);
+    --color-orange-300: var(--pal-warning-300);
+    --color-orange-400: var(--pal-warning-400);
+    --color-orange-500: var(--pal-warning-500);
+    --color-orange-600: var(--pal-warning-600);
+    --color-orange-700: var(--pal-warning-700);
+    --color-orange-800: var(--pal-warning-800);
+    --color-orange-900: var(--pal-warning-900);
+    --color-orange-950: var(--pal-warning-950);
+    --color-emerald-50: var(--pal-success-50);
+    --color-emerald-100: var(--pal-success-100);
+    --color-emerald-200: var(--pal-success-200);
+    --color-emerald-300: var(--pal-success-300);
+    --color-emerald-400: var(--pal-success-400);
+    --color-emerald-500: var(--pal-success-500);
+    --color-emerald-600: var(--pal-success-600);
+    --color-emerald-700: var(--pal-success-700);
+    --color-emerald-800: var(--pal-success-800);
+    --color-emerald-900: var(--pal-success-900);
+    --color-emerald-950: var(--pal-success-950);
+    --color-green-50: var(--pal-success-50);
+    --color-green-100: var(--pal-success-100);
+    --color-green-200: var(--pal-success-200);
+    --color-green-300: var(--pal-success-300);
+    --color-green-400: var(--pal-success-400);
+    --color-green-500: var(--pal-success-500);
+    --color-green-600: var(--pal-success-600);
+    --color-green-700: var(--pal-success-700);
+    --color-green-800: var(--pal-success-800);
+    --color-green-900: var(--pal-success-900);
+    --color-green-950: var(--pal-success-950);
+    --color-teal-50: var(--pal-success-50);
+    --color-teal-100: var(--pal-success-100);
+    --color-teal-200: var(--pal-success-200);
+    --color-teal-300: var(--pal-success-300);
+    --color-teal-400: var(--pal-success-400);
+    --color-teal-500: var(--pal-success-500);
+    --color-teal-600: var(--pal-success-600);
+    --color-teal-700: var(--pal-success-700);
+    --color-teal-800: var(--pal-success-800);
+    --color-teal-900: var(--pal-success-900);
+    --color-teal-950: var(--pal-success-950);
+    --color-lime-50: var(--pal-success-50);
+    --color-lime-100: var(--pal-success-100);
+    --color-lime-200: var(--pal-success-200);
+    --color-lime-300: var(--pal-success-300);
+    --color-lime-400: var(--pal-success-400);
+    --color-lime-500: var(--pal-success-500);
+    --color-lime-600: var(--pal-success-600);
+    --color-lime-700: var(--pal-success-700);
+    --color-lime-800: var(--pal-success-800);
+    --color-lime-900: var(--pal-success-900);
+    --color-lime-950: var(--pal-success-950);
+    --color-sky-50: var(--pal-info-50);
+    --color-sky-100: var(--pal-info-100);
+    --color-sky-200: var(--pal-info-200);
+    --color-sky-300: var(--pal-info-300);
+    --color-sky-400: var(--pal-info-400);
+    --color-sky-500: var(--pal-info-500);
+    --color-sky-600: var(--pal-info-600);
+    --color-sky-700: var(--pal-info-700);
+    --color-sky-800: var(--pal-info-800);
+    --color-sky-900: var(--pal-info-900);
+    --color-sky-950: var(--pal-info-950);
+    --color-blue-50: var(--pal-info-50);
+    --color-blue-100: var(--pal-info-100);
+    --color-blue-200: var(--pal-info-200);
+    --color-blue-300: var(--pal-info-300);
+    --color-blue-400: var(--pal-info-400);
+    --color-blue-500: var(--pal-info-500);
+    --color-blue-600: var(--pal-info-600);
+    --color-blue-700: var(--pal-info-700);
+    --color-blue-800: var(--pal-info-800);
+    --color-blue-900: var(--pal-info-900);
+    --color-blue-950: var(--pal-info-950);
+    --color-cyan-50: var(--pal-info-50);
+    --color-cyan-100: var(--pal-info-100);
+    --color-cyan-200: var(--pal-info-200);
+    --color-cyan-300: var(--pal-info-300);
+    --color-cyan-400: var(--pal-info-400);
+    --color-cyan-500: var(--pal-info-500);
+    --color-cyan-600: var(--pal-info-600);
+    --color-cyan-700: var(--pal-info-700);
+    --color-cyan-800: var(--pal-info-800);
+    --color-cyan-900: var(--pal-info-900);
+    --color-cyan-950: var(--pal-info-950);
+    --color-indigo-50: var(--pal-info-50);
+    --color-indigo-100: var(--pal-info-100);
+    --color-indigo-200: var(--pal-info-200);
+    --color-indigo-300: var(--pal-info-300);
+    --color-indigo-400: var(--pal-info-400);
+    --color-indigo-500: var(--pal-info-500);
+    --color-indigo-600: var(--pal-info-600);
+    --color-indigo-700: var(--pal-info-700);
+    --color-indigo-800: var(--pal-info-800);
+    --color-indigo-900: var(--pal-info-900);
+    --color-indigo-950: var(--pal-info-950);
+    --color-violet-50: var(--pal-violet-50);
+    --color-violet-100: var(--pal-violet-100);
+    --color-violet-200: var(--pal-violet-200);
+    --color-violet-300: var(--pal-violet-300);
+    --color-violet-400: var(--pal-violet-400);
+    --color-violet-500: var(--pal-violet-500);
+    --color-violet-600: var(--pal-violet-600);
+    --color-violet-700: var(--pal-violet-700);
+    --color-violet-800: var(--pal-violet-800);
+    --color-violet-900: var(--pal-violet-900);
+    --color-violet-950: var(--pal-violet-950);
+    --color-purple-50: var(--pal-violet-50);
+    --color-purple-100: var(--pal-violet-100);
+    --color-purple-200: var(--pal-violet-200);
+    --color-purple-300: var(--pal-violet-300);
+    --color-purple-400: var(--pal-violet-400);
+    --color-purple-500: var(--pal-violet-500);
+    --color-purple-600: var(--pal-violet-600);
+    --color-purple-700: var(--pal-violet-700);
+    --color-purple-800: var(--pal-violet-800);
+    --color-purple-900: var(--pal-violet-900);
+    --color-purple-950: var(--pal-violet-950);
+    --color-fuchsia-50: var(--pal-violet-50);
+    --color-fuchsia-100: var(--pal-violet-100);
+    --color-fuchsia-200: var(--pal-violet-200);
+    --color-fuchsia-300: var(--pal-violet-300);
+    --color-fuchsia-400: var(--pal-violet-400);
+    --color-fuchsia-500: var(--pal-violet-500);
+    --color-fuchsia-600: var(--pal-violet-600);
+    --color-fuchsia-700: var(--pal-violet-700);
+    --color-fuchsia-800: var(--pal-violet-800);
+    --color-fuchsia-900: var(--pal-violet-900);
+    --color-fuchsia-950: var(--pal-violet-950);
+}
