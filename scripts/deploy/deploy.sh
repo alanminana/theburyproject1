@@ -31,6 +31,7 @@ while [[ $# -gt 0 ]]; do
 done
 [[ -n "$IMAGE" ]] || die $EX_USAGE "--image es obligatorio"
 case "$BACKUP_MODE" in auto|skip) ;; *) die $EX_USAGE "--backup debe ser auto|skip" ;; esac
+recompute_state_paths # --project pudo haber cambiado DP_PROJECT recien arriba; ver comentario en lib.sh
 
 DP_ENV_FILE="$(cd "$(dirname "$DP_ENV_FILE")" && pwd)/$(basename "$DP_ENV_FILE")" 2>/dev/null || true
 ensure_state_dir

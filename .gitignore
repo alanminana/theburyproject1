@@ -108,3 +108,6 @@ backup-offsite.env
 *.dump
 *.dmp
 secrets/
+
+# Estado operativo de scripts/deploy/*.sh (lock, release log, current/previous image). Nunca commitear.
+/.deploy-state/

@@ -29,6 +29,7 @@ while [[ $# -gt 0 ]]; do
     *) die $EX_USAGE "argumento desconocido: $1 (ver --help)" ;;
   esac
 done
+recompute_state_paths # --project pudo haber cambiado DP_PROJECT recien arriba; ver comentario en lib.sh
 ensure_state_dir
 
 if [[ -z "$TO_IMAGE" ]]; then

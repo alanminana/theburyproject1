@@ -21,6 +21,8 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+recompute_state_paths # --project pudo haber cambiado DP_PROJECT recien arriba; ver comentario en lib.sh
+
 FAIL=0
 check() { # check "descripcion" comando...
   local desc=$1; shift

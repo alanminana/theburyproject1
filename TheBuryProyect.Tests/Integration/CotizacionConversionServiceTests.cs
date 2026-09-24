@@ -474,6 +474,28 @@ public sealed class CotizacionConversionServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Preview_EfectivoSinCliente_EsConvertibleParaPermitirOverrideEnLaUi()
+    {
+        // Reproduce un bug real de staging (2026-09-23): el modal "Convertir a Venta" deja buscar y
+        // seleccionar un cliente para resolver justo esta condición (ClienteFaltante), pero
+        // Convertible quedaba en false para SIEMPRE porque el mensaje de cliente faltante se
+        // agregaba a Errores sin importar el medio de pago — el botón de confirmar nunca se
+        // habilitaba, ni siquiera después de elegir un cliente. Para medios distintos de Crédito
+        // personal, ConvertirAsync ya acepta ClienteIdOverride (ver Convertir_SinClienteConOverride_Convierte),
+        // así que el preview no debe bloquear la conversión sólo por esto.
+        var cotizacion = CotizacionEmitida(conCliente: false);
+        cotizacion.MedioPagoSeleccionado = CotizacionMedioPagoTipo.Efectivo;
+        _context.Cotizaciones.Add(cotizacion);
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.PreviewConversionAsync(cotizacion.Id);
+
+        Assert.True(resultado.ClienteFaltante);
+        Assert.True(resultado.Convertible);
+        Assert.DoesNotContain(resultado.Errores, e => e.Contains("cliente", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public async Task Preview_NoCreaVenta()
     {
         var cotizacion = CotizacionEmitida(conCliente: true);

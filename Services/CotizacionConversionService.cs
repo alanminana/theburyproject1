@@ -86,7 +86,13 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
 
         var clienteId = cotizacion.ClienteId;
         var clienteFaltante = clienteId is null;
-        if (clienteFaltante)
+        // Sólo bloquea el preview (Convertible=false) cuando el medio es Crédito personal: ese caso
+        // necesita un cliente real ya asignado para evaluar riesgo/contrato, no un simple override.
+        // Para el resto de los medios, ConvertirAsync ya acepta ClienteIdOverride (ver
+        // Convertir_SinClienteConOverride_Convierte); marcarlo acá como error no-recuperable
+        // contradecía al propio flujo de la UI, que ofrece buscar y asignar un cliente en el mismo
+        // modal para resolver justo esta condición — el botón quedaba deshabilitado para siempre.
+        if (clienteFaltante && cotizacion.MedioPagoSeleccionado == CotizacionMedioPagoTipo.CreditoPersonal)
             errores.Add("La cotización no tiene cliente asignado. Asignar un cliente es obligatorio para crear la venta.");
 
         var productoIds = cotizacion.Detalles.Select(d => d.ProductoId).Distinct().ToList();

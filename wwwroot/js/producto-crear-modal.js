@@ -497,10 +497,28 @@ const ProductoModal = (() => {
         var tdMarca = mkEl('td', 'px-6 py-4 text-sm text-slate-300');
         tdMarca.textContent = entity.marcaNombre || '—';
 
-        // td: stock (siempre Agotado para un producto nuevo)
+        // td: stock — refleja el stock inicial cargado en el modal (antes quedaba
+        // hardcodeado a "Agotado" porque CreateAjax no devolvía stockActual/estadoStock).
         var tdStock = mkEl('td', 'px-6 py-4 text-center');
-        var spanStock = mkEl('span', 'inline-flex items-center px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-red-500/20 text-red-400 border border-red-500/30');
-        spanStock.textContent = 'Agotado';
+        var stockClass;
+        var stockLabel;
+        var stockActualNum = parseFloat(entity.stockActual || 0);
+        switch (entity.estadoStock) {
+            case 'Sin Stock':
+                stockClass = 'bg-red-500/20 text-red-400 border-red-500/30';
+                stockLabel = 'Agotado';
+                break;
+            case 'Stock Bajo':
+                stockClass = 'bg-amber-500/20 text-amber-400 border-amber-500/30';
+                stockLabel = stockActualNum + ' disponibles';
+                break;
+            default:
+                stockClass = 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
+                stockLabel = stockActualNum + ' disponibles';
+                break;
+        }
+        var spanStock = mkEl('span', 'inline-flex items-center px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ' + stockClass);
+        spanStock.textContent = stockLabel;
         tdStock.appendChild(spanStock);
 
         // td: precio
