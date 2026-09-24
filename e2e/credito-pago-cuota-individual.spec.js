@@ -62,7 +62,15 @@ function trackFailures(page) {
     const consoleErrors = [];
     const serverErrors = [];
     page.on('console', message => {
-        if (message.type() === 'error') consoleErrors.push(message.text());
+        if (message.type() !== 'error') return;
+        const text = message.text();
+        // Tras el login el layout abre la negociacion SignalR (notificaciones); el page.goto
+        // inmediato del test aborta ese fetch en vuelo y el cliente lo loguea como error. Es un
+        // artefacto de navegacion (TypeError: Failed to fetch), no un fallo del servidor: un
+        // hub roto real sigue detectandose por las respuestas 5xx (serverErrors) y por cualquier
+        // otro error de consola.
+        if (/negotiation with the server: TypeError: Failed to fetch/.test(text)) return;
+        consoleErrors.push(text);
     });
     page.on('response', response => {
         if (response.status() >= 500) serverErrors.push(`${response.status()} ${response.url()}`);

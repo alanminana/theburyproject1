@@ -260,6 +260,7 @@ Drift de tests corregido (no se toco producto):
 | `venta-edit-confirmar-post-blocker.spec.js` | `getByText('Venta confirmada')` resolvia 3 elementos (toast + titulo + descripcion): strict mode | `exact: true` |
 | `venta-functional-audit.spec.js` (Edit) | En Edit `#btn-confirmar` ahora CONFIRMA la venta; volver a `editUrl` redirige a Details. El retry salia "skipped" (estado de modulo) y contaba como flaky | matriz responsive movida ANTES de confirmar |
 | `credito-adelanto-pago-multiple.spec.js` | Negociacion SignalR abortada por el `page.goto` inmediato tras login se logueaba como error de consola (flaky) | filtro estrecho de ese mensaje exacto; 5xx y demas errores de consola siguen fallando |
+| `credito-pago-cuota-individual.spec.js` | Mismo artefacto SignalR (flaky observado en `PUN-ML9-D — matriz de permisos`, login de vendedor + `page.goto` inmediato) | mismo filtro estrecho en `trackFailures` |
 
 Nota operativa: dos corridas Playwright simultaneas en el mismo worktree se pisan (`e2e/.auth/user.json`
 y `qa-evidence/`); usar un worktree/stack por corrida.
