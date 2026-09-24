@@ -246,3 +246,20 @@ GitHub Actions real: NO ejecutado en este cierre (sin acceso a gh CLI ni MCP git
 funcional en este entorno — ver informe de cierre de la tarea). Pendiente de que se abra el
 PR y corra el workflow real antes de mergear.
 ```
+
+## Resultado tras integrar main con los fixes de staging (2026-09-24)
+
+Corrida local contra stack Docker efimero limpio, `--project=1366x768`: **196 total, 182 passed,
+0 failed, 0 flaky, 14 skipped** (~5 min). Los 14 skips son los explicitos ya documentados
+(permisos de la sesion QA, datos ausentes, sin egreso a BCRA, escenario ya no alcanzable por UI).
+
+Drift de tests corregido (no se toco producto):
+
+| Spec | Causa | Fix |
+|---|---|---|
+| `venta-edit-confirmar-post-blocker.spec.js` | `getByText('Venta confirmada')` resolvia 3 elementos (toast + titulo + descripcion): strict mode | `exact: true` |
+| `venta-functional-audit.spec.js` (Edit) | En Edit `#btn-confirmar` ahora CONFIRMA la venta; volver a `editUrl` redirige a Details. El retry salia "skipped" (estado de modulo) y contaba como flaky | matriz responsive movida ANTES de confirmar |
+| `credito-adelanto-pago-multiple.spec.js` | Negociacion SignalR abortada por el `page.goto` inmediato tras login se logueaba como error de consola (flaky) | filtro estrecho de ese mensaje exacto; 5xx y demas errores de consola siguen fallando |
+
+Nota operativa: dos corridas Playwright simultaneas en el mismo worktree se pisan (`e2e/.auth/user.json`
+y `qa-evidence/`); usar un worktree/stack por corrida.

@@ -135,7 +135,22 @@ jobs:
             echo "::error::No se genero $SEED_JSON (fallo el seed de escenarios de punitorio)."
             exit 1
           fi
-          jq -r 'to_entries[] | "\(.key)=\(.value)"' "$SEED_JSON" >> "$GITHUB_ENV"
+
+          # Fail-fast: cada variable que exige e2e/cliente-aptitud-punitorio.spec.js debe existir y
+          # no estar vacia en el JSON (nada hardcodeado: los ids salen del seed real de esta DB).
+          REQUIRED="E2E_CLIENTE_SIN_DEUDA_ID E2E_CLIENTE_MORA_CAPITAL_ID E2E_CLIENTE_PUNITORIO_ID
+            E2E_CLIENTE_MORA_Y_PUNITORIO_ID E2E_CLIENTE_NOAPTO_PUNITORIO_ID E2E_CLIENTE_PUNITORIO_PARCIAL_ID
+            E2E_CLIENTE_PUNITORIO_PAGADO_ID E2E_CLIENTE_PUNITORIO_ANULADO_ID
+            E2E_CLIENTE_PUNITORIO_CALCULADO_NO_APLICADO_ID E2E_CLIENTE_MORA_Y_PUNITORIO_DOCUMENTO"
+          for k in $REQUIRED; do
+            v=$(jq -r --arg k "$k" '.[$k] // empty' "$SEED_JSON")
+            if [ -z "$v" ]; then
+              echo "::error::El seed no produjo un valor para $k en $SEED_JSON."
+              exit 1
+            fi
+          done
+
+          jq -r 'to_entries[] | select((.value|tostring) != "") | "\(.key)=\(.value)"' "$SEED_JSON" >> "$GITHUB_ENV"
 
       - name: Install dependencies
         run: npm ci

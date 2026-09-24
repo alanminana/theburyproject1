@@ -257,6 +257,24 @@ test('Edit: carga, modificación, guardado y matriz responsive/zoom', async ({ p
 
     await page.goto(editUrl, { waitUntil: 'domcontentloaded' });
     await expect(page.locator('#venta-form')).toBeVisible({ timeout: 15_000 });
+    // La matriz responsive va ANTES de confirmar: en Edit `#btn-confirmar` ahora CONFIRMA la venta
+    // (accionConfirmacion), y una venta Confirmada ya no es editable (Edit redirige a Details).
+    for (const [name, width, height] of matrix) {
+        await page.setViewportSize({ width, height });
+        await page.goto(editUrl, { waitUntil: 'domcontentloaded' });
+        await expect(page.locator('#venta-form')).toBeVisible({ timeout: 15_000 });
+        await observe(page, `edit-${name}`);
+        await capture(page, `edit-${name}`);
+        for (const zoom of [1.25, 1.5, 2]) {
+            await page.evaluate((factor) => { document.body.style.zoom = String(factor); }, zoom);
+            await observe(page, `edit-${name}-zoom-${zoom * 100}`);
+            await capture(page, `edit-${name}-zoom-${zoom * 100}`);
+            await page.evaluate(() => { document.body.style.zoom = ''; });
+        }
+    }
+    await page.setViewportSize({ width: 1366, height: 768 });
+    await page.goto(editUrl, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('#venta-form')).toBeVisible({ timeout: 15_000 });
     expect(await page.locator('#tbody-detalles tr').count()).toBeGreaterThanOrEqual(1);
     await page.locator('#step-btn-productos').click();
     await expect(page.locator('#tbody-detalles [data-quantity-input]').first()).toBeVisible();
@@ -276,19 +294,6 @@ test('Edit: carga, modificación, guardado y matriz responsive/zoom', async ({ p
     await page.waitForURL(/\/Venta\/Details\/\d+/, { timeout: 20_000 });
     await capture(page, 'edit-saved');
 
-    for (const [name, width, height] of matrix) {
-        await page.setViewportSize({ width, height });
-        await page.goto(editUrl, { waitUntil: 'domcontentloaded' });
-        await expect(page.locator('#venta-form')).toBeVisible({ timeout: 15_000 });
-        await observe(page, `edit-${name}`);
-        await capture(page, `edit-${name}`);
-        for (const zoom of [1.25, 1.5, 2]) {
-            await page.evaluate((factor) => { document.body.style.zoom = String(factor); }, zoom);
-            await observe(page, `edit-${name}-zoom-${zoom * 100}`);
-            await capture(page, `edit-${name}-zoom-${zoom * 100}`);
-            await page.evaluate(() => { document.body.style.zoom = ''; });
-        }
-    }
     if (consoleErrors.length) await issue(page, 'edit-console-errors', 'Media', 'wwwroot/js/venta-create.js', consoleErrors.join('\n'));
     if (failedResponses.length) await issue(page, 'edit-failed-requests', 'Media', 'wwwroot/js/venta-create.js', failedResponses.join('\n'));
 });
