@@ -550,6 +550,67 @@ public class ProductoControllerPrecioTests : IDisposable
     }
 
     [Fact]
+    public async Task CreateAjax_StockPorEncimaDelMinimo_DevuelveEstadoStockNormalNoAgotado()
+    {
+        // Regresión: CreateAjax no devolvía stockActual/estadoStock, así que la fila insertada
+        // por producto-crear-modal.js quedaba hardcodeada a "Agotado" para cualquier producto
+        // nuevo, sin importar el stock cargado (se autocorregía recién al recargar la página).
+        var (categoria, marca) = await SeedCategoriaYMarcaAsync();
+        var codigo = "P" + Guid.NewGuid().ToString("N")[..8];
+        var vm = new ProductoViewModel
+        {
+            Codigo = codigo,
+            Nombre = "Producto con stock normal",
+            CategoriaId = categoria.Id,
+            MarcaId = marca.Id,
+            PrecioCompra = 80m,
+            PrecioVenta = 100m,
+            PorcentajeIVA = 21m,
+            StockActual = 15m,
+            StockMinimo = 3m,
+            Activo = true
+        };
+
+        var result = await _controller.CreateAjax(vm) as JsonResult;
+
+        Assert.NotNull(result);
+        var doc = ParseJson(result!.Value);
+        Assert.True(doc.RootElement.GetProperty("success").GetBoolean());
+        var entity = doc.RootElement.GetProperty("entity");
+        Assert.Equal(15m, entity.GetProperty("stockActual").GetDecimal());
+        Assert.Equal("Normal", entity.GetProperty("estadoStock").GetString());
+    }
+
+    [Fact]
+    public async Task CreateAjax_StockEnCero_DevuelveEstadoStockSinStock()
+    {
+        var (categoria, marca) = await SeedCategoriaYMarcaAsync();
+        var codigo = "P" + Guid.NewGuid().ToString("N")[..8];
+        var vm = new ProductoViewModel
+        {
+            Codigo = codigo,
+            Nombre = "Producto sin stock",
+            CategoriaId = categoria.Id,
+            MarcaId = marca.Id,
+            PrecioCompra = 80m,
+            PrecioVenta = 100m,
+            PorcentajeIVA = 21m,
+            StockActual = 0m,
+            StockMinimo = 3m,
+            Activo = true
+        };
+
+        var result = await _controller.CreateAjax(vm) as JsonResult;
+
+        Assert.NotNull(result);
+        var doc = ParseJson(result!.Value);
+        Assert.True(doc.RootElement.GetProperty("success").GetBoolean());
+        var entity = doc.RootElement.GetProperty("entity");
+        Assert.Equal(0m, entity.GetProperty("stockActual").GetDecimal());
+        Assert.Equal("Sin Stock", entity.GetProperty("estadoStock").GetString());
+    }
+
+    [Fact]
     public async Task CreateAjax_ConAlicuotaIVAId_ResuelvePorcentajeYPersistePrecioFinalSinModificar()
     {
         var (categoria, marca) = await SeedCategoriaYMarcaAsync();

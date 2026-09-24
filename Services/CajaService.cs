@@ -3,6 +3,7 @@ using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Data;
 using TheBuryProject.Helpers;
+using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Exceptions;
@@ -270,8 +271,7 @@ namespace TheBuryProject.Services
                 // Crear notificación (no debe bloquear la apertura)
                 try
                 {
-                    await _notificacionService.CrearNotificacionParaRolAsync(
-                        "Supervisor",
+                    await NotificarRolesAutorizantesAsync(
                         TipoNotificacion.CajaAbierta,
                         "Caja Abierta",
                         $"Caja {caja.Codigo} abierta por {usuario} con monto inicial ${model.MontoInicial:N2}",
@@ -1641,6 +1641,20 @@ public static List<MercaderiaMovidaViewModel> CalcularMercaderiaMovida(IEnumerab
             }
         }
 
+        // Roles con permiso de autorización (Roles.CanAuthorize) — reemplaza el literal "Supervisor",
+        // un rol que nunca existió en el seeder (RolesPermisosSeeder / Models.Constants.Roles), por lo
+        // que las notificaciones de caja (apertura, cierre con/sin diferencia) nunca llegaban a nadie.
+        private static readonly string[] RolesAutorizantes = { Roles.SuperAdmin, Roles.Administrador, Roles.Gerente };
+
+        private async Task NotificarRolesAutorizantesAsync(
+            TipoNotificacion tipo, string titulo, string mensaje, string url, PrioridadNotificacion prioridad)
+        {
+            foreach (var rol in RolesAutorizantes)
+            {
+                await _notificacionService.CrearNotificacionParaRolAsync(rol, tipo, titulo, mensaje, url, prioridad);
+            }
+        }
+
         private async Task CrearNotificacionesCierreAsync(CierreCaja cierre, Caja caja)
         {
             try
@@ -1648,8 +1662,7 @@ public static List<MercaderiaMovidaViewModel> CalcularMercaderiaMovida(IEnumerab
                 if (cierre.TieneDiferencia)
                 {
                     var tipoDiferencia = cierre.Diferencia > 0 ? "sobrante" : "faltante";
-                    await _notificacionService.CrearNotificacionParaRolAsync(
-                        "Supervisor",
+                    await NotificarRolesAutorizantesAsync(
                         TipoNotificacion.CierreConDiferencia,
                         "Cierre de Caja con Diferencia",
                         $"Caja {caja.Codigo} cerrada con ${Math.Abs(cierre.Diferencia):N2} {tipoDiferencia}. Usuario: {cierre.UsuarioCierre}",
@@ -1659,8 +1672,7 @@ public static List<MercaderiaMovidaViewModel> CalcularMercaderiaMovida(IEnumerab
                 }
                 else
                 {
-                    await _notificacionService.CrearNotificacionParaRolAsync(
-                        "Supervisor",
+                    await NotificarRolesAutorizantesAsync(
                         TipoNotificacion.CajaCerrada,
                         "Caja Cerrada",
                         $"Caja {caja.Codigo} cerrada sin diferencias por {cierre.UsuarioCierre}",

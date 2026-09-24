@@ -496,6 +496,23 @@ public class ReporteServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task GenerarReporteVentas_ConCliente_UsaApellidoNombreNoAnonimo()
+    {
+        // Regresión: ClienteNombre leía Cliente.NombreCompleto, un campo propio que el alta
+        // estándar de Cliente/CreateAjax nunca completa (solo setean Apellido/Nombre) — el
+        // reporte y el Excel exportado mostraban "Anónimo" para clientes reales.
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        await SeedVentaAsync(cliente.Id, producto.Id, 50m, 1);
+
+        var resultado = await _service.GenerarReporteVentasAsync(new ReporteVentasFiltroViewModel());
+
+        var item = Assert.Single(resultado.Ventas);
+        Assert.Equal($"{cliente.Apellido}, {cliente.Nombre}", item.ClienteNombre);
+        Assert.NotEqual("Anónimo", item.ClienteNombre);
+    }
+
+    [Fact]
     public async Task GenerarReporteVentas_VentasPorTipoPago_AgrupaCorrectamente()
     {
         var cliente = await SeedClienteAsync();

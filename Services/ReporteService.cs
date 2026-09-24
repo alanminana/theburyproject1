@@ -140,7 +140,11 @@ namespace TheBuryProject.Services
                         Id = v.Id,
                         NumeroVenta = v.Numero,
                         FechaVenta = v.FechaVenta,
-                        ClienteNombre = v.Cliente?.NombreCompleto ?? "Anónimo",
+                        // Cliente.NombreCompleto es un campo propio (nunca lo completa el alta estándar de
+                        // Cliente/CreateAjax); usarlo acá dejaba el reporte con "Anónimo" para clientes reales.
+                        // Se arma Apellido, Nombre directo (sin ToDisplayName(), que agrega "- DNI: ..." y
+                        // duplicaba el documento en otras vistas — ver ficha del cliente en Venta/Index).
+                        ClienteNombre = v.Cliente != null ? $"{v.Cliente.Apellido}, {v.Cliente.Nombre}" : "Anónimo",
                         VendedorNombre = !string.IsNullOrWhiteSpace(v.VendedorNombre)
                             ? v.VendedorNombre
                             : v.VendedorUser?.UserName ?? "Sin asignar",

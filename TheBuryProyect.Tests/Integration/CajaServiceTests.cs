@@ -23,8 +23,11 @@ namespace TheBuryProject.Tests.Integration;
 // ---------------------------------------------------------------------------
 // Stub de INotificacionService — sin dependencia de Moq
 // ---------------------------------------------------------------------------
-file sealed class StubNotificacionService : INotificacionService
+internal sealed class StubNotificacionService : INotificacionService
 {
+    public List<string> RolesNotificados { get; } = new();
+    public List<string> MensajesNotificados { get; } = new();
+
     public Task<Notificacion> CrearNotificacionAsync(CrearNotificacionViewModel model)
         => Task.FromResult(new Notificacion());
 
@@ -32,7 +35,11 @@ file sealed class StubNotificacionService : INotificacionService
         => Task.CompletedTask;
 
     public Task CrearNotificacionParaRolAsync(string rol, TipoNotificacion tipo, string titulo, string mensaje, string? url = null, PrioridadNotificacion prioridad = PrioridadNotificacion.Media)
-        => Task.CompletedTask;
+    {
+        RolesNotificados.Add(rol);
+        MensajesNotificados.Add(mensaje);
+        return Task.CompletedTask;
+    }
 
     public Task<List<NotificacionViewModel>> ObtenerNotificacionesUsuarioAsync(string usuario, bool soloNoLeidas = false, int limite = 50)
         => Task.FromResult(new List<NotificacionViewModel>());
@@ -70,6 +77,7 @@ public class CajaServiceTests : IDisposable
     private readonly SqliteConnection _connection;
     private readonly AppDbContext _context;
     private readonly CajaService _service;
+    private readonly StubNotificacionService _notificacionStub;
 
     public CajaServiceTests()
     {
@@ -88,11 +96,12 @@ public class CajaServiceTests : IDisposable
                 NullLoggerFactory.Instance)
             .CreateMapper();
 
+        _notificacionStub = new StubNotificacionService();
         _service = new CajaService(
             _context,
             mapper,
             NullLogger<CajaService>.Instance,
-            new StubNotificacionService());
+            _notificacionStub);
     }
 
     public void Dispose()
@@ -202,6 +211,46 @@ public class CajaServiceTests : IDisposable
 
         var cajaBd = await _context.Set<Caja>().FirstAsync(c => c.Id == caja.Id);
         Assert.Equal(EstadoCaja.Abierta, cajaBd.Estado);
+    }
+
+    [Fact]
+    public async Task AbrirCaja_NotificaRolesQuePuedenAutorizarNoRolInexistente()
+    {
+        // Regresión: la notificación de apertura apuntaba al literal "Supervisor", un rol que
+        // nunca existió en el seeder (Models.Constants.Roles) — CrearNotificacionParaRolAsync
+        // siempre encontraba 0 usuarios y la notificación (SignalR incluido) nunca salía.
+        var caja = await SeedCajaAsync();
+
+        await _service.AbrirCajaAsync(
+            new AbrirCajaViewModel { CajaId = caja.Id, MontoInicial = 500m },
+            "usuario1");
+
+        Assert.DoesNotContain("Supervisor", _notificacionStub.RolesNotificados);
+        Assert.Contains(Roles.SuperAdmin, _notificacionStub.RolesNotificados);
+        Assert.Contains(Roles.Administrador, _notificacionStub.RolesNotificados);
+        Assert.Contains(Roles.Gerente, _notificacionStub.RolesNotificados);
+    }
+
+    [Fact]
+    public async Task AbrirCaja_Con30000_PersisteExacto_NotificaMismoMontoYSaldoLoUsa()
+    {
+        // Regresión staging 2026-09-23: el fondo ingresado (30000) terminaba en 0.00 en DB y en la
+        // notificación. La causa era el JS del form (caja-abrir.js) que lo pisaba; el service debe
+        // seguir persistiendo, notificando y calculando con exactamente el valor recibido.
+        var caja = await SeedCajaAsync();
+
+        var apertura = await _service.AbrirCajaAsync(
+            new AbrirCajaViewModel { CajaId = caja.Id, MontoInicial = 30000m },
+            "usuario1");
+
+        var aperturaBd = await _context.Set<AperturaCaja>().AsNoTracking().FirstAsync(a => a.Id == apertura.Id);
+        Assert.Equal(30000m, aperturaBd.MontoInicial);
+
+        var montoTexto = 30000m.ToString("N2");
+        Assert.All(_notificacionStub.MensajesNotificados, m => Assert.Contains($"${montoTexto}", m));
+        Assert.NotEmpty(_notificacionStub.MensajesNotificados);
+
+        Assert.Equal(30000m, await _service.CalcularSaldoActualAsync(apertura.Id));
     }
 
     [Fact]
