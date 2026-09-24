@@ -172,7 +172,7 @@ test.describe('CREDITO-VISUAL-03 — excepción documental junto al bloqueante',
         await expect(page.locator('#hdn-aplicar-excepcion')).toHaveValue('false');
     });
 
-    test('confirmar con motivo: hidden=true, badge visible, sin duplicados (caso G)', async ({ page }) => {
+    test('confirmar con motivo: hidden=true, confirmación visible, sin duplicados (caso G)', async ({ page }) => {
         await irAPasoCreditoConDocumentacionFaltante(page);
 
         await page.locator('#btn-aplicar-excepcion').click();
@@ -180,8 +180,12 @@ test.describe('CREDITO-VISUAL-03 — excepción documental junto al bloqueante',
         await page.locator('#btn-confirmar-excepcion').click();
 
         await expect(page.locator('#hdn-aplicar-excepcion')).toHaveValue('true');
-        await expect(page.locator('#excepcion-aplicada-badge')).toBeVisible();
-        await expect(page.locator('#excepcion-aplicada-badge')).toHaveCount(1);
+        // VENTA-CREDITO-REDESIGN-VISUAL-IMPLEMENTACION-01 retiró #excepcion-aplicada-badge:
+        // la fila "Documentación — exceptuada" de Otros motivos (mostrarMotivos(), categoría 1
+        // emerald) es ahora la única confirmación visible del hecho, sin duplicarla.
+        const confirmacion = page.getByText('Documentación — exceptuada');
+        await expect(confirmacion).toBeVisible();
+        await expect(confirmacion).toHaveCount(1);
         await expect(page.locator('#panel-excepcion-crediticia')).toHaveCount(1);
         await expect(page.locator('#txt-excepcion-documental')).toHaveAttribute('readonly', '');
     });

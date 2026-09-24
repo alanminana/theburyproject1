@@ -146,6 +146,7 @@ test.describe('Cliente Details — mora de capital vs. punitorio aplicado pendie
 
     test('sólo mora de capital: muestra capital pero no el bloque de punitorio', async ({ page }) => {
         const failures = await gotoClienteDetails(page, CLIENTE_MORA_CAPITAL_ID);
+        await irATabCredito(page);
 
         await expect(page.getByText('Capital en mora', { exact: true })).toBeVisible();
         await expect(page.getByText('Punitorio aplicado pendiente', { exact: true })).toHaveCount(0);
@@ -184,10 +185,11 @@ test.describe('Cliente Details — mora de capital vs. punitorio aplicado pendie
     test('mora de capital + punitorio: ambos bloques visibles, sin mezclar montos', async ({ page }) => {
         const failures = await gotoClienteDetails(page, CLIENTE_MORA_Y_PUNITORIO_ID);
 
-        // "Capital en mora" ya es visible en el resumen de la solapa Resumen (default);
-        // el bloque completo de punitorio vive en el detalle de la solapa Credito.
-        await expect(page.getByText('Capital en mora', { exact: true })).toBeVisible();
+        // El resumen de la solapa Resumen (default) sólo muestra un párrafo con el monto
+        // ("Capital en mora: ¤N"), no el <dt>"Capital en mora"</dt> exacto; ese vive en el
+        // detalle de la solapa Credito junto con el bloque completo de punitorio.
         await irATabCredito(page);
+        await expect(page.getByText('Capital en mora', { exact: true })).toBeVisible();
         const bloquePunitorio = page.locator('.alert', { hasText: 'Punitorio aplicado pendiente' });
         await expect(bloquePunitorio).toBeVisible();
         expectNoFailures(failures);

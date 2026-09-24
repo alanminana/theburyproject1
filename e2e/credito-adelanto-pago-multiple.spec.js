@@ -69,7 +69,15 @@ function trackFailures(page) {
     const consoleErrors = [];
     const serverErrors = [];
     page.on('console', message => {
-        if (message.type() === 'error') consoleErrors.push(message.text());
+        if (message.type() !== 'error') return;
+        const text = message.text();
+        // Tras el login el layout abre la negociacion SignalR (notificaciones); el page.goto
+        // inmediato del test aborta ese fetch en vuelo y el cliente lo loguea como error. Es un
+        // artefacto de navegacion (TypeError: Failed to fetch), no un fallo del servidor: un
+        // hub roto real sigue detectandose por las respuestas 5xx (serverErrors) y por cualquier
+        // otro error de consola.
+        if (/negotiation with the server: TypeError: Failed to fetch/.test(text)) return;
+        consoleErrors.push(text);
     });
     page.on('response', response => {
         if (response.status() >= 500) serverErrors.push(`${response.status()} ${response.url()}`);
@@ -82,10 +90,26 @@ function expectNoFailures(failures) {
     expect(failures.serverErrors, `HTTP 5xx: ${failures.serverErrors.join(' | ')}`).toHaveLength(0);
 }
 
-/** "$ 12.345,67" -> 12345.67 */
+/**
+ * "$ 12.345,67" -> 12345.67. "Datos del pago"/Previsualización formatea es-AR
+ * ('.' miles, ',' decimales); "Contexto autoritativo" formatea invariant/US ('.' decimales,
+ * ',' miles) — dos convenciones distintas en la misma pantalla. El separador que aparece
+ * último en el texto es el decimal (estándar en ambos formatos); el otro, si aparece antes,
+ * es de miles y se descarta.
+ */
 function aNumero(texto) {
-    const limpio = String(texto || '').replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.');
-    const valor = Number.parseFloat(limpio);
+    const limpio = String(texto || '').replace(/[^\d,.-]/g, '');
+    const ultimaComa = limpio.lastIndexOf(',');
+    const ultimoPunto = limpio.lastIndexOf('.');
+    let normalizado;
+    if (ultimaComa > ultimoPunto) {
+        normalizado = limpio.replace(/\./g, '').replace(',', '.');
+    } else if (ultimoPunto > ultimaComa) {
+        normalizado = limpio.replace(/,/g, '');
+    } else {
+        normalizado = limpio;
+    }
+    const valor = Number.parseFloat(normalizado);
     return Number.isFinite(valor) ? valor : NaN;
 }
 

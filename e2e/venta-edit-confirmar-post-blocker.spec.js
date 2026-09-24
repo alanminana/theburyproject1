@@ -71,7 +71,8 @@ test('Venta/Edit "Confirmar venta" envía accionConfirmacion y la venta queda co
     expect(body).toMatch(/accionConfirmacion=confirmar(?!-)/);
 
     await page.waitForURL(/\/Venta\/Details\/\d+/, { timeout: 20_000 });
-    await expect(page.getByText('Venta confirmada', { exact: false })).toBeVisible({ timeout: 10_000 });
+    // exact:true: la página muestra toast + título + descripción con este texto (strict mode).
+    await expect(page.getByText('Venta confirmada', { exact: true })).toBeVisible({ timeout: 10_000 });
 
     // Idempotencia: una venta ya Confirmada no es editable (ValidarEstadoParaEdicion),
     // así que no hay forma de volver a disparar accionConfirmacion=confirmar sobre ella
