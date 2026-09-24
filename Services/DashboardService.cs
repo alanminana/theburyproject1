@@ -103,10 +103,11 @@ namespace TheBuryProject.Services
             // Productos: fetch raw para evitar multiplicación no traducible
             var productosRaw = await _context.Productos
                 .Where(p => !p.IsDeleted)
-                .Select(p => new { p.StockActual, p.PrecioVenta, p.PrecioCompra, p.StockMinimo })
+                .Select(p => new { p.StockActual, p.PrecioVenta, p.PrecioCompra, p.StockMinimo, p.Activo })
                 .ToListAsync();
             var productosTotales   = productosRaw.Count;
-            var productosStockBajo = productosRaw.Count(p => p.StockActual < p.StockMinimo);
+            // Mismo criterio que el panel "Alertas de stock" (GetAlertasStockRecientesAsync): activos en o bajo el mínimo.
+            var productosStockBajo = productosRaw.Count(p => p.Activo && p.StockActual <= p.StockMinimo);
             var valorStockPrecioVenta = productosRaw.Sum(p => p.StockActual * p.PrecioVenta);
             var valorStockCostoActual = productosRaw.Sum(p => p.StockActual * p.PrecioCompra);
 

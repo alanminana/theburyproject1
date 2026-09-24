@@ -13,7 +13,7 @@
 }
 
 <div class="venta-aux-page fixed inset-0 z-80 overflow-hidden bg-slate-950/80 backdrop-blur-sm" data-facturar-panel>
-    <div class="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(34,197,94,0.12),transparent_36%),radial-gradient(circle_at_bottom_right,rgba(245,197,24,0.10),transparent_34%)]"></div>
+    <div class="absolute inset-0 bg-[radial-gradient(circle_at_top_left,color-mix(in srgb, var(--pal-success-500) 12%, transparent),transparent_36%),radial-gradient(circle_at_bottom_right,color-mix(in srgb, var(--pal-accent) 10%, transparent),transparent_34%)]"></div>
 
     <aside class="absolute right-0 top-0 flex h-full w-full max-w-3xl flex-col border-l border-slate-800 bg-slate-950 text-slate-100 shadow-2xl shadow-black/50">
         <form asp-action="Facturar" method="post" class="flex min-h-0 flex-1 flex-col" data-facturar-form>
@@ -100,7 +100,7 @@
                        integra el comprobante (Venta.TotalFacturable = Venta.Total). *@
                     @if (Model.TieneEnvioFueraDelComprobante)
                     {
-                        <div id="facturar-resumen-comercial" class="mt-4 rounded-xl border border-sky-500/25 bg-sky-500/5 p-4">
+                        <div id="facturar-resumen-comercial" class="mt-4 rounded-xl border border-sky-500/20 bg-sky-500/5 p-4">
                             <p class="text-[10px] font-black uppercase tracking-[0.18em] text-sky-300">Resumen comercial</p>
                             <dl class="mt-2 space-y-1 text-sm">
                                 <div class="flex justify-between gap-3"><dt class="text-slate-400">Productos (total del comprobante)</dt><dd class="font-semibold text-slate-100">@Model.Total.ToString("C2")</dd></div>

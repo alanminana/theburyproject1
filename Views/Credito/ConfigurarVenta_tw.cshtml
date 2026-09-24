@@ -257,7 +257,7 @@
                     <div class="mt-4 rounded-xl border border-slate-700 bg-slate-900/40 p-4"
                          id="primera-cuota-panel" data-primera-cuota-panel>
                         <div class="flex items-center gap-2 mb-2">
-                            <span class="material-symbols-outlined" style="color:#f5c518;font-size:20px">payments</span>
+                            <span class="material-symbols-outlined" style="color:var(--pal-accent);font-size:20px">payments</span>
                             <h3 class="font-semibold text-white">Primera cuota</h3>
                         </div>
 
@@ -296,7 +296,7 @@
             <aside>
                 <div class="card card-pad" style="position:sticky;top:76px">
                     <h3 class="font-semibold text-white mb-3 flex items-center gap-2">
-                        <span class="material-symbols-outlined" style="color:#f5c518;font-size:20px">summarize</span>
+                        <span class="material-symbols-outlined" style="color:var(--pal-accent);font-size:20px">summarize</span>
                         Resumen del plan
                     </h3>
 
@@ -317,7 +317,7 @@
                             <div class="kv-row"><dt>Saldo a financiar</dt><dd class="num" id="plan-capital">$ @Model.MontoFinanciado.ToString("N2")</dd></div>
                             <div class="kv-row"><dt>% de recargo total</dt><dd id="plan-tasa">0%</dd></div>
                             <div class="kv-row"><dt>Importe del recargo</dt><dd class="num" id="plan-interes">$ 0,00</dd></div>
-                            <div class="kv-row"><dt>Total financiado</dt><dd class="num" id="plan-total" style="color:#34d399;font-weight:600">$ 0,00</dd></div>
+                            <div class="kv-row"><dt>Total financiado</dt><dd class="num" id="plan-total" style="color:var(--pal-success-400);font-weight:600">$ 0,00</dd></div>
                             <div class="kv-row"><dt>Gastos administrativos</dt><dd class="num" id="plan-gastos">$ 0,00</dd></div>
                             <div class="kv-row"><dt>Cantidad de cuotas</dt><dd id="plan-cuotas-label">@Model.CantidadCuotas</dd></div>
                             <div class="kv-row"><dt>Cuotas sin recargo</dt><dd id="plan-cuotas-sin-recargo">Ninguna</dd></div>
@@ -369,7 +369,7 @@
                     </section>
 
                     <section class="card-2" style="margin-top:1rem;padding:1rem">
-                        <div class="sec-title">Documentacion contractual</div>
+                        <div class="sec-title">Documentación contractual</div>
                         <p class="hint">@tituloResumenContrato</p>
                         @if (Model.ContratoGenerado)
                         {

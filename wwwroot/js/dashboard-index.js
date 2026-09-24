@@ -31,7 +31,12 @@
     };
 
     const saveStoredNotes = (notes) => {
-        window.localStorage.setItem(NOTAS_KEY, JSON.stringify(notes));
+        try {
+            window.localStorage.setItem(NOTAS_KEY, JSON.stringify(notes));
+            return true;
+        } catch (_) {
+            return false;
+        }
     };
 
     const clearStatusTimeout = () => {
@@ -127,7 +132,10 @@
             notes.pop();
         }
 
-        saveStoredNotes(notes);
+        if (!saveStoredNotes(notes)) {
+            setNoteStatus('No se pudo guardar: el navegador bloqueó el almacenamiento local. Tu texto sigue acá.');
+            return;
+        }
         input.value = '';
         setNoteStatus('Guardada', true);
         renderNotes();
@@ -138,7 +146,10 @@
         if (Number.isNaN(index) || index < 0 || index >= notes.length) return;
 
         notes.splice(index, 1);
-        saveStoredNotes(notes);
+        if (!saveStoredNotes(notes)) {
+            setNoteStatus('No se pudo eliminar la nota: el navegador bloqueó el almacenamiento local.', true);
+            return;
+        }
         renderNotes();
     };
 
@@ -165,6 +176,18 @@
         panels.forEach((panel) => {
             panel.classList.toggle('hidden', panel.dataset.dashboardTabPanel !== tabName);
         });
+
+        // La nota "Mostrando las N…" corresponde a la pestaña activa.
+        document.querySelectorAll('[data-dashboard-tab-note]').forEach((note) => {
+            note.hidden = note.dataset.dashboardTabNote !== tabName;
+        });
+
+        // Sin filas no hay nada que deslizar: el CSS quita el ancho mínimo y la pista de scroll.
+        const activePanel = panels.find((panel) => panel.dataset.dashboardTabPanel === tabName);
+        const scrollRoot = document.querySelector('[data-dashboard-cuotas-scroll]');
+        if (scrollRoot && activePanel) {
+            scrollRoot.dataset.empty = activePanel.dataset.empty === 'true' ? 'true' : 'false';
+        }
     };
 
     const initTabs = () => {

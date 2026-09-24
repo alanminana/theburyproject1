@@ -7,7 +7,81 @@
    viewport en cualquier ancho por debajo de 1024px. */
 .dashboard-main-grid { grid-template-columns: minmax(0, 1fr); }
 
-@media (min-width: 1024px) {
+/* Cuotas sin filas en la pestaña activa: el estado vacío no necesita el ancho
+   mínimo de la tabla ni la pista "Deslizá horizontalmente". */
+[data-dashboard-cuotas-scroll][data-empty="true"] table { min-width: 0; }
+[data-dashboard-cuotas-scroll][data-empty="true"] > div:first-child { display: none; }
+/* Sin filas tampoco tiene sentido una fila de encabezados sobre el mensaje de vacío. */
+[data-dashboard-cuotas-scroll][data-empty="true"] thead { display: none; }
+
+/* Contenedor de cada tabla: el panel de la sección ya es la tarjeta, así que la tabla va
+   con un solo borde (no un panel dentro de otro). La franja del hint "Deslizá…" solo existe
+   mientras el hint está visible; si no, dejaba una banda vacía sobre la tabla. */
+.dashboard-table-wrap { overflow: hidden; border: 1px solid var(--pal-neutral-800); border-radius: 0.75rem; }
+.dashboard-table-wrap > div:first-child:has(> p[hidden]) { display: none; }
+
+.dashboard-tab-count {
+    margin-left: 0.25rem;
+    padding: 0 0.375rem;
+    border-radius: 9999px;
+    background: rgb(0 0 0 / 0.25);
+    font-size: 0.6875rem;
+    font-variant-numeric: tabular-nums;
+}
+
+/* En mobile, erp-table-cards fuerza `display:flex` en los <tbody> y pisaba `.hidden`:
+   las pestañas Vencidas y Próximas se veían apiladas a la vez. */
+[data-dashboard-cuotas-scroll] table[data-erp-cards] > tbody.hidden { display: none; }
+
+/* Estado del día bajo el título: cada dato pendiente (o "Todo al día") en una línea que envuelve. */
+.dashboard-status { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.875rem; }
+
+/* KPIs: el importe escala con el ancho de su tarjeta y nunca se parte en dos líneas
+   ("$" arriba, cifra abajo) en la columna principal angosta. */
+.dashboard-kpis > .card-erp-metric { container-type: inline-size; }
+.dashboard-kpi-value {
+    font-size: clamp(1.05rem, 12.5cqw, 1.5rem);
+    line-height: 1.75rem;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Teléfono: cada KPI pasa a una fila compacta (título y detalle a la izquierda, importe a la
+   derecha) en vez de una tarjeta alta; los 4 KPIs ocupan ~260px en lugar de ~500px. */
+@media (max-width: 639.98px) {
+    .dashboard-kpis { gap: 0.5rem; }
+    .dashboard-kpis > .card-erp-metric {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        column-gap: 0.75rem;
+        align-items: center;
+        padding-block: 0.75rem;
+    }
+    .dashboard-kpis > .card-erp-metric > :nth-child(1) { grid-column: 1; grid-row: 1; }
+    .dashboard-kpis > .card-erp-metric > :nth-child(2) { grid-column: 2; grid-row: 1 / span 2; margin: 0; font-size: 1.25rem; }
+    .dashboard-kpis > .card-erp-metric > :nth-child(3) { grid-column: 1; grid-row: 2; margin-top: 0.125rem; }
+    /* Con tarjetas por fila (erp-table-cards) el panel ya es el borde: sin marco propio. */
+    .dashboard-table-wrap { border: 0; border-radius: 0; overflow: visible; }
+}
+
+/* Los KPIs se acomodan según el ancho real de su columna, no del viewport: con la sidebar
+   lateral la columna principal queda angosta (a 1280px ≈ 570px) y cuatro tarjetas en fila
+   partían los títulos y recortaban el importe. */
+.dashboard-main-grid > div:first-child { container-type: inline-size; container-name: dash-main; }
+.dashboard-kpis { grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 640px) {
+    @container dash-main (min-width: 28rem) { .dashboard-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @container dash-main (min-width: 40rem) { .dashboard-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+}
+
+/* Entre 640 y 1279px la columna lateral queda debajo: los 6 accesos rápidos en 3×2, no en 2×3 gigantes. */
+@media (min-width: 640px) and (max-width: 1279.98px) {
+    .dashboard-accesos { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+/* La columna lateral (22rem) recién entra desde 1280px: a 1024px, junto a la sidebar global
+   dejaba ~320px para el contenido principal. */
+@media (min-width: 1280px) {
     .dashboard-main-grid { grid-template-columns: minmax(0, 1fr) 22rem; }
     .dashboard-sidebar { position: sticky; top: 1.5rem; align-self: start; }
 }

@@ -81,11 +81,12 @@
                 class="flex items-center justify-between w-full"
                 style="background:none;border:0;cursor:pointer;color:inherit;font:inherit;padding:0">
             <span class="font-medium text-white flex items-center gap-2">
-                <span class="material-symbols-outlined" style="font-size:19px;color:var(--erp-fg-2, #b9c3d3)">filter_alt</span>Filtros
+                <span class="material-symbols-outlined" style="font-size:19px;color:var(--erp-fg-2, var(--pal-neutral-350))">filter_alt</span>Filtros
             </span>
             <span class="material-symbols-outlined muted filter-panel-erp__toggle-icon">expand_more</span>
         </button>
         <div id="filtros-body" class="filter-panel-erp__body" data-hidden="@filtroCajaHidden" style="margin-top:1rem">
+        <div class="filter-panel-erp__inner">
             <form asp-action="Historial" method="get" class="caja-historial-filter-form">
                 <div>
                     <label class="label" for="f-caja">Caja</label>
@@ -119,13 +120,14 @@
                     <span class="material-symbols-outlined">backspace</span>Limpiar
                 </a>
             </form>
+        </div>@* /filter-panel-erp__inner *@
         </div>
     </div>
 
     <!-- Tabla desktop -->
     <div class="card hide-mobile"
          data-oc-scroll
-         style="overflow:hidden;margin-top:1rem;--oc-scroll-min-width:66rem;--oc-scroll-fade-light:rgba(248,250,252,.98);--oc-scroll-fade-dark:rgba(15,23,42,.95)">
+         style="overflow:hidden;margin-top:1rem;--oc-scroll-min-width:66rem;--oc-scroll-fade-light:color-mix(in srgb, var(--pal-neutral-50) 98%, transparent);--oc-scroll-fade-dark:color-mix(in srgb, var(--pal-neutral-925) 95%, transparent)">
         <div data-oc-scroll-hint
              class="caja-page-scroll-hint caja-historial-scroll-hint flex items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2 text-xs text-slate-300"
              style="margin:.75rem .75rem 0"
@@ -173,9 +175,9 @@
                                 var difSign = esSobrante ? "+ " : (esFaltante ? "− " : "");
                                 <tr>
                                     <td class="mono muted-2">#@cierre.Id</td>
-                                    <td style="color:#e2e8f0">@cajaNombre</td>
+                                    <td style="color:var(--pal-neutral-200)">@cajaNombre</td>
                                     <td>
-                                        <div style="color:#e2e8f0;font-size:.875rem">@userCierre</div>
+                                        <div style="color:var(--pal-neutral-200);font-size:.875rem">@userCierre</div>
                                         @if (userApertura != userCierre)
                                         {
                                             <div class="muted-2" style="font-size:.75rem">Apertura: @userApertura</div>
@@ -209,7 +211,7 @@
         @if (cierres.Any())
         {
             <div class="text-xs muted-2 flex items-center justify-between"
-                 style="border-top:1px solid #1f2937;padding:.625rem 1rem">
+                 style="border-top:1px solid var(--pal-neutral-800);padding:.625rem 1rem">
                 <span>@cierres.Count cierre@(cierres.Count == 1 ? "" : "s")</span>
             </div>
         }
@@ -229,7 +231,7 @@
                    class="card card-pad block" style="text-decoration:none;margin-bottom:.625rem">
                     <div class="flex items-center justify-between">
                         <div>
-                            <div style="color:#e2e8f0;font-weight:500">@cajaNombreM</div>
+                            <div style="color:var(--pal-neutral-200);font-weight:500">@cajaNombreM</div>
                             <div class="mono muted-2" style="font-size:.75rem">@cierre.FechaCierre.ToLocalTime().ToString("dd/MM · HH:mm")</div>
                         </div>
                         <span class="chip @chipClassM num">@difSignM$ @Math.Abs(difM).ToString("N2")</span>
@@ -259,7 +261,7 @@
             {
                 <div class="card card-pad">
                     <h3 class="font-semibold text-white flex items-center gap-2" style="margin-bottom:.75rem">
-                        <span class="material-symbols-outlined" style="color:#fbbf24;font-size:20px">trending_up</span>Top sobrantes
+                        <span class="material-symbols-outlined" style="color:var(--pal-warning-400);font-size:20px">trending_up</span>Top sobrantes
                     </h3>
                     <ol class="space-y-2.5">
                         @foreach (var s in topSobrantes)
@@ -276,7 +278,7 @@
             {
                 <div class="card card-pad">
                     <h3 class="font-semibold text-white flex items-center gap-2" style="margin-bottom:.75rem">
-                        <span class="material-symbols-outlined" style="color:#fb7185;font-size:20px">trending_down</span>Top faltantes
+                        <span class="material-symbols-outlined" style="color:var(--pal-danger-400);font-size:20px">trending_down</span>Top faltantes
                     </h3>
                     <ol class="space-y-2.5">
                         @foreach (var f in topFaltantes)

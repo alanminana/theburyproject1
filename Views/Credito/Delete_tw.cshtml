@@ -30,7 +30,7 @@
     <div class="shell topbar-inner">
         <div class="brand">
             <span class="brand-badge">
-                <span class="material-symbols-outlined" style="color:#fff;font-size:18px" aria-hidden="true">credit_score</span>
+                <span class="material-symbols-outlined" style="color:var(--pal-white);font-size:18px" aria-hidden="true">credit_score</span>
             </span>
             Creditos
         </div>
@@ -38,7 +38,7 @@
             <span class="sep">/</span>
             <a asp-controller="Credito" asp-action="Index">Creditos</a>
             <span class="sep">/</span>
-            <span style="color:#cbd5e1">Eliminar @creditoLabel</span>
+            <span style="color:var(--pal-neutral-300)">Eliminar @creditoLabel</span>
         </nav>
         <div style="margin-left:auto" class="flex items-center gap-2">
             <span class="hide-mobile text-xs muted-2 mono">Casa Central</span>
@@ -61,10 +61,10 @@
         </div>
     }
 
-    <div class="card card-pad" style="margin-top:1rem;border-color:rgba(244,63,94,.3)">
+    <div class="card card-pad" style="margin-top:1rem;border-color:color-mix(in srgb, var(--pal-danger-500) 30%, transparent)">
         <div class="flex items-start gap-3">
-            <div class="w-11 h-11 rounded-xl grid place-items-center shrink-0" style="background:rgba(244,63,94,.12);border:1px solid rgba(244,63,94,.3)">
-                <span class="material-symbols-outlined" style="color:#fb7185;font-size:24px" aria-hidden="true">delete_forever</span>
+            <div class="w-11 h-11 rounded-xl grid place-items-center shrink-0" style="background:color-mix(in srgb, var(--pal-danger-500) 12%, transparent);border:1px solid color-mix(in srgb, var(--pal-danger-500) 30%, transparent)">
+                <span class="material-symbols-outlined" style="color:var(--pal-danger-400);font-size:24px" aria-hidden="true">delete_forever</span>
             </div>
             <div class="flex-1">
                 <h1 class="text-lg font-semibold text-white">Eliminar credito <span class="mono">@creditoLabel</span></h1>

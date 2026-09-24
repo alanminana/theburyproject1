@@ -43,10 +43,11 @@
     }
 
     // H1: #btn-confirmar es el submit real y persistente del sidebar; su copy final
-    // ("Guardar cambios"/"Guardar Cotización"/"Confirmar Transacción") lo resuelve el
+    // ("Guardar cambios"/"Guardar Cotización"/"Crear venta") lo resuelve el
     // servidor y es la fuente de verdad. Se captura una sola vez para reutilizarlo en
     // Revisión y evitar que el wizard invente un texto propio que lo contradiga.
     const btnConfirmarLabel = document.querySelector('#btn-confirmar [data-btn-confirmar-label]');
+    const btnConfirmarIcon = document.querySelector('#btn-confirmar [data-btn-confirmar-icon]');
     const textoConfirmarCanonico = btnConfirmarLabel?.textContent?.trim() || '';
     // Sección "Totales y confirmación" completa del sidebar (recordatorio + submit +
     // nota de qué pasa al confirmar): sólo tiene sentido cerca de confirmar, nunca
@@ -271,9 +272,17 @@
         // este paso; en el resto del wizard su copy sigue sincronizado como siempre, porque
         // ahí avanzar() sí es la acción real que el texto promete.
         if (sidebarTotales) sidebarTotales.hidden = esCredito;
+        // Con el sidebar a la vista (≥1280px) su #btn-confirmar ya ofrece el mismo CTA: el del
+        // header queda oculto por CSS para no mostrar dos botones primarios iguales a la vez.
+        // Durante Crédito el sidebar se oculta y el del header vuelve a ser el único.
+        root.classList.toggle('vm-cta-en-sidebar', !esCredito);
 
         if (btnConfirmarLabel && !esCredito) {
             btnConfirmarLabel.textContent = texto;
+            // La caja registradora sólo tiene sentido en el paso que confirma de verdad.
+            if (btnConfirmarIcon) {
+                btnConfirmarIcon.textContent = texto === textoConfirmarCanonico ? 'point_of_sale' : 'arrow_forward';
+            }
         }
     }
 

@@ -8,16 +8,16 @@
 ───────────────────────────────────────────── */
 
 :root {
-    --layout-bg: #101622;
-    --layout-sidebar-bg: #0c111e;
+    --layout-bg: var(--pal-neutral-900);
+    --layout-sidebar-bg: var(--pal-neutral-925);
 
     --layout-sidebar-width: 16rem;
     --layout-sidebar-collapsed-width: 4.5rem;
     --layout-header-height: 4rem;
 
-    --layout-focus: #f5c518;
-    --layout-scrollbar: #334155;
-    --layout-scrollbar-hover: #475569;
+    --layout-focus: var(--pal-accent);
+    --layout-scrollbar: var(--pal-neutral-700);
+    --layout-scrollbar-hover: var(--pal-neutral-600);
 
     --layout-transition-fast: 150ms ease;
     --layout-transition-base: 250ms ease;
@@ -110,7 +110,7 @@ body.app-layout {
     padding: 0.5rem 1rem;
 
     background: var(--layout-focus);
-    color: #15110a;
+    color: var(--pal-on-accent);
 
     font-size: 0.875rem;
     font-weight: 600;
@@ -312,7 +312,7 @@ body.app-layout {
 
         display: none;
 
-        background: rgba(0, 0, 0, 0.55);
+        background: color-mix(in srgb, var(--pal-black) 55%, transparent);
         backdrop-filter: blur(2px);
     }
 
@@ -331,7 +331,7 @@ body.app-layout {
 
 .nav-item-active {
     position: relative;
-    box-shadow: inset 3px 0 0 rgba(91, 141, 255, 0.75);
+    box-shadow: inset 3px 0 0 color-mix(in srgb, var(--pal-info-400) 75%, transparent);
 }
 
 /* ─────────────────────────────────────────────

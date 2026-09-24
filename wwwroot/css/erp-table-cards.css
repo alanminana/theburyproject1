@@ -78,7 +78,7 @@
 
     table[data-erp-cards] > thead th:has(input[type="checkbox"])::after {
         content: "Seleccionar todos";
-        color: var(--erp-text-muted, #a7b0c0);
+        color: var(--erp-text-muted, var(--pal-neutral-400));
         font-size: 0.75rem;
         font-weight: 600;
         letter-spacing: 0;
@@ -87,7 +87,7 @@
 
     table[data-erp-cards] > thead:has(button[data-sort]) > tr::before {
         content: "Ordenar por";
-        color: var(--erp-text-faint, #7e8799);
+        color: var(--erp-text-faint, var(--pal-neutral-500));
         font-size: 0.6875rem;
         font-weight: 700;
         letter-spacing: 0.05em;
@@ -107,8 +107,8 @@
         display: flex;
         flex-wrap: wrap;
         padding: 0.4rem 0;
-        background: var(--erp-surface, #141821);
-        border: 1px solid var(--erp-border, rgba(255, 255, 255, 0.07));
+        background: var(--erp-surface, var(--pal-neutral-900));
+        border: 1px solid var(--erp-border, color-mix(in srgb, var(--pal-white) 7%, transparent));
         border-radius: 0.9rem;
     }
 
@@ -129,7 +129,7 @@
         content: attr(data-label);
         display: block;
         margin-bottom: 0.15rem;
-        color: var(--erp-text-faint, #7e8799);
+        color: var(--erp-text-faint, var(--pal-neutral-500));
         font-size: 0.6875rem;
         font-weight: 700;
         letter-spacing: 0.05em;
@@ -175,7 +175,7 @@
         gap: 0.5rem;
         margin-top: 0.35rem;
         padding-top: 0.7rem;
-        border-top: 1px solid var(--erp-border, rgba(255, 255, 255, 0.07));
+        border-top: 1px solid var(--erp-border, color-mix(in srgb, var(--pal-white) 7%, transparent));
     }
 
     table[data-erp-cards] > :is(tbody, tfoot) > tr > td[data-card="actions"] > div {

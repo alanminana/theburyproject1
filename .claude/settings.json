@@ -7,7 +7,8 @@
   "skillOverrides": {
     "ui-ux-pro-max": "user-invocable-only",
     "impeccable": "user-invocable-only",
-    "dotnet-patterns": "user-invocable-only"
+    "dotnet-patterns": "user-invocable-only",
+    "ui-module": "user-invocable-only"
   },
   "enabledPlugins": {
     "claude-mem@thedotmack": false,

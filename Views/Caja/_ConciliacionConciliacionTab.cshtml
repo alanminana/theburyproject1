@@ -26,14 +26,14 @@
                 <dd class="num text-rose-400">− $ @Model.EgresosEfectivo.ToString("N2")</dd>
             </div>
             <div class="defrow">
-                <dt class="font-medium" style="color:#e2e8f0">Caja física esperada</dt>
-                <dd class="num font-semibold" style="color:#e2e8f0">$ @Model.CajaFisicaEsperada.ToString("N2")</dd>
+                <dt class="font-medium" style="color:var(--pal-neutral-200)">Caja física esperada</dt>
+                <dd class="num font-semibold" style="color:var(--pal-neutral-200)">$ @Model.CajaFisicaEsperada.ToString("N2")</dd>
             </div>
             @if (Model.EstaCerrada)
             {
                 <div class="defrow">
-                    <dt class="font-medium" style="color:#e2e8f0">Efectivo contado</dt>
-                    <dd class="num font-semibold" style="color:#e2e8f0">$ @Model.EfectivoContado.ToString("N2")</dd>
+                    <dt class="font-medium" style="color:var(--pal-neutral-200)">Efectivo contado</dt>
+                    <dd class="num font-semibold" style="color:var(--pal-neutral-200)">$ @Model.EfectivoContado.ToString("N2")</dd>
                 </div>
                 <div class="defrow">
                     <dt class="font-medium">Diferencia</dt>

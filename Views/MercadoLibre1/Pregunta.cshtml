@@ -22,7 +22,7 @@
 
             @if (Model.Estado == MercadoLibreQuestionEstado.Respondida)
             {
-                <div style="background:var(--green-soft);border:1px solid rgba(55,211,153,.25);border-radius:11px;padding:14px 16px;margin-top:14px">
+                <div style="background:var(--green-soft);border:1px solid color-mix(in srgb, var(--pal-success-400) 25%, transparent);border-radius:11px;padding:14px 16px;margin-top:14px">
                     <div style="font-size:var(--erp-fs-min, 0.75rem);font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--green);margin-bottom:6px">Respuesta @(Model.EsSimulada ? "(simulada local)" : "(enviada a ML)")@(Model.FechaRespuestaUtc.HasValue ? " · " + Model.FechaRespuestaUtc.Value.ToLocalTime().ToString("dd/MM HH:mm") : "")</div>
                     <div style="font-size:14px;white-space:pre-wrap">@Model.RespuestaTexto</div>
                 </div>

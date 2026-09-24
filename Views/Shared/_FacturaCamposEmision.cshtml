@@ -36,7 +36,7 @@
    tiene un importe de envío: el envío se cobra pero no integra este comprobante (Venta.
    TotalFacturable = Venta.Total; ver Helpers/VentaMontos). En el Cotizador (sin Venta aún) queda
    oculto y lo puede completar el JS del host por id. *@
-<section id="@(idPrefix)resumen-comercial" class="rounded-2xl border border-sky-500/25 bg-sky-500/5 p-5@(Model.TieneEnvioFueraDelComprobante ? "" : " hidden")">
+<section id="@(idPrefix)resumen-comercial" class="rounded-2xl border border-sky-500/20 bg-sky-500/5 p-5@(Model.TieneEnvioFueraDelComprobante ? "" : " hidden")">
     <p class="text-[10px] font-black uppercase tracking-[0.18em] text-sky-300">Resumen comercial</p>
     <dl class="mt-3 space-y-1.5 text-sm">
         <div class="flex justify-between gap-3"><dt class="text-slate-400">Productos</dt><dd id="@(idPrefix)comercial-productos" class="shrink-0 whitespace-nowrap font-semibold text-slate-100">@Model.Total.ToString("C2")</dd></div>

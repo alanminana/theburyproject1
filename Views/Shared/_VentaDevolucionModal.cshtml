@@ -27,7 +27,7 @@
                 <input type="hidden" id="devolucion-venta-id" name="VentaId" />
                 <input type="hidden" id="devolucion-cliente-id" name="ClienteId" />
 
-                <div class="border-b bg-[radial-gradient(circle_at_top_left,_rgba(245,197,24,0.12),_transparent_34%),linear-gradient(135deg,_rgba(15,23,42,0.02),_rgba(15,23,42,0))] px-4 py-5 border-slate-800 sm:px-6">
+                <div class="border-b bg-[radial-gradient(circle_at_top_left,_color-mix(in srgb, var(--pal-accent) 12%, transparent),_transparent_34%),linear-gradient(135deg,_color-mix(in srgb, var(--pal-neutral-925) 2%, transparent),_color-mix(in srgb, var(--pal-neutral-925) 0%, transparent))] px-4 py-5 border-slate-800 sm:px-6">
                     <div class="flex items-start justify-between gap-4">
                         <div class="space-y-3">
                             <span class="badge-erp badge-erp-primary">
@@ -75,7 +75,7 @@
                     </div>
 
                     <div id="devolucion-modal-body" class="hidden space-y-5">
-                        <div class="grid gap-4 lg:grid-cols-[1.25fr_0.75fr]">
+                        <div class="grid gap-4 lg:grid-cols-[1.25fr_0.75fr] lg:items-start">
                             <div class="rounded-3xl border border-primary/15 bg-primary/5 p-4 shadow-sm border-primary/20 bg-primary/10">
                                 <div class="flex flex-wrap items-center gap-2">
                                     <span class="rounded-full bg-primary px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-white" id="devolucion-numero-venta">Venta</span>
@@ -131,7 +131,7 @@
                                     <h4 class="mt-2 text-base font-black text-white">Motivo y resolución</h4>
                                 </div>
 
-                                <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                                <div class="grid gap-4 md:grid-cols-2">
                                     <div class="space-y-2">
                                         <label for="devolucion-motivo" class="text-sm font-bold text-slate-200">Motivo</label>
                                         <select id="devolucion-motivo"
@@ -144,7 +144,7 @@
                                         </select>
                                     </div>
 
-                                    <div class="space-y-2 md:col-span-2">
+                                    <div class="space-y-2">
                                         <label for="devolucion-tipo-resolucion" class="text-sm font-bold text-slate-200">Resolución</label>
                                         <select id="devolucion-tipo-resolucion"
                                                 name="TipoResolucion"
@@ -156,7 +156,7 @@
                                         </select>
                                     </div>
 
-                                    <label class="flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm border-slate-800 bg-slate-950/40">
+                                    <label class="flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm border-slate-800 bg-slate-950/40 md:col-span-2">
                                         <input id="devolucion-registrar-caja"
                                                name="RegistrarEgresoCaja"
                                                type="checkbox"

@@ -12,45 +12,45 @@
 #venta-index-rework {
     /* COTIZACION-MOCKUP-02: escala grafito del mockup de Nueva Venta (mismas superficies que
        --cz-* del cotizador y --venta-wizard-* del wizard). */
-    --venta-bg: #0b0e14;
-    --venta-surface: #10151b;
-    --venta-surface-2: #171e26;
-    --venta-surface-3: #1b222a;
+    --venta-bg: var(--pal-neutral-950);
+    --venta-surface: var(--pal-neutral-925);
+    --venta-surface-2: var(--pal-neutral-875);
+    --venta-surface-3: var(--pal-neutral-850);
 
-    --venta-border: #232b34;
-    --venta-border-strong: #2c3644;
+    --venta-border: var(--pal-neutral-800);
+    --venta-border-strong: var(--pal-neutral-750);
 
-    --venta-text: #e4e9ef;
-    --venta-text-strong: #f1f4f8;
-    --venta-muted: var(--erp-fg-2, #b9c3d3);
-    --venta-muted-2: var(--erp-fg-3, #a6b1c3);
+    --venta-text: var(--pal-neutral-200);
+    --venta-text-strong: var(--pal-neutral-100);
+    --venta-muted: var(--erp-fg-2, var(--pal-neutral-350));
+    --venta-muted-2: var(--erp-fg-3, var(--pal-neutral-400));
 
-    --venta-primary: #f5c518;
-    --venta-primary-hover: #ffd435;
-    --venta-primary-soft: rgba(245, 197, 24, 0.16);
+    --venta-primary: var(--pal-accent);
+    --venta-primary-hover: var(--pal-accent-400);
+    --venta-primary-soft: color-mix(in srgb, var(--pal-accent) 16%, transparent);
 
-    --venta-green: #22c55e;
-    --venta-green-soft: rgba(34, 197, 94, 0.14);
+    --venta-green: var(--pal-success-500);
+    --venta-green-soft: color-mix(in srgb, var(--pal-success-500) 14%, transparent);
 
-    --venta-amber: #f59e0b;
-    --venta-amber-soft: rgba(245, 158, 11, 0.14);
+    --venta-amber: var(--pal-warning-500);
+    --venta-amber-soft: color-mix(in srgb, var(--pal-warning-500) 14%, transparent);
 
-    --venta-red: #ef4444;
-    --venta-red-soft: rgba(239, 68, 68, 0.14);
+    --venta-red: var(--pal-danger-500);
+    --venta-red-soft: color-mix(in srgb, var(--pal-danger-500) 14%, transparent);
 
-    --venta-cyan: #38bdf8;
-    --venta-cyan-soft: rgba(56, 189, 248, 0.14);
+    --venta-cyan: var(--pal-info-400);
+    --venta-cyan-soft: color-mix(in srgb, var(--pal-info-400) 14%, transparent);
 
-    --venta-purple: #a78bfa;
-    --venta-purple-soft: rgba(167, 139, 250, 0.14);
+    --venta-purple: var(--pal-violet-400);
+    --venta-purple-soft: color-mix(in srgb, var(--pal-violet-400) 14%, transparent);
 
     --venta-radius-sm: 0.5rem;
     --venta-radius-md: 0.75rem;
     --venta-radius-lg: 1rem;
     --venta-radius-xl: 1.25rem;
 
-    --venta-shadow: 0 16px 44px rgba(0, 0, 0, 0.22);
-    --venta-shadow-soft: 0 10px 28px rgba(0, 0, 0, 0.16);
+    --venta-shadow: 0 16px 44px color-mix(in srgb, var(--pal-black) 22%, transparent);
+    --venta-shadow-soft: 0 10px 28px color-mix(in srgb, var(--pal-black) 16%, transparent);
 
     color: var(--venta-text);
 }
@@ -107,12 +107,12 @@
     border: 1px solid var(--venta-border);
     border-radius: var(--venta-radius-xl);
     background:
-        linear-gradient(135deg, rgba(16, 21, 27, 0.98), rgba(16, 21, 27, 0.92));
+        linear-gradient(135deg, color-mix(in srgb, var(--pal-neutral-925) 98%, transparent), color-mix(in srgb, var(--pal-neutral-925) 92%, transparent));
     box-shadow: var(--venta-shadow-soft);
 }
 
 #venta-index-rework .card-sub {
-    background: rgba(26, 32, 44, 0.88);
+    background: color-mix(in srgb, var(--pal-neutral-850) 88%, transparent);
     border-color: var(--venta-border);
 }
 
@@ -177,28 +177,28 @@
 }
 
 #venta-index-rework .card-alert-amber {
-    border-color: rgba(245, 158, 11, 0.32);
+    border-color: color-mix(in srgb, var(--pal-warning-500) 32%, transparent);
     background:
-        linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(16, 21, 27, 0.95));
+        linear-gradient(135deg, color-mix(in srgb, var(--pal-warning-500) 12%, transparent), color-mix(in srgb, var(--pal-neutral-925) 95%, transparent));
 }
 
 #venta-index-rework .card-alert-amber .card-alert__icon {
-    background: rgba(245, 158, 11, 0.16);
-    color: #fcd34d;
+    background: color-mix(in srgb, var(--pal-warning-500) 16%, transparent);
+    color: var(--pal-warning-300);
 }
 
 #venta-index-rework .card-alert-green {
-    border-color: rgba(34, 197, 94, 0.32);
+    border-color: color-mix(in srgb, var(--pal-success-500) 32%, transparent);
     background:
-        linear-gradient(135deg, rgba(34, 197, 94, 0.12), rgba(16, 21, 27, 0.95));
-    color: #86efac;
+        linear-gradient(135deg, color-mix(in srgb, var(--pal-success-500) 12%, transparent), color-mix(in srgb, var(--pal-neutral-925) 95%, transparent));
+    color: var(--pal-success-300);
 }
 
 #venta-index-rework .card-alert-red {
     border-color: transparent;
     background:
-        linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(16, 21, 27, 0.95));
-    color: #fca5a5;
+        linear-gradient(135deg, color-mix(in srgb, var(--pal-danger-500) 12%, transparent), color-mix(in srgb, var(--pal-neutral-925) 95%, transparent));
+    color: var(--pal-danger-300);
 }
 
 #venta-index-rework .toast-msg {
@@ -215,29 +215,29 @@
 
 @keyframes venta-caja-highlight {
     0% {
-        box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
-        background-color: rgba(245, 158, 11, 0.10);
+        box-shadow: 0 0 0 0 color-mix(in srgb, var(--pal-warning-500) 0%, transparent);
+        background-color: color-mix(in srgb, var(--pal-warning-500) 10%, transparent);
     }
 
     25% {
-        box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.45);
-        background-color: rgba(245, 158, 11, 0.20);
+        box-shadow: 0 0 0 4px color-mix(in srgb, var(--pal-warning-500) 45%, transparent);
+        background-color: color-mix(in srgb, var(--pal-warning-500) 20%, transparent);
     }
 
     60% {
-        box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.20);
-        background-color: rgba(245, 158, 11, 0.15);
+        box-shadow: 0 0 0 4px color-mix(in srgb, var(--pal-warning-500) 20%, transparent);
+        background-color: color-mix(in srgb, var(--pal-warning-500) 15%, transparent);
     }
 
     100% {
-        box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
-        background-color: rgba(245, 158, 11, 0.10);
+        box-shadow: 0 0 0 0 color-mix(in srgb, var(--pal-warning-500) 0%, transparent);
+        background-color: color-mix(in srgb, var(--pal-warning-500) 10%, transparent);
     }
 }
 
 #venta-index-rework .caja-highlight-active {
     animation: venta-caja-highlight 1.8s ease forwards;
-    border-color: rgba(245, 158, 11, 0.6) !important;
+    border-color: color-mix(in srgb, var(--pal-warning-500) 60%, transparent) !important;
 }
 
 /* ─────────────────────────────────────────────
@@ -284,8 +284,8 @@
 
 #venta-index-rework .btn-primary {
     background: var(--venta-primary);
-    border-color: rgba(245, 197, 24, 0.42);
-    color: #15110a;
+    border-color: color-mix(in srgb, var(--pal-accent) 42%, transparent);
+    color: var(--pal-on-accent);
 }
 
 #venta-index-rework .btn-primary:hover {
@@ -294,13 +294,13 @@
 
 #venta-index-rework .btn-soft {
     background: var(--venta-primary-soft);
-    border-color: rgba(245, 197, 24, 0.28);
-    color: #f5d97a;
+    border-color: color-mix(in srgb, var(--pal-accent) 28%, transparent);
+    color: var(--pal-accent-300);
 }
 
 #venta-index-rework .btn-soft:hover {
-    background: rgba(245, 197, 24, 0.24);
-    border-color: rgba(245, 197, 24, 0.42);
+    background: color-mix(in srgb, var(--pal-accent) 24%, transparent);
+    border-color: color-mix(in srgb, var(--pal-accent) 42%, transparent);
 }
 
 #venta-index-rework .btn-ghost {
@@ -310,28 +310,28 @@
 }
 
 #venta-index-rework .btn-ghost:hover {
-    background: rgba(148, 163, 184, 0.08);
+    background: color-mix(in srgb, var(--pal-neutral-450) 8%, transparent);
     color: var(--venta-text);
 }
 
 #venta-index-rework .btn-amber {
     background: var(--venta-amber-soft);
-    border-color: rgba(245, 158, 11, 0.32);
-    color: #fcd34d;
+    border-color: color-mix(in srgb, var(--pal-warning-500) 32%, transparent);
+    color: var(--pal-warning-300);
 }
 
 #venta-index-rework .btn-amber:hover {
-    background: rgba(245, 158, 11, 0.22);
+    background: color-mix(in srgb, var(--pal-warning-500) 22%, transparent);
 }
 
 #venta-index-rework .btn-danger {
     background: var(--venta-red-soft);
     border-color: transparent;
-    color: #fca5a5;
+    color: var(--pal-danger-300);
 }
 
 #venta-index-rework .btn-danger:hover {
-    background: rgba(239, 68, 68, 0.22);
+    background: color-mix(in srgb, var(--pal-danger-500) 22%, transparent);
 }
 
 #venta-index-rework .btn-xs {
@@ -368,45 +368,45 @@
 }
 
 #venta-index-rework .pill-slate {
-    background: rgba(148, 163, 184, 0.11);
-    border-color: rgba(148, 163, 184, 0.18);
-    color: #cbd5e1;
+    background: color-mix(in srgb, var(--pal-neutral-450) 11%, transparent);
+    border-color: color-mix(in srgb, var(--pal-neutral-450) 18%, transparent);
+    color: var(--pal-neutral-300);
 }
 
 #venta-index-rework .pill-blue {
     background: var(--venta-primary-soft);
-    border-color: rgba(245, 197, 24, 0.32);
-    color: #f5d97a;
+    border-color: color-mix(in srgb, var(--pal-accent) 32%, transparent);
+    color: var(--pal-accent-300);
 }
 
 #venta-index-rework .pill-cyan {
     background: var(--venta-cyan-soft);
-    border-color: rgba(56, 189, 248, 0.32);
-    color: #bae6fd;
+    border-color: color-mix(in srgb, var(--pal-info-400) 32%, transparent);
+    color: var(--pal-info-200);
 }
 
 #venta-index-rework .pill-green {
     background: var(--venta-green-soft);
-    border-color: rgba(34, 197, 94, 0.32);
-    color: #86efac;
+    border-color: color-mix(in srgb, var(--pal-success-500) 32%, transparent);
+    color: var(--pal-success-300);
 }
 
 #venta-index-rework .pill-amber {
     background: var(--venta-amber-soft);
-    border-color: rgba(245, 158, 11, 0.32);
-    color: #fcd34d;
+    border-color: color-mix(in srgb, var(--pal-warning-500) 32%, transparent);
+    color: var(--pal-warning-300);
 }
 
 #venta-index-rework .pill-red {
     background: var(--venta-red-soft);
     border-color: transparent;
-    color: #fca5a5;
+    color: var(--pal-danger-300);
 }
 
 #venta-index-rework .pill-purple {
     background: var(--venta-purple-soft);
-    border-color: rgba(167, 139, 250, 0.32);
-    color: #ddd6fe;
+    border-color: color-mix(in srgb, var(--pal-violet-400) 32%, transparent);
+    color: var(--pal-violet-200);
 }
 
 /* ─────────────────────────────────────────────
@@ -469,7 +469,7 @@
     padding: 0.45rem 0.8rem;
     border-radius: 0.8rem;
     border: 1px solid var(--venta-border);
-    background: rgba(16, 21, 27, 0.45);
+    background: color-mix(in srgb, var(--pal-neutral-925) 45%, transparent);
     color: var(--venta-muted);
     font-size: var(--erp-fs-min, 0.75rem);
     font-weight: 900;
@@ -481,7 +481,7 @@
 }
 
 #venta-index-rework .tab-btn:hover {
-    background: rgba(148, 163, 184, 0.08);
+    background: color-mix(in srgb, var(--pal-neutral-450) 8%, transparent);
     border-color: var(--venta-border-strong);
     color: var(--venta-text);
 }
@@ -489,8 +489,8 @@
 #venta-index-rework .tab-btn.is-active,
 #venta-index-rework .tab-btn[aria-selected="true"] {
     background: var(--venta-primary-soft);
-    border-color: rgba(245, 197, 24, 0.38);
-    color: #f5d97a;
+    border-color: color-mix(in srgb, var(--pal-accent) 38%, transparent);
+    color: var(--pal-accent-300);
 }
 
 #venta-index-rework .tab-btn .material-symbols-outlined {
@@ -504,8 +504,8 @@
     align-items: center;
     justify-content: center;
     border-radius: 999px;
-    background: rgba(245, 158, 11, 0.22);
-    color: #fcd34d;
+    background: color-mix(in srgb, var(--pal-warning-500) 22%, transparent);
+    color: var(--pal-warning-300);
     font-size: var(--erp-fs-min, 0.75rem);
     font-weight: 900;
 }
@@ -520,7 +520,7 @@
 #venta-index-rework .scroll-hint {
     margin: 0;
     padding: 0.5rem 0.85rem 0.25rem;
-    color: var(--erp-fg-3, #a6b1c3);
+    color: var(--erp-fg-3, var(--pal-neutral-400));
     font-size: 0.8125rem;
     font-weight: 600;
 }
@@ -577,7 +577,7 @@
     padding: 0.85rem;
     border: 1px solid var(--venta-border);
     border-radius: var(--venta-radius-lg);
-    background: rgba(16, 21, 27, 0.42);
+    background: color-mix(in srgb, var(--pal-neutral-925) 42%, transparent);
 }
 
 #venta-index-rework .filters-grid {
@@ -619,7 +619,7 @@
     min-height: 2.4rem;
     border: 1px solid var(--venta-border-strong);
     border-radius: 0.75rem;
-    background-color: rgba(16, 21, 27, 0.78);
+    background-color: color-mix(in srgb, var(--pal-neutral-925) 78%, transparent);
     color: var(--venta-text);
     padding: 0.55rem 0.85rem;
     font-size: 0.88rem;
@@ -640,13 +640,13 @@
 
 #venta-index-rework input:focus,
 #venta-index-rework select:focus {
-    border-color: rgba(245, 197, 24, 0.72);
-    box-shadow: 0 0 0 3px rgba(245, 197, 24, 0.18);
-    background-color: rgba(16, 21, 27, 0.96);
+    border-color: color-mix(in srgb, var(--pal-accent) 72%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--pal-accent) 18%, transparent);
+    background-color: color-mix(in srgb, var(--pal-neutral-925) 96%, transparent);
 }
 
 #venta-index-rework select option {
-    background-color: #10151b;
+    background-color: var(--pal-neutral-925);
     color: var(--venta-text);
 }
 
@@ -667,7 +667,7 @@
     display: inline-flex;
     align-items: center;
     gap: 0.45rem;
-    color: #f5d97a;
+    color: var(--pal-accent-300);
     font-size: var(--erp-fs-min, 0.75rem);
     font-weight: 900;
     cursor: pointer;
@@ -741,17 +741,17 @@
 
 #venta-index-rework [data-oc-scroll-fade="left"] {
     left: 0;
-    background: linear-gradient(to right, var(--oc-scroll-fade-dark, rgba(11, 14, 20, 0.96)), transparent);
+    background: linear-gradient(to right, var(--oc-scroll-fade-dark, color-mix(in srgb, var(--pal-neutral-950) 96%, transparent)), transparent);
 }
 
 #venta-index-rework [data-oc-scroll-fade="right"] {
     right: 0;
-    background: linear-gradient(to left, var(--oc-scroll-fade-dark, rgba(11, 14, 20, 0.96)), transparent);
+    background: linear-gradient(to left, var(--oc-scroll-fade-dark, color-mix(in srgb, var(--pal-neutral-950) 96%, transparent)), transparent);
 }
 
 #venta-index-rework #ventas-index-scroll {
-    --oc-scroll-min-width: 72rem;
-    --oc-scroll-fade-dark: rgba(11, 14, 20, 0.96);
+    --oc-scroll-min-width: 52rem;
+    --oc-scroll-fade-dark: color-mix(in srgb, var(--pal-neutral-950) 96%, transparent);
     --oc-scroll-fade-width: 2rem;
 }
 
@@ -769,7 +769,7 @@
 #venta-index-rework .table-shell {
     border: 1px solid var(--venta-border);
     border-radius: var(--venta-radius-lg);
-    background: rgba(16, 21, 27, 0.35);
+    background: color-mix(in srgb, var(--pal-neutral-925) 35%, transparent);
     overflow: hidden;
 }
 
@@ -778,7 +778,7 @@
 }
 
 #venta-index-rework .table-scroll:focus {
-    outline: 2px solid rgba(245, 197, 24, 0.55);
+    outline: 2px solid color-mix(in srgb, var(--pal-accent) 55%, transparent);
     outline-offset: -2px;
 }
 
@@ -791,7 +791,7 @@
 #venta-index-rework .ventas-table th {
     padding: 0.55rem 0.9rem;
     border-bottom: 1px solid var(--venta-border);
-    background: rgba(16, 21, 27, 0.72);
+    background: color-mix(in srgb, var(--pal-neutral-925) 72%, transparent);
     color: var(--venta-muted);
     font-size: var(--erp-fs-min, 0.75rem);
     font-weight: 900;
@@ -803,10 +803,27 @@
 
 #venta-index-rework .ventas-table td {
     padding: 0.6rem 0.9rem;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.08);
-    color: #cbd5e1;
+    border-bottom: 1px solid color-mix(in srgb, var(--pal-neutral-450) 8%, transparent);
+    color: var(--pal-neutral-300);
     font-size: 0.84rem;
     vertical-align: middle;
+}
+
+/* A ~1280px el ancho útil (≈909px) quedaba 52px por debajo del contenido y
+   "Acciones" caía fuera de vista; padding lateral más chico entre 768 y 1439px. */
+@media (max-width: 1439px) {
+    #venta-index-rework .ventas-table th,
+    #venta-index-rework .ventas-table td {
+        padding-inline: 0.45rem;
+    }
+
+    #venta-index-rework .ventas-table th {
+        letter-spacing: 0.04em;
+    }
+
+    #venta-index-rework .ventas-table .row-actions {
+        gap: 0.25rem;
+    }
 }
 
 #venta-index-rework .ventas-table tbody tr {
@@ -814,7 +831,7 @@
 }
 
 #venta-index-rework .ventas-table tbody tr:hover {
-    background: rgba(148, 163, 184, 0.06);
+    background: color-mix(in srgb, var(--pal-neutral-450) 6%, transparent);
 }
 
 #venta-index-rework .ventas-table tbody tr:last-child td {
@@ -822,10 +839,11 @@
 }
 
 #venta-index-rework .sale-number {
-    color: #f5c518;
+    color: var(--pal-accent);
     font-weight: 900;
     text-decoration: none;
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
 }
 
 #venta-index-rework .sale-number:hover {
@@ -1006,7 +1024,7 @@
     padding: 2rem 1rem;
     border: 1px dashed var(--venta-border-strong);
     border-radius: var(--venta-radius-lg);
-    background: rgba(16, 21, 27, 0.35);
+    background: color-mix(in srgb, var(--pal-neutral-925) 35%, transparent);
     text-align: center;
     color: var(--venta-muted);
 }
@@ -1096,15 +1114,15 @@
 }
 
 #venta-index-rework a.operaciones-pagination__page:hover {
-    background: rgba(148, 163, 184, 0.08);
+    background: color-mix(in srgb, var(--pal-neutral-450) 8%, transparent);
     border-color: var(--venta-border-strong);
     color: var(--venta-text);
 }
 
 #venta-index-rework .operaciones-pagination__page.is-current {
     background: var(--venta-primary-soft);
-    border-color: rgba(245, 197, 24, 0.38);
-    color: #f5d97a;
+    border-color: color-mix(in srgb, var(--pal-accent) 38%, transparent);
+    color: var(--pal-accent-300);
 }
 
 #venta-index-rework .operaciones-pagination__ellipsis {
@@ -1141,7 +1159,7 @@
 #venta-index-rework input:focus-visible,
 #venta-index-rework select:focus-visible,
 #venta-index-rework summary:focus-visible {
-    outline: 2px solid rgba(245, 197, 24, 0.7);
+    outline: 2px solid color-mix(in srgb, var(--pal-accent) 70%, transparent);
     outline-offset: 2px;
 }
 
@@ -1330,7 +1348,7 @@
         padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
 
         border-top: 1px solid var(--venta-border);
-        background: rgba(13, 19, 31, 0.96);
+        background: color-mix(in srgb, var(--pal-neutral-925) 96%, transparent);
         backdrop-filter: blur(12px);
         -webkit-backdrop-filter: blur(12px);
     }

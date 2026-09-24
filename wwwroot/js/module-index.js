@@ -25,24 +25,14 @@
     // Uses data-expanded / data-hidden (not aria-expanded) to avoid layout.js closeAllDropdowns override.
     var btnToggle   = document.getElementById('btn-toggle-filtros');
     var filtrosBody = document.getElementById('filtros-body');
+    // La animación la resuelve CSS (grid-template-rows en .filter-panel-erp__body): acá
+    // sólo se alterna el estado.
     if (btnToggle && filtrosBody) {
-        filtrosBody.style.maxHeight = filtrosBody.getAttribute('data-hidden') === 'true'
-            ? '0px'
-            : filtrosBody.scrollHeight + 'px';
-
         btnToggle.addEventListener('click', function (e) {
             e.stopPropagation();
             var expanded = btnToggle.getAttribute('data-expanded') === 'true';
-            if (expanded) {
-                filtrosBody.style.maxHeight = filtrosBody.scrollHeight + 'px';
-                requestAnimationFrame(function () { filtrosBody.style.maxHeight = '0px'; });
-                btnToggle.setAttribute('data-expanded', 'false');
-                filtrosBody.setAttribute('data-hidden', 'true');
-            } else {
-                filtrosBody.style.maxHeight = filtrosBody.scrollHeight + 'px';
-                btnToggle.setAttribute('data-expanded', 'true');
-                filtrosBody.setAttribute('data-hidden', 'false');
-            }
+            btnToggle.setAttribute('data-expanded', expanded ? 'false' : 'true');
+            filtrosBody.setAttribute('data-hidden', expanded ? 'true' : 'false');
         });
     }
 

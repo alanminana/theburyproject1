@@ -109,7 +109,7 @@
                         });
                     })
                     .catch(function () {
-                        resultados.innerHTML = '<div class="text-xs" style="color:#fb7185;padding:.4rem">Error al buscar.</div>';
+                        resultados.innerHTML = '<div class="text-xs" style="color:var(--pal-danger-400);padding:.4rem">Error al buscar.</div>';
                     });
             }, 300);
         });

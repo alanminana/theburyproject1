@@ -209,7 +209,7 @@
                     <span class="material-symbols-outlined">running_with_errors</span>
                     Moras
                     <span class="tab-count"
-                          style="background:rgba(244,63,94,.2);color:#fb7185">@resumenMoras.Count</span>
+                          style="background:color-mix(in srgb, var(--pal-danger-500) 20%, transparent);color:var(--pal-danger-400)">@resumenMoras.Count</span>
                 </button>
             </div>
         </div>
@@ -342,9 +342,9 @@
                                             <div class="cli-name">@clienteNombre</div>
                                             <div class="cli-meta">
                                                 <span class="mono">@documento</span>
-                                                <span style="color:#334155">·</span>
+                                                <span style="color:var(--pal-neutral-700)">·</span>
                                                 <span class="mono">@(credito.Numero ?? $"CR-{credito.Id:D3}")</span>
-                                                <span style="color:#334155">·</span>
+                                                <span style="color:var(--pal-neutral-700)">·</span>
                                                 <span>@mora.CuotasVencidas.Count cuota@(mora.CuotasVencidas.Count == 1 ? "" : "s")
                                                     vencida@(mora.CuotasVencidas.Count == 1 ? "" : "s")</span>
                                                 </div>
@@ -376,7 +376,7 @@
                                                 <div class="mora-cuota">
                                                     <span class="cuota-n venc">@cuota.NumeroCuota</span>
                                                     <div class="flex-1 min-w-0">
-                                                        <span class="mono text-xs" style="color:#cbd5e1">@(credito.Numero ??
+                                                        <span class="mono text-xs" style="color:var(--pal-neutral-300)">@(credito.Numero ??
                                                                                                                                                                                                                         $"CR-{credito.Id:D3}")</span>
                                                             <span class="text-xs muted-2"> · cuota @cuota.NumeroCuota/@credito.CantidadCuotas ·
                                                                 venció @cuota.FechaVencimiento.ToString("dd/MM/yyyy")</span>
@@ -384,7 +384,7 @@
                                                             <span class="chip @(cuota.DiasAtraso >= 10 ? "chip-bad" : "chip-warn")">+@cuota.DiasAtraso
                                                                 d</span>
                                                                 <span class="num"
-                                                                      style="min-width:92px;text-align:right;font-weight:600;color:#fff">@cuota.SaldoPendiente.ToString("C0")</span>
+                                                                      style="min-width:92px;text-align:right;font-weight:600;color:var(--pal-white)">@cuota.SaldoPendiente.ToString("C0")</span>
                                                             </div>
                                                         }
                                                     </div>

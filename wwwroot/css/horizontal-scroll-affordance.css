@@ -14,11 +14,11 @@
     scroll-behavior: smooth;
     scrollbar-gutter: var(--oc-scrollbar-gutter, stable);
     scrollbar-width: thin;
-    scrollbar-color: var(--oc-scroll-thumb, #475569) var(--oc-scroll-track, rgba(15, 23, 42, 0.35));
+    scrollbar-color: var(--oc-scroll-thumb, var(--pal-neutral-600)) var(--oc-scroll-track, color-mix(in srgb, var(--pal-neutral-925) 35%, transparent));
 }
 
 [data-oc-scroll-region]:focus-visible {
-    outline: 2px solid var(--oc-scroll-focus, rgba(245, 197, 24, 0.65));
+    outline: 2px solid var(--oc-scroll-focus, color-mix(in srgb, var(--pal-accent) 65%, transparent));
     outline-offset: 3px;
 }
 
@@ -27,17 +27,17 @@
 }
 
 [data-oc-scroll-region]::-webkit-scrollbar-track {
-    background: var(--oc-scroll-track, rgba(15, 23, 42, 0.35));
+    background: var(--oc-scroll-track, color-mix(in srgb, var(--pal-neutral-925) 35%, transparent));
     border-radius: 999px;
 }
 
 [data-oc-scroll-region]::-webkit-scrollbar-thumb {
-    background: var(--oc-scroll-thumb, #475569);
+    background: var(--oc-scroll-thumb, var(--pal-neutral-600));
     border-radius: 999px;
 }
 
 [data-oc-scroll-region]::-webkit-scrollbar-thumb:hover {
-    background: var(--oc-scroll-thumb-hover, #64748b);
+    background: var(--oc-scroll-thumb-hover, var(--pal-neutral-500));
 }
 
 [data-oc-scroll-table] {
@@ -56,26 +56,26 @@
 [data-oc-scroll-fade="left"] {
     left: 0;
     background: linear-gradient(to right,
-            var(--oc-scroll-fade-light, rgba(248, 250, 252, 0.98)),
+            var(--oc-scroll-fade-light, color-mix(in srgb, var(--pal-neutral-50) 98%, transparent)),
             transparent);
 }
 
 [data-oc-scroll-fade="right"] {
     right: 0;
     background: linear-gradient(to left,
-            var(--oc-scroll-fade-light, rgba(248, 250, 252, 0.98)),
+            var(--oc-scroll-fade-light, color-mix(in srgb, var(--pal-neutral-50) 98%, transparent)),
             transparent);
 }
 
 html.dark [data-oc-scroll-fade="left"] {
     background: linear-gradient(to right,
-            var(--oc-scroll-fade-dark, rgba(15, 23, 42, 0.96)),
+            var(--oc-scroll-fade-dark, color-mix(in srgb, var(--pal-neutral-925) 96%, transparent)),
             transparent);
 }
 
 html.dark [data-oc-scroll-fade="right"] {
     background: linear-gradient(to left,
-            var(--oc-scroll-fade-dark, rgba(15, 23, 42, 0.96)),
+            var(--oc-scroll-fade-dark, color-mix(in srgb, var(--pal-neutral-925) 96%, transparent)),
             transparent);
 }
 

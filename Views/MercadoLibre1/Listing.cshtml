@@ -393,7 +393,7 @@
                     {
                         <tr>
                             <td style="color:var(--muted);white-space:nowrap">@p.FechaPreguntaUtc.ToLocalTime().ToString("dd/MM HH:mm")</td>
-                            <td style="max-width:420px">@p.TextoPregunta@if (!string.IsNullOrEmpty(p.RespuestaTexto)){<div class="le" style="font-size:12px;color:var(--green);margin-top:4px;border-left:2px solid rgba(55,211,153,.4);padding-left:8px">@p.RespuestaTexto</div>}</td>
+                            <td style="max-width:420px">@p.TextoPregunta@if (!string.IsNullOrEmpty(p.RespuestaTexto)){<div class="le" style="font-size:12px;color:var(--green);margin-top:4px;border-left:2px solid color-mix(in srgb, var(--pal-success-400) 40%, transparent);padding-left:8px">@p.RespuestaTexto</div>}</td>
                             <td>
                                 @if (p.Estado == MercadoLibreQuestionEstado.Respondida){<span class="chip ok"><span class="dot"></span>Respondida</span>}
                                 else if (p.Estado == MercadoLibreQuestionEstado.Error){<span class="chip bad"><span class="dot"></span>Error</span>}
