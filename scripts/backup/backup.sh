@@ -162,7 +162,7 @@ offsite() {
     log INFO "copia externa: $sub -> ${BACKUP_REMOTE%%:*}:*/$sub (${#names[@]} archivo(s))"
     if ! dc run --rm -T --no-deps --quiet-pull backup-offsite copy "/backups/$sub" "$BACKUP_REMOTE/$sub" "${args[@]}" >/dev/null 2>"$BACKUP_DIR/logs/.offsite.err"; then
       monitor_status "offsite-$sub" "$EX_OFFSITE" false
-      fail $EX_OFFSITE "copia externa FALLO ($sub): $(tr '\n' ' ' <"$BACKUP_DIR/logs/.offsite.err" | cut -c1-300)"; return 1
+      fail $EX_OFFSITE "copia externa FALLO ($sub): $(tr '\n' ' ' <"$BACKUP_DIR/logs/.offsite.err" | sanitize_text | cut -c1-300)"; return 1
     fi
     if ! rclone_verify backup-offsite "/backups/$sub" "$BACKUP_REMOTE/$sub" "${args[@]}"; then
       monitor_status "offsite-$sub" "$EX_OFFSITE" false

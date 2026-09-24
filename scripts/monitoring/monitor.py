@@ -336,6 +336,40 @@ class Collector:
                     self.emit("backup.run-" + mode, "INFO" if status["exit"] == 0 else "CRITICAL", f"exit={status['exit']}; at={status['time']}")
                 self.safe("backup.run-" + mode, check)
 
+    def restore_test(self):
+        """Prueba de restore semanal (monitor-status/restore-test.json). Umbrales por defecto coherentes con cron semanal:
+        warning a los 8 dias sin exito verificado, critical a los 10. Sin archivo: no se alerta durante la ventana normal
+        previa a la primera ejecucion (se mide desde la primera observacion del monitor); pasada esa ventana, se alerta."""
+        cfg = self.cfg.get("restore_test", {})
+        warning, critical = cfg.get("warning", 8 * 86400), cfg.get("critical", 10 * 86400)
+        now = time.time()
+        path = Path(self.cfg["backup_dir"]) / "monitor-status" / "restore-test.json"
+        key = "backup.restore-test"
+        try:
+            status = json.loads(path.read_text())
+            attempt, exit_code = float(status["time"]), int(status["exit"])
+            last_ok = status.get("last_success")
+            last_ok = float(last_ok) if last_ok is not None else None
+        except FileNotFoundError:
+            first = self.store.get("restore_test.first_seen")
+            if first is None:
+                first = now
+                self.store.put("restore_test.first_seen", first)
+            self.threshold(key, now - first, warning, critical)
+            self.signals[key]["detail"] = "restore-test never executed; " + self.signals[key]["detail"]
+            return
+        except Exception:
+            self.emit(key, "CRITICAL", "restore-test status invalid")
+            return
+        if attempt - now > 60:
+            self.emit(key, "CRITICAL", "restore-test status has future timestamp")
+            return
+        if exit_code != 0 or status.get("verified") is not True:
+            message = str(status.get("message", ""))[:200]
+            self.emit(key, "CRITICAL", f"last restore-test FAILED: exit={exit_code}; at={attempt:.0f}; last_success={last_ok}; {message}")
+            return
+        self.threshold(key, now - (last_ok if last_ok is not None else attempt), warning, critical)
+
     def collect(self):
         self.signals = {}
         now = time.time()
@@ -352,6 +386,7 @@ class Collector:
         self.safe("host", self.host_resources)
         self.safe("disks", self.disks)
         self.safe("backups", self.backups)
+        self.safe("restore-test", self.restore_test)
         if self.slow:
             self.safe("sql", self.sql)
             self.safe("tls", lambda: self.threshold("tls.expiry", -tls_days(base), -21, -7))

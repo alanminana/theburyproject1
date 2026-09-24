@@ -68,7 +68,7 @@ sudo scripts/backup/install-schedule.sh --uninstall
 
 Instala: `backup.sh all` diario, `backup.sh log` cada 15 min y `restore-test.sh` semanal. Los horarios de cron usan la **hora local
 del servidor**; los nombres de archivo usan **UTC** siempre. stdout se descarta (va a `backup.log`); stderr va a
-`/var/log/bury-backup-errors.log`. Un `log` que coincide con un `all` en curso sale con código 4 (omitido, sin ruido).
+`/var/log/bury-backup-errors.log`. `--install` deja ese log con owner = usuario del cron (0600) e instala `/etc/logrotate.d/bury-backup`; la prueba de restore semanal publica `monitor-status/restore-test.json` para el monitor. Detalle y checklist: `docs/offsite-monitoring-activacion.md`. Un `log` que coincide con un `all` en curso sale con código 4 (omitido, sin ruido).
 Alternativa a cron: un `systemd` timer que ejecute los mismos tres comandos.
 
 ## 5. Ubicación

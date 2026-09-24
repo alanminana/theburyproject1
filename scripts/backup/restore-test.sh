@@ -22,6 +22,17 @@ done
 
 load_config
 mkdir -p "$BACKUP_DIR/logs"
+
+# Estado para el monitor: SIEMPRE se publica al salir (ok o fallo). verified=true solo si llego al final con exit 0.
+RT_DONE=0
+finish() {
+  local ec=$?
+  if (( ec == 0 && RT_DONE == 1 )); then restore_test_status 0 true "restore-test OK"
+  else restore_test_status "$ec" false "${LAST_ERROR:-fallo inesperado (exit $ec)}"; fi
+  (( KEEP )) || drop_test_safe
+}
+drop_test_safe() { declare -F drop_test >/dev/null && drop_test || true; }
+trap finish EXIT
 check_prereqs
 TEST_DB="${DB_NAME}_RestoreTest"
 
@@ -34,7 +45,6 @@ drop_test() {
   [[ "$TEST_DB" == *_RestoreTest ]] || return 0   # defensa: solo se elimina una base temporal de prueba
   sql_exec "IF DB_ID(N'$TEST_DB') IS NOT NULL BEGIN ALTER DATABASE [$TEST_DB] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [$TEST_DB]; END" >/dev/null 2>&1 || true
 }
-(( KEEP )) || trap drop_test EXIT
 
 log INFO "=== restore-test inicio: $BACKUP -> [$TEST_DB] ==="
 T0=$(date +%s)
@@ -61,4 +71,5 @@ fi
 if [[ -n "$live" ]] && is_uint "$live" && (( mig < live )); then
   log WARN "el backup tiene $mig migraciones y la base viva $live (normal si hubo migraciones nuevas despues del backup)"
 fi
+RT_DONE=1
 log INFO "=== restore-test OK: tiempo de restore $((T1 - T0)) s ==="

@@ -32,7 +32,8 @@ log() { # log NIVEL mensaje...
   if [[ "$level" == ERROR ]]; then echo "$line" >&2; else echo "$line"; fi
   if [[ -n "$LOG_FILE" && -d "$(dirname "$LOG_FILE")" ]]; then echo "$line" >>"$LOG_FILE" 2>/dev/null || true; fi
 }
-die() { local code=$1; shift; log ERROR "$*"; exit "$code"; }
+LAST_ERROR=""
+die() { local code=$1; shift; LAST_ERROR="$*"; log ERROR "$*"; exit "$code"; }
 
 _envfiles() {
   if [[ -n "${COMPOSE_ENV_FILES:-}" ]]; then tr ',' '\n' <<<"$COMPOSE_ENV_FILES"; else echo "$REPO_DIR/.env"; fi
@@ -100,6 +101,24 @@ sql_rows() { # sql_rows "T-SQL" -> filas separadas por '|', sin encabezados
   dc exec -T db bash -c 'SQLCMDPASSWORD="$MSSQL_SA_PASSWORD" exec /opt/mssql-tools18/bin/sqlcmd -C -b -S localhost -U sa -d master -h -1 -W -s "|" -w 1000 -Q "SET NOCOUNT ON; $0"' "$1" | tr -d '\r'
 }
 
+# Redaccion de credenciales comunes en texto libre (stderr de rclone, mensajes de error) ANTES de loguearlo o persistirlo.
+# Conserva el contexto del error; NO pretende detectar cualquier secreto posible. Lee stdin o los argumentos.
+#   password/passwd/pass<N>, secret*, token, api/access/account/private key, credential, authorization, *_key(_id) (p.ej.
+#   RCLONE_CONFIG_SECURE_PASSWORD2, aws_secret_access_key, AccountKey), Bearer/Basic, user:pass@host, AKIA..., JWT, SAS sig=.
+sanitize_text() {
+  local input; if (( $# )); then input="$*"; else input=$(cat); fi
+  local key='[A-Za-z0-9_.-]*(pass(word|wd)?|secret|token|api[_-]?key|access[_-]?key|account[_-]?key|private[_-]?key|credential|authorization|sharedaccesssignature|[_-]key(_id)?)[A-Za-z0-9_-]*'
+  local val='("[^"]*"|'"'"'[^'"'"']*'"'"'|[^[:space:]&,;"'"'"']+)'
+  sed -E \
+    -e 's#(://[^/:@[:space:]]+):[^@/[:space:]]+@#\1:[REDACTED]@#g' \
+    -e 's#\b(bearer|basic)([[:space:]]+)[A-Za-z0-9._~+/=-]{6,}#\1\2[REDACTED]#Ig' \
+    -e "s#(${key})([\"']?[[:space:]]*[=:][[:space:]]*)${val}#\1\5[REDACTED]#Ig" \
+    -e 's#(^|[?&[:space:]])(sig)=[^&[:space:]]+#\1\2=[REDACTED]#Ig' \
+    -e 's#\bAKIA[0-9A-Z]{16}\b#[REDACTED-AWS-KEY-ID]#g' \
+    -e 's#\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*#[REDACTED-JWT]#g' \
+    <<<"$input"
+}
+
 # rclone check con el servicio dado. Si el remoto no tiene hash comun con el local (p.ej. SFTP sin shell), `check` solo compara
 # TAMAÑO: en ese caso se repite con --download (compara byte a byte) para no declarar "verificado" algo que solo coincide en tamaño.
 # rclone_verify <servicio> <origen> <destino> [args rclone...]   -> 0 ok, !=0 diferencias/error. Deja el detalle en $RCLONE_ERR.
@@ -112,7 +131,7 @@ rclone_verify() {
     log INFO "  el remoto no expone hash comun: verificacion byte a byte (rclone check --download)"
     rc=0; out=$(dc run --rm -T --no-deps --quiet-pull "$svc" check "$src" "$dst" --one-way --download "$@" 2>&1) || rc=$?
   fi
-  RCLONE_ERR=$(tr '\n' ' ' <<<"$out" | grep -v '^$' | cut -c1-300)
+  RCLONE_ERR=$(tr '\n' ' ' <<<"$out" | sanitize_text | cut -c1-300)
   return $rc
 }
 
@@ -176,5 +195,28 @@ monitor_status() { # tipo exit verified
     printf '{"time":%s,"exit":%s,"verified":%s}\n' "$(date +%s)" "$code" "$verified" >"$tmp" \
       && mv -f "$tmp" "$dir/$kind.json"
   ) || log WARN "no se pudo persistir estado de monitoreo: $kind"
+  return 0
+}
+
+# Estado estructurado de la prueba de restore semanal: monitor-status/restore-test.json (mismo directorio y escritura atomica que
+# monitor_status). A diferencia de los demas, conserva `last_success` entre corridas fallidas para que el monitor distinga
+# "ultimo intento" de "ultimo exito verificado". El mensaje se sanitiza y se reduce a ASCII sin comillas/backslash (JSON seguro).
+# restore_test_status <exit> <verified true|false> [mensaje]
+restore_test_status() {
+  local code=$1 verified=$2 msg=${3-} dir="$BACKUP_DIR/monitor-status" now prev last_ok=null tmp
+  now=$(date +%s)
+  msg=$(sanitize_text "$msg" | tr -c '[:print:]' ' ' | sed 's/["\]//g' | cut -c1-200)
+  if [[ -f "$dir/restore-test.json" ]]; then
+    prev=$(grep -oE '"last_success":[0-9]+' "$dir/restore-test.json" | head -n1 | cut -d: -f2 || true)
+    [[ -n "$prev" ]] && last_ok=$prev
+  fi
+  if [[ "$code" == 0 && "$verified" == true ]]; then last_ok=$now; fi
+  (
+    umask 077
+    mkdir -p "$dir" || exit 1
+    tmp=$(mktemp "$dir/.restore-test.XXXXXX") || exit 1
+    printf '{"time":%s,"exit":%s,"verified":%s,"last_success":%s,"message":"%s"}\n' "$now" "$code" "$verified" "$last_ok" "$msg" >"$tmp" \
+      && mv -f "$tmp" "$dir/restore-test.json"
+  ) || log WARN "no se pudo persistir estado de monitoreo: restore-test"
   return 0
 }
