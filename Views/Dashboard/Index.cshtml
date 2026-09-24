@@ -7,12 +7,30 @@
     var cuotasVencidas = Model.CuotasVencidasLista ?? new List<CuotaVencidaDto>();
     var cuotasProximas = Model.CuotasProximasVencer ?? new List<CuotaProximaVencerDto>();
     var cuotasVencidasCount = cuotasVencidas.Count;
+    // La lista viene acotada (Top 20); los conteos que se muestran salen del total real.
+    var cuotasVencidasTotal = Model.CuotasVencidasTotal;
+    var stockBajo = Model.ProductosStockBajo;
     var cuotasProximasCount = cuotasProximas.Count;
     var alertasStock = Model.AlertasStockRecientes ?? new List<StockAlertaDto>();
     var destacados = Model.ProductosDestacados ?? new List<ProductoDestacadoDto>();
     var actividad = Model.ActividadReciente ?? new List<ActividadRecienteDto>();
     // Origen para "Volver" desde la pantalla de pago de cuota abierta desde este dashboard.
     var pagoCuotaReturnUrl = Url.Action("Index", "Dashboard");
+    // Las tablas muestran las primeras filas de listas acotadas por el servicio (Top 20).
+    const int filasVisibles = 5;
+    const int topServicio = 20;
+    var puedeVerCreditos = User.TienePermiso("creditos", "view");
+    var puedeReponer = User.TienePermiso("ordenescompra", "create");
+    var puedeVerCatalogo = User.TienePermiso("productos", "view");
+    // Cada acceso apunta a un controller con [PermisoRequerido] propio: se muestran solo los
+    // permitidos para no llevar al usuario a un 403 (el servidor sigue siendo la autoridad).
+    var accesosRapidos = new List<(string Controller, string Action, string Icon, string Label)>();
+    if (User.TienePermiso("ventas", "create")) accesosRapidos.Add(("Venta", "Create", "add_shopping_cart", "Nueva Venta"));
+    if (User.TienePermiso("clientes", "create")) accesosRapidos.Add(("Cliente", "Create", "person_add", "Nuevo Cliente"));
+    if (User.TienePermiso("reportes", "view")) accesosRapidos.Add(("Reporte", "Index", "receipt_long", "Reportes"));
+    if (puedeVerCatalogo) accesosRapidos.Add(("Catalogo", "Index", "box_edit", "Catálogo"));
+    if (User.TienePermiso("caja", "view")) accesosRapidos.Add(("Caja", "Index", "point_of_sale", "Caja"));
+    if (puedeVerCreditos) accesosRapidos.Add(("Credito", "Index", "credit_card", "Créditos"));
 }
 
 @section Styles {
@@ -22,14 +40,39 @@
 
 <div class="space-y-6">
 
-    <!-- Header de página (ERP-UI-STANDARD §4): patrón .hero-erp canónico (ver
-         Views/AlertaStock/Index_tw.cshtml); sin breadcrumb — Dashboard es la raíz
-         de navegación (Home/Index redirige acá), un breadcrumb de un solo nivel no
-         aportaría; sin acciones primarias — ya las cubre "Accesos rápidos" del sidebar
-         sin duplicar autoridad. -->
-    <div class="hero-erp sm:p-8">
-        <h1 class="text-xl font-bold text-slate-100 sm:text-2xl">Dashboard</h1>
-        <p class="mt-1 text-sm text-slate-400">Resumen operativo de ventas, cobranzas y stock.</p>
+    <!-- Header de página (ERP-UI-STANDARD §4): el título visible ya lo muestra la barra global
+         (_Layout usa <h2>), así que el <h1> queda solo para lectores de pantalla y lo único
+         visible es el estado real del día: qué está pendiente o "Todo al día". Sin breadcrumb
+         (Dashboard es la raíz de navegación) ni acciones primarias (las cubre "Accesos rápidos"). -->
+    <div>
+        <h1 class="sr-only">Dashboard</h1>
+        <p data-dashboard-status role="status" class="dashboard-status text-sm text-slate-400">
+            @if (cuotasVencidasTotal == 0 && stockBajo == 0)
+            {
+                <span class="inline-flex items-center gap-1.5 font-semibold text-emerald-500">
+                    <span class="material-symbols-outlined text-[18px]" aria-hidden="true">check_circle</span>
+                    Todo al día
+                </span>
+                <span>Sin cuotas vencidas ni productos por reponer.</span>
+            }
+            else
+            {
+                @if (cuotasVencidasTotal > 0)
+                {
+                    <span class="inline-flex items-center gap-1.5 font-semibold text-red-400">
+                        <span class="material-symbols-outlined text-[18px]" aria-hidden="true">schedule</span>
+                        @cuotasVencidasTotal @(cuotasVencidasTotal == 1 ? "cuota vencida" : "cuotas vencidas")
+                    </span>
+                }
+                @if (stockBajo > 0)
+                {
+                    <span class="inline-flex items-center gap-1.5 font-semibold text-orange-500">
+                        <span class="material-symbols-outlined text-[18px]" aria-hidden="true">inventory_2</span>
+                        @stockBajo @(stockBajo == 1 ? "producto por reponer" : "productos por reponer")
+                    </span>
+                }
+            }
+        </p>
     </div>
 
     <!-- Main + Sidebar -->
@@ -38,24 +81,25 @@
         <!-- Main column -->
         <div class="space-y-6">
                 <!-- Resumen -->
-                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div class="dashboard-kpis grid gap-4">
                     <div class="card-erp-metric">
                         <p class="text-xs text-slate-400 uppercase tracking-wide">Ventas del mes</p>
-                        <p class="mt-1 text-2xl font-bold text-slate-100">@Model.VentasTotalesMes.ToString("C")</p>
+                        <p class="dashboard-kpi-value mt-1 font-bold text-slate-100">@Model.VentasTotalesMes.ToString("C")</p>
                         <p class="text-xs text-slate-500 mt-1">@Model.CantidadVentasMes ventas</p>
                     </div>
                     <div class="card-erp-metric">
                         <p class="text-xs text-slate-400 uppercase tracking-wide">Cobranza del mes</p>
-                        <p class="mt-1 text-2xl font-bold text-slate-100">@Model.CobranzaMes.ToString("C")</p>
+                        <p class="dashboard-kpi-value mt-1 font-bold text-slate-100">@Model.CobranzaMes.ToString("C")</p>
+                        <p class="text-xs text-slate-500 mt-1">cuotas cobradas</p>
                     </div>
-                    <div class="card-erp-metric card-erp-metric-danger">
+                    <div class="@(cuotasVencidasTotal > 0 ? "card-erp-metric card-erp-metric-danger" : "card-erp-metric")">
                         <p class="text-xs text-slate-400 uppercase tracking-wide">Monto vencido</p>
-                        <p class="mt-1 text-2xl font-bold text-red-400">@Model.MontoVencidoTotal.ToString("C")</p>
-                        <p class="text-xs text-slate-500 mt-1">@cuotasVencidasCount cuotas</p>
+                        <p class="dashboard-kpi-value mt-1 font-bold @(cuotasVencidasTotal > 0 ? "text-red-400" : "text-slate-100")">@Model.MontoVencidoTotal.ToString("C")</p>
+                        <p class="text-xs text-slate-500 mt-1">@cuotasVencidasTotal @(cuotasVencidasTotal == 1 ? "cuota vencida" : "cuotas vencidas")</p>
                     </div>
                     <div class="card-erp-metric">
                         <p class="text-xs text-slate-400 uppercase tracking-wide">Stock bajo</p>
-                        <p class="mt-1 text-2xl font-bold text-slate-100">@Model.ProductosStockBajo</p>
+                        <p class="dashboard-kpi-value mt-1 font-bold text-slate-100">@stockBajo</p>
                         <p class="text-xs text-slate-500 mt-1">productos a reponer</p>
                     </div>
                 </div>
@@ -69,25 +113,23 @@
                                 <span class="material-symbols-outlined text-sm">schedule</span>
                                 Cobranzas
                             </span>
-                            <h2 class="text-sm font-semibold text-slate-100 section-header-erp">Cuotas y pagos</h2>
+                            <h2 class="text-sm font-semibold text-slate-100 section-header-erp">Cuotas por cobrar</h2>
                         </div>
                         <div class="flex items-center gap-2">
-                            <span class="text-xs text-slate-400">@cuotasVencidasCount venc. / @cuotasProximasCount
-                                próx.</span>
                                 <div class="flex gap-1" data-dashboard-tabs role="tablist"
                                      aria-label="Cuotas vencidas o próximas a vencer">
                                     <button id="tabVencidas" type="button" data-dashboard-tab="vencidas"
                                             data-dashboard-tab-tone="danger" role="tab" aria-selected="true"
                                             aria-controls="tbodyVencidas"
-                                            class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-500/10 text-red-500 border border-red-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">Vencidas</button>
+                                            class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-500/10 text-red-500 border border-red-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">Vencidas <span class="dashboard-tab-count">@cuotasVencidasTotal</span></button>
                                     <button id="tabProximas" type="button" data-dashboard-tab="proximas"
                                             data-dashboard-tab-tone="info" role="tab" aria-selected="false"
                                             aria-controls="tbodyProximas" tabindex="-1"
-                                            class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">Próximas</button>
+                                            class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">Próximas <span class="dashboard-tab-count">@(cuotasProximasCount >= topServicio ? $"{topServicio}+" : cuotasProximasCount.ToString())</span></button>
                                 </div>
                             </div>
                         </div>
-                        <div data-oc-scroll style="--oc-scroll-min-width: 47.25rem;" class="card-erp-panel overflow-hidden">
+                        <div data-oc-scroll data-dashboard-cuotas-scroll style="--oc-scroll-min-width: 47.25rem;" class="dashboard-table-wrap">
                             <div class="border-b border-slate-800 px-4 py-3">
                                 <p data-oc-scroll-hint hidden
                                    class="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
@@ -101,7 +143,7 @@
                                 <div data-oc-scroll-fade="right" hidden
                                      class="pointer-events-none absolute inset-y-0 right-0 z-[1] w-8 bg-gradient-to-l from-slate-900 via-slate-900/95 to-transparent">
                                 </div>
-                                <div data-oc-scroll-region tabindex="0" class="overflow-x-auto overscroll-x-contain">
+                                <div data-oc-scroll-region tabindex="0" role="region" aria-label="Cuotas por cobrar" class="overflow-x-auto overscroll-x-contain">
                                     <table data-erp-cards class="min-w-[var(--oc-scroll-min-width)] w-full text-left border-collapse">
                                         <thead>
                                             <tr
@@ -115,8 +157,19 @@
                                             </tr>
                                         </thead>
                                         <tbody id="tbodyVencidas" data-dashboard-tab-panel="vencidas"
+                                               data-empty="@(cuotasVencidasCount == 0 ? "true" : "false")"
                                                role="tabpanel" aria-labelledby="tabVencidas"
                                                class="divide-y divide-slate-800">
+                                            @if (cuotasVencidasCount == 0)
+                                            {
+                                                <tr data-dashboard-empty>
+                                                    <td colspan="6" class="px-6 py-8 text-center text-sm text-slate-400">
+                                                        <span class="material-symbols-outlined text-2xl text-emerald-500/70 block mb-1" aria-hidden="true">check_circle</span>
+                                                        <p>No hay cuotas vencidas.</p>
+                                                        <p class="text-[11px] text-slate-500">Todas las cuotas exigibles están al día.</p>
+                                                    </td>
+                                                </tr>
+                                            }
                                             @foreach (var cuota in cuotasVencidas.Take(5))
                                             {
                                                 var productos = cuota.ProductosAsociados ?? new List<CreditoProductoAsociadoViewModel>();
@@ -163,7 +216,8 @@
                                                                    asp-route-id="@cuota.CuotaId"
                                                                    asp-route-returnUrl="@pagoCuotaReturnUrl"
                                                                    class="row-action row-action--primary no-underline"
-                                                                   aria-label="Registrar pago">
+                                                                   aria-label="Registrar pago de la cuota @cuota.NumeroCuota de @cuota.ClienteNombre"
+                                                                   title="Registrar pago">
                                                                     <span class="material-symbols-outlined icon-erp-md">send_money</span>
                                                                 </a>
                                                             }
@@ -172,8 +226,19 @@
                                                 }
                                             </tbody>
                                             <tbody id="tbodyProximas" data-dashboard-tab-panel="proximas"
+                                                   data-empty="@(cuotasProximasCount == 0 ? "true" : "false")"
                                                    role="tabpanel" aria-labelledby="tabProximas"
                                                    class="divide-y divide-slate-800 hidden">
+                                                @if (cuotasProximasCount == 0)
+                                                {
+                                                    <tr data-dashboard-empty>
+                                                        <td colspan="6" class="px-6 py-8 text-center text-sm text-slate-400">
+                                                            <span class="material-symbols-outlined text-2xl text-slate-500 block mb-1" aria-hidden="true">check_circle</span>
+                                                            <p>No hay cuotas próximas a vencer.</p>
+                                                            <p class="text-[11px] text-slate-500">Las cuotas que venzan pronto aparecerán acá.</p>
+                                                        </td>
+                                                    </tr>
+                                                }
                                                 @foreach (var cuota in cuotasProximas.Take(5))
                                                 {
                                                     var productos = cuota.ProductosAsociados ?? new List<CreditoProductoAsociadoViewModel>();
@@ -223,12 +288,16 @@
                                                             }
                                                         </td>
                                                         <td class="px-6 py-4 text-right">
-                                                            <a asp-controller="Credito" asp-action="Details"
-                                                               asp-route-id="@cuota.CreditoId"
-                                                               class="row-action row-action--primary no-underline"
-                                                               aria-label="Ver detalle del crédito">
-                                                                <span class="material-symbols-outlined icon-erp-md">visibility</span>
-                                                            </a>
+                                                            @if (puedeVerCreditos)
+                                                            {
+                                                                <a asp-controller="Credito" asp-action="Details"
+                                                                   asp-route-id="@cuota.CreditoId"
+                                                                   class="row-action row-action--primary no-underline"
+                                                                   aria-label="Ver crédito @cuota.CreditoNumero de @cuota.ClienteNombre"
+                                                                   title="Ver crédito">
+                                                                    <span class="material-symbols-outlined icon-erp-md">visibility</span>
+                                                                </a>
+                                                            }
                                                         </td>
                                                     </tr>
                                                 }
@@ -237,6 +306,22 @@
                                     </div>
                                 </div>
                             </div>
+                            @* Las listas vienen acotadas: se avisa cuando hay más filas de las que se ven y se ofrece la salida. *@
+                            @if (cuotasVencidasTotal > filasVisibles || cuotasProximasCount > filasVisibles)
+                            {
+                                <div class="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs text-slate-400">
+                                    <p data-dashboard-tab-note="vencidas" hidden>
+                                        @(cuotasVencidasTotal > filasVisibles ? $"Mostrando las {filasVisibles} más antiguas de {cuotasVencidasTotal}." : "")
+                                    </p>
+                                    <p data-dashboard-tab-note="proximas" hidden>
+                                        @(cuotasProximasCount > filasVisibles ? $"Mostrando las {filasVisibles} más próximas a vencer." : "")
+                                    </p>
+                                    @if (puedeVerCreditos)
+                                    {
+                                        <a asp-controller="Credito" asp-action="Index" class="font-semibold text-primary no-underline hover:underline">Ver créditos</a>
+                                    }
+                                </div>
+                            }
                         </section>
 
             <!-- Inventory Alerts -->
@@ -263,7 +348,7 @@
                         Ver alertas
                     </a>
                 </div>
-                <div data-oc-scroll style="--oc-scroll-min-width: 33.5rem;" class="card-erp-panel overflow-hidden">
+                <div data-oc-scroll style="--oc-scroll-min-width: 30rem;" class="dashboard-table-wrap">
                     <div class="border-b border-slate-800 px-4 py-3">
                         <p data-oc-scroll-hint hidden
                            class="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
@@ -277,16 +362,16 @@
                         <div data-oc-scroll-fade="right" hidden
                              class="pointer-events-none absolute inset-y-0 right-0 z-[1] w-8 bg-gradient-to-l from-slate-900 via-slate-900/95 to-transparent">
                         </div>
-                        <div data-oc-scroll-region tabindex="0" class="overflow-x-auto overscroll-x-contain">
+                        <div data-oc-scroll-region tabindex="0" role="region" aria-label="Alertas de stock" class="overflow-x-auto overscroll-x-contain">
                             <table data-erp-cards class="min-w-[var(--oc-scroll-min-width)] w-full text-left border-collapse">
                                 <thead>
                                     <tr
                                         class="bg-slate-800/50 text-slate-400 text-xs font-bold uppercase tracking-wider">
-                                        <th data-card="half" class="px-6 py-3">SKU</th>
-                                        <th data-card="title" class="px-6 py-3">Producto</th>
-                                        <th data-card="half" class="px-6 py-3">Stock</th>
-                                        <th data-card="half" class="px-6 py-3">Estado</th>
-                                        <th class="px-6 py-3 text-right">Acciones</th>
+                                        <th data-card="half" class="px-4 py-3">SKU</th>
+                                        <th data-card="title" class="px-4 py-3">Producto</th>
+                                        <th data-card="half" class="px-4 py-3">Stock</th>
+                                        <th data-card="half" class="px-4 py-3">Estado</th>
+                                        <th class="px-4 py-3 text-right">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-800">
@@ -309,20 +394,24 @@
                                                 ? "bg-orange-500/10 text-orange-500 border border-orange-500/20"
                                                 : "bg-red-500/10 text-red-500 border border-red-500/20";
                                             <tr class="hover:bg-slate-800/30 transition-colors">
-                                                <td class="px-6 py-4 text-xs font-bold text-slate-500 uppercase">@alerta.Codigo
+                                                <td class="px-4 py-4 text-xs font-bold text-slate-500 uppercase">@alerta.Codigo
                                                 </td>
-                                                <td class="px-6 py-4 text-sm font-bold">@alerta.Nombre</td>
-                                                <td class="px-6 py-4 text-sm font-bold @stockColor">
+                                                <td class="px-4 py-4 text-sm font-bold">@alerta.Nombre</td>
+                                                <td class="px-4 py-4 text-sm font-bold @stockColor">
                                                     @alerta.StockActual.ToString("0.##")</td>
-                                                    <td class="px-6 py-4">
+                                                    <td class="px-4 py-4">
                                                         <span
-                                                        class="text-[10px] font-bold uppercase px-2 py-0.5 rounded @badgeClass">@alerta.SeveridadTexto</span>
+                                                        class="whitespace-nowrap text-[10px] font-bold uppercase px-2 py-0.5 rounded @badgeClass">@alerta.SeveridadTexto</span>
                                                     </td>
-                                                    <td class="px-6 py-4 text-right">
-                                                        <a asp-controller="OrdenCompra" asp-action="Create"
-                                                           asp-route-productoId="@alerta.ProductoId"
-                                                           class="btn-erp-ghost btn-erp-sm no-underline"
-                                                           title="Crear orden de compra para reponer">Reponer</a>
+                                                    <td class="px-4 py-4 text-right">
+                                                        @if (puedeReponer)
+                                                        {
+                                                            <a asp-controller="OrdenCompra" asp-action="Create"
+                                                               asp-route-productoId="@alerta.ProductoId"
+                                                               class="btn-erp-ghost btn-erp-sm no-underline"
+                                                               aria-label="Reponer @alerta.Nombre: crear orden de compra"
+                                                               title="Crear orden de compra para reponer">Reponer</a>
+                                                        }
                                                     </td>
                                                 </tr>
                                             }
@@ -344,10 +433,13 @@
                                     </span>
                                     <h2 class="text-sm font-semibold text-slate-100 section-header-erp">Productos destacados</h2>
                                 </div>
-                                <a asp-controller="Catalogo" asp-action="Index" class="btn-erp-ghost btn-erp-sm no-underline">
-                                    <span class="material-symbols-outlined text-[14px]">open_in_new</span>
-                                    Ver catálogo
-                                </a>
+                                @if (puedeVerCatalogo)
+                                {
+                                    <a asp-controller="Catalogo" asp-action="Index" class="btn-erp-ghost btn-erp-sm no-underline">
+                                        <span class="material-symbols-outlined text-[14px]">open_in_new</span>
+                                        Ver catálogo
+                                    </a>
+                                }
                             </div>
                             @if (destacados.Count == 0)
                             {
@@ -359,7 +451,7 @@
                             }
                             else
                             {
-                                <ul class="grid gap-x-6 sm:grid-cols-2">
+                                <ul class="grid gap-x-6 @(destacados.Count > 1 ? "sm:grid-cols-2" : "")">
                                     @foreach (var prod in destacados)
                                     {
                                         var stockTone = prod.StockActual <= 0 ? "text-red-500"
@@ -390,44 +482,25 @@
                     <aside class="dashboard-sidebar space-y-4">
 
                         <!-- Quick Access -->
-                        <section class="card-erp-panel p-4">
-                            <div class="mb-3 flex items-center gap-2">
-                                <span class="material-symbols-outlined text-primary text-[18px]">bolt</span>
-                                <h2 class="text-xs font-bold uppercase tracking-wide text-slate-300">Accesos rápidos</h2>
-                            </div>
-                            <div class="grid grid-cols-2 gap-2">
-                                <a asp-controller="Venta" asp-action="Create"
-                                   class="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-slate-800 bg-slate-800/30 py-4 px-2 text-center transition-colors hover:border-primary/60 hover:bg-slate-800/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 no-underline text-inherit">
-                                    <span class="material-symbols-outlined text-primary text-2xl">add_shopping_cart</span>
-                                    <span class="text-[11px] font-bold uppercase text-slate-300">Nueva Venta</span>
-                                </a>
-                                <a asp-controller="Cliente" asp-action="Create"
-                                   class="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-slate-800 bg-slate-800/30 py-4 px-2 text-center transition-colors hover:border-primary/60 hover:bg-slate-800/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 no-underline text-inherit">
-                                    <span class="material-symbols-outlined text-primary text-2xl">person_add</span>
-                                    <span class="text-[11px] font-bold uppercase text-slate-300">Nuevo Cliente</span>
-                                </a>
-                                <a asp-controller="Reporte" asp-action="Index"
-                                   class="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-slate-800 bg-slate-800/30 py-4 px-2 text-center transition-colors hover:border-primary/60 hover:bg-slate-800/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 no-underline text-inherit">
-                                    <span class="material-symbols-outlined text-primary text-2xl">receipt_long</span>
-                                    <span class="text-[11px] font-bold uppercase text-slate-300">Reportes</span>
-                                </a>
-                                <a asp-controller="Catalogo" asp-action="Index"
-                                   class="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-slate-800 bg-slate-800/30 py-4 px-2 text-center transition-colors hover:border-primary/60 hover:bg-slate-800/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 no-underline text-inherit">
-                                    <span class="material-symbols-outlined text-primary text-2xl">box_edit</span>
-                                    <span class="text-[11px] font-bold uppercase text-slate-300">Catálogo</span>
-                                </a>
-                                <a asp-controller="Caja" asp-action="Index"
-                                   class="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-slate-800 bg-slate-800/30 py-4 px-2 text-center transition-colors hover:border-primary/60 hover:bg-slate-800/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 no-underline text-inherit">
-                                    <span class="material-symbols-outlined text-primary text-2xl">point_of_sale</span>
-                                    <span class="text-[11px] font-bold uppercase text-slate-300">Caja</span>
-                                </a>
-                                <a asp-controller="Credito" asp-action="Index"
-                                   class="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-slate-800 bg-slate-800/30 py-4 px-2 text-center transition-colors hover:border-primary/60 hover:bg-slate-800/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 no-underline text-inherit">
-                                    <span class="material-symbols-outlined text-primary text-2xl">credit_card</span>
-                                    <span class="text-[11px] font-bold uppercase text-slate-300">Cobros</span>
-                                </a>
-                            </div>
-                        </section>
+                        @if (accesosRapidos.Count > 0)
+                        {
+                            <section class="card-erp-panel p-4">
+                                <div class="mb-3 flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-primary text-[18px]">bolt</span>
+                                    <h2 class="text-xs font-bold uppercase tracking-wide text-slate-300">Accesos rápidos</h2>
+                                </div>
+                                <div class="dashboard-accesos grid grid-cols-2 gap-2">
+                                    @foreach (var acceso in accesosRapidos)
+                                    {
+                                        <a asp-controller="@acceso.Controller" asp-action="@acceso.Action"
+                                           class="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-slate-800 bg-slate-800/30 py-4 px-2 text-center transition-colors hover:border-primary/60 hover:bg-slate-800/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 no-underline text-inherit">
+                                            <span class="material-symbols-outlined text-primary text-2xl" aria-hidden="true">@acceso.Icon</span>
+                                            <span class="text-[11px] font-bold uppercase text-slate-300">@acceso.Label</span>
+                                        </a>
+                                    }
+                                </div>
+                            </section>
+                        }
 
                             <!-- Quick Notes -->
                             <section data-dashboard-notes class="card-erp-panel p-4">
@@ -436,14 +509,15 @@
                                         <span class="material-symbols-outlined text-primary text-[18px]">note_stack</span>
                                         <h2 class="text-xs font-bold uppercase tracking-wide text-slate-300">Notas rápidas</h2>
                                     </div>
+                                    <span class="text-[10px] text-slate-500">Solo en este navegador</span>
                                 </div>
                                 <div class="rounded-xl border border-primary/20 bg-primary/5 p-3">
-                                    <textarea id="notaTextarea" data-dashboard-note-input
+                                    <textarea id="notaTextarea" data-dashboard-note-input aria-label="Nota rápida"
                                               class="w-full h-20 bg-transparent border-none resize-none focus:ring-0 text-sm text-slate-300 placeholder:text-slate-500"
                                               placeholder="Escribí un recordatorio..."></textarea>
                                     <div class="flex items-center justify-between border-t border-primary/10 pt-2 mt-1">
                                         <span id="notaStatus" data-dashboard-note-status class="text-[10px] text-slate-400"></span>
-                                        <button type="button" data-dashboard-action="save-note" class="btn-erp-primary btn-erp-sm">
+                                        <button type="button" data-dashboard-action="save-note" class="btn-erp-ghost btn-erp-sm">
                                             <span class="material-symbols-outlined icon-erp-sm">save</span>
                                             Guardar
                                         </button>
