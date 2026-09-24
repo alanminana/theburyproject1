@@ -246,7 +246,7 @@ public class VentaCrearEditarParidadTests
         var partial = ReadPartial();
 
         // El CTA confirma la venta; edición permite además guardar sin confirmar.
-        Assert.Contains("esEdicion ? \"Confirmar venta\" : (esCotizacion ? \"Guardar Cotización\" : \"Confirmar Transacción\")", partial);
+        Assert.Contains("esEdicion ? \"Confirmar venta\" : (esCotizacion ? \"Guardar Cotización\" : \"Crear venta\")", partial);
         Assert.Contains("id=\"btn-confirmar\" name=\"accionConfirmacion\" value=\"confirmar\"", partial);
         Assert.Matches("@if \\(esEdicion\\)\\s*\\{\\s*<button[^>]*id=\"btn-guardar-sin-confirmar\"[^>]*value=\"guardar\"", partial);
         Assert.Contains("Guardar sin confirmar", partial);

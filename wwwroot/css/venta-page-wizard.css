@@ -3,18 +3,18 @@
        el cotizador, --cz-* en cotizacion-simulador.css) para TODOS los pasos del wizard. El
        oro del ERP sigue siendo el acento de acciones y del stepper; el azul del mockup queda
        para foco y controles de datos. */
-    --venta-wizard-bg: #0b0e14;
-    --venta-wizard-card: #10151b;
-    --venta-wizard-card-strong: #171e26;
-    --venta-wizard-border: #232b34;
-    --venta-wizard-border-strong: #2c3644;
-    --venta-wizard-text: #f1f4f8;
-    --venta-wizard-muted: #b8c2cc;
-    --venta-wizard-accent: #f5c518;
-    --venta-wizard-accent-hover: #ffd435;
-    --venta-wizard-accent-active: #e0b40f;
-    --venta-wizard-accent-2: #5b8def;
-    --venta-wizard-success: #22c55e;
+    --venta-wizard-bg: var(--pal-neutral-950);
+    --venta-wizard-card: var(--pal-neutral-925);
+    --venta-wizard-card-strong: var(--pal-neutral-875);
+    --venta-wizard-border: var(--pal-neutral-800);
+    --venta-wizard-border-strong: var(--pal-neutral-750);
+    --venta-wizard-text: var(--pal-neutral-100);
+    --venta-wizard-muted: var(--pal-neutral-350);
+    --venta-wizard-accent: var(--pal-accent);
+    --venta-wizard-accent-hover: var(--pal-accent-400);
+    --venta-wizard-accent-active: var(--pal-accent-600);
+    --venta-wizard-accent-2: var(--pal-info-400);
+    --venta-wizard-success: var(--pal-success-500);
     --venta-header-offset: 0rem;
     --venta-hero-offset: var(--venta-header-offset);
     --venta-tabs-offset: calc(var(--venta-hero-offset) + 3.75rem);
@@ -49,9 +49,9 @@
     border: 1px solid var(--venta-wizard-border);
     border-radius: 20px;
     background:
-        linear-gradient(135deg, rgba(16, 21, 27, 0.97), rgba(11, 14, 20, 0.94)),
-        radial-gradient(circle at top left, rgba(91, 141, 239, 0.08), transparent 38%);
-    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+        linear-gradient(135deg, color-mix(in srgb, var(--pal-neutral-925) 97%, transparent), color-mix(in srgb, var(--pal-neutral-950) 94%, transparent)),
+        radial-gradient(circle at top left, color-mix(in srgb, var(--pal-info-400) 8%, transparent), transparent 38%);
+    box-shadow: 0 12px 30px color-mix(in srgb, var(--pal-black) 20%, transparent);
     padding: 1rem;
     overflow: visible;
 }
@@ -78,7 +78,7 @@
     border: 1px solid var(--venta-wizard-border);
     border-radius: 18px;
     background: var(--venta-wizard-card);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+    box-shadow: 0 8px 24px color-mix(in srgb, var(--pal-black) 16%, transparent);
     padding: 0.7rem 0.85rem;
 }
 
@@ -98,7 +98,7 @@
     border: 1px solid var(--venta-wizard-border);
     border-radius: 18px;
     background: var(--venta-wizard-card);
-    box-shadow: 0 16px 44px rgba(0, 0, 0, 0.18);
+    box-shadow: 0 16px 44px color-mix(in srgb, var(--pal-black) 18%, transparent);
     overflow: visible;
 }
 
@@ -145,15 +145,15 @@
 #venta-edit-page .venta-label {
     display: block;
     margin-bottom: 0.45rem;
-    color: #aab7c8;
+    color: var(--pal-neutral-400);
     font-size: var(--erp-fs-min, 0.75rem);
     font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }
 
-/* Prioridad absoluta (auditoría UX del usuario, 2026-09-16): rgba(15,23,42,.82)
-   compuesto sobre `--venta-wizard-card` (#111827, fondo de .venta-section) renderiza
+/* Prioridad absoluta (auditoría UX del usuario, 2026-09-16): color-mix(in srgb, var(--pal-neutral-925) 82%, transparent)
+   compuesto sobre `--venta-wizard-card` (var(--pal-neutral-925), fondo de .venta-section) renderiza
    prácticamente el mismo color que el contenedor — el input quedaba "invisible" hasta
    hover/focus, mismo patrón de inversión de elevación ya diagnosticado y resuelto en
    el Cotizador (--cz-sunk, cotizacion-simulador.css). Acá se resuelve igual: el campo
@@ -179,10 +179,10 @@
 #venta-edit-page textarea {
     width: 100%;
     min-height: 2.4rem;
-    border: 1px solid rgba(148, 163, 184, 0.28);
+    border: 1px solid color-mix(in srgb, var(--pal-neutral-450) 28%, transparent);
     border-radius: 12px;
-    background-color: var(--venta-wizard-bg, #0b111a);
-    color: #f8fafc;
+    background-color: var(--venta-wizard-bg, var(--pal-neutral-925));
+    color: var(--pal-neutral-50);
     padding: 0.5rem 0.75rem;
     font-size: 0.9rem;
     transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
@@ -192,7 +192,7 @@
 #venta-create-page textarea::placeholder,
 #venta-edit-page input::placeholder,
 #venta-edit-page textarea::placeholder {
-    color: var(--erp-fg-3, #a6b1c3);
+    color: var(--erp-fg-3, var(--pal-neutral-400));
 }
 
 #venta-create-page input:hover,
@@ -201,7 +201,7 @@
 #venta-edit-page input:hover,
 #venta-edit-page select:hover,
 #venta-edit-page textarea:hover {
-    border-color: rgba(56, 189, 248, 0.32);
+    border-color: color-mix(in srgb, var(--pal-info-400) 32%, transparent);
 }
 
 #venta-create-page input:focus,
@@ -211,7 +211,7 @@
 #venta-edit-page select:focus,
 #venta-edit-page textarea:focus {
     border-color: var(--venta-wizard-accent-2);
-    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--pal-info-400) 18%, transparent);
     outline: none;
 }
 
@@ -275,7 +275,7 @@
 #venta-edit-page .step-btn:focus-visible,
 #venta-create-page .vm-step-tab:focus-visible,
 #venta-edit-page .vm-step-tab:focus-visible {
-    outline: 3px solid rgba(245, 197, 24, 0.55);
+    outline: 3px solid color-mix(in srgb, var(--pal-accent) 55%, transparent);
     outline-offset: 2px;
 }
 
@@ -302,9 +302,9 @@
     align-items: center;
     gap: 0.5rem;
     flex: 0 0 auto;
-    border: 1px solid rgba(148, 163, 184, 0.18);
-    background: rgba(16, 21, 27, 0.72);
-    color: #b8c2cc;
+    border: 1px solid color-mix(in srgb, var(--pal-neutral-450) 18%, transparent);
+    background: color-mix(in srgb, var(--pal-neutral-925) 72%, transparent);
+    color: var(--pal-neutral-350);
     padding: 0.55rem 0.75rem;
     font-size: var(--erp-fs-min, 0.75rem);
     font-weight: 800;
@@ -315,17 +315,17 @@
 #venta-create-page .vm-step-tab:focus-visible,
 #venta-edit-page .vm-step-tab:focus-visible {
     border-color: var(--venta-wizard-border-strong);
-    background: rgba(255, 255, 255, 0.04);
-    color: #f1f4f8;
+    background: color-mix(in srgb, var(--pal-white) 4%, transparent);
+    color: var(--pal-neutral-100);
 }
 
 #venta-create-page .vm-step-tab--active,
 #venta-edit-page .vm-step-tab--active,
 #venta-create-page .vm-step-tab.is-active,
 #venta-edit-page .vm-step-tab.is-active {
-    border-color: rgba(245, 197, 24, 0.5);
-    background: rgba(245, 197, 24, 0.14);
-    color: #fef3c7;
+    border-color: color-mix(in srgb, var(--pal-accent) 50%, transparent);
+    background: color-mix(in srgb, var(--pal-accent) 14%, transparent);
+    color: var(--pal-warning-100);
 }
 
 #venta-create-page .vm-step-tab__num,
@@ -337,7 +337,7 @@
     height: 1.45rem;
     place-items: center;
     border-radius: 999px;
-    background: rgba(148, 163, 184, 0.14);
+    background: color-mix(in srgb, var(--pal-neutral-450) 14%, transparent);
     color: currentColor;
     font-size: var(--erp-fs-min, 0.75rem);
 }
@@ -356,8 +356,8 @@
     min-width: 1.25rem;
     justify-content: center;
     border-radius: 999px;
-    background: rgba(91, 141, 239, 0.16);
-    color: #a9c3f7;
+    background: color-mix(in srgb, var(--pal-info-400) 16%, transparent);
+    color: var(--pal-info-200);
     padding: 0.1rem 0.4rem;
     font-size: var(--erp-fs-min, 0.75rem);
     font-weight: 800;
@@ -374,8 +374,8 @@
 #venta-create-page #dropdown-productos,
 #venta-edit-page #dropdown-productos {
     border: 1px solid var(--venta-wizard-border);
-    background: #10151b;
-    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.32);
+    background: var(--pal-neutral-925);
+    box-shadow: 0 18px 45px color-mix(in srgb, var(--pal-black) 32%, transparent);
     z-index: var(--venta-z-dropdown);
 }
 
@@ -385,7 +385,7 @@
 #venta-edit-page #dropdown-clientes>*,
 #venta-create-page #dropdown-productos>*,
 #venta-edit-page #dropdown-productos>* {
-    border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+    border-bottom: 1px solid color-mix(in srgb, var(--pal-neutral-450) 8%, transparent);
     cursor: pointer;
 }
 
@@ -395,8 +395,8 @@
 #venta-edit-page #dropdown-clientes>*:hover,
 #venta-create-page #dropdown-productos>*:hover,
 #venta-edit-page #dropdown-productos>*:hover {
-    background: rgba(245, 197, 24, 0.1);
-    color: #f8fafc;
+    background: color-mix(in srgb, var(--pal-accent) 10%, transparent);
+    color: var(--pal-neutral-50);
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -430,12 +430,12 @@
 #venta-edit-page .total-display,
 #venta-edit-page .lg\:col-span-2>section.overflow-hidden {
     border-radius: 20px;
-    border: 1px solid rgba(245, 197, 24, 0.35);
+    border: 1px solid color-mix(in srgb, var(--pal-accent) 35%, transparent);
     background:
-        linear-gradient(135deg, rgba(245, 197, 24, 0.12), rgba(56, 189, 248, 0.08)),
-        rgba(16, 21, 27, 0.92);
-    color: #fff;
-    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.3);
+        linear-gradient(135deg, color-mix(in srgb, var(--pal-accent) 12%, transparent), color-mix(in srgb, var(--pal-info-400) 8%, transparent)),
+        color-mix(in srgb, var(--pal-neutral-925) 92%, transparent);
+    color: var(--pal-white);
+    box-shadow: 0 18px 48px color-mix(in srgb, var(--pal-black) 30%, transparent);
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -452,11 +452,11 @@
     justify-content: space-between;
     gap: 0.75rem;
     margin-bottom: 0.75rem;
-    border: 1px solid rgba(245, 197, 24, 0.32);
+    border: 1px solid color-mix(in srgb, var(--pal-accent) 32%, transparent);
     border-radius: 16px;
-    background: rgba(11, 14, 20, 0.94);
+    background: color-mix(in srgb, var(--pal-neutral-950) 94%, transparent);
     padding: 0.65rem;
-    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.32);
+    box-shadow: 0 18px 40px color-mix(in srgb, var(--pal-black) 32%, transparent);
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
 }
@@ -467,7 +467,7 @@
     min-width: 0;
     align-items: center;
     gap: 0.45rem;
-    color: #e2e8f0;
+    color: var(--pal-neutral-200);
     font-size: 0.875rem;
     font-weight: 800;
     overflow: hidden;
@@ -488,20 +488,20 @@
     gap: 0.35rem;
     border: 0;
     background: var(--venta-wizard-accent);
-    color: #15110a;
+    color: var(--pal-on-accent);
     padding: 0.52rem 0.7rem;
     font-size: 0.8125rem;
     font-weight: 900;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     white-space: nowrap;
-    box-shadow: 0 10px 24px rgba(245, 197, 24, 0.18);
+    box-shadow: 0 10px 24px color-mix(in srgb, var(--pal-accent) 18%, transparent);
 }
 
 #venta-create-page .vm-btn-confirm-sm:hover,
 #venta-edit-page .vm-btn-confirm-sm:hover {
     background: var(--venta-wizard-accent-hover);
-    box-shadow: 0 14px 30px rgba(245, 197, 24, 0.24);
+    box-shadow: 0 14px 30px color-mix(in srgb, var(--pal-accent) 24%, transparent);
 }
 
 #venta-create-page .vm-btn-confirm-sm:active,
@@ -546,7 +546,7 @@
     min-height: 2.75rem;
     border: 1px solid var(--venta-wizard-border-strong);
     background: var(--venta-wizard-card-strong);
-    color: #f8fafc;
+    color: var(--pal-neutral-50);
     font-size: 1.1rem;
     font-weight: 700;
 }
@@ -556,9 +556,9 @@
 #venta-create-page .venta-quantity-button:last-child,
 #venta-edit-page .venta-quantity-button:last-child { border-radius: 0 0.65rem 0.65rem 0; }
 #venta-create-page .venta-quantity-button:focus-visible,
-#venta-edit-page .venta-quantity-button:focus-visible { outline: 3px solid rgba(245, 197, 24, 0.55); outline-offset: 2px; }
+#venta-edit-page .venta-quantity-button:focus-visible { outline: 3px solid color-mix(in srgb, var(--pal-accent) 55%, transparent); outline-offset: 2px; }
 #venta-create-page .venta-quantity-error,
-#venta-edit-page .venta-quantity-error { max-width: 10rem; margin-top: 0.35rem; color: #fda4af; font-size: var(--erp-fs-min, 0.75rem); line-height: 1.25; text-align: left; }
+#venta-edit-page .venta-quantity-error { max-width: 10rem; margin-top: 0.35rem; color: var(--pal-danger-300); font-size: var(--erp-fs-min, 0.75rem); line-height: 1.25; text-align: left; }
 
 /* Capas del flujo: dropdowns no deben superar un modal ni los toasts. */
 #venta-create-page #modal-documentacion,
@@ -622,47 +622,47 @@
 
 #venta-create-page .venta-producto-opcion[data-estado-stock="sin-stock"],
 #venta-edit-page .venta-producto-opcion[data-estado-stock="sin-stock"] {
-    border-left-color: #ef4444;
-    background-color: rgba(239, 68, 68, 0.1);
+    border-left-color: var(--pal-danger-500);
+    background-color: color-mix(in srgb, var(--pal-danger-500) 10%, transparent);
 }
 
 #venta-create-page .venta-producto-opcion[data-estado-stock="sin-stock"]:hover,
 #venta-edit-page .venta-producto-opcion[data-estado-stock="sin-stock"]:hover {
-    background-color: rgba(239, 68, 68, 0.18);
+    background-color: color-mix(in srgb, var(--pal-danger-500) 18%, transparent);
 }
 
 #venta-create-page .venta-producto-opcion[data-estado-stock="sin-stock"] .venta-producto-opcion__badge,
 #venta-edit-page .venta-producto-opcion[data-estado-stock="sin-stock"] .venta-producto-opcion__badge {
-    background-color: rgba(239, 68, 68, 0.18);
-    color: #fca5a5;
+    background-color: color-mix(in srgb, var(--pal-danger-500) 18%, transparent);
+    color: var(--pal-danger-300);
 }
 
 #venta-create-page .venta-producto-opcion[data-estado-stock="sin-stock"] .venta-producto-opcion__stock,
 #venta-edit-page .venta-producto-opcion[data-estado-stock="sin-stock"] .venta-producto-opcion__stock {
-    color: #fca5a5;
+    color: var(--pal-danger-300);
     font-weight: 600;
 }
 
 #venta-create-page .venta-producto-opcion[data-estado-stock="stock-bajo"],
 #venta-edit-page .venta-producto-opcion[data-estado-stock="stock-bajo"] {
-    border-left-color: #f59e0b;
-    background-color: rgba(245, 158, 11, 0.1);
+    border-left-color: var(--pal-warning-500);
+    background-color: color-mix(in srgb, var(--pal-warning-500) 10%, transparent);
 }
 
 #venta-create-page .venta-producto-opcion[data-estado-stock="stock-bajo"]:hover,
 #venta-edit-page .venta-producto-opcion[data-estado-stock="stock-bajo"]:hover {
-    background-color: rgba(245, 158, 11, 0.18);
+    background-color: color-mix(in srgb, var(--pal-warning-500) 18%, transparent);
 }
 
 #venta-create-page .venta-producto-opcion[data-estado-stock="stock-bajo"] .venta-producto-opcion__badge,
 #venta-edit-page .venta-producto-opcion[data-estado-stock="stock-bajo"] .venta-producto-opcion__badge {
-    background-color: rgba(245, 158, 11, 0.18);
-    color: #fcd34d;
+    background-color: color-mix(in srgb, var(--pal-warning-500) 18%, transparent);
+    color: var(--pal-warning-300);
 }
 
 #venta-create-page .venta-producto-opcion[data-estado-stock="stock-bajo"] .venta-producto-opcion__stock,
 #venta-edit-page .venta-producto-opcion[data-estado-stock="stock-bajo"] .venta-producto-opcion__stock {
-    color: #fcd34d;
+    color: var(--pal-warning-300);
     font-weight: 600;
 }
 
@@ -684,16 +684,16 @@
 #venta-create-page .venta-linea-unidad__label,
 #venta-edit-page .venta-linea-unidad__label {
     font-weight: 600;
-    color: #fbbf24;
+    color: var(--pal-warning-400);
 }
 
 #venta-create-page .venta-linea-unidad__alerta,
 #venta-edit-page .venta-linea-unidad__alerta {
     border-radius: 0.25rem;
-    background-color: rgba(239, 68, 68, 0.15);
+    background-color: color-mix(in srgb, var(--pal-danger-500) 15%, transparent);
     padding: 0.125rem 0.4rem;
     font-weight: 700;
-    color: #fca5a5;
+    color: var(--pal-danger-300);
 }
 
 #venta-create-page .venta-linea-unidad__accion,
@@ -705,27 +705,27 @@
     padding: 0.2rem 0.6rem;
     font-size: var(--erp-fs-min, 0.75rem);
     font-weight: 700;
-    color: #cbd5e1;
+    color: var(--pal-neutral-300);
     cursor: pointer;
 }
 
 #venta-create-page .venta-linea-unidad__accion:hover,
 #venta-edit-page .venta-linea-unidad__accion:hover {
-    border-color: var(--vm-primary, #f5c518);
-    color: #f8fafc;
+    border-color: var(--vm-primary, var(--pal-accent));
+    color: var(--pal-neutral-50);
 }
 
 #venta-create-page .venta-linea-unidad__accion:focus-visible,
 #venta-edit-page .venta-linea-unidad__accion:focus-visible {
-    outline: 3px solid rgba(245, 197, 24, 0.55);
+    outline: 3px solid color-mix(in srgb, var(--pal-accent) 55%, transparent);
     outline-offset: 2px;
 }
 
 #venta-create-page .venta-linea-unidad__accion--primaria,
 #venta-edit-page .venta-linea-unidad__accion--primaria {
-    border-color: var(--vm-primary, #f5c518);
-    background-color: rgba(245, 197, 24, 0.15);
-    color: #fde68a;
+    border-color: var(--vm-primary, var(--pal-accent));
+    background-color: color-mix(in srgb, var(--pal-accent) 15%, transparent);
+    color: var(--pal-warning-200);
 }
 
 #venta-create-page .venta-linea-unidad__editor,
@@ -742,12 +742,12 @@
     min-width: 12rem;
     max-width: 100%;
     min-height: 2.25rem;
-    border: 1px solid var(--vm-border-strong, #334155);
+    border: 1px solid var(--vm-border-strong, var(--pal-neutral-700));
     border-radius: 0.4rem;
-    background-color: var(--vm-panel-strong, #1a202c);
+    background-color: var(--vm-panel-strong, var(--pal-neutral-850));
     padding: 0.25rem 0.5rem;
     font-size: var(--erp-fs-min, 0.75rem);
-    color: var(--vm-text, #e2e8f0);
+    color: var(--vm-text, var(--pal-neutral-200));
 }
 
 #venta-create-page .venta-linea-unidad__error,
@@ -756,7 +756,7 @@
     max-width: 22rem;
     font-size: var(--erp-fs-min, 0.75rem);
     font-weight: 600;
-    color: #fda4af;
+    color: var(--pal-danger-300);
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -1079,7 +1079,7 @@
     :is(#venta-create-page, #venta-edit-page) section.hero-erp {
         background: transparent;
         border: 0;
-        border-bottom: 1px solid #232b34;
+        border-bottom: 1px solid var(--pal-neutral-800);
         border-radius: 0;
         box-shadow: none;
         padding: 0 0 18px;
@@ -1109,17 +1109,17 @@
     :is(#venta-create-page, #venta-edit-page) .vm-hero__crumbs > :is(span, a).bg-slate-800 {
         background: transparent;
         padding: 0;
-        color: #62707e;
+        color: var(--pal-neutral-500);
     }
 
     :is(#venta-create-page, #venta-edit-page) .vm-hero__crumbs > a.bg-slate-800:hover {
         background: transparent;
-        color: #b8c2cc;
+        color: var(--pal-neutral-350);
     }
 
     /* Edit: el pill de la venta ("COT-…") es un enlace al detalle; sólo el último tramo
        (Editar / "Venta en curso") lleva el acento. */
-    :is(#venta-create-page, #venta-edit-page) .vm-hero__crumbs > .text-slate-600 { color: #62707e; }
+    :is(#venta-create-page, #venta-edit-page) .vm-hero__crumbs > .text-slate-600 { color: var(--pal-neutral-500); }
 
     :is(#venta-create-page, #venta-edit-page) .vm-hero__crumbs > span.bg-primary\/10 {
         padding: 4px 10px;
@@ -1137,7 +1137,7 @@
         font-weight: 800;
         line-height: 1.2;
         letter-spacing: 0;
-        color: #f1f4f8;
+        color: var(--pal-neutral-100);
     }
 
     :is(#venta-create-page, #venta-edit-page) .hero-erp p.vm-hero__desc {
@@ -1145,7 +1145,7 @@
         max-width: none;
         font-size: 13px;
         line-height: 1.4;
-        color: #8993a1;
+        color: var(--pal-neutral-450);
     }
 
     :is(#venta-create-page, #venta-edit-page) .vm-hero__actions {
@@ -1177,17 +1177,17 @@
         height: 36px;
         min-height: 36px;
         padding: 0 16px;
-        border: 1px solid #232b34;
+        border: 1px solid var(--pal-neutral-800);
         border-radius: 10px;
-        background: #171e26;
-        color: #b8c2cc;
+        background: var(--pal-neutral-875);
+        color: var(--pal-neutral-350);
         font-size: 13px;
         font-weight: 700;
     }
 
     :is(#venta-create-page, #venta-edit-page) .vm-hero__cancel:hover {
-        background: #1b222a;
-        color: #f1f4f8;
+        background: var(--pal-neutral-850);
+        color: var(--pal-neutral-100);
     }
 
     /* Stepper */
@@ -1203,7 +1203,7 @@
         border: 0;
         border-radius: 999px;
         background: transparent;
-        color: #62707e;
+        color: var(--pal-neutral-500);
         font-size: 13px;
         font-weight: 700;
     }
@@ -1217,48 +1217,48 @@
         top: 50%;
         width: 16px;
         height: 1px;
-        background: #232b34;
+        background: var(--pal-neutral-800);
     }
 
-    :is(#venta-create-page, #venta-edit-page) .vm-step-tab:hover { background: rgba(255, 255, 255, 0.03); color: #b8c2cc; }
+    :is(#venta-create-page, #venta-edit-page) .vm-step-tab:hover { background: color-mix(in srgb, var(--pal-white) 3%, transparent); color: var(--pal-neutral-350); }
 
     :is(#venta-create-page, #venta-edit-page) .vm-step-tab__num {
         width: 22px;
         height: 22px;
-        border: 1.5px solid #2c3644;
+        border: 1.5px solid var(--pal-neutral-750);
         background: transparent;
-        color: #62707e;
+        color: var(--pal-neutral-500);
         font-size: 11.5px;
         font-weight: 800;
     }
 
     :is(#venta-create-page, #venta-edit-page) .vm-step-tab--active,
     :is(#venta-create-page, #venta-edit-page) .vm-step-tab--active:hover {
-        background: rgba(245, 197, 24, 0.10);
-        color: var(--color-primary, #f5c518);
+        background: color-mix(in srgb, var(--pal-accent) 10%, transparent);
+        color: var(--color-primary, var(--pal-accent));
         font-weight: 800;
     }
 
     :is(#venta-create-page, #venta-edit-page) .vm-step-tab--active .vm-step-tab__num {
-        border-color: var(--color-primary, #f5c518);
-        background: var(--color-primary, #f5c518);
-        color: #111827;
+        border-color: var(--color-primary, var(--pal-accent));
+        background: var(--color-primary, var(--pal-accent));
+        color: var(--pal-neutral-925);
     }
 
     :is(#venta-create-page, #venta-edit-page) .vm-step-tab__badge {
         min-width: 0;
         padding: 1px 7px;
-        background: #1b222a;
-        color: #62707e;
+        background: var(--pal-neutral-850);
+        color: var(--pal-neutral-500);
         font-size: 10.5px;
         font-weight: 800;
     }
 
     :is(#venta-create-page, #venta-edit-page) #vm-estado-global {
         padding: 6px 14px;
-        border-color: #2c3644;
-        background: #1b222a;
-        color: #8993a1;
+        border-color: var(--pal-neutral-750);
+        background: var(--pal-neutral-850);
+        color: var(--pal-neutral-450);
         font-size: 12px;
         font-weight: 700;
         white-space: nowrap;
@@ -1463,7 +1463,7 @@
         bottom: calc(0.75rem - 6rem);
         margin: 1.25rem 0 0;
         padding: 0.6rem 0.65rem 0.6rem 1.1rem;
-        box-shadow: 0 14px 36px rgba(0, 0, 0, 0.5);
+        box-shadow: 0 14px 36px color-mix(in srgb, var(--pal-black) 50%, transparent);
     }
 
     :is(#venta-create-page, #venta-edit-page) .vm-mobile-summary-bar__info {
@@ -1493,9 +1493,9 @@
 
     :is(#venta-create-page, #venta-edit-page) #venta-sidebar-totales {
         padding: 0.9rem;
-        border: 1px solid rgba(148, 163, 184, 0.2);
+        border: 1px solid color-mix(in srgb, var(--pal-neutral-450) 20%, transparent);
         border-radius: 16px;
-        background: rgba(16, 21, 27, 0.78);
+        background: color-mix(in srgb, var(--pal-neutral-925) 78%, transparent);
         box-shadow: none;
     }
 
@@ -1597,7 +1597,7 @@
         padding: 0.8rem 0.9rem;
         border: 1px solid var(--venta-wizard-border-strong);
         border-radius: 14px;
-        background: rgba(16, 21, 27, 0.6);
+        background: color-mix(in srgb, var(--pal-neutral-925) 60%, transparent);
     }
 
     :is(#venta-create-page, #venta-edit-page) #venta-detalles-scroll tbody tr > td {
@@ -1616,9 +1616,9 @@
 
     :is(#venta-create-page, #venta-edit-page) #venta-detalles-scroll tbody tr:has(> td:nth-child(7)) > td:nth-child(2) { grid-area: 1 / 1 / 2 / 4; font-size: 0.9375rem; }
     :is(#venta-create-page, #venta-edit-page) #venta-detalles-scroll tbody tr:has(> td:nth-child(7)) > td:nth-child(7) { grid-area: 1 / 4; justify-self: end; }
-    :is(#venta-create-page, #venta-edit-page) #venta-detalles-scroll tbody tr:has(> td:nth-child(7)) > td:nth-child(1) { grid-area: 2 / 1; color: #94a3b8; }
-    :is(#venta-create-page, #venta-edit-page) #venta-detalles-scroll tbody tr:has(> td:nth-child(7)) > td:nth-child(4) { grid-area: 2 / 2; color: #94a3b8; font-size: var(--erp-fs-min, 0.75rem); }
-    :is(#venta-create-page, #venta-edit-page) #venta-detalles-scroll tbody tr:has(> td:nth-child(7)) > td:nth-child(5) { grid-area: 2 / 3; color: #94a3b8; font-size: var(--erp-fs-min, 0.75rem); }
+    :is(#venta-create-page, #venta-edit-page) #venta-detalles-scroll tbody tr:has(> td:nth-child(7)) > td:nth-child(1) { grid-area: 2 / 1; color: var(--pal-neutral-450); }
+    :is(#venta-create-page, #venta-edit-page) #venta-detalles-scroll tbody tr:has(> td:nth-child(7)) > td:nth-child(4) { grid-area: 2 / 2; color: var(--pal-neutral-450); font-size: var(--erp-fs-min, 0.75rem); }
+    :is(#venta-create-page, #venta-edit-page) #venta-detalles-scroll tbody tr:has(> td:nth-child(7)) > td:nth-child(5) { grid-area: 2 / 3; color: var(--pal-neutral-450); font-size: var(--erp-fs-min, 0.75rem); }
     :is(#venta-create-page, #venta-edit-page) #venta-detalles-scroll tbody tr:has(> td:nth-child(7)) > td:nth-child(3) { grid-area: 3 / 1 / 4 / 4; }
     :is(#venta-create-page, #venta-edit-page) #venta-detalles-scroll tbody tr:has(> td:nth-child(7)) > td:nth-child(6) { grid-area: 3 / 4; font-size: 1.05rem; text-align: right; }
 
@@ -1675,10 +1675,10 @@
         gap: 0.75rem;
         padding: 0.55rem 0.9rem calc(0.55rem + env(safe-area-inset-bottom, 0px));
         border: 0;
-        border-top: 1px solid rgba(245, 197, 24, 0.28);
+        border-top: 1px solid color-mix(in srgb, var(--pal-accent) 28%, transparent);
         border-radius: 0;
-        background: rgba(11, 14, 20, 0.97);
-        box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.4);
+        background: color-mix(in srgb, var(--pal-neutral-950) 97%, transparent);
+        box-shadow: 0 -10px 30px color-mix(in srgb, var(--pal-black) 40%, transparent);
     }
 
     :is(#venta-create-page, #venta-edit-page) .vm-mobile-summary-bar__info {
@@ -1729,8 +1729,8 @@
         padding: 0 0.85rem;
         border: 1px solid var(--venta-wizard-border-strong);
         border-radius: 12px;
-        background: rgba(16, 21, 27, 0.6);
-        color: #cbd5e1;
+        background: color-mix(in srgb, var(--pal-neutral-925) 60%, transparent);
+        color: var(--pal-neutral-300);
         font-size: 0.875rem;
         font-weight: 700;
         cursor: pointer;
@@ -1844,7 +1844,7 @@
    El mockup "Nueva Venta — Cotizar" sólo dibuja el paso 1. Los otros pasos (Cliente,
    Productos, Pago, Crédito, Envío, Revisión) y Venta/Edit adoptan su lenguaje visual:
    superficies grafito (--venta-wizard-* de :root, mismas que --cz-* del cotizador), líneas de
-   1px #232b34, radios de 16/10px, sin sombras, títulos de card de 15px, labels chicos en
+   1px var(--pal-neutral-800), radios de 16/10px, sin sombras, títulos de card de 15px, labels chicos en
    mayúsculas, campos hundidos con foco azul y chips neutros. No cambia estructura, ids ni
    comportamiento; el acento de acciones sigue siendo el oro del ERP.
    ══════════════════════════════════════════════════════════════ */
@@ -1870,17 +1870,17 @@
 :is(#venta-create-page, #venta-edit-page) .vm-totals > div[role="note"] {
     border-color: var(--venta-wizard-border);
     background: var(--venta-wizard-card-strong);
-    color: #b8c2cc;
+    color: var(--pal-neutral-350);
 }
 
 :is(#venta-create-page, #venta-edit-page) .vm-totals > div[role="note"] .text-white\/90,
-:is(#venta-create-page, #venta-edit-page) .vm-totals > div[role="note"] .text-white\/60 { color: #b8c2cc; }
+:is(#venta-create-page, #venta-edit-page) .vm-totals > div[role="note"] .text-white\/60 { color: var(--pal-neutral-350); }
 
 /* Chips neutros (p. ej. "CLIENTE + CONTEXTO", "DINÁMICO POR MEDIO", "OPCIONAL"). */
 :is(#venta-create-page, #venta-edit-page) .badge-erp-neutral {
     border: 1px solid var(--venta-wizard-border-strong);
-    background: #1b222a;
-    color: #8993a1;
+    background: var(--pal-neutral-850);
+    color: var(--pal-neutral-450);
     font-weight: 700;
 }
 
@@ -1902,19 +1902,19 @@
 :is(#venta-create-page, #venta-edit-page) input:hover,
 :is(#venta-create-page, #venta-edit-page) select:hover,
 :is(#venta-create-page, #venta-edit-page) textarea:hover {
-    border-color: #3a4656;
+    border-color: var(--pal-neutral-650);
 }
 
 :is(#venta-create-page, #venta-edit-page) input:focus,
 :is(#venta-create-page, #venta-edit-page) select:focus,
 :is(#venta-create-page, #venta-edit-page) textarea:focus {
     border-color: var(--venta-wizard-accent-2);
-    box-shadow: 0 0 0 3px rgba(91, 141, 239, 0.18);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--pal-info-400) 18%, transparent);
 }
 
 :is(#venta-create-page, #venta-edit-page) .label,
 :is(#venta-create-page, #venta-edit-page) .venta-label {
-    color: #8993a1;
+    color: var(--pal-neutral-450);
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.06em;
@@ -1922,36 +1922,36 @@
 
 :is(#venta-create-page, #venta-edit-page) input::placeholder,
 :is(#venta-create-page, #venta-edit-page) textarea::placeholder {
-    color: #62707e;
+    color: var(--pal-neutral-500);
 }
 
 /* Botón fantasma (Cancelar, Volver al detalle, Imprimir borrador, …). */
 :is(#venta-create-page, #venta-edit-page) .btn-erp-ghost {
     border-color: var(--venta-wizard-border-strong);
-    background: #171e26;
-    color: #b8c2cc;
+    background: var(--pal-neutral-875);
+    color: var(--pal-neutral-350);
     font-weight: 700;
 }
 
 :is(#venta-create-page, #venta-edit-page) .btn-erp-ghost:hover {
-    border-color: #3a4656;
-    background: #1b222a;
-    color: #f1f4f8;
+    border-color: var(--pal-neutral-650);
+    background: var(--pal-neutral-850);
+    color: var(--pal-neutral-100);
 }
 
 /* Cliente seleccionado (paso Cliente): mismo tratamiento neutro que la ficha del cotizador. */
 :is(#venta-create-page, #venta-edit-page) #info-cliente {
     border-color: var(--venta-wizard-border);
-    background: #171e26;
+    background: var(--pal-neutral-875);
 }
 
-:is(#venta-create-page, #venta-edit-page) #info-cliente .bg-primary\/20 { background: rgba(91, 141, 239, 0.16); }
-:is(#venta-create-page, #venta-edit-page) #info-cliente .text-primary { color: #5b8def; }
+:is(#venta-create-page, #venta-edit-page) #info-cliente .bg-primary\/20 { background: color-mix(in srgb, var(--pal-info-400) 16%, transparent); }
+:is(#venta-create-page, #venta-edit-page) #info-cliente .text-primary { color: var(--pal-info-400); }
 
 /* "Cambiar" limpia la selección pero no es una acción destructiva: acento azul como en la ficha
    del cotizador, no rojo. */
-:is(#venta-create-page, #venta-edit-page) #btn-limpiar-cliente { color: #5b8def; }
-:is(#venta-create-page, #venta-edit-page) #btn-limpiar-cliente:hover { color: #8fb0f5; text-decoration: none; }
+:is(#venta-create-page, #venta-edit-page) #btn-limpiar-cliente { color: var(--pal-info-400); }
+:is(#venta-create-page, #venta-edit-page) #btn-limpiar-cliente:hover { color: var(--pal-info-300); text-decoration: none; }
 
 @media (min-width: 1280px) {
     /* Card de paso: 16px de radio y 20px de aire, como las cards Productos/Cliente del mockup. */
@@ -2024,5 +2024,14 @@
 @media (min-width: 768px) {
     :is(#venta-create-page, #venta-edit-page) div:has(> #filtro-categoria) {
         grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+    }
+}
+
+/* CTA único por paso: a ≥1280px el sidebar está a la vista y su botón primario (#btn-confirmar)
+   repite el del header; se oculta el del header salvo en Crédito (sin sidebar). Debajo de 1280px
+   el sidebar cae al final de la página y el del header sigue siendo el más accesible. */
+@media (min-width: 1280px) {
+    :is(#venta-create-page, #venta-edit-page).vm-cta-en-sidebar .vm-hero__primary {
+        display: none;
     }
 }

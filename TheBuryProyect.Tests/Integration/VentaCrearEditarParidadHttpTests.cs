@@ -59,7 +59,7 @@ public class VentaCrearEditarParidadHttpTests : IClassFixture<CustomWebApplicati
         }
 
         // Copy y ausencia de seed propios del modo creación.
-        Assert.Contains("Guardar Operación", html);
+        Assert.Contains("Crear venta", html);
         Assert.DoesNotContain("id=\"venta-inicial-json\"", html);
     }
 

@@ -292,6 +292,16 @@
         const selectedCount = itemsBody.querySelectorAll('.devolucion-item-check:checked').length;
         if (selectedCount === 0) {
             showError('Seleccioná al menos un producto para devolver.');
+            // La selección queda bajo el pliegue en pantallas de ~900px de alto: llevar al usuario
+            // a donde está el control que falta en lugar de dejarlo buscándolo.
+            // El banner de error queda arriba, fuera de vista tras el scroll: se marca la tarjeta
+            // para que el motivo del rechazo se vea donde está el problema.
+            const tarjetaItems = itemsBody.closest('.rounded-3xl');
+            if (tarjetaItems) {
+                tarjetaItems.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                tarjetaItems.style.outline = '2px solid var(--pal-danger-500)';
+                setTimeout(() => { tarjetaItems.style.outline = ''; }, 2500);
+            }
             return;
         }
 
