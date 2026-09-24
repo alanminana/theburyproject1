@@ -20,6 +20,8 @@ Claude puede invocar automáticamente estas skills cuando el pedido coincide cla
 - `csharp-testing`
 - `security-review`
 
+`ui-module` es una skill manual (`disable-model-invocation`): Claude no la activa sola. `/ui-module <módulo>` es el pipeline completo de auditoría UX/UI, implementación, QA visual y polish de una pantalla existente (ver "UX/UI especializado").
+
 `ui-ux-pro-max`, `impeccable` y `dotnet-patterns` son consultoras manuales (user-invocable-only en `.claude/settings.json`): Claude no las invoca automáticamente, solo mediante `/ui-ux-pro-max`, `/impeccable` o `/dotnet-patterns` cuando el usuario lo pida expresamente. Ver reglas en "UX/UI especializado" y ".NET especializado" más abajo.
 
 ## UI/UX
@@ -73,7 +75,7 @@ Antes de declarar una tarea visual como terminada:
 6. repetir la comparación;
 7. recién después realizar el cierre técnico y proponer commit.
 
-No declarar "Listo para commit" únicamente porque build, tests, consola y responsive técnico estén correctos.
+No declarar "Listo para commit" únicamente porque build, tests, consola y responsive técnico estén correctos. El cierre queda además sujeto a "Regla de completitud" y "Cierre visual obligatorio".
 
 ### Libertad de refactor visual
 
@@ -113,7 +115,7 @@ Para un rediseño visual coherente, preferir:
 4. comparación visual;
 5. una ronda de corrección;
 6. build/tests/QA;
-7. cierre.
+7. cierre (sujeto a "Regla de completitud" y "Cierre visual obligatorio").
 
 Usar micro-lotes únicamente cuando exista un riesgo funcional, técnico o de regresión que justifique separarlos.
 
@@ -138,6 +140,18 @@ Para refactor de módulos existentes:
 - `modulo-ui-refactor` es el orquestador principal de arquitectura, contratos, protección del working tree, implementación y validación técnica.
 - `modulo-ui-refactor` no puede rebajar, reinterpretar ni cerrar antes de tiempo un objetivo visual explícito del usuario.
 - Una referencia visual proporcionada explícitamente por el usuario tiene autoridad visual dentro del alcance solicitado.
+
+Pipeline `/ui-module <módulo>`:
+
+- `modulo-ui-refactor` sigue siendo el orquestador principal de implementación.
+- `ux-heuristics` (Wondel) es consultora de usabilidad Nielsen/Krug; `impeccable` es consultora de crítica y terminación visual.
+- `ui-module` solo orquesta el pipeline; no introduce reglas propias de diseño ni cambia la jerarquía de autoridad (las consultoras siguen en el último nivel).
+- Ejecutar `/ui-module` autoriza internamente esas consultoras y Playwright para esa ejecución; fuera de `/ui-module` siguen siendo manuales.
+- La combinación `ux-heuristics + impeccable` solo ocurre dentro de este pipeline o por pedido explícito; no ejecutar varias skills visuales indiscriminadamente.
+- Secuencia: contexto → `ux-heuristics` → Impeccable critique → consolidación → `modulo-ui-refactor` → Playwright → Impeccable polish → Playwright final → cierre.
+- `/ui-module` es un pipeline de ejecución completa y sus fases obligatorias (`ux-heuristics`, `impeccable critique`, implementación con `modulo-ui-refactor`, QA visual real, `impeccable polish`, QA visual final) son gates. Si alguna no puede ejecutarse, el módulo no puede quedar `Listo para commit`. No sustituirlas por "lo revisé manualmente", "hice una pasada equivalente", "los tests están verdes" ni "visualmente parece correcto".
+- Si una herramienta requerida está rota, ausente o modificada en el working tree: diagnosticarlo, intentar resolverlo sin pisar trabajo ajeno, y si no es posible de forma segura continuar solo con lo permitido y marcar `REQUIERE AJUSTE`.
+- Antes de implementar, construir la "Matriz de cobertura del módulo".
 
 `ui-ux-pro-max` e `impeccable` son herramientas consultivas y no reemplazan las reglas del proyecto, el diseño global existente ni las reglas de negocio.
 
@@ -182,11 +196,83 @@ Antes de usar expresiones como:
 - "Listo para commit";
 - "cerrado";
 - "terminado";
+- "completo";
 - "10/10";
 
 Claude debe haber revisado el resultado renderizado real y, cuando exista referencia visual, comparado la pantalla contra ella.
 
-Si todavía quedan diferencias relevantes de composición, proporción, densidad, jerarquía, spacing, alineación, aprovechamiento del viewport o responsive, el veredicto debe ser "Requiere ajuste".
+Si todavía quedan diferencias relevantes de composición, proporción, densidad, jerarquía, spacing, alineación, aprovechamiento del viewport o responsive, el veredicto debe ser `REQUIERE AJUSTE`.
+
+Además de lo anterior, las expresiones "cerrado", "terminado", "completo", "10/10" y "Listo para commit" están prohibidas mientras quede cualquier gate obligatorio pendiente (ver "Regla de completitud"). Antes de usarlas, comprobar que:
+
+- no quedan gates obligatorios pendientes;
+- no quedan superficies relevantes en `NO VALIDADA`, salvo excepciones justificadas expresamente aceptadas por el usuario;
+- las viewports obligatorias fueron revisadas;
+- el resultado renderizado real fue inspeccionado;
+- las fases formales exigidas por el pipeline fueron realmente ejecutadas y no se sustituyeron por revisiones informales;
+- los tests técnicos aplicables fueron ejecutados;
+- no quedan regresiones conocidas;
+- `UI-REFACTOR-STATUS.md` refleja el estado real.
+
+Si falta cualquiera de esos puntos, el veredicto es `REQUIERE AJUSTE` y se lista exactamente qué falta.
+
+### Regla de completitud
+
+Las fases obligatorias definidas por el flujo activo (`CLAUDE.md`, skills invocadas o pipeline `/ui-module`) son gates de cierre, no sugerencias. Una fase obligatoria no puede omitirse silenciosamente ni sustituirse por una validación distinta. Por ejemplo:
+
+- una revisión manual no sustituye `impeccable critique`;
+- una revisión visual informal no sustituye `impeccable polish` cuando esa fase está requerida;
+- build verde o tests verdes no sustituyen QA visual;
+- medir overflow por script no sustituye la captura visual requerida;
+- revisar Create no valida Edit; revisar Index no valida drawers, modales ni pantallas relacionadas;
+- revisar desktop no valida mobile; revisar una viewport no valida las demás;
+- la ausencia de datos no convierte un estado en validado;
+- un CI verde no prueba por sí solo que el objetivo visual o UX se cumplió.
+
+Si una fase obligatoria no puede ejecutarse:
+
+1. intentar resolver el impedimento de forma segura;
+2. usar los mecanismos ya existentes del proyecto;
+3. documentar exactamente qué bloquea la validación;
+4. continuar únicamente con lo que siga siendo seguro;
+5. marcar el resultado final como `REQUIERE AJUSTE`.
+
+### Matriz de cobertura del módulo
+
+En refactors o revisiones de módulos completos, antes de implementar, inventariar las superficies reales: Index, Details, Create, Edit, Delete, drawers, modales, tabs, paneles, vistas secundarias, estados vacío/error/success/loading, variantes por permisos relevantes, desktop/mobile y flujos principales asociados.
+
+Registrar por cada superficie aplicable: nombre, estado/variante, desktop, mobile, interacción principal, accesibilidad relevante, validación técnica aplicable y resultado.
+
+Resultados permitidos: `VALIDADA`, `NO VALIDADA`, `NO APLICA`. Una superficie no revisada queda `NO VALIDADA`. Nunca inferir que una superficie está validada porque otra similar funciona.
+
+### Estados y datos de prueba
+
+Si faltan datos para representar un estado real, orden de preferencia:
+
+1. datos existentes;
+2. seeds/fixtures ya disponibles;
+3. datos de desarrollo seguros;
+4. datos temporales de QA, si el proyecto lo permite;
+5. setup existente de tests;
+6. si no puede reproducirse de forma segura, marcar el estado como `NO VALIDADO`.
+
+No inventar datos ni alterar datos que deban preservarse. "No había datos → no lo probé → cerrado" no es aceptable: un estado relevante no reproducible queda explícitamente pendiente.
+
+### Acciones destructivas
+
+Delete, dar de baja, cancelar, anular, eliminar relaciones u otra operación destructiva no se ejecutan sobre datos que deban preservarse solo para completar QA. Preferir fixture, entidad temporal, base de desarrollo reproducible, test automatizado o rollback/transacción si existe un mecanismo seguro.
+
+Si no existe una forma segura: validar visualmente hasta el punto previo a la acción, verificar permisos, copy, confirmación y estado previo, y marcar la acción final como `NO VALIDADA` (nunca validada por inferencia).
+
+### Protección del working tree
+
+No modificar, restaurar, borrar, resetear ni incluir en commits cambios ajenos. Con archivos de modificaciones mezcladas: identificar cuáles pertenecen a la tarea, usar staging selectivo, no asumir autoría de cambios previos. Un working tree sucio no es motivo para omitir QA; sí lo es para evitar operaciones destructivas sobre esos archivos.
+
+### Informe final obligatorio
+
+En tareas UI/UX relevantes, el cierre incluye de forma compacta: módulo/pantallas trabajadas, superficies validadas, superficies no validadas, viewports probados, tests/checks ejecutados, fases formales ejecutadas, riesgos pendientes y el estado final:
+
+`Estado: LISTO PARA COMMIT` o `Estado: REQUIERE AJUSTE` (en este caso, listar los pendientes concretos).
 
 ### Evitar sobrevalidación
 
@@ -195,6 +281,13 @@ La validación técnica debe ser proporcional al cambio.
 - No crear tests adicionales para cada ajuste puramente visual si no protegen un contrato real, una interacción o una regresión demostrada.
 - No usar build/tests verdes como sustituto de evaluación visual.
 - No convertir un ajuste visual simple en una ampliación innecesaria de cobertura automatizada.
+
+Proporcionalidad por tipo de cambio (esto no obliga a correr la suite completa del repositorio ante un cambio visual menor, ni exime de los gates de "Regla de completitud"):
+
+- cambio puramente visual: validación visual y técnica proporcional;
+- cambio de interacción: tests/interacciones relacionados;
+- cambio de reglas, datos, permisos o contratos: tests técnicos relevantes más QA visual correspondiente;
+- cambio con contrato e2e existente: no romper ni eliminar el comportamiento porque parezca visualmente redundante; si un e2e demuestra que forma parte de un contrato real, conservarlo o actualizar el contrato solo con una decisión explícita que lo autorice.
 
 ## .NET especializado
 
