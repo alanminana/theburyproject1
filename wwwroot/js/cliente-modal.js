@@ -437,7 +437,7 @@
             // activo, nunca una copia independiente.
             if (compactIconEl) compactIconEl.textContent = plainIconOf(steps[current]);
             if (compactLabelEl) compactLabelEl.textContent = steps[current].button.getAttribute('data-step-label') || '';
-            if (compactFillEl) compactFillEl.style.width = Math.round(((current + 1) / steps.length) * 100) + '%';
+            if (compactFillEl) compactFillEl.style.transform = 'scaleX(' + ((current + 1) / steps.length).toFixed(4) + ')';
 
             if (prevBtn) prevBtn.classList.toggle('hidden', current === 0);
             if (nextBtn) nextBtn.classList.toggle('hidden', current === steps.length - 1);

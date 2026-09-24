@@ -39,7 +39,7 @@
 
             <partial name="_ClienteFormCampos" model="Model" />
 
-            <div class="flex flex-col-reverse sm:flex-row items-center justify-between gap-2 card-pad" style="border-top:1px solid var(--line);background:rgba(8,12,22,.4)">
+            <div class="flex flex-col-reverse sm:flex-row items-center justify-between gap-2 card-pad" style="border-top:1px solid var(--line);background:color-mix(in srgb, var(--pal-neutral-950) 40%, transparent)">
                 <div class="text-xs muted-2 flex items-center gap-1.5 mr-auto"><span class="material-symbols-outlined" style="font-size:16px">lock</span>Los datos se guardan de forma segura.</div>
                 <div class="flex gap-2 w-full sm:w-auto">
                     @if (!string.IsNullOrWhiteSpace(returnUrl))
@@ -69,8 +69,9 @@
                 </dl>
             </div>
             <div class="card card-pad">
-                <div class="flex items-center gap-2 mb-3"><span class="material-symbols-outlined" style="color:#f5c518;font-size:20px">tips_and_updates</span><h3 class="font-semibold text-white">Recordá</h3></div>
+                <div class="flex items-center gap-2 mb-3"><span class="material-symbols-outlined" style="color:var(--pal-accent);font-size:20px">tips_and_updates</span><h3 class="font-semibold text-white">Recordá</h3></div>
                 <ul class="help-list">
+                    <li><span class="material-symbols-outlined">call</span>Teléfono y domicilio (solapa Contacto) son obligatorios.</li>
                     <li><span class="material-symbols-outlined">badge</span>El documento y CUIL/CUIT deben ser únicos por cliente.</li>
                     <li><span class="material-symbols-outlined">gpp_good</span>La situación BCRA se consulta al evaluar la aptitud.</li>
                     <li><span class="material-symbols-outlined">folder_shared</span>La documentación se carga luego, desde el legajo.</li>

@@ -1,8 +1,8 @@
 // @ts-check
 /**
  * E2E mínimo de la reorganización en solapas de Cliente/Details (2026-09-14):
- * resumen ejecutivo + alerta principal fijos arriba, resto de la ficha en 5
- * solapas fijas (Resumen/Crédito/Documentación/Datos/Historial). No depende de
+ * resumen ejecutivo + alerta principal fijos arriba, resto de la ficha en 4
+ * solapas fijas (Resumen/Crédito/Documentación/Datos; Historial se fusionó en Crédito). No depende de
  * datos sembrados especiales — usa el primer cliente real de /Cliente, igual
  * que el bloque "responsive, zoom y teclado" de cliente-aptitud-punitorio.spec.js.
  */
@@ -42,8 +42,8 @@ async function primerClienteHref(page) {
     return primerCliente.getAttribute('href');
 }
 
-test.describe('Cliente Details — solapas (Resumen/Crédito/Documentación/Datos/Historial)', () => {
-    test('abre en Resumen por defecto, con las 5 solapas presentes', async ({ page }) => {
+test.describe('Cliente Details — solapas (Resumen/Crédito/Documentación/Datos)', () => {
+    test('abre en Resumen por defecto, con las 4 solapas presentes', async ({ page }) => {
         const href = await primerClienteHref(page);
         test.skip(!href, 'No hay clientes cargados en esta base para ejercitar el spec.');
 
@@ -51,7 +51,7 @@ test.describe('Cliente Details — solapas (Resumen/Crédito/Documentación/Dato
         await page.goto(href, { waitUntil: 'domcontentloaded' });
 
         const tabs = page.getByRole('tab');
-        await expect(tabs).toHaveCount(5);
+        await expect(tabs).toHaveCount(4);
 
         const resumenTab = page.getByRole('tab', { name: /Resumen/ });
         await expect(resumenTab).toHaveAttribute('aria-selected', 'true');
@@ -60,7 +60,7 @@ test.describe('Cliente Details — solapas (Resumen/Crédito/Documentación/Dato
         expectNoFailures(failures);
     });
 
-    test('cambia a Crédito, Documentación, Datos e Historial mostrando el panel correspondiente', async ({ page }) => {
+    test('cambia a Crédito, Documentación y Datos mostrando el panel correspondiente', async ({ page }) => {
         const href = await primerClienteHref(page);
         test.skip(!href, 'No hay clientes cargados en esta base para ejercitar el spec.');
 
@@ -70,7 +70,7 @@ test.describe('Cliente Details — solapas (Resumen/Crédito/Documentación/Dato
         await page.getByRole('tab', { name: /Crédito/ }).click();
         await expect(page.locator('#panel-credito')).toBeVisible();
         await expect(page.locator('#panel-resumen')).toBeHidden();
-        await expect(page.getByText('Ultimos creditos del cliente')).toBeVisible();
+        await expect(page.getByText('Últimos créditos del cliente')).toBeVisible();
 
         await page.getByRole('tab', { name: /Documentación/ }).click();
         await expect(page.locator('#panel-documentacion')).toBeVisible();
@@ -80,10 +80,6 @@ test.describe('Cliente Details — solapas (Resumen/Crédito/Documentación/Dato
         await expect(page.locator('#panel-datos')).toBeVisible();
         await expect(page.getByText('Datos personales')).toBeVisible();
         await expect(page.getByText('Zona sensible')).toBeVisible();
-
-        await page.getByRole('tab', { name: /Historial/ }).click();
-        await expect(page.locator('#panel-historial')).toBeVisible();
-        await expect(page.getByText('Créditos históricos')).toBeVisible();
 
         expectNoFailures(failures);
     });
@@ -119,6 +115,20 @@ test.describe('Cliente Details — solapas (Resumen/Crédito/Documentación/Dato
         expectNoFailures(failures);
     });
 
+    test('un #historial guardado (solapa fusionada) abre Crédito, no Resumen', async ({ page }) => {
+        const href = await primerClienteHref(page);
+        test.skip(!href, 'No hay clientes cargados en esta base para ejercitar el spec.');
+
+        const failures = trackFailures(page);
+        await page.goto(href + '#historial', { waitUntil: 'domcontentloaded' });
+
+        await expect(page.getByRole('tab', { name: /Crédito/ })).toHaveAttribute('aria-selected', 'true');
+        await expect(page.locator('#panel-credito')).toBeVisible();
+        await expect(page.getByRole('tab', { name: /Historial/ })).toHaveCount(0);
+
+        expectNoFailures(failures);
+    });
+
     test('navegación por teclado: ArrowRight/Home/End mueven foco y activan la solapa', async ({ page }) => {
         const href = await primerClienteHref(page);
         test.skip(!href, 'No hay clientes cargados en esta base para ejercitar el spec.');
@@ -134,8 +144,8 @@ test.describe('Cliente Details — solapas (Resumen/Crédito/Documentación/Dato
         await expect(page.locator('#panel-credito')).toBeVisible();
 
         await page.keyboard.press('End');
-        await expect(page.getByRole('tab', { name: /Historial/ })).toBeFocused();
-        await expect(page.locator('#panel-historial')).toBeVisible();
+        await expect(page.getByRole('tab', { name: /Datos/ })).toBeFocused();
+        await expect(page.locator('#panel-datos')).toBeVisible();
 
         await page.keyboard.press('Home');
         await expect(page.getByRole('tab', { name: /Resumen/ })).toBeFocused();

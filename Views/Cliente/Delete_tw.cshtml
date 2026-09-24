@@ -1,6 +1,6 @@
 @model ClienteViewModel
 @{
-    ViewData["Title"] = "Eliminar Cliente";
+    ViewData["Title"] = "Dar de baja cliente";
     var returnUrl = ViewData["ReturnUrl"] as string;
     var backUrl = !string.IsNullOrWhiteSpace(returnUrl)
         ? returnUrl
@@ -29,20 +29,20 @@
 
     <div class="page-head" style="margin-top:.85rem">
         <div class="min-w-0">
-            <h1 class="page-title">Eliminar cliente</h1>
-            <p class="page-sub">Revisá la información antes de confirmar. Esta acción es permanente.</p>
+            <h1 class="page-title">Dar de baja cliente</h1>
+            <p class="page-sub">Revisá el impacto antes de confirmar.</p>
         </div>
     </div>
 
     <div class="alert alert-bad" style="margin-top:1.25rem">
         <span class="material-symbols-outlined">warning</span>
         <div>
-            <div class="font-semibold" style="color:#fecdd3">Esta acción no se puede deshacer</div>
-            <p class="text-sm mt-0.5">Se eliminará el cliente y sus datos asociados. Los créditos vinculados podrían verse afectados; si tiene créditos o movimientos históricos, considerá darlo de baja para conservar la trazabilidad.</p>
+            <div class="font-semibold" style="color:var(--pal-danger-200)">El cliente dejará de aparecer en el listado</div>
+            <p class="text-sm mt-0.5">Dar de baja al cliente lo oculta del listado operativo. Se conserva su historial (créditos, ventas y documentos). Hoy el sistema no ofrece reactivarlo.</p>
         </div>
     </div>
 
-    <div class="card card-pad" style="margin-top:1.25rem;border-color:rgba(244,63,94,.3)">
+    <div class="card card-pad" style="margin-top:1.25rem;border-color:color-mix(in srgb, var(--pal-danger-500) 30%, transparent)">
         <div class="flex items-center gap-3">
             <div class="avatar avatar-lg @(Model.Activo ? string.Empty : "avatar--off")">@iniciales</div>
             <div class="min-w-0">
@@ -54,28 +54,25 @@
             </div>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 mt-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 mt-4" style="align-items:start">
             <dl class="kv">
-                <div class="kv-row"><dt>Nombre completo</dt><dd>@nombreCompleto</dd></div>
-                <div class="kv-row"><dt>Documento</dt><dd class="mono">@Model.TipoDocumento @Model.NumeroDocumento</dd></div>
                 <div class="kv-row"><dt>Estado civil</dt><dd>@Dash(Model.EstadoCivil)</dd></div>
                 <div class="kv-row"><dt>Fecha de nacimiento</dt><dd>@(Model.FechaNacimiento.HasValue ? Model.FechaNacimiento.Value.ToString("dd/MM/yyyy") : "—")</dd></div>
+                <div class="kv-row"><dt>Domicilio</dt><dd>@Dash(Model.Domicilio)</dd></div>
             </dl>
             <dl class="kv">
                 <div class="kv-row"><dt>Teléfono</dt><dd>@Dash(Model.Telefono)</dd></div>
                 <div class="kv-row"><dt>Email</dt><dd>@Dash(Model.Email)</dd></div>
-                <div class="kv-row"><dt>Domicilio</dt><dd>@Dash(Model.Domicilio)</dd></div>
-                <div class="kv-row"><dt>Estado</dt><dd><span class="chip @(Model.Activo ? "chip-ok" : "chip-neutral")">@(Model.Activo ? "Activo" : "Inactivo")</span></dd></div>
             </dl>
         </div>
     </div>
 
     <div class="card card-pad" style="margin-top:1rem">
         <h3 class="font-semibold text-white mb-3 flex items-center gap-2">
-            <span class="material-symbols-outlined" style="color:#fbbf24;font-size:20px">fact_check</span>Qué se va a eliminar
+            <span class="material-symbols-outlined" style="color:var(--pal-warning-400);font-size:20px">fact_check</span>Créditos y deuda del cliente
         </h3>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-            <div class="minimetric"><div class="mm-label">Créditos activos</div><div class="mm-value num" style="color:#34d399">@Model.CreditosActivos</div></div>
+            <div class="minimetric"><div class="mm-label">Créditos activos</div><div class="mm-value num">@Model.CreditosActivos</div></div>
             <div class="minimetric"><div class="mm-label">Créditos totales</div><div class="mm-value num">@Model.CreditosTotales</div></div>
             <div class="minimetric"><div class="mm-label">Monto adeudado</div><div class="mm-value num">@Money(Model.MontoAdeudado)</div></div>
         </div>
@@ -83,7 +80,7 @@
         {
             <div class="alert alert-warn" style="margin-top:1rem">
                 <span class="material-symbols-outlined">priority_high</span>
-                <div>El cliente registra créditos activos o deuda. Confirmá el impacto operativo antes de eliminarlo.</div>
+                <div>El cliente registra créditos activos o deuda. Confirmá el impacto operativo antes de darlo de baja.</div>
             </div>
         }
         else
@@ -106,12 +103,12 @@
 
         <label class="flex items-start gap-2.5 cursor-pointer">
             <input type="checkbox" id="confirm-delete" required style="margin-top:.15rem;width:18px;height:18px">
-            <span class="text-sm text-slate-200">Entiendo que esta acción es permanente y deseo eliminar a <strong>@nombreCompleto</strong> del sistema.</span>
+            <span class="text-sm text-slate-200">Confirmo que quiero dar de baja a <strong>@nombreCompleto</strong>.</span>
         </label>
         <div class="mt-5 pt-4 flex flex-col-reverse sm:flex-row justify-end gap-2" style="border-top:1px solid var(--line)">
             <a href="@backUrl" class="btn btn-ghost">Cancelar</a>
             <button type="submit" class="btn btn-danger">
-                <span class="material-symbols-outlined">delete_forever</span>Eliminar definitivamente
+                <span class="material-symbols-outlined">person_off</span>Dar de baja al cliente
             </button>
         </div>
     </form>

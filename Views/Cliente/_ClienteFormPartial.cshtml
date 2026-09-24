@@ -36,7 +36,7 @@
                 <span class="muted">@Model.Apellido @Model.Nombre</span>
                 <span class="sep">/</span>
             }
-            <span style="color:#cbd5e1">@(isEdit ? "Editar" : "Nuevo")</span>
+            <span style="color:var(--pal-neutral-300)">@(isEdit ? "Editar" : "Nuevo")</span>
         </div>
         <div class="flex items-center gap-2 flex-wrap">
             <h2 class="page-title" style="margin:0">@title</h2>
@@ -127,7 +127,7 @@
                     </dl>
                 </div>
                 <div class="card card-pad">
-                    <div class="flex items-center gap-2 mb-3"><span class="material-symbols-outlined" style="color:@(isEdit ? "#fbbf24" : "#f5c518");font-size:20px">@(isEdit ? "shield_lock" : "tips_and_updates")</span><h3 class="font-semibold text-white">@(isEdit ? "Datos preservados" : "Recordá")</h3></div>
+                    <div class="flex items-center gap-2 mb-3"><span class="material-symbols-outlined" style="color:@(isEdit ? "var(--pal-warning-400)" : "var(--pal-accent)");font-size:20px">@(isEdit ? "shield_lock" : "tips_and_updates")</span><h3 class="font-semibold text-white">@(isEdit ? "Datos preservados" : "Recordá")</h3></div>
                     @if (isEdit)
                     {
                         <p class="text-sm muted leading-relaxed">Puntaje, nivel de riesgo, créditos, cuotas impagas y monto adeudado se conservan en campos ocultos.</p>

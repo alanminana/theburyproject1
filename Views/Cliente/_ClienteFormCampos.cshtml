@@ -69,7 +69,7 @@
                 <span class="material-symbols-outlined" aria-hidden="true" data-wizard-compact-icon>badge</span>
                 <span data-wizard-compact-label>Personales</span>
             </div>
-            <div class="bar"><div class="bar-fill" data-wizard-compact-fill style="width:@(100 / wizardStepIds.Length)%"></div></div>
+            <div class="bar"><div class="bar-fill" data-wizard-compact-fill style="transform:scaleX(@((1d / wizardStepIds.Length).ToString("0.####", System.Globalization.CultureInfo.InvariantCulture)))"></div></div>
         </div>
     }
     <div class="tabs @(isWizard ? "wizard-steps" : "")" role="@(isWizard ? null : "tablist")" aria-label="@(isWizard ? "Pasos del formulario" : null)" id="form-tabs">
@@ -187,7 +187,7 @@
                 <span asp-validation-for="FechaNacimiento" class="err-text"></span>
             </div>
             <div>
-                <label asp-for="EstadoCivil" class="label">Estado civil</label>
+                <label asp-for="EstadoCivil" for="f-civil" class="label">Estado civil</label>
                 <select asp-for="EstadoCivil" asp-items="@(ViewBag.EstadosCiviles as SelectList)" class="field" id="f-civil">
                     <option value="">Seleccionar...</option>
                 </select>
@@ -364,7 +364,7 @@
                 <span asp-validation-for="CuotasMaximasPersonalizadas" class="err-text"></span>
             </div>
             <div>
-                <label asp-for="MontoMinimoPersonalizado" class="label">Monto mínimo ($)</label>
+                <label asp-for="MontoMinimoPersonalizado" for="montoMinimo" class="label">Monto mínimo ($)</label>
                 <div class="field-money">
                     <span class="cur">$</span>
                     <input asp-for="MontoMinimoPersonalizado" id="montoMinimo" step="0.01" class="field mono" placeholder="0" />
@@ -372,7 +372,7 @@
                 <span asp-validation-for="MontoMinimoPersonalizado" class="err-text"></span>
             </div>
             <div>
-                <label asp-for="MontoMaximoPersonalizado" class="label">Monto máximo ($)</label>
+                <label asp-for="MontoMaximoPersonalizado" for="montoMaximo" class="label">Monto máximo ($)</label>
                 <div class="field-money">
                     <span class="cur">$</span>
                     <input asp-for="MontoMaximoPersonalizado" id="montoMaximo" step="0.01" class="field mono" placeholder="0" />
