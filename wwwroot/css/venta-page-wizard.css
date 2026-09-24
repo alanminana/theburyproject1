@@ -1482,7 +1482,7 @@
         display: none;
     }
 
-    /* Sidebar inferior: sin tercer CTA. La tarjeta amarilla repetía "Siguiente/Confirmar"
+    /* Sidebar inferior (<1280px, donde cae al final de la página): sin tercer CTA. La tarjeta amarilla repetía "Siguiente/Confirmar"
        + el recordatorio en TODOS los pasos. Sólo se conserva en Revisión (recordatorio,
        "Facturar al confirmar" y "Guardar sin confirmar" de Edición), neutra y sin el botón
        principal — el CTA es el de la barra, que en Revisión dispara este #btn-confirmar. */

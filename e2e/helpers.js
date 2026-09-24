@@ -282,7 +282,17 @@ async function ensureVendedorSeleccionado(page) {
     await select.selectOption({ index: 1 });
 }
 
+/**
+ * CTA primario del wizard de Venta. Hay tres presentaciones de la misma acción (botón del header
+ * `.vm-hero__primary`, botón del sidebar `#btn-confirmar` y barra sticky mobile
+ * `.vm-btn-confirm-sm`) y el layout deja visible exactamente una según el viewport: a ≥1280px la
+ * del sidebar (el header se oculta para no duplicarla), por debajo la del header/barra sticky.
+ * Este selector apunta siempre al que la persona puede operar y las specs afirman que es único.
+ */
+const CTA_PRIMARIO_VISIBLE = '.vm-hero__primary:visible, #btn-confirmar:visible, .vm-btn-confirm-sm:visible';
+
 module.exports = {
+    CTA_PRIMARIO_VISIBLE,
     TIPO_PAGO,
     TIPO_PAGO_BADGE,
     searchAndSelectClient,

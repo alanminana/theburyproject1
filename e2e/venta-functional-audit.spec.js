@@ -5,7 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const {
     searchAndSelectClient, activarFiltroStock, addProduct, addTwoDistinctProducts,
-    setGlobalTipoPago, ensureVendedorSeleccionado, TIPO_PAGO,
+    setGlobalTipoPago, ensureVendedorSeleccionado, TIPO_PAGO, CTA_PRIMARIO_VISIBLE,
 } = require('./helpers');
 
 test.use({ storageState: 'e2e/.auth/user.json' });
@@ -135,14 +135,11 @@ test('Create: validaciones, cliente, productos, descuentos, pago, crédito, moda
     }));
     await page.locator('#select-tipo-pago').selectOption(TIPO_PAGO.CreditoPersonal);
     await expect(page.locator('#step-btn-credito')).toBeVisible();
-    // Puede haber más de un [data-wizard-primary] en el DOM (uno por paso/layout); sólo el CTA
-    // del paso activo está visible en cada momento — .first() sin filtrar corría el riesgo de
-    // resolver a uno oculto según el orden de marcado, no el orden visual de los pasos.
-    // Hay 2 elementos [data-wizard-primary] en el DOM (CTA del header .vm-hero__primary y la
-    // barra sticky mobile .vm-btn-confirm-sm); ambos se sincronizan en texto/acción por JS pero
-    // sólo uno es interactuable según el viewport. Se ancla al del header, que es el que este
-    // spec ya audita en desktop (1366x768).
-    const wizardPrimary = page.locator('[data-wizard-primary].vm-hero__primary');
+    // Hay tres presentaciones de la misma acción primaria (header, sidebar y barra sticky mobile) y
+    // el layout deja visible exactamente una según el viewport: a 1366x768 es el botón del sidebar
+    // (el del header se oculta ≥1280px para no duplicarlo). Se opera la que está a la vista.
+    const wizardPrimary = page.locator(CTA_PRIMARIO_VISIBLE);
+    await expect(wizardPrimary).toHaveCount(1);
     await expect(wizardPrimary).toContainText(/Continuar a cr.dito/);
     await wizardPrimary.click();
     await expect(page.locator('#step-btn-credito')).toHaveAttribute('aria-selected', 'true');
