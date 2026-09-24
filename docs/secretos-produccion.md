@@ -23,6 +23,7 @@ Las pruebas reales usaron `bury-secrets-audit-3c8ddd`, volúmenes nuevos, SQL Ex
 | `ERP_MIGRATION_PASSWORD` | Secreto | `.env` → `ErpDb__Password` | db-init, migrate | Obligatorio; usuario distinto de runtime |
 | `ADMIN_PASSWORD` / `Admin:Password` | Secreto | Bootstrap temporal; Identity persiste el hash | migrate | Retirable después del primer despliegue |
 | `MERCADOLIBRE_CLIENT_SECRET` | Secreto | `.env` / user-secrets → opciones OAuth | app | Opcional si ML está desactivado; obligatorio al definir ClientId |
+| `AUTOMAPPER_LICENSE_KEY` | Secreto | `.env` del host (fuera de Git) → `AUTOMAPPER_LICENSE_KEY` → `Program.cs` (`cfg.LicenseKey`) | app (solo) | Obligatorio en Production por política (preflight); no requerido en Development/CI |
 | Access/refresh tokens ML | Secreto | Base SQL, cifrados mediante Data Protection | app; accesibles indirectamente a administradores de DB/backup | No se registran respuestas del endpoint de tokens |
 | Claves Data Protection | Secreto | Volumen `bury-keys`, `/keys` | app; backup-files/restore-files acceden a archivos | XML persistido, no cifrado con un protector externo; archivos 600, UID 1654 |
 | Claves privadas TLS/ACME | Secreto | Volumen `caddy-data` | caddy, backup-files/restore-files | No provienen de `.env`; backup de archivos puede incluirlas |
@@ -126,6 +127,16 @@ Una migración posterior necesitaría: lector pequeño de archivo en app/db-init
 - `ERP_DOMAIN=CHANGE_ME` sigue siendo sintácticamente no vacío para Compose; sustituirlo por el dominio real. Es configuración pública, no validación de secreto implementada aquí.
 
 Después del primer login: cambiar contraseña desde Identity, comprobar un segundo login, retirar `ADMIN_PASSWORD` de `.env` y del gestor de despliegue, y ejecutar `docker compose rm -f migrate`. Conservar `ADMIN_EMAIL`/`ADMIN_USERNAME` coherentes con el usuario existente. El proyecto no fuerza todavía un cambio de contraseña en la UI; es un paso operativo explícito. No quitar el bootstrap antes de verificar el acceso administrativo.
+
+## Licencia comercial de AutoMapper (`AUTOMAPPER_LICENSE_KEY`)
+
+- **Origen:** licencia comercial AutoMapper / Lucky Penny Software (obtención externa, pendiente). **Ubicación:** `.env` del host productivo, fuera del repo. **Consumidor:** solo el servicio `app` (no db, db-init, migrate, caddy ni monitoring; ni CI ni build de imagen).
+- **Development/CI/tests:** no requerida; sin key AutoMapper emite solo un warning informativo.
+- **Producción:** requerida por la política adoptada. `scripts/deploy/preflight.sh` (invocado por `deploy.sh` y `rollback.sh`) falla con `Required production setting AUTOMAPPER_LICENSE_KEY is missing` **antes** de tocar la aplicación si falta o está vacía (incluye `''`/`""`). Solo valida presencia; no valida el formato ni la vigencia (eso lo hace AutoMapper al arrancar).
+- **Cómo llega a la librería:** AutoMapper 16.1.1 con `MapperConfiguration` directo **no autodetecta** `AUTOMAPPER_LICENSE_KEY` (verificado con un programa mínimo: con la variable definida sigue el warning de "sin licencia"; solo `cfg.LicenseKey` explícito se procesa, aunque su documentación describa la autodetección). Por eso `Program.cs` lee `AUTOMAPPER_LICENSE_KEY` de la configuración (entorno, user-secrets) y la asigna a `cfg.LicenseKey`; sin valor no asigna nada. La key nunca se registra.
+- **Custodia:** mismo nivel que los demás secretos de `.env` (permisos 600, no imprimir `config`/`env`/`inspect`). Cualquier usuario con privilegios sobre Docker en el host puede leer las variables de entorno del contenedor `app` (`docker inspect`, `docker exec ... env`): no es inaccesible.
+- **Recuperación:** no copiar la key en texto plano a documentos de recuperación; el paquete de recuperación solo puede incluir la configuración cifrada ya diseñada para secretos productivos.
+- **Prueba negativa documentada:** un valor sintético (`synthetic-test-value`) pasa el preflight (solo comprueba no-vacío) pero AutoMapper lo rechaza al arrancar con un log `crit` "Error validating the Lucky Penny software license key" (JWT mal formado) y continúa funcionando: prueba de que la validación real ocurre en la librería, no en el preflight.
 
 ## Rotación sin pérdida de datos
 

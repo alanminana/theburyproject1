@@ -140,6 +140,7 @@ consultado 2026-09-22).
   (c) reemplazar AutoMapper por mapeo manual. Si se opta por (a), la license key se configura vía
   `IServiceCollection`/`MappingConfiguration` (ver doc oficial) y **no debe versionarse**: va como
   variable de entorno/secreto igual que el resto de credenciales de este documento.
+- **Actualización 2026-09-24:** se adoptó (a), licencia comercial (aún por obtener). La configuración está preparada: `AUTOMAPPER_LICENSE_KEY` en `.env` del host → servicio `app` → `cfg.LicenseKey` en `Program.cs`, y el preflight de deploy la exige en Production. Detalle y custodia en [secretos-produccion.md](secretos-produccion.md). El bloqueo sigue abierto hasta instalar la key real.
 - Estimación de esfuerzo para (c), solo a título informativo (no se implementó en este bloque):
   74 `CreateMap<>` en 2 archivos (`Helpers/AutoMapperProfile.cs`, `Helpers/MercadoLibreMappingProfile.cs`)
   y 90 call sites de `_mapper.Map<>()` en 19 archivos de `Controllers/`/`Services/`. Riesgo medio

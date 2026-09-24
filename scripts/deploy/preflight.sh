@@ -71,6 +71,17 @@ if [[ -f "$DP_ENV_FILE" ]]; then
       log ERROR "FAIL falta variable obligatoria en env-file: $key"; FAIL=1
     fi
   done
+  # Licencia comercial de AutoMapper (politica de produccion): solo se valida que exista y no este vacia. Nunca se imprime el valor.
+  # Se ignoran espacios y comillas envolventes para que AUTOMAPPER_LICENSE_KEY='' o "" cuenten como vacia.
+  am_line=$(grep -E '^[[:space:]]*AUTOMAPPER_LICENSE_KEY=' "$DP_ENV_FILE" | tail -n1 || true)
+  am_val=${am_line#*=}
+  am_val=$(printf '%s' "$am_val" | tr -d '\r' | sed -E "s/^[[:space:]]+//; s/[[:space:]]+$//; s/^(['\"])(.*)\1$/\2/")
+  if [[ -n "${am_val//[[:space:]]/}" ]]; then
+    log INFO "OK   variable presente: AUTOMAPPER_LICENSE_KEY"
+  else
+    log ERROR "FAIL Required production setting AUTOMAPPER_LICENSE_KEY is missing (falta o esta vacia en env-file)"; FAIL=1
+  fi
+  unset am_line am_val
 else
   log ERROR "FAIL env-file no existe: $DP_ENV_FILE"; FAIL=1
 fi

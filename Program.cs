@@ -94,11 +94,16 @@ builder.Services.AddDefaultIdentity<ApplicationUser>(options =>
 builder.Services.AddScoped<IClaimsTransformation, PermissionClaimsTransformation>();
 
 // 4. AutoMapper
+// AutoMapper 16.1.1 no autodetecta la variable de entorno con MapperConfiguration directo (verificado): la key se lee
+// aqui de configuracion externa (env AUTOMAPPER_LICENSE_KEY, user-secrets). Nunca se versiona ni se registra.
+var autoMapperLicenseKey = builder.Configuration["AUTOMAPPER_LICENSE_KEY"];
 builder.Services.AddSingleton<IMapper>(sp =>
 {
     var loggerFactory = sp.GetService<ILoggerFactory>();
     var config = new MapperConfiguration(cfg =>
     {
+        if (!string.IsNullOrWhiteSpace(autoMapperLicenseKey))
+            cfg.LicenseKey = autoMapperLicenseKey;
         cfg.AddProfile<MappingProfile>();
         cfg.AddProfile<MercadoLibreMappingProfile>();
     }, loggerFactory);
