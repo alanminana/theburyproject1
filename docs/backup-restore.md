@@ -15,7 +15,7 @@ Si los scripts no conservaron el bit ejecutable (clonado desde Windows): `git up
 | Claves Data Protection | volumen `bury-keys` (`/keys`) | **Sí** | Se invalidan cookies y antiforgery **y los tokens de Mercado Libre guardados cifrados en la DB quedan ilegibles** (re-OAuth). Verificado: sin las claves, una sesión previa deja de valer | tar de archivos |
 | `uploads` (documentos/imágenes de clientes) | volumen `bury-uploads` | **Sí, no regenerable** | se pierden los documentos | tar de archivos |
 | `App_Data` (contratos de venta a crédito generados) | volumen `bury-appdata` | **Sí, no regenerable** | se pierden los contratos emitidos | tar de archivos |
-| `caddy-data` (cuenta ACME + certificados) | volumen `caddy-data` | No — *acelera* la recuperación | Caddy reemite el certificado (necesita DNS y 80/443; riesgo de rate-limit de Let's Encrypt si se reemite muchas veces) | tar de archivos (incluido, `BACKUP_INCLUDE_CADDY`) |
+| `caddy-data` (CA interna de Caddy + certificados) | volumen `caddy-data` | No — *acelera* la recuperación | Caddy regenera su CA y certificados internos; **los clientes deberán volver a confiar en la nueva CA raíz** (por eso conviene respaldar `caddy-data`) | tar de archivos (incluido, `BACKUP_INCLUDE_CADDY`) |
 | `caddy-config` | volumen `caddy-config` | No | se regenera desde el `Caddyfile` | **no** se respalda |
 | Esquema/seeds (roles, permisos, plantilla) | migraciones en la imagen | No | los recrea el servicio `migrate` | no |
 | **`.env` y `backup-offsite.env`** | el servidor | **Sí** | sin ellos no se puede levantar el stack ni **descargar** la copia externa | **NO están en los backups** (son secretos): guardarlos en un gestor de contraseñas fuera del servidor |

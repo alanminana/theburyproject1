@@ -61,9 +61,10 @@ Ejemplo: `-v bury-uploads:/app/wwwroot/uploads`
 
 ## 5. HTTPS / red
 
-- Caddy (servicio `caddy`, `Caddyfile`) termina TLS (ACME + renovación) y redirige HTTP→HTTPS; es lo único publicado
-  (80/443). `app` (Kestrel, HTTP 8080) y `db` (1433) solo son alcanzables por la red interna `bury-net`.
-- Requiere `ERP_DOMAIN` real en `.env` con DNS apuntando al servidor y 80/443 abiertos. Firewall: permitir 80/443; no exponer 8080 ni 1433.
+- Caddy (servicio `caddy`, `Caddyfile`) termina TLS con su CA interna (`tls internal`, sin ACME público); es lo único publicado
+  (443 TCP/UDP; el puerto 80 ya no se publica). `app` (Kestrel, HTTP 8080) y `db` (1433) solo son alcanzables por la red interna `bury-net`.
+- `ERP_DOMAIN` es un hostname interno (p. ej. `tbp`), sin DNS público. Instalación privada LAN/VPN: ver `docs/red-privada-lan-vpn.md`
+  (resolución en clientes, confianza en la CA, portabilidad de host). Firewall: permitir 443 solo desde LAN/VPN; no exponer 8080 ni 1433.
 - Forwarded Headers (`Program.cs`, primer middleware): solo confía en X-Forwarded-* de loopback y de
   `ForwardedHeaders__KnownNetworks` (= `BURY_NET_SUBNET`, subred fija de `bury-net`). No usar `ASPNETCORE_FORWARDEDHEADERS_ENABLED`.
 - En no-Development la app aplica HSTS (solo sobre HTTPS resuelto vía forwarded headers). `UseHttpsRedirection()` solo se
