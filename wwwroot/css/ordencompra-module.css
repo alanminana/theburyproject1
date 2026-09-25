@@ -365,18 +365,14 @@ html.dark .ordencompra-summary-totals {
 
 
 /* ══════════════════════════════════════════════════════════════
-   RECEPCIONAR  (prefix: ocr = orden-compra-recepcionar)
+   RECEPCIÓN (integrada en Details)
    ══════════════════════════════════════════════════════════════ */
 
-.ocr-products-table th,
-.ocr-products-table td {
-    padding: 0.625rem 1rem;
-}
-
+/* Modo recepción: 7 columnas, padding lateral más compacto para evitar scroll horizontal en desktop */
 @media (min-width: 768px) {
-    .ocr-products-table th,
-    .ocr-products-table td {
-        padding: 0.7rem 1.25rem;
+    .ocd-products-table--recepcion th,
+    .ocd-products-table--recepcion td {
+        padding: 0.7rem 0.75rem;
     }
 }
 

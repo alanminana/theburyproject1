@@ -124,8 +124,8 @@ namespace TheBuryProject.Controllers
                     {
                         id = m.Id,
                         productoId = m.ProductoId,
-                        fecha = m.Fecha.ToString("dd MMM yyyy"),
-                        hora = m.Fecha.ToString("HH:mm:ss"),
+                        fecha = m.Fecha.ToLocalTime().ToString("dd MMM yyyy"),
+                        hora = m.Fecha.ToLocalTime().ToString("HH:mm:ss"),
                         tipo = m.Tipo.ToString(),
                         tipoNombre = m.TipoNombre ?? m.Tipo.ToString(),
                         productoNombre = m.ProductoNombre,
