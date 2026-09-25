@@ -1477,6 +1477,13 @@ select.field {
     min-width: 0;
 }
 
+/* El nombre es lo primero que se busca en un listado de clientes: pesa más que el resto de
+   los datos de la fila (crítica de diseño /ui-module 2026-09-25). */
+.cliente-table .cliente-name-cell .font-medium {
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
 .cliente-name-cell .font-medium,
 .tbl td .text-sm,
 .tbl td .text-xs,
@@ -1519,6 +1526,12 @@ select.field {
     gap: 0.3rem;
     margin-bottom: 0.35rem;
     min-width: 0;
+}
+
+.cliente-aptitud-badge {
+    align-self: flex-start;
+    margin-top: 0.25rem;
+    line-height: 1.2;
 }
 
 .cliente-credit-cell .num {
@@ -1575,6 +1588,7 @@ select.field {
 .cliente-row-menu__item {
     display: flex;
     align-items: center;
+    justify-content: flex-start;
     gap: 0.5rem;
     width: 100%;
     padding: 0.625rem 0.75rem;
@@ -1585,6 +1599,14 @@ select.field {
     font-weight: 700;
     text-align: left;
     cursor: pointer;
+}
+
+/* Los links del menú llevan ícono + texto, pero la regla global de erp-responsive-system.css
+   (a[href]:has(> .material-symbols-outlined:only-child)) los trata como "solo ícono" y los centra;
+   se restituye la alineación a la izquierda igual que el ítem botón. */
+.cliente-index .cliente-row-menu__content a[href].cliente-row-menu__item {
+    display: flex;
+    justify-content: flex-start;
 }
 
 .cliente-row-menu__item:hover,

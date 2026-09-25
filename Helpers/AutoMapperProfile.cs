@@ -191,7 +191,8 @@ namespace TheBuryProject.Helpers
 
             CreateMap<ClienteViewModel, Cliente>()
                 .ForMember(d => d.Creditos, o => o.Ignore())
-                .ForMember(d => d.ComoGarante, o => o.Ignore());
+                .ForMember(d => d.ComoGarante, o => o.Ignore())
+                .ForMember(d => d.EstadoCrediticio, o => o.Ignore());
 
             // =======================
             // Credito

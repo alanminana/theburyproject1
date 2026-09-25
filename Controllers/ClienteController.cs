@@ -93,6 +93,7 @@ namespace TheBuryProject.Controllers
                 // La UI oculta "Editar"/"Eliminar" sin permiso, pero el gate real vive en el
                 // controller ([PermisoRequerido] en Edit/Delete): ocultar un botón no reemplaza
                 // esa verificación, solo evita ofrecer una acción que el backend va a rechazar.
+                ViewBag.PuedeCrearClientes = _currentUser.HasPermission("clientes", "create");
                 ViewBag.PuedeEditarClientes = _currentUser.HasPermission("clientes", "edit");
                 ViewBag.PuedeEliminarClientes = _currentUser.HasPermission("clientes", "delete");
 

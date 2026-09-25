@@ -1699,6 +1699,27 @@ y preferir la composición sin hero de Catálogo:
   lo muestra la barra superior global (`_Layout.cshtml`), y el subtítulo era descriptivo
   sin valor de decisión, redundante con el propio nombre de la pantalla;
 - "Nuevo cliente" y el menú "Más" (Documentos/Créditos/Límites por puntaje) se mueven a
+### Cliente / cierre de módulo — barrido `/ui-module` (2026-09-25)
+
+Barrido de todas las superficies del módulo (Index con datos y sin resultados, menú "Más", modal
+"Límites por puntaje", drawer de alta, Details, Edit y Delete) en 1440×900 y 390×844, sin overflow ni
+errores de consola. Lo ya auditado el 2026-09-24 no se reabrió; la única superficie sin auditar era el
+modal de límites. Cambios (solo Razor/CSS, sin negocio, permisos ni contratos):
+- **Menú "Más" en mobile (P2, visual)**: Documentos y Créditos salían centrados y desalineados de
+  "Límites por puntaje". Causa: la regla global de `erp-responsive-system.css` para links de "solo ícono"
+  (`a[href]:has(> .material-symbols-outlined:only-child)`) los centraba. Se restituye la alineación
+  izquierda con un selector local en `cliente-module.css`.
+- **Modal "Límites por puntaje" (P2, microcopy/señal falsa)**: sin tildes ("Limites", "configuracion",
+  "maximo"), voseo inconsistente ("No tenes permiso") y los puntajes 3 y 5 resaltados en verde sin
+  significado alguno. Se corrige el texto, todos los puntajes quedan neutros y en modo lectura el botón
+  dice "Cerrar" en vez de "Cancelar".
+
+Validación técnica: 503/503 tests `Cliente*` (2 omitidos por diseño). Lo que en el primer barrido quedó sin validar por falta de datos (paginación multi-página, roles sin permisos, guardado real) se validó después en una copia QA de la base; ver abajo. La decisión de producto sobre mostrar la aptitud en el listado ("Disponible $1.000.000.000" en un cliente que Details marca "No apto") se resolvió mostrando el badge.
+**Aptitud en el listado (implementada y validada en base QA)**: `ClienteViewModel.EstadoCrediticio` (ignorada en el mapeo inverso) y un badge "No apto" / "Requiere autorización" bajo "Disponible" en tabla y tarjetas de `Cliente/Index` (Apto/No evaluado no muestran nada; "Requiere autorización" baja a 2 líneas en 1024–1440px, sin recorte). **Hallazgo P1 corregido**: un rol solo-lectura (Cajero) veía "Nuevo cliente" (barra y estado vacío) aunque `Create` le da AccessDenied; ahora se oculta con `ViewBag.PuedeCrearClientes` (`clientes.create`). Validado en una copia QA de la base (30 clientes sembrados, luego eliminada) en 1440/1280/1024/768/390/360: sin overflow ni errores de consola; paginación 25/31 y página 2, clamp de página 99, filtros conservados al paginar; Cajero: sin Nuevo/Editar/Baja, Edit/Delete/Create → AccessDenied, modal de límites en solo lectura (inputs deshabilitados, "Cerrar"); Vendedor: Editar y Nuevo sí, Baja no; alta real por el drawer y guardado real de límites OK; e2e wizard/validación/solapas 41/41 en 1440 y 390; 503/503 `Cliente*`. Contador validado (su "login fallido" era el paso de Términos y Condiciones del primer ingreso, que pide además nombre y apellido; no es un defecto): sin Nuevo/Editar/Baja, Create/Edit/Delete → AccessDenied, límites en solo lectura.
+
+**Crítica `impeccable critique` (dual-agent: A revisión de diseño 26/40 · B detector + evidencia de navegador)**. Detector estático sobre `Views/Cliente`: exit 0, 0 hallazgos; el overlay vivo (headless, sin pestaña [Human]) dio ruido heredado del shell compartido (`layout-transition`, `clipped-overflow-container`, `dark-glow` del token primario). Corregido en esta pasada: (1) Details: la card "Crédito disponible" seguía en lima junto a "No apto" (contradicción; ahora neutra y con "· no habilita operar a crédito" / "· requiere autorización"); (2) Index: el nombre del cliente era lo más liviano de la fila (ahora 14px/600); (3) el menú "Más" quedaba abierto detrás del modal de límites (se cierra al abrirlo). No se tocó, con motivo: filtros `tp-filter-*` sin etiqueta (pertenecen al panel de tickets del layout, no a Clientes); contraste 4.0:1 de `#15110a` sobre `#607e16` (token compartido de gradiente lima, fuera del módulo); targets táctiles de 40px en mobile (el estándar del ERP no fija 44px); nombre en minúsculas (dato cargado); "Crediticio" vs "Crédito" (contenidos distintos: montos personalizados vs resumen); filtro rápido por aptitud y compactar importes (funcionalidad nueva, no pedida).
+
+
   una toolbar dentro del mismo card de contenido (`.cliente-section`), alineada a la
   derecha por encima de "Listado de clientes" — mismo criterio que la fila de
   tabs+acciones de `Catálogo/Index_tw.cshtml` y `Venta/Index_tw.cshtml`

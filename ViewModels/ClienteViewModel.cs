@@ -264,6 +264,11 @@ namespace TheBuryProject.ViewModels
         public bool CreditoRequiereConfiguracion { get; set; }
         public string? CreditoMensajeError { get; set; }
 
+        // Aptitud crediticia persistida (semáforo de Details), solo lectura para el listado:
+        // permite avisar en Cliente/Index que un cupo "Disponible" no implica poder operar a
+        // crédito. El mapeo inverso ViewModel→Cliente la ignora (no se edita desde formularios).
+        public EstadoCrediticioCliente EstadoCrediticio { get; set; } = EstadoCrediticioCliente.NoEvaluado;
+
         private static string? NormalizeDigitsOrNull(string? value)
         {
             if (string.IsNullOrWhiteSpace(value))
