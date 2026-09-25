@@ -41,12 +41,12 @@
     };
 
     var transicionesCfg = {
-        0: [{ label: 'Iniciar',   value: 1, cls: 'bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20' },
+        0: [{ label: 'Marcar en curso',   value: 1, cls: 'bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20' },
             { label: 'Cancelar',  value: 3, cls: 'bg-slate-700 text-slate-300 hover:bg-slate-600' }],
-        1: [{ label: 'Resolver',  value: 2, cls: 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20' },
+        1: [{ label: 'Marcar resuelto',  value: 2, cls: 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20' },
             { label: 'Cancelar',  value: 3, cls: 'bg-slate-700 text-slate-300 hover:bg-slate-600' }],
         2: [{ label: 'Reabrir',   value: 1, cls: 'bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20' }],
-        3: [{ label: 'Reactivar', value: 0, cls: 'bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20' }]
+        3: [{ label: 'Reabrir', value: 0, cls: 'bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20' }]
     };
 
     // ── Init ──────────────────────────────────────────────────────────────
@@ -145,6 +145,15 @@
         panel.setAttribute('aria-hidden', 'true');
         if (overlay) { overlay.classList.add('hidden'); overlay.classList.remove('flex'); }
         document.body.style.overflow = '';
+
+        // El listado y el detalle de Tickets se renderizan en el servidor: si el panel cambió algo,
+        // se recargan al cerrarlo para que no muestren el estado viejo.
+        if (state.dirty) {
+            state.dirty = false;
+            if (document.getElementById('form-filtros-tickets') || document.querySelector('[data-ticket-status-action]')) {
+                window.location.reload();
+            }
+        }
     }
 
     // ── View switching ────────────────────────────────────────────────────
@@ -294,7 +303,7 @@
         }
         html += '<div class="flex flex-wrap gap-3 text-xs text-slate-600">';
         if (ticket.createdBy) html += '<span>Por: <span class="text-slate-400">' + esc(ticket.createdBy) + '</span></span>';
-        if (ticket.createdAt) html += '<span>' + new Date(ticket.createdAt).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' }) + '</span>';
+        if (ticket.createdAt) html += '<span>' + new Date(ticket.createdAt).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short', hour12: false }) + '</span>';
         html += '</div>';
         html += '</div>';
 
@@ -317,7 +326,7 @@
             html += '<p class="text-sm text-emerald-300 leading-relaxed">' + esc(ticket.resolucion).replace(/\n/g, '<br>') + '</p>';
             if (ticket.resueltoPor) {
                 html += '<p class="text-xs text-slate-500">Por: ' + esc(ticket.resueltoPor);
-                if (ticket.fechaResolucion) html += ' · ' + new Date(ticket.fechaResolucion).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' });
+                if (ticket.fechaResolucion) html += ' · ' + new Date(ticket.fechaResolucion).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short', hour12: false });
                 html += '</p>';
             }
             html += '</div></div>';
@@ -372,7 +381,9 @@
                 var icon  = isImg ? 'image' : 'attach_file';
                 var size  = adj.tamanoBytes > 1048576
                     ? (adj.tamanoBytes / 1048576).toFixed(1) + ' MB'
-                    : Math.round(adj.tamanoBytes / 1024) + ' KB';
+                    : adj.tamanoBytes >= 1024
+                        ? Math.round(adj.tamanoBytes / 1024) + ' KB'
+                        : adj.tamanoBytes + ' B';
                 html += '<li class="flex items-center gap-2 group" data-aid="' + adj.id + '">';
                 html += '<span class="material-symbols-outlined text-sm text-slate-500 shrink-0">' + icon + '</span>';
                 html += '<a href="/' + esc(adj.rutaArchivo) + '" target="_blank" rel="noopener" class="flex-1 min-w-0 text-xs text-slate-300 hover:text-primary truncate no-underline">' + esc(adj.nombreArchivo) + '</a>';
@@ -472,6 +483,9 @@
             method: method,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body)
+        }).then(function (r) {
+            if (r.ok) state.dirty = true;
+            return r;
         });
     }
 
@@ -506,13 +520,13 @@
 
     function apiDeleteCheck(itemId, ticketId) {
         fetch('/api/tickets/checklist/' + itemId, { method: 'DELETE' })
-            .then(function (r) { if (r.ok || r.status === 204) openDetalle(ticketId); })
+            .then(function (r) { if (r.ok || r.status === 204) { state.dirty = true; openDetalle(ticketId); } })
             .catch(function () { toast('Error al eliminar ítem.', 'error'); });
     }
 
     function apiDeleteAdj(adjId, ticketId) {
         fetch('/api/tickets/adjuntos/' + adjId, { method: 'DELETE' })
-            .then(function (r) { if (r.ok || r.status === 204) openDetalle(ticketId); })
+            .then(function (r) { if (r.ok || r.status === 204) { state.dirty = true; openDetalle(ticketId); } })
             .catch(function () { toast('Error al eliminar adjunto.', 'error'); });
     }
 
@@ -521,7 +535,7 @@
         fd.append('archivo', file);
         fetch('/api/tickets/' + ticketId + '/adjuntos', { method: 'POST', body: fd })
             .then(function (r) {
-                if (r.ok) { openDetalle(ticketId); }
+                if (r.ok) { state.dirty = true; openDetalle(ticketId); }
                 else r.json().then(function (d) { toast(d.error || 'Error al subir el archivo.', 'error'); });
             })
             .catch(function () { toast('Error de conexión.', 'error'); });

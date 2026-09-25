@@ -24,105 +24,97 @@
         TipoTicket.NuevaFuncionalidad  => "badge-erp badge-erp-success",
         _                              => "badge-erp badge-erp-neutral",
     };
+    // Volver a un estado anterior (Resuelto/Cancelado -> En Curso/Pendiente) se llama "Reabrir".
+    string AccionLabel(EstadoTicket actual, EstadoTicket nuevo) =>
+        (actual == EstadoTicket.Resuelto || actual == EstadoTicket.Cancelado) &&
+        (nuevo == EstadoTicket.EnCurso || nuevo == EstadoTicket.Pendiente)
+            ? "Reabrir"
+            : TicketUiHelper.AccionEstadoLabel(nuevo);
 }
 
 @section Styles {
     <partial name="_TicketModuleStyles" />
 }
 
-<div class="space-y-8">
+<div class="tk-page space-y-6">
 
-    <!-- ═══════════════════════════════════════════════════════════ -->
-    <!-- Hero                                                       -->
-    <!-- ═══════════════════════════════════════════════════════════ -->
-    <section class="hero-erp sm:p-8">
-        <header class="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
-            <div class="max-w-3xl space-y-4">
-                <nav aria-label="Breadcrumb" class="flex text-sm font-medium text-slate-400">
-                    <ol class="inline-flex flex-wrap items-center gap-y-1">
-                        <li><span class="text-slate-500">Sistemas</span></li>
-                        <li><span class="mx-2 text-slate-600">/</span></li>
-                        <li><a asp-controller="Ticket" asp-action="Index" class="hover:text-primary no-underline">Tickets</a></li>
-                        <li><span class="mx-2 text-slate-600">/</span></li>
-                        <li class="text-slate-100">#@Model.Id</li>
-                    </ol>
-                </nav>
+    @* Sin hero (ERP-UI-STANDARD §4): la barra global ya dice "Ticket #N"; acá va el título real del
+       reporte. Las acciones van debajo, en su propia fila, para que un título largo no quede aplastado. *@
+    <section class="card-erp-panel tk-detail-head">
+        <nav aria-label="Breadcrumb" class="flex text-sm font-medium text-slate-400">
+            <ol class="inline-flex flex-wrap items-center gap-y-1">
+                <li><span class="text-slate-500">Sistemas</span></li>
+                <li><span class="mx-2 text-slate-600">/</span></li>
+                <li><a asp-controller="Ticket" asp-action="Index" class="hover:text-primary no-underline">Tickets</a></li>
+                <li><span class="mx-2 text-slate-600">/</span></li>
+                <li class="text-slate-100" aria-current="page">#@Model.Id</li>
+            </ol>
+        </nav>
 
-                <div class="space-y-3">
-                    <div class="flex flex-wrap items-center gap-2">
-                        <span class="@estadoBadge">@Model.EstadoNombre</span>
-                        <span class="@tipoBadge">@Model.TipoNombre</span>
-                    </div>
-                    <div class="space-y-2">
-                        <h1 class="text-2xl font-black tracking-tight text-white sm:text-3xl">@Model.Titulo</h1>
-                        <p class="font-mono text-xs text-slate-500">Ticket #@Model.Id</p>
-                    </div>
-                    <div class="flex flex-wrap items-center gap-3 text-sm text-slate-400">
-                        @if (!string.IsNullOrEmpty(Model.CreatedBy))
-                        {
-                            <span class="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-950/40 px-3 py-1.5 font-semibold text-slate-300">
-                                <span class="material-symbols-outlined text-sm">person</span>
-                                @Model.CreatedBy
-                            </span>
-                        }
-                        <span class="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-950/40 px-3 py-1.5 font-semibold text-slate-300">
-                            <span class="material-symbols-outlined text-sm">calendar_today</span>
-                            @Model.CreatedAt.ToString("dd/MM/yyyy HH:mm")
-                        </span>
-                        @if (!string.IsNullOrEmpty(Model.ModuloOrigen))
-                        {
-                            <span class="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-950/40 px-3 py-1.5 font-semibold text-slate-300">
-                                <span class="material-symbols-outlined text-sm">layers</span>
-                                @Model.ModuloOrigen
-                            </span>
-                        }
-                    </div>
-                </div>
-            </div>
+        <div class="mt-4 flex flex-wrap items-center gap-2">
+            <span class="@estadoBadge">@Model.EstadoNombre</span>
+            <span class="@tipoBadge">@Model.TipoNombre</span>
+        </div>
 
-            <div class="flex w-full flex-col gap-3 sm:flex-row xl:w-auto xl:items-start">
-                @if (canViewTicketPanel)
-                {
-                    <button type="button"
-                            data-ticket-panel-open="@Model.Id"
-                            class="btn-erp-primary no-underline">
-                        <span class="material-symbols-outlined text-[20px]">manage_search</span>
-                        Gestionar en panel
-                    </button>
-                }
-                @foreach (var nuevoEstado in transicionesPermitidas)
-                {
-                    <button type="button"
-                            class="btn-erp-ghost"
-                            data-ticket-status-action
-                            data-ticket-id="@Model.Id"
-                            data-ticket-title="@Model.Titulo"
-                            data-ticket-current-label="@Model.EstadoNombre"
-                            data-ticket-new-status="@((int)nuevoEstado)"
-                            data-ticket-new-label="@nuevoEstado.GetDisplayName()"
-                            data-ticket-requires-description="@TicketUiHelper.RequiereDescripcion(nuevoEstado).ToString().ToLowerInvariant()">
-                        <span class="material-symbols-outlined text-[20px]">@TicketUiHelper.EstadoIcon(nuevoEstado)</span>
-                        @TicketUiHelper.AccionEstadoLabel(nuevoEstado)
-                    </button>
-                }
-                @if (canDeleteTicket)
-                {
-                    <button type="button"
-                            class="inline-flex items-center justify-center gap-2 rounded-lg bg-rose-500/10 px-4 py-2 text-sm font-bold text-rose-300 transition-colors hover:bg-rose-500 hover:text-white"
-                            data-ticket-delete-action
-                            data-ticket-id="@Model.Id"
-                            data-ticket-title="@Model.Titulo">
-                        <span class="material-symbols-outlined text-[20px]">delete</span>
-                        Eliminar
-                    </button>
-                }
-                <a asp-action="Index"
-                   class="btn-erp-ghost no-underline">
-                    <span class="material-symbols-outlined text-[20px]">arrow_back</span>
-                    Volver al listado
-                </a>
-            </div>
-        </header>
+        <h1 class="tk-detail-title mt-3 text-2xl font-black tracking-tight text-white sm:text-3xl">@Model.Titulo</h1>
+
+        <p class="mt-3 text-sm text-slate-400">
+            @if (!string.IsNullOrEmpty(Model.CreatedBy))
+            {
+                <span>Reportado por <strong class="font-semibold text-slate-300">@Model.CreatedBy</strong> el </span>
+            }
+            else
+            {
+                <span>Creado el </span>
+            }
+            <time datetime="@Model.CreatedAt.ToString("s")">@Model.CreatedAt.ToString("dd/MM/yyyy HH:mm")</time>
+            @if (!string.IsNullOrEmpty(Model.ModuloOrigen))
+            {
+                <span> · desde <strong class="font-semibold text-slate-300">@Model.ModuloOrigen</strong></span>
+            }
+        </p>
+
+        <div class="tk-detail-actions">
+            @if (canViewTicketPanel)
+            {
+                <button type="button"
+                        data-ticket-panel-open="@Model.Id"
+                        class="btn-erp-primary no-underline">
+                    <span class="material-symbols-outlined text-[20px]" aria-hidden="true">manage_search</span>
+                    Gestionar en panel
+                </button>
+            }
+            @foreach (var nuevoEstado in transicionesPermitidas)
+            {
+                <button type="button"
+                        class="btn-erp-ghost"
+                        data-ticket-status-action
+                        data-ticket-id="@Model.Id"
+                        data-ticket-title="@Model.Titulo"
+                        data-ticket-current-label="@Model.EstadoNombre"
+                        data-ticket-new-status="@((int)nuevoEstado)"
+                        data-ticket-new-label="@nuevoEstado.GetDisplayName()"
+                        data-ticket-requires-description="@TicketUiHelper.RequiereDescripcion(nuevoEstado).ToString().ToLowerInvariant()">
+                    <span class="material-symbols-outlined text-[20px]" aria-hidden="true">@TicketUiHelper.EstadoIcon(nuevoEstado)</span>
+                    @AccionLabel(Model.Estado, nuevoEstado)
+                </button>
+            }
+            <a asp-action="Index" class="btn-erp-ghost no-underline">
+                <span class="material-symbols-outlined text-[20px]" aria-hidden="true">arrow_back</span>
+                Volver al listado
+            </a>
+            @if (canDeleteTicket)
+            {
+                <button type="button"
+                        class="tk-detail-delete inline-flex items-center justify-center gap-2 rounded-lg bg-rose-500/10 px-4 py-2 text-sm font-bold text-rose-300 transition-colors hover:bg-rose-500 hover:text-white"
+                        data-ticket-delete-action
+                        data-ticket-id="@Model.Id"
+                        data-ticket-title="@Model.Titulo">
+                    <span class="material-symbols-outlined text-[20px]" aria-hidden="true">delete</span>
+                    Eliminar
+                </button>
+            }
+        </div>
     </section>
 
     <!-- ═══════════════════════════════════════════════════════════ -->
@@ -142,7 +134,14 @@
                     </h2>
                 </div>
                 <div class="p-6">
-                    <p class="text-sm leading-relaxed text-slate-300 whitespace-pre-wrap">@Model.Descripcion</p>
+                    @if (string.IsNullOrWhiteSpace(Model.Descripcion))
+                    {
+                        <p class="text-sm text-slate-500">Sin descripción registrada.</p>
+                    }
+                    else
+                    {
+                        <p class="text-sm leading-relaxed text-slate-300 whitespace-pre-wrap">@Model.Descripcion</p>
+                    }
                 </div>
             </section>
 
@@ -236,7 +235,7 @@
                                 <div class="min-w-0 flex-1">
                                     <p class="truncate text-sm font-semibold text-slate-200">@adj.NombreArchivo</p>
                                     <p class="text-[11px] text-slate-500">
-                                        @((adj.TamanoBytes / 1024.0).ToString("F1")) KB
+                                        @(adj.TamanoBytes >= 1048576 ? $"{adj.TamanoBytes / 1048576.0:F1} MB" : adj.TamanoBytes >= 1024 ? $"{adj.TamanoBytes / 1024.0:F1} KB" : $"{adj.TamanoBytes} B")
                                         @if (!string.IsNullOrEmpty(adj.TipoMIME))
                                         {
                                             <span> &middot; @adj.TipoMIME</span>
@@ -272,14 +271,6 @@
                             <dd class="font-mono text-slate-200">#@Model.Id</dd>
                         </div>
                         <div class="flex items-center justify-between px-5 py-3">
-                            <dt class="text-xs font-semibold uppercase text-slate-500">Estado</dt>
-                            <dd><span class="@estadoBadge">@Model.EstadoNombre</span></dd>
-                        </div>
-                        <div class="flex items-center justify-between px-5 py-3">
-                            <dt class="text-xs font-semibold uppercase text-slate-500">Tipo</dt>
-                            <dd><span class="@tipoBadge">@Model.TipoNombre</span></dd>
-                        </div>
-                        <div class="flex items-center justify-between px-5 py-3">
                             <dt class="text-xs font-semibold uppercase text-slate-500">Reportado por</dt>
                             <dd class="text-slate-200 text-right truncate max-w-[10rem]">@(Model.CreatedBy ?? "—")</dd>
                         </div>
@@ -313,7 +304,7 @@
                             <div class="flex items-center justify-between px-5 py-3">
                                 <dt class="text-xs font-semibold uppercase text-slate-500">URL origen</dt>
                                 <dd>
-                                    <a href="@Model.UrlOrigen" class="text-primary-on-dark hover:underline text-[11px] truncate max-w-[10rem] block text-right no-underline">
+                                    <a href="@Model.UrlOrigen" class="text-primary-on-dark hover:underline text-[11px] break-all block text-right no-underline">
                                         @Model.UrlOrigen
                                     </a>
                                 </dd>
@@ -337,8 +328,8 @@
                             <div class="space-y-3">
                                 <p class="leading-relaxed">
                                     @(canManageTicket
-                                        ? "Las acciones de estado, resolución, checklist y adjuntos se gestionan desde el panel existente."
-                                        : "Podés consultar este ticket en el panel existente. Las acciones de gestión dependen de tus permisos.")
+                                        ? "En el panel lateral también podés registrar la resolución, usar el checklist y subir adjuntos."
+                                        : "Podés consultar este ticket en el panel lateral. Las acciones disponibles dependen de tus permisos.")
                                 </p>
                                 <button type="button"
                                         data-ticket-panel-open="@Model.Id"

@@ -1,6 +1,7 @@
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Data;
+using TheBuryProject.Helpers;
 using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
@@ -164,7 +165,7 @@ public class TicketService : ITicketService
     {
         var ticket = await ObtenerEntidadOFallarAsync(id);
 
-        ValidarTransicionEstado(ticket.Estado, request.NuevoEstado);
+        ValidarTransicionEstado(ticket.Id, ticket.Estado, request.NuevoEstado);
 
         ticket.Estado = request.NuevoEstado;
         await _context.SaveChangesAsync();
@@ -199,7 +200,7 @@ public class TicketService : ITicketService
 
         foreach (var ticket in tickets)
         {
-            ValidarTransicionEstado(ticket.Estado, nuevoEstado);
+            ValidarTransicionEstado(ticket.Id, ticket.Estado, nuevoEstado);
 
             if (nuevoEstado == EstadoTicket.Resuelto)
             {
@@ -228,7 +229,7 @@ public class TicketService : ITicketService
         var ticket = await ObtenerEntidadOFallarAsync(id);
 
         // Delega al mismo validador que CambiarEstadoAsync: solo EnCurso→Resuelto es válido
-        ValidarTransicionEstado(ticket.Estado, EstadoTicket.Resuelto);
+        ValidarTransicionEstado(ticket.Id, ticket.Estado, EstadoTicket.Resuelto);
 
         ticket.Resolucion = request.Resolucion.Trim();
         ticket.ResueltoPor = _currentUser.GetUsername();
@@ -384,7 +385,7 @@ public class TicketService : ITicketService
                 $"No se puede editar un ticket con estado '{ticket.Estado}'.");
     }
 
-    private static void ValidarTransicionEstado(EstadoTicket estadoActual, EstadoTicket nuevoEstado)
+    private static void ValidarTransicionEstado(int ticketId, EstadoTicket estadoActual, EstadoTicket nuevoEstado)
     {
         var transicionesValidas = new Dictionary<EstadoTicket, EstadoTicket[]>
         {
@@ -398,7 +399,7 @@ public class TicketService : ITicketService
             !validos.Contains(nuevoEstado))
         {
             throw new InvalidOperationException(
-                $"Transición inválida: '{estadoActual}' → '{nuevoEstado}'.");
+                $"El ticket #{ticketId} no puede pasar de {estadoActual.GetDisplayName()} a {nuevoEstado.GetDisplayName()}. No se modificó ningún ticket.");
         }
     }
 }

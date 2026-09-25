@@ -98,6 +98,14 @@
         }
     }
 
+    // Estados a los que ese ticket puede pasar (los mismos botones que la vista ya resolvió
+    // con la regla de transiciones y los permisos del usuario).
+    function allowedStatusesFor(ticketId) {
+        return Array.prototype.slice
+            .call(document.querySelectorAll('[data-ticket-status-action][data-ticket-id="' + ticketId + '"]'))
+            .map(function (button) { return button.dataset.ticketNewStatus; });
+    }
+
     function openStatusModal(options) {
         var modal = getStatusModal();
         if (!modal) return;
@@ -128,6 +136,10 @@
         }
 
         if (select) {
+            var allowed = ids.length === 1 ? allowedStatusesFor(ids[0]) : [];
+            Array.prototype.forEach.call(select.options, function (option) {
+                option.disabled = allowed.length > 0 && option.value !== '' && allowed.indexOf(option.value) === -1;
+            });
             select.value = options.newStatus || '';
         }
 
@@ -332,6 +344,13 @@
         if (event.key === 'Escape') {
             closeStatusModal();
         }
+    });
+
+    // El listado se renderiza en el servidor: tras reportar una incidencia desde acá, se recarga
+    // (con una pausa corta para que se llegue a leer el aviso de éxito).
+    document.addEventListener('ticket:created', function () {
+        if (!document.getElementById('form-filtros-tickets')) return;
+        window.setTimeout(function () { window.location.reload(); }, 1500);
     });
 
     document.addEventListener('DOMContentLoaded', function () {
