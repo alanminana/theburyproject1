@@ -2272,19 +2272,19 @@
        pintado: ningún dato, selección ni cálculo. Sin orden guardado rige el automático
        (planes disponibles primero, por plan más barato).
        --------------------------------------------------------------------- */
-    const ORDEN_MEDIOS_KEY = 'cotizacion.ordenMedios.v1';
+    const ORDEN_MEDIOS_STORAGE_ID = 'cotizacion.ordenMedios.v1';
 
     function cargarOrdenMedios() {
         try {
-            const v = JSON.parse(localStorage.getItem(ORDEN_MEDIOS_KEY) || '[]');
+            const v = JSON.parse(localStorage.getItem(ORDEN_MEDIOS_STORAGE_ID) || '[]');
             return Array.isArray(v) ? v.map(String) : [];
         } catch { return []; }
     }
 
     function guardarOrdenMedios(orden) {
         try {
-            if (orden && orden.length) localStorage.setItem(ORDEN_MEDIOS_KEY, JSON.stringify(orden));
-            else localStorage.removeItem(ORDEN_MEDIOS_KEY);
+            if (orden && orden.length) localStorage.setItem(ORDEN_MEDIOS_STORAGE_ID, JSON.stringify(orden));
+            else localStorage.removeItem(ORDEN_MEDIOS_STORAGE_ID);
         } catch { /* sin almacenamiento: no se persiste */ }
     }
 

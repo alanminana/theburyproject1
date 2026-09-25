@@ -117,7 +117,16 @@
             <!-- Nav -->
             <nav class="flex-1 px-4 space-y-8 mt-4 overflow-y-auto overflow-x-hidden">
 
-
+                @if (canViewDashboard)
+                {
+                    <div class="space-y-1">
+                        <a class="@NavClass(isDashboardActive)" aria-current="@NavCurrent(isDashboardActive)"
+                           asp-controller="Home" asp-action="Index" title="Dashboard">
+                            <span class="material-symbols-outlined text-lg shrink-0" aria-hidden="true">dashboard</span>
+                            <p class="@NavFont(isDashboardActive) sidebar-label">Dashboard</p>
+                        </a>
+                    </div>
+                }
 
                 @if (showOperaciones)
                 {
