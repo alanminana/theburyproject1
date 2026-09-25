@@ -12,7 +12,7 @@ faltan. Actualizar esta tabla al cerrar cada pantalla.
 | Venta | `Details` | ✅ Cerrado | serie VENTA-DETAILS (ver resumen abajo) + ENVIO-ML (ver resumen abajo) |
 | Cotización | `Simular` (`_CotizadorForm.cshtml`) | ✅ Cerrado | serie COTIZACION-SIMULAR-REDESIGN (ver resumen abajo) + ENVIO-ML (ver resumen abajo) |
 | ConfiguracionPago | `MediosPago` | ✅ Cerrado | ver resumen abajo |
-| Dashboard | `Index` | ◐ Auditoría 4 capas aplicada (2026-09-24) | estado del día en lugar de hero, tabs con contador, permisos en accesos/acciones, paneles planos, composición por ancho de columna; filas reales de cuotas verificadas en el saneamiento pre-PR; falta validar con un rol de permisos restringidos (ver sección abajo) |
+| Dashboard | `Index` | ◐ Auditoría 4 capas aplicada (2026-09-24) | estado del día en lugar de hero, tabs con contador, permisos en accesos/acciones, paneles planos, composición por ancho de columna; filas reales de cuotas verificadas en el saneamiento pre-PR; validado con roles restringidos (2026-09-24, cierre de módulo); datos financieros gateados por permiso de módulo |
 | Cliente | `Index` | ✅ Cerrado | CLIENTE-INDEX-SIN-HERO-01 (ver resumen abajo) |
 | Cliente | `Nuevo cliente` (drawer Create) | ✅ Cerrado | serie wizard Cliente (ver resumen abajo) |
 | Cliente | `Details` | ✅ Cerrado | serie CLIENTE-DETAILS-TABS (ver resumen abajo) |
@@ -1250,6 +1250,29 @@ B: detector + navegador) y luego `polish`; el detector devolvió 0 hallazgos sob
   el POST de "Autorizar" sin motivo muestra el error antes de que la persona escriba nada;
   `Credito/Index` tiene el título alineado a la derecha (`.credito-index-head {justify-content:flex-end}`);
   los `h1` del layout ("TheBuryProject") coexisten con el título de página.
+
+### Dashboard / Index — cierre de módulo `/ui-module dashboard` (2026-09-24, sin commit)
+
+Pipeline completo sobre clon de la LocalDB (`_qa`, crédito de 12 cuotas sembrado solo en el clon) y
+Chrome/Playwright propio; roles admin, contador y repositor. Impeccable `critique` con dos
+sub-agentes aislados (A diseño 25/40, B detector: 0 hallazgos) y `polish`.
+
+- *Corregido:* a 1440px el importe de la cuota se partía en "$ / 10.000,00" y las filas medían ~112px;
+  a 1280px la tabla recortaba Acciones. La columna Estado se fusionó en Vencimiento (Vencidas:
+  "Hace N d" con "Vencida" para lectores de pantalla; Próximas: fecha + "Por vencer/Programado"),
+  celdas `px-3 py-3`, importe y nº de crédito sin salto (filas ~65px, sin scroll horizontal a 1280).
+- *Permisos:* la columna Acciones ya no se dibuja si el rol no tiene ninguna acción; en Vencidas, sin
+  `cobranzas.payinstallment` pero con `creditos.view`, se ofrece "Ver crédito". "Ver créditos" con área táctil ≥40px.
+- *Validado:* 1440/1280/1024/768/390/360 (sin overflow, 0 errores de consola), tabs con mouse y teclado,
+  estado vacío/lleno, roles admin/contador/repositor, 488/488 tests de Dashboard/UiContract.
+- *Cierre de pendientes (2026-09-25, por pedido del usuario):* cada bloque financiero exige el permiso de su
+  módulo (Ventas del mes y actividad de ventas → `ventas.view`; Cobranza, Monto vencido, "Cuotas por cobrar"
+  y estado de cuotas → `creditos.view`; actividad de clientes → `clientes.view`); Repositor ya no ve montos ni
+  datos de clientes. KPIs con `auto-fit` (los visibles reparten el ancho) y el de cuotas vencidas encabeza la fila;
+  columna Acciones de "Alertas de stock" solo con `ordenescompra.create`; notas más bajas; `h1` de marca del
+  layout → `<p>` (un único `h1` por página); DNI/ID sin salto a 1280px sin scroll. Gating solo de vista: el
+  servicio sigue calculando todo (el gate del controller sigue siendo `dashboard.view`).
+- *Deuda menor restante:* ninguna conocida del módulo.
 
 ## Backlog transversal
 
