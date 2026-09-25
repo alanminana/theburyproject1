@@ -1,7 +1,6 @@
 @model ClienteCreditoLimitesViewModel
 @{
     var puedeAdministrar = ViewBag.PuedeAdministrarLimites as bool? ?? false;
-    var highlightScores = new[] { 3, 5 };
 }
 
 <div id="limitesModal" class="overlay open" aria-modal="true" role="dialog" aria-labelledby="limitesModalTitle">
@@ -12,8 +11,8 @@
                     <span class="material-symbols-outlined" style="font-size:17px">tune</span>
                 </div>
                 <div class="min-w-0 flex-1">
-                    <h2 id="limitesModalTitle" class="sec-title">Limites por puntaje</h2>
-                    <p class="sec-sub">Configuracion de monto maximo para cada puntaje interno (0 a 5).</p>
+                    <h2 id="limitesModalTitle" class="sec-title">Límites por puntaje</h2>
+                    <p class="sec-sub">Configuración del monto máximo para cada puntaje interno (0 a 5).</p>
                 </div>
                 <button type="button" data-cliente-close-limites-modal class="btn btn-ghost btn-sm" aria-label="Cerrar">
                     <span class="material-symbols-outlined">close</span>
@@ -31,7 +30,6 @@
                         {
                             var item = Model.Items[i];
                             var score = item.Puntaje;
-                            var isHighlight = highlightScores.Contains(score);
 
                             <input type="hidden" name="Items[@i].Id" value="@item.Id" />
                             <input type="hidden" name="Items[@i].Puntaje" value="@score" />
@@ -40,7 +38,7 @@
                             <div class="card-2" style="padding:.8rem">
                                 <div class="flex items-center justify-between gap-3">
                                     <div class="flex items-center gap-3">
-                                        <span class="avatar avatar-sm @(isHighlight ? string.Empty : "avatar--slate")">@score</span>
+                                        <span class="avatar avatar-sm avatar--slate">@score</span>
                                         <div>
                                             <div class="text-sm font-semibold text-white">Puntaje @score</div>
                                             <div class="text-xs muted-2">@(score == 0 ? "Cliente nuevo" : "Comportamiento")</div>
@@ -65,17 +63,17 @@
                     {
                         <div class="alert alert-info" style="margin-top:1rem">
                             <span class="material-symbols-outlined">lock</span>
-                            <span>No tenes permiso para modificar los limites. La configuracion se muestra en modo lectura.</span>
+                            <span>No tenés permiso para modificar los límites. La configuración se muestra en modo lectura.</span>
                         </div>
                     }
                 </div>
 
                 <div class="drawer-foot">
-                    <button type="button" data-cliente-close-limites-modal class="btn btn-ghost">Cancelar</button>
+                    <button type="button" data-cliente-close-limites-modal class="btn btn-ghost">@(puedeAdministrar ? "Cancelar" : "Cerrar")</button>
                     @if (puedeAdministrar)
                     {
                         <button type="submit" id="btnGuardarLimites" class="btn btn-primary">
-                            <span class="material-symbols-outlined">save</span>Guardar configuracion
+                            <span class="material-symbols-outlined">save</span>Guardar configuración
                         </button>
                     }
                 </div>

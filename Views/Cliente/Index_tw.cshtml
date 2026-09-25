@@ -6,6 +6,7 @@
     var clientes = Model.Clientes?.ToList() ?? new List<ClienteViewModel>();
     var totalEnPagina = clientes.Count;
     var errorCarga = ViewBag.ErrorCarga is true;
+    var puedeCrear = ViewBag.PuedeCrearClientes is true;
     var puedeEditar = ViewBag.PuedeEditarClientes is true;
     var puedeEliminar = ViewBag.PuedeEliminarClientes is true;
 
@@ -50,6 +51,15 @@
         "alto" => "block",
         "medio" => "gpp_maybe",
         _ => "verified"
+    };
+
+    // Aptitud crediticia persistida (misma que el semáforo de Details): "Disponible" es cupo,
+    // no permiso para operar. Solo se avisa cuando NO es apta; Apto/No evaluado no agregan ruido.
+    Microsoft.AspNetCore.Html.IHtmlContent AptitudBadge(ClienteViewModel cliente) => cliente.EstadoCrediticio switch
+    {
+        EstadoCrediticioCliente.NoApto => Html.Raw("<span class=\"badge-erp badge-erp-danger cliente-aptitud-badge\" title=\"Aptitud crediticia: no puede operar a crédito. Ver detalle en la ficha.\">No apto</span>"),
+        EstadoCrediticioCliente.RequiereAutorizacion => Html.Raw("<span class=\"badge-erp badge-erp-warning cliente-aptitud-badge\" title=\"Aptitud crediticia: requiere autorización de un supervisor.\">Requiere autorización</span>"),
+        _ => Microsoft.AspNetCore.Html.HtmlString.Empty
     };
 
     int RiesgoPct(ClienteViewModel cliente)
@@ -213,10 +223,13 @@ else
            ============================================================ *@
             <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end mb-3 cliente-head-actions"
                  aria-label="Acciones principales de clientes">
-                <button type="button" class="btn-erp-primary btn-sm w-full sm:w-auto" data-cliente-modal-open="create">
-                    <span class="material-symbols-outlined" aria-hidden="true">person_add</span>
-                    Nuevo cliente
-                </button>
+                @if (puedeCrear)
+                {
+                    <button type="button" class="btn-erp-primary btn-sm w-full sm:w-auto" data-cliente-modal-open="create">
+                        <span class="material-symbols-outlined" aria-hidden="true">person_add</span>
+                        Nuevo cliente
+                    </button>
+                }
 
                 @* Documentos/Créditos/Límites por puntaje no son acciones primarias de ESTA
                    pantalla (pertenecen a otros módulos) — quedan disponibles sin competir
@@ -676,7 +689,7 @@ else
                                                         <span class="text-sm font-semibold text-white num">
                                                             @((c.CreditoDisponible ?? 0m).ToString("C").Replace(' ', ' '))
                                                         </span>
-                                                        <span class="text-xs muted-2">Disponible</span>
+                                                        <span class="text-xs muted-2">Disponible</span>@AptitudBadge(c)
                                                     </div>
                                                 }
                                             </td>
@@ -887,7 +900,7 @@ else
                                 else
                                 {
                                     <div class="mm-value num">@((c.CreditoDisponible ?? 0m).ToString("C").Replace(' ', ' '))</div>
-                                    <div class="text-xs muted-2">Disponible</div>
+                                    <div class="text-xs muted-2">Disponible</div>@AptitudBadge(c)
                                 }
                             </div>
 
@@ -1022,17 +1035,15 @@ else
                                 No hay clientes registrados
                             </h3>
 
-                            <p>
-                                Creá tu primer cliente para comenzar.
-                            </p>
+                            @if (puedeCrear)
+                            {
+                                <p>Creá tu primer cliente para comenzar.</p>
 
-                            <button type="button" class="btn btn-soft btn-sm empty-action" data-cliente-modal-open="create">
-                                <span class="material-symbols-outlined" aria-hidden="true">
-                                    person_add
-                                </span>
-
-                                Nuevo cliente
-                            </button>
+                                <button type="button" class="btn btn-soft btn-sm empty-action" data-cliente-modal-open="create">
+                                    <span class="material-symbols-outlined" aria-hidden="true">person_add</span>
+                                    Nuevo cliente
+                                </button>
+                            }
                         }
                     </div>
                 </div>

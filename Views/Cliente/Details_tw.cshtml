@@ -292,13 +292,15 @@ else
     </div>
 
     <div class="grid-kpi" style="margin-top:1.5rem">
-        <div class="kpi kpi--accent">
+        @* Cupo, no permiso: si la aptitud no habilita a operar, la card deja el acento lima para
+               no contradecir al KPI de aptitud ni al aviso de abajo. *@
+        <div class="kpi @(esNoApto || esRequiereAut ? string.Empty : "kpi--accent")">
             <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">account_balance_wallet</span>Crédito disponible</div>
             <div class="kpi-value">@limiteDisponible.ToString("C0")</div>
             @* La barra de progreso (con saldo usado/limite) ya se muestra en detalle
                en la card "Informacion crediticia" de la solapa Credito; mostrarla
                tambien aca era el mismo dato dos veces en la misma pantalla. *@
-            <div class="kpi-foot">@porcentajeLibre.ToString("N0")% libre de @limiteTotal.ToString("C0")</div>
+            <div class="kpi-foot">@porcentajeLibre.ToString("N0")% libre de @limiteTotal.ToString("C0")@(esNoApto ? " · no habilita operar a crédito" : esRequiereAut ? " · requiere autorización" : string.Empty)</div>
         </div>
         <div class="kpi @(esApto ? "kpi--ok" : esNoApto ? "kpi--bad" : esRequiereAut ? "kpi--warn" : string.Empty)">
             <div class="kpi-label"><span class="material-symbols-outlined" style="font-size:15px">verified_user</span>Estado de aptitud</div>

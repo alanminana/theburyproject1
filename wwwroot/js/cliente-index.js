@@ -159,6 +159,7 @@
 
         if (event.target.closest('[data-cliente-open-limites]')) {
             event.preventDefault();
+            closeRowMenus();
             openLimitesModal();
             return;
         }
