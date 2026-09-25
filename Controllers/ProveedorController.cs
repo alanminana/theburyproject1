@@ -1,4 +1,4 @@
-// ProveedorController.cs
+﻿// ProveedorController.cs
 using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -65,15 +65,7 @@ namespace TheBuryProject.Controllers
                     CategoriasDisponibles = categorias.OrderBy(c => c.Nombre).Select(c => new SelectListItem { Value = c.Id.ToString(), Text = c.Nombre }).ToList(),
                     MarcasDisponibles = marcas.OrderBy(m => m.Nombre).Select(m => new SelectListItem { Value = m.Id.ToString(), Text = m.Nombre }).ToList(),
                     ProductosDisponibles = productos.OrderBy(p => p.Nombre).Select(p => new SelectListItem { Value = p.Id.ToString(), Text = string.IsNullOrWhiteSpace(p.Codigo) ? p.Nombre : $"{p.Codigo} - {p.Nombre}" }).ToList(),
-                    ProductosPickerJson = System.Text.Json.JsonSerializer.Serialize(
-                        productos.OrderBy(p => p.Nombre).Select(p => new {
-                            id = p.Id,
-                            codigo = p.Codigo ?? "",
-                            nombre = p.Nombre,
-                            marca = p.Marca?.Nombre ?? "",
-                            categoria = p.Categoria?.Nombre ?? ""
-                        })
-                    )
+                    ProductosPickerJson = BuildProductosPickerJson(productos)
                 };
 
                 return View("Index_tw", filterViewModel);
@@ -114,47 +106,10 @@ namespace TheBuryProject.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        // POST: Proveedor/Create
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create(ProveedorViewModel viewModel)
-        {
-            if (ModelState.IsValid)
-            {
-                try
-                {
-                    // Verificar CUIT único (mensaje amigable)
-                    if (await _proveedorService.ExistsCuitAsync(viewModel.Cuit))
-                    {
-                        TempData["Error"] = "Ya existe un proveedor con este CUIT";
-                        return RedirectToAction(nameof(Index));
-                    }
-
-                    var proveedor = _mapper.Map<Proveedor>(viewModel);
-                    await _proveedorService.CreateAsync(proveedor);
-
-                    TempData["Success"] = "Proveedor creado exitosamente";
-                    return RedirectToAction(nameof(Index));
-                }
-                catch (InvalidOperationException ex)
-                {
-                    _logger.LogWarning(ex, "Error de validación al crear proveedor");
-                    ModelState.AddModelError("", ex.Message);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error al crear proveedor");
-                    ModelState.AddModelError("", "Error al crear el proveedor. Intentá nuevamente.");
-                }
-            }
-
-            TempData["Error"] = "Error de validación al crear el proveedor.";
-            return RedirectToAction(nameof(Index));
-        }
-
         // POST: Proveedor/CreateAjax (AJAX modal)
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "proveedores", Accion = "create")]
         public async Task<IActionResult> CreateAjax(ProveedorViewModel viewModel)
         {
             if (!ModelState.IsValid)
@@ -172,6 +127,8 @@ namespace TheBuryProject.Controllers
 
                 var proveedor = _mapper.Map<Proveedor>(viewModel);
                 await _proveedorService.CreateAsync(proveedor);
+                // El drawer recarga la página al guardar: el aviso se muestra ya renderizado por el servidor.
+                TempData["Success"] = $"Proveedor creado: {proveedor.RazonSocial}";
                 return Json(new { success = true, message = "Proveedor creado exitosamente", entity = new { id = proveedor.Id, cuit = proveedor.Cuit, razonSocial = proveedor.RazonSocial, nombreFantasia = proveedor.NombreFantasia, email = proveedor.Email, telefono = proveedor.Telefono, activo = proveedor.Activo } });
             }
             catch (InvalidOperationException ex)
@@ -192,47 +149,9 @@ namespace TheBuryProject.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        // POST: Proveedor/Edit/5
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, ProveedorViewModel viewModel)
-        {
-            if (id != viewModel.Id) return NotFound();
-
-            if (ModelState.IsValid)
-            {
-                try
-                {
-                    if (await _proveedorService.ExistsCuitAsync(viewModel.Cuit, id))
-                    {
-                        TempData["Error"] = "Ya existe otro proveedor con este CUIT";
-                        return RedirectToAction(nameof(Index));
-                    }
-
-                    var proveedor = _mapper.Map<Proveedor>(viewModel);
-                    await _proveedorService.UpdateAsync(proveedor);
-
-                    TempData["Success"] = "Proveedor actualizado exitosamente";
-                    return RedirectToAction(nameof(Index));
-                }
-                catch (InvalidOperationException ex)
-                {
-                    _logger.LogWarning(ex, "Error de validación al actualizar proveedor {Id}", id);
-                    TempData["Error"] = ex.Message;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error al actualizar proveedor {Id}", id);
-                    TempData["Error"] = "Error al actualizar el proveedor. Intentá nuevamente.";
-                }
-            }
-
-            TempData["Error"] = "Error de validación al actualizar el proveedor.";
-            return RedirectToAction(nameof(Index));
-        }
-
         // GET: Proveedor/GetEditData/5 (AJAX - devuelve JSON con los datos del proveedor)
         [HttpGet]
+        [PermisoRequerido(Modulo = "proveedores", Accion = "update")]
         public async Task<IActionResult> GetEditData(int id)
         {
             try
@@ -277,6 +196,7 @@ namespace TheBuryProject.Controllers
         // POST: Proveedor/EditAjax (AJAX modal)
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "proveedores", Accion = "update")]
         public async Task<IActionResult> EditAjax(ProveedorViewModel viewModel)
         {
             if (!ModelState.IsValid)
@@ -294,6 +214,7 @@ namespace TheBuryProject.Controllers
 
                 var proveedor = _mapper.Map<Proveedor>(viewModel);
                 await _proveedorService.UpdateAsync(proveedor);
+                TempData["Success"] = $"Proveedor actualizado: {proveedor.RazonSocial}";
                 return Json(new { success = true, message = "Proveedor actualizado exitosamente", entity = new { id = proveedor.Id, cuit = proveedor.Cuit, razonSocial = proveedor.RazonSocial, nombreFantasia = proveedor.NombreFantasia, email = proveedor.Email, telefono = proveedor.Telefono, activo = proveedor.Activo } });
             }
             catch (InvalidOperationException ex)
@@ -318,6 +239,7 @@ namespace TheBuryProject.Controllers
         // POST: Proveedor/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "proveedores", Accion = "delete")]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
             try
@@ -366,6 +288,17 @@ namespace TheBuryProject.Controllers
             }
         }
 
+        private static string BuildProductosPickerJson(IEnumerable<Producto> productos) =>
+            System.Text.Json.JsonSerializer.Serialize(
+                productos.OrderBy(p => p.Nombre).Select(p => new
+                {
+                    id = p.Id,
+                    codigo = p.Codigo ?? "",
+                    nombre = p.Nombre,
+                    marca = p.Marca?.Nombre ?? "",
+                    categoria = p.Categoria?.Nombre ?? ""
+                }));
+
         private async Task CargarAsociacionesAsync(ProveedorViewModel viewModel)
         {
             var (categorias, marcas, productos) = await _catalogLookupService.GetCategoriasMarcasYProductosAsync();
@@ -389,6 +322,8 @@ namespace TheBuryProject.Controllers
                     Selected = viewModel.MarcasSeleccionadas.Contains(m.Id)
                 })
                 .ToList();
+
+            viewModel.ProductosPickerJson = BuildProductosPickerJson(productos);
 
             viewModel.ProductosDisponibles = productos
                 .OrderBy(p => p.Nombre)

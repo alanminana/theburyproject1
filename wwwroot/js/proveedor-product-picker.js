@@ -110,14 +110,25 @@ const ProveedorProductPicker = (() => {
             resultsList.innerHTML = '';
         }
 
-        // Cerrar al hacer scroll en el contenedor del modal
-        const modalScrollEl = containerEl.closest('.overflow-y-auto');
-        if (modalScrollEl) {
-            modalScrollEl.addEventListener('scroll', closeDropdown, { passive: true });
+        // Al hacer scroll en el contenedor del drawer (el navegador lo hace solo para mostrar el input al
+        // escribir) o cambiar el tamaño de la ventana, la lista sigue al input; se cierra solo si el input
+        // quedó fuera de la vista. Cerrarla siempre cortaba la búsqueda a mitad de tipeo.
+        function followInput() {
+            if (dropdownEl.hidden) return;
+            const rect = searchInput.getBoundingClientRect();
+            const bounds = (modalScrollEl || document.documentElement).getBoundingClientRect();
+            if (rect.bottom < bounds.top || rect.top > bounds.bottom) {
+                closeDropdown();
+                return;
+            }
+            positionDropdown();
         }
 
-        // Cerrar y reposicionar si cambia el tamaño de ventana
-        window.addEventListener('resize', () => { if (!dropdownEl.hidden) closeDropdown(); }, { passive: true });
+        const modalScrollEl = containerEl.closest('.overflow-y-auto');
+        if (modalScrollEl) {
+            modalScrollEl.addEventListener('scroll', followInput, { passive: true });
+        }
+        window.addEventListener('resize', followInput, { passive: true });
 
         // ── Sincronización de estado ─────────────────────────────────────────────
         function syncHiddenInputs() {

@@ -1,0 +1,102 @@
+@model TheBuryProject.ViewModels.ProveedorModalesViewModel
+@{
+    var camposCrear = new ProveedorFormFieldsViewModel { Prefix = "crear", ActivoPorDefecto = true, Categorias = Model.Categorias, Marcas = Model.Marcas };
+    var camposEditar = new ProveedorFormFieldsViewModel { Prefix = "editar", ActivoPorDefecto = false, Categorias = Model.Categorias, Marcas = Model.Marcas };
+}
+@* Drawers de alta y edición de proveedor. Los usan Index (ambos) y Details (solo edición): un único
+   markup, así el formulario no puede divergir entre pantallas. Los ids y data-* son contrato de
+   proveedor-module.js / proveedor-modal-base.js / proveedor-crear-modal.js / proveedor-editar-modal.js.
+   Cada drawer solo se renderiza si el usuario tiene el permiso de la acción (el servidor lo exige igual). *@
+
+@if (Model.PuedeCrear)
+{
+    <div id="modal-crear-proveedor" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="modal-crear-proveedor-title">
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" data-proveedor-modal-action="close" data-proveedor-modal="create"></div>
+
+        <div class="absolute right-0 top-0 h-full w-full max-w-3xl bg-slate-900 shadow-2xl flex flex-col animate-slide-in-right">
+            <header class="prov-drawer__header">
+                <div class="min-w-0">
+                    <p class="prov-drawer__crumb">Proveedores</p>
+                    <h2 id="modal-crear-proveedor-title" class="prov-drawer__title">Nuevo proveedor</h2>
+                </div>
+                <button type="button" data-proveedor-modal-action="close" data-proveedor-modal="create"
+                        class="btn-erp-icon" aria-label="Cerrar sin guardar" title="Cerrar">
+                    <span class="material-symbols-outlined" aria-hidden="true">close</span>
+                </button>
+            </header>
+
+            <div class="flex-1 overflow-y-auto prov-drawer__body">
+                <form id="form-crear-proveedor" novalidate>
+                    @Html.AntiForgeryToken()
+                    <section id="proveedor-validation-summary" class="prov-summary" role="alert" tabindex="-1" hidden>
+                        <span class="material-symbols-outlined prov-summary__icon" aria-hidden="true">error</span>
+                        <div>
+                            <h3 class="prov-summary__title">Revisá los campos marcados</h3>
+                            <ul id="proveedor-error-list" class="prov-summary__list"></ul>
+                        </div>
+                    </section>
+
+                    <partial name="_ProveedorFormFields" model="camposCrear" />
+                </form>
+            </div>
+
+            <footer class="prov-drawer__footer">
+                <button type="button" data-proveedor-modal-action="close" data-proveedor-modal="create"
+                        class="btn-erp-secondary">Cancelar</button>
+                <button type="submit" form="form-crear-proveedor" data-proveedor-modal-action="submit" data-proveedor-modal="create"
+                        class="btn-erp-primary">Guardar proveedor</button>
+            </footer>
+        </div>
+    </div>
+}
+
+@if (Model.PuedeEditar)
+{
+    <div id="modal-editar-proveedor" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="modal-editar-proveedor-title">
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" data-proveedor-modal-action="close" data-proveedor-modal="edit"></div>
+
+        <div class="absolute right-0 top-0 h-full w-full max-w-3xl bg-slate-900 shadow-2xl flex flex-col animate-slide-in-right">
+            <header class="prov-drawer__header">
+                <div class="min-w-0">
+                    <p class="prov-drawer__crumb">Proveedores</p>
+                    <h2 id="modal-editar-proveedor-title" class="prov-drawer__title">Editar proveedor</h2>
+                </div>
+                <button type="button" data-proveedor-modal-action="close" data-proveedor-modal="edit"
+                        class="btn-erp-icon" aria-label="Cerrar sin guardar" title="Cerrar">
+                    <span class="material-symbols-outlined" aria-hidden="true">close</span>
+                </button>
+            </header>
+
+            <div id="edit-loading-overlay" class="prov-loading" role="status" hidden>
+                <div class="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" aria-hidden="true"></div>
+                <span class="text-sm font-semibold text-slate-300">Cargando datos…</span>
+            </div>
+
+            <div class="flex-1 overflow-y-auto prov-drawer__body">
+                <form id="form-editar-proveedor" novalidate>
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="Id" />
+                    <input type="hidden" name="RowVersion" />
+                    <section id="edit-validation-summary" class="prov-summary" role="alert" tabindex="-1" hidden>
+                        <span class="material-symbols-outlined prov-summary__icon" aria-hidden="true">error</span>
+                        <div>
+                            <h3 class="prov-summary__title">Revisá los campos marcados</h3>
+                            <ul id="edit-error-list" class="prov-summary__list"></ul>
+                        </div>
+                    </section>
+
+                    <partial name="_ProveedorFormFields" model="camposEditar" />
+                </form>
+            </div>
+
+            <footer class="prov-drawer__footer">
+                <button type="button" data-proveedor-modal-action="close" data-proveedor-modal="edit"
+                        class="btn-erp-secondary">Cancelar</button>
+                <button type="submit" form="form-editar-proveedor" data-proveedor-modal-action="submit" data-proveedor-modal="edit"
+                        class="btn-erp-primary">Guardar cambios</button>
+            </footer>
+        </div>
+    </div>
+}
+
+<script type="application/json" id="productos-picker-data">@Html.Raw(Model.ProductosPickerJson)</script>
