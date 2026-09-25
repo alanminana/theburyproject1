@@ -61,6 +61,25 @@ namespace TheBuryProject.Controllers
             return aperturaActiva != null;
         }
 
+        /// <summary>
+        /// Cuando el usuario no tiene un turno operable, distingue "nunca abrió caja" de "tiene un
+        /// turno abierto de un día anterior": en el segundo caso "Abrir caja" no lista su caja
+        /// (sigue con turno abierto) y el aviso genérico lo deja sin salida — hay que cerrarlo primero.
+        /// </summary>
+        private async Task<string?> ObtenerTurnoVencidoDescripcionAsync(string? userName)
+        {
+            if (string.IsNullOrWhiteSpace(userName))
+            {
+                return null;
+            }
+
+            var apertura = (await _cajaService.ObtenerAperturasAbiertasAsync())
+                .FirstOrDefault(a => a.UsuarioApertura == userName);
+            return apertura == null
+                ? null
+                : $"{apertura.Caja?.Nombre ?? "Caja"} · abierta el {TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(apertura.FechaApertura, DateTimeKind.Utc), _reloj.ZonaComercial):dd/MM/yyyy}";
+        }
+
         private async Task<IActionResult?> RedirigirSiCajaCerradaAsync(string mensaje, string actionName, object? routeValues = null)
         {
             if (await UsuarioTieneCajaAbiertaAsync())
@@ -137,6 +156,10 @@ namespace TheBuryProject.Controllers
                 ViewBag.PuedeCrearVenta = aperturaActiva != null;
                 ViewBag.PuedeOperarVentas = aperturaActiva != null;
                 ViewBag.UserNameCaja = userName;
+                if (aperturaActiva == null)
+                {
+                    ViewBag.TurnoVencido = await ObtenerTurnoVencidoDescripcionAsync(userName);
+                }
 
                 // Cargar datos del formulario de creación solo cuando hay caja abierta
                 if (aperturaActiva != null)
@@ -206,6 +229,10 @@ namespace TheBuryProject.Controllers
                 }
 
                 ViewBag.PuedeOperarVentas = await UsuarioTieneCajaAbiertaAsync();
+                if (!(bool)ViewBag.PuedeOperarVentas)
+                {
+                    ViewBag.TurnoVencido = await ObtenerTurnoVencidoDescripcionAsync(_currentUser.GetUsername());
+                }
                 ViewBag.ContratoVentaCredito = await ObtenerContratoResumenPorVentaAsync(id);
 
                 // Cobro de la primera cuota el mismo día (fecha comercial de Argentina, no la zona

@@ -70,6 +70,7 @@
     var puedeFacturarVentas = User.TienePermiso("ventas", "invoice");
     var puedeCancelarVentas = User.TienePermiso("ventas", "cancel");
     var puedeOperarVentas = (bool?)ViewBag.PuedeOperarVentas ?? false;
+    var turnoVencido = ViewBag.TurnoVencido as string;
     var recargoDebitoAplicado = Model.RecargoDebitoAplicado;
     var datosTarjeta = Model.DatosTarjeta;
     var ajustePlanMonto = datosTarjeta?.MontoAjustePagoAplicado ?? datosTarjeta?.MontoAjustePlanAplicado;
@@ -173,14 +174,22 @@
                 <div class="flex items-start gap-3">
                     <span class="material-symbols-outlined text-sm mt-0.5">warning</span>
                     <div>
-                        <p>Sin caja abierta a su nombre.</p>
-                        <p class="mt-1 font-medium text-amber-200/80">Abra una caja para habilitar confirmación, facturación, edición, cancelación y devoluciones.</p>
+                        @if (turnoVencido != null)
+                        {
+                            <p>Su turno de caja anterior sigue abierto (@turnoVencido).</p>
+                            <p class="mt-1 font-medium text-amber-200/80">Ciérrelo desde Cajas y abra uno nuevo para habilitar confirmación, facturación, edición, cancelación y devoluciones.</p>
+                        }
+                        else
+                        {
+                            <p>Sin caja abierta a su nombre.</p>
+                            <p class="mt-1 font-medium text-amber-200/80">Abra una caja para habilitar confirmación, facturación, edición, cancelación y devoluciones.</p>
+                        }
                     </div>
                 </div>
-                <a asp-controller="Caja" asp-action="Abrir"
+                <a asp-controller="Caja" asp-action="@(turnoVencido != null ? "Index" : "Abrir")"
                    class="btn-erp-warning btn-sm shrink-0 no-underline">
-                    <span class="material-symbols-outlined text-[16px]">lock_open</span>
-                    Abrir caja
+                    <span class="material-symbols-outlined text-[16px]">@(turnoVencido != null ? "point_of_sale" : "lock_open")</span>
+                    @(turnoVencido != null ? "Ir a cerrar el turno" : "Abrir caja")
                 </a>
             </div>
         }
@@ -898,7 +907,14 @@
                     <div class="flex flex-col gap-3">
                         @if (!hayAccionesDisponibles)
                         {
-                            <p class="text-sm text-slate-400">Sin acciones disponibles para esta venta en su estado actual.</p>
+                            @if (!puedeOperarVentas)
+                            {
+                                <p class="text-sm text-slate-400">Acciones bloqueadas: @(turnoVencido != null ? "cierre su turno de caja anterior y abra uno nuevo" : "abra una caja") para operar esta venta.</p>
+                            }
+                            else
+                            {
+                                <p class="text-sm text-slate-400">Sin acciones disponibles para esta venta en su estado actual.</p>
+                            }
                         }
                         else
                         {
@@ -1147,7 +1163,7 @@
                                     <p class="text-xs text-slate-400 italic">
                                         @(Model.Estado switch
                                         {
-                                            EstadoVenta.Presupuesto => "Esperando confirmación",
+                                            EstadoVenta.Cotizacion or EstadoVenta.Presupuesto => "Esperando confirmación",
                                             EstadoVenta.Confirmada => "Pendiente de facturación",
                                             EstadoVenta.Facturada => "Pendiente de entrega",
                                             EstadoVenta.PendienteRequisitos => "Requisitos pendientes",

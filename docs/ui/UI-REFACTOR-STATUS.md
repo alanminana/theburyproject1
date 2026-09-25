@@ -157,6 +157,24 @@ Resumen no cronológico de lo que quedó implementado:
   Suite completa 4996/4996 (4 omitidos: seeders E2E). Sin resolver: cotizador con textos de
   10–11.5px propios; Details de Cotización sin "Confirmar" es decisión previa del usuario;
   aplicar la excepción crea un borrador de venta (CreateAjax) que queda huérfano si se abandona.
+- `/ui-module ventas`, cierre del módulo (2026-09-25; instancias propias :5290 sobre la base real y :5199 sobre
+  una copia `_qa`, ya eliminadas). Recorrido: Index, Create (Cotizar → "Continuar con wizard"), Edit (5 pasos y
+  paso Crédito con excepción documental), Details, Facturar (emisión real), Devolución (creada), Cancelar
+  (ejecutada), Autorizar, Rechazar, Cotización y Listado; 5 viewports, sin overflow ni errores HTTP/consola.
+  Fases formales ejecutadas: `ux-heuristics`, Impeccable critique dual-agent (26/40, detector 0 hallazgos),
+  polish y QA final. Correcciones: (1) P1 flujo: con un turno de caja abierto de un día anterior el aviso
+  decía "Sin caja abierta" y "Abrir caja" llevaba a un formulario sin cajas (callejón sin salida) — Index y
+  Details distinguen "Turno de caja vencido" (caja y fecha) y su CTA lleva a Cajas; Details ya no dice "Sin
+  acciones disponibles" cuando el bloqueo es la caja; (2) el texto de ayuda bajo el CTA del wizard sólo se
+  muestra en el paso que confirma; (3) "Continuar con wizard" sin cliente avisa antes de guardar (ya no deja
+  una cotización escrita); (4) cotizador: textos de 10–11.5px llevados a 12px, con cabeceras/etiquetas acortadas
+  ("Subtotal", "Cuotas", "Cuota") donde el tamaño nuevo las truncaba; (5) Listado de Cotización: labels
+  asociados a sus campos (a11y), tildes en título/cabeceras; (6) tabs de Index en <1024px con degradé que indica
+  que se deslizan; (7) "1 días" → "1 día" (modal de devolución y mora del cotizador); (8) "Próximo paso…" en
+  Details de una Cotización → "Esperando confirmación". 2034/2034 tests `Venta*`/`Cotizacion*`/`Devolucion*`/`Ui*`
+  (2 nuevos). Sin resolver (críticas de mayor alcance, no abiertas): número de venta repetido en topbar/miga/H1
+  de Details y cabecera de Details/Index/Cotizador/Listado con tres composiciones distintas (requiere decidir un
+  componente de cabecera único ERP-wide). Sin ejecutar: anulación de factura y Delete real.
 
 ## Venta / Create + Edit — cerrados conjuntamente
 
@@ -1686,19 +1704,6 @@ el código realmente hace:
 Sin cambios de permisos (`clientes.delete`), rutas ni del servicio. Validado en 5 viewports, sin
 overflow ni errores de consola; 503/503 `Cliente*`. Técnicamente: ✅ · Visualmente: ✅ · Flujo UX: ✅.
 
-## Cliente / Index — cerrado (CLIENTE-INDEX-SIN-HERO-01)
-
-La búsqueda/filtros/paginación/permisos de esta pantalla se implementaron el 2026-09-14
-(ver historial de memoria del proyecto) sin actualizar esta tabla en su momento. Este
-lote (mismo día que VENTA-INDEX-SIN-HERO-01) cierra específicamente el patrón de header,
-a pedido explícito del usuario tras comparar capturas reales de Inventario/Cliente/Ventas
-y preferir la composición sin hero de Catálogo:
-
-- se retira el `<header class="hero-erp cliente-page-head">` (título `<h1>Gestión de
-  Clientes</h1>` + subtítulo "Buscá y administrá tus clientes." + acciones) — el título ya
-  lo muestra la barra superior global (`_Layout.cshtml`), y el subtítulo era descriptivo
-  sin valor de decisión, redundante con el propio nombre de la pantalla;
-- "Nuevo cliente" y el menú "Más" (Documentos/Créditos/Límites por puntaje) se mueven a
 ### Cliente / cierre de módulo — barrido `/ui-module` (2026-09-25)
 
 Barrido de todas las superficies del módulo (Index con datos y sin resultados, menú "Más", modal
@@ -1720,6 +1725,19 @@ Validación técnica: 503/503 tests `Cliente*` (2 omitidos por diseño). Lo que 
 **Crítica `impeccable critique` (dual-agent: A revisión de diseño 26/40 · B detector + evidencia de navegador)**. Detector estático sobre `Views/Cliente`: exit 0, 0 hallazgos; el overlay vivo (headless, sin pestaña [Human]) dio ruido heredado del shell compartido (`layout-transition`, `clipped-overflow-container`, `dark-glow` del token primario). Corregido en esta pasada: (1) Details: la card "Crédito disponible" seguía en lima junto a "No apto" (contradicción; ahora neutra y con "· no habilita operar a crédito" / "· requiere autorización"); (2) Index: el nombre del cliente era lo más liviano de la fila (ahora 14px/600); (3) el menú "Más" quedaba abierto detrás del modal de límites (se cierra al abrirlo). No se tocó, con motivo: filtros `tp-filter-*` sin etiqueta (pertenecen al panel de tickets del layout, no a Clientes); contraste 4.0:1 de `#15110a` sobre `#607e16` (token compartido de gradiente lima, fuera del módulo); targets táctiles de 40px en mobile (el estándar del ERP no fija 44px); nombre en minúsculas (dato cargado); "Crediticio" vs "Crédito" (contenidos distintos: montos personalizados vs resumen); filtro rápido por aptitud y compactar importes (funcionalidad nueva, no pedida).
 
 
+## Cliente / Index — cerrado (CLIENTE-INDEX-SIN-HERO-01)
+
+La búsqueda/filtros/paginación/permisos de esta pantalla se implementaron el 2026-09-14
+(ver historial de memoria del proyecto) sin actualizar esta tabla en su momento. Este
+lote (mismo día que VENTA-INDEX-SIN-HERO-01) cierra específicamente el patrón de header,
+a pedido explícito del usuario tras comparar capturas reales de Inventario/Cliente/Ventas
+y preferir la composición sin hero de Catálogo:
+
+- se retira el `<header class="hero-erp cliente-page-head">` (título `<h1>Gestión de
+  Clientes</h1>` + subtítulo "Buscá y administrá tus clientes." + acciones) — el título ya
+  lo muestra la barra superior global (`_Layout.cshtml`), y el subtítulo era descriptivo
+  sin valor de decisión, redundante con el propio nombre de la pantalla;
+- "Nuevo cliente" y el menú "Más" (Documentos/Créditos/Límites por puntaje) se mueven a
   una toolbar dentro del mismo card de contenido (`.cliente-section`), alineada a la
   derecha por encima de "Listado de clientes" — mismo criterio que la fila de
   tabs+acciones de `Catálogo/Index_tw.cshtml` y `Venta/Index_tw.cshtml`

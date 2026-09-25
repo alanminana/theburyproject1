@@ -44,7 +44,7 @@
             <a href="@Url.Action("Index", "Cotizacion")"
                class="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-bold text-white transition-colors hover:bg-primary/90">
                 <span class="material-symbols-outlined text-lg">add</span>
-                Nueva cotizacion
+                Nueva cotización
             </a>
         </div>
     </section>
@@ -52,12 +52,12 @@
     <section class="rounded-lg border border-slate-800 bg-slate-900/60 p-5">
         <form method="get" class="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_12rem_11rem_11rem_auto] lg:items-end">
             <div>
-                <label class="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-400">Buscar</label>
-                <input name="busqueda" value="@busqueda" class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white" />
+                <label for="cotlist-busqueda" class="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-400">Buscar</label>
+                <input id="cotlist-busqueda" name="busqueda" value="@busqueda" class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white" />
             </div>
             <div>
-                <label class="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-400">Estado</label>
-                <select name="estado" class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white">
+                <label for="cotlist-estado" class="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-400">Estado</label>
+                <select id="cotlist-estado" name="estado" class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white">
                     <option value="">Todos</option>
                     @foreach (var item in Enum.GetValues<EstadoCotizacion>())
                     {
@@ -66,12 +66,12 @@
                 </select>
             </div>
             <div>
-                <label class="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-400">Desde</label>
-                <input type="date" name="fechaDesde" value="@fechaDesde?.ToString("yyyy-MM-dd")" class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white" />
+                <label for="cotlist-desde" class="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-400">Desde</label>
+                <input id="cotlist-desde" type="date" name="fechaDesde" value="@fechaDesde?.ToString("yyyy-MM-dd")" class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white" />
             </div>
             <div>
-                <label class="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-400">Hasta</label>
-                <input type="date" name="fechaHasta" value="@fechaHasta?.ToString("yyyy-MM-dd")" class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white" />
+                <label for="cotlist-hasta" class="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-400">Hasta</label>
+                <input id="cotlist-hasta" type="date" name="fechaHasta" value="@fechaHasta?.ToString("yyyy-MM-dd")" class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white" />
             </div>
             <button type="submit" class="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 text-sm font-bold text-slate-200 hover:bg-slate-700">
                 <span class="material-symbols-outlined text-lg">search</span>
@@ -85,13 +85,13 @@
             <table data-erp-cards class="w-full min-w-[860px] text-left">
                 <thead class="bg-slate-800/60">
                     <tr>
-                        <th data-card="title" class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Numero</th>
+                        <th data-card="title" class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Número</th>
                         <th data-card="half" class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Fecha</th>
                         <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Cliente</th>
                         <th data-card="half" class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Estado</th>
                         <th data-card="half" class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Total base</th>
                         <th data-card="half" class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Seleccionado</th>
-                        <th data-card="actions" class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Accion</th>
+                        <th data-card="actions" class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Acción</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-800">

@@ -9,6 +9,7 @@
                  ?? new TheBuryProject.ViewModels.VentaFilterViewModel();
     var puedeCrear = (bool?)ViewBag.PuedeCrearVenta ?? false;
     var puedeOperarVentas = (bool?)ViewBag.PuedeOperarVentas ?? false;
+    var turnoVencido = ViewBag.TurnoVencido as string;
     var puedeVerDevoluciones = User.TienePermiso("devoluciones", "view");
     var puedeCrearDevoluciones = User.TienePermiso("devoluciones", "create");
     var puedeCancelarVentas = User.TienePermiso("ventas", "cancel");
@@ -178,11 +179,27 @@
             </div>
             <div class="card-alert__body">
                 <p class="label">Caja requerida</p>
-                <h2>Sin caja abierta</h2>
-                <p>No tiene una caja abierta a su nombre (<span class="font-mono font-bold">@(ViewBag.UserNameCaja ??
-                                                                                                                                                                                                                                                                                                                                User.Identity?.Name ?? "?")</span>). Abra una caja para habilitar las operaciones de venta.</p>
-                </div>
-                <div class="card-alert__actions">
+                @if (turnoVencido != null)
+                {
+                    <h2>Turno de caja vencido</h2>
+                    <p>Su turno anterior sigue abierto (<strong>@turnoVencido</strong>). Ciérrelo desde Cajas para poder abrir uno nuevo y operar ventas.</p>
+                }
+                else
+                {
+                    <h2>Sin caja abierta</h2>
+                    <p>No tiene una caja abierta a su nombre (<span class="font-mono font-bold">@(ViewBag.UserNameCaja ?? User.Identity?.Name ?? "?")</span>). Abra una caja para habilitar las operaciones de venta.</p>
+                }
+            </div>
+            <div class="card-alert__actions">
+                @if (turnoVencido != null)
+                {
+                    <a id="btn-cerrar-turno-vencido" asp-controller="Caja" asp-action="Index" class="btn btn-amber no-underline">
+                        <span class="material-symbols-outlined">point_of_sale</span>
+                        Ir a cerrar el turno
+                    </a>
+                }
+                else
+                {
                     <a id="btn-abrir-caja" asp-controller="Caja" asp-action="Abrir" class="btn btn-amber no-underline">
                         <span class="material-symbols-outlined">lock_open</span>
                         Abrir caja
@@ -191,7 +208,8 @@
                         <span class="material-symbols-outlined">point_of_sale</span>
                         Ver cajas
                     </a>
-                </div>
+                }
+            </div>
             </section>
         }
 

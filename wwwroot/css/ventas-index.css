@@ -1226,6 +1226,13 @@
         flex: 0 0 auto;
     }
 
+    /* Las tabs se deslizan pero nada lo anunciaba (la última quedaba cortada en "Cotizac…"):
+       un degradé en el borde derecho indica que hay más. */
+    #venta-index-rework .tabs-scroll-shell {
+        -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 1.75rem), transparent);
+        mask-image: linear-gradient(to right, #000 calc(100% - 1.75rem), transparent);
+    }
+
     #venta-index-rework .venta-tabs__actions {
         justify-content: flex-start;
     }

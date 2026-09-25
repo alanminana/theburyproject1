@@ -279,7 +279,7 @@ body:has(.cotz-standalone) #main-content > div:last-child {
 .cotz-app .cart-row__meta { font-size: 12.5px; color: var(--cz-text-3); margin-top: 3px; }
 .cotz-app .cart-row__field { flex: 0 0 auto; display: flex; flex-direction: column; gap: 5px; }
 .cotz-app .cart-row__field--qty { align-items: center; }
-.cotz-app .cart-row__label { font-size: 10px; font-weight: 700; letter-spacing: .4px; color: var(--cz-text-4); text-transform: uppercase; line-height: 1; }
+.cotz-app .cart-row__label { font-size: var(--erp-fs-min, 0.75rem); font-weight: 700; letter-spacing: .4px; color: var(--cz-text-4); text-transform: uppercase; line-height: 1; }
 .cotz-app .cart-row__precio { flex: 0 0 auto; min-width: 100px; text-align: right; font-size: 15px; font-weight: 800; color: var(--cz-text); white-space: nowrap; }
 /* Quitar: discreto, sin caja; visible siempre (en touch no hay hover). */
 .cotz-app .cart-row__quitar {
@@ -293,7 +293,7 @@ body:has(.cotz-standalone) #main-content > div:last-child {
     display: flex; align-items: center; justify-content: space-between;
     padding-top: 14px; border-top: 1px solid var(--cz-line-3);
 }
-.cotz-app .cart-row-subtotal__label { font-size: 11.5px; font-weight: 800; letter-spacing: .6px; color: var(--cz-text-4); text-transform: uppercase; }
+.cotz-app .cart-row-subtotal__label { font-size: var(--erp-fs-min, 0.75rem); font-weight: 800; letter-spacing: .6px; color: var(--cz-text-4); text-transform: uppercase; }
 .cotz-app .cart-row-subtotal__value { font-size: 19px; font-weight: 800; color: var(--cz-text); }
 
 /* Descuento por línea: un solo campo con selector % / $ (mockup). Los dos <input>
@@ -380,10 +380,10 @@ body:has(.cotz-standalone) #main-content > div:last-child {
     font-size: 12.5px; color: var(--cz-text-3);
 }
 .cotz-app .aptitud-card__top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.cotz-app .aptitud-card__eyebrow { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: var(--cz-text-4); }
+.cotz-app .aptitud-card__eyebrow { font-size: var(--erp-fs-min, 0.75rem); font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: var(--cz-text-4); }
 .cotz-app .aptitud-card__head {
     display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px;
-    font-size: 11.5px; font-weight: 700; background: var(--cz-s3); color: var(--cz-text-2); white-space: nowrap;
+    font-size: var(--erp-fs-min, 0.75rem); font-weight: 700; background: var(--cz-s3); color: var(--cz-text-2); white-space: nowrap;
 }
 .cotz-app .aptitud-card__head .material-symbols-outlined { font-size: 12px !important; }
 .cotz-app .aptitud-card > .aptitud-card__head { align-self: flex-start; }
@@ -411,7 +411,7 @@ body:has(.cotz-standalone) #main-content > div:last-child {
 .cotz-app .contacto-libre { display: flex; flex-direction: column; gap: 8px; }
 .cotz-app .contacto-libre__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
 .cotz-app .contacto-libre__field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.cotz-app .contacto-libre__label { font-size: 10px; font-weight: 700; letter-spacing: .3px; color: var(--cz-text-4); text-transform: uppercase; }
+.cotz-app .contacto-libre__label { font-size: var(--erp-fs-min, 0.75rem); font-weight: 700; letter-spacing: .3px; color: var(--cz-text-4); text-transform: uppercase; }
 .cotz-app .contacto-libre .field { height: 30px; padding: 6px 9px !important; font-size: 12px !important; border-radius: 7px !important; min-height: 0 !important; }
 .cotz-app .contacto-libre .hint-line { grid-column: 1 / -1; }
 
@@ -423,7 +423,7 @@ body:has(.cotz-standalone) #main-content > div:last-child {
     display: flex; flex-direction: column; gap: 16px;
     --cz-field-bg: var(--cz-s1);
 }
-.cotz-app .condiciones-divider { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px; color: var(--cz-text-4); }
+.cotz-app .condiciones-divider { font-size: var(--erp-fs-min, 0.75rem); font-weight: 800; text-transform: uppercase; letter-spacing: .6px; color: var(--cz-text-4); }
 .cotz-app .cond-grid { margin-top: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 14px; }
 .cotz-app .cond-grid__full { grid-column: 1 / -1; }
 /* Cada par (Descuento %/$, Anticipo/Válida hasta) se aplana en la grilla: cuatro celdas
@@ -483,7 +483,7 @@ body:has(.cotz-standalone) #main-content > div:last-child {
     padding-top: 12px !important; padding-bottom: 12px !important;
 }
 /* `#venta-create-page .label` (color var(--pal-neutral-400), 800, tracking .08em) es otro leak por id: se neutraliza. */
-.cotz-app .label { display: block; font-size: 11px !important; font-weight: 700 !important; letter-spacing: .4px !important; text-transform: uppercase; color: var(--cz-text-4) !important; margin-bottom: 6px !important; }
+.cotz-app .label { display: block; font-size: var(--erp-fs-min, 0.75rem) !important; font-weight: 700 !important; letter-spacing: .4px !important; text-transform: uppercase; color: var(--cz-text-4) !important; margin-bottom: 6px !important; }
 .cotz-app .field-affix { position: absolute; top: 50%; transform: translateY(-50%); color: var(--cz-text-4); font-size: 13px; pointer-events: none; }
 .cotz-app .field-affix--left { left: 12px; }
 .cotz-app .field-affix--right { right: 12px; }
@@ -519,7 +519,7 @@ body:has(.cotz-standalone) #main-content > div:last-child {
 .cotz-app .icon-btn { width: 30px; height: 30px; min-height: 0 !important; padding: 0; border-radius: 8px !important; }
 
 /* ---------- Pills ---------- */
-.cotz-app .pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; font-size: 11.5px; font-weight: 700; border: 0; white-space: nowrap; line-height: 1.2; }
+.cotz-app .pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; font-size: var(--erp-fs-min, 0.75rem); font-weight: 700; border: 0; white-space: nowrap; line-height: 1.2; }
 .cotz-app .pill .material-symbols-outlined { font-size: 12px !important; }
 .cotz-app .pill-green { background: var(--cz-green-bg); color: var(--cz-green); }
 .cotz-app .pill-amber { background: var(--cz-amber-bg); color: var(--cz-amber); }
@@ -527,9 +527,9 @@ body:has(.cotz-standalone) #main-content > div:last-child {
 .cotz-app .pill-blue { background: var(--cz-accent-soft); color: var(--cz-accent); }
 .cotz-app .pill-slate { background: var(--cz-s3); color: var(--cz-text-3); box-shadow: inset 0 0 0 1px var(--cz-line-2); }
 /* Dentro de la tabla las pills son más chicas (11px / 10.5px del mockup). */
-.cotz-app .rtable .pill { padding: 4px 10px; font-size: 11px; }
+.cotz-app .rtable .pill { padding: 4px 10px; font-size: var(--erp-fs-min, 0.75rem); }
 .cotz-app .rtable .plan-medio .pill,
-.cotz-app .rtable .rmedio .pill { padding: 2px 8px; font-size: 10.5px; font-weight: 800; }
+.cotz-app .rtable .rmedio .pill { padding: 2px 8px; font-size: var(--erp-fs-min, 0.75rem); font-weight: 800; }
 
 /* ---------- Filtro de medios (desplegable) ---------- */
 .cotz-app .medios-filtro { position: relative; flex-shrink: 0; }
@@ -560,10 +560,10 @@ body:has(.cotz-standalone) #main-content > div:last-child {
 .cotz-app .totales-bar__stats { display: flex; flex: 1 1 auto; min-width: 0; }
 .cotz-app .totales-bar__cta { margin-left: 0; display: flex; flex-direction: column; gap: 4px; flex: 0 0 auto; padding: 0; border: 0; }
 .cotz-app .totales-bar__cta .btn { height: 44px; min-height: 44px !important; padding: 0 20px; font-size: 13.5px; gap: 9px; }
-.cotz-app .seg { flex: 1 1 0; min-width: 0; padding: 0 20px; border: 0; border-right: 1px solid var(--cz-line-3); }
+.cotz-app .seg { flex: 1 1 0; min-width: 0; padding: 0 14px; border: 0; border-right: 1px solid var(--cz-line-3); }
 .cotz-app .seg:first-child { padding-left: 0; }
 .cotz-app .seg:last-child { border-right: 0; }
-.cotz-app .seg-label { font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px; color: var(--cz-text-4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cotz-app .seg-label { font-size: var(--erp-fs-min, 0.75rem); font-weight: 800; text-transform: uppercase; letter-spacing: .3px; color: var(--cz-text-4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cotz-app .seg-value { margin-top: 4px; font-size: 17px; font-weight: 800; line-height: 1.25; color: var(--cz-text); }
 .cotz-app .seg.seg-accent .seg-label { color: var(--cz-accent); }
 .cotz-app .seg.seg-accent .seg-value { font-size: 18px; }
@@ -583,7 +583,7 @@ body:has(.cotz-standalone) #main-content > div:last-child {
    que siempre (data-cotizacion-row-key, data-g, aria-expanded): en ≥38rem las filas
    pasan a ser una grilla CSS (mockup); por debajo rige el reflow flex de más abajo. */
 .cotz-app .rtable { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
-.cotz-app .rtable thead th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: .5px; color: var(--cz-text-4); font-weight: 800; padding: .4rem .6rem; background: transparent; border-bottom: 1px solid var(--cz-line-3); }
+.cotz-app .rtable thead th { text-align: left; font-size: var(--erp-fs-min, 0.75rem); text-transform: uppercase; letter-spacing: .1px; color: var(--cz-text-4); font-weight: 800; padding: .4rem .4rem; background: transparent; border-bottom: 1px solid var(--cz-line-3); }
 .cotz-app .rtable thead th.r, .cotz-app .rtable td.r { text-align: right; }
 .cotz-app .rtable td { padding: .5rem .6rem; border-bottom: 1px solid var(--cz-line-3); vertical-align: middle; }
 .cotz-app .rtable tbody tr { transition: background .12s; }
@@ -632,7 +632,7 @@ body:has(.cotz-standalone) #main-content > div:last-child {
 .cotz-app .seleccion-resumen__valor strong::first-letter { text-transform: uppercase; }
 .cotz-app .plan-nombre { font-size: 13px; font-weight: 600; color: var(--cz-text-2); white-space: nowrap; }
 /* Sub-línea del medio (fuente de la tasa, cupo vs. solicitado). */
-.cotz-app .rmedio-sub { font-size: 11.5px; color: var(--cz-text-4); margin-top: 1px; font-weight: 500; }
+.cotz-app .rmedio-sub { font-size: var(--erp-fs-min, 0.75rem); color: var(--cz-text-4); margin-top: 1px; font-weight: 500; }
 .cotz-app .rmedio-aptitud { font-size: 12px; color: var(--cz-text-4); }
 .cotz-app .rmedio-aptitud--no-apto,
 .cotz-app .rmedio-aptitud--apto,
@@ -682,7 +682,7 @@ body:has(.cotz-standalone) #main-content > div:last-child {
 }
 .cotz-app .panel-foot { padding: 16px 24px; border-top: 0; }
 .cotz-app .seleccion-resumen { min-width: 0; flex: 1 1 14rem; display: flex; flex-direction: column; gap: 3px; }
-.cotz-app .seleccion-resumen__label { font-size: 11.5px; text-transform: uppercase; letter-spacing: .5px; color: var(--cz-text-4); font-weight: 800; }
+.cotz-app .seleccion-resumen__label { font-size: var(--erp-fs-min, 0.75rem); text-transform: uppercase; letter-spacing: .5px; color: var(--cz-text-4); font-weight: 800; }
 .cotz-app .seleccion-resumen__label--ok { color: var(--cz-green); }
 .cotz-app .seleccion-resumen__valor { font-size: 12.5px; color: var(--cz-text-2); line-height: 1.45; }
 .cotz-app .seleccion-resumen__valor strong { color: var(--cz-text); font-weight: 700; }
@@ -1049,3 +1049,6 @@ body:has(.cotz-standalone) #main-content > div:last-child {
     /* Banda angosta: Recargo se oculta en la tabla (queda en el drawer "Detalle del plan"). */
     .cotz-app .rtable tbody tr:not(.off) td:nth-child(5) { display: none; }
 }
+
+/* Textos secundarios con text-[10px]/[11px] (marcado y JS): 12px es el mínimo legible del ERP. */
+.cotz-app [class*="text-[10px]"], .cotz-app [class*="text-[10.5px]"], .cotz-app [class*="text-[11px]"], .cotz-app [class*="text-[11.5px]"] { font-size: var(--erp-fs-min, 0.75rem); }

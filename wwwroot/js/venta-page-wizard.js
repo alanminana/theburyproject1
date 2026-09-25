@@ -277,6 +277,15 @@
         // Durante Crédito el sidebar se oculta y el del header vuelve a ser el único.
         root.classList.toggle('vm-cta-en-sidebar', !esCredito);
 
+        // La nota bajo el CTA describe "Confirmar venta"/"Crear venta": sólo se muestra en el
+        // paso donde el botón dice eso; en los demás el CTA es "Siguiente" y la nota confundía.
+        const notaConfirmar = document.querySelector('[data-confirmar-nota]');
+        if (notaConfirmar) {
+            const ocultarNota = texto !== textoConfirmarCanonico;
+            notaConfirmar.classList.toggle('hidden', ocultarNota);
+            notaConfirmar.hidden = ocultarNota;
+        }
+
         if (btnConfirmarLabel && !esCredito) {
             btnConfirmarLabel.textContent = texto;
             // La caja registradora sólo tiene sentido en el paso que confirma de verdad.
