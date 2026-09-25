@@ -3,9 +3,6 @@
     ViewData["Title"] = "Abrir Caja";
     var cajas = ViewBag.Cajas as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
     var usuarioActual = User.Identity?.Name ?? "Usuario actual";
-    var cajaSeleccionada = cajas?.FirstOrDefault(i => i.Value == (Model.CajaId == 0 ? string.Empty : Model.CajaId.ToString()));
-    var terminalTexto = !string.IsNullOrWhiteSpace(Model.CajaNombre) ? Model.CajaNombre : cajaSeleccionada?.Text ?? "Seleccionar terminal";
-    var terminalCodigo = !string.IsNullOrWhiteSpace(Model.CajaCodigo) ? Model.CajaCodigo : "Sin código cargado";
 }
 
 <div class="caja-page-shell" style="padding-bottom:1.5rem">
@@ -18,6 +15,7 @@
         <div class="min-w-0">
             <h1 class="page-title">Abrir caja</h1>
             <p class="page-sub">Iniciá un turno declarando el fondo inicial. A partir de la apertura quedan registrados todos los movimientos hasta el cierre.</p>
+            <p class="page-sub" style="margin-top:.25rem">Responsable: <strong>@usuarioActual</strong> · Apertura: <span class="num">@DateTime.Now.ToString("dd/MM · HH:mm")</span></p>
         </div>
     </div>
 
@@ -28,29 +26,6 @@
             <span>@TempData["Error"]</span>
         </div>
     }
-
-    <div class="grid-kpi" style="margin-top:1rem">
-        <div class="kpi">
-            <div class="kpi-label">Terminal</div>
-            <div data-caja-abrir-terminal-label class="kpi-value">@terminalTexto</div>
-            <div data-caja-abrir-terminal-copy class="kpi-foot">@terminalCodigo</div>
-        </div>
-        <div class="kpi">
-            <div class="kpi-label">Responsable</div>
-            <div class="kpi-value">@usuarioActual</div>
-            <div class="kpi-foot">Turno vinculado al usuario autenticado.</div>
-        </div>
-        <div class="kpi kpi--accent">
-            <div class="kpi-label">Fondo inicial</div>
-            <div data-caja-abrir-fondo-label class="kpi-value">$@Model.MontoInicial.ToString("N2")</div>
-            <div class="kpi-foot">Base para el arqueo al cierre.</div>
-        </div>
-        <div class="kpi">
-            <div class="kpi-label">Apertura</div>
-            <div class="kpi-value num">@DateTime.Now.ToString("dd/MM · HH:mm")</div>
-            <div class="kpi-foot">Fecha y hora de inicio del turno.</div>
-        </div>
-    </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4" style="margin-top:1rem">
 

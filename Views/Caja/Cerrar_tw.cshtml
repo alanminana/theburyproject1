@@ -33,7 +33,7 @@
             <div class="kpi-label">Ingresos efectivo</div>
             <div class="kpi-value">$@Model.TotalIngresosSistema.ToString("N2")</div>
         </div>
-        <div class="kpi kpi--bad">
+        <div class="kpi@(Model.TotalEgresosSistema > 0 ? " kpi--bad" : "")">
             <div class="kpi-label">Egresos efectivo</div>
             <div class="kpi-value">$@Model.TotalEgresosSistema.ToString("N2")</div>
         </div>
@@ -66,18 +66,20 @@
                         <label asp-for="EfectivoContado" class="label">Efectivo real contado <span class="req">*</span></label>
                         <div class="field-money">
                             <span class="cur">$</span>
-                            <input asp-for="EfectivoContado" type="number" step="0.01" placeholder="0.00" class="field arqueo-input" autofocus />
+                            @* Vacío en la primera carga: un 0 precargado se leía como faltante total antes de contar. *@
+                            <input asp-for="EfectivoContado" type="number" step="0.01" placeholder="0.00" class="field arqueo-input" autofocus
+                                   value="@(Model.EfectivoContado == 0 && !ViewData.ModelState.ContainsKey("EfectivoContado") ? "" : Model.EfectivoContado.ToString(System.Globalization.CultureInfo.InvariantCulture))" />
                         </div>
                         <span asp-validation-for="EfectivoContado" class="text-rose-500 text-xs"></span>
                     </div>
                     <div class="result-card" id="result">
                         <div class="flex items-center justify-between gap-3">
                             <div class="result-label">Diferencia</div>
-                            <span id="diferencia-status" class="chip" style="visibility:hidden">Exacto</span>
+                            <span id="diferencia-status" class="chip" style="visibility:hidden" aria-live="polite">Exacto</span>
                         </div>
-                        <div class="result-value" id="diferencia-valor">$0,00</div>
+                        <div class="result-value" id="diferencia-valor">—</div>
                         <p class="text-xs mt-1 mb-0" id="diferencia-help" style="color:var(--muted)">Ingresá el efectivo contado para ver la diferencia.</p>
-                        <span class="material-symbols-outlined hidden" id="diferencia-icon">check_circle</span>
+                        <span class="material-symbols-outlined" id="diferencia-icon" hidden>check_circle</span>
                         <span class="hidden" id="total-real">$0,00</span>
                     </div>
                 </div>
@@ -99,6 +101,10 @@
                         <textarea asp-for="ObservacionesCierre" rows="2" placeholder="Novedades del turno para el responsable del próximo." class="field"></textarea>
                     </div>
                 </div>
+                <p class="hint" style="margin:.5rem 0 0">
+                    <a asp-action="DetallesApertura" asp-route-id="@Model.AperturaCajaId" asp-fragment="conciliacion" target="_blank" rel="noopener" class="cc-ref-link">Contar por denominación</a>
+                    (calculadora en el detalle del turno, pestaña nueva).
+                </p>
 
                 <div class="mt-4 pt-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between" style="border-top:1px solid var(--line)">
                     <div class="alert alert-bad lg:flex-1" style="margin:0">
@@ -119,7 +125,18 @@
                         <div class="defrow"><dt>Caja</dt><dd>@Model.CajaNombre</dd></div>
                         <div class="defrow"><dt>Apertura</dt><dd class="num">@(Model.FechaApertura?.ToString("dd/MM · HH:mm") ?? "—")</dd></div>
                         <div class="defrow"><dt>Responsable</dt><dd>@Model.UsuarioApertura</dd></div>
-                        <div class="defrow"><dt>Movimientos</dt><dd class="num">@movimientosCount</dd></div>
+                        <div class="defrow"><dt>Movimientos</dt><dd class="num">
+                            @if (movimientosCount > 0)
+                            {
+                                @* Pestaña nueva: no pierde el conteo que el usuario ya cargó en este formulario. *@
+                                <a asp-action="DetallesApertura" asp-route-id="@Model.AperturaCajaId" target="_blank" rel="noopener"
+                                   class="cc-ref-link" title="Ver el detalle de movimientos en una pestaña nueva">@movimientosCount · ver detalle</a>
+                            }
+                            else
+                            {
+                                @movimientosCount
+                            }
+                        </dd></div>
                     </dl>
                 </div>
 

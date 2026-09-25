@@ -1,14 +1,55 @@
 /**
  * proveedor-index.js
  *
- * Thin page wrapper for the shared Proveedor module.
+ * Thin page wrapper for the shared Proveedor module + filtros automáticos del listado.
  */
 (() => {
+    const SEARCH_FOCUS_KEY = 'proveedor-index:search-focus';
+    const SEARCH_DEBOUNCE_MS = 500;
+
+    // Los filtros se aplican solos: al cambiar un select o el check, y al dejar de escribir en la búsqueda.
+    function initAutoFilters() {
+        const form = document.querySelector('[data-proveedor-auto-filter]');
+        if (!form) return;
+
+        const search = form.querySelector('input[type="search"]');
+        const apply = () => (form.requestSubmit ? form.requestSubmit() : form.submit());
+
+        form.addEventListener('change', event => {
+            if (event.target.matches('select, input[type="checkbox"]')) apply();
+        });
+
+        if (!search) return;
+
+        let timer = 0;
+        search.addEventListener('input', () => {
+            window.clearTimeout(timer);
+            timer = window.setTimeout(() => {
+                try { sessionStorage.setItem(SEARCH_FOCUS_KEY, '1'); } catch { /* sin storage: solo se pierde el foco */ }
+                apply();
+            }, SEARCH_DEBOUNCE_MS);
+        });
+
+        // La página se recarga al filtrar: se devuelve el foco (y el cursor al final) para seguir escribiendo.
+        let restore = false;
+        try {
+            restore = sessionStorage.getItem(SEARCH_FOCUS_KEY) === '1';
+            sessionStorage.removeItem(SEARCH_FOCUS_KEY);
+        } catch { /* sin storage */ }
+        if (restore) {
+            search.focus({ preventScroll: true });
+            const end = search.value.length;
+            search.setSelectionRange(end, end);
+        }
+    }
+
     function init() {
         const moduleApi = window.TheBury && window.TheBury.ProveedorModule;
         if (moduleApi && typeof moduleApi.initIndex === 'function') {
             moduleApi.initIndex();
         }
+
+        initAutoFilters();
 
         if (window.TheBury && typeof window.TheBury.autoDismissToasts === 'function') {
             window.TheBury.autoDismissToasts();
@@ -21,30 +62,3 @@
         init();
     }
 })();
-
-document.addEventListener('proveedor:toast', function (e) {
-    var detail  = e.detail || {};
-    var message = detail.message || '';
-    var type    = detail.type || 'success';
-
-    var typeMap = {
-        success: { cls: 'alert-erp-success', icon: 'check_circle', role: 'status' },
-        error:   { cls: 'alert-erp-error',   icon: 'error',        role: 'alert'  },
-        warning: { cls: 'alert-erp-warning', icon: 'warning',      role: 'alert'  }
-    };
-    var v = typeMap[type] || typeMap.success;
-
-    var div = document.createElement('div');
-    div.className = 'toast-msg alert-erp ' + v.cls + ' fixed bottom-4 right-4 z-[60] shadow-lg';
-    div.setAttribute('role', v.role);
-    var iconSpan = document.createElement('span');
-    iconSpan.className = 'material-symbols-outlined';
-    iconSpan.textContent = v.icon;
-    div.appendChild(iconSpan);
-    div.appendChild(document.createTextNode(message));
-    document.body.appendChild(div);
-
-    if (window.TheBury && typeof window.TheBury.autoDismissToasts === 'function') {
-        window.TheBury.autoDismissToasts(4000);
-    }
-});

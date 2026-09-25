@@ -345,10 +345,8 @@ namespace TheBuryProject.Controllers
                     return RedirectToAction(nameof(Details), new { id });
                 }
 
-                // Mapear a ViewModel
-                var viewModel = _mapper.Map<OrdenCompraViewModel>(orden);
-
-                return View("Recepcionar_tw", viewModel);
+                // La recepción vive en Details; esta ruta se mantiene por compatibilidad de enlaces
+                return RedirectToAction(nameof(Details), new { id });
             }
             catch (Exception ex)
             {
@@ -370,7 +368,7 @@ namespace TheBuryProject.Controllers
                 if (detalles == null || !detalles.Any(d => d.CantidadARecepcionar > 0))
                 {
                     TempData["Error"] = "Debe recepcionar al menos un producto";
-                    return RedirectToAction(nameof(Recepcionar), new { id });
+                    return RedirectToAction(nameof(Details), new { id });
                 }
 
                 await _ordenCompraService.RecepcionarAsync(id, rowVersion, detalles);
@@ -381,13 +379,13 @@ namespace TheBuryProject.Controllers
             catch (InvalidOperationException ex)
             {
                 TempData["Error"] = ex.Message;
-                return RedirectToAction(nameof(Recepcionar), new { id });
+                return RedirectToAction(nameof(Details), new { id });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al recepcionar orden {Id}", id);
                 TempData["Error"] = "Error al recepcionar mercader�a";
-                return RedirectToAction(nameof(Recepcionar), new { id });
+                return RedirectToAction(nameof(Details), new { id });
             }
         }
         #endregion

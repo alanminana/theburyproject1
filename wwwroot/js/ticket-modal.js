@@ -233,18 +233,35 @@
         };
     }
 
+    // Devuelve el primer error con el id del campo que lo causó (para enfocarlo y marcarlo).
     function validate(payload) {
-        if (!payload.titulo)            return 'El título es obligatorio.';
-        if (!payload.descripcion)       return 'La descripción es obligatoria.';
-        if (payload.tipo === null || isNaN(payload.tipo)) return 'Seleccioná un tipo de incidencia.';
+        if (!payload.titulo)            return { message: 'El título es obligatorio.', fieldId: 'ticket-titulo' };
+        if (payload.tipo === null || isNaN(payload.tipo)) return { message: 'Seleccioná un tipo de incidencia.', fieldId: 'ticket-tipo' };
+        if (!payload.descripcion)       return { message: 'La descripción es obligatoria.', fieldId: 'ticket-descripcion' };
         return null;
+    }
+
+    function markInvalid(fieldId) {
+        ['ticket-titulo', 'ticket-tipo', 'ticket-descripcion'].forEach(function (id) {
+            var field = el(id);
+            if (!field) return;
+            if (id === fieldId) field.setAttribute('aria-invalid', 'true');
+            else field.removeAttribute('aria-invalid');
+        });
+        var target = fieldId ? el(fieldId) : null;
+        if (target) target.focus();
     }
 
     async function submit() {
         var payload = buildPayload();
         var validationError = validate(payload);
-        if (validationError) { setError(validationError); return; }
+        if (validationError) {
+            setError(validationError.message);
+            markInvalid(validationError.fieldId);
+            return;
+        }
 
+        markInvalid(null);
         setLoading(true);
         setError(null);
 

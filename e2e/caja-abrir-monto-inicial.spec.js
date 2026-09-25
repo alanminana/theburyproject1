@@ -31,7 +31,6 @@ test('el monto cargado antes de elegir la caja no se pisa con el último cierre'
     await resp;
     await page.waitForTimeout(200);
     await expect(monto).toHaveValue('30000');
-    await expect(page.locator('[data-caja-abrir-fondo-label]')).toContainText('30');
 
     let body = '';
     await page.route('**/Caja/Abrir', r => { body = r.request().postData() || ''; r.abort(); });

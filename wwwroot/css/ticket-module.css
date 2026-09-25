@@ -1,0 +1,227 @@
+/* ==========================================================================
+   Tickets (Index + Details) — estilos propios del módulo.
+   Usa tokens --pal-* (palette.css). Sin hero: el título lo da la barra global
+   (ERP-UI-STANDARD §4). Container queries por host: el sidebar quita ~250px
+   al ancho de la ventana, así que el viewport no sirve para decidir el layout.
+   ========================================================================== */
+
+/* ---- Pestañas de estado (reemplazan las 6 tarjetas KPI) ------------------ */
+.tk-tabs-host { container-type: inline-size; }
+.tk-tabs {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: 0.75rem 1rem 0;
+    border-bottom: 1px solid var(--pal-neutral-800);
+}
+.tk-tabs::-webkit-scrollbar { display: none; }
+
+.tk-tab {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 0.75rem;
+    margin-bottom: -1px;
+    border-bottom: 2px solid transparent;
+    color: var(--pal-neutral-400);
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: color 0.15s, border-color 0.15s;
+}
+.tk-tab:hover { color: var(--pal-neutral-100); }
+.tk-tab:focus-visible { outline: 2px solid var(--pal-accent); outline-offset: -2px; border-radius: 0.5rem; }
+.tk-tab[aria-current="page"] {
+    color: var(--pal-white);
+    border-bottom-color: var(--pal-accent);
+}
+.tk-tab-count {
+    min-width: 1.5rem;
+    padding: 0.05rem 0.45rem;
+    border-radius: 999px;
+    background: var(--pal-neutral-800);
+    color: var(--pal-neutral-300);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-align: center;
+}
+.tk-tab[aria-current="page"] .tk-tab-count { background: var(--pal-accent-900); color: var(--pal-accent-300); }
+.tk-tab-count--warn { background: var(--pal-warning-900); color: var(--pal-warning-300); }
+.tk-tabs-spacer { flex: 1 1 auto; }
+/* Host angosto: el chip secundario se oculta y el borde derecho se desvanece para sugerir más pestañas. */
+@container (max-width: 48rem) {
+    .tk-recent, .tk-tabs-spacer { display: none; }
+    .tk-tabs { mask-image: linear-gradient(to right, #000 calc(100% - 2rem), transparent); }
+}
+.tk-recent {
+    flex: none;
+    margin-bottom: 0.4rem;
+    padding: 0.25rem 0.625rem;
+    border: 1px solid var(--pal-neutral-700);
+    border-radius: 999px;
+    color: var(--pal-neutral-300);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+}
+.tk-recent:hover { border-color: var(--pal-neutral-500); color: var(--pal-white); }
+
+/* ---- Barra de selección masiva ---------------------------------------------
+   `overflow: clip` (en vez de hidden) deja al wrapper sin ser contenedor de scroll, así que la
+   barra queda pegada arriba mientras se recorren las filas y el conteo nunca sale de vista. */
+.table-erp-wrapper.tk-card { overflow: clip; }
+.tk-bulk { position: sticky; top: 0; z-index: 20; box-shadow: 0 6px 12px -6px rgba(0, 0, 0, 0.5); }
+
+/* ---- Filtros ------------------------------------------------------------- */
+.tk-filters-host { container-type: inline-size; }
+.tk-filters {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+    align-items: end;
+}
+.tk-filters .tk-f-wide { grid-column: 1 / -1; }
+/* Todos los controles de la fila con la misma altura, para que las etiquetas queden alineadas. */
+.tk-filters :is(input, select), .tk-filters-actions > * { height: 2.5rem; }
+.tk-filters-actions { display: flex; gap: 0.5rem; grid-column: 1 / -1; }
+.tk-filters-actions > * { flex: 1 1 auto; }
+
+@container (min-width: 40rem) {
+    /* Fila 1: buscador + Filtrar. Fila 2: cuatro campos iguales. */
+    .tk-filters { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .tk-filters .tk-f-wide { grid-column: 1 / 4; order: 0; }
+    .tk-filters-actions { grid-column: 4; order: 1; justify-content: flex-end; }
+    .tk-filters > div:not(.tk-f-wide):not(.tk-filters-actions) { order: 2; }
+    .tk-filters-actions > * { flex: 1 1 auto; }
+}
+@container (min-width: 56rem) {
+    /* Todo en una sola fila. */
+    .tk-filters { grid-template-columns: minmax(10rem, 1fr) 8.5rem 8rem 8.75rem 8.75rem auto; }
+    .tk-filters .tk-f-wide { grid-column: auto; }
+    .tk-filters-actions { grid-column: auto; }
+    .tk-filters > div:not(.tk-f-wide):not(.tk-filters-actions), .tk-filters-actions { order: 0; }
+    .tk-filters-actions > * { flex: 0 0 auto; }
+}
+
+/* ---- Tabla: resumen + acciones compactas --------------------------------- */
+.tk-summary { min-width: 0; }
+.tk-summary-title { display: flex; align-items: baseline; gap: 0.5rem; min-width: 0; }
+.tk-summary-id { flex: none; font-family: ui-monospace, monospace; font-size: 0.75rem; color: var(--pal-neutral-400); }
+.tk-summary-meta { display: flex; flex-wrap: nowrap; align-items: center; gap: 0.5rem; margin-top: 0.25rem; min-width: 0; overflow: hidden; }
+.tk-summary-meta > * { flex: none; }
+.tk-summary-meta > .tk-summary-path { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tk-tipo-inline { display: none; }
+
+.tk-actions {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.375rem;
+}
+/* Ver/Gestionar quedan siempre en la misma posición; la acción destructiva se separa al borde. */
+.tk-act--danger { margin-left: auto; }
+/* Reserva espacio bajo el botón flotante global de incidencias. */
+.tk-page { padding-bottom: 5rem; }
+.tk-act {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    height: 2rem;
+    min-width: 2rem;
+    padding: 0 0.5rem;
+    border: 0;
+    border-radius: 0.5rem;
+    background: var(--pal-neutral-800);
+    color: var(--pal-neutral-300);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 0.15s, color 0.15s;
+}
+.tk-act:hover { background: var(--pal-neutral-700); color: var(--pal-white); }
+.tk-act:focus-visible { outline: 2px solid var(--pal-accent); outline-offset: 2px; }
+.tk-act .material-symbols-outlined { font-size: 1.125rem; }
+.tk-act--primary { background: var(--pal-accent-900); color: var(--pal-accent-300); }
+.tk-act--primary:hover { background: var(--pal-accent); color: var(--pal-on-accent); }
+.tk-act--danger { background: color-mix(in srgb, var(--pal-danger) 12%, transparent); color: var(--pal-danger-300); }
+.tk-act--danger:hover { background: var(--pal-danger); color: var(--pal-white); }
+/* El texto de la acción solo se muestra cuando la fila pasa a tarjeta (<640px). */
+.tk-act-label {
+    position: absolute;
+    width: 1px; height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+/* Columna de acciones fija a la derecha: nunca queda oculta por el scroll horizontal. */
+@media (min-width: 640px) {
+    table.tk-table th.tk-col-actions,
+    table.tk-table td.tk-col-actions {
+        position: sticky;
+        right: 0;
+        z-index: 1;
+        background: var(--pal-neutral-875);
+        box-shadow: -1px 0 0 var(--pal-neutral-800);
+    }
+    table.tk-table tr:hover td.tk-col-actions { background: var(--pal-neutral-850); }
+    /* Layout fijo: la columna Ticket toma el ancho restante y trunca; el resto tiene ancho propio. */
+    table.tk-table { table-layout: fixed; }
+    table.tk-table .tk-col-check { width: 3.25rem; }
+    table.tk-table .tk-col-tipo { width: 11.5rem; }
+    table.tk-table .tk-col-estado { width: 10rem; }
+    table.tk-table .tk-col-actions { width: 14.5rem; }
+    table.tk-table td.tk-summary-cell { min-width: 0; }
+    table.tk-table th, table.tk-table td { padding-left: 1rem; padding-right: 1rem; }
+}
+@media (min-width: 640px) {
+    [data-oc-scroll-shell]:has(> [data-oc-scroll-region] > .tk-table) { container-type: inline-size; }
+    @container (max-width: 56rem) {
+        table.tk-table { min-width: 0 !important; }
+        table.tk-table .tk-col-tipo { display: none; }
+        .tk-tipo-inline { display: inline-flex; }
+        .tk-summary-meta { flex-wrap: wrap; row-gap: 0.25rem; }
+        .tk-summary-meta > .tk-summary-path { display: none; }
+    }
+}
+@media (max-width: 639.98px) {
+    .tk-actions { flex-wrap: wrap; justify-content: flex-start; }
+    .tk-act { padding: 0 0.75rem; }
+    .tk-act-label { position: static; width: auto; height: auto; overflow: visible; clip: auto; }
+}
+
+/* Casillas de selección: 24px mínimo de objetivo (WCAG 2.5.8). */
+.tk-table input[type="checkbox"] { width: 1.5rem; height: 1.5rem; cursor: pointer; }
+
+/* Táctil: objetivos de 44px (la columna de acciones se ensancha para que no quede tapada). */
+@media (pointer: coarse) {
+    .tk-act { height: 2.75rem; min-width: 2.75rem; }
+    .tk-tab, .tk-recent { min-height: 2.75rem; display: inline-flex; align-items: center; }
+    @media (min-width: 640px) {
+        table.tk-table .tk-col-actions { width: 18rem; }
+    }
+}
+
+/* ---- Details ------------------------------------------------------------- */
+.tk-detail-head { padding: 1.5rem; }
+.tk-detail-title { overflow-wrap: anywhere; }
+.tk-detail-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1.25rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--pal-neutral-800);
+}
+@media (min-width: 640px) { .tk-detail-delete { margin-left: auto; } }
+@media (max-width: 639.98px) {
+    .tk-detail-actions > * { flex: 1 1 100%; justify-content: center; }
+}

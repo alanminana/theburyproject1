@@ -21,6 +21,10 @@
                 {
                     <span class="chip chip-neutral"><span class="material-symbols-outlined">lock</span>Turno cerrado</span>
                 }
+                else if (Model.EsVencida)
+                {
+                    <span class="chip chip-warn"><span class="material-symbols-outlined">schedule</span>Turno vencido</span>
+                }
                 else
                 {
                     <span class="chip chip-live"><span class="dot"></span>Turno abierto</span>
@@ -38,11 +42,14 @@
             <button type="button" data-caja-print class="btn btn-ghost">
                 <span class="material-symbols-outlined">print</span>Imprimir
             </button>
-            @if (Model.PuedeOperar)
+            @if (Model.PuedeRegistrarMovimientos && !Model.EsVencida)
             {
                 <a asp-action="RegistrarMovimiento" asp-route-aperturaId="@Model.AperturaId" class="btn btn-soft no-underline">
                     <span class="material-symbols-outlined">add_card</span>Nuevo movimiento
                 </a>
+            }
+            @if (Model.PuedeCerrar)
+            {
                 <a asp-action="Cerrar" asp-route-aperturaId="@Model.AperturaId" class="btn btn-primary no-underline">
                     <span class="material-symbols-outlined">lock</span>Cerrar caja
                 </a>
@@ -50,6 +57,13 @@
         </div>
     </div>
 
+    @if (Model.EsVencida)
+    {
+        <div class="alert alert-warn cc-noprint" role="alert">
+            <span class="material-symbols-outlined">schedule</span>
+            <span>Este turno quedó abierto desde un día anterior. No admite ventas, cuotas ni movimientos: cerralo con arqueo y justificación.</span>
+        </div>
+    }
     @if (TempData["Error"] != null)
     {
         <div class="alert alert-bad cc-noprint" role="alert">

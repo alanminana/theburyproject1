@@ -24,6 +24,12 @@ public class CajaConciliacionViewModel
     public bool EsLectura => EstaCerrada;
     /// <summary>Live + (dueño del turno o admin): habilita Nuevo movimiento / Cerrar caja.</summary>
     public bool PuedeOperar { get; set; }
+    /// <summary>Turno abierto desde un día comercial anterior: solo admite cerrarse (no ventas ni movimientos).</summary>
+    public bool EsVencida { get; set; }
+    /// <summary>PuedeOperar + permiso caja.movements (el botón no se ofrece si el controller lo va a rechazar).</summary>
+    public bool PuedeRegistrarMovimientos { get; set; }
+    /// <summary>PuedeOperar + permiso caja.close.</summary>
+    public bool PuedeCerrar { get; set; }
 
     public DateTime FechaApertura { get; set; }
     public DateTime? FechaCierre { get; set; }

@@ -2,17 +2,17 @@
 @using System.Globalization
 @model ConfiguracionPagoGlobalAdminViewModel
 @{
-    ViewData["Title"] = "Configuracion de pagos";
+    ViewData["Title"] = "Configuración de pagos";
     var puedeEditar = User.TienePermiso("configuracion", "update");
 
     static string TipoPagoDisplay(TipoPago tipoPago) => tipoPago switch
     {
         TipoPago.Efectivo => "Efectivo",
         TipoPago.Transferencia => "Transferencia",
-        TipoPago.TarjetaDebito => "Tarjeta debito",
-        TipoPago.TarjetaCredito => "Tarjeta credito",
+        TipoPago.TarjetaDebito => "Tarjeta débito",
+        TipoPago.TarjetaCredito => "Tarjeta crédito",
         TipoPago.Cheque => "Cheque",
-        TipoPago.CreditoPersonal => "Credito personal",
+        TipoPago.CreditoPersonal => "Crédito personal",
         TipoPago.MercadoPago => "Mercado Pago",
         TipoPago.CuentaCorriente => "Cuenta corriente",
         TipoPago.Tarjeta => "Tarjeta legacy",
@@ -21,8 +21,8 @@
 
     static string TipoTarjetaDisplay(TipoTarjeta tipoTarjeta) => tipoTarjeta switch
     {
-        TipoTarjeta.Credito => "Credito",
-        TipoTarjeta.Debito => "Debito",
+        TipoTarjeta.Credito => "Crédito",
+        TipoTarjeta.Debito => "Débito",
         _ => tipoTarjeta.ToString()
     };
 
@@ -106,7 +106,8 @@
             --pay-warn: var(--pal-warning-400);
             --pay-danger: var(--pal-danger-400);
             min-height: calc(100dvh - 5rem);
-            padding: 1.25rem;
+            /* Sin padding lateral: el shell alinea con el de Crédito personal (mismas x al cambiar de pestaña). */
+            padding: .5rem 0 1.25rem;
             background: var(--pay-bg);
             color: var(--pay-text);
         }
@@ -116,7 +117,7 @@
         }
 
         .payments-shell-card {
-            width: min(100%, 1240px);
+            width: 100%;
             margin: 0 auto;
             border: 1px solid var(--pay-line);
             /* Radio alineado a .hero-erp (shared-components.css), sin box-shadow propia:
@@ -137,24 +138,6 @@
             background: linear-gradient(180deg, color-mix(in srgb, var(--pal-neutral-925) 98%, transparent), color-mix(in srgb, var(--pal-neutral-925) 98%, transparent));
         }
 
-        .payments-title {
-            margin: .35rem 0 0;
-            font-size: clamp(1.6rem, 3vw, 2.35rem);
-            line-height: 1.05;
-            font-weight: 900;
-            color: var(--pay-text);
-            letter-spacing: 0;
-            text-wrap: balance;
-        }
-
-        .payments-subtitle {
-            max-width: 58rem;
-            margin: .6rem 0 0;
-            color: var(--pay-muted);
-            font-size: .92rem;
-            line-height: 1.6;
-        }
-
         .payments-eyebrow,
         .pay-label {
             color: var(--pay-muted);
@@ -162,37 +145,6 @@
             font-weight: 800;
             letter-spacing: .08em;
             text-transform: uppercase;
-        }
-
-        .payments-breadcrumb {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: .35rem;
-            color: var(--pay-muted);
-            font-size: var(--erp-fs-min, 0.75rem);
-            font-weight: 800;
-            letter-spacing: .08em;
-            text-transform: uppercase;
-        }
-
-        .payments-breadcrumb__link {
-            color: var(--pay-muted);
-            text-decoration: none;
-        }
-
-        .payments-breadcrumb__link:hover,
-        .payments-breadcrumb__link:focus-visible {
-            color: var(--pay-accent);
-            text-decoration: underline;
-        }
-
-        .payments-breadcrumb__separator {
-            color: var(--pay-dim);
-        }
-
-        .payments-breadcrumb__current {
-            color: var(--pay-muted);
         }
 
         .payments-actions {
@@ -203,35 +155,32 @@
         }
 
         .payments-metrics {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: .65rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: .5rem;
             padding: 1rem 1.25rem 0;
         }
 
         .payments-metric {
+            display: inline-flex;
+            align-items: baseline;
+            gap: .5rem;
             min-width: 0;
             border: 1px solid var(--pay-line);
-            border-radius: .9rem;
+            border-radius: 999px;
             background: var(--pay-panel);
-            padding: .85rem;
+            padding: .35rem .85rem;
         }
 
         .payments-metric strong {
-            display: block;
-            margin-top: .25rem;
             color: var(--pay-text);
-            font-size: 1.55rem;
+            font-size: 1rem;
             line-height: 1;
             font-variant-numeric: tabular-nums;
         }
 
-        .payments-rule {
-            margin: 1rem 1.25rem 0;
-            border: 1px solid color-mix(in srgb, var(--pal-accent) 34%, transparent);
-            border-radius: 1rem;
-            background: color-mix(in srgb, var(--pal-accent) 8%, transparent);
-            padding: .85rem 1rem;
+        .payments-tabs-slot {
+            margin-top: 1rem;
         }
 
         .payments-layout {
@@ -514,8 +463,10 @@
 
         .inactive-card-note {
             margin: .65rem .85rem .25rem;
-            padding-left: .6rem;
-            border-left: 3px solid color-mix(in srgb, var(--pal-danger-400) 45%, transparent);
+            padding: .5rem .65rem;
+            border: 1px solid color-mix(in srgb, var(--pal-danger-400) 35%, transparent);
+            border-radius: .6rem;
+            background: color-mix(in srgb, var(--pal-danger-400) 8%, transparent);
             color: var(--pal-danger-200);
             font-size: .78rem;
             font-weight: 700;
@@ -822,8 +773,15 @@
         }
 
         @@media (max-width: 700px) {
+            .pay-mini-button,
+            .pay-button-row button,
+            .pay-field,
+            .pay-select {
+                min-height: 2.75rem;
+            }
+
             .payments-page {
-                padding: .75rem;
+                padding: .5rem 0 .75rem;
             }
 
             .payments-shell-card {
@@ -839,10 +797,6 @@
             .payments-actions,
             .method-stats {
                 justify-content: flex-start;
-            }
-
-            .payments-metrics {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
             }
 
             .form-grid {
@@ -864,12 +818,7 @@
             }
 
             .payments-metrics {
-                grid-template-columns: minmax(0, 1fr);
                 padding: .8rem .8rem 0;
-            }
-
-            .payments-rule {
-                margin: .8rem .8rem 0;
             }
 
             .methods-sidebar nav {
@@ -941,16 +890,14 @@
     <section class="payments-shell-card" aria-labelledby="payments-title">
         <header class="payments-topbar">
             <div>
-                <nav class="payments-breadcrumb" aria-label="Breadcrumb">
-                    <a asp-controller="Home" asp-action="Index" class="payments-breadcrumb__link">Inicio</a>
-                    <span class="payments-breadcrumb__separator" aria-hidden="true">›</span>
-                    <span class="payments-breadcrumb__current">Configuracion global de pagos</span>
-                </nav>
-                <h1 id="payments-title" class="payments-title">Configuracion de pagos</h1>
-                <p class="payments-subtitle">
+                <h1 id="payments-title" class="cfgpago-title">Configuración de pagos</h1>
+                <p class="cfgpago-sub">
                     Administra medios, tarjetas y planes reutilizables. El ajuste se aplica una sola vez sobre el total.
                     Ajuste positivo = recargo, ajuste negativo = descuento. Cuotas indica la cantidad total de pagos.
                 </p>
+                <div class="payments-tabs-slot">
+                    <partial name="_ConfiguracionPagoTabs" view-data="@(new ViewDataDictionary(ViewData) { { "ConfigPagoTab", "medios" } })" />
+                </div>
             </div>
             <div class="payments-actions">
                 <a asp-controller="Home" asp-action="Index" class="pay-mini-button">
@@ -992,18 +939,10 @@
                 <span class="payments-eyebrow">Inactivos</span>
                 <strong>@Model.TotalInactivos</strong>
             </article>
-        </section>
-
-        <section class="payments-rule">
-            <div class="flex flex-wrap items-center gap-2">
-                <span class="pay-badge pay-badge-ok">-5% descuento</span>
-                <span class="pay-badge pay-badge-muted">0% sin ajuste</span>
-                <span class="pay-badge pay-badge-warn">+5% recargo</span>
-                @if (!puedeEditar)
-                {
-                    <span class="pay-badge pay-badge-muted">Solo lectura</span>
-                }
-            </div>
+            @if (!puedeEditar)
+            {
+                <span class="pay-badge pay-badge-muted self-center">Solo lectura</span>
+            }
         </section>
 
         @if (Model.Medios.Count == 0)
@@ -1231,7 +1170,7 @@
                                                 </form>
                                                 <form asp-controller="ConfiguracionPago" asp-action="EliminarMedioPagoGlobal" asp-route-id="@medio.Id" method="post"
                                                       class="pay-button-row"
-                                                      onsubmit="return confirm('Eliminar este medio de pago? Se ocultara de la operatoria (soft delete).');">
+                                                      data-confirm="Eliminar este medio de pago? Se ocultara de la operatoria (soft delete).">
                                                     @Html.AntiForgeryToken()
                                                     <button type="submit" class="pay-mini-button danger">
                                                         <span class="material-symbols-outlined text-[17px]">delete</span>
@@ -1249,13 +1188,10 @@
                                 <div class="credit-debt">
                                     <strong>Credito personal tiene configuracion propia por tasa, scoring y perfiles de credito.</strong>
                                     <p class="mt-1 text-sm text-amber-100/80">Los cambios operativos se administran en la pantalla de configuracion de credito.</p>
-                                    @if (puedeEditar)
-                                    {
-                                        <a asp-controller="ConfiguracionPago" asp-action="CreditoPersonal" class="pay-mini-button mt-2">
-                                            <span class="material-symbols-outlined text-[17px]">tune</span>
-                                            Administrar credito personal
-                                        </a>
-                                    }
+                                    <a asp-controller="ConfiguracionPago" asp-action="CreditoPersonal" class="pay-mini-button mt-2">
+                                        <span class="material-symbols-outlined text-[17px]">tune</span>
+                                        @(puedeEditar ? "Administrar credito personal" : "Ver credito personal")
+                                    </a>
                                 </div>
                             }
 
@@ -1943,9 +1879,46 @@
             // Spinner de envio delegado en el contenedor raiz (no por-formulario): sigue
             // funcionando en los forms que trae el reemplazo AJAX de seccion de abajo, sin
             // necesitar re-bind cada vez que cambia el panel.
+            // Cada <label class="pay-label"> seguido de su input/select/textarea queda asociado por
+            // for/id (los formularios se repiten por medio, tarjeta y plan: los ids se generan unicos).
+            let labelSeq = 0;
+            function associateLabels(scope) {
+                scope.querySelectorAll('label.pay-label:not([for])').forEach((label) => {
+                    const control = label.nextElementSibling;
+                    if (!control || !/^(INPUT|SELECT|TEXTAREA)$/.test(control.tagName)) {
+                        return;
+                    }
+                    if (!control.id) {
+                        control.id = 'pay-ctl-' + (++labelSeq);
+                    }
+                    label.htmlFor = control.id;
+                });
+            }
+            associateLabels(root);
+
+            // Confirmacion de acciones destructivas con el dialogo del ERP (data-confirm),
+            // en vez del confirm() nativo del navegador.
             root.addEventListener('submit', (event) => {
                 const form = event.target.closest('form');
-                if (!form || !root.contains(form) || !form.checkValidity()) {
+                if (!form || !form.hasAttribute('data-confirm') || form.dataset.confirmed === '1') {
+                    return;
+                }
+                event.preventDefault();
+                const message = form.getAttribute('data-confirm');
+                const proceed = () => {
+                    form.dataset.confirmed = '1';
+                    form.requestSubmit();
+                };
+                if (window.TheBury && typeof window.TheBury.confirmAction === 'function') {
+                    window.TheBury.confirmAction(message, proceed);
+                } else if (window.confirm(message)) {
+                    proceed();
+                }
+            });
+
+            root.addEventListener('submit', (event) => {
+                const form = event.target.closest('form');
+                if (event.defaultPrevented || !form || !root.contains(form) || !form.checkValidity()) {
                     return;
                 }
 
@@ -2015,6 +1988,7 @@
                     sidebarNav = newNav;
                     mainPanel = newMain;
                     bindNav(sidebarNav);
+                    associateLabels(mainPanel);
 
                     if (pushHistory) {
                         history.pushState({ mediosPago: true }, '', url);

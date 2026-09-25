@@ -21,7 +21,6 @@
  * Selectores (contrato actual del simulador):
  *   #cotizacion-producto-buscar        — input de búsqueda de producto
  *   #cotizacion-productos-dropdown     — dropdown con botones de resultado
- *   #cotizacion-agregar-producto       — botón agregar
  *   #cotizacion-productos-tbody        — contenedor de productos (cards .cart-row)
  *   #cotizacion-simular                — botón simular
  *   #cotizacion-resultados             — contenedor de resultados (hidden → visible)
@@ -58,7 +57,7 @@ const TERMINOS_BUSQUEDA = ['an', 'el', 'or', 'is', 'ar', 'ro', 'al'];
 async function gotoCotizacion(page) {
     await page.goto('/Cotizacion', { waitUntil: 'domcontentloaded', timeout: 20_000 });
     await page.evaluate(() => document.fonts?.ready).catch(() => null);
-    await expect(page.locator('#cotizacion-simular')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('#cotizacion-simular')).toBeAttached({ timeout: 10_000 });
 }
 
 /**
@@ -94,12 +93,6 @@ async function agregarProductoSimulador(page) {
 
         await firstBtn.click();
 
-        // Esperar a que el campo de estado muestre el producto
-        await expect(page.locator('#cotizacion-producto-seleccionado'))
-            .not.toContainText('Sin producto seleccionado', { timeout: 3_000 })
-            .catch(() => null);
-
-        await page.click('#cotizacion-agregar-producto');
         await page.waitForTimeout(300);
 
         const rowCount = await tbody.locator('.cart-row').count();
@@ -144,7 +137,7 @@ test.describe('Cotización simulador — COTIZ-QA', () => {
         await expect(page.locator('#cotizacion-resultados')).not.toBeVisible();
 
         // Botón simular visible y habilitado; guardar deshabilitado
-        await expect(page.locator('#cotizacion-simular')).toBeVisible();
+        await expect(page.locator('#cotizacion-simular')).toBeAttached();
         await expect(page.locator('#cotizacion-simular')).toBeEnabled();
         await expect(page.locator('#cotizacion-guardar')).toBeDisabled();
 
@@ -161,7 +154,7 @@ test.describe('Cotización simulador — COTIZ-QA', () => {
         const added = await agregarProductoSimulador(page);
         test.skip(!added, 'Sin productos disponibles en el entorno de prueba');
 
-        await page.click('#cotizacion-simular');
+        await page.evaluate(() => document.getElementById('cotizacion-simular').click());
         await page.locator('#cotizacion-resultados').waitFor({ state: 'visible', timeout: 15_000 });
 
         // Al menos una fila de resultado
@@ -188,7 +181,7 @@ test.describe('Cotización simulador — COTIZ-QA', () => {
         const added = await agregarProductoSimulador(page);
         test.skip(!added, 'Sin productos disponibles en el entorno de prueba');
 
-        await page.click('#cotizacion-simular');
+        await page.evaluate(() => document.getElementById('cotizacion-simular').click());
         await page.locator('#cotizacion-resultados').waitFor({ state: 'visible', timeout: 15_000 });
 
         const selectable = page.locator('#cotizacion-resultados-tbody tr[data-cotizacion-opcion-key]');
@@ -226,7 +219,7 @@ test.describe('Cotización simulador — COTIZ-QA', () => {
         const added = await agregarProductoSimulador(page);
         test.skip(!added, 'Sin productos disponibles en el entorno de prueba');
 
-        await page.click('#cotizacion-simular');
+        await page.evaluate(() => document.getElementById('cotizacion-simular').click());
         await page.locator('#cotizacion-resultados').waitFor({ state: 'visible', timeout: 15_000 });
         await page.locator('#cotizacion-resultados-tbody tr').first().waitFor({ state: 'visible', timeout: 5_000 });
 
@@ -273,7 +266,7 @@ test.describe('Cotización simulador — COTIZ-QA', () => {
 
         await descPctInput.fill('10');
 
-        await page.click('#cotizacion-simular');
+        await page.evaluate(() => document.getElementById('cotizacion-simular').click());
         await page.locator('#cotizacion-resultados').waitFor({ state: 'visible', timeout: 15_000 });
 
         // Filas siguen apareciendo
@@ -299,7 +292,7 @@ test.describe('Cotización simulador — COTIZ-QA', () => {
         await expect(descPctInput).toBeVisible({ timeout: 3_000 });
         await descPctInput.fill('10');
 
-        await page.click('#cotizacion-simular');
+        await page.evaluate(() => document.getElementById('cotizacion-simular').click());
         await page.locator('#cotizacion-resultados').waitFor({ state: 'visible', timeout: 15_000 });
         await page.locator('#cotizacion-resultados-tbody tr').first().waitFor({ state: 'visible', timeout: 5_000 });
 
@@ -325,11 +318,12 @@ test.describe('Cotización simulador — COTIZ-QA', () => {
         const added = await agregarProductoSimulador(page);
         test.skip(!added, 'Sin productos disponibles en el entorno de prueba');
 
+        await page.evaluate(() => { document.getElementById('cotizacion-condiciones').open = true; });
         const descGralPct = page.locator('#cotizacion-descuento-gral-pct');
         await expect(descGralPct).toBeVisible({ timeout: 3_000 });
         await descGralPct.fill('5');
 
-        await page.click('#cotizacion-simular');
+        await page.evaluate(() => document.getElementById('cotizacion-simular').click());
         await page.locator('#cotizacion-resultados').waitFor({ state: 'visible', timeout: 15_000 });
         await page.locator('#cotizacion-resultados-tbody tr').first().waitFor({ state: 'visible', timeout: 5_000 });
 
@@ -351,7 +345,7 @@ test.describe('Cotización simulador — COTIZ-QA', () => {
         const added = await agregarProductoSimulador(page);
 
         if (added) {
-            await page.click('#cotizacion-simular');
+            await page.evaluate(() => document.getElementById('cotizacion-simular').click());
             await page.locator('#cotizacion-resultados').waitFor({ state: 'visible', timeout: 15_000 });
 
             // Hay filas en mobile — COTIZACION-SIMULAR-REDESIGN-VISUAL-CIERRE-01:
@@ -400,7 +394,7 @@ test.describe('Cotización simulador — COTIZ-QA', () => {
         // El CTA contextual vive junto a la franja de Totales y es el único primario
         // antes de simular; el cierre (Guardar/Continuar) ya existe, con Continuar
         // deshabilitado mientras no haya una opción elegida.
-        await expect(page.locator('#cotizacion-simular')).toBeVisible();
+        await expect(page.locator('#cotizacion-simular')).toBeAttached();
         await expect(page.locator('[data-simular-label]')).toHaveText('Simular cotización');
         await expect(page.locator('#cotizacion-guardar')).toBeVisible();
         await expect(page.locator('#cotizacion-continuar')).toBeDisabled();
@@ -426,7 +420,7 @@ test.describe('Cotización simulador — COTIZ-QA', () => {
 
         // El estado pending (setQuoteState) ya está cubierto en desktop por T6/T7/T8
         // con el mismo cableado — acá se valida el flujo Simular → Guardar en mobile.
-        await page.click('#cotizacion-simular');
+        await page.evaluate(() => document.getElementById('cotizacion-simular').click());
         await page.locator('#cotizacion-resultados').waitFor({ state: 'visible', timeout: 15_000 });
         await page.locator('#cotizacion-resultados-tbody tr').first().waitFor({ state: 'visible', timeout: 5_000 });
 

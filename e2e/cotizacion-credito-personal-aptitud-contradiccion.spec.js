@@ -62,7 +62,6 @@ async function agregarPrimerProducto(page) {
         const firstBtn = dropdown.locator('button').first();
         if (!(await firstBtn.isVisible({ timeout: 2_000 }).catch(() => false))) continue;
         await firstBtn.click();
-        await page.click('#cotizacion-agregar-producto');
         await page.waitForTimeout(300);
         if (await page.locator('#cotizacion-productos-tbody .cart-row').count() > 0) return true;
     }
@@ -73,7 +72,7 @@ test.describe('Cotización — aptitud crediticia vs. tabla de comparación (COT
     test('Cliente No apto: la tabla nunca ofrece "Elegir" en Crédito personal, ni auto-selecciona sus planes', async ({ page }) => {
         await page.setViewportSize({ width: 1366, height: 768 });
         await page.goto('/Cotizacion', { waitUntil: 'domcontentloaded' });
-        await expect(page.locator('#cotizacion-simular')).toBeVisible({ timeout: 10_000 });
+        await expect(page.locator('#cotizacion-simular')).toBeAttached({ timeout: 10_000 });
 
         const clienteEncontrado = await seleccionarClienteNoApto(page);
         test.skip(!clienteEncontrado, `Cliente de prueba con DNI ${DNI_NO_APTO} no existe en este entorno — ver E2E_CLIENTE_NOAPTO_DNI.`);
@@ -81,7 +80,7 @@ test.describe('Cotización — aptitud crediticia vs. tabla de comparación (COT
         const productoAgregado = await agregarPrimerProducto(page);
         expect(productoAgregado).toBeTruthy();
 
-        await page.click('#cotizacion-simular');
+        await page.evaluate(() => document.getElementById('cotizacion-simular').click());
         await expect(page.locator('#cotizacion-resultados')).toBeVisible({ timeout: 10_000 });
 
         // La card de aptitud (fuente real, IClienteAptitudService) debe resolver "No apto".

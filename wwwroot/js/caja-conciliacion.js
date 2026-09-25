@@ -63,6 +63,12 @@
             });
         });
 
+        // Enlace directo a una pestaña (p. ej. #conciliacion desde el arqueo).
+        var hashTab = (window.location.hash || '').replace('#', '');
+        if (hashTab && tabs.some(function (t) { return t.getAttribute('data-cc-tab') === hashTab; })) {
+            activate(hashTab);
+        }
+
         // Panel visible por defecto (Resumen).
         var current = wrap.querySelector('[data-cc-panel]:not(.is-hidden)');
         if (current) { initScroll(current); }

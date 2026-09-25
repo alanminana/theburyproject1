@@ -22,6 +22,7 @@
     const state = {
         productos: [],
         productoSeleccionado: null,
+        simSeq: 0,
         clienteSeleccionado: null,
         ultimaSimulacion: null,
         opcionSeleccionada: null,
@@ -115,9 +116,6 @@
         productoSeleccionado: $('#cotizacion-producto-seleccionado'),
         cantidad: $('#cotizacion-cantidad'),
         agregarProducto: $('#cotizacion-agregar-producto'),
-        productoIdManual: $('#cotizacion-producto-id-manual'),
-        cantidadManual: $('#cotizacion-cantidad-manual'),
-        agregarManual: $('#cotizacion-agregar-manual'),
         productosTbody: $('#cotizacion-productos-tbody'),
         productosVacio: $('#cotizacion-productos-vacio'),
         headerProdCount: $('#header-prod-count'),
@@ -223,6 +221,7 @@
         facturaComercialEnvio: $('#cotizacion-factura-comercial-envio'),
         facturaComercialTotal: $('#cotizacion-factura-comercial-total'),
         resultadosTbody: $('#cotizacion-resultados-tbody'),
+        resultadosOrdenReset: $('#cotizacion-orden-reset'),
         // plan drawer
         planMedio: $('#plan-medio'),
         planCuotas: $('#plan-cuotas'),
@@ -456,14 +455,13 @@
                             <input type="number" value="${producto.descuentoImporte ?? ''}" min="0" step="0.01" placeholder="0" data-cotizacion-desc-importe-index="${index}" aria-label="Descuento importe producto" class="mini${modo === 'importe' ? '' : ' hidden'}">
                         </div>
                     </div>
-                    <div class="cart-row__precio total-display">${formatCurrency(producto.precioUnitario)}</div>
+                    <div class="cart-row__precio">
+                        <span class="total-display">${formatCurrency(producto.precioUnitario)}</span>
+                        <span class="cart-row__subtotal" title="Subtotal de la línea"><span class="cart-row__label">Subtotal</span> <span class="total-display">${formatCurrency(subtotal)}</span></span>
+                    </div>
                     <button type="button" data-cotizacion-eliminar-index="${index}" class="cart-row__quitar" aria-label="Quitar">
                         <span class="material-symbols-outlined" style="font-size:15px">close</span>
                     </button>
-                </div>
-                <div class="cart-row-subtotal">
-                    <span class="cart-row-subtotal__label">Subtotal</span>
-                    <span class="cart-row-subtotal__value total-display">${formatCurrency(subtotal)}</span>
                 </div>`;
             els.productosTbody.appendChild(article);
         });
@@ -531,6 +529,21 @@
         setSimularLabel(hadResults ? 'Actualizar cotización' : 'Simular cotización');
         renderSeleccionBar();
         if (hadResults) setState('pending');
+        state.simSeq++;
+        programarAutoSimular();
+    }
+
+    // Simulación automática: cualquier cambio de contexto que invalida la simulación
+    // (producto, cantidad, descuentos, anticipo, cliente, envío, medios…) vuelve a simular
+    // tras una pausa corta, sin botón. Las ráfagas (tipear un importe) se agrupan.
+    let autoSimularTimer = null;
+    function programarAutoSimular() {
+        clearTimeout(autoSimularTimer);
+        if (state.productos.length === 0) return;
+        autoSimularTimer = setTimeout(() => {
+            if (state.busy) { programarAutoSimular(); return; }
+            simular({ auto: true });
+        }, 500);
     }
 
     // El CTA lleva el ícono del mockup: "sync" cuando actualiza una simulación vigente,
@@ -734,33 +747,8 @@
 
         invalidarSimulacion();
         setProductoSeleccionado(null);
-        if (els.cantidad) els.cantidad.value = '1';
         clearFeedback();
         renderProductos();
-    }
-
-    async function agregarProductoManual() {
-        const id = parsePositiveInt(els.productoIdManual?.value);
-        const qty = parsePositiveInt(els.cantidadManual?.value);
-        if (!id || !qty) {
-            showFeedback('Ingresa ProductoId y cantidad validos.', 'warning');
-            return;
-        }
-
-        try {
-            const data = await fetchJson(`${urls.productoResumen}?id=${encodeURIComponent(id)}`);
-            await agregarProducto({
-                id: data.id,
-                codigo: data.codigo,
-                nombre: data.nombre,
-                precioVenta: data.precioVenta,
-                stockActual: data.stockActual
-            }, qty);
-            if (els.productoIdManual) els.productoIdManual.value = '';
-            if (els.cantidadManual) els.cantidadManual.value = '1';
-        } catch (error) {
-            showFeedback(error.message || 'No se pudo obtener el producto.', 'error');
-        }
     }
 
     async function buscarProductos() {
@@ -829,7 +817,7 @@
                         ${producto.caracteristicasResumen ? `<span class="block text-[11px] text-slate-500 truncate-1">${esc(producto.caracteristicasResumen)}</span>` : ''}
                     </span>
                     <span class="shrink-0 text-right text-xs font-semibold text-slate-300 total-display">${formatCurrency(producto.precioVenta)}</span>`;
-                button.addEventListener('click', () => setProductoSeleccionado(producto));
+                button.addEventListener('click', () => agregarProducto(producto, 1));
                 els.productosDropdown.appendChild(button);
             });
 
@@ -975,14 +963,18 @@
         return request;
     }
 
-    async function simular() {
+    async function simular(opts) {
+        const auto = opts?.auto === true;
+        clearTimeout(autoSimularTimer);
         clearFeedback();
         if (state.productos.length === 0) {
-            showFeedback('Agrega al menos un producto para simular.', 'warning');
+            if (!auto) showFeedback('Agrega al menos un producto para simular.', 'warning');
             return;
         }
 
+        const seq = state.simSeq;
         setBusy(true);
+        els.totalesBar?.setAttribute('aria-busy', 'true');
         try {
             const data = await fetchJson(urls.simular, {
                 method: 'POST',
@@ -992,6 +984,9 @@
                 },
                 body: JSON.stringify(buildRequest())
             });
+            // El contexto cambió mientras se calculaba: el resultado ya no aplica; la
+            // invalidación que lo causó ya programó una nueva simulación.
+            if (seq !== state.simSeq) return;
             state.ultimaSimulacion = data;
             state.opcionSeleccionada = null;
             renderResultado(data);
@@ -1004,13 +999,15 @@
                 showFeedback('La simulacion devolvio observaciones que requieren revision.', 'warning');
             } else {
                 setState('simulated');
-                showFeedback('Cotizacion simulada correctamente.', 'ok');
+                if (!auto) showFeedback('Cotizacion simulada correctamente.', 'ok');
             }
         } catch (error) {
+            if (seq !== state.simSeq) return;
             setState('error');
             showFeedback(error.message || 'No se pudo simular la cotizacion.', 'error');
         } finally {
             setBusy(false);
+            els.totalesBar?.removeAttribute('aria-busy');
         }
     }
 
@@ -2135,8 +2132,21 @@
                 })
                 .sort((a, b) => (a.tienePlanes === b.tienePlanes) ? (a.minTotal - b.minTotal) : (a.tienePlanes ? -1 : 1))
                 .map(x => x.group);
+            // Orden propio del usuario (arrastrado): si existe, manda sobre el orden automático;
+            // los medios que no figuran en él (nuevos) quedan al final en el orden automático.
+            const ordenGuardado = cargarOrdenMedios();
+            if (ordenGuardado.length) {
+                const pos = g => { const i = ordenGuardado.indexOf(String(g.medioPago)); return i < 0 ? Infinity : i; };
+                groups.sort((a, b) => pos(a) - pos(b));
+            }
+            els.resultadosOrdenReset?.classList.toggle('hidden', ordenGuardado.length === 0);
             const frag = document.createDocumentFragment();
-            groups.forEach(group => appendGroup(frag, group, bestKey));
+            groups.forEach(group => {
+                const inicio = frag.childNodes.length;
+                appendGroup(frag, group, bestKey);
+                const primera = frag.childNodes[inicio];
+                if (primera) marcarArrastrable(primera, group);
+            });
             els.resultadosTbody.appendChild(frag);
 
             // auto-seleccionar recomendado (o el mejor) para habilitar guardar — nunca
@@ -2254,6 +2264,119 @@
             return `<button type="button" class="rt-btn rt-btn--on" data-cotizacion-elegir="${esc(key)}" aria-pressed="true"><span class="material-symbols-outlined" style="font-size:13px">check</span> Seleccionado</button>`;
         }
         return `<button type="button" class="rt-btn" data-cotizacion-elegir="${esc(key)}" aria-pressed="false">Elegir</button>`;
+    }
+
+    /* ---------------------------------------------------------------------
+       Orden de medios de pago arrastrable. El orden elegido se guarda como predeterminado
+       (localStorage, por navegador) y se aplica en cada simulación. Sólo cambia el orden de
+       pintado: ningún dato, selección ni cálculo. Sin orden guardado rige el automático
+       (planes disponibles primero, por plan más barato).
+       --------------------------------------------------------------------- */
+    const ORDEN_MEDIOS_STORAGE_ID = 'cotizacion.ordenMedios.v1';
+
+    function cargarOrdenMedios() {
+        try {
+            const v = JSON.parse(localStorage.getItem(ORDEN_MEDIOS_STORAGE_ID) || '[]');
+            return Array.isArray(v) ? v.map(String) : [];
+        } catch { return []; }
+    }
+
+    function guardarOrdenMedios(orden) {
+        try {
+            if (orden && orden.length) localStorage.setItem(ORDEN_MEDIOS_STORAGE_ID, JSON.stringify(orden));
+            else localStorage.removeItem(ORDEN_MEDIOS_STORAGE_ID);
+        } catch { /* sin almacenamiento: no se persiste */ }
+    }
+
+    function ordenActualDeMedios() {
+        return Array.from(els.resultadosTbody.querySelectorAll('[data-orden-medio]')).map(tr => tr.dataset.ordenMedio);
+    }
+
+    function marcarArrastrable(tr, group) {
+        tr.dataset.ordenMedio = String(group.medioPago);
+        tr.draggable = true;
+        const td = tr.querySelector('td');
+        if (!td) return;
+        const handle = document.createElement('span');
+        handle.className = 'orden-handle material-symbols-outlined';
+        handle.dataset.ordenHandle = '';
+        handle.tabIndex = 0;
+        handle.setAttribute('role', 'button');
+        handle.setAttribute('aria-label', `Mover ${group.label}: arrastrá o usá Alt + flechas arriba/abajo`);
+        handle.title = 'Arrastrá para reordenar';
+        handle.textContent = 'drag_indicator';
+        (td.querySelector('.rmedio') || td).insertBefore(handle, (td.querySelector('.rmedio') || td).firstChild);
+    }
+
+    function moverMedio(clave, haciaClave, despues) {
+        const orden = ordenActualDeMedios().filter(k => k !== clave);
+        const i = orden.indexOf(haciaClave);
+        if (i < 0) return;
+        orden.splice(despues ? i + 1 : i, 0, clave);
+        guardarOrdenMedios(orden);
+        if (state.ultimaSimulacion) renderResultado(state.ultimaSimulacion);
+    }
+
+    function initOrdenMedios() {
+        const tbody = els.resultadosTbody;
+        if (!tbody) return;
+        let arrastrando = null;
+        const limpiar = () => tbody.querySelectorAll('.orden-over-antes, .orden-over-despues, .orden-arrastrando')
+            .forEach(n => n.classList.remove('orden-over-antes', 'orden-over-despues', 'orden-arrastrando'));
+
+        tbody.addEventListener('dragstart', e => {
+            const tr = e.target.closest?.('[data-orden-medio]');
+            if (!tr) return;
+            arrastrando = tr.dataset.ordenMedio;
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', arrastrando);
+            tr.classList.add('orden-arrastrando');
+        });
+        tbody.addEventListener('dragover', e => {
+            if (arrastrando === null) return;
+            const tr = e.target.closest?.('[data-orden-medio]');
+            if (!tr || tr.dataset.ordenMedio === arrastrando) return;
+            e.preventDefault();
+            const orden = ordenActualDeMedios();
+            const despues = orden.indexOf(arrastrando) < orden.indexOf(tr.dataset.ordenMedio);
+            tbody.querySelectorAll('.orden-over-antes, .orden-over-despues').forEach(n => n.classList.remove('orden-over-antes', 'orden-over-despues'));
+            tr.classList.add(despues ? 'orden-over-despues' : 'orden-over-antes');
+        });
+        tbody.addEventListener('drop', e => {
+            if (arrastrando === null) return;
+            const tr = e.target.closest?.('[data-orden-medio]');
+            if (!tr || tr.dataset.ordenMedio === arrastrando) { limpiar(); arrastrando = null; return; }
+            e.preventDefault();
+            const orden = ordenActualDeMedios();
+            const despues = orden.indexOf(arrastrando) < orden.indexOf(tr.dataset.ordenMedio);
+            const clave = arrastrando;
+            arrastrando = null;
+            moverMedio(clave, tr.dataset.ordenMedio, despues);
+        });
+        tbody.addEventListener('dragend', () => { arrastrando = null; limpiar(); });
+
+        // Teclado: Alt+flecha arriba/abajo sobre el asa mueve el medio una posición.
+        tbody.addEventListener('keydown', e => {
+            const handle = e.target.closest?.('[data-orden-handle]');
+            if (!handle || !e.altKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+            e.preventDefault();
+            const clave = handle.closest('[data-orden-medio]').dataset.ordenMedio;
+            const orden = ordenActualDeMedios();
+            const i = orden.indexOf(clave);
+            const j = e.key === 'ArrowUp' ? i - 1 : i + 1;
+            if (j < 0 || j >= orden.length) return;
+            moverMedio(clave, orden[j], e.key === 'ArrowDown');
+            tbody.querySelector(`[data-orden-medio="${CSS.escape(clave)}"] [data-orden-handle]`)?.focus();
+        });
+        // El asa no expande ni elige la fila.
+        tbody.addEventListener('click', e => {
+            if (e.target.closest?.('[data-orden-handle]')) e.stopImmediatePropagation();
+        });
+
+        els.resultadosOrdenReset?.addEventListener('click', () => {
+            guardarOrdenMedios([]);
+            if (state.ultimaSimulacion) renderResultado(state.ultimaSimulacion);
+        });
     }
 
     function appendGroup(frag, group, bestKey) {
@@ -2714,9 +2837,7 @@
         els.productoBuscar?.addEventListener('input', debounce(buscarProductos, 220));
         els.clienteBuscar?.addEventListener('input', debounce(buscarClientes, 220));
 
-        els.agregarProducto?.addEventListener('click', () => agregarProducto(state.productoSeleccionado, els.cantidad?.value));
-        els.agregarManual?.addEventListener('click', agregarProductoManual);
-        els.simular?.addEventListener('click', simular);
+        els.simular?.addEventListener('click', () => simular());
         els.guardar?.addEventListener('click', guardarSolo);
         // COTIZACION-MIVENTA-02: "Confirmar Mi Venta" corre primero el preflight
         // (§NUEVA REGLA FUNDAMENTAL); el modal de confirmación sólo se abre si puede
@@ -2866,6 +2987,8 @@
         });
 
         // resultados: expandir grupos / elegir alternativa / ver detalle
+        initOrdenMedios();
+
         els.resultadosTbody?.addEventListener('click', event => {
             // "Ver situación" (fila de Crédito personal sin planes): lleva la atención
             // a la evaluación ya hecha en Cliente, sin abrir el drawer de plan (no hay

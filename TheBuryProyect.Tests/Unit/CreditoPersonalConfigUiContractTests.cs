@@ -11,9 +11,12 @@ public class CreditoPersonalConfigUiContractTests
         var view = LeerVista();
 
         Assert.Contains("LimitesPorPuntaje", view);
-        Assert.Contains("PuntajeCliente 0-5", view);
-        Assert.Contains("PuntajesCreditoLimite", view);
-        Assert.Contains("Limites reales por puntaje", view);
+        // El cupo sale del puntaje 0-5 del cliente; la UI lo dice en lenguaje llano (sin nombres de
+        // clases/tablas internas como PuntajeCliente/PuntajesCreditoLimite/ClienteAptitudService).
+        Assert.Contains("puntaje (0 a 5)", view);
+        Assert.Contains("Límites reales por puntaje", view);
+        Assert.DoesNotContain("PuntajesCreditoLimite", view);
+        Assert.DoesNotContain("ClienteAptitudService", view);
     }
 
     [Fact]

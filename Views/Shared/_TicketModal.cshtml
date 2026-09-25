@@ -30,7 +30,7 @@
         <div id="ticket-modal-body" class="overflow-y-auto px-6 py-5 flex-1">
 
             <!-- Error banner -->
-            <div id="ticket-modal-error"
+            <div id="ticket-modal-error" role="alert"
                  class="hidden mb-4 bg-rose-950/60 border border-rose-700 text-rose-300 text-sm px-4 py-3 rounded-lg flex items-start gap-2">
                 <span class="material-symbols-outlined text-base shrink-0 mt-0.5">error</span>
                 <span id="ticket-modal-error-text"></span>
@@ -51,7 +51,7 @@
                            autocomplete="off"
                            placeholder="Describí brevemente el problema o mejora"
                            class="w-full bg-slate-800 border border-slate-700 text-slate-100 rounded-lg px-3 py-2 text-sm
-                                  placeholder:text-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors" />
+                                  placeholder:text-slate-500 focus:outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/30 transition-colors" />
                 </div>
 
                 <!-- Tipo -->
@@ -63,7 +63,7 @@
                             name="tipo"
                             required
                             class="w-full bg-slate-800 border border-slate-700 text-slate-100 rounded-lg px-3 py-2 text-sm
-                                   focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors">
+                                   focus:outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/30 transition-colors">
                         <option value="">— Seleccioná un tipo —</option>
                         @foreach (var item in Html.GetEnumSelectList<TipoTicket>())
                         {
@@ -84,7 +84,7 @@
                               required
                               placeholder="Describí qué ocurre, cómo reproducirlo y qué esperabas que pasara"
                               class="w-full bg-slate-800 border border-slate-700 text-slate-100 rounded-lg px-3 py-2 text-sm
-                                     placeholder:text-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors resize-none"></textarea>
+                                     placeholder:text-slate-500 focus:outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/30 transition-colors resize-none"></textarea>
                 </div>
 
                 <!-- Adjuntos -->
@@ -96,7 +96,7 @@
                     <label for="ticket-adjuntos"
                            class="flex items-center gap-2 w-full bg-slate-800 border border-dashed border-slate-600
                                   text-slate-400 rounded-lg px-3 py-2 text-sm cursor-pointer select-none
-                                  hover:border-blue-500 hover:text-slate-300 transition-colors">
+                                  hover:border-primary/50 hover:text-slate-300 transition-colors">
                         <span class="material-symbols-outlined text-base">attach_file</span>
                         <span>Agregar archivos</span>
                     </label>
@@ -136,3 +136,7 @@
 
     </div>
 </div>
+
+<style>
+    #form-ticket [aria-invalid="true"] { border-color: var(--pal-danger-500); }
+</style>

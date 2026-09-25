@@ -1,0 +1,3 @@
+# Falso positivo: clave de localStorage (no es una credencial). Historial ya publicado en el PR #15;
+# el código vigente usa ORDEN_MEDIOS_STORAGE_ID. Fingerprint exacto, sin patrones amplios.
+83e92c2ae9856103fe73482147245b42ce30a6c7:wwwroot/js/cotizacion-simulador.js:generic-api-key:2275

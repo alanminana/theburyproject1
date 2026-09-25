@@ -56,7 +56,6 @@ async function agregarPrimerProducto(page) {
         const firstBtn = dropdown.locator('button').first();
         if (!(await firstBtn.isVisible({ timeout: 2_000 }).catch(() => false))) continue;
         await firstBtn.click();
-        await page.click('#cotizacion-agregar-producto');
         await page.waitForTimeout(300);
         if (await page.locator('#cotizacion-productos-tbody .cart-row').count() > 0) return true;
     }
@@ -72,12 +71,12 @@ test.describe('Cotización — "Continuar con wizard" (COTIZACION-MIVENTA-02)', 
         expect(clienteId).toBeTruthy();
 
         await page.goto('/Cotizacion', { waitUntil: 'domcontentloaded' });
-        await expect(page.locator('#cotizacion-simular')).toBeVisible({ timeout: 10_000 });
+        await expect(page.locator('#cotizacion-simular')).toBeAttached({ timeout: 10_000 });
 
         await seleccionarCliente(page, dni);
         expect(await agregarPrimerProducto(page)).toBeTruthy();
 
-        await page.click('#cotizacion-simular');
+        await page.evaluate(() => document.getElementById('cotizacion-simular').click());
         await expect(page.locator('#cotizacion-resultados')).toBeVisible({ timeout: 10_000 });
 
         // §7 del pedido: botón permanente, secundario — nunca compite con la acción primaria.

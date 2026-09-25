@@ -435,3 +435,13 @@ textarea.field.input-validation-error { border-color: transparent; box-shadow: 0
     .card, .result-card, .cc-conteo-resultado, .tbl tbody td, .tbl thead th { border-color: var(--pal-neutral-300) !important; }
     .tbl { font-size: var(--erp-fs-min, 0.75rem); }
 }
+
+/* Historial: el respiro sobre el cuerpo de Filtros solo existe con el panel abierto (colapsado dejaba ~16px vacíos bajo el título). */
+.card > .filter-panel-erp__body:not([data-hidden="true"]) { margin-top: 1rem; }
+
+/* Formularios de Caja: el mensaje de validación reserva su línea. Sin esto, al corregir un campo y pulsar
+   "Guardar" el blur retira el mensaje, el botón sube y el primer click se pierde. */
+.caja-page-shell [data-valmsg-for] { display: block; min-height: 1rem; }
+
+/* Panel lateral de alta/edición: parte 32px por debajo del header, así que 100vh-4rem lo dejaba con el footer (Guardar/Cancelar) fuera del viewport. */
+@media (min-width: 1024px) { #modal-caja-panel { max-height: calc(100dvh - 8rem); } }

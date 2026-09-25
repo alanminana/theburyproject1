@@ -60,12 +60,12 @@
             <div class="kpi-value">@Model.PorcentajeCierresExactos.ToString("F0")%</div>
             <div class="kpi-foot">@cierresExactos exacto@(cierresExactos == 1 ? "" : "s")</div>
         </div>
-        <div class="kpi kpi--warn">
+        <div class="kpi@(cierresSobrante > 0 ? " kpi--warn" : "")">
             <div class="kpi-label">Sobrantes</div>
             <div class="kpi-value">@cierresSobrante</div>
             <div class="kpi-foot">cierre@(cierresSobrante == 1 ? "" : "s") con sobrante</div>
         </div>
-        <div class="kpi kpi--bad">
+        <div class="kpi@(cierresFaltante > 0 ? " kpi--bad" : "")">
             <div class="kpi-label">Faltantes</div>
             <div class="kpi-value">@cierresFaltante</div>
             <div class="kpi-foot">cierre@(cierresFaltante == 1 ? "" : "s") con faltante</div>
@@ -85,7 +85,7 @@
             </span>
             <span class="material-symbols-outlined muted filter-panel-erp__toggle-icon">expand_more</span>
         </button>
-        <div id="filtros-body" class="filter-panel-erp__body" data-hidden="@filtroCajaHidden" style="margin-top:1rem">
+        <div id="filtros-body" class="filter-panel-erp__body" data-hidden="@filtroCajaHidden">
         <div class="filter-panel-erp__inner">
             <form asp-action="Historial" method="get" class="caja-historial-filter-form">
                 <div>
@@ -127,7 +127,7 @@
     <!-- Tabla desktop -->
     <div class="card hide-mobile"
          data-oc-scroll
-         style="overflow:hidden;margin-top:1rem;--oc-scroll-min-width:66rem;--oc-scroll-fade-light:color-mix(in srgb, var(--pal-neutral-50) 98%, transparent);--oc-scroll-fade-dark:color-mix(in srgb, var(--pal-neutral-925) 95%, transparent)">
+         style="overflow:hidden;margin-top:1rem;--oc-scroll-min-width:54rem;--oc-scroll-fade-light:color-mix(in srgb, var(--pal-neutral-50) 98%, transparent);--oc-scroll-fade-dark:color-mix(in srgb, var(--pal-neutral-925) 95%, transparent)">
         <div data-oc-scroll-hint
              class="caja-page-scroll-hint caja-historial-scroll-hint flex items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2 text-xs text-slate-300"
              style="margin:.75rem .75rem 0"
@@ -188,6 +188,10 @@
                                     <td class="num" style="text-align:right">$ @cierre.MontoTotalReal.ToString("N2")</td>
                                     <td style="text-align:right">
                                         <span class="chip @chipClass num">@difSign$ @Math.Abs(dif).ToString("N2")</span>
+                                        @if (dif != 0 && cierre.MontoEsperadoSistema > 0)
+                                        {
+                                            <div class="muted-2" style="font-size:.7rem;margin-top:.15rem" title="Diferencia sobre el esperado del turno">@(Math.Abs(dif) / cierre.MontoEsperadoSistema * 100m > 999m ? ">999" : (Math.Abs(dif) / cierre.MontoEsperadoSistema * 100m).ToString("F1")) % del esperado</div>
+                                        }
                                     </td>
                                     <td style="text-align:right">
                                         <a asp-action="DetallesCierre" asp-route-id="@cierre.Id"
@@ -256,7 +260,7 @@
     <!-- Top sobrantes / faltantes -->
     @if (topSobrantes.Any() || topFaltantes.Any())
     {
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4" style="margin-top:1rem">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start" style="margin-top:1rem">
             @if (topSobrantes.Any())
             {
                 <div class="card card-pad">

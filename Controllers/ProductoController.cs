@@ -1221,7 +1221,7 @@ namespace TheBuryProject.Controllers
 
                 ViewBag.EstadosDropdown = new SelectList(
                     Enum.GetValues<EstadoUnidad>()
-                        .Select(e => new { Id = (int)e, Texto = e.ToString() }),
+                        .Select(e => new { Id = (int)e, Texto = HumanizarEstadoUnidad(e) }),
                     "Id", "Texto",
                     estado.HasValue ? (int?)estado.Value : null);
 
@@ -1234,6 +1234,14 @@ namespace TheBuryProject.Controllers
                 return RedirectToAction(nameof(Index));
             }
         }
+
+        // Mismas etiquetas que _EstadoUnidadBadge (el dropdown de filtro mostraba el nombre del enum crudo).
+        private static string HumanizarEstadoUnidad(EstadoUnidad e) => e switch
+        {
+            EstadoUnidad.EnStock => "En stock",
+            EstadoUnidad.EnReparacion => "En reparación",
+            _ => e.ToString()
+        };
 
         private async Task PrepararPreviewCargaMasivaAsync(ProductoUnidadCargaMasivaViewModel cargaMasiva)
         {

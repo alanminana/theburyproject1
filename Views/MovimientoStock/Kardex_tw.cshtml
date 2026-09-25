@@ -114,16 +114,15 @@
 
 /* Filtros + chart split: stacked → 1fr 360px */
 .kdx-page .kdx-split-grid {
-  display: grid; grid-template-columns: 1fr; gap: 1.25rem;
+  display: grid; grid-template-columns: 1fr; gap: 1.25rem; align-items: start;
 }
 @@media (min-width: 1280px) {
   .kdx-page .kdx-split-grid { grid-template-columns: 1fr 360px; }
 }
 
-/* Chip "Salida": hoy es dorada acá (mismo tono que "Vendida") y roja en Ficha de
-   inventario — divergencia real detectada en el pase estético, no se unifica en este
-   lote (decisión explícita, ver auditoría). "Slate" es una variante propia de Kardex. */
-.kdx-page .kdx-chip-salida  { background: color-mix(in srgb, var(--pal-accent) 10%, transparent);  color: var(--pal-accent); border-color: color-mix(in srgb, var(--pal-accent) 28%, transparent); }
+/* Chip "Salida": rojo, coherente con la columna Salida y con Ficha de inventario.
+   "Slate" es una variante propia de Kardex. */
+.kdx-page .kdx-chip-salida  { background: color-mix(in srgb, var(--pal-danger-500) 10%, transparent); color: var(--pal-danger-400); border-color: color-mix(in srgb, var(--pal-danger-500) 28%, transparent); }
 .kdx-page .kdx-chip-slate   { background: color-mix(in srgb, var(--pal-neutral-450) 10%, transparent); color: var(--pal-neutral-300); border-color: color-mix(in srgb, var(--pal-neutral-450) 25%, transparent); }
 
 /* Fields */
@@ -138,17 +137,6 @@
 /* Botón propio de esta pantalla (tamaño xs, sin equivalente en Ficha/Unidades) */
 .kdx-page .kdx-btn-xs { padding: .3rem .6rem; font-size: var(--erp-fs-min, 0.75rem); min-height: 30px; border-radius: 7px; }
 
-/* Segmented control */
-.kdx-page .kdx-seg {
-  display: inline-flex; background: var(--pal-neutral-925); border: 1px solid var(--pal-neutral-750);
-  border-radius: 9px; padding: 3px; gap: 2px;
-}
-.kdx-page .kdx-seg button {
-  padding: .375rem .7rem; border-radius: 6px; font-size: .78rem;
-  font-weight: 500; color: var(--erp-fg-2, var(--pal-neutral-350)); transition: all .12s; cursor: pointer;
-}
-.kdx-page .kdx-seg button[aria-pressed="true"] { background: var(--pal-accent); color: var(--pal-on-accent); }
-
 /* KPI card */
 .kdx-page .kdx-kpi {
   background: var(--pal-neutral-925); border: 1px solid var(--pal-neutral-800); border-radius: 12px; padding: 1rem 1.05rem;
@@ -160,6 +148,7 @@
 
 /* Table — ancho mínimo propio (más columnas que Ficha); el resto ya viene del shared */
 .kdx-page .kdx-tbl { min-width: 920px; }
+.kdx-page .kdx-tbl td.num { white-space: nowrap; }
 .kdx-page .kdx-tbl tfoot td {
   padding: .7rem .75rem; border-top: 2px solid var(--pal-neutral-800);
   background: var(--pal-neutral-900); font-weight: 600;
@@ -169,10 +158,6 @@
 
 /* Row hidden (JS filter) */
 .kdx-row-hidden { display: none !important; }
-
-/* Modal */
-@@keyframes kdxFadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
-.kdx-modal-card { animation: kdxFadeIn .18s ease; }
 
 /* Print */
 @@media print {
@@ -269,11 +254,7 @@
                 }
                 <button type="button" class="kdx-btn kdx-btn-soft kdx-btn-sm" onclick="window.print()">
                     <span class="material-symbols-outlined" style="font-size:18px">print</span>
-                    Imprimir
-                </button>
-                <button type="button" class="kdx-btn kdx-btn-soft kdx-btn-sm" onclick="kdxOpenModal('kdx-m-export')">
-                    <span class="material-symbols-outlined" style="font-size:18px">download</span>
-                    Exportar
+                    Imprimir / PDF
                 </button>
                 @if (producto != null)
                 {
@@ -328,7 +309,7 @@
                 </span>
             </div>
             <div class="mt-1.5 text-2xl font-semibold text-emerald-400 font-mono">+@totalEntradas.ToString("G29") <span class="text-sm text-slate-500" style="font-family:inherit;font-weight:400">u</span></div>
-            <div class="text-xs text-slate-500 mt-0.5">Total período visible</div>
+            <div class="text-xs text-slate-500 mt-0.5">Total histórico</div>
         </div>
         <div class="kdx-kpi">
             <div class="flex items-center justify-between">
@@ -338,7 +319,7 @@
                 </span>
             </div>
             <div class="mt-1.5 text-2xl font-semibold text-red-400 font-mono">&minus;@totalSalidas.ToString("G29") <span class="text-sm text-slate-500" style="font-family:inherit;font-weight:400">u</span></div>
-            <div class="text-xs text-slate-500 mt-0.5">Total período visible</div>
+            <div class="text-xs text-slate-500 mt-0.5">Total histórico</div>
         </div>
         <div class="kdx-kpi">
             <div class="flex items-center justify-between">
@@ -352,13 +333,13 @@
         </div>
         <div class="kdx-kpi">
             <div class="flex items-center justify-between">
-                <span class="text-xs uppercase tracking-wide text-slate-500 font-medium">Costo promedio</span>
+                <span class="text-xs uppercase tracking-wide text-slate-500 font-medium">Último costo</span>
                 <span class="kdx-k-ico" style="background:color-mix(in srgb, var(--pal-info-500) 12%, transparent);color:var(--pal-info-300);">
                     <span class="material-symbols-outlined" style="font-size:18px">sell</span>
                 </span>
             </div>
             <div class="mt-1.5 text-xl font-semibold text-white font-mono">@FormatMoney(ultimoCostoU)</div>
-            <div class="text-xs text-slate-500 mt-0.5">Por unidad (último registrado)</div>
+            <div class="text-xs text-slate-500 mt-0.5">Por unidad, último movimiento</div>
         </div>
     </section>
 
@@ -402,14 +383,7 @@
                 </div>
             </div>
             <div class="mt-3 flex items-center justify-between flex-wrap gap-2">
-                <span id="kdx-filter-info" class="text-xs text-slate-500"></span>
-                <div class="flex items-center gap-2">
-                    <span class="text-xs text-slate-500">Valorización:</span>
-                    <div class="kdx-seg" id="kdx-seg-val">
-                        <button type="button" aria-pressed="true" onclick="kdxSetVal(this)">Promedio pond.</button>
-                        <button type="button" aria-pressed="false" onclick="kdxSetVal(this)">PEPS (FIFO)</button>
-                    </div>
-                </div>
+                <span id="kdx-filter-info" class="text-xs text-slate-500" role="status" aria-live="polite"></span>
             </div>
         </div>
 
@@ -515,13 +489,15 @@
                             bool esEnt = EsEntrada(m.Tipo, m.StockAnterior, m.StockNuevo);
                             bool esSal = EsSalida(m.Tipo, m.StockAnterior, m.StockNuevo);
                             decimal saldoVal = m.StockNuevo * m.CostoUnitarioAlMomento;
-                            string fechaIso = m.Fecha.ToString("yyyy-MM-dd");
+                            string fechaIso = m.Fecha.ToLocalTime().ToString("yyyy-MM-dd");
                             string fuenteTag = FuenteLbl(m.FuenteCosto);
 
                             <tr data-fecha="@fechaIso"
                                 data-tipo="@m.Tipo.ToString()"
                                 data-ref="@((m.Referencia ?? "").ToLower())"
-                                data-motivo="@((m.Motivo ?? "").ToLower())">
+                                data-motivo="@((m.Motivo ?? "").ToLower())"
+                                data-ent="@(esEnt ? Math.Abs(m.Cantidad).ToString("G29", System.Globalization.CultureInfo.InvariantCulture) : "0")"
+                                data-sal="@(esSal ? Math.Abs(m.Cantidad).ToString("G29", System.Globalization.CultureInfo.InvariantCulture) : "0")">
                                 <td class="font-mono text-slate-300 whitespace-nowrap">
                                     @m.Fecha.ToLocalTime().ToString("dd/MM/yyyy")
                                     <span class="block text-xs text-slate-500">@m.Fecha.ToLocalTime().ToString("HH:mm")</span>
@@ -554,12 +530,18 @@
                                 <td class="num text-slate-200">@FormatMoney(saldoVal)</td>
                             </tr>
                         }
+                        <tr id="kdx-empty-row" hidden>
+                            <td colspan="10" class="text-center text-slate-400" style="padding:2rem 1rem">
+                                Ningún movimiento coincide con los filtros.
+                                <button type="button" class="kdx-btn kdx-btn-ghost kdx-btn-xs" style="margin-left:.5rem" onclick="kdxClearFilters()">Limpiar filtros</button>
+                            </td>
+                        </tr>
                     </tbody>
                     <tfoot>
                         <tr>
-                            <td colspan="5" class="text-slate-400">Totales del período</td>
-                            <td class="num col-in">+@footEnt.ToString("G29")</td>
-                            <td class="num col-out">&minus;@footSal.ToString("G29")</td>
+                            <td colspan="5" class="text-slate-400" id="kdx-foot-label">Totales del historial</td>
+                            <td class="num col-in" id="kdx-foot-ent">+@footEnt.ToString("G29")</td>
+                            <td class="num col-out" id="kdx-foot-sal">&minus;@footSal.ToString("G29")</td>
                             <td class="num text-white">@ultimoStock.ToString("G29")</td>
                             <td class="num text-slate-500">—</td>
                             <td class="num text-white">@FormatMoney(ultimoValor)</td>
@@ -592,38 +574,6 @@
 
 </div>
 
-@* MODAL: EXPORTAR *@
-<div id="kdx-m-export"
-     class="hidden fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
-     style="backdrop-filter:blur(2px);"
-     onclick="if(event.target===this)kdxCloseModal('kdx-m-export')"
-     role="dialog" aria-modal="true" aria-labelledby="kdx-export-title">
-    <div class="kdx-modal-card kdx-card p-6 w-full max-w-md">
-        <header class="flex items-start justify-between gap-3 mb-4">
-            <div>
-                <h3 id="kdx-export-title" class="text-lg font-semibold text-white">Exportar Kardex</h3>
-                <p class="text-xs text-slate-500 mt-0.5">@movsDesc.Count movimiento@(movsDesc.Count != 1 ? "s" : "")</p>
-            </div>
-            <button type="button" class="kdx-btn kdx-btn-ghost kdx-btn-xs" onclick="kdxCloseModal('kdx-m-export')" aria-label="Cerrar">
-                <span class="material-symbols-outlined">close</span>
-            </button>
-        </header>
-        <div class="space-y-2">
-            <button type="button"
-                    class="w-full kdx-card-sub p-3 flex items-center gap-3 text-left transition-colors hover:border-blue-500/40"
-                    onclick="kdxCloseModal('kdx-m-export');window.print()">
-                <span class="w-9 h-9 rounded-lg bg-slate-700/60 border border-slate-700 flex items-center justify-center shrink-0">
-                    <span class="material-symbols-outlined text-slate-300" style="font-size:18px">print</span>
-                </span>
-                <span>
-                    <span class="block text-sm text-white font-medium">Imprimir / PDF</span>
-                    <span class="block text-xs text-slate-500">Usando el diálogo de impresión del navegador</span>
-                </span>
-            </button>
-        </div>
-    </div>
-</div>
-
 @if (producto != null)
 {
     @await Html.PartialAsync("_AjusteStockModal", new TheBuryProject.ViewModels.AjusteStockModalViewModel
@@ -647,33 +597,10 @@
 (function () {
     'use strict';
 
-    // ── Modal ──────────────────────────────────────────
-    window.kdxOpenModal = function (id) {
-        var el = document.getElementById(id);
-        if (el) { el.classList.remove('hidden'); document.body.style.overflow = 'hidden'; }
-    };
-    window.kdxCloseModal = function (id) {
-        var el = document.getElementById(id);
-        if (el) { el.classList.add('hidden'); document.body.style.overflow = ''; }
-    };
-    document.addEventListener('keydown', function (e) {
-        if (e.key !== 'Escape') return;
-        var m = document.getElementById('kdx-m-export');
-        if (m && !m.classList.contains('hidden')) kdxCloseModal('kdx-m-export');
-    });
-
-    // ── Segmented valorización ──────────────────────────
-    window.kdxSetVal = function (btn) {
-        document.querySelectorAll('#kdx-seg-val button').forEach(function (b) {
-            b.setAttribute('aria-pressed', 'false');
-        });
-        btn.setAttribute('aria-pressed', 'true');
-    };
-
     // ── Client-side filters ─────────────────────────────
     var _rows = null;
     function getRows() {
-        if (!_rows) _rows = Array.from(document.querySelectorAll('#kdx-tbody tr'));
+        if (!_rows) _rows = Array.from(document.querySelectorAll('#kdx-tbody tr:not(#kdx-empty-row)'));
         return _rows;
     }
 
@@ -707,6 +634,21 @@
 
         var visEl = document.getElementById('kdx-vis-count');
         if (visEl) visEl.textContent = visible;
+
+        var fEnt = 0, fSal = 0;
+        rows.forEach(function (row) {
+            if (row.classList.contains('kdx-row-hidden')) return;
+            fEnt += parseFloat(row.getAttribute('data-ent') || '0') || 0;
+            fSal += parseFloat(row.getAttribute('data-sal') || '0') || 0;
+        });
+        var fmt = function (n) { return n.toLocaleString('es-AR', { maximumFractionDigits: 4 }); };
+        var eEl = document.getElementById('kdx-foot-ent'); if (eEl) eEl.textContent = fEnt ? '+' + fmt(fEnt) : '—';
+        var sEl = document.getElementById('kdx-foot-sal'); if (sEl) sEl.textContent = fSal ? '−' + fmt(fSal) : '—';
+        var lEl = document.getElementById('kdx-foot-label');
+        var filtrado = !!(desde || hasta || tipo || busca);
+        if (lEl) lEl.textContent = filtrado ? 'Totales de las filas visibles' : 'Totales del historial';
+        var emptyRow = document.getElementById('kdx-empty-row');
+        if (emptyRow) emptyRow.hidden = !(rows.length && visible === 0);
 
         var infoEl = document.getElementById('kdx-filter-info');
         if (infoEl) {

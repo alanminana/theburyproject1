@@ -1,0 +1,180 @@
+@model TheBuryProject.ViewModels.ProveedorFormFieldsViewModel
+@using TheBuryProject.Helpers
+@{
+    var p = Model.Prefix;
+}
+@* Campos compartidos por los drawers "Nuevo proveedor" / "Editar proveedor" (Index y Details).
+   Solo cambia el prefijo de los ids y el valor inicial de Activo. Cada campo lleva un <p data-field-error>
+   donde proveedor-modal-base.js muestra el error del servidor junto al campo. *@
+
+<section class="prov-section" aria-labelledby="@(p)-sec-fiscal">
+    <h3 id="@(p)-sec-fiscal" class="prov-section__title">Datos fiscales</h3>
+    <div class="prov-grid">
+        <div class="prov-field">
+            <label for="@(p)-Cuit" class="prov-label">CUIT <span class="prov-required" aria-hidden="true">*</span></label>
+            <input type="text" name="Cuit" id="@(p)-Cuit" maxlength="11" inputmode="numeric" autocomplete="off"
+                   required aria-required="true" aria-describedby="@(p)-Cuit-hint"
+                   class="input-erp" placeholder="30714421092" />
+            <p id="@(p)-Cuit-hint" class="prov-hint">11 dígitos, sin guiones.</p>
+            <p data-field-error class="prov-field-error" role="alert" hidden></p>
+        </div>
+        <div class="prov-field">
+            <label for="@(p)-RazonSocial" class="prov-label">Razón social <span class="prov-required" aria-hidden="true">*</span></label>
+            <input type="text" name="RazonSocial" id="@(p)-RazonSocial" maxlength="200" autocomplete="off"
+                   required aria-required="true"
+                   class="input-erp" placeholder="Empresa S.A." />
+            <p data-field-error class="prov-field-error" role="alert" hidden></p>
+        </div>
+        <div class="prov-field prov-field--wide">
+            <label for="@(p)-NombreFantasia" class="prov-label">Nombre de fantasía <span class="prov-optional">(opcional)</span></label>
+            <input type="text" name="NombreFantasia" id="@(p)-NombreFantasia" maxlength="200" autocomplete="off"
+                   class="input-erp" placeholder="Nombre comercial" />
+            <p data-field-error class="prov-field-error" role="alert" hidden></p>
+        </div>
+    </div>
+</section>
+
+<section class="prov-section" aria-labelledby="@(p)-sec-contacto">
+    <h3 id="@(p)-sec-contacto" class="prov-section__title">Contacto</h3>
+    <div class="prov-grid">
+        <div class="prov-field prov-field--wide">
+            <label for="@(p)-Contacto" class="prov-label">Persona de contacto <span class="prov-optional">(opcional)</span></label>
+            <input type="text" name="Contacto" id="@(p)-Contacto" maxlength="200" autocomplete="off"
+                   class="input-erp" placeholder="Nombre y apellido" />
+            <p data-field-error class="prov-field-error" role="alert" hidden></p>
+        </div>
+        <div class="prov-field">
+            <label for="@(p)-Email" class="prov-label">Email <span class="prov-optional">(opcional)</span></label>
+            <input type="email" name="Email" id="@(p)-Email" maxlength="100" autocomplete="off"
+                   class="input-erp" placeholder="contacto@empresa.com" />
+            <p data-field-error class="prov-field-error" role="alert" hidden></p>
+        </div>
+        <div class="prov-field">
+            <label for="@(p)-Telefono" class="prov-label">Teléfono <span class="prov-optional">(opcional)</span></label>
+            <input type="tel" name="Telefono" id="@(p)-Telefono" maxlength="50" autocomplete="off"
+                   class="input-erp" placeholder="+54 11 0000-0000" />
+            <p data-field-error class="prov-field-error" role="alert" hidden></p>
+        </div>
+    </div>
+</section>
+
+<section class="prov-section" aria-labelledby="@(p)-sec-direccion">
+    <h3 id="@(p)-sec-direccion" class="prov-section__title">Dirección</h3>
+    <div class="prov-grid">
+        <div class="prov-field prov-field--wide">
+            <label for="@(p)-Direccion" class="prov-label">Calle y número <span class="prov-optional">(opcional)</span></label>
+            <input type="text" name="Direccion" id="@(p)-Direccion" maxlength="300" autocomplete="off"
+                   class="input-erp" placeholder="Av. Siempre Viva 123" />
+            <p data-field-error class="prov-field-error" role="alert" hidden></p>
+        </div>
+        <div class="prov-field">
+            <label for="@(p)-Ciudad" class="prov-label">Ciudad</label>
+            <input type="text" name="Ciudad" id="@(p)-Ciudad" maxlength="100" autocomplete="off"
+                   class="input-erp" />
+            <p data-field-error class="prov-field-error" role="alert" hidden></p>
+        </div>
+        <div class="prov-field">
+            <label for="@(p)-Provincia" class="prov-label">Provincia</label>
+            <select name="Provincia" id="@(p)-Provincia" class="select-erp">
+                <option value="">Sin especificar</option>
+                @foreach (var prov in DropdownConstants.Provincias)
+                {
+                    <option value="@prov">@prov</option>
+                }
+            </select>
+            <p data-field-error class="prov-field-error" role="alert" hidden></p>
+        </div>
+        <div class="prov-field">
+            <label for="@(p)-CodigoPostal" class="prov-label">Código postal</label>
+            <input type="text" name="CodigoPostal" id="@(p)-CodigoPostal" maxlength="10" autocomplete="off"
+                   class="input-erp" placeholder="1425" />
+            <p data-field-error class="prov-field-error" role="alert" hidden></p>
+        </div>
+    </div>
+</section>
+
+<section class="prov-section" aria-labelledby="@(p)-sec-cobertura">
+    <div>
+        <h3 id="@(p)-sec-cobertura" class="prov-section__title">Cobertura de catálogo</h3>
+        <p class="prov-hint">Qué provee este proveedor. Se ve en el listado y en su ficha.</p>
+    </div>
+
+    <div class="prov-field">
+        <label for="@(p)-ProductoBuscar" class="prov-label">Productos</label>
+        <div class="proveedor-product-picker" data-picker-id="@p" data-form-name="ProductosSeleccionados">
+            <div class="relative">
+                <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-[18px] text-slate-400" aria-hidden="true">search</span>
+                <input type="text" id="@(p)-ProductoBuscar"
+                       class="picker-search-input input-erp prov-search-input"
+                       placeholder="Buscar por nombre, código, marca o categoría"
+                       autocomplete="off">
+                @* El dropdown se mueve al body vía JS (portal) para escapar del overflow del drawer *@
+                <div class="picker-dropdown" hidden></div>
+            </div>
+            <div class="picker-chips-container flex flex-wrap gap-1.5 mt-3"></div>
+            <p class="prov-hint mt-2" aria-live="polite">
+                <span class="picker-count-number font-semibold text-slate-300">0</span> productos seleccionados
+            </p>
+            <div class="picker-hidden-inputs"></div>
+        </div>
+    </div>
+
+    <div class="prov-grid">
+        <fieldset class="prov-field">
+            <legend class="prov-label">Categorías</legend>
+            @if (Model.Categorias.Count > 0)
+            {
+                <div class="prov-check-list" data-prov-check-group="CategoriasSeleccionadas">
+                    @foreach (var cat in Model.Categorias)
+                    {
+                        <label class="prov-check">
+                            <input type="checkbox" name="CategoriasSeleccionadas" value="@cat.Value" />
+                            <span>@cat.Text</span>
+                        </label>
+                    }
+                </div>
+            }
+            else
+            {
+                <p class="prov-hint">Todavía no hay categorías en el catálogo.</p>
+            }
+        </fieldset>
+        <fieldset class="prov-field">
+            <legend class="prov-label">Marcas</legend>
+            @if (Model.Marcas.Count > 0)
+            {
+                <div class="prov-check-list" data-prov-check-group="MarcasSeleccionadas">
+                    @foreach (var marca in Model.Marcas)
+                    {
+                        <label class="prov-check">
+                            <input type="checkbox" name="MarcasSeleccionadas" value="@marca.Value" />
+                            <span>@marca.Text</span>
+                        </label>
+                    }
+                </div>
+            }
+            else
+            {
+                <p class="prov-hint">Todavía no hay marcas en el catálogo.</p>
+            }
+        </fieldset>
+    </div>
+</section>
+
+<section class="prov-section" aria-labelledby="@(p)-sec-notas">
+    <h3 id="@(p)-sec-notas" class="prov-section__title">Notas y estado</h3>
+    <div class="prov-field">
+        <label for="@(p)-Aclaraciones" class="prov-label">Aclaraciones <span class="prov-optional">(opcional)</span></label>
+        <textarea name="Aclaraciones" id="@(p)-Aclaraciones" maxlength="2000" rows="3"
+                  class="input-erp prov-textarea"
+                  placeholder="Condiciones de compra, horarios de entrega, etc."></textarea>
+        <p data-field-error class="prov-field-error" role="alert" hidden></p>
+    </div>
+    <label class="prov-check prov-check--card">
+        <input type="checkbox" name="Activo" id="@(p)-Activo" value="true" @(Model.ActivoPorDefecto ? "checked" : null) />
+        <span>
+            <span class="prov-check__title">Proveedor activo</span>
+            <span class="prov-hint">Los inactivos no se ofrecen al crear órdenes de compra.</span>
+        </span>
+    </label>
+</section>

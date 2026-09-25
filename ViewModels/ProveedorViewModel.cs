@@ -94,6 +94,31 @@ namespace TheBuryProject.ViewModels
         public List<string> MarcasAsociadas { get; set; } = new List<string>();
         public List<string> ProductosAsociados { get; set; } = new List<string>();
 
+        // JSON enriquecido (id, código, nombre, marca, categoría) para el picker de productos del drawer de edición
+        public string ProductosPickerJson { get; set; } = "[]";
+    }
+
+    /// <summary>
+    /// Datos que necesitan los drawers de alta/edición de proveedor (Index y Details los comparten).
+    /// </summary>
+    public class ProveedorModalesViewModel
+    {
+        public bool PuedeCrear { get; set; }
+        public bool PuedeEditar { get; set; }
+        public List<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem> Categorias { get; set; } = new();
+        public List<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem> Marcas { get; set; } = new();
+        public string ProductosPickerJson { get; set; } = "[]";
+    }
+
+    /// <summary>
+    /// Campos del formulario de proveedor; <see cref="Prefix"/> distingue los ids del drawer de alta y el de edición.
+    /// </summary>
+    public class ProveedorFormFieldsViewModel
+    {
+        public string Prefix { get; set; } = string.Empty;
+        public bool ActivoPorDefecto { get; set; }
+        public List<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem> Categorias { get; set; } = new();
+        public List<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem> Marcas { get; set; } = new();
     }
 
     /// <summary>
