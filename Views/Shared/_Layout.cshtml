@@ -137,7 +137,7 @@
                         <div class="space-y-1">
                             @if (canViewVentas)
                             {
-                                var active = IsActive("Venta");
+                                var active = IsActive("Venta") || IsActive("Cotizacion");
 
                                 <a class="@NavClass(active)" aria-current="@NavCurrent(active)" asp-controller="Venta"
                                    asp-action="Index" title="Ventas">

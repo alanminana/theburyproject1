@@ -7,6 +7,7 @@
    pestaña Cotizar de Venta/Create. El wrapper .cotz-standalone es el que activa
    el modo pantalla completa en cotizacion-simulador.css; embebido no aplica. *@
 <div class="cotz-standalone">
+    <h1 class="sr-only">Cotización</h1>
     @Html.AntiForgeryToken()
     <partial name="_CotizadorForm" />
 </div>

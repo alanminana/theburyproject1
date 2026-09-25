@@ -178,6 +178,12 @@ Resumen no cronológico de lo que quedó implementado:
   pasan a la cabecera del card de filtros, H1 sólo para lectores de pantalla); el cotizador standalone deja
   de repetir "Cotización" bajo la barra global (embebido en Venta/Create sigue como título del paso).
   En la copia de la base también se ejecutaron anulación de factura y Delete de venta (desktop y mobile).
+  Segunda crítica Impeccable dual-agent sobre las cabeceras (26/40, detector 0 hallazgos; QA en 1440/1280/768/390
+  sin overflow ni errores). Corregido: "Ventas" queda activo en el sidebar en Cotización y su Listado; h1 sólo
+  para lectores de pantalla en Venta/Index y Cotización; selects/buscador del panel de tickets con aria-label;
+  copy del Listado. Decisiones/deuda: el acento menta del cotizador es la decisión de COTIZACION-MOCKUP (no se
+  unifica con el lima de Ventas); filtros del Listado apilados en mobile y "Cotizaciones" con tres accesos/nombres
+  quedan como deuda de diseño.
 
 ## Venta / Create + Edit — cerrados conjuntamente
 
