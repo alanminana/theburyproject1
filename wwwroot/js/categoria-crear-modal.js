@@ -1,9 +1,15 @@
 /**
  * categoria-crear-modal.js
- * Lógica del modal "Nueva Categoría" en la vista Catálogo Index_tw.
- * Maneja: apertura/cierre, envío AJAX y validación.
+ * Lógica del modal "Nueva categoría" en la vista Catálogo Index_tw.
+ * Maneja: apertura/cierre, validación por campo y envío AJAX.
+ *
+ * Tras un alta exitosa se recarga el catálogo en la pestaña Categorías: el listado, el contador de
+ * la pestaña, los combos de "categoría padre" y los de producto salen todos del servidor (una sola
+ * fuente de verdad). El aviso de éxito viaja por TempData desde CategoriaController.CreateAjax.
  */
 const CategoriaModal = (() => {
+    const FORM_ID = 'form-nueva-categoria';
+    const CATALOGO_CATEGORIAS_URL = '/Catalogo?tab=categorias';
     const el = (id) => document.getElementById(id);
     let _openTrigger = null;
 
@@ -15,7 +21,7 @@ const CategoriaModal = (() => {
         modal.classList.add('flex');
         document.body.style.overflow = 'hidden';
         setTimeout(function () {
-            var firstInput = document.querySelector('#form-nueva-categoria input[name="Codigo"]');
+            var firstInput = document.querySelector('#' + FORM_ID + ' input[name="Codigo"]');
             if (firstInput) firstInput.focus();
         }, 50);
     }
@@ -32,165 +38,77 @@ const CategoriaModal = (() => {
     }
 
     function resetForm() {
-        const form = el('form-nueva-categoria');
+        const form = el(FORM_ID);
         if (form) form.reset();
         hideValidation();
         clearFieldErrors();
     }
 
-    // ── Actualización DOM tras alta exitosa ─────────────────
-    function escHtml(str) {
-        var d = document.createElement('div');
-        d.textContent = str || '';
-        return d.innerHTML;
+    // ── Errores por campo ───────────────────────────────────
+    function fieldInput(field) {
+        return document.querySelector('#' + FORM_ID + ' [name="' + field + '"]');
     }
 
-    function onCategoriaCreada(entity, form) {
-        if (!entity) return;
-
-        // Insertar fila en la tabla de categorías
-        var tbody = document.getElementById('categorias-tbody');
-        if (tbody) {
-            // Si hay un "empty state" colspan, eliminarlo
-            var emptyRow = tbody.querySelector('tr td[colspan]');
-            if (emptyRow) emptyRow.closest('tr').remove();
-
-            // Resolver nombre del padre desde el select del form
-            var parentSelect = form ? form.querySelector('[name="ParentId"]') : null;
-            var parentNombre = parentSelect && parentSelect.value
-                ? (parentSelect.options[parentSelect.selectedIndex] || {}).text || '—'
-                : '—';
-
-            var tr = document.createElement('tr');
-            tr.className = 'hover:bg-slate-50 dark:hover:bg-white/5 transition-colors';
-            tr.innerHTML =
-                '<td class="px-6 py-4 text-sm font-mono text-slate-500 dark:text-slate-400">' + escHtml(entity.codigo) + '</td>' +
-                '<td class="px-6 py-4">' +
-                  '<div class="flex items-center gap-3">' +
-                    '<div class="w-10 h-10 rounded bg-slate-100 dark:bg-slate-800 flex items-center justify-center flex-shrink-0">' +
-                      '<span class="material-symbols-outlined text-slate-400 text-lg">category</span>' +
-                    '</div>' +
-                    '<div><span class="text-sm font-semibold text-slate-900 dark:text-white">' + escHtml(entity.nombre) + '</span></div>' +
-                  '</div>' +
-                '</td>' +
-                '<td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">' + escHtml(parentNombre) + '</td>' +
-                '<td class="px-6 py-4 text-center">' +
-                  '<span class="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-green-500/20 text-green-400 border border-green-500/30">Activo</span>' +
-                '</td>' +
-                '<td class="px-6 py-4 text-right">' +
-                  '<div class="flex flex-wrap justify-end gap-2">' +
-                    '<button type="button" data-cat-edit-id="' + entity.id + '" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-1.5 text-xs font-semibold text-slate-300 transition-colors hover:border-slate-600 hover:bg-slate-800 hover:text-white">' +
-                      '<span class="material-symbols-outlined text-base">edit</span><span>Editar</span></button>' +
-                    '<button type="button" data-cat-delete-id="' + entity.id + '" data-cat-delete-nombre="' + escHtml(entity.nombre) + '" class="inline-flex items-center gap-1.5 rounded-lg border border-red-500/30 px-2.5 py-1.5 text-xs font-semibold text-red-400 transition-colors hover:bg-red-500/10 hover:text-red-400">' +
-                      '<span class="material-symbols-outlined text-base">delete</span><span>Eliminar</span></button>' +
-                  '</div>' +
-                '</td>';
-            tbody.appendChild(tr);
+    function markFieldError(field, message) {
+        const span = document.querySelector('#' + FORM_ID + ' [data-valmsg-for="' + field + '"]');
+        if (span) {
+            span.textContent = message;
+            span.classList.remove('hidden');
         }
-
-        // Agregar la nueva categoría (si es raíz) al autocomplete de Categoría del modal de producto.
-        // window.CatalogoData.categorias sólo trae categorías raíz (ver Index_tw.cshtml); una
-        // subcategoría (con ParentId) no corresponde ahí.
-        var formParentSelect = form ? form.querySelector('[name="ParentId"]') : null;
-        var esRaiz = !(formParentSelect && formParentSelect.value);
-        if (esRaiz && window.CatalogoData && Array.isArray(window.CatalogoData.categorias)) {
-            window.CatalogoData.categorias.push({ id: entity.id, nombre: entity.nombre });
+        const input = fieldInput(field);
+        if (input) {
+            input.classList.add('border-red-500');
+            input.setAttribute('aria-invalid', 'true');
         }
-
-        // Agregar la nueva categoría al select ParentId del propio modal
-        var modalParentSelect = document.getElementById('cat-modal-parentId');
-        if (modalParentSelect) {
-            var parentOpt = document.createElement('option');
-            parentOpt.value = entity.id;
-            parentOpt.textContent = entity.nombre;
-            modalParentSelect.appendChild(parentOpt);
-        }
-
-        // Toast de éxito
-        dispatchSuccessToast('Categoría creada: ' + (entity.nombre || ''));
     }
 
-    function dispatchSuccessToast(message) {
-        document.dispatchEvent(new CustomEvent('catalogo:toast', {
-            detail: { message: message, type: 'success' }
-        }));
+    function clearFieldError(input) {
+        input.classList.remove('border-red-500');
+        input.removeAttribute('aria-invalid');
+        const span = document.querySelector('#' + FORM_ID + ' [data-valmsg-for="' + input.name + '"]');
+        if (span) {
+            span.textContent = '';
+            span.classList.add('hidden');
+        }
     }
 
-    // ── Envío AJAX ──────────────────────────────────────────
-    function initSubmit() {
-        const form = el('form-nueva-categoria');
-        if (!form) return;
-
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            hideValidation();
-            clearFieldErrors();
-
-            const errors = validateForm(form);
-            if (errors.length > 0) {
-                showValidation(errors.join('. '));
-                return;
-            }
-
-            const btn = el('btn-guardar-categoria');
-            const origHTML = btn.innerHTML;
-            btn.disabled = true;
-            btn.innerHTML = '<span class="material-symbols-outlined text-[18px] animate-spin">progress_activity</span> Guardando...';
-
-            try {
-                const formData = new FormData(form);
-                const resp = await fetch(form.action, {
-                    method: 'POST',
-                    body: formData,
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                });
-
-                const result = await resp.json();
-
-                if (result.success) {
-                    close();
-                    onCategoriaCreada(result.entity, form);
-                } else if (result.errors) {
-                    handleServerErrors(result.errors);
-                }
-            } catch {
-                showValidation('Error de conexión. Intente nuevamente.');
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = origHTML;
-            }
+    function clearFieldErrors() {
+        document.querySelectorAll('#' + FORM_ID + ' [data-valmsg-for]').forEach(span => {
+            span.textContent = '';
+            span.classList.add('hidden');
+        });
+        document.querySelectorAll('#' + FORM_ID + ' [aria-invalid]').forEach(input => {
+            input.classList.remove('border-red-500');
+            input.removeAttribute('aria-invalid');
         });
     }
 
     function validateForm(form) {
-        const errors = [];
+        const errors = {};
         const fd = new FormData(form);
 
-        if (!fd.get('Codigo')?.trim()) errors.push('El código es obligatorio');
-        if (!fd.get('Nombre')?.trim()) errors.push('El nombre es obligatorio');
+        if (!fd.get('Codigo')?.trim()) errors.Codigo = ['El código es obligatorio'];
+        if (!fd.get('Nombre')?.trim()) errors.Nombre = ['El nombre es obligatorio'];
 
         return errors;
     }
 
-    function handleServerErrors(errors) {
+    function handleErrors(errors) {
         const messages = [];
+        let firstField = null;
         for (const [field, msgs] of Object.entries(errors)) {
             msgs.forEach(msg => messages.push(msg));
-
             if (field) {
-                const span = document.querySelector(`#form-nueva-categoria [data-valmsg-for="${field}"]`);
-                if (span) {
-                    span.textContent = msgs[0];
-                    span.classList.remove('hidden');
-                }
-                const input = document.querySelector(`#form-nueva-categoria [name="${field}"]`);
-                if (input) input.classList.add('border-red-500');
+                markFieldError(field, msgs[0]);
+                if (!firstField) firstField = field;
             }
         }
         if (messages.length) showValidation(messages.join('. '));
+        const target = firstField && fieldInput(firstField);
+        if (target) target.focus();
     }
 
-    // ── Validación visual ───────────────────────────────────
+    // ── Resumen de validación ───────────────────────────────
     function showValidation(text) {
         const box = el('cat-modal-validation-summary');
         const msg = el('cat-modal-validation-text');
@@ -198,7 +116,6 @@ const CategoriaModal = (() => {
             msg.textContent = text;
             box.classList.remove('hidden');
             box.classList.add('flex');
-            box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
     }
 
@@ -210,13 +127,62 @@ const CategoriaModal = (() => {
         }
     }
 
-    function clearFieldErrors() {
-        document.querySelectorAll('#form-nueva-categoria [data-valmsg-for]').forEach(span => {
-            span.textContent = '';
-            span.classList.add('hidden');
+    // ── Envío AJAX ──────────────────────────────────────────
+    function initSubmit() {
+        const form = el(FORM_ID);
+        if (!form) return;
+
+        form.addEventListener('input', (e) => {
+            if (e.target.name) clearFieldError(e.target);
         });
-        document.querySelectorAll('#form-nueva-categoria .border-red-500').forEach(input => {
-            input.classList.remove('border-red-500');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideValidation();
+            clearFieldErrors();
+
+            const errors = validateForm(form);
+            if (Object.keys(errors).length > 0) {
+                handleErrors(errors);
+                return;
+            }
+
+            const btn = el('btn-guardar-categoria');
+            const origHTML = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="material-symbols-outlined text-[18px] animate-spin" aria-hidden="true">progress_activity</span> Guardando...';
+
+            let recargando = false;
+            try {
+                const resp = await fetch(form.action, {
+                    method: 'POST',
+                    body: new FormData(form),
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+
+                // Sin permiso o sesión vencida el servidor responde con una redirección/HTML, no JSON.
+                const esJson = (resp.headers.get('content-type') || '').includes('json');
+                if (!resp.ok || !esJson) {
+                    showValidation('No se pudo guardar: no tenés permiso para crear categorías o tu sesión venció. Recargá la página e intentá de nuevo.');
+                    return;
+                }
+
+                const result = await resp.json();
+                if (result.success) {
+                    recargando = true;
+                    window.location.assign(CATALOGO_CATEGORIAS_URL);
+                } else if (result.errors) {
+                    handleErrors(result.errors);
+                }
+            } catch {
+                showValidation('Error de conexión. Intentá nuevamente.');
+            } finally {
+                // En éxito la página se recarga: el botón queda en "Guardando..." para evitar un doble envío.
+                if (!recargando) {
+                    btn.disabled = false;
+                    btn.innerHTML = origHTML;
+                }
+            }
         });
     }
 

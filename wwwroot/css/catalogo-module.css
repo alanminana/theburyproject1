@@ -188,3 +188,186 @@ select.catalogo-input option {
 #catalogo-tabs-wrapper.has-overflow-right::after {
     opacity: 1;
 }
+
+
+/* ── Barra superior: pestañas + acciones ────────────────────
+   Apilada por defecto; en fila desde 1280px solo cuando el panel activo no es Productos
+   (ahí las acciones de producto están ocultas y entran junto a las pestañas) y siempre
+   desde 1536px. Evita que la última pestaña quede recortada por el bloque de acciones. */
+.catalogo-topbar {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+@media (min-width: 1280px) {
+    .catalogo-topbar:not([data-active-tab="productos"]) {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+    }
+}
+
+@media (min-width: 1536px) {
+    .catalogo-topbar {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+    }
+}
+
+@media (min-width: 640px) {
+    .catalogo-topbar__actions {
+        justify-content: flex-end;
+    }
+}
+
+/* Acciones que solo aplican al panel Productos (Ajuste masivo, Nuevo producto).
+   [hidden] gana a display:inline-flex de .btn-erp-*, que de otro modo lo pisaba. */
+[data-productos-only][hidden] {
+    display: none !important;
+}
+
+/* ── Pestañas ────────────────────────────────────────────────
+   El estado activo lo define aria-selected (server-side y JS usan el mismo atributo), no un
+   juego de clases duplicado en Razor y en JS. */
+.catalogo-tab {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1rem;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--pal-neutral-400);
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.catalogo-tab .material-symbols-outlined {
+    font-size: 1rem;
+    color: var(--pal-neutral-500);
+}
+
+.catalogo-tab__count {
+    font-size: 0.75rem;
+    color: var(--pal-neutral-400);
+}
+
+.catalogo-tab:hover {
+    background-color: color-mix(in srgb, white 5%, transparent);
+    color: #fff;
+}
+
+.catalogo-tab:focus-visible {
+    outline: 2px solid var(--pal-accent);
+    outline-offset: 2px;
+}
+
+.catalogo-tab[aria-selected="true"] {
+    background-color: var(--pal-accent);
+    color: var(--pal-neutral-950);
+}
+
+.catalogo-tab[aria-selected="true"] .material-symbols-outlined,
+.catalogo-tab[aria-selected="true"] .catalogo-tab__count {
+    color: color-mix(in srgb, var(--pal-neutral-950) 78%, transparent);
+}
+
+/* ── Interruptor (toggle) de los modales de Categoría ───────
+   Un solo componente para Nueva y Editar; foco de teclado visible sobre la pista. */
+.catalogo-switch {
+    position: relative;
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    cursor: pointer;
+}
+
+.catalogo-switch__input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+}
+
+.catalogo-switch__track {
+    position: relative;
+    width: 2.75rem;
+    height: 1.5rem;
+    border-radius: 9999px;
+    background-color: var(--pal-neutral-700);
+    transition: background-color 0.15s ease;
+}
+
+.catalogo-switch__track::after {
+    content: "";
+    position: absolute;
+    top: 0.125rem;
+    left: 0.125rem;
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 9999px;
+    background-color: #fff;
+    transition: transform 0.15s ease;
+}
+
+.catalogo-switch__input:checked + .catalogo-switch__track {
+    background-color: var(--pal-accent);
+}
+
+.catalogo-switch__input:checked + .catalogo-switch__track::after {
+    transform: translateX(1.25rem);
+}
+
+.catalogo-switch__input:focus-visible + .catalogo-switch__track {
+    outline: 2px solid var(--pal-accent);
+    outline-offset: 2px;
+}
+
+/* ── Listado de categorías: jerarquía ───────────────────────
+   Las subcategorías se indican con sangría y conector; el código y el estado quedan
+   en sus columnas. */
+.cat-row__name {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.cat-row__branch {
+    flex-shrink: 0;
+    color: var(--pal-neutral-500);
+    font-size: 1.125rem;
+}
+
+.cat-row--child .cat-row__name {
+    padding-left: 1.5rem;
+}
+
+.cat-row--inactive td:not(:last-child) {
+    opacity: 0.6;
+}
+
+
+/* ── Formulario de modal con cuerpo scrolleable ─────────────
+   El <form> ocupa el alto restante del contenedor del modal (max-height 90vh) y solo el cuerpo
+   hace scroll: cabecera y pie quedan siempre completos, sin depender de un calc() de alturas fijas. */
+.catalogo-modal-form {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.catalogo-modal-form__body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.cat-row__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.25rem;
+}

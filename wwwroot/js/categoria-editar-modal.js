@@ -5,14 +5,14 @@
     var FORM_ID    = 'form-editar-categoria';
     var VAL_BOX_ID = 'cat-edit-validation-summary';
     var VAL_TXT_ID = 'cat-edit-validation-text';
+    // Tras editar o eliminar se vuelve al catálogo en la pestaña Categorías (el listado sale del servidor).
+    var CATALOGO_CATEGORIAS_URL = '/Catalogo?tab=categorias';
 
-    var currentRow = null;
     var _openTrigger = null;
 
     function el(id) { return document.getElementById(id); }
 
-    function open(row, trigger) {
-        currentRow = row;
+    function open(trigger) {
         _openTrigger = (trigger instanceof Element) ? trigger : null;
         var modal = el(MODAL_ID);
         modal.classList.remove('hidden');
@@ -31,23 +31,20 @@
         modal.classList.add('hidden');
         modal.classList.remove('flex');
         document.body.style.overflow = '';
-        currentRow = null;
         clearErrors();
         hideValidation();
         if (trigger) trigger.focus();
     }
 
-    function populateParentSelect(categorias, excludeId) {
+    // Una categoría no puede ser su propio padre: se oculta esa opción. El servidor además
+    // rechaza cualquier ciclo (p. ej. elegir una descendiente).
+    function excludeSelfFromParentSelect(selfId) {
         var sel = el('cat-edit-parentId');
         if (!sel) return;
-        sel.innerHTML = '<option value="">Ninguna (Categoría Principal)</option>';
-        (categorias || []).forEach(function (c) {
-            if (String(c.id) !== String(excludeId)) {
-                var opt = document.createElement('option');
-                opt.value = c.id;
-                opt.textContent = c.nombre;
-                sel.appendChild(opt);
-            }
+        Array.prototype.forEach.call(sel.options, function (opt) {
+            var esPropia = opt.value !== '' && opt.value === String(selfId);
+            opt.disabled = esPropia;
+            opt.hidden = esPropia;
         });
     }
 
@@ -60,32 +57,14 @@
         el('cat-edit-controlSerie').checked = !!data.controlSerieDefault;
         el('cat-edit-activo').checked     = !!data.activo;
 
-        var categorias = (window.CatalogoData && window.CatalogoData.categorias) || [];
-        populateParentSelect(categorias, data.id);
-        if (data.parentId != null) {
-            var sel = el('cat-edit-parentId');
-            if (sel) sel.value = data.parentId;
-        }
+        excludeSelfFromParentSelect(data.id);
+        var parentSel = el('cat-edit-parentId');
+        if (parentSel) parentSel.value = data.parentId != null ? String(data.parentId) : '';
 
         var alicuotaSel = el('cat-edit-alicuotaIVAId');
         if (alicuotaSel) alicuotaSel.value = data.alicuotaIVAId != null ? String(data.alicuotaIVAId) : '';
 
         el(FORM_ID).action = '/Categoria/EditAjax/' + data.id;
-    }
-
-    function updateRow(entity) {
-        if (!currentRow) return;
-        var tds = currentRow.querySelectorAll('td');
-        if (tds[0]) tds[0].textContent = entity.codigo;
-        if (tds[1]) {
-            var nameEl = tds[1].querySelector('.font-semibold');
-            if (nameEl) nameEl.textContent = entity.nombre;
-        }
-        if (tds[3]) {
-            tds[3].innerHTML = entity.activo
-                ? '<span class="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-green-500/20 text-green-400 border border-green-500/30">Activo</span>'
-                : '<span class="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-red-500/20 text-red-400 border border-red-500/30">Inactivo</span>';
-        }
     }
 
     function showValidation(text) {
@@ -100,17 +79,36 @@
         if (box) { box.classList.add('hidden'); box.classList.remove('flex'); }
     }
 
+    function clearFieldError(input) {
+        input.classList.remove('border-red-500');
+        input.removeAttribute('aria-invalid');
+        var span = document.querySelector('#' + FORM_ID + ' [data-valmsg-for="' + input.name + '"]');
+        if (span) { span.textContent = ''; span.classList.add('hidden'); }
+    }
+
     function clearErrors() {
         document.querySelectorAll('#' + FORM_ID + ' [data-valmsg-for]').forEach(function (s) {
             s.textContent = ''; s.classList.add('hidden');
         });
-        document.querySelectorAll('#' + FORM_ID + ' .border-red-500').forEach(function (i) {
+        document.querySelectorAll('#' + FORM_ID + ' [aria-invalid]').forEach(function (i) {
             i.classList.remove('border-red-500');
+            i.removeAttribute('aria-invalid');
         });
     }
 
-    function handleServerErrors(errors) {
+    function validateForm(form) {
+        var errors = {};
+        var fd = new FormData(form);
+        var codigo = fd.get('Codigo');
+        var nombre = fd.get('Nombre');
+        if (!codigo || !codigo.trim()) errors.Codigo = ['El código es obligatorio'];
+        if (!nombre || !nombre.trim()) errors.Nombre = ['El nombre es obligatorio'];
+        return errors;
+    }
+
+    function handleErrors(errors) {
         var messages = [];
+        var firstInput = null;
         Object.keys(errors).forEach(function (field) {
             var msgs = errors[field];
             msgs.forEach(function (m) { messages.push(m); });
@@ -118,49 +116,77 @@
                 var span = document.querySelector('#' + FORM_ID + ' [data-valmsg-for="' + field + '"]');
                 if (span) { span.textContent = msgs[0]; span.classList.remove('hidden'); }
                 var input = document.querySelector('#' + FORM_ID + ' [name="' + field + '"]');
-                if (input) input.classList.add('border-red-500');
+                if (input) {
+                    input.classList.add('border-red-500');
+                    input.setAttribute('aria-invalid', 'true');
+                    if (!firstInput) firstInput = input;
+                }
             }
         });
         if (messages.length) showValidation(messages.join('. '));
+        if (firstInput) firstInput.focus();
     }
 
     function initSubmit() {
         var form = el(FORM_ID);
         if (!form) return;
 
+        form.addEventListener('input', function (e) {
+            if (e.target.name) clearFieldError(e.target);
+        });
+
         form.addEventListener('submit', async function (e) {
             e.preventDefault();
             hideValidation();
             clearErrors();
 
+            var errors = validateForm(form);
+            if (Object.keys(errors).length > 0) {
+                handleErrors(errors);
+                return;
+            }
+
             var btn = el('btn-guardar-cat-edit');
             var origHTML = btn.innerHTML;
             btn.disabled = true;
-            btn.innerHTML = '<span class="material-symbols-outlined text-[18px] animate-spin">progress_activity</span> Guardando...';
+            btn.innerHTML = '<span class="material-symbols-outlined text-[18px] animate-spin" aria-hidden="true">progress_activity</span> Guardando...';
 
+            var recargando = false;
             try {
                 var resp = await fetch(form.action, {
                     method: 'POST',
                     body: new FormData(form),
                     headers: { 'X-Requested-With': 'XMLHttpRequest' }
                 });
+
+                // Sin permiso o sesión vencida el servidor responde con una redirección/HTML, no JSON.
+                var esJson = (resp.headers.get('content-type') || '').indexOf('json') !== -1;
+                if (!resp.ok || !esJson) {
+                    showValidation('No se pudo guardar: no tenés permiso para editar categorías o tu sesión venció. Recargá la página e intentá de nuevo.');
+                    return;
+                }
+
                 var result = await resp.json();
                 if (result.success) {
-                    updateRow(result.entity);
-                    close();
-                    document.dispatchEvent(new CustomEvent('catalogo:toast', {
-                        detail: { message: result.message || 'Categoría actualizada', type: 'success' }
-                    }));
+                    recargando = true;
+                    window.location.assign(CATALOGO_CATEGORIAS_URL);
                 } else if (result.errors) {
-                    handleServerErrors(result.errors);
+                    handleErrors(result.errors);
                 }
             } catch (_) {
                 showValidation('Error de conexión. Intentá nuevamente.');
             } finally {
-                btn.disabled = false;
-                btn.innerHTML = origHTML;
+                // En éxito la página se recarga: el botón queda en "Guardando..." para evitar un doble envío.
+                if (!recargando) {
+                    btn.disabled = false;
+                    btn.innerHTML = origHTML;
+                }
             }
         });
+    }
+
+    function toast(message, type) {
+        document.dispatchEvent(new CustomEvent('catalogo:toast', { detail: { message: message, type: type } }));
     }
 
     function initDelegatedEvents() {
@@ -168,18 +194,15 @@
             var editBtn = e.target.closest('[data-cat-edit-id]');
             if (editBtn) {
                 var id = editBtn.getAttribute('data-cat-edit-id');
-                var row = editBtn.closest('tr');
                 try {
                     var resp = await fetch('/Categoria/GetJson/' + id, {
                         headers: { 'X-Requested-With': 'XMLHttpRequest' }
                     });
                     if (!resp.ok) throw new Error('Not found');
                     populate(await resp.json());
-                    open(row, editBtn);
+                    open(editBtn);
                 } catch (_) {
-                    document.dispatchEvent(new CustomEvent('catalogo:toast', {
-                        detail: { message: 'Error al cargar la categoría.', type: 'error' }
-                    }));
+                    toast('No se pudo cargar la categoría. Intentá nuevamente.', 'error');
                 }
                 return;
             }
@@ -189,10 +212,10 @@
                 var delId     = deleteBtn.getAttribute('data-cat-delete-id');
                 var delNombre = deleteBtn.getAttribute('data-cat-delete-nombre') || 'esta categoría';
                 window.TheBury.confirmAction(
-                    '¿Eliminar "' + delNombre + '"? Esta acción no se puede deshacer.',
+                    '¿Eliminar la categoría "' + delNombre + '"? Esta acción no se puede deshacer.',
                     function () {
                         var form = el('form-delete-categoria');
-                        form.action = '/Categoria/Delete/' + delId + '?returnUrl=/Catalogo';
+                        form.action = '/Categoria/Delete/' + delId + '?returnUrl=' + encodeURIComponent(CATALOGO_CATEGORIAS_URL);
                         form.submit();
                     }
                 );

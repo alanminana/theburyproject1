@@ -40,6 +40,7 @@ namespace TheBuryProject.Controllers
         // en categoria-editar-modal.js). No es CRUD fantasma: es la única forma de eliminar.
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "categorias", Accion = "delete")]
         public async Task<IActionResult> DeleteConfirmed(int id, string? returnUrl = null)
         {
             try
@@ -71,10 +72,12 @@ namespace TheBuryProject.Controllers
         #region AJAX — única vía real de gestión (modal del catálogo)
 
         /// <summary>
-        /// Crea una categoría vía AJAX (desde el modal del catálogo).
+        /// Crea una categoría vía AJAX (desde el modal del catálogo). Cada acción exige su permiso
+        /// propio (create/update/delete): el permiso de clase (view) solo habilita el listado.
         /// </summary>
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "categorias", Accion = "create")]
         public async Task<IActionResult> CreateAjax(CategoriaViewModel viewModel)
         {
             if (!ModelState.IsValid)
@@ -107,6 +110,9 @@ namespace TheBuryProject.Controllers
                 };
 
                 await _categoriaService.CreateAsync(categoria);
+                // El catálogo se recarga tras el alta (única fuente de verdad del listado): el aviso
+                // viaja por TempData y se muestra como toast de la página recargada.
+                TempData["Success"] = $"Categoría «{categoria.Nombre}» creada exitosamente";
                 return Json(new
                 {
                     success = true,
@@ -133,6 +139,7 @@ namespace TheBuryProject.Controllers
         }
 
         [HttpGet]
+        [PermisoRequerido(Modulo = "categorias", Accion = "update")]
         public async Task<IActionResult> GetJson(int id)
         {
             try
@@ -161,6 +168,7 @@ namespace TheBuryProject.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "categorias", Accion = "update")]
         public async Task<IActionResult> EditAjax(int id, CategoriaViewModel viewModel)
         {
             if (id != viewModel.Id)
@@ -196,6 +204,7 @@ namespace TheBuryProject.Controllers
                 };
 
                 await _categoriaService.UpdateAsync(categoria);
+                TempData["Success"] = $"Categoría «{viewModel.Nombre}» actualizada exitosamente";
                 return Json(new
                 {
                     success = true,

@@ -17,6 +17,7 @@ faltan. Actualizar esta tabla al cerrar cada pantalla.
 | Cliente | `Nuevo cliente` (drawer Create) | ✅ Cerrado | serie wizard Cliente (ver resumen abajo) |
 | Cliente | `Details` | ✅ Cerrado | serie CLIENTE-DETAILS-TABS (ver resumen abajo) |
 | Catálogo | `Inventario` (tab Productos) | ✅ Cerrado | ver resumen abajo |
+| Catálogo | `Inventario` (tab Categorías + modales Nueva/Editar + eliminar) | ✅ Cerrado (2026-09-25) | CATEGORIA-CIERRE-01 (ver resumen abajo) |
 
 Leyenda:
 
@@ -1878,6 +1879,65 @@ la tabla).
 Deuda conocida, no iniciada en este lote: Categorías/Marcas/Alertas/Movimientos se
 benefician del shell fluido y del rediseño de tabs, pero no recibieron auditoría completa
 de 4 capas — quedan fuera del alcance visual pedido (limitado a "Inventario"/Productos).
+Categorías quedó cerrada después en CATEGORIA-CIERRE-01 (ver más abajo).
+
+## Catálogo / Inventario (tab Categorías) — CATEGORIA-CIERRE-01
+
+Cierre de módulo pedido por el usuario (`/ui-module`): tab Categorías, modales Nueva/Editar,
+confirmación de eliminación y la barra de pestañas compartida con el resto de Inventario.
+Reabre lo que quedaba como deuda en el cierre de Productos ("Categorías ... no recibieron
+auditoría completa de 4 capas").
+
+Defectos reales encontrados y corregidos (los dos primeros solo se vieron ejercitando el flujo,
+no con build/tests):
+
+- **Cambio de pestaña con un clic dejaba dos pestañas resaltadas** (Productos seguía en verde
+  con texto ilegible): el JS y Razor usaban juegos de clases distintos. El estado activo ahora
+  es `aria-selected` (server y JS), pintado por `.catalogo-tab` en `catalogo-module.css`;
+  `role=tablist/tab/tabpanel`, roving tabindex y flechas/Home/End. `?tab=` se mantiene en la
+  URL con `replaceState` (recargar/volver conserva la pestaña).
+- **No se podía desactivar una categoría**: el checkbox desmarcado no viaja y
+  `CategoriaViewModel.Activo` vale `true` por defecto. Se agrega el hidden `Activo=false`
+  después del checkbox (patrón de `Html.CheckBox`).
+- **Permisos por acción sin enforcement**: `create/update/delete` existían en el seeder pero el
+  controller solo exigía `view`. Ahora `CreateAjax` (create), `EditAjax`/`GetJson` (update) y
+  `Delete` (delete) los exigen; la vista oculta Nueva/Editar/Eliminar (y la columna Acciones
+  si no queda ninguna). Con solo `view` el rol Vendedor lista sin acciones y recibe 403.
+- **Editar solo ofrecía categorías raíz como padre** (un padre no raíz o inactivo se perdía en
+  silencio al guardar). Alta y edición usan la misma lista (todas las vigentes, en orden
+  jerárquico, "(inactiva)" marcada); la edición oculta la opción propia; el servidor sigue
+  validando ciclos.
+- **La fila se armaba en JS con HTML duplicado** (clases del tema claro, sin descripción, sin
+  contador ni sangría). Tras crear/editar se recarga `/Catalogo?tab=categorias` y el aviso viaja
+  por TempData; eliminar también vuelve a la pestaña (antes caía en Productos).
+- Barra superior: la última pestaña ("Movimientos") quedaba recortada a 1440px porque el bloque
+  de acciones le quitaba el ancho; "Ajuste masivo" y "Nuevo producto" (solo aplican a Productos)
+  se ocultan fuera de esa pestaña con `[hidden]` (antes el toggle por clase no ganaba a
+  `.btn-erp-*` y en el render server seguían visibles). El contador de la pestaña activa pasa a
+  contraste legible.
+
+UX/UI: lista en orden jerárquico con sangría y conector (padre → hijas), columna Estado como
+única señal (se retira el "Inactivo" duplicado bajo el nombre), acciones con `.row-action`
+(icono en ≥sm, texto en mobile), estado vacío con siguiente paso, copy en voseo sin relleno.
+Modales: mismo partial para campos e interruptores (`.catalogo-switch`, foco visible), `<label for>`,
+obligatorios marcados, validación por campo con foco en el primero, mensaje claro si falta permiso
+o venció la sesión, `novalidate`, cuerpo scrolleable con `.catalogo-modal-form` (cabecera y pie
+siempre completos, verificado hasta 844×390).
+
+Sin cambios de reglas de negocio, contratos de servicio, rutas ni datos. Tests: 10 nuevos de
+contrato (`CategoriaCatalogoContractTests`).
+
+Validado en vivo (Playwright propio, Chrome del sistema, contra clon de la LocalDB en :5199):
+1920/1536/1440/1280/1024/768/390/360 (sin overflow, 0 errores de consola/requests); alta, edición
+(incluye desactivar), eliminar con hijas (error del servidor), eliminar OK, código duplicado,
+validación de campos, estado vacío (admin, mobile y solo lectura), roles SuperAdmin,
+Administrador (permisos completos) y Vendedor (solo `view`: sin botones y 403 en POST).
+
+Fuera de alcance, sin corregir ni auditar: la pestaña Marcas comparte la barra de pestañas (ya
+corregida) pero su tabla y modales no se revisaron; `MarcaController` solo declara `marcas.view` a
+nivel de clase (verificado) y podría tener los mismos defectos que tenía Categorías. El modal de
+confirmación genérico (`TheBury.confirmAction`, "Confirmar acción / Confirmar") es compartido por
+todo el ERP.
 
 ## Mobile transversal — MOBILE-DEBT-01 (deuda de la auditoría mobile 2026-09-20)
 
