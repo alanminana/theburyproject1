@@ -11,13 +11,15 @@ faltan. Actualizar esta tabla al cerrar cada pantalla.
 | Venta | `Edit` | ✅ Cerrado | `_VentaWizardForm.cshtml` + tests de paridad + ENVIO-ML (ver resumen abajo) |
 | Venta | `Details` | ✅ Cerrado | serie VENTA-DETAILS (ver resumen abajo) + ENVIO-ML (ver resumen abajo) |
 | Cotización | `Simular` (`_CotizadorForm.cshtml`) | ✅ Cerrado | serie COTIZACION-SIMULAR-REDESIGN (ver resumen abajo) + ENVIO-ML (ver resumen abajo) |
-| ConfiguracionPago | `MediosPago` | ✅ Cerrado | ver resumen abajo |
+| ConfiguracionPago | `MediosPago` + `CreditoPersonal` | ✅ Unificado en un solo módulo con pestañas (2026-09-25) | CONFIGPAGO-UNIFICACION-01 (ver resumen abajo) |
 | Dashboard | `Index` | ◐ Auditoría 4 capas aplicada (2026-09-24) | estado del día en lugar de hero, tabs con contador, permisos en accesos/acciones, paneles planos, composición por ancho de columna; filas reales de cuotas verificadas en el saneamiento pre-PR; validado con roles restringidos (2026-09-24, cierre de módulo); datos financieros gateados por permiso de módulo |
 | Cliente | `Index` | ✅ Cerrado | CLIENTE-INDEX-SIN-HERO-01 (ver resumen abajo) |
 | Cliente | `Nuevo cliente` (drawer Create) | ✅ Cerrado | serie wizard Cliente (ver resumen abajo) |
 | Cliente | `Details` | ✅ Cerrado | serie CLIENTE-DETAILS-TABS (ver resumen abajo) |
 | Catálogo | `Inventario` (tab Productos) | ✅ Cerrado | ver resumen abajo |
 | Catálogo | `Inventario` (tab Categorías + modales Nueva/Editar + eliminar) | ✅ Cerrado (2026-09-25) | CATEGORIA-CIERRE-01 (ver resumen abajo) |
+| Proveedor | `Index`, `Details`, drawers Nuevo/Editar, eliminar | ✅ Cerrado (2026-09-25) | cierre de módulo `/ui-module proveedores` (ver resumen abajo) |
+| Caja | `Index`, `Create`/`Edit` (página + panel lateral), `Abrir`, `RegistrarMovimiento`, `Cerrar`, `DetallesApertura`, `DetallesCierre`, `Historial` | ✅ Cerrado (2026-09-25) | cierre de módulo `/ui-module caja` (ver resumen abajo) |
 
 Leyenda:
 
@@ -1939,6 +1941,29 @@ nivel de clase (verificado) y podría tener los mismos defectos que tenía Categ
 confirmación genérico (`TheBury.confirmAction`, "Confirmar acción / Confirmar") es compartido por
 todo el ERP.
 
+## Caja — cierre de módulo `/ui-module caja` (2026-09-25, sin commit)
+
+Barrido de todas las superficies (Index con turnos vencidos, panel lateral Nueva/Editar, Create/Edit de página completa, eliminar con confirmación, Abrir, Registrar movimiento, Cerrar, Detalle de turno con sus 5 pestañas, Detalle de cierre, Historial con datos, filtros abiertos y estado vacío) en 1440×900, 1280×720, 768×1024, 390×844 y 360×800: 0 overflow, 0 errores de consola, 0 requests fallidos. QA en una copia de la base (`TheBuryProjectDb_caja_qa`, instancia :5199, ya eliminadas) con flujos de escritura reales: abrir turno, ingreso, egreso, cierre con sobrante y justificación obligatoria, alta y baja de caja.
+
+Hallazgos corregidos (sin cambiar reglas de negocio, permisos ni contratos):
+- **P1 funcional — `Create` nacía inactiva**: el GET no pasaba modelo y "Caja activa" se renderizaba destildada ("Estado inicial: Inactiva" en rojo); una caja nueva quedaba sin poder abrirse sin que nadie lo decidiera. Ahora `View("Create_tw", new CajaViewModel())`.
+- **P1 flujo — callejón sin salida en turno vencido**: el Detalle mostraba "Turno abierto" y "Nuevo movimiento" en un turno de día anterior; el formulario se completaba y el servicio lo rechazaba al guardar. El Detalle ahora dice "Turno vencido" (chip + aviso, también en Información del turno), oculta "Nuevo movimiento" y deja solo "Cerrar caja"; `RegistrarMovimiento` (GET) redirige al detalle si la apertura está vencida. El servicio sigue siendo la autoridad.
+- **P1 contrato de formulario — "Descripción (opcional)" era obligatoria** en Registrar movimiento (`[Required]` + `required`): la etiqueta ahora marca `*`. Inversamente, "Sucursal *" en Create/Edit de página no es obligatoria en el modelo (verificado creando una caja solo con código y nombre): pasa a "(opcional)".
+- **P2 — arqueo alarmista**: Cerrar precargaba `0` y mostraba de entrada "Faltante −$691.982,80" con justificación obligatoria. Ahora el campo arranca vacío, la diferencia es neutra ("—") hasta ingresar el conteo y el estado (Exacto/Sobrante/Faltante) se muestra como chip de texto, no solo color; se retiró un ícono suelto que se colaba bajo el texto. Registrar movimiento: Monto también vacío al abrir.
+- **P2 — botón principal cortado**: el panel lateral de alta/edición (`100vh-4rem`) dejaba "Cancelar/Guardar" fuera del viewport a 1440×900 (parte 32px más abajo del header); ahora `100dvh-8rem` a ≥1024px.
+- **P2 — primer click perdido en validación**: al corregir el último campo y pulsar el botón, el blur retiraba el mensaje, el botón subía y el click se perdía; los mensajes de validación de los formularios de Caja reservan su línea.
+- **P2 — Historial a 1280px**: la tabla (min 66rem) escondía la columna "Ver detalle" tras un scroll horizontal sin pista; baja a 54rem y entra completa desde 1280px (por debajo sigue con scroll y su aviso). El respiro bajo el título de "Filtros" colapsado dejaba ~16px vacíos.
+- **P2 — paridad mobile**: las tarjetas de "Tus cajas" no ofrecían Eliminar (sí el desktop); ahora aparece con la misma condición (admin, caja sin turno) y la misma confirmación; el aviso "Quedó abierta del día anterior…" se repetía en cada tarjeta además del banner y el chip "Vencida" y se retiró.
+- **P2 — panel lateral desactualizaba la pantalla**: tras crear/editar una caja el JS parchaba el DOM (filas y tarjetas sin "Eliminar", RowVersion viejo, KPIs y chips "Todas/Disponibles/En uso" sin actualizar); ahora `caja-index.js` avisa y recarga (se eliminó el código de armado de filas del cliente). Verificado en 1440 y 390: la caja nueva aparece con Eliminar y los contadores suben.
+- **P3**: número de venta en la pestaña Ventas ya no se parte en dos líneas; buscador del libro mayor sin recorte del placeholder; placeholder de código "CAJA-01" en los paneles (antes "C01-HQ", contradecía la ayuda).
+
+Validación técnica: 257/257 tests `Caja*` (2 nuevos: `Create_Get_EntregaModeloConCajaActivaPorDefecto`, `RegistrarMovimiento_Get_AperturaVencida_RedirigeAlDetalleSinMostrarElFormulario`); build 0 errores. `ux-heuristics` ejecutada; `impeccable critique` formal dual-agent (A revisión de diseño 31/40 · B detector: `impeccable detect Views/Caja` = 0 hallazgos, sin errores de consola ni de a11y programática) y `polish` ejecutados. Sin pendientes propios; los datos "test"/"cotizacion" que se ven en las capturas son de la base local.
+
+**Segunda pasada (crítica formal + roles)**: (1) Index: el banner de turno vencido enlaza a las tarjetas ("Ver turnos vencidos"); (2) KPIs "Egresos efectivo" (Cerrar) y "Sobrantes/Faltantes" (Historial) solo se pintan de rojo/ámbar si el valor es mayor a 0; (3) Cerrar: "Movimientos: N · ver detalle" abre el detalle en pestaña nueva sin perder el conteo cargado; (4) rol Cajero sin cajas asignadas (validado con el usuario real `cajero`): el estado vacío decía "No hay cajas activas configuradas" y "Seleccione una caja disponible" (falso y sin salida); ahora "No tenés cajas asignadas. Pedile a un administrador que te habilite…" y voseo consistente. Cajero: Create/Edit → AccessDenied, sin Nueva/Editar/Eliminar, detalle/cierre de turnos ajenos redirigen; solo Historial disponible.
+**Tercera pasada (todo lo que había quedado abierto)**: (1) Cerrar con diferencia pide una segunda confirmación con el monto ("Vas a cerrar la caja con un faltante de $X…"), sin inventar umbral: se dispara ante cualquier diferencia; (2) Historial muestra "% del esperado" bajo cada diferencia (escala sin definir tolerancia de negocio); (3) Abrir pierde los 4 KPI redundantes (Responsable y hora pasan a una línea bajo el título); (4) en Index las filas/tarjetas "En uso" ya no repiten "Ver turno": apuntan a la tarjeta de "Cajas abiertas ahora" ("Ver arriba"); (5) Cerrar enlaza a la calculadora por denominación del detalle (`#conciliacion`, ahora las pestañas aceptan hash); (6) el filtro activo de Historial ya se veía (el panel se expande solo con filtros); (7) layout: el título del topbar deja de ser `<h2>` (antes precedía al `<h1>` en todas las pantallas); (8) hallazgos nuevos de la validación por roles: los GET de Abrir/Registrar movimiento/Cerrar no exigían `caja.open/movements/close` (solo el POST) y Registrar/Cerrar mostraban su formulario sobre un turno ya cerrado; ahora exigen el permiso y redirigen al detalle; Index y Detalle solo ofrecen Abrir/Movimiento/Cerrar si el usuario tiene ese permiso.
+Últimos retoques: la pestaña Movimientos ya no repite la referencia cuando la descripción la nombra ("Venta COT-…" + enlace) y las tarjetas Top sobrantes/faltantes de Historial no se estiran entre sí.
+**Roles validados con cuentas reales en copia de la base**: Cajero (sin acceso a Create/Edit, sin cajas asignadas → mensaje guiado), Vendedor (Historial y turno en solo lectura sin botones de operar, Create/Edit → AccessDenied) y Contador (sin `caja.view` → AccessDenied en todo el módulo). 258/258 tests `Caja*` (+1 nuevo por turno cerrado) y 712/712 con Layout/UiContract/Sidebar.
+
 ## Mobile transversal — MOBILE-DEBT-01 (deuda de la auditoría mobile 2026-09-20)
 
 Lote transversal que cierra la deuda restante de la auditoría mobile (101 rutas, 390/360/768).
@@ -2024,6 +2049,150 @@ pantalla afectada sigue con su estado de cierre propio.
   breadcrumb de una línea; la tabla de productos del wizard pasa a tarjetas también en ≥1280px
   con la columna <736px (decisión pendiente, se dejó como está).
 
+## Proveedor — cierre de módulo `/ui-module proveedores` (2026-09-25, sin commit)
+
+Pantallas: `Views/Proveedor/Index_tw`, `Details_tw`, drawers Nuevo/Editar (ahora `_ProveedorModales` +
+`_ProveedorFormFields`, compartidos por Index y Details), eliminar. JS: `proveedor-modal-base.js` (nuevo),
+`proveedor-crear/editar-modal.js`, `proveedor-module.js`, `proveedor-index.js`, `proveedor-product-picker.js`.
+Método: ux-heuristics (Nielsen/Krug) + Impeccable critique y polish aplicados leyendo sus archivos, **en un
+solo contexto** (no se lanzaron sub-agentes: la sesión no los pidió; el detector `impeccable detect` dio 0
+hallazgos y no sustituye la inspección visual). QA con Chrome propio (playwright-core) sobre un clon de la
+LocalDB en :5199; la base real y la app del usuario no se tocaron.
+
+Defectos reales (build y tests no los mostraban):
+
+- **Pérdida de datos al editar**: `ProveedorService.UpdateAsync` reemplaza TODAS las asociaciones con lo que
+  llega, y el drawer del Index no enviaba categorías ni marcas (se borraban en cada edición; el clon tenía 0
+  asociaciones). El modal de Details era una copia legacy sin el picker de productos (los borraba) y con fondo
+  blanco/títulos invisibles. Ahora hay un único drawer que carga y devuelve productos, categorías y marcas, y
+  el editor se niega a abrirse si el picker no está listo.
+- **Permisos**: `create/update/delete` de `proveedores` sin enforcement (solo `view` a nivel clase): un
+  Contador (solo lectura) veía y podía usar Nuevo/Editar/Eliminar. Ahora `CreateAjax`, `GetEditData`, `EditAjax`
+  y `DeleteConfirmed` exigen su permiso y la vista solo ofrece lo permitido (verificado con rol Contador: 0
+  botones, llamadas directas 403).
+- Copy inventado en el drawer ("el contacto recibe el envío automático de órdenes de compra") y guía de carga
+  eliminados; columna "Productos" en realidad mostraba categorías → "Cobertura"; KPI "Deuda" (en rojo aun en $0)
+  era la suma de órdenes no canceladas → "Total en órdenes", en neutro; mapa falso en Details retirado.
+- Guardar recarga la página y el aviso lo dibuja el servidor (TempData); se eliminó el HTML de filas duplicado
+  en JS. Endpoints POST `Create`/`Edit` clásicos sin llamadores retirados.
+- UX: filtros automáticos (sin botón Filtrar), foco de la búsqueda restituido, estados vacíos distintos (sin
+  proveedores / sin resultados), errores del servidor junto a cada campo con `aria-invalid`, foco atrapado y
+  devuelto, aviso de cambios sin guardar (ESC/fondo/Cancelar), guardado con botón bloqueado, mensajes claros para
+  403/sesión vencida, error de productos ya no se muestra como "sin productos", el buscador de productos ya no
+  se cierra al hacer scroll.
+- Tablet/laptop chica: la tabla entra sin scroll hasta 1024px (Editar/Eliminar quedaban fuera de vista).
+
+Matriz de cobertura: VALIDADA (desktop y mobile, 1440/1280/1024/900/768/390/360, overflow 0, 0 errores de
+consola/red): Index con datos, vacío sin proveedores, vacío por filtro, filtros automáticos, drawer Nuevo
+(errores de servidor, CUIT duplicado, dirty-guard, alta), drawer Editar desde Index y desde Details (persistencia
+de productos/categorías/marcas), Details, confirmación y baja (en clon), vista solo lectura (Contador).
+NO VALIDADA: baja bloqueada por órdenes/cheques (el clon no tiene órdenes), conflicto de concurrencia
+(RowVersion), estado de error de carga del Index (catch del controller), baja de proveedores con datos reales.
+
+Tests: `ProveedorModuloContractTests` (6 casos: permisos, cobertura completa en el drawer, drawer único,
+labels). Suite completa 5020/5020 (4 omitidos previos), build 0 errores. Riesgo pendiente: la app corriendo
+del usuario necesita reinicio para tomar los cambios de C# (permisos, TempData); Razor/JS/CSS se refrescan solos.
+
+## Stock — cierre de módulo `/ui-module` (Movimientos, Kardex, Inventario global; 2026-09-25, sin commit)
+
+Pantallas: `MovimientoStock/Index`, `MovimientoStock/Kardex/{id}`, `Producto/UnidadesGlobal` (con su pestaña
+Movimientos), `MovimientoStock/Create` y el modal de ajuste; el parcial del listado también alimenta la pestaña
+Movimientos de Catálogo.
+
+Hallazgos corregidos (todos verificados en navegador):
+- **Bug de datos:** Index, la pestaña Movimientos y `ListJson` mostraban la hora en UTC (3 h de diferencia con
+  Kardex); ahora todo en hora local. El filtro por fecha del Kardex usa la fecha local.
+- **Control falso:** el selector "Promedio pond. / PEPS (FIFO)" del Kardex no calculaba nada; retirado.
+  "Exportar" solo imprimía (duplicaba "Imprimir"): retirado; queda "Imprimir / PDF".
+- **Copy honesto:** KPIs del Kardex dicen "Total histórico" (no reaccionan a filtros); "Costo promedio" era el
+  último costo → "Último costo". Los totales del pie se recalculan con las filas visibles y aparece un
+  estado vacío por filtros con "Limpiar filtros". Stats de Index con unidad explícita (movimientos / unidades).
+- Chip "Salida" del Kardex pasa a rojo (coherente con su columna y con Ficha); banner de Index al tono info.
+- Index: columna "Fuente costo" integrada bajo "Costo total" (la acción "Ver kardex" quedaba fuera de vista
+  a 1440px); importes/fechas sin partirse, cifras tabulares.
+- Inventario global: subtítulo ya no contradice las pestañas; el vacío sin filtros dice "Todavía no hay
+  unidades físicas registradas" (antes "con los filtros actuales"); Estado y los atajos "Solo …" se excluyen
+  entre sí (combinarlos daba 0 sin explicación); dropdown de estados con etiquetas legibles; el link de
+  fallback del header solo se ve sin JS; la pestaña Movimientos limita a 50 filas, muestra signo y unidades;
+  tabs con `aria-controls`, `tabpanel` y flechas de teclado.
+
+Matriz de cobertura: VALIDADA en 1440/1280/768/390/360 (overflow 0, 0 errores de consola/red): Index con datos,
+vacío por filtro, modal de ajuste (abre/Esc), Kardex con datos, filtrado, vacío por filtro y limpiar, modal de
+ajuste, envío real del ajuste (en clon de DB: 3→5 u, aviso de éxito y fila nueva), Create standalone, Inventario global con datos/vacío/vacío por filtro, pestaña Movimientos (desktop y
+mobile), pestaña Movimientos de Catálogo (overflow/consola).
+NO VALIDADA: Unidades globales con
+unidades reales (la base no tiene ninguna), paginación de Index (12 movimientos = 1 página).
+
+Tests: 331/331 (MovimientoStock, Catálogo, ProductoUnidad), build 0 errores. Riesgo: la app corriendo del usuario
+necesita reinicio para ver los cambios de C# (`ListJson`, etiquetas del dropdown); Razor/JS se refrescan solos.
+
+## Tickets — cierre de módulo `/ui-module tickets` (2026-09-25, sin commit)
+
+Pantallas: `Ticket/Index`, `Ticket/Details/{id}`, panel lateral de incidentes, modal de cambio de estado
+(individual y masivo), confirmación de eliminar y modal "Reportar incidencia".
+
+Hallazgos corregidos (verificados en navegador, en una clon de la DB):
+- **Acciones inalcanzables:** en Index la columna `Acciones` quedaba fuera de vista por scroll horizontal
+  (tabla de 1513px) y cada fila medía 253px por 5 botones apilados. Ahora: 6→4 columnas (Reportado y Origen
+  pasan a la línea de contexto del ticket), botones solo-icono en una fila y columna fija a la derecha;
+  filas de ~99px y sin scroll horizontal ≥1280px; en tablet el Tipo se integra a la fila.
+- **Details:** el título quedaba aplastado en ~220px (14 líneas) por las acciones en la misma fila; ahora la
+  cabecera va sin hero (§4) con las acciones en su propia fila. Descripción vacía con texto de fallback.
+- **Hero + 6 tarjetas KPI** (ocupaban el primer viewport y "1 abiertos" bajo "En curso" confundía) →
+  pestañas de estado con contador que además filtran (`?estado=`); chip "últimos 7 días" conserva el
+  atajo. El select de Estado del filtro se retira (lo cubren las pestañas).
+- Filtros en grilla (una fila ≥56rem del card, dos filas en tablet, 2 columnas en mobile); etiquetas
+  "Creado desde/hasta"; búsqueda accesible.
+- Barra de selección masiva `sticky` (antes quedaba fuera de vista al seleccionar filas del medio).
+- Errores y copy: la transición inválida masiva ahora dice "El ticket #4 no puede pasar de Cancelado a En
+  Curso. No se modificó ningún ticket." (antes `'Cancelado' → 'EnCurso'`); el modal de estado deshabilita los
+  estados no permitidos y ya no usa eyebrow ni jerga ("El backend actual…"); etiquetas de acción unificadas
+  entre Index/Details/panel (Marcar en curso / Marcar resuelto / Reabrir / Cancelar).
+- "Reportar incidencia": validación con foco en el campo con error y `aria-invalid`, orden de errores igual al
+  del formulario, foco/acento del sistema (antes azul legacy); el listado se recarga tras crear.
+- Panel: al cerrarlo tras un cambio recarga Index/Details (mostraban el estado anterior); fechas 24 h;
+  adjuntos < 1 KB en bytes (antes "0 KB").
+- Toasts con `role="status"/"alert"`.
+
+Matriz de cobertura: VALIDADA en 1440/1280/1024/768/390/360 (overflow de página 0, 0 errores de consola/red):
+Index con datos, tabs, filtros, vacío por filtro, paginación (2 páginas), cambio de estado individual,
+resolución sin descripción (error) y con descripción, cambio masivo (éxito y rechazo transaccional), selección
+masiva sticky, eliminar real (clon), Details en Pendiente/En curso/Resuelto con checklist, adjunto y resolución,
+panel (abrir/Esc/estado/checklist/adjunto/resolución) en desktop y mobile, modal de estado desktop/mobile,
+modal Reportar incidencia (validación y alta real).
+También VALIDADA: variante solo-lectura (usuario con solo `tickets.view` en la clon: sin casillas, barra masiva,
+estados ni eliminar; Details y panel de solo lectura; POST directo a `CambiarEstado`/`Eliminar` sin efecto),
+Details en Cancelado, estado vacío sin filtros (base real) y emulación táctil (`pointer: coarse`, objetivos de
+44px, sin overflow). NO VALIDADA: botones solo-ícono en hardware táctil real (solo emulado).
+
+Datos: la LocalDB real tenía un ticket con `Id = 0` (insertado a mano; la app descarta ids ≤ 0, así que no se
+podía gestionar). Se marcó `IsDeleted = 1` (reversible). Decisión de diseño mantenida: acciones de fila como
+íconos con `title` + nombre accesible (Eliminar separado al borde); la crítica los marcó como reconocimiento
+débil y se aceptó por densidad, con etiqueta visible en tarjeta mobile y 44px en táctil.
+
+Fases: contexto → ux-heuristics → Impeccable critique (dual-agent: A diseño 28/40 sin P0, B mecánico: 0 overflow,
+0 contraste, 0 sin nombre accesible, 0 errores; 3 mejoras aplicadas: casillas 24px, pestañas 44px en táctil,
+ficha sin Estado/Tipo duplicados) → implementación → QA visual → Impeccable polish → QA final. La primera
+pasada de critique fue inline y posterior a la implementación; se repitió formalmente con sub-agentes.
+Detector de Impeccable: 0 hallazgos. Tests: 2 nuevos
+(`TicketServiceEstadoMasivoTests`) + `LayoutUiContractTests` (58/59; el rojo es `Layout_TieneNavItemDashboard`
+por cambios ajenos en `_Layout.cshtml`), build 0 errores. Riesgo: la app corriendo del usuario necesita
+reinicio para ver el mensaje nuevo de `TicketService`; las vistas no dependen de C# nuevo (verificado: :18787 responde 200) y Razor/JS/CSS se refrescan solos.
+
+### OrdenCompra/Details + Recepcionar unificados (2026-09-25)
+
+Recepcionar deja de ser una pantalla: vive en Details cuando la orden es Confirmada/En tránsito
+(columnas Pendiente y A recepcionar, panel lateral con resumen, avance y "Confirmar recepción" encima de
+"Cambiar estado"). `GET /OrdenCompra/Recepcionar/{id}` redirige a Details; los errores del POST vuelven a Details.
+Los inputs de la tabla se asocian a un `<form>` aparte con `form="form-recepcionar"` (evita forms anidados
+con el de Cambiar estado).
+
+- *Validado (clon de la LocalDB):* recepción parcial (67 %, pasa a En tránsito) y completa (Recibida, sin
+  panel ni inputs), tope por producto, modal de confirmación, redirect de la ruta vieja, error al
+  recepcionar una orden Recibida; 1440/1024/768/390 sin overflow de página; 41 tests de OrdenCompra verdes.
+- *NO validado:* rol sin permiso `receive` (el panel se muestra igual y el POST lo rechaza el servidor,
+  mismo comportamiento que el botón previo); orden con varios productos.
+
 ## Regla para mantener estos documentos
 
 Al cerrar una pantalla:
@@ -2033,3 +2202,52 @@ Al cerrar una pantalla:
 3. no agregar detalles específicos que no generalicen (datos de una corrida de QA,
    cantidades, usuarios de prueba);
 4. una pantalla cerrada no se rediseña de nuevo salvo regresión demostrada.
+
+## ConfiguracionPago / MediosPago + CreditoPersonal — unificación (CONFIGPAGO-UNIFICACION-01, 2026-09-25)
+
+- **Una sola ventana:** ambas pantallas comparten título "Configuración de pagos" y la barra de pestañas
+  `Views/ConfiguracionPago/_ConfiguracionPagoTabs.cshtml` (Medios de pago | Crédito personal). Cada una conserva
+  su URL, su formulario y su contrato backend (fusionarlas en un solo formulario habría mezclado un POST global
+  con ~20 acciones AJAX/POST independientes sin ganancia real).
+- **MediosPago:** 4 cards de métricas → una fila de chips compactos (en mobile ocupaban una pantalla entera);
+  se retira la leyenda de chips "-5% / 0% / +5%" (duplicaba el subtítulo); `confirm()` nativo de "Eliminar
+  método" reemplazado por `TheBury.confirmAction` (`data-confirm`); el acceso a Crédito personal también se ve
+  en modo solo lectura; nota de tarjeta quitada sin `border-left` de 3px.
+- **CreditoPersonal:** 7 secciones → 5 (Resumen, Recargos y cuotas, Límites por puntaje, Perfiles, Punitorios);
+  "Semáforo" pasó a sub-bloque de Recargos y cuotas (sin `<details>`: un input inválido oculto bloquea el submit);
+  "Reglas canónicas" pasó a un `<details>` del Resumen en lenguaje llano; se eliminaron los rótulos "Sección N" y
+  la numeración; texto técnico (`PuntajesCreditoLimite`, `ClienteAptitudService`) reemplazado por lenguaje llano
+  (contrato `CreditoPersonalConfigUiContractTests` actualizado deliberadamente); "Guardar configuracion" →
+  "Guardar cambios"; Escape ahora cierra también "Agregar cuota" (antes solo "Nuevo perfil"), foco inicial,
+  foco atrapado y retorno de foco en ambos modales; el hash `#sN` ya no deja el encabezado con pestañas fuera de vista.
+- **Ids preservados:** `s1..s4`, `s7`, `data-target`, formularios y `name` de campos (e2e `configuracion-punitorio` usa `#s7`).
+- **Cierre de críticas (mismo día):** cabecera idéntica en ambas pestañas (`.cfgpago-crumb/title/sub` en el partial de
+  pestañas; se retiró el CSS `payments-title/subtitle/breadcrumb`), tildes en títulos/nombres de medios y "Límites reales
+  por puntaje", copy "canonical" reemplazado, "Volver" duplicado en solo lectura retirado, aviso `beforeunload` al salir de
+  Crédito personal con cambios sin guardar, labels de MediosPago asociados por `for/id` (script, también tras el reemplazo
+  AJAX del panel), targets táctiles ≥44px (pestañas y `.pay-*` en ≤700px), reset del scroll del hash `#sN`.
+- **Validación:** 483/483 tests (`CreditoPersonal|ConfiguracionPago|ConfiguracionPunitorio`); QA Playwright propio en
+  1440/1280/768/390/360, 0 overflow, 0 errores de consola/requests; guardado real de Crédito personal (gastos, semáforo,
+  cuota nueva, perfil nuevo, validación nativa) y e2e `configuracion-punitorio` 14/14 en un clon de la BD (:5199, ya
+  eliminado). Impeccable critique con dos evaluaciones aisladas (A: 25/40; B: detector 0 hallazgos, contraste y foco OK).
+- **Deuda cerrada:** importes de "Límites por puntaje" con lectura `= $ 1.234.567` debajo del input (el valor enviado no cambia);
+  Perfiles aclara que su rango de cuotas es propio del perfil (lo consume `CreditoConfiguracionHelper`) y no cambia los planes
+  globales; `GuardarCreditoPersonalAsync` trata un perfil con Id 0 y nombre existente como edición (test nuevo) en vez de
+  insertar un duplicado; cabecera y pestañas quedan en la misma posición en ambas pantallas.
+- **Nota:** el e2e de punitorios crea versiones append-only y no es idempotente entre proyectos/viewports: correrlo siempre
+  sobre un clon de la BD y de a un proyecto.
+
+### CONFIGPAGO-CREDITO-VISTA-01 (2026-09-25) — refactor de vista de Crédito personal
+
+- **Cabecera compartida compacta** (`_ConfiguracionPagoTabs` + ambas pantallas): sin breadcrumb (duplicaba título y sidebar), h1 1.35–1.75rem, subtítulo sin `min-height` reservado; Crédito personal pasó de ~230px a ~155px de cabecera y en mobile las acciones son una fila con scroll horizontal.
+- **Navegación de secciones:** la columna lateral de 220px (y el `<select>` "Ir a" en mobile) se reemplazó por una sola barra de pills bajo la cabecera (wrap ≥640px, scroll con fade <640px); el contenido usa todo el ancho. `data-target`, ids `s1..s4/s7` y hash `#sN` intactos.
+- **Sin tarjetas anidadas:** las secciones ya no son una tarjeta con icono grande; el encabezado es título + una línea + acción.
+- **Recargos y cuotas:** los tres avisos redundantes (planes activos ×2, fallback) y el párrafo de 5 líneas pasaron a un único estado + dos `<details>` ("Cómo se aplican estos valores", "Cómo se calcula el recargo de un plan"); los planes son filas tipo tabla con una sola cabecera de columnas (Plan | Recargo total | Cuotas sin recargo) en vez de tarjetas con la etiqueta repetida; en <1024px se apilan.
+- **Perfiles:** los acordeones `<details>` pasaron a filas tipo tabla (Nombre | Tasa | Gastos | Mín. | Máx. | Orden | Estado + descripción) con cabecera única en >=1280px, grilla de 6 columnas entre 640 y 1279px y apilado en mobile; todos los campos quedan editables sin expandir. Nombres de inputs y binding intactos (crear, editar y activar/desactivar perfil verificados con persistencia real en un clon de la BD, ya eliminado).
+- **Límites por puntaje:** 3 columnas en xl, sin insignia numérica duplicada. **Perfiles/Resumen/Punitorios:** solo encabezado y tildes ("crédito", "descripción", "Límite").
+- **Barra de guardado:** sólida, no se muestra en Resumen (solo lectura) ni en Punitorios (form propio), en <1024px baja al borde y en mobile solo botones.
+- **Contrato de test actualizado deliberadamente:** `ConfiguracionPagoGlobalAdminViewTests` pedía el texto del breadcrumb "Configuracion global de pagos"; ahora pide el h1 "Configuración de pagos".
+- **Medios de pago (misma tarea):** el desfase de ~20px entre pestañas era preexistente (`.payments-page` con `padding: 1.25rem` y shell de 1240px ya en HEAD); se alineó el shell de Medios de pago con el de Crédito personal (mismas x/y de cabecera en los 6 viewports, 0 overflow, 0 clipping).
+- **Accesibilidad:** `aria-current` + subrayado/negrita en la sección activa (no solo color), anillo de foco en `.cp-field`, `scroll-margin` para que un control inválido enfocado y su mensaje queden sobre la barra sticky (verificado 1440/1024/768/390/360). Tab/Shift+Tab, Space en checkboxes, Enter/Space en `<details>`, modales (foco atrapado, Escape, retorno de foco) y labels verificados.
+- **Validación:** 484/484 tests (`CreditoPersonal|ConfiguracionPago|ConfiguracionPunitorio`) y Release build 0 errores tras el último cambio; e2e `configuracion-punitorio` 14/14 (1 skip por diseño) en 1366x768, 768x1024 y 360x740, cada uno sobre un clon limpio de la BD; persistencia real en el clon (gastos, recargo explícito, recargo 0, herencia vacía, activo/inactivo, cuotas sin recargo, semáforo, límite por puntaje: POST 302 + recarga con los valores guardados); QA Playwright propio en 1440/1280/1024/768/390/360 × 5 secciones, 0 overflow, 0 errores de consola/requests. El clon se eliminó.
+- **Deuda:** los importes de "Límites por puntaje" siguen siendo `type=number` (contrato de binding).

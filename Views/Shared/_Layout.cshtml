@@ -92,7 +92,8 @@
     <div id="erp-app-shell" class="flex h-screen overflow-hidden">
 
         <!-- Sidebar -->
-        <aside id="sidebar" class="shrink-0 border-r border-slate-700 flex flex-col" style="background-color:var(--pal-neutral-925);">
+        <aside id="sidebar" class="shrink-0 border-r border-slate-700 flex flex-col"
+               style="background-color:var(--pal-neutral-925);">
 
             <!-- Brand -->
             <a asp-controller="Home" asp-action="Index" title="TheBuryProject — Inicio"
@@ -116,16 +117,7 @@
             <!-- Nav -->
             <nav class="flex-1 px-4 space-y-8 mt-4 overflow-y-auto overflow-x-hidden">
 
-                @if (canViewDashboard)
-                {
-                    <div class="space-y-1">
-                        <a class="@NavClass(isDashboardActive)" aria-current="@NavCurrent(isDashboardActive)"
-                           asp-controller="Home" asp-action="Index" title="Dashboard">
-                            <span class="material-symbols-outlined text-lg shrink-0" aria-hidden="true">dashboard</span>
-                            <p class="@NavFont(isDashboardActive) sidebar-label">Dashboard</p>
-                        </a>
-                    </div>
-                }
+
 
                 @if (showOperaciones)
                 {
@@ -357,9 +349,9 @@
                     </button>
 
                     <!-- Page title (visible en todos los anchos: en <lg es el unico nombre de modulo, la sidebar es drawer) -->
-                    <h2 class="text-lg font-bold text-white truncate min-w-0">
+                    <div class="text-lg font-bold text-white truncate min-w-0" data-page-title>
                         @ViewData["Title"]
-                    </h2>
+                    </div>
                 </div>
 
                 <div class="flex items-center gap-4 shrink-0">

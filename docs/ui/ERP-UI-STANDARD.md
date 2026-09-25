@@ -75,6 +75,16 @@ Además:
   horizontal propio (`tabindex="0"` para que sea alcanzable por teclado).
 - Estados de fila (pill semántica) en columna dedicada, nunca solo color de fondo.
 - Acciones por fila agrupadas en una celda `Acciones`, mismo orden en toda la tabla.
+- Con 4+ acciones por fila: botones solo-icono de 2rem en una fila sin wrap (nombre accesible visible
+  solo en la tarjeta mobile, `title` en desktop; 44px con `pointer: coarse`) y columna `Acciones` fija a
+  la derecha (`position: sticky; right: 0`), para que ninguna acción quede fuera de vista ni dispare filas
+  de 250px por botones apilados. Las columnas secundarias se fusionan bajo el título de la fila antes que
+  agregar scroll horizontal (ver `Views/Ticket/Index_tw.cshtml`, `ticket-module.css`).
+- Barra de selección masiva dentro de un card con `overflow: hidden` no puede ser `sticky` (el card pasa a
+  ser el contenedor de scroll): usar `overflow: clip` en ese card para que el conteo siga a la vista al
+  recorrer filas.
+- Métricas que son a la vez filtros (conteo por estado) van como pestañas con contador y `aria-current`,
+  no como tarjetas KPI aparte (§5); cada pestaña conserva el resto de los filtros.
 
 ## 7. Mobile
 
