@@ -92,7 +92,7 @@
                 </div>
                 <div class="space-y-1">
                     <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Fecha</p>
-                    <p class="font-medium text-white">@Model.FechaVenta.ToString("dd/MM/yyyy HH:mm")</p>
+                    <p class="font-medium text-white">@Model.FechaVenta.ToString(Model.FechaVenta.TimeOfDay == TimeSpan.Zero ? "dd/MM/yyyy" : "dd/MM/yyyy HH:mm")</p>
                 </div>
                 <div class="space-y-1">
                     <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Forma de pago</p>

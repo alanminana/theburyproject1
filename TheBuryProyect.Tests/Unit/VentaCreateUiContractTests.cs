@@ -318,6 +318,17 @@ public class VentaCreateUiContractTests
     }
 
     [Fact]
+    public void VentaWizardCss_OcultarDescripcionesMobileNoAlcanzaElDropdownDeProductos()
+    {
+        // El buscador de productos vive en un `.flex.flex-col.mb-6`; la regla mobile que oculta las
+        // descripciones del encabezado de paso debe limitarse al encabezado (`.items-start`), o el
+        // dropdown pierde nombre, código y descripción en teléfono.
+        var css = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "css", "venta-page-wizard.css"));
+        Assert.Contains(".venta-section > .mb-6.flex.items-start p", css);
+        Assert.DoesNotContain(".venta-section > .mb-6.flex p", css);
+    }
+
+    [Fact]
     public void VentaCreateJs_ModalPagoPorItemQuedaSinEntradaDesdeNuevaVenta()
     {
         var script = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-create.js"));

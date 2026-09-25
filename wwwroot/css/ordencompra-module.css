@@ -57,14 +57,14 @@
     font-weight: 800;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: rgb(148 163 184);
+    color: var(--pal-neutral-450);
 }
 
 .oc-meta dd {
     margin-top: 0.125rem;
     font-size: 0.85rem;
     font-weight: 600;
-    color: rgb(248 250 252);
+    color: var(--pal-neutral-50);
 }
 
 /* Tira de stats densa: celdas divididas por gap de 1px */
@@ -73,9 +73,9 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 1px;
     overflow: hidden;
-    border: 1px solid rgb(30 41 59);
+    border: 1px solid var(--pal-neutral-800);
     border-radius: 0.75rem;
-    background: rgb(30 41 59);
+    background: var(--pal-neutral-800);
 }
 
 @media (min-width: 768px) {
@@ -86,7 +86,7 @@
 
 .oc-stat {
     padding: 0.5rem 0.875rem;
-    background: rgb(15 23 42 / 0.92);
+    background: color-mix(in srgb, var(--pal-neutral-925) 92%, transparent);
 }
 
 .oc-stat__label {
@@ -95,7 +95,7 @@
     font-weight: 800;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: rgb(148 163 184);
+    color: var(--pal-neutral-450);
 }
 
 .oc-stat__value {
@@ -103,17 +103,17 @@
     font-size: 1.05rem;
     font-weight: 900;
     line-height: 1.1;
-    color: rgb(248 250 252);
+    color: var(--pal-neutral-50);
 }
 
 .oc-stat__value--accent {
-    color: #f5c518;
+    color: var(--pal-accent);
 }
 
 .oc-stat__sub {
     margin-top: 0.1rem;
     font-size: var(--erp-fs-min, 0.75rem);
-    color: rgb(148 163 184);
+    color: var(--pal-neutral-450);
 }
 
 .oc-visually-hidden {
@@ -156,33 +156,33 @@
 }
 
 .ordencompra-feedback[data-variant="error"] {
-    background: rgb(239 68 68 / 0.10);
+    background: color-mix(in srgb, var(--pal-danger-500) 10%, transparent);
     border-color: transparent;
-    color: rgb(185 28 28);
+    color: var(--pal-danger-700);
 }
 
 .ordencompra-feedback[data-variant="warning"] {
-    background: rgb(245 158 11 / 0.10);
-    border-color: rgb(245 158 11 / 0.25);
-    color: rgb(180 83 9);
+    background: color-mix(in srgb, var(--pal-warning-500) 10%, transparent);
+    border-color: color-mix(in srgb, var(--pal-warning-500) 25%, transparent);
+    color: var(--pal-warning-700);
 }
 
 .ordencompra-feedback[data-variant="success"] {
-    background: rgb(16 185 129 / 0.10);
-    border-color: rgb(16 185 129 / 0.25);
-    color: rgb(4 120 87);
+    background: color-mix(in srgb, var(--pal-success-500) 10%, transparent);
+    border-color: color-mix(in srgb, var(--pal-success-500) 25%, transparent);
+    color: var(--pal-success-700);
 }
 
 html.dark .ordencompra-feedback[data-variant="error"] {
-    color: rgb(248 113 113);
+    color: var(--pal-danger-400);
 }
 
 html.dark .ordencompra-feedback[data-variant="warning"] {
-    color: rgb(252 211 77);
+    color: var(--pal-warning-300);
 }
 
 html.dark .ordencompra-feedback[data-variant="success"] {
-    color: rgb(110 231 183);
+    color: var(--pal-success-300);
 }
 
 .ordencompra-feedback__dismiss {
@@ -204,13 +204,13 @@ html.dark .ordencompra-feedback[data-variant="success"] {
 .ordencompra-feedback__dismiss:hover,
 .ordencompra-feedback__dismiss:focus-visible {
     opacity: 1;
-    background: rgb(15 23 42 / 0.06);
+    background: color-mix(in srgb, var(--pal-neutral-925) 6%, transparent);
     outline: none;
 }
 
 html.dark .ordencompra-feedback__dismiss:hover,
 html.dark .ordencompra-feedback__dismiss:focus-visible {
-    background: rgb(255 255 255 / 0.08);
+    background: color-mix(in srgb, var(--pal-white) 8%, transparent);
 }
 
 /* Product toolbar */
@@ -220,14 +220,14 @@ html.dark .ordencompra-feedback__dismiss:focus-visible {
     gap: 0.75rem;
     margin-bottom: 1rem;
     padding: 0.75rem;
-    border: 1px solid rgb(226 232 240);
+    border: 1px solid var(--pal-neutral-200);
     border-radius: 0.75rem;
-    background: rgb(248 250 252);
+    background: var(--pal-neutral-50);
 }
 
 html.dark .ordencompra-product-toolbar {
-    border-color: rgb(51 65 85);
-    background: rgb(30 41 59 / 0.45);
+    border-color: var(--pal-neutral-700);
+    background: color-mix(in srgb, var(--pal-neutral-800) 45%, transparent);
 }
 
 .ordencompra-product-toolbar__search {
@@ -247,15 +247,15 @@ html.dark .ordencompra-product-toolbar {
 
 /* Product table */
 .ordencompra-product-table-shell {
-    border: 1px solid rgb(226 232 240);
+    border: 1px solid var(--pal-neutral-200);
     border-radius: 0.75rem;
-    background: rgb(248 250 252 / 0.6);
+    background: color-mix(in srgb, var(--pal-neutral-50) 60%, transparent);
     overflow: hidden;
 }
 
 html.dark .ordencompra-product-table-shell {
-    border-color: rgb(30 41 59);
-    background: rgb(15 23 42 / 0.35);
+    border-color: var(--pal-neutral-800);
+    background: color-mix(in srgb, var(--pal-neutral-925) 35%, transparent);
 }
 
 .ordencompra-scroll-hint {
@@ -263,17 +263,17 @@ html.dark .ordencompra-product-table-shell {
     align-items: center;
     gap: 0.5rem;
     padding: 0.625rem 0.875rem;
-    border-bottom: 1px solid rgb(226 232 240);
-    color: rgb(71 85 105);
-    background: rgb(241 245 249);
+    border-bottom: 1px solid var(--pal-neutral-200);
+    color: var(--pal-neutral-600);
+    background: var(--pal-neutral-100);
     font-size: 0.8125rem;
     font-weight: 600;
 }
 
 html.dark .ordencompra-scroll-hint {
-    border-bottom-color: rgb(30 41 59);
-    color: rgb(148 163 184);
-    background: rgb(15 23 42 / 0.65);
+    border-bottom-color: var(--pal-neutral-800);
+    color: var(--pal-neutral-450);
+    background: color-mix(in srgb, var(--pal-neutral-925) 65%, transparent);
 }
 
 .ordencompra-product-scroll {
@@ -298,25 +298,25 @@ html.dark .ordencompra-scroll-hint {
 
 .ordencompra-summary-meta {
     margin-bottom: 0.75rem;
-    color: rgb(100 116 139);
+    color: var(--pal-neutral-500);
     font-size: var(--erp-fs-min, 0.75rem);
     line-height: 1.45;
 }
 
 html.dark .ordencompra-summary-meta {
-    color: rgb(148 163 184);
+    color: var(--pal-neutral-450);
 }
 
 .ordencompra-summary-totals {
-    border: 1px solid rgb(226 232 240);
+    border: 1px solid var(--pal-neutral-200);
     border-radius: 0.75rem;
     padding: 0.875rem;
-    background: rgb(248 250 252 / 0.75);
+    background: color-mix(in srgb, var(--pal-neutral-50) 75%, transparent);
 }
 
 html.dark .ordencompra-summary-totals {
-    border-color: rgb(30 41 59);
-    background: rgb(15 23 42 / 0.35);
+    border-color: var(--pal-neutral-800);
+    background: color-mix(in srgb, var(--pal-neutral-925) 35%, transparent);
 }
 
 .ordencompra-summary-actions {
@@ -383,24 +383,24 @@ html.dark .ordencompra-summary-totals {
 /* Recepcionar feedback variants */
 #recepcionar-feedback[data-variant="error"] {
     display: flex;
-    border-color: rgb(251 113 133 / 0.25);
-    background: rgb(255 241 242 / 0.9);
-    color: rgb(225 29 72 / 1);
+    border-color: color-mix(in srgb, var(--pal-danger-400) 25%, transparent);
+    background: color-mix(in srgb, var(--pal-danger-50) 90%, transparent);
+    color: var(--pal-danger-600);
 }
 
 .dark #recepcionar-feedback[data-variant="error"] {
-    background: rgb(76 5 25 / 0.45);
-    color: rgb(251 113 133 / 1);
+    background: color-mix(in srgb, var(--pal-danger-950) 45%, transparent);
+    color: var(--pal-danger-400);
 }
 
 #recepcionar-feedback[data-variant="info"] {
     display: flex;
-    border-color: rgb(59 130 246 / 0.2);
-    background: rgb(239 246 255 / 0.9);
-    color: rgb(37 99 235 / 1);
+    border-color: color-mix(in srgb, var(--pal-info-500) 20%, transparent);
+    background: color-mix(in srgb, var(--pal-info-50) 90%, transparent);
+    color: var(--pal-info-600);
 }
 
 .dark #recepcionar-feedback[data-variant="info"] {
-    background: rgb(15 23 42 / 0.7);
-    color: rgb(96 165 250 / 1);
+    background: color-mix(in srgb, var(--pal-neutral-925) 70%, transparent);
+    color: var(--pal-info-400);
 }

@@ -12,7 +12,7 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-    --color-primary: #f5c518;
+    --color-primary: var(--pal-accent);
     --color-background-light: #f6f6f8;
     --color-background-dark: #0b0e14;
     --font-display: 'Hanken Grotesk', 'Inter', sans-serif;
@@ -93,9 +93,9 @@
         --erp-text:           #dde2f4;   /* texto principal */
         --erp-text-muted:     #94a3b8;   /* texto secundario */
         --erp-text-faint:     #475569;   /* texto terciario, placeholder */
-        --erp-primary:        #f5c518;   /* oro acción (estética ML) */
-        --erp-primary-hover:  #ffd435;
-        --erp-primary-faint:  rgba(245, 197, 24, 0.1);
+        --erp-primary:        var(--pal-accent);   /* oro acción (estética ML) */
+        --erp-primary-hover:  var(--pal-accent-400);
+        --erp-primary-faint:  color-mix(in srgb, var(--pal-accent) 10%, transparent);
     }
 
     /* Links globales — no heredar el azul Bootstrap */

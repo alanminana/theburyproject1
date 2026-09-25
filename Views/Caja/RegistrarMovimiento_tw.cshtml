@@ -87,19 +87,19 @@
         <aside class="space-y-4">
             <div class="card card-pad" id="impact-card">
                 <div class="flex items-center gap-2 mb-3">
-                    <span class="material-symbols-outlined" id="impact-icon" style="color:@(esEgreso ? "#fb7185" : "#34d399");font-size:20px">@(esEgreso ? "trending_down" : "trending_up")</span>
+                    <span class="material-symbols-outlined" id="impact-icon" style="color:@(esEgreso ? "var(--pal-danger-400)" : "var(--pal-success-400)");font-size:20px">@(esEgreso ? "trending_down" : "trending_up")</span>
                     <h3 class="font-semibold text-white">Impacto en la caja</h3>
                 </div>
                 <dl>
                     <div class="defrow"><dt>Efectivo esperado actual</dt><dd class="num" id="impact-base" data-value="@saldoActualValue.ToString(System.Globalization.CultureInfo.InvariantCulture)">@saldoActual</dd></div>
-                    <div class="defrow"><dt id="impact-label">@(esEgreso ? "Este egreso" : "Este ingreso")</dt><dd class="num" id="impact-delta" style="color:@(esEgreso ? "#fb7185" : "#34d399")">$ 0,00</dd></div>
-                    <div class="defrow"><dt class="font-medium" style="color:#e2e8f0">Nuevo esperado</dt><dd class="num font-semibold text-white" id="impact-total">@saldoActual</dd></div>
+                    <div class="defrow"><dt id="impact-label">@(esEgreso ? "Este egreso" : "Este ingreso")</dt><dd class="num" id="impact-delta" style="color:@(esEgreso ? "var(--pal-danger-400)" : "var(--pal-success-400)")">$ 0,00</dd></div>
+                    <div class="defrow"><dt class="font-medium" style="color:var(--pal-neutral-200)">Nuevo esperado</dt><dd class="num font-semibold text-white" id="impact-total">@saldoActual</dd></div>
                 </dl>
             </div>
 
             <div class="card card-pad">
                 <div class="flex items-center gap-2 mb-3">
-                    <span class="material-symbols-outlined" style="color:#f5c518;font-size:20px">tips_and_updates</span>
+                    <span class="material-symbols-outlined" style="color:var(--pal-accent);font-size:20px">tips_and_updates</span>
                     <h3 class="font-semibold text-white">Buenas prácticas</h3>
                 </div>
                 <ul class="help-list">

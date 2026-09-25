@@ -53,6 +53,7 @@
         </div>
 
         <div id="filtros-body" class="filter-panel-erp__body" data-hidden="@filtroOCHidden">
+        <div class="filter-panel-erp__inner">
         <!-- Fila 1: búsqueda + proveedor + estado -->
         <div class="grid grid-cols-1 gap-4 pt-4 md:grid-cols-12">
             <div class="md:col-span-5">
@@ -137,6 +138,7 @@
                 </a>
             </div>
         </div>
+        </div>@* /filter-panel-erp__inner *@
         </div>@* /filtros-body *@
     </div>
 </form>
@@ -144,7 +146,7 @@
 <!-- Table -->
 <section class="mb-4"
          data-oc-scroll
-         style="--oc-scroll-min-width: 860px; --oc-scroll-fade-light: rgba(248, 250, 252, 0.98); --oc-scroll-fade-dark: rgba(15, 23, 42, 0.95);">
+         style="--oc-scroll-min-width: 860px; --oc-scroll-fade-light: color-mix(in srgb, var(--pal-neutral-50) 98%, transparent); --oc-scroll-fade-dark: color-mix(in srgb, var(--pal-neutral-925) 95%, transparent);">
     <div data-oc-scroll-hint
          class="mb-3 flex items-center justify-between gap-3 rounded-lg border bg-slate-100/80 px-3 py-2 text-xs text-slate-600 border-slate-700 bg-slate-800/60 text-slate-300 lg:hidden"
          hidden>

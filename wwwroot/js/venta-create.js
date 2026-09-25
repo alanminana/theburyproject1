@@ -534,7 +534,7 @@
             if (medios.length === 0) {
                 setEstadoConfiguracionPagosGlobal('No hay medios activos en la configuracion global.', 'warning');
             } else {
-                setEstadoConfiguracionPagosGlobal('Configuracion global activa cargada.', 'ok');
+                setEstadoConfiguracionPagosGlobal('Configuración global activa cargada.', 'ok');
             }
         } catch {
             configuracionPagosGlobal = null;
@@ -2005,6 +2005,7 @@
 
     function resetExcepcionCrediticia() {
         excepcionActiva = false;
+        restaurarEstadoSinExcepcion();
 
         const hdnExcepcion = $('#hdn-aplicar-excepcion');
         if (hdnExcepcion) hdnExcepcion.value = 'false';
@@ -2042,6 +2043,40 @@
         if (btnAplicarExcepcionReset) btnAplicarExcepcionReset.setAttribute('aria-expanded', 'false');
     }
 
+    // Humanización SOLO de presentación (mismo criterio que Cliente/Details_tw.cshtml): el backend
+    // arma los textos con el nombre técnico del enum TipoDocumentoCliente y ese texto también se
+    // persiste/audita tal cual, así que se traduce acá únicamente para mostrar.
+    function humanizarDocumentos(texto) {
+        return String(texto ?? '')
+            .replace(/ReciboSueldo/g, 'Recibo de sueldo')
+            .replace(/ConstanciaCUIL/g, 'Constancia CUIL');
+    }
+
+    // Tras aplicar la excepción documental el badge seguía en rojo "NO VIABLE" mientras la fila
+    // de Documentación ya decía "exceptuada" y el flujo continuaba. La excepción sólo cubre
+    // documentación (categoría 1): si no queda otro motivo bloqueante, el resultado pasa a
+    // "VIABLE CON EXCEPCIÓN"; se guarda el estado original para restaurarlo al retirarla.
+    function reflejarExcepcionEnEstado() {
+        const estadoEl = $('#verificacion-estado');
+        if (!estadoEl || estadoEl.dataset.textoOriginal !== undefined) return;
+        const quedanBloqueantes = (ultimaPrevalidacion?.motivos || [])
+            .some(m => m.esBloqueante && m.categoria !== 1);
+        if (quedanBloqueantes) return;
+        estadoEl.dataset.textoOriginal = estadoEl.textContent;
+        estadoEl.dataset.claseOriginal = estadoEl.className;
+        estadoEl.textContent = 'VIABLE CON EXCEPCIÓN';
+        estadoEl.className = estadoEl.className.replace('bg-red-500', 'bg-amber-500');
+    }
+
+    function restaurarEstadoSinExcepcion() {
+        const estadoEl = $('#verificacion-estado');
+        if (!estadoEl || estadoEl.dataset.textoOriginal === undefined) return;
+        estadoEl.textContent = estadoEl.dataset.textoOriginal;
+        estadoEl.className = estadoEl.dataset.claseOriginal;
+        delete estadoEl.dataset.textoOriginal;
+        delete estadoEl.dataset.claseOriginal;
+    }
+
     function mostrarResultadoVerificacion(data) {
         const panelResultado = $('#panel-resultado-verificacion');
         const badge = $('#verificacion-badge');
@@ -2061,6 +2096,8 @@
         // CREDITO-VISUAL-02A) a fila de cabecera del bloque "Estado del crédito": el color
         // semántico queda sólo en el pill de estado (`estado.className`, sin cambios).
         badge.className = 'flex items-center justify-between pb-3 mb-1 border-b border-slate-800';
+        delete estado.dataset.textoOriginal;
+        delete estado.dataset.claseOriginal;
         estado.textContent = data.textoEstado || color.text;
         estado.className = `px-2 py-1 rounded-md ${color.badge} text-white text-[10px] font-black uppercase tracking-widest`;
 
@@ -2185,10 +2222,10 @@
                 const valorTexto = (m.montoAsociado != null)
                     ? formatCurrency(m.montoAsociado)
                     : (m.diasAsociado != null ? `${m.diasAsociado} día${m.diasAsociado === 1 ? '' : 's'}` : null);
-                const titulo = esDocumentacionExceptuada ? 'Documentación — exceptuada' : m.titulo;
+                const titulo = esDocumentacionExceptuada ? 'Documentación — exceptuada' : humanizarDocumentos(m.titulo);
                 const descripcion = esDocumentacionExceptuada
                     ? 'Se aplicó una excepción documental para esta operación.'
-                    : m.descripcion;
+                    : humanizarDocumentos(m.descripcion);
                 div.innerHTML = `
                     <span class="material-symbols-outlined text-sm mt-0.5 ${colorCls}">${icon}</span>
                     <div class="flex-1">
@@ -2263,7 +2300,7 @@
                 <span class="material-symbols-outlined text-xs ${iconCls}">
                     ${tipo === 'faltante' ? 'remove_circle_outline' : 'event_busy'}
                 </span>
-                <span class="text-slate-600 dark:text-slate-400">${nombre}</span>
+                <span class="text-slate-600 dark:text-slate-400">${humanizarDocumentos(nombre)}</span>
                 <span class="ml-auto text-[10px] font-bold ${iconCls} uppercase">${label}</span>`;
             lista.appendChild(div);
         };
@@ -2405,6 +2442,7 @@
 
     function ocultarPanelExcepcion() {
         excepcionActiva = false;
+        restaurarEstadoSinExcepcion();
         const hdnExcepcion = $('#hdn-aplicar-excepcion');
         if (hdnExcepcion) hdnExcepcion.value = 'false';
 
@@ -2501,6 +2539,7 @@
         // se pone true un par de líneas arriba) — sin este refresco, la categoría 1 quedaba
         // con el rojo de bloqueante real un ciclo entero después de confirmar la excepción.
         if (ultimaPrevalidacion) mostrarMotivos(ultimaPrevalidacion);
+        reflejarExcepcionEnEstado();
     }
 
     // "Aplicar y continuar" dentro del panel: valida motivo, activa la excepción y bloquea el panel para edición
@@ -2760,7 +2799,7 @@
                 div.className = 'flex items-center gap-2 p-2 rounded-lg bg-amber-500/5 border border-amber-500/10';
                 div.innerHTML = `
                     <span class="material-symbols-outlined text-sm text-amber-500">remove_circle_outline</span>
-                    <span class="text-xs text-slate-600 dark:text-slate-400">${d}</span>
+                    <span class="text-xs text-slate-600 dark:text-slate-400">${humanizarDocumentos(d)}</span>
                     <span class="ml-auto text-[10px] font-bold text-amber-500 uppercase">Faltante</span>`;
                 listaModal.appendChild(div);
             });
@@ -2769,7 +2808,7 @@
                 div.className = 'flex items-center gap-2 p-2 rounded-lg bg-red-500/5 border border-red-500/10';
                 div.innerHTML = `
                     <span class="material-symbols-outlined text-sm text-red-500">event_busy</span>
-                    <span class="text-xs text-slate-600 dark:text-slate-400">${d}</span>
+                    <span class="text-xs text-slate-600 dark:text-slate-400">${humanizarDocumentos(d)}</span>
                     <span class="ml-auto text-[10px] font-bold text-red-500 uppercase">Vencido</span>`;
                 listaModal.appendChild(div);
             });

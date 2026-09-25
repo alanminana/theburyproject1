@@ -122,7 +122,7 @@
                 <div id="cotizacion-productos-search" class="prod-search">
                     <div class="relative">
                         <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" style="font-size:17px">search</span>
-                        <input id="cotizacion-producto-buscar" type="text" class="field pl-8" placeholder="Buscar producto por nombre, código o ID…" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="cotizacion-productos-dropdown">
+                        <input id="cotizacion-producto-buscar" aria-label="Buscar producto" type="text" class="field pl-8" placeholder="Buscar producto por nombre, código o ID…" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="cotizacion-productos-dropdown">
                         <div id="cotizacion-productos-dropdown" class="dropdown-list hidden absolute z-30 top-full left-0 right-0 mt-1" role="listbox"></div>
                     </div>
                     @* COTIZACION-MOCKUP-01: cantidad + Agregar + estado de la selección en UNA
@@ -143,7 +143,7 @@
                             <span class="material-symbols-outlined chev" style="font-size:13px">expand_more</span> Agregar por ID (avanzado)
                         </summary>
                         <div class="mt-2 grid grid-cols-12 gap-1.5">
-                            <input id="cotizacion-producto-id-manual" type="text" class="field col-span-6" placeholder="ID">
+                            <input id="cotizacion-producto-id-manual" aria-label="ID de producto" type="text" class="field col-span-6" placeholder="ID">
                             <input id="cotizacion-cantidad-manual" type="number" min="1" value="1" class="field col-span-3" aria-label="Cantidad manual">
                             <button id="cotizacion-agregar-manual" type="button" class="btn btn-soft btn-xs col-span-3 px-0">Usar</button>
                         </div>
@@ -185,7 +185,7 @@
                        abajo pasa a ser la única representación); "Cambiar" lo vuelve a mostrar. *@
                     <div id="cotizacion-cliente-buscador" class="relative">
                         <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" style="font-size:17px">search</span>
-                        <input id="cotizacion-cliente-buscar" type="text" class="field pl-8" placeholder="Buscar cliente por nombre, DNI o CUIT…" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="cotizacion-clientes-dropdown">
+                        <input id="cotizacion-cliente-buscar" aria-label="Buscar cliente" type="text" class="field pl-8" placeholder="Buscar cliente por nombre, DNI o CUIT…" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="cotizacion-clientes-dropdown">
                         <div id="cotizacion-clientes-dropdown" class="dropdown-list hidden absolute z-30 top-full left-0 right-0 mt-1" role="listbox"></div>
                     </div>
                     <input id="cotizacion-cliente-id" type="hidden" value="">

@@ -265,7 +265,7 @@
                             }
                             else
                             {
-                                <text>Guardar Operación</text>
+                                <text>Crear venta</text>
                             }
                         </button>
                     </div>
@@ -602,7 +602,7 @@
                                                                 <div class="flex items-end">
                                                                     <button type="button" id="btn-agregar-producto"
                                                                             class="w-full py-2.5 bg-primary text-white rounded-lg flex items-center justify-center gap-1 font-bold text-sm hover:bg-primary/90 transition-colors">
-                                                                        <span class="material-symbols-outlined text-sm">add</span> Añadir
+                                                                        <span class="material-symbols-outlined text-sm">add</span> Agregar
                                                                     </button>
                                                                 </div>
                                                             </div>
@@ -1275,7 +1275,7 @@
                                                                                                                 </div>
 
                                                                                                                 <dl class="mt-4 space-y-1.5 border-t border-slate-800 pt-3 text-xs">
-                                                                                                                    <div class="flex justify-between gap-3"><dt class="text-slate-500">Elegibilidad</dt><dd data-rev-credito-elegibilidad class="font-semibold text-white">Pendiente de verificar</dd></div>
+                                                                                                                    <div class="flex justify-between gap-3"><dt class="text-slate-500">Viabilidad del crédito</dt><dd data-rev-credito-elegibilidad class="font-semibold text-white">Pendiente de verificar</dd></div>
                                                                                                                     <div class="flex justify-between gap-3"><dt class="text-slate-500">Pendientes</dt><dd data-rev-credito-pendientes class="font-semibold text-white">0</dd></div>
                                                                                                                     <div class="flex justify-between gap-3"><dt class="text-slate-500">Excepción documental</dt><dd data-rev-credito-excepcion class="font-semibold text-white">No aplica</dd></div>
                                                                                                                 </dl>
@@ -1358,7 +1358,7 @@
                                                                                                            trae un error de validación real. *@
                                                                                                         <details open="@hayErrorObservaciones">
                                                                                                             <summary class="cursor-pointer text-xs font-bold text-slate-500 uppercase rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">Observaciones</summary>
-                                                                                                            <textarea asp-for="Observaciones" id="Observaciones" class="venta-input mt-2 h-28 resize-none"
+                                                                                                            <textarea asp-for="Observaciones" id="Observaciones" aria-label="Observaciones de la venta" class="venta-input mt-2 h-28 resize-none"
                                                                                                                       placeholder="Notas internas sobre la venta..."></textarea>
                                                                                                         </details>
                                                                                                     </section>
@@ -1371,7 +1371,8 @@
                                                                                                        avanzar(), que en ese paso siempre queda bloqueado), así que compartía
                                                                                                        copy con el CTA contextual sin compartir su función real (2/3 CTAs
                                                                                                        "Verificar crédito" simultáneos, hallazgo del audit). En el resto de los
-                                                                                                       pasos sigue siempre visible, sin cambios. *@
+                                                                                                       pasos sigue visible a ≥1280px (donde es el único CTA primario: el del header se oculta);
+              por debajo de 1280px sólo se muestra en Revisión (ver venta-page-wizard.css). *@
                                                                                                     <section id="venta-sidebar-totales"
                                                                                                         class="vm-totals overflow-hidden rounded-3xl bg-primary p-6 text-white shadow-xl shadow-primary/20">
 
@@ -1400,11 +1401,11 @@
                                             </div>
                                         }
                                         <button type="submit" id="btn-confirmar" name="accionConfirmacion" value="confirmar" class="vm-btn-confirm">
-                                                                                                            <span class="material-symbols-outlined">point_of_sale</span>
+                                                                                                            <span class="material-symbols-outlined" data-btn-confirmar-icon>point_of_sale</span>
                                                                                                             @* H1: envuelto en span para que venta-page-wizard.js pueda sincronizar este
                                                                                                                texto con el CTA contextual del wizard fuera de Revisión, sin tocar el
                                                                                                                copy final canónico (protegido por ParcialCompartido_DiferenciaLosBotonesSoloPorModo). *@
-                                                                                                            <span data-btn-confirmar-label>@(esEdicion ? "Confirmar venta" : (esCotizacion ? "Guardar Cotización" : "Confirmar Transacción"))</span>
+                                                                                                            <span data-btn-confirmar-label>@(esEdicion ? "Confirmar venta" : (esCotizacion ? "Guardar Cotización" : "Crear venta"))</span>
                                                                                                         </button>
                                                                                                         @if (esEdicion)
                                                                                                         {
@@ -1416,7 +1417,7 @@
                                                                                                         <p class="text-center text-[10px] mt-4 opacity-60">
                                                                                                             @(esEdicion
                                                                                                                 ? $"\"Confirmar venta\" guarda los cambios y confirma la operación {Model.Numero} (tildá \"Facturar\" para facturarla en el mismo paso). \"Guardar sin confirmar\" sólo guarda los cambios."
-                                                                                                                : (esCotizacion ? "Se guardará como cotización pendiente." : "Al confirmar, se generará la factura correspondiente."))
+                                                                                                                : (esCotizacion ? "Se guardará como cotización pendiente." : "Se crea la venta pendiente de confirmación. La confirmás y facturás desde Editar."))
                                                                                                         </p>
                                                                                                     </section>
 
@@ -1447,7 +1448,7 @@
                 </div>
                 <button type="button" class="vm-btn-confirm-sm" data-wizard-primary>
                     <span class="material-symbols-outlined vm-btn-confirm-sm__icon">point_of_sale</span>
-                    <span data-wizard-primary-label>@(esCotizacion && !esEdicion ? "Guardar" : "Confirmar")</span>
+                    <span data-wizard-primary-label>@(esCotizacion && !esEdicion ? "Guardar" : (esEdicion ? "Confirmar" : "Crear"))</span>
                 </button>
             </div>
 

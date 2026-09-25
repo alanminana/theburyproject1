@@ -9,6 +9,7 @@
  * En Edit la pestaña no debe existir: el parcial del wizard es compartido.
  */
 const { test, expect } = require('playwright/test');
+const { CTA_PRIMARIO_VISIBLE } = require('./helpers');
 
 test.use({ storageState: 'e2e/.auth/user.json' });
 
@@ -108,8 +109,8 @@ test.describe('Venta/Create — paso Cotizar', () => {
         // COTIZACION-WORKSTATION-01 (§9): durante Cotizar el CTA del header queda
         // oculto — la acción primaria vive junto a la franja de Totales del cotizador,
         // al lado del resumen que la motiva. El botón global sigue existiendo (con su
-        // data-wizard-action intacto, que es el contrato con venta-page-wizard.js) y
-        // vuelve a mostrarse en cuanto el paso activo deja de ser Cotizar.
+        // data-wizard-action intacto, que es el contrato con venta-page-wizard.js); fuera de
+        // Cotizar lo reemplaza el CTA único del paso (ver más abajo).
         const primary = page.locator('[data-wizard-primary]').first();
         await expect(primary).toHaveAttribute('data-wizard-action', 'simular-cotizacion');
         await expect(primary).toBeHidden();
@@ -122,9 +123,13 @@ test.describe('Venta/Create — paso Cotizar', () => {
         // El CTA de la venta no queda visible mientras se cotiza.
         await expect(page.locator('#btn-confirmar')).toBeHidden();
 
+        // Fuera de Cotizar hay exactamente un CTA primario a la vista (a ≥1280px el del sidebar; el
+        // del header queda oculto para no duplicarlo) y es el que avanza el wizard.
         await page.locator('#step-btn-cliente').click();
-        await expect(primary).toBeVisible();
-        await expect(primary).toContainText(/Siguiente/);
+        const ctaVisible = page.locator(CTA_PRIMARIO_VISIBLE);
+        await expect(ctaVisible).toHaveCount(1);
+        await expect(ctaVisible).toBeVisible();
+        await expect(ctaVisible).toContainText(/Siguiente/);
     });
 
     test('el cotizador simula desde su panel sin salir de Venta/Create', async ({ page }) => {

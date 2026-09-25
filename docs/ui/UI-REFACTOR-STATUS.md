@@ -12,7 +12,7 @@ faltan. Actualizar esta tabla al cerrar cada pantalla.
 | Venta | `Details` | ✅ Cerrado | serie VENTA-DETAILS (ver resumen abajo) + ENVIO-ML (ver resumen abajo) |
 | Cotización | `Simular` (`_CotizadorForm.cshtml`) | ✅ Cerrado | serie COTIZACION-SIMULAR-REDESIGN (ver resumen abajo) + ENVIO-ML (ver resumen abajo) |
 | ConfiguracionPago | `MediosPago` | ✅ Cerrado | ver resumen abajo |
-| Dashboard | `Index` | ◐ Auditoría 4 capas aplicada (2026-09-24) | estado del día en lugar de hero, tabs con contador, permisos en accesos/acciones, paneles planos, composición por ancho de columna; **falta verificar con filas reales de cuotas** (ver sección abajo) |
+| Dashboard | `Index` | ◐ Auditoría 4 capas aplicada (2026-09-24) | estado del día en lugar de hero, tabs con contador, permisos en accesos/acciones, paneles planos, composición por ancho de columna; filas reales de cuotas verificadas en el saneamiento pre-PR; falta validar con un rol de permisos restringidos (ver sección abajo) |
 | Cliente | `Index` | ✅ Cerrado | CLIENTE-INDEX-SIN-HERO-01 (ver resumen abajo) |
 | Cliente | `Nuevo cliente` (drawer Create) | ✅ Cerrado | serie wizard Cliente (ver resumen abajo) |
 | Cliente | `Details` | ✅ Cerrado | serie CLIENTE-DETAILS-TABS (ver resumen abajo) |
@@ -110,6 +110,53 @@ Resumen no cronológico de lo que quedó implementado:
   `flex-wrap: nowrap`), sin tocar las reglas base. Scroll total 1790→1122px (390) y
   1407→960px (768); el shell pasa a 329px y las tabs se deslizan; ≥1024px idéntico (capturas
   1440/1280/1024 iguales byte a byte); 70/70 tests focalizados verdes.
+- reapertura `/ui-module ventas` (2026-09-24): la tabla desktop de Venta/Index cortaba la
+  columna "Acciones" a 1440px y 1280px (con el aviso "Deslizá la tabla" visible en desktop).
+  Causa raíz: `--oc-scroll-min-width: 72rem` (1152px) superaba el ancho útil (1077px a
+  1440) y, a 1280, el contenido (961px) el de 909px. Fix sólo CSS en `ventas-index.css`:
+  min-width 72→52rem, padding lateral/letter-spacing/gap de acciones reducidos <1440px y
+  número de venta en una sola línea. Medido en vivo: 1440 y 1280 sin scroll ni aviso;
+  768/1024 conservan el scroll con aviso (comportamiento previsto). Details
+  (VENTA-DETAILS-DUPLICACION-04, a pedido explícito): se retiran los chips de forma de
+  pago/fecha del hero y el campo "Cliente" de Resumen (ambos ya visibles en la misma
+  pantalla); Resumen pasa a 3 columnas y Acciones/Total suben ~60px. 74/74 tests
+  focalizados (VentaDetails*, VentaEnvioUi*) verdes; 1440/390 sin overflow. Fuera de
+  alcance: título duplicado topbar+h1 (patrón global); `.venta-info-pill` en
+  `venta-module.css` quedó sin uso.
+- `/ui-module ventas`, recorrido completo del módulo (2026-09-24; 360 cargas = 12 pantallas
+  × 10 ventas × 5 viewports, 0 errores HTTP/consola/overflow; gates de estado por
+  redirección verificados). Correcciones: (1) Facturar: `z-80` no existe en el Tailwind
+  precompilado, el botón flotante de tickets tapaba el extremo de "Emitir factura" →
+  `.venta-aux-page[data-facturar-panel]{z-index:80}`; (2) `border-sky-500/25` tampoco
+  existe (borde blanco en "Resumen comercial") → `/20` en Facturar_tw y
+  `_FacturaCamposEmision`; (3) cotizador: el acento pasó a menta con texto blanco
+  (~1.5:1) y el hover del acento a violeta por la migración de paleta → texto
+  `--pal-neutral-950` y hover `--pal-info-500`; (4) terminología: "Anular venta" (Index)
+  → "Cancelar venta", como su pantalla destino; (5) fecha "00:00" ya no se muestra
+  cuando la venta no tiene hora (Details/Cancelar/Delete/Autorizar/Rechazar);
+  (6) pestañas secundarias de Index avisan "Hay filtros activos…" + Limpiar cuando el
+  filtro deja vacía la lista; (7) CTA del sidebar del wizard usa flecha salvo en el paso
+  que confirma; (8) tilde en "Configuración global activa cargada". 1494/1494 tests de
+  `Venta*`/`Cotizacion*` verdes. Sin cubrir: Autorizar/Rechazar renderizados (no hay ventas
+  pendientes de autorización en la base), Edit de ventas con crédito.
+- `/ui-module ventas`, ronda con QA sobre copia de la base (backup/restore a `_qa`, instancia :5199,
+  ya eliminadas; la base real no se tocó): ventas reales creadas, confirmadas, facturadas, con
+  devolución, canceladas y a crédito personal con excepción documental. Correcciones: (1) el botón
+  de Create decía "Confirmar Transacción" y "se generará la factura" pero sólo crea la venta
+  (queda en Presupuesto) → "Crear venta" + nota real (contrato de paridad actualizado); (2) tras
+  aplicar la excepción documental el badge seguía "NO VIABLE" → "VIABLE CON EXCEPCIÓN" (se
+  restaura al retirarla); (3) "ReciboSueldo" crudo → "Recibo de sueldo" (sólo presentación);
+  (4) modal de Devolución: Motivo truncado y "Reflejar en caja" comprimido a ≥1280px, y la
+  selección de producto quedaba bajo el pliegue sin indicar (ahora scroll + marca al fallar);
+  (5) CTA duplicado del header vs sidebar a ≥1280px → sólo el del sidebar (Crédito conserva el
+  del header); (6) "Ver cotizaciones" → "Cotizaciones guardadas", "Añadir" → "Agregar",
+  "Elegibilidad" → "Viabilidad del crédito"; (7) Details: badge "Autorización: …", copy de
+  Facturación para canceladas/ya facturadas, Autorizar/Rechazar apilados; (8) texto <12px de las
+  vistas de Venta llevado a `--erp-fs-min` con una regla; (9) z-index global `.z-80`. Crítica
+  Impeccable (dual-agent, snapshot en `.impeccable/critique/`): 25/40, detector 0 hallazgos.
+  Suite completa 4996/4996 (4 omitidos: seeders E2E). Sin resolver: cotizador con textos de
+  10–11.5px propios; Details de Cotización sin "Confirmar" es decisión previa del usuario;
+  aplicar la excepción crea un borrador de venta (CreateAjax) que queda huérfano si se abandona.
 
 ## Venta / Create + Edit — cerrados conjuntamente
 
@@ -1171,6 +1218,39 @@ queries), sin revertirlo. Impeccable critique corrió en modo degradado (un solo
   es identidad transversal (25 vistas), no se tocó; el gating de "Ver alertas" conserva su
   lógica previa (`cotizaciones.view`, distinta de `productos.view` del Catálogo).
 
+### Saneamiento pre-PR (2026-09-24, rama `saneamiento-cambios-pendientes-20260924`)
+
+Re-validación con datos reales en un clon de la LocalDB (`_qa`, con un crédito de 12 cuotas y una
+venta pendiente de autorización sembrados solo en el clon) y Chrome/Playwright propio, a
+1440/1366/1024/768/390/360. Impeccable `critique` corrió con dos sub-agentes aislados (A: diseño,
+B: detector + navegador) y luego `polish`; el detector devolvió 0 hallazgos sobre Dashboard y Venta.
+
+- *Corregido (contratos descubiertos):*
+  - Dashboard: la tabla "Cuotas por cobrar" (mín. 47,25 rem) recortaba la columna Acciones a 1440px
+    con sidebar; ahora 40 rem con `px-4`. El DNI ya no viaja incrustado en `ClienteNombre`
+    (`CuotaVencidaDto`/`CuotaProximaVencerDto.ClienteDocumento`), misma causa raíz que H11.
+  - Venta wizard, mobile: la regla que oculta las descripciones del encabezado de paso
+    (`.venta-section > .mb-6.flex p`) también alcanzaba al dropdown del buscador de productos y
+    ocultaba nombre/código/descripción (`display:none`); ahora se limita a `.mb-6.flex.items-start`
+    (test de contrato en `VentaCreateUiContractTests`).
+  - Venta/Details, Historial: `size-4.5` y `before:left-2.25` no existen en el Tailwind
+    precompilado (punto de 4px y línea sobre el texto); pasan a `.venta-timeline` en `venta-module.css`.
+  - Venta/Index: las acciones de la tabla se alinean al inicio (2 vs 3 acciones desalineaban el primer ícono).
+  - Etiquetas accesibles en los buscadores del cotizador y en Observaciones del wizard.
+- *Validado:* Dashboard (KPIs, tabs Vencidas/Próximas con mouse y teclado, stock bajo KPI=tabla,
+  accesos, notas, actividad); Venta Index/Details (cotización y confirmada)/Create hasta el paso
+  Revisión con el CTA "Crear venta"/Edit/Facturar/Cancelar/Autorizar/Rechazar (hasta el envío del
+  formulario, sin ejecutar acciones destructivas); panel de filtros compartido en OrdenCompra y
+  Caja/Historial (mouse, Enter, Espacio; Escape no está implementado); smoke de paleta en Caja,
+  Crédito, Catálogo, Cliente, Orden de Compra, MercadoLibre. 0 errores de consola / requests fallidos.
+- *NO validado:* Dashboard con un rol de permisos restringidos; Details de una venta Facturada con
+  crédito; Delete de Venta (destructivo); Login/Identity con sesión cerrada solo se capturó.
+- *Deuda conocida (no introducida por esta rama):* contraste de textos `text-slate-500` pequeños
+  (~3,3:1) por el mapeo de paleta; tap targets <44px en `btn-xs` de tarjetas mobile de Venta/Index;
+  el POST de "Autorizar" sin motivo muestra el error antes de que la persona escriba nada;
+  `Credito/Index` tiene el título alineado a la derecha (`.credito-index-head {justify-content:flex-end}`);
+  los `h1` del layout ("TheBuryProject") coexisten con el título de página.
+
 ## Backlog transversal
 
 **P2 — horizontal-scroll-affordance**
@@ -1538,6 +1618,31 @@ intacto: con datos escritos —o al cerrar un desplegable con Escape— descarta
 Verificado en vivo: 0 POST al servidor con obligatorios de Contacto vacíos, foco en Teléfono, Escape
 sin navegar; 113/113 e2e del wizard/solapas siguen verdes.
 
+**Corrección posterior (regresión propia, detectada al auditar el drawer)**: la validación entre
+solapas de `cliente-form.js` validaba también las reglas `number` en solapas ocultas y los decimales
+llegan con coma (es-AR: `Sueldo="5000000,00"`), así que guardar un cliente existente en `/Cliente/Edit/{id}`
+quedaba bloqueado ("The field Sueldo must be a number"). Ahora, en solapas inactivas solo se exigen los
+`[Required]` (la activa se valida completa; el servidor sigue siendo la autoridad). Nuevo
+`e2e/cliente-form-validacion.spec.js` (29 corridas): obligatorio de Contacto abre y marca la solapa sin
+enviar, Escape con/sin datos, y "editar un cliente existente sin cambios es válido en el navegador".
+
+### Cliente / Drawer de edición — auditoría `/ui-module` (2026-09-24)
+
+Drawer del botón "Editar" del listado (`_ClienteModal` + `_ClienteFormPartial`, `cliente-modal.js`); el
+wizard de alta no cambia. 4 capas, sin overflow ni errores de consola en 1440/1280/768/390/360:
+- **P1 (técnica/estados)**: el drawer de edición no corría jQuery Validation: con Teléfono vacío en otra
+  solapa el guardado iba al servidor y volvía como cartel arriba, sin solapa marcada, sin campo enfocado ni
+  error junto al campo. Ahora valida `[Required]` entre solapas, abre y marca la primera con error y enfoca
+  el campo (solo `[Required]`: mismo motivo de la coma decimal que arriba).
+- **P1 (flujo)**: Escape, clic en el fondo y Cancelar descartaban cambios sin avisar. En edición con cambios
+  sin guardar ahora piden confirmación ("Hay cambios sin guardar…"); sin cambios cierran directo.
+- Cambios: `cliente-modal.js` (solo edición; `requestClose`, flags de sucio con listeners solo en la rama de
+  edición) y `cliente-module.css` (punto de solapa con error también en `#cliente-modal-form`). Sin C#.
+- Sin resolver (P3 / requiere C#): errores de servidor de `EditAjax` llegan como lista sin campo ni solapa
+  (siguen en el cartel superior); el foco no se mueve al abrir/cerrar el drawer; doble "Cancelar"
+  (cabecera y pie); sin confirmación al cerrar el wizard de alta (para no arriesgar sus e2e).
+- QA: 503 tests `Cliente*` y `cliente-wizard-nuevo` verdes; sin guardar datos reales.
+
 ### Cliente / Delete ("Dar de baja") — auditoría `/ui-module` (2026-09-24)
 
 `DeleteAsync` es un **soft-delete** (`IsDeleted = true`, se conserva el historial) y en Details el
@@ -1567,31 +1672,6 @@ a pedido explícito del usuario tras comparar capturas reales de Inventario/Clie
 y preferir la composición sin hero de Catálogo:
 
 - se retira el `<header class="hero-erp cliente-page-head">` (título `<h1>Gestión de
-**Corrección posterior (regresión propia, detectada al auditar el drawer)**: la validación entre
-solapas de `cliente-form.js` validaba también las reglas `number` en solapas ocultas y los decimales
-llegan con coma (es-AR: `Sueldo="5000000,00"`), así que guardar un cliente existente en `/Cliente/Edit/{id}`
-quedaba bloqueado ("The field Sueldo must be a number"). Ahora, en solapas inactivas solo se exigen los
-`[Required]` (la activa se valida completa; el servidor sigue siendo la autoridad). Nuevo
-`e2e/cliente-form-validacion.spec.js` (29 corridas): obligatorio de Contacto abre y marca la solapa sin
-enviar, Escape con/sin datos, y "editar un cliente existente sin cambios es válido en el navegador".
-
-### Cliente / Drawer de edición — auditoría `/ui-module` (2026-09-24)
-
-Drawer del botón "Editar" del listado (`_ClienteModal` + `_ClienteFormPartial`, `cliente-modal.js`); el
-wizard de alta no cambia. 4 capas, sin overflow ni errores de consola en 1440/1280/768/390/360:
-- **P1 (técnica/estados)**: el drawer de edición no corría jQuery Validation: con Teléfono vacío en otra
-  solapa el guardado iba al servidor y volvía como cartel arriba, sin solapa marcada, sin campo enfocado ni
-  error junto al campo. Ahora valida `[Required]` entre solapas, abre y marca la primera con error y enfoca
-  el campo (solo `[Required]`: mismo motivo de la coma decimal que arriba).
-- **P1 (flujo)**: Escape, clic en el fondo y Cancelar descartaban cambios sin avisar. En edición con cambios
-  sin guardar ahora piden confirmación ("Hay cambios sin guardar…"); sin cambios cierran directo.
-- Cambios: `cliente-modal.js` (solo edición; `requestClose`, flags de sucio con listeners solo en la rama de
-  edición) y `cliente-module.css` (punto de solapa con error también en `#cliente-modal-form`). Sin C#.
-- Sin resolver (P3 / requiere C#): errores de servidor de `EditAjax` llegan como lista sin campo ni solapa
-  (siguen en el cartel superior); el foco no se mueve al abrir/cerrar el drawer; doble "Cancelar"
-  (cabecera y pie); sin confirmación al cerrar el wizard de alta (para no arriesgar sus e2e).
-- QA: 503 tests `Cliente*` y `cliente-wizard-nuevo` verdes; sin guardar datos reales.
-
   Clientes</h1>` + subtítulo "Buscá y administrá tus clientes." + acciones) — el título ya
   lo muestra la barra superior global (`_Layout.cshtml`), y el subtítulo era descriptivo
   sin valor de decisión, redundante con el propio nombre de la pantalla;

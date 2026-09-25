@@ -14,6 +14,15 @@
     var hayDescuentosEnDetalle = detalles.Any(d => d.Descuento > 0 || d.DescuentoGeneralProrrateado > 0);
 
     // Status badge mapping (Tailwind)
+    // Sin este badge el estado de autorización sólo se veía en el panel "Autorización", ~1600px
+    // más abajo: arriba una venta pendiente o rechazada decía únicamente "Confirmada".
+    string autorizacionBadge = Model.EstadoAutorizacion switch
+    {
+        EstadoAutorizacionVenta.PendienteAutorizacion => "bg-amber-500/10 text-amber-400 border-amber-500/20",
+        EstadoAutorizacionVenta.Rechazada             => "bg-red-500/10 text-red-400 border-red-500/20",
+        EstadoAutorizacionVenta.Autorizada            => "bg-green-500/10 text-green-400 border-green-500/20",
+        _                                             => "bg-slate-500/10 text-slate-400 border-slate-500/20"
+    };
     string estadoBg = Model.Estado switch
     {
         EstadoVenta.Cotizacion          => "bg-slate-500/10 text-slate-400 border-slate-500/20",
@@ -92,7 +101,10 @@
         {
             EstadoVenta.Cotizacion => "Prepará la venta y confirmala para habilitar facturación.",
             EstadoVenta.Presupuesto => "Confirmá la venta para habilitar facturación.",
+            EstadoVenta.Confirmada when Model.PuedeAutorizar => "Venta confirmada; falta autorizarla para poder facturar.",
+            EstadoVenta.Confirmada when Model.RequiereAutorizacion && !Model.PuedeFacturar => "Venta confirmada; la autorización no está aprobada, por eso no se puede facturar.",
             EstadoVenta.Confirmada => "Venta confirmada; ya podés emitir la factura desde Acciones.",
+            EstadoVenta.Cancelada => "Venta cancelada: no admite facturación.",
             EstadoVenta.PendienteRequisitos => "Resolvé los requisitos y confirmá la venta para facturar.",
             EstadoVenta.PendienteFinanciacion => "Configurá la financiación y confirmá la venta para facturar.",
             _ => "Se habilita cuando la venta está lista para facturar."
@@ -185,24 +197,15 @@
                         <div class="flex flex-wrap items-center gap-3">
                             <h1 class="text-2xl font-black tracking-tight text-white sm:text-3xl">@Model.Numero</h1>
                             <span class="inline-flex items-center rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-widest @estadoBg">@Model.EstadoDisplay</span>
+                            @if (Model.RequiereAutorizacion)
+                            {
+                                <span class="inline-flex items-center rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-widest @autorizacionBadge">Autorización: @Model.EstadoAutorizacionDisplay</span>
+                            }
                         </div>
                         <p class="max-w-3xl text-sm text-slate-400 sm:text-base">@heroDescripcion</p>
                     </div>
-                    <div class="venta-hero-meta flex flex-wrap gap-2 text-xs font-medium">
-                        <span class="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-primary">
-                            <span class="material-symbols-outlined text-sm">payments</span>
-                            @tipoPagoDisplay
-                        </span>
-                        <span class="inline-flex items-center gap-2 venta-info-pill">
-                            <span class="material-symbols-outlined text-sm">schedule</span>
-                            @Model.FechaVenta.ToString("dd/MM/yyyy HH:mm")
-                        </span>
-                        @* VENTA-DETAILS-DUPLICACION-03 (H13): el chip de factura repetía el
-                           mismo número que la tarjeta "Facturación" de la grilla, un instante
-                           después y sin scroll de por medio — esa tarjeta ya tiene más contexto
-                           (fecha de emisión). El estado "Facturada" del badge de arriba ya cubre
-                           la señal de "hay factura" a nivel chip. *@
-                    </div>
+                    @* VENTA-DETAILS-DUPLICACION-04: los chips de forma de pago y fecha repetían campos que
+                       "Resumen" (2 tarjetas más abajo, misma pantalla) ya muestra con más contexto (plan, hora). *@
                 </div>
 
                 <div class="venta-hero-actions flex w-full flex-col gap-3 sm:flex-row xl:w-auto xl:min-w-60 xl:flex-col">
@@ -291,15 +294,7 @@
                            renglones abajo, dentro de la misma tarjeta — sin aportar nada que el
                            campo no dijera ya. *@
                     </div>
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div>
-                            <p class="text-[10px] font-bold text-slate-500 uppercase mb-1">Cliente</p>
-                            <p class="text-sm font-bold text-white">@Model.ClienteNombre</p>
-                            @if (!string.IsNullOrEmpty(Model.ClienteDocumento))
-                            {
-                                <p class="text-[11px] text-slate-400">@Model.ClienteDocumento</p>
-                            }
-                        </div>
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
                         <div>
                             <p class="text-[10px] font-bold text-slate-500 uppercase mb-1">Forma de Pago</p>
                             <div class="flex items-center gap-1.5">
@@ -321,7 +316,10 @@
                         <div>
                             <p class="text-[10px] font-bold text-slate-500 uppercase mb-1">Fecha</p>
                             <p class="text-sm font-bold text-white">@Model.FechaVenta.ToString("dd/MM/yyyy")</p>
-                            <p class="text-[11px] text-slate-400">@Model.FechaVenta.ToString("HH:mm") hs</p>
+                            @if (Model.FechaVenta.TimeOfDay != TimeSpan.Zero)
+                            {
+                                <p class="text-[11px] text-slate-400">@Model.FechaVenta.ToString("HH:mm") hs</p>
+                            }
                         </div>
                     </div>
 
@@ -341,7 +339,7 @@
                             <span class="material-symbols-outlined mt-0.5 text-primary">inventory_2</span>
                             <div>
                                 <h2 class="text-xl font-bold text-white">Detalle de productos</h2>
-                                <p class="mt-1 text-sm text-slate-400">Revisá cantidades, descuentos y subtotales completos antes de imprimir o facturar.</p>
+                                <p class="mt-1 text-sm text-slate-400">@(tieneFactura ? "Cantidades, descuentos y subtotales de la venta facturada." : Model.Estado == EstadoVenta.Cancelada ? "Cantidades, descuentos y subtotales de la venta cancelada." : "Revisá cantidades, descuentos y subtotales completos antes de imprimir o facturar.")</p>
                             </div>
                         </div>
                         <span class="inline-flex items-center gap-2 self-start rounded-full badge-erp badge-erp-neutral">
@@ -971,7 +969,7 @@
                         @* Autorizar *@
                         @if (hayAccionAutorizar)
                         {
-                            <div class="flex flex-col gap-2 sm:flex-row">
+                            <div class="flex flex-col gap-2">
                                 @if (puedeAutorizarVentas)
                                 {
                                     <form asp-action="Autorizar" method="post" class="flex-1">
@@ -1062,10 +1060,10 @@
                         <span class="material-symbols-outlined text-primary">timeline</span>
                         <h2 class="text-white text-xl font-bold">Historial</h2>
                     </div>
-                    <div class="relative pl-6 space-y-4 before:absolute before:left-2.25 before:top-1 before:bottom-1 before:w-px before:bg-slate-700">
+                    <div class="venta-timeline relative pl-6 space-y-4">
                         @* Created *@
                         <div class="relative flex items-start gap-3">
-                            <div class="absolute -left-6 top-0.5 size-4.5 rounded-full bg-primary border-2 border-slate-900 z-10"></div>
+                            <div class="venta-timeline__dot rounded-full bg-primary border-2 border-slate-900 z-10"></div>
                             <div>
                                 <p class="text-xs font-bold text-white">Venta creada</p>
                                 <p class="text-[11px] text-slate-400">@Model.CreatedAt.ToString("dd/MM/yyyy HH:mm")</p>
@@ -1076,7 +1074,7 @@
                         @if (Model.FechaConfirmacion.HasValue)
                         {
                             <div class="relative flex items-start gap-3">
-                                <div class="absolute -left-6 top-0.5 size-4.5 rounded-full bg-primary border-2 border-slate-900 z-10"></div>
+                                <div class="venta-timeline__dot rounded-full bg-primary border-2 border-slate-900 z-10"></div>
                                 <div>
                                     <p class="text-xs font-bold text-white">Venta confirmada</p>
                                     <p class="text-[11px] text-slate-400">@Model.FechaConfirmacion.Value.ToString("dd/MM/yyyy HH:mm")</p>
@@ -1088,7 +1086,7 @@
                         @if (Model.FechaConfiguracionCredito.HasValue)
                         {
                             <div class="relative flex items-start gap-3">
-                                <div class="absolute -left-6 top-0.5 size-4.5 rounded-full bg-blue-500 border-2 border-slate-900 z-10"></div>
+                                <div class="venta-timeline__dot rounded-full bg-blue-500 border-2 border-slate-900 z-10"></div>
                                 <div>
                                     <p class="text-xs font-bold text-white">Crédito configurado</p>
                                     <p class="text-[11px] text-slate-400">@Model.FechaConfiguracionCredito.Value.ToString("dd/MM/yyyy HH:mm")</p>
@@ -1100,7 +1098,7 @@
                         @if (Model.FechaFacturacion.HasValue)
                         {
                             <div class="relative flex items-start gap-3">
-                                <div class="absolute -left-6 top-0.5 size-4.5 rounded-full bg-green-500 border-2 border-slate-900 z-10"></div>
+                                <div class="venta-timeline__dot rounded-full bg-green-500 border-2 border-slate-900 z-10"></div>
                                 <div>
                                     <p class="text-xs font-bold text-white">Facturada</p>
                                     <p class="text-[11px] text-slate-400">@Model.FechaFacturacion.Value.ToString("dd/MM/yyyy HH:mm")</p>
@@ -1116,7 +1114,7 @@
                         @if (Model.FechaEntrega.HasValue)
                         {
                             <div class="relative flex items-start gap-3">
-                                <div class="absolute -left-6 top-0.5 size-4.5 rounded-full bg-emerald-500 border-2 border-slate-900 z-10"></div>
+                                <div class="venta-timeline__dot rounded-full bg-emerald-500 border-2 border-slate-900 z-10"></div>
                                 <div>
                                     <p class="text-xs font-bold text-white">Entregada</p>
                                     <p class="text-[11px] text-slate-400">@Model.FechaEntrega.Value.ToString("dd/MM/yyyy HH:mm")</p>
@@ -1128,7 +1126,7 @@
                         @if (Model.FechaCancelacion.HasValue)
                         {
                             <div class="relative flex items-start gap-3">
-                                <div class="absolute -left-6 top-0.5 size-4.5 rounded-full bg-red-500 border-2 border-slate-900 z-10"></div>
+                                <div class="venta-timeline__dot rounded-full bg-red-500 border-2 border-slate-900 z-10"></div>
                                 <div>
                                     <p class="text-xs font-bold text-red-500">Cancelada</p>
                                     <p class="text-[11px] text-slate-400">@Model.FechaCancelacion.Value.ToString("dd/MM/yyyy HH:mm")</p>
@@ -1144,7 +1142,7 @@
                         @if (Model.Estado != EstadoVenta.Cancelada && Model.Estado != EstadoVenta.Entregada)
                         {
                             <div class="relative flex items-start gap-3">
-                                <div class="absolute -left-6 top-0.5 size-4.5 rounded-full bg-slate-700 border-2 border-slate-900 z-10 animate-pulse"></div>
+                                <div class="venta-timeline__dot rounded-full bg-slate-700 border-2 border-slate-900 z-10 animate-pulse"></div>
                                 <div>
                                     <p class="text-xs text-slate-400 italic">
                                         @(Model.Estado switch

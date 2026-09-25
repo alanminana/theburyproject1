@@ -276,9 +276,9 @@
                     }
                     <div class="venta-tabs__actions" aria-label="Acciones rápidas de ventas">
                         <a asp-controller="Cotizacion" asp-action="Listado" class="btn btn-soft no-underline"
-                           title="Ver cotizaciones">
+                           title="Ver las cotizaciones guardadas desde el cotizador">
                             <span class="material-symbols-outlined">request_quote</span>
-                            Ver cotizaciones
+                            Cotizaciones guardadas
                         </a>
 
                         @if (puedeCrear)
@@ -499,9 +499,9 @@
                                                                                             {
                                                                                                 <a asp-action="Cancelar" asp-route-id="@v.Id"
                                                                                                    class="row-action row-action--danger"
-                                                                                                   aria-label="Anular venta @v.Numero" title="Anular venta @v.Numero">
+                                                                                                   aria-label="Cancelar venta @v.Numero" title="Cancelar venta @v.Numero">
                                                                                                     <span class="material-symbols-outlined" aria-hidden="true">block</span>
-                                                                                                    <span class="row-action__label">Anular</span>
+                                                                                                    <span class="row-action__label">Cancelar</span>
                                                                                                 </a>
                                                                                             }
                                                                                         </div>
@@ -537,9 +537,12 @@
                                                                     </div>
                                                                     <div class="sale-card__meta">
                                                                         <span class="pill @EstadoPillClass(v.Estado)">@EstadoLabel(v.Estado, v.EstadoDisplay)</span>
-                                                                        <span
+                                                                        @if (v.EstadoAutorizacion != EstadoAutorizacionVenta.NoRequiere)
+   {
+   <span
                                                                             class="pill @AutorizacionPillClass(v.EstadoAutorizacion)">@AutorizacionLabel(v.EstadoAutorizacion,
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         v.EstadoAutorizacionDisplay)</span>
+   }
                                                                             <span class="pill pill-slate">@TipoPagoLabel(v.TipoPago)</span>
                                                                         </div>
                                                                         <div class="sale-card__actions">
@@ -552,7 +555,7 @@
                                                                             @if (puedeCancelarVenta)
                                                                             {
                                                                                 <a asp-action="Cancelar" asp-route-id="@v.Id"
-                                                                                   class="btn btn-xs btn-danger no-underline">Anular</a>
+                                                                                   class="btn btn-xs btn-danger no-underline">Cancelar</a>
                                                                             }
                                                                         </div>
                                                                     </article>
@@ -665,6 +668,11 @@
                                                                     <div class="empty-state empty-state-compact">
                                                                         <span class="material-symbols-outlined">verified</span>
                                                                         <h3>Sin pendientes de autorización</h3>
+                                                                        @if (filtroActivo)
+                                                                        {
+                                                                            <p>Hay filtros activos en Operaciones que limitan este listado.</p>
+                                                                            <a asp-action="Index" class="btn btn-soft no-underline">Limpiar filtros</a>
+                                                                        }
                                                                     </div>
                                                                 }
                                                             </div>
@@ -699,6 +707,11 @@
                                                                     <div class="empty-state empty-state-compact">
                                                                         <span class="material-symbols-outlined">request_quote</span>
                                                                         <h3>Sin cotizaciones ni presupuestos en esta vista</h3>
+                                                                        @if (filtroActivo)
+                                                                        {
+                                                                            <p>Hay filtros activos en Operaciones que limitan este listado.</p>
+                                                                            <a asp-action="Index" class="btn btn-soft no-underline">Limpiar filtros</a>
+                                                                        }
                                                                     </div>
                                                                 }
                                                             </div>
@@ -736,6 +749,11 @@
                                                                     <div class="empty-state empty-state-compact">
                                                                         <span class="material-symbols-outlined">assignment_return</span>
                                                                         <h3>Sin ventas elegibles para devolución</h3>
+                                                                        @if (filtroActivo)
+                                                                        {
+                                                                            <p>Hay filtros activos en Operaciones que limitan este listado.</p>
+                                                                            <a asp-action="Index" class="btn btn-soft no-underline">Limpiar filtros</a>
+                                                                        }
                                                                     </div>
                                                                 }
                                                             </div>
@@ -777,6 +795,11 @@
                                                                     <div class="empty-state empty-state-compact">
                                                                         <span class="material-symbols-outlined">local_shipping</span>
                                                                         <h3>Sin envíos pendientes</h3>
+                                                                        @if (filtroActivo)
+                                                                        {
+                                                                            <p>Hay filtros activos en Operaciones que limitan este listado.</p>
+                                                                            <a asp-action="Index" class="btn btn-soft no-underline">Limpiar filtros</a>
+                                                                        }
                                                                     </div>
                                                                 }
                                                             </div>

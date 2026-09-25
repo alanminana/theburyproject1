@@ -14,9 +14,9 @@
         gap: 0.45rem;
         padding: 0.5rem 0.85rem;
         border-radius: 9999px;
-        border: 1px solid #334155; /* slate-700 */
-        background-color: #1e293b; /* slate-800 */
-        color: #cbd5e1; /* slate-300 */
+        border: 1px solid var(--pal-neutral-700); /* slate-700 */
+        background-color: var(--pal-neutral-800); /* slate-800 */
+        color: var(--pal-neutral-300); /* slate-300 */
         font-size: 0.8125rem;
         font-weight: 600;
         line-height: 1.1;
@@ -26,26 +26,26 @@
     }
 
     .permission-chip:hover {
-        border-color: rgba(245, 197, 24, 0.55);
-        color: #f8fafc;
+        border-color: color-mix(in srgb, var(--pal-accent) 55%, transparent);
+        color: var(--pal-neutral-50);
     }
 
     .permission-chip:focus-within {
-        outline: 2px solid rgba(245, 197, 24, 0.55);
+        outline: 2px solid color-mix(in srgb, var(--pal-accent) 55%, transparent);
         outline-offset: 2px;
     }
 
     .permission-chip:has(input:checked) {
-        border-color: var(--color-primary, #f5c518);
-        background-color: rgba(245, 197, 24, 0.14);
-        color: var(--color-primary, #f5c518);
+        border-color: var(--color-primary, var(--pal-accent));
+        background-color: color-mix(in srgb, var(--pal-accent) 14%, transparent);
+        color: var(--color-primary, var(--pal-accent));
     }
 
     .permission-chip input[type="checkbox"] {
         width: 0.95rem;
         height: 0.95rem;
         flex: 0 0 auto;
-        accent-color: var(--color-primary, #f5c518);
+        accent-color: var(--color-primary, var(--pal-accent));
         cursor: pointer;
     }
 

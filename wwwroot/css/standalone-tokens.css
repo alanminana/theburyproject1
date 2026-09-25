@@ -8,20 +8,20 @@
 ───────────────────────────────────────────── */
 
 :root {
-    --c-surface: #0d131f;
-    --c-surface-low: #161c28;
-    --c-surface-lowest: #080e1a;
-    --c-surface-container: #1a202c;
-    --c-surface-high: #242a37;
+    --c-surface: var(--pal-neutral-925);
+    --c-surface-low: var(--pal-neutral-875);
+    --c-surface-lowest: var(--pal-neutral-950);
+    --c-surface-container: var(--pal-neutral-850);
+    --c-surface-high: var(--pal-neutral-800);
 
-    --c-on-surface: #dde2f4;
-    --c-on-surface-var: #c3c5d8;
+    --c-on-surface: var(--pal-neutral-200);
+    --c-on-surface-var: var(--pal-neutral-350);
 
-    --c-primary-container: #f5c518;
-    --c-on-primary: #15110a;
-    --c-primary-light: #f5d97a;
+    --c-primary-container: var(--pal-accent);
+    --c-on-primary: var(--pal-on-accent);
+    --c-primary-light: var(--pal-accent-300);
 
-    --c-outline-var: #434655;
+    --c-outline-var: var(--pal-neutral-650);
 }
 
 /* ─────────────────────────────────────────────

@@ -16,12 +16,12 @@
 .fi-page .fi-card,
 .pu-page .pu-card,
 .kdx-page .kdx-card {
-  background: #111827; border: 1px solid #1f2937; border-radius: 12px;
+  background: var(--pal-neutral-925); border: 1px solid var(--pal-neutral-800); border-radius: 12px;
 }
 .fi-page .fi-card-header,
 .pu-page .pu-card-header,
 .kdx-page .kdx-card-header {
-  background: rgba(11,18,32,.4); border: 1px solid #1e293b; border-radius: 12px;
+  background: color-mix(in srgb, var(--pal-neutral-925) 40%, transparent); border: 1px solid var(--pal-neutral-800); border-radius: 12px;
 }
 
 /* ---------- Botones — base + variantes — fi + pu + kdx ---------- */
@@ -35,22 +35,22 @@
 }
 .fi-page .fi-btn-primary,
 .pu-page .pu-btn-primary,
-.kdx-page .kdx-btn-primary { background: #f5c518; color: #15110a; border-color: #f5c518; }
+.kdx-page .kdx-btn-primary { background: var(--pal-accent); color: var(--pal-on-accent); border-color: var(--pal-accent); }
 .fi-page .fi-btn-primary:hover:not(:disabled),
 .pu-page .pu-btn-primary:hover:not(:disabled),
-.kdx-page .kdx-btn-primary:hover:not(:disabled) { background: #e0b40f; border-color: #e0b40f; }
+.kdx-page .kdx-btn-primary:hover:not(:disabled) { background: var(--pal-accent-600); border-color: var(--pal-accent-600); }
 .fi-page .fi-btn-ghost,
 .pu-page .pu-btn-ghost,
-.kdx-page .kdx-btn-ghost { background: transparent; color: #cbd5e1; border-color: #334155; }
+.kdx-page .kdx-btn-ghost { background: transparent; color: var(--pal-neutral-300); border-color: var(--pal-neutral-700); }
 .fi-page .fi-btn-ghost:hover,
 .pu-page .pu-btn-ghost:hover,
-.kdx-page .kdx-btn-ghost:hover { background: #1e293b; color: #fff; }
+.kdx-page .kdx-btn-ghost:hover { background: var(--pal-neutral-800); color: var(--pal-white); }
 .fi-page .fi-btn-soft,
 .pu-page .pu-btn-soft,
-.kdx-page .kdx-btn-soft { background: #1e293b; color: #e2e8f0; border-color: #334155; }
+.kdx-page .kdx-btn-soft { background: var(--pal-neutral-800); color: var(--pal-neutral-200); border-color: var(--pal-neutral-700); }
 .fi-page .fi-btn-soft:hover,
 .pu-page .pu-btn-soft:hover,
-.kdx-page .kdx-btn-soft:hover { background: #273549; }
+.kdx-page .kdx-btn-soft:hover { background: var(--pal-neutral-750); }
 
 /* btn-sm — solo fi + kdx (pu usa una densidad propia, se deja como está) */
 .fi-page .fi-btn-sm,
@@ -70,31 +70,31 @@
 
 /* Chips — neutral — fi + pu (kdx tiene su propia variante "slate") */
 .fi-page .fi-chip-neutral,
-.pu-page .pu-chip-neutral { background: #1e293b; color: #e2e8f0; border-color: #334155; }
+.pu-page .pu-chip-neutral { background: var(--pal-neutral-800); color: var(--pal-neutral-200); border-color: var(--pal-neutral-700); }
 
 /* Chips — tipo de movimiento (entrada/ajuste) — fi + kdx.
    "Salida" queda deliberadamente fuera de acá: hoy es roja en Ficha y dorada en Kardex —
    divergencia real, no se unifica en este lote (decisión explícita, ver auditoría). */
 .fi-page .fi-chip-entrada,
-.kdx-page .kdx-chip-entrada { background: rgba(16,185,129,.10); color: #34d399; border-color: rgba(16,185,129,.28); }
+.kdx-page .kdx-chip-entrada { background: color-mix(in srgb, var(--pal-success-500) 10%, transparent); color: var(--pal-success-400); border-color: color-mix(in srgb, var(--pal-success-500) 28%, transparent); }
 .fi-page .fi-chip-ajuste,
-.kdx-page .kdx-chip-ajuste { background: rgba(245,158,11,.10); color: #fbbf24; border-color: rgba(245,158,11,.28); }
+.kdx-page .kdx-chip-ajuste { background: color-mix(in srgb, var(--pal-warning-500) 10%, transparent); color: var(--pal-warning-400); border-color: color-mix(in srgb, var(--pal-warning-500) 28%, transparent); }
 
 /* Chips — estado de unidad — fi + pu (kdx no muestra unidades, solo movimientos) */
 .fi-page .fi-chip-stock,
-.pu-page .pu-chip-stock { background: rgba(16,185,129,.10); color: #34d399; border-color: rgba(16,185,129,.25); }
+.pu-page .pu-chip-stock { background: color-mix(in srgb, var(--pal-success-500) 10%, transparent); color: var(--pal-success-400); border-color: color-mix(in srgb, var(--pal-success-500) 25%, transparent); }
 .fi-page .fi-chip-sold,
-.pu-page .pu-chip-sold { background: rgba(245,197,24,.10); color: #f5c518; border-color: rgba(245,197,24,.25); }
+.pu-page .pu-chip-sold { background: color-mix(in srgb, var(--pal-accent) 10%, transparent); color: var(--pal-accent); border-color: color-mix(in srgb, var(--pal-accent) 25%, transparent); }
 .fi-page .fi-chip-missing,
-.pu-page .pu-chip-missing { background: rgba(245,158,11,.10); color: #fbbf24; border-color: rgba(245,158,11,.25); }
+.pu-page .pu-chip-missing { background: color-mix(in srgb, var(--pal-warning-500) 10%, transparent); color: var(--pal-warning-400); border-color: color-mix(in srgb, var(--pal-warning-500) 25%, transparent); }
 .fi-page .fi-chip-baja,
-.pu-page .pu-chip-baja { background: rgba(148,163,184,.10); color: var(--erp-fg-2, #b9c3d3); border-color: rgba(148,163,184,.25); }
+.pu-page .pu-chip-baja { background: color-mix(in srgb, var(--pal-neutral-450) 10%, transparent); color: var(--erp-fg-2, var(--pal-neutral-350)); border-color: color-mix(in srgb, var(--pal-neutral-450) 25%, transparent); }
 .fi-page .fi-chip-reserved,
-.pu-page .pu-chip-reserved { background: rgba(168,85,247,.10); color: #c084fc; border-color: rgba(168,85,247,.25); }
+.pu-page .pu-chip-reserved { background: color-mix(in srgb, var(--pal-violet-500) 10%, transparent); color: var(--pal-violet-400); border-color: color-mix(in srgb, var(--pal-violet-500) 25%, transparent); }
 .fi-page .fi-chip-repair,
-.pu-page .pu-chip-repair { background: rgba(244,114,182,.10); color: #f472b6; border-color: rgba(244,114,182,.25); }
+.pu-page .pu-chip-repair { background: color-mix(in srgb, var(--pal-danger-400) 10%, transparent); color: var(--pal-danger-400); border-color: color-mix(in srgb, var(--pal-danger-400) 25%, transparent); }
 .fi-page .fi-chip-return,
-.pu-page .pu-chip-return { background: rgba(20,184,166,.10); color: #2dd4bf; border-color: rgba(20,184,166,.25); }
+.pu-page .pu-chip-return { background: color-mix(in srgb, var(--pal-success-500) 10%, transparent); color: var(--pal-success-400); border-color: color-mix(in srgb, var(--pal-success-500) 25%, transparent); }
 
 /* ---------- Tabla — base + encabezado + celdas — fi + kdx ---------- */
 .fi-page .fi-tbl,
@@ -103,19 +103,19 @@
 }
 .fi-page .fi-tbl thead th,
 .kdx-page .kdx-tbl thead th {
-  position: sticky; top: 0; z-index: 2; background: #0d1526;
-  color: var(--erp-fg-3, #a6b1c3); font-size: var(--erp-fs-min, 0.75rem); text-transform: uppercase;
+  position: sticky; top: 0; z-index: 2; background: var(--pal-neutral-900);
+  color: var(--erp-fg-3, var(--pal-neutral-400)); font-size: var(--erp-fs-min, 0.75rem); text-transform: uppercase;
   letter-spacing: .04em; font-weight: 600; text-align: left;
-  padding: .6rem .75rem; border-bottom: 1px solid #1e2a3d;
+  padding: .6rem .75rem; border-bottom: 1px solid var(--pal-neutral-800);
 }
 .fi-page .fi-tbl thead th.num,
 .kdx-page .kdx-tbl thead th.num { text-align: right; }
 .fi-page .fi-tbl tbody td,
 .kdx-page .kdx-tbl tbody td {
-  padding: .62rem .75rem; border-bottom: 1px solid #131e33; vertical-align: middle;
+  padding: .62rem .75rem; border-bottom: 1px solid var(--pal-neutral-850); vertical-align: middle;
 }
 .fi-page .fi-tbl tbody tr:hover td,
-.kdx-page .kdx-tbl tbody tr:hover td { background: rgba(245,197,24,.04); }
+.kdx-page .kdx-tbl tbody tr:hover td { background: color-mix(in srgb, var(--pal-accent) 4%, transparent); }
 .fi-page .fi-tbl .num,
 .kdx-page .kdx-tbl .num {
   text-align: right;

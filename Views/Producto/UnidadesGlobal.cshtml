@@ -8,37 +8,37 @@
 @section Styles {
     <style>
         /* invg- = inventario global integrado (tabs Unidades + Movimientos) */
-        .invg-tabs { display: none; gap: .25rem; border-bottom: 1px solid #1e293b; }
+        .invg-tabs { display: none; gap: .25rem; border-bottom: 1px solid var(--pal-neutral-800); }
         .invg-js .invg-tabs { display: flex; flex-wrap: wrap; }
         .invg-tab {
             display: inline-flex; align-items: center; gap: .4rem;
-            padding: .6rem .95rem; font-size: .875rem; font-weight: 600; color: var(--erp-fg-2, #b9c3d3);
+            padding: .6rem .95rem; font-size: .875rem; font-weight: 600; color: var(--erp-fg-2, var(--pal-neutral-350));
             background: transparent; border: 0; border-bottom: 2px solid transparent;
             cursor: pointer; border-radius: 6px 6px 0 0; white-space: nowrap;
         }
         .invg-tab .material-symbols-outlined { font-size: 18px; }
-        .invg-tab:hover { color: #f1f5f9; background: rgba(148,163,184,.06); }
-        .invg-tab[aria-selected="true"] { color: #fff; border-bottom-color: #f5c518; }
-        .invg-tab:focus-visible { outline: 2px solid #f5c518; outline-offset: 2px; }
+        .invg-tab:hover { color: var(--pal-neutral-100); background: color-mix(in srgb, var(--pal-neutral-450) 6%, transparent); }
+        .invg-tab[aria-selected="true"] { color: var(--pal-white); border-bottom-color: var(--pal-accent); }
+        .invg-tab:focus-visible { outline: 2px solid var(--pal-accent); outline-offset: 2px; }
         .invg-mov-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: .85rem; }
         .invg-mov-table thead th {
-            background: #0d1526; color: var(--erp-fg-3, #a6b1c3); font-size: var(--erp-fs-min, 0.75rem); text-transform: uppercase;
-            letter-spacing: .04em; text-align: left; padding: .7rem 1rem; border-bottom: 1px solid #1e293b; white-space: nowrap;
+            background: var(--pal-neutral-900); color: var(--erp-fg-3, var(--pal-neutral-400)); font-size: var(--erp-fs-min, 0.75rem); text-transform: uppercase;
+            letter-spacing: .04em; text-align: left; padding: .7rem 1rem; border-bottom: 1px solid var(--pal-neutral-800); white-space: nowrap;
         }
-        .invg-td { padding: .6rem 1rem; border-bottom: 1px solid rgba(30,41,59,.6); color: #cbd5e1; vertical-align: top; }
-        .invg-strong { color: #e2e8f0; font-weight: 600; }
-        .invg-sub { color: var(--erp-fg-3, #a6b1c3); font-size: .75rem; }
+        .invg-td { padding: .6rem 1rem; border-bottom: 1px solid color-mix(in srgb, var(--pal-neutral-800) 60%, transparent); color: var(--pal-neutral-300); vertical-align: top; }
+        .invg-strong { color: var(--pal-neutral-200); font-weight: 600; }
+        .invg-sub { color: var(--erp-fg-3, var(--pal-neutral-400)); font-size: .75rem; }
         .invg-mono { font-family: ui-monospace, monospace; }
-        .invg-mov-state { padding: 2rem 1rem; text-align: center; color: var(--erp-fg-3, #a6b1c3); }
-        .invg-mov-error { color: #fda4af; }
+        .invg-mov-state { padding: 2rem 1rem; text-align: center; color: var(--erp-fg-3, var(--pal-neutral-400)); }
+        .invg-mov-error { color: var(--pal-danger-300); }
         .invg-chip {
             display: inline-flex; align-items: center; gap: .3rem; padding: .18rem .5rem;
             border-radius: 999px; font-size: var(--erp-fs-min, 0.75rem); font-weight: 600; border: 1px solid transparent; white-space: nowrap;
         }
-        .invg-chip-in { background: rgba(16,185,129,.1); color: #34d399; border-color: rgba(16,185,129,.28); }
-        .invg-chip-out { background: rgba(248,113,113,.1); color: #f87171; border-color: rgba(248,113,113,.28); }
-        .invg-chip-adj { background: rgba(245,158,11,.1); color: #fbbf24; border-color: rgba(245,158,11,.28); }
-        .invg-chip-neutral { background: #1e293b; color: #e2e8f0; border-color: #334155; }
+        .invg-chip-in { background: color-mix(in srgb, var(--pal-success-500) 10%, transparent); color: var(--pal-success-400); border-color: color-mix(in srgb, var(--pal-success-500) 28%, transparent); }
+        .invg-chip-out { background: color-mix(in srgb, var(--pal-danger-400) 10%, transparent); color: var(--pal-danger-400); border-color: color-mix(in srgb, var(--pal-danger-400) 28%, transparent); }
+        .invg-chip-adj { background: color-mix(in srgb, var(--pal-warning-500) 10%, transparent); color: var(--pal-warning-400); border-color: color-mix(in srgb, var(--pal-warning-500) 28%, transparent); }
+        .invg-chip-neutral { background: var(--pal-neutral-800); color: var(--pal-neutral-200); border-color: var(--pal-neutral-700); }
     </style>
 }
 

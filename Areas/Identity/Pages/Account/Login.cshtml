@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="~/css/local-fonts.css" asp-append-version="true" />
     <link rel="icon" type="image/png" href="~/ico/bury-logo-256.png" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/tailwind.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/palette.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/standalone-tokens.css" asp-append-version="true" />
 
 </head>
@@ -26,7 +27,7 @@
         <!-- Brand -->
         <div class="flex flex-col items-center mb-10">
             <div class="w-16 h-16 mb-6 rounded-xl overflow-hidden flex items-center justify-center"
-                 style="background-color: var(--c-primary-container); box-shadow: 0 4px 16px -4px rgba(19,91,236,0.2);">
+                 style="background-color: var(--c-primary-container); box-shadow: 0 4px 16px -4px color-mix(in srgb, var(--pal-info-600) 20%, transparent);">
                 <img src="~/ico/bury-logo-256.png" alt="TheBuryProject" class="w-full h-full object-contain p-1" />
             </div>
             <h1 class="text-3xl font-black tracking-tight mb-2" style="color: var(--c-on-surface);">TheBuryProject</h1>
@@ -37,11 +38,11 @@
 
         <!-- Auth card -->
         <div class="p-8 rounded-xl relative overflow-hidden"
-             style="background-color: var(--c-surface-low); border: 1px solid rgba(67,70,85,0.30); box-shadow: 0 8px 24px -4px rgba(0,0,0,0.3);">
+             style="background-color: var(--c-surface-low); border: 1px solid color-mix(in srgb, var(--pal-neutral-650) 30%, transparent); box-shadow: 0 8px 24px -4px color-mix(in srgb, var(--pal-black) 30%, transparent);">
 
             <!-- Top accent line -->
             <div class="absolute top-0 left-0 w-full h-[2px]"
-                 style="background: linear-gradient(to right, transparent, rgba(19,91,236,0.4), transparent);"></div>
+                 style="background: linear-gradient(to right, transparent, color-mix(in srgb, var(--pal-info-600) 40%, transparent), transparent);"></div>
 
             <!-- Error global -->
             @{
@@ -52,7 +53,7 @@
             {
                 <div class="flex items-center gap-2 mb-6 px-4 py-3 rounded-lg text-sm font-medium"
                      role="alert"
-                     style="background-color: rgba(255,180,171,0.10); border: 1px solid rgba(255,180,171,0.30); color: #ffb4ab;">
+                     style="background-color: color-mix(in srgb, var(--pal-danger-300) 10%, transparent); border: 1px solid color-mix(in srgb, var(--pal-danger-300) 30%, transparent); color: var(--pal-danger-300);">
                     <span class="material-symbols-outlined text-[18px] shrink-0" aria-hidden="true">error</span>
                     <span>@ModelState[string.Empty]!.Errors.First().ErrorMessage</span>
                 </div>
@@ -122,9 +123,9 @@
                                    autocomplete="name"
                                    placeholder="Nombre y apellido"
                                    class="w-full rounded-lg py-3.5 pl-12 pr-4 text-sm transition-[border-color,box-shadow] focus:outline-none focus:ring-2"
-                                   style="background-color: var(--c-surface-container); color: var(--c-on-surface); border: 1px solid var(--c-outline-var); --tw-ring-color: rgba(19,91,236,0.5);" />
+                                   style="background-color: var(--c-surface-container); color: var(--c-on-surface); border: 1px solid var(--c-outline-var); --tw-ring-color: color-mix(in srgb, var(--pal-info-600) 50%, transparent);" />
                         </div>
-                        <span asp-validation-for="Input.NombreCompleto" class="block text-xs font-medium" style="color: #ffb4ab;"></span>
+                        <span asp-validation-for="Input.NombreCompleto" class="block text-xs font-medium" style="color: var(--pal-danger-300);"></span>
                     </div>
 
                     <!-- Checkbox aceptación -->
@@ -138,12 +139,12 @@
                                 Declaro que leí y acepto los Términos y Condiciones de uso descriptos arriba.
                             </span>
                         </label>
-                        <span asp-validation-for="Input.AceptaTerminos" class="block text-xs font-medium" style="color: #ffb4ab;"></span>
+                        <span asp-validation-for="Input.AceptaTerminos" class="block text-xs font-medium" style="color: var(--pal-danger-300);"></span>
                     </div>
 
                     <button type="submit"
                             class="w-full py-4 px-6 rounded-lg font-bold text-sm transition-[background-color,box-shadow,transform] hover:brightness-110 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 mt-2"
-                            style="background-color: var(--c-primary-container); color: var(--c-on-primary); box-shadow: 0 4px 16px -4px rgba(19,91,236,0.3); --tw-ring-color: rgba(19,91,236,0.6);">
+                            style="background-color: var(--c-primary-container); color: var(--c-on-primary); box-shadow: 0 4px 16px -4px color-mix(in srgb, var(--pal-info-600) 30%, transparent); --tw-ring-color: color-mix(in srgb, var(--pal-info-600) 60%, transparent);">
                         Aceptar y continuar
                     </button>
                 </form>
@@ -181,9 +182,9 @@
                                    autocomplete="username"
                                    placeholder="usuario"
                                    class="w-full rounded-lg py-3.5 pl-12 pr-4 text-sm transition-[border-color,box-shadow] focus:outline-none focus:ring-2"
-                                   style="background-color: var(--c-surface-container); color: var(--c-on-surface); border: 1px solid var(--c-outline-var); --tw-ring-color: rgba(19,91,236,0.5);" />
+                                   style="background-color: var(--c-surface-container); color: var(--c-on-surface); border: 1px solid var(--c-outline-var); --tw-ring-color: color-mix(in srgb, var(--pal-info-600) 50%, transparent);" />
                         </div>
-                        <span asp-validation-for="Input.UserName" class="block text-xs font-medium" style="color: #ffb4ab;"></span>
+                        <span asp-validation-for="Input.UserName" class="block text-xs font-medium" style="color: var(--pal-danger-300);"></span>
                     </div>
 
                     <!-- Password -->
@@ -196,7 +197,7 @@
                             </label>
                             <a asp-page="./ForgotPassword"
                                class="text-xs font-medium hover:underline transition-colors no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 rounded"
-                               style="color: var(--c-primary-light); --tw-ring-color: rgba(19,91,236,0.5);">
+                               style="color: var(--c-primary-light); --tw-ring-color: color-mix(in srgb, var(--pal-info-600) 50%, transparent);">
                                 ¿Olvidaste tu contraseña?
                             </a>
                         </div>
@@ -211,16 +212,16 @@
                                    autocomplete="current-password"
                                    placeholder="••••••••"
                                    class="w-full rounded-lg py-3.5 pl-12 pr-12 text-sm transition-[border-color,box-shadow] focus:outline-none focus:ring-2"
-                                   style="background-color: var(--c-surface-container); color: var(--c-on-surface); border: 1px solid var(--c-outline-var); --tw-ring-color: rgba(19,91,236,0.5);" />
+                                   style="background-color: var(--c-surface-container); color: var(--c-on-surface); border: 1px solid var(--c-outline-var); --tw-ring-color: color-mix(in srgb, var(--pal-info-600) 50%, transparent);" />
                             <button type="button"
                                     id="btn-toggle-pwd"
                                     aria-label="Mostrar u ocultar contraseña"
                                     class="absolute inset-y-0 right-4 flex items-center rounded transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
-                                    style="color: var(--c-on-surface-var); background: transparent; border: none; --tw-ring-color: rgba(19,91,236,0.5);">
+                                    style="color: var(--c-on-surface-var); background: transparent; border: none; --tw-ring-color: color-mix(in srgb, var(--pal-info-600) 50%, transparent);">
                                 <span class="material-symbols-outlined text-lg" id="pwd-eye" aria-hidden="true">visibility</span>
                             </button>
                         </div>
-                        <span asp-validation-for="Input.Password" class="block text-xs font-medium" style="color: #ffb4ab;"></span>
+                        <span asp-validation-for="Input.Password" class="block text-xs font-medium" style="color: var(--pal-danger-300);"></span>
                     </div>
 
                     <!-- Remember me -->
@@ -231,7 +232,7 @@
                                        type="checkbox"
                                        id="remember-me"
                                        class="peer appearance-none w-5 h-5 rounded cursor-pointer transition-[background-color,border-color,box-shadow] focus:outline-none focus:ring-2"
-                                       style="background-color: var(--c-surface-container); border: 1.5px solid var(--c-outline-var); --tw-ring-color: rgba(19,91,236,0.5);"
+                                       style="background-color: var(--c-surface-container); border: 1.5px solid var(--c-outline-var); --tw-ring-color: color-mix(in srgb, var(--pal-info-600) 50%, transparent);"
                                        onchange="this.nextElementSibling.style.opacity = this.checked ? '1' : '0'" />
                                 <span class="material-symbols-outlined absolute inset-0 flex items-center justify-center pointer-events-none text-sm"
                                       style="color: var(--c-on-primary); opacity: 0;" id="check-icon" aria-hidden="true">check</span>
@@ -243,7 +244,7 @@
                     <!-- Submit -->
                     <button type="submit"
                             class="w-full py-4 px-6 rounded-lg font-bold text-sm transition-[background-color,box-shadow,transform] hover:brightness-110 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 mt-2"
-                            style="background-color: var(--c-primary-container); color: var(--c-on-primary); box-shadow: 0 4px 16px -4px rgba(19,91,236,0.3); --tw-ring-color: rgba(19,91,236,0.6);">
+                            style="background-color: var(--c-primary-container); color: var(--c-on-primary); box-shadow: 0 4px 16px -4px color-mix(in srgb, var(--pal-info-600) 30%, transparent); --tw-ring-color: color-mix(in srgb, var(--pal-info-600) 60%, transparent);">
                         Iniciar Sesión
                     </button>
                 </form>
@@ -263,12 +264,12 @@
     </main>
 
     <!-- Footer -->
-    <footer class="mt-auto py-6 w-full" style="border-top: 1px solid rgba(67,70,85,0.20);">
+    <footer class="mt-auto py-6 w-full" style="border-top: 1px solid color-mix(in srgb, var(--pal-neutral-650) 20%, transparent);">
         <div class="max-w-[1200px] mx-auto px-10 flex flex-col md:flex-row justify-between items-center gap-3"
-             style="color: rgba(195,197,216,0.55);">
+             style="color: color-mix(in srgb, var(--pal-neutral-350) 55%, transparent);">
             <div class="flex items-center gap-6">
                 <span class="text-[11px] uppercase tracking-widest font-semibold tabular-nums">Sistema v1.0</span>
-                <span class="w-1 h-1 rounded-full" style="background-color: rgba(67,70,85,0.5);"></span>
+                <span class="w-1 h-1 rounded-full" style="background-color: color-mix(in srgb, var(--pal-neutral-650) 50%, transparent);"></span>
                 <span class="text-[11px] uppercase tracking-widest font-semibold">Acceso Restringido</span>
             </div>
             <p class="text-[11px] uppercase tracking-widest font-semibold">© @DateTime.Now.Year TheBuryProject</p>
@@ -296,7 +297,7 @@
             const wrapper = input.closest('.group');
             const icon = wrapper?.querySelector('.material-symbols-outlined');
             if (!icon) return;
-            input.addEventListener('focus', () => icon.style.color = '#135bec');
+            input.addEventListener('focus', () => icon.style.color = 'var(--pal-info-600)');
             input.addEventListener('blur',  () => icon.style.color = 'var(--c-on-surface-var)');
         });
     </script>

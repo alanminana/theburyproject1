@@ -78,10 +78,10 @@ const ProveedorProductPicker = (() => {
             position: 'fixed',
             zIndex:   '9999',
             minWidth: '280px',
-            background: '#111827',           // gray-900 — completamente opaco
-            border: '1px solid rgba(99,102,241,0.2)',
+            background: 'var(--pal-neutral-925)',         // gray-900 — completamente opaco
+            border: '1px solid color-mix(in srgb, var(--pal-info-500) 20%, transparent)',
             borderRadius: '0.75rem',
-            boxShadow: '0 24px 64px rgba(0,0,0,0.7), 0 8px 24px rgba(0,0,0,0.5)',
+            boxShadow: '0 24px 64px color-mix(in srgb, var(--pal-black) 70%, transparent), 0 8px 24px color-mix(in srgb, var(--pal-black) 50%, transparent)',
             overflow: 'hidden',
             backdropFilter: 'none'           // no blur en portal — fondo es opaco
         });

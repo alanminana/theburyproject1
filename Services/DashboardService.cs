@@ -103,10 +103,11 @@ namespace TheBuryProject.Services
             // Productos: fetch raw para evitar multiplicación no traducible
             var productosRaw = await _context.Productos
                 .Where(p => !p.IsDeleted)
-                .Select(p => new { p.StockActual, p.PrecioVenta, p.PrecioCompra, p.StockMinimo })
+                .Select(p => new { p.StockActual, p.PrecioVenta, p.PrecioCompra, p.StockMinimo, p.Activo })
                 .ToListAsync();
             var productosTotales   = productosRaw.Count;
-            var productosStockBajo = productosRaw.Count(p => p.StockActual < p.StockMinimo);
+            // Mismo criterio que el panel "Alertas de stock" (GetAlertasStockRecientesAsync): activos en o bajo el mínimo.
+            var productosStockBajo = productosRaw.Count(p => p.Activo && p.StockActual <= p.StockMinimo);
             var valorStockPrecioVenta = productosRaw.Sum(p => p.StockActual * p.PrecioVenta);
             var valorStockCostoActual = productosRaw.Sum(p => p.StockActual * p.PrecioCompra);
 
@@ -421,7 +422,8 @@ namespace TheBuryProject.Services
                     c.CreditoId,
                     CreditoNumero = c.Credito.Numero,
                     c.NumeroCuota,
-                    ClienteNombre = c.Credito.Cliente.Apellido + ", " + c.Credito.Cliente.Nombre + " - DNI: " + c.Credito.Cliente.NumeroDocumento,
+                    ClienteNombre = c.Credito.Cliente.Apellido + ", " + c.Credito.Cliente.Nombre,
+                    ClienteDocumento = c.Credito.Cliente.NumeroDocumento,
                     ClienteId = c.Credito.ClienteId,
                     c.FechaVencimiento,
                     Monto = c.MontoTotal - c.MontoPagado
@@ -436,6 +438,7 @@ namespace TheBuryProject.Services
                 CreditoNumero = c.CreditoNumero,
                 NumeroCuota = c.NumeroCuota,
                 ClienteNombre = c.ClienteNombre,
+                ClienteDocumento = c.ClienteDocumento ?? string.Empty,
                 ClienteId = c.ClienteId,
                 FechaVencimiento = c.FechaVencimiento,
                 Monto = c.Monto,
@@ -480,7 +483,8 @@ namespace TheBuryProject.Services
                     c.CreditoId,
                     CreditoNumero = c.Credito.Numero,
                     c.NumeroCuota,
-                    ClienteNombre = c.Credito.Cliente.Apellido + ", " + c.Credito.Cliente.Nombre + " - DNI: " + c.Credito.Cliente.NumeroDocumento,
+                    ClienteNombre = c.Credito.Cliente.Apellido + ", " + c.Credito.Cliente.Nombre,
+                    ClienteDocumento = c.Credito.Cliente.NumeroDocumento,
                     ClienteId = c.Credito.ClienteId,
                     c.FechaVencimiento,
                     Monto = c.MontoTotal - c.MontoPagado,
@@ -496,6 +500,7 @@ namespace TheBuryProject.Services
                 CreditoNumero = c.CreditoNumero,
                 NumeroCuota = c.NumeroCuota,
                 ClienteNombre = c.ClienteNombre,
+                ClienteDocumento = c.ClienteDocumento ?? string.Empty,
                 ClienteId = c.ClienteId,
                 FechaVencimiento = c.FechaVencimiento,
                 Monto = c.Monto,
