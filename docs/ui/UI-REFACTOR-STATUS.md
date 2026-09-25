@@ -172,9 +172,12 @@ Resumen no cronológico de lo que quedó implementado:
   asociados a sus campos (a11y), tildes en título/cabeceras; (6) tabs de Index en <1024px con degradé que indica
   que se deslizan; (7) "1 días" → "1 día" (modal de devolución y mora del cotizador); (8) "Próximo paso…" en
   Details de una Cotización → "Esperando confirmación". 2034/2034 tests `Venta*`/`Cotizacion*`/`Devolucion*`/`Ui*`
-  (2 nuevos). Sin resolver (críticas de mayor alcance, no abiertas): número de venta repetido en topbar/miga/H1
-  de Details y cabecera de Details/Index/Cotizador/Listado con tres composiciones distintas (requiere decidir un
-  componente de cabecera único ERP-wide). Sin ejecutar: anulación de factura y Delete real.
+  (2 nuevos). Cabeceras alineadas a ERP-UI-STANDARD §4 (sin hero, título en la barra global): Details
+  pasa a "Detalle de venta" en la barra y la miga ("Ventas / Detalle"), así el número de venta aparece una
+  sola vez (H1 con su estado); el Listado de Cotización pierde su hero (la descripción y "Nueva cotización"
+  pasan a la cabecera del card de filtros, H1 sólo para lectores de pantalla); el cotizador standalone deja
+  de repetir "Cotización" bajo la barra global (embebido en Venta/Create sigue como título del paso).
+  En la copia de la base también se ejecutaron anulación de factura y Delete de venta (desktop y mobile).
 
 ## Venta / Create + Edit — cerrados conjuntamente
 

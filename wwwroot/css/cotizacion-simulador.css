@@ -1052,3 +1052,7 @@ body:has(.cotz-standalone) #main-content > div:last-child {
 
 /* Textos secundarios con text-[10px]/[11px] (marcado y JS): 12px es el mínimo legible del ERP. */
 .cotz-app [class*="text-[10px]"], .cotz-app [class*="text-[10.5px]"], .cotz-app [class*="text-[11px]"], .cotz-app [class*="text-[11.5px]"] { font-size: var(--erp-fs-min, 0.75rem); }
+
+/* Standalone: la barra global ya titula la pantalla ("Cotización"); el h2 queda sólo para lectores
+   de pantalla. Embebido en Venta/Create sigue visible como título del paso. */
+.cotz-standalone .cotz-topbar__title { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }

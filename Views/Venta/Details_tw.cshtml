@@ -1,7 +1,7 @@
 @model VentaViewModel
 @using TheBuryProject.Models.Enums
 @{
-    ViewData["Title"] = $"Venta {Model.Numero}";
+    ViewData["Title"] = "Detalle de venta";
     var detalles = Model.Detalles ?? new List<VentaDetalleViewModel>();
     var facturas = Model.Facturas ?? new List<FacturaViewModel>();
     var tieneFactura = facturas.Any(f => !f.Anulada);
@@ -200,7 +200,7 @@
                     <div class="venta-hero-crumbs flex flex-wrap items-center gap-2 text-xs font-semibold">
                         <span class="inline-flex items-center rounded-full bg-slate-800 px-3 py-1 text-slate-300">Ventas</span>
                         <span class="text-slate-600">/</span>
-                        <span class="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-primary">@Model.Numero</span>
+                        <span class="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-primary">Detalle</span>
                     </div>
                     <div class="venta-hero-title space-y-2">
                         <div class="flex flex-wrap items-center gap-3">
