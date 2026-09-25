@@ -535,6 +535,67 @@ public class CajaServiceTests : IDisposable
         Assert.False(controller.TempData.ContainsKey("Error"));
     }
 
+    private CajaController BuildSupervisorController()
+    {
+        var controller = new CajaController(
+            _service,
+            null!, // ICajaVendedorService — no usado: el usuario es supervisor
+            new StubSupervisorCurrentUser(),
+            NullLogger<CajaController>.Instance,
+            BuildMapper(),
+            _context,
+            new RelojComercialFake());
+        var httpContext = new DefaultHttpContext();
+        controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
+        controller.TempData = new TempDataDictionary(httpContext, new StubTempDataProvider());
+        return controller;
+    }
+
+    [Fact]
+    public void Create_Get_EntregaModeloConCajaActivaPorDefecto()
+    {
+        var result = BuildSupervisorController().Create();
+
+        var view = Assert.IsType<ViewResult>(result);
+        Assert.Equal("Create_tw", view.ViewName);
+        var model = Assert.IsType<CajaViewModel>(view.Model);
+        Assert.True(model.Activa);
+    }
+
+    [Fact]
+    public async Task RegistrarMovimiento_Get_AperturaVencida_RedirigeAlDetalleSinMostrarElFormulario()
+    {
+        var caja = await SeedCajaAsync();
+        var apertura = await AbrirCajaAsync(caja, montoInicial: 1000m);
+        await MarcarComoDeAyerAsync(apertura);
+
+        var result = await BuildSupervisorController().RegistrarMovimiento(apertura.Id);
+
+        var redirect = Assert.IsType<RedirectToActionResult>(result);
+        Assert.Equal(nameof(CajaController.DetallesApertura), redirect.ActionName);
+        Assert.Equal(apertura.Id, redirect.RouteValues!["id"]);
+    }
+
+    [Fact]
+    public async Task RegistrarMovimientoYCerrar_Get_TurnoYaCerrado_RedirigenAlDetalle()
+    {
+        var caja = await SeedCajaAsync();
+        var apertura = await AbrirCajaAsync(caja, montoInicial: 1000m);
+        var tracked = await _context.AperturasCaja.FindAsync(apertura.Id);
+        tracked!.Cerrada = true;
+        await _context.SaveChangesAsync();
+
+        var controller = BuildSupervisorController();
+        var registrar = await controller.RegistrarMovimiento(apertura.Id);
+        var cerrar = await controller.Cerrar(apertura.Id);
+
+        foreach (var result in new[] { registrar, cerrar })
+        {
+            var redirect = Assert.IsType<RedirectToActionResult>(result);
+            Assert.Equal(nameof(CajaController.DetallesApertura), redirect.ActionName);
+        }
+    }
+
     [Fact]
     public async Task CerrarCaja_YaCerrada_LanzaExcepcion()
     {

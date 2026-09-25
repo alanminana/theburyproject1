@@ -59,7 +59,8 @@
                     <label asp-for="Monto" class="label">Monto <span class="req">*</span></label>
                     <div class="field-money">
                         <span class="cur">$</span>
-                        <input asp-for="Monto" type="number" step="0.01" placeholder="0.00" required class="field" />
+                        <input asp-for="Monto" type="number" step="0.01" placeholder="0.00" required class="field"
+                               value="@(Model.Monto == 0 && !ViewData.ModelState.ContainsKey("Monto") ? "" : Model.Monto.ToString(System.Globalization.CultureInfo.InvariantCulture))" />
                     </div>
                     <span asp-validation-for="Monto" class="text-rose-500 text-xs"></span>
                 </div>
@@ -71,7 +72,7 @@
             </div>
 
             <div style="margin-top:1rem">
-                <label asp-for="Descripcion" class="label">Descripción <span class="muted-2 font-normal">(opcional)</span></label>
+                <label asp-for="Descripcion" class="label">Descripción <span class="req">*</span></label>
                 <textarea asp-for="Descripcion" rows="2" required placeholder="Detalle del movimiento para la trazabilidad del turno." class="field"></textarea>
                 <span asp-validation-for="Descripcion" class="text-rose-500 text-xs"></span>
             </div>

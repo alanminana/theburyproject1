@@ -87,7 +87,9 @@
                                         }
                                     </td>
                                     <td>
-                                        @if (!string.IsNullOrWhiteSpace(m.Descripcion))
+                                        @* Si la descripción ya nombra la referencia ("Venta COT-…"), se muestra solo el enlace. *@
+                                        @if (!string.IsNullOrWhiteSpace(m.Descripcion)
+                                            && (string.IsNullOrWhiteSpace(m.Referencia) || !m.Descripcion.Contains(m.Referencia, StringComparison.OrdinalIgnoreCase)))
                                         {
                                             <div class="text-white">@m.Descripcion</div>
                                         }
@@ -106,7 +108,7 @@
                                         {
                                             <div class="text-xs muted-2">@m.Observacion</div>
                                         }
-                                        @if (string.IsNullOrWhiteSpace(m.Descripcion) && string.IsNullOrWhiteSpace(m.Referencia) && string.IsNullOrWhiteSpace(m.Observacion))
+                                        @if (string.IsNullOrWhiteSpace(m.Referencia) && string.IsNullOrWhiteSpace(m.Descripcion) && string.IsNullOrWhiteSpace(m.Observacion))
                                         {
                                             <span class="muted-2">—</span>
                                         }

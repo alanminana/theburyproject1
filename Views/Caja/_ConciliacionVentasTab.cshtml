@@ -86,11 +86,11 @@
                                     <td>
                                         @if (v.VentaId > 0)
                                         {
-                                            <div class="mono"><a href="/Venta/Details/@v.VentaId" class="cc-ref-link">@v.Numero</a></div>
+                                            <div class="mono whitespace-nowrap"><a href="/Venta/Details/@v.VentaId" class="cc-ref-link">@v.Numero</a></div>
                                         }
                                         else
                                         {
-                                            <div class="mono text-white">@v.Numero</div>
+                                            <div class="mono text-white whitespace-nowrap">@v.Numero</div>
                                         }
                                         <div class="text-xs muted-2">@v.Fecha.ToString("dd/MM HH:mm")</div>
                                     </td>

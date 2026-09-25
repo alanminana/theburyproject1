@@ -16,7 +16,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function setStatus({ label, help, tone, icon }) {
         if (diferenciaStatusEl) {
             diferenciaStatusEl.textContent = label;
-            diferenciaStatusEl.className = `inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-wide ${tone.badge}`;
+            diferenciaStatusEl.className = `chip ${tone.badge}`;
+            diferenciaStatusEl.style.visibility = 'visible';
         }
 
         if (diferenciaHelpEl) {
@@ -39,13 +40,34 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    let diferenciaActual = 0;
+    let cierreConfirmado = false;
+
     function recalcular() {
+        // Sin monto ingresado no hay diferencia que informar: estado neutro (no "faltante total").
+        if ([...inputs].every(input => input.value.trim() === '')) {
+            totalRealEl.textContent = TheBury.formatCurrency(0);
+            diferenciaValorEl.textContent = '—';
+            diferenciaValorEl.classList.remove('text-emerald-500', 'text-rose-500', 'text-amber-500');
+            if (diferenciaStatusEl) {
+                diferenciaStatusEl.style.visibility = 'hidden';
+            }
+            if (diferenciaHelpEl) {
+                diferenciaHelpEl.textContent = 'Ingresá el efectivo contado para ver la diferencia.';
+            }
+            justificacionEl.disabled = true;
+            justificacionEl.value = '';
+            justificacionWrapEl?.classList.add('hidden');
+            return;
+        }
+
         let totalReal = 0;
         inputs.forEach(input => {
             totalReal += parseFloat(input.value) || 0;
         });
 
         const diferencia = totalReal - montoEsperado;
+        diferenciaActual = diferencia;
         const tieneDiferencia = Math.abs(diferencia) > TOLERANCIA;
 
         totalRealEl.textContent = TheBury.formatCurrency(totalReal);
@@ -57,7 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 help: 'Cuando el total contado coincide con el sistema, no hace falta justificar diferencias.',
                 icon: 'check_circle',
                 tone: {
-                    badge: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-500',
+                    badge: 'chip-ok',
                     icon: 'text-emerald-500',
                     panel: 'border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900/40'
                 }
@@ -68,7 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 help: 'Hay un excedente respecto del sistema. Documente el motivo antes de cerrar la caja.',
                 icon: 'trending_up',
                 tone: {
-                    badge: 'border-amber-500/20 bg-amber-500/10 text-amber-500',
+                    badge: 'chip-warn',
                     icon: 'text-amber-500',
                     panel: 'border-amber-400/30 bg-amber-500/10 dark:border-amber-400/30 dark:bg-amber-500/10'
                 }
@@ -79,7 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 help: 'El monto contado quedó por debajo del esperado. La justificación es obligatoria para continuar.',
                 icon: 'trending_down',
                 tone: {
-                    badge: 'border-rose-500/20 bg-rose-500/10 text-rose-500',
+                    badge: 'chip-bad',
                     icon: 'text-rose-500',
                     panel: 'border-rose-500/20 bg-rose-500/10 dark:border-rose-500/20 dark:bg-rose-500/10'
                 }
@@ -118,6 +140,19 @@ document.addEventListener('DOMContentLoaded', () => {
             event.preventDefault();
             setErrorJustificacion(MENSAJE_JUSTIFICACION);
             justificacionEl.focus();
+            return;
+        }
+
+        // Cierre irreversible con diferencia: segunda confirmación explícita con el monto a la vista.
+        if (!cierreConfirmado && Math.abs(diferenciaActual) > TOLERANCIA) {
+            event.preventDefault();
+            const tipo = diferenciaActual > 0 ? 'un sobrante' : 'un faltante';
+            TheBury.confirmAction(
+                `Vas a cerrar la caja con ${tipo} de ${TheBury.formatCurrency(Math.abs(diferenciaActual))}. El cierre es irreversible. ¿Confirmás?`,
+                () => {
+                    cierreConfirmado = true;
+                    form.requestSubmit();
+                });
         }
     });
 

@@ -103,7 +103,16 @@
                 {
                     <div class="defrow">
                         <dt>Estado</dt>
-                        <dd><span class="chip chip-live"><span class="dot"></span>Turno abierto</span></dd>
+                        <dd>
+                            @if (Model.EsVencida)
+                            {
+                                <span class="chip chip-warn"><span class="material-symbols-outlined">schedule</span>Turno vencido</span>
+                            }
+                            else
+                            {
+                                <span class="chip chip-live"><span class="dot"></span>Turno abierto</span>
+                            }
+                        </dd>
                     </div>
                 }
             </dl>

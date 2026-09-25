@@ -88,6 +88,10 @@ namespace TheBuryProject.Controllers
 
             ViewBag.CurrentUser = _currentUser.GetUsername();
             ViewBag.EsAdmin = EsAdminCaja();
+            // La UI no ofrece acciones que el [PermisoRequerido] del controller va a rechazar.
+            ViewBag.PuedeAbrirCaja = _currentUser.HasPermission("caja", "open");
+            ViewBag.PuedeCerrarCaja = _currentUser.HasPermission("caja", "close");
+            ViewBag.PuedeMoverCaja = _currentUser.HasPermission("caja", "movements");
             // Cajas que el usuario puede operar (padrón): la vista oculta "Abrir" en las demás.
             ViewBag.CajasOperables = (await _cajaVendedorService.ObtenerCajaIdsDeUsuarioAsync(_currentUser.GetUserId())).ToHashSet();
 
@@ -97,7 +101,9 @@ namespace TheBuryProject.Controllers
         [PermisoRequerido(Modulo = "caja", Accion = "create")]
         public IActionResult Create()
         {
-            return View("Create_tw");
+            // Modelo explícito: sin él, "Caja activa" se renderiza destildada (bool sin modelo = false)
+            // y la caja nueva quedaría inactiva sin que el usuario lo haya decidido.
+            return View("Create_tw", new CajaViewModel());
         }
 
         [PermisoRequerido(Modulo = "caja", Accion = "create")]
@@ -254,6 +260,7 @@ namespace TheBuryProject.Controllers
 
         #region Apertura de Caja
 
+        [PermisoRequerido(Modulo = "caja", Accion = "open")]
         public async Task<IActionResult> Abrir(int? cajaId)
         {
             var disponibles = await SetCajasActivasSelectListAsync(cajaId);
@@ -347,6 +354,7 @@ namespace TheBuryProject.Controllers
 
         #region Movimientos
 
+        [PermisoRequerido(Modulo = "caja", Accion = "movements")]
         public async Task<IActionResult> RegistrarMovimiento(int aperturaId)
         {
             var apertura = await _cajaService.ObtenerAperturaPorIdAsync(aperturaId);
@@ -360,6 +368,21 @@ namespace TheBuryProject.Controllers
             {
                 TempData["Error"] = MensajeSinPermisoOperarCaja;
                 return RedirectToAction(nameof(Index));
+            }
+
+            // Un turno ya cerrado no admite movimientos: se lleva al detalle en vez de mostrar un formulario inútil.
+            if (apertura.Cerrada)
+            {
+                TempData["Error"] = "El turno ya está cerrado: no admite nuevos movimientos.";
+                return RedirectToAction(nameof(DetallesApertura), new { id = aperturaId });
+            }
+
+            // Una apertura vencida no admite movimientos (el servicio los rechaza al confirmar):
+            // se corta acá para no dejar al usuario completando un formulario que no puede guardar
+            // (el detalle ya explica el bloqueo con su aviso de turno vencido).
+            if (Services.CajaService.EsAperturaVencida(apertura, _relojComercial.HoyComercial, _relojComercial.ZonaComercial))
+            {
+                return RedirectToAction(nameof(DetallesApertura), new { id = aperturaId });
             }
 
             var saldo = await _cajaService.CalcularSaldoActualAsync(aperturaId);
@@ -441,6 +464,7 @@ namespace TheBuryProject.Controllers
 
         #region Cierre de Caja
 
+        [PermisoRequerido(Modulo = "caja", Accion = "close")]
         public async Task<IActionResult> Cerrar(int aperturaId, string? returnUrl = null)
         {
             try
@@ -452,6 +476,12 @@ namespace TheBuryProject.Controllers
                 }
 
                 var detalles = await _cajaService.ObtenerDetallesAperturaAsync(aperturaId);
+
+                if (detalles.Apertura.Cerrada)
+                {
+                    TempData["Error"] = "El turno ya está cerrado.";
+                    return RedirectToAction(nameof(DetallesApertura), new { id = aperturaId });
+                }
 
                 ViewBag.ReturnUrl = returnUrl;
 
@@ -552,6 +582,10 @@ namespace TheBuryProject.Controllers
                 var cuotaCreditoMap = await ObtenerMapaCuotaCreditoAsync(detalles.Movimientos);
 
                 var viewModel = CajaConciliacionBuilder.Build(detalles, detalles.Apertura.Cierre, puedeOperar, cuotaCreditoMap);
+                viewModel.PuedeRegistrarMovimientos = viewModel.PuedeOperar && _currentUser.HasPermission("caja", "movements");
+                viewModel.PuedeCerrar = viewModel.PuedeOperar && _currentUser.HasPermission("caja", "close");
+                viewModel.EsVencida = !viewModel.EstaCerrada
+                    && Services.CajaService.EsAperturaVencida(detalles.Apertura, _relojComercial.HoyComercial, _relojComercial.ZonaComercial);
 
                 return View("DetallesApertura_tw", viewModel);
             }

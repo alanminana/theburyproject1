@@ -11,6 +11,9 @@
 
     var currentUser = ViewBag.CurrentUser as string ?? User.Identity?.Name ?? "";
     var esAdmin = (bool)(ViewBag.EsAdmin ?? false);
+    var puedeAbrir = (bool)(ViewBag.PuedeAbrirCaja ?? false);
+    var puedeCerrar = (bool)(ViewBag.PuedeCerrarCaja ?? false);
+    var puedeMover = (bool)(ViewBag.PuedeMoverCaja ?? false);
     var cajasOperables = ViewBag.CajasOperables as HashSet<int> ?? new HashSet<int>();
 
     var aperturasMostradas = esAdmin
@@ -82,6 +85,7 @@
                 <span>
                     Hay una caja abierta desde el día anterior. No se puede operar (ventas, cuotas ni
                     movimientos) hasta cerrarla con arqueo y justificación.
+                    <a href="#cajas-abiertas" class="underline font-semibold">Ver turnos vencidos</a>
                 </span>
             </div>
         }
@@ -111,7 +115,7 @@
         </div>
 
         <!-- ===== Turnos abiertos ===== -->
-        <section>
+        <section id="cajas-abiertas">
             <div class="flex items-center justify-between gap-3 mb-3">
                 <div class="flex items-center gap-2">
                     <h2 class="text-base font-semibold text-white">@(esAdmin ? "Cajas abiertas ahora" : "Mi caja abierta")</h2>
@@ -157,12 +161,6 @@
                                     <span class="chip chip-ok"><span class="material-symbols-outlined">lock_open</span>Abierta</span>
                                 }
                             </div>
-                            @if (esVencida)
-                            {
-                                <p class="mt-2 text-xs text-amber-300">
-                                    Quedó abierta del día anterior. No se puede operar hasta cerrarla (arqueo y justificación).
-                                </p>
-                            }
                             <div class="mt-4 grid grid-cols-3 gap-2">
                                 <div class="card-2 p-2.5">
                                     <div class="text-[.68rem] uppercase tracking-wide muted-2 font-semibold">Fondo</div>
@@ -184,17 +182,20 @@
                                        class="btn btn-soft btn-sm no-underline">
                                         <span class="material-symbols-outlined">visibility</span>Ver turno
                                     </a>
-                                    @if (!esVencida)
+                                    @if (!esVencida && puedeMover)
                                     {
                                         <a asp-action="RegistrarMovimiento" asp-route-aperturaId="@apertura.Id"
                                            class="btn btn-soft btn-sm no-underline">
                                             <span class="material-symbols-outlined">add_card</span>Movimiento
                                         </a>
                                     }
-                                    <a asp-action="Cerrar" asp-route-aperturaId="@apertura.Id"
-                                       class="btn btn-primary btn-sm no-underline" style="margin-left:auto">
-                                        <span class="material-symbols-outlined">lock</span>Cerrar caja
-                                    </a>
+                                    @if (puedeCerrar)
+                                    {
+                                        <a asp-action="Cerrar" asp-route-aperturaId="@apertura.Id"
+                                           class="btn btn-primary btn-sm no-underline" style="margin-left:auto">
+                                            <span class="material-symbols-outlined">lock</span>Cerrar caja
+                                        </a>
+                                    }
                                 </div>
                             }
                         </article>
@@ -205,7 +206,7 @@
             {
                 <div class="card p-8 text-center caja-empty-state">
                     <span class="material-symbols-outlined text-4xl text-slate-500" aria-hidden="true">point_of_sale</span>
-                    @if (esAdmin)
+                    @if (esAdmin && puedeAbrir)
                     {
                         <p class="mt-2 text-sm text-slate-500">No hay cajas abiertas en este momento.</p>
                         <a asp-action="Abrir" class="mt-4 btn btn-soft btn-sm no-underline">
@@ -214,8 +215,15 @@
                     }
                     else
                     {
-                        <p class="mt-2 text-sm text-slate-500">No tiene ninguna caja abierta a su nombre.</p>
-                        <p class="mt-1 text-xs text-slate-400">Seleccione una caja disponible y ábrala para operar.</p>
+                        <p class="mt-2 text-sm text-slate-500">No tenés ninguna caja abierta a tu nombre.</p>
+                        @if (cajasDisponibles > 0)
+                        {
+                            <p class="mt-1 text-xs text-slate-400">Elegí una caja disponible y abrila para operar.</p>
+                        }
+                        else
+                        {
+                            <p class="mt-1 text-xs text-slate-400">No hay cajas libres para abrir en este momento.</p>
+                        }
                     }
                 </div>
             }
@@ -301,9 +309,9 @@
                                                 {
                                                     @if (aperturaActiva != null && (esAdmin || esMiApertura))
                                                     {
-                                                        <a asp-action="DetallesApertura" asp-route-id="@aperturaActiva.Id"
-                                                           class="btn btn-soft btn-sm no-underline" title="Ver apertura activa">
-                                                            <span class="material-symbols-outlined">visibility</span>Ver turno
+                                                        @* El turno ya se opera desde su tarjeta en "Cajas abiertas ahora": acá solo se ubica. *@
+                                                        <a href="#cajas-abiertas" class="btn btn-ghost btn-sm no-underline" title="Ir a la tarjeta del turno abierto">
+                                                            <span class="material-symbols-outlined">arrow_upward</span>Ver arriba
                                                         </a>
                                                     }
                                                     else if (!esAdmin)
@@ -321,7 +329,7 @@
                                                 }
                                                 else
                                                 {
-                                                    @if (esAdmin || cajasOperables.Contains(caja.Id))
+                                                    @if (puedeAbrir && (esAdmin || cajasOperables.Contains(caja.Id)))
                                                     {
                                                         <a asp-action="Abrir" asp-route-cajaId="@caja.Id"
                                                            class="btn btn-primary btn-sm no-underline">
@@ -425,12 +433,11 @@
                             <div class="mt-3 flex gap-2">
                                 @if (estaAbiertaM && aperturaActivaM != null && (esAdmin || esMiAperturaM))
                                 {
-                                    <a asp-action="DetallesApertura" asp-route-id="@aperturaActivaM.Id"
-                                       class="btn btn-soft btn-sm btn-block no-underline">
-                                        <span class="material-symbols-outlined">visibility</span>Ver turno
+                                    <a href="#cajas-abiertas" class="btn btn-ghost btn-sm btn-block no-underline">
+                                        <span class="material-symbols-outlined">arrow_upward</span>Ver arriba
                                     </a>
                                 }
-                                else if (!estaAbiertaM && (esAdmin || cajasOperables.Contains(caja.Id)))
+                                else if (!estaAbiertaM && puedeAbrir && (esAdmin || cajasOperables.Contains(caja.Id)))
                                 {
                                     <a asp-action="Abrir" asp-route-cajaId="@caja.Id"
                                        class="btn btn-primary btn-sm btn-block no-underline">
@@ -443,6 +450,20 @@
                                             class="btn btn-ghost btn-sm" aria-label="Editar">
                                         <span class="material-symbols-outlined">edit</span>
                                     </button>
+                                    @if (!estaAbiertaM)
+                                    {
+                                        <form asp-action="Delete" method="post" class="inline-flex"
+                                              data-caja-delete-form
+                                              data-confirm-message="¿Está seguro de eliminar esta caja?">
+                                            <input type="hidden" name="id" value="@caja.Id" />
+                                            <input type="hidden" name="rowVersion"
+                                                   value="@Convert.ToBase64String(caja.RowVersion)" />
+                                            <button type="submit" class="btn btn-ghost btn-sm" aria-label="Eliminar">
+                                                <span class="material-symbols-outlined"
+                                                      style="color:var(--pal-danger-400)">delete</span>
+                                            </button>
+                                        </form>
+                                    }
                                 }
                             </div>
                         </article>
@@ -462,6 +483,17 @@
                                         class="btn btn-ghost btn-sm btn-block">
                                     <span class="material-symbols-outlined">restart_alt</span>Reactivar
                                 </button>
+                                <form asp-action="Delete" method="post" class="inline-flex"
+                                      data-caja-delete-form
+                                      data-confirm-message="¿Eliminar permanentemente esta caja inactiva?">
+                                    <input type="hidden" name="id" value="@caja.Id" />
+                                    <input type="hidden" name="rowVersion"
+                                           value="@Convert.ToBase64String(caja.RowVersion)" />
+                                    <button type="submit" class="btn btn-ghost btn-sm" aria-label="Eliminar permanentemente">
+                                        <span class="material-symbols-outlined"
+                                              style="color:var(--pal-danger-400)">delete</span>
+                                    </button>
+                                </form>
                             </div>
                         </article>
                     }
@@ -472,7 +504,15 @@
         {
             <div class="card p-8 text-center caja-empty-state">
                 <span class="material-symbols-outlined text-4xl text-slate-500" aria-hidden="true">inventory</span>
-                <p class="mt-2 text-sm text-slate-500">No hay cajas activas configuradas.</p>
+                @if (esAdmin)
+                {
+                    <p class="mt-2 text-sm text-slate-500">No hay cajas activas configuradas.</p>
+                }
+                else
+                {
+                    <p class="mt-2 text-sm text-slate-500">No tenés cajas asignadas.</p>
+                    <p class="mt-1 text-xs text-slate-400">Pedile a un administrador que te habilite en una caja para poder operar.</p>
+                }
             </div>
         }
 
