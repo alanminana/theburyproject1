@@ -11,7 +11,10 @@ namespace TheBuryProject.ViewModels
     public class CategoriaModalFieldsViewModel
     {
         public required string Prefix { get; set; }
-        public SelectList? CategoriasFiltro { get; set; }
+        /// <summary>Opciones de "Categoría padre" (todas las vigentes, en orden jerárquico).</summary>
+        public IEnumerable<SelectListItem>? CategoriasPadre { get; set; }
+        /// <summary>Valor inicial del interruptor "Activa": true al dar de alta, el JS de edición lo pisa con el real.</summary>
+        public bool ActivaPorDefecto { get; set; }
         public List<AlicuotaIVAFormItem>? AlicuotasIVADatos { get; set; }
     }
 }

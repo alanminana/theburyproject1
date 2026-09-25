@@ -1644,9 +1644,15 @@
     // ningún DTO ni mecanismo nuevo (confirmado en la auditoría antes de implementar).
     async function continuarConWizard() {
         if (state.continuandoWizard || state.confirmando || state.verificando) return;
+        clearFeedback();
+        // El wizard necesita un cliente del sistema: se avisa antes de guardar, para no dejar
+        // una cotización nueva escrita cuando la continuación igual va a fallar.
+        if (!state.clienteSeleccionado?.id) {
+            showFeedback('Seleccioná un cliente del sistema para continuar con el wizard.', 'warning');
+            return;
+        }
         state.continuandoWizard = true;
         if (els.continuarWizard) els.continuarWizard.disabled = true;
-        clearFeedback();
         try {
             const data = await guardarCotizacion({ silencioso: true });
             if (!data) return;
@@ -1909,7 +1915,7 @@
         // completo (dl + motivos) pasa a un <details> plegado — antes quedaba
         // siempre expandido y era lo que más empujaba Resultados fuera del fold.
         const resumenPartes = [];
-        if (data.mora?.tiene && Number(data.mora.dias) > 0) resumenPartes.push(`Mora ${data.mora.dias} días`);
+        if (data.mora?.tiene && Number(data.mora.dias) > 0) resumenPartes.push(`Mora ${data.mora.dias} ${Number(data.mora.dias) === 1 ? 'día' : 'días'}`);
         const faltantesCount = Array.isArray(data.documentacion?.faltantes) ? data.documentacion.faltantes.length : 0;
         if (faltantesCount > 0) resumenPartes.push(`${faltantesCount} documento${faltantesCount === 1 ? '' : 's'} faltante${faltantesCount === 1 ? '' : 's'}`);
         const resumenLinea = resumenPartes.length ? resumenPartes.join(' · ') : (motivos[0] || '');

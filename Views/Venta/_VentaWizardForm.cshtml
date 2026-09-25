@@ -1414,7 +1414,7 @@
                                                                                                                 Guardar sin confirmar
                                                                                                             </button>
                                                                                                         }
-                                                                                                        <p class="text-center text-[10px] mt-4 opacity-60">
+                                                                                                        <p class="text-center text-[10px] mt-4 opacity-60" data-confirmar-nota>
                                                                                                             @(esEdicion
                                                                                                                 ? $"\"Confirmar venta\" guarda los cambios y confirma la operación {Model.Numero} (tildá \"Facturar\" para facturarla en el mismo paso). \"Guardar sin confirmar\" sólo guarda los cambios."
                                                                                                                 : (esCotizacion ? "Se guardará como cotización pendiente." : "Se crea la venta pendiente de confirmación. La confirmás y facturás desde Editar."))

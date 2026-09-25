@@ -185,7 +185,7 @@
         inputClienteId.value = venta.clienteId;
         summaryNumero.textContent = venta.numero;
         summaryTipoPago.textContent = venta.tipoPagoDisplay;
-        summaryDias.textContent = `${venta.diasDesdeVenta} días`;
+        summaryDias.textContent = `${venta.diasDesdeVenta} ${Number(venta.diasDesdeVenta) === 1 ? 'día' : 'días'}`;
         summaryCliente.textContent = venta.clienteNombre;
         summaryFecha.textContent = venta.fechaVenta;
         summaryTotal.textContent = venta.totalDisplay;

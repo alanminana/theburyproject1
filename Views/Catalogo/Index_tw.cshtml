@@ -8,11 +8,58 @@
     // Pestaña activa server-side (Fase 7): además del toggle por JS, el render inicial ya
     // respeta Model.TabActiva para que un submit de filtro dentro de Alertas/Movimientos
     // (recarga completa de página) no vuelva siempre a mostrar Productos.
-    string TabBtnClass(string key) => Model.TabActiva == key
-        ? "inline-flex shrink-0 items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-slate-950 transition-colors"
-        : "inline-flex shrink-0 items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-bold text-slate-400 transition-colors hover:bg-white/5 hover:text-white";
+    // El estado activo lo expone aria-selected y lo pinta catalogo-module.css (.catalogo-tab); el JS
+    // de catalogo-index.js mantiene el mismo atributo al cambiar de pestaña sin recargar.
+    string TabSelected(string key) => Model.TabActiva == key ? "true" : "false";
     string TabPanelClass(string key) => Model.TabActiva == key ? "" : "hidden";
-    string TabIconClass(string key) => Model.TabActiva == key ? "text-slate-950" : "text-slate-500";
+
+    // Categorías: cada acción exige su permiso propio en CategoriaController (create/update/delete).
+    var puedeCrearCategoria = User.TienePermiso("categorias", "create");
+    var puedeEditarCategoria = User.TienePermiso("categorias", "update");
+    var puedeEliminarCategoria = User.TienePermiso("categorias", "delete");
+    // Con solo lectura no hay acciones por fila: la columna entera se omite (no queda vacía).
+    var mostrarAccionesCategoria = puedeEditarCategoria || puedeEliminarCategoria;
+
+    // Listado en orden jerárquico (raíz, sus hijas, siguiente raíz…). Una categoría cuyo padre no
+    // figura en el listado se trata como raíz para no perderla. Se recorre con un set de visitados
+    // por si algún dato heredado trajera un ciclo.
+    var categoriasListado = Model.CategoriasListado.ToList();
+    var idsCategorias = categoriasListado.Select(c => c.Id).ToHashSet();
+    var hijasPorPadre = categoriasListado
+        .Where(c => c.ParentId.HasValue && idsCategorias.Contains(c.ParentId.Value))
+        .ToLookup(c => c.ParentId!.Value);
+    var categoriasOrdenadas = new List<(TheBuryProject.ViewModels.CategoriaViewModel Cat, int Nivel)>();
+    var categoriasVisitadas = new HashSet<int>();
+    void AgregarCategoria(TheBuryProject.ViewModels.CategoriaViewModel cat, int nivel)
+    {
+        if (!categoriasVisitadas.Add(cat.Id)) return;
+        categoriasOrdenadas.Add((cat, nivel));
+        foreach (var hija in hijasPorPadre[cat.Id].OrderBy(h => h.Nombre, StringComparer.CurrentCultureIgnoreCase))
+        {
+            AgregarCategoria(hija, nivel + 1);
+        }
+    }
+    foreach (var raiz in categoriasListado
+                 .Where(c => !c.ParentId.HasValue || !idsCategorias.Contains(c.ParentId.Value))
+                 .OrderBy(c => c.Nombre, StringComparer.CurrentCultureIgnoreCase))
+    {
+        AgregarCategoria(raiz, 0);
+    }
+    foreach (var restante in categoriasListado.Where(c => !categoriasVisitadas.Contains(c.Id)))
+    {
+        AgregarCategoria(restante, 0);
+    }
+
+    // Opciones de "Categoría padre" de los modales Nueva/Editar: todas las categorías vigentes
+    // (activas o no) en orden jerárquico. Es la misma lista para alta y edición; el modal de edición
+    // oculta la propia categoría desde JS. El servidor sigue validando ciclos.
+    var opcionesCategoriaPadre = categoriasOrdenadas
+        .Select(x => new Microsoft.AspNetCore.Mvc.Rendering.SelectListItem
+        {
+            Value = x.Cat.Id.ToString(),
+            Text = (x.Nivel > 0 ? "— " : string.Empty) + x.Cat.Nombre + (x.Cat.Activo ? string.Empty : " (inactiva)")
+        })
+        .ToList();
 
     // El costo de envío del producto es un valor fijo: solo lo edita quien tenga el permiso
     // productos.editshippingcost (ProductoController lo vuelve a exigir en el servidor).
@@ -47,55 +94,61 @@
 <div class="card-erp-panel overflow-hidden">
 
     <!-- Tab Bar + Actions -->
-    <div class="flex flex-col gap-4 border-b border-slate-800 px-4 py-4 xl:flex-row xl:items-center xl:justify-between">
+    <div class="catalogo-topbar border-b border-slate-800 px-4 py-4" data-active-tab="@Model.TabActiva" id="catalogo-topbar">
         <div class="relative min-w-0" id="catalogo-tabs-wrapper">
-        <div class="flex gap-1 overflow-x-auto" id="catalogo-tabs">
-            <button type="button" data-catalogo-tab="productos"
-                    class="@TabBtnClass("productos")">
-                <span class="material-symbols-outlined text-base @TabIconClass("productos")" aria-hidden="true">grid_view</span>
+        <div class="flex gap-1 overflow-x-auto" id="catalogo-tabs" role="tablist" aria-label="Secciones del inventario">
+            <button type="button" role="tab" id="catalogo-tab-productos" data-catalogo-tab="productos"
+                    aria-selected="@TabSelected("productos")" aria-controls="tab-productos"
+                    class="catalogo-tab">
+                <span class="material-symbols-outlined" aria-hidden="true">grid_view</span>
                 Productos
             </button>
-            <button type="button" data-catalogo-tab="categorias"
-                    class="@TabBtnClass("categorias")">
-                <span class="material-symbols-outlined text-base @TabIconClass("categorias")" aria-hidden="true">category</span>
+            <button type="button" role="tab" id="catalogo-tab-categorias" data-catalogo-tab="categorias"
+                    aria-selected="@TabSelected("categorias")" aria-controls="tab-categorias"
+                    class="catalogo-tab">
+                <span class="material-symbols-outlined" aria-hidden="true">category</span>
                 Categorías
-                <span class="text-xs text-slate-400">(@Model.TotalCategorias)</span>
+                <span class="catalogo-tab__count">(@Model.TotalCategorias)</span>
             </button>
-            <button type="button" data-catalogo-tab="marcas"
-                    class="@TabBtnClass("marcas")">
-                <span class="material-symbols-outlined text-base @TabIconClass("marcas")" aria-hidden="true">sell</span>
+            <button type="button" role="tab" id="catalogo-tab-marcas" data-catalogo-tab="marcas"
+                    aria-selected="@TabSelected("marcas")" aria-controls="tab-marcas"
+                    class="catalogo-tab">
+                <span class="material-symbols-outlined" aria-hidden="true">sell</span>
                 Marcas
-                <span class="text-xs text-slate-400">(@Model.TotalMarcas)</span>
+                <span class="catalogo-tab__count">(@Model.TotalMarcas)</span>
             </button>
             @if (Model.MostrarTabAlertas)
             {
-                <button type="button" data-catalogo-tab="alertas"
-                        class="@TabBtnClass("alertas")">
-                    <span class="material-symbols-outlined text-base @TabIconClass("alertas")" aria-hidden="true">notifications</span>
+                <button type="button" role="tab" id="catalogo-tab-alertas" data-catalogo-tab="alertas"
+                        aria-selected="@TabSelected("alertas")" aria-controls="tab-alertas"
+                        class="catalogo-tab">
+                    <span class="material-symbols-outlined" aria-hidden="true">notifications</span>
                     Alertas
                     @if (Model.AlertasPartial?.TotalPendientes > 0)
                     {
-                        <span class="text-xs text-slate-400">(@Model.AlertasPartial.TotalPendientes)</span>
+                        <span class="catalogo-tab__count">(@Model.AlertasPartial.TotalPendientes)</span>
                     }
                 </button>
             }
             @if (Model.MostrarTabMovimientos)
             {
-                <button type="button" data-catalogo-tab="movimientos"
-                        class="@TabBtnClass("movimientos")">
-                    <span class="material-symbols-outlined text-base @TabIconClass("movimientos")" aria-hidden="true">sync_alt</span>
+                <button type="button" role="tab" id="catalogo-tab-movimientos" data-catalogo-tab="movimientos"
+                        aria-selected="@TabSelected("movimientos")" aria-controls="tab-movimientos"
+                        class="catalogo-tab">
+                    <span class="material-symbols-outlined" aria-hidden="true">sync_alt</span>
                     Movimientos
                 </button>
             }
         </div>
         </div>
-        <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center xl:justify-end">
+        <div class="catalogo-topbar__actions flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
             <a asp-controller="Producto" asp-action="UnidadesGlobal"
                class="btn-erp-ghost btn-sm w-full sm:w-auto">
                 <span class="material-symbols-outlined text-sm">inventory_2</span>
                 Inventario
             </a>
-            <button type="button" id="btn-ajuste-masivo" data-catalogo-modal-open="precio"
+            <button type="button" id="btn-ajuste-masivo" data-catalogo-modal-open="precio" data-productos-only
+                    hidden="@(Model.TabActiva != "productos")"
                     class="btn-erp-secondary btn-sm sm:w-auto">
                 <span class="material-symbols-outlined text-sm">edit_calendar</span>
                 <span id="btn-ajuste-masivo-label">Ajuste Masivo</span>
@@ -105,7 +158,8 @@
             </button>
             <button type="button"
                     id="btn-crear-producto"
-                    data-catalogo-modal-open="producto"
+                    data-catalogo-modal-open="producto" data-productos-only
+                    hidden="@(Model.TabActiva != "productos")"
                     class="btn-erp-primary btn-sm w-full sm:w-auto">
                 <span class="material-symbols-outlined text-sm" aria-hidden="true">add</span>
                 Nuevo producto
@@ -118,7 +172,7 @@
     </div>
 
     <!-- Tab: Productos -->
-<div id="tab-productos" class="@TabPanelClass("productos")">
+<div id="tab-productos" role="tabpanel" aria-labelledby="catalogo-tab-productos" class="@TabPanelClass("productos")">
 
     @* ============================================================
        FILTROS COMPACTOS
@@ -907,27 +961,30 @@
 </div>
 
     <!-- Tab: Categorías -->
-    <div id="tab-categorias" class="@TabPanelClass("categorias")">
+    <div id="tab-categorias" role="tabpanel" aria-labelledby="catalogo-tab-categorias" class="@TabPanelClass("categorias")">
         <div class="border-b border-slate-800 px-5 py-4">
             <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
                 <div>
                     <h2 class="text-base font-bold text-white">Categorías registradas</h2>
                     <p class="text-sm text-slate-400">
-                        Mantené la estructura del catálogo y revisá jerarquías activas e inactivas.
+                        Organizá el catálogo en categorías y subcategorías.
                     </p>
                 </div>
-                <div class="flex items-center gap-3">
-                    <button type="button" id="btn-crear-categoria" data-catalogo-modal-open="categoria"
-                            class="btn-erp-primary btn-sm">
-                        <span class="material-symbols-outlined text-sm">add</span>
-                        Nueva Categoría
-                    </button>
-                </div>
+                @if (puedeCrearCategoria)
+                {
+                    <div class="flex items-center gap-3">
+                        <button type="button" id="btn-crear-categoria" data-catalogo-modal-open="categoria"
+                                class="btn-erp-primary btn-sm">
+                            <span class="material-symbols-outlined text-sm" aria-hidden="true">add</span>
+                            Nueva categoría
+                        </button>
+                    </div>
+                }
             </div>
         </div>
 
         <!-- Categories Table -->
-        <div data-oc-scroll class="relative" style="--oc-scroll-min-width: 980px;">
+        <div data-oc-scroll class="relative" style="--oc-scroll-min-width: 640px;">
             <div data-oc-scroll-hint hidden class="px-5 pt-4 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400 lg:hidden">
                 Deslizá la tabla para ver la jerarquía y las acciones.
             </div>
@@ -940,32 +997,32 @@
                     <tr class="bg-slate-800/30 border-b border-slate-800">
                         <th data-card="half" scope="col" class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Código</th>
                         <th data-card="title" scope="col" class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Categoría</th>
-                        <th data-card="half" scope="col" class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Categoría Padre</th>
+                        <th data-card="half" scope="col" class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Categoría padre</th>
                         <th data-card="half" scope="col" class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-center">Estado</th>
-                        <th scope="col" class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right">Acciones</th>
+                        @if (mostrarAccionesCategoria)
+                        {
+                            <th data-card="actions" scope="col" class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right">Acciones</th>
+                        }
                     </tr>
                 </thead>
                 <tbody id="categorias-tbody" class="divide-y divide-slate-800">
-                    @if (Model.CategoriasListado.Any())
+                    @if (categoriasOrdenadas.Count > 0)
                     {
-                        @foreach (var cat in Model.CategoriasListado)
+                        @foreach (var (cat, nivel) in categoriasOrdenadas)
                         {
-                            <tr class="hover:bg-white/5 transition-colors @(!cat.Activo ? "opacity-50" : "")">
-                                <td class="px-4 py-3 text-sm font-mono text-slate-400">@cat.Codigo</td>
+                            <tr class="hover:bg-white/5 transition-colors @(nivel > 0 ? "cat-row--child" : "") @(!cat.Activo ? "cat-row--inactive" : "")">
+                                <td class="whitespace-nowrap px-4 py-3 text-sm font-mono text-slate-400">@cat.Codigo</td>
                                 <td class="px-4 py-3">
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-10 h-10 rounded bg-slate-800 flex items-center justify-center shrink-0">
-                                            <span class="material-symbols-outlined text-slate-400 text-lg">category</span>
-                                        </div>
-                                        <div>
+                                    <div class="cat-row__name">
+                                        @if (nivel > 0)
+                                        {
+                                            <span class="material-symbols-outlined cat-row__branch" aria-hidden="true">subdirectory_arrow_right</span>
+                                        }
+                                        <div class="min-w-0">
                                             <span class="text-sm font-semibold text-white">@cat.Nombre</span>
                                             @if (!string.IsNullOrEmpty(cat.Descripcion))
                                             {
-                                                <p class="text-[10px] text-slate-400 truncate max-w-62.5">@cat.Descripcion</p>
-                                            }
-                                            @if (!cat.Activo)
-                                            {
-                                                <span class="text-[10px] font-bold text-red-400">Inactivo</span>
+                                                <p class="max-w-62.5 truncate text-xs text-slate-400" title="@cat.Descripcion">@cat.Descripcion</p>
                                             }
                                         </div>
                                     </div>
@@ -975,39 +1032,54 @@
                                     @if (cat.Activo)
                                     {
                                         <span class="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-green-500/20 text-green-400 border border-green-500/30">
-                                            Activo
+                                            Activa
                                         </span>
                                     }
                                     else
                                     {
                                         <span class="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-red-500/20 text-red-400 border border-red-500/30">
-                                            Inactivo
+                                            Inactiva
                                         </span>
                                     }
                                 </td>
-                                <td class="px-4 py-3 text-right" style="min-width: 240px;">
-                                    <div class="flex flex-wrap justify-end gap-2">
-                                        <button type="button" data-cat-edit-id="@cat.Id"
-                                                class="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-1.5 text-xs font-semibold text-slate-300 transition-colors hover:border-slate-600 hover:bg-slate-800 hover:text-white" title="Editar">
-                                            <span class="material-symbols-outlined text-base">edit</span>
-                                            <span>Editar</span>
-                                        </button>
-                                        <button type="button" data-cat-delete-id="@cat.Id" data-cat-delete-nombre="@cat.Nombre"
-                                                class="inline-flex items-center gap-1.5 rounded-lg border border-red-500/30 px-2.5 py-1.5 text-xs font-semibold text-red-400 transition-colors hover:bg-red-500/10 hover:text-red-400" title="Eliminar">
-                                            <span class="material-symbols-outlined text-base">delete</span>
-                                            <span>Eliminar</span>
-                                        </button>
+                                @if (mostrarAccionesCategoria)
+                                {
+                                <td class="px-4 py-3 text-right">
+                                    <div class="cat-row__actions">
+                                        @if (puedeEditarCategoria)
+                                        {
+                                            <button type="button" data-cat-edit-id="@cat.Id"
+                                                    class="row-action row-action--primary"
+                                                    aria-label="Editar categoría @cat.Nombre" title="Editar">
+                                                <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+                                                <span class="row-action__label">Editar</span>
+                                            </button>
+                                        }
+                                        @if (puedeEliminarCategoria)
+                                        {
+                                            <button type="button" data-cat-delete-id="@cat.Id" data-cat-delete-nombre="@cat.Nombre"
+                                                    class="row-action row-action--danger"
+                                                    aria-label="Eliminar categoría @cat.Nombre" title="Eliminar">
+                                                <span class="material-symbols-outlined" aria-hidden="true">delete</span>
+                                                <span class="row-action__label">Eliminar</span>
+                                            </button>
+                                        }
                                     </div>
                                 </td>
+                                }
                             </tr>
                         }
                     }
                     else
                     {
                         <tr>
-                            <td colspan="5" class="py-12 text-center">
-                                <span class="material-symbols-outlined text-4xl text-slate-600 mb-2 block">category</span>
-                                <p class="text-sm font-bold text-slate-400">No se encontraron categorías</p>
+                            <td colspan="@(mostrarAccionesCategoria ? 5 : 4)" class="py-12 text-center">
+                                <span class="material-symbols-outlined text-4xl text-slate-600 mb-2 block" aria-hidden="true">category</span>
+                                <p class="text-sm font-bold text-slate-400">Todavía no hay categorías</p>
+                                @if (puedeCrearCategoria)
+                                {
+                                    <p class="mt-1 text-xs text-slate-500">Creá la primera con «Nueva categoría» para poder clasificar tus productos.</p>
+                                }
                             </td>
                         </tr>
                     }
@@ -1017,16 +1089,13 @@
             </div>
         </div>
         <!-- Footer -->
-        <div class="flex flex-col gap-2 border-t border-slate-800 px-6 py-4 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between">
-            <span class="text-xs text-slate-400">
-                Mostrando @Model.CategoriasListado.Count() categorías
-            </span>
-            <span>Acciones rápidas disponibles al final de cada fila.</span>
+        <div class="border-t border-slate-800 px-6 py-4 text-xs text-slate-400">
+            @categoriasOrdenadas.Count @(categoriasOrdenadas.Count == 1 ? "categoría" : "categorías")
         </div>
     </div>
 
     <!-- Tab: Marcas -->
-    <div id="tab-marcas" class="@TabPanelClass("marcas")">
+    <div id="tab-marcas" role="tabpanel" aria-labelledby="catalogo-tab-marcas" class="@TabPanelClass("marcas")">
         <div class="border-b border-slate-800 px-5 py-4">
             <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
                 <div>
@@ -1149,7 +1218,7 @@
     @* Tab: Alertas — reusa el listado real de AlertaStock/Index_tw embebido (Fase 7). *@
     @if (Model.MostrarTabAlertas)
     {
-        <div id="tab-alertas" class="space-y-6 p-5 @TabPanelClass("alertas")">
+        <div id="tab-alertas" role="tabpanel" aria-labelledby="catalogo-tab-alertas" class="space-y-6 p-5 @TabPanelClass("alertas")">
             @if (Model.AlertasPartial != null)
             {
                 @* Ruta completa: desde Catalogo/Index_tw, un nombre corto solo buscaría en
@@ -1170,7 +1239,7 @@
     @* Tab: Movimientos — reusa el listado real de MovimientoStock/Index_tw embebido (Fase 7). *@
     @if (Model.MostrarTabMovimientos)
     {
-        <div id="tab-movimientos" class="space-y-6 p-5 @TabPanelClass("movimientos")">
+        <div id="tab-movimientos" role="tabpanel" aria-labelledby="catalogo-tab-movimientos" class="space-y-6 p-5 @TabPanelClass("movimientos")">
             @if (Model.MovimientosPartial != null)
             {
                 @* Ruta completa: desde Catalogo/Index_tw, un nombre corto solo buscaría en
@@ -2153,33 +2222,32 @@
     <div class="relative w-full max-w-3xl max-h-[90vh] overflow-hidden bg-slate-900 rounded-xl shadow-2xl border border-slate-800 flex flex-col">
 
         <!-- Header -->
-        <header class="flex items-center justify-between border-b border-slate-800 px-6 py-4">
+        <header class="flex shrink-0 items-center justify-between border-b border-slate-800 px-6 py-4">
             <div class="flex flex-col">
                 <div class="flex items-center gap-2 text-xs font-medium text-slate-400 mb-1">
                     <span>Inventario</span>
-                    <span class="material-symbols-outlined text-sm">chevron_right</span>
+                    <span class="material-symbols-outlined text-sm" aria-hidden="true">chevron_right</span>
                     <span class="text-primary">Categorías</span>
                 </div>
-                <h2 id="modal-nueva-categoria-title" class="text-xl font-bold text-white">Nueva Categoría</h2>
-                <p class="text-sm text-slate-400">Administra las categorías de tus productos para organizar mejor tu inventario.</p>
+                <h2 id="modal-nueva-categoria-title" class="text-xl font-bold text-white">Nueva categoría</h2>
             </div>
-            <button type="button" data-catalogo-modal-close="categoria" class="p-2 hover:bg-slate-800 rounded-full transition-colors text-slate-400">
-                <span class="material-symbols-outlined">close</span>
+            <button type="button" data-catalogo-modal-close="categoria" aria-label="Cerrar" class="p-2 hover:bg-slate-800 rounded-full transition-colors text-slate-400">
+                <span class="material-symbols-outlined" aria-hidden="true">close</span>
             </button>
         </header>
 
         <!-- Form -->
-        <form id="form-nueva-categoria" method="post" asp-controller="Categoria" asp-action="CreateAjax">
+        <form id="form-nueva-categoria" method="post" novalidate class="catalogo-modal-form" asp-controller="Categoria" asp-action="CreateAjax">
             @Html.AntiForgeryToken()
 
             <!-- Scrollable Content -->
-            <div class="flex-1 overflow-y-auto p-6 space-y-6 modal-scroll-90-140">
+            <div class="catalogo-modal-form__body p-6 space-y-6">
 
                 <!-- Validation Summary -->
                 <div id="cat-modal-validation-summary" role="alert" aria-live="assertive" aria-atomic="true" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 gap-3">
-                    <span class="material-symbols-outlined text-red-500">error</span>
+                    <span class="material-symbols-outlined text-red-500" aria-hidden="true">error</span>
                     <div>
-                        <h4 class="text-sm font-bold text-red-500">Errores de validación</h4>
+                        <h4 class="text-sm font-bold text-red-500">Revisá los datos</h4>
                         <p id="cat-modal-validation-text" class="text-xs text-red-400/80 mt-1"></p>
                     </div>
                 </div>
@@ -2187,60 +2255,31 @@
                 <!-- Section: Datos de la categoría -->
                 <div class="bg-slate-900/50 rounded-xl border border-slate-800 p-6">
                     <div class="flex items-center gap-2 mb-6 border-b border-slate-800 pb-4">
-                        <span class="material-symbols-outlined text-primary">inventory_2</span>
+                        <span class="material-symbols-outlined text-primary" aria-hidden="true">inventory_2</span>
                         <h3 class="text-white text-xl font-bold">Datos de la categoría</h3>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         @await Html.PartialAsync("_CategoriaModalFields", new TheBuryProject.ViewModels.CategoriaModalFieldsViewModel
                         {
                             Prefix = "cat-modal",
-                            CategoriasFiltro = Model.CategoriasFiltro,
-                            AlicuotasIVADatos = ViewBag.AlicuotasIVADatos
+                            CategoriasPadre = opcionesCategoriaPadre,
+                            AlicuotasIVADatos = ViewBag.AlicuotasIVADatos,
+                            ActivaPorDefecto = true
                         })
-                    </div>
-                </div>
-
-                <!-- Section: Opciones -->
-                <div class="bg-slate-900/50 rounded-xl border border-slate-800 p-6">
-                    <div class="flex items-center gap-2 mb-6 border-b border-slate-800 pb-4">
-                        <span class="material-symbols-outlined text-primary">settings</span>
-                        <h3 class="text-white text-xl font-bold">Opciones</h3>
-                    </div>
-                    <div class="space-y-6">
-                        <div class="flex items-start justify-between gap-4">
-                            <div class="flex flex-col gap-1">
-                                <p class="text-sm font-semibold text-slate-300">Control de serie por defecto</p>
-                                <p class="text-xs text-slate-400">Activa esto si los productos de esta categoría requieren control de número de serie</p>
-                            </div>
-                            <label class="relative inline-flex items-center cursor-pointer">
-                                <input name="ControlSerieDefault" type="checkbox" value="true" class="sr-only peer" />
-                                <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:inset-s-0.5 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-colors peer-checked:bg-primary"></div>
-                            </label>
-                        </div>
-                        <div class="flex items-start justify-between gap-4">
-                            <div class="flex flex-col gap-1">
-                                <p class="text-sm font-semibold text-slate-300">Activo</p>
-                                <p class="text-xs text-slate-400">Define si esta categoría está disponible para ser usada en el sistema</p>
-                            </div>
-                            <label class="relative inline-flex items-center cursor-pointer">
-                                <input name="Activo" type="checkbox" value="true" checked class="sr-only peer" />
-                                <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:inset-s-0.5 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-colors peer-checked:bg-primary"></div>
-                            </label>
-                        </div>
                     </div>
                 </div>
             </div>
 
             <!-- Footer -->
-            <footer class="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-800 bg-slate-900/50">
+            <footer class="flex shrink-0 items-center justify-end gap-3 px-6 py-4 border-t border-slate-800 bg-slate-900/50">
                 <button type="button" data-catalogo-modal-close="categoria"
-                        class="px-6 py-2.5 rounded-lg border border-slate-800 text-slate-300 font-bold text-sm hover:bg-slate-800 transition-colors">
+                        class="whitespace-nowrap px-6 py-2.5 rounded-lg border border-slate-800 text-slate-300 font-bold text-sm hover:bg-slate-800 transition-colors">
                     Cancelar
                 </button>
                 <button type="submit" id="btn-guardar-categoria"
-                        class="px-6 py-2.5 rounded-lg bg-primary text-white font-bold text-sm hover:bg-primary/90 shadow-lg shadow-primary/20 transition-colors flex items-center gap-2">
-                    <span class="material-symbols-outlined text-[18px]">save</span>
-                    Guardar Categoría
+                        class="whitespace-nowrap px-6 py-2.5 rounded-lg bg-primary text-white font-bold text-sm hover:bg-primary/90 shadow-lg shadow-primary/20 transition-colors flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[18px]" aria-hidden="true">save</span>
+                    Guardar categoría
                 </button>
             </footer>
         </form>
@@ -2251,74 +2290,55 @@
 <div id="modal-editar-categoria" role="dialog" aria-modal="true" aria-labelledby="modal-editar-categoria-title" class="fixed inset-0 z-50 hidden items-center justify-center p-4 sm:p-6">
     <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" data-cat-edit-modal-close></div>
     <div class="relative w-full max-w-3xl max-h-[90vh] overflow-hidden bg-slate-900 rounded-xl shadow-2xl border border-slate-800 flex flex-col">
-        <header class="flex items-center justify-between border-b border-slate-800 px-6 py-4">
+        <header class="flex shrink-0 items-center justify-between border-b border-slate-800 px-6 py-4">
             <div class="flex flex-col">
                 <div class="flex items-center gap-2 text-xs font-medium text-slate-400 mb-1">
                     <span>Inventario</span>
-                    <span class="material-symbols-outlined text-sm">chevron_right</span>
+                    <span class="material-symbols-outlined text-sm" aria-hidden="true">chevron_right</span>
                     <span class="text-primary">Categorías</span>
                 </div>
-                <h2 id="modal-editar-categoria-title" class="text-xl font-bold text-white">Editar Categoría</h2>
+                <h2 id="modal-editar-categoria-title" class="text-xl font-bold text-white">Editar categoría</h2>
             </div>
-            <button type="button" data-cat-edit-modal-close class="p-2 hover:bg-slate-800 rounded-full transition-colors text-slate-400">
-                <span class="material-symbols-outlined">close</span>
+            <button type="button" data-cat-edit-modal-close aria-label="Cerrar" class="p-2 hover:bg-slate-800 rounded-full transition-colors text-slate-400">
+                <span class="material-symbols-outlined" aria-hidden="true">close</span>
             </button>
         </header>
-        <form id="form-editar-categoria" method="post">
+        <form id="form-editar-categoria" method="post" novalidate class="catalogo-modal-form">
             @Html.AntiForgeryToken()
             <input type="hidden" name="Id" id="cat-edit-id" />
             <input type="hidden" name="RowVersion" id="cat-edit-rowversion" />
-            <div class="flex-1 overflow-y-auto p-6 space-y-6 modal-scroll-90-140">
+            <div class="catalogo-modal-form__body p-6 space-y-6">
                 <div id="cat-edit-validation-summary" role="alert" aria-live="assertive" aria-atomic="true" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-4 gap-3">
-                    <span class="material-symbols-outlined text-red-500">error</span>
+                    <span class="material-symbols-outlined text-red-500" aria-hidden="true">error</span>
                     <div>
-                        <h4 class="text-sm font-bold text-red-500">Errores de validación</h4>
+                        <h4 class="text-sm font-bold text-red-500">Revisá los datos</h4>
                         <p id="cat-edit-validation-text" class="text-xs text-red-400/80 mt-1"></p>
                     </div>
                 </div>
                 <div class="bg-slate-900/50 rounded-xl border border-slate-800 p-6">
                     <div class="flex items-center gap-2 mb-6 border-b border-slate-800 pb-4">
-                        <span class="material-symbols-outlined text-primary">inventory_2</span>
+                        <span class="material-symbols-outlined text-primary" aria-hidden="true">inventory_2</span>
                         <h3 class="text-white text-xl font-bold">Datos de la categoría</h3>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         @await Html.PartialAsync("_CategoriaModalFields", new TheBuryProject.ViewModels.CategoriaModalFieldsViewModel
                         {
                             Prefix = "cat-edit",
+                            CategoriasPadre = opcionesCategoriaPadre,
                             AlicuotasIVADatos = ViewBag.AlicuotasIVADatos
                         })
-                        <div class="flex items-center justify-between p-4 bg-slate-800/30 rounded-lg border border-slate-800 md:col-span-2">
-                            <div>
-                                <p class="text-sm font-bold text-white">Control de Serie por Defecto</p>
-                                <p class="text-xs text-slate-400">Controlar números de serie en este grupo</p>
-                            </div>
-                            <label class="relative inline-flex items-center cursor-pointer">
-                                <input name="ControlSerieDefault" id="cat-edit-controlSerie" type="checkbox" value="true" class="sr-only peer" />
-                                <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:border-slate-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-colors peer-checked:bg-primary"></div>
-                            </label>
-                        </div>
-                        <div class="flex items-center justify-between p-4 bg-slate-800/30 rounded-lg border border-slate-800 md:col-span-2">
-                            <div>
-                                <p class="text-sm font-bold text-white">Activo</p>
-                                <p class="text-xs text-slate-400">Habilitar esta categoría en el sistema</p>
-                            </div>
-                            <label class="relative inline-flex items-center cursor-pointer">
-                                <input name="Activo" id="cat-edit-activo" type="checkbox" value="true" class="sr-only peer" />
-                                <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:border-slate-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-colors peer-checked:bg-primary"></div>
-                            </label>
-                        </div>
                     </div>
                 </div>
             </div>
-            <footer class="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-800 bg-slate-900/50">
+            <footer class="flex shrink-0 items-center justify-end gap-3 px-6 py-4 border-t border-slate-800 bg-slate-900/50">
                 <button type="button" data-cat-edit-modal-close
-                        class="px-6 py-2.5 rounded-lg border border-slate-800 text-slate-300 font-bold text-sm hover:bg-slate-800 transition-colors">
+                        class="whitespace-nowrap px-6 py-2.5 rounded-lg border border-slate-800 text-slate-300 font-bold text-sm hover:bg-slate-800 transition-colors">
                     Cancelar
                 </button>
                 <button type="submit" id="btn-guardar-cat-edit"
-                        class="px-6 py-2.5 rounded-lg bg-primary text-white font-bold text-sm hover:bg-primary/90 shadow-lg shadow-primary/20 transition-colors flex items-center gap-2">
-                    <span class="material-symbols-outlined text-[18px]">save</span>
-                    Guardar Cambios
+                        class="whitespace-nowrap px-6 py-2.5 rounded-lg bg-primary text-white font-bold text-sm hover:bg-primary/90 shadow-lg shadow-primary/20 transition-colors flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[18px]" aria-hidden="true">save</span>
+                    Guardar cambios
                 </button>
             </footer>
         </form>

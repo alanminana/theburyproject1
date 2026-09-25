@@ -189,14 +189,16 @@
             movimientos: document.getElementById('tab-movimientos')
         };
 
-        var btnAjusteMasivo = document.getElementById('btn-ajuste-masivo');
+        var topbar = document.getElementById('catalogo-topbar');
+        // Acciones que solo aplican al panel Productos (Ajuste masivo, Nuevo producto).
+        var productosOnly = document.querySelectorAll('[data-productos-only]');
 
         // Fase 7: con 5 pestañas la barra puede no entrar completa en mobile
         // (overflow-x-auto). Sin esto, entrar directo por ?tab=alertas o
         // ?tab=movimientos en un celular deja la pestaña activa marcada pero
         // scrolleada fuera de vista.
         function scrollActiveTabIntoView() {
-            var activeBtn = tabContainer.querySelector('[data-catalogo-tab].border-primary');
+            var activeBtn = tabContainer.querySelector('[data-catalogo-tab][aria-selected="true"]');
             if (!activeBtn) return;
             var wrapperRect = tabContainer.getBoundingClientRect();
             var btnRect = activeBtn.getBoundingClientRect();
@@ -207,17 +209,25 @@
             }
         }
 
-        function switchTab(target) {
-            buttons.forEach(function (button) {
-                button.classList.remove('border-primary', 'text-primary', 'bg-primary/10');
-                button.classList.add('border-transparent', 'text-slate-500', 'dark:text-slate-400');
-            });
+        // Mantiene ?tab= en la URL (sin apilar historial) para que recargar, volver o compartir
+        // el enlace conserve la pestaña. El resto de la query (filtros de Productos) no se toca.
+        function syncUrl(target) {
+            try {
+                var url = new URL(window.location.href);
+                if (url.searchParams.get('tab') === target) return;
+                url.searchParams.set('tab', target);
+                window.history.replaceState(window.history.state, '', url.toString());
+            } catch (_) { /* URL no modificable: no es crítico */ }
+        }
 
-            var activeBtn = tabContainer.querySelector('[data-catalogo-tab="' + target + '"]');
-            if (activeBtn) {
-                activeBtn.classList.add('border-primary', 'text-primary', 'bg-primary/10');
-                activeBtn.classList.remove('border-transparent', 'text-slate-500', 'dark:text-slate-400');
-            }
+        function switchTab(target, focusButton) {
+            buttons.forEach(function (button) {
+                var activa = getTabValue(button) === target;
+                button.setAttribute('aria-selected', activa ? 'true' : 'false');
+                // Roving tabindex: solo la pestaña activa entra en el orden de tabulación; las flechas mueven entre pestañas.
+                button.tabIndex = activa ? 0 : -1;
+                if (activa && focusButton) button.focus();
+            });
 
             Object.keys(panels).forEach(function (key) {
                 if (panels[key]) {
@@ -225,14 +235,12 @@
                 }
             });
 
-            if (btnAjusteMasivo) {
-                btnAjusteMasivo.classList.toggle('hidden', target !== 'productos');
-                if (target === 'productos') {
-                    btnAjusteMasivo.classList.add('flex');
-                } else {
-                    btnAjusteMasivo.classList.remove('flex');
-                }
-            }
+            if (topbar) topbar.setAttribute('data-active-tab', target);
+            productosOnly.forEach(function (node) {
+                node.hidden = target !== 'productos';
+            });
+
+            syncUrl(target);
 
             var selectionApi = getProductSelectionApi();
             if (selectionApi && typeof selectionApi.refreshUi === 'function') {
@@ -249,6 +257,25 @@
             button.addEventListener('click', function () {
                 switchTab(getTabValue(button));
             });
+        });
+
+        tabContainer.addEventListener('keydown', function (event) {
+            var lista = Array.prototype.slice.call(buttons);
+            var actual = lista.indexOf(document.activeElement);
+            if (actual === -1) return;
+            var siguiente = null;
+            if (event.key === 'ArrowRight') siguiente = (actual + 1) % lista.length;
+            else if (event.key === 'ArrowLeft') siguiente = (actual - 1 + lista.length) % lista.length;
+            else if (event.key === 'Home') siguiente = 0;
+            else if (event.key === 'End') siguiente = lista.length - 1;
+            if (siguiente === null) return;
+            event.preventDefault();
+            switchTab(getTabValue(lista[siguiente]), true);
+        });
+
+        // Estado inicial: tabindex acorde a la pestaña que el servidor marcó como activa.
+        buttons.forEach(function (button) {
+            button.tabIndex = button.getAttribute('aria-selected') === 'true' ? 0 : -1;
         });
 
         window.requestAnimationFrame(function () {

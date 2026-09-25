@@ -17,6 +17,7 @@ faltan. Actualizar esta tabla al cerrar cada pantalla.
 | Cliente | `Nuevo cliente` (drawer Create) | ✅ Cerrado | serie wizard Cliente (ver resumen abajo) |
 | Cliente | `Details` | ✅ Cerrado | serie CLIENTE-DETAILS-TABS (ver resumen abajo) |
 | Catálogo | `Inventario` (tab Productos) | ✅ Cerrado | ver resumen abajo |
+| Catálogo | `Inventario` (tab Categorías + modales Nueva/Editar + eliminar) | ✅ Cerrado (2026-09-25) | CATEGORIA-CIERRE-01 (ver resumen abajo) |
 
 Leyenda:
 
@@ -157,6 +158,33 @@ Resumen no cronológico de lo que quedó implementado:
   Suite completa 4996/4996 (4 omitidos: seeders E2E). Sin resolver: cotizador con textos de
   10–11.5px propios; Details de Cotización sin "Confirmar" es decisión previa del usuario;
   aplicar la excepción crea un borrador de venta (CreateAjax) que queda huérfano si se abandona.
+- `/ui-module ventas`, cierre del módulo (2026-09-25; instancias propias :5290 sobre la base real y :5199 sobre
+  una copia `_qa`, ya eliminadas). Recorrido: Index, Create (Cotizar → "Continuar con wizard"), Edit (5 pasos y
+  paso Crédito con excepción documental), Details, Facturar (emisión real), Devolución (creada), Cancelar
+  (ejecutada), Autorizar, Rechazar, Cotización y Listado; 5 viewports, sin overflow ni errores HTTP/consola.
+  Fases formales ejecutadas: `ux-heuristics`, Impeccable critique dual-agent (26/40, detector 0 hallazgos),
+  polish y QA final. Correcciones: (1) P1 flujo: con un turno de caja abierto de un día anterior el aviso
+  decía "Sin caja abierta" y "Abrir caja" llevaba a un formulario sin cajas (callejón sin salida) — Index y
+  Details distinguen "Turno de caja vencido" (caja y fecha) y su CTA lleva a Cajas; Details ya no dice "Sin
+  acciones disponibles" cuando el bloqueo es la caja; (2) el texto de ayuda bajo el CTA del wizard sólo se
+  muestra en el paso que confirma; (3) "Continuar con wizard" sin cliente avisa antes de guardar (ya no deja
+  una cotización escrita); (4) cotizador: textos de 10–11.5px llevados a 12px, con cabeceras/etiquetas acortadas
+  ("Subtotal", "Cuotas", "Cuota") donde el tamaño nuevo las truncaba; (5) Listado de Cotización: labels
+  asociados a sus campos (a11y), tildes en título/cabeceras; (6) tabs de Index en <1024px con degradé que indica
+  que se deslizan; (7) "1 días" → "1 día" (modal de devolución y mora del cotizador); (8) "Próximo paso…" en
+  Details de una Cotización → "Esperando confirmación". 2034/2034 tests `Venta*`/`Cotizacion*`/`Devolucion*`/`Ui*`
+  (2 nuevos). Cabeceras alineadas a ERP-UI-STANDARD §4 (sin hero, título en la barra global): Details
+  pasa a "Detalle de venta" en la barra y la miga ("Ventas / Detalle"), así el número de venta aparece una
+  sola vez (H1 con su estado); el Listado de Cotización pierde su hero (la descripción y "Nueva cotización"
+  pasan a la cabecera del card de filtros, H1 sólo para lectores de pantalla); el cotizador standalone deja
+  de repetir "Cotización" bajo la barra global (embebido en Venta/Create sigue como título del paso).
+  En la copia de la base también se ejecutaron anulación de factura y Delete de venta (desktop y mobile).
+  Segunda crítica Impeccable dual-agent sobre las cabeceras (26/40, detector 0 hallazgos; QA en 1440/1280/768/390
+  sin overflow ni errores). Corregido: "Ventas" queda activo en el sidebar en Cotización y su Listado; h1 sólo
+  para lectores de pantalla en Venta/Index y Cotización; selects/buscador del panel de tickets con aria-label;
+  copy del Listado. Decisiones/deuda: el acento menta del cotizador es la decisión de COTIZACION-MOCKUP (no se
+  unifica con el lima de Ventas); filtros del Listado apilados en mobile y "Cotizaciones" con tres accesos/nombres
+  quedan como deuda de diseño.
 
 ## Venta / Create + Edit — cerrados conjuntamente
 
@@ -1686,19 +1714,6 @@ el código realmente hace:
 Sin cambios de permisos (`clientes.delete`), rutas ni del servicio. Validado en 5 viewports, sin
 overflow ni errores de consola; 503/503 `Cliente*`. Técnicamente: ✅ · Visualmente: ✅ · Flujo UX: ✅.
 
-## Cliente / Index — cerrado (CLIENTE-INDEX-SIN-HERO-01)
-
-La búsqueda/filtros/paginación/permisos de esta pantalla se implementaron el 2026-09-14
-(ver historial de memoria del proyecto) sin actualizar esta tabla en su momento. Este
-lote (mismo día que VENTA-INDEX-SIN-HERO-01) cierra específicamente el patrón de header,
-a pedido explícito del usuario tras comparar capturas reales de Inventario/Cliente/Ventas
-y preferir la composición sin hero de Catálogo:
-
-- se retira el `<header class="hero-erp cliente-page-head">` (título `<h1>Gestión de
-  Clientes</h1>` + subtítulo "Buscá y administrá tus clientes." + acciones) — el título ya
-  lo muestra la barra superior global (`_Layout.cshtml`), y el subtítulo era descriptivo
-  sin valor de decisión, redundante con el propio nombre de la pantalla;
-- "Nuevo cliente" y el menú "Más" (Documentos/Créditos/Límites por puntaje) se mueven a
 ### Cliente / cierre de módulo — barrido `/ui-module` (2026-09-25)
 
 Barrido de todas las superficies del módulo (Index con datos y sin resultados, menú "Más", modal
@@ -1720,6 +1735,19 @@ Validación técnica: 503/503 tests `Cliente*` (2 omitidos por diseño). Lo que 
 **Crítica `impeccable critique` (dual-agent: A revisión de diseño 26/40 · B detector + evidencia de navegador)**. Detector estático sobre `Views/Cliente`: exit 0, 0 hallazgos; el overlay vivo (headless, sin pestaña [Human]) dio ruido heredado del shell compartido (`layout-transition`, `clipped-overflow-container`, `dark-glow` del token primario). Corregido en esta pasada: (1) Details: la card "Crédito disponible" seguía en lima junto a "No apto" (contradicción; ahora neutra y con "· no habilita operar a crédito" / "· requiere autorización"); (2) Index: el nombre del cliente era lo más liviano de la fila (ahora 14px/600); (3) el menú "Más" quedaba abierto detrás del modal de límites (se cierra al abrirlo). No se tocó, con motivo: filtros `tp-filter-*` sin etiqueta (pertenecen al panel de tickets del layout, no a Clientes); contraste 4.0:1 de `#15110a` sobre `#607e16` (token compartido de gradiente lima, fuera del módulo); targets táctiles de 40px en mobile (el estándar del ERP no fija 44px); nombre en minúsculas (dato cargado); "Crediticio" vs "Crédito" (contenidos distintos: montos personalizados vs resumen); filtro rápido por aptitud y compactar importes (funcionalidad nueva, no pedida).
 
 
+## Cliente / Index — cerrado (CLIENTE-INDEX-SIN-HERO-01)
+
+La búsqueda/filtros/paginación/permisos de esta pantalla se implementaron el 2026-09-14
+(ver historial de memoria del proyecto) sin actualizar esta tabla en su momento. Este
+lote (mismo día que VENTA-INDEX-SIN-HERO-01) cierra específicamente el patrón de header,
+a pedido explícito del usuario tras comparar capturas reales de Inventario/Cliente/Ventas
+y preferir la composición sin hero de Catálogo:
+
+- se retira el `<header class="hero-erp cliente-page-head">` (título `<h1>Gestión de
+  Clientes</h1>` + subtítulo "Buscá y administrá tus clientes." + acciones) — el título ya
+  lo muestra la barra superior global (`_Layout.cshtml`), y el subtítulo era descriptivo
+  sin valor de decisión, redundante con el propio nombre de la pantalla;
+- "Nuevo cliente" y el menú "Más" (Documentos/Créditos/Límites por puntaje) se mueven a
   una toolbar dentro del mismo card de contenido (`.cliente-section`), alineada a la
   derecha por encima de "Listado de clientes" — mismo criterio que la fila de
   tabs+acciones de `Catálogo/Index_tw.cshtml` y `Venta/Index_tw.cshtml`
@@ -1851,6 +1879,65 @@ la tabla).
 Deuda conocida, no iniciada en este lote: Categorías/Marcas/Alertas/Movimientos se
 benefician del shell fluido y del rediseño de tabs, pero no recibieron auditoría completa
 de 4 capas — quedan fuera del alcance visual pedido (limitado a "Inventario"/Productos).
+Categorías quedó cerrada después en CATEGORIA-CIERRE-01 (ver más abajo).
+
+## Catálogo / Inventario (tab Categorías) — CATEGORIA-CIERRE-01
+
+Cierre de módulo pedido por el usuario (`/ui-module`): tab Categorías, modales Nueva/Editar,
+confirmación de eliminación y la barra de pestañas compartida con el resto de Inventario.
+Reabre lo que quedaba como deuda en el cierre de Productos ("Categorías ... no recibieron
+auditoría completa de 4 capas").
+
+Defectos reales encontrados y corregidos (los dos primeros solo se vieron ejercitando el flujo,
+no con build/tests):
+
+- **Cambio de pestaña con un clic dejaba dos pestañas resaltadas** (Productos seguía en verde
+  con texto ilegible): el JS y Razor usaban juegos de clases distintos. El estado activo ahora
+  es `aria-selected` (server y JS), pintado por `.catalogo-tab` en `catalogo-module.css`;
+  `role=tablist/tab/tabpanel`, roving tabindex y flechas/Home/End. `?tab=` se mantiene en la
+  URL con `replaceState` (recargar/volver conserva la pestaña).
+- **No se podía desactivar una categoría**: el checkbox desmarcado no viaja y
+  `CategoriaViewModel.Activo` vale `true` por defecto. Se agrega el hidden `Activo=false`
+  después del checkbox (patrón de `Html.CheckBox`).
+- **Permisos por acción sin enforcement**: `create/update/delete` existían en el seeder pero el
+  controller solo exigía `view`. Ahora `CreateAjax` (create), `EditAjax`/`GetJson` (update) y
+  `Delete` (delete) los exigen; la vista oculta Nueva/Editar/Eliminar (y la columna Acciones
+  si no queda ninguna). Con solo `view` el rol Vendedor lista sin acciones y recibe 403.
+- **Editar solo ofrecía categorías raíz como padre** (un padre no raíz o inactivo se perdía en
+  silencio al guardar). Alta y edición usan la misma lista (todas las vigentes, en orden
+  jerárquico, "(inactiva)" marcada); la edición oculta la opción propia; el servidor sigue
+  validando ciclos.
+- **La fila se armaba en JS con HTML duplicado** (clases del tema claro, sin descripción, sin
+  contador ni sangría). Tras crear/editar se recarga `/Catalogo?tab=categorias` y el aviso viaja
+  por TempData; eliminar también vuelve a la pestaña (antes caía en Productos).
+- Barra superior: la última pestaña ("Movimientos") quedaba recortada a 1440px porque el bloque
+  de acciones le quitaba el ancho; "Ajuste masivo" y "Nuevo producto" (solo aplican a Productos)
+  se ocultan fuera de esa pestaña con `[hidden]` (antes el toggle por clase no ganaba a
+  `.btn-erp-*` y en el render server seguían visibles). El contador de la pestaña activa pasa a
+  contraste legible.
+
+UX/UI: lista en orden jerárquico con sangría y conector (padre → hijas), columna Estado como
+única señal (se retira el "Inactivo" duplicado bajo el nombre), acciones con `.row-action`
+(icono en ≥sm, texto en mobile), estado vacío con siguiente paso, copy en voseo sin relleno.
+Modales: mismo partial para campos e interruptores (`.catalogo-switch`, foco visible), `<label for>`,
+obligatorios marcados, validación por campo con foco en el primero, mensaje claro si falta permiso
+o venció la sesión, `novalidate`, cuerpo scrolleable con `.catalogo-modal-form` (cabecera y pie
+siempre completos, verificado hasta 844×390).
+
+Sin cambios de reglas de negocio, contratos de servicio, rutas ni datos. Tests: 10 nuevos de
+contrato (`CategoriaCatalogoContractTests`).
+
+Validado en vivo (Playwright propio, Chrome del sistema, contra clon de la LocalDB en :5199):
+1920/1536/1440/1280/1024/768/390/360 (sin overflow, 0 errores de consola/requests); alta, edición
+(incluye desactivar), eliminar con hijas (error del servidor), eliminar OK, código duplicado,
+validación de campos, estado vacío (admin, mobile y solo lectura), roles SuperAdmin,
+Administrador (permisos completos) y Vendedor (solo `view`: sin botones y 403 en POST).
+
+Fuera de alcance, sin corregir ni auditar: la pestaña Marcas comparte la barra de pestañas (ya
+corregida) pero su tabla y modales no se revisaron; `MarcaController` solo declara `marcas.view` a
+nivel de clase (verificado) y podría tener los mismos defectos que tenía Categorías. El modal de
+confirmación genérico (`TheBury.confirmAction`, "Confirmar acción / Confirmar") es compartido por
+todo el ERP.
 
 ## Mobile transversal — MOBILE-DEBT-01 (deuda de la auditoría mobile 2026-09-20)
 

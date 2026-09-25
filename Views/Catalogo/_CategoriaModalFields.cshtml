@@ -4,46 +4,50 @@
 }
 @* Campos compartidos entre los modales "Nueva Categoría" / "Editar Categoría".
    El call site es responsable de la tarjeta (bg-slate-900/50...) y el <div class="grid ...">
-   que envuelve este partial, porque cada modal agrega elementos propios dentro del mismo grid
-   (el modal de edición suma los toggles de Control de serie / Activo al final). *@
+   que envuelve este partial. Incluye también los dos interruptores (Control de serie / Activo)
+   para que alta y edición sean idénticas; solo cambian el prefijo de id y el valor inicial de Activo. *@
 <div class="flex flex-col gap-2">
-    <label class="text-sm font-semibold text-slate-300">Código</label>
-    <input name="Codigo" id="@(p)-codigo" type="text"
+    <label for="@(p)-codigo" class="text-sm font-semibold text-slate-300">Código <span class="text-red-400" aria-hidden="true">*</span></label>
+    <input name="Codigo" id="@(p)-codigo" type="text" maxlength="20" required aria-required="true"
+           aria-describedby="@(p)-codigo-error"
            class="catalogo-input"
            placeholder="Ej: CAT-001" />
-    <span data-valmsg-for="Codigo" class="text-xs text-red-500 hidden"></span>
+    <span id="@(p)-codigo-error" data-valmsg-for="Codigo" class="text-xs text-red-500 hidden"></span>
 </div>
 <div class="flex flex-col gap-2">
-    <label class="text-sm font-semibold text-slate-300">Nombre</label>
-    <input name="Nombre" id="@(p)-nombre" type="text"
+    <label for="@(p)-nombre" class="text-sm font-semibold text-slate-300">Nombre <span class="text-red-400" aria-hidden="true">*</span></label>
+    <input name="Nombre" id="@(p)-nombre" type="text" maxlength="100" required aria-required="true"
+           aria-describedby="@(p)-nombre-error"
            class="catalogo-input"
            placeholder="Nombre de la categoría" />
-    <span data-valmsg-for="Nombre" class="text-xs text-red-500 hidden"></span>
+    <span id="@(p)-nombre-error" data-valmsg-for="Nombre" class="text-xs text-red-500 hidden"></span>
 </div>
 <div class="flex flex-col gap-2 md:col-span-2">
-    <label class="text-sm font-semibold text-slate-300">Descripción</label>
-    <textarea name="Descripcion" id="@(p)-descripcion" rows="3"
+    <label for="@(p)-descripcion" class="text-sm font-semibold text-slate-300">Descripción <span class="font-normal text-slate-400">(opcional)</span></label>
+    <textarea name="Descripcion" id="@(p)-descripcion" rows="3" maxlength="500"
+              aria-describedby="@(p)-descripcion-error"
               class="catalogo-input"
-              placeholder="Añade una descripción detallada..."></textarea>
+              placeholder="Para qué productos se usa esta categoría"></textarea>
+    <span id="@(p)-descripcion-error" data-valmsg-for="Descripcion" class="text-xs text-red-500 hidden"></span>
 </div>
 <div class="flex flex-col gap-2 md:col-span-2">
-    <label class="text-sm font-semibold text-slate-300">Categoría Padre</label>
-    <select name="ParentId" id="@(p)-parentId"
+    <label for="@(p)-parentId" class="text-sm font-semibold text-slate-300">Categoría padre <span class="font-normal text-slate-400">(opcional)</span></label>
+    <select name="ParentId" id="@(p)-parentId" aria-describedby="@(p)-parentId-hint"
             class="catalogo-input">
-        <option value="">Ninguna (Categoría Principal)</option>
-        @if (Model.CategoriasFiltro != null)
+        <option value="">Ninguna (categoría principal)</option>
+        @if (Model.CategoriasPadre != null)
         {
-            @foreach (var cat in Model.CategoriasFiltro)
+            @foreach (var cat in Model.CategoriasPadre)
             {
                 <option value="@cat.Value">@cat.Text</option>
             }
         }
     </select>
-    <p class="text-xs text-slate-400 italic">Selecciona una categoría superior si esta es una subcategoría</p>
+    <p id="@(p)-parentId-hint" class="text-xs text-slate-400">Elegí una categoría superior si esta es una subcategoría.</p>
 </div>
 <div class="flex flex-col gap-2 md:col-span-2">
-    <label class="text-sm font-semibold text-slate-300">Alícuota IVA por defecto</label>
-    <select name="AlicuotaIVAId" id="@(p)-alicuotaIVAId" class="catalogo-input">
+    <label for="@(p)-alicuotaIVAId" class="text-sm font-semibold text-slate-300">Alícuota IVA por defecto <span class="font-normal text-slate-400">(opcional)</span></label>
+    <select name="AlicuotaIVAId" id="@(p)-alicuotaIVAId" aria-describedby="@(p)-alicuotaIVAId-hint" class="catalogo-input">
         <option value="">Sin alícuota por defecto</option>
         @if (Model.AlicuotasIVADatos != null)
         {
@@ -53,5 +57,30 @@
             }
         }
     </select>
-    <p class="text-xs text-slate-400 italic">Los productos sin alícuota propia pueden heredar esta alícuota.</p>
+    <p id="@(p)-alicuotaIVAId-hint" class="text-xs text-slate-400">Los productos sin alícuota propia pueden heredar esta alícuota.</p>
+</div>
+<div class="flex items-center justify-between gap-4 rounded-lg border border-slate-800 bg-slate-800/30 p-4 md:col-span-2">
+    <div>
+        <p id="@(p)-controlSerie-label" class="text-sm font-bold text-white">Control de serie por defecto</p>
+        <p class="text-xs text-slate-400">Activalo si los productos de esta categoría se controlan por número de serie.</p>
+    </div>
+    <label class="catalogo-switch">
+        <input name="ControlSerieDefault" id="@(p)-controlSerie" type="checkbox" value="true" class="catalogo-switch__input"
+               aria-labelledby="@(p)-controlSerie-label" />
+        <span class="catalogo-switch__track" aria-hidden="true"></span>
+    </label>
+</div>
+<div class="flex items-center justify-between gap-4 rounded-lg border border-slate-800 bg-slate-800/30 p-4 md:col-span-2">
+    <div>
+        <p id="@(p)-activo-label" class="text-sm font-bold text-white">Activa</p>
+        <p class="text-xs text-slate-400">Define si la categoría está disponible para usarse en el sistema.</p>
+    </div>
+    <label class="catalogo-switch">
+        <input name="Activo" id="@(p)-activo" type="checkbox" value="true" class="catalogo-switch__input"
+               aria-labelledby="@(p)-activo-label" @(Model.ActivaPorDefecto ? "checked" : null) />
+        <span class="catalogo-switch__track" aria-hidden="true"></span>
+        @* Un checkbox desmarcado no se envía y CategoriaViewModel.Activo vale true por defecto: sin este
+           hidden (patrón de Html.CheckBox, siempre DESPUÉS del checkbox) no habría forma de desactivar. *@
+        <input type="hidden" name="Activo" value="false" />
+    </label>
 </div>

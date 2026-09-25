@@ -7,6 +7,8 @@ using Microsoft.Extensions.Logging.Abstractions;
 using TheBuryProject.Controllers;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
+using TheBuryProject.Services;
+using TheBuryProject.Tests.Helpers;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.ViewModels;
 
@@ -167,7 +169,37 @@ public class VentaControllerIndexPaginacionTests
         return lista;
     }
 
-    private static VentaController CreateController(StubVentaService ventaService)
+    [Fact]
+    public async Task Index_SinTurnoOperable_ConTurnoAbiertoVencido_InformaElTurnoParaNoDejarAlUsuarioSinSalida()
+    {
+        var caja = new StubCajaService
+        {
+            Abiertas = new List<AperturaCaja>
+            {
+                new() { UsuarioApertura = "testuser", FechaApertura = new DateTime(2026, 9, 23, 15, 0, 0, DateTimeKind.Utc), Caja = new Caja { Nombre = "Muelle" } },
+                new() { UsuarioApertura = "otro", FechaApertura = new DateTime(2026, 9, 24, 15, 0, 0, DateTimeKind.Utc), Caja = new Caja { Nombre = "Ajena" } },
+            }
+        };
+        var controller = CreateController(new StubVentaService(), caja);
+
+        await controller.Index(new VentaFilterViewModel());
+
+        Assert.False((bool)controller.ViewBag.PuedeOperarVentas);
+        Assert.Equal("Muelle · abierta el 23/09/2026", (string)controller.ViewBag.TurnoVencido);
+    }
+
+    [Fact]
+    public async Task Index_SinTurnoOperable_SinNingunTurnoAbierto_NoInformaTurnoVencido()
+    {
+        var controller = CreateController(new StubVentaService());
+
+        await controller.Index(new VentaFilterViewModel());
+
+        Assert.False((bool)controller.ViewBag.PuedeOperarVentas);
+        Assert.Null((string?)controller.ViewBag.TurnoVencido);
+    }
+
+    private static VentaController CreateController(StubVentaService ventaService, StubCajaService? cajaService = null)
     {
         var httpContext = new DefaultHttpContext();
         var controller = new VentaController(
@@ -180,11 +212,11 @@ public class VentaControllerIndexPaginacionTests
             new StubClienteLookupService(),
             null!, // IValidacionVentaService — no usado por Index
             new StubCurrentUserService(),
-            new StubCajaService(), // sin apertura activa -> CargarViewBags no se invoca
+            cajaService ?? new StubCajaService(), // sin apertura activa -> CargarViewBags no se invoca
             null!, // VentaViewBagBuilder — solo se usa con caja abierta
             null!, // IContratoVentaCreditoService — no usado por Index
             null!, // AppDbContext — no usado por Index
-            null!, // IRelojComercial — no usado por Index
+            new RelojComercialFake(), // sólo para fechar el turno vencido
             null!); // IVentaEnvioService — no usado por Index
 
         controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
@@ -247,6 +279,8 @@ public class VentaControllerIndexPaginacionTests
 
     private sealed class StubCajaService : ICajaService
     {
+        public List<AperturaCaja> Abiertas { get; set; } = new();
+
         public Task<decimal?> ObtenerUltimoEfectivoCierreAsync(int cajaId) => Task.FromResult<decimal?>(null);
 
         // Sin caja abierta: Index no debería intentar CargarViewBags (que requiere
@@ -262,7 +296,7 @@ public class VentaControllerIndexPaginacionTests
         public Task<AperturaCaja> AbrirCajaAsync(AbrirCajaViewModel model, string usuario) => throw new NotImplementedException();
         public Task<AperturaCaja?> ObtenerAperturaActivaAsync(int cajaId) => throw new NotImplementedException();
         public Task<AperturaCaja?> ObtenerAperturaPorIdAsync(int id) => throw new NotImplementedException();
-        public Task<List<AperturaCaja>> ObtenerAperturasAbiertasAsync() => throw new NotImplementedException();
+        public Task<List<AperturaCaja>> ObtenerAperturasAbiertasAsync() => Task.FromResult(Abiertas);
         public Task<bool> TieneCajaAbiertaAsync(int cajaId) => throw new NotImplementedException();
         public Task<bool> ExisteAlgunaCajaAbiertaAsync() => throw new NotImplementedException();
         public Task<MovimientoCaja> RegistrarMovimientoAsync(MovimientoCajaViewModel model, string usuario) => throw new NotImplementedException();
