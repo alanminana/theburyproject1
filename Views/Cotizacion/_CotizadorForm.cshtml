@@ -125,29 +125,8 @@
                         <input id="cotizacion-producto-buscar" aria-label="Buscar producto" type="text" class="field pl-8" placeholder="Buscar producto por nombre, código o ID…" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="cotizacion-productos-dropdown">
                         <div id="cotizacion-productos-dropdown" class="dropdown-list hidden absolute z-30 top-full left-0 right-0 mt-1" role="listbox"></div>
                     </div>
-                    @* COTIZACION-MOCKUP-01: cantidad + Agregar + estado de la selección en UNA
-                       fila (antes el estado iba en una línea propia debajo). *@
-                    <div class="prod-search__row">
-                        <div class="qty-step qty-step--lg">
-                            <button type="button" aria-label="Restar" onclick="stepQty('cotizacion-cantidad',-1)">−</button>
-                            <input id="cotizacion-cantidad" type="number" min="1" value="1" aria-label="Cantidad">
-                            <button type="button" aria-label="Sumar" onclick="stepQty('cotizacion-cantidad',1)">+</button>
-                        </div>
-                        <button id="cotizacion-agregar-producto" type="button" class="btn btn-primary shrink-0">
-                            <span class="material-symbols-outlined" style="font-size:16px">add</span> Agregar
-                        </button>
-                        <div id="cotizacion-producto-seleccionado" class="prod-search__pick italic">Sin producto seleccionado</div>
-                    </div>
-                    <details class="prod-search__adv">
-                        <summary class="link-sub">
-                            <span class="material-symbols-outlined chev" style="font-size:13px">expand_more</span> Agregar por ID (avanzado)
-                        </summary>
-                        <div class="mt-2 grid grid-cols-12 gap-1.5">
-                            <input id="cotizacion-producto-id-manual" aria-label="ID de producto" type="text" class="field col-span-6" placeholder="ID">
-                            <input id="cotizacion-cantidad-manual" type="number" min="1" value="1" class="field col-span-3" aria-label="Cantidad manual">
-                            <button id="cotizacion-agregar-manual" type="button" class="btn btn-soft btn-xs col-span-3 px-0">Usar</button>
-                        </div>
-                    </details>
+                    @* Elegir un resultado del buscador lo agrega al carrito con cantidad 1;
+                       la cantidad se ajusta en la línea del carrito. *@
                 </div>
 
                 <!-- Carrito -->
@@ -246,8 +225,12 @@
                        COTIZACION-WORKSTATION-02 (§9): el grupo pasa a una zona RECESADA
                        (.condiciones-zone) en vez de depender sólo del título — Cliente queda
                        elevado y Condiciones hundido, así se distinguen sin otra card. *@
-                    <div class="condiciones-zone">
-                    <div class="condiciones-divider">Condiciones de cotización</div>
+                    @* Desplegable (cerrado por defecto) para ahorrar espacio vertical. *@
+                    <details class="condiciones-zone" id="cotizacion-condiciones">
+                    <summary class="condiciones-divider">
+                        <span>Condiciones de cotización</span>
+                        <span class="material-symbols-outlined chev" style="font-size:16px" aria-hidden="true">expand_more</span>
+                    </summary>
 
                     <div class="cond-grid">
                         @* COTIZACION-CONDICIONES-PROPORCION-01: cada par pasa de 2 columnas
@@ -331,7 +314,7 @@
                             Se sumarán ambos descuentos.
                         </div>
                     </div>
-                    </div>
+                    </details>
                 </div>
             </section>
         </div>
@@ -382,7 +365,10 @@
                     </div>
                 </div>
                 <div class="totales-bar__cta">
-                    <button id="cotizacion-simular" type="button" class="btn btn-primary">
+                    @* La simulación es automática (programarAutoSimular en cotizacion-simulador.js); el botón
+                       queda en el DOM, oculto, sólo como contrato (el header del wizard y los e2e
+                       lo disparan con .click()). *@
+                    <button id="cotizacion-simular" type="button" class="btn btn-primary" hidden style="display:none" tabindex="-1" aria-hidden="true">
                         <span class="material-symbols-outlined" style="font-size:16px" data-simular-icon>calculate</span>
                         <span data-simular-label>Simular cotización</span>
                     </button>
@@ -406,7 +392,10 @@
                        chips arriba del comparador (ruido fijo para una acción ocasional) y
                        pasan a un desplegable. Mismos checkboxes, mismos data-cotizacion-medio
                        — buildRequest() los sigue leyendo con el mismo selector. *@
-                    <details class="medios-filtro ml-auto">
+                    <button type="button" id="cotizacion-orden-reset" class="link-sub hidden ml-auto" title="Volver al orden automático (más barato primero)">
+                        <span class="material-symbols-outlined" style="font-size:14px">restart_alt</span> Orden automático
+                    </button>
+                    <details class="medios-filtro ml-2">
                         <summary class="link-sub">
                             <span class="material-symbols-outlined" style="font-size:14px">filter_alt</span> Filtrar medios
                         </summary>

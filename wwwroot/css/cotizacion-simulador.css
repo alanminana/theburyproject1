@@ -262,8 +262,6 @@ body:has(.cotz-standalone) #main-content > div:last-child {
 .cotz-app .prod-search__row { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .cotz-app .prod-search__pick { flex: 1 1 0; min-width: 0; font-size: 12.5px; color: var(--cz-text-4); display: flex; align-items: center; gap: 6px; line-height: 1.3; }
 .cotz-app .prod-search__pick.italic { font-style: italic; }
-.cotz-app .prod-search__adv { margin-top: -4px; }
-.cotz-app .prod-search__adv summary { align-self: flex-start; }
 
 /* ---------- Cart rows (producto agregado) ----------
    Una sola fila con nombre, cantidad, descuento y precio; el subtotal va debajo,
@@ -289,12 +287,11 @@ body:has(.cotz-standalone) #main-content > div:last-child {
     transition: color .14s, background .14s;
 }
 .cotz-app .cart-row__quitar:hover { background: color-mix(in srgb, var(--pal-danger-400) 12%, transparent); color: var(--cz-red); }
-.cotz-app .cart-row-subtotal {
-    display: flex; align-items: center; justify-content: space-between;
-    padding-top: 14px; border-top: 1px solid var(--cz-line-3);
-}
-.cotz-app .cart-row-subtotal__label { font-size: var(--erp-fs-min, 0.75rem); font-weight: 800; letter-spacing: .6px; color: var(--cz-text-4); text-transform: uppercase; }
-.cotz-app .cart-row-subtotal__value { font-size: 19px; font-weight: 800; color: var(--cz-text); }
+/* Subtotal de la línea junto al precio unitario (una sola fila, sin banda ancha debajo). */
+.cotz-app .cart-row__precio { display: flex; align-items: baseline; justify-content: flex-end; gap: 10px; }
+.cotz-app .cart-row__precio > .total-display { font-size: 13px; font-weight: 600; color: var(--cz-text-4); }
+.cotz-app .cart-row__subtotal { font-size: 17px; font-weight: 800; color: var(--cz-text); }
+.cotz-app .cart-row__subtotal .cart-row__label { display: none; }
 
 /* Descuento por línea: un solo campo con selector % / $ (mockup). Los dos <input>
    siguen existiendo (mismos data-cotizacion-desc-*-index): el selector sólo decide
@@ -423,6 +420,10 @@ body:has(.cotz-standalone) #main-content > div:last-child {
     display: flex; flex-direction: column; gap: 16px;
     --cz-field-bg: var(--cz-s1);
 }
+.cotz-app .condiciones-zone:not([open]) { gap: 0; padding-block: 12px; }
+.cotz-app .condiciones-zone > summary { display: flex; align-items: center; justify-content: space-between; cursor: pointer; list-style: none; }
+.cotz-app .condiciones-zone > summary::-webkit-details-marker { display: none; }
+.cotz-app .condiciones-zone[open] > summary .chev { transform: rotate(180deg); }
 .cotz-app .condiciones-divider { font-size: var(--erp-fs-min, 0.75rem); font-weight: 800; text-transform: uppercase; letter-spacing: .6px; color: var(--cz-text-4); }
 .cotz-app .cond-grid { margin-top: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 14px; }
 .cotz-app .cond-grid__full { grid-column: 1 / -1; }
@@ -1056,3 +1057,13 @@ body:has(.cotz-standalone) #main-content > div:last-child {
 /* Standalone: la barra global ya titula la pantalla ("Cotización"); el h2 queda sólo para lectores
    de pantalla. Embebido en Venta/Create sigue visible como título del paso. */
 .cotz-standalone .cotz-topbar__title { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+.cotz-app .totales-bar[aria-busy="true"] .totales-bar__stats { opacity: .6; transition: opacity .15s; }
+
+/* Orden de medios arrastrable */
+.cotz-app [data-orden-medio] { cursor: grab; }
+.cotz-app .orden-handle { font-size: 18px; color: var(--cz-text-4); margin-right: 4px; vertical-align: middle; opacity: .55; cursor: grab; border-radius: 4px; }
+.cotz-app [data-orden-medio]:hover .orden-handle, .cotz-app .orden-handle:focus-visible { opacity: 1; }
+.cotz-app .orden-arrastrando { opacity: .45; }
+.cotz-app .orden-over-antes > td { box-shadow: inset 0 2px 0 0 var(--pal-accent-400, #7dd3a8); }
+.cotz-app .orden-over-despues > td { box-shadow: inset 0 -2px 0 0 var(--pal-accent-400, #7dd3a8); }

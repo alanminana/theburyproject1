@@ -32,7 +32,6 @@
  * Selectores usados (todos existentes en producción):
  *   #cotizacion-producto-buscar        — input búsqueda producto
  *   #cotizacion-productos-dropdown     — dropdown resultados
- *   #cotizacion-agregar-producto       — botón agregar producto
  *   #cotizacion-cliente-buscar         — input búsqueda cliente
  *   #cotizacion-clientes-dropdown      — dropdown clientes
  *   #cotizacion-simular                — botón simular
@@ -80,7 +79,7 @@ const TERMINOS_CLIENTE  = ['ma', 'ro', 'an', 'pe', 'ju', 'ca', 'lu', 'al'];
 async function gotoCotizacion(page) {
     await page.goto('/Cotizacion', { waitUntil: 'domcontentloaded', timeout: 20_000 });
     await page.evaluate(() => document.fonts?.ready).catch(() => null);
-    await expect(page.locator('#cotizacion-simular')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('#cotizacion-simular')).toBeAttached({ timeout: 10_000 });
 }
 
 /**
@@ -106,11 +105,6 @@ async function agregarProductoSimulador(page) {
 
         await firstBtn.click();
 
-        await expect(page.locator('#cotizacion-producto-seleccionado'))
-            .not.toHaveText('Sin producto seleccionado', { timeout: 3_000 })
-            .catch(() => null);
-
-        await page.click('#cotizacion-agregar-producto');
         await page.waitForTimeout(300);
 
         const rowCount = await tbody.locator('.cart-row').count();
@@ -178,7 +172,7 @@ async function crearCotizacionYNavegar(page, opts = {}) {
         await descInput.fill(String(opts.descImporte));
     }
 
-    await page.click('#cotizacion-simular');
+    await page.evaluate(() => document.getElementById('cotizacion-simular').click());
     await page.locator('#cotizacion-resultados').waitFor({ state: 'visible', timeout: 15_000 });
     await page.locator('#cotizacion-resultados-tbody tr').first().waitFor({ state: 'visible', timeout: 5_000 });
 

@@ -67,7 +67,6 @@ async function agregarPrimerProducto(page) {
         const firstBtn = dropdown.locator('button').first();
         if (!(await firstBtn.isVisible({ timeout: 2_000 }).catch(() => false))) continue;
         await firstBtn.click();
-        await page.click('#cotizacion-agregar-producto');
         await page.waitForTimeout(300);
         if (await page.locator('#cotizacion-productos-tbody .cart-row').count() > 0) return true;
     }
@@ -83,12 +82,13 @@ test.describe('Cotización — "Mi Venta" v2: preflight real + modal de facturac
         expect(clienteId).toBeTruthy();
 
         await page.goto('/Cotizacion', { waitUntil: 'domcontentloaded' });
-        await expect(page.locator('#cotizacion-simular')).toBeVisible({ timeout: 10_000 });
+        await expect(page.locator('#cotizacion-simular')).toBeAttached({ timeout: 10_000 });
 
         await seleccionarCliente(page, dni);
         expect(await agregarPrimerProducto(page)).toBeTruthy();
 
         // Envío: modal real (sin cambios respecto a la primera iteración).
+        await page.evaluate(() => { document.getElementById('cotizacion-condiciones').open = true; });
         await page.click('#cotizacion-tiene-envio');
         await expect(page.locator('#modal-envio')).toBeVisible({ timeout: 5_000 });
         await expect(page.locator('#cotizacion-envio-destinatario')).toHaveValue(/MiVentaQA/);
@@ -103,7 +103,7 @@ test.describe('Cotización — "Mi Venta" v2: preflight real + modal de facturac
         // simulada+guardada (mismos snapshots que usará la Venta real) — por eso se activa
         // DESPUÉS de simular, nunca antes (el propio modal fuerza el guardado si hiciera
         // falta, pero simular primero es el orden natural del flujo real).
-        await page.click('#cotizacion-simular');
+        await page.evaluate(() => document.getElementById('cotizacion-simular').click());
         await expect(page.locator('#cotizacion-resultados')).toBeVisible({ timeout: 10_000 });
 
         if (puedeFacturar === 'true') {

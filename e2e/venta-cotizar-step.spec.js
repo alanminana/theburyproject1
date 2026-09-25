@@ -116,7 +116,8 @@ test.describe('Venta/Create — paso Cotizar', () => {
         await expect(primary).toBeHidden();
 
         const ctaCotizador = page.locator('#cotizacion-simular');
-        await expect(ctaCotizador).toBeVisible();
+        // La simulación es automática: el CTA sigue en el DOM (contrato) pero oculto.
+        await expect(ctaCotizador).toBeHidden();
         await expect(ctaCotizador).toContainText(/Simular cotizaci.n/);
         await expect(ctaCotizador).not.toContainText(/Confirmar operaci.n|Guardar Operaci.n|Siguiente/);
 
@@ -147,14 +148,13 @@ test.describe('Venta/Create — paso Cotizar', () => {
         await opcion.waitFor({ state: 'visible', timeout: 10_000 }).catch(() => { });
         test.skip(!(await opcion.isVisible().catch(() => false)), 'El entorno no expone producto de QA para cotizar.');
         await opcion.click();
-        await page.locator('#cotizacion-agregar-producto').click();
         await expect(page.locator('#cotizacion-productos-tbody > *')).toHaveCount(1);
 
         // COTIZACION-WORKSTATION-01 (§9): se dispara desde el CTA contextual del
         // cotizador, junto a la franja de Totales (antes desde el CTA del header, que
         // delegaba en este mismo botón por id y ahora se oculta durante Cotizar para
         // no duplicar la misma intención a media pantalla de distancia).
-        await page.locator('#cotizacion-simular').click();
+        await page.evaluate(() => document.getElementById('cotizacion-simular').click());
         await expect(page.locator('#cotizacion-resultados')).toBeVisible({ timeout: 20_000 });
         await expect(page.locator('#cotizacion-resultados-tbody > *').first()).toBeVisible();
         await expect(page.locator('#estado-banner')).toContainText(/Simulada/);
@@ -203,15 +203,12 @@ test.describe('Venta/Create — paso Cotizar', () => {
                 const panel = document.getElementById('step-panel-cotizar');
                 const tabRect = tab.getBoundingClientRect();
                 const listRect = tablist.getBoundingClientRect();
-                const simular = document.getElementById('cotizacion-simular').getBoundingClientRect();
                 return {
                     overflowGlobal: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
                     // El tablist puede scrollear localmente, pero Cotizar arranca visible.
                     cotizarDentroDelTablist: tabRect.left >= listRect.left - 1 && tabRect.right <= listRect.right + 1,
                     panelAncho: panel.getBoundingClientRect().width,
                     contenedorAncho: panel.parentElement.getBoundingClientRect().width,
-                    simularAlto: simular.height,
-                    simularAncho: simular.width,
                     // Con Cotizar activo el workspace de la venta no ocupa espacio.
                     workspaceOculto: [...document.querySelectorAll('[data-venta-workspace]')]
                         .every((n) => getComputedStyle(n).display === 'none'),
@@ -222,9 +219,6 @@ test.describe('Venta/Create — paso Cotizar', () => {
             expect(medidas.cotizarDentroDelTablist, 'Cotizar visible al inicio del tablist').toBeTruthy();
             expect(medidas.panelAncho).toBeGreaterThan(medidas.contenedorAncho - 2);
             expect(medidas.workspaceOculto).toBeTruthy();
-            // Tamaño táctil razonable del CTA del cotizador.
-            expect(medidas.simularAlto).toBeGreaterThanOrEqual(36);
-            expect(medidas.simularAncho).toBeGreaterThanOrEqual(88);
         });
     }
 });
