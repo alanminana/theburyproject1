@@ -69,10 +69,13 @@
    partían los títulos y recortaban el importe. */
 .dashboard-main-grid > div:first-child { container-type: inline-size; container-name: dash-main; }
 .dashboard-kpis { grid-template-columns: minmax(0, 1fr); }
+/* auto-fit: si el rol no ve algunos KPIs (ventas / cobranza), los restantes reparten el ancho. */
 @media (min-width: 640px) {
-    @container dash-main (min-width: 28rem) { .dashboard-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-    @container dash-main (min-width: 40rem) { .dashboard-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+    @container dash-main (min-width: 28rem) { .dashboard-kpis { grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); } }
+    @container dash-main (min-width: 40rem) { .dashboard-kpis { grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); } }
 }
+/* Con cuotas vencidas, su KPI encabeza la fila: es el dato que pide acción. */
+.dashboard-kpis > .dashboard-kpi-alert { order: -1; }
 
 /* Entre 640 y 1279px la columna lateral queda debajo: los 6 accesos rápidos en 3×2, no en 2×3 gigantes. */
 @media (min-width: 640px) and (max-width: 1279.98px) {
@@ -85,3 +88,10 @@
     .dashboard-main-grid { grid-template-columns: minmax(0, 1fr) 22rem; }
     .dashboard-sidebar { position: sticky; top: 1.5rem; align-self: start; }
 }
+
+/* Enlace de salida bajo la tabla ("Ver créditos"): área táctil de al menos 40px de alto. */
+.dashboard-link-more { display: inline-flex; align-items: center; min-height: 2.5rem; }
+
+/* Celdas de "Cuotas por cobrar": 0,625rem laterales para que Cliente, Concepto, Vencimiento,
+   Monto y Acciones entren sin scroll horizontal junto a la columna lateral (1280px). */
+.dash-cell { padding-inline: 0.625rem; }

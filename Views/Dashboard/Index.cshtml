@@ -13,7 +13,12 @@
     var cuotasProximasCount = cuotasProximas.Count;
     var alertasStock = Model.AlertasStockRecientes ?? new List<StockAlertaDto>();
     var destacados = Model.ProductosDestacados ?? new List<ProductoDestacadoDto>();
-    var actividad = Model.ActividadReciente ?? new List<ActividadRecienteDto>();
+    var puedeVerClientes = User.TienePermiso("clientes", "view");
+    // La actividad mezcla ventas (con importes) y clientes: cada tipo exige el permiso de su módulo.
+    var actividad = (Model.ActividadReciente ?? new List<ActividadRecienteDto>())
+        .Where(a => a.Tipo != "venta" || User.TienePermiso("ventas", "view"))
+        .Where(a => a.Tipo != "cliente" || puedeVerClientes)
+        .ToList();
     // Origen para "Volver" desde la pantalla de pago de cuota abierta desde este dashboard.
     var pagoCuotaReturnUrl = Url.Action("Index", "Dashboard");
     // Las tablas muestran las primeras filas de listas acotadas por el servicio (Top 20).
@@ -22,6 +27,14 @@
     var puedeVerCreditos = User.TienePermiso("creditos", "view");
     var puedeReponer = User.TienePermiso("ordenescompra", "create");
     var puedeVerCatalogo = User.TienePermiso("productos", "view");
+    // Los importes de ventas y de cuotas son datos financieros: cada bloque exige el permiso de su módulo
+    // (el gate del controller es solo dashboard.view). El servicio sigue siendo la autoridad de los datos.
+    var puedeVerVentas = User.TienePermiso("ventas", "view");
+    var puedeCobrar = User.TienePermiso("cobranzas", "payinstallment");
+    // Cobrar (Vencidas) o ver el crédito (Próximas y, sin permiso de cobro, también Vencidas).
+    // Sin ninguna acción permitida no se dibuja la columna: un encabezado sobre celdas vacías confunde.
+    var mostrarAcciones = puedeCobrar || puedeVerCreditos;
+    var colspanCuotas = mostrarAcciones ? 5 : 4;
     // Cada acceso apunta a un controller con [PermisoRequerido] propio: se muestran solo los
     // permitidos para no llevar al usuario a un 403 (el servidor sigue siendo la autoridad).
     var accesosRapidos = new List<(string Controller, string Action, string Icon, string Label)>();
@@ -47,17 +60,17 @@
     <div>
         <h1 class="sr-only">Dashboard</h1>
         <p data-dashboard-status role="status" class="dashboard-status text-sm text-slate-400">
-            @if (cuotasVencidasTotal == 0 && stockBajo == 0)
+            @if ((!puedeVerCreditos || cuotasVencidasTotal == 0) && stockBajo == 0)
             {
                 <span class="inline-flex items-center gap-1.5 font-semibold text-emerald-500">
                     <span class="material-symbols-outlined text-[18px]" aria-hidden="true">check_circle</span>
                     Todo al día
                 </span>
-                <span>Sin cuotas vencidas ni productos por reponer.</span>
+                <span>@(puedeVerCreditos ? "Sin cuotas vencidas ni productos por reponer." : "Sin productos por reponer.")</span>
             }
             else
             {
-                @if (cuotasVencidasTotal > 0)
+                @if (puedeVerCreditos && cuotasVencidasTotal > 0)
                 {
                     <span class="inline-flex items-center gap-1.5 font-semibold text-red-400">
                         <span class="material-symbols-outlined text-[18px]" aria-hidden="true">schedule</span>
@@ -82,21 +95,27 @@
         <div class="space-y-6">
                 <!-- Resumen -->
                 <div class="dashboard-kpis grid gap-4">
+                    @if (puedeVerVentas)
+                    {
                     <div class="card-erp-metric">
                         <p class="text-xs text-slate-400 uppercase tracking-wide">Ventas del mes</p>
                         <p class="dashboard-kpi-value mt-1 font-bold text-slate-100">@Model.VentasTotalesMes.ToString("C")</p>
                         <p class="text-xs text-slate-500 mt-1">@Model.CantidadVentasMes ventas</p>
                     </div>
+                    }
+                    @if (puedeVerCreditos)
+                    {
                     <div class="card-erp-metric">
                         <p class="text-xs text-slate-400 uppercase tracking-wide">Cobranza del mes</p>
                         <p class="dashboard-kpi-value mt-1 font-bold text-slate-100">@Model.CobranzaMes.ToString("C")</p>
                         <p class="text-xs text-slate-500 mt-1">cuotas cobradas</p>
                     </div>
-                    <div class="@(cuotasVencidasTotal > 0 ? "card-erp-metric card-erp-metric-danger" : "card-erp-metric")">
+                    <div class="@(cuotasVencidasTotal > 0 ? "card-erp-metric card-erp-metric-danger dashboard-kpi-alert" : "card-erp-metric")">
                         <p class="text-xs text-slate-400 uppercase tracking-wide">Monto vencido</p>
                         <p class="dashboard-kpi-value mt-1 font-bold @(cuotasVencidasTotal > 0 ? "text-red-400" : "text-slate-100")">@Model.MontoVencidoTotal.ToString("C")</p>
                         <p class="text-xs text-slate-500 mt-1">@cuotasVencidasTotal @(cuotasVencidasTotal == 1 ? "cuota vencida" : "cuotas vencidas")</p>
                     </div>
+                    }
                     <div class="card-erp-metric">
                         <p class="text-xs text-slate-400 uppercase tracking-wide">Stock bajo</p>
                         <p class="dashboard-kpi-value mt-1 font-bold text-slate-100">@stockBajo</p>
@@ -105,6 +124,8 @@
                 </div>
 
                 <!-- Payments Table -->
+                @if (puedeVerCreditos)
+                {
                 <section class="card-erp-panel p-4 sm:p-5">
                     <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div class="flex items-center gap-2">
@@ -129,7 +150,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div data-oc-scroll data-dashboard-cuotas-scroll style="--oc-scroll-min-width: 40rem;" class="dashboard-table-wrap">
+                        <div data-oc-scroll data-dashboard-cuotas-scroll style="--oc-scroll-min-width: 28rem;" class="dashboard-table-wrap">
                             <div class="border-b border-slate-800 px-4 py-3">
                                 <p data-oc-scroll-hint hidden
                                    class="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
@@ -148,12 +169,14 @@
                                         <thead>
                                             <tr
                                                 class="bg-slate-800/50 text-slate-400 text-xs font-bold uppercase tracking-wider">
-                                                <th data-card="title" class="px-4 py-4">Cliente</th>
-                                                <th class="px-4 py-4">Concepto</th>
-                                                <th data-card="half" class="px-4 py-4">Vencimiento</th>
-                                                <th data-card="half" class="px-4 py-4">Monto</th>
-                                                <th data-card="half" class="px-4 py-4">Estado</th>
-                                                <th class="px-4 py-4 text-right">Acciones</th>
+                                                <th data-card="title" class="dash-cell py-3">Cliente</th>
+                                                <th class="dash-cell py-3">Concepto</th>
+                                                <th data-card="half" class="dash-cell py-3">Vencimiento</th>
+                                                <th data-card="half" class="dash-cell py-3">Monto</th>
+                                                @if (mostrarAcciones)
+                                                {
+                                                    <th class="dash-cell py-3 text-right">Acciones</th>
+                                                }
                                             </tr>
                                         </thead>
                                         <tbody id="tbodyVencidas" data-dashboard-tab-panel="vencidas"
@@ -163,7 +186,7 @@
                                             @if (cuotasVencidasCount == 0)
                                             {
                                                 <tr data-dashboard-empty>
-                                                    <td colspan="6" class="px-4 py-8 text-center text-sm text-slate-400">
+                                                    <td colspan="@colspanCuotas" class="px-4 py-8 text-center text-sm text-slate-400">
                                                         <span class="material-symbols-outlined text-2xl text-emerald-500/70 block mb-1" aria-hidden="true">check_circle</span>
                                                         <p>No hay cuotas vencidas.</p>
                                                         <p class="text-[11px] text-slate-500">Todas las cuotas exigibles están al día.</p>
@@ -179,12 +202,12 @@
                                                     .ToList();
                                                 var productosRestantes = productos.Count - productosResumen.Count;
                                                 <tr class="hover:bg-slate-800/30 transition-colors">
-                                                    <td class="px-4 py-4">
+                                                    <td class="dash-cell py-3">
                                                         <p class="font-bold text-sm">@cuota.ClienteNombre</p>
-                                                        <p class="flex flex-wrap gap-x-2 text-[11px] text-slate-400">@if (!string.IsNullOrWhiteSpace(cuota.ClienteDocumento)){<span>DNI: @cuota.ClienteDocumento</span>}<span>ID: @cuota.ClienteId</span></p>
+                                                        <p class="flex flex-wrap gap-x-2 text-[11px] text-slate-400">@if (!string.IsNullOrWhiteSpace(cuota.ClienteDocumento)){<span class="whitespace-nowrap">DNI: @cuota.ClienteDocumento</span>}<span class="whitespace-nowrap">ID: @cuota.ClienteId</span></p>
                                                     </td>
-                                                    <td class="px-4 py-4">
-                                                        <p class="text-sm text-slate-200">Cuota @cuota.NumeroCuota - @cuota.CreditoNumero</p>
+                                                    <td class="dash-cell py-3">
+                                                        <p class="text-sm text-slate-200">Cuota @cuota.NumeroCuota - <span class="whitespace-nowrap">@cuota.CreditoNumero</span></p>
                                                         @if (productosResumen.Any())
                                                         {
                                                             <p class="mt-1 flex min-w-0 items-center gap-1 text-[11px] text-slate-400" data-dashboard-productos>
@@ -197,20 +220,14 @@
                                                             </p>
                                                         }
                                                     </td>
-                                                    <td class="px-4 py-4">
-                                                        <span
-                                                            class="text-xs font-semibold text-red-500 bg-red-500/10 px-2 py-0.5 rounded">Hace
-                                                            @cuota.DiasVencidos d</span>
-                                                        </td>
-                                                        <td class="px-4 py-4 font-bold text-sm">@cuota.Monto.ToString("C")</td>
-                                                        <td class="px-4 py-4">
-                                                            <div class="flex items-center gap-1.5 text-red-500">
-                                                                <span class="size-1.5 bg-red-500 rounded-full"></span>
-                                                                <span class="text-xs font-bold">Vencido</span>
-                                                            </div>
-                                                        </td>
-                                                        <td class="px-4 py-4 text-right">
-                                                            @if (User.TienePermiso("cobranzas", "payinstallment"))
+                                                    <td class="dash-cell py-3">
+                                                        <span class="whitespace-nowrap rounded bg-red-500/10 px-2 py-0.5 text-xs font-semibold text-red-500"><span class="sr-only">Vencida </span>Hace @cuota.DiasVencidos d</span>
+                                                    </td>
+                                                    <td class="whitespace-nowrap dash-cell py-3 text-sm font-bold">@cuota.Monto.ToString("C")</td>
+                                                    @if (mostrarAcciones)
+                                                    {
+                                                        <td class="dash-cell py-3 text-right">
+                                                            @if (puedeCobrar)
                                                             {
                                                                 <a asp-controller="Credito" asp-action="PagarCuota"
                                                                    asp-route-id="@cuota.CuotaId"
@@ -221,8 +238,19 @@
                                                                     <span class="material-symbols-outlined icon-erp-md">send_money</span>
                                                                 </a>
                                                             }
+                                                            else if (puedeVerCreditos)
+                                                            {
+                                                                <a asp-controller="Credito" asp-action="Details"
+                                                                   asp-route-id="@cuota.CreditoId"
+                                                                   class="row-action row-action--primary no-underline"
+                                                                   aria-label="Ver crédito @cuota.CreditoNumero de @cuota.ClienteNombre"
+                                                                   title="Ver crédito">
+                                                                    <span class="material-symbols-outlined icon-erp-md">visibility</span>
+                                                                </a>
+                                                            }
                                                         </td>
-                                                    </tr>
+                                                    }
+                                                </tr>
                                                 }
                                             </tbody>
                                             <tbody id="tbodyProximas" data-dashboard-tab-panel="proximas"
@@ -232,7 +260,7 @@
                                                 @if (cuotasProximasCount == 0)
                                                 {
                                                     <tr data-dashboard-empty>
-                                                        <td colspan="6" class="px-4 py-8 text-center text-sm text-slate-400">
+                                                        <td colspan="@colspanCuotas" class="px-4 py-8 text-center text-sm text-slate-400">
                                                             <span class="material-symbols-outlined text-2xl text-slate-500 block mb-1" aria-hidden="true">check_circle</span>
                                                             <p>No hay cuotas próximas a vencer.</p>
                                                             <p class="text-[11px] text-slate-500">Las cuotas que venzan pronto aparecerán acá.</p>
@@ -248,12 +276,12 @@
                                                         .ToList();
                                                     var productosRestantes = productos.Count - productosResumen.Count;
                                                     <tr class="hover:bg-slate-800/30 transition-colors">
-                                                        <td class="px-4 py-4">
+                                                        <td class="dash-cell py-3">
                                                             <p class="font-bold text-sm">@cuota.ClienteNombre</p>
-                                                            <p class="flex flex-wrap gap-x-2 text-[11px] text-slate-400">@if (!string.IsNullOrWhiteSpace(cuota.ClienteDocumento)){<span>DNI: @cuota.ClienteDocumento</span>}<span>ID: @cuota.ClienteId</span></p>
+                                                            <p class="flex flex-wrap gap-x-2 text-[11px] text-slate-400">@if (!string.IsNullOrWhiteSpace(cuota.ClienteDocumento)){<span class="whitespace-nowrap">DNI: @cuota.ClienteDocumento</span>}<span class="whitespace-nowrap">ID: @cuota.ClienteId</span></p>
                                                         </td>
-                                                        <td class="px-4 py-4">
-                                                            <p class="text-sm text-slate-200">Cuota @cuota.NumeroCuota - @cuota.CreditoNumero</p>
+                                                        <td class="dash-cell py-3">
+                                                            <p class="text-sm text-slate-200">Cuota @cuota.NumeroCuota - <span class="whitespace-nowrap">@cuota.CreditoNumero</span></p>
                                                             @if (productosResumen.Any())
                                                             {
                                                                 <p class="mt-1 flex min-w-0 items-center gap-1 text-[11px] text-slate-400" data-dashboard-productos>
@@ -266,39 +294,39 @@
                                                                 </p>
                                                             }
                                                         </td>
-                                                        <td class="px-4 py-4">
-                                                            <span
-                                                            class="text-xs font-semibold text-slate-400 bg-slate-800 px-2 py-0.5 rounded">@cuota.FechaVencimiento.ToString("dd MMM")</span>
-                                                        </td>
-                                                        <td class="px-4 py-4 font-bold text-sm">@cuota.Monto.ToString("C")</td>
-                                                        <td class="px-4 py-4">
+                                                        <td class="dash-cell py-3">
+                                                            <span class="whitespace-nowrap rounded bg-slate-800 px-2 py-0.5 text-xs font-semibold text-slate-300">@cuota.FechaVencimiento.ToString("dd MMM")</span>
                                                             @if (cuota.DiasParaVencer <= 1)
                                                             {
-                                                                <div class="flex items-center gap-1.5 text-orange-500">
-                                                                    <span class="size-1.5 bg-orange-500 rounded-full"></span>
-                                                                    <span class="text-xs font-bold">Por Vencer</span>
-                                                                </div>
+                                                                <p class="mt-1 flex items-center gap-1.5 text-orange-500">
+                                                                    <span class="size-1.5 rounded-full bg-orange-500" aria-hidden="true"></span>
+                                                                    <span class="text-xs font-bold">Por vencer</span>
+                                                                </p>
                                                             }
                                                             else
                                                             {
-                                                                <div class="flex items-center gap-1.5 text-blue-500">
-                                                                    <span class="size-1.5 bg-blue-500 rounded-full"></span>
+                                                                <p class="mt-1 flex items-center gap-1.5 text-blue-500">
+                                                                    <span class="size-1.5 rounded-full bg-blue-500" aria-hidden="true"></span>
                                                                     <span class="text-xs font-bold">Programado</span>
-                                                                </div>
+                                                                </p>
                                                             }
                                                         </td>
-                                                        <td class="px-4 py-4 text-right">
-                                                            @if (puedeVerCreditos)
-                                                            {
-                                                                <a asp-controller="Credito" asp-action="Details"
-                                                                   asp-route-id="@cuota.CreditoId"
-                                                                   class="row-action row-action--primary no-underline"
-                                                                   aria-label="Ver crédito @cuota.CreditoNumero de @cuota.ClienteNombre"
-                                                                   title="Ver crédito">
-                                                                    <span class="material-symbols-outlined icon-erp-md">visibility</span>
-                                                                </a>
-                                                            }
-                                                        </td>
+                                                        <td class="whitespace-nowrap dash-cell py-3 text-sm font-bold">@cuota.Monto.ToString("C")</td>
+                                                        @if (mostrarAcciones)
+                                                        {
+                                                            <td class="dash-cell py-3 text-right">
+                                                                @if (puedeVerCreditos)
+                                                                {
+                                                                    <a asp-controller="Credito" asp-action="Details"
+                                                                       asp-route-id="@cuota.CreditoId"
+                                                                       class="row-action row-action--primary no-underline"
+                                                                       aria-label="Ver crédito @cuota.CreditoNumero de @cuota.ClienteNombre"
+                                                                       title="Ver crédito">
+                                                                        <span class="material-symbols-outlined icon-erp-md">visibility</span>
+                                                                    </a>
+                                                                }
+                                                            </td>
+                                                        }
                                                     </tr>
                                                 }
                                             </tbody>
@@ -318,11 +346,12 @@
                                     </p>
                                     @if (puedeVerCreditos)
                                     {
-                                        <a asp-controller="Credito" asp-action="Index" class="font-semibold text-primary no-underline hover:underline">Ver créditos</a>
+                                        <a asp-controller="Credito" asp-action="Index" class="dashboard-link-more font-semibold text-primary no-underline hover:underline">Ver créditos</a>
                                     }
                                 </div>
                             }
                         </section>
+                }
 
             <!-- Inventory Alerts -->
             <section class="card-erp-panel p-4 sm:p-5">
@@ -371,14 +400,17 @@
                                         <th data-card="title" class="px-4 py-3">Producto</th>
                                         <th data-card="half" class="px-4 py-3">Stock</th>
                                         <th data-card="half" class="px-4 py-3">Estado</th>
-                                        <th class="px-4 py-3 text-right">Acciones</th>
+                                        @if (puedeReponer)
+                                        {
+                                            <th class="px-4 py-3 text-right">Acciones</th>
+                                        }
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-800">
                                     @if (alertasStock.Count == 0)
                                     {
                                         <tr>
-                                            <td colspan="5" class="px-6 py-8 text-center text-sm text-slate-400">
+                                            <td colspan="@(puedeReponer ? 5 : 4)" class="px-6 py-8 text-center text-sm text-slate-400">
                                                 <span
                                                 class="material-symbols-outlined text-2xl text-emerald-500/70 block mb-1">inventory_2</span>
                                                 No hay productos por debajo del stock mínimo.
@@ -403,16 +435,16 @@
                                                         <span
                                                         class="whitespace-nowrap text-[10px] font-bold uppercase px-2 py-0.5 rounded @badgeClass">@alerta.SeveridadTexto</span>
                                                     </td>
-                                                    <td class="px-4 py-4 text-right">
-                                                        @if (puedeReponer)
-                                                        {
+                                                    @if (puedeReponer)
+                                                    {
+                                                        <td class="px-4 py-4 text-right">
                                                             <a asp-controller="OrdenCompra" asp-action="Create"
                                                                asp-route-productoId="@alerta.ProductoId"
                                                                class="btn-erp-ghost btn-erp-sm no-underline"
                                                                aria-label="Reponer @alerta.Nombre: crear orden de compra"
                                                                title="Crear orden de compra para reponer">Reponer</a>
-                                                        }
-                                                    </td>
+                                                        </td>
+                                                    }
                                                 </tr>
                                             }
                                         }
@@ -513,7 +545,7 @@
                                 </div>
                                 <div class="rounded-xl border border-primary/20 bg-primary/5 p-3">
                                     <textarea id="notaTextarea" data-dashboard-note-input aria-label="Nota rápida"
-                                              class="w-full h-20 bg-transparent border-none resize-none focus:ring-0 text-sm text-slate-300 placeholder:text-slate-500"
+                                              class="w-full h-16 bg-transparent border-none resize-none focus:ring-0 text-sm text-slate-300 placeholder:text-slate-500"
                                               placeholder="Escribí un recordatorio..."></textarea>
                                     <div class="flex items-center justify-between border-t border-primary/10 pt-2 mt-1">
                                         <span id="notaStatus" data-dashboard-note-status class="text-[10px] text-slate-400"></span>
