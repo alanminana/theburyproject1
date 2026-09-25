@@ -995,6 +995,15 @@ namespace TheBuryProject.Services
                             perfil.UpdatedAt = ahora;
                         }
                     }
+                    else if (await _context.PerfilesCredito.FirstOrDefaultAsync(p => p.Nombre == perfilViewModel.Nombre) is { } mismoNombre)
+                    {
+                        // Id no informado (0) pero el nombre ya existe (indice unico): se trata como
+                        // edicion del perfil existente en vez de intentar un INSERT duplicado.
+                        var idExistente = mismoNombre.Id;
+                        _mapper.Map(perfilViewModel, mismoNombre);
+                        mismoNombre.Id = idExistente;
+                        mismoNombre.UpdatedAt = ahora;
+                    }
                     else
                     {
                         var nuevoPerfil = _mapper.Map<PerfilCredito>(perfilViewModel);

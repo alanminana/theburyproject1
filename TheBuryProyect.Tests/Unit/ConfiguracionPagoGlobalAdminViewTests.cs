@@ -11,7 +11,7 @@ public sealed class ConfiguracionPagoGlobalAdminViewTests
             .FullName;
         var contenido = File.ReadAllText(Path.Combine(viewPath, "ConfiguracionPago", "MediosPago_tw.cshtml"));
 
-        Assert.Contains("Configuracion global de pagos", contenido);
+        Assert.Contains("Configuración de pagos", contenido);
         Assert.Contains("El ajuste se aplica una sola vez sobre el total", contenido);
         Assert.Contains("Ajuste positivo = recargo", contenido);
         Assert.Contains("ajuste negativo = descuento", contenido);

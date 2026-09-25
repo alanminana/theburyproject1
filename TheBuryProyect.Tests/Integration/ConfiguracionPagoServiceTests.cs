@@ -694,6 +694,36 @@ public class ConfiguracionPagoServiceTests : IDisposable
         Assert.Equal(24, enDb.MaxCuotas);
     }
 
+    [Fact]
+    public async Task GuardarCreditoPersonal_PerfilConIdCeroYNombreExistente_ActualizaEnVezDeDuplicar()
+    {
+        var perfil = await SeedPerfil(tasaMensual: 5m, maxCuotas: 12);
+
+        var config = new CreditoPersonalConfigViewModel
+        {
+            Perfiles = new List<PerfilCreditoViewModel>
+            {
+                new()
+                {
+                    Id = 0,
+                    Nombre = perfil.Nombre,
+                    TasaMensual = 7m,
+                    MinCuotas = 1,
+                    MaxCuotas = 18,
+                    Activo = true
+                }
+            }
+        };
+
+        await _service.GuardarCreditoPersonalAsync(config);
+
+        var perfiles = await _context.PerfilesCredito.Where(p => p.Nombre == perfil.Nombre).ToListAsync();
+        var unico = Assert.Single(perfiles);
+        Assert.Equal(perfil.Id, unico.Id);
+        Assert.Equal(7m, unico.TasaMensual);
+        Assert.Equal(18, unico.MaxCuotas);
+    }
+
     // -------------------------------------------------------------------------
     // 21. Crea perfil nuevo (Id == 0)
     // -------------------------------------------------------------------------
