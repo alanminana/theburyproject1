@@ -114,8 +114,9 @@ file sealed class StubAlertaStockEfectivo : IAlertaStockService
     public Task<AlertaStockViewModel?> GetByIdAsync(int id) => throw new NotImplementedException();
     public Task<bool> ResolverAlertaAsync(int id, string usuarioResolucion, string? observaciones = null, byte[]? rowVersion = null) => throw new NotImplementedException();
     public Task<bool> IgnorarAlertaAsync(int id, string usuarioResolucion, string? observaciones = null, byte[]? rowVersion = null) => throw new NotImplementedException();
+    public Task<bool> MarcarEnProcesoAsync(int id, string usuario, string? observaciones = null, byte[]? rowVersion = null) => throw new NotImplementedException();
     public Task<AlertaStockEstadisticasViewModel> GetEstadisticasAsync() => throw new NotImplementedException();
-    public Task<List<AlertaStock>> GetAlertasByProductoIdAsync(int productoId) => throw new NotImplementedException();
+    public Task<List<AlertaStockViewModel>> GetAlertasByProductoIdAsync(int productoId) => throw new NotImplementedException();
     public Task<AlertaStock?> VerificarYGenerarAlertaAsync(int productoId) => throw new NotImplementedException();
     public Task<int> LimpiarAlertasAntiguasAsync(int diasAntiguedad = 30, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<List<ProductoCriticoViewModel>> GetProductosCriticosAsync() => throw new NotImplementedException();
@@ -340,6 +341,53 @@ public class VentaServiceConfirmarEfectivoTests : IDisposable
         Assert.True(result);
     }
 
+    // Sólo Crédito personal exige cliente registrado: con datos de contacto libre completos, el
+    // resto de los medios puede confirmarse (ver ConfirmarVenta_ContactoLibreValido_MedioDistintoDe
+    // CreditoPersonal_Confirma). Acá sólo quedan los casos que siguen bloqueados: datos incompletos
+    // (cualquier medio) o el medio/pago por ítem es Crédito personal.
+    [Theory]
+    [InlineData(TipoPago.CreditoPersonal, "30111222", false)]
+    [InlineData(TipoPago.Efectivo, "", false)]
+    [InlineData(TipoPago.Efectivo, "30111222", true)]
+    public async Task ConfirmarVenta_ContactoLibreInvalido_NoCobraAunqueSeOmitaLaConversion(
+        TipoPago tipoPago, string dni, bool pagoPorItemCreditoPersonal)
+    {
+        var (venta, _) = await SeedVentaEfectivo(tipoPago: tipoPago);
+        venta.Cliente = null;
+        venta.ClienteId = null;
+        venta.NombreClienteLibre = "Ana Libre";
+        venta.DniClienteLibre = dni;
+        venta.TelefonoClienteLibre = "1122334455";
+        if (pagoPorItemCreditoPersonal)
+            Assert.Single(venta.Detalles).TipoPago = TipoPago.CreditoPersonal;
+        await _context.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => _service.ConfirmarVentaAsync(venta.Id));
+
+        Assert.Contains("cliente", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Null(_cajaStub.UltimoMontoVenta);
+        _context.ChangeTracker.Clear();
+        Assert.Equal(EstadoVenta.Presupuesto, (await _context.Ventas.FindAsync(venta.Id))!.Estado);
+    }
+
+    [Fact]
+    public async Task ConfirmarVenta_ContactoLibreValido_MedioDistintoDeCreditoPersonal_Confirma()
+    {
+        var (venta, _) = await SeedVentaEfectivo(tipoPago: TipoPago.Transferencia);
+        venta.Cliente = null;
+        venta.ClienteId = null;
+        venta.NombreClienteLibre = "Ana Libre";
+        venta.DniClienteLibre = "30111222";
+        venta.TelefonoClienteLibre = "1122334455";
+        await _context.SaveChangesAsync();
+
+        var result = await _service.ConfirmarVentaAsync(venta.Id);
+
+        Assert.True(result);
+        _context.ChangeTracker.Clear();
+        Assert.Equal(EstadoVenta.Confirmada, (await _context.Ventas.FindAsync(venta.Id))!.Estado);
+    }
+
     [Fact]
     public async Task ConfirmarVenta_Efectivo_HappyPath_VentaTransicionaAConfirmada()
     {
@@ -491,7 +539,7 @@ public class VentaServiceConfirmarEfectivoTests : IDisposable
         var updateVm = new VentaViewModel
         {
             Id = venta.Id,
-            ClienteId = ventaOriginal.ClienteId,
+            ClienteId = ventaOriginal.ClienteId!.Value,
             FechaVenta = ventaOriginal.FechaVenta,
             Estado = ventaOriginal.Estado,
             TipoPago = TipoPago.MercadoPago,
@@ -551,7 +599,7 @@ public class VentaServiceConfirmarEfectivoTests : IDisposable
         var update = await _service.UpdateAsync(venta.Id, new VentaViewModel
         {
             Id = venta.Id,
-            ClienteId = ventaOriginal.ClienteId,
+            ClienteId = ventaOriginal.ClienteId!.Value,
             FechaVenta = ventaOriginal.FechaVenta,
             Estado = ventaOriginal.Estado,
             TipoPago = TipoPago.MercadoPago,

@@ -90,7 +90,11 @@
     };
     // VENTA-ENVIO-TOTAL-01: el envío se cobra pero no integra el comprobante (Venta.TotalFacturable
     // = Venta.Total). Sólo se separa visualmente cuando hay un importe de envío real (> 0).
-    var tieneEnvioACobrar = Model.ImporteEnvio > 0m;
+    // Sólo aplica al envío legacy (VentaEnvio.IncluidoEnTotal = false). El envío nuevo ya está dentro de
+    // Venta.Total y se desglosa en "Detalle de la operación" (productos / armados / envío / recargo).
+    var tieneEnvioACobrar = Model.ImporteEnvioFueraDelTotal > 0m;
+    var productosMontoDesglose = Model.Detalles.Sum(d => d.SubtotalFinal != 0m ? d.SubtotalFinal : d.Subtotal);
+    var hayServiciosIncluidos = Model.TotalArmados > 0m || Model.ImporteEnvioIncluido > 0m;
     var facturacionResumen = tieneFactura
         ? facturaActiva?.Numero ?? "Factura emitida"
         : "Sin factura emitida";
@@ -413,6 +417,18 @@
                                                     <p class="font-bold text-white">@item.ProductoNombre</p>
                                                     <p class="text-[11px] text-slate-400">@item.ProductoCodigo</p>
                                                     <div class="mt-1.5 flex flex-wrap gap-1">
+                                                        @if (item.TipoArmado.HasValue)
+                                                        {
+                                                            <span class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold bg-sky-500/10 text-sky-300 armado-item">
+                                                                @item.ArmadoDisplay × @item.Cantidad · <span class="whitespace-nowrap">@item.ArmadoSubtotal.ToString("C2")</span>
+                                                            </span>
+                                                        }
+                                                        else if (item.EntregaCajaCerrada)
+                                                        {
+                                                            <span class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold bg-slate-700/60 text-slate-300 armado-item">
+                                                                Caja cerrada (sin armado)
+                                                            </span>
+                                                        }
                                                         @if (item.TipoPago.HasValue)
                                                         {
                                                             <span class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold bg-slate-700/60 text-slate-300 forma-pago-item">
@@ -551,6 +567,32 @@
                     <!-- Totals row -->
                     <div class="p-6 bg-slate-800/30 border-t border-slate-800">
                         <div class="flex flex-col items-end gap-2">
+                            @if (hayServiciosIncluidos)
+                            {
+                                @* Detalle de la operación: productos, armados (con cantidades), envío y recargo por forma
+                                   de pago por separado. Armados y envío forman parte de Total y reciben el recargo. *@
+                                <div id="venta-detalle-operacion" class="mb-2 w-full max-w-xs space-y-1 rounded-lg border border-slate-700/70 bg-slate-900/40 p-3 text-sm">
+                                    <div class="flex justify-between"><span class="text-slate-400">Productos</span><span id="venta-op-productos" class="font-medium text-slate-200">@productosMontoDesglose.ToString("C2")</span></div>
+                                    @if (Model.TotalArmados > 0m)
+                                    {
+                                        <div class="flex justify-between"><span class="text-slate-400">Armados</span><span id="venta-op-armados" class="font-medium text-slate-200">@Model.TotalArmados.ToString("C2")</span></div>
+                                        <ul class="space-y-0.5 pl-3 text-xs text-slate-500">
+                                            @foreach (var lineaArmado in Model.Detalles.Where(d => d.TipoArmado.HasValue))
+                                            {
+                                                <li>@lineaArmado.ArmadoDisplay × @lineaArmado.Cantidad — @lineaArmado.ProductoNombre: @lineaArmado.ArmadoSubtotal.ToString("C2")</li>
+                                            }
+                                        </ul>
+                                    }
+                                    @if (Model.ImporteEnvioIncluido > 0m)
+                                    {
+                                        <div class="flex justify-between"><span class="text-slate-400">@(Model.Envio?.TipoEnvioDisplay ?? "Envío")</span><span id="venta-op-envio" class="font-medium text-slate-200">@Model.ImporteEnvioIncluido.ToString("C2")</span></div>
+                                    }
+                                    @if (Model.RecargoFormaPago > 0m)
+                                    {
+                                        <div class="flex justify-between"><span class="text-slate-400">Recargo por forma de pago</span><span id="venta-op-recargo" class="font-medium text-amber-300">@Model.RecargoFormaPago.ToString("C2")</span></div>
+                                    }
+                                </div>
+                            }
                             <div class="flex justify-between w-64 text-sm">
                                 <span class="text-slate-500">Subtotal</span>
                                 <span class="font-medium text-slate-300">@Model.Subtotal.ToString("C2")</span>
@@ -750,7 +792,7 @@
                         {
                             <div class="mt-5 overflow-x-auto rounded-lg border border-slate-800">
                                 <p class="border-b border-slate-800 px-4 py-3 text-xs font-semibold text-slate-400">
-                                    El resumen por al&iacute;cuotas corresponde s&oacute;lo a productos.
+                                    El resumen por al&iacute;cuotas corresponde a productos, armados y env&iacute;o (sin recargos del medio de pago).
                                 </p>
                                 <table class="w-full text-sm">
                                     <thead>
@@ -824,6 +866,13 @@
                                 <div class="venta-stat">
                                     <p class="text-[10px] text-slate-500 font-bold uppercase">Transportista</p>
                                     <p class="text-sm font-bold text-white">@envio.Transportista</p>
+                                </div>
+                            }
+                            @if (envio.TipoEnvio.HasValue)
+                            {
+                                <div class="venta-stat">
+                                    <p class="text-[10px] text-slate-500 font-bold uppercase">Tipo de envío</p>
+                                    <p id="venta-envio-tipo" class="text-sm font-bold text-white">@envio.TipoEnvioDisplay</p>
                                 </div>
                             }
                             <div class="venta-stat">

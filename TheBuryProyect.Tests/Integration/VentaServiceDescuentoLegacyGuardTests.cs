@@ -223,7 +223,7 @@ public class VentaServiceDescuentoLegacyGuardTests : IDisposable
     {
         var (venta, producto, _) = await SeedVentaConLineaAsync(
             precioUnitario: 1_000m, cantidad: 1, descuento: 0m, subtotal: 1_000m);
-        var vm = CrearVmEdicionSimple(venta, venta.ClienteId, producto.Id);
+        var vm = CrearVmEdicionSimple(venta, venta.ClienteId!.Value, producto.Id);
 
         var resultado = await _service.UpdateAsync(venta.Id, vm);
 
@@ -240,7 +240,7 @@ public class VentaServiceDescuentoLegacyGuardTests : IDisposable
         // bruto=100000, Descuento=20, Subtotal=80000 (100000 - 100000*20/100)
         var (venta, producto, _) = await SeedVentaConLineaAsync(
             precioUnitario: 100_000m, cantidad: 1, descuento: 20m, subtotal: 80_000m);
-        var vm = CrearVmEdicionSimple(venta, venta.ClienteId, producto.Id);
+        var vm = CrearVmEdicionSimple(venta, venta.ClienteId!.Value, producto.Id);
 
         var resultado = await _service.UpdateAsync(venta.Id, vm);
 
@@ -258,7 +258,7 @@ public class VentaServiceDescuentoLegacyGuardTests : IDisposable
         // Modelo porcentual daría 240000 - 240000*10/100 = 216000 ≠ 239990.
         var (venta, producto, detalleOriginal) = await SeedVentaConLineaAsync(
             precioUnitario: 240_000m, cantidad: 1, descuento: 10m, subtotal: 239_990m);
-        var vm = CrearVmEdicionSimple(venta, venta.ClienteId, producto.Id);
+        var vm = CrearVmEdicionSimple(venta, venta.ClienteId!.Value, producto.Id);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.UpdateAsync(venta.Id, vm));
@@ -295,7 +295,7 @@ public class VentaServiceDescuentoLegacyGuardTests : IDisposable
         // bruto=100, Descuento=20 → absoluto=80, porcentual=80. Coinciden → Ambigua.
         var (venta, producto, _) = await SeedVentaConLineaAsync(
             precioUnitario: 100m, cantidad: 1, descuento: 20m, subtotal: 80m);
-        var vm = CrearVmEdicionSimple(venta, venta.ClienteId, producto.Id);
+        var vm = CrearVmEdicionSimple(venta, venta.ClienteId!.Value, producto.Id);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.UpdateAsync(venta.Id, vm));
@@ -315,7 +315,7 @@ public class VentaServiceDescuentoLegacyGuardTests : IDisposable
         // podría venir de un 100% porcentual actual. Debe bloquear igual (fail closed).
         var (venta, producto, _) = await SeedVentaConLineaAsync(
             precioUnitario: 50m, cantidad: 1, descuento: 60m, subtotal: 0m);
-        var vm = CrearVmEdicionSimple(venta, venta.ClienteId, producto.Id);
+        var vm = CrearVmEdicionSimple(venta, venta.ClienteId!.Value, producto.Id);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.UpdateAsync(venta.Id, vm));
@@ -333,7 +333,7 @@ public class VentaServiceDescuentoLegacyGuardTests : IDisposable
         // ninguno de los dos.
         var (venta, producto, _) = await SeedVentaConLineaAsync(
             precioUnitario: 1_000m, cantidad: 1, descuento: 30m, subtotal: 850m);
-        var vm = CrearVmEdicionSimple(venta, venta.ClienteId, producto.Id);
+        var vm = CrearVmEdicionSimple(venta, venta.ClienteId!.Value, producto.Id);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.UpdateAsync(venta.Id, vm));
@@ -354,7 +354,7 @@ public class VentaServiceDescuentoLegacyGuardTests : IDisposable
         // porcentual clampeado a 100% daría 0 ≠ 9850 → LegacyAbsoluto, no Porcentaje.
         var (venta, producto, _) = await SeedVentaConLineaAsync(
             precioUnitario: 10_000m, cantidad: 1, descuento: 150m, subtotal: 9_850m);
-        var vm = CrearVmEdicionSimple(venta, venta.ClienteId, producto.Id);
+        var vm = CrearVmEdicionSimple(venta, venta.ClienteId!.Value, producto.Id);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.UpdateAsync(venta.Id, vm));
@@ -372,7 +372,7 @@ public class VentaServiceDescuentoLegacyGuardTests : IDisposable
         var (venta, producto, _) = await SeedVentaConLineaAsync(
             precioUnitario: 240_000m, cantidad: 1, descuento: 10m, subtotal: 239_990m,
             estado: EstadoVenta.Confirmada);
-        var vm = CrearVmEdicionSimple(venta, venta.ClienteId, producto.Id);
+        var vm = CrearVmEdicionSimple(venta, venta.ClienteId!.Value, producto.Id);
         vm.Estado = EstadoVenta.Confirmada;
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>

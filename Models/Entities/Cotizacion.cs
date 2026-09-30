@@ -20,6 +20,9 @@ public class Cotizacion : AuditableEntity
     [StringLength(200)]
     public string? NombreClienteLibre { get; set; }
 
+    [StringLength(8)]
+    public string? DniClienteLibre { get; set; }
+
     [StringLength(30)]
     public string? TelefonoClienteLibre { get; set; }
 
@@ -60,6 +63,23 @@ public class Cotizacion : AuditableEntity
     /// plan). Al convertir a venta viaja a <c>VentaEnvio.CostoEnvio</c>.
     /// </summary>
     public decimal? CostoEnvio { get; set; }
+
+    /// <summary>Tipo de envío (Ciudad/Rural) que fijó el precio global. Null en cotizaciones anteriores.</summary>
+    public Enums.TipoServicioVenta? TipoEnvio { get; set; }
+
+    /// <summary>Suma de los armados por unidad de todas las líneas (snapshot; 0 si no hay).</summary>
+    public decimal ImporteArmados { get; set; }
+
+    /// <summary>
+    /// true = TotalBase y los totales de las opciones ya incluyen armados y envío (modelo nuevo, el
+    /// recargo del plan los alcanza). false = cotización anterior: el envío se suma aparte.
+    /// </summary>
+    public bool EnvioIncluidoEnTotal { get; set; }
+
+    /// <summary>Total de la opción elegida (o TotalBase) + envío sólo cuando se cobra aparte (legacy).</summary>
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public decimal TotalACobrar => Helpers.VentaMontos.CalcularTotalACobrar(
+        TotalSeleccionado ?? TotalBase, EnvioIncluidoEnTotal ? 0m : ImporteEnvio);
 
     /// <summary>Importe de envío efectivo (nunca negativo). Ver <see cref="Helpers.VentaMontos"/>.</summary>
     [System.ComponentModel.DataAnnotations.Schema.NotMapped]

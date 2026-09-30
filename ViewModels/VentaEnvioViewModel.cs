@@ -50,6 +50,17 @@ namespace TheBuryProject.ViewModels
         [Range(0, 999999999.99, ErrorMessage = "El costo de envío no puede ser negativo.")]
         public decimal? CostoEnvio { get; set; }
 
+        /// <summary>Envío Ciudad / Rural. El costo lo fija el servidor con el precio global del tipo.</summary>
+        [Display(Name = "Tipo de envío")]
+        public TipoServicioVenta? TipoEnvio { get; set; }
+
+        /// <summary>true = el costo ya está dentro de Venta.Total; false = envío legacy cobrado aparte.</summary>
+        public bool IncluidoEnTotal { get; set; }
+
+        public decimal? CostoFueraDelTotal => IncluidoEnTotal ? null : CostoEnvio;
+
+        public string TipoEnvioDisplay => TipoEnvio?.NombreVisible() ?? "Envío a domicilio";
+
         [Display(Name = "Fecha programada")]
         [DataType(DataType.Date)]
         public DateTime? FechaProgramada { get; set; }

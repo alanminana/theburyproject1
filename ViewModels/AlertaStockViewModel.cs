@@ -20,7 +20,11 @@ namespace TheBuryProject.ViewModels
         public PrioridadAlerta Prioridad { get; set; }
         public string PrioridadDescripcion => Prioridad.ToString();
         public EstadoAlerta Estado { get; set; }
-        public string EstadoDescripcion => Estado.ToString();
+        public string EstadoDescripcion => Estado switch
+        {
+            EstadoAlerta.EnProceso => "En proceso",
+            _ => Estado.ToString()
+        };
 
         public string Mensaje { get; set; } = string.Empty;
         public decimal StockActual { get; set; }

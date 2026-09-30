@@ -97,6 +97,21 @@ namespace TheBuryProject.Models.Entities
         [Column(TypeName = "decimal(18,2)")]
         public decimal? MontoAjustePlanAplicado { get; set; }
 
+        // Armado opcional por producto. Se cobra por unidad: ArmadoSubtotal = ArmadoPrecioUnitario × Cantidad.
+        // El precio unitario es snapshot del precio global vigente al guardar (nunca viene del cliente).
+        // EntregaCajaCerrada = el producto se entrega sin armar: no lleva armado ni costo.
+        // Todo este bloque forma parte de Venta.Total (y del recargo del medio de pago) pero no de
+        // SubtotalFinal de la línea, que sigue siendo sólo el producto.
+        public TipoServicioVenta? TipoArmado { get; set; }
+
+        public bool EntregaCajaCerrada { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal ArmadoPrecioUnitario { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal ArmadoSubtotal { get; set; }
+
         // Trazabilidad individual (Fase 8.2.E — nullable para compatibilidad con ventas históricas)
         public int? ProductoUnidadId { get; set; }
 

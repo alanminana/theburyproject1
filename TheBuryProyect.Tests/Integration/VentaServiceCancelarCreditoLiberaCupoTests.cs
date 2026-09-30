@@ -330,7 +330,7 @@ public class VentaServiceCancelarCreditoLiberaCupoTests : IDisposable
 
         var (venta, credito) = await SeedVentaCreditoPendienteAsync(total: 1_000m);
 
-        var disponibleAntes = await _disponibleService.CalcularDisponibleAsync(venta.ClienteId);
+        var disponibleAntes = await _disponibleService.CalcularDisponibleAsync(venta.ClienteId!.Value);
         Assert.Equal(1_000m, disponibleAntes.SaldoVigente);
         Assert.Equal(LimitePuntaje5 - 1_000m, disponibleAntes.Disponible);
 
@@ -346,10 +346,10 @@ public class VentaServiceCancelarCreditoLiberaCupoTests : IDisposable
         Assert.Equal(EstadoCredito.Cancelado, creditoBd.Estado);
         Assert.Equal(0m, creditoBd.SaldoPendiente);
 
-        var saldoVigente = await _disponibleService.CalcularSaldoVigenteAsync(venta.ClienteId);
+        var saldoVigente = await _disponibleService.CalcularSaldoVigenteAsync(venta.ClienteId!.Value);
         Assert.Equal(0m, saldoVigente);
 
-        var disponibleDespues = await _disponibleService.CalcularDisponibleAsync(venta.ClienteId);
+        var disponibleDespues = await _disponibleService.CalcularDisponibleAsync(venta.ClienteId!.Value);
         Assert.Equal(LimitePuntaje5, disponibleDespues.Disponible);
     }
 
@@ -366,7 +366,7 @@ public class VentaServiceCancelarCreditoLiberaCupoTests : IDisposable
         venta.EstadoAutorizacion = EstadoAutorizacionVenta.PendienteAutorizacion;
         await _context.SaveChangesAsync();
 
-        var disponibleAntes = await _disponibleService.CalcularDisponibleAsync(venta.ClienteId);
+        var disponibleAntes = await _disponibleService.CalcularDisponibleAsync(venta.ClienteId!.Value);
         Assert.Equal(1_500m, disponibleAntes.SaldoVigente);
 
         var resultado = await _service.RechazarVentaAsync(venta.Id, "supervisor", "No cumple requisitos");
@@ -382,10 +382,10 @@ public class VentaServiceCancelarCreditoLiberaCupoTests : IDisposable
         Assert.Equal(EstadoCredito.Cancelado, creditoBd.Estado);
         Assert.Equal(0m, creditoBd.SaldoPendiente);
 
-        var saldoVigente = await _disponibleService.CalcularSaldoVigenteAsync(venta.ClienteId);
+        var saldoVigente = await _disponibleService.CalcularSaldoVigenteAsync(venta.ClienteId!.Value);
         Assert.Equal(0m, saldoVigente);
 
-        var disponibleDespues = await _disponibleService.CalcularDisponibleAsync(venta.ClienteId);
+        var disponibleDespues = await _disponibleService.CalcularDisponibleAsync(venta.ClienteId!.Value);
         Assert.Equal(LimitePuntaje5, disponibleDespues.Disponible);
     }
 
@@ -451,8 +451,9 @@ file sealed class StubAlertaStockServiceCancelaCredito : IAlertaStockService
     public Task<AlertaStockViewModel?> GetByIdAsync(int id) => throw new NotImplementedException();
     public Task<bool> ResolverAlertaAsync(int id, string usuarioResolucion, string? observaciones = null, byte[]? rowVersion = null) => throw new NotImplementedException();
     public Task<bool> IgnorarAlertaAsync(int id, string usuarioResolucion, string? observaciones = null, byte[]? rowVersion = null) => throw new NotImplementedException();
+    public Task<bool> MarcarEnProcesoAsync(int id, string usuario, string? observaciones = null, byte[]? rowVersion = null) => throw new NotImplementedException();
     public Task<AlertaStockEstadisticasViewModel> GetEstadisticasAsync() => throw new NotImplementedException();
-    public Task<List<AlertaStock>> GetAlertasByProductoIdAsync(int productoId) => throw new NotImplementedException();
+    public Task<List<AlertaStockViewModel>> GetAlertasByProductoIdAsync(int productoId) => throw new NotImplementedException();
     public Task<AlertaStock?> VerificarYGenerarAlertaAsync(int productoId) => throw new NotImplementedException();
     public Task<int> LimpiarAlertasAntiguasAsync(int diasAntiguedad = 30, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<List<ProductoCriticoViewModel>> GetProductosCriticosAsync() => throw new NotImplementedException();

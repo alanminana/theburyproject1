@@ -12,19 +12,25 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
     private readonly ICreditoSimulacionVentaService _creditoSimulacionVentaService;
     private readonly IProductoCreditoRestriccionService _productoCreditoRestriccionService;
     private readonly IConfiguracionPagoService _configuracionPagoService;
+    private readonly IServicioVentaPrecioService _servicioVentaPrecioService;
+    private readonly IProductoUnidadService _productoUnidadService;
 
     public CotizacionPagoCalculator(
         IProductoService productoService,
         IConfiguracionPagoGlobalQueryService configuracionPagoGlobalQueryService,
         ICreditoSimulacionVentaService creditoSimulacionVentaService,
         IProductoCreditoRestriccionService productoCreditoRestriccionService,
-        IConfiguracionPagoService configuracionPagoService)
+        IConfiguracionPagoService configuracionPagoService,
+        IServicioVentaPrecioService servicioVentaPrecioService,
+        IProductoUnidadService productoUnidadService)
     {
         _productoService = productoService;
         _configuracionPagoGlobalQueryService = configuracionPagoGlobalQueryService;
         _creditoSimulacionVentaService = creditoSimulacionVentaService;
         _productoCreditoRestriccionService = productoCreditoRestriccionService;
         _configuracionPagoService = configuracionPagoService;
+        _servicioVentaPrecioService = servicioVentaPrecioService;
+        _productoUnidadService = productoUnidadService;
     }
 
     public async Task<CotizacionSimulacionResultado> SimularAsync(
@@ -51,6 +57,15 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
         var productosResultado = new List<CotizacionProductoResultado>();
         var subtotal = 0m;
         var descuentoTotal = 0m;
+        var totalArmados = 0m;
+
+        // Precios globales de armados/envío: se resuelven acá, nunca se aceptan importes del cliente.
+        var preciosServicios = (await _servicioVentaPrecioService.ListarAsync())
+            .ToDictionary(s => s.Tipo);
+
+        // Unidades físicas ya usadas por una línea anterior de ESTA misma cotización (no reserva
+        // stock: sólo evita elegir la misma unidad dos veces dentro de la misma simulación).
+        var unidadesUsadas = new HashSet<int>();
 
         foreach (var producto in request.Productos)
         {
@@ -84,6 +99,55 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
                     $"Precio manual para producto {producto.ProductoId} no soportado en Cotizacion V1B; se uso precio vigente.");
             }
 
+            decimal armadoUnitario = 0m;
+            var armadoSubtotal = 0m;
+            if (producto.TipoArmado.HasValue)
+            {
+                if (producto.EntregaCajaCerrada)
+                    errores.Add("Un producto entregado en caja cerrada no puede llevar armado.");
+                else if (!producto.TipoArmado.Value.EsArmado())
+                    errores.Add("El tipo de armado seleccionado no es válido.");
+                else if (!preciosServicios.TryGetValue(producto.TipoArmado.Value, out var srv) || !srv.Activo)
+                    errores.Add($"{producto.TipoArmado.Value.NombreVisible()} no está disponible.");
+                else
+                {
+                    armadoUnitario = RedondearMoneda(srv.Precio);
+                    armadoSubtotal = RedondearMoneda(armadoUnitario * producto.Cantidad);
+                    totalArmados += armadoSubtotal;
+                }
+            }
+
+            string? unidadEtiqueta = null;
+            if (producto.ProductoUnidadId.HasValue)
+            {
+                var productoUnidadId = producto.ProductoUnidadId.Value;
+                if (producto.Cantidad != 1)
+                    errores.Add($"Una unidad física seleccionada sólo puede cotizarse con cantidad 1. Producto: '{precio.Nombre}'.");
+                else if (unidadesUsadas.Contains(productoUnidadId))
+                    errores.Add($"La unidad física seleccionada para '{precio.Nombre}' ya está elegida en otra línea de esta cotización.");
+                else
+                {
+                    var unidad = await _productoUnidadService.ObtenerPorIdAsync(productoUnidadId);
+                    if (unidad is null)
+                        errores.Add($"La unidad física seleccionada para '{precio.Nombre}' ya no está disponible.");
+                    else if (unidad.ProductoId != producto.ProductoId)
+                        errores.Add($"La unidad '{unidad.CodigoInternoUnidad}' no pertenece al producto '{precio.Nombre}'.");
+                    else if (unidad.Estado != EstadoUnidad.EnStock)
+                        errores.Add($"La unidad '{unidad.CodigoInternoUnidad}' no está disponible (estado: {unidad.Estado}).");
+                    else
+                    {
+                        unidadesUsadas.Add(productoUnidadId);
+                        unidadEtiqueta = string.IsNullOrWhiteSpace(unidad.NumeroSerie)
+                            ? unidad.CodigoInternoUnidad
+                            : $"{unidad.CodigoInternoUnidad} · NS {unidad.NumeroSerie}";
+                    }
+                }
+            }
+            else if (precio.RequiereNumeroSerie)
+            {
+                errores.Add($"'{precio.Nombre}' requiere seleccionar una unidad física antes de cotizar.");
+            }
+
             subtotal += subtotalProductoBruto;
             descuentoTotal += descuentoProducto;
 
@@ -94,13 +158,33 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
                 Nombre = precio.Nombre,
                 Cantidad = producto.Cantidad,
                 PrecioUnitario = precioUnitario,
-                Subtotal = subtotalProducto
+                Subtotal = subtotalProducto,
+                TipoArmado = producto.TipoArmado,
+                EntregaCajaCerrada = producto.EntregaCajaCerrada,
+                ArmadoPrecioUnitario = armadoUnitario,
+                ArmadoSubtotal = armadoSubtotal,
+                ProductoUnidadId = producto.ProductoUnidadId,
+                ProductoUnidadEtiqueta = unidadEtiqueta
             });
         }
 
         var descuentoGeneral = CalcularDescuentoGeneral(request, subtotal - descuentoTotal, errores);
         descuentoTotal = RedondearMoneda(descuentoTotal + descuentoGeneral);
-        var totalBase = RedondearMoneda(subtotal - descuentoTotal);
+        var totalProductos = RedondearMoneda(subtotal - descuentoTotal);
+
+        var importeEnvio = 0m;
+        if (request.TipoEnvio.HasValue)
+        {
+            if (!request.TipoEnvio.Value.EsEnvio())
+                errores.Add("Seleccioná el tipo de envío (Ciudad o Rural).");
+            else if (!preciosServicios.TryGetValue(request.TipoEnvio.Value, out var srvEnvio) || !srvEnvio.Activo)
+                errores.Add($"{request.TipoEnvio.Value.NombreVisible()} no está disponible.");
+            else
+                importeEnvio = RedondearMoneda(srvEnvio.Precio);
+        }
+
+        // Armados y envío entran en la base: el recargo del plan de pago los alcanza (igual que Venta).
+        var totalBase = RedondearMoneda(totalProductos + totalArmados + importeEnvio);
 
         var opciones = new List<CotizacionMedioPagoResultado>();
         ConfiguracionPagoGlobalResultado? configuracion = null;
@@ -130,7 +214,11 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
             OpcionesPago = opciones,
             Subtotal = RedondearMoneda(subtotal),
             DescuentoTotal = descuentoTotal,
-            TotalBase = totalBase
+            TotalBase = totalBase,
+            TotalProductos = totalProductos,
+            TotalArmados = totalArmados,
+            ImporteEnvio = importeEnvio,
+            TipoEnvio = request.TipoEnvio
         };
     }
 
@@ -328,7 +416,7 @@ public sealed class CotizacionPagoCalculator : ICotizacionPagoCalculator
 
         if (!request.ClienteId.HasValue)
         {
-            const string advertenciaSinCliente = "Credito personal requiere cliente y evaluacion antes de confirmar.";
+            const string advertenciaSinCliente = "Crédito personal requiere cliente y evaluación antes de confirmar.";
             advertencias.Add(advertenciaSinCliente);
 
             opciones.Add(new CotizacionMedioPagoResultado

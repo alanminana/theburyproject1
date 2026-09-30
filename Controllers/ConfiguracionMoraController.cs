@@ -7,7 +7,7 @@ using TheBuryProject.ViewModels;
 namespace TheBuryProject.Controllers
 {
     [Authorize]
-    [PermisoRequerido(Modulo = "configuraciones", Accion = "managemora")]
+    [PermisoRequerido(Modulo = "configuracion", Accion = "managepunitorio")]
     public class ConfiguracionMoraController : Controller
     {
         private readonly IConfiguracionMoraService _configuracionMoraService;

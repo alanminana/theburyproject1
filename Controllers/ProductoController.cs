@@ -89,6 +89,7 @@ namespace TheBuryProject.Controllers
         /// </summary>
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "productos", Accion = "create")]
         public async Task<IActionResult> CreateAjax(ProductoViewModel viewModel)
         {
             if (!ModelState.IsValid)
@@ -185,6 +186,7 @@ namespace TheBuryProject.Controllers
         // POST: Producto/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "productos", Accion = "delete")]
         public async Task<IActionResult> DeleteConfirmed(int id, string? returnUrl = null)
         {
             try
@@ -288,6 +290,7 @@ namespace TheBuryProject.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "productos", Accion = "edit")]
         public async Task<IActionResult> EditAjax(int id, ProductoViewModel viewModel)
         {
             if (id != viewModel.Id)
@@ -359,6 +362,8 @@ namespace TheBuryProject.Controllers
                         margenPorcentaje = fila.MargenPorcentaje,
                         comisionPorcentaje = fila.ComisionPorcentaje,
                         stockActual = fila.StockActual,
+                        stockMinimo = fila.StockMinimo,
+                        estadoStock = fila.EstadoStock,
                         activo = fila.Activo
                     }
                 });

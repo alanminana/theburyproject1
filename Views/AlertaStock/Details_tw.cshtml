@@ -145,6 +145,32 @@
         @if (estaActiva)
         {
             <div class="space-y-4">
+                @if (Model.Estado == EstadoAlerta.Pendiente)
+                {
+                    <section class="card-erp-panel-padded space-y-3">
+                        <h2 class="font-semibold text-sky-400 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-xl">hourglass_top</span>
+                            Marcar en proceso
+                        </h2>
+                        <p class="text-xs text-slate-400">
+                            Saca la alerta de "urgente" sin resolverla, para retomarla más tarde. Queda visible filtrando por Estado "En proceso".
+                        </p>
+                        <form asp-action="MarcarEnProceso" method="post" class="space-y-3">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="id" value="@Model.Id" />
+                            @if (Model.RowVersion != null)
+                            {
+                                <input type="hidden" name="rowVersion" value="@Convert.ToBase64String(Model.RowVersion)" />
+                            }
+                            <input type="hidden" name="returnUrl" value="/AlertaStock/Details/@Model.Id" />
+                            <button type="submit" class="btn-erp-ghost w-full">
+                                <span class="material-symbols-outlined text-base">hourglass_top</span>
+                                Marcar en proceso
+                            </button>
+                        </form>
+                    </section>
+                }
+
                 <section class="card-erp-panel-padded space-y-3">
                     <h2 class="font-semibold text-emerald-400 flex items-center gap-2">
                         <span class="material-symbols-outlined text-xl">check_circle</span>

@@ -554,7 +554,7 @@ public class CajaServiceTests : IDisposable
     [Fact]
     public void Create_Get_EntregaModeloConCajaActivaPorDefecto()
     {
-        var result = BuildSupervisorController().Create();
+        var result = BuildSupervisorController().Create(null);
 
         var view = Assert.IsType<ViewResult>(result);
         Assert.Equal("Create_tw", view.ViewName);

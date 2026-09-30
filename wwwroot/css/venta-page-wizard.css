@@ -760,6 +760,49 @@
 }
 
 /* ══════════════════════════════════════════════════════════════
+   DETALLE — armado opcional por línea (se cobra por unidad)
+   ══════════════════════════════════════════════════════════════ */
+
+#venta-create-page .venta-linea-armado,
+#venta-edit-page .venta-linea-armado {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.4rem;
+    font-size: var(--erp-fs-min, 0.75rem);
+    line-height: 1.3;
+}
+
+#venta-create-page .venta-linea-armado .venta-linea-unidad__select,
+#venta-edit-page .venta-linea-armado .venta-linea-unidad__select {
+    flex: 1 1 14rem;
+    max-width: 22rem;
+}
+
+@media (max-width: 639px) {
+    #venta-create-page .venta-linea-armado .venta-linea-unidad__select,
+    #venta-edit-page .venta-linea-armado .venta-linea-unidad__select {
+        flex-basis: 100%;
+        min-width: 0;
+        max-width: 100%;
+    }
+}
+
+#venta-create-page .venta-linea-armado__label,
+#venta-edit-page .venta-linea-armado__label {
+    font-weight: 600;
+    color: var(--pal-neutral-400);
+}
+
+#venta-create-page .venta-linea-armado__costo,
+#venta-edit-page .venta-linea-armado__costo {
+    font-weight: 700;
+    color: var(--pal-neutral-200);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ══════════════════════════════════════════════════════════════
    RESPONSIVE
    ══════════════════════════════════════════════════════════════ */
 

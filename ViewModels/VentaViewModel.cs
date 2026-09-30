@@ -402,7 +402,26 @@ namespace TheBuryProject.ViewModels
         // el comprobante (hoy = Total, sin envío).
         public decimal ImporteEnvio => Helpers.VentaMontos.NormalizarImporteEnvio(Envio?.CostoEnvio);
 
-        public decimal TotalACobrar => Helpers.VentaMontos.CalcularTotalACobrar(Total, Envio?.CostoEnvio);
+        /// <summary>Envío cobrado aparte de Total (sólo envíos legacy); el envío nuevo ya está dentro de Total.</summary>
+        public decimal ImporteEnvioFueraDelTotal => Helpers.VentaMontos.NormalizarImporteEnvio(Envio?.CostoFueraDelTotal);
+
+        public decimal TotalACobrar => Helpers.VentaMontos.CalcularTotalACobrar(Total, Envio?.CostoFueraDelTotal);
+
+        /// <summary>Armados (por unidad × cantidad) incluidos en Total, sin recargo.</summary>
+        public decimal TotalArmados => Detalles?.Sum(d => d.ArmadoSubtotal) ?? 0m;
+
+        /// <summary>Envío incluido en Total (sin recargo). 0 en envíos legacy.</summary>
+        public decimal ImporteEnvioIncluido => Envio is { IncluidoEnTotal: true } ? ImporteEnvio : 0m;
+
+        /// <summary>Recargo por forma de pago sobre productos + armados + envío (el ajuste global de pago/débito).</summary>
+        public decimal RecargoFormaPago
+        {
+            get
+            {
+                var recargo = DatosTarjeta?.MontoAjustePagoAplicado ?? DatosTarjeta?.RecargoAplicado ?? 0m;
+                return recargo > 0m ? recargo : 0m;
+            }
+        }
 
         public decimal TotalFacturable => Helpers.VentaMontos.CalcularTotalFacturable(Total);
 

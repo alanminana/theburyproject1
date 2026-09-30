@@ -308,6 +308,7 @@ public sealed class CotizacionConversionServiceTests : IDisposable
             null!,                    // IVentaValidator — sólo lo usa PreflightConversionAsync, ver BuildServiceParaPreflight
             null!,                    // ICajaService — idem
             null!,                    // IContratoVentaCreditoService — idem
+            null!,                    // IProductoUnidadService — ningún detalle de estos tests tiene ProductoUnidadId
             NullLogger<CotizacionConversionService>.Instance);
     }
 
@@ -329,6 +330,7 @@ public sealed class CotizacionConversionServiceTests : IDisposable
             null!,
             null!,
             null!,                    // IContratoVentaCreditoService — no involucrado en este camino (Efectivo, sin crédito personal)
+            null!,                    // IProductoUnidadService — ningún detalle de estos tests tiene ProductoUnidadId
             NullLogger<CotizacionConversionService>.Instance);
     }
 
@@ -351,6 +353,7 @@ public sealed class CotizacionConversionServiceTests : IDisposable
             new VentaValidator(),
             new StubCajaServiceConversion(aperturaActiva),
             new StubContratoVentaCreditoServiceConversion(validacionContratoCliente),
+            null!,                    // IProductoUnidadService — ningún detalle de estos tests tiene ProductoUnidadId
             NullLogger<CotizacionConversionService>.Instance);
     }
 
@@ -525,6 +528,31 @@ public sealed class CotizacionConversionServiceTests : IDisposable
         Assert.Contains(resultado.Advertencias, a => a.Contains("unidad", StringComparison.OrdinalIgnoreCase));
         var detallePreview = Assert.Single(resultado.Detalles);
         Assert.True(detallePreview.RequiereUnidadFisica);
+
+        _producto.RequiereNumeroSerie = false;
+        await _context.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task Preview_ProductoTrazableConUnidadYaElegida_NoAdvierte()
+    {
+        _producto.RequiereNumeroSerie = true;
+        await _context.SaveChangesAsync();
+        var unidad = new ProductoUnidad { ProductoId = _producto.Id, CodigoInternoUnidad = "UN-1", Estado = EstadoUnidad.EnStock };
+        _context.ProductoUnidades.Add(unidad);
+        await _context.SaveChangesAsync();
+
+        var cotizacion = CotizacionEmitida(conCliente: true);
+        cotizacion.Detalles.Single().ProductoUnidadId = unidad.Id;
+        _context.Cotizaciones.Add(cotizacion);
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.PreviewConversionAsync(cotizacion.Id);
+
+        Assert.False(resultado.HayProductosTrazables);
+        Assert.DoesNotContain(resultado.Advertencias, a => a.Contains("unidad", StringComparison.OrdinalIgnoreCase));
+        var detallePreview = Assert.Single(resultado.Detalles);
+        Assert.False(detallePreview.RequiereUnidadFisica);
 
         _producto.RequiereNumeroSerie = false;
         await _context.SaveChangesAsync();
@@ -891,6 +919,40 @@ public sealed class CotizacionConversionServiceTests : IDisposable
         Assert.Equal(venta.Subtotal, venta.Total);                 // el envío no entra en Venta.Total
         Assert.Equal(venta.Total + 1000m, venta.TotalACobrar);      // se suma una sola vez
         Assert.Equal(venta.Total, venta.TotalFacturable);          // el comprobante no lo incluye
+    }
+
+    // VENTA-SERVICIOS-01: cotización del modelo nuevo (armados + envío por tipo, dentro del total):
+    // la venta nace con los armados por línea, el envío incluido en Venta.Total y sin cobro aparte.
+    [Fact]
+    public async Task Convertir_CotizacionConServiciosIncluidos_LlevaArmadosYEnvioDentroDelTotal()
+    {
+        var cotizacion = CotizacionEmitida(conCliente: true);
+        cotizacion.TieneEnvio = true;
+        cotizacion.TipoEnvio = TipoServicioVenta.EnvioRural;
+        cotizacion.CostoEnvio = 9000m;
+        cotizacion.EnvioIncluidoEnTotal = true;
+        cotizacion.ImporteArmados = 3000m;
+        var det = cotizacion.Detalles.First();
+        det.TipoArmado = TipoServicioVenta.Armado2;
+        det.ArmadoPrecioUnitario = 3000m / det.Cantidad;
+        det.ArmadoSubtotal = 3000m;
+        _context.Cotizaciones.Add(cotizacion);
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.ConvertirAVentaAsync(cotizacion.Id, RequestDefault(), "carlos");
+
+        Assert.True(resultado.Exitoso);
+        _context.ChangeTracker.Clear();
+        var venta = await _context.Ventas
+            .Include(v => v.Envio).Include(v => v.Detalles)
+            .FirstAsync(v => v.Id == resultado.VentaId);
+
+        var productos = venta.Detalles.Sum(d => d.Subtotal);
+        Assert.Equal(TipoServicioVenta.EnvioRural, venta.Envio!.TipoEnvio);
+        Assert.True(venta.Envio.IncluidoEnTotal);
+        Assert.Equal(TipoServicioVenta.Armado2, venta.Detalles.Single().TipoArmado);
+        Assert.Equal(productos + 3000m + 9000m, venta.Total);
+        Assert.Equal(venta.Total, venta.TotalACobrar);   // el envío no se cobra dos veces
     }
 
     [Fact]
@@ -1287,6 +1349,11 @@ public sealed class CotizacionConversionServiceTests : IDisposable
         Assert.Equal("carlos", venta.UsuarioAutoriza);
         Assert.StartsWith("EXCEPCION_DOC|", venta.MotivoAutorizacion);
         Assert.Contains("Cliente con legajo en trámite", venta.MotivoAutorizacion);
+
+        // Con la excepción ya autorizada el crédito pendiente se crea en la conversión y se
+        // devuelve: el cotizador lo necesita para configurar plan/contrato sin pasar por el wizard.
+        Assert.NotNull(resultado.CreditoId);
+        Assert.Equal(venta.CreditoId, resultado.CreditoId);
 
         var cotizacionRecargada = await _context.Cotizaciones.FindAsync(cotizacion.Id);
         Assert.Equal(EstadoCotizacion.ConvertidaAVenta, cotizacionRecargada!.Estado);

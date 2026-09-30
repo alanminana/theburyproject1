@@ -19,6 +19,13 @@ namespace TheBuryProject.Helpers
 
             var detalleViewModels = detalles.Select(ToDetalleViewModel).ToList();
             var lineas = detalleViewModels.Select(ToLineaViewModel).ToList();
+
+            // Armados y envío (nuevo modelo) forman parte de Venta.Total: se facturan como líneas propias.
+            var envioIncluido = venta.Envio is { IncluidoEnTotal: true, IsDeleted: false }
+                ? VentaMontos.NormalizarImporteEnvio(venta.Envio.CostoEnvio)
+                : 0m;
+            lineas.AddRange(ToLineasServicios(detalleViewModels, venta.Envio, envioIncluido));
+
             var recargoDebitoAplicado = ResolverRecargoDebitoAplicado(venta);
 
             // Fase 16.6: cuando hay TipoPago por ítem, el ajuste global de DatosTarjeta queda subordinado.
@@ -70,17 +77,57 @@ namespace TheBuryProject.Helpers
                 },
                 Cliente = new FacturaComprobanteClienteViewModel
                 {
-                    Id = venta.ClienteId,
-                    Nombre = venta.Cliente?.ToDisplayName() ?? string.Empty,
-                    Documento = venta.Cliente?.NumeroDocumento ?? string.Empty,
-                    Telefono = venta.Cliente?.Telefono,
+                    Id = venta.ClienteId ?? 0,
+                    Nombre = venta.Cliente?.ToDisplayName() ?? venta.NombreClienteLibre ?? string.Empty,
+                    Documento = venta.Cliente?.NumeroDocumento ?? venta.DniClienteLibre ?? string.Empty,
+                    Telefono = venta.Cliente?.Telefono ?? venta.TelefonoClienteLibre,
                     Domicilio = venta.Cliente?.Domicilio
                 },
                 Lineas = lineas,
-                ResumenAlicuotas = FacturaAlicuotaResumenBuilder.Build(detalleViewModels),
+                ResumenAlicuotas = FacturaAlicuotaResumenBuilder.Build(detalleViewModels, envioIncluido),
                 Totales = totales,
                 GruposPagoPorItem = gruposPago
             };
+        }
+
+        private static IEnumerable<FacturaComprobanteLineaViewModel> ToLineasServicios(
+            IEnumerable<VentaDetalleViewModel> detalles,
+            VentaEnvio? envio,
+            decimal envioIncluido)
+        {
+            foreach (var d in detalles.Where(d => d.ArmadoSubtotal > 0m))
+            {
+                var (neto, iva) = ServiciosVentaIva.Separar(d.ArmadoSubtotal);
+                yield return new FacturaComprobanteLineaViewModel
+                {
+                    ProductoCodigo = "ARMADO",
+                    ProductoNombre = $"{d.ArmadoDisplay} — {d.ProductoNombre}",
+                    Cantidad = d.Cantidad,
+                    PrecioUnitario = d.ArmadoPrecioUnitario,
+                    PorcentajeIVA = ServiciosVentaIva.Porcentaje,
+                    AlicuotaIVANombre = ServiciosVentaIva.NombreAlicuota,
+                    SubtotalNeto = neto,
+                    IVA = iva,
+                    Total = d.ArmadoSubtotal
+                };
+            }
+
+            if (envioIncluido > 0m)
+            {
+                var (neto, iva) = ServiciosVentaIva.Separar(envioIncluido);
+                yield return new FacturaComprobanteLineaViewModel
+                {
+                    ProductoCodigo = "ENVIO",
+                    ProductoNombre = envio?.TipoEnvio?.NombreVisible() ?? "Envío",
+                    Cantidad = 1,
+                    PrecioUnitario = envioIncluido,
+                    PorcentajeIVA = ServiciosVentaIva.Porcentaje,
+                    AlicuotaIVANombre = ServiciosVentaIva.NombreAlicuota,
+                    SubtotalNeto = neto,
+                    IVA = iva,
+                    Total = envioIncluido
+                };
+            }
         }
 
         private static VentaDetalleViewModel ToDetalleViewModel(VentaDetalle detalle)
@@ -114,7 +161,11 @@ namespace TheBuryProject.Helpers
                 TipoPago = detalle.TipoPago,
                 ProductoCondicionPagoPlanId = detalle.ProductoCondicionPagoPlanId,
                 PorcentajeAjustePlanAplicado = detalle.PorcentajeAjustePlanAplicado,
-                MontoAjustePlanAplicado = detalle.MontoAjustePlanAplicado
+                MontoAjustePlanAplicado = detalle.MontoAjustePlanAplicado,
+                TipoArmado = detalle.TipoArmado,
+                EntregaCajaCerrada = detalle.EntregaCajaCerrada,
+                ArmadoPrecioUnitario = detalle.ArmadoPrecioUnitario,
+                ArmadoSubtotal = detalle.ArmadoSubtotal
             };
         }
 

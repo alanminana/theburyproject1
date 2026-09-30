@@ -99,8 +99,9 @@ namespace TheBuryProject.Controllers
         }
 
         [PermisoRequerido(Modulo = "caja", Accion = "create")]
-        public IActionResult Create()
+        public IActionResult Create(string? origen)
         {
+            ViewBag.Origen = NormalizarOrigen(origen);
             // Modelo explícito: sin él, "Caja activa" se renderiza destildada (bool sin modelo = false)
             // y la caja nueva quedaría inactiva sin que el usuario lo haya decidido.
             return View("Create_tw", new CajaViewModel());
@@ -115,8 +116,10 @@ namespace TheBuryProject.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [PermisoRequerido(Modulo = "caja", Accion = "create")]
-        public async Task<IActionResult> Create(CajaViewModel model)
+        public async Task<IActionResult> Create(CajaViewModel model, string? origen)
         {
+            origen = NormalizarOrigen(origen);
+            ViewBag.Origen = origen;
             var isAjax = Request.Headers.XRequestedWith == "XMLHttpRequest";
 
             if (!ModelState.IsValid)
@@ -132,6 +135,13 @@ namespace TheBuryProject.Controllers
                 if (isAjax)
                     return Json(new { ok = true, entity = new { id = caja.Id, codigo = caja.Codigo, nombre = caja.Nombre, sucursal = caja.Sucursal, ubicacion = caja.Ubicacion, activa = caja.Activa } });
                 TempData["Success"] = "Caja creada exitosamente";
+
+                // Flujo desde Ventas: seguir directo a "Abrir caja" con la caja recién creada
+                // preseleccionada (solo si se puede abrir; si no, el listado explica el estado).
+                if (origen == OrigenVentas && caja.Activa && _currentUser.HasPermission("caja", "open"))
+                {
+                    return RedirectToAction(nameof(Abrir), new { cajaId = caja.Id, origen });
+                }
                 return RedirectToAction(nameof(Index));
             }
             catch (Exception ex)
@@ -261,9 +271,18 @@ namespace TheBuryProject.Controllers
         #region Apertura de Caja
 
         [PermisoRequerido(Modulo = "caja", Accion = "open")]
-        public async Task<IActionResult> Abrir(int? cajaId)
+        public async Task<IActionResult> Abrir(int? cajaId, string? origen)
         {
+            origen = NormalizarOrigen(origen);
+            ViewBag.Origen = origen;
             var disponibles = await SetCajasActivasSelectListAsync(cajaId);
+
+            // Sin cajas abribles no se muestra el formulario: la vista explica el estado real.
+            if (disponibles.Count == 0)
+            {
+                await CargarEstadoVacioAbrirAsync();
+                return View("Abrir_tw", new AbrirCajaViewModel());
+            }
 
             var model = new AbrirCajaViewModel();
             if (cajaId.HasValue)
@@ -312,8 +331,11 @@ namespace TheBuryProject.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [PermisoRequerido(Modulo = "caja", Accion = "open")]
-        public async Task<IActionResult> Abrir(AbrirCajaViewModel model)
+        public async Task<IActionResult> Abrir(AbrirCajaViewModel model, string? origen)
         {
+            origen = NormalizarOrigen(origen);
+            ViewBag.Origen = origen;
+
             if (!ModelState.IsValid)
             {
                 _ = await SetCajasActivasSelectListAsync(model.CajaId);
@@ -331,6 +353,10 @@ namespace TheBuryProject.Controllers
                 var apertura = await _cajaService.AbrirCajaAsync(model, _currentUser.GetUsername());
 
                 TempData["Success"] = $"Caja abierta exitosamente con ${model.MontoInicial:N2}";
+                if (origen == OrigenVentas)
+                {
+                    return RedirectToAction("Index", "Venta");
+                }
                 return RedirectToAction(nameof(DetallesApertura), new { id = apertura.Id });
             }
             catch (InvalidOperationException ex)
@@ -756,6 +782,22 @@ namespace TheBuryProject.Controllers
 
             var visibles = await ObtenerCajaIdsVisiblesAsync();
             return visibles == null || visibles.Contains(apertura.CajaId);
+        }
+
+        private const string OrigenVentas = "ventas";
+
+        /// <summary>Solo se acepta un origen conocido (evita open redirect / valores arbitrarios).</summary>
+        private static string? NormalizarOrigen(string? origen) =>
+            string.Equals(origen, OrigenVentas, StringComparison.OrdinalIgnoreCase) ? OrigenVentas : null;
+
+        /// <summary>Datos del estado vacío de "Abrir caja": distingue "sin cajas" de "ninguna disponible".</summary>
+        private async Task CargarEstadoVacioAbrirAsync()
+        {
+            var cajas = await _cajaService.ObtenerTodasCajasAsync();
+            var padron = await ObtenerCajaIdsVisiblesAsync();
+            var visibles = padron == null ? cajas : cajas.Where(c => padron.Contains(c.Id)).ToList();
+            ViewBag.SinCajas = visibles.Count == 0;
+            ViewBag.PuedeCrearCaja = _currentUser.HasPermission("caja", "create");
         }
 
         private const string MensajeSinPermisoOperarCaja =

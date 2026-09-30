@@ -204,13 +204,7 @@ namespace TheBuryProject.Controllers
                     return BadRequest(new { error = "Debe especificar al menos un detalle para calcular los totales" });
                 }
 
-                var totales = await _ventaService.CalcularTotalesPreviewConPagoGlobalAsync(
-                    request.Detalles,
-                    request.DescuentoGeneral,
-                    request.DescuentoEsPorcentaje,
-                    request.TipoPago,
-                    request.TarjetaId,
-                    request.ConfiguracionPagoPlanId);
+                var totales = await _ventaService.CalcularTotalesPreviewConServiciosAsync(request);
 
                 if (request.TarjetaId.HasValue)
                 {

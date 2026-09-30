@@ -237,7 +237,7 @@
         <div class="sec-head"><span class="sec-num">3</span><div><div class="sec-title" id="t-contacto-title">Datos de contacto</div><div class="sec-sub">Teléfono, correo y domicilio.</div></div></div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-                <label asp-for="Telefono" class="label">Teléfono <span class="req">*</span></label>
+                <label asp-for="Telefono" class="label">Teléfono</label>
                 <div class="field-icon"><span class="material-symbols-outlined">call</span><input asp-for="Telefono" type="tel" class="field" placeholder="11 0000-0000" /></div>
                 <span asp-validation-for="Telefono" class="err-text"></span>
             </div>
@@ -257,7 +257,7 @@
                 <span asp-validation-for="CodigoPostal" class="err-text"></span>
             </div>
             <div class="sm:col-span-2">
-                <label asp-for="Domicilio" class="label">Domicilio <span class="req">*</span></label>
+                <label asp-for="Domicilio" class="label">Domicilio</label>
                 <input asp-for="Domicilio" class="field" placeholder="Calle, número, piso, depto" />
                 <span asp-validation-for="Domicilio" class="err-text"></span>
             </div>

@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using TheBuryProject.Helpers;
 using TheBuryProject.Models.Enums;
@@ -115,10 +115,9 @@ namespace TheBuryProject.ViewModels
         [Range(0, 999999999.99)]
         public decimal? ConyugeSueldo { get; set; }
 
-        [Required(ErrorMessage = "El teléfono es requerido")]
         [StringLength(20)]
         [TelefonoArgentino]
-        public string Telefono { get; set; } = string.Empty;
+        public string? Telefono { get; set; }
 
         [StringLength(20)]
         [TelefonoArgentino]
@@ -128,9 +127,8 @@ namespace TheBuryProject.ViewModels
         [StringLength(100)]
         public string? Email { get; set; }
 
-        [Required(ErrorMessage = "El domicilio es requerido")]
         [StringLength(200)]
-        public string Domicilio { get; set; } = string.Empty;
+        public string? Domicilio { get; set; }
 
         [StringLength(100)]
         public string? Localidad { get; set; }

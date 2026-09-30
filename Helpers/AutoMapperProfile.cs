@@ -190,6 +190,8 @@ namespace TheBuryProject.Helpers
                     .Sum(c => c.SaldoPendiente)));
 
             CreateMap<ClienteViewModel, Cliente>()
+                .ForMember(d => d.Telefono, o => o.MapFrom(s => s.Telefono ?? string.Empty))
+                .ForMember(d => d.Domicilio, o => o.MapFrom(s => s.Domicilio ?? string.Empty))
                 .ForMember(d => d.Creditos, o => o.Ignore())
                 .ForMember(d => d.ComoGarante, o => o.Ignore())
                 .ForMember(d => d.EstadoCrediticio, o => o.Ignore());
@@ -229,9 +231,9 @@ namespace TheBuryProject.Helpers
                 // vistas que lo consumen (Details, Index) — el sufijo quedaba duplicado contra
                 // ese campo. Mismo criterio ya aplicado en cotizacion-simulador.js.
                 .ForMember(dest => dest.ClienteNombre, opt => opt.MapFrom(src =>
-                    src.Cliente != null ? $"{src.Cliente.Apellido}, {src.Cliente.Nombre}" : string.Empty))
-                .ForMember(dest => dest.ClienteDocumento, opt => opt.MapFrom(src => src.Cliente != null ? src.Cliente.NumeroDocumento : string.Empty))
-                .ForMember(dest => dest.ClienteTelefono, opt => opt.MapFrom(src => src.Cliente != null ? src.Cliente.Telefono : null))
+                    src.Cliente != null ? $"{src.Cliente.Apellido}, {src.Cliente.Nombre}" : src.NombreClienteLibre ?? string.Empty))
+                .ForMember(dest => dest.ClienteDocumento, opt => opt.MapFrom(src => src.Cliente != null ? src.Cliente.NumeroDocumento : src.DniClienteLibre ?? string.Empty))
+                .ForMember(dest => dest.ClienteTelefono, opt => opt.MapFrom(src => src.Cliente != null ? src.Cliente.Telefono : src.TelefonoClienteLibre))
                 .ForMember(dest => dest.ClienteDomicilio, opt => opt.MapFrom(src => src.Cliente != null ? src.Cliente.Domicilio : null))
                 .ForMember(dest => dest.ClienteLocalidad, opt => opt.MapFrom(src => src.Cliente != null ? src.Cliente.Localidad : null))
                 .ForMember(dest => dest.ClienteProvincia, opt => opt.MapFrom(src => src.Cliente != null ? src.Cliente.Provincia : null))
@@ -248,6 +250,10 @@ namespace TheBuryProject.Helpers
                 .ForMember(dest => dest.TieneEnvio, opt => opt.MapFrom(src => src.Envio != null));
 
             CreateMap<VentaViewModel, Venta>()
+                .ForMember(dest => dest.ClienteId, opt => opt.MapFrom(src => src.ClienteId > 0 ? (int?)src.ClienteId : null))
+                .ForMember(dest => dest.NombreClienteLibre, opt => opt.Ignore())
+                .ForMember(dest => dest.DniClienteLibre, opt => opt.Ignore())
+                .ForMember(dest => dest.TelefonoClienteLibre, opt => opt.Ignore())
                 // Un alta nunca puede adoptar la clave que el navegador conserve de
                 // una operación anterior. UpdateAsync carga la entidad canónica por
                 // ruta y aplica sus campos explícitamente, por lo que tampoco debe

@@ -362,6 +362,20 @@
             marcaEl.title = marcaTexto;
         }
 
+        // Badge de stock: el estado depende de StockMinimo, que sí se edita en este modal.
+        var stockEl = currentRow.querySelector('[data-prod-stock]');
+        if (stockEl && entity.estadoStock) {
+            var stockNum = Number(entity.stockActual || 0);
+            var estilos = {
+                'Sin Stock':  ['border-red-500/30 bg-red-500/15 text-red-300', 'Agotado'],
+                'Stock Bajo': ['border-amber-500/30 bg-amber-500/15 text-amber-300', stockNum + ' disponibles'],
+                'Normal':     ['border-emerald-500/30 bg-emerald-500/15 text-emerald-300', stockNum + ' disponibles']
+            };
+            var estilo = estilos[entity.estadoStock] || estilos['Normal'];
+            stockEl.className = 'inline-flex whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-bold ' + estilo[0];
+            stockEl.textContent = estilo[1];
+        }
+
         var priceEl = currentRow.querySelector('[data-prod-precio-actual]');
         if (priceEl) {
             priceEl.textContent = '$ ' + Number(entity.precioActual).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });

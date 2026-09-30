@@ -52,6 +52,23 @@ namespace TheBuryProject.Models.Entities
         /// </summary>
         public decimal? CostoEnvio { get; set; }
 
+        /// <summary>
+        /// Tipo de envío elegido (Ciudad/Rural). El importe sale del precio global del tipo y se
+        /// congela en <see cref="CostoEnvio"/> al guardar. Null en envíos legacy (costo libre).
+        /// </summary>
+        public TipoServicioVenta? TipoEnvio { get; set; }
+
+        /// <summary>
+        /// true = el importe ya forma parte de Venta.Total (y por lo tanto recibe el recargo del medio
+        /// de pago, se factura y entra al crédito). false = envío legacy: se cobra aparte
+        /// (ver <see cref="Helpers.VentaMontos"/>).
+        /// </summary>
+        public bool IncluidoEnTotal { get; set; }
+
+        /// <summary>Importe de envío que NO está dentro de Venta.Total (sólo envíos legacy).</summary>
+        [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+        public decimal? CostoFueraDelTotal => IncluidoEnTotal ? null : CostoEnvio;
+
         public DateTime? FechaProgramada { get; set; }
         public DateTime? FechaDespacho { get; set; }
         public DateTime? FechaEntregaReal { get; set; }

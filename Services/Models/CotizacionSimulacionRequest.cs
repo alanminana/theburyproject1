@@ -23,4 +23,7 @@ public sealed class CotizacionSimulacionRequest
     public int? ConfiguracionTarjetaId { get; init; }
     public int[]? CuotasSolicitadas { get; init; }
     public DateTime? FechaCotizacion { get; init; }
+
+    /// <summary>Envío Ciudad/Rural (null = sin envío). El precio sale de la tabla global.</summary>
+    public TheBuryProject.Models.Enums.TipoServicioVenta? TipoEnvio { get; init; }
 }

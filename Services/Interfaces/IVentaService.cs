@@ -113,6 +113,21 @@ namespace TheBuryProject.Services.Interfaces
         }
 
         /// <summary>
+        /// Preview completo del wizard: productos + armados por línea + envío opcional, con el recargo del
+        /// medio de pago sobre el conjunto. La implementación por defecto ignora los servicios (stubs).
+        /// </summary>
+        Task<CalculoTotalesVentaResponse> CalcularTotalesPreviewConServiciosAsync(CalcularTotalesVentaRequest request)
+        {
+            return CalcularTotalesPreviewConPagoGlobalAsync(
+                request.Detalles,
+                request.DescuentoGeneral,
+                request.DescuentoEsPorcentaje,
+                request.TipoPago,
+                request.TarjetaId,
+                request.ConfiguracionPagoPlanId);
+        }
+
+        /// <summary>
         /// Resuelve el total efectivo de una venta: usa venta.Total si es válido,
         /// o recalcula desde los detalles (subtotal − descuento + IVA).
         /// Devuelve null si la venta no existe.

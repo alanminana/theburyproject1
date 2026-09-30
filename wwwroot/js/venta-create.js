@@ -39,6 +39,19 @@
     let cuotasLimitadasPorReglaExistente = false;
     let planesDisponibles = [];
     let ultimoResultadoTotales = null;
+
+    // Precios globales de envío y armado (Configuración → Envíos y armados). Sólo para mostrar
+    // importes en vivo: el servidor vuelve a resolver el precio al previsualizar y al guardar.
+    const serviciosVenta = (function () {
+        try {
+            const raw = document.getElementById('venta-servicios-json')?.value;
+            return raw ? JSON.parse(raw) : [];
+        } catch {
+            return [];
+        }
+    })();
+    const armadosDisponibles = serviciosVenta.filter(s => !s.envio);
+    const ARMADO_CAJA_CERRADA = 'caja-cerrada';
     let configuracionPagosGlobal = null;
     let configuracionPagosGlobalDisponible = false;
     const condicionesProductoCache = new Map();
@@ -125,6 +138,10 @@
     const hdnTarjetaNombre = $('#hdn-tarjeta-nombre');
     const hdnTarjetaTipo = $('#hdn-tarjeta-tipo');
     const hdnConfiguracionPagoPlanId = $('#hdn-configuracion-pago-plan-id');
+    // Edición: plan de pago ya guardado en la venta (lo emite el servidor en el hidden). Los reseteos del
+    // selector de planes lo borran del hidden, así que se recuerda acá y se reaplica una sola vez cuando
+    // se dibujan los planes, hasta que el operador elija otra tarjeta u otro plan.
+    let planGuardadoPendiente = hdnConfiguracionPagoPlanId?.value || '';
     const estadoConfiguracionPagosGlobal = $('#configuracion-pagos-global-estado');
 
     const panelPlanesPago = $('#panel-planes-pago');
@@ -1143,7 +1160,9 @@
                 cantidadInicial: 0,
                 requiereNumeroSerie,
                 productoUnidadId,
-                productoUnidadLabel
+                productoUnidadLabel,
+                tipoArmado: null,
+                entregaCajaCerrada: false
             });
         }
 
@@ -1206,6 +1225,54 @@
             ${alerta}
             <button type="button" class="venta-linea-unidad__accion" data-asignar-unidad="${i}">Asignar unidad física</button>
         </div>`;
+    }
+
+    // Armado opcional por línea: "Sin armado" (vacío), "Caja cerrada" (explícito, sin costo) o un
+    // Armado N.º 1..6. Se cobra por unidad (precio × cantidad); el servidor recalcula con el precio global.
+    function valorArmadoSeleccionado(d) {
+        if (d.entregaCajaCerrada) return ARMADO_CAJA_CERRADA;
+        return d.tipoArmado ? String(d.tipoArmado) : '';
+    }
+
+    function renderArmadoLinea(d, i) {
+        if (armadosDisponibles.length === 0) return '';
+
+        const valor = valorArmadoSeleccionado(d);
+        // Texto corto ("N.º 5 domic. $3.000"): el rótulo "Armado" ya está arriba y en mobile la columna del
+        // producto es angosta, así que el valor elegido tiene que entrar sin recortarse. El detalle con
+        // cantidad y total va debajo (data-armado-costo).
+        const precioCorto = (p) => formatCurrency(p).replace(/,00$/, '').replace(/^\$\s*/, '$');
+        const opciones = armadosDisponibles.map(a =>
+            `<option value="${a.tipo}"${valor === String(a.tipo) ? ' selected' : ''}>${esc(a.nombre.replace('Armado ', '').replace(' — Domiciliario', ' dom.'))}${a.precio > 0 ? ' · ' + precioCorto(a.precio) : ''}</option>`
+        ).join('');
+        const elegido = armadosDisponibles.find(a => String(a.tipo) === valor);
+        const costo = elegido
+            ? `<span class="venta-linea-armado__costo" data-armado-costo="${i}">${elegido.precio > 0 ? `${d.cantidad} × ${formatCurrency(elegido.precio)} = ${formatCurrency(elegido.precio * d.cantidad)}` : 'Sin costo'}</span>`
+            : '';
+
+        return `
+        <div class="venta-linea-armado" data-linea-armado="${i}">
+            <label class="venta-linea-armado__label" for="detalle-armado-${i}">Armado</label>
+            <select id="detalle-armado-${i}" class="venta-linea-unidad__select" data-armado-select="${i}">
+                <option value=""${valor === '' ? ' selected' : ''}>Sin armado</option>
+                <option value="${ARMADO_CAJA_CERRADA}"${valor === ARMADO_CAJA_CERRADA ? ' selected' : ''}>Caja cerrada · entrega sin armar</option>
+                ${opciones}
+            </select>
+            ${costo}
+        </div>`;
+    }
+
+    function aplicarArmadoLinea(index, valor) {
+        const detalle = detalles[index];
+        if (!detalle) return;
+
+        detalle.entregaCajaCerrada = valor === ARMADO_CAJA_CERRADA;
+        detalle.tipoArmado = valor && valor !== ARMADO_CAJA_CERRADA ? parseInt(valor, 10) : null;
+
+        renderDetalles();
+        tbodyDetalles?.querySelector(`[data-armado-select="${index}"]`)?.focus();
+        invalidarVerificacionCrediticia();
+        recalcularTotales();
     }
 
     function mostrarErrorUnidadLinea(index, mensaje) {
@@ -1328,6 +1395,7 @@
                 <td class="py-4 px-2 text-sm font-medium">
                     <div>${esc(d.nombre)}</div>
                     ${renderUnidadLinea(d, i)}
+                    ${renderArmadoLinea(d, i)}
                 </td>
                 <td class="py-4 px-2 text-sm text-center">
                     <div class="venta-quantity-control" data-quantity-control>
@@ -1366,6 +1434,8 @@
             detallesHiddenInputs.appendChild(mkHidden(`Detalles[${i}].Descuento`, d.descuento));
             detallesHiddenInputs.appendChild(mkHidden(`Detalles[${i}].Subtotal`, d.subtotal));
             detallesHiddenInputs.appendChild(mkHidden(`Detalles[${i}].ProductoUnidadId`, d.productoUnidadId ?? ''));
+            detallesHiddenInputs.appendChild(mkHidden(`Detalles[${i}].TipoArmado`, d.tipoArmado ?? ''));
+            detallesHiddenInputs.appendChild(mkHidden(`Detalles[${i}].EntregaCajaCerrada`, d.entregaCajaCerrada ? 'true' : 'false'));
         });
 
         actualizarResumenOperacion(parseFloat(hdnTotal?.value) || 0);
@@ -1414,10 +1484,30 @@
         recalcularTotales();
     });
 
+    // Envío elegido en el paso Envío (null si no está tildado o no eligió tipo).
+    function leerTipoEnvioSeleccionado() {
+        if (!document.getElementById('chk-tiene-envio')?.checked) return null;
+        return parseInt(document.getElementById('envio-tipo')?.value, 10) || null;
+    }
+
+    function publicarTotales(resultado) {
+        document.dispatchEvent(new CustomEvent('venta:totales', {
+            detail: { resultado, detalles: detalles.slice() }
+        }));
+    }
+
+    // Cada recálculo dispara un POST; si dos se solapan (p. ej. al cargar la página el init y el evento
+    // de envío), sólo la respuesta del último pedido puede pintar: una anterior llegaría tarde y pisaría
+    // el resultado correcto con totales desactualizados.
+    let recalculoSeq = 0;
+
     async function recalcularTotales() {
+        const seq = ++recalculoSeq;
+
         if (detalles.length === 0) {
             ultimoResultadoTotales = null;
             actualizarTotalesUI(0, 0, 0, 0);
+            publicarTotales(null);
             return;
         }
 
@@ -1429,24 +1519,31 @@
                     productoId: d.productoId,
                     cantidad: d.cantidad,
                     precioUnitario: d.precioUnitario,
-                    descuento: d.descuento
+                    descuento: d.descuento,
+                    tipoArmado: d.tipoArmado ?? null,
+                    entregaCajaCerrada: !!d.entregaCajaCerrada
                 })),
                 descuentoGeneral: 0,
                 descuentoEsPorcentaje: true,
                 tipoPago: parseInt(selectTipoPago?.value) || 0,
                 tarjetaId: tarjetaId,
-                configuracionPagoPlanId: planId
+                configuracionPagoPlanId: planId,
+                tipoEnvio: leerTipoEnvioSeleccionado()
             };
 
             const result = await postJson('/api/ventas/CalcularTotalesVenta', body);
+            if (seq !== recalculoSeq) return;
             ultimoResultadoTotales = result;
             actualizarTotalesUI(result.subtotal, result.descuentoGeneralAplicado, result.iva, result.total, result);
             aplicarLimiteCuotasSinInteres(result.maxCuotasSinInteresEfectivo ?? null, result.cuotasSinInteresLimitadasPorProducto ?? false);
+            publicarTotales(result);
         } catch {
+            if (seq !== recalculoSeq) return;
             ultimoResultadoTotales = null;
             // Fallback visual only: do not infer IVA in the UI.
             const total = detalles.reduce((acc, d) => acc + d.subtotal, 0);
             actualizarTotalesUI(total, 0, 0, total);
+            publicarTotales(null);
         }
 
         // Update credit availability notice
@@ -1713,14 +1810,21 @@
                 btn.appendChild(spanObs);
             }
 
-            btn.addEventListener('click', () => seleccionarPlan(planId, btn));
+            btn.addEventListener('click', () => {
+                planGuardadoPendiente = '';
+                seleccionarPlan(planId, btn);
+            });
             listaPlanesPago.appendChild(btn);
         });
 
         const planSeleccionado = hdnConfiguracionPagoPlanId?.value;
+        const buscarPlan = (id) => listaPlanesPago.querySelector(`.plan-pago-btn[data-plan-id="${id}"]`);
+        // Sin plan elegido: en edición se reaplica el plan guardado si existe entre los disponibles; si no,
+        // el primero (comportamiento de siempre).
         const btnSeleccionado = planSeleccionado
-            ? listaPlanesPago.querySelector(`.plan-pago-btn[data-plan-id="${planSeleccionado}"]`)
-            : listaPlanesPago.querySelector('.plan-pago-btn');
+            ? buscarPlan(planSeleccionado)
+            : ((planGuardadoPendiente && buscarPlan(planGuardadoPendiente))
+                || listaPlanesPago.querySelector('.plan-pago-btn'));
         if (btnSeleccionado) {
             seleccionarPlan(btnSeleccionado.dataset.planId, btnSeleccionado);
         }
@@ -1771,6 +1875,7 @@
     }
 
     selectTarjeta?.addEventListener('change', async function () {
+        planGuardadoPendiente = '';
         condicionesProductoCache.clear();
         const tarjetaId = parseInt(this.value);
         if (!tarjetaId) {
@@ -2385,6 +2490,9 @@
                 // no deben reaparecer detrás de una re-verificación forzada.
                 hide($('#panel-documentacion-faltante'));
                 hide($('#panel-cupo-insuficiente'));
+                // mostrarResultadoVerificacion repintó el pill con el resultado crudo
+                // ("NO VIABLE"); con la excepción preservada debe seguir en "VIABLE CON EXCEPCIÓN".
+                reflejarExcepcionEnEstado();
             } else {
                 mostrarDocumentacionFaltante(data);
                 actualizarDisponibilidadExcepcion(data);
@@ -2609,6 +2717,11 @@
         if (error) error.textContent = '';
         const subtotal = tbodyDetalles?.querySelector(`[data-line-subtotal="${index}"]`);
         if (subtotal) subtotal.textContent = formatCurrency(detalle.subtotal);
+        const armadoElegido = armadosDisponibles.find(a => String(a.tipo) === valorArmadoSeleccionado(detalle));
+        const armadoCosto = tbodyDetalles?.querySelector(`[data-armado-costo="${index}"]`);
+        if (armadoCosto && armadoElegido) {
+            armadoCosto.textContent = armadoElegido.precio > 0 ? `${cantidad} × ${formatCurrency(armadoElegido.precio)} = ${formatCurrency(armadoElegido.precio * cantidad)}` : 'Sin costo';
+        }
         const cantidadOculta = detallesHiddenInputs?.querySelector(`[name="Detalles[${index}].Cantidad"]`);
         const subtotalOculto = detallesHiddenInputs?.querySelector(`[name="Detalles[${index}].Subtotal"]`);
         if (cantidadOculta) cantidadOculta.value = String(cantidad);
@@ -2618,6 +2731,12 @@
     }
 
     tbodyDetalles?.addEventListener('change', function (e) {
+        const armado = e.target.closest('[data-armado-select]');
+        if (armado) {
+            aplicarArmadoLinea(parseInt(armado.dataset.armadoSelect, 10), armado.value);
+            return;
+        }
+
         const input = e.target.closest('[data-quantity-input]');
         if (!input) return;
         actualizarCantidadDetalle(parseInt(input.dataset.index, 10), input.value);
@@ -2984,7 +3103,9 @@
                 cantidadInicial: d.cantidad || 1,
                 requiereNumeroSerie: !!d.requiereNumeroSerie,
                 productoUnidadId: d.productoUnidadId || null,
-                productoUnidadLabel: d.productoUnidadLabel || (d.productoUnidadId ? String(d.productoUnidadId) : '')
+                productoUnidadLabel: d.productoUnidadLabel || (d.productoUnidadId ? String(d.productoUnidadId) : ''),
+                tipoArmado: d.tipoArmado ?? null,
+                entregaCajaCerrada: !!d.entregaCajaCerrada
             });
         });
     }
@@ -2998,6 +3119,18 @@
     if (ventaForm?.dataset.excepcionDocumentalRegistrada === 'true') {
         activarExcepcionConfirmada(ventaForm.dataset.excepcionDocumentalMotivo || '(motivo registrado previamente)');
     }
+
+    // Envío y armados forman parte del total: cambiar el tipo de envío o tildar/destildar el envío
+    // recalcula el preview (y, si es un cambio real del operador, invalida la verificación crediticia
+    // porque el monto cambió). El evento inicial de venta-envio.js sólo hidrata: no invalida.
+    document.getElementById('envio-tipo')?.addEventListener('change', function () {
+        invalidarVerificacionCrediticia();
+        recalcularTotales();
+    });
+    document.addEventListener('venta:envio-toggle', function (e) {
+        if (!e.detail?.inicial) invalidarVerificacionCrediticia();
+        recalcularTotales();
+    });
 
     cargarConfiguracionPagosGlobal();
     onTipoPagoChange(true);

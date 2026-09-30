@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using TheBuryProject.Models.Base;
 using Microsoft.AspNetCore.Identity;
 using TheBuryProject.Models.Enums;
@@ -11,7 +11,16 @@ namespace TheBuryProject.Models.Entities
         [StringLength(20)]
         public string Numero { get; set; } = string.Empty;
 
-        public int ClienteId { get; set; }
+        public int? ClienteId { get; set; }
+
+        [StringLength(200)]
+        public string? NombreClienteLibre { get; set; }
+
+        [StringLength(8)]
+        public string? DniClienteLibre { get; set; }
+
+        [StringLength(30)]
+        public string? TelefonoClienteLibre { get; set; }
 
         [Required]
         public DateTime FechaVenta { get; set; } = DateTime.UtcNow;
@@ -103,7 +112,7 @@ namespace TheBuryProject.Models.Entities
         public int? CotizacionOrigenId { get; set; }
 
         // Navigation properties
-        public virtual Cliente Cliente { get; set; } = null!;
+        public virtual Cliente? Cliente { get; set; }
         public virtual Cotizacion? CotizacionOrigen { get; set; }
         public virtual Credito? Credito { get; set; }
         public virtual AperturaCaja? AperturaCaja { get; set; }
@@ -116,14 +125,19 @@ namespace TheBuryProject.Models.Entities
         public virtual ICollection<VentaCreditoCuota> VentaCreditoCuotas { get; set; } = new List<VentaCreditoCuota>();
         public virtual ICollection<MovimientoCaja> MovimientosCaja { get; set; } = new List<MovimientoCaja>();
 
-        // Montos derivados (no persistidos). Total = total de productos (ítems + recargos del medio de
-        // pago); el envío vive sólo en VentaEnvio.CostoEnvio. Fórmula única en VentaMontos.
-        // ImporteEnvio requiere Envio cargado (Include): sin él vale 0.
+        // Montos derivados (no persistidos). Ventas nuevas: Total = productos + armados + envío, todo con el
+        // recargo del medio de pago. Ventas legacy (VentaEnvio.IncluidoEnTotal = false): Total = sólo productos
+        // y el envío se cobra aparte. Fórmula única en VentaMontos.
+        // ImporteEnvio (importe del envío, esté o no dentro de Total) requiere Envio cargado (Include): sin él vale 0.
         [System.ComponentModel.DataAnnotations.Schema.NotMapped]
         public decimal ImporteEnvio => Helpers.VentaMontos.NormalizarImporteEnvio(Envio?.CostoEnvio);
 
+        /// <summary>Envío que se suma a Total para llegar a lo que hay que cobrar (sólo envíos legacy).</summary>
         [System.ComponentModel.DataAnnotations.Schema.NotMapped]
-        public decimal TotalACobrar => Helpers.VentaMontos.CalcularTotalACobrar(Total, Envio?.CostoEnvio);
+        public decimal ImporteEnvioFueraDelTotal => Helpers.VentaMontos.NormalizarImporteEnvio(Envio?.CostoFueraDelTotal);
+
+        [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+        public decimal TotalACobrar => Helpers.VentaMontos.CalcularTotalACobrar(Total, Envio?.CostoFueraDelTotal);
 
         [System.ComponentModel.DataAnnotations.Schema.NotMapped]
         public decimal TotalFacturable => Helpers.VentaMontos.CalcularTotalFacturable(Total);

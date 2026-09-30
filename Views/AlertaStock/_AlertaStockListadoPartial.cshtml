@@ -128,7 +128,7 @@
                     <option value="">Todos</option>
                     @foreach (var e in estados)
                     {
-                        <option value="@((int)e)" selected="@(filtro.Estado == e ? "selected" : null)">@e</option>
+                        <option value="@((int)e)" selected="@(filtro.Estado == e ? "selected" : null)">@(e == EstadoAlerta.EnProceso ? "En proceso" : e.ToString())</option>
                     }
                 </select>
             </div>
@@ -267,9 +267,30 @@
                                             <span class="material-symbols-outlined">receipt_long</span>
                                             <span class="row-action__label">Kardex</span>
                                         </a>
+                                        @if (a.Estado == EstadoAlerta.Pendiente)
+                                        {
+                                            <form asp-controller="AlertaStock" asp-action="MarcarEnProceso" method="post" class="inline"
+                                                  data-alerta-confirm="Marcar esta alerta como en proceso? Deja de contar como urgente hasta que la resuelvas o la ignores.">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="id" value="@a.Id" />
+                                                @if (a.RowVersion != null)
+                                                {
+                                                    <input type="hidden" name="rowVersion" value="@Convert.ToBase64String(a.RowVersion)" />
+                                                }
+                                                <button type="submit"
+                                                        class="row-action row-action--warning"
+                                                        title="Marcar en proceso"
+                                                        aria-label="Marcar en proceso la alerta de @a.ProductoNombre">
+                                                    <span class="material-symbols-outlined">hourglass_top</span>
+                                                    <span class="row-action__label">En proceso</span>
+                                                </button>
+                                            </form>
+                                        }
                                         @if (a.Estado == EstadoAlerta.Pendiente || a.Estado == EstadoAlerta.EnProceso)
                                         {
-                                            <form asp-controller="AlertaStock" asp-action="Resolver" method="post" class="inline">
+                                            <form asp-controller="AlertaStock" asp-action="Resolver" method="post" class="inline"
+                                                  data-alerta-confirm-note="Marcar esta alerta como resuelta?"
+                                                  data-alerta-note-placeholder="Observaciones (opcional)...">
                                                 @Html.AntiForgeryToken()
                                                 <input type="hidden" name="id" value="@a.Id" />
                                                 @if (a.RowVersion != null)

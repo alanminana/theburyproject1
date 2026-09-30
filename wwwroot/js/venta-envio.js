@@ -1,7 +1,7 @@
 // ENVIO-ML4: paso "Envío" del wizard de Venta (Create/Edit). Muestra/oculta la
 // sección de datos de entrega según el checkbox "Tiene envío" y la precarga con el
-// domicilio del cliente seleccionado (editable después). No calcula ni toca totales:
-// el costo de envío es puramente informativo.
+// domicilio del cliente seleccionado (editable después). No calcula totales: el tipo de envío
+// (Ciudad/Rural) fija el precio global y venta-create.js lo suma al total desde el backend.
 (function () {
     'use strict';
 
@@ -23,7 +23,7 @@
         provincia: $('#envio-provincia'),
         codigoPostal: $('#envio-cp'),
         transportista: $('#envio-transportista'),
-        costoEnvio: $('#envio-costo'),
+        tipoEnvio: $('#envio-tipo'),
         fechaProgramada: $('#envio-fecha'),
         observaciones: $('#envio-observaciones')
     };
@@ -78,7 +78,7 @@
         return null;
     }
 
-    function actualizarVisibilidad() {
+    function actualizarVisibilidad(inicial) {
         const activo = !!chkTieneEnvio.checked;
         bloqueDatos.classList.toggle('hidden', !activo);
         bloqueDatos.hidden = !activo;
@@ -87,10 +87,11 @@
             precargarDesdeCliente(clienteDisponible(), false);
         }
 
-        document.dispatchEvent(new CustomEvent('venta:envio-toggle', { detail: { activo } }));
+        // inicial = hidratación al cargar la página (no es un cambio del operador).
+        document.dispatchEvent(new CustomEvent('venta:envio-toggle', { detail: { activo, inicial: inicial === true } }));
     }
 
-    chkTieneEnvio.addEventListener('change', actualizarVisibilidad);
+    chkTieneEnvio.addEventListener('change', () => actualizarVisibilidad(false));
 
     btnUsarCliente?.addEventListener('click', function () {
         precargarDesdeCliente(clienteDisponible(), true);
@@ -107,10 +108,10 @@
         if (campos.provincia) campos.provincia.value = e.provincia || '';
         if (campos.codigoPostal) campos.codigoPostal.value = e.codigoPostal || '';
         if (campos.transportista) campos.transportista.value = e.transportista || '';
-        if (campos.costoEnvio && e.costoEnvio != null) campos.costoEnvio.value = e.costoEnvio;
+        if (campos.tipoEnvio && e.tipoEnvio != null) campos.tipoEnvio.value = String(e.tipoEnvio);
         if (campos.fechaProgramada) campos.fechaProgramada.value = e.fechaProgramada || '';
         if (campos.observaciones) campos.observaciones.value = e.observaciones || '';
     }
 
-    actualizarVisibilidad();
+    actualizarVisibilidad(true);
 })();

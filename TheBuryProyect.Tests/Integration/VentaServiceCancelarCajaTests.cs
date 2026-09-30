@@ -61,8 +61,9 @@ file sealed class StubAlertaStockCancelarCaja : IAlertaStockService
     public Task<AlertaStockViewModel?> GetByIdAsync(int id) => throw new NotImplementedException();
     public Task<bool> ResolverAlertaAsync(int id, string u, string? obs = null, byte[]? rv = null) => throw new NotImplementedException();
     public Task<bool> IgnorarAlertaAsync(int id, string u, string? obs = null, byte[]? rv = null) => throw new NotImplementedException();
+    public Task<bool> MarcarEnProcesoAsync(int id, string u, string? obs = null, byte[]? rv = null) => throw new NotImplementedException();
     public Task<AlertaStockEstadisticasViewModel> GetEstadisticasAsync() => throw new NotImplementedException();
-    public Task<List<AlertaStock>> GetAlertasByProductoIdAsync(int productoId) => throw new NotImplementedException();
+    public Task<List<AlertaStockViewModel>> GetAlertasByProductoIdAsync(int productoId) => throw new NotImplementedException();
     public Task<AlertaStock?> VerificarYGenerarAlertaAsync(int productoId) => throw new NotImplementedException();
     public Task<int> LimpiarAlertasAntiguasAsync(int diasAntiguedad = 30, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<List<ProductoCriticoViewModel>> GetProductosCriticosAsync() => throw new NotImplementedException();

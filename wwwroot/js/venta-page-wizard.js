@@ -95,14 +95,56 @@
         });
     }
 
-    // VENTA-ENVIO-TOTAL-01: importe de envío del paso Envío (0 si no está tildado o no tiene costo;
-    // un envío nunca resta). El backend normaliza igual (VentaMontos.NormalizarImporteEnvio).
-    function leerImporteEnvio() {
-        const tilde = document.getElementById('chk-tiene-envio');
-        const costo = document.getElementById('envio-costo');
-        if (!tilde?.checked || !costo) return 0;
-        const valor = parseFloat(costo.value);
-        return Number.isFinite(valor) && valor > 0 ? valor : 0;
+    // Último preview del backend (evento 'venta:totales' de venta-create.js): { resultado, detalles }.
+    let ultimosTotales = null;
+
+    function nombreArmado(detalle) {
+        const servicios = (() => {
+            try { return JSON.parse(document.getElementById('venta-servicios-json')?.value || '[]'); } catch { return []; }
+        })();
+        return servicios.find((s) => s.tipo === detalle.tipoArmado)?.nombre || 'Armado';
+    }
+
+    // Desglose de Revisión. Todo importe sale del backend; las filas sin importe se ocultan.
+    function renderDesglose() {
+        const r = ultimosTotales?.resultado;
+        const detalles = ultimosTotales?.detalles || [];
+
+        const productos = Number(r?.totalProductos) || 0;
+        const armados = Number(r?.totalArmados) || 0;
+        const envio = Number(r?.importeEnvio) || 0;
+        const recargo = (Number(r?.ajustePagoGlobalAplicado) || 0) + (Number(r?.recargoDebitoAplicado) || 0);
+        const hayDesglose = armados > 0 || envio > 0 || recargo !== 0;
+
+        root.querySelectorAll('[data-rev-desglose]').forEach((nodo) => nodo.classList.toggle('hidden', !hayDesglose));
+        // Con desglose, el detalle de IVA se pliega; sin servicios queda abierto (comportamiento de siempre).
+        root.querySelectorAll('[data-rev-impuestos]').forEach((det) => {
+            if (det.dataset.estado !== String(hayDesglose)) {
+                det.dataset.estado = String(hayDesglose);
+                det.open = !hayDesglose;
+            }
+        });
+        setText('[data-rev-total-productos]', formatearMoneda(productos));
+
+        root.querySelectorAll('[data-rev-armados-row]').forEach((nodo) => nodo.classList.toggle('hidden', armados <= 0));
+        setText('[data-rev-armados]', formatearMoneda(armados));
+        root.querySelectorAll('[data-rev-armados-lista]').forEach((lista) => {
+            lista.replaceChildren();
+            (r?.detalles || []).forEach((linea, i) => {
+                if (!(Number(linea.armadoSubtotal) > 0)) return;
+                const d = detalles[i];
+                const item = document.createElement('li');
+                item.textContent = `${d ? nombreArmado(d) : 'Armado'} × ${d?.cantidad ?? ''}${d?.nombre ? ' — ' + d.nombre : ''}: ${formatearMoneda(linea.armadoSubtotal)}`;
+                lista.appendChild(item);
+            });
+        });
+
+        root.querySelectorAll('[data-rev-envio-row]').forEach((nodo) => nodo.classList.toggle('hidden', envio <= 0));
+        setText('[data-rev-envio]', formatearMoneda(envio));
+
+        root.querySelectorAll('[data-rev-recargo-row]').forEach((nodo) => nodo.classList.toggle('hidden', recargo === 0));
+        setText('[data-rev-recargo-label]', recargo < 0 ? 'Descuento por forma de pago' : 'Recargo por forma de pago');
+        setText('[data-rev-recargo]', formatearMoneda(recargo));
     }
 
     function formatearMoneda(valor) {
@@ -368,25 +410,11 @@
         const iva = getText('total-iva', '$0,00');
         const totalProductos = getText('total-final', '$0,00');
 
-        // VENTA-ENVIO-TOTAL-01: total a cobrar = productos + envío. Cálculo en vivo sobre el total
-        // de productos que ya resolvió el backend (#total-final); la fuente persistida es
-        // Venta.TotalACobrar (backend). #total-final se deja intacto: es la fuente de esta suma.
-        const envio = leerImporteEnvio();
-        const hayEnvio = envio > 0;
-        const productosNumero = Number(document.getElementById('total-final')?.dataset.valor);
-        const total = hayEnvio && Number.isFinite(productosNumero)
-            ? formatearMoneda(productosNumero + envio)
-            : totalProductos;
-
-        setText('[data-rev-total-productos]', totalProductos);
-        setText('[data-rev-envio]', formatearMoneda(envio));
-        root.querySelectorAll('[data-rev-envio-lines]').forEach((nodo) => nodo.classList.toggle('hidden', !hayEnvio));
-        setText('[data-rev-total-label]', hayEnvio ? 'Total a cobrar' : 'Total');
-        // Crédito Personal: el crédito/cupo se calculan sobre el total de productos; el envío no se financia.
-        root.querySelectorAll('[data-rev-envio-credito-nota]').forEach((nodo) => nodo.classList.toggle('hidden', !(hayEnvio && requiereCredito())));
-        // Barra sticky mobile: rótulo corto ("A cobrar"), "Total a cobrar: $ 181.758,90" no entra a 360-390px.
-        setText('[data-mobile-total-label]', hayEnvio ? 'A cobrar' : 'Total');
-        root.querySelectorAll('.vm-mobile-summary-bar').forEach((barra) => barra.classList.toggle('vm-mobile-summary-bar--con-envio', hayEnvio));
+        // Envío y armados forman parte del total (con el recargo del medio de pago incluido): #total-final
+        // ya es el total final del backend. Acá sólo se desglosa: productos, armados (con cantidades),
+        // envío y recargo por forma de pago, con los importes que devolvió el preview (venta:totales).
+        const total = totalProductos;
+        renderDesglose();
 
         setText('[data-side-cliente], [data-rev-cliente]', cliente);
         setText('[data-side-items], [data-rev-items]', items);
@@ -705,10 +733,12 @@
         refreshRevisionCredito();
     });
 
-    // VENTA-ENVIO-TOTAL-01: el importe de envío cambia el total a cobrar sin tocar hero-*/total-*.
-    // venta-envio.js emite 'venta:envio-toggle' al iniciar (hidrata Edit) y al tildar/destildar.
-    document.getElementById('envio-costo')?.addEventListener('input', refreshSummary);
-    document.addEventListener('venta:envio-toggle', refreshSummary);
+    // El desglose (armados/envío/recargo) sale del preview del backend: venta-create.js emite
+    // 'venta:totales' después de cada recálculo.
+    document.addEventListener('venta:totales', (event) => {
+        ultimosTotales = event.detail || null;
+        refreshSummary();
+    });
 
     const observer = new MutationObserver(refreshSummary);
     ['hero-cliente', 'hero-detalles-count', 'hero-tipo-pago', 'total-subtotal', 'total-descuento', 'total-iva', 'total-final']

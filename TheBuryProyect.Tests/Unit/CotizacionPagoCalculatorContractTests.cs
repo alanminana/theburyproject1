@@ -152,6 +152,88 @@ public sealed class CotizacionPagoCalculatorContractTests
         Assert.Single(resultado.Productos);
     }
 
+    private static FakeServicioVentaPrecioService PreciosServicios() => new(
+        (TipoServicioVenta.EnvioCiudad, 4_000m, true),
+        (TipoServicioVenta.EnvioRural, 9_000m, true),
+        (TipoServicioVenta.Armado3, 5_000m, true),
+        (TipoServicioVenta.Armado4, 7_000m, false));
+
+    [Fact]
+    public async Task Simular_ConArmadoPorUnidadYEnvio_SumanAlTotalBase()
+    {
+        var calculator = CreateCalculator(preciosServicios: PreciosServicios());
+        var request = new CotizacionSimulacionRequest
+        {
+            TipoEnvio = TipoServicioVenta.EnvioCiudad,
+            Productos =
+            {
+                new CotizacionProductoRequest { ProductoId = 1, Cantidad = 2, TipoArmado = TipoServicioVenta.Armado3 }
+            }
+        };
+
+        var resultado = await calculator.SimularAsync(request);
+
+        Assert.True(resultado.Exitoso);
+        Assert.Equal(200_000m, resultado.TotalProductos);
+        Assert.Equal(10_000m, resultado.TotalArmados);   // 2 unidades x 5.000
+        Assert.Equal(4_000m, resultado.ImporteEnvio);
+        Assert.Equal(214_000m, resultado.TotalBase);
+        var producto = Assert.Single(resultado.Productos);
+        Assert.Equal(5_000m, producto.ArmadoPrecioUnitario);
+        Assert.Equal(10_000m, producto.ArmadoSubtotal);
+    }
+
+    [Fact]
+    public async Task Simular_ArmadoConCajaCerrada_Rechaza()
+    {
+        var calculator = CreateCalculator(preciosServicios: PreciosServicios());
+        var request = new CotizacionSimulacionRequest
+        {
+            Productos =
+            {
+                new CotizacionProductoRequest
+                {
+                    ProductoId = 1, Cantidad = 1, TipoArmado = TipoServicioVenta.Armado3, EntregaCajaCerrada = true
+                }
+            }
+        };
+
+        var resultado = await calculator.SimularAsync(request);
+
+        Assert.False(resultado.Exitoso);
+        Assert.Contains(resultado.Errores, e => e.Contains("caja cerrada", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task Simular_ServicioInactivoOTipoInvalido_Rechaza()
+    {
+        var calculator = CreateCalculator(preciosServicios: PreciosServicios());
+
+        var inactivo = await calculator.SimularAsync(new CotizacionSimulacionRequest
+        {
+            Productos = { new CotizacionProductoRequest { ProductoId = 1, Cantidad = 1, TipoArmado = TipoServicioVenta.Armado4 } }
+        });
+        var envioInvalido = await calculator.SimularAsync(new CotizacionSimulacionRequest
+        {
+            TipoEnvio = TipoServicioVenta.Armado3,
+            Productos = { new CotizacionProductoRequest { ProductoId = 1, Cantidad = 1 } }
+        });
+
+        Assert.False(inactivo.Exitoso);
+        Assert.False(envioInvalido.Exitoso);
+    }
+
+    [Fact]
+    public async Task Simular_SinServicios_NoCambiaElTotalBase()
+    {
+        var resultado = await CreateCalculator(preciosServicios: PreciosServicios())
+            .SimularAsync(DefaultRequest());
+
+        Assert.Equal(0m, resultado.TotalArmados);
+        Assert.Equal(0m, resultado.ImporteEnvio);
+        Assert.Equal(resultado.TotalProductos, resultado.TotalBase);
+    }
+
     [Fact]
     public async Task Simular_SinCliente_PermiteCotizacion()
     {
@@ -692,7 +774,9 @@ public sealed class CotizacionPagoCalculatorContractTests
             configuracionService,
             creditoService,
             restriccionService,
-            new FakeConfiguracionPagoService());
+            new FakeConfiguracionPagoService(),
+            new FakeServicioVentaPrecioService(),
+            new FakeProductoUnidadService());
 
         var resultado = await calculator.SimularAsync(DefaultRequest());
 
@@ -708,13 +792,16 @@ public sealed class CotizacionPagoCalculatorContractTests
         ConfiguracionPagoGlobalResultado? configuracion = null,
         FakeCreditoSimulacionVentaService? creditoService = null,
         FakeProductoCreditoRestriccionService? restriccionService = null,
-        FakeConfiguracionPagoService? configuracionPagoService = null) =>
+        FakeConfiguracionPagoService? configuracionPagoService = null,
+        FakeServicioVentaPrecioService? preciosServicios = null) =>
         new(
             new FakeProductoService(precios ?? DefaultPrecios()),
             new FakeConfiguracionPagoGlobalQueryService(configuracion ?? DefaultConfiguracion()),
             creditoService ?? new FakeCreditoSimulacionVentaService(),
             restriccionService ?? new FakeProductoCreditoRestriccionService(),
-            configuracionPagoService ?? new FakeConfiguracionPagoService());
+            configuracionPagoService ?? new FakeConfiguracionPagoService(),
+            preciosServicios ?? new FakeServicioVentaPrecioService(),
+            new FakeProductoUnidadService());
 
     // Micro-lote 4: la disponibilidad de cantidades sale SOLO de los planes globales activos. En
     // produccion la configuracion siempre los tiene; el default cubre 1..12 (tasa null = heredar la
@@ -1041,6 +1128,28 @@ public sealed class CotizacionPagoCalculatorContractTests
         public Task<bool> ToggleDestacadoAsync(int id) => throw new NotSupportedException();
         public Task CambiarTrazabilidadIndividualAsync(int productoId, bool requiereTrazabilidad) => throw new NotSupportedException();
         public Task<bool> ExistsCodigoAsync(string codigo, int? excludeId = null) => throw new NotSupportedException();
+    }
+
+    // Ninguno de los tests de este archivo ejercita ProductoUnidadId: ObtenerPorIdAsync nunca se
+    // invoca (el calculador sólo lo llama cuando el request trae una unidad elegida).
+    private sealed class FakeProductoUnidadService : IProductoUnidadService
+    {
+        public Task<ProductoUnidad> CrearUnidadAsync(int productoId, string? numeroSerie = null, string? ubicacionActual = null, string? observaciones = null, string? usuario = null) => throw new NotSupportedException();
+        public Task<IReadOnlyList<ProductoUnidad>> CrearUnidadesAsync(int productoId, IReadOnlyCollection<string?> numerosSerie, string? ubicacionActual = null, string? observaciones = null, string? usuario = null) => throw new NotSupportedException();
+        public Task<IEnumerable<ProductoUnidad>> ObtenerPorProductoAsync(int productoId) => throw new NotSupportedException();
+        public Task<ProductoUnidadConciliacionReadModel> ObtenerConciliacionPorProductoAsync(int productoId) => throw new NotSupportedException();
+        public Task<IEnumerable<ProductoUnidad>> ObtenerPorProductoFiltradoAsync(int productoId, ProductoUnidadFiltros filtros) => throw new NotSupportedException();
+        public Task<ProductoUnidad?> ObtenerPorIdAsync(int productoUnidadId) => Task.FromResult<ProductoUnidad?>(null);
+        public Task<IEnumerable<ProductoUnidad>> ObtenerDisponiblesPorProductoAsync(int productoId) => throw new NotSupportedException();
+        public Task<IEnumerable<ProductoUnidadMovimiento>> ObtenerHistorialAsync(int productoUnidadId) => throw new NotSupportedException();
+        public Task<ProductoUnidad> MarcarVendidaAsync(int productoUnidadId, int ventaDetalleId, int? clienteId = null, string? usuario = null) => throw new NotSupportedException();
+        public Task<ProductoUnidad> MarcarFaltanteAsync(int productoUnidadId, string motivo, string? usuario = null) => throw new NotSupportedException();
+        public Task<ProductoUnidad> MarcarBajaAsync(int productoUnidadId, string motivo, string? usuario = null) => throw new NotSupportedException();
+        public Task<ProductoUnidad> ReintegrarAStockAsync(int productoUnidadId, string motivo, string? usuario = null) => throw new NotSupportedException();
+        public Task<ProductoUnidad> RevertirVentaAsync(int productoUnidadId, string motivo, string? usuario = null, string? origenReferencia = null) => throw new NotSupportedException();
+        public Task<ProductoUnidad> MarcarDevueltaAsync(int productoUnidadId, string motivo, string? usuario = null) => throw new NotSupportedException();
+        public Task<ProductoUnidad> FinalizarReparacionAsync(int productoUnidadId, EstadoUnidad estadoDestino, string motivo, string? usuario = null) => throw new NotSupportedException();
+        public Task<ProductoUnidadesGlobalResultado> BuscarUnidadesGlobalAsync(ProductoUnidadesGlobalFiltros filtros) => throw new NotSupportedException();
     }
 
     private sealed class FakeCreditoSimulacionVentaService : ICreditoSimulacionVentaService

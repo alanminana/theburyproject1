@@ -716,7 +716,8 @@ namespace TheBuryProject.Services
                             v.AperturaCajaId,
                             v.VendedorUserId,
                             v.Total,
-                            CostoEnvio = v.Envio != null ? v.Envio.CostoEnvio : null,
+                            // Sólo el envío legacy va aparte de Total; el nuevo ya está dentro de Total.
+                            CostoEnvio = v.Envio != null && !v.Envio.IncluidoEnTotal ? v.Envio.CostoEnvio : null,
                             RecargoDebitoAplicado = v.DatosTarjeta != null
                                 ? v.DatosTarjeta.RecargoAplicado
                                 : null

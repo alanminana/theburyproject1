@@ -19,9 +19,27 @@
         return String(formatCurrencyBase(value)).replace(/^(-?)\$[\s\u00a0\u202f]+/, '$1$');
     };
 
+    // VENTA-SERVICIOS-01: precios globales de envío y armado (Configuración → Envíos y armados). Sólo
+    // para mostrar importes; el servidor los vuelve a resolver al simular y al guardar.
+    const serviciosVenta = (function () {
+        try {
+            const raw = document.getElementById('cotizacion-servicios-json')?.value;
+            return raw ? JSON.parse(raw) : [];
+        } catch {
+            return [];
+        }
+    })();
+    const armadosDisponibles = serviciosVenta.filter(s => !s.envio);
+    const enviosDisponibles = serviciosVenta.filter(s => s.envio);
+    const ARMADO_CAJA_CERRADA = 'caja-cerrada';
+
     const state = {
         productos: [],
         productoSeleccionado: null,
+        // Unidades físicas EnStock por producto (mismo endpoint que Venta/Create): { [productoId]:
+        // 'cargando' | Array<{id, codigoInternoUnidad, numeroSerie, ...}> }. Sólo referencia — la
+        // cotización no reserva stock, se revalida recién al convertir a Venta.
+        unidadesCache: {},
         simSeq: 0,
         clienteSeleccionado: null,
         ultimaSimulacion: null,
@@ -134,6 +152,7 @@
         limpiarCliente: $('#cotizacion-limpiar-cliente'),
         nombreLibre: $('#cotizacion-nombre-libre'),
         telefonoLibre: $('#cotizacion-telefono-libre'),
+        dniLibre: $('#cotizacion-dni-libre'),
         descuentoGralPct: $('#cotizacion-descuento-gral-pct'),
         descuentoGralImporte: $('#cotizacion-descuento-gral-importe'),
         anticipoBloque: $('#cotizacion-anticipo-bloque'),
@@ -215,6 +234,9 @@
         envioImporte: $('#cotizacion-envio-importe'),
         segTotalACobrar: $('#cotizacion-seg-total-a-cobrar'),
         totalACobrar: $('#cotizacion-total-a-cobrar'),
+        armadosImporte: $('#cotizacion-armados-importe'),
+        envioTipo: $('#cotizacion-envio-tipo'),
+        envioTipoError: $('#cotizacion-envio-tipo-error'),
         totalesStats: $('#cotizacion-totales-stats'),
         facturaResumenComercial: $('#cotizacion-factura-resumen-comercial'),
         facturaComercialProductos: $('#cotizacion-factura-comercial-productos'),
@@ -439,9 +461,9 @@
                     <div class="cart-row__field cart-row__field--qty">
                         <span class="cart-row__label">Cant.</span>
                         <div class="qty-step">
-                            <button type="button" aria-label="Restar" onclick="stepRow(this,-1)">−</button>
-                            <input type="number" min="1" value="${producto.cantidad}" data-cotizacion-cantidad-index="${index}" aria-label="Cantidad">
-                            <button type="button" aria-label="Sumar" onclick="stepRow(this,1)">+</button>
+                            <button type="button" aria-label="Restar" onclick="stepRow(this,-1)"${producto.productoUnidadId ? ' disabled' : ''}>−</button>
+                            <input type="number" min="1"${producto.productoUnidadId ? ' max="1" readonly' : ''} value="${producto.cantidad}" data-cotizacion-cantidad-index="${index}" aria-label="Cantidad">
+                            <button type="button" aria-label="Sumar" onclick="stepRow(this,1)"${producto.productoUnidadId ? ' disabled' : ''}>+</button>
                         </div>
                     </div>
                     <div class="cart-row__field">
@@ -462,9 +484,101 @@
                     <button type="button" data-cotizacion-eliminar-index="${index}" class="cart-row__quitar" aria-label="Quitar">
                         <span class="material-symbols-outlined" style="font-size:15px">close</span>
                     </button>
-                </div>`;
+                </div>${renderArmadoLinea(producto, index)}${renderUnidadLinea(producto, index)}`;
             els.productosTbody.appendChild(article);
         });
+    }
+
+    // Armado opcional por línea: "Sin armado" (vacío), "Caja cerrada" (explícito, sin costo) o un
+    // Armado N.º 1..6. Se cobra por unidad (precio × cantidad).
+    function valorArmadoSeleccionado(p) {
+        if (p.entregaCajaCerrada) return ARMADO_CAJA_CERRADA;
+        return p.tipoArmado ? String(p.tipoArmado) : '';
+    }
+
+    function renderArmadoLinea(p, index) {
+        if (armadosDisponibles.length === 0) return '';
+        const valor = valorArmadoSeleccionado(p);
+        const precioCorto = (n) => formatCurrency(n).replace(/,00$/, '');
+        const opciones = armadosDisponibles.map(a =>
+            `<option value="${a.tipo}"${valor === String(a.tipo) ? ' selected' : ''}>${esc(a.nombre.replace('Armado ', '').replace(' — Domiciliario', ' dom.'))}${a.precio > 0 ? ' · ' + esc(precioCorto(a.precio)) : ''}</option>`
+        ).join('');
+        const elegido = armadosDisponibles.find(a => String(a.tipo) === valor);
+        const costo = elegido
+            ? `<span class="cart-row__armado-costo">${elegido.precio > 0 ? `${p.cantidad} × ${esc(formatCurrency(elegido.precio))} = ${esc(formatCurrency(elegido.precio * p.cantidad))}` : 'Sin costo'}</span>`
+            : '';
+        return `
+                <div class="cart-row__armado">
+                    <label class="cart-row__label" for="cotizacion-armado-${index}">Armado</label>
+                    <select id="cotizacion-armado-${index}" class="field mini" data-cotizacion-armado-index="${index}">
+                        <option value=""${valor === '' ? ' selected' : ''}>Sin armado</option>
+                        <option value="${ARMADO_CAJA_CERRADA}"${valor === ARMADO_CAJA_CERRADA ? ' selected' : ''}>Caja cerrada · entrega sin armar</option>
+                        ${opciones}
+                    </select>
+                    ${costo}
+                </div>`;
+    }
+
+    // Unidad física por línea: mismo endpoint y misma regla que Venta/Create (RequiereNumeroSerie
+    // exige elegir una; el resto sólo la ofrece si hay unidades en stock). La cotización no reserva
+    // la unidad — sólo la referencia; se revalida y se marca Vendida recién al convertir a Venta.
+    async function cargarUnidadesParaProducto(productoId) {
+        if (state.unidadesCache[productoId] && state.unidadesCache[productoId] !== 'error') return;
+        state.unidadesCache[productoId] = 'cargando';
+        try {
+            const unidades = await fetchJson(`/api/productos/${productoId}/unidades-disponibles`);
+            state.unidadesCache[productoId] = unidades || [];
+        } catch {
+            state.unidadesCache[productoId] = 'error';
+        }
+        renderProductos();
+    }
+
+    function formatearUnidad(u) {
+        const codigo = u.codigoInternoUnidad || u.CodigoInternoUnidad || '';
+        const serie = u.numeroSerie || u.NumeroSerie;
+        return serie ? `${codigo} · NS ${serie}` : codigo;
+    }
+
+    function renderUnidadLinea(p, index) {
+        if (!p.requiereNumeroSerie && !(Number(p.unidadesEnStock) > 0)) return '';
+
+        const cache = state.unidadesCache[p.productoId];
+        const elegidasEnOtrasLineas = new Set(
+            state.productos
+                .filter((otro, i) => i !== index && otro.productoUnidadId)
+                .map(otro => Number(otro.productoUnidadId))
+        );
+
+        let opcionesHtml = '';
+        let disabled = false;
+        if (cache === 'cargando' || cache === undefined) {
+            opcionesHtml = '<option value="">Cargando unidades…</option>';
+            disabled = true;
+        } else if (cache === 'error') {
+            opcionesHtml = '<option value="">No se pudieron cargar las unidades</option>';
+            disabled = true;
+        } else {
+            const disponibles = cache.filter(u => !elegidasEnOtrasLineas.has(Number(u.id)) || Number(u.id) === Number(p.productoUnidadId));
+            if (disponibles.length === 0) {
+                opcionesHtml = '<option value="">Sin unidades disponibles</option>';
+                disabled = true;
+            } else {
+                const placeholder = p.requiereNumeroSerie ? 'Seleccioná una unidad…' : 'Sin especificar (stock no trazado)';
+                opcionesHtml = `<option value=""${!p.productoUnidadId ? ' selected' : ''}>${esc(placeholder)}</option>` +
+                    disponibles.map(u =>
+                        `<option value="${u.id}"${Number(p.productoUnidadId) === Number(u.id) ? ' selected' : ''}>${esc(formatearUnidad(u))}</option>`
+                    ).join('');
+            }
+        }
+
+        return `
+                <div class="cart-row__armado">
+                    <label class="cart-row__label" for="cotizacion-unidad-${index}">Unidad física${p.requiereNumeroSerie ? ' (obligatoria)' : ''}</label>
+                    <select id="cotizacion-unidad-${index}" class="field mini" data-cotizacion-unidad-index="${index}"${disabled ? ' disabled' : ''}>
+                        ${opcionesHtml}
+                    </select>
+                </div>`;
     }
 
     function previewBase() {
@@ -658,7 +772,8 @@
     // un envío nunca resta). El backend normaliza igual (VentaMontos.NormalizarImporteEnvio) y es
     // la fuente persistida: Cotizacion.CostoEnvio → VentaEnvio.CostoEnvio → Venta.TotalACobrar.
     function importeEnvioActual() {
-        const costo = Number(state.envio?.costoEnvio);
+        // VENTA-SERVICIOS-01: el envío ya viene resuelto por el servidor y está DENTRO del total.
+        const costo = Number(state.ultimaSimulacion?.importeEnvio);
         return els.tieneEnvio?.checked && state.envio && Number.isFinite(costo) && costo > 0 ? costo : 0;
     }
 
@@ -673,15 +788,17 @@
     // el resumen de selección muestra el total a cobrar final. Sin simulación vigente quedan en "—".
     function renderTotalesEnvio() {
         if (!state.ultimaSimulacion) {
+            if (els.armadosImporte) els.armadosImporte.textContent = '—';
             if (els.envioImporte) els.envioImporte.textContent = '—';
             if (els.totalACobrar) els.totalACobrar.textContent = '—';
             return;
         }
 
+        // totalBase ya incluye armados y envío; el recargo del medio de pago los alcanza.
         const base = Number(state.ultimaSimulacion.totalBase) || 0;
-        const envio = importeEnvioActual();
-        if (els.envioImporte) els.envioImporte.textContent = formatCurrency(envio);
-        if (els.totalACobrar) els.totalACobrar.textContent = formatCurrency(base + envio);
+        if (els.armadosImporte) els.armadosImporte.textContent = formatCurrency(Number(state.ultimaSimulacion.totalArmados) || 0);
+        if (els.envioImporte) els.envioImporte.textContent = formatCurrency(importeEnvioActual());
+        if (els.totalACobrar) els.totalACobrar.textContent = formatCurrency(base);
     }
 
     // Prioridad 2 (auditoría en vivo, 2026-09-15): vuelve la franja Subtotal/
@@ -730,6 +847,8 @@
             return;
         }
 
+        const requiereNumeroSerie = !!producto.requiereNumeroSerie;
+        const unidadesEnStock = Number(producto.unidadesEnStock) || 0;
         const existing = state.productos.find(p => p.productoId === Number(producto.id));
         if (existing) {
             existing.cantidad += qty;
@@ -741,9 +860,16 @@
                 cantidad: qty,
                 precioUnitario: Number(producto.precioVenta) || 0,
                 descuentoPorcentaje: null,
-                descuentoImporte: null
+                descuentoImporte: null,
+                tipoArmado: null,
+                entregaCajaCerrada: false,
+                requiereNumeroSerie,
+                unidadesEnStock,
+                productoUnidadId: null
             });
         }
+
+        if (requiereNumeroSerie || unidadesEnStock > 0) cargarUnidadesParaProducto(Number(producto.id));
 
         invalidarSimulacion();
         setProductoSeleccionado(null);
@@ -952,8 +1078,13 @@
                 productoId: p.productoId,
                 cantidad: p.cantidad,
                 descuentoPorcentaje: (p.descuentoPorcentaje !== null && p.descuentoPorcentaje > 0) ? p.descuentoPorcentaje : null,
-                descuentoImporte: (p.descuentoImporte !== null && p.descuentoImporte > 0) ? p.descuentoImporte : null
-            }))
+                descuentoImporte: (p.descuentoImporte !== null && p.descuentoImporte > 0) ? p.descuentoImporte : null,
+                tipoArmado: p.tipoArmado || null,
+                entregaCajaCerrada: !!p.entregaCajaCerrada,
+                productoUnidadId: p.productoUnidadId || null
+            })),
+            // Envío Ciudad/Rural: el importe sale de la tabla global en el servidor, no de acá.
+            tipoEnvio: hayEnvioGuardado() ? (state.envio.tipoEnvio || null) : null
         };
 
         $$('[data-cotizacion-medio]').forEach(input => {
@@ -1019,13 +1150,15 @@
        excepción: la Cotización sólo persiste la intención (TieneEnvio bool).
     --------------------------------------------------------------------- */
     const ENVIO_CAMPOS = ['envioDestinatario', 'envioDomicilio', 'envioTelefono', 'envioLocalidad',
-        'envioProvincia', 'envioCp', 'envioTransportista', 'envioCosto', 'envioFecha', 'envioObservaciones'];
+        'envioProvincia', 'envioCp', 'envioTransportista', 'envioTipo', 'envioFecha', 'envioObservaciones'];
 
     function renderResumenEnvio() {
         if (state.envio) {
             show(els.envioResumen);
             if (els.envioResumenTexto) {
-                els.envioResumenTexto.textContent = `${state.envio.destinatario} · ${state.envio.domicilio}`;
+                const tipo = enviosDisponibles.find(e => e.tipo === state.envio.tipoEnvio);
+                const precio = tipo ? ` ${formatCurrency(tipo.precio).replace(/,00$/, '')}` : '';
+                els.envioResumenTexto.textContent = `${tipo ? tipo.nombre + ' ·' + precio + ' · ' : ''}${state.envio.destinatario} · ${state.envio.domicilio}`;
             }
         } else {
             hide(els.envioResumen);
@@ -1048,9 +1181,24 @@
         if (els.envioCp && !els.envioCp.value.trim()) els.envioCp.value = c.codigoPostal || '';
     }
 
+    // Ciudad/Rural con su precio global fijo; el operador no tipea importes.
+    function poblarTiposEnvio() {
+        if (!els.envioTipo || els.envioTipo.dataset.poblado === '1') return;
+        const precioCorto = (n) => formatCurrency(n).replace(/,00$/, '');
+        enviosDisponibles.forEach(e => {
+            const opt = document.createElement('option');
+            opt.value = String(e.tipo);
+            opt.textContent = `${e.nombre} · ${precioCorto(e.precio)}`;
+            els.envioTipo.appendChild(opt);
+        });
+        els.envioTipo.dataset.poblado = '1';
+    }
+
     function abrirModalEnvio() {
+        poblarTiposEnvio();
         hide(els.envioDestinatarioError);
         hide(els.envioDomicilioError);
+        hide(els.envioTipoError);
         if (state.envio) {
             if (els.envioDestinatario) els.envioDestinatario.value = state.envio.destinatario || '';
             if (els.envioDomicilio) els.envioDomicilio.value = state.envio.domicilio || '';
@@ -1059,7 +1207,7 @@
             if (els.envioProvincia) els.envioProvincia.value = state.envio.provincia || '';
             if (els.envioCp) els.envioCp.value = state.envio.codigoPostal || '';
             if (els.envioTransportista) els.envioTransportista.value = state.envio.transportista || '';
-            if (els.envioCosto) els.envioCosto.value = state.envio.costoEnvio ?? '';
+            if (els.envioTipo) els.envioTipo.value = state.envio.tipoEnvio ? String(state.envio.tipoEnvio) : '';
             if (els.envioFecha) els.envioFecha.value = state.envio.fechaProgramada || '';
             if (els.envioObservaciones) els.envioObservaciones.value = state.envio.observaciones || '';
         } else {
@@ -1085,6 +1233,13 @@
         } else {
             hide(els.envioDomicilioError);
         }
+        const tipoEnvio = els.envioTipo?.value ? parseInt(els.envioTipo.value, 10) : null;
+        if (!tipoEnvio) {
+            if (els.envioTipoError) { els.envioTipoError.textContent = 'Seleccioná el tipo de envío (Ciudad o Rural).'; show(els.envioTipoError); }
+            valido = false;
+        } else {
+            hide(els.envioTipoError);
+        }
         if (!valido) return;
 
         state.envio = {
@@ -1095,14 +1250,15 @@
             provincia: els.envioProvincia?.value.trim() || null,
             codigoPostal: els.envioCp?.value.trim() || null,
             transportista: els.envioTransportista?.value.trim() || null,
-            costoEnvio: els.envioCosto?.value ? parseFloat(els.envioCosto.value) : null,
+            tipoEnvio,
             fechaProgramada: els.envioFecha?.value || null,
             observaciones: els.envioObservaciones?.value.trim() || null
         };
         if (els.tieneEnvio) els.tieneEnvio.checked = true;
         renderResumenEnvio();
         window.closeModal?.('modal-envio');
-        renderSeleccionBar();
+        // El envío cambia el total (y el recargo del plan): hay que volver a simular.
+        invalidarSimulacion();
     }
 
     // Si cancela sin haber guardado nunca una configuración válida, el checkbox
@@ -1139,14 +1295,9 @@
         if (els.facturaSubtotal) els.facturaSubtotal.textContent = formatCurrency(preview.subtotal);
         if (els.facturaIva) els.facturaIva.textContent = formatCurrency(preview.iva);
         if (els.facturaTotal) els.facturaTotal.textContent = formatCurrency(preview.total);
-        // VENTA-ENVIO-TOTAL-01: si hay envío, el modal explica que se cobra pero no integra el comprobante.
-        const envioFactura = importeEnvioActual();
-        els.facturaResumenComercial?.classList.toggle('hidden', !(envioFactura > 0));
-        if (envioFactura > 0) {
-            if (els.facturaComercialProductos) els.facturaComercialProductos.textContent = formatCurrency(preview.total);
-            if (els.facturaComercialEnvio) els.facturaComercialEnvio.textContent = formatCurrency(envioFactura);
-            if (els.facturaComercialTotal) els.facturaComercialTotal.textContent = formatCurrency(Number(preview.total) + envioFactura);
-        }
+        // VENTA-SERVICIOS-01: armados y envío integran el total del comprobante (el preview los trae);
+        // ya no hay un "cobro aparte" que explicar.
+        els.facturaResumenComercial?.classList.add('hidden');
         const alicuotas = preview.resumenAlicuotas || [];
         if (els.facturaAlicuotasSection) els.facturaAlicuotasSection.classList.toggle('hidden', alicuotas.length === 0);
         if (els.facturaAlicuotasTbody) {
@@ -1322,11 +1473,10 @@
                 observaciones: els.observaciones?.value?.trim() || null,
                 nombreClienteLibre: els.nombreLibre?.value?.trim() || null,
                 telefonoClienteLibre: els.telefonoLibre?.value?.trim() || null,
+                dniClienteLibre: els.dniLibre?.value?.trim() || null,
                 fechaVencimiento: els.fechaVencimiento?.value || null,
-                tieneEnvio: els.tieneEnvio?.checked || false,
-                // VENTA-ENVIO-TOTAL-01: el importe viaja con la cotización (Cotizacion.CostoEnvio) para
-                // que sobreviva a "Pasar a venta" desde una cotización ya guardada.
-                costoEnvio: importeEnvioActual() > 0 ? importeEnvioActual() : null
+                // El tipo de envío viaja dentro de simulacion (tipoEnvio); el importe lo fija el servidor.
+                tieneEnvio: hayEnvioGuardado()
             };
             // VENTA-COTIZACION-EXCEPCION-01: sin selección normal vigente, el plan objetivo
             // para excepción (state.excepcion) es lo que se guarda como elegido — así
@@ -1400,7 +1550,6 @@
             envioProvincia: state.envio?.provincia || null,
             envioCodigoPostal: state.envio?.codigoPostal || null,
             envioTransportista: state.envio?.transportista || null,
-            envioCostoEnvio: state.envio?.costoEnvio ?? null,
             envioFechaProgramada: state.envio?.fechaProgramada || null,
             envioObservaciones: state.envio?.observaciones || null,
             ...overrides
@@ -1439,17 +1588,15 @@
         if (!hayOpcion && !excepcion) return;
 
         const c = state.clienteSeleccionado;
-        const clienteTxt = c ? `${c.apellido || ''}, ${c.nombre || ''}`.replace(/^,\s*/, '').replace(/,\s*$/, '').trim() || c.display : '—';
+        const clienteTxt = c ? `${c.apellido || ''}, ${c.nombre || ''}`.replace(/^,\s*/, '').replace(/,\s*$/, '').trim() || c.display : (els.nombreLibre?.value.trim() || '—');
         const medioTxt = hayOpcion
             ? `${nombreParaResumen(row)} · ${cuotasConValorTexto(row.plan)}`
             : 'Crédito personal · excepción solicitada';
         const totalTxt = (hayOpcion && row.plan) ? formatCurrency(row.plan.total) : (els.totalBase?.textContent || '—');
         const envioTxt = state.envio ? `Sí · ${state.envio.domicilio}` : 'No';
-        // VENTA-ENVIO-TOTAL-01: con envío guardado el modal separa Productos / Envío / TOTAL A COBRAR.
+        // VENTA-SERVICIOS-01: el total de la opción ya incluye armados y envío (y el recargo sobre ambos).
         const conEnvio = hayEnvioGuardado();
         const envioImp = importeEnvioActual();
-        const totalNum = (hayOpcion && row.plan) ? Number(row.plan.total) : Number(state.ultimaSimulacion?.totalBase);
-        const totalACobrarTxt = Number.isFinite(totalNum) ? formatCurrency(totalNum + envioImp) : '—';
         // COTIZACION-MIVENTA-02: refleja la configuración real guardada en el modal de
         // facturación (tipo + punto de venta), no un select simplificado.
         const facturarTxt = state.facturarConfig
@@ -1460,10 +1607,10 @@
             const fila = (label, valor) => `<div class="flex justify-between gap-3"><dt class="text-slate-400">${esc(label)}</dt><dd class="text-white text-right">${esc(valor)}</dd></div>`;
             els.confirmarResumen.innerHTML =
                 fila('Cliente', clienteTxt) +
+                (!c ? fila('DNI', els.dniLibre?.value.trim() || '—') + fila('Teléfono', els.telefonoLibre?.value.trim() || '—') : '') +
                 fila('Medio de pago', medioTxt) +
-                (conEnvio ? fila('Productos', totalTxt) : fila('Total', totalTxt)) +
-                fila('Envío', conEnvio ? `${formatCurrency(envioImp)} · ${state.envio.domicilio}` : envioTxt) +
-                (conEnvio ? `<div class="flex justify-between gap-3 border-t border-slate-700 pt-2"><dt class="font-semibold text-white">Total a cobrar</dt><dd id="cotizacion-confirmar-total-a-cobrar" class="text-white text-right text-base font-black">${esc(totalACobrarTxt)}</dd></div>` : '') +
+                fila('Total a cobrar', totalTxt) +
+                fila('Envío', conEnvio ? `${formatCurrency(envioImp)} (incluido) · ${state.envio.domicilio}` : envioTxt) +
                 fila('Facturación', facturarTxt);
         }
         // §23 del pedido: el CTA anticipa el resultado — Facturar OFF dice "Confirmar Mi
@@ -1490,11 +1637,6 @@
         try {
             const data = await guardarCotizacion({ silencioso: true });
             if (!data) return;
-
-            if (!state.cotizacionGuardadaClienteId) {
-                showFeedback('Seleccioná un cliente del sistema para confirmar la venta.', 'warning');
-                return;
-            }
 
             const preflight = await ejecutarPreflight();
             if (!preflight) {
@@ -1537,12 +1679,8 @@
             const data = await guardarCotizacion({ silencioso: true });
             if (!data) return;
 
-            if (state.cotizacionGuardadaClienteId) {
-                showFeedback(`Cotización ${data.numero} guardada. Confirmando venta…`, 'ok');
-                await pasarAVenta();
-            } else {
-                showFeedback(`Cotización ${data.numero} guardada. Seleccioná un cliente del sistema para confirmar la venta.`, 'warning');
-            }
+            showFeedback(`Cotización ${data.numero} guardada. Confirmando venta…`, 'ok');
+            await pasarAVenta();
         } finally {
             state.confirmando = false;
             // Si pasarAVenta() tuvo éxito la página ya está navegando (window.location.assign);
@@ -1560,10 +1698,6 @@
     // "Continuar con wizard" como elecciones explícitas (§NO HACER del pedido).
     async function pasarAVenta() {
         if (!state.cotizacionGuardadaId) return;
-        if (!state.cotizacionGuardadaClienteId) {
-            showFeedback('Seleccioná un cliente del sistema para pasar a venta.', 'warning');
-            return;
-        }
 
         // COTIZACION-MIVENTA-01: además de llamarse desde continuarConOpcion() (donde
         // #cotizacion-continuar ya está disabled), esta función es el handler directo del
@@ -1683,6 +1817,210 @@
             state.continuandoWizard = false;
             renderSeleccionBar();
         }
+    }
+
+    /* ---------------------------------------------------------------------
+       Crédito personal desde "Mi Venta": fecha de 1ª cuota → contrato → confirmar
+       Reutiliza los endpoints server-authoritative del paso Crédito del wizard
+       (Credito/ConfigurarVenta, ContratoVentaCredito/Generar, Venta/Confirmar); no calcula nada.
+    --------------------------------------------------------------------- */
+    const credito = { ventaId: null, creditoId: null, numero: null, contratoUrl: null };
+
+    function esFlujoCreditoPersonal() {
+        const row = state.seleccionRow;
+        if (row?.plan) return esCreditoPersonalMedio(row.opcion.medioPago);
+        return !!state.excepcion;
+    }
+
+    function creditoEls() {
+        return {
+            fecha: $('#cotizacion-credito-fecha'),
+            resumen: $('#cotizacion-credito-resumen'),
+            error: $('#cotizacion-credito-error'),
+            contratoWrap: $('#cotizacion-credito-contrato-wrap'),
+            contratoLink: $('#cotizacion-credito-ver-contrato'),
+            generar: $('#cotizacion-credito-generar'),
+            confirmar: $('#cotizacion-credito-confirmar'),
+            subtitulo: $('#cotizacion-credito-subtitulo')
+        };
+    }
+
+    function creditoMostrarError(mensaje) {
+        const e = creditoEls().error;
+        if (!e) return;
+        e.textContent = mensaje || '';
+        e.classList.toggle('hidden', !mensaje);
+    }
+
+    function fechaPorDefectoPrimeraCuota() {
+        const d = new Date();
+        d.setMonth(d.getMonth() + 1);
+        const p = n => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+    }
+
+    function abrirModalCreditoPersonal() {
+        if (!state.clienteSeleccionado?.id) {
+            showFeedback('Seleccioná un cliente del sistema para continuar con el crédito.', 'warning');
+            return;
+        }
+        const c = state.clienteSeleccionado;
+        const clienteTxt = `${c.apellido || ''}, ${c.nombre || ''}`.replace(/^,\s*/, '').replace(/,\s*$/, '').trim() || c.display || '—';
+        const row = state.seleccionRow;
+        const plan = row?.plan;
+        const cuotas = plan ? plan.cantidadCuotas : state.excepcion?.cantidadCuotas;
+        const detallePlan = plan
+            ? cuotasConValorTexto(plan)
+            : `${cuotas} ${Number(cuotas) === 1 ? 'cuota' : 'cuotas'}`;
+        const total = plan ? formatCurrency(plan.totalFinanciado ?? plan.total) : null;
+        const els2 = creditoEls();
+        const fila = (label, valor) => `<div class="flex justify-between gap-3"><dt class="text-slate-400">${esc(label)}</dt><dd class="text-white text-right">${esc(valor)}</dd></div>`;
+        els2.resumen.innerHTML =
+            fila('Cliente', clienteTxt) +
+            fila('Plan', `Crédito personal · ${detallePlan}`) +
+            (total ? fila('Total financiado', total) : '') +
+            (state.excepcion ? fila('Excepción', 'Documental — se aplica al confirmar') : '');
+
+        const yaGenerado = !!credito.contratoUrl;
+        if (els2.fecha) {
+            if (!els2.fecha.value) els2.fecha.value = fechaPorDefectoPrimeraCuota();
+            els2.fecha.disabled = yaGenerado;
+        }
+        els2.generar.classList.toggle('hidden', yaGenerado);
+        els2.confirmar.classList.toggle('hidden', !yaGenerado);
+        els2.contratoWrap.classList.toggle('hidden', !yaGenerado);
+        if (yaGenerado) els2.contratoLink.href = credito.contratoUrl;
+        els2.subtitulo.textContent = yaGenerado
+            ? 'Contrato generado. Revisalo y confirmá la venta.'
+            : 'Elegí la fecha de la primera cuota y generá el contrato.';
+        creditoMostrarError('');
+        window.openModal?.('modal-confirmar-credito');
+    }
+
+    // Crea la venta (una sola vez por cotización) y devuelve el crédito pendiente.
+    async function asegurarVentaCredito() {
+        if (credito.ventaId && credito.creditoId) return true;
+        const data = await guardarCotizacion({ silencioso: true });
+        if (!data) return false;
+        if (!state.cotizacionGuardadaClienteId) {
+            creditoMostrarError('Seleccioná un cliente del sistema para continuar.');
+            return false;
+        }
+        const { resp, data: conv } = await postConversion('convertir', { confirmarVenta: false, facturar: false });
+        if (!resp.ok || !conv.exitoso || !conv.ventaId) {
+            creditoMostrarError((conv.errores && conv.errores.length) ? conv.errores.join(' ') : (conv.error || 'No se pudo crear la venta.'));
+            return false;
+        }
+        credito.ventaId = conv.ventaId;
+        credito.numero = conv.numeroVenta || null;
+        if (!conv.creditoId) {
+            // Quedó pendiente de autorización (sin excepción aplicable): sólo se puede seguir en el wizard.
+            creditoMostrarError('La venta quedó creada pero requiere autorización antes de configurar el crédito. Continuá desde el wizard.');
+            const w = creditoEls().contratoLink;
+            w.href = `${urls.ventaEdit}${conv.ventaId}`;
+            w.lastChild.textContent = ' Abrir en el wizard';
+            creditoEls().contratoWrap.classList.remove('hidden');
+            return false;
+        }
+        credito.creditoId = conv.creditoId;
+        return true;
+    }
+
+    // Guarda el plan (cuotas/anticipo que ya trae el crédito pendiente) con la fecha elegida.
+    async function configurarCreditoConFecha(fecha) {
+        const params0 = new URLSearchParams({ id: String(credito.creditoId), ventaId: String(credito.ventaId), embedded: 'true' });
+        const r0 = await fetch(`/Credito/ConfigurarVenta?${params0}`);
+        if (!r0.ok) {
+            const d = await r0.json().catch(() => null);
+            creditoMostrarError(d?.message || 'No se pudo cargar la configuración del crédito.');
+            return false;
+        }
+        const doc = new DOMParser().parseFromString(await r0.text(), 'text/html');
+        const campos = ['CreditoId', 'VentaId', 'ClienteId', 'Monto', 'MontoFinanciado', 'FuenteConfiguracion',
+            'MetodoCalculo', 'PerfilCreditoSeleccionadoId', 'CantidadCuotas', 'Anticipo', 'TasaMensual',
+            'GastosAdministrativos', 'MedioPagoPrimeraCuota'];
+        const params = new URLSearchParams();
+        campos.forEach(n => {
+            const el = doc.querySelector(`[name="${n}"]`);
+            if (el) params.append(n, el.value ?? '');
+        });
+        params.append('FechaPrimeraCuota', fecha);
+        params.append('CobrarPrimeraCuota', doc.querySelector('[data-primera-cuota-cobrar]')?.checked ? 'true' : 'false');
+        const token = doc.querySelector('input[name="__RequestVerificationToken"]')?.value;
+        if (token) params.append('__RequestVerificationToken', token);
+        params.append('embedded', 'true');
+
+        const resp = await fetch('/Credito/ConfigurarVenta', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: params.toString()
+        });
+        const data = await resp.json().catch(() => null);
+        if (!resp.ok || !data?.success) {
+            creditoMostrarError(data?.message || (data?.errors && Object.values(data.errors).flat().join(' ')) || 'No se pudo configurar el crédito. Revisá los valores.');
+            return false;
+        }
+        return true;
+    }
+
+    async function generarContratoCredito() {
+        const els2 = creditoEls();
+        const fecha = els2.fecha?.value;
+        if (!fecha) {
+            creditoMostrarError('Elegí la fecha de la primera cuota.');
+            els2.fecha?.focus();
+            return;
+        }
+        // La pestaña del contrato se reserva en el mismo gesto del click (si no, el navegador la bloquea).
+        let ventana = null;
+        try { ventana = window.open('about:blank', '_blank'); if (ventana) ventana.opener = null; } catch { ventana = null; }
+        els2.generar.disabled = true;
+        creditoMostrarError('');
+        try {
+            if (!await asegurarVentaCredito()) return;
+            if (!await configurarCreditoConFecha(fecha)) return;
+
+            const params = new URLSearchParams({ ventaId: String(credito.ventaId) });
+            const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+            if (token) params.append('__RequestVerificationToken', token);
+            const resp = await fetch('/ContratoVentaCredito/Generar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
+                body: params.toString()
+            });
+            const data = await resp.json().catch(() => null);
+            if (!resp.ok || !data?.success || !data.verUrl) {
+                creditoMostrarError(data?.message || 'No se pudo generar el contrato.');
+                return;
+            }
+            credito.contratoUrl = data.verUrl;
+            try { if (ventana && !ventana.closed) { ventana.location.href = data.verUrl; ventana = null; } } catch { /* queda el link manual */ }
+            abrirModalCreditoPersonal();
+        } catch (error) {
+            creditoMostrarError(error.message || 'No se pudo continuar con el crédito.');
+        } finally {
+            els2.generar.disabled = false;
+            try { if (ventana && !ventana.closed) ventana.close(); } catch { /* nada */ }
+        }
+    }
+
+    // Venta/Confirmar es un POST MVC clásico (redirige a Details): se envía como formulario.
+    function confirmarVentaCredito() {
+        if (!credito.ventaId || !credito.contratoUrl) return;
+        creditoEls().confirmar.disabled = true;
+        const form = document.createElement('form');
+        form.method = 'post';
+        form.action = `/Venta/Confirmar/${credito.ventaId}`;
+        const add = (name, value) => {
+            const i = document.createElement('input');
+            i.type = 'hidden'; i.name = name; i.value = value;
+            form.appendChild(i);
+        };
+        add('__RequestVerificationToken', document.querySelector('input[name="__RequestVerificationToken"]')?.value || '');
+        add('aplicarExcepcionDocumental', state.excepcion ? 'true' : 'false');
+        add('motivoExcepcionDocumental', state.excepcion?.motivo || '');
+        document.body.appendChild(form);
+        form.submit();
     }
 
     /* ---------------------------------------------------------------------
@@ -2090,7 +2428,7 @@
             els.descuento.classList.toggle('text-emerald-400', hayDescuento);
             els.descuento.classList.toggle('text-white', !hayDescuento);
         }
-        if (els.totalBase) els.totalBase.textContent = formatCurrency(data.totalBase);
+        if (els.totalBase) els.totalBase.textContent = formatCurrency(data.totalProductos ?? data.totalBase);
         els.totalesBar?.classList.remove('is-pendiente');
         renderTotalesEnvio();
         updateHeaderCounts();
@@ -2158,11 +2496,18 @@
             const seleccionPrevia = state.seleccionRow
                 ? rows.find(r => r.plan && optionKey(r) === optionKey(state.seleccionRow) && !bloqueada(r))
                 : null;
-            const recomendado = seleccionPrevia
+            // Con una excepción vigente (Crédito personal pedido a propósito) no se
+            // autoselecciona otra alternativa: pisaría la elección del operador.
+            const recomendado = state.excepcion ? null : (seleccionPrevia
                 || rows.find(r => r.plan?.recomendado && !bloqueada(r))
                 || rows.find(r => r.plan && optionKey(r) === bestKey && !bloqueada(r))
-                || rows.find(r => r.plan && !bloqueada(r));
-            if (recomendado) {
+                || rows.find(r => r.plan && !bloqueada(r)));
+            if (state.excepcion) {
+                state.seleccionRow = null;
+                state.opcionSeleccionada = null;
+                updateSelectedRowHighlight(state.excepcion.key);
+                renderSeleccionBar();
+            } else if (recomendado) {
                 seleccionarRow(recomendado, { abrirDrawer: false });
             } else {
                 state.seleccionRow = null;
@@ -2192,6 +2537,9 @@
     // (lo que muestra la barra de cierre) y el resaltado de la tabla.
     function seleccionarRow(row, options) {
         if (!row?.plan) return;
+        // Elegir otra alternativa descarta la excepción pendiente (simétrico a
+        // confirmarExcepcionEnDrawer): nunca conviven selección normal y excepción.
+        resetExcepcion();
         state.opcionSeleccionada = toSeleccion(row);
         state.seleccionRow = row;
         updateSelectedRowHighlight(optionKey(row));
@@ -2815,8 +3163,14 @@
             cantidadCuotas: row.plan.cantidadCuotas,
             motivo
         };
+        // La excepción pasa a ser la alternativa elegida: una selección previa (p.ej. una
+        // tarjeta) tenía prioridad en el payload y en el modal de confirmación, así que la
+        // excepción se ignoraba y la venta salía con el otro medio.
+        state.opcionSeleccionada = null;
+        state.seleccionRow = null;
         window.closeModal?.('modal-plan');
         refrescarTablaPorAptitud();
+        updateSelectedRowHighlight(state.excepcion.key);
         renderSeleccionBar();
     }
 
@@ -2842,7 +3196,19 @@
         // COTIZACION-MIVENTA-02: "Confirmar Mi Venta" corre primero el preflight
         // (§NUEVA REGLA FUNDAMENTAL); el modal de confirmación sólo se abre si puede
         // terminar — continuarConOpcion() recién crea/confirma si el operador acepta ahí.
-        els.continuar?.addEventListener('click', iniciarConfirmarMiVenta);
+        // Crédito personal (elegido o exceptuado): el preflight siempre lo bloquea porque el plan
+        // y el contrato son propios de este medio, así que la acción primaria abre el modal que
+        // pide la fecha de la 1ª cuota, genera el contrato y confirma (ver abrirModalCreditoPersonal).
+        els.continuar?.addEventListener('click', () => {
+            if (esFlujoCreditoPersonal()) {
+                abrirModalCreditoPersonal();
+                return;
+            }
+            iniciarConfirmarMiVenta();
+        });
+        $('#cotizacion-credito-cancelar')?.addEventListener('click', () => window.closeModal?.('modal-confirmar-credito'));
+        $('#cotizacion-credito-generar')?.addEventListener('click', generarContratoCredito);
+        $('#cotizacion-credito-confirmar')?.addEventListener('click', confirmarVentaCredito);
         els.continuarWizard?.addEventListener('click', continuarConWizard);
         els.confirmarAceptar?.addEventListener('click', () => {
             window.closeModal?.('modal-confirmar-venta');
@@ -2860,7 +3226,7 @@
             } else {
                 state.envio = null;
                 renderResumenEnvio();
-                renderSeleccionBar();
+                invalidarSimulacion();
             }
         });
         els.envioEditar?.addEventListener('click', abrirModalEnvio);
@@ -2912,6 +3278,10 @@
             marcarVacio();
         }
 
+        [els.nombreLibre, els.dniLibre, els.telefonoLibre].forEach(el => {
+            el?.addEventListener('input', () => { resetGuardado(); renderBloqueos([]); });
+        });
+
         // descuentos generales + anticipo -> pendiente
         [els.descuentoGralPct, els.descuentoGralImporte, els.anticipo].forEach(el => {
             el?.addEventListener('input', () => invalidarSimulacion());
@@ -2952,6 +3322,36 @@
                 renderProductos();
             }
             window.closeModal?.('modal-quitar-producto');
+        });
+
+        // carrito: armado por producto (opcional, por unidad)
+        els.productosTbody?.addEventListener('change', event => {
+            const armado = event.target.closest('[data-cotizacion-armado-index]');
+            if (!armado) return;
+            const index = Number(armado.dataset.cotizacionArmadoIndex);
+            const producto = state.productos[index];
+            if (!producto) return;
+            const valor = armado.value;
+            producto.entregaCajaCerrada = valor === ARMADO_CAJA_CERRADA;
+            producto.tipoArmado = valor && valor !== ARMADO_CAJA_CERRADA ? parseInt(valor, 10) : null;
+            invalidarSimulacion();
+            renderProductos();
+            els.productosTbody?.querySelector(`[data-cotizacion-armado-index="${index}"]`)?.focus();
+        });
+
+        // carrito: unidad física por producto (obligatoria si RequiereNumeroSerie; opcional si hay
+        // stock trazado mezclado). Elegir una fija la cantidad en 1 (misma regla que Venta/Create).
+        els.productosTbody?.addEventListener('change', event => {
+            const unidadSelect = event.target.closest('[data-cotizacion-unidad-index]');
+            if (!unidadSelect) return;
+            const index = Number(unidadSelect.dataset.cotizacionUnidadIndex);
+            const producto = state.productos[index];
+            if (!producto) return;
+            producto.productoUnidadId = unidadSelect.value ? Number(unidadSelect.value) : null;
+            if (producto.productoUnidadId) producto.cantidad = 1;
+            invalidarSimulacion();
+            renderProductos();
+            els.productosTbody?.querySelector(`[data-cotizacion-unidad-index="${index}"]`)?.focus();
         });
 
         // carrito: cantidad / descuentos por producto

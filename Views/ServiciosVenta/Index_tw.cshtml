@@ -1,0 +1,119 @@
+@model ServiciosVentaAdminViewModel
+@{
+    ViewData["Title"] = "Configuración de pagos";
+    var puedeEditar = User.TienePermiso("configuracion", "update");
+}
+
+@section Styles {
+    <style>
+        .cfgpago-head { border: 1px solid var(--pal-neutral-800); border-radius: 12px; background: color-mix(in srgb, var(--pal-neutral-925) 60%, transparent); padding: 1rem 1.25rem .85rem; margin: .5rem 0 1rem; }
+        .cfgpago-head-main { min-width: 0; }
+        .cfgpago-tabs-slot { margin-top: .75rem; }
+        .sv-card { border: 1px solid var(--pal-neutral-800); border-radius: 12px; background: color-mix(in srgb, var(--pal-neutral-925) 60%, transparent); padding: 1.1rem 1.25rem; }
+        .sv-row { display: grid; grid-template-columns: minmax(0, 1fr) 11rem 6.5rem; gap: .75rem 1rem; align-items: center; padding: .65rem 0; border-top: 1px solid var(--pal-neutral-800); }
+        .sv-row:first-of-type { border-top: 0; }
+        .sv-name { color: var(--pal-neutral-100); font-weight: 600; font-size: .9rem; display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+        .sv-tag { font-size: var(--erp-fs-min, 0.75rem); font-weight: 700; padding: .1rem .5rem; border-radius: 999px; background: color-mix(in srgb, var(--pal-info-500) 14%, transparent); color: var(--pal-info-300, var(--pal-neutral-200)); }
+        .sv-field { width: 100%; height: 42px; border-radius: 8px; border: 1px solid var(--pal-neutral-700); background: var(--pal-neutral-925); color: var(--pal-neutral-100); padding: 0 .75rem 0 1.6rem; font-size: .875rem; font-variant-numeric: tabular-nums; }
+        .sv-field:focus { outline: none; border-color: var(--pal-info-500); box-shadow: 0 0 0 3px color-mix(in srgb, var(--pal-info-500) 35%, transparent); }
+        .sv-field[readonly] { opacity: .62; }
+        .sv-money { position: relative; }
+        .sv-money > span { position: absolute; left: .7rem; top: 50%; transform: translateY(-50%); color: var(--pal-neutral-400); font-size: .875rem; }
+        .sv-activo { display: inline-flex; align-items: center; gap: .4rem; font-size: .8125rem; color: var(--pal-neutral-300); min-height: 2.75rem; }
+        .sv-hint { color: var(--pal-neutral-400); font-size: .8125rem; line-height: 1.5; margin: .25rem 0 .75rem; }
+        @@media (max-width: 639px) {
+            .sv-row { grid-template-columns: minmax(0, 1fr) auto; }
+            .sv-row .sv-money { grid-column: 1 / -1; grid-row: 2; }
+        }
+    </style>
+}
+
+<header class="cfgpago-head">
+    <div class="cfgpago-head-main">
+        <h1 class="cfgpago-title">Configuración de pagos</h1>
+        <p class="cfgpago-sub">Envíos y armados: precios fijos globales que se usan en cada venta.</p>
+    </div>
+    <div class="cfgpago-tabs-slot">
+        <partial name="~/Views/ConfiguracionPago/_ConfiguracionPagoTabs.cshtml" view-data="@(new ViewDataDictionary(ViewData) { { "ConfigPagoTab", "servicios" } })" />
+    </div>
+</header>
+
+@if (TempData["Success"] != null)
+{
+    <div class="mb-4 flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm font-semibold text-emerald-400" role="status">
+        <span class="material-symbols-outlined">check_circle</span>
+        @TempData["Success"]
+    </div>
+}
+
+@if (TempData["Error"] != null)
+{
+    <div class="mb-4 flex items-center gap-3 rounded-xl border border-rose-500/20 bg-rose-500/10 p-4 text-sm font-semibold text-rose-400" role="alert">
+        <span class="material-symbols-outlined">error</span>
+        @TempData["Error"]
+    </div>
+}
+
+<form asp-controller="ServiciosVenta" asp-action="Guardar" method="post" id="servicios-venta-form" class="space-y-5">
+    @Html.AntiForgeryToken()
+
+    <section class="sv-card" aria-labelledby="sv-envios-title">
+        <h2 id="sv-envios-title" class="text-lg font-semibold text-white flex items-center gap-2">
+            <span class="material-symbols-outlined text-[20px]" aria-hidden="true">local_shipping</span> Envíos
+        </h2>
+        <p class="sv-hint">Cada venta puede llevar un envío (opcional). El importe se suma al total y recibe el recargo del medio de pago.</p>
+        @for (var i = 0; i < Model.Envios.Count; i++)
+        {
+            <div class="sv-row" data-servicio="@Model.Envios[i].Tipo">
+                <input type="hidden" asp-for="Envios[i].Tipo" />
+                <div class="sv-name">@Model.Envios[i].Nombre</div>
+                <div class="sv-money">
+                    <span aria-hidden="true">$</span>
+                    <label class="sr-only" for="envio-precio-@i">Precio de @Model.Envios[i].Nombre</label>
+                    <input asp-for="Envios[i].Precio" id="envio-precio-@i" type="number" min="0" step="0.01" class="sv-field" readonly="@(!puedeEditar)" />
+                </div>
+                <label class="sv-activo"><input asp-for="Envios[i].Activo" type="checkbox" disabled="@(!puedeEditar)" /> Activo</label>
+            </div>
+        }
+    </section>
+
+    <section class="sv-card" aria-labelledby="sv-armados-title">
+        <h2 id="sv-armados-title" class="text-lg font-semibold text-white flex items-center gap-2">
+            <span class="material-symbols-outlined text-[20px]" aria-hidden="true">construction</span> Armados
+        </h2>
+        <p class="sv-hint">Se elige por producto (opcional) y se cobra por cada unidad. Los armados N.º 5 y N.º 6 son domiciliarios. "Caja cerrada" no lleva costo de armado.</p>
+        @for (var i = 0; i < Model.Armados.Count; i++)
+        {
+            <div class="sv-row" data-servicio="@Model.Armados[i].Tipo">
+                <input type="hidden" asp-for="Armados[i].Tipo" />
+                <div class="sv-name">
+                    @Model.Armados[i].Nombre
+                    @if (Model.Armados[i].Domiciliario)
+                    {
+                        <span class="sv-tag">Domiciliario</span>
+                    }
+                </div>
+                <div class="sv-money">
+                    <span aria-hidden="true">$</span>
+                    <label class="sr-only" for="armado-precio-@i">Precio de @Model.Armados[i].Nombre</label>
+                    <input asp-for="Armados[i].Precio" id="armado-precio-@i" type="number" min="0" step="0.01" class="sv-field" readonly="@(!puedeEditar)" />
+                </div>
+                <label class="sv-activo"><input asp-for="Armados[i].Activo" type="checkbox" disabled="@(!puedeEditar)" /> Activo</label>
+            </div>
+        }
+    </section>
+
+    @if (puedeEditar)
+    {
+        <div class="flex justify-end">
+            <button type="submit" class="btn-erp-primary">
+                <span class="material-symbols-outlined text-[18px]" aria-hidden="true">save</span>
+                Guardar precios
+            </button>
+        </div>
+    }
+    else
+    {
+        <p class="sv-hint">Solo lectura: se necesita el permiso de edición de configuración para cambiar los precios.</p>
+    }
+</form>

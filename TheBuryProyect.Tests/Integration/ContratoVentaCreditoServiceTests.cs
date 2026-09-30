@@ -419,7 +419,7 @@ public class ContratoVentaCreditoServiceTests : IDisposable
         {
             VentaId = venta.Id,
             CreditoId = venta.CreditoId!.Value,
-            ClienteId = venta.ClienteId,
+            ClienteId = venta.ClienteId!.Value,
             PlantillaContratoCreditoId = (await _context.PlantillasContratoCredito.FirstAsync()).Id,
             NumeroContrato = "CVC-DUP-1",
             NumeroPagare = "PAG-DUP-1",
@@ -434,7 +434,7 @@ public class ContratoVentaCreditoServiceTests : IDisposable
         {
             VentaId = venta.Id,
             CreditoId = venta.CreditoId!.Value,
-            ClienteId = venta.ClienteId,
+            ClienteId = venta.ClienteId!.Value,
             PlantillaContratoCreditoId = (await _context.PlantillasContratoCredito.FirstAsync()).Id,
             NumeroContrato = "CVC-DUP-2",
             NumeroPagare = "PAG-DUP-2",
@@ -475,7 +475,7 @@ public class ContratoVentaCreditoServiceTests : IDisposable
         {
             VentaId = venta1.Id,
             CreditoId = venta1.CreditoId!.Value,
-            ClienteId = venta1.ClienteId,
+            ClienteId = venta1.ClienteId!.Value,
             PlantillaContratoCreditoId = plantillaId,
             NumeroContrato = "CVC-MISMO-NUMERO",
             NumeroPagare = "PAG-DUP-A",
@@ -490,7 +490,7 @@ public class ContratoVentaCreditoServiceTests : IDisposable
         {
             VentaId = venta2.Id,
             CreditoId = venta2.CreditoId!.Value,
-            ClienteId = venta2.ClienteId,
+            ClienteId = venta2.ClienteId!.Value,
             PlantillaContratoCreditoId = plantillaId,
             NumeroContrato = "CVC-MISMO-NUMERO",
             NumeroPagare = "PAG-DUP-B",

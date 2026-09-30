@@ -8,7 +8,7 @@ using TheBuryProject.ViewModels;
 namespace TheBuryProject.Controllers
 {
     [Authorize]
-    [PermisoRequerido(Modulo = "configuraciones", Accion = "view")]
+    [PermisoRequerido(Modulo = "configuracion", Accion = "view")]
     public class ConfiguracionContratoCreditoController : Controller
     {
         private readonly IPlantillaContratoCreditoService _plantillaService;
@@ -32,7 +32,7 @@ namespace TheBuryProject.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [PermisoRequerido(Modulo = "configuraciones", Accion = "update")]
+        [PermisoRequerido(Modulo = "configuracion", Accion = "update")]
         public async Task<IActionResult> Index(PlantillaContratoCreditoViewModel model, string? returnUrl = null)
         {
             ViewData["ReturnUrl"] = Url.GetSafeReturnUrl(returnUrl);

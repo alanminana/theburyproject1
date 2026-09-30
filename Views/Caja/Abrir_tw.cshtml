@@ -3,19 +3,27 @@
     ViewData["Title"] = "Abrir Caja";
     var cajas = ViewBag.Cajas as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
     var usuarioActual = User.Identity?.Name ?? "Usuario actual";
+    var origen = ViewBag.Origen as string;
+    var sinCajas = (bool)(ViewBag.SinCajas ?? false);
+    var puedeCrearCaja = (bool)(ViewBag.PuedeCrearCaja ?? false);
+    // Nunca se muestra el formulario con un selector vacío.
+    var hayDisponibles = cajas != null && cajas.Any();
 }
 
 <div class="caja-page-shell" style="padding-bottom:1.5rem">
 
-    <a asp-action="Index" class="inline-flex items-center gap-1.5 text-sm muted hover:text-white transition" style="text-decoration:none">
-        <span class="material-symbols-outlined" style="font-size:18px">arrow_back</span>Volver a cajas
+    <a href="@(origen == "ventas" ? Url.Action("Index", "Venta") : Url.Action("Index", "Caja"))" class="inline-flex items-center gap-1.5 text-sm muted hover:text-white transition" style="text-decoration:none">
+        <span class="material-symbols-outlined" style="font-size:18px">arrow_back</span>@(origen == "ventas" ? "Volver a ventas" : "Volver a cajas")
     </a>
 
     <div class="page-head" style="margin-top:.6rem">
         <div class="min-w-0">
             <h1 class="page-title">Abrir caja</h1>
+            @if (hayDisponibles)
+            {
             <p class="page-sub">Iniciá un turno declarando el fondo inicial. A partir de la apertura quedan registrados todos los movimientos hasta el cierre.</p>
             <p class="page-sub" style="margin-top:.25rem">Responsable: <strong>@usuarioActual</strong> · Apertura: <span class="num">@DateTime.Now.ToString("dd/MM · HH:mm")</span></p>
+            }
         </div>
     </div>
 
@@ -27,9 +35,39 @@
         </div>
     }
 
+    @if (!hayDisponibles)
+    {
+        <div class="card p-8 text-center caja-empty-state" style="margin-top:1rem" id="caja-abrir-vacio">
+            <span class="material-symbols-outlined text-4xl text-slate-500" aria-hidden="true">@(sinCajas ? "inventory" : "lock_clock")</span>
+            @if (sinCajas)
+            {
+                <h2 class="mt-2 font-semibold text-white">Todavía no configuraste ninguna caja</h2>
+                <p class="mt-1 text-sm text-slate-400">Creá una caja para poder abrir turnos y registrar operaciones.</p>
+            }
+            else
+            {
+                <h2 class="mt-2 font-semibold text-white">No hay cajas disponibles</h2>
+                <p class="mt-1 text-sm text-slate-400">Activá una caja existente o esperá al cierre de un turno.</p>
+            }
+            <div class="mt-4 flex flex-wrap justify-center gap-2">
+                @if (sinCajas && puedeCrearCaja)
+                {
+                    <a asp-action="Create" asp-route-origen="@origen" class="btn btn-primary no-underline">
+                        <span class="material-symbols-outlined">add</span>Crear primera caja
+                    </a>
+                }
+                <a asp-action="Index" class="btn @(sinCajas && puedeCrearCaja ? "btn-ghost" : "btn-primary") no-underline">
+                    <span class="material-symbols-outlined">point_of_sale</span>Ver cajas
+                </a>
+                <a href="@(origen == "ventas" ? Url.Action("Index", "Venta") : Url.Action("Index", "Caja"))" class="btn btn-ghost no-underline">Volver</a>
+            </div>
+        </div>
+    }
+    else
+    {
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4" style="margin-top:1rem">
 
-        <form asp-action="Abrir" method="post" class="lg:col-span-2 card card-pad">
+        <form asp-action="Abrir" asp-route-origen="@origen" method="post" class="lg:col-span-2 card card-pad">
             @Html.AntiForgeryToken()
 
             <div asp-validation-summary="ModelOnly"
@@ -101,6 +139,7 @@
             </div>
         </aside>
     </div>
+    }
 
 </div>
 

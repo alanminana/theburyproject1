@@ -390,6 +390,7 @@ namespace TheBuryProject.Controllers
         // POST: ConfiguracionPago/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "configuracion", Accion = "update")]
         public async Task<IActionResult> Create(ConfiguracionPagoViewModel viewModel)
         {
             try
@@ -447,6 +448,7 @@ namespace TheBuryProject.Controllers
         // POST: ConfiguracionPago/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "configuracion", Accion = "update")]
         public async Task<IActionResult> Edit(int id, ConfiguracionPagoViewModel viewModel)
         {
             try
@@ -509,6 +511,7 @@ namespace TheBuryProject.Controllers
         // POST: ConfiguracionPago/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "configuracion", Accion = "update")]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
             try

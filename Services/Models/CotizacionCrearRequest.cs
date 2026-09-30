@@ -8,14 +8,15 @@ public sealed class CotizacionCrearRequest
     public CotizacionOpcionPagoSeleccionadaRequest? OpcionSeleccionada { get; init; }
     public string? Observaciones { get; init; }
     public string? NombreClienteLibre { get; init; }
+    public string? DniClienteLibre { get; init; }
     public string? TelefonoClienteLibre { get; init; }
     public DateTime? FechaVencimiento { get; init; }
 
     /// <summary>Checkbox "Esta venta tiene envío a domicilio" del simulador.</summary>
     public bool TieneEnvio { get; init; }
 
-    /// <summary>Importe del envío cargado en el modal (opcional; se ignora sin <see cref="TieneEnvio"/>).</summary>
-    public decimal? CostoEnvio { get; init; }
+    // El importe del envío ya no viaja desde el cliente: lo fija el tipo (Simulacion.TipoEnvio) contra
+    // la tabla global de precios.
 }
 
 public sealed class CotizacionOpcionPagoSeleccionadaRequest
@@ -45,6 +46,7 @@ public sealed class CotizacionResultado
     public int? ClienteId { get; init; }
     public string? ClienteNombre { get; init; }
     public string? NombreClienteLibre { get; init; }
+    public string? DniClienteLibre { get; init; }
     public string? TelefonoClienteLibre { get; init; }
     public string? Observaciones { get; init; }
     public decimal Subtotal { get; init; }
@@ -70,6 +72,12 @@ public sealed class CotizacionResultado
     /// con la misma fórmula que Venta.TotalACobrar; el envío no recibe recargo del plan.
     /// </summary>
     public decimal TotalACobrar { get; init; }
+
+    public TheBuryProject.Models.Enums.TipoServicioVenta? TipoEnvio { get; init; }
+    public decimal ImporteArmados { get; init; }
+
+    /// <summary>true = armados y envío ya están dentro de TotalBase/TotalSeleccionado (modelo nuevo).</summary>
+    public bool EnvioIncluidoEnTotal { get; init; }
     public IReadOnlyList<CotizacionDetalleResultado> Detalles { get; init; } = Array.Empty<CotizacionDetalleResultado>();
     public IReadOnlyList<CotizacionPagoSimuladoResultado> OpcionesPago { get; init; } = Array.Empty<CotizacionPagoSimuladoResultado>();
 
@@ -90,6 +98,12 @@ public sealed class CotizacionDetalleResultado
     public decimal? DescuentoPorcentajeSnapshot { get; init; }
     public decimal? DescuentoImporteSnapshot { get; init; }
     public decimal Subtotal { get; init; }
+    public TheBuryProject.Models.Enums.TipoServicioVenta? TipoArmado { get; init; }
+    public bool EntregaCajaCerrada { get; init; }
+    public decimal ArmadoPrecioUnitario { get; init; }
+    public decimal ArmadoSubtotal { get; init; }
+    public int? ProductoUnidadId { get; init; }
+    public string? ProductoUnidadEtiqueta { get; init; }
 }
 
 public sealed class CotizacionPagoSimuladoResultado

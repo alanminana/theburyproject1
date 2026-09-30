@@ -147,6 +147,7 @@ builder.Services.AddScoped<IPunitorioCalculator, PunitorioCalculator>();
 builder.Services.AddScoped<IPunitorioService, PunitorioService>();
 builder.Services.AddScoped<IVentaService, VentaService>();
 builder.Services.AddScoped<IVentaEnvioService, VentaEnvioService>();
+builder.Services.AddScoped<IServicioVentaPrecioService, ServicioVentaPrecioService>();
 builder.Services.AddScoped<IConfiguracionPagoService, ConfiguracionPagoService>();
 builder.Services.AddScoped<IConfiguracionPagoGlobalAdminService, ConfiguracionPagoService>();
 builder.Services.AddScoped<IConfiguracionPagoGlobalQueryService, ConfiguracionPagoGlobalQueryService>();
@@ -247,6 +248,20 @@ mvcBuilder.AddRazorOptions(options =>
 
 // 7. Razor Pages (Identity UI)
 builder.Services.AddRazorPages();
+
+// 7.1 Deny-by-default: cualquier controller/página nueva que se olvide de declarar
+// [Authorize]/[PermisoRequerido] queda exigiendo autenticación por defecto, en vez de
+// quedar completamente abierta (ver auditoría de permisos, hallazgo estructural). No
+// reemplaza a [PermisoRequerido] (que exige el permiso granular específico), es la red
+// de seguridad mínima para lo que ningún atributo cubre todavía. Los endpoints que deben
+// ser públicos (Home, Login/AccessDenied de Identity, health checks, webhook de Mercado
+// Libre) declaran [AllowAnonymous] explícito.
+builder.Services.AddAuthorization(options =>
+{
+    options.FallbackPolicy = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+});
 
 // PUN-ML9-E: el JS de pago múltiple (fetch con body JSON) manda el antiforgery token en el
 // header "RequestVerificationToken" — sin HeaderName configurado, [ValidateAntiForgeryToken]

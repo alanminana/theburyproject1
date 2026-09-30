@@ -1,7 +1,22 @@
 @model TheBuryProject.ViewModels.VentaViewModel
 @using TheBuryProject.Models.Enums
 @using TheBuryProject.Helpers
+@inject TheBuryProject.Services.Interfaces.IServicioVentaPrecioService ServiciosVentaSvc
 @{
+    // Precios globales de envío y armado (los administra ServiciosVenta/Index). Sólo se ofrecen los
+    // activos; el importe real lo vuelve a resolver el servidor al guardar.
+    var serviciosVenta = (await ServiciosVentaSvc.ListarAsync()).Where(s => s.Activo).ToList();
+    var enviosDisponibles = serviciosVenta.Where(s => s.Tipo.EsEnvio()).ToList();
+    var serviciosJson = System.Text.Json.JsonSerializer.Serialize(
+        serviciosVenta.Select(s => new
+        {
+            tipo = (int)s.Tipo,
+            nombre = s.Tipo.NombreVisible(),
+            precio = s.Precio,
+            envio = s.Tipo.EsEnvio(),
+            domiciliario = s.Tipo.EsDomiciliario()
+        }),
+        new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase });
     // Parcial compartido por Create_tw y Edit_tw. El modo se infiere del modelo:
     // una venta nueva no tiene Id (0); una edición sí. Ver Micro-lote 7 (paridad).
     var esEdicion = Model.Id > 0;
@@ -71,6 +86,7 @@
                     codigoPostal = Model.Envio.CodigoPostal ?? string.Empty,
                     transportista = Model.Envio.Transportista ?? string.Empty,
                     costoEnvio = Model.Envio.CostoEnvio,
+                    tipoEnvio = (int?)Model.Envio.TipoEnvio,
                     fechaProgramada = Model.Envio.FechaProgramada.HasValue ? Model.Envio.FechaProgramada.Value.ToString("yyyy-MM-dd") : null,
                     observaciones = Model.Envio.Observaciones ?? string.Empty
                 },
@@ -86,7 +102,9 @@
                 stock = d.StockDisponible,
                 requiereNumeroSerie = d.RequiereNumeroSerie,
                 productoUnidadId = (object?)d.ProductoUnidadId,
-                productoUnidadLabel = d.ProductoUnidadCodigoInterno ?? string.Empty
+                productoUnidadLabel = d.ProductoUnidadCodigoInterno ?? string.Empty,
+                tipoArmado = (int?)d.TipoArmado,
+                entregaCajaCerrada = d.EntregaCajaCerrada
             })
         }, new System.Text.Json.JsonSerializerOptions
         {
@@ -199,6 +217,8 @@
         {
             <input type="hidden" id="venta-inicial-json" data-seed-target="window.ventaInicial" value="@ventaInicialJson" />
         }
+        @* Precios globales de envío/armado para armar los selects y mostrar importes en vivo. *@
+        <input type="hidden" id="venta-servicios-json" value="@serviciosJson" />
 
         @* ══════════════════════════════════════════════════════════════════
            HERO — cabecera con métricas en vivo
@@ -705,7 +725,8 @@
                                                                                                         {
                                                                                                             foreach (var t in tarjetas)
                                                                                                             {
-                                                                                                                <option value="@t.Value">@t.Text</option>
+                                                                                                                @* Edición: se rehidrata la tarjeta y el plan ya guardados en la venta. *@
+                                                                                                                <option value="@t.Value" selected="@(Model.DatosTarjeta?.ConfiguracionTarjetaId?.ToString() == t.Value)">@t.Text</option>
                                                                                                             }
                                                                                                         }
                                                                                                     </select>
@@ -721,7 +742,8 @@
                                                                                                         <option value="1">1 Pago</option>
                                                                                                     </select>
                                                                                                     <input type="hidden" name="DatosTarjeta.ConfiguracionPagoPlanId"
-                                                                                                           id="hdn-configuracion-pago-plan-id" />
+                                                                                                           id="hdn-configuracion-pago-plan-id"
+                                                                                                           value="@(Model.DatosTarjeta?.ConfiguracionPagoPlanId)" />
                                                                                                     <p id="panel-aviso-cuotas-sin-interes"
                                                                                                        class="mt-1 text-xs text-amber-400 hidden">
                                                                                                         Las cuotas disponibles fueron restringidas por la configuracion vigente del
@@ -1119,7 +1141,7 @@
                                                                                                             <span class="vm-step-bubble w-8 h-8 shrink-0 flex items-center justify-center rounded-full bg-primary/15 text-primary text-xs font-bold">5</span>
                                                                                                             <div>
                                                                                                                 <h2 class="text-lg font-bold text-white">Envío</h2>
-                                                                                                                <p class="text-sm text-slate-400">Si la venta se entrega a domicilio, cargá los datos de envío. El costo de envío se suma al total a cobrar de la venta.</p>
+                                                                                                                <p class="text-sm text-slate-400">Si la venta se entrega a domicilio, elegí el tipo de envío (Ciudad o Rural) y cargá los datos de entrega. El costo forma parte del total de la venta.</p>
                                                                                                             </div>
                                                                                                         </div>
                                                                                                         <span class="badge-erp badge-erp-neutral shrink-0">
@@ -1145,6 +1167,17 @@
                                                                                                             </button>
                                                                                                         </div>
                                                                                                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                                                                            <div class="md:col-span-2">
+                                                                                                                <label class="venta-label" for="envio-tipo">Tipo de envío</label>
+                                                                                                                <select name="Envio.TipoEnvio" id="envio-tipo" class="venta-input" aria-describedby="envio-tipo-ayuda" aria-required="true">
+                                                                                                                    <option value="">Seleccioná el tipo de envío…</option>
+                                                                                                                    @foreach (var envioOpcion in enviosDisponibles)
+                                                                                                                    {
+                                                                                                                        <option value="@((int)envioOpcion.Tipo)" data-precio="@envioOpcion.Precio.ToString(System.Globalization.CultureInfo.InvariantCulture)">@envioOpcion.Tipo.NombreVisible() — @envioOpcion.Precio.ToString("C2")</option>
+                                                                                                                    }
+                                                                                                                </select>
+                                                                                                                <p id="envio-tipo-ayuda" class="mt-1 text-xs text-slate-500">Precio fijo definido en Configuración → Envíos y armados. Se suma al total y recibe el recargo del medio de pago.</p>
+                                                                                                            </div>
                                                                                                             <div class="md:col-span-2">
                                                                                                                 <label class="venta-label" for="envio-destinatario">Destinatario</label>
                                                                                                                 <input type="text" name="Envio.Destinatario" id="envio-destinatario" class="venta-input" maxlength="200" placeholder="Nombre de quien recibe" />
@@ -1172,14 +1205,6 @@
                                                                                                             <div>
                                                                                                                 <label class="venta-label" for="envio-cp">Código postal</label>
                                                                                                                 <input type="text" name="Envio.CodigoPostal" id="envio-cp" class="venta-input" maxlength="20" />
-                                                                                                            </div>
-                                                                                                            <div>
-                                                                                                                <label class="venta-label" for="envio-costo">Costo de envío</label>
-                                                                                                                <div class="relative">
-                                                                                                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
-                                                                                                                    <input type="number" name="Envio.CostoEnvio" id="envio-costo" min="0" step="0.01" class="venta-input" style="padding-left:1.75rem" />
-                                                                                                                </div>
-                                                                                                                <p class="mt-1 text-xs text-slate-500">Se cobra junto con los productos: no lleva recargos del medio de pago ni integra el comprobante.</p>
                                                                                                             </div>
                                                                                                             <div>
                                                                                                                 <label class="venta-label" for="envio-fecha">Fecha programada</label>
@@ -1303,31 +1328,43 @@
                                                                                                             </section>
 
                                                                                                             <div class="mt-4 rounded-xl border border-slate-800 bg-slate-900/60 p-4">
-                                                                                                                <div class="flex justify-between text-sm">
-                                                                                                                    <span class="text-slate-400">Subtotal</span>
-                                                                                                                    <span data-rev-subtotal class="font-semibold text-slate-200">$0,00</span>
+                                                                                                                @* Desglose de la operación: productos, armados (con cantidades), envío y recargo por
+                                                                                                                   forma de pago se muestran por separado. Envío y armados forman parte de Total y
+                                                                                                                   reciben el recargo del medio de pago; los importes vienen del preview del backend
+                                                                                                                   (venta-create.js → evento venta:totales) y venta-page-wizard.js (refreshSummary) los
+                                                                                                                   vuelca acá. Las filas sin importe se ocultan. *@
+                                                                                                                <div data-rev-desglose class="hidden mb-3 space-y-2 border-b border-slate-800 pb-3 text-sm">
+                                                                                                                    <div class="flex justify-between"><span class="text-slate-400">Productos</span><span data-rev-total-productos class="font-semibold text-slate-200">$0,00</span></div>
+                                                                                                                    <div data-rev-armados-row class="hidden">
+                                                                                                                        <div class="flex justify-between"><span class="text-slate-400">Armados</span><span data-rev-armados class="font-semibold text-slate-200">$0,00</span></div>
+                                                                                                                        <ul data-rev-armados-lista class="mt-1 space-y-0.5 pl-3 text-xs text-slate-500"></ul>
+                                                                                                                    </div>
+                                                                                                                    <div data-rev-envio-row class="hidden"><div class="flex justify-between"><span data-rev-envio-label class="text-slate-400">Envío</span><span data-rev-envio class="font-semibold text-slate-200">$0,00</span></div></div>
+                                                                                                                    <div data-rev-recargo-row class="hidden"><div class="flex justify-between"><span data-rev-recargo-label class="text-slate-400">Recargo por forma de pago</span><span data-rev-recargo class="font-semibold text-amber-300">$0,00</span></div></div>
                                                                                                                 </div>
-                                                                                                                <div class="mt-2 flex justify-between text-sm">
-                                                                                                                    <span class="text-slate-400">Descuento</span>
-                                                                                                                    <span data-rev-descuento class="font-semibold text-slate-200">-$0,00</span>
-                                                                                                                </div>
-                                                                                                                <div class="mt-2 flex justify-between text-sm">
-                                                                                                                    <span class="text-slate-400">IVA</span>
-                                                                                                                    <span data-rev-iva class="font-semibold text-slate-200">$0,00</span>
-                                                                                                                </div>
-                                                                                                                @* VENTA-ENVIO-TOTAL-01: con envío cargado, Revisión separa Productos / Envío y deja
-                                                                                                                   TOTAL A COBRAR como cifra dominante. venta-page-wizard.js (refreshSummary) muestra
-                                                                                                                   este bloque y cambia la etiqueta; el importe real de Venta.TotalACobrar lo calcula
-                                                                                                                   el backend (VentaMontos), esto es sólo el cálculo en vivo previo a guardar. *@
-                                                                                                                <div data-rev-envio-lines class="hidden mt-3 space-y-2 border-t border-slate-800 pt-3 text-sm">
-                                                                                                                    <div class="flex justify-between"><span class="text-slate-400">Total productos</span><span data-rev-total-productos class="font-semibold text-slate-200">$0,00</span></div>
-                                                                                                                    <div class="flex justify-between"><span class="text-slate-400">Envío</span><span data-rev-envio class="font-semibold text-slate-200">$0,00</span></div>
-                                                                                                                    <p data-rev-envio-credito-nota class="hidden text-xs text-amber-300">El envío no se financia con el crédito: se cobra aparte de las cuotas.</p>
-                                                                                                                </div>
-                                                                                                                <div class="mt-3 flex items-center justify-between border-t border-slate-800 pt-3">
+                                                                                                                <div class="flex items-center justify-between">
                                                                                                                     <span data-rev-total-label class="font-bold text-white">Total</span>
                                                                                                                     <span data-rev-total class="text-2xl font-black text-white">$0,00</span>
                                                                                                                 </div>
+                                                                                                                @* Detalle impositivo: con armados/envío/recargo el desglose de arriba ya cierra contra el Total; el
+                                                                                                                   neto/IVA queda plegado (se abre solo cuando no hay servicios, como siempre). *@
+                                                                                                                <details data-rev-impuestos open class="mt-3 border-t border-slate-800 pt-3 text-sm">
+                                                                                                                    <summary class="cursor-pointer select-none text-xs font-semibold uppercase tracking-wide text-slate-500">Detalle de IVA</summary>
+                                                                                                                    <div class="mt-2">
+                                                                                                                    <div class="flex justify-between text-sm">
+                                                                                                                        <span class="text-slate-400">Subtotal</span>
+                                                                                                                        <span data-rev-subtotal class="font-semibold text-slate-200">$0,00</span>
+                                                                                                                    </div>
+                                                                                                                    <div class="mt-2 flex justify-between text-sm">
+                                                                                                                        <span class="text-slate-400">Descuento</span>
+                                                                                                                        <span data-rev-descuento class="font-semibold text-slate-200">-$0,00</span>
+                                                                                                                    </div>
+                                                                                                                    <div class="mt-2 flex justify-between text-sm">
+                                                                                                                        <span class="text-slate-400">IVA</span>
+                                                                                                                        <span data-rev-iva class="font-semibold text-slate-200">$0,00</span>
+                                                                                                                    </div>
+                                                                                                                    </div>
+                                                                                                                </details>
                                                                                                             </div>
                                                                                                         </div>
                                                                                                     </section>

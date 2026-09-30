@@ -144,6 +144,16 @@ public static class CajaConciliacionBuilder
 
         var pendiente = totalACobrar - cobrado;
 
+        // Presentación desde los importes históricos: nunca consultar las tarifas actuales
+        // ni volver a sumar servicios al total que ya registra caja.
+        var detalles = v.Detalles.Where(d => !d.IsDeleted).ToList();
+        var totalArmados = detalles.Sum(d => d.ArmadoSubtotal);
+        var tieneArmados = detalles.Any(d => d.TipoArmado.HasValue || d.ArmadoSubtotal != 0m);
+        var serviciosIncluidos = tieneArmados || v.Envio is { IncluidoEnTotal: true };
+        var totalProductos = serviciosIncluidos && detalles.Count > 0
+            ? detalles.Sum(d => d.SubtotalFinal)
+            : v.Total - totalArmados - (v.Envio is { IncluidoEnTotal: true } ? v.ImporteEnvio : 0m);
+
         string? motivo = null;
         if (!impacta && categoria != VentaTurnoCategoria.Registro)
         {
@@ -167,8 +177,12 @@ public static class CajaConciliacionBuilder
             MedioPago = TipoPagoLabel(v.TipoPago),
             MedioKey = MedioKey(v.TipoPago),
             TotalVenta = totalACobrar,
-            TotalProductos = v.Total,
+            TotalProductos = totalProductos,
+            TotalArmados = totalArmados,
+            TieneArmados = tieneArmados,
+            TieneEnvio = v.Envio != null,
             ImporteEnvio = v.ImporteEnvio,
+            AjusteTotal = totalACobrar - totalProductos - totalArmados - v.ImporteEnvio,
             CobradoAhora = cobrado,
             Pendiente = pendiente,
             ImpactaCajaFisica = impacta,
@@ -614,7 +628,7 @@ public static class CajaConciliacionBuilder
 
     private static string ClienteLabel(Venta venta)
     {
-        if (venta.Cliente == null) return "Sin cliente";
+        if (venta.Cliente == null) return venta.NombreClienteLibre ?? "Sin cliente";
         if (!string.IsNullOrWhiteSpace(venta.Cliente.NombreCompleto)) return venta.Cliente.NombreCompleto!;
         var nombre = $"{venta.Cliente.Apellido}, {venta.Cliente.Nombre}".Trim(' ', ',');
         return string.IsNullOrWhiteSpace(nombre) ? "Sin cliente" : nombre;

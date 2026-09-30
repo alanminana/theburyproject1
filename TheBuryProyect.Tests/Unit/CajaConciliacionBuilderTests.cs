@@ -18,6 +18,75 @@ public class CajaConciliacionBuilderTests
 {
     private static readonly DateTime Base = new(2026, 6, 27, 18, 0, 0, DateTimeKind.Utc);
 
+    [Theory]
+    [InlineData(true, true, 200, 900, 3100)]
+    [InlineData(true, false, 200, 0, 2200)]
+    [InlineData(false, true, 0, 900, 2900)]
+    [InlineData(true, true, 200, 900, 3410)] // recargo global
+    [InlineData(true, true, 200, 900, 2790)] // descuento global
+    [InlineData(true, true, 0, 0, 2000)] // servicios gratuitos también visibles
+    public void Ventas_DesglosanServiciosSinDuplicarElTotal(
+        bool envio, bool armado, int costoEnvio, int costoArmado, int total)
+    {
+        var detalle = BuildDetalleStandard();
+        var venta = detalle.VentasDelTurno.Single(v => v.Id == 2);
+        venta.Total = total;
+        venta.Envio = envio ? new VentaEnvio { CostoEnvio = costoEnvio, IncluidoEnTotal = true } : null;
+        venta.Detalles = new List<VentaDetalle>
+        {
+            new() { SubtotalFinal = 2000m, ArmadoSubtotal = costoArmado,
+                TipoArmado = armado ? TipoServicioVenta.Armado5 : null, Cantidad = 2 },
+            new() { SubtotalFinal = 999m, ArmadoSubtotal = 999m, IsDeleted = true }
+        };
+        detalle.Movimientos.Single(m => m.VentaId == venta.Id).Monto = total;
+
+        var linea = CajaConciliacionBuilder.Build(detalle, null, true).Ventas.Single(v => v.VentaId == venta.Id);
+
+        Assert.Equal(2000m, linea.TotalProductos);
+        Assert.Equal(costoArmado, linea.TotalArmados);
+        Assert.Equal(costoEnvio, linea.ImporteEnvio);
+        Assert.Equal(envio, linea.TieneEnvio);
+        Assert.Equal(armado, linea.TieneArmados);
+        Assert.Equal(total - 2000m - costoArmado - costoEnvio, linea.AjusteTotal);
+        Assert.Equal(total, linea.TotalVenta);
+        Assert.Equal(total, linea.CobradoAhora);
+        Assert.Equal(0m, linea.Pendiente);
+        Assert.Equal(linea.TotalVenta, linea.TotalProductos + linea.TotalArmados + linea.ImporteEnvio + linea.AjusteTotal);
+    }
+
+    [Fact]
+    public void Ventas_DesgloseConCentavos_ExponeRedondeoSinAlterarElTotal()
+    {
+        var detalle = BuildDetalleStandard();
+        var venta = detalle.VentasDelTurno.Single(v => v.Id == 2);
+        venta.Total = 2200m;
+        venta.Envio = new VentaEnvio { CostoEnvio = 200m, IncluidoEnTotal = true };
+        venta.Detalles = new List<VentaDetalle> { new() { SubtotalFinal = 2000.75m } };
+
+        var linea = CajaConciliacionBuilder.Build(detalle, null, true).Ventas.Single(v => v.VentaId == venta.Id);
+
+        Assert.Equal(2000.75m, linea.TotalProductos);
+        Assert.Equal(-0.75m, linea.AjusteTotal);
+        Assert.Equal(2200m, linea.TotalVenta);
+        Assert.Equal(linea.TotalVenta, linea.TotalProductos + linea.ImporteEnvio + linea.AjusteTotal);
+    }
+
+    [Fact]
+    public void Ventas_EnvioAnterior_ConservaTotalProductosYEnvioAparte()
+    {
+        var detalle = BuildDetalleStandard();
+        var venta = detalle.VentasDelTurno.Single(v => v.Id == 2);
+        venta.Envio = new VentaEnvio { CostoEnvio = 200m, IncluidoEnTotal = false };
+        var linea = CajaConciliacionBuilder.Build(detalle, null, true).Ventas.Single(v => v.VentaId == venta.Id);
+
+        Assert.Equal(3000m, linea.TotalProductos);
+        Assert.Equal(200m, linea.ImporteEnvio);
+        Assert.Equal(3200m, linea.TotalVenta);
+        Assert.Equal(200m, linea.Pendiente);
+        Assert.Equal(0m, linea.TotalArmados);
+        Assert.Equal(0m, linea.AjusteTotal);
+    }
+
     /// <summary>
     /// Turno con: apertura $10.000; 2 cobros de cuota en efectivo; 1 venta efectivo;
     /// 1 venta tarjeta (digital); 1 venta a crédito personal; 1 egreso efectivo.

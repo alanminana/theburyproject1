@@ -589,6 +589,7 @@ namespace TheBuryProject.Controllers
 
         #region Aprobar / Rechazar / Cancelar
 
+        [PermisoRequerido(Modulo = "creditos", Accion = "approve")]
         public async Task<IActionResult> Aprobar(int id, string? returnUrl = null)
         {
             try
@@ -611,6 +612,7 @@ namespace TheBuryProject.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "creditos", Accion = "approve")]
         public async Task<IActionResult> Rechazar(int id, string motivo, string? returnUrl = null)
         {
             if (string.IsNullOrWhiteSpace(motivo))
@@ -637,6 +639,7 @@ namespace TheBuryProject.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "creditos", Accion = "approve")]
         public async Task<IActionResult> Cancelar(int id, string motivo, string? returnUrl = null)
         {
             if (string.IsNullOrWhiteSpace(motivo))
@@ -1289,6 +1292,7 @@ namespace TheBuryProject.Controllers
         // POST: Credito/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "creditos", Accion = "delete")]
         public async Task<IActionResult> DeleteConfirmed(int id, string? returnUrl = null)
         {
             try

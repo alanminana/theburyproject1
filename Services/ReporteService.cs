@@ -144,7 +144,7 @@ namespace TheBuryProject.Services
                         // Cliente/CreateAjax); usarlo acá dejaba el reporte con "Anónimo" para clientes reales.
                         // Se arma Apellido, Nombre directo (sin ToDisplayName(), que agrega "- DNI: ..." y
                         // duplicaba el documento en otras vistas — ver ficha del cliente en Venta/Index).
-                        ClienteNombre = v.Cliente != null ? $"{v.Cliente.Apellido}, {v.Cliente.Nombre}" : "Anónimo",
+                        ClienteNombre = v.Cliente != null ? $"{v.Cliente.Apellido}, {v.Cliente.Nombre}" : v.NombreClienteLibre ?? "Anónimo",
                         VendedorNombre = !string.IsNullOrWhiteSpace(v.VendedorNombre)
                             ? v.VendedorNombre
                             : v.VendedorUser?.UserName ?? "Sin asignar",
@@ -727,9 +727,11 @@ namespace TheBuryProject.Services
                         d.Venta.Numero.Contains(texto) ||
                         d.Producto.Nombre.Contains(texto) ||
                         d.Producto.Codigo.Contains(texto) ||
-                        d.Venta.Cliente.Nombre.Contains(texto) ||
+                        (d.Venta.Cliente != null && (d.Venta.Cliente.Nombre.Contains(texto) ||
                         d.Venta.Cliente.Apellido.Contains(texto) ||
-                        d.Venta.Cliente.NumeroDocumento.Contains(texto));
+                        d.Venta.Cliente.NumeroDocumento.Contains(texto))) ||
+                        (d.Venta.NombreClienteLibre != null && d.Venta.NombreClienteLibre.Contains(texto)) ||
+                        (d.Venta.DniClienteLibre != null && d.Venta.DniClienteLibre.Contains(texto)));
                 }
 
                 var items = await query
@@ -747,7 +749,7 @@ namespace TheBuryProject.Services
                             : d.Venta.VendedorUser != null && !string.IsNullOrWhiteSpace(d.Venta.VendedorUser.UserName)
                                 ? d.Venta.VendedorUser.UserName!
                                 : "Sin vendedor",
-                        ClienteNombre = d.Venta.Cliente.Apellido + ", " + d.Venta.Cliente.Nombre,
+                        ClienteNombre = d.Venta.Cliente != null ? d.Venta.Cliente.Apellido + ", " + d.Venta.Cliente.Nombre : d.Venta.NombreClienteLibre ?? "Sin cliente",
                         ProductoId = d.ProductoId,
                         ProductoNombre = d.Producto.Nombre,
                         Cantidad = d.Cantidad,
@@ -1045,7 +1047,7 @@ namespace TheBuryProject.Services
                 .GroupBy(v => new { v.ClienteId, v.ClienteNombre, v.ClienteDocumento })
                 .Select(g => new ClienteTopViewModel
                 {
-                    ClienteId = g.Key.ClienteId,
+                    ClienteId = g.Key.ClienteId ?? 0,
                     ClienteNombre = g.Key.ClienteNombre,
                     ClienteDocumento = g.Key.ClienteDocumento,
                     CantidadCompras = g.Count(),

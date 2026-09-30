@@ -65,15 +65,37 @@ namespace TheBuryProject.ViewModels
 
     public static class FacturaAlicuotaResumenBuilder
     {
-        public static List<FacturaAlicuotaResumenViewModel> Build(IEnumerable<VentaDetalleViewModel>? detalles)
+        /// <param name="importeEnvioIncluido">
+        /// Envío que forma parte de Venta.Total (0 si no hay o es un envío legacy cobrado aparte). Junto con los
+        /// armados de cada línea se resume como servicios a la alícuota general.
+        /// </param>
+        public static List<FacturaAlicuotaResumenViewModel> Build(
+            IEnumerable<VentaDetalleViewModel>? detalles,
+            decimal importeEnvioIncluido = 0m)
         {
             if (detalles == null)
             {
                 return new List<FacturaAlicuotaResumenViewModel>();
             }
 
-            return detalles
-                .Select(CrearItem)
+            var detallesList = detalles.ToList();
+            var items = detallesList.Select(CrearItem).ToList();
+
+            var servicios = detallesList.Sum(d => d.ArmadoSubtotal) + Math.Max(0m, importeEnvioIncluido);
+            if (servicios > 0m)
+            {
+                var (neto, iva) = Helpers.ServiciosVentaIva.Separar(servicios);
+                items.Add(new FacturaAlicuotaResumenViewModel
+                {
+                    PorcentajeIVA = Helpers.ServiciosVentaIva.Porcentaje,
+                    AlicuotaIVANombre = Helpers.ServiciosVentaIva.NombreAlicuota,
+                    BaseImponible = neto,
+                    IVA = iva,
+                    Total = servicios
+                });
+            }
+
+            return items
                 .GroupBy(item => new { item.PorcentajeIVA, item.AlicuotaIVANombre })
                 .Select(group => new FacturaAlicuotaResumenViewModel
                 {

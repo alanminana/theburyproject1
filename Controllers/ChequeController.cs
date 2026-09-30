@@ -157,6 +157,7 @@ namespace TheBuryProject.Controllers
         // POST: Cheque/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "cheques", Accion = "create")]
         public async Task<IActionResult> Create(ChequeViewModel viewModel)
         {
             try
@@ -223,6 +224,7 @@ namespace TheBuryProject.Controllers
         // POST: Cheque/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "cheques", Accion = "update")]
         public async Task<IActionResult> Edit(int id, ChequeViewModel viewModel)
         {
             if (id != viewModel.Id)
@@ -285,6 +287,7 @@ namespace TheBuryProject.Controllers
         // POST: Cheque/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "cheques", Accion = "delete")]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
             try
@@ -309,6 +312,7 @@ namespace TheBuryProject.Controllers
         // POST: Cheque/CambiarEstado
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "cheques", Accion = "update")]
         public async Task<IActionResult> CambiarEstado(int id, EstadoCheque nuevoEstado)
         {
             try
