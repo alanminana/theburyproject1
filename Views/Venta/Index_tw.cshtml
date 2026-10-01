@@ -33,8 +33,15 @@
     // Cancelado), derivados en memoria del mismo "ventas" ya cargado — mismo patrón que
     // cotizacionesPresupuestos/devolucionesElegibles, sin acción de controller nueva.
     var enviosPendientes = ventas
-        .Where(v => v.Envio != null && !v.Envio.EsTerminal)
+        .Where(v => v.Envio != null && !v.Envio.EsTerminal && v.Estado != EstadoVenta.Cancelada)
         .OrderBy(v => v.Envio!.FechaProgramada ?? v.FechaVenta)
+    // Historial: envios ya cerrados (entregados/cancelados, incluida venta cancelada) del ultimo mes,
+    // para poder revisarlos sin salir del modulo. Meses anteriores: filtro de fechas de Operaciones.
+    var enviosHistorial = ventas
+        .Where(v => v.Envio != null && (v.Envio.EsTerminal || v.Estado == EstadoVenta.Cancelada)
+                    && (v.Envio.FechaEntregaReal ?? v.FechaVenta) >= DateTime.Today.AddDays(-30))
+        .OrderByDescending(v => v.Envio!.FechaEntregaReal ?? v.FechaVenta)
+        .ToList();
         .ToList();
 
     // VENTA-UI-04B: paginación server-rendered en memoria, solo para Operaciones.
@@ -819,7 +826,7 @@
                                                                 <div>
                                                                     <p class="label">Logística</p>
                                                                     <h2>Envíos pendientes</h2>
-                                                                    <p>Ventas con envío a domicilio que todavía no llegaron a destino.</p>
+                                                                    <p>Ventas con envío a domicilio que todavía no llegaron a destino. Los cerrados del último mes figuran abajo; para meses anteriores usá el filtro de fechas de Operaciones.</p>
                                                                 </div>
                                                             </div>
                                                             <div class="compact-list">
@@ -827,7 +834,7 @@
                                                                 {
                                                                     <article class="card card-sub compact-item">
                                                                         <div>
-                                                                            <a asp-action="Details" asp-route-id="@v.Id" class="sale-number no-underline">@v.Numero</a>
+                                                                            <a asp-action="Details" asp-route-id="@v.Id" asp-route-volverA="envios" class="sale-number no-underline">@v.Numero</a>
                                                                             <p>
                                                                                 @v.ClienteNombre
                                                                                 @if (!string.IsNullOrWhiteSpace(v.Envio!.Domicilio))
@@ -841,12 +848,38 @@
                                                                             </p>
                                                                         </div>
                                                                         <span class="pill @v.Envio.EstadoPillClass">@v.Envio.EstadoDisplay</span>
-                                                                        <a asp-action="Details" asp-route-id="@v.Id" class="btn btn-xs btn-soft no-underline">Ver</a>
+                                                                        <a asp-action="Details" asp-route-id="@v.Id" asp-route-volverA="envios" class="btn btn-xs btn-soft no-underline">Ver</a>
                                                                     </article>
                                                                 }
                                                                 @if (!enviosPendientes.Any())
                                                                 {
                                                                     <div class="empty-state empty-state-compact">
+                                                                @if (enviosHistorial.Any())
+                                                                {
+                                                                    <p class="label mt-4">Cerrados en los últimos 30 días</p>
+                                                                    @foreach (var v in enviosHistorial)
+                                                                    {
+                                                                        var cerradoPorVenta = v.Estado == EstadoVenta.Cancelada && !v.Envio!.EsTerminal;
+                                                                        <article class="card card-sub compact-item">
+                                                                            <div>
+                                                                                <a asp-action="Details" asp-route-id="@v.Id" asp-route-volverA="envios" class="sale-number no-underline">@v.Numero</a>
+                                                                                <p>
+                                                                                    @v.ClienteNombre
+                                                                                    @if (v.Envio!.FechaEntregaReal.HasValue)
+                                                                                    {
+                                                                                        <text> · Entregado @v.Envio.FechaEntregaReal.Value.ToLocalTime().ToString("dd/MM/yyyy")</text>
+                                                                                    }
+                                                                                    else if (v.Estado == EstadoVenta.Cancelada)
+                                                                                    {
+                                                                                        <text> · Venta cancelada</text>
+                                                                                    }
+                                                                                </p>
+                                                                            </div>
+                                                                            <span class="pill @(cerradoPorVenta ? "pill-red" : v.Envio!.EstadoPillClass)">@(cerradoPorVenta ? "Cancelado" : v.Envio!.EstadoDisplay)</span>
+                                                                            <a asp-action="Details" asp-route-id="@v.Id" asp-route-volverA="envios" class="btn btn-xs btn-soft no-underline">Ver</a>
+                                                                        </article>
+                                                                    }
+                                                                }
                                                                         <span class="material-symbols-outlined">local_shipping</span>
                                                                         <h3>Sin envíos pendientes</h3>
                                                                         @if (filtroActivo)

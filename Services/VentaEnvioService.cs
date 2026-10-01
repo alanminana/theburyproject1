@@ -13,11 +13,11 @@ namespace TheBuryProject.Services
         // (fail-closed). Entregado y Cancelado son terminales.
         private static readonly Dictionary<EstadoEnvio, EstadoEnvio[]> TransicionesValidas = new()
         {
-            [EstadoEnvio.Pendiente] = new[] { EstadoEnvio.Preparando, EstadoEnvio.Cancelado },
-            [EstadoEnvio.Preparando] = new[] { EstadoEnvio.Despachado, EstadoEnvio.Cancelado },
+            [EstadoEnvio.Pendiente] = new[] { EstadoEnvio.Preparando, EstadoEnvio.Entregado, EstadoEnvio.Cancelado },
+            [EstadoEnvio.Preparando] = new[] { EstadoEnvio.Despachado, EstadoEnvio.Entregado, EstadoEnvio.Cancelado },
             [EstadoEnvio.Despachado] = new[] { EstadoEnvio.EnCamino, EstadoEnvio.Entregado, EstadoEnvio.Fallido },
             [EstadoEnvio.EnCamino] = new[] { EstadoEnvio.Entregado, EstadoEnvio.Fallido },
-            [EstadoEnvio.Fallido] = new[] { EstadoEnvio.Preparando, EstadoEnvio.Cancelado },
+            [EstadoEnvio.Fallido] = new[] { EstadoEnvio.Pendiente, EstadoEnvio.Preparando, EstadoEnvio.Cancelado },
             [EstadoEnvio.Entregado] = Array.Empty<EstadoEnvio>(),
             [EstadoEnvio.Cancelado] = Array.Empty<EstadoEnvio>()
         };

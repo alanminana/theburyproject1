@@ -325,7 +325,24 @@ namespace TheBuryProject.Controllers
             }
 
             var monto = await _cajaService.ObtenerUltimoEfectivoCierreAsync(cajaId) ?? 0m;
-            return Json(new { monto });
+
+            // Detalle del último cierre de la caja, para que quien abre el turno vea cómo quedó la anterior.
+            var cierres = await _cajaService.ObtenerHistorialCierresAsync(cajaId);
+            var ultimo = cierres.OrderByDescending(c => c.FechaCierre).FirstOrDefault();
+            object? ultimoCierre = ultimo == null ? null : new
+            {
+                id = ultimo.Id,
+                aperturaId = ultimo.AperturaCajaId,
+                fecha = ultimo.FechaCierre.ToLocalTime().ToString("dd/MM/yyyy HH:mm"),
+                usuario = ultimo.UsuarioCierre,
+                esperado = ultimo.MontoEsperadoSistema,
+                contado = ultimo.EfectivoContado,
+                diferencia = ultimo.Diferencia,
+                tieneDiferencia = ultimo.TieneDiferencia,
+                detalleUrl = Url.Action("DetallesCierre", "Caja", new { id = ultimo.Id })
+            };
+
+            return Json(new { monto, ultimoCierre });
         }
 
         [HttpPost]

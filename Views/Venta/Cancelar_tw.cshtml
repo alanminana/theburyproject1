@@ -107,6 +107,21 @@
                     <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Total</p>
                     <p class="text-xl font-black text-white">@Model.Total.ToString("C2")</p>
                 </div>
+                @if (Model.Detalles != null && Model.Detalles.Any())
+                {
+                    <div id="cancelar-productos" class="space-y-2 sm:col-span-2">
+                        <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Productos que se cancelan</p>
+                        <ul class="divide-y divide-slate-800 rounded-lg border border-slate-800">
+                            @foreach (var d in Model.Detalles)
+                            {
+                                <li class="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+                                    <span class="font-semibold text-white">@(d.ProductoNombre ?? "Producto")</span>
+                                    <span class="shrink-0 text-slate-300">x @d.Cantidad</span>
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                }
                 @if (!string.IsNullOrWhiteSpace(Model.Observaciones))
                 {
                     <div class="space-y-1 sm:col-span-2">
@@ -132,6 +147,17 @@
                               class="venta-input"
                               placeholder="Describí el motivo de la cancelación…"></textarea>
                 </div>
+
+                <label class="flex items-start gap-2 rounded-lg border border-amber-900/40 bg-amber-950/20 p-3 text-sm text-amber-200">
+                    <input id="cancelar-confirmo" type="checkbox" required class="mt-0.5" />
+                    <span>
+                        Confirmo que quiero cancelar la venta <strong>@Model.Numero</strong>
+                        @if (Model.Detalles != null && Model.Detalles.Any())
+                        {
+                            <text>con: <strong>@string.Join(", ", Model.Detalles.Select(d => $"{d.ProductoNombre ?? "Producto"} (x{d.Cantidad})"))</strong></text>
+                        }
+                    </span>
+                </label>
 
                 <button type="submit" class="btn-erp-danger">
                     <span class="material-symbols-outlined">cancel</span>

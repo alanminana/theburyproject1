@@ -374,7 +374,7 @@
                                                 </div>
                                                 <div class="cond-pair__b">
                                                     <label for="cotizacion-fecha-vencimiento" class="label">Válida hasta</label>
-                                                    <input id="cotizacion-fecha-vencimiento" type="date" class="field">
+                                                    <input id="cotizacion-fecha-vencimiento" type="date" class="field" min="@DateTime.Today.ToString("yyyy-MM-dd")">
                                                 </div>
                                             </div>
                                             <div class="cond-grid__full">
@@ -882,7 +882,7 @@
                                                                                         </div>
                                                                                         <div class="sm:col-span-2">
                                                                                             <label for="cotizacion-envio-fecha" class="label">Fecha programada</label>
-                                                                                            <input id="cotizacion-envio-fecha" type="date" class="field">
+                                                                                            <input id="cotizacion-envio-fecha" type="date" class="field" min="@DateTime.Today.ToString("yyyy-MM-dd")">
                                                                                         </div>
                                                                                         <div class="sm:col-span-2">
                                                                                             <label for="cotizacion-envio-observaciones" class="label">Observaciones</label>
@@ -1006,7 +1006,7 @@
                                                                                                         <label for="cotizacion-credito-fecha"
                                                                                                                class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Primera fecha
                                                                                                             de vencimiento</label>
-                                                                                                            <input type="date" id="cotizacion-credito-fecha" class="field w-full" />
+                                                                                                            <input type="date" id="cotizacion-credito-fecha" class="field w-full" min="@DateTime.Today.ToString("yyyy-MM-dd")" />
                                                                                                         </div>
                                                                                                         <p id="cotizacion-credito-error" class="hidden mt-3 text-sm text-red-400" role="alert"></p>
                                                                                                         <div id="cotizacion-credito-contrato-wrap" class="hidden mt-3">

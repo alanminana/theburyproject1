@@ -222,8 +222,8 @@
                 </div>
 
                 <div class="venta-hero-actions flex w-full flex-col gap-3 sm:flex-row xl:w-auto xl:min-w-60 xl:flex-col">
-                    <a asp-action="Index" class="btn-erp-ghost xl:w-full no-underline">
-                        Volver a Ventas
+                    <a href="@(Context.Request.Query["volverA"] == "envios" ? Url.Action("Index", "Venta") + "#envios" : Url.Action("Index", "Venta"))" class="btn-erp-ghost xl:w-full no-underline">
+                        @(Context.Request.Query["volverA"] == "envios" ? "Volver a Envíos pendientes" : "Volver a Ventas")
                     </a>
                     <button type="button"
                             data-venta-action="print"
@@ -1372,6 +1372,7 @@
             </div>
 
             <form asp-action="CambiarEstadoEnvio" method="post" id="form-actualizar-envio" class="mt-6 space-y-4">
+                <input type="hidden" name="volverA" value="@Context.Request.Query["volverA"]" />
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="id" value="@Model.Id" />
 
@@ -1380,7 +1381,7 @@
                     <select id="envio-nuevo-estado" name="estado" required class="venta-input" data-modal-initial-focus>
                         @foreach (var siguiente in Model.Envio.EstadosSiguientesPosibles)
                         {
-                            <option value="@((int)siguiente)">@TheBuryProject.ViewModels.VentaEnvioViewModel.EstadoDisplayFor(siguiente)</option>
+                            <option value="@((int)siguiente)">@(Model.Envio.Estado == EstadoEnvio.Fallido && siguiente == EstadoEnvio.Pendiente ? "Reprogramar (volver a Pendiente)" : TheBuryProject.ViewModels.VentaEnvioViewModel.EstadoDisplayFor(siguiente))</option>
                         }
                     </select>
                 </div>

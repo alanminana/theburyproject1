@@ -233,7 +233,7 @@
                         </div>
                         <div>
                             <label asp-for="FechaPrimeraCuota" class="label">Primera fecha de vencimiento</label>
-                            <input asp-for="FechaPrimeraCuota" type="date" class="field" id="txt-fecha-primera-cuota" />
+                            <input asp-for="FechaPrimeraCuota" type="date" class="field" id="txt-fecha-primera-cuota" min="@DateTime.Today.ToString("yyyy-MM-dd")" />
                             <span asp-validation-for="FechaPrimeraCuota" class="err-text"></span>
                         </div>
                         <div>

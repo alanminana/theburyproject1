@@ -1392,7 +1392,7 @@ namespace TheBuryProject.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [PermisoRequerido(Modulo = ModuloVentas, Accion = AccionActualizar)]
-        public async Task<IActionResult> CambiarEstadoEnvio(int id, EstadoEnvio estado, string? motivo)
+        public async Task<IActionResult> CambiarEstadoEnvio(int id, EstadoEnvio estado, string? motivo, string? volverA = null)
         {
             try
             {
@@ -1423,7 +1423,7 @@ namespace TheBuryProject.Controllers
                 TempData["Error"] = "Error al actualizar el estado del envío: " + ex.Message;
             }
 
-            return RedirectToAction(nameof(Details), new { id });
+            return RedirectToAction(nameof(Details), new { id, volverA = volverA == "envios" ? volverA : null });
         }
 
         #endregion

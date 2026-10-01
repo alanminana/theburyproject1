@@ -437,7 +437,7 @@
                                     @* Fecha *@
                                     <div>
                                         <label class="venta-label" for="FechaVenta">Fecha de Operación</label>
-                                        <input asp-for="FechaVenta" type="date" class="venta-input" />
+                                        <input asp-for="FechaVenta" type="date" class="venta-input" min="@(Model.Id == 0 ? DateTime.Today.ToString("yyyy-MM-dd") : null)" />
                                     </div>
 
                                 </div>
@@ -844,7 +844,7 @@
                                                                                                         <div>
                                                                                                             <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Fecha de
                                                                                                                 Vencimiento</label>
-                                                                                                                <input type="date" name="DatosCheque.FechaVencimiento"
+                                                                                                                <input type="date" name="DatosCheque.FechaVencimiento" min="@DateTime.Today.ToString("yyyy-MM-dd")"
                                                                                                                        id="txt-fecha-vencimiento-cheque" class="venta-input" />
                                                                                                             </div>
                                                                                                             <div>
@@ -1208,7 +1208,7 @@
                                                                                                             </div>
                                                                                                             <div>
                                                                                                                 <label class="venta-label" for="envio-fecha">Fecha programada</label>
-                                                                                                                <input type="date" name="Envio.FechaProgramada" id="envio-fecha" class="venta-input" />
+                                                                                                                <input type="date" name="Envio.FechaProgramada" id="envio-fecha" class="venta-input" min="@((Model.Envio?.FechaProgramada is { } fp && fp.Date < DateTime.Today ? fp.Date : DateTime.Today).ToString("yyyy-MM-dd"))" />
                                                                                                             </div>
                                                                                                             <div class="md:col-span-2">
                                                                                                                 <label class="venta-label" for="envio-observaciones">Observaciones</label>

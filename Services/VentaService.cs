@@ -1328,6 +1328,17 @@ namespace TheBuryProject.Services
                 venta.FechaCancelacion = DateTime.UtcNow;
                 venta.MotivoCancelacion = motivo;
 
+                // Una venta cancelada no se entrega: el envío asociado deja de figurar como pendiente.
+                var envioAsociado = await _context.VentaEnvios
+                    .FirstOrDefaultAsync(e => e.VentaId == venta.Id && !e.IsDeleted);
+                if (envioAsociado != null
+                    && envioAsociado.Estado != EstadoEnvio.Entregado
+                    && envioAsociado.Estado != EstadoEnvio.Cancelado)
+                {
+                    envioAsociado.Estado = EstadoEnvio.Cancelado;
+                    envioAsociado.UpdatedAt = DateTime.UtcNow;
+                }
+
                 await _context.SaveChangesAsync();
 
                 // Crear contramovimiento de caja para ventas que tuvieron ingreso inmediato

@@ -89,6 +89,12 @@
                     <span asp-validation-for="CajaId" class="text-rose-500 text-xs"></span>
                 </div>
 
+                <div id="caja-ultimo-cierre" class="hidden rounded-lg border border-slate-700 bg-slate-900/40 p-3 text-sm" data-caja-ultimo-cierre-panel aria-live="polite">
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Último cierre de esta caja</p>
+                    <p class="mt-1 text-slate-300" data-ultimo-cierre-resumen></p>
+                    <a href="#" class="mt-1 inline-block text-xs font-semibold text-primary underline" data-ultimo-cierre-link>Ver detalle del cierre</a>
+                </div>
+
                 <div>
                     <label asp-for="MontoInicial" class="label">Fondo inicial <span class="req">*</span></label>
                     <div class="field-money">
