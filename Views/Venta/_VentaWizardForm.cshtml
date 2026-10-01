@@ -1251,6 +1251,20 @@
                                                                                                                 <p id="revision-alertas-vacio" class="mt-2 text-sm text-slate-400">Sin alertas activas.</p>
                                                                                                                 <div id="revision-alertas-lista" class="mt-3 hidden space-y-2"></div>
                                                                                                             </div>
+                                                                                                            @if (esEdicion && puedeFacturarVentas)
+                                                                                                            {
+                                                                                                                <div id="rev-facturar-opcion" class="mt-4 rounded-xl border border-slate-800 bg-slate-900/60 p-4 @(Model.TipoPago == TipoPago.CreditoPersonal ? "hidden" : "")">
+                                                                                                                    <div class="flex items-center gap-3">
+                                                                                                                        <input type="checkbox" id="chk-facturar" class="size-5 rounded border-slate-600 bg-slate-800" />
+                                                                                                                        <label for="chk-facturar" class="cursor-pointer text-sm font-bold text-white">Facturar al confirmar</label>
+                                                                                                                    </div>
+                                                                                                                    <p class="mt-2 text-xs text-slate-400">Tildado: se confirma la venta y se emite la factura. Sin tildar: se confirma sin factura y se puede facturar después desde el detalle de la venta.</p>
+                                                                                                                </div>
+                                                                                                            }
+                                                                                                            else if (esEdicion)
+                                                                                                            {
+                                                                                                                <p id="rev-facturar-sin-permiso" class="mt-4 text-xs text-slate-400">La venta se confirma sin factura. Para facturarla hace falta el permiso de facturación.</p>
+                                                                                                            }
 
                                                                                                             @* ── Crédito Personal ─────────────────────────────────────────
                                                                                                                VENTA-CREDITO-ARQUITECTURA-VISUAL-02: única sección donde Revisión
@@ -1430,20 +1444,6 @@
                                                                                                             </div>
                                                                                                         }
 
-                                        @if (esEdicion && puedeFacturarVentas)
-                                        {
-                                            <div id="rev-facturar-opcion" class="mb-3 rounded-lg border border-white/20 bg-white/10 p-3 @(Model.TipoPago == TipoPago.CreditoPersonal ? "hidden" : "")">
-                                                <div class="flex items-center gap-2">
-                                                    <input type="checkbox" id="chk-facturar" class="size-4 rounded border-white/30 bg-white/10" />
-                                                    <label for="chk-facturar" class="cursor-pointer text-xs font-semibold text-white/90">Facturar al confirmar</label>
-                                                </div>
-                                                <p class="mt-1 text-[11px] leading-snug text-white/70">Tildado: se confirma y se emite la factura. Sin tildar: se confirma sin factura y se puede facturar después desde el detalle de la venta.</p>
-                                            </div>
-                                        }
-                                        else if (esEdicion)
-                                        {
-                                            <p id="rev-facturar-sin-permiso" class="mb-3 text-[11px] leading-snug text-white/70">La venta se confirma sin factura. Para facturarla hace falta el permiso de facturación.</p>
-                                        }
                                         <button type="submit" id="btn-confirmar" name="accionConfirmacion" value="confirmar" class="vm-btn-confirm">
                                                                                                             <span class="material-symbols-outlined" data-btn-confirmar-icon>point_of_sale</span>
                                                                                                             @* H1: envuelto en span para que venta-page-wizard.js pueda sincronizar este
