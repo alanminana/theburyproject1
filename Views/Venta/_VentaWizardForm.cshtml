@@ -104,7 +104,8 @@
                 productoUnidadId = (object?)d.ProductoUnidadId,
                 productoUnidadLabel = d.ProductoUnidadCodigoInterno ?? string.Empty,
                 tipoArmado = (int?)d.TipoArmado,
-                entregaCajaCerrada = d.EntregaCajaCerrada
+                entregaCajaCerrada = d.EntregaCajaCerrada,
+                enviarADomicilio = d.EnviarADomicilio
             })
         }, new System.Text.Json.JsonSerializerOptions
         {
@@ -1181,6 +1182,12 @@
                                                                                                             <div class="md:col-span-2">
                                                                                                                 <label class="venta-label" for="envio-destinatario">Destinatario</label>
                                                                                                                 <input type="text" name="Envio.Destinatario" id="envio-destinatario" class="venta-input" maxlength="200" placeholder="Nombre de quien recibe" />
+                                                                                                            </div>
+                                                                                                            <div class="md:col-span-2" id="envio-productos-bloque">
+                                                                                                                <p class="venta-label" id="envio-productos-titulo">Productos que se envían</p>
+                                                                                                                <div id="envio-productos-lista" class="space-y-2" role="group" aria-labelledby="envio-productos-titulo"></div>
+                                                                                                                <p class="mt-1 text-xs text-slate-500">Por defecto se envía todo; destildá lo que el cliente retira. Tiene que quedar al menos un producto.</p>
+                                                                                                                <p id="envio-productos-aviso" class="mt-1 hidden text-xs text-amber-300" role="alert">Tiene que quedar al menos un producto para enviar.</p>
                                                                                                             </div>
                                                                                                             <div>
                                                                                                                 <label class="venta-label" for="envio-telefono">Teléfono</label>

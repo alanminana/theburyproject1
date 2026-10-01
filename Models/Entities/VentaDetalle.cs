@@ -106,6 +106,13 @@ namespace TheBuryProject.Models.Entities
 
         public bool EntregaCajaCerrada { get; set; }
 
+        /// <summary>
+        /// Sólo aplica si la venta tiene envío (VentaEnvio): true = esta línea viaja en el envío a
+        /// domicilio; false = el cliente la retira (o ya la tiene). Default true: ventas anteriores y
+        /// ventas con una sola línea envían todo. No altera totales ni stock.
+        /// </summary>
+        public bool EnviarADomicilio { get; set; } = true;
+
         [Column(TypeName = "decimal(18,2)")]
         public decimal ArmadoPrecioUnitario { get; set; }
 

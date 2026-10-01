@@ -35,13 +35,18 @@
         .Where(v => v.Envio != null && !v.Envio.EsTerminal && v.Estado != EstadoVenta.Cancelada)
         .OrderBy(v => v.Envio!.FechaProgramada ?? v.FechaVenta)
         .ToList();
-    // Historial: envios ya cerrados (entregados/cancelados, incluida venta cancelada) del ultimo mes,
-    // para poder revisarlos sin salir del modulo. Meses anteriores: filtro de fechas de Operaciones.
-    var enviosHistorial = ventas
-        .Where(v => v.Envio != null && (v.Envio.EsTerminal || v.Estado == EstadoVenta.Cancelada)
-                    && (v.Envio.FechaEntregaReal ?? v.FechaVenta) >= DateTime.Today.AddDays(-30))
-        .OrderByDescending(v => v.Envio!.FechaEntregaReal ?? v.FechaVenta)
-        .ToList();
+    // Historial de envíos cerrados (entregados/cancelados, incluida venta cancelada): lo arma el
+    // controller por mes calendario (mes en curso completo por defecto, o el mes elegido con el
+    // buscador), independiente de los filtros de Operaciones.
+    var enviosHistorial = ViewBag.EnviosHistorial as List<TheBuryProject.Models.Entities.VentaEnvio>
+                          ?? new List<TheBuryProject.Models.Entities.VentaEnvio>();
+    var enviosMes = ViewBag.EnviosMes is DateTime mesViewBag
+        ? mesViewBag
+        : new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+    var mesEnCurso = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+    var esMesEnCurso = enviosMes == mesEnCurso;
+    var esMesAnterior = enviosMes == mesEnCurso.AddMonths(-1);
+    var nombreMes = enviosMes.ToString("MMMM yyyy", new System.Globalization.CultureInfo("es-AR"));
 
     // VENTA-UI-04B: paginación server-rendered en memoria, solo para Operaciones.
     // "ventas" (arriba) sigue siendo el conjunto filtrado completo para KPIs y tabs;
@@ -817,7 +822,7 @@
                                                                 <div>
                                                                     <p class="label">Logística</p>
                                                                     <h2>Envíos pendientes</h2>
-                                                                    <p>Ventas con envío a domicilio que todavía no llegaron a destino. Los cerrados del último mes figuran abajo; para meses anteriores usá el filtro de fechas de Operaciones.</p>
+                                                                    <p>Ventas con envío a domicilio que todavía no llegaron a destino. Abajo, el historial de cerrados por mes: el mes en curso completo y un buscador para meses anteriores.</p>
                                                                 </div>
                                                             </div>
                                                             <div class="compact-list">
@@ -854,31 +859,49 @@
                                                                         }
                                                                     </div>
                                                                 }
-                                                                @if (enviosHistorial.Any())
+                                                                <div class="mt-4 flex flex-wrap items-end justify-between gap-3" id="envios-historial">
+                                                                    <p class="label">Cerrados en <span class="capitalize">@nombreMes</span> (@enviosHistorial.Count)</p>
+                                                                    <form asp-action="Index" asp-fragment="envios" method="get" class="flex flex-wrap items-end gap-2" id="form-envios-mes" aria-label="Buscar envíos cerrados por mes">
+                                                                        <div class="field">
+                                                                            <label class="label" for="envios-mes-input">Mes</label>
+                                                                            <input id="envios-mes-input" type="month" name="enviosMes" value="@enviosMes.ToString("yyyy-MM")" max="@mesEnCurso.ToString("yyyy-MM")" />
+                                                                        </div>
+                                                                        <button type="submit" class="btn btn-soft">Buscar</button>
+                                                                        <a asp-action="Index" asp-fragment="envios" class="btn @(esMesEnCurso ? "btn-primary" : "btn-ghost") no-underline" aria-current="@(esMesEnCurso ? "true" : null)">Mes en curso</a>
+                                                                        <a asp-action="Index" asp-route-enviosMes="@mesEnCurso.AddMonths(-1).ToString("yyyy-MM")" asp-fragment="envios" class="btn @(esMesAnterior ? "btn-primary" : "btn-ghost") no-underline" aria-current="@(esMesAnterior ? "true" : null)">Mes anterior</a>
+                                                                    </form>
+                                                                </div>
+                                                                @foreach (var envioCerrado in enviosHistorial)
                                                                 {
-                                                                    <p class="label mt-4">Cerrados en los últimos 30 días</p>
-                                                                    @foreach (var v in enviosHistorial)
-                                                                    {
-                                                                        var cerradoPorVenta = v.Estado == EstadoVenta.Cancelada && !v.Envio!.EsTerminal;
-                                                                        <article class="card card-sub compact-item">
-                                                                            <div>
-                                                                                <a asp-action="Details" asp-route-id="@v.Id" asp-route-volverA="envios" class="sale-number no-underline">@v.Numero</a>
-                                                                                <p>
-                                                                                    @v.ClienteNombre
-                                                                                    @if (v.Envio!.FechaEntregaReal.HasValue)
-                                                                                    {
-                                                                                        <text> · Entregado @v.Envio.FechaEntregaReal.Value.ToLocalTime().ToString("dd/MM/yyyy")</text>
-                                                                                    }
-                                                                                    else if (v.Estado == EstadoVenta.Cancelada)
-                                                                                    {
-                                                                                        <text> · Venta cancelada</text>
-                                                                                    }
-                                                                                </p>
-                                                                            </div>
-                                                                            <span class="pill @(cerradoPorVenta ? "pill-red" : v.Envio!.EstadoPillClass)">@(cerradoPorVenta ? "Cancelado" : v.Envio!.EstadoDisplay)</span>
-                                                                            <a asp-action="Details" asp-route-id="@v.Id" asp-route-volverA="envios" class="btn btn-xs btn-soft no-underline">Ver</a>
-                                                                        </article>
-                                                                    }
+                                                                    var vc = envioCerrado.Venta;
+                                                                    var vcEnvio = new TheBuryProject.ViewModels.VentaEnvioViewModel { Estado = envioCerrado.Estado };
+                                                                    var cerradoPorVenta = vc.Estado == EstadoVenta.Cancelada && !vcEnvio.EsTerminal;
+                                                                    <article class="card card-sub compact-item">
+                                                                        <div>
+                                                                            <a asp-action="Details" asp-route-id="@vc.Id" asp-route-volverA="envios" class="sale-number no-underline">@vc.Numero</a>
+                                                                            <p>
+                                                                                @(vc.Cliente != null ? TheBuryProject.Helpers.ClienteFormatting.ToDisplayName(vc.Cliente) : envioCerrado.Destinatario)
+                                                                                @if (envioCerrado.FechaEntregaReal.HasValue)
+                                                                                {
+                                                                                    <text> · Entregado @envioCerrado.FechaEntregaReal.Value.ToLocalTime().ToString("dd/MM/yyyy")</text>
+                                                                                }
+                                                                                else if (vc.Estado == EstadoVenta.Cancelada)
+                                                                                {
+                                                                                    <text> · Venta cancelada</text>
+                                                                                }
+                                                                            </p>
+                                                                        </div>
+                                                                        <span class="pill @(cerradoPorVenta ? "pill-red" : vcEnvio.EstadoPillClass)">@(cerradoPorVenta ? "Cancelado" : vcEnvio.EstadoDisplay)</span>
+                                                                        <a asp-action="Details" asp-route-id="@vc.Id" asp-route-volverA="envios" class="btn btn-xs btn-soft no-underline">Ver</a>
+                                                                    </article>
+                                                                }
+                                                                @if (!enviosHistorial.Any())
+                                                                {
+                                                                    <div class="empty-state empty-state-compact">
+                                                                        <span class="material-symbols-outlined">history</span>
+                                                                        <h3>Sin envíos cerrados en <span class="capitalize">@nombreMes</span></h3>
+                                                                        <p>Probá con otro mes desde el buscador.</p>
+                                                                    </div>
                                                                 }
                                                             </div>
                                                         </section>

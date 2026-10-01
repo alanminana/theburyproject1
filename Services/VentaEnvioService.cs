@@ -13,11 +13,14 @@ namespace TheBuryProject.Services
         // (fail-closed). Entregado y Cancelado son terminales.
         private static readonly Dictionary<EstadoEnvio, EstadoEnvio[]> TransicionesValidas = new()
         {
-            [EstadoEnvio.Pendiente] = new[] { EstadoEnvio.Preparando, EstadoEnvio.Entregado, EstadoEnvio.Cancelado },
-            [EstadoEnvio.Preparando] = new[] { EstadoEnvio.Despachado, EstadoEnvio.Entregado, EstadoEnvio.Cancelado },
-            [EstadoEnvio.Despachado] = new[] { EstadoEnvio.EnCamino, EstadoEnvio.Entregado, EstadoEnvio.Fallido },
-            [EstadoEnvio.EnCamino] = new[] { EstadoEnvio.Entregado, EstadoEnvio.Fallido },
-            [EstadoEnvio.Fallido] = new[] { EstadoEnvio.Pendiente, EstadoEnvio.Preparando, EstadoEnvio.Cancelado },
+            [EstadoEnvio.Pendiente] = new[] { EstadoEnvio.Preparando, EstadoEnvio.Entregado, EstadoEnvio.Reprogramado, EstadoEnvio.Cancelado },
+            [EstadoEnvio.Preparando] = new[] { EstadoEnvio.Despachado, EstadoEnvio.Entregado, EstadoEnvio.Reprogramado, EstadoEnvio.Cancelado },
+            [EstadoEnvio.Despachado] = new[] { EstadoEnvio.EnCamino, EstadoEnvio.Entregado, EstadoEnvio.Fallido, EstadoEnvio.Reprogramado },
+            [EstadoEnvio.EnCamino] = new[] { EstadoEnvio.Entregado, EstadoEnvio.Fallido, EstadoEnvio.Reprogramado },
+            [EstadoEnvio.Fallido] = new[] { EstadoEnvio.Pendiente, EstadoEnvio.Preparando, EstadoEnvio.Reprogramado, EstadoEnvio.Cancelado },
+            // Reprogramado sigue pendiente de entrega: se puede reprogramar de nuevo (otra fecha),
+            // empezar a prepararlo, entregarlo o cancelarlo.
+            [EstadoEnvio.Reprogramado] = new[] { EstadoEnvio.Preparando, EstadoEnvio.Despachado, EstadoEnvio.Entregado, EstadoEnvio.Cancelado },
             [EstadoEnvio.Entregado] = Array.Empty<EstadoEnvio>(),
             [EstadoEnvio.Cancelado] = Array.Empty<EstadoEnvio>()
         };
@@ -42,8 +45,9 @@ namespace TheBuryProject.Services
 
         public bool EsTransicionValida(EstadoEnvio estadoActual, EstadoEnvio nuevoEstado)
         {
+            // Único "mismo estado" válido: volver a reprogramar con otra fecha.
             if (estadoActual == nuevoEstado)
-                return false;
+                return estadoActual == EstadoEnvio.Reprogramado;
 
             return TransicionesValidas.TryGetValue(estadoActual, out var permitidos)
                 && permitidos.Contains(nuevoEstado);
@@ -60,8 +64,29 @@ namespace TheBuryProject.Services
             return await _context.VentaEnvios
                 .Include(e => e.Venta)
                     .ThenInclude(v => v.Cliente)
-                .Where(e => !EstadosTerminales.Contains(e.Estado))
+                .Where(e => !EstadosTerminales.Contains(e.Estado) && e.Venta.Estado != EstadoVenta.Cancelada)
                 .OrderBy(e => e.FechaProgramada ?? e.CreatedAt)
+                .ToListAsync();
+        }
+
+        public async Task<List<VentaEnvio>> GetCerradosPorMesAsync(int anio, int mes)
+        {
+            var desde = new DateTime(anio, mes, 1);
+            var hasta = desde.AddMonths(1);
+
+            // Cerrado = envío terminal, o envío de una venta cancelada que quedó sin cerrar (legacy).
+            // La fecha de referencia es cuándo se cerró: entrega real, cancelación de la venta, última
+            // actualización del envío y, en último caso, la fecha de la venta.
+            var cerrados = _context.VentaEnvios
+                .Where(e => !e.IsDeleted
+                    && (EstadosTerminales.Contains(e.Estado) || e.Venta.Estado == EstadoVenta.Cancelada));
+
+            return await cerrados
+                .Where(e => (e.FechaEntregaReal ?? e.Venta.FechaCancelacion ?? e.UpdatedAt ?? e.Venta.FechaVenta) >= desde
+                    && (e.FechaEntregaReal ?? e.Venta.FechaCancelacion ?? e.UpdatedAt ?? e.Venta.FechaVenta) < hasta)
+                .Include(e => e.Venta)
+                    .ThenInclude(v => v.Cliente)
+                .OrderByDescending(e => e.FechaEntregaReal ?? e.Venta.FechaCancelacion ?? e.UpdatedAt ?? e.Venta.FechaVenta)
                 .ToListAsync();
         }
 
@@ -69,7 +94,8 @@ namespace TheBuryProject.Services
             int ventaId,
             EstadoEnvio nuevoEstado,
             string? motivo,
-            string? usuario)
+            string? usuario,
+            DateTime? nuevaFechaProgramada = null)
         {
             var envio = await _context.VentaEnvios
                 .Include(e => e.Venta)
@@ -92,6 +118,22 @@ namespace TheBuryProject.Services
                     "Indicá el motivo por el que no se pudo entregar.");
             }
 
+            if (nuevoEstado == EstadoEnvio.Reprogramado)
+            {
+                if (!nuevaFechaProgramada.HasValue)
+                {
+                    return CambiarEstadoEnvioResultado.Fallido(
+                        "Indicá la nueva fecha de entrega para reprogramar el envío.");
+                }
+
+                // Mismo criterio que la fecha programada al crear/editar la venta: no admite días pasados.
+                if (nuevaFechaProgramada.Value.Date < DateTime.Today)
+                {
+                    return CambiarEstadoEnvioResultado.Fallido(
+                        "La nueva fecha de entrega no puede ser anterior a hoy.");
+                }
+            }
+
             var estadoAnterior = envio.Estado;
             envio.Estado = nuevoEstado;
             envio.UpdatedAt = DateTime.UtcNow;
@@ -111,6 +153,17 @@ namespace TheBuryProject.Services
                     break;
                 case EstadoEnvio.Fallido:
                     envio.MotivoNoEntrega = motivo;
+                    break;
+                case EstadoEnvio.Reprogramado:
+                    envio.FechaProgramada = nuevaFechaProgramada!.Value.Date;
+                    // Un envío reprogramado vuelve a esperar despacho: la fecha de despacho anterior
+                    // (si hubo un intento) deja de describir el estado actual.
+                    envio.FechaDespacho = null;
+                    var detalleReprogramacion = $"Reprogramado para el {envio.FechaProgramada:dd/MM/yyyy}"
+                        + (string.IsNullOrWhiteSpace(motivo) ? string.Empty : $": {motivo.Trim()}");
+                    envio.Observaciones = string.IsNullOrWhiteSpace(envio.Observaciones)
+                        ? detalleReprogramacion
+                        : $"{envio.Observaciones}\n{detalleReprogramacion}";
                     break;
                 case EstadoEnvio.Cancelado:
                     if (!string.IsNullOrWhiteSpace(motivo))

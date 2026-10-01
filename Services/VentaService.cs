@@ -3201,7 +3201,12 @@ namespace TheBuryProject.Services
             }
 
             if (!viewModel.TieneEnvio)
+            {
+                // Sin envío la selección de productos no significa nada: se deja el default.
+                foreach (var linea in venta.Detalles.Where(d => !d.IsDeleted))
+                    linea.EnviarADomicilio = true;
                 return 0m;
+            }
 
             if (viewModel.Envio == null)
                 throw new InvalidOperationException(
@@ -3210,6 +3215,13 @@ namespace TheBuryProject.Services
             var tipoEnvio = viewModel.Envio.TipoEnvio;
             if (tipoEnvio == null || !tipoEnvio.Value.EsEnvio())
                 throw new InvalidOperationException("Seleccioná el tipo de envío (Ciudad o Rural).");
+
+            // El envío viaja con al menos un producto: elegir cuáles es opcional (default: todos),
+            // pero no se puede enviar "nada".
+            var lineasActivas = venta.Detalles.Where(d => !d.IsDeleted).ToList();
+            if (lineasActivas.Count > 0 && !lineasActivas.Any(d => d.EnviarADomicilio))
+                throw new InvalidOperationException(
+                    "Elegí al menos un producto para enviar a domicilio.");
 
             var importeEnvio = await PrecioAsync(tipoEnvio.Value);
             viewModel.Envio.CostoEnvio = importeEnvio;

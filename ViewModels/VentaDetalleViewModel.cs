@@ -92,6 +92,10 @@ namespace TheBuryProject.ViewModels
         [Display(Name = "Caja cerrada / sin armado")]
         public bool EntregaCajaCerrada { get; set; }
 
+        /// <summary>Si la venta tiene envío: true = la línea viaja a domicilio, false = la retira el cliente.</summary>
+        [Display(Name = "Enviar a domicilio")]
+        public bool EnviarADomicilio { get; set; } = true;
+
         /// <summary>Snapshot del precio global del armado (lo fija el servidor, nunca el cliente).</summary>
         public decimal ArmadoPrecioUnitario { get; set; }
 

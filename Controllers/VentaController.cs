@@ -153,7 +153,7 @@ namespace TheBuryProject.Controllers
         #region Index / Detalle
 
         // GET: Venta
-        public async Task<IActionResult> Index(VentaFilterViewModel filter)
+        public async Task<IActionResult> Index(VentaFilterViewModel filter, string? enviosMes = null)
         {
             try
             {
@@ -170,6 +170,16 @@ namespace TheBuryProject.Controllers
                 var aperturaActiva = !string.IsNullOrWhiteSpace(userName)
                     ? await _cajaService.ObtenerAperturaActivaParaUsuarioAsync(userName)
                     : null;
+
+                // Historial de la pestaña Logística: mes en curso por defecto (completo, desde el día 1),
+                // o el mes elegido con el buscador (yyyy-MM). No depende de los filtros de Operaciones.
+                var mesHistorial = DateTime.TryParseExact(enviosMes, "yyyy-MM",
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        System.Globalization.DateTimeStyles.None, out var mesElegido)
+                    ? new DateTime(mesElegido.Year, mesElegido.Month, 1)
+                    : new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+                ViewBag.EnviosMes = mesHistorial;
+                ViewBag.EnviosHistorial = await _ventaEnvioService.GetCerradosPorMesAsync(mesHistorial.Year, mesHistorial.Month);
 
                 ViewBag.Estados = new SelectList(Enum.GetValues(typeof(EstadoVenta)));
                 ViewBag.TiposPago = EnumHelper.GetSelectList<TipoPago>();
@@ -1392,7 +1402,7 @@ namespace TheBuryProject.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [PermisoRequerido(Modulo = ModuloVentas, Accion = AccionActualizar)]
-        public async Task<IActionResult> CambiarEstadoEnvio(int id, EstadoEnvio estado, string? motivo, string? volverA = null)
+        public async Task<IActionResult> CambiarEstadoEnvio(int id, EstadoEnvio estado, string? motivo, DateTime? fechaProgramada = null, string? volverA = null)
         {
             try
             {
@@ -1406,7 +1416,7 @@ namespace TheBuryProject.Controllers
                 }
 
                 var resultado = await _ventaEnvioService.CambiarEstadoAsync(
-                    id, estado, motivo, _currentUser.GetUsername());
+                    id, estado, motivo, _currentUser.GetUsername(), fechaProgramada);
 
                 if (resultado.Exitoso)
                 {

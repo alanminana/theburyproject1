@@ -1162,7 +1162,8 @@
                 productoUnidadId,
                 productoUnidadLabel,
                 tipoArmado: null,
-                entregaCajaCerrada: false
+                entregaCajaCerrada: false,
+                enviarADomicilio: true
             });
         }
 
@@ -1436,7 +1437,10 @@
             detallesHiddenInputs.appendChild(mkHidden(`Detalles[${i}].ProductoUnidadId`, d.productoUnidadId ?? ''));
             detallesHiddenInputs.appendChild(mkHidden(`Detalles[${i}].TipoArmado`, d.tipoArmado ?? ''));
             detallesHiddenInputs.appendChild(mkHidden(`Detalles[${i}].EntregaCajaCerrada`, d.entregaCajaCerrada ? 'true' : 'false'));
+            detallesHiddenInputs.appendChild(mkHidden(`Detalles[${i}].EnviarADomicilio`, d.enviarADomicilio === false ? 'false' : 'true'));
         });
+
+        renderEnvioProductos();
 
         actualizarResumenOperacion(parseFloat(hdnTotal?.value) || 0);
         updateDetallesScrollAffordance();
@@ -1482,6 +1486,40 @@
         renderDetalles();
         invalidarVerificacionCrediticia();
         recalcularTotales();
+    });
+
+    // Paso Envío: qué productos de la venta viajan a domicilio (default: todos). Es una marca por
+    // línea (Detalles[i].EnviarADomicilio); no cambia totales ni stock. Siempre debe quedar al menos
+    // uno marcado: el servidor lo vuelve a validar.
+    function renderEnvioProductos() {
+        const lista = document.getElementById('envio-productos-lista');
+        if (!lista) return;
+        if (detalles.length === 0) {
+            lista.innerHTML = '<p class="text-xs text-slate-500">Agregá productos a la venta para elegir cuáles se envían.</p>';
+            return;
+        }
+        lista.innerHTML = detalles.map((d, i) => `
+            <label class="flex items-center gap-2 text-sm text-white cursor-pointer" for="envio-producto-${i}">
+                <input type="checkbox" id="envio-producto-${i}" data-envio-producto="${i}" class="size-4 rounded border-white/30 bg-white/10" ${d.enviarADomicilio === false ? '' : 'checked'}>
+                <span>${esc(d.nombre)} <span class="text-slate-400">× ${d.cantidad}</span></span>
+            </label>`).join('');
+    }
+
+    document.getElementById('envio-productos-lista')?.addEventListener('change', function (e) {
+        const check = e.target.closest('[data-envio-producto]');
+        if (!check) return;
+        const idx = parseInt(check.dataset.envioProducto, 10);
+        const aviso = document.getElementById('envio-productos-aviso');
+        if (aviso) aviso.classList.add('hidden');
+        if (!check.checked && detalles.filter((d, i) => i !== idx && d.enviarADomicilio !== false).length === 0) {
+            // No se puede quitar el último producto del envío.
+            check.checked = true;
+            if (aviso) aviso.classList.remove('hidden');
+            return;
+        }
+        detalles[idx].enviarADomicilio = check.checked;
+        const oculto = detallesHiddenInputs?.querySelector(`[name="Detalles[${idx}].EnviarADomicilio"]`);
+        if (oculto) oculto.value = check.checked ? 'true' : 'false';
     });
 
     // Envío elegido en el paso Envío (null si no está tildado o no eligió tipo).
@@ -3105,7 +3143,8 @@
                 productoUnidadId: d.productoUnidadId || null,
                 productoUnidadLabel: d.productoUnidadLabel || (d.productoUnidadId ? String(d.productoUnidadId) : ''),
                 tipoArmado: d.tipoArmado ?? null,
-                entregaCajaCerrada: !!d.entregaCajaCerrada
+                entregaCajaCerrada: !!d.entregaCajaCerrada,
+                enviarADomicilio: d.enviarADomicilio !== false
             });
         });
     }

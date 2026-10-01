@@ -59,20 +59,37 @@
         });
     }
 
-    // ENVIO-ML5: "Fallido" es el único estado siguiente que exige motivo (ver
-    // VentaEnvioService.CambiarEstadoAsync) — el resto del formulario no lo necesita.
+    // ENVIO-ML5: "Fallido" exige motivo y "Reprogramado" exige nueva fecha (motivo opcional), ver
+    // VentaEnvioService.CambiarEstadoAsync — el resto de los estados no pide datos extra.
     const ESTADO_ENVIO_FALLIDO = '5';
+    const ESTADO_ENVIO_REPROGRAMADO = '7';
     const selectNuevoEstadoEnvio = document.getElementById('envio-nuevo-estado');
     const bloqueMotivoEnvio = document.getElementById('envio-motivo-bloque');
     const textareaMotivoEnvio = document.getElementById('envio-motivo');
+    const labelMotivoEnvio = document.getElementById('envio-motivo-label');
+    const bloqueFechaEnvio = document.getElementById('envio-fecha-bloque');
+    const inputFechaEnvio = document.getElementById('envio-fecha-programada');
 
     function actualizarMotivoEnvioVisibilidad() {
         if (!selectNuevoEstadoEnvio || !bloqueMotivoEnvio) return;
         const esFallido = selectNuevoEstadoEnvio.value === ESTADO_ENVIO_FALLIDO;
-        bloqueMotivoEnvio.classList.toggle('hidden', !esFallido);
+        const esReprogramado = selectNuevoEstadoEnvio.value === ESTADO_ENVIO_REPROGRAMADO;
+        bloqueMotivoEnvio.classList.toggle('hidden', !(esFallido || esReprogramado));
+        if (labelMotivoEnvio) {
+            labelMotivoEnvio.textContent = esReprogramado
+                ? labelMotivoEnvio.dataset.labelReprogramado
+                : labelMotivoEnvio.dataset.labelFallido;
+        }
         if (textareaMotivoEnvio) {
             textareaMotivoEnvio.required = esFallido;
-            if (!esFallido) textareaMotivoEnvio.value = '';
+            if (!esFallido && !esReprogramado) textareaMotivoEnvio.value = '';
+        }
+        if (bloqueFechaEnvio) {
+            bloqueFechaEnvio.classList.toggle('hidden', !esReprogramado);
+        }
+        if (inputFechaEnvio) {
+            inputFechaEnvio.required = esReprogramado;
+            if (!esReprogramado) inputFechaEnvio.value = '';
         }
     }
 

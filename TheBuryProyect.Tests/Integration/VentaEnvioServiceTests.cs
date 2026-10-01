@@ -274,6 +274,162 @@ public class VentaEnvioServiceTests : IDisposable
     }
 
     // -------------------------------------------------------------------------
+    // Reprogramado (ticket #24)
+    // -------------------------------------------------------------------------
+
+    [Theory]
+    [InlineData(EstadoEnvio.Pendiente)]
+    [InlineData(EstadoEnvio.Preparando)]
+    [InlineData(EstadoEnvio.Despachado)]
+    [InlineData(EstadoEnvio.EnCamino)]
+    [InlineData(EstadoEnvio.Fallido)]
+    [InlineData(EstadoEnvio.Reprogramado)]
+    public async Task CambiarEstadoAsync_Reprogramar_DesdeCualquierEstadoNoTerminal_FijaLaNuevaFecha(EstadoEnvio origen)
+    {
+        var venta = await SeedVentaConEnvioAsync(origen);
+        var nuevaFecha = DateTime.Today.AddDays(5);
+
+        var resultado = await _service.CambiarEstadoAsync(
+            venta.Id, EstadoEnvio.Reprogramado, "El cliente no estaba", "tester", nuevaFecha);
+
+        Assert.True(resultado.Exitoso);
+        var envio = await _service.GetByVentaIdAsync(venta.Id);
+        Assert.Equal(EstadoEnvio.Reprogramado, envio!.Estado);
+        Assert.Equal(nuevaFecha, envio.FechaProgramada);
+        Assert.Contains("Reprogramado para el", envio.Observaciones);
+        Assert.Contains("El cliente no estaba", envio.Observaciones);
+    }
+
+    [Fact]
+    public async Task CambiarEstadoAsync_ReprogramarSinFecha_Rechaza()
+    {
+        var venta = await SeedVentaConEnvioAsync(EstadoEnvio.Pendiente);
+
+        var resultado = await _service.CambiarEstadoAsync(venta.Id, EstadoEnvio.Reprogramado, null, "tester");
+
+        Assert.False(resultado.Exitoso);
+        var envio = await _service.GetByVentaIdAsync(venta.Id);
+        Assert.Equal(EstadoEnvio.Pendiente, envio!.Estado);
+    }
+
+    [Fact]
+    public async Task CambiarEstadoAsync_ReprogramarConFechaPasada_Rechaza()
+    {
+        var venta = await SeedVentaConEnvioAsync(EstadoEnvio.Pendiente);
+
+        var resultado = await _service.CambiarEstadoAsync(
+            venta.Id, EstadoEnvio.Reprogramado, null, "tester", DateTime.Today.AddDays(-1));
+
+        Assert.False(resultado.Exitoso);
+        var envio = await _service.GetByVentaIdAsync(venta.Id);
+        Assert.Equal(EstadoEnvio.Pendiente, envio!.Estado);
+        Assert.Null(envio.FechaProgramada);
+    }
+
+    [Theory]
+    [InlineData(EstadoEnvio.Entregado)]
+    [InlineData(EstadoEnvio.Cancelado)]
+    public async Task CambiarEstadoAsync_ReprogramarDesdeTerminal_Rechaza(EstadoEnvio terminal)
+    {
+        var venta = await SeedVentaConEnvioAsync(terminal);
+
+        var resultado = await _service.CambiarEstadoAsync(
+            venta.Id, EstadoEnvio.Reprogramado, null, "tester", DateTime.Today.AddDays(2));
+
+        Assert.False(resultado.Exitoso);
+    }
+
+    [Fact]
+    public async Task CambiarEstadoAsync_ReprogramadoAEntregado_Aplica()
+    {
+        var venta = await SeedVentaConEnvioAsync(EstadoEnvio.Reprogramado);
+
+        var resultado = await _service.CambiarEstadoAsync(venta.Id, EstadoEnvio.Entregado, null, "tester");
+
+        Assert.True(resultado.Exitoso);
+        Assert.NotNull((await _service.GetByVentaIdAsync(venta.Id))!.FechaEntregaReal);
+    }
+
+    [Fact]
+    public async Task GetPendientesAsync_IncluyeReprogramado_YExcluyeVentaCancelada()
+    {
+        await SeedVentaConEnvioAsync(EstadoEnvio.Reprogramado);
+        var cancelada = await SeedVentaConEnvioAsync(EstadoEnvio.Pendiente);
+        var ventaDb = await _context.Ventas.FirstAsync(v => v.Id == cancelada.Id);
+        ventaDb.Estado = EstadoVenta.Cancelada;
+        await _context.SaveChangesAsync();
+
+        var pendientes = await _service.GetPendientesAsync();
+
+        Assert.Single(pendientes);
+        Assert.Equal(EstadoEnvio.Reprogramado, pendientes[0].Estado);
+    }
+
+    // -------------------------------------------------------------------------
+    // GetCerradosPorMesAsync: historial por mes calendario (ticket #24)
+    // -------------------------------------------------------------------------
+
+    private async Task<Venta> SeedEnvioCerradoAsync(EstadoEnvio estado, DateTime? entregaReal, DateTime fechaVenta, DateTime? updatedAt = null)
+    {
+        var venta = await SeedVentaConEnvioAsync(estado);
+        var ventaDb = await _context.Ventas.FirstAsync(v => v.Id == venta.Id);
+        ventaDb.FechaVenta = fechaVenta;
+        var envio = await _context.VentaEnvios.FirstAsync(e => e.VentaId == venta.Id);
+        envio.FechaEntregaReal = entregaReal;
+        envio.UpdatedAt = updatedAt;
+        await _context.SaveChangesAsync();
+        return venta;
+    }
+
+    [Fact]
+    public async Task GetCerradosPorMesAsync_DevuelveElMesCompletoYNoElAnterior()
+    {
+        var hoy = DateTime.Today;
+        var primeroDelMes = new DateTime(hoy.Year, hoy.Month, 1);
+        var principioDeMes = await SeedEnvioCerradoAsync(EstadoEnvio.Entregado, primeroDelMes.AddHours(9), primeroDelMes.AddDays(-20));
+        var finMesAnterior = await SeedEnvioCerradoAsync(EstadoEnvio.Entregado, primeroDelMes.AddMinutes(-30), primeroDelMes.AddDays(-25));
+        await SeedEnvioCerradoAsync(EstadoEnvio.Pendiente, null, primeroDelMes.AddDays(1)); // no es cerrado
+
+        var mesEnCurso = await _service.GetCerradosPorMesAsync(hoy.Year, hoy.Month);
+        var anterior = primeroDelMes.AddMonths(-1);
+        var mesAnterior = await _service.GetCerradosPorMesAsync(anterior.Year, anterior.Month);
+
+        Assert.Equal(new[] { principioDeMes.Id }, mesEnCurso.Select(e => e.VentaId).ToArray());
+        Assert.Equal(new[] { finMesAnterior.Id }, mesAnterior.Select(e => e.VentaId).ToArray());
+        Assert.NotNull(mesEnCurso[0].Venta);
+    }
+
+    [Fact]
+    public async Task GetCerradosPorMesAsync_IncluyeVentaCanceladaConEnvioSinCerrar()
+    {
+        var hoy = DateTime.Today;
+        var primeroDelMes = new DateTime(hoy.Year, hoy.Month, 1);
+        var venta = await SeedEnvioCerradoAsync(EstadoEnvio.Pendiente, null, primeroDelMes.AddDays(1));
+        var ventaDb = await _context.Ventas.FirstAsync(v => v.Id == venta.Id);
+        ventaDb.Estado = EstadoVenta.Cancelada;
+        ventaDb.FechaCancelacion = primeroDelMes.AddHours(12);
+        await _context.SaveChangesAsync();
+
+        var cerrados = await _service.GetCerradosPorMesAsync(hoy.Year, hoy.Month);
+
+        Assert.Single(cerrados);
+        Assert.Equal(venta.Id, cerrados[0].VentaId);
+    }
+
+    [Fact]
+    public async Task GetCerradosPorMesAsync_EnvioCanceladoUsaLaFechaDeLaUltimaActualizacion()
+    {
+        var hoy = DateTime.Today;
+        var primeroDelMes = new DateTime(hoy.Year, hoy.Month, 1);
+        // Venta vieja (otro mes) cuyo envío se canceló este mes: figura en el mes de la cancelación.
+        var venta = await SeedEnvioCerradoAsync(EstadoEnvio.Cancelado, null, primeroDelMes.AddMonths(-3), updatedAt: primeroDelMes.AddDays(2));
+
+        var cerrados = await _service.GetCerradosPorMesAsync(hoy.Year, hoy.Month);
+
+        Assert.Equal(new[] { venta.Id }, cerrados.Select(e => e.VentaId).ToArray());
+    }
+
+    // -------------------------------------------------------------------------
     // EsTransicionValida (usado también para poblar el <select> del modal)
     // -------------------------------------------------------------------------
 
@@ -283,6 +439,11 @@ public class VentaEnvioServiceTests : IDisposable
     [InlineData(EstadoEnvio.Despachado, EstadoEnvio.Entregado, true)]
     [InlineData(EstadoEnvio.Entregado, EstadoEnvio.Preparando, false)]
     [InlineData(EstadoEnvio.Pendiente, EstadoEnvio.Pendiente, false)]
+    [InlineData(EstadoEnvio.Pendiente, EstadoEnvio.Reprogramado, true)]
+    [InlineData(EstadoEnvio.Reprogramado, EstadoEnvio.Reprogramado, true)]
+    [InlineData(EstadoEnvio.Reprogramado, EstadoEnvio.Fallido, false)]
+    [InlineData(EstadoEnvio.Entregado, EstadoEnvio.Reprogramado, false)]
+    [InlineData(EstadoEnvio.Cancelado, EstadoEnvio.Reprogramado, false)]
     public void EsTransicionValida_ReflejaLaMaquinaDeEstados(EstadoEnvio actual, EstadoEnvio nuevo, bool esperado)
     {
         Assert.Equal(esperado, _service.EsTransicionValida(actual, nuevo));
