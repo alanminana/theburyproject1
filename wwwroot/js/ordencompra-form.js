@@ -104,6 +104,7 @@
         const productoId = parseInt(detalle?.productoId ?? detalle?.ProductoId ?? 0, 10) || 0;
 
         return {
+            id: parseInt(detalle?.id ?? detalle?.Id ?? 0, 10) || 0,
             productoId,
             nombre: `${detalle?.productoNombre ?? detalle?.ProductoNombre ?? ''}`,
             codigo: `${detalle?.productoCodigo ?? detalle?.ProductoCodigo ?? ''}`,
@@ -124,12 +125,12 @@
         return parseFloat(value || 0).toFixed(2);
     }
 
-    function numForPost(value) {
     // Importes para mostrar (miles con punto, decimales con coma); los hidden siguen yendo con numForPost.
     function fmt(value) {
         return (parseFloat(value) || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
+    function numForPost(value) {
         return num(value).replace('.', ',');
     }
 
@@ -305,8 +306,8 @@
         if (!feedback) return;
         feedback.hidden = true;
         feedback.dataset.variant = '';
-
         if (feedbackLink) feedbackLink.hidden = true;
+
         if (feedbackTimer) {
             clearTimeout(feedbackTimer);
             feedbackTimer = null;
@@ -332,7 +333,6 @@
         feedbackTitle.textContent = title;
         feedbackMessage.textContent = message;
         feedbackIcon.textContent = icons[variant] || 'info';
-        feedback.hidden = false;
         if (feedbackLink) {
             // Acción opcional del aviso: lleva a resolver el bloqueo en vez de solo describirlo.
             feedbackLink.hidden = !options?.href;
@@ -341,6 +341,7 @@
                 feedbackLink.textContent = options.hrefLabel || 'Ver más';
             }
         }
+        feedback.hidden = false;
 
         const rect = feedback.getBoundingClientRect();
         const outOfView = rect.top < 0 || rect.bottom > window.innerHeight;
@@ -374,13 +375,13 @@
         hideFeedback();
         setDropdownVisible(false);
         actualizarProveedoresPorProductoContexto();
-    }
 
         // Teclado: elegir el producto lleva directo a Cantidad.
         if (inpCantidad) {
             inpCantidad.focus();
             inpCantidad.select();
         }
+    }
 
     function agregarProducto() {
         if (!productoSeleccionado) {
@@ -501,6 +502,7 @@
                         <span class="text-sm font-bold text-slate-900 dark:text-white">${esc(fila.nombre)}</span>
                         <span class="text-xs text-slate-500">${esc(fila.codigo)}</span>
                     </div>
+                    <input type="hidden" name="Detalles[${index}].Id" value="${fila.id || 0}" />
                     <input type="hidden" name="Detalles[${index}].ProductoId" value="${fila.productoId}" />
                     <input type="hidden" name="Detalles[${index}].ProductoNombre" value="${esc(fila.nombre)}" />
                     <input type="hidden" name="Detalles[${index}].ProductoCodigo" value="${esc(fila.codigo)}" />

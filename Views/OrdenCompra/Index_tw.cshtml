@@ -45,7 +45,7 @@
                     <span class="material-symbols-outlined text-primary text-[18px]">filter_alt</span>
                     <div>
                         <p class="text-xs font-bold uppercase tracking-[0.18em] text-primary">Filtros</p>
-                        <p class="text-sm text-slate-400">Buscá por nº de orden, proveedor, marca, producto, estado o rango de fechas.</p>
+                        <p class="text-sm text-slate-400">Buscá por orden, proveedor, marca, producto o fecha.</p>
                     </div>
                 </div>
                 <div class="flex shrink-0 items-center gap-2">
@@ -270,13 +270,26 @@
                                 </a>
                                 @if (permActualizarOC)
                                 {
-                                <button type="button" disabled
-                                        class="row-action row-action--disabled"
-                                        aria-label="Editar no disponible"
-                                        title="La edición de órdenes de compra todavía no está disponible">
-                                    <span class="material-symbols-outlined" aria-hidden="true">edit</span>
-                                    <span class="row-action__label">Editar</span>
-                                </button>
+                                    if (o.Estado == EstadoOrdenCompra.Borrador || o.Estado == EstadoOrdenCompra.Enviada)
+                                    {
+                                        <a asp-action="Edit" asp-route-id="@o.Id"
+                                           class="row-action row-action--primary no-underline"
+                                           aria-label="Editar orden"
+                                           title="Editar orden">
+                                            <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+                                            <span class="row-action__label">Editar</span>
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <button type="button" disabled
+                                                class="row-action row-action--disabled"
+                                                aria-label="Editar no disponible"
+                                                title="Solo se pueden editar órdenes en estado Borrador o Enviada">
+                                            <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+                                            <span class="row-action__label">Editar</span>
+                                        </button>
+                                    }
                                 }
                                 @if (permActualizarOC)
                                 {

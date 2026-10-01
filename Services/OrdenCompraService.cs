@@ -74,6 +74,19 @@ namespace TheBuryProject.Services
                 throw new InvalidOperationException($"Ya existe una orden con el número {ordenCompra.Numero}");
             }
 
+            await ValidarProveedorYProductosAsync(ordenCompra, "crear");
+
+            await CalcularTotalesAsync(ordenCompra);
+            _context.OrdenesCompra.Add(ordenCompra);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Orden de compra {Numero} creada exitosamente", ordenCompra.Numero);
+
+            return ordenCompra;
+        }
+
+        private async Task ValidarProveedorYProductosAsync(OrdenCompra ordenCompra, string accion)
+        {
             var proveedor = await _context.Proveedores
                 .Include(p => p.ProveedorProductos)
                 .FirstOrDefaultAsync(p => p.Id == ordenCompra.ProveedorId && !p.IsDeleted);
@@ -115,17 +128,9 @@ namespace TheBuryProject.Services
                         .ToList();
 
                     throw new InvalidOperationException(
-                        $"No se puede crear la orden. Productos no asociados al proveedor '{proveedor.RazonSocial}': {string.Join(", ", productosNoAsociados)}.");
+                        $"No se puede {accion} la orden. Productos no asociados al proveedor '{proveedor.RazonSocial}': {string.Join(", ", productosNoAsociados)}.");
                 }
             }
-
-            await CalcularTotalesAsync(ordenCompra);
-            _context.OrdenesCompra.Add(ordenCompra);
-            await _context.SaveChangesAsync();
-
-            _logger.LogInformation("Orden de compra {Numero} creada exitosamente", ordenCompra.Numero);
-
-            return ordenCompra;
         }
 
         public async Task<OrdenCompra> UpdateAsync(OrdenCompra ordenCompra)
@@ -139,6 +144,16 @@ namespace TheBuryProject.Services
                 throw new InvalidOperationException("La orden de compra no existe");
             }
 
+            if (ordenExistente.Estado != EstadoOrdenCompra.Borrador && ordenExistente.Estado != EstadoOrdenCompra.Enviada)
+            {
+                throw new InvalidOperationException("Solo se pueden editar órdenes en estado Borrador o Enviada");
+            }
+
+            if (ordenCompra.Detalles == null || ordenCompra.Detalles.Count == 0)
+            {
+                throw new InvalidOperationException("Debe agregar al menos un producto a la orden");
+            }
+
             _context.Entry(ordenExistente).Property(o => o.RowVersion).OriginalValue = ordenCompra.RowVersion;
 
             if (await NumeroOrdenExisteAsync(ordenCompra.Numero, ordenCompra.Id))
@@ -146,14 +161,13 @@ namespace TheBuryProject.Services
                 throw new InvalidOperationException($"Ya existe otra orden con el número {ordenCompra.Numero}");
             }
 
+            await ValidarProveedorYProductosAsync(ordenCompra, "guardar");
             await CalcularTotalesAsync(ordenCompra);
 
             ordenExistente.Numero = ordenCompra.Numero;
             ordenExistente.ProveedorId = ordenCompra.ProveedorId;
             ordenExistente.FechaEmision = ordenCompra.FechaEmision;
             ordenExistente.FechaEntregaEstimada = ordenCompra.FechaEntregaEstimada;
-            ordenExistente.FechaRecepcion = ordenCompra.FechaRecepcion;
-            ordenExistente.Estado = ordenCompra.Estado;
             ordenExistente.Subtotal = ordenCompra.Subtotal;
             ordenExistente.Descuento = ordenCompra.Descuento;
             ordenExistente.Iva = ordenCompra.Iva;
@@ -182,7 +196,6 @@ namespace TheBuryProject.Services
                     detalleExistente.Subtotal = detalleNuevo.Subtotal;
                     detalleExistente.PorcentajeIVA = detalleNuevo.PorcentajeIVA;
                     detalleExistente.IvaImporte = detalleNuevo.IvaImporte;
-                    detalleExistente.CantidadRecibida = detalleNuevo.CantidadRecibida;
                 }
                 else
                 {

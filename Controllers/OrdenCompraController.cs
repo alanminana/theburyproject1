@@ -69,7 +69,7 @@ namespace TheBuryProject.Controllers
                 // Cargar proveedores para el filtro
                 var proveedores = await _proveedorService.GetAllAsync();
                 ViewBag.Proveedores = new SelectList(proveedores, "Id", "RazonSocial", filter.ProveedorId);
-                var marcas = (await _marcaService.GetAllAsync()).Where(m => m.Activo).OrderBy(m => m.Nombre);
+                var marcas = (await _marcaService.GetAllAsync()).OrderBy(m => m.Nombre).Select(m => new { m.Id, Nombre = m.Activo ? m.Nombre : m.Nombre + " (inactiva)" });
                 ViewBag.Marcas = new SelectList(marcas, "Id", "Nombre", filter.MarcaId);
                 ViewBag.Estados = new SelectList(Enum.GetValues(typeof(EstadoOrdenCompra)));
                 ViewBag.Filter = filter;
@@ -216,20 +216,20 @@ namespace TheBuryProject.Controllers
                     return RedirectToAction(nameof(Index));
                 }
 
-                // No permitir editar �rdenes recibidas o canceladas
-                if (orden.Estado == EstadoOrdenCompra.Recibida || orden.Estado == EstadoOrdenCompra.Cancelada)
+                if (!EsEditable(orden.Estado))
                 {
-                    TempData["Error"] = "No se puede editar una orden recibida o cancelada";
+                    TempData["Error"] = "Solo se pueden editar órdenes en estado Borrador o Enviada";
                     return RedirectToAction(nameof(Details), new { id });
                 }
 
-                TempData["Error"] = "La edición de órdenes de compra todavía no está disponible.";
-                return RedirectToAction(nameof(Details), new { id });
+                var viewModel = _mapper.Map<OrdenCompraViewModel>(orden);
+                await CargarDatosSelectListsAsync(viewModel.ProveedorId);
+                return View("Create_tw", viewModel);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error al cargar la orden de compra {Id} para edici�n", id);
-                TempData["Error"] = "Error al cargar la orden para edici�n";
+                _logger.LogError(ex, "Error al cargar la orden de compra {Id} para edición", id);
+                TempData["Error"] = "Error al cargar la orden para edición";
                 return RedirectToAction(nameof(Index));
             }
         }
@@ -238,11 +238,52 @@ namespace TheBuryProject.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [PermisoRequerido(Modulo = ModuloCompras, Accion = AccionActualizar)]
-        public IActionResult Edit(int id, OrdenCompraViewModel viewModel)
+        public async Task<IActionResult> Edit(int id, OrdenCompraViewModel viewModel)
         {
-            TempData["Error"] = "La edición de órdenes de compra todavía no está disponible.";
-            return RedirectToAction(nameof(Details), new { id });
+            if (id != viewModel.Id)
+            {
+                TempData["Error"] = "Orden de compra no encontrada";
+                return RedirectToAction(nameof(Index));
+            }
+
+            try
+            {
+                if (!ModelState.IsValid)
+                {
+                    await CargarDatosSelectListsAsync(viewModel.ProveedorId);
+                    return View("Create_tw", viewModel);
+                }
+
+                if (viewModel.Detalles == null || !viewModel.Detalles.Any())
+                {
+                    ModelState.AddModelError("", "Debe agregar al menos un producto a la orden");
+                    await CargarDatosSelectListsAsync(viewModel.ProveedorId);
+                    return View("Create_tw", viewModel);
+                }
+
+                var orden = _mapper.Map<OrdenCompra>(viewModel);
+                await _ordenCompraService.UpdateAsync(orden);
+
+                TempData["Success"] = $"Orden de compra {orden.Numero} actualizada exitosamente";
+                return RedirectToAction(nameof(Details), new { id });
+            }
+            catch (InvalidOperationException ex)
+            {
+                ModelState.AddModelError("", ex.Message);
+                await CargarDatosSelectListsAsync(viewModel.ProveedorId);
+                return View("Create_tw", viewModel);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al actualizar la orden de compra {Id}", id);
+                ModelState.AddModelError("", "Error al actualizar la orden de compra");
+                await CargarDatosSelectListsAsync(viewModel.ProveedorId);
+                return View("Create_tw", viewModel);
+            }
         }
+
+        private static bool EsEditable(EstadoOrdenCompra estado) =>
+            estado == EstadoOrdenCompra.Borrador || estado == EstadoOrdenCompra.Enviada;
 
         // GET: OrdenCompra/Delete/5
         [PermisoRequerido(Modulo = ModuloCompras, Accion = AccionCancelar)]

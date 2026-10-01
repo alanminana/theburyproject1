@@ -2,7 +2,9 @@
 @using TheBuryProject.Models.Enums
 @using System.Text.Json
 @{
-    ViewData["Title"] = "Nueva Orden de Compra";
+    var esEdicion = Model != null && Model.Id > 0;
+    var tituloPagina = esEdicion ? $"Editar Orden {Model!.Numero}" : "Nueva Orden de Compra";
+    ViewData["Title"] = tituloPagina;
     var proveedores = ViewBag.Proveedores as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
     var jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     var productosJson = ViewBag.ProductosJson != null
@@ -15,6 +17,7 @@
         ? JsonSerializer.Serialize(
             Model.Detalles.Select(d => new
             {
+                d.Id,
                 d.ProductoId,
                 ProductoNombre = d.ProductoNombre ?? string.Empty,
                 ProductoCodigo = d.ProductoCodigo ?? string.Empty,
@@ -61,9 +64,9 @@
         <nav class="flex items-center gap-2 text-xs font-medium text-slate-400">
             <a asp-controller="OrdenCompra" asp-action="Index" class="hover:text-primary no-underline">Órdenes de Compra</a>
             <span class="material-symbols-outlined text-[14px]" aria-hidden="true">chevron_right</span>
-            <span class="text-slate-100">Nueva Orden</span>
+            <span class="text-slate-100">@(esEdicion ? $"Editar {Model!.Numero}" : "Nueva Orden")</span>
         </nav>
-        <h1 class="mt-1 text-lg font-bold tracking-tight text-white">Nueva Orden de Compra</h1>
+        <h1 class="mt-1 text-lg font-bold tracking-tight text-white">@tituloPagina</h1>
     </div>
     <div class="oc-head__actions">
         <a asp-action="Index" class="btn-erp-secondary btn-sm no-underline">
@@ -73,8 +76,13 @@
     </div>
 </div>
 
-<form asp-action="Create" method="post" id="form-orden">
+<form asp-action="@(esEdicion ? "Edit" : "Create")" asp-route-id="@(esEdicion ? Model!.Id : (int?)null)" method="post" id="form-orden">
     @Html.AntiForgeryToken()
+    @if (esEdicion)
+    {
+        <input type="hidden" asp-for="Id" />
+        <input type="hidden" asp-for="RowVersion" />
+    }
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <!-- Left Column: Form Details -->
@@ -117,13 +125,23 @@
                     </label>
                     <label class="flex flex-col gap-1.5">
                         <span class="text-slate-300 text-sm font-medium">Estado</span>
-                        <select asp-for="Estado"
-                                class="rounded-lg border border-slate-700 bg-slate-800 text-white h-10 px-3 focus:border-primary focus:ring-1 focus:ring-primary outline-none">
-                            <option value="@((int)EstadoOrdenCompra.Borrador)">Borrador</option>
-                            <option value="@((int)EstadoOrdenCompra.Enviada)">Enviada</option>
-                            <option value="@((int)EstadoOrdenCompra.Confirmada)">Confirmada</option>
-                            <option value="@((int)EstadoOrdenCompra.Cancelada)">Cancelada</option>
-                        </select>
+                        @if (esEdicion)
+                        {
+                            <input type="hidden" asp-for="Estado" />
+                            <input type="text" value="@OrdenCompraUiHelper.EstadoNombre(Model!.Estado)" readonly
+                                   title="El estado se avanza desde el listado o el detalle de la orden"
+                                   class="rounded-lg border border-slate-700 bg-slate-800 text-slate-500 cursor-not-allowed h-10 px-3 focus:ring-0" />
+                        }
+                        else
+                        {
+                            <select asp-for="Estado"
+                                    class="rounded-lg border border-slate-700 bg-slate-800 text-white h-10 px-3 focus:border-primary focus:ring-1 focus:ring-primary outline-none">
+                                <option value="@((int)EstadoOrdenCompra.Borrador)">Borrador</option>
+                                <option value="@((int)EstadoOrdenCompra.Enviada)">Enviada</option>
+                                <option value="@((int)EstadoOrdenCompra.Confirmada)">Confirmada</option>
+                                <option value="@((int)EstadoOrdenCompra.Cancelada)">Cancelada</option>
+                            </select>
+                        }
                     </label>
                     <label class="flex flex-col gap-1.5">
                         <span class="text-slate-300 text-sm font-medium">Observaciones</span>
@@ -145,6 +163,8 @@
                     <div class="min-w-0 flex-1">
                         <p class="text-sm font-bold leading-tight" data-feedback-title>Revisá este paso</p>
                         <p class="text-sm opacity-90" data-feedback-message></p>
+                        <a data-feedback-link href="#" hidden
+                           class="mt-1 inline-flex items-center gap-1 text-sm font-semibold text-primary no-underline hover:underline"></a>
                     </div>
                     <button type="button" class="ordencompra-feedback__dismiss" data-feedback-close aria-label="Cerrar mensaje">
                         <span class="material-symbols-outlined text-[18px]" aria-hidden="true">close</span>
@@ -163,8 +183,6 @@
                                    class="w-full rounded-lg border border-slate-700 bg-slate-900 text-white h-10 pl-10 pr-4 focus:border-primary focus:ring-1 focus:ring-primary outline-none"
                                    placeholder="Código o nombre..." autocomplete="off" />
                             <!-- Dropdown de resultados -->
-                        <a data-feedback-link href="#" hidden
-                           class="mt-1 inline-flex items-center gap-1 text-sm font-semibold text-primary no-underline hover:underline"></a>
                             <div id="dropdown-productos" role="listbox" class="absolute z-30 left-0 right-0 top-full mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-xl max-h-48 overflow-y-auto hidden"></div>
                         </div>
                     </label>
@@ -262,7 +280,7 @@
                     <button type="submit"
                             class="w-full bg-primary text-white font-bold h-11 rounded-xl shadow-lg shadow-primary/30 hover:bg-primary/90 transition-all flex items-center justify-center gap-2">
                         <span class="material-symbols-outlined text-[20px]" aria-hidden="true">save</span>
-                        Guardar Orden
+                        @(esEdicion ? "Guardar cambios" : "Guardar Orden")
                     </button>
                     <a asp-action="Index"
                        class="w-full py-2 text-center text-slate-400 font-medium hover:text-white transition-colors no-underline block">
