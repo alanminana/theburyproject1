@@ -76,13 +76,22 @@
 
     // Igual motivo que actualizarPasoCredito(): el checkbox sólo aplica a pagos sin
     // Crédito Personal (ConfirmarYFacturar del lado servidor rechaza esa combinación).
+    // La casilla viene tildada por defecto (ticket 14). Se recuerda la elección del
+    // operador: si la destilda, pasa por Crédito Personal (donde se fuerza a false) y
+    // vuelve a un pago sin crédito, debe seguir destildada. Sólo 'change' del usuario
+    // actualiza la preferencia; asignar .checked por código no dispara ese evento.
+    let facturarPreferencia = chkFacturar ? chkFacturar.checked : true;
+    chkFacturar?.addEventListener('change', () => {
+        facturarPreferencia = chkFacturar.checked;
+    });
+
     function actualizarOpcionFacturar() {
         if (!facturarOpcion) return;
         const disponible = !requiereCredito();
         facturarOpcion.hidden = !disponible;
         facturarOpcion.classList.toggle('hidden', !disponible);
-        if (!disponible && chkFacturar) {
-            chkFacturar.checked = false;
+        if (chkFacturar) {
+            chkFacturar.checked = disponible && facturarPreferencia;
         }
     }
 
