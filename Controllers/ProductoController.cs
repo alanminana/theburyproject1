@@ -254,6 +254,7 @@ namespace TheBuryProject.Controllers
                     otrosCostosCompra = vm.OtrosCostosCompra,
                     precioVenta = vm.PrecioVenta,
                     porcentajeIVA = vm.PorcentajeIVA,
+                    porcentajeIVACompra = vm.PorcentajeIVACompra,
                     alicuotaIVAId = vm.AlicuotaIVAId,
                     comisionPorcentaje = vm.ComisionPorcentaje,
                     maxCuotasSinInteresPermitidas = vm.MaxCuotasSinInteresPermitidas,

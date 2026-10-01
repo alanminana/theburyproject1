@@ -456,6 +456,40 @@ public class ProductoServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Update_GuardaPorcentajeIVACompra_YNoLoPisaCuandoNoSeEnvia()
+    {
+        var producto = await SeedProductoAsync();
+
+        async Task<Producto> Editar(decimal? ivaCompra)
+        {
+            _context.ChangeTracker.Clear();
+            var actual = await _context.Productos.AsNoTracking().FirstAsync(p => p.Id == producto.Id);
+            await _service.UpdateAsync(new Producto
+            {
+                Id = producto.Id,
+                Codigo = producto.Codigo,
+                Nombre = producto.Nombre,
+                CategoriaId = producto.CategoriaId,
+                MarcaId = producto.MarcaId,
+                PrecioCompra = producto.PrecioCompra,
+                PrecioVenta = producto.PrecioVenta,
+                StockMinimo = producto.StockMinimo,
+                Activo = true,
+                PorcentajeIVACompra = ivaCompra,
+                RowVersion = actual.RowVersion
+            });
+            _context.ChangeTracker.Clear();
+            return await _context.Productos.AsNoTracking().FirstAsync(p => p.Id == producto.Id);
+        }
+
+        Assert.Null((await Editar(null)).PorcentajeIVACompra);
+        Assert.Equal(10.5m, (await Editar(10.5m)).PorcentajeIVACompra);
+        // Un flujo que no envía la alícuota (página Edit huérfana) no debe borrarla.
+        Assert.Equal(10.5m, (await Editar(null)).PorcentajeIVACompra);
+        Assert.Equal(0m, (await Editar(0m)).PorcentajeIVACompra);
+    }
+
+    [Fact]
     public async Task Update_NoResetea_RequiereNumeroSerie()
     {
         var (cat, marca) = await SeedCategoriaMarcaAsync();

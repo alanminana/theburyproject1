@@ -426,6 +426,9 @@ namespace TheBuryProject.Services
                 existing.OtrosCostosCompra = producto.OtrosCostosCompra;
                 existing.PrecioVenta = producto.PrecioVenta;
                 existing.PorcentajeIVA = producto.PorcentajeIVA;
+                // Los flujos que no envían la alícuota de compra (página Edit huérfana) no deben borrarla.
+                if (producto.PorcentajeIVACompra.HasValue)
+                    existing.PorcentajeIVACompra = producto.PorcentajeIVACompra;
                 existing.AlicuotaIVAId = producto.AlicuotaIVAId;
                 existing.ComisionPorcentaje = producto.ComisionPorcentaje;
                 existing.MaxCuotasSinInteresPermitidas = producto.MaxCuotasSinInteresPermitidas;

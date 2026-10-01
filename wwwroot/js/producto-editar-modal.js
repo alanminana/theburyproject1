@@ -67,10 +67,12 @@
         el('prod-edit-percepcionesCompra').value  = percepciones;
         el('prod-edit-otrosCostosCompra').value   = otrosCostos;
         el('prod-edit-precioCompra').value = compraConIva.toFixed(2);
-        // La alícuota de compra no se persiste (solo desglosa Compra sin IVA/IVA compra): se
-        // reinicia en cada apertura para no arrastrar la del producto abierto antes.
+        // Alícuota de compra informada por el proveedor; si el producto no la tiene, 21%.
         var ivaCompraEl = el('prod-edit-porcentajeIVACompra');
-        if (ivaCompraEl) ivaCompraEl.value = '21';
+        if (ivaCompraEl) {
+            ivaCompraEl.value = data.porcentajeIVACompra != null ? String(Number(data.porcentajeIVACompra)) : '21';
+            if (!ivaCompraEl.value) ivaCompraEl.value = '21';
+        }
         // precioVenta ya es el precio final de venta con IVA incluido.
         el('prod-edit-precioFinal').value  = data.precioVenta || 0;
         el('prod-edit-comisionPorcentaje').value = data.comisionPorcentaje || 0;

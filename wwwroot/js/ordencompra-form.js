@@ -206,7 +206,7 @@
         renderProveedorOptions(proveedoresPermitidos, '');
 
         if (!proveedoresPermitidos.size) {
-            showFeedback('Ningún proveedor tiene asociado este producto, por eso la lista de proveedores está vacía. Asocialo desde Proveedores (Editar proveedor) o quitá el producto para elegir otro proveedor.', {
+            showFeedback('Ningún proveedor tiene este producto asociado. Asocialo desde Proveedores → Editar, o quitalo de la orden.', {
                 variant: 'warning',
                 title: 'Sin proveedores asociados',
                 sticky: true

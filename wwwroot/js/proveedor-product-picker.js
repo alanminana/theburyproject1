@@ -141,6 +141,8 @@ const ProveedorProductPicker = (() => {
                 hiddenEl.appendChild(input);
             });
             if (countEl) countEl.textContent = selectedIds.size;
+            const labelEl = containerEl.querySelector('.picker-count-label');
+            if (labelEl) labelEl.textContent = selectedIds.size === 1 ? 'producto seleccionado' : 'productos seleccionados';
         }
 
         function getSelectedProducts() {
@@ -175,14 +177,34 @@ const ProveedorProductPicker = (() => {
         function marcarAsociacionesDelProducto(product) {
             const form = containerEl.closest('form');
             if (!form) return;
+            const agregadas = [];
             [['MarcasSeleccionadas', product.marcaId], ['CategoriasSeleccionadas', product.categoriaId]].forEach(([name, id]) => {
                 if (!id) return;
                 const checkbox = form.querySelector(`input[type="checkbox"][name="${name}"][value="${id}"]`);
                 if (checkbox && !checkbox.checked) {
                     checkbox.checked = true;
                     checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+                    agregadas.push(name === 'MarcasSeleccionadas' ? `la marca ${product.marca}` : `la categoría ${product.categoria}`);
                 }
             });
+            mostrarAvisoAsociaciones(agregadas);
+        }
+
+        // Los tildes automáticos se anuncian: sin aviso el usuario no sabe que cambió algo fuera del picker.
+        function mostrarAvisoAsociaciones(agregadas) {
+            let note = containerEl.querySelector('.picker-auto-note');
+            if (!agregadas.length) {
+                if (note) note.textContent = '';
+                return;
+            }
+            if (!note) {
+                note = document.createElement('p');
+                note.className = 'picker-auto-note mt-2 text-xs text-primary';
+                note.setAttribute('role', 'status');
+                note.setAttribute('aria-live', 'polite');
+                chipsEl.insertAdjacentElement('afterend', note);
+            }
+            note.textContent = `También se marcó ${agregadas.join(' y ')} más abajo; podés destildar lo que no corresponda.`;
         }
 
         function selectProduct(product) {
@@ -255,11 +277,13 @@ const ProveedorProductPicker = (() => {
         containerEl._picker = {
             preload(ids) {
                 selectedIds = new Set((ids || []).map(Number).filter(n => !isNaN(n)));
+                mostrarAvisoAsociaciones([]);
                 renderChips();
                 syncHiddenInputs();
             },
             reset() {
                 selectedIds = new Set();
+                mostrarAvisoAsociaciones([]);
                 renderChips();
                 syncHiddenInputs();
                 searchInput.value = '';
