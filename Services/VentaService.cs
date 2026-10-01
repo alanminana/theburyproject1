@@ -1372,6 +1372,7 @@ namespace TheBuryProject.Services
             var venta = await _context.Ventas
                 .Include(v => v.Facturas)
                 .Include(v => v.Envio)
+                .Include(v => v.Detalles)
                 .FirstOrDefaultAsync(v => v.Id == id && !v.IsDeleted);
 
             if (venta == null)
@@ -1396,6 +1397,7 @@ namespace TheBuryProject.Services
 
             venta.Estado = EstadoVenta.Facturada;
             venta.FechaFacturacion = DateTime.UtcNow;
+            await CompletarComisionesFaltantesAsync(venta);
 
             await _context.SaveChangesAsync();
 
@@ -3339,10 +3341,42 @@ namespace TheBuryProject.Services
                 var baseComision = detalle.SubtotalFinal > 0m ? detalle.SubtotalFinal : detalle.Subtotal;
 
                 detalle.ComisionPorcentajeAplicada = porcentaje;
-                detalle.ComisionMonto = Math.Round(
-                    baseComision * porcentaje / 100m,
-                    2,
-                    MidpointRounding.AwayFromZero);
+                detalle.ComisionMonto = VentaComisionCalculator.Calcular(baseComision, porcentaje);
+            }
+        }
+
+        /// <summary>
+        /// Al facturar: completa la comisión de las líneas que llegaron en cero (venta nacida por un camino
+        /// que no la calcula, p. ej. conversión de cotización anterior a este fix, o producto sin comisión al
+        /// momento de crearla). Nunca pisa una comisión ya calculada: es un snapshot del momento de la venta.
+        /// </summary>
+        private async Task CompletarComisionesFaltantesAsync(Venta venta)
+        {
+            var pendientes = venta.Detalles
+                .Where(d => !d.IsDeleted && d.ComisionPorcentajeAplicada == 0m && d.ComisionMonto == 0m)
+                .ToList();
+            if (pendientes.Count == 0)
+            {
+                return;
+            }
+
+            var productoIds = pendientes.Select(d => d.ProductoId).Distinct().ToList();
+            var comisionesPorProductoId = await _context.Productos
+                .AsNoTracking()
+                .Where(p => productoIds.Contains(p.Id) && !p.IsDeleted && p.ComisionPorcentaje > 0m)
+                .Select(p => new { p.Id, p.ComisionPorcentaje })
+                .ToDictionaryAsync(p => p.Id, p => p.ComisionPorcentaje);
+
+            foreach (var detalle in pendientes)
+            {
+                if (!comisionesPorProductoId.TryGetValue(detalle.ProductoId, out var porcentaje))
+                {
+                    continue;
+                }
+
+                var baseComision = detalle.SubtotalFinal > 0m ? detalle.SubtotalFinal : detalle.Subtotal;
+                detalle.ComisionPorcentajeAplicada = porcentaje;
+                detalle.ComisionMonto = VentaComisionCalculator.Calcular(baseComision, porcentaje);
             }
         }
 

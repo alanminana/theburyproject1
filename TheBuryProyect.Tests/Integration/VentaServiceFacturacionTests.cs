@@ -222,6 +222,52 @@ public class VentaServiceFacturacionTests : IDisposable
         return venta;
     }
 
+    private async Task<Producto> SeedProductoConComisionAsync(decimal porcentaje)
+    {
+        var codigo = Guid.NewGuid().ToString("N")[..8];
+        var categoria = new Categoria { Codigo = codigo, Nombre = "Cat-" + codigo, Activo = true };
+        var marca = new Marca { Codigo = codigo, Nombre = "Marca-" + codigo, Activo = true };
+        _context.Categorias.Add(categoria);
+        _context.Marcas.Add(marca);
+        await _context.SaveChangesAsync();
+
+        var producto = new Producto
+        {
+            Codigo = codigo,
+            Nombre = "Prod-" + codigo,
+            CategoriaId = categoria.Id,
+            MarcaId = marca.Id,
+            PrecioCompra = 10m,
+            PrecioVenta = 15m,
+            PorcentajeIVA = 21m,
+            ComisionPorcentaje = porcentaje,
+            Activo = true
+        };
+        _context.Productos.Add(producto);
+        await _context.SaveChangesAsync();
+        return producto;
+    }
+
+    private async Task<VentaDetalle> SeedLineaAsync(
+        int ventaId, int productoId, decimal subtotalFinal,
+        decimal comisionPorcentaje = 0m, decimal comisionMonto = 0m)
+    {
+        var detalle = new VentaDetalle
+        {
+            VentaId = ventaId,
+            ProductoId = productoId,
+            Cantidad = 1,
+            PrecioUnitario = subtotalFinal,
+            Subtotal = subtotalFinal,
+            SubtotalFinal = subtotalFinal,
+            ComisionPorcentajeAplicada = comisionPorcentaje,
+            ComisionMonto = comisionMonto
+        };
+        _context.VentaDetalles.Add(detalle);
+        await _context.SaveChangesAsync();
+        return detalle;
+    }
+
     private async Task<Factura> SeedFactura(int ventaId, bool anulada = false)
     {
         var suffix = Interlocked.Increment(ref _counter).ToString();
@@ -306,6 +352,34 @@ public class VentaServiceFacturacionTests : IDisposable
         Assert.NotNull(actualizada);
         Assert.Equal(EstadoVenta.Facturada, actualizada!.Estado);
         Assert.NotNull(actualizada.FechaFacturacion);
+    }
+
+    [Fact]
+    public async Task Facturar_CompletaComisionDeLineasQueLlegaronEnCero()
+    {
+        var venta = await SeedVentaConfirmada(subtotal: 2_000m, total: 2_000m);
+        var producto = await SeedProductoConComisionAsync(porcentaje: 3m);
+        var linea = await SeedLineaAsync(venta.Id, producto.Id, subtotalFinal: 2_000m);
+
+        await _service.FacturarVentaAsync(venta.Id, new FacturaViewModel { Tipo = TipoFactura.B, FechaEmision = DateTime.UtcNow });
+
+        var actualizada = await _context.VentaDetalles.AsNoTracking().FirstAsync(d => d.Id == linea.Id);
+        Assert.Equal(3m, actualizada.ComisionPorcentajeAplicada);
+        Assert.Equal(60m, actualizada.ComisionMonto);
+    }
+
+    [Fact]
+    public async Task Facturar_NoPisaUnaComisionYaCalculada()
+    {
+        var venta = await SeedVentaConfirmada(subtotal: 2_000m, total: 2_000m);
+        var producto = await SeedProductoConComisionAsync(porcentaje: 3m);
+        var linea = await SeedLineaAsync(venta.Id, producto.Id, subtotalFinal: 2_000m, comisionPorcentaje: 1m, comisionMonto: 20m);
+
+        await _service.FacturarVentaAsync(venta.Id, new FacturaViewModel { Tipo = TipoFactura.B, FechaEmision = DateTime.UtcNow });
+
+        var actualizada = await _context.VentaDetalles.AsNoTracking().FirstAsync(d => d.Id == linea.Id);
+        Assert.Equal(1m, actualizada.ComisionPorcentajeAplicada);
+        Assert.Equal(20m, actualizada.ComisionMonto);
     }
 
     [Fact]

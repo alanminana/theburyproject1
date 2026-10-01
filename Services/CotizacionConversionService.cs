@@ -1025,6 +1025,10 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
                 SubtotalFinalNeto = subtotalNeto,
                 SubtotalFinalIVA = subtotalIva,
                 SubtotalFinal = subtotal,
+                // Misma fórmula y fuente (Producto.ComisionPorcentaje) que Venta/Create, para que el
+                // reporte de comisiones vea esta venta (ticket 9).
+                ComisionPorcentajeAplicada = producto?.ComisionPorcentaje ?? 0m,
+                ComisionMonto = VentaComisionCalculator.Calcular(subtotal, producto?.ComisionPorcentaje ?? 0m),
                 CostoUnitarioAlMomento = 0m,
                 CostoTotalAlMomento = 0m,
                 // Armado congelado en la cotización (precio global de ese momento, por unidad).
