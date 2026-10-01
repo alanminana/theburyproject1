@@ -632,7 +632,7 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
             // se resuelven acá contra la configuración vigente y se guardan con el mismo método que usa
             // el wizard (GuardarDatosTarjetaAsync). Si no se pueden resolver, la venta queda creada para
             // completarlos en el wizard y se avisa.
-            if (tipoPago is TipoPago.TarjetaCredito or TipoPago.TarjetaDebito)
+            if (tipoPago is TipoPago.TarjetaCredito or TipoPago.TarjetaDebito or TipoPago.MercadoPago)
             {
                 var avisoTarjeta = await AplicarDatosTarjetaDesdeCotizacionAsync(venta, cotizacionEnTx, tipoPago, cancellationToken);
                 if (avisoTarjeta != null)
@@ -811,6 +811,9 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
     {
         const string avisoWizard = "No se pudo completar automáticamente la tarjeta y el plan de pago de la cotización. Completá los datos de tarjeta en el wizard antes de confirmar.";
 
+        if (tipoPago == TipoPago.MercadoPago)
+            return await AplicarDatosMercadoPagoDesdeCotizacionAsync(venta, cotizacion, avisoWizard, cancellationToken);
+
         var nombreTarjeta = cotizacion.PlanSeleccionado?.Split('·')[0].Trim();
         if (string.IsNullOrWhiteSpace(nombreTarjeta) || !cotizacion.CantidadCuotasSeleccionada.HasValue)
             return avisoWizard;
@@ -854,6 +857,44 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
         catch (InvalidOperationException ex)
         {
             _logger.LogWarning(ex, "No se pudieron guardar los datos de tarjeta de la cotización {Numero}", cotizacion.Numero);
+            return avisoWizard;
+        }
+    }
+
+    // MercadoPago no tiene tarjeta configurada: el wizard guarda "Mercado Pago" / Débito y, sólo si el
+    // medio tiene planes globales activos, el plan de un pago (o de las cuotas cotizadas). Si hay planes
+    // activos y ninguno coincide, GuardarDatosTarjetaAsync lo rechaza y la venta queda para el wizard.
+    private async Task<string?> AplicarDatosMercadoPagoDesdeCotizacionAsync(
+        Venta venta,
+        Cotizacion cotizacion,
+        string avisoWizard,
+        CancellationToken cancellationToken)
+    {
+        var cuotas = cotizacion.CantidadCuotasSeleccionada ?? 1;
+
+        var plan = await _context.ConfiguracionPagoPlanes
+            .AsNoTracking()
+            .Where(p => !p.IsDeleted && p.Activo && p.TipoPago == TipoPago.MercadoPago
+                && p.ConfiguracionTarjetaId == null && p.CantidadCuotas == cuotas
+                && p.ConfiguracionPago.Activo && !p.ConfiguracionPago.IsDeleted)
+            .OrderBy(p => p.Orden)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        try
+        {
+            var guardado = await _ventaService.GuardarDatosTarjetaAsync(venta.Id, new DatosTarjetaViewModel
+            {
+                VentaId = venta.Id,
+                NombreTarjeta = "Mercado Pago",
+                TipoTarjeta = TipoTarjeta.Debito,
+                ConfiguracionPagoPlanId = plan?.Id,
+                CantidadCuotas = plan?.CantidadCuotas
+            });
+            return guardado ? null : avisoWizard;
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "No se pudieron guardar los datos de MercadoPago de la cotización {Numero}", cotizacion.Numero);
             return avisoWizard;
         }
     }

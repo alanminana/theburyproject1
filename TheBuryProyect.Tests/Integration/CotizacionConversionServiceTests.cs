@@ -1762,6 +1762,43 @@ public sealed class CotizacionConversionServiceTests : IDisposable
         Assert.Equal(resultado.VentaId, guardado.VentaId);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Convertir_MercadoPago_GuardaDatosDelMedioYElPlanDeUnPagoSiExiste(bool conPlan)
+    {
+        var medio = new ConfiguracionPago { TipoPago = TipoPago.MercadoPago, Nombre = "Mercado Pago", Activo = true };
+        _context.ConfiguracionesPago.Add(medio);
+        await _context.SaveChangesAsync();
+        var plan = new ConfiguracionPagoPlan { ConfiguracionPagoId = medio.Id, TipoPago = TipoPago.MercadoPago, CantidadCuotas = 1, AjustePorcentaje = 5m, Activo = true };
+        if (conPlan)
+            _context.ConfiguracionPagoPlanes.Add(plan);
+
+        var cotizacion = CotizacionEmitida(conCliente: true);
+        cotizacion.MedioPagoSeleccionado = CotizacionMedioPagoTipo.MercadoPago;
+        _context.Cotizaciones.Add(cotizacion);
+        await _context.SaveChangesAsync();
+
+        var ventaServiceStub = new StubVentaServiceConfirmarFacturar();
+        var service = BuildServiceParaConfirmarFacturar(
+            new StubCurrentUserServiceConversion(tienePermisoAutorizar: false, tienePermisoActualizar: true),
+            ventaServiceStub);
+
+        var resultado = await service.ConvertirAVentaAsync(
+            cotizacion.Id,
+            new CotizacionConversionRequest { UsarPrecioCotizado = true, ConfirmarAdvertencias = true },
+            "carlos");
+
+        Assert.True(resultado.Exitoso);
+        var guardado = Assert.Single(ventaServiceStub.DatosTarjetaGuardados);
+        Assert.Equal("Mercado Pago", guardado.NombreTarjeta);
+        Assert.Equal(TipoTarjeta.Debito, guardado.TipoTarjeta);
+        Assert.Null(guardado.ConfiguracionTarjetaId);
+        Assert.Equal(conPlan ? plan.Id : null, guardado.ConfiguracionPagoPlanId);
+        Assert.Equal(resultado.VentaId, guardado.VentaId);
+        Assert.DoesNotContain(resultado.Advertencias, a => a.Contains("wizard", StringComparison.OrdinalIgnoreCase));
+    }
+
     [Fact]
     public async Task Convertir_TarjetaCredito_SinPlanResoluble_AvisaYDejaLaVentaCreada()
     {
