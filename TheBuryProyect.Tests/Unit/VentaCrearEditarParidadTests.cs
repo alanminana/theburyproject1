@@ -252,6 +252,19 @@ public class VentaCrearEditarParidadTests
         Assert.Contains("Guardar sin confirmar", partial);
     }
 
+    [Fact]
+    public void FacturarAlConfirmar_VienePorDefectoTildado_YElJsRecuerdaLaEleccionDelOperador()
+    {
+        var partial = ReadPartial();
+        var js = File.ReadAllText(Path.Combine(FindRepoRoot(), "wwwroot", "js", "venta-page-wizard.js"));
+
+        // Ticket 14: tildado por defecto; el modal de tipo de factura sigue siendo el paso de control.
+        Assert.Matches(@"<input type=""checkbox"" id=""chk-facturar""[^>]*\schecked\s*/>", partial);
+        Assert.Contains("chkFacturar.checked = disponible && facturarPreferencia;", js);
+        Assert.Contains("facturarPreferencia = chkFacturar.checked;", js);
+        Assert.Contains("chkFacturar?.checked && submitterAction === 'confirmar' && modalConfirmarFacturar", js);
+    }
+
     // ── Helpers ─────────────────────────────────────────────────────────
 
     private static string[] ScriptOrden(string body, string[] known)

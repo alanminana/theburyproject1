@@ -287,6 +287,10 @@ test('Edit: carga, modificación, guardado y matriz responsive/zoom', async ({ p
     await setGlobalTipoPago(page, TIPO_PAGO.Efectivo);
     await ensureVendedorSeleccionado(page);
     await page.locator('#step-btn-revision').click();
+    // "Facturar al confirmar" viene tildado por defecto (ticket 14) y abriría el modal de tipo
+    // de factura; este recorrido valida el guardado/confirmación sin facturar.
+    const chkFacturar = page.locator('#chk-facturar');
+    if (await chkFacturar.count() && await chkFacturar.isChecked()) await chkFacturar.uncheck();
     await page.locator('#btn-confirmar').click();
     await page.waitForURL(/\/Venta\/Details\/\d+/, { timeout: 20_000 });
     await capture(page, 'edit-saved');

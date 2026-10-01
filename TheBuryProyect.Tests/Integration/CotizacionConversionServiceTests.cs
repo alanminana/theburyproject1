@@ -659,6 +659,30 @@ public sealed class CotizacionConversionServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Convertir_AplicaComisionDelProductoEnCadaLinea()
+    {
+        var producto = await _context.Productos.FindAsync(_producto.Id);
+        producto!.ComisionPorcentaje = 2.5m;
+        await _context.SaveChangesAsync();
+
+        var cotizacion = CotizacionEmitida(conCliente: true);
+        _context.Cotizaciones.Add(cotizacion);
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.ConvertirAVentaAsync(cotizacion.Id, RequestDefault(), "carlos");
+
+        Assert.True(resultado.Exitoso);
+        var detalles = await _context.VentaDetalles.Where(d => d.VentaId == resultado.VentaId).ToListAsync();
+        Assert.NotEmpty(detalles);
+        Assert.All(detalles, d =>
+        {
+            Assert.Equal(2.5m, d.ComisionPorcentajeAplicada);
+            Assert.Equal(Math.Round(d.SubtotalFinal * 2.5m / 100m, 2, MidpointRounding.AwayFromZero), d.ComisionMonto);
+            Assert.True(d.ComisionMonto > 0m);
+        });
+    }
+
+    [Fact]
     public async Task Convertir_CopiaDetallesDesdeSnapshot()
     {
         var cotizacion = CotizacionEmitida(conCliente: true, precioSnapshot: 200m);

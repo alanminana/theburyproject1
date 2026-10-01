@@ -54,11 +54,22 @@ async function crearVentaBorrador(page) {
     return id;
 }
 
+async function desmarcarFacturarAlConfirmar(page) {
+    const chk = page.locator('#chk-facturar');
+    if (await chk.count() && await chk.isChecked()) {
+        await chk.uncheck();
+    }
+}
+
 test('Venta/Edit "Confirmar venta" envía accionConfirmacion y la venta queda confirmada', async ({ page }) => {
     const id = await crearVentaBorrador(page);
 
     await page.goto(`/Venta/Edit/${id}`, { waitUntil: 'domcontentloaded' });
     await page.locator('[data-step="revision"]').click();
+
+    // "Facturar al confirmar" viene tildado por defecto (ticket 14) y abre el modal de tipo de
+    // factura en vez de enviar. Este test protege el contrato de "confirmar SIN facturar".
+    await desmarcarFacturarAlConfirmar(page);
 
     const postRequest = page.waitForRequest((req) =>
         req.url().includes(`/Venta/Edit/${id}`) && req.method() === 'POST');
@@ -79,4 +90,27 @@ test('Venta/Edit "Confirmar venta" envía accionConfirmacion y la venta queda co
     // ni de descontar stock una segunda vez por este camino.
     await page.goto(`/Venta/Edit/${id}`, { waitUntil: 'domcontentloaded' });
     await page.waitForURL(/\/Venta\/Details\/\d+/, { timeout: 10_000 });
+});
+
+test('Venta/Edit "Facturar al confirmar" viene tildado y "Confirmar venta" abre el modal sin enviar', async ({ page }) => {
+    const id = await crearVentaBorrador(page);
+
+    await page.goto(`/Venta/Edit/${id}`, { waitUntil: 'domcontentloaded' });
+    await page.locator('[data-step="revision"]').click();
+
+    const chk = page.locator('#chk-facturar');
+    test.skip(!(await chk.count()), 'El usuario de QA no tiene permiso de facturación.');
+    await expect(chk).toBeChecked();
+
+    let huboPost = false;
+    page.on('request', (req) => {
+        if (req.url().includes(`/Venta/Edit/${id}`) && req.method() === 'POST') huboPost = true;
+    });
+
+    await page.locator('#btn-confirmar').click();
+
+    // El modal de tipo de factura es el paso de control: la venta NO se confirma todavía.
+    await expect(page.locator('#modal-confirmar-facturar')).toBeVisible({ timeout: 5_000 });
+    await page.waitForTimeout(500);
+    expect(huboPost).toBe(false);
 });
