@@ -189,21 +189,26 @@ namespace TheBuryProject.Tests.E2ESeeding
                 await db.SaveChangesAsync();
             }
 
-            // Caja abierta para "administrador" (usuario E2E de este spec): Venta/Create rechaza
-            // todo el flujo con la pantalla "Sin caja abierta" si no hay una AperturaCaja vigente —
-            // DbInitializer no siembra ninguna (mismo gap ya documentado en el cierre de PUN-ML9-F).
-            // Idempotente: no abre una segunda caja si ya existe una abierta con este marcador.
-            var marcadorCaja = $"{MarcadorApellido}-CAJA";
-            var cajaAbierta = await db.Cajas.FirstOrDefaultAsync(c => c.Codigo == marcadorCaja && c.Estado == EstadoCaja.Abierta);
-            if (cajaAbierta == null)
+            // Caja abierta para "administrador" y para "cajero" (usuarios E2E de estos specs):
+            // Venta/Create rechaza todo el flujo con la pantalla "Sin caja abierta" si no hay una
+            // AperturaCaja vigente, y el cobro de cuotas/pago múltiple se imputa a la caja abierta
+            // de quien cobra (los specs de cobro entran como "cajero"). DbInitializer no siembra
+            // ninguna (mismo gap ya documentado en el cierre de PUN-ML9-F).
+            // Idempotente: no abre una segunda caja si ya existe una abierta con ese marcador.
+            foreach (var (sufijoCaja, usuarioCaja) in new[] { ("CAJA", "administrador"), ("CAJA-CAJERO", "cajero") })
             {
+                var marcadorCaja = $"{MarcadorApellido}-{sufijoCaja}";
+                var cajaAbierta = await db.Cajas.FirstOrDefaultAsync(c => c.Codigo == marcadorCaja && c.Estado == EstadoCaja.Abierta);
+                if (cajaAbierta != null)
+                    continue;
+
                 var caja = await db.Cajas.FirstOrDefaultAsync(c => c.Codigo == marcadorCaja);
                 if (caja == null)
                 {
                     caja = new Caja
                     {
                         Codigo = marcadorCaja,
-                        Nombre = "Caja Seed E2E PUN-ML10-G",
+                        Nombre = $"Caja Seed E2E PUN-ML10-G ({usuarioCaja})",
                         Activa = true,
                         Estado = EstadoCaja.Abierta
                     };
@@ -220,7 +225,7 @@ namespace TheBuryProject.Tests.E2ESeeding
                     CajaId = caja.Id,
                     FechaApertura = ahora,
                     MontoInicial = 10000m,
-                    UsuarioApertura = "administrador",
+                    UsuarioApertura = usuarioCaja,
                     ObservacionesApertura = $"Seed E2E {MarcadorApellido} ({sufijo})",
                     Cerrada = false
                 });

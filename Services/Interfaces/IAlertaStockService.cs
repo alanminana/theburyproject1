@@ -52,6 +52,12 @@ namespace TheBuryProject.Services.Interfaces
         Task<bool> IgnorarAlertaAsync(int id, string usuarioResolucion, string? observaciones = null, byte[]? rowVersion = null);
 
         /// <summary>
+        /// Marca una alerta pendiente como "en proceso": deja de contar como urgente/crítica
+        /// sin resolverla ni ignorarla, para poder retomarla más tarde.
+        /// </summary>
+        Task<bool> MarcarEnProcesoAsync(int id, string usuario, string? observaciones = null, byte[]? rowVersion = null);
+
+        /// <summary>
         /// Obtiene estad�sticas de alertas de stock
         /// </summary>
         Task<AlertaStockEstadisticasViewModel> GetEstadisticasAsync();
@@ -59,7 +65,7 @@ namespace TheBuryProject.Services.Interfaces
         /// <summary>
         /// Obtiene alertas por producto
         /// </summary>
-        Task<List<AlertaStock>> GetAlertasByProductoIdAsync(int productoId);
+        Task<List<AlertaStockViewModel>> GetAlertasByProductoIdAsync(int productoId);
 
         /// <summary>
         /// Verifica y genera alerta para un producto espec�fico

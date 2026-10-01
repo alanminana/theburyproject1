@@ -8,6 +8,14 @@ html {
   }
 }
 
+/* Laptops 1280x720 / 1366x768: base 14px escala toda la UI (Tailwind y sidebar en rem)
+   y devuelve ancho y alto útiles al contenido. */
+@media (min-width: 1024px) and (max-width: 1399px) {
+  html {
+    font-size: 14px;
+  }
+}
+
 /* Pantallas medianas con scaling 125% (ej: notebook 15" 1920x1080 al 125% → ~1536px efectivos).
    Reducimos la base tipográfica para que el layout no se vea apretado. */
 @media (min-width: 1400px) and (max-width: 1700px) {

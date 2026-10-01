@@ -17,6 +17,9 @@ namespace TheBuryProject.ViewModels.Requests
         public int? TarjetaId { get; set; }
 
         public int? ConfiguracionPagoPlanId { get; set; }
+
+        /// <summary>Envío opcional (Ciudad/Rural). Null = sin envío. El importe sale del precio global.</summary>
+        public TipoServicioVenta? TipoEnvio { get; set; }
     }
 
     public class DetalleCalculoVentaRequest
@@ -39,5 +42,11 @@ namespace TheBuryProject.ViewModels.Requests
 
         // Legacy pago por item: se conserva por compatibilidad de contrato, no como fuente principal.
         public int? ProductoCondicionPagoPlanId { get; set; }
+
+        /// <summary>Armado opcional de la línea (Armado N.º 1..6). Se cobra por unidad.</summary>
+        public TipoServicioVenta? TipoArmado { get; set; }
+
+        /// <summary>Producto entregado en caja cerrada: sin armado ni costo.</summary>
+        public bool EntregaCajaCerrada { get; set; }
     }
 }

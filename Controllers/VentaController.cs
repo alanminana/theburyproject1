@@ -80,6 +80,29 @@ namespace TheBuryProject.Controllers
                 : $"{apertura.Caja?.Nombre ?? "Caja"} · abierta el {TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(apertura.FechaApertura, DateTimeKind.Utc), _reloj.ZonaComercial):dd/MM/yyyy}";
         }
 
+        /// <summary>
+        /// Estado real de las cajas para decidir qué acción ofrece el aviso "caja requerida":
+        /// crear una caja, ver las existentes o abrir una disponible. Mismo criterio que "Abrir caja"
+        /// (activa, sin turno abierto y, para no supervisores, dentro de su padrón).
+        /// </summary>
+        private async Task<CajaDisponibilidad> ResolverDisponibilidadCajasAsync()
+        {
+            var cajas = await _cajaService.ObtenerTodasCajasAsync();
+            var aperturas = await _cajaService.ObtenerAperturasAbiertasAsync();
+
+            IReadOnlyCollection<int>? padron = null;
+            var esSupervisor = _currentUser.IsInRole(Roles.SuperAdmin) || _currentUser.IsInRole(Roles.Administrador);
+            if (!esSupervisor)
+            {
+                var cajaVendedor = HttpContext?.RequestServices?.GetService<ICajaVendedorService>();
+                padron = cajaVendedor == null
+                    ? Array.Empty<int>()
+                    : (await cajaVendedor.ObtenerCajaIdsDeUsuarioAsync(_currentUser.GetUserId())).ToHashSet();
+            }
+
+            return CajaDisponibilidad.Resolver(cajas, aperturas, padron, usuarioTieneTurno: false);
+        }
+
         private async Task<IActionResult?> RedirigirSiCajaCerradaAsync(string mensaje, string actionName, object? routeValues = null)
         {
             if (await UsuarioTieneCajaAbiertaAsync())
@@ -159,6 +182,7 @@ namespace TheBuryProject.Controllers
                 if (aperturaActiva == null)
                 {
                     ViewBag.TurnoVencido = await ObtenerTurnoVencidoDescripcionAsync(userName);
+                    ViewBag.CajaDisponibilidad = await ResolverDisponibilidadCajasAsync();
                 }
 
                 // Cargar datos del formulario de creación solo cuando hay caja abierta
@@ -279,9 +303,9 @@ namespace TheBuryProject.Controllers
                     Subtotal = venta.Subtotal,
                     IVA = venta.IVA,
                     Total = venta.TotalFacturable,
-                    ImporteEnvio = venta.ImporteEnvio,
+                    ImporteEnvio = venta.ImporteEnvioFueraDelTotal,
                     TotalACobrar = venta.TotalACobrar,
-                    ResumenAlicuotas = FacturaAlicuotaResumenBuilder.Build(venta.Detalles)
+                    ResumenAlicuotas = FacturaAlicuotaResumenBuilder.Build(venta.Detalles, venta.ImporteEnvioIncluido)
                 };
                 ViewBag.TiposFactura = new SelectList(Enum.GetValues(typeof(TipoFactura)));
                 ViewBag.FacturaViewModel = facturaViewModel;
@@ -939,6 +963,7 @@ namespace TheBuryProject.Controllers
         // POST: Venta/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "ventas", Accion = "delete")]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
             try
@@ -1003,6 +1028,7 @@ namespace TheBuryProject.Controllers
         // POST: Venta/Confirmar/5
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "ventas", Accion = "create")]
         public async Task<IActionResult> Confirmar(
             int id,
             bool aplicarExcepcionDocumental = false,
@@ -1366,7 +1392,7 @@ namespace TheBuryProject.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [PermisoRequerido(Modulo = ModuloVentas, Accion = AccionActualizar)]
-        public async Task<IActionResult> CambiarEstadoEnvio(int id, EstadoEnvio estado, string? motivo)
+        public async Task<IActionResult> CambiarEstadoEnvio(int id, EstadoEnvio estado, string? motivo, string? volverA = null)
         {
             try
             {
@@ -1397,7 +1423,7 @@ namespace TheBuryProject.Controllers
                 TempData["Error"] = "Error al actualizar el estado del envío: " + ex.Message;
             }
 
-            return RedirectToAction(nameof(Details), new { id });
+            return RedirectToAction(nameof(Details), new { id, volverA = volverA == "envios" ? volverA : null });
         }
 
         #endregion
@@ -1578,9 +1604,9 @@ namespace TheBuryProject.Controllers
                     Subtotal = venta.Subtotal,
                     IVA = venta.IVA,
                     Total = venta.TotalFacturable,
-                    ImporteEnvio = venta.ImporteEnvio,
+                    ImporteEnvio = venta.ImporteEnvioFueraDelTotal,
                     TotalACobrar = venta.TotalACobrar,
-                    ResumenAlicuotas = FacturaAlicuotaResumenBuilder.Build(venta.Detalles)
+                    ResumenAlicuotas = FacturaAlicuotaResumenBuilder.Build(venta.Detalles, venta.ImporteEnvioIncluido)
                 };
 
                 ViewBag.Venta = venta;
@@ -1785,6 +1811,8 @@ namespace TheBuryProject.Controllers
                     .ThenInclude(v => v.Cliente)
                 .Include(f => f.Venta)
                     .ThenInclude(v => v.DatosTarjeta)
+                .Include(f => f.Venta)
+                    .ThenInclude(v => v.Envio)
                 .Include(f => f.Venta)
                     .ThenInclude(v => v.Detalles.Where(d => !d.IsDeleted))
                     .ThenInclude(d => d.Producto)

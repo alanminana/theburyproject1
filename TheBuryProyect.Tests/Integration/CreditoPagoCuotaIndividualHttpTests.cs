@@ -358,7 +358,7 @@ public sealed class CreditoPagoCuotaIndividualHttpTests : IClassFixture<CustomWe
                 Caja = caja,
                 CajaId = caja.Id,
                 MontoInicial = 0m,
-                UsuarioApertura = "integration",
+                UsuarioApertura = "testuser",
                 Cerrada = false,
                 IsDeleted = false
             });

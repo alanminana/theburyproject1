@@ -84,6 +84,22 @@ namespace TheBuryProject.ViewModels
         [DisplayFormat(DataFormatString = "{0:C2}")]
         public decimal CostoUnitarioAlMomento { get; set; }
 
+        /// <summary>Armado opcional de la línea (Armado N.º 1..6). Null = sin armado.</summary>
+        [Display(Name = "Armado")]
+        public TipoServicioVenta? TipoArmado { get; set; }
+
+        /// <summary>El producto se entrega en caja cerrada, sin armar: no suma ningún costo de armado.</summary>
+        [Display(Name = "Caja cerrada / sin armado")]
+        public bool EntregaCajaCerrada { get; set; }
+
+        /// <summary>Snapshot del precio global del armado (lo fija el servidor, nunca el cliente).</summary>
+        public decimal ArmadoPrecioUnitario { get; set; }
+
+        /// <summary>ArmadoPrecioUnitario × Cantidad.</summary>
+        public decimal ArmadoSubtotal { get; set; }
+
+        public string? ArmadoDisplay => TipoArmado?.NombreVisible();
+
         [Display(Name = "Costo Total al Momento")]
         [DisplayFormat(DataFormatString = "{0:C2}")]
         public decimal CostoTotalAlMomento { get; set; }

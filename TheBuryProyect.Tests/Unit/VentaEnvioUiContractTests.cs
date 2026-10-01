@@ -32,7 +32,7 @@ public class VentaEnvioUiContractTests
     {
         var js = LeerJs("cotizacion-simulador.js");
         Assert.Contains("#cotizacion-tiene-envio", js);
-        Assert.Contains("tieneEnvio: els.tieneEnvio?.checked", js);
+        Assert.Contains("tieneEnvio: hayEnvioGuardado()", js);
     }
 
     // -------------------------------------------------------------------------
@@ -149,33 +149,50 @@ public class VentaEnvioUiContractTests
     }
 
     [Fact]
-    public void VentaWizard_RevisionSeparaProductosEnvioYTotalACobrar_SinDecirInformativo()
+    public void VentaWizard_RevisionDesglosaProductosArmadosEnvioYRecargo()
     {
         var view = LeerVista("Venta", "_VentaWizardForm.cshtml");
-        Assert.Contains("data-rev-envio-lines", view);
+        Assert.Contains("data-rev-desglose", view);
         Assert.Contains("data-rev-total-productos", view);
-        Assert.Contains("data-rev-envio", view);
+        Assert.Contains("data-rev-armados-row", view);
+        Assert.Contains("data-rev-armados-lista", view);
+        Assert.Contains("data-rev-envio-row", view);
+        Assert.Contains("data-rev-recargo-row", view);
         Assert.Contains("data-rev-total-label", view);
-        Assert.Contains("data-mobile-total-label", view);
-        // Crédito Personal: el envío no se financia (ver VentaMontos / Details).
-        Assert.Contains("data-rev-envio-credito-nota", view);
+        Assert.DoesNotContain("data-rev-envio-lines", view);
+        Assert.DoesNotContain("data-rev-envio-credito-nota", view);
         Assert.DoesNotContain("Costo de envío (informativo)", view);
-        Assert.DoesNotContain("costo es sólo informativo", view);
     }
 
     [Fact]
-    public void VentaPageWizardJs_SumaElEnvioAlTotalSinPisarLaFuenteNumerica()
+    public void VentaWizard_EnvioSeEligePorTipoConPrecioGlobal_SinCostoLibre()
+    {
+        var view = LeerVista("Venta", "_VentaWizardForm.cshtml");
+        Assert.Contains("name=\"Envio.TipoEnvio\"", view);
+        Assert.Contains("id=\"envio-tipo\"", view);
+        Assert.Contains("id=\"venta-servicios-json\"", view);
+        Assert.DoesNotContain("name=\"Envio.CostoEnvio\"", view);
+        Assert.DoesNotContain("id=\"envio-costo\"", view);
+    }
+
+    [Fact]
+    public void VentaPageWizardJs_DesglosaConLosImportesDelBackend_SinSumarElEnvioEnElCliente()
     {
         var js = LeerJs("venta-page-wizard.js");
-        Assert.Contains("leerImporteEnvio", js);
-        Assert.Contains("venta:envio-toggle", js);
-        Assert.Contains("data-rev-envio-credito-nota", js);
-        // #total-final (data-side-total) es la fuente de la suma: nunca debe recibir el total con envío.
+        Assert.Contains("venta:totales", js);
+        Assert.Contains("renderDesglose", js);
+        Assert.DoesNotContain("leerImporteEnvio", js);
+        // El total ya incluye envío, armados y recargo: viene del backend, no se suma acá.
         Assert.Contains("setText('[data-side-total]', totalProductos)", js);
         Assert.Contains("setText('[data-rev-total], [data-mobile-total]', total)", js);
 
         var create = LeerJs("venta-create.js");
-        Assert.Contains("totalFinal.dataset.valor", create);
+        Assert.Contains("tipoEnvio: leerTipoEnvioSeleccionado()", create);
+        Assert.Contains("tipoArmado: d.tipoArmado ?? null", create);
+        Assert.Contains("entregaCajaCerrada", create);
+        Assert.Contains("Detalles[${i}].TipoArmado", create);
+        Assert.Contains("Detalles[${i}].EntregaCajaCerrada", create);
+        Assert.Contains("data-armado-select", create);
     }
 
     [Fact]
@@ -187,8 +204,28 @@ public class VentaEnvioUiContractTests
         Assert.DoesNotContain("Informativo: no modifica el total de la venta", view);
 
         var js = LeerJs("cotizacion-simulador.js");
-        Assert.Contains("costoEnvio: importeEnvioActual() > 0 ? importeEnvioActual() : null", js);
-        Assert.Contains("cotizacion-confirmar-total-a-cobrar", js);
+        // VENTA-SERVICIOS-01: el cliente manda sólo el tipo (Ciudad/Rural) y el armado por línea; el
+        // importe lo fija el servidor y ya está dentro del total (no viaja ni se suma en el navegador).
+        Assert.Contains("tipoEnvio: hayEnvioGuardado()", js);
+        Assert.Contains("tipoArmado: p.tipoArmado || null", js);
+        Assert.DoesNotContain("costoEnvio:", js);
+        Assert.Contains("id=\"cotizacion-seg-armados\"", view);
+        Assert.Contains("id=\"cotizacion-envio-tipo\"", view);
+        Assert.DoesNotContain("id=\"cotizacion-envio-costo\"", view);
+    }
+
+    // Edit de una venta con tarjeta: el preview del wizard debe llevar el mismo recargo que el total
+    // guardado, así que la tarjeta y el plan persistidos se rehidratan al abrir la edición.
+    [Fact]
+    public void VentaEdit_RehidrataTarjetaYPlanGuardados()
+    {
+        var view = LeerVista("Venta", "_VentaWizardForm.cshtml");
+        Assert.Contains("selected=\"@(Model.DatosTarjeta?.ConfiguracionTarjetaId?.ToString() == t.Value)\"", view);
+        Assert.Contains("value=\"@(Model.DatosTarjeta?.ConfiguracionPagoPlanId)\"", view);
+
+        var js = LeerJs("venta-create.js");
+        Assert.Contains("let planGuardadoPendiente = hdnConfiguracionPagoPlanId?.value || '';", js);
+        Assert.Contains("buscarPlan(planGuardadoPendiente)", js);
     }
 
     [Fact]

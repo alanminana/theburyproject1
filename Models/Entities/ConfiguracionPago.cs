@@ -30,8 +30,15 @@ namespace TheBuryProject.Models.Entities
         public bool TieneRecargo { get; set; } = false;
         public decimal? PorcentajeRecargo { get; set; }
 
+        /// <summary>
+        /// Si es true, el ajuste del medio (recargo/descuento del plan general de 1 cuota) también se
+        /// aplica al cobrar cuotas de crédito y moras/punitorios con este medio. Si es false, esos
+        /// cobros se hacen al valor de la cuota, sin recargo ni descuento. No afecta a las ventas.
+        /// </summary>
+        public bool AplicaAjusteEnCobroCuotas { get; set; } = true;
+
         // Crédito personal - defaults globales
-        
+
         /// <summary>
         /// Porcentaje de recargo TOTAL único global de Crédito Personal (no una tasa mensual
         /// ni compuesta: se aplica una sola vez sobre el saldo financiado). El nombre de la

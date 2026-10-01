@@ -73,8 +73,9 @@ file sealed class StubAlertaStockTrazab : IAlertaStockService
     public Task<AlertaStockViewModel?> GetByIdAsync(int id) => throw new NotImplementedException();
     public Task<bool> ResolverAlertaAsync(int id, string usuarioResolucion, string? observaciones = null, byte[]? rowVersion = null) => throw new NotImplementedException();
     public Task<bool> IgnorarAlertaAsync(int id, string usuarioResolucion, string? observaciones = null, byte[]? rowVersion = null) => throw new NotImplementedException();
+    public Task<bool> MarcarEnProcesoAsync(int id, string usuario, string? observaciones = null, byte[]? rowVersion = null) => throw new NotImplementedException();
     public Task<AlertaStockEstadisticasViewModel> GetEstadisticasAsync() => throw new NotImplementedException();
-    public Task<List<AlertaStock>> GetAlertasByProductoIdAsync(int productoId) => throw new NotImplementedException();
+    public Task<List<AlertaStockViewModel>> GetAlertasByProductoIdAsync(int productoId) => throw new NotImplementedException();
     public Task<AlertaStock?> VerificarYGenerarAlertaAsync(int productoId) => throw new NotImplementedException();
     public Task<int> LimpiarAlertasAntiguasAsync(int diasAntiguedad = 30, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<List<ProductoCriticoViewModel>> GetProductosCriticosAsync() => throw new NotImplementedException();
@@ -679,7 +680,7 @@ public class VentaServiceProductoUnidadTrazabilidadTests : IDisposable
     private VentaViewModel BuildVentaVM(Venta venta, List<VentaDetalleViewModel> detalles)
         => new VentaViewModel
         {
-            ClienteId = venta.ClienteId,
+            ClienteId = venta.ClienteId!.Value,
             Estado = venta.Estado,
             TipoPago = venta.TipoPago,
             RowVersion = venta.RowVersion ?? new byte[8],

@@ -48,6 +48,17 @@ public sealed class CotizacionService : ICotizacionService
                 throw new InvalidOperationException("El cliente seleccionado no existe o esta eliminado.");
         }
 
+        // El envío es un servicio con precio global fijado por su tipo (Ciudad/Rural): tildar "envío" sin
+        // tipo, o mandar un tipo sin tildarlo, es un pedido inconsistente y no se adivina.
+        if (request.TieneEnvio && request.Simulacion.TipoEnvio is null)
+            throw new InvalidOperationException("Seleccioná el tipo de envío (Ciudad o Rural).");
+        if (!request.TieneEnvio && request.Simulacion.TipoEnvio is not null)
+            throw new InvalidOperationException("Se indicó un tipo de envío pero la cotización no tiene envío.");
+
+        var dniLibre = VentaContactoLibre.NormalizarDni(request.DniClienteLibre);
+        if (dniLibre?.Length > 8)
+            throw new InvalidOperationException("El DNI debe tener como máximo 8 dígitos.");
+
         var simulacion = await _calculator.SimularAsync(request.Simulacion, cancellationToken);
         if (!simulacion.Exitoso)
         {
@@ -63,6 +74,7 @@ public sealed class CotizacionService : ICotizacionService
             Estado = EstadoCotizacion.Emitida,
             ClienteId = request.Simulacion.ClienteId,
             NombreClienteLibre = NormalizarTexto(request.NombreClienteLibre ?? request.Simulacion.NombreClienteLibre, 200),
+            DniClienteLibre = dniLibre,
             TelefonoClienteLibre = NormalizarTexto(request.TelefonoClienteLibre, 30),
             Observaciones = NormalizarTexto(request.Observaciones, 1000),
             Subtotal = simulacion.Subtotal,
@@ -78,10 +90,12 @@ public sealed class CotizacionService : ICotizacionService
             Anticipo = seleccion?.Plan?.Anticipo ?? 0m,
             FechaVencimiento = request.FechaVencimiento,
             TieneEnvio = request.TieneEnvio,
-            // Sólo se guarda el importe si hay envío y es > 0 (null/negativo = sin cargo).
-            CostoEnvio = request.TieneEnvio && VentaMontos.NormalizarImporteEnvio(request.CostoEnvio) > 0m
-                ? VentaMontos.NormalizarImporteEnvio(request.CostoEnvio)
-                : null,
+            // Envío y armados ya vienen resueltos por el calculador (precios globales) y están dentro
+            // de TotalBase y de los totales de cada opción de pago.
+            TipoEnvio = request.TieneEnvio ? simulacion.TipoEnvio : null,
+            CostoEnvio = request.TieneEnvio && simulacion.ImporteEnvio > 0m ? simulacion.ImporteEnvio : null,
+            ImporteArmados = simulacion.TotalArmados,
+            EnvioIncluidoEnTotal = true,
             CreatedBy = string.IsNullOrWhiteSpace(usuario) ? "System" : usuario.Trim()
         };
 
@@ -97,7 +111,12 @@ public sealed class CotizacionService : ICotizacionService
                 PrecioUnitarioSnapshot = producto.PrecioUnitario,
                 DescuentoPorcentajeSnapshot = original?.DescuentoPorcentaje,
                 DescuentoImporteSnapshot = original?.DescuentoImporte,
-                Subtotal = producto.Subtotal
+                Subtotal = producto.Subtotal,
+                TipoArmado = producto.TipoArmado,
+                EntregaCajaCerrada = producto.EntregaCajaCerrada,
+                ArmadoPrecioUnitario = producto.ArmadoPrecioUnitario,
+                ArmadoSubtotal = producto.ArmadoSubtotal,
+                ProductoUnidadId = producto.ProductoUnidadId
             });
         }
 
@@ -148,6 +167,7 @@ public sealed class CotizacionService : ICotizacionService
             .AsNoTracking()
             .Include(c => c.Cliente)
             .Include(c => c.Detalles.Where(d => !d.IsDeleted))
+                .ThenInclude(d => d.ProductoUnidad)
             .Include(c => c.OpcionesPago.Where(o => !o.IsDeleted))
             .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted, cancellationToken);
 
@@ -454,6 +474,7 @@ public sealed class CotizacionService : ICotizacionService
             ClienteId = cotizacion.ClienteId,
             ClienteNombre = clienteNombre,
             NombreClienteLibre = cotizacion.NombreClienteLibre,
+            DniClienteLibre = cotizacion.DniClienteLibre,
             TelefonoClienteLibre = cotizacion.TelefonoClienteLibre,
             Observaciones = cotizacion.Observaciones,
             Subtotal = cotizacion.Subtotal,
@@ -468,9 +489,10 @@ public sealed class CotizacionService : ICotizacionService
             FechaVencimiento = cotizacion.FechaVencimiento,
             TieneEnvio = cotizacion.TieneEnvio,
             ImporteEnvio = cotizacion.ImporteEnvio,
-            TotalACobrar = VentaMontos.CalcularTotalACobrar(
-                cotizacion.TotalSeleccionado ?? cotizacion.TotalBase,
-                cotizacion.ImporteEnvio),
+            TotalACobrar = cotizacion.TotalACobrar,
+            TipoEnvio = cotizacion.TipoEnvio,
+            ImporteArmados = cotizacion.ImporteArmados,
+            EnvioIncluidoEnTotal = cotizacion.EnvioIncluidoEnTotal,
             MotivoCancelacion = cotizacion.MotivoCancelacion,
             VentaConvertidaId = ventaConvertidaId,
             NumeroVentaConvertida = numeroVentaConvertida,
@@ -485,7 +507,17 @@ public sealed class CotizacionService : ICotizacionService
                     PrecioUnitarioSnapshot = d.PrecioUnitarioSnapshot,
                     DescuentoPorcentajeSnapshot = d.DescuentoPorcentajeSnapshot,
                     DescuentoImporteSnapshot = d.DescuentoImporteSnapshot,
-                    Subtotal = d.Subtotal
+                    Subtotal = d.Subtotal,
+                    TipoArmado = d.TipoArmado,
+                    EntregaCajaCerrada = d.EntregaCajaCerrada,
+                    ArmadoPrecioUnitario = d.ArmadoPrecioUnitario,
+                    ArmadoSubtotal = d.ArmadoSubtotal,
+                    ProductoUnidadId = d.ProductoUnidadId,
+                    ProductoUnidadEtiqueta = d.ProductoUnidad == null
+                        ? null
+                        : string.IsNullOrWhiteSpace(d.ProductoUnidad.NumeroSerie)
+                            ? d.ProductoUnidad.CodigoInternoUnidad
+                            : $"{d.ProductoUnidad.CodigoInternoUnidad} · NS {d.ProductoUnidad.NumeroSerie}"
                 })
                 .ToList(),
             OpcionesPago = cotizacion.OpcionesPago

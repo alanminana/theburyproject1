@@ -295,7 +295,7 @@ namespace TheBuryProject.Services
                 if (alerta == null)
                     return false;
 
-                if (alerta.Estado != EstadoAlerta.Pendiente)
+                if (alerta.Estado != EstadoAlerta.Pendiente && alerta.Estado != EstadoAlerta.EnProceso)
                     return true; // idempotente
 
                 if (rowVersion is null || rowVersion.Length == 0)
@@ -338,7 +338,7 @@ namespace TheBuryProject.Services
                 if (alerta == null)
                     return false;
 
-                if (alerta.Estado != EstadoAlerta.Pendiente)
+                if (alerta.Estado != EstadoAlerta.Pendiente && alerta.Estado != EstadoAlerta.EnProceso)
                     return true; // idempotente
 
                 if (rowVersion is null || rowVersion.Length == 0)
@@ -369,6 +369,53 @@ namespace TheBuryProject.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al ignorar alerta {AlertaId}", id);
+                throw;
+            }
+        }
+
+        public async Task<bool> MarcarEnProcesoAsync(int id, string usuario, string? observaciones = null, byte[]? rowVersion = null)
+        {
+            try
+            {
+                var alerta = await _context.AlertasStock.FirstOrDefaultAsync(a => a.Id == id && !a.IsDeleted);
+                if (alerta == null)
+                    return false;
+
+                if (alerta.Estado != EstadoAlerta.Pendiente)
+                    return true; // idempotente: ya está en proceso, resuelta o ignorada
+
+                if (rowVersion is null || rowVersion.Length == 0)
+                    throw new InvalidOperationException("Falta información de concurrencia (RowVersion). Recargá la alerta e intentá nuevamente.");
+
+                _context.Entry(alerta).Property(a => a.RowVersion).OriginalValue = rowVersion;
+
+                // No es una resolución: deja Estado/Observaciones abiertos para poder
+                // resolver o ignorar más tarde, pero deja de contar como urgente (ver
+                // ContarPorEstadoAsync y GetProductosCriticosAsync, que solo miran
+                // NotificacionUrgente/Estado == Pendiente).
+                alerta.Estado = EstadoAlerta.EnProceso;
+                alerta.NotificacionUrgente = false;
+                if (!string.IsNullOrWhiteSpace(observaciones))
+                    alerta.Observaciones = observaciones;
+
+                try
+                {
+                    await _context.SaveChangesAsync();
+                }
+                catch (DbUpdateConcurrencyException)
+                {
+                    throw new InvalidOperationException("La alerta fue modificada por otro usuario. Recargá los datos e intentá nuevamente.");
+                }
+
+                _logger.LogInformation(
+                    "Alerta {AlertaId} marcada en proceso por {Usuario}",
+                    id, usuario);
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al marcar en proceso la alerta {AlertaId}", id);
                 throw;
             }
         }
@@ -604,14 +651,17 @@ namespace TheBuryProject.Services
             return estadisticas;
         }
 
-        public async Task<List<AlertaStock>> GetAlertasByProductoIdAsync(int productoId)
+        public async Task<List<AlertaStockViewModel>> GetAlertasByProductoIdAsync(int productoId)
         {
-            return await _context.AlertasStock
+            var alertas = await _context.AlertasStock
                 .AsNoTracking()
-                .Include(a => a.Producto)
+                .Include(a => a.Producto).ThenInclude(p => p!.Categoria)
+                .Include(a => a.Producto).ThenInclude(p => p!.Marca)
                 .Where(a => !a.IsDeleted && a.ProductoId == productoId && a.Producto != null && !a.Producto.IsDeleted)
                 .OrderByDescending(a => a.FechaAlerta)
                 .ToListAsync();
+
+            return alertas.Select(MapToViewModel).ToList();
         }
 
         #endregion

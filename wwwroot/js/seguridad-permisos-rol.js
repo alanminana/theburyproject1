@@ -27,6 +27,15 @@
     const emptyFilterState = $('permissionsEmptyFilterState');
     const copyPermissionsContainer = $('copyPermissionsContainer');
 
+    const matrixForm = $('permissionsMatrixForm');
+    const saveBar = $('permissionsSaveBar');
+    const saveButton = $('permissionsSave');
+    const discardButton = $('permissionsDiscard');
+    const dirtyText = $('permissionsDirtyText');
+    const loadMatrixButton = $('loadMatrixButton');
+
+    let saving = false;
+
     seguridad.bindEscapeToState(state);
 
     // ── Contadores ────────────────────────────────────────────────
@@ -41,6 +50,31 @@
             const badge = group.querySelector('.permission-group-selected');
             if (badge) badge.textContent = selected;
         });
+
+        updateDirtyState();
+    }
+
+    // ── Cambios sin guardar ───────────────────────────────────────
+    // defaultChecked es el estado que vino del servidor: dirty = lo tildado difiere de lo guardado.
+    function getChangedCount() {
+        return Array.from(document.querySelectorAll('.permission-checkbox'))
+            .filter(checkbox => checkbox.checked !== checkbox.defaultChecked).length;
+    }
+
+    function isDirty() {
+        return !saving && getChangedCount() > 0;
+    }
+
+    function updateDirtyState() {
+        const changed = getChangedCount();
+        if (saveBar) saveBar.dataset.dirty = changed > 0 ? 'true' : 'false';
+        if (saveButton) saveButton.disabled = changed === 0;
+        if (discardButton) discardButton.disabled = changed === 0;
+        if (dirtyText) {
+            dirtyText.textContent = changed === 0
+                ? 'Sin cambios sin guardar'
+                : `${changed} ${changed === 1 ? 'cambio sin guardar' : 'cambios sin guardar'}`;
+        }
     }
 
     // ── Filtros (búsqueda + grupo) ────────────────────────────────
@@ -92,22 +126,6 @@
     }
 
     // ── Copiar permisos (modal) ───────────────────────────────────
-    function applyRoleActionLayout() {
-        const wrapper = $('permissionsRoleActions');
-        const buttons = Array.from(document.querySelectorAll('.permissions-role-action'));
-        const isDesktop = window.matchMedia('(min-width: 640px)').matches;
-
-        if (wrapper) {
-            wrapper.style.width = isDesktop ? 'auto' : '100%';
-            wrapper.style.flexDirection = isDesktop ? 'row' : 'column';
-        }
-
-        buttons.forEach(button => {
-            button.style.width = isDesktop ? 'auto' : '100%';
-            button.style.justifyContent = 'center';
-        });
-    }
-
     function enhanceCopyPermissionsModalLayout() {
         const card = $('copyPermissionsCard');
         const form = $('formCopyPermissions');
@@ -193,8 +211,24 @@
     groupFilter?.addEventListener('change', applyFilters);
     clearFiltersButton?.addEventListener('click', clearFilters);
 
+    // Cambiar de rol recarga la matriz: si hay cambios sin guardar se pide confirmación y, si se cancela,
+    // el selector vuelve al rol que se está editando.
     roleSelect?.addEventListener('change', () => {
-        roleSelect.form?.requestSubmit();
+        if (!isDirty()) {
+            roleSelect.form?.requestSubmit();
+            return;
+        }
+
+        const changed = getChangedCount();
+        const targetRole = roleSelect.value;
+        roleSelect.value = roleSelect.dataset.current || '';
+        seguridad.confirmAction(
+            `Tenés ${changed} ${changed === 1 ? 'cambio sin guardar' : 'cambios sin guardar'}. Si cambiás de rol se descartan. ¿Continuar?`,
+            () => {
+                saving = true;
+                roleSelect.value = targetRole;
+                roleSelect.form?.requestSubmit();
+            });
     });
 
     document.querySelectorAll('.permission-checkbox').forEach(checkbox => {
@@ -233,11 +267,29 @@
         });
     });
 
+    discardButton?.addEventListener('click', () => {
+        document.querySelectorAll('.permission-checkbox').forEach(checkbox => {
+            checkbox.checked = checkbox.defaultChecked;
+        });
+        updateSelectedCount();
+    });
+
+    // Guardar no debe disparar el aviso de "cambios sin guardar" al navegar.
+    matrixForm?.addEventListener('submit', () => { saving = true; });
+
+    window.addEventListener('beforeunload', event => {
+        if (!isDirty()) return;
+        event.preventDefault();
+        event.returnValue = '';
+    });
+
+    // Con JS, elegir el rol ya carga la matriz: el botón "Cargar rol" es solo el fallback sin JS.
+    if (loadMatrixButton) loadMatrixButton.hidden = true;
+
     document.getElementById('btnCopyPermissions')?.addEventListener('click', event => {
         openCopyPermissionsModal(event.currentTarget);
     });
 
-    applyRoleActionLayout();
     applyFilters();
     updateSelectedCount();
 })();

@@ -239,13 +239,16 @@ namespace TheBuryProject.Services
             DateTime? fechaDesde = null,
             DateTime? fechaHasta = null,
             string? orderBy = null,
-            string? orderDirection = "asc")
+            string? orderDirection = "asc",
+            int? marcaId = null,
+            string? productoTerm = null)
         {
             var query = _context.OrdenesCompra
                 .AsNoTracking()
                 .Include(o => o.Proveedor)
                 .Include(o => o.Detalles.Where(d => !d.IsDeleted))
                     .ThenInclude(d => d.Producto)
+                        .ThenInclude(p => p!.Marca)
                 .AsSplitQuery()
                 .AsQueryable();
 
@@ -258,6 +261,16 @@ namespace TheBuryProject.Services
                     (o.Proveedor != null && o.Proveedor.RazonSocial.Contains(searchTerm)) ||
                     (o.Proveedor != null && o.Proveedor.NombreFantasia != null && o.Proveedor.NombreFantasia.Contains(searchTerm)) ||
                     (o.Observaciones != null && o.Observaciones.Contains(searchTerm)));
+            }
+
+            if (marcaId.HasValue)
+                query = query.Where(o => o.Detalles.Any(d => !d.IsDeleted && d.Producto != null && d.Producto.MarcaId == marcaId.Value));
+
+            if (!string.IsNullOrWhiteSpace(productoTerm))
+            {
+                var termino = productoTerm.Trim();
+                query = query.Where(o => o.Detalles.Any(d => !d.IsDeleted && d.Producto != null &&
+                    (d.Producto.Nombre.Contains(termino) || d.Producto.Codigo.Contains(termino))));
             }
 
             if (proveedorId.HasValue)

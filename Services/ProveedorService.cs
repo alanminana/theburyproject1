@@ -399,6 +399,8 @@ namespace TheBuryProject.Services
                     Id     = pp.ProductoId,
                     Codigo = pp.Producto!.Codigo,
                     Nombre = pp.Producto.Nombre,
+                    Marca  = pp.Producto.Marca != null ? pp.Producto.Marca.Nombre : null,
+                    Categoria = pp.Producto.Categoria != null ? pp.Producto.Categoria.Nombre : null,
                     Precio = pp.Producto.PrecioCompra,
                     Stock  = pp.Producto.StockActual,
                     Activo = pp.Producto.Activo

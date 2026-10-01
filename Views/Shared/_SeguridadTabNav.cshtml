@@ -1,0 +1,25 @@
+@* Navegación única de las pestañas de Seguridad: cada pestaña es una URL propia (navegación real), por eso
+   es <nav> con aria-current="page" y no un tablist. Se muestra solo lo que el usuario puede ver (mismo
+   criterio que SeguridadController.TabPermissions) para no ofrecer pestañas que redirigen a otra. *@
+@{
+    var activeTab = ViewData["SeguridadActiveTab"]?.ToString() ?? "usuarios";
+    var canUsuarios = User.TienePermiso("usuarios", "view");
+    var canRoles = User.TienePermiso("roles", "view");
+}
+
+<nav class="seg-tabs" aria-label="Secciones de Seguridad">
+    @if (canUsuarios)
+    {
+        <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="usuarios" class="seg-tab"
+           aria-current="@(activeTab == "usuarios" ? "page" : null)">Usuarios</a>
+    }
+    @if (canRoles)
+    {
+        <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="roles" class="seg-tab"
+           aria-current="@(activeTab == "roles" ? "page" : null)">Roles</a>
+        <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="permisos-rol" class="seg-tab"
+           aria-current="@(activeTab == "permisos-rol" ? "page" : null)">Permisos de Rol</a>
+        <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="auditoria" class="seg-tab"
+           aria-current="@(activeTab == "auditoria" ? "page" : null)">Auditoría</a>
+    }
+</nav>

@@ -79,7 +79,7 @@ sealed class FakeCajaServiceConLedger : ICajaService
     }
 
     public Task<decimal?> ObtenerUltimoEfectivoCierreAsync(int cajaId) => Task.FromResult<decimal?>(null);
-    public Task<AperturaCaja?> ObtenerAperturaActivaParaUsuarioAsync(string usuario) => throw new NotImplementedException();
+    public Task<AperturaCaja?> ObtenerAperturaActivaParaUsuarioAsync(string usuario) => ObtenerAperturaActivaParaVentaAsync();
     public Task<List<Caja>> ObtenerTodasCajasAsync() => throw new NotImplementedException();
     public Task<Caja?> ObtenerCajaPorIdAsync(int id) => throw new NotImplementedException();
     public Task<Caja> CrearCajaAsync(CajaViewModel model) => throw new NotImplementedException();

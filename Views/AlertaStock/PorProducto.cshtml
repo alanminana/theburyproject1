@@ -34,6 +34,12 @@
         </div>
     </div>
 
+    @if (TempData["Success"] != null)
+    {
+        <div class="rounded-xl border border-emerald-800 bg-emerald-900/20 px-4 py-3 text-sm text-emerald-400">
+            <span class="material-symbols-outlined text-base align-middle mr-1">check_circle</span>@TempData["Success"]
+        </div>
+    }
     @if (TempData["Error"] != null)
     {
         <div class="rounded-xl border border-red-800 bg-red-900/20 px-4 py-3 text-sm text-red-400">
@@ -110,13 +116,16 @@
                                         </a>
                                         @if (estaActiva)
                                         {
-                                            <form asp-action="Resolver" method="post" class="inline">
+                                            <form asp-action="Resolver" method="post" class="inline"
+                                                  data-alerta-confirm-note="Marcar esta alerta como resuelta?"
+                                                  data-alerta-note-placeholder="Observaciones (opcional)...">
                                                 @Html.AntiForgeryToken()
                                                 <input type="hidden" name="id" value="@a.Id" />
                                                 @if (a.RowVersion != null)
                                                 {
                                                     <input type="hidden" name="rowVersion" value="@Convert.ToBase64String(a.RowVersion)" />
                                                 }
+                                                <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
                                                 <button type="submit"
                                                         class="inline-flex items-center rounded-lg px-2 py-1 text-xs bg-emerald-900/40 text-emerald-400 hover:bg-emerald-900/60 transition-colors"
                                                         title="Resolver">
@@ -142,3 +151,7 @@
     </section>
 
 </div>
+
+@section Scripts {
+    <script src="~/js/alerta-stock-index.js" asp-append-version="true"></script>
+}

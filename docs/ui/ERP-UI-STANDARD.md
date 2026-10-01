@@ -68,6 +68,12 @@ Además:
 - mostrar affordance visual de contenido desplazable (fade lateral) cuando hay overflow;
 - mantener el foco visible (`:focus-visible`) en todo momento.
 
+Pestañas que son navegación real (una URL por pestaña, ej. `Seguridad`): `<nav aria-label>` con
+`aria-current="page"` (no `tablist`), siempre en la misma posición —primera fila del card, antes de
+filtros/toolbar— para que no salten al cambiar de pestaña. La acción primaria vive en la toolbar de la
+pestaña, nunca al final de la barra scrolleable (en mobile queda fuera de pantalla). Con overflow, se
+centra la pestaña activa y se atenúa el borde que todavía tiene pestañas ocultas.
+
 ## 6. Tablas y listados
 
 - Tabla real (`<table>`) con `<thead>`/`th scope="col"`, no divs simulando filas.
@@ -80,6 +86,13 @@ Además:
   la derecha (`position: sticky; right: 0`), para que ninguna acción quede fuera de vista ni dispare filas
   de 250px por botones apilados. Las columnas secundarias se fusionan bajo el título de la fila antes que
   agregar scroll horizontal (ver `Views/Ticket/Index_tw.cshtml`, `ticket-module.css`).
+- Contenedor angosto (tablet, desktop con sidebar): si la tabla no entra, no dejar columnas clave detrás de
+  la columna fija. Container query sobre el shell de la tabla: las columnas secundarias pasan a una línea de
+  la celda principal y las acciones se acomodan en 2 filas de botones de 2rem (ver `.seg-table` en
+  `seguridad-module.css`).
+- Las acciones por fila se resuelven por permiso de cada acción en el servidor (`User.TienePermiso`): un
+  botón visible que termina en 403 es un dead end. Sin permiso de escritura, la pantalla queda de solo
+  lectura con el motivo explicado, no con controles deshabilitados mudos.
 - Barra de selección masiva dentro de un card con `overflow: hidden` no puede ser `sticky` (el card pasa a
   ser el contenedor de scroll): usar `overflow: clip` en ese card para que el conteo siga a la vista al
   recorrer filas.
@@ -107,6 +120,11 @@ Además:
   ej. `@functions` en Razor) y reusar en ambas representaciones.
 - Acciones destructivas (cancelar, anular, eliminar) se diferencian visualmente (color de
   peligro) y se separan espacialmente de las acciones neutras.
+
+- Edición sobre una matriz larga (ej. permisos de rol): barra de guardado fija con conteo de cambios sin
+  guardar y "Descartar"; confirmar antes de cambiar de contexto (otro rol) y avisar al salir
+  (`beforeunload`). Guardar se deshabilita solo mientras no hay cambios, y el estado lo explica.
+- Acciones en lote que desactivan o bloquean cuentas piden confirmación con la cantidad afectada.
 
 **Estados**
 

@@ -716,7 +716,8 @@ namespace TheBuryProject.Services
                             v.AperturaCajaId,
                             v.VendedorUserId,
                             v.Total,
-                            CostoEnvio = v.Envio != null ? v.Envio.CostoEnvio : null,
+                            // Sólo el envío legacy va aparte de Total; el nuevo ya está dentro de Total.
+                            CostoEnvio = v.Envio != null && !v.Envio.IncluidoEnTotal ? v.Envio.CostoEnvio : null,
                             RecargoDebitoAplicado = v.DatosTarjeta != null
                                 ? v.DatosTarjeta.RecargoAplicado
                                 : null
@@ -850,13 +851,15 @@ namespace TheBuryProject.Services
         {
             try
             {
-                // Obtener apertura de caja activa
-                var apertura = await ObtenerAperturaActivaParaVentaAsync();
+                // El cobro se imputa a la caja abierta del usuario que cobra (mismo criterio que la
+                // venta). Antes caía en "la primera caja abierta del sistema": el dinero quedaba en
+                // la caja de otro usuario y el cobrador, sin caja asignada, no veía el pago.
+                var apertura = await ObtenerAperturaActivaParaUsuarioAsync(usuario);
                 if (apertura == null)
                 {
                     _logger.LogWarning(
-                        "No hay caja abierta para registrar cobro de cuota {CreditoNumero} #{NumeroCuota}",
-                        creditoNumero, numeroCuota);
+                        "El usuario {Usuario} no tiene caja abierta para registrar cobro de cuota {CreditoNumero} #{NumeroCuota}",
+                        usuario, creditoNumero, numeroCuota);
                     return null;
                 }
 
@@ -914,7 +917,7 @@ namespace TheBuryProject.Services
                 }
 
                 // Obtener apertura de caja activa
-                var apertura = await ObtenerAperturaActivaParaVentaAsync();
+                var apertura = await ObtenerAperturaActivaParaUsuarioAsync(usuario);
                 if (apertura == null)
                 {
                     _logger.LogWarning(
@@ -1070,8 +1073,7 @@ namespace TheBuryProject.Services
                     throw new InvalidOperationException("El monto del reembolso debe ser mayor a cero.");
                 }
 
-                var apertura = await ObtenerAperturaActivaParaUsuarioAsync(usuario)
-                    ?? await ObtenerAperturaActivaParaVentaAsync();
+                var apertura = await ObtenerAperturaActivaParaUsuarioAsync(usuario);
 
                 if (apertura == null)
                 {

@@ -140,12 +140,17 @@ public class VentaTurnoLineaViewModel
     public string MedioPago { get; set; } = string.Empty;
     public string MedioKey { get; set; } = "otro";
     /// <summary>
-    /// Total a cobrar de la venta = <see cref="TotalProductos"/> + <see cref="ImporteEnvio"/>
+    /// Total a cobrar: productos + armados + envío + ajuste/redondeo.
     /// (<c>Venta.TotalACobrar</c>). Es la base de Cobrado/Pendiente y de "Vendido" en los resúmenes.
     /// </summary>
     public decimal TotalVenta { get; set; }
-    /// <summary>Total de productos (<c>Venta.Total</c>, sin envío).</summary>
+    /// <summary>Productos sin servicios; en ventas anteriores conserva el total histórico.</summary>
     public decimal TotalProductos { get; set; }
+    public decimal TotalArmados { get; set; }
+    public bool TieneArmados { get; set; }
+    public bool TieneEnvio { get; set; }
+    /// <summary>Diferencia entre el total guardado y sus conceptos, por pago y redondeo.</summary>
+    public decimal AjusteTotal { get; set; }
     /// <summary>Importe de envío a cobrar (0 si la venta no tiene envío o no tiene costo).</summary>
     public decimal ImporteEnvio { get; set; }
     public decimal CobradoAhora { get; set; }

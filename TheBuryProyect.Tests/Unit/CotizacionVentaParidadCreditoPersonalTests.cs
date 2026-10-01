@@ -238,7 +238,9 @@ public sealed class CotizacionVentaParidadCreditoPersonalTests
             new FakeConfiguracionPagoGlobalQueryServiceParidad(),
             creditoServiceCotizacion,
             new FakeProductoCreditoRestriccionServiceParidad(),
-            configuracionPagoService);
+            configuracionPagoService,
+            new FakeServicioVentaPrecioService(),
+            null!); // IProductoUnidadService — este test no ejercita ProductoUnidadId
 
         var requestCotizacion = new CotizacionSimulacionRequest
         {

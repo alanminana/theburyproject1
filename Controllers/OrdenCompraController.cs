@@ -25,6 +25,7 @@ namespace TheBuryProject.Controllers
         private readonly IOrdenCompraService _ordenCompraService;
         private readonly IProveedorService _proveedorService;
         private readonly IProductoService _productoService;
+        private readonly IMarcaService _marcaService;
         private readonly IMapper _mapper;
         private readonly ILogger<OrdenCompraController> _logger;
 
@@ -32,12 +33,14 @@ namespace TheBuryProject.Controllers
             IOrdenCompraService ordenCompraService,
             IProveedorService proveedorService,
             IProductoService productoService,
+            IMarcaService marcaService,
             IMapper mapper,
             ILogger<OrdenCompraController> logger)
         {
             _ordenCompraService = ordenCompraService;
             _proveedorService = proveedorService;
             _productoService = productoService;
+            _marcaService = marcaService;
             _mapper = mapper;
             _logger = logger;
         }
@@ -57,13 +60,17 @@ namespace TheBuryProject.Controllers
                     fechaDesde: filter.FechaDesde,
                     fechaHasta: filter.FechaHasta,
                     orderBy: filter.OrderBy,
-                    orderDirection: filter.OrderDirection);
+                    orderDirection: filter.OrderDirection,
+                    marcaId: filter.MarcaId,
+                    productoTerm: filter.ProductoTerm);
 
                 var viewModels = _mapper.Map<IEnumerable<OrdenCompraViewModel>>(ordenes);
 
                 // Cargar proveedores para el filtro
                 var proveedores = await _proveedorService.GetAllAsync();
                 ViewBag.Proveedores = new SelectList(proveedores, "Id", "RazonSocial", filter.ProveedorId);
+                var marcas = (await _marcaService.GetAllAsync()).Where(m => m.Activo).OrderBy(m => m.Nombre);
+                ViewBag.Marcas = new SelectList(marcas, "Id", "Nombre", filter.MarcaId);
                 ViewBag.Estados = new SelectList(Enum.GetValues(typeof(EstadoOrdenCompra)));
                 ViewBag.Filter = filter;
                 ViewBag.Ordenes = viewModels;
@@ -300,10 +307,32 @@ namespace TheBuryProject.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [PermisoRequerido(Modulo = ModuloCompras, Accion = AccionActualizar)]
-        public async Task<IActionResult> CambiarEstado(int id, EstadoOrdenCompra nuevoEstado)
+        public async Task<IActionResult> CambiarEstado(int id, EstadoOrdenCompra nuevoEstado, bool desdeIndex = false)
         {
+            IActionResult Volver() => desdeIndex
+                ? RedirectToAction(nameof(Index))
+                : RedirectToAction(nameof(Details), new { id });
+
             try
             {
+                if (desdeIndex)
+                {
+                    // Desde el listado solo se avanza un paso del circuito de envío; la recepción va por Recepcionar.
+                    var actual = (await _ordenCompraService.GetByIdAsync(id))?.Estado;
+                    var siguiente = actual switch
+                    {
+                        EstadoOrdenCompra.Borrador => EstadoOrdenCompra.Enviada,
+                        EstadoOrdenCompra.Enviada => EstadoOrdenCompra.Confirmada,
+                        EstadoOrdenCompra.Confirmada => EstadoOrdenCompra.EnTransito,
+                        _ => (EstadoOrdenCompra?)null
+                    };
+                    if (siguiente == null || siguiente != nuevoEstado)
+                    {
+                        TempData["Error"] = "El estado de la orden cambió o la transición no es válida";
+                        return Volver();
+                    }
+                }
+
                 var resultado = await _ordenCompraService.CambiarEstadoAsync(id, nuevoEstado);
                 if (resultado)
                 {
@@ -314,13 +343,13 @@ namespace TheBuryProject.Controllers
                     TempData["Error"] = "No se pudo cambiar el estado";
                 }
 
-                return RedirectToAction(nameof(Details), new { id });
+                return Volver();
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al cambiar el estado de la orden {Id}", id);
                 TempData["Error"] = "Error al cambiar el estado";
-                return RedirectToAction(nameof(Details), new { id });
+                return Volver();
             }
         }
         // GET: OrdenCompra/Recepcionar/5

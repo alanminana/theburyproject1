@@ -19,6 +19,8 @@
 
     function initSharedUi() {
         theBury.autoDismissToasts?.();
+        initTabsScroll();
+        initFiltersToggle();
     }
 
     function normalizeText(value) {
@@ -195,6 +197,54 @@
             });
     }
 
+    // Pestañas: en pantallas chicas la barra scrollea; la pestaña activa se centra y los bordes con
+    // pestañas ocultas se atenúan (data-fade-*).
+    function initTabsScroll() {
+        document.querySelectorAll('.seg-tabs').forEach(nav => {
+            if (nav.dataset.segTabsBound === 'true') return;
+            nav.dataset.segTabsBound = 'true';
+
+            const updateFades = () => {
+                const max = nav.scrollWidth - nav.clientWidth;
+                nav.dataset.fadeLeft = nav.scrollLeft > 1 ? 'true' : 'false';
+                nav.dataset.fadeRight = max > 1 && nav.scrollLeft < max - 1 ? 'true' : 'false';
+            };
+
+            const active = nav.querySelector('[aria-current="page"]');
+            if (active) {
+                nav.scrollLeft = Math.max(0, active.offsetLeft - (nav.clientWidth - active.offsetWidth) / 2);
+            }
+
+            nav.addEventListener('scroll', updateFades, { passive: true });
+            window.addEventListener('resize', updateFades);
+            updateFades();
+        });
+    }
+
+    // Filtros secundarios de la barra de herramientas: en pantallas chicas se abren con el botón "Filtros"
+    // (en desktop están siempre visibles y el botón está oculto por CSS).
+    function initFiltersToggle() {
+        document.querySelectorAll('[data-seg-filters-toggle]').forEach(button => {
+            if (button.dataset.segFiltersBound === 'true') return;
+            const panel = document.getElementById(button.dataset.segFiltersToggle);
+            if (!panel) return;
+            button.dataset.segFiltersBound = 'true';
+            button.addEventListener('click', () => {
+                const open = panel.dataset.open !== 'true';
+                panel.dataset.open = open ? 'true' : 'false';
+                button.setAttribute('aria-expanded', open ? 'true' : 'false');
+            });
+        });
+    }
+
+    // Muestra en el botón "Filtros" cuántos filtros secundarios están activos (visible solo si hay alguno).
+    function updateFiltersBadge(panelId, count) {
+        const badge = document.querySelector(`[data-seg-filters-toggle="${panelId}"] [data-seg-filters-count]`);
+        if (!badge) return;
+        badge.textContent = String(count);
+        badge.dataset.active = count > 0 ? 'true' : 'false';
+    }
+
     function getDatasetValue(element, keys) {
         if (!element) return '';
         for (const key of keys) {
@@ -301,6 +351,7 @@
         bindEscapeToState,
         openInjectedModal,
         bindAjaxModal,
+        updateFiltersBadge,
         getReturnUrl(element) {
             return getDatasetValue(element, ['seguridadReturnUrl', 'returnUrl']);
         },

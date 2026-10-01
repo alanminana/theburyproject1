@@ -22,6 +22,17 @@ public class CotizacionDetalle : AuditableEntity
     public decimal? DescuentoImporteSnapshot { get; set; }
     public decimal Subtotal { get; set; }
 
+    /// <summary>Armado elegido para el producto (null = sin armado). Se cobra por unidad.</summary>
+    public Enums.TipoServicioVenta? TipoArmado { get; set; }
+    public bool EntregaCajaCerrada { get; set; }
+    public decimal ArmadoPrecioUnitario { get; set; }
+    public decimal ArmadoSubtotal { get; set; }
+
+    /// <summary>Unidad física elegida para el producto (null = sin elegir todavía). Igual que en
+    /// VentaDetalle, sólo válida con Cantidad = 1; se marca Vendida recién al convertir a Venta.</summary>
+    public int? ProductoUnidadId { get; set; }
+
     public virtual Cotizacion Cotizacion { get; set; } = null!;
     public virtual Producto Producto { get; set; } = null!;
+    public virtual ProductoUnidad? ProductoUnidad { get; set; }
 }

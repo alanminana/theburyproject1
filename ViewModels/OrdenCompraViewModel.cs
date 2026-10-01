@@ -55,6 +55,7 @@ namespace TheBuryProject.ViewModels
 
         // Propiedades calculadas
         public int TotalItems { get; set; }
+        public string? MarcasResumen { get; set; }
         public int TotalRecibido { get; set; }
 
         // ⭐ ESTA ES LA PROPIEDAD CLAVE

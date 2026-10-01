@@ -750,8 +750,8 @@ public class VentaServicePrecioTests
             Assert.Equal(100m, detalle.SubtotalNeto);
             Assert.Equal(10.50m, detalle.SubtotalIVA);
             Assert.Equal(100m, venta.Subtotal);
-            Assert.Equal(10.50m, venta.IVA);
-            Assert.Equal(110.50m, venta.Total);
+            Assert.Equal(10m, venta.IVA);
+            Assert.Equal(110m, venta.Total);
         }
     }
 
@@ -875,11 +875,10 @@ public class VentaServicePrecioTests
             var detalles = await ctx.VentaDetalles.AsNoTracking().Where(d => !d.IsDeleted).ToListAsync();
 
             Assert.Equal(1080m, venta.Subtotal);
-            Assert.Equal(198.45m, venta.IVA);
-            Assert.Equal(1278.45m, venta.Total);
-            Assert.Equal(venta.Subtotal, detalles.Sum(d => d.SubtotalFinalNeto));
-            Assert.Equal(venta.IVA, detalles.Sum(d => d.SubtotalFinalIVA));
-            Assert.Equal(venta.Total, detalles.Sum(d => d.SubtotalFinal));
+            Assert.Equal(198m, venta.IVA);
+            Assert.Equal(1278m, venta.Total);
+            Assert.Equal(venta.Subtotal + venta.IVA, venta.Total);
+            Assert.Equal(1278.45m, detalles.Sum(d => d.SubtotalFinal));
         }
     }
 
@@ -910,7 +909,7 @@ public class VentaServicePrecioTests
             Assert.Equal(91.18m, detalle.SubtotalFinal);
             Assert.Equal(75.36m, detalle.SubtotalFinalNeto);
             Assert.Equal(15.82m, detalle.SubtotalFinalIVA);
-            Assert.Equal(91.18m, venta.Total);
+            Assert.Equal(91m, venta.Total);
         }
     }
 
@@ -967,9 +966,9 @@ public class VentaServicePrecioTests
             var venta = await ctx.Ventas.AsNoTracking().SingleAsync();
             var detalles = await ctx.VentaDetalles.AsNoTracking().Where(d => !d.IsDeleted).ToListAsync();
 
-            Assert.Equal(0.14m, venta.Total);
+            Assert.Equal(0m, venta.Total);
             Assert.Equal(0.01m, detalles.Sum(d => d.DescuentoGeneralProrrateado));
-            Assert.Equal(venta.Total, detalles.Sum(d => d.SubtotalFinal));
+            Assert.Equal(0.14m, detalles.Sum(d => d.SubtotalFinal));
         }
     }
 
@@ -1026,8 +1025,8 @@ public class VentaServicePrecioTests
             var venta = await ctx.Ventas.AsNoTracking().SingleAsync();
 
             Assert.Equal(1200m, venta.Subtotal);
-            Assert.Equal(220.50m, venta.IVA);
-            Assert.Equal(1420.50m, venta.Total);
+            Assert.Equal(220m, venta.IVA);
+            Assert.Equal(1420m, venta.Total);
         }
     }
 
@@ -1083,8 +1082,8 @@ public class VentaServicePrecioTests
                 .SingleAsync();
 
             Assert.Equal(100m, ventaActualizada.Subtotal);
-            Assert.Equal(10.50m, ventaActualizada.IVA);
-            Assert.Equal(110.50m, ventaActualizada.Total);
+            Assert.Equal(10m, ventaActualizada.IVA);
+            Assert.Equal(110m, ventaActualizada.Total);
         }
     }
 }

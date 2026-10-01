@@ -11,7 +11,7 @@
  *
  * Requiere en el HTML:
  *  <script type="application/json" id="productos-picker-data">[...]</script>
- *  con objetos { id, codigo, nombre, marca, categoria }
+ *  con objetos { id, codigo, nombre, marca, categoria, marcaId, categoriaId }
  *
  *  <div class="proveedor-product-picker" data-form-name="ProductosSeleccionados">
  *    <div class="relative">
@@ -170,8 +170,24 @@ const ProveedorProductPicker = (() => {
         }
 
         // ── Selección de producto ────────────────────────────────────────────────
+        // Elegir un producto marca también su marca y su categoría (siguen siendo editables):
+        // sin esto el proveedor queda con el producto "suelto" y sin esas asociaciones.
+        function marcarAsociacionesDelProducto(product) {
+            const form = containerEl.closest('form');
+            if (!form) return;
+            [['MarcasSeleccionadas', product.marcaId], ['CategoriasSeleccionadas', product.categoriaId]].forEach(([name, id]) => {
+                if (!id) return;
+                const checkbox = form.querySelector(`input[type="checkbox"][name="${name}"][value="${id}"]`);
+                if (checkbox && !checkbox.checked) {
+                    checkbox.checked = true;
+                    checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            });
+        }
+
         function selectProduct(product) {
             selectedIds.add(product.id);
+            marcarAsociacionesDelProducto(product);
             renderChips();
             syncHiddenInputs();
             closeDropdown();

@@ -3,6 +3,8 @@
     var currentUrl = Context.Request.Path + Context.Request.QueryString;
     var totalModules = Model.TotalModulos;
     var totalSelectedPermissions = Model.TotalAccionesSeleccionadas;
+    // SavePermisosRol/CopyPermisosRol exigen roles.assignpermissions: sin él la matriz es solo lectura.
+    var canAssign = User.TienePermiso("roles", "assignpermissions");
 }
 
 <style>
@@ -49,6 +51,16 @@
         cursor: pointer;
     }
 
+    /* Comparación de roles */
+    .cmp-table { min-width: 32rem; border-collapse: collapse; }
+    .cmp-group-row { background-color: color-mix(in srgb, var(--pal-neutral-800) 40%, transparent); }
+    .cmp-row { border-bottom: 1px solid color-mix(in srgb, var(--pal-neutral-800) 70%, transparent); }
+    .cmp-row--diff { background-color: color-mix(in srgb, #fbbf24 10%, transparent); }
+    .cmp-row--diff > th { background-color: color-mix(in srgb, #fbbf24 10%, var(--pal-neutral-900)); }
+    .cmp-legend-diff { display: inline-block; width: .75rem; height: .75rem; border-radius: 2px;
+        background-color: color-mix(in srgb, #fbbf24 25%, transparent);
+        border: 1px solid color-mix(in srgb, #fbbf24 50%, transparent); }
+
     /* Acordeón por categoría */
     .permission-group__chevron {
         transition: transform .2s ease;
@@ -85,34 +97,39 @@
         </div>
     }
 
-    <div class="bg-slate-900/50 p-6 rounded-xl border border-slate-800 shadow-sm space-y-5">
-        <div class="grid grid-cols-1 lg:grid-cols-[minmax(260px,320px)_minmax(0,1fr)_220px_auto] gap-4 items-end">
-            <form method="get" asp-controller="Seguridad" asp-action="Index" class="contents">
-                <input type="hidden" name="tab" value="permisos-rol" />
+    <div class="bg-slate-900/50 rounded-xl border border-slate-800 overflow-hidden shadow-sm">
+        <partial name="_SeguridadTabNav" />
 
-                <div class="space-y-2">
-                    <label for="permissionRoleSelect" class="text-sm font-semibold text-slate-300">Rol</label>
-                    <select id="permissionRoleSelect" name="roleId" class="w-full bg-slate-800 border border-slate-700 rounded-lg text-sm px-4 py-3 focus:ring-primary text-white" required>
-                        <option value="">Seleccionar rol...</option>
-                        @foreach (var rol in Model.Roles)
-                        {
-                            <option value="@rol.Id" selected="@(Model.RolSeleccionadoId == rol.Id ? "selected" : null)">
-                                @rol.Nombre@(rol.Activo ? string.Empty : " (Inactivo)")
-                            </option>
-                        }
-                    </select>
-                </div>
+        <form method="get" asp-controller="Seguridad" asp-action="Index" class="seg-toolbar seg-toolbar--audit" role="search" aria-label="Elegir rol y filtrar módulos">
+            <input type="hidden" name="tab" value="permisos-rol" />
 
-                <div class="space-y-2">
-                    <label for="searchPermissionModules" class="text-sm font-semibold text-slate-300">Buscar módulo</label>
-                    <input id="searchPermissionModules" type="text" value="@Model.BuscarModulo"
-                           class="w-full bg-slate-800 border border-slate-700 rounded-lg text-sm px-4 py-3 focus:ring-primary text-white"
+            <div class="seg-field seg-field--role">
+                <label for="permissionRoleSelect" class="seg-field__label">Rol</label>
+                <select id="permissionRoleSelect" name="roleId" data-current="@Model.RolSeleccionadoId"
+                        class="bg-slate-800 border-none rounded-lg text-sm px-4 py-2 focus:ring-primary text-white" required>
+                    <option value="">Seleccionar rol...</option>
+                    @foreach (var rol in Model.Roles)
+                    {
+                        <option value="@rol.Id" selected="@(Model.RolSeleccionadoId == rol.Id ? "selected" : null)">
+                            @rol.Nombre@(rol.Activo ? string.Empty : " (Inactivo)")
+                        </option>
+                    }
+                </select>
+            </div>
+
+            @if (Model.TieneRolSeleccionado)
+            {
+                <div class="seg-field seg-field--grow">
+                    <label for="searchPermissionModules" class="seg-field__label">Buscar módulo</label>
+                    <input id="searchPermissionModules" type="search" value="@Model.BuscarModulo" autocomplete="off"
+                           class="bg-slate-800 border-none rounded-lg text-sm px-4 py-2 focus:ring-primary text-white placeholder:text-slate-500"
                            placeholder="Ej: usuarios, ventas, caja..." />
                 </div>
 
-                <div class="space-y-2">
-                    <label for="permissionGroupFilter" class="text-sm font-semibold text-slate-300">Grupo</label>
-                    <select id="permissionGroupFilter" class="w-full bg-slate-800 border border-slate-700 rounded-lg text-sm px-4 py-3 focus:ring-primary text-white">
+                <div class="seg-field">
+                    <label for="permissionGroupFilter" class="seg-field__label">Grupo</label>
+                    <select id="permissionGroupFilter"
+                            class="bg-slate-800 border-none rounded-lg text-sm px-4 py-2 focus:ring-primary text-white">
                         <option value="">Todos los grupos</option>
                         @foreach (var grupo in Model.Grupos)
                         {
@@ -121,75 +138,180 @@
                     </select>
                 </div>
 
-                <div class="flex items-center gap-2 justify-end">
-                    <button type="submit"
-                            class="btn-erp-primary">
-                        <span class="material-symbols-outlined text-sm">grid_view</span>
-                        Cargar matriz
-                    </button>
-                    <button type="button" id="clearPermissionFilters"
-                            class="btn-erp-ghost"
-                            title="Limpiar filtros">
-                        <span class="material-symbols-outlined text-lg">filter_list_off</span>
-                    </button>
-                </div>
-            </form>
-        </div>
+                <button type="button" id="clearPermissionFilters"
+                        class="row-action"
+                        title="Limpiar filtros" aria-label="Limpiar filtros">
+                    <span class="material-symbols-outlined">filter_list_off</span>
+                </button>
+            }
+
+            @* Sin JS el selector no se envía solo; con JS cambiar de rol ya carga la matriz y este botón se oculta. *@
+            <button type="submit" id="loadMatrixButton" class="btn-erp-secondary seg-toolbar__cta">
+                <span class="material-symbols-outlined text-sm">grid_view</span>
+                Cargar rol
+            </button>
+        </form>
 
         @if (Model.TieneRolSeleccionado)
         {
-            <div class="flex flex-col gap-4 rounded-xl border border-primary/15 bg-primary/5 px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
-                <div class="space-y-3">
-                    <div>
-                        <p class="text-sm font-semibold text-white">Rol actual: @Model.RolSeleccionadoNombre</p>
-                        <p class="text-xs text-slate-400 mt-1">Los permisos se guardan a nivel rol. Los usuarios los heredan automáticamente.</p>
-                    </div>
-                    <div class="flex flex-wrap gap-2 text-xs font-medium text-slate-400">
-                        <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-900/70 px-3 py-1">
-                            <span class="material-symbols-outlined text-sm">view_module</span>
-                            @totalModules módulos
-                        </span>
-                        <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-900/70 px-3 py-1">
-                            <span class="material-symbols-outlined text-sm">checklist</span>
-                            <span id="permissionsSelectedPill">@totalSelectedPermissions</span> permisos activos
-                        </span>
-                    </div>
+            <div class="flex flex-col gap-3 border-t border-slate-800 bg-primary/5 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                <div class="min-w-0">
+                    <p class="text-sm font-semibold text-white">Rol actual: @Model.RolSeleccionadoNombre</p>
+                    <p class="text-xs text-slate-400 mt-1">Los permisos se guardan a nivel rol. Los usuarios los heredan automáticamente.</p>
                 </div>
-                <div id="permissionsRoleActions" class="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
+                @if (canAssign)
+                {
                     <button type="button" id="btnCopyPermissions"
                             data-seguridad-role-id="@Model.RolSeleccionadoId"
                             data-seguridad-return-url="@currentUrl"
-                            class="permissions-role-action w-full sm:w-auto justify-center btn-erp-secondary">
+                            class="w-full sm:w-auto justify-center btn-erp-secondary">
                         <span class="material-symbols-outlined text-sm">content_copy</span>
                         Copiar permisos desde otro rol
                     </button>
-                    <button type="submit" form="permissionsMatrixForm"
-                            class="permissions-role-action w-full sm:w-auto justify-center btn-erp-primary">
-                        <span class="material-symbols-outlined text-sm">save</span>
-                        Guardar permisos
-                    </button>
-                </div>
+                }
             </div>
         }
     </div>
 
+    <details id="compareRolesPanel" class="bg-slate-900/50 rounded-xl border border-slate-800 shadow-sm" @(Model.RolesComparadosIds.Count > 0 ? "open" : null)>
+        <summary class="flex cursor-pointer items-center gap-2 px-6 py-4 text-sm font-semibold text-white select-none">
+            <span class="material-symbols-outlined text-lg text-slate-400">compare_arrows</span>
+            Comparar roles
+            <span class="text-xs font-medium text-slate-400">Elegí 2 o más roles y mirá en qué permisos difieren</span>
+        </summary>
+        <form method="get" asp-controller="Seguridad" asp-action="Index" class="border-t border-slate-800 px-6 py-5 space-y-4">
+            <input type="hidden" name="tab" value="permisos-rol" />
+            <div class="flex flex-wrap gap-2">
+                @foreach (var rol in Model.Roles)
+                {
+                    <label class="permission-chip">
+                        <input type="checkbox" name="compareIds" value="@rol.Id"
+                               checked="@Model.RolesComparadosIds.Contains(rol.Id)" />
+                        <span>@rol.Nombre@(rol.Activo ? string.Empty : " (Inactivo)")</span>
+                    </label>
+                }
+            </div>
+            <div class="flex flex-wrap items-center gap-4">
+                <label class="inline-flex items-center gap-2 text-sm text-slate-300">
+                    <input type="checkbox" name="soloDiferencias" value="true" checked="@Model.SoloDiferencias"
+                           class="size-4 accent-primary" />
+                    Mostrar solo diferencias
+                </label>
+                <input type="hidden" name="soloDiferencias" value="false" />
+                <button type="submit" class="btn-erp-primary">
+                    <span class="material-symbols-outlined text-sm">compare_arrows</span>
+                    Comparar
+                </button>
+                @if (Model.RolesComparadosIds.Count == 1)
+                {
+                    <span class="text-xs text-amber-400">Elegí al menos un rol más para comparar.</span>
+                }
+            </div>
+        </form>
+    </details>
+
+    @if (Model.Comparacion is { } cmp)
+    {
+        var filasVisibles = cmp.Grupos
+            .Select(g => (g.Nombre, Filas: g.Filas.Where(f => !Model.SoloDiferencias || f.EsDiferente).ToList()))
+            .Where(g => g.Filas.Count > 0)
+            .ToList();
+
+        <div id="compareRolesResult" class="bg-slate-900/50 rounded-xl border border-slate-800 overflow-hidden shadow-sm">
+            <div class="flex flex-col gap-2 border-b border-slate-800 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <p class="text-sm font-semibold text-white">Comparación de @cmp.Roles.Count roles</p>
+                    <p class="text-xs text-slate-400 mt-1">
+                        @if (cmp.TotalDiferencias == 0)
+                        {
+                            <span>Los roles tienen exactamente los mismos permisos (@cmp.TotalAcciones acciones revisadas).</span>
+                        }
+                        else
+                        {
+                            <span>@cmp.TotalDiferencias de @cmp.TotalAcciones acciones difieren entre los roles.</span>
+                        }
+                    </p>
+                </div>
+                <div class="flex items-center gap-4 text-xs text-slate-400">
+                    <span class="inline-flex items-center gap-1"><span class="material-symbols-outlined text-base text-emerald-400">check_circle</span> Tiene</span>
+                    <span class="inline-flex items-center gap-1"><span class="material-symbols-outlined text-base text-slate-600">remove</span> No tiene</span>
+                    <span class="inline-flex items-center gap-1"><span class="cmp-legend-diff"></span> Difiere</span>
+                </div>
+            </div>
+
+            @if (filasVisibles.Count == 0)
+            {
+                <div class="px-6 py-14 text-center">
+                    <p class="text-sm font-semibold text-slate-300">Sin diferencias</p>
+                    <p class="text-xs text-slate-400 mt-2">Los roles elegidos tienen los mismos permisos. Desmarcá "Mostrar solo diferencias" para ver la matriz completa.</p>
+                </div>
+            }
+            else
+            {
+                <div class="overflow-x-auto">
+                    <table class="cmp-table w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-slate-800 text-left">
+                                <th scope="col" class="sticky left-0 z-10 bg-slate-900 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Permiso</th>
+                                @foreach (var rol in cmp.Roles)
+                                {
+                                    <th scope="col" class="px-4 py-3 text-center text-xs font-semibold text-slate-200">
+                                        @rol.Nombre@(rol.Activo ? string.Empty : " (Inactivo)")
+                                        <span class="block text-[11px] font-medium text-slate-500">@rol.TotalPermisos permisos</span>
+                                    </th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var grupo in filasVisibles)
+                            {
+                                <tr class="cmp-group-row">
+                                    <th scope="colgroup" colspan="@(cmp.Roles.Count + 1)" class="sticky left-0 px-4 py-2 text-left text-xs font-bold uppercase tracking-wide text-slate-300">@grupo.Nombre</th>
+                                </tr>
+                                @foreach (var fila in grupo.Filas)
+                                {
+                                    <tr class="cmp-row @(fila.EsDiferente ? "cmp-row--diff" : string.Empty)" data-diff="@(fila.EsDiferente ? "true" : "false")">
+                                        <th scope="row" class="sticky left-0 z-10 px-4 py-2 text-left font-normal bg-slate-900">
+                                            <span class="text-slate-200">@fila.ModuloNombre</span>
+                                            <span class="text-slate-500"> · @fila.AccionNombre</span>
+                                        </th>
+                                        @for (var i = 0; i < cmp.Roles.Count; i++)
+                                        {
+                                            <td class="px-4 py-2 text-center">
+                                                @if (fila.TienePermiso[i])
+                                                {
+                                                    <span class="material-symbols-outlined text-lg text-emerald-400" title="@cmp.Roles[i].Nombre: tiene @fila.AccionNombre" aria-label="Tiene">check_circle</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="material-symbols-outlined text-lg text-slate-600" title="@cmp.Roles[i].Nombre: no tiene @fila.AccionNombre" aria-label="No tiene">remove</span>
+                                                }
+                                            </td>
+                                        }
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    }
+
     @if (!Model.TieneRolSeleccionado)
     {
+        @if (Model.RolesComparadosIds.Count == 0)
+        {
         <div class="bg-slate-900/50 rounded-xl border border-slate-800 overflow-hidden shadow-sm">
-            <nav class="flex overflow-x-auto border-b border-slate-800">
-                <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="usuarios" class="shrink-0 border-b-2 border-transparent text-slate-400 hover:text-white hover:bg-white/5 px-5 py-3 text-sm font-bold no-underline transition-colors">Usuarios</a>
-                <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="roles" class="shrink-0 border-b-2 border-transparent text-slate-400 hover:text-white hover:bg-white/5 px-5 py-3 text-sm font-bold no-underline transition-colors">Roles</a>
-                <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="permisos-rol" class="shrink-0 border-b-2 border-primary text-primary bg-primary/10 px-5 py-3 text-sm font-bold no-underline transition-colors">Permisos de Rol</a>
-                <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="auditoria" class="shrink-0 border-b-2 border-transparent text-slate-400 hover:text-white hover:bg-white/5 px-5 py-3 text-sm font-bold no-underline transition-colors">Auditoría</a>
-            </nav>
             <div class="p-12 text-center">
                 <div class="inline-flex items-center justify-center size-16 rounded-full bg-slate-800 mb-4">
                     <span class="material-symbols-outlined text-3xl text-slate-400">admin_panel_settings</span>
                 </div>
                 <p class="text-sm font-semibold text-slate-300">Seleccioná un rol para configurar permisos</p>
-                <p class="text-xs text-slate-500 mt-2">La matriz editable se habilita una vez elegido el rol destino.</p>
+                <p class="text-xs text-slate-500 mt-2">Al elegirlo se carga la matriz de permisos de ese rol.</p>
             </div>
         </div>
+        }
     }
     else
     {
@@ -199,17 +321,18 @@
             <input type="hidden" name="returnUrl" value="@currentUrl" />
 
             <div class="bg-slate-900/50 rounded-xl border border-slate-800 overflow-hidden shadow-sm">
-                <nav class="flex overflow-x-auto border-b border-slate-800">
-                    <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="usuarios" class="shrink-0 border-b-2 border-transparent text-slate-400 hover:text-white hover:bg-white/5 px-5 py-3 text-sm font-bold no-underline transition-colors">Usuarios</a>
-                    <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="roles" class="shrink-0 border-b-2 border-transparent text-slate-400 hover:text-white hover:bg-white/5 px-5 py-3 text-sm font-bold no-underline transition-colors">Roles</a>
-                    <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="permisos-rol" class="shrink-0 border-b-2 border-primary text-primary bg-primary/10 px-5 py-3 text-sm font-bold no-underline transition-colors">Permisos de Rol</a>
-                    <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="auditoria" class="shrink-0 border-b-2 border-transparent text-slate-400 hover:text-white hover:bg-white/5 px-5 py-3 text-sm font-bold no-underline transition-colors">Auditoría</a>
-                </nav>
                 <div class="border-b border-slate-800 px-6 py-5 bg-slate-900/40">
                     <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                         <div class="space-y-1">
                             <p class="text-sm font-semibold text-white">Permisos por módulo</p>
-                            <p class="text-xs text-slate-400">Activá accesos por módulo y acción. Cada módulo muestra solo las acciones que realmente tiene.</p>
+                            @if (canAssign)
+                            {
+                                <p class="text-xs text-slate-400">Activá accesos por módulo y acción. Los cambios se aplican al guardar.</p>
+                            }
+                            else
+                            {
+                                <p class="text-xs text-amber-400">Solo lectura: tu rol no puede modificar permisos de roles.</p>
+                            }
                         </div>
                         <div class="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-400">
                             <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-3 py-1 border border-slate-700">
@@ -218,7 +341,7 @@
                             </span>
                             <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-3 py-1 border border-slate-700">
                                 <span class="material-symbols-outlined text-sm">verified</span>
-                                <span id="permissionsSelectedHeader">@totalSelectedPermissions</span> permisos seleccionados
+                                <span id="permissionsSelectedHeader">@totalSelectedPermissions</span> permisos activos
                             </span>
                             <button type="button" id="permissionsExpandAll"
                                     class="inline-flex items-center gap-1.5 rounded-full bg-slate-800 px-3 py-1 font-semibold text-slate-300 hover:bg-primary/10 hover:text-primary transition-colors">
@@ -270,20 +393,23 @@
                                                     <p class="text-xs text-slate-400 mt-1.5 max-w-2xl">@modulo.Descripcion</p>
                                                 }
                                             </div>
-                                            <div class="flex shrink-0 gap-2">
-                                                <button type="button"
-                                                        data-module="@modulo.ModuloId"
-                                                        class="btn-select-module inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-slate-800 text-slate-300 hover:bg-primary/10 hover:text-primary transition-colors">
-                                                    <span class="material-symbols-outlined text-sm">done_all</span>
-                                                    Todo
-                                                </button>
-                                                <button type="button"
-                                                        data-module="@modulo.ModuloId"
-                                                        class="btn-clear-module inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-slate-800 text-slate-300 hover:bg-rose-500/10 hover:text-rose-400 transition-colors">
-                                                    <span class="material-symbols-outlined text-sm">remove_done</span>
-                                                    Ninguno
-                                                </button>
-                                            </div>
+                                            @if (canAssign)
+                                            {
+                                                <div class="flex shrink-0 gap-2">
+                                                    <button type="button"
+                                                            data-module="@modulo.ModuloId"
+                                                            class="btn-select-module inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-slate-800 text-slate-300 hover:bg-primary/10 hover:text-primary transition-colors">
+                                                        <span class="material-symbols-outlined text-sm">done_all</span>
+                                                        Todo
+                                                    </button>
+                                                    <button type="button"
+                                                            data-module="@modulo.ModuloId"
+                                                            class="btn-clear-module inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-slate-800 text-slate-300 hover:bg-rose-500/10 hover:text-rose-400 transition-colors">
+                                                        <span class="material-symbols-outlined text-sm">remove_done</span>
+                                                        Ninguno
+                                                    </button>
+                                                </div>
+                                            }
                                         </div>
 
                                         <div class="mt-3 flex flex-wrap gap-2">
@@ -295,7 +421,8 @@
                                                            value="@accion.AccionId"
                                                            data-module="@modulo.ModuloId"
                                                            class="permission-checkbox"
-                                                           checked="@accion.Seleccionado" />
+                                                           checked="@accion.Seleccionado"
+                                                           disabled="@(!canAssign)" />
                                                     <span>@accion.AccionNombre</span>
                                                 </label>
                                             }
@@ -311,16 +438,26 @@
                     <p class="text-sm font-semibold text-slate-300">Sin módulos visibles</p>
                     <p class="text-xs text-slate-400 mt-2">Probá limpiando la búsqueda o el filtro de grupo.</p>
                 </div>
-
-                <div class="px-6 py-4 bg-slate-800/30 flex flex-col gap-2 border-t border-slate-800 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left">
-                    <p class="text-xs text-slate-500">
-                        <span id="permissionsVisibleCount">@totalModules</span> de @totalModules módulos visibles
-                    </p>
-                    <p class="text-xs text-slate-500">
-                        <span id="permissionsSelectedCount">@totalSelectedPermissions</span> permisos seleccionados
-                    </p>
-                </div>
             </div>
+
+            @if (canAssign)
+            {
+                <div id="permissionsSaveBar" class="seg-savebar" data-dirty="false">
+                    <p class="seg-savebar__status" role="status" aria-live="polite">
+                        <span class="seg-savebar__dot" aria-hidden="true"></span>
+                        <span id="permissionsDirtyText">Sin cambios sin guardar</span>
+                    </p>
+                    <div class="seg-savebar__actions">
+                        <button type="button" id="permissionsDiscard" class="btn-erp-ghost" disabled>
+                            Descartar
+                        </button>
+                        <button type="submit" id="permissionsSave" class="btn-erp-primary" disabled>
+                            <span class="material-symbols-outlined text-sm">save</span>
+                            Guardar permisos
+                        </button>
+                    </div>
+                </div>
+            }
         </form>
     }
 </div>

@@ -1095,6 +1095,9 @@
                             .ThenBy(p => p.CantidadCuotas)
                             .ToList();
                         var totalPlanes = medio.Planes.Count;
+                        // Mismos 5 medios que Cartera de créditos ofrece al cobrar cuotas/moras (CreditoService).
+                        var cobraCuotasCredito = medio.TipoPago is TipoPago.Efectivo or TipoPago.Transferencia
+                            or TipoPago.TarjetaDebito or TipoPago.TarjetaCredito or TipoPago.Cheque;
 
                         <section id="medio-@medio.Id" class="method-panel">
                             <header class="method-panel-header">
@@ -1135,6 +1138,13 @@
                                     {
                                         <span class="pay-badge pay-badge-muted">@totalPlanes plan@(totalPlanes == 1 ? "" : "es")</span>
                                     }
+                                    @if (cobraCuotasCredito)
+                                    {
+                                        <span class="@(medio.AplicaAjusteEnCobroCuotas ? "pay-badge pay-badge-warn" : "pay-badge pay-badge-muted")"
+                                              title="Cobro de cuotas y moras en Cartera de créditos">
+                                            Cuotas y moras: @(medio.AplicaAjusteEnCobroCuotas ? "con recargo/descuento" : "sin recargo")
+                                        </span>
+                                    }
                                     @if (puedeEditar)
                                     {
                                         <details class="pay-details" style="flex-basis:100%;margin-top:.5rem">
@@ -1160,6 +1170,11 @@
                                                             <input name="Activo" type="checkbox" value="true" @(medio.Activo ? "checked" : "") />
                                                             Activo
                                                         </label>
+                                                        @if (cobraCuotasCredito)
+                                                        {
+                                                            @* Se administra en la tarjeta "Cobro de cuotas y moras"; se conserva el valor vigente. *@
+                                                            <input type="hidden" name="AplicaAjusteEnCobroCuotas" value="@(medio.AplicaAjusteEnCobroCuotas ? "true" : "false")" />
+                                                        }
                                                     </div>
                                                     <div class="pay-button-row">
                                                         <button type="submit" class="pay-mini-button primary">
@@ -1192,6 +1207,39 @@
                                         <span class="material-symbols-outlined text-[17px]">tune</span>
                                         @(puedeEditar ? "Administrar credito personal" : "Ver credito personal")
                                     </a>
+                                </div>
+                            }
+
+                            @if (cobraCuotasCredito)
+                            {
+                                <div class="credit-debt" style="border-color:var(--pay-line);color:var(--pay-text)">
+                                    <strong>Cobro de cuotas y moras de crédito</strong>
+                                    <p class="empty-copy">
+                                        Al cobrar cuotas y moras en Cartera de créditos con @TipoPagoDisplay(medio.TipoPago), ¿se aplica el recargo/descuento de este medio (plan de 1 cuota)?
+                                    </p>
+                                    @if (puedeEditar)
+                                    {
+                                        <form asp-controller="ConfiguracionPago" asp-action="EditarMedioPagoGlobal" asp-route-id="@medio.Id" method="post">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="Nombre" value="@medio.Nombre" />
+                                            <input type="hidden" name="Descripcion" value="@medio.Descripcion" />
+                                            <input type="hidden" name="Activo" value="@(medio.Activo ? "true" : "false")" />
+                                            <div class="pay-button-row">
+                                                <label class="pay-check">
+                                                    <input name="AplicaAjusteEnCobroCuotas" type="checkbox" value="true" @(medio.AplicaAjusteEnCobroCuotas ? "checked" : "") />
+                                                    Aplicar recargo/descuento en cuotas y moras
+                                                </label>
+                                                <button type="submit" class="pay-mini-button primary">
+                                                    <span class="material-symbols-outlined text-[17px]">save</span>
+                                                    Guardar
+                                                </button>
+                                            </div>
+                                        </form>
+                                    }
+                                    else
+                                    {
+                                        <span class="@(medio.AplicaAjusteEnCobroCuotas ? "pay-badge pay-badge-warn" : "pay-badge pay-badge-muted")">@(medio.AplicaAjusteEnCobroCuotas ? "Aplica recargo/descuento" : "Sin recargo")</span>
+                                    }
                                 </div>
                             }
 

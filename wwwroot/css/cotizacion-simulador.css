@@ -28,88 +28,124 @@
 /* Sólo el host de pantalla completa (Views/Cotizacion/Index_tw.cshtml) come el
    padding del shell. Embebido en la pestaña Cotizar de Venta/Create el parcial
    convive con el wizard y debe respetar el padding de la página. */
-body:has(.cotz-standalone) #main-content > div:last-child {
-    padding: 0 !important;
+body:has(.cotz-standalone) #main-content>div:last-child {
+   padding: 0 !important;
 }
 
 .cotz-standalone {
-    height: 100%;
+   height: 100%;
 }
 
 .cotz-app {
-    --cz-bg: var(--pal-neutral-950);
-    --cz-s1: var(--pal-neutral-925);
-    --cz-s2: var(--pal-neutral-875);
-    --cz-s3: var(--pal-neutral-850);
-    --cz-sunk: var(--pal-neutral-925);
-    --cz-line: var(--pal-neutral-800);
-    --cz-line-2: var(--pal-neutral-750);
-    --cz-line-3: var(--pal-neutral-850);
-    --cz-text: var(--pal-neutral-100);
-    --cz-text-2: var(--pal-neutral-350);
-    --cz-text-3: var(--pal-neutral-450);
-    --cz-text-4: var(--pal-neutral-500);
-    --cz-accent: var(--pal-info-400);
-    --cz-accent-hover: var(--pal-info-500);
-    --cz-accent-soft: color-mix(in srgb, var(--pal-info-400) 10%, transparent);
-    --cz-sel: color-mix(in srgb, var(--pal-info-400) 8%, transparent);
-    --cz-green: var(--pal-success-400);
-    --cz-green-bg: var(--pal-success-950);
-    --cz-green-bar: var(--pal-success-500);
-    --cz-amber: var(--pal-warning-400);
-    --cz-amber-bg: var(--pal-warning-950);
-    --cz-amber-line: var(--pal-accent-950);
-    --cz-red: var(--pal-danger-400);
-    --cz-red-bg: var(--pal-danger-950);
-    --cz-violet: var(--pal-violet-400);
-    --cz-violet-bg: var(--pal-neutral-850);
-    --cz-teal: var(--pal-success-400);
-    --cz-teal-bg: var(--pal-success-950);
-    /* Fondo de los inputs: la superficie opuesta a la que los contiene (ver cabecera). */
-    --cz-field-bg: var(--cz-s2);
-    /* Grilla de la tabla de Resultados — idéntica al mockup (7 columnas). Total, Cuota, Recargo y
+   --cz-bg: var(--pal-neutral-950);
+   --cz-s1: var(--pal-neutral-925);
+   --cz-s2: var(--pal-neutral-875);
+   --cz-s3: var(--pal-neutral-850);
+   --cz-sunk: var(--pal-neutral-925);
+   --cz-line: var(--pal-neutral-800);
+   --cz-line-2: var(--pal-neutral-750);
+   --cz-line-3: var(--pal-neutral-850);
+   --cz-text: var(--pal-neutral-100);
+   --cz-text-2: var(--pal-neutral-350);
+   --cz-text-3: var(--pal-neutral-450);
+   --cz-text-4: var(--pal-neutral-500);
+   --cz-accent: var(--pal-info-400);
+   --cz-accent-hover: var(--pal-info-500);
+   --cz-accent-soft: color-mix(in srgb, var(--pal-info-400) 10%, transparent);
+   --cz-sel: color-mix(in srgb, var(--pal-info-400) 8%, transparent);
+   --cz-green: var(--pal-success-400);
+   --cz-green-bg: var(--pal-success-950);
+   --cz-green-bar: var(--pal-success-500);
+   --cz-amber: var(--pal-warning-400);
+   --cz-amber-bg: var(--pal-warning-950);
+   --cz-amber-line: var(--pal-accent-950);
+   --cz-red: var(--pal-danger-400);
+   --cz-red-bg: var(--pal-danger-950);
+   --cz-violet: var(--pal-violet-400);
+   --cz-violet-bg: var(--pal-neutral-850);
+   --cz-teal: var(--pal-success-400);
+   --cz-teal-bg: var(--pal-success-950);
+   /* Fondo de los inputs: la superficie opuesta a la que los contiene (ver cabecera). */
+   --cz-field-bg: var(--cz-s2);
+   /* Grilla de la tabla de Resultados — idéntica al mockup (7 columnas). Total, Cuota, Recargo y
        Acción tienen un mínimo: cada <tr> es su propia grilla, así que ninguna columna puede depender
        del contenido de su fila o quedarían desalineadas entre filas. 8.5rem entra "desde $180.758,90";
        10rem entra "Solicitar excepción", el botón más ancho. */
-    --rt-cols: minmax(0, 2.2fr) minmax(8.5rem, 1fr) minmax(5rem, .9fr) minmax(6rem, 1fr) minmax(4.5rem, .8fr) minmax(0, 1fr) minmax(10rem, 1.1fr);
+   --rt-cols: minmax(0, 2.2fr) minmax(8.5rem, 1fr) minmax(5rem, .9fr) minmax(6rem, 1fr) minmax(4.5rem, .8fr) minmax(0, 1fr) minmax(10rem, 1.1fr);
 }
 
 .cotz-app {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    background: var(--cz-bg);
-    color: var(--cz-text-2);
-    font-family: 'Inter', system-ui, sans-serif;
-    /* La pantalla crece con su contenido y scrollea como el resto del ERP. */
-    height: auto;
-    overflow: visible;
-    min-height: 100%;
-    box-sizing: border-box;
+   display: flex;
+   flex-direction: column;
+   gap: 20px;
+   background: var(--cz-bg);
+   color: var(--cz-text-2);
+   font-family: 'Inter', system-ui, sans-serif;
+   /* La pantalla crece con su contenido y scrollea como el resto del ERP. */
+   height: auto;
+   overflow: visible;
+   min-height: 100%;
+   box-sizing: border-box;
 }
 
 /* Pantalla completa: el mockup deja 32px de aire alrededor de todo el contenido. Embebido
    en Venta/Create el shell de la página ya aporta ese padding lateral. */
-.cotz-standalone .cotz-app { padding: 20px 32px 32px; }
-.venta-cotizar-panel .cotz-app { padding: 0; }
+.cotz-standalone .cotz-app {
+   padding: 20px 32px 32px;
+}
 
-.cotz-app .font-mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+.venta-cotizar-panel .cotz-app {
+   padding: 0;
+}
+
+.cotz-app .font-mono {
+   font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+
 /* Importes: proporcionales como en el mockup (no monoespaciados), con cifras tabulares
    para que las columnas de la tabla alineen. */
-.cotz-app .total-display { font-family: inherit; font-variant-numeric: tabular-nums; letter-spacing: -.005em; white-space: nowrap; }
+.cotz-app .total-display {
+   font-family: inherit;
+   font-variant-numeric: tabular-nums;
+   letter-spacing: -.005em;
+   white-space: nowrap;
+}
 
 /* Los utilitarios Tailwind que emiten el HTML y el JS (text-white, text-slate-*, ...)
    se remapean a la paleta del mockup dentro del cotizador, en vez de tocar cada
    plantilla de cadena. Especificidad 0,2,0 > utilitario 0,1,0. */
-.cotz-app .text-white { color: var(--cz-text); }
-.cotz-app .text-slate-200 { color: var(--cz-text); }
-.cotz-app .text-slate-300 { color: var(--cz-text-2); }
-.cotz-app .text-slate-400 { color: var(--cz-text-3); }
+.cotz-app .text-white {
+   color: var(--cz-text);
+}
+
+.cotz-app .text-slate-200 {
+   color: var(--cz-text);
+}
+
+.cotz-app .text-slate-300 {
+   color: var(--cz-text-2);
+}
+
+.cotz-app .text-slate-400 {
+   color: var(--cz-text-3);
+}
+
 .cotz-app .text-slate-500,
-.cotz-app .text-slate-600 { color: var(--cz-text-4); }
-.cotz-app .text-emerald-400 { color: var(--cz-green); }
-.cotz-app .text-amber-300 { color: var(--cz-amber); }
-.cotz-app .text-blue-400 { color: var(--cz-accent); }
+.cotz-app .text-slate-600 {
+   color: var(--cz-text-4);
+}
+
+.cotz-app .text-emerald-400 {
+   color: var(--cz-green);
+}
+
+.cotz-app .text-amber-300 {
+   color: var(--cz-amber);
+}
+
+.cotz-app .text-blue-400 {
+   color: var(--cz-accent);
+}
 
 /* Neutraliza un leak cruzado de módulo: wwwroot/css/venta-page-wizard.css estiliza
    "#venta-create-page .total-display" / "#venta-edit-page .total-display" (borde
@@ -119,53 +155,98 @@ body:has(.cotz-standalone) #main-content > div:last-child {
    enfocado". Esa regla usa #id .clase: sólo se le gana con `!important`, scopeado a
    `.cotz-app` para no tocar los `.total-display` legítimos de Venta. */
 .cotz-app .total-display {
-    border: none !important;
-    background: none !important;
-    box-shadow: none !important;
-    border-radius: 0 !important;
-    color: var(--cz-text) !important;
+   border: none !important;
+   background: none !important;
+   box-shadow: none !important;
+   border-radius: 0 !important;
+   color: var(--cz-text) !important;
 }
-.cotz-app .text-white.total-display { color: var(--cz-text) !important; }
-.cotz-app .text-emerald-400.total-display { color: var(--cz-green) !important; }
-.cotz-app .text-amber-300.total-display { color: var(--cz-amber) !important; }
-.cotz-app .text-slate-300.total-display { color: var(--cz-text-2) !important; }
-.cotz-app .text-slate-400.total-display { color: var(--cz-text-3) !important; }
-.cotz-app .text-slate-200.total-display { color: var(--cz-text) !important; }
+
+.cotz-app .text-white.total-display {
+   color: var(--cz-text) !important;
+}
+
+.cotz-app .text-emerald-400.total-display {
+   color: var(--cz-green) !important;
+}
+
+.cotz-app .text-amber-300.total-display {
+   color: var(--cz-amber) !important;
+}
+
+.cotz-app .text-slate-300.total-display {
+   color: var(--cz-text-2) !important;
+}
+
+.cotz-app .text-slate-400.total-display {
+   color: var(--cz-text-3) !important;
+}
+
+.cotz-app .text-slate-200.total-display {
+   color: var(--cz-text) !important;
+}
 
 .cotz-app .material-symbols-outlined {
-    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-    vertical-align: middle;
-    line-height: 1;
+   font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+   vertical-align: middle;
+   line-height: 1;
 }
 
-.cotz-app :focus-visible { outline: 2px solid var(--cz-accent); outline-offset: 1px; border-radius: 6px; }
+.cotz-app :focus-visible {
+   outline: 2px solid var(--cz-accent);
+   outline-offset: 1px;
+   border-radius: 6px;
+}
+
 .cotz-app input[type="radio"],
-.cotz-app input[type="checkbox"] { accent-color: var(--cz-accent); }
+.cotz-app input[type="checkbox"] {
+   accent-color: var(--cz-accent);
+}
 
 /* ---------- Top bar ----------
    Identidad de la etapa + estado + salida a guardadas, en un renglón, sin fondo ni
    borde propios (el mockup lo apoya directo sobre la página). */
 .cotz-app .cotz-topbar {
-    flex-shrink: 0;
-    /* `wwwroot/css/layout.css` declara `header { min-height: 4rem }` con selector de
+   flex-shrink: 0;
+   /* `wwwroot/css/layout.css` declara `header { min-height: 4rem }` con selector de
        ELEMENTO, pensado para el header global; acá se recupera el alto natural. */
-    min-height: 0;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
-    min-width: 0;
+   min-height: 0;
+   padding: 0;
+   border: 0;
+   background: transparent;
+   display: flex;
+   align-items: center;
+   gap: 12px;
+   flex-wrap: wrap;
+   min-width: 0;
 }
+
 .cotz-app .cotz-topbar__icon {
-    width: 32px; height: 32px; flex: 0 0 auto; border-radius: 9px;
-    display: inline-flex; align-items: center; justify-content: center;
-    background: var(--cz-accent-soft); color: var(--cz-accent);
+   width: 32px;
+   height: 32px;
+   flex: 0 0 auto;
+   border-radius: 9px;
+   display: inline-flex;
+   align-items: center;
+   justify-content: center;
+   background: var(--cz-accent-soft);
+   color: var(--cz-accent);
 }
-.cotz-app .cotz-topbar__title { font-size: 16px; font-weight: 800; color: var(--cz-text); letter-spacing: 0; flex-shrink: 0; margin: 0; }
-.cotz-app .cotz-topbar__hint { font-size: 12.5px; color: var(--cz-text-4); min-width: 0; }
+
+.cotz-app .cotz-topbar__title {
+   font-size: 16px;
+   font-weight: 800;
+   color: var(--cz-text);
+   letter-spacing: 0;
+   flex-shrink: 0;
+   margin: 0;
+}
+
+.cotz-app .cotz-topbar__hint {
+   font-size: 12.5px;
+   color: var(--cz-text-4);
+   min-width: 0;
+}
 
 /* ---------- Workspace grid ----------
    Container queries sobre .cotz-app (no @media) porque el mismo workspace se hostea en
@@ -173,198 +254,624 @@ body:has(.cotz-standalone) #main-content > div:last-child {
    Venta/Create. container-type va en el PADRE directo de .cotz-app en cada host
    (.cotz-standalone / .venta-cotizar-panel): un elemento no puede responder a un
    @container basado en su propio ancho. Los anchos están medidos contra el ancho real. */
-.cotz-standalone, .venta-cotizar-panel { container-type: inline-size; }
+.cotz-standalone,
+.venta-cotizar-panel {
+   container-type: inline-size;
+}
 
 .cotz-app .workspace {
-    flex: 1;
-    min-height: 0;
-    display: grid;
-    gap: 20px 24px;
-    padding: 0;
-    grid-template-columns: minmax(0, 1fr);
-    /* Cada columna crece según su propio contenido: sin esto, Grid fuerza a Productos
+   flex: 1;
+   min-height: 0;
+   display: grid;
+   gap: 20px 24px;
+   padding: 0;
+   grid-template-columns: minmax(0, 1fr);
+   /* Cada columna crece según su propio contenido: sin esto, Grid fuerza a Productos
        y Cliente a la misma altura y la más corta queda con cientos de px vacíos. */
-    align-items: start;
-    /* Las filas de la grilla no se estiran para llenar la altura de la pantalla. */
-    align-content: start;
-    grid-template-areas: "productos" "config" "totales" "resultados";
+   align-items: start;
+   /* Las filas de la grilla no se estiran para llenar la altura de la pantalla. */
+   align-content: start;
+   grid-template-areas: "productos" "config" "totales" "resultados";
 }
-.cotz-app .workspace > [data-zone="productos"] { grid-area: productos; }
-.cotz-app .workspace > [data-zone="config"] { grid-area: config; }
-.cotz-app .workspace > [data-zone="totales"] { grid-area: totales; }
-.cotz-app .workspace > [data-zone="resultados"] { grid-area: resultados; }
+
+.cotz-app .workspace>[data-zone="productos"] {
+   grid-area: productos;
+}
+
+.cotz-app .workspace>[data-zone="config"] {
+   grid-area: config;
+}
+
+.cotz-app .workspace>[data-zone="totales"] {
+   grid-area: totales;
+}
+
+.cotz-app .workspace>[data-zone="resultados"] {
+   grid-area: resultados;
+}
 
 /* La tabla de resultados scrollea horizontal sin romper el panel cuando el ancho es
    ajustado (no clipea Estado/Recargo/Acción). */
-.cotz-app #cotizacion-resultados { overflow-x: auto; }
+.cotz-app #cotizacion-resultados {
+   overflow-x: auto;
+}
+
 /* min-width:0 deja que la columna se encoja por debajo del min-content de la tabla. */
-.cotz-app .col { min-height: 0; min-width: 0; display: flex; flex-direction: column; gap: 20px; }
-.cotz-app .panel { max-height: none; }
-.cotz-app .panel-body { overflow-y: visible; }
+.cotz-app .col {
+   min-height: 0;
+   min-width: 0;
+   display: flex;
+   flex-direction: column;
+   gap: 20px;
+}
+
+.cotz-app .panel {
+   max-height: none;
+}
+
+.cotz-app .panel-body {
+   overflow-y: visible;
+}
 
 /* Banda ≥60rem de contenedor: Productos + Cliente en 2 columnas iguales (mockup),
    Totales y Resultados a todo el ancho debajo. La comparativa de medios es el núcleo
    comercial de la pantalla y se lee a todo el ancho SIEMPRE. */
 @container (min-width: 60rem) {
-    .cotz-app .workspace {
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-        grid-template-areas:
-            "productos  config"
-            "totales    totales"
-            "resultados resultados";
-    }
+   .cotz-app .workspace {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      grid-template-areas:
+         "productos  config"
+         "totales    totales"
+         "resultados resultados";
+   }
 }
 
 /* ---------- Superficies ---------- */
 .cotz-app .panel {
-    background: var(--cz-s1); border: 1px solid var(--cz-line); border-radius: 16px;
-    padding: 22px 24px; display: flex; flex-direction: column; gap: 16px;
-    min-height: 0; box-sizing: border-box;
+   background: var(--cz-s1);
+   border: 1px solid var(--cz-line);
+   border-radius: 16px;
+   padding: 22px 24px;
+   display: flex;
+   flex-direction: column;
+   gap: 16px;
+   min-height: 0;
+   box-sizing: border-box;
 }
-.cotz-app .panel-head { padding: 0; border: 0; display: flex; align-items: center; gap: 12px; min-width: 0; }
-.cotz-app .panel-head--stack { align-items: flex-start; justify-content: space-between; }
-.cotz-app .panel-body { flex: 1; min-height: 0; padding: 0; }
-.cotz-app .panel-body.tight { padding: 0; }
+
+.cotz-app .panel-head {
+   padding: 0;
+   border: 0;
+   display: flex;
+   align-items: center;
+   gap: 12px;
+   min-width: 0;
+}
+
+.cotz-app .panel-head--stack {
+   align-items: flex-start;
+   justify-content: space-between;
+}
+
+.cotz-app .panel-body {
+   flex: 1;
+   min-height: 0;
+   padding: 0;
+}
+
+.cotz-app .panel-body.tight {
+   padding: 0;
+}
+
 /* Cliente: ficha, aptitud, contacto y condiciones se apilan con 16px entre bloques. */
-.cotz-app #cotizacion-config-body { display: flex; flex-direction: column; gap: 16px; }
+.cotz-app #cotizacion-config-body {
+   display: flex;
+   flex-direction: column;
+   gap: 16px;
+}
+
 /* Sólo el drawer de plan la usa: es un contexto modal, sin la superficie del panel
    alrededor, así que ahí una card sí aporta agrupación real. */
-.cotz-app .card-sub { background: var(--pal-neutral-925); border: 1px solid var(--pal-neutral-800); border-radius: 10px; }
+.cotz-app .card-sub {
+   background: var(--pal-neutral-925);
+   border: 1px solid var(--pal-neutral-800);
+   border-radius: 10px;
+}
 
 /* ---------- Tipografía de sección ---------- */
-.cotz-app .sec-title { font-size: 14.5px; font-weight: 800; color: var(--cz-text); letter-spacing: 0; line-height: 1.25; margin: 0; }
-.cotz-app .sec-sub { font-size: 12.5px; color: var(--cz-text-4); margin-top: 4px; line-height: 1.35; }
-.cotz-app .sec-meta { font-size: 12.5px; color: var(--cz-text-3); white-space: nowrap; flex-shrink: 0; }
-.cotz-app .sec-meta__count { font-weight: 700; color: var(--cz-text-2); }
-.cotz-app .sec-meta__total { font-weight: 800; color: var(--cz-text); }
-.cotz-app .hint-line { font-size: 12.5px; color: var(--cz-text-4); margin-top: 0; }
+.cotz-app .sec-title {
+   font-size: 14.5px;
+   font-weight: 800;
+   color: var(--cz-text);
+   letter-spacing: 0;
+   line-height: 1.25;
+   margin: 0;
+}
+
+.cotz-app .sec-sub {
+   font-size: 12.5px;
+   color: var(--cz-text-4);
+   margin-top: 4px;
+   line-height: 1.35;
+}
+
+.cotz-app .sec-meta {
+   font-size: 12.5px;
+   color: var(--cz-text-3);
+   white-space: nowrap;
+   flex-shrink: 0;
+}
+
+.cotz-app .sec-meta__count {
+   font-weight: 700;
+   color: var(--cz-text-2);
+}
+
+.cotz-app .sec-meta__total {
+   font-weight: 800;
+   color: var(--cz-text);
+}
+
+.cotz-app .hint-line {
+   font-size: 12.5px;
+   color: var(--cz-text-4);
+   margin-top: 0;
+}
 
 /* Acción terciaria: mismo peso que un link, nunca un botón con caja. */
 .cotz-app .link-sub {
-    display: inline-flex; align-items: center; gap: 6px;
-    font-size: 12.5px; font-weight: 700; color: var(--cz-text-3);
-    background: none; border: 0; padding: 0; cursor: pointer;
+   display: inline-flex;
+   align-items: center;
+   gap: 6px;
+   font-size: 12.5px;
+   font-weight: 700;
+   color: var(--cz-text-3);
+   background: none;
+   border: 0;
+   padding: 0;
+   cursor: pointer;
 }
-.cotz-app .link-sub:hover { color: var(--cz-text); }
-.cotz-app .link-sub--accent { color: var(--cz-accent); }
-.cotz-app .link-sub--accent:hover { color: var(--cz-accent); filter: brightness(1.15); }
+
+.cotz-app .link-sub:hover {
+   color: var(--cz-text);
+}
+
+.cotz-app .link-sub--accent {
+   color: var(--cz-accent);
+}
+
+.cotz-app .link-sub--accent:hover {
+   color: var(--cz-accent);
+   filter: brightness(1.15);
+}
 
 /* ---------- Empty states: compactos, una línea con el ícono ---------- */
 .cotz-app .empty-mini {
-    display: flex; align-items: center; gap: .5rem;
-    padding: 4px 0; font-size: 12.5px; color: var(--cz-text-4);
+   display: flex;
+   align-items: center;
+   gap: .5rem;
+   padding: 4px 0;
+   font-size: 12.5px;
+   color: var(--cz-text-4);
 }
-.cotz-app .empty-mini--block { padding: 18px 16px; border: 1px dashed var(--cz-line-2); border-radius: 12px; }
-.cotz-app .empty-mini .material-symbols-outlined { color: var(--cz-text-4); flex-shrink: 0; }
+
+.cotz-app .empty-mini--block {
+   padding: 18px 16px;
+   border: 1px dashed var(--cz-line-2);
+   border-radius: 12px;
+}
+
+.cotz-app .empty-mini .material-symbols-outlined {
+   color: var(--cz-text-4);
+   flex-shrink: 0;
+}
 
 /* ---------- Productos: búsqueda ---------- */
-.cotz-app .prod-search { padding: 0; border: 0; display: flex; flex-direction: column; gap: 16px; }
-.cotz-app .prod-search__row { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.cotz-app .prod-search__pick { flex: 1 1 0; min-width: 0; font-size: 12.5px; color: var(--cz-text-4); display: flex; align-items: center; gap: 6px; line-height: 1.3; }
-.cotz-app .prod-search__pick.italic { font-style: italic; }
+.cotz-app .prod-search {
+   padding: 0;
+   border: 0;
+   display: flex;
+   flex-direction: column;
+   gap: 16px;
+}
+
+.cotz-app .prod-search__row {
+   display: flex;
+   align-items: center;
+   gap: 12px;
+   min-width: 0;
+}
+
+.cotz-app .prod-search__pick {
+   flex: 1 1 0;
+   min-width: 0;
+   font-size: 12.5px;
+   color: var(--cz-text-4);
+   display: flex;
+   align-items: center;
+   gap: 6px;
+   line-height: 1.3;
+}
+
+.cotz-app .prod-search__pick.italic {
+   font-style: italic;
+}
 
 /* ---------- Cart rows (producto agregado) ----------
    Una sola fila con nombre, cantidad, descuento y precio; el subtotal va debajo,
    separado por un divisor. */
 .cotz-app .cart-row {
-    border: 1px solid var(--cz-line-2); background: var(--cz-s2); border-radius: 14px;
-    padding: 16px 18px; display: flex; flex-direction: column; gap: 14px;
-    --cz-field-bg: var(--cz-s1);
+   border: 1px solid var(--cz-line-2);
+   background: var(--cz-s2);
+   border-radius: 14px;
+   padding: 16px 18px;
+   display: flex;
+   flex-direction: column;
+   gap: 14px;
+   --cz-field-bg: var(--cz-s1);
 }
-.cotz-app .cart-row__main { display: flex; align-items: center; gap: 16px; min-width: 0; }
-.cotz-app .cart-row__info { min-width: 0; flex: 1 1 0; }
-.cotz-app .cart-row__nombre { font-size: 15px; font-weight: 800; color: var(--cz-text); line-height: 1.25; }
-.cotz-app .cart-row__meta { font-size: 12.5px; color: var(--cz-text-3); margin-top: 3px; }
-.cotz-app .cart-row__field { flex: 0 0 auto; display: flex; flex-direction: column; gap: 5px; }
-.cotz-app .cart-row__field--qty { align-items: center; }
-.cotz-app .cart-row__label { font-size: var(--erp-fs-min, 0.75rem); font-weight: 700; letter-spacing: .4px; color: var(--cz-text-4); text-transform: uppercase; line-height: 1; }
-.cotz-app .cart-row__precio { flex: 0 0 auto; min-width: 100px; text-align: right; font-size: 15px; font-weight: 800; color: var(--cz-text); white-space: nowrap; }
+
+.cotz-app .cart-row__main {
+   display: flex;
+   align-items: center;
+   gap: 16px;
+   min-width: 0;
+}
+
+.cotz-app .cart-row__info {
+   min-width: 0;
+   flex: 1 1 0;
+}
+
+.cotz-app .cart-row__nombre {
+   font-size: 15px;
+   font-weight: 800;
+   color: var(--cz-text);
+   line-height: 1.25;
+}
+
+.cotz-app .cart-row__meta {
+   font-size: 12.5px;
+   color: var(--cz-text-3);
+   margin-top: 3px;
+}
+
+.cotz-app .cart-row__field {
+   flex: 0 0 auto;
+   display: flex;
+   flex-direction: column;
+   gap: 5px;
+}
+
+.cotz-app .cart-row__field--qty {
+   align-items: center;
+}
+
+/* Envío a la vista, debajo del carrito (antes vivía dentro de "Condiciones de cotización"). */
+.cotz-app .prod-envio {
+   display: flex;
+   align-items: center;
+   flex-wrap: wrap;
+   gap: 8px 14px;
+   padding: 14px 18px 16px;
+   border-top: 1px solid var(--cz-line-3);
+}
+
+.cotz-app .prod-envio .note-info {
+   flex: 1 1 14rem;
+   min-width: 0;
+}
+
+/* El aviso del topbar nunca debe tapar un modal abierto (envío, facturación, quitar producto). */
+body:has([role="dialog"]:not(.hidden)) .cotz-app #cotizacion-feedback {
+   visibility: hidden;
+}
+
+/* VENTA-SERVICIOS-01: armado opcional por línea, debajo de la fila principal. */
+.cotz-app .cart-row__armado {
+   display: flex;
+   align-items: center;
+   gap: 10px;
+   flex-wrap: wrap;
+   min-width: 0;
+   padding-top: 12px;
+   border-top: 1px solid var(--cz-line-3);
+}
+
+.cotz-app .cart-row__armado select {
+   flex: 0 1 280px;
+   min-width: 0;
+   max-width: 100%;
+   text-align: left;
+   text-align-last: left;
+}
+
+.cotz-app .cart-row__armado-costo {
+   font-size: 12.5px;
+   color: var(--cz-text-3);
+   font-variant-numeric: tabular-nums;
+}
+
+.cotz-app .cart-row__label {
+   font-size: var(--erp-fs-min, 0.75rem);
+   font-weight: 700;
+   letter-spacing: .4px;
+   color: var(--cz-text-4);
+   text-transform: uppercase;
+   line-height: 1;
+}
+
+.cotz-app .cart-row__precio {
+   flex: 0 0 auto;
+   min-width: 100px;
+   text-align: right;
+   font-size: 15px;
+   font-weight: 800;
+   color: var(--cz-text);
+   white-space: nowrap;
+}
+
 /* Quitar: discreto, sin caja; visible siempre (en touch no hay hover). */
 .cotz-app .cart-row__quitar {
-    display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto;
-    width: 28px; height: 28px; border-radius: 8px;
-    background: transparent; border: 0; color: var(--cz-text-4); cursor: pointer;
-    transition: color .14s, background .14s;
+   display: inline-flex;
+   align-items: center;
+   justify-content: center;
+   flex: 0 0 auto;
+   width: 28px;
+   height: 28px;
+   border-radius: 8px;
+   background: transparent;
+   border: 0;
+   color: var(--cz-text-4);
+   cursor: pointer;
+   transition: color .14s, background .14s;
 }
-.cotz-app .cart-row__quitar:hover { background: color-mix(in srgb, var(--pal-danger-400) 12%, transparent); color: var(--cz-red); }
+
+.cotz-app .cart-row__quitar:hover {
+   background: color-mix(in srgb, var(--pal-danger-400) 12%, transparent);
+   color: var(--cz-red);
+}
+
 /* Subtotal de la línea junto al precio unitario (una sola fila, sin banda ancha debajo). */
-.cotz-app .cart-row__precio { display: flex; align-items: baseline; justify-content: flex-end; gap: 10px; }
-.cotz-app .cart-row__precio > .total-display { font-size: 13px; font-weight: 600; color: var(--cz-text-4); }
-.cotz-app .cart-row__subtotal { font-size: 17px; font-weight: 800; color: var(--cz-text); }
-.cotz-app .cart-row__subtotal .cart-row__label { display: none; }
+.cotz-app .cart-row__precio {
+   display: flex;
+   align-items: baseline;
+   justify-content: flex-end;
+   gap: 10px;
+}
+
+.cotz-app .cart-row__precio>.total-display {
+   font-size: 13px;
+   font-weight: 600;
+   color: var(--cz-text-4);
+}
+
+.cotz-app .cart-row__subtotal {
+   font-size: 17px;
+   font-weight: 800;
+   color: var(--cz-text);
+}
+
+.cotz-app .cart-row__subtotal .cart-row__label {
+   display: none;
+}
 
 /* Descuento por línea: un solo campo con selector % / $ (mockup). Los dos <input>
    siguen existiendo (mismos data-cotizacion-desc-*-index): el selector sólo decide
    cuál se ve, así ningún descuento ya cargado se pierde al alternar. */
-.cotz-app .dto-control { display: flex; align-items: center; gap: 6px; }
-.cotz-app .dto-toggle { display: flex; background: var(--cz-s1); border: 1px solid var(--cz-line); border-radius: 7px; overflow: hidden; }
-.cotz-app .dto-toggle button {
-    position: relative; padding: 5px 9px; font-size: 12px; font-weight: 700; border: 0; background: transparent;
-    color: var(--cz-text-3); cursor: pointer; font-family: inherit; min-height: 0;
+.cotz-app .dto-control {
+   display: flex;
+   align-items: center;
+   gap: 6px;
 }
-.cotz-app .dto-toggle button[aria-pressed="true"] { background: var(--cz-accent); color: var(--pal-neutral-950); }
+
+.cotz-app .dto-toggle {
+   display: flex;
+   background: var(--cz-s1);
+   border: 1px solid var(--cz-line);
+   border-radius: 7px;
+   overflow: hidden;
+}
+
+.cotz-app .dto-toggle button {
+   position: relative;
+   padding: 5px 9px;
+   font-size: 12px;
+   font-weight: 700;
+   border: 0;
+   background: transparent;
+   color: var(--cz-text-3);
+   cursor: pointer;
+   font-family: inherit;
+   min-height: 0;
+}
+
+.cotz-app .dto-toggle button[aria-pressed="true"] {
+   background: var(--cz-accent);
+   color: var(--pal-neutral-950);
+}
+
 /* Punto: el modo inactivo también tiene un descuento cargado. */
 .cotz-app .dto-toggle button.has-value:not([aria-pressed="true"])::after {
-    content: ""; position: absolute; top: 3px; right: 3px; width: 5px; height: 5px; border-radius: 999px; background: var(--cz-amber);
+   content: "";
+   position: absolute;
+   top: 3px;
+   right: 3px;
+   width: 5px;
+   height: 5px;
+   border-radius: 999px;
+   background: var(--cz-amber);
 }
+
 .cotz-app .mini {
-    width: 46px; box-sizing: border-box; padding: 5px 8px; background: var(--cz-field-bg); border: 1px solid var(--cz-line);
-    border-radius: 7px; color: var(--cz-text); font-size: 12.5px; text-align: right; font-family: inherit; min-height: 0;
-    font-variant-numeric: tabular-nums;
+   width: 46px;
+   box-sizing: border-box;
+   padding: 5px 8px;
+   background: var(--cz-field-bg);
+   border: 1px solid var(--cz-line);
+   border-radius: 7px;
+   color: var(--cz-text);
+   font-size: 12.5px;
+   text-align: right;
+   font-family: inherit;
+   min-height: 0;
+   font-variant-numeric: tabular-nums;
 }
-.cotz-app .mini:focus { outline: none; border-color: var(--cz-accent); }
+
+.cotz-app .mini:focus {
+   outline: none;
+   border-color: var(--cz-accent);
+}
+
 /* Leak `#venta-create-page input[type="number"]` (width:100%, min-height:2.4rem, radio 12px,
    padding y fuente propios): el campo de descuento por línea debe medir lo que dice el mockup. */
 .cotz-app input.mini[type="number"] {
-    width: 46px !important;
-    min-height: 0 !important;
-    padding: 5px 8px !important;
-    border-radius: 7px !important;
-    font-size: 12.5px !important;
-    background-color: var(--cz-field-bg) !important;
-    border-color: var(--cz-line) !important;
+   width: 46px !important;
+   min-height: 0 !important;
+   padding: 5px 8px !important;
+   border-radius: 7px !important;
+   font-size: 12.5px !important;
+   background-color: var(--cz-field-bg) !important;
+   border-color: var(--cz-line) !important;
 }
-.cotz-app input.mini[type="number"]:focus { border-color: var(--cz-accent) !important; }
-.cotz-app .qty-step { display: inline-flex; align-items: center; border: 1px solid var(--cz-line); border-radius: 7px; overflow: hidden; background: var(--cz-s1); }
-.cotz-app .qty-step button { width: 24px; height: 28px; color: var(--cz-text-2); font-size: 13px; display: flex; align-items: center; justify-content: center; background: transparent; border: 0; cursor: pointer; }
-.cotz-app .qty-step button:hover { background: var(--cz-s3); color: var(--cz-text); }
-.cotz-app .qty-step input { width: 24px; text-align: center; background: transparent; border: 0; color: var(--cz-text); font-size: 12.5px; font-weight: 700; font-family: inherit; }
-.cotz-app .qty-step input:focus { outline: none; }
+
+.cotz-app input.mini[type="number"]:focus {
+   border-color: var(--cz-accent) !important;
+}
+
+.cotz-app .qty-step {
+   display: inline-flex;
+   align-items: center;
+   border: 1px solid var(--cz-line);
+   border-radius: 7px;
+   overflow: hidden;
+   background: var(--cz-s1);
+}
+
+.cotz-app .qty-step button {
+   width: 24px;
+   height: 28px;
+   color: var(--cz-text-2);
+   font-size: 13px;
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   background: transparent;
+   border: 0;
+   cursor: pointer;
+}
+
+.cotz-app .qty-step button:hover {
+   background: var(--cz-s3);
+   color: var(--cz-text);
+}
+
+.cotz-app .qty-step input {
+   width: 24px;
+   text-align: center;
+   background: transparent;
+   border: 0;
+   color: var(--cz-text);
+   font-size: 12.5px;
+   font-weight: 700;
+   font-family: inherit;
+}
+
+.cotz-app .qty-step input:focus {
+   outline: none;
+}
+
 /* Mismo leak cruzado ya documentado: `#venta-create-page input[type="number"]` (ID +
    atributo) le gana por especificidad a `.cotz-app .qty-step input` y fuerza
    width:100% + padding/border/background propios en el input de cantidad. */
 .cotz-app .qty-step input {
-    width: 24px !important;
-    min-height: 0 !important;
-    padding: 0 !important;
-    border: 0 !important;
-    border-radius: 0 !important;
-    background: transparent !important;
-    font-size: 12.5px !important;
+   width: 24px !important;
+   min-height: 0 !important;
+   padding: 0 !important;
+   border: 0 !important;
+   border-radius: 0 !important;
+   background: transparent !important;
+   font-size: 12.5px !important;
 }
-.cotz-app .qty-step input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+
+.cotz-app .qty-step input[type="number"] {
+   -moz-appearance: textfield;
+   appearance: textfield;
+}
+
 .cotz-app .qty-step input::-webkit-outer-spin-button,
-.cotz-app .qty-step input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.cotz-app .qty-step input::-webkit-inner-spin-button {
+   -webkit-appearance: none;
+   margin: 0;
+}
+
 /* Stepper grande (buscador): 36 + 38 + 36 × 40 de alto, como el mockup. */
-.cotz-app .qty-step--lg { flex: 0 0 auto; background: var(--cz-s2); border-radius: 10px; }
-.cotz-app .qty-step--lg button { width: 36px; height: 40px; font-size: 16px; }
-.cotz-app .qty-step--lg input { width: 38px !important; font-size: 14px !important; }
+.cotz-app .qty-step--lg {
+   flex: 0 0 auto;
+   background: var(--cz-s2);
+   border-radius: 10px;
+}
+
+.cotz-app .qty-step--lg button {
+   width: 36px;
+   height: 40px;
+   font-size: 16px;
+}
+
+.cotz-app .qty-step--lg input {
+   width: 38px !important;
+   font-size: 14px !important;
+}
 
 /* ---------- Cliente: identidad ---------- */
-.cotz-app .cliente-row { display: flex; flex-direction: column; gap: 16px; }
+.cotz-app .cliente-row {
+   display: flex;
+   flex-direction: column;
+   gap: 16px;
+}
+
 .cotz-app .cliente-id {
-    display: flex; align-items: center; gap: 12px; min-width: 0;
-    padding: 14px; background: var(--cz-s2); border: 1px solid var(--cz-line); border-radius: 12px;
+   display: flex;
+   align-items: center;
+   gap: 12px;
+   min-width: 0;
+   padding: 14px;
+   background: var(--cz-s2);
+   border: 1px solid var(--cz-line);
+   border-radius: 12px;
 }
+
 .cotz-app .cliente-avatar {
-    width: 44px; height: 44px; border-radius: 999px; flex-shrink: 0;
-    background: var(--cz-accent); color: var(--pal-neutral-950);
-    display: inline-flex; align-items: center; justify-content: center;
-    font-size: 14px; font-weight: 800;
+   width: 44px;
+   height: 44px;
+   border-radius: 999px;
+   flex-shrink: 0;
+   background: var(--cz-accent);
+   color: var(--pal-neutral-950);
+   display: inline-flex;
+   align-items: center;
+   justify-content: center;
+   font-size: 14px;
+   font-weight: 800;
 }
-.cotz-app .cliente-nombre { text-transform: capitalize; font-size: 14.5px; font-weight: 800; color: var(--cz-text); line-height: 1.25; }
-.cotz-app .cliente-doc { font-size: 12.5px; color: var(--cz-text-3); margin-top: 2px; }
-.cotz-app .cliente-cred { min-width: 0; }
+
+.cotz-app .cliente-nombre {
+   text-transform: capitalize;
+   font-size: 14.5px;
+   font-weight: 800;
+   color: var(--cz-text);
+   line-height: 1.25;
+}
+
+.cotz-app .cliente-doc {
+   font-size: 12.5px;
+   color: var(--cz-text-3);
+   margin-top: 2px;
+}
+
+.cotz-app .cliente-cred {
+   min-width: 0;
+}
 
 /* ---------- Aptitud crediticia (Crédito personal) ----------
    Card propia (mockup): eyebrow a la izquierda, estado como pill a la derecha, resumen
@@ -372,87 +879,505 @@ body:has(.cotz-standalone) #main-content > div:last-child {
    requiere-autorizacion, no-apto, error. RequiereAutorizacion no es un bloqueo (Venta
    pide autorización de supervisor): ámbar vs. rojo mantiene esa diferencia visible. */
 .cotz-app .aptitud-card {
-    display: flex; flex-direction: column; gap: 10px;
-    background: var(--cz-s2); border: 1px solid var(--cz-line-2); border-radius: 12px; padding: 16px 18px;
-    font-size: 12.5px; color: var(--cz-text-3);
+   display: flex;
+   flex-direction: column;
+   gap: 10px;
+   background: var(--cz-s2);
+   border: 1px solid var(--cz-line-2);
+   border-radius: 12px;
+   padding: 16px 18px;
+   font-size: 12.5px;
+   color: var(--cz-text-3);
 }
-.cotz-app .aptitud-card__top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.cotz-app .aptitud-card__eyebrow { font-size: var(--erp-fs-min, 0.75rem); font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: var(--cz-text-4); }
+
+.cotz-app .aptitud-card__top {
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+   gap: 12px;
+}
+
+.cotz-app .aptitud-card__eyebrow {
+   font-size: var(--erp-fs-min, 0.75rem);
+   font-weight: 800;
+   text-transform: uppercase;
+   letter-spacing: .5px;
+   color: var(--cz-text-4);
+}
+
 .cotz-app .aptitud-card__head {
-    display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px;
-    font-size: var(--erp-fs-min, 0.75rem); font-weight: 700; background: var(--cz-s3); color: var(--cz-text-2); white-space: nowrap;
+   display: inline-flex;
+   align-items: center;
+   gap: 6px;
+   padding: 4px 10px;
+   border-radius: 999px;
+   font-size: var(--erp-fs-min, 0.75rem);
+   font-weight: 700;
+   background: var(--cz-s3);
+   color: var(--cz-text-2);
+   white-space: nowrap;
 }
-.cotz-app .aptitud-card__head .material-symbols-outlined { font-size: 12px !important; }
-.cotz-app .aptitud-card > .aptitud-card__head { align-self: flex-start; }
-.cotz-app .aptitud-card--apto .aptitud-card__head { background: var(--cz-green-bg); color: var(--cz-green); }
-.cotz-app .aptitud-card--no-apto .aptitud-card__head { background: var(--cz-red-bg); color: var(--cz-red); }
+
+.cotz-app .aptitud-card__head .material-symbols-outlined {
+   font-size: 12px !important;
+}
+
+.cotz-app .aptitud-card>.aptitud-card__head {
+   align-self: flex-start;
+}
+
+.cotz-app .aptitud-card--apto .aptitud-card__head {
+   background: var(--cz-green-bg);
+   color: var(--cz-green);
+}
+
+.cotz-app .aptitud-card--no-apto .aptitud-card__head {
+   background: var(--cz-red-bg);
+   color: var(--cz-red);
+}
+
 .cotz-app .aptitud-card--requiere-autorizacion .aptitud-card__head,
-.cotz-app .aptitud-card--error .aptitud-card__head { background: var(--cz-amber-bg); color: var(--cz-amber); }
-.cotz-app .aptitud-card--evaluando .aptitud-card__head { background: transparent; color: var(--cz-text-3); padding-inline: 0; }
-.cotz-app .aptitud-card dl { margin-top: 2px; display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; font-size: 12.5px; }
-.cotz-app .aptitud-card dt { color: var(--cz-text-4); }
-.cotz-app .aptitud-card dd { text-align: right; color: var(--cz-text-2); font-variant-numeric: tabular-nums; }
-.cotz-app .aptitud-card ul { margin-top: 6px; padding-left: 1rem; list-style: disc; color: var(--cz-text-2); }
-.cotz-app .aptitud-card ul li { margin-top: 2px; }
-.cotz-app .aptitud-card .btn-xs { align-self: flex-start; }
-.cotz-app .aptitud-card__resumen { margin: 0; font-size: 12.5px; color: var(--cz-text-3); line-height: 1.4; }
-.cotz-app .aptitud-card__detalle summary { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--cz-text-3); }
-.cotz-app .aptitud-card__detalle summary:hover { color: var(--cz-text); }
-.cotz-app .aptitud-card__detalle[open] summary { margin-bottom: 8px; }
+.cotz-app .aptitud-card--error .aptitud-card__head {
+   background: var(--cz-amber-bg);
+   color: var(--cz-amber);
+}
+
+.cotz-app .aptitud-card--evaluando .aptitud-card__head {
+   background: transparent;
+   color: var(--cz-text-3);
+   padding-inline: 0;
+}
+
+.cotz-app .aptitud-card dl {
+   margin-top: 2px;
+   display: grid;
+   grid-template-columns: 1fr auto;
+   gap: 4px 12px;
+   font-size: 12.5px;
+}
+
+.cotz-app .aptitud-card dt {
+   color: var(--cz-text-4);
+}
+
+.cotz-app .aptitud-card dd {
+   text-align: right;
+   color: var(--cz-text-2);
+   font-variant-numeric: tabular-nums;
+}
+
+.cotz-app .aptitud-card ul {
+   margin-top: 6px;
+   padding-left: 1rem;
+   list-style: disc;
+   color: var(--cz-text-2);
+}
+
+.cotz-app .aptitud-card ul li {
+   margin-top: 2px;
+}
+
+.cotz-app .aptitud-card .btn-xs {
+   align-self: flex-start;
+}
+
+.cotz-app .aptitud-card__resumen {
+   margin: 0;
+   font-size: 12.5px;
+   color: var(--cz-text-3);
+   line-height: 1.4;
+}
+
+.cotz-app .aptitud-card__detalle summary {
+   display: inline-flex;
+   align-items: center;
+   gap: 6px;
+   font-size: 12px;
+   font-weight: 700;
+   color: var(--cz-text-3);
+}
+
+.cotz-app .aptitud-card__detalle summary:hover {
+   color: var(--cz-text);
+}
+
+.cotz-app .aptitud-card__detalle[open] summary {
+   margin-bottom: 8px;
+}
 
 /* Estado de elegibilidad dentro del drawer "Detalle del plan": ahí sí conviene una
    caja (contexto modal, sin panel alrededor). */
-.cotz-app .plan-elegibilidad .aptitud-card { border-radius: 10px; padding: 10px 12px; background: var(--pal-neutral-925); border-color: var(--pal-neutral-800); }
+.cotz-app .plan-elegibilidad .aptitud-card {
+   border-radius: 10px;
+   padding: 10px 12px;
+   background: var(--pal-neutral-925);
+   border-color: var(--pal-neutral-800);
+}
 
-/* Datos de contacto libres: compactos, campos chicos de 30px (mockup). */
-.cotz-app .contacto-libre { display: flex; flex-direction: column; gap: 8px; }
-.cotz-app .contacto-libre__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
-.cotz-app .contacto-libre__field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.cotz-app .contacto-libre__label { font-size: var(--erp-fs-min, 0.75rem); font-weight: 700; letter-spacing: .3px; color: var(--cz-text-4); text-transform: uppercase; }
-.cotz-app .contacto-libre .field { height: 30px; padding: 6px 9px !important; font-size: 12px !important; border-radius: 7px !important; min-height: 0 !important; }
-.cotz-app .contacto-libre .hint-line { grid-column: 1 / -1; }
+/* ==========================================================================
+   Cliente · datos de contacto libres
+   Siempre visible. Mejor contraste y legibilidad.
+   ========================================================================== */
+
+.cotz-app .contacto-libre {
+   display: flex;
+   flex-direction: column;
+   gap: 12px;
+}
+
+
+/* ---------- Encabezado ---------- */
+
+.cotz-app .contacto-libre__head {
+   display: flex;
+   flex-direction: column;
+   gap: 4px;
+}
+
+.cotz-app .contacto-libre__title {
+   margin: 0;
+
+   font-size: 15px;
+   font-weight: 850;
+   line-height: 1.3;
+
+   color: var(--cz-text);
+   letter-spacing: .1px;
+}
+
+.cotz-app .contacto-libre__description {
+   margin: 0;
+
+   font-size: 13.5px;
+   font-weight: 500;
+   line-height: 1.5;
+
+   color: var(--cz-text-2);
+}
+
+
+/* ---------- Campos ---------- */
+
+.cotz-app .contacto-libre__grid {
+   display: grid;
+
+   grid-template-columns:
+      minmax(0, 2fr) minmax(120px, 1fr) minmax(170px, 1.5fr);
+
+   gap: 12px 10px;
+
+   margin-top: 2px;
+}
+
+.cotz-app .contacto-libre__field {
+   display: flex;
+   flex-direction: column;
+
+   gap: 6px;
+
+   min-width: 0;
+}
+
+.cotz-app .contacto-libre__label {
+   font-size: 13px;
+   font-weight: 850;
+   line-height: 1.3;
+
+   letter-spacing: .35px;
+   text-transform: uppercase;
+
+   color: var(--cz-text);
+}
+
+
+/* Inputs un poco más altos y fáciles de leer */
+
+.cotz-app .contacto-libre .field {
+   height: 40px;
+
+   min-height: 40px !important;
+
+   padding: 9px 11px !important;
+
+   font-size: 14px !important;
+   font-weight: 600 !important;
+
+   color: var(--cz-text) !important;
+
+   border-color: var(--cz-line-2) !important;
+   border-radius: 9px !important;
+}
+
+
+/* Placeholder visible pero claramente secundario */
+
+.cotz-app .contacto-libre .field::placeholder {
+   color: var(--cz-text-3);
+
+   opacity: 1;
+}
+
+
+/* Texto explicativo debajo de los 3 campos */
+
+.cotz-app .contacto-libre__help {
+   grid-column: 1 / -1;
+
+   margin: 2px 0 0;
+
+   font-size: 13.5px;
+   font-weight: 500;
+   line-height: 1.55;
+
+   color: var(--cz-text-2);
+}
+
+
+/* ==========================================================================
+   Separador: contacto libre / cliente registrado
+   ========================================================================== */
+
+.cotz-app .cliente-separador {
+   display: flex;
+   align-items: center;
+
+   gap: 12px;
+
+   margin: 4px 0;
+
+   font-size: 12.5px;
+   font-weight: 700;
+   line-height: 1.4;
+
+   color: var(--cz-text-2);
+}
+
+.cotz-app .cliente-separador::before,
+.cotz-app .cliente-separador::after {
+   content: "";
+
+   flex: 1;
+
+   height: 1px;
+
+   background: var(--cz-line-2);
+}
+
+.cotz-app .cliente-separador span {
+   flex-shrink: 0;
+}
+
+
+/* ==========================================================================
+   Buscador de cliente registrado
+   ========================================================================== */
+
+.cotz-app .cliente-buscador__label {
+   display: block;
+
+   margin-bottom: 7px;
+
+   font-size: 13px;
+   font-weight: 850;
+   line-height: 1.3;
+
+   letter-spacing: .35px;
+   text-transform: uppercase;
+
+   color: var(--cz-text);
+}
+
+.cotz-app .cliente-buscador__help {
+   margin: 8px 0 0;
+
+   font-size: 13.5px;
+   font-weight: 500;
+   line-height: 1.5;
+
+   color: var(--cz-text-2);
+}
+
+.cotz-app .cliente-buscador__icon {
+   color: var(--cz-text-2);
+
+   pointer-events: none;
+}
+
+
+/* ==========================================================================
+   Responsive
+   ========================================================================== */
+
+@media (max-width: 768px) {
+
+   .cotz-app .contacto-libre__grid {
+      grid-template-columns: minmax(0, 1fr);
+   }
+
+   .cotz-app .contacto-libre .field {
+      height: 42px;
+
+      min-height: 42px !important;
+   }
+
+   .cotz-app .cliente-separador {
+      margin: 8px 0;
+   }
+
+   .cotz-app .cliente-separador span {
+      white-space: normal;
+
+      text-align: center;
+   }
+}
 
 /* ---------- Condiciones de cotización ----------
    Card elevada (bloque s2) dentro del panel Cliente, con grilla de 2 columnas iguales. */
 .cotz-app .condiciones-zone {
-    margin-top: 0; padding: 18px; border-radius: 12px;
-    background: var(--cz-s2); border: 1px solid var(--cz-line-2);
-    display: flex; flex-direction: column; gap: 16px;
-    --cz-field-bg: var(--cz-s1);
+   margin-top: 0;
+   padding: 18px;
+   border-radius: 12px;
+   background: var(--cz-s2);
+   border: 1px solid var(--cz-line-2);
+   display: flex;
+   flex-direction: column;
+   gap: 16px;
+   --cz-field-bg: var(--cz-s1);
 }
-.cotz-app .condiciones-zone:not([open]) { gap: 0; padding-block: 12px; }
-.cotz-app .condiciones-zone > summary { display: flex; align-items: center; justify-content: space-between; cursor: pointer; list-style: none; }
-.cotz-app .condiciones-zone > summary::-webkit-details-marker { display: none; }
-.cotz-app .condiciones-zone[open] > summary .chev { transform: rotate(180deg); }
-.cotz-app .condiciones-divider { font-size: var(--erp-fs-min, 0.75rem); font-weight: 800; text-transform: uppercase; letter-spacing: .6px; color: var(--cz-text-4); }
-.cotz-app .cond-grid { margin-top: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 14px; }
-.cotz-app .cond-grid__full { grid-column: 1 / -1; }
+
+.cotz-app .condiciones-zone:not([open]) {
+   gap: 0;
+   padding-block: 12px;
+}
+
+.cotz-app .condiciones-zone>summary {
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+   cursor: pointer;
+   list-style: none;
+}
+
+.cotz-app .condiciones-zone>summary::-webkit-details-marker {
+   display: none;
+}
+
+.cotz-app .condiciones-zone[open]>summary .chev {
+   transform: rotate(180deg);
+}
+
+.cotz-app .condiciones-divider {
+   font-size: 13px;
+   font-weight: 850;
+   text-transform: uppercase;
+   letter-spacing: .65px;
+   color: var(--cz-text);
+}
+
+.cotz-app .cond-grid {
+   margin-top: 0;
+   display: grid;
+   grid-template-columns: repeat(2, minmax(0, 1fr));
+   gap: 16px 14px;
+}
+
+.cotz-app .cond-grid__full {
+   grid-column: 1 / -1;
+}
+
 /* Cada par (Descuento %/$, Anticipo/Válida hasta) se aplana en la grilla: cuatro celdas
    iguales, como el mockup. En banda angosta vuelve a ser una fila propia (ver abajo). */
-.cotz-app .cond-pair { display: contents; }
+.cotz-app .cond-pair {
+   display: contents;
+}
+
 .cotz-app .cond-pair__a,
-.cotz-app .cond-pair__b { min-width: 0; }
-.cotz-app .cond-check { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--cz-text-2); cursor: pointer; }
-.cotz-app .cond-check input { width: 16px; height: 16px; margin: 0; flex: 0 0 auto; }
-.cotz-app .cond-checks { display: flex; flex-direction: column; gap: 10px; }
+.cotz-app .cond-pair__b {
+   min-width: 0;
+}
+
+.cotz-app .cond-check {
+   display: flex;
+   align-items: center;
+   gap: 10px;
+   font-size: 13px;
+   color: var(--cz-text-2);
+   cursor: pointer;
+}
+
+.cotz-app .cond-check input {
+   width: 16px;
+   height: 16px;
+   margin: 0;
+   flex: 0 0 auto;
+}
+
+.cotz-app .cond-checks {
+   display: flex;
+   flex-direction: column;
+   gap: 10px;
+}
+
 /* Aviso puntual: acento en texto + ícono, sin caja teñida. */
-.cotz-app .note-amber { display: flex; align-items: center; gap: .4rem; font-size: 12.5px; color: var(--cz-amber); }
+.cotz-app .note-amber {
+   display: flex;
+   align-items: center;
+   gap: .4rem;
+   font-size: 12.5px;
+   color: var(--cz-amber);
+}
+
 /* Resumen informativo (envío/factura guardados), no una advertencia. */
-.cotz-app .note-info { display: flex; align-items: center; gap: .4rem; font-size: 12.5px; color: var(--cz-accent); }
-.cotz-app .note-info button.link-sub { color: var(--cz-accent); text-decoration: underline; font-size: 12.5px; }
+.cotz-app .note-info {
+   display: flex;
+   align-items: center;
+   gap: .4rem;
+   font-size: 12.5px;
+   color: var(--cz-accent);
+}
+
+.cotz-app .note-info button.link-sub {
+   color: var(--cz-accent);
+   text-decoration: underline;
+   font-size: 12.5px;
+}
 
 /* ---------- Fields ---------- */
 .cotz-app .field {
-    background: var(--cz-field-bg); border: 1px solid var(--cz-line); color: var(--cz-text);
-    border-radius: 8px; padding: 9px 12px; width: 100%; font-size: 13.5px; font-family: inherit;
-    transition: border .15s, box-shadow .15s;
+   background: var(--cz-field-bg);
+   border: 1px solid var(--cz-line);
+   color: var(--cz-text);
+   border-radius: 8px;
+   padding: 9px 12px;
+   width: 100%;
+   font-size: 13.5px;
+   font-family: inherit;
+   transition: border .15s, box-shadow .15s;
 }
-.cotz-app .field::placeholder { color: var(--cz-text-4); }
-.cotz-app .field:focus { border-color: var(--cz-accent); outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--pal-info-400) 16%, transparent); }
-.cotz-app .field:disabled { opacity: .5; }
+
+.cotz-app .field::placeholder {
+   color: var(--cz-text-4);
+}
+
+.cotz-app .field:focus {
+   border-color: var(--cz-accent);
+   outline: none;
+   box-shadow: 0 0 0 3px color-mix(in srgb, var(--pal-info-400) 16%, transparent);
+}
+
+.cotz-app .field:disabled {
+   opacity: .5;
+}
+
 /* Fecha vacía: el mockup la muestra como placeholder apagado (cotizacion-simulador.js marca data-vacio). */
-.cotz-app input[type="date"].field[data-vacio="true"] { color: var(--cz-text-4) !important; }
-.cotz-app textarea.field { resize: none; }
+.cotz-app input[type="date"].field[data-vacio="true"] {
+   color: var(--cz-text-4) !important;
+}
+
+.cotz-app textarea.field {
+   resize: none;
+}
+
 /* Mismo leak cruzado ya documentado: venta-page-wizard.css estiliza inputs CRUDOS por
    tipo con `#venta-create-page input[type="number"], ...` (ID + atributo), más
    específico que `.cotz-app .field`. Se neutralizan sólo las propiedades que
@@ -465,117 +1390,402 @@ body:has(.cotz-standalone) #main-content > div:last-child {
 .cotz-app input[type="tel"].field,
 .cotz-app select.field,
 .cotz-app textarea.field {
-    min-height: 0 !important;
-    padding-top: 9px !important;
-    padding-bottom: 9px !important;
-    border-radius: 8px !important;
-    background-color: var(--cz-field-bg) !important;
-    border-color: var(--cz-line) !important;
-    font-size: 13.5px !important;
-    color: var(--cz-text) !important;
+   min-height: 0 !important;
+   padding-top: 9px !important;
+   padding-bottom: 9px !important;
+   border-radius: 8px !important;
+   background-color: var(--cz-field-bg) !important;
+   border-color: var(--cz-line) !important;
+   font-size: 13.5px !important;
+   color: var(--cz-text) !important;
 }
+
 .cotz-app input.field:focus,
 .cotz-app select.field:focus,
-.cotz-app textarea.field:focus { border-color: var(--cz-accent) !important; box-shadow: 0 0 0 3px color-mix(in srgb, var(--pal-info-400) 16%, transparent) !important; }
+.cotz-app textarea.field:focus {
+   border-color: var(--cz-accent) !important;
+   box-shadow: 0 0 0 3px color-mix(in srgb, var(--pal-info-400) 16%, transparent) !important;
+}
+
 /* Buscadores: 14px y radio 10 (mockup). */
 .cotz-app #cotizacion-producto-buscar.field,
 .cotz-app #cotizacion-cliente-buscar.field {
-    font-size: 14px !important; border-radius: 10px !important;
-    padding-top: 12px !important; padding-bottom: 12px !important;
+   font-size: 14px !important;
+   border-radius: 10px !important;
+   padding-top: 12px !important;
+   padding-bottom: 12px !important;
 }
+
 /* `#venta-create-page .label` (color var(--pal-neutral-400), 800, tracking .08em) es otro leak por id: se neutraliza. */
-.cotz-app .label { display: block; font-size: var(--erp-fs-min, 0.75rem) !important; font-weight: 700 !important; letter-spacing: .4px !important; text-transform: uppercase; color: var(--cz-text-4) !important; margin-bottom: 6px !important; }
-.cotz-app .field-affix { position: absolute; top: 50%; transform: translateY(-50%); color: var(--cz-text-4); font-size: 13px; pointer-events: none; }
-.cotz-app .field-affix--left { left: 12px; }
-.cotz-app .field-affix--right { right: 12px; }
+.cotz-app .label {
+   display: block;
+   font-size: var(--erp-fs-min, 0.75rem) !important;
+   font-weight: 700 !important;
+   letter-spacing: .4px !important;
+   text-transform: uppercase;
+   color: var(--cz-text-4) !important;
+   margin-bottom: 6px !important;
+}
+
+.cotz-app .field-affix {
+   position: absolute;
+   top: 50%;
+   transform: translateY(-50%);
+   color: var(--cz-text-4);
+   font-size: 13px;
+   pointer-events: none;
+}
+
+.cotz-app .field-affix--left {
+   left: 12px;
+}
+
+.cotz-app .field-affix--right {
+   right: 12px;
+}
+
 /* Los utilitarios de padding con ícono/signo pierden contra el leak de arriba (ID). */
-.cotz-app .field.pl-8 { padding-left: 40px !important; }
-.cotz-app .field.pl-6 { padding-left: 26px !important; }
-.cotz-app .field.pr-6 { padding-right: 30px !important; }
+.cotz-app .field.pl-8 {
+   padding-left: 40px !important;
+}
+
+.cotz-app .field.pl-6 {
+   padding-left: 26px !important;
+}
+
+.cotz-app .field.pr-6 {
+   padding-right: 30px !important;
+}
 
 /* ---------- Buttons ---------- */
 .cotz-app .btn {
-    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-    padding: 0 18px; border-radius: 10px !important; font-size: 13px; font-weight: 700; font-family: inherit;
-    transition: background .15s, border-color .15s, color .15s, filter .15s;
-    height: 40px; min-height: 40px !important; cursor: pointer; border: 1px solid transparent; white-space: nowrap;
+   display: inline-flex;
+   align-items: center;
+   justify-content: center;
+   gap: 8px;
+   padding: 0 18px;
+   border-radius: 10px !important;
+   font-size: 13px;
+   font-weight: 700;
+   font-family: inherit;
+   transition: background .15s, border-color .15s, color .15s, filter .15s;
+   height: 40px;
+   min-height: 40px !important;
+   cursor: pointer;
+   border: 1px solid transparent;
+   white-space: nowrap;
 }
-.cotz-app .btn:disabled { cursor: not-allowed; }
+
+.cotz-app .btn:disabled {
+   cursor: not-allowed;
+}
+
 /* Primaria (Simular/Actualizar · Agregar · Confirmar). */
-.cotz-app .btn-primary { background: var(--cz-accent); color: var(--pal-neutral-950); font-weight: 800; }
-.cotz-app .btn-primary:hover:not(:disabled) { background: var(--cz-accent-hover); }
+.cotz-app .btn-primary {
+   background: var(--cz-accent);
+   color: var(--pal-neutral-950);
+   font-weight: 800;
+}
+
+.cotz-app .btn-primary:hover:not(:disabled) {
+   background: var(--cz-accent-hover);
+}
+
 /* Deshabilitada = neutra, nunca una versión atenuada del acento: un sólido al 40% de
    opacidad sigue leyéndose como "acción disponible". */
-.cotz-app .btn-primary:disabled { background: var(--cz-s2); color: var(--cz-text-4); border-color: var(--cz-line); }
+.cotz-app .btn-primary:disabled {
+   background: var(--cz-s2);
+   color: var(--cz-text-4);
+   border-color: var(--cz-line);
+}
+
 /* Secundaria (Guardar cotización, Continuar con wizard, Ver guardadas). */
-.cotz-app .btn-soft { background: var(--cz-s2); color: var(--cz-text); border-color: var(--cz-line); }
-.cotz-app .btn-soft:hover:not(:disabled) { background: var(--cz-s3); border-color: var(--cz-line-2); }
-.cotz-app .btn-soft:disabled { color: var(--cz-text-4); }
-.cotz-app .btn-ghost { background: var(--cz-s2); color: var(--cz-text-2); border-color: var(--cz-line); }
-.cotz-app .btn-ghost:hover { background: var(--cz-s3); color: var(--cz-text); }
-.cotz-app .btn-amber { background: var(--pal-warning-700); color: var(--pal-white); }
-.cotz-app .btn-amber:hover:not(:disabled) { background: var(--pal-warning-800); }
-.cotz-app .btn-sm { height: 36px; min-height: 36px !important; padding: 0 16px; }
-.cotz-app .btn-xs { height: 30px; min-height: 30px !important; padding: 0 12px; font-size: 12px; border-radius: 8px !important; }
-.cotz-app .icon-btn { width: 30px; height: 30px; min-height: 0 !important; padding: 0; border-radius: 8px !important; }
+.cotz-app .btn-soft {
+   background: var(--cz-s2);
+   color: var(--cz-text);
+   border-color: var(--cz-line);
+}
+
+.cotz-app .btn-soft:hover:not(:disabled) {
+   background: var(--cz-s3);
+   border-color: var(--cz-line-2);
+}
+
+.cotz-app .btn-soft:disabled {
+   color: var(--cz-text-4);
+}
+
+.cotz-app .btn-ghost {
+   background: var(--cz-s2);
+   color: var(--cz-text-2);
+   border-color: var(--cz-line);
+}
+
+.cotz-app .btn-ghost:hover {
+   background: var(--cz-s3);
+   color: var(--cz-text);
+}
+
+.cotz-app .btn-amber {
+   background: var(--pal-warning-700);
+   color: var(--pal-white);
+}
+
+.cotz-app .btn-amber:hover:not(:disabled) {
+   background: var(--pal-warning-800);
+}
+
+.cotz-app .btn-sm {
+   height: 36px;
+   min-height: 36px !important;
+   padding: 0 16px;
+}
+
+.cotz-app .btn-xs {
+   height: 30px;
+   min-height: 30px !important;
+   padding: 0 12px;
+   font-size: 12px;
+   border-radius: 8px !important;
+}
+
+.cotz-app .icon-btn {
+   width: 30px;
+   height: 30px;
+   min-height: 0 !important;
+   padding: 0;
+   border-radius: 8px !important;
+}
 
 /* ---------- Pills ---------- */
-.cotz-app .pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; font-size: var(--erp-fs-min, 0.75rem); font-weight: 700; border: 0; white-space: nowrap; line-height: 1.2; }
-.cotz-app .pill .material-symbols-outlined { font-size: 12px !important; }
-.cotz-app .pill-green { background: var(--cz-green-bg); color: var(--cz-green); }
-.cotz-app .pill-amber { background: var(--cz-amber-bg); color: var(--cz-amber); }
-.cotz-app .pill-red { background: var(--cz-red-bg); color: var(--cz-red); }
-.cotz-app .pill-blue { background: var(--cz-accent-soft); color: var(--cz-accent); }
-.cotz-app .pill-slate { background: var(--cz-s3); color: var(--cz-text-3); box-shadow: inset 0 0 0 1px var(--cz-line-2); }
+.cotz-app .pill {
+   display: inline-flex;
+   align-items: center;
+   gap: 6px;
+   padding: 5px 12px;
+   border-radius: 999px;
+   font-size: var(--erp-fs-min, 0.75rem);
+   font-weight: 700;
+   border: 0;
+   white-space: nowrap;
+   line-height: 1.2;
+}
+
+.cotz-app .pill .material-symbols-outlined {
+   font-size: 12px !important;
+}
+
+.cotz-app .pill-green {
+   background: var(--cz-green-bg);
+   color: var(--cz-green);
+}
+
+.cotz-app .pill-amber {
+   background: var(--cz-amber-bg);
+   color: var(--cz-amber);
+}
+
+.cotz-app .pill-red {
+   background: var(--cz-red-bg);
+   color: var(--cz-red);
+}
+
+.cotz-app .pill-blue {
+   background: var(--cz-accent-soft);
+   color: var(--cz-accent);
+}
+
+.cotz-app .pill-slate {
+   background: var(--cz-s3);
+   color: var(--cz-text-3);
+   box-shadow: inset 0 0 0 1px var(--cz-line-2);
+}
+
 /* Dentro de la tabla las pills son más chicas (11px / 10.5px del mockup). */
-.cotz-app .rtable .pill { padding: 4px 10px; font-size: var(--erp-fs-min, 0.75rem); }
+.cotz-app .rtable .pill {
+   padding: 4px 10px;
+   font-size: var(--erp-fs-min, 0.75rem);
+}
+
 .cotz-app .rtable .plan-medio .pill,
-.cotz-app .rtable .rmedio .pill { padding: 2px 8px; font-size: var(--erp-fs-min, 0.75rem); font-weight: 800; }
+.cotz-app .rtable .rmedio .pill {
+   padding: 2px 8px;
+   font-size: var(--erp-fs-min, 0.75rem);
+   font-weight: 800;
+}
 
 /* ---------- Filtro de medios (desplegable) ---------- */
-.cotz-app .medios-filtro { position: relative; flex-shrink: 0; }
-.cotz-app .medios-filtro > summary {
-    display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 14px;
-    background: var(--cz-s2); border: 1px solid var(--cz-line); border-radius: 9px;
-    color: var(--cz-text-2); font-size: 12.5px; font-weight: 700; cursor: pointer;
+.cotz-app .medios-filtro {
+   position: relative;
+   flex-shrink: 0;
 }
-.cotz-app .medios-filtro > summary:hover { background: var(--cz-s3); color: var(--cz-text); }
+
+.cotz-app .medios-filtro>summary {
+   display: inline-flex;
+   align-items: center;
+   gap: 8px;
+   height: 34px;
+   padding: 0 14px;
+   background: var(--cz-s2);
+   border: 1px solid var(--cz-line);
+   border-radius: 9px;
+   color: var(--cz-text-2);
+   font-size: 12.5px;
+   font-weight: 700;
+   cursor: pointer;
+}
+
+.cotz-app .medios-filtro>summary:hover {
+   background: var(--cz-s3);
+   color: var(--cz-text);
+}
+
 .cotz-app .medios-filtro__body {
-    position: absolute; right: 0; top: calc(100% + .35rem); z-index: 20;
-    display: flex; flex-wrap: wrap; gap: .35rem; width: max-content; max-width: 19rem;
-    background: var(--cz-s2); border: 1px solid var(--cz-line-2); border-radius: 10px; padding: .5rem;
-    box-shadow: 0 18px 50px color-mix(in srgb, var(--pal-black) 45%, transparent);
+   position: absolute;
+   right: 0;
+   top: calc(100% + .35rem);
+   z-index: 20;
+   display: flex;
+   flex-wrap: wrap;
+   gap: .35rem;
+   width: max-content;
+   max-width: 19rem;
+   background: var(--cz-s2);
+   border: 1px solid var(--cz-line-2);
+   border-radius: 10px;
+   padding: .5rem;
+   box-shadow: 0 18px 50px color-mix(in srgb, var(--pal-black) 45%, transparent);
 }
-.cotz-app .medio-chip { position: relative; display: inline-flex; align-items: center; gap: .35rem; padding: .22rem .6rem; border-radius: 999px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid var(--cz-line-2); background: var(--cz-s1); color: var(--cz-text-3); transition: all .14s; user-select: none; }
-.cotz-app .medio-chip:has(input:checked) { background: var(--cz-accent-soft); border-color: color-mix(in srgb, var(--pal-info-400) 45%, transparent); color: var(--cz-text); }
-.cotz-app .medio-chip input { position: absolute; opacity: 0; pointer-events: none; }
+
+.cotz-app .medio-chip {
+   position: relative;
+   display: inline-flex;
+   align-items: center;
+   gap: .35rem;
+   padding: .22rem .6rem;
+   border-radius: 999px;
+   font-size: 12px;
+   font-weight: 600;
+   cursor: pointer;
+   border: 1px solid var(--cz-line-2);
+   background: var(--cz-s1);
+   color: var(--cz-text-3);
+   transition: all .14s;
+   user-select: none;
+}
+
+.cotz-app .medio-chip:has(input:checked) {
+   background: var(--cz-accent-soft);
+   border-color: color-mix(in srgb, var(--pal-info-400) 45%, transparent);
+   color: var(--cz-text);
+}
+
+.cotz-app .medio-chip input {
+   position: absolute;
+   opacity: 0;
+   pointer-events: none;
+}
 
 /* ---------- Franja de Totales + CTA ----------
    Cinco datos en una card con divisores + la única acción primaria de la etapa
    (Simular / Actualizar cotización). Antes de simular los valores quedan en "—". */
 .cotz-app .totales-bar {
-    display: flex; flex-wrap: nowrap; align-items: center; gap: 0;
-    padding: 18px 24px; border-radius: 14px;
-    background: var(--cz-s1); border: 1px solid var(--cz-line); box-shadow: none;
+   display: flex;
+   flex-wrap: nowrap;
+   align-items: center;
+   gap: 0;
+   padding: 18px 24px;
+   border-radius: 14px;
+   background: var(--cz-s1);
+   border: 1px solid var(--cz-line);
+   box-shadow: none;
 }
-.cotz-app .totales-bar__stats { display: flex; flex: 1 1 auto; min-width: 0; }
-.cotz-app .totales-bar__cta { margin-left: 0; display: flex; flex-direction: column; gap: 4px; flex: 0 0 auto; padding: 0; border: 0; }
-.cotz-app .totales-bar__cta .btn { height: 44px; min-height: 44px !important; padding: 0 20px; font-size: 13.5px; gap: 9px; }
-.cotz-app .seg { flex: 1 1 0; min-width: 0; padding: 0 14px; border: 0; border-right: 1px solid var(--cz-line-3); }
-.cotz-app .seg:first-child { padding-left: 0; }
-.cotz-app .seg:last-child { border-right: 0; }
-.cotz-app .seg-label { font-size: var(--erp-fs-min, 0.75rem); font-weight: 800; text-transform: uppercase; letter-spacing: .3px; color: var(--cz-text-4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cotz-app .seg-value { margin-top: 4px; font-size: 17px; font-weight: 800; line-height: 1.25; color: var(--cz-text); }
-.cotz-app .seg.seg-accent .seg-label { color: var(--cz-accent); }
-.cotz-app .seg.seg-accent .seg-value { font-size: 18px; }
+
+.cotz-app .totales-bar__stats {
+   display: flex;
+   flex: 1 1 auto;
+   min-width: 0;
+}
+
+.cotz-app .totales-bar__cta {
+   margin-left: 0;
+   display: flex;
+   flex-direction: column;
+   gap: 4px;
+   flex: 0 0 auto;
+   padding: 0;
+   border: 0;
+}
+
+.cotz-app .totales-bar__cta .btn {
+   height: 44px;
+   min-height: 44px !important;
+   padding: 0 20px;
+   font-size: 13.5px;
+   gap: 9px;
+}
+
+.cotz-app .seg {
+   flex: 1 1 0;
+   min-width: 0;
+   padding: 0 14px;
+   border: 0;
+   border-right: 1px solid var(--cz-line-3);
+}
+
+.cotz-app .seg:first-child {
+   padding-left: 0;
+}
+
+.cotz-app .seg:last-child {
+   border-right: 0;
+}
+
+.cotz-app .seg-label {
+   font-size: var(--erp-fs-min, 0.75rem);
+   font-weight: 800;
+   text-transform: uppercase;
+   letter-spacing: .3px;
+   color: var(--cz-text-4);
+   white-space: nowrap;
+   overflow: hidden;
+   text-overflow: ellipsis;
+}
+
+.cotz-app .seg-value {
+   margin-top: 4px;
+   font-size: 17px;
+   font-weight: 800;
+   line-height: 1.25;
+   color: var(--cz-text);
+}
+
+.cotz-app .seg.seg-accent .seg-label {
+   color: var(--cz-accent);
+}
+
+.cotz-app .seg.seg-accent .seg-value {
+   font-size: 18px;
+}
+
 /* Antes de la primera simulación (o tras invalidarse) los valores quedan en "—" y la
    franja se neutraliza. Alterna vía renderResultado()/invalidarSimulacion(). */
-.cotz-app .totales-bar.is-pendiente .seg { opacity: .55; }
-.cotz-app .totales-bar.is-pendiente .seg.seg-accent .seg-label { color: var(--cz-text-4); }
+.cotz-app .totales-bar.is-pendiente .seg {
+   opacity: .55;
+}
+
+.cotz-app .totales-bar.is-pendiente .seg.seg-accent .seg-label {
+   color: var(--cz-text-4);
+}
 
 /* Hint contextual del CTA: sólo aparece para pending/error (setQuoteState). */
 .cotz-app #cotizacion-simular-estado {
-    font-size: 12px; display: flex; align-items: center; justify-content: center; gap: .25rem; margin-top: 0 !important;
+   font-size: 12px;
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   gap: .25rem;
+   margin-top: 0 !important;
 }
 
 /* ---------- Comparador de alternativas ----------
@@ -583,42 +1793,129 @@ body:has(.cotz-standalone) #main-content > div:last-child {
    las alternativas (planes) cuelgan de ella. Misma <table>/<tr>/<td> y mismos hooks
    que siempre (data-cotizacion-row-key, data-g, aria-expanded): en ≥38rem las filas
    pasan a ser una grilla CSS (mockup); por debajo rige el reflow flex de más abajo. */
-.cotz-app .rtable { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
-.cotz-app .rtable thead th { text-align: left; font-size: var(--erp-fs-min, 0.75rem); text-transform: uppercase; letter-spacing: .1px; color: var(--cz-text-4); font-weight: 800; padding: .4rem .4rem; background: transparent; border-bottom: 1px solid var(--cz-line-3); }
-.cotz-app .rtable thead th.r, .cotz-app .rtable td.r { text-align: right; }
-.cotz-app .rtable td { padding: .5rem .6rem; border-bottom: 1px solid var(--cz-line-3); vertical-align: middle; }
-.cotz-app .rtable tbody tr { transition: background .12s; }
+.cotz-app .rtable {
+   width: 100%;
+   border-collapse: separate;
+   border-spacing: 0;
+   font-size: 13px;
+}
 
-.cotz-app .rtable tbody tr:not(.detail) > td { background: var(--cz-s2); }
-.cotz-app .rtable tbody tr.detail > td { background: transparent; }
-.cotz-app .rtable tbody tr:not(.detail):not(.off):not(.selected):hover > td { background: var(--cz-s3); }
+.cotz-app .rtable thead th {
+   text-align: left;
+   font-size: var(--erp-fs-min, 0.75rem);
+   text-transform: uppercase;
+   letter-spacing: .1px;
+   color: var(--cz-text-4);
+   font-weight: 800;
+   padding: .4rem .4rem;
+   background: transparent;
+   border-bottom: 1px solid var(--cz-line-3);
+}
+
+.cotz-app .rtable thead th.r,
+.cotz-app .rtable td.r {
+   text-align: right;
+}
+
+.cotz-app .rtable td {
+   padding: .5rem .6rem;
+   border-bottom: 1px solid var(--cz-line-3);
+   vertical-align: middle;
+}
+
+.cotz-app .rtable tbody tr {
+   transition: background .12s;
+}
+
+.cotz-app .rtable tbody tr:not(.detail)>td {
+   background: var(--cz-s2);
+}
+
+.cotz-app .rtable tbody tr.detail>td {
+   background: transparent;
+}
+
+.cotz-app .rtable tbody tr:not(.detail):not(.off):not(.selected):hover>td {
+   background: var(--cz-s3);
+}
 
 /* Fila padre (medio con planes): además es el disparador del grupo. */
-.cotz-app .rtable tr.parent { cursor: pointer; }
-.cotz-app .rtable .twist { font-size: 14px !important; color: var(--cz-text-3); transition: transform .2s; }
-.cotz-app .rtable tr.parent[aria-expanded="false"] .twist { transform: rotate(-90deg); }
+.cotz-app .rtable tr.parent {
+   cursor: pointer;
+}
 
-.cotz-app .rtable tr.detail.cheap > td:first-child { box-shadow: inset 3px 0 0 var(--cz-green-bar); }
-.cotz-app .plan-medio { display: flex; align-items: center; flex-wrap: wrap; gap: 2px 8px; min-width: 0; }
+.cotz-app .rtable .twist {
+   font-size: 14px !important;
+   color: var(--cz-text-3);
+   transition: transform .2s;
+}
+
+.cotz-app .rtable tr.parent[aria-expanded="false"] .twist {
+   transform: rotate(-90deg);
+}
+
+.cotz-app .rtable tr.detail.cheap>td:first-child {
+   box-shadow: inset 3px 0 0 var(--cz-green-bar);
+}
+
+.cotz-app .plan-medio {
+   display: flex;
+   align-items: center;
+   flex-wrap: wrap;
+   gap: 2px 8px;
+   min-width: 0;
+}
 
 /* Fila única de un medio sin planes: mantiene la identidad de alternativa pero no es
    clickeable ni elegible — sólo se atenúa. */
-.cotz-app .rtable tr.off { cursor: default; color: var(--cz-text-3); }
-.cotz-app .rtable tr.off > td { opacity: .8; }
+.cotz-app .rtable tr.off {
+   cursor: default;
+   color: var(--cz-text-3);
+}
+
+.cotz-app .rtable tr.off>td {
+   opacity: .8;
+}
 
 /* Seleccionada: velo de acento + botón "Seleccionado" + barra lateral (verde si además
    es la más barata; de acento si no). Va después de todo lo demás para ganar sin !important. */
-.cotz-app .rtable tbody tr.selected > td,
-.cotz-app .rtable tbody tr.selected:hover > td { background: var(--cz-sel); }
-.cotz-app .rtable tbody tr.selected > td:first-child { box-shadow: inset 3px 0 0 var(--cz-accent); }
-.cotz-app .rtable tbody tr.selected.cheap > td:first-child,
-.cotz-app .rtable tbody tr.selected.best > td:first-child { box-shadow: inset 3px 0 0 var(--cz-green-bar); }
+.cotz-app .rtable tbody tr.selected>td,
+.cotz-app .rtable tbody tr.selected:hover>td {
+   background: var(--cz-sel);
+}
 
-.cotz-app .rmedio { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.cotz-app .rmedio .twist { order: -1; }
+.cotz-app .rtable tbody tr.selected>td:first-child {
+   box-shadow: inset 3px 0 0 var(--cz-accent);
+}
+
+.cotz-app .rtable tbody tr.selected.cheap>td:first-child,
+.cotz-app .rtable tbody tr.selected.best>td:first-child {
+   box-shadow: inset 3px 0 0 var(--cz-green-bar);
+}
+
+.cotz-app .rmedio {
+   display: flex;
+   align-items: center;
+   gap: 10px;
+   min-width: 0;
+}
+
+.cotz-app .rmedio .twist {
+   order: -1;
+}
+
 /* Filas de un solo medio: un separador de 12px alinea sus íconos con los de los grupos. */
-.cotz-app .rmedio:not(:has(.twist))::before { content: ""; flex: 0 0 12px; }
-.cotz-app .rmedio-nombre { font-size: 13.5px; font-weight: 800; color: var(--cz-text); }
+.cotz-app .rmedio:not(:has(.twist))::before {
+   content: "";
+   flex: 0 0 12px;
+}
+
+.cotz-app .rmedio-nombre {
+   font-size: 13.5px;
+   font-weight: 800;
+   color: var(--cz-text);
+}
+
 /* Los nombres de medio/plan vienen de la configuración real de la base
    (`nombreMedioPago`, editable) y hoy están en minúscula: capitalizar la inicial es
    puramente presentacional. `::first-letter` sólo aplica a bloques, así que los
@@ -626,116 +1923,420 @@ body:has(.cotz-standalone) #main-content > div:last-child {
 .cotz-app .rmedio-nombre,
 .cotz-app .plan-nombre,
 .cotz-app .cap-first,
-.cotz-app .seleccion-resumen__valor strong { display: inline-block; }
+.cotz-app .seleccion-resumen__valor strong {
+   display: inline-block;
+}
+
 .cotz-app .rmedio-nombre::first-letter,
 .cotz-app .plan-nombre::first-letter,
 .cotz-app .cap-first::first-letter,
-.cotz-app .seleccion-resumen__valor strong::first-letter { text-transform: uppercase; }
-.cotz-app .plan-nombre { font-size: 13px; font-weight: 600; color: var(--cz-text-2); white-space: nowrap; }
+.cotz-app .seleccion-resumen__valor strong::first-letter {
+   text-transform: uppercase;
+}
+
+.cotz-app .plan-nombre {
+   font-size: 13px;
+   font-weight: 600;
+   color: var(--cz-text-2);
+   white-space: nowrap;
+}
+
 /* Sub-línea del medio (fuente de la tasa, cupo vs. solicitado). */
-.cotz-app .rmedio-sub { font-size: var(--erp-fs-min, 0.75rem); color: var(--cz-text-4); margin-top: 1px; font-weight: 500; }
-.cotz-app .rmedio-aptitud { font-size: 12px; color: var(--cz-text-4); }
+.cotz-app .rmedio-sub {
+   font-size: var(--erp-fs-min, 0.75rem);
+   color: var(--cz-text-4);
+   margin-top: 1px;
+   font-weight: 500;
+}
+
+.cotz-app .rmedio-aptitud {
+   font-size: 12px;
+   color: var(--cz-text-4);
+}
+
 .cotz-app .rmedio-aptitud--no-apto,
 .cotz-app .rmedio-aptitud--apto,
-.cotz-app .rmedio-aptitud--requiere-autorizacion { color: var(--cz-text-4); }
-.cotz-app .rt-nota { font-size: 12px; color: var(--cz-text-4); }
-.cotz-app .rt-motivo { font-size: 12px; color: var(--cz-text-3); }
+.cotz-app .rmedio-aptitud--requiere-autorizacion {
+   color: var(--cz-text-4);
+}
+
+.cotz-app .rt-nota {
+   font-size: 12px;
+   color: var(--cz-text-4);
+}
+
+.cotz-app .rt-motivo {
+   font-size: 12px;
+   color: var(--cz-text-3);
+}
+
 /* Cifras de la tabla: total 13.5px/800, cuota 13px/500 en gris claro, "—" apagado (mockup). */
-.cotz-app .rtable .total-display { font-weight: 800; }
-.cotz-app .rtable td.r > .total-display,
-.cotz-app .rtable td.r > .font-semibold { font-size: 13.5px; }
-.cotz-app .rtable td.rt-cuota { font-size: 13px; font-weight: 500 !important; color: var(--cz-text-2) !important; }
-.cotz-app .rtable td.rt-cuota.is-empty { color: var(--cz-text-4) !important; }
-.cotz-app .rtable td.rt-desde { font-size: 13px; color: var(--cz-text-2); white-space: nowrap; }
-.cotz-app .rtable td.r { white-space: nowrap; }
-.cotz-app .rtable td.rt-desde .total-display { font-size: 13.5px; }
+.cotz-app .rtable .total-display {
+   font-weight: 800;
+}
+
+.cotz-app .rtable td.r>.total-display,
+.cotz-app .rtable td.r>.font-semibold {
+   font-size: 13.5px;
+}
+
+.cotz-app .rtable td.rt-cuota {
+   font-size: 13px;
+   font-weight: 500 !important;
+   color: var(--cz-text-2) !important;
+}
+
+.cotz-app .rtable td.rt-cuota.is-empty {
+   color: var(--cz-text-4) !important;
+}
+
+.cotz-app .rtable td.rt-desde {
+   font-size: 13px;
+   color: var(--cz-text-2);
+   white-space: nowrap;
+}
+
+.cotz-app .rtable td.r {
+   white-space: nowrap;
+}
+
+.cotz-app .rtable td.rt-desde .total-display {
+   font-size: 13.5px;
+}
+
 .cotz-app .rt-plan,
-.cotz-app td.rt-plan { color: var(--cz-text-3); }
+.cotz-app td.rt-plan {
+   color: var(--cz-text-3);
+}
 
 /* Columna ACCIÓN. */
-.cotz-app .rt-accion { width: 1%; white-space: nowrap; }
-.cotz-app .rt-btn {
-    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-    height: 32px; padding: 0 14px; border-radius: 8px; font-family: inherit;
-    font-size: 12px; font-weight: 700; cursor: pointer;
-    background: var(--cz-s2); color: var(--cz-text-2); border: 1px solid var(--cz-line-2); transition: all .14s;
+.cotz-app .rt-accion {
+   width: 1%;
+   white-space: nowrap;
 }
-.cotz-app .rt-btn:hover { background: var(--cz-s3); color: var(--cz-text); }
-.cotz-app .rt-btn .material-symbols-outlined { font-size: 12px !important; }
-.cotz-app .rt-btn--on { background: var(--cz-accent); border-color: var(--cz-accent); color: var(--pal-neutral-950); font-weight: 800; cursor: default; }
-.cotz-app .rt-btn--on:hover { background: var(--cz-accent); color: var(--pal-neutral-950); }
+
+.cotz-app .rt-btn {
+   display: inline-flex;
+   align-items: center;
+   justify-content: center;
+   gap: 6px;
+   height: 32px;
+   padding: 0 14px;
+   border-radius: 8px;
+   font-family: inherit;
+   font-size: 12px;
+   font-weight: 700;
+   cursor: pointer;
+   background: var(--cz-s2);
+   color: var(--cz-text-2);
+   border: 1px solid var(--cz-line-2);
+   transition: all .14s;
+}
+
+.cotz-app .rt-btn:hover {
+   background: var(--cz-s3);
+   color: var(--cz-text);
+}
+
+.cotz-app .rt-btn .material-symbols-outlined {
+   font-size: 12px !important;
+}
+
+.cotz-app .rt-btn--on {
+   background: var(--cz-accent);
+   border-color: var(--cz-accent);
+   color: var(--pal-neutral-950);
+   font-weight: 800;
+   cursor: default;
+}
+
+.cotz-app .rt-btn--on:hover {
+   background: var(--cz-accent);
+   color: var(--pal-neutral-950);
+}
+
 /* Cabecera de grupo ("Ver planes", "Ver situación"): fondo de la card, no del bloque. */
-.cotz-app .rt-btn--ghost { background: var(--cz-s1); border-color: var(--cz-line-2); color: var(--cz-text-2); }
-.cotz-app .rt-btn--ghost:hover { background: var(--cz-s3); color: var(--cz-text); }
+.cotz-app .rt-btn--ghost {
+   background: var(--cz-s1);
+   border-color: var(--cz-line-2);
+   color: var(--cz-text-2);
+}
+
+.cotz-app .rt-btn--ghost:hover {
+   background: var(--cz-s3);
+   color: var(--cz-text);
+}
+
 /* Requiere autorización / excepción: dice explícitamente lo que hace (no es un "Elegir"). */
-.cotz-app .rt-btn--warn { background: var(--cz-amber-bg); border-color: var(--cz-amber-line); color: var(--cz-amber); }
-.cotz-app .rt-btn--warn:hover { background: var(--pal-accent-950); color: var(--cz-amber); }
+.cotz-app .rt-btn--warn {
+   background: var(--cz-amber-bg);
+   border-color: var(--cz-amber-line);
+   color: var(--cz-amber);
+}
+
+.cotz-app .rt-btn--warn:hover {
+   background: var(--pal-accent-950);
+   color: var(--cz-amber);
+}
+
 /* No apto: sin affordance de selección — este texto deja explícito que no hay acción. */
-.cotz-app .rt-accion-bloqueada { font-size: 12px; color: var(--cz-text-4); white-space: nowrap; }
+.cotz-app .rt-accion-bloqueada {
+   font-size: 12px;
+   color: var(--cz-text-4);
+   white-space: nowrap;
+}
 
 /* ---------- Barra de selección + Continuar ----------
    Card propia debajo del comparador (mockup): qué se eligió, y las tres acciones que
    siguen con jerarquía explícita (Guardar y Continuar con wizard secundarias,
    Confirmar Mi Venta primaria). */
 .cotz-app .seleccion-bar {
-    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 16px;
-    background: var(--cz-s1); border: 1px solid var(--cz-line); border-radius: 14px; padding: 16px 24px;
+   display: flex;
+   flex-wrap: wrap;
+   align-items: center;
+   justify-content: space-between;
+   gap: 12px 16px;
+   background: var(--cz-s1);
+   border: 1px solid var(--cz-line);
+   border-radius: 14px;
+   padding: 16px 24px;
 }
-.cotz-app .panel-foot { padding: 16px 24px; border-top: 0; }
-.cotz-app .seleccion-resumen { min-width: 0; flex: 1 1 14rem; display: flex; flex-direction: column; gap: 3px; }
-.cotz-app .seleccion-resumen__label { font-size: var(--erp-fs-min, 0.75rem); text-transform: uppercase; letter-spacing: .5px; color: var(--cz-text-4); font-weight: 800; }
-.cotz-app .seleccion-resumen__label--ok { color: var(--cz-green); }
-.cotz-app .seleccion-resumen__valor { font-size: 12.5px; color: var(--cz-text-2); line-height: 1.45; }
-.cotz-app .seleccion-resumen__valor strong { color: var(--cz-text); font-weight: 700; }
-.cotz-app .seleccion-acciones { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.cotz-app .seleccion-acciones .btn { height: 40px; }
-.cotz-app .seleccion-acciones .btn-primary { padding: 0 20px; }
+
+.cotz-app .panel-foot {
+   padding: 16px 24px;
+   border-top: 0;
+}
+
+.cotz-app .seleccion-resumen {
+   min-width: 0;
+   flex: 1 1 14rem;
+   display: flex;
+   flex-direction: column;
+   gap: 3px;
+}
+
+.cotz-app .seleccion-resumen__label {
+   font-size: var(--erp-fs-min, 0.75rem);
+   text-transform: uppercase;
+   letter-spacing: .5px;
+   color: var(--cz-text-4);
+   font-weight: 800;
+}
+
+.cotz-app .seleccion-resumen__label--ok {
+   color: var(--cz-green);
+}
+
+.cotz-app .seleccion-resumen__valor {
+   font-size: 12.5px;
+   color: var(--cz-text-2);
+   line-height: 1.45;
+}
+
+.cotz-app .seleccion-resumen__valor strong {
+   color: var(--cz-text);
+   font-weight: 700;
+}
+
+.cotz-app .seleccion-acciones {
+   margin-left: auto;
+   display: flex;
+   align-items: center;
+   gap: 10px;
+   flex-wrap: wrap;
+}
+
+.cotz-app .seleccion-acciones .btn {
+   height: 40px;
+}
+
+.cotz-app .seleccion-acciones .btn-primary {
+   padding: 0 20px;
+}
 
 /* Bloque de bloqueo del preflight — flex-basis:100% fuerza su propia fila dentro de
    .seleccion-bar, entre el resumen y las acciones. */
-.cotz-app .cotz-bloqueos { flex: 1 1 100%; border: 1px solid color-mix(in srgb, var(--pal-danger-400) 28%, transparent); background: color-mix(in srgb, var(--pal-danger-400) 8%, transparent); border-radius: 10px; padding: .6rem .75rem; }
-.cotz-app .cotz-bloqueos__title { display: flex; align-items: center; gap: .35rem; font-size: 12px; font-weight: 700; color: var(--pal-danger-300); text-transform: uppercase; letter-spacing: .04em; }
-.cotz-app .cotz-bloqueos__lista { margin: .45rem 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: .35rem; }
-.cotz-app .cotz-bloqueos__item { display: flex; align-items: center; justify-content: space-between; gap: .6rem; font-size: 12px; color: var(--cz-text); }
-.cotz-app .cotz-bloqueos__item button, .cotz-app .cotz-bloqueos__item a { flex-shrink: 0; }
+.cotz-app .cotz-bloqueos {
+   flex: 1 1 100%;
+   border: 1px solid color-mix(in srgb, var(--pal-danger-400) 28%, transparent);
+   background: color-mix(in srgb, var(--pal-danger-400) 8%, transparent);
+   border-radius: 10px;
+   padding: .6rem .75rem;
+}
+
+.cotz-app .cotz-bloqueos__title {
+   display: flex;
+   align-items: center;
+   gap: .35rem;
+   font-size: 12px;
+   font-weight: 700;
+   color: var(--pal-danger-300);
+   text-transform: uppercase;
+   letter-spacing: .04em;
+}
+
+.cotz-app .cotz-bloqueos__lista {
+   margin: .45rem 0 0;
+   padding: 0;
+   list-style: none;
+   display: flex;
+   flex-direction: column;
+   gap: .35rem;
+}
+
+.cotz-app .cotz-bloqueos__item {
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+   gap: .6rem;
+   font-size: 12px;
+   color: var(--cz-text);
+}
+
+.cotz-app .cotz-bloqueos__item button,
+.cotz-app .cotz-bloqueos__item a {
+   flex-shrink: 0;
+}
 
 /* ---------- Payment icons (tile por medio, 28px como el mockup) ---------- */
-.cotz-app .pay-ico { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: 0; }
-.cotz-app .pay-ico .material-symbols-outlined { font-size: 14px !important; }
-.cotz-app .pay-ico--emerald { background: var(--cz-green-bg); }
-.cotz-app .pay-ico--emerald .material-symbols-outlined { color: var(--cz-green); }
-.cotz-app .pay-ico--blue { background: var(--cz-accent-soft); }
-.cotz-app .pay-ico--blue .material-symbols-outlined { color: var(--cz-accent); }
-.cotz-app .pay-ico--purple { background: var(--cz-violet-bg); }
-.cotz-app .pay-ico--purple .material-symbols-outlined { color: var(--cz-violet); }
-.cotz-app .pay-ico--cyan { background: var(--cz-teal-bg); }
-.cotz-app .pay-ico--cyan .material-symbols-outlined { color: var(--cz-teal); }
-.cotz-app .pay-ico--amber { background: var(--cz-amber-bg); }
-.cotz-app .pay-ico--amber .material-symbols-outlined { color: var(--cz-amber); }
-.cotz-app .pay-ico--slate { background: var(--cz-s3); }
-.cotz-app .pay-ico--slate .material-symbols-outlined { color: var(--cz-text-3); }
+.cotz-app .pay-ico {
+   width: 28px;
+   height: 28px;
+   border-radius: 8px;
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   flex-shrink: 0;
+   border: 0;
+}
+
+.cotz-app .pay-ico .material-symbols-outlined {
+   font-size: 14px !important;
+}
+
+.cotz-app .pay-ico--emerald {
+   background: var(--cz-green-bg);
+}
+
+.cotz-app .pay-ico--emerald .material-symbols-outlined {
+   color: var(--cz-green);
+}
+
+.cotz-app .pay-ico--blue {
+   background: var(--cz-accent-soft);
+}
+
+.cotz-app .pay-ico--blue .material-symbols-outlined {
+   color: var(--cz-accent);
+}
+
+.cotz-app .pay-ico--purple {
+   background: var(--cz-violet-bg);
+}
+
+.cotz-app .pay-ico--purple .material-symbols-outlined {
+   color: var(--cz-violet);
+}
+
+.cotz-app .pay-ico--cyan {
+   background: var(--cz-teal-bg);
+}
+
+.cotz-app .pay-ico--cyan .material-symbols-outlined {
+   color: var(--cz-teal);
+}
+
+.cotz-app .pay-ico--amber {
+   background: var(--cz-amber-bg);
+}
+
+.cotz-app .pay-ico--amber .material-symbols-outlined {
+   color: var(--cz-amber);
+}
+
+.cotz-app .pay-ico--slate {
+   background: var(--cz-s3);
+}
+
+.cotz-app .pay-ico--slate .material-symbols-outlined {
+   color: var(--cz-text-3);
+}
 
 /* ---------- Dropdowns (búsqueda producto / cliente) ---------- */
-.cotz-app .dropdown-list { background: var(--cz-s2); border: 1px solid var(--cz-line-2); border-radius: 10px; box-shadow: 0 18px 50px color-mix(in srgb, var(--pal-black) 45%, transparent); max-height: 260px; overflow-y: auto; }
-.cotz-app .dropdown-item { padding: .45rem .7rem; cursor: pointer; transition: background .12s; }
-.cotz-app .dropdown-item:hover, .cotz-app .dropdown-item.active { background: var(--cz-s3); }
+.cotz-app .dropdown-list {
+   background: var(--cz-s2);
+   border: 1px solid var(--cz-line-2);
+   border-radius: 10px;
+   box-shadow: 0 18px 50px color-mix(in srgb, var(--pal-black) 45%, transparent);
+   max-height: 260px;
+   overflow-y: auto;
+}
+
+.cotz-app .dropdown-item {
+   padding: .45rem .7rem;
+   cursor: pointer;
+   transition: background .12s;
+}
+
+.cotz-app .dropdown-item:hover,
+.cotz-app .dropdown-item.active {
+   background: var(--cz-s3);
+}
 
 /* Semáforo de stock: lo aplica cotizacion-simulador.js. Va a mano porque el build
    de Tailwind sólo escanea las vistas Razor. */
-.cotz-app .cotz-producto-opcion { border-left: 4px solid transparent; }
-.cotz-app .cotz-producto-opcion__badge { display: inline-block; margin-top: .2rem; border-radius: .25rem; padding: .1rem .4rem; font-size: 12px; font-weight: 700; text-transform: uppercase; }
-.cotz-app .cotz-producto-opcion[data-estado-stock="sin-stock"] { border-left-color: var(--pal-danger-500); background: color-mix(in srgb, var(--pal-danger-500) 10%, transparent); }
-.cotz-app .cotz-producto-opcion[data-estado-stock="sin-stock"]:hover { background: color-mix(in srgb, var(--pal-danger-500) 18%, transparent); }
-.cotz-app .cotz-producto-opcion[data-estado-stock="sin-stock"] .cotz-producto-opcion__badge { background: color-mix(in srgb, var(--pal-danger-500) 18%, transparent); color: var(--pal-danger-300); }
-.cotz-app .cotz-producto-opcion[data-estado-stock="stock-bajo"] { border-left-color: var(--pal-warning-500); background: color-mix(in srgb, var(--pal-warning-500) 10%, transparent); }
-.cotz-app .cotz-producto-opcion[data-estado-stock="stock-bajo"]:hover { background: color-mix(in srgb, var(--pal-warning-500) 18%, transparent); }
-.cotz-app .cotz-producto-opcion[data-estado-stock="stock-bajo"] .cotz-producto-opcion__badge { background: color-mix(in srgb, var(--pal-warning-500) 18%, transparent); color: var(--pal-warning-300); }
+.cotz-app .cotz-producto-opcion {
+   border-left: 4px solid transparent;
+}
+
+.cotz-app .cotz-producto-opcion__badge {
+   display: inline-block;
+   margin-top: .2rem;
+   border-radius: .25rem;
+   padding: .1rem .4rem;
+   font-size: 12px;
+   font-weight: 700;
+   text-transform: uppercase;
+}
+
+.cotz-app .cotz-producto-opcion[data-estado-stock="sin-stock"] {
+   border-left-color: var(--pal-danger-500);
+   background: color-mix(in srgb, var(--pal-danger-500) 10%, transparent);
+}
+
+.cotz-app .cotz-producto-opcion[data-estado-stock="sin-stock"]:hover {
+   background: color-mix(in srgb, var(--pal-danger-500) 18%, transparent);
+}
+
+.cotz-app .cotz-producto-opcion[data-estado-stock="sin-stock"] .cotz-producto-opcion__badge {
+   background: color-mix(in srgb, var(--pal-danger-500) 18%, transparent);
+   color: var(--pal-danger-300);
+}
+
+.cotz-app .cotz-producto-opcion[data-estado-stock="stock-bajo"] {
+   border-left-color: var(--pal-warning-500);
+   background: color-mix(in srgb, var(--pal-warning-500) 10%, transparent);
+}
+
+.cotz-app .cotz-producto-opcion[data-estado-stock="stock-bajo"]:hover {
+   background: color-mix(in srgb, var(--pal-warning-500) 18%, transparent);
+}
+
+.cotz-app .cotz-producto-opcion[data-estado-stock="stock-bajo"] .cotz-producto-opcion__badge {
+   background: color-mix(in srgb, var(--pal-warning-500) 18%, transparent);
+   color: var(--pal-warning-300);
+}
 
 /* Anticipo: baja prioridad visual mientras Crédito personal está destildado en el
    filtro de medios — el input sigue activo/editable, sólo se atenúa. Lo aplica
    cotizacion-simulador.js (actualizarPrioridadAnticipo). */
-.cotz-app [data-anticipo-activo="false"] { opacity: .55; }
-.cotz-app [data-anticipo-activo="false"]:focus-within { opacity: 1; }
+.cotz-app [data-anticipo-activo="false"] {
+   opacity: .55;
+}
+
+.cotz-app [data-anticipo-activo="false"]:focus-within {
+   opacity: 1;
+}
 
 /* ---------- Misc helpers ---------- */
 /* `.hidden` de Tailwind es una sola clase (0,1,0): cualquier componente propio de
@@ -743,36 +2344,102 @@ body:has(.cotz-standalone) #main-content > div:last-child {
    especificidad y el elemento queda visible aunque el JS lo haya "ocultado".
    show()/hide() en cotizacion-simulador.js alternan exclusivamente esta clase, así
    que se blinda una sola vez acá. */
-.cotz-app .hidden { display: none !important; }
-.cotz-app .truncate-1 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cotz-app details > summary { list-style: none; cursor: pointer; }
-.cotz-app details > summary::-webkit-details-marker { display: none; }
-.cotz-app details[open] > summary .chev { transform: rotate(180deg); }
-.cotz-app .chev { transition: transform .2s; }
-.cotz-app .panel-body::-webkit-scrollbar, .cotz-app .dropdown-list::-webkit-scrollbar { width: 8px; }
-.cotz-app .panel-body::-webkit-scrollbar-thumb { background: var(--cz-line-2); border-radius: 8px; }
+.cotz-app .hidden {
+   display: none !important;
+}
+
+.cotz-app .truncate-1 {
+   white-space: nowrap;
+   overflow: hidden;
+   text-overflow: ellipsis;
+}
+
+.cotz-app details>summary {
+   list-style: none;
+   cursor: pointer;
+}
+
+.cotz-app details>summary::-webkit-details-marker {
+   display: none;
+}
+
+.cotz-app details[open]>summary .chev {
+   transform: rotate(180deg);
+}
+
+.cotz-app .chev {
+   transition: transform .2s;
+}
+
+.cotz-app .panel-body::-webkit-scrollbar,
+.cotz-app .dropdown-list::-webkit-scrollbar {
+   width: 8px;
+}
+
+.cotz-app .panel-body::-webkit-scrollbar-thumb {
+   background: var(--cz-line-2);
+   border-radius: 8px;
+}
 
 /* ---------- Modales / drawer (fuera de .cotz-app, scopear con prefijo propio) ---------- */
-.cotz-modal { animation: cotzFade .18s ease; }
+.cotz-modal {
+   animation: cotzFade .18s ease;
+}
 
 /* Drawer "Detalle del plan": el markup pedía `sm:w-105`, una clase que el Tailwind
    precompilado del ERP no trae, así que el panel salía a ancho completo (1440px de drawer).
    Se fija acá (420px desde 640px) con las superficies del cotizador. */
-#modal-plan > aside {
-    width: 100%;
-    background: var(--pal-neutral-925);
-    border-left-color: var(--pal-neutral-800);
+#modal-plan>aside {
+   width: 100%;
+   background: var(--pal-neutral-925);
+   border-left-color: var(--pal-neutral-800);
 }
-#modal-plan > aside > header { border-bottom-color: var(--pal-neutral-800); }
-#modal-plan > aside > footer { border-top-color: var(--pal-neutral-800); }
-#modal-plan .card-sub { background: var(--pal-neutral-875); border: 1px solid var(--pal-neutral-800); border-radius: 12px; box-shadow: none; }
-#modal-plan #plan-title { text-transform: none; }
-#modal-plan #plan-medio { display: inline-block; }
-#modal-plan #plan-medio::first-letter { text-transform: uppercase; }
+
+#modal-plan>aside>header {
+   border-bottom-color: var(--pal-neutral-800);
+}
+
+#modal-plan>aside>footer {
+   border-top-color: var(--pal-neutral-800);
+}
+
+#modal-plan .card-sub {
+   background: var(--pal-neutral-875);
+   border: 1px solid var(--pal-neutral-800);
+   border-radius: 12px;
+   box-shadow: none;
+}
+
+#modal-plan #plan-title {
+   text-transform: none;
+}
+
+#modal-plan #plan-medio {
+   display: inline-block;
+}
+
+#modal-plan #plan-medio::first-letter {
+   text-transform: uppercase;
+}
+
 @media (min-width: 640px) {
-    #modal-plan > aside { width: 26.25rem; max-width: 100%; }
+   #modal-plan>aside {
+      width: 26.25rem;
+      max-width: 100%;
+   }
 }
-@keyframes cotzFade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+@keyframes cotzFade {
+   from {
+      opacity: 0;
+      transform: translateY(8px);
+   }
+
+   to {
+      opacity: 1;
+      transform: translateY(0);
+   }
+}
 
 /* ---------- Feedback toast ---------- */
 /* El toast vive DENTRO de .cotz-topbar, entre el estado y "Ver guardadas" (que conserva su
@@ -781,14 +2448,46 @@ body:has(.cotz-standalone) #main-content > div:last-child {
    flex-basis:100%, pero el `max-w-sm` que le pone el JS acotaba el tamaño hipotético y el
    salto de línea nunca ocurría: el toast quedaba a la derecha del botón y lo desplazaba.) */
 .cotz-app .cotz-topbar #cotizacion-feedback:not(.hidden) {
-    flex: 0 1 auto;
-    min-width: 0;
+   flex: 0 1 auto;
+   min-width: 0;
 }
-.cotz-feedback { display: inline-flex; width: fit-content; align-items: center; gap: .6rem; border: 1px solid; border-radius: 10px; padding: .45rem .75rem; font-size: 12px; font-weight: 600; box-shadow: 0 10px 30px color-mix(in srgb, var(--pal-black) 35%, transparent); }
-.cotz-feedback--ok { background: color-mix(in srgb, var(--pal-success-400) 10%, transparent); border-color: color-mix(in srgb, var(--pal-success-400) 40%, transparent); color: var(--pal-success-300); }
-.cotz-feedback--warning { background: color-mix(in srgb, var(--pal-warning-400) 10%, transparent); border-color: color-mix(in srgb, var(--pal-warning-400) 40%, transparent); color: var(--pal-warning-300); }
-.cotz-feedback--error { background: color-mix(in srgb, var(--pal-danger-400) 10%, transparent); border-color: color-mix(in srgb, var(--pal-danger-400) 40%, transparent); color: var(--pal-danger-300); }
-.cotz-feedback--info { background: color-mix(in srgb, var(--pal-info-400) 12%, transparent); border-color: color-mix(in srgb, var(--pal-info-400) 40%, transparent); color: var(--pal-info-200); }
+
+.cotz-feedback {
+   display: inline-flex;
+   width: fit-content;
+   align-items: center;
+   gap: .6rem;
+   border: 1px solid;
+   border-radius: 10px;
+   padding: .45rem .75rem;
+   font-size: 12px;
+   font-weight: 600;
+   box-shadow: 0 10px 30px color-mix(in srgb, var(--pal-black) 35%, transparent);
+}
+
+.cotz-feedback--ok {
+   background: color-mix(in srgb, var(--pal-success-400) 10%, transparent);
+   border-color: color-mix(in srgb, var(--pal-success-400) 40%, transparent);
+   color: var(--pal-success-300);
+}
+
+.cotz-feedback--warning {
+   background: color-mix(in srgb, var(--pal-warning-400) 10%, transparent);
+   border-color: color-mix(in srgb, var(--pal-warning-400) 40%, transparent);
+   color: var(--pal-warning-300);
+}
+
+.cotz-feedback--error {
+   background: color-mix(in srgb, var(--pal-danger-400) 10%, transparent);
+   border-color: color-mix(in srgb, var(--pal-danger-400) 40%, transparent);
+   color: var(--pal-danger-300);
+}
+
+.cotz-feedback--info {
+   background: color-mix(in srgb, var(--pal-info-400) 12%, transparent);
+   border-color: color-mix(in srgb, var(--pal-info-400) 40%, transparent);
+   color: var(--pal-info-200);
+}
 
 /* ============================================================================
    ≥60rem de contenedor: comparador como grilla (mockup)
@@ -798,72 +2497,169 @@ body:has(.cotz-standalone) #main-content > div:last-child {
    es toda <tr> que NO es .detail; la última, la que precede a la siguiente no-.detail.
    ========================================================================== */
 @container (min-width: 60rem) {
-    .cotz-app .rtable,
-    .cotz-app .rtable thead,
-    .cotz-app .rtable tbody { display: block; width: 100%; }
 
-    .cotz-app .rtable tr {
-        display: grid; grid-template-columns: var(--rt-cols);
-        column-gap: 12px; align-items: center;
-    }
-    .cotz-app .rtable th,
-    .cotz-app .rtable td { display: block; min-width: 0; padding: 0; border: 0; }
-    .cotz-app .rtable td[colspan="3"] { grid-column: span 3; }
-    .cotz-app .rtable td[colspan="7"] { grid-column: 1 / -1; }
-    .cotz-app .rtable td.rt-nota { grid-column: 1 / -1; }
-    .cotz-app .rtable tbody tr[hidden] { display: none; }
+   .cotz-app .rtable,
+   .cotz-app .rtable thead,
+   .cotz-app .rtable tbody {
+      display: block;
+      width: 100%;
+   }
 
-    .cotz-app .rtable thead tr { padding: 0 16px 8px; border-bottom: 1px solid var(--cz-line-3); margin-bottom: 14px; }
-    .cotz-app .rtable thead th { padding: 0; border: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+   .cotz-app .rtable tr {
+      display: grid;
+      grid-template-columns: var(--rt-cols);
+      column-gap: 12px;
+      align-items: center;
+   }
 
-    /* Lados de todo el grupo. */
-    .cotz-app .rtable tbody tr {
-        border: 1px solid var(--cz-line-3); border-top-width: 0; border-bottom-width: 0;
-        padding: 12px 16px 12px 54px;
-    }
-    /* Primera fila del grupo: tope redondeado + separación del grupo anterior. */
-    .cotz-app .rtable tbody tr:not(.detail) {
-        margin-top: 12px; border-top-width: 1px; border-radius: 12px 12px 0 0; padding: 13px 16px;
-    }
-    .cotz-app .rtable tbody tr:not(.detail):first-child { margin-top: 0; }
-    /* Fila que también cierra el grupo: medio sin planes, medio de un plan, o cabecera
+   .cotz-app .rtable th,
+   .cotz-app .rtable td {
+      display: block;
+      min-width: 0;
+      padding: 0;
+      border: 0;
+   }
+
+   .cotz-app .rtable td[colspan="3"] {
+      grid-column: span 3;
+   }
+
+   .cotz-app .rtable td[colspan="7"] {
+      grid-column: 1 / -1;
+   }
+
+   .cotz-app .rtable td.rt-nota {
+      grid-column: 1 / -1;
+   }
+
+   .cotz-app .rtable tbody tr[hidden] {
+      display: none;
+   }
+
+   .cotz-app .rtable thead tr {
+      padding: 0 16px 8px;
+      border-bottom: 1px solid var(--cz-line-3);
+      margin-bottom: 14px;
+   }
+
+   .cotz-app .rtable thead th {
+      padding: 0;
+      border: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+   }
+
+   /* Lados de todo el grupo. */
+   .cotz-app .rtable tbody tr {
+      border: 1px solid var(--cz-line-3);
+      border-top-width: 0;
+      border-bottom-width: 0;
+      padding: 12px 16px 12px 54px;
+   }
+
+   /* Primera fila del grupo: tope redondeado + separación del grupo anterior. */
+   .cotz-app .rtable tbody tr:not(.detail) {
+      margin-top: 12px;
+      border-top-width: 1px;
+      border-radius: 12px 12px 0 0;
+      padding: 13px 16px;
+   }
+
+   .cotz-app .rtable tbody tr:not(.detail):first-child {
+      margin-top: 0;
+   }
+
+   /* Fila que también cierra el grupo: medio sin planes, medio de un plan, o cabecera
        colapsada. */
-    .cotz-app .rtable tbody tr:not(.detail):not(.parent),
-    .cotz-app .rtable tbody tr.parent[aria-expanded="false"],
-    .cotz-app .rtable tbody tr.parent:has(+ tr:not(.detail)),
-    .cotz-app .rtable tbody tr.parent:last-child {
-        border-bottom-width: 1px; border-radius: 12px;
-    }
-    /* Planes: separador superior + la última cierra el grupo. */
-    .cotz-app .rtable tbody tr.detail { border-top: 1px solid var(--cz-line-3); position: relative; }
-    .cotz-app .rtable tbody tr.detail:has(+ tr:not(.detail)),
-    .cotz-app .rtable tbody tr.detail:last-child {
-        border-bottom-width: 1px; border-radius: 0 0 12px 12px;
-    }
-    /* Las celdas no pintan fondo: lo pinta la fila (con sus esquinas redondeadas). */
-    .cotz-app .rtable tbody tr > td { background: transparent !important; box-shadow: none !important; }
-    .cotz-app .rtable tbody tr:not(.detail) { background: var(--cz-s2); }
-    .cotz-app .rtable tbody tr:not(.detail):not(.parent) { background: transparent; }
-    .cotz-app .rtable tbody tr:not(.detail):not(.off):hover { background: var(--cz-s3); }
-    .cotz-app .rtable tbody tr:not(.detail):not(.parent):not(.off):hover { background: var(--cz-s2); }
-    .cotz-app .rtable tbody tr.detail:hover { background: var(--cz-s2); }
-    .cotz-app .rtable tbody tr.selected,
-    .cotz-app .rtable tbody tr.selected:hover { background: var(--cz-sel); }
-    /* Barra lateral de 3px del mockup: verde = más barata / elegida-y-más-barata;
-       de acento = elegida que no es la más barata. */
-    .cotz-app .rtable tbody tr.detail.cheap { box-shadow: inset 3px 0 0 var(--cz-green-bar); }
-    .cotz-app .rtable tbody tr.selected { box-shadow: inset 3px 0 0 var(--cz-accent); }
-    .cotz-app .rtable tbody tr.selected.cheap,
-    .cotz-app .rtable tbody tr.selected.best { box-shadow: inset 3px 0 0 var(--cz-green-bar); }
-    .cotz-app .rtable tbody tr.detail.cheap > td:first-child,
-    .cotz-app .rtable tbody tr.selected > td:first-child { box-shadow: none !important; }
+   .cotz-app .rtable tbody tr:not(.detail):not(.parent),
+   .cotz-app .rtable tbody tr.parent[aria-expanded="false"],
+   .cotz-app .rtable tbody tr.parent:has(+ tr:not(.detail)),
+   .cotz-app .rtable tbody tr.parent:last-child {
+      border-bottom-width: 1px;
+      border-radius: 12px;
+   }
 
-    /* Cabecera de grupo con sub-línea (cupo vs. solicitado): la segunda fila de la grilla
+   /* Planes: separador superior + la última cierra el grupo. */
+   .cotz-app .rtable tbody tr.detail {
+      border-top: 1px solid var(--cz-line-3);
+      position: relative;
+   }
+
+   .cotz-app .rtable tbody tr.detail:has(+ tr:not(.detail)),
+   .cotz-app .rtable tbody tr.detail:last-child {
+      border-bottom-width: 1px;
+      border-radius: 0 0 12px 12px;
+   }
+
+   /* Las celdas no pintan fondo: lo pinta la fila (con sus esquinas redondeadas). */
+   .cotz-app .rtable tbody tr>td {
+      background: transparent !important;
+      box-shadow: none !important;
+   }
+
+   .cotz-app .rtable tbody tr:not(.detail) {
+      background: var(--cz-s2);
+   }
+
+   .cotz-app .rtable tbody tr:not(.detail):not(.parent) {
+      background: transparent;
+   }
+
+   .cotz-app .rtable tbody tr:not(.detail):not(.off):hover {
+      background: var(--cz-s3);
+   }
+
+   .cotz-app .rtable tbody tr:not(.detail):not(.parent):not(.off):hover {
+      background: var(--cz-s2);
+   }
+
+   .cotz-app .rtable tbody tr.detail:hover {
+      background: var(--cz-s2);
+   }
+
+   .cotz-app .rtable tbody tr.selected,
+   .cotz-app .rtable tbody tr.selected:hover {
+      background: var(--cz-sel);
+   }
+
+   /* Barra lateral de 3px del mockup: verde = más barata / elegida-y-más-barata;
+       de acento = elegida que no es la más barata. */
+   .cotz-app .rtable tbody tr.detail.cheap {
+      box-shadow: inset 3px 0 0 var(--cz-green-bar);
+   }
+
+   .cotz-app .rtable tbody tr.selected {
+      box-shadow: inset 3px 0 0 var(--cz-accent);
+   }
+
+   .cotz-app .rtable tbody tr.selected.cheap,
+   .cotz-app .rtable tbody tr.selected.best {
+      box-shadow: inset 3px 0 0 var(--cz-green-bar);
+   }
+
+   .cotz-app .rtable tbody tr.detail.cheap>td:first-child,
+   .cotz-app .rtable tbody tr.selected>td:first-child {
+      box-shadow: none !important;
+   }
+
+   /* Cabecera de grupo con sub-línea (cupo vs. solicitado): la segunda fila de la grilla
        la ocupa la nota, alineada con el nombre del medio (16px de padding + 38px). */
-    .cotz-app .rtable tbody tr:has(> td.rt-nota) { padding-bottom: 4px; }
-    .cotz-app .rtable td.rt-nota { padding: 0 0 6px 38px; }
-    .cotz-app .rtable td.rt-accion { width: auto; }
-    .cotz-app .rtable .plan-medio { padding-left: 0; }
+   .cotz-app .rtable tbody tr:has(> td.rt-nota) {
+      padding-bottom: 4px;
+   }
+
+   .cotz-app .rtable td.rt-nota {
+      padding: 0 0 6px 38px;
+   }
+
+   .cotz-app .rtable td.rt-accion {
+      width: auto;
+   }
+
+   .cotz-app .rtable .plan-medio {
+      padding-left: 0;
+   }
 }
 
 /* ============================================================================
@@ -873,28 +2669,62 @@ body:has(.cotz-standalone) #main-content > div:last-child {
    cantidad, descuento y precio debajo. Mismos nodos, sólo cambia el reflujo.
    ========================================================================== */
 @container (max-width: 77.9375rem) {
-    .cotz-app .cart-row__main { flex-wrap: wrap; row-gap: 12px; }
-    .cotz-app .cart-row__info { flex: 1 1 calc(100% - 3rem); }
-    .cotz-app .cart-row__quitar { order: 1; }
-    .cotz-app .cart-row__field { order: 2; }
-    .cotz-app .cart-row__precio { order: 3; margin-left: auto; min-width: 0; }
+   .cotz-app .cart-row__main {
+      flex-wrap: wrap;
+      row-gap: 12px;
+   }
+
+   .cotz-app .cart-row__info {
+      flex: 1 1 calc(100% - 3rem);
+   }
+
+   .cotz-app .cart-row__quitar {
+      order: 1;
+   }
+
+   .cotz-app .cart-row__field {
+      order: 2;
+   }
+
+   .cotz-app .cart-row__precio {
+      order: 3;
+      margin-left: auto;
+      min-width: 0;
+   }
 }
 
 /* Franja de totales por debajo de ~84rem (laptops con la sidebar expandida): "Subtotal de productos"
    es el rótulo más largo y con seis cortes iguales se recortaba con puntos suspensivos — el primer
    segmento pesa un 30% más. En el ancho del mockup (≥84rem) los cortes siguen siendo iguales. */
 @container (max-width: 83.9375rem) {
-    .cotz-app .seg:first-child { flex: 1.3 1 0; }
+   .cotz-app .seg:first-child {
+      flex: 1.3 1 0;
+   }
 }
 
 /* Franja de totales entre 60 y 72rem: cinco datos + botón no entran en una fila sin recortar
    los rótulos — el botón baja a una segunda fila, alineado a la derecha. */
 @container (min-width: 60rem) and (max-width: 71.9375rem) {
-    .cotz-app .totales-bar { flex-wrap: wrap; row-gap: 16px; }
-    .cotz-app .totales-bar__stats { flex: 1 1 100%; }
-    .cotz-app .totales-bar__cta { margin-left: auto; }
-    .cotz-app .seg { padding-inline: 16px; }
-    .cotz-app .seg-label { letter-spacing: .3px; }
+   .cotz-app .totales-bar {
+      flex-wrap: wrap;
+      row-gap: 16px;
+   }
+
+   .cotz-app .totales-bar__stats {
+      flex: 1 1 100%;
+   }
+
+   .cotz-app .totales-bar__cta {
+      margin-left: auto;
+   }
+
+   .cotz-app .seg {
+      padding-inline: 16px;
+   }
+
+   .cotz-app .seg-label {
+      letter-spacing: .3px;
+   }
 }
 
 /* ============================================================================
@@ -905,165 +2735,505 @@ body:has(.cotz-standalone) #main-content > div:last-child {
    se parte en dos filas. Sin scroll horizontal ni columnas recortadas.
    ========================================================================== */
 @container (max-width: 59.9375rem) {
-    .cotz-app .totales-bar { flex-wrap: wrap; gap: 16px; }
-    .cotz-app .totales-bar__stats { flex: 1 1 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: 14px 16px; }
-    .cotz-app .seg,
-    .cotz-app .seg:first-child { padding: 0; border: 0; }
-    .cotz-app .totales-bar__cta { flex: 1 1 100%; }
-    .cotz-app .totales-bar__cta .btn { width: 100%; }
+   .cotz-app .totales-bar {
+      flex-wrap: wrap;
+      gap: 16px;
+   }
 
-    /* Comparador: bloques compactos. Los <td> son los mismos que en desktop (mismo DOM,
+   .cotz-app .totales-bar__stats {
+      flex: 1 1 100%;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+      gap: 14px 16px;
+   }
+
+   .cotz-app .seg,
+   .cotz-app .seg:first-child {
+      padding: 0;
+      border: 0;
+   }
+
+   .cotz-app .totales-bar__cta {
+      flex: 1 1 100%;
+   }
+
+   .cotz-app .totales-bar__cta .btn {
+      width: 100%;
+   }
+
+   /* Comparador: bloques compactos. Los <td> son los mismos que en desktop (mismo DOM,
        mismos hooks): el click delegado en #cotizacion-resultados-tbody sigue
        funcionando sin cambios de JS; sólo se reordena/oculta vía flexbox + nth-child.
        Línea 1 = Medio/plan + Total; línea 2 = Plan/Cuota + Recargo + Estado + Acción.
        En la banda angosta (<38rem) Recargo se oculta y queda en el drawer "Detalle del plan". */
-    .cotz-app .rtable thead { display: none; }
-    .cotz-app .rtable, .cotz-app .rtable tbody { display: block; width: 100%; }
+   .cotz-app .rtable thead {
+      display: none;
+   }
 
-    .cotz-app .rtable tbody tr {
-        display: flex; flex-wrap: wrap; align-items: center;
-        column-gap: .5rem; row-gap: .15rem;
-        padding: .6rem .7rem; border-bottom: 1px solid var(--cz-line-3);
-    }
-    /* El <tr> pasa a ser la caja visual de la fila (en desktop lo es cada <td>):
+   .cotz-app .rtable,
+   .cotz-app .rtable tbody {
+      display: block;
+      width: 100%;
+   }
+
+   .cotz-app .rtable tbody tr {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      column-gap: .5rem;
+      row-gap: .15rem;
+      padding: .6rem .7rem;
+      border-bottom: 1px solid var(--cz-line-3);
+   }
+
+   /* El <tr> pasa a ser la caja visual de la fila (en desktop lo es cada <td>):
        reubica los fondos de estado acá y neutraliza los que apuntan a <td>. */
-    .cotz-app .rtable tbody tr:not(.detail) { background: var(--cz-s2); border-top: 1px solid var(--cz-line-2); }
-    .cotz-app .rtable tbody tr.best { background: color-mix(in srgb, var(--pal-success-400) 7%, transparent); }
-    .cotz-app .rtable tbody tr.detail { background: transparent; padding-left: 1rem; }
-    .cotz-app .rtable tbody tr.detail.cheap { box-shadow: inset 3px 0 0 var(--cz-green-bar); }
-    /* El plan elegido gana al acento verde de "más barato". */
-    .cotz-app .rtable tbody tr.selected,
-    .cotz-app .rtable tbody tr.detail.selected { background: var(--cz-sel); box-shadow: inset 3px 0 0 var(--cz-accent); }
-    .cotz-app .rtable tbody tr > td { background: transparent !important; box-shadow: none !important; }
-    /* [hidden] (filas detail colapsadas por el toggle de grupo) debe seguir ocultando la
+   .cotz-app .rtable tbody tr:not(.detail) {
+      background: var(--cz-s2);
+      border-top: 1px solid var(--cz-line-2);
+   }
+
+   .cotz-app .rtable tbody tr.best {
+      background: color-mix(in srgb, var(--pal-success-400) 7%, transparent);
+   }
+
+   .cotz-app .rtable tbody tr.detail {
+      background: transparent;
+      padding-left: 1rem;
+   }
+
+   .cotz-app .rtable tbody tr.detail.cheap {
+      box-shadow: inset 3px 0 0 var(--cz-green-bar);
+   }
+
+   /* El plan elegido gana al acento verde de "más barato". */
+   .cotz-app .rtable tbody tr.selected,
+   .cotz-app .rtable tbody tr.detail.selected {
+      background: var(--cz-sel);
+      box-shadow: inset 3px 0 0 var(--cz-accent);
+   }
+
+   .cotz-app .rtable tbody tr>td {
+      background: transparent !important;
+      box-shadow: none !important;
+   }
+
+   /* [hidden] (filas detail colapsadas por el toggle de grupo) debe seguir ocultando la
        fila pese al display:flex de arriba. */
-    .cotz-app .rtable tbody tr[hidden] { display: none; }
+   .cotz-app .rtable tbody tr[hidden] {
+      display: none;
+   }
 
-    .cotz-app .rtable td { display: block; padding: 0; border: 0; flex: 1 1 auto; min-width: 0; }
-    /* `.rt-accion { width: 1% }` es un truco de layout de TABLA: como flex-item ese 1%
+   .cotz-app .rtable td {
+      display: block;
+      padding: 0;
+      border: 0;
+      flex: 1 1 auto;
+      min-width: 0;
+   }
+
+   /* `.rt-accion { width: 1% }` es un truco de layout de TABLA: como flex-item ese 1%
        se resuelve a ~4px y el botón desborda la fila. */
-    .cotz-app .rtable td.rt-accion { width: auto; }
+   .cotz-app .rtable td.rt-accion {
+      width: auto;
+   }
 
-    /* Fila normal / parent (7 celdas: Medio, Total, Plan, Cuota, Recargo, Estado,
+   /* Fila normal / parent (7 celdas: Medio, Total, Plan, Cuota, Recargo, Estado,
        Acción). Línea 1 = Medio + Total (td1 crece con flex:1 y ya llena la línea, así
        que td3 en adelante bajan solos a la línea 2 sin flex-basis:100%). */
-    .cotz-app .rtable tbody tr:not(.off) td:nth-child(1) { order: 1; flex: 1 1 auto; min-width: 0; }
-    .cotz-app .rtable tbody tr:not(.off) td:nth-child(2) { order: 2; flex: 0 0 auto; margin-left: auto; font-size: .9rem; }
-    .cotz-app .rtable tbody tr:not(.off) td:nth-child(3) { order: 3; flex: 0 0 auto; font-size: 12px; color: var(--cz-text-3); }
-    .cotz-app .rtable tbody tr:not(.off) td:nth-child(4) { order: 4; flex: 0 0 auto; font-size: 12px; }
-    .cotz-app .rtable tbody tr:not(.off) td:nth-child(5) { order: 4; flex: 0 0 auto; font-size: 12px; }
-    .cotz-app .rtable tbody tr:not(.off) td:nth-child(6) { order: 5; flex: 0 0 auto; margin-left: auto; }
-    .cotz-app .rtable tbody tr:not(.off) td:nth-child(7) { order: 6; flex: 0 0 auto; width: auto; }
-    /* La nota del medio (cupo/solicitado) ocupa su propia línea al final. */
-    .cotz-app .rtable tbody tr td.rt-nota { order: 9; flex: 1 1 100%; padding-top: 2px; }
-    /* Las filas hijas emiten la celda Estado vacía (el estado lo declara el padre): en el
+   .cotz-app .rtable tbody tr:not(.off) td:nth-child(1) {
+      order: 1;
+      flex: 1 1 auto;
+      min-width: 0;
+   }
+
+   .cotz-app .rtable tbody tr:not(.off) td:nth-child(2) {
+      order: 2;
+      flex: 0 0 auto;
+      margin-left: auto;
+      font-size: .9rem;
+   }
+
+   .cotz-app .rtable tbody tr:not(.off) td:nth-child(3) {
+      order: 3;
+      flex: 0 0 auto;
+      font-size: 12px;
+      color: var(--cz-text-3);
+   }
+
+   .cotz-app .rtable tbody tr:not(.off) td:nth-child(4) {
+      order: 4;
+      flex: 0 0 auto;
+      font-size: 12px;
+   }
+
+   .cotz-app .rtable tbody tr:not(.off) td:nth-child(5) {
+      order: 4;
+      flex: 0 0 auto;
+      font-size: 12px;
+   }
+
+   .cotz-app .rtable tbody tr:not(.off) td:nth-child(6) {
+      order: 5;
+      flex: 0 0 auto;
+      margin-left: auto;
+   }
+
+   .cotz-app .rtable tbody tr:not(.off) td:nth-child(7) {
+      order: 6;
+      flex: 0 0 auto;
+      width: auto;
+   }
+
+   /* La nota del medio (cupo/solicitado) ocupa su propia línea al final. */
+   .cotz-app .rtable tbody tr td.rt-nota {
+      order: 9;
+      flex: 1 1 100%;
+      padding-top: 2px;
+   }
+
+   /* Las filas hijas emiten la celda Estado vacía (el estado lo declara el padre): en el
        reflow flex esa celda vacía se llevaría el margin-left:auto y empujaría "Elegir" a
        una tercera línea propia — se oculta y el margen pasa a la celda de acción. */
-    .cotz-app .rtable tbody tr.detail td:nth-child(6) { display: none; }
-    .cotz-app .rtable tbody tr.detail td:nth-child(7) { margin-left: auto; }
+   .cotz-app .rtable tbody tr.detail td:nth-child(6) {
+      display: none;
+   }
 
-    /* Fila "off" (medio sin planes: Medio, Total, motivo(colspan 3), Estado, Acción — 5
+   .cotz-app .rtable tbody tr.detail td:nth-child(7) {
+      margin-left: auto;
+   }
+
+   /* Fila "off" (medio sin planes: Medio, Total, motivo(colspan 3), Estado, Acción — 5
        celdas reales; también matchea la fila única "no hay medios disponibles"). */
-    .cotz-app .rtable tbody tr.off td:nth-child(1) { order: 1; flex: 1 1 auto; min-width: 0; }
-    .cotz-app .rtable tbody tr.off td:nth-child(2) { order: 2; flex: 0 0 auto; margin-left: auto; }
-    .cotz-app .rtable tbody tr.off td:nth-child(3) { order: 3; flex-basis: 100%; }
-    .cotz-app .rtable tbody tr.off td:nth-child(4) { order: 4; flex: 0 0 auto; }
-    .cotz-app .rtable tbody tr.off td:nth-child(5) { order: 5; flex: 0 0 auto; margin-left: auto; }
+   .cotz-app .rtable tbody tr.off td:nth-child(1) {
+      order: 1;
+      flex: 1 1 auto;
+      min-width: 0;
+   }
 
-    .cotz-app .rtable .plan-medio { padding-left: .9rem; }
+   .cotz-app .rtable tbody tr.off td:nth-child(2) {
+      order: 2;
+      flex: 0 0 auto;
+      margin-left: auto;
+   }
 
-    /* La celda "Plan" repite el nombre de la primera columna ("3 cuotas" ya está en
+   .cotz-app .rtable tbody tr.off td:nth-child(3) {
+      order: 3;
+      flex-basis: 100%;
+   }
+
+   .cotz-app .rtable tbody tr.off td:nth-child(4) {
+      order: 4;
+      flex: 0 0 auto;
+   }
+
+   .cotz-app .rtable tbody tr.off td:nth-child(5) {
+      order: 5;
+      flex: 0 0 auto;
+      margin-left: auto;
+   }
+
+   .cotz-app .rtable .plan-medio {
+      padding-left: .9rem;
+   }
+
+   /* La celda "Plan" repite el nombre de la primera columna ("3 cuotas" ya está en
        "Visa · 3 cuotas"); la celda de cuota gana su etiqueta porque el <thead> está
        oculto, y se retira cuando no hay cuotas (1 pago). */
-    .cotz-app .rtable tbody tr.detail td.rt-plan { display: none; }
-    .cotz-app .rtable tbody tr td.rt-cuota { order: 4; flex: 0 0 auto; font-size: 12px; }
-    .cotz-app .rtable tbody tr td.rt-cuota.is-empty { display: none; }
-    .cotz-app .rtable tbody tr td.rt-cuota:not(.is-empty)::before { content: "Cuota "; color: var(--cz-text-4); font-weight: 500; }
-    /* Fila de plan con cuotas: línea 1 = nombre + total, línea 2 = cuota + Elegir. */
-    .cotz-app .rtable tbody tr.detail:not(:has(td.rt-cuota.is-empty)) td:nth-child(1) { flex: 1 1 calc(100% - 8.5rem); }
-    /* Fila padre: el "—" de cuota y el botón "Ver planes" no aportan (el chevron y la
+   .cotz-app .rtable tbody tr.detail td.rt-plan {
+      display: none;
+   }
+
+   .cotz-app .rtable tbody tr td.rt-cuota {
+      order: 4;
+      flex: 0 0 auto;
+      font-size: 12px;
+   }
+
+   .cotz-app .rtable tbody tr td.rt-cuota.is-empty {
+      display: none;
+   }
+
+   .cotz-app .rtable tbody tr td.rt-cuota:not(.is-empty)::before {
+      content: "Cuota ";
+      color: var(--cz-text-4);
+      font-weight: 500;
+   }
+
+   /* Fila de plan con cuotas: línea 1 = nombre + total, línea 2 = cuota + Elegir. */
+   .cotz-app .rtable tbody tr.detail:not(:has(td.rt-cuota.is-empty)) td:nth-child(1) {
+      flex: 1 1 calc(100% - 8.5rem);
+   }
+
+   /* Fila padre: el "—" de cuota y el botón "Ver planes" no aportan (el chevron y la
        fila entera ya expanden/colapsan). */
-    .cotz-app .rtable tbody tr.parent td:nth-child(4),
-    .cotz-app .rtable tbody tr.parent td.rt-accion { display: none; }
-    /* Textos secundarios generados por JS con text-[10px]: 12px es el mínimo legible. */
-    .cotz-app .rtable [class*="text-[10px]"] { font-size: 12px; }
+   .cotz-app .rtable tbody tr.parent td:nth-child(4),
+   .cotz-app .rtable tbody tr.parent td.rt-accion {
+      display: none;
+   }
+
+   /* Textos secundarios generados por JS con text-[10px]: 12px es el mínimo legible. */
+   .cotz-app .rtable [class*="text-[10px]"] {
+      font-size: 12px;
+   }
 }
 
 /* ============================================================================
    Banda angosta (<38rem de contenedor: mobile real 390/360px y tablets angostas)
    ========================================================================== */
 @container (max-width: 37.9375rem) {
-    .cotz-standalone .cotz-app { padding: 12px 12px 24px; }
-    .cotz-app .workspace { display: flex; flex-direction: column; align-items: stretch; gap: 16px; }
-    .cotz-app .workspace > [data-zone] { flex: 0 0 auto; }
-    .cotz-app .panel { padding: 16px; }
-    .cotz-app .col { gap: 16px; }
+   .cotz-standalone .cotz-app {
+      padding: 12px 12px 24px;
+   }
 
-    /* Totales + Simular: barra que acompaña el scroll (pegada abajo hasta que el flujo
+   .cotz-app .workspace {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 16px;
+   }
+
+   .cotz-app .workspace>[data-zone] {
+      flex: 0 0 auto;
+   }
+
+   .cotz-app .panel {
+      padding: 16px;
+   }
+
+   .cotz-app .col {
+      gap: 16px;
+   }
+
+   /* Totales + Simular: barra que acompaña el scroll (pegada abajo hasta que el flujo
        natural la alcanza). Compacta: sólo el segmento de acento (Total a cobrar) + el
        botón — Subtotal y Descuento siguen visibles en Productos y en los propios campos. */
-    .cotz-app .workspace > [data-zone="totales"] { position: sticky; bottom: 0.5rem; z-index: 25; }
-    .cotz-app .totales-bar { flex-wrap: nowrap; padding: 8px 9px 8px 14px; gap: 12px; box-shadow: 0 10px 28px color-mix(in srgb, var(--pal-black) 60%, transparent), 0 0 0 1px color-mix(in srgb, var(--pal-black) 40%, transparent); }
-    .cotz-app .totales-bar__stats { display: block; flex: 1 1 auto; }
-    .cotz-app .totales-bar__stats > .seg:not(.seg-accent) { display: none; }
-    .cotz-app .totales-bar__stats > .seg { padding: 0; border: 0; }
-    .cotz-app .totales-bar__stats .seg-value { font-size: 1.05rem; }
-    .cotz-app .totales-bar__cta { flex: 0 0 auto; margin-left: auto; }
-    .cotz-app .totales-bar__cta .btn { width: auto; min-width: 0; height: 44px; padding-inline: .8rem; }
+   .cotz-app .workspace>[data-zone="totales"] {
+      position: sticky;
+      bottom: 0.5rem;
+      z-index: 25;
+   }
 
-    /* §27: acciones del cierre a ancho completo. */
-    .cotz-app .seleccion-bar { padding: 14px 16px; }
-    .cotz-app .seleccion-acciones { margin-left: 0; flex: 1 1 100%; }
-    .cotz-app .seleccion-acciones .btn { flex: 1 1 100%; }
-    .cotz-app .medios-filtro__body { max-width: 15rem; }
+   .cotz-app .totales-bar {
+      flex-wrap: nowrap;
+      padding: 8px 9px 8px 14px;
+      gap: 12px;
+      box-shadow: 0 10px 28px color-mix(in srgb, var(--pal-black) 60%, transparent), 0 0 0 1px color-mix(in srgb, var(--pal-black) 40%, transparent);
+   }
 
-    /* Condiciones: Descuento %/$ y Anticipo/Válida hasta van de a dos (cada mitad queda
+   .cotz-app .totales-bar__stats {
+      display: block;
+      flex: 1 1 auto;
+   }
+
+   .cotz-app .totales-bar__stats>.seg:not(.seg-accent) {
+      display: none;
+   }
+
+   .cotz-app .totales-bar__stats>.seg {
+      padding: 0;
+      border: 0;
+   }
+
+   .cotz-app .totales-bar__stats .seg-value {
+      font-size: 1.05rem;
+   }
+
+   .cotz-app .totales-bar__cta {
+      flex: 0 0 auto;
+      margin-left: auto;
+   }
+
+   .cotz-app .totales-bar__cta .btn {
+      width: auto;
+      min-width: 0;
+      height: 44px;
+      padding-inline: .8rem;
+   }
+
+   /* §27: acciones del cierre a ancho completo. */
+   .cotz-app .seleccion-bar {
+      padding: 14px 16px;
+   }
+
+   .cotz-app .seleccion-acciones {
+      margin-left: 0;
+      flex: 1 1 100%;
+   }
+
+   .cotz-app .seleccion-acciones .btn {
+      flex: 1 1 100%;
+   }
+
+   .cotz-app .medios-filtro__body {
+      max-width: 15rem;
+   }
+
+   /* Condiciones: Descuento %/$ y Anticipo/Válida hasta van de a dos (cada mitad queda
        en ~135px, alcanza para un importe o una fecha corta). */
-    .cotz-app .cond-pair { display: flex; gap: 8px; }
-    .cotz-app .cond-pair__a,
-    .cotz-app .cond-pair__b { flex: 1 1 0; min-width: 0; }
-    .cotz-app .cond-grid__full { grid-column: 1 / -1; }
-    .cotz-app .cond-pair .label { letter-spacing: 0; white-space: nowrap; }
-    .cotz-app .cond-pair--anticipo .cond-pair__a { flex: 0 0 40%; }
+   .cotz-app .cond-pair {
+      display: flex;
+      gap: 8px;
+   }
 
-    /* Buscador: el mensaje "producto seleccionado" baja a su propia línea. */
-    .cotz-app .prod-search__row { flex-wrap: wrap; }
-    .cotz-app .prod-search__pick { flex-basis: 100%; }
-    .cotz-app .prod-search__row .btn-primary { flex: 1 1 auto; }
+   .cotz-app .cond-pair__a,
+   .cotz-app .cond-pair__b {
+      flex: 1 1 0;
+      min-width: 0;
+   }
 
-    /* Campos a 16px: iOS Safari no hace zoom al enfocar. */
-    .cotz-app :is(input:not([type="checkbox"], [type="radio"], [type="hidden"]), select, textarea) { font-size: 1rem !important; }
+   .cotz-app .cond-grid__full {
+      grid-column: 1 / -1;
+   }
 
-    /* Producto agregado: nombre en su propia línea; cantidad, descuento y precio debajo. */
-    .cotz-app .cart-row { padding: 14px; }
-    .cotz-app .cart-row__main { flex-wrap: wrap; gap: 12px; }
-    .cotz-app .cart-row__info { flex: 1 1 calc(100% - 3.5rem); }
-    .cotz-app .cart-row__quitar { width: 2.5rem; height: 2.5rem; margin: -0.5rem -0.5rem 0 0; order: 1; }
-    .cotz-app .cart-row__precio { flex: 1 1 100%; order: 3; text-align: left; min-width: 0; font-size: 0.9375rem; }
-    .cotz-app .cart-row__field { order: 2; }
-    .cotz-app .qty-step button { width: 2.5rem; height: 2.5rem; font-size: 1.1rem; }
-    .cotz-app .qty-step input { width: 2.75rem !important; font-size: 1rem !important; }
-    .cotz-app input.mini[type="number"] { width: 4.5rem !important; min-height: 2.5rem !important; padding: 0.4rem 0.6rem !important; font-size: 1rem !important; }
-    .cotz-app .dto-toggle button { padding: 0.55rem 0.8rem; font-size: 0.875rem; }
-    .cotz-app .cart-row__label { font-size: 12px; }
+   .cotz-app .cond-pair .label {
+      letter-spacing: 0;
+      white-space: nowrap;
+   }
 
-    /* Banda angosta: Recargo se oculta en la tabla (queda en el drawer "Detalle del plan"). */
-    .cotz-app .rtable tbody tr:not(.off) td:nth-child(5) { display: none; }
+   .cotz-app .cond-pair--anticipo .cond-pair__a {
+      flex: 0 0 40%;
+   }
+
+   /* Buscador: el mensaje "producto seleccionado" baja a su propia línea. */
+   .cotz-app .prod-search__row {
+      flex-wrap: wrap;
+   }
+
+   .cotz-app .prod-search__pick {
+      flex-basis: 100%;
+   }
+
+   .cotz-app .prod-search__row .btn-primary {
+      flex: 1 1 auto;
+   }
+
+   /* Campos a 16px: iOS Safari no hace zoom al enfocar. */
+   .cotz-app :is(input:not([type="checkbox"], [type="radio"], [type="hidden"]), select, textarea) {
+      font-size: 1rem !important;
+   }
+
+   /* Producto agregado: nombre en su propia línea; cantidad, descuento y precio debajo. */
+   .cotz-app .cart-row {
+      padding: 14px;
+   }
+
+   .cotz-app .cart-row__main {
+      flex-wrap: wrap;
+      gap: 12px;
+   }
+
+   .cotz-app .cart-row__info {
+      flex: 1 1 calc(100% - 3.5rem);
+   }
+
+   .cotz-app .cart-row__quitar {
+      width: 2.5rem;
+      height: 2.5rem;
+      margin: -0.5rem -0.5rem 0 0;
+      order: 1;
+   }
+
+   .cotz-app .cart-row__precio {
+      flex: 1 1 100%;
+      order: 3;
+      text-align: left;
+      min-width: 0;
+      font-size: 0.9375rem;
+   }
+
+   .cotz-app .cart-row__field {
+      order: 2;
+   }
+
+   .cotz-app .qty-step button {
+      width: 2.5rem;
+      height: 2.5rem;
+      font-size: 1.1rem;
+   }
+
+   .cotz-app .qty-step input {
+      width: 2.75rem !important;
+      font-size: 1rem !important;
+   }
+
+   .cotz-app input.mini[type="number"] {
+      width: 4.5rem !important;
+      min-height: 2.5rem !important;
+      padding: 0.4rem 0.6rem !important;
+      font-size: 1rem !important;
+   }
+
+   .cotz-app .dto-toggle button {
+      padding: 0.55rem 0.8rem;
+      font-size: 0.875rem;
+   }
+
+   .cotz-app .cart-row__label {
+      font-size: 12px;
+   }
+
+   /* Banda angosta: Recargo se oculta en la tabla (queda en el drawer "Detalle del plan"). */
+   .cotz-app .rtable tbody tr:not(.off) td:nth-child(5) {
+      display: none;
+   }
 }
 
 /* Textos secundarios con text-[10px]/[11px] (marcado y JS): 12px es el mínimo legible del ERP. */
-.cotz-app [class*="text-[10px]"], .cotz-app [class*="text-[10.5px]"], .cotz-app [class*="text-[11px]"], .cotz-app [class*="text-[11.5px]"] { font-size: var(--erp-fs-min, 0.75rem); }
+.cotz-app [class*="text-[10px]"],
+.cotz-app [class*="text-[10.5px]"],
+.cotz-app [class*="text-[11px]"],
+.cotz-app [class*="text-[11.5px]"] {
+   font-size: var(--erp-fs-min, 0.75rem);
+}
 
 /* Standalone: la barra global ya titula la pantalla ("Cotización"); el h2 queda sólo para lectores
    de pantalla. Embebido en Venta/Create sigue visible como título del paso. */
-.cotz-standalone .cotz-topbar__title { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.cotz-standalone .cotz-topbar__title {
+   position: absolute;
+   width: 1px;
+   height: 1px;
+   margin: -1px;
+   padding: 0;
+   overflow: hidden;
+   clip: rect(0, 0, 0, 0);
+   white-space: nowrap;
+   border: 0;
+}
 
-.cotz-app .totales-bar[aria-busy="true"] .totales-bar__stats { opacity: .6; transition: opacity .15s; }
+.cotz-app .totales-bar[aria-busy="true"] .totales-bar__stats {
+   opacity: .6;
+   transition: opacity .15s;
+}
 
 /* Orden de medios arrastrable */
-.cotz-app [data-orden-medio] { cursor: grab; }
-.cotz-app .orden-handle { font-size: 18px; color: var(--cz-text-4); margin-right: 4px; vertical-align: middle; opacity: .55; cursor: grab; border-radius: 4px; }
-.cotz-app [data-orden-medio]:hover .orden-handle, .cotz-app .orden-handle:focus-visible { opacity: 1; }
-.cotz-app .orden-arrastrando { opacity: .45; }
-.cotz-app .orden-over-antes > td { box-shadow: inset 0 2px 0 0 var(--pal-accent-400, #7dd3a8); }
-.cotz-app .orden-over-despues > td { box-shadow: inset 0 -2px 0 0 var(--pal-accent-400, #7dd3a8); }
+.cotz-app [data-orden-medio] {
+   cursor: grab;
+}
+
+.cotz-app .orden-handle {
+   font-size: 18px;
+   color: var(--cz-text-4);
+   margin-right: 4px;
+   vertical-align: middle;
+   opacity: .55;
+   cursor: grab;
+   border-radius: 4px;
+}
+
+.cotz-app [data-orden-medio]:hover .orden-handle,
+.cotz-app .orden-handle:focus-visible {
+   opacity: 1;
+}
+
+.cotz-app .orden-arrastrando {
+   opacity: .45;
+}
+
+.cotz-app .orden-over-antes>td {
+   box-shadow: inset 0 2px 0 0 var(--pal-accent-400, #7dd3a8);
+}
+
+.cotz-app .orden-over-despues>td {
+   box-shadow: inset 0 -2px 0 0 var(--pal-accent-400, #7dd3a8);
+}

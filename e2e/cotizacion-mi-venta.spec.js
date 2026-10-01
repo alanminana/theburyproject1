@@ -40,8 +40,8 @@ async function crearCliente(page, dni) {
     await page.getByRole('textbox', { name: 'Apellido *' }).fill('MiVentaQA');
     await page.getByRole('textbox', { name: 'Nombre *' }).fill('Cliente');
     await page.getByRole('tab', { name: /Contacto/ }).click();
-    await page.getByRole('textbox', { name: 'Teléfono *' }).fill('1133445566');
-    await page.getByRole('textbox', { name: 'Domicilio *' }).fill('Av. Siempreviva 742');
+    await page.locator('#Telefono').fill('1133445566');
+    await page.locator('#Domicilio').fill('Av. Siempreviva 742');
     await page.getByRole('button', { name: /Crear cliente/ }).click();
     await page.waitForURL(/\/Cliente\/Details\/\d+/, { timeout: 15_000 });
     const match = page.url().match(/\/Cliente\/Details\/(\d+)/);
@@ -92,6 +92,8 @@ test.describe('Cotización — "Mi Venta" v2: preflight real + modal de facturac
         await page.click('#cotizacion-tiene-envio');
         await expect(page.locator('#modal-envio')).toBeVisible({ timeout: 5_000 });
         await expect(page.locator('#cotizacion-envio-destinatario')).toHaveValue(/MiVentaQA/);
+        // VENTA-SERVICIOS-01: el tipo de envío (Ciudad/Rural) es obligatorio.
+        await page.locator('#cotizacion-envio-tipo').selectOption({ index: 1 });
         await page.click('#cotizacion-envio-guardar');
         await expect(page.locator('#modal-envio')).toBeHidden();
         await expect(page.locator('#cotizacion-envio-resumen')).toContainText('Av. Siempreviva 742');

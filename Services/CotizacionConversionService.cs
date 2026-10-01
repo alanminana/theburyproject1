@@ -35,6 +35,7 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
     // lectura, para enriquecer (nunca bloquear más de lo que ya bloquea) el aviso de Crédito
     // personal con los datos contractuales del cliente que YA sabemos que van a faltar.
     private readonly IContratoVentaCreditoService _contratoVentaCreditoService;
+    private readonly IProductoUnidadService _productoUnidadService;
     private readonly ILogger<CotizacionConversionService> _logger;
 
     public CotizacionConversionService(
@@ -47,6 +48,7 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
         IVentaValidator ventaValidator,
         ICajaService cajaService,
         IContratoVentaCreditoService contratoVentaCreditoService,
+        IProductoUnidadService productoUnidadService,
         ILogger<CotizacionConversionService> logger)
     {
         _context = context;
@@ -58,6 +60,7 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
         _ventaValidator = ventaValidator;
         _cajaService = cajaService;
         _contratoVentaCreditoService = contratoVentaCreditoService;
+        _productoUnidadService = productoUnidadService;
         _logger = logger;
     }
 
@@ -85,7 +88,7 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
         ValidarEstadoConvertible(cotizacion, errores);
 
         var clienteId = cotizacion.ClienteId;
-        var clienteFaltante = clienteId is null;
+        var clienteFaltante = clienteId is null && ErrorContactoLibre(cotizacion) != null;
         // Sólo bloquea el preview (Convertible=false) cuando el medio es Crédito personal: ese caso
         // necesita un cliente real ya asignado para evaluar riesgo/contrato, no un simple override.
         // Para el resto de los medios, ConvertirAsync ya acepta ClienteIdOverride (ver
@@ -130,7 +133,9 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
             bool precioCambio = precioActual.HasValue
                 && Math.Abs(precioActual.Value - detalle.PrecioUnitarioSnapshot) > 0.01m;
 
-            bool requiereUnidad = producto?.RequiereNumeroSerie ?? false;
+            // Ya elegida en la cotización (ProductoUnidadId): no hace falta advertir, se revalida y
+            // se marca Vendida recién al convertir (ver ConvertirAVentaAsync).
+            bool requiereUnidad = (producto?.RequiereNumeroSerie ?? false) && !detalle.ProductoUnidadId.HasValue;
 
             var detalleAdvertencias = new List<string>();
             if (precioCambio)
@@ -191,8 +196,7 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
             HayProductosTrazables = hayProductosTrazables,
             TotalCotizado = cotizacion.TotalSeleccionado ?? cotizacion.TotalBase,
             ImporteEnvio = cotizacion.ImporteEnvio,
-            TotalACobrar = VentaMontos.CalcularTotalACobrar(
-                cotizacion.TotalSeleccionado ?? cotizacion.TotalBase, cotizacion.ImporteEnvio),
+            TotalACobrar = cotizacion.TotalACobrar,
             AnticipoCotizado = cotizacion.Anticipo,
             Detalles = detallesPreview
         };
@@ -227,8 +231,8 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
             bloqueos.Add(new CotizacionMiVentaBloqueo { Codigo = "cotizacion_invalida", Mensaje = error });
 
         var clienteId = request.ClienteIdOverride ?? cotizacion.ClienteId;
-        if (clienteId is null)
-            bloqueos.Add(new CotizacionMiVentaBloqueo { Codigo = "sin_cliente", Mensaje = "Falta asignar un cliente para poder crear la venta." });
+        if (clienteId is null && ErrorContactoLibre(cotizacion) is { } errorContacto)
+            bloqueos.Add(new CotizacionMiVentaBloqueo { Codigo = "sin_cliente", Mensaje = errorContacto });
 
         var tipoPago = MapearTipoPago(cotizacion.MedioPagoSeleccionado);
         var esCreditoPersonal = tipoPago == TipoPago.CreditoPersonal;
@@ -374,13 +378,17 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
             SubtotalFinalNeto = d.SubtotalFinalNeto,
             SubtotalFinalIVA = d.SubtotalFinalIVA,
             SubtotalFinal = d.SubtotalFinal,
-            DescuentoGeneralProrrateado = d.DescuentoGeneralProrrateado
+            DescuentoGeneralProrrateado = d.DescuentoGeneralProrrateado,
+            ArmadoSubtotal = d.ArmadoSubtotal
         }).ToList();
 
         // Mismo criterio que ConvertirAVentaAsync: Subtotal ya incluye IVA, Total = Subtotal,
         // IVA es sólo el desglose informativo (ver venta.Subtotal/IVA/Total más arriba).
-        var subtotal = detalles.Sum(d => d.Subtotal);
-        var iva = detalles.Sum(d => d.SubtotalIVA);
+        var serviciosEnTotal = detalles.Sum(d => d.ArmadoSubtotal)
+            + (cotizacion.EnvioIncluidoEnTotal ? cotizacion.ImporteEnvio : 0m);
+        var subtotal = detalles.Sum(d => d.Subtotal) + serviciosEnTotal;
+        var iva = detalles.Sum(d => d.SubtotalIVA)
+            + (serviciosEnTotal > 0m ? ServiciosVentaIva.Separar(serviciosEnTotal).Iva : 0m);
 
         return new CotizacionFacturaPreviewResultado
         {
@@ -388,7 +396,8 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
             Subtotal = subtotal,
             IVA = iva,
             Total = subtotal,
-            ResumenAlicuotas = FacturaAlicuotaResumenBuilder.Build(detalleViewModels)
+            ResumenAlicuotas = FacturaAlicuotaResumenBuilder.Build(
+                detalleViewModels, cotizacion.EnvioIncluidoEnTotal ? cotizacion.ImporteEnvio : 0m)
         };
     }
 
@@ -413,9 +422,10 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
 
         // Resolver cliente: override tiene prioridad sobre cotización
         var clienteId = request.ClienteIdOverride ?? cotizacion.ClienteId;
-        if (clienteId is null)
-            return CotizacionConversionResultado.Fallido(cotizacionId,
-                ["No se puede crear la venta sin cliente. Proveer ClienteIdOverride o asignar un cliente a la cotización."]);
+        if (clienteId is null && ErrorContactoLibre(cotizacion) is { } errorContacto)
+            return CotizacionConversionResultado.Fallido(cotizacionId, [errorContacto]);
+        if (clienteId.HasValue && !await _context.Clientes.AnyAsync(c => c.Id == clienteId && !c.IsDeleted, cancellationToken))
+            return CotizacionConversionResultado.Fallido(cotizacionId, ["El cliente seleccionado no existe o está eliminado."]);
 
         // Obtener precios actuales
         var productoIds = cotizacion.Detalles.Select(d => d.ProductoId).Distinct().ToList();
@@ -464,6 +474,9 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
                 return CotizacionConversionResultado.Fallido(cotizacionId,
                     [$"La cotización ya no está en estado Emitida (estado actual: {cotizacionEnTx?.Estado}). Puede haber sido convertida concurrentemente."]);
 
+            if (clienteId is null && ErrorContactoLibre(cotizacionEnTx) is { } errorContactoEnTx)
+                return CotizacionConversionResultado.Fallido(cotizacionId, [errorContactoEnTx]);
+
             var numero = await _numberGenerator.GenerarNumeroAsync(EstadoVenta.Cotizacion);
 
             var tipoPago = MapearTipoPago(cotizacionEnTx.MedioPagoSeleccionado);
@@ -471,7 +484,10 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
             var venta = new Venta
             {
                 Numero = numero,
-                ClienteId = clienteId.Value,
+                ClienteId = clienteId,
+                NombreClienteLibre = clienteId is null ? cotizacionEnTx.NombreClienteLibre?.Trim() : null,
+                DniClienteLibre = clienteId is null ? cotizacionEnTx.DniClienteLibre : null,
+                TelefonoClienteLibre = clienteId is null ? cotizacionEnTx.TelefonoClienteLibre?.Trim() : null,
                 FechaVenta = DateTime.UtcNow,
                 Estado = EstadoVenta.Cotizacion,
                 TipoPago = tipoPago,
@@ -485,9 +501,24 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
             };
 
             var detalles = ConstruirDetalles(cotizacionEnTx, request, preciosActuales, productos);
+
+            var erroresUnidades = await ValidarUnidadesFisicasAsync(detalles, productos, cancellationToken);
+            if (erroresUnidades.Count > 0)
+                return CotizacionConversionResultado.Fallido(cotizacionId, erroresUnidades);
+
             venta.Subtotal = detalles.Sum(d => d.Subtotal);
             venta.Descuento = 0m;
             venta.IVA = detalles.Sum(d => d.SubtotalIVA);
+
+            // Armados y envío del modelo nuevo viajan dentro del total (con IVA incluido a la alícuota
+            // general); una cotización anterior deja el envío aparte (VentaEnvio.IncluidoEnTotal = false).
+            var serviciosEnTotal = detalles.Sum(d => d.ArmadoSubtotal)
+                + (cotizacionEnTx.EnvioIncluidoEnTotal ? cotizacionEnTx.ImporteEnvio : 0m);
+            if (serviciosEnTotal > 0m)
+            {
+                venta.Subtotal += serviciosEnTotal;
+                venta.IVA += ServiciosVentaIva.Separar(serviciosEnTotal).Iva;
+            }
             venta.Total = venta.Subtotal;
 
             foreach (var detalle in detalles)
@@ -506,7 +537,7 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
             if (tipoPago == TipoPago.CreditoPersonal)
             {
                 var validacionCredito = await _validacionVentaService.ValidarVentaCreditoPersonalAsync(
-                    clienteId.Value, venta.Total, creditoId: null);
+                    clienteId ?? throw new InvalidOperationException("El crédito requiere un cliente registrado."), venta.Total, creditoId: null);
 
                 if (validacionCredito.NoViable)
                 {
@@ -546,10 +577,10 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
                     Estado = EstadoEnvio.Pendiente,
                     Destinatario = !string.IsNullOrWhiteSpace(request.EnvioDestinatario)
                         ? request.EnvioDestinatario!.Trim()
-                        : (cliente != null ? $"{cliente.Apellido}, {cliente.Nombre}" : string.Empty),
+                        : (cliente != null ? $"{cliente.Apellido}, {cliente.Nombre}" : venta.NombreClienteLibre ?? string.Empty),
                     Telefono = !string.IsNullOrWhiteSpace(request.EnvioTelefono)
                         ? request.EnvioTelefono!.Trim()
-                        : cliente?.Telefono,
+                        : cliente?.Telefono ?? venta.TelefonoClienteLibre,
                     Domicilio = !string.IsNullOrWhiteSpace(request.EnvioDomicilio)
                         ? request.EnvioDomicilio!.Trim()
                         : (cliente?.Domicilio ?? string.Empty),
@@ -568,7 +599,13 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
                     // El importe viaja desde la Cotización persistida (fuente de verdad); el request
                     // (modal del Cotizador, misma sesión) sólo lo sobreescribe si llega explícito.
                     // Nunca negativo: un envío no puede restar del total a cobrar.
-                    CostoEnvio = ResolverCostoEnvioConversion(request.EnvioCostoEnvio, cotizacionEnTx.CostoEnvio),
+                    // Modelo nuevo: el tipo y el precio global quedaron congelados en la cotización y
+                    // el importe ya está dentro del total. Cotización anterior: importe aparte.
+                    TipoEnvio = cotizacionEnTx.TipoEnvio,
+                    IncluidoEnTotal = cotizacionEnTx.EnvioIncluidoEnTotal,
+                    CostoEnvio = cotizacionEnTx.EnvioIncluidoEnTotal
+                        ? (cotizacionEnTx.ImporteEnvio > 0m ? cotizacionEnTx.ImporteEnvio : null)
+                        : ResolverCostoEnvioConversion(request.EnvioCostoEnvio, cotizacionEnTx.CostoEnvio),
                     FechaProgramada = request.EnvioFechaProgramada,
                     Observaciones = string.IsNullOrWhiteSpace(request.EnvioObservaciones)
                         ? null
@@ -581,6 +618,27 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
 
             await _context.SaveChangesAsync(cancellationToken);
 
+            // Recién acá, con venta.Id/detalle.Id ya asignados, se reserva la unidad físicamente
+            // (mismo método y misma transición que VentaService.MarcarUnidadesVendidasAsync usa para
+            // Venta/Create) — la cotización nunca la reserva, sólo la referencia informativamente.
+            foreach (var detalle in venta.Detalles.Where(d => d.ProductoUnidadId.HasValue))
+            {
+                await _productoUnidadService.MarcarVendidaAsync(
+                    detalle.ProductoUnidadId!.Value, detalle.Id, clienteId, usuario);
+            }
+
+            // Tarjeta: la cotización sólo guarda el texto del plan elegido ("Visa · 3 cuotas"). Sin los
+            // datos de tarjeta de la venta (tarjeta + plan global) ConfirmarVentaAsync la rechaza, así que
+            // se resuelven acá contra la configuración vigente y se guardan con el mismo método que usa
+            // el wizard (GuardarDatosTarjetaAsync). Si no se pueden resolver, la venta queda creada para
+            // completarlos en el wizard y se avisa.
+            if (tipoPago is TipoPago.TarjetaCredito or TipoPago.TarjetaDebito)
+            {
+                var avisoTarjeta = await AplicarDatosTarjetaDesdeCotizacionAsync(venta, cotizacionEnTx, tipoPago, cancellationToken);
+                if (avisoTarjeta != null)
+                    advertencias.Add(avisoTarjeta);
+            }
+
             // Igual que CreateAsync: el Credito real recién puede crearse con venta.Id ya
             // asignado, y sólo si la venta quedó aprobable (no si quedó pendiente de
             // autorización) — misma condición, misma lógica, sin duplicarla. Precarga cuotas/
@@ -589,7 +647,7 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
             // Venta/Create con una cotización de origen.
             if (tipoPago == TipoPago.CreditoPersonal
                 && venta.Estado == EstadoVenta.PendienteFinanciacion
-                && !venta.RequiereAutorizacion
+                && (!venta.RequiereAutorizacion || venta.EstadoAutorizacion == EstadoAutorizacionVenta.Autorizada)
                 && !venta.CreditoId.HasValue)
             {
                 await _ventaService.CrearCreditoPendienteParaVentaAsync(venta);
@@ -617,6 +675,7 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
                 VentaId = venta.Id,
                 NumeroVenta = venta.Numero,
                 EstadoVenta = venta.Estado,
+                CreditoId = venta.CreditoId,
                 Advertencias = advertencias,
                 ExcepcionDocumentalAplicada = excepcionDocumentalAplicada,
                 VentaConfirmada = ventaConfirmada,
@@ -743,6 +802,61 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
 
     private static bool EsVencida(Cotizacion cotizacion) =>
         cotizacion.FechaVencimiento.HasValue && cotizacion.FechaVencimiento.Value < DateTime.UtcNow;
+
+    private async Task<string?> AplicarDatosTarjetaDesdeCotizacionAsync(
+        Venta venta,
+        Cotizacion cotizacion,
+        TipoPago tipoPago,
+        CancellationToken cancellationToken)
+    {
+        const string avisoWizard = "No se pudo completar automáticamente la tarjeta y el plan de pago de la cotización. Completá los datos de tarjeta en el wizard antes de confirmar.";
+
+        var nombreTarjeta = cotizacion.PlanSeleccionado?.Split('·')[0].Trim();
+        if (string.IsNullOrWhiteSpace(nombreTarjeta) || !cotizacion.CantidadCuotasSeleccionada.HasValue)
+            return avisoWizard;
+
+        var tipoTarjeta = tipoPago == TipoPago.TarjetaCredito ? TipoTarjeta.Credito : TipoTarjeta.Debito;
+        var cuotas = cotizacion.CantidadCuotasSeleccionada.Value;
+
+        var tarjeta = await _context.ConfiguracionesTarjeta
+            .AsNoTracking()
+            .Where(t => !t.IsDeleted && t.Activa && t.TipoTarjeta == tipoTarjeta
+                && t.ConfiguracionPago.TipoPago == tipoPago
+                && t.NombreTarjeta == nombreTarjeta)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (tarjeta == null)
+            return avisoWizard;
+
+        // Plan propio de la tarjeta con esas cuotas; si no hay, el plan general del medio.
+        var plan = await _context.ConfiguracionPagoPlanes
+            .AsNoTracking()
+            .Where(p => !p.IsDeleted && p.Activo && p.TipoPago == tipoPago && p.CantidadCuotas == cuotas
+                && (p.ConfiguracionTarjetaId == tarjeta.Id || p.ConfiguracionTarjetaId == null))
+            .OrderByDescending(p => p.ConfiguracionTarjetaId == tarjeta.Id)
+            .ThenBy(p => p.Orden)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (plan == null)
+            return avisoWizard;
+
+        try
+        {
+            var guardado = await _ventaService.GuardarDatosTarjetaAsync(venta.Id, new DatosTarjetaViewModel
+            {
+                VentaId = venta.Id,
+                ConfiguracionTarjetaId = tarjeta.Id,
+                NombreTarjeta = tarjeta.NombreTarjeta,
+                TipoTarjeta = tarjeta.TipoTarjeta,
+                ConfiguracionPagoPlanId = plan.Id,
+                CantidadCuotas = plan.CantidadCuotas
+            });
+            return guardado ? null : avisoWizard;
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "No se pudieron guardar los datos de tarjeta de la cotización {Numero}", cotizacion.Numero);
+            return avisoWizard;
+        }
+    }
 
     private static TipoPago MapearTipoPago(CotizacionMedioPagoTipo? medioPago) =>
         medioPago switch
@@ -871,7 +985,15 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
                 SubtotalFinalIVA = subtotalIva,
                 SubtotalFinal = subtotal,
                 CostoUnitarioAlMomento = 0m,
-                CostoTotalAlMomento = 0m
+                CostoTotalAlMomento = 0m,
+                // Armado congelado en la cotización (precio global de ese momento, por unidad).
+                TipoArmado = detalle.TipoArmado,
+                EntregaCajaCerrada = detalle.EntregaCajaCerrada,
+                ArmadoPrecioUnitario = detalle.ArmadoPrecioUnitario,
+                ArmadoSubtotal = detalle.ArmadoSubtotal,
+                // Unidad física elegida en la cotización (si la hay): se revalida y se marca
+                // Vendida recién acá, en ConvertirAVentaAsync — nunca antes (ver MarcarUnidadesTrazablesVendidasAsync).
+                ProductoUnidadId = detalle.ProductoUnidadId
             };
 
             // Snapshot histórico de identidad (Micro-lote 5): del Producto de BD al momento de convertir;
@@ -884,6 +1006,59 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
 
         return detalles;
     }
+
+    // Revalida disponibilidad al momento de convertir (la cotización sólo referenció la unidad, sin
+    // reservarla): puede haber cambiado de estado desde que se simuló o se guardó. Mismas reglas que
+    // VentaService.ValidarUnidadesTrazablesAsync para Venta/Create, sin lanzar — acá se traduce a
+    // errores de conversión para que ConvertirAVentaAsync pueda devolver un Fallido prolijo.
+    private async Task<List<string>> ValidarUnidadesFisicasAsync(
+        List<VentaDetalle> detalles,
+        IReadOnlyDictionary<int, Producto> productos,
+        CancellationToken cancellationToken)
+    {
+        var errores = new List<string>();
+
+        var duplicadas = detalles
+            .Where(d => d.ProductoUnidadId.HasValue)
+            .GroupBy(d => d.ProductoUnidadId!.Value)
+            .Where(g => g.Count() > 1)
+            .Select(g => g.Key)
+            .ToList();
+        if (duplicadas.Count > 0)
+            errores.Add($"La venta contiene unidades físicas duplicadas en distintas líneas: {string.Join(", ", duplicadas)}.");
+
+        foreach (var detalle in detalles)
+        {
+            productos.TryGetValue(detalle.ProductoId, out var producto);
+            if (producto is null) continue;
+
+            if (detalle.ProductoUnidadId.HasValue)
+            {
+                var unidad = await _context.ProductoUnidades
+                    .FirstOrDefaultAsync(u => u.Id == detalle.ProductoUnidadId.Value && !u.IsDeleted, cancellationToken);
+
+                if (unidad is null)
+                    errores.Add("La unidad física seleccionada ya no está disponible para la venta.");
+                else if (unidad.ProductoId != detalle.ProductoId)
+                    errores.Add($"La unidad '{unidad.CodigoInternoUnidad}' no pertenece al producto '{producto.Nombre}'.");
+                else if (unidad.Estado != EstadoUnidad.EnStock)
+                    errores.Add($"La unidad '{unidad.CodigoInternoUnidad}' no está disponible (estado: {unidad.Estado}).");
+                else if (detalle.Cantidad != 1)
+                    errores.Add($"Una unidad física seleccionada sólo puede venderse con cantidad 1. Producto: '{producto.Nombre}'.");
+            }
+            else if (producto.RequiereNumeroSerie)
+            {
+                errores.Add($"'{producto.Nombre}' requiere seleccionar una unidad física antes de confirmar la venta.");
+            }
+        }
+
+        return errores;
+    }
+
+    private static string? ErrorContactoLibre(Cotizacion cotizacion) =>
+        VentaContactoLibre.Validar(
+            cotizacion.MedioPagoSeleccionado != CotizacionMedioPagoTipo.CreditoPersonal,
+            cotizacion.NombreClienteLibre, cotizacion.DniClienteLibre, cotizacion.TelefonoClienteLibre);
 
     private static decimal Redondear(decimal value) =>
         Math.Round(value, 2, MidpointRounding.AwayFromZero);

@@ -145,7 +145,8 @@ namespace TheBuryProject.Services
 
             if (viewModel.Facturas.Any(f => !f.Anulada))
             {
-                viewModel.ResumenAlicuotasFactura = FacturaAlicuotaResumenBuilder.Build(viewModel.Detalles);
+                viewModel.ResumenAlicuotasFactura = FacturaAlicuotaResumenBuilder.Build(
+                    viewModel.Detalles, viewModel.ImporteEnvioIncluido);
             }
 
             // Enriquecer código de unidad para detalles trazables (Fase 8.2.S)
@@ -215,6 +216,7 @@ namespace TheBuryProject.Services
             try
             {
                 var venta = _mapper.Map<Venta>(viewModel);
+                VentaContactoLibre.ValidarVenta(venta);
                 venta.AperturaCajaId = aperturaActiva.Id;
 
                 var vendedorResuelto = await ResolverVendedorAsync(viewModel, currentUserId, currentUserName);
@@ -231,7 +233,8 @@ namespace TheBuryProject.Services
 
                 await AplicarPrecioVigenteADetallesAsync(venta);
 
-                CalcularTotales(venta);
+                var envioServicio = await AplicarServiciosAsync(venta, viewModel);
+                CalcularTotales(venta, envioServicio);
                 await CalcularComisionesAsync(venta);
 
                 if (venta.TipoPago == TipoPago.CreditoPersonal)
@@ -714,7 +717,7 @@ namespace TheBuryProject.Services
 
             var credito = new Credito
             {
-                ClienteId = venta.ClienteId,
+                ClienteId = venta.ClienteId ?? throw new InvalidOperationException("El crédito requiere un cliente registrado."),
                 Numero = numeroCredito,
                 MontoSolicitado = venta.Total,
                 MontoAprobado = venta.Total,
@@ -799,10 +802,12 @@ namespace TheBuryProject.Services
             ActualizarDatosVenta(venta, viewModel);
             await ValidarTrazabilidadDetallesVMAsync(viewModel.Detalles);
             ActualizarDetalles(venta, viewModel.Detalles);
+            VentaContactoLibre.ValidarVenta(venta);
 
             await AplicarPrecioVigenteADetallesAsync(venta);
 
-            CalcularTotales(venta);
+            var envioServicio = await AplicarServiciosAsync(venta, viewModel);
+            CalcularTotales(venta, envioServicio);
             // INVARIANTE: CalcularTotales siempre debe preceder a SincronizarDatosTarjetaEdicionAsync.
             // CalcularTotales establece venta.Total desde los ítems (base limpia).
             // Si el orden se invierte o se agrega otra llamada al ajuste después, el ajuste se compone.
@@ -819,7 +824,7 @@ namespace TheBuryProject.Services
                 await CapturarSnapshotLimiteCreditoAsync(venta);
 
                 var validacion = await _validacionVentaService.ValidarVentaCreditoPersonalAsync(
-                    venta.ClienteId, venta.Total, venta.CreditoId);
+                    venta.ClienteId ?? throw new InvalidOperationException("El crédito requiere un cliente registrado."), venta.Total, venta.CreditoId);
 
                 if (validacion.NoViable)
                 {
@@ -934,6 +939,7 @@ namespace TheBuryProject.Services
                 }
 
                 // Validación previa del estado
+                VentaContactoLibre.ValidarVenta(venta);
                 _validator.ValidarEstadoParaConfirmacion(venta);
                 _validator.ValidarStock(venta);
 
@@ -1242,6 +1248,9 @@ namespace TheBuryProject.Services
             if (venta == null)
                 throw new InvalidOperationException(VentaConstants.ErrorMessages.VENTA_NO_ENCONTRADA);
 
+            if (!venta.ClienteId.HasValue)
+                throw new InvalidOperationException("El crédito requiere un cliente registrado.");
+
             venta.CreditoId = creditoId;
             await _context.SaveChangesAsync();
         }
@@ -1319,6 +1328,17 @@ namespace TheBuryProject.Services
                 venta.FechaCancelacion = DateTime.UtcNow;
                 venta.MotivoCancelacion = motivo;
 
+                // Una venta cancelada no se entrega: el envío asociado deja de figurar como pendiente.
+                var envioAsociado = await _context.VentaEnvios
+                    .FirstOrDefaultAsync(e => e.VentaId == venta.Id && !e.IsDeleted);
+                if (envioAsociado != null
+                    && envioAsociado.Estado != EstadoEnvio.Entregado
+                    && envioAsociado.Estado != EstadoEnvio.Cancelado)
+                {
+                    envioAsociado.Estado = EstadoEnvio.Cancelado;
+                    envioAsociado.UpdatedAt = DateTime.UtcNow;
+                }
+
                 await _context.SaveChangesAsync();
 
                 // Crear contramovimiento de caja para ventas que tuvieron ingreso inmediato
@@ -1357,6 +1377,7 @@ namespace TheBuryProject.Services
             if (venta == null)
                 return false;
 
+            VentaContactoLibre.ValidarVenta(venta);
             _validator.ValidarEstadoParaFacturacion(venta);
             _validator.ValidarAutorizacion(venta);
             await ValidarContratoCreditoPersonalGeneradoAsync(venta);
@@ -2004,7 +2025,7 @@ namespace TheBuryProject.Services
                     venta.Total * (configuracionTarjeta.PorcentajeRecargoDebito.Value / 100m));
 
                 datosTarjetaEntity.RecargoAplicado = recargo;
-                venta.Total += recargo;
+                venta.Total = TruncarAPesos(venta.Total + recargo);
             }
 
             // Skip global plan if per-item plans already applied on detalles (avoid double adjustment).
@@ -2014,7 +2035,7 @@ namespace TheBuryProject.Services
             if (planSeleccionado != null && !tieneAjustesPorItem)
             {
                 var montoAjuste = RedondearMoneda(venta.Total * planSeleccionado.AjustePorcentaje / 100m);
-                venta.Total += montoAjuste;
+                venta.Total = TruncarAPesos(venta.Total + montoAjuste);
                 datosTarjetaEntity.PorcentajeAjustePlanAplicado = planSeleccionado.AjustePorcentaje;
                 datosTarjetaEntity.MontoAjustePlanAplicado = montoAjuste;
             }
@@ -2146,7 +2167,7 @@ namespace TheBuryProject.Services
             if (!resultado.EsValido)
                 throw new InvalidOperationException(resultado.Mensaje ?? "El plan global de pago no es valido.");
 
-            venta.Total = resultado.TotalFinal;
+            venta.Total = TruncarAPesos(resultado.TotalFinal);
             datosTarjeta.ConfiguracionPagoPlanId = plan.Id;
             datosTarjeta.CantidadCuotas = plan.CantidadCuotas;
             datosTarjeta.PorcentajeAjustePagoAplicado = resultado.PorcentajeAjuste;
@@ -2261,6 +2282,8 @@ namespace TheBuryProject.Services
             destino.CodigoPostal = origen.CodigoPostal;
             destino.Transportista = origen.Transportista;
             destino.CostoEnvio = origen.CostoEnvio.HasValue ? Math.Max(0m, origen.CostoEnvio.Value) : null;
+            destino.TipoEnvio = origen.TipoEnvio;
+            destino.IncluidoEnTotal = origen.IncluidoEnTotal;
             destino.FechaProgramada = origen.FechaProgramada;
             destino.Observaciones = origen.Observaciones;
             // Estado, NumeroSeguimiento y las fechas de despacho/entrega NO se editan
@@ -2458,7 +2481,7 @@ namespace TheBuryProject.Services
             return await CalcularTotalesInternoAsync(detalles, descuentoGeneral, descuentoEsPorcentaje);
         }
 
-        public async Task<CalculoTotalesVentaResponse> CalcularTotalesPreviewConPagoGlobalAsync(
+        public Task<CalculoTotalesVentaResponse> CalcularTotalesPreviewConPagoGlobalAsync(
             List<DetalleCalculoVentaRequest> detalles,
             decimal descuentoGeneral,
             bool descuentoEsPorcentaje,
@@ -2466,7 +2489,28 @@ namespace TheBuryProject.Services
             int? configuracionTarjetaId,
             int? configuracionPagoPlanId)
         {
-            var response = await CalcularTotalesInternoAsync(detalles, descuentoGeneral, descuentoEsPorcentaje);
+            return CalcularTotalesPreviewCoreAsync(
+                detalles, descuentoGeneral, descuentoEsPorcentaje, tipoPago,
+                configuracionTarjetaId, configuracionPagoPlanId, tipoEnvio: null);
+        }
+
+        public Task<CalculoTotalesVentaResponse> CalcularTotalesPreviewConServiciosAsync(CalcularTotalesVentaRequest request)
+        {
+            return CalcularTotalesPreviewCoreAsync(
+                request.Detalles, request.DescuentoGeneral, request.DescuentoEsPorcentaje, request.TipoPago,
+                request.TarjetaId, request.ConfiguracionPagoPlanId, request.TipoEnvio);
+        }
+
+        private async Task<CalculoTotalesVentaResponse> CalcularTotalesPreviewCoreAsync(
+            List<DetalleCalculoVentaRequest> detalles,
+            decimal descuentoGeneral,
+            bool descuentoEsPorcentaje,
+            TipoPago tipoPago,
+            int? configuracionTarjetaId,
+            int? configuracionPagoPlanId,
+            TipoServicioVenta? tipoEnvio)
+        {
+            var response = await CalcularTotalesInternoAsync(detalles, descuentoGeneral, descuentoEsPorcentaje, tipoEnvio);
             var plan = await ValidarYObtenerPlanPagoGlobalAsync(configuracionPagoPlanId, tipoPago, configuracionTarjetaId);
 
             if (plan == null)
@@ -2491,7 +2535,8 @@ namespace TheBuryProject.Services
             response.CantidadCuotasPagoGlobal = resultado.CantidadCuotas;
             response.ValorCuotaPagoGlobal = resultado.ValorCuota;
             response.NombrePlanPagoGlobal = CrearNombrePlanPagoSnapshot(plan);
-            response.Total = resultado.TotalFinal;
+            response.Total = TruncarAPesos(resultado.TotalFinal);
+            response.TotalConAjustePagoGlobal = response.Total;
 
             return response;
         }
@@ -3066,7 +3111,29 @@ namespace TheBuryProject.Services
             return Math.Max(0m, bruto - descuentoImporte);
         }
 
-        private void CalcularTotales(Venta venta)
+        /// <summary>
+        /// Regla de negocio: el total de una venta se redondea siempre hacia abajo a pesos enteros
+        /// (9,99 → 9); los centavos se descartan.
+        /// </summary>
+        private static decimal TruncarAPesos(decimal value) => Math.Floor(value);
+
+        /// <summary>
+        /// Descuenta los centavos truncados del IVA (y, si no alcanza, del neto) para que
+        /// Subtotal + IVA siga cerrando contra el Total redondeado.
+        /// </summary>
+        private static (decimal Subtotal, decimal IVA) AbsorberTruncadoEnNetoEIva(decimal subtotal, decimal iva, decimal truncado)
+        {
+            var deIva = Math.Min(truncado, iva);
+            return (subtotal - (truncado - deIva), iva - deIva);
+        }
+
+        /// <summary>
+        /// Total = productos (con descuentos) + armados + envío. Los servicios (armados y envío) son precios
+        /// finales con IVA incluido a la alícuota por defecto, no reciben descuentos y quedan dentro de
+        /// Total para que el recargo del medio de pago (que se aplica después sobre Total) los alcance.
+        /// </summary>
+        /// <param name="importeEnvio">Precio del envío resuelto por <see cref="AplicarServiciosAsync"/> (0 si no hay).</param>
+        private void CalcularTotales(Venta venta, decimal importeEnvio = 0m)
         {
             var detallesList = venta.Detalles.Where(d => !d.IsDeleted).ToList();
 
@@ -3078,9 +3145,76 @@ namespace TheBuryProject.Services
 
             AplicarProrrateoDescuentoGeneral(detallesList, venta.Descuento);
 
-            venta.Subtotal = detallesList.Sum(d => d.SubtotalFinalNeto);
-            venta.IVA = detallesList.Sum(d => d.SubtotalFinalIVA);
-            venta.Total = detallesList.Sum(d => d.SubtotalFinal);
+            var servicios = RedondearMoneda(detallesList.Sum(d => d.ArmadoSubtotal) + importeEnvio);
+            var (serviciosNeto, serviciosIva) = SepararIvaServicios(servicios);
+
+            var totalConCentavos = detallesList.Sum(d => d.SubtotalFinal) + servicios;
+            venta.Total = TruncarAPesos(totalConCentavos);
+            (venta.Subtotal, venta.IVA) = AbsorberTruncadoEnNetoEIva(
+                detallesList.Sum(d => d.SubtotalFinalNeto) + serviciosNeto,
+                detallesList.Sum(d => d.SubtotalFinalIVA) + serviciosIva,
+                totalConCentavos - venta.Total);
+        }
+
+        private static (decimal Neto, decimal Iva) SepararIvaServicios(decimal bruto) =>
+            ServiciosVentaIva.Separar(bruto);
+
+        /// <summary>
+        /// Resuelve server-side el precio de armados (por línea) y envío desde los precios globales y los
+        /// congela en la venta: nunca se confía en importes enviados por el cliente. Devuelve el precio del
+        /// envío (0 si no hay). Reglas: armado y envío son opcionales; "caja cerrada" excluye el armado;
+        /// el armado se cobra por unidad (precio × cantidad).
+        /// </summary>
+        private async Task<decimal> AplicarServiciosAsync(Venta venta, VentaViewModel viewModel)
+        {
+            var precios = new Dictionary<TipoServicioVenta, decimal>();
+
+            async Task<decimal> PrecioAsync(TipoServicioVenta tipo)
+            {
+                if (!precios.TryGetValue(tipo, out var precio))
+                {
+                    precio = await ServiciosVentaPrecios.ObtenerPrecioAsync(_context, tipo);
+                    precios[tipo] = precio;
+                }
+
+                return precio;
+            }
+
+            foreach (var detalle in venta.Detalles.Where(d => !d.IsDeleted))
+            {
+                detalle.ArmadoPrecioUnitario = 0m;
+                detalle.ArmadoSubtotal = 0m;
+
+                if (detalle.TipoArmado == null)
+                    continue;
+
+                if (detalle.EntregaCajaCerrada)
+                    throw new InvalidOperationException(
+                        "Un producto entregado en caja cerrada no puede llevar armado.");
+
+                if (!detalle.TipoArmado.Value.EsArmado())
+                    throw new InvalidOperationException("El tipo de armado seleccionado no es válido.");
+
+                var precio = await PrecioAsync(detalle.TipoArmado.Value);
+                detalle.ArmadoPrecioUnitario = precio;
+                detalle.ArmadoSubtotal = RedondearMoneda(precio * detalle.Cantidad);
+            }
+
+            if (!viewModel.TieneEnvio)
+                return 0m;
+
+            if (viewModel.Envio == null)
+                throw new InvalidOperationException(
+                    "Marcaste que la venta tiene envío pero faltan los datos de entrega.");
+
+            var tipoEnvio = viewModel.Envio.TipoEnvio;
+            if (tipoEnvio == null || !tipoEnvio.Value.EsEnvio())
+                throw new InvalidOperationException("Seleccioná el tipo de envío (Ciudad o Rural).");
+
+            var importeEnvio = await PrecioAsync(tipoEnvio.Value);
+            viewModel.Envio.CostoEnvio = importeEnvio;
+            viewModel.Envio.IncluidoEnTotal = true;
+            return importeEnvio;
         }
 
         /// <summary>
@@ -3213,7 +3347,7 @@ namespace TheBuryProject.Services
                 ? subtotalConIVA * (descuentoGeneral / 100)
                 : descuentoGeneral;
 
-            var total = Math.Max(0, subtotalConIVA - descuentoCalculado);
+            var total = TruncarAPesos(Math.Max(0, subtotalConIVA - descuentoCalculado));
 
             var subtotalSinIVA = RedondearMoneda(total / VentaConstants.IVA_DIVISOR);
             var iva = RedondearMoneda(total - subtotalSinIVA);
@@ -3227,7 +3361,11 @@ namespace TheBuryProject.Services
             };
         }
 
-        private async Task<CalculoTotalesVentaResponse> CalcularTotalesInternoAsync(IEnumerable<DetalleCalculoVentaRequest> detalles, decimal descuentoGeneral, bool descuentoEsPorcentaje)
+        private async Task<CalculoTotalesVentaResponse> CalcularTotalesInternoAsync(
+            IEnumerable<DetalleCalculoVentaRequest> detalles,
+            decimal descuentoGeneral,
+            bool descuentoEsPorcentaje,
+            TipoServicioVenta? tipoEnvio = null)
         {
             var detallesList = detalles.ToList();
             var productoIds = detallesList
@@ -3262,6 +3400,18 @@ namespace TheBuryProject.Services
                     subtotalIva = RedondearMoneda(subtotalFinal - subtotalNeto);
                 }
 
+                var armadoPrecio = 0m;
+                if (detalle.TipoArmado.HasValue)
+                {
+                    if (detalle.EntregaCajaCerrada)
+                        throw new InvalidOperationException(
+                            "Un producto entregado en caja cerrada no puede llevar armado.");
+                    if (!detalle.TipoArmado.Value.EsArmado())
+                        throw new InvalidOperationException("El tipo de armado seleccionado no es válido.");
+
+                    armadoPrecio = await ServiciosVentaPrecios.ObtenerPrecioAsync(_context, detalle.TipoArmado.Value);
+                }
+
                 detallesCalculados.Add(new DetalleCalculoTotalesVentaResponse
                 {
                     ProductoId = detalle.ProductoId,
@@ -3270,8 +3420,19 @@ namespace TheBuryProject.Services
                     AlicuotaIVANombre = ivaSnapshot.AlicuotaNombre,
                     SubtotalNeto = subtotalNeto,
                     SubtotalIVA = subtotalIva,
-                    Subtotal = subtotalFinal
+                    Subtotal = subtotalFinal,
+                    ArmadoPrecioUnitario = armadoPrecio,
+                    ArmadoSubtotal = RedondearMoneda(armadoPrecio * detalle.Cantidad)
                 });
+            }
+
+            var importeEnvio = 0m;
+            if (tipoEnvio.HasValue)
+            {
+                if (!tipoEnvio.Value.EsEnvio())
+                    throw new InvalidOperationException("Seleccioná el tipo de envío (Ciudad o Rural).");
+
+                importeEnvio = await ServiciosVentaPrecios.ObtenerPrecioAsync(_context, tipoEnvio.Value);
             }
 
             var total = detallesCalculados.Sum(d => d.Subtotal);
@@ -3281,15 +3442,27 @@ namespace TheBuryProject.Services
 
             descuentoCalculado = AplicarProrrateoDescuentoGeneral(detallesCalculados, descuentoCalculado);
 
-            var totalBase = detallesCalculados.Sum(d => d.SubtotalFinal);
+            var totalProductos = detallesCalculados.Sum(d => d.SubtotalFinal);
+            var totalArmados = RedondearMoneda(detallesCalculados.Sum(d => d.ArmadoSubtotal));
+            var (serviciosNeto, serviciosIva) = SepararIvaServicios(RedondearMoneda(totalArmados + importeEnvio));
+
+            var totalBase = totalProductos + totalArmados + importeEnvio;
+            var totalTruncado = TruncarAPesos(totalBase);
+            var (subtotalCierre, ivaCierre) = AbsorberTruncadoEnNetoEIva(
+                detallesCalculados.Sum(d => d.SubtotalFinalNeto) + serviciosNeto,
+                detallesCalculados.Sum(d => d.SubtotalFinalIVA) + serviciosIva,
+                totalBase - totalTruncado);
             var response = new CalculoTotalesVentaResponse
             {
-                Subtotal = detallesCalculados.Sum(d => d.SubtotalFinalNeto),
+                Subtotal = subtotalCierre,
                 DescuentoGeneralAplicado = descuentoCalculado,
-                IVA = detallesCalculados.Sum(d => d.SubtotalFinalIVA),
-                Total = totalBase,
+                IVA = ivaCierre,
+                Total = totalTruncado,
                 Detalles = detallesCalculados,
-                AjusteItemsAplicado = 0m
+                AjusteItemsAplicado = 0m,
+                TotalProductos = totalProductos,
+                TotalArmados = totalArmados,
+                ImporteEnvio = importeEnvio
             };
 
             return response;
@@ -3540,7 +3713,7 @@ namespace TheBuryProject.Services
                 viewModel.CreditoId,
                 viewModel.Descuento);
 
-            venta.ClienteId = viewModel.ClienteId;
+            venta.ClienteId = viewModel.ClienteId > 0 ? viewModel.ClienteId : null;
             venta.FechaVenta = viewModel.FechaVenta;
             venta.TipoPago = viewModel.TipoPago;
             venta.Descuento = viewModel.Descuento;
@@ -4010,7 +4183,7 @@ namespace TheBuryProject.Services
 
             try
             {
-                var disponible = await _creditoDisponibleService.CalcularDisponibleAsync(venta.ClienteId);
+                var disponible = await _creditoDisponibleService.CalcularDisponibleAsync(venta.ClienteId ?? throw new InvalidOperationException("El crédito requiere un cliente registrado."));
 
                 if (disponible.Limite <= 0m)
                 {

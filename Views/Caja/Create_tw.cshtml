@@ -63,7 +63,7 @@
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4" style="margin-top:1rem">
 
         <!-- Form -->
-        <form asp-action="Create" method="post" class="lg:col-span-2 card card-pad">
+        <form asp-action="Create" asp-route-origen="@(ViewBag.Origen as string)" method="post" class="lg:col-span-2 card card-pad">
             @Html.AntiForgeryToken()
 
             <div asp-validation-summary="ModelOnly"
@@ -116,7 +116,7 @@
 
             <div class="flex flex-col-reverse sm:flex-row justify-end gap-2"
                  style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--pal-neutral-800)">
-                <a asp-action="Index" class="btn btn-ghost" style="text-decoration:none">Cancelar</a>
+                <a href="@((ViewBag.Origen as string) == "ventas" ? Url.Action("Index", "Venta") : Url.Action("Index", "Caja"))" class="btn btn-ghost" style="text-decoration:none">Cancelar</a>
                 <button type="submit" class="btn btn-primary">
                     <span class="material-symbols-outlined">save</span>Crear caja
                 </button>
@@ -138,7 +138,7 @@
             </div>
             <div class="alert alert-info">
                 <span class="material-symbols-outlined">info</span>
-                <div>Crear una caja <strong>no abre un turno</strong>. Después podés abrirla desde el listado de cajas.</div>
+                <div>Crear una caja <strong>no abre un turno</strong>. @((ViewBag.Origen as string) == "ventas" ? "A continuación te llevamos a abrirla." : "Después podés abrirla desde el listado de cajas.")</div>
             </div>
         </aside>
     </div>

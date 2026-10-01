@@ -141,11 +141,16 @@
     {
         var r = Model!;
 
-        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <div class="card-erp-metric">
                 <p class="text-xs text-slate-400 uppercase tracking-wide">Total ventas</p>
                 <p class="mt-1 text-2xl font-bold text-slate-100">$@r.TotalVentas.ToString("N2")</p>
                 <p class="text-xs text-slate-500 mt-1">@r.CantidadVentas transacciones</p>
+            </div>
+            <div class="card-erp-metric" id="reporte-productos-vendidos">
+                <p class="text-xs text-slate-400 uppercase tracking-wide">Productos vendidos</p>
+                <p class="mt-1 text-2xl font-bold text-slate-100">@r.CantidadProductosVendidos.ToString("N0")</p>
+                <p class="text-xs text-slate-500 mt-1">Unidades en @r.CantidadVentas transacciones</p>
             </div>
             <div class="card-erp-metric card-erp-metric-success">
                 <p class="text-xs text-slate-400 uppercase tracking-wide">Ganancia</p>

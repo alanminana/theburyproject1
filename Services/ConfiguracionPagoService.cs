@@ -72,6 +72,7 @@ namespace TheBuryProject.Services
                     PorcentajeDescuentoMaximo = c.PorcentajeDescuentoMaximo,
                     TieneRecargo = c.TieneRecargo,
                     PorcentajeRecargo = c.PorcentajeRecargo,
+                    AplicaAjusteEnCobroCuotas = c.AplicaAjusteEnCobroCuotas,
                     Tarjetas = c.ConfiguracionesTarjeta
                         .Where(t => !t.IsDeleted)
                         .OrderBy(t => t.TipoTarjeta)
@@ -420,6 +421,7 @@ namespace TheBuryProject.Services
             medio.Nombre = command.Nombre.Trim();
             medio.Descripcion = string.IsNullOrWhiteSpace(command.Descripcion) ? null : command.Descripcion.Trim();
             medio.Activo = command.Activo;
+            medio.AplicaAjusteEnCobroCuotas = command.AplicaAjusteEnCobroCuotas;
             medio.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
@@ -891,6 +893,17 @@ namespace TheBuryProject.Services
                 return 0;
 
             return monto * (config.PorcentajeRecargo.Value / 100);
+        }
+
+        public async Task<bool> AplicaAjusteEnCobroCuotasAsync(TipoPago tipoPago)
+        {
+            var aplica = await _context.ConfiguracionesPago
+                .AsNoTracking()
+                .Where(c => c.TipoPago == tipoPago && c.Activo && !c.IsDeleted)
+                .Select(c => (bool?)c.AplicaAjusteEnCobroCuotas)
+                .FirstOrDefaultAsync();
+
+            return aplica ?? true;
         }
 
         public async Task<decimal> ObtenerPorcentajeAjusteUnPagoAsync(TipoPago tipoPago)

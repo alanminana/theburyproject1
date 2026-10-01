@@ -103,6 +103,10 @@ namespace TheBuryProject.Services
             if (_configuracionPagoService == null || !MediosPagoTipoPago.TryGetValue(medioPago, out var tipoPago))
                 return (0m, null);
 
+            // El medio puede excluir el cobro de cuotas/moras del recargo/descuento (config. de pagos).
+            if (!await _configuracionPagoService.AplicaAjusteEnCobroCuotasAsync(tipoPago))
+                return (0m, tipoPago);
+
             var porcentaje = await _configuracionPagoService.ObtenerPorcentajeAjusteUnPagoAsync(tipoPago);
             return (porcentaje, tipoPago);
         }
@@ -920,7 +924,7 @@ namespace TheBuryProject.Services
             var medioPago = NormalizarMedioPago(pago.MedioPago);
             await ValidarMedioPagoHabilitadoAsync(medioPago);
 
-            var cajaActiva = await _cajaService.ObtenerAperturaActivaParaVentaAsync();
+            var cajaActiva = await _cajaService.ObtenerAperturaActivaParaUsuarioAsync(_currentUserService.GetUsername());
             if (cajaActiva == null)
                 throw new PagoCuotaRechazadoException(
                     MotivoRechazoPagoCuota.Conflicto,
@@ -1545,7 +1549,7 @@ namespace TheBuryProject.Services
             var usuario = _currentUserService.GetUsername();
             var (ajustePorcentajeMedio, tipoPagoMedio) = await ObtenerAjusteMedioPagoAsync(medioPago);
 
-            var cajaActiva = await _cajaService.ObtenerAperturaActivaParaVentaAsync();
+            var cajaActiva = await _cajaService.ObtenerAperturaActivaParaUsuarioAsync(usuario);
             if (cajaActiva == null)
                 throw new InvalidOperationException("Debe existir una caja abierta para registrar el pago múltiple.");
 

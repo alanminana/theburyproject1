@@ -60,12 +60,23 @@ TheBury.autoDismissToasts = function (delay) {
     function getModal()      { return document.getElementById('confirmModal'); }
     function getActionBtn()  { return document.getElementById('confirmModalAction'); }
 
-    window.openConfirmModal = function (bodyText, onConfirm) {
+    window.openConfirmModal = function (bodyText, onConfirm, options) {
         var modal = getModal();
         if (!modal) return;
 
         var body = document.getElementById('confirmModalBody');
         if (bodyText && body) body.textContent = bodyText;
+
+        // Nota opcional (ej. observaciones al resolver una alerta): oculta por defecto,
+        // así los llamadores existentes que no la piden no ven ningún cambio visual.
+        var noteWrapper = document.getElementById('confirmModalNoteWrapper');
+        var noteInput = document.getElementById('confirmModalNote');
+        var showNote = !!(options && options.showNote);
+        if (noteWrapper) noteWrapper.classList.toggle('hidden', !showNote);
+        if (noteInput) {
+            noteInput.value = '';
+            noteInput.placeholder = (options && options.notePlaceholder) || 'Observaciones (opcional)...';
+        }
 
         // Replace action button to clear previous listeners
         var actionBtn = getActionBtn();
@@ -74,7 +85,8 @@ TheBury.autoDismissToasts = function (delay) {
             actionBtn.parentNode.replaceChild(freshBtn, actionBtn);
             if (typeof onConfirm === 'function') {
                 freshBtn.addEventListener('click', function () {
-                    onConfirm();
+                    var note = showNote && noteInput ? noteInput.value : '';
+                    onConfirm(note);
                     window.closeConfirmModal();
                 });
             }
@@ -127,6 +139,23 @@ TheBury.confirmAction = function (message, onConfirm) {
     if (window.confirm(message || '¿Estás seguro de que deseas continuar?')) {
         if (typeof onConfirm === 'function') {
             onConfirm();
+        }
+    }
+};
+
+/**
+ * Same as confirmAction, but shows an optional note textarea and passes its
+ * value (string, possibly empty) as the argument to onConfirm.
+ */
+TheBury.confirmActionWithNote = function (message, onConfirm, notePlaceholder) {
+    if (typeof window.openConfirmModal === 'function') {
+        window.openConfirmModal(message, onConfirm, { showNote: true, notePlaceholder: notePlaceholder });
+        return;
+    }
+
+    if (window.confirm(message || '¿Estás seguro de que deseas continuar?')) {
+        if (typeof onConfirm === 'function') {
+            onConfirm('');
         }
     }
 };

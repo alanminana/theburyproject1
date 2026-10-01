@@ -655,6 +655,8 @@ namespace TheBuryProject.Services
                 return new ValidacionVentaResult(); // Puede proceder
             }
 
+            var clienteId = venta.ClienteId ?? throw new InvalidOperationException("El crédito requiere un cliente registrado.");
+
             // Si el crédito ya está configurado/generado/activo, la aptitud fue evaluada
             // al configurar. En confirmación sólo corresponde verificar mora y documentación,
             // no volver a bloquear por cupo (que ya fue comprometido en la configuración).
@@ -669,11 +671,11 @@ namespace TheBuryProject.Services
                     credito.Estado == EstadoCredito.Generado   ||
                     credito.Estado == EstadoCredito.Activo))
                 {
-                    return await ValidarSinCupoAsync(venta.ClienteId);
+                    return await ValidarSinCupoAsync(clienteId);
                 }
             }
 
-            return await ValidarVentaCreditoPersonalAsync(venta.ClienteId, venta.Total, venta.CreditoId);
+            return await ValidarVentaCreditoPersonalAsync(clienteId, venta.Total, venta.CreditoId);
         }
 
         // Evaluación sin cupo: sólo mora bloqueante y documentación.

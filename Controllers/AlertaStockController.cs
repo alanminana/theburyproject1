@@ -173,6 +173,22 @@ namespace TheBuryProject.Controllers
                 returnUrl);
         }
 
+        // POST: AlertaStock/MarcarEnProceso/5
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> MarcarEnProceso(int id, string? observaciones, byte[]? rowVersion, string? returnUrl)
+        {
+            return await ProcesarAccionAlerta(
+                id,
+                observaciones,
+                rowVersion,
+                _alertaStockService.MarcarEnProcesoAsync,
+                "La alerta quedó marcada como en proceso",
+                "No se pudo marcar la alerta como en proceso",
+                "marcar en proceso",
+                returnUrl);
+        }
+
         // POST: AlertaStock/GenerarAlertas
         [HttpPost]
         [ValidateAntiForgeryToken]

@@ -707,4 +707,35 @@ public class OrdenCompraServiceTests : IDisposable
 
         Assert.Equal(2, resultado.Count());
     }
+
+    [Fact]
+    public async Task Search_PorMarca_DevuelveSoloOrdenesConProductosDeEsaMarca()
+    {
+        var proveedor = await SeedProveedorAsync();
+        var productoA = await SeedProductoAsync();
+        var productoB = await SeedProductoAsync();
+        var ordenA = await SeedOrdenAsync(proveedor.Id, productoA.Id);
+        await SeedOrdenAsync(proveedor.Id, productoB.Id);
+
+        var resultado = (await _service.SearchAsync(marcaId: productoA.MarcaId)).ToList();
+
+        Assert.Single(resultado);
+        Assert.Equal(ordenA.Id, resultado[0].Id);
+    }
+
+    [Fact]
+    public async Task Search_PorProducto_BuscaPorNombreOCodigo()
+    {
+        var proveedor = await SeedProveedorAsync();
+        var productoA = await SeedProductoAsync();
+        var productoB = await SeedProductoAsync();
+        var ordenA = await SeedOrdenAsync(proveedor.Id, productoA.Id);
+        await SeedOrdenAsync(proveedor.Id, productoB.Id);
+
+        var porNombre = (await _service.SearchAsync(productoTerm: productoA.Nombre)).ToList();
+        var porCodigo = (await _service.SearchAsync(productoTerm: productoA.Codigo)).ToList();
+
+        Assert.Equal(ordenA.Id, Assert.Single(porNombre).Id);
+        Assert.Equal(ordenA.Id, Assert.Single(porCodigo).Id);
+    }
 }

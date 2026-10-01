@@ -29,8 +29,8 @@ async function crearCliente(page, dni) {
     await page.getByRole('textbox', { name: 'Apellido *' }).fill('WizardQA');
     await page.getByRole('textbox', { name: 'Nombre *' }).fill('Cliente');
     await page.getByRole('tab', { name: /Contacto/ }).click();
-    await page.getByRole('textbox', { name: 'Teléfono *' }).fill('1144556677');
-    await page.getByRole('textbox', { name: 'Domicilio *' }).fill('Av. Continuar 100');
+    await page.locator('#Telefono').fill('1144556677');
+    await page.locator('#Domicilio').fill('Av. Continuar 100');
     await page.getByRole('button', { name: /Crear cliente/ }).click();
     await page.waitForURL(/\/Cliente\/Details\/\d+/, { timeout: 15_000 });
     const match = page.url().match(/\/Cliente\/Details\/(\d+)/);

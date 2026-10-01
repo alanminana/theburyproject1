@@ -67,6 +67,10 @@
         el('prod-edit-percepcionesCompra').value  = percepciones;
         el('prod-edit-otrosCostosCompra').value   = otrosCostos;
         el('prod-edit-precioCompra').value = compraConIva.toFixed(2);
+        // La alícuota de compra no se persiste (solo desglosa Compra sin IVA/IVA compra): se
+        // reinicia en cada apertura para no arrastrar la del producto abierto antes.
+        var ivaCompraEl = el('prod-edit-porcentajeIVACompra');
+        if (ivaCompraEl) ivaCompraEl.value = '21';
         // precioVenta ya es el precio final de venta con IVA incluido.
         el('prod-edit-precioFinal').value  = data.precioVenta || 0;
         el('prod-edit-comisionPorcentaje').value = data.comisionPorcentaje || 0;
@@ -362,6 +366,20 @@
             marcaEl.title = marcaTexto;
         }
 
+        // Badge de stock: el estado depende de StockMinimo, que sí se edita en este modal.
+        var stockEl = currentRow.querySelector('[data-prod-stock]');
+        if (stockEl && entity.estadoStock) {
+            var stockNum = Number(entity.stockActual || 0);
+            var estilos = {
+                'Sin Stock':  ['border-red-500/30 bg-red-500/15 text-red-300', 'Agotado'],
+                'Stock Bajo': ['border-amber-500/30 bg-amber-500/15 text-amber-300', stockNum + ' disponibles'],
+                'Normal':     ['border-emerald-500/30 bg-emerald-500/15 text-emerald-300', stockNum + ' disponibles']
+            };
+            var estilo = estilos[entity.estadoStock] || estilos['Normal'];
+            stockEl.className = 'inline-flex whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-bold ' + estilo[0];
+            stockEl.textContent = estilo[1];
+        }
+
         var priceEl = currentRow.querySelector('[data-prod-precio-actual]');
         if (priceEl) {
             priceEl.textContent = '$ ' + Number(entity.precioActual).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -582,10 +600,27 @@
         });
     }
 
+    // Deep link desde otras pantallas (ej. Productos asociados de Proveedor):
+    // /Catalogo?editarProducto={id} abre este modal con el producto ya cargado.
+    function abrirDesdeQueryString() {
+        var id;
+        try { id = new URLSearchParams(window.location.search).get('editarProducto'); } catch (_) { return; }
+        if (!id || !/^\d+$/.test(id)) return;
+        var btn = document.querySelector('[data-prod-edit-id="' + id + '"]');
+        if (btn) btn.click();
+        // Evita reabrir el modal al recargar o volver con "atrás".
+        try {
+            var url = new URL(window.location.href);
+            url.searchParams.delete('editarProducto');
+            window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+        } catch (_) { /* sin history API: no es crítico */ }
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         initTabs();
         initSubmit();
         initDelegatedEvents();
         initCreditoPersonalModo();
+        abrirDesdeQueryString();
     });
 })();

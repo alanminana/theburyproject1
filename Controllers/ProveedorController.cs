@@ -296,7 +296,9 @@ namespace TheBuryProject.Controllers
                     codigo = p.Codigo ?? "",
                     nombre = p.Nombre,
                     marca = p.Marca?.Nombre ?? "",
-                    categoria = p.Categoria?.Nombre ?? ""
+                    categoria = p.Categoria?.Nombre ?? "",
+                    marcaId = p.MarcaId,
+                    categoriaId = p.CategoriaId
                 }));
 
         private async Task CargarAsociacionesAsync(ProveedorViewModel viewModel)

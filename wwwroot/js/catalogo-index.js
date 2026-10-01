@@ -348,6 +348,169 @@
     }
 })();
 
+// ─── Menú global de acciones de fila ("…") ─────────────────────
+(function () {
+    'use strict';
+
+    var menu = document.getElementById('catalogo-row-actions-menu');
+    if (!menu) return;
+
+    var btnHistorial    = document.getElementById('catalogo-menu-historial');
+    var btnMovimientos  = document.getElementById('catalogo-menu-movimientos');
+    var linkCompra      = document.getElementById('catalogo-menu-compra');
+    var btnMercadoLibre = document.getElementById('catalogo-menu-mercadolibre');
+    var btnEliminar     = document.getElementById('catalogo-menu-eliminar');
+    var mlForm            = document.getElementById('catalogo-mercadolibre-form');
+    var mlProductoIdInput = document.getElementById('catalogo-mercadolibre-producto-id');
+    var deleteForm         = document.getElementById('form-delete-produto');
+
+    var currentTrigger = null;
+
+    function isOpen() {
+        return !menu.classList.contains('hidden');
+    }
+
+    function positionMenu(trigger) {
+        var rect = trigger.getBoundingClientRect();
+        var menuWidth = menu.offsetWidth || 288;
+        var menuHeight = menu.offsetHeight || 260;
+        var gap = 4;
+
+        var left = rect.right - menuWidth;
+        if (left < gap) left = gap;
+        if (left + menuWidth > window.innerWidth - gap) {
+            left = window.innerWidth - gap - menuWidth;
+        }
+
+        var top = rect.bottom + gap;
+        if (top + menuHeight > window.innerHeight - gap) {
+            top = rect.top - gap - menuHeight;
+            if (top < gap) top = gap;
+        }
+
+        menu.style.left = left + 'px';
+        menu.style.top = top + 'px';
+    }
+
+    function closeMenu() {
+        if (!isOpen()) return;
+        menu.classList.add('hidden');
+        menu.setAttribute('aria-hidden', 'true');
+        if (currentTrigger) {
+            currentTrigger.setAttribute('aria-expanded', 'false');
+        }
+        currentTrigger = null;
+    }
+
+    function openMenu(trigger) {
+        var productoId     = trigger.getAttribute('data-producto-id');
+        var productoNombre = trigger.getAttribute('data-producto-nombre') || 'este producto';
+        var compraUrl      = trigger.getAttribute('data-compra-url') || '';
+
+        if (currentTrigger && currentTrigger !== trigger) {
+            currentTrigger.setAttribute('aria-expanded', 'false');
+        }
+        currentTrigger = trigger;
+
+        if (btnHistorial) btnHistorial.setAttribute('data-catalogo-producto-id', productoId || '');
+        if (btnMovimientos) btnMovimientos.setAttribute('data-producto-id', productoId || '');
+        if (linkCompra) {
+            if (compraUrl) {
+                linkCompra.setAttribute('href', compraUrl);
+                linkCompra.classList.remove('hidden');
+            } else {
+                linkCompra.setAttribute('href', '#');
+                linkCompra.classList.add('hidden');
+            }
+        }
+        if (btnMercadoLibre) btnMercadoLibre.setAttribute('data-producto-id', productoId || '');
+        if (btnEliminar) {
+            btnEliminar.setAttribute('data-producto-id', productoId || '');
+            btnEliminar.setAttribute('data-producto-nombre', productoNombre);
+        }
+
+        menu.classList.remove('hidden');
+        menu.setAttribute('aria-hidden', 'false');
+        trigger.setAttribute('aria-expanded', 'true');
+        positionMenu(trigger);
+    }
+
+    // Cierra el menú al elegir cualquier ítem, antes de que el click siga
+    // burbujeando a los handlers de document (p. ej. data-catalogo-modal-open).
+    menu.addEventListener('click', function (event) {
+        if (event.target.closest('[role="menuitem"]')) {
+            closeMenu();
+        }
+    });
+
+    document.addEventListener('click', function (event) {
+        var openTrigger = event.target.closest('[data-row-actions-open]');
+        if (openTrigger) {
+            event.preventDefault();
+            event.stopPropagation();
+            if (currentTrigger === openTrigger && isOpen()) {
+                closeMenu();
+            } else {
+                openMenu(openTrigger);
+            }
+            return;
+        }
+
+        if (isOpen() && !menu.contains(event.target)) {
+            closeMenu();
+        }
+    });
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && isOpen()) {
+            var trigger = currentTrigger;
+            closeMenu();
+            if (trigger) trigger.focus();
+        }
+    });
+
+    window.addEventListener('resize', function () {
+        if (isOpen() && currentTrigger) positionMenu(currentTrigger);
+    });
+
+    // Reposicionar (no cerrar) ante scroll: un click real puede disparar un
+    // scrollIntoView del wrapper horizontal de la tabla justo al abrir el menú.
+    window.addEventListener('scroll', function () {
+        if (isOpen() && currentTrigger) positionMenu(currentTrigger);
+    }, true);
+
+    if (btnMovimientos) {
+        btnMovimientos.addEventListener('click', function () {
+            var id = btnMovimientos.getAttribute('data-producto-id');
+            if (id) window.location.href = '/MovimientoStock/Kardex/' + id;
+        });
+    }
+
+    if (btnMercadoLibre && mlForm && mlProductoIdInput) {
+        btnMercadoLibre.addEventListener('click', function () {
+            var id = btnMercadoLibre.getAttribute('data-producto-id');
+            if (!id) return;
+            mlProductoIdInput.value = id;
+            mlForm.submit();
+        });
+    }
+
+    if (btnEliminar && deleteForm) {
+        btnEliminar.addEventListener('click', function () {
+            var id = btnEliminar.getAttribute('data-producto-id');
+            var nombre = btnEliminar.getAttribute('data-producto-nombre') || 'este producto';
+            if (!id) return;
+            window.TheBury.confirmAction(
+                '¿Eliminar "' + nombre + '"? Esta acción no se puede deshacer.',
+                function () {
+                    deleteForm.action = '/Producto/Delete/' + id + '?returnUrl=/Catalogo';
+                    deleteForm.submit();
+                }
+            );
+        });
+    }
+})();
+
 // ─── Toggle Destacado (estrella por fila) ─────────────────────
 (function () {
     'use strict';

@@ -36,7 +36,28 @@ document.addEventListener('DOMContentLoaded', () => {
     let montoEditadoPorUsuario = false;
     let aplicandoDefault = false;
 
-    async function aplicarUltimoCierreComoFondo() {
+    const ultimoCierrePanel = document.querySelector('[data-caja-ultimo-cierre-panel]');
+
+    function mostrarUltimoCierre(cierre) {
+        if (!ultimoCierrePanel) {
+            return;
+        }
+
+        if (!cierre) {
+            ultimoCierrePanel.classList.add('hidden');
+            return;
+        }
+
+        const dif = Number(cierre.diferencia) || 0;
+        const difTexto = dif === 0 ? 'sin diferencia' : `diferencia ${TheBury.formatCurrency(dif)}`;
+        ultimoCierrePanel.querySelector('[data-ultimo-cierre-resumen]').textContent =
+            `${cierre.fecha} · cerró ${cierre.usuario} · esperado ${TheBury.formatCurrency(Number(cierre.esperado) || 0)}, ` +
+            `contado ${TheBury.formatCurrency(Number(cierre.contado) || 0)} (${difTexto})`;
+        ultimoCierrePanel.querySelector('[data-ultimo-cierre-link]').href = cierre.detalleUrl || '#';
+        ultimoCierrePanel.classList.remove('hidden');
+    }
+
+    async function aplicarUltimoCierreComoFondo(soloPanel = false) {
         if (!selectCaja || !montoInput || !ultimoCierreUrl || !selectCaja.value) {
             return;
         }
@@ -50,8 +71,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const data = await resp.json();
+            mostrarUltimoCierre(data?.ultimoCierre);
             const monto = Number(data?.monto);
-            if (Number.isFinite(monto) && !montoEditadoPorUsuario) {
+            if (!soloPanel && Number.isFinite(monto) && !montoEditadoPorUsuario) {
                 aplicandoDefault = true;
                 montoInput.value = monto;
                 montoInput.dispatchEvent(new Event('input'));

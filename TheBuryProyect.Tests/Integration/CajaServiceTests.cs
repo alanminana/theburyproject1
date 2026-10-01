@@ -554,7 +554,7 @@ public class CajaServiceTests : IDisposable
     [Fact]
     public void Create_Get_EntregaModeloConCajaActivaPorDefecto()
     {
-        var result = BuildSupervisorController().Create();
+        var result = BuildSupervisorController().Create(null);
 
         var view = Assert.IsType<ViewResult>(result);
         Assert.Equal("Create_tw", view.ViewName);
@@ -818,6 +818,20 @@ public class CajaServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task RegistrarMovimientoCuota_CajaAbiertaPorOtroUsuario_NoImputaYRetornaNull()
+    {
+        var caja = await SeedCajaAsync();
+        await AbrirCajaAsync(caja); // abierta por "testuser"
+
+        var resultado = await _service.RegistrarMovimientoCuotaAsync(
+            cuotaId: 1, creditoNumero: "CRED-004", numeroCuota: 1,
+            monto: 500m, medioPago: "Efectivo", usuario: "vendedor-sin-caja");
+
+        Assert.Null(resultado);
+        Assert.Empty(_context.MovimientosCaja.Where(m => m.Concepto == ConceptoMovimientoCaja.CobroCuota));
+    }
+
+    [Fact]
     public async Task RegistrarMovimientoCuota_ConCajaAbierta_PersistMovimiento()
     {
         var caja = await SeedCajaAsync();
@@ -825,7 +839,7 @@ public class CajaServiceTests : IDisposable
 
         var resultado = await _service.RegistrarMovimientoCuotaAsync(
             cuotaId: 42, creditoNumero: "CRED-002", numeroCuota: 3,
-            monto: 1_000m, medioPago: "Transferencia", usuario: "cajero1");
+            monto: 1_000m, medioPago: "Transferencia", usuario: "testuser");
 
         Assert.NotNull(resultado);
         Assert.Equal(apertura.Id, resultado!.AperturaCajaId);
@@ -843,7 +857,7 @@ public class CajaServiceTests : IDisposable
 
         var resultado = await _service.RegistrarMovimientoCuotaAsync(
             cuotaId: 1, creditoNumero: "CRED-003", numeroCuota: 1,
-            monto: 500m, medioPago: "Efectivo", usuario: "cajero1");
+            monto: 500m, medioPago: "Efectivo", usuario: "testuser");
 
         Assert.NotNull(resultado);
         Assert.Equal(TipoMovimientoCaja.Ingreso, resultado!.Tipo);
@@ -858,7 +872,7 @@ public class CajaServiceTests : IDisposable
         var resultado = await _service.RegistrarMovimientoCuotaAsync(
             cuotaId: 42, creditoNumero: "CRED-010", numeroCuota: 1,
             montoBase: 100_000m, recargoMedioPago: 3_000m,
-            tipoPago: TipoPago.Transferencia, medioPago: "Transferencia", usuario: "cajero1");
+            tipoPago: TipoPago.Transferencia, medioPago: "Transferencia", usuario: "testuser");
 
         Assert.NotNull(resultado);
         Assert.Equal(103_000m, resultado!.Monto);
@@ -877,7 +891,7 @@ public class CajaServiceTests : IDisposable
         var resultado = await _service.RegistrarMovimientoCuotaAsync(
             cuotaId: 43, creditoNumero: "CRED-011", numeroCuota: 1,
             montoBase: 100_000m, recargoMedioPago: -5_000m,
-            tipoPago: TipoPago.Efectivo, medioPago: "Efectivo", usuario: "cajero1");
+            tipoPago: TipoPago.Efectivo, medioPago: "Efectivo", usuario: "testuser");
 
         Assert.NotNull(resultado);
         Assert.Equal(95_000m, resultado!.Monto);
@@ -1081,7 +1095,7 @@ public class CajaServiceTests : IDisposable
 
         var resultado = await _service.RegistrarMovimientoAnticipoAsync(
             creditoId: 7, creditoNumero: "CRED-ANT-004",
-            montoAnticipo: 2_000m, usuario: "cajero1");
+            montoAnticipo: 2_000m, usuario: "testuser");
 
         Assert.NotNull(resultado);
         Assert.Equal(apertura.Id, resultado!.AperturaCajaId);
@@ -1127,7 +1141,7 @@ public class CajaServiceTests : IDisposable
         var resultado = await _service.RegistrarMovimientoDevolucionAsync(
             devolucionId: 5, ventaId: 10,
             ventaNumero: "VTA-003", devolucionNumero: "DEV-003",
-            monto: 800m, usuario: "cajero1");
+            monto: 800m, usuario: "testuser");
 
         Assert.NotNull(resultado);
         Assert.Equal(TipoMovimientoCaja.Egreso, resultado.Tipo);

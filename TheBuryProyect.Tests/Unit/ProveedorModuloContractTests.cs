@@ -108,6 +108,33 @@ public class ProveedorModuloContractTests
         }
     }
 
+    [Fact]
+    public void ProductosAsociadosMuestraMarcaYCategoriaYElPickerLasMarcaAlElegirUnProducto()
+    {
+        var servicio = Leer("Services", "ProveedorService.cs");
+        var details = Leer("Views", "Proveedor", "Details_tw.cshtml");
+        var modulo = Leer("wwwroot", "js", "proveedor-module.js");
+        var controller = Leer("Controllers", "ProveedorController.cs");
+        var picker = Leer("wwwroot", "js", "proveedor-product-picker.js");
+
+        Assert.Contains("Marca  = pp.Producto.Marca", servicio);
+        Assert.Contains("Categoria = pp.Producto.Categoria", servicio);
+        Assert.Contains(">Marca</th>", details);
+        Assert.Contains(">Categoría</th>", details);
+        Assert.Contains("producto.marca", modulo);
+        Assert.Contains("producto.categoria", modulo);
+
+        // El picker recibe los ids para tildar marca y categoría del producto elegido.
+        Assert.Contains("marcaId = p.MarcaId", controller);
+        Assert.Contains("categoriaId = p.CategoriaId", controller);
+        Assert.Contains("marcarAsociacionesDelProducto(product)", picker);
+
+        // Cada fila ofrece "Editar": abre el modal canónico del Catálogo con el producto cargado.
+        Assert.Contains("data-puede-editar-productos", details);
+        Assert.Contains("editarProducto=", modulo);
+        Assert.Contains("editarProducto", Leer("wwwroot", "js", "producto-editar-modal.js"));
+    }
+
     private static string Leer(params string[] segmentos)
     {
         var ruta = Path.Combine(new[] { FindRepoRoot() }.Concat(segmentos).ToArray());

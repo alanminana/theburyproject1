@@ -2,8 +2,8 @@
 /**
  * E2E de /Cliente/Create (cliente-form.js): errores de validación en solapas ocultas y Escape.
  *
- * Teléfono y Domicilio son obligatorios pero viven en la solapa Contacto. Antes, "Crear cliente"
- * desde Personales se enviaba, el servidor lo rechazaba y la página volvía a Personales sin ningún
+ * Los obligatorios viven en Personales (Teléfono y Domicilio pasaron a opcionales). Antes, "Crear cliente"
+ * desde otra solapa se enviaba, el servidor lo rechazaba y la página volvía a Personales sin ningún
  * error visible; y Escape descartaba el formulario aunque tuviera datos. No crea clientes: todos
  * los envíos se detienen en la validación del navegador (se verifica que no salga ningún POST).
  */
@@ -18,14 +18,8 @@ test.beforeEach(async ({ page }) => {
         route.fulfill({ status: 204, body: '' }));
 });
 
-async function completarObligatoriosDePersonales(page) {
-    await page.locator('#NumeroDocumento').fill('12345678');
-    await page.locator('#Apellido').fill('Prueba');
-    await page.locator('#Nombre').fill('Validacion');
-}
-
 test.describe('Cliente Create — validación entre solapas y Escape', () => {
-    test('un obligatorio faltante en Contacto abre esa solapa, la marca y enfoca el campo sin enviar', async ({ page }) => {
+    test('un obligatorio faltante en Personales, estando en Contacto, abre esa solapa, la marca y enfoca el campo sin enviar', async ({ page }) => {
         /** @type {string[]} */
         const posts = [];
         page.on('request', request => {
@@ -33,20 +27,23 @@ test.describe('Cliente Create — validación entre solapas y Escape', () => {
         });
 
         await page.goto('/Cliente/Create', { waitUntil: 'domcontentloaded' });
-        await completarObligatoriosDePersonales(page);
+        // Apellido y Nombre completos; falta el número de documento. Se pasa a Contacto
+        // (Teléfono/Domicilio ya no son obligatorios) para que el error quede en una solapa oculta.
+        await page.locator('#Apellido').fill('Prueba');
+        await page.locator('#Nombre').fill('Validacion');
+        await page.locator('#form-tabs [data-cliente-tab="t-contacto"]').click();
 
         await page.getByRole('button', { name: /Crear cliente/ }).click();
 
-        const contacto = page.locator('#form-tabs [data-cliente-tab="t-contacto"]');
-        await expect(contacto).toHaveAttribute('aria-selected', 'true');
-        await expect(contacto).toHaveClass(/has-error/);
-        await expect(contacto).toContainText('(con errores)');
-        await expect(page.locator('#Telefono')).toBeFocused();
-        await expect(page.getByText('El teléfono es requerido')).toBeVisible();
-        await expect(page.getByText('El domicilio es requerido')).toBeVisible();
+        const personales = page.locator('#form-tabs [data-cliente-tab="t-personal"]');
+        await expect(personales).toHaveAttribute('aria-selected', 'true');
+        await expect(personales).toHaveClass(/has-error/);
+        await expect(personales).toContainText('(con errores)');
+        await expect(page.locator('#NumeroDocumento')).toBeFocused();
+        await expect(page.getByText('El número de documento es requerido')).toBeVisible();
 
-        // Personales quedó completo: no se marca como solapa con errores.
-        await expect(page.locator('#form-tabs [data-cliente-tab="t-personal"]')).not.toHaveClass(/has-error/);
+        // Contacto no tiene obligatorios: no se marca como solapa con errores.
+        await expect(page.locator('#form-tabs [data-cliente-tab="t-contacto"]')).not.toHaveClass(/has-error/);
         expect(posts, 'no debe haber POST al servidor con obligatorios sin completar').toHaveLength(0);
     });
 

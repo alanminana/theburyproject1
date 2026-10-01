@@ -95,6 +95,25 @@ public sealed class CotizacionServicePersistenceTests : IDisposable
     }
 
     [Fact]
+    public async Task CrearCotizacion_ContactoLibre_PersisteDniNormalizadoSinCrearCliente()
+    {
+        var baseRequest = Request(clienteId: null);
+        var clientesAntes = await _context.Clientes.CountAsync();
+        var resultado = await _service.CrearAsync(new CotizacionCrearRequest
+        {
+            Simulacion = baseRequest.Simulacion, OpcionSeleccionada = baseRequest.OpcionSeleccionada,
+            NombreClienteLibre = "Ana Libre", DniClienteLibre = "30.111.222", TelefonoClienteLibre = "1122334455"
+        }, "carlos");
+        _context.ChangeTracker.Clear();
+        var guardada = await _service.ObtenerAsync(resultado.Id);
+        Assert.Equal("30111222", guardada!.DniClienteLibre);
+        Assert.Equal("Ana Libre", guardada.NombreClienteLibre);
+        Assert.Equal("1122334455", guardada.TelefonoClienteLibre);
+        Assert.Null(guardada.ClienteId);
+        Assert.Equal(clientesAntes, await _context.Clientes.CountAsync());
+    }
+
+    [Fact]
     public async Task Cotizacion_NumeroUnico()
     {
         _context.Cotizaciones.Add(new Cotizacion
@@ -163,71 +182,100 @@ public sealed class CotizacionServicePersistenceTests : IDisposable
         Assert.Equal(0m, resultado.Anticipo);
     }
 
-    // VENTA-ENVIO-TOTAL-01: el importe de envío es un concepto separado del total de la opción
-    // (que ya lleva el recargo del plan): se persiste en la Cotización y se suma sólo en
-    // TotalACobrar, calculado en backend.
+    // VENTA-SERVICIOS-01: el envío se fija por tipo contra la tabla global y entra en el total base y
+    // en el de cada opción (el recargo del plan lo alcanza); no se suma aparte.
     [Fact]
-    public async Task CrearCotizacion_ConEnvio_PersisteImporteYCalculaTotalACobrarSinTocarTotales()
+    public async Task CrearCotizacion_ConEnvio_PersisteTipoEImporteDentroDelTotal()
     {
+        var baseRequest = Request(_cliente.Id);
         var request = new CotizacionCrearRequest
         {
-            Simulacion = Request(_cliente.Id).Simulacion,
-            OpcionSeleccionada = Request(_cliente.Id).OpcionSeleccionada,
-            TieneEnvio = true,
-            CostoEnvio = 1000m
+            Simulacion = new CotizacionSimulacionRequest
+            {
+                Productos = baseRequest.Simulacion.Productos,
+                ClienteId = baseRequest.Simulacion.ClienteId,
+                TipoEnvio = TipoServicioVenta.EnvioCiudad
+            },
+            OpcionSeleccionada = baseRequest.OpcionSeleccionada,
+            TieneEnvio = true
         };
 
         var resultado = await _service.CrearAsync(request, "carlos");
 
         Assert.True(resultado.TieneEnvio);
+        Assert.Equal(TipoServicioVenta.EnvioCiudad, resultado.TipoEnvio);
         Assert.Equal(1000m, resultado.ImporteEnvio);
-        Assert.Equal(100m, resultado.TotalBase);          // productos: sin envío
-        Assert.Equal(110m, resultado.TotalSeleccionado);  // opción elegida: sin envío
-        Assert.Equal(1110m, resultado.TotalACobrar);      // 110 + 1000
+        Assert.True(resultado.EnvioIncluidoEnTotal);
+        Assert.Equal(1100m, resultado.TotalBase);          // 100 + 1000
+        Assert.Equal(1210m, resultado.TotalSeleccionado);  // el recargo (10%) alcanza al envío
+        Assert.Equal(1210m, resultado.TotalACobrar);       // no se vuelve a sumar el envío
 
-        // Persistido y recargado desde otra consulta: mismo importe (no depende de la UI).
         var entity = await _context.Cotizaciones.AsNoTracking().SingleAsync(c => c.Id == resultado.Id);
         Assert.Equal(1000m, entity.CostoEnvio);
-        Assert.Equal(1000m, entity.ImporteEnvio);
+        Assert.Equal(TipoServicioVenta.EnvioCiudad, entity.TipoEnvio);
+        Assert.True(entity.EnvioIncluidoEnTotal);
     }
 
     [Fact]
-    public async Task CrearCotizacion_SinEnvioConImporteEnRequest_IgnoraElImporte()
+    public async Task CrearCotizacion_ConArmados_PersisteSnapshotPorLineaYSuma()
     {
+        var baseRequest = Request(_cliente.Id);
         var request = new CotizacionCrearRequest
         {
-            Simulacion = Request(_cliente.Id).Simulacion,
-            OpcionSeleccionada = Request(_cliente.Id).OpcionSeleccionada,
-            TieneEnvio = false,
-            CostoEnvio = 500m
+            Simulacion = new CotizacionSimulacionRequest
+            {
+                Productos = baseRequest.Simulacion.Productos
+                    .Select(p => new CotizacionProductoRequest
+                    {
+                        ProductoId = p.ProductoId,
+                        Cantidad = p.Cantidad,
+                        TipoArmado = TipoServicioVenta.Armado3
+                    }).ToList(),
+                ClienteId = baseRequest.Simulacion.ClienteId
+            },
+            OpcionSeleccionada = baseRequest.OpcionSeleccionada
         };
 
         var resultado = await _service.CrearAsync(request, "carlos");
 
-        Assert.Equal(0m, resultado.ImporteEnvio);
-        Assert.Equal(110m, resultado.TotalACobrar);
-        var entity = await _context.Cotizaciones.AsNoTracking().SingleAsync(c => c.Id == resultado.Id);
-        Assert.Null(entity.CostoEnvio);
+        Assert.Equal(50m, resultado.ImporteArmados);   // el stub fija Armado N.º 3 = 50 por unidad
+        Assert.Equal(150m, resultado.TotalBase);
+        var detalle = resultado.Detalles.Single();
+        Assert.Equal(TipoServicioVenta.Armado3, detalle.TipoArmado);
+        Assert.Equal(50m, detalle.ArmadoSubtotal);
     }
 
-    [Theory]
-    [InlineData(-300)]
-    [InlineData(0)]
-    public async Task CrearCotizacion_ConEnvioSinImporteValido_NoSumaNada(int costoEnvio)
+    [Fact]
+    public async Task CrearCotizacion_ConEnvioSinTipo_Rechaza()
     {
+        var baseRequest = Request(_cliente.Id);
         var request = new CotizacionCrearRequest
         {
-            Simulacion = Request(_cliente.Id).Simulacion,
-            OpcionSeleccionada = Request(_cliente.Id).OpcionSeleccionada,
-            TieneEnvio = true,
-            CostoEnvio = costoEnvio
+            Simulacion = baseRequest.Simulacion,
+            OpcionSeleccionada = baseRequest.OpcionSeleccionada,
+            TieneEnvio = true
         };
 
-        var resultado = await _service.CrearAsync(request, "carlos");
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.CrearAsync(request, "carlos"));
+    }
 
-        Assert.True(resultado.TieneEnvio);
-        Assert.Equal(0m, resultado.ImporteEnvio);
-        Assert.Equal(110m, resultado.TotalACobrar);   // un envío nunca resta ni oculta importes
+    [Fact]
+    public async Task CrearCotizacion_TipoEnvioSinTildarEnvio_Rechaza()
+    {
+        var baseRequest = Request(_cliente.Id);
+        var request = new CotizacionCrearRequest
+        {
+            Simulacion = new CotizacionSimulacionRequest
+            {
+                Productos = baseRequest.Simulacion.Productos,
+                ClienteId = baseRequest.Simulacion.ClienteId,
+                TipoEnvio = TipoServicioVenta.EnvioRural
+            },
+            OpcionSeleccionada = baseRequest.OpcionSeleccionada,
+            TieneEnvio = false
+        };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.CrearAsync(request, "carlos"));
     }
 
     [Fact]
@@ -487,13 +535,23 @@ public sealed class CotizacionServicePersistenceTests : IDisposable
             CancellationToken cancellationToken = default)
         {
             CallCount++;
+            // Precios globales simulados: Envío Ciudad = 1000, Armado N.º 3 = 50 por unidad.
+            var envio = request.TipoEnvio.HasValue ? 1000m : 0m;
+            var armadoTipo = request.Productos.FirstOrDefault()?.TipoArmado;
+            var armado = armadoTipo.HasValue ? 50m : 0m;
+            var totalBase = 100m + envio + armado;
+            var totalConRecargo = totalBase * 1.1m;
             return Task.FromResult(new CotizacionSimulacionResultado
             {
                 Exitoso = true,
                 FechaCalculo = DateTime.Today,
                 Subtotal = 100m,
                 DescuentoTotal = 0m,
-                TotalBase = 100m,
+                TotalBase = totalBase,
+                TotalProductos = 100m,
+                TotalArmados = armado,
+                ImporteEnvio = envio,
+                TipoEnvio = request.TipoEnvio,
                 Productos =
                 {
                     new CotizacionProductoResultado
@@ -503,7 +561,10 @@ public sealed class CotizacionServicePersistenceTests : IDisposable
                         Nombre = "Producto cotizado",
                         Cantidad = 1,
                         PrecioUnitario = 100m,
-                        Subtotal = 100m
+                        Subtotal = 100m,
+                        TipoArmado = armadoTipo,
+                        ArmadoPrecioUnitario = armado,
+                        ArmadoSubtotal = armado
                     }
                 },
                 OpcionesPago =
@@ -521,8 +582,8 @@ public sealed class CotizacionServicePersistenceTests : IDisposable
                                 Plan = "1 pago",
                                 CantidadCuotas = 1,
                                 RecargoPorcentaje = 10m,
-                                Total = 110m,
-                                ValorCuota = 110m,
+                                Total = totalConRecargo,
+                                ValorCuota = totalConRecargo,
                                 Recomendado = true
                             }
                         }

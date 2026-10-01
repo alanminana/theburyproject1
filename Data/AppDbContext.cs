@@ -79,6 +79,7 @@ namespace TheBuryProject.Data
         public DbSet<DatosTarjeta> DatosTarjeta { get; set; }
         public DbSet<DatosCheque> DatosCheque { get; set; }
         public DbSet<VentaEnvio> VentaEnvios { get; set; }
+        public DbSet<ServicioVentaPrecio> ServiciosVentaPrecios { get; set; }
         public DbSet<VentaCreditoCuota> VentaCreditoCuotas { get; set; }
 
         public DbSet<ConfiguracionMora> ConfiguracionesMora { get; set; }
@@ -1395,6 +1396,9 @@ namespace TheBuryProject.Data
                 entity.Property(e => e.PrecioUnitario).HasPrecision(18, 2);
                 entity.Property(e => e.Descuento).HasPrecision(18, 2);
                 entity.Property(e => e.Subtotal).HasPrecision(18, 2);
+                entity.Property(e => e.ArmadoPrecioUnitario).HasPrecision(18, 2).HasDefaultValue(0m);
+                entity.Property(e => e.ArmadoSubtotal).HasPrecision(18, 2).HasDefaultValue(0m);
+                entity.Property(e => e.EntregaCajaCerrada).HasDefaultValue(false);
                 entity.Property(e => e.PorcentajeIVA)
                     .HasPrecision(5, 2)
                     .HasDefaultValue(0m);
@@ -1494,6 +1498,8 @@ namespace TheBuryProject.Data
                 entity.Property(e => e.ValorCuotaSeleccionada).HasPrecision(18, 2);
                 entity.Property(e => e.Anticipo).HasPrecision(18, 2);
                 entity.Property(e => e.CostoEnvio).HasPrecision(18, 2);
+                entity.Property(e => e.ImporteArmados).HasPrecision(18, 2).HasDefaultValue(0m);
+                entity.Property(e => e.EnvioIncluidoEnTotal).HasDefaultValue(false);
 
                 entity.HasIndex(e => e.Numero)
                     .IsUnique()
@@ -1532,6 +1538,9 @@ namespace TheBuryProject.Data
                 entity.Property(e => e.DescuentoPorcentajeSnapshot).HasPrecision(5, 2);
                 entity.Property(e => e.DescuentoImporteSnapshot).HasPrecision(18, 2);
                 entity.Property(e => e.Subtotal).HasPrecision(18, 2);
+                entity.Property(e => e.EntregaCajaCerrada).HasDefaultValue(false);
+                entity.Property(e => e.ArmadoPrecioUnitario).HasPrecision(18, 2).HasDefaultValue(0m);
+                entity.Property(e => e.ArmadoSubtotal).HasPrecision(18, 2).HasDefaultValue(0m);
 
                 entity.HasIndex(e => e.CotizacionId);
                 entity.HasIndex(e => e.ProductoId);
@@ -1540,6 +1549,15 @@ namespace TheBuryProject.Data
                 entity.HasOne(e => e.Producto)
                     .WithMany()
                     .HasForeignKey(e => e.ProductoId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                // Sólo una referencia informativa (nunca la reserva): a diferencia de VentaDetalle,
+                // acá no hay índice único — una unidad EnStock puede figurar en varias cotizaciones
+                // abiertas a la vez; la disponibilidad real se revalida recién al convertir a Venta.
+                entity.HasOne(e => e.ProductoUnidad)
+                    .WithMany()
+                    .HasForeignKey(e => e.ProductoUnidadId)
+                    .IsRequired(false)
                     .OnDelete(DeleteBehavior.Restrict);
             });
 
@@ -1925,6 +1943,7 @@ namespace TheBuryProject.Data
                     .HasMaxLength(300);
 
                 entity.Property(e => e.CostoEnvio).HasPrecision(18, 2);
+                entity.Property(e => e.IncluidoEnTotal).HasDefaultValue(false);
 
                 entity.HasIndex(e => e.Estado);
 
@@ -1932,6 +1951,18 @@ namespace TheBuryProject.Data
                     .WithOne(v => v.Envio)
                     .HasForeignKey<VentaEnvio>(e => e.VentaId)
                     .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // =======================
+            // ServicioVentaPrecio (precios globales de envío y armado)
+            // =======================
+            modelBuilder.Entity<ServicioVentaPrecio>(entity =>
+            {
+                entity.ToTable("ServiciosVentaPrecios");
+                entity.Property(e => e.Precio).HasPrecision(18, 2);
+                entity.HasIndex(e => e.Tipo)
+                    .IsUnique()
+                    .HasFilter("IsDeleted = 0");
             });
 
             // =======================

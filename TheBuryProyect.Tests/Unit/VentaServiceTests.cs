@@ -275,8 +275,8 @@ public class VentaService_CalcularTotalesPreview
                 false);
 
             Assert.Equal(100m, result.Subtotal);
-            Assert.Equal(10.50m, result.IVA);
-            Assert.Equal(110.50m, result.Total);
+            Assert.Equal(10m, result.IVA);
+            Assert.Equal(110m, result.Total);
             Assert.Equal(10.5m, result.Detalles[0].PorcentajeIVA);
             Assert.Equal(alicuota.Id, result.Detalles[0].AlicuotaIVAId);
             Assert.Equal("IVA 10.5", result.Detalles[0].AlicuotaIVANombre);
@@ -329,8 +329,8 @@ public class VentaService_CalcularTotalesPreview
                 false);
 
             Assert.Equal(1200m, result.Subtotal);
-            Assert.Equal(220.50m, result.IVA);
-            Assert.Equal(1420.50m, result.Total);
+            Assert.Equal(220m, result.IVA);
+            Assert.Equal(1420m, result.Total);
             Assert.Equal(3, result.Detalles.Count);
         }
     }
@@ -400,11 +400,10 @@ public class VentaService_CalcularTotalesPreview
                 false);
 
             Assert.Equal(180m, result.Subtotal);
-            Assert.Equal(18.90m, result.IVA);
-            Assert.Equal(198.90m, result.Total);
-            Assert.Equal(result.Subtotal, result.Detalles.Sum(d => d.SubtotalFinalNeto));
-            Assert.Equal(result.IVA, result.Detalles.Sum(d => d.SubtotalFinalIVA));
-            Assert.Equal(result.Total, result.Detalles.Sum(d => d.SubtotalFinal));
+            Assert.Equal(18m, result.IVA);
+            Assert.Equal(198m, result.Total);
+            Assert.Equal(result.Subtotal + result.IVA, result.Total);
+            Assert.Equal(198.90m, result.Detalles.Sum(d => d.SubtotalFinal));
             Assert.Equal(22.10m, result.Detalles.Sum(d => d.DescuentoGeneralProrrateado));
         }
     }

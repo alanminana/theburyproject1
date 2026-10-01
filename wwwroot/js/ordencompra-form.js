@@ -206,9 +206,10 @@
         renderProveedorOptions(proveedoresPermitidos, '');
 
         if (!proveedoresPermitidos.size) {
-            showFeedback('No hay proveedores asociados al producto seleccionado.', {
+            showFeedback('Ningún proveedor tiene asociado este producto, por eso la lista de proveedores está vacía. Asocialo desde Proveedores (Editar proveedor) o quitá el producto para elegir otro proveedor.', {
                 variant: 'warning',
-                title: 'Sin proveedores asociados'
+                title: 'Sin proveedores asociados',
+                sticky: true
             });
         }
     }
@@ -235,16 +236,18 @@
         }
     }
 
-    function renderDropdown(results) {
+    function renderDropdown(results, noAsociados) {
         if (!dropdown) return;
 
-        if (!results.length) {
+        const sinAsociar = noAsociados || [];
+
+        if (!results.length && !sinAsociar.length) {
             dropdown.innerHTML = '';
             setDropdownVisible(false);
             return;
         }
 
-        dropdown.innerHTML = results.map((producto) => `
+        const items = results.map((producto) => `
             <button type="button"
                     role="option"
                     class="w-full px-4 py-3 text-left hover:bg-slate-100 dark:hover:bg-slate-700 flex justify-between items-center gap-4 transition-colors"
@@ -260,6 +263,25 @@
                 <span class="text-xs font-medium text-primary shrink-0">$${num(producto.precioCompra)}</span>
             </button>
         `).join('');
+
+        let aviso = '';
+        if (sinAsociar.length) {
+            const proveedor = getProveedorSeleccionado();
+            const nombreProveedor = proveedor ? esc(proveedor.nombre) : 'el proveedor elegido';
+            const lista = sinAsociar.slice(0, 3).map(p => esc(`${p.nombre} (${p.codigo})`)).join(', ');
+            const resto = sinAsociar.length > 3 ? ` y ${sinAsociar.length - 3} más` : '';
+            aviso = `
+            <div class="px-4 py-3 text-xs text-amber-300 bg-amber-500/10 border-t border-slate-700" role="note">
+                <p class="font-semibold">${results.length ? 'Otros productos coinciden' : 'Hay productos que coinciden'}, pero no están asociados a ${nombreProveedor}:</p>
+                <p class="mt-1 text-amber-200/80">${lista}${resto}.</p>
+                <a href="/Proveedor/Details/${getProveedorIdSeleccionado()}" class="mt-2 inline-flex items-center gap-1 font-semibold text-primary no-underline hover:underline">
+                    Asociarlos desde el proveedor
+                    <span class="material-symbols-outlined text-[14px]" aria-hidden="true">open_in_new</span>
+                </a>
+            </div>`;
+        }
+
+        dropdown.innerHTML = items + aviso;
 
         setDropdownVisible(true);
     }
@@ -306,6 +328,10 @@
             feedback.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
 
+        // Los avisos "sticky" explican un bloqueo que no se resuelve solo: se quedan hasta
+        // que cambia el contexto (hideFeedback) o el usuario los cierra.
+        if (options?.sticky) return;
+
         if (variant === 'success') {
             feedbackTimer = window.setTimeout(hideFeedback, 3200);
         } else {
@@ -332,7 +358,10 @@
 
     function agregarProducto() {
         if (!productoSeleccionado) {
-            showFeedback('Seleccioná un producto desde el buscador antes de agregarlo.', {
+            const escrito = (inpBuscar?.value || '').trim();
+            showFeedback(escrito
+                ? `"${escrito}" todavía no es un producto elegido. Seleccionalo de la lista que aparece al escribir; si no aparece ninguno, no está asociado al proveedor.`
+                : 'Seleccioná un producto desde el buscador antes de agregarlo.', {
                 variant: 'warning',
                 title: 'Falta elegir un producto'
             });
@@ -536,11 +565,15 @@
                 return;
             }
 
-            const results = getProductosDisponibles()
-                .filter((producto) => normalizeText(producto.nombre).includes(query) || normalizeText(producto.codigo).includes(query))
-                .slice(0, 8);
+            const coincide = (producto) => normalizeText(producto.nombre).includes(query) || normalizeText(producto.codigo).includes(query);
+            const results = getProductosDisponibles().filter(coincide).slice(0, 8);
+            // Con proveedor elegido, los productos que coinciden pero no están asociados no se
+            // ofrecen: se avisa en vez de dejar el buscador vacío sin explicación.
+            const noAsociados = getProveedorSeleccionado()
+                ? productos.filter(p => coincide(p) && !proveedorPermiteProducto(p.id))
+                : [];
 
-            renderDropdown(results);
+            renderDropdown(results, noAsociados);
         });
 
         inpBuscar.addEventListener('keydown', (event) => {

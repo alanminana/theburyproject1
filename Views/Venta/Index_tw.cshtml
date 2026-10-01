@@ -10,10 +10,13 @@
     var puedeCrear = (bool?)ViewBag.PuedeCrearVenta ?? false;
     var puedeOperarVentas = (bool?)ViewBag.PuedeOperarVentas ?? false;
     var turnoVencido = ViewBag.TurnoVencido as string;
+    // Estado real de las cajas: decide qué acción ofrece el aviso (crear / ver / abrir).
+    var dispCajas = ViewBag.CajaDisponibilidad as TheBuryProject.ViewModels.CajaDisponibilidad;
+    var estadoCajas = dispCajas?.Estado ?? TheBuryProject.ViewModels.EstadoCajasSistema.DisponibleSinTurno;
+    var puedeCrearCaja = User.TienePermiso("caja", "create");
     var puedeVerDevoluciones = User.TienePermiso("devoluciones", "view");
     var puedeCrearDevoluciones = User.TienePermiso("devoluciones", "create");
     var puedeCancelarVentas = User.TienePermiso("ventas", "cancel");
-    var puedeConfigurarPagos = User.TienePermiso("configuraciones", "update");
     var pendientesAutorizacion = ventas.Count(v => v.EstadoAutorizacion == EstadoAutorizacionVenta.PendienteAutorizacion);
     var filtroActivo = filter.Numero != null || filter.FechaDesde != null || filter.FechaHasta != null
                     || filter.Estado != null || filter.TipoPago != null || filter.EstadoAutorizacion != null;
@@ -29,8 +32,15 @@
     // Cancelado), derivados en memoria del mismo "ventas" ya cargado — mismo patrón que
     // cotizacionesPresupuestos/devolucionesElegibles, sin acción de controller nueva.
     var enviosPendientes = ventas
-        .Where(v => v.Envio != null && !v.Envio.EsTerminal)
+        .Where(v => v.Envio != null && !v.Envio.EsTerminal && v.Estado != EstadoVenta.Cancelada)
         .OrderBy(v => v.Envio!.FechaProgramada ?? v.FechaVenta)
+        .ToList();
+    // Historial: envios ya cerrados (entregados/cancelados, incluida venta cancelada) del ultimo mes,
+    // para poder revisarlos sin salir del modulo. Meses anteriores: filtro de fechas de Operaciones.
+    var enviosHistorial = ventas
+        .Where(v => v.Envio != null && (v.Envio.EsTerminal || v.Estado == EstadoVenta.Cancelada)
+                    && (v.Envio.FechaEntregaReal ?? v.FechaVenta) >= DateTime.Today.AddDays(-30))
+        .OrderByDescending(v => v.Envio!.FechaEntregaReal ?? v.FechaVenta)
         .ToList();
 
     // VENTA-UI-04B: paginación server-rendered en memoria, solo para Operaciones.
@@ -185,10 +195,20 @@
                     <h2>Turno de caja vencido</h2>
                     <p>Su turno anterior sigue abierto (<strong>@turnoVencido</strong>). Ciérrelo desde Cajas para poder abrir uno nuevo y operar ventas.</p>
                 }
+                else if (estadoCajas == TheBuryProject.ViewModels.EstadoCajasSistema.SinCajas)
+                {
+                    <h2>No hay cajas configuradas</h2>
+                    <p>Para comenzar a vender primero tenés que crear una caja.</p>
+                }
+                else if (estadoCajas == TheBuryProject.ViewModels.EstadoCajasSistema.SinDisponibles)
+                {
+                    <h2>No hay cajas disponibles</h2>
+                    <p>Las cajas existentes están inactivas o ya tienen un turno abierto.</p>
+                }
                 else
                 {
-                    <h2>Sin caja abierta</h2>
-                    <p>No tiene una caja abierta a su nombre (<span class="font-mono font-bold">@(ViewBag.UserNameCaja ?? User.Identity?.Name ?? "?")</span>). Abra una caja para habilitar las operaciones de venta.</p>
+                    <h2>Caja requerida</h2>
+                    <p>Necesitás abrir una caja para registrar operaciones de venta.</p>
                 }
             </div>
             <div class="card-alert__actions">
@@ -199,9 +219,30 @@
                         Ir a cerrar el turno
                     </a>
                 }
+                else if (estadoCajas == TheBuryProject.ViewModels.EstadoCajasSistema.SinCajas)
+                {
+                    @if (puedeCrearCaja)
+                    {
+                        <a id="btn-crear-caja" asp-controller="Caja" asp-action="Create" asp-route-origen="ventas" class="btn btn-amber no-underline">
+                            <span class="material-symbols-outlined">add</span>
+                            Crear caja
+                        </a>
+                    }
+                    <a asp-controller="Caja" asp-action="Index" class="btn btn-ghost no-underline">
+                        <span class="material-symbols-outlined">point_of_sale</span>
+                        Ver cajas
+                    </a>
+                }
+                else if (estadoCajas == TheBuryProject.ViewModels.EstadoCajasSistema.SinDisponibles)
+                {
+                    <a id="btn-ver-cajas" asp-controller="Caja" asp-action="Index" class="btn btn-amber no-underline">
+                        <span class="material-symbols-outlined">point_of_sale</span>
+                        Ver cajas
+                    </a>
+                }
                 else
                 {
-                    <a id="btn-abrir-caja" asp-controller="Caja" asp-action="Abrir" class="btn btn-amber no-underline">
+                    <a id="btn-abrir-caja" asp-controller="Caja" asp-action="Abrir" asp-route-origen="ventas" class="btn btn-amber no-underline">
                         <span class="material-symbols-outlined">lock_open</span>
                         Abrir caja
                     </a>
@@ -282,23 +323,15 @@
                     </div>
                 </div>
                 <div class="venta-hero__actions">
-                    @* "Medios de pago" no se duplica en .mobile-sticky-bar (a diferencia de
-                       Cotizaciones/Nueva Venta) — queda fuera de .venta-tabs__actions para no
-                       perder acceso a esta acción en mobile (<768px la oculta, ver CSS). *@
-                    @if (puedeConfigurarPagos)
-                    {
-                        <a asp-controller="ConfiguracionPago" asp-action="MediosPago" class="btn btn-soft no-underline"
-                           title="Los métodos, tarjetas, cuotas, recargos y descuentos se administran desde Configuración de pagos.">
-                            <span class="material-symbols-outlined" aria-hidden="true">tune</span>
-                            Medios de pago
-                        </a>
-                    }
                     <div class="venta-tabs__actions" aria-label="Acciones rápidas de ventas">
+                        @if (User.TienePermiso("cotizaciones", "view"))
+                        {
                         <a asp-controller="Cotizacion" asp-action="Listado" class="btn btn-soft no-underline"
                            title="Ver las cotizaciones guardadas desde el cotizador">
                             <span class="material-symbols-outlined">request_quote</span>
                             Cotizaciones guardadas
                         </a>
+                        }
 
                         @if (puedeCrear)
                         {
@@ -784,7 +817,7 @@
                                                                 <div>
                                                                     <p class="label">Logística</p>
                                                                     <h2>Envíos pendientes</h2>
-                                                                    <p>Ventas con envío a domicilio que todavía no llegaron a destino.</p>
+                                                                    <p>Ventas con envío a domicilio que todavía no llegaron a destino. Los cerrados del último mes figuran abajo; para meses anteriores usá el filtro de fechas de Operaciones.</p>
                                                                 </div>
                                                             </div>
                                                             <div class="compact-list">
@@ -792,7 +825,7 @@
                                                                 {
                                                                     <article class="card card-sub compact-item">
                                                                         <div>
-                                                                            <a asp-action="Details" asp-route-id="@v.Id" class="sale-number no-underline">@v.Numero</a>
+                                                                            <a asp-action="Details" asp-route-id="@v.Id" asp-route-volverA="envios" class="sale-number no-underline">@v.Numero</a>
                                                                             <p>
                                                                                 @v.ClienteNombre
                                                                                 @if (!string.IsNullOrWhiteSpace(v.Envio!.Domicilio))
@@ -806,7 +839,7 @@
                                                                             </p>
                                                                         </div>
                                                                         <span class="pill @v.Envio.EstadoPillClass">@v.Envio.EstadoDisplay</span>
-                                                                        <a asp-action="Details" asp-route-id="@v.Id" class="btn btn-xs btn-soft no-underline">Ver</a>
+                                                                        <a asp-action="Details" asp-route-id="@v.Id" asp-route-volverA="envios" class="btn btn-xs btn-soft no-underline">Ver</a>
                                                                     </article>
                                                                 }
                                                                 @if (!enviosPendientes.Any())
@@ -820,6 +853,32 @@
                                                                             <a asp-action="Index" class="btn btn-soft no-underline">Limpiar filtros</a>
                                                                         }
                                                                     </div>
+                                                                }
+                                                                @if (enviosHistorial.Any())
+                                                                {
+                                                                    <p class="label mt-4">Cerrados en los últimos 30 días</p>
+                                                                    @foreach (var v in enviosHistorial)
+                                                                    {
+                                                                        var cerradoPorVenta = v.Estado == EstadoVenta.Cancelada && !v.Envio!.EsTerminal;
+                                                                        <article class="card card-sub compact-item">
+                                                                            <div>
+                                                                                <a asp-action="Details" asp-route-id="@v.Id" asp-route-volverA="envios" class="sale-number no-underline">@v.Numero</a>
+                                                                                <p>
+                                                                                    @v.ClienteNombre
+                                                                                    @if (v.Envio!.FechaEntregaReal.HasValue)
+                                                                                    {
+                                                                                        <text> · Entregado @v.Envio.FechaEntregaReal.Value.ToLocalTime().ToString("dd/MM/yyyy")</text>
+                                                                                    }
+                                                                                    else if (v.Estado == EstadoVenta.Cancelada)
+                                                                                    {
+                                                                                        <text> · Venta cancelada</text>
+                                                                                    }
+                                                                                </p>
+                                                                            </div>
+                                                                            <span class="pill @(cerradoPorVenta ? "pill-red" : v.Envio!.EstadoPillClass)">@(cerradoPorVenta ? "Cancelado" : v.Envio!.EstadoDisplay)</span>
+                                                                            <a asp-action="Details" asp-route-id="@v.Id" asp-route-volverA="envios" class="btn btn-xs btn-soft no-underline">Ver</a>
+                                                                        </article>
+                                                                    }
                                                                 }
                                                             </div>
                                                         </section>

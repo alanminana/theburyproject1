@@ -146,6 +146,10 @@ public sealed class CotizacionConversionResultado
     public string? NumeroVenta { get; init; }
     public EstadoVenta? EstadoVenta { get; init; }
 
+    // Crédito pendiente de la venta (sólo Crédito personal): el cotizador lo necesita para
+    // configurar el plan/contrato sin pasar por el wizard.
+    public int? CreditoId { get; init; }
+
     // VENTA-COTIZACION-EXCEPCION-01: espejo de venta.TieneExcepcionDocumentalRegistrada — para
     // que el frontend (cotizacion-simulador.js) pueda confirmar que la excepción solicitada
     // efectivamente se autorizó (nunca lo asume del lado del cliente).

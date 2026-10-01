@@ -2,11 +2,11 @@
 @{
     ViewData["Title"] = "Seguridad";
     ViewData["MetaDescription"] = "Gestión de usuarios, roles y permisos del sistema ERP TheBuryProject.";
+    ViewData["SeguridadActiveTab"] = Model.ActiveTab;
 }
 
-@if (Model.ActiveTab == "usuarios" || Model.ActiveTab == "roles" || Model.ActiveTab == "auditoria")
-{
-    <link rel="stylesheet" href="~/css/horizontal-scroll-affordance.css" asp-append-version="true" />
+@section Styles {
+    <partial name="_SeguridadModuleStyles" />
 }
 
 <div class="max-w-7xl mx-auto space-y-6">
@@ -36,13 +36,7 @@
     {
         @if (Model.AuditoriaTab != null)
         {
-            <partial name="_SeguridadAuditoriaTab"
-                     model="Model.AuditoriaTab"
-                     view-data='new ViewDataDictionary(ViewData)
-                     {
-                         ["SeguridadAuditoriaFormAction"] = "Index",
-                         ["SeguridadAuditoriaIncludeTab"] = true
-                     }' />
+            <partial name="_SeguridadAuditoriaTab" model="Model.AuditoriaTab" />
         }
     }
 </div>
@@ -52,14 +46,12 @@
     {
         <script src="~/js/seguridad-module.js" asp-append-version="true"></script>
         <script src="~/js/horizontal-scroll-affordance.js" asp-append-version="true"></script>
-        <script src="~/js/module-index.js" asp-append-version="true"></script>
         <script src="~/js/seguridad-index.js" asp-append-version="true"></script>
     }
     else if (Model.ActiveTab == "roles")
     {
         <script src="~/js/seguridad-module.js" asp-append-version="true"></script>
         <script src="~/js/horizontal-scroll-affordance.js" asp-append-version="true"></script>
-        <script src="~/js/module-index.js" asp-append-version="true"></script>
         <script src="~/js/seguridad-roles.js" asp-append-version="true"></script>
     }
     else if (Model.ActiveTab == "permisos-rol")

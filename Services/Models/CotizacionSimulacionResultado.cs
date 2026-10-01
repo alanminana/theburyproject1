@@ -10,5 +10,11 @@ public sealed class CotizacionSimulacionResultado
     public decimal Subtotal { get; init; }
     public decimal DescuentoTotal { get; init; }
     public decimal TotalBase { get; init; }
+
+    /// <summary>Productos netos de descuentos (sin armados ni envío).</summary>
+    public decimal TotalProductos { get; init; }
+    public decimal TotalArmados { get; init; }
+    public decimal ImporteEnvio { get; init; }
+    public TheBuryProject.Models.Enums.TipoServicioVenta? TipoEnvio { get; init; }
     public DateTime FechaCalculo { get; init; }
 }

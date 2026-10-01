@@ -18,7 +18,9 @@ namespace TheBuryProject.Services.Interfaces
             DateTime? fechaDesde = null,
             DateTime? fechaHasta = null,
             string? orderBy = null,
-            string? orderDirection = "asc");
+            string? orderDirection = "asc",
+            int? marcaId = null,
+            string? productoTerm = null);
         Task<IEnumerable<OrdenCompra>> GetByProveedorIdAsync(int proveedorId);
         Task<bool> CambiarEstadoAsync(int id, EstadoOrdenCompra nuevoEstado);
         Task<bool> NumeroOrdenExisteAsync(string numero, int? excludeId = null);

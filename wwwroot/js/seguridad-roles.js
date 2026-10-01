@@ -223,6 +223,23 @@
         }
     });
 
+    // Desactivar un rol afecta el acceso de todos sus usuarios: se confirma antes, indicando el alcance.
+    document.addEventListener('submit', event => {
+        const deactivateForm = event.target.closest('.js-deactivate-role-form');
+        if (!deactivateForm) return;
+
+        event.preventDefault();
+        clearActionFeedback();
+
+        const roleName = seguridad.getRoleName(deactivateForm) || 'este rol';
+        const usersCount = Number(deactivateForm.dataset.seguridadUsersCount || 0);
+        const scope = usersCount > 0
+            ? ` Lo tienen asignado ${usersCount} ${usersCount === 1 ? 'usuario' : 'usuarios'}.`
+            : '';
+
+        seguridad.confirmAction(`¿Desactivar el rol ${roleName}?${scope} Podés volver a activarlo después.`, () => deactivateForm.submit());
+    });
+
     document.addEventListener('submit', event => {
         const deleteForm = event.target.closest('.js-delete-role-form');
         if (!deleteForm) return;

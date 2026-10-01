@@ -93,4 +93,11 @@
             tab.setAttribute('aria-selected', 'false');
         }
     });
+
+    // Deep-link: Index#envios abre directamente esa pestaña (volver desde el detalle de un envío).
+    const hashTarget = (window.location.hash || '').replace('#', '');
+    if (hashTarget) {
+        const hashTab = tabs.find((item) => item.dataset.ventaTab === hashTarget);
+        if (hashTab) activateTab(hashTab);
+    }
 })();

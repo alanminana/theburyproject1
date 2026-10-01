@@ -124,7 +124,7 @@ public class ClienteWizardUiContractTests
     {
         // Ancla el supuesto sobre el que se apoya la validación por paso del
         // wizard (Personales: TipoDocumento/NumeroDocumento/Apellido/Nombre;
-        // Contacto: Telefono/Domicilio; el resto sin obligatorios): si alguien
+        // Contacto: sin obligatorios, Telefono/Domicilio pasaron a opcionales; el resto igual): si alguien
         // cambia estos [Required] sin querer, este test avisa antes que un
         // usuario final.
         var viewModel = File.ReadAllText(Path.Combine(FindRepoRoot(), "ViewModels", "ClienteViewModel.cs"));
@@ -133,8 +133,8 @@ public class ClienteWizardUiContractTests
         Assert.Contains("[Required(ErrorMessage = \"El número de documento es requerido\")]", viewModel);
         Assert.Contains("[Required(ErrorMessage = \"El apellido es requerido\")]", viewModel);
         Assert.Contains("[Required(ErrorMessage = \"El nombre es requerido\")]", viewModel);
-        Assert.Contains("[Required(ErrorMessage = \"El teléfono es requerido\")]", viewModel);
-        Assert.Contains("[Required(ErrorMessage = \"El domicilio es requerido\")]", viewModel);
+        Assert.DoesNotContain("[Required(ErrorMessage = \"El teléfono es requerido\")]", viewModel);
+        Assert.DoesNotContain("[Required(ErrorMessage = \"El domicilio es requerido\")]", viewModel);
     }
 
     [Fact]

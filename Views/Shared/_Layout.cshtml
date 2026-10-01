@@ -64,7 +64,7 @@
         var canViewVentas = User.TienePermiso("ventas", "view");
         var canViewCotizaciones = User.TienePermiso("cotizaciones", "view");
         var canViewClientes = User.TienePermiso("clientes", "view");
-        var canViewInventario = canViewCotizaciones;
+        var canViewInventario = User.TienePermiso("productos", "view");
         var canViewProveedores = User.TienePermiso("proveedores", "view");
         var canViewCaja = User.TienePermiso("caja", "view");
         var canViewReportes = User.TienePermiso("reportes", "view");
@@ -79,6 +79,7 @@
 
         var canCreateTicket = User.TienePermiso("tickets", "create");
         var canViewTickets = User.TienePermiso("tickets", "view");
+        var canViewConfiguracion = User.TienePermiso("configuracion", "view");
 
         var isDashboardActive = IsActive("Home") || IsActive("Dashboard");
 
@@ -86,7 +87,7 @@
         var showLogistica = canViewInventario || canViewProveedores || canViewCaja;
         var showReportes = canViewReportes;
         var showIntegraciones = canViewMercadoLibre;
-        var showSistemas = canViewSeguridad || canViewTickets;
+        var showSistemas = canViewSeguridad || canViewTickets || canViewConfiguracion;
     }
 
     <div id="erp-app-shell" class="flex h-screen overflow-hidden">
@@ -268,6 +269,19 @@
                                    asp-action="Index" title="Seguridad">
                                     <span class="material-symbols-outlined text-lg shrink-0" aria-hidden="true">security</span>
                                     <p class="@NavFont(active) sidebar-label">Seguridad</p>
+                                </a>
+                            }
+
+                            @if (canViewConfiguracion)
+                            {
+                                var active = IsActive("ConfiguracionPago") || IsActive("ServiciosVenta")
+                                    || IsActive("ConfiguracionRentabilidad") || IsActive("ConfiguracionMora")
+                                    || IsActive("ConfiguracionContratoCredito") || IsActive("PlantillaContratoCredito");
+
+                                <a class="@NavClass(active)" aria-current="@NavCurrent(active)" asp-controller="ConfiguracionPago"
+                                   asp-action="MediosPago" title="Configuración">
+                                    <span class="material-symbols-outlined text-lg shrink-0" aria-hidden="true">settings</span>
+                                    <p class="@NavFont(active) sidebar-label">Configuración</p>
                                 </a>
                             }
 

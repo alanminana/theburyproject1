@@ -287,7 +287,7 @@ public class VentaControllerIndexPaginacionTests
         // VentaViewBagBuilder, no stubeado acá).
         public Task<AperturaCaja?> ObtenerAperturaActivaParaUsuarioAsync(string usuario) => Task.FromResult<AperturaCaja?>(null);
 
-        public Task<List<Caja>> ObtenerTodasCajasAsync() => throw new NotImplementedException();
+        public Task<List<Caja>> ObtenerTodasCajasAsync() => Task.FromResult(new List<Caja>());
         public Task<Caja?> ObtenerCajaPorIdAsync(int id) => throw new NotImplementedException();
         public Task<Caja> CrearCajaAsync(CajaViewModel model) => throw new NotImplementedException();
         public Task<Caja> ActualizarCajaAsync(int id, CajaViewModel model) => throw new NotImplementedException();

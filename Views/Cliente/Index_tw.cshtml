@@ -9,6 +9,8 @@
     var puedeCrear = ViewBag.PuedeCrearClientes is true;
     var puedeEditar = ViewBag.PuedeEditarClientes is true;
     var puedeEliminar = ViewBag.PuedeEliminarClientes is true;
+    var puedeVerDocumentos = User.TienePermiso("clientes", "viewdocs");
+    var puedeVerCreditos = User.TienePermiso("creditos", "view");
 
     var filtroClienteActivo = !string.IsNullOrWhiteSpace(Model.SearchTerm)
                             || Model.SoloActivos.HasValue
@@ -242,15 +244,21 @@ else
                     </summary>
 
                     <div class="cliente-more-menu__content cliente-row-menu__content">
-                        <a asp-controller="DocumentoCliente" asp-action="Index" class="cliente-row-menu__item">
-                            <span class="material-symbols-outlined" aria-hidden="true">folder_shared</span>
-                            Documentos
-                        </a>
+                        @if (puedeVerDocumentos)
+                        {
+                            <a asp-controller="DocumentoCliente" asp-action="Index" class="cliente-row-menu__item">
+                                <span class="material-symbols-outlined" aria-hidden="true">folder_shared</span>
+                                Documentos
+                            </a>
+                        }
 
-                        <a asp-controller="Credito" asp-action="Index" class="cliente-row-menu__item">
-                            <span class="material-symbols-outlined" aria-hidden="true">credit_score</span>
-                            Créditos
-                        </a>
+                        @if (puedeVerCreditos)
+                        {
+                            <a asp-controller="Credito" asp-action="Index" class="cliente-row-menu__item">
+                                <span class="material-symbols-outlined" aria-hidden="true">credit_score</span>
+                                Créditos
+                            </a>
+                        }
 
                         <button type="button" class="cliente-row-menu__item" data-cliente-open-limites>
                             <span class="material-symbols-outlined" aria-hidden="true">tune</span>
@@ -753,6 +761,8 @@ else
                                                         </button>
                                                     }
 
+                                                    @if (puedeVerCreditos || puedeEliminar)
+                                                    {
                                                     <details class="cliente-row-menu relative" data-cliente-row-menu>
 
                                                         <summary
@@ -768,6 +778,8 @@ else
                                                         </summary>
 
                                                         <div class="cliente-row-menu__content">
+                                                            @if (puedeVerCreditos)
+                                                            {
                                                             <a asp-controller="Credito" asp-action="Index" asp-route-clienteId="@c.Id"
                                                                class="cliente-row-menu__item">
                                                                 <span class="material-symbols-outlined" aria-hidden="true">
@@ -775,6 +787,7 @@ else
                                                                 </span>
                                                                 Ver créditos
                                                             </a>
+                                                            }
 
                                                             @if (puedeEliminar)
                                                             {
@@ -790,6 +803,7 @@ else
                                                             }
                                                         </div>
                                                     </details>
+                                                    }
                                                 </div>
                                             </td>
                                         </tr>
@@ -952,6 +966,8 @@ else
                                     </button>
                                 }
 
+                                @if (puedeVerCreditos || puedeEliminar)
+                                {
                                 <details class="cliente-card-menu" data-cliente-row-menu>
 
                                     <summary class="btn btn-ghost btn-sm btn-block" aria-label="Más acciones para @rowName"
@@ -967,6 +983,8 @@ else
                                     </summary>
 
                                     <div class="cliente-card-menu__content">
+                                        @if (puedeVerCreditos)
+                                        {
                                         <a asp-controller="Credito" asp-action="Index" asp-route-clienteId="@c.Id"
                                            class="cliente-row-menu__item">
                                             <span class="material-symbols-outlined" aria-hidden="true">
@@ -974,6 +992,7 @@ else
                                             </span>
                                             Ver créditos
                                         </a>
+                                        }
 
                                         @if (puedeEliminar)
                                         {
@@ -989,6 +1008,7 @@ else
                                         }
                                     </div>
                                 </details>
+                                }
                             </div>
                         </div>
                     </article>

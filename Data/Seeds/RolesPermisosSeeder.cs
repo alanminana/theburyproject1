@@ -123,14 +123,15 @@ public static class RolesPermisosSeeder
                 ("Convertir a Venta", "convert", 4),
                 ("Anular", "cancel", 5)
             }),
-            ("Créditos", "creditos", "Ventas", "bi-credit-card-2-front", 22, new List<(string, string, int)>
+            ("Créditos", "creditos", "Créditos", "bi-credit-card-2-front", 22, new List<(string, string, int)>
             {
                 ("Ver", "view", 1),
                 ("Crear", "create", 2),
                 ("Simular", "simulate", 3),
                 ("Aprobar", "approve", 4),
                 ("Ver Cuotas", "viewinstallments", 5),
-                ("Reprogramar", "reschedule", 6)
+                ("Reprogramar", "reschedule", 6),
+                ("Eliminar", "delete", 7)
             }),
             ("Cobranzas", "cobranzas", "Ventas", "bi-cash-stack", 23, new List<(string, string, int)>
             {
@@ -140,6 +141,17 @@ public static class RolesPermisosSeeder
                 ("Aplicar Punitorio", "applyfine", 4),
                 ("Ver Alertas", "viewalerts", 5),
                 ("Anular Punitorio", "revertfine", 6)
+            }),
+            // Dashboard/gestión de mora (MoraController): módulo agregado para que los
+            // permisos "mora.view/manage/config" que el controller ya exige por método
+            // sean administrables desde /Seguridad (antes no existía y quedaban inalcanzables
+            // salvo para SuperAdmin). No se asigna a ningún rol operativo por defecto: la
+            // asignación a Gerente/Cajero/etc. es una decisión de negocio pendiente.
+            ("Mora", "mora", "Ventas", "bi-alarm", 24, new List<(string, string, int)>
+            {
+                ("Ver", "view", 1),
+                ("Gestionar", "manage", 2),
+                ("Configurar", "config", 3)
             }),
 
             // COMPRAS
@@ -164,7 +176,8 @@ public static class RolesPermisosSeeder
                 ("Crear", "create", 2),
                 ("Editar", "update", 3),
                 ("Depositar", "deposit", 4),
-                ("Anular", "cancel", 5)
+                ("Anular", "cancel", 5),
+                ("Eliminar", "delete", 6)
             }),
 
             // STOCK

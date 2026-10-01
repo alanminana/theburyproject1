@@ -1,6 +1,9 @@
 @model SeguridadRolesTabViewModel
 @{
     var currentUrl = Context.Request.Path + Context.Request.QueryString;
+    var canCreate = User.TienePermiso("roles", "create");
+    var canUpdate = User.TienePermiso("roles", "update");
+    var canDelete = User.TienePermiso("roles", "delete");
 }
 
 <div class="max-w-7xl mx-auto space-y-6">
@@ -30,66 +33,44 @@
          role="alert"
          aria-live="polite"></div>
 
-    <div class="filter-panel-erp">
-        <button type="button"
-                id="btn-toggle-filtros"
-                data-expanded="false"
-                class="flex w-full items-center justify-between gap-3 text-left">
-            <div class="flex items-center gap-3">
-                <span class="material-symbols-outlined text-primary text-[18px]">filter_alt</span>
-                <p class="text-xs font-bold uppercase tracking-[0.18em] text-primary">Búsqueda y filtros</p>
+    <div class="bg-slate-900/50 rounded-xl border border-slate-800 overflow-hidden shadow-sm">
+        <partial name="_SeguridadTabNav" />
+
+        <div class="seg-toolbar" role="search" aria-label="Buscar y filtrar roles">
+            <div class="seg-toolbar__search">
+                <span class="material-symbols-outlined" aria-hidden="true">search</span>
+                <input id="searchRoles" type="search" autocomplete="off"
+                       aria-label="Buscar roles"
+                       class="bg-slate-800 border-none rounded-lg text-sm px-4 py-2 focus:ring-2 focus:ring-primary/50 text-white placeholder:text-slate-500"
+                       placeholder="Buscar por nombre o descripción..." />
             </div>
-            <span class="material-symbols-outlined filter-panel-erp__toggle-icon text-slate-400">expand_more</span>
-        </button>
 
-        <div id="filtros-body" class="filter-panel-erp__body" data-hidden="true">
-        <div class="filter-panel-erp__inner">
-            <div class="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_200px_auto] gap-4 pt-4">
-                <div class="relative">
-                    <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
-                    <input id="searchRoles" type="text"
-                           class="w-full pl-10 pr-4 py-2 bg-slate-800 border-none rounded-lg text-sm focus:ring-2 focus:ring-primary/50 text-white placeholder:text-slate-500"
-                           placeholder="Buscar por nombre o descripción..." />
-                </div>
-
-                <select id="filterEstadoRol"
+            <div class="seg-toolbar__filters seg-toolbar__filters--inline" data-open="true">
+                <select id="filterEstadoRol" aria-label="Filtrar por estado"
                         class="bg-slate-800 border-none rounded-lg text-sm px-4 py-2 focus:ring-primary text-white">
                     <option value="">Todos los estados</option>
                     <option value="activo">Activos</option>
                     <option value="inactivo">Inactivos</option>
                 </select>
-
-                <div class="flex items-center justify-end gap-2">
-                    <button type="button" id="clearRolesFilters"
-                            class="row-action"
-                            title="Limpiar filtros">
-                        <span class="material-symbols-outlined">filter_list_off</span>
-                    </button>
-                </div>
+                <button type="button" id="clearRolesFilters"
+                        class="row-action"
+                        title="Limpiar filtros" aria-label="Limpiar filtros">
+                    <span class="material-symbols-outlined">filter_list_off</span>
+                </button>
             </div>
-        </div>@* /filter-panel-erp__inner *@
-        </div>
-    </div>
 
-    <div class="bg-slate-900/50 rounded-xl border border-slate-800 overflow-hidden shadow-sm">
-        <nav class="flex items-center overflow-x-auto border-b border-slate-800">
-            <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="usuarios" class="shrink-0 border-b-2 border-transparent text-slate-400 hover:text-white hover:bg-white/5 px-5 py-3 text-sm font-bold no-underline transition-colors">Usuarios</a>
-            <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="roles" class="shrink-0 border-b-2 border-primary text-primary bg-primary/10 px-5 py-3 text-sm font-bold no-underline transition-colors">Roles</a>
-            <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="permisos-rol" class="shrink-0 border-b-2 border-transparent text-slate-400 hover:text-white hover:bg-white/5 px-5 py-3 text-sm font-bold no-underline transition-colors">Permisos de Rol</a>
-            <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="auditoria" class="shrink-0 border-b-2 border-transparent text-slate-400 hover:text-white hover:bg-white/5 px-5 py-3 text-sm font-bold no-underline transition-colors">Auditoría</a>
-            @if (User.TienePermiso("roles", "create"))
+            @if (canCreate)
             {
-                <div class="ml-auto shrink-0 px-3">
-                    <button type="button"
-                            data-seguridad-return-url="@currentUrl"
-                            class="btn-open-create-role btn-erp-primary">
-                        <span class="material-symbols-outlined text-sm">add</span>
-                        Nuevo rol
-                    </button>
-                </div>
+                <button type="button"
+                        data-seguridad-return-url="@currentUrl"
+                        class="btn-open-create-role seg-toolbar__cta btn-erp-primary">
+                    <span class="material-symbols-outlined text-sm">add</span>
+                    Nuevo rol
+                </button>
             }
-        </nav>
-        <div data-oc-scroll class="relative" style="--oc-scroll-min-width: 980px;">
+        </div>
+
+        <div data-oc-scroll class="relative" style="--oc-scroll-min-width: 760px;">
             <div data-oc-scroll-hint hidden class="px-4 pt-4 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400 lg:hidden">
                 Deslizá para ver más columnas
             </div>
@@ -97,14 +78,14 @@
                 <div data-oc-scroll-fade="left" hidden class="absolute inset-y-0 left-0 z-10 w-6 bg-gradient-to-r from-slate-900 via-slate-900/95 to-transparent"></div>
                 <div data-oc-scroll-fade="right" hidden class="absolute inset-y-0 right-0 z-10 w-6 bg-gradient-to-l from-slate-900 via-slate-900/95 to-transparent"></div>
                 <div data-oc-scroll-region class="overflow-x-auto scroll-smooth" tabindex="0" role="region" aria-label="Tabla de roles del módulo Seguridad">
-            <table data-erp-cards data-oc-scroll-table class="w-full text-left border-collapse" style="min-width: var(--oc-scroll-min-width);">
+            <table data-erp-cards data-oc-scroll-table class="seg-table w-full text-left border-collapse" style="min-width: var(--oc-scroll-min-width);">
                 <thead class="bg-slate-800/50 border-b border-slate-800">
                     <tr>
-                        <th data-card="title" class="px-4 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Nombre rol</th>
-                        <th class="px-4 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Descripción</th>
-                        <th data-card="half" class="px-4 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Estado</th>
-                        <th data-card="half" class="px-4 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Cantidad usuarios</th>
-                        <th data-card="actions" class="px-4 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider text-right">Acciones</th>
+                        <th data-card="title" scope="col" class="px-4 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Nombre rol</th>
+                        <th scope="col" class="seg-col-secondary px-4 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Descripción</th>
+                        <th data-card="half" scope="col" class="px-4 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Estado</th>
+                        <th data-card="half" scope="col" class="px-4 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Usuarios</th>
+                        <th data-card="actions" scope="col" class="seg-col-actions px-4 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider text-right">Acciones</th>
                     </tr>
                 </thead>
                 <tbody id="rolesTableBody" class="divide-y divide-slate-800">
@@ -114,12 +95,13 @@
                         {
                             var estadoKey = rol.Activo ? "activo" : "inactivo";
                             var descripcion = string.IsNullOrWhiteSpace(rol.Descripcion) ? "Sin descripción" : rol.Descripcion;
+                            var usuariosInactivos = Math.Max(0, rol.CantidadUsuarios - rol.CantidadUsuariosActivos);
 
                             <tr class="hover:bg-slate-800/30 transition-colors rol-row"
                                 data-name="@rol.Nombre.ToLowerInvariant()"
                                 data-description="@descripcion.ToLowerInvariant()"
                                 data-estado="@estadoKey">
-                                <td class="px-4 py-4">
+                                <td class="seg-user-cell px-4 py-4">
                                     <div class="flex items-center gap-3">
                                         <div class="size-9 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
                                             <span class="material-symbols-outlined text-lg">shield_person</span>
@@ -127,10 +109,11 @@
                                         <div class="min-w-0">
                                             <p class="text-sm font-semibold text-white truncate">@rol.Nombre</p>
                                             <p class="text-[11px] text-slate-400">@rol.CantidadPermisos permisos activos</p>
+                                            <p class="seg-inline-secondary text-[11px] text-slate-500 truncate" title="@descripcion">@descripcion</p>
                                         </div>
                                     </div>
                                 </td>
-                                <td class="px-4 py-4">
+                                <td class="seg-col-secondary px-4 py-4">
                                     <p class="text-sm text-slate-400 max-w-md truncate" title="@descripcion">@descripcion</p>
                                 </td>
                                 <td class="px-4 py-4">
@@ -140,20 +123,21 @@
                                     </span>
                                 </td>
                                 <td class="px-4 py-4">
-                                    <div class="space-y-1">
-                                        <p class="text-sm font-semibold text-white">@rol.CantidadUsuarios</p>
-                                        <p class="text-[11px] text-slate-400">@rol.CantidadUsuariosActivos activos</p>
-                                    </div>
+                                    <p class="text-sm font-semibold text-white">@rol.CantidadUsuarios</p>
+                                    @if (usuariosInactivos > 0)
+                                    {
+                                        <p class="text-[11px] text-slate-400">@usuariosInactivos @(usuariosInactivos == 1 ? "inactivo" : "inactivos")</p>
+                                    }
                                 </td>
-                                <td class="px-4 py-4 text-right">
-                                    <div class="flex flex-wrap items-center justify-end gap-1.5">
+                                <td class="seg-col-actions px-4 py-4 text-right">
+                                    <div class="seg-actions">
                                         <a asp-controller="Seguridad" asp-action="RolDetails" asp-route-id="@rol.Id" asp-route-returnUrl="@currentUrl"
                                            class="row-action row-action--primary"
                                            title="Ver detalle">
                                             <span class="material-symbols-outlined">visibility</span>
                                             <span class="row-action__label">Ver</span>
                                         </a>
-                                        @if (User.TienePermiso("roles", "update"))
+                                        @if (canUpdate)
                                         {
                                             <button type="button" data-seguridad-role-id="@rol.Id" data-seguridad-return-url="@currentUrl"
                                                     class="btn-edit-role row-action"
@@ -162,7 +146,7 @@
                                                 <span class="row-action__label">Editar</span>
                                             </button>
                                         }
-                                        @if (User.TienePermiso("roles", "create"))
+                                        @if (canCreate)
                                         {
                                             <button type="button" data-seguridad-role-id="@rol.Id" data-seguridad-return-url="@currentUrl"
                                                     class="btn-duplicate-role row-action row-action--warning"
@@ -171,9 +155,12 @@
                                                 <span class="row-action__label">Duplicar</span>
                                             </button>
                                         }
-                                        @if (User.TienePermiso("roles", "update"))
+                                        @if (canUpdate)
                                         {
-                                            <form asp-controller="Seguridad" asp-action="ToggleRolActivo" method="post" class="inline-flex">
+                                            <form asp-controller="Seguridad" asp-action="ToggleRolActivo" method="post"
+                                                  class="inline-flex @(rol.Activo ? "js-deactivate-role-form" : string.Empty)"
+                                                  data-seguridad-role-name="@rol.Nombre"
+                                                  data-seguridad-users-count="@rol.CantidadUsuarios">
                                                 @Html.AntiForgeryToken()
                                                 <input type="hidden" name="id" value="@rol.Id" />
                                                 <input type="hidden" name="activo" value="@(rol.Activo ? "false" : "true")" />
@@ -192,10 +179,10 @@
                                             <span class="material-symbols-outlined">admin_panel_settings</span>
                                             <span class="row-action__label">Permisos</span>
                                         </a>
-                                        @if (User.TienePermiso("roles", "delete"))
+                                        @if (canDelete)
                                         {
                                             <form asp-controller="Seguridad" asp-action="DeleteRol" method="post"
-                                                  class="inline-flex js-delete-role-form"
+                                                  class="seg-actions__danger inline-flex js-delete-role-form"
                                                   data-seguridad-role-name="@rol.Nombre"
                                                   data-seguridad-has-users="@(rol.CantidadUsuarios > 0 ? "true" : "false")">
                                                 @Html.AntiForgeryToken()
@@ -224,11 +211,11 @@
         {
             <div id="rolesEmptyState" class="px-6 py-16 text-center">
                 <div class="inline-flex items-center justify-center size-16 rounded-full bg-slate-800 mb-4">
-                    <span class="material-symbols-outlined text-3xl text-slate-400 text-slate-500">shield</span>
+                    <span class="material-symbols-outlined text-3xl text-slate-400">shield</span>
                 </div>
                 <p class="text-sm font-semibold text-slate-300 mb-1">No hay roles configurados</p>
-                <p class="text-xs text-slate-500 mb-4">Creá el primer rol para empezar a organizar permisos por RBAC.</p>
-                @if (User.TienePermiso("roles", "create"))
+                <p class="text-xs text-slate-500 mb-4">@(canCreate ? "Creá el primer rol para empezar a organizar permisos por RBAC." : "Todavía no hay roles para mostrar.")</p>
+                @if (canCreate)
                 {
                     <button type="button"
                             data-seguridad-return-url="@currentUrl"
@@ -242,7 +229,7 @@
 
         <div id="rolesEmptyFilterState" class="hidden px-6 py-16 text-center">
             <div class="inline-flex items-center justify-center size-16 rounded-full bg-slate-800 mb-4">
-                <span class="material-symbols-outlined text-3xl text-slate-400 text-slate-500">search_off</span>
+                <span class="material-symbols-outlined text-3xl text-slate-400">search_off</span>
             </div>
             <p class="text-sm font-semibold text-slate-300 mb-1">Sin resultados</p>
             <p class="text-xs text-slate-500 mb-4">Probá ajustando los filtros de roles.</p>

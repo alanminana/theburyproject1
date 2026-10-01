@@ -149,15 +149,38 @@ public class VentaEnvioServiceTests : IDisposable
     // -------------------------------------------------------------------------
 
     [Fact]
-    public async Task CambiarEstadoAsync_SaltoDePendienteAEntregado_Rechaza()
+    public async Task CambiarEstadoAsync_PendienteAEntregado_PermiteEntregaDirecta()
     {
         var venta = await SeedVentaConEnvioAsync(EstadoEnvio.Pendiente);
 
         var resultado = await _service.CambiarEstadoAsync(venta.Id, EstadoEnvio.Entregado, null, "tester");
 
+        Assert.True(resultado.Exitoso);
+        var envio = await _service.GetByVentaIdAsync(venta.Id);
+        Assert.Equal(EstadoEnvio.Entregado, envio!.Estado);
+        Assert.NotNull(envio.FechaEntregaReal);
+    }
+
+    [Fact]
+    public async Task CambiarEstadoAsync_SaltoDePendienteADespachado_Rechaza()
+    {
+        var venta = await SeedVentaConEnvioAsync(EstadoEnvio.Pendiente);
+
+        var resultado = await _service.CambiarEstadoAsync(venta.Id, EstadoEnvio.Despachado, null, "tester");
+
         Assert.False(resultado.Exitoso);
         var envio = await _service.GetByVentaIdAsync(venta.Id);
         Assert.Equal(EstadoEnvio.Pendiente, envio!.Estado);
+    }
+
+    [Fact]
+    public async Task CambiarEstadoAsync_FallidoAPendiente_PermiteReprogramar()
+    {
+        var venta = await SeedVentaConEnvioAsync(EstadoEnvio.Fallido);
+
+        var resultado = await _service.CambiarEstadoAsync(venta.Id, EstadoEnvio.Pendiente, null, "tester");
+
+        Assert.True(resultado.Exitoso);
     }
 
     [Fact]

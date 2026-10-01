@@ -243,19 +243,31 @@
         </div>
     </section>
 
-    @* VENTA-ENVIO-TOTAL-01: el envío es un concepto separado del total de productos (no recibe
-       recargo del plan) y se suma en TOTAL A COBRAR (calculado en backend: Cotizacion.CostoEnvio). *@
-    @if (Model.TieneEnvio)
+    @* VENTA-SERVICIOS-01: armados y envío (precio global fijo) integran el total base y el recargo del
+       plan. Las cotizaciones anteriores (EnvioIncluidoEnTotal = false) mantienen el envío como cobro aparte. *@
+    @if (Model.TieneEnvio || Model.ImporteArmados > 0)
     {
         <section id="cotizacion-envio-totales" class="grid grid-cols-1 gap-3 md:grid-cols-4">
-            <div class="rounded-lg border border-slate-800 bg-slate-900/60 p-4 md:col-start-3">
-                <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Envío</p>
-                <p id="cotizacion-envio-importe" class="mt-2 text-lg font-black text-white">@Model.ImporteEnvio.ToString("C")</p>
-            </div>
+            @if (Model.EnvioIncluidoEnTotal && Model.ImporteArmados > 0)
+            {
+                <div class="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Armados</p>
+                    <p id="cotizacion-armados-importe" class="mt-2 text-lg font-black text-white">@Model.ImporteArmados.ToString("C")</p>
+                </div>
+            }
+            @if (Model.TieneEnvio)
+            {
+                <div class="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">@(Model.TipoEnvio?.NombreVisible() ?? "Envío")</p>
+                    <p id="cotizacion-envio-importe" class="mt-2 text-lg font-black text-white">@Model.ImporteEnvio.ToString("C")</p>
+                </div>
+            }
             <div class="rounded-lg border border-sky-500/30 bg-sky-500/10 p-4">
                 <p class="text-[11px] font-bold uppercase tracking-wider text-sky-300">Total a cobrar</p>
                 <p id="cotizacion-total-a-cobrar" class="mt-2 text-xl font-black text-white">@Model.TotalACobrar.ToString("C")</p>
-                <p class="mt-1 text-xs text-sky-200/80">@(Model.TotalSeleccionado.HasValue ? "Opción seleccionada + envío" : "Total base + envío")</p>
+                <p class="mt-1 text-xs text-sky-200/80">@(Model.EnvioIncluidoEnTotal
+                    ? "Incluye armados y envío"
+                    : (Model.TotalSeleccionado.HasValue ? "Opción seleccionada + envío" : "Total base + envío"))</p>
             </div>
         </section>
     }
@@ -287,7 +299,17 @@
                     @foreach (var item in Model.Detalles)
                     {
                         <tr>
-                            <td class="px-4 py-3 text-sm font-bold text-white">@item.NombreProductoSnapshot</td>
+                            <td class="px-4 py-3 text-sm font-bold text-white">
+                                @item.NombreProductoSnapshot
+                                @if (item.EntregaCajaCerrada)
+                                {
+                                    <span class="mt-1 block text-xs font-normal text-slate-400">Caja cerrada (sin armado)</span>
+                                }
+                                else if (item.TipoArmado.HasValue)
+                                {
+                                    <span class="mt-1 block text-xs font-normal text-amber-300">@item.TipoArmado.Value.NombreVisible() · @item.Cantidad × @item.ArmadoPrecioUnitario.ToString("C") = @item.ArmadoSubtotal.ToString("C")</span>
+                                }
+                            </td>
                             <td class="px-4 py-3 text-sm font-mono text-slate-400">@item.CodigoProductoSnapshot</td>
                             <td class="px-4 py-3 text-right text-sm text-slate-300">@item.Cantidad</td>
                             <td class="px-4 py-3 text-right text-sm text-slate-300">@item.PrecioUnitarioSnapshot.ToString("C")</td>

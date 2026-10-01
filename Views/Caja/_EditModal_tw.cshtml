@@ -115,44 +115,34 @@
                     <p class="text-xs muted-2 mb-3">Definí quién opera y vende en esta caja. Solo los usuarios asignados (más el administrador) pueden operarla. Sin asignaciones, solo el administrador.</p>
                     <input type="hidden" name="VendedoresGestionados" value="true" />
 
-                    <div class="mb-1.5 text-xs font-semibold uppercase tracking-wide muted-2">Cajeros (operan la caja)</div>
-                    @if (Model.CajerosDisponibles.Any())
-                    {
-                        <div class="caja-vendedores-list mb-4">
-                            @foreach (var c in Model.CajerosDisponibles)
-                            {
-                                var asignado = Model.VendedorIds.Contains(c.Id);
-                                <label class="caja-vendedor-item">
-                                    <input type="checkbox" name="VendedorIds" value="@c.Id" class="caja-vendedor-check"
-                                           @(asignado ? "checked" : "") />
-                                    <span class="text-sm text-slate-200">@c.UserName</span>
-                                </label>
-                            }
-                        </div>
+                    @{
+                        var cajeroIds = Model.CajerosDisponibles.Select(u => u.Id).ToHashSet();
+                        var vendedorIdsRol = Model.VendedoresDisponibles.Select(u => u.Id).ToHashSet();
+                        var usuariosHabilitables = Model.CajerosDisponibles
+                            .Concat(Model.VendedoresDisponibles)
+                            .DistinctBy(u => u.Id)
+                            .OrderBy(u => u.UserName)
+                            .ToList();
                     }
-                    else
-                    {
-                        <p class="text-sm muted-2 italic mb-4">No hay usuarios con rol Cajero.</p>
-                    }
-
-                    <div class="mb-1.5 text-xs font-semibold uppercase tracking-wide muted-2">Vendedores (venden contra la caja)</div>
-                    @if (Model.VendedoresDisponibles.Any())
+                    @if (usuariosHabilitables.Any())
                     {
                         <div class="caja-vendedores-list">
-                            @foreach (var v in Model.VendedoresDisponibles)
+                            @foreach (var u in usuariosHabilitables)
                             {
-                                var asignado = Model.VendedorIds.Contains(v.Id);
+                                var asignado = Model.VendedorIds.Contains(u.Id);
+                                var roles = string.Join(" · ", new[] { cajeroIds.Contains(u.Id) ? "Cajero" : null, vendedorIdsRol.Contains(u.Id) ? "Vendedor" : null }.Where(r => r != null));
                                 <label class="caja-vendedor-item">
-                                    <input type="checkbox" name="VendedorIds" value="@v.Id" class="caja-vendedor-check"
+                                    <input type="checkbox" name="VendedorIds" value="@u.Id" class="caja-vendedor-check"
                                            @(asignado ? "checked" : "") />
-                                    <span class="text-sm text-slate-200">@v.UserName</span>
+                                    <span class="text-sm text-slate-200">@u.UserName</span>
+                                    <span class="text-xs muted-2">@roles</span>
                                 </label>
                             }
                         </div>
                     }
                     else
                     {
-                        <p class="text-sm muted-2 italic">No hay usuarios con rol Vendedor.</p>
+                        <p class="text-sm muted-2 italic">No hay usuarios con rol Cajero o Vendedor.</p>
                     }
                 </div>
 

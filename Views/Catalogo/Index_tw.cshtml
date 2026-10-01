@@ -593,7 +593,7 @@
 
                                     @* STOCK EN UNA LÍNEA *@
                                     <td class="px-4 py-3 text-center align-middle">
-                                        <span class="inline-flex whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-bold @stockBg">
+                                        <span data-prod-stock class="inline-flex whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-bold @stockBg">
                                             @stockText
                                         </span>
                                     </td>
@@ -1910,6 +1910,7 @@
                                     <option value="27">27%</option>
                                     <option value="0">0%</option>
                                 </select>
+                                <p class="text-[11px] text-slate-500">Solo para el desglose de abajo; no se guarda con el producto.</p>
                             </div>
 
                             <div class="space-y-3">
@@ -2177,7 +2178,8 @@
                         <div class="grid grid-cols-2 gap-4">
                             <div class="space-y-1">
                                 <label class="text-sm font-medium text-slate-300">Stock Actual</label>
-                                <input id="prod-edit-stockActual" name="StockActual" type="number" min="0" step="1" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none text-white" />
+                                <input id="prod-edit-stockActual" name="StockActual" type="number" min="0" step="1" readonly tabindex="-1" aria-describedby="prod-edit-stockActual-hint" class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2 outline-none text-slate-400 cursor-not-allowed" />
+                                <p id="prod-edit-stockActual-hint" class="text-[11px] text-slate-500">Solo lectura. Se modifica desde Movimientos de stock.</p>
                             </div>
                             <div class="space-y-1">
                                 <label class="text-sm font-medium text-slate-300">Stock Mínimo</label>
@@ -2893,7 +2895,7 @@
                             <label class="text-sm font-semibold text-slate-300">Valor</label>
                             <div class="relative">
                                 <span id="precio-valor-prefix" class="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">%</span>
-                                <input type="number" id="precio-valor" step="0.01" min="0"
+                                <input type="number" id="precio-valor" step="0.01" min="0" style="padding-left:2rem"
                                        class="w-full pl-8 catalogo-input text-sm"
                                        placeholder="0.00" />
                             </div>

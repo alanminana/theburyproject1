@@ -310,12 +310,19 @@ public sealed class CotizacionPdfService : ICotizacionPdfService
             if (cotizacion.DescuentoTotal != 0)
                 FilaTotales(col, "Descuento total", cotizacion.DescuentoTotal.ToString("C2", CulturaMonetaria), false);
 
+            // Modelo nuevo: armados y envío están dentro del total base (y del recargo del plan).
+            if (cotizacion.EnvioIncluidoEnTotal && cotizacion.ImporteArmados > 0m)
+                FilaTotales(col, "Armados", cotizacion.ImporteArmados.ToString("C2", CulturaMonetaria), false);
+
+            if (cotizacion.EnvioIncluidoEnTotal && cotizacion.TieneEnvio)
+                FilaTotales(col, "Envío", cotizacion.ImporteEnvio.ToString("C2", CulturaMonetaria), false);
+
             FilaTotales(col, "Total base", cotizacion.TotalBase.ToString("C2", CulturaMonetaria), false);
 
             if (cotizacion.TotalSeleccionado.HasValue && cotizacion.TotalSeleccionado != cotizacion.TotalBase)
                 FilaTotales(col, "Total c/ plan", cotizacion.TotalSeleccionado.Value.ToString("C2", CulturaMonetaria), false);
 
-            if (cotizacion.TieneEnvio)
+            if (cotizacion.TieneEnvio && !cotizacion.EnvioIncluidoEnTotal)
                 FilaTotales(col, "Envío", cotizacion.ImporteEnvio.ToString("C2", CulturaMonetaria), false);
 
             FilaTotales(col, "TOTAL", cotizacion.TotalACobrar.ToString("C2", CulturaMonetaria), true);

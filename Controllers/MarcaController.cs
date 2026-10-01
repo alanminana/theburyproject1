@@ -38,6 +38,7 @@ namespace TheBuryProject.Controllers
         // en marca-editar-modal.js). No es CRUD fantasma: es la única forma de eliminar.
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "marcas", Accion = "delete")]
         public async Task<IActionResult> DeleteConfirmed(int id, string? returnUrl = null)
         {
             try
@@ -73,6 +74,7 @@ namespace TheBuryProject.Controllers
         /// </summary>
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "marcas", Accion = "create")]
         public async Task<IActionResult> CreateAjax(MarcaViewModel viewModel)
         {
             if (!ModelState.IsValid)
@@ -158,6 +160,7 @@ namespace TheBuryProject.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "marcas", Accion = "edit")]
         public async Task<IActionResult> EditAjax(int id, MarcaViewModel viewModel)
         {
             if (id != viewModel.Id)

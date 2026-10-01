@@ -6,8 +6,13 @@
     var ordenes = (ViewBag.Ordenes as IEnumerable<TheBuryProject.ViewModels.OrdenCompraViewModel>
                    ?? Enumerable.Empty<TheBuryProject.ViewModels.OrdenCompraViewModel>()).ToList();
     var proveedores = ViewBag.Proveedores as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
+    var marcas = ViewBag.Marcas as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
     int totalOrdenes = ViewBag.TotalOrdenes ?? 0;
     decimal totalValorizado = ViewBag.TotalValorizado ?? 0m;
+    var permCrearOC = User.TienePermiso("ordenescompra", "create");
+    var permActualizarOC = User.TienePermiso("ordenescompra", "update");
+    var permRecibirOC = User.TienePermiso("ordenescompra", "receive");
+    var permCancelarOC = User.TienePermiso("ordenescompra", "cancel");
     var orderBy = string.IsNullOrWhiteSpace(Model.OrderBy)
         ? "fechaemision"
         : Model.OrderBy.Trim().ToLowerInvariant();
@@ -17,6 +22,8 @@
 @{
     var filtroOCActivo = !string.IsNullOrEmpty(Model.SearchTerm)
                       || Model.ProveedorId.HasValue
+                      || Model.MarcaId.HasValue
+                      || !string.IsNullOrEmpty(Model.ProductoTerm)
                       || Model.Estado.HasValue
                       || Model.FechaDesde.HasValue
                       || Model.FechaHasta.HasValue;
@@ -38,7 +45,7 @@
                     <span class="material-symbols-outlined text-primary text-[18px]">filter_alt</span>
                     <div>
                         <p class="text-xs font-bold uppercase tracking-[0.18em] text-primary">Filtros</p>
-                        <p class="text-sm text-slate-400">Buscá por nº de orden, proveedor, estado o rango de fechas.</p>
+                        <p class="text-sm text-slate-400">Buscá por nº de orden, proveedor, marca, producto, estado o rango de fechas.</p>
                     </div>
                 </div>
                 <div class="flex shrink-0 items-center gap-2">
@@ -46,10 +53,19 @@
                     <span class="material-symbols-outlined filter-panel-erp__toggle-icon text-slate-400">expand_more</span>
                 </div>
             </button>
-            <a asp-action="Create" class="btn-erp-primary btn-sm no-underline shrink-0">
-                <span class="material-symbols-outlined text-[18px]">add_circle</span>
-                Nueva Orden
+            <a asp-controller="Proveedor" asp-action="Index"
+               class="btn-erp-secondary btn-sm no-underline shrink-0"
+               title="Volver a Gestión de proveedores">
+                <span class="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_back</span>
+                Proveedores
             </a>
+            @if (permCrearOC)
+            {
+                <a asp-action="Create" class="btn-erp-primary btn-sm no-underline shrink-0">
+                    <span class="material-symbols-outlined text-[18px]">add_circle</span>
+                    Nueva Orden
+                </a>
+            }
         </div>
 
         <div id="filtros-body" class="filter-panel-erp__body" data-hidden="@filtroOCHidden">
@@ -94,6 +110,34 @@
                     <option value="@EstadoOrdenCompra.Recibida" selected="@(Model.Estado == EstadoOrdenCompra.Recibida)">Recibida</option>
                     <option value="@EstadoOrdenCompra.Cancelada" selected="@(Model.Estado == EstadoOrdenCompra.Cancelada)">Cancelada</option>
                 </select>
+            </div>
+        </div>
+        <!-- Fila 1b: marca + producto -->
+        <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-12">
+            <div class="md:col-span-5">
+                <label class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">Marca</label>
+                <select name="MarcaId"
+                        aria-label="Marca"
+                        class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50">
+                    <option value="">Todas</option>
+                    @if (marcas != null)
+                    {
+                        @foreach (var m in marcas)
+                        {
+                            <option value="@m.Value" selected="@(m.Value == Model.MarcaId?.ToString())">@m.Text</option>
+                        }
+                    }
+                </select>
+            </div>
+            <div class="md:col-span-7">
+                <label class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-400">Producto</label>
+                <div class="relative">
+                    <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">inventory_2</span>
+                    <input type="text" name="ProductoTerm" value="@Model.ProductoTerm"
+                           aria-label="Buscar por producto"
+                           class="w-full rounded-lg border border-slate-700 bg-slate-900 py-2 pl-10 pr-4 text-sm text-white placeholder:text-slate-500 transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50"
+                           placeholder="Nombre o código de producto..." />
+                </div>
             </div>
         </div>
         <!-- Fila 2: ordenar + dirección + fechas + botones -->
@@ -176,14 +220,15 @@
     <table data-erp-cards data-oc-scroll-table class="w-full text-left border-collapse">
         <thead>
             <tr class="border-b border-slate-800">
-                <th data-card="title" class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Número</th>
-                <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Proveedor</th>
-                <th data-card="half" class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Fecha Emisión</th>
-                <th data-card="half" class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Fecha Entrega</th>
-                <th data-card="half" class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Estado</th>
-                <th data-card="half" class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Items</th>
-                <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Total</th>
-                <th data-card="actions" class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right whitespace-nowrap">Acciones</th>
+                <th data-card="title" class="px-3 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Número</th>
+                <th class="px-3 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Proveedor</th>
+                <th class="px-3 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Marca</th>
+                <th data-card="half" class="px-3 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Fecha Emisión</th>
+                <th data-card="half" class="px-3 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Fecha Entrega</th>
+                <th data-card="half" class="px-3 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Estado</th>
+                <th data-card="half" class="px-3 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Items</th>
+                <th class="px-3 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">Total</th>
+                <th data-card="actions" class="pl-3 pr-2 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right whitespace-nowrap">Acciones</th>
             </tr>
         </thead>
         <tbody class="divide-y divide-slate-800">
@@ -192,21 +237,29 @@
                 @foreach (var o in ordenes)
                 {
                     var puedeRecepcionar = o.Estado == EstadoOrdenCompra.Confirmada || o.Estado == EstadoOrdenCompra.EnTransito;
+                    EstadoOrdenCompra? siguienteEstado = o.Estado switch
+                    {
+                        EstadoOrdenCompra.Borrador => EstadoOrdenCompra.Enviada,
+                        EstadoOrdenCompra.Enviada => EstadoOrdenCompra.Confirmada,
+                        EstadoOrdenCompra.Confirmada => EstadoOrdenCompra.EnTransito,
+                        _ => null
+                    };
                     var puedeEliminar = o.Estado != EstadoOrdenCompra.Recibida && o.Estado != EstadoOrdenCompra.EnTransito;
 
                     <tr class="hover:bg-slate-800/50 transition-colors">
-                        <td class="px-4 py-2.5 font-bold text-primary whitespace-nowrap">@o.Numero</td>
-                        <td class="px-4 py-2.5 font-medium">@o.ProveedorNombre</td>
-                        <td class="px-4 py-2.5 text-slate-400 whitespace-nowrap">@o.FechaEmision.ToString("dd MMM yyyy")</td>
-                        <td class="px-4 py-2.5 text-slate-400 whitespace-nowrap">@(o.FechaEntregaEstimada?.ToString("dd MMM yyyy") ?? "--")</td>
-                        <td class="px-4 py-2.5">
+                        <td class="px-3 py-2.5 font-bold text-primary whitespace-nowrap">@o.Numero</td>
+                        <td class="px-3 py-2.5 font-medium">@o.ProveedorNombre</td>
+                        <td class="px-3 py-2.5 text-slate-300">@(string.IsNullOrWhiteSpace(o.MarcasResumen) ? "--" : o.MarcasResumen)</td>
+                        <td class="px-3 py-2.5 text-slate-400 whitespace-nowrap">@o.FechaEmision.ToString("dd MMM yyyy")</td>
+                        <td class="px-3 py-2.5 text-slate-400 whitespace-nowrap">@(o.FechaEntregaEstimada?.ToString("dd MMM yyyy") ?? "--")</td>
+                        <td class="px-3 py-2.5">
                             <span class="@OrdenCompraUiHelper.EstadoBadgeClass(o.Estado)">
                                 @OrdenCompraUiHelper.EstadoNombre(o.Estado)
                             </span>
                         </td>
-                        <td class="px-4 py-2.5">@o.TotalItems</td>
-                        <td class="px-4 py-2.5 font-bold whitespace-nowrap">$@o.Total.ToString("N2")</td>
-                        <td class="px-4 py-2.5 text-right whitespace-nowrap">
+                        <td class="px-3 py-2.5">@o.TotalItems</td>
+                        <td class="px-3 py-2.5 font-bold whitespace-nowrap">$@o.Total.ToString("N2")</td>
+                        <td class="pl-3 pr-2 py-2.5 text-right whitespace-nowrap">
                             <div class="flex flex-nowrap justify-end gap-1">
                                 <a asp-action="Details" asp-route-id="@o.Id"
                                    class="row-action row-action--primary no-underline"
@@ -215,6 +268,8 @@
                                     <span class="material-symbols-outlined" aria-hidden="true">visibility</span>
                                     <span class="row-action__label">Ver</span>
                                 </a>
+                                @if (permActualizarOC)
+                                {
                                 <button type="button" disabled
                                         class="row-action row-action--disabled"
                                         aria-label="Editar no disponible"
@@ -222,27 +277,62 @@
                                     <span class="material-symbols-outlined" aria-hidden="true">edit</span>
                                     <span class="row-action__label">Editar</span>
                                 </button>
-                                @if (puedeRecepcionar)
-                                {
-                                    <a asp-action="Recepcionar" asp-route-id="@o.Id"
-                                       class="row-action row-action--warning no-underline"
-                                       aria-label="Recepcionar mercadería"
-                                       title="Recepcionar mercadería">
-                                        <span class="material-symbols-outlined" aria-hidden="true">local_shipping</span>
-                                        <span class="row-action__label">Recibir</span>
-                                    </a>
                                 }
-                                else
+                                @if (permActualizarOC)
                                 {
-                                    <button type="button" disabled
-                                            class="row-action row-action--disabled"
-                                            aria-label="Recepción no disponible"
-                                            title="Solo se puede recepcionar en estado Confirmada o En tránsito">
-                                        <span class="material-symbols-outlined" aria-hidden="true">local_shipping</span>
-                                        <span class="row-action__label">Recibir</span>
-                                    </button>
+                                    if (siguienteEstado is { } sig)
+                                    {
+                                        <form asp-action="CambiarEstado" method="post" class="inline-flex">
+                                            <input type="hidden" name="id" value="@o.Id" />
+                                            <input type="hidden" name="nuevoEstado" value="@((int)sig)" />
+                                            <input type="hidden" name="desdeIndex" value="true" />
+                                            <button type="submit"
+                                                    class="row-action row-action--primary"
+                                                    aria-label="Avanzar envío a @OrdenCompraUiHelper.EstadoNombre(sig)"
+                                                    title="Avanzar envío: pasar a @OrdenCompraUiHelper.EstadoNombre(sig)">
+                                                <span class="material-symbols-outlined" aria-hidden="true">local_shipping</span>
+                                                <span class="row-action__label">Envío</span>
+                                            </button>
+                                        </form>
+                                    }
+                                    else
+                                    {
+                                        <button type="button" disabled
+                                                class="row-action row-action--disabled"
+                                                aria-label="Envío no disponible"
+                                                title="El envío ya no se puede avanzar en este estado">
+                                            <span class="material-symbols-outlined" aria-hidden="true">local_shipping</span>
+                                            <span class="row-action__label">Envío</span>
+                                        </button>
+                                    }
                                 }
-                                @if (puedeEliminar)
+                                @if (permRecibirOC)
+                                {
+                                    if (puedeRecepcionar)
+                                    {
+                                        <a asp-action="Recepcionar" asp-route-id="@o.Id"
+                                           class="row-action row-action--warning no-underline"
+                                           aria-label="Recepcionar mercadería"
+                                           title="Recepcionar mercadería">
+                                            <span class="material-symbols-outlined" aria-hidden="true">inventory_2</span>
+                                            <span class="row-action__label">Recibir</span>
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <button type="button" disabled
+                                                class="row-action row-action--disabled"
+                                                aria-label="Recepción no disponible"
+                                                title="Solo se puede recepcionar en estado Confirmada o En tránsito">
+                                            <span class="material-symbols-outlined" aria-hidden="true">inventory_2</span>
+                                            <span class="row-action__label">Recibir</span>
+                                        </button>
+                                    }
+                                }
+                                @if (!permCancelarOC)
+                                {
+                                }
+                                else if (puedeEliminar)
                                 {
                                     <a asp-action="Delete" asp-route-id="@o.Id"
                                        class="row-action row-action--danger no-underline"

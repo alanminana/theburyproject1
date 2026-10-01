@@ -19,6 +19,7 @@ faltan. Actualizar esta tabla al cerrar cada pantalla.
 | Catálogo | `Inventario` (tab Productos) | ✅ Cerrado | ver resumen abajo |
 | Catálogo | `Inventario` (tab Categorías + modales Nueva/Editar + eliminar) | ✅ Cerrado (2026-09-25) | CATEGORIA-CIERRE-01 (ver resumen abajo) |
 | Proveedor | `Index`, `Details`, drawers Nuevo/Editar, eliminar | ✅ Cerrado (2026-09-25) | cierre de módulo `/ui-module proveedores` (ver resumen abajo) |
+| Seguridad | `Index` (Usuarios, Roles, Permisos de Rol, Auditoría), `RolDetails`, `EditUsuario`, modales de usuarios/roles/permisos | ◐ Refactor aplicado y validado (2026-09-30); cierre formal pendiente | `/ui-module seguridad` (ver resumen abajo) |
 | Caja | `Index`, `Create`/`Edit` (página + panel lateral), `Abrir`, `RegistrarMovimiento`, `Cerrar`, `DetallesApertura`, `DetallesCierre`, `Historial` | ✅ Cerrado (2026-09-25) | cierre de módulo `/ui-module caja` (ver resumen abajo) |
 
 Leyenda:
@@ -126,6 +127,15 @@ Resumen no cronológico de lo que quedó implementado:
   focalizados (VentaDetails*, VentaEnvioUi*) verdes; 1440/390 sin overflow. Fuera de
   alcance: título duplicado topbar+h1 (patrón global); `.venta-info-pill` en
   `venta-module.css` quedó sin uso.
+- Cotizador · Crédito personal desde "Mi Venta" (2026-09-26): la excepción documental ahora deja
+  el crédito como alternativa elegida (antes una selección previa la pisaba) y "Continuar con
+  excepción"/crédito elegido abre el modal `#modal-confirmar-credito` (fecha de 1ª cuota →
+  generar contrato → confirmar) sobre `Credito/ConfigurarVenta`, `ContratoVentaCredito/Generar` y
+  `Venta/Confirmar`, sin pasar por el wizard. La conversión devuelve `creditoId` y crea el crédito
+  pendiente con excepción autorizada. Verificado en vivo 1440 (flujo completo hasta venta
+  confirmada) y 390 (sin overflow); 70/70 `CotizacionConversionServiceTests`. No validado:
+  Venta/Confirmar con caja cerrada desde el modal, autorización pendiente sin excepción (sólo
+  mensaje + link al wizard), 768/1024.
 - `/ui-module ventas`, recorrido completo del módulo (2026-09-24; 360 cargas = 12 pantallas
   × 10 ventas × 5 viewports, 0 errores HTTP/consola/overflow; gates de estado por
   redirección verificados). Correcciones: (1) Facturar: `z-80` no existe en el Tailwind
@@ -604,6 +614,33 @@ estilos de impresión dedicada para el módulo.
   `VentaControllerEditEnvioModelStateTests.cs` nuevo) — no tocado.
 
 ## Cotización / Simular — cerrado
+
+### Venta en efectivo con contacto libre (2026-09-26)
+
+- Alcance solicitado: DNI en el contacto libre del cotizador integrado en Venta. Nombre,
+  DNI de 7–8 dígitos y teléfono completos permiten confirmar únicamente en efectivo. La
+  regla se valida en preflight, conversión y VentaService; no se crea ni se vincula un
+  cliente por coincidencia de DNI. Los otros medios siguen requiriendo cliente registrado.
+- La venta conserva los tres datos con ClienteId nullable. Listado/detalle, comprobante,
+  referencias de stock, reportes y conciliación de caja usan ese nombre cuando no hay
+  cliente registrado. Confirmación y cobro reutilizan los servicios y transacciones existentes.
+- DNI visible con label y teclado numérico; resumen final con nombre, DNI y teléfono.
+  Campos en una fila en escritorio y apilados con altura de 40px en tablet/teléfono.
+- Reapertura visual acotada (2026-09-27): para usuario con baja visión, "Datos de
+  contacto libres" pasa a subtítulo visible; labels, nombres y "Condiciones de
+  cotización" suben contraste/peso. Placeholder de DNI acortado a "Sin puntos" para
+  evitar recorte en desktop angosto.
+- Técnica ✅ / visual ✅ / flujo UX ✅ para este alcance: build Release, pruebas focalizadas
+  de conversión, persistencia, caja, crédito, mapeos, comprobantes y stock. Caso de integración
+  HTTP con servicios reales: factura + stock + un único cobro, sin alta de cliente aunque
+  ya exista su DNI; rechaza datos incompletos y los cinco medios distintos de efectivo.
+- Playwright propio (MCP ocupado), Razor real y SQLite aislado: 1440×900, 1280×720,
+  768×1024, 390×844 y 360×800; captura e inspección visual, foco/Tab, estado vacío/completo,
+  bloqueo por datos incompletos y transferencia, confirmación y presencia en caja.
+  Sin overflow de página, errores JavaScript ni respuestas 5xx. Evidencia local en
+  `artifacts/venta-contacto-qa/`. No se agregaron ventas de prueba a la base de uso.
+- Migración `AddVentaContactoLibre`: columnas nuevas y FK opcional; conserva registros
+  anteriores. Su reversión se bloquea si hay ventas sin cliente para evitar perder identidad.
 
 Parcial compartido `_CotizadorForm.cshtml` (pantalla completa en `Cotizacion/Index_tw` y
 embebido en la pestaña Cotizar de `Venta/Create`). Serie COTIZACION-SIMULAR-REDESIGN,
@@ -1400,6 +1437,51 @@ confirmada real ($180.758,90 + $1.000,00 → Caja +$181.758,90) y venta legacy c
 "informativo" que ahora figura con $1.000,00 pendiente. *Responsive*: 7 viewports (1920×1080 a
 360×800) × Cotizador, Revisión, Details, Caja Resumen/Ventas y modal Facturar, 0 overflow.
 
+### Envíos (Ciudad/Rural) y armados (N.º 1–6) con precio global (VENTA-SERVICIOS-01)
+
+**Reemplaza** la regla de VENTA-ENVIO-TOTAL-01 para las ventas nuevas: envío y armados ahora forman
+parte de `Venta.Total` (y, por eso, reciben el recargo del medio de pago, se facturan y entran al
+crédito). Todo opcional, precios fijos administrados en **Configuración de pagos → Envíos y armados**
+(`ServiciosVenta/Index`, permisos `configuracion:view/update`, tabla `ServiciosVentaPrecios`, 8 servicios
+sin fila = precio 0). La venta congela un snapshot del precio (`VentaEnvio.CostoEnvio`,
+`VentaDetalle.ArmadoPrecioUnitario`); el precio que llegue del cliente se ignora.
+
+- Wizard: paso Productos con select "Armado" por línea (Sin armado · Caja cerrada · N.º 1–6; 5 y 6
+  domiciliarios; se cobra por unidad y muestra `cant × precio`); paso Envío con select "Tipo de envío"
+  (reemplaza al costo libre); Revisión y Details desglosan Productos / Armados (con cantidades) / Envío /
+  Recargo por forma de pago / Total. El preview (`CalcularTotalesVenta`) devuelve `totalProductos`,
+  `totalArmados`, `importeEnvio` y el recargo del plan se calcula sobre el conjunto.
+- Comprobante/Facturar: armados y envío salen como líneas propias y en el resumen de alícuotas
+  (alícuota general del sistema); `Factura.Total` = `Venta.Total`.
+- Compatibilidad: envíos previos (`IncluidoEnTotal = false`) se siguen cobrando aparte (`TotalACobrar`)
+  y sus pantallas no cambian; al editarlos hay que elegir un tipo de envío.
+- Fix incluido: `recalcularTotales` ignora respuestas desactualizadas (carrera al cargar Edit).
+- **Cotizador (mismo lote, segunda parte):** el Simular usa los mismos precios globales. Select "Armado"
+  por línea de producto; el modal de envío reemplaza "Costo de envío" por "Tipo de envío" (Ciudad/Rural,
+  con su precio); la franja de totales suma **Armados** y `Total a cobrar` = `totalBase`, que ya incluye
+  armados + envío, así que **el recargo del plan los alcanza** (igual que Venta). `CotizacionPagoCalculator`
+  resuelve los precios server-side (`TotalProductos/TotalArmados/ImporteEnvio` en el resultado);
+  `Cotizacion` guarda `TipoEnvio`, `ImporteArmados`, `EnvioIncluidoEnTotal` (false = cotización anterior,
+  envío aparte) y `CotizacionDetalle` el snapshot del armado. "Pasar a venta" crea la Venta con armados por
+  línea y `VentaEnvio` (`TipoEnvio`, `IncluidoEnTotal = true`), `Venta.Total` con servicios; Detalles y PDF de
+  la cotización muestran Armados/Envío. Migración `AddServiciosCotizacion`.
+- **Edit de una venta con tarjeta:** ahora rehidrata tarjeta y plan guardados (el servidor emite la tarjeta
+  elegida y el `hdn` del plan; `venta-create.js` recuerda el plan y lo reaplica cuando se dibujan los
+  planes), por lo que el preview del wizard coincide con el total guardado (antes omitía el recargo).
+
+**Validación:** 17 tests nuevos (`VentaServiciosEnvioArmadoTests`) + contrato UI; QA real con instancia
+propia sobre clon de la base (admin de precios, Create con armado + envío + tarjeta 3 cuotas, Details,
+Edit, confirmar → Caja, facturar → comprobante) en 1440/1280/1024/768/390/360 sin overflow.
+Cotizador validado en vivo sobre otro clon: armado N.º 3 + envío Rural → total base 270.060 (256.060 + 5.000 +
+9.000), guardado, Detalles, "Pasar a venta" → Venta con total 270.060 y Edit hidratado (armado y tipo de
+envío), 1440 y 390 sin overflow; Edit de venta con tarjeta 3 cuotas → recargo 52.212, total 574.332 igual al
+guardado. `impeccable critique` ejecutado (dual-agent, 24/40; snapshot en `.impeccable/critique/`) y sus P1/P2
+aplicados: envío del Cotizador pasa a una fila visible bajo el carrito (antes dentro de "Condiciones"), el aviso
+del topbar se oculta con un modal abierto y "Crédito personal…" lleva tildes, select de Armado alineado a la
+izquierda con "sin costo" en vez de "$0" y "Caja cerrada · entrega sin armar" (Cotizador y wizard), Revisión con
+un solo libro (Productos/Armados/Envío/Recargo/Total) y "Detalle de IVA" plegado cuando hay servicios. QA en vivo
+1440/390 sin overflow. Falta `impeccable polish` formal (lo lanza el usuario): estado REQUIERE AJUSTE solo por eso.
+
 ## Cliente / Nuevo cliente (drawer Create) — cerrado
 
 Alcance estrictamente acotado al drawer de alta (`data-cliente-wizard="create"`, dentro
@@ -1943,6 +2025,32 @@ todo el ERP.
 
 ## Caja — cierre de módulo `/ui-module caja` (2026-09-25, sin commit)
 
+### Corrección acotada: acción de turno abierto (2026-09-26)
+
+- En `Caja/Index`, las acciones de cajas en uso ya no muestran el atajo "Ver arriba"
+  hacia `#cajas-abiertas`; ahora enlazan directo a `DetallesApertura` como "Ver turno"
+  en tabla desktop y card mobile. Sin cambios de permisos, reglas de caja, saldos ni JS.
+- Validado en vivo en la instancia local `:18787` con usuario local de prueba:
+  1440×900, 1280×720, 768×1024, 390×844 y 360×800; 0 textos "Ver arriba", enlaces a
+  `/Caja/DetallesApertura/{id}`, sin overflow horizontal y sin errores/warnings de consola.
+
+### Corrección acotada: desglose de servicios (2026-09-26)
+
+- Detalle de turno y cierre, pestaña Ventas: bajo Total se muestran Productos, Armados y Envío
+  desde los snapshots guardados. Los servicios elegidos a precio cero también aparecen. La
+  diferencia por forma de pago/redondeo queda explícita y el desglose suma el total cobrado.
+- Conserva envíos anteriores cobrados aparte y ventas sin servicios; no modifica movimientos,
+  saldos, precios, cobros ni reglas de negocio. Se excluyen detalles eliminados del desglose.
+- Técnica ✅ / visual ✅ / flujo ✅ para este alcance. Pruebas focalizadas de conciliación,
+  servicios y compatibilidad; QA con Razor real + SQLite aislado (factory de pruebas), datos
+  con/sin servicios, gratuitos, recargo/descuento, envío anterior y estado vacío. Playwright
+  en 1440×900, 1280×720, 768×1024, 390×844 y 360×800: sin overflow ni conceptos recortados;
+  filtros y teclado comprobados, consola sin errores. Para la navegación del fixture se sirvió
+  la respuesta HTTP real del servidor de pruebas mediante Playwright (la navegación directa
+  del usuario de test redirige al login). Capturas en `artifacts/caja-desglose-qa/`.
+- La instancia de desarrollo ya abierta no se reinició: necesita recompilar/reiniciar para
+  cargar los cambios. La validación usa Release porque el proceso existente bloquea Debug.
+
 Barrido de todas las superficies (Index con turnos vencidos, panel lateral Nueva/Editar, Create/Edit de página completa, eliminar con confirmación, Abrir, Registrar movimiento, Cerrar, Detalle de turno con sus 5 pestañas, Detalle de cierre, Historial con datos, filtros abiertos y estado vacío) en 1440×900, 1280×720, 768×1024, 390×844 y 360×800: 0 overflow, 0 errores de consola, 0 requests fallidos. QA en una copia de la base (`TheBuryProjectDb_caja_qa`, instancia :5199, ya eliminadas) con flujos de escritura reales: abrir turno, ingreso, egreso, cierre con sobrante y justificación obligatoria, alta y baja de caja.
 
 Hallazgos corregidos (sin cambiar reglas de negocio, permisos ni contratos):
@@ -2193,6 +2301,73 @@ con el de Cambiar estado).
 - *NO validado:* rol sin permiso `receive` (el panel se muestra igual y el POST lo rechaza el servidor,
   mismo comportamiento que el botón previo); orden con varios productos.
 
+## Seguridad — `/ui-module seguridad` (2026-09-30, sin commit) — REQUIERE AJUSTE (cierre formal pendiente)
+
+Pipeline completo sobre `Seguridad/Index` (4 pestañas), `RolDetails`, `EditUsuario`, `/Seguridad/Auditoria`
+(legacy) y los modales inyectados. QA real en una instancia propia (:5199) sobre un clon de la LocalDB
+(la app del usuario tenía C# viejo y el Razor WIP, por eso daba 500 en Permisos de Rol).
+
+**Hallazgos reales (medidos en el render, no inferidos):**
+
+- Usuarios: 6 acciones apiladas en una columna de 101px → filas de 295px y columna Acciones cortada.
+  Ahora filas de ~65–91px, acciones en una fila (desktop) o 2 filas de 2rem (contenedor angosto), columna
+  fija a la derecha; Nombre completo + Email + Sucursal pasan a la celda del usuario.
+- Las pestañas saltaban de posición según la pestaña (y=195/195/323/305) y en mobile quedaban bajo el
+  fold; "Nuevo usuario"/"Nuevo rol" quedaban fuera de pantalla dentro del scroll de pestañas. Ahora un
+  único `_SeguridadTabNav` (nav + `aria-current`) en la primera fila del card y la acción primaria en la
+  toolbar (primera en mobile). Reemplaza 4 copias del markup y el header hero de `Auditoria_tw`.
+- Permisos de Rol: cambiar de rol o salir descartaba ediciones sin aviso y "Guardar" estaba solo arriba de
+  una matriz de 32 módulos → barra de guardado fija con conteo, Descartar, confirmación al cambiar de rol
+  y `beforeunload`. "Cargar matriz" (verde, competía con Guardar) queda solo como fallback sin JS.
+- Auditoría: paginación falsa (botones disabled + "1") sobre una consulta sin tope → paginación real
+  server-side (25 por página, filtros en la URL, página fuera de rango clampeada); el mismo total
+  aparecía 5 veces → uno solo; `ConsultarEventosAsync` acepta `skip`/`take` opcionales y devuelve
+  `TotalRegistros` (compatible: sin `take` devuelve todo). `/Seguridad/Auditoria` redirige a la pestaña.
+- Botones sin permiso (Nuevo usuario, Editar, Desactivar, Contraseña, Eliminar, Guardar/Copiar permisos)
+  llevaban a 403 → se resuelven en el servidor por permiso de cada acción; pestañas según
+  `TabPermissions`; matriz de solo lectura con motivo si falta `roles.assignpermissions`.
+- "Último acceso" decía "Nunca" para todos porque `UltimoAcceso` no se escribe en ningún flujo de login:
+  la columna aparece solo si algún usuario tiene dato.
+- Acciones en lote Desactivar/Bloquear y Desactivar rol sin confirmación → confirman con la cantidad de
+  usuarios afectados.
+- RolDetails/EditUsuario: eyebrow repetido, tiles de relleno ("Cobertura RBAC", "Contacto OK", copy que
+  se repetía por cada rol) retirados.
+- Verificado y descartado: los modales sí tienen `role="dialog"`/`aria-modal`, foco inicial y retorno de
+  foco (mecanismo global).
+
+**Superficies y viewports.** Validadas en 1440x900, 1280x720, 1024x720, 768x1024, 390x844 y 360x800 (sin
+overflow horizontal, 0 errores de consola): Usuarios, Roles, Permisos de Rol (sin rol, con rol, cambios
+sin guardar, comparación, solo lectura), Auditoría (datos, paginación, vacío), RolDetails, EditUsuario,
+redirect de `/Seguridad/Auditoria`, modales Crear/Editar/Duplicar rol, Copiar permisos, Crear usuario,
+Bloquear, Contraseña, Acción masiva, y roles restringidos (`administrador` sin `*.delete`; `contador`
+solo con `roles.view`). Acciones reales ejecutadas solo en el clon (editar/duplicar/desactivar/eliminar rol,
+bloquear/desbloquear usuario, editar usuario, guardar permisos).
+
+**Tests.** 5 nuevos de paginación en `SeguridadAuditoriaServiceTests` + 2 de redirect en
+`SeguridadControllerAuditoriaRedirectTests`; 22/22 verdes. Barrido focalizado
+(Seguridad/Usuario/Rol/Contract/Layout/Ui): 1569/1571, los 2 rojos son de Cotización
+(`Layout_TieneAccesoSeparadoACotizacion` por el WIP de `_Layout.cshtml`, y
+`ClienteSeleccionado_NombreSinDniDuplicado`), ajenos a este módulo.
+
+**Gates (actualizado 2026-09-30).** `impeccable critique` re-ejecutado en modo dual-agent (A: revisión de
+diseño, B: detector + overlay en navegador): 27/40, 0 P0/P1; snapshot en `.impeccable/critique/`. Detector CLI
+0 hallazgos; overlay con anti-patrones mayormente de CSS/layout global (animación de propiedades de layout,
+sombras) y un salto de heading h3→h5 en el modal de confirmación compartido (`_ConfirmModal.cshtml`, fuera de
+alcance). Corregido tras el critique: "Último acceso" truncado (ahora columna secundaria + línea inline en
+contenedor angosto, sin overflow en 1440–360). Abiertos (P2/P3, sin tocar): acciones por fila solo con ícono
+(6), Bloquear vs Desactivar sin explicación, EditUsuario plano, búsqueda después del CTA en mobile.
+
+**Bug real hallado al validar RowVersion.** `EditUsuario` pisaba cambios ajenos (último guardado ganaba):
+`UsuarioService.UpdateUsuarioAsync` ahora compara el `RowVersion` de forma explícita y devuelve conflicto;
+2 tests nuevos. Verificado en navegador (dos pestañas: la vieja recibe "El usuario fue modificado por otro
+usuario…", recargar y guardar funciona). Nota: registrar `UltimoAcceso` en el login también mueve el
+`RowVersion`, así que editar a un usuario que inicia sesión mientras tanto da conflicto (correcto).
+
+**Sin validar / deuda.** Error de carga del Index (no reproducible de forma segura).
+`UltimoAcceso` se registra en el login (`Login.cshtml.cs`, best-effort); `ToggleRolActivo` rechaza desactivar
+SuperAdmin o un rol propio del usuario actual; la pestaña Permisos de Rol contiene WIP ajeno ("Comparar
+roles", sin tests ni commit) que se preservó sin tocar su lógica.
+
 ## Regla para mantener estos documentos
 
 Al cerrar una pantalla:
@@ -2244,7 +2419,7 @@ Al cerrar una pantalla:
 - **Sin tarjetas anidadas:** las secciones ya no son una tarjeta con icono grande; el encabezado es título + una línea + acción.
 - **Recargos y cuotas:** los tres avisos redundantes (planes activos ×2, fallback) y el párrafo de 5 líneas pasaron a un único estado + dos `<details>` ("Cómo se aplican estos valores", "Cómo se calcula el recargo de un plan"); los planes son filas tipo tabla con una sola cabecera de columnas (Plan | Recargo total | Cuotas sin recargo) en vez de tarjetas con la etiqueta repetida; en <1024px se apilan.
 - **Perfiles:** los acordeones `<details>` pasaron a filas tipo tabla (Nombre | Tasa | Gastos | Mín. | Máx. | Orden | Estado + descripción) con cabecera única en >=1280px, grilla de 6 columnas entre 640 y 1279px y apilado en mobile; todos los campos quedan editables sin expandir. Nombres de inputs y binding intactos (crear, editar y activar/desactivar perfil verificados con persistencia real en un clon de la BD, ya eliminado).
-- **Límites por puntaje:** 3 columnas en xl, sin insignia numérica duplicada. **Perfiles/Resumen/Punitorios:** solo encabezado y tildes ("crédito", "descripción", "Límite").
+- **Límites por puntaje:** filas tipo tabla (Puntaje | Límite | Equivale a | Estado) con cabecera única en >=1024px, apiladas en mobile; persistencia (monto y activo) verificada en clon. **Punitorios:** formulario de nueva versión en una fila de 4 campos (vigencia, porcentaje, período, gracia) con "Activa" y la regla fija de prorrateo como texto; tildes corregidas; historial y e2e intactos (14/14).
 - **Barra de guardado:** sólida, no se muestra en Resumen (solo lectura) ni en Punitorios (form propio), en <1024px baja al borde y en mobile solo botones.
 - **Contrato de test actualizado deliberadamente:** `ConfiguracionPagoGlobalAdminViewTests` pedía el texto del breadcrumb "Configuracion global de pagos"; ahora pide el h1 "Configuración de pagos".
 - **Medios de pago (misma tarea):** el desfase de ~20px entre pestañas era preexistente (`.payments-page` con `padding: 1.25rem` y shell de 1240px ya en HEAD); se alineó el shell de Medios de pago con el de Crédito personal (mismas x/y de cabecera en los 6 viewports, 0 overflow, 0 clipping).

@@ -40,7 +40,7 @@ namespace TheBuryProject.Services
                         v.Id,
                         v.Numero,
                         v.ClienteId,
-                        v.Cliente != null ? v.Cliente.Nombre : null,
+                        v.Cliente != null ? v.Cliente.Nombre : v.NombreClienteLibre,
                         v.Cliente != null ? v.Cliente.Apellido : null,
                         v.TipoPago,
                         v.Credito != null ? (int?)v.Credito.CantidadCuotas : null))
@@ -151,7 +151,7 @@ namespace TheBuryProject.Services
         private sealed record VentaRef(
             int Id,
             string Numero,
-            int ClienteId,
+            int? ClienteId,
             string? Nombre,
             string? Apellido,
             TipoPago TipoPago,
