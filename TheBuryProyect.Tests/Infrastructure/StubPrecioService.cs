@@ -53,6 +53,10 @@ public sealed class StubPrecioService : IPrecioService
     public Task<ResultadoAplicacionPrecios> AplicarCambioPrecioDirectoAsync(AplicarCambioPrecioDirectoViewModel model)
         => throw new NotImplementedException();
 
+    public Task<List<FilaSimulacionPrecio>> SimularCambioPrecioBaseAsync(string? tipoCambio, decimal valor, string? redondeo,
+        List<int>? categoriaIds = null, List<int>? marcaIds = null, List<int>? productoIds = null)
+        => Task.FromResult(new List<FilaSimulacionPrecio>());
+
     public Task<List<CambioPrecioEvento>> GetCambioPrecioEventosAsync(int take = 200)
         => Task.FromResult(new List<CambioPrecioEvento>());
 

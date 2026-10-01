@@ -225,6 +225,32 @@ namespace TheBuryProject.Services
                 "Simulando cambio de precios: {Nombre}, Tipo: {TipoCambio}, Valor: {Valor}",
                 solicitud.Nombre, solicitud.TipoCambio, solicitud.Valor);
 
+            // Sin listas de precios elegidas (lo que envía el modal del catálogo) el ajuste opera sobre el
+            // precio base del producto. Antes el filtro por lista vacía descartaba todo y la vista previa
+            // siempre daba 0 productos, sin importar el alcance (seleccionados, categoría, marca o todos).
+            if (solicitud.ListasIds == null || solicitud.ListasIds.Count == 0)
+            {
+                var filasBase = await _precioService.SimularCambioPrecioBaseAsync(
+                    solicitud.TipoCambio,
+                    solicitud.Valor,
+                    solicitud.Redondeo,
+                    solicitud.CategoriasIds?.ToList(),
+                    solicitud.MarcasIds?.ToList(),
+                    solicitud.ProductosIds?.ToList());
+
+                return new ResultadoSimulacionPrecios
+                {
+                    BatchId = 0,
+                    EsPrecioBase = true,
+                    Nombre = solicitud.Nombre,
+                    TipoCambio = solicitud.TipoCambio,
+                    Valor = solicitud.Valor,
+                    Filas = filasBase,
+                    RequiereAutorizacion = false,
+                    RowVersion = string.Empty
+                };
+            }
+
             // Determinar tipo de aplicación según el valor (positivo = aumento, negativo = disminución)
             var tipoAplicacion = solicitud.Valor >= 0
                 ? TipoAplicacion.Aumento
@@ -366,7 +392,7 @@ namespace TheBuryProject.Services
             {
                 "porcentaje" or "porcentajesobreprecioactual" => TipoCambio.PorcentajeSobrePrecioActual,
                 "porcentajecosto" or "porcentajesobrecosto" => TipoCambio.PorcentajeSobreCosto,
-                "absoluto" or "valorabsoluto" => TipoCambio.ValorAbsoluto,
+                "absoluto" or "valorabsoluto" or "montofijo" or "monto" =>TipoCambio.ValorAbsoluto,
                 "directo" or "asignaciondirecta" => TipoCambio.AsignacionDirecta,
                 _ => TipoCambio.PorcentajeSobrePrecioActual // Default
             };

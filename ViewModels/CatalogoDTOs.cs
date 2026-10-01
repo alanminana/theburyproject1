@@ -392,6 +392,12 @@ namespace TheBuryProject.ViewModels
         /// IDs específicos de productos (vacío = usar categorías/marcas)
         /// </summary>
         public List<int> ProductosIds { get; set; } = new();
+
+        /// <summary>
+        /// Redondeo del precio nuevo: "none" (predeterminado), "entero" o "99".
+        /// Solo aplica al modo precio base (ListasIds vacío).
+        /// </summary>
+        public string? Redondeo { get; set; }
     }
 
     /// <summary>
@@ -471,6 +477,12 @@ namespace TheBuryProject.ViewModels
         /// ID del batch generado (para aplicar después)
         /// </summary>
         public int BatchId { get; set; }
+
+        /// <summary>
+        /// true cuando la simulación se calculó sobre el precio base del producto
+        /// (sin listas de precios): no hay batch, se aplica con AplicarCambioPrecioDirecto.
+        /// </summary>
+        public bool EsPrecioBase { get; set; }
 
         /// <summary>
         /// Nombre del cambio

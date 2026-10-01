@@ -132,6 +132,19 @@ public interface IPrecioService
     // ============================================
 
     /// <summary>
+    /// Vista previa (sin persistir) de un cambio masivo sobre el precio base de los productos
+    /// (Producto.PrecioVenta), para catálogos sin listas de precios. Se aplica con
+    /// <see cref="AplicarCambioPrecioDirectoAsync"/>.
+    /// </summary>
+    Task<List<FilaSimulacionPrecio>> SimularCambioPrecioBaseAsync(
+        string? tipoCambio,
+        decimal valor,
+        string? redondeo,
+        List<int>? categoriaIds = null,
+        List<int>? marcaIds = null,
+        List<int>? productoIds = null);
+
+    /// <summary>
     /// Simula un cambio masivo de precios y retorna el batch en estado Simulado
     /// </summary>
     /// <param name="nombre">Nombre descriptivo del cambio</param>

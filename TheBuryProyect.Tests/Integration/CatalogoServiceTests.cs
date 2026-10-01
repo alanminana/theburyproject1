@@ -527,6 +527,67 @@ public class CatalogoServiceTests : IDisposable
         Assert.Single(resultado.Filas);
         Assert.Equal(180m, resultado.Filas[0].PrecioNuevo); // 200 * 0.9
     }
+
+    // Regresión ticket #26: el modal del catálogo envía ListasIds vacío. Antes el filtro por lista vacía
+    // descartaba todo y la vista previa daba "0 productos" con cualquier alcance.
+    [Fact]
+    public async Task SimularCambios_SinListas_Seleccionados_UsaPrecioBase()
+    {
+        var p1 = await SeedProductoAsync(precioVenta: 100m);
+        var p2 = await SeedProductoAsync(precioVenta: 200m);
+        await SeedProductoAsync(precioVenta: 999m); // no seleccionado
+
+        var resultado = await _service.SimularCambioPreciosAsync(new SolicitudSimulacionPrecios
+        {
+            Nombre = "Sin listas",
+            TipoCambio = "Porcentaje",
+            Valor = 10m,
+            ProductosIds = new List<int> { p1.Id, p2.Id }
+        });
+
+        Assert.True(resultado.EsPrecioBase);
+        Assert.Equal(2, resultado.Filas.Count);
+        Assert.Equal(110m, resultado.Filas.Single(f => f.ProductoId == p1.Id).PrecioNuevo);
+        Assert.Equal(220m, resultado.Filas.Single(f => f.ProductoId == p2.Id).PrecioNuevo);
+    }
+
+    [Fact]
+    public async Task SimularCambios_SinListas_PorCategoriaYMarca_FiltraPorAlcance()
+    {
+        var enAmbas = await SeedProductoAsync(precioVenta: 100m);
+        var otro = await SeedProductoAsync(precioVenta: 100m);
+
+        var porCategoria = await _service.SimularCambioPreciosAsync(new SolicitudSimulacionPrecios
+        {
+            TipoCambio = "Porcentaje", Valor = 10m, CategoriasIds = new List<int> { enAmbas.CategoriaId }
+        });
+        var porMarca = await _service.SimularCambioPreciosAsync(new SolicitudSimulacionPrecios
+        {
+            TipoCambio = "Porcentaje", Valor = 10m, MarcasIds = new List<int> { enAmbas.MarcaId }
+        });
+        var todos = await _service.SimularCambioPreciosAsync(new SolicitudSimulacionPrecios
+        {
+            TipoCambio = "Porcentaje", Valor = 10m
+        });
+
+        Assert.Equal(enAmbas.Id, Assert.Single(porCategoria.Filas).ProductoId);
+        Assert.Equal(enAmbas.Id, Assert.Single(porMarca.Filas).ProductoId);
+        Assert.Contains(todos.Filas, f => f.ProductoId == otro.Id);
+        Assert.True(todos.Filas.Count >= 2);
+    }
+
+    [Fact]
+    public async Task SimularCambios_SinListas_MontoFijoSumaElMonto()
+    {
+        var prod = await SeedProductoAsync(precioVenta: 100m);
+
+        var resultado = await _service.SimularCambioPreciosAsync(new SolicitudSimulacionPrecios
+        {
+            TipoCambio = "MontoFijo", Valor = 25m, ProductosIds = new List<int> { prod.Id }
+        });
+
+        Assert.Equal(125m, Assert.Single(resultado.Filas).PrecioNuevo);
+    }
 }
 
 file sealed class StubCurrentUserServiceCatalogo : ICurrentUserService
