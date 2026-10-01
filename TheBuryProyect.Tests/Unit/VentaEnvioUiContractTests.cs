@@ -257,6 +257,56 @@ public class VentaEnvioUiContractTests
         Assert.Contains("facturar-resumen-comercial", facturarPagina);
     }
 
+    // -------------------------------------------------------------------------
+    // Ticket #24: productos del envío, reprogramar, historial por mes y timeline
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public void Wizard_PermiteElegirProductosDelEnvio_ConHooksYPostPorLinea()
+    {
+        var view = LeerVista("Venta", "_VentaWizardForm.cshtml");
+        Assert.Contains("id=\"envio-productos-lista\"", view);
+        Assert.Contains("id=\"envio-productos-aviso\"", view);
+        Assert.Contains("enviarADomicilio = d.EnviarADomicilio", view);
+
+        var js = LeerJs("venta-create.js");
+        Assert.Contains("Detalles[${i}].EnviarADomicilio", js);
+        Assert.Contains("data-envio-producto", js);
+    }
+
+    [Fact]
+    public void DetalleVenta_ModalDeEnvioOfreceReprogramarConFechaYJsLaMuestra()
+    {
+        var view = LeerVista("Venta", "Details_tw.cshtml");
+        Assert.Contains("id=\"envio-fecha-programada\"", view);
+        Assert.Contains("name=\"fechaProgramada\"", view);
+        Assert.Contains("Reprogramado (nueva fecha de entrega)", view);
+
+        var js = LeerJs("details-venta.js");
+        Assert.Contains("ESTADO_ENVIO_REPROGRAMADO = '7'", js);
+        Assert.Contains("envio-fecha-bloque", js);
+    }
+
+    [Fact]
+    public void DetalleVenta_HistorialLateralReflejaElEstadoDelEnvio_YLaVentaCanceladaLoCancela()
+    {
+        var view = LeerVista("Venta", "Details_tw.cshtml");
+        Assert.Contains("id=\"venta-timeline-envio\"", view);
+        Assert.Contains("envioCanceladoPorVenta", view);
+        Assert.Contains("tEnvioCanceladoPorVenta", view);
+    }
+
+    [Fact]
+    public void Index_HistorialDeEnviosTieneBuscadorPorMes()
+    {
+        var view = LeerVista("Venta", "Index_tw.cshtml");
+        Assert.Contains("id=\"form-envios-mes\"", view);
+        Assert.Contains("name=\"enviosMes\"", view);
+        Assert.Contains("Mes en curso", view);
+        Assert.Contains("Mes anterior", view);
+        Assert.DoesNotContain("AddDays(-30)", view);
+    }
+
     private static string FindRepoRoot()
     {
         var current = new DirectoryInfo(Directory.GetCurrentDirectory());

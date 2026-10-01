@@ -8,6 +8,7 @@ namespace TheBuryProject.Models.Enums
         EnCamino = 3,       // En tránsito hacia el cliente
         Entregado = 4,      // Entregado al cliente
         Fallido = 5,        // Intento de entrega fallido (requiere MotivoNoEntrega)
-        Cancelado = 6       // Envío cancelado
+        Cancelado = 6,      // Envío cancelado
+        Reprogramado = 7    // Nueva fecha de entrega acordada (sigue pendiente de entrega)
     }
 }

@@ -378,6 +378,9 @@ namespace TheBuryProject.Helpers
                 .ForMember(d => d.Id, o => o.Ignore())
                 .ForMember(d => d.VentaId, o => o.Ignore())
                 .ForMember(d => d.Estado, o => o.Ignore())
+                // Auditoría: sólo lectura en el VM (historial de la venta), nunca se pisa desde el form.
+                .ForMember(d => d.CreatedAt, o => o.Ignore())
+                .ForMember(d => d.UpdatedAt, o => o.Ignore())
                 .ForMember(d => d.NumeroSeguimiento, o => o.Ignore())
                 .ForMember(d => d.FechaDespacho, o => o.Ignore())
                 .ForMember(d => d.FechaEntregaReal, o => o.Ignore())

@@ -40,7 +40,14 @@ namespace TheBuryProject.Services.Interfaces
             int ventaId,
             EstadoEnvio nuevoEstado,
             string? motivo,
-            string? usuario);
+            string? usuario,
+            DateTime? nuevaFechaProgramada = null);
+
+        /// <summary>
+        /// Historial de envíos cerrados (entregados/cancelados, incluida la venta cancelada) cuya
+        /// fecha de cierre cae en el mes indicado. Alimenta el historial del panel Logística.
+        /// </summary>
+        Task<List<VentaEnvio>> GetCerradosPorMesAsync(int anio, int mes);
 
         /// <summary>
         /// True si nuevoEstado es alcanzable desde estadoActual según la máquina de

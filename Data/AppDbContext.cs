@@ -1400,6 +1400,7 @@ namespace TheBuryProject.Data
                 entity.Property(e => e.ArmadoPrecioUnitario).HasPrecision(18, 2).HasDefaultValue(0m);
                 entity.Property(e => e.ArmadoSubtotal).HasPrecision(18, 2).HasDefaultValue(0m);
                 entity.Property(e => e.EntregaCajaCerrada).HasDefaultValue(false);
+                entity.Property(e => e.EnviarADomicilio).HasDefaultValue(true).HasSentinel(true);
                 entity.Property(e => e.PorcentajeIVA)
                     .HasPrecision(5, 2)
                     .HasDefaultValue(0m);
