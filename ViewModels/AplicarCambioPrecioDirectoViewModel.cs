@@ -17,5 +17,11 @@ namespace TheBuryProject.ViewModels
         public int? ListaPrecioId { get; set; } // lista objetivo opcional (si null usa precio base)
 
         public string? Motivo { get; set; } // opcional
+
+        /// <summary>"porcentaje" (predeterminado) o "montofijo": ValorPorcentaje se interpreta como % o como monto $.</summary>
+        public string? TipoCambio { get; set; }
+
+        /// <summary>"none" (predeterminado), "entero" (sin decimales) o "99" (terminar en .99).</summary>
+        public string? Redondeo { get; set; }
     }
 }

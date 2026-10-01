@@ -161,6 +161,10 @@ const PrecioModal = (() => {
         var next = btnNext();
         var apply = btnApply();
 
+        // "Siguiente" trae inline-flex en el markup y le gana a .hidden: se oculta con display inline
+        // para que en la vista previa no queden "Siguiente" y "Aplicar Aumento" juntos.
+        next.style.display = step === 3 ? 'none' : '';
+
         if (step === 1) {
             back.classList.add('hidden');
             back.classList.remove('flex');
@@ -396,7 +400,8 @@ const PrecioModal = (() => {
             listasIds: [],
             categoriasIds: [],
             marcasIds: [],
-            productosIds: []
+            productosIds: [],
+            redondeo: getRedondeo()
         };
 
         if (scope === 'seleccionados') {
@@ -427,7 +432,11 @@ const PrecioModal = (() => {
             renderPreview(data);
             loadingEl.classList.add('hidden');
             loadingEl.classList.remove('flex');
-            btnApply().disabled = false;
+            var hayFilas = Array.isArray(data.filas) && data.filas.length > 0;
+            btnApply().disabled = !hayFilas;
+            if (!hayFilas) {
+                showError('El alcance elegido no tiene productos para ajustar. Volvé al paso 1 y elegí otro alcance.');
+            }
         })
         .catch(function (err) {
             loadingEl.classList.add('hidden');
@@ -442,7 +451,8 @@ const PrecioModal = (() => {
         var detailEl = document.getElementById('precio-preview-detail');
         var moreEl = document.getElementById('precio-preview-more');
         var redondeo = document.querySelector('input[name="precio-redondeo"]:checked');
-        var redondeoVal = redondeo ? redondeo.value : 'none';
+        // En modo precio base el servidor ya devuelve el precio redondeado: no se redondea dos veces.
+        var redondeoVal = data.esPrecioBase ? 'none' : (redondeo ? redondeo.value : 'none');
 
         var filas = data.filas || [];
 
@@ -452,7 +462,7 @@ const PrecioModal = (() => {
         }
         if (detailEl) {
             var tipoLabel = tipoCambio === 'porcentaje' ? data.valor + '%' : '$' + formatMoney(data.valor);
-            detailEl.textContent = describeScope() + ' · ' + data.tipoCambio + ' · ' + tipoLabel + ' · ' + data.nombre;
+            detailEl.textContent = describeScope() + ' · ' + (tipoCambio === 'porcentaje' ? 'Porcentaje' : 'Monto fijo') + ' · ' + tipoLabel + ' · ' + data.nombre;
         }
 
         // Render rows (max 50 in preview)
@@ -493,6 +503,11 @@ const PrecioModal = (() => {
         dispatchScrollRefresh();
     }
 
+    function getRedondeo() {
+        var checked = document.querySelector('input[name="precio-redondeo"]:checked');
+        return checked ? checked.value : 'none';
+    }
+
     function applyRounding(price, mode) {
         if (mode === 'entero') return Math.round(price);
         if (mode === '99') return Math.floor(price) + 0.99;
@@ -526,7 +541,9 @@ const PrecioModal = (() => {
 
     // ─── Apply ─────────────────────────────────────────────────
     function apply() {
-        if (!simulationResult || !simulationResult.batchId) {
+        var esPrecioBase = !!(simulationResult && simulationResult.esPrecioBase);
+        if (!simulationResult || (!esPrecioBase && !simulationResult.batchId)
+            || (esPrecioBase && !(simulationResult.filas && simulationResult.filas.length))) {
             showError('No hay simulación disponible. Vuelva a generar la vista previa.');
             return;
         }
@@ -538,12 +555,29 @@ const PrecioModal = (() => {
 
         var token = document.querySelector('input[name="__RequestVerificationToken"]');
 
-        var solicitud = {
-            batchId: simulationResult.batchId,
-            rowVersion: simulationResult.rowVersion || ''
-        };
+        var url;
+        var solicitud;
+        if (esPrecioBase) {
+            // Precio base (sin listas): se aplica exactamente a los productos de la vista previa,
+            // con el mismo cálculo y redondeo, vía el cambio directo (historial + reversible).
+            url = '/Catalogo/AplicarCambioPrecioDirecto';
+            solicitud = {
+                alcance: 'seleccionados',
+                valorPorcentaje: simulationResult.valor,
+                productoIdsText: simulationResult.filas.map(function (f) { return f.productoId; }).join(','),
+                tipoCambio: tipoCambio === 'porcentaje' ? 'porcentaje' : 'montofijo',
+                redondeo: getRedondeo(),
+                motivo: document.getElementById('precio-motivo').value + ' - ' + describeScope()
+            };
+        } else {
+            url = '/Catalogo/AplicarCambioPrecios';
+            solicitud = {
+                batchId: simulationResult.batchId,
+                rowVersion: simulationResult.rowVersion || ''
+            };
+        }
 
-        fetch('/Catalogo/AplicarCambioPrecios', {
+        fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

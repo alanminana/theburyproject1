@@ -252,6 +252,65 @@ public class PrecioServiceCambioDirectoTests : IDisposable
         var prodBd = await _context.Productos.FirstAsync(p => p.Id == prod.Id);
         Assert.Equal(180m, prodBd.PrecioVenta); // 200 * (1 + (-10/100)) = 200 * 0.9 = 180
     }
+
+    [Theory]
+    [InlineData("porcentaje", 10, "none", 100, 110)]
+    [InlineData("porcentaje", 10, "entero", 103.4, 114)]       // 113.74 -> 114
+    [InlineData("porcentaje", 10, "99", 100, 110.99)]            // 110.00 -> 110.99
+    [InlineData("montofijo", 50, "none", 100, 150)]
+    [InlineData("MontoFijo", 100, "99", 12500, 12600.99)]
+    public void CalcularPrecioBase_AplicaTipoYRedondeo(string tipo, decimal valor, string redondeo, decimal anterior, decimal esperado)
+    {
+        Assert.Equal(esperado, PrecioService.CalcularPrecioBase(anterior, tipo, valor, redondeo));
+    }
+
+    [Fact]
+    public async Task AplicarCambioDirecto_MontoFijoConRedondeo_CoincideConLaVistaPrevia()
+    {
+        var prod = await SeedProductoAsync(precioVenta: 12500m);
+
+        var filas = await _service.SimularCambioPrecioBaseAsync("montofijo", 100m, "99", productoIds: new List<int> { prod.Id });
+        var fila = Assert.Single(filas);
+        Assert.Equal(12600.99m, fila.PrecioNuevo);
+
+        var resultado = await _service.AplicarCambioPrecioDirectoAsync(
+            new AplicarCambioPrecioDirectoViewModel
+            {
+                Alcance = "seleccionados",
+                ValorPorcentaje = 100m,
+                TipoCambio = "montofijo",
+                Redondeo = "99",
+                ProductoIdsText = prod.Id.ToString()
+            });
+
+        Assert.True(resultado.Exitoso);
+        _context.ChangeTracker.Clear();
+        var prodBd = await _context.Productos.FirstAsync(p => p.Id == prod.Id);
+        Assert.Equal(fila.PrecioNuevo, prodBd.PrecioVenta);
+
+        // El evento no guarda "100" como si fuera un porcentaje: guarda el % efectivo.
+        var evento = await _context.CambioPrecioEventos.FirstAsync();
+        Assert.Equal(Math.Round((12600.99m - 12500m) / 12500m * 100m, 2), evento.ValorPorcentaje);
+    }
+
+    [Fact]
+    public async Task SimularCambioPrecioBase_PorMarca_SoloActivosDeEsaMarca()
+    {
+        var a = await SeedProductoAsync(precioVenta: 100m);
+        var b = await SeedProductoAsync(precioVenta: 200m);
+        var inactivo = await SeedProductoAsync(precioVenta: 300m);
+        inactivo.MarcaId = a.MarcaId;
+        inactivo.Activo = false;
+        await _context.SaveChangesAsync();
+
+        var filas = await _service.SimularCambioPrecioBaseAsync("porcentaje", 10m, "none",
+            marcaIds: new List<int> { a.MarcaId });
+
+        var fila = Assert.Single(filas);
+        Assert.Equal(a.Id, fila.ProductoId);
+        Assert.Equal(110m, fila.PrecioNuevo);
+        Assert.DoesNotContain(filas, f => f.ProductoId == b.Id || f.ProductoId == inactivo.Id);
+    }
 }
 
 file sealed class StubCurrentUserServiceCambioDirecto : ICurrentUserService
