@@ -111,3 +111,6 @@ secrets/
 
 # Estado operativo de scripts/deploy/*.sh (lock, release log, current/previous image). Nunca commitear.
 /.deploy-state/
+
+# Binarios de QA local (builds alternativos para correr tests con la app abierta). No commitear.
+/.qa-bin/
