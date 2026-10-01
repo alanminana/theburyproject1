@@ -135,6 +135,36 @@ public class UsuarioServiceUpdateTests : IDisposable
         Assert.Equal("Pérez", updated.Apellido);
     }
 
+    [Fact]
+    public async Task UpdateUsuario_RowVersionVieja_DevuelveConflictoYNoModifica()
+    {
+        var user = await SeedUser("conflicto", "conflicto@test.com");
+
+        var request = BuildRequest(user) with
+        {
+            Nombre = "Pisado",
+            RowVersion = new byte[] { 9, 9, 9, 9, 9, 9, 9, 9 }
+        };
+
+        var result = await _service.UpdateUsuarioAsync(request);
+
+        Assert.False(result.Ok);
+        Assert.True(result.ConcurrencyConflict);
+        _context.ChangeTracker.Clear();
+        var persisted = await _userManager.FindByIdAsync(user.Id);
+        Assert.Equal("Test", persisted!.Nombre);
+    }
+
+    [Fact]
+    public async Task UpdateUsuario_SinRowVersion_DevuelveConflicto()
+    {
+        var user = await SeedUser("sinversion", "sinversion@test.com");
+
+        var result = await _service.UpdateUsuarioAsync(BuildRequest(user) with { RowVersion = null! });
+
+        Assert.True(result.ConcurrencyConflict);
+    }
+
     // -------------------------------------------------------------------------
     // 2. Asigna roles correctamente
     // -------------------------------------------------------------------------

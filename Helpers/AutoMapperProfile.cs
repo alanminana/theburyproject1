@@ -104,6 +104,11 @@ namespace TheBuryProject.Helpers
                 .ForMember(d => d.EstadoNombre, o => o.MapFrom(s => s.Estado.ToString()))
                 .ForMember(d => d.TotalItems, o => o.MapFrom(s => s.Detalles != null ? s.Detalles.Where(d => !d.IsDeleted).Sum(d => d.Cantidad) : 0))
                 .ForMember(d => d.TotalRecibido, o => o.MapFrom(s => s.Detalles != null ? s.Detalles.Where(d => !d.IsDeleted).Sum(d => d.CantidadRecibida) : 0))
+                .ForMember(d => d.MarcasResumen, o => o.MapFrom(s => s.Detalles == null ? null : string.Join(", ", s.Detalles
+                    .Where(d => !d.IsDeleted && d.Producto != null && d.Producto.Marca != null)
+                    .Select(d => d.Producto!.Marca.Nombre.Trim())
+                    .Distinct()
+                    .OrderBy(n => n))))
                 .ForMember(d => d.Detalles, o => o.MapFrom(s => s.Detalles != null ? s.Detalles.Where(d => !d.IsDeleted) : Enumerable.Empty<OrdenCompraDetalle>()));
 
             CreateMap<OrdenCompraViewModel, OrdenCompra>()

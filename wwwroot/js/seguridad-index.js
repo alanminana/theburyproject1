@@ -171,6 +171,7 @@
         });
         if (visibleCount) visibleCount.textContent = visibleRows.length.toString();
         emptyFilterState?.classList.toggle('hidden', visibleRows.length > 0);
+        seguridad.updateFiltersBadge('usuariosFilters', [filterRol, filterSucursal, filterEstado].filter(el => el?.value).length);
         updateBulkBar();
         refreshUsersScrollAffordance();
     }
@@ -473,9 +474,21 @@
         }
         updateBulkBar();
     });
+    // Desactivar/bloquear en lote afectan a varias cuentas de una vez: se pide confirmación con la cantidad.
+    const bulkConfirmMessages = {
+        desactivar: count => `¿Desactivar ${count} ${count === 1 ? 'usuario' : 'usuarios'}? Podés reactivarlos después.`,
+        bloquear: count => `¿Bloquear ${count} ${count === 1 ? 'usuario' : 'usuarios'}? Podés desbloquearlos después.`
+    };
+
     bulkActionButtons.forEach(button => button.addEventListener('click', () => {
         const action = seguridad.getBulkAction(button);
-        if (action) submitBulkAction(action);
+        if (!action) return;
+        const buildMessage = bulkConfirmMessages[action];
+        if (!buildMessage) {
+            submitBulkAction(action);
+            return;
+        }
+        seguridad.confirmAction(buildMessage(getCheckedIds().length), () => submitBulkAction(action));
     }));
     bulkModalButtons.forEach(button => button.addEventListener('click', () => {
         const action = seguridad.getBulkModal(button);

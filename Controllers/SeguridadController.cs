@@ -51,11 +51,14 @@ public class SeguridadController : Controller
         string? roleId = null,
         string? buscarModulo = null,
         string? grupo = null,
+        List<string>? compareIds = null,
+        bool soloDiferencias = true,
         string? usuario = null,
         string? modulo = null,
         string? accion = null,
         DateOnly? desde = null,
-        DateOnly? hasta = null)
+        DateOnly? hasta = null,
+        int pagina = 1)
     {
         var activeTab = ResolvePermittedTab(NormalizeTab(tab));
         if (string.IsNullOrEmpty(activeTab))
@@ -81,10 +84,10 @@ public class SeguridadController : Controller
                 ? await BuildRolesTabViewModelAsync(roles, roleMetadata)
                 : null,
             PermisosRolTab = activeTab == "permisos-rol"
-                ? await BuildPermisosRolViewModelAsync(roleId, buscarModulo, grupo, roles, roleMetadata)
+                ? await BuildPermisosRolViewModelAsync(roleId, buscarModulo, grupo, roles, roleMetadata, compareIds, soloDiferencias)
                 : null,
             AuditoriaTab = activeTab == "auditoria"
-                ? await BuildAuditoriaViewModelAsync(usuario, modulo, accion, desde, hasta)
+                ? await BuildAuditoriaViewModelAsync(usuario, modulo, accion, desde, hasta, pagina)
                 : null
         };
 
@@ -496,6 +499,22 @@ public class SeguridadController : Controller
     {
         try
         {
+            if (!activo)
+            {
+                var rol = await _rolService.GetRoleByIdAsync(id);
+                if (rol?.Name == Roles.SuperAdmin)
+                {
+                    TempData["Error"] = $"El rol '{Roles.SuperAdmin}' no se puede desactivar.";
+                    return RedirectToAction(nameof(Index), new { tab = "roles" });
+                }
+
+                if (rol?.Name != null && await _rolService.UserIsInRoleAsync(_currentUser.GetUserId(), rol.Name))
+                {
+                    TempData["Error"] = $"No podés desactivar el rol '{rol.Name}' porque es uno de tus propios roles.";
+                    return RedirectToAction(nameof(Index), new { tab = "roles" });
+                }
+            }
+
             var roleName = await _rolService.ToggleRoleActivoAsync(id, activo);
             if (roleName == null)
             {
@@ -696,13 +715,15 @@ public class SeguridadController : Controller
 
     [HttpGet]
     [PermisoRequerido(Modulo = "roles", Accion = "view")]
-    public async Task<IActionResult> Auditoria(
+    public IActionResult Auditoria(
         string? usuario,
         string? modulo,
         string? accion,
         DateOnly? desde,
-        DateOnly? hasta)
-        => View("Auditoria_tw", await BuildAuditoriaViewModelAsync(usuario, modulo, accion, desde, hasta));
+        DateOnly? hasta,
+        int pagina = 1)
+        // La auditoría vive como pestaña de Seguridad; esta ruta se conserva para enlaces guardados.
+        => RedirectToAction(nameof(Index), new { tab = "auditoria", usuario, modulo, accion, desde, hasta, pagina });
 
     #endregion
 
@@ -713,9 +734,23 @@ public class SeguridadController : Controller
         string? modulo,
         string? accion,
         DateOnly? desde,
-        DateOnly? hasta)
+        DateOnly? hasta,
+        int pagina)
     {
-        var result = await _seguridadAuditoria.ConsultarEventosAsync(usuario, modulo, accion, desde, hasta);
+        const int tamanoPagina = SeguridadAuditoriaViewModel.TamanoPaginaDefault;
+        pagina = Math.Max(1, pagina);
+
+        var result = await _seguridadAuditoria.ConsultarEventosAsync(
+            usuario, modulo, accion, desde, hasta, (pagina - 1) * tamanoPagina, tamanoPagina);
+
+        // Página fuera de rango (ej. filtros nuevos sobre un enlace viejo): se clampea a la última válida.
+        var ultimaPagina = Math.Max(1, (int)Math.Ceiling(result.TotalRegistros / (double)tamanoPagina));
+        if (pagina > ultimaPagina)
+        {
+            pagina = ultimaPagina;
+            result = await _seguridadAuditoria.ConsultarEventosAsync(
+                usuario, modulo, accion, desde, hasta, (pagina - 1) * tamanoPagina, tamanoPagina);
+        }
 
         return new SeguridadAuditoriaViewModel
         {
@@ -724,6 +759,9 @@ public class SeguridadController : Controller
             AccionSeleccionada = accion,
             Desde = desde,
             Hasta = hasta,
+            Pagina = pagina,
+            TamanoPagina = tamanoPagina,
+            TotalRegistros = result.TotalRegistros,
             Usuarios = result.Usuarios,
             Modulos = result.Modulos,
             Acciones = result.Acciones,
@@ -843,7 +881,9 @@ public class SeguridadController : Controller
         string? buscarModulo,
         string? grupo,
         IReadOnlyCollection<IdentityRole>? roles = null,
-        IReadOnlyDictionary<string, RolMetadata>? roleMetadata = null)
+        IReadOnlyDictionary<string, RolMetadata>? roleMetadata = null,
+        IReadOnlyCollection<string>? compareIds = null,
+        bool soloDiferencias = true)
     {
         var roleList = roles?.ToList() ?? await _rolService.GetAllRolesAsync();
         var metadataLookup = roleMetadata ?? await _rolService.GetAllRoleMetadataAsync();
@@ -893,19 +933,95 @@ public class SeguridadController : Controller
             })
             .ToList();
 
+        var selectorItems = MapRoleSelectorItems(roleList, metadataLookup);
+
+        // Solo ids de roles existentes, sin repetir y en el orden en que se pidieron.
+        var comparedIds = (compareIds ?? [])
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Select(id => id.Trim())
+            .Distinct()
+            .Where(id => selectorItems.Any(r => r.Id == id))
+            .ToList();
+
+        var comparacion = comparedIds.Count >= 2
+            ? await BuildComparacionRolesAsync(comparedIds, selectorItems, modulos)
+            : null;
+
         return new SeguridadPermisosRolViewModel
         {
+            RolesComparadosIds = comparedIds,
+            SoloDiferencias = soloDiferencias,
+            Comparacion = comparacion,
             RolSeleccionadoId = selectedRole?.Id,
             RolSeleccionadoNombre = selectedRole?.Name,
             BuscarModulo = buscarModulo,
             GrupoSeleccionado = grupo,
-            Roles = MapRoleSelectorItems(roleList, metadataLookup),
+            Roles = selectorItems,
             Grupos = gruposModulos
                 .Select(g => g.Nombre)
                 .Distinct()
                 .OrderBy(g => g)
                 .ToList(),
             GruposModulos = gruposModulos
+        };
+    }
+
+    private async Task<SeguridadComparacionRolesViewModel> BuildComparacionRolesAsync(
+        IReadOnlyList<string> roleIds,
+        IReadOnlyList<SeguridadRolSelectorItemViewModel> selectorItems,
+        IReadOnlyCollection<ModuloSistema> modulos)
+    {
+        var columnas = new List<SeguridadComparacionRolColumnaViewModel>();
+        var accionesPorRol = new List<HashSet<int>>();
+
+        foreach (var id in roleIds)
+        {
+            var rol = selectorItems.First(r => r.Id == id);
+            var acciones = (await _rolService.GetPermissionsForRoleAsync(id))
+                .Select(p => p.AccionId)
+                .ToHashSet();
+
+            accionesPorRol.Add(acciones);
+            columnas.Add(new SeguridadComparacionRolColumnaViewModel
+            {
+                Id = rol.Id,
+                Nombre = rol.Nombre,
+                Activo = rol.Activo,
+                TotalPermisos = acciones.Count
+            });
+        }
+
+        var grupos = modulos
+            .OrderBy(m => m.Categoria)
+            .ThenBy(m => m.Orden)
+            .GroupBy(m => string.IsNullOrWhiteSpace(m.Categoria) ? "General" : m.Categoria)
+            .Select(grupo => new SeguridadComparacionGrupoViewModel
+            {
+                Nombre = grupo.Key,
+                Filas = grupo
+                    .SelectMany(modulo => modulo.Acciones
+                        .OrderBy(a => a.Orden)
+                        .Select(accion => new SeguridadComparacionAccionFilaViewModel
+                        {
+                            ModuloNombre = modulo.Nombre,
+                            ModuloClave = modulo.Clave,
+                            AccionNombre = accion.Nombre,
+                            AccionClave = accion.Clave,
+                            TienePermiso = accionesPorRol.Select(set => set.Contains(accion.Id)).ToList()
+                        }))
+                    .ToList()
+            })
+            .Where(g => g.Filas.Count > 0)
+            .ToList();
+
+        var todas = grupos.SelectMany(g => g.Filas).ToList();
+
+        return new SeguridadComparacionRolesViewModel
+        {
+            Roles = columnas,
+            Grupos = grupos,
+            TotalAcciones = todas.Count,
+            TotalDiferencias = todas.Count(f => f.EsDiferente)
         };
     }
 

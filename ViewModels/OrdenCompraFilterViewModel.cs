@@ -12,6 +12,13 @@ namespace TheBuryProject.ViewModels
         [Display(Name = "Proveedor")]
         public int? ProveedorId { get; set; }
 
+        [Display(Name = "Marca")]
+        public int? MarcaId { get; set; }
+
+        [Display(Name = "Producto")]
+        [StringLength(100, ErrorMessage = "El producto no puede tener más de 100 caracteres")]
+        public string? ProductoTerm { get; set; }
+
         [Display(Name = "Estado")]
         public EstadoOrdenCompra? Estado { get; set; }
 

@@ -19,6 +19,7 @@ faltan. Actualizar esta tabla al cerrar cada pantalla.
 | Catálogo | `Inventario` (tab Productos) | ✅ Cerrado | ver resumen abajo |
 | Catálogo | `Inventario` (tab Categorías + modales Nueva/Editar + eliminar) | ✅ Cerrado (2026-09-25) | CATEGORIA-CIERRE-01 (ver resumen abajo) |
 | Proveedor | `Index`, `Details`, drawers Nuevo/Editar, eliminar | ✅ Cerrado (2026-09-25) | cierre de módulo `/ui-module proveedores` (ver resumen abajo) |
+| Seguridad | `Index` (Usuarios, Roles, Permisos de Rol, Auditoría), `RolDetails`, `EditUsuario`, modales de usuarios/roles/permisos | ◐ Refactor aplicado y validado (2026-09-30); cierre formal pendiente | `/ui-module seguridad` (ver resumen abajo) |
 | Caja | `Index`, `Create`/`Edit` (página + panel lateral), `Abrir`, `RegistrarMovimiento`, `Cerrar`, `DetallesApertura`, `DetallesCierre`, `Historial` | ✅ Cerrado (2026-09-25) | cierre de módulo `/ui-module caja` (ver resumen abajo) |
 
 Leyenda:
@@ -2299,6 +2300,73 @@ con el de Cambiar estado).
   recepcionar una orden Recibida; 1440/1024/768/390 sin overflow de página; 41 tests de OrdenCompra verdes.
 - *NO validado:* rol sin permiso `receive` (el panel se muestra igual y el POST lo rechaza el servidor,
   mismo comportamiento que el botón previo); orden con varios productos.
+
+## Seguridad — `/ui-module seguridad` (2026-09-30, sin commit) — REQUIERE AJUSTE (cierre formal pendiente)
+
+Pipeline completo sobre `Seguridad/Index` (4 pestañas), `RolDetails`, `EditUsuario`, `/Seguridad/Auditoria`
+(legacy) y los modales inyectados. QA real en una instancia propia (:5199) sobre un clon de la LocalDB
+(la app del usuario tenía C# viejo y el Razor WIP, por eso daba 500 en Permisos de Rol).
+
+**Hallazgos reales (medidos en el render, no inferidos):**
+
+- Usuarios: 6 acciones apiladas en una columna de 101px → filas de 295px y columna Acciones cortada.
+  Ahora filas de ~65–91px, acciones en una fila (desktop) o 2 filas de 2rem (contenedor angosto), columna
+  fija a la derecha; Nombre completo + Email + Sucursal pasan a la celda del usuario.
+- Las pestañas saltaban de posición según la pestaña (y=195/195/323/305) y en mobile quedaban bajo el
+  fold; "Nuevo usuario"/"Nuevo rol" quedaban fuera de pantalla dentro del scroll de pestañas. Ahora un
+  único `_SeguridadTabNav` (nav + `aria-current`) en la primera fila del card y la acción primaria en la
+  toolbar (primera en mobile). Reemplaza 4 copias del markup y el header hero de `Auditoria_tw`.
+- Permisos de Rol: cambiar de rol o salir descartaba ediciones sin aviso y "Guardar" estaba solo arriba de
+  una matriz de 32 módulos → barra de guardado fija con conteo, Descartar, confirmación al cambiar de rol
+  y `beforeunload`. "Cargar matriz" (verde, competía con Guardar) queda solo como fallback sin JS.
+- Auditoría: paginación falsa (botones disabled + "1") sobre una consulta sin tope → paginación real
+  server-side (25 por página, filtros en la URL, página fuera de rango clampeada); el mismo total
+  aparecía 5 veces → uno solo; `ConsultarEventosAsync` acepta `skip`/`take` opcionales y devuelve
+  `TotalRegistros` (compatible: sin `take` devuelve todo). `/Seguridad/Auditoria` redirige a la pestaña.
+- Botones sin permiso (Nuevo usuario, Editar, Desactivar, Contraseña, Eliminar, Guardar/Copiar permisos)
+  llevaban a 403 → se resuelven en el servidor por permiso de cada acción; pestañas según
+  `TabPermissions`; matriz de solo lectura con motivo si falta `roles.assignpermissions`.
+- "Último acceso" decía "Nunca" para todos porque `UltimoAcceso` no se escribe en ningún flujo de login:
+  la columna aparece solo si algún usuario tiene dato.
+- Acciones en lote Desactivar/Bloquear y Desactivar rol sin confirmación → confirman con la cantidad de
+  usuarios afectados.
+- RolDetails/EditUsuario: eyebrow repetido, tiles de relleno ("Cobertura RBAC", "Contacto OK", copy que
+  se repetía por cada rol) retirados.
+- Verificado y descartado: los modales sí tienen `role="dialog"`/`aria-modal`, foco inicial y retorno de
+  foco (mecanismo global).
+
+**Superficies y viewports.** Validadas en 1440x900, 1280x720, 1024x720, 768x1024, 390x844 y 360x800 (sin
+overflow horizontal, 0 errores de consola): Usuarios, Roles, Permisos de Rol (sin rol, con rol, cambios
+sin guardar, comparación, solo lectura), Auditoría (datos, paginación, vacío), RolDetails, EditUsuario,
+redirect de `/Seguridad/Auditoria`, modales Crear/Editar/Duplicar rol, Copiar permisos, Crear usuario,
+Bloquear, Contraseña, Acción masiva, y roles restringidos (`administrador` sin `*.delete`; `contador`
+solo con `roles.view`). Acciones reales ejecutadas solo en el clon (editar/duplicar/desactivar/eliminar rol,
+bloquear/desbloquear usuario, editar usuario, guardar permisos).
+
+**Tests.** 5 nuevos de paginación en `SeguridadAuditoriaServiceTests` + 2 de redirect en
+`SeguridadControllerAuditoriaRedirectTests`; 22/22 verdes. Barrido focalizado
+(Seguridad/Usuario/Rol/Contract/Layout/Ui): 1569/1571, los 2 rojos son de Cotización
+(`Layout_TieneAccesoSeparadoACotizacion` por el WIP de `_Layout.cshtml`, y
+`ClienteSeleccionado_NombreSinDniDuplicado`), ajenos a este módulo.
+
+**Gates (actualizado 2026-09-30).** `impeccable critique` re-ejecutado en modo dual-agent (A: revisión de
+diseño, B: detector + overlay en navegador): 27/40, 0 P0/P1; snapshot en `.impeccable/critique/`. Detector CLI
+0 hallazgos; overlay con anti-patrones mayormente de CSS/layout global (animación de propiedades de layout,
+sombras) y un salto de heading h3→h5 en el modal de confirmación compartido (`_ConfirmModal.cshtml`, fuera de
+alcance). Corregido tras el critique: "Último acceso" truncado (ahora columna secundaria + línea inline en
+contenedor angosto, sin overflow en 1440–360). Abiertos (P2/P3, sin tocar): acciones por fila solo con ícono
+(6), Bloquear vs Desactivar sin explicación, EditUsuario plano, búsqueda después del CTA en mobile.
+
+**Bug real hallado al validar RowVersion.** `EditUsuario` pisaba cambios ajenos (último guardado ganaba):
+`UsuarioService.UpdateUsuarioAsync` ahora compara el `RowVersion` de forma explícita y devuelve conflicto;
+2 tests nuevos. Verificado en navegador (dos pestañas: la vieja recibe "El usuario fue modificado por otro
+usuario…", recargar y guardar funciona). Nota: registrar `UltimoAcceso` en el login también mueve el
+`RowVersion`, así que editar a un usuario que inicia sesión mientras tanto da conflicto (correcto).
+
+**Sin validar / deuda.** Error de carga del Index (no reproducible de forma segura).
+`UltimoAcceso` se registra en el login (`Login.cshtml.cs`, best-effort); `ToggleRolActivo` rechaza desactivar
+SuperAdmin o un rol propio del usuario actual; la pestaña Permisos de Rol contiene WIP ajeno ("Comparar
+roles", sin tests ni commit) que se preservó sin tocar su lógica.
 
 ## Regla para mantener estos documentos
 

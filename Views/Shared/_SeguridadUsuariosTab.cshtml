@@ -1,6 +1,16 @@
 @model SeguridadUsuariosTabViewModel
 @{
     var currentUrl = Context.Request.Path + Context.Request.QueryString;
+
+    // Cada acción exige su propio permiso en UsuariosController/SeguridadController: sin él, el botón
+    // llevaría a un 403. Se resuelve en el servidor, no con CSS.
+    var canCreate = User.TienePermiso("usuarios", "create");
+    var canUpdate = User.TienePermiso("usuarios", "update");
+    var canDelete = User.TienePermiso("usuarios", "delete");
+    var canResetPassword = User.TienePermiso("usuarios", "resetpassword");
+
+    // UltimoAcceso no se registra en ningún flujo de login: sin datos, la columna diría "Nunca" para todos.
+    var mostrarUltimoAcceso = Model.Usuarios.Any(u => u.UltimoAcceso.HasValue);
 }
 
 <div class="max-w-7xl mx-auto space-y-6">
@@ -26,82 +36,8 @@
         </div>
     }
 
-    <div class="filter-panel-erp">
-        <button type="button"
-                id="btn-toggle-filtros"
-                data-expanded="false"
-                class="flex w-full items-center justify-between gap-3 text-left">
-            <div class="flex items-center gap-3">
-                <span class="material-symbols-outlined text-primary text-[18px]">filter_alt</span>
-                <p class="text-xs font-bold uppercase tracking-[0.18em] text-primary">Búsqueda y filtros</p>
-            </div>
-            <span class="material-symbols-outlined filter-panel-erp__toggle-icon text-slate-400">expand_more</span>
-        </button>
-
-        <div id="filtros-body" class="filter-panel-erp__body" data-hidden="true">
-        <div class="filter-panel-erp__inner">
-            <div class="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-4 pt-4">
-                <div class="md:col-span-2 relative">
-                    <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
-                    <input id="searchUsuarios" type="text"
-                           class="w-full pl-10 pr-4 py-2 bg-slate-800 border-none rounded-lg text-sm focus:ring-2 focus:ring-primary/50 text-white placeholder:text-slate-500"
-                           placeholder="Buscar por nombre, usuario o correo..." />
-                </div>
-
-                <select id="filterRol"
-                        class="bg-slate-800 border-none rounded-lg text-sm px-4 py-2 focus:ring-primary text-white">
-                    <option value="">Todos los roles</option>
-                    @foreach (var rol in Model.AllRoles)
-                    {
-                        <option value="@rol">@rol</option>
-                    }
-                </select>
-
-                <select id="filterSucursal"
-                        class="bg-slate-800 border-none rounded-lg text-sm px-4 py-2 focus:ring-primary text-white">
-                    <option value="">Todas las sucursales</option>
-                    @foreach (var suc in Model.AllSucursales)
-                    {
-                        <option value="@suc.Id">@suc.Nombre</option>
-                    }
-                </select>
-
-                <select id="filterEstado"
-                        class="bg-slate-800 border-none rounded-lg text-sm px-4 py-2 focus:ring-primary text-white">
-                    <option value="">Cualquier estado</option>
-                    <option value="activo">Activo</option>
-                    <option value="inactivo">Inactivo</option>
-                    <option value="bloqueado">Bloqueado</option>
-                    <option value="sin-confirmar">Sin confirmar</option>
-                </select>
-
-                <div class="md:col-span-4 lg:col-span-2 flex flex-wrap items-center justify-end gap-2">
-                    <div class="flex items-center gap-2 flex-1 min-w-[220px] lg:flex-none lg:min-w-[250px]">
-                        <select id="orderBy"
-                                class="flex-1 bg-slate-800 border-none rounded-lg text-sm px-3 py-2 focus:ring-primary text-white">
-                            <option value="username">Usuario</option>
-                            <option value="nombre">Nombre</option>
-                            <option value="email">Email</option>
-                            <option value="rol">Rol</option>
-                            <option value="sucursal">Sucursal</option>
-                            <option value="estado">Estado</option>
-                            <option value="ultimoAcceso">Último acceso</option>
-                        </select>
-                        <button type="button" id="toggleOrderDir"
-                                class="row-action" title="Cambiar dirección">
-                            <span id="orderDirIcon" class="material-symbols-outlined">arrow_upward</span>
-                        </button>
-                        <button type="button" id="clearFilters"
-                                class="row-action" title="Limpiar filtros">
-                            <span class="material-symbols-outlined">filter_list_off</span>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>@* /filter-panel-erp__inner *@
-        </div>
-    </div>
-
+    @if (canUpdate)
+    {
     <div id="bulkBar" class="hidden rounded-2xl border border-primary/20 bg-primary/[0.08] p-4 shadow-sm transition-all">
         <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div class="space-y-1">
@@ -146,21 +82,88 @@
             </button>
         </div>
     </div>
+    }
 
     <div class="bg-slate-900/50 rounded-xl border border-slate-800 overflow-hidden shadow-sm">
-        <nav class="flex items-center overflow-x-auto border-b border-slate-800">
-            <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="usuarios" class="shrink-0 border-b-2 border-primary text-primary bg-primary/10 px-5 py-3 text-sm font-bold no-underline transition-colors">Usuarios</a>
-            <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="roles" class="shrink-0 border-b-2 border-transparent text-slate-400 hover:text-white hover:bg-white/5 px-5 py-3 text-sm font-bold no-underline transition-colors">Roles</a>
-            <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="permisos-rol" class="shrink-0 border-b-2 border-transparent text-slate-400 hover:text-white hover:bg-white/5 px-5 py-3 text-sm font-bold no-underline transition-colors">Permisos de Rol</a>
-            <a asp-controller="Seguridad" asp-action="Index" asp-route-tab="auditoria" class="shrink-0 border-b-2 border-transparent text-slate-400 hover:text-white hover:bg-white/5 px-5 py-3 text-sm font-bold no-underline transition-colors">Auditoría</a>
-            <div class="ml-auto shrink-0 px-3">
-                <button type="button" class="btn-open-create-user btn-erp-primary">
+        <partial name="_SeguridadTabNav" />
+
+        <div class="seg-toolbar" role="search" aria-label="Buscar y filtrar usuarios">
+            <div class="seg-toolbar__search">
+                <span class="material-symbols-outlined" aria-hidden="true">search</span>
+                <input id="searchUsuarios" type="search" autocomplete="off"
+                       aria-label="Buscar usuarios"
+                       class="bg-slate-800 border-none rounded-lg text-sm px-4 py-2 focus:ring-2 focus:ring-primary/50 text-white placeholder:text-slate-500"
+                       placeholder="Buscar por nombre, usuario o correo..." />
+            </div>
+
+            <button type="button" class="seg-toolbar__toggle btn-erp-ghost" data-seg-filters-toggle="usuariosFilters"
+                    aria-expanded="false" aria-controls="usuariosFilters">
+                <span class="material-symbols-outlined text-sm">filter_alt</span>
+                Filtros
+                <span class="seg-toolbar__count" data-seg-filters-count aria-hidden="true"></span>
+            </button>
+
+            @if (canCreate)
+            {
+                <button type="button" class="btn-open-create-user seg-toolbar__cta btn-erp-primary">
                     <span class="material-symbols-outlined text-sm">person_add</span>
                     Nuevo usuario
                 </button>
+            }
+
+            <div id="usuariosFilters" class="seg-toolbar__filters" data-open="false">
+                <select id="filterRol" aria-label="Filtrar por rol"
+                        class="bg-slate-800 border-none rounded-lg text-sm px-4 py-2 focus:ring-primary text-white">
+                    <option value="">Todos los roles</option>
+                    @foreach (var rol in Model.AllRoles)
+                    {
+                        <option value="@rol">@rol</option>
+                    }
+                </select>
+
+                <select id="filterSucursal" aria-label="Filtrar por sucursal"
+                        class="bg-slate-800 border-none rounded-lg text-sm px-4 py-2 focus:ring-primary text-white">
+                    <option value="">Todas las sucursales</option>
+                    @foreach (var suc in Model.AllSucursales)
+                    {
+                        <option value="@suc.Id">@suc.Nombre</option>
+                    }
+                </select>
+
+                <select id="filterEstado" aria-label="Filtrar por estado"
+                        class="bg-slate-800 border-none rounded-lg text-sm px-4 py-2 focus:ring-primary text-white">
+                    <option value="">Cualquier estado</option>
+                    <option value="activo">Activo</option>
+                    <option value="inactivo">Inactivo</option>
+                    <option value="bloqueado">Bloqueado</option>
+                    <option value="sin-confirmar">Sin confirmar</option>
+                </select>
+
+                <select id="orderBy" aria-label="Ordenar por"
+                        class="bg-slate-800 border-none rounded-lg text-sm px-3 py-2 focus:ring-primary text-white">
+                    <option value="username">Ordenar: Usuario</option>
+                    <option value="nombre">Ordenar: Nombre</option>
+                    <option value="email">Ordenar: Email</option>
+                    <option value="rol">Ordenar: Rol</option>
+                    <option value="sucursal">Ordenar: Sucursal</option>
+                    <option value="estado">Ordenar: Estado</option>
+                    @if (mostrarUltimoAcceso)
+                    {
+                        <option value="ultimoAcceso">Ordenar: Último acceso</option>
+                    }
+                </select>
+                <button type="button" id="toggleOrderDir"
+                        class="row-action" title="Cambiar dirección del orden" aria-label="Cambiar dirección del orden">
+                    <span id="orderDirIcon" class="material-symbols-outlined">arrow_upward</span>
+                </button>
+                <button type="button" id="clearFilters"
+                        class="row-action" title="Limpiar filtros" aria-label="Limpiar filtros">
+                    <span class="material-symbols-outlined">filter_list_off</span>
+                </button>
             </div>
-        </nav>
-        <div data-oc-scroll class="relative" style="--oc-scroll-min-width: 1000px;">
+        </div>
+
+        <div data-oc-scroll class="relative" style="--oc-scroll-min-width: 820px;">
             <div data-oc-scroll-hint hidden class="px-4 pt-4 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400 lg:hidden">
                 Deslizá para ver más columnas
             </div>
@@ -168,22 +171,26 @@
                 <div data-oc-scroll-fade="left" hidden class="absolute inset-y-0 left-0 z-10 w-6 bg-gradient-to-r from-slate-900 via-slate-900/95 to-transparent"></div>
                 <div data-oc-scroll-fade="right" hidden class="absolute inset-y-0 right-0 z-10 w-6 bg-gradient-to-l from-slate-900 via-slate-900/95 to-transparent"></div>
                 <div data-oc-scroll-region class="overflow-x-auto scroll-smooth" tabindex="0" role="region" aria-label="Tabla de usuarios del módulo Seguridad">
-            <table data-erp-cards data-oc-scroll-table class="w-full text-left border-collapse" style="min-width: var(--oc-scroll-min-width);">
+            <table data-erp-cards data-oc-scroll-table class="seg-table w-full text-left border-collapse" style="min-width: var(--oc-scroll-min-width);">
                 <thead class="bg-slate-800/50 border-b border-slate-800">
                     <tr>
-                        <th data-card="select" class="px-4 py-4 w-10">
-                            <input type="checkbox" id="selectAll"
-                                   class="size-4 rounded border-slate-600 text-primary focus:ring-primary/50 bg-slate-800"
-                                   aria-label="Seleccionar todos los usuarios" />
-                        </th>
-                        <th data-card="title" class="px-4 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Usuario</th>
-                        <th class="px-4 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Nombre completo</th>
-                        <th class="px-4 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Email</th>
-                        <th class="px-4 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Roles asignados</th>
-                        <th data-card="half" class="px-4 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Sucursal</th>
-                        <th data-card="half" class="px-4 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Estado</th>
-                        <th class="px-4 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Último acceso</th>
-                        <th data-card="actions" class="px-4 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider text-right">Acciones</th>
+                        @if (canUpdate)
+                        {
+                            <th data-card="select" scope="col" class="px-4 py-4 w-10">
+                                <input type="checkbox" id="selectAll"
+                                       class="size-4 rounded border-slate-600 text-primary focus:ring-primary/50 bg-slate-800"
+                                       aria-label="Seleccionar todos los usuarios" />
+                            </th>
+                        }
+                        <th data-card="title" scope="col" class="px-4 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Usuario</th>
+                        <th scope="col" class="px-4 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Roles asignados</th>
+                        <th data-card="half" scope="col" class="seg-col-secondary px-4 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Sucursal</th>
+                        <th data-card="half" scope="col" class="px-4 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Estado</th>
+                        @if (mostrarUltimoAcceso)
+                        {
+                            <th scope="col" class="seg-col-secondary whitespace-nowrap px-4 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Último acceso</th>
+                        }
+                        <th data-card="actions" scope="col" class="seg-col-actions px-4 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider text-right">Acciones</th>
                     </tr>
                 </thead>
                 <tbody id="usuariosTableBody" class="divide-y divide-slate-800">
@@ -225,34 +232,39 @@
                                 data-estado="@statusKey"
                                 data-search="@searchIndex"
                                 data-ultimo-acceso="@(user.UltimoAcceso?.ToString("o") ?? "")">
-                                <td class="px-4 py-3">
-                                    <input type="checkbox" class="row-check size-4 rounded border-slate-600 text-primary focus:ring-primary/50 bg-slate-800"
-                                           value="@user.Id"
-                                           aria-label="Seleccionar @user.UserName" />
-                                </td>
+                                @if (canUpdate)
+                                {
+                                    <td class="px-4 py-3">
+                                        <input type="checkbox" class="row-check size-4 rounded border-slate-600 text-primary focus:ring-primary/50 bg-slate-800"
+                                               value="@user.Id"
+                                               aria-label="Seleccionar @user.UserName" />
+                                    </td>
+                                }
 
-                                <td class="px-4 py-3">
-                                    <div class="flex items-center gap-3">
+                                <td class="seg-user-cell px-4 py-3">
+                                    <div class="flex items-center gap-3 min-w-0">
                                         <div class="size-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-xs font-bold text-primary">
                                             @initials
                                         </div>
-                                        <span class="text-sm font-semibold text-white">@user.UserName</span>
+                                        <div class="min-w-0">
+                                            <p class="text-sm font-semibold text-white truncate">@user.UserName</p>
+                                            @if (!string.IsNullOrEmpty(user.NombreCompleto))
+                                            {
+                                                <p class="text-xs text-slate-300 truncate">@user.NombreCompleto</p>
+                                            }
+                                            <p class="text-xs text-slate-400 truncate">@user.Email</p>
+                                            @if (!string.IsNullOrEmpty(user.Sucursal))
+                                            {
+                                                <p class="seg-inline-secondary text-xs text-slate-500 truncate">@user.Sucursal</p>
+                                            }
+                                            @if (mostrarUltimoAcceso)
+                                            {
+                                                <p class="seg-inline-secondary text-xs text-slate-500">
+                                                    Último acceso: @(user.UltimoAcceso.HasValue ? user.UltimoAcceso.Value.ToString("dd/MM/yy HH:mm") : "sin registro")
+                                                </p>
+                                            }
+                                        </div>
                                     </div>
-                                </td>
-
-                                <td class="px-4 py-3">
-                                    @if (!string.IsNullOrEmpty(user.NombreCompleto))
-                                    {
-                                        <span class="text-sm text-slate-300">@user.NombreCompleto</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="text-xs text-slate-400 italic">—</span>
-                                    }
-                                </td>
-
-                                <td class="px-4 py-3">
-                                    <span class="text-sm text-slate-400">@user.Email</span>
                                 </td>
 
                                 <td class="px-4 py-3">
@@ -284,14 +296,14 @@
                                     }
                                 </td>
 
-                                <td class="px-4 py-3">
+                                <td class="seg-col-secondary px-4 py-3">
                                     @if (!string.IsNullOrEmpty(user.Sucursal))
                                     {
-                                        <span class="text-sm text-slate-400">@user.Sucursal</span>
+                                        <span class="whitespace-nowrap text-sm text-slate-400">@user.Sucursal</span>
                                     }
                                     else
                                     {
-                                        <span class="text-xs text-slate-400 italic">—</span>
+                                        <span class="text-xs text-slate-400 italic">Sin sucursal</span>
                                     }
                                 </td>
 
@@ -308,96 +320,114 @@
                                     </span>
                                 </td>
 
-                                <td class="px-4 py-3">
-                                    @if (user.UltimoAcceso.HasValue)
-                                    {
-                                        <span class="text-sm text-slate-400" title="@user.UltimoAcceso.Value.ToString("dd/MM/yyyy HH:mm")">
-                                            @user.UltimoAcceso.Value.ToString("dd/MM/yy HH:mm")
-                                        </span>
-                                    }
-                                    else
-                                    {
-                                        <span class="text-xs text-slate-400 italic">Nunca</span>
-                                    }
-                                </td>
+                                @if (mostrarUltimoAcceso)
+                                {
+                                    <td class="seg-col-secondary px-4 py-3">
+                                        @if (user.UltimoAcceso.HasValue)
+                                        {
+                                            <span class="whitespace-nowrap text-sm text-slate-400" title="@user.UltimoAcceso.Value.ToString("dd/MM/yyyy HH:mm")">
+                                                @user.UltimoAcceso.Value.ToString("dd/MM/yy HH:mm")
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-xs text-slate-400 italic">Sin registro</span>
+                                        }
+                                    </td>
+                                }
 
-                                <td class="px-4 py-3 text-right">
-                                    <div class="flex flex-wrap items-center justify-end gap-1.5">
+                                <td class="seg-col-actions px-4 py-3 text-right">
+                                    <div class="seg-actions">
                                         <a asp-controller="Usuarios" asp-action="Details" asp-route-id="@user.Id" asp-route-returnUrl="@currentUrl"
                                            class="row-action row-action--primary"
                                            title="Ver detalle">
                                             <span class="material-symbols-outlined">visibility</span>
                                             <span class="row-action__label">Ver</span>
                                         </a>
-                                        <a asp-controller="Seguridad" asp-action="EditUsuario" asp-route-id="@user.Id" asp-route-returnUrl="@currentUrl"
-                                           class="row-action"
-                                           title="Editar">
-                                            <span class="material-symbols-outlined">edit</span>
-                                            <span class="row-action__label">Editar</span>
-                                        </a>
-                                        @if (user.Activo)
+                                        @if (canUpdate)
                                         {
-                                            <form asp-controller="Usuarios" asp-action="Desactivar" method="post" class="inline-flex">
-                                                @Html.AntiForgeryToken()
-                                                <input type="hidden" name="id" value="@user.Id" />
-                                                <input type="hidden" name="returnUrl" value="@currentUrl" />
-                                                <button type="submit"
-                                                        class="row-action"
-                                                        title="Desactivar">
-                                                    <span class="material-symbols-outlined">person_off</span>
-                                                    <span class="row-action__label">Desactivar</span>
-                                                </button>
-                                            </form>
+                                            <a asp-controller="Seguridad" asp-action="EditUsuario" asp-route-id="@user.Id" asp-route-returnUrl="@currentUrl"
+                                               class="row-action"
+                                               title="Editar">
+                                                <span class="material-symbols-outlined">edit</span>
+                                                <span class="row-action__label">Editar</span>
+                                            </a>
                                         }
-                                        else
+                                        @if (canDelete)
                                         {
-                                            <form asp-controller="Usuarios" asp-action="Reactivar" method="post" class="inline-flex">
-                                                @Html.AntiForgeryToken()
-                                                <input type="hidden" name="id" value="@user.Id" />
-                                                <input type="hidden" name="returnUrl" value="@currentUrl" />
-                                                <button type="submit"
-                                                        class="row-action"
-                                                        title="Reactivar">
-                                                    <span class="material-symbols-outlined">person_check</span>
-                                                    <span class="row-action__label">Reactivar</span>
-                                                </button>
-                                            </form>
+                                            @if (user.Activo)
+                                            {
+                                                <form asp-controller="Usuarios" asp-action="Desactivar" method="post" class="inline-flex">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="id" value="@user.Id" />
+                                                    <input type="hidden" name="returnUrl" value="@currentUrl" />
+                                                    <button type="submit"
+                                                            class="row-action"
+                                                            title="Desactivar">
+                                                        <span class="material-symbols-outlined">person_off</span>
+                                                        <span class="row-action__label">Desactivar</span>
+                                                    </button>
+                                                </form>
+                                            }
+                                            else
+                                            {
+                                                <form asp-controller="Usuarios" asp-action="Reactivar" method="post" class="inline-flex">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="id" value="@user.Id" />
+                                                    <input type="hidden" name="returnUrl" value="@currentUrl" />
+                                                    <button type="submit"
+                                                            class="row-action"
+                                                            title="Reactivar">
+                                                        <span class="material-symbols-outlined">person_check</span>
+                                                        <span class="row-action__label">Reactivar</span>
+                                                    </button>
+                                                </form>
+                                            }
                                         }
-                                        @if (isLocked)
+                                        @if (canUpdate)
                                         {
-                                            <form asp-controller="Usuarios" asp-action="Desbloquear" method="post" class="inline-flex js-unlock-user-form" data-seguridad-user-name="@user.UserName">
-                                                @Html.AntiForgeryToken()
-                                                <input type="hidden" name="id" value="@user.Id" />
-                                                <input type="hidden" name="returnUrl" value="@currentUrl" />
-                                                <button type="submit"
-                                                        class="row-action"
-                                                        title="Desbloquear">
-                                                    <span class="material-symbols-outlined">lock_open</span>
-                                                    <span class="row-action__label">Desbloquear</span>
+                                            @if (isLocked)
+                                            {
+                                                <form asp-controller="Usuarios" asp-action="Desbloquear" method="post" class="inline-flex js-unlock-user-form" data-seguridad-user-name="@user.UserName">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="id" value="@user.Id" />
+                                                    <input type="hidden" name="returnUrl" value="@currentUrl" />
+                                                    <button type="submit"
+                                                            class="row-action"
+                                                            title="Desbloquear">
+                                                        <span class="material-symbols-outlined">lock_open</span>
+                                                        <span class="row-action__label">Desbloquear</span>
+                                                    </button>
+                                                </form>
+                                            }
+                                            else if (user.Activo)
+                                            {
+                                                <button type="button" data-seguridad-user-id="@user.Id" data-seguridad-return-url="@currentUrl"
+                                                        class="btn-block-user row-action row-action--danger"
+                                                        title="Bloquear">
+                                                    <span class="material-symbols-outlined">lock</span>
+                                                    <span class="row-action__label">Bloquear</span>
                                                 </button>
-                                            </form>
+                                            }
                                         }
-                                        else if (user.Activo)
+                                        @if (canResetPassword)
                                         {
-                                            <button type="button" data-seguridad-user-id="@user.Id" data-seguridad-return-url="@currentUrl"
-                                                    class="btn-block-user row-action row-action--danger"
-                                                    title="Bloquear">
-                                                <span class="material-symbols-outlined">lock</span>
-                                                <span class="row-action__label">Bloquear</span>
+                                            <button type="button" data-seguridad-user-id="@user.Id"
+                                                    class="btn-change-pass row-action row-action--warning"
+                                                    title="Resetear contraseña">
+                                                <span class="material-symbols-outlined">lock_reset</span>
+                                                <span class="row-action__label">Contraseña</span>
                                             </button>
                                         }
-                                        <button type="button" data-seguridad-user-id="@user.Id"
-                                                class="btn-change-pass row-action row-action--warning"
-                                                title="Resetear contraseña">
-                                            <span class="material-symbols-outlined">lock_reset</span>
-                                            <span class="row-action__label">Contraseña</span>
-                                        </button>
-                                        <a asp-controller="Usuarios" asp-action="Delete" asp-route-id="@user.Id" asp-route-returnUrl="@currentUrl"
-                                           class="row-action row-action--danger"
-                                           title="Eliminar">
-                                            <span class="material-symbols-outlined">delete</span>
-                                            <span class="row-action__label">Eliminar</span>
-                                        </a>
+                                        @if (canDelete)
+                                        {
+                                            <a asp-controller="Usuarios" asp-action="Delete" asp-route-id="@user.Id" asp-route-returnUrl="@currentUrl"
+                                               class="seg-actions__danger row-action row-action--danger"
+                                               title="Eliminar">
+                                                <span class="material-symbols-outlined">delete</span>
+                                                <span class="row-action__label">Eliminar</span>
+                                            </a>
+                                        }
                                     </div>
                                 </td>
                             </tr>
@@ -413,20 +443,23 @@
         {
             <div id="emptyState" class="px-6 py-16 text-center">
                 <div class="inline-flex items-center justify-center size-16 rounded-full bg-slate-800 mb-4">
-                    <span class="material-symbols-outlined text-3xl text-slate-400 text-slate-500">group_off</span>
+                    <span class="material-symbols-outlined text-3xl text-slate-400">group_off</span>
                 </div>
                 <p class="text-sm font-semibold text-slate-300 mb-1">No se encontraron usuarios</p>
-                <p class="text-xs text-slate-500 mb-4">Creá un nuevo usuario para comenzar a gestionar el acceso al sistema.</p>
-                <button type="button" class="btn-open-create-user btn-erp-primary">
-                    <span class="material-symbols-outlined text-sm">person_add</span>
-                    Nuevo usuario
-                </button>
+                <p class="text-xs text-slate-500 mb-4">@(canCreate ? "Creá un nuevo usuario para comenzar a gestionar el acceso al sistema." : "Todavía no hay usuarios para mostrar.")</p>
+                @if (canCreate)
+                {
+                    <button type="button" class="btn-open-create-user btn-erp-primary">
+                        <span class="material-symbols-outlined text-sm">person_add</span>
+                        Nuevo usuario
+                    </button>
+                }
             </div>
         }
 
         <div id="emptyFilterState" class="hidden px-6 py-16 text-center">
             <div class="inline-flex items-center justify-center size-16 rounded-full bg-slate-800 mb-4">
-                <span class="material-symbols-outlined text-3xl text-slate-400 text-slate-500">search_off</span>
+                <span class="material-symbols-outlined text-3xl text-slate-400">search_off</span>
             </div>
             <p class="text-sm font-semibold text-slate-300 mb-1">Sin resultados</p>
             <p class="text-xs text-slate-500 mb-4">Probá ajustando los filtros o la búsqueda.</p>

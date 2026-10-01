@@ -17,7 +17,6 @@
     var puedeVerDevoluciones = User.TienePermiso("devoluciones", "view");
     var puedeCrearDevoluciones = User.TienePermiso("devoluciones", "create");
     var puedeCancelarVentas = User.TienePermiso("ventas", "cancel");
-    var puedeConfigurarPagos = User.TienePermiso("configuraciones", "update");
     var pendientesAutorizacion = ventas.Count(v => v.EstadoAutorizacion == EstadoAutorizacionVenta.PendienteAutorizacion);
     var filtroActivo = filter.Numero != null || filter.FechaDesde != null || filter.FechaHasta != null
                     || filter.Estado != null || filter.TipoPago != null || filter.EstadoAutorizacion != null;
@@ -35,13 +34,13 @@
     var enviosPendientes = ventas
         .Where(v => v.Envio != null && !v.Envio.EsTerminal && v.Estado != EstadoVenta.Cancelada)
         .OrderBy(v => v.Envio!.FechaProgramada ?? v.FechaVenta)
+        .ToList();
     // Historial: envios ya cerrados (entregados/cancelados, incluida venta cancelada) del ultimo mes,
     // para poder revisarlos sin salir del modulo. Meses anteriores: filtro de fechas de Operaciones.
     var enviosHistorial = ventas
         .Where(v => v.Envio != null && (v.Envio.EsTerminal || v.Estado == EstadoVenta.Cancelada)
                     && (v.Envio.FechaEntregaReal ?? v.FechaVenta) >= DateTime.Today.AddDays(-30))
         .OrderByDescending(v => v.Envio!.FechaEntregaReal ?? v.FechaVenta)
-        .ToList();
         .ToList();
 
     // VENTA-UI-04B: paginación server-rendered en memoria, solo para Operaciones.
@@ -324,23 +323,15 @@
                     </div>
                 </div>
                 <div class="venta-hero__actions">
-                    @* "Medios de pago" no se duplica en .mobile-sticky-bar (a diferencia de
-                       Cotizaciones/Nueva Venta) — queda fuera de .venta-tabs__actions para no
-                       perder acceso a esta acción en mobile (<768px la oculta, ver CSS). *@
-                    @if (puedeConfigurarPagos)
-                    {
-                        <a asp-controller="ConfiguracionPago" asp-action="MediosPago" class="btn btn-soft no-underline"
-                           title="Los métodos, tarjetas, cuotas, recargos y descuentos se administran desde Configuración de pagos.">
-                            <span class="material-symbols-outlined" aria-hidden="true">tune</span>
-                            Medios de pago
-                        </a>
-                    }
                     <div class="venta-tabs__actions" aria-label="Acciones rápidas de ventas">
+                        @if (User.TienePermiso("cotizaciones", "view"))
+                        {
                         <a asp-controller="Cotizacion" asp-action="Listado" class="btn btn-soft no-underline"
                            title="Ver las cotizaciones guardadas desde el cotizador">
                             <span class="material-symbols-outlined">request_quote</span>
                             Cotizaciones guardadas
                         </a>
+                        }
 
                         @if (puedeCrear)
                         {
@@ -854,6 +845,15 @@
                                                                 @if (!enviosPendientes.Any())
                                                                 {
                                                                     <div class="empty-state empty-state-compact">
+                                                                        <span class="material-symbols-outlined">local_shipping</span>
+                                                                        <h3>Sin envíos pendientes</h3>
+                                                                        @if (filtroActivo)
+                                                                        {
+                                                                            <p>Hay filtros activos en Operaciones que limitan este listado.</p>
+                                                                            <a asp-action="Index" class="btn btn-soft no-underline">Limpiar filtros</a>
+                                                                        }
+                                                                    </div>
+                                                                }
                                                                 @if (enviosHistorial.Any())
                                                                 {
                                                                     <p class="label mt-4">Cerrados en los últimos 30 días</p>
@@ -879,15 +879,6 @@
                                                                             <a asp-action="Details" asp-route-id="@v.Id" asp-route-volverA="envios" class="btn btn-xs btn-soft no-underline">Ver</a>
                                                                         </article>
                                                                     }
-                                                                }
-                                                                        <span class="material-symbols-outlined">local_shipping</span>
-                                                                        <h3>Sin envíos pendientes</h3>
-                                                                        @if (filtroActivo)
-                                                                        {
-                                                                            <p>Hay filtros activos en Operaciones que limitan este listado.</p>
-                                                                            <a asp-action="Index" class="btn btn-soft no-underline">Limpiar filtros</a>
-                                                                        }
-                                                                    </div>
                                                                 }
                                                             </div>
                                                         </section>

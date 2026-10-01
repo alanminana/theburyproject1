@@ -102,6 +102,9 @@
     var iniciales = $"{(string.IsNullOrWhiteSpace(c.Apellido) ? "?" : c.Apellido.Trim()[0])}{(string.IsNullOrWhiteSpace(c.Nombre) ? "?" : c.Nombre.Trim()[0])}".ToUpperInvariant();
     var progressClass = ProgressWidthClass(Convert.ToDouble(porcentajeLibre));
     var returnToDetails = Url.Action("Details", "Cliente", new { id = c.Id });
+    var puedeEditarCliente = User.TienePermiso("clientes", "edit");
+    var puedeEliminarCliente = User.TienePermiso("clientes", "delete");
+    var puedeVerCreditos = User.TienePermiso("creditos", "view");
 
     var aptitudResumen = esApto ? "Puede operar a crédito"
         : esRequiereAut ? "Requiere autorización para operar"
@@ -287,7 +290,10 @@ else
         </div>
         <div class="head-actions">
             <button type="button" class="btn btn-ghost" onclick="window.print()"><span class="material-symbols-outlined">print</span>Imprimir</button>
-            <a asp-action="Edit" asp-route-id="@c.Id" asp-route-returnUrl="@returnToDetails" class="btn btn-soft"><span class="material-symbols-outlined">edit</span>Editar perfil</a>
+            @if (puedeEditarCliente)
+            {
+                <a asp-action="Edit" asp-route-id="@c.Id" asp-route-returnUrl="@returnToDetails" class="btn btn-soft"><span class="material-symbols-outlined">edit</span>Editar perfil</a>
+            }
         </div>
     </div>
 
@@ -352,6 +358,8 @@ else
                     }
                 </p>
             </div>
+            @if (puedeEditarCliente)
+            {
             <form asp-action="RecalcularAptitud" method="post" class="shrink-0">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="clienteId" value="@c.Id" />
@@ -361,6 +369,7 @@ else
                 }
                 <button type="submit" class="btn btn-soft btn-sm"><span class="material-symbols-outlined">refresh</span>Recalcular aptitud</button>
             </form>
+            }
         </div>
     }
 
@@ -842,6 +851,8 @@ else
                             <div class="font-semibold mt-1" style="color:@(c.CreditosConAtraso > 0 ? "var(--pal-accent-500)" : "var(--pal-white)")">@c.CreditosConAtraso</div>
                         </div>
                     </div>
+                    @if (puedeEditarCliente)
+                    {
                     <form asp-action="RecalcularPuntaje" method="post" class="mt-3">
                         @Html.AntiForgeryToken()
                         <input type="hidden" name="clienteId" value="@c.Id" />
@@ -851,6 +862,7 @@ else
                         }
                         <button type="submit" class="btn btn-soft btn-sm"><span class="material-symbols-outlined">refresh</span>Recalcular scoring</button>
                     </form>
+                    }
                 </div>
 
                 <div class="mt-4 pt-4" style="border-top:1px solid color-mix(in srgb, var(--pal-white) 7%, transparent)">
@@ -906,7 +918,10 @@ else
             <section class="card card-pad">
                 <div class="flex items-center justify-between gap-3 mb-3">
                     <h2 class="font-semibold text-white flex items-center gap-2"><span class="material-symbols-outlined" style="color:var(--erp-fg-2, var(--pal-neutral-350));font-size:20px">payments</span>Últimos créditos del cliente</h2>
-                    <a asp-controller="Credito" asp-action="Index" asp-route-clienteId="@c.Id" class="btn btn-ghost btn-sm">Ver todos (@totalCreditos)<span class="material-symbols-outlined">chevron_right</span></a>
+                    @if (puedeVerCreditos)
+                    {
+                        <a asp-controller="Credito" asp-action="Index" asp-route-clienteId="@c.Id" class="btn btn-ghost btn-sm">Ver todos (@totalCreditos)<span class="material-symbols-outlined">chevron_right</span></a>
+                    }
                 </div>
                 @if (Model.CreditosActivos != null && Model.CreditosActivos.Any())
                 {
@@ -933,7 +948,10 @@ else
                                         <td>@credito.FechaSolicitud.ToString("dd/MM/yyyy")</td>
                                         <td>
                                             <div class="row-actions">
-                                                <a asp-controller="Credito" asp-action="Details" asp-route-id="@credito.Id" class="btn btn-ghost btn-sm"><span class="material-symbols-outlined">visibility</span>Ver</a>
+                                                @if (puedeVerCreditos)
+                                                {
+                                                    <a asp-controller="Credito" asp-action="Details" asp-route-id="@credito.Id" class="btn btn-ghost btn-sm"><span class="material-symbols-outlined">visibility</span>Ver</a>
+                                                }
                                             </div>
                                         </td>
                                     </tr>
@@ -1066,11 +1084,14 @@ else
             </section>
             </div>
 
+            @if (puedeEliminarCliente)
+            {
             <div class="card card-pad" style="border-color:color-mix(in srgb, var(--pal-danger-500) 25%, transparent)">
                 <h3 class="font-semibold text-white mb-1">Zona sensible</h3>
                 <p class="text-sm muted mb-3">Dar de baja al cliente lo oculta del listado operativo. Se conserva el historial.</p>
                 <a asp-action="Delete" asp-route-id="@c.Id" asp-route-returnUrl="@returnUrl" class="btn btn-ghost btn-sm btn-block" style="color:var(--pal-danger-400);border-color:color-mix(in srgb, var(--pal-danger-500) 30%, transparent)"><span class="material-symbols-outlined">delete</span>Dar de baja cliente</a>
             </div>
+            }
         </div>
     </div>
 

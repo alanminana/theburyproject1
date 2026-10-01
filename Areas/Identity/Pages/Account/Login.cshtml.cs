@@ -177,6 +177,20 @@ namespace TheBuryProject.Areas.Identity.Pages.Account
                     _logger.LogInformation("Usuario autenticado: {UserName}", userName);
 
                     var user = await _userManager.FindByNameAsync(userName);
+                    if (user != null)
+                    {
+                        try
+                        {
+                            user.UltimoAcceso = DateTime.UtcNow;
+                            await _userManager.UpdateAsync(user);
+                        }
+                        catch (Exception ex)
+                        {
+                            // El registro de último acceso nunca debe impedir el ingreso.
+                            _logger.LogWarning(ex, "No se pudo registrar el último acceso de {UserName}", userName);
+                        }
+                    }
+
                     if (user != null && !await _terminosCondicionesService.UsuarioAceptoVersionActualAsync(user.Id))
                     {
                         MostrarTerminos = true;

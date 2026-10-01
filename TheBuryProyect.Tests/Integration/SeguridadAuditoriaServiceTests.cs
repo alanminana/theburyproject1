@@ -267,6 +267,83 @@ public class SeguridadAuditoriaServiceTests : IDisposable
         Assert.Equal("alfa", resultado.Usuarios[0]);
         Assert.Equal("zeta", resultado.Usuarios[1]);
     }
+
+    // -------------------------------------------------------------------------
+    // ConsultarEventosAsync — paginación (skip/take)
+    // -------------------------------------------------------------------------
+
+    private async Task SeedEventosNumeradosAsync(int cantidad, string usuario = "user1")
+    {
+        // Entidad "E00".."E{n}": el más nuevo es el de número más alto, así el orden esperado es descendente.
+        var baseFecha = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        for (var i = 0; i < cantidad; i++)
+        {
+            await SeedEventoAsync(usuario: usuario, entidad: $"E{i:00}", fecha: baseFecha.AddMinutes(i));
+        }
+    }
+
+    [Fact]
+    public async Task ConsultarEventos_SinTake_DevuelveTodosYTotalCoincide()
+    {
+        await SeedEventosNumeradosAsync(7);
+
+        var resultado = await _service.ConsultarEventosAsync();
+
+        Assert.Equal(7, resultado.Registros.Count);
+        Assert.Equal(7, resultado.TotalRegistros);
+    }
+
+    [Fact]
+    public async Task ConsultarEventos_ConTake_DevuelvePaginaOrdenadaDescYTotalCompleto()
+    {
+        await SeedEventosNumeradosAsync(7);
+
+        var pagina1 = await _service.ConsultarEventosAsync(skip: 0, take: 3);
+        var pagina2 = await _service.ConsultarEventosAsync(skip: 3, take: 3);
+        var pagina3 = await _service.ConsultarEventosAsync(skip: 6, take: 3);
+
+        Assert.Equal(new[] { "E06", "E05", "E04" }, pagina1.Registros.Select(r => r.Entidad));
+        Assert.Equal(new[] { "E03", "E02", "E01" }, pagina2.Registros.Select(r => r.Entidad));
+        Assert.Equal(new[] { "E00" }, pagina3.Registros.Select(r => r.Entidad));
+        Assert.All(new[] { pagina1, pagina2, pagina3 }, p => Assert.Equal(7, p.TotalRegistros));
+    }
+
+    [Fact]
+    public async Task ConsultarEventos_ConFiltroYTake_TotalEsElDelFiltro()
+    {
+        await SeedEventosNumeradosAsync(5, usuario: "ana");
+        await SeedEventosNumeradosAsync(4, usuario: "bob");
+
+        var resultado = await _service.ConsultarEventosAsync(usuario: "ana", skip: 0, take: 2);
+
+        Assert.Equal(2, resultado.Registros.Count);
+        Assert.All(resultado.Registros, r => Assert.Equal("ana", r.Usuario));
+        Assert.Equal(5, resultado.TotalRegistros);
+    }
+
+    [Fact]
+    public async Task ConsultarEventos_SkipMasAllaDelTotal_DevuelveVacioConTotal()
+    {
+        await SeedEventosNumeradosAsync(3);
+
+        var resultado = await _service.ConsultarEventosAsync(skip: 10, take: 5);
+
+        Assert.Empty(resultado.Registros);
+        Assert.Equal(3, resultado.TotalRegistros);
+    }
+
+    [Fact]
+    public async Task ConsultarEventos_ConTake_DropdownsNoDependenDeLaPagina()
+    {
+        await SeedEventoAsync(usuario: "ana", modulo: "Ventas");
+        await SeedEventoAsync(usuario: "bob", modulo: "Creditos");
+
+        var resultado = await _service.ConsultarEventosAsync(skip: 0, take: 1);
+
+        Assert.Single(resultado.Registros);
+        Assert.Equal(2, resultado.Usuarios.Count);
+        Assert.Equal(2, resultado.Modulos.Count);
+    }
 }
 
 file sealed class StubCurrentUserServiceAuditoria : ICurrentUserService

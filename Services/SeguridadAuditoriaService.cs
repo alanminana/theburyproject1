@@ -52,7 +52,9 @@ public class SeguridadAuditoriaService : ISeguridadAuditoriaService
         string? modulo = null,
         string? accion = null,
         DateOnly? desde = null,
-        DateOnly? hasta = null)
+        DateOnly? hasta = null,
+        int skip = 0,
+        int? take = null)
     {
         var query = _context.SeguridadEventosAuditoria
             .AsNoTracking()
@@ -79,8 +81,15 @@ public class SeguridadAuditoriaService : ISeguridadAuditoriaService
             query = query.Where(r => r.FechaEvento <= hastaDate);
         }
 
-        var registros = await query
-            .OrderByDescending(r => r.FechaEvento)
+        var totalRegistros = await query.CountAsync();
+
+        var ordered = query.OrderByDescending(r => r.FechaEvento).AsQueryable();
+        if (skip > 0)
+            ordered = ordered.Skip(skip);
+        if (take.HasValue)
+            ordered = ordered.Take(take.Value);
+
+        var registros = await ordered
             .Select(r => new AuditoriaRegistro
             {
                 FechaHora = r.FechaEvento,
@@ -97,6 +106,7 @@ public class SeguridadAuditoriaService : ISeguridadAuditoriaService
         return new AuditoriaQueryResult
         {
             Registros = registros,
+            TotalRegistros = totalRegistros,
             Usuarios = await allEvents.Select(r => r.UsuarioNombre).Distinct().OrderBy(u => u).ToListAsync(),
             Modulos = await allEvents.Select(r => r.Modulo).Distinct().OrderBy(m => m).ToListAsync(),
             Acciones = await allEvents.Select(r => r.Accion).Distinct().OrderBy(a => a).ToListAsync()

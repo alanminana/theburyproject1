@@ -10,6 +10,8 @@
     // La edición exige proveedores.update en ProveedorController; sin el permiso no se ofrece ni el botón ni el drawer.
     var puedeEditar = User.TienePermiso("proveedores", "update");
     var puedeVerOrdenes = User.TienePermiso("ordenescompra", "view");
+    // El producto se edita en el modal del Catálogo (cotizaciones.view abre el Catálogo; productos.edit lo exige el guardado).
+    var puedeEditarProductos = User.TienePermiso("productos", "edit") && User.TienePermiso("cotizaciones", "view");
     var modales = new ProveedorModalesViewModel
     {
         PuedeCrear = false,
@@ -238,12 +240,12 @@
             </section>
         </div>
 
-        <section data-oc-scroll style="--oc-scroll-min-width: 40rem;" class="card-erp-panel lg:col-span-3" aria-labelledby="prov-prod-title">
+        <section data-oc-scroll data-puede-editar-productos="@(puedeEditarProductos ? "true" : "false")" style="--oc-scroll-min-width: 56rem;" class="card-erp-panel lg:col-span-3" aria-labelledby="prov-prod-title">
             <div class="border-b border-slate-800 bg-slate-800/30 px-6 py-4">
                 <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                         <h2 id="prov-prod-title" class="text-lg font-bold text-white">Productos asociados</h2>
-                        <p class="text-sm text-slate-400">Código, stock y precio de compra de los productos vinculados a este proveedor.</p>
+                        <p class="text-sm text-slate-400">Código, marca, categoría, stock y precio de compra de los productos vinculados a este proveedor@(puedeEditarProductos ? ". Editá un producto desde su fila." : ".")</p>
                     </div>
                     <span id="productos-badge" class="chip-erp self-start" role="status">
                         <span class="material-symbols-outlined text-sm" aria-hidden="true">inventory_2</span>
@@ -263,13 +265,19 @@
                             <tr>
                                 <th scope="col" data-card="title" class="px-6 py-3">Producto</th>
                                 <th scope="col" data-card="half" class="px-6 py-3 text-center">Código</th>
+                                <th scope="col" data-card="half" class="px-6 py-3">Marca</th>
+                                <th scope="col" data-card="half" class="px-6 py-3">Categoría</th>
                                 <th scope="col" data-card="half" class="px-6 py-3 text-center">Stock</th>
                                 <th scope="col" data-card="half" class="px-6 py-3 text-right">Precio de compra</th>
+                                @if (puedeEditarProductos)
+                                {
+                                    <th scope="col" data-card="actions" class="px-6 py-3 text-right"><span class="sr-only">Acciones</span></th>
+                                }
                             </tr>
                         </thead>
                         <tbody id="productos-tbody" class="divide-y divide-slate-800">
                             <tr>
-                                <td colspan="4" class="px-6 py-8 text-center text-sm text-slate-400">
+                                <td colspan="@(puedeEditarProductos ? 7 : 6)" class="px-6 py-8 text-center text-sm text-slate-400">
                                     <div class="flex items-center justify-center gap-2">
                                         <div class="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" aria-hidden="true"></div>
                                         Cargando productos…

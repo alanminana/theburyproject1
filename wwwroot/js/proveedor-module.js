@@ -141,10 +141,14 @@
         target.textContent = text;
     }
 
+    function columnasProductos() {
+        return document.querySelector('[data-puede-editar-productos="true"]') ? 7 : 6;
+    }
+
     function setProductosLoadingState(tbody) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="4" class="px-6 py-8 text-center text-sm text-slate-400">
+                <td colspan="${columnasProductos()}" class="px-6 py-8 text-center text-sm text-slate-400">
                     <div class="flex items-center justify-center gap-2">
                         <div class="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
                         Cargando productos…
@@ -156,7 +160,7 @@
     function renderProductosEmptyState(tbody, footer, badge) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="4" class="px-6 py-12 text-center">
+                <td colspan="${columnasProductos()}" class="px-6 py-12 text-center">
                     <div class="flex flex-col items-center gap-2 text-slate-400">
                         <span class="material-symbols-outlined text-3xl">inventory_2</span>
                         <span class="text-sm">No hay productos asociados</span>
@@ -170,6 +174,7 @@
 
     function renderProductos(data, tbody, footer, count, badge) {
         tbody.replaceChildren();
+        const puedeEditar = Boolean(document.querySelector('[data-puede-editar-productos="true"]'));
 
         data.forEach(producto => {
             const tr = document.createElement('tr');
@@ -183,6 +188,14 @@
             tdCodigo.className = 'px-6 py-4 text-center font-mono text-xs';
             tdCodigo.textContent = producto.codigo || '—';
 
+            const tdMarca = document.createElement('td');
+            tdMarca.className = 'px-6 py-4';
+            tdMarca.textContent = producto.marca || '—';
+
+            const tdCategoria = document.createElement('td');
+            tdCategoria.className = 'px-6 py-4';
+            tdCategoria.textContent = producto.categoria || '—';
+
             const tdStock = document.createElement('td');
             tdStock.className = 'px-6 py-4 text-center';
             tdStock.textContent = formatInteger(producto.stock);
@@ -193,8 +206,24 @@
 
             tr.appendChild(tdNombre);
             tr.appendChild(tdCodigo);
+            tr.appendChild(tdMarca);
+            tr.appendChild(tdCategoria);
             tr.appendChild(tdStock);
             tr.appendChild(tdPrecio);
+
+            if (puedeEditar) {
+                // Abre el modal de edición del Catálogo con este producto ya cargado.
+                const tdAcciones = document.createElement('td');
+                tdAcciones.className = 'px-6 py-4 text-right';
+                const link = document.createElement('a');
+                link.href = `/Catalogo?searchTerm=${encodeURIComponent(producto.codigo || producto.nombre)}&editarProducto=${encodeURIComponent(producto.id)}`;
+                link.className = 'inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm font-semibold text-slate-200 no-underline transition-colors hover:border-slate-600 hover:bg-slate-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary';
+                link.setAttribute('aria-label', `Editar producto ${producto.nombre}`);
+                link.innerHTML = '<span class="material-symbols-outlined text-lg" aria-hidden="true">edit</span><span>Editar</span>';
+                tdAcciones.appendChild(link);
+                tr.appendChild(tdAcciones);
+            }
+
             tbody.appendChild(tr);
         });
 
@@ -231,7 +260,7 @@
         } catch {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="4" class="px-6 py-8 text-center text-sm text-red-400">
+                    <td colspan="${columnasProductos()}" class="px-6 py-8 text-center text-sm text-red-400">
                         No se pudieron cargar los productos. Recargá la página para reintentar.
                     </td>
                 </tr>`;

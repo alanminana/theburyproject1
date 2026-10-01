@@ -107,6 +107,11 @@ public class UsuarioService : IUsuarioService
         if (user == null)
             return UsuarioUpdateResult.Failed("Usuario no encontrado.");
 
+        // Concurrencia optimista: la versión con la que se abrió la edición debe seguir vigente.
+        // (Se compara de forma explícita: Identity no garantiza detectar un RowVersion viejo.)
+        if (request.RowVersion is null || !user.RowVersion.AsSpan().SequenceEqual(request.RowVersion))
+            return UsuarioUpdateResult.Conflict();
+
         // Mapear campos
         var wasActive = user.Activo;
         user.UserName = request.UserName;
