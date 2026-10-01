@@ -827,6 +827,12 @@
                 @if (Model.Envio != null)
                 {
                     var envio = Model.Envio;
+                    // Venta cancelada: el envío ya no se entrega aunque una fila legacy siga sin cerrar.
+                    var envioCanceladoPorVenta = Model.Estado == EstadoVenta.Cancelada && !envio.EsTerminal;
+                    var envioPillClass = envioCanceladoPorVenta ? "badge-erp-danger" : envio.EstadoBadgeClass;
+                    var envioEstadoTexto = envioCanceladoPorVenta ? "Cancelado" : envio.EstadoDisplay;
+                    var productosEnvio = Model.Detalles.Where(d => d.EnviarADomicilio).ToList();
+                    var productosRetira = Model.Detalles.Where(d => !d.EnviarADomicilio).ToList();
                     <section class="card-erp-panel-padded">
                         <div class="mb-6 flex flex-col gap-3 border-b border-slate-800 pb-4 sm:flex-row sm:items-start sm:justify-between">
                             <div class="flex items-start gap-2">
@@ -837,7 +843,7 @@
                                     <p class="mt-1 text-sm text-slate-400">El importe de envío se cobra al cliente junto con los productos (Total a cobrar) y no integra el comprobante.</p>
                                 </div>
                             </div>
-                            <span class="pill @envio.EstadoPillClass shrink-0">@envio.EstadoDisplay</span>
+                            <span id="venta-envio-estado" class="badge-erp @envioPillClass shrink-0">@envioEstadoTexto</span>
                         </div>
                         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                             <div class="venta-stat sm:col-span-2 xl:col-span-3">
@@ -879,6 +885,42 @@
                                 <p class="text-[10px] text-slate-500 font-bold uppercase">Costo de envío</p>
                                 <p id="venta-envio-costo" class="text-sm font-bold text-white">@Model.ImporteEnvio.ToString("C2")</p>
                             </div>
+                            @if (envio.FechaProgramada.HasValue)
+                            {
+                                <div class="venta-stat">
+                                    <p class="text-[10px] text-slate-500 font-bold uppercase">@(envio.Estado == EstadoEnvio.Reprogramado ? "Reprogramado para" : "Fecha programada")</p>
+                                    <p id="venta-envio-fecha-programada" class="text-sm font-bold @(envio.Estado == EstadoEnvio.Reprogramado ? "text-amber-300" : "text-white")">@envio.FechaProgramada.Value.ToString("dd/MM/yyyy")</p>
+                                </div>
+                            }
+                            @if (envio.FechaEntregaReal.HasValue)
+                            {
+                                <div class="venta-stat">
+                                    <p class="text-[10px] text-slate-500 font-bold uppercase">Entregado el</p>
+                                    <p class="text-sm font-bold text-emerald-300">@envio.FechaEntregaReal.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</p>
+                                </div>
+                            }
+                            @if (productosEnvio.Count > 0 && (productosRetira.Count > 0 || productosEnvio.Count > 1))
+                            {
+                                <div class="venta-stat sm:col-span-2 xl:col-span-3" id="venta-envio-productos">
+                                    <p class="text-[10px] text-slate-500 font-bold uppercase">Productos que se envían</p>
+                                    <ul class="mt-1 space-y-0.5 text-sm font-bold text-white">
+                                        @foreach (var item in productosEnvio)
+                                        {
+                                            <li>@item.Cantidad × @item.ProductoNombre</li>
+                                        }
+                                    </ul>
+                                    @if (productosRetira.Count > 0)
+                                    {
+                                        <p class="mt-2 text-[10px] text-slate-500 font-bold uppercase">Retira el cliente</p>
+                                        <ul class="mt-1 space-y-0.5 text-sm text-slate-300">
+                                            @foreach (var item in productosRetira)
+                                            {
+                                                <li>@item.Cantidad × @item.ProductoNombre</li>
+                                            }
+                                        </ul>
+                                    }
+                                </div>
+                            }
                             @if (envio.Estado == EstadoEnvio.Fallido && !string.IsNullOrWhiteSpace(envio.MotivoNoEntrega))
                             {
                                 <div class="venta-stat sm:col-span-2 xl:col-span-3">
@@ -1203,6 +1245,42 @@
                             </div>
                         }
 
+                        @* Envío: refleja el estado real del envío (preparado, entregado, reprogramado, cancelado...) *@
+                        @if (Model.Envio != null)
+                        {
+                            var tEnvio = Model.Envio;
+                            var tEnvioCanceladoPorVenta = Model.Estado == EstadoVenta.Cancelada && !tEnvio.EsTerminal;
+                            var tEnvioTexto = tEnvioCanceladoPorVenta ? "Cancelado" : tEnvio.EstadoDisplay;
+                            var tEnvioDot = tEnvioCanceladoPorVenta ? "bg-red-500" : tEnvio.Estado switch
+                            {
+                                EstadoEnvio.Entregado => "bg-emerald-500",
+                                EstadoEnvio.Cancelado or EstadoEnvio.Fallido => "bg-red-500",
+                                EstadoEnvio.Reprogramado or EstadoEnvio.EnCamino => "bg-amber-500",
+                                EstadoEnvio.Preparando or EstadoEnvio.Despachado => "bg-blue-500",
+                                _ => "bg-slate-500"
+                            };
+                            var tEnvioFecha = tEnvio.Estado == EstadoEnvio.Entregado && tEnvio.FechaEntregaReal.HasValue
+                                ? tEnvio.FechaEntregaReal.Value
+                                : tEnvioCanceladoPorVenta && Model.FechaCancelacion.HasValue
+                                    ? Model.FechaCancelacion.Value
+                                    : tEnvio.FechaUltimoCambio;
+                            <div class="relative flex items-start gap-3" id="venta-timeline-envio">
+                                <div class="venta-timeline__dot rounded-full @tEnvioDot border-2 border-slate-900 z-10"></div>
+                                <div>
+                                    <p class="text-xs font-bold @(tEnvio.Estado is EstadoEnvio.Cancelado or EstadoEnvio.Fallido || tEnvioCanceladoPorVenta ? "text-red-500" : "text-white")">Envío: @tEnvioTexto</p>
+                                    <p class="text-[11px] text-slate-400">@tEnvioFecha.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</p>
+                                    @if (tEnvio.Estado == EstadoEnvio.Reprogramado && tEnvio.FechaProgramada.HasValue)
+                                    {
+                                        <p class="text-[11px] text-amber-300">Nueva fecha: @tEnvio.FechaProgramada.Value.ToString("dd/MM/yyyy")</p>
+                                    }
+                                    @if (tEnvio.Estado == EstadoEnvio.Fallido && !string.IsNullOrWhiteSpace(tEnvio.MotivoNoEntrega))
+                                    {
+                                        <p class="text-[11px] text-slate-500 mt-0.5">@tEnvio.MotivoNoEntrega</p>
+                                    }
+                                </div>
+                            </div>
+                        }
+
                         @* Pending dot if not final state *@
                         @if (Model.Estado != EstadoVenta.Cancelada && Model.Estado != EstadoVenta.Entregada)
                         {
@@ -1361,7 +1439,7 @@
                 <div>
                     <h3 class="text-lg font-bold text-white">Actualizar estado de envío</h3>
                     <p class="mt-1 text-sm text-slate-400">
-                        Estado actual: <span class="pill @Model.Envio.EstadoPillClass">@Model.Envio.EstadoDisplay</span>
+                        Estado actual: <span class="badge-erp @Model.Envio.EstadoBadgeClass">@Model.Envio.EstadoDisplay</span>
                     </p>
                 </div>
                 <button type="button"
@@ -1381,13 +1459,19 @@
                     <select id="envio-nuevo-estado" name="estado" required class="venta-input" data-modal-initial-focus>
                         @foreach (var siguiente in Model.Envio.EstadosSiguientesPosibles)
                         {
-                            <option value="@((int)siguiente)">@(Model.Envio.Estado == EstadoEnvio.Fallido && siguiente == EstadoEnvio.Pendiente ? "Reprogramar (volver a Pendiente)" : TheBuryProject.ViewModels.VentaEnvioViewModel.EstadoDisplayFor(siguiente))</option>
+                            <option value="@((int)siguiente)">@(siguiente == EstadoEnvio.Reprogramado ? "Reprogramado (nueva fecha de entrega)" : siguiente == EstadoEnvio.Pendiente ? "Volver a Pendiente" : TheBuryProject.ViewModels.VentaEnvioViewModel.EstadoDisplayFor(siguiente))</option>
                         }
                     </select>
                 </div>
 
+                <div id="envio-fecha-bloque" class="hidden">
+                    <label for="envio-fecha-programada" class="venta-label">Nueva fecha de entrega</label>
+                    <input type="date" id="envio-fecha-programada" name="fechaProgramada" class="venta-input"
+                           min="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                </div>
+
                 <div id="envio-motivo-bloque" class="hidden">
-                    <label for="envio-motivo" class="venta-label">Motivo de la entrega fallida</label>
+                    <label for="envio-motivo" id="envio-motivo-label" class="venta-label" data-label-fallido="Motivo de la entrega fallida" data-label-reprogramado="Motivo de la reprogramación (opcional)">Motivo de la entrega fallida</label>
                     <textarea id="envio-motivo" name="motivo" rows="3" maxlength="500"
                               placeholder="Por qué no se pudo entregar..." class="venta-input"></textarea>
                 </div>

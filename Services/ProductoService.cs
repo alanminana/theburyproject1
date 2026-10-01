@@ -426,6 +426,9 @@ namespace TheBuryProject.Services
                 existing.OtrosCostosCompra = producto.OtrosCostosCompra;
                 existing.PrecioVenta = producto.PrecioVenta;
                 existing.PorcentajeIVA = producto.PorcentajeIVA;
+                // Los flujos que no envían la alícuota de compra (página Edit huérfana) no deben borrarla.
+                if (producto.PorcentajeIVACompra.HasValue)
+                    existing.PorcentajeIVACompra = producto.PorcentajeIVACompra;
                 existing.AlicuotaIVAId = producto.AlicuotaIVAId;
                 existing.ComisionPorcentaje = producto.ComisionPorcentaje;
                 existing.MaxCuotasSinInteresPermitidas = producto.MaxCuotasSinInteresPermitidas;
@@ -443,7 +446,8 @@ namespace TheBuryProject.Services
                         producto.Id, producto.StockActual, existing.StockActual);
                 }
 
-                existing.UnidadMedida = producto.UnidadMedida;
+                // UnidadMedida tampoco se edita desde ninguna UI de producto (el ViewModel no la trae y el
+                // mapeo deja el default "UN"): se conserva la persistida para no pisarla en cada edición.
                 existing.Activo = producto.Activo;
                 existing.UpdatedAt = DateTime.UtcNow;
 

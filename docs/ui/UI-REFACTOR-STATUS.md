@@ -2426,3 +2426,61 @@ Al cerrar una pantalla:
 - **Accesibilidad:** `aria-current` + subrayado/negrita en la sección activa (no solo color), anillo de foco en `.cp-field`, `scroll-margin` para que un control inválido enfocado y su mensaje queden sobre la barra sticky (verificado 1440/1024/768/390/360). Tab/Shift+Tab, Space en checkboxes, Enter/Space en `<details>`, modales (foco atrapado, Escape, retorno de foco) y labels verificados.
 - **Validación:** 484/484 tests (`CreditoPersonal|ConfiguracionPago|ConfiguracionPunitorio`) y Release build 0 errores tras el último cambio; e2e `configuracion-punitorio` 14/14 (1 skip por diseño) en 1366x768, 768x1024 y 360x740, cada uno sobre un clon limpio de la BD; persistencia real en el clon (gastos, recargo explícito, recargo 0, herencia vacía, activo/inactivo, cuotas sin recargo, semáforo, límite por puntaje: POST 302 + recarga con los valores guardados); QA Playwright propio en 1440/1280/1024/768/390/360 × 5 secciones, 0 overflow, 0 errores de consola/requests. El clon se eliminó.
 - **Deuda:** los importes de "Límites por puntaje" siguen siendo `type=number` (contrato de binding).
+
+## Tickets QA 27 y 29 — Proveedor, Orden de compra y modal de Producto (2026-10-01, sin push)
+
+Corrección de los reportes de QA con el pipeline `/ui-module` aplicado sobre lo tocado: `ux-heuristics`, Impeccable critique en
+**modo dual** (A: revisión de diseño, B: detector + evidencia medida, dos agentes aislados), implementación de los hallazgos,
+QA Playwright propia en 1440/1024/390 y pasada final. El pulido (`reference/polish.md`: foco, estados, formato, copy, contraste) se aplicó junto con la implementación de la crítica, no como una fase separada. Puntaje de A: 26/40 (Acceptable, 65 %) antes de las correcciones; B: detector
+0 hallazgos en `OrdenCompra/Index`, `OrdenCompra/Create` y `Proveedor/Details`, 0 errores de consola, 0 requests fallidos, 0 overflow,
+contraste ≥ 6,76 en todas las pantallas. En `Catalogo/Index` el detector marca los `border-l-4` de los encabezados de sección de los
+modales (preexistentes en todo el módulo) y un falso positivo (texto casi negro sobre ámbar).
+
+**Cambios de producto**
+
+- **OrdenCompra/Create** (`ordencompra-form.js`): el bloqueo proveedor↔producto era una regla correcta (el servidor exige producto
+  asociado) aplicada sin explicación. El buscador avisa qué productos coinciden pero no están asociados (con enlace a la ficha); "sin
+  proveedores para este producto" es un aviso fijo con enlace "Ir a Proveedores" y copy corregido ("o elegí otro producto", ya no
+  "quitalo de la orden"); elegir un producto lleva el foco a Cantidad; los importes visibles usan formato `es-AR`
+  (`$ 1.234,50`; los hidden al servidor siguen con punto decimal).
+- **OrdenCompra/Index**: botón "Proveedores", filtros Marca y Producto, columna Marca, avance de envío por fila con confirmación
+  (tono primario, "Avanzar envío / Confirmar envío", dice de qué estado a cuál y que se puede revertir desde el detalle), botones según
+  permisos; relleno de celdas reducido (la tabla desbordaba ~70px en 1440 y cortaba Acciones).
+- **Proveedor/Details**: columnas Marca y Categoría, botón Editar por fila (`productos.view` + `productos.edit` + acceso al Catálogo)
+  que abre `/Catalogo?editarProducto={id}`; se quitó el pie que repetía "N productos asociados".
+- **Proveedor / drawer Editar** (`proveedor-product-picker.js`): elegir un producto tilda su marca y categoría, lo anuncia (`aria-live`,
+  nombra marca y categoría) y acerca lo tildado a la vista dentro de su lista; el buscador es un combobox (`role=combobox/listbox/option`,
+  ↑ ↓ Enter, Enter ya no envía el drawer); avisa "Mostrando 25 de N" cuando corta; contador en singular.
+- **Catálogo / modal Editar producto**: `Producto.PorcentajeIVACompra` (decimal(5,2) nullable, migración `AddProductoPorcentajeIVACompra`,
+  null = no informada → 21 %) se persiste y reabre; rótulo "IVA del precio de compra" con ayuda en lenguaje de negocio; el desglose
+  muestra importes `es-AR`; textos "precio base" sin jerga; 25 etiquetas asociadas con `for=`, y `aria-label` en el interruptor
+  "Producto activo" y en los controles de características (antes ~28 controles sin nombre accesible).
+  `UpdateAsync` no pisa `UnidadMedida` ni borra la alícuota de compra cuando el flujo no la envía.
+- **Modal de confirmación compartido** (`shared-ui.js`, usado por todo el ERP): ahora mueve el foco al diálogo ("Cancelar", o la nota
+  si se pide), retiene Tab y devuelve el foco a quien lo abrió; admite `options.title/confirmLabel/tone` (por defecto sigue siendo la
+  confirmación roja de siempre; verificado en Catálogo y Caja que las llamadas clásicas y con nota no cambian ni heredan opciones).
+- **Seguridad**: `ProductoController.GetJson` exige `productos.view` (antes lo leía cualquier usuario autenticado y devolvía costos y
+  precios); el Catálogo no ofrece Editar sin ese permiso.
+
+**Validación (copia de la LocalDB, ya eliminada, migración aplicada al arrancar):** guardado real del proveedor con producto nuevo, creación
+de una orden, guardado del modal de producto desde Productos asociados (stock actual y unidad `KG` intactos), IVA de compra 10,5 %
+guardado y reabierto con el desglose correcto, confirmación del avance de envío (cancelar no cambia el estado; confirmar sí), foco
+atrapado (12 Tab, 0 fugas) y devuelto, filtros Marca/Producto, selector con teclado, `contador` (solo ver proveedores y órdenes): sin
+botones de escritura, `/OrdenCompra/Create` → AccessDenied, POST directo a `CambiarEstado` rechazado con la base sin cambios, `GetJson`
+rechazado para `contador` y `gerente`. 1440/1024/390 sin overflow de página, 0 errores de consola.
+
+**Deuda de la crítica resuelta en pasadas posteriores (2026-10-01)**
+
+- "Agregar producto" queda bloqueado (`aria-disabled`, sin agregar la fila) cuando ningún proveedor tiene el producto; el aviso fijo con enlace sigue explicando por qué.
+- El listado de órdenes marca "Vencida" (texto rosa) en la fecha de entrega de órdenes Enviada/Confirmada/En tránsito con entrega anterior a hoy; fechas en `dd/MM/yyyy` y badge `nowrap`: "EN TRÁNSITO" ya no se parte y no hay overflow en 1440.
+- Dropdown del buscador de la orden: los nombres largos se parten en vez de truncarse (con `title`).
+- Modal Crear/Editar producto en <640px: solapas con padding menor y degradado a la derecha que indica que hay más (CSS plano en `catalogo-module.css`; tailwind.css no se regenera).
+- Foco del modal "Editar producto" medido: 45 Tab sin salir del modal, Escape cierra.
+
+- Objetivos táctiles de 44px en Orden de compra (listado: acciones, filtros y botones; Crear: campos y botones), Proveedor (listado: acciones, filtros, enlaces de contacto; drawer: casillas con fila de 44px y casilla de 20px). CSS plano en `ordencompra-module.css` / `proveedor-module.css` acotado a esas pantallas; el estándar global del ERP (40px) no se tocó. Medido en 1440: 0 elementos interactivos < 44px en esas pantallas.
+- Corte de 25 resultados reproducido con 30 productos sintéticos en la copia de QA: "Mostrando 25 de 30. Escribí más para acotar la búsqueda."
+
+**Deuda: ninguna abierta en este alcance.**
+
+Estado: **LISTO PARA COMMIT** para este alcance (fases formales ejecutadas, sin superficies relevantes en NO VALIDADA); la deuda de
+arriba es explícita y no bloquea.

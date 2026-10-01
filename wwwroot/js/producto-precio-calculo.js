@@ -6,9 +6,11 @@
         return Number.isFinite(value) ? value : 0;
     }
 
+    // Los importes calculados son solo lectura (nadie los vuelve a parsear): se muestran como en el resto
+    // del ERP (miles con punto, decimales con coma). Los hidden que viaja al servidor usan setHidden.
     function setMoney(id, value) {
         var el = document.getElementById(id);
-        if (el) el.value = (Number.isFinite(value) ? value : 0).toFixed(2);
+        if (el) el.value = (Number.isFinite(value) ? value : 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
     function setHidden(id, value) {

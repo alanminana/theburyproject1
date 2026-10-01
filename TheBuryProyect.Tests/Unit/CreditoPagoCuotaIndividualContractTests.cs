@@ -153,4 +153,15 @@ public class CreditoPagoCuotaIndividualContractTests
         Assert.DoesNotContain("\"configuracion\"", cajeroBlock);
         Assert.DoesNotContain("\"scoring\"", cajeroBlock);
     }
+
+    [Fact]
+    public void PagarCuota_AvisaPunitorioCalculadoSinAplicar_YNoLoSumaAlTotalCobrable()
+    {
+        var vista = Read("Views", "Credito", "PagarCuota_tw.cshtml");
+
+        Assert.Contains("data-punitorio-sin-aplicar", vista);
+        Assert.Contains("contexto.PunitorioCalculadoInformativo is > 0m", vista);
+        Assert.Contains("contexto.PunitorioAplicadoPendiente is not > 0m", vista);
+        Assert.Contains("no forma parte del total cobrable", vista);
+    }
 }

@@ -371,3 +371,17 @@ select.catalogo-input option {
     justify-content: flex-end;
     gap: 0.25rem;
 }
+
+/* Solapas de los modales de producto: en pantallas angostas se recortan por scroll; el degradado y el
+   padding menor muestran que hay más solapas a la derecha. */
+@media (max-width: 639px) {
+    .prod-tabs-scroll {
+        padding-inline: 0.75rem;
+        mask-image: linear-gradient(to right, #000 88%, transparent);
+    }
+
+    .prod-tabs-scroll .prod-edit-tab,
+    .prod-tabs-scroll .prod-create-tab {
+        padding-inline: 0.625rem;
+    }
+}

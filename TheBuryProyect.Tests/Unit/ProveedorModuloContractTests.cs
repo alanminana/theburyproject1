@@ -128,6 +128,12 @@ public class ProveedorModuloContractTests
         Assert.Contains("marcaId = p.MarcaId", controller);
         Assert.Contains("categoriaId = p.CategoriaId", controller);
         Assert.Contains("marcarAsociacionesDelProducto(product)", picker);
+        // Los tildes automáticos se anuncian y el contador respeta el singular.
+        Assert.Contains("picker-auto-note", picker);
+        Assert.Contains("producto seleccionado", picker);
+        // El corte a 25 resultados es visible ("Mostrando 25 de N").
+        Assert.Contains("MAX_RESULTADOS", picker);
+        Assert.Contains("Escribí más para acotar la búsqueda", picker);
 
         // Cada fila ofrece "Editar": abre el modal canónico del Catálogo con el producto cargado.
         Assert.Contains("data-puede-editar-productos", details);

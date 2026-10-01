@@ -94,6 +94,13 @@
                         <div class="kv-row"><dt>Total cobrable actual</dt><dd class="num"><strong>@DineroOpcional(contexto.TotalCobrableActual)</strong></dd></div>
                     </dl>
 
+                    @if (contexto.PunitorioCalculadoInformativo is > 0m && contexto.PunitorioAplicadoPendiente is not > 0m)
+                    {
+                        <div class="alert alert-warn" style="margin-top:1rem" role="status" data-punitorio-sin-aplicar>
+                            <div>Hay un punitorio calculado de <strong style="white-space:nowrap">@Dinero(contexto.PunitorioCalculadoInformativo.Value)</strong> que todavía no fue aplicado, por eso no forma parte del total cobrable. Solo se cobra si un usuario con permiso de aplicar punitorios lo aplica antes.</div>
+                        </div>
+                    }
+
                     @if (!contexto.HistorialCompleto || !contexto.PunitorioAplicadoPendiente.HasValue)
                     {
                         <div class="alert alert-warn" style="margin-top:1rem" role="alert">

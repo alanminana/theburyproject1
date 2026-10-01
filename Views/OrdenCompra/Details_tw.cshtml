@@ -63,12 +63,25 @@
                 <span class="material-symbols-outlined text-sm" aria-hidden="true">arrow_back</span>
                 Volver
             </a>
-            <span class="btn-erp-ghost btn-sm opacity-60 cursor-not-allowed"
-                  aria-disabled="true"
-                  title="La edición de órdenes de compra todavía no está disponible">
-                <span class="material-symbols-outlined text-sm" aria-hidden="true">edit</span>
-                Editar
-            </span>
+            @if (User.TienePermiso("ordenescompra", "update"))
+            {
+                if (Model.Estado == EstadoOrdenCompra.Borrador || Model.Estado == EstadoOrdenCompra.Enviada)
+                {
+                    <a asp-action="Edit" asp-route-id="@Model.Id" class="btn-erp-ghost btn-sm no-underline">
+                        <span class="material-symbols-outlined text-sm" aria-hidden="true">edit</span>
+                        Editar
+                    </a>
+                }
+                else
+                {
+                    <span class="btn-erp-ghost btn-sm opacity-60 cursor-not-allowed"
+                          aria-disabled="true"
+                          title="Solo se pueden editar órdenes en estado Borrador o Enviada">
+                        <span class="material-symbols-outlined text-sm" aria-hidden="true">edit</span>
+                        Editar
+                    </span>
+                }
+            }
             <button type="button" id="btn-imprimir-orden" class="btn-erp-ghost btn-sm">
                 <span class="material-symbols-outlined text-sm" aria-hidden="true">print</span>
                 Imprimir

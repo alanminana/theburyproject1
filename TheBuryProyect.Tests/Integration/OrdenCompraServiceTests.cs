@@ -738,4 +738,132 @@ public class OrdenCompraServiceTests : IDisposable
         Assert.Equal(ordenA.Id, Assert.Single(porNombre).Id);
         Assert.Equal(ordenA.Id, Assert.Single(porCodigo).Id);
     }
+
+    // -------------------------------------------------------------------------
+    // UpdateAsync (edición de órdenes)
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Update_Borrador_ActualizaDetallesTotalesYConservaEstado()
+    {
+        var proveedor = await SeedProveedorAsync();
+        var producto = await SeedProductoAsync();
+        var otroProducto = await SeedProductoAsync();
+        var orden = await SeedOrdenAsync(proveedor.Id, producto.Id, cantidad: 10, precioUnitario: 100m);
+        var detalleId = orden.Detalles.Single().Id;
+
+        var resultado = await _service.UpdateAsync(new OrdenCompra
+        {
+            Id = orden.Id,
+            RowVersion = orden.RowVersion,
+            Numero = orden.Numero,
+            ProveedorId = proveedor.Id,
+            FechaEmision = orden.FechaEmision,
+            Estado = EstadoOrdenCompra.Recibida, // el formulario no puede cambiar el estado
+            Observaciones = "editada",
+            Detalles = new List<OrdenCompraDetalle>
+            {
+                new() { Id = detalleId, ProductoId = producto.Id, Cantidad = 20, PrecioUnitario = 50m },
+                new() { ProductoId = otroProducto.Id, Cantidad = 2, PrecioUnitario = 10m }
+            }
+        });
+
+        Assert.Equal(EstadoOrdenCompra.Borrador, resultado.Estado);
+        Assert.Equal("editada", resultado.Observaciones);
+        Assert.Equal(1020m, resultado.Total); // 20 x 50 + 2 x 10
+        Assert.Equal(2, resultado.Detalles.Count(d => !d.IsDeleted));
+        Assert.Equal(20, resultado.Detalles.Single(d => d.Id == detalleId).Cantidad);
+    }
+
+    [Fact]
+    public async Task Update_QuitarProducto_LoMarcaComoEliminado()
+    {
+        var proveedor = await SeedProveedorAsync();
+        var producto = await SeedProductoAsync();
+        var otroProducto = await SeedProductoAsync();
+        var orden = await SeedOrdenAsync(proveedor.Id, producto.Id, estado: EstadoOrdenCompra.Enviada);
+        var detalleOriginalId = orden.Detalles.Single().Id;
+
+        var resultado = await _service.UpdateAsync(new OrdenCompra
+        {
+            Id = orden.Id,
+            RowVersion = orden.RowVersion,
+            Numero = orden.Numero,
+            ProveedorId = proveedor.Id,
+            FechaEmision = orden.FechaEmision,
+            Detalles = new List<OrdenCompraDetalle>
+            {
+                new() { ProductoId = otroProducto.Id, Cantidad = 1, PrecioUnitario = 10m }
+            }
+        });
+
+        Assert.Equal(EstadoOrdenCompra.Enviada, resultado.Estado);
+        Assert.True(resultado.Detalles.Single(d => d.Id == detalleOriginalId).IsDeleted);
+        Assert.Equal(10m, resultado.Total);
+    }
+
+    [Theory]
+    [InlineData(EstadoOrdenCompra.Confirmada)]
+    [InlineData(EstadoOrdenCompra.EnTransito)]
+    [InlineData(EstadoOrdenCompra.Recibida)]
+    [InlineData(EstadoOrdenCompra.Cancelada)]
+    public async Task Update_EstadoNoEditable_LanzaExcepcion(EstadoOrdenCompra estado)
+    {
+        var proveedor = await SeedProveedorAsync();
+        var producto = await SeedProductoAsync();
+        var orden = await SeedOrdenAsync(proveedor.Id, producto.Id, estado: estado);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.UpdateAsync(new OrdenCompra
+        {
+            Id = orden.Id,
+            RowVersion = orden.RowVersion,
+            Numero = orden.Numero,
+            ProveedorId = proveedor.Id,
+            FechaEmision = orden.FechaEmision,
+            Detalles = new List<OrdenCompraDetalle>
+            {
+                new() { ProductoId = producto.Id, Cantidad = 1, PrecioUnitario = 10m }
+            }
+        }));
+    }
+
+    [Fact]
+    public async Task Update_SinDetalles_LanzaExcepcion()
+    {
+        var proveedor = await SeedProveedorAsync();
+        var producto = await SeedProductoAsync();
+        var orden = await SeedOrdenAsync(proveedor.Id, producto.Id);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.UpdateAsync(new OrdenCompra
+        {
+            Id = orden.Id,
+            RowVersion = orden.RowVersion,
+            Numero = orden.Numero,
+            ProveedorId = proveedor.Id,
+            FechaEmision = orden.FechaEmision,
+            Detalles = new List<OrdenCompraDetalle>()
+        }));
+    }
+
+    [Fact]
+    public async Task Update_NumeroDeOtraOrden_LanzaExcepcion()
+    {
+        var proveedor = await SeedProveedorAsync();
+        var producto = await SeedProductoAsync();
+        var ordenA = await SeedOrdenAsync(proveedor.Id, producto.Id);
+        var ordenB = await SeedOrdenAsync(proveedor.Id, producto.Id);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.UpdateAsync(new OrdenCompra
+        {
+            Id = ordenB.Id,
+            RowVersion = ordenB.RowVersion,
+            Numero = ordenA.Numero,
+            ProveedorId = proveedor.Id,
+            FechaEmision = ordenB.FechaEmision,
+            Detalles = new List<OrdenCompraDetalle>
+            {
+                new() { ProductoId = producto.Id, Cantidad = 1, PrecioUnitario = 10m }
+            }
+        }));
+    }
 }

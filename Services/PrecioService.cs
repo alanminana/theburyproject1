@@ -347,10 +347,7 @@ public class PrecioService : IPrecioService
                 : null;
 
             var precioVentaAnterior = precioListaAnterior?.Precio ?? producto.PrecioVenta;
-            var precioVentaNuevo = Math.Round(
-                precioVentaAnterior * (1 + (porcentaje / 100m)),
-                2,
-                MidpointRounding.AwayFromZero);
+            var precioVentaNuevo = CalcularPrecioBase(precioVentaAnterior, model.TipoCambio, porcentaje, model.Redondeo);
 
             if (precioVentaNuevo < 0)
             {
@@ -374,6 +371,19 @@ public class PrecioService : IPrecioService
                 Exitoso = false,
                 Mensaje = "No hubo cambios para aplicar."
             };
+        }
+
+        // El catálogo muestra ValorPorcentaje como "último cambio %". Con monto fijo o redondeo el % real
+        // difiere por producto: se registra el promedio efectivo para no mostrar un monto como si fuera %.
+        if (EsMontoFijo(model.TipoCambio) || NormalizarRedondeo(model.Redondeo) != "none")
+        {
+            var efectivos = cambios
+                .Where(c => c.anterior > 0)
+                .Select(c => (c.nuevo - c.anterior) / c.anterior * 100m)
+                .ToList();
+            porcentaje = efectivos.Count > 0
+                ? Math.Round(efectivos.Average(), 2, MidpointRounding.AwayFromZero)
+                : 0m;
         }
 
         var descripcionAlcance = cambios.Count == 1 ? "1 producto" : $"{cambios.Count} productos";
@@ -661,6 +671,93 @@ public class PrecioService : IPrecioService
         }
 
         return (true, "Cambio revertido correctamente.", eventoReversion.Id);
+    }
+
+    private static bool EsMontoFijo(string? tipoCambio)
+        => tipoCambio?.Trim().ToLowerInvariant() is "montofijo" or "monto" or "absoluto" or "valorabsoluto";
+
+    private static string NormalizarRedondeo(string? redondeo)
+        => redondeo?.Trim().ToLowerInvariant() switch
+        {
+            "entero" => "entero",
+            "99" => "99",
+            _ => "none"
+        };
+
+    /// <summary>
+    /// Precio nuevo sobre el precio base: % o monto fijo (el valor puede ser negativo = baja),
+    /// siempre a 2 decimales, más el redondeo opcional ("entero" o ".99").
+    /// Usado tanto por la vista previa como por la aplicación para que ambas coincidan.
+    /// </summary>
+    public static decimal CalcularPrecioBase(decimal precioAnterior, string? tipoCambio, decimal valor, string? redondeo)
+    {
+        var bruto = EsMontoFijo(tipoCambio)
+            ? precioAnterior + valor
+            : precioAnterior * (1 + (valor / 100m));
+
+        var nuevo = Math.Round(bruto, 2, MidpointRounding.AwayFromZero);
+
+        return NormalizarRedondeo(redondeo) switch
+        {
+            "entero" => Math.Round(nuevo, 0, MidpointRounding.AwayFromZero),
+            "99" => nuevo <= 0 ? nuevo : Math.Floor(nuevo) + 0.99m,
+            _ => nuevo
+        };
+    }
+
+    public async Task<List<FilaSimulacionPrecio>> SimularCambioPrecioBaseAsync(
+        string? tipoCambio,
+        decimal valor,
+        string? redondeo,
+        List<int>? categoriaIds = null,
+        List<int>? marcaIds = null,
+        List<int>? productoIds = null)
+    {
+        var query = _context.Productos
+            .AsNoTracking()
+            .Where(p => !p.IsDeleted);
+
+        if (productoIds != null && productoIds.Any())
+        {
+            // Selección explícita: se respeta tal cual (incluye productos inactivos tildados).
+            query = query.Where(p => productoIds.Contains(p.Id));
+        }
+        else
+        {
+            query = query.Where(p => p.Activo);
+
+            if (categoriaIds != null && categoriaIds.Any())
+                query = query.Where(p => categoriaIds.Contains(p.CategoriaId));
+
+            if (marcaIds != null && marcaIds.Any())
+                query = query.Where(p => marcaIds.Contains(p.MarcaId));
+        }
+
+        var productos = await query
+            .Select(p => new
+            {
+                p.Id,
+                p.Codigo,
+                p.Nombre,
+                p.PrecioVenta,
+                Categoria = p.Categoria != null ? p.Categoria.Nombre : "",
+                Marca = p.Marca != null ? p.Marca.Nombre : ""
+            })
+            .OrderBy(p => p.Codigo)
+            .ToListAsync();
+
+        return productos.Select(p => new FilaSimulacionPrecio
+        {
+            ProductoId = p.Id,
+            Codigo = p.Codigo,
+            Nombre = p.Nombre,
+            Categoria = p.Categoria,
+            Marca = p.Marca,
+            ListaId = 0,
+            ListaNombre = "Precio base",
+            PrecioActual = p.PrecioVenta,
+            PrecioNuevo = CalcularPrecioBase(p.PrecioVenta, tipoCambio, valor, redondeo)
+        }).ToList();
     }
 
     private static List<int> ParseProductoIds(string? productoIdsText)

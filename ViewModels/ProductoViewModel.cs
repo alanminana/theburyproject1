@@ -83,6 +83,11 @@ namespace TheBuryProject.ViewModels
         [Range(0, 100, ErrorMessage = "El IVA debe estar entre 0 y 100")]
         public decimal PorcentajeIVA { get; set; } = 21m;
 
+        [Display(Name = "IVA incluido en la compra (%)")]
+        [ModelBinder(typeof(DecimalModelBinder))]
+        [Range(0, 100, ErrorMessage = "El IVA de compra debe estar entre 0 y 100")]
+        public decimal? PorcentajeIVACompra { get; set; }
+
         [Display(Name = "Alícuota IVA")]
         public int? AlicuotaIVAId { get; set; }
 

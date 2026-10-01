@@ -199,6 +199,41 @@ public class VentaControllerIndexPaginacionTests
         Assert.Null((string?)controller.ViewBag.TurnoVencido);
     }
 
+    [Fact]
+    public async Task Index_HistorialDeEnvios_PorDefectoEsElMesEnCurso()
+    {
+        var controller = CreateController(new StubVentaService());
+
+        await controller.Index(new VentaFilterViewModel());
+
+        var hoy = DateTime.Today;
+        Assert.Equal(new DateTime(hoy.Year, hoy.Month, 1), (DateTime)controller.ViewBag.EnviosMes);
+        Assert.NotNull(controller.ViewBag.EnviosHistorial);
+    }
+
+    [Theory]
+    [InlineData("2026-08", 2026, 8)]
+    [InlineData("2025-12", 2025, 12)]
+    public async Task Index_HistorialDeEnvios_BuscaElMesElegido(string enviosMes, int anio, int mes)
+    {
+        var controller = CreateController(new StubVentaService());
+
+        await controller.Index(new VentaFilterViewModel(), enviosMes);
+
+        Assert.Equal(new DateTime(anio, mes, 1), (DateTime)controller.ViewBag.EnviosMes);
+    }
+
+    [Fact]
+    public async Task Index_HistorialDeEnvios_MesInvalidoCaeAlMesEnCurso()
+    {
+        var controller = CreateController(new StubVentaService());
+
+        await controller.Index(new VentaFilterViewModel(), "no-es-un-mes");
+
+        var hoy = DateTime.Today;
+        Assert.Equal(new DateTime(hoy.Year, hoy.Month, 1), (DateTime)controller.ViewBag.EnviosMes);
+    }
+
     private static VentaController CreateController(StubVentaService ventaService, StubCajaService? cajaService = null)
     {
         var httpContext = new DefaultHttpContext();
@@ -217,12 +252,30 @@ public class VentaControllerIndexPaginacionTests
             null!, // IContratoVentaCreditoService — no usado por Index
             null!, // AppDbContext — no usado por Index
             new RelojComercialFake(), // sólo para fechar el turno vencido
-            null!); // IVentaEnvioService — no usado por Index
+            new StubVentaEnvioService()); // sólo GetCerradosPorMesAsync (historial de Logística)
 
         controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
         controller.TempData = new TempDataDictionary(httpContext, new StubTempDataProvider());
         controller.Url = new StubUrlHelper();
         return controller;
+    }
+
+    private sealed class StubVentaEnvioService : IVentaEnvioService
+    {
+        public int? AnioConsultado { get; private set; }
+        public int? MesConsultado { get; private set; }
+
+        public Task<List<VentaEnvio>> GetCerradosPorMesAsync(int anio, int mes)
+        {
+            AnioConsultado = anio;
+            MesConsultado = mes;
+            return Task.FromResult(new List<VentaEnvio>());
+        }
+
+        public Task<VentaEnvio?> GetByVentaIdAsync(int ventaId) => throw new NotImplementedException();
+        public Task<List<VentaEnvio>> GetPendientesAsync() => throw new NotImplementedException();
+        public Task<CambiarEstadoEnvioResultado> CambiarEstadoAsync(int ventaId, EstadoEnvio nuevoEstado, string? motivo, string? usuario, DateTime? nuevaFechaProgramada = null) => throw new NotImplementedException();
+        public bool EsTransicionValida(EstadoEnvio estadoActual, EstadoEnvio nuevoEstado) => throw new NotImplementedException();
     }
 
     private sealed class StubVentaService : IVentaService

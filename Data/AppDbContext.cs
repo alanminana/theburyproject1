@@ -383,6 +383,7 @@ namespace TheBuryProject.Data
                 entity.Property(e => e.OtrosCostosCompra).HasPrecision(18, 2).HasDefaultValue(0m);
                 entity.Property(e => e.PrecioVenta).HasPrecision(18, 2);
                 entity.Property(e => e.PorcentajeIVA).HasPrecision(5, 2);
+                entity.Property(e => e.PorcentajeIVACompra).HasPrecision(5, 2);
                 entity.Property(e => e.ComisionPorcentaje)
                     .HasPrecision(5, 2)
                     .HasDefaultValue(0m);
@@ -1399,6 +1400,7 @@ namespace TheBuryProject.Data
                 entity.Property(e => e.ArmadoPrecioUnitario).HasPrecision(18, 2).HasDefaultValue(0m);
                 entity.Property(e => e.ArmadoSubtotal).HasPrecision(18, 2).HasDefaultValue(0m);
                 entity.Property(e => e.EntregaCajaCerrada).HasDefaultValue(false);
+                entity.Property(e => e.EnviarADomicilio).HasDefaultValue(true).HasSentinel(true);
                 entity.Property(e => e.PorcentajeIVA)
                     .HasPrecision(5, 2)
                     .HasDefaultValue(0m);

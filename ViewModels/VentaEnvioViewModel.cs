@@ -65,6 +65,11 @@ namespace TheBuryProject.ViewModels
         [DataType(DataType.Date)]
         public DateTime? FechaProgramada { get; set; }
 
+        /// <summary>Cuándo se creó / se tocó por última vez el envío (auditoría), para el historial de la venta.</summary>
+        public DateTime CreatedAt { get; set; }
+        public DateTime? UpdatedAt { get; set; }
+        public DateTime FechaUltimoCambio => UpdatedAt ?? CreatedAt;
+
         public DateTime? FechaDespacho { get; set; }
         public DateTime? FechaEntregaReal { get; set; }
 
@@ -86,6 +91,7 @@ namespace TheBuryProject.ViewModels
             EstadoEnvio.Entregado => "Entregado",
             EstadoEnvio.Fallido => "Entrega fallida",
             EstadoEnvio.Cancelado => "Cancelado",
+            EstadoEnvio.Reprogramado => "Reprogramado",
             _ => Estado.ToString()
         };
 
@@ -98,7 +104,21 @@ namespace TheBuryProject.ViewModels
             EstadoEnvio.Entregado => "pill-green",
             EstadoEnvio.Fallido => "pill-red",
             EstadoEnvio.Cancelado => "pill-red",
+            EstadoEnvio.Reprogramado => "pill-amber",
             _ => "pill-slate"
+        };
+
+        /// <summary>
+        /// Variante badge-erp (estilo global) para pantallas que no cargan los .pill locales de
+        /// Centro de Ventas, como Venta/Details.
+        /// </summary>
+        public string EstadoBadgeClass => Estado switch
+        {
+            EstadoEnvio.Entregado => "badge-erp-success",
+            EstadoEnvio.Cancelado or EstadoEnvio.Fallido => "badge-erp-danger",
+            EstadoEnvio.Reprogramado or EstadoEnvio.EnCamino => "badge-erp-warning",
+            EstadoEnvio.Preparando or EstadoEnvio.Despachado => "badge-erp-info",
+            _ => "badge-erp-neutral"
         };
 
         public bool EsTerminal => Estado is EstadoEnvio.Entregado or EstadoEnvio.Cancelado;
@@ -111,11 +131,12 @@ namespace TheBuryProject.ViewModels
         /// </summary>
         public IEnumerable<EstadoEnvio> EstadosSiguientesPosibles => Estado switch
         {
-            EstadoEnvio.Pendiente => new[] { EstadoEnvio.Preparando, EstadoEnvio.Entregado, EstadoEnvio.Cancelado },
-            EstadoEnvio.Preparando => new[] { EstadoEnvio.Despachado, EstadoEnvio.Entregado, EstadoEnvio.Cancelado },
-            EstadoEnvio.Despachado => new[] { EstadoEnvio.EnCamino, EstadoEnvio.Entregado, EstadoEnvio.Fallido },
-            EstadoEnvio.EnCamino => new[] { EstadoEnvio.Entregado, EstadoEnvio.Fallido },
-            EstadoEnvio.Fallido => new[] { EstadoEnvio.Pendiente, EstadoEnvio.Preparando, EstadoEnvio.Cancelado },
+            EstadoEnvio.Pendiente => new[] { EstadoEnvio.Preparando, EstadoEnvio.Entregado, EstadoEnvio.Reprogramado, EstadoEnvio.Cancelado },
+            EstadoEnvio.Preparando => new[] { EstadoEnvio.Despachado, EstadoEnvio.Entregado, EstadoEnvio.Reprogramado, EstadoEnvio.Cancelado },
+            EstadoEnvio.Despachado => new[] { EstadoEnvio.EnCamino, EstadoEnvio.Entregado, EstadoEnvio.Fallido, EstadoEnvio.Reprogramado },
+            EstadoEnvio.EnCamino => new[] { EstadoEnvio.Entregado, EstadoEnvio.Fallido, EstadoEnvio.Reprogramado },
+            EstadoEnvio.Fallido => new[] { EstadoEnvio.Pendiente, EstadoEnvio.Preparando, EstadoEnvio.Reprogramado, EstadoEnvio.Cancelado },
+            EstadoEnvio.Reprogramado => new[] { EstadoEnvio.Preparando, EstadoEnvio.Despachado, EstadoEnvio.Entregado, EstadoEnvio.Reprogramado, EstadoEnvio.Cancelado },
             _ => Array.Empty<EstadoEnvio>()
         };
 
@@ -128,6 +149,7 @@ namespace TheBuryProject.ViewModels
             EstadoEnvio.Entregado => "Entregado",
             EstadoEnvio.Fallido => "Entrega fallida",
             EstadoEnvio.Cancelado => "Cancelado",
+            EstadoEnvio.Reprogramado => "Reprogramado",
             _ => estado.ToString()
         };
 

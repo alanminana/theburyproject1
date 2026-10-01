@@ -71,7 +71,7 @@
                 @if (puedeVerOrdenes)
                 {
                     <a asp-controller="OrdenCompra" asp-action="Index"
-                       class="btn-erp-ghost btn-sm no-underline sm:w-auto">
+                       class="btn-erp-ghost btn-sm prov-touch no-underline sm:w-auto">
                         <span class="material-symbols-outlined text-[16px]" aria-hidden="true">local_shipping</span>
                         Órdenes de compra
                     </a>
@@ -80,7 +80,7 @@
                 @if (puedeCrear && (proveedores.Any() || filtroProvActivo))
                 {
                     <button type="button" data-proveedor-modal-action="open" data-proveedor-modal="create"
-                            class="btn-erp-primary btn-sm sm:w-auto">
+                            class="btn-erp-primary btn-sm prov-touch sm:w-auto">
                         <span class="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
                         Nuevo proveedor
                     </button>

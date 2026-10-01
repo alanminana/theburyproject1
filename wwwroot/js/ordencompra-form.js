@@ -33,6 +33,7 @@
     const feedbackTitle = document.querySelector('[data-feedback-title]');
     const feedbackMessage = document.querySelector('[data-feedback-message]');
     const feedbackIcon = document.querySelector('[data-feedback-icon]');
+    const feedbackLink = document.querySelector('[data-feedback-link]');
     const feedbackClose = document.querySelector('[data-feedback-close]');
     const scrollAffordance = (window.TheBury && typeof window.TheBury.initHorizontalScrollAffordance === 'function')
         ? window.TheBury.initHorizontalScrollAffordance(document.querySelector('[data-oc-scroll]'))
@@ -103,6 +104,7 @@
         const productoId = parseInt(detalle?.productoId ?? detalle?.ProductoId ?? 0, 10) || 0;
 
         return {
+            id: parseInt(detalle?.id ?? detalle?.Id ?? 0, 10) || 0,
             productoId,
             nombre: `${detalle?.productoNombre ?? detalle?.ProductoNombre ?? ''}`,
             codigo: `${detalle?.productoCodigo ?? detalle?.ProductoCodigo ?? ''}`,
@@ -121,6 +123,11 @@
 
     function num(value) {
         return parseFloat(value || 0).toFixed(2);
+    }
+
+    // Importes para mostrar (miles con punto, decimales con coma); los hidden siguen yendo con numForPost.
+    function fmt(value) {
+        return (parseFloat(value) || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
     function numForPost(value) {
@@ -182,7 +189,11 @@
         ));
     }
 
+    let sinProveedorParaProducto = false;
+
     function actualizarProveedoresPorProductoContexto() {
+        sinProveedorParaProducto = false;
+        btnAgregar?.removeAttribute('aria-disabled');
         if (!selectProveedor || !proveedores.length) return;
 
         const proveedorId = getProveedorIdSeleccionado();
@@ -204,12 +215,17 @@
         );
 
         renderProveedorOptions(proveedoresPermitidos, '');
+        btnAgregar?.removeAttribute('aria-disabled');
 
         if (!proveedoresPermitidos.size) {
-            showFeedback('Ningún proveedor tiene asociado este producto, por eso la lista de proveedores está vacía. Asocialo desde Proveedores (Editar proveedor) o quitá el producto para elegir otro proveedor.', {
+            sinProveedorParaProducto = true;
+            if (btnAgregar) btnAgregar.setAttribute('aria-disabled', 'true');
+            showFeedback('Ningún proveedor tiene este producto asociado. Asocialo desde Proveedores → Editar, o elegí otro producto.', {
                 variant: 'warning',
                 title: 'Sin proveedores asociados',
-                sticky: true
+                sticky: true,
+                href: '/Proveedor',
+                hrefLabel: 'Ir a Proveedores'
             });
         }
     }
@@ -257,10 +273,10 @@
                     data-precio="${producto.precioCompra}"
                     data-porcentaje-iva="${producto.porcentajeIva}">
                 <span class="min-w-0">
-                    <span class="block text-sm font-bold text-slate-900 dark:text-white truncate">${esc(producto.nombre)}</span>
+                    <span class="block text-sm font-bold text-slate-900 dark:text-white break-words" title="${esc(producto.nombre)}">${esc(producto.nombre)}</span>
                     <span class="block text-xs text-slate-500 truncate">${esc(producto.codigo)}</span>
                 </span>
-                <span class="text-xs font-medium text-primary shrink-0">$${num(producto.precioCompra)}</span>
+                <span class="text-xs font-medium text-primary shrink-0">$ ${fmt(producto.precioCompra)}</span>
             </button>
         `).join('');
 
@@ -284,6 +300,9 @@
         dropdown.innerHTML = items + aviso;
 
         setDropdownVisible(true);
+
+        // En pantallas chicas el buscador queda al borde: el aviso tiene que verse sin scrollear a mano.
+        if (aviso) dropdown.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
 
     function syncTableOverflow() {
@@ -294,6 +313,7 @@
         if (!feedback) return;
         feedback.hidden = true;
         feedback.dataset.variant = '';
+        if (feedbackLink) feedbackLink.hidden = true;
 
         if (feedbackTimer) {
             clearTimeout(feedbackTimer);
@@ -320,6 +340,14 @@
         feedbackTitle.textContent = title;
         feedbackMessage.textContent = message;
         feedbackIcon.textContent = icons[variant] || 'info';
+        if (feedbackLink) {
+            // Acción opcional del aviso: lleva a resolver el bloqueo en vez de solo describirlo.
+            feedbackLink.hidden = !options?.href;
+            if (options?.href) {
+                feedbackLink.href = options.href;
+                feedbackLink.textContent = options.hrefLabel || 'Ver más';
+            }
+        }
         feedback.hidden = false;
 
         const rect = feedback.getBoundingClientRect();
@@ -354,6 +382,12 @@
         hideFeedback();
         setDropdownVisible(false);
         actualizarProveedoresPorProductoContexto();
+
+        // Teclado: elegir el producto lleva directo a Cantidad.
+        if (inpCantidad) {
+            inpCantidad.focus();
+            inpCantidad.select();
+        }
     }
 
     function agregarProducto() {
@@ -365,6 +399,11 @@
                 variant: 'warning',
                 title: 'Falta elegir un producto'
             });
+            inpBuscar?.focus();
+            return;
+        }
+
+        if (sinProveedorParaProducto) {
             inpBuscar?.focus();
             return;
         }
@@ -475,6 +514,7 @@
                         <span class="text-sm font-bold text-slate-900 dark:text-white">${esc(fila.nombre)}</span>
                         <span class="text-xs text-slate-500">${esc(fila.codigo)}</span>
                     </div>
+                    <input type="hidden" name="Detalles[${index}].Id" value="${fila.id || 0}" />
                     <input type="hidden" name="Detalles[${index}].ProductoId" value="${fila.productoId}" />
                     <input type="hidden" name="Detalles[${index}].ProductoNombre" value="${esc(fila.nombre)}" />
                     <input type="hidden" name="Detalles[${index}].ProductoCodigo" value="${esc(fila.codigo)}" />
@@ -483,8 +523,8 @@
                     <input type="hidden" name="Detalles[${index}].Subtotal" value="${numForPost(fila.subtotal)}" />
                 </td>
                 <td class="py-4 px-2 text-center font-medium text-slate-900 dark:text-white">${fila.cantidad}</td>
-                <td class="py-4 px-2 text-right font-medium text-slate-700 dark:text-slate-300">$${num(fila.precio)}</td>
-                <td class="py-4 px-2 text-right font-bold text-slate-900 dark:text-white">$${num(fila.subtotal)}</td>
+                <td class="py-4 px-2 text-right font-medium text-slate-700 dark:text-slate-300">$ ${fmt(fila.precio)}</td>
+                <td class="py-4 px-2 text-right font-bold text-slate-900 dark:text-white">$ ${fmt(fila.subtotal)}</td>
                 <td class="py-4 px-2 text-center">
                     <button type="button"
                             data-remove="${index}"
@@ -517,10 +557,10 @@
             return sum + (base - base / (1 + pct / 100));
         }, 0);
 
-        if (lblSubtotal) lblSubtotal.textContent = `$${num(subtotal)}`;
-        if (lblDescuento) lblDescuento.textContent = `-$${num(descuento)}`;
-        if (lblIva) lblIva.textContent = `$${num(iva)}`;
-        if (lblTotal) lblTotal.textContent = `$${num(total)}`;
+        if (lblSubtotal) lblSubtotal.textContent = `$ ${fmt(subtotal)}`;
+        if (lblDescuento) lblDescuento.textContent = `- $ ${fmt(descuento)}`;
+        if (lblIva) lblIva.textContent = `$ ${fmt(iva)}`;
+        if (lblTotal) lblTotal.textContent = `$ ${fmt(total)}`;
 
         if (hdnSubtotal) hdnSubtotal.value = numForPost(subtotal);
         if (hdnDescuento) hdnDescuento.value = numForPost(descuento);

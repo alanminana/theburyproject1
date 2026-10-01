@@ -95,6 +95,14 @@ namespace TheBuryProject.Models.Entities
         public decimal PorcentajeIVA { get; set; } = 21m;
 
         /// <summary>
+        /// Alícuota de IVA incluida en el precio de compra (informada por el proveedor). Solo desglosa
+        /// "Compra sin IVA" / "IVA compra" en el formulario: el costo real se calcula con la compra total.
+        /// Null = no informada (la UI asume 21%).
+        /// </summary>
+        [Range(0, 100, ErrorMessage = "El IVA de compra debe estar entre 0 y 100")]
+        public decimal? PorcentajeIVACompra { get; set; }
+
+        /// <summary>
         /// Alícuota de IVA configurable. Si está informada y activa, tiene prioridad sobre PorcentajeIVA.
         /// </summary>
         public int? AlicuotaIVAId { get; set; }

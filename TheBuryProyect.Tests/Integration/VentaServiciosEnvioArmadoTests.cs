@@ -357,6 +357,81 @@ public class VentaServiciosEnvioArmadoTests : IDisposable
         Assert.Equal(PrecioProducto + PrecioArmado3 + PrecioEnvioCiudad, venta.Total);
     }
 
+    // ── ticket #24: elegir qué productos viajan en el envío ─────────────────
+
+    private static VentaViewModel VmDosLineas(int clienteId, int productoId, bool primeraEnvia, bool segundaEnvia, bool conEnvio = true)
+    {
+        var vm = Vm(clienteId, productoId, tipoEnvio: conEnvio ? TipoServicioVenta.EnvioCiudad : null);
+        vm.Detalles[0].EnviarADomicilio = primeraEnvia;
+        vm.Detalles.Add(new VentaDetalleViewModel
+        {
+            ProductoId = productoId,
+            Cantidad = 1,
+            PrecioUnitario = PrecioProducto,
+            EnviarADomicilio = segundaEnvia
+        });
+        return vm;
+    }
+
+    [Fact]
+    public async Task EnvioConUnSoloProducto_PersisteLaSeleccion_YNoAlteraElTotal()
+    {
+        var (cliente, producto) = await SeedBaseAsync();
+
+        var creada = await _service.CreateAsync(VmDosLineas(cliente.Id, producto.Id, primeraEnvia: false, segundaEnvia: true));
+
+        var venta = await CargarVentaAsync(creada.Id);
+        var lineas = venta.Detalles.Where(d => !d.IsDeleted).OrderBy(d => d.Id).ToList();
+        Assert.False(lineas[0].EnviarADomicilio);
+        Assert.True(lineas[1].EnviarADomicilio);
+        // El precio global del envío no depende de cuántos productos viajan.
+        Assert.Equal(2 * PrecioProducto + PrecioEnvioCiudad, venta.Total);
+    }
+
+    [Fact]
+    public async Task EnvioSinNingunProductoElegido_SeRechaza()
+    {
+        var (cliente, producto) = await SeedBaseAsync();
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.CreateAsync(VmDosLineas(cliente.Id, producto.Id, primeraEnvia: false, segundaEnvia: false)));
+
+        Assert.Contains("al menos un producto", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task SinEnvio_LaSeleccionDeProductosSeIgnora()
+    {
+        var (cliente, producto) = await SeedBaseAsync();
+
+        var creada = await _service.CreateAsync(VmDosLineas(cliente.Id, producto.Id, primeraEnvia: false, segundaEnvia: false, conEnvio: false));
+
+        var venta = await CargarVentaAsync(creada.Id);
+        Assert.Null(venta.Envio);
+        Assert.All(venta.Detalles.Where(d => !d.IsDeleted), d => Assert.True(d.EnviarADomicilio));
+    }
+
+    [Fact]
+    public async Task Editar_CambiaLosProductosDelEnvio()
+    {
+        var (cliente, producto) = await SeedBaseAsync();
+        var creada = await _service.CreateAsync(VmDosLineas(cliente.Id, producto.Id, primeraEnvia: true, segundaEnvia: true));
+        await _context.Database.ExecuteSqlRawAsync(
+            "UPDATE Ventas SET RowVersion = X'0102030405060708' WHERE Id = {0}", creada.Id);
+        var venta = await CargarVentaAsync(creada.Id);
+
+        var edicion = VmDosLineas(cliente.Id, producto.Id, primeraEnvia: true, segundaEnvia: false);
+        edicion.Id = venta.Id;
+        edicion.RowVersion = venta.RowVersion;
+        edicion.FechaVenta = venta.FechaVenta;
+        await _service.UpdateAsync(venta.Id, edicion);
+
+        venta = await CargarVentaAsync(creada.Id);
+        var lineas = venta.Detalles.Where(d => !d.IsDeleted).OrderBy(d => d.Id).ToList();
+        Assert.True(lineas[0].EnviarADomicilio);
+        Assert.False(lineas[1].EnviarADomicilio);
+    }
+
     [Fact]
     public async Task EnvioSinTipo_SeRechaza()
     {

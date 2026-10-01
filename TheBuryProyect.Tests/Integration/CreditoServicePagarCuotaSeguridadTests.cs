@@ -536,6 +536,42 @@ public class CreditoServicePagarCuotaSeguridadTests : IDisposable
     }
 
     [Fact]
+    public async Task PagarCuota_ConDescuentoDeMedioDeshabilitadoParaCuotas_CobraElValorDeLaCuota()
+    {
+        // Ticket #23: el medio tiene plan general de 1 cuota con -5% (descuento en efectivo) pero
+        // el flag "no aplica en cobro de cuotas" lo excluye: se cobra el valor de la cuota.
+        _configuracionPago.AjustePorcentaje = -5m;
+        _configuracionPago.AplicaAjusteEnCobroCuotas = false;
+        var (credito, cuota) = await SeedEscenarioAsync();
+
+        await _service.PagarCuotaAsync(Pago(credito.Id, cuota.Id, MontoCuota));
+
+        var cuotaBd = await RecargarCuotaAsync(cuota.Id);
+        Assert.Equal(EstadoCuota.Pagada, cuotaBd.Estado);
+        Assert.Equal(MontoCuota, cuotaBd.MontoPagado);
+        Assert.Equal(0m, cuotaBd.RecargoMedioPago);
+
+        var movimiento = Assert.Single(_caja.Movimientos);
+        Assert.Equal(MontoCuota, movimiento.MontoBase);
+        Assert.Equal(0m, movimiento.RecargoMedioPago);
+    }
+
+    [Fact]
+    public async Task PreviewPagoIndividual_ConAjusteDeMedioDeshabilitadoParaCuotas_NoSumaRecargoNiDescuento()
+    {
+        _configuracionPago.AjustePorcentaje = -5m;
+        _configuracionPago.AplicaAjusteEnCobroCuotas = false;
+        var (_, cuotaSeed) = await SeedEscenarioAsync("RECOFF");
+        var cuota = await RecargarCuotaAsync(cuotaSeed.Id);
+
+        var preview = Assert.IsType<PagoCuotaPreviewResultado>(
+            await _service.PrevisualizarPagoCuotaAsync(Comando(cuota, 100m, "Efectivo")));
+
+        Assert.Equal(0m, preview.RecargoMedioPago);
+        Assert.Equal(100m, preview.TotalCaja);
+    }
+
+    [Fact]
     public async Task CobrarPrimeraCuota_IgnoraImporteDeEntradaYCobraElSaldoDelServidor()
     {
         _configuracionPago.AjustePorcentaje = 3m;
