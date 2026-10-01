@@ -163,6 +163,8 @@
                                    class="w-full rounded-lg border border-slate-700 bg-slate-900 text-white h-10 pl-10 pr-4 focus:border-primary focus:ring-1 focus:ring-primary outline-none"
                                    placeholder="Código o nombre..." autocomplete="off" />
                             <!-- Dropdown de resultados -->
+                        <a data-feedback-link href="#" hidden
+                           class="mt-1 inline-flex items-center gap-1 text-sm font-semibold text-primary no-underline hover:underline"></a>
                             <div id="dropdown-productos" role="listbox" class="absolute z-30 left-0 right-0 top-full mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-xl max-h-48 overflow-y-auto hidden"></div>
                         </div>
                     </label>
@@ -238,20 +240,20 @@
                     </label>
                     <div class="flex justify-between items-center text-slate-400 text-sm">
                         <span>Subtotal</span>
-                        <span class="font-semibold text-white" id="lbl-subtotal">$0.00</span>
+                        <span class="font-semibold text-white" id="lbl-subtotal">$ 0,00</span>
                     </div>
                     <div class="flex justify-between items-center text-slate-400 text-sm">
                         <span>Descuento</span>
-                        <span class="font-semibold text-red-500" id="lbl-descuento">-$0.00</span>
+                        <span class="font-semibold text-red-500" id="lbl-descuento">- $ 0,00</span>
                     </div>
                     <div class="flex justify-between items-center text-slate-400 text-sm">
                         <span>IVA incluido</span>
-                        <span class="font-semibold text-white" id="lbl-iva">$0.00</span>
+                        <span class="font-semibold text-white" id="lbl-iva">$ 0,00</span>
                     </div>
                     <div class="pt-3 border-t border-slate-700">
                         <div class="flex justify-between items-end">
                             <span class="text-white font-bold text-base">Total</span>
-                            <span class="text-primary font-black text-2xl" id="lbl-total">$0.00</span>
+                            <span class="text-primary font-black text-2xl" id="lbl-total">$ 0,00</span>
                         </div>
                     </div>
                 </div>

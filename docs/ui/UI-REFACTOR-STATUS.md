@@ -2427,37 +2427,57 @@ Al cerrar una pantalla:
 - **Validación:** 484/484 tests (`CreditoPersonal|ConfiguracionPago|ConfiguracionPunitorio`) y Release build 0 errores tras el último cambio; e2e `configuracion-punitorio` 14/14 (1 skip por diseño) en 1366x768, 768x1024 y 360x740, cada uno sobre un clon limpio de la BD; persistencia real en el clon (gastos, recargo explícito, recargo 0, herencia vacía, activo/inactivo, cuotas sin recargo, semáforo, límite por puntaje: POST 302 + recarga con los valores guardados); QA Playwright propio en 1440/1280/1024/768/390/360 × 5 secciones, 0 overflow, 0 errores de consola/requests. El clon se eliminó.
 - **Deuda:** los importes de "Límites por puntaje" siguen siendo `type=number` (contrato de binding).
 
-## Tickets QA 27 y 29 — Proveedor, Orden de compra y modal de Producto (2026-10-01, sin push) — REQUIERE AJUSTE (crítica degradada)
+## Tickets QA 27 y 29 — Proveedor, Orden de compra y modal de Producto (2026-10-01, sin push)
 
-Corrección de los reportes de QA con pipeline `/ui-module` aplicado a mano sobre lo tocado: `ux-heuristics` cargada,
-Impeccable critique + detector + polish (leyendo sus archivos), QA Playwright propia en 1440/1024/390.
-**Crítica en un solo contexto (⚠️ DEGRADED)**: no se lanzaron los dos subagentes aislados (A: revisión, B: detector) porque la
-sesión no los autoriza sin pedido expreso; por eso el cierre formal queda `REQUIERE AJUSTE` hasta repetirla en modo dual.
-Detector: 0 hallazgos en `OrdenCompra/Index`, `OrdenCompra/Create` y `Proveedor/Details`; en `Catalogo/Index` marca los `border-l-4`
-de los encabezados de sección de los modales (preexistentes en todo el módulo, no introducidos acá).
+Corrección de los reportes de QA con el pipeline `/ui-module` aplicado sobre lo tocado: `ux-heuristics`, Impeccable critique en
+**modo dual** (A: revisión de diseño, B: detector + evidencia medida, dos agentes aislados), implementación de los hallazgos,
+QA Playwright propia en 1440/1024/390 y pasada final. El pulido (`reference/polish.md`: foco, estados, formato, copy, contraste) se aplicó junto con la implementación de la crítica, no como una fase separada. Puntaje de A: 26/40 (Acceptable, 65 %) antes de las correcciones; B: detector
+0 hallazgos en `OrdenCompra/Index`, `OrdenCompra/Create` y `Proveedor/Details`, 0 errores de consola, 0 requests fallidos, 0 overflow,
+contraste ≥ 6,76 en todas las pantallas. En `Catalogo/Index` el detector marca los `border-l-4` de los encabezados de sección de los
+modales (preexistentes en todo el módulo) y un falso positivo (texto casi negro sobre ámbar).
 
-- **OrdenCompra/Create** (`ordencompra-form.js`): el bloqueo cruzado proveedor↔producto era una regla correcta (el servidor exige
-  producto asociado) aplicada sin explicación. Ahora el buscador avisa qué productos coinciden pero no están asociados al
-  proveedor elegido (con enlace a su ficha), "sin proveedores para este producto" es un aviso fijo (no desaparece a los 4,5 s)
-  y "Falta elegir un producto" nombra lo escrito. El aviso se desplaza a la vista en pantallas chicas.
-- **OrdenCompra/Index**: botón "Proveedores", filtros Marca y Producto (nombre o código), columna Marca, avance de envío por fila
-  (ahora con confirmación: cambia el estado de la orden) y botones según permisos; relleno de celdas reducido porque con la
-  columna nueva la tabla desbordaba ~70px en 1440 (se cortaba el último ícono de Acciones); nombres de marca recortados.
-- **Proveedor/Details**: columnas Marca y Categoría en "Productos asociados" y botón Editar por fila (con `productos.edit` +
-  acceso al Catálogo) que abre `/Catalogo?editarProducto={id}`; el modal canónico se abre solo y el parámetro se borra de la URL.
-- **Proveedor / drawer Editar**: elegir un producto tilda su marca y su categoría (editables) y lo anuncia ("También se marcó la
-  marca X y la categoría Y…", `aria-live`); el contador respeta el singular.
-- **Catálogo / modal Editar producto**: "IVA incluido compra" ahora se **persiste** (`Producto.PorcentajeIVACompra`, decimal(5,2)
-  nullable, migración `AddProductoPorcentajeIVACompra`; null = no informada → la UI asume 21%). Sigue siendo informativo (desglosa
-  Compra sin IVA / IVA compra; el costo real no cambia). `UpdateAsync` no la borra cuando un flujo no la envía.
-  `ProductoService.UpdateAsync` también deja de pisar `UnidadMedida` con el default `"UN"` (test que falló antes).
-- *Validado (clon de la LocalDB, ya eliminado, migración aplicada al arrancar):* guardado real del proveedor con producto nuevo,
-  creación de una orden de compra, guardado del modal de producto desde Productos asociados (stock actual y unidad `KG` intactos),
-  IVA de compra 10,5 % guardado y reabierto con el desglose correcto, confirmación del avance de envío (cancelar no cambia el
-  estado; confirmar sí), filtros Marca/Producto combinados. **Rol `contador`** (solo ver proveedores y órdenes): sin "Nueva Orden",
-  sin Envío, `/OrdenCompra/Create` → AccessDenied, sin Editar proveedor ni columna Editar, y un POST directo a `CambiarEstado` es
-  rechazado (AccessDenied, estado sin cambios en la base). 1440/1024/390 sin overflow de página, 0 errores de consola.
-- *Hallazgo fuera de alcance (sin corregir):* `ProductoController.GetJson` no exige permiso: cualquier usuario autenticado
-  (verificado con `contador`, sin `productos.view`) puede leer costos y precios de un producto. Corregirlo cambia qué ve un rol con
-  `cotizaciones.view` pero sin `productos.view` (ej. Gerente) al abrir el modal del Catálogo: decisión de producto pendiente.
-- *NO validado:* proveedor con muchos productos (el buscador del picker corta en 25 resultados).
+**Cambios de producto**
+
+- **OrdenCompra/Create** (`ordencompra-form.js`): el bloqueo proveedor↔producto era una regla correcta (el servidor exige producto
+  asociado) aplicada sin explicación. El buscador avisa qué productos coinciden pero no están asociados (con enlace a la ficha); "sin
+  proveedores para este producto" es un aviso fijo con enlace "Ir a Proveedores" y copy corregido ("o elegí otro producto", ya no
+  "quitalo de la orden"); elegir un producto lleva el foco a Cantidad; los importes visibles usan formato `es-AR`
+  (`$ 1.234,50`; los hidden al servidor siguen con punto decimal).
+- **OrdenCompra/Index**: botón "Proveedores", filtros Marca y Producto, columna Marca, avance de envío por fila con confirmación
+  (tono primario, "Avanzar envío / Confirmar envío", dice de qué estado a cuál y que se puede revertir desde el detalle), botones según
+  permisos; relleno de celdas reducido (la tabla desbordaba ~70px en 1440 y cortaba Acciones).
+- **Proveedor/Details**: columnas Marca y Categoría, botón Editar por fila (`productos.view` + `productos.edit` + acceso al Catálogo)
+  que abre `/Catalogo?editarProducto={id}`; se quitó el pie que repetía "N productos asociados".
+- **Proveedor / drawer Editar** (`proveedor-product-picker.js`): elegir un producto tilda su marca y categoría, lo anuncia (`aria-live`,
+  nombra marca y categoría) y acerca lo tildado a la vista dentro de su lista; el buscador es un combobox (`role=combobox/listbox/option`,
+  ↑ ↓ Enter, Enter ya no envía el drawer); avisa "Mostrando 25 de N" cuando corta; contador en singular.
+- **Catálogo / modal Editar producto**: `Producto.PorcentajeIVACompra` (decimal(5,2) nullable, migración `AddProductoPorcentajeIVACompra`,
+  null = no informada → 21 %) se persiste y reabre; rótulo "IVA del precio de compra" con ayuda en lenguaje de negocio; el desglose
+  muestra importes `es-AR`; textos "precio base" sin jerga; 25 etiquetas asociadas con `for=`, y `aria-label` en el interruptor
+  "Producto activo" y en los controles de características (antes ~28 controles sin nombre accesible).
+  `UpdateAsync` no pisa `UnidadMedida` ni borra la alícuota de compra cuando el flujo no la envía.
+- **Modal de confirmación compartido** (`shared-ui.js`, usado por todo el ERP): ahora mueve el foco al diálogo ("Cancelar", o la nota
+  si se pide), retiene Tab y devuelve el foco a quien lo abrió; admite `options.title/confirmLabel/tone` (por defecto sigue siendo la
+  confirmación roja de siempre; verificado en Catálogo y Caja que las llamadas clásicas y con nota no cambian ni heredan opciones).
+- **Seguridad**: `ProductoController.GetJson` exige `productos.view` (antes lo leía cualquier usuario autenticado y devolvía costos y
+  precios); el Catálogo no ofrece Editar sin ese permiso.
+
+**Validación (copia de la LocalDB, ya eliminada, migración aplicada al arrancar):** guardado real del proveedor con producto nuevo, creación
+de una orden, guardado del modal de producto desde Productos asociados (stock actual y unidad `KG` intactos), IVA de compra 10,5 %
+guardado y reabierto con el desglose correcto, confirmación del avance de envío (cancelar no cambia el estado; confirmar sí), foco
+atrapado (12 Tab, 0 fugas) y devuelto, filtros Marca/Producto, selector con teclado, `contador` (solo ver proveedores y órdenes): sin
+botones de escritura, `/OrdenCompra/Create` → AccessDenied, POST directo a `CambiarEstado` rechazado con la base sin cambios, `GetJson`
+rechazado para `contador` y `gerente`. 1440/1024/390 sin overflow de página, 0 errores de consola.
+
+**Deuda aceptada (hallazgos de la crítica que NO se tocaron, con motivo)**
+
+- Íconos de acción de 40px de alto (el estándar actual del ERP) y checkboxes de 16px del drawer: la regla de 44px es transversal.
+- "EN TRÁNSITO" se parte en dos líneas en la tabla de órdenes: `nowrap` volvería a desbordar la tabla en 1440.
+- Decisión de producto abierta: si "Agregar producto" debe bloquearse cuando ningún proveedor tiene el producto (hoy el aviso lo
+  explica pero el servidor lo rechaza recién al guardar con un proveedor incompatible).
+- Sin señal de entrega vencida en el listado; el dropdown del buscador de la orden trunca nombres largos; el modal "Editar producto"
+  corta solapas en 390 (scroll horizontal sin pista) y cambia de alto entre solapas: preexistentes.
+- *NO validado:* foco atrapado del modal "Editar producto" (no se midió); proveedor con más de 25 coincidencias solo con datos sintéticos.
+
+Estado: **LISTO PARA COMMIT** para este alcance (fases formales ejecutadas, sin superficies relevantes en NO VALIDADA); la deuda de
+arriba es explícita y no bloquea.

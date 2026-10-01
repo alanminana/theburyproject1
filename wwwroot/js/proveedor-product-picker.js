@@ -27,6 +27,7 @@
  */
 const ProveedorProductPicker = (() => {
     let allProducts = [];
+    let pickerSeq = 0;
 
     // ─── Catálogo ───────────────────────────────────────────────────────────────
     function loadCatalog() {
@@ -35,6 +36,8 @@ const ProveedorProductPicker = (() => {
         try { allProducts = JSON.parse(el.textContent || '[]'); } catch { allProducts = []; }
     }
 
+    const MAX_RESULTADOS = 25;
+
     function search(query) {
         const q = query.toLowerCase();
         return allProducts.filter(p =>
@@ -42,7 +45,7 @@ const ProveedorProductPicker = (() => {
             (p.codigo || '').toLowerCase().includes(q) ||
             (p.marca || '').toLowerCase().includes(q) ||
             (p.categoria || '').toLowerCase().includes(q)
-        ).slice(0, 25);
+        );
     }
 
     // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -72,6 +75,17 @@ const ProveedorProductPicker = (() => {
         const resultsList = document.createElement('ul');
         resultsList.className = 'divide-y divide-slate-700/50 py-1 max-h-64 overflow-y-auto';
         dropdownEl.appendChild(resultsList);
+
+        // Semántica de autocompletado (combobox + listbox) para lectores de pantalla y teclado.
+        pickerSeq += 1;
+        const listId = `picker-listbox-${pickerSeq}`;
+        let activeIndex = -1;
+        resultsList.id = listId;
+        resultsList.setAttribute('role', 'listbox');
+        searchInput.setAttribute('role', 'combobox');
+        searchInput.setAttribute('aria-autocomplete', 'list');
+        searchInput.setAttribute('aria-expanded', 'false');
+        searchInput.setAttribute('aria-controls', listId);
 
         // Estilos base del portal (position:fixed, todo via style para ser explícitos)
         Object.assign(dropdownEl.style, {
@@ -103,11 +117,15 @@ const ProveedorProductPicker = (() => {
         function openDropdown() {
             positionDropdown();
             dropdownEl.hidden = false;
+            searchInput.setAttribute('aria-expanded', 'true');
         }
 
         function closeDropdown() {
             dropdownEl.hidden = true;
             resultsList.innerHTML = '';
+            activeIndex = -1;
+            searchInput.setAttribute('aria-expanded', 'false');
+            searchInput.removeAttribute('aria-activedescendant');
         }
 
         // Al hacer scroll en el contenedor del drawer (el navegador lo hace solo para mostrar el input al
@@ -184,10 +202,21 @@ const ProveedorProductPicker = (() => {
                 if (checkbox && !checkbox.checked) {
                     checkbox.checked = true;
                     checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+                    revelarEnLista(checkbox);
                     agregadas.push(name === 'MarcasSeleccionadas' ? `la marca ${product.marca}` : `la categoría ${product.categoria}`);
                 }
             });
             mostrarAvisoAsociaciones(agregadas);
+        }
+
+        // La lista de marcas/categorías tiene scroll propio: lo recién tildado se acerca a la vista
+        // (solo el scroll interno de la lista, sin mover el drawer).
+        function revelarEnLista(checkbox) {
+            const list = checkbox.closest('.prov-check-list');
+            if (!list) return;
+            const l = list.getBoundingClientRect();
+            const c = checkbox.getBoundingClientRect();
+            if (c.top < l.top || c.bottom > l.bottom) list.scrollTop += c.top - l.top - 8;
         }
 
         // Los tildes automáticos se anuncian: sin aviso el usuario no sabe que cambió algo fuera del picker.
@@ -204,7 +233,7 @@ const ProveedorProductPicker = (() => {
                 note.setAttribute('aria-live', 'polite');
                 chipsEl.insertAdjacentElement('afterend', note);
             }
-            note.textContent = `También se marcó ${agregadas.join(' y ')} más abajo; podés destildar lo que no corresponda.`;
+            note.textContent = `También se marcó ${agregadas.join(' y ')} en las listas de abajo; podés destildar lo que no corresponda.`;
         }
 
         function selectProduct(product) {
@@ -218,20 +247,28 @@ const ProveedorProductPicker = (() => {
         }
 
         // ── Renderizado de resultados ────────────────────────────────────────────
-        function renderResults(results) {
+        function renderResults(todos) {
             resultsList.innerHTML = '';
+            activeIndex = -1;
+            searchInput.removeAttribute('aria-activedescendant');
+            const results = todos.slice(0, MAX_RESULTADOS);
 
             if (results.length === 0) {
                 const li = document.createElement('li');
                 li.className = 'px-4 py-3 text-sm text-slate-400 italic text-center';
+                li.setAttribute('role', 'presentation');
                 li.textContent = 'Sin resultados para esta búsqueda';
                 resultsList.appendChild(li);
                 return;
             }
 
-            results.forEach(p => {
+            results.forEach((p, idx) => {
                 const isSelected = selectedIds.has(p.id);
                 const li = document.createElement('li');
+                li.id = `${listId}-opt-${idx}`;
+                li.setAttribute('role', 'option');
+                li.setAttribute('aria-selected', 'false');
+                if (isSelected) li.setAttribute('aria-disabled', 'true');
                 li.className = isSelected
                     ? 'flex items-center gap-3 px-3 py-2 cursor-default opacity-50'
                     : 'flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-indigo-500/10 transition-colors';
@@ -248,10 +285,21 @@ const ProveedorProductPicker = (() => {
                         : `<span class="material-symbols-outlined text-slate-600 shrink-0" style="font-size:16px">add_circle</span>`);
 
                 if (!isSelected) {
+                    li.dataset.selectable = '1';
+                    li._product = p;
                     li.addEventListener('click', () => selectProduct(p));
                 }
                 resultsList.appendChild(li);
             });
+
+            // El corte tiene que ser visible: sin esto parece que el producto buscado no existe.
+            if (todos.length > MAX_RESULTADOS) {
+                const aviso = document.createElement('li');
+                aviso.className = 'px-4 py-2 text-xs text-slate-400 text-center';
+                aviso.setAttribute('role', 'presentation');
+                aviso.textContent = `Mostrando ${MAX_RESULTADOS} de ${todos.length}. Escribí más para acotar la búsqueda.`;
+                resultsList.appendChild(aviso);
+            }
         }
 
         // ── Eventos del input ────────────────────────────────────────────────────
@@ -262,8 +310,35 @@ const ProveedorProductPicker = (() => {
             openDropdown();
         });
 
+        function opcionesSeleccionables() {
+            return Array.from(resultsList.querySelectorAll('li[data-selectable]'));
+        }
+
+        function setActive(i) {
+            const items = opcionesSeleccionables();
+            if (!items.length) return;
+            activeIndex = (i + items.length) % items.length;
+            items.forEach((li, idx) => {
+                const on = idx === activeIndex;
+                li.classList.toggle('bg-indigo-500/20', on);
+                li.setAttribute('aria-selected', on ? 'true' : 'false');
+            });
+            searchInput.setAttribute('aria-activedescendant', items[activeIndex].id);
+            items[activeIndex].scrollIntoView({ block: 'nearest' });
+        }
+
         searchInput.addEventListener('keydown', e => {
-            if (e.key === 'Escape') { closeDropdown(); searchInput.value = ''; }
+            if (e.key === 'Escape') { closeDropdown(); searchInput.value = ''; return; }
+            if (dropdownEl.hidden) return;
+            if (e.key === 'ArrowDown') { e.preventDefault(); setActive(activeIndex + 1); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(activeIndex - 1); }
+            else if (e.key === 'Enter') {
+                // Con la lista abierta Enter elige (no envía el formulario del drawer).
+                e.preventDefault();
+                const items = opcionesSeleccionables();
+                const target = items[activeIndex] || items[0];
+                if (target && target._product) selectProduct(target._product);
+            }
         });
 
         // Cerrar al click fuera

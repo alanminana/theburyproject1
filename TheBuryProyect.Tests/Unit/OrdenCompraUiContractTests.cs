@@ -37,6 +37,11 @@ public class OrdenCompraUiContractTests
         Assert.Contains("data-confirm-message", vista);
         Assert.Contains("form[data-oc-confirm]", js);
         Assert.Contains("confirmAction", js);
+        // No destruye nada: confirmación en tono primario, con título y rótulo propios y el cambio de estado dicho.
+        Assert.Contains("tone: 'primary'", js);
+        Assert.Contains("data-confirm-title", vista);
+        Assert.Contains("data-confirm-label", vista);
+        Assert.Contains("pasa de @OrdenCompraUiHelper.EstadoNombre(o.Estado) a @OrdenCompraUiHelper.EstadoNombre(sig)", vista);
     }
 
     [Fact]
@@ -48,6 +53,9 @@ public class OrdenCompraUiContractTests
         Assert.Contains("sticky: true", js);
         Assert.Contains("Asociarlos desde el proveedor", js);
         Assert.Contains("noAsociados", js);
+        // El aviso fijo ofrece un enlace para resolver el bloqueo y elegir el producto lleva a Cantidad.
+        Assert.Contains("hrefLabel: 'Ir a Proveedores'", js);
+        Assert.Contains("inpCantidad.focus()", js);
     }
 
     private static string Leer(params string[] segmentos)

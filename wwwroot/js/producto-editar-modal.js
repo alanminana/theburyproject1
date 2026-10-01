@@ -211,9 +211,9 @@
         tr.className = 'border-t border-slate-800';
         tr.innerHTML =
             (id ? '<input type="hidden" name="Caracteristicas[' + i + '].Id" value="' + id + '" />' : '') +
-            '<td class="px-4 py-2"><input name="Caracteristicas[' + i + '].Nombre" type="text" value="' + escHtml(nombre || '') + '" class="w-full bg-transparent border-none text-sm text-white placeholder-slate-500 focus:ring-0 outline-none" placeholder="Característica" /></td>' +
-            '<td class="px-4 py-2"><input name="Caracteristicas[' + i + '].Valor" type="text" value="' + escHtml(valor || '') + '" class="w-full bg-transparent border-none text-sm text-white placeholder-slate-500 focus:ring-0 outline-none" placeholder="Valor" /></td>' +
-            '<td class="px-4 py-2 text-center"><button type="button" class="prod-edit-remove-caract text-slate-500 hover:text-red-400 transition-colors"><span class="material-symbols-outlined text-base">delete</span></button></td>';
+            '<td class="px-4 py-2"><input name="Caracteristicas[' + i + '].Nombre" type="text" value="' + escHtml(nombre || '') + '" class="w-full bg-transparent border-none text-sm text-white placeholder-slate-500 focus:ring-0 outline-none" placeholder="Característica" aria-label="Característica" /></td>' +
+            '<td class="px-4 py-2"><input name="Caracteristicas[' + i + '].Valor" type="text" value="' + escHtml(valor || '') + '" class="w-full bg-transparent border-none text-sm text-white placeholder-slate-500 focus:ring-0 outline-none" placeholder="Valor" aria-label="Valor" /></td>' +
+            '<td class="px-4 py-2 text-center"><button type="button" aria-label="Quitar característica" class="prod-edit-remove-caract text-slate-500 hover:text-red-400 transition-colors"><span class="material-symbols-outlined text-base">delete</span></button></td>';
         tbody.appendChild(tr);
         tr.querySelector('.prod-edit-remove-caract').addEventListener('click', function () {
             tr.remove();
@@ -320,9 +320,9 @@
             var em = document.createElement('em');
             em.textContent = lista;
             texto.appendChild(em);
-            texto.appendChild(document.createTextNode('. Este formulario modifica solo el precio base/fallback.'));
+            texto.appendChild(document.createTextNode('. Este formulario modifica solo el precio base (el que rige cuando no hay precio por lista).'));
         } else {
-            texto.textContent = 'La venta usa este precio base/fallback.';
+            texto.textContent = 'No hay precio por lista vigente: la venta usa este precio base.';
         }
     }
 

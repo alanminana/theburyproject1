@@ -15,12 +15,14 @@
             if (form.dataset.confirmed === 'true') return;
             event.preventDefault();
             const message = form.dataset.confirmMessage || '¿Continuar?';
+            // Avanzar el envío no destruye nada: confirmación en tono primario, no de peligro.
+            const options = { tone: 'primary', title: form.dataset.confirmTitle, confirmLabel: form.dataset.confirmLabel };
             const proceed = () => {
                 form.dataset.confirmed = 'true';
                 form.submit();
             };
             if (window.TheBury && typeof window.TheBury.confirmAction === 'function') {
-                window.TheBury.confirmAction(message, proceed);
+                window.TheBury.confirmAction(message, proceed, options);
             } else if (window.confirm(message)) {
                 proceed();
             }

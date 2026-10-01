@@ -10,8 +10,8 @@
     // La edición exige proveedores.update en ProveedorController; sin el permiso no se ofrece ni el botón ni el drawer.
     var puedeEditar = User.TienePermiso("proveedores", "update");
     var puedeVerOrdenes = User.TienePermiso("ordenescompra", "view");
-    // El producto se edita en el modal del Catálogo (cotizaciones.view abre el Catálogo; productos.edit lo exige el guardado).
-    var puedeEditarProductos = User.TienePermiso("productos", "edit") && User.TienePermiso("cotizaciones", "view");
+    // El producto se edita en el modal del Catálogo (cotizaciones.view abre el Catálogo; productos.view carga el producto; productos.edit lo exige el guardado).
+    var puedeEditarProductos = User.TienePermiso("productos", "view") && User.TienePermiso("productos", "edit") && User.TienePermiso("cotizaciones", "view");
     var modales = new ProveedorModalesViewModel
     {
         PuedeCrear = false,
@@ -287,9 +287,6 @@
                         </tbody>
                     </table>
                 </div>
-            </div>
-            <div id="productos-footer" class="hidden border-t border-slate-800 p-4 text-center">
-                <span id="productos-count" class="text-slate-300 text-sm font-semibold"></span>
             </div>
         </section>
     </div>

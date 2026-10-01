@@ -283,7 +283,9 @@
                                     if (siguienteEstado is { } sig)
                                     {
                                         <form asp-action="CambiarEstado" method="post" class="inline-flex" data-oc-confirm
-                                              data-confirm-message="¿Pasar la orden @o.Numero a @OrdenCompraUiHelper.EstadoNombre(sig)? Cambia el estado de la orden.">
+                                              data-confirm-title="Avanzar envío"
+                                              data-confirm-label="Confirmar envío"
+                                              data-confirm-message="La orden @o.Numero pasa de @OrdenCompraUiHelper.EstadoNombre(o.Estado) a @OrdenCompraUiHelper.EstadoNombre(sig). Si te equivocás, podés cambiar el estado de nuevo desde el detalle de la orden.">
                                             <input type="hidden" name="id" value="@o.Id" />
                                             <input type="hidden" name="nuevoEstado" value="@((int)sig)" />
                                             <input type="hidden" name="desdeIndex" value="true" />

@@ -221,7 +221,10 @@ namespace TheBuryProject.Controllers
 
         #region API y helpers
 
+        // Devuelve costos, precios y configuración de crédito del producto: exige productos.view
+        // (antes lo leía cualquier usuario autenticado).
         [HttpGet]
+        [PermisoRequerido(Modulo = "productos", Accion = "view")]
         public async Task<IActionResult> GetJson(int id)
         {
             try

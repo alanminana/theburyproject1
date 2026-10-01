@@ -57,15 +57,29 @@ TheBury.autoDismissToasts = function (delay) {
 (function () {
     'use strict';
 
+    // Por defecto la confirmación es de peligro (rojo). Una acción que no destruye nada puede pedir
+    // options.tone = 'primary' para no entrenar al usuario a confirmar a ciegas.
+    var DANGER_CLASS = 'px-4 py-2 text-sm rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors';
+    var PRIMARY_CLASS = 'px-4 py-2 text-sm rounded-lg bg-primary text-white font-semibold hover:bg-primary/90 transition-colors';
+    var lastFocused = null;
+
     function getModal()      { return document.getElementById('confirmModal'); }
     function getActionBtn()  { return document.getElementById('confirmModalAction'); }
+    function isOpen(modal)   { return !!modal && !modal.classList.contains('hidden'); }
 
     window.openConfirmModal = function (bodyText, onConfirm, options) {
         var modal = getModal();
         if (!modal) return;
 
+        lastFocused = document.activeElement;
+
         var body = document.getElementById('confirmModalBody');
         if (bodyText && body) body.textContent = bodyText;
+
+        // Título y rótulo del botón: opcionales, y se restauran en cada apertura para que un
+        // llamador no herede los del anterior.
+        var title = document.getElementById('confirmModalLabel');
+        if (title) title.textContent = (options && options.title) || 'Confirmar acción';
 
         // Nota opcional (ej. observaciones al resolver una alerta): oculta por defecto,
         // así los llamadores existentes que no la piden no ven ningún cambio visual.
@@ -82,6 +96,8 @@ TheBury.autoDismissToasts = function (delay) {
         var actionBtn = getActionBtn();
         if (actionBtn) {
             var freshBtn = actionBtn.cloneNode(true);
+            freshBtn.className = (options && options.tone === 'primary') ? PRIMARY_CLASS : DANGER_CLASS;
+            freshBtn.textContent = (options && options.confirmLabel) || 'Confirmar';
             actionBtn.parentNode.replaceChild(freshBtn, actionBtn);
             if (typeof onConfirm === 'function') {
                 freshBtn.addEventListener('click', function () {
@@ -94,13 +110,23 @@ TheBury.autoDismissToasts = function (delay) {
 
         modal.classList.remove('hidden');
         modal.classList.add('flex');
+
+        // El foco entra al diálogo: en la nota si se pide, y si no en "Cancelar" (opción segura).
+        var cancelBtn = modal.querySelector('.border-t [data-confirm-modal-close]');
+        var initial = showNote && noteInput ? noteInput : cancelBtn;
+        if (initial && typeof initial.focus === 'function') initial.focus();
     };
 
     window.closeConfirmModal = function () {
         var modal = getModal();
-        if (!modal) return;
+        if (!isOpen(modal)) return;
         modal.classList.add('hidden');
         modal.classList.remove('flex');
+
+        // Devuelve el foco a quien abrió el diálogo (si sigue en la página).
+        var target = lastFocused;
+        lastFocused = null;
+        if (target && typeof target.focus === 'function' && document.contains(target)) target.focus();
     };
 
     document.addEventListener('DOMContentLoaded', function () {
@@ -119,6 +145,24 @@ TheBury.autoDismissToasts = function (delay) {
             }
         });
 
+        // Tab queda dentro del diálogo mientras está abierto.
+        modal.addEventListener('keydown', function (e) {
+            if (e.key !== 'Tab' || !isOpen(modal)) return;
+            var focusables = Array.prototype.slice.call(
+                modal.querySelectorAll('button, textarea, input, select, a[href]')
+            ).filter(function (el) { return !el.disabled && el.offsetParent !== null; });
+            if (!focusables.length) return;
+            var first = focusables[0];
+            var last = focusables[focusables.length - 1];
+            if (e.shiftKey && document.activeElement === first) {
+                e.preventDefault();
+                last.focus();
+            } else if (!e.shiftKey && document.activeElement === last) {
+                e.preventDefault();
+                first.focus();
+            }
+        });
+
         // Escape key
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') window.closeConfirmModal();
@@ -130,9 +174,9 @@ TheBury.autoDismissToasts = function (delay) {
  * Shared confirmation wrapper. Prefer this over calling the modal function directly.
  * Falls back to native confirm only if the shared modal is unavailable.
  */
-TheBury.confirmAction = function (message, onConfirm) {
+TheBury.confirmAction = function (message, onConfirm, options) {
     if (typeof window.openConfirmModal === 'function') {
-        window.openConfirmModal(message, onConfirm);
+        window.openConfirmModal(message, onConfirm, options);
         return;
     }
 

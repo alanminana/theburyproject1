@@ -33,6 +33,7 @@
     const feedbackTitle = document.querySelector('[data-feedback-title]');
     const feedbackMessage = document.querySelector('[data-feedback-message]');
     const feedbackIcon = document.querySelector('[data-feedback-icon]');
+    const feedbackLink = document.querySelector('[data-feedback-link]');
     const feedbackClose = document.querySelector('[data-feedback-close]');
     const scrollAffordance = (window.TheBury && typeof window.TheBury.initHorizontalScrollAffordance === 'function')
         ? window.TheBury.initHorizontalScrollAffordance(document.querySelector('[data-oc-scroll]'))
@@ -124,6 +125,11 @@
     }
 
     function numForPost(value) {
+    // Importes para mostrar (miles con punto, decimales con coma); los hidden siguen yendo con numForPost.
+    function fmt(value) {
+        return (parseFloat(value) || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
         return num(value).replace('.', ',');
     }
 
@@ -206,10 +212,12 @@
         renderProveedorOptions(proveedoresPermitidos, '');
 
         if (!proveedoresPermitidos.size) {
-            showFeedback('Ningún proveedor tiene este producto asociado. Asocialo desde Proveedores → Editar, o quitalo de la orden.', {
+            showFeedback('Ningún proveedor tiene este producto asociado. Asocialo desde Proveedores → Editar, o elegí otro producto.', {
                 variant: 'warning',
                 title: 'Sin proveedores asociados',
-                sticky: true
+                sticky: true,
+                href: '/Proveedor',
+                hrefLabel: 'Ir a Proveedores'
             });
         }
     }
@@ -260,7 +268,7 @@
                     <span class="block text-sm font-bold text-slate-900 dark:text-white truncate">${esc(producto.nombre)}</span>
                     <span class="block text-xs text-slate-500 truncate">${esc(producto.codigo)}</span>
                 </span>
-                <span class="text-xs font-medium text-primary shrink-0">$${num(producto.precioCompra)}</span>
+                <span class="text-xs font-medium text-primary shrink-0">$ ${fmt(producto.precioCompra)}</span>
             </button>
         `).join('');
 
@@ -298,6 +306,7 @@
         feedback.hidden = true;
         feedback.dataset.variant = '';
 
+        if (feedbackLink) feedbackLink.hidden = true;
         if (feedbackTimer) {
             clearTimeout(feedbackTimer);
             feedbackTimer = null;
@@ -324,6 +333,14 @@
         feedbackMessage.textContent = message;
         feedbackIcon.textContent = icons[variant] || 'info';
         feedback.hidden = false;
+        if (feedbackLink) {
+            // Acción opcional del aviso: lleva a resolver el bloqueo en vez de solo describirlo.
+            feedbackLink.hidden = !options?.href;
+            if (options?.href) {
+                feedbackLink.href = options.href;
+                feedbackLink.textContent = options.hrefLabel || 'Ver más';
+            }
+        }
 
         const rect = feedback.getBoundingClientRect();
         const outOfView = rect.top < 0 || rect.bottom > window.innerHeight;
@@ -358,6 +375,12 @@
         setDropdownVisible(false);
         actualizarProveedoresPorProductoContexto();
     }
+
+        // Teclado: elegir el producto lleva directo a Cantidad.
+        if (inpCantidad) {
+            inpCantidad.focus();
+            inpCantidad.select();
+        }
 
     function agregarProducto() {
         if (!productoSeleccionado) {
@@ -486,8 +509,8 @@
                     <input type="hidden" name="Detalles[${index}].Subtotal" value="${numForPost(fila.subtotal)}" />
                 </td>
                 <td class="py-4 px-2 text-center font-medium text-slate-900 dark:text-white">${fila.cantidad}</td>
-                <td class="py-4 px-2 text-right font-medium text-slate-700 dark:text-slate-300">$${num(fila.precio)}</td>
-                <td class="py-4 px-2 text-right font-bold text-slate-900 dark:text-white">$${num(fila.subtotal)}</td>
+                <td class="py-4 px-2 text-right font-medium text-slate-700 dark:text-slate-300">$ ${fmt(fila.precio)}</td>
+                <td class="py-4 px-2 text-right font-bold text-slate-900 dark:text-white">$ ${fmt(fila.subtotal)}</td>
                 <td class="py-4 px-2 text-center">
                     <button type="button"
                             data-remove="${index}"
@@ -520,10 +543,10 @@
             return sum + (base - base / (1 + pct / 100));
         }, 0);
 
-        if (lblSubtotal) lblSubtotal.textContent = `$${num(subtotal)}`;
-        if (lblDescuento) lblDescuento.textContent = `-$${num(descuento)}`;
-        if (lblIva) lblIva.textContent = `$${num(iva)}`;
-        if (lblTotal) lblTotal.textContent = `$${num(total)}`;
+        if (lblSubtotal) lblSubtotal.textContent = `$ ${fmt(subtotal)}`;
+        if (lblDescuento) lblDescuento.textContent = `- $ ${fmt(descuento)}`;
+        if (lblIva) lblIva.textContent = `$ ${fmt(iva)}`;
+        if (lblTotal) lblTotal.textContent = `$ ${fmt(total)}`;
 
         if (hdnSubtotal) hdnSubtotal.value = numForPost(subtotal);
         if (hdnDescuento) hdnDescuento.value = numForPost(descuento);

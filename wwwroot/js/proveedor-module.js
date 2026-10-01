@@ -157,7 +157,7 @@
             </tr>`;
     }
 
-    function renderProductosEmptyState(tbody, footer, badge) {
+    function renderProductosEmptyState(tbody, badge) {
         tbody.innerHTML = `
             <tr>
                 <td colspan="${columnasProductos()}" class="px-6 py-12 text-center">
@@ -168,11 +168,10 @@
                 </td>
             </tr>`;
 
-        footer.classList.add('hidden');
         setBadge(badge, 'Sin productos');
     }
 
-    function renderProductos(data, tbody, footer, count, badge) {
+    function renderProductos(data, tbody, badge) {
         tbody.replaceChildren();
         const puedeEditar = Boolean(document.querySelector('[data-puede-editar-productos="true"]'));
 
@@ -228,19 +227,15 @@
         });
 
         const label = `${data.length} producto${data.length !== 1 ? 's' : ''} asociado${data.length !== 1 ? 's' : ''}`;
-        footer.classList.remove('hidden');
-        count.textContent = label;
         setBadge(badge, label);
     }
 
     async function loadProductos(scrollAffordance) {
         const proveedorId = getProveedorId();
         const tbody = document.getElementById('productos-tbody');
-        const footer = document.getElementById('productos-footer');
-        const count = document.getElementById('productos-count');
         const badge = document.getElementById('productos-badge');
 
-        if (!proveedorId || !tbody || !footer || !count || !badge) {
+        if (!proveedorId || !tbody || !badge) {
             return;
         }
 
@@ -253,9 +248,9 @@
             const data = await response.json();
 
             if (!Array.isArray(data) || !data.length) {
-                renderProductosEmptyState(tbody, footer, badge);
+                renderProductosEmptyState(tbody, badge);
             } else {
-                renderProductos(data, tbody, footer, count, badge);
+                renderProductos(data, tbody, badge);
             }
         } catch {
             tbody.innerHTML = `
@@ -264,7 +259,6 @@
                         No se pudieron cargar los productos. Recargá la página para reintentar.
                     </td>
                 </tr>`;
-            footer.classList.add('hidden');
             setBadge(badge, 'Error');
         } finally {
             if (scrollAffordance && typeof scrollAffordance.update === 'function') {

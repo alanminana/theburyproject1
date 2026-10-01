@@ -64,6 +64,8 @@
     // El costo de envío del producto es un valor fijo: solo lo edita quien tenga el permiso
     // productos.editshippingcost (ProductoController lo vuelve a exigir en el servidor).
     var puedeEditarCostoEnvio = User.TienePermiso("productos", "editshippingcost");
+    // El modal de edición carga el producto con GET /Producto/GetJson, que exige productos.view.
+    var puedeVerProducto = User.TienePermiso("productos", "view");
 }
 
 @section Styles {
@@ -675,19 +677,22 @@
                                     <td class="px-4 py-3 text-right align-middle">
                                         <div class="flex items-center justify-end gap-2">
 
-                                            <button type="button"
-                                                    data-prod-edit-id="@p.ProductoId"
-                                                    class="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm font-semibold text-slate-200 transition-colors hover:border-slate-600 hover:bg-slate-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                                                    aria-label="Editar producto @p.Nombre"
-                                                    title="Editar">
+                                            @if (puedeVerProducto)
+                                            {
+                                                <button type="button"
+                                                        data-prod-edit-id="@p.ProductoId"
+                                                        class="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm font-semibold text-slate-200 transition-colors hover:border-slate-600 hover:bg-slate-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                                        aria-label="Editar producto @p.Nombre"
+                                                        title="Editar">
 
-                                                <span class="material-symbols-outlined text-lg"
-                                                      aria-hidden="true">
-                                                    edit
-                                                </span>
+                                                    <span class="material-symbols-outlined text-lg"
+                                                          aria-hidden="true">
+                                                        edit
+                                                    </span>
 
-                                                <span>Editar</span>
-                                            </button>
+                                                    <span>Editar</span>
+                                                </button>
+                                            }
 
                                             <a asp-controller="Producto"
                                                asp-action="Inventario"
@@ -1437,7 +1442,7 @@
                             </div>
 
                             <div class="space-y-1">
-                                <label class="text-sm font-medium text-slate-300">IVA incluido compra</label>
+                                <label class="text-sm font-medium text-slate-300">IVA del precio de compra</label>
                                 <select name="PorcentajeIVACompra" id="modal-porcentajeIVACompra"
                                         class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none">
                                     <option value="21" selected>21%</option>
@@ -1826,41 +1831,41 @@
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div class="space-y-1">
-                            <label class="text-sm font-medium text-slate-300">Código</label>
+                            <label for="prod-edit-codigo" class="text-sm font-medium text-slate-300">Código</label>
                             <input id="prod-edit-codigo" name="Codigo" type="text" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-colors text-white" />
                             <span data-valmsg-for="Codigo" class="text-xs text-red-500 hidden"></span>
                         </div>
                         <div class="space-y-1">
-                            <label class="text-sm font-medium text-slate-300">Nombre</label>
+                            <label for="prod-edit-nombre" class="text-sm font-medium text-slate-300">Nombre</label>
                             <input id="prod-edit-nombre" name="Nombre" type="text" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-colors text-white" />
                             <span data-valmsg-for="Nombre" class="text-xs text-red-500 hidden"></span>
                         </div>
                         <div class="md:col-span-2 space-y-1">
-                            <label class="text-sm font-medium text-slate-300">Descripción</label>
+                            <label for="prod-edit-descripcion" class="text-sm font-medium text-slate-300">Descripción</label>
                             <textarea id="prod-edit-descripcion" name="Descripcion" rows="2" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-colors text-white"></textarea>
                         </div>
                         <div class="space-y-1">
-                            <label class="text-sm font-medium text-slate-300">Categoría</label>
+                            <label for="prod-edit-categoriaId" class="text-sm font-medium text-slate-300">Categoría</label>
                             <select id="prod-edit-categoriaId" name="CategoriaId" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none text-white">
                                 <option value="">Seleccionar categoría</option>
                             </select>
                             <span data-valmsg-for="CategoriaId" class="text-xs text-red-500 hidden"></span>
                         </div>
                         <div class="space-y-1">
-                            <label class="text-sm font-medium text-slate-300">Subcategoría</label>
+                            <label for="prod-edit-subcategoriaId" class="text-sm font-medium text-slate-300">Subcategoría</label>
                             <select id="prod-edit-subcategoriaId" name="SubcategoriaId" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none text-white">
                                 <option value="">Sin subcategoría</option>
                             </select>
                         </div>
                         <div class="space-y-1">
-                            <label class="text-sm font-medium text-slate-300">Marca</label>
+                            <label for="prod-edit-marcaId" class="text-sm font-medium text-slate-300">Marca</label>
                             <select id="prod-edit-marcaId" name="MarcaId" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none text-white">
                                 <option value="">Seleccionar marca</option>
                             </select>
                             <span data-valmsg-for="MarcaId" class="text-xs text-red-500 hidden"></span>
                         </div>
                         <div class="space-y-1">
-                            <label class="text-sm font-medium text-slate-300">Submarca</label>
+                            <label for="prod-edit-submarcaId" class="text-sm font-medium text-slate-300">Submarca</label>
                             <select id="prod-edit-submarcaId" name="SubmarcaId" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none text-white">
                                 <option value="">Sin submarca</option>
                             </select>
@@ -1892,7 +1897,7 @@
                             </div>
 
                             <div class="space-y-1">
-                                <label class="text-sm font-medium text-slate-300">Precio compra total con IVA</label>
+                                <label for="prod-edit-precioCompra" class="text-sm font-medium text-slate-300">Precio compra total con IVA</label>
                                 <div class="relative">
                                     <span class="absolute left-3 top-2 text-slate-500">$</span>
                                     <input id="prod-edit-precioCompra" name="PrecioCompraTotalConIva" type="number" step="0.01" min="0"
@@ -1902,7 +1907,7 @@
                             </div>
 
                             <div class="space-y-1">
-                                <label class="text-sm font-medium text-slate-300">IVA incluido compra</label>
+                                <label for="prod-edit-porcentajeIVACompra" class="text-sm font-medium text-slate-300">IVA del precio de compra</label>
                                 <select id="prod-edit-porcentajeIVACompra" name="PorcentajeIVACompra"
                                         class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none text-white">
                                     <option value="21">21%</option>
@@ -1910,12 +1915,12 @@
                                     <option value="27">27%</option>
                                     <option value="0">0%</option>
                                 </select>
-                                <p class="text-[11px] text-slate-500">Se guarda con el producto y desglosa Compra sin IVA e IVA compra; el costo real no cambia.</p>
+                                <p class="text-[11px] text-slate-500">Sirve para separar el IVA del precio de compra. No cambia el costo real.</p>
                             </div>
 
                             <div class="space-y-3">
                                 <div class="space-y-1 catalogo-valor-calculado p-2">
-                                    <label class="text-xs font-bold uppercase tracking-wider text-slate-400">Compra sin IVA</label>
+                                    <label for="prod-edit-precioCompraSinIva" class="text-xs font-bold uppercase tracking-wider text-slate-400">Compra sin IVA</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
                                         <input id="prod-edit-precioCompraSinIva" type="text" readonly
@@ -1923,7 +1928,7 @@
                                     </div>
                                 </div>
                                 <div class="space-y-1 catalogo-valor-calculado p-2">
-                                    <label class="text-xs font-bold uppercase tracking-wider text-slate-400">IVA compra</label>
+                                    <label for="prod-edit-ivaCompraImporte" class="text-xs font-bold uppercase tracking-wider text-slate-400">IVA compra</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
                                         <input id="prod-edit-ivaCompraImporte" type="text" readonly
@@ -1942,7 +1947,7 @@
 
                             <div class="catalogo-costos-grid">
                                 <div class="space-y-1">
-                                    <label class="text-sm font-medium text-slate-300">Envío</label>
+                                    <label for="prod-edit-costoEnvio" class="text-sm font-medium text-slate-300">Envío</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
                                         <input id="prod-edit-costoEnvio" name="CostoEnvio" type="number" step="0.01" min="0" value="0"
@@ -1955,7 +1960,7 @@
                                     }
                                 </div>
                                 <div class="space-y-1">
-                                    <label class="text-sm font-medium text-slate-300">Percepciones</label>
+                                    <label for="prod-edit-percepcionesCompra" class="text-sm font-medium text-slate-300">Percepciones</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
                                         <input id="prod-edit-percepcionesCompra" name="PercepcionesCompra" type="number" step="0.01" min="0" value="0"
@@ -1963,7 +1968,7 @@
                                     </div>
                                 </div>
                                 <div class="space-y-1">
-                                    <label class="text-sm font-medium text-slate-300">Otros gastos</label>
+                                    <label for="prod-edit-otrosCostosCompra" class="text-sm font-medium text-slate-300">Otros gastos</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
                                         <input id="prod-edit-otrosCostosCompra" name="OtrosCostosCompra" type="number" step="0.01" min="0" value="0"
@@ -1973,7 +1978,7 @@
                             </div>
 
                             <div class="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
-                                <label class="text-xs font-bold uppercase tracking-wider text-amber-400">Costo real final con gastos incluidos</label>
+                                <label for="prod-edit-costoRealFinal" class="text-xs font-bold uppercase tracking-wider text-amber-400">Costo real final con gastos incluidos</label>
                                 <div class="relative mt-1">
                                     <span class="absolute left-3 top-2 text-amber-400 font-bold">$</span>
                                     <input id="prod-edit-costoRealFinal" type="text" readonly
@@ -1993,7 +1998,7 @@
 
                             <div class="catalogo-ganancia-grid">
                                 <div class="space-y-1">
-                                    <label class="text-sm font-medium text-slate-300">Ganancia %</label>
+                                    <label for="prod-edit-margenPorcentaje" class="text-sm font-medium text-slate-300">Ganancia %</label>
                                     <div class="relative">
                                         <input id="prod-edit-margenPorcentaje" name="MargenPorcentaje" type="number" step="0.01" min="0" value="0"
                                                class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 pr-8 py-2 focus:ring-2 focus:ring-primary outline-none text-white" />
@@ -2001,7 +2006,7 @@
                                     </div>
                                 </div>
                                 <div class="space-y-1">
-                                    <label class="text-sm font-medium text-slate-300">Ganancia en pesos</label>
+                                    <label for="prod-edit-montoGanancia" class="text-sm font-medium text-slate-300">Ganancia en pesos</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
                                         <input id="prod-edit-montoGanancia" type="number" step="0.01" value="0"
@@ -2011,7 +2016,7 @@
                             </div>
 
                             <div class="space-y-1 catalogo-precio-final">
-                                <label class="catalogo-precio-final-label text-sm font-medium text-slate-300">Precio final de venta con IVA</label>
+                                <label for="prod-edit-precioFinal" class="catalogo-precio-final-label text-sm font-medium text-slate-300">Precio final de venta con IVA</label>
                                 <div class="relative">
                                     <span class="catalogo-precio-final-symbol absolute left-3 top-2 text-primary font-bold">$</span>
                                     <input id="prod-edit-precioFinal" name="PrecioVenta" type="number" step="0.01" min="0"
@@ -2022,7 +2027,7 @@
                             </div>
 
                             <div class="space-y-1">
-                                <label class="text-sm font-medium text-slate-300">Alícuota utilizada para el desglose</label>
+                                <label for="prod-edit-alicuotaIVAId" class="text-sm font-medium text-slate-300">Alícuota utilizada para el desglose</label>
                                 <select id="prod-edit-alicuotaIVAId" name="AlicuotaIVAId" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none text-white">
                                     <option value="">— Alícuota general (21%) —</option>
                                     @if (ViewBag.AlicuotasIVADatos != null)
@@ -2041,7 +2046,7 @@
 
                             <div class="space-y-3">
                                 <div class="space-y-1 catalogo-valor-calculado p-2">
-                                    <label class="text-xs font-bold uppercase tracking-wider text-slate-400">Venta sin IVA</label>
+                                    <label for="prod-edit-ventaSinIva" class="text-xs font-bold uppercase tracking-wider text-slate-400">Venta sin IVA</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
                                         <input id="prod-edit-ventaSinIva" type="text" readonly
@@ -2049,7 +2054,7 @@
                                     </div>
                                 </div>
                                 <div class="space-y-1 catalogo-valor-calculado p-2">
-                                    <label class="text-xs font-bold uppercase tracking-wider text-slate-400">IVA incluido en la venta</label>
+                                    <label for="prod-edit-ivaVentaImporte" class="text-xs font-bold uppercase tracking-wider text-slate-400">IVA incluido en la venta</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
                                         <input id="prod-edit-ivaVentaImporte" type="text" readonly
@@ -2062,7 +2067,7 @@
 
                     <div class="mt-4">
                         <div class="space-y-1 max-w-xs">
-                            <label class="text-sm font-medium text-slate-300">Máx. cuotas sin interés</label>
+                            <label for="prod-edit-maxCuotasSinInteres" class="text-sm font-medium text-slate-300">Máx. cuotas sin interés</label>
                             <input id="prod-edit-maxCuotasSinInteres" name="MaxCuotasSinInteresPermitidas" type="number" min="1" max="60"
                                    class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none text-white"
                                    placeholder="Sin restricción" />
@@ -2108,7 +2113,7 @@
                         </label>
                     </div>
                     <div class="space-y-1" data-cp-maxcuotas-wrap>
-                        <label class="text-sm font-medium text-slate-300">Máx. cuotas crédito personal</label>
+                        <label for="prod-edit-credito-maxcuotas" class="text-sm font-medium text-slate-300">Máx. cuotas crédito personal</label>
                         <input id="prod-edit-credito-maxcuotas" name="CreditoPersonal.MaxCuotasCredito" type="number" min="1" max="120" step="1"
                                class="w-full max-w-xs bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none text-white"
                                placeholder="Sin restricción" />
@@ -2150,13 +2155,13 @@
                             <tfoot>
                                 <tr class="bg-slate-900/30 border-t border-slate-800">
                                     <td class="px-4 py-2">
-                                        <input id="prod-edit-caract-nombre" type="text" class="w-full border-none bg-transparent text-xs text-white placeholder-slate-500 focus:ring-0 outline-none" placeholder="Nueva característica" />
+                                        <input id="prod-edit-caract-nombre" type="text" aria-label="Nueva característica" class="w-full border-none bg-transparent text-xs text-white placeholder-slate-500 focus:ring-0 outline-none" placeholder="Nueva característica" />
                                     </td>
                                     <td class="px-4 py-2">
-                                        <input id="prod-edit-caract-valor" type="text" class="w-full border-none bg-transparent text-xs text-white placeholder-slate-500 focus:ring-0 outline-none" placeholder="Valor" />
+                                        <input id="prod-edit-caract-valor" type="text" aria-label="Valor de la nueva característica" class="w-full border-none bg-transparent text-xs text-white placeholder-slate-500 focus:ring-0 outline-none" placeholder="Valor" />
                                     </td>
                                     <td class="px-4 py-2 text-center">
-                                        <button type="button" data-prod-edit-add-caract class="inline-flex items-center justify-center rounded bg-primary/20 text-primary hover:bg-primary/30 transition-colors w-7 h-7">
+                                        <button type="button" data-prod-edit-add-caract aria-label="Agregar característica" class="inline-flex items-center justify-center rounded bg-primary/20 text-primary hover:bg-primary/30 transition-colors w-7 h-7">
                                             <span class="material-symbols-outlined text-sm">add</span>
                                         </button>
                                     </td>
@@ -2177,12 +2182,12 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
                         <div class="grid grid-cols-2 gap-4">
                             <div class="space-y-1">
-                                <label class="text-sm font-medium text-slate-300">Stock Actual</label>
+                                <label for="prod-edit-stockActual" class="text-sm font-medium text-slate-300">Stock Actual</label>
                                 <input id="prod-edit-stockActual" name="StockActual" type="number" min="0" step="1" readonly tabindex="-1" aria-describedby="prod-edit-stockActual-hint" class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-2 outline-none text-slate-400 cursor-not-allowed" />
                                 <p id="prod-edit-stockActual-hint" class="text-[11px] text-slate-500">Solo lectura. Se modifica desde Movimientos de stock.</p>
                             </div>
                             <div class="space-y-1">
-                                <label class="text-sm font-medium text-slate-300">Stock Mínimo</label>
+                                <label for="prod-edit-stockMinimo" class="text-sm font-medium text-slate-300">Stock Mínimo</label>
                                 <input id="prod-edit-stockMinimo" name="StockMinimo" type="number" min="0" step="1" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none text-white" />
                             </div>
                         </div>
@@ -2192,7 +2197,7 @@
                                 <p class="text-xs text-slate-400">Habilitar este producto para la venta</p>
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer">
-                                <input id="prod-edit-activo" name="Activo" type="checkbox" value="true" class="sr-only peer" />
+                                <input id="prod-edit-activo" name="Activo" type="checkbox" value="true" aria-label="Producto activo" class="sr-only peer" />
                                 <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:border-slate-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-colors peer-checked:bg-primary"></div>
                             </label>
                         </div>
