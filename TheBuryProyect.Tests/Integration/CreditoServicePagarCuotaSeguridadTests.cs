@@ -72,7 +72,7 @@ internal sealed class StubCajaServicePagoSeguro : ICajaService
     public Task<AperturaCaja?> ObtenerAperturaActivaParaVentaAsync() => Task.FromResult(AperturaActivaParaVenta);
 
     public Task<decimal?> ObtenerUltimoEfectivoCierreAsync(int cajaId) => Task.FromResult<decimal?>(null);
-    public Task<AperturaCaja?> ObtenerAperturaActivaParaUsuarioAsync(string usuario) => throw new NotImplementedException();
+    public Task<AperturaCaja?> ObtenerAperturaActivaParaUsuarioAsync(string usuario) => ObtenerAperturaActivaParaVentaAsync();
     public Task<List<Caja>> ObtenerTodasCajasAsync() => throw new NotImplementedException();
     public Task<Caja?> ObtenerCajaPorIdAsync(int id) => throw new NotImplementedException();
     public Task<Caja> CrearCajaAsync(CajaViewModel model) => throw new NotImplementedException();
@@ -110,9 +110,13 @@ internal sealed class StubCajaServicePagoSeguro : ICajaService
 internal sealed class StubConfiguracionPagoAjuste : StubConfiguracionPagoServiceVenta, IConfiguracionPagoService
 {
     public decimal AjustePorcentaje { get; set; }
+    public bool AplicaAjusteEnCobroCuotas { get; set; } = true;
 
     public Task<decimal> ObtenerPorcentajeAjusteUnPagoAsync(TipoPago tipoPago)
         => Task.FromResult(AjustePorcentaje);
+
+    public Task<bool> AplicaAjusteEnCobroCuotasAsync(TipoPago tipoPago)
+        => Task.FromResult(AplicaAjusteEnCobroCuotas);
 }
 
 /// <summary>

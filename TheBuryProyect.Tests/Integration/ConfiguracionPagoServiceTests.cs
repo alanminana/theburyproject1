@@ -228,6 +228,40 @@ public class ConfiguracionPagoServiceTests : IDisposable
         Assert.Equal(0m, ajuste);
     }
 
+    [Fact]
+    public async Task AplicaAjusteEnCobroCuotas_PorDefectoYSinConfiguracion_EsTrue()
+    {
+        Assert.True(await _service.AplicaAjusteEnCobroCuotasAsync(TipoPago.Efectivo));
+
+        await SeedConfigPago(TipoPago.Transferencia);
+
+        Assert.True(await _service.AplicaAjusteEnCobroCuotasAsync(TipoPago.Transferencia));
+    }
+
+    [Fact]
+    public async Task EditarMedioPago_DesmarcarAjusteEnCobroCuotas_LoPersisteYLoLeeElServicio()
+    {
+        var medio = await SeedConfigPago(TipoPago.Efectivo);
+
+        await _service.EditarMedioPagoAsync(medio.Id, new MedioPagoGlobalEditViewModel
+        {
+            Nombre = medio.Nombre,
+            Activo = true,
+            AplicaAjusteEnCobroCuotas = false
+        });
+
+        Assert.False(await _service.AplicaAjusteEnCobroCuotasAsync(TipoPago.Efectivo));
+
+        await _service.EditarMedioPagoAsync(medio.Id, new MedioPagoGlobalEditViewModel
+        {
+            Nombre = medio.Nombre,
+            Activo = true,
+            AplicaAjusteEnCobroCuotas = true
+        });
+
+        Assert.True(await _service.AplicaAjusteEnCobroCuotasAsync(TipoPago.Efectivo));
+    }
+
     // =========================================================================
     // ObtenerParametrosCreditoClienteAsync — cadena de prioridad
     // =========================================================================

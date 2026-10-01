@@ -21,7 +21,8 @@
     var pagoCuotaReturnUrl = Url.Action("Details", "Credito", new { id = cr.Id });
     var creditoAdmiteCobro = cr.Estado == EstadoCredito.Activo || cr.Estado == EstadoCredito.Generado;
     var puedePagarCuota = creditoAdmiteCobro && User.TienePermiso("cobranzas", "payinstallment");
-    var puedeCancelar = cr.Estado != EstadoCredito.Cancelado && cr.Estado != EstadoCredito.Finalizado && cr.Estado != EstadoCredito.Rechazado;
+    var puedeAprobarCredito = User.TienePermiso("creditos", "approve");
+    var puedeCancelar = puedeAprobarCredito && cr.Estado != EstadoCredito.Cancelado && cr.Estado != EstadoCredito.Finalizado && cr.Estado != EstadoCredito.Rechazado;
     var primeraCuotaCobrable = cuotas
         .Where(c => c.Estado == EstadoCuota.Pendiente || c.Estado == EstadoCuota.Vencida || c.Estado == EstadoCuota.Parcial)
         .OrderBy(c => c.NumeroCuota)
@@ -127,7 +128,7 @@
             <div data-credito-header-actions class="head-actions">
                 <button type="button" class="btn btn-ghost" onclick="window.print()"><span class="material-symbols-outlined">print</span>Imprimir</button>
                 <a asp-action="Edit" asp-route-id="@cr.Id" class="btn btn-soft"><span class="material-symbols-outlined">edit</span>Editar</a>
-                @if (cr.Estado == EstadoCredito.Solicitado)
+                @if (puedeAprobarCredito && cr.Estado == EstadoCredito.Solicitado)
                 {
                     <button type="button" id="btn-aprobar" class="btn btn-success" data-credito-modal-action="open" data-credito-modal-target="aprobar"><span class="material-symbols-outlined">check_circle</span>Aprobar</button>
                     <button type="button" id="btn-rechazar" class="btn btn-danger" data-credito-modal-action="open" data-credito-modal-target="rechazar"><span class="material-symbols-outlined">block</span>Rechazar</button>

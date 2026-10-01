@@ -28,6 +28,7 @@ public sealed class MedioPagoGlobalAdminViewModel
     public decimal? PorcentajeDescuentoMaximo { get; set; }
     public bool TieneRecargo { get; set; }
     public decimal? PorcentajeRecargo { get; set; }
+    public bool AplicaAjusteEnCobroCuotas { get; set; } = true;
     public List<TarjetaGlobalAdminViewModel> Tarjetas { get; set; } = new();
     public List<PlanPagoGlobalAdminViewModel> Planes { get; set; } = new();
 }
@@ -103,6 +104,8 @@ public sealed class MedioPagoGlobalEditViewModel
     public string? Descripcion { get; set; }
 
     public bool Activo { get; set; } = true;
+
+    public bool AplicaAjusteEnCobroCuotas { get; set; }
 }
 
 public sealed class MedioPagoGlobalCommandViewModel

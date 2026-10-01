@@ -273,6 +273,20 @@ public class CreditoServiceAdelantoComandoTests : IDisposable
         Assert.Equal(MontoCuota + recargoEsperado, preview.TotalCaja);
     }
 
+    [Fact]
+    public async Task Preview_ConAjusteDeMedioDeshabilitadoParaCuotas_NoSumaRecargo()
+    {
+        _configuracionPago.AjustePorcentaje = 4m;
+        _configuracionPago.AplicaAjusteEnCobroCuotas = false;
+        var (credito, ultima) = await SeedPlanAsync("PREV3");
+        var rowVersion = (await RecargarCuotaAsync(ultima.Id)).RowVersion;
+
+        var preview = await _service.PrevisualizarAdelantoAsync(Comando(credito.Id, rowVersion, "Transferencia"));
+
+        Assert.Equal(0m, preview!.RecargoMedioPago);
+        Assert.Equal(MontoCuota, preview.TotalCaja);
+    }
+
     // =========================================================================
     // Confirmación
     // =========================================================================

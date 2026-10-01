@@ -123,7 +123,7 @@ public static class RolesPermisosSeeder
                 ("Convertir a Venta", "convert", 4),
                 ("Anular", "cancel", 5)
             }),
-            ("Créditos", "creditos", "Ventas", "bi-credit-card-2-front", 22, new List<(string, string, int)>
+            ("Créditos", "creditos", "Créditos", "bi-credit-card-2-front", 22, new List<(string, string, int)>
             {
                 ("Ver", "view", 1),
                 ("Crear", "create", 2),

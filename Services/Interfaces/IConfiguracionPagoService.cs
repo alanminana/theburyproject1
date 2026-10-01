@@ -109,6 +109,12 @@ namespace TheBuryProject.Services.Interfaces
         Task<decimal> ObtenerPorcentajeAjusteUnPagoAsync(TipoPago tipoPago) => Task.FromResult(0m);
 
         /// <summary>
+        /// Indica si el ajuste del medio (recargo/descuento) rige también al cobrar cuotas de crédito
+        /// y moras. Default true (comportamiento histórico) cuando el medio no existe o para stubs.
+        /// </summary>
+        Task<bool> AplicaAjusteEnCobroCuotasAsync(TipoPago tipoPago) => Task.FromResult(true);
+
+        /// <summary>
         /// Resolución canónica de los planes de Crédito Personal de una venta.
         /// Prioridad: configuración personalizada del producto → configuración global. La
         /// personalizada REEMPLAZA a la global para ese producto. Con varios productos la
