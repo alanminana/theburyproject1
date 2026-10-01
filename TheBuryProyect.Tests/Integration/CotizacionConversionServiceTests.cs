@@ -122,7 +122,12 @@ file sealed class StubVentaServiceConfirmarFacturar : IVentaService
     public Task<bool> RechazarVentaAsync(int id, string usuarioAutoriza, string motivo) => throw new NotImplementedException();
     public Task<bool> RegistrarExcepcionDocumentalAsync(int id, string usuarioAutoriza, string motivo) => throw new NotImplementedException();
     public Task<bool> RequiereAutorizacionAsync(VentaViewModel viewModel) => throw new NotImplementedException();
-    public Task<bool> GuardarDatosTarjetaAsync(int ventaId, DatosTarjetaViewModel datosTarjeta) => throw new NotImplementedException();
+    public List<DatosTarjetaViewModel> DatosTarjetaGuardados { get; } = new();
+    public Task<bool> GuardarDatosTarjetaAsync(int ventaId, DatosTarjetaViewModel datosTarjeta)
+    {
+        DatosTarjetaGuardados.Add(datosTarjeta);
+        return Task.FromResult(true);
+    }
     public Task<bool> GuardarDatosChequeAsync(int ventaId, DatosChequeViewModel datosCheque) => throw new NotImplementedException();
     public Task<DatosTarjetaViewModel> CalcularCuotasTarjetaAsync(int tarjetaId, decimal monto, int cuotas) => throw new NotImplementedException();
     public Task<DatosCreditoPersonallViewModel?> ObtenerDatosCreditoVentaAsync(int ventaId) => throw new NotImplementedException();
@@ -1715,6 +1720,72 @@ public sealed class CotizacionConversionServiceTests : IDisposable
     }
 
     // ─── HELPERS ─────────────────────────────────────────────────────────
+
+    // Ticket #22 (Mi Venta con tarjeta): la cotización sólo guarda el texto del plan ("Visa · 3 cuotas");
+    // la conversión debe resolver tarjeta + plan global y guardarlos, o ConfirmarVentaAsync rechaza la
+    // venta por "requiere datos de tarjeta".
+    [Fact]
+    public async Task Convertir_TarjetaCredito_GuardaDatosDeTarjetaYPlanDeLaCotizacion()
+    {
+        var medio = new ConfiguracionPago { TipoPago = TipoPago.TarjetaCredito, Nombre = "Tarjeta crédito", Activo = true };
+        _context.ConfiguracionesPago.Add(medio);
+        await _context.SaveChangesAsync();
+        var visa = new ConfiguracionTarjeta { ConfiguracionPagoId = medio.Id, NombreTarjeta = "Visa", TipoTarjeta = TipoTarjeta.Credito, Activa = true };
+        _context.ConfiguracionesTarjeta.Add(visa);
+        await _context.SaveChangesAsync();
+        var plan3 = new ConfiguracionPagoPlan { ConfiguracionPagoId = medio.Id, ConfiguracionTarjetaId = visa.Id, TipoPago = TipoPago.TarjetaCredito, CantidadCuotas = 3, AjustePorcentaje = 10m, Activo = true };
+        var plan6 = new ConfiguracionPagoPlan { ConfiguracionPagoId = medio.Id, ConfiguracionTarjetaId = visa.Id, TipoPago = TipoPago.TarjetaCredito, CantidadCuotas = 6, AjustePorcentaje = 20m, Activo = true };
+        _context.ConfiguracionPagoPlanes.AddRange(plan3, plan6);
+
+        var cotizacion = CotizacionEmitida(conCliente: true);
+        cotizacion.MedioPagoSeleccionado = CotizacionMedioPagoTipo.TarjetaCredito;
+        cotizacion.PlanSeleccionado = "Visa · 3 cuotas";
+        cotizacion.CantidadCuotasSeleccionada = 3;
+        _context.Cotizaciones.Add(cotizacion);
+        await _context.SaveChangesAsync();
+
+        var ventaServiceStub = new StubVentaServiceConfirmarFacturar();
+        var service = BuildServiceParaConfirmarFacturar(
+            new StubCurrentUserServiceConversion(tienePermisoAutorizar: false, tienePermisoActualizar: true),
+            ventaServiceStub);
+
+        var resultado = await service.ConvertirAVentaAsync(
+            cotizacion.Id,
+            new CotizacionConversionRequest { UsarPrecioCotizado = true, ConfirmarAdvertencias = true },
+            "carlos");
+
+        Assert.True(resultado.Exitoso);
+        var guardado = Assert.Single(ventaServiceStub.DatosTarjetaGuardados);
+        Assert.Equal(visa.Id, guardado.ConfiguracionTarjetaId);
+        Assert.Equal(plan3.Id, guardado.ConfiguracionPagoPlanId);
+        Assert.Equal(3, guardado.CantidadCuotas);
+        Assert.Equal(resultado.VentaId, guardado.VentaId);
+    }
+
+    [Fact]
+    public async Task Convertir_TarjetaCredito_SinPlanResoluble_AvisaYDejaLaVentaCreada()
+    {
+        var cotizacion = CotizacionEmitida(conCliente: true);
+        cotizacion.MedioPagoSeleccionado = CotizacionMedioPagoTipo.TarjetaCredito;
+        cotizacion.PlanSeleccionado = "Inexistente · 3 cuotas";
+        cotizacion.CantidadCuotasSeleccionada = 3;
+        _context.Cotizaciones.Add(cotizacion);
+        await _context.SaveChangesAsync();
+
+        var ventaServiceStub = new StubVentaServiceConfirmarFacturar();
+        var service = BuildServiceParaConfirmarFacturar(
+            new StubCurrentUserServiceConversion(tienePermisoAutorizar: false, tienePermisoActualizar: true),
+            ventaServiceStub);
+
+        var resultado = await service.ConvertirAVentaAsync(
+            cotizacion.Id,
+            new CotizacionConversionRequest { UsarPrecioCotizado = true, ConfirmarAdvertencias = true },
+            "carlos");
+
+        Assert.True(resultado.Exitoso);
+        Assert.Empty(ventaServiceStub.DatosTarjetaGuardados);
+        Assert.Contains(resultado.Advertencias, a => a.Contains("wizard", StringComparison.OrdinalIgnoreCase));
+    }
 
     private Cotizacion CotizacionEmitida(bool conCliente, decimal precioSnapshot = 100m) =>
         new()

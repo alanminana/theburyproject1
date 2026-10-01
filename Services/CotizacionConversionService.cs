@@ -627,6 +627,18 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
                     detalle.ProductoUnidadId!.Value, detalle.Id, clienteId, usuario);
             }
 
+            // Tarjeta: la cotización sólo guarda el texto del plan elegido ("Visa · 3 cuotas"). Sin los
+            // datos de tarjeta de la venta (tarjeta + plan global) ConfirmarVentaAsync la rechaza, así que
+            // se resuelven acá contra la configuración vigente y se guardan con el mismo método que usa
+            // el wizard (GuardarDatosTarjetaAsync). Si no se pueden resolver, la venta queda creada para
+            // completarlos en el wizard y se avisa.
+            if (tipoPago is TipoPago.TarjetaCredito or TipoPago.TarjetaDebito)
+            {
+                var avisoTarjeta = await AplicarDatosTarjetaDesdeCotizacionAsync(venta, cotizacionEnTx, tipoPago, cancellationToken);
+                if (avisoTarjeta != null)
+                    advertencias.Add(avisoTarjeta);
+            }
+
             // Igual que CreateAsync: el Credito real recién puede crearse con venta.Id ya
             // asignado, y sólo si la venta quedó aprobable (no si quedó pendiente de
             // autorización) — misma condición, misma lógica, sin duplicarla. Precarga cuotas/
@@ -790,6 +802,61 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
 
     private static bool EsVencida(Cotizacion cotizacion) =>
         cotizacion.FechaVencimiento.HasValue && cotizacion.FechaVencimiento.Value < DateTime.UtcNow;
+
+    private async Task<string?> AplicarDatosTarjetaDesdeCotizacionAsync(
+        Venta venta,
+        Cotizacion cotizacion,
+        TipoPago tipoPago,
+        CancellationToken cancellationToken)
+    {
+        const string avisoWizard = "No se pudo completar automáticamente la tarjeta y el plan de pago de la cotización. Completá los datos de tarjeta en el wizard antes de confirmar.";
+
+        var nombreTarjeta = cotizacion.PlanSeleccionado?.Split('·')[0].Trim();
+        if (string.IsNullOrWhiteSpace(nombreTarjeta) || !cotizacion.CantidadCuotasSeleccionada.HasValue)
+            return avisoWizard;
+
+        var tipoTarjeta = tipoPago == TipoPago.TarjetaCredito ? TipoTarjeta.Credito : TipoTarjeta.Debito;
+        var cuotas = cotizacion.CantidadCuotasSeleccionada.Value;
+
+        var tarjeta = await _context.ConfiguracionesTarjeta
+            .AsNoTracking()
+            .Where(t => !t.IsDeleted && t.Activa && t.TipoTarjeta == tipoTarjeta
+                && t.ConfiguracionPago.TipoPago == tipoPago
+                && t.NombreTarjeta == nombreTarjeta)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (tarjeta == null)
+            return avisoWizard;
+
+        // Plan propio de la tarjeta con esas cuotas; si no hay, el plan general del medio.
+        var plan = await _context.ConfiguracionPagoPlanes
+            .AsNoTracking()
+            .Where(p => !p.IsDeleted && p.Activo && p.TipoPago == tipoPago && p.CantidadCuotas == cuotas
+                && (p.ConfiguracionTarjetaId == tarjeta.Id || p.ConfiguracionTarjetaId == null))
+            .OrderByDescending(p => p.ConfiguracionTarjetaId == tarjeta.Id)
+            .ThenBy(p => p.Orden)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (plan == null)
+            return avisoWizard;
+
+        try
+        {
+            var guardado = await _ventaService.GuardarDatosTarjetaAsync(venta.Id, new DatosTarjetaViewModel
+            {
+                VentaId = venta.Id,
+                ConfiguracionTarjetaId = tarjeta.Id,
+                NombreTarjeta = tarjeta.NombreTarjeta,
+                TipoTarjeta = tarjeta.TipoTarjeta,
+                ConfiguracionPagoPlanId = plan.Id,
+                CantidadCuotas = plan.CantidadCuotas
+            });
+            return guardado ? null : avisoWizard;
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "No se pudieron guardar los datos de tarjeta de la cotización {Numero}", cotizacion.Numero);
+            return avisoWizard;
+        }
+    }
 
     private static TipoPago MapearTipoPago(CotizacionMedioPagoTipo? medioPago) =>
         medioPago switch
