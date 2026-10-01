@@ -36,7 +36,7 @@
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    height: 2.25rem;
+    min-height: 2.75rem;
     padding: 0 0.75rem;
     border-radius: 0.5rem;
     background: var(--pal-neutral-850);
@@ -47,7 +47,19 @@
     user-select: none;
 }
 
-.prov-filters__check input { accent-color: var(--pal-accent); }
+.prov-filters__check input { accent-color: var(--pal-accent); width: 1.25rem; height: 1.25rem; }
+
+/* Objetivos táctiles de 44px en filtros, botones de cabecera y acciones por fila. */
+.prov-touch,
+.prov-filters input[type="search"],
+.prov-filters select,
+.prov-filters .btn-erp-primary,
+.prov-filters .btn-erp-secondary,
+.prov-filters .btn-erp-ghost { min-height: 2.75rem; }
+
+@media (min-width: 640px) {
+    [data-erp-cards] .row-action { width: 2.75rem; height: 2.75rem; }
+}
 
 /* La cruz nativa del type="search" viene azul del navegador y no pertenece a la paleta; "Limpiar filtros" cubre esa acción. */
 .prov-filters input[type="search"]::-webkit-search-cancel-button { display: none; -webkit-appearance: none; }
@@ -248,7 +260,7 @@
     display: flex;
     align-items: center;
     gap: 0.625rem;
-    min-height: 2.25rem;
+    min-height: 2.75rem;
     padding: 0.25rem 0.625rem;
     border-radius: 0.5rem;
     font-size: 0.875rem;
@@ -257,7 +269,7 @@
 }
 
 .prov-check:hover { background: color-mix(in srgb, var(--pal-neutral-50) 6%, transparent); }
-.prov-check input { flex: none; width: 1rem; height: 1rem; accent-color: var(--pal-accent); }
+.prov-check input { flex: none; width: 1.25rem; height: 1.25rem; accent-color: var(--pal-accent); }
 
 .prov-check--card {
     align-items: flex-start;
@@ -347,3 +359,12 @@
     color: var(--pal-neutral-50);
     overflow-wrap: anywhere;
 }
+
+/* Objetivo táctil de 44px en campos y botones de esta pantalla (el estándar del ERP es 40px). */
+#main-content :is(input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="file"]), select, textarea, .btn-erp-primary, .btn-erp-secondary, .btn-erp-ghost) {
+    min-height: 2.75rem;
+}
+
+#main-content table a.block.truncate { display: flex; align-items: center; min-height: 2.75rem; }
+#main-content :is(a, button)[class~="h-10"] { min-height: 2.75rem; }
+#main-content table a[href^="mailto:"], #main-content table a[href^="tel:"] { min-height: 2.75rem; display: flex; align-items: center; }

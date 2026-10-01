@@ -216,7 +216,7 @@
                 tdAcciones.className = 'px-6 py-4 text-right';
                 const link = document.createElement('a');
                 link.href = `/Catalogo?searchTerm=${encodeURIComponent(producto.codigo || producto.nombre)}&editarProducto=${encodeURIComponent(producto.id)}`;
-                link.className = 'inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm font-semibold text-slate-200 no-underline transition-colors hover:border-slate-600 hover:bg-slate-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary';
+                link.className = 'inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm font-semibold text-slate-200 no-underline transition-colors hover:border-slate-600 hover:bg-slate-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary';
                 link.setAttribute('aria-label', `Editar producto ${producto.nombre}`);
                 link.innerHTML = '<span class="material-symbols-outlined text-lg" aria-hidden="true">edit</span><span>Editar</span>';
                 tdAcciones.appendChild(link);

@@ -40,7 +40,7 @@
                     data-expanded="@filtroOCExpanded"
                     aria-expanded="@filtroOCExpanded"
                     aria-controls="filtros-body"
-                    class="flex flex-1 items-center justify-between gap-3 text-left">
+                    class="oc-touch flex flex-1 items-center justify-between gap-3 text-left">
                 <div class="flex items-center gap-3">
                     <span class="material-symbols-outlined text-primary text-[18px]">filter_alt</span>
                     <div>
@@ -54,14 +54,14 @@
                 </div>
             </button>
             <a asp-controller="Proveedor" asp-action="Index"
-               class="btn-erp-secondary btn-sm no-underline shrink-0"
+               class="oc-touch btn-erp-secondary btn-sm no-underline shrink-0"
                title="Volver a Gestión de proveedores">
                 <span class="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_back</span>
                 Proveedores
             </a>
             @if (permCrearOC)
             {
-                <a asp-action="Create" class="btn-erp-primary btn-sm no-underline shrink-0">
+                <a asp-action="Create" class="oc-touch btn-erp-primary btn-sm no-underline shrink-0">
                     <span class="material-symbols-outlined text-[18px]">add_circle</span>
                     Nueva Orden
                 </a>
@@ -176,8 +176,8 @@
                        class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white transition-colors focus:border-primary focus:ring-2 focus:ring-primary/50" />
             </div>
             <div class="flex items-end gap-2 md:col-span-3">
-                <button type="submit" class="inline-flex h-10 flex-1 items-center justify-center rounded-xl bg-primary px-6 text-sm font-bold text-white transition-colors hover:bg-primary/90">Buscar</button>
-                <a asp-action="Index" class="inline-flex h-10 items-center justify-center rounded-xl border border-slate-700 px-3 text-slate-400 transition-colors hover:bg-slate-800 no-underline" title="Limpiar filtros">
+                <button type="submit" class="inline-flex oc-touch flex-1 items-center justify-center rounded-xl bg-primary px-6 text-sm font-bold text-white transition-colors hover:bg-primary/90">Buscar</button>
+                <a asp-action="Index" class="inline-flex oc-touch items-center justify-center rounded-xl border border-slate-700 px-3 text-slate-400 transition-colors hover:bg-slate-800 no-underline" title="Limpiar filtros">
                     <span class="material-symbols-outlined">filter_alt_off</span>
                 </a>
             </div>

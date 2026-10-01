@@ -2469,7 +2469,7 @@ atrapado (12 Tab, 0 fugas) y devuelto, filtros Marca/Producto, selector con tecl
 botones de escritura, `/OrdenCompra/Create` → AccessDenied, POST directo a `CambiarEstado` rechazado con la base sin cambios, `GetJson`
 rechazado para `contador` y `gerente`. 1440/1024/390 sin overflow de página, 0 errores de consola.
 
-**Deuda de la crítica resuelta en una pasada posterior (2026-10-01)**
+**Deuda de la crítica resuelta en pasadas posteriores (2026-10-01)**
 
 - "Agregar producto" queda bloqueado (`aria-disabled`, sin agregar la fila) cuando ningún proveedor tiene el producto; el aviso fijo con enlace sigue explicando por qué.
 - El listado de órdenes marca "Vencida" (texto rosa) en la fecha de entrega de órdenes Enviada/Confirmada/En tránsito con entrega anterior a hoy; fechas en `dd/MM/yyyy` y badge `nowrap`: "EN TRÁNSITO" ya no se parte y no hay overflow en 1440.
@@ -2477,10 +2477,10 @@ rechazado para `contador` y `gerente`. 1440/1024/390 sin overflow de página, 0 
 - Modal Crear/Editar producto en <640px: solapas con padding menor y degradado a la derecha que indica que hay más (CSS plano en `catalogo-module.css`; tailwind.css no se regenera).
 - Foco del modal "Editar producto" medido: 45 Tab sin salir del modal, Escape cierra.
 
-**Deuda que sigue (aceptada)**
+- Objetivos táctiles de 44px en Orden de compra (listado: acciones, filtros y botones; Crear: campos y botones), Proveedor (listado: acciones, filtros, enlaces de contacto; drawer: casillas con fila de 44px y casilla de 20px). CSS plano en `ordencompra-module.css` / `proveedor-module.css` acotado a esas pantallas; el estándar global del ERP (40px) no se tocó. Medido en 1440: 0 elementos interactivos < 44px en esas pantallas.
+- Corte de 25 resultados reproducido con 30 productos sintéticos en la copia de QA: "Mostrando 25 de 30. Escribí más para acotar la búsqueda."
 
-- Íconos de acción de 40px y checkboxes de 16px del drawer: estándar transversal del ERP.
-- Proveedor con más de 25 coincidencias: el corte se verificó por código; la base de QA tiene solo 15 productos, no hay datos reales para reproducirlo.
+**Deuda: ninguna abierta en este alcance.**
 
 Estado: **LISTO PARA COMMIT** para este alcance (fases formales ejecutadas, sin superficies relevantes en NO VALIDADA); la deuda de
 arriba es explícita y no bloquea.

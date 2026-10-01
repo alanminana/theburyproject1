@@ -134,6 +134,16 @@
    Acciones por fila migradas a .row-action (shared-components.css)
    ══════════════════════════════════════════════════════════════ */
 
+.oc-touch { min-height: 2.75rem; min-width: 2.75rem; }
+
+/* Objetivo táctil de 44px en las acciones del listado (el estándar del ERP es 40px). */
+@media (min-width: 640px) {
+    [data-oc-scroll-table] .row-action {
+        width: 2.75rem;
+        height: 2.75rem;
+    }
+}
+
 
 /* ══════════════════════════════════════════════════════════════
    CREATE
@@ -240,7 +250,7 @@ html.dark .ordencompra-product-toolbar {
 
 .ordencompra-add-button {
     width: 100%;
-    min-height: 2.5rem;
+    min-height: 2.75rem;
     padding-inline: 1rem;
     gap: 0.5rem;
 }
@@ -400,3 +410,9 @@ html.dark .ordencompra-summary-totals {
     background: color-mix(in srgb, var(--pal-neutral-925) 70%, transparent);
     color: var(--pal-info-400);
 }
+
+/* Objetivo táctil de 44px en campos y botones de esta pantalla (el estándar del ERP es 40px). */
+#main-content :is(input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="file"]), select, textarea, .btn-erp-primary, .btn-erp-secondary, .btn-erp-ghost) {
+    min-height: 2.75rem;
+}
+#main-content :is(a, button)[class~="h-10"] { min-height: 2.75rem; }
