@@ -92,6 +92,8 @@ test.describe('Cotización — "Mi Venta" v2: preflight real + modal de facturac
         await page.click('#cotizacion-tiene-envio');
         await expect(page.locator('#modal-envio')).toBeVisible({ timeout: 5_000 });
         await expect(page.locator('#cotizacion-envio-destinatario')).toHaveValue(/MiVentaQA/);
+        // VENTA-SERVICIOS-01: el tipo de envío (Ciudad/Rural) es obligatorio.
+        await page.locator('#cotizacion-envio-tipo').selectOption({ index: 1 });
         await page.click('#cotizacion-envio-guardar');
         await expect(page.locator('#modal-envio')).toBeHidden();
         await expect(page.locator('#cotizacion-envio-resumen')).toContainText('Av. Siempreviva 742');
