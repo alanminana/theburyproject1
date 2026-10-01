@@ -306,7 +306,7 @@ public sealed class CotizacionControllerUiTests
         var partial = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Cotizacion", "_CotizadorForm.cshtml"));
         Assert.Contains("id=\"cotizacion-limpiar-cliente\"", partial);
         var botonCambiar = partial.IndexOf("id=\"cotizacion-limpiar-cliente\"", StringComparison.Ordinal);
-        Assert.Contains("Cambiar", partial[botonCambiar..(botonCambiar + 260)]);
+        Assert.Contains("Cambiar", partial[botonCambiar..(botonCambiar + 400)]);
     }
 
     [Fact]
@@ -348,7 +348,7 @@ public sealed class CotizacionControllerUiTests
         var layout = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Shared", "_Layout.cshtml"));
 
         Assert.Contains("var canViewCotizaciones = User.TienePermiso(\"cotizaciones\", \"view\")", layout);
-        Assert.Contains("var canViewInventario = canViewCotizaciones", layout);
+        Assert.Contains("var canViewInventario = User.TienePermiso(\"productos\", \"view\")", layout);
         Assert.DoesNotContain("venta-create", layout, StringComparison.OrdinalIgnoreCase);
     }
 

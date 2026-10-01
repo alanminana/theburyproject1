@@ -16,6 +16,10 @@ async function prepararForm(page, montoUltimoCierre) {
     await page.route('**/Caja/UltimoEfectivoCierre*', r =>
         r.fulfill({ contentType: 'application/json', body: JSON.stringify({ monto: montoUltimoCierre }) }));
     await page.goto('/Caja/Abrir', { waitUntil: 'domcontentloaded' });
+    // Abrir nunca muestra el formulario con un selector vacío: en una base sin cajas abribles
+    // (p. ej. la DB limpia del CI) el formulario no existe y no hay nada que ejercitar.
+    test.skip(!(await page.locator('[data-caja-abrir-select]').count()),
+        'No hay cajas disponibles para abrir en esta base: el formulario no se renderiza.');
     await page.evaluate(() => {
         const s = document.querySelector('[data-caja-abrir-select]');
         if (!s.querySelector('option[value="999999"]')) s.add(new Option('CAJA-TEST', '999999'));
