@@ -422,6 +422,40 @@ public class ProductoServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Update_ConservaUnidadMedida_CuandoElFormularioNoLaEdita()
+    {
+        // Ninguna UI de producto edita la unidad de medida: el ViewModel no la trae y el mapeo
+        // deja el default "UN". Editar un producto no debe pisar la unidad que ya tiene.
+        var producto = await SeedProductoAsync();
+        var seed = await _context.Productos.FirstAsync(p => p.Id == producto.Id);
+        seed.UnidadMedida = "KG";
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+        var rowVersion = (await _context.Productos.AsNoTracking().FirstAsync(p => p.Id == producto.Id)).RowVersion;
+
+        var update = new Producto
+        {
+            Id = producto.Id,
+            Codigo = producto.Codigo,
+            Nombre = "Nombre editado",
+            CategoriaId = producto.CategoriaId,
+            MarcaId = producto.MarcaId,
+            PrecioCompra = producto.PrecioCompra,
+            PrecioVenta = producto.PrecioVenta,
+            StockMinimo = producto.StockMinimo,
+            Activo = true,
+            RowVersion = rowVersion
+        };
+
+        await _service.UpdateAsync(update);
+
+        _context.ChangeTracker.Clear();
+        var bd = await _context.Productos.FirstAsync(p => p.Id == producto.Id);
+        Assert.Equal("Nombre editado", bd.Nombre);
+        Assert.Equal("KG", bd.UnidadMedida);
+    }
+
+    [Fact]
     public async Task Update_NoResetea_RequiereNumeroSerie()
     {
         var (cat, marca) = await SeedCategoriaMarcaAsync();

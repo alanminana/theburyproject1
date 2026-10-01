@@ -2426,3 +2426,30 @@ Al cerrar una pantalla:
 - **Accesibilidad:** `aria-current` + subrayado/negrita en la sección activa (no solo color), anillo de foco en `.cp-field`, `scroll-margin` para que un control inválido enfocado y su mensaje queden sobre la barra sticky (verificado 1440/1024/768/390/360). Tab/Shift+Tab, Space en checkboxes, Enter/Space en `<details>`, modales (foco atrapado, Escape, retorno de foco) y labels verificados.
 - **Validación:** 484/484 tests (`CreditoPersonal|ConfiguracionPago|ConfiguracionPunitorio`) y Release build 0 errores tras el último cambio; e2e `configuracion-punitorio` 14/14 (1 skip por diseño) en 1366x768, 768x1024 y 360x740, cada uno sobre un clon limpio de la BD; persistencia real en el clon (gastos, recargo explícito, recargo 0, herencia vacía, activo/inactivo, cuotas sin recargo, semáforo, límite por puntaje: POST 302 + recarga con los valores guardados); QA Playwright propio en 1440/1280/1024/768/390/360 × 5 secciones, 0 overflow, 0 errores de consola/requests. El clon se eliminó.
 - **Deuda:** los importes de "Límites por puntaje" siguen siendo `type=number` (contrato de binding).
+
+## Tickets QA 27 y 29 — Proveedor, Orden de compra y modal de Producto (2026-10-01, sin push)
+
+Corrección de los reportes de QA (no es un cierre formal `/ui-module`: no se ejecutaron `ux-heuristics` ni Impeccable
+critique/polish; la QA fue propia en navegador real, por eso estas pantallas no cambian de estado en la tabla de arriba).
+
+- **OrdenCompra/Create** (`ordencompra-form.js`): el bloqueo cruzado proveedor↔producto era una regla correcta (el servidor exige
+  producto asociado) aplicada sin explicación. Ahora el buscador avisa qué productos coinciden pero no están asociados al
+  proveedor elegido (con enlace a su ficha), "sin proveedores para este producto" es un aviso fijo (no desaparece a los 4,5 s)
+  y "Falta elegir un producto" nombra lo escrito. El aviso se desplaza a la vista en pantallas chicas.
+- **OrdenCompra/Index**: botón "Proveedores", filtros Marca y Producto (nombre o código), columna Marca, avance de envío por fila
+  y botones según permisos; relleno de celdas reducido porque con la columna nueva la tabla desbordaba ~70px en 1440 (se cortaba
+  el último ícono de Acciones); los nombres de marca se recortan (`"FLORENCIA "` se veía `FLORENCIA , SINGER`).
+- **Proveedor/Details**: columnas Marca y Categoría en "Productos asociados" y botón Editar por fila (con `productos.edit` +
+  acceso al Catálogo) que abre `/Catalogo?editarProducto={id}`; el modal canónico de producto se abre solo y el parámetro se
+  borra de la URL para no reabrirse al recargar.
+- **Proveedor / drawer Editar**: elegir un producto tilda su marca y su categoría (editables, no obligatorias).
+- **Catálogo / modal Editar producto**: "IVA incluido compra" se reinicia en cada apertura y aclara que solo desglosa (no se
+  persiste: ningún flujo lo consume). `ProductoService.UpdateAsync` deja de pisar `UnidadMedida` con el default `"UN"`
+  (ninguna UI la edita); test nuevo que falló antes del arreglo.
+- *Validado (clon de la LocalDB, ya eliminado):* guardado real del proveedor con producto nuevo (marca y categoría persistidas y
+  visibles en la ficha), creación de una orden de compra (id 6) con el flujo nuevo, guardado del modal de producto abierto desde
+  Productos asociados (nombre, stock mínimo; stock actual y unidad `KG` intactos), avance de envío Borrador→Enviada desde el
+  listado, filtros Marca/Producto combinados; 1440/1024/390 sin overflow de página, 0 errores de consola.
+- *NO validado:* roles sin `productos.edit`/`ordenescompra.*` (oculta botones; el servidor ya lo exigía), proveedor con muchos
+  productos (el buscador del picker corta en 25 resultados).
+- *Deuda aceptada:* el IVA de compra del modal no se guarda con el producto; persistirlo agregaría una columna que nadie lee.

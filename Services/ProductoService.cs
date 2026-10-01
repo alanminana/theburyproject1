@@ -443,7 +443,8 @@ namespace TheBuryProject.Services
                         producto.Id, producto.StockActual, existing.StockActual);
                 }
 
-                existing.UnidadMedida = producto.UnidadMedida;
+                // UnidadMedida tampoco se edita desde ninguna UI de producto (el ViewModel no la trae y el
+                // mapeo deja el default "UN"): se conserva la persistida para no pisarla en cada edición.
                 existing.Activo = producto.Activo;
                 existing.UpdatedAt = DateTime.UtcNow;
 

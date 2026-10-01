@@ -284,6 +284,9 @@
         dropdown.innerHTML = items + aviso;
 
         setDropdownVisible(true);
+
+        // En pantallas chicas el buscador queda al borde: el aviso tiene que verse sin scrollear a mano.
+        if (aviso) dropdown.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
 
     function syncTableOverflow() {
