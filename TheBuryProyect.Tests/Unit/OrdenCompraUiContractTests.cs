@@ -58,6 +58,18 @@ public class OrdenCompraUiContractTests
         Assert.Contains("inpCantidad.focus()", js);
     }
 
+    [Fact]
+    public void AgregarProductoSeBloqueaCuandoNingunProveedorLoTieneYElListadoMarcaEntregasVencidas()
+    {
+        var js = Leer("wwwroot", "js", "ordencompra-form.js");
+        var vista = Leer("Views", "OrdenCompra", "Index_tw.cshtml");
+
+        Assert.Contains("sinProveedorParaProducto", js);
+        Assert.Contains("aria-disabled", js);
+        Assert.Contains("entregaVencida", vista);
+        Assert.Contains("Vencida", vista);
+    }
+
     private static string Leer(params string[] segmentos)
     {
         var ruta = Path.Combine(new[] { FindRepoRoot() }.Concat(segmentos).ToArray());

@@ -189,7 +189,11 @@
         ));
     }
 
+    let sinProveedorParaProducto = false;
+
     function actualizarProveedoresPorProductoContexto() {
+        sinProveedorParaProducto = false;
+        btnAgregar?.removeAttribute('aria-disabled');
         if (!selectProveedor || !proveedores.length) return;
 
         const proveedorId = getProveedorIdSeleccionado();
@@ -211,8 +215,11 @@
         );
 
         renderProveedorOptions(proveedoresPermitidos, '');
+        btnAgregar?.removeAttribute('aria-disabled');
 
         if (!proveedoresPermitidos.size) {
+            sinProveedorParaProducto = true;
+            if (btnAgregar) btnAgregar.setAttribute('aria-disabled', 'true');
             showFeedback('Ningún proveedor tiene este producto asociado. Asocialo desde Proveedores → Editar, o elegí otro producto.', {
                 variant: 'warning',
                 title: 'Sin proveedores asociados',
@@ -266,7 +273,7 @@
                     data-precio="${producto.precioCompra}"
                     data-porcentaje-iva="${producto.porcentajeIva}">
                 <span class="min-w-0">
-                    <span class="block text-sm font-bold text-slate-900 dark:text-white truncate">${esc(producto.nombre)}</span>
+                    <span class="block text-sm font-bold text-slate-900 dark:text-white break-words" title="${esc(producto.nombre)}">${esc(producto.nombre)}</span>
                     <span class="block text-xs text-slate-500 truncate">${esc(producto.codigo)}</span>
                 </span>
                 <span class="text-xs font-medium text-primary shrink-0">$ ${fmt(producto.precioCompra)}</span>
@@ -392,6 +399,11 @@
                 variant: 'warning',
                 title: 'Falta elegir un producto'
             });
+            inpBuscar?.focus();
+            return;
+        }
+
+        if (sinProveedorParaProducto) {
             inpBuscar?.focus();
             return;
         }

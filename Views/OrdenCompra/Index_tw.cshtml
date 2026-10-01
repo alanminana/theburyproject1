@@ -250,10 +250,21 @@
                         <td class="px-3 py-2.5 font-bold text-primary whitespace-nowrap">@o.Numero</td>
                         <td class="px-3 py-2.5 font-medium">@o.ProveedorNombre</td>
                         <td class="px-3 py-2.5 text-slate-300">@(string.IsNullOrWhiteSpace(o.MarcasResumen) ? "--" : o.MarcasResumen)</td>
-                        <td class="px-3 py-2.5 text-slate-400 whitespace-nowrap">@o.FechaEmision.ToString("dd MMM yyyy")</td>
-                        <td class="px-3 py-2.5 text-slate-400 whitespace-nowrap">@(o.FechaEntregaEstimada?.ToString("dd MMM yyyy") ?? "--")</td>
+                        <td class="px-3 py-2.5 text-slate-400 whitespace-nowrap">@o.FechaEmision.ToString("dd/MM/yyyy")</td>
+                        @{
+                            var entregaVencida = o.FechaEntregaEstimada.HasValue
+                                && o.FechaEntregaEstimada.Value.Date < DateTime.Today
+                                && (o.Estado == EstadoOrdenCompra.Enviada || o.Estado == EstadoOrdenCompra.Confirmada || o.Estado == EstadoOrdenCompra.EnTransito);
+                        }
+                        <td class="px-3 py-2.5 whitespace-nowrap @(entregaVencida ? "text-rose-300 font-semibold" : "text-slate-400")">
+                            @(o.FechaEntregaEstimada?.ToString("dd/MM/yyyy") ?? "--")
+                            @if (entregaVencida)
+                            {
+                                <span class="block text-xs font-semibold uppercase tracking-wide text-rose-300">Vencida</span>
+                            }
+                        </td>
                         <td class="px-3 py-2.5">
-                            <span class="@OrdenCompraUiHelper.EstadoBadgeClass(o.Estado)">
+                            <span class="@OrdenCompraUiHelper.EstadoBadgeClass(o.Estado) whitespace-nowrap">
                                 @OrdenCompraUiHelper.EstadoNombre(o.Estado)
                             </span>
                         </td>

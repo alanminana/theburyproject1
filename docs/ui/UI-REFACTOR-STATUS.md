@@ -2469,15 +2469,18 @@ atrapado (12 Tab, 0 fugas) y devuelto, filtros Marca/Producto, selector con tecl
 botones de escritura, `/OrdenCompra/Create` → AccessDenied, POST directo a `CambiarEstado` rechazado con la base sin cambios, `GetJson`
 rechazado para `contador` y `gerente`. 1440/1024/390 sin overflow de página, 0 errores de consola.
 
-**Deuda aceptada (hallazgos de la crítica que NO se tocaron, con motivo)**
+**Deuda de la crítica resuelta en una pasada posterior (2026-10-01)**
 
-- Íconos de acción de 40px de alto (el estándar actual del ERP) y checkboxes de 16px del drawer: la regla de 44px es transversal.
-- "EN TRÁNSITO" se parte en dos líneas en la tabla de órdenes: `nowrap` volvería a desbordar la tabla en 1440.
-- Decisión de producto abierta: si "Agregar producto" debe bloquearse cuando ningún proveedor tiene el producto (hoy el aviso lo
-  explica pero el servidor lo rechaza recién al guardar con un proveedor incompatible).
-- Sin señal de entrega vencida en el listado; el dropdown del buscador de la orden trunca nombres largos; el modal "Editar producto"
-  corta solapas en 390 (scroll horizontal sin pista) y cambia de alto entre solapas: preexistentes.
-- *NO validado:* foco atrapado del modal "Editar producto" (no se midió); proveedor con más de 25 coincidencias solo con datos sintéticos.
+- "Agregar producto" queda bloqueado (`aria-disabled`, sin agregar la fila) cuando ningún proveedor tiene el producto; el aviso fijo con enlace sigue explicando por qué.
+- El listado de órdenes marca "Vencida" (texto rosa) en la fecha de entrega de órdenes Enviada/Confirmada/En tránsito con entrega anterior a hoy; fechas en `dd/MM/yyyy` y badge `nowrap`: "EN TRÁNSITO" ya no se parte y no hay overflow en 1440.
+- Dropdown del buscador de la orden: los nombres largos se parten en vez de truncarse (con `title`).
+- Modal Crear/Editar producto en <640px: solapas con padding menor y degradado a la derecha que indica que hay más (CSS plano en `catalogo-module.css`; tailwind.css no se regenera).
+- Foco del modal "Editar producto" medido: 45 Tab sin salir del modal, Escape cierra.
+
+**Deuda que sigue (aceptada)**
+
+- Íconos de acción de 40px y checkboxes de 16px del drawer: estándar transversal del ERP.
+- Proveedor con más de 25 coincidencias: el corte se verificó por código; la base de QA tiene solo 15 productos, no hay datos reales para reproducirlo.
 
 Estado: **LISTO PARA COMMIT** para este alcance (fases formales ejecutadas, sin superficies relevantes en NO VALIDADA); la deuda de
 arriba es explícita y no bloquea.
