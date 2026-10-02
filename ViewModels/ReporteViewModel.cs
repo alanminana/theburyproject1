@@ -129,23 +129,15 @@ namespace TheBuryProject.ViewModels
         public int VentasUltimos30Dias { get; set; }
         public decimal RotacionMensual { get; set; }
 
-        public string MargenCategoria => MargenPorcentaje switch
-        {
-            < 10 => "Muy Bajo",
-            < 20 => "Bajo",
-            < 35 => "Normal",
-            < 50 => "Alto",
-            _ => "Muy Alto"
-        };
+        // Umbrales configurables (ConfiguracionRentabilidad): los mismos que usan los contadores
+        // "Margen bajo/alto" del resumen, para que la etiqueta de cada fila no los contradiga.
+        public decimal MargenBajoMax { get; set; } = 20m;
+        public decimal MargenAltoMin { get; set; } = 35m;
 
-        public string BadgeMargen => MargenPorcentaje switch
-        {
-            < 10 => "bg-danger",
-            < 20 => "bg-warning",
-            < 35 => "bg-info",
-            < 50 => "bg-primary",
-            _ => "bg-success"
-        };
+        public string MargenCategoria =>
+            MargenPorcentaje < MargenBajoMax ? "Bajo"
+            : MargenPorcentaje >= MargenAltoMin ? "Alto"
+            : "Normal";
     }
 
     /// <summary>

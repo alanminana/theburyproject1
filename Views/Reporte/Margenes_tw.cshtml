@@ -147,10 +147,9 @@
                         <tbody class="divide-y divide-slate-800">
                             @foreach (var p in Model.Productos)
                             {
-                                var margenColor = p.MargenPorcentaje < 10 ? "text-red-400"
-                                    : p.MargenPorcentaje < 20 ? "text-amber-400"
-                                    : p.MargenPorcentaje < 35 ? "text-slate-300"
-                                    : "text-emerald-400";
+                                var margenColor = p.MargenPorcentaje < p.MargenBajoMax ? "text-amber-400"
+                                    : p.MargenPorcentaje >= p.MargenAltoMin ? "text-emerald-400"
+                                    : "text-slate-300";
                                 <tr class="hover:bg-slate-800/50 transition-colors">
                                     <td class="px-4 py-3 font-mono text-xs text-slate-500">@p.Codigo</td>
                                     <td class="px-4 py-3 font-medium text-slate-100">@p.Nombre</td>

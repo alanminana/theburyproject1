@@ -22,6 +22,16 @@ namespace TheBuryProject.Services
         private const int TramoMora60Dias = 60;
         private const int TramoMora90Dias = 90;
 
+        // Ventas que cuentan como operación comercial real en los reportes de ventas/márgenes.
+        // Excluye cotizaciones, presupuestos, pendientes de requisitos/financiación y canceladas
+        // (mismo criterio que el reporte de comisiones).
+        private static readonly EstadoVenta[] EstadosVentaComerciales =
+        {
+            EstadoVenta.Confirmada,
+            EstadoVenta.Facturada,
+            EstadoVenta.Entregada
+        };
+
         private readonly AppDbContext _context;
         private readonly ILogger<ReporteService> _logger;
         private readonly IConfiguracionRentabilidadService? _configuracionRentabilidadService;
@@ -78,17 +88,22 @@ namespace TheBuryProject.Services
                         d.Producto != null &&
                         !d.Producto.IsDeleted))
                         .ThenInclude(d => d.Producto)
+                            .ThenInclude(p => p!.Categoria)
                     .Where(v =>
                         !v.IsDeleted &&
+                        EstadosVentaComerciales.Contains(v.Estado) &&
                         (v.Cliente == null || !v.Cliente.IsDeleted))
                     .AsQueryable();
 
-                // Aplicar filtros
+                // Aplicar filtros. "Hasta" es un día completo (inclusivo), no medianoche.
                 if (filtro.FechaDesde.HasValue)
                     query = query.Where(v => v.FechaVenta >= filtro.FechaDesde.Value);
 
                 if (filtro.FechaHasta.HasValue)
-                    query = query.Where(v => v.FechaVenta <= filtro.FechaHasta.Value);
+                {
+                    var hastaExclusivo = filtro.FechaHasta.Value.Date.AddDays(1);
+                    query = query.Where(v => v.FechaVenta < hastaExclusivo);
+                }
 
                 if (filtro.ClienteId.HasValue)
                     query = query.Where(v => v.ClienteId == filtro.ClienteId.Value);
@@ -178,10 +193,10 @@ namespace TheBuryProject.Services
                     );
 
                 // Productos más vendidos
-                var productosMasVendidos = await ObtenerProductosMasVendidosAsync(filtro);
+                var productosMasVendidos = ObtenerProductosMasVendidos(ventas, filtro);
 
                 // Clientes top
-                var clientesTop = await ObtenerClientesTopAsync(filtro);
+                var clientesTop = ObtenerClientesTop(ventas);
 
                 return new ReporteVentasResultadoViewModel
                 {
@@ -408,6 +423,7 @@ namespace TheBuryProject.Services
                     .Where(vd => !vd.IsDeleted &&
                                  vd.Venta != null &&
                                  !vd.Venta.IsDeleted &&
+                                 EstadosVentaComerciales.Contains(vd.Venta.Estado) &&
                                  vd.Venta.FechaVenta >= hace30Dias)
                     .GroupBy(vd => vd.ProductoId)
                     .Select(g => new
@@ -443,7 +459,9 @@ namespace TheBuryProject.Services
                         StockActual = p.StockActual,
                         GananciaPotencial = ganancia * p.StockActual,
                         VentasUltimos30Dias = ventasUltimos30Dias,
-                        RotacionMensual = rotacionMensual
+                        RotacionMensual = rotacionMensual,
+                        MargenBajoMax = configRentabilidad.MargenBajoMax,
+                        MargenAltoMin = configRentabilidad.MargenAltoMin
                     };
                 }).ToList();
 
@@ -475,71 +493,67 @@ namespace TheBuryProject.Services
                 // vencimiento hasta 3hs por el cruce de día UTC/Argentina, ver IRelojComercial).
                 var hoy = _reloj.InicioDiaComercial;
 
-                // Obtener todas las cuotas vencidas con sus créditos y clientes
-                var cuotasVencidas = await _context.Cuotas
+                // Cuotas con saldo de capital/interés pendiente. El job ActualizarEstadoCuotasAsync pasa
+                // Pendiente→Vencida y los pagos parciales quedan en Parcial: filtrar solo por Pendiente
+                // hacía desaparecer del reporte justo las cuotas más atrasadas. La deuda es el saldo
+                // (MontoTotal - MontoPagado), no el valor original de la cuota; el punitorio es un
+                // concepto aparte y no se suma acá.
+                var cuotasConSaldo = await _context.Cuotas
                     .AsNoTracking()
                     .Include(c => c.Credito)
                         .ThenInclude(cr => cr.Cliente)
                     .Where(c => !c.IsDeleted
                              && !c.Credito.IsDeleted
                              && !c.Credito.Cliente.IsDeleted
-                             && c.FechaVencimiento < hoy
-                             && c.Estado == EstadoCuota.Pendiente)
+                             && (c.Estado == EstadoCuota.Pendiente
+                                 || c.Estado == EstadoCuota.Vencida
+                                 || c.Estado == EstadoCuota.Parcial)
+                             && c.MontoPagado < c.MontoTotal)
                     .ToListAsync();
 
-                // Precargar deuda vigente de todos los clientes morosos en una sola query
-                var clienteIds = cuotasVencidas
-                    .Select(c => c.Credito.ClienteId)
-                    .Distinct()
+                var cuotasVencidas = cuotasConSaldo
+                    .Where(c => c.FechaVencimiento < hoy)
                     .ToList();
 
-                var deudaVigenteRaw = await _context.Cuotas
-                    .AsNoTracking()
-                    .Where(c => !c.IsDeleted
-                             && !c.Credito.IsDeleted
-                             && clienteIds.Contains(c.Credito.ClienteId)
-                             && c.FechaVencimiento >= hoy
-                             && c.Estado == EstadoCuota.Pendiente)
-                    .Select(c => new { c.Credito.ClienteId, c.MontoTotal })
-                    .ToListAsync();
-
-                var deudaVigenteDict = deudaVigenteRaw
-                    .GroupBy(x => x.ClienteId)
-                    .ToDictionary(g => g.Key, g => g.Sum(x => x.MontoTotal));
+                var deudaVigenteDict = cuotasConSaldo
+                    .Where(c => c.FechaVencimiento >= hoy)
+                    .GroupBy(c => c.Credito.ClienteId)
+                    .ToDictionary(g => g.Key, g => g.Sum(CalcularSaldoCuota));
 
                 // Agrupar por cliente
                 var clientesMorosos = cuotasVencidas
-                    .GroupBy(c => new
-                    {
-                        ClienteId = c.Credito.ClienteId,
-                        ClienteNombre = c.Credito.Cliente.ToDisplayName(),
-                        ClienteDocumento = c.Credito.Cliente.NumeroDocumento,
-                        ClienteTelefono = c.Credito.Cliente.Telefono
-                    })
+                    .GroupBy(c => c.Credito.ClienteId)
                     .Select(g =>
                     {
                         var cuotaMasAntigua = g.OrderBy(c => c.FechaVencimiento).First();
-                        var diasMaxAtraso = (hoy - g.Min(c => c.FechaVencimiento)).Days;
-                        var clienteId = g.Key.ClienteId;
+                        var cliente = cuotaMasAntigua.Credito.Cliente;
+                        var diasMaxAtraso = (hoy - cuotaMasAntigua.FechaVencimiento).Days;
 
                         return new ClienteMorosoViewModel
                         {
-                            ClienteId = g.Key.ClienteId,
-                            ClienteNombre = g.Key.ClienteNombre,
-                            ClienteDocumento = g.Key.ClienteDocumento,
-                            ClienteTelefono = g.Key.ClienteTelefono,
+                            ClienteId = g.Key,
+                            // Apellido, Nombre sin "- DNI:": el documento ya tiene su propia columna.
+                            ClienteNombre = $"{cliente.Apellido}, {cliente.Nombre}",
+                            ClienteDocumento = cliente.NumeroDocumento,
+                            ClienteTelefono = cliente.Telefono,
                             CantidadCreditosVencidos = g.Select(c => c.CreditoId).Distinct().Count(),
-                            TotalDeudaVencida = g.Sum(c => c.MontoTotal),
-                            TotalDeudaVigente = deudaVigenteDict.GetValueOrDefault(clienteId, 0m),
-                            FechaPrimerVencimiento = g.Min(c => c.FechaVencimiento),
+                            TotalDeudaVencida = g.Sum(CalcularSaldoCuota),
+                            TotalDeudaVigente = deudaVigenteDict.GetValueOrDefault(g.Key, 0m),
+                            FechaPrimerVencimiento = cuotaMasAntigua.FechaVencimiento,
                             DiasMaximoAtraso = diasMaxAtraso,
-                            MontoCuotaVencidaMasAntigua = cuotaMasAntigua.MontoTotal,
+                            MontoCuotaVencidaMasAntigua = CalcularSaldoCuota(cuotaMasAntigua),
                             CreditoIdMasAntiguo = cuotaMasAntigua.CreditoId
                         };
                     })
                     .OrderByDescending(c => c.DiasMaximoAtraso)
                     .ThenByDescending(c => c.TotalDeudaVencida)
                     .ToList();
+
+                // Antigüedad por cuota (no por cliente): una cuota de 10 días no pasa a ">90" porque
+                // el mismo cliente tenga otra de 100.
+                decimal DeudaDesde(int dias) => cuotasVencidas
+                    .Where(c => (hoy - c.FechaVencimiento).Days >= dias)
+                    .Sum(CalcularSaldoCuota);
 
                 var totalDeudaVencida = clientesMorosos.Sum(c => c.TotalDeudaVencida);
                 var totalDeudaVigente = clientesMorosos.Sum(c => c.TotalDeudaVigente);
@@ -554,9 +568,9 @@ namespace TheBuryProject.Services
                     PromedioDeudaPorCliente = clientesMorosos.Any()
                         ? totalDeudaVencida / clientesMorosos.Count
                         : 0,
-                    DeudaMayor30Dias = clientesMorosos.Where(c => c.DiasMaximoAtraso >= TramoMora30Dias).Sum(c => c.TotalDeudaVencida),
-                    DeudaMayor60Dias = clientesMorosos.Where(c => c.DiasMaximoAtraso >= TramoMora60Dias).Sum(c => c.TotalDeudaVencida),
-                    DeudaMayor90Dias = clientesMorosos.Where(c => c.DiasMaximoAtraso >= TramoMora90Dias).Sum(c => c.TotalDeudaVencida)
+                    DeudaMayor30Dias = DeudaDesde(TramoMora30Dias),
+                    DeudaMayor60Dias = DeudaDesde(TramoMora60Dias),
+                    DeudaMayor90Dias = DeudaDesde(TramoMora90Dias)
                 };
             }
             catch (Exception ex)
@@ -577,6 +591,9 @@ namespace TheBuryProject.Services
         {
             try
             {
+                // "Hasta" es un día completo (inclusivo).
+                var hastaExclusivo = fechaHasta.Date.AddDays(1);
+
                 var ventas = await _context.Ventas
                     .AsNoTracking()
                     .Include(v => v.Detalles.Where(d =>
@@ -585,7 +602,11 @@ namespace TheBuryProject.Services
                         !d.Producto.IsDeleted))
                         .ThenInclude(d => d.Producto)
                             .ThenInclude(p => p.Categoria)
-                    .Where(v => !v.IsDeleted && v.FechaVenta >= fechaDesde && v.FechaVenta <= fechaHasta)
+                    .Where(v =>
+                        !v.IsDeleted &&
+                        EstadosVentaComerciales.Contains(v.Estado) &&
+                        v.FechaVenta >= fechaDesde &&
+                        v.FechaVenta < hastaExclusivo)
                     .Include(v => v.DatosTarjeta)
                     .ToListAsync();
 
@@ -593,6 +614,7 @@ namespace TheBuryProject.Services
                 {
                     "dia" => ventas
                         .GroupBy(v => v.FechaVenta.Date)
+                        .OrderBy(g => g.Key)
                         .Select(g => new VentasAgrupadasViewModel
                         {
                             Etiqueta = g.Key.ToString("dd/MM/yyyy"),
@@ -600,11 +622,11 @@ namespace TheBuryProject.Services
                             Cantidad = g.Count(),
                             Ganancia = g.Sum(v => (v.Total - ResolverRecargoDebitoAplicado(v)) - CalcularCostoDetalles(v.Detalles))
                         })
-                        .OrderBy(v => v.Etiqueta)
                         .ToList(),
 
                     "mes" => ventas
                         .GroupBy(v => new { v.FechaVenta.Year, v.FechaVenta.Month })
+                        .OrderBy(g => g.Key.Year).ThenBy(g => g.Key.Month)
                         .Select(g => new VentasAgrupadasViewModel
                         {
                             Etiqueta = $"{g.Key.Month:D2}/{g.Key.Year}",
@@ -612,7 +634,6 @@ namespace TheBuryProject.Services
                             Cantidad = g.Count(),
                             Ganancia = g.Sum(v => (v.Total - ResolverRecargoDebitoAplicado(v)) - CalcularCostoDetalles(v.Detalles))
                         })
-                        .OrderBy(v => v.Etiqueta)
                         .ToList(),
 
                     "categoria" => ventas
@@ -638,6 +659,9 @@ namespace TheBuryProject.Services
                 throw;
             }
         }
+
+        private static decimal CalcularSaldoCuota(Cuota cuota) =>
+            Math.Max(0m, cuota.MontoTotal - cuota.MontoPagado);
 
         internal static decimal CalcularMargenPorcentaje(decimal ganancia, decimal @base) =>
             @base > 0 ? (ganancia / @base) * 100 : 0;
@@ -711,6 +735,7 @@ namespace TheBuryProject.Services
                 else
                 {
                     query = query.Where(d =>
+                        d.Venta.Estado == EstadoVenta.Confirmada ||
                         d.Venta.Estado == EstadoVenta.Facturada ||
                         d.Venta.Estado == EstadoVenta.Entregada);
                 }
@@ -938,128 +963,73 @@ namespace TheBuryProject.Services
             };
         }
 
-        private async Task<List<ProductoMasVendidoViewModel>> ObtenerProductosMasVendidosAsync(ReporteVentasFiltroViewModel filtro)
+        // Top de productos/clientes se calcula sobre las mismas ventas ya filtradas del reporte,
+        // para que los paneles sean coherentes con los totales y filtros seleccionados.
+        private static List<ProductoMasVendidoViewModel> ObtenerProductosMasVendidos(
+            IEnumerable<Venta> ventas,
+            ReporteVentasFiltroViewModel filtro)
         {
-            var query = _context.VentaDetalles
-                .AsNoTracking()
-                .Include(vd => vd.Venta)
-                .Include(vd => vd.Producto)
-                    .ThenInclude(p => p.Categoria)
-                .Where(vd =>
-                    !vd.IsDeleted &&
-                    vd.Venta != null &&
-                    !vd.Venta.IsDeleted &&
-                    vd.Producto != null &&
-                    !vd.Producto.IsDeleted)
-                .AsQueryable();
+            var lineas = ventas
+                .SelectMany(v => v.Detalles)
+                .Where(d => !d.IsDeleted && d.Producto != null && !d.Producto.IsDeleted);
 
-            if (filtro.FechaDesde.HasValue)
-                query = query.Where(vd => vd.Venta.FechaVenta >= filtro.FechaDesde.Value);
+            if (filtro.ProductoId.HasValue)
+                lineas = lineas.Where(d => d.ProductoId == filtro.ProductoId.Value);
+            if (filtro.CategoriaId.HasValue)
+                lineas = lineas.Where(d => d.Producto.CategoriaId == filtro.CategoriaId.Value);
+            if (filtro.MarcaId.HasValue)
+                lineas = lineas.Where(d => d.Producto.MarcaId == filtro.MarcaId.Value);
 
-            if (filtro.FechaHasta.HasValue)
-                query = query.Where(vd => vd.Venta.FechaVenta <= filtro.FechaHasta.Value);
-
-            var raw = await query
-                .Select(vd => new
-                {
-                    vd.ProductoId,
-                    vd.Producto.Codigo,
-                    vd.Producto.Nombre,
-                    CategoriaNombre = vd.Producto.Categoria.Nombre,
-                    vd.Producto.PrecioCompra,
-                    vd.Cantidad,
-                    vd.Subtotal,
-                    vd.SubtotalFinal,
-                    vd.CostoUnitarioAlMomento,
-                    vd.CostoTotalAlMomento
-                })
-                .ToListAsync();
-
-            var productos = raw
-                .GroupBy(vd => new
-                {
-                    vd.ProductoId,
-                    vd.Codigo,
-                    vd.Nombre,
-                    vd.CategoriaNombre
-                })
+            return lineas
+                .GroupBy(d => d.ProductoId)
                 .Select(g =>
                 {
-                    var cantidad = g.Sum(vd => vd.Cantidad);
-                    var montoTotal = g.Sum(vd => vd.SubtotalFinal > 0m ? vd.SubtotalFinal : vd.Subtotal);
-                    var costoTotal = g.Sum(vd =>
-                    {
-                        if (vd.CostoTotalAlMomento > 0m)
-                            return vd.CostoTotalAlMomento;
-
-                        var costoUnitario = vd.CostoUnitarioAlMomento > 0m
-                            ? vd.CostoUnitarioAlMomento
-                            : vd.PrecioCompra;
-
-                        return costoUnitario * vd.Cantidad;
-                    });
+                    var producto = g.First().Producto;
+                    var montoTotal = g.Sum(d => d.SubtotalFinal > 0m ? d.SubtotalFinal : d.Subtotal);
+                    var costoTotal = g.Sum(CalcularCostoTotalDetalle);
                     var gananciaTotal = montoTotal - costoTotal;
+
                     return new ProductoMasVendidoViewModel
                     {
-                        ProductoId = g.Key.ProductoId,
-                        ProductoCodigo = g.Key.Codigo,
-                        ProductoNombre = g.Key.Nombre,
-                        CategoriaNombre = g.Key.CategoriaNombre,
-                        CantidadVendida = (int)cantidad,
+                        ProductoId = g.Key,
+                        ProductoCodigo = producto.Codigo,
+                        ProductoNombre = producto.Nombre,
+                        CategoriaNombre = producto.Categoria?.Nombre ?? string.Empty,
+                        CantidadVendida = (int)g.Sum(d => d.Cantidad),
                         MontoTotal = montoTotal,
                         GananciaTotal = gananciaTotal,
-                        MargenPromedio = montoTotal > 0m ? (gananciaTotal / montoTotal) * 100 : 0
+                        MargenPromedio = CalcularMargenPorcentaje(gananciaTotal, montoTotal)
                     };
                 })
                 .OrderByDescending(p => p.CantidadVendida)
+                .ThenByDescending(p => p.MontoTotal)
                 .Take(10)
                 .ToList();
-
-            return productos;
         }
 
-        private async Task<List<ClienteTopViewModel>> ObtenerClientesTopAsync(ReporteVentasFiltroViewModel filtro)
+        private static List<ClienteTopViewModel> ObtenerClientesTop(IEnumerable<Venta> ventas)
         {
-            var query = _context.Ventas
-                .AsNoTracking()
-                .Include(v => v.Cliente)
-                .Where(v => !v.IsDeleted && v.Cliente != null && !v.Cliente.IsDeleted)
-                .AsQueryable();
-
-            if (filtro.FechaDesde.HasValue)
-                query = query.Where(v => v.FechaVenta >= filtro.FechaDesde.Value);
-
-            if (filtro.FechaHasta.HasValue)
-                query = query.Where(v => v.FechaVenta <= filtro.FechaHasta.Value);
-
-            var ventas = await query
-                .Select(v => new
+            return ventas
+                .Where(v => v.Cliente != null && v.ClienteId.HasValue)
+                .GroupBy(v => v.ClienteId!.Value)
+                .Select(g =>
                 {
-                    v.ClienteId,
-                    ClienteNombre = v.Cliente!.Apellido + ", " + v.Cliente.Nombre + " - DNI: " + v.Cliente.NumeroDocumento,
-                    ClienteDocumento = v.Cliente.NumeroDocumento,
-                    v.Total,
-                    v.FechaVenta
-                })
-                .ToListAsync();
-
-            var clientes = ventas
-                .GroupBy(v => new { v.ClienteId, v.ClienteNombre, v.ClienteDocumento })
-                .Select(g => new ClienteTopViewModel
-                {
-                    ClienteId = g.Key.ClienteId ?? 0,
-                    ClienteNombre = g.Key.ClienteNombre,
-                    ClienteDocumento = g.Key.ClienteDocumento,
-                    CantidadCompras = g.Count(),
-                    MontoTotal = g.Sum(v => v.Total),
-                    TicketPromedio = g.Average(v => v.Total),
-                    UltimaCompra = g.Max(v => v.FechaVenta)
+                    var cliente = g.First().Cliente!;
+                    return new ClienteTopViewModel
+                    {
+                        ClienteId = g.Key,
+                        // Apellido, Nombre sin "- DNI:": el documento ya se muestra en su propia columna.
+                        ClienteNombre = $"{cliente.Apellido}, {cliente.Nombre}",
+                        ClienteDocumento = cliente.NumeroDocumento,
+                        CantidadCompras = g.Count(),
+                        MontoTotal = g.Sum(v => v.Total),
+                        TicketPromedio = g.Average(v => v.Total),
+                        UltimaCompra = g.Max(v => v.FechaVenta)
+                    };
                 })
                 .OrderByDescending(c => c.MontoTotal)
                 .Take(10)
                 .ToList();
-
-            return clientes;
         }
 
         #endregion
@@ -1081,7 +1051,7 @@ namespace TheBuryProject.Services
                 worksheet.Cell(1, 4).Value = "Vendedor";
                 worksheet.Cell(1, 5).Value = "Tipo Pago";
                 worksheet.Cell(1, 6).Value = "Subtotal Neto";
-                worksheet.Cell(1, 7).Value = "Dto. (%)";
+                worksheet.Cell(1, 7).Value = "Descuento ($)";
                 worksheet.Cell(1, 8).Value = "IVA";
                 worksheet.Cell(1, 9).Value = "Recargo débito";
                 worksheet.Cell(1, 10).Value = "Total";
@@ -1124,9 +1094,7 @@ namespace TheBuryProject.Services
                 worksheet.Cell(row, 12).Value = reporte.MargenPromedio;
 
                 // Formatear columnas monetarias y porcentuales
-                worksheet.Range($"F2:F{row}").Style.NumberFormat.Format = "$#,##0.00";  // Subtotal Neto
-                worksheet.Range($"G2:G{row}").Style.NumberFormat.Format = "0.00";        // Dto. (%)
-                worksheet.Range($"H2:K{row}").Style.NumberFormat.Format = "$#,##0.00";  // IVA, Recargo, Total, Ganancia
+                worksheet.Range($"F2:K{row}").Style.NumberFormat.Format = "$#,##0.00";  // Subtotal neto, Descuento, IVA, Recargo, Total, Ganancia
                 worksheet.Range($"L2:L{row}").Style.NumberFormat.Format = "0.00";        // Margen %
 
                 // Ajustar ancho de columnas

@@ -613,6 +613,17 @@ estilos de impresión dedicada para el módulo.
   concurrente detectado (`Controllers/VentaController.cs` modificado,
   `VentaControllerEditEnvioModelStateTests.cs` nuevo) — no tocado.
 
+- reapertura VENTA-DETAILS-TOTALES-01 (/ui-module, 2026-10-02), bloque de totales de
+  `Details_tw.cshtml`: Subtotal $37.500 + IVA $6.508 no sumaba al Total $37.500 (el IVA está
+  incluido pero se listaba como sumando) y el Subtotal repetía el desglose Productos/Armados
+  de la tarjeta superior; la tarjeta (320px) y las filas (256px) estaban desalineadas y el
+  importe del armado se partía ("$" / "25.000,00"). Fix: una sola columna `max-w-xs`
+  alineada, "Incluye IVA" como nota bajo el Total, Subtotal oculto sólo cuando coincide con
+  el desglose y no hay descuento, importes de armado sin wrap. Sin cambios de backend ni de
+  ids. QA real 1440/1024/390/360: 0 overflow, 0 errores de consola; `VentaDetails*` 58/58.
+  No validadas: variantes con envío fuera del total, descuento y recargos (sin datos
+  reproducibles; sólo revisadas por código).
+
 ## Cotización / Simular — cerrado
 
 ### Venta en efectivo con contacto libre (2026-09-26)

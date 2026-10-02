@@ -58,7 +58,7 @@
                 <p class="text-xs text-slate-500 mt-1">promedio $@Model.PromedioDeudaPorCliente.ToString("N2")</p>
             </div>
             <div class="card-erp-metric card-erp-metric-danger">
-                <p class="text-xs text-slate-400 uppercase tracking-wide">Deuda &gt;90 días</p>
+                <p class="text-xs text-slate-400 uppercase tracking-wide">Deuda ≥90 días</p>
                 <p class="mt-1 text-2xl font-bold text-red-400">$@Model.DeudaMayor90Dias.ToString("N2")</p>
             </div>
         </div>
@@ -72,19 +72,19 @@
             </div>
             <div class="px-6 py-4 grid gap-3 sm:grid-cols-3">
                 <div class="rounded-xl border border-amber-800 bg-amber-900/20 px-4 py-3">
-                    <p class="text-xs text-amber-400 font-medium">1 – 30 días</p>
+                    <p class="text-xs text-amber-400 font-medium">1 – 29 días</p>
                     <p class="text-xl font-bold text-amber-300 mt-1">
                         $@((Model.TotalDeudaVencida - Model.DeudaMayor30Dias).ToString("N2"))
                     </p>
                 </div>
                 <div class="rounded-xl border border-orange-800 bg-orange-900/20 px-4 py-3">
-                    <p class="text-xs text-orange-400 font-medium">31 – 90 días</p>
+                    <p class="text-xs text-orange-400 font-medium">30 – 89 días</p>
                     <p class="text-xl font-bold text-orange-300 mt-1">
                         $@((Model.DeudaMayor30Dias - Model.DeudaMayor90Dias).ToString("N2"))
                     </p>
                 </div>
                 <div class="rounded-xl border border-red-800 bg-red-900/20 px-4 py-3">
-                    <p class="text-xs text-red-400 font-medium">Más de 90 días</p>
+                    <p class="text-xs text-red-400 font-medium">90 días o más</p>
                     <p class="text-xl font-bold text-red-300 mt-1">$@Model.DeudaMayor90Dias.ToString("N2")</p>
                 </div>
             </div>
