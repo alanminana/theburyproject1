@@ -1,63 +1,44 @@
 @{
     ViewData["Title"] = "Reportes";
+
+    // Movimientos valorizados exige reportes.stock en el controller; sin ese permiso la tarjeta llevaría a un 403.
+    var puedeVerStock = User.TienePermiso("reportes", "stock");
+
+    var reportes = new List<(string Action, string Icon, string Titulo, string Descripcion)>
+    {
+        ("Ventas", "bar_chart", "Ventas", "Resumen de ventas por período, tipo de pago y vendedor."),
+        ("Margenes", "trending_up", "Márgenes", "Análisis de márgenes por producto y categoría."),
+        ("Morosidad", "account_balance_wallet", "Morosidad", "Estado de cuotas vencidas y créditos en mora."),
+        ("ComisionesVendedores", "payments", "Comisiones", "Detalle de comisiones por vendedor, producto y período."),
+        ("Iva", "receipt_long", "IVA de compras y ventas", "Neto, IVA y totales por rango de fechas. Diferencia de IVA."),
+    };
+    if (puedeVerStock)
+    {
+        reportes.Add(("MovimientosValorizados", "swap_vert", "Movimientos valorizados", "Costos históricos por movimiento. No representa valor de inventario actual."));
+    }
 }
 
-<div class="max-w-5xl mx-auto space-y-6">
-    <h1 class="text-lg font-black text-white">Reportes</h1>
+<div class="max-w-7xl mx-auto space-y-6">
+    @* El título visible ya lo muestra el header de la app; el h1 queda para lectores de pantalla. *@
+    <h1 class="sr-only">Reportes</h1>
 
-    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <a asp-action="Ventas"
-           class="card-erp group flex flex-col gap-3 hover:border-primary/50 hover:shadow-sm transition-all no-underline">
-            <span class="material-symbols-outlined text-primary text-2xl">bar_chart</span>
-            <div>
-                <p class="font-semibold text-slate-100">Ventas</p>
-                <p class="text-xs text-slate-400 mt-1">Resumen de ventas por período, tipo de pago y vendedor.</p>
-            </div>
-        </a>
-
-        <a asp-action="Margenes"
-           class="card-erp group flex flex-col gap-3 hover:border-primary/50 hover:shadow-sm transition-all no-underline">
-            <span class="material-symbols-outlined text-primary text-2xl">trending_up</span>
-            <div>
-                <p class="font-semibold text-slate-100">Márgenes</p>
-                <p class="text-xs text-slate-400 mt-1">Análisis de márgenes por producto y categoría.</p>
-            </div>
-        </a>
-
-        <a asp-action="Morosidad"
-           class="card-erp group flex flex-col gap-3 hover:border-primary/50 hover:shadow-sm transition-all no-underline">
-            <span class="material-symbols-outlined text-primary text-2xl">account_balance_wallet</span>
-            <div>
-                <p class="font-semibold text-slate-100">Morosidad</p>
-                <p class="text-xs text-slate-400 mt-1">Estado de cuotas vencidas y créditos en mora.</p>
-            </div>
-        </a>
-
-        <a asp-action="ComisionesVendedores"
-           class="card-erp group flex flex-col gap-3 hover:border-primary/50 hover:shadow-sm transition-all no-underline">
-            <span class="material-symbols-outlined text-primary text-2xl">payments</span>
-            <div>
-                <p class="font-semibold text-slate-100">Comisiones</p>
-                <p class="text-xs text-slate-400 mt-1">Detalle de comisiones por vendedor, producto y período.</p>
-            </div>
-        </a>
-
-        <a asp-action="Iva"
-           class="card-erp group flex flex-col gap-3 hover:border-primary/50 hover:shadow-sm transition-all no-underline">
-            <span class="material-symbols-outlined text-primary text-2xl">receipt_long</span>
-            <div>
-                <p class="font-semibold text-slate-100">IVA de compras y ventas</p>
-                <p class="text-xs text-slate-400 mt-1">Neto, IVA y totales por rango de fechas. Diferencia de IVA.</p>
-            </div>
-        </a>
-
-        <a asp-action="MovimientosValorizados"
-           class="card-erp group flex flex-col gap-3 hover:border-primary/50 hover:shadow-sm transition-all no-underline">
-            <span class="material-symbols-outlined text-primary text-2xl">swap_vert</span>
-            <div>
-                <p class="font-semibold text-slate-100">Movimientos valorizados</p>
-                <p class="text-xs text-slate-400 mt-1">Costos históricos por movimiento. No representa valor de inventario actual.</p>
-            </div>
-        </a>
-    </div>
+    @* Grid auto-fill: tailwind.css está precompilado y su regla sm:grid-cols-2 posterior pisa a lg:grid-cols-3. *@
+    <ul class="grid gap-4" style="grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr));" role="list">
+        @foreach (var r in reportes)
+        {
+            <li class="flex">
+                <a asp-action="@r.Action"
+                   class="card-erp group flex w-full items-start gap-4 hover:border-primary/50 transition-colors no-underline focus-visible:ring-2 focus-visible:ring-primary">
+                    <span class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10" aria-hidden="true">
+                        <span class="material-symbols-outlined text-primary text-2xl">@r.Icon</span>
+                    </span>
+                    <span class="min-w-0 flex-1">
+                        <span class="block font-semibold text-slate-100">@r.Titulo</span>
+                        <span class="mt-1 block text-sm leading-snug text-slate-400">@r.Descripcion</span>
+                    </span>
+                    <span class="material-symbols-outlined shrink-0 text-xl text-slate-500 group-hover:text-primary transition-colors" aria-hidden="true">arrow_forward</span>
+                </a>
+            </li>
+        }
+    </ul>
 </div>

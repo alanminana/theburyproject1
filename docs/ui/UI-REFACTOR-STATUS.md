@@ -2484,3 +2484,13 @@ rechazado para `contador` y `gerente`. 1440/1024/390 sin overflow de página, 0 
 
 Estado: **LISTO PARA COMMIT** para este alcance (fases formales ejecutadas, sin superficies relevantes en NO VALIDADA); la deuda de
 arriba es explícita y no bloquea.
+
+## Reporte/Index (hub de reportes) — `/ui-module` 2026-10-02
+
+Pantalla: `Views/Reporte/Index_tw.cshtml` (única vista tocada; sin cambios de backend, rutas ni contratos).
+
+- **Hallazgos (ux-heuristics + critique, detector `impeccable detect` sin findings):** (P1) el `h1` "Reportes" repetía el título del header de la app; (P1) la tarjeta "Movimientos valorizados" se mostraba a quien no tiene `reportes.stock` y llevaba a un 403 (el controller exige ese permiso); (P2) ícono centrado con texto alineado a la izquierda (alineación rota), sin indicio de navegación; (P2) ancho `max-w-5xl` distinto de los reportes (`max-w-7xl`), el contenido "saltaba" al entrar.
+- **Cambio:** h1 → `sr-only`; grid auto-fill (3 columnas desde ~1440; `lg:grid-cols-3` queda pisado por una regla `sm:` posterior del tailwind.css precompilado); lista semántica `<ul>` de 6 tarjetas con ícono en tile, título, descripción y flecha; `max-w-7xl`; tarjeta de Movimientos condicionada por `User.TienePermiso("reportes","stock")`. Mismos destinos (`asp-action`), mismos textos.
+- **QA real (Playwright, LocalDB, admin):** 1440×900, 1280×720, 1024×720, 768×1024, 390×844, 360×800 sin overflow horizontal (scrollWidth = innerWidth), 0 errores de consola; foco por teclado visible.
+- **NO VALIDADA:** variante sin `reportes.stock` (ningún rol sembrado la produce: Gerente/Contador tienen todas las acciones de `reportes`; sólo se alcanza con un rol personalizado). Lógica verificada por lectura de código, no renderizada.
+- Estado: **REQUIERE AJUSTE** únicamente por esa variante pendiente.
