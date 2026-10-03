@@ -162,8 +162,8 @@ services:
       app:
         condition: service_healthy
     ports:
-      - "443:443"
-      - "443:443/udp" # HTTP/3
+      - "${ERP_HTTPS_PORT:-443}:443"
+      - "${ERP_HTTPS_PORT:-443}:443/udp" # HTTP/3
     environment:
       ERP_DOMAIN: ${ERP_DOMAIN:?Definir ERP_DOMAIN en .env (hostname interno con el que los clientes acceden, p. ej. tbp; ver docs/red-privada-lan-vpn.md)}
     volumes:
