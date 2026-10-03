@@ -114,3 +114,6 @@ secrets/
 
 # Binarios de QA local (builds alternativos para correr tests con la app abierta). No commitear.
 /.qa-bin/
+
+# CA publica de Caddy generada por scripts/install/install.sh (se distribuye a los clientes; no se versiona)
+caddy-root-ca.crt

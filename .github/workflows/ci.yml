@@ -266,6 +266,7 @@ jobs:
       - name: Tests de scripts de backup y monitor
         run: |
           bash scripts/backup/test-hardening.sh
+          bash scripts/install/test-install.sh
           python3 -m unittest discover -s scripts/monitoring -p 'test_monitor.py'
 
       - name: Eliminar .env sintetico

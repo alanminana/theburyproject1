@@ -38,3 +38,5 @@ codebase-memory-mcp-ui/codebase-memory-mcp.exe filter=lfs diff=lfs merge=lfs -te
 
 # Scripts de shell (montados en contenedores Linux): siempre LF.
 *.sh        text eol=lf
+Dockerfile  text eol=lf
+Caddyfile   text eol=lf

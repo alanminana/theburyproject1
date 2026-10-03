@@ -100,6 +100,8 @@ SQL, uploads, `App_Data` y las claves Data Protection viven en volúmenes y sobr
 Sin cambios: SQL Server Express 2022 en contenedor `db` separado, datos en `bury-sqldata`, solo en `bury-net`, puerto 1433 **no** publicado
 en producción. No se mueve SQL a otra máquina ni se instala en el host.
 
+Instalación automatizada del servidor (Windows o Linux): [instalacion-servidor.md](instalacion-servidor.md).
+
 ## Pendiente (requiere el servidor final)
 
 IP reservada, `hosts`/DNS, extracción e instalación de la CA en clientes, reglas de firewall, autoarranque, scheduler de backups y VPN.
