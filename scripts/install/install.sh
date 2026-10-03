@@ -157,6 +157,15 @@ check_prereqs() {
   log INFO "OK   prerequisitos: docker $(docker version --format '{{.Server.Version}}' 2>/dev/null || echo '?'), compose v2, openssl, git"
 }
 
+# deploy.sh exige que scripts/backup/backup.sh sea ejecutable. Clones antiguos (o hechos desde Windows) pueden traer los .sh en modo 644.
+ensure_scripts_executable() {
+  local f
+  for f in "$REPO_DIR"/scripts/*/*.sh "$REPO_DIR"/scripts/backup/container/*.sh "$REPO_DIR"/docker/db-init/*.sh; do
+    [[ -f "$f" && ! -x "$f" ]] && chmod +x "$f" 2>/dev/null
+  done
+  return 0
+}
+
 prepare_backup_dir() {
   local dir; dir=$(grep -E '^BACKUP_DIR=' "$DP_ENV_FILE" | tail -n1 | cut -d= -f2-)
   [[ -n "$dir" && "$dir" == /* ]] || { log WARN "BACKUP_DIR no es una ruta absoluta ($dir): se omite su preparacion"; return 0; }
@@ -173,7 +182,7 @@ resolve_image() {
   if [[ -n "$IMAGE" ]]; then return 0; fi
   local sha dirty="" stamp
   sha=$(git -C "$REPO_DIR" rev-parse --short HEAD 2>/dev/null || echo nogit)
-  if [[ -n "$(git -C "$REPO_DIR" status --porcelain 2>/dev/null || true)" ]]; then dirty="-dirty"; fi
+  if [[ -n "$(git -C "$REPO_DIR" -c core.fileMode=false status --porcelain 2>/dev/null || true)" ]]; then dirty="-dirty"; fi
   stamp=$(date -u +%Y%m%d)
   IMAGE="theburyproject/erp:${stamp}-${sha}${dirty}"
 }
@@ -217,6 +226,7 @@ if (( ENV_ONLY )); then
 fi
 
 check_prereqs
+ensure_scripts_executable
 ensure_env
 prepare_backup_dir
 

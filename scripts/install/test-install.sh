@@ -15,6 +15,11 @@ val() { grep -E "^$2=" "$1" | tail -n1 | cut -d= -f2-; }   # val ARCHIVO CLAVE
 check "bash -n install.sh" bash -n "$INSTALL"
 check "bash -n test-install.sh" bash -n "${BASH_SOURCE[0]}"
 
+# deploy.sh exige backup.sh ejecutable: todos los .sh versionados deben tener modo 100755 en Git (si no, un clone nuevo falla al actualizar)
+if git -C "$HERE" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  check "todos los .sh versionados son ejecutables en Git (100755)" bash -c '[[ -z "$(git -C "$1" ls-files -s "*.sh" | awk "\$1 != \"100755\" {print \$4}")" ]]' _ "$HERE"
+fi
+
 # --- generacion basica (community) ----------------------------------------------------------------------------------------
 E="$T/a.env"
 bash "$INSTALL" --env-only --env-file "$E" --domain tbp --admin-email soporte@example.com --backup-dir /srv/bury-test >/dev/null 2>&1; rc=$?
