@@ -136,6 +136,7 @@ namespace TheBuryProject.Controllers
         #region Carga de documentos
 
         // GET: DocumentoCliente/Upload
+        [PermisoRequerido(Modulo = "clientes", Accion = "uploaddocs")]
         public async Task<IActionResult> Upload(int? clienteId, int? returnToVentaId, int? replaceId, string? returnUrl = null)
         {
             var viewModel = new DocumentoClienteViewModel();
@@ -195,6 +196,7 @@ namespace TheBuryProject.Controllers
         // POST: DocumentoCliente/Upload
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "clientes", Accion = "uploaddocs")]
         public async Task<IActionResult> Upload(DocumentoClienteViewModel viewModel, bool returnToDetails = false, string? returnUrl = null)
         {
             try
@@ -392,6 +394,7 @@ namespace TheBuryProject.Controllers
         // POST: DocumentoCliente/Verificar/5
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "clientes", Accion = "edit")]
         public async Task<IActionResult> Verificar(int id, string? observaciones, string? returnUrl = null)
         {
             try
@@ -419,6 +422,7 @@ namespace TheBuryProject.Controllers
         // POST: DocumentoCliente/Rechazar/5
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "clientes", Accion = "edit")]
         public async Task<IActionResult> Rechazar(int id, string motivo, string? returnUrl = null)
         {
             try
@@ -452,6 +456,7 @@ namespace TheBuryProject.Controllers
         // POST: DocumentoCliente/VerificarTodos
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "clientes", Accion = "edit")]
         public async Task<IActionResult> VerificarTodos(int clienteId, string? observaciones, string? returnUrl = null)
         {
             try
@@ -500,6 +505,7 @@ namespace TheBuryProject.Controllers
         // POST: DocumentoCliente/Delete/5
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "clientes", Accion = "edit")]
         public async Task<IActionResult> Delete(int id, string? returnUrl = null)
         {
             try
@@ -569,6 +575,7 @@ namespace TheBuryProject.Controllers
         /// </summary>
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "clientes", Accion = "edit")]
         public async Task<IActionResult> VerificarBatch([FromBody] BatchDocumentosRequest request)
         {
             try
@@ -635,6 +642,7 @@ namespace TheBuryProject.Controllers
         /// </summary>
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "clientes", Accion = "edit")]
         public async Task<IActionResult> RechazarBatch([FromBody] BatchDocumentosRequest request)
         {
             try

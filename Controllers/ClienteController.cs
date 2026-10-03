@@ -155,6 +155,26 @@ namespace TheBuryProject.Controllers
             }
         }
 
+        /// <summary>
+        /// Sin el permiso clientes.configurecredit la UI no muestra los parámetros crediticios;
+        /// acá se garantiza en el servidor que tampoco puedan modificarse: en alta quedan vacíos
+        /// y en edición se conservan los valores persistidos.
+        /// </summary>
+        private async Task AplicarRestriccionConfigCreditoAsync(ClienteViewModel viewModel)
+        {
+            if (_currentUser.HasPermission("clientes", "configurecredit"))
+                return;
+
+            var actual = viewModel.Id > 0 ? await _clienteService.GetByIdAsync(viewModel.Id) : null;
+
+            viewModel.PerfilCreditoPreferidoId = actual?.PerfilCreditoPreferidoId;
+            viewModel.TasaInteresMensualPersonalizada = actual?.TasaInteresMensualPersonalizada;
+            viewModel.GastosAdministrativosPersonalizados = actual?.GastosAdministrativosPersonalizados;
+            viewModel.CuotasMaximasPersonalizadas = actual?.CuotasMaximasPersonalizadas;
+            viewModel.MontoMinimoPersonalizado = actual?.MontoMinimoPersonalizado;
+            viewModel.MontoMaximoPersonalizado = actual?.MontoMaximoPersonalizado;
+        }
+
         [PermisoRequerido(Modulo = "clientes", Accion = "create")]
         public async Task<IActionResult> Create(string? returnUrl = null)
         {
@@ -180,6 +200,7 @@ namespace TheBuryProject.Controllers
                     return View("Create_tw", viewModel);
                 }
 
+                await AplicarRestriccionConfigCreditoAsync(viewModel);
                 var cliente = _mapper.Map<Cliente>(viewModel);
                 await _clienteService.CreateAsync(cliente);
 
@@ -246,6 +267,7 @@ namespace TheBuryProject.Controllers
                     return View("Edit_tw", viewModel);
                 }
 
+                await AplicarRestriccionConfigCreditoAsync(viewModel);
                 var cliente = _mapper.Map<Cliente>(viewModel);
                 await _clienteService.UpdateAsync(cliente);
 
@@ -311,6 +333,7 @@ namespace TheBuryProject.Controllers
 
             try
             {
+                await AplicarRestriccionConfigCreditoAsync(viewModel);
                 var cliente = _mapper.Map<Cliente>(viewModel);
                 await _clienteService.CreateAsync(cliente);
                 return Json(new { success = true, id = cliente.Id, nombre = cliente.NombreCompleto });
@@ -343,6 +366,7 @@ namespace TheBuryProject.Controllers
 
             try
             {
+                await AplicarRestriccionConfigCreditoAsync(viewModel);
                 var cliente = _mapper.Map<Cliente>(viewModel);
                 await _clienteService.UpdateAsync(cliente);
                 return Json(new { success = true, id = cliente.Id, nombre = cliente.NombreCompleto });
@@ -630,7 +654,7 @@ namespace TheBuryProject.Controllers
         }
 
         [HttpPost]
-        [PermisoRequerido(Modulo = "clientes", Accion = "edit")]
+        [PermisoRequerido(Modulo = "clientes", Accion = "consultbcra")]
         public async Task<IActionResult> ActualizarBcra(int clienteId)
         {
             try

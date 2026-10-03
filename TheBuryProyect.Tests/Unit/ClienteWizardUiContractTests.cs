@@ -293,7 +293,47 @@ public class ClienteWizardUiContractTests
         Assert.Contains("data-step-label=\"@(isWizard ? \"Cónyuge\" : null)\"", view);
         Assert.Contains("data-step-label=\"@(isWizard ? \"Contacto\" : null)\"", view);
         Assert.Contains("data-step-label=\"@(isWizard ? \"Laboral\" : null)\"", view);
-        Assert.Contains("data-step-label=\"@(isWizard ? \"Crédito\" : null)\"", view);
+        // El último paso se llama "Crédito" con clientes.configurecredit y
+        // "Observaciones" sin él (creditoTabLabel): sigue gateado a isWizard.
+        Assert.Contains("data-step-label=\"@(isWizard ? creditoTabLabel : null)\"", view);
+        Assert.Contains("puedeConfigurarCredito ? (isWizard ? \"Crédito\" : \"Crediticio\") : \"Observaciones\"", view);
+    }
+
+    [Fact]
+    public void ClienteDetailsYDocumentos_AccionesSensiblesExigenSuPropioPermiso()
+    {
+        var root = FindRepoRoot();
+        var cliente = File.ReadAllText(Path.Combine(root, "Controllers", "ClienteController.cs"));
+        var docs = File.ReadAllText(Path.Combine(root, "Controllers", "DocumentoClienteController.cs"));
+        var details = File.ReadAllText(Path.Combine(root, "Views", "Cliente", "Details_tw.cshtml"));
+        var seeder = File.ReadAllText(Path.Combine(root, "Data", "Seeds", "RolesPermisosSeeder.cs"));
+
+        Assert.Contains("\"consultbcra\"", seeder);
+        Assert.Matches(@"Accion = ""consultbcra""\)\]\s*public async Task<IActionResult> ActualizarBcra", cliente);
+        Assert.Contains("tieneCuil && puedeConsultarBcra", details);
+        Assert.Contains("@if (puedeAdministrarLimites)", details);
+
+        // Documentos: subir exige uploaddocs; verificar/rechazar/eliminar exigen edit.
+        foreach (var sig in new[] { "Upload(int? clienteId", "Upload(DocumentoClienteViewModel" })
+            Assert.Matches(@"Accion = ""uploaddocs""\)\]\s*public async Task<IActionResult> " + System.Text.RegularExpressions.Regex.Escape(sig), docs);
+        foreach (var sig in new[] { "Verificar(int id", "Rechazar(int id", "VerificarTodos(", "Delete(int id", "VerificarBatch(", "RechazarBatch(" })
+            Assert.Matches(@"Accion = ""edit""\)\]\s*public async Task<IActionResult> " + System.Text.RegularExpressions.Regex.Escape(sig), docs);
+    }
+
+    [Fact]
+    public void ClienteFormCampos_ParametrosCrediticiosSeOcultanSinPermisoConfigureCredit()
+    {
+        var view = File.ReadAllText(Path.Combine(FindRepoRoot(), "Views", "Cliente", "_ClienteFormCampos.cshtml"));
+        var controller = File.ReadAllText(Path.Combine(FindRepoRoot(), "Controllers", "ClienteController.cs"));
+
+        Assert.Contains("User.TienePermiso(\"clientes\", \"configurecredit\")", view);
+        // Observaciones y Activo viven en el mismo panel y deben seguir presentes sin el permiso.
+        Assert.Contains("asp-for=\"Observaciones\"", view);
+        Assert.Contains("asp-for=\"Activo\"", view);
+
+        // El servidor no confía en la UI: las 4 acciones de alta/edición aplican la restricción.
+        Assert.Contains("_currentUser.HasPermission(\"clientes\", \"configurecredit\")", controller);
+        Assert.Equal(4, System.Text.RegularExpressions.Regex.Matches(controller, @"await AplicarRestriccionConfigCreditoAsync\(viewModel\);").Count);
     }
 
     [Fact]

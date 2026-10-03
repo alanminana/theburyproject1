@@ -11,6 +11,8 @@
     var documentos = Model.Documentos?.ToList() ?? new List<DocumentoClienteViewModel>();
     var totalEnPagina = documentos.Count;
     var modoAgrupado = !Model.ClienteId.HasValue;
+    var puedeEditarDocs = User.TienePermiso("clientes", "edit");
+    var puedeSubirDocs = User.TienePermiso("clientes", "uploaddocs");
 }
 
 @section Styles {
@@ -235,12 +237,15 @@
                         @Model.ClientesAgrupados.Count cliente@(Model.ClientesAgrupados.Count == 1 ? "" : "s")
                     </span>
 
+                    @if (puedeSubirDocs)
+                    {
                     <button type="button"
                             id="btn-abrir-upload-modal"
                             class="btn-erp-primary btn-sm">
                         <span class="material-symbols-outlined text-[18px]" aria-hidden="true">cloud_upload</span>
                         Subir Documento
                     </button>
+                    }
                 </div>
             </div>
 
@@ -440,12 +445,15 @@
                     <span class="material-symbols-outlined text-5xl text-slate-600" aria-hidden="true">people</span>
                     <p class="text-sm font-medium text-slate-500">No se encontraron clientes con documentos</p>
 
+                    @if (puedeSubirDocs)
+                    {
                     <button type="button"
                             onclick="document.getElementById('btn-abrir-upload-modal')?.click()"
                             class="mt-2 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-primary/90">
                         <span class="material-symbols-outlined text-lg" aria-hidden="true">cloud_upload</span>
                         Subir Documento
                     </button>
+                    }
                 </div>
             }
         </div>
@@ -603,7 +611,7 @@
                                                         <span class="documento-index-row-action-label text-xs font-semibold sm:hidden">Descargar</span>
                                                     </a>
 
-                                                    @if (doc.Estado == EstadoDocumento.Pendiente)
+                                                    @if (doc.Estado == EstadoDocumento.Pendiente && puedeEditarDocs)
                                                     {
                                                         <form asp-action="Verificar"
                                                               asp-route-id="@doc.Id"
@@ -622,6 +630,8 @@
                                                         </form>
                                                     }
 
+                                                    @if (puedeSubirDocs)
+                                                    {
                                                     <button type="button"
                                                             class="documento-index-row-action row-action row-action--warning"
                                                             title="Reemplazar"
@@ -632,7 +642,10 @@
                                                         <span class="material-symbols-outlined text-lg" aria-hidden="true">swap_horiz</span>
                                                         <span class="documento-index-row-action-label text-xs font-semibold sm:hidden">Reemplazar</span>
                                                     </button>
+                                                    }
 
+                                                    @if (puedeEditarDocs)
+                                                    {
                                                     <form asp-action="Delete"
                                                           asp-route-id="@doc.Id"
                                                           asp-route-returnUrl="@indexReturnUrl"
@@ -650,6 +663,7 @@
                                                             <span class="documento-index-row-action-label text-xs font-semibold sm:hidden">Eliminar</span>
                                                         </button>
                                                     </form>
+                                                    }
                                                 </div>
                                             </td>
                                         </tr>
@@ -706,12 +720,15 @@
                         @totalEnPagina en página
                     </span>
 
+                    @if (puedeSubirDocs)
+                    {
                     <button type="button"
                             id="btn-abrir-upload-modal"
                             class="btn-erp-primary btn-sm">
                         <span class="material-symbols-outlined text-[18px]" aria-hidden="true">cloud_upload</span>
                         Subir Documento
                     </button>
+                    }
                 </div>
 
                 <p data-oc-scroll-hint
@@ -829,7 +846,7 @@
                                                     <span class="documento-index-row-action-label text-xs font-semibold sm:hidden">Descargar</span>
                                                 </a>
 
-                                                @if (doc.Estado == EstadoDocumento.Pendiente)
+                                                @if (doc.Estado == EstadoDocumento.Pendiente && puedeEditarDocs)
                                                 {
                                                     <form asp-action="Verificar"
                                                           asp-route-id="@doc.Id"
@@ -848,6 +865,8 @@
                                                     </form>
                                                 }
 
+                                                @if (puedeSubirDocs)
+                                                {
                                                 <button type="button"
                                                         class="documento-index-row-action row-action row-action--warning"
                                                         title="Reemplazar"
@@ -858,7 +877,10 @@
                                                     <span class="material-symbols-outlined text-lg" aria-hidden="true">swap_horiz</span>
                                                     <span class="documento-index-row-action-label text-xs font-semibold sm:hidden">Reemplazar</span>
                                                 </button>
+                                                }
 
+                                                @if (puedeEditarDocs)
+                                                {
                                                 <form asp-action="Delete"
                                                       asp-route-id="@doc.Id"
                                                       asp-route-returnUrl="@indexReturnUrl"
@@ -876,6 +898,7 @@
                                                         <span class="documento-index-row-action-label text-xs font-semibold sm:hidden">Eliminar</span>
                                                     </button>
                                                 </form>
+                                                }
                                             </div>
                                         </td>
                                     </tr>
@@ -889,12 +912,15 @@
                                             <span class="material-symbols-outlined text-5xl text-slate-600" aria-hidden="true">folder_open</span>
                                             <p class="text-sm font-medium text-slate-500">No se encontraron documentos</p>
 
+                                            @if (puedeSubirDocs)
+                                            {
                                             <button type="button"
                                                     data-documento-open-upload
                                                     class="mt-2 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-blue-700">
                                                 <span class="material-symbols-outlined text-lg" aria-hidden="true">cloud_upload</span>
                                                 Subir Documento
                                             </button>
+                                            }
                                         </div>
                                     </td>
                                 </tr>
