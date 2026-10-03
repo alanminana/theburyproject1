@@ -1,0 +1,26 @@
+@model string
+@* Formulario + notas (texto o checklist). Se usa en el desplegable del header y en la tarjeta del Dashboard;
+   ambos comparten datos (api/notas-rapidas) vía wwwroot/js/notas-rapidas.js. Model = sufijo único para ids. *@
+<div data-notas-root>
+    <form data-notas-form class="shrink-0 border-b border-slate-800 p-3">
+        <div class="mb-2 inline-flex rounded-lg border border-slate-700 p-0.5" role="group" aria-label="Tipo de nota">
+            <button type="button" data-notas-tipo="texto" aria-pressed="true" class="notas-tipo-btn">
+                <span class="material-symbols-outlined icon-erp-sm" aria-hidden="true">notes</span>Nota
+            </button>
+            <button type="button" data-notas-tipo="checklist" aria-pressed="false" class="notas-tipo-btn">
+                <span class="material-symbols-outlined icon-erp-sm" aria-hidden="true">checklist</span>Checklist
+            </button>
+        </div>
+        <label for="notas-input-@Model" class="sr-only">Texto de la nota</label>
+        <textarea id="notas-input-@Model" data-notas-input rows="2" maxlength="1000"
+                  class="block w-full resize-none rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-base text-slate-200 placeholder:text-slate-500 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary sm:text-sm"
+                  placeholder="Escribí una nota y Enter para guardar…"></textarea>
+        <p data-notas-status class="mt-1.5 text-slate-400" role="status" aria-live="polite"></p>
+    </form>
+
+    <div data-notas-scroll class="min-h-0 flex-1 overflow-y-auto px-3 py-2">
+        <p data-notas-loading class="py-6 text-center text-xs text-slate-500">Cargando…</p>
+        <p data-notas-empty hidden class="py-6 text-center text-xs text-slate-500">No tenés notas. Escribí la primera arriba.</p>
+        <ul data-notas-lista class="space-y-2" aria-label="Notas"></ul>
+    </div>
+</div>
