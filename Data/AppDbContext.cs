@@ -130,6 +130,8 @@ namespace TheBuryProject.Data
         public DbSet<Ticket> Tickets { get; set; }
         public DbSet<TicketAdjunto> TicketAdjuntos { get; set; }
         public DbSet<TicketChecklistItem> TicketChecklistItems { get; set; }
+        public DbSet<NotaRapida> NotasRapidas { get; set; }
+        public DbSet<NotaRapidaItem> NotaRapidaItems { get; set; }
 
         public DbSet<ProductoUnidad> ProductoUnidades { get; set; }
         public DbSet<ProductoUnidadMovimiento> ProductoUnidadMovimientos { get; set; }
@@ -2753,6 +2755,37 @@ namespace TheBuryProject.Data
                 entity.HasOne(e => e.Ticket)
                     .WithMany(t => t.ChecklistItems)
                     .HasForeignKey(e => e.TicketId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // =======================
+            // NotaRapida
+            // =======================
+            modelBuilder.Entity<NotaRapida>(entity =>
+            {
+                entity.ToTable("NotasRapidas");
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.UsuarioId).IsRequired().HasMaxLength(450);
+                entity.Property(e => e.Texto).IsRequired().HasMaxLength(1000);
+
+                entity.HasIndex(e => new { e.UsuarioId, e.CreatedAt });
+                entity.HasQueryFilter(e => !e.IsDeleted);
+            });
+
+            modelBuilder.Entity<NotaRapidaItem>(entity =>
+            {
+                entity.ToTable("NotaRapidaItems");
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Texto).IsRequired().HasMaxLength(500);
+
+                entity.HasIndex(e => e.NotaRapidaId);
+                entity.HasQueryFilter(e => !e.IsDeleted);
+
+                entity.HasOne(e => e.NotaRapida)
+                    .WithMany(n => n.Items)
+                    .HasForeignKey(e => e.NotaRapidaId)
                     .OnDelete(DeleteBehavior.Cascade);
             });
 

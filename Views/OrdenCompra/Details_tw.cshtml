@@ -410,7 +410,7 @@
                         <select name="nuevoEstado" id="select-estado"
                                 aria-describedby="estado-ayuda"
                                 class="w-full bg-slate-800 border border-slate-700 rounded-lg h-10 text-sm appearance-none px-3 focus:ring-primary focus:border-primary text-white">
-                            @foreach (var opt in estadoOptions)
+                            @foreach (var opt in estadoOptions.Where(o => o.Item1 == Model.Estado || OrdenCompraTransiciones.EsValida(Model.Estado, o.Item1)))
                             {
                                 <option value="@((int)opt.Item1)" selected="@(opt.Item1 == Model.Estado)">@opt.Item2</option>
                             }

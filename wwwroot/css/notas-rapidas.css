@@ -1,0 +1,55 @@
+/* Notas rápidas (header global). Geometría y tipografía en CSS plano: tailwind.css es un
+   artefacto precompilado sin build hook, así que los valores arbitrarios no se generan. */
+#notas-panel {
+    position: fixed;
+    top: 4.25rem;
+    right: 0.75rem;
+    z-index: 53;
+    width: 22rem;
+    max-width: calc(100vw - 1.5rem);
+    max-height: min(36rem, calc(100dvh - 6rem));
+}
+
+#btn-open-notas { position: relative; }
+
+[data-notas-badge] {
+    position: absolute;
+    top: 0.125rem;
+    right: 0.125rem;
+    min-width: 1rem;
+    padding: 0 0.25rem;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1rem;
+    text-align: center;
+    color: #fff;
+}
+
+[data-notas-root] [data-notas-status] { min-height: 1rem; font-size: 11px; }
+[data-notas-root] .notas-meta { font-size: 10px; }
+[data-notas-root] .notas-hechas-label { font-size: 11px; }
+[data-notas-root] .notas-texto { white-space: pre-wrap; }
+
+[data-notas-root] .notas-tipo-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.625rem;
+    border-radius: 0.375rem;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--pal-neutral-400, #94a3b8);
+    transition: background-color 0.15s, color 0.15s;
+}
+[data-notas-root] .notas-tipo-btn:hover { color: #fff; }
+[data-notas-root] .notas-tipo-btn[aria-pressed="true"] {
+    background: rgb(255 255 255 / 0.1);
+    color: #fff;
+}
+
+#notas-panel .notas-title-icon { font-size: 18px; }
+
+/* Tarjeta del Dashboard: lista acotada con scroll propio */
+.notas-card [data-notas-scroll] { max-height: 16rem; }
+.notas-card [data-notas-form] { border-top: 1px solid var(--pal-neutral-800, #1e293b); }

@@ -28,6 +28,7 @@
     <!-- App CSS -->
     <link rel="stylesheet" href="~/css/shared-components.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/layout.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/notas-rapidas.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/erp-responsive-system.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/erp-table-cards.css" asp-append-version="true" />
 
@@ -278,8 +279,8 @@
                                     || IsActive("ConfiguracionRentabilidad") || IsActive("ConfiguracionMora")
                                     || IsActive("ConfiguracionContratoCredito") || IsActive("PlantillaContratoCredito");
 
-                                <a class="@NavClass(active)" aria-current="@NavCurrent(active)" asp-controller="ConfiguracionPago"
-                                   asp-action="MediosPago" title="Configuración">
+                                <a class="@NavClass(active)" aria-current="@NavCurrent(active)"
+                                   asp-controller="ConfiguracionPago" asp-action="MediosPago" title="Configuración">
                                     <span class="material-symbols-outlined text-lg shrink-0" aria-hidden="true">settings</span>
                                     <p class="@NavFont(active) sidebar-label">Configuración</p>
                                 </a>
@@ -383,6 +384,15 @@
 
 
 
+                    <!-- Notas rápidas (checklist personal, disponible en todas las pantallas) -->
+                    <button id="btn-open-notas" type="button"
+                            class="p-2 text-slate-400 hover:text-white transition-colors" title="Notas rápidas"
+                            aria-label="Notas rápidas" aria-haspopup="dialog" aria-expanded="false" aria-controls="notas-panel">
+                        <span class="material-symbols-outlined icon-erp-lg" aria-hidden="true">checklist</span>
+                        <span data-notas-badge hidden
+                              class="bg-primary"></span>
+                    </button>
+
                     <!-- Ticket panel -->
                     @if (canViewTickets)
                     {
@@ -422,6 +432,8 @@
         </button>
     }
 
+    <partial name="_NotasRapidasPanel" />
+
     <!-- Modals -->
     @await RenderSectionAsync("Modals", required: false)
 
@@ -452,6 +464,7 @@
     }
 
     <script src="~/js/layout.js" asp-append-version="true"></script>
+    <script src="~/js/notas-rapidas.js" asp-append-version="true"></script>
 
     @if (canCreateTicket)
     {

@@ -1,0 +1,23 @@
+@* Notas rápidas personales (checklist) — desplegable global del header. Lógica en wwwroot/js/notas-rapidas.js *@
+<div id="notas-panel"
+     data-notas-panel
+     class="hidden flex-col overflow-hidden rounded-2xl border border-slate-700 shadow-2xl"
+     style="background-color:var(--pal-neutral-900);"
+     role="dialog"
+     aria-label="Notas rápidas">
+    @Html.AntiForgeryToken()
+
+    <div class="flex shrink-0 items-center justify-between border-b border-slate-800 px-4 py-3">
+        <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary notas-title-icon" aria-hidden="true">checklist</span>
+            <h2 class="text-xs font-bold uppercase tracking-wide text-slate-200">Notas rápidas</h2>
+        </div>
+        <button type="button" data-notas-close
+                class="inline-flex size-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+                aria-label="Cerrar notas rápidas">
+            <span class="material-symbols-outlined text-lg" aria-hidden="true">close</span>
+        </button>
+    </div>
+
+    <partial name="_NotasRapidasContenido" model="@("panel")" />
+</div>

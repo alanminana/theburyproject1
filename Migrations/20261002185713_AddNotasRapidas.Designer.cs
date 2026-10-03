@@ -3,17 +3,20 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TheBuryProject.Data;
 
 #nullable disable
 
-namespace TheBuryProject.Migrations
+namespace TheBuryProyect.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261002185713_AddNotasRapidas")]
+    partial class AddNotasRapidas
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -6716,11 +6719,17 @@ namespace TheBuryProject.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<bool>("Completada")
+                        .HasColumnType("bit");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("CreatedBy")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("FechaCompletada")
+                        .HasColumnType("datetime2");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
@@ -6736,9 +6745,6 @@ namespace TheBuryProject.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
-                    b.Property<int>("Tipo")
-                        .HasColumnType("int");
-
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
@@ -6752,59 +6758,9 @@ namespace TheBuryProject.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UsuarioId", "CreatedAt");
+                    b.HasIndex("UsuarioId", "Completada", "CreatedAt");
 
                     b.ToTable("NotasRapidas", (string)null);
-                });
-
-            modelBuilder.Entity("TheBuryProject.Models.Entities.NotaRapidaItem", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<bool>("Completado")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime?>("FechaCompletado")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<int>("NotaRapidaId")
-                        .HasColumnType("int");
-
-                    b.Property<byte[]>("RowVersion")
-                        .IsConcurrencyToken()
-                        .IsRequired()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("rowversion");
-
-                    b.Property<string>("Texto")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("NotaRapidaId");
-
-                    b.ToTable("NotaRapidaItems", (string)null);
                 });
 
             modelBuilder.Entity("TheBuryProject.Models.Entities.Notificacion", b =>
@@ -11193,17 +11149,6 @@ namespace TheBuryProject.Migrations
                     b.Navigation("Devolucion");
                 });
 
-            modelBuilder.Entity("TheBuryProject.Models.Entities.NotaRapidaItem", b =>
-                {
-                    b.HasOne("TheBuryProject.Models.Entities.NotaRapida", "NotaRapida")
-                        .WithMany("Items")
-                        .HasForeignKey("NotaRapidaId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("NotaRapida");
-                });
-
             modelBuilder.Entity("TheBuryProject.Models.Entities.OrdenCompra", b =>
                 {
                     b.HasOne("TheBuryProject.Models.Entities.Proveedor", "Proveedor")
@@ -11906,11 +11851,6 @@ namespace TheBuryProject.Migrations
                     b.Navigation("Acciones");
 
                     b.Navigation("Permisos");
-                });
-
-            modelBuilder.Entity("TheBuryProject.Models.Entities.NotaRapida", b =>
-                {
-                    b.Navigation("Items");
                 });
 
             modelBuilder.Entity("TheBuryProject.Models.Entities.OrdenCompra", b =>

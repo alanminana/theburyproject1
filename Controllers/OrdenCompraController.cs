@@ -386,6 +386,11 @@ namespace TheBuryProject.Controllers
 
                 return Volver();
             }
+            catch (InvalidOperationException ex)
+            {
+                TempData["Error"] = ex.Message;
+                return Volver();
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al cambiar el estado de la orden {Id}", id);

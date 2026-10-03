@@ -105,6 +105,9 @@
     var puedeEditarCliente = User.TienePermiso("clientes", "edit");
     var puedeEliminarCliente = User.TienePermiso("clientes", "delete");
     var puedeVerCreditos = User.TienePermiso("creditos", "view");
+    var puedeConsultarBcra = User.TienePermiso("clientes", "consultbcra");
+    var puedeAdministrarLimites = User.TienePermiso("clientes", "managecreditlimits");
+    var puedeSubirDocs = User.TienePermiso("clientes", "uploaddocs");
 
     var aptitudResumen = esApto ? "Puede operar a crédito"
         : esRequiereAut ? "Requiere autorización para operar"
@@ -516,7 +519,7 @@ else
             <div class="card card-pad" id="garante-panel-card">
                 <div class="flex items-center justify-between gap-2 mb-3">
                     <h3 class="font-semibold text-white flex items-center gap-2"><span class="material-symbols-outlined" style="color:var(--erp-fg-2, var(--pal-neutral-350));font-size:20px">supervisor_account</span>Garante</h3>
-                    @if (garante == null)
+                    @if (garante == null && puedeEditarCliente)
                     {
                         <!-- Sin garante: botón para asignar -->
                         <div id="garanteSinAsignar">
@@ -563,6 +566,8 @@ else
                                 }
                             </ul>
                         }
+                        @if (puedeEditarCliente)
+                        {
                         <div style="display:flex;gap:.4rem;margin-top:.5rem;flex-wrap:wrap">
                             <button type="button" class="btn btn-ghost btn-sm"
                                     data-garante-cambiar
@@ -578,6 +583,7 @@ else
                                 <span class="material-symbols-outlined" style="font-size:14px">remove_circle_outline</span> Quitar
                             </button>
                         </div>
+                        }
                     </div>
                 }
 
@@ -661,7 +667,7 @@ else
                         <dd id="bcra-meta">@(bcraFecha.HasValue ? bcraFecha.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm") : "Pendiente de consulta")</dd>
                     </div>
                 </dl>
-                @if (tieneCuil)
+                @if (tieneCuil && puedeConsultarBcra)
                 {
                     <button type="button" id="bcra-btn" data-cliente-bcra-refresh data-cliente-id="@c.Id" class="btn btn-soft btn-sm btn-block" style="margin-top:.9rem">
                         <span class="material-symbols-outlined" id="bcra-icon">sync</span><span id="bcra-btn-label">Actualizar BCRA</span>
@@ -726,7 +732,10 @@ else
                 <div class="flex items-start justify-between gap-3 mb-4 flex-wrap">
                     <h2 class="font-semibold text-white flex items-center gap-2"><span class="material-symbols-outlined" style="color:var(--pal-accent);font-size:20px">credit_score</span>Información crediticia</h2>
                     <div class="flex items-center gap-2 flex-wrap">
+                        @if (puedeAdministrarLimites)
+                        {
                         <button type="button" class="btn btn-soft btn-sm" data-cliente-open-nivel-manual><span class="material-symbols-outlined">rule_settings</span>Asignar puntaje manual</button>
+                        }
                         <button type="button" class="btn btn-ghost btn-sm" data-cliente-open-limites><span class="material-symbols-outlined">tune</span>Límites por puntaje</button>
                     </div>
                 </div>
@@ -1002,7 +1011,7 @@ else
                                 <span class="chip @DocumentoChip(doc)"><span class="material-symbols-outlined">@DocumentoIcon(doc)</span>@doc.EstadoNombre</span>
                                 <div class="flex items-center gap-1">
                                     <a asp-controller="DocumentoCliente" asp-action="Descargar" asp-route-id="@doc.Id" class="btn btn-ghost btn-sm" title="Ver documento"><span class="material-symbols-outlined">download</span></a>
-                                    @if (esPendiente)
+                                    @if (esPendiente && puedeEditarCliente)
                                     {
                                         <form asp-controller="DocumentoCliente" asp-action="Verificar" asp-route-id="@doc.Id" asp-route-returnUrl="@returnToDetails" method="post">
                                             @Html.AntiForgeryToken()
@@ -1014,7 +1023,7 @@ else
                                             <button type="submit" class="btn btn-ghost btn-sm" title="Rechazar documento"><span class="material-symbols-outlined">block</span></button>
                                         </form>
                                     }
-                                    @if (!esVerificado)
+                                    @if (!esVerificado && puedeSubirDocs)
                                     {
                                         <button type="button" data-cliente-upload-open data-tipo-documento-value="@((int)doc.TipoDocumento)" data-tipo-documento-label="@doc.TipoDocumentoNombre" data-replace-id="@doc.Id" class="btn btn-ghost btn-sm" title="Reemplazar archivo">
                                             <span class="material-symbols-outlined">upload</span>
@@ -1034,9 +1043,12 @@ else
                                 <div class="text-xs muted-2">Esperando carga</div>
                             </div>
                             <span class="chip chip-warn">Faltante</span>
+                            @if (puedeSubirDocs)
+                            {
                             <button type="button" data-cliente-upload-open data-tipo-documento-value="" data-tipo-documento-label="@HumanizarTipoDocumento(faltante)" class="btn btn-ghost btn-sm" title="Subir archivo de @HumanizarTipoDocumento(faltante)" aria-label="Subir archivo de @HumanizarTipoDocumento(faltante)">
                                 <span class="material-symbols-outlined" aria-hidden="true">upload</span>
                             </button>
+                            }
                         </div>
                     }
                     @if ((Model.Documentos == null || !Model.Documentos.Any()) && !documentosFaltantesList.Any())

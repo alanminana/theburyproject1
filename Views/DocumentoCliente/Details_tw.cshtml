@@ -3,6 +3,8 @@
 @{
     ViewData["Title"] = "Detalle de Documento";
     var returnUrl = ViewData["ReturnUrl"] as string;
+    var puedeEditarDocs = User.TienePermiso("clientes", "edit");
+    var puedeSubirDocs = User.TienePermiso("clientes", "uploaddocs");
     var volverHref = !string.IsNullOrWhiteSpace(returnUrl)
         ? returnUrl
         : Url.Action("Index", new { clienteId = Model.ClienteId }) ?? "/DocumentoCliente";
@@ -99,12 +101,15 @@
                     <span class="material-symbols-outlined text-[20px]">download</span>
                     Descargar
                 </a>
+                @if (puedeSubirDocs)
+                {
                 <a asp-action="Upload" asp-route-clienteId="@Model.ClienteId" asp-route-replaceId="@Model.Id"
                    asp-route-returnUrl="@Url.Action("Details", new { id = Model.Id })"
                    class="documento-details-hero-action inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90 sm:py-2.5 no-underline">
                     <span class="material-symbols-outlined text-[20px]">swap_horiz</span>
                     Reemplazar
                 </a>
+                }
             </div>
         </header>
 
@@ -258,7 +263,7 @@
             <section class="rounded-xl border p-6 shadow-sm border-slate-800 bg-slate-900">
                 <h3 class="mb-3 text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Acciones</h3>
                 <div class="space-y-3">
-                    @if (Model.Estado == EstadoDocumento.Pendiente)
+                    @if (Model.Estado == EstadoDocumento.Pendiente && puedeEditarDocs)
                     {
                         <form asp-action="Verificar" asp-route-id="@Model.Id"
                               asp-route-returnUrl="@Url.Action("Details", new { id = Model.Id })"
@@ -288,6 +293,8 @@
                         </form>
                     }
 
+                    @if (puedeEditarDocs)
+                    {
                     <form asp-action="Delete" asp-route-id="@Model.Id"
                           asp-route-returnUrl="@Url.Action("Index", new { clienteId = Model.ClienteId })"
                           method="post"
@@ -300,6 +307,7 @@
                             Eliminar Documento
                         </button>
                     </form>
+                    }
                 </div>
             </section>
 

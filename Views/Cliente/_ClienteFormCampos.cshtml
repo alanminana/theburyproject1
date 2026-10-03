@@ -15,6 +15,14 @@
     // lo que conservan exactamente el patrón de tabs libres de siempre.
     var isWizard = ViewData["ClienteWizardMode"] as string == "create";
 
+    // Permiso clientes.configurecredit (Seguridad): sin él se ocultan los parámetros
+    // crediticios (perfil, tasa, gastos, cuotas, montos). El paso se conserva como
+    // "Observaciones" porque ese panel también aloja Observaciones y "Cliente activo".
+    // El servidor ignora igualmente esos campos (ClienteController).
+    var puedeConfigurarCredito = User.TienePermiso("clientes", "configurecredit");
+    var creditoTabLabel = puedeConfigurarCredito ? (isWizard ? "Crédito" : "Crediticio") : "Observaciones";
+    var creditoTabIcon = puedeConfigurarCredito ? "credit_score" : "sticky_note_2";
+
     // Cónyuge condicional (Lote 2): usa los valores reales de
     // DropdownConstants.EstadosCiviles, no un enum nuevo. Solo afecta el
     // primer paint (antes de que corra JS); cliente-modal.js recalcula esto
@@ -128,12 +136,12 @@
                 <span class="sr-only" data-step-status-text>@StepLabel("pending")</span>
             }
         </button>
-        <button type="button" class="tab" role="@(isWizard ? null : "tab")" aria-selected="@(isWizard ? null : "false")" data-step-state="@(isWizard ? "pending" : null)" data-step-label="@(isWizard ? "Crédito" : null)" aria-controls="t-credito" data-cliente-tab="t-credito">
+        <button type="button" class="tab" role="@(isWizard ? null : "tab")" aria-selected="@(isWizard ? null : "false")" data-step-state="@(isWizard ? "pending" : null)" data-step-label="@(isWizard ? creditoTabLabel : null)" aria-controls="t-credito" data-cliente-tab="t-credito">
             @if (isWizard)
             {
                 <span class="step-status-icon material-symbols-outlined" data-step-icon aria-hidden="true">@StepIcon("pending")</span>
             }
-            <span class="material-symbols-outlined">credit_score</span><span class="tab-label">@(isWizard ? "Crédito" : "Crediticio")</span>
+            <span class="material-symbols-outlined">@creditoTabIcon</span><span class="tab-label">@creditoTabLabel</span>
             @if (isWizard)
             {
                 <span class="sr-only" data-step-status-text>@StepLabel("pending")</span>
@@ -331,8 +339,12 @@
     <section class="tab-panel" id="t-credito" role="@(isWizard ? null : "tabpanel")" aria-labelledby="@(isWizard ? "t-credito-title" : null)" data-cliente-section="crediticio">
         @* En wizard, Referencias queda fuera de los pasos navegables (Lote 2): Crédito
            pasa a ser el 5to paso real, no el 6to. La edición conserva el número original. *@
-        <div class="sec-head"><span class="sec-num">@(isWizard ? "5" : "6")</span><div><div class="sec-title" id="t-credito-title">Configuración crediticia</div><div class="sec-sub">Parámetros iniciales y observaciones.</div></div></div>
-        @if (isEdit)
+        <div class="sec-head"><span class="sec-num">@(isWizard ? "5" : "6")</span><div><div class="sec-title" id="t-credito-title">@(puedeConfigurarCredito ? "Configuración crediticia" : "Observaciones y estado")</div><div class="sec-sub">@(puedeConfigurarCredito ? "Parámetros iniciales y observaciones." : "Notas internas y estado del cliente.")</div></div></div>
+        @if (!puedeConfigurarCredito)
+        {
+            @* sin permiso: no se muestran ni el alert ni los parámetros crediticios *@
+        }
+        else if (isEdit)
         {
             <div class="alert alert-info" style="margin-bottom:1rem"><span class="material-symbols-outlined">shield_lock</span><div>El puntaje, nivel de riesgo, créditos, cuotas impagas y monto adeudado se preservan ocultos para concurrencia y consistencia del legajo.</div></div>
         }
@@ -341,6 +353,8 @@
             <div class="alert alert-info" style="margin-bottom:1rem"><span class="material-symbols-outlined">auto_awesome</span><div>El puntaje de riesgo y el límite se calculan automáticamente tras la evaluación. Acá podés dejar condiciones u observaciones iniciales.</div></div>
         }
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            @if (puedeConfigurarCredito)
+            {
             <div class="sm:col-span-2">
                 <label asp-for="PerfilCreditoPreferidoId" class="label">Perfil de crédito preferido</label>
                 <select asp-for="PerfilCreditoPreferidoId" asp-items="@(ViewBag.PerfilesCredito as SelectList)" class="field">
@@ -380,6 +394,7 @@
                 <span asp-validation-for="MontoMaximoPersonalizado" class="err-text"></span>
                 <p id="montoError" class="err-text hidden">El monto mínimo no puede ser mayor al monto máximo</p>
             </div>
+            }
             <div class="sm:col-span-2">
                 <label asp-for="Observaciones" class="label">Observaciones</label>
                 <textarea asp-for="Observaciones" class="field" placeholder="Notas internas sobre el cliente (no visibles para el cliente)."></textarea>

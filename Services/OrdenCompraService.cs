@@ -330,6 +330,12 @@ namespace TheBuryProject.Services
             var orden = await _context.OrdenesCompra.FirstOrDefaultAsync(o => o.Id == id && !o.IsDeleted);
             if (orden == null) return false;
 
+            if (!OrdenCompraTransiciones.EsValida(orden.Estado, nuevoEstado))
+            {
+                throw new InvalidOperationException(
+                    $"No se puede pasar una orden de {OrdenCompraUiHelper.EstadoNombre(orden.Estado)} a {OrdenCompraUiHelper.EstadoNombre(nuevoEstado)}. Los estados solo avanzan.");
+            }
+
             if (nuevoEstado == EstadoOrdenCompra.Recibida && orden.Estado != EstadoOrdenCompra.Recibida)
                 orden.FechaRecepcion = DateTime.UtcNow;
 
