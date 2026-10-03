@@ -353,6 +353,24 @@ public class OrdenCompraServiceTests : IDisposable
         Assert.NotNull(ordenBd.FechaRecepcion);
     }
 
+    [Theory]
+    [InlineData(EstadoOrdenCompra.Recibida, EstadoOrdenCompra.Borrador)]
+    [InlineData(EstadoOrdenCompra.Recibida, EstadoOrdenCompra.Cancelada)]
+    [InlineData(EstadoOrdenCompra.Enviada, EstadoOrdenCompra.Borrador)]
+    [InlineData(EstadoOrdenCompra.EnTransito, EstadoOrdenCompra.Borrador)]
+    [InlineData(EstadoOrdenCompra.Cancelada, EstadoOrdenCompra.Borrador)]
+    public async Task CambiarEstado_TransicionInvalida_LanzaYNoCambia(EstadoOrdenCompra origen, EstadoOrdenCompra destino)
+    {
+        var proveedor = await SeedProveedorAsync();
+        var producto = await SeedProductoAsync();
+        var orden = await SeedOrdenAsync(proveedor.Id, producto.Id, estado: origen);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.CambiarEstadoAsync(orden.Id, destino));
+
+        var ordenBd = await _context.Set<OrdenCompra>().AsNoTracking().FirstAsync(o => o.Id == orden.Id);
+        Assert.Equal(origen, ordenBd.Estado);
+    }
+
     // -------------------------------------------------------------------------
     // NumeroOrdenExisteAsync
     // -------------------------------------------------------------------------
