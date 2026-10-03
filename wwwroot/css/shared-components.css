@@ -693,16 +693,21 @@
 }
 
 /* -- Disabled state -- */
-.row-action--disabled,
+/* Doble clase: theme-ml.css (se carga después) redefine `.row-action { color }`
+   con la misma especificidad y dejaba los deshabilitados idénticos a los activos. */
+.row-action.row-action--disabled,
 .row-action[aria-disabled="true"] {
-    color: var(--pal-neutral-700);
+    color: var(--erp-fg-3, var(--pal-neutral-400));
+    opacity: 0.35;
     cursor: not-allowed;
-    pointer-events: none;
 }
-.row-action--disabled:hover,
+/* Los <button disabled> no disparan click, y sin `pointer-events: none` siguen
+   mostrando su `title` (el motivo por el que no está disponible). */
+a.row-action[aria-disabled="true"] { pointer-events: none; }
+.row-action.row-action--disabled:hover,
 .row-action[aria-disabled="true"]:hover {
     background-color: transparent;
-    color: var(--pal-neutral-700);
+    color: var(--erp-fg-3, var(--pal-neutral-400));
 }
 
 /* sm+ → icon-button: tamaño fijo, sin label (40px = closer to 44px WCAG target) */

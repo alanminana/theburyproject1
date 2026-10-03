@@ -720,7 +720,7 @@ public class ReporteServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task GenerarReporteComisiones_SoloIncluyeFacturadasYEntregadasPorDefecto()
+    public async Task GenerarReporteComisiones_IncluyeConfirmadasFacturadasYEntregadasPorDefecto()
     {
         var cliente = await SeedClienteAsync();
         var producto = await SeedProductoAsync();
@@ -731,8 +731,10 @@ public class ReporteServiceTests : IDisposable
 
         var resultado = await _service.GenerarReporteComisionesVendedoresAsync(new ComisionVendedorFilterViewModel());
 
-        Assert.Single(resultado.Items);
-        Assert.Equal(EstadoVenta.Facturada, resultado.Items[0].EstadoVenta);
+        Assert.Equal(2, resultado.Items.Count);
+        Assert.Contains(resultado.Items, i => i.EstadoVenta == EstadoVenta.Facturada);
+        Assert.Contains(resultado.Items, i => i.EstadoVenta == EstadoVenta.Confirmada);
+        Assert.DoesNotContain(resultado.Items, i => i.EstadoVenta == EstadoVenta.Cancelada);
     }
 
     // -------------------------------------------------------------------------
@@ -1377,6 +1379,137 @@ public class ReporteServiceTests : IDisposable
 
         // Promedio = 4000 / 2 = 2000
         Assert.Equal(2_000m, resultado.PromedioDeudaPorCliente);
+    }
+
+    [Fact]
+    public async Task GenerarReporteMorosidad_IncluyeCuotasVencidasYParciales_UsandoSaldo()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+
+        // El job de vencimientos pasa Pendiente→Vencida: esas cuotas deben seguir en el reporte.
+        var vencida = await SeedCuotaVencidaAsync(credito.Id, montoTotal: 1_000m, diasVencido: 15);
+        // (un crédito por cuota: SeedCuotaVencidaAsync siempre usa NumeroCuota = 1)
+        vencida.Estado = EstadoCuota.Vencida;
+
+        // Pago parcial: la deuda es el saldo (1000 - 400), no el valor original.
+        var parcial = await SeedCuotaVencidaAsync((await SeedCreditoAsync(cliente.Id)).Id, montoTotal: 1_000m, diasVencido: 5);
+        parcial.Estado = EstadoCuota.Parcial;
+        parcial.MontoPagado = 400m;
+
+        // Pagada: no es deuda aunque su vencimiento haya pasado.
+        var pagada = await SeedCuotaVencidaAsync((await SeedCreditoAsync(cliente.Id)).Id, montoTotal: 1_000m, diasVencido: 40);
+        pagada.Estado = EstadoCuota.Pagada;
+        pagada.MontoPagado = 1_000m;
+        await _context.SaveChangesAsync();
+
+        var resultado = await _service.GenerarReporteMorosidadAsync();
+
+        Assert.Equal(1, resultado.CantidadClientesMorosos);
+        Assert.Equal(1_600m, resultado.TotalDeudaVencida);
+        Assert.Equal(15, resultado.ClientesMorosos[0].DiasMaximoAtraso);
+    }
+
+    [Fact]
+    public async Task GenerarReporteMorosidad_AntiguedadSeClasificaPorCuota_NoPorCliente()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaVencidaAsync(credito.Id, montoTotal: 1_000m, diasVencido: 100);
+        await SeedCuotaVencidaAsync((await SeedCreditoAsync(cliente.Id)).Id, montoTotal: 500m, diasVencido: 10);
+
+        var resultado = await _service.GenerarReporteMorosidadAsync();
+
+        Assert.Equal(1_500m, resultado.TotalDeudaVencida);
+        Assert.Equal(1_000m, resultado.DeudaMayor90Dias);
+        Assert.Equal(1_000m, resultado.DeudaMayor30Dias);
+    }
+
+    [Fact]
+    public async Task GenerarReporteMorosidad_NombreSinDniDuplicado()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaVencidaAsync(credito.Id);
+
+        var resultado = await _service.GenerarReporteMorosidadAsync();
+
+        Assert.Equal($"{cliente.Apellido}, {cliente.Nombre}", resultado.ClientesMorosos[0].ClienteNombre);
+    }
+
+    [Fact]
+    public async Task GenerarReporteVentas_ExcluyeCanceladasCotizacionesYPendientes()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        await SeedVentaAsync(cliente.Id, producto.Id, 100m, 1, estado: EstadoVenta.Confirmada);
+        await SeedVentaAsync(cliente.Id, producto.Id, 100m, 1, estado: EstadoVenta.Facturada);
+        await SeedVentaAsync(cliente.Id, producto.Id, 100m, 1, estado: EstadoVenta.Entregada);
+        await SeedVentaAsync(cliente.Id, producto.Id, 100m, 1, estado: EstadoVenta.Cancelada);
+        await SeedVentaAsync(cliente.Id, producto.Id, 100m, 1, estado: EstadoVenta.Cotizacion);
+        await SeedVentaAsync(cliente.Id, producto.Id, 100m, 1, estado: EstadoVenta.Presupuesto);
+        await SeedVentaAsync(cliente.Id, producto.Id, 100m, 1, estado: EstadoVenta.PendienteRequisitos);
+        await SeedVentaAsync(cliente.Id, producto.Id, 100m, 1, estado: EstadoVenta.PendienteFinanciacion);
+
+        var resultado = await _service.GenerarReporteVentasAsync(new ReporteVentasFiltroViewModel());
+
+        Assert.Equal(3, resultado.CantidadVentas);
+        Assert.Equal(300m, resultado.TotalVentas);
+        // Top productos/clientes se calculan sobre las mismas ventas válidas.
+        Assert.Equal(3, resultado.ProductosMasVendidos.Single().CantidadVendida);
+        Assert.Equal(3, resultado.ClientesTop.Single().CantidadCompras);
+    }
+
+    [Fact]
+    public async Task GenerarReporteVentas_FechaHastaIncluyeElDiaCompleto()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        var hoy = DateTime.UtcNow.Date;
+        await SeedVentaAsync(cliente.Id, producto.Id, 100m, 1, fecha: hoy.AddHours(15));
+        await SeedVentaAsync(cliente.Id, producto.Id, 100m, 1, fecha: hoy.AddDays(1).AddHours(1));
+
+        var resultado = await _service.GenerarReporteVentasAsync(new ReporteVentasFiltroViewModel
+        {
+            FechaDesde = hoy,
+            FechaHasta = hoy
+        });
+
+        Assert.Single(resultado.Ventas);
+    }
+
+    [Fact]
+    public async Task GenerarReporteVentas_TopProductosYClientesRespetanFiltroDeTipoPago()
+    {
+        var cliente = await SeedClienteAsync();
+        var otro = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        await SeedVentaAsync(cliente.Id, producto.Id, 100m, 1, tipoPago: TipoPago.Efectivo);
+        await SeedVentaAsync(otro.Id, producto.Id, 100m, 5, tipoPago: TipoPago.Transferencia);
+
+        var resultado = await _service.GenerarReporteVentasAsync(new ReporteVentasFiltroViewModel
+        {
+            TipoPago = TipoPago.Efectivo
+        });
+
+        Assert.Equal(1, resultado.ProductosMasVendidos.Single().CantidadVendida);
+        var top = Assert.Single(resultado.ClientesTop);
+        Assert.Equal(cliente.Id, top.ClienteId);
+        Assert.DoesNotContain("DNI", top.ClienteNombre);
+    }
+
+    [Fact]
+    public async Task ObtenerVentasAgrupadas_Mes_OrdenaCronologicamenteEntreAnios()
+    {
+        var cliente = await SeedClienteAsync();
+        var producto = await SeedProductoAsync();
+        await SeedVentaAsync(cliente.Id, producto.Id, 10m, 1, fecha: new DateTime(2026, 1, 10));
+        await SeedVentaAsync(cliente.Id, producto.Id, 10m, 1, fecha: new DateTime(2025, 12, 10));
+
+        var resultado = await _service.ObtenerVentasAgrupadasAsync(
+            new DateTime(2025, 1, 1), new DateTime(2026, 12, 31), "mes");
+
+        Assert.Equal(new[] { "12/2025", "01/2026" }, resultado.Select(r => r.Etiqueta));
     }
 
     // =========================================================================

@@ -95,6 +95,12 @@
     var tieneEnvioACobrar = Model.ImporteEnvioFueraDelTotal > 0m;
     var productosMontoDesglose = Model.Detalles.Sum(d => d.SubtotalFinal != 0m ? d.SubtotalFinal : d.Subtotal);
     var hayServiciosIncluidos = Model.TotalArmados > 0m || Model.ImporteEnvioIncluido > 0m;
+    // Con servicios incluidos el desglose de "Detalle de la operación" ya suma el Subtotal: repetirlo
+    // como fila aparte sólo duplica la cifra. Se oculta únicamente cuando coincide con ese desglose.
+    var subtotalDesglose = productosMontoDesglose + Model.TotalArmados + Model.ImporteEnvioIncluido;
+    var subtotalRepiteDesglose = hayServiciosIncluidos && Model.Descuento <= 0m
+        && (Math.Abs(Model.Subtotal - subtotalDesglose) < 0.01m
+            || Math.Abs(Model.Subtotal - (subtotalDesglose + Model.RecargoFormaPago)) < 0.01m);
     var facturacionResumen = tieneFactura
         ? facturaActiva?.Numero ?? "Factura emitida"
         : "Sin factura emitida";
@@ -325,6 +331,13 @@
                         <div>
                             <p class="text-[10px] font-bold text-slate-500 uppercase mb-1">Vendedor</p>
                             <p class="text-sm font-bold text-white">@(Model.VendedorNombre ?? "—")</p>
+                            @if (User.TienePermiso("reportes", "view"))
+                            {
+                                var comisionTotal = detalles.Sum(d => d.ComisionMonto);
+                                <p class="mt-1 text-[11px] text-slate-400">
+                                    Comisión: @(comisionTotal > 0m ? comisionTotal.ToString("C2") : "sin comisión")
+                                </p>
+                            }
                         </div>
                         <div>
                             <p class="text-[10px] font-bold text-slate-500 uppercase mb-1">Fecha</p>
@@ -571,15 +584,18 @@
                             {
                                 @* Detalle de la operación: productos, armados (con cantidades), envío y recargo por forma
                                    de pago por separado. Armados y envío forman parte de Total y reciben el recargo. *@
-                                <div id="venta-detalle-operacion" class="mb-2 w-full max-w-xs space-y-1 rounded-lg border border-slate-700/70 bg-slate-900/40 p-3 text-sm">
+                                <div id="venta-detalle-operacion" class="w-full max-w-xs space-y-1 text-sm tabular-nums">
                                     <div class="flex justify-between"><span class="text-slate-400">Productos</span><span id="venta-op-productos" class="font-medium text-slate-200">@productosMontoDesglose.ToString("C2")</span></div>
                                     @if (Model.TotalArmados > 0m)
                                     {
                                         <div class="flex justify-between"><span class="text-slate-400">Armados</span><span id="venta-op-armados" class="font-medium text-slate-200">@Model.TotalArmados.ToString("C2")</span></div>
-                                        <ul class="space-y-0.5 pl-3 text-xs text-slate-500">
+                                        <ul class="space-y-0.5 pl-3 text-xs text-slate-400">
                                             @foreach (var lineaArmado in Model.Detalles.Where(d => d.TipoArmado.HasValue))
                                             {
-                                                <li>@lineaArmado.ArmadoDisplay × @lineaArmado.Cantidad — @lineaArmado.ProductoNombre: @lineaArmado.ArmadoSubtotal.ToString("C2")</li>
+                                                <li class="flex justify-between gap-3">
+                                                    <span class="min-w-0 break-words">@lineaArmado.ArmadoDisplay × @lineaArmado.Cantidad — @lineaArmado.ProductoNombre</span>
+                                                    <span class="whitespace-nowrap">@lineaArmado.ArmadoSubtotal.ToString("C2")</span>
+                                                </li>
                                             }
                                         </ul>
                                     }
@@ -593,24 +609,23 @@
                                     }
                                 </div>
                             }
-                            <div class="flex justify-between w-64 text-sm">
-                                <span class="text-slate-500">Subtotal</span>
-                                <span class="font-medium text-slate-300">@Model.Subtotal.ToString("C2")</span>
-                            </div>
+                            @if (!subtotalRepiteDesglose)
+                            {
+                                <div class="flex justify-between w-full max-w-xs text-sm">
+                                    <span class="text-slate-500">Subtotal</span>
+                                    <span class="font-medium text-slate-300">@Model.Subtotal.ToString("C2")</span>
+                                </div>
+                            }
                             @if (Model.Descuento > 0)
                             {
-                                <div class="flex justify-between w-64 text-sm">
+                                <div class="flex justify-between w-full max-w-xs text-sm">
                                     <span class="text-slate-500">Descuento</span>
                                     <span class="font-medium text-red-500">-@Model.Descuento.ToString("C2")</span>
                                 </div>
                             }
-                            <div class="flex justify-between w-64 text-sm">
-                                <span class="text-slate-500">IVA</span>
-                                <span class="font-medium text-slate-300">@Model.IVA.ToString("C2")</span>
-                            </div>
                             @if (recargoDebitoAplicado > 0)
                             {
-                                <div class="flex justify-between w-64 text-sm">
+                                <div class="flex justify-between w-full max-w-xs text-sm">
                                     <span class="text-slate-500">Recargo d&eacute;bito</span>
                                     <span class="font-medium text-amber-300">@recargoDebitoAplicado.ToString("C2")</span>
                                 </div>
@@ -622,7 +637,7 @@
                                 var labelPlan = esRecargoPlan ? "Recargo por plan" : esDescuentoPlan ? "Descuento por plan" : "Ajuste por plan";
                                 var colorPlan = esRecargoPlan ? "text-amber-300" : esDescuentoPlan ? "text-red-500" : "text-slate-400";
                                 var sufijoPct = ajustePlanPct.HasValue ? $" ({(ajustePlanPct.Value > 0 ? "+" : "")}{ajustePlanPct.Value:0.##}%)" : "";
-                                <div class="flex justify-between w-64 text-sm">
+                                <div class="flex justify-between w-full max-w-xs text-sm">
                                     <span class="text-slate-500">@labelPlan@sufijoPct</span>
                                     <span class="font-medium @colorPlan">@ajustePlanMonto.Value.ToString("C2")</span>
                                 </div>
@@ -631,25 +646,39 @@
                             {
                                 @* Productos y envío quedan como líneas separadas; TOTAL A COBRAR es la
                                    cifra dominante y no se mezcla con IVA ni con el total del comprobante. *@
-                                <div class="flex justify-between w-64 text-sm pt-2 border-t border-slate-700">
+                                <div class="flex justify-between w-full max-w-xs text-sm pt-2 border-t border-slate-700">
                                     <span class="text-slate-400">Total productos</span>
                                     <span id="venta-totales-productos" class="font-semibold text-slate-200">@Model.Total.ToString("C2")</span>
                                 </div>
-                                <div class="flex justify-between w-64 text-sm">
+                                @if (Model.IVA > 0m)
+                                {
+                                    <div id="venta-iva-incluido" class="flex justify-between w-full max-w-xs text-xs text-slate-400">
+                                        <span>Incluye IVA</span>
+                                        <span>@Model.IVA.ToString("C2")</span>
+                                    </div>
+                                }
+                                <div class="flex justify-between w-full max-w-xs text-sm">
                                     <span class="text-slate-400">Envío</span>
                                     <span id="venta-totales-envio" class="font-semibold text-slate-200">@Model.ImporteEnvio.ToString("C2")</span>
                                 </div>
-                                <div class="flex justify-between w-64 text-lg pt-2 border-t border-slate-700">
+                                <div class="flex justify-between w-full max-w-xs text-lg pt-2 border-t border-slate-700">
                                     <span class="font-bold text-white">Total a cobrar</span>
                                     <span id="venta-totales-a-cobrar" class="font-black text-primary">@Model.TotalACobrar.ToString("C2")</span>
                                 </div>
                             }
                             else
                             {
-                                <div class="flex justify-between w-64 text-lg pt-2 border-t border-slate-700">
+                                <div class="flex justify-between w-full max-w-xs text-lg pt-2 border-t border-slate-700">
                                     <span class="font-bold text-white">Total</span>
                                     <span class="font-black text-primary">@Model.Total.ToString("C2")</span>
                                 </div>
+                                @if (Model.IVA > 0m)
+                                {
+                                    <div id="venta-iva-incluido" class="flex justify-between w-full max-w-xs text-xs text-slate-400">
+                                        <span>Incluye IVA</span>
+                                        <span>@Model.IVA.ToString("C2")</span>
+                                    </div>
+                                }
                             }
                         </div>
                     </div>
@@ -746,7 +775,7 @@
                                solo en Acciones (única autoridad de qué mostrar, ver arriba) —
                                esta card queda informativa, mismo patrón que Facturación, que
                                tampoco repite "Imprimir Factura" dentro de su propia sección. *@
-                            <p class="mt-5 text-xs text-slate-500">
+                            <p class="mt-5 text-xs text-slate-400">
                                 @(string.IsNullOrWhiteSpace(contratoVentaCredito.NombreArchivo) ? "PDF contractual generado." : contratoVentaCredito.NombreArchivo)
                             </p>
                         </section>

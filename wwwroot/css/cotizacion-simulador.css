@@ -1312,6 +1312,35 @@ body:has([role="dialog"]:not(.hidden)) .cotz-app #cotizacion-feedback {
    flex: 0 0 auto;
 }
 
+/* "Facturar al confirmar" fuera del <details>: siempre visible bajo Condiciones. */
+.cotz-app .cond-card {
+   border-radius: 12px;
+   background: var(--cz-s2);
+   border: 1px solid var(--cz-line-2);
+   --cz-field-bg: var(--cz-s1);
+}
+
+.cotz-app .cond-card>.condiciones-zone {
+   background: none;
+   border: 0;
+   border-radius: 0;
+}
+
+.cotz-app .cond-facturar {
+   margin: 0 18px;
+   padding: 12px 0;
+   border-top: 1px solid var(--cz-line-2);
+}
+
+.cotz-app .cond-facturar.hidden {
+   display: none;
+}
+
+.cotz-app .cond-facturar .cond-check {
+   font-weight: 700;
+   color: var(--cz-text);
+}
+
 .cotz-app .cond-checks {
    display: flex;
    flex-direction: column;

@@ -416,3 +416,8 @@ html.dark .ordencompra-summary-totals {
     min-height: 2.75rem;
 }
 #main-content :is(a, button)[class~="h-10"] { min-height: 2.75rem; }
+
+/* Index: desplegable de productos solicitados (recibido de pedido) */
+.oc-items-details > summary::-webkit-details-marker { display: none; }
+.oc-items-details__icon { transition: transform 0.15s ease; }
+.oc-items-details[open] .oc-items-details__icon { transform: rotate(180deg); }

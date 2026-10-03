@@ -84,6 +84,11 @@ namespace TheBuryProject.ViewModels
         [DisplayFormat(DataFormatString = "{0:C2}")]
         public decimal CostoUnitarioAlMomento { get; set; }
 
+        /// <summary>Snapshot de la comisión del vendedor calculada para la línea (solo lectura).</summary>
+        public decimal ComisionPorcentajeAplicada { get; set; }
+
+        public decimal ComisionMonto { get; set; }
+
         /// <summary>Armado opcional de la línea (Armado N.º 1..6). Null = sin armado.</summary>
         [Display(Name = "Armado")]
         public TipoServicioVenta? TipoArmado { get; set; }

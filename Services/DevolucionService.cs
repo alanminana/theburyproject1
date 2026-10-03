@@ -115,6 +115,11 @@ public class DevolucionService : IDevolucionService
         if (venta == null)
             throw new InvalidOperationException("La venta no existe");
 
+        // Devolucion.ClienteId es obligatorio: una venta sin cliente (ClienteId null) no puede
+        // devolverse; sin esta guarda el insert falla con FK_Devoluciones_Clientes_ClienteId.
+        if (venta.ClienteId is null || devolucion.ClienteId != venta.ClienteId)
+            throw new InvalidOperationException("La venta no tiene un cliente asociado válido para registrar la devolución");
+
         // Validaciones básicas de detalles
         if (detalles.Any(d => d.Cantidad <= 0))
             throw new InvalidOperationException("La cantidad a devolver debe ser mayor a 0");

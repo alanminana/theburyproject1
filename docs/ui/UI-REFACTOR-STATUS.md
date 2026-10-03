@@ -613,6 +613,17 @@ estilos de impresión dedicada para el módulo.
   concurrente detectado (`Controllers/VentaController.cs` modificado,
   `VentaControllerEditEnvioModelStateTests.cs` nuevo) — no tocado.
 
+- reapertura VENTA-DETAILS-TOTALES-01 (/ui-module, 2026-10-02), bloque de totales de
+  `Details_tw.cshtml`: Subtotal $37.500 + IVA $6.508 no sumaba al Total $37.500 (el IVA está
+  incluido pero se listaba como sumando) y el Subtotal repetía el desglose Productos/Armados
+  de la tarjeta superior; la tarjeta (320px) y las filas (256px) estaban desalineadas y el
+  importe del armado se partía ("$" / "25.000,00"). Fix: una sola columna `max-w-xs`
+  alineada, "Incluye IVA" como nota bajo el Total, Subtotal oculto sólo cuando coincide con
+  el desglose y no hay descuento, importes de armado sin wrap. Sin cambios de backend ni de
+  ids. QA real 1440/1024/390/360: 0 overflow, 0 errores de consola; `VentaDetails*` 58/58.
+  No validadas: variantes con envío fuera del total, descuento y recargos (sin datos
+  reproducibles; sólo revisadas por código).
+
 ## Cotización / Simular — cerrado
 
 ### Venta en efectivo con contacto libre (2026-09-26)
@@ -2484,3 +2495,13 @@ rechazado para `contador` y `gerente`. 1440/1024/390 sin overflow de página, 0 
 
 Estado: **LISTO PARA COMMIT** para este alcance (fases formales ejecutadas, sin superficies relevantes en NO VALIDADA); la deuda de
 arriba es explícita y no bloquea.
+
+## Reporte/Index (hub de reportes) — `/ui-module` 2026-10-02
+
+Pantalla: `Views/Reporte/Index_tw.cshtml` (única vista tocada; sin cambios de backend, rutas ni contratos).
+
+- **Hallazgos (ux-heuristics + critique, detector `impeccable detect` sin findings):** (P1) el `h1` "Reportes" repetía el título del header de la app; (P1) la tarjeta "Movimientos valorizados" se mostraba a quien no tiene `reportes.stock` y llevaba a un 403 (el controller exige ese permiso); (P2) ícono centrado con texto alineado a la izquierda (alineación rota), sin indicio de navegación; (P2) ancho `max-w-5xl` distinto de los reportes (`max-w-7xl`), el contenido "saltaba" al entrar.
+- **Cambio:** h1 → `sr-only`; grid auto-fill (3 columnas desde ~1440; `lg:grid-cols-3` queda pisado por una regla `sm:` posterior del tailwind.css precompilado); lista semántica `<ul>` de 6 tarjetas con ícono en tile, título, descripción y flecha; `max-w-7xl`; tarjeta de Movimientos condicionada por `User.TienePermiso("reportes","stock")`. Mismos destinos (`asp-action`), mismos textos.
+- **QA real (Playwright, LocalDB, admin):** 1440×900, 1280×720, 1024×720, 768×1024, 390×844, 360×800 sin overflow horizontal (scrollWidth = innerWidth), 0 errores de consola; foco por teclado visible.
+- **NO VALIDADA:** variante sin `reportes.stock` (ningún rol sembrado la produce: Gerente/Contador tienen todas las acciones de `reportes`; sólo se alcanza con un rol personalizado). Lógica verificada por lectura de código, no renderizada.
+- Estado: **REQUIERE AJUSTE** únicamente por esa variante pendiente.

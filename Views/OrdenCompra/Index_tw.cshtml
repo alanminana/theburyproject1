@@ -268,7 +268,31 @@
                                 @OrdenCompraUiHelper.EstadoNombre(o.Estado)
                             </span>
                         </td>
-                        <td class="px-3 py-2.5">@o.TotalItems</td>
+                        <td class="px-3 py-2.5 align-top">
+                            <details class="oc-items-details" style="min-width: 11rem">
+                                <summary class="inline-flex cursor-pointer items-center gap-1 whitespace-nowrap font-semibold"
+                                         style="list-style: none"
+                                         aria-label="Ver productos solicitados: @o.TotalRecibido de @o.TotalItems recibidos">
+                                    <span>@o.TotalRecibido de @o.TotalItems</span>
+                                    <span class="material-symbols-outlined text-[18px] text-slate-400 oc-items-details__icon" aria-hidden="true">expand_more</span>
+                                </summary>
+                                <ul class="mt-2 space-y-1.5 border-l border-slate-700 pl-3 text-xs">
+                                    @foreach (var d in o.Detalles)
+                                    {
+                                        <li class="flex items-start justify-between gap-3">
+                                            <span class="text-slate-300">
+                                                @(d.ProductoNombre ?? "Producto")
+                                                @if (!string.IsNullOrWhiteSpace(d.ProductoCodigo))
+                                                {
+                                                    <span class="block text-slate-500">@d.ProductoCodigo</span>
+                                                }
+                                            </span>
+                                            <span class="shrink-0 whitespace-nowrap font-semibold @(d.CantidadRecibida >= d.Cantidad ? "text-emerald-300" : "text-slate-200")">@d.CantidadRecibida de @d.Cantidad</span>
+                                        </li>
+                                    }
+                                </ul>
+                            </details>
+                        </td>
                         <td class="px-3 py-2.5 font-bold whitespace-nowrap">$@o.Total.ToString("N2")</td>
                         <td class="pl-3 pr-2 py-2.5 text-right whitespace-nowrap">
                             <div class="flex flex-nowrap justify-end gap-1">
