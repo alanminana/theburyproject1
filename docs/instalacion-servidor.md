@@ -129,8 +129,9 @@ la imagen anterior sigue disponible: `bash scripts/deploy/rollback.sh --to-image
 La instalación usa **solo backups locales** (`BACKUP_REQUIRE_OFFSITE=false`): full diario, log de transacciones cada 15 min y prueba de restauración semanal, en `BACKUP_DIR`.
 Esto cubre errores de aplicación y borrados accidentales, **no** la pérdida del servidor. Para reducir el riesgo:
 
-- Poner `BACKUP_DIR` en un **disco físico distinto** del sistema (en Windows: la ruta del disco montada en WSL, por ejemplo `/mnt/d/bury-backups`; verificar que se pueda escribir).
-- Copiar esa carpeta a un disco externo periódicamente y guardarlo en otro lugar.
+- Dejar `BACKUP_DIR` dentro de WSL (en Linux, `/srv/bury-backups`). **No usar `/mnt/c` ni `/mnt/d`:** la subcarpeta `sql` debe pertenecer al usuario del contenedor de SQL Server (uid 10001) y los discos de Windows (NTFS) no lo permiten. Esa subcarpeta no se puede listar con el usuario normal del host: es lo esperado.
+- **Copiar los backups a un disco externo periódicamente** y guardarlo en otro lugar. En Windows la carpeta se ve desde el Explorador en `\\wsl.localhost\Ubuntu\<ruta>` (el contenido de `sql` requiere `wsl -u root`).
+- En Linux, si hay un segundo disco físico, montarlo y usarlo como `BACKUP_DIR`.
 - Para activar copia externa más adelante: [offsite-monitoring-activacion.md](offsite-monitoring-activacion.md) (definir `BACKUP_REMOTE=secure:erp` y `BACKUP_REQUIRE_OFFSITE=true`).
 
 Restauración: [backup-restore.md](backup-restore.md) §10.
@@ -159,5 +160,6 @@ bash scripts/backup/restore-test.sh                      # restauración no dest
 
 ## 11. Alcance y pendientes
 
-- **Validación:** `install.sh` (generación de `.env`) y el flujo de `install-windows.ps1` (modo `-DryRun`) están probados. La instalación completa sobre un Windows real con Docker Desktop se valida en la primera instalación en el equipo de destino.
+- **Validación (2026-10-03):** `install.sh` se ejecutó de punta a punta en WSL2 (Ubuntu) con Docker Desktop: instalación nueva (115 migraciones, health y smoke OK), actualización a una imagen nueva con backup previo verificado, Caddy con HTTPS y CA (verificación TLS correcta con la CA y rechazada sin ella), y 8080/1433 sin publicar. El generador de `.env` tiene 40 comprobaciones (corren en CI).
+  `install-windows.ps1` está probado con `-DryRun`, validaciones de parámetros y `-Uninstall -DryRun`; **sus efectos reales (firewall, tareas programadas, energía) se ejecutan por primera vez en la instalación del equipo de destino.**
 - **No incluido todavía:** alertas por Telegram, observador externo de caídas, copia externa de backups y el planificador de backups dentro de Docker (hoy corre en el anfitrión, con cron en Linux y Programador de tareas en Windows).
