@@ -599,7 +599,16 @@
                                                                     <span class="material-symbols-outlined" style="font-size:16px">save</span> Guardar cotización
                                                                 </button>
                                                                 @* COTIZACION-MIVENTA-02 (§7/§8/§26 del pedido): segundo camino explícito
-
+                       para poder comparar ambas experiencias durante la POC — nunca deriva
+                       silenciosamente, sólo se activa con este click. Crea la Venta SIN
+                       confirmar (mismo ConvertirAVentaAsync existente, ConfirmarVenta=false)
+                       y va siempre a Venta/Edit, que ya reconstituye el wizard completo
+                       desde la Venta persistida. Secundaria: nunca compite en peso visual
+                       con la acción primaria. *@
+                                                                <button id="cotizacion-continuar-wizard" type="button" class="btn btn-soft" disabled>
+                                                                    Continuar con wizard <span class="material-symbols-outlined"
+                                                                                               style="font-size:16px">arrow_forward</span>
+                                                                </button>
                                                                 @* COTIZACION-MIVENTA-02: "Confirmar Mi Venta" corre el preflight ANTES
                        de crear la Venta (§NUEVA REGLA FUNDAMENTAL del pedido) — sólo si
                        Listo=true guarda, convierte, confirma y factura si corresponde, y
