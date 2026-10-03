@@ -11,12 +11,12 @@
 #   2. genera .env a partir de .env.example con secretos aleatorios (0600) SOLO si no existe; nunca lo pisa
 #   3. construye la imagen con tag inmutable <fecha>-<commit>[-dirty] (o usa --image)
 #   4. scripts/deploy/deploy.sh (preflight -> backup -> db-init -> migrate -> app -> health -> smoke)
-#   5. extrae la CA publica de Caddy a ./caddy-root-ca.crt para instalarla en los clientes
+#   5. levanta Caddy (deploy.sh no lo gestiona) y extrae su CA publica a ./caddy-root-ca.crt para instalarla en los clientes
 #   6. con --schedule (solo Linux, requiere sudo) instala cron de backups; en Windows lo hace install-windows.ps1
 #
 #   --env-only   solo genera .env (sin docker; lo usa test-install.sh)      --no-deploy  deja todo listo pero no despliega
 #   --yes        no pide confirmacion
-# Nunca imprime secretos salvo la password inicial del administrador, UNA vez, cuando este mismo run genero el .env.
+# Nunca imprime secretos salvo la password inicial del administrador, UNA vez, justo cuando este run genera el .env.
 # Documentacion: docs/instalacion-servidor.md
 # shellcheck source=../deploy/lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/../deploy/lib.sh"
@@ -125,6 +125,15 @@ generate_env() {
   umask "$old_umask"
   ENV_GENERATED=1
   log INFO "OK   .env generado en $target (permisos 600, secretos aleatorios)"
+  # Se muestra aqui, una sola vez y a stdout (no al log), para que no se pierda si un paso posterior falla.
+  if (( ! ENV_ONLY )); then
+    echo
+    echo "=============================================================================="
+    echo " Administrador inicial   usuario: $ADMIN_USER   password: $ADMIN_PASSWORD_GENERATED"
+    echo " Se muestra UNA sola vez (tambien queda en $target hasta que la cambies)."
+    echo "=============================================================================="
+    echo
+  fi
 }
 
 ensure_env() {
@@ -177,6 +186,14 @@ build_image() {
   docker build -t "$IMAGE" "$REPO_DIR" || die $EX_IMAGE "docker build fallo"
 }
 
+# ---------------------------------------------------------------- Caddy
+# deploy.sh no gestiona Caddy (en un host con Caddy ya corriendo no lo toca): en una instalacion nueva hay que levantarlo aqui.
+# `up -d` es idempotente: si ya corre con la misma configuracion no lo recrea.
+start_caddy() {
+  dc up -d caddy >/dev/null 2>&1 || die $EX_PREREQ "no se pudo levantar caddy (docker compose -p $DP_PROJECT logs caddy); si el puerto 443 esta ocupado definir ERP_HTTPS_PORT en .env"
+  log INFO "OK   caddy en ejecucion (unico servicio publicado: HTTPS)"
+}
+
 # ---------------------------------------------------------------- CA de Caddy
 export_caddy_ca() {
   local out="$REPO_DIR/caddy-root-ca.crt" i
@@ -216,6 +233,7 @@ fi
 resolve_image
 build_image
 bash "$DP_SCRIPT_DIR/deploy.sh" --image "$IMAGE" --env-file "$DP_ENV_FILE" --project "$DP_PROJECT" || die $? "deploy fallo (ver mensajes anteriores y docs/deploy-rollback.md)"
+start_caddy
 export_caddy_ca
 
 if (( SCHEDULE )); then
@@ -231,8 +249,6 @@ echo
 echo "ERP:      https://$DOMAIN   (los clientes deben resolver '$DOMAIN' y confiar en caddy-root-ca.crt)"
 echo "Imagen:   $IMAGE"
 if (( ENV_GENERATED )); then
-  echo "Usuario:  $ADMIN_USER"
-  echo "Password: $ADMIN_PASSWORD_GENERATED     <- inicial, se muestra UNA sola vez"
   echo
   echo "Ahora: 1) guardar el archivo $DP_ENV_FILE completo en el gestor de contrasenas (sin el no se puede recuperar el sistema)."
   echo "       2) entrar, cambiar la password, y luego quitar ADMIN_PASSWORD del .env y ejecutar: docker compose -p $DP_PROJECT rm -f migrate"
