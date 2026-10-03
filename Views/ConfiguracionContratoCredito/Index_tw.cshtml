@@ -181,12 +181,12 @@
                         </div>
                         <div class="flex flex-col gap-1.5">
                             <label asp-for="VigenteDesde" class="text-sm font-semibold text-slate-300"></label>
-                            <input asp-for="VigenteDesde" type="date" readonly="@(!puedeEditar)" class="h-12 rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
+                            <input asp-for="VigenteDesde" type="date" data-fecha="hoy" readonly="@(!puedeEditar)" class="h-12 rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
                             <span asp-validation-for="VigenteDesde" class="text-xs text-red-500"></span>
                         </div>
                         <div class="flex flex-col gap-1.5">
                             <label asp-for="VigenteHasta" class="text-sm font-semibold text-slate-300"></label>
-                            <input asp-for="VigenteHasta" type="date" readonly="@(!puedeEditar)" class="h-12 rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
+                            <input asp-for="VigenteHasta" type="date" data-fecha="futura" readonly="@(!puedeEditar)" class="h-12 rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
                             <span asp-validation-for="VigenteHasta" class="text-xs text-red-500"></span>
                         </div>
                     </div>
