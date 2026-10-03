@@ -71,17 +71,23 @@ if [[ -f "$DP_ENV_FILE" ]]; then
       log ERROR "FAIL falta variable obligatoria en env-file: $key"; FAIL=1
     fi
   done
-  # Licencia comercial de AutoMapper (politica de produccion): solo se valida que exista y no este vacia. Nunca se imprime el valor.
+  # Licencia de AutoMapper. Con AUTOMAPPER_LICENSE_MODE=community (licencia Community gratuita, autoservicio, sin key) no se exige key.
+  # Cualquier otro valor (o ausente) = licencia comercial: solo se valida que la key exista y no este vacia. Nunca se imprime el valor.
   # Se ignoran espacios y comillas envolventes para que AUTOMAPPER_LICENSE_KEY='' o "" cuenten como vacia.
+  am_mode_line=$(grep -E '^[[:space:]]*AUTOMAPPER_LICENSE_MODE=' "$DP_ENV_FILE" | tail -n1 || true)
+  am_mode=${am_mode_line#*=}
+  am_mode=$(printf '%s' "$am_mode" | tr -d '\r' | sed -E "s/^[[:space:]]+//; s/[[:space:]]+$//; s/^(['\"])(.*)\1$/\2/" | tr 'A-Z' 'a-z')
   am_line=$(grep -E '^[[:space:]]*AUTOMAPPER_LICENSE_KEY=' "$DP_ENV_FILE" | tail -n1 || true)
   am_val=${am_line#*=}
   am_val=$(printf '%s' "$am_val" | tr -d '\r' | sed -E "s/^[[:space:]]+//; s/[[:space:]]+$//; s/^(['\"])(.*)\1$/\2/")
-  if [[ -n "${am_val//[[:space:]]/}" ]]; then
+  if [[ "$am_mode" == "community" ]]; then
+    log INFO "OK   AutoMapper: licencia Community (AUTOMAPPER_LICENSE_MODE=community), no se exige AUTOMAPPER_LICENSE_KEY"
+  elif [[ -n "${am_val//[[:space:]]/}" ]]; then
     log INFO "OK   variable presente: AUTOMAPPER_LICENSE_KEY"
   else
-    log ERROR "FAIL Required production setting AUTOMAPPER_LICENSE_KEY is missing (falta o esta vacia en env-file)"; FAIL=1
+    log ERROR "FAIL Required production setting AUTOMAPPER_LICENSE_KEY is missing (falta o esta vacia en env-file; para licencia Community definir AUTOMAPPER_LICENSE_MODE=community)"; FAIL=1
   fi
-  unset am_line am_val
+  unset am_mode_line am_mode am_line am_val
 else
   log ERROR "FAIL env-file no existe: $DP_ENV_FILE"; FAIL=1
 fi
