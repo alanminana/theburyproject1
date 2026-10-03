@@ -534,29 +534,14 @@
                             </section>
                         }
 
-                            <!-- Quick Notes -->
-                            <section data-dashboard-notes class="card-erp-panel p-4">
-                                <div class="mb-3 flex items-center justify-between">
-                                    <div class="flex items-center gap-2">
-                                        <span class="material-symbols-outlined text-primary text-[18px]">note_stack</span>
-                                        <h2 class="text-xs font-bold uppercase tracking-wide text-slate-300">Notas rápidas</h2>
-                                    </div>
-                                    <span class="text-[10px] text-slate-500">Solo en este navegador</span>
-                                </div>
-                                <div class="rounded-xl border border-primary/20 bg-primary/5 p-3">
-                                    <textarea id="notaTextarea" data-dashboard-note-input aria-label="Nota rápida"
-                                              class="w-full h-16 bg-transparent border-none resize-none focus:ring-0 text-sm text-slate-300 placeholder:text-slate-500"
-                                              placeholder="Escribí un recordatorio..."></textarea>
-                                    <div class="flex items-center justify-between border-t border-primary/10 pt-2 mt-1">
-                                        <span id="notaStatus" data-dashboard-note-status class="text-[10px] text-slate-400"></span>
-                                        <button type="button" data-dashboard-action="save-note" class="btn-erp-ghost btn-erp-sm">
-                                            <span class="material-symbols-outlined icon-erp-sm">save</span>
-                                            Guardar
-                                        </button>
-                                    </div>
-                                </div>
-                                <div id="notasLista" data-dashboard-note-list class="mt-3 space-y-1.5 max-h-40 overflow-y-auto"></div>
-                            </section>
+                        <!-- Notas rápidas (mismas notas que el desplegable del header, guardadas por usuario) -->
+                        <section data-dashboard-notes class="card-erp-panel notas-card overflow-hidden">
+                            <div class="flex items-center gap-2 px-4 pt-4 pb-3">
+                                <span class="material-symbols-outlined text-primary text-[18px]" aria-hidden="true">checklist</span>
+                                <h2 class="text-xs font-bold uppercase tracking-wide text-slate-300">Notas rápidas</h2>
+                            </div>
+                            <partial name="_NotasRapidasContenido" model="@("dashboard")" />
+                        </section>
 
                         <!-- Actividad reciente -->
                         <section class="card-erp-panel p-4">

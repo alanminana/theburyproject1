@@ -368,3 +368,8 @@
 #main-content table a.block.truncate { display: flex; align-items: center; min-height: 2.75rem; }
 #main-content :is(a, button)[class~="h-10"] { min-height: 2.75rem; }
 #main-content table a[href^="mailto:"], #main-content table a[href^="tel:"] { min-height: 2.75rem; display: flex; align-items: center; }
+
+/* Index: desplegable de productos del proveedor */
+.prov-productos-details > summary::-webkit-details-marker { display: none; }
+.prov-productos-details__icon { transition: transform 0.15s ease; }
+.prov-productos-details[open] .prov-productos-details__icon { transform: rotate(180deg); }
