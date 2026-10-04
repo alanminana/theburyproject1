@@ -24,6 +24,11 @@ namespace TheBuryProject.Services.Documentos
 
         private static readonly DateTime Vigencia = new(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
+        /// <summary>
+        /// Configuración documental de EJEMPLO (tipos, plantillas, paquete, reglas y migración de contratos legados).
+        /// Ya NO se ejecuta al iniciar la aplicación (ver DbInitializer): la usan los tests para armar un escenario y puede
+        /// invocarse a mano. Para vaciar el sistema documental existe scripts/documentos/limpiar-sistema-documental.sql.
+        /// </summary>
         public static async Task EnsureAsync(AppDbContext context, ILogger logger)
         {
             if (!await context.TiposDocumento.AnyAsync())
@@ -121,7 +126,7 @@ namespace TheBuryProject.Services.Documentos
         /// La empresa tiene su propia configuración. La primera vez se copia de la plantilla de contrato vigente
         /// (que era su única fuente), así los documentos siguen mostrando los mismos datos.
         /// </summary>
-        private static async Task AsegurarEmpresaAsync(AppDbContext context, ILogger logger)
+        public static async Task AsegurarEmpresaAsync(AppDbContext context, ILogger logger)
         {
             if (await context.EmpresasConfiguracion.AnyAsync())
                 return;
