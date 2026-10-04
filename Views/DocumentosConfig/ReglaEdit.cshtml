@@ -1,0 +1,169 @@
+﻿@using System.Text.Json
+@using TheBuryProject.Services.Documentos
+@model TheBuryProject.Services.Interfaces.ReglaDocumentoInput
+@{
+    var esNueva = Model.Id == 0;
+    ViewData["Title"] = esNueva ? "Nueva regla" : "Editar regla";
+    ViewData["DocTab"] = "reglas";
+    var eventos = (IReadOnlyList<EventoDocumentalInfo>)ViewBag.Eventos;
+    var plantillas = (List<TheBuryProject.Models.Entities.PlantillaDocumento>)ViewBag.Plantillas;
+    var paquetes = (List<TheBuryProject.Models.Entities.PaqueteDocumental>)ViewBag.Paquetes;
+
+    var catalogo = JsonSerializer.Serialize(new
+    {
+        eventos = eventos.Select(e => new { codigo = e.Codigo, ancla = (int)e.Ancla }),
+        campos = CatalogoDocumento.Campos.Select(c => new
+        {
+            ruta = c.Ruta,
+            etiqueta = c.Etiqueta,
+            tipo = (int)c.Tipo,
+            grupo = c.Grupo,
+            valores = c.Valores,
+            anclas = c.Anclas?.Select(a => (int)a)
+        })
+    });
+    var destino = Model.PaqueteDocumentalId != null ? "paquete" : "plantilla";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/documentos-module.css" asp-append-version="true" />
+}
+
+<div class="doc-module" data-doc-page="regla">
+    <header class="doc-head">
+        <h1 class="doc-title">Documentos</h1>
+        <p class="doc-sub">Cuando ocurre el evento y se cumplen las condiciones, se genera la plantilla o el paquete elegido. Las condiciones no ejecutan código: solo comparan datos de la operación.</p>
+        <partial name="_Tabs" />
+    </header>
+
+    <partial name="_Flash" />
+
+    <form method="post" asp-action="ReglaEdit" class="doc-form">
+        @Html.AntiForgeryToken()
+        <input type="hidden" asp-for="Id" />
+
+        <section class="doc-card">
+            <h2>Regla</h2>
+            <div class="doc-grid-2">
+                <div class="doc-field">
+                    <label asp-for="Nombre">Nombre</label>
+                    <input asp-for="Nombre" class="doc-input" maxlength="150" required placeholder="Contrato crédito estándar" />
+                </div>
+                <div class="doc-field">
+                    <label for="doc-evento">Evento (cuándo)</label>
+                    <select asp-for="EventoCodigo" id="doc-evento" class="doc-select">
+                        @foreach (var e in eventos)
+                        {
+                            <option value="@e.Codigo" selected="@(Model.EventoCodigo == e.Codigo)">@e.Nombre</option>
+                        }
+                    </select>
+                </div>
+            </div>
+        </section>
+
+        <section class="doc-card">
+            <h2>Condiciones (cuando…)</h2>
+            <p class="doc-hint" id="doc-cond-advanced-note" hidden>
+                Esta regla usa grupos anidados: se edita como JSON. Solo se aceptan campos y operadores del catálogo.
+            </p>
+            <input type="hidden" asp-for="CondicionJson" id="doc-condicion-json" />
+            <div id="doc-cond-builder">
+                <div class="doc-field" style="max-width:24rem;margin-bottom:.75rem">
+                    <label for="doc-grupo-op">Debe cumplirse</label>
+                    <select id="doc-grupo-op" class="doc-select">
+                        <option value="todas">TODAS las condiciones</option>
+                        <option value="cualquiera">CUALQUIERA de las condiciones</option>
+                    </select>
+                </div>
+                <div id="doc-cond-rows"></div>
+                <button type="button" id="doc-cond-add" class="doc-btn" style="margin-top:.6rem">
+                    <span class="material-symbols-outlined" aria-hidden="true">add</span>Agregar condición
+                </button>
+                <p class="doc-hint" style="margin-top:.6rem">Sin condiciones, la regla se aplica siempre que ocurra el evento.</p>
+            </div>
+            <textarea id="doc-cond-raw" class="doc-textarea" style="min-height:8rem" hidden aria-label="Condiciones en JSON" spellcheck="false"></textarea>
+        </section>
+
+        <section class="doc-card">
+            <h2>Resultado (generar…)</h2>
+            <div class="doc-grid-2">
+                <div class="doc-field">
+                    <label for="doc-destino">Qué genera</label>
+                    <select id="doc-destino" class="doc-select">
+                        <option value="plantilla" selected="@(destino == "plantilla")">Una plantilla</option>
+                        <option value="paquete" selected="@(destino == "paquete")">Un paquete de documentos</option>
+                    </select>
+                </div>
+                <div class="doc-field" id="doc-destino-plantilla" hidden="@(destino != "plantilla")">
+                    <label asp-for="PlantillaDocumentoId">Plantilla</label>
+                    <select asp-for="PlantillaDocumentoId" class="doc-select">
+                        <option value="">Elegí una plantilla…</option>
+                        @foreach (var p in plantillas)
+                        {
+                            <option value="@p.Id" selected="@(Model.PlantillaDocumentoId == p.Id)">@p.TipoDocumento.Nombre — @p.Nombre@(p.Activa ? "" : " (inactiva)")</option>
+                        }
+                    </select>
+                </div>
+                <div class="doc-field" id="doc-destino-paquete" hidden="@(destino != "paquete")">
+                    <label asp-for="PaqueteDocumentalId">Paquete</label>
+                    <select asp-for="PaqueteDocumentalId" class="doc-select">
+                        <option value="">Elegí un paquete…</option>
+                        @foreach (var q in paquetes)
+                        {
+                            <option value="@q.Id" selected="@(Model.PaqueteDocumentalId == q.Id)">@q.Nombre@(q.Activo ? "" : " (inactivo)")</option>
+                        }
+                    </select>
+                </div>
+            </div>
+        </section>
+
+        <section class="doc-card">
+            <h2>Comportamiento</h2>
+            <div class="doc-grid-3">
+                <div class="doc-field">
+                    <label asp-for="Prioridad">Prioridad</label>
+                    <input asp-for="Prioridad" type="number" min="0" max="10000" class="doc-input" />
+                    <span class="doc-hint" style="margin:0">Mayor número = se evalúa primero.</span>
+                </div>
+                <div class="doc-field">
+                    <label asp-for="GrupoExclusion">Grupo de exclusión (opcional)</label>
+                    <input asp-for="GrupoExclusion" class="doc-input" maxlength="50" placeholder="contrato-credito" />
+                    <span class="doc-hint" style="margin:0">Reglas del mismo grupo: solo se aplica la de mayor prioridad que coincida.</span>
+                </div>
+                <div>
+                    <label class="doc-check"><input type="checkbox" asp-for="Activa" /> Activa</label>
+                    <label class="doc-check"><input type="checkbox" asp-for="Obligatoria" /> Obligatoria (si falla, no se completa el paso)</label>
+                    <label class="doc-check"><input type="checkbox" asp-for="ExigeFirmaParaContinuar" /> Exige firma para continuar</label>
+                </div>
+            </div>
+        </section>
+
+        <div class="doc-actions">
+            <button type="submit" class="doc-btn doc-btn-primary">
+                <span class="material-symbols-outlined" aria-hidden="true">save</span>Guardar
+            </button>
+            <a asp-action="Reglas" class="doc-btn">Volver</a>
+        </div>
+    </form>
+</div>
+
+<script type="application/json" id="doc-catalog">@Html.Raw(catalogo)</script>
+
+@section Scripts {
+    <script src="~/js/documentos-config.js" asp-append-version="true"></script>
+    <script>
+        // Una regla genera una plantilla O un paquete: se muestra solo el selector elegido y se limpia el otro.
+        (function () {
+            var destino = document.getElementById('doc-destino');
+            var pl = document.getElementById('doc-destino-plantilla');
+            var pq = document.getElementById('doc-destino-paquete');
+            function aplicar() {
+                var esPlantilla = destino.value === 'plantilla';
+                pl.hidden = !esPlantilla;
+                pq.hidden = esPlantilla;
+                (esPlantilla ? pq : pl).querySelector('select').value = '';
+            }
+            destino.addEventListener('change', aplicar);
+        }());
+    </script>
+}

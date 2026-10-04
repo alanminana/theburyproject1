@@ -9,6 +9,7 @@ using TheBuryProject.Data;
 using TheBuryProject.Models.DTOs;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
+using TheBuryProject.Services.Documentos;
 using TheBuryProject.Services.Exceptions;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.Services.Models;
@@ -60,6 +61,7 @@ namespace TheBuryProject.Services
         private readonly IConfiguracionPagoService? _configuracionPagoService;
         private readonly IRelojComercial _reloj;
         private readonly IPunitorioService _punitorioService;
+        private readonly IDocumentoService? _documentoService;
 
         public CreditoService(
             AppDbContext context,
@@ -72,7 +74,8 @@ namespace TheBuryProject.Services
             IClienteScoringService? clienteScoringService = null,
             IConfiguracionPagoService? configuracionPagoService = null,
             IRelojComercial? reloj = null,
-            IPunitorioService? punitorioService = null)
+            IPunitorioService? punitorioService = null,
+            IDocumentoService? documentoService = null)
         {
             _context = context;
             _mapper = mapper;
@@ -92,6 +95,36 @@ namespace TheBuryProject.Services
             // punitorio (cuota siempre no vencida): en ese camino nunca se invoca.
             _punitorioService = punitorioService ?? new PunitorioService(
                 context, new PunitorioCalculator(), _reloj, currentUserService, NullLogger<PunitorioService>.Instance);
+            // Opcional: sin motor documental (tests que construyen el servicio a mano) no se emite
+            // ningún recibo; en producción DI siempre lo resuelve.
+            _documentoService = documentoService;
+        }
+
+        /// <summary>
+        /// Dispara PAGO_REGISTRADO por cada pago aplicado, dentro de la transacción del cobro: un
+        /// documento obligatorio que falle revierte el cobro; los no obligatorios (el recibo por
+        /// defecto) quedan como error recuperable y no bloquean el pago.
+        /// </summary>
+        private async Task EmitirDocumentosPagoAsync(IReadOnlyCollection<int> pagoCuotaIds)
+        {
+            if (_documentoService == null || pagoCuotaIds.Count == 0)
+                return;
+
+            // Varios pagos de una misma operación (pago múltiple) se imprimen juntos.
+            Guid? grupo = pagoCuotaIds.Count > 1 ? Guid.NewGuid() : null;
+            foreach (var pagoId in pagoCuotaIds.OrderBy(i => i))
+            {
+                var resultado = await _documentoService.ProcesarEventoAsync(new DocumentoEventoRequest
+                {
+                    Evento = EventosDocumentales.PagoRegistrado,
+                    Origen = new DocumentoOrigen { PagoCuotaId = pagoId },
+                    GrupoImpresionId = grupo
+                });
+
+                foreach (var error in resultado.Errores)
+                    _logger.LogWarning("Pago {PagoCuotaId}: documento no obligatorio no generado ({Codigo}): {Mensaje}",
+                        pagoId, error.Codigo, error.Mensaje);
+            }
         }
 
         /// <summary>
@@ -1069,6 +1102,7 @@ namespace TheBuryProject.Services
 
                 await RecalcularSaldoCreditoAsync(cuota.CreditoId);
                 await RecalcularPuntajeClientePorPagoAsync(cuota.Credito.ClienteId);
+                await EmitirDocumentosPagoAsync(new[] { pagoCuota.Id });
                 await transaction.CommitAsync();
 
                 var capitalRestante = Math.Max(0m, cuota.MontoTotal - cuota.MontoPagado);
@@ -1663,6 +1697,8 @@ namespace TheBuryProject.Services
                 }
 
                 await RecalcularPuntajeClientePorPagoAsync(request.ClienteId, cancellationToken);
+
+                await EmitirDocumentosPagoAsync(pagosCuotaPorCuotaId.Values.Select(p => p.Id).ToList());
 
                 await transaction.CommitAsync(cancellationToken);
 

@@ -30,4 +30,12 @@
         <span class="material-symbols-outlined text-[18px]" aria-hidden="true">local_shipping</span>
         Envíos y armados
     </a>
+    @if (User.TieneCualquierPermiso(("documentos", "managetemplates"), ("documentos", "managerules"), ("documentos", "managetypes")))
+    {
+        <a asp-controller="DocumentosConfig" asp-action="Index"
+           class="cfgpago-tab" aria-current="@(activa == "documentos" ? "page" : null)">
+            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">description</span>
+            Documentos
+        </a>
+    }
 </nav>

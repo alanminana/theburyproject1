@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Data;
 using TheBuryProject.Models.Entities;
+using TheBuryProject.Services.Documentos;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.ViewModels;
 
@@ -67,6 +68,11 @@ namespace TheBuryProject.Services
                     foreach (var otra in otrasActivas)
                         otra.Activa = false;
                 }
+
+                // Los textos de contrato/pagaré editados acá son las plantillas estándar del motor
+                // documental: si cambiaron se registra una versión nueva (los documentos ya emitidos
+                // conservan la versión con la que se generaron).
+                await DocumentoSeeder.SincronizarPlantillasLegadasAsync(_context, plantilla);
 
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();

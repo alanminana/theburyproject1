@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Data;
 using TheBuryProject.Filters;
 using TheBuryProject.Models.Entities;
+using TheBuryProject.Services.Documentos;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.ViewModels;
 
@@ -92,6 +93,7 @@ namespace TheBuryProject.Controllers
             };
 
             _context.PlantillasContratoCredito.Add(plantilla);
+            await DocumentoSeeder.SincronizarPlantillasLegadasAsync(_context, plantilla);
             await _context.SaveChangesAsync();
 
             TempData["Success"] = $"Plantilla \"{plantilla.Nombre}\" creada exitosamente.";
@@ -165,6 +167,7 @@ namespace TheBuryProject.Controllers
             plantilla.VigenteHasta                = model.VigenteHasta?.Date;
             plantilla.UpdatedBy                   = _currentUser.GetUsername();
 
+            await DocumentoSeeder.SincronizarPlantillasLegadasAsync(_context, plantilla);
             await _context.SaveChangesAsync();
 
             TempData["Success"] = $"Plantilla \"{plantilla.Nombre}\" actualizada.";

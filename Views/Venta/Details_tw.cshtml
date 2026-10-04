@@ -739,7 +739,9 @@
                         </div>
                     </section>
 
-                    @if (contratoVentaCredito != null)
+                    @* Con permiso de Documentos, el panel "Documentos" (más abajo) ya muestra número, estado y acciones del
+                       contrato y el pagaré: esta tarjeta informativa solo queda para quien no puede ver documentos. *@
+                    @if (contratoVentaCredito != null && !User.TienePermiso("documentos", "view"))
                     {
                         <section class="card-erp-panel-padded">
                             <div class="mb-6 flex flex-col gap-3 border-b border-slate-800 pb-4 sm:flex-row sm:items-start sm:justify-between">
@@ -784,6 +786,9 @@
                         </section>
                     }
                 }
+
+                @* Documentos emitidos por el motor documental (contrato, pagaré, recibos, constancias…). *@
+                @await Component.InvokeAsync("DocumentosOperacion", new { ventaId = Model.Id })
 
                 <!-- Invoice Section (if facturada) -->
                 @if (facturas.Any())

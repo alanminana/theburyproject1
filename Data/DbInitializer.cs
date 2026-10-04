@@ -117,6 +117,7 @@ namespace TheBuryProject.Data
                 await SucursalesSeeder.SeedAsync(context, logger);
                 await EnsureRoleMetadataAsync(context, roleManager, logger);
                 await EnsurePlantillaContratoDefaultAsync(context, logger);
+                await Services.Documentos.DocumentoSeeder.EnsureAsync(context, logger);
                 logger.LogInformation("Roles, módulos, permisos y sucursales inicializados exitosamente");
 
                 // Crear usuario administrador si no existe (lee credenciales desde configuración/secret)
