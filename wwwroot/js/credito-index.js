@@ -747,12 +747,7 @@ document.addEventListener('DOMContentLoaded', function () {
             setPanelLocked(scope, true);
             setPagoStatus(scope, 'success', 'Pago registrado correctamente. Actualizando cartera...');
 
-            // El recibo se abre solo en una pestaña nueva (el click de "Registrar pago" aún cuenta como gesto del usuario).
-            var datos = payload.data || payload.Data || {};
-            var reciboId = datos.pagoCuotaIdRecibo || datos.PagoCuotaIdRecibo;
-            if (reciboId) {
-                window.open('/Documento/VerPorPago/' + encodeURIComponent(reciboId), '_blank');
-            }
+            // El recibo se abre solo: el servidor avisa con X-Documentos-Abrir y documentos-abrir.js lo muestra.
 
             window.setTimeout(function () {
                 window.location.reload();

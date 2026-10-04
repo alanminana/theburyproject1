@@ -165,14 +165,36 @@ public class DocumentoAperturaAutomaticaTests : DocumentoTestBase
 
         var (ajax, c3) = Contexto(new RedirectToActionResult("Details", "Venta", new { id = 1 }), ajax: true);
         await new DocumentosEmitidosFilter(tracker).OnResultExecutionAsync(ajax, () => Ejecutar(null!, ajax));
-        Assert.False(c3.TempData.ContainsKey(DocumentosEmitidosFilter.ClaveTempData));
+        Assert.False(c3.TempData.ContainsKey(DocumentosEmitidosFilter.ClaveTempData));   // AJAX: va por encabezado, no por TempData
 
         var (haciaElPdf, c4) = Contexto(new RedirectToActionResult("Ver", "Documento", new { id = 1 }));
         await new DocumentosEmitidosFilter(tracker).OnResultExecutionAsync(haciaElPdf, () => Ejecutar(null!, haciaElPdf));
         Assert.False(c4.TempData.ContainsKey(DocumentosEmitidosFilter.ClaveTempData));
 
-        var (json, c5) = Contexto(new JsonResult(new { ok = true }));
+        var (descarga, c6) = Contexto(new FileContentResult(new byte[] { 1 }, "application/pdf"));
+        await new DocumentosEmitidosFilter(tracker).OnResultExecutionAsync(descarga, () => Ejecutar(null!, descarga));
+        Assert.False(c6.TempData.ContainsKey(DocumentosEmitidosFilter.ClaveTempData));
+        Assert.False(descarga.HttpContext.Response.Headers.ContainsKey(DocumentosEmitidosFilter.EncabezadoAbrir));
+    }
+
+    [Fact]
+    public async Task ElFiltro_AvisaPorEncabezado_LasRespuestasAjaxYJson_YPorTempData_LasPaginas()
+    {
+        var tracker = new DocumentosEmitidosTracker();
+        tracker.Registrar(new[] { 4, 5 });
+
+        var (json, cj) = Contexto(new JsonResult(new { success = true }));
         await new DocumentosEmitidosFilter(tracker).OnResultExecutionAsync(json, () => Ejecutar(null!, json));
-        Assert.False(c5.TempData.ContainsKey(DocumentosEmitidosFilter.ClaveTempData));
+        Assert.Equal("4,5", json.HttpContext.Response.Headers[DocumentosEmitidosFilter.EncabezadoAbrir].ToString());
+        Assert.False(cj.TempData.ContainsKey(DocumentosEmitidosFilter.ClaveTempData));
+
+        var (ajaxRedirect, _) = Contexto(new RedirectToActionResult("Details", "Venta", new { id = 1 }), ajax: true);
+        await new DocumentosEmitidosFilter(tracker).OnResultExecutionAsync(ajaxRedirect, () => Ejecutar(null!, ajaxRedirect));
+        Assert.Equal("4,5", ajaxRedirect.HttpContext.Response.Headers[DocumentosEmitidosFilter.EncabezadoAbrir].ToString());
+
+        // Una página que se devuelve directamente (sin redirigir) también los abre, vía TempData que lee el layout.
+        var (pagina, cp) = Contexto(new ViewResult());
+        await new DocumentosEmitidosFilter(tracker).OnResultExecutionAsync(pagina, () => Ejecutar(null!, pagina));
+        Assert.Equal("4,5", cp.TempData[DocumentosEmitidosFilter.ClaveTempData]);
     }
 }

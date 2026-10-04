@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TheBuryProject.Filters;
+using TheBuryProject.Services.Documentos;
 using TheBuryProject.Services.Exceptions;
 using TheBuryProject.Services.Interfaces;
 
@@ -13,12 +14,15 @@ namespace TheBuryProject.Controllers
         private readonly IContratoVentaCreditoService _contratoService;
         private readonly ICurrentUserService _currentUser;
         private readonly ILogger<ContratoVentaCreditoController> _logger;
+        private readonly IDocumentosEmitidosTracker? _tracker;
 
         public ContratoVentaCreditoController(
             IContratoVentaCreditoService contratoService,
             ICurrentUserService currentUser,
-            ILogger<ContratoVentaCreditoController> logger)
+            ILogger<ContratoVentaCreditoController> logger,
+            IDocumentosEmitidosTracker? tracker = null)
         {
+            _tracker = tracker;
             _contratoService = contratoService;
             _currentUser = currentUser;
             _logger = logger;
@@ -58,6 +62,9 @@ namespace TheBuryProject.Controllers
             try
             {
                 await _contratoService.GenerarPdfAsync(ventaId, _currentUser.GetUsername());
+
+                // Esta pantalla abre el PDF del contrato por su cuenta (verUrl): el aviso general no debe abrirlo de nuevo.
+                _tracker?.Limpiar();
 
                 if (isAjax)
                 {
