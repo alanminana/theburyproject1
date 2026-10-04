@@ -30,6 +30,9 @@
     }
     @if (puedePlantillas)
     {
+        <a asp-controller="DocumentosConfig" asp-action="Empresa" class="doc-tab" aria-current="@(activa == "empresa" ? "page" : null)">
+            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">apartment</span>Empresa
+        </a>
         <a asp-controller="DocumentosConfig" asp-action="Variables" class="doc-tab" aria-current="@(activa == "variables" ? "page" : null)">
             <span class="material-symbols-outlined text-[18px]" aria-hidden="true">data_object</span>Variables
         </a>

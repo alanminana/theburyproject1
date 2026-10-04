@@ -73,6 +73,7 @@ namespace TheBuryProject.Services
                 // documental: si cambiaron se registra una versión nueva (los documentos ya emitidos
                 // conservan la versión con la que se generaron).
                 await DocumentoSeeder.SincronizarPlantillasLegadasAsync(_context, plantilla);
+                await DocumentoSeeder.SincronizarEmpresaDesdeLegadaAsync(_context, plantilla);
 
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();

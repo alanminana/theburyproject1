@@ -82,6 +82,7 @@ namespace TheBuryProject.Services.Interfaces
         Task<List<DocumentoGenerado>> ObtenerPorVentaAsync(int ventaId);
         Task<List<DocumentoGenerado>> ObtenerPorCreditoAsync(int creditoId);
         Task<List<DocumentoGenerado>> ObtenerPorPagoAsync(int pagoCuotaId);
+        Task<List<DocumentoGenerado>> ObtenerPorCotizacionAsync(int cotizacionId);
         Task<List<DocumentoGenerado>> ObtenerPorClienteAsync(int clienteId, int take = 100);
         Task<List<DocumentoGenerado>> ObtenerPorGrupoAsync(Guid grupoImpresionId);
 
@@ -100,7 +101,8 @@ namespace TheBuryProject.Services.Interfaces
         /// </summary>
         Task<DocumentoGenerado> RegenerarAsync(int id, string motivo, bool confirmarSobreFirmado = false);
 
-        Task FirmarAsync(int id, string rol, string? firmante);
+        /// <summary>Registra la firma de un rol. <paramref name="imagenFirma"/> (data URL PNG) es opcional: firma manuscrita capturada en pantalla.</summary>
+        Task FirmarAsync(int id, string rol, string? firmante, string? imagenFirma = null);
 
         /// <summary>Documentos de la venta que exigen firma para continuar y todavía no están firmados.</summary>
         Task<List<DocumentoGenerado>> ObtenerBloqueantesDeFirmaAsync(int ventaId);

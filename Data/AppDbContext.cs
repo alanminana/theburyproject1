@@ -76,6 +76,7 @@ namespace TheBuryProject.Data
         public DbSet<PaqueteDocumental> PaquetesDocumentales { get; set; }
         public DbSet<PaqueteDocumentalItem> PaquetesDocumentalesItems { get; set; }
         public DbSet<DocumentoGenerado> DocumentosGenerados { get; set; }
+        public DbSet<EmpresaConfiguracion> EmpresasConfiguracion { get; set; }
         public DbSet<ConfiguracionPago> ConfiguracionesPago { get; set; }
         public DbSet<ConfiguracionTarjeta> ConfiguracionesTarjeta { get; set; }
         public DbSet<ConfiguracionPagoPlan> ConfiguracionPagoPlanes { get; set; }
@@ -3120,6 +3121,19 @@ namespace TheBuryProject.Data
                     .HasForeignKey(e => e.PlantillaDocumentoId).OnDelete(DeleteBehavior.Restrict);
                 entity.HasOne(e => e.PaqueteDocumental).WithMany()
                     .HasForeignKey(e => e.PaqueteDocumentalId).OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<EmpresaConfiguracion>(entity =>
+            {
+                entity.ToTable("EmpresasConfiguracion");
+                entity.Property(e => e.Nombre).IsRequired().HasMaxLength(200);
+                entity.Property(e => e.Cuit).HasMaxLength(20);
+                entity.Property(e => e.Dni).HasMaxLength(20);
+                entity.Property(e => e.Domicilio).IsRequired().HasMaxLength(300);
+                entity.Property(e => e.Ciudad).IsRequired().HasMaxLength(120);
+                entity.Property(e => e.Jurisdiccion).IsRequired().HasMaxLength(200);
+                entity.Property(e => e.InteresMoraDiarioPorcentaje).HasPrecision(8, 4);
+                entity.HasQueryFilter(e => !e.IsDeleted);
             });
 
             modelBuilder.Entity<DocumentoGenerado>(entity =>

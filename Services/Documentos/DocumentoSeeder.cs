@@ -29,6 +29,8 @@ namespace TheBuryProject.Services.Documentos
             if (!await context.TiposDocumento.AnyAsync())
                 await SembrarConfiguracionAsync(context, logger);
 
+            await AsegurarEmpresaAsync(context, logger);
+            await ActivarConstanciaDeEntregaAsync(context, logger);
             await MigrarContratosLegadosAsync(context, logger);
         }
 
@@ -105,16 +107,82 @@ namespace TheBuryProject.Services.Documentos
                 },
                 new ReglaDocumento
                 {
-                    // Desactivada de fábrica: hoy el sistema no emite constancias; se activa desde Configuración.
                     Nombre = "Constancia de entrega",
                     EventoCodigo = EventosDocumentales.EntregaRealizada,
                     PlantillaDocumentoId = constancia.Id,
-                    Prioridad = 100,
-                    Activa = false
+                    Prioridad = 100
                 });
 
             await context.SaveChangesAsync();
             logger.LogInformation("Sistema documental inicializado: 5 tipos, 5 plantillas, 1 paquete, 4 reglas");
+        }
+
+        /// <summary>
+        /// La empresa tiene su propia configuración. La primera vez se copia de la plantilla de contrato vigente
+        /// (que era su única fuente), así los documentos siguen mostrando los mismos datos.
+        /// </summary>
+        private static async Task AsegurarEmpresaAsync(AppDbContext context, ILogger logger)
+        {
+            if (await context.EmpresasConfiguracion.AnyAsync())
+                return;
+
+            var legada = await context.PlantillasContratoCredito.AsNoTracking()
+                .OrderByDescending(p => p.Activa).ThenByDescending(p => p.VigenteDesde).ThenByDescending(p => p.Id)
+                .FirstOrDefaultAsync();
+            if (legada == null)
+                return;
+
+            context.EmpresasConfiguracion.Add(DesdePlantillaLegada(legada, new EmpresaConfiguracion { CreatedBy = "sistema" }));
+            await context.SaveChangesAsync();
+            logger.LogInformation("Datos de empresa inicializados desde la plantilla de contrato");
+        }
+
+        private static EmpresaConfiguracion DesdePlantillaLegada(PlantillaContratoCredito legada, EmpresaConfiguracion empresa)
+        {
+            empresa.Nombre = legada.NombreVendedor;
+            empresa.Cuit = legada.CuitVendedor;
+            empresa.Dni = legada.DniVendedor;
+            empresa.Domicilio = legada.DomicilioVendedor;
+            empresa.Ciudad = legada.CiudadFirma;
+            empresa.Jurisdiccion = legada.Jurisdiccion;
+            empresa.InteresMoraDiarioPorcentaje = legada.InteresMoraDiarioPorcentaje;
+            return empresa;
+        }
+
+        /// <summary>
+        /// Mantiene los datos de empresa alineados con el editor de contrato anterior (que sigue guardando los
+        /// datos del vendedor): si el editor legado guarda una plantilla activa, la empresa toma sus datos. No guarda.
+        /// </summary>
+        public static async Task SincronizarEmpresaDesdeLegadaAsync(AppDbContext context, PlantillaContratoCredito legada)
+        {
+            if (!legada.Activa)
+                return;
+
+            var empresa = await context.EmpresasConfiguracion.OrderBy(e => e.Id).FirstOrDefaultAsync();
+            if (empresa == null)
+            {
+                context.EmpresasConfiguracion.Add(DesdePlantillaLegada(legada, new EmpresaConfiguracion()));
+                return;
+            }
+
+            DesdePlantillaLegada(legada, empresa);
+        }
+
+        /// <summary>
+        /// La constancia de entrega ahora se emite por defecto al marcar Entregado. Las bases que ya tenían la regla
+        /// sembrada (inactiva y nunca editada) se activan una sola vez; si alguien la desactiva después, queda desactivada.
+        /// </summary>
+        private static async Task ActivarConstanciaDeEntregaAsync(AppDbContext context, ILogger logger)
+        {
+            var regla = await context.ReglasDocumento.FirstOrDefaultAsync(r =>
+                r.EventoCodigo == EventosDocumentales.EntregaRealizada && r.Nombre == "Constancia de entrega"
+                && !r.Activa && r.UpdatedAt == null);
+            if (regla == null)
+                return;
+
+            regla.Activa = true;
+            await context.SaveChangesAsync();
+            logger.LogInformation("Regla 'Constancia de entrega' activada");
         }
 
         private static TipoDocumento Tipo(string codigo, string nombre, string prefijo, CategoriaDocumento categoria, bool multiples, bool firma)

@@ -572,6 +572,9 @@ namespace TheBuryProject.Services.Documentos
         public Task<List<DocumentoGenerado>> ObtenerPorPagoAsync(int pagoCuotaId)
             => ConsultaBase().Where(d => d.PagoCuotaId == pagoCuotaId).OrderBy(d => d.FechaGeneracionUtc).ThenBy(d => d.Id).ToListAsync();
 
+        public Task<List<DocumentoGenerado>> ObtenerPorCotizacionAsync(int cotizacionId)
+            => ConsultaBase().Where(d => d.CotizacionId == cotizacionId).OrderBy(d => d.FechaGeneracionUtc).ThenBy(d => d.Id).ToListAsync();
+
         public Task<List<DocumentoGenerado>> ObtenerPorClienteAsync(int clienteId, int take = 100)
             => ConsultaBase().Where(d => d.ClienteId == clienteId).OrderByDescending(d => d.FechaGeneracionUtc).Take(take).ToListAsync();
 
@@ -758,8 +761,47 @@ namespace TheBuryProject.Services.Documentos
             return $"{baseClave}#r{Guid.NewGuid():N}"[..Math.Min(200, baseClave.Length + 10)];
         }
 
-        public async Task FirmarAsync(int id, string rol, string? firmante)
+        private const string PrefijoPng = "data:image/png;base64,";
+        private const int MaxBase64Firma = 200_000;
+        private const int MaxAnchoFirma = 1600;
+        private const int MaxAltoFirma = 800;
+
+        /// <summary>Valida una firma manuscrita (PNG real, tamaño y dimensiones acotados). null/vacío = sin imagen.</summary>
+        internal static byte[]? ValidarImagenFirma(string? dataUrl)
         {
+            if (string.IsNullOrWhiteSpace(dataUrl))
+                return null;
+
+            if (!dataUrl.StartsWith(PrefijoPng, StringComparison.Ordinal) || dataUrl.Length > MaxBase64Firma + PrefijoPng.Length)
+                throw new DocumentoException(DocumentoErrores.Operacion, "La imagen de la firma no es válida o es demasiado grande.");
+
+            byte[] bytes;
+            try
+            {
+                bytes = Convert.FromBase64String(dataUrl[PrefijoPng.Length..]);
+            }
+            catch (FormatException)
+            {
+                throw new DocumentoException(DocumentoErrores.Operacion, "La imagen de la firma no es válida.");
+            }
+
+            // PNG real: firma de 8 bytes + chunk IHDR (ancho y alto en big-endian).
+            byte[] firmaPng = { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
+            if (bytes.Length < 24 || !bytes.AsSpan(0, 8).SequenceEqual(firmaPng))
+                throw new DocumentoException(DocumentoErrores.Operacion, "La firma debe ser una imagen PNG.");
+
+            var ancho = (bytes[16] << 24) | (bytes[17] << 16) | (bytes[18] << 8) | bytes[19];
+            var alto = (bytes[20] << 24) | (bytes[21] << 16) | (bytes[22] << 8) | bytes[23];
+            if (ancho <= 0 || alto <= 0 || ancho > MaxAnchoFirma || alto > MaxAltoFirma)
+                throw new DocumentoException(DocumentoErrores.Operacion, "Las dimensiones de la firma exceden lo permitido.");
+
+            return bytes;
+        }
+
+        public async Task FirmarAsync(int id, string rol, string? firmante, string? imagenFirma = null)
+        {
+            var imagen = ValidarImagenFirma(imagenFirma);
+
             if (string.IsNullOrWhiteSpace(rol))
                 throw new DocumentoException(DocumentoErrores.Operacion, "Indique el rol de quien firma.");
 
@@ -788,7 +830,9 @@ namespace TheBuryProject.Services.Documentos
                 Rol = rol,
                 Firmante = string.IsNullOrWhiteSpace(firmante) ? usuario : firmante.Trim(),
                 FechaUtc = DateTime.UtcNow,
-                Usuario = usuario
+                Usuario = usuario,
+                ImagenPng = imagen == null ? null : Convert.ToBase64String(imagen),
+                HashImagen = imagen == null ? null : Convert.ToHexString(SHA256.HashData(imagen))
             });
 
             doc.FirmasJson = JsonSerializer.Serialize(firmas);
@@ -799,7 +843,8 @@ namespace TheBuryProject.Services.Documentos
             await _context.SaveChangesAsync();
 
             _logger.LogInformation("Documento {Numero} firmado por rol {Rol}; estado {Estado}", doc.Numero, rol, doc.Estado);
-            await _auditoria.RegistrarEventoAsync("documentos", "firmar", nameof(DocumentoGenerado), $"{doc.Numero} rol={rol}");
+            await _auditoria.RegistrarEventoAsync("documentos", "firmar", nameof(DocumentoGenerado),
+                $"{doc.Numero} rol={rol}{(imagen != null ? " firma-manuscrita" : string.Empty)}");
         }
     }
 }

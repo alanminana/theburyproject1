@@ -36,6 +36,74 @@ namespace TheBuryProject.Services.Documentos
 
         private static DocumentoException Invalido(string mensaje) => new(DocumentoErrores.Operacion, mensaje);
 
+        // ------------------------------------------------------------------ Empresa
+
+        private static readonly Regex IdentificadorFiscalRegex = new(@"^[0-9\-\.]{0,20}$", RegexOptions.Compiled);
+
+        public Task<EmpresaConfiguracion?> ObtenerEmpresaAsync()
+            => _context.EmpresasConfiguracion.AsNoTracking().OrderBy(e => e.Id).FirstOrDefaultAsync();
+
+        public async Task<EmpresaConfiguracion> GuardarEmpresaAsync(EmpresaInput input)
+        {
+            string Requerido(string? valor, string campo)
+                => string.IsNullOrWhiteSpace(valor) ? throw Invalido($"{campo} es obligatorio.") : valor.Trim();
+
+            var nombre = Requerido(input.Nombre, "El nombre o razón social");
+            var domicilio = Requerido(input.Domicilio, "El domicilio");
+            var ciudad = Requerido(input.Ciudad, "La ciudad de firma");
+            var jurisdiccion = Requerido(input.Jurisdiccion, "La jurisdicción");
+            var cuit = string.IsNullOrWhiteSpace(input.Cuit) ? null : input.Cuit.Trim();
+            var dni = string.IsNullOrWhiteSpace(input.Dni) ? null : input.Dni.Trim();
+
+            if ((cuit != null && !IdentificadorFiscalRegex.IsMatch(cuit)) || (dni != null && !IdentificadorFiscalRegex.IsMatch(dni)))
+                throw Invalido("El CUIT y el DNI solo admiten números, puntos y guiones.");
+            if (input.InteresMoraDiarioPorcentaje is < 0 or > 100)
+                throw Invalido("El interés por mora diario debe estar entre 0 y 100.");
+
+            await using var tx = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                var empresa = await _context.EmpresasConfiguracion.OrderBy(e => e.Id).FirstOrDefaultAsync();
+                var esNueva = empresa == null;
+                if (empresa == null)
+                {
+                    empresa = new EmpresaConfiguracion();
+                    _context.EmpresasConfiguracion.Add(empresa);
+                }
+
+                empresa.Nombre = nombre;
+                empresa.Cuit = cuit;
+                empresa.Dni = dni;
+                empresa.Domicilio = domicilio;
+                empresa.Ciudad = ciudad;
+                empresa.Jurisdiccion = jurisdiccion;
+                empresa.InteresMoraDiarioPorcentaje = input.InteresMoraDiarioPorcentaje;
+
+                // El contrato anterior valida y snapshotea estos datos desde su plantilla vigente.
+                foreach (var legada in await _context.PlantillasContratoCredito.Where(p => p.Activa).ToListAsync())
+                {
+                    legada.NombreVendedor = nombre;
+                    legada.CuitVendedor = cuit;
+                    legada.DniVendedor = dni;
+                    legada.DomicilioVendedor = domicilio;
+                    legada.CiudadFirma = ciudad;
+                    legada.Jurisdiccion = jurisdiccion;
+                    if (input.InteresMoraDiarioPorcentaje > 0)
+                        legada.InteresMoraDiarioPorcentaje = input.InteresMoraDiarioPorcentaje;
+                }
+
+                await _context.SaveChangesAsync();
+                await tx.CommitAsync();
+                await _auditoria.RegistrarEventoAsync("documentos", esNueva ? "crear-empresa" : "modificar-empresa", nameof(EmpresaConfiguracion), nombre);
+                return empresa;
+            }
+            catch
+            {
+                await tx.RollbackAsync();
+                throw;
+            }
+        }
+
         // ------------------------------------------------------------------ Tipos
 
         public Task<List<TipoDocumento>> ListarTiposAsync()
