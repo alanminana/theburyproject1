@@ -137,6 +137,29 @@ public class DocumentoContratoLegadoIntegracionTests : DocumentoTestBase
     }
 
     [Fact]
+    public async Task ConElSistemaDocumentalVacio_ElContratoAnteriorSigueGenerandoseYImprimiendose()
+    {
+        // Sistema limpiado: sin tipos, plantillas, reglas ni paquetes. El contrato legado y su gate funcionan igual,
+        // con la numeración y el texto de su propia plantilla, y el motor no emite nada.
+        Context.PlantillasContratoCredito.Add(new PlantillaContratoCredito
+        {
+            Nombre = "Plantilla legada", Activa = true, NombreVendedor = "The Bury", DomicilioVendedor = "X", CiudadFirma = "C",
+            Jurisdiccion = "J", InteresMoraDiarioPorcentaje = 1m, TextoContrato = "contrato {{COMPRADOR_NOMBRE}}",
+            TextoPagare = "pagare {{PRECIO_TOTAL}}", VigenteDesde = DateTime.UtcNow.Date.AddDays(-1)
+        });
+        await Context.SaveChangesAsync();
+        var venta = await SembrarVentaAsync();
+        var servicio = CrearServicioLegado();
+
+        var contrato = await servicio.GenerarPdfAsync(venta.Id, "tester");
+
+        Assert.StartsWith("CVC-", contrato.NumeroContrato);
+        Assert.True(await servicio.ExisteContratoGeneradoAsync(venta.Id));
+        Assert.Empty(await Context.DocumentosGenerados.ToListAsync());
+        Assert.Empty(await Context.TiposDocumento.ToListAsync());
+    }
+
+    [Fact]
     public async Task SinMotorDocumental_ElFlujoLegadoSigueIgual()
     {
         await SembrarConfiguracionInicialAsync();

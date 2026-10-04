@@ -126,3 +126,15 @@ crear/modificar/activar/eliminar regla, paquetes, generar, reimprimir, firmar, c
 * El PDF del contrato legado se genera una sola vez (archivo en `App_Data`); las regeneraciones posteriores se
   reimprimen desde Documentos, que siempre usa el contenido vigente del documento.
 * El presupuesto como documento se emite a pedido (botón en la cotización); el PDF/Imprimir de Cotización sigue existiendo.
+
+## Arranque y limpieza
+
+* **El sistema documental no se siembra al iniciar la app.** `DocumentoSeeder.EnsureAsync` (tipos, plantillas, paquete, reglas y
+  migración de contratos legados) queda como configuración de ejemplo para los tests y no se invoca desde `DbInitializer`.
+  Después de limpiar, reiniciar la app no vuelve a crear nada: tipos, plantillas, reglas y paquetes se configuran desde
+  Configuración → Documentos. Sin reglas el motor no emite documentos y el contrato anterior sigue funcionando con su plantilla legada.
+* **Limpieza controlada:** `scripts/documentos/limpiar-sistema-documental.sql` vacía los documentos generados, paquetes, reglas,
+  versiones, plantillas y tipos del motor, en una transacción con controles (conteos comerciales sin cambios, sin huérfanos) y
+  modo `DryRun=1` que revierte. No toca ventas, créditos, cuotas, pagos, caja, usuarios, auditoría, la empresa ni el sistema legado
+  (`ContratosVentaCredito`, `PlantillasContratoCredito` y sus PDFs). Siempre hacer un backup antes.
+

@@ -314,6 +314,39 @@ public class DocumentoPermisosTests
     }
 
     [Fact]
+    public void AlIniciarLaApp_NoSeSiembraNingunaConfiguracionDocumental()
+    {
+        // Solo código: el comentario que explica la decisión menciona el nombre del seeder.
+        var inicializador = string.Join("\n", File.ReadAllLines(Path.Combine(FindRepoRoot(), "Data", "DbInitializer.cs"))
+            .Where(l => !l.TrimStart().StartsWith("//")));
+
+        // Plantillas, reglas, paquetes, tipos y la migración de contratos legados no se crean solos al arrancar.
+        Assert.DoesNotContain("DocumentoSeeder.EnsureAsync", inicializador);
+        Assert.DoesNotContain("SembrarConfiguracion", inicializador);
+    }
+
+    [Fact]
+    public void ElScriptDeLimpiezaDocumental_NoTocaTablasComercialesNiElSistemaLegado()
+    {
+        var sql = File.ReadAllText(Path.Combine(FindRepoRoot(), "scripts", "documentos", "limpiar-sistema-documental.sql"));
+        var sentencias = string.Join("\n", sql.Split('\n').Where(l => !l.TrimStart().StartsWith("--") && !l.TrimStart().StartsWith("/*")));
+
+        foreach (var permitida in new[] { "DocumentosGenerados", "ReglasDocumento", "PaquetesDocumentalesItems", "PaquetesDocumentales",
+                     "PlantillasDocumentoVersion", "PlantillasDocumento", "TiposDocumento" })
+            Assert.Contains(permitida, sentencias);
+
+        // Los DELETE solo apuntan a tablas documentales (nunca a ventas, créditos, pagos, ni al contrato legado).
+        var destinos = System.Text.RegularExpressions.Regex.Matches(sentencias, @"DELETE\s+(?:FROM\s+)?(\w+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase)
+            .Select(m => m.Groups[1].Value).Distinct().ToList();
+        var alias = new[] { "d", "v", "p", "t" };   // alias de DELETE d FROM DocumentosGenerados d ...
+        Assert.All(destinos.Where(x => !alias.Contains(x)), x => Assert.Contains(x,
+            new[] { "ReglasDocumento", "PaquetesDocumentalesItems", "PaquetesDocumentales" }));
+        Assert.DoesNotContain("TRUNCATE", sql, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("DROP ", sentencias, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("THROW 51001", sql);   // aborta si cambia un conteo comercial
+    }
+
+    [Fact]
     public void ElSeederDePermisos_DefineElModuloDocumentosConSusAcciones()
     {
         var fuente = File.ReadAllText(Path.Combine(FindRepoRoot(), "Data", "Seeds", "RolesPermisosSeeder.cs"));
