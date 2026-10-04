@@ -8,6 +8,7 @@
     var eventos = (IReadOnlyList<EventoDocumentalInfo>)ViewBag.Eventos;
     var versiones = ViewBag.Versiones as List<TheBuryProject.Models.Entities.PlantillaDocumentoVersion>;
     var versionActual = ViewBag.VersionActual as int?;
+    var operaciones = ViewBag.Operaciones as TheBuryProject.Services.Interfaces.OperacionesParaVistaPrevia ?? new TheBuryProject.Services.Interfaces.OperacionesParaVistaPrevia();
 }
 
 @section Styles {
@@ -152,12 +153,24 @@
                 </select>
             </div>
             <div class="doc-field">
-                <label for="doc-prev-ventaId">Venta (id, opcional)</label>
-                <input id="doc-prev-ventaId" type="number" min="1" class="doc-input" />
+                <label for="doc-prev-ventaId">Venta a crédito (id, opcional)</label>
+                <input id="doc-prev-ventaId" type="number" min="1" class="doc-input" list="doc-prev-ventas" />
+                <datalist id="doc-prev-ventas">
+                    @foreach (var o in operaciones.Ventas)
+                    {
+                        <option value="@o.Id">@o.Descripcion</option>
+                    }
+                </datalist>
             </div>
             <div class="doc-field">
-                <label for="doc-prev-pagoCuotaId">Pago de cuota (id, opcional)</label>
-                <input id="doc-prev-pagoCuotaId" type="number" min="1" class="doc-input" />
+                <label for="doc-prev-pagoCuotaId">Cobranza (id de pago, opcional)</label>
+                <input id="doc-prev-pagoCuotaId" type="number" min="1" class="doc-input" list="doc-prev-cobros" />
+                <datalist id="doc-prev-cobros">
+                    @foreach (var o in operaciones.Cobros)
+                    {
+                        <option value="@o.Id">@o.Descripcion</option>
+                    }
+                </datalist>
             </div>
         </div>
         <div class="doc-field" style="margin-top:.6rem;max-width:20rem">
@@ -167,6 +180,10 @@
         <div style="margin:.8rem 0">
             <button type="button" id="doc-preview-btn" class="doc-btn" data-url="@Url.Action("PlantillaPreview")">
                 <span class="material-symbols-outlined" aria-hidden="true">preview</span>Actualizar vista previa
+            </button>
+            <button type="button" id="doc-preview-pdf-btn" class="doc-btn" data-url="@Url.Action("PlantillaPreviewPdf")"
+                    title="Abre el documento con su formato de impresión (A4)">
+                <span class="material-symbols-outlined" aria-hidden="true">picture_as_pdf</span>Ver como PDF
             </button>
         </div>
         <div id="doc-preview-out" aria-live="polite"></div>

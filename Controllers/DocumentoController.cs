@@ -162,14 +162,18 @@ namespace TheBuryProject.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [PermisoRequerido(Modulo = "documentos", Accion = "generate")]
-        public async Task<IActionResult> GenerarPresupuesto(int cotizacionId, string? returnUrl)
+        public async Task<IActionResult> GenerarPresupuesto(int? cotizacionId, int? ventaId, string? returnUrl)
         {
+            if (cotizacionId == null && ventaId == null)
+                return BadRequest();
+
             try
             {
+                // Presupuesto de una venta a crédito (número de operación, entrega y plan) o de una cotización.
                 var resultado = await _documentos.ProcesarEventoAsync(new DocumentoEventoRequest
                 {
-                    Evento = EventosDocumentales.PresupuestoGenerado,
-                    Origen = new DocumentoOrigen { CotizacionId = cotizacionId }
+                    Evento = ventaId != null ? EventosDocumentales.PresupuestoVentaGenerado : EventosDocumentales.PresupuestoGenerado,
+                    Origen = new DocumentoOrigen { VentaId = ventaId, CotizacionId = ventaId == null ? cotizacionId : null }
                 });
 
                 var documento = resultado.Todos.FirstOrDefault();

@@ -46,6 +46,36 @@
             return el('div', { 'class': clase || '' }, [el('strong', { text: titulo }), ul]);
         }
 
+        // Vista previa en PDF: mismo formato de impresión que el documento real, en una pestaña nueva.
+        var btnPdf = document.getElementById('doc-preview-pdf-btn');
+        if (btnPdf) {
+            btnPdf.addEventListener('click', function () {
+                var form = document.createElement('form');
+                form.method = 'post';
+                form.target = '_blank';
+                form.action = btnPdf.getAttribute('data-url');
+                function campo(nombre, valor) {
+                    if (!valor) return;
+                    var input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = nombre;
+                    input.value = valor;
+                    form.appendChild(input);
+                }
+                campo('contenido', contenido.value);
+                campo('variablesRequeridas', (document.getElementById('doc-requeridas') || {}).value);
+                campo('evento', (document.getElementById('doc-prev-evento') || {}).value);
+                campo('firmantes', (document.getElementById('FirmantesRequeridos') || {}).value);
+                ['ventaId', 'pagoCuotaId', 'cotizacionId'].forEach(function (k) {
+                    campo(k, (document.getElementById('doc-prev-' + k) || {}).value);
+                });
+                campo('__RequestVerificationToken', token());
+                document.body.appendChild(form);
+                form.submit();
+                document.body.removeChild(form);
+            });
+        }
+
         btnPreview.addEventListener('click', function () {
             var body = new FormData();
             body.append('contenido', contenido.value);

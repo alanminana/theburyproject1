@@ -23,6 +23,9 @@ namespace TheBuryProject.Services.Documentos
         public int? PagoCuotaId { get; set; }
         public int? CotizacionId { get; set; }
 
+        /// <summary>Pagos que cubre el documento (una cobranza de varias cuotas). Vacío si no es un documento de cobranza.</summary>
+        public List<int> PagoCuotaIds { get; } = new();
+
         public Dictionary<string, object?> Valores { get; } = new(StringComparer.OrdinalIgnoreCase);
 
         public Dictionary<string, List<Dictionary<string, object?>>> Colecciones { get; } = new(StringComparer.OrdinalIgnoreCase);
@@ -49,6 +52,7 @@ namespace TheBuryProject.Services.Documentos
                 Ancla = Ancla, ClaveAncla = ClaveAncla, ClienteId = ClienteId, VentaId = VentaId,
                 CreditoId = CreditoId, CuotaId = CuotaId, PagoCuotaId = PagoCuotaId, CotizacionId = CotizacionId
             };
+            c.PagoCuotaIds.AddRange(PagoCuotaIds);
             foreach (var kv in Valores) c.Valores[kv.Key] = kv.Value;
             foreach (var kv in Colecciones) c.Colecciones[kv.Key] = kv.Value;
             return c;
@@ -77,8 +81,11 @@ namespace TheBuryProject.Services.Documentos
     /// </summary>
     public static class PlantillaRenderer
     {
-        private static readonly Regex TokenRegex = new(@"\{\{\s*([#^/]?)\s*([A-Za-z0-9_.]+)\s*\}\}", RegexOptions.Compiled);
+        private static readonly Regex TokenRegex = new(@"\{\{\s*([#^/]?)\s*([A-Za-z0-9_.]+)(?:\s*\|\s*([A-Za-z]+))?\s*\}\}", RegexOptions.Compiled);
         private static readonly CultureInfo Cultura = CultureInfo.GetCultureInfo("es-AR");
+
+        /// <summary>Formatos de presentación admitidos (<c>{{cliente.nombreCompleto|upper}}</c>). No modifican el dato guardado.</summary>
+        private static readonly HashSet<string> FiltrosPermitidos = new(StringComparer.OrdinalIgnoreCase) { "upper", "lower" };
 
         public static RenderResultado Renderizar(string plantilla, DocumentoContexto contexto)
         {
@@ -123,6 +130,10 @@ namespace TheBuryProject.Services.Documentos
                 }
                 else
                 {
+                    var filtro = m.Groups[3].Value;
+                    if (filtro.Length > 0 && !FiltrosPermitidos.Contains(filtro))
+                        errores.Add($"Formato desconocido: '{{{{{nombre}|{filtro}}}}}' (admitidos: upper, lower).");
+
                     var col = enColeccion.FirstOrDefault(c => c != null);
                     if (col != null && col.Campos.Contains(nombre, StringComparer.OrdinalIgnoreCase))
                         continue;
@@ -225,6 +236,9 @@ namespace TheBuryProject.Services.Documentos
                 }
 
                 var texto = Formatear(valor);
+                var filtroAplicado = m.Groups[3].Value;
+                if (filtroAplicado.Equals("upper", StringComparison.OrdinalIgnoreCase)) texto = FormatoArgentino.Mayusculas(texto);
+                else if (filtroAplicado.Equals("lower", StringComparison.OrdinalIgnoreCase)) texto = FormatoArgentino.Minusculas(texto);
                 if (texto.Length == 0 && emitir)
                     vacias.Add(nombre);
                 if (emitir) sb.Append(texto);
@@ -278,6 +292,10 @@ namespace TheBuryProject.Services.Documentos
             "", "ciento", "doscientos", "trescientos", "cuatrocientos", "quinientos", "seiscientos", "setecientos", "ochocientos", "novecientos"
         };
 
+        /// <summary>
+        /// "Sesenta Mil Seiscientos Cuarenta y Seis Pesos", "Un Peso", "Un Millón de Pesos"; con centavos solo si existen
+        /// ("… Pesos con 50/100"). Es la única implementación: pagaré, contrato y recibo la comparten.
+        /// </summary>
         public static string Importe(decimal importe)
         {
             var negativo = importe < 0;
@@ -285,12 +303,30 @@ namespace TheBuryProject.Services.Documentos
             var enteros = (long)Math.Truncate(importe);
             var centavos = (int)Math.Round((importe - enteros) * 100m);
 
-            var palabras = enteros == 1 ? "un peso" : ConvertirApocopado(enteros) + " pesos";
-            if (enteros > 0 && enteros % 1_000_000 == 0)
-                palabras = ConvertirApocopado(enteros) + " de pesos";
+            string palabras;
+            if (enteros == 1) palabras = "un peso";
+            else if (enteros > 0 && enteros % 1_000_000 == 0) palabras = ConvertirApocopado(enteros) + " de pesos";
+            else palabras = ConvertirApocopado(enteros) + " pesos";
 
-            var texto = $"{(negativo ? "menos " : string.Empty)}{palabras} con {centavos:00}/100";
-            return char.ToUpper(texto[0], CultureInfo.GetCultureInfo("es-AR")) + texto[1..];
+            var texto = $"{(negativo ? "menos " : string.Empty)}{palabras}";
+            if (centavos > 0)
+                texto += $" con {centavos:00}/100";
+            return TituloCaso(texto);
+        }
+
+        // Cada palabra en mayúscula inicial salvo los conectores ("y", "de", "con").
+        private static string TituloCaso(string texto)
+        {
+            var cultura = CultureInfo.GetCultureInfo("es-AR");
+            var conectores = new HashSet<string> { "y", "de", "con" };
+            var palabras = texto.Split(' ');
+            for (var i = 0; i < palabras.Length; i++)
+            {
+                var p = palabras[i];
+                if (p.Length == 0 || (i > 0 && conectores.Contains(p)) || char.IsDigit(p[0])) continue;
+                palabras[i] = char.ToUpper(p[0], cultura) + p[1..];
+            }
+            return string.Join(' ', palabras);
         }
 
         private static string Convertir(long n)

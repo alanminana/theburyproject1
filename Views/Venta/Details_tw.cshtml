@@ -785,7 +785,7 @@
                 }
 
                 @* Documentos emitidos por el motor documental (contrato, pagaré, recibos, constancias…). *@
-                @await Component.InvokeAsync("DocumentosOperacion", new { ventaId = Model.Id })
+                @await Component.InvokeAsync("DocumentosOperacion", new { ventaId = Model.Id, ofrecerPresupuesto = Model.TipoPago == TipoPago.CreditoPersonal && Model.CreditoId.HasValue })
 
                 <!-- Invoice Section (if facturada) -->
                 @if (facturas.Any())

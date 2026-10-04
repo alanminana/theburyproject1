@@ -269,7 +269,7 @@ public class DocumentoCobranzaIntegracionTests : DocumentoTestBase
         Assert.Equal(cuota.Id, recibo.CuotaId);
         Assert.Equal(credito.Id, recibo.CreditoId);
         Assert.Contains("Lopez", recibo.ContenidoRenderizado);
-        Assert.Contains("Trescientos pesos con 00/100", recibo.ContenidoRenderizado);
+        Assert.Contains("Trescientos Pesos", recibo.ContenidoRenderizado);
         // El pago no generó contrato ni pagaré.
         Assert.DoesNotContain(await Context.DocumentosGenerados.Include(d => d.TipoDocumento).ToListAsync(),
             d => d.TipoDocumento.Codigo is "CONTRATO" or "PAGARE");

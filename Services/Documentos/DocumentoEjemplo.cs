@@ -31,6 +31,26 @@ namespace TheBuryProject.Services.Documentos
                 i, 5000m, 4000m, 1000m, DateTime.Today.AddMonths(i), "Pendiente")).ToList();
             DocumentoContextoBuilder.AplicarCuotas(ctx, cuotas);
 
+            if (ancla == AnclaDocumento.Pago)
+            {
+                ctx.Colecciones["medios"] = new List<Dictionary<string, object?>>
+                {
+                    new(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["descripcion"] = "Efectivo", ["numeroCheque"] = "", ["banco"] = "", ["observaciones"] = "",
+                        ["fechaVencimiento"] = "", ["importeFormato"] = FormatoArgentino.Importe(12345.67m)
+                    }
+                };
+                ctx.Colecciones["imputaciones"] = new List<Dictionary<string, object?>>
+                {
+                    new(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["fecha"] = DateTime.Today, ["cuotaNumero"] = 5, ["cuotasTotal"] = 6,
+                        ["operacionNumero"] = "VTA-000000", ["importeFormato"] = FormatoArgentino.Importe(12345.67m)
+                    }
+                };
+            }
+
             return ctx;
         }
     }

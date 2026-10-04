@@ -23,6 +23,9 @@ namespace TheBuryProject.Services.Documentos
 
         public const string PresupuestoGenerado = "PRESUPUESTO_GENERADO";
 
+        /// <summary>Se pidió el presupuesto de una venta a crédito ya configurada (comparte número de operación con el contrato y el pagaré).</summary>
+        public const string PresupuestoVentaGenerado = "PRESUPUESTO_VENTA_GENERADO";
+
         /// <summary>El envío de una venta pasó a Entregado.</summary>
         public const string EntregaRealizada = "ENTREGA_REALIZADA";
 
@@ -36,6 +39,8 @@ namespace TheBuryProject.Services.Documentos
                 "Se cobró una cuota (o varias): cada pago aplicado dispara el evento.", AnclaDocumento.Pago),
             new EventoDocumentalInfo(PresupuestoGenerado, "Presupuesto generado",
                 "Se pidió un presupuesto a partir de una cotización.", AnclaDocumento.Cotizacion),
+            new EventoDocumentalInfo(PresupuestoVentaGenerado, "Presupuesto de venta generado",
+                "Se pidió el presupuesto de una venta con el crédito ya configurado.", AnclaDocumento.Venta),
             new EventoDocumentalInfo(EntregaRealizada, "Entrega realizada",
                 "El envío de la venta se marcó como Entregado.", AnclaDocumento.Venta)
         };
@@ -77,11 +82,17 @@ namespace TheBuryProject.Services.Documentos
         public static IReadOnlyList<ColeccionDocumento> Colecciones { get; } = new[]
         {
             new ColeccionDocumento("productos", "Productos de la venta",
-                new[] { "codigo", "marca", "descripcion", "cantidad", "precio", "subtotal" },
+                new[] { "codigo", "codigoNumerico", "codigoAlfa", "marca", "subRubro", "descripcion", "detalle", "cantidad", "cantidadTexto", "precio", "subtotal" },
                 new[] { AnclaDocumento.Venta, AnclaDocumento.Pago, AnclaDocumento.Cotizacion }),
-            new ColeccionDocumento("cuotas", "Cuotas del crédito",
-                new[] { "numero", "importe", "capital", "interes", "vencimiento", "estado" },
-                VentaYPago)
+            new ColeccionDocumento("cuotas", "Cuotas financiadas del crédito",
+                new[] { "numero", "numeroFormateado", "importe", "importeFormato", "capital", "interes", "vencimiento", "estado" },
+                VentaYPago),
+            new ColeccionDocumento("medios", "Medios de pago recibidos (recibo)",
+                new[] { "descripcion", "numeroCheque", "banco", "observaciones", "fechaVencimiento", "importeFormato" },
+                SoloPago),
+            new ColeccionDocumento("imputaciones", "Cuotas a las que se aplicó el cobro (recibo)",
+                new[] { "fecha", "cuotaNumero", "cuotasTotal", "operacionNumero", "importeFormato" },
+                SoloPago)
         };
 
         public static CampoDocumento? Buscar(string? ruta)
@@ -109,6 +120,12 @@ namespace TheBuryProject.Services.Documentos
             T("empresa.ciudad", "Ciudad de firma", "Empresa");
             T("empresa.jurisdiccion", "Jurisdicción", "Empresa");
             T("empresa.interesMoraDiario", "Interés por mora diario (%)", "Empresa");
+            T("empresa.nombreComercial", "Nombre comercial", "Empresa");
+            T("empresa.titular", "Titular / vendedor", "Empresa");
+            T("empresa.titularDni", "DNI del titular", "Empresa");
+            T("empresa.direccionCompleta", "Domicilio completo (contrato)", "Empresa");
+            T("empresa.localidad", "Localidad", "Empresa");
+            T("contrato.interesMoraDiario", "Interés por mora diario con % (ej. 0,20%)", "Empresa");
 
             T("cliente.nombre", "Nombre", "Cliente");
             T("cliente.apellido", "Apellido", "Cliente");
@@ -120,12 +137,25 @@ namespace TheBuryProject.Services.Documentos
             T("cliente.localidad", "Localidad", "Cliente");
             T("cliente.telefono", "Teléfono", "Cliente");
             T("cliente.email", "Email", "Cliente");
+            T("cliente.codigo", "Código de cliente", "Cliente");
+            T("cliente.numeroDocumento", "Número de documento", "Cliente");
+            T("cliente.condicionFiscal", "Condición fiscal", "Cliente");
+            T("cliente.direccionCompleta", "Domicilio completo", "Cliente");
+            T("cliente.codigoPostal", "Código postal", "Cliente");
+
+            T("operacion.numero", "Número de operación", "Operación", VentaYPago);
+            F("operacion.fecha", "Fecha de la operación", "Operación", VentaYPago);
+            T("operacion.fechaTexto", "Fecha en texto (2 de Septiembre del 2026)", "Operación", VentaYPago);
+            N("operacion.dia", "Día", "Operación", VentaYPago);
+            T("operacion.mesTexto", "Mes en texto", "Operación", VentaYPago);
+            N("operacion.anio", "Año", "Operación", VentaYPago);
 
             T("venta.numero", "Número", "Venta", new[] { AnclaDocumento.Venta, AnclaDocumento.Pago });
             F("venta.fecha", "Fecha", "Venta", VentaYPago);
             N("venta.total", "Total", "Venta", VentaYPago);
             N("venta.subtotal", "Subtotal", "Venta", VentaYPago);
             l.Add(new("venta.tipoPago", "Forma de pago", TipoCampoDocumento.Texto, "Venta", tiposPago, VentaYPago));
+            T("venta.condicionPago", "Condición de pago (texto)", "Venta", VentaYPago);
             N("venta.cantidadProductos", "Cantidad de productos", "Venta", VentaYPago);
             T("venta.productosDetalle", "Detalle de productos (texto)", "Venta", VentaYPago);
             T("venta.sucursal", "Sucursal", "Venta", VentaYPago);
@@ -136,7 +166,12 @@ namespace TheBuryProject.Services.Documentos
             N("credito.total", "Total a pagar", "Crédito", VentaYPago);
             N("credito.saldo", "Saldo", "Crédito", VentaYPago);
             N("credito.montoFinanciado", "Monto financiado", "Crédito", VentaYPago);
-            N("credito.saldoFinanciado", "Saldo financiado (cuota × cantidad)", "Crédito", VentaYPago);
+            N("credito.saldoFinanciado", "Saldo financiado (suma de las cuotas)", "Crédito", VentaYPago);
+            T("credito.saldoFinanciadoFormato", "Saldo financiado formateado (60646,00)", "Crédito", VentaYPago);
+            T("credito.saldoFinanciadoLetras", "Saldo financiado en letras", "Crédito", VentaYPago);
+            N("credito.entregaInicial", "Entrega inicial (venta − monto financiado)", "Crédito", VentaYPago);
+            T("credito.entregaInicialFormato", "Entrega inicial formateada", "Crédito", VentaYPago);
+            B("credito.tieneEntrega", "Tiene entrega inicial", "Crédito", VentaYPago);
             N("credito.cantidadCuotas", "Cantidad de cuotas", "Crédito", VentaYPago);
             N("credito.importeCuota", "Importe de cuota", "Crédito", VentaYPago);
             F("credito.fechaPrimeraCuota", "Fecha de primera cuota", "Crédito", VentaYPago);
@@ -148,10 +183,22 @@ namespace TheBuryProject.Services.Documentos
             T("fiador.dni", "Documento", "Fiador", VentaYPago);
             T("fiador.direccion", "Domicilio", "Fiador", VentaYPago);
             T("fiador.relacion", "Relación con el cliente", "Fiador", VentaYPago);
+            T("fiador.tipoDocumento", "Tipo de documento", "Fiador", VentaYPago);
+            T("fiador.numeroDocumento", "Número de documento", "Fiador", VentaYPago);
+            T("fiador.direccionCompleta", "Domicilio completo", "Fiador", VentaYPago);
+
+            B("pagare.fechaDefinida", "El vencimiento del pagaré está definido", "Pagaré", VentaYPago);
+            F("pagare.fechaVencimiento", "Vencimiento del pagaré", "Pagaré", VentaYPago);
+            T("pagare.fechaVencimientoTexto", "Vencimiento del pagaré en texto", "Pagaré", VentaYPago);
 
             T("pago.numero", "Número de pago", "Pago", SoloPago);
             F("pago.fecha", "Fecha", "Pago", SoloPago);
             N("pago.importe", "Importe cobrado", "Pago", SoloPago);
+            B("pago.confirmado", "Pago confirmado (aplicado)", "Pago", SoloPago);
+            N("pago.importeTotal", "Importe total recibido", "Pago", SoloPago);
+            T("pago.importeTotalFormato", "Importe total formateado", "Pago", SoloPago);
+            T("pago.importeTotalLetras", "Importe total en letras", "Pago", SoloPago);
+            T("recibo.numero", "Número de recibo", "Pago", SoloPago);
             T("pago.importeEnLetras", "Importe en letras", "Pago", SoloPago);
             T("pago.medioPago", "Medio de pago", "Pago", SoloPago);
             N("pago.importeCuota", "Aplicado a la cuota", "Pago", SoloPago);

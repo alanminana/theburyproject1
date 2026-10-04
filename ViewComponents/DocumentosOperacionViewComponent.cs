@@ -8,6 +8,9 @@ namespace TheBuryProject.ViewComponents
     public sealed class DocumentosOperacionViewModel
     {
         public List<DocumentoGenerado> Documentos { get; init; } = new();
+
+        /// <summary>Grupo de impresión → nombre del paquete que forman sus documentos (ej. "Documentación de Crédito").</summary>
+        public Dictionary<Guid, string> NombresDePaquete { get; init; } = new();
         public int? VentaId { get; init; }
         public int? CreditoId { get; init; }
         public int? PagoCuotaId { get; init; }
@@ -18,6 +21,9 @@ namespace TheBuryProject.ViewComponents
         public bool PuedeFirmar { get; init; }
         public bool PuedeCancelar { get; init; }
         public bool PuedeGenerar { get; init; }
+
+        /// <summary>Ofrece "Presupuesto" (venta a crédito con el plan ya configurado).</summary>
+        public bool OfrecerPresupuesto { get; init; }
         public string ReturnUrl { get; init; } = string.Empty;
     }
 
@@ -35,7 +41,7 @@ namespace TheBuryProject.ViewComponents
             _documentos = documentos;
         }
 
-        public async Task<IViewComponentResult> InvokeAsync(int? ventaId = null, int? creditoId = null, int? pagoCuotaId = null, int? cotizacionId = null, bool compacto = false)
+        public async Task<IViewComponentResult> InvokeAsync(int? ventaId = null, int? creditoId = null, int? pagoCuotaId = null, int? cotizacionId = null, bool compacto = false, bool ofrecerPresupuesto = false)
         {
             if (!UserClaimsPrincipal.TienePermiso("documentos", "view"))
                 return Content(string.Empty);
@@ -56,6 +62,7 @@ namespace TheBuryProject.ViewComponents
             var model = new DocumentosOperacionViewModel
             {
                 Documentos = docs,
+                NombresDePaquete = await _documentos.ObtenerNombresDePaqueteAsync(docs),
                 VentaId = ventaId,
                 CreditoId = creditoId,
                 PagoCuotaId = pagoCuotaId,
@@ -66,6 +73,7 @@ namespace TheBuryProject.ViewComponents
                 PuedeFirmar = UserClaimsPrincipal.TienePermiso("documentos", "sign"),
                 PuedeCancelar = UserClaimsPrincipal.TienePermiso("documentos", "cancel"),
                 PuedeGenerar = UserClaimsPrincipal.TienePermiso("documentos", "generate"),
+                OfrecerPresupuesto = ofrecerPresupuesto && ventaId != null,
                 ReturnUrl = $"{request.Path}{request.QueryString}"
             };
 

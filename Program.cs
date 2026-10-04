@@ -160,6 +160,7 @@ builder.Services.AddScoped<IContratoVentaCreditoService, ContratoVentaCreditoSer
 
 // Motor documental configurable (tipos, plantillas versionadas, reglas, paquetes, documentos emitidos)
 builder.Services.AddScoped<IDocumentoNumeracionService, TheBuryProject.Services.Documentos.DocumentoNumeracionService>();
+builder.Services.AddScoped<IPlanCuotasProyector, PlanCuotasProyector>();
 builder.Services.AddScoped<IDocumentoContextoBuilder, TheBuryProject.Services.Documentos.DocumentoContextoBuilder>();
 builder.Services.AddScoped<IDocumentoPdfService, TheBuryProject.Services.Documentos.DocumentoPdfService>();
 builder.Services.AddScoped<IDocumentoService, TheBuryProject.Services.Documentos.DocumentoService>();
@@ -308,6 +309,19 @@ var app = builder.Build();
 if (args.Contains("--migrate"))
 {
     return await DbMigrationRunner.RunAsync(app);
+}
+
+// 7.3 Modo `--configurar-documentos`: crea (idempotente, sin pisar lo existente) la configuración documental de la venta a
+// crédito (tipos, plantillas v1, paquete "Documentación de Crédito" y reglas) y termina. No corre al iniciar la app.
+if (args.Contains("--configurar-documentos"))
+{
+    using var scopeDocumentos = app.Services.CreateScope();
+    var contextoDocumentos = scopeDocumentos.ServiceProvider.GetRequiredService<TheBuryProject.Data.AppDbContext>();
+    var loggerDocumentos = scopeDocumentos.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("ConfiguracionDocumental");
+    await contextoDocumentos.Database.MigrateAsync();
+    var resumenDocumentos = await TheBuryProject.Services.Documentos.DocumentoConfiguracionCredito.ConfigurarAsync(contextoDocumentos, loggerDocumentos);
+    Console.WriteLine(resumenDocumentos);
+    return 0;
 }
 
 // 8. Pipeline

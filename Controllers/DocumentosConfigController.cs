@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TheBuryProject.Filters;
 using TheBuryProject.Helpers;
+using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Documentos;
 using TheBuryProject.Services.Interfaces;
@@ -17,11 +18,13 @@ namespace TheBuryProject.Controllers
     public class DocumentosConfigController : Controller
     {
         private readonly IDocumentoConfiguracionService _config;
+        private readonly IDocumentoPdfService _pdf;
         private readonly ILogger<DocumentosConfigController> _logger;
 
-        public DocumentosConfigController(IDocumentoConfiguracionService config, ILogger<DocumentosConfigController> logger)
+        public DocumentosConfigController(IDocumentoConfiguracionService config, IDocumentoPdfService pdf, ILogger<DocumentosConfigController> logger)
         {
             _config = config;
+            _pdf = pdf;
             _logger = logger;
         }
 
@@ -171,6 +174,44 @@ namespace TheBuryProject.Controllers
         {
             ViewBag.Tipos = await _config.ListarTiposAsync();
             ViewBag.Eventos = EventosDocumentales.Todos;
+            ViewBag.Operaciones = await _config.ListarOperacionesRecientesAsync();
+        }
+
+        /// <summary>
+        /// Vista previa en PDF (con el mismo formato de impresión que el documento real): renderiza el contenido del editor con una
+        /// operación real o datos de ejemplo y lo abre en una pestaña. No guarda nada ni consume numeración.
+        /// </summary>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "documentos", Accion = "managetemplates")]
+        public async Task<IActionResult> PlantillaPreviewPdf(
+            string? contenido, string? variablesRequeridas, string? evento, string? firmantes,
+            int? ventaId, int? pagoCuotaId, int? cotizacionId)
+        {
+            try
+            {
+                var preview = await _config.PrevisualizarAsync(
+                    contenido ?? string.Empty, variablesRequeridas,
+                    string.IsNullOrWhiteSpace(evento) ? EventosDocumentales.ContratoCreditoSolicitado : evento,
+                    ventaId, pagoCuotaId, cotizacionId);
+
+                var documento = new DocumentoGenerado
+                {
+                    Numero = "VISTA-PREVIA",
+                    ContenidoRenderizado = preview.Texto,
+                    Estado = EstadoDocumentoGenerado.Generado,
+                    FechaGeneracionUtc = DateTime.UtcNow,
+                    FirmantesRequeridos = firmantes,
+                    TipoDocumento = new TipoDocumento { Nombre = "Vista previa" }
+                };
+                var archivo = _pdf.GenerarPdf(new[] { documento });
+                Response.Headers.ContentDisposition = "inline; filename=\"vista-previa.pdf\"";
+                return File(archivo.Contenido, archivo.TipoContenido);
+            }
+            catch (DocumentoException ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         // ------------------------------------------------------------------ Reglas
@@ -377,7 +418,10 @@ namespace TheBuryProject.Controllers
             return View(e == null ? new EmpresaInput() : new EmpresaInput
             {
                 Nombre = e.Nombre, Cuit = e.Cuit, Dni = e.Dni, Domicilio = e.Domicilio, Ciudad = e.Ciudad,
-                Jurisdiccion = e.Jurisdiccion, InteresMoraDiarioPorcentaje = e.InteresMoraDiarioPorcentaje
+                Jurisdiccion = e.Jurisdiccion, InteresMoraDiarioPorcentaje = e.InteresMoraDiarioPorcentaje,
+                NombreComercial = e.NombreComercial, DomicilioCompleto = e.DomicilioCompleto,
+                CondicionFiscalClientePorDefecto = e.CondicionFiscalClientePorDefecto,
+                PagareVencimientoModo = e.PagareVencimientoModo, PagareVencimientoDias = e.PagareVencimientoDias
             });
         }
 

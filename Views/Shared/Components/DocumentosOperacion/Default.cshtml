@@ -38,10 +38,11 @@
                 @foreach (var g in grupos)
                 {
                     var ids = string.Join(",", g.OrderBy(d => d.Id).Select(d => d.Id));
+                    var nombrePaquete = Model.NombresDePaquete.TryGetValue(g.Key, out var np) ? np : null;
                     <a class="doc-btn" target="_blank" rel="noopener" asp-controller="Documento" asp-action="VerGrupo" asp-route-id="@g.Key"
                        title="Imprime los documentos del conjunto en un solo PDF">
                         <span class="material-symbols-outlined" aria-hidden="true">print</span>
-                        Ver juntos (@g.Count())
+                        @(nombrePaquete != null ? $"Imprimir {nombrePaquete}" : $"Ver juntos ({g.Count()})")
                     </a>
                     @if (Model.PuedeReimprimir)
                     {
@@ -51,6 +52,17 @@
                             Reimprimir juntos
                         </a>
                     }
+                }
+                @if (Model.PuedeGenerar && Model.OfrecerPresupuesto)
+                {
+                    <form method="post" asp-controller="Documento" asp-action="GenerarPresupuesto" target="_blank">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="ventaId" value="@Model.VentaId" />
+                        <button type="submit" class="doc-btn" title="Emite el presupuesto de la venta a crédito (entrega y plan completo) como documento">
+                            <span class="material-symbols-outlined" aria-hidden="true">request_quote</span>
+                            Presupuesto
+                        </button>
+                    </form>
                 }
                 @if (Model.PuedeGenerar)
                 {

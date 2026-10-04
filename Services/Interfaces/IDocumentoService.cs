@@ -10,6 +10,12 @@ namespace TheBuryProject.Services.Interfaces
         public int? VentaId { get; init; }
         public int? PagoCuotaId { get; init; }
         public int? CotizacionId { get; init; }
+
+        /// <summary>
+        /// Todos los pagos de una misma cobranza (un recibo con varias cuotas). <see cref="PagoCuotaId"/> es el pago ancla
+        /// (el menor) y da la identidad e idempotencia del recibo; si es null el recibo cubre solo ese pago.
+        /// </summary>
+        public IReadOnlyList<int>? PagoCuotaIds { get; init; }
     }
 
     public sealed class DocumentoEventoRequest
@@ -106,6 +112,9 @@ namespace TheBuryProject.Services.Interfaces
 
         /// <summary>Documentos de la venta que exigen firma para continuar y todavía no están firmados.</summary>
         Task<List<DocumentoGenerado>> ObtenerBloqueantesDeFirmaAsync(int ventaId);
+
+        /// <summary>Nombre del paquete documental ("Documentación de Crédito") de cada grupo de impresión cuyos documentos lo forman.</summary>
+        Task<Dictionary<Guid, string>> ObtenerNombresDePaqueteAsync(IEnumerable<DocumentoGenerado> documentos);
 
         /// <summary>Genera (idempotente) los documentos que falten para una operación, por si falló una emisión recuperable.</summary>
         Task<DocumentoEventoResultado> ReintentarEventoAsync(string evento, DocumentoOrigen origen);

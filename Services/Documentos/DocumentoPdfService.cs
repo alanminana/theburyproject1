@@ -28,26 +28,53 @@ namespace TheBuryProject.Services.Documentos
             if (documentos.Count == 0)
                 throw new DocumentoException(DocumentoErrores.Operacion, "No hay documentos para imprimir.");
 
-            QuestPDF.Settings.License = LicenseType.Community;
-
-            var pdf = Document.Create(container =>
-            {
-                foreach (var doc in documentos)
-                {
-                    var copias = Math.Max(1, doc.PlantillaDocumento?.Copias ?? 1);
-                    for (var copia = 1; copia <= copias; copia++)
-                    {
-                        var etiquetaCopia = copias > 1 ? $"Copia {copia} de {copias}" : null;
-                        container.Page(page => ComponerPagina(page, doc, etiquetaCopia));
-                    }
-                }
-            });
+            var pdf = CrearDocumento(documentos);
 
             var nombre = documentos.Count == 1
                 ? $"{Sanitizar(documentos[0].Numero)}.pdf"
                 : $"documentos-{Sanitizar(documentos[0].Numero)}.pdf";
 
             return new DocumentoPdfArchivo { NombreArchivo = nombre, Contenido = pdf.GeneratePdf() };
+        }
+
+        /// <summary>Arma el documento de impresión (también lo usan los tests para obtener imágenes de cada página).</summary>
+        internal static Document CrearDocumento(IReadOnlyList<DocumentoGenerado> documentos)
+        {
+            QuestPDF.Settings.License = LicenseType.Community;
+
+            // Documentos en formato administrativo (pagaré + contrato, por ejemplo) se imprimen como una sola
+            // composición continua: comparten página mientras entren y el salto de página es automático.
+            var todosAdministrativos = documentos.All(d => DocumentoLayout.EsAdministrativo(d.ContenidoRenderizado));
+
+            var pdf = Document.Create(container =>
+            {
+                if (todosAdministrativos)
+                {
+                    var copias = documentos.Max(d => Math.Max(1, d.PlantillaDocumento?.Copias ?? 1));
+                    for (var copia = 1; copia <= copias; copia++)
+                    {
+                        var etiquetaCopia = copias > 1 ? $"Copia {copia} de {copias}" : null;
+                        container.Page(page => ComponerPaginaAdministrativa(page, documentos, etiquetaCopia));
+                    }
+
+                    return;
+                }
+
+                foreach (var doc in documentos)
+                {
+                    var copias = Math.Max(1, doc.PlantillaDocumento?.Copias ?? 1);
+                    for (var copia = 1; copia <= copias; copia++)
+                    {
+                        var etiquetaCopia = copias > 1 ? $"Copia {copia} de {copias}" : null;
+                        if (DocumentoLayout.EsAdministrativo(doc.ContenidoRenderizado))
+                            container.Page(page => ComponerPaginaAdministrativa(page, new[] { doc }, etiquetaCopia));
+                        else
+                            container.Page(page => ComponerPagina(page, doc, etiquetaCopia));
+                    }
+                }
+            });
+
+            return pdf;
         }
 
         private static void ComponerPagina(PageDescriptor page, DocumentoGenerado doc, string? etiquetaCopia)
@@ -95,6 +122,179 @@ namespace TheBuryProject.Services.Documentos
                 text.CurrentPageNumber();
                 text.Span(" de ");
                 text.TotalPages();
+            });
+        }
+
+        // ------------------------------------------------------------------ Formato administrativo
+
+        private static readonly string[] FuentesAdministrativas = { "Courier New", "Liberation Mono", "Consolas" };
+
+        private static readonly Dictionary<string, string> EtiquetasFirmaAdministrativa = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["vendedor"] = "Firma Vendedor",
+            ["comprador"] = "Firma Comprador",
+            ["fiador"] = "Firma Fiador/es",
+            ["firmante"] = "Firma"
+        };
+
+        private static void ComponerPaginaAdministrativa(PageDescriptor page, IReadOnlyList<DocumentoGenerado> documentos, string? etiquetaCopia)
+        {
+            page.Size(PageSizes.A4);
+            page.MarginHorizontal(1.3f, Unit.Centimetre);
+            page.MarginVertical(1.1f, Unit.Centimetre);
+            page.PageColor(Colors.White);
+            page.DefaultTextStyle(x => x.FontSize(8.5f).FontFamily(FuentesAdministrativas).FontColor(Colors.Black).LineHeight(1.2f));
+
+            page.Content().Column(col =>
+            {
+                if (etiquetaCopia != null)
+                    col.Item().AlignRight().Text(etiquetaCopia).FontSize(7);
+
+                for (var i = 0; i < documentos.Count; i++)
+                {
+                    var doc = documentos[i];
+                    if (i > 0)
+                        col.Item().PaddingVertical(10).LineHorizontal(0.5f).LineColor(Colors.Black);
+
+                    col.Item().Element(c => ContenidoAdministrativo(c, doc));
+                }
+            });
+        }
+
+        private static void ContenidoAdministrativo(IContainer container, DocumentoGenerado doc)
+        {
+            var bloques = DocumentoLayout.Parsear(doc.ContenidoRenderizado);
+            var firmantes = ObtenerFirmantes(doc);
+            var firmas = LeerFirmas(doc.FirmasJson);
+
+            container.Column(col =>
+            {
+                if (doc.Estado is EstadoDocumentoGenerado.Cancelado or EstadoDocumentoGenerado.Reemplazado)
+                {
+                    var leyenda = doc.Estado == EstadoDocumentoGenerado.Cancelado ? "DOCUMENTO ANULADO" : "DOCUMENTO REEMPLAZADO";
+                    col.Item().Border(1).Padding(3).AlignCenter().Text(leyenda).Bold();
+                }
+
+                BloquesAdministrativos(col, bloques, firmantes, firmas);
+
+                // Sin marca explícita, las firmas van al final del documento.
+                if (firmantes.Count > 0 && !TieneFirmas(bloques))
+                    col.Item().ShowEntire().PaddingTop(16).Element(c => FirmasAdministrativas(c, firmantes, firmas));
+            });
+        }
+
+        private static bool TieneFirmas(IReadOnlyList<BloqueDocumento> bloques)
+            => bloques.Any(b => b is BloqueFirmas || (b is BloqueColumnas cols && cols.Columnas.Any(TieneFirmas)));
+
+        private static void BloquesAdministrativos(ColumnDescriptor col, IReadOnlyList<BloqueDocumento> bloques, List<string> firmantes, List<FirmaRegistrada> firmas)
+        {
+            foreach (var bloque in bloques)
+            {
+                switch (bloque)
+                {
+                    case BloqueTexto t:
+                        col.Item().Text(text =>
+                        {
+                            if (t.Alineacion == AlineacionDocumento.Derecha) text.AlignRight();
+                            else if (t.Alineacion == AlineacionDocumento.Centro) text.AlignCenter();
+                            var span = text.Span(t.Texto);
+                            if (t.Negrita) span.Bold();
+                        });
+                        break;
+                    case BloqueEspacio:
+                        col.Item().Height(5);
+                        break;
+                    case BloqueLinea:
+                        col.Item().PaddingVertical(2).LineHorizontal(0.6f).LineColor(Colors.Black);
+                        break;
+                    case BloqueSalto:
+                        col.Item().PageBreak();
+                        break;
+                    case BloqueFirmas:
+                        if (firmantes.Count > 0)
+                            col.Item().ShowEntire().PaddingTop(16).Element(c => FirmasAdministrativas(c, firmantes, firmas));
+                        break;
+                    case BloqueTabla tabla:
+                        col.Item().Element(c => TablaAdministrativa(c, tabla));
+                        break;
+                    case BloqueColumnas columnas:
+                        col.Item().Row(row =>
+                        {
+                            for (var k = 0; k < columnas.Columnas.Count; k++)
+                            {
+                                var contenido = columnas.Columnas[k];
+                                row.RelativeItem(columnas.Pesos[k]).PaddingRight(k < columnas.Columnas.Count - 1 ? 8 : 0)
+                                    .Column(inner => BloquesAdministrativos(inner, contenido, firmantes, firmas));
+                            }
+                        });
+                        break;
+                }
+            }
+        }
+
+        private static void TablaAdministrativa(IContainer container, BloqueTabla tabla)
+        {
+            if (tabla.Filas.Count == 0)
+                return;
+
+            container.Table(table =>
+            {
+                table.ColumnsDefinition(c =>
+                {
+                    foreach (var peso in tabla.Pesos)
+                        c.RelativeColumn(peso);
+                });
+
+                for (var f = 0; f < tabla.Filas.Count; f++)
+                {
+                    var encabezado = tabla.ConEncabezado && f == 0;
+                    var fila = tabla.Filas[f];
+                    for (var c = 0; c < tabla.Pesos.Length; c++)
+                    {
+                        var alineacion = tabla.Alineaciones[c];
+                        var texto = fila[c];
+                        var celda = table.Cell();
+                        var caja = encabezado ? celda.BorderBottom(0.6f).BorderColor(Colors.Black) : celda;
+                        caja.PaddingVertical(1).PaddingHorizontal(2).Text(text =>
+                        {
+                            if (alineacion == AlineacionDocumento.Derecha) text.AlignRight();
+                            else if (alineacion == AlineacionDocumento.Centro) text.AlignCenter();
+                            var span = text.Span(texto);
+                            if (encabezado) span.Bold();
+                        });
+                    }
+                }
+            });
+        }
+
+        private static void FirmasAdministrativas(IContainer container, List<string> firmantes, List<FirmaRegistrada> firmas)
+        {
+            container.Row(row =>
+            {
+                foreach (var rol in firmantes)
+                {
+                    var etiqueta = EtiquetasFirmaAdministrativa.TryGetValue(rol, out var e) ? e : $"Firma {rol}";
+                    var firma = firmas.FirstOrDefault(f => string.Equals(f.Rol, rol, StringComparison.OrdinalIgnoreCase));
+                    var imagen = string.IsNullOrEmpty(firma?.ImagenPng) ? null : Convert.FromBase64String(firma.ImagenPng);
+
+                    row.RelativeItem().PaddingHorizontal(6).Column(col =>
+                    {
+                        // Espacio para la firma manuscrita (o la imagen capturada en pantalla).
+                        if (imagen != null)
+                            col.Item().Height(36).AlignCenter().Image(imagen).FitArea();
+                        else
+                            col.Item().Height(36);
+
+                        col.Item().BorderTop(0.6f).BorderColor(Colors.Black).PaddingTop(2).AlignCenter().Text(etiqueta);
+
+                        // El pagaré lleva además la aclaración debajo de la firma.
+                        if (string.Equals(rol, "firmante", StringComparison.OrdinalIgnoreCase))
+                        {
+                            col.Item().Height(26);
+                            col.Item().BorderTop(0.6f).BorderColor(Colors.Black).PaddingTop(2).AlignCenter().Text("Aclaración");
+                        }
+                    });
+                }
             });
         }
 
