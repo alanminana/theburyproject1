@@ -707,7 +707,8 @@ namespace TheBuryProject.Services
                 CreditoId = credito.Id
             };
 
-            DocumentoContextoBuilder.AplicarEmpresa(ctx, datos.Plantilla);
+            var empresa = await _context.EmpresasConfiguracion.AsNoTracking().OrderBy(e => e.Id).FirstOrDefaultAsync();
+            DocumentoContextoBuilder.AplicarEmpresa(ctx, empresa, datos.Plantilla);
             DocumentoContextoBuilder.AplicarCliente(ctx, datos.Cliente);
             DocumentoContextoBuilder.AplicarFiador(ctx, credito.Garante);
 

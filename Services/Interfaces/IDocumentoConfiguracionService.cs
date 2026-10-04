@@ -62,6 +62,17 @@ namespace TheBuryProject.Services.Interfaces
         public List<int> PlantillaIds { get; set; } = new();
     }
 
+    public sealed class EmpresaInput
+    {
+        public string Nombre { get; set; } = string.Empty;
+        public string? Cuit { get; set; }
+        public string? Dni { get; set; }
+        public string Domicilio { get; set; } = string.Empty;
+        public string Ciudad { get; set; } = string.Empty;
+        public string Jurisdiccion { get; set; } = string.Empty;
+        public decimal InteresMoraDiarioPorcentaje { get; set; }
+    }
+
     public sealed class DocumentoPreviewResultado
     {
         public string Texto { get; init; } = string.Empty;
@@ -75,6 +86,11 @@ namespace TheBuryProject.Services.Interfaces
 
     public interface IDocumentoConfiguracionService
     {
+        Task<EmpresaConfiguracion?> ObtenerEmpresaAsync();
+
+        /// <summary>Guarda los datos de la empresa y los replica en la plantilla de contrato vigente (que los usa para validar y para el contrato anterior).</summary>
+        Task<EmpresaConfiguracion> GuardarEmpresaAsync(EmpresaInput input);
+
         Task<List<TipoDocumento>> ListarTiposAsync();
         Task<TipoDocumento> GuardarTipoAsync(TipoDocumentoInput input);
 

@@ -2528,3 +2528,12 @@ Pantallas nuevas (no existían; no reabren ninguna pantalla cerrada): `Views/Doc
 - **Unificación en `Venta/Details`:** con `documentos.view` ya no se muestra la tarjeta legada "Documentación contractual" (el panel "Documentos" tiene número, estado y acciones); queda solo para quien no tiene ese permiso.
 - **NO VALIDADA:** ninguna superficie relevante.
 - Estado: **LISTO PARA COMMIT** (fases de QA ejecutadas, sin superficies en NO VALIDADA).
+
+### Documentos — seguimiento de pendientes (2026-10-04, sin commit)
+
+Pantallas/superficies: `DocumentosConfig/Empresa` (nueva), botón "Presupuesto" y panel "Documentos" en `Cotizacion/Detalles`, recuadro de firma manuscrita en el panel de documentos, constancia de entrega en `Venta/Details`.
+
+- **QA real (Playwright, Chrome del sistema, instancia propia sobre un clon de la LocalDB, ya borrada; login admin / Admin123!):** `Empresa` a 1440, 1024, 390 y 360 px sin overflow; guardar y error de negocio (nombre vacío); el editor de contrato anterior refleja la empresa. Cotización: Presupuesto abre el PDF, segundo pedido devuelve el mismo documento, panel con `PRE-…`. Firma: dibujo con el mouse en el recuadro, registro → Firmado "con firma manuscrita", PDF generado; a 390 px el recuadro entra en pantalla y no hay overflow. Marcar Entregado emite la constancia. 20/20 comprobaciones, 0 errores de consola.
+- **NO VALIDADA:** el dibujo con el dedo en un dispositivo táctil real (se probó con el mouse; el recuadro usa Pointer Events con `touch-action: none`).
+- Estado: **REQUIERE AJUSTE** únicamente por esa superficie NO VALIDADA (dedo en dispositivo táctil real).
+

@@ -822,8 +822,8 @@ public class DocumentoMotorTests : DocumentoTestBase
         Assert.NotNull(credito.PaqueteDocumentalId);
         Assert.Contains("CreditoPersonal", credito.CondicionJson);
         Assert.Equal(1, reglas.Count(r => r.EventoCodigo == EventosDocumentales.PagoRegistrado && r.Activa));
-        // La constancia de entrega es opt-in: hoy el sistema no la emite.
-        Assert.False(reglas.Single(r => r.EventoCodigo == EventosDocumentales.EntregaRealizada).Activa);
+        // La constancia de entrega se emite por defecto al marcar Entregado.
+        Assert.True(reglas.Single(r => r.EventoCodigo == EventosDocumentales.EntregaRealizada).Activa);
     }
 
     [Fact]

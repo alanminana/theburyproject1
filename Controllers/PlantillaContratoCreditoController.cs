@@ -94,6 +94,7 @@ namespace TheBuryProject.Controllers
 
             _context.PlantillasContratoCredito.Add(plantilla);
             await DocumentoSeeder.SincronizarPlantillasLegadasAsync(_context, plantilla);
+            await DocumentoSeeder.SincronizarEmpresaDesdeLegadaAsync(_context, plantilla);
             await _context.SaveChangesAsync();
 
             TempData["Success"] = $"Plantilla \"{plantilla.Nombre}\" creada exitosamente.";
@@ -168,6 +169,7 @@ namespace TheBuryProject.Controllers
             plantilla.UpdatedBy                   = _currentUser.GetUsername();
 
             await DocumentoSeeder.SincronizarPlantillasLegadasAsync(_context, plantilla);
+            await DocumentoSeeder.SincronizarEmpresaDesdeLegadaAsync(_context, plantilla);
             await _context.SaveChangesAsync();
 
             TempData["Success"] = $"Plantilla \"{plantilla.Nombre}\" actualizada.";

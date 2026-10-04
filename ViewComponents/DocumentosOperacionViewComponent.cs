@@ -11,6 +11,7 @@ namespace TheBuryProject.ViewComponents
         public int? VentaId { get; init; }
         public int? CreditoId { get; init; }
         public int? PagoCuotaId { get; init; }
+        public int? CotizacionId { get; init; }
         public bool Compacto { get; init; }
         public bool PuedeVer { get; init; }
         public bool PuedeReimprimir { get; init; }
@@ -34,7 +35,7 @@ namespace TheBuryProject.ViewComponents
             _documentos = documentos;
         }
 
-        public async Task<IViewComponentResult> InvokeAsync(int? ventaId = null, int? creditoId = null, int? pagoCuotaId = null, bool compacto = false)
+        public async Task<IViewComponentResult> InvokeAsync(int? ventaId = null, int? creditoId = null, int? pagoCuotaId = null, int? cotizacionId = null, bool compacto = false)
         {
             if (!UserClaimsPrincipal.TienePermiso("documentos", "view"))
                 return Content(string.Empty);
@@ -46,6 +47,8 @@ namespace TheBuryProject.ViewComponents
                 docs = await _documentos.ObtenerPorVentaAsync(venta);
             else if (creditoId is int credito)
                 docs = await _documentos.ObtenerPorCreditoAsync(credito);
+            else if (cotizacionId is int cotizacion)
+                docs = await _documentos.ObtenerPorCotizacionAsync(cotizacion);
             else
                 return Content(string.Empty);
 
@@ -56,6 +59,7 @@ namespace TheBuryProject.ViewComponents
                 VentaId = ventaId,
                 CreditoId = creditoId,
                 PagoCuotaId = pagoCuotaId,
+                CotizacionId = cotizacionId,
                 Compacto = compacto,
                 PuedeVer = true,
                 PuedeReimprimir = UserClaimsPrincipal.TienePermiso("documentos", "reprint"),

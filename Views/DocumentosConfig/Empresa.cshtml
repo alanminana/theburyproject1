@@ -1,0 +1,67 @@
+@model TheBuryProject.Services.Interfaces.EmpresaInput
+@{
+    ViewData["Title"] = "Datos de la empresa";
+    ViewData["DocTab"] = "empresa";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/documentos-module.css" asp-append-version="true" />
+}
+
+<div class="doc-module">
+    <header class="doc-head">
+        <h1 class="doc-title">Documentos</h1>
+        <p class="doc-sub">Datos de la empresa que aparecen en los contratos, pagarés y demás documentos (variables <span class="doc-mono">{{empresa.nombre}}</span>, <span class="doc-mono">{{empresa.cuit}}</span>, etc.). Los documentos ya emitidos no cambian.</p>
+        <partial name="_Tabs" />
+    </header>
+
+    <partial name="_Flash" />
+
+    <form method="post" asp-action="Empresa" class="doc-form">
+        @Html.AntiForgeryToken()
+
+        <section class="doc-card">
+            <h2>Empresa</h2>
+            <div class="doc-grid-2">
+                <div class="doc-field">
+                    <label asp-for="Nombre">Nombre o razón social</label>
+                    <input asp-for="Nombre" class="doc-input" maxlength="200" required />
+                </div>
+                <div class="doc-field">
+                    <label asp-for="Cuit">CUIT</label>
+                    <input asp-for="Cuit" class="doc-input doc-mono" maxlength="20" inputmode="numeric" placeholder="30-12345678-9" />
+                </div>
+            </div>
+            <div class="doc-grid-2" style="margin-top:.9rem">
+                <div class="doc-field">
+                    <label asp-for="Domicilio">Domicilio</label>
+                    <input asp-for="Domicilio" class="doc-input" maxlength="300" required />
+                </div>
+                <div class="doc-field">
+                    <label asp-for="Dni">DNI (si firma una persona física)</label>
+                    <input asp-for="Dni" class="doc-input doc-mono" maxlength="20" inputmode="numeric" />
+                </div>
+            </div>
+            <div class="doc-grid-3" style="margin-top:.9rem">
+                <div class="doc-field">
+                    <label asp-for="Ciudad">Ciudad de firma</label>
+                    <input asp-for="Ciudad" class="doc-input" maxlength="120" required />
+                </div>
+                <div class="doc-field">
+                    <label asp-for="Jurisdiccion">Jurisdicción</label>
+                    <input asp-for="Jurisdiccion" class="doc-input" maxlength="200" required />
+                </div>
+                <div class="doc-field">
+                    <label asp-for="InteresMoraDiarioPorcentaje">Interés por mora diario (%)</label>
+                    <input asp-for="InteresMoraDiarioPorcentaje" type="number" step="0.0001" min="0" max="100" class="doc-input" />
+                </div>
+            </div>
+        </section>
+
+        <div class="doc-actions">
+            <button type="submit" class="doc-btn doc-btn-primary">
+                <span class="material-symbols-outlined" aria-hidden="true">save</span>Guardar
+            </button>
+        </div>
+    </form>
+</div>

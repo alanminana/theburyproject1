@@ -33,7 +33,7 @@ Los eventos son código (alguien tiene que dispararlos); qué documentos genera 
 | `VENTA_CONFIRMADA` | `VentaService.ConfirmarVentaAsync` / `ConfirmarVentaCreditoAsync`, antes del commit. |
 | `PAGO_REGISTRADO` | `CreditoService`, una vez por pago aplicado (individual y múltiple), antes del commit. |
 | `ENTREGA_REALIZADA` | `VentaEnvioService.CambiarEstadoAsync` al pasar a Entregado. |
-| `PRESUPUESTO_GENERADO` | Disponible para cotizaciones (sin disparador automático todavía). |
+| `PRESUPUESTO_GENERADO` | Botón "Presupuesto" en el detalle de una cotización (emite el documento numerado; si ya existe abre el mismo). |
 
 Agregar un evento: una constante en `EventosDocumentales` + una llamada a `ProcesarEventoAsync` en el flujo.
 
@@ -96,13 +96,16 @@ definitivo si alguna variable queda vacía. La vista previa usa datos de ejemplo
 * `ContratoVentaCredito` y su gate de confirmación se mantienen: el paso "Preparar contrato" sigue existiendo y
   ahora emite sus documentos por el motor (misma numeración: el contrato legado usa los números del motor).
   El PDF del contrato imprime el contenido del documento emitido.
-* El editor "Plantilla contrato" sigue editando los datos del vendedor/empresa (`empresa.*`) y, si cambian los
+* Los datos de la empresa (`empresa.*`) tienen su propia pantalla (Configuración → Documentos → Empresa) y se copian de la
+  plantilla de contrato la primera vez. Guardar la empresa también actualiza la plantilla vigente, y viceversa: el editor
+  "Plantilla contrato" (que sigue validando y snapshoteando los datos del vendedor) actualiza la empresa. Si cambian los
   textos de contrato/pagaré, registra una versión nueva en las plantillas estándar.
 * Al iniciar la app (`DbInitializer` → `DocumentoSeeder`): se siembra la configuración equivalente al
   comportamiento anterior (tipos, plantillas con el texto vigente, paquete "Crédito estándar", reglas) **solo la
   primera vez**, y cada contrato anterior se importa como dos documentos independientes (contrato y pagaré) con
   su texto histórico ya resuelto. Idempotente y sin tocar el contrato legado.
-* La regla "Constancia de entrega" se siembra **desactivada** (el sistema no emitía constancias).
+* La regla "Constancia de entrega" se emite por defecto al marcar un envío como Entregado. Las bases que la tenían
+  sembrada inactiva y sin editar se activan una sola vez; si se desactiva desde Configuración queda desactivada.
 
 ## Permisos (módulo `documentos`)
 
@@ -116,9 +119,10 @@ crear/modificar/activar/eliminar regla, paquetes, generar, reimprimir, firmar, c
 
 ## Limitaciones conocidas
 
-* La firma es un **registro** (rol, firmante, fecha, usuario); no hay firma digital ni captura manuscrita.
+* La firma es un **registro** (rol, firmante, fecha, usuario) con una **firma manuscrita opcional** dibujada en pantalla
+  (PNG validado: máx. 1600×800 px y ~150 KB, con su hash SHA-256; se imprime sobre la línea de firma). No es firma
+  digital con validez legal (no hay certificado ni sello de tiempo de un tercero).
 * Los documentos importados del sistema anterior se regeneran con la plantilla activa vigente de su tipo (su plantilla de archivo está inactiva).
 * El PDF del contrato legado se genera una sola vez (archivo en `App_Data`); las regeneraciones posteriores se
   reimprimen desde Documentos, que siempre usa el contenido vigente del documento.
-* Los datos del vendedor/empresa (`empresa.*`) salen de la plantilla de contrato vigente (no hay otra configuración de empresa).
-* No se agregaron disparadores automáticos para `PRESUPUESTO_GENERADO`.
+* El presupuesto como documento se emite a pedido (botón en la cotización); el PDF/Imprimir de Cotización sigue existiendo.

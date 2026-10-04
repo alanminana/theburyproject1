@@ -103,8 +103,8 @@ namespace TheBuryProject.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [PermisoRequerido(Modulo = "documentos", Accion = "sign")]
-        public Task<IActionResult> Firmar(int id, string rol, string? firmante, string? returnUrl)
-            => EjecutarAsync(() => _documentos.FirmarAsync(id, rol, firmante), "Firma registrada.", returnUrl);
+        public Task<IActionResult> Firmar(int id, string rol, string? firmante, string? firmaImagen, string? returnUrl)
+            => EjecutarAsync(() => _documentos.FirmarAsync(id, rol, firmante, firmaImagen), "Firma registrada.", returnUrl);
 
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -126,12 +126,14 @@ namespace TheBuryProject.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [PermisoRequerido(Modulo = "documentos", Accion = "generate")]
-        public async Task<IActionResult> GenerarPendientes(int? ventaId, int? pagoCuotaId, string? returnUrl)
+        public async Task<IActionResult> GenerarPendientes(int? ventaId, int? pagoCuotaId, int? cotizacionId, string? returnUrl)
         {
             try
             {
                 DocumentoEventoResultado resultado;
-                if (pagoCuotaId is int pago)
+                if (cotizacionId is int cotizacion)
+                    resultado = await _documentos.ReintentarEventoAsync(EventosDocumentales.PresupuestoGenerado, new DocumentoOrigen { CotizacionId = cotizacion });
+                else if (pagoCuotaId is int pago)
                     resultado = await _documentos.ReintentarEventoAsync(EventosDocumentales.PagoRegistrado, new DocumentoOrigen { PagoCuotaId = pago });
                 else if (ventaId is int venta)
                     resultado = await _documentos.ReintentarEventoAsync(EventosDocumentales.VentaConfirmada, new DocumentoOrigen { VentaId = venta });
@@ -144,6 +146,39 @@ namespace TheBuryProject.Controllers
                     TempData["Success"] = $"Se generaron {resultado.Generados.Count} documento(s).";
                 else
                     TempData["Success"] = "No había documentos pendientes.";
+            }
+            catch (DocumentoException ex)
+            {
+                TempData["Error"] = ex.Message;
+            }
+
+            return Volver(returnUrl);
+        }
+
+        /// <summary>
+        /// Emite el presupuesto de una cotización como documento (número propio, histórico, reimprimible) y lo abre.
+        /// Es idempotente: si ya se emitió, abre el mismo documento.
+        /// </summary>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "documentos", Accion = "generate")]
+        public async Task<IActionResult> GenerarPresupuesto(int cotizacionId, string? returnUrl)
+        {
+            try
+            {
+                var resultado = await _documentos.ProcesarEventoAsync(new DocumentoEventoRequest
+                {
+                    Evento = EventosDocumentales.PresupuestoGenerado,
+                    Origen = new DocumentoOrigen { CotizacionId = cotizacionId }
+                });
+
+                var documento = resultado.Todos.FirstOrDefault();
+                if (documento != null)
+                    return RedirectToAction(nameof(Ver), new { id = documento.Id });
+
+                TempData["Error"] = resultado.Errores.Count > 0
+                    ? string.Join(" ", resultado.Errores.Select(e => e.Mensaje))
+                    : "No hay una regla activa que genere el presupuesto. Configurala en Documentos → Reglas.";
             }
             catch (DocumentoException ex)
             {

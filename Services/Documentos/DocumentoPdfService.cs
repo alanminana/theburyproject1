@@ -114,8 +114,11 @@ namespace TheBuryProject.Services.Documentos
                     var etiqueta = EtiquetasFirmante.TryGetValue(rol, out var e) ? e : rol;
                     var firma = firmas.FirstOrDefault(f => string.Equals(f.Rol, rol, StringComparison.OrdinalIgnoreCase));
 
-                    row.RelativeItem().PaddingTop(35).Column(col =>
+                    var imagen = string.IsNullOrEmpty(firma?.ImagenPng) ? null : Convert.FromBase64String(firma.ImagenPng);
+                    row.RelativeItem().PaddingTop(imagen == null ? 35 : 0).Column(col =>
                     {
+                        if (imagen != null)
+                            col.Item().Height(35).AlignCenter().Image(imagen).FitArea();
                         col.Item().BorderTop(1).BorderColor(Colors.Grey.Darken2).PaddingTop(4).AlignCenter()
                             .Text(etiqueta).FontSize(9);
                         if (firma != null)
@@ -154,5 +157,11 @@ namespace TheBuryProject.Services.Documentos
         public string Firmante { get; set; } = string.Empty;
         public DateTime FechaUtc { get; set; }
         public string Usuario { get; set; } = string.Empty;
+
+        /// <summary>Firma manuscrita capturada en pantalla (PNG en base64). Opcional.</summary>
+        public string? ImagenPng { get; set; }
+
+        /// <summary>SHA-256 de la imagen, para detectar alteraciones.</summary>
+        public string? HashImagen { get; set; }
     }
 }

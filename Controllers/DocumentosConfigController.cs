@@ -367,6 +367,39 @@ namespace TheBuryProject.Controllers
             return View(input);
         }
 
+        // ------------------------------------------------------------------ Empresa
+
+        [HttpGet]
+        [PermisoRequerido(Modulo = "documentos", Accion = "managetemplates")]
+        public async Task<IActionResult> Empresa()
+        {
+            var e = await _config.ObtenerEmpresaAsync();
+            return View(e == null ? new EmpresaInput() : new EmpresaInput
+            {
+                Nombre = e.Nombre, Cuit = e.Cuit, Dni = e.Dni, Domicilio = e.Domicilio, Ciudad = e.Ciudad,
+                Jurisdiccion = e.Jurisdiccion, InteresMoraDiarioPorcentaje = e.InteresMoraDiarioPorcentaje
+            });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [PermisoRequerido(Modulo = "documentos", Accion = "managetemplates")]
+        public async Task<IActionResult> Empresa(EmpresaInput input)
+        {
+            try
+            {
+                await _config.GuardarEmpresaAsync(input);
+                TempData["Success"] = "Datos de la empresa guardados.";
+                return RedirectToAction(nameof(Empresa));
+            }
+            catch (DocumentoException ex)
+            {
+                ModelState.AddModelError(string.Empty, ex.Message);
+            }
+
+            return View(input);
+        }
+
         // ------------------------------------------------------------------ Variables
 
         [HttpGet]

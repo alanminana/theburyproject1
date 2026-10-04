@@ -70,6 +70,8 @@
 .doc-op-more { grid-column: 1 / -1; }
 .doc-op-more summary { cursor: pointer; font-size: .8125rem; color: var(--pal-neutral-300); min-height: 2rem; display: flex; align-items: center; }
 .doc-op-more form { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; margin-top: .4rem; }
+.doc-firma { flex: 1 1 100%; display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .75rem; }
+.doc-firma-canvas { width: 100%; max-width: 30rem; aspect-ratio: 3 / 1; border: 1px dashed var(--pal-neutral-600, var(--pal-neutral-700)); border-radius: 10px; background: #fff; touch-action: none; cursor: crosshair; display: block; }
 .doc-op-more .doc-input, .doc-op-more .doc-select { width: auto; flex: 1 1 12rem; min-height: 2.25rem; }
 
 @media (max-width: 720px) {

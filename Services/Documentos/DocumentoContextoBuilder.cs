@@ -51,9 +51,19 @@ namespace TheBuryProject.Services.Documentos
             return ctx;
         }
 
-        /// <summary>Datos del vendedor/empresa: salen de la plantilla de contrato vigente (única fuente configurada hoy).</summary>
+        /// <summary>
+        /// Datos de la empresa: salen de su configuración propia (Configuración → Documentos → Empresa). Si todavía no
+        /// existe se usa la plantilla de contrato vigente, que era la única fuente antes.
+        /// </summary>
         private async Task AplicarEmpresaAsync(DocumentoContexto ctx)
         {
+            var empresa = await _context.EmpresasConfiguracion.AsNoTracking().OrderBy(e => e.Id).FirstOrDefaultAsync();
+            if (empresa != null)
+            {
+                AplicarEmpresa(ctx, empresa, null);
+                return;
+            }
+
             var hoy = DateTime.UtcNow.Date;
             var plantilla = await _context.PlantillasContratoCredito
                 .AsNoTracking()
@@ -62,6 +72,23 @@ namespace TheBuryProject.Services.Documentos
                 .FirstOrDefaultAsync();
 
             AplicarEmpresa(ctx, plantilla);
+        }
+
+        public static void AplicarEmpresa(DocumentoContexto ctx, EmpresaConfiguracion? empresa, PlantillaContratoCredito? respaldo)
+        {
+            if (empresa == null)
+            {
+                AplicarEmpresa(ctx, respaldo);
+                return;
+            }
+
+            ctx.Set("empresa.nombre", empresa.Nombre);
+            ctx.Set("empresa.cuit", empresa.Cuit);
+            ctx.Set("empresa.dni", empresa.Dni);
+            ctx.Set("empresa.direccion", empresa.Domicilio);
+            ctx.Set("empresa.ciudad", empresa.Ciudad);
+            ctx.Set("empresa.jurisdiccion", empresa.Jurisdiccion);
+            ctx.Set("empresa.interesMoraDiario", empresa.InteresMoraDiarioPorcentaje.ToString("F4", Cultura));
         }
 
         public static void AplicarEmpresa(DocumentoContexto ctx, PlantillaContratoCredito? p)
