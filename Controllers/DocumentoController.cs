@@ -50,6 +50,24 @@ namespace TheBuryProject.Controllers
         public async Task<IActionResult> Ver(int id)
             => await ServirPdfAsync(new[] { id }, reimprimir: false);
 
+        /// <summary>
+        /// Abre el PDF de los documentos vigentes de un pago (el recibo de una cobranza). Es lo que se abre solo al cobrar.
+        /// El id es el del pago ancla de la cobranza.
+        /// </summary>
+        [HttpGet]
+        [PermisoRequerido(Modulo = "documentos", Accion = "view")]
+        public async Task<IActionResult> VerPorPago(int id)
+        {
+            var docs = (await _documentos.ObtenerPorPagoAsync(id))
+                .Where(d => d.Estado != Models.Enums.EstadoDocumentoGenerado.Cancelado && d.Estado != Models.Enums.EstadoDocumentoGenerado.Reemplazado)
+                .OrderBy(d => d.Id)
+                .ToList();
+            if (docs.Count == 0)
+                return NotFound("Este pago no tiene documentos emitidos.");
+
+            return await ServirPdfAsync(docs.Select(d => d.Id).ToList(), reimprimir: false);
+        }
+
         /// <summary>Visualiza juntos todos los documentos vigentes de un grupo de impresión (ej. contrato + pagaré).</summary>
         [HttpGet]
         [PermisoRequerido(Modulo = "documentos", Accion = "view")]

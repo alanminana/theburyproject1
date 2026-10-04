@@ -1714,6 +1714,7 @@ namespace TheBuryProject.Services
                     RecargoTotal = recargoTotal,
                     TotalCaja = pagosPlanificados.Sum(p => p.Total) + recargoTotal,
                     FechaPago = fechaPago,
+                    PagoCuotaIdRecibo = pagosCuotaPorCuotaId.Count == 0 ? null : pagosCuotaPorCuotaId.Values.Min(p => p.Id),
                     Cuotas = pagosPlanificados
                         .Select(p => new PagoMultipleCuotaResult
                         {
