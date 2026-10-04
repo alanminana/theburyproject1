@@ -67,6 +67,15 @@ namespace TheBuryProject.Data
         public DbSet<Factura> Facturas { get; set; }
         public DbSet<PlantillaContratoCredito> PlantillasContratoCredito { get; set; }
         public DbSet<ContratoVentaCredito> ContratosVentaCredito { get; set; }
+
+        // Motor documental configurable (tipos, plantillas versionadas, reglas, paquetes, documentos emitidos)
+        public DbSet<TipoDocumento> TiposDocumento { get; set; }
+        public DbSet<PlantillaDocumento> PlantillasDocumento { get; set; }
+        public DbSet<PlantillaDocumentoVersion> PlantillasDocumentoVersion { get; set; }
+        public DbSet<ReglaDocumento> ReglasDocumento { get; set; }
+        public DbSet<PaqueteDocumental> PaquetesDocumentales { get; set; }
+        public DbSet<PaqueteDocumentalItem> PaquetesDocumentalesItems { get; set; }
+        public DbSet<DocumentoGenerado> DocumentosGenerados { get; set; }
         public DbSet<ConfiguracionPago> ConfiguracionesPago { get; set; }
         public DbSet<ConfiguracionTarjeta> ConfiguracionesTarjeta { get; set; }
         public DbSet<ConfiguracionPagoPlan> ConfiguracionPagoPlanes { get; set; }
@@ -1738,6 +1747,8 @@ namespace TheBuryProject.Data
                     .OnDelete(DeleteBehavior.Restrict);
             });
 
+            ConfigurarMotorDocumental(modelBuilder);
+
             // =======================
             // ConfiguracionPago
             // =======================
@@ -3031,6 +3042,126 @@ namespace TheBuryProject.Data
                 new ConfiguracionCreditoMontoPorPuntaje { Id = 110, Puntaje = 9,  MontoMaximoFinanciable = 0m,  RequiereAnalisis = false, Activo = true, Orden = 9,  FechaActualizacion = seedUtc, UsuarioActualizacion = "System" },
                 new ConfiguracionCreditoMontoPorPuntaje { Id = 111, Puntaje = 10, MontoMaximoFinanciable = 0m,  RequiereAnalisis = false, Activo = true, Orden = 10, FechaActualizacion = seedUtc, UsuarioActualizacion = "System" }
             );
+        }
+
+        private void ConfigurarMotorDocumental(ModelBuilder modelBuilder)
+        {
+            var textoLargo = Database.IsSqlServer() ? "nvarchar(max)" : "TEXT";
+
+            modelBuilder.Entity<TipoDocumento>(entity =>
+            {
+                entity.ToTable("TiposDocumento");
+                entity.Property(e => e.Codigo).IsRequired().HasMaxLength(50);
+                entity.Property(e => e.Nombre).IsRequired().HasMaxLength(150);
+                entity.Property(e => e.Descripcion).HasMaxLength(500);
+                entity.Property(e => e.Prefijo).IsRequired().HasMaxLength(10);
+                entity.HasIndex(e => e.Codigo).IsUnique().HasFilter("IsDeleted = 0");
+                entity.HasQueryFilter(e => !e.IsDeleted);
+            });
+
+            modelBuilder.Entity<PlantillaDocumento>(entity =>
+            {
+                entity.ToTable("PlantillasDocumento");
+                entity.Property(e => e.Codigo).IsRequired().HasMaxLength(80);
+                entity.Property(e => e.Nombre).IsRequired().HasMaxLength(150);
+                entity.Property(e => e.Descripcion).HasMaxLength(500);
+                entity.Property(e => e.FirmantesRequeridos).HasMaxLength(200);
+                entity.HasIndex(e => e.Codigo).IsUnique().HasFilter("IsDeleted = 0");
+                entity.HasIndex(e => e.TipoDocumentoId);
+                entity.HasQueryFilter(e => !e.IsDeleted);
+                entity.HasOne(e => e.TipoDocumento).WithMany().HasForeignKey(e => e.TipoDocumentoId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<PlantillaDocumentoVersion>(entity =>
+            {
+                entity.ToTable("PlantillasDocumentoVersion");
+                entity.Property(e => e.Contenido).IsRequired().HasColumnType(textoLargo);
+                entity.Property(e => e.VariablesRequeridas).HasMaxLength(1000);
+                entity.Property(e => e.Comentario).HasMaxLength(300);
+                entity.HasIndex(e => new { e.PlantillaDocumentoId, e.Numero }).IsUnique();
+                entity.HasQueryFilter(e => !e.IsDeleted);
+                entity.HasOne(e => e.PlantillaDocumento).WithMany(p => p.Versiones)
+                    .HasForeignKey(e => e.PlantillaDocumentoId).OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<PaqueteDocumental>(entity =>
+            {
+                entity.ToTable("PaquetesDocumentales");
+                entity.Property(e => e.Codigo).IsRequired().HasMaxLength(80);
+                entity.Property(e => e.Nombre).IsRequired().HasMaxLength(150);
+                entity.Property(e => e.Descripcion).HasMaxLength(500);
+                entity.HasIndex(e => e.Codigo).IsUnique().HasFilter("IsDeleted = 0");
+                entity.HasQueryFilter(e => !e.IsDeleted);
+            });
+
+            modelBuilder.Entity<PaqueteDocumentalItem>(entity =>
+            {
+                entity.ToTable("PaquetesDocumentalesItems");
+                entity.HasIndex(e => e.PaqueteDocumentalId);
+                entity.HasIndex(e => e.PlantillaDocumentoId);
+                entity.HasQueryFilter(e => !e.IsDeleted);
+                entity.HasOne(e => e.PaqueteDocumental).WithMany(p => p.Items)
+                    .HasForeignKey(e => e.PaqueteDocumentalId).OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(e => e.PlantillaDocumento).WithMany()
+                    .HasForeignKey(e => e.PlantillaDocumentoId).OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<ReglaDocumento>(entity =>
+            {
+                entity.ToTable("ReglasDocumento");
+                entity.Property(e => e.Nombre).IsRequired().HasMaxLength(150);
+                entity.Property(e => e.EventoCodigo).IsRequired().HasMaxLength(50);
+                entity.Property(e => e.GrupoExclusion).HasMaxLength(50);
+                entity.Property(e => e.CondicionJson).HasColumnType(textoLargo);
+                entity.HasIndex(e => new { e.EventoCodigo, e.Activa, e.Prioridad });
+                entity.HasQueryFilter(e => !e.IsDeleted);
+                entity.HasOne(e => e.PlantillaDocumento).WithMany()
+                    .HasForeignKey(e => e.PlantillaDocumentoId).OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(e => e.PaqueteDocumental).WithMany()
+                    .HasForeignKey(e => e.PaqueteDocumentalId).OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<DocumentoGenerado>(entity =>
+            {
+                entity.ToTable("DocumentosGenerados");
+                entity.Property(e => e.Numero).IsRequired().HasMaxLength(50);
+                entity.Property(e => e.EventoOrigen).IsRequired().HasMaxLength(50);
+                entity.Property(e => e.ClaveIdempotencia).IsRequired().HasMaxLength(200);
+                entity.Property(e => e.UsuarioGeneracion).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.ContentHash).HasMaxLength(128);
+                entity.Property(e => e.FirmantesRequeridos).HasMaxLength(200);
+                entity.Property(e => e.CanceladoPor).HasMaxLength(100);
+                entity.Property(e => e.MotivoCancelacion).HasMaxLength(500);
+                entity.Property(e => e.ContenidoRenderizado).IsRequired().HasColumnType(textoLargo);
+                entity.Property(e => e.DatosSnapshotJson).IsRequired().HasColumnType(textoLargo);
+                entity.Property(e => e.MetadataJson).HasColumnType(textoLargo);
+                entity.Property(e => e.FirmasJson).HasColumnType(textoLargo);
+
+                // Numeración única por tipo, e idempotencia por clave (carreras / reintentos).
+                entity.HasIndex(e => new { e.TipoDocumentoId, e.Numero }).IsUnique().HasFilter("IsDeleted = 0");
+                entity.HasIndex(e => e.ClaveIdempotencia).IsUnique().HasFilter("IsDeleted = 0");
+                entity.HasIndex(e => e.VentaId);
+                entity.HasIndex(e => e.CreditoId);
+                entity.HasIndex(e => e.PagoCuotaId);
+                entity.HasIndex(e => e.ClienteId);
+                entity.HasIndex(e => e.GrupoImpresionId);
+                entity.HasIndex(e => e.FechaGeneracionUtc);
+                entity.HasQueryFilter(e => !e.IsDeleted);
+
+                entity.HasOne(e => e.TipoDocumento).WithMany().HasForeignKey(e => e.TipoDocumentoId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(e => e.PlantillaDocumento).WithMany().HasForeignKey(e => e.PlantillaDocumentoId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(e => e.PlantillaDocumentoVersion).WithMany().HasForeignKey(e => e.PlantillaDocumentoVersionId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(e => e.Venta).WithMany().HasForeignKey(e => e.VentaId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(e => e.Credito).WithMany().HasForeignKey(e => e.CreditoId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(e => e.Cliente).WithMany().HasForeignKey(e => e.ClienteId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
         }
 
         /// <summary>

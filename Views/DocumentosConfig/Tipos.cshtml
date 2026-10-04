@@ -1,0 +1,47 @@
+@model List<TheBuryProject.Models.Entities.TipoDocumento>
+@{
+    ViewData["Title"] = "Tipos de documento";
+    ViewData["DocTab"] = "tipos";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/documentos-module.css" asp-append-version="true" />
+}
+
+<div class="doc-module">
+    <header class="doc-head">
+        <h1 class="doc-title">Documentos</h1>
+        <p class="doc-sub">Cada tipo de documento (contrato, pagaré, recibo, constancia…) tiene su propia numeración. Para sumar un documento nuevo: creá el tipo, una plantilla y una regla.</p>
+        <partial name="_Tabs" />
+    </header>
+
+    <partial name="_Flash" />
+
+    <div class="doc-actions" style="justify-content:flex-end">
+        <a asp-action="TipoEdit" class="doc-btn doc-btn-primary">
+            <span class="material-symbols-outlined" aria-hidden="true">add</span>Nuevo tipo
+        </a>
+    </div>
+
+    <section class="doc-card">
+        <div class="doc-table-wrap">
+            <table class="doc-table" data-erp-cards>
+                <thead><tr><th data-card="title">Tipo</th><th data-card="half">Categoría</th><th>Numeración</th><th data-card="half">Varios por operación</th><th data-card="half">Firma</th><th data-card="half">Estado</th><th data-card="actions"><span class="sr-only">Acciones</span></th></tr></thead>
+                <tbody>
+                @foreach (var t in Model)
+                {
+                    <tr>
+                        <td><strong>@t.Nombre</strong><div class="doc-muted doc-mono">@t.Codigo</div></td>
+                        <td>@t.Categoria</td>
+                        <td class="doc-mono">@t.Prefijo-AAAAMM-@((t.UltimoNumero + 1).ToString("D6"))<div class="doc-muted">próximo número</div></td>
+                        <td>@(t.PermiteMultiples ? "Sí" : "No")</td>
+                        <td>@(t.RequiereFirma ? "Sí" : "Según plantilla")</td>
+                        <td>@if (t.Activo) { <span class="doc-chip doc-chip-ok">Activo</span> } else { <span class="doc-chip doc-chip-off">Inactivo</span> }</td>
+                        <td><a asp-action="TipoEdit" asp-route-id="@t.Id" class="doc-btn">Editar</a></td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>

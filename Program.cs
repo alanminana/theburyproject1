@@ -157,6 +157,13 @@ builder.Services.AddScoped<ICotizacionConversionService, CotizacionConversionSer
 builder.Services.AddSingleton<ICotizacionPdfService, CotizacionPdfService>();
 builder.Services.AddScoped<IPlantillaContratoCreditoService, PlantillaContratoCreditoService>();
 builder.Services.AddScoped<IContratoVentaCreditoService, ContratoVentaCreditoService>();
+
+// Motor documental configurable (tipos, plantillas versionadas, reglas, paquetes, documentos emitidos)
+builder.Services.AddScoped<IDocumentoNumeracionService, TheBuryProject.Services.Documentos.DocumentoNumeracionService>();
+builder.Services.AddScoped<IDocumentoContextoBuilder, TheBuryProject.Services.Documentos.DocumentoContextoBuilder>();
+builder.Services.AddScoped<IDocumentoPdfService, TheBuryProject.Services.Documentos.DocumentoPdfService>();
+builder.Services.AddScoped<IDocumentoService, TheBuryProject.Services.Documentos.DocumentoService>();
+builder.Services.AddScoped<IDocumentoConfiguracionService, TheBuryProject.Services.Documentos.DocumentoConfiguracionService>();
 builder.Services.AddScoped<IConfiguracionMoraService, ConfiguracionMoraService>();
 builder.Services.AddScoped<IRolService, RolService>();
 builder.Services.AddScoped<IUsuarioService, UsuarioService>();

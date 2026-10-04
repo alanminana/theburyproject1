@@ -9,6 +9,7 @@ using TheBuryProject.Data;
 using TheBuryProject.Helpers;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
+using TheBuryProject.Services.Documentos;
 using TheBuryProject.Services.Exceptions;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.Services.Models;
@@ -22,6 +23,8 @@ namespace TheBuryProject.Services
         private readonly IConfiguracionPagoService _configuracionPagoService;
         private readonly IWebHostEnvironment _environment;
         private readonly ILogger<ContratoVentaCreditoService> _logger;
+        private readonly IDocumentoService? _documentoService;
+        private readonly IDocumentoNumeracionService? _numeracion;
 
         private static readonly JsonSerializerOptions SnapshotJsonOptions = new()
         {
@@ -33,13 +36,17 @@ namespace TheBuryProject.Services
             IFinancialCalculationService financialService,
             IConfiguracionPagoService configuracionPagoService,
             IWebHostEnvironment environment,
-            ILogger<ContratoVentaCreditoService> logger)
+            ILogger<ContratoVentaCreditoService> logger,
+            IDocumentoService? documentoService = null,
+            IDocumentoNumeracionService? numeracion = null)
         {
             _context = context;
             _financialService = financialService;
             _configuracionPagoService = configuracionPagoService;
             _environment = environment;
             _logger = logger;
+            _documentoService = documentoService;
+            _numeracion = numeracion;
         }
 
         public async Task<ContratoVentaCreditoValidacionResult> ValidarDatosParaGenerarAsync(int ventaId)
@@ -70,8 +77,13 @@ namespace TheBuryProject.Services
             if (datos == null || !validacion.EsValido)
                 throw new ContratoVentaCreditoValidacionException(validacion.Errores);
 
-            var numeroContrato = await GenerarNumeroContratoAsync();
-            var numeroPagare = await GenerarNumeroPagareAsync();
+            // La emisión de los documentos (contrato, pagaré, lo que digan las reglas) pasa por el motor
+            // documental, y el registro legado + los documentos se guardan en una sola transacción: si un
+            // documento obligatorio no puede generarse, no queda un contrato a medias.
+            var transaccionPropia = _documentoService != null && _context.Database.CurrentTransaction == null;
+            await using var tx = transaccionPropia ? await _context.Database.BeginTransactionAsync() : null;
+
+            var (numeroContrato, numeroPagare) = await ObtenerNumerosAsync();
             var fechaEmision = DateTime.UtcNow;
             var snapshot = ConstruirSnapshot(datos, numeroContrato, numeroPagare, fechaEmision, usuario.Trim());
 
@@ -96,9 +108,17 @@ namespace TheBuryProject.Services
             try
             {
                 await _context.SaveChangesAsync();
+
+                if (_documentoService != null)
+                    await EmitirDocumentosAsync(datos, snapshot, numeroContrato, numeroPagare, usuario.Trim());
+
+                if (tx != null)
+                    await tx.CommitAsync();
             }
             catch (DbUpdateException ex) when (EsViolacionIndiceUnicoVentaId(ex))
             {
+                _context.Entry(contrato).State = EntityState.Detached;
+
                 // Carrera real (dos requests concurrentes pasaron el "existente == null" de
                 // arriba antes de que cualquiera confirmara): el índice único
                 // IX_ContratosVentaCredito_VentaId (IsDeleted = 0) rechaza esta segunda
@@ -110,6 +130,16 @@ namespace TheBuryProject.Services
                 if (ganador != null)
                     return ganador;
 
+                throw;
+            }
+            catch
+            {
+                // Falló la emisión documental (obligatoria) o el guardado: se deshace el contrato legado
+                // junto con cualquier documento ya agregado, y se suelta lo que quedó en el tracker.
+                if (_context.Entry(contrato).State == EntityState.Added)
+                    _context.Entry(contrato).State = EntityState.Detached;
+                if (tx != null)
+                    await tx.RollbackAsync(CancellationToken.None);
                 throw;
             }
 
@@ -141,7 +171,8 @@ namespace TheBuryProject.Services
                     return contrato;
             }
 
-            var pdfBytes = GenerarPdfBytes(contrato);
+            var textosDocumentales = await ObtenerTextosDocumentalesAsync(contrato.VentaId);
+            var pdfBytes = GenerarPdfBytes(contrato, textosDocumentales.Contrato, textosDocumentales.Pagare);
             var nombreArchivo = $"{SanitizeFileName(contrato.NumeroContrato)}.pdf";
             var rutaRelativa = Path.Combine(
                 "App_Data",
@@ -579,6 +610,135 @@ namespace TheBuryProject.Services
                 : detalle.Subtotal;
         }
 
+        /// <summary>
+        /// Texto histórico de un contrato legado con sus variables ya resueltas (para migrarlo a
+        /// documentos generados). Usa el mismo snapshot que usaba el PDF original.
+        /// </summary>
+        internal static (string Contrato, string Pagare) ResolverTextosHistoricos(ContratoVentaCredito contrato)
+        {
+            var snapshot = JsonSerializer.Deserialize<ContratoVentaCreditoSnapshot>(
+                contrato.DatosSnapshotJson,
+                SnapshotJsonOptions) ?? throw new InvalidOperationException("El snapshot del contrato es inválido.");
+
+            var variables = CrearVariables(snapshot);
+            return (ResolverVariables(contrato.TextoContratoSnapshot, variables),
+                    ResolverVariables(contrato.TextoPagareSnapshot, variables));
+        }
+
+        private async Task<(string? Contrato, string? Pagare)> ObtenerTextosDocumentalesAsync(int ventaId)
+        {
+            var docs = await _context.DocumentosGenerados
+                .AsNoTracking()
+                .Include(d => d.TipoDocumento)
+                .Where(d => d.VentaId == ventaId
+                    && d.EventoOrigen == EventosDocumentales.ContratoCreditoSolicitado
+                    && d.ContratoLegadoId == null
+                    && d.Estado != EstadoDocumentoGenerado.Cancelado
+                    && d.Estado != EstadoDocumentoGenerado.Reemplazado)
+                .OrderByDescending(d => d.Id)
+                .ToListAsync();
+
+            return (docs.FirstOrDefault(d => d.TipoDocumento.Codigo == "CONTRATO")?.ContenidoRenderizado,
+                    docs.FirstOrDefault(d => d.TipoDocumento.Codigo == "PAGARE")?.ContenidoRenderizado);
+        }
+
+        // Una sola autoridad de numeración: la secuencia documental de cada tipo. Sin tipos configurados
+        // (instalación sin motor documental) se mantiene el contador legado.
+        private async Task<(string Contrato, string Pagare)> ObtenerNumerosAsync()
+        {
+            if (_numeracion != null)
+            {
+                var tipos = await _context.TiposDocumento.AsNoTracking()
+                    .Where(t => t.Codigo == "CONTRATO" || t.Codigo == "PAGARE")
+                    .ToListAsync();
+                var tipoContrato = tipos.FirstOrDefault(t => t.Codigo == "CONTRATO");
+                var tipoPagare = tipos.FirstOrDefault(t => t.Codigo == "PAGARE");
+                if (tipoContrato != null && tipoPagare != null)
+                    return (await _numeracion.SiguienteNumeroAsync(tipoContrato.Id),
+                            await _numeracion.SiguienteNumeroAsync(tipoPagare.Id));
+            }
+
+            return (await GenerarNumeroContratoAsync(), await GenerarNumeroPagareAsync());
+        }
+
+        private async Task EmitirDocumentosAsync(
+            DatosContratoContexto datos,
+            ContratoVentaCreditoSnapshot snapshot,
+            string numeroContrato,
+            string numeroPagare,
+            string usuario)
+        {
+            var contexto = await ConstruirContextoDocumentalAsync(datos, snapshot);
+
+            try
+            {
+                await _documentoService!.ProcesarEventoAsync(new DocumentoEventoRequest
+                {
+                    Evento = EventosDocumentales.ContratoCreditoSolicitado,
+                    Origen = new DocumentoOrigen { VentaId = datos.Venta.Id },
+                    Contexto = contexto,
+                    NumerosPreasignados = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["CONTRATO"] = numeroContrato,
+                        ["PAGARE"] = numeroPagare
+                    },
+                    Usuario = usuario
+                });
+            }
+            catch (DocumentoObligatorioFallidoException ex)
+            {
+                // Mismo canal de rechazo controlado que las validaciones del contrato (el controller
+                // lo muestra como mensaje de negocio, no como error inesperado).
+                throw new ContratoVentaCreditoValidacionException(ex.Errores.Select(e => e.Mensaje).ToList());
+            }
+        }
+
+        // El contexto sale del MISMO snapshot que el contrato legado (cuotas proyectadas incluidas),
+        // así el documento nunca muestra un importe distinto al que luego se persiste.
+        private async Task<DocumentoContexto> ConstruirContextoDocumentalAsync(DatosContratoContexto datos, ContratoVentaCreditoSnapshot snapshot)
+        {
+            var venta = datos.Venta;
+            var credito = datos.Credito;
+            var ctx = new DocumentoContexto
+            {
+                Ancla = AnclaDocumento.Venta,
+                ClaveAncla = $"venta:{venta.Id}",
+                VentaId = venta.Id,
+                CreditoId = credito.Id
+            };
+
+            DocumentoContextoBuilder.AplicarEmpresa(ctx, datos.Plantilla);
+            DocumentoContextoBuilder.AplicarCliente(ctx, datos.Cliente);
+            DocumentoContextoBuilder.AplicarFiador(ctx, credito.Garante);
+
+            ctx.Set("venta.numero", venta.Numero);
+            ctx.Set("venta.fecha", venta.FechaVenta.Date);
+            ctx.Set("venta.total", venta.Total);
+            ctx.Set("venta.subtotal", venta.Subtotal);
+            ctx.Set("venta.tipoPago", venta.TipoPago.ToString());
+            ctx.Set("venta.sucursal", snapshot.Sucursal);
+            ctx.Set("venta.caja", snapshot.Caja);
+            ctx.Set("venta.conEnvio", await _context.VentaEnvios.AsNoTracking().AnyAsync(e => e.VentaId == venta.Id && !e.IsDeleted));
+
+            DocumentoContextoBuilder.AplicarProductos(ctx, snapshot.Venta.Productos.Select(p =>
+                DocumentoContextoBuilder.ItemProducto(p.Codigo, null, p.Nombre, p.Cantidad, p.PrecioUnitario, p.Subtotal)));
+
+            ctx.Set("credito.numero", snapshot.Credito.Numero);
+            ctx.Set("credito.total", snapshot.Credito.TotalAPagar);
+            ctx.Set("credito.saldo", credito.SaldoPendiente);
+            ctx.Set("credito.montoFinanciado", credito.MontoAprobado);
+            ctx.Set("credito.saldoFinanciado", snapshot.Credito.MontoCuota * snapshot.Credito.CantidadCuotas);
+            ctx.Set("credito.cantidadCuotas", snapshot.Credito.CantidadCuotas);
+            ctx.Set("credito.importeCuota", snapshot.Credito.MontoCuota);
+            ctx.Set("credito.fechaPrimeraCuota", snapshot.Credito.FechaPrimeraCuota.Date);
+            ctx.Set("credito.requiereFiador", credito.RequiereGarante);
+
+            DocumentoContextoBuilder.AplicarCuotas(ctx, snapshot.Credito.PlanCuotas.Select(c =>
+                DocumentoContextoBuilder.ItemCuota(c.NumeroCuota, c.MontoTotal, c.MontoCapital, c.MontoInteres, c.FechaVencimiento, "Pendiente")));
+
+            return ctx;
+        }
+
         private async Task<string> GenerarNumeroContratoAsync()
         {
             var count = await _context.ContratosVentaCredito.IgnoreQueryFilters().CountAsync();
@@ -591,7 +751,7 @@ namespace TheBuryProject.Services
             return $"PAG-{DateTime.UtcNow:yyyyMM}-{count + 1:D6}";
         }
 
-        private byte[] GenerarPdfBytes(ContratoVentaCredito contrato)
+        private byte[] GenerarPdfBytes(ContratoVentaCredito contrato, string? textoContratoDocumento = null, string? textoPagareDocumento = null)
         {
             QuestPDF.Settings.License = LicenseType.Community;
 
@@ -600,8 +760,10 @@ namespace TheBuryProject.Services
                 SnapshotJsonOptions) ?? throw new InvalidOperationException("El snapshot del contrato es inválido.");
 
             var variables = CrearVariables(snapshot);
-            var textoContrato = ResolverVariables(contrato.TextoContratoSnapshot, variables);
-            var textoPagare = ResolverVariables(contrato.TextoPagareSnapshot, variables);
+            // Si el motor documental ya emitió el contrato/pagaré, el PDF imprime ese contenido (única
+            // fuente); solo los contratos anteriores al motor usan el texto resuelto del snapshot legado.
+            var textoContrato = textoContratoDocumento ?? ResolverVariables(contrato.TextoContratoSnapshot, variables);
+            var textoPagare = textoPagareDocumento ?? ResolverVariables(contrato.TextoPagareSnapshot, variables);
 
             var documento = Document.Create(container =>
             {

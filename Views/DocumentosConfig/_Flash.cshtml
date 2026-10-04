@@ -1,0 +1,21 @@
+@if (TempData["Success"] is string ok)
+{
+    <div class="doc-alert doc-alert-ok" role="status">
+        <span class="material-symbols-outlined" aria-hidden="true">check_circle</span>
+        <div>@ok</div>
+    </div>
+}
+@if (TempData["Error"] is string err)
+{
+    <div class="doc-alert doc-alert-bad" role="alert">
+        <span class="material-symbols-outlined" aria-hidden="true">error</span>
+        <div>@err</div>
+    </div>
+}
+@if (!ViewData.ModelState.IsValid && ViewData.ModelState.TryGetValue(string.Empty, out var entrada) && entrada.Errors.Count > 0)
+{
+    <div class="doc-alert doc-alert-bad" role="alert">
+        <span class="material-symbols-outlined" aria-hidden="true">error</span>
+        <div>@string.Join(" ", entrada.Errors.Select(e => e.ErrorMessage))</div>
+    </div>
+}

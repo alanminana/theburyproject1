@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using TheBuryProject.Data;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
+using TheBuryProject.Services.Documentos;
 using TheBuryProject.Services.Interfaces;
 
 namespace TheBuryProject.Services
@@ -36,11 +37,16 @@ namespace TheBuryProject.Services
 
         private readonly AppDbContext _context;
         private readonly ILogger<VentaEnvioService> _logger;
+        private readonly IDocumentoService? _documentoService;
 
-        public VentaEnvioService(AppDbContext context, ILogger<VentaEnvioService> logger)
+        public VentaEnvioService(
+            AppDbContext context,
+            ILogger<VentaEnvioService> logger,
+            IDocumentoService? documentoService = null)
         {
             _context = context;
             _logger = logger;
+            _documentoService = documentoService;
         }
 
         public bool EsTransicionValida(EstadoEnvio estadoActual, EstadoEnvio nuevoEstado)
@@ -173,7 +179,42 @@ namespace TheBuryProject.Services
                     break;
             }
 
-            await _context.SaveChangesAsync();
+            if (nuevoEstado == EstadoEnvio.Entregado && _documentoService != null)
+            {
+                // El cambio de estado y los documentos de la entrega (ej. constancia) se guardan juntos:
+                // si una regla obligatoria no puede generar su documento, la entrega no se registra.
+                var transaccionPropia = _context.Database.CurrentTransaction == null;
+                await using var tx = transaccionPropia ? await _context.Database.BeginTransactionAsync() : null;
+                try
+                {
+                    await _context.SaveChangesAsync();
+                    await _documentoService.ProcesarEventoAsync(new DocumentoEventoRequest
+                    {
+                        Evento = EventosDocumentales.EntregaRealizada,
+                        Origen = new DocumentoOrigen { VentaId = ventaId },
+                        Usuario = usuario
+                    });
+                    if (tx != null)
+                        await tx.CommitAsync();
+                }
+                catch (DocumentoObligatorioFallidoException ex)
+                {
+                    if (tx != null)
+                        await tx.RollbackAsync(CancellationToken.None);
+                    _logger.LogWarning("Entrega de la venta {VentaId} no registrada: {Mensaje}", ventaId, ex.Message);
+                    return CambiarEstadoEnvioResultado.Fallido(ex.Message);
+                }
+                catch
+                {
+                    if (tx != null)
+                        await tx.RollbackAsync(CancellationToken.None);
+                    throw;
+                }
+            }
+            else
+            {
+                await _context.SaveChangesAsync();
+            }
 
             _logger.LogInformation(
                 "Envío de venta {VentaId} cambió de {Anterior} a {Nuevo} por {Usuario}",

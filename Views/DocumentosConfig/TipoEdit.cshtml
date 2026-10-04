@@ -1,0 +1,64 @@
+﻿@model TheBuryProject.Services.Interfaces.TipoDocumentoInput
+@{
+    var esNuevo = Model.Id == 0;
+    ViewData["Title"] = esNuevo ? "Nuevo tipo de documento" : "Editar tipo de documento";
+    ViewData["DocTab"] = "tipos";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/documentos-module.css" asp-append-version="true" />
+}
+
+<div class="doc-module">
+    <header class="doc-head">
+        <h1 class="doc-title">Documentos</h1>
+        <p class="doc-sub">El código no se puede cambiar una vez creado.</p>
+        <partial name="_Tabs" />
+    </header>
+
+    <partial name="_Flash" />
+
+    <form method="post" asp-action="TipoEdit" class="doc-form">
+        @Html.AntiForgeryToken()
+        <input type="hidden" asp-for="Id" />
+
+        <section class="doc-card">
+            <div class="doc-grid-3">
+                <div class="doc-field">
+                    <label asp-for="Codigo">Código</label>
+                    <input asp-for="Codigo" class="doc-input doc-mono" maxlength="50" readonly="@(!esNuevo)" placeholder="CONSTANCIA_ENTREGA" />
+                </div>
+                <div class="doc-field">
+                    <label asp-for="Nombre">Nombre</label>
+                    <input asp-for="Nombre" class="doc-input" maxlength="150" required />
+                </div>
+                <div class="doc-field">
+                    <label asp-for="Prefijo">Prefijo de numeración</label>
+                    <input asp-for="Prefijo" class="doc-input doc-mono" maxlength="10" required placeholder="REC" />
+                </div>
+            </div>
+            <div class="doc-field" style="margin-top:.9rem">
+                <label asp-for="Descripcion">Descripción</label>
+                <input asp-for="Descripcion" class="doc-input" maxlength="500" />
+            </div>
+            <div class="doc-grid-2" style="margin-top:.9rem">
+                <div class="doc-field">
+                    <label asp-for="Categoria">Categoría</label>
+                    <select asp-for="Categoria" asp-items="Html.GetEnumSelectList<TheBuryProject.Models.Enums.CategoriaDocumento>()" class="doc-select"></select>
+                </div>
+                <div>
+                    <label class="doc-check"><input type="checkbox" asp-for="Activo" /> Activo</label>
+                    <label class="doc-check"><input type="checkbox" asp-for="PermiteMultiples" /> Permite varios documentos por operación</label>
+                    <label class="doc-check"><input type="checkbox" asp-for="RequiereFirma" /> Siempre requiere firma</label>
+                </div>
+            </div>
+        </section>
+
+        <div class="doc-actions">
+            <button type="submit" class="doc-btn doc-btn-primary">
+                <span class="material-symbols-outlined" aria-hidden="true">save</span>Guardar
+            </button>
+            <a asp-action="Tipos" class="doc-btn">Volver</a>
+        </div>
+    </form>
+</div>

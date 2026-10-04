@@ -1,0 +1,175 @@
+@using TheBuryProject.Models.Enums
+@using TheBuryProject.Services.Documentos
+@model TheBuryProject.ViewComponents.DocumentosOperacionViewModel
+@{
+    var docs = Model.Documentos;
+    string ChipClase(EstadoDocumentoGenerado e) => e switch
+    {
+        EstadoDocumentoGenerado.Generado or EstadoDocumentoGenerado.Firmado => "doc-chip doc-chip-ok",
+        EstadoDocumentoGenerado.PendienteFirma => "doc-chip doc-chip-warn",
+        _ => "doc-chip doc-chip-off"
+    };
+    string EstadoTexto(EstadoDocumentoGenerado e) => e switch
+    {
+        EstadoDocumentoGenerado.Generado => "Generado",
+        EstadoDocumentoGenerado.PendienteFirma => "Pendiente de firma",
+        EstadoDocumentoGenerado.Firmado => "Firmado",
+        EstadoDocumentoGenerado.Cancelado => "Cancelado",
+        _ => "Reemplazado"
+    };
+
+    var vigentes = docs.Where(d => d.Estado != EstadoDocumentoGenerado.Cancelado && d.Estado != EstadoDocumentoGenerado.Reemplazado).ToList();
+    var grupos = vigentes.Where(d => d.GrupoImpresionId != null)
+        .GroupBy(d => d.GrupoImpresionId!.Value).Where(g => g.Count() > 1).ToList();
+}
+
+<link rel="stylesheet" href="~/css/documentos-module.css" asp-append-version="true" />
+
+@if (docs.Count > 0 || Model.PuedeGenerar)
+{
+    <section class="doc-op" aria-labelledby="doc-op-titulo-@(Model.VentaId ?? Model.PagoCuotaId ?? Model.CreditoId)">
+        <div class="doc-op-head">
+            <h2 id="doc-op-titulo-@(Model.VentaId ?? Model.PagoCuotaId ?? Model.CreditoId)">
+                <span class="material-symbols-outlined" aria-hidden="true">description</span>
+                Documentos
+            </h2>
+            <div class="doc-actions">
+                @foreach (var g in grupos)
+                {
+                    var ids = string.Join(",", g.OrderBy(d => d.Id).Select(d => d.Id));
+                    <a class="doc-btn" target="_blank" rel="noopener" asp-controller="Documento" asp-action="VerGrupo" asp-route-id="@g.Key"
+                       title="Imprime los documentos del conjunto en un solo PDF">
+                        <span class="material-symbols-outlined" aria-hidden="true">print</span>
+                        Ver juntos (@g.Count())
+                    </a>
+                    @if (Model.PuedeReimprimir)
+                    {
+                        <a class="doc-btn" target="_blank" rel="noopener" asp-controller="Documento" asp-action="Reimprimir" asp-route-ids="@ids"
+                           title="Reimprime el conjunto y deja registrada la reimpresión">
+                            <span class="material-symbols-outlined" aria-hidden="true">print_connect</span>
+                            Reimprimir juntos
+                        </a>
+                    }
+                }
+                @if (Model.PuedeGenerar)
+                {
+                    <form method="post" asp-controller="Documento" asp-action="GenerarPendientes">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="ventaId" value="@Model.VentaId" />
+                        <input type="hidden" name="pagoCuotaId" value="@Model.PagoCuotaId" />
+                        <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+                        <button type="submit" class="doc-btn" title="Genera los documentos que falten (no duplica los existentes)">
+                            <span class="material-symbols-outlined" aria-hidden="true">autorenew</span>
+                            Generar pendientes
+                        </button>
+                    </form>
+                }
+            </div>
+        </div>
+
+        @if (docs.Count == 0)
+        {
+            <p class="doc-muted" style="margin:0;font-size:.875rem">Esta operación todavía no tiene documentos emitidos.</p>
+        }
+        else
+        {
+            <div class="doc-op-list">
+                @foreach (var d in docs)
+                {
+                    var activo = d.Estado != EstadoDocumentoGenerado.Cancelado && d.Estado != EstadoDocumentoGenerado.Reemplazado;
+                    var firmas = DocumentoPdfService.LeerFirmas(d.FirmasJson);
+                    var faltan = (d.FirmantesRequeridos ?? string.Empty)
+                        .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+                        .Where(r => !firmas.Any(f => string.Equals(f.Rol, r, StringComparison.OrdinalIgnoreCase))).ToList();
+                    <div class="doc-op-item">
+                        <div>
+                            <div class="doc-op-name">
+                                @d.TipoDocumento.Nombre
+                                <span class="@ChipClase(d.Estado)">@EstadoTexto(d.Estado)</span>
+                            </div>
+                            <div class="doc-op-meta">
+                                N.º <span class="doc-mono">@d.Numero</span>
+                                · @d.FechaGeneracionUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                                · @d.PlantillaDocumento.Nombre
+                                @if (d.ContadorReimpresiones > 0)
+                                {
+                                    <text> · @d.ContadorReimpresiones reimpresión(es)</text>
+                                }
+                                @if (d.Estado == EstadoDocumentoGenerado.PendienteFirma && faltan.Count > 0)
+                                {
+                                    <text> · falta firma: @string.Join(", ", faltan)</text>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(d.MotivoCancelacion))
+                                {
+                                    <text> · motivo: @d.MotivoCancelacion</text>
+                                }
+                            </div>
+                        </div>
+                        <div class="doc-actions">
+                            <a class="doc-btn" target="_blank" rel="noopener" asp-controller="Documento" asp-action="Ver" asp-route-id="@d.Id">
+                                <span class="material-symbols-outlined" aria-hidden="true">visibility</span>
+                                Ver
+                            </a>
+                            @if (Model.PuedeReimprimir)
+                            {
+                                <a class="doc-btn" target="_blank" rel="noopener" asp-controller="Documento" asp-action="Reimprimir" asp-route-ids="@d.Id">
+                                    <span class="material-symbols-outlined" aria-hidden="true">print</span>
+                                    Imprimir
+                                </a>
+                            }
+                        </div>
+
+                        @if (activo && !Model.Compacto && ((Model.PuedeFirmar && d.Estado == EstadoDocumentoGenerado.PendienteFirma) || Model.PuedeCancelar || Model.PuedeGenerar))
+                        {
+                            <details class="doc-op-more">
+                                <summary>Más acciones</summary>
+                                @if (Model.PuedeFirmar && d.Estado == EstadoDocumentoGenerado.PendienteFirma)
+                                {
+                                    <form method="post" asp-controller="Documento" asp-action="Firmar">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@d.Id" />
+                                        <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+                                        <select name="rol" class="doc-select" aria-label="Rol que firma">
+                                            @foreach (var rol in faltan.Count > 0 ? faltan : new List<string> { "firmante" })
+                                            {
+                                                <option value="@rol">@rol</option>
+                                            }
+                                        </select>
+                                        <input type="text" name="firmante" class="doc-input" maxlength="150" placeholder="Nombre de quien firma (opcional)" aria-label="Nombre de quien firma" />
+                                        <button type="submit" class="doc-btn doc-btn-primary">Registrar firma</button>
+                                    </form>
+                                }
+                                @if (Model.PuedeGenerar)
+                                {
+                                    <form method="post" asp-controller="Documento" asp-action="Regenerar"
+                                          onsubmit="return confirm('Se creará un documento nuevo con la plantilla y los datos actuales y este quedará como Reemplazado. ¿Continuar?');">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@d.Id" />
+                                        <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+                                        <input type="text" name="motivo" class="doc-input" required minlength="5" maxlength="500" placeholder="Motivo de la regeneración" aria-label="Motivo de la regeneración" />
+                                        @if (d.Estado == EstadoDocumentoGenerado.Firmado)
+                                        {
+                                            <label class="doc-check"><input type="checkbox" name="confirmarSobreFirmado" value="true" /> Está firmado: confirmo reemplazarlo</label>
+                                        }
+                                        <button type="submit" class="doc-btn">Regenerar</button>
+                                    </form>
+                                }
+                                @if (Model.PuedeCancelar)
+                                {
+                                    <form method="post" asp-controller="Documento" asp-action="Cancelar"
+                                          onsubmit="return confirm('El documento quedará cancelado (no se borra). ¿Continuar?');">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@d.Id" />
+                                        <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+                                        <input type="text" name="motivo" class="doc-input" required minlength="5" maxlength="500" placeholder="Motivo de la cancelación" aria-label="Motivo de la cancelación" />
+                                        <button type="submit" class="doc-btn doc-btn-danger">Cancelar documento</button>
+                                    </form>
+                                }
+                            </details>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    </section>
+}

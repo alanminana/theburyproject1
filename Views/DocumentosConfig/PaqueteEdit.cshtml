@@ -1,0 +1,72 @@
+﻿@model TheBuryProject.Services.Interfaces.PaqueteDocumentalInput
+@{
+    var esNuevo = Model.Id == 0;
+    ViewData["Title"] = esNuevo ? "Nuevo paquete" : "Editar paquete";
+    ViewData["DocTab"] = "paquetes";
+    var plantillas = (List<TheBuryProject.Models.Entities.PlantillaDocumento>)ViewBag.Plantillas;
+    // Slots de orden: las plantillas ya elegidas primero (en su orden), luego un par de espacios libres.
+    var seleccion = Model.PlantillaIds.ToList();
+    var slots = Math.Max(4, seleccion.Count + 1);
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/documentos-module.css" asp-append-version="true" />
+}
+
+<div class="doc-module">
+    <header class="doc-head">
+        <h1 class="doc-title">Documentos</h1>
+        <p class="doc-sub">Elegí las plantillas del paquete en el orden en que deben imprimirse. Dejá en blanco los espacios que no uses.</p>
+        <partial name="_Tabs" />
+    </header>
+
+    <partial name="_Flash" />
+
+    <form method="post" asp-action="PaqueteEdit" class="doc-form">
+        @Html.AntiForgeryToken()
+        <input type="hidden" asp-for="Id" />
+
+        <section class="doc-card">
+            <div class="doc-grid-2">
+                <div class="doc-field">
+                    <label asp-for="Codigo">Código</label>
+                    <input asp-for="Codigo" class="doc-input doc-mono" maxlength="50" readonly="@(!esNuevo)" placeholder="CREDITO_FIADOR" />
+                </div>
+                <div class="doc-field">
+                    <label asp-for="Nombre">Nombre</label>
+                    <input asp-for="Nombre" class="doc-input" maxlength="150" required />
+                </div>
+            </div>
+            <div class="doc-field" style="margin-top:.9rem">
+                <label asp-for="Descripcion">Descripción</label>
+                <input asp-for="Descripcion" class="doc-input" maxlength="500" />
+            </div>
+            <label class="doc-check" style="margin-top:.6rem"><input type="checkbox" asp-for="Activo" /> Activo</label>
+        </section>
+
+        <section class="doc-card">
+            <h2>Documentos del paquete</h2>
+            @for (var i = 0; i < slots; i++)
+            {
+                var actual = i < seleccion.Count ? seleccion[i] : (int?)null;
+                <div class="doc-field" style="margin-bottom:.6rem">
+                    <label for="plantilla-@i">Documento @(i + 1)</label>
+                    <select id="plantilla-@i" name="PlantillaIds" class="doc-select">
+                        <option value="">—</option>
+                        @foreach (var p in plantillas)
+                        {
+                            <option value="@p.Id" selected="@(actual == p.Id)">@p.TipoDocumento.Nombre — @p.Nombre@(p.Activa ? "" : " (inactiva)")</option>
+                        }
+                    </select>
+                </div>
+            }
+        </section>
+
+        <div class="doc-actions">
+            <button type="submit" class="doc-btn doc-btn-primary">
+                <span class="material-symbols-outlined" aria-hidden="true">save</span>Guardar
+            </button>
+            <a asp-action="Paquetes" class="doc-btn">Volver</a>
+        </div>
+    </form>
+</div>

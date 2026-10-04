@@ -58,6 +58,10 @@
                     <div class="kv-row"><dt>Medio de pago</dt><dd>@resultado.MedioPago</dd></div>
                     <div class="kv-row"><dt>Identificadores</dt><dd class="mono">Pago #@resultado.PagoCuotaId · Caja #@resultado.MovimientoCajaId</dd></div>
                 </dl>
+                @* Recibo emitido por el motor documental para este pago (queda asociado a pago, cuota y crédito). *@
+                <div style="margin-top:1rem">
+                    @await Component.InvokeAsync("DocumentosOperacion", new { pagoCuotaId = resultado.PagoCuotaId, compacto = true })
+                </div>
                 @if (contexto.PuedeConfirmar)
                 {
                     <a asp-action="PagarCuota" asp-route-id="@contexto.CuotaId" asp-route-returnUrl="@returnUrl" class="btn btn-soft btn-sm" style="margin-top:1rem">Registrar otro pago</a>
