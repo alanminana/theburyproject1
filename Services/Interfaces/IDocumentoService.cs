@@ -116,6 +116,9 @@ namespace TheBuryProject.Services.Interfaces
         /// <summary>Nombre del paquete documental ("Documentación de Crédito") de cada grupo de impresión cuyos documentos lo forman.</summary>
         Task<Dictionary<Guid, string>> ObtenerNombresDePaqueteAsync(IEnumerable<DocumentoGenerado> documentos);
 
+        /// <summary>¿Hay alguna regla activa para el evento? (para no ofrecer botones que no pueden generar nada).</summary>
+        Task<bool> TieneReglaActivaAsync(string evento);
+
         /// <summary>Genera (idempotente) los documentos que falten para una operación, por si falló una emisión recuperable.</summary>
         Task<DocumentoEventoResultado> ReintentarEventoAsync(string evento, DocumentoOrigen origen);
     }

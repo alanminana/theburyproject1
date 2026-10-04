@@ -161,6 +161,7 @@ builder.Services.AddScoped<IContratoVentaCreditoService, ContratoVentaCreditoSer
 // Motor documental configurable (tipos, plantillas versionadas, reglas, paquetes, documentos emitidos)
 builder.Services.AddScoped<IDocumentoNumeracionService, TheBuryProject.Services.Documentos.DocumentoNumeracionService>();
 builder.Services.AddScoped<IPlanCuotasProyector, PlanCuotasProyector>();
+builder.Services.AddScoped<TheBuryProject.Services.Documentos.IDocumentosEmitidosTracker, TheBuryProject.Services.Documentos.DocumentosEmitidosTracker>();
 builder.Services.AddScoped<IDocumentoContextoBuilder, TheBuryProject.Services.Documentos.DocumentoContextoBuilder>();
 builder.Services.AddScoped<IDocumentoPdfService, TheBuryProject.Services.Documentos.DocumentoPdfService>();
 builder.Services.AddScoped<IDocumentoService, TheBuryProject.Services.Documentos.DocumentoService>();
@@ -245,6 +246,8 @@ var mvcBuilder = builder.Services.AddControllersWithViews(options =>
     // Mismo problema que el decimal de arriba pero para <input type="date">: siempre
     // postea ISO 8601 sin importar la cultura del navegador (ver DateOnlyModelBinder).
     options.ModelBinderProviders.Insert(0, new DateOnlyModelBinderProvider());
+    // Abre como PDF los documentos emitidos por cualquier acción que termine redirigiendo (cobro, confirmación, entrega…).
+    options.Filters.Add<TheBuryProject.Filters.DocumentosEmitidosFilter>();
 });
 if (builder.Environment.IsDevelopment())
     mvcBuilder.AddRazorRuntimeCompilation();

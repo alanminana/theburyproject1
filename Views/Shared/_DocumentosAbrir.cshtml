@@ -1,0 +1,51 @@
+@* Abre como PDF los documentos que acaba de emitir la acción anterior (cobro, confirmación, entrega…).
+   Primero intenta una pestaña nueva; si el navegador la bloquea, los muestra en pantalla con las opciones de abrir e imprimir. *@
+@if (TempData["DocumentosAbrir"] is string idsDocumentos && !string.IsNullOrWhiteSpace(idsDocumentos))
+{
+    var urlDocumentos = Url.Action("VerVarios", "Documento", new { ids = idsDocumentos });
+    <div id="documentos-abrir" data-url="@urlDocumentos" hidden></div>
+    <script>
+        (function () {
+            var raiz = document.getElementById('documentos-abrir');
+            if (!raiz) return;
+            var url = raiz.getAttribute('data-url');
+            var abierta = null;
+            try { abierta = window.open(url, '_blank'); } catch (e) { abierta = null; }
+            if (abierta) return;
+
+            var capa = document.createElement('div');
+            capa.setAttribute('role', 'dialog');
+            capa.setAttribute('aria-modal', 'true');
+            capa.setAttribute('aria-label', 'Documento emitido');
+            capa.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(2,6,23,.78);display:flex;align-items:center;justify-content:center;padding:1rem';
+            var caja = document.createElement('div');
+            caja.style.cssText = 'background:#0f172a;border:1px solid #334155;border-radius:.75rem;width:min(60rem,100%);height:min(92vh,60rem);display:flex;flex-direction:column;overflow:hidden';
+            var barra = document.createElement('div');
+            barra.style.cssText = 'display:flex;gap:.5rem;align-items:center;padding:.6rem .9rem;border-bottom:1px solid #334155;color:#e2e8f0;font-weight:700';
+            var titulo = document.createElement('span');
+            titulo.textContent = 'Documento emitido';
+            titulo.style.flex = '1';
+            function boton(texto, accion) {
+                var b = document.createElement(accion.href ? 'a' : 'button');
+                b.textContent = texto;
+                b.style.cssText = 'color:#e2e8f0;border:1px solid #475569;border-radius:.5rem;padding:.35rem .8rem;font-size:.85rem;background:#1e293b;cursor:pointer;text-decoration:none';
+                if (accion.href) { b.href = accion.href; b.target = '_blank'; b.rel = 'noopener'; }
+                else b.addEventListener('click', accion.click);
+                return b;
+            }
+            var marco = document.createElement('iframe');
+            marco.src = url;
+            marco.title = 'Documento emitido';
+            marco.style.cssText = 'flex:1;border:0;background:#fff';
+            barra.appendChild(titulo);
+            barra.appendChild(boton('Abrir en pestaña nueva', { href: url }));
+            barra.appendChild(boton('Imprimir', { click: function () { try { marco.contentWindow.focus(); marco.contentWindow.print(); } catch (e) { window.open(url, '_blank'); } } }));
+            barra.appendChild(boton('Cerrar', { click: function () { capa.remove(); } }));
+            caja.appendChild(barra);
+            caja.appendChild(marco);
+            capa.appendChild(caja);
+            document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape') capa.remove(); });
+            document.body.appendChild(capa);
+        })();
+    </script>
+}

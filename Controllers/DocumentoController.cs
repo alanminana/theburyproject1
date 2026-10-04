@@ -68,6 +68,29 @@ namespace TheBuryProject.Controllers
             return await ServirPdfAsync(docs.Select(d => d.Id).ToList(), reimprimir: false);
         }
 
+        /// <summary>
+        /// Abre juntos (un solo PDF) los documentos recién emitidos por una acción: pagaré + contrato, recibo, constancia…
+        /// ids = lista separada por comas; se imprimen en el orden en que se emitieron.
+        /// </summary>
+        [HttpGet]
+        [PermisoRequerido(Modulo = "documentos", Accion = "view")]
+        public async Task<IActionResult> VerVarios(string ids)
+        {
+            var lista = (ids ?? string.Empty)
+                .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+                .Select(s => int.TryParse(s, out var n) ? n : 0)
+                .Where(n => n > 0)
+                .Distinct()
+                .OrderBy(n => n)
+                .Take(MaxDocumentosPorImpresion)
+                .ToList();
+
+            if (lista.Count == 0)
+                return BadRequest("Indique al menos un documento.");
+
+            return await ServirPdfAsync(lista, reimprimir: false);
+        }
+
         /// <summary>Visualiza juntos todos los documentos vigentes de un grupo de impresión (ej. contrato + pagaré).</summary>
         [HttpGet]
         [PermisoRequerido(Modulo = "documentos", Accion = "view")]

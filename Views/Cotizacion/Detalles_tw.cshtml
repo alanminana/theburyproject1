@@ -1,6 +1,7 @@
 @using TheBuryProject.Models.Enums
 @using TheBuryProject.Services.Models
 @model CotizacionResultado
+@inject TheBuryProject.Services.Interfaces.IDocumentoService Documentos
 
 @{
     ViewData["Title"] = $"Cotizacion {Model.Numero}";
@@ -63,7 +64,7 @@
                     <span class="material-symbols-outlined text-lg">print</span>
                     Imprimir
                 </a>
-                @if (User.TienePermiso("documentos", "generate"))
+                @if (User.TienePermiso("documentos", "generate") && await Documentos.TieneReglaActivaAsync(TheBuryProject.Services.Documentos.EventosDocumentales.PresupuestoGenerado))
                 {
                     <form method="post" asp-controller="Documento" asp-action="GenerarPresupuesto" target="_blank" class="inline">
                         @Html.AntiForgeryToken()

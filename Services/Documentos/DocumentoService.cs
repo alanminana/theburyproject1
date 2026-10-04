@@ -28,6 +28,7 @@ namespace TheBuryProject.Services.Documentos
         private readonly ISeguridadAuditoriaService _auditoria;
         private readonly IRelojComercial _reloj;
         private readonly ILogger<DocumentoService> _logger;
+        private readonly IDocumentosEmitidosTracker? _tracker;
 
         public DocumentoService(
             AppDbContext context,
@@ -37,8 +38,10 @@ namespace TheBuryProject.Services.Documentos
             ICurrentUserService currentUser,
             ISeguridadAuditoriaService auditoria,
             IRelojComercial reloj,
-            ILogger<DocumentoService> logger)
+            ILogger<DocumentoService> logger,
+            IDocumentosEmitidosTracker? tracker = null)
         {
+            _tracker = tracker;
             _context = context;
             _contextoBuilder = contextoBuilder;
             _numeracion = numeracion;
@@ -218,6 +221,9 @@ namespace TheBuryProject.Services.Documentos
                 throw;
             }
 
+            // Lo emitido en esta petición se abre como PDF cuando la acción termina (ver DocumentosEmitidosFilter).
+            _tracker?.Registrar(nuevos.Select(d => d.Id));
+
             foreach (var doc in nuevos)
             {
                 resultado.Generados.Add(doc);
@@ -233,8 +239,45 @@ namespace TheBuryProject.Services.Documentos
             return resultado;
         }
 
-        public Task<DocumentoEventoResultado> ReintentarEventoAsync(string evento, DocumentoOrigen origen)
-            => ProcesarEventoAsync(new DocumentoEventoRequest { Evento = evento, Origen = origen });
+        public async Task<DocumentoEventoResultado> ReintentarEventoAsync(string evento, DocumentoOrigen origen)
+        {
+            // Reintentar el recibo de un pago recupera toda la cobranza (varias cuotas pagadas juntas = un solo recibo).
+            if (string.Equals(evento, EventosDocumentales.PagoRegistrado, StringComparison.OrdinalIgnoreCase)
+                && origen.PagoCuotaId is int pagoId && origen.PagoCuotaIds == null)
+                origen = await ExpandirCobranzaAsync(pagoId, origen);
+
+            return await ProcesarEventoAsync(new DocumentoEventoRequest { Evento = evento, Origen = origen });
+        }
+
+        /// <summary>
+        /// Pagos de la misma cobranza que <paramref name="pagoId"/>: mismo cliente y medio, registrados en el mismo instante
+        /// (los crea una única operación). Sin hermanos devuelve el origen tal cual.
+        /// </summary>
+        private async Task<DocumentoOrigen> ExpandirCobranzaAsync(int pagoId, DocumentoOrigen origen)
+        {
+            var pago = await _context.PagosCuota.AsNoTracking()
+                .Where(p => p.Id == pagoId && !p.IsDeleted)
+                .Select(p => new { p.MedioPago, p.CreatedAt, ClienteId = p.Cuota.Credito.ClienteId })
+                .FirstOrDefaultAsync();
+            if (pago == null)
+                return origen;
+
+            var desde = pago.CreatedAt.AddSeconds(-5);
+            var hasta = pago.CreatedAt.AddSeconds(5);
+            var ids = await _context.PagosCuota.AsNoTracking()
+                .Where(p => !p.IsDeleted && p.Estado == EstadoPagoCuota.Aplicado && p.MedioPago == pago.MedioPago
+                            && p.CreatedAt >= desde && p.CreatedAt <= hasta && p.Cuota.Credito.ClienteId == pago.ClienteId)
+                .Select(p => p.Id)
+                .ToListAsync();
+            if (ids.Count <= 1)
+                return origen;
+
+            ids.Sort();
+            return new DocumentoOrigen { PagoCuotaId = ids[0], PagoCuotaIds = ids };
+        }
+
+        public Task<bool> TieneReglaActivaAsync(string evento)
+            => _context.ReglasDocumento.AsNoTracking().AnyAsync(r => r.EventoCodigo == evento && r.Activa);
 
         private async Task<List<ReglaDocumento>> CargarReglasAsync(string evento, CancellationToken ct)
             => await _context.ReglasDocumento
@@ -813,6 +856,7 @@ namespace TheBuryProject.Services.Documentos
                     await tx.CommitAsync();
 
                 _logger.LogInformation("Documento {Original} reemplazado por {Nuevo} (regeneración por {Usuario})", original.Numero, nuevo.Numero, usuario);
+                _tracker?.Registrar(new[] { nuevo.Id });
                 await _auditoria.RegistrarEventoAsync("documentos", "regenerar", nameof(DocumentoGenerado),
                     $"{original.Numero} -> {nuevo.Numero}: {motivo.Trim()}");
                 return nuevo;
