@@ -114,13 +114,15 @@
 /* Botón del ojo */
 #btn-toggle-pwd {
     position: absolute !important;
-    right: 14px !important;
+    right: 4px !important;
     top: 50% !important;
     bottom: auto !important;
     transform: translateY(-50%) !important;
 
-    width: 24px;
-    height: 24px;
+    /* Área táctil de 40px; el ícono sigue siendo de 20px. */
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
     padding: 0 !important;
     margin: 0 !important;
 
@@ -159,6 +161,17 @@
     padding-right: 48px !important;
 }
 
+/* Campo con error de validación: borde de peligro (el texto del error sigue siendo la señal principal) */
+input[aria-invalid="true"] {
+    border-color: var(--pal-danger-300) !important;
+}
+
+/* Placeholder legible (>= 4.5:1) sobre el fondo del input */
+input::placeholder {
+    color: color-mix(in srgb, var(--c-on-surface-var) 80%, transparent);
+    opacity: 1;
+}
+
 /* Evita problemas visuales del autocompletado */
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
@@ -174,6 +187,12 @@ input:-webkit-autofill:focus {
 
 #remember-me {
     position: relative;
+}
+
+/* Fila completa clickeable con altura táctil mínima */
+.login-remember {
+    min-height: 44px;
+    margin-block: -6px;
 }
 
 #check-icon {

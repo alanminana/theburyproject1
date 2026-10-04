@@ -142,7 +142,7 @@
             <label for="@(idPrefix)fecha-emision" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
                 Fecha de emisión <span class="text-rose-400">*</span>
             </label>
-            <input id="@(idPrefix)fecha-emision" name="@Nombre("FechaEmision")" type="date" value="@Model.FechaEmision.ToString("yyyy-MM-dd")"
+            <input id="@(idPrefix)fecha-emision" name="@Nombre("FechaEmision")" type="date" data-fecha="hoy" value="@Model.FechaEmision.ToString("yyyy-MM-dd")"
                    class="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-semibold text-slate-100 outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20" />
         </div>
     </div>

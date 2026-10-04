@@ -1,0 +1,56 @@
+@page
+@model LockoutModel
+@{
+    ViewData["Title"] = "Acceso bloqueado";
+    Layout = null;
+}
+<!DOCTYPE html>
+<html class="dark" lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Acceso bloqueado — TheBuryProject</title>
+    <link rel="stylesheet" href="~/css/local-fonts.css" asp-append-version="true" />
+    <link rel="icon" type="image/png" href="~/ico/bury-logo-256.png" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/tailwind.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/palette.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/standalone-tokens.css" asp-append-version="true" />
+</head>
+<body style="background-color: var(--c-surface); color: var(--c-on-surface); font-family: 'Inter', sans-serif;"
+      class="min-h-screen flex flex-col items-center justify-center">
+
+    <main class="w-full max-w-[440px] px-6 py-12">
+
+        <div class="flex flex-col items-center mb-10">
+            <div class="w-16 h-16 mb-6 rounded-xl overflow-hidden flex items-center justify-center"
+                 style="background-color: var(--c-primary-container);">
+                <img src="~/ico/bury-logo-256.png" alt="TheBuryProject" class="w-full h-full object-contain p-1" />
+            </div>
+            <p class="text-xs uppercase tracking-wider font-semibold" style="color: var(--c-on-surface-var);">TheBuryProject</p>
+        </div>
+
+        <div class="p-8 rounded-xl text-center"
+             style="background-color: var(--c-surface-low); border: 1px solid color-mix(in srgb, var(--pal-neutral-650) 30%, transparent); box-shadow: 0 8px 24px -4px color-mix(in srgb, var(--pal-black) 30%, transparent);">
+
+            <div class="mx-auto mb-5 flex items-center justify-center w-14 h-14 rounded-full"
+                 style="background-color: color-mix(in srgb, var(--pal-danger-300) 12%, transparent); color: var(--pal-danger-300);">
+                <span class="material-symbols-outlined" style="font-size: 28px; width: 28px; height: 28px;" aria-hidden="true">lock_clock</span>
+            </div>
+
+            <h1 class="text-2xl font-black tracking-tight mb-3" style="color: var(--c-on-surface);">Acceso bloqueado temporalmente</h1>
+
+            <p class="text-sm leading-relaxed mb-8" style="color: var(--c-on-surface-var);">
+                Por seguridad, bloqueamos la cuenta tras varios intentos fallidos.
+                Podés volver a intentarlo en @Model.MinutosBloqueo minutos.
+                Si necesitás ingresar antes, contactá al administrador.
+            </p>
+
+            <a asp-page="./Login"
+               class="block w-full py-4 px-6 rounded-lg font-bold text-sm no-underline transition-[background-color,box-shadow,transform] hover:brightness-110 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+               style="background-color: var(--c-primary-container); color: var(--c-on-primary); --tw-ring-color: color-mix(in srgb, var(--pal-info-600) 60%, transparent);">
+                Volver a iniciar sesión
+            </a>
+        </div>
+    </main>
+</body>
+</html>

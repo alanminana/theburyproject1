@@ -133,12 +133,12 @@
                     <div class="pl-field-row cols-2">
                         <div>
                             <label asp-for="VigenteDesde" class="pl-label">Vigente desde <span class="pl-req">*</span></label>
-                            <input asp-for="VigenteDesde" type="date" class="input-erp" />
+                            <input asp-for="VigenteDesde" type="date" data-fecha="hoy" class="input-erp" />
                             <span asp-validation-for="VigenteDesde" class="pl-val"></span>
                         </div>
                         <div>
                             <label asp-for="VigenteHasta" class="pl-label">Vigente hasta</label>
-                            <input asp-for="VigenteHasta" type="date" class="input-erp" />
+                            <input asp-for="VigenteHasta" type="date" data-fecha="futura" class="input-erp" />
                             <span asp-validation-for="VigenteHasta" class="pl-val"></span>
                             <p class="pl-hint">Dejalo vacío para vigencia indefinida.</p>
                         </div>

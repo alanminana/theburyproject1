@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -152,8 +153,14 @@ namespace TheBuryProject.Controllers
                 filtro.FechaDesde ??= new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
                 filtro.FechaHasta ??= DateTime.Today;
 
+                // Sin reportes.viewallcommissions solo se ven las comisiones propias.
+                var verTodas = User.TienePermiso("reportes", "viewallcommissions");
+                if (!verTodas)
+                    filtro.VendedorUserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "-";
+
                 var resultado = await _reporteService.GenerarReporteComisionesVendedoresAsync(filtro);
                 await CargarFiltrosComisionesAsync(resultado);
+                ViewBag.PuedeVerTodasComisiones = verTodas;
 
                 return View("ComisionesVendedores_tw", resultado);
             }

@@ -255,7 +255,10 @@ public static class RolesPermisosSeeder
                 ("Márgenes", "margins", 3),
                 ("Morosidad", "arrears", 4),
                 ("Stock", "stock", 5),
-                ("Exportar", "export", 6)
+                ("Exportar", "export", 6),
+                // Comisiones: cualquier usuario ve las suyas; las de otros vendedores (Venta/Details y
+                // reporte de comisiones) solo con este permiso.
+                ("Ver comisiones de todos", "viewallcommissions", 7)
             }),
             ("Dashboard", "dashboard", "Reportes", "bi-speedometer2", 81, new List<(string, string, int)>
             {
@@ -546,7 +549,7 @@ public static class RolesPermisosSeeder
                 { "clientes", new[] { "view" } },
                 { "proveedores", new[] { "view" } },
                 { "ordenescompra", new[] { "view" } },
-                { "reportes", new[] { "view", "sales", "margins", "arrears", "stock", "export" } },
+                { "reportes", new[] { "view", "sales", "margins", "arrears", "stock", "export", "viewallcommissions" } },
                 { "dashboard", new[] { "view" } },
                 { "notificaciones", new[] { "view", "update", "delete" } }
             });
