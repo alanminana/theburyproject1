@@ -445,6 +445,8 @@
                     </div>
                 }
 
+                @await Component.InvokeAsync("DocumentosOperacion", new { creditoId = Model.Credito.Id })
+
                 @if (Model.Garante != null)
                 {
                     <div class="card card-pad">

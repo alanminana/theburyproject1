@@ -47,6 +47,10 @@ public class PagoMultipleCuotasResult
     public decimal TotalCaja { get; set; }
 
     public DateTime FechaPago { get; set; }
+
+    /// <summary>Pago ancla de la cobranza (el de menor id): con él se abre el recibo emitido (Documento/VerPorPago).</summary>
+    public int? PagoCuotaIdRecibo { get; set; }
+
     public List<PagoMultipleCuotaResult> Cuotas { get; set; } = new();
 }
 

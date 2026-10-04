@@ -115,12 +115,12 @@
                     </label>
                     <label class="flex flex-col gap-1.5">
                         <span class="text-slate-300 text-sm font-medium">Fecha Emisión</span>
-                        <input type="date" asp-for="FechaEmision"
+                        <input type="date" data-fecha="hoy" asp-for="FechaEmision"
                                class="rounded-lg border border-slate-700 bg-slate-800 text-white h-10 px-3 focus:border-primary focus:ring-1 focus:ring-primary outline-none" />
                     </label>
                     <label class="flex flex-col gap-1.5">
                         <span class="text-slate-300 text-sm font-medium">Fecha Entrega Estimada</span>
-                        <input type="date" asp-for="FechaEntregaEstimada"
+                        <input type="date" data-fecha="futura" asp-for="FechaEntregaEstimada"
                                class="rounded-lg border border-slate-700 bg-slate-800 text-white h-10 px-3 focus:border-primary focus:ring-1 focus:ring-primary outline-none" />
                     </label>
                     <label class="flex flex-col gap-1.5">

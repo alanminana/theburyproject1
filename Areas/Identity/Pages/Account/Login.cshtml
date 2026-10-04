@@ -3,6 +3,12 @@
 @{
     ViewData["Title"] = Model.MostrarTerminos ? "Términos y Condiciones" : "Iniciar sesión";
     Layout = null;
+
+    bool Invalido(string clave) => ModelState.TryGetValue(clave, out var entrada) && entrada.Errors.Count > 0;
+    var userInvalido = Invalido("Input.UserName");
+    var passInvalido = Invalido("Input.Password");
+    var nombreInvalido = Invalido("Input.NombreCompleto");
+    var terminosInvalido = Invalido("Input.AceptaTerminos");
 }
 <!DOCTYPE html>
 <html class="dark" lang="es">
@@ -52,6 +58,7 @@
             @if (hasGlobalError)
             {
                 <div class="flex items-center gap-2 mb-6 px-4 py-3 rounded-lg text-sm font-medium"
+                     id="login-error"
                      role="alert"
                      style="background-color: color-mix(in srgb, var(--pal-danger-300) 10%, transparent); border: 1px solid color-mix(in srgb, var(--pal-danger-300) 30%, transparent); color: var(--pal-danger-300);">
                     <span class="material-symbols-outlined text-[18px] shrink-0" aria-hidden="true">error</span>
@@ -102,8 +109,7 @@
                     </p>
                 </div>
 
-                <form method="post" class="space-y-6">
-                    @Html.AntiForgeryToken()
+                <form method="post" class="flex flex-col gap-6">
                     <input type="hidden" name="ReturnUrl" value="@Model.ReturnUrl" />
 
                     <!-- Nombre completo -->
@@ -121,11 +127,13 @@
                             <input asp-for="Input.NombreCompleto"
                                    type="text"
                                    autocomplete="name"
+                                   aria-invalid="@(nombreInvalido ? "true" : null)"
+                                   aria-describedby="@(nombreInvalido ? "err-nombre" : null)"
                                    placeholder="Nombre y apellido"
                                    class="w-full rounded-lg py-3.5 pl-12 pr-4 text-sm transition-[border-color,box-shadow] focus:outline-none focus:ring-2"
                                    style="background-color: var(--c-surface-container); color: var(--c-on-surface); border: 1px solid var(--c-outline-var); --tw-ring-color: color-mix(in srgb, var(--pal-info-600) 50%, transparent);" />
                         </div>
-                        <span asp-validation-for="Input.NombreCompleto" class="block text-xs font-medium" style="color: var(--pal-danger-300);"></span>
+                        <span asp-validation-for="Input.NombreCompleto" id="err-nombre" class="block text-xs font-medium" style="color: var(--pal-danger-300);"></span>
                     </div>
 
                     <!-- Checkbox aceptación -->
@@ -133,13 +141,15 @@
                         <label class="flex items-start gap-3 cursor-pointer select-none">
                             <input asp-for="Input.AceptaTerminos"
                                    type="checkbox"
+                                   aria-invalid="@(terminosInvalido ? "true" : null)"
+                                   aria-describedby="@(terminosInvalido ? "err-terminos" : null)"
                                    class="mt-0.5 w-5 h-5 rounded cursor-pointer shrink-0"
                                    style="background-color: var(--c-surface-container); border: 1.5px solid var(--c-outline-var);" />
                             <span class="text-sm" style="color: var(--c-on-surface-var);">
                                 Declaro que leí y acepto los Términos y Condiciones de uso descriptos arriba.
                             </span>
                         </label>
-                        <span asp-validation-for="Input.AceptaTerminos" class="block text-xs font-medium" style="color: var(--pal-danger-300);"></span>
+                        <span asp-validation-for="Input.AceptaTerminos" id="err-terminos" class="block text-xs font-medium" style="color: var(--pal-danger-300);"></span>
                     </div>
 
                     <button type="submit"
@@ -150,7 +160,6 @@
                 </form>
 
                 <form method="post" asp-page-handler="Desafiar" class="mt-3 text-center">
-                    @Html.AntiForgeryToken()
                     <input type="hidden" name="ReturnUrl" value="@Model.ReturnUrl" />
                     <button type="submit"
                             class="text-xs underline bg-transparent p-0 cursor-pointer"
@@ -161,8 +170,7 @@
             }
             else
             {
-                <form method="post" class="space-y-6">
-                    @Html.AntiForgeryToken()
+                <form method="post" class="flex flex-col gap-6">
                     <input type="hidden" name="ReturnUrl" value="@Model.ReturnUrl" />
 
                     <!-- Usuario -->
@@ -180,27 +188,24 @@
                             <input asp-for="Input.UserName"
                                    type="text"
                                    autocomplete="username"
+                                   autocapitalize="none"
+                                   spellcheck="false"
+                                   aria-invalid="@(userInvalido ? "true" : null)"
+                                   aria-describedby="@(userInvalido ? "err-usuario" : null)"
                                    placeholder="usuario"
                                    class="w-full rounded-lg py-3.5 pl-12 pr-4 text-sm transition-[border-color,box-shadow] focus:outline-none focus:ring-2"
                                    style="background-color: var(--c-surface-container); color: var(--c-on-surface); border: 1px solid var(--c-outline-var); --tw-ring-color: color-mix(in srgb, var(--pal-info-600) 50%, transparent);" />
                         </div>
-                        <span asp-validation-for="Input.UserName" class="block text-xs font-medium" style="color: var(--pal-danger-300);"></span>
+                        <span asp-validation-for="Input.UserName" id="err-usuario" class="block text-xs font-medium" style="color: var(--pal-danger-300);"></span>
                     </div>
 
                     <!-- Password -->
                     <div class="space-y-1.5">
-                        <div class="flex justify-between items-center">
-                            <label asp-for="Input.Password"
-                                   class="text-[13px] uppercase tracking-wider font-semibold"
-                                   style="color: var(--c-on-surface);">
-                                Contraseña
-                            </label>
-                            <a asp-page="./ForgotPassword"
-                               class="text-xs font-medium hover:underline transition-colors no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 rounded"
-                               style="color: var(--c-primary-light); --tw-ring-color: color-mix(in srgb, var(--pal-info-600) 50%, transparent);">
-                                ¿Olvidaste tu contraseña?
-                            </a>
-                        </div>
+                        <label asp-for="Input.Password"
+                               class="block text-[13px] uppercase tracking-wider font-semibold"
+                               style="color: var(--c-on-surface);">
+                            Contraseña
+                        </label>
                         <div class="relative group">
                             <div class="absolute inset-y-0 left-4 flex items-center pointer-events-none"
                                  style="color: var(--c-on-surface-var);" id="icon-password">
@@ -210,7 +215,9 @@
                                    type="password"
                                    id="input-password"
                                    autocomplete="current-password"
-                                   placeholder="••••••••"
+                                   aria-invalid="@(passInvalido ? "true" : null)"
+                                   aria-describedby="@(passInvalido ? "err-password" : null)"
+                                   placeholder="contraseña"
                                    class="w-full rounded-lg py-3.5 pl-12 pr-12 text-sm transition-[border-color,box-shadow] focus:outline-none focus:ring-2"
                                    style="background-color: var(--c-surface-container); color: var(--c-on-surface); border: 1px solid var(--c-outline-var); --tw-ring-color: color-mix(in srgb, var(--pal-info-600) 50%, transparent);" />
                             <button type="button"
@@ -221,12 +228,12 @@
                                 <span class="material-symbols-outlined text-lg" id="pwd-eye" aria-hidden="true">visibility</span>
                             </button>
                         </div>
-                        <span asp-validation-for="Input.Password" class="block text-xs font-medium" style="color: var(--pal-danger-300);"></span>
+                        <span asp-validation-for="Input.Password" id="err-password" class="block text-xs font-medium" style="color: var(--pal-danger-300);"></span>
                     </div>
 
                     <!-- Remember me -->
-                    <div class="flex items-center pt-1">
-                        <label class="flex items-center gap-3 cursor-pointer select-none">
+                    <div class="flex items-center">
+                        <label class="login-remember flex items-center gap-3 cursor-pointer select-none">
                             <div class="relative flex items-center">
                                 <input asp-for="Input.RememberMe"
                                        type="checkbox"
@@ -237,7 +244,7 @@
                                 <span class="material-symbols-outlined absolute inset-0 flex items-center justify-center pointer-events-none text-sm"
                                       style="color: var(--c-on-primary); opacity: 0;" id="check-icon" aria-hidden="true">check</span>
                             </div>
-                            <span class="text-sm" style="color: var(--c-on-surface-var);">Recordar usuario</span>
+                            <span class="text-sm" style="color: var(--c-on-surface-var);">Mantener sesión iniciada</span>
                         </label>
                     </div>
 
@@ -245,7 +252,7 @@
                     <button type="submit"
                             class="w-full py-4 px-6 rounded-lg font-bold text-sm transition-[background-color,box-shadow,transform] hover:brightness-110 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 mt-2"
                             style="background-color: var(--c-primary-container); color: var(--c-on-primary); box-shadow: 0 4px 16px -4px color-mix(in srgb, var(--pal-info-600) 30%, transparent); --tw-ring-color: color-mix(in srgb, var(--pal-info-600) 60%, transparent);">
-                        Iniciar Sesión
+                        Iniciar sesión
                     </button>
                 </form>
             }
@@ -256,8 +263,8 @@
         {
             <div class="mt-8 text-center">
                 <p class="text-sm" style="color: var(--c-on-surface-var);">
-                    ¿No tenés acceso?
-                    <span class="ml-1 font-semibold" style="color: var(--c-on-surface);">Contactá al administrador.</span>
+                    ¿Olvidaste tu contraseña o no tenés acceso?
+                    <span class="block font-semibold" style="color: var(--c-on-surface);">Contactá al administrador.</span>
                 </p>
             </div>
         }
@@ -266,7 +273,7 @@
     <!-- Footer -->
     <footer class="mt-auto py-6 w-full" style="border-top: 1px solid color-mix(in srgb, var(--pal-neutral-650) 20%, transparent);">
         <div class="max-w-[1200px] mx-auto px-10 flex flex-col md:flex-row justify-between items-center gap-3"
-             style="color: color-mix(in srgb, var(--pal-neutral-350) 55%, transparent);">
+             style="color: color-mix(in srgb, var(--pal-neutral-350) 85%, transparent);">
             <div class="flex items-center gap-6">
                 <span class="text-[11px] uppercase tracking-widest font-semibold tabular-nums">Sistema v1.0</span>
                 <span class="w-1 h-1 rounded-full" style="background-color: color-mix(in srgb, var(--pal-neutral-650) 50%, transparent);"></span>
@@ -291,6 +298,19 @@
         const cb = document.getElementById('remember-me');
         const ck = document.getElementById('check-icon');
         if (cb && ck) ck.style.opacity = cb.checked ? '1' : '0';
+
+        // Foco inicial: primer campo inválido; tras credenciales incorrectas, la contraseña
+        // (el usuario se conserva). En carga limpia sólo con puntero fino, para no abrir el
+        // teclado en mobile.
+        {
+            const invalido = document.querySelector('[aria-invalid="true"]');
+            const errorGlobal = document.getElementById('login-error');
+            const nombre = document.getElementById('Input_NombreCompleto');
+            const usuario = document.getElementById('Input_UserName');
+            let destino = invalido || (errorGlobal ? inp : null);
+            if (!destino && window.matchMedia('(pointer: fine)').matches) destino = usuario || nombre;
+            destino?.focus();
+        }
 
         // Highlight icon on input focus
         document.querySelectorAll('input[type=text], input[type=password]').forEach(input => {

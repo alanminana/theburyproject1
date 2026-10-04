@@ -7,6 +7,7 @@ using TheBuryProject.Helpers;
 using TheBuryProject.Models.Constants;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
+using TheBuryProject.Services.Documentos;
 using TheBuryProject.Services.Exceptions;
 using TheBuryProject.Services.Interfaces;
 using TheBuryProject.Services.Models;
@@ -40,6 +41,7 @@ namespace TheBuryProject.Services
         private readonly IProductoCreditoRestriccionService _productoCreditoRestriccionService;
         private readonly IProductoUnidadService? _productoUnidadService;
         private readonly IRelojComercial _reloj;
+        private readonly IDocumentoService? _documentoService;
 
         public VentaService(
             AppDbContext context,
@@ -59,7 +61,8 @@ namespace TheBuryProject.Services
             IConfiguracionPagoService configuracionPagoService,
             IProductoCreditoRestriccionService? productoCreditoRestriccionService = null,
             IProductoUnidadService? productoUnidadService = null,
-            IRelojComercial? reloj = null)
+            IRelojComercial? reloj = null,
+            IDocumentoService? documentoService = null)
         {
             _context = context;
             _mapper = mapper;
@@ -86,6 +89,9 @@ namespace TheBuryProject.Services
             // (Program.cs registra IRelojComercial como Singleton; DI siempre lo resuelve) y solo se
             // alcanza ahí.
             _reloj = reloj ?? RelojComercial.Sistema;
+            // Opcional por la misma razón que el reloj: los tests que construyen VentaService a mano no
+            // lo pasan (sin motor documental no se emite ningún documento); en producción DI siempre lo resuelve.
+            _documentoService = documentoService;
         }
 
         #region Consultas
@@ -1030,6 +1036,8 @@ namespace TheBuryProject.Services
                         usuario);
                 }
 
+                await EmitirDocumentosVentaConfirmadaAsync(venta);
+
                 await transaction.CommitAsync();
 
                 _logger.LogInformation("ConfirmarVentaAsync venta {Id} confirmada", id);
@@ -1169,6 +1177,8 @@ namespace TheBuryProject.Services
                         anticipo,
                         usuario);
                 }
+
+                await EmitirDocumentosVentaConfirmadaAsync(venta);
 
                 await transaction.CommitAsync();
                 _logger.LogInformation("ConfirmarVentaCreditoAsync venta {Id} confirmada", id);
@@ -1462,6 +1472,42 @@ namespace TheBuryProject.Services
             {
                 throw new InvalidOperationException(
                     "Debe generar e imprimir el Contrato de Venta antes de continuar.");
+            }
+
+            // Reglas documentales que exigen firma para continuar (configurable por regla, apagado por defecto).
+            if (_documentoService != null)
+            {
+                var sinFirmar = await _documentoService.ObtenerBloqueantesDeFirmaAsync(venta.Id);
+                if (sinFirmar.Count > 0)
+                {
+                    throw new InvalidOperationException(
+                        "Hay documentos pendientes de firma que deben firmarse antes de continuar: " +
+                        string.Join(", ", sinFirmar.Select(d => $"{d.TipoDocumento.Nombre} {d.Numero}")) + ".");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Dispara el evento VENTA_CONFIRMADA dentro de la transacción de la confirmación. Un documento
+        /// OBLIGATORIO que no pueda generarse lanza y revierte la confirmación; los no obligatorios
+        /// quedan como error recuperable (se registran y se pueden reintentar desde la venta).
+        /// </summary>
+        private async Task EmitirDocumentosVentaConfirmadaAsync(Venta venta)
+        {
+            if (_documentoService == null)
+                return;
+
+            var resultado = await _documentoService.ProcesarEventoAsync(new DocumentoEventoRequest
+            {
+                Evento = EventosDocumentales.VentaConfirmada,
+                Origen = new DocumentoOrigen { VentaId = venta.Id }
+            });
+
+            foreach (var error in resultado.Errores)
+            {
+                _logger.LogWarning(
+                    "Venta {VentaId}: documento no obligatorio no generado ({Codigo}): {Mensaje}",
+                    venta.Id, error.Codigo, error.Mensaje);
             }
         }
 

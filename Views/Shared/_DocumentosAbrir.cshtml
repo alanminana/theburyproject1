@@ -1,0 +1,7 @@
+@* Apertura automática de documentos emitidos (ver documentos-abrir.js y DocumentosEmitidosFilter).
+   El script se carga siempre (cubre las respuestas AJAX); el aviso de TempData cubre redirecciones y páginas. *@
+<script src="~/js/documentos-abrir.js" asp-append-version="true" data-url="@Url.Action("VerVarios", "Documento")"></script>
+@if (TempData["DocumentosAbrir"] is string idsDocumentos && !string.IsNullOrWhiteSpace(idsDocumentos))
+{
+    <script>window.TBPDocumentosAbrir(@Html.Raw(System.Text.Json.JsonSerializer.Serialize(idsDocumentos)));</script>
+}

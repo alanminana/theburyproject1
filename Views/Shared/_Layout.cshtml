@@ -81,10 +81,12 @@
         var canCreateTicket = User.TienePermiso("tickets", "create");
         var canViewTickets = User.TienePermiso("tickets", "view");
         var canViewConfiguracion = User.TienePermiso("configuracion", "view");
+        var canViewDocumentos = User.TienePermiso("documentos", "view");
+
 
         var isDashboardActive = IsActive("Home") || IsActive("Dashboard");
 
-        var showOperaciones = canViewVentas || canViewClientes;
+        var showOperaciones = canViewVentas || canViewClientes || canViewDocumentos;
         var showLogistica = canViewInventario || canViewProveedores || canViewCaja;
         var showReportes = canViewReportes;
         var showIntegraciones = canViewMercadoLibre;
@@ -160,6 +162,17 @@
                                    asp-action="Index" title="Clientes">
                                     <span class="material-symbols-outlined text-lg shrink-0" aria-hidden="true">group</span>
                                     <p class="@NavFont(active) sidebar-label">Clientes</p>
+                                </a>
+                            }
+
+                            @if (canViewDocumentos)
+                            {
+                                var active = IsActive("Documento");
+
+                                <a class="@NavClass(active)" aria-current="@NavCurrent(active)" asp-controller="Documento"
+                                   asp-action="Index" title="Documentos">
+                                    <span class="material-symbols-outlined text-lg shrink-0" aria-hidden="true">description</span>
+                                    <p class="@NavFont(active) sidebar-label">Documentos</p>
                                 </a>
                             }
                         </div>
@@ -277,7 +290,8 @@
                             {
                                 var active = IsActive("ConfiguracionPago") || IsActive("ServiciosVenta")
                                     || IsActive("ConfiguracionRentabilidad") || IsActive("ConfiguracionMora")
-                                    || IsActive("ConfiguracionContratoCredito") || IsActive("PlantillaContratoCredito");
+                                    || IsActive("ConfiguracionContratoCredito") || IsActive("PlantillaContratoCredito")
+                                    || IsActive("DocumentosConfig");
 
                                 <a class="@NavClass(active)" aria-current="@NavCurrent(active)"
                                    asp-controller="ConfiguracionPago" asp-action="MediosPago" title="Configuración">
@@ -453,6 +467,7 @@
     <script src="~/lib/jquery/dist/jquery.min.js" asp-append-version="true"></script>
 
     <!-- App JS -->
+    <script src="~/js/fecha-defaults.js" asp-append-version="true"></script>
     <script src="~/js/shared-ui.js" asp-append-version="true"></script>
     <script src="~/js/erp-table-cards.js" asp-append-version="true"></script>
 
@@ -477,6 +492,7 @@
     }
 
     @await RenderSectionAsync("Scripts", required: false)
+    <partial name="_DocumentosAbrir" />
 </body>
 
 </html>

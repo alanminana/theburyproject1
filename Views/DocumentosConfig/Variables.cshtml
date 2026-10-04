@@ -1,0 +1,67 @@
+@using TheBuryProject.Services.Documentos
+@{
+    ViewData["Title"] = "Variables disponibles";
+    ViewData["DocTab"] = "variables";
+    var eventos = (IReadOnlyList<EventoDocumentalInfo>)ViewBag.Eventos;
+    string TipoTexto(TipoCampoDocumento t) => t switch
+    {
+        TipoCampoDocumento.Numero => "número", TipoCampoDocumento.Fecha => "fecha", TipoCampoDocumento.Booleano => "verdadero/falso", _ => "texto"
+    };
+    string Disponible(AnclaDocumento[]? anclas) => anclas == null
+        ? "Todos los eventos"
+        : string.Join(", ", eventos.Where(e => anclas.Contains(e.Ancla)).Select(e => e.Nombre));
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/documentos-module.css" asp-append-version="true" />
+}
+
+<div class="doc-module">
+    <header class="doc-head">
+        <h1 class="doc-title">Documentos</h1>
+        <p class="doc-sub">Variables que podés usar en las plantillas (<span class="doc-mono">{{variable}}</span>) y en las condiciones de las reglas. Cada evento ofrece solo las que corresponden a su operación.</p>
+        <partial name="_Tabs" />
+    </header>
+
+    @foreach (var grupo in CatalogoDocumento.Campos.GroupBy(c => c.Grupo))
+    {
+        <section class="doc-card">
+            <h2>@grupo.Key</h2>
+            <div class="doc-table-wrap">
+                <table class="doc-table">
+                    <thead><tr><th>Variable</th><th>Descripción</th><th>Tipo</th><th>Disponible en</th></tr></thead>
+                    <tbody>
+                    @foreach (var c in grupo)
+                    {
+                        <tr>
+                            <td class="doc-mono">{{@c.Ruta}}</td>
+                            <td>@c.Etiqueta@(c.Valores != null ? $" ({string.Join(", ", c.Valores)})" : "")</td>
+                            <td>@TipoTexto(c.Tipo)</td>
+                            <td class="doc-muted">@Disponible(c.Anclas)</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+
+    <section class="doc-card">
+        <h2>Colecciones (se repiten por ítem)</h2>
+        <div class="doc-table-wrap">
+            <table class="doc-table">
+                <thead><tr><th>Sección</th><th>Descripción</th><th>Campos dentro de la sección</th></tr></thead>
+                <tbody>
+                @foreach (var col in CatalogoDocumento.Colecciones)
+                {
+                    <tr>
+                        <td class="doc-mono">{{#@col.Nombre}} … {{/@col.Nombre}}</td>
+                        <td>@col.Etiqueta</td>
+                        <td class="doc-mono">@string.Join(", ", col.Campos.Select(f => "{{" + f + "}}"))</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>

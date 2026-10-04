@@ -117,6 +117,9 @@ namespace TheBuryProject.Data
                 await SucursalesSeeder.SeedAsync(context, logger);
                 await EnsureRoleMetadataAsync(context, roleManager, logger);
                 await EnsurePlantillaContratoDefaultAsync(context, logger);
+                // El sistema documental NO se siembra al arrancar: plantillas, reglas, paquetes y tipos se configuran a mano
+                // (Configuración → Documentos). DocumentoSeeder.EnsureAsync queda como configuración de ejemplo para los tests.
+                await Services.Documentos.DocumentoSeeder.AsegurarEmpresaAsync(context, logger);
                 logger.LogInformation("Roles, módulos, permisos y sucursales inicializados exitosamente");
 
                 // Crear usuario administrador si no existe (lee credenciales desde configuración/secret)

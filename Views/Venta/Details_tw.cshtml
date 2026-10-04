@@ -331,7 +331,10 @@
                         <div>
                             <p class="text-[10px] font-bold text-slate-500 uppercase mb-1">Vendedor</p>
                             <p class="text-sm font-bold text-white">@(Model.VendedorNombre ?? "—")</p>
-                            @if (User.TienePermiso("reportes", "view"))
+                            @* Comisión propia: siempre; la de otros vendedores solo con reportes.viewallcommissions. *@
+                            @if (User.TienePermiso("reportes", "viewallcommissions")
+                                 || (!string.IsNullOrEmpty(Model.VendedorUserId)
+                                     && Model.VendedorUserId == User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value))
                             {
                                 var comisionTotal = detalles.Sum(d => d.ComisionMonto);
                                 <p class="mt-1 text-[11px] text-slate-400">
@@ -736,7 +739,9 @@
                         </div>
                     </section>
 
-                    @if (contratoVentaCredito != null)
+                    @* Con permiso de Documentos, el panel "Documentos" (más abajo) ya muestra número, estado y acciones del
+                       contrato y el pagaré: esta tarjeta informativa solo queda para quien no puede ver documentos. *@
+                    @if (contratoVentaCredito != null && !User.TienePermiso("documentos", "view"))
                     {
                         <section class="card-erp-panel-padded">
                             <div class="mb-6 flex flex-col gap-3 border-b border-slate-800 pb-4 sm:flex-row sm:items-start sm:justify-between">
@@ -781,6 +786,9 @@
                         </section>
                     }
                 }
+
+                @* Documentos emitidos por el motor documental (contrato, pagaré, recibos, constancias…). *@
+                @await Component.InvokeAsync("DocumentosOperacion", new { ventaId = Model.Id, ofrecerPresupuesto = Model.TipoPago == TipoPago.CreditoPersonal && Model.CreditoId.HasValue })
 
                 <!-- Invoice Section (if facturada) -->
                 @if (facturas.Any())
@@ -1495,7 +1503,7 @@
 
                 <div id="envio-fecha-bloque" class="hidden">
                     <label for="envio-fecha-programada" class="venta-label">Nueva fecha de entrega</label>
-                    <input type="date" id="envio-fecha-programada" name="fechaProgramada" class="venta-input"
+                    <input type="date" data-fecha="hoy" id="envio-fecha-programada" name="fechaProgramada" class="venta-input"
                            min="@DateTime.Today.ToString("yyyy-MM-dd")" />
                 </div>
 

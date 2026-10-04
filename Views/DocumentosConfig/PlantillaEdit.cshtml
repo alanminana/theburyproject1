@@ -1,0 +1,230 @@
+﻿@using TheBuryProject.Services.Documentos
+@model TheBuryProject.Services.Interfaces.PlantillaDocumentoInput
+@{
+    var esNueva = Model.Id == 0;
+    ViewData["Title"] = esNueva ? "Nueva plantilla" : "Editar plantilla";
+    ViewData["DocTab"] = "plantillas";
+    var tipos = (List<TheBuryProject.Models.Entities.TipoDocumento>)ViewBag.Tipos;
+    var eventos = (IReadOnlyList<EventoDocumentalInfo>)ViewBag.Eventos;
+    var versiones = ViewBag.Versiones as List<TheBuryProject.Models.Entities.PlantillaDocumentoVersion>;
+    var versionActual = ViewBag.VersionActual as int?;
+    var operaciones = ViewBag.Operaciones as TheBuryProject.Services.Interfaces.OperacionesParaVistaPrevia ?? new TheBuryProject.Services.Interfaces.OperacionesParaVistaPrevia();
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/documentos-module.css" asp-append-version="true" />
+}
+
+<div class="doc-module" data-doc-page="plantilla">
+    <header class="doc-head">
+        <h1 class="doc-title">Documentos</h1>
+        <p class="doc-sub">
+            @if (esNueva) { <text>Se crea con la versión 1.</text> }
+            else { <text>Versión vigente: <strong>@versionActual</strong>. Si cambia el contenido o las variables requeridas se guarda como una versión nueva; las anteriores no se modifican.</text> }
+        </p>
+        <partial name="_Tabs" />
+    </header>
+
+    <partial name="_Flash" />
+
+    <form method="post" asp-action="PlantillaEdit" class="doc-form">
+        @Html.AntiForgeryToken()
+        <input type="hidden" asp-for="Id" />
+
+        <section class="doc-card">
+            <h2>Datos</h2>
+            <div class="doc-grid-3">
+                <div class="doc-field">
+                    <label asp-for="TipoDocumentoId">Tipo de documento</label>
+                    <select asp-for="TipoDocumentoId" class="doc-select" required disabled="@(!esNueva)">
+                        <option value="">Elegí un tipo…</option>
+                        @foreach (var t in tipos)
+                        {
+                            <option value="@t.Id" selected="@(Model.TipoDocumentoId == t.Id)">@t.Nombre</option>
+                        }
+                    </select>
+                    @if (!esNueva) { <input type="hidden" asp-for="TipoDocumentoId" /> }
+                </div>
+                <div class="doc-field">
+                    <label asp-for="Codigo">Código</label>
+                    <input asp-for="Codigo" class="doc-input doc-mono" maxlength="50" readonly="@(!esNueva)" placeholder="CONTRATO_FIADOR" />
+                </div>
+                <div class="doc-field">
+                    <label asp-for="Nombre">Nombre</label>
+                    <input asp-for="Nombre" class="doc-input" maxlength="150" required />
+                </div>
+            </div>
+            <div class="doc-field" style="margin-top:.9rem">
+                <label asp-for="Descripcion">Descripción</label>
+                <input asp-for="Descripcion" class="doc-input" maxlength="500" />
+            </div>
+            <div class="doc-grid-3" style="margin-top:.9rem">
+                <div class="doc-field">
+                    <label asp-for="VigenteDesde">Vigente desde</label>
+                    <input asp-for="VigenteDesde" type="date" class="doc-input" value="@Model.VigenteDesde.ToString("yyyy-MM-dd")" required />
+                </div>
+                <div class="doc-field">
+                    <label asp-for="VigenteHasta">Vigente hasta (opcional)</label>
+                    <input asp-for="VigenteHasta" type="date" class="doc-input" value="@(Model.VigenteHasta?.ToString("yyyy-MM-dd"))" />
+                </div>
+                <div class="doc-field">
+                    <label asp-for="Copias">Copias al imprimir</label>
+                    <input asp-for="Copias" type="number" min="1" max="5" class="doc-input" />
+                </div>
+            </div>
+            <div class="doc-grid-3" style="margin-top:.9rem">
+                <label class="doc-check"><input type="checkbox" asp-for="Activa" /> Activa</label>
+                <label class="doc-check"><input type="checkbox" asp-for="RequiereFirma" /> Requiere firma</label>
+                <div class="doc-field">
+                    <label asp-for="FirmantesRequeridos">Firmantes (separados por coma)</label>
+                    <input asp-for="FirmantesRequeridos" class="doc-input" maxlength="200" placeholder="vendedor,comprador,fiador" />
+                </div>
+            </div>
+        </section>
+
+        <section class="doc-card">
+            <h2>Contenido</h2>
+            <p class="doc-hint">
+                Usá <span class="doc-mono">{{variable}}</span> para insertar datos, y
+                <span class="doc-mono">{{#cuotas}} … {{/cuotas}}</span> o <span class="doc-mono">{{#productos}} … {{/productos}}</span> para repetir por cuota o producto
+                (<span class="doc-mono">{{^x}}</span> invierte la condición). Tocá una variable para insertarla donde está el cursor.
+            </p>
+
+            @foreach (var grupo in CatalogoDocumento.Campos.GroupBy(c => c.Grupo))
+            {
+                <div style="margin-bottom:.5rem">
+                    <div class="doc-label">@grupo.Key</div>
+                    <div class="doc-vars">
+                        @foreach (var c in grupo)
+                        {
+                            <button type="button" class="doc-var" data-doc-var="{{@c.Ruta}}" title="@c.Etiqueta">@c.Ruta</button>
+                        }
+                    </div>
+                </div>
+            }
+            <div style="margin-bottom:.75rem">
+                <div class="doc-label">Colecciones</div>
+                <div class="doc-vars">
+                    @foreach (var col in CatalogoDocumento.Colecciones)
+                    {
+                        <button type="button" class="doc-var" data-doc-var="{{#@col.Nombre}}&#10;@string.Join(" ", col.Campos.Select(f => "{{" + f + "}}"))&#10;{{/@col.Nombre}}" title="@col.Etiqueta">#@col.Nombre</button>
+                    }
+                </div>
+            </div>
+
+            <div class="doc-field">
+                <label for="doc-contenido">Texto del documento</label>
+                <textarea asp-for="Contenido" id="doc-contenido" class="doc-textarea" required spellcheck="false"></textarea>
+                <span asp-validation-for="Contenido" class="doc-error"></span>
+            </div>
+
+            <div class="doc-grid-2" style="margin-top:.9rem">
+                <div class="doc-field">
+                    <label for="doc-requeridas">Datos requeridos (separados por coma)</label>
+                    <input asp-for="VariablesRequeridas" id="doc-requeridas" class="doc-input doc-mono" maxlength="1000" placeholder="cliente.dni,credito.cantidadCuotas" />
+                    <span class="doc-hint" style="margin:0">Si alguno está vacío al emitir, el documento no se genera.</span>
+                </div>
+                <div class="doc-field">
+                    <label asp-for="ComentarioVersion">Comentario de la versión (opcional)</label>
+                    <input asp-for="ComentarioVersion" class="doc-input" maxlength="300" />
+                </div>
+            </div>
+        </section>
+
+        <div class="doc-actions">
+            <button type="submit" class="doc-btn doc-btn-primary">
+                <span class="material-symbols-outlined" aria-hidden="true">save</span>Guardar
+            </button>
+            <a asp-action="Plantillas" class="doc-btn">Volver</a>
+        </div>
+    </form>
+
+    <section class="doc-card">
+        <h2>Vista previa</h2>
+        <p class="doc-hint">Renderiza el texto actual del editor (sin guardar). Con datos de ejemplo, o con una operación real si indicás su número interno.</p>
+        <div class="doc-grid-3">
+            <div class="doc-field">
+                <label for="doc-prev-evento">Evento</label>
+                <select id="doc-prev-evento" class="doc-select">
+                    @foreach (var e in eventos)
+                    {
+                        <option value="@e.Codigo">@e.Nombre</option>
+                    }
+                </select>
+            </div>
+            <div class="doc-field">
+                <label for="doc-prev-ventaId">Venta a crédito (id, opcional)</label>
+                <input id="doc-prev-ventaId" type="number" min="1" class="doc-input" list="doc-prev-ventas" />
+                <datalist id="doc-prev-ventas">
+                    @foreach (var o in operaciones.Ventas)
+                    {
+                        <option value="@o.Id">@o.Descripcion</option>
+                    }
+                </datalist>
+            </div>
+            <div class="doc-field">
+                <label for="doc-prev-pagoCuotaId">Cobranza (id de pago, opcional)</label>
+                <input id="doc-prev-pagoCuotaId" type="number" min="1" class="doc-input" list="doc-prev-cobros" />
+                <datalist id="doc-prev-cobros">
+                    @foreach (var o in operaciones.Cobros)
+                    {
+                        <option value="@o.Id">@o.Descripcion</option>
+                    }
+                </datalist>
+            </div>
+        </div>
+        <div class="doc-field" style="margin-top:.6rem;max-width:20rem">
+            <label for="doc-prev-cotizacionId">Cotización (id, opcional)</label>
+            <input id="doc-prev-cotizacionId" type="number" min="1" class="doc-input" />
+        </div>
+        <div style="margin:.8rem 0">
+            <button type="button" id="doc-preview-btn" class="doc-btn" data-url="@Url.Action("PlantillaPreview")">
+                <span class="material-symbols-outlined" aria-hidden="true">preview</span>Actualizar vista previa
+            </button>
+            <button type="button" id="doc-preview-pdf-btn" class="doc-btn" data-url="@Url.Action("PlantillaPreviewPdf")"
+                    title="Abre el documento con su formato de impresión (A4)">
+                <span class="material-symbols-outlined" aria-hidden="true">picture_as_pdf</span>Ver como PDF
+            </button>
+        </div>
+        <div id="doc-preview-out" aria-live="polite"></div>
+    </section>
+
+    @if (versiones != null && versiones.Count > 0)
+    {
+        <section class="doc-card">
+            <h2>Historial de versiones</h2>
+            <div class="doc-table-wrap">
+                <table class="doc-table" data-erp-cards>
+                    <thead><tr><th data-card="title">Versión</th><th data-card="half">Fecha</th><th data-card="half">Usuario</th><th>Comentario</th><th data-card="actions"><span class="sr-only">Acciones</span></th></tr></thead>
+                    <tbody>
+                    @foreach (var v in versiones)
+                    {
+                        <tr>
+                            <td>v@(v.Numero) @if (v.Numero == versionActual) { <span class="doc-chip doc-chip-ok">Vigente</span> }</td>
+                            <td>@v.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                            <td>@v.CreatedBy</td>
+                            <td>@v.Comentario</td>
+                            <td>
+                                @if (v.Numero != versionActual)
+                                {
+                                    <form method="post" asp-action="PlantillaRestaurar"
+                                          onsubmit="return confirm('Se creará una versión nueva con el contenido de la v@(v.Numero). ¿Continuar?');">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@Model.Id" />
+                                        <input type="hidden" name="version" value="@v.Numero" />
+                                        <button type="submit" class="doc-btn">Restaurar como nueva versión</button>
+                                    </form>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+</div>
+
+@section Scripts {
+    <script src="~/js/documentos-config.js" asp-append-version="true"></script>
+}

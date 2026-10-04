@@ -67,6 +67,8 @@
         <div class="px-6 py-5">
             <form asp-action="ComisionesVendedores" method="get">
                 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    @if (ViewBag.PuedeVerTodasComisiones != false)
+                    {
                     <div class="space-y-1">
                         <label class="text-xs font-medium text-slate-400">Vendedor</label>
                         <select asp-for="Filtros.VendedorUserId" name="VendedorUserId" asp-items="Model.Vendedores"
@@ -74,6 +76,7 @@
                             <option value="">Todos</option>
                         </select>
                     </div>
+                    }
 
                     <div class="space-y-1">
                         <label class="text-xs font-medium text-slate-400">Desde</label>

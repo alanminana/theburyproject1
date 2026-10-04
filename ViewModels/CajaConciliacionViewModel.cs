@@ -186,6 +186,8 @@ public class MovimientoCajaLineaViewModel
     public string? Referencia { get; set; }
     /// <summary>URL de navegación de la referencia (venta / crédito), o null si no es navegable.</summary>
     public string? ReferenciaUrl { get; set; }
+    /// <summary>Enlace al recibo emitido por el cobro (solo cobros de cuota con recibo), o null.</summary>
+    public string? ReciboUrl { get; set; }
     public string? Descripcion { get; set; }
     public decimal Entra { get; set; }
     public decimal Sale { get; set; }

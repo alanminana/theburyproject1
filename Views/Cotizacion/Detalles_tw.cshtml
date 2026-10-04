@@ -1,6 +1,7 @@
 @using TheBuryProject.Models.Enums
 @using TheBuryProject.Services.Models
 @model CotizacionResultado
+@inject TheBuryProject.Services.Interfaces.IDocumentoService Documentos
 
 @{
     ViewData["Title"] = $"Cotizacion {Model.Numero}";
@@ -63,6 +64,18 @@
                     <span class="material-symbols-outlined text-lg">print</span>
                     Imprimir
                 </a>
+                @if (User.TienePermiso("documentos", "generate") && await Documentos.TieneReglaActivaAsync(TheBuryProject.Services.Documentos.EventosDocumentales.PresupuestoGenerado))
+                {
+                    <form method="post" asp-controller="Documento" asp-action="GenerarPresupuesto" target="_blank" class="inline">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="cotizacionId" value="@Model.Id" />
+                        <button type="submit" title="Emite el presupuesto como documento numerado e histórico"
+                                class="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 text-sm font-bold text-slate-200 hover:bg-slate-700">
+                            <span class="material-symbols-outlined text-base" aria-hidden="true">request_quote</span>
+                            Presupuesto
+                        </button>
+                    </form>
+                }
                 <a href="@Url.Action("Listado", "Cotizacion")" class="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 text-sm font-bold text-slate-200 hover:bg-slate-700">
                     <span class="material-symbols-outlined text-lg">arrow_back</span>
                     Volver
@@ -70,6 +83,9 @@
             </div>
         </div>
     </section>
+
+    @* Presupuestos emitidos como documento (número propio, histórico, reimprimible). *@
+    @await Component.InvokeAsync("DocumentosOperacion", new { cotizacionId = Model.Id })
 
     @if (puedeConvertir)
     {

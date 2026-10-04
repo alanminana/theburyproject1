@@ -255,7 +255,10 @@ public static class RolesPermisosSeeder
                 ("Márgenes", "margins", 3),
                 ("Morosidad", "arrears", 4),
                 ("Stock", "stock", 5),
-                ("Exportar", "export", 6)
+                ("Exportar", "export", 6),
+                // Comisiones: cualquier usuario ve las suyas; las de otros vendedores (Venta/Details y
+                // reporte de comisiones) solo con este permiso.
+                ("Ver comisiones de todos", "viewallcommissions", 7)
             }),
             ("Dashboard", "dashboard", "Reportes", "bi-speedometer2", 81, new List<(string, string, int)>
             {
@@ -282,6 +285,18 @@ public static class RolesPermisosSeeder
                 ("Crear", "create", 2),
                 ("Editar", "update", 3),
                 ("Eliminar", "delete", 4)
+            }),
+            // DOCUMENTOS (motor documental: contratos, pagarés, recibos, presupuestos, ...)
+            ("Documentos", "documentos", "Documentos", "bi-file-earmark-text", 23, new List<(string, string, int)>
+            {
+                ("Ver", "view", 1),
+                ("Generar", "generate", 2),
+                ("Reimprimir", "reprint", 3),
+                ("Firmar", "sign", 4),
+                ("Cancelar", "cancel", 5),
+                ("Administrar plantillas", "managetemplates", 6),
+                ("Administrar reglas", "managerules", 7),
+                ("Administrar tipos", "managetypes", 8)
             }),
             ("Configuración", "configuracion", "Configuración", "bi-gear", 92, new List<(string, string, int)>
             {
@@ -470,6 +485,12 @@ public static class RolesPermisosSeeder
                 "reportes", "dashboard", "notificaciones"
             };
             await AsignarPermisosModulosAsync(context, gerenteRole.Id, modulos, modulosGerente);
+
+            // Documentos: gestiona plantillas y reglas, pero no los tipos documentales (alta/baja de clases de documento).
+            await AsignarPermisosEspecificosAsync(context, gerenteRole.Id, modulos, new Dictionary<string, string[]>
+            {
+                { "documentos", new[] { "view", "generate", "reprint", "sign", "cancel", "managetemplates", "managerules" } }
+            });
         }
 
         var vendedorRole = roles.FirstOrDefault(r => r.Name == Models.Constants.Roles.Vendedor);
@@ -481,6 +502,7 @@ public static class RolesPermisosSeeder
                 { "creditos", new[] { "view", "viewinstallments" } },
                 { "cotizaciones", new[] { "view", "create", "update", "convert" } },
                 { "clientes", new[] { "view", "create", "update", "viewdocs", "uploaddocs" } },
+                { "documentos", new[] { "view", "generate", "reprint", "sign" } },
                 { "productos", new[] { "view" } },
                 { "categorias", new[] { "view" } },
                 { "marcas", new[] { "view" } },
@@ -499,6 +521,7 @@ public static class RolesPermisosSeeder
                 { "creditos", new[] { "view" } },
                 { "cobranzas", new[] { "view", "payinstallment", "viewarrears", "viewalerts" } },
                 { "caja", new[] { "view", "open", "close", "movements", "history" } },
+                { "documentos", new[] { "view", "reprint" } },
                 { "clientes", new[] { "view" } },
                 { "dashboard", new[] { "view" } },
                 { "notificaciones", new[] { "view", "update", "delete" } }
@@ -546,7 +569,7 @@ public static class RolesPermisosSeeder
                 { "clientes", new[] { "view" } },
                 { "proveedores", new[] { "view" } },
                 { "ordenescompra", new[] { "view" } },
-                { "reportes", new[] { "view", "sales", "margins", "arrears", "stock", "export" } },
+                { "reportes", new[] { "view", "sales", "margins", "arrears", "stock", "export", "viewallcommissions" } },
                 { "dashboard", new[] { "view" } },
                 { "notificaciones", new[] { "view", "update", "delete" } }
             });

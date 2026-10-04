@@ -1,0 +1,46 @@
+@* Navegación única de la configuración documental. Cada pestaña se muestra solo si el usuario tiene el permiso del área. *@
+@{
+    var activa = ViewData["DocTab"] as string ?? "plantillas";
+    var puedePlantillas = User.TienePermiso("documentos", "managetemplates");
+    var puedeReglas = User.TienePermiso("documentos", "managerules");
+    var puedeTipos = User.TienePermiso("documentos", "managetypes");
+    var puedeVer = User.TienePermiso("documentos", "view");
+}
+<nav class="doc-tabs" aria-label="Configuración de documentos">
+    @if (puedePlantillas)
+    {
+        <a asp-controller="DocumentosConfig" asp-action="Plantillas" class="doc-tab" aria-current="@(activa == "plantillas" ? "page" : null)">
+            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">article</span>Plantillas
+        </a>
+    }
+    @if (puedeReglas)
+    {
+        <a asp-controller="DocumentosConfig" asp-action="Reglas" class="doc-tab" aria-current="@(activa == "reglas" ? "page" : null)">
+            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">rule</span>Reglas
+        </a>
+        <a asp-controller="DocumentosConfig" asp-action="Paquetes" class="doc-tab" aria-current="@(activa == "paquetes" ? "page" : null)">
+            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">inventory_2</span>Paquetes
+        </a>
+    }
+    @if (puedeTipos)
+    {
+        <a asp-controller="DocumentosConfig" asp-action="Tipos" class="doc-tab" aria-current="@(activa == "tipos" ? "page" : null)">
+            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">category</span>Tipos
+        </a>
+    }
+    @if (puedePlantillas)
+    {
+        <a asp-controller="DocumentosConfig" asp-action="Empresa" class="doc-tab" aria-current="@(activa == "empresa" ? "page" : null)">
+            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">apartment</span>Empresa
+        </a>
+        <a asp-controller="DocumentosConfig" asp-action="Variables" class="doc-tab" aria-current="@(activa == "variables" ? "page" : null)">
+            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">data_object</span>Variables
+        </a>
+    }
+    @if (puedeVer)
+    {
+        <a asp-controller="Documento" asp-action="Index" class="doc-tab">
+            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">folder_open</span>Documentos emitidos
+        </a>
+    }
+</nav>
