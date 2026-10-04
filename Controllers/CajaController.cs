@@ -625,6 +625,7 @@ namespace TheBuryProject.Controllers
                 var cuotaCreditoMap = await ObtenerMapaCuotaCreditoAsync(detalles.Movimientos);
 
                 var viewModel = CajaConciliacionBuilder.Build(detalles, detalles.Apertura.Cierre, puedeOperar, cuotaCreditoMap);
+                await AdjuntarRecibosAsync(viewModel);
                 viewModel.PuedeRegistrarMovimientos = viewModel.PuedeOperar && _currentUser.HasPermission("caja", "movements");
                 viewModel.PuedeCerrar = viewModel.PuedeOperar && _currentUser.HasPermission("caja", "close");
                 viewModel.EsVencida = !viewModel.EstaCerrada
@@ -663,7 +664,63 @@ namespace TheBuryProject.Controllers
 
             var cuotaCreditoMap = await ObtenerMapaCuotaCreditoAsync(detalle.Movimientos);
 
-            return View("DetallesCierre_tw", CajaConciliacionBuilder.Build(detalle, cierre, puedeOperar: false, cuotaCreditoMap));
+            var modeloCierre = CajaConciliacionBuilder.Build(detalle, cierre, puedeOperar: false, cuotaCreditoMap);
+            await AdjuntarRecibosAsync(modeloCierre);
+            return View("DetallesCierre_tw", modeloCierre);
+        }
+
+        /// <summary>
+        /// A cada "Cobro cuota" le agrega el enlace al recibo que emitió el motor documental (si lo hay). El recibo de una cobranza
+        /// de varias cuotas cubre todos sus pagos: se resuelve por el pago ancla y por los pagos guardados en su metadata.
+        /// </summary>
+        private async Task AdjuntarRecibosAsync(CajaConciliacionViewModel modelo)
+        {
+            if (!_currentUser.HasPermission("documentos", "view"))
+                return;
+
+            var cobros = modelo.Movimientos.Where(m => m.Concepto == "Cobro cuota" || m.Concepto.StartsWith("Cobro cuota")).ToList();
+            if (cobros.Count == 0)
+                return;
+
+            var movimientoIds = cobros.Select(m => m.MovimientoId).ToList();
+            var pagos = await _context.PagosCuota.AsNoTracking()
+                .Where(p => p.MovimientoCajaId != null && movimientoIds.Contains(p.MovimientoCajaId.Value) && !p.IsDeleted)
+                .Select(p => new { p.Id, MovimientoId = p.MovimientoCajaId!.Value, p.Cuota.CreditoId })
+                .ToListAsync();
+            if (pagos.Count == 0)
+                return;
+
+            var creditoIds = pagos.Select(p => p.CreditoId).Distinct().ToList();
+            var recibos = await _context.DocumentosGenerados.AsNoTracking()
+                .Where(d => d.TipoDocumento.Codigo == "RECIBO" && d.CreditoId != null && creditoIds.Contains(d.CreditoId.Value)
+                            && d.Estado != EstadoDocumentoGenerado.Cancelado && d.Estado != EstadoDocumentoGenerado.Reemplazado)
+                .Select(d => new { d.Id, d.PagoCuotaId, d.MetadataJson })
+                .ToListAsync();
+
+            var reciboPorPago = new Dictionary<int, int>();
+            foreach (var recibo in recibos)
+            {
+                if (recibo.PagoCuotaId is int ancla)
+                    reciboPorPago.TryAdd(ancla, recibo.Id);
+                if (string.IsNullOrWhiteSpace(recibo.MetadataJson))
+                    continue;
+                try
+                {
+                    using var json = System.Text.Json.JsonDocument.Parse(recibo.MetadataJson);
+                    if (json.RootElement.TryGetProperty("pagoCuotaIds", out var cubiertos) && cubiertos.ValueKind == System.Text.Json.JsonValueKind.Array)
+                        foreach (var id in cubiertos.EnumerateArray().Where(e => e.TryGetInt32(out _)).Select(e => e.GetInt32()))
+                            reciboPorPago.TryAdd(id, recibo.Id);
+                }
+                catch (System.Text.Json.JsonException)
+                {
+                }
+            }
+
+            foreach (var pago in pagos)
+            {
+                if (reciboPorPago.TryGetValue(pago.Id, out var reciboId))
+                    cobros.First(m => m.MovimientoId == pago.MovimientoId).ReciboUrl = Url.Action("Ver", "Documento", new { id = reciboId });
+            }
         }
 
         /// <summary>

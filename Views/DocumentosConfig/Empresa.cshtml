@@ -58,6 +58,46 @@
             </div>
         </section>
 
+        <section class="doc-card">
+            <h2>Presentación en los comprobantes</h2>
+            <p class="doc-sub">Textos que usan el presupuesto, el pagaré, el contrato y el recibo. Si se dejan vacíos se usan los datos de arriba.</p>
+            <div class="doc-grid-3">
+                <div class="doc-field">
+                    <label asp-for="NombreComercial">Nombre comercial</label>
+                    <input asp-for="NombreComercial" class="doc-input" maxlength="200" />
+                </div>
+                <div class="doc-field">
+                    <label asp-for="DomicilioCompleto">Domicilio completo (contrato)</label>
+                    <input asp-for="DomicilioCompleto" class="doc-input" maxlength="300" />
+                </div>
+                <div class="doc-field">
+                    <label asp-for="CondicionFiscalClientePorDefecto">Condición fiscal del cliente</label>
+                    <input asp-for="CondicionFiscalClientePorDefecto" class="doc-input" maxlength="60" placeholder="Consumidor Final" />
+                </div>
+            </div>
+        </section>
+
+        <section class="doc-card">
+            <h2>Vencimiento del pagaré</h2>
+            <p class="doc-sub">El sistema no asume ninguna regla: mientras no se defina, el pagaré sale con la línea en blanco para completar a mano.</p>
+            <div class="doc-grid-2">
+                <div class="doc-field">
+                    <label asp-for="PagareVencimientoModo">Cómo se determina</label>
+                    <select asp-for="PagareVencimientoModo" class="doc-input">
+                        <option value="">@TheBuryProject.Models.Entities.PagareVencimientoModos.Etiqueta(null)</option>
+                        @foreach (var modo in TheBuryProject.Models.Entities.PagareVencimientoModos.Todos)
+                        {
+                            <option value="@modo">@TheBuryProject.Models.Entities.PagareVencimientoModos.Etiqueta(modo)</option>
+                        }
+                    </select>
+                </div>
+                <div class="doc-field">
+                    <label asp-for="PagareVencimientoDias">Días desde la operación</label>
+                    <input asp-for="PagareVencimientoDias" type="number" min="1" max="3650" class="doc-input" />
+                </div>
+            </div>
+        </section>
+
         <div class="doc-actions">
             <button type="submit" class="doc-btn doc-btn-primary">
                 <span class="material-symbols-outlined" aria-hidden="true">save</span>Guardar

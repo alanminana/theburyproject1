@@ -110,21 +110,18 @@ namespace TheBuryProject.Services
             if (_documentoService == null || pagoCuotaIds.Count == 0)
                 return;
 
-            // Varios pagos de una misma operación (pago múltiple) se imprimen juntos.
-            Guid? grupo = pagoCuotaIds.Count > 1 ? Guid.NewGuid() : null;
-            foreach (var pagoId in pagoCuotaIds.OrderBy(i => i))
+            // Una cobranza es UN evento aunque cubra varias cuotas: el recibo lista todas las imputaciones y es único
+            // (idempotente por el pago ancla, el de menor id).
+            var ids = pagoCuotaIds.OrderBy(i => i).ToList();
+            var resultado = await _documentoService.ProcesarEventoAsync(new DocumentoEventoRequest
             {
-                var resultado = await _documentoService.ProcesarEventoAsync(new DocumentoEventoRequest
-                {
-                    Evento = EventosDocumentales.PagoRegistrado,
-                    Origen = new DocumentoOrigen { PagoCuotaId = pagoId },
-                    GrupoImpresionId = grupo
-                });
+                Evento = EventosDocumentales.PagoRegistrado,
+                Origen = new DocumentoOrigen { PagoCuotaId = ids[0], PagoCuotaIds = ids }
+            });
 
-                foreach (var error in resultado.Errores)
-                    _logger.LogWarning("Pago {PagoCuotaId}: documento no obligatorio no generado ({Codigo}): {Mensaje}",
-                        pagoId, error.Codigo, error.Mensaje);
-            }
+            foreach (var error in resultado.Errores)
+                _logger.LogWarning("Pago {PagoCuotaId}: documento no obligatorio no generado ({Codigo}): {Mensaje}",
+                    ids[0], error.Codigo, error.Mensaje);
         }
 
         /// <summary>
@@ -1717,6 +1714,7 @@ namespace TheBuryProject.Services
                     RecargoTotal = recargoTotal,
                     TotalCaja = pagosPlanificados.Sum(p => p.Total) + recargoTotal,
                     FechaPago = fechaPago,
+                    PagoCuotaIdRecibo = pagosCuotaPorCuotaId.Count == 0 ? null : pagosCuotaPorCuotaId.Values.Min(p => p.Id),
                     Cuotas = pagosPlanificados
                         .Select(p => new PagoMultipleCuotaResult
                         {

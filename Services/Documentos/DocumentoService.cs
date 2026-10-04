@@ -18,6 +18,7 @@ namespace TheBuryProject.Services.Documentos
     {
         private const string TipoContrato = "CONTRATO";
         private const string TipoPagare = "PAGARE";
+        private const string TipoRecibo = "RECIBO";
 
         private readonly AppDbContext _context;
         private readonly IDocumentoContextoBuilder _contextoBuilder;
@@ -27,6 +28,7 @@ namespace TheBuryProject.Services.Documentos
         private readonly ISeguridadAuditoriaService _auditoria;
         private readonly IRelojComercial _reloj;
         private readonly ILogger<DocumentoService> _logger;
+        private readonly IDocumentosEmitidosTracker? _tracker;
 
         public DocumentoService(
             AppDbContext context,
@@ -36,8 +38,10 @@ namespace TheBuryProject.Services.Documentos
             ICurrentUserService currentUser,
             ISeguridadAuditoriaService auditoria,
             IRelojComercial reloj,
-            ILogger<DocumentoService> logger)
+            ILogger<DocumentoService> logger,
+            IDocumentosEmitidosTracker? tracker = null)
         {
+            _tracker = tracker;
             _context = context;
             _contextoBuilder = contextoBuilder;
             _numeracion = numeracion;
@@ -112,6 +116,9 @@ namespace TheBuryProject.Services.Documentos
 
                 // Un tipo que no admite múltiples no se emite dos veces para la misma operación.
                 items = await FiltrarTiposYaEmitidosAsync(items, contexto, resultado, ct);
+
+                // Los documentos que pertenecen a un mismo paquete salen en el orden del paquete (ej. pagaré antes que contrato).
+                items = await OrdenarSegunPaquetesAsync(items, ct);
 
                 ValidarYRenderizarProvisorio(items, contexto, errores);
             }
@@ -214,6 +221,9 @@ namespace TheBuryProject.Services.Documentos
                 throw;
             }
 
+            // Lo emitido en esta petición se abre como PDF cuando la acción termina (ver DocumentosEmitidosFilter).
+            _tracker?.Registrar(nuevos.Select(d => d.Id));
+
             foreach (var doc in nuevos)
             {
                 resultado.Generados.Add(doc);
@@ -229,8 +239,45 @@ namespace TheBuryProject.Services.Documentos
             return resultado;
         }
 
-        public Task<DocumentoEventoResultado> ReintentarEventoAsync(string evento, DocumentoOrigen origen)
-            => ProcesarEventoAsync(new DocumentoEventoRequest { Evento = evento, Origen = origen });
+        public async Task<DocumentoEventoResultado> ReintentarEventoAsync(string evento, DocumentoOrigen origen)
+        {
+            // Reintentar el recibo de un pago recupera toda la cobranza (varias cuotas pagadas juntas = un solo recibo).
+            if (string.Equals(evento, EventosDocumentales.PagoRegistrado, StringComparison.OrdinalIgnoreCase)
+                && origen.PagoCuotaId is int pagoId && origen.PagoCuotaIds == null)
+                origen = await ExpandirCobranzaAsync(pagoId, origen);
+
+            return await ProcesarEventoAsync(new DocumentoEventoRequest { Evento = evento, Origen = origen });
+        }
+
+        /// <summary>
+        /// Pagos de la misma cobranza que <paramref name="pagoId"/>: mismo cliente y medio, registrados en el mismo instante
+        /// (los crea una única operación). Sin hermanos devuelve el origen tal cual.
+        /// </summary>
+        private async Task<DocumentoOrigen> ExpandirCobranzaAsync(int pagoId, DocumentoOrigen origen)
+        {
+            var pago = await _context.PagosCuota.AsNoTracking()
+                .Where(p => p.Id == pagoId && !p.IsDeleted)
+                .Select(p => new { p.MedioPago, p.CreatedAt, ClienteId = p.Cuota.Credito.ClienteId })
+                .FirstOrDefaultAsync();
+            if (pago == null)
+                return origen;
+
+            var desde = pago.CreatedAt.AddSeconds(-5);
+            var hasta = pago.CreatedAt.AddSeconds(5);
+            var ids = await _context.PagosCuota.AsNoTracking()
+                .Where(p => !p.IsDeleted && p.Estado == EstadoPagoCuota.Aplicado && p.MedioPago == pago.MedioPago
+                            && p.CreatedAt >= desde && p.CreatedAt <= hasta && p.Cuota.Credito.ClienteId == pago.ClienteId)
+                .Select(p => p.Id)
+                .ToListAsync();
+            if (ids.Count <= 1)
+                return origen;
+
+            ids.Sort();
+            return new DocumentoOrigen { PagoCuotaId = ids[0], PagoCuotaIds = ids };
+        }
+
+        public Task<bool> TieneReglaActivaAsync(string evento)
+            => _context.ReglasDocumento.AsNoTracking().AnyAsync(r => r.EventoCodigo == evento && r.Activa);
 
         private async Task<List<ReglaDocumento>> CargarReglasAsync(string evento, CancellationToken ct)
             => await _context.ReglasDocumento
@@ -354,6 +401,65 @@ namespace TheBuryProject.Services.Documentos
             return (items, errores);
         }
 
+        /// <summary>
+        /// Si varias plantillas planificadas pertenecen a un mismo paquete activo, se emiten en el orden del paquete (ocupando las
+        /// posiciones que ya tenían). Lo demás conserva el orden de las reglas. Así el orden de impresión sale de la configuración.
+        /// </summary>
+        private async Task<List<ItemPlan>> OrdenarSegunPaquetesAsync(List<ItemPlan> items, CancellationToken ct)
+        {
+            if (items.Count < 2)
+                return items;
+
+            var plantillaIds = items.Select(i => i.Plantilla.Id).ToList();
+            var ordenes = await _context.PaquetesDocumentalesItems
+                .AsNoTracking()
+                .Where(i => plantillaIds.Contains(i.PlantillaDocumentoId) && i.PaqueteDocumental.Activo)
+                .Select(i => new { i.PaqueteDocumentalId, i.PlantillaDocumentoId, i.Orden })
+                .ToListAsync(ct);
+
+            var resultado = items.ToList();
+            foreach (var paquete in ordenes.GroupBy(o => o.PaqueteDocumentalId))
+            {
+                var enPaquete = paquete.ToDictionary(o => o.PlantillaDocumentoId, o => o.Orden);
+                var posiciones = resultado.Select((item, indice) => (item, indice)).Where(x => enPaquete.ContainsKey(x.item.Plantilla.Id)).Select(x => x.indice).ToList();
+                if (posiciones.Count < 2)
+                    continue;
+
+                var ordenados = posiciones.Select(p => resultado[p]).OrderBy(i => enPaquete[i.Plantilla.Id]).ToList();
+                for (var k = 0; k < posiciones.Count; k++)
+                    resultado[posiciones[k]] = ordenados[k];
+            }
+
+            return resultado;
+        }
+
+        public async Task<Dictionary<Guid, string>> ObtenerNombresDePaqueteAsync(IEnumerable<DocumentoGenerado> documentos)
+        {
+            var grupos = documentos
+                .Where(d => d.GrupoImpresionId != null)
+                .GroupBy(d => d.GrupoImpresionId!.Value)
+                .Where(g => g.Count() > 1)
+                .ToDictionary(g => g.Key, g => g.Select(d => d.PlantillaDocumentoId).Distinct().ToList());
+            var nombres = new Dictionary<Guid, string>();
+            if (grupos.Count == 0)
+                return nombres;
+
+            var paquetes = await _context.PaquetesDocumentales
+                .AsNoTracking()
+                .Where(p => p.Activo)
+                .Select(p => new { p.Nombre, Plantillas = p.Items.Where(i => !i.IsDeleted).Select(i => i.PlantillaDocumentoId).ToList() })
+                .ToListAsync();
+
+            foreach (var (grupo, plantillas) in grupos)
+            {
+                var paquete = paquetes.FirstOrDefault(p => plantillas.All(p.Plantillas.Contains));
+                if (paquete != null)
+                    nombres[grupo] = paquete.Nombre;
+            }
+
+            return nombres;
+        }
+
         private async Task<List<ItemPlan>> FiltrarTiposYaEmitidosAsync(
             List<ItemPlan> items, DocumentoContexto contexto, DocumentoEventoResultado resultado, CancellationToken ct)
         {
@@ -405,6 +511,7 @@ namespace TheBuryProject.Services.Documentos
                 provisorio.Set("documento.numero", "(sin asignar)");
                 provisorio.Set("documento.numeroContrato", "(sin asignar)");
                 provisorio.Set("documento.numeroPagare", "(sin asignar)");
+                provisorio.Set("recibo.numero", "(sin asignar)");
 
                 var faltantes = VariablesFaltantes(item.Version.VariablesRequeridas, provisorio);
                 if (faltantes.Count > 0)
@@ -462,6 +569,9 @@ namespace TheBuryProject.Services.Documentos
             c.Set("documento.tipo", item.Plantilla.TipoDocumento.Nombre);
             c.Set("documento.numeroContrato", numerosPorTipo.GetValueOrDefault(TipoContrato));
             c.Set("documento.numeroPagare", numerosPorTipo.GetValueOrDefault(TipoPagare));
+            // Un recibo tiene numeración propia: su número visible es el de su secuencia.
+            if (string.Equals(item.Plantilla.TipoDocumento.Codigo, TipoRecibo, StringComparison.OrdinalIgnoreCase))
+                c.Set("recibo.numero", item.Numero);
             item.Contexto = c;
             return PlantillaRenderer.Renderizar(item.Version.Contenido, c);
         }
@@ -478,7 +588,8 @@ namespace TheBuryProject.Services.Documentos
                 plantilla = item.Plantilla.Codigo,
                 version = item.Version.Numero,
                 variablesVacias = item.Render.Vacias,
-                variablesNoResueltas = item.Render.NoResueltas
+                variablesNoResueltas = item.Render.NoResueltas,
+                pagoCuotaIds = contexto.PagoCuotaIds.Count > 1 ? contexto.PagoCuotaIds : null
             };
 
             return new DocumentoGenerado
@@ -693,7 +804,11 @@ namespace TheBuryProject.Services.Documentos
                 .FirstOrDefaultAsync(v => v.PlantillaDocumentoId == plantilla.Id && v.Numero == plantilla.VersionActual)
                 ?? throw new DocumentoException(DocumentoErrores.PlantillaNoEncontrada, "La plantilla no tiene versión vigente.");
 
-            var origen = new DocumentoOrigen { VentaId = original.VentaId, PagoCuotaId = original.PagoCuotaId, CotizacionId = original.CotizacionId };
+            var origen = new DocumentoOrigen
+            {
+                VentaId = original.VentaId, PagoCuotaId = original.PagoCuotaId, CotizacionId = original.CotizacionId,
+                PagoCuotaIds = LeerPagosDeMetadata(original.MetadataJson)
+            };
             var contexto = await _contextoBuilder.ConstruirAsync(original.EventoOrigen, origen);
 
             var faltantes = VariablesFaltantes(version.VariablesRequeridas, contexto);
@@ -741,6 +856,7 @@ namespace TheBuryProject.Services.Documentos
                     await tx.CommitAsync();
 
                 _logger.LogInformation("Documento {Original} reemplazado por {Nuevo} (regeneración por {Usuario})", original.Numero, nuevo.Numero, usuario);
+                _tracker?.Registrar(new[] { nuevo.Id });
                 await _auditoria.RegistrarEventoAsync("documentos", "regenerar", nameof(DocumentoGenerado),
                     $"{original.Numero} -> {nuevo.Numero}: {motivo.Trim()}");
                 return nuevo;
@@ -751,6 +867,25 @@ namespace TheBuryProject.Services.Documentos
                     await tx.RollbackAsync(CancellationToken.None);
                 throw;
             }
+        }
+
+        // Una cobranza de varias cuotas guarda los pagos que cubre: regenerar el recibo vuelve a incluirlos a todos.
+        private static List<int>? LeerPagosDeMetadata(string? metadataJson)
+        {
+            if (string.IsNullOrWhiteSpace(metadataJson))
+                return null;
+
+            try
+            {
+                using var doc = JsonDocument.Parse(metadataJson);
+                if (doc.RootElement.TryGetProperty("pagoCuotaIds", out var ids) && ids.ValueKind == JsonValueKind.Array)
+                    return ids.EnumerateArray().Where(e => e.TryGetInt32(out _)).Select(e => e.GetInt32()).ToList();
+            }
+            catch (JsonException)
+            {
+            }
+
+            return null;
         }
 
         // La clave original + sufijo único: una regeneración es un documento nuevo e intencional,

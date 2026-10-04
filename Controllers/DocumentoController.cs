@@ -50,6 +50,47 @@ namespace TheBuryProject.Controllers
         public async Task<IActionResult> Ver(int id)
             => await ServirPdfAsync(new[] { id }, reimprimir: false);
 
+        /// <summary>
+        /// Abre el PDF de los documentos vigentes de un pago (el recibo de una cobranza). Es lo que se abre solo al cobrar.
+        /// El id es el del pago ancla de la cobranza.
+        /// </summary>
+        [HttpGet]
+        [PermisoRequerido(Modulo = "documentos", Accion = "view")]
+        public async Task<IActionResult> VerPorPago(int id)
+        {
+            var docs = (await _documentos.ObtenerPorPagoAsync(id))
+                .Where(d => d.Estado != Models.Enums.EstadoDocumentoGenerado.Cancelado && d.Estado != Models.Enums.EstadoDocumentoGenerado.Reemplazado)
+                .OrderBy(d => d.Id)
+                .ToList();
+            if (docs.Count == 0)
+                return NotFound("Este pago no tiene documentos emitidos.");
+
+            return await ServirPdfAsync(docs.Select(d => d.Id).ToList(), reimprimir: false);
+        }
+
+        /// <summary>
+        /// Abre juntos (un solo PDF) los documentos recién emitidos por una acción: pagaré + contrato, recibo, constancia…
+        /// ids = lista separada por comas; se imprimen en el orden en que se emitieron.
+        /// </summary>
+        [HttpGet]
+        [PermisoRequerido(Modulo = "documentos", Accion = "view")]
+        public async Task<IActionResult> VerVarios(string ids)
+        {
+            var lista = (ids ?? string.Empty)
+                .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+                .Select(s => int.TryParse(s, out var n) ? n : 0)
+                .Where(n => n > 0)
+                .Distinct()
+                .OrderBy(n => n)
+                .Take(MaxDocumentosPorImpresion)
+                .ToList();
+
+            if (lista.Count == 0)
+                return BadRequest("Indique al menos un documento.");
+
+            return await ServirPdfAsync(lista, reimprimir: false);
+        }
+
         /// <summary>Visualiza juntos todos los documentos vigentes de un grupo de impresión (ej. contrato + pagaré).</summary>
         [HttpGet]
         [PermisoRequerido(Modulo = "documentos", Accion = "view")]
@@ -162,14 +203,18 @@ namespace TheBuryProject.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [PermisoRequerido(Modulo = "documentos", Accion = "generate")]
-        public async Task<IActionResult> GenerarPresupuesto(int cotizacionId, string? returnUrl)
+        public async Task<IActionResult> GenerarPresupuesto(int? cotizacionId, int? ventaId, string? returnUrl)
         {
+            if (cotizacionId == null && ventaId == null)
+                return BadRequest();
+
             try
             {
+                // Presupuesto de una venta a crédito (número de operación, entrega y plan) o de una cotización.
                 var resultado = await _documentos.ProcesarEventoAsync(new DocumentoEventoRequest
                 {
-                    Evento = EventosDocumentales.PresupuestoGenerado,
-                    Origen = new DocumentoOrigen { CotizacionId = cotizacionId }
+                    Evento = ventaId != null ? EventosDocumentales.PresupuestoVentaGenerado : EventosDocumentales.PresupuestoGenerado,
+                    Origen = new DocumentoOrigen { VentaId = ventaId, CotizacionId = ventaId == null ? cotizacionId : null }
                 });
 
                 var documento = resultado.Todos.FirstOrDefault();

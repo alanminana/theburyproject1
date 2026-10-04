@@ -71,6 +71,19 @@ namespace TheBuryProject.Services.Interfaces
         public string Ciudad { get; set; } = string.Empty;
         public string Jurisdiccion { get; set; } = string.Empty;
         public decimal InteresMoraDiarioPorcentaje { get; set; }
+        public string? NombreComercial { get; set; }
+        public string? DomicilioCompleto { get; set; }
+        public string? CondicionFiscalClientePorDefecto { get; set; }
+        public string? PagareVencimientoModo { get; set; }
+        public int? PagareVencimientoDias { get; set; }
+    }
+
+    public sealed record OperacionVistaPrevia(int Id, string Descripcion);
+
+    public sealed class OperacionesParaVistaPrevia
+    {
+        public IReadOnlyList<OperacionVistaPrevia> Ventas { get; init; } = Array.Empty<OperacionVistaPrevia>();
+        public IReadOnlyList<OperacionVistaPrevia> Cobros { get; init; } = Array.Empty<OperacionVistaPrevia>();
     }
 
     public sealed class DocumentoPreviewResultado
@@ -112,6 +125,9 @@ namespace TheBuryProject.Services.Interfaces
         Task<List<PaqueteDocumental>> ListarPaquetesAsync();
         Task<PaqueteDocumental?> ObtenerPaqueteAsync(int id);
         Task<PaqueteDocumental> GuardarPaqueteAsync(PaqueteDocumentalInput input);
+
+        /// <summary>Ventas a crédito y cobros recientes, para elegir con qué operación real previsualizar una plantilla.</summary>
+        Task<OperacionesParaVistaPrevia> ListarOperacionesRecientesAsync(int cantidad = 15);
 
         Task<DocumentoPreviewResultado> PrevisualizarAsync(
             string contenido, string? variablesRequeridas, string evento,

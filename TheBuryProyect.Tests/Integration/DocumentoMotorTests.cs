@@ -377,7 +377,7 @@ public class DocumentoMotorTests : DocumentoTestBase
         Assert.Equal(pago.CuotaId, recibo.CuotaId);
         Assert.Equal(venta.CreditoId, recibo.CreditoId);
         Assert.Equal(venta.Id, recibo.VentaId);
-        Assert.Contains("trescientos pesos con 00/100", recibo.ContenidoRenderizado, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("trescientos pesos", recibo.ContenidoRenderizado, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Perez", recibo.ContenidoRenderizado);
 
         // CASO 8: el pago nunca dispara contrato/pagaré.

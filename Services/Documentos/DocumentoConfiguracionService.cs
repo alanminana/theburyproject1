@@ -60,6 +60,15 @@ namespace TheBuryProject.Services.Documentos
             if (input.InteresMoraDiarioPorcentaje is < 0 or > 100)
                 throw Invalido("El interés por mora diario debe estar entre 0 y 100.");
 
+            string? Opcional(string? valor) => string.IsNullOrWhiteSpace(valor) ? null : valor.Trim();
+            var modoPagare = Opcional(input.PagareVencimientoModo);
+            if (modoPagare != null && !PagareVencimientoModos.Todos.Contains(modoPagare))
+                throw Invalido("El modo de vencimiento del pagaré no es válido.");
+            if (modoPagare == PagareVencimientoModos.DiasDesdeOperacion && input.PagareVencimientoDias is null or <= 0)
+                throw Invalido("Indique los días desde la operación (mayor a cero) para el vencimiento del pagaré.");
+            if (input.PagareVencimientoDias is > 3650)
+                throw Invalido("Los días de vencimiento del pagaré no pueden superar 3650.");
+
             await using var tx = await _context.Database.BeginTransactionAsync();
             try
             {
@@ -78,6 +87,11 @@ namespace TheBuryProject.Services.Documentos
                 empresa.Ciudad = ciudad;
                 empresa.Jurisdiccion = jurisdiccion;
                 empresa.InteresMoraDiarioPorcentaje = input.InteresMoraDiarioPorcentaje;
+                empresa.NombreComercial = Opcional(input.NombreComercial);
+                empresa.DomicilioCompleto = Opcional(input.DomicilioCompleto);
+                empresa.CondicionFiscalClientePorDefecto = Opcional(input.CondicionFiscalClientePorDefecto);
+                empresa.PagareVencimientoModo = modoPagare;
+                empresa.PagareVencimientoDias = modoPagare == PagareVencimientoModos.DiasDesdeOperacion ? input.PagareVencimientoDias : null;
 
                 // El contrato anterior valida y snapshotea estos datos desde su plantilla vigente.
                 foreach (var legada in await _context.PlantillasContratoCredito.Where(p => p.Activa).ToListAsync())
@@ -534,6 +548,29 @@ namespace TheBuryProject.Services.Documentos
 
         // ------------------------------------------------------------------ Vista previa
 
+        public async Task<OperacionesParaVistaPrevia> ListarOperacionesRecientesAsync(int cantidad = 15)
+        {
+            var ventas = await _context.Ventas.AsNoTracking()
+                .Where(v => !v.IsDeleted && v.TipoPago == TheBuryProject.Models.Enums.TipoPago.CreditoPersonal && v.CreditoId != null)
+                .OrderByDescending(v => v.Id)
+                .Take(cantidad)
+                .Select(v => new { v.Id, v.Numero, Cliente = v.Cliente.Apellido + " " + v.Cliente.Nombre, v.Total })
+                .ToListAsync();
+
+            var cobros = await _context.PagosCuota.AsNoTracking()
+                .Where(p => !p.IsDeleted)
+                .OrderByDescending(p => p.Id)
+                .Take(cantidad)
+                .Select(p => new { p.Id, Cliente = p.Cuota.Credito.Cliente.Apellido + " " + p.Cuota.Credito.Cliente.Nombre, p.ImporteTotal, Cuota = p.Cuota.NumeroCuota })
+                .ToListAsync();
+
+            return new OperacionesParaVistaPrevia
+            {
+                Ventas = ventas.Select(v => new OperacionVistaPrevia(v.Id, $"{v.Numero} · {v.Cliente.Trim()} · {FormatoArgentino.Importe(v.Total)}")).ToList(),
+                Cobros = cobros.Select(p => new OperacionVistaPrevia(p.Id, $"Pago {p.Id} · cuota {p.Cuota} · {p.Cliente.Trim()} · {FormatoArgentino.Importe(p.ImporteTotal)}")).ToList()
+            };
+        }
+
         public async Task<DocumentoPreviewResultado> PrevisualizarAsync(
             string contenido, string? variablesRequeridas, string evento,
             int? ventaId = null, int? pagoCuotaId = null, int? cotizacionId = null)
@@ -563,6 +600,7 @@ namespace TheBuryProject.Services.Documentos
             }
 
             ctx.Set("documento.numero", "(sin asignar)");
+            ctx.Set("recibo.numero", "(sin asignar)");
             ctx.Set("documento.fecha", DateTime.Today);
             ctx.Set("documento.fechaHora", DateTime.Now.ToString("dd/MM/yyyy HH:mm"));
             ctx.Set("documento.tipo", "(vista previa)");

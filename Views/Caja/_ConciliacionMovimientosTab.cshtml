@@ -103,6 +103,10 @@
                                             {
                                                 <div class="text-xs muted-2 mono">@m.Referencia</div>
                                             }
+                                            @if (!string.IsNullOrEmpty(m.ReciboUrl))
+                                            {
+                                                <div class="text-xs"><a href="@m.ReciboUrl" target="_blank" rel="noopener" class="cc-ref-link">Ver recibo (PDF)</a></div>
+                                            }
                                         }
                                         @if (!string.IsNullOrWhiteSpace(m.Observacion))
                                         {

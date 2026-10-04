@@ -747,6 +747,8 @@ document.addEventListener('DOMContentLoaded', function () {
             setPanelLocked(scope, true);
             setPagoStatus(scope, 'success', 'Pago registrado correctamente. Actualizando cartera...');
 
+            // El recibo se abre solo: el servidor avisa con X-Documentos-Abrir y documentos-abrir.js lo muestra.
+
             window.setTimeout(function () {
                 window.location.reload();
             }, 900);

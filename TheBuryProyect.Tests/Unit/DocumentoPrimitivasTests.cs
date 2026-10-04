@@ -247,16 +247,23 @@ public class PlantillaRendererTests
 public class NumeroALetrasTests
 {
     [Theory]
-    [InlineData(0, "Cero pesos con 00/100")]
-    [InlineData(1, "Un peso con 00/100")]
-    [InlineData(21, "Veintiún pesos con 00/100")]
-    [InlineData(100, "Cien pesos con 00/100")]
-    [InlineData(101, "Ciento un pesos con 00/100")]
-    [InlineData(1000, "Mil pesos con 00/100")]
-    [InlineData(21000, "Veintiún mil pesos con 00/100")]
-    [InlineData(12345.67, "Doce mil trescientos cuarenta y cinco pesos con 67/100")]
-    [InlineData(1000000, "Un millón de pesos con 00/100")]
-    [InlineData(2500000, "Dos millones quinientos mil pesos con 00/100")]
+    [InlineData(0, "Cero Pesos")]
+    [InlineData(1, "Un Peso")]
+    [InlineData(2, "Dos Pesos")]
+    [InlineData(21, "Veintiún Pesos")]
+    [InlineData(31, "Treinta y Un Pesos")]
+    [InlineData(100, "Cien Pesos")]
+    [InlineData(101, "Ciento Un Pesos")]
+    [InlineData(1000, "Mil Pesos")]
+    [InlineData(21000, "Veintiún Mil Pesos")]
+    [InlineData(60646, "Sesenta Mil Seiscientos Cuarenta y Seis Pesos")]
+    [InlineData(124039, "Ciento Veinticuatro Mil Treinta y Nueve Pesos")]
+    [InlineData(1130148, "Un Millón Ciento Treinta Mil Ciento Cuarenta y Ocho Pesos")]
+    [InlineData(12345.67, "Doce Mil Trescientos Cuarenta y Cinco Pesos con 67/100")]
+    [InlineData(300.5, "Trescientos Pesos con 50/100")]
+    [InlineData(1000000, "Un Millón de Pesos")]
+    [InlineData(2000000, "Dos Millones de Pesos")]
+    [InlineData(2500000, "Dos Millones Quinientos Mil Pesos")]
     public void ConvierteImportes(double importe, string esperado)
         => Assert.Equal(esperado, NumeroALetras.Importe((decimal)importe));
 }
