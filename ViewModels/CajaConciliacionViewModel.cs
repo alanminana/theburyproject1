@@ -189,6 +189,8 @@ public class MovimientoCajaLineaViewModel
     /// <summary>Enlace al recibo emitido por el cobro (solo cobros de cuota con recibo), o null.</summary>
     public string? ReciboUrl { get; set; }
     public string? Descripcion { get; set; }
+    /// <summary>Cliente al que se le cobró (cobros de cuota); null si el movimiento no lo identifica.</summary>
+    public string? Cliente { get; set; }
     public decimal Entra { get; set; }
     public decimal Sale { get; set; }
     public string Usuario { get; set; } = string.Empty;

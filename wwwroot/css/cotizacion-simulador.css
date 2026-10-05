@@ -1474,6 +1474,10 @@ body:has([role="dialog"]:not(.hidden)) .cotz-app #cotizacion-feedback {
 }
 
 /* Los utilitarios de padding con ícono/signo pierden contra el leak de arriba (ID). */
+.cotz-app .field.pl-9 {
+   padding-left: 40px !important;
+}
+
 .cotz-app .field.pl-8 {
    padding-left: 40px !important;
 }

@@ -624,7 +624,9 @@ namespace TheBuryProject.Controllers
                 var puedeOperar = await PuedeOperarAperturaAsync(id);
                 var cuotaCreditoMap = await ObtenerMapaCuotaCreditoAsync(detalles.Movimientos);
 
-                var viewModel = CajaConciliacionBuilder.Build(detalles, detalles.Apertura.Cierre, puedeOperar, cuotaCreditoMap);
+                var cuotaClienteMap = await ObtenerMapaCuotaClienteAsync(detalles.Movimientos);
+
+                var viewModel = CajaConciliacionBuilder.Build(detalles, detalles.Apertura.Cierre, puedeOperar, cuotaCreditoMap, cuotaClienteMap);
                 await AdjuntarRecibosAsync(viewModel);
                 viewModel.PuedeRegistrarMovimientos = viewModel.PuedeOperar && _currentUser.HasPermission("caja", "movements");
                 viewModel.PuedeCerrar = viewModel.PuedeOperar && _currentUser.HasPermission("caja", "close");
@@ -664,7 +666,9 @@ namespace TheBuryProject.Controllers
 
             var cuotaCreditoMap = await ObtenerMapaCuotaCreditoAsync(detalle.Movimientos);
 
-            var modeloCierre = CajaConciliacionBuilder.Build(detalle, cierre, puedeOperar: false, cuotaCreditoMap);
+            var cuotaClienteMap = await ObtenerMapaCuotaClienteAsync(detalle.Movimientos);
+
+            var modeloCierre = CajaConciliacionBuilder.Build(detalle, cierre, puedeOperar: false, cuotaCreditoMap, cuotaClienteMap);
             await AdjuntarRecibosAsync(modeloCierre);
             return View("DetallesCierre_tw", modeloCierre);
         }
@@ -745,6 +749,40 @@ namespace TheBuryProject.Controllers
                 .AsNoTracking()
                 .Where(c => cuotaIds.Contains(c.Id))
                 .ToDictionaryAsync(c => c.Id, c => c.CreditoId);
+        }
+
+        /// <summary>
+        /// Mapa cuotaId ⇒ nombre del cliente titular del crédito, para mostrar a quién se le cobró
+        /// cada cuota en la pestaña Movimientos.
+        /// </summary>
+        private async Task<IReadOnlyDictionary<int, string>> ObtenerMapaCuotaClienteAsync(
+            IEnumerable<MovimientoCaja>? movimientos)
+        {
+            var cuotaIds = (movimientos ?? Enumerable.Empty<MovimientoCaja>())
+                .Where(m => m.Concepto == ConceptoMovimientoCaja.CobroCuota
+                         && m.ReferenciaId.HasValue
+                         && !m.IsDeleted)
+                .Select(m => m.ReferenciaId!.Value)
+                .Distinct()
+                .ToList();
+
+            if (cuotaIds.Count == 0)
+                return new Dictionary<int, string>();
+
+            var filas = await _context.Cuotas
+                .AsNoTracking()
+                .Where(c => cuotaIds.Contains(c.Id))
+                .Select(c => new { c.Id, c.Credito.Cliente })
+                .ToListAsync();
+
+            return filas
+                .Where(f => f.Cliente != null)
+                .ToDictionary(f => f.Id, f =>
+                {
+                    var cl = f.Cliente;
+                    if (!string.IsNullOrWhiteSpace(cl.NombreCompleto)) return cl.NombreCompleto!;
+                    return $"{cl.Apellido}, {cl.Nombre}".Trim(' ', ',');
+                });
         }
 
         /// <summary>

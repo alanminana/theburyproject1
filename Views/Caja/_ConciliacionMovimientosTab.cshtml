@@ -93,6 +93,10 @@
                                         {
                                             <div class="text-white">@m.Descripcion</div>
                                         }
+                                        @if (!string.IsNullOrWhiteSpace(m.Cliente))
+                                        {
+                                            <div class="text-xs muted">Cliente: <span class="text-white">@m.Cliente</span></div>
+                                        }
                                         @if (!string.IsNullOrWhiteSpace(m.Referencia))
                                         {
                                             @if (!string.IsNullOrEmpty(m.ReferenciaUrl))

@@ -1486,3 +1486,12 @@ select:not(.filter-select-erp):not(.caja-select):not(.credito-select):not(.credi
 /* `z-80` (Facturar, Contrato, menú de Catálogo) no existe en el Tailwind precompilado: esos
    paneles quedaban con z-index:auto y el botón flotante de tickets (z-40) los tapaba. */
 .z-80 { z-index: 80; }
+
+/* Inputs con ícono a la izquierda: los .field/.catalogo-input de cada módulo (CSS sin layer)
+   pisan los utilitarios pl-* de Tailwind (dentro de @layer) y el texto queda sobre el ícono. */
+input.pl-8, select.pl-8, textarea.pl-8 { padding-left: calc(var(--spacing, .25rem) * 8) !important; }
+input.pl-9, select.pl-9, textarea.pl-9 { padding-left: calc(var(--spacing, .25rem) * 9) !important; }
+input.pl-10, select.pl-10, textarea.pl-10 { padding-left: calc(var(--spacing, .25rem) * 10) !important; }
+input.pl-11, select.pl-11, textarea.pl-11 { padding-left: calc(var(--spacing, .25rem) * 11) !important; }
+input.pl-12, select.pl-12, textarea.pl-12 { padding-left: calc(var(--spacing, .25rem) * 12) !important; }
+

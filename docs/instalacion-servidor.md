@@ -58,6 +58,7 @@ cd \\wsl.localhost\Ubuntu\home\<usuario>\theburyproject1\scripts\install
 powershell -ExecutionPolicy Bypass -File .\install-windows.ps1 -AdminEmail correo@dominio.com -AllowFrom LocalSubnet,10.8.0.0/24
 ```
 
+- Si no se pasa `-Distro`, el script **lista las distros de WSL instaladas y pregunta cuál usar** (no siempre se llama `Ubuntu`). También se puede indicar directo: `-Distro Ubuntu-24.04`. Si el repositorio no está en `~/theburyproject1` de esa distro, pregunta la ruta (o usar `-RepoPath`).
 - Primero probar con `-DryRun`: muestra todo lo que haría sin modificar nada.
 - `-AllowFrom` define desde dónde se acepta el 443: `LocalSubnet` (la LAN) y la subred de la VPN (ejemplo WireGuard `10.8.0.0/24`).
 - Parámetros útiles: `-Domain tbp`, `-BackupDir /srv/bury-backups`, `-FullBackupAt 02:30`, `-HostsIp <IP>` (agrega `IP tbp` a `hosts`, para probar en el propio servidor), `-TrustCaHere` (instala la CA en este equipo).

@@ -878,10 +878,9 @@
     flex-wrap: nowrap;
 }
 
-/* En la tabla, las acciones se alinean al inicio: con `center`, las filas con 2 y con 3 acciones
-   desplazaban el primer ícono y rompían el escaneo vertical. */
+/* En la tabla, las acciones se centran bajo el encabezado "Acciones" (th.text-center). */
 #venta-index-rework .ventas-table .row-actions {
-    justify-content: flex-start;
+    justify-content: center;
 }
 
 /* ─────────────────────────────────────────────

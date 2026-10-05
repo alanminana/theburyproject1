@@ -24,7 +24,8 @@ public static class CajaConciliacionBuilder
         DetallesAperturaViewModel detalle,
         CierreCaja? cierre,
         bool puedeOperar,
-        IReadOnlyDictionary<int, int>? cuotaToCreditoId = null)
+        IReadOnlyDictionary<int, int>? cuotaToCreditoId = null,
+        IReadOnlyDictionary<int, string>? cuotaToCliente = null)
     {
         ArgumentNullException.ThrowIfNull(detalle);
         var apertura = detalle.Apertura;
@@ -89,7 +90,7 @@ public static class CajaConciliacionBuilder
             Ventas = lineasVenta,
             Movimientos = movimientos
                 .OrderByDescending(m => m.FechaMovimiento)
-                .Select(m => MapMovimiento(m, cuotaToCreditoId))
+                .Select(m => MapMovimiento(m, cuotaToCreditoId, cuotaToCliente))
                 .ToList(),
             LibroMayor = BuildLibroMayor(apertura.MontoInicial, movimientos, cuotaToCreditoId),
             ResumenPorMedio = BuildResumenPorMedio(ventasEfectivas, detalle.ResumenRealPorMedioPago),
@@ -215,8 +216,17 @@ public static class CajaConciliacionBuilder
     // Movimientos
     // ──────────────────────────────────────────────────────────────────────
 
-    private static MovimientoCajaLineaViewModel MapMovimiento(MovimientoCaja m, IReadOnlyDictionary<int, int>? cuotaToCreditoId)
+    private static MovimientoCajaLineaViewModel MapMovimiento(
+        MovimientoCaja m,
+        IReadOnlyDictionary<int, int>? cuotaToCreditoId,
+        IReadOnlyDictionary<int, string>? cuotaToCliente)
     {
+        // Cobro de cuota: ReferenciaId es la cuota; el cliente es el titular del crédito.
+        string? cliente = null;
+        if (m.Concepto == ConceptoMovimientoCaja.CobroCuota && m.ReferenciaId.HasValue
+            && cuotaToCliente != null && cuotaToCliente.TryGetValue(m.ReferenciaId.Value, out var c))
+            cliente = c;
+
         var esIngreso = m.Tipo == TipoMovimientoCaja.Ingreso;
         var medio = MedioLabelMovimiento(m);
         return new MovimientoCajaLineaViewModel
@@ -231,6 +241,7 @@ public static class CajaConciliacionBuilder
             Referencia = m.Referencia,
             ReferenciaUrl = ResolverReferenciaUrl(m, cuotaToCreditoId),
             Descripcion = m.Descripcion,
+            Cliente = cliente,
             Entra = esIngreso ? m.Monto : 0m,
             Sale = esIngreso ? 0m : m.Monto,
             Usuario = m.Usuario,
