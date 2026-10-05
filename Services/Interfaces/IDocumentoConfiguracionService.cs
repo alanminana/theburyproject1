@@ -25,7 +25,7 @@ namespace TheBuryProject.Services.Interfaces
         public string Nombre { get; set; } = string.Empty;
         public string? Descripcion { get; set; }
         public bool Activa { get; set; } = true;
-        public DateTime VigenteDesde { get; set; } = DateTime.Today;
+        public DateTime VigenteDesde { get; set; } = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial;
         public DateTime? VigenteHasta { get; set; }
         public bool RequiereFirma { get; set; }
         public string? FirmantesRequeridos { get; set; }

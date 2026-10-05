@@ -1279,7 +1279,7 @@ public class ReporteServiceTests : IDisposable
             MontoTotal = montoTotal,
             MontoPagado = 0m,
             Estado = EstadoCuota.Pendiente,
-            FechaVencimiento = DateTime.UtcNow.Date.AddDays(-diasVencido)
+            FechaVencimiento = TheBuryProject.Services.RelojComercial.Sistema.InicioDiaComercial.AddDays(-diasVencido)
         };
         _context.Set<Cuota>().Add(cuota);
         await _context.SaveChangesAsync();
