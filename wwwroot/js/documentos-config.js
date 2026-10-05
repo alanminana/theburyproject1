@@ -46,33 +46,26 @@
             return el('div', { 'class': clase || '' }, [el('strong', { text: titulo }), ul]);
         }
 
-        // Vista previa en PDF: mismo formato de impresión que el documento real, en una pestaña nueva.
+        // Resultado final: PDF con el mismo formato de impresión que el documento real, en el modal compartido.
         var btnPdf = document.getElementById('doc-preview-pdf-btn');
         if (btnPdf) {
             btnPdf.addEventListener('click', function () {
-                var form = document.createElement('form');
-                form.method = 'post';
-                form.target = '_blank';
-                form.action = btnPdf.getAttribute('data-url');
-                function campo(nombre, valor) {
-                    if (!valor) return;
-                    var input = document.createElement('input');
-                    input.type = 'hidden';
-                    input.name = nombre;
-                    input.value = valor;
-                    form.appendChild(input);
-                }
-                campo('contenido', contenido.value);
-                campo('variablesRequeridas', (document.getElementById('doc-requeridas') || {}).value);
-                campo('evento', (document.getElementById('doc-prev-evento') || {}).value);
-                campo('firmantes', (document.getElementById('FirmantesRequeridos') || {}).value);
+                var body = new FormData();
+                body.append('contenido', contenido.value);
+                body.append('variablesRequeridas', (document.getElementById('doc-requeridas') || {}).value || '');
+                body.append('evento', (document.getElementById('doc-prev-evento') || {}).value || '');
+                body.append('firmantes', (document.getElementById('FirmantesRequeridos') || {}).value || '');
                 ['ventaId', 'pagoCuotaId', 'cotizacionId'].forEach(function (k) {
-                    campo(k, (document.getElementById('doc-prev-' + k) || {}).value);
+                    var v = (document.getElementById('doc-prev-' + k) || {}).value;
+                    if (v) body.append(k, v);
                 });
-                campo('__RequestVerificationToken', token());
-                document.body.appendChild(form);
-                form.submit();
-                document.body.removeChild(form);
+                body.append('__RequestVerificationToken', token());
+                var promesa = fetch(btnPdf.getAttribute('data-url'), { method: 'POST', body: body, credentials: 'same-origin' })
+                    .then(function (r) {
+                        if (!r.ok) return r.text().then(function (m) { throw new Error(m); });
+                        return r.blob();
+                    });
+                window.docVistaPrevia('Vista previa del editor (sin guardar)', promesa);
             });
         }
 
@@ -104,6 +97,16 @@
                 .catch(function () { out.textContent = 'No se pudo generar la vista previa.'; })
                 .then(function () { btnPreview.disabled = false; });
         });
+
+        // La vista previa de texto se actualiza sola: al abrir el editor y poco después de dejar de escribir.
+        var temporizador = null;
+        function refrescar() { if (!btnPreview.disabled) btnPreview.click(); }
+        contenido.addEventListener('input', function () { clearTimeout(temporizador); temporizador = setTimeout(refrescar, 900); });
+        ['doc-requeridas', 'doc-prev-evento', 'doc-prev-ventaId', 'doc-prev-pagoCuotaId', 'doc-prev-cotizacionId'].forEach(function (id) {
+            var n = document.getElementById(id);
+            if (n) n.addEventListener('change', refrescar);
+        });
+        refrescar();
     }
 
     // ---------------------------------------------------------------- Regla

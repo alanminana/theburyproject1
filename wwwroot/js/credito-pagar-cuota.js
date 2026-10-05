@@ -149,10 +149,15 @@ document.addEventListener('DOMContentLoaded', function () {
                 : 'Esperá una previsualización válida antes de confirmar.';
             return;
         }
-        enviando = true;
-        confirmar.disabled = true;
-        confirmar.setAttribute('aria-disabled', 'true');
-        estado.textContent = 'Registrando pago…';
+        // La validación de jQuery Validate (otro handler del mismo submit) puede cancelar el envío:
+        // se bloquea el botón recién cuando el envío realmente sigue adelante.
+        window.setTimeout(function () {
+            if (event.defaultPrevented) return;
+            enviando = true;
+            confirmar.disabled = true;
+            confirmar.setAttribute('aria-disabled', 'true');
+            estado.textContent = 'Registrando pago…';
+        }, 0);
     });
 
     actualizarConfirmacion();

@@ -40,7 +40,17 @@
                             <td><strong>@p.Nombre</strong><div class="doc-muted doc-mono">@p.Codigo</div></td>
                             <td>@string.Join(" → ", p.Items.OrderBy(i => i.Orden).Select(i => i.PlantillaDocumento.Nombre))</td>
                             <td>@if (p.Activo) { <span class="doc-chip doc-chip-ok">Activo</span> } else { <span class="doc-chip doc-chip-off">Inactivo</span> }</td>
-                            <td><a asp-action="PaqueteEdit" asp-route-id="@p.Id" class="doc-btn">Editar</a></td>
+                            <td>
+                                <div class="doc-actions">
+                                    @if (p.Items.Count > 0)
+                                    {
+                                        <button type="button" class="doc-btn" data-doc-preview-url="@Url.Action("PaqueteVistaPreviaPdf", new { id = p.Id })" data-doc-preview-title="Paquete: @p.Nombre">
+                                            <span class="material-symbols-outlined" aria-hidden="true">visibility</span>Vista previa
+                                        </button>
+                                    }
+                                    <a asp-action="PaqueteEdit" asp-route-id="@p.Id" class="doc-btn">Editar</a>
+                                </div>
+                            </td>
                         </tr>
                     }
                     </tbody>

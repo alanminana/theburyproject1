@@ -40,8 +40,16 @@ namespace TheBuryProject.Services.Documentos
 
         private static readonly Regex IdentificadorFiscalRegex = new(@"^[0-9\-\.]{0,20}$", RegexOptions.Compiled);
 
-        public Task<EmpresaConfiguracion?> ObtenerEmpresaAsync()
-            => _context.EmpresasConfiguracion.AsNoTracking().OrderBy(e => e.Id).FirstOrDefaultAsync();
+        /// <summary>La empresa con el interés por mora vigente (el de Configuración → Mora, que es la única fuente).</summary>
+        public async Task<EmpresaConfiguracion?> ObtenerEmpresaAsync()
+        {
+            var empresa = await _context.EmpresasConfiguracion.AsNoTracking().OrderBy(e => e.Id).FirstOrDefaultAsync();
+            var tasa = await _context.ConfiguracionesMora.AsNoTracking()
+                .Where(c => !c.IsDeleted).Select(c => c.TasaMoraBase).FirstOrDefaultAsync();
+            if (empresa != null && tasa is > 0)
+                empresa.InteresMoraDiarioPorcentaje = tasa.Value;
+            return empresa;
+        }
 
         public async Task<EmpresaConfiguracion> GuardarEmpresaAsync(EmpresaInput input)
         {
@@ -57,8 +65,6 @@ namespace TheBuryProject.Services.Documentos
 
             if ((cuit != null && !IdentificadorFiscalRegex.IsMatch(cuit)) || (dni != null && !IdentificadorFiscalRegex.IsMatch(dni)))
                 throw Invalido("El CUIT y el DNI solo admiten números, puntos y guiones.");
-            if (input.InteresMoraDiarioPorcentaje is < 0 or > 100)
-                throw Invalido("El interés por mora diario debe estar entre 0 y 100.");
 
             string? Opcional(string? valor) => string.IsNullOrWhiteSpace(valor) ? null : valor.Trim();
             var modoPagare = Opcional(input.PagareVencimientoModo);
@@ -86,7 +92,11 @@ namespace TheBuryProject.Services.Documentos
                 empresa.Domicilio = domicilio;
                 empresa.Ciudad = ciudad;
                 empresa.Jurisdiccion = jurisdiccion;
-                empresa.InteresMoraDiarioPorcentaje = input.InteresMoraDiarioPorcentaje;
+                // El interés por mora no se edita acá: se toma de Configuración → Mora (se deja la columna alineada).
+                var tasaMora = await _context.ConfiguracionesMora.AsNoTracking()
+                    .Where(c => !c.IsDeleted).Select(c => c.TasaMoraBase).FirstOrDefaultAsync();
+                if (tasaMora is > 0)
+                    empresa.InteresMoraDiarioPorcentaje = tasaMora.Value;
                 empresa.NombreComercial = Opcional(input.NombreComercial);
                 empresa.DomicilioCompleto = Opcional(input.DomicilioCompleto);
                 empresa.CondicionFiscalClientePorDefecto = Opcional(input.CondicionFiscalClientePorDefecto);
@@ -102,8 +112,8 @@ namespace TheBuryProject.Services.Documentos
                     legada.DomicilioVendedor = domicilio;
                     legada.CiudadFirma = ciudad;
                     legada.Jurisdiccion = jurisdiccion;
-                    if (input.InteresMoraDiarioPorcentaje > 0)
-                        legada.InteresMoraDiarioPorcentaje = input.InteresMoraDiarioPorcentaje;
+                    if (empresa.InteresMoraDiarioPorcentaje > 0)
+                        legada.InteresMoraDiarioPorcentaje = empresa.InteresMoraDiarioPorcentaje;
                 }
 
                 await _context.SaveChangesAsync();

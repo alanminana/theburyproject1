@@ -1,4 +1,4 @@
-﻿@using System.Text.Json
+@using System.Text.Json
 @using TheBuryProject.Services.Documentos
 @model TheBuryProject.Services.Interfaces.ReglaDocumentoInput
 @{
@@ -142,6 +142,13 @@
             <button type="submit" class="doc-btn doc-btn-primary">
                 <span class="material-symbols-outlined" aria-hidden="true">save</span>Guardar
             </button>
+            @if (Model.Id != 0 && (Model.PaqueteDocumentalId != null || Model.PlantillaDocumentoId != null))
+            {
+                <button type="button" class="doc-btn" data-doc-preview-url="@Url.Action("ReglaVistaPreviaPdf", new { id = Model.Id })" data-doc-preview-title="Regla: @Model.Nombre"
+                        title="Muestra lo que genera la regla guardada">
+                    <span class="material-symbols-outlined" aria-hidden="true">visibility</span>Vista previa de lo que genera
+                </button>
+            }
             <a asp-action="Reglas" class="doc-btn">Volver</a>
         </div>
     </form>

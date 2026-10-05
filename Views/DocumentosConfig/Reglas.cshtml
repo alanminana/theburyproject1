@@ -65,6 +65,12 @@
                                 <td>@if (r.Activa) { <span class="doc-chip doc-chip-ok">Activa</span> } else { <span class="doc-chip doc-chip-off">Inactiva</span> }</td>
                                 <td>
                                     <div class="doc-actions">
+                                        @if (r.PaqueteDocumentalId != null || r.PlantillaDocumentoId != null)
+                                        {
+                                            <button type="button" class="doc-btn" data-doc-preview-url="@Url.Action("ReglaVistaPreviaPdf", new { id = r.Id })" data-doc-preview-title="Regla: @r.Nombre">
+                                                <span class="material-symbols-outlined" aria-hidden="true">visibility</span>Vista previa
+                                            </button>
+                                        }
                                         <a asp-action="ReglaEdit" asp-route-id="@r.Id" class="doc-btn">Editar</a>
                                         <form method="post" asp-action="ReglaActivar">
                                             @Html.AntiForgeryToken()

@@ -68,6 +68,9 @@
                             </td>
                             <td>
                                 <div class="doc-actions">
+                                    <button type="button" class="doc-btn" data-doc-preview-url="@Url.Action("PlantillaVistaPreviaPdf", new { id = p.Id })" data-doc-preview-title="@p.Nombre (v@(p.VersionActual))">
+                                        <span class="material-symbols-outlined" aria-hidden="true">visibility</span>Vista previa
+                                    </button>
                                     <a asp-action="PlantillaEdit" asp-route-id="@p.Id" class="doc-btn">Editar</a>
                                     <form method="post" asp-action="PlantillaActivar">
                                         @Html.AntiForgeryToken()

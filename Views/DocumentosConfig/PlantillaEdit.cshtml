@@ -1,4 +1,4 @@
-﻿@using TheBuryProject.Services.Documentos
+@using TheBuryProject.Services.Documentos
 @model TheBuryProject.Services.Interfaces.PlantillaDocumentoInput
 @{
     var esNueva = Model.Id == 0;
@@ -182,8 +182,8 @@
                 <span class="material-symbols-outlined" aria-hidden="true">preview</span>Actualizar vista previa
             </button>
             <button type="button" id="doc-preview-pdf-btn" class="doc-btn" data-url="@Url.Action("PlantillaPreviewPdf")"
-                    title="Abre el documento con su formato de impresión (A4)">
-                <span class="material-symbols-outlined" aria-hidden="true">picture_as_pdf</span>Ver como PDF
+                    title="Muestra el documento con su formato de impresión (A4), con el texto actual del editor">
+                <span class="material-symbols-outlined" aria-hidden="true">picture_as_pdf</span>Ver resultado final (PDF)
             </button>
         </div>
         <div id="doc-preview-out" aria-live="polite"></div>
