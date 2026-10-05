@@ -364,7 +364,9 @@ test.describe('PUN-ML9-D — confirmación', () => {
         const filas = (await resultado.allInnerTexts()).join(' ').replace(/\s+/g, ' ');
         expect(aNumero(filas.match(/Importe recibido ([^A]+?) Aplicado/)?.[1] || '')).toBeCloseTo(importe, 2);
 
+        // Tras confirmar, la pantalla muestra solo el resultado: se recarga el pago para leer lo persistido.
         // El contexto recargado refleja lo persistido: el cobrable bajó exactamente lo aplicado a deuda.
+        await abrirPago(page, CUOTA_CON_APLICACION);
         const despues = await leerContexto(page);
         expect(despues.totalCobrable)
             .toBeCloseTo(ctx.totalCobrable - preview.aplicadoPunitorio - preview.aplicadoCapital, 2);
