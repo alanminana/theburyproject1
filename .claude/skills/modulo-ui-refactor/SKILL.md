@@ -1,4 +1,9 @@
-Módulo UI Refactor
+---
+name: modulo-ui-refactor
+description: Orquestador principal de refactor/mejora de un módulo UI existente de TheBuryProject: auditoría en 4 capas (técnica, visual, flujo UX, estados reales), protección del working tree, implementación respetando contratos backend y reglas de negocio, y validación con Playwright antes de declarar cierre visual. Usar al pedir analizar, revisar, corregir, refactorizar o mejorar una pantalla/módulo existente del ERP.
+---
+
+# Módulo UI Refactor
 
 Objetivo
 

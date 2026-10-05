@@ -1,0 +1,308 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-05T16:24:29.201243+00:00",
+  "title": "Design System: TheBuryProject ERP",
+  "extensions": {
+    "colorMeta": {
+      "accent": {
+        "role": "primary",
+        "displayName": "Lima Mostrador",
+        "canonical": "#a5d926",
+        "tonalRamp": [
+          "#2b380a",
+          "#455b10",
+          "#607e16",
+          "#779c1b",
+          "#8ebb21",
+          "#a5d926",
+          "#bce35e",
+          "#e2f3ba"
+        ]
+      },
+      "success": {
+        "role": "secondary",
+        "displayName": "Verde Ingreso",
+        "canonical": "#75d65c",
+        "tonalRamp": [
+          "#1e3818",
+          "#315a27",
+          "#447c35",
+          "#549a42",
+          "#65b84f",
+          "#75d65c",
+          "#99e186",
+          "#d3f2cb"
+        ]
+      },
+      "warning": {
+        "role": "secondary",
+        "displayName": "Ámbar Atención",
+        "canonical": "#f59e0b",
+        "tonalRamp": [
+          "#402903",
+          "#674205",
+          "#8e5c06",
+          "#b07208",
+          "#d38809",
+          "#f59e0b",
+          "#f8b74a",
+          "#fce0b1"
+        ]
+      },
+      "danger": {
+        "role": "secondary",
+        "displayName": "Rosa Egreso",
+        "canonical": "#f43f5e",
+        "tonalRamp": [
+          "#3f1018",
+          "#661a27",
+          "#8e2537",
+          "#b02d44",
+          "#d23651",
+          "#f43f5e",
+          "#f77188",
+          "#fbc2cb"
+        ]
+      },
+      "info": {
+        "role": "secondary",
+        "displayName": "Menta Informativa",
+        "canonical": "#8cd9a2",
+        "tonalRamp": [
+          "#24382a",
+          "#3b5b44",
+          "#517e5e",
+          "#659c75",
+          "#78bb8b",
+          "#8cd9a2",
+          "#aae3ba",
+          "#daf3e1"
+        ]
+      },
+      "violet": {
+        "role": "tertiary",
+        "displayName": "Violeta Categoría",
+        "canonical": "#8f1fad",
+        "tonalRamp": [
+          "#25082d",
+          "#3c0d49",
+          "#531264",
+          "#67167d",
+          "#7b1b95",
+          "#8f1fad",
+          "#ac59c2",
+          "#dbb7e5"
+        ]
+      },
+      "bg": {
+        "role": "neutral",
+        "displayName": "Noche Profunda",
+        "canonical": "#0e0b14",
+        "tonalRamp": [
+          "#0e0b14",
+          "#13101b",
+          "#181421",
+          "#1b1628",
+          "#1f1a2c",
+          "#271f3a",
+          "#3d3355",
+          "#f4f2f8"
+        ]
+      },
+      "surface-low": {
+        "role": "neutral",
+        "displayName": "Superficie Baja",
+        "canonical": "#1b1628",
+        "tonalRamp": [
+          "#0e0b14",
+          "#13101b",
+          "#181421",
+          "#1b1628",
+          "#1f1a2c",
+          "#271f3a",
+          "#3d3355",
+          "#f4f2f8"
+        ]
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "Tinta",
+        "canonical": "#f4f2f8",
+        "tonalRamp": [
+          "#181421",
+          "#271f3a",
+          "#514769",
+          "#70648b",
+          "#9d93b5",
+          "#c1b9d3",
+          "#e6e2f0",
+          "#f4f2f8"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "body": {
+        "displayName": "Body",
+        "purpose": "Texto operativo, celdas y formularios (14px)."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Encabezados de panel y página."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Badges, encabezados de columna, metadatos (12px, mayúsculas)."
+      },
+      "mono": {
+        "displayName": "Mono",
+        "purpose": "Importes, cuotas y códigos."
+      }
+    },
+    "shadows": [
+      {
+        "name": "halo-primario",
+        "value": "0 4px 14px color-mix(in srgb, #a5d926 22%, transparent)",
+        "purpose": "Solo botón primario."
+      },
+      {
+        "name": "foco-campo",
+        "value": "0 0 0 3px color-mix(in srgb, #a5d926 18%, transparent)",
+        "purpose": "Foco de input/select junto al borde lima."
+      }
+    ],
+    "motion": [
+      {
+        "name": "transicion-estandar",
+        "value": "0.15s ease",
+        "purpose": "Hover/color/borde de botones e inputs."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      },
+      {
+        "name": "xl",
+        "value": "1280px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Acción principal de la página; una por pantalla.",
+      "html": "<button class=\"ds-btn-primary\">Guardar</button>",
+      "css": ".ds-btn-primary{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;height:2.75rem;padding-inline:1.25rem;border:none;border-radius:.75rem;background:#a5d926;color:#15110a;font-size:.875rem;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(165,217,38,.22);transition:background-color .15s ease}.ds-btn-primary:hover{background:#bce35e}.ds-btn-primary:focus-visible{outline:2px solid #a5d926;outline-offset:2px}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Acción relevante pero no principal.",
+      "html": "<button class=\"ds-btn-secondary\">Cancelar</button>",
+      "css": ".ds-btn-secondary{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;height:2.75rem;padding-inline:1.25rem;border:1px solid #3d3355;border-radius:.75rem;background:#271f3a;color:#e6e2f0;font-size:.875rem;font-weight:600;cursor:pointer;transition:background-color .15s ease}.ds-btn-secondary:hover{background:#332c44}.ds-btn-secondary:focus-visible{outline:2px solid #a5d926;outline-offset:2px}"
+    },
+    {
+      "name": "Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Campo de formulario de 44px con foco lima.",
+      "html": "<input class=\"ds-input\" placeholder=\"Buscar cliente\">",
+      "css": ".ds-input{width:100%;height:2.75rem;padding:.5rem .875rem;background:#1b1628;border:1px solid #3d3355;border-radius:.625rem;font-size:.875rem;color:#d9d3e6;transition:border-color .15s ease,box-shadow .15s ease}.ds-input::placeholder{color:#9d93b5}.ds-input:focus{outline:none;border-color:#a5d926;box-shadow:0 0 0 3px rgba(165,217,38,.18)}"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Contenedor tonal plano de contenido.",
+      "html": "<div class=\"ds-card\"><strong>Saldo de caja</strong><p>$ 128.400,00</p></div>",
+      "css": ".ds-card{border-radius:1rem;border:1px solid #271f3a;background:#1b1628;padding:1.5rem;color:#f4f2f8;font-size:.875rem}.ds-card p{margin:.5rem 0 0;font-family:\"JetBrains Mono\",monospace;font-size:1.25rem}"
+    },
+    {
+      "name": "Badge",
+      "kind": "chip",
+      "refersTo": "badge",
+      "description": "Estado en píldora con tinte semántico.",
+      "html": "<span class=\"ds-badge\">Pagada</span>",
+      "css": ".ds-badge{display:inline-flex;align-items:center;gap:.375rem;border-radius:9999px;padding:.1875rem .625rem;font-size:.75rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;background:rgba(117,214,92,.1);color:#99e186;border:1px solid rgba(117,214,92,.2)}"
+    },
+    {
+      "name": "Alert",
+      "kind": "custom",
+      "refersTo": "card",
+      "description": "Mensaje de estado con tinte semántico.",
+      "html": "<div class=\"ds-alert\">Venta registrada correctamente.</div>",
+      "css": ".ds-alert{display:flex;align-items:center;gap:.75rem;border-radius:.75rem;border:1px solid rgba(117,214,92,.2);background:rgba(117,214,92,.1);color:#99e186;padding:1rem;font-size:.875rem;font-weight:600}"
+    }
+  ],
+  "narrative": {
+    "northStar": "El Mostrador Sereno",
+    "overview": "Sistema oscuro, sobrio y amigable pensado para sesiones largas en un comercio real. Fondos casi negros con matiz violeta, texto claro de alto contraste y un único acento lima; la profundidad es tonal. Voz cálida y amable, profesional y tranquila.",
+    "keyCharacteristics": [
+      "Fondos oscuros suaves con matiz violeta",
+      "Un solo acento lima",
+      "Profundidad tonal; única sombra en el CTA",
+      "Controles de 44px y texto mínimo de 12px",
+      "Todo el color sale de palette.css"
+    ],
+    "rules": [
+      {
+        "name": "The One Voice Rule",
+        "body": "El lima aparece solo en acciones principales, foco y selección activa.",
+        "section": "colors"
+      },
+      {
+        "name": "The Floor Contrast Rule",
+        "body": "Todo texto sobre superficie oscura llega a ≥6,4:1.",
+        "section": "colors"
+      },
+      {
+        "name": "The Dark Ink Rule",
+        "body": "Sobre acento o estados claros el texto es tinta oscura, no blanca.",
+        "section": "colors"
+      },
+      {
+        "name": "The Single Source Rule",
+        "body": "Ningún hex/rgb literal fuera de palette.css.",
+        "section": "colors"
+      },
+      {
+        "name": "The 12px Floor Rule",
+        "body": "Nada por debajo de 12px.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Money Rule",
+        "body": "Importes en mono/tabular, alineados a la derecha.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat-By-Default Rule",
+        "body": "Paneles, cards y tablas son planos en reposo; la profundidad es tonal.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do consumir color solo vía --pal-* / --erp-* / --ml-*.",
+      "Do usar texto oscuro sobre el acento lima y estados claros.",
+      "Do dar a todo control 44px de alto y foco visible de 2px lima.",
+      "Do mantener texto ≥12px y ≥6,4:1 de contraste.",
+      "Do reutilizar los componentes canónicos antes de crear variantes por módulo."
+    ],
+    "donts": [
+      "Don't introducir un segundo design system ni hex literales fuera de palette.css.",
+      "Don't usar blanco puro de texto sobre lima, ámbar o verde.",
+      "Don't agregar sombras de reposo a cards o paneles.",
+      "Don't usar el lima como decoración ni en más de una acción principal por pantalla.",
+      "Don't usar rojo 500 puro como texto sobre fondo oscuro.",
+      "Don't hacer la interfaz agresiva ni recargada."
+    ]
+  }
+}
