@@ -31,7 +31,8 @@ namespace TheBuryProject.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al cargar el dashboard");
-                TempData["Error"] = "Error al cargar el dashboard: " + ex.Message;
+                // La vista muestra su propio panel de error; el modelo vacío no debe leerse como "Todo al día".
+                ViewData["CargaFallida"] = true;
                 return View("Index", new ViewModels.DashboardViewModel());
             }
         }

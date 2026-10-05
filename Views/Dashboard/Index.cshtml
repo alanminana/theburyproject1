@@ -13,6 +13,9 @@
     var cuotasProximasCount = cuotasProximas.Count;
     var alertasStock = Model.AlertasStockRecientes ?? new List<StockAlertaDto>();
     var destacados = Model.ProductosDestacados ?? new List<ProductoDestacadoDto>();
+    // Si el servicio falló el controller entrega un modelo vacío: sin este flag la pantalla diría
+    // "Todo al día" con $0, que es un falso positivo peor que mostrar el error.
+    var cargaFallida = ViewData["CargaFallida"] is true;
     var puedeVerClientes = User.TienePermiso("clientes", "view");
     // La actividad mezcla ventas (con importes) y clientes: cada tipo exige el permiso de su módulo.
     var actividad = (Model.ActividadReciente ?? new List<ActividadRecienteDto>())
@@ -37,13 +40,13 @@
     var colspanCuotas = mostrarAcciones ? 5 : 4;
     // Cada acceso apunta a un controller con [PermisoRequerido] propio: se muestran solo los
     // permitidos para no llevar al usuario a un 403 (el servidor sigue siendo la autoridad).
-    var accesosRapidos = new List<(string Controller, string Action, string Icon, string Label)>();
-    if (User.TienePermiso("ventas", "create")) accesosRapidos.Add(("Venta", "Create", "add_shopping_cart", "Nueva Venta"));
-    if (User.TienePermiso("clientes", "create")) accesosRapidos.Add(("Cliente", "Create", "person_add", "Nuevo Cliente"));
-    if (User.TienePermiso("reportes", "view")) accesosRapidos.Add(("Reporte", "Index", "receipt_long", "Reportes"));
-    if (puedeVerCatalogo) accesosRapidos.Add(("Catalogo", "Index", "box_edit", "Catálogo"));
-    if (User.TienePermiso("caja", "view")) accesosRapidos.Add(("Caja", "Index", "point_of_sale", "Caja"));
-    if (puedeVerCreditos) accesosRapidos.Add(("Credito", "Index", "credit_card", "Créditos"));
+    var accesosRapidos = new List<(string Controller, string Action, string Icon, string Label, string Tone)>();
+    if (User.TienePermiso("ventas", "create")) accesosRapidos.Add(("Venta", "Create", "add_shopping_cart", "Nueva Venta", "success"));
+    if (User.TienePermiso("clientes", "create")) accesosRapidos.Add(("Cliente", "Create", "person_add", "Nuevo Cliente", "info"));
+    if (User.TienePermiso("reportes", "view")) accesosRapidos.Add(("Reporte", "Index", "receipt_long", "Reportes", "violet"));
+    if (puedeVerCatalogo) accesosRapidos.Add(("Catalogo", "Index", "box_edit", "Catálogo", "violet"));
+    if (User.TienePermiso("caja", "view")) accesosRapidos.Add(("Caja", "Index", "point_of_sale", "Caja", "success"));
+    if (puedeVerCreditos) accesosRapidos.Add(("Credito", "Index", "credit_card", "Créditos", "info"));
 }
 
 @section Styles {
@@ -59,11 +62,18 @@
          (Dashboard es la raíz de navegación) ni acciones primarias (las cubre "Accesos rápidos"). -->
     <div>
         <h1 class="sr-only">Dashboard</h1>
-        <p data-dashboard-status role="status" class="dashboard-status text-sm text-slate-400">
-            @if ((!puedeVerCreditos || cuotasVencidasTotal == 0) && stockBajo == 0)
+        <p data-dashboard-status role="status" class="dashboard-status text-base text-slate-300">
+            @if (cargaFallida)
             {
-                <span class="inline-flex items-center gap-1.5 font-semibold text-emerald-500">
-                    <span class="material-symbols-outlined text-[18px]" aria-hidden="true">check_circle</span>
+                <span class="inline-flex items-center gap-1.5 font-semibold text-red-400">
+                    <span class="material-symbols-outlined text-xl" aria-hidden="true">error</span>
+                    No pudimos cargar los datos del día
+                </span>
+            }
+            else if ((!puedeVerCreditos || cuotasVencidasTotal == 0) && stockBajo == 0)
+            {
+                <span class="inline-flex items-center gap-1.5 font-semibold text-emerald-400">
+                    <span class="material-symbols-outlined text-xl" aria-hidden="true">check_circle</span>
                     Todo al día
                 </span>
                 <span>@(puedeVerCreditos ? "Sin cuotas vencidas ni productos por reponer." : "Sin productos por reponer.")</span>
@@ -72,17 +82,17 @@
             {
                 @if (puedeVerCreditos && cuotasVencidasTotal > 0)
                 {
-                    <span class="inline-flex items-center gap-1.5 font-semibold text-red-400">
-                        <span class="material-symbols-outlined text-[18px]" aria-hidden="true">schedule</span>
+                    <a href="#cuotas-por-cobrar" class="dashboard-status-link inline-flex items-center gap-1.5 font-semibold text-red-400">
+                        <span class="material-symbols-outlined text-xl" aria-hidden="true">schedule</span>
                         @cuotasVencidasTotal @(cuotasVencidasTotal == 1 ? "cuota vencida" : "cuotas vencidas")
-                    </span>
+                    </a>
                 }
                 @if (stockBajo > 0)
                 {
-                    <span class="inline-flex items-center gap-1.5 font-semibold text-orange-500">
-                        <span class="material-symbols-outlined text-[18px]" aria-hidden="true">inventory_2</span>
+                    <a href="#alertas-stock" class="dashboard-status-link inline-flex items-center gap-1.5 font-semibold text-orange-400">
+                        <span class="material-symbols-outlined text-xl" aria-hidden="true">inventory_2</span>
                         @stockBajo @(stockBajo == 1 ? "producto por reponer" : "productos por reponer")
-                    </span>
+                    </a>
                 }
             }
         </p>
@@ -91,58 +101,102 @@
     <!-- Main + Sidebar -->
     <div class="dashboard-main-grid grid gap-6">
 
+        <!-- Accesos rápidos: primera acción de mostrador. En una columna (mobile/tablet) van arriba, no al final. -->
+        @if (accesosRapidos.Count > 0)
+        {
+            <div class="dashboard-area-accesos">
+                <section class="card-erp-panel p-4">
+                    <div class="dashboard-acceso-head mb-3 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-slate-400 text-[18px]" aria-hidden="true">bolt</span>
+                        <h2 class="text-xs font-bold uppercase tracking-wide text-slate-300">Accesos rápidos</h2>
+                    </div>
+                    <div class="dashboard-accesos grid grid-cols-2 gap-2">
+                        @foreach (var acceso in accesosRapidos)
+                        {
+                            <a asp-controller="@acceso.Controller" asp-action="@acceso.Action"
+                               class="dash-tone-@acceso.Tone flex flex-col items-center justify-center gap-1.5 rounded-xl border border-slate-800 bg-slate-800/30 py-3 px-2 text-center transition-colors hover:bg-slate-800/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 no-underline text-inherit">
+                                <span class="dash-chip dash-chip--lg" aria-hidden="true"><span class="material-symbols-outlined">@acceso.Icon</span></span>
+                                <span class="text-xs font-bold uppercase text-slate-300">@acceso.Label</span>
+                            </a>
+                        }
+                    </div>
+                </section>
+            </div>
+        }
+
         <!-- Main column -->
-        <div class="space-y-6">
-                <!-- Resumen -->
+        <div class="dashboard-area-main space-y-6">
+                <!-- Resumen: 4 métricas de igual ancho. Monto vencido va primero y toma énfasis de peligro solo
+                     si hay deuda; Stock bajo toma énfasis de advertencia solo si hay productos por reponer.
+                     En cero ambas quedan neutras. Cada tarjeta navega a la sección que la detalla. -->
+                @if (!cargaFallida)
+                {
                 <div class="dashboard-kpis grid gap-4">
+                    @if (puedeVerCreditos)
+                    {
+                    <a href="#cuotas-por-cobrar" class="@(cuotasVencidasTotal > 0 ? "card-erp-metric card-erp-metric-danger dashboard-kpi-alert" : "card-erp-metric") dashboard-kpi-link">
+                        <p class="text-xs text-slate-400 uppercase tracking-wide">Monto vencido</p>
+                        <p class="dashboard-kpi-value mt-1 font-bold @(cuotasVencidasTotal > 0 ? "text-red-400" : "text-slate-100")">@Model.MontoVencidoTotal.ToString("C")</p>
+                        <p class="text-xs text-slate-400 mt-1">@cuotasVencidasTotal @(cuotasVencidasTotal == 1 ? "cuota vencida" : "cuotas vencidas")</p>
+                        <span class="dash-chip dash-kpi-chip @(cuotasVencidasTotal > 0 ? "dash-tone-danger" : "dash-tone-neutral")" aria-hidden="true"><span class="material-symbols-outlined">schedule</span></span>
+                    </a>
+                    }
                     @if (puedeVerVentas)
                     {
-                    <div class="card-erp-metric">
+                    <a asp-controller="Venta" asp-action="Index" class="card-erp-metric dashboard-kpi-link">
                         <p class="text-xs text-slate-400 uppercase tracking-wide">Ventas del mes</p>
                         <p class="dashboard-kpi-value mt-1 font-bold text-slate-100">@Model.VentasTotalesMes.ToString("C")</p>
-                        <p class="text-xs text-slate-500 mt-1">@Model.CantidadVentasMes ventas</p>
-                    </div>
+                        <p class="text-xs text-slate-400 mt-1">@Model.CantidadVentasMes ventas</p>
+                        <span class="dash-chip dash-kpi-chip dash-tone-success" aria-hidden="true"><span class="material-symbols-outlined">receipt_long</span></span>
+                    </a>
                     }
                     @if (puedeVerCreditos)
                     {
-                    <div class="card-erp-metric">
+                    <a asp-controller="Credito" asp-action="Index" class="card-erp-metric dashboard-kpi-link">
                         <p class="text-xs text-slate-400 uppercase tracking-wide">Cobranza del mes</p>
                         <p class="dashboard-kpi-value mt-1 font-bold text-slate-100">@Model.CobranzaMes.ToString("C")</p>
-                        <p class="text-xs text-slate-500 mt-1">cuotas cobradas</p>
-                    </div>
-                    <div class="@(cuotasVencidasTotal > 0 ? "card-erp-metric card-erp-metric-danger dashboard-kpi-alert" : "card-erp-metric")">
-                        <p class="text-xs text-slate-400 uppercase tracking-wide">Monto vencido</p>
-                        <p class="dashboard-kpi-value mt-1 font-bold @(cuotasVencidasTotal > 0 ? "text-red-400" : "text-slate-100")">@Model.MontoVencidoTotal.ToString("C")</p>
-                        <p class="text-xs text-slate-500 mt-1">@cuotasVencidasTotal @(cuotasVencidasTotal == 1 ? "cuota vencida" : "cuotas vencidas")</p>
-                    </div>
+                        <p class="text-xs text-slate-400 mt-1">cuotas cobradas</p>
+                        <span class="dash-chip dash-kpi-chip dash-tone-success" aria-hidden="true"><span class="material-symbols-outlined">credit_card</span></span>
+                    </a>
                     }
-                    <div class="card-erp-metric">
+                    <a href="#alertas-stock" class="@(stockBajo > 0 ? "card-erp-metric card-erp-metric-warning" : "card-erp-metric") dashboard-kpi-link">
                         <p class="text-xs text-slate-400 uppercase tracking-wide">Stock bajo</p>
-                        <p class="dashboard-kpi-value mt-1 font-bold text-slate-100">@stockBajo</p>
-                        <p class="text-xs text-slate-500 mt-1">productos a reponer</p>
-                    </div>
+                        <p class="dashboard-kpi-value mt-1 font-bold @(stockBajo > 0 ? "text-orange-400" : "text-slate-100")">@stockBajo</p>
+                        <p class="text-xs text-slate-400 mt-1">productos a reponer</p>
+                        <span class="dash-chip dash-kpi-chip @(stockBajo > 0 ? "dash-tone-warning" : "dash-tone-neutral")" aria-hidden="true"><span class="material-symbols-outlined">inventory_2</span></span>
+                    </a>
                 </div>
+                }
+
+                @if (cargaFallida)
+                {
+                <section role="alert" class="card-erp-panel p-6 text-center">
+                    <span class="material-symbols-outlined text-3xl text-red-400" aria-hidden="true">cloud_off</span>
+                    <h2 class="mt-2 text-base font-semibold text-slate-100">No pudimos cargar el panel</h2>
+                    <p class="mx-auto mt-1 max-w-md text-sm text-slate-300">Los importes y alertas no se muestran para no darte datos incompletos. Probá de nuevo; si sigue fallando, avisá a quien administra el sistema.</p>
+                    <a asp-controller="Dashboard" asp-action="Index" class="btn-erp-secondary mt-4 no-underline">
+                        <span class="material-symbols-outlined text-[18px]" aria-hidden="true">refresh</span>
+                        Reintentar
+                    </a>
+                </section>
+                }
 
                 <!-- Payments Table -->
-                @if (puedeVerCreditos)
+                @if (puedeVerCreditos && !cargaFallida)
                 {
-                <section class="card-erp-panel p-4 sm:p-5">
+                <section id="cuotas-por-cobrar" class="dashboard-section card-erp-panel p-4 sm:p-5">
                     <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div class="flex items-center gap-2">
-                            <span
-                                class="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-primary">
-                                <span class="material-symbols-outlined text-sm">schedule</span>
-                                Cobranzas
-                            </span>
-                            <h2 class="text-sm font-semibold text-slate-100 section-header-erp">Cuotas por cobrar</h2>
+                        <div class="flex items-center gap-3">
+                            <span class="dash-kicker dash-tone-info" aria-hidden="true"><span class="material-symbols-outlined">schedule</span>Cobranzas</span>
+                            <h2 class="text-base font-semibold text-slate-100 section-header-erp">Cuotas por cobrar</h2>
                         </div>
                         <div class="flex items-center gap-2">
-                                <div class="flex gap-1" data-dashboard-tabs role="tablist"
+                                <div class="dashboard-tabs flex gap-1" data-dashboard-tabs role="tablist"
                                      aria-label="Cuotas vencidas o próximas a vencer">
                                     <button id="tabVencidas" type="button" data-dashboard-tab="vencidas"
                                             data-dashboard-tab-tone="danger" role="tab" aria-selected="true"
                                             aria-controls="tbodyVencidas"
-                                            class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-500/10 text-red-500 border border-red-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">Vencidas <span class="dashboard-tab-count">@cuotasVencidasTotal</span></button>
+                                            class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">Vencidas <span class="dashboard-tab-count">@cuotasVencidasTotal</span></button>
                                     <button id="tabProximas" type="button" data-dashboard-tab="proximas"
                                             data-dashboard-tab-tone="info" role="tab" aria-selected="false"
                                             aria-controls="tbodyProximas" tabindex="-1"
@@ -153,7 +207,7 @@
                         <div data-oc-scroll data-dashboard-cuotas-scroll style="--oc-scroll-min-width: 28rem;" class="dashboard-table-wrap">
                             <div class="border-b border-slate-800 px-4 py-3">
                                 <p data-oc-scroll-hint hidden
-                                   class="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                                   class="text-xs font-semibold text-slate-400">
                                     Deslizá horizontalmente para ver cliente, monto y estado completo.
                                 </p>
                             </div>
@@ -189,7 +243,7 @@
                                                     <td colspan="@colspanCuotas" class="px-4 py-8 text-center text-sm text-slate-400">
                                                         <span class="material-symbols-outlined text-2xl text-emerald-500/70 block mb-1" aria-hidden="true">check_circle</span>
                                                         <p>No hay cuotas vencidas.</p>
-                                                        <p class="text-[11px] text-slate-500">Todas las cuotas exigibles están al día.</p>
+                                                        <p class="text-xs text-slate-400">Todas las cuotas exigibles están al día.</p>
                                                     </td>
                                                 </tr>
                                             }
@@ -203,27 +257,27 @@
                                                 var productosRestantes = productos.Count - productosResumen.Count;
                                                 <tr class="hover:bg-slate-800/30 transition-colors">
                                                     <td class="dash-cell py-3">
-                                                        <p class="font-bold text-sm">@cuota.ClienteNombre</p>
-                                                        <p class="flex flex-wrap gap-x-2 text-[11px] text-slate-400">@if (!string.IsNullOrWhiteSpace(cuota.ClienteDocumento)){<span class="whitespace-nowrap">DNI: @cuota.ClienteDocumento</span>}<span class="whitespace-nowrap">ID: @cuota.ClienteId</span></p>
+                                                        <p class="break-words font-bold text-sm">@cuota.ClienteNombre</p>
+                                                        <p class="flex flex-wrap gap-x-2 text-xs text-slate-400">@if (!string.IsNullOrWhiteSpace(cuota.ClienteDocumento)){<span class="whitespace-nowrap">DNI: @cuota.ClienteDocumento</span>}<span class="whitespace-nowrap">ID: @cuota.ClienteId</span></p>
                                                     </td>
                                                     <td class="dash-cell py-3">
                                                         <p class="text-sm text-slate-200">Cuota @cuota.NumeroCuota - <span class="whitespace-nowrap">@cuota.CreditoNumero</span></p>
                                                         @if (productosResumen.Any())
                                                         {
-                                                            <p class="mt-1 flex min-w-0 items-center gap-1 text-[11px] text-slate-400" data-dashboard-productos>
-                                                                <span class="material-symbols-outlined text-[14px] text-slate-500" aria-hidden="true">inventory_2</span>
+                                                            <p class="mt-1 flex min-w-0 items-center gap-1 text-xs text-slate-400" data-dashboard-productos>
+                                                                <span class="material-symbols-outlined text-[14px] text-slate-400" aria-hidden="true">inventory_2</span>
                                                                 <span class="max-w-[18rem] truncate">@string.Join(", ", productosResumen)</span>
                                                                 @if (productosRestantes > 0)
                                                                 {
-                                                                    <span class="shrink-0 font-bold text-primary">+@productosRestantes</span>
+                                                                    <span class="shrink-0 font-bold text-slate-300">+@productosRestantes</span>
                                                                 }
                                                             </p>
                                                         }
                                                     </td>
                                                     <td class="dash-cell py-3">
-                                                        <span class="whitespace-nowrap rounded bg-red-500/10 px-2 py-0.5 text-xs font-semibold text-red-500"><span class="sr-only">Vencida </span>Hace @cuota.DiasVencidos d</span>
+                                                        <span class="whitespace-nowrap rounded bg-red-500/10 px-2 py-0.5 text-xs font-semibold text-red-400"><span class="sr-only">Vencida </span>Hace @cuota.DiasVencidos d</span>
                                                     </td>
-                                                    <td class="whitespace-nowrap dash-cell py-3 text-sm font-bold">@cuota.Monto.ToString("C")</td>
+                                                    <td class="whitespace-nowrap dash-cell py-3 text-sm font-bold tabular-nums">@cuota.Monto.ToString("C")</td>
                                                     @if (mostrarAcciones)
                                                     {
                                                         <td class="dash-cell py-3 text-right">
@@ -261,9 +315,9 @@
                                                 {
                                                     <tr data-dashboard-empty>
                                                         <td colspan="@colspanCuotas" class="px-4 py-8 text-center text-sm text-slate-400">
-                                                            <span class="material-symbols-outlined text-2xl text-slate-500 block mb-1" aria-hidden="true">check_circle</span>
+                                                            <span class="material-symbols-outlined text-2xl text-slate-400 block mb-1" aria-hidden="true">check_circle</span>
                                                             <p>No hay cuotas próximas a vencer.</p>
-                                                            <p class="text-[11px] text-slate-500">Las cuotas que venzan pronto aparecerán acá.</p>
+                                                            <p class="text-xs text-slate-400">Las cuotas que venzan pronto aparecerán acá.</p>
                                                         </td>
                                                     </tr>
                                                 }
@@ -277,19 +331,19 @@
                                                     var productosRestantes = productos.Count - productosResumen.Count;
                                                     <tr class="hover:bg-slate-800/30 transition-colors">
                                                         <td class="dash-cell py-3">
-                                                            <p class="font-bold text-sm">@cuota.ClienteNombre</p>
-                                                            <p class="flex flex-wrap gap-x-2 text-[11px] text-slate-400">@if (!string.IsNullOrWhiteSpace(cuota.ClienteDocumento)){<span class="whitespace-nowrap">DNI: @cuota.ClienteDocumento</span>}<span class="whitespace-nowrap">ID: @cuota.ClienteId</span></p>
+                                                            <p class="break-words font-bold text-sm">@cuota.ClienteNombre</p>
+                                                            <p class="flex flex-wrap gap-x-2 text-xs text-slate-400">@if (!string.IsNullOrWhiteSpace(cuota.ClienteDocumento)){<span class="whitespace-nowrap">DNI: @cuota.ClienteDocumento</span>}<span class="whitespace-nowrap">ID: @cuota.ClienteId</span></p>
                                                         </td>
                                                         <td class="dash-cell py-3">
                                                             <p class="text-sm text-slate-200">Cuota @cuota.NumeroCuota - <span class="whitespace-nowrap">@cuota.CreditoNumero</span></p>
                                                             @if (productosResumen.Any())
                                                             {
-                                                                <p class="mt-1 flex min-w-0 items-center gap-1 text-[11px] text-slate-400" data-dashboard-productos>
-                                                                    <span class="material-symbols-outlined text-[14px] text-slate-500" aria-hidden="true">inventory_2</span>
+                                                                <p class="mt-1 flex min-w-0 items-center gap-1 text-xs text-slate-400" data-dashboard-productos>
+                                                                    <span class="material-symbols-outlined text-[14px] text-slate-400" aria-hidden="true">inventory_2</span>
                                                                     <span class="max-w-[18rem] truncate">@string.Join(", ", productosResumen)</span>
                                                                     @if (productosRestantes > 0)
                                                                     {
-                                                                        <span class="shrink-0 font-bold text-primary">+@productosRestantes</span>
+                                                                        <span class="shrink-0 font-bold text-slate-300">+@productosRestantes</span>
                                                                     }
                                                                 </p>
                                                             }
@@ -298,20 +352,20 @@
                                                             <span class="whitespace-nowrap rounded bg-slate-800 px-2 py-0.5 text-xs font-semibold text-slate-300">@cuota.FechaVencimiento.ToString("dd MMM")</span>
                                                             @if (cuota.DiasParaVencer <= 1)
                                                             {
-                                                                <p class="mt-1 flex items-center gap-1.5 text-orange-500">
+                                                                <p class="mt-1 flex items-center gap-1.5 text-orange-400">
                                                                     <span class="size-1.5 rounded-full bg-orange-500" aria-hidden="true"></span>
                                                                     <span class="text-xs font-bold">Por vencer</span>
                                                                 </p>
                                                             }
                                                             else
                                                             {
-                                                                <p class="mt-1 flex items-center gap-1.5 text-blue-500">
+                                                                <p class="mt-1 flex items-center gap-1.5 text-blue-400">
                                                                     <span class="size-1.5 rounded-full bg-blue-500" aria-hidden="true"></span>
                                                                     <span class="text-xs font-bold">Programado</span>
                                                                 </p>
                                                             }
                                                         </td>
-                                                        <td class="whitespace-nowrap dash-cell py-3 text-sm font-bold">@cuota.Monto.ToString("C")</td>
+                                                        <td class="whitespace-nowrap dash-cell py-3 text-sm font-bold tabular-nums">@cuota.Monto.ToString("C")</td>
                                                         @if (mostrarAcciones)
                                                         {
                                                             <td class="dash-cell py-3 text-right">
@@ -346,23 +400,21 @@
                                     </p>
                                     @if (puedeVerCreditos)
                                     {
-                                        <a asp-controller="Credito" asp-action="Index" class="dashboard-link-more font-semibold text-primary no-underline hover:underline">Ver créditos</a>
+                                        <a asp-controller="Credito" asp-action="Index" class="dashboard-link-more font-semibold text-blue-400 no-underline hover:underline">Ver créditos</a>
                                     }
                                 </div>
                             }
                         </section>
                 }
 
+            @if (!cargaFallida)
+            {
             <!-- Inventory Alerts -->
-            <section class="card-erp-panel p-4 sm:p-5">
+            <section id="alertas-stock" class="dashboard-section card-erp-panel p-4 sm:p-5">
                 <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div class="flex items-center gap-2">
-                        <span
-                            class="inline-flex items-center gap-1.5 rounded-full bg-red-500/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-red-500">
-                            <span class="material-symbols-outlined text-sm">warning</span>
-                            Inventario
-                        </span>
-                        <h2 class="text-sm font-semibold text-slate-100 section-header-erp">Alertas de stock</h2>
+                    <div class="flex items-center gap-3">
+                        <span class="dash-kicker dash-tone-warning" aria-hidden="true"><span class="material-symbols-outlined">warning</span>Inventario</span>
+                        <h2 class="text-base font-semibold text-slate-100 section-header-erp">Alertas de stock</h2>
                     </div>
                     @{
                         // Si el usuario puede entrar a Catálogo, "Ver alertas" lleva directo a la
@@ -380,7 +432,7 @@
                 <div data-oc-scroll style="--oc-scroll-min-width: 30rem;" class="dashboard-table-wrap">
                     <div class="border-b border-slate-800 px-4 py-3">
                         <p data-oc-scroll-hint hidden
-                           class="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                           class="text-xs font-semibold text-slate-400">
                             Deslizá horizontalmente para ver el detalle completo.
                         </p>
                     </div>
@@ -412,7 +464,7 @@
                                         <tr>
                                             <td colspan="@(puedeReponer ? 5 : 4)" class="px-6 py-8 text-center text-sm text-slate-400">
                                                 <span
-                                                class="material-symbols-outlined text-2xl text-emerald-500/70 block mb-1">inventory_2</span>
+                                                class="material-symbols-outlined text-2xl text-emerald-500/70 block mb-1" aria-hidden="true">inventory_2</span>
                                                 No hay productos por debajo del stock mínimo.
                                             </td>
                                         </tr>
@@ -421,19 +473,19 @@
                                     {
                                         @foreach (var alerta in alertasStock)
                                         {
-                                            var stockColor = alerta.Severidad == "bajo" ? "text-orange-500" : "text-red-500";
+                                            var stockColor = alerta.Severidad == "bajo" ? "text-orange-400" : "text-red-400";
                                             var badgeClass = alerta.Severidad == "bajo"
-                                                ? "bg-orange-500/10 text-orange-500 border border-orange-500/20"
-                                                : "bg-red-500/10 text-red-500 border border-red-500/20";
+                                                ? "bg-orange-500/10 text-orange-400 border border-orange-500/20"
+                                                : "bg-red-500/10 text-red-400 border border-red-500/20";
                                             <tr class="hover:bg-slate-800/30 transition-colors">
-                                                <td class="px-4 py-4 text-xs font-bold text-slate-500 uppercase">@alerta.Codigo
+                                                <td class="px-4 py-4 text-xs font-bold text-slate-400 uppercase">@alerta.Codigo
                                                 </td>
-                                                <td class="px-4 py-4 text-sm font-bold">@alerta.Nombre</td>
+                                                <td class="px-4 py-4 text-sm font-bold break-words">@alerta.Nombre</td>
                                                 <td class="px-4 py-4 text-sm font-bold @stockColor">
                                                     @alerta.StockActual.ToString("0.##")</td>
                                                     <td class="px-4 py-4">
                                                         <span
-                                                        class="whitespace-nowrap text-[10px] font-bold uppercase px-2 py-0.5 rounded @badgeClass">@alerta.SeveridadTexto</span>
+                                                        class="whitespace-nowrap text-xs font-bold uppercase px-2 py-0.5 rounded @badgeClass">@alerta.SeveridadTexto</span>
                                                     </td>
                                                     @if (puedeReponer)
                                                     {
@@ -458,12 +510,9 @@
                         <!-- Productos destacados -->
                         <section class="card-erp-panel p-4 sm:p-5">
                             <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                <div class="flex items-center gap-2">
-                                    <span class="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-amber-500">
-                                        <span class="material-symbols-outlined text-sm">star</span>
-                                        Destacados
-                                    </span>
-                                    <h2 class="text-sm font-semibold text-slate-100 section-header-erp">Productos destacados</h2>
+                                <div class="flex items-center gap-3">
+                                    <span class="dash-kicker dash-tone-violet" aria-hidden="true"><span class="material-symbols-outlined">star</span>Destacados</span>
+                                    <h2 class="text-base font-semibold text-slate-100 section-header-erp">Productos destacados</h2>
                                 </div>
                                 @if (puedeVerCatalogo)
                                 {
@@ -476,9 +525,9 @@
                             @if (destacados.Count == 0)
                             {
                                 <div class="rounded-xl border border-slate-800 bg-slate-800/20 px-4 py-8 text-center">
-                                    <span class="material-symbols-outlined text-2xl text-slate-500 block mb-1">star</span>
+                                    <span class="material-symbols-outlined text-2xl text-slate-400 block mb-1" aria-hidden="true">star</span>
                                     <p class="text-sm text-slate-400">No hay productos destacados.</p>
-                                    <p class="text-[11px] text-slate-500">Marcá productos como destacados desde el catálogo.</p>
+                                    <p class="text-xs text-slate-400">Marcá productos como destacados desde el catálogo.</p>
                                 </div>
                             }
                             else
@@ -486,58 +535,37 @@
                                 <ul class="grid gap-x-6 @(destacados.Count > 1 ? "sm:grid-cols-2" : "")">
                                     @foreach (var prod in destacados)
                                     {
-                                        var stockTone = prod.StockActual <= 0 ? "text-red-500"
-                                            : prod.StockActual <= prod.StockMinimo ? "text-orange-500"
-                                            : "text-emerald-500";
+                                        var stockTone = prod.StockActual <= 0 ? "text-red-400"
+                                            : prod.StockActual <= prod.StockMinimo ? "text-orange-400"
+                                            : "text-emerald-400";
                                         var stockTexto = prod.StockActual <= 0 ? "Sin stock"
                                             : prod.StockActual <= prod.StockMinimo ? "Stock bajo"
                                             : "En stock";
                                         <li class="flex items-center gap-3 border-b border-slate-800/70 py-2.5">
-                                            <span class="material-symbols-outlined text-amber-500/80 text-[18px] shrink-0">star</span>
                                             <div class="min-w-0 flex-1">
                                                 <p class="truncate text-sm font-bold text-slate-100">@prod.Nombre</p>
-                                                <p class="text-[11px] text-slate-400">
+                                                <p class="text-xs text-slate-400">
                                                     <span class="font-semibold uppercase">@prod.Codigo</span>
                                                     <span class="mx-1.5 text-slate-600">·</span>
                                                     <span class="@stockTone font-semibold">@stockTexto</span>
                                                 </p>
                                             </div>
-                                            <span class="shrink-0 text-sm font-bold text-slate-100">@prod.PrecioVenta.ToString("C")</span>
+                                            <span class="shrink-0 text-sm font-bold tabular-nums text-slate-100">@prod.PrecioVenta.ToString("C")</span>
                                         </li>
                                     }
                                 </ul>
                             }
                         </section>
+            }
                     </div>
 
                     <!-- Right Sidebar -->
-                    <aside class="dashboard-sidebar space-y-4">
-
-                        <!-- Quick Access -->
-                        @if (accesosRapidos.Count > 0)
-                        {
-                            <section class="card-erp-panel p-4">
-                                <div class="mb-3 flex items-center gap-2">
-                                    <span class="material-symbols-outlined text-primary text-[18px]">bolt</span>
-                                    <h2 class="text-xs font-bold uppercase tracking-wide text-slate-300">Accesos rápidos</h2>
-                                </div>
-                                <div class="dashboard-accesos grid grid-cols-2 gap-2">
-                                    @foreach (var acceso in accesosRapidos)
-                                    {
-                                        <a asp-controller="@acceso.Controller" asp-action="@acceso.Action"
-                                           class="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-slate-800 bg-slate-800/30 py-4 px-2 text-center transition-colors hover:border-primary/60 hover:bg-slate-800/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 no-underline text-inherit">
-                                            <span class="material-symbols-outlined text-primary text-2xl" aria-hidden="true">@acceso.Icon</span>
-                                            <span class="text-[11px] font-bold uppercase text-slate-300">@acceso.Label</span>
-                                        </a>
-                                    }
-                                </div>
-                            </section>
-                        }
+                    <aside class="dashboard-area-rail space-y-4">
 
                         <!-- Notas rápidas (mismas notas que el desplegable del header, guardadas por usuario) -->
                         <section data-dashboard-notes class="card-erp-panel notas-card overflow-hidden">
-                            <div class="flex items-center gap-2 px-4 pt-4 pb-3">
-                                <span class="material-symbols-outlined text-primary text-[18px]" aria-hidden="true">checklist</span>
+                            <div class="dash-rail-head dash-tone-info flex items-center gap-2 px-4 pt-4 pb-3">
+                                <span class="dash-chip dash-chip--sm" aria-hidden="true"><span class="material-symbols-outlined">checklist</span></span>
                                 <h2 class="text-xs font-bold uppercase tracking-wide text-slate-300">Notas rápidas</h2>
                             </div>
                             <partial name="_NotasRapidasContenido" model="@("dashboard")" />
@@ -545,8 +573,8 @@
 
                         <!-- Actividad reciente -->
                         <section class="card-erp-panel p-4">
-                            <div class="mb-3 flex items-center gap-2">
-                                <span class="material-symbols-outlined text-primary text-[18px]">monitoring</span>
+                            <div class="dash-rail-head dash-tone-violet mb-3 flex items-center gap-2 pb-3">
+                                <span class="dash-chip dash-chip--sm" aria-hidden="true"><span class="material-symbols-outlined">monitoring</span></span>
                                 <h2 class="text-xs font-bold uppercase tracking-wide text-slate-300">Actividad reciente</h2>
                             </div>
                             <div class="space-y-3 max-h-80 overflow-y-auto">
@@ -558,7 +586,7 @@
                                 {
                                     @foreach (var item in actividad)
                                     {
-                                        var bulletColor = item.Color == "primary" ? "bg-primary"
+                                        var bulletColor = item.Color == "primary" ? "bg-blue-400"
                                             : item.Color == "orange" ? "bg-orange-500"
                                             : "bg-emerald-500";
                                         <div class="flex gap-2.5">
@@ -566,7 +594,7 @@
                                             <div>
                                                 <p class="text-xs text-slate-200"><span class="font-semibold">@item.Titulo</span>
                                                     @item.Detalle</p>
-                                                <p class="text-[10px] text-slate-400">@item.TiempoRelativo</p>
+                                                <p class="text-xs text-slate-400">@item.TiempoRelativo</p>
                                             </div>
                                         </div>
                                     }
