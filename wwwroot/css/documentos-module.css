@@ -85,3 +85,13 @@
     .doc-tabs { width: 100%; }
     .doc-tab { flex: 1 1 auto; justify-content: center; }
 }
+
+/* Modal de vista previa (PDF final) */
+.doc-modal { margin: auto; inset: 0; width: min(64rem, 96vw); height: min(92vh, 60rem); max-width: 96vw; max-height: 92vh; padding: 1rem 1.25rem; border: 1px solid var(--pal-neutral-700); border-radius: 12px; background: var(--pal-neutral-925); color: var(--pal-neutral-100); }
+.doc-modal[open] { display: flex; flex-direction: column; }
+.doc-modal::backdrop { background: color-mix(in srgb, #000 70%, transparent); }
+.doc-modal-head { display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; margin-bottom: .5rem; }
+.doc-modal-head h2 { margin: 0; font-size: 1rem; font-weight: 700; color: #fff; }
+.doc-modal-frame { flex: 1 1 auto; min-height: 0; width: 100%; border: 0; border-radius: 8px; background: #fff; }
+.doc-modal [hidden] { display: none !important; }
+@media (max-width: 720px) { .doc-modal { width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh; border-radius: 0; padding: .75rem; } }

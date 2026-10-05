@@ -313,6 +313,12 @@ namespace TheBuryProject.Services
                 return null;
             }
 
+            // El interés por mora es único: sale de Configuración → Mora, no de la plantilla.
+            var tasaMora = await _context.ConfiguracionesMora.AsNoTracking()
+                .Where(c => !c.IsDeleted).Select(c => c.TasaMoraBase).FirstOrDefaultAsync();
+            if (tasaMora is > 0)
+                plantilla.InteresMoraDiarioPorcentaje = tasaMora.Value;
+
             ValidarPlantilla(plantilla, result);
 
             var planCuotas = await ConstruirPlanCuotasAsync(venta, credito, result);

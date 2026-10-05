@@ -175,60 +175,111 @@ namespace TheBuryProject.Services.Documentos
                     col.Item().Border(1).Padding(3).AlignCenter().Text(leyenda).Bold();
                 }
 
-                BloquesAdministrativos(col, bloques, firmantes, firmas);
-
                 // Sin marca explícita, las firmas van al final del documento.
                 if (firmantes.Count > 0 && !TieneFirmas(bloques))
-                    col.Item().ShowEntire().PaddingTop(16).Element(c => FirmasAdministrativas(c, firmantes, firmas));
+                    bloques = bloques.Append(new BloqueFirmas()).ToList();
+
+                BloquesAdministrativos(col, bloques, firmantes, firmas);
             });
         }
 
         private static bool TieneFirmas(IReadOnlyList<BloqueDocumento> bloques)
             => bloques.Any(b => b is BloqueFirmas || (b is BloqueColumnas cols && cols.Columnas.Any(TieneFirmas)));
 
+        // Máximo de bloques previos que viajan junto a las firmas (la última cláusula y el cierre).
+        private const int MaxBloquesJuntoAFirmas = 12;
+
         private static void BloquesAdministrativos(ColumnDescriptor col, IReadOnlyList<BloqueDocumento> bloques, List<string> firmantes, List<FirmaRegistrada> firmas)
         {
-            foreach (var bloque in bloques)
+            // Un espacio final no puede empujar una página en blanco cuando el contenido justo entra en la anterior.
+            var fin = bloques.Count;
+            while (fin > 0 && bloques[fin - 1] is BloqueEspacio)
+                fin--;
+            if (fin < bloques.Count)
+                bloques = bloques.Take(fin).ToList();
+
+            var indiceFirmas = firmantes.Count > 0 ? IndiceDe<BloqueFirmas>(bloques) : -1;
+            if (indiceFirmas < 0)
             {
-                switch (bloque)
-                {
-                    case BloqueTexto t:
-                        col.Item().Text(text =>
+                foreach (var bloque in bloques)
+                    BloqueAdministrativo(col, bloque, firmantes, firmas);
+                return;
+            }
+
+            // Las firmas nunca pueden quedar solas en una página: viajan junto con la última cláusula (desde su título)
+            // y el texto de cierre. Si no entran en lo que resta de la página, todo el grupo pasa a la siguiente.
+            var inicioGrupo = indiceFirmas;
+            while (inicioGrupo > 0 && indiceFirmas - inicioGrupo < MaxBloquesJuntoAFirmas)
+            {
+                var previo = bloques[inicioGrupo - 1];
+                if (previo is BloqueSalto)
+                    break;
+                inicioGrupo--;
+                if (previo is BloqueTexto { Negrita: true })
+                    break;
+            }
+
+            for (var i = 0; i < inicioGrupo; i++)
+                BloqueAdministrativo(col, bloques[i], firmantes, firmas);
+
+            col.Item().ShowEntire().Column(grupo =>
+            {
+                for (var i = inicioGrupo; i <= indiceFirmas; i++)
+                    BloqueAdministrativo(grupo, bloques[i], firmantes, firmas);
+            });
+
+            for (var i = indiceFirmas + 1; i < bloques.Count; i++)
+                BloqueAdministrativo(col, bloques[i], firmantes, firmas);
+        }
+
+        private static int IndiceDe<T>(IReadOnlyList<BloqueDocumento> bloques) where T : BloqueDocumento
+        {
+            for (var i = 0; i < bloques.Count; i++)
+                if (bloques[i] is T)
+                    return i;
+            return -1;
+        }
+
+        private static void BloqueAdministrativo(ColumnDescriptor col, BloqueDocumento bloque, List<string> firmantes, List<FirmaRegistrada> firmas)
+        {
+            switch (bloque)
+            {
+                case BloqueTexto t:
+                    col.Item().Text(text =>
+                    {
+                        if (t.Alineacion == AlineacionDocumento.Derecha) text.AlignRight();
+                        else if (t.Alineacion == AlineacionDocumento.Centro) text.AlignCenter();
+                        var span = text.Span(t.Texto);
+                        if (t.Negrita) span.Bold();
+                    });
+                    break;
+                case BloqueEspacio:
+                    col.Item().Height(5);
+                    break;
+                case BloqueLinea:
+                    col.Item().PaddingVertical(2).LineHorizontal(0.6f).LineColor(Colors.Black);
+                    break;
+                case BloqueSalto:
+                    col.Item().PageBreak();
+                    break;
+                case BloqueFirmas:
+                    if (firmantes.Count > 0)
+                        col.Item().ShowEntire().PaddingTop(16).Element(c => FirmasAdministrativas(c, firmantes, firmas));
+                    break;
+                case BloqueTabla tabla:
+                    col.Item().Element(c => TablaAdministrativa(c, tabla));
+                    break;
+                case BloqueColumnas columnas:
+                    col.Item().Row(row =>
+                    {
+                        for (var k = 0; k < columnas.Columnas.Count; k++)
                         {
-                            if (t.Alineacion == AlineacionDocumento.Derecha) text.AlignRight();
-                            else if (t.Alineacion == AlineacionDocumento.Centro) text.AlignCenter();
-                            var span = text.Span(t.Texto);
-                            if (t.Negrita) span.Bold();
-                        });
-                        break;
-                    case BloqueEspacio:
-                        col.Item().Height(5);
-                        break;
-                    case BloqueLinea:
-                        col.Item().PaddingVertical(2).LineHorizontal(0.6f).LineColor(Colors.Black);
-                        break;
-                    case BloqueSalto:
-                        col.Item().PageBreak();
-                        break;
-                    case BloqueFirmas:
-                        if (firmantes.Count > 0)
-                            col.Item().ShowEntire().PaddingTop(16).Element(c => FirmasAdministrativas(c, firmantes, firmas));
-                        break;
-                    case BloqueTabla tabla:
-                        col.Item().Element(c => TablaAdministrativa(c, tabla));
-                        break;
-                    case BloqueColumnas columnas:
-                        col.Item().Row(row =>
-                        {
-                            for (var k = 0; k < columnas.Columnas.Count; k++)
-                            {
-                                var contenido = columnas.Columnas[k];
-                                row.RelativeItem(columnas.Pesos[k]).PaddingRight(k < columnas.Columnas.Count - 1 ? 8 : 0)
-                                    .Column(inner => BloquesAdministrativos(inner, contenido, firmantes, firmas));
-                            }
-                        });
-                        break;
-                }
+                            var contenido = columnas.Columnas[k];
+                            row.RelativeItem(columnas.Pesos[k]).PaddingRight(k < columnas.Columnas.Count - 1 ? 8 : 0)
+                                .Column(inner => BloquesAdministrativos(inner, contenido, firmantes, firmas));
+                        }
+                    });
+                    break;
             }
         }
 

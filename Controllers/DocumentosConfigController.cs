@@ -214,6 +214,115 @@ namespace TheBuryProject.Controllers
             }
         }
 
+        // ------------------------------------------------------------------ Vista previa del resultado final (PDF)
+
+        /// <summary>PDF de una plantilla guardada (versión vigente) con datos de ejemplo. No guarda ni consume numeración.</summary>
+        [HttpGet]
+        [PermisoRequerido(Modulo = "documentos", Accion = "managetemplates")]
+        public async Task<IActionResult> PlantillaVistaPreviaPdf(int id)
+        {
+            var plantilla = await _config.ObtenerPlantillaAsync(id);
+            if (plantilla == null) return NotFound();
+
+            var reglas = await _config.ListarReglasAsync();
+            var paquetes = await _config.ListarPaquetesAsync();
+            var evento = EventoDe(reglas, plantilla.Id, paquetes.Where(p => p.Items.Any(i => i.PlantillaDocumentoId == plantilla.Id)).Select(p => p.Id));
+            return await PdfDePlantillasAsync(new[] { plantilla }, evento, $"vista-previa-{plantilla.Codigo}.pdf");
+        }
+
+        /// <summary>PDF del paquete completo: todas sus plantillas en orden, impresas juntas como en la emisión real.</summary>
+        [HttpGet]
+        [PermisoRequerido(Modulo = "documentos", Accion = "managetemplates")]
+        public async Task<IActionResult> PaqueteVistaPreviaPdf(int id)
+        {
+            var paquete = await _config.ObtenerPaqueteAsync(id);
+            if (paquete == null) return NotFound();
+
+            var plantillas = new List<PlantillaDocumento>();
+            foreach (var item in paquete.Items.OrderBy(i => i.Orden))
+            {
+                var p = await _config.ObtenerPlantillaAsync(item.PlantillaDocumentoId);
+                if (p != null) plantillas.Add(p);
+            }
+
+            if (plantillas.Count == 0)
+                return BadRequest("El paquete no tiene documentos.");
+
+            var reglas = await _config.ListarReglasAsync();
+            var evento = EventoDe(reglas, null, new[] { paquete.Id });
+            return await PdfDePlantillasAsync(plantillas, evento, $"vista-previa-{paquete.Codigo}.pdf");
+        }
+
+        /// <summary>PDF de lo que genera una regla (su plantilla o su paquete) con datos de ejemplo del evento de la regla.</summary>
+        [HttpGet]
+        [PermisoRequerido(Modulo = "documentos", Accion = "managerules")]
+        public async Task<IActionResult> ReglaVistaPreviaPdf(int id)
+        {
+            var regla = await _config.ObtenerReglaAsync(id);
+            if (regla == null) return NotFound();
+
+            var plantillas = new List<PlantillaDocumento>();
+            if (regla.PaqueteDocumentalId is int paqueteId)
+            {
+                var paquete = await _config.ObtenerPaqueteAsync(paqueteId);
+                foreach (var item in paquete?.Items.OrderBy(i => i.Orden) ?? Enumerable.Empty<PaqueteDocumentalItem>())
+                {
+                    var p = await _config.ObtenerPlantillaAsync(item.PlantillaDocumentoId);
+                    if (p != null) plantillas.Add(p);
+                }
+            }
+            else if (regla.PlantillaDocumentoId is int plantillaId)
+            {
+                var p = await _config.ObtenerPlantillaAsync(plantillaId);
+                if (p != null) plantillas.Add(p);
+            }
+
+            if (plantillas.Count == 0)
+                return BadRequest("La regla no genera ningún documento.");
+
+            return await PdfDePlantillasAsync(plantillas, regla.EventoCodigo, $"vista-previa-regla-{regla.Id}.pdf");
+        }
+
+        private static string EventoDe(IEnumerable<ReglaDocumento> reglas, int? plantillaId, IEnumerable<int> paqueteIds)
+        {
+            var ids = paqueteIds.ToHashSet();
+            var regla = reglas.OrderBy(r => r.Activa ? 0 : 1).ThenByDescending(r => r.Prioridad).FirstOrDefault(r =>
+                (plantillaId != null && r.PlantillaDocumentoId == plantillaId)
+                || (r.PaqueteDocumentalId != null && ids.Contains(r.PaqueteDocumentalId.Value)));
+            return regla?.EventoCodigo ?? EventosDocumentales.ContratoCreditoSolicitado;
+        }
+
+        private async Task<IActionResult> PdfDePlantillasAsync(IReadOnlyList<PlantillaDocumento> plantillas, string evento, string nombreArchivo)
+        {
+            try
+            {
+                var documentos = new List<DocumentoGenerado>();
+                foreach (var plantilla in plantillas)
+                {
+                    var version = plantilla.Versiones.FirstOrDefault(v => v.Numero == plantilla.VersionActual);
+                    var preview = await _config.PrevisualizarAsync(version?.Contenido ?? string.Empty, version?.VariablesRequeridas, evento);
+                    documentos.Add(new DocumentoGenerado
+                    {
+                        Numero = "VISTA-PREVIA",
+                        ContenidoRenderizado = preview.Texto,
+                        Estado = EstadoDocumentoGenerado.Generado,
+                        FechaGeneracionUtc = DateTime.UtcNow,
+                        FirmantesRequeridos = plantilla.RequiereFirma ? plantilla.FirmantesRequeridos : null,
+                        PlantillaDocumento = plantilla,
+                        TipoDocumento = plantilla.TipoDocumento ?? new TipoDocumento { Nombre = plantilla.Nombre }
+                    });
+                }
+
+                var archivo = _pdf.GenerarPdf(documentos);
+                Response.Headers.ContentDisposition = $"inline; filename=\"{nombreArchivo}\"";
+                return File(archivo.Contenido, archivo.TipoContenido);
+            }
+            catch (DocumentoException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
         // ------------------------------------------------------------------ Reglas
 
         [HttpGet]
@@ -441,6 +550,9 @@ namespace TheBuryProject.Controllers
                 ModelState.AddModelError(string.Empty, ex.Message);
             }
 
+            // El interés por mora es de solo lectura (viene de Configuración → Mora): se recompone al volver a mostrar el form.
+            input.InteresMoraDiarioPorcentaje = (await _config.ObtenerEmpresaAsync())?.InteresMoraDiarioPorcentaje ?? 0;
+            ModelState.Remove(nameof(EmpresaInput.InteresMoraDiarioPorcentaje));
             return View(input);
         }
 

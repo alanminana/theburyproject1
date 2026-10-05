@@ -62,13 +62,21 @@
                 <div style="margin-top:1rem">
                     @await Component.InvokeAsync("DocumentosOperacion", new { pagoCuotaId = resultado.PagoCuotaId, compacto = true })
                 </div>
-                @if (contexto.PuedeConfirmar)
-                {
-                    <a asp-action="PagarCuota" asp-route-id="@contexto.CuotaId" asp-route-returnUrl="@returnUrl" class="btn btn-soft btn-sm" style="margin-top:1rem">Registrar otro pago</a>
-                }
+                <div class="flex flex-wrap items-center gap-2" style="margin-top:1rem">
+                    <a href="@volverHref" class="btn btn-success btn-sm" data-pago-volver>
+                        <span class="material-symbols-outlined" aria-hidden="true">check</span>
+                        Listo, volver
+                    </a>
+                    @if (contexto.PuedeConfirmar)
+                    {
+                        <a asp-action="PagarCuota" asp-route-id="@contexto.CuotaId" asp-route-returnUrl="@returnUrl" class="btn btn-soft btn-sm">Registrar otro pago</a>
+                    }
+                </div>
             </section>
         }
 
+        @if (resultado is null)
+        {
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-4" style="margin-top:1.25rem">
             <div class="lg:col-span-2 space-y-4">
                 <section class="card card-pad" aria-labelledby="cuota-contexto-titulo">
@@ -151,6 +159,7 @@
                                            autocomplete="off"
                                            class="field mono"
                                            data-pago-monto
+                                           value="@(ViewData.ModelState["Input.MontoIngresado"]?.AttemptedValue ?? Model.Input.MontoIngresado.ToString("0.00", CultureInfo.InvariantCulture))"
                                            aria-describedby="monto-ayuda" />
                                 </div>
                                 <p id="monto-ayuda" class="hint">Podés realizar un pago parcial o usar el total cobrable actual.</p>
@@ -220,6 +229,7 @@
                 </section>
             </aside>
         </div>
+        }
     </div>
 </div>
 

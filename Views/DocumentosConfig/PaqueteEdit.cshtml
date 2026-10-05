@@ -1,4 +1,4 @@
-﻿@model TheBuryProject.Services.Interfaces.PaqueteDocumentalInput
+@model TheBuryProject.Services.Interfaces.PaqueteDocumentalInput
 @{
     var esNuevo = Model.Id == 0;
     ViewData["Title"] = esNuevo ? "Nuevo paquete" : "Editar paquete";
@@ -66,6 +66,13 @@
             <button type="submit" class="doc-btn doc-btn-primary">
                 <span class="material-symbols-outlined" aria-hidden="true">save</span>Guardar
             </button>
+            @if (!esNuevo && seleccion.Count > 0)
+            {
+                <button type="button" class="doc-btn" data-doc-preview-url="@Url.Action("PaqueteVistaPreviaPdf", new { id = Model.Id })" data-doc-preview-title="Paquete: @Model.Nombre"
+                        title="Muestra el paquete guardado; guardá antes para ver los cambios">
+                    <span class="material-symbols-outlined" aria-hidden="true">visibility</span>Vista previa del paquete guardado
+                </button>
+            }
             <a asp-action="Paquetes" class="doc-btn">Volver</a>
         </div>
     </form>

@@ -49,6 +49,9 @@ public class DocumentoEmpresaTests : DocumentoTestBase
     public async Task GuardarEmpresa_ReplicaLosDatosEnLaPlantillaVigente_ParaElContratoAnterior()
     {
         await SembrarConfiguracionInicialAsync();
+        // El interés por mora es único: sale de Configuración → Mora, no de lo que se envíe en el formulario de empresa.
+        Context.ConfiguracionesMora.Add(new TheBuryProject.Models.Entities.ConfiguracionMora { TasaMoraBase = 0.3m });
+        await Context.SaveChangesAsync();
 
         await Config.GuardarEmpresaAsync(EmpresaValida());
 
@@ -85,7 +88,6 @@ public class DocumentoEmpresaTests : DocumentoTestBase
     [InlineData("N", "D", "", "J", "30-1", 0.1, "ciudad")]
     [InlineData("N", "D", "C", "", "30-1", 0.1, "jurisdicci")]
     [InlineData("N", "D", "C", "J", "abc", 0.1, "CUIT")]
-    [InlineData("N", "D", "C", "J", "30-1", 150, "mora")]
     public async Task GuardarEmpresa_ValidaLosDatos(string nombre, string dom, string ciudad, string juris, string cuit, double mora, string fragmento)
     {
         await SembrarConfiguracionInicialAsync();

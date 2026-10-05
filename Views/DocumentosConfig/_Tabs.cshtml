@@ -4,7 +4,6 @@
     var puedePlantillas = User.TienePermiso("documentos", "managetemplates");
     var puedeReglas = User.TienePermiso("documentos", "managerules");
     var puedeTipos = User.TienePermiso("documentos", "managetypes");
-    var puedeVer = User.TienePermiso("documentos", "view");
 }
 <nav class="doc-tabs" aria-label="Configuración de documentos">
     @if (puedePlantillas)
@@ -37,10 +36,23 @@
             <span class="material-symbols-outlined text-[18px]" aria-hidden="true">data_object</span>Variables
         </a>
     }
-    @if (puedeVer)
-    {
-        <a asp-controller="Documento" asp-action="Index" class="doc-tab">
-            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">folder_open</span>Documentos emitidos
-        </a>
-    }
 </nav>
+
+@* Modal compartido: muestra el documento final (PDF) tal como se imprime, con datos de ejemplo. *@
+<dialog id="doc-preview-modal" class="doc-modal" aria-labelledby="doc-preview-modal-title">
+    <div class="doc-modal-head">
+        <h2 id="doc-preview-modal-title" data-doc-modal-title>Vista previa</h2>
+        <div class="doc-actions">
+            <a href="#" target="_blank" rel="noopener" class="doc-btn" data-doc-modal-open hidden>
+                <span class="material-symbols-outlined" aria-hidden="true">open_in_new</span>Abrir en pestaña
+            </a>
+            <button type="button" class="doc-btn" data-doc-modal-close>
+                <span class="material-symbols-outlined" aria-hidden="true">close</span>Cerrar
+            </button>
+        </div>
+    </div>
+    <p class="doc-hint" style="margin:0 0 .5rem">Así se imprime el documento. Los datos son de ejemplo y el número queda sin asignar; no se guarda nada.</p>
+    <p class="doc-muted" data-doc-modal-status role="status"></p>
+    <iframe title="Vista previa del documento" class="doc-modal-frame" hidden></iframe>
+</dialog>
+<script src="~/js/documentos-preview.js" asp-append-version="true"></script>

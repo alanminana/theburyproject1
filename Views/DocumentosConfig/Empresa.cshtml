@@ -53,7 +53,8 @@
                 </div>
                 <div class="doc-field">
                     <label asp-for="InteresMoraDiarioPorcentaje">Interés por mora diario (%)</label>
-                    <input asp-for="InteresMoraDiarioPorcentaje" type="number" step="0.0001" min="0" max="100" class="doc-input" />
+                    <input type="text" value="@(Model.InteresMoraDiarioPorcentaje > 0 ? Model.InteresMoraDiarioPorcentaje.ToString("0.00##", System.Globalization.CultureInfo.GetCultureInfo("es-AR")) : "—")" class="doc-input" readonly tabindex="-1" aria-describedby="interes-mora-ayuda" />
+                    <p id="interes-mora-ayuda" class="doc-sub" style="margin-top:.35rem">Se toma de <a href="@Url.Action("Index", "ConfiguracionMora")">Configuración → Mora</a>; se cambia solo ahí.</p>
                 </div>
             </div>
         </section>

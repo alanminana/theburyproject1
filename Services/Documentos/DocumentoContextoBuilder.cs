@@ -67,6 +67,7 @@ namespace TheBuryProject.Services.Documentos
             if (empresa != null)
             {
                 AplicarEmpresa(ctx, empresa, null);
+                await AplicarInteresMoraAsync(ctx);
                 return empresa;
             }
 
@@ -78,7 +79,18 @@ namespace TheBuryProject.Services.Documentos
                 .FirstOrDefaultAsync();
 
             AplicarEmpresa(ctx, plantilla);
+            await AplicarInteresMoraAsync(ctx);
             return null;
+        }
+
+        /// <summary>El interés por mora es único: sale de Configuración → Mora y pisa lo que haya en empresa o plantilla.</summary>
+        private async Task AplicarInteresMoraAsync(DocumentoContexto ctx)
+        {
+            var tasa = await _context.ConfiguracionesMora.AsNoTracking()
+                .Where(c => !c.IsDeleted).Select(c => c.TasaMoraBase).FirstOrDefaultAsync();
+            if (tasa is not > 0) return;
+            ctx.Set("empresa.interesMoraDiario", tasa.Value.ToString("F4", Cultura));
+            ctx.Set("contrato.interesMoraDiario", PorcentajeTexto(tasa.Value));
         }
 
         public static void AplicarEmpresa(DocumentoContexto ctx, EmpresaConfiguracion? empresa, PlantillaContratoCredito? respaldo)
