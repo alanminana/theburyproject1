@@ -189,6 +189,12 @@ input:-webkit-autofill:focus {
     position: relative;
 }
 
+/* Marcado: caja rellena con el color primario para que el check oscuro contraste */
+#remember-me:checked {
+    background-color: var(--c-primary-container) !important;
+    border-color: var(--c-primary-container) !important;
+}
+
 /* Fila completa clickeable con altura táctil mínima */
 .login-remember {
     min-height: 44px;

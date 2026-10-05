@@ -492,6 +492,7 @@
                                                                     <th scope="col">Número</th>
                                                                     <th scope="col">Fecha</th>
                                                                     <th scope="col">Cliente</th>
+                                                                    <th scope="col">Vendedor</th>
                                                                     <th scope="col">Estado</th>
                                                                     <th scope="col">Autorización</th>
                                                                     <th scope="col">Tipo de pago</th>
@@ -515,6 +516,9 @@
                                                                             <td>@v.FechaVenta.ToString("dd/MM/yyyy")</td>
                                                                             <td>
                                                                                 <span class="truncate-1">@v.ClienteNombre</span>
+                                                                            </td>
+                                                                            <td>
+                                                                                <span class="truncate-1">@(string.IsNullOrWhiteSpace(v.VendedorNombre) ? "—" : v.VendedorNombre)</span>
                                                                             </td>
                                                                             <td>
                                                                                 <span
@@ -592,6 +596,13 @@
                                                                         <span class="material-symbols-outlined">person</span>
                                                                         <span class="truncate-1">@v.ClienteNombre</span>
                                                                     </div>
+                                                                    @if (!string.IsNullOrWhiteSpace(v.VendedorNombre))
+                                                                    {
+                                                                        <div class="sale-card__client">
+                                                                            <span class="material-symbols-outlined">badge</span>
+                                                                            <span class="truncate-1">Vendedor: @v.VendedorNombre</span>
+                                                                        </div>
+                                                                    }
                                                                     <div class="sale-card__meta">
                                                                         <span class="pill @EstadoPillClass(v.Estado)">@EstadoLabel(v.Estado, v.EstadoDisplay)</span>
                                                                         @if (v.EstadoAutorizacion != EstadoAutorizacionVenta.NoRequiere)

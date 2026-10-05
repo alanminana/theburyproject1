@@ -12,6 +12,8 @@
        scripts por wsl.exe, y una tarea al iniciar sesion que arranca Docker Desktop y WSL.
     5. Perfil de energia de servidor (sin suspender ni hibernar, tapa cerrada sin efecto estando enchufada).
     6. Opcional: confiar en la CA de Caddy en este equipo (-TrustCaHere) y agregar 'IP dominio' al archivo hosts (-HostsIp).
+  Si no se indica -Distro, el script lista las distros de WSL instaladas y pregunta cual usar (no siempre se llama 'Ubuntu').
+  Si el repositorio no esta en -RepoPath dentro de esa distro, pregunta la ruta correcta.
   Es idempotente: se puede volver a ejecutar. -DryRun solo muestra lo que haria (no modifica nada ni requiere administrador).
   -Uninstall quita las tareas programadas y la regla de firewall (no toca datos, volumenes ni la instalacion Docker).
 
@@ -26,7 +28,7 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$Distro = 'Ubuntu',
+    [string]$Distro = '',
     [string]$RepoPath = '~/theburyproject1',
     [string]$Domain = 'tbp',
     [string]$AdminEmail = '',
@@ -71,6 +73,52 @@ function Invoke-Wsl([string]$bashCommand) {
 
 function Quote-Bash([string]$s) { return "'" + ($s -replace "'", "'\''") + "'" }
 
+# Lista las distros WSL instaladas (sin las internas de Docker Desktop). Devuelve objetos Name/IsDefault/Version.
+function Get-WslDistros {
+    $raw = (& wsl.exe -l -v) -join "`n"
+    $raw = $raw -replace "`0", ''
+    $items = @()
+    foreach ($line in ($raw -split "`r?`n")) {
+        if ($line -match '^\s*(\*)?\s*(\S+)\s+(Running|Stopped|Installing|Uninstalling|Converting)\s+(\d)\s*$') {
+            $name = $Matches[2]
+            if ($name -like 'docker-desktop*') { continue }
+            $items += [pscustomobject]@{ Name = $name; IsDefault = ($Matches[1] -eq '*'); Version = [int]$Matches[4] }
+        }
+    }
+    return $items
+}
+
+# Pregunta que distro usar cuando no se paso -Distro.
+function Select-WslDistro {
+    if (-not (Get-Command wsl.exe -ErrorAction SilentlyContinue)) { return '' }
+    $list = @(Get-WslDistros)
+    if ($list.Count -eq 0) { return '' }
+    Write-Step 'Distribuciones de WSL instaladas'
+    for ($i = 0; $i -lt $list.Count; $i++) {
+        $d = $list[$i]
+        $tag = @(); if ($d.IsDefault) { $tag += 'predeterminada' }; if ($d.Version -ne 2) { $tag += "WSL$($d.Version)" }
+        $suffix = if ($tag.Count) { '  (' + ($tag -join ', ') + ')' } else { '' }
+        Write-Host ("    [{0}] {1}{2}" -f ($i + 1), $d.Name, $suffix)
+    }
+    $defIdx = 0; for ($i = 0; $i -lt $list.Count; $i++) { if ($list[$i].IsDefault) { $defIdx = $i } }
+    while ($true) {
+        $ans = Read-Host "Numero o nombre de la distro donde esta/estara el ERP [Enter = $($list[$defIdx].Name)]"
+        if ([string]::IsNullOrWhiteSpace($ans)) { return $list[$defIdx].Name }
+        if ($ans -match '^\d+$' -and [int]$ans -ge 1 -and [int]$ans -le $list.Count) { return $list[[int]$ans - 1].Name }
+        $hit = $list | Where-Object { $_.Name -ieq $ans.Trim() }
+        if ($hit) { return $hit.Name }
+        Write-Warn2 "'$ans' no es una opcion valida."
+    }
+}
+
+if ([string]::IsNullOrWhiteSpace($Distro) -and -not $Uninstall) {
+    $Distro = Select-WslDistro
+    if ([string]::IsNullOrWhiteSpace($Distro)) {
+        if ($DryRun) { $Distro = 'Ubuntu'; Write-Warn2 "(dry-run) No se detectaron distros de WSL; se asume '$Distro'." }
+        else { Fail 'No hay ninguna distro de WSL instalada. Instalar una: wsl --install -d Ubuntu (requiere reiniciar) y volver a ejecutar.' }
+    }
+}
+
 if (-not $DryRun -and -not (Test-Admin)) { Fail 'Ejecutar PowerShell como Administrador (o usar -DryRun para ver los pasos sin cambiar nada).' }
 
 # ----------------------------------------------------------------------------------------------------- desinstalar
@@ -111,6 +159,17 @@ $repoQ = Quote-Bash $RepoPath
 # ~ debe expandirse: se usa sin comillas simples para el prefijo ~/
 $repoExpr = if ($RepoPath.StartsWith('~/')) { '~/' + (Quote-Bash $RepoPath.Substring(2)) } else { $repoQ }
 $null = Invoke-Wsl "test -f $repoExpr/scripts/install/install.sh"
+if ($LASTEXITCODE -ne 0 -and -not $PSBoundParameters.ContainsKey('RepoPath') -and -not $DryRun) {
+    Write-Warn2 "No se encontro el repositorio en '$RepoPath' dentro de '$Distro'."
+    $ans = Read-Host 'Ruta del repositorio dentro de WSL (p. ej. ~/theburyproject1) [Enter = cancelar]'
+    if (-not [string]::IsNullOrWhiteSpace($ans)) {
+        if ($ans.Trim() -notmatch '^[A-Za-z0-9_./~-]+$') { Fail 'La ruta tiene caracteres no soportados.' }
+        $RepoPath = $ans.Trim()
+        $repoQ = Quote-Bash $RepoPath
+        $repoExpr = if ($RepoPath.StartsWith('~/')) { '~/' + (Quote-Bash $RepoPath.Substring(2)) } else { $repoQ }
+        $null = Invoke-Wsl "test -f $repoExpr/scripts/install/install.sh"
+    }
+}
 if ($LASTEXITCODE -ne 0) {
     Fail-Prereq "No se encontro el repositorio en WSL ($RepoPath). Clonarlo DENTRO de WSL: wsl -d $Distro -- git clone <url> $RepoPath"
 }
