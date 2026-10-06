@@ -606,7 +606,9 @@ namespace TheBuryProject.Controllers
                     return NotFound();
 
                 var movimientos = await _movimientoStockService.GetByProductoIdAsync(productoId);
-                ViewBag.Movimientos = _mapper.Map<IEnumerable<MovimientoStockViewModel>>(movimientos);
+                var movimientosVm = _mapper.Map<List<MovimientoStockViewModel>>(movimientos);
+                await CompletarDatosDeVentaAsync(movimientosVm);
+                ViewBag.Movimientos = movimientosVm;
                 // Para el modal "Registrar ajuste" embebido en esta vista (producto fijo).
                 ViewBag.Tipos = new SelectList(Enum.GetValues(typeof(TipoMovimiento)));
 
@@ -617,6 +619,64 @@ namespace TheBuryProject.Controllers
                 _logger.LogError(ex, "Error al cargar ficha de inventario del producto {ProductoId}", productoId);
                 TempData["Error"] = "Error al cargar la ficha de inventario. Intentá nuevamente.";
                 return RedirectToAction(nameof(Index));
+            }
+        }
+
+        /// <summary>
+        /// Los movimientos de venta guardan solo "Venta {Numero}" como referencia (y el motivo con el
+        /// nombre sin apellido en datos históricos). Se resuelve la venta al leer para mostrar cliente
+        /// completo y medio de pago, también en movimientos ya registrados.
+        /// </summary>
+        private async Task CompletarDatosDeVentaAsync(List<MovimientoStockViewModel> movimientos)
+        {
+            const string prefijoVenta = "Venta ";
+            const string prefijoCancelacion = "Cancelación Venta ";
+
+            static string? NumeroDeVenta(string? referencia)
+            {
+                if (string.IsNullOrWhiteSpace(referencia)) return null;
+                if (referencia.StartsWith(prefijoCancelacion, StringComparison.Ordinal))
+                    return referencia[prefijoCancelacion.Length..].Trim();
+                if (referencia.StartsWith(prefijoVenta, StringComparison.Ordinal))
+                    return referencia[prefijoVenta.Length..].Trim();
+                return null;
+            }
+
+            var numeros = movimientos
+                .Select(m => NumeroDeVenta(m.Referencia))
+                .Where(n => !string.IsNullOrEmpty(n))
+                .Distinct()
+                .ToList();
+            if (numeros.Count == 0) return;
+
+            var ventas = await _context.Ventas
+                .AsNoTracking()
+                .Where(v => numeros.Contains(v.Numero))
+                .Select(v => new
+                {
+                    v.Numero,
+                    v.TipoPago,
+                    v.NombreClienteLibre,
+                    Apellido = v.Cliente != null ? v.Cliente.Apellido : null,
+                    Nombre = v.Cliente != null ? v.Cliente.Nombre : null
+                })
+                .ToListAsync();
+            var porNumero = ventas.GroupBy(v => v.Numero).ToDictionary(g => g.Key, g => g.First());
+
+            foreach (var m in movimientos)
+            {
+                var numero = NumeroDeVenta(m.Referencia);
+                if (numero == null || !porNumero.TryGetValue(numero, out var v)) continue;
+
+                var cliente = !string.IsNullOrWhiteSpace(v.Nombre)
+                    ? $"{v.Nombre} {v.Apellido}".Trim()
+                    : v.NombreClienteLibre?.Trim();
+                m.VentaCliente = string.IsNullOrWhiteSpace(cliente) ? "Sin cliente asignado" : cliente;
+                m.VentaMedioPago = v.TipoPago.GetDisplayName();
+
+                // El motivo histórico trae el cliente truncado; la vista ya lo muestra completo.
+                if (m.Motivo != null && m.Motivo.StartsWith("Confirmación de venta - Cliente:", StringComparison.Ordinal))
+                    m.Motivo = "Confirmación de venta";
             }
         }
 

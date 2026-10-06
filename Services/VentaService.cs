@@ -3817,7 +3817,10 @@ namespace TheBuryProject.Services
             var usuario = _currentUserService.GetUsername();
 
             var referencia = $"Venta {venta.Numero}";
-            var motivo = $"Confirmación de venta - Cliente: {venta.Cliente?.Nombre ?? "(sin cliente)"}";
+            var clienteNombre = venta.Cliente != null
+                ? $"{venta.Cliente.Nombre} {venta.Cliente.Apellido}".Trim()
+                : venta.NombreClienteLibre?.Trim();
+            var motivo = $"Confirmación de venta - Cliente: {(string.IsNullOrWhiteSpace(clienteNombre) ? "(sin cliente)" : clienteNombre)}";
 
             var salidas = venta.Detalles
                 .Where(d => !d.IsDeleted)
