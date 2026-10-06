@@ -1210,8 +1210,6 @@ public class VentaApiControllerTests
         public Task<PrevalidacionResultViewModel> PrevalidarAsync(int clienteId, decimal monto) => Task.FromResult(Resultado);
         public Task<ValidacionVentaResult> ValidarVentaCreditoPersonalAsync(int clienteId, decimal montoVenta, int? creditoId = null) => throw new NotImplementedException();
         public Task<ValidacionVentaResult> ValidarConfirmacionVentaAsync(int ventaId) => throw new NotImplementedException();
-        public Task<bool> ClientePuedeRecibirCreditoAsync(int clienteId, decimal montoSolicitado) => throw new NotImplementedException();
-        public Task<ResumenCrediticioClienteViewModel> ObtenerResumenCrediticioAsync(int clienteId) => throw new NotImplementedException();
     }
 
     private sealed class StubPrecioVigenteResolver : IPrecioVigenteResolver
