@@ -5,7 +5,7 @@ using TheBuryProject.Models.Enums;
 
 namespace TheBuryProject.Models.Entities
 {
-    public class VentaDetalle  : AuditableEntity
+    public class VentaDetalle : AuditableEntity, ILineaConIvaProrrateable
     {
         [Required]
         public int VentaId { get; set; }
