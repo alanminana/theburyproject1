@@ -404,7 +404,7 @@ public class VentaCreateUiContractTests
     public void VentaCreate_ConfirmacionBackendSigueSinResolverCondicionesPagoPorProductoDesdeController()
     {
         var controller = File.ReadAllText(Path.Combine(FindRepoRoot(), "Controllers", "VentaController.cs"));
-        var createPost = ExtractFunction(controller, "public async Task<IActionResult> Create(VentaViewModel viewModel, string? DatosCreditoPersonallJson)");
+        var createPost = ExtractFunction(controller, "public async Task<IActionResult> Create(VentaViewModel viewModel)");
 
         Assert.Contains("var venta = await _ventaService.CreateAsync(viewModel);", createPost);
         Assert.DoesNotContain("DiagnosticarCondicionesPagoCarrito", createPost);

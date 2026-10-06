@@ -99,40 +99,6 @@ namespace TheBuryProject.Controllers
         #region Productos
 
         [HttpGet]
-        public async Task<IActionResult> GetPrecioProducto(int id)
-        {
-            try
-            {
-                if (id <= 0)
-                    return BadRequest(new { error = "El identificador de producto debe ser válido" });
-
-                var precioProducto = await _productoService.ObtenerPrecioVigenteParaVentaAsync(id);
-                if (precioProducto == null)
-                {
-                    return NotFound(new { error = "Producto no encontrado" });
-                }
-
-                return Ok(new
-                {
-                    precioVenta = precioProducto.PrecioVenta,
-                    stockActual = precioProducto.StockActual,
-                    codigo = precioProducto.Codigo,
-                    nombre = precioProducto.Nombre,
-                    requiereNumeroSerie = precioProducto.RequiereNumeroSerie,
-                    unidadesFisicasEnStock = precioProducto.UnidadesEnStock,
-                    stockNoTrazado = precioProducto.StockNoTrazado,
-                    permiteVentaDesdeStockNoTrazado = !precioProducto.RequiereNumeroSerie && precioProducto.StockNoTrazado > 0,
-                    permiteElegirUnidadFisica = precioProducto.UnidadesEnStock > 0
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al obtener precio del producto {Id}", id);
-                return StatusCode(500, new { error = "No se pudo obtener el precio del producto" });
-            }
-        }
-
-        [HttpGet]
         public async Task<IActionResult> BuscarProductos(
             string term,
             int take = 20,

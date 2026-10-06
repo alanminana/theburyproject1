@@ -358,7 +358,7 @@ namespace TheBuryProject.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [PermisoRequerido(Modulo = ModuloVentas, Accion = AccionCrear)]
-        public async Task<IActionResult> Create(VentaViewModel viewModel, string? DatosCreditoPersonallJson)
+        public async Task<IActionResult> Create(VentaViewModel viewModel)
         {
             try
             {
@@ -894,47 +894,6 @@ namespace TheBuryProject.Controllers
                     }
                 });
             }
-        }
-
-        [HttpGet]
-        public async Task<IActionResult> ValidarDocumentacionCredito(int ventaId, string? returnUrl = null)
-        {
-            var venta = await _ventaService.GetByIdAsync(ventaId);
-            if (venta == null)
-            {
-                TempData["Error"] = "Venta no encontrada";
-                return RedirectToAction(nameof(Index));
-            }
-
-            var safeReturnUrl = Url.GetSafeReturnUrl(returnUrl) ?? Url.Action(nameof(Details), new { id = ventaId });
-
-            if (venta.TipoPago != TipoPago.CreditoPersonal)
-            {
-                TempData["Error"] = "La venta no utiliza crédito personal";
-                return RedirectToAction(nameof(Details), new { id = ventaId });
-            }
-
-            var resultado = await _documentacionService.ProcesarDocumentacionVentaAsync(ventaId);
-
-            // Ver comentario equivalente en Edit(POST): con una excepción documental ya
-            // autorizada para esta venta, no volver a mandar al operador a cargar
-            // documentación real del cliente.
-            if (!resultado.DocumentacionCompleta && !venta.TieneExcepcionDocumentalRegistrada)
-            {
-                TempData["Warning"] =
-                    $"Falta documentación obligatoria para otorgar crédito: {resultado.MensajeFaltantes}";
-
-                return RedirectToAction(
-                    "Index",
-                    "DocumentoCliente",
-                    new { clienteId = resultado.ClienteId, returnToVentaId = resultado.VentaId, returnUrl = safeReturnUrl });
-            }
-
-            TempData["Success"] = resultado.CreditoCreado
-                ? "Documentación validada. Crédito creado y pendiente de configuración."
-                : "Documentación validada. Crédito listo para configurar.";
-
-            return RedirectToAction("ConfigurarVenta", "Credito", new { id = resultado.CreditoId, ventaId, returnUrl = safeReturnUrl });
         }
 
         #endregion
@@ -1677,18 +1636,9 @@ namespace TheBuryProject.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        // POST: Venta/ConfirmarYFacturar/5 — acción combinada (mostrador): confirma y factura en un paso.
-        // Solo para medios sin crédito personal; el crédito requiere contrato/configuración.
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        [PermisoRequerido(Modulo = ModuloVentas, Accion = AccionFacturar)]
-        public async Task<IActionResult> ConfirmarYFacturar(int id, TipoFactura tipo = TipoFactura.B)
-        {
-            return await EjecutarConfirmarYFacturarAsync(id, tipo);
-        }
-
-        // Extraída por el mismo motivo que EjecutarConfirmarVentaAsync: Edit(POST) la
-        // reutiliza cuando el operador tilda "Facturar" al confirmar desde el wizard.
+        // Confirmar + facturar en un paso (mostrador). Sólo la invoca Edit(POST) cuando el
+        // operador tilda "Facturar" al confirmar desde el wizard; ya no existe una acción
+        // pública propia (Venta/ConfirmarYFacturar fue retirada: ningún formulario la posteaba).
         private async Task<IActionResult> EjecutarConfirmarYFacturarAsync(int id, TipoFactura tipo)
         {
             try
