@@ -90,7 +90,6 @@ namespace TheBuryProject.Data
         public DbSet<DatosCheque> DatosCheque { get; set; }
         public DbSet<VentaEnvio> VentaEnvios { get; set; }
         public DbSet<ServicioVentaPrecio> ServiciosVentaPrecios { get; set; }
-        public DbSet<VentaCreditoCuota> VentaCreditoCuotas { get; set; }
 
         public DbSet<ConfiguracionMora> ConfiguracionesMora { get; set; }
         public DbSet<AlertaMora> AlertasMora { get; set; }
@@ -1103,7 +1102,7 @@ namespace TheBuryProject.Data
             });
 
             // =======================
-            // Credito (IMPORTANTE: sin QueryFilter para evitar warnings con VentaCreditoCuota)
+            // Credito (IMPORTANTE: sin QueryFilter para evitar warnings con entidades dependientes)
             // =======================
             modelBuilder.Entity<Credito>(entity =>
             {
@@ -1292,33 +1291,6 @@ namespace TheBuryProject.Data
                     .IsUnique()
                     .HasFilter("[Estado] = 1")
                     .HasDatabaseName("IX_PunitoriosAplicados_CuotaId_UnaActivaPorCuota");
-            });
-
-            // =======================
-            // VentaCreditoCuota
-            // =======================
-            modelBuilder.Entity<VentaCreditoCuota>(entity =>
-            {
-                entity.ToTable("VentaCreditoCuotas");
-                entity.HasKey(e => e.Id);
-
-                entity.Property(e => e.Monto).HasPrecision(18, 2);
-                entity.Property(e => e.Saldo).HasPrecision(18, 2);
-                entity.Property(e => e.MontoPagado).HasPrecision(18, 2);
-
-                entity.HasIndex(e => new { e.VentaId, e.NumeroCuota });
-                entity.HasIndex(e => e.FechaVencimiento);
-                entity.HasIndex(e => e.Pagada);
-
-                entity.HasOne(e => e.Venta)
-                    .WithMany(v => v.VentaCreditoCuotas)
-                    .HasForeignKey(e => e.VentaId)
-                    .OnDelete(DeleteBehavior.Cascade);
-
-                entity.HasOne(e => e.Credito)
-                    .WithMany()
-                    .HasForeignKey(e => e.CreditoId)
-                    .OnDelete(DeleteBehavior.Restrict);
             });
 
             // =======================

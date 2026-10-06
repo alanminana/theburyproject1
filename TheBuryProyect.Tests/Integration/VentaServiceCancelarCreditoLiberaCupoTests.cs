@@ -405,13 +405,11 @@ public class VentaServiceCancelarCreditoLiberaCupoTests : IDisposable
 
         _context.ChangeTracker.Clear();
 
-        // Precondición: el crédito quedó Generado con cuotas reales en Credito.Cuotas (no VentaCreditoCuotas)
+        // Precondición: el crédito quedó Generado con cuotas reales en Credito.Cuotas
         var creditoGenerado = await _context.Creditos.FirstAsync(c => c.Id == credito.Id);
         Assert.Equal(EstadoCredito.Generado, creditoGenerado.Estado);
         var cuotasReales = await _context.Cuotas.Where(c => c.CreditoId == credito.Id).ToListAsync();
         Assert.Equal(4, cuotasReales.Count);
-        var cuotasVentaLegacy = await _context.VentaCreditoCuotas.Where(c => c.VentaId == venta.Id).ToListAsync();
-        Assert.Empty(cuotasVentaLegacy);
 
         var disponibleAntes = await _disponibleService.CalcularDisponibleAsync(cliente.Id);
         Assert.Equal(2_000m, disponibleAntes.SaldoVigente);
