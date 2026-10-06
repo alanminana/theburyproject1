@@ -2883,7 +2883,7 @@
                 const info = poblarDatosTarjetaSeleccionada();
 
                 if (!info) {
-                    showFeedback('No se pudo cargar la informaciÃ³n de la tarjeta seleccionada.', 'error');
+                    showFeedback('No se pudo cargar la información de la tarjeta seleccionada.', 'error');
                     return;
                 }
 

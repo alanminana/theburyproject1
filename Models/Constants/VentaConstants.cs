@@ -1,7 +1,7 @@
 namespace TheBuryProject.Models.Constants
 {
     /// <summary>
-    /// Constantes para el m�dulo de ventas
+    /// Constantes para el módulo de ventas
     /// </summary>
     public static class VentaConstants
     {
@@ -30,10 +30,10 @@ namespace TheBuryProject.Models.Constants
         public static class ErrorMessages
         {
             public const string VENTA_NO_ENCONTRADA = "Venta no encontrada";
-            public const string VENTA_YA_CANCELADA = "La venta ya est� cancelada";
-            public const string REQUIERE_AUTORIZACION = "La venta requiere autorizaci�n antes de continuar";
-            public const string CREDITO_NO_ENCONTRADO = "Cr�dito no encontrado";
-            public const string CREDITO_INSUFICIENTE = "El monto a financiar (${0:N2}) supera el cr�dito disponible (${1:N2})";
+            public const string VENTA_YA_CANCELADA = "La venta ya está cancelada";
+            public const string REQUIERE_AUTORIZACION = "La venta requiere autorización antes de continuar";
+            public const string CREDITO_NO_ENCONTRADO = "Crédito no encontrado";
+            public const string CREDITO_INSUFICIENTE = "El monto a financiar (${0:N2}) supera el crédito disponible (${1:N2})";
         }
     }
 }
