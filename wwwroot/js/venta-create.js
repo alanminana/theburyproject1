@@ -611,12 +611,6 @@
         return tarjetaInfoCache.find(t => Number(t.id ?? t.Id) === tarjetaId) || null;
     }
 
-    function getTipoCuotaTarjeta(info) {
-        const tipoCuota = getProp(info, 'tipoCuota', 'TipoCuota');
-        const numeric = Number(tipoCuota);
-        return Number.isFinite(numeric) ? numeric : null;
-    }
-
     function getCantidadMaximaCuotasTarjeta(info) {
         return normalizarLimiteCuotas(getProp(info, 'cantidadMaximaCuotas', 'CantidadMaximaCuotas')) || 12;
     }
@@ -1410,7 +1404,7 @@
                     ${renderArmadoLinea(d, i)}
                 </td>
                 <td class="py-4 px-2 text-sm text-center">
-                    <div class="venta-quantity-control" data-quantity-control>
+                    <div class="venta-quantity-control">
                         <button type="button" class="venta-quantity-button" data-quantity-change="-1" data-index="${i}" aria-label="Disminuir cantidad de ${esc(d.nombre)}">−</button>
                         <label class="sr-only" for="detalle-cantidad-${i}">Cantidad de ${esc(d.nombre)}</label>
                         <input id="detalle-cantidad-${i}" class="venta-quantity-input" data-quantity-input data-index="${i}" type="number" min="1" ${atributoMaximo} step="1" inputmode="numeric" value="${d.cantidad}" aria-invalid="false" aria-describedby="detalle-cantidad-error-${i}">
@@ -2810,19 +2804,10 @@
         bannerErrores.classList.toggle('flex', visible);
     }
 
-    function limpiarCampoError(el) {
-        if (!el) return;
-        el.classList.remove('border-red-500', 'ring-1', 'ring-red-500');
-        delete el.dataset.serverError;
-        const sib = el.nextElementSibling;
-        if (sib && sib.classList.contains('venta-server-field-error')) sib.remove();
-    }
-
     function limpiarErroresServidor() {
         toggleBannerErrores(false);
         const list = $('#banner-errores-list');
         if (list) list.replaceChildren();
-        ventaForm?.querySelectorAll('[data-server-error]').forEach(limpiarCampoError);
         ventaForm?.querySelectorAll('.venta-server-field-error').forEach(p => p.remove());
     }
 
