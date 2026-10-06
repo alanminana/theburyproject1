@@ -83,10 +83,8 @@ namespace TheBuryProject.Services.Interfaces
         Task AsociarCreditoAVentaAsync(int ventaId, int creditoId);
         Task<bool> FacturarVentaAsync(int id, FacturaViewModel facturaViewModel);
         Task<int?> AnularFacturaAsync(int facturaId, string motivo);
-        Task<bool> ValidarStockAsync(int ventaId);
 
         // Autorización
-        Task<bool> SolicitarAutorizacionAsync(int id, string usuarioSolicita, string motivo);
         Task<bool> AutorizarVentaAsync(int id, string usuarioAutoriza, string motivo);
         Task<bool> RechazarVentaAsync(int id, string usuarioAutoriza, string motivo);
         Task<bool> RegistrarExcepcionDocumentalAsync(int id, string usuarioAutoriza, string motivo);
@@ -97,7 +95,6 @@ namespace TheBuryProject.Services.Interfaces
         Task<bool> GuardarDatosChequeAsync(int ventaId, DatosChequeViewModel datosCheque);
         Task<DatosTarjetaViewModel> CalcularCuotasTarjetaAsync(int tarjetaId, decimal monto, int cuotas);
         Task<DatosCreditoPersonallViewModel?> ObtenerDatosCreditoVentaAsync(int ventaId);
-        Task<bool> ValidarDisponibilidadCreditoAsync(int creditoId, decimal monto);
 
         CalculoTotalesVentaResponse CalcularTotalesPreview(List<DetalleCalculoVentaRequest> detalles, decimal descuentoGeneral, bool descuentoEsPorcentaje);
         Task<CalculoTotalesVentaResponse> CalcularTotalesPreviewAsync(List<DetalleCalculoVentaRequest> detalles, decimal descuentoGeneral, bool descuentoEsPorcentaje);

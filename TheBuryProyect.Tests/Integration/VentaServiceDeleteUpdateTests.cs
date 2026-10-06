@@ -846,69 +846,6 @@ public class VentaServiceDeleteUpdateTests : IDisposable
     }
 
     // =========================================================================
-    // ValidarDisponibilidadCreditoAsync
-    // =========================================================================
-
-    private async Task<Credito> SeedCreditoAsync(int clienteId, decimal saldo = 5_000m, EstadoCredito estado = EstadoCredito.Activo)
-    {
-        var credito = new Credito
-        {
-            Numero = Guid.NewGuid().ToString("N")[..10],
-            ClienteId = clienteId,
-            Estado = estado,
-            MontoSolicitado = saldo,
-            MontoAprobado = saldo,
-            SaldoPendiente = saldo,
-            TasaInteres = 3m,
-            CantidadCuotas = 12,
-            FechaSolicitud = DateTime.UtcNow
-        };
-        _context.Set<Credito>().Add(credito);
-        await _context.SaveChangesAsync();
-        return credito;
-    }
-
-    [Fact]
-    public async Task ValidarDisponibilidad_SaldoSuficiente_RetornaTrue()
-    {
-        var cliente = await SeedClienteAsync();
-        var credito = await SeedCreditoAsync(cliente.Id, saldo: 5_000m);
-
-        var resultado = await _service.ValidarDisponibilidadCreditoAsync(credito.Id, 3_000m);
-
-        Assert.True(resultado);
-    }
-
-    [Fact]
-    public async Task ValidarDisponibilidad_SaldoInsuficiente_RetornaFalse()
-    {
-        var cliente = await SeedClienteAsync();
-        var credito = await SeedCreditoAsync(cliente.Id, saldo: 1_000m);
-
-        var resultado = await _service.ValidarDisponibilidadCreditoAsync(credito.Id, 5_000m);
-
-        Assert.False(resultado);
-    }
-
-    [Fact]
-    public async Task ValidarDisponibilidad_CreditoInexistente_RetornaFalse()
-    {
-        var resultado = await _service.ValidarDisponibilidadCreditoAsync(99999, 100m);
-        Assert.False(resultado);
-    }
-
-    [Fact]
-    public async Task ValidarDisponibilidad_CreditoNoActivo_RetornaFalse()
-    {
-        var cliente = await SeedClienteAsync();
-        var credito = await SeedCreditoAsync(cliente.Id, saldo: 5_000m, estado: EstadoCredito.Cancelado);
-
-        var resultado = await _service.ValidarDisponibilidadCreditoAsync(credito.Id, 1_000m);
-
-        Assert.False(resultado);
-    }
-
-    // =========================================================================
     // GuardarDatosChequeAsync
     // =========================================================================
 

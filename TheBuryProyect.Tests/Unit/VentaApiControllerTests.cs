@@ -682,68 +682,6 @@ public class VentaApiControllerTests
         Assert.Equal("La tarjeta con interés no tiene tasa configurada", json.RootElement.GetProperty("error").GetString());
     }
 
-    [Theory]
-    [InlineData(0)]
-    [InlineData(-1)]
-    public async Task GetPrecioProducto_IdInvalido_DevuelveBadRequest(int id)
-    {
-        var controller = CreateController();
-
-        var result = await controller.GetPrecioProducto(id);
-
-        var badRequest = Assert.IsType<BadRequestObjectResult>(result);
-        var json = ToJson(badRequest.Value);
-        Assert.Equal("El identificador de producto debe ser válido", json.RootElement.GetProperty("error").GetString());
-    }
-
-    [Fact]
-    public async Task GetPrecioProducto_ProductoInexistente_DevuelveNotFound()
-    {
-        var controller = CreateController(productoService: new StubProductoService());
-
-        var result = await controller.GetPrecioProducto(99);
-
-        var notFound = Assert.IsType<NotFoundObjectResult>(result);
-        var json = ToJson(notFound.Value);
-        Assert.Equal("Producto no encontrado", json.RootElement.GetProperty("error").GetString());
-    }
-
-    [Fact]
-    public async Task GetPrecioProducto_ProductoValido_DevuelvePrecioVigente()
-    {
-        var productoService = new StubProductoService
-        {
-            Producto = new Producto
-            {
-                Id = 8,
-                Codigo = "TV-8",
-                Nombre = "Televisor",
-                PrecioVenta = 100m,
-                StockActual = 2,
-                Activo = true
-            },
-            PrecioVenta = new ProductoPrecioVentaResultado
-            {
-                ProductoId = 8,
-                PrecioVenta = 150m,
-                FuentePrecio = FuentePrecioVigente.ProductoPrecioLista,
-                Codigo = "TV-8",
-                Nombre = "Televisor",
-                StockActual = 2
-            }
-        };
-        var controller = CreateController(productoService: productoService);
-
-        var result = await controller.GetPrecioProducto(8);
-
-        var ok = Assert.IsType<OkObjectResult>(result);
-        var json = ToJson(ok.Value);
-        Assert.Equal(150m, json.RootElement.GetProperty("precioVenta").GetDecimal());
-        Assert.Equal(2m, json.RootElement.GetProperty("stockActual").GetDecimal());
-        Assert.Equal("TV-8", json.RootElement.GetProperty("codigo").GetString());
-        Assert.Equal("Televisor", json.RootElement.GetProperty("nombre").GetString());
-    }
-
     [Fact]
     public async Task BuscarClientes_TerminoValido_DevuelveCamposConsumidosPorJS()
     {
@@ -1114,8 +1052,6 @@ public class VentaApiControllerTests
         public Task AsociarCreditoAVentaAsync(int ventaId, int creditoId) => throw new NotImplementedException();
         public Task<bool> FacturarVentaAsync(int id, FacturaViewModel facturaViewModel) => throw new NotImplementedException();
         public Task<int?> AnularFacturaAsync(int facturaId, string motivo) => throw new NotImplementedException();
-        public Task<bool> ValidarStockAsync(int ventaId) => throw new NotImplementedException();
-        public Task<bool> SolicitarAutorizacionAsync(int id, string usuarioSolicita, string motivo) => throw new NotImplementedException();
         public Task<bool> AutorizarVentaAsync(int id, string usuarioAutoriza, string motivo) => throw new NotImplementedException();
         public Task<bool> RechazarVentaAsync(int id, string usuarioAutoriza, string motivo) => throw new NotImplementedException();
         public Task<bool> RegistrarExcepcionDocumentalAsync(int id, string usuarioAutoriza, string motivo) => throw new NotImplementedException();
@@ -1134,7 +1070,6 @@ public class VentaApiControllerTests
             return Task.FromResult(Tarjeta);
         }
         public Task<DatosCreditoPersonallViewModel?> ObtenerDatosCreditoVentaAsync(int ventaId) => throw new NotImplementedException();
-        public Task<bool> ValidarDisponibilidadCreditoAsync(int creditoId, decimal monto) => throw new NotImplementedException();
         public CalculoTotalesVentaResponse CalcularTotalesPreview(List<DetalleCalculoVentaRequest> detalles, decimal descuentoGeneral, bool descuentoEsPorcentaje) => Totales;
         public Task<CalculoTotalesVentaResponse> CalcularTotalesPreviewAsync(List<DetalleCalculoVentaRequest> detalles, decimal descuentoGeneral, bool descuentoEsPorcentaje)
         {

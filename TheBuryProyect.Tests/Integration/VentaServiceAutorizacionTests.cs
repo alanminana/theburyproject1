@@ -15,8 +15,7 @@ namespace TheBuryProject.Tests.Integration;
 
 /// <summary>
 /// Tests de integración para los flujos de autorización de VentaService:
-/// SolicitarAutorizacionAsync, AutorizarVentaAsync, RechazarVentaAsync
-/// y ValidarStockAsync.
+/// AutorizarVentaAsync y RechazarVentaAsync.
 /// No requieren caja abierta ni configuración de precios — sólo contexto + entidades.
 /// </summary>
 public class VentaServiceAutorizacionTests : IDisposable
@@ -197,34 +196,6 @@ public class VentaServiceAutorizacionTests : IDisposable
         _context.Set<Venta>().Add(venta);
         await _context.SaveChangesAsync();
         return venta;
-    }
-
-    // -------------------------------------------------------------------------
-    // SolicitarAutorizacionAsync
-    // -------------------------------------------------------------------------
-
-    [Fact]
-    public async Task SolicitarAutorizacion_VentaExistente_MarcaPendienteAutorizacion()
-    {
-        var cliente = await SeedClienteAsync();
-        var venta = await SeedVentaAsync(cliente.Id);
-
-        var resultado = await _service.SolicitarAutorizacionAsync(
-            venta.Id, "supervisor1", "Precio fuera de rango");
-
-        Assert.True(resultado);
-        var ventaBd = await _context.Set<Venta>().FirstAsync(v => v.Id == venta.Id);
-        Assert.True(ventaBd.RequiereAutorizacion);
-        Assert.Equal(EstadoAutorizacionVenta.PendienteAutorizacion, ventaBd.EstadoAutorizacion);
-        Assert.Equal("supervisor1", ventaBd.UsuarioSolicita);
-    }
-
-    [Fact]
-    public async Task SolicitarAutorizacion_VentaNoExiste_RetornaFalse()
-    {
-        var resultado = await _service.SolicitarAutorizacionAsync(
-            99999, "supervisor1", "Motivo");
-        Assert.False(resultado);
     }
 
     // -------------------------------------------------------------------------
@@ -484,43 +455,6 @@ public class VentaServiceAutorizacionTests : IDisposable
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.RechazarVentaAsync(venta.Id, "gerente1", "Motivo"));
-    }
-
-    // -------------------------------------------------------------------------
-    // ValidarStockAsync
-    // -------------------------------------------------------------------------
-
-    [Fact]
-    public async Task ValidarStock_StockSuficiente_ReturnsTrue()
-    {
-        var cliente = await SeedClienteAsync();
-        var producto = await SeedProductoAsync(stockActual: 50m);
-        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, cantidad: 5,
-            estadoAutorizacion: EstadoAutorizacionVenta.NoRequiere);
-
-        var resultado = await _service.ValidarStockAsync(venta.Id);
-
-        Assert.True(resultado);
-    }
-
-    [Fact]
-    public async Task ValidarStock_StockInsuficiente_ReturnsFalse()
-    {
-        var cliente = await SeedClienteAsync();
-        var producto = await SeedProductoAsync(stockActual: 2m); // solo 2 en stock
-        var venta = await SeedVentaConDetalleAsync(cliente.Id, producto.Id, cantidad: 10,
-            estadoAutorizacion: EstadoAutorizacionVenta.NoRequiere);
-
-        var resultado = await _service.ValidarStockAsync(venta.Id);
-
-        Assert.False(resultado);
-    }
-
-    [Fact]
-    public async Task ValidarStock_VentaNoExiste_ReturnsFalse()
-    {
-        var resultado = await _service.ValidarStockAsync(99999);
-        Assert.False(resultado);
     }
 
     // -------------------------------------------------------------------------

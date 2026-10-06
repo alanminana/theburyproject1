@@ -388,22 +388,6 @@ namespace TheBuryProject.Helpers
                 .ForMember(d => d.Venta, o => o.Ignore());
 
             // =======================
-            // VentaCreditoCuota
-            // =======================
-            CreateMap<VentaCreditoCuota, VentaCreditoCuotaViewModel>();
-
-            CreateMap<VentaCreditoCuotaViewModel, VentaCreditoCuota>()
-                .ForMember(d => d.Venta, o => o.Ignore())
-                .ForMember(d => d.Credito, o => o.Ignore());
-
-            // =======================
-            // DatosCreditoPersonal
-            // =======================
-            CreateMap<DatosCreditoPersonallViewModel, VentaCreditoCuota>()
-                .ForMember(d => d.Venta, o => o.Ignore())
-                .ForMember(d => d.Credito, o => o.Ignore());
-
-            // =======================
             // DocumentoCliente
             // =======================
             CreateMap<DocumentoCliente, DocumentoClienteViewModel>()
