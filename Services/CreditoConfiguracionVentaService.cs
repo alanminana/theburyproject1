@@ -109,6 +109,9 @@ public sealed class CreditoConfiguracionVentaService : ICreditoConfiguracionVent
                 motivo: MotivoRechazoConfiguracionCredito.Conflicto);
         }
 
+        // Plan de la cantidad de cuotas pedida (lookup puro; null si no esta habilitada).
+        var planSeleccionado = planesVenta.BuscarPlan(modelo.CantidadCuotas);
+
         // La fuente Manual solo es legitima con el metodo Manual: de lo contrario un POST podria
         // declarar Manual para que se acepte la tasa que envia el navegador.
         var fuenteManualValida = modelo.FuenteConfiguracion == FuenteConfiguracionCredito.Manual &&
@@ -136,7 +139,7 @@ public sealed class CreditoConfiguracionVentaService : ICreditoConfiguracionVent
                 // el porcentaje sale siempre del plan de cuotas resuelto, igual que en la rama global.
                 tasaMensual = planesVenta.RigeConfiguracionUnicaGlobal
                     ? tasaGlobal.Value
-                    : planesVenta.BuscarPlan(modelo.CantidadCuotas)?.TasaMensual;
+                    : planSeleccionado?.TasaMensual;
                 gastosAdministrativos = modelo.GastosAdministrativos ?? parametrosCliente.GastosAdministrativos;
                 _logger.LogInformation(
                     "Crédito {CreditoId}: Usando configuración del cliente {ClienteId} - Tasa: {Tasa}%, Gastos: ${Gastos}",
@@ -157,7 +160,7 @@ public sealed class CreditoConfiguracionVentaService : ICreditoConfiguracionVent
                     // el fallback al recargo global legacy cuando la fila global no tiene porcentaje
                     // propio. Si aun asi es null, es porque no hay fila global para esa cantidad (o
                     // tampoco hay recargo legacy configurado): configuracion invalida de verdad.
-                    tasaMensual = planesVenta.BuscarPlan(modelo.CantidadCuotas)?.TasaMensual;
+                    tasaMensual = planSeleccionado?.TasaMensual;
                 }
 
                 gastosAdministrativos = modelo.GastosAdministrativos ?? 0m;
@@ -184,7 +187,7 @@ public sealed class CreditoConfiguracionVentaService : ICreditoConfiguracionVent
             // plan no resuelva nada (ni porcentaje propio ni recargo legacy configurado).
             tasaMensual = planesVenta.RigeConfiguracionUnicaGlobal
                 ? tasaMensual
-                : planesVenta.BuscarPlan(modelo.CantidadCuotas)?.TasaMensual;
+                : planSeleccionado?.TasaMensual;
 
             _logger.LogInformation(
                 "Crédito {CreditoId}: Configuración manual - Tasa: {Tasa}%, Gastos: ${Gastos}",
@@ -215,36 +218,10 @@ public sealed class CreditoConfiguracionVentaService : ICreditoConfiguracionVent
         cuotasMinPermitidas = rangoEfectivo.Min;
         cuotasMaxPermitidas = rangoEfectivo.Max;
 
-        // Gate de planes: la cantidad debe pertenecer a la interseccion real de los productos.
-        // Se aplica a todos los metodos de calculo, incluido el Manual, y ANTES del rango min/max:
-        // cuando rige una tabla de planes el conjunto discreto manda sobre el intervalo continuo,
-        // y el rechazo es siempre "cuota no disponible para estos productos" (conflicto).
-        if (!planesVenta.RigeConfiguracionUnicaGlobal &&
-            planesVenta.BuscarPlan(modelo.CantidadCuotas) is null)
+        var errorPlan = ValidarPlanSeleccionado(modelo, planesVenta, planSeleccionado, rangoEfectivo);
+        if (errorPlan is not null)
         {
-            var habilitadas = string.Join(", ", planesVenta.Planes.Select(p => p.CantidadCuotas));
-            return CreditoConfiguracionVentaResultado.Invalido(
-                nameof(modelo.CantidadCuotas),
-                $"La cantidad de cuotas {modelo.CantidadCuotas} no esta habilitada para Credito personal " +
-                $"con los productos de esta venta. Cantidades disponibles: {habilitadas}.",
-                rangoEfectivo,
-                MotivoRechazoConfiguracionCredito.Conflicto);
-        }
-
-        // Un plan activo sin porcentaje resuelto (ni propio ni heredado del recargo global legacy —
-        // BuscarPlan ya intento ambos en ConfiguracionPagoService) es configuracion invalida, nunca
-        // "0% silencioso". Se valida el plan en si (no la variable tasaMensual ya resuelta arriba)
-        // para cubrir los tres metodos de calculo por igual.
-        if (!planesVenta.RigeConfiguracionUnicaGlobal &&
-            planesVenta.BuscarPlan(modelo.CantidadCuotas)!.TasaMensual is null)
-        {
-            return CreditoConfiguracionVentaResultado.Invalido(
-                nameof(modelo.CantidadCuotas),
-                $"El plan de cuotas para {modelo.CantidadCuotas} cuotas no tiene un porcentaje financiero " +
-                "configurado (ni propio ni recargo global legacy). Configure alguno de los dos en " +
-                "Administracion -> Credito Personal antes de financiar con esta cantidad.",
-                rangoEfectivo,
-                MotivoRechazoConfiguracionCredito.Conflicto);
+            return errorPlan;
         }
 
         if (modelo.CantidadCuotas < cuotasMinPermitidas || modelo.CantidadCuotas > cuotasMaxPermitidas)
@@ -317,6 +294,80 @@ public sealed class CreditoConfiguracionVentaService : ICreditoConfiguracionVent
         // Normaliza a la forma canónica del diccionario (respeta acentos/mayúsculas esperados).
         var canonico = MediosPagoPrimeraCuota.First(m => string.Equals(m, medio, StringComparison.OrdinalIgnoreCase));
         return (true, canonico);
+    }
+
+    /// <summary>
+    /// Gates sobre el plan de la cantidad de cuotas pedida. Devuelve null si el plan es utilizable.
+    /// </summary>
+    private static CreditoConfiguracionVentaResultado? ValidarPlanSeleccionado(
+        ConfiguracionCreditoVentaViewModel modelo,
+        PlanesCreditoPersonalResultado planesVenta,
+        PlanCuotaCreditoPersonal? planSeleccionado,
+        CreditoRangoProductoResultado rangoEfectivo)
+    {
+        // Gate de planes: la cantidad debe pertenecer a la interseccion real de los productos.
+
+        // Se aplica a todos los metodos de calculo, incluido el Manual, y ANTES del rango min/max:
+
+        // cuando rige una tabla de planes el conjunto discreto manda sobre el intervalo continuo,
+
+        // y el rechazo es siempre "cuota no disponible para estos productos" (conflicto).
+
+        if (!planesVenta.RigeConfiguracionUnicaGlobal &&
+
+            planSeleccionado is null)
+
+        {
+
+            var habilitadas = string.Join(", ", planesVenta.Planes.Select(p => p.CantidadCuotas));
+
+            return CreditoConfiguracionVentaResultado.Invalido(
+
+                nameof(modelo.CantidadCuotas),
+
+                $"La cantidad de cuotas {modelo.CantidadCuotas} no esta habilitada para Credito personal " +
+
+                $"con los productos de esta venta. Cantidades disponibles: {habilitadas}.",
+
+                rangoEfectivo,
+
+                MotivoRechazoConfiguracionCredito.Conflicto);
+
+        }
+
+
+
+        // Un plan activo sin porcentaje resuelto (ni propio ni heredado del recargo global legacy —
+
+        // BuscarPlan ya intento ambos en ConfiguracionPagoService) es configuracion invalida, nunca
+
+        // "0% silencioso". Se valida el plan en si (no la variable tasaMensual ya resuelta arriba)
+
+        // para cubrir los tres metodos de calculo por igual.
+
+        if (!planesVenta.RigeConfiguracionUnicaGlobal &&
+
+            planSeleccionado!.TasaMensual is null)
+
+        {
+
+            return CreditoConfiguracionVentaResultado.Invalido(
+
+                nameof(modelo.CantidadCuotas),
+
+                $"El plan de cuotas para {modelo.CantidadCuotas} cuotas no tiene un porcentaje financiero " +
+
+                "configurado (ni propio ni recargo global legacy). Configure alguno de los dos en " +
+
+                "Administracion -> Credito Personal antes de financiar con esta cantidad.",
+
+                rangoEfectivo,
+
+                MotivoRechazoConfiguracionCredito.Conflicto);
+
+        }
+
+        return null;
     }
 
     private async Task<CreditoRangoProductoResultado> ResolverRangoCreditoProductoAsync(
