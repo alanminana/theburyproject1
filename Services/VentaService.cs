@@ -474,19 +474,7 @@ namespace TheBuryProject.Services
                 venta.FechaAutorizacion = fechaAutorizacion;
                 venta.MotivoAutorizacion =
                     $"EXCEPCION_DOC|{fechaAutorizacion:O}|{usuarioActual}|{validacion.MotivoExcepcionDocumentalAutorizada}";
-                // PUN-ML10-F: se agrega Unidad/MontoAsociado/DiasAsociado al snapshot de auditoría
-                // (aditivo — nadie deserializa este JSON de vuelta a un tipo fuerte hoy) para que el
-                // registro conserve con qué unidad se mostró/decidió la razón, sin perder Tipo.
-                venta.RazonesAutorizacionJson = System.Text.Json.JsonSerializer.Serialize(
-                    validacion.RazonesAutorizacion.Select(r => new
-                    {
-                        r.Tipo,
-                        r.Descripcion,
-                        r.DetalleAdicional,
-                        r.Unidad,
-                        r.MontoAsociado,
-                        r.DiasAsociado
-                    }));
+                venta.RazonesAutorizacionJson = SerializarRazonesAutorizacion(validacion);
 
                 _logger.LogWarning(
                     "Venta autorizada al registrar excepción documental. Usuario:{Usuario} Razones:{Razones}",
@@ -500,19 +488,7 @@ namespace TheBuryProject.Services
                 venta.Estado = EstadoVenta.PendienteFinanciacion; // También PendienteFinanciacion
                 venta.EstadoAutorizacion = EstadoAutorizacionVenta.PendienteAutorizacion;
                 venta.FechaSolicitudAutorizacion = DateTime.UtcNow;
-                // PUN-ML10-F: se agrega Unidad/MontoAsociado/DiasAsociado al snapshot de auditoría
-                // (aditivo — nadie deserializa este JSON de vuelta a un tipo fuerte hoy) para que el
-                // registro conserve con qué unidad se mostró/decidió la razón, sin perder Tipo.
-                venta.RazonesAutorizacionJson = System.Text.Json.JsonSerializer.Serialize(
-                    validacion.RazonesAutorizacion.Select(r => new
-                    {
-                        r.Tipo,
-                        r.Descripcion,
-                        r.DetalleAdicional,
-                        r.Unidad,
-                        r.MontoAsociado,
-                        r.DiasAsociado
-                    }));
+                venta.RazonesAutorizacionJson = SerializarRazonesAutorizacion(validacion);
 
                 _logger.LogInformation(
                     "Venta requiere autorización. Razones: {Razones}",
@@ -930,8 +906,7 @@ namespace TheBuryProject.Services
                     venta.Detalles.Count(d => !d.IsDeleted));
 
                 // Guard: medios que requieren snapshot de datos de pago (Fase 7.1)
-                if ((venta.TipoPago is TipoPago.TarjetaCredito or TipoPago.TarjetaDebito or TipoPago.MercadoPago)
-                    && venta.DatosTarjeta == null)
+                if (TipoPagoRequiereDatosTarjeta(venta.TipoPago) && venta.DatosTarjeta == null)
                 {
                     throw new InvalidOperationException(
                         $"No se puede confirmar la venta: el medio de pago '{venta.TipoPago}' requiere datos de tarjeta y no han sido completados.");
@@ -1727,13 +1702,8 @@ namespace TheBuryProject.Services
             // salvo que además tenga el permiso ventas.authorize (segundo control ya cubierto por el permiso).
             // CreatedBy (interceptor de auditoría) es la fuente confiable del creador;
             // UsuarioSolicita queda null en el flujo real y no sirve para esta validación.
-            if (!string.IsNullOrWhiteSpace(venta.CreatedBy) &&
-                string.Equals(venta.CreatedBy, usuarioAutoriza, StringComparison.OrdinalIgnoreCase) &&
-                !_currentUserService.HasPermission("ventas", "authorize"))
-            {
-                throw new InvalidOperationException(
-                    "La venta debe ser autorizada por un usuario distinto al que la creó.");
-            }
+            ValidarCreadorDistintoDeQuienAutoriza(venta, usuarioAutoriza,
+                "La venta debe ser autorizada por un usuario distinto al que la creó.");
 
             // E3: Registrar auditoría completa
             venta.EstadoAutorizacion = EstadoAutorizacionVenta.Autorizada;
@@ -1790,13 +1760,8 @@ namespace TheBuryProject.Services
             // FASE 5F/5G: el usuario que creó la venta no puede registrar la excepción documental,
             // salvo que además tenga el permiso ventas.authorize.
             // Mismo criterio que AutorizarVentaAsync (CreatedBy es la fuente confiable del creador).
-            if (!string.IsNullOrWhiteSpace(venta.CreatedBy) &&
-                string.Equals(venta.CreatedBy, usuarioAutoriza, StringComparison.OrdinalIgnoreCase) &&
-                !_currentUserService.HasPermission("ventas", "authorize"))
-            {
-                throw new InvalidOperationException(
-                    "La excepción documental debe ser registrada por un usuario distinto al que creó la venta.");
-            }
+            ValidarCreadorDistintoDeQuienAutoriza(venta, usuarioAutoriza,
+                "La excepción documental debe ser registrada por un usuario distinto al que creó la venta.");
 
             var fechaUtc = DateTime.UtcNow;
             var motivoNormalizado = motivo.Trim();
@@ -2055,7 +2020,7 @@ namespace TheBuryProject.Services
             TipoPago tipoPagoVenta,
             int? configuracionTarjetaId)
         {
-            if (!TiposPagoConPlanes.Contains(tipoPagoVenta))
+            if (!TipoPagoRequiereDatosTarjeta(tipoPagoVenta))
             {
                 if (planId.HasValue)
                     throw new InvalidOperationException("El medio de pago elegido no admite plan global.");
@@ -2310,13 +2275,6 @@ namespace TheBuryProject.Services
                 : $"{plan.CantidadCuotas} cuotas";
         }
 
-        private static readonly TipoPago[] TiposPagoConPlanes =
-        {
-            TipoPago.TarjetaCredito,
-            TipoPago.TarjetaDebito,
-            TipoPago.MercadoPago
-        };
-
         private async Task<ProductoCondicionPagoPlan> ValidarYObtenerPlanPagoAsync(int planId, TipoPago tipoPagoVenta)
         {
             var plan = await _context.ProductoCondicionPagoPlanes
@@ -2330,7 +2288,7 @@ namespace TheBuryProject.Services
             if (!plan.Activo)
                 throw new InvalidOperationException("El plan de pago seleccionado no está disponible.");
 
-            if (!TiposPagoConPlanes.Contains(plan.ProductoCondicionPago.TipoPago))
+            if (!TipoPagoRequiereDatosTarjeta(plan.ProductoCondicionPago.TipoPago))
                 throw new InvalidOperationException("El plan seleccionado no corresponde a un medio de pago de tarjeta.");
 
             if (plan.ProductoCondicionPago.TipoPago != tipoPagoVenta)
@@ -3263,15 +3221,7 @@ namespace TheBuryProject.Services
             {
                 var subtotalFinal = RedondearMoneda(CalcularSubtotalLineaConDescuento(detalle.PrecioUnitario, detalle.Cantidad, detalle.Descuento));
                 var ivaSnapshot = ResolverSnapshotIvaPreview(detalle.ProductoId, productos);
-                var subtotalNeto = subtotalFinal;
-                var subtotalIva = 0m;
-
-                if (ivaSnapshot.Porcentaje > 0m)
-                {
-                    var divisor = 1m + (ivaSnapshot.Porcentaje / 100m);
-                    subtotalNeto = RedondearMoneda(subtotalFinal / divisor);
-                    subtotalIva = RedondearMoneda(subtotalFinal - subtotalNeto);
-                }
+                var (subtotalNeto, subtotalIva) = SepararNetoIva(subtotalFinal, ivaSnapshot.Porcentaje);
 
                 var armadoPrecio = 0m;
                 if (detalle.TipoArmado.HasValue)
@@ -3367,23 +3317,22 @@ namespace TheBuryProject.Services
             var precioFinal = RedondearMoneda(detalle.PrecioUnitario);
             var subtotalFinal = RedondearMoneda(detalle.Subtotal);
 
-            if (porcentaje <= 0m)
-            {
-                detalle.PrecioUnitarioNeto = precioFinal;
-                detalle.IVAUnitario = 0m;
-                detalle.SubtotalNeto = subtotalFinal;
-                detalle.SubtotalIVA = 0m;
-                return;
-            }
-
-            var divisor = 1m + (porcentaje / 100m);
-            detalle.PrecioUnitarioNeto = RedondearMoneda(precioFinal / divisor);
-            detalle.IVAUnitario = RedondearMoneda(precioFinal - detalle.PrecioUnitarioNeto);
-            detalle.SubtotalNeto = RedondearMoneda(subtotalFinal / divisor);
-            detalle.SubtotalIVA = RedondearMoneda(subtotalFinal - detalle.SubtotalNeto);
+            (detalle.PrecioUnitarioNeto, detalle.IVAUnitario) = SepararNetoIva(precioFinal, porcentaje);
+            (detalle.SubtotalNeto, detalle.SubtotalIVA) = SepararNetoIva(subtotalFinal, porcentaje);
         }
 
-        private static decimal AplicarProrrateoDescuentoGeneral(List<VentaDetalle> detalles, decimal descuentoGeneral)
+        /// <summary>Separa un importe con IVA incluido en (neto, iva). Con alícuota 0 todo es neto.</summary>
+        private static (decimal Neto, decimal Iva) SepararNetoIva(decimal bruto, decimal porcentajeIva)
+        {
+            if (porcentajeIva <= 0m)
+                return (bruto, 0m);
+
+            var neto = RedondearMoneda(bruto / (1m + (porcentajeIva / 100m)));
+            return (neto, RedondearMoneda(bruto - neto));
+        }
+
+        private static decimal AplicarProrrateoDescuentoGeneral<T>(List<T> detalles, decimal descuentoGeneral)
+            where T : class, ILineaConIvaProrrateable
         {
             var totalBruto = detalles.Sum(d => d.Subtotal);
             var descuento = totalBruto > 0m
@@ -3424,73 +3373,10 @@ namespace TheBuryProject.Services
             return descuento;
         }
 
-        private static decimal AplicarProrrateoDescuentoGeneral(List<DetalleCalculoTotalesVentaResponse> detalles, decimal descuentoGeneral)
+        private static void AplicarMontosFinalesIva(ILineaConIvaProrrateable detalle)
         {
-            var totalBruto = detalles.Sum(d => d.Subtotal);
-            var descuento = totalBruto > 0m
-                ? RedondearMoneda(Math.Min(Math.Max(0m, descuentoGeneral), totalBruto))
-                : 0m;
-
-            if (descuento <= 0m || totalBruto <= 0m)
-            {
-                foreach (var detalle in detalles)
-                {
-                    detalle.DescuentoGeneralProrrateado = 0m;
-                    detalle.SubtotalFinalNeto = detalle.SubtotalNeto;
-                    detalle.SubtotalFinalIVA = detalle.SubtotalIVA;
-                    detalle.SubtotalFinal = detalle.Subtotal;
-                }
-
-                return 0m;
-            }
-
-            foreach (var detalle in detalles)
-            {
-                detalle.DescuentoGeneralProrrateado = RedondearMoneda(descuento * detalle.Subtotal / totalBruto);
-            }
-
-            AjustarDiferenciaProrrateo(
-                detalles,
-                descuento,
-                d => d.Subtotal,
-                d => d.DescuentoGeneralProrrateado,
-                (d, value) => d.DescuentoGeneralProrrateado = value);
-
-            foreach (var detalle in detalles)
-            {
-                detalle.SubtotalFinal = RedondearMoneda(Math.Max(0m, detalle.Subtotal - detalle.DescuentoGeneralProrrateado));
-                AplicarMontosFinalesIva(detalle);
-            }
-
-            return descuento;
-        }
-
-        private static void AplicarMontosFinalesIva(VentaDetalle detalle)
-        {
-            if (detalle.PorcentajeIVA <= 0m)
-            {
-                detalle.SubtotalFinalNeto = detalle.SubtotalFinal;
-                detalle.SubtotalFinalIVA = 0m;
-                return;
-            }
-
-            var divisor = 1m + (detalle.PorcentajeIVA / 100m);
-            detalle.SubtotalFinalNeto = RedondearMoneda(detalle.SubtotalFinal / divisor);
-            detalle.SubtotalFinalIVA = RedondearMoneda(detalle.SubtotalFinal - detalle.SubtotalFinalNeto);
-        }
-
-        private static void AplicarMontosFinalesIva(DetalleCalculoTotalesVentaResponse detalle)
-        {
-            if (detalle.PorcentajeIVA <= 0m)
-            {
-                detalle.SubtotalFinalNeto = detalle.SubtotalFinal;
-                detalle.SubtotalFinalIVA = 0m;
-                return;
-            }
-
-            var divisor = 1m + (detalle.PorcentajeIVA / 100m);
-            detalle.SubtotalFinalNeto = RedondearMoneda(detalle.SubtotalFinal / divisor);
-            detalle.SubtotalFinalIVA = RedondearMoneda(detalle.SubtotalFinal - detalle.SubtotalFinalNeto);
+            (detalle.SubtotalFinalNeto, detalle.SubtotalFinalIVA) =
+                SepararNetoIva(detalle.SubtotalFinal, detalle.PorcentajeIVA);
         }
 
         private static void AjustarDiferenciaProrrateo<T>(
@@ -3808,6 +3694,33 @@ namespace TheBuryProject.Services
             await _alertaStockService.VerificarYGenerarAlertasAsync(productoIds);
         }
 
+        // PUN-ML10-F: se agrega Unidad/MontoAsociado/DiasAsociado al snapshot de auditoría
+        // (aditivo — nadie deserializa este JSON de vuelta a un tipo fuerte hoy) para que el
+        // registro conserve con qué unidad se mostró/decidió la razón, sin perder Tipo.
+        private static string SerializarRazonesAutorizacion(ValidacionVentaResult validacion) =>
+            System.Text.Json.JsonSerializer.Serialize(
+                validacion.RazonesAutorizacion.Select(r => new
+                {
+                    r.Tipo,
+                    r.Descripcion,
+                    r.DetalleAdicional,
+                    r.Unidad,
+                    r.MontoAsociado,
+                    r.DiasAsociado
+                }));
+
+        // CreatedBy (interceptor de auditoría) es la fuente confiable del creador. El creador sólo puede
+        // autorizar si además tiene el permiso ventas.authorize.
+        private void ValidarCreadorDistintoDeQuienAutoriza(Venta venta, string usuarioAutoriza, string mensaje)
+        {
+            if (!string.IsNullOrWhiteSpace(venta.CreatedBy) &&
+                string.Equals(venta.CreatedBy, usuarioAutoriza, StringComparison.OrdinalIgnoreCase) &&
+                !_currentUserService.HasPermission("ventas", "authorize"))
+            {
+                throw new InvalidOperationException(mensaje);
+            }
+        }
+
         private async Task VerificarAutorizacionSiCorrespondeAsync(Venta venta, VentaViewModel viewModel)
         {
             if (viewModel.TipoPago == TipoPago.CreditoPersonal)
@@ -3831,10 +3744,7 @@ namespace TheBuryProject.Services
 
         private async Task GuardarDatosAdicionales(int ventaId, VentaViewModel viewModel)
         {
-            if (viewModel.DatosTarjeta != null &&
-                (viewModel.TipoPago == TipoPago.TarjetaCredito ||
-                 viewModel.TipoPago == TipoPago.TarjetaDebito ||
-                 viewModel.TipoPago == TipoPago.MercadoPago))
+            if (viewModel.DatosTarjeta != null && TipoPagoRequiereDatosTarjeta(viewModel.TipoPago))
             {
                 await GuardarDatosTarjetaAsync(ventaId, viewModel.DatosTarjeta);
             }

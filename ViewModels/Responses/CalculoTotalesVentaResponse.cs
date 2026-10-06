@@ -1,3 +1,5 @@
+using TheBuryProject.Models.Entities;
+
 namespace TheBuryProject.ViewModels.Responses
 {
     public class CalculoTotalesVentaResponse
@@ -48,7 +50,7 @@ namespace TheBuryProject.ViewModels.Responses
         public decimal ImporteEnvio { get; set; }
     }
 
-    public class DetalleCalculoTotalesVentaResponse
+    public class DetalleCalculoTotalesVentaResponse : ILineaConIvaProrrateable
     {
         public int ProductoId { get; set; }
 
