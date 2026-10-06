@@ -11,7 +11,6 @@ namespace TheBuryProject.Models.Constants
         /// </summary>
         public const decimal IVA_DIVISOR = 1.21m;
         
-        public const int DIAS_VENCIMIENTO_ALERTA = 30;
         public const string PREFIJO_COTIZACION = "COT";
         public const string PREFIJO_VENTA = "VTA";
         public const string FORMATO_NUMERO_VENTA = "{0}-{1}-{2:D6}";
@@ -31,9 +30,6 @@ namespace TheBuryProject.Models.Constants
         {
             public const string VENTA_NO_ENCONTRADA = "Venta no encontrada";
             public const string VENTA_YA_CANCELADA = "La venta ya está cancelada";
-            public const string REQUIERE_AUTORIZACION = "La venta requiere autorización antes de continuar";
-            public const string CREDITO_NO_ENCONTRADO = "Crédito no encontrado";
-            public const string CREDITO_INSUFICIENTE = "El monto a financiar (${0:N2}) supera el crédito disponible (${1:N2})";
         }
     }
 }

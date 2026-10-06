@@ -150,35 +150,9 @@ namespace TheBuryProject.ViewModels
         public decimal RecargoDebitoAplicado { get; set; }
 
         // Datos de financiamiento
-        [Display(Name = "Venta financiada")]
-        public bool EsFinanciada { get; set; }
-
         [Display(Name = "Anticipo"), DataType(DataType.Currency)]
         [Range(0, double.MaxValue, ErrorMessage = "El anticipo no puede ser negativo")]
         public decimal? Anticipo { get; set; }
-
-        [Display(Name = "Tasa mensual (%)")]
-        [Range(0, 100, ErrorMessage = "La tasa debe estar entre 0% y 100%")]
-        public decimal? TasaInteresMensualFinanciacion { get; set; }
-
-        [Display(Name = "Cantidad de cuotas")]
-        [Range(1, 120, ErrorMessage = "Las cuotas deben estar entre 1 y 120")]
-        public int? CantidadCuotasFinanciacion { get; set; }
-
-        [Display(Name = "Monto financiado estimado"), DataType(DataType.Currency)]
-        public decimal? MontoFinanciadoEstimado { get; set; }
-
-        [Display(Name = "Cuota estimada"), DataType(DataType.Currency)]
-        public decimal? CuotaEstimada { get; set; }
-
-        [Display(Name = "Ingreso neto declarado"), DataType(DataType.Currency)]
-        public decimal? IngresoNetoDeclarado { get; set; }
-
-        [Display(Name = "Otras deudas declaradas"), DataType(DataType.Currency)]
-        public decimal? EndeudamientoDeclarado { get; set; }
-
-        [Display(Name = "Antigüedad laboral (meses)")]
-        public int? AntiguedadLaboralMeses { get; set; }
 
         public DateTime CreatedAt { get; set; }
 
@@ -228,23 +202,6 @@ namespace TheBuryProject.ViewModels
             EstadoAutorizacionVenta.Autorizada => "Autorizada",
             EstadoAutorizacionVenta.Rechazada => "Rechazada",
             _ => EstadoAutorizacion.ToString()
-        };
-
-        public string EstadoAutorizacionBadgeClass => EstadoAutorizacion switch
-        {
-            EstadoAutorizacionVenta.NoRequiere => "badge bg-dark text-light",
-            EstadoAutorizacionVenta.PendienteAutorizacion => "badge bg-warning text-dark",
-            EstadoAutorizacionVenta.Autorizada => "badge bg-success",
-            EstadoAutorizacionVenta.Rechazada => "badge bg-danger",
-            _ => "badge bg-secondary"
-        };
-
-        public string EstadoAutorizacionIconClass => EstadoAutorizacion switch
-        {
-            EstadoAutorizacionVenta.PendienteAutorizacion => "bi bi-hourglass-split",
-            EstadoAutorizacionVenta.Autorizada => "bi bi-check-circle",
-            EstadoAutorizacionVenta.Rechazada => "bi bi-x-circle",
-            _ => string.Empty
         };
 
         #endregion
@@ -338,11 +295,6 @@ namespace TheBuryProject.ViewModels
         }
 
         /// <summary>
-        /// Indica si la venta está en estado PendienteFinanciacion (crédito personal sin configurar)
-        /// </summary>
-        public bool EsPendienteFinanciacion => Estado == EstadoVenta.PendienteFinanciacion;
-
-        /// <summary>
         /// Muestra botón "Configurar Crédito" si:
         /// - Es crédito personal Y
         /// - Está en PendienteFinanciacion O tiene crédito PendienteConfiguracion
@@ -378,19 +330,6 @@ namespace TheBuryProject.ViewModels
 
         public bool PuedeCrearDevolucion =>
             Estado == EstadoVenta.Confirmada || Estado == EstadoVenta.Facturada || Estado == EstadoVenta.Entregada;
-
-        public bool DebeAlertarAutorizacionPendiente =>
-            RequiereAutorizacion && EstadoAutorizacion == EstadoAutorizacionVenta.PendienteAutorizacion;
-
-        public bool FueRechazada => EstadoAutorizacion == EstadoAutorizacionVenta.Rechazada;
-
-        public bool TieneRequisitosPendientes => Estado == EstadoVenta.PendienteRequisitos;
-
-        /// <summary>
-        /// La venta tiene un envío registrado (fila VentaEnvio persistida), distinto de
-        /// TieneEnvio (el checkbox del formulario antes de guardar).
-        /// </summary>
-        public bool TieneEnvioRegistrado => Envio != null;
 
         // Montos derivados en backend (fórmula única en VentaMontos): Total = productos; el envío es
         // un concepto separado; TotalACobrar = lo que el cliente entrega; TotalFacturable = lo que cubre
