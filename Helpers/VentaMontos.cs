@@ -1,20 +1,20 @@
 namespace TheBuryProject.Helpers
 {
     /// <summary>
-    /// Fórmula única (backend) que separa los montos de una venta con envío a domicilio:
+    /// Fórmula única (backend) de los montos de una venta con envío a domicilio. Hay dos modelos:
     ///
     /// <list type="bullet">
-    /// <item><b>TotalProductos</b> = <c>Venta.Total</c>: ítems + descuentos + recargos/ajustes del medio de
-    /// pago. No incluye el envío.</item>
-    /// <item><b>ImporteEnvio</b> = <c>VentaEnvio.CostoEnvio</c> (único campo que guarda el importe; nunca
-    /// negativo). Es un concepto separado: no forma parte del precio unitario, no lleva IVA en esta capa
-    /// y no recibe recargos del medio de pago.</item>
-    /// <item><b>TotalACobrar</b> = TotalProductos + ImporteEnvio: lo que el cliente debe entregar.</item>
-    /// <item><b>TotalFacturable</b>: lo que hoy cubre el comprobante (<c>Factura.Total = Venta.Total</c>).
-    /// El envío no está en ningún cálculo fiscal del sistema (sin línea, alícuota ni configuración), así
-    /// que no se factura; la diferencia con TotalACobrar queda explícita en vez de mezclarse en silencio.
-    /// Si el criterio fiscal cambia, es el único punto a modificar.</item>
+    /// <item><b>Ventas nuevas</b> (<c>VentaEnvio.IncluidoEnTotal = true</c>): <c>Venta.Total</c> ya incluye
+    /// productos, armados y envío, todo con el recargo/ajuste del medio de pago. No hay importe de envío
+    /// "aparte": <see cref="CalcularTotalACobrar"/> devuelve el Total y el comprobante lo cubre completo.</item>
+    /// <item><b>Ventas legacy</b> (<c>IncluidoEnTotal = false</c>): <c>Venta.Total</c> son solo los productos y
+    /// el envío (<c>VentaEnvio.CostoFueraDelTotal</c>, nunca negativo) se cobra aparte, sin IVA ni recargos del
+    /// medio de pago. <b>TotalACobrar</b> = Total + ese envío; <b>TotalFacturable</b> = Total (el envío legacy
+    /// nunca estuvo en un cálculo fiscal).</item>
     /// </list>
+    ///
+    /// El parámetro <c>costoEnvio</c> de <see cref="CalcularTotalACobrar"/> es, por lo tanto, solo la parte
+    /// del envío que NO está dentro del Total. Si el criterio fiscal cambia, es el único punto a modificar.
     /// </summary>
     public static class VentaMontos
     {
