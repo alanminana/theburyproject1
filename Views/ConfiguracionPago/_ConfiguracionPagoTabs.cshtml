@@ -30,6 +30,11 @@
         <span class="material-symbols-outlined text-[18px]" aria-hidden="true">local_shipping</span>
         Envíos y armados
     </a>
+    <a asp-controller="ConfiguracionCliente" asp-action="Index"
+       class="cfgpago-tab" aria-current="@(activa == "cliente" ? "page" : null)">
+        <span class="material-symbols-outlined text-[18px]" aria-hidden="true">contact_phone</span>
+        Datos de cliente
+    </a>
     @if (User.TieneCualquierPermiso(("documentos", "managetemplates"), ("documentos", "managerules"), ("documentos", "managetypes")))
     {
         <a asp-controller="DocumentosConfig" asp-action="Index"

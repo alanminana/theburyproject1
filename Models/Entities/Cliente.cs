@@ -36,6 +36,13 @@ namespace TheBuryProject.Models.Entities
 
         public DateTime? FechaNacimiento { get; set; }
 
+        /// <summary>
+        /// Última vez (UTC) que se confirmaron/editaron los datos personales y de contacto del cliente.
+        /// Alimenta el aviso periódico de actualización (ConfiguracionActualizacionDatosCliente).
+        /// Null en clientes anteriores a la función: se toma CreatedAt.
+        /// </summary>
+        public DateTime? FechaUltimaActualizacionDatos { get; set; }
+
         [StringLength(50)]
         public string? EstadoCivil { get; set; } // Soltero, Casado, Divorciado, Viudo
 

@@ -720,6 +720,61 @@ public class VentaApiControllerTests
     }
 
     [Fact]
+    public async Task BuscarClientes_ConAvisoActivoYDatosVencidos_MarcaRequiereActualizacion()
+    {
+        var clienteService = new StubClienteService
+        {
+            Clientes =
+            {
+                new Cliente
+                {
+                    Id = 7, Nombre = "Vieja", Apellido = "Data", TipoDocumento = "DNI", NumeroDocumento = "1",
+                    Telefono = "1", Activo = true, CreatedAt = DateTime.UtcNow.AddDays(-400),
+                    FechaUltimaActualizacionDatos = DateTime.UtcNow.AddDays(-200)
+                },
+                new Cliente
+                {
+                    Id = 8, Nombre = "Al", Apellido = "Dia", TipoDocumento = "DNI", NumeroDocumento = "2",
+                    Telefono = "2", Activo = true, CreatedAt = DateTime.UtcNow.AddDays(-400),
+                    FechaUltimaActualizacionDatos = DateTime.UtcNow.AddDays(-10)
+                }
+            }
+        };
+        var config = new ConfiguracionActualizacionDatosCliente { Activa = true, DiasRevision = 180 };
+        var controller = CreateController(
+            clienteService: clienteService,
+            actualizacionDatosClienteService: new StubActualizacionDatosClienteService(config));
+
+        var ok = Assert.IsType<OkObjectResult>(await controller.BuscarClientes("a", take: 10));
+        var json = ToJson(ok.Value);
+
+        Assert.True(json.RootElement[0].GetProperty("requiereActualizacion").GetBoolean());
+        Assert.InRange(json.RootElement[0].GetProperty("diasSinActualizar").GetInt32(), 199, 201);
+        Assert.False(json.RootElement[1].GetProperty("requiereActualizacion").GetBoolean());
+    }
+
+    [Fact]
+    public async Task BuscarClientes_ConAvisoApagado_NuncaRequiereActualizacion()
+    {
+        var clienteService = new StubClienteService
+        {
+            Clientes =
+            {
+                new Cliente
+                {
+                    Id = 9, Nombre = "Vieja", Apellido = "Data", TipoDocumento = "DNI", NumeroDocumento = "3",
+                    Telefono = "3", Activo = true, CreatedAt = DateTime.UtcNow.AddDays(-900)
+                }
+            }
+        };
+        var controller = CreateController(clienteService: clienteService);
+
+        var ok = Assert.IsType<OkObjectResult>(await controller.BuscarClientes("v", take: 10));
+
+        Assert.False(ToJson(ok.Value).RootElement[0].GetProperty("requiereActualizacion").GetBoolean());
+    }
+
+    [Fact]
     public async Task BuscarClientes_TerminoVacio_DevuelveListaVacia()
     {
         var controller = CreateController();
@@ -967,7 +1022,8 @@ public class VentaApiControllerTests
         IClienteService? clienteService = null,
         IConfiguracionPagoService? configuracionPagoService = null,
         IConfiguracionPagoGlobalQueryService? configuracionPagoGlobalQueryService = null,
-        IValidacionVentaService? validacionVentaService = null)
+        IValidacionVentaService? validacionVentaService = null,
+        IConfiguracionActualizacionDatosClienteService? actualizacionDatosClienteService = null)
     {
         return new VentaApiController(
             productoService ?? new StubProductoService(),
@@ -977,7 +1033,26 @@ public class VentaApiControllerTests
             configuracionPagoService ?? new StubConfiguracionPagoService(),
             configuracionPagoGlobalQueryService ?? new StubConfiguracionPagoGlobalQueryService(),
             validacionVentaService ?? new StubValidacionVentaService(),
+            actualizacionDatosClienteService ?? new StubActualizacionDatosClienteService(),
             NullLogger<VentaApiController>.Instance);
+    }
+
+    private sealed class StubActualizacionDatosClienteService : IConfiguracionActualizacionDatosClienteService
+    {
+        private readonly ConfiguracionActualizacionDatosCliente _config;
+
+        public StubActualizacionDatosClienteService(ConfiguracionActualizacionDatosCliente? config = null)
+        {
+            _config = config ?? ConfiguracionActualizacionDatosCliente.CrearDefault();
+        }
+
+        public Task<ConfiguracionActualizacionDatosCliente> GetConfiguracionAsync() => Task.FromResult(_config);
+
+        public Task<ConfiguracionActualizacionDatosCliente> SaveConfiguracionAsync(bool activa, int diasRevision)
+            => throw new NotSupportedException();
+
+        public Task<ActualizacionDatosClienteEstado> EvaluarClienteAsync(int clienteId)
+            => Task.FromResult(ActualizacionDatosClienteEstado.NoRequiere);
     }
 
     private static JsonDocument ToJson(object? value)

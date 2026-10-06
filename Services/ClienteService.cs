@@ -68,6 +68,7 @@ namespace TheBuryProject.Services
 
             // Calcular PuntajeRiesgo basado en NivelRiesgo (1-5 → 2-10)
             cliente.PuntajeRiesgo = (int)cliente.NivelRiesgo * 2m;
+            cliente.FechaUltimaActualizacionDatos = DateTime.UtcNow;
 
             _context.Clientes.Add(cliente);
             await _context.SaveChangesAsync();
@@ -126,6 +127,8 @@ namespace TheBuryProject.Services
             clienteExistente.Activo = cliente.Activo;
 
             clienteExistente.UpdatedAt = DateTime.UtcNow;
+            // Guardar el formulario de edición equivale a revisar los datos (aviso periódico).
+            clienteExistente.FechaUltimaActualizacionDatos = clienteExistente.UpdatedAt;
 
             // Si el cliente enviado incluye RowVersion, usarlo para detectar conflictos de concurrencia
             if (cliente.RowVersion != null)

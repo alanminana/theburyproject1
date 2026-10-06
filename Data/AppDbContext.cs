@@ -97,6 +97,7 @@ namespace TheBuryProject.Data
         public DbSet<ConfiguracionCredito> ConfiguracionesCredito { get; set; }
         public DbSet<ConfiguracionRentabilidad> ConfiguracionesRentabilidad { get; set; }
         public DbSet<ConfiguracionScoringCliente> ConfiguracionesScoringCliente { get; set; }
+        public DbSet<ConfiguracionActualizacionDatosCliente> ConfiguracionesActualizacionDatosCliente { get; set; }
         public DbSet<LogMora> LogsMora { get; set; }
         public DbSet<AlertaCobranza> AlertasCobranza { get; set; }
         public DbSet<HistorialContacto> HistorialContactos { get; set; }
