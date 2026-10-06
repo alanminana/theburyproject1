@@ -900,7 +900,7 @@ namespace TheBuryProject.Services
                         _logger.LogWarning(
                             "ConfirmarVentaAsync venta {Id} requiere autorizacion y no esta autorizada. EstadoAutorizacion:{EstadoAutorizacion}",
                             id,
-                    venta.EstadoAutorizacion);
+                            venta.EstadoAutorizacion);
                         throw new InvalidOperationException(
                             $"La venta requiere autorización. {validacion.MensajeResumen}");
                     }
@@ -915,16 +915,11 @@ namespace TheBuryProject.Services
 
                 venta.AperturaCajaId = aperturaActiva.Id;
 
-                await ValidarUnidadesTrazablesAsync(venta);
-                await DescontarStockYRegistrarMovimientos(venta);
-                await MarcarUnidadesVendidasAsync(venta);
+                await ValidarUnidadesYDescontarStockAsync(venta);
 
                 await GenerarAlertasStockBajo(venta);
 
-                venta.Estado = EstadoVenta.Confirmada;
-                venta.FechaConfirmacion = DateTime.UtcNow;
-                // Limpiar requisitos pendientes al confirmar
-                venta.RequisitosPendientesJson = null;
+                MarcarVentaConfirmada(venta);
 
                 _logger.LogInformation(
                     "ConfirmarVentaAsync venta {Id} antes de SaveChanges. Estado:{Estado}",
@@ -953,17 +948,31 @@ namespace TheBuryProject.Services
 
                 await transaction.CommitAsync();
 
-                _logger.LogInformation("ConfirmarVentaAsync venta {Id} confirmada", id);
-                _logger.LogInformation("Venta {Id} confirmada exitosamente", id);
+                _logger.LogInformation("ConfirmarVentaAsync venta {Id} confirmada exitosamente", id);
                 return true;
             }
             catch (Exception ex)
             {
                 await transaction.RollbackAsync();
-                _logger.LogError(ex, "ConfirmarVentaAsync error venta {Id}", id);
-                _logger.LogError(ex, "Error al confirmar venta {Id}", id);
+                _logger.LogError(ex, "ConfirmarVentaAsync error al confirmar venta {Id}", id);
                 throw;
             }
+        }
+
+        // Tramo común de ConfirmarVentaAsync y ConfirmarVentaCreditoAsync (mismo orden en ambos).
+        private async Task ValidarUnidadesYDescontarStockAsync(Venta venta)
+        {
+            await ValidarUnidadesTrazablesAsync(venta);
+            await DescontarStockYRegistrarMovimientos(venta);
+            await MarcarUnidadesVendidasAsync(venta);
+        }
+
+        private static void MarcarVentaConfirmada(Venta venta)
+        {
+            venta.Estado = EstadoVenta.Confirmada;
+            venta.FechaConfirmacion = DateTime.UtcNow;
+            // Limpiar requisitos pendientes al confirmar
+            venta.RequisitosPendientesJson = null;
         }
 
         /// <summary>
@@ -993,10 +1002,6 @@ namespace TheBuryProject.Services
                     venta.TipoPago,
                     venta.CreditoId);
 
-                _logger.LogInformation(
-                    "ConfirmarVentaCreditoAsync venta {Id} tipo pago {TipoPago}",
-                    id,
-                    venta.TipoPago);
                 if (venta.TipoPago != TipoPago.CreditoPersonal)
                     throw new InvalidOperationException("Esta venta no es de tipo Crédito Personal.");
 
@@ -1056,9 +1061,7 @@ namespace TheBuryProject.Services
                 _validator.ValidarAutorizacion(venta);
                 await ValidarContratoCreditoPersonalGeneradoAsync(venta);
 
-                await ValidarUnidadesTrazablesAsync(venta);
-                await DescontarStockYRegistrarMovimientos(venta);
-                await MarcarUnidadesVendidasAsync(venta);
+                await ValidarUnidadesYDescontarStockAsync(venta);
 
                 // Generar las cuotas del crédito
                 await GenerarCuotasCreditoAsync(credito, venta.Total, planCreditoVenta?.CuotasSinRecargo);
@@ -1069,9 +1072,7 @@ namespace TheBuryProject.Services
 
                 await GenerarAlertasStockBajo(venta);
 
-                venta.Estado = EstadoVenta.Confirmada;
-                venta.FechaConfirmacion = DateTime.UtcNow;
-                venta.RequisitosPendientesJson = null;
+                MarcarVentaConfirmada(venta);
 
                 _logger.LogInformation(
                     "ConfirmarVentaCreditoAsync venta {Id} antes de SaveChanges. Estado:{Estado}",
@@ -1104,8 +1105,7 @@ namespace TheBuryProject.Services
             catch (Exception ex)
             {
                 await transaction.RollbackAsync();
-                _logger.LogError(ex, "ConfirmarVentaCreditoAsync error venta {Id}", id);
-                _logger.LogError(ex, "Error al confirmar venta con crédito {Id}", id);
+                _logger.LogError(ex, "ConfirmarVentaCreditoAsync error al confirmar venta con crédito {Id}", id);
                 throw;
             }
         }
