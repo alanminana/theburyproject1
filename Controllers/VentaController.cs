@@ -302,18 +302,7 @@ namespace TheBuryProject.Controllers
                 }
 
                 // Datos para modal de facturación
-                var facturaViewModel = new FacturaViewModel
-                {
-                    VentaId = venta.Id,
-                    FechaEmision = DateTime.Today,
-                    Tipo = TipoFactura.B,
-                    Subtotal = venta.Subtotal,
-                    IVA = venta.IVA,
-                    Total = venta.TotalFacturable,
-                    ImporteEnvio = venta.ImporteEnvioFueraDelTotal,
-                    TotalACobrar = venta.TotalACobrar,
-                    ResumenAlicuotas = FacturaAlicuotaResumenBuilder.Build(venta.Detalles, venta.ImporteEnvioIncluido)
-                };
+                var facturaViewModel = CrearFacturaViewModel(venta);
                 ViewBag.TiposFactura = new SelectList(Enum.GetValues(typeof(TipoFactura)));
                 ViewBag.FacturaViewModel = facturaViewModel;
 
@@ -457,10 +446,7 @@ namespace TheBuryProject.Controllers
                     return Json(new
                     {
                         success = false,
-                        errors = new Dictionary<string, string[]>
-                        {
-                            { "", new[] { "Debe abrir una caja antes de crear una venta." } }
-                        }
+                        errors = ErrorGlobal("Debe abrir una caja antes de crear una venta.")
                     });
                 }
 
@@ -472,12 +458,7 @@ namespace TheBuryProject.Controllers
 
                 if (!ModelState.IsValid || !ValidarDetalles(viewModel))
                 {
-                    var errors = ModelState
-                        .Where(k => k.Value?.Errors.Any() == true)
-                        .ToDictionary(
-                            k => k.Key,
-                            k => k.Value!.Errors.Select(e => e.ErrorMessage).ToArray());
-                    return Json(new { success = false, errors });
+                    return Json(new { success = false, errors = ErroresDeModelState() });
                 }
 
                 var venta = await _ventaService.CreateAsync(viewModel);
@@ -511,10 +492,7 @@ namespace TheBuryProject.Controllers
                 {
                     success = false,
                     message = mensaje,
-                    errors = new Dictionary<string, string[]>
-                    {
-                        { "", new[] { mensaje } }
-                    }
+                    errors = ErrorGlobal(mensaje)
                 });
             }
             catch (Exception ex)
@@ -523,10 +501,7 @@ namespace TheBuryProject.Controllers
                 return Json(new
                 {
                     success = false,
-                    errors = new Dictionary<string, string[]>
-                    {
-                        { "", new[] { "Error al crear la venta: " + ex.Message } }
-                    }
+                    errors = ErrorGlobal("Error al crear la venta: " + ex.Message)
                 });
             }
         }
@@ -796,10 +771,7 @@ namespace TheBuryProject.Controllers
                     return Json(new
                     {
                         success = false,
-                        errors = new Dictionary<string, string[]>
-                        {
-                            { "", new[] { "Debe abrir una caja antes de editar ventas." } }
-                        }
+                        errors = ErrorGlobal("Debe abrir una caja antes de editar ventas.")
                     });
                 }
 
@@ -808,12 +780,7 @@ namespace TheBuryProject.Controllers
 
                 if (!ModelState.IsValid || !ValidarDetalles(viewModel))
                 {
-                    var errors = ModelState
-                        .Where(k => k.Value?.Errors.Any() == true)
-                        .ToDictionary(
-                            k => k.Key,
-                            k => k.Value!.Errors.Select(e => e.ErrorMessage).ToArray());
-                    return Json(new { success = false, errors });
+                    return Json(new { success = false, errors = ErroresDeModelState() });
                 }
 
                 var resultado = await _ventaService.UpdateAsync(id, viewModel);
@@ -867,7 +834,7 @@ namespace TheBuryProject.Controllers
                 {
                     success = false,
                     message = mensaje,
-                    errors = new Dictionary<string, string[]> { { "", new[] { mensaje } } }
+                    errors = ErrorGlobal(mensaje)
                 });
             }
             catch (InvalidOperationException ex)
@@ -877,7 +844,7 @@ namespace TheBuryProject.Controllers
                 {
                     success = false,
                     message = ex.Message,
-                    errors = new Dictionary<string, string[]> { { "", new[] { ex.Message } } }
+                    errors = ErrorGlobal(ex.Message)
                 });
             }
             catch (Exception ex)
@@ -886,10 +853,7 @@ namespace TheBuryProject.Controllers
                 return Json(new
                 {
                     success = false,
-                    errors = new Dictionary<string, string[]>
-                    {
-                        { "", new[] { "Error al actualizar la venta: " + ex.Message } }
-                    }
+                    errors = ErrorGlobal("Error al actualizar la venta: " + ex.Message)
                 });
             }
         }
@@ -1563,18 +1527,7 @@ namespace TheBuryProject.Controllers
                     return RedirectToAction(nameof(Details), new { id });
                 }
 
-                var facturaViewModel = new FacturaViewModel
-                {
-                    VentaId = venta.Id,
-                    FechaEmision = DateTime.Today,
-                    Tipo = TipoFactura.B,
-                    Subtotal = venta.Subtotal,
-                    IVA = venta.IVA,
-                    Total = venta.TotalFacturable,
-                    ImporteEnvio = venta.ImporteEnvioFueraDelTotal,
-                    TotalACobrar = venta.TotalACobrar,
-                    ResumenAlicuotas = FacturaAlicuotaResumenBuilder.Build(venta.Detalles, venta.ImporteEnvioIncluido)
-                };
+                var facturaViewModel = CrearFacturaViewModel(venta);
 
                 ViewBag.Venta = venta;
                 ViewBag.TiposFactura = new SelectList(Enum.GetValues(typeof(TipoFactura)));
@@ -1799,6 +1752,32 @@ namespace TheBuryProject.Controllers
                 clienteIdSeleccionado,
                 productoIdsIncluidos,
                 tipoPagoSeleccionado: tipoPagoSeleccionado);
+        }
+
+        private Dictionary<string, string[]> ErroresDeModelState() =>
+            ModelState
+                .Where(k => k.Value?.Errors.Any() == true)
+                .ToDictionary(
+                    k => k.Key,
+                    k => k.Value!.Errors.Select(e => e.ErrorMessage).ToArray());
+
+        private static Dictionary<string, string[]> ErrorGlobal(string mensaje) =>
+            new() { { "", new[] { mensaje } } };
+
+        private static FacturaViewModel CrearFacturaViewModel(VentaViewModel venta)
+        {
+            return new FacturaViewModel
+            {
+                VentaId = venta.Id,
+                FechaEmision = DateTime.Today,
+                Tipo = TipoFactura.B,
+                Subtotal = venta.Subtotal,
+                IVA = venta.IVA,
+                Total = venta.TotalFacturable,
+                ImporteEnvio = venta.ImporteEnvioFueraDelTotal,
+                TotalACobrar = venta.TotalACobrar,
+                ResumenAlicuotas = FacturaAlicuotaResumenBuilder.Build(venta.Detalles, venta.ImporteEnvioIncluido)
+            };
         }
 
         private VentaViewModel CrearVentaInicial()

@@ -131,8 +131,8 @@ public sealed class CreditoSimulacionVentaService : ICreditoSimulacionVentaServi
 
             // El plan de cuotas resuelto es la autoridad primaria del porcentaje, tambien en
             // simulacion (misma regla que CreditoConfiguracionVentaService.ResolverAsync).
-            // Cliente/Perfil/Producto no aportan ni sustituyen el porcentaje: las tres ramas de
-            // abajo (Cliente/Producto-Mixto/Global) llaman exactamente al mismo resolutor
+            // Cliente/Perfil/Producto no aportan ni sustituyen el porcentaje: todos los orígenes
+            // (Cliente/Producto-Mixto/Global) usan exactamente el mismo resolutor
             // (ResolverTasaDelPlanOTasaGlobalAsync) contra el mismo plan de cuotas — Origen
             // (Cliente/Producto/Mixto/Global) es la disponibilidad de cantidades, NUNCA la fuente
             // financiera. Sin tabla de planes en absoluto (legado RigeConfiguracionUnicaGlobal,
@@ -140,35 +140,19 @@ public sealed class CreditoSimulacionVentaService : ICreditoSimulacionVentaServi
             // porcentaje sale de BuscarPlan (que ya intento el fallback al recargo global legacy
             // dentro de ConfiguracionPagoService) — null a esta altura es configuracion invalida
             // de verdad, ni propia ni heredada.
-            if (request.MetodoCalculo == MetodoCalculoCredito.UsarCliente ||
-                request.FuenteConfiguracion == FuenteConfiguracionCredito.PorCliente)
+            if ((request.MetodoCalculo == MetodoCalculoCredito.UsarCliente ||
+                 request.FuenteConfiguracion == FuenteConfiguracionCredito.PorCliente) &&
+                !clienteIdEfectivo.HasValue)
             {
-                if (!clienteIdEfectivo.HasValue)
-                    return CreditoSimulacionVentaResultado.Invalido(
-                        "Se requiere un cliente para resolver la configuración de Crédito personal por cliente.");
-
-                var (tasaCliente, errorCliente) = await ResolverTasaDelPlanOTasaGlobalAsync(planesVenta, request.Cuotas);
-                if (errorCliente is not null)
-                    return CreditoSimulacionVentaResultado.Invalido(errorCliente);
-
-                tasaVal = tasaCliente!.Value;
+                return CreditoSimulacionVentaResultado.Invalido(
+                    "Se requiere un cliente para resolver la configuración de Crédito personal por cliente.");
             }
-            else if (planesVenta.Origen == OrigenPlanesCredito.Producto || planesVenta.Origen == OrigenPlanesCredito.Mixto)
-            {
-                var (tasaProducto, errorProducto) = await ResolverTasaDelPlanOTasaGlobalAsync(planesVenta, request.Cuotas);
-                if (errorProducto is not null)
-                    return CreditoSimulacionVentaResultado.Invalido(errorProducto);
 
-                tasaVal = tasaProducto!.Value;
-            }
-            else
-            {
-                var (tasaGlobalPlan, errorGlobal) = await ResolverTasaDelPlanOTasaGlobalAsync(planesVenta, request.Cuotas);
-                if (errorGlobal is not null)
-                    return CreditoSimulacionVentaResultado.Invalido(errorGlobal);
+            var (tasaPlan, errorPlan) = await ResolverTasaDelPlanOTasaGlobalAsync(planesVenta, request.Cuotas);
+            if (errorPlan is not null)
+                return CreditoSimulacionVentaResultado.Invalido(errorPlan);
 
-                tasaVal = tasaGlobalPlan!.Value;
-            }
+            tasaVal = tasaPlan!.Value;
 
             // CSR-ML4: la lista viaja junto al mismo plan ya resuelto arriba (planesVenta) — no se
             // vuelve a consultar la configuracion. RigeConfiguracionUnicaGlobal (legado, sin tabla
