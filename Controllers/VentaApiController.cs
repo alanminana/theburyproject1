@@ -26,6 +26,7 @@ namespace TheBuryProject.Controllers
         private readonly IConfiguracionPagoService _configuracionPagoService;
         private readonly IConfiguracionPagoGlobalQueryService _configuracionPagoGlobalQueryService;
         private readonly IValidacionVentaService _validacionVentaService;
+        private readonly IConfiguracionActualizacionDatosClienteService _actualizacionDatosClienteService;
         private readonly ILogger<VentaApiController> _logger;
 
         public VentaApiController(
@@ -36,8 +37,10 @@ namespace TheBuryProject.Controllers
             IConfiguracionPagoService configuracionPagoService,
             IConfiguracionPagoGlobalQueryService configuracionPagoGlobalQueryService,
             IValidacionVentaService validacionVentaService,
+            IConfiguracionActualizacionDatosClienteService actualizacionDatosClienteService,
             ILogger<VentaApiController> logger)
         {
+            _actualizacionDatosClienteService = actualizacionDatosClienteService;
             _productoService = productoService;
             _creditoService = creditoService;
             _ventaService = ventaService;
@@ -63,6 +66,9 @@ namespace TheBuryProject.Controllers
 
                 var limite = Math.Clamp(take, 1, 50);
 
+                var configActualizacion = await _actualizacionDatosClienteService.GetConfiguracionAsync();
+                var ahoraUtc = DateTime.UtcNow;
+
                 var clientes = (await _clienteService.SearchAsync(
                         searchTerm: term.Trim(),
                         soloActivos: true,
@@ -70,6 +76,11 @@ namespace TheBuryProject.Controllers
                     .Take(limite)
                     .Select(c => new
                     {
+                        // Aviso periódico "actualizar datos del cliente" (configuración global).
+                        requiereActualizacion = configActualizacion.RequiereActualizacion(
+                            c.FechaUltimaActualizacionDatos, c.CreatedAt, ahoraUtc, out var diasSinActualizar),
+                        diasSinActualizar,
+
                         id = c.Id,
                         nombre = c.Nombre,
                         apellido = c.Apellido,

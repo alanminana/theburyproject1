@@ -697,6 +697,10 @@
                                 <div class="text-xs text-slate-400 leading-snug">
                                     @if (m.Referencia != null) { <span class="text-slate-300">@m.Referencia</span> }
                                     @if (m.Motivo != null) { <span class="@(m.Referencia != null ? "block text-slate-500 text-[11px] italic" : "")">@m.Motivo</span> }
+                                    @if (m.VentaCliente != null)
+                                    {
+                                        <span class="block text-slate-300 text-[11px]">@m.VentaCliente · <span class="text-slate-400">@m.VentaMedioPago</span></span>
+                                    }
                                 </div>
                             }
                             <div class="flex items-center justify-between">
@@ -736,7 +740,7 @@
                                     <td>
                                         <span class="@ChipMov(m.Tipo)">@LblMov(m.Tipo)</span>
                                     </td>
-                                    <td class="text-xs text-slate-400 max-w-[200px]">
+                                    <td class="text-xs text-slate-400 max-w-70">
                                         @if (m.Referencia != null)
                                         {
                                             <span class="text-slate-300">@m.Referencia</span>
@@ -744,6 +748,10 @@
                                         @if (m.Motivo != null)
                                         {
                                             <span class="@(m.Referencia != null ? "block text-slate-500 text-[11px] italic" : "")">@m.Motivo</span>
+                                        }
+                                        @if (m.VentaCliente != null)
+                                        {
+                                            <span class="block text-slate-300 text-[11px]">@m.VentaCliente · <span class="text-slate-400">@m.VentaMedioPago</span></span>
                                         }
                                         @if (m.Referencia == null && m.Motivo == null)
                                         {

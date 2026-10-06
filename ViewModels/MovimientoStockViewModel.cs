@@ -52,6 +52,12 @@ namespace TheBuryProject.ViewModels
         [Display(Name = "Motivo")]
         public string? Motivo { get; set; }
 
+        /// <summary>Nombre y apellido del cliente de la venta asociada (si la referencia es una venta).</summary>
+        public string? VentaCliente { get; set; }
+
+        /// <summary>Medio de pago de la venta asociada (si la referencia es una venta).</summary>
+        public string? VentaMedioPago { get; set; }
+
         [Display(Name = "Fecha")]
         public DateTime Fecha { get; set; }
 

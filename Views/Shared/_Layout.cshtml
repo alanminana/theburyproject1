@@ -291,7 +291,7 @@
                                 var active = IsActive("ConfiguracionPago") || IsActive("ServiciosVenta")
                                     || IsActive("ConfiguracionRentabilidad") || IsActive("ConfiguracionMora")
                                     || IsActive("ConfiguracionContratoCredito") || IsActive("PlantillaContratoCredito")
-                                    || IsActive("DocumentosConfig");
+                                    || IsActive("DocumentosConfig") || IsActive("ConfiguracionCliente");
 
                                 <a class="@NavClass(active)" aria-current="@NavCurrent(active)"
                                    asp-controller="ConfiguracionPago" asp-action="MediosPago" title="Configuración">

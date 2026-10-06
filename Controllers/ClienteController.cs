@@ -30,6 +30,7 @@ namespace TheBuryProject.Controllers
         private readonly IGaranteService _garanteService;
         private readonly IVentaService _ventaService;
         private readonly ICurrentUserService _currentUser;
+        private readonly IConfiguracionActualizacionDatosClienteService _actualizacionDatosService;
         private readonly IMapper _mapper;
         private readonly ILogger<ClienteController> _logger;
 
@@ -45,9 +46,11 @@ namespace TheBuryProject.Controllers
             IGaranteService garanteService,
             IVentaService ventaService,
             ICurrentUserService currentUser,
+            IConfiguracionActualizacionDatosClienteService actualizacionDatosService,
             IMapper mapper,
             ILogger<ClienteController> logger)
         {
+            _actualizacionDatosService = actualizacionDatosService;
             _clienteService = clienteService;
             _documentoService = documentoService;
             _creditoService = creditoService;
@@ -145,6 +148,7 @@ namespace TheBuryProject.Controllers
                     return this.RedirectToReturnUrlOrIndex(returnUrl);
 
                 var detalleViewModel = await ConstructDetalleViewModel(cliente!, tab);
+                await PrepararAvisoActualizacionDatosAsync(cliente!);
                 return View("Details_tw", detalleViewModel);
             }
             catch (Exception ex)
@@ -707,6 +711,32 @@ namespace TheBuryProject.Controllers
         #endregion
 
         #region Métodos Privados
+
+        /// <summary>
+        /// Aviso periódico "actualizar datos del cliente": solo se ofrece a quien puede editar clientes,
+        /// porque el aviso lleva directo a la pantalla de edición.
+        /// </summary>
+        private async Task PrepararAvisoActualizacionDatosAsync(Cliente cliente)
+        {
+            if (!_currentUser.HasPermission("clientes", "edit"))
+                return;
+
+            try
+            {
+                var estado = await _actualizacionDatosService.EvaluarClienteAsync(cliente.Id);
+                if (!estado.Requiere)
+                    return;
+
+                ViewData["ActualizarDatosClienteId"] = cliente.Id;
+                ViewData["ActualizarDatosClienteNombre"] = $"{cliente.Nombre} {cliente.Apellido}".Trim();
+                ViewData["ActualizarDatosClienteDias"] = estado.DiasTranscurridos;
+            }
+            catch (Exception ex)
+            {
+                // El aviso es accesorio: nunca debe impedir abrir la ficha.
+                _logger.LogWarning(ex, "No se pudo evaluar la actualización de datos del cliente {Id}", cliente.Id);
+            }
+        }
 
         private async Task<ClienteDetalleViewModel> ConstructDetalleViewModel(Cliente cliente, string? tab)
         {

@@ -41,6 +41,8 @@ namespace TheBuryProject.ViewModels
         public Dictionary<string, decimal> VentasPorTipoPago { get; set; } = new();
         public List<ProductoMasVendidoViewModel> ProductosMasVendidos { get; set; } = new();
         public List<ClienteTopViewModel> ClientesTop { get; set; } = new();
+        public List<ProductoMasVendidoViewModel> ProductosMenosVendidos { get; set; } = new();
+        public List<ClienteTopViewModel> ClientesFrecuentes { get; set; } = new();
     }
 
     /// <summary>
