@@ -8,7 +8,7 @@ namespace TheBuryProject.Services;
 
 public sealed class CreditoConfiguracionVentaService : ICreditoConfiguracionVentaService
 {
-    private const string TasaGlobalNoConfigurada =
+    internal const string TasaGlobalNoConfigurada =
         "La tasa de interés de Crédito Personal no está configurada. " +
         "Configure el valor en Administración → Tipos de Pago.";
 

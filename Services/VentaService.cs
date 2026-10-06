@@ -2975,7 +2975,7 @@ namespace TheBuryProject.Services
             AplicarProrrateoDescuentoGeneral(detallesList, venta.Descuento);
 
             var servicios = RedondearMoneda(detallesList.Sum(d => d.ArmadoSubtotal) + importeEnvio);
-            var (serviciosNeto, serviciosIva) = SepararIvaServicios(servicios);
+            var (serviciosNeto, serviciosIva) = ServiciosVentaIva.Separar(servicios);
 
             var totalConCentavos = detallesList.Sum(d => d.SubtotalFinal) + servicios;
             venta.Total = TruncarAPesos(totalConCentavos);
@@ -2984,9 +2984,6 @@ namespace TheBuryProject.Services
                 detallesList.Sum(d => d.SubtotalFinalIVA) + serviciosIva,
                 totalConCentavos - venta.Total);
         }
-
-        private static (decimal Neto, decimal Iva) SepararIvaServicios(decimal bruto) =>
-            ServiciosVentaIva.Separar(bruto);
 
         /// <summary>
         /// Resuelve server-side el precio de armados (por línea) y envío desde los precios globales y los
@@ -3317,7 +3314,7 @@ namespace TheBuryProject.Services
 
             var totalProductos = detallesCalculados.Sum(d => d.SubtotalFinal);
             var totalArmados = RedondearMoneda(detallesCalculados.Sum(d => d.ArmadoSubtotal));
-            var (serviciosNeto, serviciosIva) = SepararIvaServicios(RedondearMoneda(totalArmados + importeEnvio));
+            var (serviciosNeto, serviciosIva) = ServiciosVentaIva.Separar(RedondearMoneda(totalArmados + importeEnvio));
 
             var totalBase = totalProductos + totalArmados + importeEnvio;
             var totalTruncado = TruncarAPesos(totalBase);
