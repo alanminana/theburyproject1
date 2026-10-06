@@ -1017,7 +1017,6 @@ public class VentaApiControllerTests
 
     private static VentaApiController CreateController(
         IProductoService? productoService = null,
-        ICreditoService? creditoService = null,
         IVentaService? ventaService = null,
         IClienteService? clienteService = null,
         IConfiguracionPagoService? configuracionPagoService = null,
@@ -1027,7 +1026,6 @@ public class VentaApiControllerTests
     {
         return new VentaApiController(
             productoService ?? new StubProductoService(),
-            creditoService ?? new StubCreditoService(),
             ventaService ?? new StubVentaService(),
             clienteService ?? new StubClienteService(),
             configuracionPagoService ?? new StubConfiguracionPagoService(),
@@ -1225,36 +1223,4 @@ public class VentaApiControllerTests
             Task.FromResult<IReadOnlyDictionary<int, PrecioVigenteResultado>>(new Dictionary<int, PrecioVigenteResultado>());
     }
 
-    private sealed class StubCreditoService : ICreditoService
-    {
-        public Task<List<CreditoViewModel>> GetAllAsync(CreditoFilterViewModel? filter = null) => throw new NotImplementedException();
-        public Task<CreditoViewModel?> GetByIdAsync(int id) => throw new NotImplementedException();
-        public Task<List<CreditoViewModel>> GetByClienteIdAsync(int clienteId) => throw new NotImplementedException();
-        public Task<CreditoViewModel> CreateAsync(CreditoViewModel viewModel) => throw new NotImplementedException();
-        public Task<CreditoViewModel> CreatePendienteConfiguracionAsync(int clienteId, decimal montoTotal) => throw new NotImplementedException();
-        public Task<bool> UpdateAsync(CreditoViewModel viewModel) => throw new NotImplementedException();
-        public Task<bool> DeleteAsync(int id) => throw new NotImplementedException();
-        public Task<bool> AprobarCreditoAsync(int creditoId, string aprobadoPor) => throw new NotImplementedException();
-        public Task<bool> RechazarCreditoAsync(int creditoId, string motivo) => throw new NotImplementedException();
-        public Task<bool> CancelarCreditoAsync(int creditoId, string motivo) => throw new NotImplementedException();
-        public Task<List<CuotaViewModel>> GetCuotasByCreditoAsync(int creditoId) => throw new NotImplementedException();
-        public Task<CuotaViewModel?> GetCuotaByIdAsync(int cuotaId) => throw new NotImplementedException();
-        public Task<bool> PagarCuotaAsync(PagarCuotaViewModel pago) => throw new NotImplementedException();
-        public Task<PagoCuotaContextoResultado?> ObtenerContextoPagoCuotaAsync(int cuotaId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
-        public Task<PagoCuotaPreviewResultado?> PrevisualizarPagoCuotaAsync(PagoCuotaIndividualComando comando, CancellationToken cancellationToken = default) => throw new NotImplementedException();
-        public Task<PagoCuotaResultado?> RegistrarPagoCuotaIndividualAsync(PagoCuotaIndividualComando comando, CancellationToken cancellationToken = default) => throw new NotImplementedException();
-        public Task<PagoMultipleCuotasResult> PagarCuotasAsync(PagoMultipleCuotasRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
-        public Task<TheBuryProject.Services.Models.CobroPrimeraCuotaResultado> CobrarPrimeraCuotaAlGenerarAsync(int creditoId, string medioPago, string? comprobante = null, string? observaciones = null) => throw new NotImplementedException();
-        public Task<bool> AdelantarCuotaAsync(PagarCuotaViewModel pago) => throw new NotImplementedException();
-        public Task<PagoCuotaContextoResultado?> ObtenerContextoAdelantoAsync(int creditoId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
-        public Task<PagoCuotaPreviewResultado?> PrevisualizarAdelantoAsync(AdelantoCuotaComando comando, CancellationToken cancellationToken = default) => throw new NotImplementedException();
-        public Task<PagoCuotaResultado?> RegistrarAdelantoAsync(AdelantoCuotaComando comando, CancellationToken cancellationToken = default) => throw new NotImplementedException();
-        public Task<PagoMultiplePreviewResultado> PrevisualizarPagoMultipleAsync(int clienteId, List<int> cuotaIds, string medioPago, CancellationToken cancellationToken = default) => throw new NotImplementedException();
-        public Task<CuotaViewModel?> GetPrimeraCuotaPendienteAsync(int creditoId) => throw new NotImplementedException();
-        public Task<CuotaViewModel?> GetUltimaCuotaPendienteAsync(int creditoId) => throw new NotImplementedException();
-        public Task<List<CuotaViewModel>> GetCuotasVencidasAsync() => throw new NotImplementedException();
-        public Task ActualizarEstadoCuotasAsync() => throw new NotImplementedException();
-        public Task<bool> RecalcularSaldoCreditoAsync(int creditoId) => throw new NotImplementedException();
-        public Task ConfigurarCreditoAsync(ConfiguracionCreditoComando comando) => throw new NotImplementedException();
-    }
 }

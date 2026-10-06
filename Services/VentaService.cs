@@ -266,10 +266,6 @@ namespace TheBuryProject.Services
 
                     await AplicarResultadoValidacionAsync(venta, validacion, currentUserName);
                 }
-                else
-                {
-                    await VerificarAutorizacionSiCorrespondeAsync(venta, viewModel);
-                }
 
                 transaction = await _context.Database.BeginTransactionAsync();
 
@@ -294,7 +290,6 @@ namespace TheBuryProject.Services
                 await transaction.CommitAsync();
 
                 var resultado = _mapper.Map<VentaViewModel>(venta);
-                resultado.ValidacionCredito = validacion;
                 resultado.CreditoId = venta.CreditoId; // Asegurar que el CreditoId se propague
 
                 _logger.LogInformation("Venta {Numero} creada exitosamente. Estado: {Estado}", venta.Numero, venta.Estado);
@@ -2172,24 +2167,6 @@ namespace TheBuryProject.Services
             datosTarjeta.NombrePlanPagoSnapshot = CrearNombrePlanPagoSnapshot(plan);
         }
 
-        // Diseñado para llamarse exactamente una vez en UpdateAsync, siempre después de CalcularTotales.
-        // Ese orden garantiza que venta.Total es la base limpia de ítems, no un total ya ajustado.
-        private async Task AplicarAjustePagoGlobalPersistidoAsync(Venta venta)
-        {
-            if (venta.DatosTarjeta?.ConfiguracionPagoPlanId is not int planId)
-                return;
-
-            var plan = await ValidarYObtenerPlanPagoGlobalAsync(
-                planId,
-                venta.TipoPago,
-                venta.DatosTarjeta.ConfiguracionTarjetaId);
-
-            if (plan == null)
-                return;
-
-            AplicarAjustePagoGlobal(venta, venta.DatosTarjeta, plan);
-        }
-
         private async Task SincronizarDatosTarjetaEdicionAsync(Venta venta, VentaViewModel viewModel)
         {
             if (!TipoPagoRequiereDatosTarjeta(viewModel.TipoPago))
@@ -2717,133 +2694,6 @@ namespace TheBuryProject.Services
 
             _validator.ValidarEstadoAutorizacion(venta, EstadoAutorizacionVenta.PendienteAutorizacion);
             return venta;
-        }
-
-        /// <summary>
-        /// Aplica ajustes de plan por ítem (Fase 16.4).
-        /// Valida cada plan referenciado en VentaDetalle, calcula el ajuste sobre SubtotalFinal de la línea
-        /// y acumula el total en Venta.Total.
-        /// Si ningún ítem tiene plan, retorna sin modificar nada (comportamiento legacy preservado).
-        /// CréditoPersonal ignora planes por ítem según regla de negocio.
-        /// </summary>
-        private async Task AplicarAjustesPorItemAsync(Venta venta)
-        {
-            var detalles = venta.Detalles.Where(d => !d.IsDeleted).ToList();
-
-            if (!detalles.Any(d => d.ProductoCondicionPagoPlanId.HasValue))
-                return;
-
-            var planIds = detalles
-                .Where(d => d.ProductoCondicionPagoPlanId.HasValue)
-                .Select(d => d.ProductoCondicionPagoPlanId!.Value)
-                .Distinct()
-                .ToList();
-
-            var planes = await _context.ProductoCondicionPagoPlanes
-                .Include(p => p.ProductoCondicionPago)
-                .AsNoTracking()
-                .Where(p => planIds.Contains(p.Id) && !p.IsDeleted)
-                .ToDictionaryAsync(p => p.Id);
-
-            // Paso 1: validar cada plan y asignar el porcentaje correspondiente
-            foreach (var detalle in detalles)
-            {
-                var tipoPagoItem = detalle.TipoPago ?? venta.TipoPago;
-
-                // CréditoPersonal nunca aplica ajuste por plan
-                if (tipoPagoItem == TipoPago.CreditoPersonal)
-                {
-                    detalle.ProductoCondicionPagoPlanId = null;
-                    detalle.PorcentajeAjustePlanAplicado = null;
-                    detalle.MontoAjustePlanAplicado = null;
-                    continue;
-                }
-
-                if (!detalle.ProductoCondicionPagoPlanId.HasValue)
-                {
-                    detalle.PorcentajeAjustePlanAplicado = null;
-                    detalle.MontoAjustePlanAplicado = null;
-                    continue;
-                }
-
-                var planId = detalle.ProductoCondicionPagoPlanId.Value;
-
-                if (!planes.TryGetValue(planId, out var plan))
-                    throw new InvalidOperationException(
-                        $"El plan de pago #{planId} seleccionado para el producto #{detalle.ProductoId} no existe.");
-
-                if (!plan.Activo)
-                    throw new InvalidOperationException(
-                        $"El plan de pago #{planId} seleccionado para el producto #{detalle.ProductoId} no está disponible.");
-
-                if (plan.ProductoCondicionPago.ProductoId != detalle.ProductoId)
-                    throw new InvalidOperationException(
-                        $"El plan #{planId} no corresponde al producto #{detalle.ProductoId}.");
-
-                var tipoPagoPlan = plan.ProductoCondicionPago.TipoPago;
-                if (tipoPagoPlan != tipoPagoItem)
-                    throw new InvalidOperationException(
-                        $"El plan #{planId} no corresponde al medio de pago del ítem " +
-                        $"(ítem: {tipoPagoItem}, plan: {tipoPagoPlan}).");
-
-                if (!TiposPagoConPlanes.Contains(tipoPagoPlan))
-                    throw new InvalidOperationException(
-                        $"El plan #{planId} no corresponde a un medio de pago que admita planes.");
-
-                detalle.PorcentajeAjustePlanAplicado = plan.AjustePorcentaje;
-            }
-
-            // Paso 2: agrupar por porcentaje y aplicar el ajuste una vez por grupo,
-            // luego prorratear MontoAjustePlanAplicado a cada ítem del grupo.
-            // Esto evita diferencias de centavos por redondeo acumulado línea a línea.
-            var detallesConAjuste = detalles
-                .Where(d => d.PorcentajeAjustePlanAplicado.HasValue)
-                .ToList();
-
-            decimal totalAjuste = 0m;
-
-            foreach (var grupo in detallesConAjuste.GroupBy(d => d.PorcentajeAjustePlanAplicado!.Value))
-            {
-                var itemsGrupo = grupo.ToList();
-                var subtotalGrupo = itemsGrupo.Sum(d => d.SubtotalFinal);
-                var ajusteGrupo = RedondearMoneda(subtotalGrupo * grupo.Key / 100m);
-                ProrratearAjusteGrupoEnDetalles(itemsGrupo, ajusteGrupo);
-                totalAjuste += ajusteGrupo;
-            }
-
-            venta.Total += totalAjuste;
-        }
-
-        /// <summary>
-        /// Distribuye un ajuste de grupo entre los ítems usando el método de resto mayor
-        /// para garantizar que la suma de MontoAjustePlanAplicado coincida con ajusteGrupo.
-        /// </summary>
-        private static void ProrratearAjusteGrupoEnDetalles(List<VentaDetalle> detalles, decimal ajusteGrupo)
-        {
-            if (detalles.Count == 1)
-            {
-                detalles[0].MontoAjustePlanAplicado = ajusteGrupo;
-                return;
-            }
-
-            var totalSubtotal = detalles.Sum(d => d.SubtotalFinal);
-
-            if (totalSubtotal == 0m)
-            {
-                foreach (var d in detalles) d.MontoAjustePlanAplicado = 0m;
-                return;
-            }
-
-            foreach (var detalle in detalles)
-                detalle.MontoAjustePlanAplicado = RedondearMoneda(ajusteGrupo * detalle.SubtotalFinal / totalSubtotal);
-
-            // Ajustar diferencia de centavos al ítem de mayor subtotal (método de resto mayor)
-            var diferencia = RedondearMoneda(ajusteGrupo - detalles.Sum(d => d.MontoAjustePlanAplicado!.Value));
-            if (diferencia != 0m)
-            {
-                var mayor = detalles.OrderByDescending(d => d.SubtotalFinal).First();
-                mayor.MontoAjustePlanAplicado = RedondearMoneda(mayor.MontoAjustePlanAplicado!.Value + diferencia);
-            }
         }
 
         #region Trazabilidad individual (Fase 8.2.E)
@@ -3491,51 +3341,6 @@ namespace TheBuryProject.Services
             return response;
         }
 
-        /// <summary>
-        /// Calcula el ajuste agrupado por porcentaje de plan para el preview.
-        /// Agrupa ítems con el mismo AjustePorcentaje, aplica el porcentaje una vez
-        /// sobre el subtotal del grupo y acumula. CréditoPersonal se ignora.
-        /// </summary>
-        private async Task<decimal> CalcularAjusteItemsPreviewAsync(
-            List<DetalleCalculoVentaRequest> solicitudes,
-            List<DetalleCalculoTotalesVentaResponse> calculados)
-        {
-            var planIds = solicitudes
-                .Where(d => d.ProductoCondicionPagoPlanId.HasValue
-                    && d.TipoPago != TipoPago.CreditoPersonal)
-                .Select(d => d.ProductoCondicionPagoPlanId!.Value)
-                .Distinct()
-                .ToList();
-
-            if (planIds.Count == 0)
-                return 0m;
-
-            var planes = await _context.ProductoCondicionPagoPlanes
-                .AsNoTracking()
-                .Where(p => planIds.Contains(p.Id) && p.Activo && !p.IsDeleted)
-                .Select(p => new { p.Id, p.AjustePorcentaje })
-                .ToDictionaryAsync(p => p.Id, p => p.AjustePorcentaje);
-
-            // Construir grupos: porcentaje → suma de SubtotalFinal de los ítems del grupo
-            var grupos = new Dictionary<decimal, decimal>();
-
-            for (var i = 0; i < solicitudes.Count && i < calculados.Count; i++)
-            {
-                var sol = solicitudes[i];
-                if (!sol.ProductoCondicionPagoPlanId.HasValue
-                    || sol.TipoPago == TipoPago.CreditoPersonal)
-                    continue;
-
-                if (!planes.TryGetValue(sol.ProductoCondicionPagoPlanId.Value, out var pct))
-                    continue;
-
-                grupos.TryGetValue(pct, out var acum);
-                grupos[pct] = acum + calculados[i].SubtotalFinal;
-            }
-
-            return grupos.Sum(g => RedondearMoneda(g.Value * g.Key / 100m));
-        }
-
         private (decimal Porcentaje, int? AlicuotaId, string? AlicuotaNombre) ResolverSnapshotIvaPreview(
             int productoId,
             IReadOnlyDictionary<int, Producto> productos)
@@ -4181,10 +3986,6 @@ namespace TheBuryProject.Services
             var subtotalConDescuento = subtotal - venta.Descuento;
             return Math.Max(0m, subtotalConDescuento);
         }
-
-        #endregion
-
-        #region Stock
 
         #endregion
     }

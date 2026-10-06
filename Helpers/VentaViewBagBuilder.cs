@@ -39,9 +39,6 @@ public class VentaViewBagBuilder
         dynamic viewBag,
         int? clienteIdSeleccionado = null,
         IEnumerable<int>? productoIdsIncluidos = null,
-        // Conservado por compatibilidad de call-sites; el vendedor ya no se delega
-        // (siempre es el usuario logueado, resuelto en VentaService.ResolverVendedorAsync).
-        string? vendedorUserIdSeleccionado = null,
         TipoPago? tipoPagoSeleccionado = null)
     {
         var creditosCount = 0;

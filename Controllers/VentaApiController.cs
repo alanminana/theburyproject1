@@ -20,7 +20,6 @@ namespace TheBuryProject.Controllers
     public class VentaApiController : ControllerBase
     {
         private readonly IProductoService _productoService;
-        private readonly ICreditoService _creditoService;
         private readonly IVentaService _ventaService;
         private readonly IClienteService _clienteService;
         private readonly IConfiguracionPagoService _configuracionPagoService;
@@ -31,7 +30,6 @@ namespace TheBuryProject.Controllers
 
         public VentaApiController(
             IProductoService productoService,
-            ICreditoService creditoService,
             IVentaService ventaService,
             IClienteService clienteService,
             IConfiguracionPagoService configuracionPagoService,
@@ -42,7 +40,6 @@ namespace TheBuryProject.Controllers
         {
             _actualizacionDatosClienteService = actualizacionDatosClienteService;
             _productoService = productoService;
-            _creditoService = creditoService;
             _ventaService = ventaService;
             _clienteService = clienteService;
             _configuracionPagoService = configuracionPagoService;

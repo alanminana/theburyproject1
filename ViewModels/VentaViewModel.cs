@@ -183,11 +183,6 @@ namespace TheBuryProject.ViewModels
         public DateTime CreatedAt { get; set; }
 
         /// <summary>
-        /// Resultado de validación para ventas con crédito personal
-        /// </summary>
-        public ValidacionVentaResult? ValidacionCredito { get; set; }
-
-        /// <summary>
         /// Permite forzar excepción documental en create cuando el usuario tiene permiso de autorización.
         /// </summary>
         public bool AplicarExcepcionDocumental { get; set; }
