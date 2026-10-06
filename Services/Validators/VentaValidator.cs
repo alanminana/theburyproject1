@@ -21,13 +21,13 @@ namespace TheBuryProject.Services.Validators
 
         public void ValidarEstadoParaEliminacion(Venta venta)
         {
-            if (venta.Estado != EstadoVenta.Cotizacion && 
-                venta.Estado != EstadoVenta.Presupuesto &&
-                venta.Estado != EstadoVenta.PendienteRequisitos &&
-                venta.Estado != EstadoVenta.PendienteFinanciacion)
+            // Regla de negocio: solo se elimina una venta que todavía no avanzó. Una vez en requisitos o
+            // financiación (puede tener crédito asociado) se cancela, no se elimina.
+            if (venta.Estado != EstadoVenta.Cotizacion &&
+                venta.Estado != EstadoVenta.Presupuesto)
             {
                 throw new InvalidOperationException(
-                    $"Solo se pueden eliminar ventas en estado Cotización, Presupuesto, Pendiente Requisitos o Pendiente Financiación. Estado actual: {venta.Estado}");
+                    $"Solo se pueden eliminar ventas en estado Cotización o Presupuesto. Estado actual: {venta.Estado}");
             }
         }
 

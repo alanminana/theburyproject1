@@ -46,8 +46,6 @@ public class VentaValidatorTests
     [Theory]
     [InlineData(EstadoVenta.Cotizacion)]
     [InlineData(EstadoVenta.Presupuesto)]
-    [InlineData(EstadoVenta.PendienteRequisitos)]
-    [InlineData(EstadoVenta.PendienteFinanciacion)]
     public void ValidarEstadoParaEliminacion_EstadoPermitido_NoLanzaExcepcion(EstadoVenta estado)
     {
         var venta = new Venta { Estado = estado };
@@ -56,6 +54,8 @@ public class VentaValidatorTests
     }
 
     [Theory]
+    [InlineData(EstadoVenta.PendienteRequisitos)]
+    [InlineData(EstadoVenta.PendienteFinanciacion)]
     [InlineData(EstadoVenta.Confirmada)]
     [InlineData(EstadoVenta.Cancelada)]
     public void ValidarEstadoParaEliminacion_EstadoNoPermitido_LanzaInvalidOperation(EstadoVenta estado)
