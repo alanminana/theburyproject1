@@ -5,12 +5,6 @@ namespace TheBuryProject.Models.Constants
     /// </summary>
     public static class VentaConstants
     {
-        /// <summary>
-        /// Divisor legacy para calcular base imponible desde precio con IVA 21%.
-        /// Uso: precioConIVA / IVA_DIVISOR = precioSinIVA.
-        /// </summary>
-        public const decimal IVA_DIVISOR = 1.21m;
-        
         public const string PREFIJO_COTIZACION = "COT";
         public const string PREFIJO_VENTA = "VTA";
         public const string FORMATO_NUMERO_VENTA = "{0}-{1}-{2:D6}";

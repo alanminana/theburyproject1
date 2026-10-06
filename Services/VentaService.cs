@@ -1780,20 +1780,6 @@ namespace TheBuryProject.Services
             _logger.LogInformation("Datos de crédito limpiados para venta {VentaId}", venta.Id);
         }
 
-        public async Task<bool> RequiereAutorizacionAsync(VentaViewModel viewModel)
-        {
-            if (viewModel.TipoPago != TipoPago.CreditoPersonal)
-                return false;
-
-            // Usar el servicio de validación unificado
-            var validacion = await _validacionVentaService.ValidarVentaCreditoPersonalAsync(
-                viewModel.ClienteId, 
-                viewModel.Total, 
-                viewModel.CreditoId);
-
-            return validacion.RequiereAutorizacion;
-        }
-
         #endregion
 
         #region Métodos de Cálculo - Tarjetas
@@ -2345,11 +2331,6 @@ namespace TheBuryProject.Services
             };
 
             return resultado;
-        }
-
-        public CalculoTotalesVentaResponse CalcularTotalesPreview(List<DetalleCalculoVentaRequest> detalles, decimal descuentoGeneral, bool descuentoEsPorcentaje)
-        {
-            return CalcularTotalesInterno(detalles, descuentoGeneral, descuentoEsPorcentaje);
         }
 
         public async Task<CalculoTotalesVentaResponse> CalcularTotalesPreviewAsync(List<DetalleCalculoVentaRequest> detalles, decimal descuentoGeneral, bool descuentoEsPorcentaje)
@@ -3081,33 +3062,6 @@ namespace TheBuryProject.Services
                 detalle.ComisionPorcentajeAplicada = porcentaje;
                 detalle.ComisionMonto = VentaComisionCalculator.Calcular(baseComision, porcentaje);
             }
-        }
-
-        private CalculoTotalesVentaResponse CalcularTotalesInterno(IEnumerable<DetalleCalculoVentaRequest> detalles, decimal descuentoGeneral, bool descuentoEsPorcentaje)
-        {
-            // Legacy sync fallback: no debe usarse como fuente fiscal para UI/API de venta.
-            // El endpoint activo usa CalcularTotalesPreviewAsync y resuelve IVA por producto.
-            // Se conserva para compatibilidad interna y pruebas históricas sin acceso async.
-            var subtotalConIVA = detalles
-                .Select(d => CalcularSubtotalLineaConDescuento(d.PrecioUnitario, d.Cantidad, d.Descuento))
-                .Sum();
-
-            var descuentoCalculado = descuentoEsPorcentaje
-                ? subtotalConIVA * (descuentoGeneral / 100)
-                : descuentoGeneral;
-
-            var total = TruncarAPesos(Math.Max(0, subtotalConIVA - descuentoCalculado));
-
-            var subtotalSinIVA = RedondearMoneda(total / VentaConstants.IVA_DIVISOR);
-            var iva = RedondearMoneda(total - subtotalSinIVA);
-
-            return new CalculoTotalesVentaResponse
-            {
-                Subtotal = subtotalSinIVA,
-                DescuentoGeneralAplicado = descuentoCalculado,
-                IVA = iva,
-                Total = total
-            };
         }
 
         private async Task<CalculoTotalesVentaResponse> CalcularTotalesInternoAsync(

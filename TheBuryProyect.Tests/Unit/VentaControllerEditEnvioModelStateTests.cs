@@ -77,8 +77,6 @@ public class VentaControllerEditEnvioModelStateTests
         var controller = new VentaController(
             ventaService,
             NullLogger<VentaController>.Instance,
-            null!, // IFinancialCalculationService — no usado (TipoPago Efectivo)
-            null!, // IPrequalificationService — no usado
             null!, // ICreditoService — no usado (no es crédito personal)
             null!, // IDocumentacionService — no usado
             null!, // IClienteLookupService — no usado
@@ -117,12 +115,10 @@ public class VentaControllerEditEnvioModelStateTests
         public Task<bool> AutorizarVentaAsync(int id, string usuarioAutoriza, string motivo) => throw new NotImplementedException();
         public Task<bool> RechazarVentaAsync(int id, string usuarioAutoriza, string motivo) => throw new NotImplementedException();
         public Task<bool> RegistrarExcepcionDocumentalAsync(int id, string usuarioAutoriza, string motivo) => throw new NotImplementedException();
-        public Task<bool> RequiereAutorizacionAsync(VentaViewModel viewModel) => throw new NotImplementedException();
         public Task<bool> GuardarDatosTarjetaAsync(int ventaId, DatosTarjetaViewModel datosTarjeta) => throw new NotImplementedException();
         public Task<bool> GuardarDatosChequeAsync(int ventaId, DatosChequeViewModel datosCheque) => throw new NotImplementedException();
         public Task<DatosTarjetaViewModel> CalcularCuotasTarjetaAsync(int tarjetaId, decimal monto, int cuotas) => throw new NotImplementedException();
         public Task<DatosCreditoPersonallViewModel?> ObtenerDatosCreditoVentaAsync(int ventaId) => throw new NotImplementedException();
-        public TheBuryProject.ViewModels.Responses.CalculoTotalesVentaResponse CalcularTotalesPreview(List<TheBuryProject.ViewModels.Requests.DetalleCalculoVentaRequest> detalles, decimal descuentoGeneral, bool descuentoEsPorcentaje) => throw new NotImplementedException();
         public Task<TheBuryProject.ViewModels.Responses.CalculoTotalesVentaResponse> CalcularTotalesPreviewAsync(List<TheBuryProject.ViewModels.Requests.DetalleCalculoVentaRequest> detalles, decimal descuentoGeneral, bool descuentoEsPorcentaje) => throw new NotImplementedException();
         public Task<decimal?> GetTotalVentaAsync(int ventaId) => throw new NotImplementedException();
         public Task<bool> PrepararVentaDesdeCotizacionAsync(int id) => throw new NotImplementedException();

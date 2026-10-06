@@ -550,32 +550,6 @@ public class VentaServiceProductoUnidadTrazabilidadTests : IDisposable
     }
 
     // -------------------------------------------------------------------------
-    // 12. Preview/CalcularTotales no modifica estado de unidad
-    // -------------------------------------------------------------------------
-
-    [Fact]
-    public void CalcularTotalesPreview_NoModificaEstadoUnidad()
-    {
-        // CalcularTotalesPreview es síncrono y no accede a ProductoUnidad en ningún caso.
-        // Verificamos que la interfaz no tiene side effects con unidades.
-        var detalles = new List<DetalleCalculoVentaRequest>
-        {
-            new DetalleCalculoVentaRequest
-            {
-                ProductoId = 999,
-                Cantidad = 1,
-                PrecioUnitario = 500m
-            }
-        };
-
-        // No debe lanzar y no toca base de datos
-        var resultado = _service.CalcularTotalesPreview(detalles, 0m, false);
-
-        Assert.NotNull(resultado);
-        Assert.True(resultado.Total > 0m);
-    }
-
-    // -------------------------------------------------------------------------
     // 13. RevertirVentaAsync: Vendida → EnStock limpia campos
     // -------------------------------------------------------------------------
 

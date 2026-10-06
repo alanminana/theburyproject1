@@ -101,9 +101,6 @@ file static class VentaServiceFactory
 
 public class VentaService_CalcularTotalesPreview
 {
-    // Ratio legacy 21% usado por el método sync de compatibilidad.
-    private const decimal IVA_DIVISOR = 1.21m;
-
     private static VentaService BuildService()
     {
         var (ctx, _) = VentaServiceFactory.CreateDb();
@@ -112,128 +109,6 @@ public class VentaService_CalcularTotalesPreview
 
     private static DetalleCalculoVentaRequest Item(decimal precio, decimal cantidad = 1, decimal descuento = 0, int productoId = 1) =>
         new() { ProductoId = productoId, PrecioUnitario = precio, Cantidad = cantidad, Descuento = descuento };
-
-    [Fact]
-    public void SinDetalles_DevuelveTotalesEnCero()
-    {
-        var svc = BuildService();
-        var result = svc.CalcularTotalesPreview(new List<DetalleCalculoVentaRequest>(), 0, false);
-
-        Assert.Equal(0, result.Subtotal);
-        Assert.Equal(0, result.Total);
-        Assert.Equal(0, result.IVA);
-        Assert.Equal(0, result.DescuentoGeneralAplicado);
-    }
-
-    [Fact]
-    public void UnItem_SinDescuento_SubtotalIgualATotal()
-    {
-        var svc = BuildService();
-        var result = svc.CalcularTotalesPreview(
-            new List<DetalleCalculoVentaRequest> { Item(1210m) },
-            descuentoGeneral: 0, descuentoEsPorcentaje: false);
-
-        Assert.Equal(1000m, result.Subtotal);
-        Assert.Equal(1210m, result.Total);
-    }
-
-    [Fact]
-    public void DesgloseIVA_EsConsistente_ConTotalDivididoPorDivisor()
-    {
-        var svc = BuildService();
-        var result = svc.CalcularTotalesPreview(
-            new List<DetalleCalculoVentaRequest> { Item(1210m) },
-            descuentoGeneral: 0, descuentoEsPorcentaje: false);
-
-        var baseEsperada = Math.Round(result.Total / IVA_DIVISOR, 2, MidpointRounding.AwayFromZero);
-        var ivaEsperado = Math.Round(result.Total - baseEsperada, 2, MidpointRounding.AwayFromZero);
-
-        Assert.Equal(ivaEsperado, result.IVA);
-        // IVA debería ser ~21% del precio sin IVA (210 sobre 1000)
-        Assert.True(result.IVA > 0);
-    }
-
-    [Fact]
-    public void DescuentoPorcentualEnDetalle_SeAplicaSobreBrutoDelItem()
-    {
-        var svc = BuildService();
-        // Item: (1000 * 2) - (2000 * 20%) = 2000 - 400 = 1600. El Descuento del detalle es
-        // porcentaje (0-100) sobre precio*cantidad, no importe absoluto.
-        var result = svc.CalcularTotalesPreview(
-            new List<DetalleCalculoVentaRequest> { Item(1000m, cantidad: 2, descuento: 20m) },
-            descuentoGeneral: 0, descuentoEsPorcentaje: false);
-
-        Assert.Equal(1322.31m, result.Subtotal);
-        Assert.Equal(1600m, result.Total);
-    }
-
-    [Fact]
-    public void DescuentoGeneralAbsoluto_SeRestaDelSubtotal()
-    {
-        var svc = BuildService();
-        var result = svc.CalcularTotalesPreview(
-            new List<DetalleCalculoVentaRequest> { Item(1000m), Item(500m) },
-            descuentoGeneral: 200m, descuentoEsPorcentaje: false);
-
-        Assert.Equal(1074.38m, result.Subtotal);
-        Assert.Equal(200m, result.DescuentoGeneralAplicado);
-        Assert.Equal(1300m, result.Total);
-    }
-
-    [Fact]
-    public void DescuentoGeneralPorcentaje_SeCalculaSobreSubtotal()
-    {
-        var svc = BuildService();
-        // Subtotal = 1000. Descuento 10% = 100. Total = 900.
-        var result = svc.CalcularTotalesPreview(
-            new List<DetalleCalculoVentaRequest> { Item(1000m) },
-            descuentoGeneral: 10m, descuentoEsPorcentaje: true);
-
-        Assert.Equal(743.80m, result.Subtotal);
-        Assert.Equal(100m, result.DescuentoGeneralAplicado);
-        Assert.Equal(900m, result.Total);
-    }
-
-    [Fact]
-    public void DescuentoDetalleTotal100PorCiento_NoProduceNegativos()
-    {
-        var svc = BuildService();
-        // Precio 500, descuento 100% → neto 0 por Math.Max(0,...)
-        var result = svc.CalcularTotalesPreview(
-            new List<DetalleCalculoVentaRequest> { Item(500m, descuento: 100m) },
-            descuentoGeneral: 0, descuentoEsPorcentaje: false);
-
-        Assert.Equal(0, result.Subtotal);
-        Assert.Equal(0, result.Total);
-        Assert.Equal(0, result.IVA);
-    }
-
-    [Fact]
-    public void DescuentoGeneralMayorQueSubtotal_TotalNoEsNegativo()
-    {
-        var svc = BuildService();
-        var result = svc.CalcularTotalesPreview(
-            new List<DetalleCalculoVentaRequest> { Item(100m) },
-            descuentoGeneral: 500m, descuentoEsPorcentaje: false);
-
-        Assert.Equal(0, result.Total);
-    }
-
-    [Fact]
-    public void MultipleItems_SubtotalEsSumaDeNetosIndividuales()
-    {
-        var svc = BuildService();
-        // Item A: 200 * 3 = 600. Item B: 150 * 2 - (300 * 50%) = 300 - 150 = 150. Total = 750.
-        var items = new List<DetalleCalculoVentaRequest>
-        {
-            new() { ProductoId = 1, PrecioUnitario = 200m, Cantidad = 3, Descuento = 0 },
-            new() { ProductoId = 2, PrecioUnitario = 150m, Cantidad = 2, Descuento = 50m },
-        };
-        var result = svc.CalcularTotalesPreview(items, 0, false);
-
-        Assert.Equal(619.83m, result.Subtotal);
-        Assert.Equal(750m, result.Total);
-    }
 
     [Fact]
     public async Task Async_ProductoIva21_CalculaNetoIvaYTotal()
