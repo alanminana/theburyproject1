@@ -54,11 +54,6 @@ namespace TheBuryProject.ViewModels
         public string MensajeResumen => GenerarMensajeResumen();
 
         /// <summary>
-        /// Estado de autorización sugerido para la venta
-        /// </summary>
-        public EstadoAutorizacionVenta EstadoAutorizacionSugerido => DeterminarEstadoAutorizacion();
-
-        /// <summary>
         /// Estado de aptitud crediticia del cliente (del semáforo)
         /// </summary>
         public EstadoCrediticioCliente EstadoAptitud { get; set; } = EstadoCrediticioCliente.NoEvaluado;
@@ -88,14 +83,6 @@ namespace TheBuryProject.ViewModels
             }
 
             return string.Join(". ", mensajes);
-        }
-
-        private EstadoAutorizacionVenta DeterminarEstadoAutorizacion()
-        {
-            if (!RequiereAutorizacion)
-                return EstadoAutorizacionVenta.NoRequiere;
-
-            return EstadoAutorizacionVenta.PendienteAutorizacion;
         }
     }
 
