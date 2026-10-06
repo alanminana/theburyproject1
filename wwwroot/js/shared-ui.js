@@ -205,6 +205,33 @@ TheBury.confirmActionWithNote = function (message, onConfirm, notePlaceholder) {
 };
 
 /**
+ * Confirmación opt-in para formularios: <form data-confirm-message="..." [data-confirm-title] [data-confirm-label]
+ * [data-confirm-tone="primary"]>. Reemplaza al confirm() nativo (onsubmit="return confirm(...)") con el modal compartido.
+ * Corre después de la validación HTML (campos required) y vuelve a enviar el formulario al confirmar.
+ */
+(function () {
+    'use strict';
+    document.addEventListener('submit', function (e) {
+        var form = e.target;
+        if (!(form instanceof HTMLFormElement) || !form.hasAttribute('data-confirm-message')) return;
+        if (form.dataset.confirmed === 'true') { delete form.dataset.confirmed; return; }
+
+        e.preventDefault();
+        var submitter = e.submitter || null;
+        var options = {
+            title: form.getAttribute('data-confirm-title') || undefined,
+            confirmLabel: form.getAttribute('data-confirm-label') || undefined,
+            tone: form.getAttribute('data-confirm-tone') || undefined
+        };
+        TheBury.confirmAction(form.getAttribute('data-confirm-message'), function () {
+            form.dataset.confirmed = 'true';
+            if (typeof form.requestSubmit === 'function') form.requestSubmit(submitter || undefined);
+            else form.submit();
+        }, options);
+    }, true);
+})();
+
+/**
  * Normalize a string for accent-insensitive search (NFD + lowercase).
  */
 TheBury.normalizeText = function (value) {

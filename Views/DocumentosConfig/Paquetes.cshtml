@@ -10,23 +10,23 @@
 
 <div class="doc-module">
     <header class="doc-head">
-        <h1 class="doc-title">Documentos</h1>
-        <p class="doc-sub">Un paquete agrupa documentos que se usan juntos (por ejemplo contrato + pagaré). Siguen siendo documentos independientes: cada uno tiene su número, estado y firma, y pueden imprimirse en conjunto.</p>
+        <div class="doc-head-text">
+            <partial name="_DocEyebrow" />
+            <h1 class="doc-title">@ViewData["Title"]</h1>
+            <p class="doc-sub">Un paquete agrupa documentos que se usan juntos (por ejemplo contrato + pagaré). Siguen siendo documentos independientes: cada uno tiene su número, estado y firma, y pueden imprimirse en conjunto.</p>
+        </div>
+        <a asp-action="PaqueteEdit" class="doc-btn doc-btn-primary">
+            <span class="material-symbols-outlined" aria-hidden="true">add</span><span>Nuevo paquete</span>
+        </a>
         <partial name="_Tabs" />
     </header>
 
     <partial name="_Flash" />
 
-    <div class="doc-actions" style="justify-content:flex-end">
-        <a asp-action="PaqueteEdit" class="doc-btn doc-btn-primary">
-            <span class="material-symbols-outlined" aria-hidden="true">add</span>Nuevo paquete
-        </a>
-    </div>
-
     <section class="doc-card">
         @if (Model.Count == 0)
         {
-            <p class="doc-muted" style="margin:0">Todavía no hay paquetes.</p>
+            <p class="doc-muted">Todavía no hay paquetes.</p>
         }
         else
         {

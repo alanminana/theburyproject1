@@ -1,0 +1,11 @@
+@* Etiqueta superior de la configuración documental: vuelve al listado de documentos emitidos si el usuario puede verlo. *@
+@if (User.TienePermiso("documentos", "view"))
+{
+    <a asp-controller="Documento" asp-action="Index" class="doc-eyebrow">
+        <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span><span>Documentos emitidos</span>
+    </a>
+}
+else
+{
+    <p class="doc-eyebrow">Documentos</p>
+}

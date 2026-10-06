@@ -11,7 +11,8 @@
 
 <div class="doc-module">
     <header class="doc-head">
-        <h1 class="doc-title">Documentos</h1>
+        <partial name="_DocEyebrow" />
+        <h1 class="doc-title">@ViewData["Title"]</h1>
         <p class="doc-sub">El código no se puede cambiar una vez creado.</p>
         <partial name="_Tabs" />
     </header>
@@ -37,11 +38,11 @@
                     <input asp-for="Prefijo" class="doc-input doc-mono" maxlength="10" required placeholder="REC" />
                 </div>
             </div>
-            <div class="doc-field" style="margin-top:.9rem">
+            <div class="doc-field doc-mt-md">
                 <label asp-for="Descripcion">Descripción</label>
                 <input asp-for="Descripcion" class="doc-input" maxlength="500" />
             </div>
-            <div class="doc-grid-2" style="margin-top:.9rem">
+            <div class="doc-grid-2 doc-mt-md">
                 <div class="doc-field">
                     <label asp-for="Categoria">Categoría</label>
                     <select asp-for="Categoria" asp-items="Html.GetEnumSelectList<TheBuryProject.Models.Enums.CategoriaDocumento>()" class="doc-select"></select>

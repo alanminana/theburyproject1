@@ -13,29 +13,31 @@
 
 <div class="doc-module">
     <header class="doc-head">
-        <h1 class="doc-title">Documentos</h1>
-        <p class="doc-sub">Plantillas de contratos, pagarés, recibos y otros documentos. Cada cambio de contenido crea una versión nueva: los documentos ya emitidos conservan la versión con la que se generaron.</p>
+        <div class="doc-head-text">
+            <partial name="_DocEyebrow" />
+            <h1 class="doc-title">@ViewData["Title"]</h1>
+            <p class="doc-sub">Plantillas de contratos, pagarés, recibos y otros documentos. Cada cambio de contenido crea una versión nueva: los documentos ya emitidos conservan la versión con la que se generaron.</p>
+        </div>
+        <a asp-action="PlantillaEdit" asp-route-tipoId="@tipoId" class="doc-btn doc-btn-primary">
+            <span class="material-symbols-outlined" aria-hidden="true">add</span><span>Nueva plantilla</span>
+        </a>
         <partial name="_Tabs" />
     </header>
 
     <partial name="_Flash" />
 
     <section class="doc-card">
-        <div class="doc-actions" style="justify-content:space-between;margin-bottom:.75rem">
-            <form method="get" class="doc-actions">
-                <label for="tipoId" class="doc-label">Tipo</label>
-                <select id="tipoId" name="tipoId" class="doc-select" style="width:auto" onchange="this.form.submit()">
-                    <option value="">Todos</option>
-                    @foreach (var t in tipos)
-                    {
-                        <option value="@t.Id" selected="@(tipoId == t.Id)">@t.Nombre</option>
-                    }
-                </select>
-            </form>
-            <a asp-action="PlantillaEdit" asp-route-tipoId="@tipoId" class="doc-btn doc-btn-primary">
-                <span class="material-symbols-outlined" aria-hidden="true">add</span>Nueva plantilla
-            </a>
-        </div>
+        <form method="get" class="doc-actions doc-toolbar">
+            <label for="tipoId" class="doc-label">Tipo</label>
+            <select id="tipoId" name="tipoId" class="doc-select doc-select-auto">
+                <option value="">Todos</option>
+                @foreach (var t in tipos)
+                {
+                    <option value="@t.Id" selected="@(tipoId == t.Id)">@t.Nombre</option>
+                }
+            </select>
+            <button type="submit" class="doc-btn">Aplicar</button>
+        </form>
 
         @if (Model.Count == 0)
         {
@@ -46,7 +48,7 @@
             <div class="doc-table-wrap">
                 <table class="doc-table" data-erp-cards>
                     <thead>
-                        <tr><th data-card="title">Plantilla</th><th data-card="half">Tipo</th><th data-card="half">Versión</th><th>Vigencia</th><th data-card="half">Firma</th><th data-card="half">Estado</th><th data-card="actions"><span class="sr-only">Acciones</span></th></tr>
+                        <tr><th data-card="title">Plantilla</th><th data-card="half">Tipo</th><th data-card="half">Firma</th><th data-card="half">Estado</th><th data-card="actions"><span class="sr-only">Acciones</span></th></tr>
                     </thead>
                     <tbody>
                     @foreach (var p in Model)
@@ -56,10 +58,9 @@
                             <td>
                                 <strong>@p.Nombre</strong>
                                 <div class="doc-muted doc-mono">@p.Codigo</div>
+                                <div class="doc-muted">v@(p.VersionActual) · desde @p.VigenteDesde.ToString("dd/MM/yyyy")@(p.VigenteHasta.HasValue ? $" hasta {p.VigenteHasta.Value:dd/MM/yyyy}" : "")</div>
                             </td>
                             <td>@p.TipoDocumento.Nombre</td>
-                            <td>v@(p.VersionActual)</td>
-                            <td>@p.VigenteDesde.ToString("dd/MM/yyyy")@(p.VigenteHasta.HasValue ? $" – {p.VigenteHasta.Value:dd/MM/yyyy}" : " – sin fin")</td>
                             <td>@(p.RequiereFirma ? (string.IsNullOrWhiteSpace(p.FirmantesRequeridos) ? "Sí" : p.FirmantesRequeridos) : "No")</td>
                             <td>
                                 @if (vigente) { <span class="doc-chip doc-chip-ok">Vigente</span> }

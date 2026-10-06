@@ -31,7 +31,8 @@
 
 <div class="doc-module" data-doc-page="regla">
     <header class="doc-head">
-        <h1 class="doc-title">Documentos</h1>
+        <partial name="_DocEyebrow" />
+        <h1 class="doc-title">@ViewData["Title"]</h1>
         <p class="doc-sub">Cuando ocurre el evento y se cumplen las condiciones, se genera la plantilla o el paquete elegido. Las condiciones no ejecutan código: solo comparan datos de la operación.</p>
         <partial name="_Tabs" />
     </header>
@@ -68,7 +69,7 @@
             </p>
             <input type="hidden" asp-for="CondicionJson" id="doc-condicion-json" />
             <div id="doc-cond-builder">
-                <div class="doc-field" style="max-width:24rem;margin-bottom:.75rem">
+                <div class="doc-field doc-maxw-24 doc-mb-md">
                     <label for="doc-grupo-op">Debe cumplirse</label>
                     <select id="doc-grupo-op" class="doc-select">
                         <option value="todas">TODAS las condiciones</option>
@@ -76,12 +77,12 @@
                     </select>
                 </div>
                 <div id="doc-cond-rows"></div>
-                <button type="button" id="doc-cond-add" class="doc-btn" style="margin-top:.6rem">
+                <button type="button" id="doc-cond-add" class="doc-btn doc-mt-sm">
                     <span class="material-symbols-outlined" aria-hidden="true">add</span>Agregar condición
                 </button>
-                <p class="doc-hint" style="margin-top:.6rem">Sin condiciones, la regla se aplica siempre que ocurra el evento.</p>
+                <p class="doc-hint doc-mt-sm">Sin condiciones, la regla se aplica siempre que ocurra el evento.</p>
             </div>
-            <textarea id="doc-cond-raw" class="doc-textarea" style="min-height:8rem" hidden aria-label="Condiciones en JSON" spellcheck="false"></textarea>
+            <textarea id="doc-cond-raw" class="doc-textarea doc-textarea-short" hidden aria-label="Condiciones en JSON" spellcheck="false"></textarea>
         </section>
 
         <section class="doc-card">
@@ -123,12 +124,12 @@
                 <div class="doc-field">
                     <label asp-for="Prioridad">Prioridad</label>
                     <input asp-for="Prioridad" type="number" min="0" max="10000" class="doc-input" />
-                    <span class="doc-hint" style="margin:0">Mayor número = se evalúa primero.</span>
+                    <span class="doc-hint doc-hint-flush">Mayor número = se evalúa primero.</span>
                 </div>
                 <div class="doc-field">
                     <label asp-for="GrupoExclusion">Grupo de exclusión (opcional)</label>
                     <input asp-for="GrupoExclusion" class="doc-input" maxlength="50" placeholder="contrato-credito" />
-                    <span class="doc-hint" style="margin:0">Reglas del mismo grupo: solo se aplica la de mayor prioridad que coincida.</span>
+                    <span class="doc-hint doc-hint-flush">Reglas del mismo grupo: solo se aplica la de mayor prioridad que coincida.</span>
                 </div>
                 <div>
                     <label class="doc-check"><input type="checkbox" asp-for="Activa" /> Activa</label>

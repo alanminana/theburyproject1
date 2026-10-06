@@ -12,88 +12,94 @@
 
 <div class="doc-module">
     <header class="doc-head">
-        <h1 class="doc-title">Documentos</h1>
-        <p class="doc-sub">
-            Una regla dice <strong>cuándo</strong> (evento), <strong>bajo qué condiciones</strong> y <strong>qué documento</strong> se genera.
-            Con mayor prioridad se evalúa primero; reglas del mismo grupo de exclusión son excluyentes (gana la de mayor prioridad que coincida).
-        </p>
+        <div class="doc-head-text">
+            <partial name="_DocEyebrow" />
+            <h1 class="doc-title">@ViewData["Title"]</h1>
+            <p class="doc-sub">
+                Una regla dice <strong>cuándo</strong> (evento), <strong>bajo qué condiciones</strong> y <strong>qué documento</strong> se genera.
+                Con mayor prioridad se evalúa primero; reglas del mismo grupo de exclusión son excluyentes (gana la de mayor prioridad que coincida).
+            </p>
+        </div>
+        <a asp-action="ReglaEdit" class="doc-btn doc-btn-primary">
+            <span class="material-symbols-outlined" aria-hidden="true">add</span><span>Nueva regla</span>
+        </a>
         <partial name="_Tabs" />
     </header>
 
     <partial name="_Flash" />
 
-    <div class="doc-actions" style="justify-content:flex-end">
-        <a asp-action="ReglaEdit" class="doc-btn doc-btn-primary">
-            <span class="material-symbols-outlined" aria-hidden="true">add</span>Nueva regla
-        </a>
-    </div>
-
     @foreach (var grupo in eventos)
     {
         var reglas = Model.Where(r => r.EventoCodigo == grupo.Codigo).ToList();
+        if (reglas.Count == 0)
+        {
+            <section class="doc-card doc-evento-vacio" aria-label="@grupo.Nombre">
+                <div class="doc-evento-vacio-info">
+                    <h2>@grupo.Nombre <span class="doc-muted doc-mono doc-codigo">@grupo.Codigo</span></h2>
+                    <p class="doc-muted">Sin reglas: este evento no genera documentos. @grupo.Descripcion</p>
+                </div>
+                <a asp-action="ReglaEdit" asp-route-evento="@grupo.Codigo" class="doc-btn">
+                    <span class="material-symbols-outlined" aria-hidden="true">add</span><span>Agregar regla</span>
+                </a>
+            </section>
+            continue;
+        }
         <section class="doc-card">
-            <h2>@grupo.Nombre <span class="doc-muted doc-mono" style="font-weight:400;font-size:.75rem">@grupo.Codigo</span></h2>
+            <h2>@grupo.Nombre <span class="doc-muted doc-mono doc-codigo">@grupo.Codigo</span></h2>
             <p class="doc-hint">@grupo.Descripcion</p>
 
-            @if (reglas.Count == 0)
-            {
-                <p class="doc-muted" style="margin:0">Sin reglas: este evento no genera documentos.</p>
-            }
-            else
-            {
-                <div class="doc-table-wrap">
-                    <table class="doc-table" data-erp-cards>
-                        <thead><tr><th data-card="half">Prioridad</th><th data-card="title">Regla</th><th>Genera</th><th>Opciones</th><th data-card="half">Estado</th><th data-card="actions"><span class="sr-only">Acciones</span></th></tr></thead>
-                        <tbody>
-                        @foreach (var r in reglas)
-                        {
-                            <tr>
-                                <td>@r.Prioridad</td>
-                                <td>
-                                    <strong>@r.Nombre</strong>
-                                    <div class="doc-muted">@(string.IsNullOrWhiteSpace(r.CondicionJson) ? "Siempre" : "Con condiciones")</div>
-                                </td>
-                                <td>
-                                    @if (r.PaqueteDocumental != null) { <text>Paquete: @r.PaqueteDocumental.Nombre</text> }
-                                    else if (r.PlantillaDocumento != null) { <text>@r.PlantillaDocumento.Nombre</text> }
-                                </td>
-                                <td>
-                                    @if (r.Obligatoria) { <span class="doc-chip doc-chip-warn">Obligatoria</span> }
-                                    @if (!string.IsNullOrWhiteSpace(r.GrupoExclusion)) { <span class="doc-chip">Grupo: @r.GrupoExclusion</span> }
-                                    @if (r.ExigeFirmaParaContinuar) { <span class="doc-chip">Exige firma</span> }
-                                </td>
-                                <td>@if (r.Activa) { <span class="doc-chip doc-chip-ok">Activa</span> } else { <span class="doc-chip doc-chip-off">Inactiva</span> }</td>
-                                <td>
-                                    <div class="doc-actions">
-                                        @if (r.PaqueteDocumentalId != null || r.PlantillaDocumentoId != null)
-                                        {
-                                            <button type="button" class="doc-btn" data-doc-preview-url="@Url.Action("ReglaVistaPreviaPdf", new { id = r.Id })" data-doc-preview-title="Regla: @r.Nombre">
-                                                <span class="material-symbols-outlined" aria-hidden="true">visibility</span>Vista previa
-                                            </button>
-                                        }
-                                        <a asp-action="ReglaEdit" asp-route-id="@r.Id" class="doc-btn">Editar</a>
-                                        <form method="post" asp-action="ReglaActivar">
-                                            @Html.AntiForgeryToken()
-                                            <input type="hidden" name="id" value="@r.Id" />
-                                            <input type="hidden" name="activa" value="@((!r.Activa).ToString().ToLowerInvariant())" />
-                                            <button type="submit" class="doc-btn">@(r.Activa ? "Desactivar" : "Activar")</button>
-                                        </form>
-                                        <form method="post" asp-action="ReglaEliminar" onsubmit="return confirm('¿Eliminar la regla? Los documentos ya emitidos no se modifican.');">
-                                            @Html.AntiForgeryToken()
-                                            <input type="hidden" name="id" value="@r.Id" />
-                                            <button type="submit" class="doc-btn doc-btn-danger">Eliminar</button>
-                                        </form>
-                                    </div>
-                                </td>
-                            </tr>
-                        }
-                        </tbody>
-                    </table>
-                </div>
-            }
-            <div style="margin-top:.6rem">
+            <div class="doc-table-wrap">
+                <table class="doc-table" data-erp-cards>
+                    <thead><tr><th data-card="half">Prioridad</th><th data-card="title">Regla</th><th>Genera</th><th>Opciones</th><th data-card="half">Estado</th><th data-card="actions"><span class="sr-only">Acciones</span></th></tr></thead>
+                    <tbody>
+                    @foreach (var r in reglas)
+                    {
+                        <tr>
+                            <td>@r.Prioridad</td>
+                            <td>
+                                <strong>@r.Nombre</strong>
+                                <div class="doc-muted">@(string.IsNullOrWhiteSpace(r.CondicionJson) ? "Siempre" : "Con condiciones")</div>
+                            </td>
+                            <td>
+                                @if (r.PaqueteDocumental != null) { <text>Paquete: @r.PaqueteDocumental.Nombre</text> }
+                                else if (r.PlantillaDocumento != null) { <text>@r.PlantillaDocumento.Nombre</text> }
+                            </td>
+                            <td>
+                                @if (r.Obligatoria) { <span class="doc-chip doc-chip-warn">Obligatoria</span> }
+                                @if (!string.IsNullOrWhiteSpace(r.GrupoExclusion)) { <span class="doc-chip">Grupo: @r.GrupoExclusion</span> }
+                                @if (r.ExigeFirmaParaContinuar) { <span class="doc-chip">Exige firma</span> }
+                            </td>
+                            <td>@if (r.Activa) { <span class="doc-chip doc-chip-ok">Activa</span> } else { <span class="doc-chip doc-chip-off">Inactiva</span> }</td>
+                            <td>
+                                <div class="doc-actions">
+                                    @if (r.PaqueteDocumentalId != null || r.PlantillaDocumentoId != null)
+                                    {
+                                        <button type="button" class="doc-btn" data-doc-preview-url="@Url.Action("ReglaVistaPreviaPdf", new { id = r.Id })" data-doc-preview-title="Regla: @r.Nombre">
+                                            <span class="material-symbols-outlined" aria-hidden="true">visibility</span>Vista previa
+                                        </button>
+                                    }
+                                    <a asp-action="ReglaEdit" asp-route-id="@r.Id" class="doc-btn">Editar</a>
+                                    <form method="post" asp-action="ReglaActivar">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@r.Id" />
+                                        <input type="hidden" name="activa" value="@((!r.Activa).ToString().ToLowerInvariant())" />
+                                        <button type="submit" class="doc-btn">@(r.Activa ? "Desactivar" : "Activar")</button>
+                                    </form>
+                                    <form method="post" asp-action="ReglaEliminar" data-confirm-message="Los documentos ya emitidos no se modifican, pero la regla deja de aplicarse." data-confirm-title="Eliminar regla" data-confirm-label="Eliminar">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@r.Id" />
+                                        <button type="submit" class="doc-btn doc-btn-danger">Eliminar</button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+            <div class="doc-card-foot">
                 <a asp-action="ReglaEdit" asp-route-evento="@grupo.Codigo" class="doc-btn">
-                    <span class="material-symbols-outlined" aria-hidden="true">add</span>Agregar regla a este evento
+                    <span class="material-symbols-outlined" aria-hidden="true">add</span><span>Agregar regla a este evento</span>
                 </a>
             </div>
         </section>

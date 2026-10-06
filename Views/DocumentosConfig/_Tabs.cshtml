@@ -5,7 +5,7 @@
     var puedeReglas = User.TienePermiso("documentos", "managerules");
     var puedeTipos = User.TienePermiso("documentos", "managetypes");
 }
-<nav class="doc-tabs" aria-label="Configuración de documentos">
+<nav class="doc-tabs doc-tabs-scroll" aria-label="Configuración de documentos">
     @if (puedePlantillas)
     {
         <a asp-controller="DocumentosConfig" asp-action="Plantillas" class="doc-tab" aria-current="@(activa == "plantillas" ? "page" : null)">
@@ -51,8 +51,9 @@
             </button>
         </div>
     </div>
-    <p class="doc-hint" style="margin:0 0 .5rem">Así se imprime el documento. Los datos son de ejemplo y el número queda sin asignar; no se guarda nada.</p>
+    <p class="doc-hint doc-hint-flush doc-mb-sm">Así se imprime el documento. Los datos son de ejemplo y el número queda sin asignar; no se guarda nada.</p>
     <p class="doc-muted" data-doc-modal-status role="status"></p>
     <iframe title="Vista previa del documento" class="doc-modal-frame" hidden></iframe>
 </dialog>
 <script src="~/js/documentos-preview.js" asp-append-version="true"></script>
+<script>(function(){var a=document.querySelector('.doc-tabs-scroll [aria-current="page"]');if(a&&a.scrollIntoView)a.scrollIntoView({inline:'center',block:'nearest'});})();</script>
