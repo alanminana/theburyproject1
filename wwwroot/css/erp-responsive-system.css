@@ -376,12 +376,20 @@
         min-height: 2.5rem;
     }
 
-    /* Links que son solo un icono (flecha "volver", etc.): 24px de icono no es un target tactil */
-    a[href]:has(> .material-symbols-outlined:only-child) {
+    /* Links que son solo un icono (flecha "volver", etc.): 24px de icono no es un target tactil.
+       Va con :where() (especificidad 0): el selector también alcanza a los links "ícono + texto" (un nodo de texto no cuenta
+       como hijo), y con la especificidad normal rebajaba a 40px a los componentes que piden más (p. ej. .doc-btn a 44px).
+       Con :where() manda la altura propia del componente y este valor queda como piso. */
+    :where(a[href]:has(> .material-symbols-outlined:only-child)) {
         display: inline-flex;
         align-items: center;
         justify-content: center;
         min-width: 2.5rem;
+        min-height: 2.5rem;
+    }
+
+    /* Los links .btn (Caja, Crédito, Venta) conservan el piso de 40px que tenían: su altura propia es menor. */
+    a.btn[href]:has(> .material-symbols-outlined:only-child) {
         min-height: 2.5rem;
     }
 }

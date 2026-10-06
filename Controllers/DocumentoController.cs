@@ -41,6 +41,7 @@ namespace TheBuryProject.Controllers
             ViewBag.Tipos = await _config.ListarTiposAsync();
             ViewBag.Total = total;
             ViewBag.Filtro = filtro;
+            ViewBag.ConteoVistas = await _documentos.ContarPorVistaAsync(filtro);
             return View(items);
         }
 
@@ -177,7 +178,7 @@ namespace TheBuryProject.Controllers
                 else if (pagoCuotaId is int pago)
                     resultado = await _documentos.ReintentarEventoAsync(EventosDocumentales.PagoRegistrado, new DocumentoOrigen { PagoCuotaId = pago });
                 else if (ventaId is int venta)
-                    resultado = await _documentos.ReintentarEventoAsync(EventosDocumentales.VentaConfirmada, new DocumentoOrigen { VentaId = venta });
+                    resultado = await _documentos.ReintentarVentaAsync(venta);
                 else
                     return BadRequest();
 

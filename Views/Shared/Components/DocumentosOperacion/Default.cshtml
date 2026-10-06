@@ -166,7 +166,7 @@
                                 @if (Model.PuedeGenerar)
                                 {
                                     <form method="post" asp-controller="Documento" asp-action="Regenerar"
-                                          onsubmit="return confirm('Se creará un documento nuevo con la plantilla y los datos actuales y este quedará como Reemplazado. ¿Continuar?');">
+                                          data-confirm-message="Se creará un documento nuevo con la plantilla y los datos actuales y este quedará como Reemplazado." data-confirm-title="Regenerar documento" data-confirm-label="Regenerar" data-confirm-tone="primary">
                                         @Html.AntiForgeryToken()
                                         <input type="hidden" name="id" value="@d.Id" />
                                         <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
@@ -180,8 +180,13 @@
                                 }
                                 @if (Model.PuedeCancelar)
                                 {
+                                    <p class="doc-hint doc-hint-flush doc-op-aviso">
+                                        @(Model.PuedeGenerar
+                                            ? "Para corregir el texto o un dato usá Regenerar: reemplaza este documento. Cancelar lo deja sin efecto y se vuelve a emitir con «Generar pendientes»."
+                                            : "Cancelar deja el documento sin efecto; no se borra.")
+                                    </p>
                                     <form method="post" asp-controller="Documento" asp-action="Cancelar"
-                                          onsubmit="return confirm('El documento quedará cancelado (no se borra). ¿Continuar?');">
+                                          data-confirm-message="El documento quedará cancelado (no se borra) y la operación queda sin él hasta que lo vuelvas a emitir." data-confirm-title="Cancelar documento" data-confirm-label="Cancelar documento">
                                         @Html.AntiForgeryToken()
                                         <input type="hidden" name="id" value="@d.Id" />
                                         <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />

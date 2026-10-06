@@ -1,4 +1,5 @@
 @using TheBuryProject.Models.Enums
+@using TheBuryProject.Services.Interfaces
 @model List<TheBuryProject.Models.Entities.DocumentoGenerado>
 @{
     ViewData["Title"] = "Documentos emitidos";
@@ -8,7 +9,29 @@
     var tamano = Math.Clamp(filtro.Tamano, 5, 100);
     var pagina = Math.Max(1, filtro.Pagina);
     var paginas = Math.Max(1, (int)Math.Ceiling(total / (double)tamano));
+    var conteos = (Dictionary<VistaDocumento, int>)ViewBag.ConteoVistas;
+    var vistas = new (VistaDocumento Vista, string Texto, string Icono)[]
+    {
+        (VistaDocumento.Todos, "Todos", "list"),
+        (VistaDocumento.Pendientes, "Pendientes de firma", "edit_note"),
+        (VistaDocumento.Finalizados, "Finalizados", "task_alt"),
+        (VistaDocumento.Anulados, "Anulados", "block")
+    };
+    var estadosVista = filtro.Vista switch
+    {
+        VistaDocumento.Finalizados => new[] { EstadoDocumentoGenerado.Generado, EstadoDocumentoGenerado.Firmado },
+        VistaDocumento.Anulados => new[] { EstadoDocumentoGenerado.Cancelado, EstadoDocumentoGenerado.Reemplazado },
+        VistaDocumento.Pendientes => Array.Empty<EstadoDocumentoGenerado>(),
+        _ => Enum.GetValues<EstadoDocumentoGenerado>()
+    };
+    var hayFiltroSecundario = filtro.TipoDocumentoId.HasValue || filtro.Estado.HasValue || filtro.Desde.HasValue || filtro.Hasta.HasValue;
+    int? VistaRuta(VistaDocumento v) => v == VistaDocumento.Todos ? null : (int)v;
     var puedeConfig = User.TienePermiso("documentos", "managetemplates");
+    var puedeReimprimir = User.TienePermiso("documentos", "reprint");
+    // Los enlaces a la operación respetan el permiso de ver de cada módulo; sin él se muestra el dato como texto.
+    var puedeVerVentas = User.TienePermiso("ventas", "view");
+    var puedeVerCotizaciones = User.TienePermiso("cotizaciones", "view");
+    var puedeVerCreditos = User.TienePermiso("creditos", "view");
     string ChipClase(EstadoDocumentoGenerado e) => e switch
     {
         EstadoDocumentoGenerado.Generado or EstadoDocumentoGenerado.Firmado => "doc-chip doc-chip-ok",
@@ -31,57 +54,79 @@
 
 <div class="doc-module">
     <header class="doc-head">
-        <h1 class="doc-title">Documentos emitidos</h1>
-        <p class="doc-sub">Contratos, pagarés, recibos y demás documentos generados por el sistema. Son un registro histórico: ver o reimprimir muestra siempre el contenido original.</p>
+        <div class="doc-head-text">
+            <h1 class="doc-title">Documentos emitidos</h1>
+            <p class="doc-sub">Registro histórico de contratos, pagarés, recibos y demás documentos del sistema: ver@(puedeReimprimir ? " o reimprimir" : "") muestra siempre el contenido original.</p>
+        </div>
         @if (puedeConfig)
         {
-            <p style="margin:.6rem 0 0">
-                <a asp-controller="DocumentosConfig" asp-action="Plantillas" class="doc-btn">
-                    <span class="material-symbols-outlined" aria-hidden="true">tune</span>Configurar plantillas y reglas
-                </a>
-            </p>
+            <a asp-controller="DocumentosConfig" asp-action="Plantillas" class="doc-btn">
+                <span class="material-symbols-outlined" aria-hidden="true">tune</span><span>Configurar plantillas y reglas</span>
+            </a>
         }
     </header>
 
     <partial name="~/Views/DocumentosConfig/_Flash.cshtml" />
 
+    <nav class="doc-tabs" aria-label="Estado de los documentos">
+        @foreach (var v in vistas)
+        {
+            <a asp-action="Index" class="doc-tab" aria-current="@(filtro.Vista == v.Vista ? "page" : null)"
+               asp-route-Vista="@VistaRuta(v.Vista)"
+               asp-route-Texto="@filtro.Texto" asp-route-TipoDocumentoId="@filtro.TipoDocumentoId"
+               asp-route-Desde="@filtro.Desde?.ToString("yyyy-MM-dd")" asp-route-Hasta="@filtro.Hasta?.ToString("yyyy-MM-dd")">
+                <span class="material-symbols-outlined text-[18px]" aria-hidden="true">@v.Icono</span>@v.Texto
+                <span class="doc-muted">(@conteos.GetValueOrDefault(v.Vista))</span>
+            </a>
+        }
+    </nav>
+
     <section class="doc-card">
-        <form method="get" class="doc-grid-3" style="align-items:end">
-            <div class="doc-field">
+        <form method="get" class="doc-filtros" role="search" aria-label="Filtrar documentos">
+            <input type="hidden" name="Vista" value="@((int)filtro.Vista)" />
+            <div class="doc-field doc-field-texto">
                 <label for="Texto">Número o cliente</label>
                 <input id="Texto" name="Texto" value="@filtro.Texto" class="doc-input" maxlength="100" />
             </div>
-            <div class="doc-field">
-                <label for="TipoDocumentoId">Tipo</label>
-                <select id="TipoDocumentoId" name="TipoDocumentoId" class="doc-select">
-                    <option value="">Todos</option>
-                    @foreach (var t in tipos)
-                    {
-                        <option value="@t.Id" selected="@(filtro.TipoDocumentoId == t.Id)">@t.Nombre</option>
-                    }
-                </select>
-            </div>
-            <div class="doc-field">
-                <label for="Estado">Estado</label>
-                <select id="Estado" name="Estado" class="doc-select">
-                    <option value="">Todos</option>
-                    @foreach (var e in Enum.GetValues<EstadoDocumentoGenerado>())
-                    {
-                        <option value="@((int)e)" selected="@(filtro.Estado == e)">@EstadoTexto(e)</option>
-                    }
-                </select>
-            </div>
-            <div class="doc-field">
-                <label for="Desde">Desde</label>
-                <input id="Desde" name="Desde" type="date" value="@filtro.Desde?.ToString("yyyy-MM-dd")" class="doc-input" />
-            </div>
-            <div class="doc-field">
-                <label for="Hasta">Hasta</label>
-                <input id="Hasta" name="Hasta" type="date" value="@filtro.Hasta?.ToString("yyyy-MM-dd")" class="doc-input" />
+            <button type="button" class="doc-filtros-toggle" data-doc-filtros-toggle aria-expanded="true" aria-controls="doc-filtros-mas">
+                <span class="material-symbols-outlined" aria-hidden="true">filter_list</span>Más filtros
+            </button>
+            <div class="doc-filtros-mas-body" id="doc-filtros-mas" data-doc-filtros-body data-activo="@(hayFiltroSecundario ? "1" : "0")">
+                <div class="doc-field">
+                    <label for="TipoDocumentoId">Tipo</label>
+                    <select id="TipoDocumentoId" name="TipoDocumentoId" class="doc-select">
+                        <option value="">Todos</option>
+                        @foreach (var t in tipos)
+                        {
+                            <option value="@t.Id" selected="@(filtro.TipoDocumentoId == t.Id)">@t.Nombre</option>
+                        }
+                    </select>
+                </div>
+                @if (estadosVista.Length > 1)
+                {
+                    <div class="doc-field">
+                        <label for="Estado">Estado</label>
+                        <select id="Estado" name="Estado" class="doc-select">
+                            <option value="">Todos</option>
+                            @foreach (var e in estadosVista)
+                            {
+                                <option value="@((int)e)" selected="@(filtro.Estado == e)">@EstadoTexto(e)</option>
+                            }
+                        </select>
+                    </div>
+                }
+                <div class="doc-field">
+                    <label for="Desde">Desde</label>
+                    <input id="Desde" name="Desde" type="date" value="@filtro.Desde?.ToString("yyyy-MM-dd")" class="doc-input" />
+                </div>
+                <div class="doc-field">
+                    <label for="Hasta">Hasta</label>
+                    <input id="Hasta" name="Hasta" type="date" value="@filtro.Hasta?.ToString("yyyy-MM-dd")" class="doc-input" />
+                </div>
             </div>
             <div class="doc-actions">
                 <button type="submit" class="doc-btn doc-btn-primary">Filtrar</button>
-                <a asp-action="Index" class="doc-btn">Limpiar</a>
+                <a asp-action="Index" asp-route-Vista="@VistaRuta(filtro.Vista)" class="doc-btn">Limpiar</a>
             </div>
         </form>
     </section>
@@ -89,13 +134,13 @@
     <section class="doc-card">
         @if (Model.Count == 0)
         {
-            <p class="doc-muted" style="margin:0">No hay documentos para los filtros elegidos.</p>
+            <p class="doc-muted">No hay documentos para los filtros elegidos.</p>
         }
         else
         {
             <div class="doc-table-wrap">
                 <table class="doc-table" data-erp-cards>
-                    <thead><tr><th data-card="title">Número</th><th data-card="half">Documento</th><th data-card="half">Cliente</th><th data-card="half">Operación</th><th data-card="half">Fecha</th><th data-card="half">Estado</th><th data-card="actions"><span class="sr-only">Acciones</span></th></tr></thead>
+                    <thead><tr><th data-card="title">Número</th><th data-card="half">Documento</th><th>Cliente</th><th data-card="half">Operación</th><th data-card="half">Fecha</th><th data-card="half">Estado</th><th data-card="actions"><span class="sr-only">Acciones</span></th></tr></thead>
                     <tbody>
                     @foreach (var d in Model)
                     {
@@ -106,17 +151,34 @@
                             <td>
                                 @if (d.VentaId != null)
                                 {
-                                    <a asp-controller="Venta" asp-action="Details" asp-route-id="@d.VentaId">Venta #@d.VentaId</a>
+                                    if (puedeVerVentas) { <a asp-controller="Venta" asp-action="Details" asp-route-id="@d.VentaId">Venta #@d.VentaId</a> }
+                                    else { <text>Venta #@d.VentaId</text> }
+                                }
+                                else if (d.CotizacionId != null)
+                                {
+                                    if (puedeVerCotizaciones) { <a asp-controller="Cotizacion" asp-action="Detalles" asp-route-id="@d.CotizacionId">Cotización #@d.CotizacionId</a> }
+                                    else { <text>Cotización #@d.CotizacionId</text> }
                                 }
                                 else { <text>—</text> }
-                                @if (d.PagoCuotaId != null) { <div class="doc-muted">Pago #@d.PagoCuotaId</div> }
+                                @if (d.PagoCuotaId != null)
+                                {
+                                    <div class="doc-muted">
+                                        Pago #@d.PagoCuotaId
+                                        @if (d.CreditoId != null)
+                                        {
+                                            <text> · </text>
+                                            if (puedeVerCreditos) { <a asp-controller="Credito" asp-action="Details" asp-route-id="@d.CreditoId">Crédito #@d.CreditoId</a> }
+                                            else { <text>Crédito #@d.CreditoId</text> }
+                                        }
+                                    </div>
+                                }
                             </td>
-                            <td>@d.FechaGeneracionUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                            <td class="doc-fecha">@d.FechaGeneracionUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
                             <td><span class="@ChipClase(d.Estado)">@EstadoTexto(d.Estado)</span></td>
                             <td>
                                 <div class="doc-actions">
                                     <a class="doc-btn" target="_blank" rel="noopener" asp-action="Ver" asp-route-id="@d.Id">Ver</a>
-                                    @if (User.TienePermiso("documentos", "reprint"))
+                                    @if (puedeReimprimir)
                                     {
                                         <a class="doc-btn" target="_blank" rel="noopener" asp-action="Reimprimir" asp-route-ids="@d.Id">Imprimir</a>
                                     }
@@ -128,19 +190,19 @@
                 </table>
             </div>
 
-            <div class="doc-actions" style="justify-content:space-between;margin-top:.8rem">
+            <div class="doc-actions doc-actions-between">
                 <span class="doc-muted">@total documento(s) · página @pagina de @paginas</span>
                 <div class="doc-actions">
                     @if (pagina > 1)
                     {
                         <a class="doc-btn" asp-action="Index" asp-route-Texto="@filtro.Texto" asp-route-TipoDocumentoId="@filtro.TipoDocumentoId"
-                           asp-route-Estado="@(filtro.Estado.HasValue ? (int?)filtro.Estado.Value : null)" asp-route-Desde="@filtro.Desde?.ToString("yyyy-MM-dd")" asp-route-Hasta="@filtro.Hasta?.ToString("yyyy-MM-dd")"
+                           asp-route-Estado="@(filtro.Estado.HasValue ? (int?)filtro.Estado.Value : null)" asp-route-Vista="@VistaRuta(filtro.Vista)" asp-route-Desde="@filtro.Desde?.ToString("yyyy-MM-dd")" asp-route-Hasta="@filtro.Hasta?.ToString("yyyy-MM-dd")"
                            asp-route-Pagina="@(pagina - 1)" asp-route-Tamano="@tamano">Anterior</a>
                     }
                     @if (pagina < paginas)
                     {
                         <a class="doc-btn" asp-action="Index" asp-route-Texto="@filtro.Texto" asp-route-TipoDocumentoId="@filtro.TipoDocumentoId"
-                           asp-route-Estado="@(filtro.Estado.HasValue ? (int?)filtro.Estado.Value : null)" asp-route-Desde="@filtro.Desde?.ToString("yyyy-MM-dd")" asp-route-Hasta="@filtro.Hasta?.ToString("yyyy-MM-dd")"
+                           asp-route-Estado="@(filtro.Estado.HasValue ? (int?)filtro.Estado.Value : null)" asp-route-Vista="@VistaRuta(filtro.Vista)" asp-route-Desde="@filtro.Desde?.ToString("yyyy-MM-dd")" asp-route-Hasta="@filtro.Hasta?.ToString("yyyy-MM-dd")"
                            asp-route-Pagina="@(pagina + 1)" asp-route-Tamano="@tamano">Siguiente</a>
                     }
                 </div>
@@ -148,3 +210,18 @@
         }
     </section>
 </div>
+
+@section Scripts {
+    <script>
+        (function () {
+            var btn = document.querySelector('[data-doc-filtros-toggle]');
+            var body = document.querySelector('[data-doc-filtros-body]');
+            if (!btn || !body) return;
+            var mobile = window.matchMedia('(max-width: 720px)');
+            function set(open) { body.classList.toggle('is-collapsed', !open); btn.setAttribute('aria-expanded', open ? 'true' : 'false'); }
+            btn.addEventListener('click', function () { set(body.classList.contains('is-collapsed')); });
+            function sync() { set(!mobile.matches || body.getAttribute('data-activo') === '1'); }
+            sync(); mobile.addEventListener('change', sync);
+        })();
+    </script>
+}

@@ -15,7 +15,8 @@
 
 <div class="doc-module">
     <header class="doc-head">
-        <h1 class="doc-title">Documentos</h1>
+        <partial name="_DocEyebrow" />
+        <h1 class="doc-title">@ViewData["Title"]</h1>
         <p class="doc-sub">Elegí las plantillas del paquete en el orden en que deben imprimirse. Dejá en blanco los espacios que no uses.</p>
         <partial name="_Tabs" />
     </header>
@@ -37,11 +38,11 @@
                     <input asp-for="Nombre" class="doc-input" maxlength="150" required />
                 </div>
             </div>
-            <div class="doc-field" style="margin-top:.9rem">
+            <div class="doc-field doc-mt-md">
                 <label asp-for="Descripcion">Descripción</label>
                 <input asp-for="Descripcion" class="doc-input" maxlength="500" />
             </div>
-            <label class="doc-check" style="margin-top:.6rem"><input type="checkbox" asp-for="Activo" /> Activo</label>
+            <label class="doc-check doc-mt-sm"><input type="checkbox" asp-for="Activo" /> Activo</label>
         </section>
 
         <section class="doc-card">
@@ -49,7 +50,7 @@
             @for (var i = 0; i < slots; i++)
             {
                 var actual = i < seleccion.Count ? seleccion[i] : (int?)null;
-                <div class="doc-field" style="margin-bottom:.6rem">
+                <div class="doc-field doc-mb-sm">
                     <label for="plantilla-@i">Documento @(i + 1)</label>
                     <select id="plantilla-@i" name="PlantillaIds" class="doc-select">
                         <option value="">—</option>

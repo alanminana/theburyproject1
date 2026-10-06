@@ -60,7 +60,7 @@ namespace TheBuryProject.Services.Documentos
             public required PlantillaDocumento Plantilla { get; init; }
             public PlantillaDocumentoVersion Version { get; set; } = null!;
             public bool Obligatoria { get; init; }
-            public string Clave { get; init; } = string.Empty;
+            public string Clave { get; set; } = string.Empty;
             public string Numero { get; set; } = string.Empty;
             public RenderResultado? Render { get; set; }
             public DocumentoContexto Contexto { get; set; } = null!;
@@ -99,7 +99,7 @@ namespace TheBuryProject.Services.Documentos
 
                 // Idempotencia: lo que ya existe no se vuelve a generar (reintento, doble clic, job repetido).
                 var claves = items.Select(i => i.Clave).ToList();
-                if (claves.Count > 0)
+                if (claves.Count > 0 && !request.ReemitirCancelados)
                 {
                     var existentes = await _context.DocumentosGenerados
                         .AsNoTracking()
@@ -111,6 +111,35 @@ namespace TheBuryProject.Services.Documentos
                     {
                         resultado.YaExistentes.Add(ya);
                         items.RemoveAll(i => i.Clave == ya.ClaveIdempotencia);
+                    }
+                }
+                else if (claves.Count > 0)
+                {
+                    // Reintento explícito: solo cuenta lo vigente (incluidas regeneraciones "base#r…" y reemisiones "base#e…").
+                    // Si de esa clave solo quedan documentos Cancelados/Reemplazados, se emite uno nuevo con clave distinta
+                    // (la clave es única en la base).
+                    foreach (var item in items.ToList())
+                    {
+                        var clave = item.Clave;
+                        var previos = await _context.DocumentosGenerados
+                            .AsNoTracking()
+                            .Include(d => d.TipoDocumento)
+                            .Where(d => d.ClaveIdempotencia == clave || d.ClaveIdempotencia.StartsWith(clave + "#"))
+                            .ToListAsync(ct);
+                        if (previos.Count == 0)
+                            continue;
+
+                        var vigente = previos.FirstOrDefault(d =>
+                            d.Estado != EstadoDocumentoGenerado.Cancelado && d.Estado != EstadoDocumentoGenerado.Reemplazado);
+                        if (vigente != null)
+                        {
+                            resultado.YaExistentes.Add(vigente);
+                            items.Remove(item);
+                        }
+                        else
+                        {
+                            item.Clave = ClaveDeReemision(clave);
+                        }
                     }
                 }
 
@@ -246,7 +275,26 @@ namespace TheBuryProject.Services.Documentos
                 && origen.PagoCuotaId is int pagoId && origen.PagoCuotaIds == null)
                 origen = await ExpandirCobranzaAsync(pagoId, origen);
 
-            return await ProcesarEventoAsync(new DocumentoEventoRequest { Evento = evento, Origen = origen });
+            return await ProcesarEventoAsync(new DocumentoEventoRequest { Evento = evento, Origen = origen, ReemitirCancelados = true });
+        }
+
+        public async Task<DocumentoEventoResultado> ReintentarVentaAsync(int ventaId)
+        {
+            var origen = new DocumentoOrigen { VentaId = ventaId };
+            var resultado = await ReintentarEventoAsync(EventosDocumentales.VentaConfirmada, origen);
+
+            // Contrato y pagaré los emite el flujo del contrato de crédito: solo se reintentan si la venta ya pasó por ahí.
+            var pasoPorContrato = await _context.DocumentosGenerados.AsNoTracking().AnyAsync(d =>
+                d.VentaId == ventaId && d.EventoOrigen == EventosDocumentales.ContratoCreditoSolicitado && d.ContratoLegadoId == null);
+            if (!pasoPorContrato)
+                return resultado;
+
+            var contrato = await ReintentarEventoAsync(EventosDocumentales.ContratoCreditoSolicitado, origen);
+            resultado.Generados.AddRange(contrato.Generados);
+            resultado.YaExistentes.AddRange(contrato.YaExistentes);
+            resultado.Advertencias.AddRange(contrato.Advertencias);
+            resultado.Errores.AddRange(contrato.Errores);
+            return resultado;
         }
 
         /// <summary>
@@ -641,22 +689,11 @@ namespace TheBuryProject.Services.Documentos
 
         public async Task<(List<DocumentoGenerado> Items, int Total)> BuscarAsync(DocumentoFiltro filtro)
         {
-            var q = _context.DocumentosGenerados.AsNoTracking().AsQueryable();
+            var q = FiltrarBase(filtro);
 
-            if (filtro.TipoDocumentoId is int tipo)
-                q = q.Where(d => d.TipoDocumentoId == tipo);
             if (filtro.Estado is EstadoDocumentoGenerado estado)
                 q = q.Where(d => d.Estado == estado);
-            if (filtro.Desde is DateTime desde)
-                q = q.Where(d => d.FechaGeneracionUtc >= desde.Date);
-            if (filtro.Hasta is DateTime hasta)
-                q = q.Where(d => d.FechaGeneracionUtc < hasta.Date.AddDays(1));
-
-            var texto = filtro.Texto?.Trim();
-            if (!string.IsNullOrEmpty(texto))
-                q = q.Where(d => d.Numero.Contains(texto)
-                    || (d.Cliente != null && (d.Cliente.Nombre.Contains(texto) || d.Cliente.Apellido.Contains(texto)
-                        || d.Cliente.NumeroDocumento.Contains(texto))));
+            q = AplicarVista(q, filtro.Vista);
 
             var total = await q.CountAsync();
             var tamano = Math.Clamp(filtro.Tamano, 5, 100);
@@ -670,6 +707,54 @@ namespace TheBuryProject.Services.Documentos
 
             return (items, total);
         }
+
+        public async Task<Dictionary<VistaDocumento, int>> ContarPorVistaAsync(DocumentoFiltro filtro)
+        {
+            var porEstado = await FiltrarBase(filtro)
+                .GroupBy(d => d.Estado)
+                .Select(g => new { Estado = g.Key, Cantidad = g.Count() })
+                .ToListAsync();
+
+            int Suma(params EstadoDocumentoGenerado[] estados)
+                => porEstado.Where(e => estados.Contains(e.Estado)).Sum(e => e.Cantidad);
+
+            return new Dictionary<VistaDocumento, int>
+            {
+                [VistaDocumento.Todos] = porEstado.Sum(e => e.Cantidad),
+                [VistaDocumento.Pendientes] = Suma(EstadoDocumentoGenerado.PendienteFirma),
+                [VistaDocumento.Finalizados] = Suma(EstadoDocumentoGenerado.Generado, EstadoDocumentoGenerado.Firmado),
+                [VistaDocumento.Anulados] = Suma(EstadoDocumentoGenerado.Cancelado, EstadoDocumentoGenerado.Reemplazado)
+            };
+        }
+
+        // Filtros comunes (tipo, fechas, texto); el estado y la sub-pestaña se aplican aparte.
+        private IQueryable<DocumentoGenerado> FiltrarBase(DocumentoFiltro filtro)
+        {
+            var q = _context.DocumentosGenerados.AsNoTracking().AsQueryable();
+
+            if (filtro.TipoDocumentoId is int tipo)
+                q = q.Where(d => d.TipoDocumentoId == tipo);
+            if (filtro.Desde is DateTime desde)
+                q = q.Where(d => d.FechaGeneracionUtc >= desde.Date);
+            if (filtro.Hasta is DateTime hasta)
+                q = q.Where(d => d.FechaGeneracionUtc < hasta.Date.AddDays(1));
+
+            var texto = filtro.Texto?.Trim();
+            if (!string.IsNullOrEmpty(texto))
+                q = q.Where(d => d.Numero.Contains(texto)
+                    || (d.Cliente != null && (d.Cliente.Nombre.Contains(texto) || d.Cliente.Apellido.Contains(texto)
+                        || d.Cliente.NumeroDocumento.Contains(texto))));
+
+            return q;
+        }
+
+        private static IQueryable<DocumentoGenerado> AplicarVista(IQueryable<DocumentoGenerado> q, VistaDocumento vista) => vista switch
+        {
+            VistaDocumento.Pendientes => q.Where(d => d.Estado == EstadoDocumentoGenerado.PendienteFirma),
+            VistaDocumento.Finalizados => q.Where(d => d.Estado == EstadoDocumentoGenerado.Generado || d.Estado == EstadoDocumentoGenerado.Firmado),
+            VistaDocumento.Anulados => q.Where(d => d.Estado == EstadoDocumentoGenerado.Cancelado || d.Estado == EstadoDocumentoGenerado.Reemplazado),
+            _ => q
+        };
 
         private IQueryable<DocumentoGenerado> ConsultaBase()
             => _context.DocumentosGenerados.AsNoTracking().Include(d => d.TipoDocumento).Include(d => d.PlantillaDocumento);
@@ -890,6 +975,12 @@ namespace TheBuryProject.Services.Documentos
 
         // La clave original + sufijo único: una regeneración es un documento nuevo e intencional,
         // no un reintento, así que no debe chocar con el índice de idempotencia.
+        private static string ClaveDeReemision(string claveOriginal)
+        {
+            var baseClave = claveOriginal.Split('#')[0];
+            return $"{baseClave}#e{Guid.NewGuid():N}"[..Math.Min(200, baseClave.Length + 10)];
+        }
+
         private static string ClaveDeRegeneracion(string claveOriginal)
         {
             var baseClave = claveOriginal.Split('#')[0];

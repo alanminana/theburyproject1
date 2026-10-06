@@ -10,18 +10,18 @@
 
 <div class="doc-module">
     <header class="doc-head">
-        <h1 class="doc-title">Documentos</h1>
-        <p class="doc-sub">Cada tipo de documento (contrato, pagaré, recibo, constancia…) tiene su propia numeración. Para sumar un documento nuevo: creá el tipo, una plantilla y una regla.</p>
+        <div class="doc-head-text">
+            <partial name="_DocEyebrow" />
+            <h1 class="doc-title">@ViewData["Title"]</h1>
+            <p class="doc-sub">Cada tipo de documento (contrato, pagaré, recibo, constancia…) tiene su propia numeración. Para sumar un documento nuevo: creá el tipo, una plantilla y una regla.</p>
+        </div>
+        <a asp-action="TipoEdit" class="doc-btn doc-btn-primary">
+            <span class="material-symbols-outlined" aria-hidden="true">add</span><span>Nuevo tipo</span>
+        </a>
         <partial name="_Tabs" />
     </header>
 
     <partial name="_Flash" />
-
-    <div class="doc-actions" style="justify-content:flex-end">
-        <a asp-action="TipoEdit" class="doc-btn doc-btn-primary">
-            <span class="material-symbols-outlined" aria-hidden="true">add</span>Nuevo tipo
-        </a>
-    </div>
 
     <section class="doc-card">
         <div class="doc-table-wrap">

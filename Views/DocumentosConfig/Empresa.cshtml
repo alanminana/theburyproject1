@@ -10,7 +10,8 @@
 
 <div class="doc-module">
     <header class="doc-head">
-        <h1 class="doc-title">Documentos</h1>
+        <partial name="_DocEyebrow" />
+        <h1 class="doc-title">@ViewData["Title"]</h1>
         <p class="doc-sub">Datos de la empresa que aparecen en los contratos, pagarés y demás documentos (variables <span class="doc-mono">{{empresa.nombre}}</span>, <span class="doc-mono">{{empresa.cuit}}</span>, etc.). Los documentos ya emitidos no cambian.</p>
         <partial name="_Tabs" />
     </header>
@@ -32,7 +33,7 @@
                     <input asp-for="Cuit" class="doc-input doc-mono" maxlength="20" inputmode="numeric" placeholder="30-12345678-9" />
                 </div>
             </div>
-            <div class="doc-grid-2" style="margin-top:.9rem">
+            <div class="doc-grid-2 doc-mt-md">
                 <div class="doc-field">
                     <label asp-for="Domicilio">Domicilio</label>
                     <input asp-for="Domicilio" class="doc-input" maxlength="300" required />
@@ -42,7 +43,7 @@
                     <input asp-for="Dni" class="doc-input doc-mono" maxlength="20" inputmode="numeric" />
                 </div>
             </div>
-            <div class="doc-grid-3" style="margin-top:.9rem">
+            <div class="doc-grid-3 doc-mt-md">
                 <div class="doc-field">
                     <label asp-for="Ciudad">Ciudad de firma</label>
                     <input asp-for="Ciudad" class="doc-input" maxlength="120" required />
@@ -54,14 +55,14 @@
                 <div class="doc-field">
                     <label asp-for="InteresMoraDiarioPorcentaje">Interés por mora diario (%)</label>
                     <input type="text" value="@(Model.InteresMoraDiarioPorcentaje > 0 ? Model.InteresMoraDiarioPorcentaje.ToString("0.00##", System.Globalization.CultureInfo.GetCultureInfo("es-AR")) : "—")" class="doc-input" readonly tabindex="-1" aria-describedby="interes-mora-ayuda" />
-                    <p id="interes-mora-ayuda" class="doc-sub" style="margin-top:.35rem">Se toma de <a href="@Url.Action("Index", "ConfiguracionMora")">Configuración → Mora</a>; se cambia solo ahí.</p>
+                    <p id="interes-mora-ayuda" class="doc-hint doc-mt-xs">Se toma de <a href="@Url.Action("Index", "ConfiguracionMora")">Configuración → Mora</a>; se cambia solo ahí.</p>
                 </div>
             </div>
         </section>
 
         <section class="doc-card">
             <h2>Presentación en los comprobantes</h2>
-            <p class="doc-sub">Textos que usan el presupuesto, el pagaré, el contrato y el recibo. Si se dejan vacíos se usan los datos de arriba.</p>
+            <p class="doc-hint">Textos que usan el presupuesto, el pagaré, el contrato y el recibo. Si se dejan vacíos se usan los datos de arriba.</p>
             <div class="doc-grid-3">
                 <div class="doc-field">
                     <label asp-for="NombreComercial">Nombre comercial</label>
@@ -80,7 +81,7 @@
 
         <section class="doc-card">
             <h2>Vencimiento del pagaré</h2>
-            <p class="doc-sub">El sistema no asume ninguna regla: mientras no se defina, el pagaré sale con la línea en blanco para completar a mano.</p>
+            <p class="doc-hint">El sistema no asume ninguna regla: mientras no se defina, el pagaré sale con la línea en blanco para completar a mano.</p>
             <div class="doc-grid-2">
                 <div class="doc-field">
                     <label asp-for="PagareVencimientoModo">Cómo se determina</label>

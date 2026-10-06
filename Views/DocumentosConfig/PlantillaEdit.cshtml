@@ -17,7 +17,8 @@
 
 <div class="doc-module" data-doc-page="plantilla">
     <header class="doc-head">
-        <h1 class="doc-title">Documentos</h1>
+        <partial name="_DocEyebrow" />
+        <h1 class="doc-title">@ViewData["Title"]</h1>
         <p class="doc-sub">
             @if (esNueva) { <text>Se crea con la versión 1.</text> }
             else { <text>Versión vigente: <strong>@versionActual</strong>. Si cambia el contenido o las variables requeridas se guarda como una versión nueva; las anteriores no se modifican.</text> }
@@ -54,11 +55,11 @@
                     <input asp-for="Nombre" class="doc-input" maxlength="150" required />
                 </div>
             </div>
-            <div class="doc-field" style="margin-top:.9rem">
+            <div class="doc-field doc-mt-md">
                 <label asp-for="Descripcion">Descripción</label>
                 <input asp-for="Descripcion" class="doc-input" maxlength="500" />
             </div>
-            <div class="doc-grid-3" style="margin-top:.9rem">
+            <div class="doc-grid-3 doc-mt-md">
                 <div class="doc-field">
                     <label asp-for="VigenteDesde">Vigente desde</label>
                     <input asp-for="VigenteDesde" type="date" class="doc-input" value="@Model.VigenteDesde.ToString("yyyy-MM-dd")" required />
@@ -72,7 +73,7 @@
                     <input asp-for="Copias" type="number" min="1" max="5" class="doc-input" />
                 </div>
             </div>
-            <div class="doc-grid-3" style="margin-top:.9rem">
+            <div class="doc-grid-3 doc-mt-md">
                 <label class="doc-check"><input type="checkbox" asp-for="Activa" /> Activa</label>
                 <label class="doc-check"><input type="checkbox" asp-for="RequiereFirma" /> Requiere firma</label>
                 <div class="doc-field">
@@ -87,47 +88,75 @@
             <p class="doc-hint">
                 Usá <span class="doc-mono">{{variable}}</span> para insertar datos, y
                 <span class="doc-mono">{{#cuotas}} … {{/cuotas}}</span> o <span class="doc-mono">{{#productos}} … {{/productos}}</span> para repetir por cuota o producto
-                (<span class="doc-mono">{{^x}}</span> invierte la condición). Tocá una variable para insertarla donde está el cursor.
+                (<span class="doc-mono">{{^x}}</span> invierte la condición).
+                Las líneas que empiezan con <span class="doc-mono">&#64;&#64;</span> (por ejemplo <span class="doc-mono">&#64;&#64;admin</span>)
+                son directivas de formato de impresión: ordenan el documento y no se imprimen (las encontrás en «Formato de impresión», al final del panel de variables).
             </p>
 
-            @foreach (var grupo in CatalogoDocumento.Campos.GroupBy(c => c.Grupo))
-            {
-                <div style="margin-bottom:.5rem">
-                    <div class="doc-label">@grupo.Key</div>
-                    <div class="doc-vars">
-                        @foreach (var c in grupo)
-                        {
-                            <button type="button" class="doc-var" data-doc-var="{{@c.Ruta}}" title="@c.Etiqueta">@c.Ruta</button>
-                        }
+            <div class="doc-editor">
+                <div class="doc-editor-main">
+                    <div class="doc-field">
+                        <label for="doc-contenido">Texto del documento</label>
+                        <textarea asp-for="Contenido" id="doc-contenido" class="doc-textarea" required spellcheck="false"></textarea>
+                        <span asp-validation-for="Contenido" class="doc-error"></span>
+                    </div>
+
+                    <div class="doc-grid-2">
+                        <div class="doc-field">
+                            <label for="doc-requeridas">Datos requeridos (separados por coma)</label>
+                            <input asp-for="VariablesRequeridas" id="doc-requeridas" class="doc-input doc-mono" maxlength="1000" placeholder="cliente.dni,credito.cantidadCuotas" />
+                            <span class="doc-hint doc-hint-flush">Si alguno está vacío al emitir, el documento no se genera.</span>
+                        </div>
+                        <div class="doc-field">
+                            <label asp-for="ComentarioVersion">Comentario de la versión (opcional)</label>
+                            <input asp-for="ComentarioVersion" class="doc-input" maxlength="300" />
+                        </div>
                     </div>
                 </div>
-            }
-            <div style="margin-bottom:.75rem">
-                <div class="doc-label">Colecciones</div>
-                <div class="doc-vars">
-                    @foreach (var col in CatalogoDocumento.Colecciones)
-                    {
-                        <button type="button" class="doc-var" data-doc-var="{{#@col.Nombre}}&#10;@string.Join(" ", col.Campos.Select(f => "{{" + f + "}}"))&#10;{{/@col.Nombre}}" title="@col.Etiqueta">#@col.Nombre</button>
-                    }
-                </div>
-            </div>
+                <details class="doc-vars-panel" open data-doc-vars-panel>
+                    <summary>Variables <span class="doc-muted">(tocá una para insertarla)</span></summary>
+                    <div class="doc-vars-body">
+                        <label class="sr-only" for="doc-vars-buscar">Buscar variable</label>
+                        <input id="doc-vars-buscar" type="search" class="doc-input" placeholder="Buscar variable…" autocomplete="off" data-doc-vars-buscar />
+                        <p class="doc-hint" data-doc-vars-vacio hidden>Ninguna variable coincide.</p>
+                        @foreach (var grupo in CatalogoDocumento.Campos.GroupBy(c => c.Grupo))
+                        {
+                            <div class="doc-vars-grupo" data-doc-vars-grupo>
+                                <div class="doc-label">@grupo.Key</div>
+                                <div class="doc-vars">
+                                    @foreach (var c in grupo)
+                                    {
+                                        <button type="button" class="doc-var" data-doc-var="{{@c.Ruta}}" title="@c.Etiqueta">@c.Ruta</button>
+                                    }
+                                </div>
+                            </div>
+                        }
+                        <div class="doc-vars-grupo" data-doc-vars-grupo>
+                            <div class="doc-label">Colecciones</div>
+                            <div class="doc-vars">
+                                @foreach (var col in CatalogoDocumento.Colecciones)
+                                {
+                                    <button type="button" class="doc-var" data-doc-var="{{#@col.Nombre}}&#10;@string.Join(" ", col.Campos.Select(f => "{{" + f + "}}"))&#10;{{/@col.Nombre}}" title="@col.Etiqueta">#@col.Nombre</button>
+                                }
+                            </div>
+                        </div>
 
-            <div class="doc-field">
-                <label for="doc-contenido">Texto del documento</label>
-                <textarea asp-for="Contenido" id="doc-contenido" class="doc-textarea" required spellcheck="false"></textarea>
-                <span asp-validation-for="Contenido" class="doc-error"></span>
-            </div>
-
-            <div class="doc-grid-2" style="margin-top:.9rem">
-                <div class="doc-field">
-                    <label for="doc-requeridas">Datos requeridos (separados por coma)</label>
-                    <input asp-for="VariablesRequeridas" id="doc-requeridas" class="doc-input doc-mono" maxlength="1000" placeholder="cliente.dni,credito.cantidadCuotas" />
-                    <span class="doc-hint" style="margin:0">Si alguno está vacío al emitir, el documento no se genera.</span>
-                </div>
-                <div class="doc-field">
-                    <label asp-for="ComentarioVersion">Comentario de la versión (opcional)</label>
-                    <input asp-for="ComentarioVersion" class="doc-input" maxlength="300" />
-                </div>
+                        <div class="doc-vars-grupo" data-doc-vars-grupo>
+                            <div class="doc-label">Formato de impresión</div>
+                            <div class="doc-vars">
+                                <button type="button" class="doc-var" data-doc-var="&#64;&#64;admin&#10;" title="Primera línea del documento: A4 blanco y negro, tipografía monoespaciada, sin cabecera ni pie decorativos">&#64;&#64;admin</button>
+                                <button type="button" class="doc-var" data-doc-var="&#64;&#64;linea&#10;" title="Línea horizontal">&#64;&#64;linea</button>
+                                <button type="button" class="doc-var" data-doc-var="&#64;&#64;salto&#10;" title="Salto de página">&#64;&#64;salto</button>
+                                <button type="button" class="doc-var" data-doc-var="&#64;&#64;firmas&#10;" title="Dónde van los espacios de firma">&#64;&#64;firmas</button>
+                                <button type="button" class="doc-var" data-doc-var="&#64;&#64;cols 60/40&#10;Columna izquierda&#10;&#64;&#64;col&#10;Columna derecha&#10;&#64;&#64;fincols&#10;" title="Columnas con ese ancho relativo (60/40); &#64;&#64;col separa una columna de otra">&#64;&#64;cols…</button>
+                                <button type="button" class="doc-var" data-doc-var="&#64;&#64;tabla 10,30,12;I,I,D&#10;Código¦Detalle¦Importe&#10;&#64;&#64;fintabla&#10;" title="Tabla: anchos relativos y alineación (I izquierda, D derecha, C centro); la primera fila es el encabezado y las celdas se separan con ¦">&#64;&#64;tabla…</button>
+                                <button type="button" class="doc-var" data-doc-var="** " title="Al inicio de una línea: la imprime en negrita">** negrita</button>
+                                <button type="button" class="doc-var" data-doc-var="^^ " title="Al inicio de una línea: la centra">^^ centrar</button>
+                                <button type="button" class="doc-var" data-doc-var="&gt;&gt; " title="Al inicio de una línea: la alinea a la derecha">&gt;&gt; derecha</button>
+                            </div>
+                        </div>
+                    </div>
+                </details>
             </div>
         </section>
 
@@ -173,11 +202,11 @@
                 </datalist>
             </div>
         </div>
-        <div class="doc-field" style="margin-top:.6rem;max-width:20rem">
+        <div class="doc-field doc-maxw-20 doc-mt-sm">
             <label for="doc-prev-cotizacionId">Cotización (id, opcional)</label>
             <input id="doc-prev-cotizacionId" type="number" min="1" class="doc-input" />
         </div>
-        <div style="margin:.8rem 0">
+        <div class="doc-my-md">
             <button type="button" id="doc-preview-btn" class="doc-btn" data-url="@Url.Action("PlantillaPreview")">
                 <span class="material-symbols-outlined" aria-hidden="true">preview</span>Actualizar vista previa
             </button>
@@ -208,7 +237,7 @@
                                 @if (v.Numero != versionActual)
                                 {
                                     <form method="post" asp-action="PlantillaRestaurar"
-                                          onsubmit="return confirm('Se creará una versión nueva con el contenido de la v@(v.Numero). ¿Continuar?');">
+                                          data-confirm-message="Se creará una versión nueva con el contenido de la v@(v.Numero). Las versiones anteriores no se modifican." data-confirm-title="Restaurar versión" data-confirm-label="Restaurar" data-confirm-tone="primary">
                                         @Html.AntiForgeryToken()
                                         <input type="hidden" name="id" value="@Model.Id" />
                                         <input type="hidden" name="version" value="@v.Numero" />

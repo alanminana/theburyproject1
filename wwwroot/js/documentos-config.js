@@ -28,12 +28,52 @@
                 var texto = btn.getAttribute('data-doc-var');
                 var ini = contenido.selectionStart || 0;
                 var fin = contenido.selectionEnd || 0;
+
+                // Las directivas de formato (@@...) van solas en su línea; @@admin, además, siempre en la primera.
+                if (texto.indexOf('@@') === 0) {
+                    if (texto.indexOf('@@admin') === 0) {
+                        if (contenido.value.trim().toLowerCase().indexOf('@@admin') === 0) { contenido.focus(); return; }
+                        ini = 0; fin = 0;
+                    } else if (ini > 0 && contenido.value.charAt(ini - 1) !== String.fromCharCode(10)) {
+                        texto = String.fromCharCode(10) + texto;
+                    }
+                }
+
                 contenido.value = contenido.value.slice(0, ini) + texto + contenido.value.slice(fin);
                 var pos = ini + texto.length;
                 contenido.focus();
                 contenido.setSelectionRange(pos, pos);
             });
         });
+
+        // Panel de variables: abierto como columna en pantallas anchas, plegable en el resto; con buscador.
+        var panel = root.querySelector('[data-doc-vars-panel]');
+        if (panel) {
+            var ancho = window.matchMedia('(min-width: 1280px)');
+            var ajustar = function () { panel.open = ancho.matches; };
+            ajustar();
+            ancho.addEventListener('change', ajustar);
+
+            var buscar = panel.querySelector('[data-doc-vars-buscar]');
+            var vacio = panel.querySelector('[data-doc-vars-vacio]');
+            if (buscar) {
+                buscar.addEventListener('input', function () {
+                    var q = buscar.value.trim().toLowerCase();
+                    var visibles = 0;
+                    panel.querySelectorAll('[data-doc-vars-grupo]').forEach(function (g) {
+                        var alguno = false;
+                        g.querySelectorAll('[data-doc-var]').forEach(function (b) {
+                            var coincide = !q || (b.textContent + ' ' + (b.getAttribute('title') || '')).toLowerCase().indexOf(q) !== -1;
+                            b.hidden = !coincide;
+                            if (coincide) alguno = true;
+                        });
+                        g.hidden = !alguno;
+                        if (alguno) visibles++;
+                    });
+                    if (vacio) vacio.hidden = visibles !== 0;
+                });
+            }
+        }
 
         var out = document.getElementById('doc-preview-out');
         var btnPreview = document.getElementById('doc-preview-btn');

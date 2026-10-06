@@ -29,6 +29,13 @@ namespace TheBuryProject.Services.Interfaces
         /// <summary>Números ya asignados por tipo (código de tipo → número), para convivir con la numeración legada de contratos.</summary>
         public IReadOnlyDictionary<string, string>? NumerosPreasignados { get; init; }
 
+        /// <summary>
+        /// Reintento explícito de una persona (botón "Generar pendientes"): lo que solo existe como Cancelado o Reemplazado
+        /// vuelve a emitirse, con clave nueva. Los flujos automáticos lo dejan en false: un documento cancelado nunca se
+        /// reemite solo.
+        /// </summary>
+        public bool ReemitirCancelados { get; init; }
+
         /// <summary>Si se informa, todos los documentos del evento comparten este grupo de impresión (ej. cobro de varias cuotas).</summary>
         public Guid? GrupoImpresionId { get; init; }
 
@@ -54,12 +61,25 @@ namespace TheBuryProject.Services.Interfaces
         public bool GeneroAlgo => Generados.Count > 0;
     }
 
+    /// <summary>Agrupación de estados para las sub-pestañas de Documentos emitidos.</summary>
+    public enum VistaDocumento
+    {
+        Todos = 0,
+        /// <summary>Esperan una firma.</summary>
+        Pendientes = 1,
+        /// <summary>Completos y vigentes: Generado (no requiere firma) o Firmado.</summary>
+        Finalizados = 2,
+        /// <summary>Históricos fuera de uso: Cancelado o Reemplazado.</summary>
+        Anulados = 3
+    }
+
     public sealed class DocumentoFiltro
     {
         /// <summary>Busca por número de documento, nombre/apellido o documento del cliente.</summary>
         public string? Texto { get; set; }
         public int? TipoDocumentoId { get; set; }
         public EstadoDocumentoGenerado? Estado { get; set; }
+        public VistaDocumento Vista { get; set; } = VistaDocumento.Todos;
         public DateTime? Desde { get; set; }
         public DateTime? Hasta { get; set; }
         public int Pagina { get; set; } = 1;
@@ -85,6 +105,9 @@ namespace TheBuryProject.Services.Interfaces
 
         Task<DocumentoGenerado?> ObtenerAsync(int id);
         Task<(List<DocumentoGenerado> Items, int Total)> BuscarAsync(DocumentoFiltro filtro);
+
+        /// <summary>Cantidad por sub-pestaña con los mismos filtros de texto, tipo y fecha (ignora Estado y Vista).</summary>
+        Task<Dictionary<VistaDocumento, int>> ContarPorVistaAsync(DocumentoFiltro filtro);
         Task<List<DocumentoGenerado>> ObtenerPorVentaAsync(int ventaId);
         Task<List<DocumentoGenerado>> ObtenerPorCreditoAsync(int creditoId);
         Task<List<DocumentoGenerado>> ObtenerPorPagoAsync(int pagoCuotaId);
@@ -121,6 +144,12 @@ namespace TheBuryProject.Services.Interfaces
 
         /// <summary>Genera (idempotente) los documentos que falten para una operación, por si falló una emisión recuperable.</summary>
         Task<DocumentoEventoResultado> ReintentarEventoAsync(string evento, DocumentoOrigen origen);
+
+        /// <summary>
+        /// "Generar pendientes" de una venta: reintenta la confirmación y, si la venta ya pasó por el contrato de crédito,
+        /// también contrato y pagaré (los cancelados se reemiten con las reglas y plantillas actuales).
+        /// </summary>
+        Task<DocumentoEventoResultado> ReintentarVentaAsync(int ventaId);
     }
 
     public interface IDocumentoPdfService

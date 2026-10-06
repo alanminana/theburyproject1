@@ -18,43 +18,59 @@
 
 <div class="doc-module">
     <header class="doc-head">
-        <h1 class="doc-title">Documentos</h1>
+        <partial name="_DocEyebrow" />
+        <h1 class="doc-title">@ViewData["Title"]</h1>
         <p class="doc-sub">Variables que podés usar en las plantillas (<span class="doc-mono">{{variable}}</span>) y en las condiciones de las reglas. Cada evento ofrece solo las que corresponden a su operación.</p>
         <partial name="_Tabs" />
     </header>
 
+    <section class="doc-card doc-vars-buscador">
+        <div class="doc-field">
+            <label for="doc-vars-filtro">Buscar variable</label>
+            <input id="doc-vars-filtro" type="search" class="doc-input" placeholder="Ej.: saldo, dni, cuota" autocomplete="off" data-doc-ref-buscar />
+            <span class="doc-hint doc-hint-flush" data-doc-ref-estado role="status" aria-live="polite"></span>
+        </div>
+    </section>
+
+    @{ var primero = true; }
     @foreach (var grupo in CatalogoDocumento.Campos.GroupBy(c => c.Grupo))
     {
-        <section class="doc-card">
-            <h2>@grupo.Key</h2>
+        <details class="doc-card doc-ref-grupo" open="@primero" data-doc-ref-grupo>
+            <summary><h2>@grupo.Key</h2><span class="doc-muted">@grupo.Count() variables</span></summary>
             <div class="doc-table-wrap">
-                <table class="doc-table">
-                    <thead><tr><th>Variable</th><th>Descripción</th><th>Tipo</th><th>Disponible en</th></tr></thead>
+                <table class="doc-table doc-table-ref">
+                    <thead><tr><th>Variable</th><th>Descripción</th><th>Tipo</th></tr></thead>
                     <tbody>
                     @foreach (var c in grupo)
                     {
-                        <tr>
+                        <tr data-doc-ref-fila>
                             <td class="doc-mono">{{@c.Ruta}}</td>
-                            <td>@c.Etiqueta@(c.Valores != null ? $" ({string.Join(", ", c.Valores)})" : "")</td>
-                            <td>@TipoTexto(c.Tipo)</td>
-                            <td class="doc-muted">@Disponible(c.Anclas)</td>
+                            <td>
+                                @c.Etiqueta@(c.Valores != null ? $" ({string.Join(", ", c.Valores)})" : "")
+                                @if (c.Anclas != null)
+                                {
+                                    <div class="doc-muted">Solo en: @Disponible(c.Anclas)</div>
+                                }
+                            </td>
+                            <td class="doc-ref-tipo">@TipoTexto(c.Tipo)</td>
                         </tr>
                     }
                     </tbody>
                 </table>
             </div>
-        </section>
+        </details>
+        primero = false;
     }
 
-    <section class="doc-card">
-        <h2>Colecciones (se repiten por ítem)</h2>
+    <details class="doc-card doc-ref-grupo" data-doc-ref-grupo>
+        <summary><h2>Colecciones (se repiten por ítem)</h2><span class="doc-muted">@CatalogoDocumento.Colecciones.Count() secciones</span></summary>
         <div class="doc-table-wrap">
-            <table class="doc-table">
+            <table class="doc-table doc-table-ref">
                 <thead><tr><th>Sección</th><th>Descripción</th><th>Campos dentro de la sección</th></tr></thead>
                 <tbody>
                 @foreach (var col in CatalogoDocumento.Colecciones)
                 {
-                    <tr>
+                    <tr data-doc-ref-fila>
                         <td class="doc-mono">{{#@col.Nombre}} … {{/@col.Nombre}}</td>
                         <td>@col.Etiqueta</td>
                         <td class="doc-mono">@string.Join(", ", col.Campos.Select(f => "{{" + f + "}}"))</td>
@@ -63,5 +79,34 @@
                 </tbody>
             </table>
         </div>
-    </section>
+    </details>
 </div>
+
+@section Scripts {
+    <script>
+        // Buscador de la referencia: filtra filas y grupos; con texto abre los grupos que coinciden.
+        (function () {
+            var input = document.querySelector('[data-doc-ref-buscar]');
+            var estado = document.querySelector('[data-doc-ref-estado]');
+            var grupos = document.querySelectorAll('[data-doc-ref-grupo]');
+            if (!input) return;
+            var abiertoInicial = Array.prototype.map.call(grupos, function (g) { return g.open; });
+            input.addEventListener('input', function () {
+                var q = input.value.trim().toLowerCase();
+                var total = 0;
+                grupos.forEach(function (g, i) {
+                    var hay = 0;
+                    g.querySelectorAll('[data-doc-ref-fila]').forEach(function (f) {
+                        var ok = !q || f.textContent.toLowerCase().indexOf(q) !== -1;
+                        f.hidden = !ok;
+                        if (ok) hay++;
+                    });
+                    g.hidden = hay === 0;
+                    g.open = q ? hay > 0 : abiertoInicial[i];
+                    total += hay;
+                });
+                estado.textContent = q ? (total === 0 ? 'Ninguna variable coincide.' : total + ' resultado(s).') : '';
+            });
+        })();
+    </script>
+}

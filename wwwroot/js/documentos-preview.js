@@ -53,7 +53,10 @@
         promesa.then(function (blob) {
             blobUrl = URL.createObjectURL(blob);
             mostrar(blobUrl);
-        }).catch(function (e) { error(e && e.message && e.message.length < 300 ? e.message : null); });
+        }).catch(function (e) {
+            // Un fallo de red (TypeError del navegador) no trae un mensaje útil ni en español: se usa el genérico.
+            error(e && e.name !== 'TypeError' && e.message && e.message.length < 300 ? e.message : null);
+        });
     }
 
     window.docVistaPrevia = abrirModal;
