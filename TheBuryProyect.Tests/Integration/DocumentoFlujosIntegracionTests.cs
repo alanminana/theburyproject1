@@ -538,7 +538,7 @@ public class DocumentoRobustezTests : DocumentoTestBase
     }
 
     [Fact]
-    public async Task ContextoDePago_IncluyeVentaCreditoCuotasYFiador_SinCiclosDeInclude()
+    public async Task ContextoDePago_IncluyeCuotasDelCreditoYFiador_SinCiclosDeInclude()
     {
         await SembrarConfiguracionInicialAsync();
         var venta = await SembrarVentaAsync(conFiador: true, cuotas: 4);

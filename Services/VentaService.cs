@@ -179,7 +179,7 @@ namespace TheBuryProject.Services
             }
 
             // VENTA-CREDITO-DATOS-HYDRATION: autoridad vigente es Credito (no
-            // venta.VentaCreditoCuotas, tabla legacy sin filas en producción — ver
+            // la tabla legacy VentaCreditoCuotas, ya eliminada — ver
             // VENTA-DETAILS-H2-AUDIT). El gate ya no exige cuotas generadas: un crédito
             // Configurado sin cuotas todavía tiene datos de plan válidos en Credito. Se
             // reutilizan CreditoConfigurado/CreditoGenerado (ya calculados arriba desde
@@ -2369,8 +2369,8 @@ namespace TheBuryProject.Services
         /// <summary>
         /// VENTA-CREDITO-DATOS-HYDRATION: autoridad vigente para el detalle de crédito
         /// personal de una venta es <see cref="Credito"/> + <see cref="Credito.Cuotas"/>.
-        /// <see cref="VentaCreditoCuota"/> es legacy (sin filas en producción, ver
-        /// auditoría VENTA-DETAILS-H2-AUDIT) y no se lee más acá. Único consumidor de este
+        /// La tabla legacy VentaCreditoCuotas (ya eliminada) no se lee más acá; ver
+        /// auditoría VENTA-DETAILS-H2-AUDIT. Único consumidor de este
         /// método es <see cref="GetByIdAsync"/> (Venta/Details), por lo que no se mantiene
         /// fallback a la tabla legacy.
         ///
