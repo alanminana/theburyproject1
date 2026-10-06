@@ -198,10 +198,7 @@ namespace TheBuryProject.Controllers
                 // Cargar datos del formulario de creación solo cuando hay caja abierta
                 if (aperturaActiva != null)
                 {
-                    await CargarViewBags(vendedorUserIdSeleccionado: _currentUser.GetUserId());
-                    // Restaurar TiposPago/Estados sobreescritos por CargarViewBags
-                    ViewBag.Estados = new SelectList(Enum.GetValues(typeof(EstadoVenta)));
-                    ViewBag.EstadosAutorizacion = new SelectList(Enum.GetValues(typeof(EstadoAutorizacionVenta)));
+                    await CargarViewBags();
                 }
 
                 // VENTA-UI-04B: paginación server-rendered en memoria, solo para la
@@ -443,7 +440,7 @@ namespace TheBuryProject.Controllers
                 return cajaGuard;
             }
 
-            await CargarViewBags(vendedorUserIdSeleccionado: _currentUser.GetUserId());
+            await CargarViewBags();
             return View("Create_tw", CrearVentaInicial(EstadoVenta.Presupuesto));
         }
 
@@ -584,8 +581,7 @@ namespace TheBuryProject.Controllers
                 await CargarViewBags(
                     venta.ClienteId,
                     venta.Detalles.Select(d => d.ProductoId).Distinct(),
-                    venta.VendedorUserId,
-                    venta.TipoPago);
+                    tipoPagoSeleccionado: venta.TipoPago);
                 var ventaJson = JsonSerializer.Serialize(venta, new JsonSerializerOptions
                 {
                     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
@@ -1794,15 +1790,13 @@ namespace TheBuryProject.Controllers
         private async Task CargarViewBags(
             int? clienteIdSeleccionado = null,
             IEnumerable<int>? productoIdsIncluidos = null,
-            string? vendedorUserIdSeleccionado = null,
             TipoPago? tipoPagoSeleccionado = null)
         {
             await _viewBagBuilder.CargarAsync(
                 ViewBag,
                 clienteIdSeleccionado,
                 productoIdsIncluidos,
-                vendedorUserIdSeleccionado,
-                tipoPagoSeleccionado);
+                tipoPagoSeleccionado: tipoPagoSeleccionado);
         }
 
         private VentaViewModel CrearVentaInicial(EstadoVenta estadoInicial)
@@ -1914,8 +1908,7 @@ namespace TheBuryProject.Controllers
             await CargarViewBags(
                 viewModel.ClienteId,
                 viewModel.Detalles?.Select(d => d.ProductoId).Distinct(),
-                viewModel.VendedorUserId,
-                viewModel.TipoPago);
+                tipoPagoSeleccionado: viewModel.TipoPago);
         }
 
         /// <summary>
