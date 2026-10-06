@@ -197,6 +197,8 @@ namespace TheBuryProject.Services
 
                 // Clientes top
                 var clientesTop = ObtenerClientesTop(ventas);
+                var productosMenosVendidos = ObtenerProductosMasVendidos(ventas, filtro, menosVendidos: true);
+                var clientesFrecuentes = ObtenerClientesTop(ventas, porFrecuencia: true);
 
                 return new ReporteVentasResultadoViewModel
                 {
@@ -211,7 +213,9 @@ namespace TheBuryProject.Services
                     TicketPromedio = ventasItems.Any() ? totalVentas / ventasItems.Count : 0,
                     VentasPorTipoPago = ventasPorTipoPago,
                     ProductosMasVendidos = productosMasVendidos,
-                    ClientesTop = clientesTop
+                    ClientesTop = clientesTop,
+                    ProductosMenosVendidos = productosMenosVendidos,
+                    ClientesFrecuentes = clientesFrecuentes
                 };
             }
             catch (Exception ex)
@@ -967,7 +971,8 @@ namespace TheBuryProject.Services
         // para que los paneles sean coherentes con los totales y filtros seleccionados.
         private static List<ProductoMasVendidoViewModel> ObtenerProductosMasVendidos(
             IEnumerable<Venta> ventas,
-            ReporteVentasFiltroViewModel filtro)
+            ReporteVentasFiltroViewModel filtro,
+            bool menosVendidos = false)
         {
             var lineas = ventas
                 .SelectMany(v => v.Detalles)
@@ -980,7 +985,7 @@ namespace TheBuryProject.Services
             if (filtro.MarcaId.HasValue)
                 lineas = lineas.Where(d => d.Producto.MarcaId == filtro.MarcaId.Value);
 
-            return lineas
+            var agrupados = lineas
                 .GroupBy(d => d.ProductoId)
                 .Select(g =>
                 {
@@ -1001,15 +1006,19 @@ namespace TheBuryProject.Services
                         MargenPromedio = CalcularMargenPorcentaje(gananciaTotal, montoTotal)
                     };
                 })
-                .OrderByDescending(p => p.CantidadVendida)
-                .ThenByDescending(p => p.MontoTotal)
-                .Take(10)
                 .ToList();
+
+            // "Menos vendidos" = los de menor rotación entre los que tuvieron ventas en el período.
+            var ordenados = menosVendidos
+                ? agrupados.OrderBy(p => p.CantidadVendida).ThenBy(p => p.MontoTotal)
+                : agrupados.OrderByDescending(p => p.CantidadVendida).ThenByDescending(p => p.MontoTotal);
+
+            return ordenados.Take(10).ToList();
         }
 
-        private static List<ClienteTopViewModel> ObtenerClientesTop(IEnumerable<Venta> ventas)
+        private static List<ClienteTopViewModel> ObtenerClientesTop(IEnumerable<Venta> ventas, bool porFrecuencia = false)
         {
-            return ventas
+            var clientes = ventas
                 .Where(v => v.Cliente != null && v.ClienteId.HasValue)
                 .GroupBy(v => v.ClienteId!.Value)
                 .Select(g =>
@@ -1027,9 +1036,13 @@ namespace TheBuryProject.Services
                         UltimaCompra = g.Max(v => v.FechaVenta)
                     };
                 })
-                .OrderByDescending(c => c.MontoTotal)
-                .Take(10)
                 .ToList();
+
+            var ordenados = porFrecuencia
+                ? clientes.OrderByDescending(c => c.CantidadCompras).ThenByDescending(c => c.MontoTotal)
+                : clientes.OrderByDescending(c => c.MontoTotal);
+
+            return ordenados.Take(10).ToList();
         }
 
         #endregion

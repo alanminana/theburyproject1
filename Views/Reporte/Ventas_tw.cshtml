@@ -280,54 +280,68 @@
                 @if (r.ProductosMasVendidos.Any())
                 {
                     <section class="card-erp-panel">
-                        <div class="px-6 py-4 border-b border-slate-800 bg-slate-800/30">
+                        <div class="px-6 py-4 border-b border-slate-800 bg-slate-800/30 flex items-center justify-between gap-3">
                             <h2 class="font-semibold text-slate-100 flex items-center gap-2">
                                 <span class="material-symbols-outlined text-primary text-xl">trending_up</span>
-                                Productos más vendidos
+                                Productos
                             </h2>
+                            <div class="inline-flex rounded-lg border border-slate-700 p-0.5 text-xs" role="group" aria-label="Orden">
+                                <button type="button" data-rank-toggle="productos" data-rank-target="a" aria-pressed="true" class="rank-toggle-btn px-2.5 py-1 rounded-md">Más vendidos</button>
+                                <button type="button" data-rank-toggle="productos" data-rank-target="b" aria-pressed="false" class="rank-toggle-btn px-2.5 py-1 rounded-md">Menos vendidos</button>
+                            </div>
                         </div>
-                        <div class="divide-y divide-slate-800">
-                            @foreach (var p in r.ProductosMasVendidos.Take(10))
-                            {
-                                <div class="px-6 py-3 flex items-center gap-3">
-                                    <div class="flex-1 min-w-0">
-                                        <p class="text-sm font-medium text-slate-100 truncate">@p.ProductoNombre</p>
-                                        <p class="text-xs text-slate-400">@p.CategoriaNombre · @p.CantidadVendida uds.</p>
+                        @foreach (var (clave, lista) in new[] { ("a", r.ProductosMasVendidos), ("b", r.ProductosMenosVendidos) })
+                        {
+                            <div class="divide-y divide-slate-800" data-rank-list="productos" data-rank-key="@clave" hidden="@(clave == "b" ? "hidden" : null)">
+                                @foreach (var p in lista.Take(10))
+                                {
+                                    <div class="px-6 py-3 flex items-center gap-3">
+                                        <div class="flex-1 min-w-0">
+                                            <p class="text-sm font-medium text-slate-100 truncate">@p.ProductoNombre</p>
+                                            <p class="text-xs text-slate-400">@p.CategoriaNombre · @p.CantidadVendida uds.</p>
+                                        </div>
+                                        <div class="text-right shrink-0">
+                                            <p class="text-sm font-semibold text-slate-100">$@p.MontoTotal.ToString("N0")</p>
+                                            <p class="text-xs text-emerald-400">@p.MargenPromedio.ToString("N1")%</p>
+                                        </div>
                                     </div>
-                                    <div class="text-right shrink-0">
-                                        <p class="text-sm font-semibold text-slate-100">$@p.MontoTotal.ToString("N0")</p>
-                                        <p class="text-xs text-emerald-400">@p.MargenPromedio.ToString("N1")%</p>
-                                    </div>
-                                </div>
-                            }
-                        </div>
+                                }
+                            </div>
+                        }
                     </section>
                 }
 
                 @if (r.ClientesTop.Any())
                 {
                     <section class="card-erp-panel">
-                        <div class="px-6 py-4 border-b border-slate-800 bg-slate-800/30">
+                        <div class="px-6 py-4 border-b border-slate-800 bg-slate-800/30 flex items-center justify-between gap-3">
                             <h2 class="font-semibold text-slate-100 flex items-center gap-2">
                                 <span class="material-symbols-outlined text-primary text-xl">groups</span>
-                                Clientes top
+                                Clientes
                             </h2>
+                            <div class="inline-flex rounded-lg border border-slate-700 p-0.5 text-xs" role="group" aria-label="Orden">
+                                <button type="button" data-rank-toggle="clientes" data-rank-target="a" aria-pressed="true" class="rank-toggle-btn px-2.5 py-1 rounded-md">Por monto</button>
+                                <button type="button" data-rank-toggle="clientes" data-rank-target="b" aria-pressed="false" class="rank-toggle-btn px-2.5 py-1 rounded-md">Más frecuentes</button>
+                            </div>
                         </div>
-                        <div class="divide-y divide-slate-800">
-                            @foreach (var c in r.ClientesTop.Take(10))
-                            {
-                                <div class="px-6 py-3 flex items-center gap-3">
-                                    <div class="flex-1 min-w-0">
-                                        <p class="text-sm font-medium text-slate-100 truncate">@c.ClienteNombre</p>
-                                        <p class="text-xs text-slate-400">@c.ClienteDocumento · @c.CantidadCompras compras</p>
+                        @foreach (var (clave, lista) in new[] { ("a", r.ClientesTop), ("b", r.ClientesFrecuentes) })
+                        {
+                            <div class="divide-y divide-slate-800" data-rank-list="clientes" data-rank-key="@clave" hidden="@(clave == "b" ? "hidden" : null)">
+                                @foreach (var c in lista.Take(10))
+                                {
+                                    <div class="px-6 py-3 flex items-center gap-3">
+                                        <div class="flex-1 min-w-0">
+                                            <p class="text-sm font-medium text-slate-100 truncate">@c.ClienteNombre</p>
+                                            <p class="text-xs text-slate-400">@c.ClienteDocumento · @c.CantidadCompras compras</p>
+                                        </div>
+                                        <div class="text-right shrink-0">
+                                            <p class="text-sm font-semibold text-slate-100">$@c.MontoTotal.ToString("N0")</p>
+                                            <p class="text-xs text-slate-400">ticket: $@c.TicketPromedio.ToString("N0")</p>
+                                        </div>
                                     </div>
-                                    <div class="text-right shrink-0">
-                                        <p class="text-sm font-semibold text-slate-100">$@c.MontoTotal.ToString("N0")</p>
-                                        <p class="text-xs text-slate-400">ticket: $@c.TicketPromedio.ToString("N0")</p>
-                                    </div>
-                                </div>
-                            }
-                        </div>
+                                }
+                            </div>
+                        }
                     </section>
                 }
 
@@ -343,3 +357,21 @@
     }
 
 </div>
+
+<style>
+    .rank-toggle-btn { color: rgb(148 163 184); }
+    .rank-toggle-btn[aria-pressed="true"] { background: rgb(51 65 85 / .7); color: rgb(241 245 249); }
+</style>
+<script>
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-rank-toggle]');
+        if (!btn) return;
+        var group = btn.dataset.rankToggle;
+        document.querySelectorAll('[data-rank-toggle="' + group + '"]').forEach(function (b) {
+            b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
+        });
+        document.querySelectorAll('[data-rank-list="' + group + '"]').forEach(function (l) {
+            l.hidden = l.dataset.rankKey !== btn.dataset.rankTarget;
+        });
+    });
+</script>
