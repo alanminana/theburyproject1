@@ -816,7 +816,9 @@ namespace TheBuryProject.Services
                 snapshot.Credito.PlanCuotas.Select(c =>
                     $"Cuota {c.NumeroCuota}: vence {c.FechaVencimiento:dd/MM/yyyy} - {c.MontoTotal:C2}"));
 
-            var saldoFinanciado = snapshot.Credito.TotalAPagar - (snapshot.Credito.TotalAPagar - snapshot.Credito.MontoCuota * snapshot.Credito.CantidadCuotas);
+            // SALDO_FINANCIADO = total a pagar con intereses (cuota x cantidad de cuotas). Se conserva el nombre
+            // de la variable por compatibilidad con las plantillas de contrato existentes.
+            var saldoFinanciado = snapshot.Credito.MontoCuota * snapshot.Credito.CantidadCuotas;
             var vendedorNombre   = snapshot.Vendedor.Nombre;
             var vendedorDom      = snapshot.Vendedor.Domicilio;
             var vendedorDni      = snapshot.Vendedor.DNI ?? string.Empty;

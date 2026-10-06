@@ -254,15 +254,21 @@ public class VentaServiceDeleteUpdateTests : IDisposable
         Assert.False(resultado);
     }
 
-    [Fact]
-    public async Task Delete_VentaEnPendienteRequisitos_RetornaTrue()
+    // Regla de negocio: solo Cotización y Presupuesto se eliminan; en requisitos/financiación se cancela.
+    [Theory]
+    [InlineData(EstadoVenta.PendienteRequisitos)]
+    [InlineData(EstadoVenta.PendienteFinanciacion)]
+    public async Task Delete_VentaPendiente_LanzaInvalidOperationException_YNoLaBorra(EstadoVenta estado)
     {
         var cliente = await SeedClienteAsync();
-        var venta = await SeedVentaAsync(cliente.Id, EstadoVenta.PendienteRequisitos);
+        var venta = await SeedVentaAsync(cliente.Id, estado);
 
-        var resultado = await _service.DeleteAsync(venta.Id);
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.DeleteAsync(venta.Id));
 
-        Assert.True(resultado);
+        var ventaBd = await _context.Ventas.IgnoreQueryFilters()
+            .FirstAsync(v => v.Id == venta.Id);
+        Assert.False(ventaBd.IsDeleted);
     }
 
     // =========================================================================
