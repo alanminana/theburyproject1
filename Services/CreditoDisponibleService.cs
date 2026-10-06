@@ -33,7 +33,7 @@ namespace TheBuryProject.Services
             int puntaje,
             CancellationToken cancellationToken = default)
         {
-            var limiteConfig = await ObtenerPresetPorPuntajeAsync(puntaje, cancellationToken);
+            var limiteConfig = await ObtenerPresetPorPuntajeAsync(_context, puntaje, cancellationToken);
             return limiteConfig.LimiteMonto;
         }
 
@@ -70,51 +70,13 @@ namespace TheBuryProject.Services
                 .AsNoTracking()
                 .FirstOrDefaultAsync(c => c.ClienteId == clienteId, cancellationToken);
 
-            var nivelAutomatico = cliente.PuntajeCliente;
-            var nivelManual = config?.NivelCreditoManual;
-            var nivelFinal = PuntajeCreditoEfectivo.Resolver(nivelAutomatico, nivelManual);
-
-            decimal limite;
-            string origenLimite;
-            int? limitePresetId = null;
-
-            if (nivelManual.HasValue)
-            {
-                var presetManual = await ObtenerPresetPorPuntajeAsync(nivelManual.Value, cancellationToken);
-                limite = presetManual.LimiteMonto;
-                limitePresetId = presetManual.Id;
-                origenLimite = "Puntaje crediticio manual";
-            }
-            else if (config is not null)
-            {
-                var limiteBase = await ObtenerLimiteBaseAsync(cliente, config, cancellationToken);
-                var overrideConfig = config.LimiteOverride;
-                var excepcionDelta = ObtenerExcepcionDeltaVigente(config, DateTime.UtcNow);
-
-                var limiteEfectivo = CalcularLimiteEfectivo(limiteBase.LimiteMonto, overrideConfig, excepcionDelta);
-                limite = limiteEfectivo.Limite;
-                limitePresetId = limiteBase.PresetId;
-                origenLimite = limiteEfectivo.OrigenLimite;
-            }
-            else
-            {
-                var presetAutomatico = await ObtenerPresetPorPuntajeAsync(nivelAutomatico, cancellationToken);
-                limite = presetAutomatico.LimiteMonto;
-                limitePresetId = presetAutomatico.Id;
-                origenLimite = "Puntaje crediticio";
-
-                if (cliente.LimiteCredito.HasValue && cliente.LimiteCredito.Value > limite)
-                {
-                    limite = cliente.LimiteCredito.Value;
-                    origenLimite = "Limite manual del cliente";
-                }
-
-                if (cliente.MontoMaximoPersonalizado.HasValue && cliente.MontoMaximoPersonalizado.Value > limite)
-                {
-                    limite = cliente.MontoMaximoPersonalizado.Value;
-                    origenLimite = "Monto maximo personalizado";
-                }
-            }
+            var resuelto = await ResolverLimiteAsync(_context, cliente, config, DateTime.UtcNow, cancellationToken);
+            var nivelAutomatico = resuelto.NivelAutomatico;
+            var nivelManual = resuelto.NivelManual;
+            var nivelFinal = resuelto.NivelFinal;
+            var limite = resuelto.Limite;
+            var origenLimite = resuelto.OrigenLimite;
+            var limitePresetId = resuelto.PresetId;
 
             var saldoVigente = await CalcularSaldoVigenteAsync(clienteId, cancellationToken);
             var disponible = Math.Max(0m, limite - saldoVigente);
@@ -136,6 +98,85 @@ namespace TheBuryProject.Services
             };
         }
 
+        /// <summary>
+        /// Resultado de resolver el límite de crédito de un cliente (autoridad única del cupo).
+        /// Override/ExcepcionDelta son los insumos que efectivamente intervinieron en el límite.
+        /// </summary>
+        internal sealed record LimiteResuelto(
+            int NivelAutomatico,
+            int? NivelManual,
+            int NivelFinal,
+            decimal Limite,
+            string OrigenLimite,
+            int? PresetId,
+            decimal? Override,
+            decimal ExcepcionDelta);
+
+        /// <summary>
+        /// Resuelve el límite de crédito del cliente. La usan CalcularDisponibleAsync y el snapshot que
+        /// VentaService guarda en la venta, para que ambos coincidan siempre. Lanza
+        /// CreditoDisponibleException si falta el preset activo que corresponde.
+        /// </summary>
+        internal static async Task<LimiteResuelto> ResolverLimiteAsync(
+            AppDbContext context,
+            Cliente cliente,
+            ClienteCreditoConfiguracion? config,
+            DateTime fechaUtc,
+            CancellationToken cancellationToken = default)
+        {
+            var nivelAutomatico = cliente.PuntajeCliente;
+            var nivelManual = config?.NivelCreditoManual;
+            var nivelFinal = PuntajeCreditoEfectivo.Resolver(nivelAutomatico, nivelManual);
+
+            decimal limite;
+            string origenLimite;
+            int? limitePresetId;
+            decimal? limiteOverride = null;
+            decimal excepcionDelta = 0m;
+
+            if (nivelManual.HasValue)
+            {
+                var presetManual = await ObtenerPresetPorPuntajeAsync(context, nivelManual.Value, cancellationToken);
+                limite = presetManual.LimiteMonto;
+                limitePresetId = presetManual.Id;
+                origenLimite = "Puntaje crediticio manual";
+            }
+            else if (config is not null)
+            {
+                var limiteBase = await ObtenerLimiteBaseAsync(context, cliente, config, cancellationToken);
+                limiteOverride = config.LimiteOverride;
+                excepcionDelta = ObtenerExcepcionDeltaVigente(config, fechaUtc);
+
+                var limiteEfectivo = CalcularLimiteEfectivo(limiteBase.LimiteMonto, limiteOverride, excepcionDelta);
+                limite = limiteEfectivo.Limite;
+                limitePresetId = limiteBase.PresetId;
+                origenLimite = limiteEfectivo.OrigenLimite;
+            }
+            else
+            {
+                var presetAutomatico = await ObtenerPresetPorPuntajeAsync(context, nivelAutomatico, cancellationToken);
+                limite = presetAutomatico.LimiteMonto;
+                limitePresetId = presetAutomatico.Id;
+                origenLimite = "Puntaje crediticio";
+
+                if (cliente.LimiteCredito.HasValue && cliente.LimiteCredito.Value > limite)
+                {
+                    limite = cliente.LimiteCredito.Value;
+                    origenLimite = "Limite manual del cliente";
+                }
+
+                if (cliente.MontoMaximoPersonalizado.HasValue && cliente.MontoMaximoPersonalizado.Value > limite)
+                {
+                    limite = cliente.MontoMaximoPersonalizado.Value;
+                    origenLimite = "Monto maximo personalizado";
+                }
+            }
+
+            return new LimiteResuelto(
+                nivelAutomatico, nivelManual, nivelFinal, limite, origenLimite,
+                limitePresetId, limiteOverride, excepcionDelta);
+        }
+
         public static (decimal Limite, string OrigenLimite) CalcularLimiteEfectivo(
             decimal limiteBase,
             decimal? limiteOverride,
@@ -154,14 +195,15 @@ namespace TheBuryProject.Services
             return (limite, origen);
         }
 
-        private async Task<(decimal LimiteMonto, int? PresetId)> ObtenerLimiteBaseAsync(
+        private static async Task<(decimal LimiteMonto, int? PresetId)> ObtenerLimiteBaseAsync(
+            AppDbContext context,
             Cliente cliente,
             ClienteCreditoConfiguracion config,
             CancellationToken cancellationToken)
         {
             if (config.CreditoPresetId.HasValue)
             {
-                var preset = await _context.PuntajesCreditoLimite
+                var preset = await context.PuntajesCreditoLimite
                     .AsNoTracking()
                     .FirstOrDefaultAsync(
                         p => p.Id == config.CreditoPresetId.Value && p.Activo,
@@ -176,15 +218,16 @@ namespace TheBuryProject.Services
                 return (preset.LimiteMonto, preset.Id);
             }
 
-            var presetAutomatico = await ObtenerPresetPorPuntajeAsync(cliente.PuntajeCliente, cancellationToken);
+            var presetAutomatico = await ObtenerPresetPorPuntajeAsync(context, cliente.PuntajeCliente, cancellationToken);
             return (presetAutomatico.LimiteMonto, presetAutomatico.Id);
         }
 
-        private async Task<PuntajeCreditoLimite> ObtenerPresetPorPuntajeAsync(
+        private static async Task<PuntajeCreditoLimite> ObtenerPresetPorPuntajeAsync(
+            AppDbContext context,
             int puntaje,
             CancellationToken cancellationToken)
         {
-            var limiteConfig = await _context.PuntajesCreditoLimite
+            var limiteConfig = await context.PuntajesCreditoLimite
                 .AsNoTracking()
                 .FirstOrDefaultAsync(
                     p => p.Puntaje == puntaje && p.Activo,
