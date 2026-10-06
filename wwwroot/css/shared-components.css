@@ -814,7 +814,7 @@ select option {
 
 /* Cobertura para selects Tailwind inline sin clase propia.
    Solo actúa cuando no hay otra regla de módulo más específica. */
-select:not(.filter-select-erp):not(.caja-select):not(.credito-select):not(.credito-input):not(.venta-select):not(.venta-input):not(.vm-select) {
+select:not(.filter-select-erp):not(.caja-select):not(.credito-select):not(.credito-input):not(.venta-select):not(.venta-input) {
     color-scheme: dark;
 }
 
