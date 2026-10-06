@@ -88,7 +88,6 @@ namespace TheBuryProject.Services.Interfaces
         Task<bool> AutorizarVentaAsync(int id, string usuarioAutoriza, string motivo);
         Task<bool> RechazarVentaAsync(int id, string usuarioAutoriza, string motivo);
         Task<bool> RegistrarExcepcionDocumentalAsync(int id, string usuarioAutoriza, string motivo);
-        Task<bool> RequiereAutorizacionAsync(VentaViewModel viewModel);
 
         // Métodos para datos adicionales
         Task<bool> GuardarDatosTarjetaAsync(int ventaId, DatosTarjetaViewModel datosTarjeta);
@@ -96,7 +95,6 @@ namespace TheBuryProject.Services.Interfaces
         Task<DatosTarjetaViewModel> CalcularCuotasTarjetaAsync(int tarjetaId, decimal monto, int cuotas);
         Task<DatosCreditoPersonallViewModel?> ObtenerDatosCreditoVentaAsync(int ventaId);
 
-        CalculoTotalesVentaResponse CalcularTotalesPreview(List<DetalleCalculoVentaRequest> detalles, decimal descuentoGeneral, bool descuentoEsPorcentaje);
         Task<CalculoTotalesVentaResponse> CalcularTotalesPreviewAsync(List<DetalleCalculoVentaRequest> detalles, decimal descuentoGeneral, bool descuentoEsPorcentaje);
         Task<CalculoTotalesVentaResponse> CalcularTotalesPreviewConPagoGlobalAsync(
             List<DetalleCalculoVentaRequest> detalles,

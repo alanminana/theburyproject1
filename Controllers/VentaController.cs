@@ -33,8 +33,6 @@ namespace TheBuryProject.Controllers
         private const string AccionCancelar = "cancel";
         private readonly IVentaService _ventaService;
         private readonly ILogger<VentaController> _logger;
-        private readonly IFinancialCalculationService _financialCalculationService;
-        private readonly IPrequalificationService _prequalificationService;
         private readonly ICreditoService _creditoService;
         private readonly IDocumentacionService _documentacionService;
         private readonly IClienteLookupService _clienteLookup;
@@ -117,8 +115,6 @@ namespace TheBuryProject.Controllers
         public VentaController(
             IVentaService ventaService,
             ILogger<VentaController> logger,
-            IFinancialCalculationService financialCalculationService,
-            IPrequalificationService prequalificationService,
             ICreditoService creditoService,
             IDocumentacionService documentacionService,
             IClienteLookupService clienteLookup,
@@ -133,8 +129,6 @@ namespace TheBuryProject.Controllers
         {
             _ventaService = ventaService;
             _logger = logger;
-            _financialCalculationService = financialCalculationService;
-            _prequalificationService = prequalificationService;
             _creditoService = creditoService;
             _documentacionService = documentacionService;
             _clienteLookup = clienteLookup;
