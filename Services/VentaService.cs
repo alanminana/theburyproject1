@@ -223,7 +223,7 @@ namespace TheBuryProject.Services
                 VentaContactoLibre.ValidarVenta(venta);
                 venta.AperturaCajaId = aperturaActiva.Id;
 
-                var vendedorResuelto = await ResolverVendedorAsync(viewModel, currentUserId, currentUserName);
+                var vendedorResuelto = await ResolverVendedorAsync(currentUserId, currentUserName);
                 venta.VendedorUserId = vendedorResuelto.UserId;
                 venta.VendedorNombre = vendedorResuelto.Nombre;
 
@@ -2446,13 +2446,6 @@ namespace TheBuryProject.Services
 
         #region Métodos Privados - Helpers
 
-        private bool PuedeDelegarVendedor()
-        {
-            return _currentUserService.IsInRole(Roles.SuperAdmin) ||
-                   _currentUserService.IsInRole(Roles.Administrador) ||
-                   _currentUserService.IsInRole(Roles.Gerente);
-        }
-
         private async Task<string?> ObtenerUserIdActualAsync()
         {
             var userId = _currentUserService.GetUserId();
@@ -2474,8 +2467,9 @@ namespace TheBuryProject.Services
             return userId;
         }
 
+        // Regla de negocio: el vendedor de una venta es SIEMPRE el usuario logueado; no se delega
+        // ni se puede elegir otro (un VendedorUserId que llegue en el formulario se ignora).
         private async Task<(string? UserId, string Nombre)> ResolverVendedorAsync(
-            VentaViewModel viewModel,
             string? currentUserId,
             string currentUserName)
         {
@@ -2484,41 +2478,7 @@ namespace TheBuryProject.Services
                 currentUserId = await ObtenerUserIdActualAsync();
             }
 
-            var puedeDelegar = PuedeDelegarVendedor();
-            var vendedorSeleccionadoId = viewModel.VendedorUserId;
-
-            if (!puedeDelegar ||
-                string.IsNullOrWhiteSpace(vendedorSeleccionadoId) ||
-                vendedorSeleccionadoId == currentUserId)
-            {
-                return (currentUserId, currentUserName);
-            }
-
-            var vendedor = await _context.Users
-                .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.Id == vendedorSeleccionadoId);
-
-            if (vendedor == null)
-            {
-                throw new InvalidOperationException("El vendedor seleccionado no existe.");
-            }
-
-            var esVendedor = await (
-                from userRole in _context.UserRoles
-                join role in _context.Roles on userRole.RoleId equals role.Id
-                where userRole.UserId == vendedorSeleccionadoId && role.Name == Roles.Vendedor
-                select userRole).AnyAsync();
-
-            if (!esVendedor)
-            {
-                throw new InvalidOperationException("El usuario seleccionado no tiene el rol de vendedor.");
-            }
-
-            var nombre = !string.IsNullOrWhiteSpace(vendedor.UserName)
-                ? vendedor.UserName
-                : vendedor.Email ?? "Sin asignar";
-
-            return (vendedor.Id, nombre);
+            return (currentUserId, currentUserName);
         }
 
         /// <summary>

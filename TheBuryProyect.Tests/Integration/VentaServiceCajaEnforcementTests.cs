@@ -158,4 +158,32 @@ public class VentaServiceCajaEnforcementTests
             Assert.Contains("habilitado para vender", ex.Message);
         }
     }
+
+    // Regla de negocio: el vendedor es SIEMPRE el usuario logueado, aunque sea administrador y
+    // el formulario traiga otro VendedorUserId (no se delega).
+    [Fact]
+    public async Task CreateAsync_AdminConOtroVendedorEnElFormulario_IgnoraYUsaAlUsuarioLogueado()
+    {
+        var (ctx, conn) = CreateDb();
+        await using (ctx) using (conn)
+        {
+            var apertura = SeedCaja(ctx);
+            var svc = BuildService(ctx, new StubCurrentUserCajaEnf(esAdmin: true), new StubCajaServiceCajaEnf(apertura));
+            var vm = MinimalViewModel();
+            vm.VendedorUserId = "otro-usuario-inexistente";
+
+            Exception? error = null;
+            VentaViewModel? creada = null;
+            try { creada = await svc.CreateAsync(vm); }
+            catch (Exception ex) { error = ex; }
+
+            // Antes (delegacion) fallaba con "El vendedor seleccionado no existe." para este admin.
+            Assert.DoesNotContain("vendedor seleccionado", error?.Message ?? string.Empty);
+            if (creada is not null)
+            {
+                var venta = await ctx.Ventas.AsNoTracking().FirstAsync(v => v.Id == creada.Id);
+                Assert.Equal("vend1", venta.VendedorUserId);
+            }
+        }
+    }
 }
