@@ -53,7 +53,7 @@
     };
 
     // Navegación por teclado del patrón ARIA tabs (ERP-UI-STANDARD §5), mismo
-    // enfoque que wwwroot/js/venta-index-rework.js: roving tabindex + flechas/Home/End
+    // enfoque que wwwroot/js/venta-index.js: roving tabindex + flechas/Home/End
     // mueven foco y activan la pestaña a la vez.
     const moveTabFocus = (current, direction) => {
         const buttons = Array.from(document.querySelectorAll('[data-dashboard-tab]'));

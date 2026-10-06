@@ -1238,7 +1238,7 @@ gate previo al usuario):**
   contenedor boxed. Sin breadcrumb ni acciones nuevas, sin cambio de contenido.
 - *Tabs "Vencidas"/"Próximas"* (§5/§11, antes solo `aria-pressed` sin semántica de tabs):
   se llevó al patrón ARIA completo tomando como referencia la implementación ya resuelta en
-  `Views/Venta/Index_tw.cshtml` / `wwwroot/js/venta-index-rework.js` — contenedor
+  `Views/Venta/Index_tw.cshtml` / `wwwroot/js/venta-index.js` (antes `venta-index-rework.js`, unificado el 2026-10-06) — contenedor
   `role="tablist"` con `aria-label`, botones `role="tab"` + `aria-selected` +
   `aria-controls` apuntando al `<tbody>` correspondiente, los `<tbody id="tbodyVencidas"/
   "tbodyProximas">` pasan a `role="tabpanel"` + `aria-labelledby`, roving `tabindex`
@@ -2569,3 +2569,11 @@ Cambio de comportamiento (backend) pedido por el usuario: "Generar pendientes" a
   - `confirm()` nativo → modal compartido en los 4 diálogos de Documentos (Regenerar, Cancelar documento, Eliminar regla, Restaurar versión). `shared-ui.js` suma un manejador opt-in `form[data-confirm-message]` (+ `data-confirm-title/label/tone`); no afecta a ningún formulario sin ese atributo. Validado en clon: sin diálogos nativos, Escape no ejecuta, la validación `required` del motivo corre antes del modal y confirmar ejecuta la acción. Los `confirm()` de otras vistas (CambiosPrecios, AlertaStock, etc.) siguen igual.
   - `erp-responsive-system.css` (<768px): la regla "links solo ícono" pasa a `:where(...)` (especificidad 0) porque también alcanzaba a links "ícono + texto" y rebajaba a 40px a componentes que piden 44px; los links `.btn` conservan el piso de 40px. Medido a 390px sobre 88 links de 24 pantallas (Dashboard, Venta, Cliente, Caja, Catálogo, Proveedor, Configuración de pago, Ticket, Crédito, Cotización, Documentos): ninguno por debajo de 40px y sin overflow. Se retiró el override local de `documentos-module.css`.
 - **`@@admin` en las plantillas (mismo día):** no era contenido roto sino una directiva de formato (`DocumentoLayout`: `@@admin` en la primera línea = A4 blanco y negro, monoespaciado, sin cabecera/pie decorativos; también `@@linea`, `@@salto`, `@@firmas`, `@@cols/@@col/@@fincols`, `@@tabla/@@fintabla` y los prefijos `**`, `^^`, `>>`). El PDF real del contrato no la imprime (verificado con `pdftotext`: 0 apariciones). No se tocó el contenido de ninguna plantilla; el editor ahora lo explica: texto de ayuda visible y grupo "Formato de impresión" insertable en el panel de variables (las directivas se insertan en línea propia y `@@admin` siempre al principio, sin duplicarse).
+
+## Venta/Index: unificación de `venta-index.js` + `venta-index-rework.js`, 2026-10-06 (sin commit)
+
+Estado: sin pendientes propios. Pantalla cerrada reabierta solo para este alcance (limpieza de JS de la auditoría de código redundante del módulo Venta); **sin cambios visuales ni de comportamiento**.
+
+- **Cambio:** las tabs del Centro de Ventas (roving tabindex, flechas/Home/End, deep-link `#hash`) pasan de `venta-index-rework.js` a `initTabs()` dentro de `venta-index.js`, que conserva el mismo orden de ejecución (toasts y scroll → CTA "Nueva venta" bloqueada → tabs). Se borra `venta-index-rework.js` y su `<script>` en `Index_tw.cshtml`; se corrige el comentario de `dashboard-index.js` que lo citaba. El contenedor sigue llamándose `#venta-index-rework` (ID y CSS no se tocaron).
+- **Validado en vivo (Chrome, DB clon descartada al terminar):** 29/29 checks — el JS viejo ya no se pide y el unificado se carga una vez, 1 tab activa al inicio, click, ArrowRight/ArrowLeft con wrap, Home/End, deep-link `#envios`, scroll affordances enlazadas (2/2), 1440/1280/1024/900/768/390/360 sin overflow y con las 5 tabs renderizadas, consola y red sin errores; capturas 1440 y 390 revisadas. CTA "Nueva venta" bloqueada (estado real "Turno de caja vencido"): resalta el panel, muestra el mensaje y se limpia a los 2,2 s. 533/533 tests (UiContract/Venta*/Dashboard).
+- **NO VALIDADO:** modal de devolución (el archivo `venta-devolucion-modal.js` no se tocó); estado con caja abierta (CTA "Nueva venta" normal, no pasa por este JS).
