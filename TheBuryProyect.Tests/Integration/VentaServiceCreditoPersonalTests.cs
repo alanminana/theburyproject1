@@ -929,6 +929,38 @@ public class VentaServiceCreditoPersonalTests
         }
     }
 
+    // Regla de negocio: el LimiteAplicado guardado en la venta es el MISMO límite que calcula el cupo real
+    // (CreditoDisponibleService), incluido el monto máximo personalizado del cliente sin configuración propia.
+    [Fact]
+    public async Task CreateAsync_CreditoPersonalSinConfiguracion_LimiteAplicadoCoincideConElCupoReal()
+    {
+        var (ctx, conn) = CreateDb();
+        await using (ctx) using (conn)
+        {
+            var apertura = await SeedCajaAsync(ctx);
+            var cliente = await SeedClienteAsync(ctx, NivelRiesgoCredito.AprobadoTotal);
+            var producto = await SeedProductoAsync(ctx, precioVenta: 1_210m);
+
+            cliente.MontoMaximoPersonalizado = 50_000_000m;
+            await ctx.SaveChangesAsync();
+
+            var svc = BuildService(
+                ctx,
+                new StubCajaServiceCP(apertura),
+                new StubValidacionVentaService(new ValidacionVentaResult { NoViable = false }));
+
+            var resultado = await svc.CreateAsync(CreditoPersonalViewModelConProducto(cliente.Id, producto));
+
+            var venta = await ctx.Ventas.AsNoTracking().FirstAsync(v => v.Id == resultado.Id);
+            var cupoReal = await new CreditoDisponibleService(ctx, NullLogger<CreditoDisponibleService>.Instance)
+                .CalcularDisponibleAsync(cliente.Id);
+
+            Assert.Equal(50_000_000m, cupoReal.Limite);
+            Assert.Equal(cupoReal.Limite, venta.LimiteAplicado);
+            Assert.Null(venta.OverrideAlMomento);
+        }
+    }
+
     [Fact]
     public async Task CreateAsync_CreditoPersonalProductoBloqueado_LanzaCondicionesPagoVentaException()
     {

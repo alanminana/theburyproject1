@@ -363,67 +363,28 @@ namespace TheBuryProject.Services
                 .AsNoTracking()
                 .FirstOrDefaultAsync(c => c.ClienteId == cliente.Id);
 
-            // Eje único: el cupo lo gobierna el puntaje interno de comportamiento (0–5),
-            // con override manual opcional. Snapshot del puntaje que definió el cupo al momento de la venta.
-            var nivelFinal = PuntajeCreditoEfectivo.Resolver(cliente.PuntajeCliente, config?.NivelCreditoManual);
-            venta.PuntajeAlMomento = nivelFinal;
-
-            PuntajeCreditoLimite? preset = null;
-            decimal? limiteOverride = null;
-            decimal excepcionDelta = 0m;
-
-            if (config?.NivelCreditoManual.HasValue == true)
+            // El límite aplicado sale SIEMPRE de la misma resolución que el cupo real
+            // (CreditoDisponibleService.ResolverLimiteAsync): puntaje de comportamiento (0–5) con override
+            // manual, preset del cliente, override absoluto, excepción vigente y monto máximo personalizado.
+            // Si falta el preset configurado no se bloquea acá: el snapshot queda sin límite y la validación
+            // unificada de crédito informa el problema al usuario.
+            CreditoDisponibleService.LimiteResuelto resuelto;
+            try
             {
-                preset = await _context.PuntajesCreditoLimite
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(p => p.Puntaje == config.NivelCreditoManual.Value && p.Activo);
+                resuelto = await CreditoDisponibleService.ResolverLimiteAsync(_context, cliente, config, DateTime.UtcNow);
             }
-            else
+            catch (CreditoDisponibleException ex)
             {
-                if (config?.CreditoPresetId.HasValue == true)
-                {
-                    preset = await _context.PuntajesCreditoLimite
-                        .AsNoTracking()
-                        .FirstOrDefaultAsync(p => p.Id == config.CreditoPresetId.Value && p.Activo);
-                }
-
-                preset ??= await _context.PuntajesCreditoLimite
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(p => p.Puntaje == cliente.PuntajeCliente && p.Activo);
-
-                limiteOverride = config?.LimiteOverride ?? cliente.LimiteCredito;
-                excepcionDelta = ObtenerExcepcionDeltaVigente(config, DateTime.UtcNow);
+                _logger.LogWarning(ex, "No se pudo capturar el snapshot de límite de crédito para la venta del cliente {ClienteId}", cliente.Id);
+                venta.PuntajeAlMomento = PuntajeCreditoEfectivo.Resolver(cliente.PuntajeCliente, config?.NivelCreditoManual);
+                return;
             }
 
-            var limiteBase = preset?.LimiteMonto ?? 0m;
-            var limiteEfectivo = CreditoDisponibleService
-                .CalcularLimiteEfectivo(limiteBase, limiteOverride, excepcionDelta)
-                .Limite;
-
-            venta.PresetIdAlMomento = preset?.Id;
-            venta.OverrideAlMomento = limiteOverride;
-            venta.ExcepcionAlMomento = excepcionDelta > 0m ? excepcionDelta : null;
-            venta.LimiteAplicado = limiteEfectivo > 0m ? limiteEfectivo : null;
-        }
-
-        private static decimal ObtenerExcepcionDeltaVigente(ClienteCreditoConfiguracion? config, DateTime fechaUtc)
-        {
-            if (config?.ExcepcionDelta is null || config.ExcepcionDelta.Value <= 0)
-            {
-                return 0m;
-            }
-
-            if (config.ExcepcionDesde.HasValue && config.ExcepcionDesde.Value > fechaUtc)
-            {
-                return 0m;
-            }
-
-            if (config.ExcepcionHasta.HasValue && config.ExcepcionHasta.Value < fechaUtc)
-            {
-                return 0m;
-            }
-
-            return config.ExcepcionDelta.Value;
+            venta.PuntajeAlMomento = resuelto.NivelFinal;
+            venta.PresetIdAlMomento = resuelto.PresetId;
+            venta.OverrideAlMomento = resuelto.Override;
+            venta.ExcepcionAlMomento = resuelto.ExcepcionDelta > 0m ? resuelto.ExcepcionDelta : null;
+            venta.LimiteAplicado = resuelto.Limite > 0m ? resuelto.Limite : null;
         }
 
         private static bool EsErrorNumeroVentaDuplicado(DbUpdateException ex)
