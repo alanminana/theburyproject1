@@ -9,8 +9,8 @@ namespace TheBuryProject.Services;
 public sealed class CreditoConfiguracionVentaService : ICreditoConfiguracionVentaService
 {
     private const string TasaGlobalNoConfigurada =
-        "La tasa de interÃ©s de CrÃ©dito Personal no estÃ¡ configurada. " +
-        "Configure el valor en AdministraciÃ³n â†’ Tipos de Pago.";
+        "La tasa de interés de Crédito Personal no está configurada. " +
+        "Configure el valor en Administración → Tipos de Pago.";
 
     private readonly IConfiguracionPagoService _configuracionPagoService;
     private readonly ICreditoRangoProductoService? _creditoRangoProductoService;
@@ -46,7 +46,7 @@ public sealed class CreditoConfiguracionVentaService : ICreditoConfiguracionVent
         {
             return CreditoConfiguracionVentaResultado.Invalido(
                 nameof(modelo.MetodoCalculo),
-                "Debe seleccionar un mÃ©todo de cÃ¡lculo.");
+                "Debe seleccionar un método de cálculo.");
         }
 
         decimal? tasaGlobal = null;
@@ -73,8 +73,8 @@ public sealed class CreditoConfiguracionVentaService : ICreditoConfiguracionVent
             {
                 return CreditoConfiguracionVentaResultado.Invalido(
                     nameof(modelo.MetodoCalculo),
-                    "El cliente no tiene configuraciÃ³n de crÃ©dito personal. " +
-                    "Configure el cliente con valores personalizados o seleccione otro mÃ©todo.");
+                    "El cliente no tiene configuración de crédito personal. " +
+                    "Configure el cliente con valores personalizados o seleccione otro método.");
             }
         }
 
@@ -139,7 +139,7 @@ public sealed class CreditoConfiguracionVentaService : ICreditoConfiguracionVent
                     : planesVenta.BuscarPlan(modelo.CantidadCuotas)?.TasaMensual;
                 gastosAdministrativos = modelo.GastosAdministrativos ?? parametrosCliente.GastosAdministrativos;
                 _logger.LogInformation(
-                    "CrÃ©dito {CreditoId}: Usando configuraciÃ³n del cliente {ClienteId} - Tasa: {Tasa}%, Gastos: ${Gastos}",
+                    "Crédito {CreditoId}: Usando configuración del cliente {ClienteId} - Tasa: {Tasa}%, Gastos: ${Gastos}",
                     modelo.CreditoId, modelo.ClienteId, tasaMensual, gastosAdministrativos);
             }
             else
@@ -162,7 +162,7 @@ public sealed class CreditoConfiguracionVentaService : ICreditoConfiguracionVent
 
                 gastosAdministrativos = modelo.GastosAdministrativos ?? 0m;
                 _logger.LogInformation(
-                    "CrÃ©dito {CreditoId}: Usando configuraciÃ³n global - Tasa: {Tasa}%",
+                    "Crédito {CreditoId}: Usando configuración global - Tasa: {Tasa}%",
                     modelo.CreditoId, tasaMensual);
             }
         }
@@ -173,7 +173,7 @@ public sealed class CreditoConfiguracionVentaService : ICreditoConfiguracionVent
             {
                 return CreditoConfiguracionVentaResultado.Invalido(
                     nameof(modelo.TasaMensual),
-                    "La tasa de interÃ©s no puede ser negativa en modo Manual.");
+                    "La tasa de interés no puede ser negativa en modo Manual.");
             }
 
             // El plan de cuotas es la autoridad del porcentaje, tambien en modo Manual. Sin tabla de
@@ -187,7 +187,7 @@ public sealed class CreditoConfiguracionVentaService : ICreditoConfiguracionVent
                 : planesVenta.BuscarPlan(modelo.CantidadCuotas)?.TasaMensual;
 
             _logger.LogInformation(
-                "CrÃ©dito {CreditoId}: ConfiguraciÃ³n manual - Tasa: {Tasa}%, Gastos: ${Gastos}",
+                "Crédito {CreditoId}: Configuración manual - Tasa: {Tasa}%, Gastos: ${Gastos}",
                 modelo.CreditoId, tasaMensual, gastosAdministrativos);
         }
 
@@ -254,7 +254,7 @@ public sealed class CreditoConfiguracionVentaService : ICreditoConfiguracionVent
             return CreditoConfiguracionVentaResultado.Invalido(
                 nameof(modelo.CantidadCuotas),
                 $"La cantidad de cuotas debe estar entre {cuotasMinPermitidas} y {cuotasMaxPermitidas} " +
-                $"segÃºn el mÃ©todo '{descripcionMetodo}'.",
+                $"según el método '{descripcionMetodo}'.",
                 rangoEfectivo,
                 rangoEfectivo.ProductoIdRestrictivo.HasValue
                     ? MotivoRechazoConfiguracionCredito.Conflicto

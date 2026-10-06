@@ -36,7 +36,7 @@ namespace TheBuryProject.Models.Entities
         public decimal IVA { get; set; }
         public decimal Total { get; set; }
 
-        // Cr�dito personal
+        // Crédito personal
         public int? CreditoId { get; set; }
 
         // Snapshot de límite aplicado al momento de crear la operación
