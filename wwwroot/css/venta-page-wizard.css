@@ -66,22 +66,6 @@
    HERO METRICS
    ══════════════════════════════════════════════════════════════ */
 
-#venta-create-page .venta-edit-hero-metrics,
-#venta-edit-page .venta-edit-hero-metrics {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 0.75rem;
-}
-
-#venta-create-page .venta-edit-hero-metrics>*,
-#venta-edit-page .venta-edit-hero-metrics>* {
-    border: 1px solid var(--venta-wizard-border);
-    border-radius: 18px;
-    background: var(--venta-wizard-card);
-    box-shadow: 0 8px 24px color-mix(in srgb, var(--pal-black) 16%, transparent);
-    padding: 0.7rem 0.85rem;
-}
-
 /* ══════════════════════════════════════════════════════════════
    CARDS / SECTIONS
    ══════════════════════════════════════════════════════════════ */
@@ -92,9 +76,7 @@
 #venta-edit-page .card-sub,
 #venta-create-page .venta-section,
 #venta-edit-page .venta-section,
-#venta-edit-page .lg\:col-span-2>section:not(.vm-totals),
-#venta-edit-page #seccion-detalle-cobro,
-#venta-edit-page #seccion-verificacion-crediticia {
+#venta-edit-page .lg\:col-span-2>section:not(.vm-totals) {
     border: 1px solid var(--venta-wizard-border);
     border-radius: 18px;
     background: var(--venta-wizard-card);
@@ -109,24 +91,8 @@
 
 #venta-create-page .venta-section,
 #venta-edit-page .venta-section,
-#venta-edit-page .lg\:col-span-2>section:not(.vm-totals),
-#venta-edit-page #seccion-detalle-cobro,
-#venta-edit-page #seccion-verificacion-crediticia {
+#venta-edit-page .lg\:col-span-2>section:not(.vm-totals) {
     padding: 1rem;
-}
-
-/* Paneles de paso (Cliente/Productos/Pago/Credito/Revision).
-   El markup usa .p-6; el id (1,1,0) gana a la utility (0,1,0) y densifica
-   los 5 pasos a la vez sin editar cada vista. */
-#venta-create-page .venta-wizard-tab-panel,
-#venta-edit-page .venta-wizard-tab-panel {
-    padding: 1rem 1.15rem;
-}
-
-/* Header interno de cada paso (label + título + descripción). */
-#venta-create-page .venta-wizard-tab-panel>.mb-6,
-#venta-edit-page .venta-wizard-tab-panel>.mb-6 {
-    margin-bottom: 0.85rem;
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -237,8 +203,6 @@
 #venta-edit-page .btn-erp-ghost,
 #venta-create-page .vm-btn-confirm-sm,
 #venta-edit-page .vm-btn-confirm-sm,
-#venta-create-page .step-btn,
-#venta-edit-page .step-btn,
 #venta-create-page .vm-step-tab,
 #venta-edit-page .vm-step-tab {
     min-height: 2.55rem;
@@ -258,8 +222,6 @@
 #venta-edit-page .btn-erp-ghost:active,
 #venta-create-page .vm-btn-confirm-sm:active,
 #venta-edit-page .vm-btn-confirm-sm:active,
-#venta-create-page .step-btn:active,
-#venta-edit-page .step-btn:active,
 #venta-create-page .vm-step-tab:active,
 #venta-edit-page .vm-step-tab:active {
     transform: translateY(1px);
@@ -271,8 +233,6 @@
 #venta-edit-page .btn-erp-ghost:focus-visible,
 #venta-create-page .vm-btn-confirm-sm:focus-visible,
 #venta-edit-page .vm-btn-confirm-sm:focus-visible,
-#venta-create-page .step-btn:focus-visible,
-#venta-edit-page .step-btn:focus-visible,
 #venta-create-page .vm-step-tab:focus-visible,
 #venta-edit-page .vm-step-tab:focus-visible {
     outline: 3px solid color-mix(in srgb, var(--pal-accent) 55%, transparent);
@@ -285,8 +245,6 @@
 #venta-edit-page .btn-erp-ghost:disabled,
 #venta-create-page .vm-btn-confirm-sm:disabled,
 #venta-edit-page .vm-btn-confirm-sm:disabled,
-#venta-create-page .step-btn:disabled,
-#venta-edit-page .step-btn:disabled,
 #venta-create-page .vm-step-tab:disabled,
 #venta-edit-page .vm-step-tab:disabled,
 #venta-create-page [aria-disabled="true"],
@@ -329,9 +287,7 @@
 }
 
 #venta-create-page .vm-step-tab__num,
-#venta-edit-page .vm-step-tab__num,
-#venta-create-page .step-num,
-#venta-edit-page .step-num {
+#venta-edit-page .vm-step-tab__num {
     display: inline-grid;
     width: 1.45rem;
     height: 1.45rem;
@@ -518,11 +474,6 @@
    TAB PANELS / SCROLL HELPERS
    ══════════════════════════════════════════════════════════════ */
 
-#venta-create-page .venta-wizard-tab-panel[hidden],
-#venta-edit-page .venta-wizard-tab-panel[hidden] {
-    display: none !important;
-}
-
 /* Control compartido de cantidad: compacto, táctil y visible al navegar con teclado. */
 #venta-create-page .venta-quantity-control,
 #venta-edit-page .venta-quantity-control {
@@ -590,11 +541,6 @@
 #venta-create-page .venta-section .text-xs,
 #venta-edit-page .venta-section .text-xs {
     font-size: 0.8125rem;
-}
-
-#venta-create-page [data-oc-scroll][data-scroll-min-width="46rem"],
-#venta-edit-page [data-oc-scroll][data-scroll-min-width="46rem"] {
-    --oc-scroll-min-width: 46rem;
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -846,11 +792,7 @@
         min-width: 0;
     }
 
-    #venta-create-page .venta-edit-hero-metrics,
-    #venta-edit-page .venta-edit-hero-metrics {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
-}
 
 @media (min-width: 1280px) {
 
@@ -903,22 +845,6 @@
         gap: 1rem;
     }
 
-    #venta-create-page .venta-edit-hero-metrics,
-    #venta-edit-page .venta-edit-hero-metrics {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 0.5rem;
-    }
-
-    #venta-create-page .venta-edit-hero-metrics>*,
-    #venta-edit-page .venta-edit-hero-metrics>* {
-        padding: 0.75rem;
-    }
-
-    #venta-create-page .venta-edit-hero-metrics>* p:last-child,
-    #venta-edit-page .venta-edit-hero-metrics>* p:last-child {
-        display: none;
-    }
-
     #venta-create-page .vm-step-tab,
     #venta-edit-page .vm-step-tab {
         padding-inline: 0.65rem;
@@ -950,11 +876,7 @@
         min-height: 2.75rem;
     }
 
-    #venta-create-page .venta-edit-hero-metrics,
-    #venta-edit-page .venta-edit-hero-metrics {
-        grid-template-columns: 1fr;
     }
-}
 
 @media (min-width: 768px) and (max-height: 760px) {
     #venta-create-page .hero-erp {
@@ -1307,7 +1229,6 @@
         white-space: nowrap;
     }
 }
-
 
 /* ══════════════════════════════════════════════════════════════
    PASO CRÉDITO — "Estado del crédito" (VENTA-CREDITO-REDESIGN-VISUAL-
@@ -1872,15 +1793,9 @@
     }
 }
 
-
 /* VENTA-ENVIO-TOTAL-01: con envío, la barra sticky mobile dice "A cobrar: $ 181.758,90" (más largo que
    "Total: $ 180.758,90"); en pantallas muy angostas baja un punto la tipografía para que el importe entre
    entero junto al botón (misma jerarquía, sin recortar cifras). Clase que alterna venta-page-wizard.js. */
-@media (max-width: 400px) {
-    :is(#venta-create-page, #venta-edit-page) .vm-mobile-summary-bar--con-envio .vm-mobile-summary-bar__info {
-        font-size: 0.875rem;
-    }
-}
 
 /* ══════════════════════════════════════════════════════════════
    WIZARD — formato del mockup en todos los pasos (COTIZACION-MOCKUP-02)
@@ -2001,14 +1916,6 @@
     :is(#venta-create-page, #venta-edit-page) .venta-section {
         border-radius: 16px;
         padding: 20px;
-    }
-
-    :is(#venta-create-page, #venta-edit-page) .venta-wizard-tab-panel {
-        padding: 20px;
-    }
-
-    :is(#venta-create-page, #venta-edit-page) .venta-wizard-tab-panel > .mb-6 {
-        margin-bottom: 16px;
     }
 
     :is(#venta-create-page, #venta-edit-page) .venta-section h2 {
