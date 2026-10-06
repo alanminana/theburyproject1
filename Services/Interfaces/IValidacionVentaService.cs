@@ -112,15 +112,6 @@ namespace TheBuryProject.Services.Interfaces
         public int? DiasMaxMora { get; set; }
 
         /// <summary>
-        /// Indica si puede recibir crédito
-        /// </summary>
-        public bool PuedeRecibirCredito => 
-            !string.IsNullOrEmpty(EstadoAptitud) && 
-            !EstadoAptitud.StartsWith("No ", StringComparison.OrdinalIgnoreCase) &&
-            !EstadoAptitud.Equals("Sin Evaluar", StringComparison.OrdinalIgnoreCase) &&
-            (EstadoAptitud.Contains("Apto") || EstadoAptitud.Contains("Autorización"));
-
-        /// <summary>
         /// Mensaje de advertencia para mostrar
         /// </summary>
         public string? MensajeAdvertencia { get; set; }

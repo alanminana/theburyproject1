@@ -153,8 +153,6 @@ namespace TheBuryProject.ViewModels
         /// real de "Generar contrato" se muestra sólo en ese caso.
         /// </summary>
         public List<string> DatosContractualesFaltantes { get; set; } = new();
-
-        public bool ContratoListoParaGenerar => PuedeGenerarContrato && DatosContractualesFaltantes.Count == 0;
     }
 
     public class ClienteConfigCreditoVentaViewModel
