@@ -254,7 +254,7 @@ namespace TheBuryProject.Controllers
                 var venta = await _ventaService.GetByIdAsync(id);
                 if (venta == null)
                 {
-                    _logger.LogWarning("Edit(GET) venta {Id} not found", id);
+                    _logger.LogWarning("Details(GET) venta {Id} not found", id);
                     TempData["Error"] = "Venta no encontrada";
                     return RedirectToAction(nameof(Index));
                 }
@@ -430,7 +430,7 @@ namespace TheBuryProject.Controllers
             }
 
             await CargarViewBags();
-            return View("Create_tw", CrearVentaInicial(EstadoVenta.Presupuesto));
+            return View("Create_tw", CrearVentaInicial());
         }
 
         // POST: Venta/CreateAjax — version AJAX para el modal del Index
@@ -557,10 +557,12 @@ namespace TheBuryProject.Controllers
                     venta.ClienteId,
                     venta.Detalles.Select(d => d.ProductoId).Distinct(),
                     tipoPagoSeleccionado: venta.TipoPago);
-                var ventaJson = JsonSerializer.Serialize(venta, new JsonSerializerOptions
-                {
-                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-                });
+                var ventaJson = _logger.IsEnabled(LogLevel.Debug)
+                    ? JsonSerializer.Serialize(venta, new JsonSerializerOptions
+                    {
+                        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+                    })
+                    : null;
                 _logger.LogDebug(
                     "Edit(GET) venta {Id} model loaded. Detalles:{Detalles} TipoPago:{TipoPago} Estado:{Estado} RowVersion:{RowVersionLength} Data:{VentaJson}",
                     id,
@@ -1778,12 +1780,12 @@ namespace TheBuryProject.Controllers
             };
         }
 
-        private VentaViewModel CrearVentaInicial(EstadoVenta estadoInicial)
+        private VentaViewModel CrearVentaInicial()
         {
             return new VentaViewModel
             {
                 FechaVenta = DateTime.Today,
-                Estado = estadoInicial,
+                Estado = EstadoVenta.Presupuesto,
                 TipoPago = TipoPago.Efectivo
             };
         }

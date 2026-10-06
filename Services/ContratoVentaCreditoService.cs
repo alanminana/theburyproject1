@@ -740,16 +740,14 @@ namespace TheBuryProject.Services
             return ctx;
         }
 
-        private async Task<string> GenerarNumeroContratoAsync()
-        {
-            var count = await _context.ContratosVentaCredito.IgnoreQueryFilters().CountAsync();
-            return $"CVC-{DateTime.UtcNow:yyyyMM}-{count + 1:D6}";
-        }
+        private Task<string> GenerarNumeroContratoAsync() => GenerarNumeroAsync("CVC");
 
-        private async Task<string> GenerarNumeroPagareAsync()
+        private Task<string> GenerarNumeroPagareAsync() => GenerarNumeroAsync("PAG");
+
+        private async Task<string> GenerarNumeroAsync(string prefijo)
         {
             var count = await _context.ContratosVentaCredito.IgnoreQueryFilters().CountAsync();
-            return $"PAG-{DateTime.UtcNow:yyyyMM}-{count + 1:D6}";
+            return $"{prefijo}-{DateTime.UtcNow:yyyyMM}-{count + 1:D6}";
         }
 
         private byte[] GenerarPdfBytes(ContratoVentaCredito contrato, string? textoContratoDocumento = null, string? textoPagareDocumento = null)

@@ -7,9 +7,7 @@ namespace TheBuryProject.Services;
 
 public sealed class CreditoSimulacionVentaService : ICreditoSimulacionVentaService
 {
-    private const string TasaGlobalNoConfigurada =
-        "La tasa de interés de Crédito Personal no está configurada. " +
-        "Configure el valor en Administración → Tipos de Pago.";
+    private const string TasaGlobalNoConfigurada = CreditoConfiguracionVentaService.TasaGlobalNoConfigurada;
 
     // ML6.1 — Contrato congelado: el plan de cuotas es la ÚNICA fuente del porcentaje que este
     // servicio reporta. Nunca "Producto"/"Perfil"/"Cliente"/"Manual"/"Global": esas etiquetas
