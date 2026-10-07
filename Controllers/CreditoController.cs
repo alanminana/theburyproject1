@@ -840,18 +840,7 @@ namespace TheBuryProject.Controllers
                 MotivoSinPlanes = planesGet.MensajeRechazo
             };
 
-            modelo.PerfilesActivos = perfilesActivos
-                .Select(p => new PerfilCreditoActivoViewModel
-                {
-                    Id = p.Id,
-                    Nombre = p.Nombre,
-                    Descripcion = p.Descripcion,
-                    TasaMensual = p.TasaMensual,
-                    GastosAdministrativos = p.GastosAdministrativos,
-                    MinCuotas = p.MinCuotas,
-                    MaxCuotas = p.MaxCuotas
-                })
-                .ToList();
+            modelo.PerfilesActivos = MapearPerfilesActivos(perfilesActivos);
 
             await PoblarFaltantesContratoAsync(modelo);
 
@@ -892,9 +881,34 @@ namespace TheBuryProject.Controllers
             return $"{mensajeGenerico} Motivo: {string.Join("; ", detalles)}";
         }
 
-        // Errores del POST fuera del ModelState (crédito/venta inexistente, estado no
-        // configurable, autorización pendiente): en modo embebido el wizard espera JSON
-        // (fetch), nunca un redirect ni un fragmento HTML de la vista de página completa.
+        private static List<PerfilCreditoActivoViewModel> MapearPerfilesActivos(IEnumerable<PerfilCreditoViewModel> perfiles) =>
+            perfiles
+                .Select(p => new PerfilCreditoActivoViewModel
+                {
+                    Id = p.Id,
+                    Nombre = p.Nombre,
+                    Descripcion = p.Descripcion,
+                    TasaMensual = p.TasaMensual,
+                    GastosAdministrativos = p.GastosAdministrativos,
+                    MinCuotas = p.MinCuotas,
+                    MaxCuotas = p.MaxCuotas
+                })
+                .ToList();
+
+        private IActionResult BadRequestModelState()
+        {
+            var errores = ModelState.Values
+                .SelectMany(v => v.Errors)
+                .Select(e => e.ErrorMessage)
+                .Where(e => !string.IsNullOrWhiteSpace(e))
+                .ToArray();
+
+            return BadRequest(new { success = false, errors = errores });
+        }
+
+        // Errores de ConfigurarVenta (crédito/venta inexistente, estado no configurable,
+        // autorización pendiente): el wizard embebido espera JSON (fetch), nunca un redirect
+        // ni un fragmento HTML de la vista de página completa.
         private IActionResult ErrorConfigurarVenta(int statusCode, string mensaje)
         {
             Response.StatusCode = statusCode;
@@ -1098,18 +1112,7 @@ namespace TheBuryProject.Controllers
                 await _contratoVentaCreditoService.ExisteContratoGeneradoAsync(modelo.VentaId.Value);
             modelo.PlantillaActivaDisponible = await _contratoVentaCreditoService.ExistePlantillaActivaAsync();
             await PoblarFaltantesContratoAsync(modelo);
-            modelo.PerfilesActivos = (await _configuracionPagoService.GetPerfilesCreditoActivosAsync())
-                .Select(p => new PerfilCreditoActivoViewModel
-                {
-                    Id = p.Id,
-                    Nombre = p.Nombre,
-                    Descripcion = p.Descripcion,
-                    TasaMensual = p.TasaMensual,
-                    GastosAdministrativos = p.GastosAdministrativos,
-                    MinCuotas = p.MinCuotas,
-                    MaxCuotas = p.MaxCuotas
-                })
-                .ToList();
+            modelo.PerfilesActivos = MapearPerfilesActivos(await _configuracionPagoService.GetPerfilesCreditoActivosAsync());
             var ventaCuotas = modelo.VentaId.HasValue
                 ? await _ventaService.GetByIdAsync(modelo.VentaId.Value)
                 : null;
@@ -1565,15 +1568,7 @@ namespace TheBuryProject.Controllers
                 return BadRequest(new { success = false, errors = new[] { "Solicitud inválida." } });
 
             if (!ModelState.IsValid)
-            {
-                var errores = ModelState.Values
-                    .SelectMany(v => v.Errors)
-                    .Select(e => e.ErrorMessage)
-                    .Where(e => !string.IsNullOrWhiteSpace(e))
-                    .ToArray();
-
-                return BadRequest(new { success = false, errors = errores });
-            }
+                return BadRequestModelState();
 
             try
             {
@@ -1613,15 +1608,7 @@ namespace TheBuryProject.Controllers
                 return BadRequest(new { success = false, errors = new[] { "Solicitud inválida." } });
 
             if (!ModelState.IsValid)
-            {
-                var errores = ModelState.Values
-                    .SelectMany(v => v.Errors)
-                    .Select(e => e.ErrorMessage)
-                    .Where(e => !string.IsNullOrWhiteSpace(e))
-                    .ToArray();
-
-                return BadRequest(new { success = false, errors = errores });
-            }
+                return BadRequestModelState();
 
             try
             {

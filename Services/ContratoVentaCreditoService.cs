@@ -804,7 +804,7 @@ namespace TheBuryProject.Services
             return documento.GeneratePdf();
         }
 
-        private static Dictionary<string, string> CrearVariables(ContratoVentaCreditoSnapshot snapshot)
+        internal static Dictionary<string, string> CrearVariables(ContratoVentaCreditoSnapshot snapshot)
         {
             var productos = string.Join(
                 Environment.NewLine,
@@ -816,9 +816,10 @@ namespace TheBuryProject.Services
                 snapshot.Credito.PlanCuotas.Select(c =>
                     $"Cuota {c.NumeroCuota}: vence {c.FechaVencimiento:dd/MM/yyyy} - {c.MontoTotal:C2}"));
 
-            // SALDO_FINANCIADO = total a pagar con intereses (cuota x cantidad de cuotas). Se conserva el nombre
+            // SALDO_FINANCIADO = total a pagar con intereses (suma real de las cuotas del plan, igual que
+            // {{Credito.TotalAPagar}}: cuota x cantidad puede diferir con cuotas sin recargo o redondeo). Se conserva el nombre
             // de la variable por compatibilidad con las plantillas de contrato existentes.
-            var saldoFinanciado = snapshot.Credito.MontoCuota * snapshot.Credito.CantidadCuotas;
+            var saldoFinanciado = snapshot.Credito.TotalAPagar;
             var vendedorNombre   = snapshot.Vendedor.Nombre;
             var vendedorDom      = snapshot.Vendedor.Domicilio;
             var vendedorDni      = snapshot.Vendedor.DNI ?? string.Empty;
