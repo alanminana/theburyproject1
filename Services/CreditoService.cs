@@ -27,26 +27,6 @@ namespace TheBuryProject.Services
         /// </summary>
         private const decimal ToleranciaImportePago = 0.01m;
 
-        private static readonly IReadOnlyDictionary<string, string> MediosPagoPermitidos =
-            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["Efectivo"] = "Efectivo",
-                ["Transferencia"] = "Transferencia",
-                ["Tarjeta Débito"] = "Tarjeta Débito",
-                ["Tarjeta Crédito"] = "Tarjeta Crédito",
-                ["Cheque"] = "Cheque"
-            };
-
-        private static readonly IReadOnlyDictionary<string, TipoPago> MediosPagoTipoPago =
-            new Dictionary<string, TipoPago>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["Efectivo"] = TipoPago.Efectivo,
-                ["Transferencia"] = TipoPago.Transferencia,
-                ["Tarjeta Débito"] = TipoPago.TarjetaDebito,
-                ["Tarjeta Crédito"] = TipoPago.TarjetaCredito,
-                ["Cheque"] = TipoPago.Cheque
-            };
-
         private readonly AppDbContext _context;
         private readonly IMapper _mapper;
         private readonly ILogger<CreditoService> _logger;
@@ -127,7 +107,7 @@ namespace TheBuryProject.Services
         /// </summary>
         private async Task<(decimal Porcentaje, TipoPago? TipoPago)> ObtenerAjusteMedioPagoAsync(string medioPago)
         {
-            if (_configuracionPagoService == null || !MediosPagoTipoPago.TryGetValue(medioPago, out var tipoPago))
+            if (_configuracionPagoService == null || !MediosPagoCredito.TipoPorMedio.TryGetValue(medioPago, out var tipoPago))
                 return (0m, null);
 
             // El medio puede excluir el cobro de cuotas/moras del recargo/descuento (config. de pagos).
@@ -1352,7 +1332,7 @@ namespace TheBuryProject.Services
         /// </summary>
         private async Task ValidarMedioPagoHabilitadoAsync(string medioPago)
         {
-            if (!MediosPagoTipoPago.TryGetValue(medioPago, out var tipoPago))
+            if (!MediosPagoCredito.TipoPorMedio.TryGetValue(medioPago, out var tipoPago))
                 return;
 
             var activo = await _context.ConfiguracionesPago
@@ -2243,11 +2223,11 @@ namespace TheBuryProject.Services
             if (string.IsNullOrWhiteSpace(valor))
                 throw new InvalidOperationException("El medio de pago es requerido.");
 
-            if (MediosPagoPermitidos.TryGetValue(valor, out var medioPagoPermitido))
+            if (MediosPagoCredito.TryNormalizar(valor, out var medioPagoPermitido))
                 return medioPagoPermitido;
 
             throw new InvalidOperationException(
-                $"Medio de pago inválido. Valores permitidos: {string.Join(", ", MediosPagoPermitidos.Values)}.");
+                $"Medio de pago inválido. Valores permitidos: {string.Join(", ", MediosPagoCredito.Nombres)}.");
         }
 
         private async Task CargarProductosAsociadosAsync(IReadOnlyCollection<CreditoViewModel> creditos)

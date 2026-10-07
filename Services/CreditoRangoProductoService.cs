@@ -23,7 +23,7 @@ public sealed class CreditoRangoProductoService : ICreditoRangoProductoService
     {
         if (venta is null)
         {
-            return SinRestriccion(minBase, maxBase);
+            return CreditoRangoProductoResultado.SinRestriccion(minBase, maxBase);
         }
 
         var productoIds = venta.Detalles
@@ -34,12 +34,12 @@ public sealed class CreditoRangoProductoService : ICreditoRangoProductoService
 
         if (productoIds.Length == 0)
         {
-            return SinRestriccion(minBase, maxBase);
+            return CreditoRangoProductoResultado.SinRestriccion(minBase, maxBase);
         }
 
         if (tipoPago != TipoPago.CreditoPersonal)
         {
-            return SinRestriccion(minBase, maxBase);
+            return CreditoRangoProductoResultado.SinRestriccion(minBase, maxBase);
         }
 
         var resultado = await _productoCreditoRestriccionService.ResolverAsync(
@@ -102,9 +102,6 @@ public sealed class CreditoRangoProductoService : ICreditoRangoProductoService
             descripcion,
             null);
     }
-
-    private static CreditoRangoProductoResultado SinRestriccion(int minBase, int maxBase) =>
-        new(minBase, maxBase, maxBase, null, null, null, null, null);
 
     private static string DescribirProductos(
         IEnumerable<VentaDetalleViewModel> detalles,

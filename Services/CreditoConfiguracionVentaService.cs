@@ -17,14 +17,6 @@ public sealed class CreditoConfiguracionVentaService : ICreditoConfiguracionVent
     private readonly ILogger<CreditoConfiguracionVentaService> _logger;
     private readonly IRelojComercial _reloj;
 
-    // Medios de pago válidos para el cobro inmediato de la primera cuota (idénticos a los que
-    // acepta CreditoService.NormalizarMedioPago). Se validan acá para no persistir un medio inválido.
-    private static readonly HashSet<string> MediosPagoPrimeraCuota =
-        new(StringComparer.OrdinalIgnoreCase)
-        {
-            "Efectivo", "Transferencia", "Tarjeta Débito", "Tarjeta Crédito", "Cheque"
-        };
-
     public CreditoConfiguracionVentaService(
         IConfiguracionPagoService configuracionPagoService,
         ILogger<CreditoConfiguracionVentaService> logger,
@@ -288,11 +280,9 @@ public sealed class CreditoConfiguracionVentaService : ICreditoConfiguracionVent
             return (false, null);
 
         var medio = modelo.MedioPagoPrimeraCuota?.Trim();
-        if (string.IsNullOrWhiteSpace(medio) || !MediosPagoPrimeraCuota.Contains(medio))
+        if (!MediosPagoCredito.TryNormalizar(medio, out var canonico))
             return (false, null);
 
-        // Normaliza a la forma canónica del diccionario (respeta acentos/mayúsculas esperados).
-        var canonico = MediosPagoPrimeraCuota.First(m => string.Equals(m, medio, StringComparison.OrdinalIgnoreCase));
         return (true, canonico);
     }
 
@@ -378,7 +368,7 @@ public sealed class CreditoConfiguracionVentaService : ICreditoConfiguracionVent
     {
         if (venta is null || _creditoRangoProductoService is null)
         {
-            return new CreditoRangoProductoResultado(minBase, maxBase, maxBase, null, null, null, null, null);
+            return CreditoRangoProductoResultado.SinRestriccion(minBase, maxBase);
         }
 
         return await _creditoRangoProductoService.ResolverAsync(

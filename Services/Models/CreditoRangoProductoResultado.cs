@@ -8,4 +8,9 @@ public sealed record CreditoRangoProductoResultado(
     int? ProductoIdRestrictivo,
     string? ProductoRestrictivoNombre,
     string? DescripcionProducto,
-    string? Error);
+    string? Error)
+{
+    /// <summary>Rango base sin restricción por producto.</summary>
+    public static CreditoRangoProductoResultado SinRestriccion(int minBase, int maxBase) =>
+        new(minBase, maxBase, maxBase, null, null, null, null, null);
+}
