@@ -292,6 +292,39 @@ public class CreditoServiceCicloVidaTests : IDisposable
         Assert.Contains("Ingresos insuficientes", creditoBd.Observaciones);
     }
 
+    [Theory]
+    [InlineData(EstadoCredito.Aprobado)]
+    [InlineData(EstadoCredito.Activo)]
+    [InlineData(EstadoCredito.Rechazado)]
+    public async Task RechazarCredito_FueraDeSolicitado_LanzaYNoCambiaEstado(EstadoCredito estado)
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id, estado);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.RechazarCreditoAsync(credito.Id, "Motivo"));
+
+        var creditoBd = await _context.Set<Credito>().AsNoTracking().FirstAsync(c => c.Id == credito.Id);
+        Assert.Equal(estado, creditoBd.Estado);
+    }
+
+    [Theory]
+    [InlineData(EstadoCredito.Cancelado)]
+    [InlineData(EstadoCredito.Finalizado)]
+    [InlineData(EstadoCredito.Rechazado)]
+    public async Task CancelarCredito_EnEstadoTerminal_LanzaYNoCambiaNada(EstadoCredito estado)
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id, estado);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.CancelarCreditoAsync(credito.Id, "Motivo"));
+
+        var creditoBd = await _context.Set<Credito>().AsNoTracking().FirstAsync(c => c.Id == credito.Id);
+        Assert.Equal(estado, creditoBd.Estado);
+        Assert.Null(creditoBd.FechaFinalizacion);
+    }
+
     [Fact]
     public async Task RechazarCredito_NoExiste_RetornaFalse()
     {

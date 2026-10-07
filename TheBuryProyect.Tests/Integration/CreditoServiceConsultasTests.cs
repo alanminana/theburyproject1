@@ -860,6 +860,27 @@ public class CreditoServiceConsultasTests : IDisposable
         Assert.DoesNotContain(resultado, c => c.Id == sinVencidas.Id);
     }
 
+    [Fact]
+    public async Task GetAll_FiltroSoloCuotasVencidas_IncluyeCuotaParcialVencida()
+    {
+        // Credito auditoria F5: una cuota parcial con fecha vencida cuenta como vencida, igual que
+        // en GetCuotasVencidasAsync y en CuotaViewModel.EstaVencida.
+        var cliente = await SeedClienteAsync();
+        var parcialVencida = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaAsync(parcialVencida.Id, 1, EstadoCuota.Parcial, diasAtrasado: 10);
+
+        var parcialFutura = await SeedCreditoAsync(cliente.Id);
+        await SeedCuotaAsync(parcialFutura.Id, 1, EstadoCuota.Parcial, diasAtrasado: -30);
+
+        var resultado = await _service.GetAllAsync(new CreditoFilterViewModel
+        {
+            SoloCuotasVencidas = true
+        });
+
+        Assert.Contains(resultado, c => c.Id == parcialVencida.Id);
+        Assert.DoesNotContain(resultado, c => c.Id == parcialFutura.Id);
+    }
+
     // =========================================================================
     // DeleteAsync
     // =========================================================================

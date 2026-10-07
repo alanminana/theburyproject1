@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -182,7 +182,8 @@ namespace TheBuryProject.Services
                         query = query.Where(c => c.Cuotas.Any(cu =>
                             !cu.IsDeleted &&
                             (cu.Estado == EstadoCuota.Vencida ||
-                             (cu.Estado == EstadoCuota.Pendiente && cu.FechaVencimiento < inicioHoy))));
+                             ((cu.Estado == EstadoCuota.Pendiente || cu.Estado == EstadoCuota.Parcial) &&
+                              cu.FechaVencimiento < inicioHoy))));
                     }
                 }
 
@@ -474,6 +475,11 @@ namespace TheBuryProject.Services
                 if (credito == null)
                     return false;
 
+                // Mismo gate que la UI (solo se rechaza una solicitud): rechazar un crédito ya
+                // aprobado/activo dejaría cuotas y saldo vigentes de un crédito "rechazado".
+                if (credito.Estado != EstadoCredito.Solicitado)
+                    throw new InvalidOperationException("Solo se pueden rechazar créditos en estado Solicitado");
+
                 credito.Estado = EstadoCredito.Rechazado;
                 credito.Observaciones = $"Rechazado: {motivo}";
                 await _context.SaveChangesAsync();
@@ -500,6 +506,11 @@ namespace TheBuryProject.Services
 
                 if (credito == null)
                     return false;
+
+                // Mismo gate que la UI: un crédito terminal no se cancela (evita pisar la fecha de
+                // finalización y el motivo del cierre original).
+                if (credito.Estado is EstadoCredito.Cancelado or EstadoCredito.Finalizado or EstadoCredito.Rechazado)
+                    throw new InvalidOperationException($"No se puede cancelar un crédito en estado {credito.Estado}");
 
                 credito.Estado = EstadoCredito.Cancelado;
                 credito.FechaFinalizacion = DateTime.UtcNow;
@@ -1003,7 +1014,7 @@ namespace TheBuryProject.Services
                 cuota.ComprobantePago = pago.ComprobantePago;
 
                 var observaciones = modo == ModoCobroCuota.AdelantoUltimaCuota
-                    ? ComponerObservacionAdelanto(pago.Observaciones)
+                    ? ComponerObservacionAdelanto(pago.Observaciones, _reloj.HoyComercial)
                     : pago.Observaciones;
 
                 if (!string.IsNullOrWhiteSpace(observaciones))
@@ -1382,9 +1393,9 @@ namespace TheBuryProject.Services
         /// <summary>
         /// Marca de trazabilidad del adelanto sobre la cuota, respetando el límite de la columna.
         /// </summary>
-        private static string ComponerObservacionAdelanto(string? observacionesOperador)
+        private static string ComponerObservacionAdelanto(string? observacionesOperador, DateOnly fechaComercial)
         {
-            var etiqueta = $"[ADELANTO] Cuota adelantada el {DateTime.UtcNow:dd/MM/yyyy}";
+            var etiqueta = $"[ADELANTO] Cuota adelantada el {fechaComercial:dd/MM/yyyy}";
 
             var observaciones = string.IsNullOrWhiteSpace(observacionesOperador)
                 ? etiqueta
@@ -1555,6 +1566,7 @@ namespace TheBuryProject.Services
             var hoyComercial = _reloj.HoyComercial;
             var fechaPagoComercial = hoyComercial.ToDateTime(TimeOnly.MinValue);
             var usuario = _currentUserService.GetUsername();
+            await ValidarMedioPagoHabilitadoAsync(medioPago);
             var (ajustePorcentajeMedio, tipoPagoMedio) = await ObtenerAjusteMedioPagoAsync(medioPago);
 
             var cajaActiva = await _cajaService.ObtenerAperturaActivaParaUsuarioAsync(usuario);
@@ -2320,6 +2332,11 @@ namespace TheBuryProject.Services
                 : observaciones[..500];
         }
 
+        /// <summary>
+        /// Capital amortizado pendiente de la cuota (proporcional a lo pagado). Es distinto de
+        /// <see cref="CalcularSaldoPendienteCuota"/> (capital + interés a cobrar): éste libera cupo
+        /// del crédito (<c>SaldoPendiente</c>), aquél es lo que el cliente debe pagar de la cuota.
+        /// </summary>
         private static decimal CalcularCapitalPendienteCuota(Cuota cuota)
         {
             if (cuota.MontoCapital <= 0)

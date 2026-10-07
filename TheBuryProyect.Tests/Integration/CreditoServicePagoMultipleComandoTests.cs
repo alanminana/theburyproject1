@@ -283,6 +283,36 @@ public class CreditoServicePagoMultipleComandoTests : IDisposable
         Assert.Empty(await _context.PagosCuota.AsNoTracking().ToListAsync());
     }
 
+    /// <summary>
+    /// Credito auditoria F1: la confirmacion valida el medio habilitado igual que el preview y los
+    /// demas caminos de cobro; un medio deshabilitado rechaza sin dejar rastro.
+    /// </summary>
+    [Fact]
+    public async Task Confirmar_ConMedioDePagoDeshabilitado_RechazaYNoDejaRastro()
+    {
+        var cliente = await SeedClienteAsync("MD1");
+        var credito = await SeedCreditoAsync(cliente.Id, "MD1");
+        var cuota = await SeedCuotaAsync(credito.Id, 1);
+
+        _context.ConfiguracionesPago.Add(new ConfiguracionPago { TipoPago = TipoPago.Transferencia, Activo = false });
+        await _context.SaveChangesAsync();
+
+        var request = new PagoMultipleCuotasRequest
+        {
+            ClienteId = cliente.Id,
+            CuotaIds = new List<int> { cuota.Id },
+            RowVersionsPorCuota = RowVersionesDe(cuota),
+            MedioPago = "Transferencia"
+        };
+
+        var ex = await Assert.ThrowsAsync<PagoCuotaRechazadoException>(() => _service.PagarCuotasAsync(request));
+
+        Assert.Equal(MotivoRechazoPagoCuota.SolicitudInvalida, ex.Motivo);
+        Assert.Empty(_caja.Movimientos);
+        Assert.Equal(0m, (await RecargarCuotaAsync(cuota.Id)).MontoPagado);
+        Assert.Empty(await _context.PagosCuota.AsNoTracking().ToListAsync());
+    }
+
     [Fact]
     public async Task Confirmar_ConRowVersionVigente_CobraYUnaSegundaConfirmacionConLaMismaVersionRechaza()
     {
