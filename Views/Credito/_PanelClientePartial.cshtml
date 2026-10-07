@@ -36,7 +36,7 @@
     </button>
 </div>
 
-<div class="drawer-body" data-credito-cliente-panel-scroll>
+<div class="drawer-body">
     <div class="grid grid-cols-3 gap-2.5">
         <div class="minimetric">
             <div class="mm-label">Saldo total</div>
@@ -113,7 +113,7 @@
                         <span class="credit-no">@numeroCredito</span>
                         @if (productosResumen.Any())
                         {
-                            <span class="credit-products" data-credito-productos>
+                            <span class="credit-products">
                                 <span class="material-symbols-outlined" aria-hidden="true">inventory_2</span>
                                 <span class="credit-products__text">@string.Join(", ", productosResumen)</span>
                                 @if (productosRestantes > 0)
@@ -278,6 +278,6 @@
             </button>
         </div>
     </div>
-    <p class="hint" role="status" aria-live="polite" data-credito-pago-status data-credito-pago-pendiente>Seleccioná una o más cuotas para registrar el pago.</p>
+    <p class="hint" role="status" aria-live="polite" data-credito-pago-status>Seleccioná una o más cuotas para registrar el pago.</p>
 </footer>
 }

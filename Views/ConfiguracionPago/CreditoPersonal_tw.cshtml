@@ -443,7 +443,7 @@
                                         <span asp-validation-for="CuotasCreditoPersonal[i].TasaMensual" class="text-xs text-red-400"></span>
                                     </div>
 
-                                    <p class="cp-hint cp-plan-preview" id="preview-cuota-@i" data-preview-out>Ejemplo sobre $100.000: —</p>
+                                    <p class="cp-hint cp-plan-preview" id="preview-cuota-@i">Ejemplo sobre $100.000: —</p>
 
                                     @if (cuota.Id > 0)
                                     {
@@ -766,7 +766,7 @@
                                     <span asp-validation-for="Punitorios!.CrearForm.MotivoCambio" class="block mt-1 text-xs text-red-400"></span>
                                 </div>
                                 <div class="sm:col-span-2 lg:col-span-4">
-                                    <p class="cp-hint" id="pun-preview-out" data-preview-out>Ejemplo sobre $100.000: completa porcentaje, periodo y gracia para ver la vista previa.</p>
+                                    <p class="cp-hint" id="pun-preview-out">Ejemplo sobre $100.000: completa porcentaje, periodo y gracia para ver la vista previa.</p>
                                 </div>
                             </div>
 
@@ -977,7 +977,7 @@
                                data-preview-porcentaje data-preview-cuotas-input="nuevaCuotaCantidad" data-preview-target="preview-nueva-cuota" />
                     </div>
                     <div class="sm:col-span-2">
-                        <p class="cp-hint" id="preview-nueva-cuota" data-preview-out>Ejemplo sobre $100.000: —</p>
+                        <p class="cp-hint" id="preview-nueva-cuota">Ejemplo sobre $100.000: —</p>
                     </div>
                     <div class="sm:col-span-2 flex items-end">
                         <label class="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm font-semibold text-slate-300 cursor-pointer w-full h-[42px]">
