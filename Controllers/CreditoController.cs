@@ -1177,7 +1177,7 @@ namespace TheBuryProject.Controllers
         {
             if (venta is null || _creditoRangoProductoService is null)
             {
-                return new CreditoRangoProductoResultado(minBase, maxBase, maxBase, null, null, null, null, null);
+                return CreditoRangoProductoResultado.SinRestriccion(minBase, maxBase);
             }
 
             return await _creditoRangoProductoService.ResolverAsync(
