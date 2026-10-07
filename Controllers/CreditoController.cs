@@ -35,7 +35,6 @@ namespace TheBuryProject.Controllers
         private readonly IPunitorioService? _punitorioService;
 
         private readonly ICurrentUserService _currentUser;
-        private readonly CreditoViewBagBuilder _viewBagBuilder;
         private readonly IRelojComercial _reloj;
 
         private IActionResult RedirectToReturnUrlOrDetails(string? returnUrl, int creditoId)
@@ -55,7 +54,6 @@ namespace TheBuryProject.Controllers
             ILogger<CreditoController> logger,
             ICreditoDisponibleService creditoDisponibleService,
             ICurrentUserService currentUser,
-            CreditoViewBagBuilder viewBagBuilder,
             IContratoVentaCreditoService contratoVentaCreditoService,
             IClienteAptitudService? aptitudService = null,
             IProductoCreditoRestriccionService? productoCreditoRestriccionService = null,
@@ -80,7 +78,6 @@ namespace TheBuryProject.Controllers
             _logger = logger;
             _creditoDisponibleService = creditoDisponibleService;
             _currentUser = currentUser;
-            _viewBagBuilder = viewBagBuilder;
             _contratoVentaCreditoService = contratoVentaCreditoService;
             _creditoRangoProductoService = creditoRangoProductoService
                 ?? (productoCreditoRestriccionService is not null
@@ -677,7 +674,7 @@ namespace TheBuryProject.Controllers
             if (credito == null)
             {
                 if (embedded)
-                    return ErrorConfigurarVenta(true, StatusCodes.Status404NotFound, "Crédito no encontrado.", returnUrl, ventaId);
+                    return ErrorConfigurarVenta(StatusCodes.Status404NotFound, "Crédito no encontrado.");
 
                 TempData["Error"] = "Crédito no encontrado";
                 return RedirectToAction(nameof(Index));
@@ -694,7 +691,7 @@ namespace TheBuryProject.Controllers
                     : $"El crédito no puede configurarse en estado {credito.Estado}.";
 
                 if (embedded)
-                    return ErrorConfigurarVenta(true, StatusCodes.Status409Conflict, mensajeEstado, returnUrl, ventaId);
+                    return ErrorConfigurarVenta(StatusCodes.Status409Conflict, mensajeEstado);
 
                 TempData[credito.Estado is EstadoCredito.Generado or EstadoCredito.Activo or EstadoCredito.Finalizado ? "Warning" : "Error"] = mensajeEstado;
 
@@ -712,7 +709,7 @@ namespace TheBuryProject.Controllers
                     "Configure el valor en Administración → Tipos de Pago antes de continuar.";
 
                 if (embedded)
-                    return ErrorConfigurarVenta(true, StatusCodes.Status409Conflict, mensajeSinTasa, returnUrl, ventaId);
+                    return ErrorConfigurarVenta(StatusCodes.Status409Conflict, mensajeSinTasa);
 
                 TempData["Error"] = mensajeSinTasa;
                 if (ventaId.HasValue)
@@ -787,7 +784,7 @@ namespace TheBuryProject.Controllers
             {
                 var mensajeAutorizacionGet = ObtenerMensajeAutorizacionPendiente(venta);
                 if (embedded)
-                    return ErrorConfigurarVenta(true, StatusCodes.Status409Conflict, mensajeAutorizacionGet, returnUrl, ventaId);
+                    return ErrorConfigurarVenta(StatusCodes.Status409Conflict, mensajeAutorizacionGet);
 
                 TempData["Error"] = mensajeAutorizacionGet;
                 return RedirectToAction("Details", "Venta", new { id = ventaId });
@@ -797,7 +794,7 @@ namespace TheBuryProject.Controllers
             if (rangoGet.Error is not null)
             {
                 if (embedded)
-                    return ErrorConfigurarVenta(true, StatusCodes.Status409Conflict, rangoGet.Error, returnUrl, ventaId);
+                    return ErrorConfigurarVenta(StatusCodes.Status409Conflict, rangoGet.Error);
 
                 TempData["Error"] = rangoGet.Error;
                 if (ventaId.HasValue)
@@ -898,19 +895,10 @@ namespace TheBuryProject.Controllers
         // Errores del POST fuera del ModelState (crédito/venta inexistente, estado no
         // configurable, autorización pendiente): en modo embebido el wizard espera JSON
         // (fetch), nunca un redirect ni un fragmento HTML de la vista de página completa.
-        private IActionResult ErrorConfigurarVenta(bool embedded, int statusCode, string mensaje, string? returnUrl, int? ventaId)
+        private IActionResult ErrorConfigurarVenta(int statusCode, string mensaje)
         {
-            if (embedded)
-            {
-                Response.StatusCode = statusCode;
-                return Json(new { success = false, message = mensaje });
-            }
-
             Response.StatusCode = statusCode;
-            TempData["Error"] = mensaje;
-            return ventaId.HasValue
-                ? RedirectToAction("Details", "Venta", new { id = ventaId })
-                : RedirectToAction(nameof(Index));
+            return Json(new { success = false, message = mensaje });
         }
 
         [HttpPost]
@@ -940,7 +928,7 @@ namespace TheBuryProject.Controllers
             if (creditoPost == null)
             {
                 if (embedded)
-                    return ErrorConfigurarVenta(true, StatusCodes.Status404NotFound, "No se encontró el crédito indicado.", returnUrl, modelo.VentaId);
+                    return ErrorConfigurarVenta(StatusCodes.Status404NotFound, "No se encontró el crédito indicado.");
 
                 Response.StatusCode = StatusCodes.Status404NotFound;
                 ModelState.AddModelError(string.Empty, "No se encontró el crédito indicado.");
@@ -951,7 +939,7 @@ namespace TheBuryProject.Controllers
             if (!EsConfigurable(creditoPost.Estado))
             {
                 if (embedded)
-                    return ErrorConfigurarVenta(true, StatusCodes.Status409Conflict, $"El crédito no puede configurarse en estado {creditoPost.Estado}.", returnUrl, modelo.VentaId);
+                    return ErrorConfigurarVenta(StatusCodes.Status409Conflict, $"El crédito no puede configurarse en estado {creditoPost.Estado}.");
 
                 Response.StatusCode = StatusCodes.Status409Conflict;
                 ModelState.AddModelError(string.Empty,
@@ -967,7 +955,7 @@ namespace TheBuryProject.Controllers
             if (modelo.VentaId.HasValue && venta == null)
             {
                 if (embedded)
-                    return ErrorConfigurarVenta(true, StatusCodes.Status404NotFound, "No se encontró la venta indicada.", returnUrl, modelo.VentaId);
+                    return ErrorConfigurarVenta(StatusCodes.Status404NotFound, "No se encontró la venta indicada.");
 
                 Response.StatusCode = StatusCodes.Status404NotFound;
                 ModelState.AddModelError(string.Empty, "No se encontró la venta indicada.");
@@ -979,7 +967,7 @@ namespace TheBuryProject.Controllers
             {
                 var mensajeAutorizacionPost = ObtenerMensajeAutorizacionPendiente(venta);
                 if (embedded)
-                    return ErrorConfigurarVenta(true, StatusCodes.Status409Conflict, mensajeAutorizacionPost, returnUrl, modelo.VentaId);
+                    return ErrorConfigurarVenta(StatusCodes.Status409Conflict, mensajeAutorizacionPost);
 
                 TempData["Error"] = mensajeAutorizacionPost;
                 return RedirectToAction("Details", "Venta", new { id = modelo.VentaId });
@@ -1932,15 +1920,6 @@ namespace TheBuryProject.Controllers
                 TempData["Error"] = "Error al cargar las cuotas vencidas";
                 return View("CuotasVencidas_tw", new List<CuotaViewModel>());
             }
-        }
-
-        #endregion
-
-        #region Métodos privados
-
-        private async Task CargarViewBags(int? clienteIdSeleccionado = null, int? garanteIdSeleccionado = null)
-        {
-            await _viewBagBuilder.CargarAsync(ViewBag, clienteIdSeleccionado, garanteIdSeleccionado);
         }
 
         #endregion

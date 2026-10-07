@@ -514,7 +514,6 @@ public class CreditoControllerConfigurarVentaTests
             logger: NullLogger<CreditoController>.Instance,
             creditoDisponibleService: null!,
             currentUser: null!,
-            viewBagBuilder: null!,
             contratoVentaCreditoService: contratoService ?? new StubContratoVentaCreditoService(),
             aptitudService: null,
             productoCreditoRestriccionService: productoCreditoRestriccionService);

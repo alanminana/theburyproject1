@@ -7,7 +7,7 @@ namespace TheBuryProject.Services.Interfaces
 {
     public interface ICreditoService
     {
-        // CRUD b�sico
+        // CRUD básico
         Task<List<CreditoViewModel>> GetAllAsync(CreditoFilterViewModel? filter = null);
         Task<CreditoViewModel?> GetByIdAsync(int id);
         Task<List<CreditoViewModel>> GetByClienteIdAsync(int clienteId);
@@ -16,7 +16,7 @@ namespace TheBuryProject.Services.Interfaces
         Task<bool> UpdateAsync(CreditoViewModel viewModel);
         Task<bool> DeleteAsync(int id);
 
-        // Operaciones de cr�dito
+        // Operaciones de crédito
         Task<bool> AprobarCreditoAsync(int creditoId, string aprobadoPor);
         Task<bool> RechazarCreditoAsync(int creditoId, string motivo);
         Task<bool> CancelarCreditoAsync(int creditoId, string motivo);

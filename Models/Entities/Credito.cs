@@ -5,7 +5,7 @@ using TheBuryProject.Models.Enums;
 namespace TheBuryProject.Models.Entities
 {
     /// <summary>
-    /// Representa un cr�dito otorgado a un cliente
+    /// Representa un crédito otorgado a un cliente
     /// </summary>
     public class Credito  : AuditableEntity
     {
@@ -116,7 +116,7 @@ namespace TheBuryProject.Models.Entities
         public int? GaranteId { get; set; }
         public bool RequiereGarante { get; set; } = false;
 
-        // Datos de aprobaci�n
+        // Datos de aprobación
         [StringLength(100)]
         public string? AprobadoPor { get; set; }
 
