@@ -132,18 +132,6 @@ namespace TheBuryProject.ViewModels
             get => Cliente.NombreCompleto;
             set => Cliente.NombreCompleto = value ?? string.Empty;
         }
-        public string? GaranteNombre
-        {
-            get => Garante?.NombreCompleto;
-            set
-            {
-                if (!string.IsNullOrWhiteSpace(value))
-                {
-                    Garante ??= new ClienteResumenViewModel();
-                    Garante.NombreCompleto = value;
-                }
-            }
-        }
 
         // Lista de cuotas
         public List<CuotaViewModel>? Cuotas { get; set; }

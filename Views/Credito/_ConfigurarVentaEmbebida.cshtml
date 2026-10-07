@@ -336,7 +336,7 @@
         <div class="sec-title">Documentación contractual</div>
         @if (Model.ContratoGenerado)
         {
-            <p class="hint" data-credito-embebido-contrato-estado>Contrato generado.</p>
+            <p class="hint">Contrato generado.</p>
             <a asp-controller="ContratoVentaCredito" asp-action="Ver" asp-route-ventaId="@Model.VentaId"
                target="_blank" rel="noopener" class="btn btn-success btn-block btn-sm" style="margin-top:.75rem">
                 <span class="material-symbols-outlined">print</span>
@@ -345,7 +345,7 @@
         }
         else if (!Model.PlantillaActivaDisponible)
         {
-            <div class="alert alert-bad" style="margin-top:.75rem" data-credito-embebido-contrato-estado>
+            <div class="alert alert-bad" style="margin-top:.75rem">
                 <span class="material-symbols-outlined">error</span>
                 <span>No hay ninguna plantilla de contrato activa y vigente.</span>
             </div>
@@ -356,7 +356,7 @@
                de venta" (InvalidOperationException 500). Model.DatosContractualesFaltantes ya
                trae TODOS los faltantes de una sola pasada (Cliente/Crédito/Garante/Plantilla —
                ver CreditoController.PoblarFaltantesContratoAsync), nunca sólo Localidad. *@
-            <div class="alert alert-warn" style="margin-top:.75rem" data-credito-embebido-contrato-estado data-credito-embebido-contrato-faltantes>
+            <div class="alert alert-warn" style="margin-top:.75rem">
                 <span class="material-symbols-outlined">contract</span>
                 <div>
                     <p style="margin:0;font-weight:600">No se puede generar el contrato todavía.</p>
@@ -380,7 +380,7 @@
         }
         else
         {
-            <p class="hint" data-credito-embebido-contrato-estado>
+            <p class="hint">
                 @(Model.CreditoEstaConfigurado ? "Generá el contrato para poder confirmar la venta." : "Confirmá el crédito para habilitar el contrato.")
             </p>
             <button type="button"

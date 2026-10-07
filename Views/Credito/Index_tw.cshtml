@@ -86,7 +86,7 @@
 
     @if (totalMoras > 0)
     {
-        <div class="mora-banner" style="margin-top:1.4rem" data-credito-mora-banner>
+        <div class="mora-banner" style="margin-top:1.4rem">
             <div class="mb-ic"><span class="material-symbols-outlined">warning</span></div>
             <div class="flex-1 min-w-0">
                 <div class="mb-title">
@@ -114,7 +114,7 @@
         </div>
     }
 
-    <form id="filterForm" data-credito-filter-form method="get" asp-action="Index" class="credito-filterbar"
+    <form id="filterForm" method="get" asp-action="Index" class="credito-filterbar"
           aria-label="Filtros de créditos">
         @if (filter.ClienteId.HasValue)
         {
