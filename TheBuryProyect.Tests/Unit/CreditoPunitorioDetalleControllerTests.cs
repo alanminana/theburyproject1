@@ -182,7 +182,6 @@ public class CreditoPunitorioDetalleControllerTests
         logger: NullLogger<CreditoController>.Instance,
         creditoDisponibleService: null!,
         currentUser: null!,
-        viewBagBuilder: null!,
         contratoVentaCreditoService: null!,
         punitorioService: service);
 

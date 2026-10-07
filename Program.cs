@@ -192,7 +192,6 @@ builder.Services.AddScoped<IDocumentacionService, DocumentacionService>();
 builder.Services.AddScoped<IClienteLookupService, ClienteLookupService>();
 builder.Services.AddScoped<IProductoUnidadService, ProductoUnidadService>();
 builder.Services.AddScoped<VentaViewBagBuilder>();
-builder.Services.AddScoped<CreditoViewBagBuilder>();
 
 // 5.4 BCRA Central de Deudores
 builder.Services.AddHttpClient<ISituacionCrediticiaBcraService, SituacionCrediticiaBcraService>(client =>

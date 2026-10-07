@@ -34,7 +34,6 @@ public class CreditoControllerSimularPlanVentaTests
             logger: NullLogger<CreditoController>.Instance,
             creditoDisponibleService: null!,
             currentUser: null!,
-            viewBagBuilder: null!,
             contratoVentaCreditoService: null!,
             aptitudService: aptitud);
 
@@ -77,7 +76,6 @@ public class CreditoControllerSimularPlanVentaTests
             logger: NullLogger<CreditoController>.Instance,
             creditoDisponibleService: null!,
             currentUser: null!,
-            viewBagBuilder: null!,
             contratoVentaCreditoService: null!,
             aptitudService: null);
 
@@ -111,7 +109,6 @@ public class CreditoControllerSimularPlanVentaTests
             logger: NullLogger<CreditoController>.Instance,
             creditoDisponibleService: null!,
             currentUser: null!,
-            viewBagBuilder: null!,
             contratoVentaCreditoService: null!,
             aptitudService: null);
 
@@ -166,7 +163,6 @@ public class CreditoControllerSimularPlanVentaTests
             logger: NullLogger<CreditoController>.Instance,
             creditoDisponibleService: null!,
             currentUser: null!,
-            viewBagBuilder: null!,
             contratoVentaCreditoService: null!,
             aptitudService: null);
 
@@ -209,7 +205,6 @@ public class CreditoControllerSimularPlanVentaTests
             logger: NullLogger<CreditoController>.Instance,
             creditoDisponibleService: null!,
             currentUser: null!,
-            viewBagBuilder: null!,
             contratoVentaCreditoService: null!,
             aptitudService: null);
 
@@ -244,7 +239,6 @@ public class CreditoControllerSimularPlanVentaTests
             logger: NullLogger<CreditoController>.Instance,
             creditoDisponibleService: null!,
             currentUser: null!,
-            viewBagBuilder: null!,
             contratoVentaCreditoService: null!,
             aptitudService: null);
 
@@ -278,7 +272,6 @@ public class CreditoControllerSimularPlanVentaTests
             logger: NullLogger<CreditoController>.Instance,
             creditoDisponibleService: null!,
             currentUser: null!,
-            viewBagBuilder: null!,
             contratoVentaCreditoService: null!,
             aptitudService: null);
 
@@ -313,7 +306,6 @@ public class CreditoControllerSimularPlanVentaTests
             logger: NullLogger<CreditoController>.Instance,
             creditoDisponibleService: null!,
             currentUser: null!,
-            viewBagBuilder: null!,
             contratoVentaCreditoService: null!,
             aptitudService: null);
 
@@ -347,7 +339,6 @@ public class CreditoControllerSimularPlanVentaTests
             logger: NullLogger<CreditoController>.Instance,
             creditoDisponibleService: null!,
             currentUser: null!,
-            viewBagBuilder: null!,
             contratoVentaCreditoService: null!,
             aptitudService: null);
 
@@ -386,7 +377,6 @@ public class CreditoControllerSimularPlanVentaTests
             logger: NullLogger<CreditoController>.Instance,
             creditoDisponibleService: null!,
             currentUser: null!,
-            viewBagBuilder: null!,
             contratoVentaCreditoService: null!,
             aptitudService: null);
 
@@ -429,7 +419,6 @@ public class CreditoControllerSimularPlanVentaTests
             logger: NullLogger<CreditoController>.Instance,
             creditoDisponibleService: null!,
             currentUser: null!,
-            viewBagBuilder: null!,
             contratoVentaCreditoService: null!,
             aptitudService: null);
 

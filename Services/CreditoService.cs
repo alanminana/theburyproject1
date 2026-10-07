@@ -20,9 +20,6 @@ namespace TheBuryProject.Services
 {
     public class CreditoService : ICreditoService
     {
-        private const int MinCuotasCredito = 1;
-        private const int MaxCuotasCredito = 120;
-
         /// <summary>
         /// Única tolerancia admitida al comparar el importe enviado por el cliente contra el
         /// saldo calculado por el servidor. Cubre exclusivamente el redondeo a dos decimales:

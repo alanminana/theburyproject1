@@ -135,7 +135,6 @@ public class CreditoUiQueryServiceTests
             logger: NullLogger<CreditoController>.Instance,
             creditoDisponibleService: null!,
             currentUser: null!,
-            viewBagBuilder: null!,
             contratoVentaCreditoService: null!,
             creditoUiQueryService: uiService);
 
@@ -176,7 +175,6 @@ public class CreditoUiQueryServiceTests
             logger: NullLogger<CreditoController>.Instance,
             creditoDisponibleService: null!,
             currentUser: null!,
-            viewBagBuilder: null!,
             contratoVentaCreditoService: null!,
             creditoUiQueryService: new CreditoUiQueryService());
 
@@ -218,7 +216,6 @@ public class CreditoUiQueryServiceTests
             logger: NullLogger<CreditoController>.Instance,
             creditoDisponibleService: null!,
             currentUser: null!,
-            viewBagBuilder: null!,
             contratoVentaCreditoService: null!,
             creditoUiQueryService: new CreditoUiQueryService(),
             punitorioService: punitorioService);
@@ -256,7 +253,6 @@ public class CreditoUiQueryServiceTests
             logger: NullLogger<CreditoController>.Instance,
             creditoDisponibleService: null!,
             currentUser: null!,
-            viewBagBuilder: null!,
             contratoVentaCreditoService: null!,
             creditoUiQueryService: new CreditoUiQueryService(),
             punitorioService: punitorioService);
@@ -290,7 +286,6 @@ public class CreditoUiQueryServiceTests
             logger: NullLogger<CreditoController>.Instance,
             creditoDisponibleService: null!,
             currentUser: null!,
-            viewBagBuilder: null!,
             contratoVentaCreditoService: null!,
             creditoUiQueryService: new CreditoUiQueryService(),
             punitorioService: null);
