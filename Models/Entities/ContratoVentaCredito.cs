@@ -52,8 +52,6 @@ namespace TheBuryProject.Models.Entities
         [Required]
         public string DatosSnapshotJson { get; set; } = string.Empty;
 
-        public DateTime? FechaImpresionUtc { get; set; }
-
         public virtual Venta Venta { get; set; } = null!;
         public virtual Credito Credito { get; set; } = null!;
         public virtual Cliente Cliente { get; set; } = null!;
