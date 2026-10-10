@@ -22,9 +22,6 @@ namespace TheBuryProject.Services.Interfaces
         Task<bool> CancelarCreditoAsync(int creditoId, string motivo);
 
         // Operaciones de cuotas
-        Task<List<CuotaViewModel>> GetCuotasByCreditoAsync(int creditoId);
-        Task<CuotaViewModel?> GetCuotaByIdAsync(int cuotaId);
-
         /// <summary>Obtiene el contexto autoritativo del pago individual por Id de cuota.</summary>
         Task<PagoCuotaContextoResultado?> ObtenerContextoPagoCuotaAsync(
             int cuotaId,
@@ -92,16 +89,6 @@ namespace TheBuryProject.Services.Interfaces
             string medioPago,
             CancellationToken cancellationToken = default);
 
-        /// <summary>
-        /// Obtiene la primera cuota pendiente (para pago normal en orden).
-        /// </summary>
-        Task<CuotaViewModel?> GetPrimeraCuotaPendienteAsync(int creditoId);
-        
-        /// <summary>
-        /// Obtiene la última cuota pendiente (para adelanto de cuotas).
-        /// </summary>
-        Task<CuotaViewModel?> GetUltimaCuotaPendienteAsync(int creditoId);
-        
         Task<List<CuotaViewModel>> GetCuotasVencidasAsync();
         Task ActualizarEstadoCuotasAsync();
 

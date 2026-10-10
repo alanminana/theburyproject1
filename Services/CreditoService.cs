@@ -536,55 +536,6 @@ namespace TheBuryProject.Services
 
         #region Operaciones de Cuotas
 
-        public async Task<List<CuotaViewModel>> GetCuotasByCreditoAsync(int creditoId)
-        {
-            try
-            {
-                var cuotas = await _context.Cuotas
-                    .AsNoTracking()
-                    .Where(c => c.CreditoId == creditoId &&
-                                !c.IsDeleted &&
-                                c.Credito != null &&
-                                !c.Credito.IsDeleted &&
-                                c.Credito.Cliente != null &&
-                                !c.Credito.Cliente.IsDeleted)
-                    .OrderBy(c => c.NumeroCuota)
-                    .ToListAsync();
-
-                return _mapper.Map<List<CuotaViewModel>>(cuotas);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al obtener cuotas del crédito: {CreditoId}", creditoId);
-                throw;
-            }
-        }
-
-        public async Task<CuotaViewModel?> GetCuotaByIdAsync(int cuotaId)
-        {
-            try
-            {
-                var cuota = await _context.Cuotas
-                    .AsNoTracking()
-                    .Include(c => c.Credito)
-                        .ThenInclude(cr => cr.Cliente)
-                    .FirstOrDefaultAsync(c => c.Id == cuotaId &&
-                                              !c.IsDeleted &&
-                                              !c.Credito.IsDeleted &&
-                                              !c.Credito.Cliente.IsDeleted);
-
-                if (cuota == null)
-                    return null;
-
-                return _mapper.Map<CuotaViewModel>(cuota);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al obtener cuota por ID: {Id}", cuotaId);
-                throw;
-            }
-        }
-
         public async Task<PagoCuotaContextoResultado?> ObtenerContextoPagoCuotaAsync(
             int cuotaId,
             CancellationToken cancellationToken = default)
@@ -1985,52 +1936,6 @@ namespace TheBuryProject.Services
                 aplicado.NumeroCuota, pago.CreditoId, aplicado.MontoBase);
 
             return true;
-        }
-
-        /// <inheritdoc/>
-        public async Task<CuotaViewModel?> GetPrimeraCuotaPendienteAsync(int creditoId)
-        {
-            try
-            {
-                var cuota = await _context.Cuotas
-                    .Include(c => c.Credito)
-                    .Where(c => c.CreditoId == creditoId &&
-                               !c.IsDeleted &&
-                               !c.Credito.IsDeleted &&
-                               (c.Estado == EstadoCuota.Pendiente || c.Estado == EstadoCuota.Vencida || c.Estado == EstadoCuota.Parcial))
-                    .OrderBy(c => c.NumeroCuota)
-                    .FirstOrDefaultAsync();
-
-                return cuota == null ? null : _mapper.Map<CuotaViewModel>(cuota);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al obtener primera cuota pendiente para crédito: {CreditoId}", creditoId);
-                throw;
-            }
-        }
-
-        /// <inheritdoc/>
-        public async Task<CuotaViewModel?> GetUltimaCuotaPendienteAsync(int creditoId)
-        {
-            try
-            {
-                var cuota = await _context.Cuotas
-                    .Include(c => c.Credito)
-                    .Where(c => c.CreditoId == creditoId &&
-                               !c.IsDeleted &&
-                               !c.Credito.IsDeleted &&
-                               (c.Estado == EstadoCuota.Pendiente || c.Estado == EstadoCuota.Parcial))
-                    .OrderByDescending(c => c.NumeroCuota)
-                    .FirstOrDefaultAsync();
-
-                return cuota == null ? null : _mapper.Map<CuotaViewModel>(cuota);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al obtener última cuota pendiente para crédito: {CreditoId}", creditoId);
-                throw;
-            }
         }
 
         public async Task<List<CuotaViewModel>> GetCuotasVencidasAsync()
