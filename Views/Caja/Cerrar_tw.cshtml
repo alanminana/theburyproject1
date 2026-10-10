@@ -71,6 +71,7 @@
                                    value="@(Model.EfectivoContado == 0 && !ViewData.ModelState.ContainsKey("EfectivoContado") ? "" : Model.EfectivoContado.ToString(System.Globalization.CultureInfo.InvariantCulture))" />
                         </div>
                         <span asp-validation-for="EfectivoContado" class="text-rose-500 text-xs"></span>
+                        <span data-caja-efectivo-error role="alert" class="text-rose-500 text-xs"></span>
                     </div>
                     <div class="result-card" id="result">
                         <div class="flex items-center justify-between gap-3">

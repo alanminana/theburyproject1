@@ -125,6 +125,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const justificacionErrorServidorEl = document.querySelector('[data-valmsg-for="JustificacionDiferencia"]');
     const MENSAJE_JUSTIFICACION = 'Debe proporcionar una justificación para la diferencia encontrada';
 
+    const efectivoEl = inputs[0];
+    const efectivoErrorEl = document.querySelector('[data-caja-efectivo-error]');
+    const MENSAJE_EFECTIVO = 'Ingresá el efectivo contado para poder cerrar la caja.';
+
+    // Reinicia la animacion (reflow) para que el nudge se repita en cada intento de envio.
+    function nudge(el) {
+        el.classList.remove('is-nudge');
+        void el.offsetWidth;
+        el.classList.add('is-nudge');
+    }
+
     function setErrorJustificacion(mensaje) {
         if (justificacionErrorEl) {
             justificacionErrorEl.textContent = mensaje;
@@ -133,9 +144,36 @@ document.addEventListener('DOMContentLoaded', () => {
             justificacionErrorServidorEl.textContent = '';
         }
         justificacionEl.setAttribute('aria-invalid', mensaje ? 'true' : 'false');
+        if (mensaje) {
+            nudge(justificacionEl);
+        }
+    }
+
+    function setErrorEfectivo(mensaje) {
+        if (!efectivoEl) {
+            return;
+        }
+        if (efectivoErrorEl) {
+            efectivoErrorEl.textContent = mensaje;
+        }
+        if (mensaje === '') {
+            efectivoEl.classList.remove('input-validation-error');
+            document.querySelector('[data-valmsg-for="EfectivoContado"]')?.replaceChildren();
+        }
+        efectivoEl.setAttribute('aria-invalid', mensaje ? 'true' : 'false');
+        if (mensaje) {
+            nudge(efectivoEl);
+        }
     }
 
     form?.addEventListener('submit', event => {
+        if (efectivoEl && efectivoEl.value.trim() === '') {
+            event.preventDefault();
+            setErrorEfectivo(MENSAJE_EFECTIVO);
+            efectivoEl.focus();
+            return;
+        }
+
         if (!justificacionEl.disabled && !justificacionEl.value.trim()) {
             event.preventDefault();
             setErrorJustificacion(MENSAJE_JUSTIFICACION);
@@ -156,6 +194,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    efectivoEl?.addEventListener('input', () => {
+        if (efectivoEl.value.trim() !== '' && efectivoEl.getAttribute('aria-invalid') === 'true') {
+            setErrorEfectivo('');
+        }
+    });
+
     justificacionEl.addEventListener('input', () => {
         if (justificacionEl.value.trim()) {
             setErrorJustificacion('');
@@ -167,7 +211,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (justificacionErrorServidorEl?.textContent.trim()) {
         justificacionEl.setAttribute('aria-invalid', 'true');
+        nudge(justificacionEl);
         justificacionEl.focus();
+    } else if (efectivoEl?.classList.contains('input-validation-error')) {
+        nudge(efectivoEl);
     }
 
     TheBury.autoDismissToasts();

@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!errorEl) {
             errorEl = document.createElement('p');
             errorEl.id = 'archivoInput-error';
-            errorEl.className = 'mt-1 text-xs text-red-500';
+            errorEl.className = 'mt-1 text-xs text-red-500 field-validation-error';
             dropZone.insertAdjacentElement('afterend', errorEl);
         }
 
