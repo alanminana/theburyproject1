@@ -4,21 +4,23 @@
    Un solo momento: nudge + pulso de aro al fallar el envio (lo dispara
    validation-motion.js); despues queda el estado estatico y el mensaje con icono. */
 
-input.input-validation-error,
-select.input-validation-error,
-textarea.input-validation-error,
-input[aria-invalid="true"],
-select[aria-invalid="true"],
-textarea[aria-invalid="true"] {
+/* :not(#_) sube la especificidad (suma un ID) para ganarle a los selectores con #id de las hojas
+   de modulo (venta, producto...), que de otro modo pintan el borde neutro sobre el rojo. */
+input.input-validation-error:not(#_),
+select.input-validation-error:not(#_),
+textarea.input-validation-error:not(#_),
+input[aria-invalid="true"]:not(#_),
+select[aria-invalid="true"]:not(#_),
+textarea[aria-invalid="true"]:not(#_) {
     border-color: color-mix(in srgb, var(--pal-danger-500) 75%, transparent);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--pal-danger-500) 18%, transparent);
 }
-input.input-validation-error:focus,
-select.input-validation-error:focus,
-textarea.input-validation-error:focus,
-input[aria-invalid="true"]:focus,
-select[aria-invalid="true"]:focus,
-textarea[aria-invalid="true"]:focus {
+input.input-validation-error:not(#_):focus,
+select.input-validation-error:not(#_):focus,
+textarea.input-validation-error:not(#_):focus,
+input[aria-invalid="true"]:not(#_):focus,
+select[aria-invalid="true"]:not(#_):focus,
+textarea[aria-invalid="true"]:not(#_):focus {
     border-color: var(--pal-danger-400);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--pal-danger-500) 30%, transparent);
 }

@@ -53,9 +53,7 @@
     document.addEventListener('DOMContentLoaded', function () {
         // Pagina devuelta por el servidor con errores de modelo.
         invalidos(document).forEach(function (el) { marcados.add(el); });
-        invalidos(document)
-            .filter(function (el) { return el.classList.contains('input-validation-error'); })
-            .forEach(nudge);
+        invalidos(document).forEach(nudge);
 
         new MutationObserver(function (muts) {
             muts.forEach(function (m) {
