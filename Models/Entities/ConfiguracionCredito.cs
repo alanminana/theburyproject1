@@ -126,11 +126,6 @@ namespace TheBuryProject.Models.Entities
         /// </summary>
         public bool AuditoriaActiva { get; set; } = true;
 
-        /// <summary>
-        /// Si se envían notificaciones cuando cambia el estado crediticio.
-        /// </summary>
-        public bool NotificacionesCambioEstado { get; set; } = false;
-
         #endregion
 
         #region Scoring
@@ -205,21 +200,9 @@ namespace TheBuryProject.Models.Entities
         #region Metadata
 
         /// <summary>
-        /// Descripción para mostrar cuando la configuración está deshabilitada.
-        /// </summary>
-        [StringLength(500)]
-        public string? MensajeConfiguracionDeshabilitada { get; set; } = "La validación de aptitud crediticia no está configurada. Configure los parámetros en Administración.";
-
-        /// <summary>
         /// Última fecha de modificación de la configuración.
         /// </summary>
         public DateTime? FechaUltimaModificacion { get; set; }
-
-        /// <summary>
-        /// Usuario que realizó la última modificación.
-        /// </summary>
-        [StringLength(100)]
-        public string? ModificadoPor { get; set; }
 
         #endregion
     }

@@ -38,15 +38,11 @@ namespace TheBuryProject.Models.Entities
         [StringLength(200)]
         public string? AprobadoPor { get; set; }
 
-        public DateTime? AprobadoEnUtc { get; set; }
-
         [StringLength(1000)]
         public string? MotivoOverride { get; set; }
 
         [StringLength(200)]
         public string? OverrideAprobadoPor { get; set; }
-
-        public DateTime? OverrideAprobadoEnUtc { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? UpdatedAt { get; set; }
