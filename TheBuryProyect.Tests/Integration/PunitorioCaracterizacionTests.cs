@@ -621,13 +621,14 @@ public class PunitorioCaracterizacionTests : IDisposable
     [Fact]
     public async Task ContratoNuevo_ConsultarUnaCuotaNuncaDebePersistirNiRecalcularSuPunitorio()
     {
-        // Este punto del contrato YA se cumple: GetCuotaByIdAsync es de solo lectura (AsNoTracking,
-        // sin SaveChanges). Verde — sirve de red de seguridad para cuando exista PunitorioService.
+        // Este punto del contrato YA se cumple: la lectura del contexto de pago de una cuota
+        // (ObtenerContextoPagoCuotaAsync) es de solo lectura, sin SaveChanges. Red de seguridad
+        // de que consultar nunca persista ni recalcule el punitorio.
         var (_, _, cuota) = await SeedCreditoConCuota(24m, 1_000m, 800m, 200m, Hoy.AddDays(-45));
 
         for (var i = 0; i < 3; i++)
         {
-            var vm = await _service.GetCuotaByIdAsync(cuota.Id);
+            var vm = await _service.ObtenerContextoPagoCuotaAsync(cuota.Id);
             Assert.NotNull(vm);
         }
 
