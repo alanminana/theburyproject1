@@ -25,6 +25,7 @@ namespace TheBuryProject.Services
         private readonly ILogger<ContratoVentaCreditoService> _logger;
         private readonly IDocumentoService? _documentoService;
         private readonly IDocumentoNumeracionService? _numeracion;
+        private readonly IRelojComercial _reloj;
 
         private static readonly JsonSerializerOptions SnapshotJsonOptions = new()
         {
@@ -38,7 +39,8 @@ namespace TheBuryProject.Services
             IWebHostEnvironment environment,
             ILogger<ContratoVentaCreditoService> logger,
             IDocumentoService? documentoService = null,
-            IDocumentoNumeracionService? numeracion = null)
+            IDocumentoNumeracionService? numeracion = null,
+            IRelojComercial? reloj = null)
         {
             _context = context;
             _financialService = financialService;
@@ -47,6 +49,7 @@ namespace TheBuryProject.Services
             _logger = logger;
             _documentoService = documentoService;
             _numeracion = numeracion;
+            _reloj = reloj ?? RelojComercial.Sistema;
         }
 
         public async Task<ContratoVentaCreditoValidacionResult> ValidarDatosParaGenerarAsync(int ventaId)
@@ -84,7 +87,7 @@ namespace TheBuryProject.Services
             await using var tx = transaccionPropia ? await _context.Database.BeginTransactionAsync() : null;
 
             var (numeroContrato, numeroPagare) = await ObtenerNumerosAsync();
-            var fechaEmision = DateTime.UtcNow;
+            var fechaEmision = _reloj.AhoraUtc;
             var snapshot = ConstruirSnapshot(datos, numeroContrato, numeroPagare, fechaEmision, usuario.Trim());
 
             var contrato = new ContratoVentaCredito
@@ -337,7 +340,9 @@ namespace TheBuryProject.Services
 
         private async Task<PlantillaContratoCredito?> ObtenerPlantillaActivaAsync()
         {
-            var hoy = DateTime.UtcNow.Date;
+            // Vigencia por día comercial (Argentina), no por el día UTC: a partir de las 21:00 el día UTC
+            // ya cambió y activaría/vencería la plantilla un día antes.
+            var hoy = _reloj.InicioDiaComercial;
 
             return await _context.PlantillasContratoCredito
                 .AsNoTracking()
@@ -747,7 +752,7 @@ namespace TheBuryProject.Services
         private async Task<string> GenerarNumeroAsync(string prefijo)
         {
             var count = await _context.ContratosVentaCredito.IgnoreQueryFilters().CountAsync();
-            return $"{prefijo}-{DateTime.UtcNow:yyyyMM}-{count + 1:D6}";
+            return $"{prefijo}-{_reloj.HoyComercial:yyyyMM}-{count + 1:D6}";
         }
 
         private byte[] GenerarPdfBytes(ContratoVentaCredito contrato, string? textoContratoDocumento = null, string? textoPagareDocumento = null)
@@ -923,7 +928,7 @@ namespace TheBuryProject.Services
             return resultado;
         }
 
-        private static void HeaderDocumento(IContainer container, string titulo, string numero)
+        private void HeaderDocumento(IContainer container, string titulo, string numero)
         {
             container.BorderBottom(1).BorderColor(Colors.Grey.Lighten2).PaddingBottom(8).Row(row =>
             {
@@ -932,7 +937,7 @@ namespace TheBuryProject.Services
                     col.Item().Text(titulo).SemiBold().FontSize(18).FontColor(Colors.Blue.Darken2);
                     col.Item().Text($"Número: {numero}").FontSize(9).FontColor(Colors.Grey.Darken1);
                 });
-                row.ConstantItem(120).AlignRight().Text(DateTime.UtcNow.ToString("dd/MM/yyyy HH:mm"))
+                row.ConstantItem(120).AlignRight().Text(_reloj.AhoraComercial.ToString("dd/MM/yyyy HH:mm"))
                     .FontSize(9).FontColor(Colors.Grey.Darken1);
             });
         }
