@@ -47,10 +47,12 @@ namespace TheBuryProject.ViewModels
 
         [StringLength(100, ErrorMessage = "La ciudad no puede tener más de 100 caracteres")]
         [Display(Name = "Ciudad")]
+        [SoloLetras(MinLength = 2, MaxWordLength = 20, MaxWords = 6)]
         public string? Ciudad { get; set; }
 
         [StringLength(100, ErrorMessage = "La provincia no puede tener más de 100 caracteres")]
         [Display(Name = "Provincia")]
+        [SoloLetras(MinLength = 2, MaxWordLength = 20, MaxWords = 6)]
         public string? Provincia { get; set; }
 
         [StringLength(10, ErrorMessage = "El código postal no puede tener más de 10 caracteres")]
@@ -60,6 +62,7 @@ namespace TheBuryProject.ViewModels
 
         [StringLength(200, ErrorMessage = "El contacto no puede tener más de 200 caracteres")]
         [Display(Name = "Contacto")]
+        [SoloLetras(MinLength = 2, MaxWords = 5)]
         public string? Contacto { get; set; }
 
         [StringLength(2000, ErrorMessage = "Las aclaraciones no pueden tener más de 2000 caracteres")]

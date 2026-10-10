@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using TheBuryProject.Models.Enums;
+using TheBuryProject.Validation;
 
 namespace TheBuryProject.ViewModels.Requests
 {
@@ -29,7 +30,7 @@ namespace TheBuryProject.ViewModels.Requests
         [Range(0, double.MaxValue)]
         public decimal Cantidad { get; set; }
 
-        [Range(0, double.MaxValue)]
+        [MontoArgentino]
         public decimal PrecioUnitario { get; set; }
 
         // VENTA-CREDITO-ELEGIBILIDAD-DESCUENTO-FIX: porcentaje (0-100) sobre PrecioUnitario*Cantidad,

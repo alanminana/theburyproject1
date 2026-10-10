@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using TheBuryProject.Models.Entities;
 using TheBuryProject.Models.Enums;
+using TheBuryProject.Validation;
 
 namespace TheBuryProject.ViewModels;
 
@@ -82,7 +83,7 @@ public class AbrirCajaViewModel
     public int CajaId { get; set; }
 
     [Required(ErrorMessage = "El monto inicial es obligatorio")]
-    [Range(0, double.MaxValue, ErrorMessage = "El monto debe ser mayor o igual a 0")]
+    [MontoArgentino]
     [Display(Name = "Monto Inicial")]
     public decimal MontoInicial { get; set; }
 
@@ -114,7 +115,7 @@ public class MovimientoCajaViewModel
     public ConceptoMovimientoCaja Concepto { get; set; }
 
     [Required(ErrorMessage = "El monto es obligatorio")]
-    [Range(0.01, double.MaxValue, ErrorMessage = "El monto debe ser mayor a 0")]
+    [MontoArgentino(Minimo = 0.01)]
     [Display(Name = "Monto")]
     public decimal Monto { get; set; }
 
@@ -152,15 +153,15 @@ public class CerrarCajaViewModel
 
     // Arqueo físico (ingresado por usuario)
     [Required(ErrorMessage = "El efectivo contado es obligatorio")]
-    [Range(0, double.MaxValue, ErrorMessage = "El monto debe ser mayor o igual a 0")]
+    [MontoArgentino]
     [Display(Name = "Efectivo Contado")]
     public decimal EfectivoContado { get; set; }
 
-    [Range(0, double.MaxValue, ErrorMessage = "El monto debe ser mayor o igual a 0")]
+    [MontoArgentino]
     [Display(Name = "Cheques Contados")]
     public decimal ChequesContados { get; set; }
 
-    [Range(0, double.MaxValue, ErrorMessage = "El monto debe ser mayor o igual a 0")]
+    [MontoArgentino]
     [Display(Name = "Vales/Otros")]
     public decimal ValesContados { get; set; }
 

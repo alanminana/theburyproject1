@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using TheBuryProject.Validation;
 
 namespace TheBuryProject.ViewModels
 {
@@ -26,6 +27,7 @@ namespace TheBuryProject.ViewModels
 
         [Display(Name = "DNI del vendedor")]
         [StringLength(20)]
+        [DniArgentino]
         public string? DniVendedor { get; set; }
 
         [Display(Name = "CUIT del vendedor")]

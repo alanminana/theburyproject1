@@ -1452,7 +1452,7 @@
                                     <label class="text-xs font-bold uppercase tracking-wider text-slate-400">Compra sin IVA</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
-                                        <input id="modal-precioCompraSinIva" type="text" readonly value="0.00"
+                                        <input data-rule="monto" id="modal-precioCompraSinIva" type="text" readonly value="0.00"
                                                class="w-full bg-slate-950/60 border border-slate-800 text-slate-300 rounded-lg pl-7 pr-4 py-2 outline-none" />
                                     </div>
                                 </div>
@@ -1460,7 +1460,7 @@
                                     <label class="text-xs font-bold uppercase tracking-wider text-slate-400">IVA compra</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
-                                        <input id="modal-ivaCompraImporte" type="text" readonly value="0.00"
+                                        <input data-rule="monto" id="modal-ivaCompraImporte" type="text" readonly value="0.00"
                                                class="w-full bg-slate-950/60 border border-slate-800 text-slate-300 rounded-lg pl-7 pr-4 py-2 outline-none" />
                                     </div>
                                 </div>
@@ -1492,7 +1492,7 @@
                                     <label class="text-sm font-medium text-slate-300">Percepciones</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
-                                        <input name="PercepcionesCompra" id="modal-percepcionesCompra" type="number" step="0.01" min="0" value="0"
+                                        <input data-rule="monto" name="PercepcionesCompra" id="modal-percepcionesCompra" type="number" step="0.01" min="0" value="0"
                                                class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-7 pr-4 py-2 focus:ring-2 focus:ring-primary outline-none" />
                                     </div>
                                 </div>
@@ -1510,7 +1510,7 @@
                                 <label class="text-xs font-bold uppercase tracking-wider text-amber-400">Costo real final con gastos incluidos</label>
                                 <div class="relative mt-1">
                                     <span class="absolute left-3 top-2 text-amber-400 font-bold">$</span>
-                                    <input id="modal-costoRealFinal" type="text" readonly value="0.00"
+                                    <input data-rule="monto" id="modal-costoRealFinal" type="text" readonly value="0.00"
                                            class="w-full bg-slate-950/60 border border-amber-500/30 text-amber-400 font-bold rounded-lg pl-7 pr-4 py-2 outline-none" />
                                 </div>
                                 <input type="hidden" name="PrecioCompra" id="modal-precioCompraRealFinal" value="0" />
@@ -1538,7 +1538,7 @@
                                     <label class="text-sm font-medium text-slate-300">Ganancia en pesos</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
-                                        <input id="modal-montoGanancia" type="number" step="0.01" value="0"
+                                        <input data-rule="none" id="modal-montoGanancia" type="number" step="0.01" value="0"
                                                class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-7 pr-4 py-2 focus:ring-2 focus:ring-primary outline-none" />
                                     </div>
                                 </div>
@@ -1585,7 +1585,7 @@
                                     <label class="text-xs font-bold uppercase tracking-wider text-slate-400">IVA incluido en la venta</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
-                                        <input id="modal-ivaVentaImporte" type="text" readonly value="0.00"
+                                        <input data-rule="monto" id="modal-ivaVentaImporte" type="text" readonly value="0.00"
                                                class="w-full bg-slate-950/60 border border-slate-800 text-slate-300 rounded-lg pl-7 pr-4 py-2 outline-none" />
                                     </div>
                                 </div>
@@ -1918,7 +1918,7 @@
                                     <label for="prod-edit-precioCompraSinIva" class="text-xs font-bold uppercase tracking-wider text-slate-400">Compra sin IVA</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
-                                        <input id="prod-edit-precioCompraSinIva" type="text" readonly
+                                        <input data-rule="monto" id="prod-edit-precioCompraSinIva" type="text" readonly
                                                class="w-full bg-slate-950/60 border border-slate-800 text-slate-300 rounded-lg pl-7 pr-4 py-2 outline-none" />
                                     </div>
                                 </div>
@@ -1926,7 +1926,7 @@
                                     <label for="prod-edit-ivaCompraImporte" class="text-xs font-bold uppercase tracking-wider text-slate-400">IVA compra</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
-                                        <input id="prod-edit-ivaCompraImporte" type="text" readonly
+                                        <input data-rule="monto" id="prod-edit-ivaCompraImporte" type="text" readonly
                                                class="w-full bg-slate-950/60 border border-slate-800 text-slate-300 rounded-lg pl-7 pr-4 py-2 outline-none" />
                                     </div>
                                 </div>
@@ -1958,7 +1958,7 @@
                                     <label for="prod-edit-percepcionesCompra" class="text-sm font-medium text-slate-300">Percepciones</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
-                                        <input id="prod-edit-percepcionesCompra" name="PercepcionesCompra" type="number" step="0.01" min="0" value="0"
+                                        <input data-rule="monto" id="prod-edit-percepcionesCompra" name="PercepcionesCompra" type="number" step="0.01" min="0" value="0"
                                                class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-7 pr-4 py-2 focus:ring-2 focus:ring-primary outline-none text-white" />
                                     </div>
                                 </div>
@@ -1976,7 +1976,7 @@
                                 <label for="prod-edit-costoRealFinal" class="text-xs font-bold uppercase tracking-wider text-amber-400">Costo real final con gastos incluidos</label>
                                 <div class="relative mt-1">
                                     <span class="absolute left-3 top-2 text-amber-400 font-bold">$</span>
-                                    <input id="prod-edit-costoRealFinal" type="text" readonly
+                                    <input data-rule="monto" id="prod-edit-costoRealFinal" type="text" readonly
                                            class="w-full bg-slate-950/60 border border-amber-500/30 text-amber-400 font-bold rounded-lg pl-7 pr-4 py-2 outline-none" />
                                 </div>
                                 <input type="hidden" id="prod-edit-precioCompraRealFinal" name="PrecioCompra" value="0" />
@@ -2004,7 +2004,7 @@
                                     <label for="prod-edit-montoGanancia" class="text-sm font-medium text-slate-300">Ganancia en pesos</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
-                                        <input id="prod-edit-montoGanancia" type="number" step="0.01" value="0"
+                                        <input data-rule="none" id="prod-edit-montoGanancia" type="number" step="0.01" value="0"
                                                class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-7 pr-4 py-2 focus:ring-2 focus:ring-primary outline-none text-white" />
                                     </div>
                                 </div>
@@ -2052,7 +2052,7 @@
                                     <label for="prod-edit-ivaVentaImporte" class="text-xs font-bold uppercase tracking-wider text-slate-400">IVA incluido en la venta</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
-                                        <input id="prod-edit-ivaVentaImporte" type="text" readonly
+                                        <input data-rule="monto" id="prod-edit-ivaVentaImporte" type="text" readonly
                                                class="w-full bg-slate-950/60 border border-slate-800 text-slate-300 rounded-lg pl-7 pr-4 py-2 outline-none" />
                                     </div>
                                 </div>

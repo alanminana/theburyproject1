@@ -516,9 +516,9 @@
                                             }
                                         </select>
                                         <div class="flex gap-2">
-                                            <input id="filtro-precio-min" type="number" min="0" step="0.01"
+                                            <input data-rule="monto" id="filtro-precio-min" type="number" min="0" step="0.01"
                                                    class="w-full venta-select text-xs" placeholder="Min $" />
-                                            <input id="filtro-precio-max" type="number" min="0" step="0.01"
+                                            <input data-rule="monto" id="filtro-precio-max" type="number" min="0" step="0.01"
                                                    class="w-full venta-select text-xs" placeholder="Max $" />
                                         </div>
                                         <label class="flex items-center gap-2 cursor-pointer">
@@ -1189,7 +1189,7 @@
                                                                                                             </div>
                                                                                                             <div>
                                                                                                                 <label class="venta-label" for="envio-telefono">Teléfono</label>
-                                                                                                                <input type="text" name="Envio.Telefono" id="envio-telefono" class="venta-input" maxlength="30" />
+                                                                                                                <input data-rule="telefono" type="text" name="Envio.Telefono" id="envio-telefono" class="venta-input" maxlength="30" />
                                                                                                             </div>
                                                                                                             <div>
                                                                                                                 <label class="venta-label" for="envio-transportista">Transportista</label>
@@ -1201,11 +1201,11 @@
                                                                                                             </div>
                                                                                                             <div>
                                                                                                                 <label class="venta-label" for="envio-localidad">Localidad</label>
-                                                                                                                <input type="text" name="Envio.Localidad" id="envio-localidad" class="venta-input" maxlength="100" />
+                                                                                                                <input data-rule="nombre" data-max-words="6" data-max-word="20" type="text" name="Envio.Localidad" id="envio-localidad" class="venta-input" maxlength="100" />
                                                                                                             </div>
                                                                                                             <div>
                                                                                                                 <label class="venta-label" for="envio-provincia">Provincia</label>
-                                                                                                                <input type="text" name="Envio.Provincia" id="envio-provincia" class="venta-input" maxlength="100" />
+                                                                                                                <input data-rule="nombre" data-max-words="6" data-max-word="20" type="text" name="Envio.Provincia" id="envio-provincia" class="venta-input" maxlength="100" />
                                                                                                             </div>
                                                                                                             <div>
                                                                                                                 <label class="venta-label" for="envio-cp">Código postal</label>

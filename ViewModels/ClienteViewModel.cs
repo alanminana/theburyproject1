@@ -98,7 +98,7 @@ namespace TheBuryProject.ViewModels
 
         // Datos de cónyuge (opcionales)
         [StringLength(200)]
-        [SoloLetras(MinLength = 2)]
+        [SoloLetras(MinLength = 2, MaxWords = 6)]
         public string? ConyugeNombreCompleto { get; set; }
 
         [StringLength(20)]
@@ -112,7 +112,7 @@ namespace TheBuryProject.ViewModels
         [TelefonoArgentino]
         public string? ConyugeTelefono { get; set; }
 
-        [Range(0, 999999999.99)]
+        [MontoArgentino]
         public decimal? ConyugeSueldo { get; set; }
 
         [StringLength(20)]
@@ -131,9 +131,11 @@ namespace TheBuryProject.ViewModels
         public string? Domicilio { get; set; }
 
         [StringLength(100)]
+        [SoloLetras(MinLength = 2, MaxWordLength = 20, MaxWords = 6)]
         public string? Localidad { get; set; }
 
         [StringLength(100)]
+        [SoloLetras(MinLength = 2, MaxWordLength = 20, MaxWords = 6)]
         public string? Provincia { get; set; }
 
         [StringLength(10)]
@@ -147,7 +149,7 @@ namespace TheBuryProject.ViewModels
         [StringLength(100)]
         public string? TipoEmpleo { get; set; }
 
-        [Range(0, 999999999.99)]
+        [MontoArgentino]
         public decimal? Sueldo { get; set; }
 
         [StringLength(20)]
@@ -198,11 +200,11 @@ namespace TheBuryProject.ViewModels
         public int? CuotasMaximasPersonalizadas { get; set; }
 
         [Display(Name = "Monto Mínimo ($)")]
-        [Range(0, 9999999999.99, ErrorMessage = "El monto mínimo debe ser positivo")]
+        [MontoArgentino]
         public decimal? MontoMinimoPersonalizado { get; set; }
 
         [Display(Name = "Monto Máximo ($)")]
-        [Range(0, 9999999999.99, ErrorMessage = "El monto máximo debe ser positivo")]
+        [MontoArgentino]
         public decimal? MontoMaximoPersonalizado { get; set; }
 
         // Garante

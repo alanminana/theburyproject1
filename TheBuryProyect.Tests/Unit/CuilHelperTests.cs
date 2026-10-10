@@ -51,10 +51,16 @@ public class CuilHelperTests
         Assert.Equal("20123456783", CuilHelper.Componer("20", "12345678", "34"));
     }
 
+    [Fact]
+    public void Componer_DniDeSieteDigitos_SeCompletaConCeroAdelante()
+    {
+        Assert.Equal("20076543213", CuilHelper.Componer("20", "7654321", "3"));
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]
-    [InlineData("123")]        // menos de 8
+    [InlineData("123")]        // menos de 7
     [InlineData("123456789")]  // más de 8
     [InlineData("abcdefgh")]   // sin dígitos
     public void Componer_SinDniValido_DevuelveNull(string? numeroDocumento)

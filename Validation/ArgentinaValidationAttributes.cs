@@ -8,15 +8,25 @@ namespace TheBuryProject.Validation
     /// Atributos de validación específicos para datos argentinos (DNI, CUIL/CUIT,
     /// teléfono, código postal y nombres de persona).
     /// Reglas acordadas con el negocio:
-    ///  - DNI: exactamente 8 dígitos numéricos.
+    ///  - DNI: 7 u 8 dígitos numéricos (los DNI antiguos tienen 7).
     ///  - CUIL/CUIT: 11 dígitos con dígito verificador válido (módulo 11). Formato XX-DNI-X,
     ///    donde los 8 del medio son el mismo DNI de la persona.
-    ///  - Nombre/Apellido: solo letras (acentos, ñ, espacios, apóstrofo, guion), mínimo configurable.
+    ///  - Nombre/Apellido: solo letras (acentos, ñ, espacios, apóstrofo, guion), mínimo configurable,
+    ///    hasta 10 letras por palabra y hasta 3 palabras (nombres compuestos).
+    ///  - Montos/precios: solo números, entre 0 y 20.000.000, hasta 2 decimales.
     /// Todos consideran null/vacío como válido para no pisar a [Required]; usar [Required]
     /// cuando el campo sea obligatorio. El backend es la autoridad: validación server-side.
     /// </summary>
     internal static class ValidationHelpers
     {
+        public const int DniMinDigitos = 7;
+        public const int DniMaxDigitos = 8;
+
+        public static bool EsDniValido(string? value) =>
+            !string.IsNullOrEmpty(value)
+            && value.Length is >= DniMinDigitos and <= DniMaxDigitos
+            && value.All(c => c is >= '0' and <= '9');
+
         public static string OnlyDigits(string value) =>
             new string(value.Where(char.IsDigit).ToArray());
 
@@ -36,13 +46,19 @@ namespace TheBuryProject.Validation
     {
         public int MinLength { get; set; } = 2;
 
+        /// <summary>Máximo de letras por palabra (separadas por espacio, guion, apóstrofo o punto).</summary>
+        public int MaxWordLength { get; set; } = 10;
+
+        /// <summary>Máximo de palabras separadas por espacio (nombres compuestos).</summary>
+        public int MaxWords { get; set; } = 3;
+
         // \p{L} = letra Unicode (incluye acentos y ñ), \p{M} = marcas diacríticas combinantes.
         private static readonly Regex Pattern = new(
             @"^\p{L}[\p{L}\p{M}\s'’.\-]*\p{L}$",
             RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
         public SoloLetrasAttribute()
-            : base("El campo {0} solo puede contener letras y debe tener al menos {1} caracteres.")
+            : base("El campo {0} solo puede contener letras (hasta {2} por palabra y hasta {3} palabras) y debe tener al menos {1} caracteres.")
         {
         }
 
@@ -52,26 +68,34 @@ namespace TheBuryProject.Validation
                 return ValidationResult.Success;
 
             var s = raw.Trim();
-            if (s.Length < MinLength || !Pattern.IsMatch(s))
+            if (s.Length < MinLength || !Pattern.IsMatch(s) || ExcedeLimites(s))
                 return ValidationHelpers.Fail(FormatErrorMessage(validationContext.DisplayName), validationContext);
 
             return ValidationResult.Success;
         }
 
+        private bool ExcedeLimites(string s)
+        {
+            var palabras = s.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+            if (palabras.Length > MaxWords)
+                return true;
+
+            return s.Split(new[] { ' ', '\t', '-', '\'', '\u2019', '.' }, StringSplitOptions.RemoveEmptyEntries)
+                .Any(t => t.Count(char.IsLetter) > MaxWordLength);
+        }
+
         public override string FormatErrorMessage(string name) =>
-            string.Format(ErrorMessageString, name, MinLength);
+            string.Format(ErrorMessageString, name, MinLength, MaxWordLength, MaxWords);
     }
 
     /// <summary>
-    /// DNI argentino: exactamente 8 dígitos numéricos.
+    /// DNI argentino: 7 u 8 dígitos numéricos.
     /// </summary>
     [AttributeUsage(AttributeTargets.Property, AllowMultiple = false)]
     public sealed class DniArgentinoAttribute : ValidationAttribute
     {
-        private static readonly Regex Pattern = new(@"^\d{8}$", RegexOptions.Compiled);
-
         public DniArgentinoAttribute()
-            : base("El campo {0} debe ser un DNI de exactamente 8 dígitos numéricos.")
+            : base("El campo {0} debe ser un DNI de 7 u 8 dígitos numéricos.")
         {
         }
 
@@ -80,7 +104,7 @@ namespace TheBuryProject.Validation
             if (value is not string raw || string.IsNullOrWhiteSpace(raw))
                 return ValidationResult.Success;
 
-            return Pattern.IsMatch(raw.Trim())
+            return ValidationHelpers.EsDniValido(raw.Trim())
                 ? ValidationResult.Success
                 : ValidationHelpers.Fail(FormatErrorMessage(validationContext.DisplayName), validationContext);
         }
@@ -137,7 +161,7 @@ namespace TheBuryProject.Validation
 
     /// <summary>
     /// Valida que el CUIL/CUIT contenga al DNI de la persona en el medio (formato XX-DNI-X).
-    /// Solo se aplica cuando el campo referenciado es un DNI de 8 dígitos.
+    /// Solo se aplica cuando el campo referenciado es un DNI de 7 u 8 dígitos (se completa con 0 a la izquierda).
     /// </summary>
     [AttributeUsage(AttributeTargets.Property, AllowMultiple = false)]
     public sealed class CuilCoincideConDniAttribute : ValidationAttribute
@@ -165,8 +189,9 @@ namespace TheBuryProject.Validation
                 return ValidationResult.Success;
 
             var dniDigits = ValidationHelpers.OnlyDigits(rawDni);
-            if (dniDigits.Length != 8)
-                return ValidationResult.Success; // solo aplica cuando hay un DNI real de 8 dígitos
+            if (dniDigits.Length is < ValidationHelpers.DniMinDigitos or > ValidationHelpers.DniMaxDigitos)
+                return ValidationResult.Success; // solo aplica cuando hay un DNI real de 7 u 8 dígitos
+            dniDigits = dniDigits.PadLeft(8, '0'); // en el CUIL el DNI de 7 dígitos va con cero adelante
 
             return cuilDigits.Substring(2, 8) == dniDigits
                 ? ValidationResult.Success
@@ -176,7 +201,7 @@ namespace TheBuryProject.Validation
 
     /// <summary>
     /// Valida un número de documento argentino según el tipo indicado en otra propiedad:
-    ///  - DNI  → exactamente 8 dígitos numéricos.
+    ///  - DNI  → 7 u 8 dígitos numéricos.
     ///  - CUIL/CUIT → 11 dígitos con verificador válido.
     /// Otros tipos (LE, LC, Pasaporte, etc.) no se validan estrictamente.
     /// </summary>
@@ -205,9 +230,9 @@ namespace TheBuryProject.Validation
 
             if (tipo == "DNI")
             {
-                if (digits.Length != 8 || digits.Length != numero.Length)
+                if (!ValidationHelpers.EsDniValido(numero))
                     return ValidationHelpers.Fail(
-                        $"El {display} (DNI) debe tener exactamente 8 dígitos numéricos.", validationContext);
+                        $"El {display} (DNI) debe tener 7 u 8 dígitos numéricos.", validationContext);
             }
             else if (tipo is "CUIL" or "CUIT")
             {
@@ -278,5 +303,47 @@ namespace TheBuryProject.Validation
                 ? ValidationResult.Success
                 : ValidationHelpers.Fail(FormatErrorMessage(validationContext.DisplayName), validationContext);
         }
+    }
+
+    /// <summary>
+    /// Monto o precio ingresado por el usuario: solo valores numéricos entre
+    /// <see cref="Minimo"/> (default 0) y <see cref="Maximo"/> (20.000.000),
+    /// con hasta 2 decimales. Acepta decimal/double/int y sus nullable.
+    /// Null se considera válido (usar [Required] si el campo es obligatorio).
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Property, AllowMultiple = false)]
+    public sealed class MontoArgentinoAttribute : ValidationAttribute
+    {
+        public const decimal Maximo = 20_000_000m;
+
+        private static readonly System.Globalization.CultureInfo EsAr = System.Globalization.CultureInfo.GetCultureInfo("es-AR");
+
+        public double Minimo { get; set; } = 0;
+
+        public MontoArgentinoAttribute()
+            : base("El campo {0} debe ser un monto numérico entre {1} y {2}, con hasta 2 decimales.")
+        {
+        }
+
+        protected override ValidationResult? IsValid(object? value, ValidationContext validationContext)
+        {
+            if (value is null)
+                return ValidationResult.Success;
+
+            decimal monto;
+            try { monto = Convert.ToDecimal(value, System.Globalization.CultureInfo.InvariantCulture); }
+            catch (Exception ex) when (ex is FormatException or InvalidCastException or OverflowException)
+            {
+                return ValidationHelpers.Fail(FormatErrorMessage(validationContext.DisplayName), validationContext);
+            }
+
+            if (monto < (decimal)Minimo || monto > Maximo || decimal.Round(monto, 2) != monto)
+                return ValidationHelpers.Fail(FormatErrorMessage(validationContext.DisplayName), validationContext);
+
+            return ValidationResult.Success;
+        }
+
+        public override string FormatErrorMessage(string name) =>
+            string.Format(EsAr, ErrorMessageString, name, ((decimal)Minimo).ToString("N0", EsAr), Maximo.ToString("N0", EsAr));
     }
 }

@@ -147,7 +147,7 @@
                         </div>
                         <div class="flex flex-col gap-1.5">
                             <label asp-for="DniVendedor" class="text-sm font-semibold text-slate-300"></label>
-                            <input asp-for="DniVendedor" readonly="@(!puedeEditar)" class="h-12 rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
+                            <input data-rule="dni" asp-for="DniVendedor" readonly="@(!puedeEditar)" class="h-12 rounded-lg border-2 border-slate-700 bg-slate-800 px-4 text-white focus:border-primary focus:ring-0" />
                             <span asp-validation-for="DniVendedor" class="text-xs text-red-500"></span>
                         </div>
                         <div class="flex flex-col gap-1.5">

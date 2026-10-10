@@ -20,13 +20,14 @@ namespace TheBuryProject.Helpers
         /// <summary>
         /// Arma el CUIL de 11 dígitos a partir de las partes editables y el DNI central.
         /// Prefijo/verificador vacíos (o parciales) se completan con 0. Devuelve null si no
-        /// hay un DNI de 8 dígitos, para no generar un CUIL inválido.
+        /// hay un DNI de 7 u 8 dígitos, para no generar un CUIL inválido.
         /// </summary>
         public static string? Componer(string? prefijo, string? numeroDocumento, string? verificador)
         {
             var dni = SoloDigitos(numeroDocumento);
-            if (dni.Length != 8)
+            if (dni.Length is < 7 or > 8)
                 return null;
+            dni = dni.PadLeft(8, Cero); // DNI de 7 dígitos: va con cero adelante dentro del CUIL
 
             var pref = SoloDigitos(prefijo);
             pref = pref.Length >= 2 ? pref.Substring(0, 2) : pref.PadLeft(2, Cero);

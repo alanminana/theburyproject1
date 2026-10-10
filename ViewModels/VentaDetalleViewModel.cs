@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using TheBuryProject.Models.Enums;
+using TheBuryProject.Validation;
 
 namespace TheBuryProject.ViewModels
 {
@@ -24,7 +25,7 @@ namespace TheBuryProject.ViewModels
 
         [Display(Name = "Precio Unitario")]
         [Required(ErrorMessage = "El precio es requerido")]
-        [Range(0.01, double.MaxValue, ErrorMessage = "El precio debe ser mayor a 0")]
+        [MontoArgentino(Minimo = 0.01)]
         [DisplayFormat(DataFormatString = "{0:C2}")]
         public decimal PrecioUnitario { get; set; }
 
