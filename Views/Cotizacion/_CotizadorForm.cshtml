@@ -356,7 +356,7 @@
                                                     <label for="cotizacion-descuento-gral-importe" class="label">Descuento $</label>
                                                     <div class="relative">
                                                         <span class="field-affix field-affix--left">$</span>
-                                                        <input id="cotizacion-descuento-gral-importe" type="number" min="0"
+                                                        <input data-rule="monto" id="cotizacion-descuento-gral-importe" type="number" min="0"
                                                                step="0.01" value="0" class="field pl-6"
                                                                title="Se aplica al total antes de calcular medios.">
                                                     </div>
@@ -371,7 +371,7 @@
                                                     <label for="cotizacion-anticipo" class="label">Anticipo</label>
                                                     <div class="relative">
                                                         <span class="field-affix field-affix--left">$</span>
-                                                        <input id="cotizacion-anticipo" type="number" min="0" step="0.01" value="0"
+                                                        <input data-rule="monto" id="cotizacion-anticipo" type="number" min="0" step="0.01" value="0"
                                                                class="field pl-6" aria-label="Anticipo para credito personal"
                                                                title="Crédito personal: se resta del total antes del recargo. El porcentaje se agrega una sola vez sobre el saldo restante después del anticipo.">
                                                     </div>
@@ -851,11 +851,11 @@
                                                                                     </div>
                                                                                     <div>
                                                                                         <label for="cotizacion-envio-telefono" class="label">Teléfono</label>
-                                                                                        <input id="cotizacion-envio-telefono" type="text" maxlength="30" class="field">
+                                                                                        <input data-rule="telefono" id="cotizacion-envio-telefono" type="text" maxlength="30" class="field">
                                                                                     </div>
                                                                                     <div>
                                                                                         <label for="cotizacion-envio-localidad" class="label">Localidad</label>
-                                                                                        <input id="cotizacion-envio-localidad" type="text" maxlength="100" class="field">
+                                                                                        <input data-rule="nombre" data-max-words="6" data-max-word="20" id="cotizacion-envio-localidad" type="text" maxlength="100" class="field">
                                                                                     </div>
                                                                                     <div>
                                                                                         <label for="cotizacion-envio-provincia" class="label">Provincia</label>

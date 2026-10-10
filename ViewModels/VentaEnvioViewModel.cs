@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using TheBuryProject.Models.Enums;
+using TheBuryProject.Validation;
 
 namespace TheBuryProject.ViewModels
 {
@@ -19,6 +20,7 @@ namespace TheBuryProject.ViewModels
 
         [Display(Name = "Teléfono")]
         [StringLength(30)]
+        [TelefonoArgentino]
         public string? Telefono { get; set; }
 
         [Display(Name = "Domicilio de entrega")]
@@ -28,14 +30,17 @@ namespace TheBuryProject.ViewModels
 
         [Display(Name = "Localidad")]
         [StringLength(100)]
+        [SoloLetras(MinLength = 2, MaxWordLength = 20, MaxWords = 6)]
         public string? Localidad { get; set; }
 
         [Display(Name = "Provincia")]
         [StringLength(100)]
+        [SoloLetras(MinLength = 2, MaxWordLength = 20, MaxWords = 6)]
         public string? Provincia { get; set; }
 
         [Display(Name = "Código postal")]
         [StringLength(20)]
+        [CodigoPostalArgentino]
         public string? CodigoPostal { get; set; }
 
         [Display(Name = "Transportista")]
@@ -47,7 +52,7 @@ namespace TheBuryProject.ViewModels
         public string? NumeroSeguimiento { get; set; }
 
         [Display(Name = "Costo de envío"), DataType(DataType.Currency)]
-        [Range(0, 999999999.99, ErrorMessage = "El costo de envío no puede ser negativo.")]
+        [MontoArgentino]
         public decimal? CostoEnvio { get; set; }
 
         /// <summary>Envío Ciudad / Rural. El costo lo fija el servidor con el precio global del tipo.</summary>

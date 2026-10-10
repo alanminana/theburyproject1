@@ -37,9 +37,10 @@
 
         function syncDni() {
             var dniDigits = onlyDigits(dniInput.value, 8);
-            if (dniMirror) dniMirror.value = dniDigits;
+            // DNI de 7 dígitos: en el CUIL va con un cero adelante.
+            if (dniMirror) dniMirror.value = dniDigits.length >= 7 ? ('00000000' + dniDigits).slice(-8) : dniDigits;
 
-            var faltaDni = isDniType(tipoInput) && dniDigits.length !== 8;
+            var faltaDni = isDniType(tipoInput) && dniDigits.length < 7;
             if (hint) hint.hidden = !faltaDni;
             group.classList.toggle('cuil-group--sin-dni', faltaDni);
         }

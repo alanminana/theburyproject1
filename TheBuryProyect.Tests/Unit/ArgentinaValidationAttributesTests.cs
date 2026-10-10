@@ -50,18 +50,71 @@ public class ArgentinaValidationAttributesTests
         Assert.Null(Run(new SoloLetrasAttribute(), value));
     }
 
+    [Theory]
+    [InlineData("Maximilian")]        // 10 letras: tope por palabra
+    [InlineData("Juan Carlos")]       // nombre compuesto
+    [InlineData("Juan Carlos Maria")] // 3 palabras
+    [InlineData("Pérez-Gómez")]       // guion: cada tramo cuenta aparte
+    public void SoloLetras_LimitesPorPalabra_Validos(string value)
+    {
+        Assert.Null(Run(new SoloLetrasAttribute(), value));
+    }
+
+    [Theory]
+    [InlineData("Maximiliano")]          // 11 letras en una palabra
+    [InlineData("Juan Carlos Maria Jose")] // 4 palabras
+    public void SoloLetras_ExcedeLimites_Invalido(string value)
+    {
+        Assert.NotNull(Run(new SoloLetrasAttribute(), value));
+    }
+
+    [Fact]
+    public void SoloLetras_LimitesConfigurables()
+    {
+        var attr = new SoloLetrasAttribute { MaxWordLength = 20, MaxWords = 6 };
+        Assert.Null(Run(attr, "Presidencia Roque Sáenz Peña"));
+    }
+
+    // ---------- Monto ----------
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1500.50)]
+    [InlineData(20000000)]
+    public void Monto_EnRango_Valido(double value)
+    {
+        Assert.Null(Run(new MontoArgentinoAttribute(), (decimal)value));
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(20000000.01)]
+    [InlineData(1.234)] // más de 2 decimales
+    public void Monto_FueraDeRango_Invalido(double value)
+    {
+        Assert.NotNull(Run(new MontoArgentinoAttribute(), (decimal)value));
+    }
+
+    [Fact]
+    public void Monto_MinimoConfigurable_Y_NuloEsValido()
+    {
+        Assert.NotNull(Run(new MontoArgentinoAttribute { Minimo = 0.01 }, 0m));
+        Assert.Null(Run(new MontoArgentinoAttribute(), null));
+    }
+
     // ---------- DNI ----------
 
     [Theory]
     [InlineData("12345678")]
     [InlineData("00123456")]
-    public void Dni_OchoDigitos_Valido(string value)
+    [InlineData("1234567")] // DNI antiguo de 7 dígitos
+    public void Dni_SieteOOchoDigitos_Valido(string value)
     {
         Assert.Null(Run(new DniArgentinoAttribute(), value));
     }
 
     [Theory]
-    [InlineData("1234567")]   // 7 dígitos
+    [InlineData("123456")]    // 6 dígitos
     [InlineData("123456789")] // 9 dígitos
     [InlineData("1234567a")]  // letra
     [InlineData("12.345.678")] // con puntos
@@ -141,7 +194,8 @@ public class ArgentinaValidationAttributesTests
 
     [Theory]
     [InlineData("DNI", "12345678", true)]
-    [InlineData("DNI", "1234567", false)]
+    [InlineData("DNI", "1234567", true)]
+    [InlineData("DNI", "123456", false)]
     [InlineData("DNI", "123456789", false)]
     [InlineData("CUIL", "20123456786", true)]
     [InlineData("CUIT", "20123456786", true)]

@@ -39,7 +39,7 @@
     <div class="prov-grid">
         <div class="prov-field prov-field--wide">
             <label for="@(p)-Contacto" class="prov-label">Persona de contacto <span class="prov-optional">(opcional)</span></label>
-            <input type="text" name="Contacto" id="@(p)-Contacto" maxlength="200" autocomplete="off"
+            <input data-rule="nombre" data-max-words="5" type="text" name="Contacto" id="@(p)-Contacto" maxlength="200" autocomplete="off"
                    class="input-erp" placeholder="Nombre y apellido" />
             <p data-field-error class="prov-field-error" role="alert" hidden></p>
         </div>
@@ -51,7 +51,7 @@
         </div>
         <div class="prov-field">
             <label for="@(p)-Telefono" class="prov-label">Teléfono <span class="prov-optional">(opcional)</span></label>
-            <input type="tel" name="Telefono" id="@(p)-Telefono" maxlength="50" autocomplete="off"
+            <input data-rule="telefono" type="tel" name="Telefono" id="@(p)-Telefono" maxlength="50" autocomplete="off"
                    class="input-erp" placeholder="+54 11 0000-0000" />
             <p data-field-error class="prov-field-error" role="alert" hidden></p>
         </div>
@@ -69,7 +69,7 @@
         </div>
         <div class="prov-field">
             <label for="@(p)-Ciudad" class="prov-label">Ciudad</label>
-            <input type="text" name="Ciudad" id="@(p)-Ciudad" maxlength="100" autocomplete="off"
+            <input data-rule="nombre" data-max-words="6" data-max-word="20" type="text" name="Ciudad" id="@(p)-Ciudad" maxlength="100" autocomplete="off"
                    class="input-erp" />
             <p data-field-error class="prov-field-error" role="alert" hidden></p>
         </div>

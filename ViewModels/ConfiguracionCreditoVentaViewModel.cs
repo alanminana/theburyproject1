@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using TheBuryProject.Models.Enums;
 using TheBuryProject.Services.Models;
+using TheBuryProject.Validation;
 
 namespace TheBuryProject.ViewModels
 {
@@ -68,7 +69,7 @@ namespace TheBuryProject.ViewModels
         /// Anticipo opcional. Si vacío, se normaliza a 0 en el backend.
         /// </summary>
         [Display(Name = "Anticipo")]
-        [Range(0, double.MaxValue, ErrorMessage = "El anticipo no puede ser negativo")]
+        [MontoArgentino]
         public decimal? Anticipo { get; set; }
 
         [Display(Name = "Monto financiado")]

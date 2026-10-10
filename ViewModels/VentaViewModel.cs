@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Globalization;
 using System.Text.Json;
 using TheBuryProject.Models.Enums;
+using TheBuryProject.Validation;
 
 namespace TheBuryProject.ViewModels
 {
@@ -151,7 +152,7 @@ namespace TheBuryProject.ViewModels
 
         // Datos de financiamiento
         [Display(Name = "Anticipo"), DataType(DataType.Currency)]
-        [Range(0, double.MaxValue, ErrorMessage = "El anticipo no puede ser negativo")]
+        [MontoArgentino]
         public decimal? Anticipo { get; set; }
 
         public DateTime CreatedAt { get; set; }

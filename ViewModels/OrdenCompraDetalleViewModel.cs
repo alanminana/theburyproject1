@@ -1,3 +1,4 @@
+using TheBuryProject.Validation;
 ﻿using System.ComponentModel.DataAnnotations;
 
 namespace TheBuryProject.ViewModels
@@ -20,6 +21,7 @@ namespace TheBuryProject.ViewModels
 
         [Required]
         [Display(Name = "Precio Unitario")]
+        [MontoArgentino]
         public decimal PrecioUnitario { get; set; }
 
         [Display(Name = "Subtotal")]

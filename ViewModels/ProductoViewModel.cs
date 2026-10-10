@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc;
 using TheBuryProject.Helpers;
+using TheBuryProject.Validation;
 
 namespace TheBuryProject.ViewModels
 {
@@ -54,12 +55,12 @@ namespace TheBuryProject.ViewModels
         [Required(ErrorMessage = "El precio de costo es obligatorio")]
         [Display(Name = "precio de costo")]
         [ModelBinder(typeof(DecimalModelBinder))]
-        [Range(0, double.MaxValue, ErrorMessage = "El precio de costo debe ser mayor o igual a 0")]
+        [MontoArgentino]
         [DisplayFormat(DataFormatString = "{0:C2}", ApplyFormatInEditMode = false)]
         public decimal PrecioCompra { get; set; }
 
         [Display(Name = "Envío")]
-        [Range(0, double.MaxValue, ErrorMessage = "El costo de envío debe ser mayor o igual a 0")]
+        [MontoArgentino]
         public decimal CostoEnvio { get; set; }
 
         [Display(Name = "Percepciones")]
@@ -73,7 +74,7 @@ namespace TheBuryProject.ViewModels
         [Required(ErrorMessage = "El precio de venta es obligatorio")]
         [Display(Name = "Precio de Venta")]
         [ModelBinder(typeof(DecimalModelBinder))]
-        [Range(0, double.MaxValue, ErrorMessage = "El precio de venta debe ser mayor o igual a 0")]
+        [MontoArgentino]
         [DisplayFormat(DataFormatString = "{0:C2}", ApplyFormatInEditMode = false)]
         public decimal PrecioVenta { get; set; }
 

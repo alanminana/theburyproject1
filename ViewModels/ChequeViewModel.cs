@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using TheBuryProject.Models.Enums;
+using TheBuryProject.Validation;
 
 namespace TheBuryProject.ViewModels
 {
@@ -22,7 +23,7 @@ namespace TheBuryProject.ViewModels
         [Required(ErrorMessage = "El monto es obligatorio")]
         [Display(Name = "Monto")]
         [DisplayFormat(DataFormatString = "{0:C2}")]
-        [Range(0.01, 999999999.99, ErrorMessage = "El monto debe ser mayor a 0")]
+        [MontoArgentino(Minimo = 0.01)]
         public decimal Monto { get; set; }
 
         [Required(ErrorMessage = "La fecha de emisión es obligatoria")]

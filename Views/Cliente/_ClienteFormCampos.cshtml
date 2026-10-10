@@ -163,7 +163,7 @@
             </div>
             <div>
                 <label asp-for="NumeroDocumento" class="label">Número de documento <span class="req">*</span></label>
-                <input asp-for="NumeroDocumento" class="field mono" placeholder="00.000.000" />
+                <input data-rule="documento" data-tipo="#TipoDocumento" asp-for="NumeroDocumento" class="field mono" placeholder="00.000.000" />
                 <span asp-validation-for="NumeroDocumento" class="err-text"></span>
             </div>
             <div class="sm:col-span-2">
@@ -181,12 +181,12 @@
             </div>
             <div>
                 <label asp-for="Apellido" class="label">Apellido <span class="req">*</span></label>
-                <input asp-for="Apellido" class="field" placeholder="Apellido" />
+                <input data-rule="nombre" asp-for="Apellido" class="field" placeholder="Apellido" />
                 <span asp-validation-for="Apellido" class="err-text"></span>
             </div>
             <div>
                 <label asp-for="Nombre" class="label">Nombre <span class="req">*</span></label>
-                <input asp-for="Nombre" class="field" placeholder="Nombre" />
+                <input data-rule="nombre" asp-for="Nombre" class="field" placeholder="Nombre" />
                 <span asp-validation-for="Nombre" class="err-text"></span>
             </div>
             <div>
@@ -210,7 +210,7 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div class="sm:col-span-2">
                 <label asp-for="ConyugeNombreCompleto" class="label">Nombre completo del cónyuge</label>
-                <input asp-for="ConyugeNombreCompleto" class="field" placeholder="Apellido y nombre" />
+                <input data-rule="nombre" data-max-words="6" asp-for="ConyugeNombreCompleto" class="field" placeholder="Apellido y nombre" />
                 <span asp-validation-for="ConyugeNombreCompleto" class="err-text"></span>
             </div>
             <div>
@@ -222,12 +222,12 @@
             </div>
             <div>
                 <label asp-for="ConyugeNumeroDocumento" class="label">Número de documento</label>
-                <input asp-for="ConyugeNumeroDocumento" class="field mono" placeholder="00.000.000" />
+                <input data-rule="documento" data-tipo="#ConyugeTipoDocumento" asp-for="ConyugeNumeroDocumento" class="field mono" placeholder="00.000.000" />
                 <span asp-validation-for="ConyugeNumeroDocumento" class="err-text"></span>
             </div>
             <div>
                 <label asp-for="ConyugeTelefono" class="label">Teléfono</label>
-                <input asp-for="ConyugeTelefono" type="tel" class="field" placeholder="11 0000-0000" />
+                <input data-rule="telefono" asp-for="ConyugeTelefono" type="tel" class="field" placeholder="11 0000-0000" />
                 <span asp-validation-for="ConyugeTelefono" class="err-text"></span>
             </div>
             <div>
@@ -246,12 +246,12 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
                 <label asp-for="Telefono" class="label">Teléfono</label>
-                <div class="field-icon"><span class="material-symbols-outlined">call</span><input asp-for="Telefono" type="tel" class="field" placeholder="11 0000-0000" /></div>
+                <div class="field-icon"><span class="material-symbols-outlined">call</span><input data-rule="telefono" asp-for="Telefono" type="tel" class="field" placeholder="11 0000-0000" /></div>
                 <span asp-validation-for="Telefono" class="err-text"></span>
             </div>
             <div>
                 <label asp-for="TelefonoAlternativo" class="label">Teléfono alternativo</label>
-                <div class="field-icon"><span class="material-symbols-outlined">call</span><input asp-for="TelefonoAlternativo" type="tel" class="field" placeholder="11 0000-0000" /></div>
+                <div class="field-icon"><span class="material-symbols-outlined">call</span><input data-rule="telefono" asp-for="TelefonoAlternativo" type="tel" class="field" placeholder="11 0000-0000" /></div>
                 <span asp-validation-for="TelefonoAlternativo" class="err-text"></span>
             </div>
             <div>
@@ -271,7 +271,7 @@
             </div>
             <div>
                 <label asp-for="Localidad" class="label">Localidad</label>
-                <input asp-for="Localidad" class="field" placeholder="Localidad" />
+                <input data-rule="nombre" data-max-words="6" data-max-word="20" asp-for="Localidad" class="field" placeholder="Localidad" />
                 <span asp-validation-for="Localidad" class="err-text"></span>
             </div>
             <div>
@@ -314,7 +314,7 @@
             </div>
             <div>
                 <label asp-for="TelefonoLaboral" class="label">Teléfono laboral</label>
-                <input asp-for="TelefonoLaboral" type="tel" class="field" placeholder="11 0000-0000" />
+                <input data-rule="telefono" asp-for="TelefonoLaboral" type="tel" class="field" placeholder="11 0000-0000" />
                 <span asp-validation-for="TelefonoLaboral" class="err-text"></span>
             </div>
             <div class="sm:col-span-2">
@@ -369,7 +369,7 @@
             </div>
             <div>
                 <label asp-for="GastosAdministrativosPersonalizados" class="label">Gastos administrativos (%)</label>
-                <input asp-for="GastosAdministrativosPersonalizados" step="0.01" class="field mono" placeholder="Ej. 2.00" />
+                <input data-rule="none" asp-for="GastosAdministrativosPersonalizados" step="0.01" class="field mono" placeholder="Ej. 2.00" />
                 <span asp-validation-for="GastosAdministrativosPersonalizados" class="err-text"></span>
             </div>
             <div>
