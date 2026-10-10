@@ -45,6 +45,39 @@ public class ContratoVentaCreditoServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task ExistePlantillaActiva_UsaElDiaComercialParaLaVigencia()
+    {
+        // Auditoria Credito: la vigencia se evalua por dia comercial (Argentina), no por el dia UTC.
+        // Plantilla que vence el 15/06: con reloj comercial en 15/06 sigue vigente (el ultimo dia).
+        _context.PlantillasContratoCredito.Add(new PlantillaContratoCredito
+        {
+            Nombre = $"Plantilla {Guid.NewGuid():N}",
+            Activa = true,
+            NombreVendedor = "The Bury",
+            DomicilioVendedor = "Local 1",
+            CiudadFirma = "Ciudad",
+            Jurisdiccion = "Provincia",
+            InteresMoraDiarioPorcentaje = 1m,
+            TextoContrato = "x",
+            TextoPagare = "y",
+            VigenteDesde = new DateTime(2026, 6, 1),
+            VigenteHasta = new DateTime(2026, 6, 15)
+        });
+        await _context.SaveChangesAsync();
+
+        ContratoVentaCreditoService ConReloj(DateOnly hoy) => new(
+            _context,
+            new StubFinancialCalculationService(),
+            _configuracionPagoService,
+            new StubWebHostEnvironment(),
+            NullLogger<ContratoVentaCreditoService>.Instance,
+            reloj: new TheBuryProject.Tests.Helpers.RelojComercialFake(hoy));
+
+        Assert.True(await ConReloj(new DateOnly(2026, 6, 15)).ExistePlantillaActivaAsync());
+        Assert.False(await ConReloj(new DateOnly(2026, 6, 16)).ExistePlantillaActivaAsync());
+    }
+
+    [Fact]
     public async Task GenerarAsync_SinDescuentoGeneral_ConservaSubtotalDeLinea()
     {
         var venta = await SeedVentaCreditoAsync(new[]
