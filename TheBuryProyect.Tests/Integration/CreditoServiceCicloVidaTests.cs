@@ -358,6 +358,42 @@ public class CreditoServiceCicloVidaTests : IDisposable
     }
 
     [Fact]
+    public async Task CancelarCredito_CancelaCuotasVencidasTambien()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id, EstadoCredito.Activo);
+        var pagada = await SeedCuotaAsync(credito.Id, numero: 1, estado: EstadoCuota.Pagada, montoPagado: 1000m);
+        var vencida = await SeedCuotaAsync(credito.Id, numero: 2, estado: EstadoCuota.Vencida, diasAtraso: 20);
+        var pendiente = await SeedCuotaAsync(credito.Id, numero: 3, estado: EstadoCuota.Pendiente);
+
+        Assert.True(await _service.CancelarCreditoAsync(credito.Id, "Acuerdo con el cliente"));
+
+        var estados = await _context.Set<Cuota>().AsNoTracking()
+            .Where(c => c.CreditoId == credito.Id)
+            .ToDictionaryAsync(c => c.NumeroCuota, c => c.Estado);
+        Assert.Equal(EstadoCuota.Pagada, estados[1]);
+        Assert.Equal(EstadoCuota.Cancelada, estados[2]);
+        Assert.Equal(EstadoCuota.Cancelada, estados[3]);
+    }
+
+    [Fact]
+    public async Task CancelarCredito_ConCuotaParcial_LanzaYNoCambiaNada()
+    {
+        var cliente = await SeedClienteAsync();
+        var credito = await SeedCreditoAsync(cliente.Id, EstadoCredito.Activo);
+        await SeedCuotaAsync(credito.Id, numero: 1, estado: EstadoCuota.Parcial, montoPagado: 400m);
+        await SeedCuotaAsync(credito.Id, numero: 2, estado: EstadoCuota.Pendiente);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.CancelarCreditoAsync(credito.Id, "Motivo"));
+
+        var creditoBd = await _context.Set<Credito>().AsNoTracking().FirstAsync(c => c.Id == credito.Id);
+        Assert.Equal(EstadoCredito.Activo, creditoBd.Estado);
+        var cuotas = await _context.Set<Cuota>().AsNoTracking().Where(c => c.CreditoId == credito.Id).ToListAsync();
+        Assert.DoesNotContain(cuotas, c => c.Estado == EstadoCuota.Cancelada);
+    }
+
+    [Fact]
     public async Task CancelarCredito_NoExiste_RetornaFalse()
     {
         var resultado = await _service.CancelarCreditoAsync(99999, "Motivo");

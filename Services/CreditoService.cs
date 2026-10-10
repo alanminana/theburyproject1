@@ -512,12 +512,19 @@ namespace TheBuryProject.Services
                 if (credito.Estado is EstadoCredito.Cancelado or EstadoCredito.Finalizado or EstadoCredito.Rechazado)
                     throw new InvalidOperationException($"No se puede cancelar un crédito en estado {credito.Estado}");
 
+                // Una cuota con pago parcial ya cobró dinero: cancelarla lo ocultaría. Hay que resolver
+                // ese cobro antes de cancelar el crédito.
+                if (credito.Cuotas.Any(c => c.Estado == EstadoCuota.Parcial))
+                    throw new InvalidOperationException(
+                        "No se puede cancelar un crédito con cuotas pagadas parcialmente. Resuelva primero el cobro parcial.");
+
                 credito.Estado = EstadoCredito.Cancelado;
                 credito.FechaFinalizacion = DateTime.UtcNow;
                 credito.Observaciones = $"Cancelado: {motivo}";
 
-                // Cancelar cuotas pendientes
-                foreach (var cuota in credito.Cuotas.Where(c => c.Estado == EstadoCuota.Pendiente))
+                // Cancelar cuotas sin pago (pendientes y vencidas): una cuota vencida de un crédito
+                // cancelado seguiría acumulando mora y punitorio.
+                foreach (var cuota in credito.Cuotas.Where(c => c.Estado is EstadoCuota.Pendiente or EstadoCuota.Vencida))
                 {
                     cuota.Estado = EstadoCuota.Cancelada;
                 }
