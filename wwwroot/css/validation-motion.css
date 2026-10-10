@@ -6,21 +6,14 @@
 
 /* :not(#_) sube la especificidad (suma un ID) para ganarle a los selectores con #id de las hojas
    de modulo (venta, producto...), que de otro modo pintan el borde neutro sobre el rojo. */
-input.input-validation-error:not(#_),
-select.input-validation-error:not(#_),
-textarea.input-validation-error:not(#_),
-input[aria-invalid="true"]:not(#_),
-select[aria-invalid="true"]:not(#_),
-textarea[aria-invalid="true"]:not(#_) {
+/* Un campo se considera invalido por cualquiera de las convenciones que usa el sistema:
+   clases de ASP.NET/unobtrusive, aria-invalid, las que agrega el JS de cada modulo
+   (border-red-500, prov-invalid) y la validacion nativa del navegador (:user-invalid). */
+:is(input, select, textarea):is(.input-validation-error, [aria-invalid="true"], .prov-invalid, .border-red-500, :user-invalid):not(#_) {
     border-color: color-mix(in srgb, var(--pal-danger-500) 75%, transparent);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--pal-danger-500) 18%, transparent);
 }
-input.input-validation-error:not(#_):focus,
-select.input-validation-error:not(#_):focus,
-textarea.input-validation-error:not(#_):focus,
-input[aria-invalid="true"]:not(#_):focus,
-select[aria-invalid="true"]:not(#_):focus,
-textarea[aria-invalid="true"]:not(#_):focus {
+:is(input, select, textarea):is(.input-validation-error, [aria-invalid="true"], .prov-invalid, .border-red-500, :user-invalid):not(#_):focus {
     border-color: var(--pal-danger-400);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--pal-danger-500) 30%, transparent);
 }
@@ -42,15 +35,15 @@ textarea[aria-invalid="true"]:not(#_):focus {
 }
 
 /* Input de archivo invisible sobre una zona de arrastre: se remarca la zona contenedora. */
-:has(> input[type="file"].input-validation-error, > input[type="file"][aria-invalid="true"]) {
+:has(> input[type="file"]:is(.input-validation-error, [aria-invalid="true"], .border-red-500)) {
     border-color: color-mix(in srgb, var(--pal-danger-500) 70%, transparent);
     background-color: color-mix(in srgb, var(--pal-danger-500) 7%, transparent);
     transition: border-color .25s ease, background-color .25s ease;
 }
 
 /* La etiqueta acompaña al campo: solo color, sin movimiento. */
-:has(> .input-validation-error, > [aria-invalid="true"]) > label,
-:has(> * > .input-validation-error, > * > [aria-invalid="true"]) > label { color: var(--pal-danger-200); }
+:has(> :is(.input-validation-error, [aria-invalid="true"], .prov-invalid, .border-red-500)) > label,
+:has(> * > :is(.input-validation-error, [aria-invalid="true"], .prov-invalid, .border-red-500)) > label { color: var(--pal-danger-200); }
 .field-money:has(> .input-validation-error, > [aria-invalid="true"]) .cur { color: var(--pal-danger-400); }
 
 /* Mensaje de error: icono dibujado + entrada desde el campo. Vacio = no ocupa lugar. */

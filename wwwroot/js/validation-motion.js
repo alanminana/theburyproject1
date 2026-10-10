@@ -10,9 +10,13 @@
         el.classList.add('is-nudge');
     }
 
+    // Convenciones de "campo invalido" del sistema (ver validation-motion.css). has-error marca
+    // la pestaña de un wizard con errores; border-red-500 tambien lo usan las zonas de arrastre.
+    var SEL = '.input-validation-error, [aria-invalid="true"], .prov-invalid, .border-red-500, .has-error';
+
     function invalidos(root) {
         return Array.prototype.filter.call(
-            root.querySelectorAll('.input-validation-error, [aria-invalid="true"]'),
+            root.querySelectorAll(SEL),
             function (el) { return (el.offsetParent !== null || el.type === 'file') && !el.disabled && el.type !== 'hidden'; });
     }
 
@@ -31,7 +35,7 @@
     });
 
     function esInvalido(el) {
-        return el.classList.contains('input-validation-error') || el.getAttribute('aria-invalid') === 'true';
+        return el.matches(SEL);
     }
 
     // Registro de campos ya marcados: el nudge se dispara solo en la transicion a invalido,
@@ -39,7 +43,7 @@
     var marcados = new WeakSet();
 
     function revisar(el) {
-        if (el.nodeType !== 1 || !/^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) { return; }
+        if (el.nodeType !== 1) { return; }
         if (!esInvalido(el)) { marcados.delete(el); return; }
         if (marcados.has(el)) { return; }
         marcados.add(el);
@@ -51,7 +55,11 @@
     // Wizards y validaciones con JS propio (Cliente, modales, etc.) marcan el campo sin enviar
     // el formulario: se observa el cambio de clase / aria-invalid en todo el documento.
     document.addEventListener('DOMContentLoaded', function () {
-        // Pagina devuelta por el servidor con errores de modelo.
+        // Validacion nativa del navegador (required / pattern sin novalidate): el evento "invalid"
+    // no burbujea, se captura en la fase de captura del documento.
+    document.addEventListener('invalid', function (e) { nudge(e.target); }, true);
+
+    // Pagina devuelta por el servidor con errores de modelo.
         invalidos(document).forEach(function (el) { marcados.add(el); });
         invalidos(document).forEach(nudge);
 
@@ -60,7 +68,7 @@
                 revisar(m.target);
                 if (m.type === 'childList') {
                     m.addedNodes.forEach(function (n) {
-                        if (n.nodeType === 1) { revisar(n); n.querySelectorAll && n.querySelectorAll('input,select,textarea').forEach(revisar); }
+                        if (n.nodeType === 1) { revisar(n); n.querySelectorAll && n.querySelectorAll(SEL).forEach(revisar); }
                     });
                 }
             });
