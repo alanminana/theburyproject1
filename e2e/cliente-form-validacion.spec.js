@@ -2,7 +2,7 @@
 /**
  * E2E de /Cliente/Create (cliente-form.js): errores de validación en solapas ocultas y Escape.
  *
- * Los obligatorios viven en Personales (Teléfono y Domicilio pasaron a opcionales). Antes, "Crear cliente"
+ * Los obligatorios viven en Personales y en Contacto (solo Domicilio; Teléfono es opcional). Antes, "Crear cliente"
  * desde otra solapa se enviaba, el servidor lo rechazaba y la página volvía a Personales sin ningún
  * error visible; y Escape descartaba el formulario aunque tuviera datos. No crea clientes: todos
  * los envíos se detienen en la validación del navegador (se verifica que no salga ningún POST).
@@ -28,7 +28,7 @@ test.describe('Cliente Create — validación entre solapas y Escape', () => {
 
         await page.goto('/Cliente/Create', { waitUntil: 'domcontentloaded' });
         // Apellido y Nombre completos; falta el número de documento. Se pasa a Contacto
-        // (Teléfono/Domicilio ya no son obligatorios) para que el error quede en una solapa oculta.
+        // para que el error de Personales quede en una solapa oculta.
         await page.locator('#Apellido').fill('Prueba');
         await page.locator('#Nombre').fill('Validacion');
         await page.locator('#form-tabs [data-cliente-tab="t-contacto"]').click();
@@ -42,8 +42,8 @@ test.describe('Cliente Create — validación entre solapas y Escape', () => {
         await expect(page.locator('#NumeroDocumento')).toBeFocused();
         await expect(page.getByText('El número de documento es requerido')).toBeVisible();
 
-        // Contacto no tiene obligatorios: no se marca como solapa con errores.
-        await expect(page.locator('#form-tabs [data-cliente-tab="t-contacto"]')).not.toHaveClass(/has-error/);
+        // Contacto también tiene un obligatorio (Domicilio, vacío): se marca como solapa con errores.
+        await expect(page.locator('#form-tabs [data-cliente-tab="t-contacto"]')).toHaveClass(/has-error/);
         expect(posts, 'no debe haber POST al servidor con obligatorios sin completar').toHaveLength(0);
     });
 
