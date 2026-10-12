@@ -1,0 +1,171 @@
+/* ══════════════════════════════════════════════════════════════
+   VENTA — Motion (tokens + animaciones compartidas del módulo)
+
+   Criterio (impeccable animate, modo Operate): el motion sólo explica
+   continuidad, feedback o estado. Nada decorativo, nada que haga esperar
+   al operador de mostrador. Sólo transform/opacity/color.
+
+   Duraciones: 100-150ms feedback · 150-300ms cambio de estado ·
+   200-300ms overlay/navegación. Salir es más rápido que entrar.
+
+   Los resaltados usan tokens --pal-* (palette.css); no hay colores nuevos.
+   Reduced motion: se conserva el feedback (opacidad/color) y se quita el
+   movimiento espacial — ver el bloque final.
+   ══════════════════════════════════════════════════════════════ */
+
+:root {
+    --vm-motion-fast: 120ms;
+    --vm-motion-base: 180ms;
+    --vm-motion-slow: 260ms;
+    --vm-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ── Continuidad: cambio de paso del wizard ───────────────────
+   venta-page-wizard.js agrega .vm-panel-enter--fwd / --back al panel que
+   queda activo sólo cuando el operador cambia de paso (no en la carga). */
+
+@keyframes vm-panel-in-fwd {
+    from { opacity: 0; transform: translateX(12px); }
+}
+
+@keyframes vm-panel-in-back {
+    from { opacity: 0; transform: translateX(-12px); }
+}
+
+@keyframes vm-fade-in {
+    from { opacity: 0; }
+}
+
+.vm-panel-enter--fwd {
+    animation: vm-panel-in-fwd var(--vm-motion-base) var(--vm-ease-out) backwards;
+}
+
+.vm-panel-enter--back {
+    animation: vm-panel-in-back var(--vm-motion-base) var(--vm-ease-out) backwards;
+}
+
+/* Tabs del Index: sólo opacidad, el panel no se desplaza. */
+.vm-tab-enter {
+    animation: vm-fade-in var(--vm-motion-fast) ease-out backwards;
+}
+
+/* ── Feedback: fila recién agregada y valores que cambian ───── */
+
+/* Una sola capa sobre toda la línea (en tarjetas o en tabla): pintar las celdas por
+   separado deja bloques sueltos. La capa no intercepta el puntero. */
+@keyframes vm-row-flash {
+    from { opacity: 1; }
+    to   { opacity: 0; }
+}
+
+.vm-row-new {
+    position: relative;
+}
+
+.vm-row-new::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 0.75rem;
+    background-color: color-mix(in srgb, var(--pal-accent-500) 18%, transparent);
+    pointer-events: none;
+    animation: vm-row-flash 900ms ease-out forwards;
+}
+
+/* Sin color final: el keyframe vuelve al color computado del elemento. */
+@keyframes vm-value-pulse {
+    from { color: var(--pal-accent-400); }
+}
+
+.vm-value-changed {
+    animation: vm-value-pulse 650ms ease-out;
+}
+
+/* ── Feedback: toasts (la salida ya la maneja TheBury.autoDismissToasts) ──
+   fill-mode backwards: al terminar NO retiene opacity, así la salida inline
+   de autoDismissToasts sigue ganando. */
+
+@keyframes vm-toast-in {
+    from { opacity: 0; transform: translateY(-8px); }
+}
+
+:is(#venta-create-page, #venta-edit-page, #venta-details-page, #venta-index-rework) .toast-msg {
+    animation: vm-toast-in var(--vm-motion-base) var(--vm-ease-out) backwards;
+}
+
+/* ── Overlays: modales de Venta ([data-venta-modal]) ──────────
+   Los modales alternan .hidden → display; la animación corre cada vez que
+   pasan de display:none a visible. El fondo hace fade y el panel (hijo que
+   no es el overlay absolute) entra con una escala leve. */
+
+@keyframes vm-modal-panel-in {
+    from { opacity: 0; transform: scale(0.97) translateY(6px); }
+}
+
+[data-venta-modal]:not(.hidden) {
+    animation: vm-fade-in var(--vm-motion-base) ease-out backwards;
+}
+
+[data-venta-modal]:not(.hidden) > :not(.absolute) {
+    animation: vm-modal-panel-in var(--vm-motion-slow) var(--vm-ease-out) backwards;
+}
+
+/* ── Feedback: botón en curso (submit) ─────────────────────────
+   El submitter queda habilitado a propósito (ver venta-create.js); se
+   comunica el estado con aria-busy + spinner y se bloquea el puntero. */
+
+@keyframes vm-spin {
+    to { transform: rotate(360deg); }
+}
+
+.vm-btn-busy {
+    pointer-events: none;
+    cursor: progress;
+}
+
+.vm-btn-busy::after {
+    content: "";
+    flex: none;
+    width: 1em;
+    height: 1em;
+    margin-left: 0.5rem;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: vm-spin 700ms linear infinite;
+}
+
+/* ── Reduced motion ───────────────────────────────────────────
+   Menos y más suave, no cero: se quita todo desplazamiento/escala y se
+   conserva la opacidad y el color que confirman la acción. :root:root sube
+   la especificidad para ganarle a la regla global de reduced-motion de
+   venta-module.css / ventas-index.css, que anula toda duración. */
+
+@media (prefers-reduced-motion: reduce) {
+    :root:root .vm-panel-enter--fwd,
+    :root:root .vm-panel-enter--back,
+    :root:root .vm-tab-enter,
+    :root:root [data-venta-modal]:not(.hidden),
+    :root:root [data-venta-modal]:not(.hidden) > :not(.absolute) {
+        animation-name: vm-fade-in !important;
+        animation-duration: 120ms !important;
+    }
+
+    :root:root .toast-msg {
+        animation-name: vm-fade-in !important;
+        animation-duration: 120ms !important;
+    }
+
+    :root:root .vm-row-new::after {
+        animation-duration: 600ms !important;
+    }
+
+    :root:root .vm-value-changed {
+        animation-duration: 400ms !important;
+    }
+
+    /* Spinner: sin giro; el aro parcial sigue indicando "en curso". */
+    :root:root .vm-btn-busy::after {
+        animation: none !important;
+    }
+}
