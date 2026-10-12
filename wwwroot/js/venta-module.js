@@ -8,6 +8,18 @@
 
     window.VentaModule = window.VentaModule || {};
 
+    // Transición entre páginas (venta-page-transition.css). Con el navegador automatizado
+    // (E2E) se omite: retiene el render hasta que termina y los chequeos de "stable"
+    // dependen de requestAnimationFrame. Además, si el navegador aborta una transición
+    // (p. ej. se navega otra vez antes de que termine) las promesas rechazan y quedaría un
+    // error en consola por algo puramente cosmético: se descartan.
+    window.addEventListener('pagereveal', (evento) => {
+        const transicion = evento.viewTransition;
+        if (!transicion) return;
+        ['ready', 'finished', 'updateCallbackDone'].forEach((nombre) => transicion[nombre]?.catch?.(() => {}));
+        if (navigator.webdriver) transicion.skipTransition();
+    });
+
     if (window.VentaModule.initSharedUi) {
         return;
     }
