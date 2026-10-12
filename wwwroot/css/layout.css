@@ -442,3 +442,50 @@ header a:focus:not(:focus-visible) {
         display: none !important;
     }
 }
+
+/* Menú de usuario del header */
+[data-user-menu] > #user-menu-panel {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 0.5rem);
+    width: 14rem;
+    padding: 0.25rem;
+    border: 1px solid var(--pal-neutral-700, #334155);
+    border-radius: 0.5rem;
+    background-color: var(--pal-neutral-900, #0f172a);
+    box-shadow: 0 10px 25px rgb(0 0 0 / 0.5);
+    z-index: 50;
+}
+[data-user-menu] > #user-menu-panel[hidden] { display: none; }
+[data-user-menu] > #user-menu-panel button { width: 100%; text-align: left; }
+[data-user-menu] .user-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.375rem;
+    color: var(--pal-neutral-200, #cbd5e1);
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: background-color 0.15s, color 0.15s;
+}
+[data-user-menu] .user-menu-item:hover,
+[data-user-menu] .user-menu-item[aria-current="page"] {
+    background-color: rgb(255 255 255 / 0.06);
+    color: #fff;
+}
+[data-user-menu] .user-menu-sep {
+    height: 1px;
+    margin: 0.25rem 0;
+    background-color: var(--pal-neutral-700, #334155);
+}
+[data-user-menu] #user-menu-panel form button {
+    justify-content: flex-start;
+    height: auto;
+    min-height: 0;
+    padding: 0.5rem 0.75rem;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+}
