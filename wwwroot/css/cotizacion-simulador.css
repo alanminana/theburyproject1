@@ -3239,6 +3239,14 @@ body:has([role="dialog"]:not(.hidden)) .cotz-app #cotizacion-feedback {
    transition: opacity .15s;
 }
 
+/* Resultados vigentes mientras se recalcula: se atenúan (no se ocultan) para no leer
+   cifras viejas como definitivas; la pointer-events evita elegir una opción a mitad de cálculo. */
+.cotz-app #cotizacion-resultados[aria-busy="true"] {
+   opacity: .55;
+   pointer-events: none;
+   transition: opacity .15s;
+}
+
 /* Orden de medios arrastrable */
 .cotz-app [data-orden-medio] {
    cursor: grab;

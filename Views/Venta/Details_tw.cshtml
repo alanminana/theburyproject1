@@ -214,13 +214,37 @@
                     <div class="venta-hero-title space-y-2">
                         <div class="flex flex-wrap items-center gap-3">
                             <h1 class="text-2xl font-black tracking-tight text-white sm:text-3xl">@Model.Numero</h1>
-                            <span class="inline-flex items-center rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-widest @estadoBg">@Model.EstadoDisplay</span>
+                            <span data-venta-estado-badge class="inline-flex items-center rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-widest @estadoBg">@Model.EstadoDisplay</span>
                             @if (Model.RequiereAutorizacion)
                             {
                                 <span class="inline-flex items-center rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-widest @autorizacionBadge">Autorización: @Model.EstadoAutorizacionDisplay</span>
                             }
                         </div>
                         <p class="max-w-3xl text-sm text-slate-400 sm:text-base">@heroDescripcion</p>
+                        @if (Model.Estado != EstadoVenta.Cancelada)
+                        {
+                            @* Línea de progreso: dónde está la venta y qué sigue. Facturada se marca "omitido"
+                               si la venta se entregó sin factura, para no afirmar algo que no ocurrió. *@
+                            var nivelEstado = Model.Estado switch
+                            {
+                                EstadoVenta.Confirmada => 1,
+                                EstadoVenta.Facturada => 2,
+                                EstadoVenta.Entregada => 3,
+                                _ => 0
+                            };
+                            var pasosEstado = new[] { "Preparación", "Confirmada", "Facturada", "Entregada" };
+                            <ol class="vm-estado-linea" aria-label="Progreso de la venta" data-venta-estado-linea>
+                                @for (var i = 0; i < pasosEstado.Length; i++)
+                                {
+                                    var claseEstado = i < nivelEstado ? "hecho" : i == nivelEstado ? "actual" : "pendiente";
+                                    if (i == 2 && Model.Estado == EstadoVenta.Entregada && !tieneFactura) { claseEstado = "omitido"; }
+                                    <li class="vm-estado-linea__paso vm-estado-linea__paso--@claseEstado" aria-current="@(claseEstado == "actual" ? "step" : null)">
+                                        <span class="vm-estado-linea__punto" aria-hidden="true"></span>
+                                        <span>@pasosEstado[i]@(claseEstado == "omitido" ? " (sin factura)" : "")</span>
+                                    </li>
+                                }
+                            </ol>
+                        }
                     </div>
                     @* VENTA-DETAILS-DUPLICACION-04: los chips de forma de pago y fecha repetían campos que
                        "Resumen" (2 tarjetas más abajo, misma pantalla) ya muestra con más contexto (plan, hora). *@
@@ -1115,21 +1139,19 @@
                             <div class="flex flex-col gap-2">
                                 @if (puedeAutorizarVentas)
                                 {
-                                    <form asp-action="Autorizar" method="post" class="flex-1">
-                                        <input type="hidden" name="id" value="@Model.Id" />
-                                        <button type="submit" class="btn-erp-success btn-erp-block">
-                                            <span class="material-symbols-outlined text-sm">thumb_up</span> Autorizar
-                                        </button>
-                                    </form>
+                                    <button type="button"
+                                            data-venta-modal-action="open" data-venta-modal-target="autorizar-venta"
+                                            class="btn-erp-success btn-erp-block">
+                                        <span class="material-symbols-outlined text-sm">thumb_up</span> Autorizar
+                                    </button>
                                 }
                                 @if (puedeRechazarVentas)
                                 {
-                                    <form asp-action="Rechazar" method="post" class="flex-1">
-                                        <input type="hidden" name="id" value="@Model.Id" />
-                                        <button type="submit" class="btn-erp-danger btn-erp-block">
-                                            <span class="material-symbols-outlined text-sm">thumb_down</span> Rechazar
-                                        </button>
-                                    </form>
+                                    <button type="button"
+                                            data-venta-modal-action="open" data-venta-modal-target="rechazar-venta"
+                                            class="btn-erp-danger btn-erp-block">
+                                        <span class="material-symbols-outlined text-sm">thumb_down</span> Rechazar
+                                    </button>
                                 }
                             </div>
                         }
@@ -1172,10 +1194,11 @@
                                 @* Cancelar *@
                                 @if (hayAccionCancelar)
                                 {
-                                    <a asp-action="Cancelar" asp-route-id="@Model.Id"
-                                       class="btn-erp-danger btn-erp-block no-underline">
+                                    <button type="button"
+                                            data-venta-modal-action="open" data-venta-modal-target="cancelar-venta"
+                                            class="btn-erp-danger btn-erp-block">
                                         <span class="material-symbols-outlined text-sm">cancel</span> Cancelar Venta
-                                    </a>
+                                    </button>
                                 }
 
                                 @* Anular Factura *@
@@ -1533,6 +1556,37 @@
     <partial name="_VentaDevolucionModal" />
 }
 
+@* Decisiones sobre la venta: el motivo es obligatorio en el servidor, así que se pide acá
+   mismo en un modal (antes Autorizar/Rechazar posteaban sin motivo y rebotaban a otra página). *@
+@if (Model.PuedeAutorizar && puedeAutorizarVentas)
+{
+    var decisionVm = new VentaDecisionModalViewModel(
+        Name: "autorizar-venta", Action: "Autorizar", VentaId: Model.Id,
+        Title: "Autorizar venta", Description: $"Indicá el motivo de la autorización de {Model.Numero}. Queda registrado en auditoría.",
+        MotivoLabel: "Motivo de la autorización", MotivoPlaceholder: "Describí el motivo de la autorización…",
+        ConfirmText: "Confirmar autorización", ConfirmIcon: "thumb_up", ConfirmButtonClass: "btn-erp-success");
+    <partial name="_VentaDecisionModal" model="decisionVm" />
+}
+@if (Model.PuedeAutorizar && puedeRechazarVentas)
+{
+    var decisionVm = new VentaDecisionModalViewModel(
+        Name: "rechazar-venta", Action: "Rechazar", VentaId: Model.Id,
+        Title: "Rechazar venta", Description: $"Indicá el motivo del rechazo de {Model.Numero}. Queda registrado en auditoría.",
+        MotivoLabel: "Motivo del rechazo", MotivoPlaceholder: "Describí el motivo del rechazo…",
+        ConfirmText: "Confirmar rechazo", ConfirmIcon: "thumb_down", ConfirmButtonClass: "btn-erp-danger");
+    <partial name="_VentaDecisionModal" model="decisionVm" />
+}
+@if (puedeCancelarVentas && puedeOperarVentas && Model.PuedeCancelar)
+{
+    var decisionVm = new VentaDecisionModalViewModel(
+        Name: "cancelar-venta", Action: "Cancelar", VentaId: Model.Id,
+        Title: "Cancelar venta", Description: "Operación irreversible: el stock se revierte y la venta queda fuera de circuito.",
+        MotivoLabel: "Motivo de la cancelación", MotivoPlaceholder: "Describí el motivo de la cancelación…",
+        ConfirmText: "Confirmar cancelación", ConfirmIcon: "cancel", ConfirmButtonClass: "btn-erp-danger",
+        RequiredCheckText: $"Confirmo que quiero cancelar la venta {Model.Numero}.");
+    <partial name="_VentaDecisionModal" model="decisionVm" />
+}
+
 @section Styles {
     <partial name="_VentaModuleStyles" />
 }
@@ -1541,5 +1595,6 @@
     <script src="~/js/horizontal-scroll-affordance.js" asp-append-version="true"></script>
     <script src="~/js/venta-module.js" asp-append-version="true"></script>
     <script src="~/js/venta-devolucion-modal.js" asp-append-version="true"></script>
+    <script src="~/js/venta-submit-guard.js" asp-append-version="true"></script>
     <script src="~/js/details-venta.js" asp-append-version="true"></script>
 }

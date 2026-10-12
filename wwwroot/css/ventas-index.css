@@ -213,30 +213,8 @@
 
 /* Highlight caja cerrada */
 
-@keyframes venta-caja-highlight {
-    0% {
-        box-shadow: 0 0 0 0 color-mix(in srgb, var(--pal-warning-500) 0%, transparent);
-        background-color: color-mix(in srgb, var(--pal-warning-500) 10%, transparent);
-    }
-
-    25% {
-        box-shadow: 0 0 0 4px color-mix(in srgb, var(--pal-warning-500) 45%, transparent);
-        background-color: color-mix(in srgb, var(--pal-warning-500) 20%, transparent);
-    }
-
-    60% {
-        box-shadow: 0 0 0 4px color-mix(in srgb, var(--pal-warning-500) 20%, transparent);
-        background-color: color-mix(in srgb, var(--pal-warning-500) 15%, transparent);
-    }
-
-    100% {
-        box-shadow: 0 0 0 0 color-mix(in srgb, var(--pal-warning-500) 0%, transparent);
-        background-color: color-mix(in srgb, var(--pal-warning-500) 10%, transparent);
-    }
-}
-
 #venta-index-rework .caja-highlight-active {
-    animation: venta-caja-highlight 1.8s ease forwards;
+    animation: vm-caja-highlight 1.8s ease forwards;
     border-color: color-mix(in srgb, var(--pal-warning-500) 60%, transparent) !important;
 }
 

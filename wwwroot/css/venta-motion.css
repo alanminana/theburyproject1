@@ -110,6 +110,43 @@
     animation: vm-modal-panel-in var(--vm-motion-slow) var(--vm-ease-out) backwards;
 }
 
+/* ── Feedback: el estado de la venta cambió (Details tras una acción exitosa) ──
+   Un único anillo que se disipa: dice "esto cambió" sin mover nada. */
+
+@keyframes vm-badge-flash {
+    from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--pal-accent-500) 55%, transparent); }
+    to   { box-shadow: 0 0 0 10px color-mix(in srgb, var(--pal-accent-500) 0%, transparent); }
+}
+
+.vm-badge-flash {
+    animation: vm-badge-flash 1100ms var(--vm-ease-out);
+}
+
+/* ── Atención: caja cerrada al intentar crear una venta (Index) ──
+   Un solo keyframe para todo el módulo (antes duplicado en venta-module.css y ventas-index.css). */
+
+@keyframes vm-caja-highlight {
+    0% {
+        box-shadow: 0 0 0 0 color-mix(in srgb, var(--pal-warning-500) 0%, transparent);
+        background-color: color-mix(in srgb, var(--pal-warning-500) 10%, transparent);
+    }
+
+    25% {
+        box-shadow: 0 0 0 4px color-mix(in srgb, var(--pal-warning-500) 45%, transparent);
+        background-color: color-mix(in srgb, var(--pal-warning-500) 20%, transparent);
+    }
+
+    60% {
+        box-shadow: 0 0 0 4px color-mix(in srgb, var(--pal-warning-500) 20%, transparent);
+        background-color: color-mix(in srgb, var(--pal-warning-500) 15%, transparent);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 color-mix(in srgb, var(--pal-warning-500) 0%, transparent);
+        background-color: color-mix(in srgb, var(--pal-warning-500) 10%, transparent);
+    }
+}
+
 /* ── Feedback: botón en curso (submit) ─────────────────────────
    El submitter queda habilitado a propósito (ver venta-create.js); se
    comunica el estado con aria-busy + spinner y se bloquea el puntero. */
@@ -161,6 +198,12 @@
     }
 
     :root:root .vm-value-changed {
+        animation-duration: 400ms !important;
+    }
+
+    /* El anillo se expande (movimiento): con reduced-motion el estado se señala sólo por opacidad. */
+    :root:root .vm-badge-flash {
+        animation-name: vm-fade-in !important;
         animation-duration: 400ms !important;
     }
 

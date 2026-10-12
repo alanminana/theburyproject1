@@ -22,7 +22,25 @@
         labelFacturaNumero.dataset.defaultNumero = labelFacturaNumero.textContent || '';
     }
 
+    // Tras una acción exitosa (autorizar, confirmar, facturar, cancelar…) la página recarga con
+    // el toast de éxito: el estado nuevo recibe un resalte único para que se vea qué cambió.
+    if (document.querySelector('.toast-msg[role="status"]')) {
+        document.querySelectorAll('[data-venta-estado-badge], .vm-estado-linea__paso--actual').forEach((el) => {
+            el.classList.add('vm-badge-flash');
+            window.setTimeout(() => el.classList.remove('vm-badge-flash'), 1400);
+        });
+    }
+
     if (typeof ventaModule.bindModal === 'function') {
+        ['autorizar-venta', 'rechazar-venta', 'cancelar-venta'].forEach((nombre) => {
+            ventaModule.bindModal(nombre, {
+                displayClass: 'flex',
+                beforeClose: function (modal) {
+                    modal.querySelector('form')?.reset();
+                }
+            });
+        });
+
         ventaModule.bindModal('facturar-modal', {
             displayClass: 'flex'
         });
