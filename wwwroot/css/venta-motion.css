@@ -135,20 +135,6 @@
     animation: vm-spin 700ms linear infinite;
 }
 
-/* ── Navegación entre páginas del módulo (View Transitions) ───
-   Progresiva: los navegadores sin soporte ignoran la regla. Se cruzan sólo
-   las páginas del módulo que cargan esta hoja (Index ↔ Details ↔ Create). */
-
-@view-transition {
-    navigation: auto;
-}
-
-::view-transition-old(root),
-::view-transition-new(root) {
-    animation-duration: 160ms;
-    animation-timing-function: ease-out;
-}
-
 /* ── Reduced motion ───────────────────────────────────────────
    Menos y más suave, no cero: se quita todo desplazamiento/escala y se
    conserva la opacidad y el color que confirman la acción. :root:root sube
@@ -156,10 +142,6 @@
    venta-module.css / ventas-index.css, que anula toda duración. */
 
 @media (prefers-reduced-motion: reduce) {
-    @view-transition {
-        navigation: none;
-    }
-
     :root:root .vm-panel-enter--fwd,
     :root:root .vm-panel-enter--back,
     :root:root .vm-tab-enter,
