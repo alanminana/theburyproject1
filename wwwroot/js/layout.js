@@ -90,3 +90,21 @@
     });
 
 })();
+
+
+// Menú de usuario (header)
+(function () {
+    var root = document.querySelector('[data-user-menu]');
+    if (!root) return;
+    var toggle = root.querySelector('[data-user-menu-toggle]');
+    var panel = root.querySelector('#user-menu-panel');
+    function setOpen(open) {
+        panel.hidden = !open;
+        toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+    toggle.addEventListener('click', function () { setOpen(panel.hidden); });
+    document.addEventListener('click', function (e) { if (!root.contains(e.target)) setOpen(false); });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !panel.hidden) { setOpen(false); toggle.focus(); }
+    });
+})();
