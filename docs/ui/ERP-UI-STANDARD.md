@@ -180,6 +180,12 @@ Mínimo exigible en toda pantalla:
 - Eliminar CSS muerto solo con evidencia (sin selector usado en el HTML renderizado real).
 - No reorganizar ni fusionar reglas existentes solo por estética.
 - Respetar `@media (prefers-reduced-motion: reduce)` en animaciones nuevas.
+- Motion (referencia: `wwwroot/css/venta-motion.css`): solo explica continuidad, feedback o
+  estado; nada decorativo ni que haga esperar al operador. Duraciones 100–150 ms feedback,
+  150–300 ms cambio de estado, 200–300 ms overlay/navegación; salida más rápida que entrada.
+  Solo `transform`/`opacity`/color. Con reduced-motion se quita el desplazamiento y se
+  conserva la opacidad/color que confirma la acción (no se anula todo). Usar `fill-mode:
+  backwards` en entradas para no pisar estilos inline de salida (toasts).
 
 ### 12.1 Convergencia CSS legacy → compartido
 

@@ -1150,6 +1150,7 @@
             existing.cantidad = newQty;
             existing.descuento = descuentoPct;
             existing.subtotal = calcularSubtotalLinea(existing.precioUnitario, newQty, descuentoPct);
+            filaAResaltar = detalles.indexOf(existing);
         } else {
             const subtotal = calcularSubtotalLinea(precioUnitario, cantidad, descuentoPct);
             detalles.push({
@@ -1170,6 +1171,7 @@
                 entregaCajaCerrada: false,
                 enviarADomicilio: true
             });
+            filaAResaltar = detalles.length - 1;
         }
 
         // Reset add panel
@@ -1379,6 +1381,18 @@
         renderDetalles();
     }
 
+    // Índice de la línea que el operador acaba de agregar/sumar: tras el render recibe un
+    // flash (venta-motion.css) para que vea dónde cayó el producto. Se consume una vez.
+    let filaAResaltar = -1;
+
+    function resaltarFilaNueva() {
+        const fila = filaAResaltar >= 0 ? tbodyDetalles.children[filaAResaltar] : null;
+        filaAResaltar = -1;
+        if (!fila) return;
+        fila.classList.add('vm-row-new');
+        window.setTimeout(() => fila.classList.remove('vm-row-new'), 1000);
+    }
+
     function renderDetalles() {
         if (detalles.length === 0) {
             tbodyDetalles.innerHTML = '';
@@ -1423,6 +1437,8 @@
             </tr>
         `;
         }).join('');
+
+        resaltarFilaNueva();
 
         // Hidden inputs for form posting
         detallesHiddenInputs.innerHTML = '';
@@ -1600,6 +1616,19 @@
         aplicarLimiteCuotasTarjeta();
     }
 
+    // Escribe el valor y, sólo si cambió, lo marca con un pulso de color (venta-motion.css).
+    function setValorMonetario(el, texto) {
+        if (!el || el.textContent === texto) return;
+        el.textContent = texto;
+        el.classList.remove('vm-value-changed');
+        void el.offsetWidth;
+        el.classList.add('vm-value-changed');
+        // Timer y no animationend: los totales del paso Revisión pueden estar ocultos
+        // (display:none no anima) y la clase quedaría puesta hasta mostrarse.
+        window.clearTimeout(el._vmPulso);
+        el._vmPulso = window.setTimeout(() => el.classList.remove('vm-value-changed'), 700);
+    }
+
     function actualizarTotalesUI(subtotal, descuento, iva, total, backendResult) {
         const recargoDebito = Number(backendResult?.recargoDebitoAplicado) || 0;
         const porcentajeRecargoDebito = Number(backendResult?.porcentajeRecargoDebitoAplicado) || 0;
@@ -1611,11 +1640,11 @@
             ? totalBase + recargoDebito
             : (!planGlobalSeleccionado ? (backendResult?.totalConRecargoDebito ?? totalBase) : totalBase);
 
-        if (totalSubtotal) totalSubtotal.textContent = formatCurrency(subtotal);
-        if (totalDescuento) totalDescuento.textContent = `-${formatCurrency(descuento)}`;
-        if (totalIva) totalIva.textContent = formatCurrency(iva);
+        setValorMonetario(totalSubtotal, formatCurrency(subtotal));
+        setValorMonetario(totalDescuento, `-${formatCurrency(descuento)}`);
+        setValorMonetario(totalIva, formatCurrency(iva));
         if (totalFinal) {
-            totalFinal.textContent = formatCurrency(totalDisplay);
+            setValorMonetario(totalFinal, formatCurrency(totalDisplay));
             // Valor numérico del total de productos: venta-page-wizard.js le suma el envío
             // (VENTA-ENVIO-TOTAL-01) sin tener que parsear el texto formateado.
             totalFinal.dataset.valor = String(Number.isFinite(totalDisplay) ? totalDisplay : 0);
@@ -2922,6 +2951,11 @@
             // MVC canónicas. El controlador decide la redirección a crédito luego de
             // persistir, por lo que no se crean borradores desde el navegador.
             submitFinalEnCurso = true;
+            // Feedback de "en curso" en el botón que se apretó (momento focal: confirmar venta).
+            if (e.submitter) {
+                e.submitter.classList.add('vm-btn-busy');
+                e.submitter.setAttribute('aria-busy', 'true');
+            }
             // BLOCKER staging 2026-09-23: deshabilitar el propio submitter (e.submitter) acá
             // lo excluye del form-data en el momento real de envío (el navegador arma el set
             // de campos disabled-aware recién al serializar, después de que corren los
@@ -2933,6 +2967,17 @@
             });
         });
     }
+
+    // Volver con "atrás" puede restaurar la página desde bfcache con el botón aún en curso.
+    window.addEventListener('pageshow', (evento) => {
+        if (!evento.persisted) return;
+        submitFinalEnCurso = false;
+        document.querySelectorAll('.vm-btn-busy').forEach((btn) => {
+            btn.classList.remove('vm-btn-busy');
+            btn.removeAttribute('aria-busy');
+        });
+        ventaForm?.querySelectorAll('button[type="submit"]').forEach((btn) => { btn.disabled = false; });
+    });
 
     // ── 11. Documentation Upload Modal ────────────────────────────────
     const modalDoc = document.querySelector('[data-venta-modal="documentacion"]');

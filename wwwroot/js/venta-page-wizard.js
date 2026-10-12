@@ -168,12 +168,32 @@
         return text || fallback;
     }
 
+    // Continuidad entre pasos (venta-motion.css): el panel entra desde el lado hacia el que
+    // se avanza. Sólo si el operador cambia de paso; la carga inicial no anima.
+    function animarEntradaPanel(panel, pasoPrevio, step) {
+        if (!pasoPrevio || pasoPrevio === step) return;
+        const orden = Array.from(tabButtons).map((button) => button.getAttribute('data-step'));
+        const avanza = orden.indexOf(step) > orden.indexOf(pasoPrevio);
+        const clase = avanza ? 'vm-panel-enter--fwd' : 'vm-panel-enter--back';
+        panel.classList.remove('vm-panel-enter--fwd', 'vm-panel-enter--back');
+        void panel.offsetWidth; // reinicia la animación si se cambia de paso varias veces seguidas
+        panel.classList.add(clase);
+        panel.addEventListener('animationend', function limpiar(evento) {
+            if (evento.target !== panel) return; // animationend de hijos burbujea hasta acá
+            panel.classList.remove(clase);
+            panel.removeEventListener('animationend', limpiar);
+        });
+    }
+
     function setActiveStep(step) {
         if (!step) return;
 
         // H7: el banner de "completá los datos requeridos" está atado al paso donde
         // se originó (mostrarRequisitoCredito); al cambiar de paso pierde contexto.
         ocultarFeedback();
+
+        // Paso previo (undefined en la carga inicial): decide si hay transición y su sentido.
+        const pasoPrevio = root.dataset.pasoActivo || null;
 
         // Hook de layout: con Cotizar activo el CSS oculta [data-venta-workspace]
         // (grilla de la venta + barra móvil) para que el simulador ocupe el ancho.
@@ -204,6 +224,7 @@
             const active = panel.id === `step-panel-${step}`;
             panel.classList.toggle('hidden', !active);
             panel.hidden = !active;
+            if (active) animarEntradaPanel(panel, pasoPrevio, step);
         });
 
         actualizarAccionPrincipal(step);
@@ -364,6 +385,20 @@
     // además al menos un producto cargado.
     // Nota: se lee del hidden de cliente y de las filas de la tabla de detalle
     // (no de #hero-cliente/#hero-detalles-count, que no existen en el DOM actual).
+    function motivoBloqueoPaso(step, clienteListo, productosListo) {
+        if (pasoOculto(step)) return '';
+        if (step === 'productos') return clienteListo ? '' : 'Elegí un cliente para continuar';
+        if (!clienteListo && !productosListo) return 'Elegí un cliente y agregá al menos un producto';
+        if (!clienteListo) return 'Elegí un cliente para continuar';
+        if (!productosListo) return 'Agregá al menos un producto para continuar';
+        if (step === 'revision' && requiereCredito() && !creditoValidado) return 'Verificá el crédito en el paso Crédito';
+        return '';
+    }
+
+    function pasoOculto(step) {
+        return Array.from(tabButtons).some((button) => button.getAttribute('data-step') === step && button.hidden);
+    }
+
     function refreshStepGating() {
         const clienteListo = (parseInt(document.getElementById('hdn-cliente-id')?.value, 10) || 0) > 0;
         const productosListo = (document.getElementById('tbody-detalles')?.children.length || 0) > 0;
@@ -387,6 +422,9 @@
             const disponible = habilitado && !button.hidden;
             button.disabled = !disponible;
             button.setAttribute('aria-disabled', String(!disponible));
+            // Un paso bloqueado dice qué falta (tooltip); al habilitarse el texto se retira.
+            const motivo = disponible ? '' : motivoBloqueoPaso(step, clienteListo, productosListo);
+            if (motivo) button.title = motivo; else button.removeAttribute('title');
             if (!disponible) button.tabIndex = -1;
         });
 
