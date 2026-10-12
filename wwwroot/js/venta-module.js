@@ -8,15 +8,6 @@
 
     window.VentaModule = window.VentaModule || {};
 
-    // View Transitions entre páginas (venta-motion.css): si el navegador aborta una transición
-    // (p. ej. el operador navega de nuevo antes de que termine) la promesa rechaza y queda un
-    // error "Transition was aborted" en consola. La transición es sólo cosmética: se descarta.
-    window.addEventListener('pagereveal', (evento) => {
-        const transicion = evento.viewTransition;
-        if (!transicion) return;
-        ['ready', 'finished', 'updateCallbackDone'].forEach((nombre) => transicion[nombre]?.catch?.(() => {}));
-    });
-
     if (window.VentaModule.initSharedUi) {
         return;
     }
