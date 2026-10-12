@@ -1106,6 +1106,7 @@
         const seq = state.simSeq;
         setBusy(true);
         els.totalesBar?.setAttribute('aria-busy', 'true');
+        els.resultados?.setAttribute('aria-busy', 'true');
         try {
             const data = await fetchJson(urls.simular, {
                 method: 'POST',
@@ -1139,6 +1140,7 @@
         } finally {
             setBusy(false);
             els.totalesBar?.removeAttribute('aria-busy');
+            els.resultados?.removeAttribute('aria-busy');
         }
     }
 
