@@ -147,7 +147,19 @@
 
             panels.forEach((panel) => {
                 const active = panel.dataset.ventaTabPanel === target;
+                const seMuestra = active && panel.hidden;
                 panel.hidden = !active;
+                if (seMuestra) {
+                    // Fade corto sólo al cambiar de tab (venta-motion.css).
+                    panel.classList.remove('vm-tab-enter');
+                    void panel.offsetWidth;
+                    panel.classList.add('vm-tab-enter');
+                    panel.addEventListener('animationend', function limpiar(evento) {
+                        if (evento.target !== panel) return;
+                        panel.classList.remove('vm-tab-enter');
+                        panel.removeEventListener('animationend', limpiar);
+                    });
+                }
             });
 
             ensureTabVisible(tab);
@@ -208,6 +220,29 @@
     }
 
     initTabs();
+
+    // ── Filtros automáticos (mismo criterio que Cliente/Index) ──
+    // Selects: se consulta apenas cambia la opción. Texto y fechas: con debounce para no
+    // disparar un request por tecla ni por cada dígito del año. "Filtrar" sigue disponible.
+    (function initFiltrosAutomaticos() {
+        const form = document.getElementById('form-filtros');
+        if (!form) return;
+
+        let temporizador;
+        const aplicar = (demora) => {
+            window.clearTimeout(temporizador);
+            temporizador = window.setTimeout(() => {
+                const desde = form.elements.FechaDesde?.value;
+                const hasta = form.elements.FechaHasta?.value;
+                if (desde && hasta && desde > hasta) return; // rango invertido: lo corrige el operador
+                form.requestSubmit();
+            }, demora);
+        };
+
+        form.querySelectorAll('select').forEach((el) => el.addEventListener('change', () => aplicar(0)));
+        form.querySelectorAll('input[type="date"]').forEach((el) => el.addEventListener('change', () => aplicar(700)));
+        form.querySelectorAll('input[type="text"]').forEach((el) => el.addEventListener('input', () => aplicar(450)));
+    })();
 
     // filter panel toggle — handled by module-index.js (shared)
 })();
