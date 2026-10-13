@@ -754,19 +754,17 @@
                                                                     <p>Registros reales en estado cotización o presupuesto.</p>
                                                                 </div>
                                                             </div>
-                                                            <div class="quote-grid">
+                                                            <div class="compact-list">
                                                                 @foreach (var v in cotizacionesPresupuestos)
                                                                 {
-                                                                    <article class="card card-sub quote-card">
-                                                                        <div class="quote-card__top">
-                                                                            <span class="pill @EstadoPillClass(v.Estado)">@EstadoLabel(v.Estado, v.EstadoDisplay)</span>
-                                                                            <strong>$@v.Total.ToString("N2")</strong>
+                                                                    <article class="card card-sub compact-item">
+                                                                        <div>
+                                                                            <a asp-action="Details" asp-route-id="@v.Id" class="sale-number no-underline">@v.Numero</a>
+                                                                            <p>@v.ClienteNombre</p>
                                                                         </div>
-                                                                        <a asp-action="Details" asp-route-id="@v.Id" class="sale-number no-underline">@v.Numero</a>
-                                                                        <p>@v.ClienteNombre</p>
-                                                                        <div class="quote-card__actions">
-                                                                            <a asp-action="Details" asp-route-id="@v.Id" class="btn btn-xs btn-soft no-underline">Ver</a>
-                                                                        </div>
+                                                                        <span class="pill @EstadoPillClass(v.Estado)">@EstadoLabel(v.Estado, v.EstadoDisplay)</span>
+                                                                        <strong>$@v.Total.ToString("N2")</strong>
+                                                                        <a asp-action="Details" asp-route-id="@v.Id" class="btn btn-xs btn-soft no-underline">Ver</a>
                                                                     </article>
                                                                 }
                                                                 @if (!cotizacionesPresupuestos.Any())

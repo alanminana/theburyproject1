@@ -290,7 +290,7 @@ public sealed class CotizacionConversionService : ICotizacionConversionService
                 {
                     ProductoId = detalle.ProductoId,
                     Cantidad = (int)detalle.Cantidad,
-                    Producto = producto
+                    Producto = producto!
                 });
             }
 

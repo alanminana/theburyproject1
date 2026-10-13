@@ -266,6 +266,20 @@
                 </button>
             </div>
         </aside>
+        <script>
+            /* Restaura el estado colapsado antes del primer paint (layout.js corre
+               al final del body y hacía que el sidebar se abriera y se cerrara con
+               animación en cada navegación). Mismas condiciones que layout.js (sin excepción por rango: el
+               auto-collapse por CSS requiere body.sidebar-auto-collapse, que no se usa). */
+            (function () {
+                try {
+                    if (matchMedia('(min-width: 1024px)').matches
+                        && localStorage.getItem('sidebar-collapsed') === '1') {
+                        document.getElementById('sidebar').classList.add('collapsed');
+                    }
+                } catch (e) { }
+            })();
+        </script>
 
         <!-- Overlay mobile -->
         <div id="sidebarOverlay" class="fixed inset-0 bg-black/50 z-40 hidden lg:hidden" aria-hidden="true"></div>
@@ -285,12 +299,12 @@
                     </button>
 
                     <!-- Page title (visible en todos los anchos: en <lg es el unico nombre de modulo, la sidebar es drawer) -->
-                    <div class="text-lg font-bold text-white truncate min-w-0" data-page-title>
+                    <div class="header-title text-lg font-bold text-white truncate min-w-0" data-page-title>
                         @ViewData["Title"]
                     </div>
                 </div>
 
-                <div class="flex items-center gap-4 shrink-0">
+                <div class="header-actions flex items-center gap-4 shrink-0">
 
 
 
@@ -315,7 +329,7 @@
                         </button>
                     }
 
-                    <div class="h-8 w-px bg-slate-700"></div>
+                    <div class="header-divider h-8 w-px bg-slate-700"></div>
 
                     <!-- Help -->
                     <button type="button" aria-label="Ayuda"
@@ -323,7 +337,7 @@
                         <span class="material-symbols-outlined icon-erp-lg" aria-hidden="true">help</span>
                     </button>
 
-                    <div class="h-8 w-px bg-slate-700"></div>
+                    <div class="header-divider h-8 w-px bg-slate-700"></div>
 
                     <!-- Menú de usuario -->
                     @{

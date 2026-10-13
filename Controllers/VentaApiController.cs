@@ -102,6 +102,25 @@ namespace TheBuryProject.Controllers
             }
         }
 
+        /// <summary>
+        /// Evalúa si un cliente ya elegido (venta precargada, cambio al paso Revisión) tiene los datos vencidos.
+        /// </summary>
+        [HttpGet]
+        public async Task<IActionResult> EstadoActualizacionDatosCliente(int clienteId)
+        {
+            try
+            {
+                var estado = await _actualizacionDatosClienteService.EvaluarClienteAsync(clienteId);
+                return Ok(new { requiereActualizacion = estado.Requiere, diasSinActualizar = estado.DiasTranscurridos });
+            }
+            catch (Exception ex)
+            {
+                // El aviso es accesorio: nunca debe impedir vender.
+                _logger.LogWarning(ex, "No se pudo evaluar la actualización de datos del cliente {Id}", clienteId);
+                return Ok(new { requiereActualizacion = false, diasSinActualizar = 0 });
+            }
+        }
+
         #endregion
 
         #region Productos

@@ -3,6 +3,13 @@ using TheBuryProject.ViewModels;
 
 namespace TheBuryProject.Services.Interfaces
 {
+    /// <summary>Una página de proveedores con los totales del filtro aplicado (no de la página).</summary>
+    public sealed record ProveedorPaginaResultado(
+        IReadOnlyList<Proveedor> Items,
+        int Total,
+        int TotalActivos,
+        int PageNumber);
+
     public interface IProveedorService
     {
         Task<IEnumerable<Proveedor>> GetAllAsync();
@@ -16,6 +23,17 @@ namespace TheBuryProject.Services.Interfaces
             bool soloActivos = false,
             string? orderBy = null,
             string? orderDirection = "asc");
+
+        /// <summary>
+        /// Misma búsqueda que <see cref="SearchAsync"/>, pero devuelve una sola página y los totales del filtro completo.
+        /// </summary>
+        Task<ProveedorPaginaResultado> SearchPagedAsync(
+            string? searchTerm,
+            bool soloActivos,
+            string? orderBy,
+            string? orderDirection,
+            int pageNumber,
+            int pageSize);
 
         /// <summary>
         /// Obtiene los productos asociados a un proveedor (relaciones activas, no eliminadas).

@@ -332,7 +332,7 @@ namespace TheBuryProject.Services
             {
                 Venta = venta,
                 Credito = credito,
-                Cliente = venta.Cliente,
+                Cliente = venta.Cliente!, // ValidarCliente ya registró el error si es null
                 Plantilla = plantilla,
                 PlanCuotas = planCuotas
             };

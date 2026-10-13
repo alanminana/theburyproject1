@@ -53,6 +53,8 @@ const ProveedorEditarModal = (() => {
         // carga y devuelve productos, categorías y marcas; si faltara alguno, se borrarían al guardar.
         checkGroup('CategoriasSeleccionadas', data.categoriasSeleccionadas);
         checkGroup('MarcasSeleccionadas', data.marcasSeleccionadas);
+        base.refreshCounts();
+        base.refreshCuitAdvice(base.form().querySelector('[name="Cuit"]'));
         const picker = base.form().querySelector('.proveedor-product-picker');
         if (!picker || !picker._picker) {
             // Sin el selector inicializado el formulario no enviaría los productos y se borrarían al guardar.

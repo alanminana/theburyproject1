@@ -76,9 +76,8 @@
         }
     }
 
-    // Restore persisted state — se omite en el rango donde CSS ya auto-colapsa (notebooks 125%)
-    const mediaAutoCollapse = window.matchMedia('(min-width: 1024px) and (max-width: 1600px)');
-    if (window.matchMedia('(min-width: 1024px)').matches && !mediaAutoCollapse.matches) {
+    // Restore persisted state (el script inline de _Layout ya lo aplicó antes del primer paint)
+    if (window.matchMedia('(min-width: 1024px)').matches) {
         applySidebarState(localStorage.getItem(STORAGE_KEY) === '1');
     }
 

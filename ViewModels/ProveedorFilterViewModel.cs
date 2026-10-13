@@ -13,7 +13,11 @@ namespace TheBuryProject.ViewModels
         public string? OrderDirection { get; set; }
 
         public IEnumerable<ProveedorViewModel> Proveedores { get; set; } = new List<ProveedorViewModel>();
+        /// <summary>Total del filtro aplicado (todas las páginas), no solo los de la página actual.</summary>
         public int TotalResultados { get; set; }
+        public int TotalActivos { get; set; }
+        public int PageNumber { get; set; } = 1;
+        public int PageSize { get; set; } = 25;
 
         // Asociaciones para el modal de creación
         public List<SelectListItem> CategoriasDisponibles { get; set; } = new();

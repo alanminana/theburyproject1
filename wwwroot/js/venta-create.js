@@ -841,14 +841,49 @@
         document.dispatchEvent(new CustomEvent('venta:cliente-seleccionado', { detail: clienteSeleccionado }));
 
         // Aviso periódico de actualización de datos (lo decide el servidor según la configuración global).
+        avisoRevisionMostrado = false;
         if (item.dataset.requiereActualizacion === '1') {
-            window.ClienteActualizarDatos?.mostrar({
-                id: clienteSeleccionado.id,
-                nombre: `${clienteSeleccionado.nombre} ${clienteSeleccionado.apellido}`.trim(),
-                dias: Number(item.dataset.diasSinActualizar) || 0,
-                nuevaPestana: true
-            });
+            mostrarAvisoActualizacion(
+                `${clienteSeleccionado.nombre} ${clienteSeleccionado.apellido}`.trim(),
+                Number(item.dataset.diasSinActualizar) || 0);
         }
+    });
+
+    // Aviso de datos vencidos en Venta: se muestra al elegir el cliente, al abrir una venta que ya
+    // trae cliente (editar / convertir cotización) y una vez más al llegar a Revisión.
+    let avisoRevisionMostrado = false;
+
+    function mostrarAvisoActualizacion(nombre, dias) {
+        if (!clienteSeleccionado) return;
+        window.ClienteActualizarDatos?.mostrar({
+            id: clienteSeleccionado.id,
+            nombre: nombre,
+            dias: dias,
+            nuevaPestana: true,
+            ignorarPospuesto: true
+        });
+    }
+
+    async function verificarActualizacionCliente() {
+        if (!clienteSeleccionado || !clienteSeleccionado.id) return;
+        const id = clienteSeleccionado.id;
+        try {
+            const resp = await fetch('/api/ventas/EstadoActualizacionDatosCliente?clienteId=' + encodeURIComponent(id),
+                { headers: { Accept: 'application/json' } });
+            if (!resp.ok) return;
+            const estado = await resp.json();
+            if (estado.requiereActualizacion && clienteSeleccionado && clienteSeleccionado.id === id) {
+                mostrarAvisoActualizacion(
+                    `${clienteSeleccionado.nombre || ''} ${clienteSeleccionado.apellido || ''}`.trim(),
+                    estado.diasSinActualizar || 0);
+            }
+        } catch { /* aviso accesorio */ }
+    }
+
+    document.addEventListener('venta:wizard-paso-activo', function (e) {
+        if (e.detail?.step !== 'revision' || avisoRevisionMostrado) return;
+        avisoRevisionMostrado = true;
+        verificarActualizacionCliente();
     });
 
     btnLimpiarCliente?.addEventListener('click', function () {
@@ -3164,6 +3199,7 @@
         if (infoClienteDoc) infoClienteDoc.textContent = clienteSeleccionado.documentoTexto;
         show(infoCliente);
         if (inputBuscarCliente) hide(inputBuscarCliente.parentElement);
+        verificarActualizacionCliente();
     }
 
     // Seed de detalles existentes en modo edición (Fase 8.2.S)
