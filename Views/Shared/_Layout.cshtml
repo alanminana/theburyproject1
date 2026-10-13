@@ -61,7 +61,6 @@
 
         string? NavCurrent(bool active) => active ? "page" : null;
 
-        var canViewDashboard = User.TienePermiso("dashboard", "view");
         var canViewNotifications = User.TienePermiso("notificaciones", "view");
         var canViewVentas = User.TienePermiso("ventas", "view");
         var canViewCotizaciones = User.TienePermiso("cotizaciones", "view");
@@ -85,7 +84,6 @@
         var canViewDocumentos = User.TienePermiso("documentos", "view");
 
 
-        var isDashboardActive = IsActive("Home") || IsActive("Dashboard");
 
         var showOperaciones = canViewVentas || canViewClientes || canViewDocumentos;
         var showLogistica = canViewInventario || canViewProveedores || canViewCaja;
@@ -121,17 +119,6 @@
 
             <!-- Nav -->
             <nav class="flex-1 px-4 space-y-8 mt-4 overflow-y-auto overflow-x-hidden">
-
-                @if (canViewDashboard)
-                {
-                    <div class="space-y-1">
-                        <a class="@NavClass(isDashboardActive)" aria-current="@NavCurrent(isDashboardActive)"
-                           asp-controller="Home" asp-action="Index" title="Dashboard">
-                            <span class="material-symbols-outlined text-lg shrink-0" aria-hidden="true">dashboard</span>
-                            <p class="@NavFont(isDashboardActive) sidebar-label">Dashboard</p>
-                        </a>
-                    </div>
-                }
 
                 @if (showOperaciones)
                 {
@@ -267,97 +254,7 @@
                         </div>
                     </div>
                 }
-
-                @if (showSistemas)
-                {
-                    <div>
-                        <p class="px-3 text-[11px] font-bold text-slate-300 uppercase tracking-widest mb-2 sidebar-label">
-                            Sistemas
-                        </p>
-
-                        <div class="space-y-1">
-                            @if (canViewSeguridad)
-                            {
-                                var active = IsActive("Seguridad") || IsActive("Usuarios") || IsActive("Roles");
-
-                                <a class="@NavClass(active)" aria-current="@NavCurrent(active)" asp-controller="Seguridad"
-                                   asp-action="Index" title="Seguridad">
-                                    <span class="material-symbols-outlined text-lg shrink-0" aria-hidden="true">security</span>
-                                    <p class="@NavFont(active) sidebar-label">Seguridad</p>
-                                </a>
-                            }
-
-                            @if (canViewConfiguracion)
-                            {
-                                var active = IsActive("ConfiguracionPago") || IsActive("ServiciosVenta")
-                                    || IsActive("ConfiguracionRentabilidad") || IsActive("ConfiguracionMora")
-                                    || IsActive("ConfiguracionContratoCredito") || IsActive("PlantillaContratoCredito")
-                                    || IsActive("DocumentosConfig") || IsActive("ConfiguracionCliente");
-
-                                <a class="@NavClass(active)" aria-current="@NavCurrent(active)"
-                                   asp-controller="ConfiguracionPago" asp-action="MediosPago" title="Configuración">
-                                    <span class="material-symbols-outlined text-lg shrink-0" aria-hidden="true">settings</span>
-                                    <p class="@NavFont(active) sidebar-label">Configuración</p>
-                                </a>
-                            }
-
-                            @if (canViewTickets)
-                            {
-                                var active = IsActive("Ticket");
-
-                                <a class="@NavClass(active)" aria-current="@NavCurrent(active)" asp-controller="Ticket"
-                                   asp-action="Index" title="Tickets">
-                                    <span class="material-symbols-outlined text-lg shrink-0"
-                                          aria-hidden="true">bug_report</span>
-                                    <p class="@NavFont(active) sidebar-label">Tickets</p>
-                                </a>
-                            }
-                        </div>
-                    </div>
-                }
             </nav>
-
-            <!-- User info -->
-            <div class="p-4 border-t border-slate-700">
-                @{
-                    var userRoles = User.Claims
-                        .Where(c => c.Type == System.Security.Claims.ClaimTypes.Role)
-                        .Select(c => c.Value)
-                        .ToList();
-
-                    var roleDisplay = userRoles.Any()
-                        ? string.Join(", ", userRoles)
-                        : "Usuario";
-                }
-
-                <div class="flex items-center gap-3 p-2 overflow-hidden">
-                    <div
-                        class="size-8 rounded-full bg-slate-700 overflow-hidden flex items-center justify-center shrink-0">
-                        <span class="material-symbols-outlined text-slate-300 text-lg shrink-0"
-                              aria-hidden="true">account_circle</span>
-                    </div>
-
-                    <div class="flex flex-col sidebar-label min-w-0">
-                        <p class="text-xs font-bold text-white leading-none whitespace-nowrap truncate">
-                            @(User.Identity?.Name ?? "?")
-                        </p>
-                        <p class="text-xs text-slate-300 mt-1 whitespace-nowrap truncate">
-                            @roleDisplay
-                        </p>
-                    </div>
-                </div>
-
-                <form method="post" asp-area="Identity" asp-page="/Account/Logout"
-                      asp-route-returnUrl="@Url.Action("Index", "Home", new { area = string.Empty })"
-                      class="sidebar-label mt-1">
-
-                    <button type="submit"
-                            class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-slate-400 hover:bg-rose-500/10 hover:text-rose-500 transition-colors text-xs font-medium cursor-pointer border-0 bg-transparent">
-                        <span class="material-symbols-outlined icon-erp" aria-hidden="true">logout</span>
-                        <span>Cerrar sesión</span>
-                    </button>
-                </form>
-            </div>
 
             <!-- Collapse toggle desktop -->
             <div class="hidden lg:flex p-3 border-t border-slate-700 justify-center">
@@ -425,6 +322,82 @@
                             class="bg-primary/10 hover:bg-primary/20 text-primary-on-dark p-2 rounded-lg transition-colors">
                         <span class="material-symbols-outlined icon-erp-lg" aria-hidden="true">help</span>
                     </button>
+
+                    <div class="h-8 w-px bg-slate-700"></div>
+
+                    <!-- Menú de usuario -->
+                    @{
+                        var userRoles = User.Claims
+                            .Where(c => c.Type == System.Security.Claims.ClaimTypes.Role)
+                            .Select(c => c.Value)
+                            .ToList();
+                        var roleDisplay = userRoles.Any() ? string.Join(", ", userRoles) : "Usuario";
+                    }
+                    <div class="relative" data-user-menu>
+                        <button type="button" data-user-menu-toggle
+                                class="flex items-center gap-3 p-1.5 pr-2 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+                                aria-haspopup="menu" aria-expanded="false" aria-controls="user-menu-panel">
+                            <span class="size-8 rounded-full bg-slate-700 flex items-center justify-center shrink-0">
+                                <span class="material-symbols-outlined text-slate-300 text-lg" aria-hidden="true">account_circle</span>
+                            </span>
+                            <span class="hidden sm:flex flex-col min-w-0 text-left">
+                                <span class="text-xs font-bold text-white leading-none truncate max-w-32">@(User.Identity?.Name ?? "?")</span>
+                                <span class="text-xs text-slate-300 mt-1 truncate max-w-32">@roleDisplay</span>
+                            </span>
+                            <span class="material-symbols-outlined text-slate-400 text-lg" aria-hidden="true">expand_more</span>
+                        </button>
+                        <div id="user-menu-panel" role="menu" hidden
+                             class="absolute right-0 top-full mt-2 w-56 rounded-lg border border-slate-700 bg-slate-900 shadow-xl p-1 z-50">
+                            <div class="px-3 py-2 border-b border-slate-700 mb-1 sm:hidden">
+                                <p class="text-xs font-bold text-white truncate">@(User.Identity?.Name ?? "?")</p>
+                                <p class="text-xs text-slate-300 truncate">@roleDisplay</p>
+                            </div>
+                            @if (showSistemas)
+                            {
+                                <div class="user-menu-section" role="none">
+                                    @if (canViewSeguridad)
+                                    {
+                                        var segActive = IsActive("Seguridad") || IsActive("Usuarios") || IsActive("Roles");
+                                        <a class="user-menu-item" role="menuitem" aria-current="@NavCurrent(segActive)"
+                                           asp-controller="Seguridad" asp-action="Index">
+                                            <span class="material-symbols-outlined icon-erp" aria-hidden="true">security</span>
+                                            <span>Seguridad</span>
+                                        </a>
+                                    }
+                                    @if (canViewConfiguracion)
+                                    {
+                                        var cfgActive = IsActive("ConfiguracionPago") || IsActive("ServiciosVenta")
+                                            || IsActive("ConfiguracionRentabilidad") || IsActive("ConfiguracionMora")
+                                            || IsActive("ConfiguracionContratoCredito") || IsActive("PlantillaContratoCredito")
+                                            || IsActive("DocumentosConfig") || IsActive("ConfiguracionCliente");
+                                        <a class="user-menu-item" role="menuitem" aria-current="@NavCurrent(cfgActive)"
+                                           asp-controller="ConfiguracionPago" asp-action="MediosPago">
+                                            <span class="material-symbols-outlined icon-erp" aria-hidden="true">settings</span>
+                                            <span>Configuración</span>
+                                        </a>
+                                    }
+                                    @if (canViewTickets)
+                                    {
+                                        var tkActive = IsActive("Ticket");
+                                        <a class="user-menu-item" role="menuitem" aria-current="@NavCurrent(tkActive)"
+                                           asp-controller="Ticket" asp-action="Index">
+                                            <span class="material-symbols-outlined icon-erp" aria-hidden="true">bug_report</span>
+                                            <span>Tickets</span>
+                                        </a>
+                                    }
+                                </div>
+                                <div class="user-menu-sep" role="separator"></div>
+                            }
+                            <form method="post" asp-area="Identity" asp-page="/Account/Logout"
+                                  asp-route-returnUrl="@Url.Action("Index", "Home", new { area = string.Empty })">
+                                <button type="submit" role="menuitem"
+                                        class="w-full flex items-center gap-2 px-3 py-2 rounded-md text-slate-300 hover:bg-rose-500/10 hover:text-rose-500 transition-colors text-sm font-medium cursor-pointer border-0 bg-transparent">
+                                    <span class="material-symbols-outlined icon-erp" aria-hidden="true">logout</span>
+                                    <span>Cerrar sesión</span>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
                 </div>
             </header>
 

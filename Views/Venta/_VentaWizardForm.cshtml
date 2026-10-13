@@ -1121,9 +1121,25 @@
                                                                                                            cards") — la sección inyectada (.card.card-pad) ya aporta su propia jerarquía
                                                                                                            visual. #panel-configuracion-credito conserva id/DOM/selectors JS intactos. *@
                                                                                                         <div id="panel-configuracion-credito">
-                                                                                                            <div id="credito-embebido-cargando" class="hidden items-center gap-2 text-xs text-slate-400" aria-live="polite">
-                                                                                                                <span class="material-symbols-outlined animate-spin text-sm">progress_activity</span>
-                                                                                                                Preparando configuración del crédito…
+                                                                                                            <div id="credito-embebido-cargando" class="hidden vm-cargando-credito text-xs text-slate-400" aria-live="polite">
+                                                                                                                <p class="flex items-center gap-2">
+                                                                                                                    <span class="material-symbols-outlined animate-spin text-sm">progress_activity</span>
+                                                                                                                    Preparando configuración del crédito…
+                                                                                                                </p>
+                                                                                                                @* Silueta del configurador (mismo orden: resumen, campos, acción) para que el
+                                                                                                                   panel no salte cuando llega el fragmento real. Decorativa: el aviso es el texto. *@
+                                                                                                                <div class="vm-skeleton" aria-hidden="true">
+                                                                                                                    <div class="vm-skeleton__fila vm-skeleton__fila--3">
+                                                                                                                        <span class="vm-skeleton__bloque"></span>
+                                                                                                                        <span class="vm-skeleton__bloque"></span>
+                                                                                                                        <span class="vm-skeleton__bloque"></span>
+                                                                                                                    </div>
+                                                                                                                    <div class="vm-skeleton__fila vm-skeleton__fila--2">
+                                                                                                                        <span class="vm-skeleton__campo"></span>
+                                                                                                                        <span class="vm-skeleton__campo"></span>
+                                                                                                                    </div>
+                                                                                                                    <span class="vm-skeleton__accion"></span>
+                                                                                                                </div>
                                                                                                             </div>
                                                                                                             <div id="credito-embebido-error" class="hidden alert alert-bad text-xs" role="alert"></div>
                                                                                                             <div id="credito-embebido-contenedor"></div>

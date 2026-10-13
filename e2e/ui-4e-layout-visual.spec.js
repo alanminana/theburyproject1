@@ -365,15 +365,14 @@ test.describe('Teclado y accesibilidad desktop', () => {
         await shot(page, 'focus-visible-nav-desktop');
     });
 
-    test('sidebar activo visible en dashboard — corregido UI-4F', async ({ page }) => {
+    test('dashboard sin item propio en el sidebar (el logo lleva al inicio)', async ({ page }) => {
         await page.setViewportSize(VIEWPORTS.desktop);
         const ok = await gotoAuthenticated(page, ROUTES.dashboard);
         if (!ok) { test.skip(); }
 
-        // UI-4F: Dashboard/Home debe tener exactamente un item nav-item-active en el sidebar.
-        const activeItems = page.locator('.nav-item-active');
-        await expect(activeItems).toHaveCount(1, { timeout: 5_000 });
-        await expect(activeItems.first()).toHaveAttribute('aria-current', 'page');
+        // El item Dashboard se retiro del sidebar: en el dashboard no hay nav-item-active.
+        await expect(page.locator('.nav-item-active')).toHaveCount(0, { timeout: 5_000 });
+        await expect(page.locator('#sidebar a[title="TheBuryProject — Inicio"]')).toBeVisible();
         await shot(page, 'nav-active-state-desktop');
     });
 });

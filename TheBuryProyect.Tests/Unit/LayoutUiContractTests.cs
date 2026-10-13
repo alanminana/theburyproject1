@@ -373,27 +373,26 @@ public class LayoutUiContractTests
         Assert.Contains("#sidebarOverlay.active", css);
     }
 
-    // ── UI-4F: nav activo Dashboard ───────────────────────────────────────
+    // ── Inicio: el logo reemplaza al item Dashboard del sidebar ───────────
 
     [Fact]
-    public void Layout_TieneNavItemDashboard()
+    public void Layout_LogoLlevaAInicio_SinItemDashboardEnSidebar()
     {
-        // UI-4F: el sidebar debe tener un enlace a Home/Index con lógica IsActive("Home").
         var layout = ReadLayout();
-        Assert.Contains("IsActive(\"Home\")", layout);
-        Assert.Contains("asp-controller=\"Home\"", layout);
-        Assert.Contains("asp-action=\"Index\"", layout);
-        Assert.Contains("title=\"Dashboard\"", layout);
+        Assert.Contains("title=\"TheBuryProject — Inicio\"", layout);
+        Assert.DoesNotContain("title=\"Dashboard\"", layout);
+        Assert.DoesNotContain("isDashboardActive", layout);
     }
 
     [Fact]
-    public void Layout_NavDashboardActivoConControladorDashboard()
+    public void Layout_MenuUsuarioEnHeader_ConSistemasYCerrarSesion()
     {
-        // UI-4G: Home redirige a Dashboard en runtime, por eso la condición cubre ambos controladores.
-        // Sin IsActive("Dashboard"), el nav-item-active no aparece al navegar al dashboard real.
         var layout = ReadLayout();
-        Assert.Contains("IsActive(\"Dashboard\")", layout);
-        Assert.Contains("isDashboardActive", layout);
+        var menu = layout.Substring(layout.IndexOf("data-user-menu", StringComparison.Ordinal));
+        Assert.Contains("asp-controller=\"Seguridad\"", menu);
+        Assert.Contains("asp-controller=\"ConfiguracionPago\"", menu);
+        Assert.Contains("asp-controller=\"Ticket\"", menu);
+        Assert.Contains("/Account/Logout", menu);
     }
 
     // ── UI-4C: contratos de accesibilidad mobile ──────────────────────────
