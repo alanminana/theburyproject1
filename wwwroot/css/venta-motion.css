@@ -147,6 +147,54 @@
     }
 }
 
+/* ── Carga: silueta del configurador de crédito (paso Crédito) ──
+   Opacidad pulsante (no gradiente animado: sólo opacity, barato). El contenedor es flex
+   (lo conmuta venta-credito-embebido.js con hidden/flex); acá sólo la dirección. */
+
+@keyframes vm-skeleton-pulso {
+    from { opacity: 0.45; }
+    to   { opacity: 0.9; }
+}
+
+.vm-cargando-credito {
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+.vm-skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.vm-skeleton__fila {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.vm-skeleton__fila--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.vm-skeleton__fila--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+.vm-skeleton__bloque,
+.vm-skeleton__campo,
+.vm-skeleton__accion {
+    display: block;
+    border-radius: 0.75rem;
+    background-color: color-mix(in srgb, var(--pal-neutral-600) 55%, transparent);
+    animation: vm-skeleton-pulso 900ms ease-in-out infinite alternate;
+}
+
+.vm-skeleton__bloque { height: 3.75rem; }
+.vm-skeleton__campo  { height: 2.75rem; }
+.vm-skeleton__accion { height: 2.75rem; width: 11rem; }
+
+/* Mobile: el resumen sigue en tres columnas (más bajo) y los campos se apilan; así la
+   silueta no ocupa más de lo que ocupará el configurador real. */
+@media (max-width: 40rem) {
+    .vm-skeleton__fila--2 { grid-template-columns: minmax(0, 1fr); }
+    .vm-skeleton__bloque { height: 3rem; }
+}
+
 /* ── Feedback: botón en curso (submit) ─────────────────────────
    El submitter queda habilitado a propósito (ver venta-create.js); se
    comunica el estado con aria-busy + spinner y se bloquea el puntero. */
@@ -205,6 +253,14 @@
     :root:root .vm-badge-flash {
         animation-name: vm-fade-in !important;
         animation-duration: 400ms !important;
+    }
+
+    /* Silueta de carga: queda fija (el texto "Preparando…" ya comunica la espera). */
+    :root:root .vm-skeleton__bloque,
+    :root:root .vm-skeleton__campo,
+    :root:root .vm-skeleton__accion {
+        animation: none !important;
+        opacity: 0.7;
     }
 
     /* Spinner: sin giro; el aro parcial sigue indicando "en curso". */
