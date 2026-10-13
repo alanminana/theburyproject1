@@ -1,0 +1,29 @@
+/* ══════════════════════════════════════════════════════════════
+   VENTA — Transición entre páginas (View Transitions, documento a documento)
+
+   Sólo Index y Details la cargan: la regla tiene que estar en AMBAS páginas para que
+   haya transición, así que Index ↔ Details (y Index → Index al filtrar/paginar) se
+   cruzan con un fade corto y el resto del módulo (wizard Create/Edit, páginas
+   auxiliares) queda fuera a propósito.
+
+   Por qué acotada: una versión anterior en todo el módulo retenía el render de la
+   página nueva y rompía la suite E2E (el chequeo "stable" de Playwright depende de
+   requestAnimationFrame). venta-module.js además la omite cuando el navegador está
+   automatizado (navigator.webdriver).
+   ══════════════════════════════════════════════════════════════ */
+
+@view-transition {
+    navigation: auto;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+    animation-duration: 160ms;
+    animation-timing-function: ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    @view-transition {
+        navigation: none;
+    }
+}
