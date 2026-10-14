@@ -175,7 +175,9 @@ test.describe('STOCK', () => {
     test('S21b doble envio simultaneo del mismo formulario (idempotencia)', async ({ admin, st }) => {
         const R = `${st.prefix}-S21B`;
         const p = await mk(admin, st, R, { StockActual: '0' });
-        const rs = await Promise.all([1, 2, 3].map(() => ajuste(admin, p.id, 0, 5, { Referencia: 'DOBLE-CLICK' })));
+        // Los formularios reales traen un RequestId por render (B4): el doble clic reenvía el MISMO identificador.
+        const requestId = require('crypto').randomUUID();
+        const rs = await Promise.all([1, 2, 3].map(() => ajuste(admin, p.id, 0, 5, { Referencia: 'DOBLE-CLICK', RequestId: requestId })));
         const movs = db.movimientos(p.id);
         evidence('S21b', { statuses: rs.map(r => r.status()), movs, stock: db.producto(R).stock });
         expect(cadenaOk(movs, db.producto(R).stock)).toBeNull(); // integridad pase lo que pase
