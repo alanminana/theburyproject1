@@ -42,31 +42,39 @@ y `MoraConfiguracionExpandidaPreservacionServiceTests` (SQLite en memoria).
 **Fuera de alcance:** no se reconstruyó ninguna configuración histórica. Los valores que ya se
 perdieron en bases reales siguen como están.
 
-## 2. Concurrencia entre administradores (PENDIENTE)
+## 2. Concurrencia entre administradores (RESUELTO, 2026-10-14, QA-CFG-FIX)
 
-**Hallazgo.** El formulario publica `RowVersion`, pero `UpdateConfiguracionExpandidaAsync` lo ignora:
-carga la entidad fresca y nunca asigna `Entry(config).Property(c => c.RowVersion).OriginalValue`.
-EF compara contra la versión recién leída, así que nunca hay `DbUpdateConcurrencyException`.
+**Hallazgo original.** `UpdateConfiguracionExpandidaAsync` ignoraba el `RowVersion` publicado por el
+formulario: EF comparaba contra la versión recién leída y el segundo administrador pisaba en silencio
+el guardado del primero (last-write-wins).
 
-**Escenario reproducido** (test `DosAdministradores_FormularioViejo_NoRevierteElGuardadoAnterior`,
-hoy en `Skip`):
+**Corrección.**
 
-1. A y B abren el formulario con `TasaMoraBase = 4.5`.
-2. A guarda `TasaMoraBase = 9`.
-3. B cambia sólo `DiasGracia` y guarda con su formulario viejo, que todavía trae `TasaMoraBase = 4.5`.
-4. Resultado: `TasaMoraBase = 4.5`. El cambio de A se revierte sin aviso (last-write-wins).
+- Con `camposEnviados != null` (todo POST de formulario) el `RowVersion` es obligatorio: se asigna como
+  `OriginalValue` y, si falta o está vacío, se rechaza con "Falta información de concurrencia".
+  Un formulario sin token no elude la protección. Sólo las llamadas internas con el ViewModel
+  completo (`camposEnviados == null`) pueden omitirlo; si lo traen, se valida igual.
+- `DbUpdateConcurrencyException` se traduce a `InvalidOperationException("La configuración fue modificada
+  por otro usuario. Recargá los datos e intentá nuevamente.")`; el controller ya lo muestra en `TempData["Error"]`.
+  La entidad obsoleta se desasocia del contexto: nada de lo aplicado se persiste.
+- Test `DosAdministradores_FormularioViejo_NoRevierteElGuardadoAnterior` habilitado, más
+  `FormularioSinRowVersion_NoEludeLaProteccion`, `FormularioConRowVersionAjeno_…` y dos tests de servicio.
+- Verificado con SQL Server real (rowversion nativo): ver `docs/qa-cfg-resultados.md`.
 
-La corrección de la sección 1 reduce el alcance de este problema a los 14 campos del formulario,
-pero no lo elimina.
+**Pendiente de decisión:** `UpdateConfiguracionAsync` (endpoint `GuardarConfiguracion`, sin vista, ViewModel sin
+`RowVersion`) mantiene last-write-wins: no hay formulario que lo publique. Si se conserva el endpoint,
+hay que agregarle `RowVersion`; si no, retirarlo.
 
-**Corrección propuesta (no aplicada):** el mismo patrón que `ResolverAlertaAsync` en el mismo
-servicio.
+## 3. Validaciones (RESUELTO, 2026-10-14)
 
-- Exigir `viewModel.RowVersion` y asignarlo como `OriginalValue` antes de `SaveChangesAsync`.
-- Traducir `DbUpdateConcurrencyException` a `InvalidOperationException("La configuración fue
-  modificada por otro usuario. Recargá…")`. El controller ya muestra `ex.Message` en `TempData["Error"]`.
-- Habilitar el test en `Skip`.
+- `[Range(0, 100)]` con límites enteros sobre `decimal?` redondeaba el valor antes de comparar
+  (`100.01`→100, `-0.01`→0). Ahora `[Range(typeof(decimal), "0", "100", ParseLimitsInInvariantCulture = true)]`
+  (13 propiedades: tasas, porcentajes, montos y puntos). Límite monetario `9999999999999999.99` (columna `decimal(18,2)`).
+- `CrearAcuerdoPagoAsync` valida en servidor, antes de dividir o persistir: cuotas > 0, importes no negativos,
+  total > 0, condonación ≤ mora original, entrega ≤ total, y el tope `PorcentajeMaximoCondonacion`
+  (porcentaje de la **mora original**; exacto pasa, +0.01 rechaza). Los rechazos no escriben en la base.
+- Permisos (`mora/config`, `mora/manage`) y `[ValidateAntiForgeryToken]` ya estaban en `GuardarConfiguracion*` y `CrearAcuerdo`; cubiertos por CFG-09/10/11.
 
-**Riesgo a decidir:** con la corrección, un formulario que no publique `RowVersion` pasaría a
-rechazarse. El único formulario actual sí lo publica. También hay que decidir si
-`UpdateConfiguracionAsync` (endpoint `GuardarConfiguracion`, sin vista) recibe el mismo control.
+## 4. Régimen de tasas (SIN CAMBIOS, decisión de negocio pendiente)
+
+Ver "Consecuencias financieras" en `docs/qa-cfg-resultados.md`. No se modificó ninguna fórmula.

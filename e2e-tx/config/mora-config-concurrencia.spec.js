@@ -27,7 +27,7 @@ function sql(q) {
         `export SQLCMDPASSWORD=$MSSQL_SA_PASSWORD; echo ${b64} | base64 -d | /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -d BuryQA_CFG -s '|' -W -b -i /dev/stdin`],
         { encoding: 'utf8' }).trim();
 }
-const estado = () => sql('SELECT TOP 1 Id, TasaMoraBase, DiasGracia, TipoTasaMora, PorcentajeMaximoCondonacion, CONVERT(varchar(32), RowVersion, 2) AS RowVersionHex FROM ConfiguracionesMora WHERE IsDeleted=0 ORDER BY Id');
+const estado = () => sql('SELECT TOP 1 Id, TasaMoraBase, DiasGracia, TipoTasaMora, PorcentajeMaximoCondonacion, CONVERT(varchar(32), CAST(RowVersion AS varbinary(8)), 2) AS RowVersionHex FROM ConfiguracionesMora WHERE IsDeleted=0 ORDER BY Id');
 
 async function login(nombre) {
     const file = path.join(EVID, `.auth-${nombre}.json`);
@@ -78,10 +78,12 @@ const post = (ctx, pares) => ctx.post(POST, {
     data: new URLSearchParams(pares).toString(),
     headers: { 'content-type': 'application/x-www-form-urlencoded' }, maxRedirects: 0,
 });
+const decodeHtml = v => v.replace(/&#x([0-9A-Fa-f]+);/g, (_, h) => String.fromCharCode(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_, d) => String.fromCharCode(Number(d))).replace(/&quot;/g, '"').replace(/&amp;/g, '&');
 // El resultado (éxito/error) viaja en TempData: se lee de la página a la que redirige.
 async function mensaje(ctx, resp) {
     expect(resp.status()).toBe(302);
-    const html = await (await ctx.get(FORM)).text();
+    const html = decodeHtml(await (await ctx.get(FORM)).text());
     const m = html.match(/(Configuración guardada correctamente|La configuración fue modificada por otro usuario[^<]*|Falta información de concurrencia[^<]*|Datos inválidos)/);
     return m ? m[1] : '(sin mensaje)';
 }

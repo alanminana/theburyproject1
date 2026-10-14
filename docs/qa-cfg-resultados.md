@@ -6,7 +6,48 @@
 **Tests:** `TheBuryProyect.Tests/Integration/MoraConfigQaCfgTests.cs` (39 casos, `Trait QA=CFG`). Sólo usan HTTP real y la API ya existente de `MoraService`, así que compilan sin cambios contra el código corregido.
 Comando: `dotnet test TheBuryProyect.Tests --filter "FullyQualifiedName~MoraConfigQaCfg"`.
 
-## Resultado contra 9504428
+## Comparación de los 16 escenarios por versión
+
+Versiones: **A** = `9504428` (commit antiguo, imagen `qa-9504428`); **B** = `9504428` + WIP de preservación sin concurrencia ni validaciones (corrida `run-wip-preservacion`); **C** = corregida, rama `fix/mora-config-integridad` (`b2de9b62` código, `bb41cc54` imagen/spec `qa-bb41cc5`).
+
+| ID | Escenario | A (antigua) | B (WIP preservación) | C (corregida) |
+|---|---|---|---|---|
+| CFG-01 | Valores iniciales | PASS | PASS | PASS |
+| CFG-02 | Abrir ConfiguracionExpandida | PASS | PASS | PASS |
+| CFG-03 | Guardar sin cambios | FAIL | PASS | PASS |
+| CFG-04 | Ningún parámetro perdido (35 campos) | FAIL | PASS | PASS |
+| CFG-05 | Modificar campo permitido | PASS | PASS | PASS |
+| CFG-06 | Sólo cambian los previstos | FAIL | PASS | PASS |
+| CFG-07 | Valores inválidos (rangos decimales) | FAIL (CFG-DEF-01) | FAIL | **PASS** (`Range(typeof(decimal))`, cultura invariante) |
+| CFG-08 | Límites de acuerdos / condonación | FAIL (CFG-DEF-02) | FAIL | **PASS** (tope server-side + 9 casos de importes incoherentes) |
+| CFG-09 | Permisos de acceso | PASS | PASS | PASS |
+| CFG-10 | Guardar sin autorización | PASS | PASS | PASS |
+| CFG-11 | Antiforgery | PASS | PASS | PASS |
+| CFG-12 | Dos administradores | FAIL | FAIL | **PASS** (SQLite y SQL Server real) |
+| CFG-13 | RowVersion / concurrencia | FAIL | FAIL | **PASS** (SQLite y SQL Server real) |
+| CFG-14 | Tasa diaria / mensual | FAIL (14b) | FAIL (14b) | **BLOCKED**: 14a PASS; 14b omitido (decisión de negocio, ver Fase 4); 14c caracteriza el comportamiento actual |
+| CFG-15 | Operaciones nuevas usan parámetros | PASS | PASS | PASS |
+| CFG-16 | Operaciones existentes conservan histórico | PASS | PASS | PASS |
+
+**Conteo:** A = 8 PASS / 8 FAIL · B = 11 PASS / 5 FAIL (07, 08, 12, 13, 14) · C = **15 PASS / 0 FAIL / 1 BLOCKED (14)**.
+Suite C: `dotnet test --filter FullyQualifiedName~MoraConfig` = 59 superados, 1 omitido (CFG14b), 0 fallos. Filtro `~Mora` completo: 262 superados, 1 omitido, 0 fallos.
+Corrida B (evidencia): 9 fallos / 35 superados / 1 omitido sobre 45 tests.
+
+### SQL Server real (stack `cfg`, `BuryQA_CFG`, `127.0.0.1:18094`)
+
+Spec `e2e-tx/config/mora-config-concurrencia.spec.js`, lanzado con `qa-run.ps1 cfg -- run-suite.ps1` (turno exclusivo). Dos sesiones de administrador reales (login con navegador), rowversion nativo.
+
+| Paso | Versión antigua (`qa-9504428`) | Corregida (`qa-bb41cc5`, tras `reset`) |
+|---|---|---|
+| A guarda `TasaMoraBase=9` (RowVersion `…AF5`→`…B5A`) | guardado | guardado |
+| B (formulario viejo) guarda `DiasGracia=20` | **aceptado** (`DiasGracia`=20, RowVersion rota; B no fue rechazado) | **rechazado**: "La configuración fue modificada por otro usuario. Recargá…"; `DiasGracia` sigue en 3, `TasaMoraBase` en 9, RowVersion sin cambio |
+| POST sin campo `RowVersion` | — (no ejecutado: el test 1 falló antes) | rechazado: "Falta información de concurrencia"; fila idéntica |
+| B recarga y reintenta `DiasGracia=12` | — | guardado (RowVersion `…B5A`→`…B5B`) |
+| POST `TasaMoraBase=100.01` | — | "Datos inválidos"; fila idéntica |
+
+Evidencia: `~/.bury-qa/state/release-evidence/cfg-fix-OLD2-*` y `cfg-fix-NEW-*` (00-pre, 02-identidad, 03-suite, 04-post-sql, `evidencia/sqlserver-evidencia.txt`).
+
+## Resultado original contra 9504428 (detalle)
 
 | ID | Escenario | Veredicto | Evidencia |
 |---|---|---|---|
@@ -51,3 +92,30 @@ Los FAIL 03/04/06/12/13 son los defectos ya documentados en `docs/mora-config-pr
 3. Validar `PorcentajeMaximoCondonacion` en `CrearAcuerdoPagoAsync`.
 4. Persistir `MontoMoraCalculada` o retirar el campo de las bandejas.
 5. Definir una única semántica de `TasaMoraBase`/`TipoTasaMora` y alinear alertas, contrato y punitorios.
+
+## Fase 4 — Consecuencias financieras de implementar `TipoTasaMora` (NO implementado)
+
+Estado actual (verificado, sin cambios en este lote): `CalcularMora` (`MoraService.cs`) trata `TasaMoraBase` siempre como
+tasa **mensual prorrateada** (`monto × tasa/100/30 × días`). `TipoTasaMora` se persiste y se muestra pero ningún cálculo lo lee
+(`CFG14c` fija este comportamiento). `ContratoVentaCreditoService` copia `TasaMoraBase` a `InteresMoraDiarioPorcentaje`
+(la trata como **diaria**) al emitir el contrato. Un mismo número, dos interpretaciones.
+
+Ejemplo sobre 1.000, 3 %, 10 días de atraso: mensual = **10,00**; diaria = **300,00** (30×).
+
+| Si se decide… | Efecto | Riesgo |
+|---|---|---|
+| Honrar `TipoTasaMora=Diaria` en `CalcularMora` | Toda configuración con Diaria pasa a calcular 30× más en alertas/`LogMora`/punitorios. | Alto: importes visibles al cliente y logs históricos dejan de ser comparables. |
+| Dejar `Mensual` como única semántica y retirar/ocultar `TipoTasaMora` | Sin cambio de importes; se alinea el contrato (convertir `TasaMoraBase` mensual → diaria `/30` al copiarlo). | Medio: cambia el texto/valor del contrato nuevo (los emitidos no se tocan). |
+| Dejar todo como está | Sin cambio. | La UI promete un régimen que no existe. |
+
+Condiciones para implementar cualquiera: decisión de negocio explícita sobre qué significa `TasaMoraBase` en producción
+(consultar qué valores hay en las bases reales), migración sólo hacia adelante (sin recalcular `LogMora`, `AlertaCobranza`,
+acuerdos ni contratos emitidos) y activar `CFG14b` como test de aceptación.
+
+## Problemas de negocio todavía pendientes
+
+1. **CFG-DEF-04** — semántica de `TasaMoraBase`/`TipoTasaMora` (arriba).
+2. **CFG-DEF-03** — `ProcesarMoraAsync` calcula `moraCalculada` pero no la asigna a `AlertaCobranza.MontoMoraCalculada`.
+3. `UpdateConfiguracionAsync` (`GuardarConfiguracion`, sin vista) sin control de concurrencia (ver `mora-config-preservacion.md` §2).
+4. Valores que ya se perdieron en bases reales por el bug de preservación: no se reconstruyen (sin cambios retroactivos).
+5. Precisión de escala (p. ej. 3 decimales en `PorcentajeMinimoEntrega` `decimal(5,2)`) se redondea en la base; sólo se validó el rango.
