@@ -17,7 +17,7 @@ concurrency:
 env:
   # Imagen efimera de este workflow. No se publica a ningun registry (ver docs/ci.md).
   CI_IMAGE_TAG: theburyproject/erp:ci-${{ github.sha }}
-  DOTNET_EF_VERSION: '10.0.12' # debe coincidir con Microsoft.EntityFrameworkCore.Tools en TheBuryProyect.csproj
+  DOTNET_EF_VERSION: '10.0.13' # debe coincidir con Microsoft.EntityFrameworkCore.Tools en TheBuryProyect.csproj
   GITLEAKS_VERSION: '8.30.1'
 
 jobs:
