@@ -77,6 +77,56 @@ public class QaPrdP1HttpTests : IClassFixture<CustomWebApplicationFactory>
         Assert.Equal(20m, await StockAsync());
     }
 
+    [Fact]
+    public async Task B4_MismoRequestIdConOtraCantidad_NoDuplicaNiAplicaLaSegundaCantidad()
+    {
+        await SeedProductoAsync();
+        await _factory.SeedUserWithStockOperadorAsync();
+        using var client = _factory.CreateClientWithUserId(CustomWebApplicationFactory.StockOperadorUserId);
+        var token = await TokenAsync(client, $"/MovimientoStock/Create?productoId={ProductoId}");
+        var requestId = Guid.NewGuid().ToString();
+
+        await client.PostAsync("/MovimientoStock/Create", AjusteForm(token, 5, requestId));
+        var segunda = await client.PostAsync("/MovimientoStock/Create", AjusteForm(token, 8, requestId));
+
+        // Se rechaza explícitamente (se re-renderiza el formulario con el error), nunca éxito silencioso.
+        Assert.Equal(HttpStatusCode.OK, segunda.StatusCode);
+        Assert.Contains("ya se usó en otra operación", WebUtility.HtmlDecode(await segunda.Content.ReadAsStringAsync()));
+        Assert.Equal(1, await ContarMovimientosAsync());
+        Assert.Equal(15m, await StockAsync());
+    }
+
+    [Fact]
+    public async Task B4_ErrorEnFormularioInline_ConservaElRequestIdEnElReintento()
+    {
+        await SeedProductoAsync();
+        await _factory.SeedUserWithStockOperadorAsync();
+        using var client = _factory.CreateClientWithUserId(CustomWebApplicationFactory.StockOperadorUserId);
+        var volver = $"/Producto/Inventario/{ProductoId}?tab=movimientos";
+        var token = await TokenAsync(client, volver);
+        var requestId = Guid.NewGuid().ToString();
+
+        // Salida mayor al stock: falla de negocio y redirige a la ficha; el formulario NO debe regenerar el identificador.
+        var campos = new Dictionary<string, string>
+        {
+            ["__RequestVerificationToken"] = token,
+            ["ProductoId"] = ProductoId.ToString(),
+            ["Tipo"] = "Salida",
+            ["Cantidad"] = "999",
+            ["Motivo"] = "Reintento B4",
+            ["ReturnUrl"] = volver,
+            ["RequestId"] = requestId
+        };
+        var post = await client.PostAsync("/MovimientoStock/Create", new FormUrlEncodedContent(campos));
+        Assert.Equal(HttpStatusCode.Redirect, post.StatusCode);
+
+        var ficha = await client.GetAsync(post.Headers.Location);
+        var html = await ficha.Content.ReadAsStringAsync();
+
+        Assert.Contains($"name=\"RequestId\" value=\"{requestId}\"", html);
+        Assert.Equal(0, await ContarMovimientosAsync());
+    }
+
     // ── B7: el cambio de precio del modal Editar no deja historial reversible ─
 
     [Fact]

@@ -245,7 +245,7 @@ namespace TheBuryProject.Services
             // el movimiento ya registrado. Sin RequestId (flujos internos) cada llamada es un movimiento.
             if (requestId.HasValue)
             {
-                var previo = await BuscarPorRequestIdAsync(requestId.Value, productoId, tipo);
+                var previo = await BuscarPorRequestIdAsync(requestId.Value, productoId, tipo, cantidad, motivo, referencia, ordenCompraId);
                 if (previo != null)
                 {
                     _logger.LogInformation(
@@ -269,10 +269,13 @@ namespace TheBuryProject.Services
             }
 
             await using var transaction = await BeginTransactionIfNeededAsync();
+            Producto? producto = null;
+            MovimientoStock? movimiento = null;
+            var guardadoIniciado = false;
 
             try
             {
-                var producto = await _context.Productos
+                producto = await _context.Productos
                     .FirstOrDefaultAsync(p => p.Id == productoId && !p.IsDeleted);
 
                 if (producto == null)
@@ -310,7 +313,7 @@ namespace TheBuryProject.Services
                 producto.UpdatedBy = string.IsNullOrWhiteSpace(usuarioActual) ? "Sistema" : usuarioActual;
 
                 // Crear movimiento con usuario real
-                var movimiento = new MovimientoStock
+                movimiento = new MovimientoStock
                 {
                     ProductoId = productoId,
                     Tipo = tipo,
@@ -329,6 +332,7 @@ namespace TheBuryProject.Services
                 CompletarCostoMovimiento(movimiento, producto, FuenteCostoAjusteManual);
 
                 _context.MovimientosStock.Add(movimiento);
+                guardadoIniciado = true;
                 await _context.SaveChangesAsync();
 
                 if (transaction != null)
@@ -340,15 +344,13 @@ namespace TheBuryProject.Services
 
                 return movimiento;
             }
-            catch (DbUpdateException ex) when (requestId.HasValue && transaction != null)
+            catch (DbUpdateException ex) when (requestId.HasValue)
             {
-                // Carrera entre dos envíos de la misma intención: el primero ya confirmó. Se descarta este
-                // intento y se devuelve el movimiento ganador (si no existe, era un conflicto real).
-                await transaction.RollbackAsync();
-                foreach (var entry in _context.ChangeTracker.Entries().ToList())
-                    entry.State = EntityState.Detached;
+                // Carrera entre dos envíos de la misma intención: el primero ya confirmó (índice único de RequestId).
+                // Se descarta este intento y se devuelve el movimiento ganador (si no existe, era un conflicto real).
+                await RevertirIntentoAsync(transaction, producto, movimiento);
 
-                var ganador = await BuscarPorRequestIdAsync(requestId.Value, productoId, tipo);
+                var ganador = await BuscarPorRequestIdAsync(requestId.Value, productoId, tipo, cantidad, motivo, referencia, ordenCompraId);
                 if (ganador != null)
                 {
                     _logger.LogInformation(
@@ -368,10 +370,38 @@ namespace TheBuryProject.Services
             }
             catch (DbUpdateConcurrencyException ex)
             {
-                if (transaction != null)
-                    await transaction.RollbackAsync();
+                await RevertirIntentoAsync(transaction, producto, movimiento);
                 _logger.LogWarning(ex, "Conflicto de concurrencia al ajustar stock - ProductoId {ProductoId}", productoId);
                 throw new InvalidOperationException("El stock fue modificado por otro usuario/proceso. Recargá e intentá nuevamente.");
+            }
+            catch (Exception ex) when (requestId.HasValue && guardadoIniciado && ex is not InvalidOperationException)
+            {
+                // Timeout/corte de conexión durante el guardado o el commit: el resultado es incierto (pudo confirmarse).
+                // No se repite la operación a ciegas: se consulta si el movimiento quedó registrado.
+                await RevertirIntentoAsync(transaction, producto, movimiento);
+                _logger.LogError(ex, "Resultado incierto en RegistrarAjusteAsync (RequestId {RequestId})", requestId);
+
+                MovimientoStock? confirmado;
+                try
+                {
+                    confirmado = await BuscarPorRequestIdAsync(requestId.Value, productoId, tipo, cantidad, motivo, referencia, ordenCompraId);
+                }
+                catch (InvalidOperationException)
+                {
+                    throw;
+                }
+                catch (Exception verificacion)
+                {
+                    _logger.LogError(verificacion, "No se pudo verificar el resultado (RequestId {RequestId})", requestId);
+                    throw new InvalidOperationException(
+                        "No se pudo confirmar si el movimiento quedó registrado. Revisá el Kardex y, si no figura, reenviá el mismo formulario: no se duplicará.");
+                }
+
+                if (confirmado != null)
+                    return confirmado;
+
+                throw new InvalidOperationException(
+                    "El movimiento no se registró (error de comunicación con la base de datos). Reenviá el mismo formulario.");
             }
             catch (Exception ex)
             {
@@ -383,10 +413,34 @@ namespace TheBuryProject.Services
         }
 
         /// <summary>
-        /// Busca un movimiento por su RequestId. Si pertenece a otra operación (otro producto o tipo)
-        /// el identificador fue reutilizado indebidamente y se rechaza en lugar de devolver un dato ajeno.
+        /// Revierte la transacción propia y suelta del ChangeTracker solo lo que este intento tocó
+        /// (producto modificado y movimiento agregado), sin desvincular el resto del contexto.
         /// </summary>
-        private async Task<MovimientoStock?> BuscarPorRequestIdAsync(Guid requestId, int productoId, TipoMovimiento tipo)
+        private async Task RevertirIntentoAsync(IDbContextTransaction? transaction, Producto? producto, MovimientoStock? movimiento)
+        {
+            if (transaction != null)
+            {
+                try { await transaction.RollbackAsync(); }
+                catch (Exception ex) { _logger.LogWarning(ex, "Rollback fallido (la conexión pudo cerrarse)"); }
+                // Liberar la transacción del contexto para poder verificar el resultado con una consulta limpia.
+                try { await transaction.DisposeAsync(); }
+                catch (Exception ex) { _logger.LogWarning(ex, "No se pudo liberar la transacción"); }
+            }
+
+            if (movimiento != null && _context.Entry(movimiento).State != EntityState.Detached)
+                _context.Entry(movimiento).State = EntityState.Detached;
+            if (producto != null && _context.Entry(producto).State != EntityState.Detached)
+                _context.Entry(producto).State = EntityState.Detached;
+        }
+
+        /// <summary>
+        /// Busca un movimiento por su RequestId y verifica que sea la MISMA intención de negocio
+        /// (producto, tipo, cantidad solicitada, motivo, referencia y orden de compra). Si el identificador
+        /// fue reutilizado con otros datos se rechaza en lugar de devolver éxito de una operación ajena.
+        /// </summary>
+        private async Task<MovimientoStock?> BuscarPorRequestIdAsync(
+            Guid requestId, int productoId, TipoMovimiento tipo, decimal cantidad,
+            string? motivo, string? referencia, int? ordenCompraId)
         {
             var existente = await _context.MovimientosStock
                 .AsNoTracking()
@@ -396,12 +450,25 @@ namespace TheBuryProject.Services
             if (existente == null)
                 return null;
 
-            if (existente.ProductoId != productoId || existente.Tipo != tipo)
+            // Para Ajuste la cantidad solicitada es el stock absoluto (queda en StockNuevo); el movimiento guarda el delta.
+            var cantidadSolicitada = existente.Tipo == TipoMovimiento.Ajuste ? existente.StockNuevo : existente.Cantidad;
+
+            var mismaIntencion =
+                existente.ProductoId == productoId
+                && existente.Tipo == tipo
+                && cantidadSolicitada == cantidad
+                && NormalizarTexto(existente.Motivo) == NormalizarTexto(motivo)
+                && NormalizarTexto(existente.Referencia) == NormalizarTexto(referencia)
+                && existente.OrdenCompraId == ordenCompraId;
+
+            if (!mismaIntencion)
                 throw new InvalidOperationException(
-                    "El identificador de la solicitud ya se usó en otra operación. Recargá el formulario e intentá nuevamente.");
+                    "El identificador de la solicitud ya se usó en otra operación con datos distintos. Recargá el formulario e intentá nuevamente.");
 
             return existente;
         }
+
+        private static string NormalizarTexto(string? valor) => (valor ?? string.Empty).Trim();
 
         public async Task<List<MovimientoStock>> RegistrarEntradasAsync(
             List<(int productoId, decimal cantidad, string? referencia)> entradas,
