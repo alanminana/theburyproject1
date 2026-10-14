@@ -487,7 +487,9 @@ namespace TheBuryProject.Controllers
                     return RedirectToAction(nameof(ConfiguracionExpandida), new { returnUrl = Url.GetSafeReturnUrl(returnUrl) });
                 }
 
-                await _moraService.UpdateConfiguracionExpandidaAsync(viewModel);
+                // El formulario publica sólo un subconjunto de la configuración: los campos
+                // ausentes se preservan en lugar de sobrescribirse con null/false.
+                await _moraService.UpdateConfiguracionExpandidaAsync(viewModel, Request.Form.Keys);
                 TempData["Success"] = "Configuración guardada correctamente";
             }
             catch (Exception ex)

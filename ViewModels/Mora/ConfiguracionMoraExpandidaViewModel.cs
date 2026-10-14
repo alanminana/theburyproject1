@@ -17,7 +17,7 @@ namespace TheBuryProject.ViewModels.Mora
         public TipoTasaMora? TipoTasaMora { get; set; }
 
         [Display(Name = "Tasa Base de Mora (%)")]
-        [Range(0, 100, ErrorMessage = "La tasa debe estar entre 0 y 100")]
+        [Range(typeof(decimal), "0", "100", ParseLimitsInInvariantCulture = true, ErrorMessage = "La tasa debe estar entre 0 y 100")]
         public decimal? TasaMoraBase { get; set; }
 
         [Display(Name = "Base de Cálculo")]
@@ -31,15 +31,15 @@ namespace TheBuryProject.ViewModels.Mora
         public bool EscalonamientoActivo { get; set; }
 
         [Display(Name = "Tasa Primer Mes (%)")]
-        [Range(0, 100, ErrorMessage = "La tasa debe estar entre 0 y 100")]
+        [Range(typeof(decimal), "0", "100", ParseLimitsInInvariantCulture = true, ErrorMessage = "La tasa debe estar entre 0 y 100")]
         public decimal? TasaPrimerMes { get; set; }
 
         [Display(Name = "Tasa Segundo Mes (%)")]
-        [Range(0, 100, ErrorMessage = "La tasa debe estar entre 0 y 100")]
+        [Range(typeof(decimal), "0", "100", ParseLimitsInInvariantCulture = true, ErrorMessage = "La tasa debe estar entre 0 y 100")]
         public decimal? TasaSegundoMes { get; set; }
 
         [Display(Name = "Tasa Tercer Mes+ (%)")]
-        [Range(0, 100, ErrorMessage = "La tasa debe estar entre 0 y 100")]
+        [Range(typeof(decimal), "0", "100", ParseLimitsInInvariantCulture = true, ErrorMessage = "La tasa debe estar entre 0 y 100")]
         public decimal? TasaTercerMesEnAdelante { get; set; }
 
         [Display(Name = "Tope Máximo Activo")]
@@ -49,11 +49,11 @@ namespace TheBuryProject.ViewModels.Mora
         public TipoTopeMora? TipoTopeMora { get; set; }
 
         [Display(Name = "Valor del Tope")]
-        [Range(0, double.MaxValue, ErrorMessage = "El valor debe ser positivo")]
+        [Range(typeof(decimal), "0", "9999999999999999.99", ParseLimitsInInvariantCulture = true, ErrorMessage = "El valor debe ser positivo")]
         public decimal? ValorTopeMora { get; set; }
 
         [Display(Name = "Mora Mínima ($)")]
-        [Range(0, double.MaxValue, ErrorMessage = "El valor debe ser positivo")]
+        [Range(typeof(decimal), "0", "9999999999999999.99", ParseLimitsInInvariantCulture = true, ErrorMessage = "El valor debe ser positivo")]
         public decimal? MoraMinima { get; set; }
 
         #endregion
@@ -73,15 +73,15 @@ namespace TheBuryProject.ViewModels.Mora
         public int? DiasParaPrioridadCritica { get; set; }
 
         [Display(Name = "Monto para Prioridad Media ($)")]
-        [Range(0, double.MaxValue, ErrorMessage = "El monto debe ser positivo")]
+        [Range(typeof(decimal), "0", "9999999999999999.99", ParseLimitsInInvariantCulture = true, ErrorMessage = "El monto debe ser positivo")]
         public decimal? MontoParaPrioridadMedia { get; set; }
 
         [Display(Name = "Monto para Prioridad Alta ($)")]
-        [Range(0, double.MaxValue, ErrorMessage = "El monto debe ser positivo")]
+        [Range(typeof(decimal), "0", "9999999999999999.99", ParseLimitsInInvariantCulture = true, ErrorMessage = "El monto debe ser positivo")]
         public decimal? MontoParaPrioridadAlta { get; set; }
 
         [Display(Name = "Monto para Prioridad Crítica ($)")]
-        [Range(0, double.MaxValue, ErrorMessage = "El monto debe ser positivo")]
+        [Range(typeof(decimal), "0", "9999999999999999.99", ParseLimitsInInvariantCulture = true, ErrorMessage = "El monto debe ser positivo")]
         public decimal? MontoParaPrioridadCritica { get; set; }
 
         #endregion
@@ -180,14 +180,14 @@ namespace TheBuryProject.ViewModels.Mora
         public int? MaximoCuotasAcuerdo { get; set; }
 
         [Display(Name = "Porcentaje Mínimo Entrega (%)")]
-        [Range(0, 100, ErrorMessage = "El porcentaje debe estar entre 0 y 100")]
+        [Range(typeof(decimal), "0", "100", ParseLimitsInInvariantCulture = true, ErrorMessage = "El porcentaje debe estar entre 0 y 100")]
         public decimal? PorcentajeMinimoEntrega { get; set; }
 
         [Display(Name = "Permitir Condonación de Mora")]
         public bool PermitirCondonacionMora { get; set; }
 
         [Display(Name = "Porcentaje Máximo Condonación (%)")]
-        [Range(0, 100, ErrorMessage = "El porcentaje debe estar entre 0 y 100")]
+        [Range(typeof(decimal), "0", "100", ParseLimitsInInvariantCulture = true, ErrorMessage = "El porcentaje debe estar entre 0 y 100")]
         public decimal? PorcentajeMaximoCondonacion { get; set; }
 
         #endregion
@@ -202,7 +202,7 @@ namespace TheBuryProject.ViewModels.Mora
         public int? PuntosRestarPorCuotaVencida { get; set; }
 
         [Display(Name = "Puntos a Restar por Día de Mora")]
-        [Range(0, 1000, ErrorMessage = "Los puntos deben estar entre 0 y 1000")]
+        [Range(typeof(decimal), "0", "1000", ParseLimitsInInvariantCulture = true, ErrorMessage = "Los puntos deben estar entre 0 y 1000")]
         public decimal? PuntosRestarPorDiaMora { get; set; }
 
         [Display(Name = "Puntos Máximos a Restar")]
@@ -213,7 +213,7 @@ namespace TheBuryProject.ViewModels.Mora
         public bool RecuperarScoreAlPagar { get; set; }
 
         [Display(Name = "Porcentaje de Recuperación de Puntaje (%)")]
-        [Range(0, 100, ErrorMessage = "El porcentaje debe estar entre 0 y 100")]
+        [Range(typeof(decimal), "0", "100", ParseLimitsInInvariantCulture = true, ErrorMessage = "El porcentaje debe estar entre 0 y 100")]
         public decimal? PorcentajeRecuperacionScore { get; set; }
 
         #endregion

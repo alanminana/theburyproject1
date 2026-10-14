@@ -632,7 +632,69 @@ namespace TheBuryProject.Services
 
         #region Configuración Expandida
 
-        public async Task<ConfiguracionMora> UpdateConfiguracionExpandidaAsync(ConfiguracionMoraExpandidaViewModel viewModel)
+        /// <summary>
+        /// Campos editables de la configuración expandida. El nombre es el del campo del formulario
+        /// (= propiedad del ViewModel); permite aplicar sólo los campos efectivamente publicados.
+        /// </summary>
+        private static readonly (string Campo, Action<ConfiguracionMora, ConfiguracionMoraExpandidaViewModel> Aplicar)[] CamposConfiguracionExpandida =
+        {
+            (nameof(ConfiguracionMoraExpandidaViewModel.TipoTasaMora), (c, v) => c.TipoTasaMora = v.TipoTasaMora),
+            (nameof(ConfiguracionMoraExpandidaViewModel.TasaMoraBase), (c, v) => c.TasaMoraBase = v.TasaMoraBase),
+            (nameof(ConfiguracionMoraExpandidaViewModel.BaseCalculoMora), (c, v) => c.BaseCalculoMora = v.BaseCalculoMora),
+            (nameof(ConfiguracionMoraExpandidaViewModel.DiasGracia), (c, v) => c.DiasGracia = v.DiasGracia),
+            (nameof(ConfiguracionMoraExpandidaViewModel.EscalonamientoActivo), (c, v) => c.EscalonamientoActivo = v.EscalonamientoActivo),
+            (nameof(ConfiguracionMoraExpandidaViewModel.TasaPrimerMes), (c, v) => c.TasaPrimerMes = v.TasaPrimerMes),
+            (nameof(ConfiguracionMoraExpandidaViewModel.TasaSegundoMes), (c, v) => c.TasaSegundoMes = v.TasaSegundoMes),
+            (nameof(ConfiguracionMoraExpandidaViewModel.TasaTercerMesEnAdelante), (c, v) => c.TasaTercerMesEnAdelante = v.TasaTercerMesEnAdelante),
+            (nameof(ConfiguracionMoraExpandidaViewModel.TopeMaximoMoraActivo), (c, v) => c.TopeMaximoMoraActivo = v.TopeMaximoMoraActivo),
+            (nameof(ConfiguracionMoraExpandidaViewModel.TipoTopeMora), (c, v) => c.TipoTopeMora = v.TipoTopeMora),
+            (nameof(ConfiguracionMoraExpandidaViewModel.ValorTopeMora), (c, v) => c.ValorTopeMora = v.ValorTopeMora),
+            (nameof(ConfiguracionMoraExpandidaViewModel.MoraMinima), (c, v) => c.MoraMinima = v.MoraMinima),
+            (nameof(ConfiguracionMoraExpandidaViewModel.DiasParaPrioridadMedia), (c, v) => c.DiasParaPrioridadMedia = v.DiasParaPrioridadMedia),
+            (nameof(ConfiguracionMoraExpandidaViewModel.DiasParaPrioridadAlta), (c, v) => c.DiasParaPrioridadAlta = v.DiasParaPrioridadAlta),
+            (nameof(ConfiguracionMoraExpandidaViewModel.DiasParaPrioridadCritica), (c, v) => c.DiasParaPrioridadCritica = v.DiasParaPrioridadCritica),
+            (nameof(ConfiguracionMoraExpandidaViewModel.MontoParaPrioridadMedia), (c, v) => c.MontoParaPrioridadMedia = v.MontoParaPrioridadMedia),
+            (nameof(ConfiguracionMoraExpandidaViewModel.MontoParaPrioridadAlta), (c, v) => c.MontoParaPrioridadAlta = v.MontoParaPrioridadAlta),
+            (nameof(ConfiguracionMoraExpandidaViewModel.MontoParaPrioridadCritica), (c, v) => c.MontoParaPrioridadCritica = v.MontoParaPrioridadCritica),
+            (nameof(ConfiguracionMoraExpandidaViewModel.ProcesoAutomaticoActivo), (c, v) => c.ProcesoAutomaticoActivo = v.ProcesoAutomaticoActivo),
+            (nameof(ConfiguracionMoraExpandidaViewModel.HoraEjecucionDiaria), (c, v) => c.HoraEjecucionDiaria = v.HoraEjecucionDiaria),
+            (nameof(ConfiguracionMoraExpandidaViewModel.AlertasPreventivasActivas), (c, v) => c.AlertasPreventivasActivas = v.AlertasPreventivasActivas),
+            (nameof(ConfiguracionMoraExpandidaViewModel.DiasAntesAlertaPreventiva), (c, v) => c.DiasAntesAlertaPreventiva = v.DiasAntesAlertaPreventiva),
+            (nameof(ConfiguracionMoraExpandidaViewModel.CambiarEstadoCuotaAuto), (c, v) => c.CambiarEstadoCuotaAuto = v.CambiarEstadoCuotaAuto),
+            (nameof(ConfiguracionMoraExpandidaViewModel.ActualizarMoraAutomaticamente), (c, v) => c.ActualizarMoraAutomaticamente = v.ActualizarMoraAutomaticamente),
+            (nameof(ConfiguracionMoraExpandidaViewModel.NotificacionesActivas), (c, v) => c.NotificacionesActivas = v.NotificacionesActivas),
+            (nameof(ConfiguracionMoraExpandidaViewModel.WhatsAppActivo), (c, v) => c.WhatsAppActivo = v.WhatsAppActivo),
+            (nameof(ConfiguracionMoraExpandidaViewModel.EmailActivo), (c, v) => c.EmailActivo = v.EmailActivo),
+            (nameof(ConfiguracionMoraExpandidaViewModel.CanalPreferido), (c, v) => c.CanalPreferido = v.CanalPreferido),
+            (nameof(ConfiguracionMoraExpandidaViewModel.NotificarProximoVencimiento), (c, v) => c.NotificarProximoVencimiento = v.NotificarProximoVencimiento),
+            (nameof(ConfiguracionMoraExpandidaViewModel.DiasAntesNotificacionPreventiva), (c, v) => c.DiasAntesNotificacionPreventiva = v.DiasAntesNotificacionPreventiva),
+            (nameof(ConfiguracionMoraExpandidaViewModel.NotificarCuotaVencida), (c, v) => c.NotificarCuotaVencida = v.NotificarCuotaVencida),
+            (nameof(ConfiguracionMoraExpandidaViewModel.NotificarMoraAcumulada), (c, v) => c.NotificarMoraAcumulada = v.NotificarMoraAcumulada),
+            (nameof(ConfiguracionMoraExpandidaViewModel.FrecuenciaRecordatorioMora), (c, v) => c.FrecuenciaRecordatorioMora = v.FrecuenciaRecordatorioMora),
+            (nameof(ConfiguracionMoraExpandidaViewModel.MaximoNotificacionesDiarias), (c, v) => c.MaximoNotificacionesDiarias = v.MaximoNotificacionesDiarias),
+            (nameof(ConfiguracionMoraExpandidaViewModel.MaximoNotificacionesPorCuota), (c, v) => c.MaximoNotificacionesPorCuota = v.MaximoNotificacionesPorCuota),
+            (nameof(ConfiguracionMoraExpandidaViewModel.HoraInicioEnvio), (c, v) => c.HoraInicioEnvio = v.HoraInicioEnvio),
+            (nameof(ConfiguracionMoraExpandidaViewModel.HoraFinEnvio), (c, v) => c.HoraFinEnvio = v.HoraFinEnvio),
+            (nameof(ConfiguracionMoraExpandidaViewModel.EnviarFinDeSemana), (c, v) => c.EnviarFinDeSemana = v.EnviarFinDeSemana),
+            (nameof(ConfiguracionMoraExpandidaViewModel.DiasMaximosSinGestion), (c, v) => c.DiasMaximosSinGestion = v.DiasMaximosSinGestion),
+            (nameof(ConfiguracionMoraExpandidaViewModel.DiasParaCumplirPromesa), (c, v) => c.DiasParaCumplirPromesa = v.DiasParaCumplirPromesa),
+            (nameof(ConfiguracionMoraExpandidaViewModel.MaximoCuotasAcuerdo), (c, v) => c.MaximoCuotasAcuerdo = v.MaximoCuotasAcuerdo),
+            (nameof(ConfiguracionMoraExpandidaViewModel.PorcentajeMinimoEntrega), (c, v) => c.PorcentajeMinimoEntrega = v.PorcentajeMinimoEntrega),
+            (nameof(ConfiguracionMoraExpandidaViewModel.PermitirCondonacionMora), (c, v) => c.PermitirCondonacionMora = v.PermitirCondonacionMora),
+            // Score por mora (FASE 12B): el flag controla si el proceso automático
+            // recalcula PuntajeCliente tras los días de gracia; no se mezcla con
+            // CambiarEstadoCuotaAuto.
+            (nameof(ConfiguracionMoraExpandidaViewModel.ImpactarScorePorMora), (c, v) => c.ImpactarScorePorMora = v.ImpactarScorePorMora),
+            (nameof(ConfiguracionMoraExpandidaViewModel.PuntosRestarPorCuotaVencida), (c, v) => c.PuntosRestarPorCuotaVencida = v.PuntosRestarPorCuotaVencida),
+            (nameof(ConfiguracionMoraExpandidaViewModel.PuntosRestarPorDiaMora), (c, v) => c.PuntosRestarPorDiaMora = v.PuntosRestarPorDiaMora),
+            (nameof(ConfiguracionMoraExpandidaViewModel.PuntosMaximosARestar), (c, v) => c.PuntosMaximosARestar = v.PuntosMaximosARestar),
+            (nameof(ConfiguracionMoraExpandidaViewModel.RecuperarScoreAlPagar), (c, v) => c.RecuperarScoreAlPagar = v.RecuperarScoreAlPagar),
+            (nameof(ConfiguracionMoraExpandidaViewModel.PorcentajeRecuperacionScore), (c, v) => c.PorcentajeRecuperacionScore = v.PorcentajeRecuperacionScore),
+        };
+
+        public async Task<ConfiguracionMora> UpdateConfiguracionExpandidaAsync(
+            ConfiguracionMoraExpandidaViewModel viewModel,
+            IEnumerable<string>? camposEnviados = null)
         {
             try
             {
@@ -641,62 +703,41 @@ namespace TheBuryProject.Services
                 if (config == null)
                     throw new InvalidOperationException("Configuración no encontrada");
 
-                // Mapear todos los campos del ViewModel
-                config.TipoTasaMora = viewModel.TipoTasaMora;
-                config.TasaMoraBase = viewModel.TasaMoraBase;
-                config.BaseCalculoMora = viewModel.BaseCalculoMora;
-                config.DiasGracia = viewModel.DiasGracia;
-                config.EscalonamientoActivo = viewModel.EscalonamientoActivo;
-                config.TasaPrimerMes = viewModel.TasaPrimerMes;
-                config.TasaSegundoMes = viewModel.TasaSegundoMes;
-                config.TasaTercerMesEnAdelante = viewModel.TasaTercerMesEnAdelante;
-                config.TopeMaximoMoraActivo = viewModel.TopeMaximoMoraActivo;
-                config.TipoTopeMora = viewModel.TipoTopeMora;
-                config.ValorTopeMora = viewModel.ValorTopeMora;
-                config.MoraMinima = viewModel.MoraMinima;
-                config.DiasParaPrioridadMedia = viewModel.DiasParaPrioridadMedia;
-                config.DiasParaPrioridadAlta = viewModel.DiasParaPrioridadAlta;
-                config.DiasParaPrioridadCritica = viewModel.DiasParaPrioridadCritica;
-                config.MontoParaPrioridadMedia = viewModel.MontoParaPrioridadMedia;
-                config.MontoParaPrioridadAlta = viewModel.MontoParaPrioridadAlta;
-                config.MontoParaPrioridadCritica = viewModel.MontoParaPrioridadCritica;
-                config.ProcesoAutomaticoActivo = viewModel.ProcesoAutomaticoActivo;
-                config.HoraEjecucionDiaria = viewModel.HoraEjecucionDiaria;
-                config.AlertasPreventivasActivas = viewModel.AlertasPreventivasActivas;
-                config.DiasAntesAlertaPreventiva = viewModel.DiasAntesAlertaPreventiva;
-                config.CambiarEstadoCuotaAuto = viewModel.CambiarEstadoCuotaAuto;
-                config.ActualizarMoraAutomaticamente = viewModel.ActualizarMoraAutomaticamente;
-                config.NotificacionesActivas = viewModel.NotificacionesActivas;
-                config.WhatsAppActivo = viewModel.WhatsAppActivo;
-                config.EmailActivo = viewModel.EmailActivo;
-                config.CanalPreferido = viewModel.CanalPreferido;
-                config.NotificarProximoVencimiento = viewModel.NotificarProximoVencimiento;
-                config.DiasAntesNotificacionPreventiva = viewModel.DiasAntesNotificacionPreventiva;
-                config.NotificarCuotaVencida = viewModel.NotificarCuotaVencida;
-                config.NotificarMoraAcumulada = viewModel.NotificarMoraAcumulada;
-                config.FrecuenciaRecordatorioMora = viewModel.FrecuenciaRecordatorioMora;
-                config.MaximoNotificacionesDiarias = viewModel.MaximoNotificacionesDiarias;
-                config.MaximoNotificacionesPorCuota = viewModel.MaximoNotificacionesPorCuota;
-                config.HoraInicioEnvio = viewModel.HoraInicioEnvio;
-                config.HoraFinEnvio = viewModel.HoraFinEnvio;
-                config.EnviarFinDeSemana = viewModel.EnviarFinDeSemana;
-                config.DiasMaximosSinGestion = viewModel.DiasMaximosSinGestion;
-                config.DiasParaCumplirPromesa = viewModel.DiasParaCumplirPromesa;
-                config.MaximoCuotasAcuerdo = viewModel.MaximoCuotasAcuerdo;
-                config.PorcentajeMinimoEntrega = viewModel.PorcentajeMinimoEntrega;
-                config.PermitirCondonacionMora = viewModel.PermitirCondonacionMora;
-                // Score por mora (FASE 12B): el flag controla si el proceso automático
-                // recalcula PuntajeCliente tras los días de gracia; no se mezcla con
-                // CambiarEstadoCuotaAuto.
-                config.ImpactarScorePorMora = viewModel.ImpactarScorePorMora;
-                config.PuntosRestarPorCuotaVencida = viewModel.PuntosRestarPorCuotaVencida;
-                config.PuntosRestarPorDiaMora = viewModel.PuntosRestarPorDiaMora;
-                config.PuntosMaximosARestar = viewModel.PuntosMaximosARestar;
-                config.RecuperarScoreAlPagar = viewModel.RecuperarScoreAlPagar;
-                config.PorcentajeRecuperacionScore = viewModel.PorcentajeRecuperacionScore;
+                // Concurrencia optimista: sin la versión que el administrador vio al abrir el
+                // formulario no se puede saber si está guardando sobre cambios de otro.
+                // Sólo las llamadas internas con el ViewModel completo (camposEnviados == null)
+                // pueden omitirla; cualquier POST de formulario la exige.
+                if (viewModel.RowVersion is { Length: > 0 })
+                    _context.Entry(config).Property(c => c.RowVersion).OriginalValue = viewModel.RowVersion;
+                else if (camposEnviados != null)
+                    throw new InvalidOperationException("Falta información de concurrencia (RowVersion). Recargá la configuración e intentá nuevamente.");
+
+                // Sólo se aplican los campos publicados: un campo ausente del formulario llega
+                // con el default del binder (null/false) y no debe pisar el valor persistido.
+                // Sin lista explícita (llamadas internas con el ViewModel completo) se aplican todos.
+                var enviados = camposEnviados == null
+                    ? null
+                    : new HashSet<string>(camposEnviados, StringComparer.OrdinalIgnoreCase);
+
+                foreach (var (campo, aplicar) in CamposConfiguracionExpandida)
+                {
+                    if (enviados == null || enviados.Contains(campo))
+                        aplicar(config, viewModel);
+                }
+
                 config.UpdatedAt = DateTime.UtcNow;
 
-                await _context.SaveChangesAsync();
+                try
+                {
+                    await _context.SaveChangesAsync();
+                }
+                catch (DbUpdateConcurrencyException)
+                {
+                    // Descarta la entidad obsoleta del contexto: nada de lo aplicado se persistió.
+                    _context.Entry(config).State = EntityState.Detached;
+                    _configuracion = null;
+                    throw new InvalidOperationException("La configuración fue modificada por otro usuario. Recargá los datos e intentá nuevamente.");
+                }
                 _configuracion = null;
 
                 _logger.LogInformation("Configuración expandida de mora actualizada");
@@ -1266,6 +1307,19 @@ namespace TheBuryProject.Services
             {
                 var config = await GetConfiguracionAsync();
 
+                // Importes y cuotas coherentes antes de cualquier división o comparación con la configuración.
+                if (acuerdo.CantidadCuotas <= 0)
+                    throw new InvalidOperationException("La cantidad de cuotas debe ser mayor a cero");
+                if (acuerdo.MontoDeudaOriginal < 0 || acuerdo.MontoMoraOriginal < 0
+                    || acuerdo.MontoCondonar < 0 || acuerdo.MontoEntregaInicial < 0)
+                    throw new InvalidOperationException("Los importes del acuerdo no pueden ser negativos");
+                if (acuerdo.MontoTotalAcuerdo <= 0)
+                    throw new InvalidOperationException("El total del acuerdo debe ser mayor a cero");
+                if (acuerdo.MontoCondonar > acuerdo.MontoMoraOriginal)
+                    throw new InvalidOperationException("No se puede condonar más que la mora original");
+                if (acuerdo.MontoEntregaInicial > acuerdo.MontoTotalAcuerdo)
+                    throw new InvalidOperationException("La entrega inicial no puede superar el total del acuerdo");
+
                 // Validar máximo de cuotas
                 if (config.MaximoCuotasAcuerdo.HasValue && acuerdo.CantidadCuotas > config.MaximoCuotasAcuerdo.Value)
                     throw new InvalidOperationException($"El máximo de cuotas permitido es {config.MaximoCuotasAcuerdo.Value}");
@@ -1281,6 +1335,16 @@ namespace TheBuryProject.Services
                 // Validar condonación
                 if (acuerdo.MontoCondonar > 0 && !config.PermitirCondonacionMora)
                     throw new InvalidOperationException("No está permitida la condonación de mora");
+
+                // El tope es un porcentaje de la mora original; sin mora no hay nada que condonar.
+                if (acuerdo.MontoCondonar > 0 && config.PorcentajeMaximoCondonacion.HasValue)
+                {
+                    var porcentajeCondonado = acuerdo.MontoMoraOriginal > 0
+                        ? acuerdo.MontoCondonar / acuerdo.MontoMoraOriginal * 100
+                        : decimal.MaxValue;
+                    if (porcentajeCondonado > config.PorcentajeMaximoCondonacion.Value)
+                        throw new InvalidOperationException($"La condonación no puede superar el {config.PorcentajeMaximoCondonacion.Value}% de la mora");
+                }
 
                 var nuevoAcuerdo = new AcuerdoPago
                 {
