@@ -854,6 +854,14 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             ProductoSoloLecturaUserId, "test-producto-solo-lectura-role-id", "TestProductoSoloLecturaRole", 9910,
             "productos.view");
 
+    public const string ProductoSoloCrearUserId = "test-producto-solo-crear-id";
+
+    /// <summary>Consulta y crea productos (productos.create), sin editar, eliminar ni tocar precios.</summary>
+    public Task SeedUserWithProductoSoloCrearAsync() =>
+        SeedPermissionUserAsync(
+            ProductoSoloCrearUserId, "test-producto-solo-crear-role-id", "TestProductoSoloCrearRole", 9900,
+            "productos.view", "productos.create");
+
     private async Task SeedPermissionUserAsync(
         string userId,
         string roleId,
