@@ -94,7 +94,7 @@ public class ProductoControllerPrecioTests : IDisposable
             HttpContext = new DefaultHttpContext
             {
                 User = new ClaimsPrincipal(new ClaimsIdentity(
-                    new[] { new Claim(ClaimTypes.Name, "operador@test.com") },
+                    new[] { new Claim(ClaimTypes.Name, "operador@test.com"), new Claim("Permission", "precios.apply") },
                     "TestAuth"))
             }
         };
@@ -360,7 +360,8 @@ public class ProductoControllerPrecioTests : IDisposable
             new[]
             {
                 new Claim(ClaimTypes.Name, "admin@test.com"),
-                new Claim("Permission", "productos.editshippingcost")
+                new Claim("Permission", "productos.editshippingcost"),
+                new Claim("Permission", "precios.apply")
             },
             "TestAuth"));
     }

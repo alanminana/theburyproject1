@@ -183,6 +183,9 @@ namespace TheBuryProject.Controllers
         // =========================
 
         // GET: MovimientoStock/Create
+        // Registrar movimientos exige movimientos.create (se suma al movimientos.view de la clase):
+        // "Ver" solo consulta stock y Kardex, no habilita escribir.
+        [PermisoRequerido(Modulo = "movimientos", Accion = "create")]
         public async Task<IActionResult> Create(int? productoId)
         {
             try
@@ -223,6 +226,7 @@ namespace TheBuryProject.Controllers
         // POST: MovimientoStock/Create
         [HttpPost]
         [ValidateAntiForgeryToken] // protege el POST con anti-CSRF
+        [PermisoRequerido(Modulo = "movimientos", Accion = "create")]
         public async Task<IActionResult> Create(AjusteStockViewModel viewModel)
         {
             // Si la vista origen pidió volver a una URL local (ej. form inline en ficha de

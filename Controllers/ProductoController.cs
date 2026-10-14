@@ -308,6 +308,23 @@ namespace TheBuryProject.Controllers
                 return Json(new { success = false, errors });
             }
 
+            // Costos y precio de venta son importes: editar el producto (productos.update) no alcanza
+            // para cambiarlos, hace falta precios.apply. Se valida antes de abrir la transacción para
+            // que un rechazo no deje escritura ni historial. Ocultar los inputs no es el control.
+            var importesVigentes = await ObtenerImportesVigentesSiNoPuedeModificarAsync(id);
+            if (importesVigentes != null && ImportesModificados(viewModel, importesVigentes))
+            {
+                _logger.LogWarning(
+                    "Edición de producto {Id} rechazada: {Usuario} intentó modificar costos/precio sin el permiso precios.apply",
+                    id, User.Identity?.Name);
+                Response.StatusCode = StatusCodes.Status403Forbidden;
+                return Json(new
+                {
+                    success = false,
+                    errors = new Dictionary<string, string[]> { { "", new[] { "No tenés permiso para modificar costos ni precios. Pedí el permiso «Aplicar Cambio» de Precios." } } }
+                });
+            }
+
             // Crédito Personal y los campos generales del producto se persisten como una única
             // unidad de trabajo sobre el mismo AppDbContext scoped: ver comentario equivalente en
             // Edit (POST) y CreateAjax.
@@ -333,6 +350,16 @@ namespace TheBuryProject.Controllers
                 producto.RowVersion = viewModel.RowVersion!;
                 // Sin permiso, el costo de envío es solo lectura: se conserva el valor persistido
                 // aunque el request traiga otro (input readonly manipulado).
+                // Sin precios.apply los importes quedan en el valor persistido (las diferencias de
+                // redondeo del formulario no cuentan como cambio y no deben dejar historial).
+                if (importesVigentes != null)
+                {
+                    producto.PrecioCompra = importesVigentes.PrecioCompra;
+                    producto.PercepcionesCompra = importesVigentes.PercepcionesCompra;
+                    producto.OtrosCostosCompra = importesVigentes.OtrosCostosCompra;
+                    producto.PrecioVenta = importesVigentes.PrecioVenta;
+                    producto.PorcentajeIVACompra = importesVigentes.PorcentajeIVACompra;
+                }
                 if (!PuedeEditarCostoEnvio())
                 {
                     producto.CostoEnvio = await _context.Productos
@@ -505,6 +532,42 @@ namespace TheBuryProject.Controllers
         }
 
         private bool PuedeEditarCostoEnvio() => User.TienePermiso("productos", "editshippingcost");
+
+        private bool PuedeModificarImportes() => User.TienePermiso("precios", "apply");
+
+        private sealed record ImportesProducto(
+            decimal PrecioCompra,
+            decimal PercepcionesCompra,
+            decimal OtrosCostosCompra,
+            decimal PrecioVenta,
+            decimal? PorcentajeIVACompra);
+
+        /// <summary>Importes persistidos del producto, o null si el usuario puede modificarlos.</summary>
+        private async Task<ImportesProducto?> ObtenerImportesVigentesSiNoPuedeModificarAsync(int id)
+        {
+            if (PuedeModificarImportes())
+                return null;
+
+            return await _context.Productos
+                .AsNoTracking()
+                .Where(p => p.Id == id && !p.IsDeleted)
+                .Select(p => new ImportesProducto(p.PrecioCompra, p.PercepcionesCompra, p.OtrosCostosCompra, p.PrecioVenta, p.PorcentajeIVACompra))
+                .FirstOrDefaultAsync();
+        }
+
+        // El formulario recalcula el costo neto con 2 decimales: una diferencia menor a un centavo es
+        // redondeo, no un cambio de importe.
+        private static bool ImportesModificados(ProductoViewModel vm, ImportesProducto vigente)
+        {
+            static bool Distinto(decimal a, decimal b) => Math.Abs(a - b) >= 0.01m;
+
+            return Distinto(vm.PrecioCompra, vigente.PrecioCompra)
+                || Distinto(vm.PercepcionesCompra, vigente.PercepcionesCompra)
+                || Distinto(vm.OtrosCostosCompra, vigente.OtrosCostosCompra)
+                || Distinto(vm.PrecioVenta, vigente.PrecioVenta)
+                || (vm.PorcentajeIVACompra.HasValue && vigente.PorcentajeIVACompra.HasValue
+                    && Math.Abs(vm.PorcentajeIVACompra.Value - vigente.PorcentajeIVACompra.Value) >= 0.01m);
+        }
 
         private async Task<Producto> MapearProductoParaPersistenciaAsync(ProductoViewModel viewModel)
         {
@@ -956,6 +1019,7 @@ namespace TheBuryProject.Controllers
         [HttpPost("Producto/AjustarStockAgregadoAUnidadesFisicas")]
         [ValidateAntiForgeryToken]
         [PermisoRequerido(Modulo = "productos", Accion = "edit")]
+        [PermisoRequerido(Modulo = "movimientos", Accion = "create")]
         public async Task<IActionResult> AjustarStockAgregadoAUnidadesFisicas(ProductoUnidadConciliarStockViewModel vm)
             => await AplicarAjusteStockAgregadoDesdeConciliacionAsync(
                 vm,
@@ -967,6 +1031,7 @@ namespace TheBuryProject.Controllers
         [HttpPost("Producto/AjustarStockAgregadoHaciaAbajo")]
         [ValidateAntiForgeryToken]
         [PermisoRequerido(Modulo = "productos", Accion = "edit")]
+        [PermisoRequerido(Modulo = "movimientos", Accion = "create")]
         public async Task<IActionResult> AjustarStockAgregadoHaciaAbajo(ProductoUnidadConciliarStockViewModel vm)
             => await AplicarAjusteStockAgregadoDesdeConciliacionAsync(
                 vm,

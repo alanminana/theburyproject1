@@ -108,7 +108,7 @@ public class ProductoCreditoPersonalControllerTests : IDisposable
             HttpContext = new DefaultHttpContext
             {
                 User = new ClaimsPrincipal(new ClaimsIdentity(
-                    new[] { new Claim(ClaimTypes.Name, "operador@test.com") },
+                    new[] { new Claim(ClaimTypes.Name, "operador@test.com"), new Claim("Permission", "precios.apply") },
                     "TestAuth"))
             }
         };
