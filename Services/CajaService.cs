@@ -959,6 +959,15 @@ namespace TheBuryProject.Services
             }
         }
 
+        private static readonly ConceptoMovimientoCaja[] ConceptosIngresoVenta =
+        {
+            ConceptoMovimientoCaja.VentaEfectivo,
+            ConceptoMovimientoCaja.VentaTarjeta,
+            ConceptoMovimientoCaja.VentaCheque,
+            ConceptoMovimientoCaja.VentaTransferencia,
+            ConceptoMovimientoCaja.VentaMercadoPago
+        };
+
         /// <inheritdoc/>
         public async Task<MovimientoCaja?> RegistrarContramovimientoVentaAsync(
             int ventaId,
@@ -968,21 +977,27 @@ namespace TheBuryProject.Services
         {
             try
             {
-                // Buscar ingreso original por VentaId
+                // Solo se revierte el ingreso de la PROPIA venta. ReferenciaId es polimórfico
+                // (venta, cuota, crédito, devolución, orden ML...), por lo que nunca alcanza por sí
+                // solo para identificar la operación: se exige además concepto de cobro de venta.
                 var movimientoOriginal = await _context.MovimientosCaja
                     .Where(m => m.VentaId == ventaId
                              && m.Tipo == TipoMovimientoCaja.Ingreso
+                             && ConceptosIngresoVenta.Contains(m.Concepto)
                              && !m.IsDeleted)
                     .OrderBy(m => m.Id)
                     .FirstOrDefaultAsync();
 
-                // Fallback: buscar por ReferenciaId para movimientos anteriores sin VentaId directo
+                // Fallback para movimientos históricos sin VentaId: además del concepto de venta,
+                // la Referencia textual debe ser el número de ESTA venta.
                 if (movimientoOriginal == null)
                 {
                     movimientoOriginal = await _context.MovimientosCaja
                         .Where(m => m.VentaId == null
                                  && m.ReferenciaId == ventaId
+                                 && m.Referencia == ventaNumero
                                  && m.Tipo == TipoMovimientoCaja.Ingreso
+                                 && ConceptosIngresoVenta.Contains(m.Concepto)
                                  && !m.IsDeleted)
                         .OrderBy(m => m.Id)
                         .FirstOrDefaultAsync();
