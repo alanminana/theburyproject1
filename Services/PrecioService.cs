@@ -209,6 +209,7 @@ public class PrecioService : IPrecioService
         var query = _context.Productos
             .Where(p => !p.IsDeleted)
             .AsQueryable();
+        var alcanceAcotado = false;
 
         if (alcance == "seleccionados")
         {
@@ -262,14 +263,21 @@ public class PrecioService : IPrecioService
             }
 
             if (filtros.CategoriaId.HasValue && filtros.CategoriaId > 0)
+            {
                 query = query.Where(p => p.CategoriaId == filtros.CategoriaId);
+                alcanceAcotado = true;
+            }
 
             if (filtros.MarcaId.HasValue && filtros.MarcaId > 0)
+            {
                 query = query.Where(p => p.MarcaId == filtros.MarcaId);
+                alcanceAcotado = true;
+            }
 
             if (!string.IsNullOrWhiteSpace(filtros.Busqueda))
             {
-                var busqueda = filtros.Busqueda.ToLowerInvariant();
+                alcanceAcotado = true;
+                var busqueda = filtros.Busqueda.Trim().ToLowerInvariant();
                 query = query.Where(p =>
                     p.Codigo.ToLower().Contains(busqueda) ||
                     p.Nombre.ToLower().Contains(busqueda) ||
@@ -279,8 +287,12 @@ public class PrecioService : IPrecioService
             if (filtros.SoloActivos.HasValue && filtros.SoloActivos.Value)
                 query = query.Where(p => p.Activo);
 
+            // "Solo activos" por sí solo no acota el alcance (casi todo el catálogo): no cuenta como filtro efectivo.
             if (filtros.StockBajo.HasValue && filtros.StockBajo.Value)
+            {
                 query = query.Where(p => p.StockActual <= p.StockMinimo);
+                alcanceAcotado = true;
+            }
         }
 
         var productos = await query.ToListAsync();
@@ -290,6 +302,38 @@ public class PrecioService : IPrecioService
             {
                 Exitoso = false,
                 Mensaje = "No se encontraron productos para aplicar el cambio."
+            };
+        }
+
+        // B5: un ajuste "filtrados" sin ningún filtro efectivo equivale a todo el catálogo. Solo se acepta con
+        // confirmación explícita y la cantidad exacta que el servidor calcula. Siempre, si el cliente informó
+        // la cantidad que vio, debe coincidir: ante cualquier diferencia no se modifica nada.
+        if (alcance == "filtrados" && !alcanceAcotado)
+        {
+            if (!model.ConfirmarTodoElCatalogo || model.CantidadEsperada != productos.Count)
+            {
+                _logger.LogWarning(
+                    "Ajuste de precios rechazado: alcance filtrados sin filtro efectivo alcanzaría {Cantidad} productos (confirmado: {Confirmado}, esperado: {Esperada}) por {User}",
+                    productos.Count, model.ConfirmarTodoElCatalogo, model.CantidadEsperada, GetCurrentUser());
+                return new ResultadoAplicacionPrecios
+                {
+                    Exitoso = false,
+                    Mensaje = $"El ajuste no tiene ningún filtro efectivo y alcanzaría todo el catálogo ({productos.Count} productos). " +
+                              "Elegí al menos un filtro o confirmá explícitamente el alcance total indicando la cantidad de productos.",
+                    ProductosEnAlcance = productos.Count
+                };
+            }
+        }
+        else if (model.CantidadEsperada.HasValue && model.CantidadEsperada.Value != productos.Count)
+        {
+            _logger.LogWarning(
+                "Ajuste de precios rechazado: se esperaban {Esperada} productos y el alcance real es {Real} (usuario {User})",
+                model.CantidadEsperada, productos.Count, GetCurrentUser());
+            return new ResultadoAplicacionPrecios
+            {
+                Exitoso = false,
+                Mensaje = $"El alcance cambió: se esperaban {model.CantidadEsperada} productos y ahora son {productos.Count}. Revisá la vista previa y volvé a intentar.",
+                ProductosEnAlcance = productos.Count
             };
         }
 
@@ -492,11 +536,26 @@ public class PrecioService : IPrecioService
             "Cambio directo aplicado: {Count} productos por {User}",
             historicos.Count, usuario);
 
+        // B8: venta por debajo del costo = advertencia no bloqueante (misma política que la simulación y el batch).
+        var bajoCosto = cambios.Where(c => c.nuevo < c.producto.PrecioCompra).ToList();
+        var advertencias = new List<string>();
+        var mensajeExito = $"Se actualizaron {historicos.Count} productos correctamente.";
+        if (bajoCosto.Count > 0)
+        {
+            var codigos = string.Join(", ", bajoCosto.Take(5).Select(c => c.producto.Codigo));
+            var resto = bajoCosto.Count > 5 ? $" y {bajoCosto.Count - 5} más" : string.Empty;
+            var aviso = $"{bajoCosto.Count} producto(s) quedaron con precio de venta por debajo del costo ({codigos}{resto}).";
+            advertencias.Add(aviso);
+            mensajeExito += " Atención: " + aviso;
+        }
+
         return new ResultadoAplicacionPrecios
         {
             Exitoso = true,
-            Mensaje = $"Se actualizaron {historicos.Count} productos correctamente.",
+            Mensaje = mensajeExito,
             ProductosActualizados = historicos.Count,
+            ProductosEnAlcance = productos.Count,
+            Advertencias = advertencias,
             FechaAplicacion = now,
             CambioPrecioEventoId = evento.Id
         };
@@ -599,6 +658,31 @@ public class PrecioService : IPrecioService
         if (faltantes.Count > 0)
             return (false, "No se encontraron todos los productos para revertir.", null);
 
+        // B6: solo se revierte si nadie tocó el precio desde el evento (precio actual == PrecioNuevo del detalle).
+        // Con un cambio posterior la reversión pisaría un precio vigente: se bloquea el evento completo, sin
+        // escribir nada y sin marcarlo como revertido. (Revertir parcial o "forzar" son decisiones de negocio
+        // pendientes y no se implementan.)
+        var conflictos = evento.Detalles
+            .Select(d => (Detalle: d, Producto: productos.First(p => p.Id == d.ProductoId)))
+            .Where(x => x.Producto.PrecioVenta != x.Detalle.PrecioNuevo)
+            .ToList();
+
+        if (conflictos.Count > 0)
+        {
+            var resumen = string.Join("; ", conflictos.Take(5).Select(x =>
+                $"{x.Producto.Codigo}: precio actual {x.Producto.PrecioVenta:0.##}, esperado {x.Detalle.PrecioNuevo:0.##}"));
+            var resto = conflictos.Count > 5 ? $" y {conflictos.Count - 5} más" : string.Empty;
+
+            _logger.LogWarning(
+                "Reversión del evento {EventoId} rechazada por {User}: {Cantidad} producto(s) cambiaron de precio después del evento ({Resumen}{Resto})",
+                eventoId, GetCurrentUser(), conflictos.Count, resumen, resto);
+
+            return (false,
+                $"No se puede revertir: {conflictos.Count} producto(s) cambiaron de precio después de este evento ({resumen}{resto}). " +
+                "Revertir pisaría un precio vigente. Corregí esos productos manualmente.",
+                null);
+        }
+
         var usuario = GetCurrentUser();
         var now = DateTime.UtcNow;
         var historicos = new List<PrecioHistorico>();
@@ -662,6 +746,13 @@ public class PrecioService : IPrecioService
             _context.PreciosHistoricos.AddRange(historicos);
             await _context.SaveChangesAsync();
             await transaction.CommitAsync();
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            // Otro proceso modificó un producto entre la lectura y la escritura (RowVersion): no se pisa.
+            await transaction.RollbackAsync();
+            _logger.LogWarning(ex, "Conflicto de concurrencia al revertir el evento {EventoId}.", eventoId);
+            return (false, "Un producto del evento fue modificado mientras se revertía. No se aplicó ningún cambio: revisá los precios e intentá nuevamente.", null);
         }
         catch (Exception ex)
         {

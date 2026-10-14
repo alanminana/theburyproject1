@@ -30,6 +30,7 @@
         <form method="post" asp-controller="MovimientoStock" asp-action="Create" class="flex-1 overflow-y-auto flex flex-col min-h-0">
             @Html.AntiForgeryToken()
             <input type="hidden" name="ReturnUrl" value="@a.ReturnUrl" />
+            <input type="hidden" name="RequestId" value="@Guid.NewGuid()" />
 
             <div class="flex-1 overflow-y-auto p-6 space-y-5">
                 @if (Model.ProductoBloqueado)

@@ -798,6 +798,11 @@ namespace TheBuryProject.Data
                 entity.Property(e => e.FuenteCosto)
                     .HasMaxLength(50)
                     .HasDefaultValue("NoInformado");
+
+                // Idempotencia de ajustes manuales (QA-PRD-P1 B4): una intencion = un movimiento.
+                entity.HasIndex(e => e.RequestId)
+                    .IsUnique()
+                    .HasFilter("RequestId IS NOT NULL");
             });
 
             // =======================

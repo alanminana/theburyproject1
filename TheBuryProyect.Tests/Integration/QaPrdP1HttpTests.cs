@@ -42,21 +42,9 @@ public class QaPrdP1HttpTests : IClassFixture<CustomWebApplicationFactory>
         Assert.Equal(15m, await StockAsync());
     }
 
-    [Fact]
-    public async Task B4_MismoRequestIdEnParalelo_RegistraUnSoloMovimiento()
-    {
-        await SeedProductoAsync();
-        await _factory.SeedUserWithStockOperadorAsync();
-        using var client = _factory.CreateClientWithUserId(CustomWebApplicationFactory.StockOperadorUserId);
-        var token = await TokenAsync(client, $"/MovimientoStock/Create?productoId={ProductoId}");
-        var requestId = Guid.NewGuid().ToString();
-
-        await Task.WhenAll(Enumerable.Range(0, 3)
-            .Select(_ => client.PostAsync("/MovimientoStock/Create", AjusteForm(token, 5, requestId))));
-
-        Assert.Equal(1, await ContarMovimientosAsync());
-        Assert.Equal(15m, await StockAsync());
-    }
+    // La concurrencia real (contextos y conexiones independientes) se verifica en
+    // QaPrdP1IdempotenciaConcurrenciaTests: el host de tests HTTP comparte UNA conexion SQLite en memoria
+    // y solicitudes en paralelo sobre ella la corrompen (fallo intermitente al liberar la fabrica).
 
     [Fact]
     public async Task B4_Guarda_RequestIdDistintoConMismoContenido_SonMovimientosLegitimos()

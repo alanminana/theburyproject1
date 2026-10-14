@@ -308,6 +308,7 @@
                 <form method="post" asp-controller="MovimientoStock" asp-action="Create"
                       class="mt-4 space-y-4">
                     @Html.AntiForgeryToken()
+                    <input type="hidden" name="RequestId" value="@Guid.NewGuid()" />
                     <input type="hidden" name="ProductoId" value="@Model.ProductoId" />
                     <input type="hidden" name="ReturnUrl"
                            value="@Url.Action("Inventario", "Producto", new { productoId = Model.ProductoId, tab = "movimientos" })" />

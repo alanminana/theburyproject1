@@ -523,6 +523,12 @@
                     document.dispatchEvent(new CustomEvent('catalogo:toast', {
                         detail: { message: result.message || 'Producto actualizado', type: 'success' }
                     }));
+                    // B8: avisos no bloqueantes del servidor (p. ej. precio de venta por debajo del costo).
+                    (result.advertencias || []).forEach(function (msg) {
+                        document.dispatchEvent(new CustomEvent('catalogo:toast', {
+                            detail: { message: msg, type: 'warning' }
+                        }));
+                    });
                 } else if (result.errors) {
                     handleServerErrors(result.errors);
                 }

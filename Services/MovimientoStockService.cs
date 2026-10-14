@@ -238,8 +238,23 @@ namespace TheBuryProject.Services
             string? referencia,
             string motivo,
             string? usuarioActual = null,
-            int? ordenCompraId = null)
+            int? ordenCompraId = null,
+            Guid? requestId = null)
         {
+            // Idempotencia (QA-PRD-P1 B4): mismo RequestId = reintento de la misma intención, se devuelve
+            // el movimiento ya registrado. Sin RequestId (flujos internos) cada llamada es un movimiento.
+            if (requestId.HasValue)
+            {
+                var previo = await BuscarPorRequestIdAsync(requestId.Value, productoId, tipo);
+                if (previo != null)
+                {
+                    _logger.LogInformation(
+                        "Ajuste de stock repetido ignorado (RequestId {RequestId}): ya existe el movimiento {MovimientoId}",
+                        requestId, previo.Id);
+                    return previo;
+                }
+            }
+
             // Validación de cantidad
             if (tipo == TipoMovimiento.Ajuste)
             {
@@ -306,6 +321,7 @@ namespace TheBuryProject.Services
                     Referencia = referencia,
                     OrdenCompraId = ordenCompraId,
                     Motivo = motivo,
+                    RequestId = requestId,
                     CreatedAt = DateTime.UtcNow,
                     CreatedBy = string.IsNullOrWhiteSpace(usuarioActual) ? "Sistema" : usuarioActual
                 };
@@ -324,6 +340,32 @@ namespace TheBuryProject.Services
 
                 return movimiento;
             }
+            catch (DbUpdateException ex) when (requestId.HasValue && transaction != null)
+            {
+                // Carrera entre dos envíos de la misma intención: el primero ya confirmó. Se descarta este
+                // intento y se devuelve el movimiento ganador (si no existe, era un conflicto real).
+                await transaction.RollbackAsync();
+                foreach (var entry in _context.ChangeTracker.Entries().ToList())
+                    entry.State = EntityState.Detached;
+
+                var ganador = await BuscarPorRequestIdAsync(requestId.Value, productoId, tipo);
+                if (ganador != null)
+                {
+                    _logger.LogInformation(
+                        "Ajuste de stock concurrente repetido resuelto (RequestId {RequestId}): movimiento {MovimientoId}",
+                        requestId, ganador.Id);
+                    return ganador;
+                }
+
+                if (ex is DbUpdateConcurrencyException)
+                {
+                    _logger.LogWarning(ex, "Conflicto de concurrencia al ajustar stock - ProductoId {ProductoId}", productoId);
+                    throw new InvalidOperationException("El stock fue modificado por otro usuario/proceso. Recargá e intentá nuevamente.");
+                }
+
+                _logger.LogError(ex, "Error en RegistrarAjusteAsync - Transacción revertida");
+                throw;
+            }
             catch (DbUpdateConcurrencyException ex)
             {
                 if (transaction != null)
@@ -338,6 +380,27 @@ namespace TheBuryProject.Services
                 _logger.LogError(ex, "Error en RegistrarAjusteAsync - Transacción revertida");
                 throw;
             }
+        }
+
+        /// <summary>
+        /// Busca un movimiento por su RequestId. Si pertenece a otra operación (otro producto o tipo)
+        /// el identificador fue reutilizado indebidamente y se rechaza en lugar de devolver un dato ajeno.
+        /// </summary>
+        private async Task<MovimientoStock?> BuscarPorRequestIdAsync(Guid requestId, int productoId, TipoMovimiento tipo)
+        {
+            var existente = await _context.MovimientosStock
+                .AsNoTracking()
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(m => m.RequestId == requestId);
+
+            if (existente == null)
+                return null;
+
+            if (existente.ProductoId != productoId || existente.Tipo != tipo)
+                throw new InvalidOperationException(
+                    "El identificador de la solicitud ya se usó en otra operación. Recargá el formulario e intentá nuevamente.");
+
+            return existente;
         }
 
         public async Task<List<MovimientoStock>> RegistrarEntradasAsync(

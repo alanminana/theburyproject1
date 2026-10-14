@@ -283,7 +283,8 @@ namespace TheBuryProject.Controllers
                     viewModel.Cantidad,
                     viewModel.Referencia,
                     viewModel.Motivo,
-                    usuarioActual);  // ← NUEVO PARÁMETRO
+                    usuarioActual,
+                    requestId: viewModel.RequestId);
 
                 if (volverInline)
                 {

@@ -862,6 +862,23 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             ProductoSoloCrearUserId, "test-producto-solo-crear-role-id", "TestProductoSoloCrearRole", 9900,
             "productos.view", "productos.create");
 
+    public const string ProductoMarcaCompletoUserId = "test-producto-marca-completo-id";
+
+    /// <summary>Opera productos (ver/crear/editar/eliminar/precios) y marcas (ver/editar/eliminar).</summary>
+    public Task SeedUserWithProductoYMarcaCompletoAsync() =>
+        SeedPermissionUserAsync(
+            ProductoMarcaCompletoUserId, "test-producto-marca-completo-role-id", "TestProductoMarcaCompletoRole", 9940,
+            "productos.view", "productos.create", "productos.update", "productos.delete", "precios.apply",
+            "marcas.view", "marcas.update", "marcas.delete");
+
+    public const string ProductoMarcaSoloLecturaUserId = "test-producto-marca-solo-lectura-id";
+
+    /// <summary>Solo consulta productos y marcas.</summary>
+    public Task SeedUserWithProductoYMarcaSoloLecturaAsync() =>
+        SeedPermissionUserAsync(
+            ProductoMarcaSoloLecturaUserId, "test-producto-marca-solo-lectura-role-id", "TestProductoMarcaSoloLecturaRole", 9960,
+            "productos.view", "marcas.view");
+
     private async Task SeedPermissionUserAsync(
         string userId,
         string roleId,

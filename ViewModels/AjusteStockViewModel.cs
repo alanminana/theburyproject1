@@ -36,6 +36,12 @@ namespace TheBuryProject.ViewModels
         // Si no se setea, el POST mantiene su comportamiento por defecto (redirect a Kardex).
         public string? ReturnUrl { get; set; }
 
+        /// <summary>
+        /// Identificador de intención generado al renderizar el formulario. Reenviarlo (doble clic,
+        /// reintento, refresco) no duplica el movimiento. Opcional: sin él, cada POST es un movimiento.
+        /// </summary>
+        public Guid? RequestId { get; set; }
+
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {
             if (Tipo == TipoMovimiento.Ajuste)

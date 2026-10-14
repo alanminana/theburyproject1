@@ -154,6 +154,7 @@ namespace TheBuryProject.Controllers
                 {
                     success = true,
                     message = "Producto creado exitosamente",
+                    advertencias = AdvertenciasDePrecio(producto),
                     entity = new
                     {
                         id                 = producto.Id,
@@ -292,6 +293,15 @@ namespace TheBuryProject.Controllers
             }
         }
 
+        /// <summary>
+        /// Avisos no bloqueantes sobre el precio guardado (B8). La política vigente es advertir y no impedir:
+        /// la simulación y el ajuste masivo también solo advierten.
+        /// </summary>
+        private static string[] AdvertenciasDePrecio(Producto producto) =>
+            producto.PrecioVenta < producto.PrecioCompra
+                ? new[] { $"El precio de venta ({producto.PrecioVenta:N2}) quedó por debajo del costo ({producto.PrecioCompra:N2}): se vende con pérdida." }
+                : Array.Empty<string>();
+
         [HttpPost]
         [ValidateAntiForgeryToken]
         [PermisoRequerido(Modulo = "productos", Accion = "edit")]
@@ -378,6 +388,7 @@ namespace TheBuryProject.Controllers
                 {
                     success = true,
                     message = "Producto actualizado exitosamente",
+                    advertencias = AdvertenciasDePrecio(producto),
                     entity = new
                     {
                         id = fila!.ProductoId,

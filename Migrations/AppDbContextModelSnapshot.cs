@@ -6884,6 +6884,9 @@ namespace TheBuryProject.Migrations
                     b.Property<string>("Referencia")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<Guid?>("RequestId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
                         .IsRequired()
@@ -6912,6 +6915,10 @@ namespace TheBuryProject.Migrations
                     b.HasIndex("OrdenCompraId");
 
                     b.HasIndex("ProductoId");
+
+                    b.HasIndex("RequestId")
+                        .IsUnique()
+                        .HasFilter("RequestId IS NOT NULL");
 
                     b.ToTable("MovimientosStock");
                 });

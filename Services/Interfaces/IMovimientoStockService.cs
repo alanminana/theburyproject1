@@ -58,7 +58,8 @@ namespace TheBuryProject.Services.Interfaces
             string? referencia,
             string motivo,
             string? usuarioActual = null,
-            int? ordenCompraId = null);
+            int? ordenCompraId = null,
+            Guid? requestId = null);
 
         /// <summary>
         /// Registrar múltiples entradas de stock en un solo SaveChanges.

@@ -70,6 +70,9 @@
     // pero ofrecer botones que terminan en 403 sí es un defecto de UX (QA-PRD-P0 / B9).
     var puedeCrearProducto = User.TienePermiso("productos", "create");
     var puedeEditarProducto = User.TienePermiso("productos", "update");
+    var puedeEliminarProducto = User.TienePermiso("productos", "delete");
+    var puedeEditarMarca = User.TienePermiso("marcas", "update");
+    var puedeEliminarMarca = User.TienePermiso("marcas", "delete");
     // Costos y precio de venta solo cambian con precios.apply (EditAjax lo vuelve a exigir).
     var puedeModificarImportes = User.TienePermiso("precios", "apply");
     // El ajuste masivo arranca simulando (precios.simulate) y aplica con precios.apply.
@@ -462,7 +465,11 @@
                         </tr>
                     </thead>
 
+                    @* data-can-*: permisos efectivos para las filas que arma producto-crear-modal.js (B9). *@
                     <tbody id="productos-tbody"
+                           data-can-edit="@((puedeVerProducto && puedeEditarProducto) ? "true" : "false")"
+                           data-can-delete="@(puedeEliminarProducto ? "true" : "false")"
+                           data-can-comision="@(puedeEditarProducto ? "true" : "false")"
                            class="divide-y divide-slate-800">
 
                         @if (productos.Any())
@@ -667,6 +674,14 @@
 
                                     @* COMISIÓN *@
                                     <td class="px-4 py-3 text-right align-middle">
+                                        @if (!puedeEditarProducto)
+                                        {
+                                            @* Sin productos.edit la comisión se muestra, no se edita (B9). *@
+                                            <span class="inline-flex min-h-10 items-center px-3 py-1.5 text-sm font-semibold tabular-nums @(p.ComisionPorcentaje > 0 ? "text-emerald-400" : "text-slate-300")"
+                                                  data-producto-comision>@p.ComisionPorcentaje.ToString("N2")%</span>
+                                        }
+                                        else
+                                        {
                                         <button type="button"
                                                 data-comision-producto-id="@p.ProductoId"
                                                 data-comision-producto-nombre="@p.Nombre"
@@ -685,6 +700,7 @@
                                                 edit
                                             </span>
                                         </button>
+                                        }
                                     </td>
 
                                     @* ACCIONES ESENCIALES *@
@@ -858,6 +874,8 @@
             </button>
         }
 
+        @if (puedeEliminarProducto)
+        {
         <div class="my-1 border-t border-slate-800"
              role="separator">
         </div>
@@ -874,6 +892,7 @@
 
             Eliminar producto
         </button>
+        }
     </div>
 
     @if (User.TienePermiso("mercadolibre", "sync"))
@@ -1151,7 +1170,9 @@
                         <th scope="col" class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right">Acciones</th>
                     </tr>
                 </thead>
-                <tbody id="marcas-tbody" class="divide-y divide-slate-800">
+                <tbody id="marcas-tbody" class="divide-y divide-slate-800"
+                       data-can-edit="@(puedeEditarMarca ? "true" : "false")"
+                       data-can-delete="@(puedeEliminarMarca ? "true" : "false")">
                     @if (Model.MarcasListado.Any())
                     {
                         @foreach (var marca in Model.MarcasListado)
@@ -1194,16 +1215,22 @@
                                 </td>
                                 <td class="px-4 py-3 text-right" style="min-width: 240px;">
                                     <div class="flex flex-wrap justify-end gap-2">
+                                        @if (puedeEditarMarca)
+                                        {
                                         <button type="button" data-marca-edit-id="@marca.Id"
                                                 class="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-1.5 text-xs font-semibold text-slate-300 transition-colors hover:border-slate-600 hover:bg-slate-800 hover:text-white" title="Editar">
                                             <span class="material-symbols-outlined text-base">edit</span>
                                             <span>Editar</span>
                                         </button>
+                                        }
+                                        @if (puedeEliminarMarca)
+                                        {
                                         <button type="button" data-marca-delete-id="@marca.Id" data-marca-delete-nombre="@marca.Nombre"
                                                 class="inline-flex items-center gap-1.5 rounded-lg border border-red-500/30 px-2.5 py-1.5 text-xs font-semibold text-red-400 transition-colors hover:bg-red-500/10 hover:text-red-400" title="Eliminar">
                                             <span class="material-symbols-outlined text-base">delete</span>
                                             <span>Eliminar</span>
                                         </button>
+                                        }
                                     </div>
                                 </td>
                             </tr>

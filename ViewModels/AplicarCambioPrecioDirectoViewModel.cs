@@ -23,5 +23,18 @@ namespace TheBuryProject.ViewModels
 
         /// <summary>"none" (predeterminado), "entero" (sin decimales) o "99" (terminar en .99).</summary>
         public string? Redondeo { get; set; }
+
+        /// <summary>
+        /// Cantidad de productos que el usuario vio en la simulación/vista previa. Si se informa y no
+        /// coincide con lo que el servidor calcula para el alcance, el cambio se rechaza sin aplicar nada.
+        /// Es obligatoria cuando el alcance "filtrados" no tiene ningún filtro efectivo.
+        /// </summary>
+        public int? CantidadEsperada { get; set; }
+
+        /// <summary>
+        /// Confirmación explícita de que el alcance es todo el catálogo (alcance "filtrados" sin filtros
+        /// efectivos). Requiere además <see cref="CantidadEsperada"/> igual al conteo real.
+        /// </summary>
+        public bool ConfirmarTodoElCatalogo { get; set; }
     }
 }
