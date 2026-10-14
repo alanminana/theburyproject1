@@ -117,3 +117,6 @@ secrets/
 
 # CA publica de Caddy generada por scripts/install/install.sh (se distribuye a los clientes; no se versiona)
 caddy-root-ca.crt
+e2e-tx/financiero/.auth/
+e2e-tx/financiero/lib/_explore*.js
+e2e-tx/financiero/evidencia/
