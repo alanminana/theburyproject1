@@ -46,11 +46,12 @@ Tests nuevos de B4: `QaPrdP1B4RemediacionTests` (13) y 2 pruebas HTTP en `QaPrdP
 **SQL Server real (stack aislado `prd`, base `BuryQA_PRD`), imagen construida desde el commit de esta rama:**
 - Migración aplicada una vez; 28 movimientos históricos intactos (conteo y checksum idénticos antes/después);
   respaldo verificado previo (`RESTORE VERIFYONLY`).
-- E2E Productos: 48 de 49 OK. Incluye `05-b4-idempotencia.spec.js` (8): ocho envíos simultáneos con el mismo
+- E2E Productos: 49 de 49 OK. Incluye `05-b4-idempotencia.spec.js` (8): ocho envíos simultáneos con el mismo
   `RequestId` → 1 movimiento y 1 cambio de stock; reuso con otra cantidad/motivo/tipo rechazado; reintento tras
   error de negocio conserva el `RequestId` y se aplica una sola vez; CSRF (400 sin token) y permisos (lector 403).
-- La única falla es **PR12 / B8** (precio de venta menor al costo se acepta sin bloqueo), pendiente de decisión de
-  negocio y ajena a esta integración.
+- **PR12 / B8** (precio de venta menor al costo): la regla acordada es *advertir sin bloquear*. El servidor ya la
+  cumple (`success: true` + `advertencias`); el test esperaba un bloqueo y se corrigió para verificar la regla real:
+  se guarda, advierte una vez y un precio sobre el costo no advierte.
 - `S21b` (doble envío) se actualizó para enviar el `RequestId` que ahora traen los formularios reales.
 
 ## Pendiente / no verificado
@@ -58,4 +59,3 @@ Tests nuevos de B4: `QaPrdP1B4RemediacionTests` (13) y 2 pruebas HTTP en `QaPrdP
   la migración B4 automáticamente al arrancar contra su base.
 - Reconciliar la **PR #70** (Mora vistas, skills, layouts) después de este merge; esta rama no la contiene.
 - Aplicar la migración en otros entornos es una decisión aparte: no se aplicó a desarrollo ni a producción.
-- PR12 / B8 (decisión de negocio).

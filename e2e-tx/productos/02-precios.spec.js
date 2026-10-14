@@ -127,10 +127,14 @@ test.describe('PRECIOS', () => {
         evidence('PR12', { filaMargen: j.entity.margenPorcentaje, markup, margenSobreVenta });
         expect([markup, margenSobreVenta].some(v => Math.abs(Number(j.entity.margenPorcentaje) - v) < 0.01),
             `margen del catalogo=${j.entity.margenPorcentaje} no coincide con markup(${markup}) ni margen s/venta(${margenSobreVenta})`).toBe(true);
-        // venta bajo costo: el sistema solo advierte en log (no bloquea)
+        // Regla acordada (B8): precio de venta bajo el costo ADVIERTE y NO bloquea. Un precio normal no advierte.
+        expect(j.advertencias ?? [], 'un precio sobre el costo no debe advertir').toHaveLength(0);
         const bajo = await (await admin.form(`/Producto/EditAjax/${p.id}`, await editForm(admin, p.id, { PrecioVenta: '900' }))).json();
         evidence('PR12-bajo-costo', { resp: bajo, db: db.producto(M) });
-        expect.soft(bajo.success, 'precio de venta menor al costo aceptado sin bloqueo/confirmacion').toBe(false);
+        expect(bajo.success, 'el precio bajo el costo se guarda (no se bloquea)').toBe(true);
+        expect(bajo.advertencias ?? [], 'debe advertir que se vende con perdida').toHaveLength(1);
+        expect(bajo.advertencias[0]).toMatch(/por debajo del costo/i);
+        expect(db.producto(M).precioVenta, 'el precio advertido queda persistido').toBe(900);
     });
 
     test('PR13a sin permiso: lector no aplica ni revierte precios', async ({ lector, admin, st }) => {
