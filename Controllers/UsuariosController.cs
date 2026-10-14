@@ -256,6 +256,7 @@ public class UsuariosController : Controller
             }
 
             user.Activo = false;
+            user.SecurityStamp = Guid.NewGuid().ToString(); // invalida cookies emitidas
             user.FechaDesactivacion = DateTime.UtcNow;
             user.DesactivadoPor = _currentUser.GetUsername();
             user.MotivoDesactivacion = "Desactivación rápida desde la grilla de usuarios.";
@@ -343,6 +344,7 @@ public class UsuariosController : Controller
 
             // Soft delete: marcar como inactivo en lugar de eliminar
             user.Activo = false;
+            user.SecurityStamp = Guid.NewGuid().ToString(); // invalida cookies emitidas
             user.FechaDesactivacion = DateTime.UtcNow;
             user.DesactivadoPor = _currentUser.GetUsername();
             user.MotivoDesactivacion = motivo;
@@ -813,6 +815,7 @@ public class UsuariosController : Controller
                         }
 
                         user.Activo = false;
+                        user.SecurityStamp = Guid.NewGuid().ToString(); // invalida cookies emitidas
                         user.FechaDesactivacion = DateTime.UtcNow;
                         user.DesactivadoPor = _currentUser.GetUsername();
                         user.MotivoDesactivacion = "Desactivación masiva desde Seguridad.";

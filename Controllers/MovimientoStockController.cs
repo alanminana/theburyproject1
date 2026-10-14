@@ -183,6 +183,9 @@ namespace TheBuryProject.Controllers
         // =========================
 
         // GET: MovimientoStock/Create
+        // Registrar movimientos exige movimientos.create (se suma al movimientos.view de la clase):
+        // "Ver" solo consulta stock y Kardex, no habilita escribir.
+        [PermisoRequerido(Modulo = "movimientos", Accion = "create")]
         public async Task<IActionResult> Create(int? productoId)
         {
             try
@@ -220,9 +223,36 @@ namespace TheBuryProject.Controllers
             }
         }
 
+        /// <summary>Clave de TempData con el RequestId a reutilizar en el reintento de un envío inline fallido.</summary>
+        public const string RequestIdPendienteKey = "StockRequestIdPendiente";
+
+        /// <summary>
+        /// RequestId para un formulario de ajuste inline: el pendiente del último envío fallido (reintento de la misma
+        /// intención) o uno nuevo. Así un error con resultado incierto no regenera el identificador y no duplica el movimiento.
+        /// </summary>
+        public static Guid RequestIdParaFormulario(Microsoft.AspNetCore.Mvc.ViewFeatures.ITempDataDictionary tempData)
+            => tempData[RequestIdPendienteKey] switch
+            {
+                // El proveedor de TempData por cookie devuelve el valor ya convertido a Guid.
+                Guid pendiente => pendiente,
+                string texto when Guid.TryParse(texto, out var parseado) => parseado,
+                _ => Guid.NewGuid()
+            };
+
+        /// <summary>
+        /// Vuelve al formulario inline tras un error conservando el RequestId para el reintento.
+        /// </summary>
+        private IActionResult VolverConservandoRequestId(AjusteStockViewModel viewModel)
+        {
+            if (viewModel.RequestId.HasValue)
+                TempData[RequestIdPendienteKey] = viewModel.RequestId.Value.ToString("D");
+            return Redirect(viewModel.ReturnUrl!);
+        }
+
         // POST: MovimientoStock/Create
         [HttpPost]
         [ValidateAntiForgeryToken] // protege el POST con anti-CSRF
+        [PermisoRequerido(Modulo = "movimientos", Accion = "create")]
         public async Task<IActionResult> Create(AjusteStockViewModel viewModel)
         {
             // Si la vista origen pidió volver a una URL local (ej. form inline en ficha de
@@ -240,7 +270,7 @@ namespace TheBuryProject.Controllers
                             .SelectMany(v => v.Errors)
                             .Select(e => e.ErrorMessage)
                             .Where(m => !string.IsNullOrWhiteSpace(m)));
-                        return Redirect(viewModel.ReturnUrl!);
+                        return VolverConservandoRequestId(viewModel);
                     }
 
                     var productosInvalid = await _productoService.GetAllAsync();
@@ -279,7 +309,8 @@ namespace TheBuryProject.Controllers
                     viewModel.Cantidad,
                     viewModel.Referencia,
                     viewModel.Motivo,
-                    usuarioActual);  // ← NUEVO PARÁMETRO
+                    usuarioActual,
+                    requestId: viewModel.RequestId);
 
                 if (volverInline)
                 {
@@ -295,7 +326,7 @@ namespace TheBuryProject.Controllers
                 if (volverInline)
                 {
                     TempData["Error"] = ex.Message;
-                    return Redirect(viewModel.ReturnUrl!);
+                    return VolverConservandoRequestId(viewModel);
                 }
 
                 ModelState.AddModelError("", ex.Message);
@@ -315,7 +346,7 @@ namespace TheBuryProject.Controllers
                 if (volverInline)
                 {
                     TempData["Error"] = "Error al registrar el movimiento de stock.";
-                    return Redirect(viewModel.ReturnUrl!);
+                    return VolverConservandoRequestId(viewModel);
                 }
 
                 ModelState.AddModelError("", "Error al registrar el ajuste de stock");

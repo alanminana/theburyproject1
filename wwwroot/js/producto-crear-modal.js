@@ -569,7 +569,13 @@ const ProductoModal = (() => {
             attrs: { 'data-catalogo-modal-open': 'historial-precio', 'data-catalogo-producto-id': entity.id },
             icon: 'history', label: 'Historial'
         }));
-        divBtns.appendChild(mkAction({
+        // B9: la fila nueva solo ofrece lo que el servidor va a aceptar. El permiso efectivo lo publica
+        // el tbody (data-can-*); sin el atributo se asume que NO hay permiso. El servidor igual lo exige.
+        var canComision = tbody.dataset.canComision === 'true';
+        var canEdit = tbody.dataset.canEdit === 'true';
+        var canDelete = tbody.dataset.canDelete === 'true';
+
+        if (canComision) divBtns.appendChild(mkAction({
             cls: 'row-action row-action--primary', title: 'Comisión vendedor: 0.00%',
             attrs: { 'data-comision-producto-id': entity.id, 'data-comision-producto-nombre': entity.nombre || '', 'data-comision-porcentaje': '0' },
             icon: 'percent', label: 'Comisión'
@@ -584,12 +590,12 @@ const ProductoModal = (() => {
             href: '/Producto/Inventario?productoId=' + encodeURIComponent(entity.id),
             icon: 'inventory_2', label: 'Ver inventario'
         }));
-        divBtns.appendChild(mkAction({
+        if (canEdit) divBtns.appendChild(mkAction({
             cls: 'inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-1.5 text-xs font-semibold text-slate-300 transition-colors hover:border-slate-600 hover:bg-slate-800 hover:text-white',
             title: 'Editar', attrs: { 'data-prod-edit-id': entity.id },
             icon: 'edit', iconCls: 'material-symbols-outlined text-base', label: 'Editar', plainLabel: true
         }));
-        divBtns.appendChild(mkAction({
+        if (canDelete) divBtns.appendChild(mkAction({
             cls: 'inline-flex items-center gap-1.5 rounded-lg border border-red-500/30 px-2.5 py-1.5 text-xs font-semibold text-red-400 transition-colors hover:bg-red-500/10 hover:text-red-400',
             title: 'Eliminar', attrs: { 'data-prod-delete-id': entity.id, 'data-prod-delete-nombre': entity.nombre || '' },
             icon: 'delete', iconCls: 'material-symbols-outlined text-base', label: 'Eliminar', plainLabel: true
@@ -661,6 +667,12 @@ const ProductoModal = (() => {
                     document.dispatchEvent(new CustomEvent('catalogo:toast', {
                         detail: { message: 'Producto creado exitosamente.', type: 'success' }
                     }));
+                    // B8: avisos no bloqueantes del servidor (p. ej. precio de venta por debajo del costo).
+                    (result.advertencias || []).forEach(function (msg) {
+                        document.dispatchEvent(new CustomEvent('catalogo:toast', {
+                            detail: { message: msg, type: 'warning' }
+                        }));
+                    });
                 } else if (result.errors) {
                     handleServerErrors(result.errors);
                 }

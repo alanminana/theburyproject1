@@ -1,0 +1,25 @@
+destino: http://127.0.0.1:18094 / BuryQA_CFG
+identidad: srv|db | ---|-- | bury-qa-cfg-db|BuryQA_CFG
+ANTES: 
+Id|TasaMoraBase|DiasGracia|TipoTasaMora|PorcentajeMaximoCondonacion|RowVersionHex
+--|------------|----------|------------|---------------------------|-------------
+1|5.0000|3|NULL|NULL|0000000000000AF5
+A guarda TasaMoraBase=9: Configuración guardada correctamente
+DESPUES de A: 
+Id|TasaMoraBase|DiasGracia|TipoTasaMora|PorcentajeMaximoCondonacion|RowVersionHex
+--|------------|----------|------------|---------------------------|-------------
+1|9.0000|3|NULL|NULL|0000000000000B5A
+B (formulario viejo) guarda DiasGracia=20: La configuración fue modificada por otro usuario. Recargá los datos e intentá nuevamente.
+        
+DESPUES de B: 
+Id|TasaMoraBase|DiasGracia|TipoTasaMora|PorcentajeMaximoCondonacion|RowVersionHex
+--|------------|----------|------------|---------------------------|-------------
+1|9.0000|3|NULL|NULL|0000000000000B5A
+POST sin RowVersion: Falta información de concurrencia (RowVersion). Recargá la configuración e intentá nuevamente.
+        
+B recarga y guarda DiasGracia=12: Configuración guardada correctamente
+DESPUES (reintento): 
+Id|TasaMoraBase|DiasGracia|TipoTasaMora|PorcentajeMaximoCondonacion|RowVersionHex
+--|------------|----------|------------|---------------------------|-------------
+1|9.0000|12|NULL|NULL|0000000000000B5B
+POST TasaMoraBase=100.01: Datos inválidos

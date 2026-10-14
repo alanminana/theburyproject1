@@ -66,6 +66,17 @@
     var puedeEditarCostoEnvio = User.TienePermiso("productos", "editshippingcost");
     // El modal de edición carga el producto con GET /Producto/GetJson, que exige productos.view.
     var puedeVerProducto = User.TienePermiso("productos", "view");
+    // Cada acción visible refleja el permiso que el servidor exige: ocultar no es el control,
+    // pero ofrecer botones que terminan en 403 sí es un defecto de UX (QA-PRD-P0 / B9).
+    var puedeCrearProducto = User.TienePermiso("productos", "create");
+    var puedeEditarProducto = User.TienePermiso("productos", "update");
+    var puedeEliminarProducto = User.TienePermiso("productos", "delete");
+    var puedeEditarMarca = User.TienePermiso("marcas", "update");
+    var puedeEliminarMarca = User.TienePermiso("marcas", "delete");
+    // Costos y precio de venta solo cambian con precios.apply (EditAjax lo vuelve a exigir).
+    var puedeModificarImportes = User.TienePermiso("precios", "apply");
+    // El ajuste masivo arranca simulando (precios.simulate) y aplica con precios.apply.
+    var puedeAjustarPrecios = User.TienePermiso("precios", "simulate");
 }
 
 @section Styles {
@@ -149,23 +160,29 @@
                 <span class="material-symbols-outlined text-sm">inventory_2</span>
                 Inventario
             </a>
-            <button type="button" id="btn-ajuste-masivo" data-catalogo-modal-open="precio" data-productos-only
-                    hidden="@(Model.TabActiva != "productos")"
-                    class="btn-erp-secondary btn-sm sm:w-auto">
-                <span class="material-symbols-outlined text-sm">edit_calendar</span>
-                <span id="btn-ajuste-masivo-label">Ajuste Masivo</span>
-                <span id="btn-ajuste-masivo-badge" class="hidden items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-amber-500 text-white text-[10px] font-black">
-                    <span id="btn-ajuste-masivo-count">0</span>
-                </span>
-            </button>
-            <button type="button"
-                    id="btn-crear-producto"
-                    data-catalogo-modal-open="producto" data-productos-only
-                    hidden="@(Model.TabActiva != "productos")"
-                    class="btn-erp-primary btn-sm w-full sm:w-auto">
-                <span class="material-symbols-outlined text-sm" aria-hidden="true">add</span>
-                Nuevo producto
-            </button>
+            @if (puedeAjustarPrecios)
+            {
+                <button type="button" id="btn-ajuste-masivo" data-catalogo-modal-open="precio" data-productos-only
+                        hidden="@(Model.TabActiva != "productos")"
+                        class="btn-erp-secondary btn-sm sm:w-auto">
+                    <span class="material-symbols-outlined text-sm">edit_calendar</span>
+                    <span id="btn-ajuste-masivo-label">Ajuste Masivo</span>
+                    <span id="btn-ajuste-masivo-badge" class="hidden items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-amber-500 text-white text-[10px] font-black">
+                        <span id="btn-ajuste-masivo-count">0</span>
+                    </span>
+                </button>
+            }
+            @if (puedeCrearProducto)
+            {
+                <button type="button"
+                        id="btn-crear-producto"
+                        data-catalogo-modal-open="producto" data-productos-only
+                        hidden="@(Model.TabActiva != "productos")"
+                        class="btn-erp-primary btn-sm w-full sm:w-auto">
+                    <span class="material-symbols-outlined text-sm" aria-hidden="true">add</span>
+                    Nuevo producto
+                </button>
+            }
             <div id="catalogo-selection-chip" class="hidden items-center gap-2 rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-[11px] font-bold text-amber-400">
                 <span class="material-symbols-outlined text-[14px]">checklist</span>
                 <span><span id="catalogo-selection-chip-count">0</span> seleccionados</span>
@@ -448,7 +465,11 @@
                         </tr>
                     </thead>
 
+                    @* data-can-*: permisos efectivos para las filas que arma producto-crear-modal.js (B9). *@
                     <tbody id="productos-tbody"
+                           data-can-edit="@((puedeVerProducto && puedeEditarProducto) ? "true" : "false")"
+                           data-can-delete="@(puedeEliminarProducto ? "true" : "false")"
+                           data-can-comision="@(puedeEditarProducto ? "true" : "false")"
                            class="divide-y divide-slate-800">
 
                         @if (productos.Any())
@@ -653,6 +674,14 @@
 
                                     @* COMISIÓN *@
                                     <td class="px-4 py-3 text-right align-middle">
+                                        @if (!puedeEditarProducto)
+                                        {
+                                            @* Sin productos.edit la comisión se muestra, no se edita (B9). *@
+                                            <span class="inline-flex min-h-10 items-center px-3 py-1.5 text-sm font-semibold tabular-nums @(p.ComisionPorcentaje > 0 ? "text-emerald-400" : "text-slate-300")"
+                                                  data-producto-comision>@p.ComisionPorcentaje.ToString("N2")%</span>
+                                        }
+                                        else
+                                        {
                                         <button type="button"
                                                 data-comision-producto-id="@p.ProductoId"
                                                 data-comision-producto-nombre="@p.Nombre"
@@ -671,13 +700,14 @@
                                                 edit
                                             </span>
                                         </button>
+                                        }
                                     </td>
 
                                     @* ACCIONES ESENCIALES *@
                                     <td class="px-4 py-3 text-right align-middle">
                                         <div class="flex items-center justify-end gap-2">
 
-                                            @if (puedeVerProducto)
+                                            @if (puedeVerProducto && puedeEditarProducto)
                                             {
                                                 <button type="button"
                                                         data-prod-edit-id="@p.ProductoId"
@@ -844,6 +874,8 @@
             </button>
         }
 
+        @if (puedeEliminarProducto)
+        {
         <div class="my-1 border-t border-slate-800"
              role="separator">
         </div>
@@ -860,6 +892,7 @@
 
             Eliminar producto
         </button>
+        }
     </div>
 
     @if (User.TienePermiso("mercadolibre", "sync"))
@@ -917,18 +950,21 @@
                 Deseleccionar
             </button>
 
-            <button type="button"
-                    data-catalogo-modal-open="precio-selection"
-                    class="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg bg-amber-400 px-4 py-2 text-sm font-bold text-slate-950 shadow-sm transition-colors hover:bg-amber-300 sm:w-auto">
-
-                <span class="material-symbols-outlined text-lg"
-                      aria-hidden="true">
-                    trending_up
-                </span>
-
-                Ajustar selección
-                (<span id="selection-count-btn">0</span>)
-            </button>
+            @if (puedeAjustarPrecios)
+            {
+                <button type="button"
+                        data-catalogo-modal-open="precio-selection"
+                        class="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg bg-amber-400 px-4 py-2 text-sm font-bold text-slate-950 shadow-sm transition-colors hover:bg-amber-300 sm:w-auto">
+    
+                    <span class="material-symbols-outlined text-lg"
+                          aria-hidden="true">
+                        trending_up
+                    </span>
+    
+                    Ajustar selección
+                    (<span id="selection-count-btn">0</span>)
+                </button>
+            }
         </div>
     </div>
 
@@ -1134,7 +1170,9 @@
                         <th scope="col" class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right">Acciones</th>
                     </tr>
                 </thead>
-                <tbody id="marcas-tbody" class="divide-y divide-slate-800">
+                <tbody id="marcas-tbody" class="divide-y divide-slate-800"
+                       data-can-edit="@(puedeEditarMarca ? "true" : "false")"
+                       data-can-delete="@(puedeEliminarMarca ? "true" : "false")">
                     @if (Model.MarcasListado.Any())
                     {
                         @foreach (var marca in Model.MarcasListado)
@@ -1177,16 +1215,22 @@
                                 </td>
                                 <td class="px-4 py-3 text-right" style="min-width: 240px;">
                                     <div class="flex flex-wrap justify-end gap-2">
+                                        @if (puedeEditarMarca)
+                                        {
                                         <button type="button" data-marca-edit-id="@marca.Id"
                                                 class="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-1.5 text-xs font-semibold text-slate-300 transition-colors hover:border-slate-600 hover:bg-slate-800 hover:text-white" title="Editar">
                                             <span class="material-symbols-outlined text-base">edit</span>
                                             <span>Editar</span>
                                         </button>
+                                        }
+                                        @if (puedeEliminarMarca)
+                                        {
                                         <button type="button" data-marca-delete-id="@marca.Id" data-marca-delete-nombre="@marca.Nombre"
                                                 class="inline-flex items-center gap-1.5 rounded-lg border border-red-500/30 px-2.5 py-1.5 text-xs font-semibold text-red-400 transition-colors hover:bg-red-500/10 hover:text-red-400" title="Eliminar">
                                             <span class="material-symbols-outlined text-base">delete</span>
                                             <span>Eliminar</span>
                                         </button>
+                                        }
                                     </div>
                                 </td>
                             </tr>
@@ -1895,7 +1939,7 @@
                                 <label for="prod-edit-precioCompra" class="text-sm font-medium text-slate-300">Precio compra total con IVA</label>
                                 <div class="relative">
                                     <span class="absolute left-3 top-2 text-slate-500">$</span>
-                                    <input id="prod-edit-precioCompra" name="PrecioCompraTotalConIva" type="number" step="0.01" min="0"
+                                    <input id="prod-edit-precioCompra" name="PrecioCompraTotalConIva" type="number" step="0.01" min="0" readonly="@(!puedeModificarImportes)" title="@(puedeModificarImportes ? null : "Requiere el permiso «Aplicar Cambio» de Precios")"
                                            class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-7 pr-4 py-2 focus:ring-2 focus:ring-primary outline-none text-white" />
                                 </div>
                                 <span data-valmsg-for="PrecioCompra" class="text-xs text-red-500 hidden"></span>
@@ -1903,7 +1947,7 @@
 
                             <div class="space-y-1">
                                 <label for="prod-edit-porcentajeIVACompra" class="text-sm font-medium text-slate-300">IVA del precio de compra</label>
-                                <select id="prod-edit-porcentajeIVACompra" name="PorcentajeIVACompra"
+                                <select id="prod-edit-porcentajeIVACompra" name="PorcentajeIVACompra" disabled="@(!puedeModificarImportes)"
                                         class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary outline-none text-white">
                                     <option value="21">21%</option>
                                     <option value="10.5">10.5%</option>
@@ -1958,7 +2002,7 @@
                                     <label for="prod-edit-percepcionesCompra" class="text-sm font-medium text-slate-300">Percepciones</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
-                                        <input data-rule="monto" id="prod-edit-percepcionesCompra" name="PercepcionesCompra" type="number" step="0.01" min="0" value="0"
+                                        <input data-rule="monto" id="prod-edit-percepcionesCompra" name="PercepcionesCompra" type="number" step="0.01" min="0" value="0" readonly="@(!puedeModificarImportes)" title="@(puedeModificarImportes ? null : "Requiere el permiso «Aplicar Cambio» de Precios")"
                                                class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-7 pr-4 py-2 focus:ring-2 focus:ring-primary outline-none text-white" />
                                     </div>
                                 </div>
@@ -1966,7 +2010,7 @@
                                     <label for="prod-edit-otrosCostosCompra" class="text-sm font-medium text-slate-300">Otros gastos</label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-2 text-slate-500">$</span>
-                                        <input id="prod-edit-otrosCostosCompra" name="OtrosCostosCompra" type="number" step="0.01" min="0" value="0"
+                                        <input id="prod-edit-otrosCostosCompra" name="OtrosCostosCompra" type="number" step="0.01" min="0" value="0" readonly="@(!puedeModificarImportes)" title="@(puedeModificarImportes ? null : "Requiere el permiso «Aplicar Cambio» de Precios")"
                                                class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-7 pr-4 py-2 focus:ring-2 focus:ring-primary outline-none text-white" />
                                     </div>
                                 </div>
@@ -1995,7 +2039,7 @@
                                 <div class="space-y-1">
                                     <label for="prod-edit-margenPorcentaje" class="text-sm font-medium text-slate-300">Ganancia %</label>
                                     <div class="relative">
-                                        <input id="prod-edit-margenPorcentaje" name="MargenPorcentaje" type="number" step="0.01" min="0" value="0"
+                                        <input id="prod-edit-margenPorcentaje" name="MargenPorcentaje" type="number" step="0.01" min="0" value="0" readonly="@(!puedeModificarImportes)" title="@(puedeModificarImportes ? null : "Requiere el permiso «Aplicar Cambio» de Precios")"
                                                class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 pr-8 py-2 focus:ring-2 focus:ring-primary outline-none text-white" />
                                         <span class="absolute right-3 top-2 text-slate-500">%</span>
                                     </div>
@@ -2014,7 +2058,7 @@
                                 <label for="prod-edit-precioFinal" class="catalogo-precio-final-label text-sm font-medium text-slate-300">Precio final de venta con IVA</label>
                                 <div class="relative">
                                     <span class="catalogo-precio-final-symbol absolute left-3 top-2 text-primary font-bold">$</span>
-                                    <input id="prod-edit-precioFinal" name="PrecioVenta" type="number" step="0.01" min="0"
+                                    <input id="prod-edit-precioFinal" name="PrecioVenta" type="number" step="0.01" min="0" readonly="@(!puedeModificarImportes)" title="@(puedeModificarImportes ? null : "Requiere el permiso «Aplicar Cambio» de Precios")"
                                            class="w-full bg-primary/5 border border-primary/30 text-primary font-bold rounded-lg pl-7 pr-4 py-2 focus:ring-2 focus:ring-primary outline-none" />
                                 </div>
                                 <span data-valmsg-for="PrecioVenta" class="text-xs text-red-500 hidden"></span>

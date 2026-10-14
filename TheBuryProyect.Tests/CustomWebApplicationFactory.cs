@@ -825,6 +825,60 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             "productos.update",
             "productos.editshippingcost");
 
+    public const string StockLectorUserId = "test-stock-lector-id";
+    public const string StockOperadorUserId = "test-stock-operador-id";
+    public const string ProductoEditConPreciosUserId = "test-producto-edit-con-precios-id";
+    public const string ProductoSoloLecturaUserId = "test-producto-solo-lectura-id";
+
+    /// <summary>Consulta stock y Kardex (movimientos.view), sin movimientos.create.</summary>
+    public Task SeedUserWithStockLectorAsync() =>
+        SeedPermissionUserAsync(
+            StockLectorUserId, "test-stock-lector-role-id", "TestStockLectorRole", 9940,
+            "movimientos.view", "productos.view");
+
+    /// <summary>Consulta y registra movimientos de stock.</summary>
+    public Task SeedUserWithStockOperadorAsync() =>
+        SeedPermissionUserAsync(
+            StockOperadorUserId, "test-stock-operador-role-id", "TestStockOperadorRole", 9930,
+            "movimientos.view", "movimientos.create", "productos.view");
+
+    /// <summary>Edita productos y además puede aplicar cambios de precio (precios.apply).</summary>
+    public Task SeedUserWithProductoEditConPreciosAsync() =>
+        SeedPermissionUserAsync(
+            ProductoEditConPreciosUserId, "test-producto-edit-con-precios-role-id", "TestProductoEditConPreciosRole", 9920,
+            "productos.view", "productos.update", "precios.apply");
+
+    /// <summary>Solo consulta productos: no crea, no edita, no toca precios.</summary>
+    public Task SeedUserWithProductoSoloLecturaAsync() =>
+        SeedPermissionUserAsync(
+            ProductoSoloLecturaUserId, "test-producto-solo-lectura-role-id", "TestProductoSoloLecturaRole", 9910,
+            "productos.view");
+
+    public const string ProductoSoloCrearUserId = "test-producto-solo-crear-id";
+
+    /// <summary>Consulta y crea productos (productos.create), sin editar, eliminar ni tocar precios.</summary>
+    public Task SeedUserWithProductoSoloCrearAsync() =>
+        SeedPermissionUserAsync(
+            ProductoSoloCrearUserId, "test-producto-solo-crear-role-id", "TestProductoSoloCrearRole", 9900,
+            "productos.view", "productos.create");
+
+    public const string ProductoMarcaCompletoUserId = "test-producto-marca-completo-id";
+
+    /// <summary>Opera productos (ver/crear/editar/eliminar/precios) y marcas (ver/editar/eliminar).</summary>
+    public Task SeedUserWithProductoYMarcaCompletoAsync() =>
+        SeedPermissionUserAsync(
+            ProductoMarcaCompletoUserId, "test-producto-marca-completo-role-id", "TestProductoMarcaCompletoRole", 9940,
+            "productos.view", "productos.create", "productos.update", "productos.delete", "precios.apply",
+            "marcas.view", "marcas.update", "marcas.delete");
+
+    public const string ProductoMarcaSoloLecturaUserId = "test-producto-marca-solo-lectura-id";
+
+    /// <summary>Solo consulta productos y marcas.</summary>
+    public Task SeedUserWithProductoYMarcaSoloLecturaAsync() =>
+        SeedPermissionUserAsync(
+            ProductoMarcaSoloLecturaUserId, "test-producto-marca-solo-lectura-role-id", "TestProductoMarcaSoloLecturaRole", 9960,
+            "productos.view", "marcas.view");
+
     private async Task SeedPermissionUserAsync(
         string userId,
         string roleId,

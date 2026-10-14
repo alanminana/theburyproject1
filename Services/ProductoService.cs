@@ -282,6 +282,9 @@ namespace TheBuryProject.Services
             {
                 await ValidarProductoAsync(producto);
 
+                // B3: el código se normaliza (bordes) antes de comprobar unicidad y de persistir.
+                producto.Codigo = NormalizarCodigo(producto.Codigo);
+
                 if (await ExistsCodigoAsync(producto.Codigo))
                     throw new InvalidOperationException($"Ya existe un producto con el código '{producto.Codigo}'");
 
@@ -380,8 +383,12 @@ namespace TheBuryProject.Services
 
                 await ValidarProductoAsync(producto);
 
+                producto.Codigo = NormalizarCodigo(producto.Codigo);
+
                 if (await ExistsCodigoAsync(producto.Codigo, producto.Id))
-                    throw new InvalidOperationException($"Ya existe otro producto con el código '{producto.Codigo}'");
+                    throw new InvalidOperationException(
+                        $"Ya existe otro producto con el código '{producto.Codigo}' (se comparan sin espacios al inicio ni al final). " +
+                        "Si el conflicto es con un registro cargado antes de esta regla, resolvelo manualmente desde el catálogo.");
 
                 if (producto.AlicuotaIVAId.HasValue)
                     await AsegurarAlicuotaIVAActivaAsync(producto.AlicuotaIVAId.Value);
@@ -403,6 +410,40 @@ namespace TheBuryProject.Services
                         motivoCambio: null,
                         usuarioModificacion: usuario
                     );
+
+                    // B7: si cambió el precio de venta, el cambio también queda como evento de precio individual
+                    // (el mismo modelo que lee y revierte el historial del catálogo). Se agrega al contexto y se
+                    // persiste en el mismo SaveChanges que el producto: o quedan ambos o ninguno.
+                    if (existing.PrecioVenta != producto.PrecioVenta)
+                    {
+                        var ahora = DateTime.UtcNow;
+                        var porcentaje = existing.PrecioVenta > 0
+                            ? Math.Round((producto.PrecioVenta - existing.PrecioVenta) / existing.PrecioVenta * 100m, 2, MidpointRounding.AwayFromZero)
+                            : 0m;
+
+                        _context.CambioPrecioEventos.Add(new CambioPrecioEvento
+                        {
+                            Fecha = ahora,
+                            Usuario = usuario,
+                            Alcance = "individual",
+                            ValorPorcentaje = porcentaje,
+                            Motivo = "Edición de producto",
+                            CantidadProductos = 1,
+                            CreatedAt = ahora,
+                            CreatedBy = usuario,
+                            Detalles = new List<CambioPrecioDetalle>
+                            {
+                                new()
+                                {
+                                    ProductoId = existing.Id,
+                                    PrecioAnterior = existing.PrecioVenta,
+                                    PrecioNuevo = producto.PrecioVenta,
+                                    CreatedAt = ahora,
+                                    CreatedBy = usuario
+                                }
+                            }
+                        });
+                    }
 
                     _logger.LogInformation(
                         "Precio actualizado para {Codigo}: Compra {PC_Ant} → {PC_Nuevo}, Venta {PV_Ant} → {PV_Nuevo}",
@@ -666,7 +707,10 @@ namespace TheBuryProject.Services
         {
             try
             {
-                var query = _context.Productos.Where(p => p.Codigo == codigo && !p.IsDeleted);
+                // B3: se compara contra el código normalizado de ambos lados, así los registros
+                // preexistentes con espacios de borde también colisionan.
+                var normalizado = NormalizarCodigo(codigo);
+                var query = _context.Productos.Where(p => p.Codigo.Trim() == normalizado && !p.IsDeleted);
 
                 if (excludeId.HasValue)
                     query = query.Where(p => p.Id != excludeId.Value);
@@ -679,6 +723,12 @@ namespace TheBuryProject.Services
                 throw;
             }
         }
+
+        /// <summary>
+        /// Normaliza el código de producto: solo recorta espacios/tabs de los bordes. No toca espacios
+        /// internos ni mayúsculas (regla comercial sin confirmar).
+        /// </summary>
+        private static string NormalizarCodigo(string? codigo) => codigo?.Trim() ?? string.Empty;
 
         private async Task ValidarProductoAsync(Producto producto)
         {

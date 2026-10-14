@@ -130,6 +130,9 @@ public class UsuarioService : IUsuarioService
             user.FechaDesactivacion = DateTime.UtcNow;
             user.DesactivadoPor = request.EditadoPor;
             user.MotivoDesactivacion = "Desactivado desde la edición de Seguridad.";
+            // Defensa en profundidad: invalida cookies emitidas (incluidas "Recordarme") aunque
+            // alguna vez se reactive la cuenta; la reactivación exige un login nuevo.
+            user.SecurityStamp = Guid.NewGuid().ToString();
         }
         else if (!wasActive && request.Activo)
         {

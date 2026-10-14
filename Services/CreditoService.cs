@@ -494,8 +494,14 @@ namespace TheBuryProject.Services
 
         public async Task<bool> CancelarCreditoAsync(int creditoId, string motivo)
         {
+            // QA-FIN-CONC-P0: misma serialización que la cancelación de venta y los cobros (lock de la fila
+            // del crédito durante toda la transacción): un pago no puede confirmar entre la comprobación de
+            // "cuotas parciales" y la escritura de Cancelado.
+            await using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
+                await CreditoConcurrencia.BloquearAsync(_context, creditoId);
+
                 var credito = await _context.Creditos
                     .Include(c => c.Cuotas.Where(cu => !cu.IsDeleted))
                     .Include(c => c.Cliente)
@@ -530,6 +536,7 @@ namespace TheBuryProject.Services
                 }
 
                 await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
                 return true;
             }
             catch (Exception ex)
@@ -912,6 +919,13 @@ namespace TheBuryProject.Services
 
             try
             {
+                // QA-FIN-CONC-P0: primer paso de la transacción, antes de leer cuotas/pagos/caja. Lock de la
+                // fila del crédito (recurso compartido con la cancelación de venta/crédito) y re-comprobación
+                // del estado del crédito YA bajo ese lock: un pago no puede confirmar sobre un crédito
+                // cancelado ni cancelarse el crédito entre esta comprobación y el commit.
+                await CreditoConcurrencia.BloquearAsync(_context, pago.CreditoId);
+                await AsegurarCreditoAdmiteCobrosAsync(pago.CreditoId);
+
                 // El adelanto no acepta la cuota que indique el cliente: la resuelve el servidor
                 // aplicando la regla funcional (última cuota pendiente del plan).
                 var cuota = modo == ModoCobroCuota.AdelantoUltimaCuota
@@ -1108,6 +1122,23 @@ namespace TheBuryProject.Services
                 await transaction.RollbackAsync(CancellationToken.None);
                 _logger.LogError(ex, "Error al pagar cuota: {CuotaId}", pago.CuotaId);
                 throw;
+            }
+        }
+
+        /// <summary>
+        /// Rechaza el cobro si el crédito ya no lo admite (cancelado, rechazado). Se lee de la
+        /// BASE y debe invocarse con el lock del crédito tomado, para que el estado no cambie hasta el commit.
+        /// </summary>
+        private async Task AsegurarCreditoAdmiteCobrosAsync(int creditoId, CancellationToken cancellationToken = default)
+        {
+            var estado = await CreditoConcurrencia.ObtenerEstadoAsync(_context, creditoId, cancellationToken);
+            if (estado.HasValue && CreditoConcurrencia.NoAdmiteCobros(estado.Value))
+            {
+                _logger.LogWarning(
+                    "Cobro rechazado: el crédito {CreditoId} está {Estado} y no admite cobros.", creditoId, estado.Value);
+                throw new PagoCuotaRechazadoException(
+                    MotivoRechazoPagoCuota.Conflicto,
+                    $"El crédito está {estado.Value} y no admite cobros.");
             }
         }
 
@@ -1531,12 +1562,27 @@ namespace TheBuryProject.Services
             if (cajaActiva == null)
                 throw new InvalidOperationException("Debe existir una caja abierta para registrar el pago múltiple.");
 
+            // Los créditos involucrados se resuelven ANTES de abrir la transacción (lectura sin tracking ni
+            // locks retenidos): leerlos dentro, bajo SERIALIZABLE, dejaría locks compartidos sobre las
+            // cuotas que bloquearían a una cancelación que ya retiene el crédito (deadlock evitable).
+            var creditoIdsAfectados = await _context.Cuotas
+                .AsNoTracking()
+                .Where(c => cuotaIds.Contains(c.Id) && !c.IsDeleted)
+                .Select(c => c.CreditoId)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+
             await using var transaction = await _context.Database.BeginTransactionAsync(
                 IsolationLevel.Serializable,
                 cancellationToken);
 
             try
             {
+                // QA-FIN-CONC-P0: locks del crédito en orden ascendente + re-comprobación de estado bajo lock.
+                await CreditoConcurrencia.BloquearOrdenadosAsync(_context, creditoIdsAfectados, cancellationToken);
+                foreach (var creditoIdAfectado in creditoIdsAfectados.OrderBy(x => x))
+                    await AsegurarCreditoAdmiteCobrosAsync(creditoIdAfectado, cancellationToken);
+
                 // Una sola pasada de lectura+validación (incluye RowVersion) ANTES de tocar nada:
                 // si una sola cuota falla acá, no se mutó ninguna todavía (rollback total real).
                 var pagosPlanificados = await PlanificarPagoMultipleAsync(

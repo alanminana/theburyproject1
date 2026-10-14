@@ -57,6 +57,9 @@ const MarcaModal = (() => {
                 ? (parentSelect.options[parentSelect.selectedIndex] || {}).text || '—'
                 : '—';
 
+            // B9: solo se ofrecen las acciones que el servidor va a aceptar (data-can-* del tbody; sin atributo = no).
+            var canEdit = tbody.dataset.canEdit === 'true';
+            var canDelete = tbody.dataset.canDelete === 'true';
             var tr = document.createElement('tr');
             tr.className = 'hover:bg-slate-50 dark:hover:bg-white/5 transition-colors';
             tr.innerHTML =
@@ -76,10 +79,10 @@ const MarcaModal = (() => {
                 '</td>' +
                 '<td class="px-6 py-4 text-right">' +
                   '<div class="flex flex-wrap justify-end gap-2">' +
-                    '<button type="button" data-marca-edit-id="' + entity.id + '" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-1.5 text-xs font-semibold text-slate-300 transition-colors hover:border-slate-600 hover:bg-slate-800 hover:text-white">' +
-                      '<span class="material-symbols-outlined text-base">edit</span><span>Editar</span></button>' +
-                    '<button type="button" data-marca-delete-id="' + entity.id + '" data-marca-delete-nombre="' + escHtml(entity.nombre) + '" class="inline-flex items-center gap-1.5 rounded-lg border border-red-500/30 px-2.5 py-1.5 text-xs font-semibold text-red-400 transition-colors hover:bg-red-500/10 hover:text-red-400">' +
-                      '<span class="material-symbols-outlined text-base">delete</span><span>Eliminar</span></button>' +
+                    (canEdit ? '<button type="button" data-marca-edit-id="' + entity.id + '" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-1.5 text-xs font-semibold text-slate-300 transition-colors hover:border-slate-600 hover:bg-slate-800 hover:text-white">' +
+                      '<span class="material-symbols-outlined text-base">edit</span><span>Editar</span></button>' : '') +
+                    (canDelete ? '<button type="button" data-marca-delete-id="' + entity.id + '" data-marca-delete-nombre="' + escHtml(entity.nombre) + '" class="inline-flex items-center gap-1.5 rounded-lg border border-red-500/30 px-2.5 py-1.5 text-xs font-semibold text-red-400 transition-colors hover:bg-red-500/10 hover:text-red-400">' +
+                      '<span class="material-symbols-outlined text-base">delete</span><span>Eliminar</span></button>' : '') +
                   '</div>' +
                 '</td>';
             tbody.appendChild(tr);

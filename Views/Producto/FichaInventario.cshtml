@@ -8,6 +8,8 @@
                ?? new List<MovimientoStockViewModel>();
 
     var conciliacion = Model.Conciliacion;
+    // Registrar un ajuste escribe stock: exige movimientos.create (el servidor lo vuelve a validar).
+    var puedeRegistrarMovimientos = User.TienePermiso("movimientos", "create");
     ViewData["Title"] = $"Inventario — {Model.Nombre}";
 
     var tabQs = Context.Request.Query["tab"].ToString();
@@ -175,10 +177,13 @@
                     <span class="material-symbols-outlined" style="font-size:16px">receipt_long</span>
                     Kardex completo
                 </a>
-                <button type="button" data-ajuste-stock-open class="fi-btn fi-btn-soft fi-btn-sm">
-                    <span class="material-symbols-outlined" style="font-size:16px">edit_note</span>
-                    Registrar ajuste
-                </button>
+                @if (puedeRegistrarMovimientos)
+                {
+                    <button type="button" data-ajuste-stock-open class="fi-btn fi-btn-soft fi-btn-sm">
+                        <span class="material-symbols-outlined" style="font-size:16px">edit_note</span>
+                        Registrar ajuste
+                    </button>
+                }
             </div>
         </div>
 
@@ -286,6 +291,8 @@
         {
             @* Producto no serializado: el stock es por cantidad. Form inline para sumar/ajustar
                stock sin salir de la ficha (reusa el endpoint canónico MovimientoStock/Create). *@
+            @if (puedeRegistrarMovimientos)
+            {
             <div class="fi-card p-5 sm:p-6">
                 <div class="flex items-start gap-3">
                     <span class="material-symbols-outlined text-amber-300 shrink-0" style="font-size:24px">add_box</span>
@@ -301,6 +308,7 @@
                 <form method="post" asp-controller="MovimientoStock" asp-action="Create"
                       class="mt-4 space-y-4">
                     @Html.AntiForgeryToken()
+                    <input type="hidden" name="RequestId" value="@(TheBuryProject.Controllers.MovimientoStockController.RequestIdParaFormulario(TempData))" />
                     <input type="hidden" name="ProductoId" value="@Model.ProductoId" />
                     <input type="hidden" name="ReturnUrl"
                            value="@Url.Action("Inventario", "Producto", new { productoId = Model.ProductoId, tab = "movimientos" })" />
@@ -348,6 +356,7 @@
                     </div>
                 </form>
             </div>
+            }
         }
         else
         {
@@ -672,7 +681,10 @@
                 <div class="flex flex-col items-center gap-3 px-5 py-12 text-center">
                     <span class="material-symbols-outlined text-4xl text-slate-700">swap_vert</span>
                     <p class="text-sm font-semibold text-slate-500">No hay movimientos registrados para este producto.</p>
-                    <button type="button" data-ajuste-stock-open class="text-xs font-bold text-blue-400 hover:underline">Registrar el primer ajuste de stock</button>
+                    @if (puedeRegistrarMovimientos)
+                    {
+                        <button type="button" data-ajuste-stock-open class="text-xs font-bold text-blue-400 hover:underline">Registrar el primer ajuste de stock</button>
+                    }
                 </div>
             }
             else
@@ -791,6 +803,8 @@
 
 @* Ruta completa: desde Views/Producto/, un nombre corto solo buscaría en
    Views/Producto/ y Views/Shared/, no en Views/MovimientoStock/. *@
+@if (puedeRegistrarMovimientos)
+{
 @await Html.PartialAsync("~/Views/MovimientoStock/_AjusteStockModal.cshtml", new TheBuryProject.ViewModels.AjusteStockModalViewModel
 {
     Ajuste = new TheBuryProject.ViewModels.AjusteStockViewModel
@@ -804,6 +818,7 @@
     ProductoBloqueado = true,
     Tipos = ViewBag.Tipos
 })
+}
 
 @section Scripts {
     <script src="~/js/ajuste-stock-modal.js" asp-append-version="true"></script>

@@ -1,0 +1,232 @@
+{
+  "config": {
+    "argv": [
+      "C:\\Program Files\\nodejs\\node.exe",
+      "D:\\git\\theburyproject1\\node_modules\\@playwright\\test\\cli.js",
+      "test",
+      "-c",
+      "e2e-tx/config/playwright.config.js"
+    ],
+    "configFile": "D:\\git\\theburyproject1-mora-cfg-fix\\e2e-tx\\config\\playwright.config.js",
+    "rootDir": "D:/git/theburyproject1-mora-cfg-fix/e2e-tx/config",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "D:/git/theburyproject1-mora-cfg-fix/e2e-tx/config/evidencia/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "D:/git/theburyproject1-mora-cfg-fix/e2e-tx/config",
+        "testIgnore": [],
+        "testMatch": [
+          "/mora-config-concurrencia.spec.js/"
+        ],
+        "timeout": 120000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "D:\\git\\theburyproject1-mora-cfg-fix\\e2e-tx\\config\\evidencia\\resultados.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.61.1",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "mora-config-concurrencia.spec.js",
+      "file": "mora-config-concurrencia.spec.js",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "CFG-12/13 SQL Server real",
+          "file": "mora-config-concurrencia.spec.js",
+          "line": 93,
+          "column": 15,
+          "specs": [
+            {
+              "title": "dos administradores: el segundo con formulario viejo es rechazado sin sobrescribir",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 761,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-14T17:50:03.264Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "8f649513f9d70a73a833-6892d03e81f2fdfd6d8d",
+              "file": "mora-config-concurrencia.spec.js",
+              "line": 102,
+              "column": 5
+            },
+            {
+              "title": "formulario sin RowVersion no elude la protección",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 374,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-14T17:50:07.394Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "8f649513f9d70a73a833-3524766b55f04ea78a48",
+              "file": "mora-config-concurrencia.spec.js",
+              "line": 124,
+              "column": 5
+            },
+            {
+              "title": "recarga + reintento: con la versión nueva el guardado funciona",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 335,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-14T17:50:07.776Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "8f649513f9d70a73a833-e64b1bc8b18209679c13",
+              "file": "mora-config-concurrencia.spec.js",
+              "line": 135,
+              "column": 5
+            },
+            {
+              "title": "valor fuera de rango (100.01) se rechaza sin modificar datos",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 320,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-14T17:50:08.117Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "8f649513f9d70a73a833-8d62043375c782fe2d95",
+              "file": "mora-config-concurrencia.spec.js",
+              "line": 145,
+              "column": 5
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-14T17:50:02.980Z",
+    "duration": 5497.844,
+    "expected": 4,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

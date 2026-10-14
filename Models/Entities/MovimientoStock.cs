@@ -20,6 +20,12 @@ namespace TheBuryProject.Models.Entities
         public int? OrdenCompraId { get; set; }
         public string? Motivo { get; set; }
 
+        /// <summary>
+        /// Identificador de intencion (idempotencia) de un ajuste manual: el mismo valor reenviado
+        /// (doble clic, reintento de red, refresco) no crea otro movimiento. Null en flujos internos.
+        /// </summary>
+        public Guid? RequestId { get; set; }
+
         // Navegaci�n
         public virtual Producto Producto { get; set; } = null!;
         public virtual OrdenCompra? OrdenCompra { get; set; }

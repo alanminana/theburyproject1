@@ -33,8 +33,8 @@ public class ProductoGetJsonPermisoContractTests
 
         var botonEditar = catalogo.IndexOf("data-prod-edit-id=\"@p.ProductoId\"", StringComparison.Ordinal);
         Assert.True(botonEditar > 0);
-        var guarda = catalogo.LastIndexOf("@if (puedeVerProducto)", botonEditar, StringComparison.Ordinal);
-        Assert.True(guarda > 0 && botonEditar - guarda < 200, "El botón Editar debe estar dentro de @if (puedeVerProducto).");
+        var guarda = catalogo.LastIndexOf("@if (puedeVerProducto && puedeEditarProducto)", botonEditar, StringComparison.Ordinal);
+        Assert.True(guarda > 0 && botonEditar - guarda < 260, "El botón Editar debe estar dentro de @if (puedeVerProducto && puedeEditarProducto).");
 
         Assert.Contains("User.TienePermiso(\"productos\", \"view\") && User.TienePermiso(\"productos\", \"edit\")", detalleProveedor);
     }

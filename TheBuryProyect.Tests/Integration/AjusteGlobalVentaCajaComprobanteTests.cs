@@ -93,7 +93,7 @@ file sealed class StubMovimientoStockFase61 : IMovimientoStockService
     public Task<MovimientoStock> CreateAsync(MovimientoStock movimiento) => throw new NotImplementedException();
     public Task<MovimientoStock> RegistrarAjusteAsync(int productoId, TipoMovimiento tipo,
         decimal cantidad, string? referencia, string motivo,
-        string? usuarioActual = null, int? ordenCompraId = null) => throw new NotImplementedException();
+        string? usuarioActual = null, int? ordenCompraId = null, Guid? requestId = null) => throw new NotImplementedException();
     public Task<bool> HayStockDisponibleAsync(int productoId, decimal cantidad) => throw new NotImplementedException();
     public Task<(bool Valido, string Mensaje)> ValidarCantidadAsync(decimal cantidad) => throw new NotImplementedException();
 }

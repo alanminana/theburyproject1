@@ -1206,11 +1206,39 @@ namespace TheBuryProject.Services
 
             try
             {
+                // QA-FIN-CONC-P0: lock del CRÉDITO antes que el de la venta (orden Crédito → Venta, el mismo
+                // que sigue el pago). Es el recurso compartido con RegistrarPagoCuotaAsync/PagarCuotasAsync:
+                // mientras esta transacción lo retiene ningún pago puede confirmar, y un pago ya en vuelo
+                // se espera aquí a que commitee, de modo que la guardia de abajo lo ve. El CreditoId se lee
+                // sin lock; se re-verifica contra la venta ya bloqueada.
+                var creditoIdBloqueado = await _context.Ventas
+                    .AsNoTracking()
+                    .Where(v => v.Id == id && !v.IsDeleted)
+                    .Select(v => v.CreditoId)
+                    .FirstOrDefaultAsync();
+                if (creditoIdBloqueado.HasValue)
+                    await CreditoConcurrencia.BloquearAsync(_context, creditoIdBloqueado.Value);
+
+                // Toma el lock de fila de la venta antes de leerla: dos cancelaciones simultáneas
+                // se serializan y la segunda ve el estado ya confirmado (no duplica stock ni caja).
+                var reclamada = await _context.Ventas
+                    .Where(v => v.Id == id && !v.IsDeleted && v.Estado != EstadoVenta.Cancelada)
+                    .ExecuteUpdateAsync(s => s.SetProperty(v => v.UpdatedAt, DateTime.UtcNow));
+
                 var venta = await CargarVentaCompleta(id);
                 if (venta == null)
                     return false;
 
                 _validator.ValidarNoEstaCancelada(venta);
+                if (reclamada == 0)
+                    throw new InvalidOperationException(VentaConstants.ErrorMessages.VENTA_YA_CANCELADA);
+
+                if (venta.CreditoId != creditoIdBloqueado)
+                    throw new InvalidOperationException(
+                        "El crédito de la venta cambió mientras se cancelaba. Reintentá la cancelación.");
+
+                // Con el crédito bloqueado esta guardia es exacta (ya no es TOCTOU).
+                await AsegurarSinPagosAplicadosParaCancelarAsync(venta);
 
                 var estadoOriginal = venta.Estado;
 
@@ -1251,6 +1279,11 @@ namespace TheBuryProject.Services
                 venta.FechaCancelacion = DateTime.UtcNow;
                 venta.MotivoCancelacion = motivo;
 
+                // Defensa en profundidad: se repite la guardia inmediatamente antes de persistir (consulta
+                // sin tracking: ve la base, no el change tracker). Con el lock del crédito no debería
+                // cambiar nada; si algún escritor ajeno al lock introdujo un pago, no se cancela.
+                await AsegurarSinPagosAplicadosParaCancelarAsync(venta);
+
                 // Una venta cancelada no se entrega: el envío asociado deja de figurar como pendiente.
                 var envioAsociado = await _context.VentaEnvios
                     .FirstOrDefaultAsync(e => e.VentaId == venta.Id && !e.IsDeleted);
@@ -1286,6 +1319,54 @@ namespace TheBuryProject.Services
                 _logger.LogError(ex, "Error al cancelar venta {Id}", id);
                 throw;
             }
+        }
+
+        /// <summary>
+        /// Una venta financiada con pagos aplicados solo puede cancelarse mediante una reversión
+        /// auditada de esos pagos (no implementada). Mientras tanto la cancelación se rechaza
+        /// ANTES de escribir cualquier cosa. Detecta pagos por tres vías independientes: ledger
+        /// de PagosCuota vigente, cuotas con importe imputado (legado sin ledger) y cobros de
+        /// cuota en caja referenciados a cuotas del crédito.
+        /// </summary>
+        private async Task AsegurarSinPagosAplicadosParaCancelarAsync(Venta venta)
+        {
+            if (!venta.CreditoId.HasValue)
+                return;
+
+            var creditoId = venta.CreditoId.Value;
+
+            var cuotasConPago = await _context.Cuotas
+                .AsNoTracking()
+                .Where(c => c.CreditoId == creditoId && !c.IsDeleted
+                    && (c.MontoPagado > 0m
+                        || c.Estado == EstadoCuota.Pagada
+                        || c.Estado == EstadoCuota.Parcial))
+                .AnyAsync();
+
+            var pagosEnLedger = cuotasConPago || await _context.PagosCuota
+                .AsNoTracking()
+                .AnyAsync(p => !p.IsDeleted
+                    && p.Estado == EstadoPagoCuota.Aplicado
+                    && p.Cuota.CreditoId == creditoId);
+
+            var cobrosEnCaja = pagosEnLedger || await _context.MovimientosCaja
+                .AsNoTracking()
+                .AnyAsync(m => !m.IsDeleted
+                    && m.Tipo == TipoMovimientoCaja.Ingreso
+                    && m.Concepto == ConceptoMovimientoCaja.CobroCuota
+                    && m.ReferenciaId != null
+                    && _context.Cuotas.Any(c => c.Id == m.ReferenciaId && c.CreditoId == creditoId));
+
+            if (!cobrosEnCaja)
+                return;
+
+            _logger.LogWarning(
+                "Cancelación de venta {VentaId} rechazada: el crédito {CreditoId} tiene pagos aplicados y no existe reversión auditada.",
+                venta.Id, creditoId);
+
+            throw new InvalidOperationException(
+                "No se puede cancelar la venta: el crédito asociado tiene pagos aplicados. " +
+                "Requiere una reversión auditada de los pagos (no disponible todavía).");
         }
 
         public async Task<bool> FacturarVentaAsync(int id, FacturaViewModel facturaViewModel)

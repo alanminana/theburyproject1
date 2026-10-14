@@ -6,6 +6,8 @@
     ViewData["Title"] = producto != null ? $"Kardex — {producto.Nombre}" : "Kardex de Movimientos";
     var movs = Model?.ToList() ?? new List<TheBuryProject.ViewModels.MovimientoStockViewModel>();
     var movsDesc = movs.OrderByDescending(x => x.Fecha).ToList();
+    // Registrar un ajuste escribe stock: exige movimientos.create (el servidor lo vuelve a validar).
+    var puedeRegistrarMovimientos = User.TienePermiso("movimientos", "create");
 
     // KPIs
     var totalEntradas = movs.Where(m => m.Tipo == TipoMovimiento.Entrada).Sum(m => m.Cantidad);
@@ -256,7 +258,7 @@
                     <span class="material-symbols-outlined" style="font-size:18px">print</span>
                     Imprimir / PDF
                 </button>
-                @if (producto != null)
+                @if (producto != null && puedeRegistrarMovimientos)
                 {
                     <button type="button" data-ajuste-stock-open class="kdx-btn kdx-btn-primary kdx-btn-sm">
                         <span class="material-symbols-outlined" style="font-size:18px">add</span>
@@ -453,7 +455,7 @@
                     <p class="text-white font-semibold">Sin movimientos registrados</p>
                     <p class="text-sm text-slate-400 mt-1">No hay movimientos de stock para este producto.</p>
                 </div>
-                @if (producto != null)
+                @if (producto != null && puedeRegistrarMovimientos)
                 {
                     <button type="button" data-ajuste-stock-open class="kdx-btn kdx-btn-primary">
                         <span class="material-symbols-outlined" style="font-size:18px">add</span>
@@ -574,7 +576,7 @@
 
 </div>
 
-@if (producto != null)
+@if (producto != null && puedeRegistrarMovimientos)
 {
     @await Html.PartialAsync("_AjusteStockModal", new TheBuryProject.ViewModels.AjusteStockModalViewModel
     {

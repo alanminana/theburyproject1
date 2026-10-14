@@ -597,6 +597,17 @@ namespace TheBuryProject.ViewModels
         /// ID del evento de cambio directo (si aplica)
         /// </summary>
         public int? CambioPrecioEventoId { get; set; }
+
+        /// <summary>
+        /// Productos alcanzados por el filtro/selección (puede ser mayor que ProductosActualizados si
+        /// algunos ya tenían el precio resultante).
+        /// </summary>
+        public int ProductosEnAlcance { get; set; }
+
+        /// <summary>
+        /// Avisos no bloqueantes (p. ej. precio de venta por debajo del costo).
+        /// </summary>
+        public List<string> Advertencias { get; set; } = new();
     }
 
     public record AlicuotaIVAFormItem(int Id, string Porcentaje, string Texto);

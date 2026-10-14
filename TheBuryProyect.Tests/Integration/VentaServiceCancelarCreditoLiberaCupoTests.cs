@@ -87,7 +87,7 @@ file sealed class StubMovimientoStockServiceCancelaCredito : IMovimientoStockSer
     public Task<IEnumerable<MovimientoStock>> SearchAsync(int? productoId = null, TipoMovimiento? tipo = null, DateTime? fechaDesde = null, DateTime? fechaHasta = null, string? orderBy = null, string? orderDirection = "desc") => throw new NotImplementedException();
     public Task<(IEnumerable<MovimientoStock> Items, int Total, decimal TotalEntradas, decimal TotalSalidas, int TotalAjustes)> SearchPaginadoAsync(int? productoId = null, TipoMovimiento? tipo = null, DateTime? fechaDesde = null, DateTime? fechaHasta = null, string? orderBy = null, string? orderDirection = "desc", int pageNumber = 1, int pageSize = 20) => throw new NotImplementedException();
     public Task<MovimientoStock> CreateAsync(MovimientoStock movimiento) => throw new NotImplementedException();
-    public Task<MovimientoStock> RegistrarAjusteAsync(int productoId, TipoMovimiento tipo, decimal cantidad, string? referencia, string motivo, string? usuarioActual = null, int? ordenCompraId = null) => throw new NotImplementedException();
+    public Task<MovimientoStock> RegistrarAjusteAsync(int productoId, TipoMovimiento tipo, decimal cantidad, string? referencia, string motivo, string? usuarioActual = null, int? ordenCompraId = null, Guid? requestId = null) => throw new NotImplementedException();
     public Task<bool> HayStockDisponibleAsync(int productoId, decimal cantidad) => throw new NotImplementedException();
     public Task<(bool Valido, string Mensaje)> ValidarCantidadAsync(decimal cantidad) => throw new NotImplementedException();
 }
@@ -434,6 +434,155 @@ public class VentaServiceCancelarCreditoLiberaCupoTests : IDisposable
 
         var disponibleDespues = await _disponibleService.CalcularDisponibleAsync(cliente.Id);
         Assert.Equal(LimitePuntaje5, disponibleDespues.Disponible);
+    }
+
+    // -------------------------------------------------------------------------
+    // QA-FIN-P0 — Una venta financiada con pagos aplicados NO se cancela
+    // mientras no exista una reversión auditada. El rechazo no escribe nada.
+    // -------------------------------------------------------------------------
+
+    private sealed record EstadoFinanciero(
+        EstadoVenta VentaEstado,
+        string? VentaMotivo,
+        EstadoCredito CreditoEstado,
+        decimal CreditoSaldo,
+        string CuotasEstado,
+        int Pagos,
+        string PagosEstado,
+        int Movimientos,
+        string MovimientosFirma);
+
+    private async Task<EstadoFinanciero> CapturarEstadoAsync(int ventaId, int creditoId)
+    {
+        _context.ChangeTracker.Clear();
+        var v = await _context.Ventas.AsNoTracking().FirstAsync(x => x.Id == ventaId);
+        var c = await _context.Creditos.AsNoTracking().FirstAsync(x => x.Id == creditoId);
+        var cuotas = await _context.Cuotas.AsNoTracking().Where(x => x.CreditoId == creditoId)
+            .OrderBy(x => x.Id).ToListAsync();
+        var pagos = await _context.Set<PagoCuota>().AsNoTracking().OrderBy(x => x.Id).ToListAsync();
+        var movs = await _context.MovimientosCaja.AsNoTracking().OrderBy(x => x.Id).ToListAsync();
+        return new EstadoFinanciero(
+            v.Estado, v.MotivoCancelacion, c.Estado, c.SaldoPendiente,
+            string.Join(",", cuotas.Select(x => $"{x.Id}:{(int)x.Estado}:{x.MontoPagado}")),
+            pagos.Count,
+            string.Join(",", pagos.Select(x => $"{x.Id}:{(int)x.Estado}")),
+            movs.Count,
+            string.Join(",", movs.Select(x => $"{x.Id}:{(int)x.Tipo}:{(int)x.Concepto}:{x.Monto}:{x.IsDeleted}")));
+    }
+
+    private async Task<(Venta venta, Credito credito, List<Cuota> cuotas)> SeedVentaFinanciadaConfirmadaAsync()
+    {
+        await SetLimitePuntaje5Async(LimitePuntaje5);
+        var (venta, credito, _) = await SeedVentaCreditoConfigurableAsync(total: 2_000m, cantidadCuotas: 4);
+        Assert.True(await _service.ConfirmarVentaCreditoAsync(venta.Id));
+        _context.ChangeTracker.Clear();
+        var cuotas = await _context.Cuotas.Where(c => c.CreditoId == credito.Id).OrderBy(c => c.NumeroCuota).ToListAsync();
+        Assert.Equal(4, cuotas.Count);
+        return (venta, credito, cuotas);
+    }
+
+    [Fact]
+    public async Task CancelarVenta_ConCuotaPagadaEnLedger_RechazaSinModificarNada()
+    {
+        var (venta, credito, cuotas) = await SeedVentaFinanciadaConfirmadaAsync();
+        var cuota = cuotas[0];
+        var mov = new MovimientoCaja
+        {
+            AperturaCajaId = _apertura.Id, Tipo = TipoMovimientoCaja.Ingreso,
+            Concepto = ConceptoMovimientoCaja.CobroCuota, Monto = cuota.MontoTotal,
+            Descripcion = "Cobro cuota", ReferenciaId = cuota.Id, Usuario = TestUser
+        };
+        _context.MovimientosCaja.Add(mov);
+        await _context.SaveChangesAsync();
+        cuota.Estado = EstadoCuota.Pagada;
+        cuota.MontoPagado = cuota.MontoTotal;
+        _context.Set<PagoCuota>().Add(new PagoCuota
+        {
+            CuotaId = cuota.Id, FechaPagoComercial = DateOnly.FromDateTime(DateTime.UtcNow),
+            ImporteTotal = cuota.MontoTotal, ImporteAplicadoCuota = cuota.MontoTotal,
+            MovimientoCajaId = mov.Id, Origen = OrigenPagoCuota.RegistradoPorSistema,
+            Estado = EstadoPagoCuota.Aplicado
+        });
+        await _context.SaveChangesAsync();
+
+        var antes = await CapturarEstadoAsync(venta.Id, credito.Id);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.CancelarVentaAsync(venta.Id, "Intento con cuota pagada"));
+        Assert.Contains("pagos", ex.Message, StringComparison.OrdinalIgnoreCase);
+
+        var despues = await CapturarEstadoAsync(venta.Id, credito.Id);
+        Assert.Equal(antes, despues);
+        Assert.Equal(EstadoVenta.Confirmada, despues.VentaEstado);
+        Assert.Null(despues.VentaMotivo);
+    }
+
+    [Fact]
+    public async Task CancelarVenta_ConCuotaPagadaSinLedger_LegacyMontoPagado_Rechaza()
+    {
+        var (venta, credito, cuotas) = await SeedVentaFinanciadaConfirmadaAsync();
+        cuotas[1].Estado = EstadoCuota.Parcial;
+        cuotas[1].MontoPagado = 10m;
+        await _context.SaveChangesAsync();
+
+        var antes = await CapturarEstadoAsync(venta.Id, credito.Id);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.CancelarVentaAsync(venta.Id, "Legacy sin ledger"));
+
+        Assert.Equal(antes, await CapturarEstadoAsync(venta.Id, credito.Id));
+    }
+
+    [Fact]
+    public async Task CancelarVenta_ConCobroCuotaEnCajaSinLedger_Rechaza()
+    {
+        var (venta, credito, cuotas) = await SeedVentaFinanciadaConfirmadaAsync();
+        _context.MovimientosCaja.Add(new MovimientoCaja
+        {
+            AperturaCajaId = _apertura.Id, Tipo = TipoMovimientoCaja.Ingreso,
+            Concepto = ConceptoMovimientoCaja.CobroCuota, Monto = 100m,
+            Descripcion = "Cobro cuota huérfano", ReferenciaId = cuotas[2].Id, Usuario = TestUser
+        });
+        await _context.SaveChangesAsync();
+
+        var antes = await CapturarEstadoAsync(venta.Id, credito.Id);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.CancelarVentaAsync(venta.Id, "Cobro en caja sin ledger"));
+
+        Assert.Equal(antes, await CapturarEstadoAsync(venta.Id, credito.Id));
+    }
+
+    [Fact]
+    public async Task CancelarVenta_PagoAnuladoEnLedger_NoBloquea()
+    {
+        var (venta, credito, cuotas) = await SeedVentaFinanciadaConfirmadaAsync();
+        _context.Set<PagoCuota>().Add(new PagoCuota
+        {
+            CuotaId = cuotas[0].Id, FechaPagoComercial = DateOnly.FromDateTime(DateTime.UtcNow),
+            ImporteTotal = 50m, Origen = OrigenPagoCuota.RegistradoPorSistema,
+            Estado = EstadoPagoCuota.Anulado
+        });
+        await _context.SaveChangesAsync();
+
+        Assert.True(await _service.CancelarVentaAsync(venta.Id, "Pago ya anulado"));
+        Assert.Equal(EstadoVenta.Cancelada, (await CapturarEstadoAsync(venta.Id, credito.Id)).VentaEstado);
+    }
+
+    [Fact]
+    public async Task CancelarVenta_DosSolicitudesSecuenciales_LaSegundaSeRechazaSinEfectos()
+    {
+        var (venta, credito, _) = await SeedVentaFinanciadaConfirmadaAsync();
+
+        Assert.True(await _service.CancelarVentaAsync(venta.Id, "Primera"));
+        var tras1 = await CapturarEstadoAsync(venta.Id, credito.Id);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.CancelarVentaAsync(venta.Id, "Segunda"));
+
+        var tras2 = await CapturarEstadoAsync(venta.Id, credito.Id);
+        Assert.Equal(tras1, tras2);
+        Assert.Equal("Primera", tras2.VentaMotivo);
     }
 }
 
