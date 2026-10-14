@@ -303,7 +303,7 @@ public sealed class ConcSqlHostFixture : IAsyncLifetime
 
         using var scope = Services.CreateScope();
         var ctx = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        await ctx.Database.EnsureCreatedAsync();
+        await ctx.Database.MigrateAsync();
 
         AperturaCajaId = await ConcSeed.SembrarAperturaAsync(ctx);
     }
