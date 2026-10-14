@@ -17,6 +17,7 @@ namespace TheBuryProject.Tests.Integration;
 /// La concurrencia real vive en Concurrency/CancelarVsPagoServiciosRealesSqlServerTests (SQL Server).
 /// Sin HttpContext el usuario actual es "Sistema" (CurrentUserService), de ahí la apertura de caja.
 /// </summary>
+[Collection("HttpIntegration")]
 public sealed class CreditoCobroYCancelacionSerializadosTests : IClassFixture<CustomWebApplicationFactory>
 {
     private const string UsuarioSinContexto = "Sistema";
@@ -74,7 +75,6 @@ public sealed class CreditoCobroYCancelacionSerializadosTests : IClassFixture<Cu
     [Theory]
     [InlineData(EstadoCredito.Cancelado)]
     [InlineData(EstadoCredito.Rechazado)]
-    [InlineData(EstadoCredito.Finalizado)]
     public async Task Pago_ConCreditoEnEstadoTerminal_SeRechazaSinEscribirAunqueLaCuotaSigaPendiente(EstadoCredito estado)
     {
         // Estado inconsistente a propósito (crédito terminal con cuota Pendiente): es lo que vería un

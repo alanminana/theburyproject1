@@ -96,7 +96,7 @@ internal sealed class ConcGateInterceptor : DbCommandInterceptor
     private static string Resumir(string sql)
     {
         var plano = string.Join(' ', sql.Split(['\r', '\n', ' '], StringSplitOptions.RemoveEmptyEntries));
-        return plano.Length <= 170 ? plano : plano[..170] + "…";
+        return plano.Length <= 700 ? plano : plano[..700] + "…";
     }
 }
 
@@ -347,12 +347,9 @@ public class CancelarVsPagoServiciosRealesSqlServerTests : IClassFixture<ConcSql
 
     private static bool EsSelectDeCuotasConCredito(string sql)
     {
-        var s = sql.TrimStart();
-        return s.StartsWith("SELECT", StringComparison.OrdinalIgnoreCase)
-               && s.Contains("[Cuotas]", StringComparison.Ordinal)
-               && s.Contains("[Creditos]", StringComparison.Ordinal)
-               && !s.Contains("EXISTS", StringComparison.OrdinalIgnoreCase)
-               && !s.Contains("UPDLOCK", StringComparison.OrdinalIgnoreCase);
+        // Proyección de la entidad Credito (columna propia [AnticipoPreseleccionado]) con sus cuotas:
+        // es RestaurarCreditoPersonall, el primer SELECT de crédito posterior a la guardia de pagos.
+        return sql.TrimStart().StartsWith("SELECT [s].[Id], [s].[AnticipoPreseleccionado]", StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -548,8 +545,8 @@ WHERE r.blocking_session_id <> 0 AND r.database_id = DB_ID()", c);
             v.Add($"{contra.Count} contramovimientos de caja para la misma venta (debe ser ≤ 1).");
         if (ventaCancelada && contra.Count != 1 && contra.Count != 0)
             v.Add("Contramovimiento inconsistente.");
-        if (contra.Any(m => m.ReferenciaId != null && s.CuotaIds.Contains(m.ReferenciaId.Value)))
-            v.Add("Contramovimiento apunta a un cobro de cuota (operación ajena).");
+        if (contra.Any(m => m.ReferenciaId != null && cobros.Any(c => c.Id == m.ReferenciaId.Value)))
+            v.Add("Contramovimiento revierte un cobro de cuota (operación ajena).");
         if (!creditoCancelado && cuotas.Any(c => c.Estado == EstadoCuota.Cancelada))
             v.Add("Cuotas Canceladas con crédito no cancelado.");
         return v;
@@ -599,6 +596,7 @@ FROM sys.databases d WHERE d.database_id = DB_ID()", c);
         var cancelar = CancelarAsync(s, plan);
 
         var llego = await Task.WhenAny(plan.Reached.Task, cancelar) == plan.Reached.Task;
+        if (!llego) Volcar("cancelación (no llegó)", plan);
         Assert.True(llego, "La cancelación no llegó a la compuerta (¿rechazó antes?): " + (cancelar.IsCompleted ? cancelar.Result : "?"));
         _out.WriteLine(await SnapshotSesionAsync(plan.Spid, "cancelación detenida tras la guardia"));
 
@@ -630,7 +628,9 @@ FROM sys.databases d WHERE d.database_id = DB_ID()", c);
         var s = await SembrarAsync();
         var plan = CancelacionTrasGuardia();
         var cancelar = CancelarAsync(s, plan);
-        Assert.True(await Task.WhenAny(plan.Reached.Task, cancelar) == plan.Reached.Task, "no llegó a la compuerta");
+        var llegoPm = await Task.WhenAny(plan.Reached.Task, cancelar) == plan.Reached.Task;
+        if (!llegoPm) Volcar("cancelación (no llegó)", plan);
+        Assert.True(llegoPm, "no llegó a la compuerta");
 
         var pagar = PagarMultipleAsync(s, 1);
         await EsperarAsync(async () => pagar.IsCompleted || (await BloqueosActualesAsync()).Count > 0, EsperaObservacion);
@@ -714,7 +714,9 @@ FROM sys.databases d WHERE d.database_id = DB_ID()", c);
         var s = await SembrarAsync();
         var plan = CancelacionTrasGuardia();
         var primera = CancelarAsync(s, plan, "primera");
-        Assert.True(await Task.WhenAny(plan.Reached.Task, primera) == plan.Reached.Task, "la primera no llegó a la compuerta");
+        var llegoP = await Task.WhenAny(plan.Reached.Task, primera) == plan.Reached.Task;
+        if (!llegoP) Volcar("primera (no llegó)", plan);
+        Assert.True(llegoP, "la primera no llegó a la compuerta");
 
         var segunda = CancelarAsync(s, null, "segunda");
         await EsperarAsync(async () => segunda.IsCompleted || (await BloqueosActualesAsync()).Count > 0, EsperaObservacion);
@@ -790,7 +792,8 @@ FROM sys.databases d WHERE d.database_id = DB_ID()", c);
             var s = await SembrarAsync();
             using var barrera = new Barrier(2);
             var tareaPago = Task.Run(async () => { barrera.SignalAndWait(); return await PagarAsync(s, 0); });
-            var tareaCancel = Task.Run(async () => { barrera.SignalAndWait(); return await CancelarAsync(s, null); });
+            var retardoCancel = TimeSpan.FromMilliseconds(i % 2 == 0 ? 0 : (i % 8 + 1) * 12); // varía quién arranca primero
+            var tareaCancel = Task.Run(async () => { barrera.SignalAndWait(); await Task.Delay(retardoCancel); return await CancelarAsync(s, null); });
             var rp = await tareaPago;
             var rc = await tareaCancel;
 
