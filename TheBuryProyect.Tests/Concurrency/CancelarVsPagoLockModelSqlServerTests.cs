@@ -98,7 +98,8 @@ INSERT qaconc.Cuotas(Id,CreditoId,Estado,MontoTotal,MontoPagado) VALUES (1,1,0,1
     private static async Task<T> Scalar<T>(SqlConnection c, string sql, SqlTransaction? tx = null)
     {
         await using var cmd = new SqlCommand(sql, c, tx);
-        return (T)(await cmd.ExecuteScalarAsync())!;
+        // Convert.ChangeType: SQL Server devuelve 'bit' como bool y el test pide int (is_read_committed_snapshot_on).
+        return (T)Convert.ChangeType((await cmd.ExecuteScalarAsync())!, typeof(T));
     }
 
     // ---------- modelo: CancelarVentaAsync (READ COMMITTED) ----------
