@@ -88,7 +88,21 @@ builder.Services.AddDefaultIdentity<ApplicationUser>(options =>
     options.Stores.MaxLengthForKeys = 0;
 })
 .AddRoles<IdentityRole>()
+.AddSignInManager<TheBuryProject.Services.ActiveUserSignInManager>()
 .AddEntityFrameworkStores<AppDbContext>();
+
+// Revocación inmediata: un usuario con Activo=false pierde la sesión en el siguiente request.
+// Se ejecuta ANTES del SecurityStampValidator estándar (que sólo revalida cada 30 min) y sin caché.
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    var securityStampValidator = options.Events.OnValidatePrincipal;
+    options.Events.OnValidatePrincipal = async context =>
+    {
+        await TheBuryProject.Services.ActiveUserCookieValidator.ValidateAsync(context);
+        if (context.Principal != null && securityStampValidator != null)
+            await securityStampValidator(context);
+    };
+});
 
 // Claims (factory + transformation)
 builder.Services.AddScoped<IClaimsTransformation, PermissionClaimsTransformation>();
