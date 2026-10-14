@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ---------- Runtime base ----------
-FROM mcr.microsoft.com/dotnet/aspnet:10.0@sha256:2d584d8147faddb0d678c5748d47953e5b8e18621ed4fb7049a91381d9d7746f AS base
+FROM mcr.microsoft.com/dotnet/aspnet:10.0@sha256:d5633778c754e89a386882eddf8dbee6942447a8a4b8267c19cf1e1158d0b0ac AS base
 WORKDIR /app
 
 # libfontconfig1 + fonts-liberation: requeridos por QuestPDF (PDFs de cotizaciones, contratos y reportes) en Linux.
@@ -24,7 +24,7 @@ EXPOSE 8080
 
 # ---------- Build ----------
 # global.json (SDK 10) participa del build: el SDK de la imagen debe coincidir con el pin (rollForward latestPatch).
-FROM mcr.microsoft.com/dotnet/sdk:10.0@sha256:2fa828c68761b1b8c23d7662dc134421b9d3b59fe1425fdbc80804e390cdb24d AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0@sha256:0d99ebf1ccad15037b5c98c9fe8979d6b8dbac23812feae2277a0b277b5c5ffa AS build
 WORKDIR /src
 
 # Solo el .csproj primero: la capa de restore se cachea mientras no cambien las dependencias.
