@@ -1,0 +1,468 @@
+@model TheBuryProject.ViewModels.Mora.FichaMoraViewModel
+@using TheBuryProject.Models.Enums
+@using TheBuryProject.ViewModels.Mora
+@section Styles {
+    <link rel="stylesheet" href="~/css/mora-clientes.css" asp-append-version="true" />
+}
+@{
+    ViewData["Title"] = "Ficha de mora";
+
+    var resumen = Model.Resumen ?? new ResumenMoraViewModel();
+    var creditos = Model.Creditos ?? new List<CreditoMoraViewModel>();
+    var alertas = Model.AlertasActivas ?? new List<AlertaCobranzaViewModel>();
+    var contactos = Model.HistorialContactos ?? new List<HistorialContactoViewModel>();
+    var promesas = Model.PromesasPago ?? new List<PromesaPagoViewModel>();
+    var acuerdos = Model.Acuerdos ?? new List<AcuerdoPagoResumenViewModel>();
+
+    var puedeVerCliente = User.TienePermiso("clientes", "view");
+    var urlActual = Context.Request.Path + Context.Request.QueryString;
+    var volverUrl = ViewData["ReturnUrl"] as string;
+
+    // MoraService arma NombreCliente con ToDisplayName() ("Apellido, Nombre - DNI: {doc}") y además
+    // envía DocumentoCliente: se quita el sufijo para no mostrar el documento dos veces.
+    var nombre = Model.NombreCliente ?? string.Empty;
+    var sufijoDoc = " - DNI: " + Model.DocumentoCliente;
+    if (!string.IsNullOrWhiteSpace(Model.DocumentoCliente) && nombre.EndsWith(sufijoDoc, StringComparison.Ordinal))
+        nombre = nombre[..^sufijoDoc.Length];
+    if (string.IsNullOrWhiteSpace(nombre)) nombre = "Cliente sin nombre";
+
+    string ClasePrioridad(PrioridadAlerta prioridad) => prioridad switch
+    {
+        PrioridadAlerta.Critica => "badge-erp-danger",
+        PrioridadAlerta.Alta => "badge-erp-warning",
+        PrioridadAlerta.Media => "badge-erp-info",
+        _ => "badge-erp-neutral"
+    };
+
+    string NombrePrioridad(PrioridadAlerta prioridad) => prioridad switch
+    {
+        PrioridadAlerta.Critica => "Crítica",
+        PrioridadAlerta.Alta => "Alta",
+        PrioridadAlerta.Media => "Media",
+        PrioridadAlerta.Baja => "Baja",
+        _ => prioridad.ToString()
+    };
+
+    string NombreTipo(TipoAlertaCobranza tipo) => tipo switch
+    {
+        TipoAlertaCobranza.CuotaVencida => "Cuota vencida",
+        TipoAlertaCobranza.ProximoVencimiento => "Próximo vencimiento",
+        TipoAlertaCobranza.MoraElevada => "Mora elevada",
+        TipoAlertaCobranza.ClienteRiesgo => "Cliente en riesgo",
+        _ => tipo.ToString()
+    };
+
+    string ClaseBadge(string color) => color switch
+    {
+        "success" => "badge-erp-success",
+        "danger" => "badge-erp-danger",
+        "warning" => "badge-erp-warning",
+        "primary" => "badge-erp-primary",
+        _ => "badge-erp-neutral"
+    };
+
+    var sinMora = creditos.Count == 0 && alertas.Count == 0;
+}
+
+<div class="space-y-6" data-mora-ficha-page data-cliente-id="@Model.ClienteId">
+    <section class="card-erp-panel-padded">
+        <header class="flex flex-col gap-6">
+            <div class="space-y-4">
+                <nav aria-label="Breadcrumb" class="flex text-sm font-medium text-slate-400">
+                    <ol class="inline-flex flex-wrap items-center gap-y-1">
+                        <li><a asp-controller="Home" asp-action="Index" class="hover:text-primary no-underline">Inicio</a></li>
+                        <li><span class="mx-2 text-slate-400">/</span></li>
+                        <li><a asp-controller="Mora" asp-action="Index" class="hover:text-primary no-underline">Mora</a></li>
+                        <li><span class="mx-2 text-slate-400">/</span></li>
+                        <li><a asp-controller="Mora" asp-action="ClientesMora" class="hover:text-primary no-underline">Clientes en mora</a></li>
+                        <li><span class="mx-2 text-slate-400">/</span></li>
+                        <li class="text-slate-100">Ficha</li>
+                    </ol>
+                </nav>
+                <div class="space-y-3">
+                    <span class="badge-erp badge-erp-primary">
+                        <span class="material-symbols-outlined text-sm">assignment_ind</span>
+                        Ficha de mora
+                    </span>
+                    <div class="space-y-2">
+                        <h1 class="text-3xl font-black tracking-tight text-white sm:text-4xl" data-mora-ficha-nombre>@nombre</h1>
+                        <p class="max-w-2xl text-sm leading-relaxed text-slate-400 sm:text-base">
+                            @if (!string.IsNullOrWhiteSpace(Model.DocumentoCliente))
+                            {
+                                @:Documento @Model.DocumentoCliente ·
+                            }
+                            Deuda vencida, alertas y gestión de cobranza del cliente.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mc-actions">
+                @if (!string.IsNullOrEmpty(volverUrl))
+                {
+                    <a href="@volverUrl" class="btn-erp-secondary sm:py-2.5 no-underline" data-mora-volver>
+                        <span class="material-symbols-outlined text-[20px]">arrow_back</span>
+                        Volver
+                    </a>
+                }
+                else
+                {
+                    <a asp-controller="Mora" asp-action="ClientesMora" class="btn-erp-secondary sm:py-2.5 no-underline" data-mora-volver>
+                        <span class="material-symbols-outlined text-[20px]">arrow_back</span>
+                        Volver a clientes en mora
+                    </a>
+                }
+                @if (puedeVerCliente)
+                {
+                    <a asp-controller="Cliente" asp-action="Details" asp-route-id="@Model.ClienteId" asp-route-returnUrl="@urlActual"
+                       class="btn-erp-ghost sm:py-2.5 no-underline">
+                        <span class="material-symbols-outlined text-[20px]">person</span>
+                        Ver cliente
+                    </a>
+                }
+            </div>
+        </header>
+    </section>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm font-semibold text-emerald-400" role="status">
+            <span class="material-symbols-outlined">check_circle</span>
+            @TempData["Success"]
+        </div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="flex items-center gap-3 rounded-xl border border-rose-500/20 bg-rose-500/10 p-4 text-sm font-semibold text-rose-400" role="alert">
+            <span class="material-symbols-outlined">error</span>
+            @TempData["Error"]
+        </div>
+    }
+
+    <!-- ============ Resumen de deuda ============ -->
+    <section aria-labelledby="mc-resumen-titulo" data-mora-ficha-resumen>
+        <h2 id="mc-resumen-titulo" class="sr-only">Resumen de deuda</h2>
+        <div class="mc-kpi-grid">
+            <div class="card-erp-metric-danger">
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Capital vencido</p>
+                <p class="mc-kpi-value" data-kpi="capital-vencido">@resumen.MontoCapitalVencido.ToString("C2")</p>
+                <p class="mt-1 text-xs text-slate-500">@resumen.TotalCuotasVencidas @(resumen.TotalCuotasVencidas == 1 ? "cuota vencida" : "cuotas vencidas")</p>
+            </div>
+            <div class="card-erp-metric-warning">
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Mora acumulada</p>
+                <p class="mc-kpi-value" data-kpi="mora-acumulada">@resumen.MontoMoraAcumulada.ToString("C2")</p>
+                <p class="mt-1 text-xs text-slate-500">Total: @resumen.MontoTotal.ToString("C2")</p>
+            </div>
+            <div class="card-erp-metric">
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Atraso máximo</p>
+                <p class="mc-kpi-value" data-kpi="dias-atraso">@resumen.DiasMaxAtraso @(resumen.DiasMaxAtraso == 1 ? "día" : "días")</p>
+                <p class="mt-1 text-xs text-slate-500">@resumen.TotalCreditosConMora @(resumen.TotalCreditosConMora == 1 ? "crédito en mora" : "créditos en mora")</p>
+            </div>
+            <div class="card-erp-metric">
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Prioridad</p>
+                <p class="mt-1">
+                    <span class="badge-erp @ClasePrioridad(resumen.PrioridadMaxima)" data-kpi="prioridad">@NombrePrioridad(resumen.PrioridadMaxima)</span>
+                </p>
+                <p class="mt-2 text-xs text-slate-500">@alertas.Count @(alertas.Count == 1 ? "alerta activa" : "alertas activas")</p>
+            </div>
+            <div class="card-erp-metric-info">
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Contactos</p>
+                <p class="mc-kpi-value" data-kpi="contactos">@resumen.ContactosRealizados</p>
+                <p class="mt-1 text-xs text-slate-500">
+                    Último: @(resumen.UltimoContacto.HasValue ? resumen.UltimoContacto.Value.ToString("dd/MM/yyyy") : "sin contactos")
+                </p>
+            </div>
+            <div class="card-erp-metric-success">
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Compromisos</p>
+                <p class="mt-1 flex flex-wrap gap-2">
+                    <span class="badge-erp @(resumen.PromesaActiva ? "badge-erp-info" : "badge-erp-neutral")" data-kpi="promesa">@(resumen.PromesaActiva ? "Promesa vigente" : "Sin promesa")</span>
+                    <span class="badge-erp @(resumen.AcuerdoActivo ? "badge-erp-success" : "badge-erp-neutral")" data-kpi="acuerdo">@(resumen.AcuerdoActivo ? "Acuerdo activo" : "Sin acuerdo")</span>
+                </p>
+                <p class="mt-2 text-xs text-slate-500">
+                    Próximo contacto: @(resumen.ProximoContacto.HasValue ? resumen.ProximoContacto.Value.ToString("dd/MM/yyyy") : "sin agendar")
+                </p>
+            </div>
+        </div>
+    </section>
+
+    @if (sinMora)
+    {
+        <section class="card-erp-panel-padded text-center" data-mora-estado="sin-mora">
+            <span class="material-symbols-outlined text-4xl text-emerald-400" aria-hidden="true">task_alt</span>
+            <h2 class="mt-3 text-lg font-bold text-white">Este cliente no tiene mora vigente</h2>
+            <p class="mx-auto mt-1 max-w-md text-sm text-slate-400">
+                No hay cuotas vencidas ni alertas activas. Abajo se conserva el historial de gestión, si existe.
+            </p>
+        </section>
+    }
+
+    <div class="mc-ficha-grid">
+        <div class="mc-stack">
+            <!-- ============ Créditos en mora ============ -->
+            <section class="card-erp-panel-padded" aria-labelledby="mc-creditos-titulo" data-mora-ficha-creditos>
+                <div class="mb-4 flex items-center gap-2 border-b border-slate-800 pb-3">
+                    <span class="material-symbols-outlined text-primary">account_balance</span>
+                    <h2 id="mc-creditos-titulo" class="text-xl font-bold text-white">Créditos en mora</h2>
+                </div>
+
+                @if (!creditos.Any())
+                {
+                    <div class="py-8 text-center" data-mora-estado="creditos-vacio">
+                        <p class="text-base font-semibold text-white">Sin créditos con cuotas vencidas</p>
+                        <p class="text-sm text-slate-400">Ningún crédito del cliente tiene capital vencido hoy.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="space-y-6">
+                        @foreach (var credito in creditos)
+                        {
+                            <article data-credito-id="@credito.CreditoId" class="space-y-3">
+                                <div class="flex flex-wrap items-start justify-between gap-2">
+                                    <div>
+                                        <h3 class="text-base font-bold text-white">Crédito @credito.NumeroCredito</h3>
+                                        <p class="text-xs text-slate-400">
+                                            Otorgado @credito.FechaOtorgamiento.ToString("dd/MM/yyyy") · @credito.CuotasPagadas de @credito.TotalCuotas cuotas pagadas · saldo @credito.SaldoActual.ToString("C2")
+                                        </p>
+                                    </div>
+                                    <span class="badge-erp badge-erp-danger whitespace-nowrap">
+                                        @credito.CuotasVencidas @(credito.CuotasVencidas == 1 ? "cuota vencida" : "cuotas vencidas") · @credito.DiasAtraso @(credito.DiasAtraso == 1 ? "día" : "días")
+                                    </span>
+                                </div>
+                                <div class="table-erp-wrapper overflow-x-auto" data-oc-scroll-region>
+                                    <table data-erp-cards class="mc-credit-table w-full text-left text-sm">
+                                        <thead class="border-b border-slate-800 text-xs uppercase tracking-wide text-slate-400">
+                                            <tr>
+                                                <th scope="col" data-card="title" class="px-3 py-2 font-semibold">Cuota</th>
+                                                <th scope="col" data-card="half" class="px-3 py-2 font-semibold">Vencimiento</th>
+                                                <th scope="col" data-card="half" class="px-3 py-2 font-semibold">Atraso</th>
+                                                <th scope="col" data-card="half" class="px-3 py-2 text-right font-semibold">Pendiente</th>
+                                                <th scope="col" data-card="half" class="px-3 py-2 text-right font-semibold">Mora</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-slate-800">
+                                            @foreach (var cuota in credito.CuotasDetalle)
+                                            {
+                                                <tr data-cuota-id="@cuota.CuotaId">
+                                                    <td class="px-3 py-2 font-semibold text-slate-100">N.º @cuota.NumeroCuota</td>
+                                                    <td class="px-3 py-2 whitespace-nowrap text-slate-300">@cuota.FechaVencimiento.ToString("dd/MM/yyyy")</td>
+                                                    <td class="px-3 py-2 whitespace-nowrap tabular-nums text-slate-300">@cuota.DiasAtraso @(cuota.DiasAtraso == 1 ? "día" : "días")</td>
+                                                    <td class="px-3 py-2 text-right whitespace-nowrap tabular-nums text-slate-100">@((cuota.MontoTotal - cuota.MontoPagado).ToString("C2"))</td>
+                                                    <td class="px-3 py-2 text-right whitespace-nowrap tabular-nums text-slate-300">@cuota.MontoMora.ToString("C2")</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <p class="text-right text-xs text-slate-400 tabular-nums">
+                                    Capital pendiente @credito.MontoCuotasVencidas.ToString("C2") · mora @credito.MontoMora.ToString("C2")
+                                </p>
+                            </article>
+                        }
+                    </div>
+                }
+            </section>
+
+            <!-- ============ Alertas activas ============ -->
+            <section class="card-erp-panel-padded" aria-labelledby="mc-alertas-titulo" data-mora-ficha-alertas>
+                <div class="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary">notifications_active</span>
+                        <h2 id="mc-alertas-titulo" class="text-xl font-bold text-white">Alertas activas</h2>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(Model.DocumentoCliente))
+                    {
+                        <a asp-controller="Mora" asp-action="Alertas" asp-route-cliente="@Model.DocumentoCliente" class="btn-erp-ghost no-underline">
+                            Ver en Alertas
+                        </a>
+                    }
+                </div>
+
+                @if (!alertas.Any())
+                {
+                    <div class="py-8 text-center" data-mora-estado="alertas-vacio">
+                        <p class="text-base font-semibold text-white">Sin alertas activas</p>
+                        <p class="text-sm text-slate-400">No hay alertas de mora sin resolver para este cliente.</p>
+                    </div>
+                }
+                else
+                {
+                    <ul class="mc-list">
+                        @foreach (var a in alertas)
+                        {
+                            <li data-alerta-id="@a.Id">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <span class="badge-erp whitespace-nowrap @ClasePrioridad(a.Prioridad)">@NombrePrioridad(a.Prioridad)</span>
+                                    <span class="text-xs text-slate-400">@NombreTipo(a.Tipo) · @a.FechaAlerta.ToString("dd/MM/yyyy")</span>
+                                    <span class="ml-auto whitespace-nowrap text-sm font-semibold tabular-nums text-slate-100">@a.MontoVencido.ToString("C2")</span>
+                                </div>
+                                @if (!string.IsNullOrWhiteSpace(a.Mensaje))
+                                {
+                                    <p class="mt-2 text-sm text-slate-300">@a.Mensaje</p>
+                                }
+                            </li>
+                        }
+                    </ul>
+                }
+            </section>
+
+            <!-- ============ Historial de contactos ============ -->
+            <section class="card-erp-panel-padded" aria-labelledby="mc-contactos-titulo" data-mora-ficha-contactos>
+                <div class="mb-4 flex items-center gap-2 border-b border-slate-800 pb-3">
+                    <span class="material-symbols-outlined text-primary">forum</span>
+                    <h2 id="mc-contactos-titulo" class="text-xl font-bold text-white">Historial de contactos</h2>
+                </div>
+
+                @if (!contactos.Any())
+                {
+                    <div class="py-8 text-center" data-mora-estado="contactos-vacio">
+                        <p class="text-base font-semibold text-white">Todavía no hay contactos registrados</p>
+                        <p class="text-sm text-slate-400">Las gestiones con el cliente aparecerán acá.</p>
+                    </div>
+                }
+                else
+                {
+                    <ul class="mc-list">
+                        @foreach (var h in contactos)
+                        {
+                            <li data-contacto-id="@h.Id">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <span class="text-sm font-semibold text-slate-100">@h.TipoContactoNombre</span>
+                                    <span class="badge-erp whitespace-nowrap @ClaseBadge(h.ResultadoColor)">@h.ResultadoNombre</span>
+                                    <span class="ml-auto text-xs text-slate-400">@h.FechaContacto.ToString("dd/MM/yyyy HH:mm")</span>
+                                </div>
+                                @if (!string.IsNullOrWhiteSpace(h.Observaciones))
+                                {
+                                    <p class="mt-2 text-sm text-slate-300">@h.Observaciones</p>
+                                }
+                                @if (h.FechaPromesaPago.HasValue || h.ProximoContacto.HasValue)
+                                {
+                                    <p class="mt-2 text-xs text-slate-400">
+                                        @if (h.FechaPromesaPago.HasValue)
+                                        {
+                                            @:Promesa @(h.MontoPromesaPago.HasValue ? h.MontoPromesaPago.Value.ToString("C2") + " " : "")al @h.FechaPromesaPago.Value.ToString("dd/MM/yyyy")
+                                        }
+                                        @if (h.FechaPromesaPago.HasValue && h.ProximoContacto.HasValue)
+                                        {
+                                            @:·
+                                        }
+                                        @if (h.ProximoContacto.HasValue)
+                                        {
+                                            @:Próximo contacto @h.ProximoContacto.Value.ToString("dd/MM/yyyy")
+                                        }
+                                    </p>
+                                }
+                            </li>
+                        }
+                    </ul>
+                }
+            </section>
+        </div>
+
+        <aside class="mc-stack" aria-label="Datos y gestión del cliente">
+            <!-- ============ Datos de contacto ============ -->
+            <section class="card-erp-panel-padded" aria-labelledby="mc-datos-titulo" data-mora-ficha-datos>
+                <div class="mb-4 flex items-center gap-2 border-b border-slate-800 pb-3">
+                    <span class="material-symbols-outlined text-primary">contact_phone</span>
+                    <h2 id="mc-datos-titulo" class="text-xl font-bold text-white">Datos del cliente</h2>
+                </div>
+                <dl class="mc-dl">
+                    <div><dt>Documento</dt><dd>@(string.IsNullOrWhiteSpace(Model.DocumentoCliente) ? "—" : Model.DocumentoCliente)</dd></div>
+                    <div><dt>Teléfono</dt><dd>@(string.IsNullOrWhiteSpace(Model.Telefono) ? "—" : Model.Telefono)</dd></div>
+                    @if (!string.IsNullOrWhiteSpace(Model.TelefonoLaboral))
+                    {
+                        <div><dt>Teléfono laboral</dt><dd>@Model.TelefonoLaboral</dd></div>
+                    }
+                    <div><dt>Email</dt><dd>@(string.IsNullOrWhiteSpace(Model.Email) ? "—" : Model.Email)</dd></div>
+                    <div><dt>Dirección</dt><dd>@(string.IsNullOrWhiteSpace(Model.Direccion) ? "—" : Model.Direccion)</dd></div>
+                </dl>
+            </section>
+
+            <!-- ============ Promesas de pago ============ -->
+            <section class="card-erp-panel-padded" aria-labelledby="mc-promesas-titulo" data-mora-ficha-promesas>
+                <div class="mb-4 flex items-center gap-2 border-b border-slate-800 pb-3">
+                    <span class="material-symbols-outlined text-primary">handshake</span>
+                    <h2 id="mc-promesas-titulo" class="text-xl font-bold text-white">Promesas de pago</h2>
+                </div>
+                @if (!promesas.Any())
+                {
+                    <p class="text-sm text-slate-400" data-mora-estado="promesas-vacio">Sin promesas de pago vigentes.</p>
+                }
+                else
+                {
+                    <ul class="mc-list">
+                        @foreach (var p in promesas)
+                        {
+                            <li>
+                                <div class="flex flex-wrap items-center justify-between gap-2">
+                                    <span class="font-semibold tabular-nums text-slate-100">@p.MontoPrometido.ToString("C2")</span>
+                                    <span class="badge-erp whitespace-nowrap @(p.Vencida ? "badge-erp-danger" : "badge-erp-info")">@p.EstadoPromesa</span>
+                                </div>
+                                <p class="mt-1 text-xs text-slate-400">Para el @p.FechaPromesa.ToString("dd/MM/yyyy") · registrada @p.FechaRegistro.ToString("dd/MM/yyyy")</p>
+                            </li>
+                        }
+                    </ul>
+                }
+            </section>
+
+            <!-- ============ Acuerdos de pago ============ -->
+            <section class="card-erp-panel-padded" aria-labelledby="mc-acuerdos-titulo" data-mora-ficha-acuerdos>
+                <div class="mb-4 flex items-center gap-2 border-b border-slate-800 pb-3">
+                    <span class="material-symbols-outlined text-primary">description</span>
+                    <h2 id="mc-acuerdos-titulo" class="text-xl font-bold text-white">Acuerdos de pago</h2>
+                </div>
+                @if (!acuerdos.Any())
+                {
+                    <p class="text-sm text-slate-400" data-mora-estado="acuerdos-vacio">Sin acuerdos de pago.</p>
+                }
+                else
+                {
+                    <ul class="mc-list">
+                        @foreach (var ac in acuerdos)
+                        {
+                            <li>
+                                <div class="flex flex-wrap items-center justify-between gap-2">
+                                    <span class="font-semibold text-slate-100">@ac.NumeroAcuerdo</span>
+                                    <span class="badge-erp whitespace-nowrap @ClaseBadge(ac.EstadoColor)">@ac.EstadoNombre</span>
+                                </div>
+                                <p class="mt-1 text-xs text-slate-400 tabular-nums">
+                                    @ac.CuotasPagadas de @ac.TotalCuotas cuotas · pagado @ac.MontoPagado.ToString("C2") de @ac.MontoTotal.ToString("C2")
+                                </p>
+                                @if (ac.ProximaFechaVencimiento.HasValue)
+                                {
+                                    <p class="text-xs text-slate-500">Próximo vencimiento @ac.ProximaFechaVencimiento.Value.ToString("dd/MM/yyyy")</p>
+                                }
+                            </li>
+                        }
+                    </ul>
+                }
+            </section>
+
+            <!-- ============ Gestión (formularios todavía no disponibles) ============ -->
+            <section class="card-erp-panel-padded" aria-labelledby="mc-gestion-titulo" data-mora-ficha-gestion>
+                <div class="mb-4 flex items-center gap-2 border-b border-slate-800 pb-3">
+                    <span class="material-symbols-outlined text-primary">edit_note</span>
+                    <h2 id="mc-gestion-titulo" class="text-xl font-bold text-white">Registrar gestión</h2>
+                </div>
+                <p class="mb-3 text-sm text-slate-400">
+                    Los formularios para registrar gestiones todavía no están disponibles en esta pantalla.
+                </p>
+                <div class="flex flex-col gap-2">
+                    <div class="mc-pending-action" aria-disabled="true" data-mora-gestion="contacto">
+                        <span><span class="material-symbols-outlined text-[20px]" aria-hidden="true">call</span> Registrar contacto</span>
+                        <span class="text-xs">Próximamente</span>
+                    </div>
+                    <div class="mc-pending-action" aria-disabled="true" data-mora-gestion="promesa">
+                        <span><span class="material-symbols-outlined text-[20px]" aria-hidden="true">handshake</span> Registrar promesa</span>
+                        <span class="text-xs">Próximamente</span>
+                    </div>
+                    <div class="mc-pending-action" aria-disabled="true" data-mora-gestion="acuerdo">
+                        <span><span class="material-symbols-outlined text-[20px]" aria-hidden="true">description</span> Crear acuerdo</span>
+                        <span class="text-xs">Próximamente</span>
+                    </div>
+                </div>
+            </section>
+        </aside>
+    </div>
+</div>

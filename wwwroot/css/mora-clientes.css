@@ -1,0 +1,181 @@
+/* ══════════════════════════════════════════════════════════════
+   MORA — Bandeja de clientes (ClientesMora) y Ficha de cliente (FichaCliente)
+   Usa tokens --pal-* y los componentes compartidos (card-erp-*, badge-erp, btn-erp-*).
+   tailwind.css es un artefacto precompilado: sólo se usan sus clases ya existentes y
+   la estructura propia vive acá, con prefijo mc- para no chocar con otros módulos.
+   ══════════════════════════════════════════════════════════════ */
+
+.mc-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.mc-actions > * { min-width: 0; }
+
+@media (min-width: 640px) {
+    .mc-actions {
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+}
+
+/* 6 indicadores: 2 columnas en teléfono, 3 en tablet y 6 en escritorio (sin tarjeta huérfana). */
+.mc-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+@media (min-width: 640px) {
+    .mc-kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (min-width: 1280px) {
+    .mc-kpi-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+}
+
+.mc-kpi-grid > * { min-width: 0; }
+
+.mc-kpi-value {
+    margin-top: 0.25rem;
+    font-size: 1.25rem;
+    font-weight: 900;
+    line-height: 1.2;
+    color: var(--pal-white);
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+}
+
+/* Chips de prioridad (atajos de filtro). */
+.mc-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.mc-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 2.75rem;
+    padding: 0.25rem 0.875rem;
+    border: 1px solid var(--pal-neutral-700);
+    border-radius: 999px;
+    background-color: var(--pal-neutral-900);
+    color: var(--pal-neutral-300);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.mc-chip:hover { border-color: var(--pal-accent); color: var(--pal-white); }
+
+.mc-chip.is-active {
+    border-color: var(--pal-accent);
+    background-color: color-mix(in srgb, var(--pal-accent) 14%, transparent);
+    color: var(--pal-white);
+}
+
+.mc-chip-count { font-variant-numeric: tabular-nums; color: var(--pal-neutral-400); }
+
+/* Filtros: grilla fluida + bloque de checks. */
+.mc-filter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: 1rem;
+    align-items: end;
+}
+
+.mc-filter-grid > * { min-width: 0; }
+
+.mc-checks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1.5rem;
+}
+
+.mc-check {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 2.75rem;
+    font-size: 0.875rem;
+    color: var(--pal-neutral-300);
+}
+
+.mc-check input { width: 1.125rem; height: 1.125rem; accent-color: var(--pal-accent); }
+
+.mc-table { min-width: 60rem; }
+
+/* Paginación */
+.mc-pagination {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--pal-neutral-800);
+    font-size: 0.8125rem;
+    color: var(--pal-neutral-400);
+}
+
+.mc-pagination-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+
+/* Ficha */
+.mc-ficha-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.5rem;
+}
+
+@media (min-width: 1024px) {
+    .mc-ficha-grid { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+}
+
+.mc-ficha-grid > * { min-width: 0; }
+
+.mc-stack { display: flex; flex-direction: column; gap: 1.5rem; }
+
+.mc-dl { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.75rem; margin: 0; }
+
+.mc-dl dt {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--pal-neutral-400);
+}
+
+.mc-dl dd { margin: 0.125rem 0 0; color: var(--pal-neutral-100); overflow-wrap: anywhere; }
+
+.mc-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.75rem; }
+
+.mc-list > li {
+    padding: 0.75rem;
+    border: 1px solid var(--pal-neutral-800);
+    border-radius: 0.75rem;
+    background-color: var(--pal-neutral-900);
+}
+
+/* Acciones aún no disponibles: visibles pero explícitamente inactivas. */
+.mc-pending-action {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    min-height: 2.75rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px dashed var(--pal-neutral-700);
+    border-radius: 0.75rem;
+    color: var(--pal-neutral-400);
+    font-size: 0.875rem;
+    cursor: not-allowed;
+}
+
+.mc-pending-action > span:first-child { display: inline-flex; align-items: center; gap: 0.5rem; }
+
+.mc-credit-table { min-width: 40rem; }

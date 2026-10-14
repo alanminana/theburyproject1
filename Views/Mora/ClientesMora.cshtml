@@ -1,0 +1,466 @@
+@model TheBuryProject.ViewModels.Mora.BandejaClientesMoraViewModel
+@using TheBuryProject.Models.Enums
+@using TheBuryProject.ViewModels.Mora
+@section Styles {
+    <link rel="stylesheet" href="~/css/mora-clientes.css" asp-append-version="true" />
+}
+@{
+    ViewData["Title"] = "Clientes en mora";
+
+    var filtros = Model.Filtros ?? new FiltrosBandejaClientes();
+    var clientes = Model.Clientes ?? new List<ClienteMoraViewModel>();
+    var conteo = ViewBag.ConteoPrioridad as Dictionary<string, int>;
+
+    // El catch del controller deja TempData["Error"] y un modelo vacío: no mostrar "no hay clientes en mora".
+    var cargaFallida = TempData.Peek("Error") != null && clientes.Count == 0 && Model.TotalClientes == 0;
+
+    var hayFiltros = filtros.Prioridad.HasValue || filtros.EstadoGestion.HasValue
+        || filtros.DiasMinAtraso.HasValue || filtros.DiasMaxAtraso.HasValue
+        || filtros.MontoMinVencido.HasValue || filtros.MontoMaxVencido.HasValue
+        || filtros.ConPromesaActiva == true || filtros.ConAcuerdoActivo == true
+        || filtros.SinContactoReciente == true || !string.IsNullOrWhiteSpace(filtros.Busqueda);
+
+    var totalPaginas = Math.Max(Model.TotalPaginas, 1);
+    var paginaActual = Math.Max(filtros.Pagina, 1);
+    var primero = Model.TotalClientes == 0 ? 0 : ((paginaActual - 1) * filtros.TamañoPagina) + 1;
+    var ultimo = Math.Min(paginaActual * filtros.TamañoPagina, Model.TotalClientes);
+    var paginaFueraDeRango = clientes.Count == 0 && Model.TotalClientes > 0;
+
+    var urlActual = Context.Request.Path + Context.Request.QueryString;
+
+    // Parámetros GET que entiende MoraController.ClientesMora (se conservan al paginar).
+    Dictionary<string, string> RutaPagina(int pagina)
+    {
+        var d = new Dictionary<string, string>();
+        if (filtros.Prioridad.HasValue) d["prioridad"] = ((int)filtros.Prioridad.Value).ToString();
+        if (filtros.EstadoGestion.HasValue) d["estadoGestion"] = ((int)filtros.EstadoGestion.Value).ToString();
+        if (filtros.DiasMinAtraso.HasValue) d["diasMinAtraso"] = filtros.DiasMinAtraso.Value.ToString();
+        if (filtros.DiasMaxAtraso.HasValue) d["diasMaxAtraso"] = filtros.DiasMaxAtraso.Value.ToString();
+        if (filtros.MontoMinVencido.HasValue) d["montoMinVencido"] = filtros.MontoMinVencido.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        if (filtros.MontoMaxVencido.HasValue) d["montoMaxVencido"] = filtros.MontoMaxVencido.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        if (filtros.ConPromesaActiva == true) d["conPromesaActiva"] = "true";
+        if (filtros.ConAcuerdoActivo == true) d["conAcuerdoActivo"] = "true";
+        if (filtros.SinContactoReciente == true) d["sinContactoReciente"] = "true";
+        if (filtros.DiasSinContacto.HasValue) d["diasSinContacto"] = filtros.DiasSinContacto.Value.ToString();
+        if (!string.IsNullOrWhiteSpace(filtros.Busqueda)) d["busqueda"] = filtros.Busqueda!;
+        if (!string.IsNullOrWhiteSpace(filtros.Ordenamiento)) d["ordenamiento"] = filtros.Ordenamiento!;
+        d["pagina"] = pagina.ToString();
+        return d;
+    }
+
+    string ClasePrioridad(PrioridadAlerta prioridad) => prioridad switch
+    {
+        PrioridadAlerta.Critica => "badge-erp-danger",
+        PrioridadAlerta.Alta => "badge-erp-warning",
+        PrioridadAlerta.Media => "badge-erp-info",
+        _ => "badge-erp-neutral"
+    };
+
+    string NombrePrioridad(PrioridadAlerta prioridad) => prioridad switch
+    {
+        PrioridadAlerta.Critica => "Crítica",
+        PrioridadAlerta.Alta => "Alta",
+        PrioridadAlerta.Media => "Media",
+        PrioridadAlerta.Baja => "Baja",
+        _ => prioridad.ToString()
+    };
+
+    string NombreGestion(EstadoGestionCobranza estado) => estado switch
+    {
+        EstadoGestionCobranza.Pendiente => "Pendiente",
+        EstadoGestionCobranza.EnGestion => "En gestión",
+        EstadoGestionCobranza.PromesaPago => "Promesa de pago",
+        EstadoGestionCobranza.AcuerdoActivo => "Acuerdo activo",
+        EstadoGestionCobranza.Regularizado => "Regularizado",
+        EstadoGestionCobranza.Incobrable => "Incobrable",
+        _ => estado.ToString()
+    };
+
+    // MoraService arma Nombre como "Apellido, Nombre - DNI: {documento}" y además envía Documento:
+    // se quita el sufijo para no mostrar el documento dos veces.
+    string NombreCliente(ClienteMoraViewModel c)
+    {
+        if (string.IsNullOrWhiteSpace(c.Nombre)) return "Cliente sin nombre";
+        var sufijo = " - DNI: " + c.Documento;
+        return !string.IsNullOrWhiteSpace(c.Documento) && c.Nombre.EndsWith(sufijo, StringComparison.Ordinal)
+            ? c.Nombre[..^sufijo.Length]
+            : c.Nombre;
+    }
+
+    var ordenes = new (string Valor, string Texto)[]
+    {
+        ("PrioridadDesc", "Prioridad (mayor primero)"),
+        ("PrioridadAsc", "Prioridad (menor primero)"),
+        ("DiasAtrasoDesc", "Más días de atraso"),
+        ("DiasAtrasoAsc", "Menos días de atraso"),
+        ("MontoDesc", "Mayor monto total"),
+        ("MontoAsc", "Menor monto total"),
+        ("NombreAsc", "Nombre (A-Z)"),
+        ("NombreDesc", "Nombre (Z-A)")
+    };
+}
+
+<div class="space-y-6" data-mora-clientes-page>
+    <section class="card-erp-panel-padded">
+        <header class="flex flex-col gap-6">
+            <div class="space-y-4">
+                <nav aria-label="Breadcrumb" class="flex text-sm font-medium text-slate-400">
+                    <ol class="inline-flex flex-wrap items-center gap-y-1">
+                        <li><a asp-controller="Home" asp-action="Index" class="hover:text-primary no-underline">Inicio</a></li>
+                        <li><span class="mx-2 text-slate-400">/</span></li>
+                        <li><a asp-controller="Mora" asp-action="Index" class="hover:text-primary no-underline">Mora</a></li>
+                        <li><span class="mx-2 text-slate-400">/</span></li>
+                        <li class="text-slate-100">Clientes en mora</li>
+                    </ol>
+                </nav>
+                <div class="space-y-3">
+                    <span class="badge-erp badge-erp-primary">
+                        <span class="material-symbols-outlined text-sm">groups</span>
+                        Cobranzas
+                    </span>
+                    <div class="space-y-2">
+                        <h1 class="text-3xl font-black tracking-tight text-white sm:text-4xl">Clientes en mora</h1>
+                        <p class="max-w-2xl text-sm leading-relaxed text-slate-400 sm:text-base">
+                            Bandeja de cobranza: un renglón por cliente con alertas sin resolver, ordenada por prioridad y atraso.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mc-actions">
+                <a asp-controller="Mora" asp-action="Index" class="btn-erp-secondary sm:py-2.5 no-underline">
+                    <span class="material-symbols-outlined text-[20px]">arrow_back</span>
+                    Volver a Mora
+                </a>
+                <a asp-controller="Mora" asp-action="Alertas" class="btn-erp-ghost sm:py-2.5 no-underline">
+                    <span class="material-symbols-outlined text-[20px]">notifications_active</span>
+                    Alertas
+                </a>
+            </div>
+        </header>
+    </section>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm font-semibold text-emerald-400" role="status">
+            <span class="material-symbols-outlined">check_circle</span>
+            @TempData["Success"]
+        </div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="flex items-center gap-3 rounded-xl border border-rose-500/20 bg-rose-500/10 p-4 text-sm font-semibold text-rose-400" role="alert">
+            <span class="material-symbols-outlined">error</span>
+            @TempData["Error"]
+        </div>
+    }
+
+    @if (cargaFallida)
+    {
+        <section class="card-erp-panel-padded text-center" data-mora-estado="error">
+            <span class="material-symbols-outlined text-4xl text-rose-400" aria-hidden="true">cloud_off</span>
+            <h2 class="mt-3 text-lg font-bold text-white">No se pudo cargar la bandeja</h2>
+            <p class="mx-auto mt-1 max-w-md text-sm text-slate-400">
+                El listado no está disponible en este momento. Recargá la página; si persiste, revisá el registro del servidor.
+            </p>
+            <a asp-controller="Mora" asp-action="ClientesMora" class="btn-erp-secondary mt-4 inline-flex no-underline">
+                <span class="material-symbols-outlined text-[20px]">refresh</span>
+                Reintentar
+            </a>
+        </section>
+    }
+    else
+    {
+        <!-- ============ Indicadores (sobre el resultado filtrado completo) ============ -->
+        <section aria-labelledby="mc-kpis-titulo" data-mora-clientes-kpis>
+            <h2 id="mc-kpis-titulo" class="sr-only">Resumen de la bandeja</h2>
+            <div class="mc-kpi-grid">
+                <div class="card-erp-metric">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">@(hayFiltros ? "Clientes (filtrados)" : "Clientes en mora")</p>
+                    <p class="mc-kpi-value" data-kpi="total-clientes">@Model.TotalClientes</p>
+                </div>
+                <div class="card-erp-metric-danger">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Capital vencido</p>
+                    <p class="mc-kpi-value" data-kpi="capital-vencido">@Model.MontoTotalVencido.ToString("C2")</p>
+                </div>
+                <div class="card-erp-metric-warning">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Mora calculada</p>
+                    <p class="mc-kpi-value" data-kpi="mora-calculada">@Model.MontoTotalMora.ToString("C2")</p>
+                </div>
+                <div class="card-erp-metric-danger">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Prioridad crítica</p>
+                    <p class="mc-kpi-value" data-kpi="clientes-criticos">@Model.ClientesCriticos</p>
+                </div>
+                <div class="card-erp-metric-info">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Con promesa</p>
+                    <p class="mc-kpi-value" data-kpi="con-promesa">@Model.ClientesConPromesa</p>
+                </div>
+                <div class="card-erp-metric-success">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Con acuerdo</p>
+                    <p class="mc-kpi-value" data-kpi="con-acuerdo">@Model.ClientesConAcuerdo</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============ Filtros (GET, contrato de MoraController.ClientesMora) ============ -->
+        <section class="filter-panel-erp" aria-labelledby="mc-filtros-titulo" data-mora-filtros>
+            <h2 id="mc-filtros-titulo" class="sr-only">Filtrar clientes en mora</h2>
+
+            @if (conteo != null)
+            {
+                <div class="mb-4 space-y-2" data-mora-prioridad-chips>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Clientes por prioridad</p>
+                    <div class="mc-chips">
+                        @foreach (var par in new[] { ("Critica", PrioridadAlerta.Critica), ("Alta", PrioridadAlerta.Alta), ("Media", PrioridadAlerta.Media), ("Baja", PrioridadAlerta.Baja) })
+                        {
+                            conteo.TryGetValue(par.Item1, out var cantidad);
+                            <a asp-controller="Mora" asp-action="ClientesMora" asp-route-prioridad="@((int)par.Item2)"
+                               class="mc-chip @(filtros.Prioridad == par.Item2 ? "is-active" : "")"
+                               aria-current="@(filtros.Prioridad == par.Item2 ? "true" : null)"
+                               data-mora-chip="@par.Item1">
+                                @NombrePrioridad(par.Item2)
+                                <span class="mc-chip-count">@cantidad</span>
+                            </a>
+                        }
+                    </div>
+                </div>
+            }
+
+            <form asp-controller="Mora" asp-action="ClientesMora" method="get" class="space-y-4">
+                <div class="mc-filter-grid">
+                    <div class="space-y-1.5">
+                        <label for="f-busqueda" class="block text-xs font-semibold uppercase tracking-wide text-slate-400">Cliente</label>
+                        <input id="f-busqueda" name="busqueda" type="search" value="@filtros.Busqueda"
+                               placeholder="Nombre o documento" autocomplete="off" class="input-erp" />
+                    </div>
+                    <div class="space-y-1.5">
+                        <label for="f-prioridad" class="block text-xs font-semibold uppercase tracking-wide text-slate-400">Prioridad</label>
+                        <select id="f-prioridad" name="prioridad" class="select-erp filter-select-erp">
+                            <option value="">Todas</option>
+                            @foreach (var valor in Enum.GetValues<PrioridadAlerta>().OrderByDescending(x => (int)x))
+                            {
+                                <option value="@((int)valor)" selected="@(filtros.Prioridad == valor)">@NombrePrioridad(valor)</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="space-y-1.5">
+                        <label for="f-gestion" class="block text-xs font-semibold uppercase tracking-wide text-slate-400">Estado de gestión</label>
+                        <select id="f-gestion" name="estadoGestion" class="select-erp filter-select-erp">
+                            <option value="">Todos</option>
+                            @foreach (var valor in Enum.GetValues<EstadoGestionCobranza>())
+                            {
+                                <option value="@((int)valor)" selected="@(filtros.EstadoGestion == valor)">@NombreGestion(valor)</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="space-y-1.5">
+                        <label for="f-orden" class="block text-xs font-semibold uppercase tracking-wide text-slate-400">Ordenar por</label>
+                        <select id="f-orden" name="ordenamiento" class="select-erp filter-select-erp">
+                            @foreach (var o in ordenes)
+                            {
+                                <option value="@o.Valor" selected="@(filtros.Ordenamiento == o.Valor)">@o.Texto</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="space-y-1.5">
+                        <label for="f-dias-min" class="block text-xs font-semibold uppercase tracking-wide text-slate-400">Atraso mínimo (días)</label>
+                        <input id="f-dias-min" name="diasMinAtraso" type="number" min="0" inputmode="numeric" value="@filtros.DiasMinAtraso" class="input-erp" />
+                    </div>
+                    <div class="space-y-1.5">
+                        <label for="f-dias-max" class="block text-xs font-semibold uppercase tracking-wide text-slate-400">Atraso máximo (días)</label>
+                        <input id="f-dias-max" name="diasMaxAtraso" type="number" min="0" inputmode="numeric" value="@filtros.DiasMaxAtraso" class="input-erp" />
+                    </div>
+                    <div class="space-y-1.5">
+                        <label for="f-monto-min" class="block text-xs font-semibold uppercase tracking-wide text-slate-400">Capital vencido desde</label>
+                        <input id="f-monto-min" name="montoMinVencido" type="number" min="0" step="any" inputmode="decimal"
+                               value="@(filtros.MontoMinVencido?.ToString(System.Globalization.CultureInfo.InvariantCulture))" class="input-erp" />
+                    </div>
+                    <div class="space-y-1.5">
+                        <label for="f-monto-max" class="block text-xs font-semibold uppercase tracking-wide text-slate-400">Capital vencido hasta</label>
+                        <input id="f-monto-max" name="montoMaxVencido" type="number" min="0" step="any" inputmode="decimal"
+                               value="@(filtros.MontoMaxVencido?.ToString(System.Globalization.CultureInfo.InvariantCulture))" class="input-erp" />
+                    </div>
+                    <div class="space-y-1.5">
+                        <label for="f-dias-sin-contacto" class="block text-xs font-semibold uppercase tracking-wide text-slate-400">Sin contacto hace (días)</label>
+                        <input id="f-dias-sin-contacto" name="diasSinContacto" type="number" min="1" inputmode="numeric"
+                               value="@filtros.DiasSinContacto" aria-describedby="f-dias-sin-contacto-ayuda" class="input-erp" />
+                        <p id="f-dias-sin-contacto-ayuda" class="text-xs text-slate-500">Se aplica junto con “Sin contacto reciente”.</p>
+                    </div>
+                </div>
+
+                <div class="mc-checks">
+                    <label class="mc-check">
+                        <input type="checkbox" name="conPromesaActiva" value="true" checked="@(filtros.ConPromesaActiva == true)" />
+                        Con promesa de pago vigente
+                    </label>
+                    <label class="mc-check">
+                        <input type="checkbox" name="conAcuerdoActivo" value="true" checked="@(filtros.ConAcuerdoActivo == true)" />
+                        Con acuerdo activo
+                    </label>
+                    <label class="mc-check">
+                        <input type="checkbox" name="sinContactoReciente" value="true" checked="@(filtros.SinContactoReciente == true)" />
+                        Sin contacto reciente
+                    </label>
+                </div>
+
+                <div class="flex flex-col gap-3 sm:flex-row sm:justify-end">
+                    @if (hayFiltros)
+                    {
+                        <a asp-controller="Mora" asp-action="ClientesMora" class="btn-erp-ghost no-underline" data-mora-limpiar-filtros>
+                            <span class="material-symbols-outlined text-[20px]">backspace</span>
+                            Limpiar filtros
+                        </a>
+                    }
+                    <button type="submit" class="btn-erp-primary">
+                        <span class="material-symbols-outlined text-[20px]">filter_list</span>
+                        Aplicar filtros
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <section class="card-erp-panel-padded" aria-labelledby="mc-listado-titulo" data-mora-clientes-listado>
+            <div class="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">groups</span>
+                    <h2 id="mc-listado-titulo" class="text-xl font-bold text-white">@(hayFiltros ? "Clientes filtrados" : "Todos los clientes en mora")</h2>
+                </div>
+                <p class="text-xs text-slate-400" data-mora-resumen>
+                    @if (Model.TotalClientes > 0)
+                    {
+                        @:Mostrando @primero–@ultimo de @Model.TotalClientes @(Model.TotalClientes == 1 ? "cliente" : "clientes")
+                    }
+                    else
+                    {
+                        @:0 clientes
+                    }
+                </p>
+            </div>
+
+            @if (paginaFueraDeRango)
+            {
+                <div class="py-10 text-center" data-mora-estado="pagina-fuera-de-rango">
+                    <span class="material-symbols-outlined text-4xl text-slate-500" aria-hidden="true">find_in_page</span>
+                    <p class="mt-2 text-base font-semibold text-white">Esa página no existe</p>
+                    <p class="text-sm text-slate-400">Hay @Model.TotalClientes @(Model.TotalClientes == 1 ? "cliente" : "clientes") en @totalPaginas @(totalPaginas == 1 ? "página" : "páginas").</p>
+                    <a asp-controller="Mora" asp-action="ClientesMora" asp-all-route-data="@RutaPagina(1)" class="btn-erp-secondary mt-4 inline-flex no-underline">Ir a la primera página</a>
+                </div>
+            }
+            else if (!clientes.Any())
+            {
+                if (hayFiltros)
+                {
+                    <div class="py-10 text-center" data-mora-estado="sin-resultados">
+                        <span class="material-symbols-outlined text-4xl text-slate-500" aria-hidden="true">filter_alt_off</span>
+                        <p class="mt-2 text-base font-semibold text-white">Ningún cliente coincide con los filtros</p>
+                        <p class="text-sm text-slate-400">Probá con otro criterio o limpiá los filtros para ver toda la bandeja.</p>
+                        <a asp-controller="Mora" asp-action="ClientesMora" class="btn-erp-secondary mt-4 inline-flex no-underline">Limpiar filtros</a>
+                    </div>
+                }
+                else
+                {
+                    <div class="py-10 text-center" data-mora-estado="clientes-vacio">
+                        <span class="material-symbols-outlined text-4xl text-emerald-400" aria-hidden="true">task_alt</span>
+                        <p class="mt-2 text-base font-semibold text-white">No hay clientes en mora</p>
+                        <p class="text-sm text-slate-400">Cuando una cuota venza y se ejecute el proceso de mora, el cliente aparece acá.</p>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="table-erp-wrapper overflow-x-auto" data-oc-scroll-region>
+                    <table data-erp-cards class="mc-table w-full text-left text-sm">
+                        <thead class="border-b border-slate-800 text-xs uppercase tracking-wide text-slate-400">
+                            <tr>
+                                <th scope="col" data-card="title" class="min-w-[13rem] px-3 py-3 font-semibold">Cliente</th>
+                                <th scope="col" data-card="half" class="px-3 py-3 font-semibold">Prioridad</th>
+                                <th scope="col" data-card="half" class="px-3 py-3 font-semibold">Atraso</th>
+                                <th scope="col" data-card="half" class="px-3 py-3 text-right font-semibold">Capital vencido</th>
+                                <th scope="col" data-card="half" class="px-3 py-3 text-right font-semibold">Mora</th>
+                                <th scope="col" data-card="hide" class="px-3 py-3 font-semibold">Gestión</th>
+                                <th scope="col" data-card="actions" class="px-3 py-3 text-right font-semibold">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800">
+                            @foreach (var c in clientes)
+                            {
+                                <tr data-cliente-id="@c.ClienteId">
+                                    <td class="px-3 py-3">
+                                        <span class="block font-semibold text-slate-100">@NombreCliente(c)</span>
+                                        @if (!string.IsNullOrWhiteSpace(c.Documento))
+                                        {
+                                            <span class="block text-xs text-slate-500">@c.Documento</span>
+                                        }
+                                        @if (!string.IsNullOrWhiteSpace(c.Telefono))
+                                        {
+                                            <span class="block text-xs text-slate-500">@c.Telefono</span>
+                                        }
+                                    </td>
+                                    <td class="px-3 py-3">
+                                        <span class="badge-erp whitespace-nowrap @ClasePrioridad(c.PrioridadMaxima)">@NombrePrioridad(c.PrioridadMaxima)</span>
+                                        <span class="mt-1 block whitespace-nowrap text-xs text-slate-400">@NombreGestion(c.EstadoGestion)</span>
+                                    </td>
+                                    <td class="px-3 py-3">
+                                        <span class="block whitespace-nowrap font-semibold tabular-nums text-slate-100">@c.DiasMaxAtraso @(c.DiasMaxAtraso == 1 ? "día" : "días")</span>
+                                        <span class="block text-xs tabular-nums text-slate-400">
+                                            @c.CuotasVencidas @(c.CuotasVencidas == 1 ? "cuota vencida" : "cuotas vencidas") · @c.CreditosConMora @(c.CreditosConMora == 1 ? "crédito" : "créditos")
+                                        </span>
+                                    </td>
+                                    <td class="px-3 py-3 text-right whitespace-nowrap font-semibold tabular-nums text-slate-100">@c.MontoVencido.ToString("C2")</td>
+                                    <td class="px-3 py-3 text-right whitespace-nowrap tabular-nums text-slate-300">@c.MontoMora.ToString("C2")</td>
+                                    <td class="px-3 py-3 text-xs text-slate-400">
+                                        <span class="block whitespace-nowrap">
+                                            Último contacto: @(c.UltimoContacto.HasValue ? c.UltimoContacto.Value.ToString("dd/MM/yyyy") : "sin contactos")
+                                        </span>
+                                        @if (c.TienePromesaActiva && c.FechaPromesa.HasValue)
+                                        {
+                                            <span class="mt-1 block whitespace-nowrap text-sky-300">Promesa al @c.FechaPromesa.Value.ToString("dd/MM/yyyy")</span>
+                                        }
+                                        @if (c.TieneAcuerdoActivo)
+                                        {
+                                            <span class="mt-1 block whitespace-nowrap text-emerald-300">Acuerdo activo</span>
+                                        }
+                                    </td>
+                                    <td class="px-3 py-3 text-right">
+                                        <a asp-controller="Mora" asp-action="FichaCliente" asp-route-id="@c.ClienteId" asp-route-returnUrl="@urlActual"
+                                           class="btn-erp-secondary whitespace-nowrap no-underline" data-mora-accion="ver-ficha"
+                                           aria-label="Ver ficha de @NombreCliente(c)">
+                                            <span class="material-symbols-outlined text-[18px]">assignment_ind</span>
+                                            Ver ficha
+                                        </a>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                @if (totalPaginas > 1)
+                {
+                    <nav class="mc-pagination" aria-label="Paginación de clientes en mora" data-mora-paginacion>
+                        <p>Página @paginaActual de @totalPaginas</p>
+                        <div class="mc-pagination-controls">
+                            @if (paginaActual > 1)
+                            {
+                                <a asp-controller="Mora" asp-action="ClientesMora" asp-all-route-data="@RutaPagina(paginaActual - 1)" rel="prev"
+                                   class="btn-erp-ghost no-underline">
+                                    <span class="material-symbols-outlined text-[18px]">chevron_left</span>
+                                    Anterior
+                                </a>
+                            }
+                            @if (paginaActual < totalPaginas)
+                            {
+                                <a asp-controller="Mora" asp-action="ClientesMora" asp-all-route-data="@RutaPagina(paginaActual + 1)" rel="next"
+                                   class="btn-erp-ghost no-underline">
+                                    Siguiente
+                                    <span class="material-symbols-outlined text-[18px]">chevron_right</span>
+                                </a>
+                            }
+                        </div>
+                    </nav>
+                }
+            }
+        </section>
+    }
+</div>
