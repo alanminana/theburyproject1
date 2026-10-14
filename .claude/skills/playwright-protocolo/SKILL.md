@@ -1,6 +1,6 @@
 ---
 name: playwright-protocolo
-description: Protocolo Playwright de TheBuryProject: Playwright MCP para reproducir y validar en navegador, y Playwright CLI/E2E en Windows (npx.cmd), ejecución focalizada, escritura de tests y diagnóstico de fallos.
+description: "Protocolo Playwright de TheBuryProject: Playwright MCP para reproducir y validar en navegador, y Playwright CLI/E2E en Windows (npx.cmd), ejecución focalizada, escritura de tests y diagnóstico de fallos."
 ---
 
 ## Reglas de Playwright MCP

@@ -1,6 +1,6 @@
 ---
 name: context7-protocolo
-description: Reglas de uso de Context7 MCP en TheBuryProject: cuándo consultarlo, uso correcto e incorrecto y formato de evidencia. Usar al consultar documentación externa de ASP.NET Core, EF Core, Playwright, Tailwind o paquetes NuGet/npm.
+description: "Reglas de uso de Context7 MCP en TheBuryProject: cuándo consultarlo, uso correcto e incorrecto y formato de evidencia. Usar al consultar documentación externa de ASP.NET Core, EF Core, Playwright, Tailwind o paquetes NuGet/npm."
 ---
 
 ## Reglas de Context7 MCP

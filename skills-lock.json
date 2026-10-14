@@ -7,6 +7,24 @@
       "skillPath": "skills/deploy-to-vercel/SKILL.md",
       "computedHash": "3a0481591523c55ecfe2569b6b28b2dcbfa3742367667697219d29170981ad53"
     },
+    "playwright-automation": {
+      "source": "petrkindlmann/qa-skills",
+      "sourceType": "github",
+      "skillPath": "skills/playwright-automation/SKILL.md",
+      "computedHash": "0eb62e8c9d03ff836bc96e38ea767a8343ad0487ab8003939aebec1a91f92785"
+    },
+    "playwright-core": {
+      "source": "testdino-hq/playwright-skill",
+      "sourceType": "github",
+      "skillPath": "core/SKILL.md",
+      "computedHash": "88cc022a0eb3b1917bdbabd09630a64b8d3b1762c8eb976049dda84f56a6a941"
+    },
+    "playwright-qa": {
+      "source": "testdino-hq/playwright-skill",
+      "sourceType": "github",
+      "skillPath": "qa/SKILL.md",
+      "computedHash": "dd9c4b07c3a15a8759ad61d51337db2a728c78f7f65d81c543ad7d9e8fc823be"
+    },
     "vercel-cli-with-tokens": {
       "source": "vercel-labs/agent-skills",
       "sourceType": "github",
