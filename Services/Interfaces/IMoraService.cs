@@ -14,7 +14,8 @@ namespace TheBuryProject.Services.Interfaces
         
         Task<ConfiguracionMora> GetConfiguracionAsync();
         Task<ConfiguracionMora> UpdateConfiguracionAsync(ConfiguracionMoraViewModel viewModel);
-        Task<ConfiguracionMora> UpdateConfiguracionExpandidaAsync(ConfiguracionMoraExpandidaViewModel viewModel);
+        /// <param name="camposEnviados">Campos presentes en el formulario; sólo esos se aplican. Null aplica todos.</param>
+        Task<ConfiguracionMora> UpdateConfiguracionExpandidaAsync(ConfiguracionMoraExpandidaViewModel viewModel, IEnumerable<string>? camposEnviados = null);
         
         #endregion
 
