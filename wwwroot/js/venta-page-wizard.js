@@ -757,6 +757,9 @@
         // de que llegue acá; Enter en cambio sí llega a este listener y sin esta exclusión
         // el wizard hacía preventDefault()+avanzar() en vez de dejar que <details> abra.
         if (event.target instanceof Element && event.target.closest('summary')) return;
+        // Enter sobre "Paso anterior" / "Siguiente" de Cotizar activa ese mismo botón (click nativo):
+        // el atajo global de abajo lo convertiría siempre en avanzar() (con "Paso anterior", al revés).
+        if (event.target instanceof Element && event.target.closest('[data-wizard-back], [data-wizard-next]')) return;
         const activo = pasosVisibles().find((button) => button.getAttribute('aria-selected') === 'true');
         if (activo?.getAttribute('data-step') === 'revision') return;
         event.preventDefault();

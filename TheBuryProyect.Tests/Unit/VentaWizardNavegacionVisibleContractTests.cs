@@ -69,6 +69,18 @@ public class VentaWizardNavegacionVisibleContractTests
         Assert.Equal(2, Regex.Matches(js, @"enfocarPaso\(step\);").Count);
     }
 
+    [Fact]
+    public void EnterSobreLosControlesDePaso_NoLoCapturaElAtajoGlobalDeAvance()
+    {
+        // Sin esta exclusión, Enter sobre "Paso anterior" ejecutaba avanzar() (el atajo global del formulario).
+        var js = Read("wwwroot", "js", "venta-page-wizard.js");
+        Assert.Contains("closest('[data-wizard-back], [data-wizard-next]')", js);
+        var atajo = js.IndexOf("ventaForm?.addEventListener('keydown'", StringComparison.Ordinal);
+        var exclusion = js.IndexOf("closest('[data-wizard-back], [data-wizard-next]')", StringComparison.Ordinal);
+        var avance = js.IndexOf("avanzar();", atajo, StringComparison.Ordinal);
+        Assert.True(atajo >= 0 && exclusion > atajo && exclusion < avance, "La exclusión debe estar dentro del atajo, antes de avanzar().");
+    }
+
     private static string Read(params string[] parts) =>
         File.ReadAllText(Path.Combine(new[] { FindRepoRoot() }.Concat(parts).ToArray()));
 
