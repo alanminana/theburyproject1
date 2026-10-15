@@ -68,6 +68,8 @@ for (const v of VIEWPORTS) {
             await cta.click().catch(() => {});
             await page.waitForTimeout(500);
             await snap(page, info, v.name, '04-create-cliente-avance-bloqueado');
+            const fb = await page.evaluate(() => { const e = document.getElementById('wizard-feedback'); if (!e) return null; const r = e.getBoundingClientRect(); return { txt: e.textContent, hidden: e.hidden, cls: e.className.includes('hidden'), y: Math.round(r.y), h: Math.round(r.height), scrollY: Math.round(document.scrollingElement.scrollTop), main: [...document.querySelectorAll('*')].filter(x => x.scrollTop > 0).map(x => x.tagName + '#' + x.id + ':' + x.scrollTop).slice(0, 4) }; });
+            console.log('FEEDBACK ' + v.name + ' ' + JSON.stringify(fb));
         }
 
         const cliente = await searchAndSelectClient(page);
