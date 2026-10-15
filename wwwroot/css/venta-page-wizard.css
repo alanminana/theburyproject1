@@ -2015,3 +2015,9 @@
 :is(#venta-create-page, #venta-edit-page) [data-wizard-back].hidden {
     display: none !important;
 }
+
+/* "Paso anterior" vive al comienzo del panel activo (lo mueve JS): ancho propio, separado del contenido. */
+:is(#venta-create-page, #venta-edit-page) .vm-paso-anterior {
+    width: auto;
+    margin-bottom: 0.75rem;
+}

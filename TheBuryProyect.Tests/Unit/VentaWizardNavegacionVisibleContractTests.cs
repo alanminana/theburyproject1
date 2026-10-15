@@ -41,6 +41,9 @@ public class VentaWizardNavegacionVisibleContractTests
         Assert.Contains("querySelectorAll('[data-wizard-back]')", js);
         // El primer paso visible (Cotizar en Create, Cliente en Edit) no tiene "anterior".
         Assert.Contains("const esPrimerPaso = pasosVisibles()[0]?.getAttribute('data-step') === step;", js);
+        // El hero no es sticky: el botón se coloca al comienzo del panel activo para que quede a la vista.
+        Assert.Contains("panelActivo.prepend(button);", js);
+        Assert.DoesNotContain("vm-hero__back", parcial);
     }
 
     [Fact]
