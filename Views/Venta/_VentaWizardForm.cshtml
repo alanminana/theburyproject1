@@ -277,9 +277,11 @@
                             <a asp-action="Index" class="vm-hero__cancel btn-erp-ghost h-11 w-full no-underline">Cancelar</a>
                         }
                         @* La barra de pasos está oculta: este botón es el único modo visible de volver a un
-                           paso ya completado. JS lo muestra en todo paso salvo el primero. *@
+                           paso ya completado. JS lo muestra en todo paso salvo el primero y lo coloca al
+                           comienzo del panel activo: el hero no es sticky y quedaba fuera de pantalla (o
+                           bajo la barra superior) apenas se cambiaba de paso. *@
                         <button type="button" data-wizard-back hidden
-                                class="vm-hero__back btn-erp-ghost hidden h-11 w-full">
+                                class="vm-paso-anterior btn-erp-ghost hidden h-11">
                             <span class="material-symbols-outlined text-sm" aria-hidden="true">arrow_back</span> Paso anterior
                         </button>
                         <button type="button" data-wizard-primary

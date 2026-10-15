@@ -324,9 +324,14 @@
 
         // "Paso anterior": visible en todo paso salvo el primero (Cotizar en Create, Cliente en Edit).
         const esPrimerPaso = pasosVisibles()[0]?.getAttribute('data-step') === step;
+        const panelActivo = document.getElementById(`step-panel-${step}`);
         root.querySelectorAll('[data-wizard-back]').forEach((button) => {
             button.classList.toggle('hidden', esPrimerPaso);
             button.hidden = esPrimerPaso;
+            // Al comienzo del panel activo: es hacia donde se desplaza la pantalla al cambiar de paso.
+            if (!esPrimerPaso && panelActivo && button.parentElement !== panelActivo) {
+                panelActivo.prepend(button);
+            }
         });
 
         root.querySelectorAll('[data-wizard-primary]').forEach((button) => {
