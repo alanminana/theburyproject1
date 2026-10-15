@@ -94,6 +94,13 @@
         }
     });
 
+    // Modal "Completar datos del cliente" (cliente-datos-contractuales.js): una vez guardados, el
+    // servidor vuelve a evaluar los faltantes al recargar el fragmento (nunca se asume nada acá).
+    document.addEventListener('cliente:datos-contractuales-guardados', () => {
+        cargado = false;
+        if (requiereCredito() && !stepBtnCredito?.disabled) cargarConfigurador();
+    });
+
     // El guardado del borrador (EditAjax/CreateAjax, ver asegurarBorradorPersistido) puede
     // rechazar la venta con el mensaje de negocio crudo de ValidacionVentaResult.MensajeResumen
     // ("OPERACIÓN NO VIABLE: ... Requisitos pendientes: ..."), que ya está visible en detalle en

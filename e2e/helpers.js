@@ -1,4 +1,5 @@
 // @ts-check
+const { expect } = require('playwright/test');
 /**
  * Helpers compartidos para la suite E2E de pago por ítem — Fase 16.7.
  *
@@ -43,10 +44,8 @@ async function searchAndSelectClient(page, term = 'an') {
     // buscador de cliente vive en el paso "Cliente", a un clic. Sin este paso el input
     // queda oculto y el fill() de abajo cuelga hasta el timeout. Venta/Edit no tiene
     // paso "Cotizar" y ya abre en Cliente, así que el tab no existe ahí — no-op seguro.
-    const clienteTab = page.locator('#step-btn-cliente');
-    if (await clienteTab.count() && await clienteTab.getAttribute('aria-selected') !== 'true') {
-        await clienteTab.click();
-    }
+    // La barra de pasos está oculta por diseño: se llega a Cliente con los controles visibles.
+    await irAlPaso(page, 'cliente');
 
     const input = page.locator('#input-buscar-cliente');
     await input.fill(term);
@@ -289,10 +288,67 @@ async function ensureVendedorSeleccionado(page) {
  * del sidebar (el header se oculta para no duplicarla), por debajo la del header/barra sticky.
  * Este selector apunta siempre al que la persona puede operar y las specs afirman que es único.
  */
+/**
+ * Orden de los pasos del wizard de Venta. Cotizar sólo existe en Create; Crédito sólo con Crédito
+ * Personal; Envío está siempre entre Pago/Crédito y Revisión (la barra permitía saltearlo, los CTAs no).
+ */
+const ORDEN_PASOS = ['cotizar', 'cliente', 'productos', 'pago', 'credito', 'envio', 'revision'];
+
+/**
+ * Paso del wizard cuyo panel está visible. Se lee del panel (lo que ve el usuario), no de la barra
+ * de pasos, que está oculta.
+ * @param {import('playwright/test').Page} page
+ * @returns {Promise<string|null>}
+ */
+async function pasoActual(page) {
+    for (const paso of ORDEN_PASOS) {
+        const panel = page.locator(`#step-panel-${paso}`);
+        if (await panel.count() && await panel.isVisible()) return paso;
+    }
+    return null;
+}
+
+/**
+ * Navega el wizard de Venta hasta `destino` usando sólo los controles que ve el usuario:
+ * "Siguiente: Cliente" (Cotizar), el CTA contextual (Siguiente / Revisar operación / Continuar a
+ * crédito) y "Paso anterior". La barra de pasos está oculta a propósito y NO se usa.
+ *
+ * Es navegación pura: cada paso exige sus precondiciones reales (cliente, productos, pago); si el
+ * wizard bloquea el avance, falla con el mensaje que el propio wizard muestra. No sirve para pasar
+ * de Crédito a Revisión (ahí el CTA verifica/guarda el crédito: lo maneja cada test).
+ * @param {import('playwright/test').Page} page
+ * @param {'cotizar'|'cliente'|'productos'|'pago'|'credito'|'envio'|'revision'} destino
+ */
+async function irAlPaso(page, destino) {
+    const destinoIdx = ORDEN_PASOS.indexOf(destino);
+    for (let intento = 0; intento < ORDEN_PASOS.length + 2; intento++) {
+        const actual = await pasoActual(page);
+        if (actual === destino) return;
+        if (!actual) throw new Error(`irAlPaso('${destino}'): no hay ningún panel del wizard visible.`);
+
+        if (destinoIdx > ORDEN_PASOS.indexOf(actual)) {
+            await page.locator('[data-wizard-next]:visible, .vm-hero__primary:visible, #btn-confirmar:visible, .vm-btn-confirm-sm:visible').first().click();
+        } else {
+            await page.locator('[data-wizard-back]:visible').first().click();
+        }
+
+        // Cada clic debe mover el wizard; si no, el paso siguiente está bloqueado y el wizard dice por qué.
+        const cambio = await expect.poll(() => pasoActual(page), { timeout: 5_000 }).not.toBe(actual).then(() => true, () => false);
+        if (!cambio) {
+            const aviso = (await page.locator('#wizard-feedback:visible').textContent().catch(() => ''))?.trim();
+            throw new Error(`irAlPaso('${destino}'): el wizard no salió de '${actual}'. ${aviso ? `Mensaje: "${aviso}"` : 'Sin mensaje visible.'}`);
+        }
+    }
+    throw new Error(`irAlPaso('${destino}'): no se alcanzó el paso.`);
+}
+
 const CTA_PRIMARIO_VISIBLE = '.vm-hero__primary:visible, #btn-confirmar:visible, .vm-btn-confirm-sm:visible';
 
 module.exports = {
     CTA_PRIMARIO_VISIBLE,
+    ORDEN_PASOS,
+    pasoActual,
+    irAlPaso,
     TIPO_PAGO,
     TIPO_PAGO_BADGE,
     searchAndSelectClient,

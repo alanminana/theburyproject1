@@ -369,11 +369,13 @@
                     </ul>
                     @if (Model.DatosContractualesFaltantes.Any(f => f.Contains("cliente", StringComparison.OrdinalIgnoreCase)))
                     {
-                        <a asp-controller="Cliente" asp-action="Edit" asp-route-id="@Model.ClienteId"
-                           target="_blank" rel="noopener" class="btn btn-warn btn-block btn-sm">
+                        @* Abre el modal editable (cliente-datos-contractuales.js); al guardar,
+                           venta-credito-embebido.js recarga el fragmento. *@
+                        <button type="button" data-completar-datos-cliente="@Model.ClienteId"
+                                class="btn btn-warn btn-block btn-sm">
                             <span class="material-symbols-outlined">person_edit</span>
                             Completar datos del cliente
-                        </a>
+                        </button>
                     }
                 </div>
             </div>

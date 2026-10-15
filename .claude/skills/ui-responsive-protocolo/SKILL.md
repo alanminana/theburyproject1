@@ -1,6 +1,6 @@
 ---
 name: ui-responsive-protocolo
-description: Protocolo obligatorio de UI responsive y validación funcional+visual conjunta de TheBuryProject: matriz de viewports, modales y drawers, y checklist de alineación entre backend y UI.
+description: "Protocolo obligatorio de UI responsive y validación funcional+visual conjunta de TheBuryProject: matriz de viewports, modales y drawers, y checklist de alineación entre backend y UI."
 ---
 
 ## UI responsive real: protocolo obligatorio

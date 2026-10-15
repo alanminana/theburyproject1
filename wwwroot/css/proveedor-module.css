@@ -369,7 +369,264 @@
 #main-content :is(a, button)[class~="h-10"] { min-height: 2.75rem; }
 #main-content table a[href^="mailto:"], #main-content table a[href^="tel:"] { min-height: 2.75rem; display: flex; align-items: center; }
 
-/* Index: desplegable de productos del proveedor */
-.prov-productos-details > summary::-webkit-details-marker { display: none; }
-.prov-productos-details__icon { transition: transform 0.15s ease; }
-.prov-productos-details[open] .prov-productos-details__icon { transform: rotate(180deg); }
+/* Paginación del listado (25 por página): mismo lenguaje que Cliente/Venta, reglas propias del módulo. */
+.prov-pagination {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.875rem 1.25rem;
+    border-top: 1px solid var(--pal-neutral-800);
+}
+
+.prov-pagination__info,
+.prov-pagination__compact {
+    margin: 0;
+    font-size: 0.75rem;
+    color: var(--erp-fg-3, var(--pal-neutral-400));
+}
+
+.prov-pagination__controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.375rem;
+}
+
+.prov-pagination__pages {
+    display: flex;
+    align-items: center;
+    gap: 0.125rem;
+}
+
+.prov-pagination__page {
+    display: inline-flex;
+    min-width: 2.75rem;
+    height: 2.75rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--pal-neutral-200);
+}
+
+a.prov-pagination__page:hover,
+a.prov-pagination__page:focus-visible {
+    background: color-mix(in srgb, var(--pal-neutral-50) 8%, transparent);
+}
+
+.prov-pagination__page.is-current {
+    background: var(--pal-accent);
+    color: var(--pal-neutral-950);
+}
+
+.prov-pagination__ellipsis {
+    padding-inline: 0.25rem;
+    color: var(--erp-fg-3, var(--pal-neutral-400));
+}
+
+.prov-pagination__compact { display: none; }
+
+@media (max-width: 640px) {
+    .prov-pagination { justify-content: center; text-align: center; }
+    .prov-pagination__info { width: 100%; }
+    .prov-pagination__pages { display: none; }
+    .prov-pagination__compact { display: inline; }
+}
+
+/* Fila clickeable (abre la ficha) y acción destructiva separada de las otras dos. */
+.prov-row[data-row-href] { cursor: pointer; }
+.prov-row-danger {
+    display: inline-flex;
+    margin-left: 0.375rem;
+    padding-left: 0.375rem;
+    border-left: 1px solid var(--pal-neutral-800);
+}
+
+/* Aviso no bloqueante bajo el CUIT. */
+.prov-hint--warn { color: var(--pal-warning-400, var(--pal-neutral-200)); font-weight: 600; }
+
+/* Cerrar el drawer: objetivo táctil de 44px. */
+.prov-drawer__header .btn-erp-icon { min-width: 2.75rem; min-height: 2.75rem; }
+
+@media (max-width: 639.98px) {
+    .prov-row-danger { margin-left: 0; padding-left: 0; border-left: 0; }
+}
+
+/* ── Listado (Index): jerarquía, tipografía y reparto de columnas ─────────────────── */
+.prov-chip { max-width: 8.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.prov-empty { color: var(--erp-fg-3, var(--pal-neutral-400)); font-size: 1rem; }
+.prov-row > td { vertical-align: middle; }
+
+/* Mobile: con menos de 16px iOS hace zoom al enfocar un campo del drawer. */
+@media (max-width: 639.98px) {
+    .prov-drawer__body :is(input:not([type="checkbox"]), select, textarea) { font-size: 1rem; }
+}
+
+/* Tipografía y ritmo de las filas. Los links de la tabla heredaban un alto táctil de 44px (regla de más arriba) que
+   separaba el nombre de su CUIT: con mouse se compactan; en pantallas táctiles se conserva. Los íconos de contacto
+   eran de 24px porque las clases text-[Npx] no existen en el CSS compilado. */
+@media (hover: hover) and (pointer: fine) {
+    #main-content table a.prov-name.block.truncate,
+    #main-content .prov-row .prov-contact a,
+    #main-content .prov-row .prov-prod-link { min-height: 0; }
+}
+
+.prov-table th { font-size: 0.75rem; letter-spacing: 0.1em; }
+.prov-table .prov-row > td { padding-block: 1.125rem; }
+.prov-table th:last-child, .prov-table td:last-child { white-space: nowrap; width: 1%; }
+
+.prov-row a.prov-name { font-size: 1.0625rem; line-height: 1.3; letter-spacing: -0.005em; }
+.prov-row .prov-meta { margin-top: 0.3rem; font-size: 0.875rem; line-height: 1.3; }
+.prov-row .prov-meta .font-mono { color: var(--pal-neutral-300); }
+
+/* Cobertura: chips en una línea, marcas como par rótulo/valor y productos como link de acento */
+.prov-chips { display: flex; flex-wrap: wrap; gap: 0.375rem; }
+.prov-chips .chip-erp { font-size: 0.8125rem; padding-block: 0.3rem; }
+.prov-marcas { display: flex; gap: 0.5rem; margin: 0.625rem 0 0; font-size: 0.875rem; line-height: 1.35; }
+.prov-chips + .prov-marcas { margin-top: 0.625rem; }
+.prov-marcas__label {
+    flex: none;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--erp-fg-3, var(--pal-neutral-400));
+    padding-top: 0.1rem;
+}
+.prov-marcas__valor {
+    min-width: 0;
+    color: var(--pal-neutral-200);
+    /* Puede partirse en 2 líneas: con nowrap la celda imponía su ancho completo y la tabla se desbordaba. */
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+}
+.prov-prod-link,
+.prov-prod-count {
+    display: inline-flex;
+    align-items: center;
+    margin-top: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+    line-height: 1.3;
+}
+.prov-prod-link { color: var(--pal-accent); }
+.prov-prod-link:hover { text-decoration: underline; }
+.prov-prod-count { color: var(--pal-neutral-200); }
+
+/* Contacto: persona, email y teléfono con el mismo ritmo */
+.prov-row .prov-contact { gap: 0.375rem; }
+.prov-row .prov-contact a,
+.prov-row .prov-contact > span { gap: 0.5rem; font-size: 0.875rem; line-height: 1.35; }
+.prov-row .prov-contact .material-symbols-outlined { font-size: 1.125rem; width: 1.125rem; flex: none; }
+.prov-row .prov-contact > span.truncate { font-weight: 600; color: var(--pal-neutral-300); }
+
+.prov-empty { color: var(--erp-fg-3, var(--pal-neutral-400)); font-size: 1rem; }
+.prov-row > td { vertical-align: middle; }
+
+/* Pantallas anchas: las columnas se reparten el ancho en vez de dejar vacíos de 400-500px entre datos
+   de una misma fila; estado y acciones quedan juntos al final. */
+@media (min-width: 1500px) {
+    .prov-table { table-layout: fixed; }
+    .prov-table th:nth-child(1) { width: 28%; }
+    .prov-table th:nth-child(2) { width: 27%; }
+    .prov-table th:nth-child(3) { width: auto; }
+    .prov-table th:nth-child(4) { width: 9rem; }
+    .prov-table th:nth-child(5) { width: 12rem; }
+    .prov-table .prov-row a.prov-name { max-width: 100%; }
+}
+
+/* Entre 1024 y 1499px la tabla compacta paddings, limita el ancho del contacto y la cobertura para entrar sin scroll. */
+@media (max-width: 1499.98px) {
+    .prov-table th,
+    .prov-table td { padding-inline: 0.75rem; }
+    .prov-row .prov-contact { max-width: 14rem; }
+    .prov-chips { max-width: 17rem; }
+    .prov-chip { max-width: 7.5rem; }
+    .prov-marcas { max-width: 17rem; }
+    .prov-row a.prov-name { font-size: 1rem; }
+}
+
+@media (min-width: 1280px) and (max-width: 1499.98px) {
+    .prov-table { table-layout: fixed; }
+    .prov-table th:nth-child(1) { width: 25%; }
+    .prov-table th:nth-child(2) { width: 29%; }
+    .prov-table th:nth-child(3) { width: auto; }
+    .prov-table th:nth-child(4) { width: 6.5rem; }
+    .prov-table th:nth-child(5) { width: 9.75rem; }
+    .prov-table th:last-child, .prov-table td:last-child { width: 9.75rem; }
+    .prov-table td:nth-child(5) .row-action { min-width: 2.5rem; min-height: 2.5rem; padding-inline: 0.5rem; }
+    .prov-row-danger { margin-left: 0.125rem; padding-left: 0.125rem; }
+    .prov-chips, .prov-marcas, .prov-row .prov-contact { max-width: 100%; }
+}
+
+/* El nombre puede ocupar hasta 2 líneas: una regla previa lo vuelve flex y el recorte con "…" no se aplicaba. */
+#main-content table a.prov-name.block.truncate {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    white-space: normal;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+}
+
+/* Estado en línea bajo el nombre: solo donde se oculta la columna Estado (640–1279px). */
+.prov-estado-inline { display: none; margin-top: 0.5rem; }
+@media (min-width: 640px) and (max-width: 1279.98px) {
+    .prov-col-estado { display: none; }
+    .prov-estado-inline { display: inline-flex; }
+    [data-oc-scroll-table].prov-table { min-width: 42rem; }
+}
+
+/* Acciones por fila: más claras y con feedback de hover visible; el ojo abre la ficha. */
+.prov-table .row-action { color: var(--pal-neutral-300); }
+.prov-table .row-action:hover { background: color-mix(in srgb, var(--pal-neutral-50) 10%, transparent); color: var(--pal-neutral-50); }
+.prov-table .row-action--primary:hover { color: var(--pal-accent); }
+.prov-table .row-action--danger:hover { background: color-mix(in srgb, var(--pal-danger-500) 18%, transparent); color: var(--pal-danger-300); }
+.prov-table .row-action .material-symbols-outlined { font-size: 1.25rem; }
+
+/* Pantallas muy anchas (1800px+): todo un escalón más grande para que no parezca chico sobre tanto ancho. */
+@media (min-width: 1800px) {
+    .prov-table th { font-size: 0.8125rem; }
+    .prov-row a.prov-name { font-size: 1.1875rem; }
+    .prov-row .prov-meta,
+    .prov-marcas,
+    .prov-prod-link,
+    .prov-prod-count,
+    .prov-row .prov-contact a,
+    .prov-row .prov-contact > span { font-size: 1rem; }
+    .prov-marcas__label { font-size: 0.8125rem; }
+    .prov-chips .chip-erp { font-size: 0.875rem; }
+    .prov-row .prov-contact .material-symbols-outlined { font-size: 1.25rem; width: 1.25rem; }
+    .prov-table .prov-row > td { padding-block: 1.25rem; }
+    .prov-table .row-action .material-symbols-outlined { font-size: 1.375rem; }
+}
+
+/* Filtro de las listas de categorías y marcas (texto + "solo marcadas"). */
+.prov-check-filter { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+.prov-check-search { flex: 1 1 auto; min-width: 0; }
+.prov-check-only {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 0.375rem;
+    min-height: 2.75rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--pal-neutral-300);
+    white-space: nowrap;
+    cursor: pointer;
+}
+.prov-check-only input { width: 1.25rem; height: 1.25rem; accent-color: var(--pal-accent); }
+.prov-check[hidden] { display: none; }
+@media (max-width: 479.98px) {
+    .prov-check-filter { flex-wrap: wrap; }
+    .prov-check-search { flex-basis: 100%; }
+}

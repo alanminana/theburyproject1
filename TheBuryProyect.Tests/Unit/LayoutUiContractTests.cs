@@ -148,8 +148,9 @@ public class LayoutUiContractTests
     {
         // El orden importa: layout.js depende de que jQuery y shared-ui.js ya estén cargados.
         var layout = ReadLayout();
-        var posSharedUi = layout.IndexOf("shared-ui.js", StringComparison.Ordinal);
-        var posLayoutJs = layout.IndexOf("layout.js", StringComparison.Ordinal);
+        // Se busca la ruta del <script>, no el nombre suelto: un comentario del layout puede mencionar "layout.js".
+        var posSharedUi = layout.IndexOf("~/js/shared-ui.js", StringComparison.Ordinal);
+        var posLayoutJs = layout.IndexOf("~/js/layout.js", StringComparison.Ordinal);
         Assert.True(posSharedUi < posLayoutJs, "shared-ui.js debe cargarse antes que layout.js");
     }
 

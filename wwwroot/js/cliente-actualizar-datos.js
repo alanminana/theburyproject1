@@ -24,11 +24,14 @@
         return dias === 1 ? 'hace 1 día' : 'hace ' + dias + ' días';
     }
 
-    // detalle: { id, nombre, dias, nuevaPestana }
+    // detalle: { id, nombre, dias, nuevaPestana, ignorarPospuesto }
     // "Más tarde" lo silencia durante la sesión del navegador para ese cliente: así buscarlo
     // varias veces en el mismo turno no repite el aviso, pero vuelve a salir al día siguiente.
+    // Venta pasa ignorarPospuesto: lo que se pospuso en la ficha del cliente no debe apagar el
+    // aviso al vender (ahí controla su propio alcance).
     function mostrar(detalle) {
-        if (!detalle || !detalle.id || pospuesto(detalle.id)) return;
+        if (!detalle || !detalle.id) return;
+        if (!detalle.ignorarPospuesto && pospuesto(detalle.id)) return;
         if (dialog.open) dialog.close();
 
         const nombre = detalle.nombre ? detalle.nombre : 'Este cliente';
@@ -45,14 +48,13 @@
             btnEditar.removeAttribute('rel');
         }
 
-        btnEditar.onclick = function () {
-            posponer(detalle.id);
+        // En Venta no se escribe el silencio compartido (ver ignorarPospuesto).
+        const cerrar = function () {
+            if (!detalle.ignorarPospuesto) posponer(detalle.id);
             dialog.close();
         };
-        btnLuego.onclick = function () {
-            posponer(detalle.id);
-            dialog.close();
-        };
+        btnEditar.onclick = cerrar;
+        btnLuego.onclick = cerrar;
 
         dialog.showModal();
     }

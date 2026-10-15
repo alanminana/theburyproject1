@@ -403,11 +403,11 @@
                                     </ul>
                                     @if (Model.DatosContractualesFaltantes.Any(f => f.Contains("cliente", StringComparison.OrdinalIgnoreCase)))
                                     {
-                                        <a asp-controller="Cliente" asp-action="Edit" asp-route-id="@Model.ClienteId"
-                                           target="_blank" rel="noopener" class="btn btn-warn btn-block btn-sm">
+                                        <button type="button" data-completar-datos-cliente="@Model.ClienteId"
+                                                class="btn btn-warn btn-block btn-sm">
                                             <span class="material-symbols-outlined">person_edit</span>
                                             Completar datos del cliente
-                                        </a>
+                                        </button>
                                     }
                                 </div>
                             </div>
@@ -494,4 +494,9 @@
     <partial name="_ValidationScriptsPartial" />
     <script src="~/js/credito-module.js" asp-append-version="true"></script>
     <script src="~/js/configurar-venta-credito.js" asp-append-version="true"></script>
+    <partial name="_CompletarDatosClienteModal" />
+    <script>
+        // Datos del cliente guardados desde el modal: recargar para que el servidor reevalúe los faltantes.
+        document.addEventListener('cliente:datos-contractuales-guardados', () => window.location.reload());
+    </script>
 }

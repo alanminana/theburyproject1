@@ -39,18 +39,22 @@ namespace TheBuryProject.Controllers
             string? searchTerm = null,
             bool soloActivos = false,
             string? orderBy = null,
-            string? orderDirection = "asc")
+            string? orderDirection = "asc",
+            int pageNumber = 1)
         {
             try
             {
-                var proveedores = await _proveedorService.SearchAsync(
+                const int pageSize = 25;
+                var pagina = await _proveedorService.SearchPagedAsync(
                     searchTerm,
                     soloActivos,
                     orderBy,
-                    orderDirection
+                    orderDirection,
+                    pageNumber,
+                    pageSize
                 );
 
-                var viewModels = _mapper.Map<IEnumerable<ProveedorViewModel>>(proveedores);
+                var viewModels = _mapper.Map<IEnumerable<ProveedorViewModel>>(pagina.Items);
 
                 var (categorias, marcas, productos) = await _catalogLookupService.GetCategoriasMarcasYProductosAsync();
 
@@ -61,7 +65,10 @@ namespace TheBuryProject.Controllers
                     OrderBy = orderBy,
                     OrderDirection = orderDirection,
                     Proveedores = viewModels,
-                    TotalResultados = viewModels.Count(),
+                    TotalResultados = pagina.Total,
+                    TotalActivos = pagina.TotalActivos,
+                    PageNumber = pagina.PageNumber,
+                    PageSize = pageSize,
                     CategoriasDisponibles = categorias.OrderBy(c => c.Nombre).Select(c => new SelectListItem { Value = c.Id.ToString(), Text = c.Nombre }).ToList(),
                     MarcasDisponibles = marcas.OrderBy(m => m.Nombre).Select(m => new SelectListItem { Value = m.Id.ToString(), Text = m.Nombre }).ToList(),
                     ProductosDisponibles = productos.OrderBy(p => p.Nombre).Select(p => new SelectListItem { Value = p.Id.ToString(), Text = string.IsNullOrWhiteSpace(p.Codigo) ? p.Nombre : $"{p.Codigo} - {p.Nombre}" }).ToList(),

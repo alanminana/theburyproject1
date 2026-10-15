@@ -23,7 +23,8 @@
     font-weight: 700;
     line-height: 1rem;
     text-align: center;
-    color: #fff;
+    /* El fondo es el acento claro (bg-primary): texto blanco daba contraste 1.67:1 */
+    color: var(--pal-neutral-950);
 }
 
 [data-notas-root] [data-notas-status] { min-height: 1rem; font-size: 11px; }

@@ -20,8 +20,12 @@
  */
 const { test, expect } = require('playwright/test');
 const {
-    searchAndSelectClient, activarFiltroStock, addProduct,
-    ensureVendedorSeleccionado, TIPO_PAGO,
+    searchAndSelectClient,
+    activarFiltroStock,
+    addProduct,
+    ensureVendedorSeleccionado,
+    TIPO_PAGO,
+    irAlPaso,
 } = require('./helpers');
 
 test.use({ storageState: 'e2e/.auth/user.json' });
@@ -29,19 +33,19 @@ test.use({ storageState: 'e2e/.auth/user.json' });
 async function crearVentaBorrador(page) {
     await page.goto('/Venta/Create', { waitUntil: 'domcontentloaded' });
     await expect(page.locator('#venta-form')).toBeVisible({ timeout: 15_000 });
-    await page.locator('#step-btn-cliente').click();
+    await irAlPaso(page, 'cliente');
 
     const client = await searchAndSelectClient(page);
     test.skip(!client, 'El entorno no expone cliente de QA para el autocompletado.');
 
-    await page.locator('#step-btn-productos').click();
+    await irAlPaso(page, 'productos');
     await activarFiltroStock(page);
     const product = await addProduct(page, 'an');
     test.skip(!product, 'El entorno no expone producto con stock para QA.');
 
-    await page.locator('#step-btn-pago').click();
+    await irAlPaso(page, 'pago');
     await page.locator('#select-tipo-pago').selectOption(TIPO_PAGO.Efectivo);
-    await page.locator('#step-btn-revision').click();
+    await irAlPaso(page, 'revision');
     await ensureVendedorSeleccionado(page);
 
     // Create no tiene accionConfirmacion: "Confirmar Transacción" crea la venta directo
@@ -65,7 +69,7 @@ test('Venta/Edit "Confirmar venta" envía accionConfirmacion y la venta queda co
     const id = await crearVentaBorrador(page);
 
     await page.goto(`/Venta/Edit/${id}`, { waitUntil: 'domcontentloaded' });
-    await page.locator('[data-step="revision"]').click();
+    await irAlPaso(page, 'revision');
 
     // "Facturar al confirmar" viene tildado por defecto (ticket 14) y abre el modal de tipo de
     // factura en vez de enviar. Este test protege el contrato de "confirmar SIN facturar".
@@ -96,7 +100,7 @@ test('Venta/Edit "Facturar al confirmar" viene tildado y "Confirmar venta" abre 
     const id = await crearVentaBorrador(page);
 
     await page.goto(`/Venta/Edit/${id}`, { waitUntil: 'domcontentloaded' });
-    await page.locator('[data-step="revision"]').click();
+    await irAlPaso(page, 'revision');
 
     const chk = page.locator('#chk-facturar');
     test.skip(!(await chk.count()), 'El usuario de QA no tiene permiso de facturación.');

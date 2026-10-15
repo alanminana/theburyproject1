@@ -1,0 +1,41 @@
+/* ══════════════════════════════════════════════════════════════
+   MÓDULO MORA — layout propio de Views/Mora/Index.cshtml
+   Usa tokens --pal-* y los componentes compartidos (card-erp-*, badge-erp, btn-erp-*).
+   Sólo resuelve estructura que tailwind.css (artefacto precompilado) no garantiza:
+   acciones de cabecera con wrap, grilla de KPIs fluida y tablas con ancho mínimo.
+   ══════════════════════════════════════════════════════════════ */
+
+.mora-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.mora-actions > * { min-width: 0; }
+
+@media (min-width: 640px) {
+    .mora-actions {
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+}
+
+.mora-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(13.5rem, 1fr));
+    gap: 1rem;
+}
+
+.mora-kpi-grid > * { min-width: 0; }
+
+.mora-kpi-value {
+    margin-top: 0.25rem;
+    font-size: 1.5rem;
+    font-weight: 900;
+    line-height: 1.2;
+    color: var(--pal-white);
+    font-variant-numeric: tabular-nums;
+}
+
+.mora-table { min-width: 38rem; }

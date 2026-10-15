@@ -1,6 +1,6 @@
 ---
 name: codebase-memory-protocolo
-description: Protocolo de uso de codebase-memory-mcp en TheBuryProject: cuándo consultarlo, qué consultar antes de editar, reglas de validación y contenido sensible excluido del índice. Usar en cambios que involucren varios archivos, dependencias cruzadas, controllers pesados, services, views, JavaScript o componentes legacy.
+description: "Protocolo de uso de codebase-memory-mcp en TheBuryProject: cuándo consultarlo, qué consultar antes de editar, reglas de validación y contenido sensible excluido del índice. Usar en cambios que involucren varios archivos, dependencias cruzadas, controllers pesados, services, views, JavaScript o componentes legacy."
 ---
 
 ## Protocolo de `codebase-memory-mcp`

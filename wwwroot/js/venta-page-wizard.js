@@ -322,6 +322,18 @@
         // distinto, a media pantalla de distancia uno del otro.
         const ocultarCtaGlobal = (esCredito && accion !== 'verify-credit') || esCotizar;
 
+        // "Paso anterior": visible en todo paso salvo el primero (Cotizar en Create, Cliente en Edit).
+        const esPrimerPaso = pasosVisibles()[0]?.getAttribute('data-step') === step;
+        const panelActivo = document.getElementById(`step-panel-${step}`);
+        root.querySelectorAll('[data-wizard-back]').forEach((button) => {
+            button.classList.toggle('hidden', esPrimerPaso);
+            button.hidden = esPrimerPaso;
+            // Al comienzo del panel activo: es hacia donde se desplaza la pantalla al cambiar de paso.
+            if (!esPrimerPaso && panelActivo && button.parentElement !== panelActivo) {
+                panelActivo.prepend(button);
+            }
+        });
+
         root.querySelectorAll('[data-wizard-primary]').forEach((button) => {
             button.dataset.wizardAction = accion;
             const label = button.querySelector('[data-wizard-primary-label]');
@@ -548,15 +560,46 @@
         });
     });
 
+    // La barra de pasos está oculta por diseño (display:none): sus botones no pueden recibir foco.
+    // Al cambiar de paso con los CTAs, el foco pasa al encabezado del panel que se abre (tabindex -1),
+    // así el lector de pantalla y el teclado siguen el cambio. Si la barra estuviera visible
+    // (p. ej. otra hoja de estilos), se conserva el comportamiento anterior: foco en la pestaña.
+    function enfocarPaso(step) {
+        const tab = tabButtons.find((button) => button.getAttribute('data-step') === step);
+        if (tab && tab.offsetParent !== null) {
+            tab.focus({ preventScroll: true });
+            return;
+        }
+        const panel = document.getElementById(`step-panel-${step}`);
+        if (!panel) return;
+        const destino = panel.querySelector('h2, h3') || panel;
+        if (!destino.hasAttribute('tabindex')) destino.setAttribute('tabindex', '-1');
+        destino.focus({ preventScroll: true });
+    }
+
+    // Vuelve al paso visible anterior. Existe porque, con la barra de pasos oculta, no había
+    // ningún otro control para corregir un paso ya completado sin salir del wizard.
+    function retroceder() {
+        const activos = pasosVisibles();
+        const actualIndex = activos.findIndex((button) => button.getAttribute('aria-selected') === 'true');
+        const anterior = activos[actualIndex - 1];
+        if (!anterior || anterior.disabled) return;
+        const step = anterior.getAttribute('data-step');
+        setActiveStep(step);
+        enfocarPaso(step);
+        document.getElementById(`step-panel-${step}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
     function avanzar() {
         const activos = pasosVisibles();
         const actualIndex = activos.findIndex((button) => button.getAttribute('aria-selected') === 'true');
         const actual = activos[actualIndex];
         const siguiente = activos[actualIndex + 1];
         if (siguiente && !siguiente.disabled) {
-            setActiveStep(siguiente.getAttribute('data-step'));
-            siguiente.focus({ preventScroll: true });
-            document.getElementById(`step-panel-${siguiente.getAttribute('data-step')}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            const step = siguiente.getAttribute('data-step');
+            setActiveStep(step);
+            enfocarPaso(step);
+            document.getElementById(`step-panel-${step}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             return;
         }
 
@@ -597,6 +640,9 @@
         const requisito = selector ? document.querySelector(selector) : null;
         requisito?.focus({ preventScroll: true });
         requisito?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Sin campo al que llevar al usuario, el aviso (arriba del formulario, fuera de pantalla una vez
+        // que el wizard desplazó el panel) quedaba invisible: "Siguiente" parecía no hacer nada.
+        if (!requisito) alerta?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
     // H7: limpia el banner de requisito pendiente cuando el contexto que lo originó
@@ -699,6 +745,15 @@
 
     });
 
+    // Controles de navegación visibles que reemplazan a la barra de pasos oculta:
+    // "Paso anterior" (todos los pasos menos el primero) y "Siguiente" del paso Cotizar.
+    root.querySelectorAll('[data-wizard-back]').forEach((button) => {
+        button.addEventListener('click', retroceder);
+    });
+    root.querySelectorAll('[data-wizard-next]').forEach((button) => {
+        button.addEventListener('click', avanzar);
+    });
+
     ventaForm?.addEventListener('keydown', (event) => {
         if (event.key !== 'Enter' || event.isComposing || event.target instanceof HTMLTextAreaElement) return;
         // Dentro del cotizador embebido, Enter pertenece a sus buscadores: no debe
@@ -710,6 +765,9 @@
         // de que llegue acá; Enter en cambio sí llega a este listener y sin esta exclusión
         // el wizard hacía preventDefault()+avanzar() en vez de dejar que <details> abra.
         if (event.target instanceof Element && event.target.closest('summary')) return;
+        // Enter sobre "Paso anterior" / "Siguiente" de Cotizar activa ese mismo botón (click nativo):
+        // el atajo global de abajo lo convertiría siempre en avanzar() (con "Paso anterior", al revés).
+        if (event.target instanceof Element && event.target.closest('[data-wizard-back], [data-wizard-next]')) return;
         const activo = pasosVisibles().find((button) => button.getAttribute('aria-selected') === 'true');
         if (activo?.getAttribute('data-step') === 'revision') return;
         event.preventDefault();

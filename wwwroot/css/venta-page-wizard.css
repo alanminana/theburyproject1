@@ -254,6 +254,22 @@
     pointer-events: none;
 }
 
+/* El cotizador embebido (.cotz-app) ya define su propio estado deshabilitado neutro
+   (fondo/borde/texto); la atenuación de opacity de arriba lo duplicaba y dejaba
+   "Continuar con wizard" casi ilegible. Se conserva la señal de no-disponible
+   (cursor, sin hover) pero con texto legible. */
+#venta-create-page .cotz-app .btn:disabled,
+#venta-edit-page .cotz-app .btn:disabled {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+#venta-create-page .cotz-app .btn-soft:disabled,
+#venta-edit-page .cotz-app .btn-soft:disabled {
+    color: var(--cz-text-3);
+    border-style: dashed;
+}
+
 #venta-create-page .vm-step-tab,
 #venta-edit-page .vm-step-tab {
     display: inline-flex;
@@ -1984,4 +2000,24 @@
     :is(#venta-create-page, #venta-edit-page).vm-cta-en-sidebar .vm-hero__primary {
         display: none;
     }
+}
+
+/* Barra de pasos (tablist + estado global) oculta por pedido: el wizard avanza con sus CTAs.
+   El DOM se conserva porque venta-create.js / venta-edit.js sincronizan estado sobre los tabs. */
+:is(#venta-create-page, #venta-edit-page) .vm-hero__steps {
+    display: none !important;
+}
+
+/* "Paso anterior" (único control visible para volver a un paso completado, ya que la barra de pasos
+   está oculta): JS lo apaga en el primer paso. .btn-erp-ghost fija su display fuera de las capas de
+   Tailwind, por eso el atributo [hidden] y la clase .hidden solos no alcanzan. */
+:is(#venta-create-page, #venta-edit-page) [data-wizard-back][hidden],
+:is(#venta-create-page, #venta-edit-page) [data-wizard-back].hidden {
+    display: none !important;
+}
+
+/* "Paso anterior" vive al comienzo del panel activo (lo mueve JS): ancho propio, separado del contenido. */
+:is(#venta-create-page, #venta-edit-page) .vm-paso-anterior {
+    width: auto;
+    margin-bottom: 0.75rem;
 }

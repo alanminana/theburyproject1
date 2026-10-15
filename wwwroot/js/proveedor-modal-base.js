@@ -108,12 +108,59 @@
             form().querySelectorAll('[aria-invalid="true"]').forEach(clearFieldError);
         }
 
+        // Varias reglas de un mismo campo pueden decir casi lo mismo ("…11 dígitos" / "…11 dígitos numéricos"):
+        // se descarta el mensaje que es el comienzo de otro más específico.
+        function distinctMessages(messages) {
+            const unique = [...new Set(messages)];
+            return unique.filter(m => !unique.some(o => o !== m && o.startsWith(m)));
+        }
+
+        // ── Contadores de categorías/marcas marcadas ────────────────────────────
+        function refreshCounts() {
+            form().querySelectorAll('[data-prov-check-group]').forEach(group => {
+                const total = group.querySelectorAll('input[type="checkbox"]:checked').length;
+                const counter = group.closest('fieldset')?.querySelector('[data-prov-count]');
+                if (counter) counter.textContent = total ? `· ${total} ${total === 1 ? 'seleccionada' : 'seleccionadas'}` : '';
+            });
+        }
+
+        // ── Filtro de categorías/marcas: texto + "solo marcadas" (sin name: no viaja en el formulario) ──
+        const normalize = text => text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+        function applyCheckFilter(fieldset) {
+            const search = fieldset.querySelector('[data-prov-check-search]');
+            const onlyChecked = fieldset.querySelector('[data-prov-check-only]');
+            const list = fieldset.querySelector('[data-prov-check-group]');
+            if (!search || !list) return;
+            const term = normalize(search.value.trim());
+            let visible = 0;
+            list.querySelectorAll('.prov-check').forEach(label => {
+                const matches = !term || normalize(label.textContent).includes(term);
+                const keep = matches && (!onlyChecked.checked || label.querySelector('input').checked);
+                label.hidden = !keep;
+                if (keep) visible++;
+            });
+            const empty = fieldset.querySelector('[data-prov-check-empty]');
+            if (empty) empty.hidden = visible > 0;
+        }
+
+        function resetCheckFilters() {
+            form().querySelectorAll('fieldset').forEach(fieldset => {
+                const search = fieldset.querySelector('[data-prov-check-search]');
+                if (!search) return;
+                search.value = '';
+                fieldset.querySelector('[data-prov-check-only]').checked = false;
+                applyCheckFilter(fieldset);
+            });
+        }
+
         function showErrors(errors) {
             clearErrors();
             const items = [];
             let firstInvalid = null;
 
-            Object.entries(errors).forEach(([field, messages]) => {
+            Object.entries(errors).forEach(([field, allMessages]) => {
+                const messages = distinctMessages(allMessages);
                 const input = field ? form().querySelector(`[name="${field}"]:not([type="hidden"])`) : null;
                 messages.forEach(text => {
                     items.push(input ? `${labelText(input)}: ${text}` : text);
@@ -149,6 +196,8 @@
             opener = document.activeElement;
             modal().classList.remove('hidden');
             document.body.style.overflow = 'hidden';
+            refreshCounts();
+            resetCheckFilters();
             requestAnimationFrame(() => {
                 const first = form().querySelector('input:not([type="hidden"]):not([disabled]), select, textarea');
                 if (first) first.focus({ preventScroll: true });
@@ -221,6 +270,13 @@
             if (!isOpen() || confirmWasOpen) return;
 
             if (event.key === 'Escape') {
+                // En el filtro de categorías/marcas, el primer ESC borra el texto en vez de cerrar el drawer.
+                const target = event.target;
+                if (target && target.matches && target.matches('[data-prov-check-search]') && target.value) {
+                    target.value = '';
+                    applyCheckFilter(target.closest('fieldset'));
+                    return;
+                }
                 // El primer ESC cierra la lista de productos del buscador, no el drawer.
                 if (document.querySelector('.picker-dropdown:not([hidden])')) return;
                 window.setTimeout(requestClose, 0);
@@ -241,6 +297,64 @@
             }
         });
 
+        document.addEventListener('change', event => {
+            if (!form() || !form().contains(event.target)) return;
+            if (event.target.matches('[data-prov-check-only]')) {
+                applyCheckFilter(event.target.closest('fieldset'));
+                return;
+            }
+            if (event.target.type === 'checkbox') refreshCounts();
+        });
+
+        document.addEventListener('input', event => {
+            if (form() && form().contains(event.target) && event.target.matches('[data-prov-check-search]')) {
+                applyCheckFilter(event.target.closest('fieldset'));
+            }
+        });
+
+        // El CUIT se muestra como 30-12345678-9 en todo el sistema: se acepta pegado con guiones o espacios
+        // y se guarda solo con dígitos (maxlength=11 cortaría el texto pegado antes de poder limpiarlo).
+        const onlyDigits = text => text.replace(/\D/g, '');
+        document.addEventListener('paste', event => {
+            const target = event.target;
+            if (!form() || !form().contains(target) || target.name !== 'Cuit') return;
+            event.preventDefault();
+            const pasted = onlyDigits((event.clipboardData || window.clipboardData).getData('text'));
+            const start = target.selectionStart ?? target.value.length;
+            const end = target.selectionEnd ?? target.value.length;
+            target.value = (target.value.slice(0, start) + pasted + target.value.slice(end)).slice(0, 11);
+            target.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+        document.addEventListener('input', event => {
+            const target = event.target;
+            if (form() && form().contains(target) && target.name === 'Cuit') {
+                if (/\D/.test(target.value)) target.value = onlyDigits(target.value);
+                refreshCuitAdvice(target);
+            }
+        });
+
+        // Aviso (no bloqueante): el servidor acepta cualquier CUIT de 11 dígitos, pero si el dígito verificador
+        // no coincide casi seguro hay un error de tipeo. Se avisa en la ayuda del campo y se puede guardar igual.
+        const CUIT_WEIGHTS = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
+        function cuitVerifierOk(digits) {
+            const sum = CUIT_WEIGHTS.reduce((acc, w, i) => acc + w * Number(digits[i]), 0);
+            let check = 11 - (sum % 11);
+            if (check === 11) check = 0;
+            else if (check === 10) check = 9;
+            return check === Number(digits[10]);
+        }
+
+        function refreshCuitAdvice(input) {
+            const hint = document.getElementById(`${input.id}-hint`);
+            if (!hint) return;
+            if (!hint.dataset.defaultText) hint.dataset.defaultText = hint.textContent;
+            const warn = input.value.length === 11 && !cuitVerifierOk(input.value);
+            hint.textContent = warn
+                ? 'El dígito verificador no coincide: revisá que el CUIT esté bien escrito. Podés guardarlo igual.'
+                : hint.dataset.defaultText;
+            hint.classList.toggle('prov-hint--warn', warn);
+        }
+
         // Al corregir un campo, su error deja de mostrarse.
         document.addEventListener('input', event => {
             if (!form() || !form().contains(event.target)) return;
@@ -250,7 +364,7 @@
         });
 
         return {
-            show, hide, requestClose, submit, clearErrors, showErrors, takeSnapshot, setBusy, setLocked, readJson, describeFailure,
+            show, hide, requestClose, submit, clearErrors, showErrors, takeSnapshot, setBusy, setLocked, readJson, describeFailure, refreshCounts, refreshCuitAdvice,
             form, modal
         };
     }

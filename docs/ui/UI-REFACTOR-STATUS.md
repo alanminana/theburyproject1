@@ -2212,6 +2212,36 @@ Tests: `ProveedorModuloContractTests` (6 casos: permisos, cobertura completa en 
 labels). Suite completa 5020/5020 (4 omitidos previos), build 0 errores. Riesgo pendiente: la app corriendo
 del usuario necesita reinicio para tomar los cambios de C# (permisos, TempData); Razor/JS/CSS se refrescan solos.
 
+### Proveedor — segunda pasada `/ui-module` (2026-10-13, sin commit)
+
+Hallazgos corregidos: (1) la búsqueda no encontraba un CUIT tal como lo muestra el listado (`30-50268047-8`) ni
+términos con espacios sobrantes → `ProveedorService.SearchAsync` recorta y, si el término es solo número con
+guiones/puntos/espacios, compara contra los 11 dígitos; (2) el CUIT pegado con guiones quedaba truncado por
+`maxlength=11` → el drawer lo normaliza a dígitos al pegar/escribir; (3) el error del CUIT salía duplicado y pegado
+("…11 dígitos …11 dígitos numéricos") → `showErrors` descarta el mensaje que es prefijo de otro; (4) el Index no mostraba
+las marcas → línea "Marcas: …" en Cobertura; (5) categorías/marcas del drawer sin conteo → "· N seleccionadas";
+(6) Ciudad/Provincia/Código postal sin "(opcional)". Test nuevo `Search_PorCuitFormateadoConGuiones…`.
+QA real: 1440/1280/768/390/360, alta y edición reales sobre clon de la base (asociaciones preservadas), 0 overflow,
+0 errores de consola. Fuera de alcance, sin tocar: título del header cortado en 390px (`_Layout`/`layout.css`, WIP
+ajeno), dígito verificador del CUIT y paginación del Index (decisiones de negocio/escala), "Total en órdenes" a verificar.
+La baja con bloqueo por OC/cheques y el conflicto de RowVersion siguen NO VALIDADOS.
+
+**Tercera pasada (2026-10-13, misma fecha, `/ui-module` con crítica dual real: Assessment A 27/40 + Assessment B).**
+Legibilidad del listado: el link del nombre heredaba un `min-height: 2.75rem` propio del módulo y abría ~30px entre
+nombre y CUIT; los íconos de contacto eran de 24px (clases `text-[14px]` inexistentes en el CSS compilado) → con mouse
+(`pointer: fine`) se compactan, en táctil se conserva el objetivo de 44px; "Sin contacto/Sin cobertura" pasan a un guion
+con `aria-label`; el desplegable de productos pasa a un link a la ficha (`#prov-productos`); fila entera clickeable;
+Eliminar separado de Ver/Editar; placeholders con "Ej.:". Index paginado en servidor (`SearchPagedAsync`, 25 por página,
+totales del filtro completo, página fuera de rango se corrige). Details: campos vacíos ocultos, "Volver" duplicado y
+"Razón social" repetida retirados, total con 2 decimales ("$71,95"). Drawer: aviso NO bloqueante de dígito verificador
+del CUIT (el test `Cuit_OnceDigitos_NoExigeDigitoVerificadorAfip` fija que no se exige), cierre de 44px, campos de 16px en
+mobile. Fuera de módulo: título del header en mobile (2 líneas, `.header-title`) y badge de Notas con contraste 1.67 →
+texto oscuro; `LayoutUiContractTests` buscaba "layout.js" suelto y chocaba con un comentario del layout.
+Validado en vivo (clon de la base): baja con OC bloqueada con mensaje, baja sin dependencias, conflicto de RowVersion
+(mensaje + drawer abierto + datos tipeados conservados), paginación con 33 registros, 1440/1280/768/390/360, 0 overflow,
+0 errores de consola. Suite completa 5422/5422 (4 omitidos). Pendiente conocido: baja con cheque vigente solo cubierta por
+test de servicio; selección masiva/exportación y filtro por categoría/marca no se tocaron (producto).
+
 ## Stock — cierre de módulo `/ui-module` (Movimientos, Kardex, Inventario global; 2026-09-25, sin commit)
 
 Pantallas: `MovimientoStock/Index`, `MovimientoStock/Kardex/{id}`, `Producto/UnidadesGlobal` (con su pestaña

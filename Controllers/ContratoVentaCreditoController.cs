@@ -97,10 +97,19 @@ namespace TheBuryProject.Controllers
 
                 if (isAjax)
                 {
+                    // Faltan datos del cliente: el front abre el modal "Completar datos del cliente"
+                    // (necesita el id del cliente de ESTA venta, no el que tenga cargado la pantalla).
+                    var faltaDatosCliente = ex.Errores.Any(e => e.StartsWith("El cliente debe", StringComparison.Ordinal));
+                    int? clienteId = faltaDatosCliente
+                        ? (await _contratoService.ValidarDatosParaGenerarAsync(ventaId)).ClienteId
+                        : null;
+
                     return Json(new
                     {
                         success = false,
-                        message = "No se pudo generar el contrato: " + ex.Message
+                        message = "No se pudo generar el contrato: " + ex.Message,
+                        faltaDatosCliente,
+                        clienteId
                     });
                 }
 

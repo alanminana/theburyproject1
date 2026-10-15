@@ -564,7 +564,7 @@ namespace TheBuryProject.Services.Documentos
                 .Where(v => !v.IsDeleted && v.TipoPago == TheBuryProject.Models.Enums.TipoPago.CreditoPersonal && v.CreditoId != null)
                 .OrderByDescending(v => v.Id)
                 .Take(cantidad)
-                .Select(v => new { v.Id, v.Numero, Cliente = v.Cliente.Apellido + " " + v.Cliente.Nombre, v.Total })
+                .Select(v => new { v.Id, v.Numero, Cliente = v.Cliente!.Apellido + " " + v.Cliente.Nombre, v.Total })
                 .ToListAsync();
 
             var cobros = await _context.PagosCuota.AsNoTracking()

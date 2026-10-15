@@ -83,11 +83,6 @@
             </div>
 
             <div class="proveedor-details-hero-actions flex w-full flex-col gap-3 sm:flex-row xl:w-auto">
-                <a asp-action="Index"
-                   class="proveedor-details-hero-action btn-erp-ghost no-underline">
-                    <span class="material-symbols-outlined text-[20px]" aria-hidden="true">arrow_back</span>
-                    Volver a Proveedores
-                </a>
                 @if (puedeVerOrdenes)
                 {
                     <a asp-controller="OrdenCompra" asp-action="Index" asp-route-ProveedorId="@Model.Id"
@@ -120,7 +115,7 @@
             </div>
             <div class="card-erp-metric">
                 <dt class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Total en órdenes</dt>
-                <dd class="mt-2 text-2xl font-black text-white">$@Model.TotalDeuda.ToString("N0")</dd>
+                <dd class="mt-2 text-2xl font-black text-white">$@Model.TotalDeuda.ToString("N2", System.Globalization.CultureInfo.GetCultureInfo("es-AR"))</dd>
                 <dd class="mt-1 text-xs text-slate-400">sin contar las canceladas</dd>
             </div>
             <div class="card-erp-metric">
@@ -137,58 +132,47 @@
                 <h2 id="prov-info-title" class="text-lg font-bold">Información general</h2>
             </div>
             <div class="p-6 space-y-6">
+                @{
+                    var tieneContacto = !string.IsNullOrWhiteSpace(Model.Contacto) || !string.IsNullOrWhiteSpace(Model.Email) || !string.IsNullOrWhiteSpace(Model.Telefono);
+                    var tieneUbicacion = !string.IsNullOrWhiteSpace(Model.Direccion) || !string.IsNullOrEmpty(ciudadProvincia) || !string.IsNullOrWhiteSpace(Model.CodigoPostal);
+                }
+                @* Solo se muestran los datos cargados: ocho "—" seguidos escondían lo único que importa. *@
                 <dl class="prov-dl">
-                    <div>
-                        <dt>Razón social</dt>
-                        <dd>@Model.RazonSocial</dd>
-                    </div>
-                    <div>
-                        <dt>Nombre de fantasía</dt>
-                        <dd>@(string.IsNullOrWhiteSpace(Model.NombreFantasia) ? "—" : Model.NombreFantasia)</dd>
-                    </div>
-                    <div>
-                        <dt>Persona de contacto</dt>
-                        <dd>@(string.IsNullOrWhiteSpace(Model.Contacto) ? "—" : Model.Contacto)</dd>
-                    </div>
-                    <div>
-                        <dt>Email</dt>
-                        <dd>
-                            @if (!string.IsNullOrWhiteSpace(Model.Email))
-                            {
-                                <a href="mailto:@Model.Email" class="text-primary-on-dark hover:underline no-underline break-all">@Model.Email</a>
-                            }
-                            else
-                            {
-                                <span>—</span>
-                            }
-                        </dd>
-                    </div>
-                    <div>
-                        <dt>Teléfono</dt>
-                        <dd>
-                            @if (!string.IsNullOrWhiteSpace(Model.Telefono))
-                            {
-                                <a href="tel:@Model.Telefono" class="text-primary-on-dark hover:underline no-underline">@Model.Telefono</a>
-                            }
-                            else
-                            {
-                                <span>—</span>
-                            }
-                        </dd>
-                    </div>
-                    <div>
-                        <dt>Dirección</dt>
-                        <dd>@(string.IsNullOrWhiteSpace(Model.Direccion) ? "—" : Model.Direccion)</dd>
-                    </div>
-                    <div>
-                        <dt>Ciudad / provincia</dt>
-                        <dd>@(string.IsNullOrEmpty(ciudadProvincia) ? "—" : ciudadProvincia)</dd>
-                    </div>
-                    <div>
-                        <dt>Código postal</dt>
-                        <dd>@(string.IsNullOrWhiteSpace(Model.CodigoPostal) ? "—" : Model.CodigoPostal)</dd>
-                    </div>
+                    @if (!string.IsNullOrWhiteSpace(Model.NombreFantasia))
+                    {
+                        <div><dt>Nombre de fantasía</dt><dd>@Model.NombreFantasia</dd></div>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(Model.Contacto))
+                    {
+                        <div><dt>Persona de contacto</dt><dd>@Model.Contacto</dd></div>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(Model.Email))
+                    {
+                        <div><dt>Email</dt><dd><a href="mailto:@Model.Email" class="text-primary-on-dark hover:underline no-underline break-all">@Model.Email</a></dd></div>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(Model.Telefono))
+                    {
+                        <div><dt>Teléfono</dt><dd><a href="tel:@Model.Telefono" class="text-primary-on-dark hover:underline no-underline">@Model.Telefono</a></dd></div>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(Model.Direccion))
+                    {
+                        <div><dt>Dirección</dt><dd>@Model.Direccion</dd></div>
+                    }
+                    @if (!string.IsNullOrEmpty(ciudadProvincia))
+                    {
+                        <div><dt>Ciudad / provincia</dt><dd>@ciudadProvincia</dd></div>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(Model.CodigoPostal))
+                    {
+                        <div><dt>Código postal</dt><dd>@Model.CodigoPostal</dd></div>
+                    }
                 </dl>
+                @if (!tieneContacto && !tieneUbicacion && string.IsNullOrWhiteSpace(Model.NombreFantasia))
+                {
+                    <p class="text-sm text-slate-400">
+                        Sin datos de contacto ni dirección cargados@(puedeEditar ? ". Usá «Editar proveedor» para agregarlos." : ".")
+                    </p>
+                }
 
                 <div class="border-t border-slate-800 pt-6">
                     <h3 class="prov-dl-heading">Aclaraciones</h3>
@@ -240,7 +224,7 @@
             </section>
         </div>
 
-        <section data-oc-scroll data-puede-editar-productos="@(puedeEditarProductos ? "true" : "false")" style="--oc-scroll-min-width: 56rem;" class="card-erp-panel lg:col-span-3" aria-labelledby="prov-prod-title">
+        <section id="prov-productos" data-oc-scroll data-puede-editar-productos="@(puedeEditarProductos ? "true" : "false")" style="--oc-scroll-min-width: 56rem;" class="card-erp-panel lg:col-span-3" aria-labelledby="prov-prod-title">
             <div class="border-b border-slate-800 bg-slate-800/30 px-6 py-4">
                 <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
