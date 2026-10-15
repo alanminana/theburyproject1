@@ -200,6 +200,16 @@ jobs:
           retention-days: 30
           if-no-files-found: warn
 
+      # Evidencia visual del wizard (PR #73): capturas reales de e2e/pr73-visual-evidence.spec.js con datos
+      # sinteticos del seed efimero + manifest-*.json. Solo artefacto: no se suben PNG al repositorio.
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: pr73-visual-evidence
+          path: qa-evidence/pr73-visual/
+          retention-days: 30
+          if-no-files-found: warn
+
       - name: Cleanup (stack + .env efimero)
         if: always()
         run: |
