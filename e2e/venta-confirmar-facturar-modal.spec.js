@@ -20,8 +20,12 @@
  */
 const { test, expect } = require('playwright/test');
 const {
-    searchAndSelectClient, activarFiltroStock, addProduct,
-    ensureVendedorSeleccionado, TIPO_PAGO,
+    searchAndSelectClient,
+    activarFiltroStock,
+    addProduct,
+    ensureVendedorSeleccionado,
+    TIPO_PAGO,
+    irAlPaso,
 } = require('./helpers');
 
 test.use({ storageState: 'e2e/.auth/user.json' });
@@ -29,19 +33,19 @@ test.use({ storageState: 'e2e/.auth/user.json' });
 test('checkbox Facturar al confirmar + Confirmar venta deja el botón del modal habilitado', async ({ page }) => {
     await page.goto('/Venta/Create', { waitUntil: 'domcontentloaded' });
     await expect(page.locator('#venta-form')).toBeVisible({ timeout: 15_000 });
-    await page.locator('#step-btn-cliente').click();
+    await irAlPaso(page, 'cliente');
 
     const client = await searchAndSelectClient(page);
     test.skip(!client, 'El entorno no expone cliente de QA para el autocompletado.');
 
-    await page.locator('#step-btn-productos').click();
+    await irAlPaso(page, 'productos');
     await activarFiltroStock(page);
     const product = await addProduct(page, 'an');
     test.skip(!product, 'El entorno no expone producto con stock para QA.');
 
-    await page.locator('#step-btn-pago').click();
+    await irAlPaso(page, 'pago');
     await page.locator('#select-tipo-pago').selectOption(TIPO_PAGO.Efectivo);
-    await page.locator('#step-btn-revision').click();
+    await irAlPaso(page, 'revision');
     await ensureVendedorSeleccionado(page);
     await page.locator('#btn-confirmar').click();
     await page.waitForURL(/\/Venta\/(Details|Edit)\/\d+/, { timeout: 20_000 });
@@ -49,7 +53,7 @@ test('checkbox Facturar al confirmar + Confirmar venta deja el botón del modal 
     expect(id).toBeTruthy();
 
     await page.goto(`/Venta/Edit/${id}`, { waitUntil: 'domcontentloaded' });
-    await page.locator('[data-step="revision"]').click();
+    await irAlPaso(page, 'revision');
 
     const chkFacturar = page.locator('#chk-facturar');
     test.skip(await chkFacturar.count() === 0, 'Sin permiso ventas.invoice en este entorno: el checkbox no se renderiza.');
@@ -66,16 +70,16 @@ test('checkbox Facturar al confirmar + Confirmar venta deja el botón del modal 
 test('"Confirmar y facturar" del modal envía accionConfirmacion=confirmar-facturar y factura la venta', async ({ page }) => {
     await page.goto('/Venta/Create', { waitUntil: 'domcontentloaded' });
     await expect(page.locator('#venta-form')).toBeVisible({ timeout: 15_000 });
-    await page.locator('#step-btn-cliente').click();
+    await irAlPaso(page, 'cliente');
     const client = await searchAndSelectClient(page);
     test.skip(!client, 'El entorno no expone cliente de QA para el autocompletado.');
-    await page.locator('#step-btn-productos').click();
+    await irAlPaso(page, 'productos');
     await activarFiltroStock(page);
     const product = await addProduct(page, 'an');
     test.skip(!product, 'El entorno no expone producto con stock para QA.');
-    await page.locator('#step-btn-pago').click();
+    await irAlPaso(page, 'pago');
     await page.locator('#select-tipo-pago').selectOption(TIPO_PAGO.Efectivo);
-    await page.locator('#step-btn-revision').click();
+    await irAlPaso(page, 'revision');
     await ensureVendedorSeleccionado(page);
     await page.locator('#btn-confirmar').click();
     await page.waitForURL(/\/Venta\/(Details|Edit)\/\d+/, { timeout: 20_000 });
@@ -83,7 +87,7 @@ test('"Confirmar y facturar" del modal envía accionConfirmacion=confirmar-factu
     expect(id).toBeTruthy();
 
     await page.goto(`/Venta/Edit/${id}`, { waitUntil: 'domcontentloaded' });
-    await page.locator('[data-step="revision"]').click();
+    await irAlPaso(page, 'revision');
     const chkFacturar = page.locator('#chk-facturar');
     test.skip(await chkFacturar.count() === 0, 'Sin permiso ventas.invoice en este entorno: el checkbox no se renderiza.');
     await chkFacturar.check();

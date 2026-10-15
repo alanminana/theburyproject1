@@ -29,8 +29,12 @@
  */
 const { test, expect } = require('playwright/test');
 const {
-    searchAndSelectClient, activarFiltroStock, addProduct,
-    ensureVendedorSeleccionado, TIPO_PAGO,
+    searchAndSelectClient,
+    activarFiltroStock,
+    addProduct,
+    ensureVendedorSeleccionado,
+    TIPO_PAGO,
+    irAlPaso,
 } = require('./helpers');
 
 test.use({ storageState: 'e2e/.auth/user.json' });
@@ -52,19 +56,19 @@ const NO_VIABLE_RESPONSE = {
 async function crearVentaThrowaway(page) {
     await page.goto('/Venta/Create', { waitUntil: 'domcontentloaded' });
     await expect(page.locator('#venta-form')).toBeVisible({ timeout: 15_000 });
-    await page.locator('#step-btn-cliente').click();
+    await irAlPaso(page, 'cliente');
 
     const client = await searchAndSelectClient(page);
     test.skip(!client, 'El entorno no expone cliente de QA para el autocompletado.');
 
-    await page.locator('#step-btn-productos').click();
+    await irAlPaso(page, 'productos');
     await activarFiltroStock(page);
     const product = await addProduct(page, 'an');
     test.skip(!product, 'El entorno no expone producto con stock para QA.');
 
-    await page.locator('#step-btn-pago').click();
+    await irAlPaso(page, 'pago');
     await page.locator('#select-tipo-pago').selectOption(TIPO_PAGO.Efectivo);
-    await page.locator('#step-btn-revision').click();
+    await irAlPaso(page, 'revision');
     await ensureVendedorSeleccionado(page);
     await page.locator('#btn-confirmar').click();
     await page.waitForURL(/\/Venta\/(Details|Edit)\/\d+/, { timeout: 20_000 });
@@ -147,7 +151,7 @@ test('excepción documental hidratada al recargar Edit: no vuelve a bloquear el 
     await expect(page.locator('#venta-form')).toBeVisible({ timeout: 15_000 });
     await expect(page.locator('#select-tipo-pago')).toHaveValue(TIPO_PAGO.CreditoPersonal);
 
-    await page.locator('#step-btn-credito').click();
+    await irAlPaso(page, 'credito');
     await expect(page.locator('#step-panel-credito')).toBeVisible();
 
     // Hidratación: la confirmación de "excepción aplicada" debe aparecer sola, sin que
@@ -195,7 +199,7 @@ test('sin excepción documental registrada: el submit sigue bloqueado si la prev
     await expect(page.locator('#venta-form')).toBeVisible({ timeout: 15_000 });
     await expect(page.locator('#select-tipo-pago')).toHaveValue(TIPO_PAGO.CreditoPersonal);
 
-    await page.locator('#step-btn-credito').click();
+    await irAlPaso(page, 'credito');
     await expect(page.locator('#panel-resultado-verificacion')).toBeVisible({ timeout: 10_000 });
     await expect(page.locator('#excepcion-aplicada-badge')).toHaveCount(0);
     await ensureVendedorSeleccionado(page);
@@ -212,7 +216,7 @@ test('sin excepción documental registrada: el submit sigue bloqueado si la prev
     // client-side (mismo mensaje que emite venta-create.js) y no sale ningún POST;
     // el wizard vuelve a mostrar el paso "Crédito" en vez de avanzar.
     await expect(page.locator('#venta-create-feedback-slot')).toContainText('Revisá la verificación crediticia antes de continuar.', { timeout: 5_000 });
-    await expect(page.locator('#step-btn-credito')).toHaveAttribute('aria-selected', 'true');
+    await expect(page.locator('#step-panel-credito')).toBeVisible();
     expect(posteo).toBe(false);
 
     page.off('request', onRequest);

@@ -276,6 +276,12 @@
                         {
                             <a asp-action="Index" class="vm-hero__cancel btn-erp-ghost h-11 w-full no-underline">Cancelar</a>
                         }
+                        @* La barra de pasos está oculta: este botón es el único modo visible de volver a un
+                           paso ya completado. JS lo muestra en todo paso salvo el primero. *@
+                        <button type="button" data-wizard-back hidden
+                                class="vm-hero__back btn-erp-ghost hidden h-11 w-full">
+                            <span class="material-symbols-outlined text-sm" aria-hidden="true">arrow_back</span> Paso anterior
+                        </button>
                         <button type="button" data-wizard-primary
                                 class="vm-hero__primary inline-flex h-11 w-full items-center justify-center rounded-xl bg-primary px-5 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90">
                             @if (esEdicion)
@@ -361,6 +367,14 @@
                 <section id="step-panel-cotizar" role="tabpanel" aria-labelledby="step-btn-cotizar"
                          class="venta-cotizar-panel">
                     <partial name="~/Views/Cotizacion/_CotizadorForm.cshtml" />
+                    @* Con la barra de pasos oculta y el CTA global apagado en Cotizar, éste es el modo visible
+                       de seguir armando la venta en este mismo wizard (la otra salida, "Continuar con wizard",
+                       guarda la cotización y abre Venta/Edit). *@
+                    <div class="vm-cotizar-nav mt-4 flex justify-end">
+                        <button type="button" data-wizard-next id="btn-cotizar-siguiente" class="btn-erp-ghost h-11">
+                            Siguiente: Cliente <span class="material-symbols-outlined text-sm" aria-hidden="true">arrow_forward</span>
+                        </button>
+                    </div>
                 </section>
             }
 

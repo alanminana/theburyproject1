@@ -17,7 +17,12 @@
  * /api/ventas/PrevalidarCredito mockeado con documentación faltante controlada.
  */
 const { test, expect } = require('playwright/test');
-const { searchAndSelectClient, activarFiltroStock, addProduct } = require('./helpers');
+const {
+    searchAndSelectClient,
+    activarFiltroStock,
+    addProduct,
+    irAlPaso,
+} = require('./helpers');
 
 test.use({ storageState: 'e2e/.auth/user.json' });
 
@@ -32,19 +37,19 @@ const DOCUMENTACION_FALTANTE = {
 async function crearVentaThrowaway(page) {
     await page.goto('/Venta/Create', { waitUntil: 'domcontentloaded' });
     await expect(page.locator('#venta-form')).toBeVisible({ timeout: 15_000 });
-    await page.locator('#step-btn-cliente').click();
+    await irAlPaso(page, 'cliente');
 
     const client = await searchAndSelectClient(page);
     test.skip(!client, 'El entorno no expone cliente de QA para el autocompletado.');
 
-    await page.locator('#step-btn-productos').click();
+    await irAlPaso(page, 'productos');
     await activarFiltroStock(page);
     const product = await addProduct(page, 'an');
     test.skip(!product, 'El entorno no expone producto con stock para QA.');
 
-    await page.locator('#step-btn-pago').click();
+    await irAlPaso(page, 'pago');
     await page.locator('#select-tipo-pago').selectOption('0'); // Efectivo
-    await page.locator('#step-btn-revision').click();
+    await irAlPaso(page, 'revision');
 
     const vendedor = page.locator('#VendedorUserId');
     if (await vendedor.isVisible().catch(() => false) && !(await vendedor.inputValue())) {
@@ -86,7 +91,7 @@ async function irAPasoCreditoConDocumentacionFaltante(page) {
 
     await page.goto(editUrl, { waitUntil: 'domcontentloaded' });
     await expect(page.locator('#venta-form')).toBeVisible({ timeout: 15_000 });
-    await page.locator('#step-btn-credito').click();
+    await irAlPaso(page, 'credito');
     await expect(page.locator('#panel-documentacion-faltante')).toBeVisible({ timeout: 10_000 });
     await expect(page.locator('#btn-aplicar-excepcion')).toBeVisible();
 }

@@ -29,7 +29,12 @@
  *                                                       usado para buscarlo en Venta/Create
  */
 const { test, expect } = require('playwright/test');
-const { addProduct, setGlobalTipoPago, TIPO_PAGO } = require('./helpers');
+const {
+    addProduct,
+    setGlobalTipoPago,
+    TIPO_PAGO,
+    irAlPaso,
+} = require('./helpers');
 
 const VIEWPORTS = [
     { name: '360x800', width: 360, height: 800 },
@@ -275,7 +280,7 @@ test.describe('Venta Create — prevalidación con motivo Punitorio', () => {
     test('el panel de motivos muestra el motivo Punitorio con monto real, nunca "$0,00" ni el genérico', async ({ page }) => {
         const failures = trackFailures(page);
         await page.goto('/Venta/Create', { waitUntil: 'domcontentloaded' });
-        await page.locator('#step-btn-cliente').click();
+        await irAlPaso(page, 'cliente');
 
         const input = page.locator('#input-buscar-cliente');
         await input.fill(CLIENTE_MORA_Y_PUNITORIO_DOCUMENTO);
@@ -288,11 +293,11 @@ test.describe('Venta Create — prevalidación con motivo Punitorio', () => {
 
         // El step "Pago" queda deshabilitado hasta agregar al menos un producto. El seed garantiza
         // al menos un producto vendible (marcador E2EPUNML10G-PRODUCTO) — sin skip por falta de catálogo.
-        await page.locator('#step-btn-productos').click();
+        await irAlPaso(page, 'productos');
         const producto = await addProduct(page, 'PUN-ML10-G');
         expect(producto, 'El seed debe garantizar al menos un producto vendible.').toBeTruthy();
 
-        await page.locator('#step-btn-pago').click();
+        await irAlPaso(page, 'pago');
         await expect(page.locator('#step-panel-pago')).toBeVisible();
 
         // El panel de verificación crediticia (#panel-motivos) vive dentro del step 5 "Crédito"
@@ -308,9 +313,8 @@ test.describe('Venta Create — prevalidación con motivo Punitorio', () => {
         await setGlobalTipoPago(page, TIPO_PAGO.CreditoPersonal);
         await prevalidacion;
 
-        const tabCredito = page.locator('#step-btn-credito');
-        await expect(tabCredito).toBeEnabled({ timeout: 10_000 });
-        await tabCredito.click();
+        // Pago -> Crédito con el CTA del paso ("Continuar a crédito"); la barra de pasos está oculta.
+        await irAlPaso(page, 'credito');
         await expect(page.locator('#step-panel-credito')).toBeVisible();
 
         const panel = page.locator('#panel-motivos');

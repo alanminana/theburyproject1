@@ -1,6 +1,6 @@
 // @ts-check
 const { test, expect } = require('playwright/test');
-const { searchAndSelectClient } = require('./helpers');
+const { searchAndSelectClient, irAlPaso, CTA_PRIMARIO_VISIBLE } = require('./helpers');
 
 const VIEWPORTS = [
     { name: '360x800', width: 360, height: 800 },
@@ -24,10 +24,15 @@ test.describe('Venta/Create — accesibilidad y responsive', () => {
 
             await expect(page).not.toHaveURL(/Identity\/Account\/Login/);
             await expect(page.locator('#venta-form')).toBeVisible();
-            // El paso inicial de Create es Cotizar; Cliente queda a un clic.
+            // El paso inicial de Create es Cotizar; Cliente queda a un clic de "Siguiente: Cliente".
             await expect(page.locator('#step-panel-cotizar')).toBeVisible();
-            await page.locator('#step-btn-cliente').click();
+            await expect(page.locator('.vm-hero__steps')).toBeHidden();
+            await expect(page.getByRole('button', { name: /Siguiente: Cliente/ })).toBeVisible();
+            await irAlPaso(page, 'cliente');
             await expect(page.locator('#step-panel-cliente')).toBeVisible();
+            // En Cliente ya hay "Paso anterior" y un CTA para seguir, ambos utilizables.
+            await expect(page.getByRole('button', { name: /Paso anterior/ })).toBeVisible();
+            await expect(page.locator(CTA_PRIMARIO_VISIBLE).first()).toBeVisible();
 
             const hasHorizontalOverflow = await page.evaluate(
                 () => document.documentElement.scrollWidth > window.innerWidth
@@ -36,7 +41,7 @@ test.describe('Venta/Create — accesibilidad y responsive', () => {
         });
     }
 
-    test('la tab activa usa roving tabindex y el modal declara semántica de diálogo', async ({ page }) => {
+    test('el estado de los pasos sigue sincronizado (roving tabindex) y el modal declara semántica de diálogo', async ({ page }) => {
         await page.goto('/Venta/Create', { waitUntil: 'domcontentloaded' });
 
         const selectedTab = page.locator('#venta-form [role="tab"][aria-selected="true"]');
@@ -46,29 +51,33 @@ test.describe('Venta/Create — accesibilidad y responsive', () => {
         await expect(page.locator('#modal-documentacion')).toHaveAttribute('aria-modal', 'true');
     });
 
-    test('el tablist mueve foco con flechas, Home y End sin usar las acciones principales', async ({ page }) => {
+    test('el teclado recorre Cotizar, Cliente y Productos con los controles visibles', async ({ page }) => {
         await page.goto('/Venta/Create', { waitUntil: 'domcontentloaded' });
-        const cliente = page.locator('#step-btn-cliente');
-        const productos = page.locator('#step-btn-productos');
-        // Create abre en Cotizar: hay que mostrar el panel Cliente para usar su buscador.
-        await cliente.click();
+        await expect(page.locator('#venta-form')).toBeVisible();
+
+        // Cotizar -> Cliente con el teclado; el foco acompaña al panel.
+        await page.getByRole('button', { name: /Siguiente: Cliente/ }).focus();
+        await page.keyboard.press('Enter');
         await expect(page.locator('#step-panel-cliente')).toBeVisible();
+        await expect(page.locator('#step-panel-cliente').locator('h2, h3').first()).toBeFocused();
+
         const selectedClient = await searchAndSelectClient(page);
         test.skip(!selectedClient, 'El entorno no expone cliente de QA para habilitar el segundo paso.');
 
-        await cliente.focus();
-        await page.keyboard.press('ArrowRight');
-        await expect(productos).toBeFocused();
-        await expect(productos).toHaveAttribute('aria-selected', 'true');
-        await expect(cliente).toHaveAttribute('tabindex', '-1');
-        await expect(productos).toHaveAttribute('tabindex', '0');
+        // Cliente -> Productos con el CTA del paso (Enter), ya con cliente seleccionado.
+        await page.locator(CTA_PRIMARIO_VISIBLE).first().focus();
+        await page.keyboard.press('Enter');
+        await expect(page.locator('#step-panel-productos')).toBeVisible();
+        await expect(page.locator('#step-panel-productos').locator('h2, h3').first()).toBeFocused();
 
-        await page.keyboard.press('ArrowLeft');
-        await expect(cliente).toBeFocused();
-        await page.keyboard.press('End');
-        await expect(productos).toBeFocused();
-        // Home va al primer paso del wizard, que en Create es Cotizar.
-        await page.keyboard.press('Home');
-        await expect(page.locator('#step-btn-cotizar')).toBeFocused();
+        // Productos -> Cliente -> Cotizar con "Paso anterior" por teclado, conservando el cliente elegido.
+        await page.getByRole('button', { name: /Paso anterior/ }).focus();
+        await page.keyboard.press('Enter');
+        await expect(page.locator('#step-panel-cliente')).toBeVisible();
+        await expect(page.locator('#hdn-cliente-id')).not.toHaveValue('');
+        await page.getByRole('button', { name: /Paso anterior/ }).focus();
+        await page.keyboard.press('Enter');
+        await expect(page.locator('#step-panel-cotizar')).toBeVisible();
+        await expect(page.locator('[data-wizard-back]')).toBeHidden();
     });
 });

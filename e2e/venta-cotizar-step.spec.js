@@ -9,7 +9,7 @@
  * En Edit la pestaña no debe existir: el parcial del wizard es compartido.
  */
 const { test, expect } = require('playwright/test');
-const { CTA_PRIMARIO_VISIBLE } = require('./helpers');
+const { CTA_PRIMARIO_VISIBLE, irAlPaso } = require('./helpers');
 
 test.use({ storageState: 'e2e/.auth/user.json' });
 
@@ -38,7 +38,11 @@ test.describe('Venta/Create — paso Cotizar', () => {
         const cotizar = page.locator('#step-btn-cotizar');
         const cliente = page.locator('#step-btn-cliente');
 
-        await expect(cotizar).toBeVisible();
+        // Decisión del dueño: la barra de pasos permanece OCULTA. Los tabs siguen en el DOM porque
+        // venta-create.js / venta-page-wizard.js sincronizan su estado, pero el usuario no los ve.
+        await expect(page.locator('.vm-hero__steps')).toBeHidden();
+        await expect(cotizar).toBeAttached();
+        await expect(cotizar).toBeHidden();
         await expect(cotizar).toHaveAttribute('aria-selected', 'true');
         await expect(cotizar).toHaveAttribute('tabindex', '0');
         await expect(cotizar).toHaveAttribute('aria-controls', 'step-panel-cotizar');
@@ -60,46 +64,48 @@ test.describe('Venta/Create — paso Cotizar', () => {
         // Numeración: Cotizar 1, Cliente 2.
         await expect(cotizar.locator('.vm-step-tab__num')).toHaveText('1');
         await expect(cliente.locator('.vm-step-tab__num')).toHaveText('2');
+
+        // Controles de navegación visibles en el primer paso: se puede seguir, no hay "anterior".
+        await expect(page.getByRole('button', { name: /Siguiente: Cliente/ })).toBeVisible();
+        await expect(page.locator('[data-wizard-back]')).toBeHidden();
     });
 
-    test('cambiar de pestaña alterna paneles sin navegar a otra pantalla', async ({ page }) => {
+    test('avanzar y volver con los controles visibles alterna paneles sin navegar a otra pantalla', async ({ page }) => {
         await gotoCreate(page);
 
-        await page.locator('#step-btn-cliente').click();
+        // "Siguiente: Cliente" (único control visible para salir de Cotizar dentro del wizard).
+        await page.getByRole('button', { name: /Siguiente: Cliente/ }).click();
         await expect(page.locator('#step-panel-cliente')).toBeVisible();
         await expect(page.locator('#step-panel-cotizar')).toBeHidden();
         await expect(page).toHaveURL(/\/Venta\/Create/);
 
-        await page.locator('#step-btn-cotizar').click();
+        // "Paso anterior" vuelve a Cotizar y el cotizador sigue ahí.
+        await page.getByRole('button', { name: /Paso anterior/ }).click();
         await expect(page.locator('#step-panel-cotizar')).toBeVisible();
         await expect(page.locator('#step-panel-cliente')).toBeHidden();
+        await expect(page.locator('[data-wizard-back]')).toBeHidden();
         await expect(page).toHaveURL(/\/Venta\/Create/);
     });
 
-    test('el tablist navega con flechas, Home y End incluyendo Cotizar', async ({ page }) => {
+    test('el teclado opera los controles de paso y el foco acompaña al panel', async ({ page }) => {
         await gotoCreate(page);
-        const cotizar = page.locator('#step-btn-cotizar');
-        const cliente = page.locator('#step-btn-cliente');
 
-        await cotizar.focus();
-        await page.keyboard.press('ArrowRight');
-        await expect(cliente).toBeFocused();
-        await expect(cliente).toHaveAttribute('aria-selected', 'true');
-        await expect(cotizar).toHaveAttribute('tabindex', '-1');
+        // La barra de pasos está oculta: no recibe foco ni participa del orden de tabulación.
+        await expect(page.locator('.vm-hero__steps')).toBeHidden();
 
-        await page.keyboard.press('ArrowLeft');
-        await expect(cotizar).toBeFocused();
-        await expect(cotizar).toHaveAttribute('aria-selected', 'true');
+        // Enter sobre "Siguiente: Cliente" abre Cliente y el foco pasa a su encabezado (no se pierde).
+        await page.getByRole('button', { name: /Siguiente: Cliente/ }).focus();
+        await page.keyboard.press('Enter');
+        await expect(page.locator('#step-panel-cliente')).toBeVisible();
+        await expect(page.locator('#step-panel-cliente').locator('h2, h3').first()).toBeFocused();
 
-        // End = último paso habilitado. Sin cliente cargado, Productos en adelante
-        // siguen deshabilitados, así que el último habilitado es Cliente.
-        await page.keyboard.press('End');
-        await expect(cliente).toBeFocused();
+        // Enter sobre "Paso anterior" vuelve a Cotizar, con el foco en su encabezado.
+        await page.getByRole('button', { name: /Paso anterior/ }).focus();
+        await page.keyboard.press('Enter');
+        await expect(page.locator('#step-panel-cotizar')).toBeVisible();
+        await expect(page.locator('#step-panel-cotizar').locator('h2, h3').first()).toBeFocused();
 
-        await page.keyboard.press('Home');
-        await expect(cotizar).toBeFocused();
-
-        // Mover foco entre tabs no envía el formulario ni abandona la pantalla.
+        // Mover el foco entre pasos no envía el formulario ni abandona la pantalla.
         await expect(page).toHaveURL(/\/Venta\/Create/);
     });
 
@@ -126,7 +132,7 @@ test.describe('Venta/Create — paso Cotizar', () => {
 
         // Fuera de Cotizar hay exactamente un CTA primario a la vista (a ≥1280px el del sidebar; el
         // del header queda oculto para no duplicarlo) y es el que avanza el wizard.
-        await page.locator('#step-btn-cliente').click();
+        await irAlPaso(page, 'cliente');
         const ctaVisible = page.locator(CTA_PRIMARIO_VISIBLE);
         await expect(ctaVisible).toHaveCount(1);
         await expect(ctaVisible).toBeVisible();
@@ -198,15 +204,12 @@ test.describe('Venta/Create — paso Cotizar', () => {
             await gotoCreate(page);
 
             const medidas = await page.evaluate(() => {
-                const tablist = document.querySelector('.venta-wizard-tablist');
-                const tab = document.getElementById('step-btn-cotizar');
+                const barra = document.querySelector('.vm-hero__steps');
                 const panel = document.getElementById('step-panel-cotizar');
-                const tabRect = tab.getBoundingClientRect();
-                const listRect = tablist.getBoundingClientRect();
                 return {
                     overflowGlobal: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
-                    // El tablist puede scrollear localmente, pero Cotizar arranca visible.
-                    cotizarDentroDelTablist: tabRect.left >= listRect.left - 1 && tabRect.right <= listRect.right + 1,
+                    // La barra de pasos permanece oculta en todos los viewports.
+                    barraOculta: getComputedStyle(barra).display === 'none',
                     panelAncho: panel.getBoundingClientRect().width,
                     contenedorAncho: panel.parentElement.getBoundingClientRect().width,
                     // Con Cotizar activo el workspace de la venta no ocupa espacio.
@@ -216,7 +219,7 @@ test.describe('Venta/Create — paso Cotizar', () => {
             });
 
             expect(medidas.overflowGlobal, 'overflow horizontal de página').toBeFalsy();
-            expect(medidas.cotizarDentroDelTablist, 'Cotizar visible al inicio del tablist').toBeTruthy();
+            expect(medidas.barraOculta, 'la barra de pasos debe permanecer oculta').toBeTruthy();
             expect(medidas.panelAncho).toBeGreaterThan(medidas.contenedorAncho - 2);
             expect(medidas.workspaceOculto).toBeTruthy();
         });
@@ -251,10 +254,12 @@ test.describe('Venta/Edit — sin paso Cotizar', () => {
         await expect(cliente).toHaveAttribute('aria-selected', 'true');
         await expect(cliente.locator('.vm-step-tab__num')).toHaveText('1');
         await expect(page.locator('#step-panel-cliente')).toBeVisible();
+        // Primer paso de Edit: no hay "paso anterior".
+        await expect(page.locator('[data-wizard-back]')).toBeHidden();
 
         // La precarga del wizard sigue en pie.
         await expect(page.locator('#hdn-cliente-id')).not.toHaveValue('');
-        await page.locator('#step-btn-productos').click();
+        await irAlPaso(page, 'productos');
         expect(await page.locator('#tbody-detalles tr').count()).toBeGreaterThanOrEqual(1);
     });
 });

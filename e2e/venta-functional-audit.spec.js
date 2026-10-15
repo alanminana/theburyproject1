@@ -5,7 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const {
     searchAndSelectClient, activarFiltroStock, addProduct, addTwoDistinctProducts,
-    setGlobalTipoPago, ensureVendedorSeleccionado, TIPO_PAGO, CTA_PRIMARIO_VISIBLE,
+    setGlobalTipoPago, ensureVendedorSeleccionado, TIPO_PAGO, CTA_PRIMARIO_VISIBLE, irAlPaso,
 } = require('./helpers');
 
 test.use({ storageState: 'e2e/.auth/user.json' });
@@ -52,12 +52,13 @@ async function gotoCreate(page) {
     await expect(page.locator('#venta-form')).toBeVisible({ timeout: 15_000 });
     // Create abre en el paso Cotizar (ver venta-cotizar-step.spec.js). Esta auditoría
     // cubre el flujo de la venta, así que entra por Cliente, que es donde arrancaba
-    // el wizard antes de que el cotizador volviera a ser el paso 1.
-    await page.locator('#step-btn-cliente').click();
+    // el wizard antes de que el cotizador volviera a ser el paso 1. La barra de pasos está oculta:
+    // se llega con "Siguiente: Cliente".
+    await irAlPaso(page, 'cliente');
     await expect(page.locator('#step-panel-cliente')).toBeVisible();
 }
 async function addProducts(page) {
-    await page.locator('#step-btn-productos').click();
+    await irAlPaso(page, 'productos');
     await activarFiltroStock(page);
     const products = await addTwoDistinctProducts(page);
     if (products) return products;
@@ -120,7 +121,7 @@ test('Create: validaciones, cliente, productos, descuentos, pago, crédito, moda
     }
 
     // El medio principal y sus campos dependientes viven juntos en Pago.
-    await page.locator('#step-btn-pago').click();
+    await irAlPaso(page, 'pago');
     await expect(page.locator('#select-tipo-pago')).toBeVisible();
     await setGlobalTipoPago(page, TIPO_PAGO.Efectivo);
     await expect(page.locator('#select-tipo-pago')).toHaveValue(TIPO_PAGO.Efectivo);
@@ -134,7 +135,9 @@ test('Create: validaciones, cliente, productos, descuentos, pago, crédito, moda
         })
     }));
     await page.locator('#select-tipo-pago').selectOption(TIPO_PAGO.CreditoPersonal);
-    await expect(page.locator('#step-btn-credito')).toBeVisible();
+    // El paso Crédito queda disponible para el wizard (la barra que lo mostraba está oculta: el aviso
+    // al usuario es el CTA "Continuar a crédito", que se verifica abajo).
+    await expect.poll(() => page.locator('#step-btn-credito').evaluate((el) => el.hidden)).toBe(false);
     // Hay tres presentaciones de la misma acción primaria (header, sidebar y barra sticky mobile) y
     // el layout deja visible exactamente una según el viewport: a 1366x768 es el botón del sidebar
     // (el del header se oculta ≥1280px para no duplicarlo). Se opera la que está a la vista.
@@ -142,7 +145,7 @@ test('Create: validaciones, cliente, productos, descuentos, pago, crédito, moda
     await expect(wizardPrimary).toHaveCount(1);
     await expect(wizardPrimary).toContainText(/Continuar a cr.dito/);
     await wizardPrimary.click();
-    await expect(page.locator('#step-btn-credito')).toHaveAttribute('aria-selected', 'true');
+    await expect(page.locator('#step-panel-credito')).toBeVisible();
     // VENTA-CREDITO-REDESIGN-VISUAL-IMPLEMENTACION-01: entrar al paso Crédito ya dispara la
     // verificación automática (antes hacía falta un segundo click en "Verificar crédito" para
     // recién ahí mostrar el resultado) — el panel de resultado aparece directo, sin ese paso
@@ -184,23 +187,26 @@ test('Create: validaciones, cliente, productos, descuentos, pago, crédito, moda
     // modal; el resto del flujo (navegación por tabs, CTA de Revisión) se auditó en desktop.
     await page.setViewportSize({ width: 1366, height: 768 });
     await page.unroute('**/api/ventas/PrevalidarCredito*');
-    await page.locator('#step-btn-pago').click();
+    // Crédito -> Pago con "Paso anterior" (único control visible para volver a un paso completado).
+    await irAlPaso(page, 'pago');
     await expect(page.locator('#step-panel-pago #select-tipo-pago')).toBeVisible();
     await page.locator('#select-tipo-pago').selectOption(TIPO_PAGO.Efectivo);
-    await expect(page.locator('#step-btn-credito')).toBeHidden();
-    await expect(page.locator('#step-btn-pago')).toBeEnabled({ timeout: 8_000 });
+    await expect(page.locator('#step-panel-credito')).toBeHidden();
+    await expect.poll(() => page.locator('#step-btn-credito').evaluate((el) => el.hidden)).toBe(true);
 
-    // Navegación roving de tabs por teclado.
-    await page.locator('#step-btn-cliente').focus();
-    await page.keyboard.press('ArrowRight');
-    if (!(await page.locator('#step-btn-productos').evaluate((el) => el === document.activeElement))) {
-        await issue(page, 'wizard-tab-arrow-navigation-inoperative', 'Alta', 'wwwroot/js/venta-page-wizard.js',
-            'ArrowRight sobre #step-btn-cliente no desplaza foco ni activa #step-btn-productos, pese a estar habilitado.');
+    // Navegación por teclado con los controles visibles (la barra de pasos está oculta): Enter sobre
+    // "Paso anterior" vuelve a Productos y Enter sobre el CTA del paso vuelve a avanzar a Pago.
+    await page.getByRole('button', { name: /Paso anterior/ }).focus();
+    await page.keyboard.press('Enter');
+    if (!(await page.locator('#step-panel-productos').isVisible())) {
+        await issue(page, 'wizard-paso-anterior-inoperative', 'Alta', 'wwwroot/js/venta-page-wizard.js',
+            '"Paso anterior" accionado con Enter no vuelve al paso previo.');
     } else {
-        await page.keyboard.press('End');
-        if (!(await page.locator('#step-btn-revision').evaluate((el) => el === document.activeElement))) {
-            await issue(page, 'wizard-tab-end-navigation-inoperative', 'Alta', 'wwwroot/js/venta-page-wizard.js',
-                'End no lleva el foco al último tab visible del wizard.');
+        await wizardPrimary.first().focus();
+        await page.keyboard.press('Enter');
+        if (!(await page.locator('#step-panel-pago').isVisible())) {
+            await issue(page, 'wizard-cta-siguiente-inoperative', 'Alta', 'wwwroot/js/venta-page-wizard.js',
+                'El CTA del paso accionado con Enter no avanza de Productos a Pago.');
         }
     }
     await observe(page, 'create-before-save');
@@ -211,10 +217,7 @@ test('Create: validaciones, cliente, productos, descuentos, pago, crédito, moda
     // (venta-cotizar-step.spec.js). El CTA es el mismo elemento re-etiquetado por paso
     // (Pago→"Revisar operación", Envío→su propio "Continuar"), así que se re-consulta y
     // clickea hasta llegar a Revisión en vez de asumir un único click.
-    // No se usa aria-selected como condición de corte: la navegación por teclado de más
-    // arriba (ArrowRight/End) ya lo deja en "true" sobre el roving tabindex sin cambiar el
-    // panel visible (foco ≠ activación en este tablist) — el panel real es la única señal
-    // confiable de que la navegación por click efectivamente ocurrió.
+    // La condición de corte es el panel visible (lo que ve el usuario), no el estado de la barra oculta.
     const revisionPanel = page.locator('#step-panel-revision');
     for (let intentos = 0; intentos < 4; intentos++) {
         if (await revisionPanel.isVisible().catch(() => false)) break;
@@ -273,7 +276,7 @@ test('Edit: carga, modificación, guardado y matriz responsive/zoom', async ({ p
     await page.goto(editUrl, { waitUntil: 'domcontentloaded' });
     await expect(page.locator('#venta-form')).toBeVisible({ timeout: 15_000 });
     expect(await page.locator('#tbody-detalles tr').count()).toBeGreaterThanOrEqual(1);
-    await page.locator('#step-btn-productos').click();
+    await irAlPaso(page, 'productos');
     await expect(page.locator('#tbody-detalles [data-quantity-input]').first()).toBeVisible();
     // Modificación reversible del borrador QA: quitar la línea y volver a agregar un producto existente.
     const rowsBeforeRemoval = await page.locator('#tbody-detalles tr').count();
@@ -282,11 +285,11 @@ test('Edit: carga, modificación, guardado y matriz responsive/zoom', async ({ p
     await activarFiltroStock(page);
     const replacement = await addProduct(page, 'an');
     test.skip(!replacement, 'No hay producto de QA con stock para completar la modificación de Edit.');
-    await page.locator('#step-btn-pago').click();
+    await irAlPaso(page, 'pago');
     await expect(page.locator('#select-tipo-pago')).toBeVisible();
     await setGlobalTipoPago(page, TIPO_PAGO.Efectivo);
     await ensureVendedorSeleccionado(page);
-    await page.locator('#step-btn-revision').click();
+    await irAlPaso(page, 'revision');
     // "Facturar al confirmar" viene tildado por defecto (ticket 14) y abriría el modal de tipo
     // de factura; este recorrido valida el guardado/confirmación sin facturar.
     const chkFacturar = page.locator('#chk-facturar');

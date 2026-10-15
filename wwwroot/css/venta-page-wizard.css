@@ -2007,3 +2007,11 @@
 :is(#venta-create-page, #venta-edit-page) .vm-hero__steps {
     display: none !important;
 }
+
+/* "Paso anterior" (único control visible para volver a un paso completado, ya que la barra de pasos
+   está oculta): JS lo apaga en el primer paso. .btn-erp-ghost fija su display fuera de las capas de
+   Tailwind, por eso el atributo [hidden] y la clase .hidden solos no alcanzan. */
+:is(#venta-create-page, #venta-edit-page) [data-wizard-back][hidden],
+:is(#venta-create-page, #venta-edit-page) [data-wizard-back].hidden {
+    display: none !important;
+}
