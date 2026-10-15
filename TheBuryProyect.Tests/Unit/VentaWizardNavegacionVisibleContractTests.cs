@@ -84,6 +84,13 @@ public class VentaWizardNavegacionVisibleContractTests
         Assert.True(atajo >= 0 && exclusion > atajo && exclusion < avance, "La exclusión debe estar dentro del atajo, antes de avanzar().");
     }
 
+    [Fact]
+    public void AvanceBloqueadoSinCampoDestino_TraeElAvisoALaVista()
+    {
+        var js = Read("wwwroot", "js", "venta-page-wizard.js");
+        Assert.Contains("if (!requisito) alerta?.scrollIntoView({ behavior: 'smooth', block: 'center' });", js);
+    }
+
     private static string Read(params string[] parts) =>
         File.ReadAllText(Path.Combine(new[] { FindRepoRoot() }.Concat(parts).ToArray()));
 
