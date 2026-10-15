@@ -1,6 +1,6 @@
 ---
 name: timeouts-y-procesos
-description: Control de tiempo, timeouts y errores inesperados en TheBuryProject: builds o tests colgados, estrategia de validación por partes y formato de reporte de timeout.
+description: "Control de tiempo, timeouts y errores inesperados en TheBuryProject: builds o tests colgados, estrategia de validación por partes y formato de reporte de timeout."
 ---
 
 ## Control de tiempo, timeouts y errores inesperados

@@ -263,61 +263,10 @@ namespace TheBuryProject.Services
         {
             try
             {
-                var query = _context.Proveedores
-                    .AsNoTracking()
-                    .AsSplitQuery()
-                    .Include(p => p.ProveedorProductos.Where(pp =>
-                        !pp.IsDeleted &&
-                        pp.Producto != null &&
-                        !pp.Producto.IsDeleted))
-                        .ThenInclude(pp => pp.Producto)
-                    .Include(p => p.ProveedorMarcas)
-                        .ThenInclude(pm => pm.Marca)
-                    .Include(p => p.ProveedorCategorias)
-                        .ThenInclude(pc => pc.Categoria)
-                    // Necesario para los campos calculados del ProveedorViewModel (AutoMapperProfile)
-                    .Include(p => p.OrdenesCompra.Where(o => !o.IsDeleted))
-                    .Include(p => p.Cheques.Where(c => !c.IsDeleted))
-                    .AsQueryable();
-
-                // Soft delete
-                query = query.Where(p => !p.IsDeleted);
-
-                // Búsqueda por texto
-                if (!string.IsNullOrWhiteSpace(searchTerm))
-                {
-                    searchTerm = searchTerm.ToLower();
-                    query = query.Where(p =>
-                        p.Cuit.Contains(searchTerm) ||
-                        p.RazonSocial.ToLower().Contains(searchTerm) ||
-                        (p.NombreFantasia != null && p.NombreFantasia.ToLower().Contains(searchTerm)) ||
-                        (p.Email != null && p.Email.ToLower().Contains(searchTerm))
-                    );
-                }
-
-                // Filtro solo activos
-                if (soloActivos)
-                {
-                    query = query.Where(p => p.Activo);
-                }
-
-                // Ordenamiento dinámico
-                if (!string.IsNullOrWhiteSpace(orderBy))
-                {
-                    var ascending = orderDirection?.ToLower() != "desc";
-                    query = orderBy.ToLower() switch
-                    {
-                        "cuit" => ascending ? query.OrderBy(p => p.Cuit) : query.OrderByDescending(p => p.Cuit),
-                        "razonsocial" => ascending ? query.OrderBy(p => p.RazonSocial) : query.OrderByDescending(p => p.RazonSocial),
-                        "email" => ascending ? query.OrderBy(p => p.Email) : query.OrderByDescending(p => p.Email),
-                        "telefono" => ascending ? query.OrderBy(p => p.Telefono) : query.OrderByDescending(p => p.Telefono),
-                        _ => query.OrderBy(p => p.RazonSocial)
-                    };
-                }
-                else
-                {
-                    query = query.OrderBy(p => p.RazonSocial);
-                }
+                var query = AplicarOrden(
+                    AplicarFiltros(ConAsociaciones(_context.Proveedores.AsNoTracking()), searchTerm, soloActivos),
+                    orderBy,
+                    orderDirection);
 
                 return await query.ToListAsync();
             }
@@ -326,6 +275,108 @@ namespace TheBuryProject.Services
                 _logger.LogError(ex, "Error al buscar proveedores con filtros");
                 throw;
             }
+        }
+
+        public async Task<ProveedorPaginaResultado> SearchPagedAsync(
+            string? searchTerm,
+            bool soloActivos,
+            string? orderBy,
+            string? orderDirection,
+            int pageNumber,
+            int pageSize)
+        {
+            try
+            {
+                pageSize = Math.Clamp(pageSize, 1, 100);
+
+                // Los totales se calculan sobre el filtro completo y sin cargar asociaciones.
+                var filtrados = AplicarFiltros(_context.Proveedores.AsNoTracking(), searchTerm, soloActivos);
+                var total = await filtrados.CountAsync();
+                var totalActivos = await filtrados.CountAsync(p => p.Activo);
+
+                // Si se borró el último registro de la última página, se vuelve a la última que existe.
+                var totalPaginas = Math.Max(1, (int)Math.Ceiling(total / (double)pageSize));
+                pageNumber = Math.Clamp(pageNumber, 1, totalPaginas);
+
+                var items = await AplicarOrden(
+                        AplicarFiltros(ConAsociaciones(_context.Proveedores.AsNoTracking()), searchTerm, soloActivos),
+                        orderBy,
+                        orderDirection)
+                    .Skip((pageNumber - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync();
+
+                return new ProveedorPaginaResultado(items, total, totalActivos, pageNumber);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al buscar proveedores paginados");
+                throw;
+            }
+        }
+
+        private static IQueryable<Proveedor> ConAsociaciones(IQueryable<Proveedor> query) =>
+            query
+                .AsSplitQuery()
+                .Include(p => p.ProveedorProductos.Where(pp =>
+                    !pp.IsDeleted &&
+                    pp.Producto != null &&
+                    !pp.Producto.IsDeleted))
+                    .ThenInclude(pp => pp.Producto)
+                .Include(p => p.ProveedorMarcas)
+                    .ThenInclude(pm => pm.Marca)
+                .Include(p => p.ProveedorCategorias)
+                    .ThenInclude(pc => pc.Categoria)
+                // Necesario para los campos calculados del ProveedorViewModel (AutoMapperProfile)
+                .Include(p => p.OrdenesCompra.Where(o => !o.IsDeleted))
+                .Include(p => p.Cheques.Where(c => !c.IsDeleted));
+
+        private static IQueryable<Proveedor> AplicarFiltros(IQueryable<Proveedor> query, string? searchTerm, bool soloActivos)
+        {
+            // Soft delete
+            query = query.Where(p => !p.IsDeleted);
+
+            // Búsqueda por texto
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                searchTerm = searchTerm.Trim().ToLower();
+                // El listado muestra el CUIT como 30-12345678-9: si lo que se busca es solo un número con
+                // guiones, puntos o espacios, se compara contra los 11 dígitos sin separadores.
+                var cuitDigitos = System.Text.RegularExpressions.Regex.IsMatch(searchTerm, @"^[\d\-.\s]+$")
+                    ? new string(searchTerm.Where(char.IsDigit).ToArray())
+                    : string.Empty;
+                query = query.Where(p =>
+                    p.Cuit.Contains(searchTerm) ||
+                    (cuitDigitos != "" && p.Cuit.Contains(cuitDigitos)) ||
+                    p.RazonSocial.ToLower().Contains(searchTerm) ||
+                    (p.NombreFantasia != null && p.NombreFantasia.ToLower().Contains(searchTerm)) ||
+                    (p.Email != null && p.Email.ToLower().Contains(searchTerm))
+                );
+            }
+
+            // Filtro solo activos
+            if (soloActivos)
+            {
+                query = query.Where(p => p.Activo);
+            }
+
+            return query;
+        }
+
+        private static IOrderedQueryable<Proveedor> AplicarOrden(IQueryable<Proveedor> query, string? orderBy, string? orderDirection)
+        {
+            var ascending = orderDirection?.ToLower() != "desc";
+            var ordenado = (orderBy ?? string.Empty).ToLower() switch
+            {
+                "cuit" => ascending ? query.OrderBy(p => p.Cuit) : query.OrderByDescending(p => p.Cuit),
+                "razonsocial" => ascending ? query.OrderBy(p => p.RazonSocial) : query.OrderByDescending(p => p.RazonSocial),
+                "email" => ascending ? query.OrderBy(p => p.Email) : query.OrderByDescending(p => p.Email),
+                "telefono" => ascending ? query.OrderBy(p => p.Telefono) : query.OrderByDescending(p => p.Telefono),
+                _ => query.OrderBy(p => p.RazonSocial)
+            };
+
+            // Desempate estable: sin él, la paginación puede repetir u omitir filas con el mismo valor.
+            return ordenado.ThenBy(p => p.Id);
         }
 
         private static void MarkNotModifiedIfExists(Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry entry, string propertyName)

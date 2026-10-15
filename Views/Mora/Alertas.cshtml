@@ -1,0 +1,344 @@
+@model IEnumerable<TheBuryProject.ViewModels.AlertaCobranzaViewModel>
+@using TheBuryProject.Models.Enums
+@section Styles {
+    <link rel="stylesheet" href="~/css/mora-module.css" asp-append-version="true" />
+}
+@{
+    ViewData["Title"] = "Alertas de mora";
+
+    // Filtros soportados por MoraController.Alertas (GET): tipo, prioridad, estado y cliente.
+    // El controller sólo devuelve "cliente" por ViewBag; el resto se relee del query string.
+    var query = Context.Request.Query;
+    int? tipoFiltro = int.TryParse(query["tipo"], out var t) ? t : null;
+    int? prioridadFiltro = int.TryParse(query["prioridad"], out var p) ? p : null;
+    var estadoFiltro = (string?)query["estado"];
+    var clienteFiltro = ViewBag.ClienteFiltro as string;
+    var hayFiltros = tipoFiltro.HasValue || prioridadFiltro.HasValue
+        || !string.IsNullOrWhiteSpace(estadoFiltro) || !string.IsNullOrWhiteSpace(clienteFiltro);
+
+    var alertas = Model?.ToList() ?? new List<TheBuryProject.ViewModels.AlertaCobranzaViewModel>();
+
+    // El catch del controller deja TempData["Error"] y un modelo vacío: no mostrar "no hay alertas".
+    var cargaFallida = TempData.Peek("Error") != null && alertas.Count == 0;
+
+    var puedeGestionar = User.TienePermiso("mora", "manage");
+
+    // Las acciones de escritura vuelven a esta misma pantalla con los filtros aplicados.
+    var urlActual = Context.Request.Path + Context.Request.QueryString;
+
+    var sinResolver = alertas.Count(a => !a.Resuelta);
+    var criticas = alertas.Count(a => !a.Resuelta && a.Prioridad == PrioridadAlerta.Critica);
+
+    string ClasePrioridad(PrioridadAlerta prioridad) => prioridad switch
+    {
+        PrioridadAlerta.Critica => "badge-erp-danger",
+        PrioridadAlerta.Alta => "badge-erp-warning",
+        PrioridadAlerta.Media => "badge-erp-info",
+        _ => "badge-erp-neutral"
+    };
+
+    // MoraService arma ClienteNombre como "Apellido, Nombre - DNI: {documento}" y además envía
+    // ClienteDocumento: se quita ese sufijo para no mostrar el documento dos veces.
+    string NombreCliente(TheBuryProject.ViewModels.AlertaCobranzaViewModel a)
+    {
+        if (string.IsNullOrWhiteSpace(a.ClienteNombre)) return "Cliente sin nombre";
+        var sufijo = " - DNI: " + a.ClienteDocumento;
+        return !string.IsNullOrWhiteSpace(a.ClienteDocumento) && a.ClienteNombre.EndsWith(sufijo, StringComparison.Ordinal)
+            ? a.ClienteNombre[..^sufijo.Length]
+            : a.ClienteNombre;
+    }
+
+    string NombrePrioridad(PrioridadAlerta prioridad) => prioridad switch
+    {
+        PrioridadAlerta.Critica => "Crítica",
+        PrioridadAlerta.Alta => "Alta",
+        PrioridadAlerta.Media => "Media",
+        PrioridadAlerta.Baja => "Baja",
+        _ => prioridad.ToString()
+    };
+
+    string NombreTipo(TipoAlertaCobranza tipo) => tipo switch
+    {
+        TipoAlertaCobranza.CuotaVencida => "Cuota vencida",
+        TipoAlertaCobranza.ProximoVencimiento => "Próximo vencimiento",
+        TipoAlertaCobranza.MoraElevada => "Mora elevada",
+        TipoAlertaCobranza.ClienteRiesgo => "Cliente en riesgo",
+        _ => tipo.ToString()
+    };
+
+    var estados = new (string Valor, string Texto)[]
+    {
+        ("noResueltas", "Sin resolver"),
+        ("resueltas", "Resueltas"),
+        ("noLeidas", "No leídas"),
+        ("leidas", "Leídas")
+    };
+}
+
+<div class="space-y-6" data-mora-alertas-page>
+    <section class="card-erp-panel-padded">
+        <header class="flex flex-col gap-6">
+            <div class="space-y-4">
+                <nav aria-label="Breadcrumb" class="flex text-sm font-medium text-slate-400">
+                    <ol class="inline-flex flex-wrap items-center gap-y-1">
+                        <li><a asp-controller="Home" asp-action="Index" class="hover:text-primary no-underline">Inicio</a></li>
+                        <li><span class="mx-2 text-slate-400">/</span></li>
+                        <li><a asp-controller="Mora" asp-action="Index" class="hover:text-primary no-underline">Mora</a></li>
+                        <li><span class="mx-2 text-slate-400">/</span></li>
+                        <li class="text-slate-100">Alertas</li>
+                    </ol>
+                </nav>
+                <div class="space-y-3">
+                    <span class="badge-erp badge-erp-primary">
+                        <span class="material-symbols-outlined text-sm">notifications_active</span>
+                        Cobranzas
+                    </span>
+                    <div class="space-y-2">
+                        <h1 class="text-3xl font-black tracking-tight text-white sm:text-4xl">Alertas de mora</h1>
+                        <p class="max-w-2xl text-sm leading-relaxed text-slate-400 sm:text-base">
+                            Todas las alertas generadas por el proceso de mora, con su prioridad, monto vencido y estado de gestión.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mora-actions">
+                <a asp-controller="Mora" asp-action="Index" class="btn-erp-secondary sm:py-2.5 no-underline">
+                    <span class="material-symbols-outlined text-[20px]">arrow_back</span>
+                    Volver a Mora
+                </a>
+                <a asp-controller="Mora" asp-action="Logs" class="btn-erp-ghost sm:py-2.5 no-underline">
+                    <span class="material-symbols-outlined text-[20px]">history</span>
+                    Historial
+                </a>
+            </div>
+        </header>
+    </section>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm font-semibold text-emerald-400" role="status">
+            <span class="material-symbols-outlined">check_circle</span>
+            @TempData["Success"]
+        </div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="flex items-center gap-3 rounded-xl border border-rose-500/20 bg-rose-500/10 p-4 text-sm font-semibold text-rose-400" role="alert">
+            <span class="material-symbols-outlined">error</span>
+            @TempData["Error"]
+        </div>
+    }
+
+    <!-- ============ Filtros (GET, contrato de MoraController.Alertas) ============ -->
+    <section class="filter-panel-erp" aria-labelledby="mora-filtros-titulo" data-mora-filtros>
+        <h2 id="mora-filtros-titulo" class="sr-only">Filtrar alertas</h2>
+        <form asp-controller="Mora" asp-action="Alertas" method="get" class="grid grid-cols-1 items-end gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div class="space-y-1.5">
+                <label for="f-cliente" class="block text-xs font-semibold uppercase tracking-wide text-slate-400">Cliente</label>
+                <input id="f-cliente" name="cliente" type="search" value="@clienteFiltro"
+                       placeholder="Nombre o documento" autocomplete="off" class="input-erp" />
+            </div>
+            <div class="space-y-1.5">
+                <label for="f-prioridad" class="block text-xs font-semibold uppercase tracking-wide text-slate-400">Prioridad</label>
+                <select id="f-prioridad" name="prioridad" class="select-erp filter-select-erp">
+                    <option value="">Todas</option>
+                    @foreach (var valor in Enum.GetValues<PrioridadAlerta>().OrderByDescending(x => (int)x))
+                    {
+                        <option value="@((int)valor)" selected="@(prioridadFiltro == (int)valor)">@NombrePrioridad(valor)</option>
+                    }
+                </select>
+            </div>
+            <div class="space-y-1.5">
+                <label for="f-tipo" class="block text-xs font-semibold uppercase tracking-wide text-slate-400">Tipo</label>
+                <select id="f-tipo" name="tipo" class="select-erp filter-select-erp">
+                    <option value="">Todos</option>
+                    @foreach (var valor in Enum.GetValues<TipoAlertaCobranza>())
+                    {
+                        <option value="@((int)valor)" selected="@(tipoFiltro == (int)valor)">@NombreTipo(valor)</option>
+                    }
+                </select>
+            </div>
+            <div class="space-y-1.5">
+                <label for="f-estado" class="block text-xs font-semibold uppercase tracking-wide text-slate-400">Estado</label>
+                <select id="f-estado" name="estado" class="select-erp filter-select-erp">
+                    <option value="">Todos</option>
+                    @foreach (var e in estados)
+                    {
+                        <option value="@e.Valor" selected="@(estadoFiltro == e.Valor)">@e.Texto</option>
+                    }
+                </select>
+            </div>
+            <div class="flex flex-col gap-3 sm:col-span-2 sm:flex-row lg:col-span-4 lg:justify-end">
+                @if (hayFiltros)
+                {
+                    <a asp-controller="Mora" asp-action="Alertas" class="btn-erp-ghost no-underline" data-mora-limpiar-filtros>
+                        <span class="material-symbols-outlined text-[20px]">backspace</span>
+                        Limpiar filtros
+                    </a>
+                }
+                <button type="submit" class="btn-erp-primary">
+                    <span class="material-symbols-outlined text-[20px]">filter_list</span>
+                    Aplicar filtros
+                </button>
+            </div>
+        </form>
+    </section>
+
+    @if (cargaFallida)
+    {
+        <section class="card-erp-panel-padded text-center" data-mora-estado="error">
+            <span class="material-symbols-outlined text-4xl text-rose-400" aria-hidden="true">cloud_off</span>
+            <h2 class="mt-3 text-lg font-bold text-white">No se pudieron cargar las alertas</h2>
+            <p class="mx-auto mt-1 max-w-md text-sm text-slate-400">
+                El listado no está disponible en este momento. Recargá la página; si persiste, revisá el registro del servidor.
+            </p>
+            <a asp-controller="Mora" asp-action="Alertas" class="btn-erp-secondary mt-4 inline-flex no-underline">
+                <span class="material-symbols-outlined text-[20px]">refresh</span>
+                Reintentar
+            </a>
+        </section>
+    }
+    else
+    {
+        <section class="card-erp-panel-padded" aria-labelledby="mora-listado-titulo" data-mora-alertas-listado>
+            <div class="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">notifications_active</span>
+                    <h2 id="mora-listado-titulo" class="text-xl font-bold text-white">@(hayFiltros ? "Alertas filtradas" : "Todas las alertas")</h2>
+                </div>
+                <p class="text-xs text-slate-400" data-mora-resumen>
+                    @alertas.Count @(alertas.Count == 1 ? "alerta" : "alertas") · @sinResolver sin resolver · @criticas @(criticas == 1 ? "crítica" : "críticas") pendientes
+                </p>
+            </div>
+
+            @if (!alertas.Any())
+            {
+                if (hayFiltros)
+                {
+                    <div class="py-10 text-center" data-mora-estado="sin-resultados">
+                        <span class="material-symbols-outlined text-4xl text-slate-500" aria-hidden="true">filter_alt_off</span>
+                        <p class="mt-2 text-base font-semibold text-white">Ninguna alerta coincide con los filtros</p>
+                        <p class="text-sm text-slate-400">Probá con otro criterio o limpiá los filtros para ver todas las alertas.</p>
+                        <a asp-controller="Mora" asp-action="Alertas" class="btn-erp-secondary mt-4 inline-flex no-underline">Limpiar filtros</a>
+                    </div>
+                }
+                else
+                {
+                    <div class="py-10 text-center" data-mora-estado="alertas-vacio">
+                        <span class="material-symbols-outlined text-4xl text-emerald-400" aria-hidden="true">task_alt</span>
+                        <p class="mt-2 text-base font-semibold text-white">No hay alertas de mora registradas</p>
+                        <p class="text-sm text-slate-400">Cuando una cuota venza, la alerta aparece acá luego de ejecutar el proceso.</p>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="table-erp-wrapper overflow-x-auto" data-oc-scroll-region>
+                    <table data-erp-cards class="mora-table w-full text-left text-sm">
+                        <thead class="border-b border-slate-800 text-xs uppercase tracking-wide text-slate-400">
+                            <tr>
+                                <th scope="col" data-card="title" class="px-3 py-3 font-semibold">Cliente</th>
+                                <th scope="col" data-card="half" class="px-3 py-3 font-semibold">Alerta</th>
+                                <th scope="col" data-card="half" class="px-3 py-3 font-semibold">Fecha</th>
+                                <th scope="col" data-card="half" class="px-3 py-3 text-right font-semibold">Vencido</th>
+                                <th scope="col" data-card="half" class="px-3 py-3 font-semibold">Estado</th>
+                                <th scope="col" data-card="hide" class="min-w-[14rem] px-3 py-3 font-semibold">Detalle</th>
+                                @if (puedeGestionar)
+                                {
+                                    <th scope="col" data-card="actions" class="px-3 py-3 text-right font-semibold">Acciones</th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800">
+                            @foreach (var a in alertas)
+                            {
+                                var rowVersion = a.RowVersion != null ? Convert.ToBase64String(a.RowVersion) : string.Empty;
+                                <tr data-alerta-id="@a.Id">
+                                    <td class="px-3 py-3">
+                                        <span class="block font-semibold text-slate-100">@NombreCliente(a)</span>
+                                        @if (!string.IsNullOrWhiteSpace(a.ClienteDocumento))
+                                        {
+                                            <span class="block text-xs text-slate-500">@a.ClienteDocumento</span>
+                                        }
+                                    </td>
+                                    <td class="px-3 py-3">
+                                        <span class="badge-erp whitespace-nowrap @ClasePrioridad(a.Prioridad)">@NombrePrioridad(a.Prioridad)</span>
+                                        <span class="mt-1 block whitespace-nowrap text-xs text-slate-400">@NombreTipo(a.Tipo)</span>
+                                    </td>
+                                    <td class="px-3 py-3 whitespace-nowrap text-slate-300">@a.FechaAlerta.ToString("dd/MM/yyyy")</td>
+                                    <td class="px-3 py-3 text-right">
+                                        <span class="block whitespace-nowrap font-semibold tabular-nums text-slate-100">@a.MontoVencido.ToString("C2")</span>
+                                        <span class="block whitespace-nowrap text-xs tabular-nums text-slate-400">@a.CuotasVencidas @(a.CuotasVencidas == 1 ? "cuota vencida" : "cuotas vencidas")</span>
+                                    </td>
+                                    <td class="px-3 py-3">
+                                        @if (a.Resuelta)
+                                        {
+                                            <span class="badge-erp badge-erp-success whitespace-nowrap">Resuelta</span>
+                                            @if (a.FechaResolucion.HasValue)
+                                            {
+                                                <span class="mt-1 block text-xs text-slate-500">@a.FechaResolucion.Value.ToString("dd/MM/yyyy")</span>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <span class="badge-erp badge-erp-warning whitespace-nowrap">Sin resolver</span>
+                                            @if (!a.Leida)
+                                            {
+                                                <span class="mt-1 block text-xs text-slate-500">No leída</span>
+                                            }
+                                        }
+                                    </td>
+                                    <td class="px-3 py-3 text-slate-400">
+                                        @a.Mensaje
+                                        @if (!string.IsNullOrWhiteSpace(a.Observaciones))
+                                        {
+                                            <span class="mt-1 block text-xs text-slate-500">Obs.: @a.Observaciones</span>
+                                        }
+                                    </td>
+                                    @if (puedeGestionar)
+                                    {
+                                        <td class="px-3 py-3 text-right">
+                                            @if (!a.Resuelta)
+                                            {
+                                                <div class="flex flex-wrap justify-end gap-2">
+                                                    @if (!a.Leida)
+                                                    {
+                                                        <form asp-controller="Mora" asp-action="MarcarLeida" asp-route-id="@a.Id" method="post">
+                                                            @Html.AntiForgeryToken()
+                                                            <input type="hidden" name="rowVersion" value="@rowVersion" />
+                                                            <input type="hidden" name="returnUrl" value="@urlActual" />
+                                                            <button type="submit" class="btn-erp-ghost" data-mora-accion="marcar-leida">
+                                                                <span class="material-symbols-outlined text-[18px]">mark_email_read</span>
+                                                                Marcar leída
+                                                            </button>
+                                                        </form>
+                                                    }
+                                                    <form asp-controller="Mora" asp-action="Resolver" asp-route-id="@a.Id" method="post"
+                                                          onsubmit="return confirm('¿Marcar esta alerta como resuelta?');">
+                                                        @Html.AntiForgeryToken()
+                                                        <input type="hidden" name="rowVersion" value="@rowVersion" />
+                                                        <input type="hidden" name="returnUrl" value="@urlActual" />
+                                                        <button type="submit" class="btn-erp-secondary" data-mora-accion="resolver">
+                                                            <span class="material-symbols-outlined text-[18px]">task_alt</span>
+                                                            Resolver
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-xs text-slate-500">Sin acciones</span>
+                                            }
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+    }
+</div>

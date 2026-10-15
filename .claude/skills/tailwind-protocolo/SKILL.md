@@ -1,6 +1,6 @@
 ---
 name: tailwind-protocolo
-description: Reglas Tailwind de TheBuryProject: clasificar el cambio como mecánico, visual, responsive o funcional antes de tocar clases, y validar equivalencia. Usar al corregir warnings de Tailwind IntelliSense, suggestCanonicalClasses o al reemplazar clases en Razor.
+description: "Reglas Tailwind de TheBuryProject: clasificar el cambio como mecánico, visual, responsive o funcional antes de tocar clases, y validar equivalencia. Usar al corregir warnings de Tailwind IntelliSense, suggestCanonicalClasses o al reemplazar clases en Razor."
 ---
 
 ## Reglas Tailwind

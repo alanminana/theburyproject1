@@ -1,0 +1,168 @@
+@model List<TheBuryProject.Models.Entities.LogMora>
+@section Styles {
+    <link rel="stylesheet" href="~/css/mora-module.css" asp-append-version="true" />
+}
+@{
+    ViewData["Title"] = "Historial de ejecuciones de mora";
+
+    var logs = Model ?? new List<TheBuryProject.Models.Entities.LogMora>();
+
+    // MoraController.Logs pide un tope fijo (GetLogsAsync(100)) y no expone paginación ni filtros.
+    const int topeRegistros = 100;
+
+    // El catch del controller deja TempData["Error"] y una lista vacía: no mostrar "sin ejecuciones".
+    var cargaFallida = TempData.Peek("Error") != null && logs.Count == 0;
+
+    var exitosas = logs.Count(l => l.Exitoso);
+    var conErrores = logs.Count - exitosas;
+
+    // MoraService escribe "Proceso completado. N cuotas procesadas, ..." en las corridas exitosas:
+    // repite las columnas numéricas, así que sólo se muestra un mensaje distinto (errores u otros).
+    bool MensajeAporta(TheBuryProject.Models.Entities.LogMora l) =>
+        !string.IsNullOrWhiteSpace(l.Mensaje)
+        && (!l.Exitoso || !l.Mensaje.StartsWith("Proceso completado.", StringComparison.Ordinal));
+
+    string Duracion(TimeSpan d) => d.TotalSeconds < 1
+        ? $"{d.TotalMilliseconds:0} ms"
+        : d.TotalMinutes < 1 ? $"{d.TotalSeconds:0.#} s" : $"{(int)d.TotalMinutes} min {d.Seconds} s";
+}
+
+<div class="space-y-6" data-mora-logs-page>
+    <section class="card-erp-panel-padded">
+        <header class="flex flex-col gap-6">
+            <div class="space-y-4">
+                <nav aria-label="Breadcrumb" class="flex text-sm font-medium text-slate-400">
+                    <ol class="inline-flex flex-wrap items-center gap-y-1">
+                        <li><a asp-controller="Home" asp-action="Index" class="hover:text-primary no-underline">Inicio</a></li>
+                        <li><span class="mx-2 text-slate-400">/</span></li>
+                        <li><a asp-controller="Mora" asp-action="Index" class="hover:text-primary no-underline">Mora</a></li>
+                        <li><span class="mx-2 text-slate-400">/</span></li>
+                        <li class="text-slate-100">Historial</li>
+                    </ol>
+                </nav>
+                <div class="space-y-3">
+                    <span class="badge-erp badge-erp-primary">
+                        <span class="material-symbols-outlined text-sm">history</span>
+                        Cobranzas
+                    </span>
+                    <div class="space-y-2">
+                        <h1 class="text-3xl font-black tracking-tight text-white sm:text-4xl">Historial de ejecuciones</h1>
+                        <p class="max-w-2xl text-sm leading-relaxed text-slate-400 sm:text-base">
+                            Registro de cada corrida del proceso de mora, automática o manual: cuotas procesadas, alertas generadas, recargos y errores.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mora-actions">
+                <a asp-controller="Mora" asp-action="Index" class="btn-erp-secondary sm:py-2.5 no-underline">
+                    <span class="material-symbols-outlined text-[20px]">arrow_back</span>
+                    Volver a Mora
+                </a>
+                <a asp-controller="Mora" asp-action="Alertas" class="btn-erp-ghost sm:py-2.5 no-underline">
+                    <span class="material-symbols-outlined text-[20px]">notifications_active</span>
+                    Alertas
+                </a>
+            </div>
+        </header>
+    </section>
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="flex items-center gap-3 rounded-xl border border-rose-500/20 bg-rose-500/10 p-4 text-sm font-semibold text-rose-400" role="alert">
+            <span class="material-symbols-outlined">error</span>
+            @TempData["Error"]
+        </div>
+    }
+
+    @if (cargaFallida)
+    {
+        <section class="card-erp-panel-padded text-center" data-mora-estado="error">
+            <span class="material-symbols-outlined text-4xl text-rose-400" aria-hidden="true">cloud_off</span>
+            <h2 class="mt-3 text-lg font-bold text-white">No se pudo cargar el historial</h2>
+            <p class="mx-auto mt-1 max-w-md text-sm text-slate-400">
+                El registro de ejecuciones no está disponible en este momento. Recargá la página; si persiste, revisá el registro del servidor.
+            </p>
+            <a asp-controller="Mora" asp-action="Logs" class="btn-erp-secondary mt-4 inline-flex no-underline">
+                <span class="material-symbols-outlined text-[20px]">refresh</span>
+                Reintentar
+            </a>
+        </section>
+    }
+    else
+    {
+        <section class="card-erp-panel-padded" aria-labelledby="mora-historial-titulo" data-mora-historial>
+            <div class="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">history</span>
+                    <h2 id="mora-historial-titulo" class="text-xl font-bold text-white">Ejecuciones</h2>
+                </div>
+                <p class="text-xs text-slate-400" data-mora-resumen>
+                    @logs.Count @(logs.Count == 1 ? "ejecución" : "ejecuciones") · @exitosas @(exitosas == 1 ? "exitosa" : "exitosas") · @conErrores con errores
+                    @if (logs.Count >= topeRegistros)
+                    {
+                        <span data-mora-tope> · se muestran las últimas @topeRegistros</span>
+                    }
+                </p>
+            </div>
+
+            @if (!logs.Any())
+            {
+                <div class="py-10 text-center" data-mora-estado="logs-vacio">
+                    <span class="material-symbols-outlined text-4xl text-slate-500" aria-hidden="true">history_toggle_off</span>
+                    <p class="mt-2 text-base font-semibold text-white">Todavía no hay ejecuciones registradas</p>
+                    <p class="text-sm text-slate-400">El proceso automático o la ejecución manual generan el primer registro.</p>
+                </div>
+            }
+            else
+            {
+                <div class="table-erp-wrapper overflow-x-auto" data-oc-scroll-region>
+                    <table data-erp-cards class="mora-table w-full text-left text-sm">
+                        <thead class="border-b border-slate-800 text-xs uppercase tracking-wide text-slate-400">
+                            <tr>
+                                <th scope="col" data-card="title" class="px-3 py-3 font-semibold">Fecha</th>
+                                <th scope="col" data-card="half" class="px-3 py-3 font-semibold">Resultado</th>
+                                <th scope="col" data-card="half" class="px-3 py-3 text-right font-semibold">Duración</th>
+                                <th scope="col" data-card="half" class="px-3 py-3 text-right font-semibold">Cuotas procesadas</th>
+                                <th scope="col" data-card="half" class="px-3 py-3 text-right font-semibold">Cuotas con mora</th>
+                                <th scope="col" data-card="half" class="px-3 py-3 text-right font-semibold">Alertas generadas</th>
+                                <th scope="col" data-card="half" class="px-3 py-3 text-right font-semibold">Errores</th>
+                                <th scope="col" data-card="half" class="px-3 py-3 text-right font-semibold">Mora total</th>
+                                <th scope="col" data-card="half" class="px-3 py-3 text-right font-semibold">Recargos aplicados</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800">
+                            @foreach (var l in logs)
+                            {
+                                <tr>
+                                    <td class="px-3 py-3 whitespace-nowrap text-slate-100">@l.FechaEjecucion.ToString("dd/MM/yyyy HH:mm")</td>
+                                    <td class="px-3 py-3">
+                                        <span class="badge-erp whitespace-nowrap @(l.Exitoso ? "badge-erp-success" : "badge-erp-danger")">@(l.Exitoso ? "Exitoso" : "Con errores")</span>
+                                        @if (MensajeAporta(l))
+                                        {
+                                            <span class="mt-1 block max-w-[14rem] text-xs text-slate-400" data-mora-log-mensaje>@l.Mensaje</span>
+                                        }
+                                        @if (!string.IsNullOrWhiteSpace(l.DetalleError))
+                                        {
+                                            <details class="mt-1 max-w-[14rem]">
+                                                <summary class="cursor-pointer text-xs font-semibold text-rose-400">Ver detalle del error</summary>
+                                                <p class="mt-1 whitespace-pre-wrap break-words text-xs text-slate-400">@l.DetalleError</p>
+                                            </details>
+                                        }
+                                    </td>
+                                    <td class="px-3 py-3 text-right whitespace-nowrap tabular-nums text-slate-300">@Duracion(l.DuracionEjecucion)</td>
+                                    <td class="px-3 py-3 text-right tabular-nums text-slate-300">@l.CuotasProcesadas</td>
+                                    <td class="px-3 py-3 text-right tabular-nums text-slate-300">@l.CuotasConMora</td>
+                                    <td class="px-3 py-3 text-right tabular-nums text-slate-300">@l.AlertasGeneradas</td>
+                                    <td class="px-3 py-3 text-right tabular-nums @(l.Errores > 0 ? "font-semibold text-rose-400" : "text-slate-300")">@l.Errores</td>
+                                    <td class="px-3 py-3 text-right whitespace-nowrap tabular-nums text-slate-100">@l.TotalMora.ToString("C2")</td>
+                                    <td class="px-3 py-3 text-right whitespace-nowrap tabular-nums text-slate-300">@l.TotalRecargosAplicados.ToString("C2")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+    }
+</div>

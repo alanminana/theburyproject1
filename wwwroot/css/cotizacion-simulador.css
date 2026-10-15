@@ -1513,6 +1513,10 @@ body:has([role="dialog"]:not(.hidden)) .cotz-app #cotizacion-feedback {
    cursor: not-allowed;
 }
 
+.cotz-app .btn[hidden] {
+   display: none;
+}
+
 /* Primaria (Simular/Actualizar · Agregar · Confirmar). */
 .cotz-app .btn-primary {
    background: var(--cz-accent);

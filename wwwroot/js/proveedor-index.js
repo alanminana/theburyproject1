@@ -43,6 +43,18 @@
         }
     }
 
+    // Toda la fila abre la ficha; los links, botones y formularios de la fila conservan su propia acción.
+    function initRowNavigation() {
+        const body = document.getElementById('proveedores-tbody');
+        if (!body) return;
+        body.addEventListener('click', event => {
+            const row = event.target.closest('tr[data-row-href]');
+            if (!row || event.target.closest('a, button, summary, form, input, select, textarea, label')) return;
+            if (window.getSelection && String(window.getSelection())) return;
+            window.location.assign(row.dataset.rowHref);
+        });
+    }
+
     function init() {
         const moduleApi = window.TheBury && window.TheBury.ProveedorModule;
         if (moduleApi && typeof moduleApi.initIndex === 'function') {
@@ -50,6 +62,7 @@
         }
 
         initAutoFilters();
+        initRowNavigation();
 
         if (window.TheBury && typeof window.TheBury.autoDismissToasts === 'function') {
             window.TheBury.autoDismissToasts();

@@ -92,7 +92,7 @@
     // Sólo aplica al envío legacy (VentaEnvio.IncluidoEnTotal = false). El envío nuevo ya está dentro de
     // Venta.Total y se desglosa en "Detalle de la operación" (productos / armados / envío / recargo).
     var tieneEnvioACobrar = Model.ImporteEnvioFueraDelTotal > 0m;
-    var productosMontoDesglose = Model.Detalles.Sum(d => d.SubtotalFinal != 0m ? d.SubtotalFinal : d.Subtotal);
+    var productosMontoDesglose = detalles.Sum(d => d.SubtotalFinal != 0m ? d.SubtotalFinal : d.Subtotal);
     var hayServiciosIncluidos = Model.TotalArmados > 0m || Model.ImporteEnvioIncluido > 0m;
     // Con servicios incluidos el desglose de "Detalle de la operación" ya suma el Subtotal: repetirlo
     // como fila aparte sólo duplica la cifra. Se oculta únicamente cuando coincide con ese desglose.
@@ -616,7 +616,7 @@
                                     {
                                         <div class="flex justify-between"><span class="text-slate-400">Armados</span><span id="venta-op-armados" class="font-medium text-slate-200">@Model.TotalArmados.ToString("C2")</span></div>
                                         <ul class="space-y-0.5 pl-3 text-xs text-slate-400">
-                                            @foreach (var lineaArmado in Model.Detalles.Where(d => d.TipoArmado.HasValue))
+                                            @foreach (var lineaArmado in detalles.Where(d => d.TipoArmado.HasValue))
                                             {
                                                 <li class="flex justify-between gap-3">
                                                     <span class="min-w-0 break-words">@lineaArmado.ArmadoDisplay × @lineaArmado.Cantidad — @lineaArmado.ProductoNombre</span>
@@ -891,8 +891,8 @@
                     var envioCanceladoPorVenta = Model.Estado == EstadoVenta.Cancelada && !envio.EsTerminal;
                     var envioPillClass = envioCanceladoPorVenta ? "badge-erp-danger" : envio.EstadoBadgeClass;
                     var envioEstadoTexto = envioCanceladoPorVenta ? "Cancelado" : envio.EstadoDisplay;
-                    var productosEnvio = Model.Detalles.Where(d => d.EnviarADomicilio).ToList();
-                    var productosRetira = Model.Detalles.Where(d => !d.EnviarADomicilio).ToList();
+                    var productosEnvio = detalles.Where(d => d.EnviarADomicilio).ToList();
+                    var productosRetira = detalles.Where(d => !d.EnviarADomicilio).ToList();
                     <section class="card-erp-panel-padded">
                         <div class="mb-6 flex flex-col gap-3 border-b border-slate-800 pb-4 sm:flex-row sm:items-start sm:justify-between">
                             <div class="flex items-start gap-2">

@@ -4,7 +4,11 @@
     ViewData["Title"] = "Gestión de Proveedores";
     ViewData["MetaDescription"] = "Administración de proveedores, contactos y órdenes de compra en el ERP TheBuryProject.";
     var proveedores = Model.Proveedores.ToList();
-    var activos = proveedores.Count(p => p.Activo);
+    var total = Model.TotalResultados;
+    var activos = Model.TotalActivos;
+    var totalPaginas = Model.PageSize > 0 ? (int)Math.Ceiling(total / (double)Model.PageSize) : 1;
+    var primerRegistro = total == 0 ? 0 : ((Model.PageNumber - 1) * Model.PageSize) + 1;
+    var ultimoRegistro = Math.Min(Model.PageNumber * Model.PageSize, total);
 
     // Cada acción exige su permiso propio en ProveedorController (create/update/delete): la vista solo
     // ofrece lo que el servidor va a aceptar. Con solo lectura la fila queda con "Ver".
@@ -14,6 +18,31 @@
     var puedeVerOrdenes = User.TienePermiso("ordenescompra", "view");
 
     var filtroProvActivo = !string.IsNullOrWhiteSpace(Model.SearchTerm) || Model.SoloActivos;
+    // Los enlaces de página conservan búsqueda, orden y filtro de activos.
+    Dictionary<string, string> RutaPagina(int pagina)
+    {
+        var dict = new Dictionary<string, string>();
+        if (!string.IsNullOrWhiteSpace(Model.SearchTerm)) dict["searchTerm"] = Model.SearchTerm;
+        if (Model.SoloActivos) dict["soloActivos"] = "true";
+        if (!string.IsNullOrWhiteSpace(Model.OrderBy)) dict["orderBy"] = Model.OrderBy;
+        if (!string.IsNullOrWhiteSpace(Model.OrderDirection)) dict["orderDirection"] = Model.OrderDirection;
+        dict["pageNumber"] = pagina.ToString();
+        return dict;
+    }
+
+    List<int> VentanaPaginas(int actual, int cantidad)
+    {
+        if (cantidad <= 7) return Enumerable.Range(1, cantidad).ToList();
+        var numeros = new List<int> { 1 };
+        var inicio = Math.Max(2, actual - 1);
+        var fin = Math.Min(cantidad - 1, actual + 1);
+        if (inicio > 2) numeros.Add(-1);
+        for (var p = inicio; p <= fin; p++) numeros.Add(p);
+        if (fin < cantidad - 1) numeros.Add(-1);
+        numeros.Add(cantidad);
+        return numeros;
+    }
+
     var modales = new ProveedorModalesViewModel
     {
         PuedeCrear = puedeCrear,
@@ -56,8 +85,8 @@
             <div class="min-w-0">
                 <h2 class="text-base font-bold text-white">Listado de proveedores</h2>
                 <p class="text-sm text-slate-400" aria-live="polite">
-                    @proveedores.Count @(proveedores.Count == 1 ? "proveedor" : "proveedores")
-                    @if (proveedores.Count > 0)
+                    @total @(total == 1 ? "proveedor" : "proveedores")
+                    @if (total > 0)
                     {
                         <span>· @activos @(activos == 1 ? "activo" : "activos")</span>
                     }
@@ -144,13 +173,13 @@
             <div data-oc-scroll-fade="left" hidden></div>
             <div data-oc-scroll-fade="right" hidden></div>
             <div data-oc-scroll-region tabindex="0" role="region" aria-label="Listado de proveedores">
-                <table data-erp-cards data-oc-scroll-table class="w-full text-left border-collapse">
+                <table data-erp-cards data-oc-scroll-table class="prov-table w-full text-left border-collapse">
                     <thead>
                         <tr class="border-b border-slate-800 bg-slate-800/30">
                             <th scope="col" data-card="title" class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Proveedor</th>
                             <th scope="col" class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Cobertura</th>
                             <th scope="col" class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Contacto</th>
-                            <th scope="col" class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Estado</th>
+                            <th scope="col" class="prov-col-estado px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Estado</th>
                             <th scope="col" data-card="actions" class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right">Acciones</th>
                         </tr>
                     </thead>
@@ -164,12 +193,12 @@
                             var categoriasRestantes = p.CategoriasAsociadas.Count - categorias.Count;
                             var cantidadProductos = p.ProductosAsociados.Count;
 
-                            <tr data-proveedor-row-id="@p.Id" class="transition-colors hover:bg-white/5">
+                            <tr data-proveedor-row-id="@p.Id" data-row-href="@Url.Action("Details", new { id = p.Id })" class="prov-row transition-colors hover:bg-white/5">
                                 <td class="px-5 py-3">
                                     <div class="min-w-0">
                                         <a asp-action="Details" asp-route-id="@p.Id"
-                                           class="block truncate text-sm font-bold text-white no-underline hover:underline">@p.RazonSocial</a>
-                                        <p class="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-400">
+                                           title="@p.RazonSocial" class="prov-name block truncate text-sm font-bold text-white no-underline hover:underline">@p.RazonSocial</a>
+                                        <p class="prov-meta mt-0.5 flex flex-wrap items-center gap-1.5 text-slate-400">
                                             <span class="font-mono">@cuitFormatted</span>
                                             @if (!string.IsNullOrEmpty(p.NombreFantasia))
                                             {
@@ -177,56 +206,62 @@
                                                 <span class="truncate max-w-56">@p.NombreFantasia</span>
                                             }
                                         </p>
+                                        @* Solo entre 640 y 1279px: la columna Estado se oculta y el estado queda bajo el nombre. *@
+                                        <span class="prov-estado-inline chip-erp @(p.Activo ? "chip-erp-success" : "")">
+                                            <span class="h-1.5 w-1.5 rounded-full @(p.Activo ? "bg-emerald-500" : "bg-slate-400")" aria-hidden="true"></span>
+                                            @(p.Activo ? "Activo" : "Inactivo")
+                                        </span>
                                     </div>
                                 </td>
                                 <td class="prov-cobertura px-5 py-3">
                                     @if (categorias.Any())
                                     {
-                                        <div class="flex max-w-[18rem] flex-wrap gap-1">
+                                        <div class="prov-chips">
                                             @foreach (var cat in categorias)
                                             {
-                                                <span class="chip-erp max-w-36 truncate" title="@cat">@cat</span>
+                                                <span class="chip-erp prov-chip" title="@cat">@cat</span>
                                             }
                                             @if (categoriasRestantes > 0)
                                             {
-                                                <span class="chip-erp chip-erp-primary">+@categoriasRestantes</span>
+                                                <span class="chip-erp chip-erp-primary prov-chip-more" title="y @categoriasRestantes más">+@categoriasRestantes</span>
                                             }
                                         </div>
                                     }
                                     else if (cantidadProductos > 0)
                                     {
-                                        <span class="text-xs text-slate-300">@cantidadProductos @(cantidadProductos == 1 ? "producto" : "productos")</span>
+                                        <span class="prov-prod-count">@cantidadProductos @(cantidadProductos == 1 ? "producto" : "productos")</span>
                                     }
-                                    else
+                                    else if (p.MarcasAsociadas.Count == 0)
                                     {
-                                        <span class="text-xs text-slate-400">Sin cobertura cargada</span>
+                                        <span class="prov-empty" role="img" aria-label="Sin cobertura cargada" title="Sin cobertura cargada">—</span>
+                                    }
+                                    @if (p.MarcasAsociadas.Count > 0)
+                                    {
+                                        var marcas = p.MarcasAsociadas.Select(m => m.Trim()).ToList();
+                                        var marcasTexto = string.Join(", ", marcas.Take(3)) + (marcas.Count > 3 ? $" +{marcas.Count - 3}" : "");
+                                        <p class="prov-marcas" title="@string.Join(", ", marcas)">
+                                            <span class="prov-marcas__label">Marcas</span>
+                                            <span class="prov-marcas__valor">@marcasTexto</span>
+                                        </p>
                                     }
                                     @if (cantidadProductos > 0)
                                     {
-                                        <details class="prov-productos-details mt-1.5">
-                                            <summary class="inline-flex cursor-pointer items-center gap-1 whitespace-nowrap text-xs font-semibold text-slate-300"
-                                                     style="list-style: none">
-                                                <span>@cantidadProductos @(cantidadProductos == 1 ? "producto" : "productos")</span>
-                                                <span class="material-symbols-outlined prov-productos-details__icon text-[16px] text-slate-400" aria-hidden="true">expand_more</span>
-                                            </summary>
-                                            <ul class="mt-1.5 max-h-48 space-y-1 overflow-y-auto border-l border-slate-700 pl-3 text-xs text-slate-300">
-                                                @foreach (var prod in p.ProductosAsociados.OrderBy(n => n))
-                                                {
-                                                    <li>@prod</li>
-                                                }
-                                            </ul>
-                                        </details>
+                                        <a asp-action="Details" asp-route-id="@p.Id" asp-fragment="prov-productos"
+                                           class="prov-prod-link no-underline"
+                                           aria-label="Ver los @cantidadProductos @(cantidadProductos == 1 ? "producto" : "productos") de @p.RazonSocial">
+                                            @cantidadProductos @(cantidadProductos == 1 ? "producto" : "productos")
+                                        </a>
                                     }
                                 </td>
                                 <td class="px-5 py-3">
-                                    <div class="prov-contact flex max-w-68 flex-col gap-0.5 text-sm">
+                                    <div class="prov-contact flex flex-col">
                                         @if (!string.IsNullOrEmpty(p.Contacto))
                                         {
                                             <span class="truncate font-semibold text-slate-200">@p.Contacto</span>
                                         }
                                         @if (!string.IsNullOrEmpty(p.Email))
                                         {
-                                            <a href="mailto:@p.Email" class="flex items-center gap-1 truncate text-xs text-primary-on-dark hover:underline no-underline">
+                                            <a href="mailto:@p.Email" title="@p.Email" class="flex items-center gap-1 truncate text-xs text-primary-on-dark hover:underline no-underline">
                                                 <span class="material-symbols-outlined text-[14px]" aria-hidden="true">mail</span>
                                                 <span class="truncate">@p.Email</span>
                                             </a>
@@ -240,11 +275,11 @@
                                         }
                                         @if (string.IsNullOrEmpty(p.Contacto) && string.IsNullOrEmpty(p.Email) && string.IsNullOrEmpty(p.Telefono))
                                         {
-                                            <span class="text-xs text-slate-400">Sin contacto</span>
+                                            <span class="prov-empty" role="img" aria-label="Sin contacto" title="Sin contacto">—</span>
                                         }
                                     </div>
                                 </td>
-                                <td class="px-5 py-3">
+                                <td class="prov-col-estado px-5 py-3">
                                     @if (p.Activo)
                                     {
                                         <span class="chip-erp chip-erp-success">
@@ -281,7 +316,7 @@
                                         }
                                         @if (puedeEliminar)
                                         {
-                                            <form asp-action="Delete" asp-route-id="@p.Id" method="post" class="inline" data-proveedor-delete-form data-proveedor-name="@p.RazonSocial">
+                                            <form asp-action="Delete" asp-route-id="@p.Id" method="post" data-proveedor-delete-form data-proveedor-name="@p.RazonSocial" class="prov-row-danger">
                                                 @Html.AntiForgeryToken()
                                                 <button type="submit"
                                                         class="row-action row-action--danger"
@@ -300,6 +335,50 @@
                 </table>
             </div>
         </div>
+
+        @if (totalPaginas > 1)
+        {
+            <nav class="prov-pagination" aria-label="Paginación de proveedores">
+                <p class="prov-pagination__info">Mostrando @primerRegistro–@ultimoRegistro de @total</p>
+                <div class="prov-pagination__controls">
+                    @if (Model.PageNumber > 1)
+                    {
+                        <a asp-action="Index" asp-all-route-data="@RutaPagina(Model.PageNumber - 1)" rel="prev"
+                           class="btn-erp-ghost btn-sm prov-touch no-underline">
+                            <span class="material-symbols-outlined text-[16px]" aria-hidden="true">chevron_left</span>
+                            Anterior
+                        </a>
+                    }
+                    <div class="prov-pagination__pages">
+                        @foreach (var n in VentanaPaginas(Model.PageNumber, totalPaginas))
+                        {
+                            if (n == -1)
+                            {
+                                <span class="prov-pagination__ellipsis" aria-hidden="true">&hellip;</span>
+                            }
+                            else if (n == Model.PageNumber)
+                            {
+                                <span class="prov-pagination__page is-current" aria-current="page">@n</span>
+                            }
+                            else
+                            {
+                                <a asp-action="Index" asp-all-route-data="@RutaPagina(n)" class="prov-pagination__page no-underline"
+                                   aria-label="Ir a la página @n">@n</a>
+                            }
+                        }
+                    </div>
+                    <span class="prov-pagination__compact">Página @Model.PageNumber de @totalPaginas</span>
+                    @if (Model.PageNumber < totalPaginas)
+                    {
+                        <a asp-action="Index" asp-all-route-data="@RutaPagina(Model.PageNumber + 1)" rel="next"
+                           class="btn-erp-ghost btn-sm prov-touch no-underline">
+                            Siguiente
+                            <span class="material-symbols-outlined text-[16px]" aria-hidden="true">chevron_right</span>
+                        </a>
+                    }
+                </div>
+            </nav>
+        }
     }
     else if (filtroProvActivo)
     {

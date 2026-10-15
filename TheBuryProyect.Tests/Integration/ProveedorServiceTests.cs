@@ -478,4 +478,62 @@ public class ProveedorServiceTests : IDisposable
         Assert.Single(resultado);
         Assert.Equal(p1.Id, resultado.First().Id);
     }
+
+    [Fact]
+    public async Task Search_PorCuitFormateadoConGuiones_EncuentraElProveedor()
+    {
+        var p1 = await SeedProveedorAsync("30502680478");
+        await SeedProveedorAsync();
+
+        // El listado muestra el CUIT como 30-12345678-9: buscar tal cual se ve debe encontrarlo.
+        var resultado = await _service.SearchAsync(searchTerm: " 30-50268047-8 ");
+
+        Assert.Single(resultado);
+        Assert.Equal(p1.Id, resultado.First().Id);
+    }
+
+    [Fact]
+    public async Task SearchPaged_DevuelveSoloLaPaginaPeroTotalesDelFiltroCompleto()
+    {
+        for (var i = 0; i < 7; i++)
+        {
+            var p = await SeedProveedorAsync();
+            if (i % 2 == 1)
+            {
+                p.Activo = false;
+                _context.Set<Proveedor>().Update(p);
+            }
+        }
+        await _context.SaveChangesAsync();
+
+        var pagina2 = await _service.SearchPagedAsync(null, false, "razonsocial", "asc", pageNumber: 2, pageSize: 3);
+
+        Assert.Equal(3, pagina2.Items.Count);
+        Assert.Equal(7, pagina2.Total);
+        Assert.Equal(4, pagina2.TotalActivos);
+        Assert.Equal(2, pagina2.PageNumber);
+    }
+
+    [Fact]
+    public async Task SearchPaged_PaginaFueraDeRango_VuelveALaUltima()
+    {
+        for (var i = 0; i < 5; i++) await SeedProveedorAsync();
+
+        var resultado = await _service.SearchPagedAsync(null, false, null, "asc", pageNumber: 99, pageSize: 2);
+
+        Assert.Equal(3, resultado.PageNumber);
+        Assert.Single(resultado.Items);
+    }
+
+    [Fact]
+    public async Task SearchPaged_PaginasConsecutivas_NoRepitenNiOmiten()
+    {
+        for (var i = 0; i < 6; i++) await SeedProveedorAsync();
+
+        var ids = new List<int>();
+        for (var n = 1; n <= 3; n++)
+            ids.AddRange((await _service.SearchPagedAsync(null, false, "cuit", "desc", n, 2)).Items.Select(p => p.Id));
+
+        Assert.Equal(6, ids.Distinct().Count());
+    }
 }

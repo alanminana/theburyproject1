@@ -376,6 +376,7 @@
         // esos datos paso a paso, por eso existen dos caminos.
         if (els.continuarWizard) {
             els.continuarWizard.disabled = value || sinSeleccion;
+            els.continuarWizard.hidden = sinSeleccion && !value;
             const ico = els.continuarWizard.querySelector('.material-symbols-outlined');
             if (ico) ico.textContent = value ? 'progress_activity' : 'arrow_forward';
         }
@@ -693,7 +694,10 @@
         const envioPendiente = !!(els.tieneEnvio?.checked) && !state.envio;
         const facturarPendiente = !!(els.facturarCheckbox?.checked) && !state.facturarConfig;
         if (els.continuar) els.continuar.disabled = sinOpcion || envioPendiente || facturarPendiente;
-        if (els.continuarWizard) els.continuarWizard.disabled = sinOpcion;
+        if (els.continuarWizard) {
+            els.continuarWizard.disabled = sinOpcion;
+            els.continuarWizard.hidden = sinOpcion;
+        }
         if (els.continuarLabel) {
             els.continuarLabel.textContent = excepcion
                 ? 'Continuar con excepción'
@@ -951,6 +955,26 @@
         els.productoBuscar?.setAttribute('aria-expanded', 'true');
     }
 
+    // Aviso periódico "actualizar datos del cliente": el servidor decide (configuración global);
+    // el modal vive en Venta/Create (_ActualizarDatosClienteModal). Accesorio: nunca bloquea.
+    async function avisarActualizacionDatosCliente(cliente) {
+        if (!cliente?.id || !window.ClienteActualizarDatos) return;
+        try {
+            const resp = await fetch('/api/ventas/EstadoActualizacionDatosCliente?clienteId=' + encodeURIComponent(cliente.id),
+                { headers: { Accept: 'application/json' } });
+            if (!resp.ok) return;
+            const estado = await resp.json();
+            if (!estado.requiereActualizacion || state.clienteSeleccionado?.id !== cliente.id) return;
+            window.ClienteActualizarDatos.mostrar({
+                id: cliente.id,
+                nombre: `${cliente.nombre || ''} ${cliente.apellido || ''}`.trim() || cliente.display || '',
+                dias: estado.diasSinActualizar || 0,
+                nuevaPestana: true,
+                ignorarPospuesto: true
+            });
+        } catch { /* aviso accesorio */ }
+    }
+
     // El cliente afecta el resultado real (RequiereCliente, Crédito personal): un
     // cambio de cliente invalida la simulación vigente igual que producto/
     // descuento/anticipo/medios (item 30 del lote).
@@ -963,6 +987,7 @@
         }
         hide(els.clientesDropdown);
         invalidarSimulacion();
+        avisarActualizacionDatosCliente(cliente);
 
         // COTIZACION-MIVENTA-01 (§CAMBIOS DE CONTEXTO del pedido): los datos de envío
         // guardados están atados al cliente que estaba seleccionado (destinatario/domicilio
@@ -1978,6 +2003,8 @@
         try { ventana = window.open('about:blank', '_blank'); if (ventana) ventana.opener = null; } catch { ventana = null; }
         els2.generar.disabled = true;
         creditoMostrarError('');
+        let completarDatosCliente = false;
+        let clienteIdFaltante = null;
         try {
             if (!await asegurarVentaCredito()) return;
             if (!await configurarCreditoConFecha(fecha)) return;
@@ -1993,6 +2020,8 @@
             const data = await resp.json().catch(() => null);
             if (!resp.ok || !data?.success || !data.verUrl) {
                 creditoMostrarError(data?.message || 'No se pudo generar el contrato.');
+                completarDatosCliente = data?.faltaDatosCliente === true;
+                clienteIdFaltante = data?.clienteId || null;
                 return;
             }
             credito.contratoUrl = data.verUrl;
@@ -2003,6 +2032,16 @@
         } finally {
             els2.generar.disabled = false;
             try { if (ventana && !ventana.closed) ventana.close(); } catch { /* nada */ }
+
+            // Faltan datos del cliente: modal editable (cliente-datos-contractuales.js) y, si se guardaron,
+            // se reintenta. Va en el finally porque los `return` de arriba se salen antes de llegar acá.
+            const clienteId = clienteIdFaltante || state.cotizacionGuardadaClienteId;
+            if (completarDatosCliente && clienteId && window.ClienteDatosContractuales) {
+                if (await window.ClienteDatosContractuales.abrir(clienteId)) {
+                    creditoMostrarError('');
+                    generarContratoCredito();
+                }
+            }
         }
     }
 

@@ -22,6 +22,7 @@
     --layout-transition-fast: 150ms ease;
     --layout-transition-base: 250ms ease;
     --layout-transition-sidebar: 300ms ease;
+    --layout-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* ─────────────────────────────────────────────
@@ -135,8 +136,9 @@ body.app-layout {
     width: var(--layout-sidebar-width);
     background-color: var(--layout-sidebar-bg);
 
+    /* Salida exponencial: el sidebar arranca rápido y asienta suave */
     transition:
-        width var(--layout-transition-sidebar),
+        width 320ms var(--layout-ease-out),
         transform var(--layout-transition-base);
 
     will-change: width, transform;
@@ -159,9 +161,39 @@ body.app-layout {
 
     opacity: 1;
 
+    /* Al expandir, las etiquetas esperan a que el sidebar gane ancho para
+       no aparecer apretadas; al colapsar se van de inmediato */
     transition:
-        opacity var(--layout-transition-fast),
+        opacity 180ms ease 110ms,
         width var(--layout-transition-fast);
+}
+
+#sidebar.collapsed .sidebar-label {
+    transition-duration: 90ms, var(--layout-transition-fast);
+    transition-delay: 0s;
+}
+
+/* Feedback de pulsación en los ítems del nav (y del toggle) */
+#sidebar nav a,
+#sidebar #collapseSidebar {
+    transition:
+        background-color 150ms ease,
+        color 150ms ease,
+        transform 120ms var(--layout-ease-out);
+}
+
+#sidebar nav a:active,
+#sidebar #collapseSidebar:active {
+    transform: scale(0.96);
+}
+
+/* El ícono acompaña el hover con un leve avance */
+#sidebar nav a .material-symbols-outlined {
+    transition: transform 200ms var(--layout-ease-out);
+}
+
+#sidebar nav a:hover:not(.nav-item-active) .material-symbols-outlined {
+    transform: scale(1.12);
 }
 
 /* Links del nav */
@@ -218,6 +250,19 @@ body.app-layout {
         height: 22px;
         font-size: 22px !important;
         line-height: 22px !important;
+    }
+
+    /* px-4 (16px) dejaba 40px de ancho útil para una píldora de 44px: el
+       margin auto no podía centrarla y los íconos quedaban corridos a la
+       derecha. Brand (p-6) tenía el mismo problema con el logo de 40px */
+    #sidebar.collapsed nav {
+        padding-inline: 0;
+    }
+
+    #sidebar.collapsed > a {
+        justify-content: center;
+        padding-inline: 0;
+        gap: 0;
     }
 
     #sidebar.collapsed #collapseIcon {
@@ -488,4 +533,31 @@ header a:focus:not(:focus-visible) {
     border: 0;
     background: transparent;
     box-shadow: none;
+}
+
+/* Header en mobile: el nombre de la pantalla ocupaba ~40px (quedaba "G…") porque las acciones de la
+   derecha sumaban casi todo el ancho. Se compactan las acciones y el título puede ocupar 2 líneas. */
+@media (max-width: 639.98px) {
+    .header-actions {
+        gap: 0.25rem;
+    }
+
+    .header-actions > .header-divider {
+        display: none;
+    }
+
+    .header-title {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        overflow: hidden;
+        white-space: normal;
+        font-size: 1rem;
+        line-height: 1.2;
+    }
+}
+
+@media (max-width: 380px) {
+    .header-title { font-size: 0.875rem; }
 }
