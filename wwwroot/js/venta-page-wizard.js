@@ -640,6 +640,9 @@
         const requisito = selector ? document.querySelector(selector) : null;
         requisito?.focus({ preventScroll: true });
         requisito?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Sin campo al que llevar al usuario, el aviso (arriba del formulario, fuera de pantalla una vez
+        // que el wizard desplazó el panel) quedaba invisible: "Siguiente" parecía no hacer nada.
+        if (!requisito) alerta?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
     // H7: limpia el banner de requisito pendiente cuando el contexto que lo originó
