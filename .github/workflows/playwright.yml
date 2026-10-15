@@ -174,7 +174,7 @@ jobs:
           E2E_BASE_URL: "http://127.0.0.1:${{ env.APP_PORT_CI }}"
           E2E_USER: administrador
           E2E_PASS: "Admin123!"
-        run: npx playwright test --project=1366x768
+        run: npx playwright test --project=1366x768 e2e/zz-visual-captura-pr73.spec.js --retries=0 --reporter=list
 
       - name: Logs del stack (diagnostico)
         if: ${{ !cancelled() }}
